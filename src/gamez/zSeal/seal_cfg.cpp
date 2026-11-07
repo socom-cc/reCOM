@@ -669,13 +669,44 @@ void CZSealBody::BindAnimSet(AnimSet *set)
 }
 
 /* @socom-skeleton stub RefPoint__10CZSealBodyFP10CZBodyAnimP6CPnt3D */
-void CZSealBody::RefPoint(CZBodyAnim *, CPnt3D *)
+bool CZSealBody::RefPoint(CZBodyAnim *anim, CPnt3D *out)
 {
+	/* 0x27e710: the anim's reference point from the motion reader (zero and 0 when it has
+	 * none) */
+	CPnt3D point = CPnt3D::zero;
+	bool found = false;
+
+	for (std::vector<SEAL_REFPOINT*>::iterator rp = m_refpoints.begin(); rp != m_refpoints.end(); ++rp)
+	{
+		if ((*rp)->m_anim == anim)
+		{
+			found = true;
+			point = (*rp)->m_refpt;
+			break;
+		}
+	}
+
+	*out = point;
+	return found;
 }
 
 /* @socom-skeleton stub RefPointY__10CZSealBodyF8AnimType */
-float CZSealBody::RefPointY(AnimType)
+float CZSealBody::RefPointY(AnimType type)
 {
+	/* 0x27e680: the height of the type's anim reference point (0 without one; without an
+	 * anim set the search is for no anim) */
+	CZBodyAnim *anim = NULL;
+
+	if (m_animset != NULL)
+		anim = GetAnimById(m_animset->AnimId(type));
+
+	for (std::vector<SEAL_REFPOINT*>::iterator rp = m_refpoints.begin(); rp != m_refpoints.end(); ++rp)
+	{
+		if ((*rp)->m_anim == anim)
+			return (*rp)->m_refpt.y;
+	}
+
+	return 0.0f;
 }
 
 /* @socom-skeleton stub MixAnims__10CZSealBodyFP15CActiveAnimListP10CBlendableffb */

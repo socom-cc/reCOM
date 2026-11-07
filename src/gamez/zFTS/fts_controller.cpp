@@ -309,6 +309,12 @@ void CCtrlrConfigs::Init()
 	SOCOM_PORT_TRACE("PAD: controller config %s: move %d strafe %d pitch %d rotate %d, %d configs",
 		g_pCurrentConfig->m_name.c_str(), g_pCurrentConfig->m_moveLong, g_pCurrentConfig->m_strafe,
 		g_pCurrentConfig->m_pitch, g_pCurrentConfig->m_rotate, (int)g_vecConfigs.size());
+	{
+		const u8 *b = g_pCurrentConfig->m_buttons;
+		SOCOM_PORT_TRACE("PAD: buttons (PAD_BUTTON per function, 16 none): Action %d AimMode %d Fire %d FireMode %d Inventory %d"
+			" Jump %d Reload %d StrafeL %d StrafeR %d Swap1 %d Swap2 %d TeamCmd %d",
+			b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9], b[10], b[11]);
+	}
 #endif
 }
 

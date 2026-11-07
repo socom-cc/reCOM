@@ -610,6 +610,17 @@ CZSealBody::CZSealBody(zdb::CNode* node, CCharacterType* chartype) : CEntity(ENT
 	dpos = CPnt3D::zero;
 	m_inAirHorizVel = CPnt3D::zero;
 	m_get_new_altitude = true;
+#ifdef SOCOM_PORT
+	/* port: the ELF constructors leave the LOD flags (bits 0, 2-6 of +0xdc) to the heap
+	 * block; UpdateLODFlags sets them each PreTick (the player's collision flag only near a
+	 * target), so a reused block starts them clear here */
+	m_blink_eyes = 0;
+	m_animate_footsteps = 0;
+	m_interpolate_animations = 0;
+	m_lean_into_turns = 0;
+	m_do_weapon_recoil = 0;
+	m_check_player_collision = 0;
+#endif
 	CBody::BodySetState(0); /* 0x257bc8 calls CBody's, not CZSealBody's */
 	m_kit.Init();
 	m_kit.SetBody(this);
@@ -1013,6 +1024,88 @@ void CZSealBody::UpdateStance()
 /* @socom-skeleton stub UpdateLODFlags__10CZSealBodyFv */
 void CZSealBody::UpdateLODFlags()
 {
+	/* 0x256820 (PreTick): detail flags by distance. Each seal in the target list: rendered,
+	 * its animations interpolate (else they snap to keys), its eyes blink within 80 (250
+	 * with this body's kit zoomed), it leans into turns and recoils within 500; unrendered,
+	 * those four are off. Its footsteps animate within 500. With a player controller a
+	 * target within 80 checks player collision (off further out) and so does the player;
+	 * any other controller sets it on every target and on itself. This body, rendered,
+	 * blinks, interpolates, leans and recoils; its footsteps always animate. ELF quirks
+	 * kept: a zoomed target beyond 250 keeps its blink flag; the player's own collision
+	 * flag is never cleared here. port: the ELF's target list holds CTargets by value (40
+	 * bytes); the port's CTargetList holds pointers (zentity.h). */
+	const f32 blink = 6400.0f;
+	const f32 blink_zoomed = 62500.0f;
+	const f32 detail = 250000.0f;
+	bool collide = false;
+
+	for (CTargetList::iterator it = m_targets.begin(); it != m_targets.end(); ++it)
+	{
+		CTarget *target = *it;
+		CEntity *ent = target->m_ent;
+		CZSealBody *seal = ent != NULL && ent->m_type == CEntity::ENT_TYPE_SEAL ? static_cast<CZSealBody *>(ent) : NULL;
+
+		if (seal == NULL)
+			continue;
+
+		if (seal->GetNode()->Rendered())
+		{
+			seal->m_interpolate_animations = 1;
+
+			if (m_kit.IsZoomed())
+			{
+				if (target->m_distSq < blink_zoomed)
+					seal->m_blink_eyes = 1;
+			}
+			else
+			{
+				seal->m_blink_eyes = target->m_distSq < blink;
+			}
+
+			bool near = target->m_distSq < detail;
+			seal->m_lean_into_turns = near;
+			seal->m_do_weapon_recoil = near;
+		}
+		else
+		{
+			seal->m_blink_eyes = 0;
+			seal->m_interpolate_animations = 0;
+			seal->m_lean_into_turns = 0;
+			seal->m_do_weapon_recoil = 0;
+		}
+
+		seal->m_animate_footsteps = target->m_distSq < detail;
+
+		if (m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsPlayer())
+		{
+			if (target->m_distSq < blink)
+			{
+				seal->m_check_player_collision = 1;
+				collide = true;
+			}
+			else
+			{
+				seal->m_check_player_collision = 0;
+			}
+		}
+		else
+		{
+			seal->m_check_player_collision = 1;
+		}
+	}
+
+	if (collide || !(m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsPlayer()))
+		m_check_player_collision = 1;
+
+	if (GetNode()->Rendered())
+	{
+		m_blink_eyes = 1;
+		m_interpolate_animations = 1;
+		m_lean_into_turns = 1;
+		m_do_weapon_recoil = 1;
+	}
+
+	m_animate_footsteps = 1;
 }
 
 /* @socom-skeleton stub PreTick__10CZSealBodyFf */
@@ -2482,8 +2575,12 @@ void CZSealBody::ExecuteAction_ApplyRestraint(CZSealBody *)
 }
 
 /* @socom-skeleton stub ExecuteDelayedAction_Climb__10CZSealBodyFv */
-void CZSealBody::ExecuteDelayedAction_Climb()
+bool CZSealBody::ExecuteDelayedAction_Climb()
 {
+	/* 0x24ecf0 (OnActionButton, the climb action): the pending climb flag (no reader in the
+	 * ELF; the action flag the caller sets does the climb) */
+	m_action_climb = 1;
+	return true;
 }
 
 /* @socom-skeleton stub ExecuteDelayedAction_Jump__10CZSealBodyFv */
@@ -2589,16 +2686,27 @@ void CSealStats::WasHit(const CZSealBody &)
 /* @socom-skeleton stub ActionAvailableMask__10CZSealBodyFv */
 unsigned int CZSealBody::ActionAvailableMask()
 {
+	/* 0x24e590 */
+	return m_action_available_mask;
 }
 
 /* @socom-skeleton stub ActionDisplayOn__10CZSealBodyFv */
 unsigned char CZSealBody::ActionDisplayOn()
 {
+	/* 0x24e580 */
+	return m_action_display_on;
 }
 
 /* @socom-skeleton stub ActionAvailableMask__10CZSealBodyFUib */
-void CZSealBody::ActionAvailableMask(unsigned int, bool)
+void CZSealBody::ActionAvailableMask(unsigned int bit, bool add)
 {
+	/* 0x24e530: (0, false) clears the mask; otherwise the action's bit is added, or alone */
+	if (bit == 0 && !add)
+		m_action_available_mask = 0;
+	else if (add)
+		m_action_available_mask |= 1u << bit;
+	else
+		m_action_available_mask = 1u << bit;
 }
 
 /* @socom-skeleton stub ActionSelectionMask__10CZSealBodyFv */
@@ -2609,18 +2717,29 @@ unsigned int CZSealBody::ActionSelectionMask()
 }
 
 /* @socom-skeleton stub ActionSelectionMask__10CZSealBodyFUib */
-void CZSealBody::ActionSelectionMask(unsigned int, bool)
+void CZSealBody::ActionSelectionMask(unsigned int bit, bool add)
 {
+	/* 0x24e4d0: as ActionAvailableMask, for the selected action */
+	if (bit == 0 && !add)
+		m_action_selection_mask = 0;
+	else if (add)
+		m_action_selection_mask |= 1u << bit;
+	else
+		m_action_selection_mask = 1u << bit;
 }
 
 /* @socom-skeleton stub ActionDisplayOn__10CZSealBodyFb */
-void CZSealBody::ActionDisplayOn(bool)
+void CZSealBody::ActionDisplayOn(bool on)
 {
+	/* 0x24e4c0 */
+	m_action_display_on = on;
 }
 
 /* @socom-skeleton stub ActionCommand__10CZSealBodyFv */
 unsigned int CZSealBody::ActionCommand()
 {
+	/* 0x24e4b0 */
+	return m_action_command;
 }
 
 /* @socom-skeleton stub ActionCommand__10CZSealBodyFUi */

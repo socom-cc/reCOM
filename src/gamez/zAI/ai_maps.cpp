@@ -248,8 +248,21 @@ float CAiMaps::GetInterpolatedShadow(const CAiMapLoc &, const CPnt3D *, bool)
 }
 
 /* @socom-skeleton stub GetAltitude__7CAiMapsFRC9CAiMapLoc */
-float CAiMaps::GetAltitude(const CAiMapLoc &)
+float CAiMaps::GetAltitude(const CAiMapLoc &loc)
 {
+	/* 0x19a660: the cell's quantized altitude (the map's y range over 1024 steps); 0 for an
+	 * unknown map, a location off it or no cell */
+	CAiMap* map = GetMapByIndex(loc.m_mapid);
+
+	if (map == NULL)
+		return 0.0f;
+
+	CAiCell* cell = map->GetCell(loc);
+
+	if (cell == NULL)
+		return 0.0f;
+
+	return map->m_bbox.m_min.y + (0.00097656297f * (map->m_bbox.m_max.y - map->m_bbox.m_min.y)) * (f32)cell->m_altitude;
 }
 
 /* @socom-skeleton stub CanTravelLine__7CAiMapsFRC9CAiMapLocRC9CAiMapLocP9CAiMapLoc */

@@ -155,6 +155,8 @@
 #include "gamez/zMath/zmath.h"
 #include "gamez/zNetwork/znet.h" /* theNetwork (PushBlend) */
 #include "gamez/zNode/node_world.h" /* zdb::CWorld (CheckAnim) */
+#include "gamez/zGrid/zgrid.h" /* SetCameraCollideFlagRequired (OKToJump) */
+#include "gamez/zIntersect/zintersect.h" /* the head-room hit's poly (OKToJump) */
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
 class ACTIVE_ANIM;
@@ -1198,8 +1200,41 @@ CZBodyAnimBlend * CZSealBody::InStateProne(float, float, float)
 }
 
 /* @socom-skeleton stub InStateHang__10CZSealBodyFfff */
-CZBodyAnimBlend * CZSealBody::InStateHang(float, float, float)
+CZBodyAnimBlend * CZSealBody::InStateHang(float fb, float, float strafe)
 {
+	/* 0x2790f0 (SealAnim, state 4): hanging from a ledge. Without a throttle the body
+	 * settles on the hang anim (pops to it or to one blend, pushes it if missing), not
+	 * moving or turning; pushing forward climbs up (Stand_0 from the hang, up); backward or
+	 * sideways drops (to one blend, then Stand_0 down from the body's state) unless the body
+	 * or the top blend already stands. ELF quirk kept: the top is read for nothing first. */
+	m_blends->Top();
+
+	if (sqrtf(fb * fb + strafe * strafe) <= stoppedV)
+	{
+		while (m_CurrentBlendAnimType != m_animset->BaseAnim(AnimType::animTypeHang) && m_blends->m_top + 1 >= 2)
+			PopBlend();
+
+		if (m_CurrentBlendAnimType != m_animset->BaseAnim(AnimType::animTypeHang))
+			PushBlend(AnimType::animTypeHang, 4, false);
+
+		CZBodyAnimBlend *top = m_blends->Top();
+		m_is_moving = 0;
+		m_is_turning = 0;
+		top->SetRepresentativeWt(1.0f);
+		return top;
+	}
+
+	if (fb > 0.0f)
+		return Stand_0(4, 1);
+
+	CZBodyAnimBlend *top = m_blends->Top();
+	s8 state = m_state;
+
+	if (state == 0 || top->m_state == 0)
+		return top;
+
+	ClearStack(1, true);
+	return Stand_0(state, -1);
 }
 
 /* @socom-skeleton stub InStateClimbLadder__10CZSealBodyFfff */
@@ -1633,18 +1668,132 @@ CZBodyAnimBlend * CZSealBody::Hang_0(int, int)
 }
 
 /* @socom-skeleton stub BlendedClimb__10CZSealBodyFf */
-CZBodyAnimBlend * CZSealBody::BlendedClimb(float)
+CZBodyAnimBlend * CZSealBody::BlendedClimb(float height)
 {
+	/* 0x275ab0 (Climb, 12..26.5 high): the medium climb blend mixes the crate climb (full at
+	 * 12 and below) into the medium climb (full from 26.5), linear between */
+	newanims.Clear();
+	CZBodyAnimBlend *blend = PushBlend((AnimType)AnimTypes::ClimbMedium, 0, false);
+	f32 crate;
+
+	if (height <= 12.0f)
+		crate = 1.0f;
+	else if (height < 26.5f)
+		crate = 1.0f - (height - 12.0f) / 14.5f;
+	else
+		crate = 0.0f;
+
+	if (crate > 0.0f)
+		PushAnim(&newanims, m_active_anim_pool->GetActiveAnim(GetAnimByType(AnimType::animTypeClimbCrate)), crate);
+
+	if (crate < 1.0f)
+		PushAnim(&newanims, m_active_anim_pool->GetActiveAnim(GetAnimByType((AnimType)AnimTypes::ClimbMedium)), 1.0f - crate);
+
+	blend->SetBlendAnims(this, &newanims);
+	return blend;
 }
 
 /* @socom-skeleton stub Climb__10CZSealBodyFf */
-CZBodyAnimBlend * CZSealBody::Climb(float)
+CZBodyAnimBlend * CZSealBody::Climb(float height)
 {
+	/* 0x275630 (ImpactFront): the climb anim for the wall top's height over the feet. The
+	 * stack first drops to the base (standing) or to two blends. Over 5: a step up (to 10), a
+	 * crate climb (to 12), the blended crate / medium climb (to 26.5), the medium climb (to
+	 * 28) or hanging from the top (to 32: hang, entered by stand-to-hang, state 4). Prone the
+	 * low climbs only rise to the crouch (reversed crouch-to-prone, the stance wanted next:
+	 * crouch) and the higher ones climb between a stand-to-crouch and a reversed
+	 * crouch-to-prone; prone never hangs. NULL otherwise (5 and lower, over 32, other states). */
+	s8 state = m_state;
+	ClearStack(state == 0 ? 1 : 2, true); /* inline in the ELF */
+	CZBodyAnimBlend *blend = NULL;
+
+	if (height <= 5.0f)
+		return NULL;
+
+	if (height <= 10.0f)
+	{
+		if (state == 2)
+		{
+			blend = PushBlend(AnimType::animTypeCrouch2Prone, 1, true);
+			blend->Representative()->m_flags &= 0xfffb;
+			m_desiredState = SEAL_STATE::stateCrouch;
+		}
+		else if (state == 1 || state == 0)
+		{
+			blend = PushBlend((AnimType)AnimTypes::StepUp, 0, false);
+		}
+	}
+	else if (height <= 12.0f)
+	{
+		if (state == 2)
+		{
+			blend = PushBlend(AnimType::animTypeCrouch2Prone, 1, true);
+			blend->Representative()->m_flags &= 0xfffb;
+			m_desiredState = SEAL_STATE::stateCrouch;
+		}
+		else if (state == 1 || state == 0)
+		{
+			blend = PushBlend(AnimType::animTypeClimbCrate, 0, false);
+		}
+	}
+	else if (height <= 26.5f)
+	{
+		if (state == 2)
+		{
+			PushBlend(AnimType::animTypeStand2Crouch, 1, false);
+			BlendedClimb(height);
+			blend = PushBlend(AnimType::animTypeCrouch2Prone, 1, true);
+		}
+		else if (state == 1 || state == 0)
+		{
+			blend = BlendedClimb(height);
+		}
+	}
+	else if (height <= 28.0f)
+	{
+		if (state == 2)
+		{
+			PushBlend(AnimType::animTypeStand2Crouch, 1, false);
+			PushBlend((AnimType)AnimTypes::ClimbMedium, 0, false);
+			blend = PushBlend(AnimType::animTypeCrouch2Prone, 1, true);
+		}
+		else if (state == 1 || state == 0)
+		{
+			blend = PushBlend((AnimType)AnimTypes::ClimbMedium, 0, false);
+		}
+	}
+	else if (height <= 32.0f)
+	{
+		if (state == 1 || state == 0)
+		{
+			PushBlend(AnimType::animTypeHang, 4, false);
+			blend = PushBlend(AnimType::animTypeStand2Hang, 4, false);
+		}
+	}
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("SEAL: climb %.1f high from state %d: anim %d", height, (int)state, blend != NULL ? (int)(s16)blend->m_animType : -1);
+#endif
+	return blend;
 }
 
 /* @socom-skeleton stub ClimbOver__10CZSealBodyFf */
 void CZSealBody::ClimbOver(float)
 {
+	/* 0x275560 (ImpactFront, app flags 5): unless already climbing over, back to the base
+	 * blend and the climb over. ELF quirk kept: the height is unused; the top is read for
+	 * nothing when climbing. */
+	if (m_CurrentBlendAnimType == m_animset->BaseAnim((AnimType)AnimTypes::ClimbOver))
+	{
+		m_blends->Top();
+		return;
+	}
+
+	ClearStack(1, true); /* inline in the ELF */
+	PushBlend((AnimType)AnimTypes::ClimbOver, 0, false);
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("SEAL: climb over at %.1f %.1f %.1f", GetPosW()->x, GetPosW()->y, GetPosW()->z);
+#endif
 }
 
 /* @socom-skeleton stub PostFall__10CZSealBodyFv */
@@ -1726,11 +1875,42 @@ void CZSealBody::GetPutativeFirePointW(bool, bool, CPnt3D &)
 /* @socom-skeleton stub ClimbLadder__10CZSealBodyFv */
 CZBodyAnimBlend * CZSealBody::ClimbLadder()
 {
+	/* 0x274720 (ImpactFront, app flags 2 from below): unless on a ladder already (body or top
+	 * blend state 5), back to the base blend, then the ladder climb entered by stand-to-ladder
+	 * (state 5; its representative loses flag 0x40); the top otherwise */
+	CZBodyAnimBlend *top = m_blends->Top();
+
+	if (m_state == 5 || top->m_state == 5)
+		return top;
+
+	ClearStack(1, true); /* inline in the ELF */
+	PushBlend(AnimType::animTypeClimbLadder, 5, false);
+	CZBodyAnimBlend *blend = PushBlend(AnimType::animTypeStand2Ladder, 5, false);
+	blend->Representative()->m_flags &= 0xffbf;
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("SEAL: ladder up at %.1f %.1f %.1f", GetPosW()->x, GetPosW()->y, GetPosW()->z);
+#endif
+	return blend;
 }
 
 /* @socom-skeleton stub ClimbLadderDown__10CZSealBodyFv */
 CZBodyAnimBlend * CZSealBody::ClimbLadderDown()
 {
+	/* 0x274640 (ImpactFront, app flags 2 at the ladder's top edge): as ClimbLadder, entered
+	 * by the ladder exit anim run backwards */
+	CZBodyAnimBlend *top = m_blends->Top();
+
+	if (m_state == 5 || top->m_state == 5)
+		return top;
+
+	ClearStack(1, true); /* inline in the ELF */
+	PushBlend(AnimType::animTypeClimbLadder, 5, false);
+	CZBodyAnimBlend *blend = PushBlend(AnimType::animTypeClimbOffLadder, 5, true);
+	blend->Representative()->m_flags &= 0xffbf;
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("SEAL: ladder down at %.1f %.1f %.1f", GetPosW()->x, GetPosW()->y, GetPosW()->z);
+#endif
+	return blend;
 }
 
 /* @socom-skeleton stub SlideLadderDown__10CZSealBodyFv */
@@ -1752,13 +1932,32 @@ bool CZSealBody::DoWallStop()
 }
 
 /* @socom-skeleton stub OKToJump__FP9CSealCtrl */
-bool OKToJump(CSealCtrl *)
+bool OKToJump(CSealCtrl *ctrl)
 {
-	/* 0x274250 (416 B): a 20-unit ray up from the root (CWorld::GetIntersect, the camera
-	 * collide flag set) must hit nothing but camera-only polys. port: stub - the single-ray
-	 * world intersect (CWorld::GetIntersect 0x22eb70 -> CGrid::GetIntersect 0x2141f0) is not
-	 * written: never OK, so the player does not jump. */
-	return false;
+	/* 0x274250: head room for a jump. A 20-unit ray straight up from 1 above the head's
+	 * model height (on the node's axis: model x/z 0, to world through the node) must hit
+	 * nothing, or only a camera-type-1 poly; the ray runs with the seal's node inactive and
+	 * the camera collide flag set (cleared again on both ends). ELF quirks kept: the
+	 * controller's entity and the hit's poly are not NULL-tested. */
+	CZSealBody *body = static_cast<CZSealBody *>(ctrl->m_entity);
+	CPnt3D head;
+	body->PartInSpace(body->m_head, NULL, &head, NULL);
+	head.y += 1.0f;
+	CPnt3D local(0.0f, head.y, 0.0f);
+	CPnt3D from;
+	body->m_node->m_matrix.Transform(&local, &from, 1);
+	CPnt3D to(from.x, from.y + 20.0f, from.z);
+	bool active = body->GetNode()->SetActive(false);
+	zdb::SetCameraCollideFlagRequired(true);
+	zdb::IntersectStruct *hit = zdb::CWorld::m_world->GetIntersect(&from, &to);
+	body->GetNode()->SetActive(active);
+	bool ok = hit == NULL || hit->m_poly->m_cameratype == 1;
+	zdb::SetCameraCollideFlagRequired(false);
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("SEAL: jump head room from %.1f %.1f %.1f: %s%s", from.x, from.y, from.z, ok ? "ok" : "blocked",
+		hit != NULL ? " (hit)" : "");
+#endif
+	return ok;
 }
 
 /* @socom-skeleton stub OKToStand__FP10CZSealBody */
@@ -1817,6 +2016,10 @@ CZBodyAnimBlend * CZSealBody::Jump()
 		blend = PushBlend(AnimType::animTypeJumpLaunch, 6, false);
 
 	m_inAirHorizVel = m_velW;
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("SEAL: jump at %.1f %.1f %.1f, speed %.1f: %s", GetPosW()->x, GetPosW()->y, GetPosW()->z, speed,
+		speed < 15.0f ? "in place" : "launch");
+#endif
 	return blend;
 }
 

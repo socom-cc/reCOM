@@ -1153,7 +1153,7 @@ public:
 	void ExecuteAction_KnifeAttack(CZSealBody *);
 	void ExecuteAction_CQBAttack(CZSealBody *);
 	void ExecuteAction_ApplyRestraint(CZSealBody *);
-	void ExecuteDelayedAction_Climb();
+	bool ExecuteDelayedAction_Climb(); /* 0x24ecf0: li v0,1 (was void) */
 	bool ExecuteDelayedAction_Jump(); /* 0x24ecd0: li v0,1 */
 	unsigned int ActionAvailableMask();
 	unsigned char ActionDisplayOn();
@@ -1282,7 +1282,7 @@ public:
 	CZBodyAnim * GetAnimByType(AnimType);
 	void BindAnimSet(const char *);
 	void BindAnimSet(AnimSet *);
-	void RefPoint(CZBodyAnim *, CPnt3D *);
+	bool RefPoint(CZBodyAnim *, CPnt3D *); /* 0x27e710 returns 0/1 (found; was void) */
 	float RefPointY(AnimType);
 	int MixAnims(CActiveAnimList *, CBlendable *, float, float, bool); /* 0x27e1b0 returns the anims picked */
 	void SetMaxMotion();
@@ -1308,7 +1308,7 @@ public:
 	zdb::IntersectStruct * SealGetAltitude(CPnt3D *, float);
 	bool CheckDIFwd1(float &, float &, float &); /* 0x2a1bb0: 1 when sliding along the hit */
 	void CanTraverse(CDIType);
-	void PlaceLaterally(CPnt3D *, CPnt3D *, CPnt3D *, bool);
+	bool PlaceLaterally(CPnt3D *, CPnt3D *, CPnt3D *, bool); /* 0x2a15d0 returns 0/1 (placed; was void) */
 	void HomingTick();
 	float ImpactFront(zdb::IntersectStruct *, CPnt3D *);
 	void AlignForClimb(bool, CPnt3D &, CPnt3D &, CPnt3D *);
@@ -1437,7 +1437,7 @@ public:
 	static unsigned char m_allow_friendly_fire;
 	static int m_bigrippleanim[3];
 	static int m_blooddriptexhandles[3];
-	static int m_body_fall_sound;
+	static CSnd *m_body_fall_sound; /* 0x476064: ReInitDatabaseHandles stores CSnd::GetSoundByName, HandleFallingDamage plays it (was int) */
 	static CCompass m_compass;
 	static int m_cqb_sound;
 	static unsigned char m_delayed_footbomb_creation;

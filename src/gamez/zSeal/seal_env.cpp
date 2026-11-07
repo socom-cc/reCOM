@@ -276,6 +276,7 @@
 #include "gamez/zGrid/zgrid.h" /* CGrid's bbox hit nodes, SetCameraCollideFlagRequired (CheckDIShoot) */
 #include "gamez/zNetwork/znet.h" /* theNetwork (CheckDIShoot) */
 #include "gamez/zCamera/zcam.h" /* the world-to-screen matrix (auto aim) */
+#include "gamez/zFTS/zfts.h" /* theMission (HandleLanding) */
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
 /* port: AckUnion is declared in gamez/zSeal/zseal.h */
@@ -357,7 +358,7 @@ CRdrFile *CZSealBody::m_motionRdrFile;
 int CZSealBody::m_cqb_sound;
 
 /* @socom-skeleton stub m_body_fall_sound__10CZSealBody */
-int CZSealBody::m_body_fall_sound;
+CSnd *CZSealBody::m_body_fall_sound;
 
 /* @socom-skeleton stub _stack */
 static unsigned char _stack;
@@ -746,13 +747,172 @@ void CZSealBody::CanTraverse(CDIType)
 }
 
 /* @socom-skeleton stub PlaceLaterally__10CZSealBodyFP6CPnt3DP6CPnt3DP6CPnt3Db */
-void CZSealBody::PlaceLaterally(CPnt3D *, CPnt3D *, CPnt3D *, bool)
+bool CZSealBody::PlaceLaterally(CPnt3D *sides, CPnt3D *at, CPnt3D *, bool centre)
 {
+	/* 0x2a15d0 (ImpactFront): where along the wall edge the climb starts. With centre (or
+	 * the hit within 3 of both side edges) the middle of the two side points; otherwise a
+	 * hit within 3 (level) of one side edge moves 3 in from that edge along the edge line;
+	 * a hit clear of both stays (0). ELF quirk kept: the third point is unused. */
+	if (!centre)
+	{
+		CPnt3D d = sides[0];
+		d.Sub(at, &d);
+		d.y = 0.0f;
+		f32 d0 = sqrtf(d.z * d.z + d.x * d.x + 0.0f);
+		d = sides[1];
+		d.Sub(at, &d);
+		d.y = 0.0f;
+		f32 d1 = sqrtf(d.z * d.z + d.x * d.x + 0.0f);
+
+		if (!(d0 < 3.0f) && !(d1 < 3.0f))
+			return false;
+
+		CPnt3D dir = sides[1];
+		dir.Sub(&sides[0], &dir);
+		dir.y = 0.0f;
+		dir.Normalize();
+
+		if (d0 < 3.0f && !(d1 < 3.0f))
+		{
+			CPnt3D from = sides[0];
+			dir.Scale(3.0f, &dir);
+			from.Add(&dir, at);
+			return true;
+		}
+
+		if (!(d0 < 3.0f) && d1 < 3.0f)
+		{
+			CPnt3D from = sides[1];
+			dir.Scale(3.0f, &dir);
+			from.Sub(&dir, at);
+			return true;
+		}
+	}
+
+	CPnt3D mid = sides[0];
+	mid.Add(&sides[1], &mid);
+	mid.Scale(0.5f, at);
+	return true;
 }
 
 /* @socom-skeleton stub HomingTick__10CZSealBodyFv */
 void CZSealBody::HomingTick()
 {
+	/* 0x2a0f20 (Tick_0, a top blend with homing set by AlignForClimb): steers the body so the
+	 * climb anim's reference point lands on the wall edge. The turn rate turns the model
+	 * reference direction onto the (model-space) wall normal within the frame (at most a
+	 * full turn per second, signed by the cross product's y, scaled by its length). The
+	 * reference point moves back by this frame's motion; the reference and target points,
+	 * aligned to the normal and rotated to world, give the remaining offset from the root
+	 * (a hang entry or a backward ladder exit eases the height toward the target's), which
+	 * the anim's eased time fraction (quadW; reversed anims run backwards) scales; turned by
+	 * the half-frame turn and back to model space it is the blend's motion for the frame
+	 * (per axis at most 0.8 per frame; no vertical part entering a ladder). ELF quirks kept:
+	 * the homing pointer (a member's address) is tested; the loop time is read for
+	 * nothing. */
+	CZBodyAnimBlend *top = m_blends->Top();
+	CHoming *homing = &top->m_homing;
+
+	if (homing == NULL)
+		return;
+
+	CZBodyAnim *rep = top->Representative();
+	f32 t = top->m_tfrac;
+
+	if (top->m_flags & 0x20)
+		t = 1.0f - t;
+
+	CPnt3D offset = homing->m_int_w;
+	offset.Sub(GetPosW(), &offset);
+	CPnt3D root = GetRootPart()->m_pos;
+	m_node->m_matrix.Rotate(&root, &root, 1);
+	offset.Sub(&root, &offset);
+	CQuat inv;
+	inv.vec.x = -m_quat.vec.x;
+	inv.vec.y = -m_quat.vec.y;
+	inv.vec.z = -m_quat.vec.z;
+	inv.w = m_quat.w;
+	CPnt3D norm;
+	inv.Apply(&homing->m_norm_w, &norm, 1);
+	rep->TrueLoopTime();
+	CQuat half = CQuat::identity;
+	CPnt3D turn;
+	turn.x = 0.0f;
+	turn.y = acosf(norm.z * homing->m_refvec_m.z + norm.x * homing->m_refvec_m.x + norm.y * homing->m_refvec_m.y) / m_dT;
+
+	if (!(turn.y <= 6.2831855f))
+		turn.y = 6.2831855f;
+	else if (turn.y < -6.2831855f)
+		turn.y = -6.2831855f;
+
+	turn.z = 0.0f;
+	f32 refvec[4] = { homing->m_refvec_m.x, homing->m_refvec_m.y, homing->m_refvec_m.z, 1.0f };
+	f32 normal[4] = { norm.x, norm.y, norm.z, 1.0f };
+	f32 cross[4];
+	sceVu0OuterProduct(cross, refvec, normal);
+
+	if (cross[1] < 0.0f)
+		turn.y = -turn.y;
+
+	turn.Scale(sqrtf(cross[0] * cross[0] + cross[1] * cross[1] + cross[2] * cross[2]), &turn);
+	top->m_drot = turn;
+	CPnt3D halfturn;
+	turn.Scale(-0.5f * m_dT, &halfturn);
+	half.Exp(&halfturn);
+	CPnt3D moved = m_velM;
+	moved.Scale(m_dT, &moved);
+	homing->m_refpt_m.Sub(&moved, &homing->m_refpt_m);
+	CQuat align;
+	align.Align(homing->m_refvec_m, norm);
+	CPnt3D ref, target;
+	align.Apply(&homing->m_refpt_m, &ref, 1);
+	align.Apply(&homing->m_target_refpt_m, &target, 1);
+	CPnt3D refw;
+	m_node->m_matrix.Rotate(&ref, &refw, 1); /* VU0 loop in the ELF */
+	f32 w = quadW(t);
+
+	if (IsCurrentBlend(AnimType::animTypeStand2Hang)
+		|| (IsCurrentBlend(AnimType::animTypeClimbOffLadder) && (m_blends->Top()->m_flags & 0x20) != 0))
+	{
+		CPnt3D targetw;
+		m_node->m_matrix.Rotate(&target, &targetw, 1); /* VU0 loop in the ELF */
+		refw.y = (1.0f - w) * refw.y + w * targetw.y;
+	}
+
+	CPnt3D step;
+	offset.Sub(&refw, &step);
+	step.Scale(w, &step);
+	CPnt3D turned;
+	half.Apply(&step, &turned, 1);
+	CPnt3D motion;
+	inv.Apply(&turned, &motion, 1);
+
+	if (IsCurrentBlend(AnimType::animTypeStand2Ladder))
+		motion.y = 0.0f;
+
+	CPnt3D vel(motion.x / m_dT, motion.y / m_dT, motion.z / m_dT);
+	f32 limit = 0.8f / m_dT;
+
+	if (!(vel.x <= limit))
+		vel.x = limit;
+	else if (vel.x < -limit)
+		vel.x = -limit;
+
+	limit = 0.8f / m_dT;
+
+	if (!(vel.y <= limit))
+		vel.y = limit;
+	else if (vel.y < -limit)
+		vel.y = -limit;
+
+	limit = 0.8f / m_dT;
+
+	if (!(vel.z <= limit))
+		vel.z = limit;
+	else if (vel.z < -limit)
+		vel.z = -limit;
+
+	top->m_dpos = vel;
 }
 
 /* @socom-skeleton stub ImpactFront__10CZSealBodyFPQ23zdb15IntersectStructP6CPnt3D */
@@ -866,8 +1026,99 @@ float CZSealBody::ImpactFront(zdb::IntersectStruct *hit, CPnt3D *pos)
 }
 
 /* @socom-skeleton stub AlignForClimb__10CZSealBodyFbR6CPnt3DR6CPnt3DP6CPnt3D */
-void CZSealBody::AlignForClimb(bool, CPnt3D &, CPnt3D &, CPnt3D *)
+void CZSealBody::AlignForClimb(bool down, CPnt3D &at, CPnt3D &top, CPnt3D *norm)
 {
+	/* 0x2a05f0 (ImpactFront): lines the climb up with the wall. Down a ladder: the top
+	 * blend's reference goal is the edge point and the wall normal, then a turn around
+	 * (Rotate180) whose turn rate spins the body to face the normal over the anim. Otherwise
+	 * the top (climb) blend homes: its anim reference point (the medium climb's blended
+	 * with the crate climb's height by the first anim's weight; a step up 1 higher; a
+	 * ladder entry 15.6 high and 0.5 back, the edge point 15.6 above the feet) goes to the
+	 * edge point at the wall top's height, against the wall normal, the model forward
+	 * (-z) as the reference direction, and the target point 11.78 up / 2.42 in for a hang
+	 * entry or 0.29 down / 2.42 in for a climb over. Other anims do not home. */
+	if (down)
+	{
+		REFPT_INFO *info = m_blends->Top()->m_refpt_info;
+		info->m_goal_pos = at;
+		info->m_goal_norm = *norm;
+		info->m_valid = true;
+		CZBodyAnimBlend *blend = PushBlend((AnimType)AnimTypes::Rotate180, 0, false);
+		CZBodyAnim *rep = blend->Representative();
+		CQuat inv;
+		inv.vec.x = -m_quat.vec.x;
+		inv.vec.y = -m_quat.vec.y;
+		inv.vec.z = -m_quat.vec.z;
+		inv.w = m_quat.w;
+		CPnt3D local;
+		inv.Apply(norm, &local, 1);
+		f32 angle = acosf(local.z * CPnt3D::unit_nz.z + local.x * CPnt3D::unit_nz.x + local.y * CPnt3D::unit_nz.y);
+
+		if (local.x < 0.0f)
+			angle = 6.2831855f - angle;
+
+		f32 loop = rep->TrueLoopTime();
+		blend->m_drot.x = 0.0f;
+		blend->m_drot.y = -angle / loop;
+		blend->m_drot.z = 0.0f;
+		return;
+	}
+
+	CZBodyAnimBlend *blend = m_blends->Top();
+	CPnt3D normw = *norm;
+	CPnt3D ref;
+	RefPoint(blend->Representative(), &ref);
+	CPnt3D target = CPnt3D::zero;
+	at.y = top.y;
+
+	if (IsCurrentBlend(AnimType::animTypeStand2Hang))
+	{
+		target.y = 11.78f;
+		target.z = -2.42f;
+	}
+	else if (IsCurrentBlend((AnimType)AnimTypes::ClimbMedium))
+	{
+		if (blend->CountAnims() >= 2)
+		{
+			f32 wt = blend->m_anims->Begin()->m_wt;
+			ref.y = (1.0f - wt) * RefPointY((AnimType)AnimTypes::ClimbMedium) + wt * ref.y;
+		}
+	}
+	else if (IsCurrentBlend((AnimType)AnimTypes::ClimbOver))
+	{
+		target.y = -0.29f;
+		target.z = -2.42f;
+	}
+	else if (IsCurrentBlend(AnimType::animTypeClimbCrate))
+	{
+	}
+	else if (IsCurrentBlend((AnimType)AnimTypes::StepUp))
+	{
+		ref.y += 1.0f;
+	}
+	else if (IsCurrentBlend(AnimType::animTypeStand2Ladder))
+	{
+		ref.y = 15.6f;
+		at.y = GetPosW()->y + 15.6f;
+		ref.z += 0.5f;
+	}
+	else
+	{
+		return;
+	}
+
+	normw.Scale(-1.0f, &normw);
+	blend->m_homing.m_blend = blend;
+	blend->m_homing.m_refpt_m = ref;
+	blend->m_homing.m_norm_w = normw;
+	blend->m_homing.m_int_w = at;
+	blend->m_homing.m_refvec_m = CPnt3D::unit_nz;
+	blend->m_homing.m_target_refpt_m = CPnt3D::zero;
+	blend->m_homing.m_target_refpt_m = target;
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("SEAL: align climb anim %d: ref %.2f %.2f %.2f to %.1f %.1f %.1f, normal %.2f %.2f %.2f, target %.2f %.2f",
+		(int)(s16)blend->m_animType, ref.x, ref.y, ref.z, at.x, at.y, at.z, normw.x, normw.y, normw.z, target.y, target.z);
+#endif
 }
 
 /* @socom-skeleton stub PreClimbLadderDown__10CZSealBodyFv */
@@ -1023,7 +1274,12 @@ bool CZSealBody::PostCheckDIDown(float &fb, float &strafe, float &lr)
 		m_jumpTimer -= m_dT;
 
 		if (m_jumpTimer <= 0.0f)
+		{
 			m_descent = m_jumpImpulse;
+#ifdef SOCOM_PORT
+			SOCOM_PORT_TRACE("SEAL: jump impulse %.1f at alt %.1f (gravity %.1f)", m_jumpImpulse, m_alt, theCharacterDynamics.m_gravity);
+#endif
+		}
 
 		m_jumped = 1;
 	}
@@ -1235,8 +1491,63 @@ bool CZSealBody::PostCheckDIDown(float &fb, float &strafe, float &lr)
 }
 
 /* @socom-skeleton stub HandleLanding__10CZSealBodyFf */
-void CZSealBody::HandleLanding(float)
+void CZSealBody::HandleLanding(float impact)
 {
+	/* 0x29e8f0 (PostCheckDIDown, touching down from the air): not while the mission still
+	 * holds falls (m_wait_before_falling) or a landing plays. The falling damage first; then
+	 * the landing anim: above the hard-fall rate a hard landing (damage 3: the forward fall
+	 * landing in state 8), else the soft one, which a fast landing (world speed over 20)
+	 * with both throttles off zero skips (the run goes on). A carrying body pushes none. The
+	 * anim goes on with the snapshot flag set (restored after), the body stands. ELF quirk:
+	 * the hard branch leaves the anim unset for a damage outside 0..3 (HandleFallingDamage
+	 * returns only 0..3; port: no anim then). */
+	if (theMission.m_wait_before_falling > 0.0f)
+		return;
+
+	if (IsCurrentBlend(AnimType::animTypeJumpLandHard) || IsCurrentBlend(AnimType::animTypeJumpLand))
+		return;
+
+	s32 state = 0;
+	AnimType land = AnimType::animTypeUndefined;
+	s32 damage = HandleFallingDamage(impact);
+
+	if (impact > theCharacterDynamics.m_landHardFallRate)
+	{
+		if (damage == 3)
+		{
+			land = (AnimType)AnimTypes::LandForward01;
+			state = 8;
+		}
+		else if (damage == 2 || damage == 1 || damage == 0)
+		{
+			land = AnimType::animTypeJumpLandHard;
+		}
+	}
+	else
+	{
+		land = AnimType::animTypeJumpLand;
+
+		if (400.0f < m_velW.z * m_velW.z + m_velW.x * m_velW.x + m_velW.y * m_velW.y
+			&& !_close_enough(pre_thr_strafe, 0.0f, stoppedV) && !_close_enough(pre_thr_fb, 0.0f, stoppedV))
+		{
+			land = AnimType::animTypeUndefined;
+		}
+	}
+
+	if (m_carry == NULL && (s16)land >= 0)
+	{
+		bool snapshot = m_take_snapshot;
+		m_take_snapshot = true;
+		PushBlend(land, state, false);
+		m_take_snapshot = snapshot;
+	}
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("SEAL: landing at %.1f: impact %.1f damage %d anim %d (hard over %.1f, land speeds %.1f %.1f %.1f)", GetPosW()->y,
+		impact, (int)damage, (int)(s16)land, theCharacterDynamics.m_landHardFallRate, theCharacterDynamics.m_landSpeed[0],
+		theCharacterDynamics.m_landSpeed[1], theCharacterDynamics.m_landSpeed[2]);
+#endif
+	BodySetState(state == 8 ? 0 : state);
 }
 
 /* @socom-skeleton stub GetLookDirW__10CZSealBodyCFP6CPnt3D */
@@ -1569,8 +1880,87 @@ void CZSealBody::HandleWepHit()
 }
 
 /* @socom-skeleton stub HandleFallingDamage__10CZSealBodyFf */
-int CZSealBody::HandleFallingDamage(float)
+int CZSealBody::HandleFallingDamage(float impact)
 {
+	/* 0x29bff0 (HandleLanding): the landing speed's damage level 0..3 by the dynamics' land
+	 * speeds (none while dead or carried, for an invincible body, or for a networked body
+	 * that is not the player: 0 and nothing else then). Each level plays the ground
+	 * material's land sound at the body; 1 adds adrenaline; 2 and 3 also play the body fall
+	 * sound and take every part's full health (the health update then applies the fall
+	 * death). ELF quirks kept: the network test runs twice; level 3 reads the AI map
+	 * altitude and the position for nothing. */
+	u32 material = m_last_altitude.GetMaterial();
+
+	if (material >= CMaterialExArray::m_materialex_list.size())
+		material = 0;
+
+	CSnd *sound = CMaterialExArray::m_materialex_list[material]->m_land_sound;
+
+	if (theNetwork.m_bNetwork && !(m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsPlayer()))
+		return 0;
+
+	if (m_invincible)
+		return 0;
+
+	if (theNetwork.m_bNetwork && !(m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsPlayer()))
+		return 0;
+
+	s32 damage = 0;
+	s8 state = m_state;
+
+	if (state != 8 && state != 10)
+	{
+		if (impact <= theCharacterDynamics.m_landSpeed[0])
+		{
+			damage = 0;
+		}
+		else if (impact <= theCharacterDynamics.m_landSpeed[1])
+		{
+			damage = 1;
+		}
+		else if (impact <= theCharacterDynamics.m_landSpeed[2])
+		{
+			damage = 2;
+		}
+		else
+		{
+			CAiMapLoc loc = m_mapLocValid;
+			AiMaps.GetAltitude(loc);
+			GetPosW();
+			damage = 3;
+		}
+	}
+
+	if (damage == 3 || damage == 2)
+	{
+		if (sound != NULL)
+			sound->PlaySound3D(GetPosW(), true, 1.0f, 0, NULL, 255);
+
+		if (m_body_fall_sound != NULL)
+			m_body_fall_sound->PlaySound3D(GetPosW(), true, 1.0f, 0, NULL, 255);
+
+		m_head_health -= m_head_healthMax * 1.0f;
+		m_body_health -= m_body_healthMax * 1.0f;
+		m_larm_health -= m_larm_healthMax * 1.0f;
+		m_rarm_health -= m_rarm_healthMax * 1.0f;
+		m_lleg_health -= m_lleg_healthMax * 1.0f;
+		m_rleg_health -= m_rleg_healthMax * 1.0f;
+	}
+	else if (damage == 1)
+	{
+		AdrenalineIncr(0.33f);
+
+		if (sound != NULL)
+			sound->PlaySound3D(GetPosW(), true, 1.0f, 0, NULL, 255);
+	}
+	else if (damage == 0)
+	{
+		if (sound != NULL)
+			sound->PlaySound3D(GetPosW(), true, 1.0f, 0, NULL, 255);
+	}
+
+	UpdateHealth((DAMAGE_LOCATION)3, (SEAL_DEATH_TYPE)7);
+	return damage;
 }
 
 /* @socom-skeleton stub HandleDamageExplosive__10CZSealBodyFP12CZProjectileP10CZBodyPart15DAMAGE_LOCATION */

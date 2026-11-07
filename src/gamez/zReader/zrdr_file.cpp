@@ -39,22 +39,26 @@
 /* @socom-skeleton body zrdr_tobool__FPC5_zrdrPb */
 bool zrdr_tobool(const _zrdr *reader, bool *output)
 {
+	/* 0x23d570: an integer (non-zero) or the strings true/on, false/off; an array of at least
+	 * one value reads its first value (array[1]; array[0] holds the count). True when a value
+	 * was read. Without an output the value goes to a local. (Was: an array read its count,
+	 * so every array value - looped (0), disabled (false) - read true; an integer returned
+	 * false; no output returned false.) */
+	bool dummy;
+
+	if (!output)
+		output = &dummy;
+
 	if (!reader)
 		return false;
 
-	// Invalid pointer
-	if (!output)
-		return false;
-
-	if (reader->type == ZRDR_ARRAY && reader->array->integer > 1)
-		reader = reader->array;
+	if (reader->type == ZRDR_ARRAY && reader->array->integer >= 2)
+		reader = &reader->array[1];
 
 	if (reader->type == ZRDR_INTEGER)
 	{
-		if (reader->integer == 0)
-			*output = false;
-		else
-			*output = true;
+		*output = reader->integer != 0;
+		return true;
 	}
 
 	if (reader->type == ZRDR_STRING)
