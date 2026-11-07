@@ -331,7 +331,52 @@ extern bool LoadWorld(const char* name)
 }
 
 /* @socom-skeleton body UnloadTheWorld__Fv */
-extern bool UnloadTheWorld()
+extern void UnloadTheWorld()
 {
-	return false;
+	/* 0x1728e0 (DWARF: void): the application camera, the world's landmark and light
+	   lists, the world (its destructor deletes the children and every asset library),
+	   the libraries again, the global map textures, the light tick list (storage too),
+	   the node universe; then the pipe forgets what it still holds */
+	if (theWorld == NULL)
+		return;
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("UNLOAD: UnloadTheWorld start (world %p, %u asset libs)", theWorld, (u32)zdb::CAssetMgr::m_assets.size());
+#endif
+	if (appCamera != NULL)
+	{
+		delete appCamera;
+		appCamera = NULL;
+	}
+
+	theWorld->ReleaseLandmarkList();
+	theWorld->ReleaseLightList();
+
+	if (theWorld != NULL)
+		delete theWorld;
+
+	theWorld = NULL;
+	zdb::EmptyAssetRecycleBin();
+	zdb::CAssetMgr::m_assets.Clear();
+	zdb::CVisual::m_lightMapTexture = NULL;
+	zdb::CVisual::m_specMapTexture = NULL;
+	zdb::CVisual::m_envFrontMapTexture = NULL;
+	zdb::CVisual::m_envBackMapTexture = NULL;
+
+	{
+		zdb::CTickLightList empty;
+		zdb::CLight::m_tick_list.clear();
+		zdb::CLight::m_tick_list.swap(empty);
+	}
+
+	if (zdb::NodeUniverse != NULL)
+	{
+		delete zdb::NodeUniverse;
+		zdb::NodeUniverse = NULL;
+	}
+
+	thePipe.Flush();
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("UNLOAD: UnloadTheWorld done");
+#endif
 }

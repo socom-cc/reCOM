@@ -56,11 +56,49 @@ CTexHandle* CTexHandle::Create(CTexture* texture)
 }
 
 /* @socom-skeleton stub Destroy__Q23zdb10CTexHandleFPQ23zdb10CTexHandle */
-void zdb::CTexHandle::Destroy(zdb::CTexHandle *)
+void zdb::CTexHandle::Destroy(zdb::CTexHandle *handle)
 {
+	/* 0x2f9750: drop one reference; the last one releases the texture (deleted when no
+	 * other handle holds it), frees the name and deletes the handle. The ELF reads the
+	 * count before its NULL check. */
+	handle->m_count--;
+
+	if (handle->m_count != 0 || handle == NULL)
+		return;
+
+	if (handle->m_texture != NULL)
+	{
+		if (handle->m_texture->Release_HTEX() == 0)
+			delete handle->m_texture;
+
+		handle->m_texture = NULL;
+	}
+
+	if (handle->m_name != NULL)
+		_free(handle->m_name, "ztex_handle.cpp", 0x21);
+
+	handle->m_name = NULL;
+	delete handle;
 }
 
 /* @socom-skeleton stub SetTexture__Q23zdb10CTexHandleFPQ23zdb8CTexture */
-void zdb::CTexHandle::SetTexture(zdb::CTexture *)
+void zdb::CTexHandle::SetTexture(zdb::CTexture *texture)
 {
+	/* 0x2f96b0: release the old texture, take the new one's name and a reference to it */
+	if (m_texture != NULL)
+		m_texture->Release_HTEX();
+
+	m_texture = texture;
+
+	if (texture == NULL)
+		return;
+
+	char* name = texture->m_name;
+
+	if (m_name != NULL)
+		_free(m_name, "ztex_handle.cpp", 0x5b);
+
+	m_name = NULL;
+	m_name = name != NULL ? _strdup(name, "ztex_handle.cpp", 0x5c) : NULL;
+	texture->m_htex_count++;
 }

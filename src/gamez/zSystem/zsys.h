@@ -222,9 +222,13 @@ public:
 
 };
 
+class CSched_Task;
+bool _task_cleanup(CSched_Task *); /* zsys_sched.cpp (0x2f3b10) */
+
 class CSched_Task
 {
 	friend class CSched_Manager;
+	friend bool _task_cleanup(CSched_Task *); /* port: unproven access - it reads m_removed (0x2f3b1c) */
 private:
 	char* m_name;
 	bool m_removed;

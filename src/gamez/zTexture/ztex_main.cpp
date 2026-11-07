@@ -99,7 +99,19 @@ u16 CTexture::Release_HTEX()
 namespace zdb {
 CTexture::~CTexture()
 	{
-		
+		/* 0x2f8db0: the name (not the shared "NA"), then the load-image record; the pixels
+		 * live in the library's texture buffer (CAssetLib::~CAssetLib frees it). The ELF
+		 * stores UNNAMED_TEX into m_name twice (inlined name reset). */
+		if (m_name != NULL && m_name != UNNAMED_TEX)
+			_free(m_name, "ztex_main.cpp", 0x131);
+
+		m_name = (char*)UNNAMED_TEX;
+		m_name = (char*)UNNAMED_TEX;
+
+		if (m_loadimage != NULL)
+			_free(m_loadimage, "ztex_main.cpp", 0xf3);
+
+		m_loadimage = NULL;
 	}
 }
 
@@ -269,4 +281,13 @@ CTexHandle* CTexList::Append(CTexture* texture, bool search)
 /* @socom-skeleton stub Free__Q23zdb8CTexListFv */
 void zdb::CTexList::Free()
 {
+	/* 0x2f87d0: destroy every handle (the last reference deletes its texture) and empty
+	 * the list without releasing its storage */
+	for (iterator it = begin(); it != end(); ++it)
+	{
+		CTexHandle::Destroy(*it);
+		*it = NULL;
+	}
+
+	clear();
 }

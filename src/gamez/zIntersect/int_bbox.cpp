@@ -41,6 +41,8 @@ zdb::CDIPoly::CDIPoly()
 /* @socom-skeleton stub __dt__Q23zdb7CDIPolyFv */
 zdb::CDIPoly::~CDIPoly()
 {
+	/* 0x21e410: Free through the vtable (CDI's), then ~CDI frees again */
+	Free();
 }
 
 /* @socom-skeleton stub __ct__Q23zdb7CDIBBoxFv */
@@ -51,6 +53,8 @@ zdb::CDIBBox::CDIBBox()
 /* @socom-skeleton stub __dt__Q23zdb7CDIBBoxFv */
 zdb::CDIBBox::~CDIBBox()
 {
+	/* 0x21e350: Free through the vtable (CDI's), then ~CDI frees again */
+	Free();
 }
 
 /* @socom-skeleton stub GetAltitude__Q23zdb7CDIPolyFPQ23zdb11DiIntersect */

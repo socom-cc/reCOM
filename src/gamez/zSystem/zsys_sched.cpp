@@ -20,6 +20,7 @@
  * socom-owner-annotations end socom:work:source-segment-039 */
 
 #include "gamez/zSystem/zsys.h"
+#include <algorithm> /* std::remove_if (ClearFreeList) */
 
 /* @socom-skeleton stub zTaskScheduler */
 CSched_Manager zTaskScheduler;
@@ -139,16 +140,52 @@ bool CSched_Manager::RemoveTask(void *registrar, bool all)
 /* @socom-skeleton stub Clear__14CSched_ManagerFv */
 void CSched_Manager::Clear()
 {
+	/* 0x2f3b80: delete every task, running or freed, and empty both lists */
+	if (size() != 0)
+	{
+		for (iterator it = begin(); it != end(); ++it)
+			delete *it;
+
+		erase(begin(), end());
+	}
+
+	if (m_FreeList.size() != 0)
+	{
+		for (iterator it = m_FreeList.begin(); it != m_FreeList.end(); ++it)
+			delete *it;
+
+		m_FreeList.erase(m_FreeList.begin(), m_FreeList.end());
+	}
 }
 
 /* @socom-skeleton stub _task_cleanup__FP11CSched_Task */
-bool _task_cleanup(CSched_Task *)
+bool _task_cleanup(CSched_Task *task)
 {
+	/* 0x2f3b10: a task marked removed is deleted (true: drop it from the list) */
+	if (!task->m_removed)
+		return false;
+
+	if (task != NULL)
+		delete task;
+
+	return true;
 }
 
 /* @socom-skeleton stub ClearFreeList__14CSched_ManagerFb */
-void CSched_Manager::ClearFreeList(bool)
+void CSched_Manager::ClearFreeList(bool emptyList)
 {
+	/* 0x2f39e0: optionally drop (and delete) the tasks marked removed, then delete the
+	   free list's tasks */
+	if (emptyList)
+		erase(std::remove_if(begin(), end(), _task_cleanup), end());
+
+	if (m_FreeList.size() != 0)
+	{
+		for (iterator it = m_FreeList.begin(); it != m_FreeList.end(); ++it)
+			delete *it;
+
+		m_FreeList.erase(m_FreeList.begin(), m_FreeList.end());
+	}
 }
 
 /* @socom-skeleton body Tick__14CSched_ManagerFf */
@@ -200,4 +237,9 @@ bool CSched_Manager::Tick(f32 dT)
 /* @socom-skeleton stub __dt__11CSched_TaskFv */
 CSched_Task::~CSched_Task()
 {
+	/* 0x2f37d0 */
+	if (m_name != NULL)
+		_free(m_name, "zsys_sched.cpp", 0x169);
+
+	m_name = NULL;
 }

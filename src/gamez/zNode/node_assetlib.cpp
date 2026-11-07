@@ -68,6 +68,15 @@ zdb::CAssetList CAssetMgr::m_assets;
 /* @socom-skeleton stub EmptyAssetRecycleBin__3zdbFv */
 void zdb::EmptyAssetRecycleBin()
 {
+	/* 0x231a10: delete every released library waiting in the recycle bin, then empty it */
+	for (CAssetList::iterator it = g_assetsRecycle.begin(); it != g_assetsRecycle.end(); ++it)
+	{
+		delete *it;
+		*it = NULL;
+	}
+
+	g_assetsRecycle.erase(g_assetsRecycle.begin(), g_assetsRecycle.end());
+	g_assetsRecycle.m_cache_model = NULL;
 }
 
 /* @socom-skeleton body __ct__Q23zdb9CAssetLibFPCc */
@@ -93,6 +102,38 @@ CAssetLib::CAssetLib(const char* name)
 /* @socom-skeleton stub __dt__Q23zdb9CAssetLibFv */
 zdb::CAssetLib::~CAssetLib()
 {
+	/* 0x231750: the models (each forgets the library first, so its destructor does not
+	 * search this list), the texture and model data buffers, the texture handles, the
+	 * palettes and the name */
+	for (CModelVector::iterator it = m_models.begin(); it != m_models.end(); ++it)
+	{
+		(*it)->m_AssetLib = NULL;
+		delete *it;
+		*it = NULL;
+	}
+
+	m_models.clear();
+
+	if (m_texture_buffer != NULL)
+		_free(m_texture_buffer, "node_assetlib.cpp", 0x6e);
+
+	m_texture_buffer = NULL;
+
+	if (m_model_buffer != NULL)
+		_free(m_model_buffer, "node_assetlib.cpp", 0x72);
+
+	m_model_buffer = NULL;
+	m_textures.Free();
+
+	for (CTexPalList::iterator it = m_palettes.begin(); it != m_palettes.end(); ++it)
+		delete *it;
+
+	m_palettes.clear();
+
+	if (m_name != NULL)
+		_free(m_name, "node_assetlib.cpp", 0x7c);
+
+	m_name = NULL;
 }
 
 /* @socom-skeleton body RootName__Q23zdb9CAssetLibFv */
@@ -267,6 +308,15 @@ CTexPalette* CAssetLib::AddPalette(CTexPalette* palette, bool checkDuplicate)
 /* @socom-skeleton stub Clear__Q23zdb10CAssetListFv */
 void zdb::CAssetList::Clear()
 {
+	/* 0x230f10: delete every library in the list and empty it */
+	for (iterator it = begin(); it != end(); ++it)
+	{
+		delete *it;
+		*it = NULL;
+	}
+
+	erase(begin(), end());
+	m_cache_model = NULL;
 }
 
 /* @socom-skeleton body GetTexHandle__Q23zdb10CAssetListFPCc */
@@ -376,61 +426,58 @@ CModel* CAssetList::GetModel(const char* name)
 namespace zdb {
 CAssetLib* CAssetMgr::GetLoadedLibRef(const char* name)
 	{
+		/* 0x2307a0: a loaded library gains a reference; one waiting in the recycle bin
+		   gains a reference and moves back to the end of the loaded list; otherwise the
+		   bin is emptied and the library is created at the end of the list and loaded.
+		   The bin is emptied again before returning. Was: the port revived a recycled
+		   library without taking it out of the bin, then deleted the bin's contents (the
+		   revived library too), and inserted new libraries first. */
 		CAssetLib* lib = m_assets.FindLib(name);
 
-		// Check recycle asset lib container
-		// Promotes efficient memory usage without allocating/deallocating
-		if (!lib)
-		{
-			lib = g_assetsRecycle.FindLib(name);
-
-			// Still nothing in the recycle bin
-			if (!lib)
-			{
-				// Empty the whole thing
-				for (auto it = g_assetsRecycle.begin(); it != g_assetsRecycle.end(); ++it)
-				{
-					delete *it;
-				}
-
-				g_assetsRecycle.erase(g_assetsRecycle.begin(), g_assetsRecycle.end());
-
-				// Attempt to load the asset
-				CSaveLoad sload;
-				CAssetLib* assetlib = new CAssetLib(name);
-				m_assets.insert(m_assets.begin(), assetlib);
-				lib = assetlib;
-				sload.LoadAssetLib(NULL, assetlib, TYPE_ALL);
-			}
-			else
-			{
-				// Library found, insert library into our asset list
-				lib->m_iRefCount++;
-				m_assets.insert(m_assets.begin(), lib);
-			}
-		}
-		else
+		if (lib != NULL)
 		{
 			lib->m_iRefCount++;
 		}
-
-		for (auto it = g_assetsRecycle.begin(); it != g_assetsRecycle.end(); ++it)
+		else
 		{
-			if (*it)
-			{
-				delete *it;
-			}
+			lib = g_assetsRecycle.FindLib(name);
 
-			*it = NULL;
+			if (lib != NULL)
+			{
+				lib->m_iRefCount++;
+				g_assetsRecycle.remove(lib);
+				m_assets.insert(m_assets.end(), lib);
+			}
+			else
+			{
+				EmptyAssetRecycleBin(); /* inlined in the ELF */
+				CSaveLoad sload;
+				CAssetLib* assetlib = new CAssetLib(name);
+				m_assets.insert(m_assets.end(), assetlib);
+				lib = assetlib;
+				sload.LoadAssetLib(NULL, assetlib, TYPE_ALL);
+			}
 		}
 
-		g_assetsRecycle.erase(g_assetsRecycle.begin(), g_assetsRecycle.end());
-		
+		EmptyAssetRecycleBin(); /* inlined in the ELF */
 		return lib;
 	}
 }
 
 /* @socom-skeleton stub ReleaseLibRef__Q23zdb9CAssetMgrFPQ23zdb9CAssetLib */
-void zdb::CAssetMgr::ReleaseLibRef(zdb::CAssetLib *)
+void zdb::CAssetMgr::ReleaseLibRef(zdb::CAssetLib *lib)
 {
+	/* 0x230700: the last reference moves the library from the loaded list to the end of
+	 * the recycle bin (GetLoadedLibRef can take it back; EmptyAssetRecycleBin deletes it) */
+	if (lib == NULL)
+		return;
+
+	lib->m_iRefCount--;
+
+	if (lib->m_iRefCount > 0)
+		return;
+
+	m_assets.remove(lib);
+	m_assets.m_cache_model = NULL;
+	g_assetsRecycle.insert(g_assetsRecycle.end(), lib);
 }

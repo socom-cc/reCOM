@@ -171,6 +171,16 @@ bool CRadioStripSpec::HasChildren() const /* port: stub, returns bool in the ELF
 /* @socom-skeleton stub __dt__10ActionItemFv */
 ActionItem::~ActionItem()
 {
+	/* 0x3a1100 */
+	if (Animation != NULL)
+		_free(Animation, "zui_cleanup.cpp", 0x17);
+
+	Animation = NULL;
+
+	if (Argument != NULL)
+		_free(Argument, "zui_cleanup.cpp", 0x18);
+
+	Argument = NULL;
 }
 
 /* @socom-skeleton stub __ct__11CDlgObjSpecFR11CDlgObjSpec */

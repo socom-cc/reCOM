@@ -286,7 +286,66 @@ void CPipe::Uninit()
 /* @socom-skeleton body Flush__5CPipeFv */
 void CPipe::Flush()
 {
-	
+	/* 0x245a10: forget (and free the storage of) the delayed nodes, the alpha list and
+	   its texture lists, then the two alpha texture buffers' lists (TexPhase[11]; after
+	   DestroyBuffers both name buffer 0), the visuals' spec-map list and the texture
+	   load indices */
+	{
+		std::vector<tag_DelayedNode> empty;
+		m_DelayedNodes.clear();
+		std::swap(m_DelayedNodes, empty);
+	}
+
+	m_alpha.m_drawList.erase(m_alpha.m_drawList.begin(), m_alpha.m_drawList.end());
+
+	{
+		std::vector<zdb::CTexHandle*> empty;
+		m_alpha.m_dyntexlist.m_tex_list.clear();
+		m_alpha.m_dyntexlist.m_tex_list.swap(empty);
+	}
+
+	{
+		std::vector<zdb::CTexPalette*> empty;
+		m_alpha.m_dyntexlist.m_pal_list.clear();
+		m_alpha.m_dyntexlist.m_pal_list.swap(empty);
+	}
+
+	for (s32 slot = 0; slot < 2; slot++)
+	{
+		m_assetAlpha = reinterpret_cast<zdb::CGSTexBuffer*>(zdb::CTexManager::m_texmanager[zdb::CTexManager::TexPhase[11][slot]]); /* port: see doAddBuffer */
+		zdb::CGSTexBuffer* buffer = m_assetAlpha;
+
+		if (buffer == NULL)
+			continue;
+
+		buffer->m_dyntex_list.m_tex_list.clear();
+		buffer->m_dyntex_list.m_pal_list.clear();
+		buffer->m_chainp = NULL;
+
+		{
+			std::vector<zdb::CTexHandle*> empty;
+			buffer->m_dyntex_list.m_tex_list.clear();
+			buffer->m_dyntex_list.m_tex_list.swap(empty);
+		}
+
+		{
+			std::vector<zdb::CTexPalette*> empty;
+			buffer->m_dyntex_list.m_pal_list.clear();
+			buffer->m_dyntex_list.m_pal_list.swap(empty);
+		}
+
+		buffer->m_pktbuf.clear();
+		{
+			decltype(buffer->m_pktbuf) empty;
+			buffer->m_pktbuf.clear();
+			buffer->m_pktbuf.swap(empty);
+		}
+		buffer->m_chainp = NULL;
+	}
+
+	zdb::CVisual::Flush();
+	m_texIntIdx = 0;
+	m_texLoadIdx = 0;
 }
 
 /* @socom-skeleton stub RenderLineWorld__F6CPnt4D6CPnt4D6CPnt4D6CPnt4D */

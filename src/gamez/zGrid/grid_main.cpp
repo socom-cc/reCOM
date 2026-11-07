@@ -107,6 +107,14 @@ CGrid::CGrid()
 /* @socom-skeleton stub __dt__Q23zdb5CGridFv */
 zdb::CGrid::~CGrid()
 {
+	/* 0x216ed0 */
+	Destroy();
+
+	if (m_ClutterAnimManager != NULL)
+	{
+		delete m_ClutterAnimManager;
+		m_ClutterAnimManager = NULL;
+	}
 }
 
 /* @socom-skeleton body gridGetAtomBasePtr__Q23zdb5CGridFii */
@@ -872,8 +880,35 @@ void zdb::CGrid::Insert(zdb::CNode *node)
 }
 
 /* @socom-skeleton stub Remove__Q23zdb5CGridFPQ23zdb5CNode */
-void zdb::CGrid::Remove(zdb::CNode *)
+void zdb::CGrid::Remove(zdb::CNode *node)
 {
+	/* 0x215760: unlink every atom of the node from its cell list, return it to the free
+	   list while there is room, then forget and free the node's atom array */
+	for (s32 i = 0; i < node->m_AtomCnt; i++)
+	{
+		CGridAtom* atom = node->GetAtom(i);
+
+		if (!atom->Next)
+		{
+			atom->Prev->Next = NULL;
+		}
+		else
+		{
+			atom->Prev->Next = atom->Next;
+			atom->Next->Prev = atom->Prev;
+		}
+
+		if (m_AtomFreePtr < m_AtomFreeCnt - 1)
+		{
+			atom->Ent = NULL;
+			atom->Next = NULL;
+			atom->Prev = NULL;
+			m_FreeAtoms[++m_AtomFreePtr] = atom;
+		}
+	}
+
+	node->SetAtomCnt(0);
+	node->FreeAtom();
 }
 
 /* @socom-skeleton body Update__Q23zdb5CGridFPQ23zdb5CNode */
@@ -1023,6 +1058,47 @@ bool CGrid::Create(CWorld* world, const tag_GRID_PARAMS* params)
 /* @socom-skeleton stub Destroy__Q23zdb5CGridFv */
 void zdb::CGrid::Destroy()
 {
+	/* 0x215120: the world's non-cell children leave the grid, the cells are deleted
+	   (through the world's virtual DeleteChild), then the atom tables are freed */
+	if (m_world != NULL)
+	{
+		CNodeVector cells;
+		CNodeVector others;
+		m_world->Segregate_CCells(m_world, cells, others);
+
+		for (CNodeVector::iterator it = others.begin(); it != others.end(); ++it)
+		{
+			gridRemoveNodeFromGrids(*it);
+			(*it)->FreeAtom();
+		}
+
+		for (CNodeVector::iterator it = cells.begin(); it != cells.end(); ++it)
+		{
+			CNode* cell = *it;
+			m_world->DeleteChild(cell);
+
+			if (cell != NULL)
+				delete cell;
+		}
+
+		cells.erase(cells.begin(), cells.end());
+		m_world = NULL;
+	}
+
+	if (m_Atoms != NULL)
+		_free(m_Atoms, "grid_main.cpp", 0x488);
+
+	m_Atoms = NULL;
+
+	if (m_AtomBuf != NULL)
+		_free(m_AtomBuf, "grid_main.cpp", 0x489);
+
+	m_AtomBuf = NULL;
+
+	if (m_FreeAtoms != NULL)
+		_free(m_FreeAtoms, "grid_main.cpp", 0x48a);
+
+	m_FreeAtoms = NULL;
 }
 
 /* @socom-skeleton stub AddClutter__Q23zdb5CGridFPQ23zdb8CClutter */

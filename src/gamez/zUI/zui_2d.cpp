@@ -747,6 +747,9 @@ CRenderableString::CRenderableString()
 /* @socom-skeleton stub __dt__17CRenderableStringFv */
 CRenderableString::~CRenderableString()
 {
+	/* 0x391c80: the spec's own font; the UIVarMixin base detaches, then ~C2DString */
+	if (m_alternateFont != NULL)
+		delete m_alternateFont;
 }
 
 /* @socom-skeleton stub Update__17CRenderableStringFv */
@@ -1303,6 +1306,28 @@ C2DButton::C2DButton()
 /* @socom-skeleton stub __dt__9C2DButtonFv */
 C2DButton::~C2DButton()
 {
+	/* 0x38f780: delete the child objects (each leaves the list first), the alternate
+	   font and the ANIMATIONS commands (constructed in place, see the constructor); the
+	   bitmap, the state names, the caption and the C2D base follow */
+	if (size() != 0)
+	{
+		for (iterator it = begin(); it != end();)
+		{
+			C2D* item = *it;
+			it = erase(it);
+
+			if (item != NULL)
+				delete item;
+		}
+	}
+
+	if (m_alternateFont != NULL)
+		delete m_alternateFont;
+
+	m_numCommands = 0;
+
+	for (s32 i = 0; i < 30; i++)
+		reinterpret_cast<ActionItem*>(m_commands[i])->~ActionItem();
 }
 
 /* @socom-skeleton stub HandlePad__9C2DButtonFPC4CPadi */

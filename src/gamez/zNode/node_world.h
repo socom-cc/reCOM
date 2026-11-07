@@ -140,7 +140,7 @@ public:
 		void DeleteTextureAssetCharacter(char *, zdb::CNode *);
 		void DeleteTextureAssetCharacter(zdb::_RenderPhase, zdb::CNode *);
 		void DeleteTextureAssetCharacter(zdb::CAssetLib *, zdb::CNode *);
-		void FindTextureAssetCharacter(zdb::CNode *);
+		bool FindTextureAssetCharacter(zdb::CNode *); /* 0x22dfa0 returns whether a set holds the node (v0) */
 		void RemoveDecals();
 		/* @socom-skeleton end Q23zdb6CWorld */
 	};

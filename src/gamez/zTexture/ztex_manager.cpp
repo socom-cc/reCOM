@@ -669,8 +669,15 @@ u32 CTexManager::doAddBuffer(const char* name, f32 start, f32 end)
 }
 
 /* @socom-skeleton stub doDelBuffer__Q23zdb11CTexManagerFPQ23zdb12CGSTexBuffer */
-void zdb::CTexManager::doDelBuffer(zdb::CGSTexBuffer *)
+void zdb::CTexManager::doDelBuffer(zdb::CGSTexBuffer *buffer)
 {
+	/* 0x2fb050: take the buffer out of the list and delete it (the destructor is inlined
+	   in the ELF: name, lists, chain buffer) */
+	CDynTexList* entry = reinterpret_cast<CDynTexList*>(buffer); /* port: see doAddBuffer */
+	erase(std::remove(begin(), end(), entry), end());
+
+	if (buffer != NULL)
+		delete buffer;
 }
 
 /* @socom-skeleton stub WipePktBuf__Q23zdb11CTexManagerFv */

@@ -665,11 +665,53 @@ CVisual::CVisual()
 /* @socom-skeleton stub __dt__Q23zdb7CVisualFv */
 zdb::CVisual::~CVisual()
 {
+	/* 0x30dba0: a plain visual (vtype -1 or 0; meshes keep theirs) frees each instance
+	   chain's copied batch blocks (type 8, made by SetBuffer) and drops its CVisBase (the
+	   last chain deletes it); then the detail records. The members follow. */
+	if (m_vtype == -1 || m_vtype == 0)
+	{
+		for (std::vector<_word128*>::iterator it = m_buffers.begin(); it != m_buffers.end(); ++it)
+		{
+			_word128* header = *it;
+
+			if (header == NULL)
+				continue;
+
+			u32 count = header->u16[0];
+			_word128* tag = header + 1;
+
+			for (u32 i = 0; i < count; i++, tag++)
+			{
+				if (tag->u8[2] == 8 && tag->u32[1] != 0)
+					_free(reinterpret_cast<void*>(tag->u32[1]), "vis_main.cpp", 0x1c2);
+			}
+
+			::CVisBase* vbase = header != NULL ? reinterpret_cast<::CVisBase*>(header->u32[2]) : NULL;
+
+			if (--vbase->m_buffer_count == 0)
+				delete vbase;
+
+			*it = NULL;
+		}
+	}
+
+	m_buffers.clear();
+
+	if (m_detail_params != NULL)
+		_free(m_detail_params, "vis_main.cpp", 0x1d6);
+
+	m_detail_params = NULL;
+	m_detail_params = NULL;
+	m_detail_cnt = 0;
 }
 
 /* @socom-skeleton stub Flush__Q23zdb7CVisualFv */
 void zdb::CVisual::Flush()
 {
+	/* 0x30db60: empty the spec-map list and release its storage */
+	CLightMapVector empty;
+	m_specMapList.clear();
+	m_specMapList.swap(empty);
 }
 
 /* @socom-skeleton stub GetTextureSelectBlock__Q23zdb7CVisualFUiPP8_word128P8_word128P8_word128 */

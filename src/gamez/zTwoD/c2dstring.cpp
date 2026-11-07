@@ -86,6 +86,16 @@ C2DString::C2DString()
 /* @socom-skeleton stub __dt__9C2DStringFv */
 C2DString::~C2DString()
 {
+	/* 0x302e30: both character buffers; then ~C2D */
+	if (m_string != NULL)
+		_free(m_string, "c2dstring.cpp", 0x3c);
+
+	m_string = NULL;
+
+	if (m_Ustring != NULL)
+		_free(m_Ustring, "c2dstring.cpp", 0x3d);
+
+	m_Ustring = NULL;
 }
 
 /* @socom-skeleton stub ClearAndWipe__9C2DStringFv */
@@ -265,7 +275,16 @@ void C2DString::MakePacket(zdb::CTextureRelocMgr *reloc, int z)
 /* @socom-skeleton body Draw__9C2DStringFPQ23zdb7CCamera */
 void C2DString::Draw(zdb::CCamera* camera)
 {
-    
+	/* 0x302700: an "on" string with characters and a font texture makes its packets at
+	 * depth 0 through a temporary batch relocator on the stack (no upload: the font
+	 * texture is resident), then its children draw */
+	zdb::CBatchRelocator reloc;
+
+	if (IsOn() && m_numChars != 0 && m_font != NULL && m_font->m_pTexHandle != NULL)
+	{
+		MakePacket(&reloc, 0);
+		C2D::Draw(camera);
+	}
 }
 
 /* @socom-skeleton stub Format__9C2DStringFPCce */
@@ -318,32 +337,37 @@ void C2DString::Load(f32 scale, const char* message, C2DFont* font, s32 x, s32 y
 /* @socom-skeleton body Load__9C2DStringFPCcP7C2DFontii */
 void C2DString::Load(const char* message, C2DFont* font, s32 x, s32 y)
 {
-    m_pos.x = x;
-    m_pos.y = y;
-    SetString(message);
-    m_font = font;
+	/* 0x3023a0: the position in 1/16 pixels, the text (virtual SetString), the font; an
+	 * untouched string (alpha exactly 128) takes the font's opacity. The character size
+	 * comes from the font: its average width scaled, and its texture's height. */
+	zdb::CTexture* texture = font->m_pTexHandle != NULL ? font->m_pTexHandle->m_texture : NULL;
 
-    if (m_color.w >= 128.0f)
-    {
-        SetTrans(m_color.w);
-    }
+	m_pos.x = x << 4;
+	m_pos.y = y << 4;
+	SetString(message);
+	m_font = font;
+
+	if (m_color.w == 128.0f)
+		SetTrans(128.0f * m_font->m_opacity);
+
+	m_charwidth = m_scale * font->m_avgWidth * font->m_scale_factor;
+	m_charheight = texture != NULL ? (f32)texture->m_height : 0.0f; /* port: the ELF reads the height through a NULL texture (low RAM) */
 }
 
 /* @socom-skeleton body Load__9C2DStringFPCcP7C2DFontiiii */
 void C2DString::Load(const char* message, C2DFont* font, s32 x, s32 y, s32 width, s32 height)
 {
-    m_pos.x = x;
-    m_pos.y = y;
-    SetString(message);
-    m_font = font;
+	/* 0x3022e0: as Load(message, font, x, y) with an explicit character size */
+	m_pos.x = x << 4;
+	m_pos.y = y << 4;
+	SetString(message);
+	m_font = font;
 
-    if (m_color.w >= 128.0f)
-    {
-        SetTrans(m_color.w);
-    }
+	if (m_color.w == 128.0f)
+		SetTrans(128.0f * m_font->m_opacity);
 
-    m_charwidth = width;
-    m_charheight = height;
+	m_charwidth = (f32)width;
+	m_charheight = (f32)height;
 }
 
 /* @socom-skeleton stub Update__9C2DStringFv */

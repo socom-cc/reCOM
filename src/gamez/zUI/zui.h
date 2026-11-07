@@ -478,6 +478,12 @@ public:
 	ActionItem() : Type(ACTION_TYPE_BUTTON), Animation(NULL), Argument(NULL), State(1), PadButton(16) {}
 	void operator=(const ActionItem &);
 	~ActionItem();
+#ifdef SOCOM_PORT
+	/* port: MSL's vector<ActionItem> (insert 0x39bce0, erase 0x39bbc0) copies items with
+	   operator= (string copies) and destroys the old ones; libstdc++ copy-constructs, and
+	   the implicit copy would share the strings ~ActionItem frees. Same copy as operator=. */
+	ActionItem(const ActionItem &other) : Type(ACTION_TYPE_BUTTON), Animation(NULL), Argument(NULL), State(1), PadButton(16) { *this = other; }
+#endif
 };
 /* @socom-skeleton end 10ActionItem */
 /* @socom-skeleton decl 10UIVarMixin */

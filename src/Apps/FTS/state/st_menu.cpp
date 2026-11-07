@@ -44,10 +44,13 @@
 #include "gamez/zReader/zrdr.h" /* zrdr_read, CRdrArchive */
 #include "gamez/zTexture/ztex.h" /* zdb::CTexManager */
 #include <989snd.h> /* snd_SetReverbType */
+#include <libgraph.h> /* sceGsSyncPath (UnInit) */
 
 /* port: removed pre-skeleton duplicates of g_relocDblBuf and animfile; the skeleton stubs (@unnamed@st_menu_cpp@) define them */
 
 bool LoadWorld(const char* name);
+void UnloadTheWorld(); /* database.cpp (0x1728e0) */
+void zUISchedulerClear(); /* zui.cpp (0x384eb0) */
 
 /* @socom-skeleton decl include */
 #include "gamez/zFTS/fts_state.h"
@@ -370,7 +373,46 @@ void CMenuState::OnPop(int)
 }
 
 /* @socom-skeleton body UnInit__10CMenuStateFv */
-void CMenuState::UnInit() {}
+void CMenuState::UnInit()
+{
+	/* 0x378cd0: end the frame and wait for the GS, drop every texture buffer but the UI's
+	   (the relocator's halves go with them), delete the menu, release the soft-keyboard
+	   library, unload the "ui" world (and with it every asset library), flush the menu
+	   history (pop-up too) and the menu anim tasks, leave the IOP reboot list, stop the
+	   pipe's UI mode and close run/uizanim.zar */
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("UNLOAD: CMenuState::UnInit start");
+#endif
+	zSysFifoEnd();
+	zVid.pcrtcDo = true;
+	sceGsSyncPath(0, 0);
+	zdb::CTexManager::DestroyBuffers(zdb::CTexManager::m_texmanager, false);
+	g_relocDblBuf._arrGsBufs[0] = NULL;
+	g_relocDblBuf._arrGsBufs[1] = NULL;
+
+	if (m_menu != NULL)
+		delete m_menu;
+
+	m_menu = NULL;
+	zdb::CAssetMgr::ReleaseLibRef(g_pSkbLib);
+	g_pSkbLib = NULL;
+	UnloadTheWorld();
+	GetMenuStack()->FlushHistory(true);
+	zUISchedulerClear();
+	SelectionSound = NULL;
+	theIOPManager.UnRegisterRebootCallback(m_iopregh);
+	thePipe.m_doUI = false;
+
+	if (animfile != NULL)
+	{
+		ZAnim.CloseZAR(animfile);
+		animfile = NULL;
+	}
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("UNLOAD: CMenuState::UnInit done");
+#endif
+}
 
 /* @socom-skeleton stub RunEventAnim__10CMenuStateFPCcPCc */
 unsigned char CMenuState::RunEventAnim(const char *, const char *)

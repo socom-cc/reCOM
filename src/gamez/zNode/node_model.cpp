@@ -52,11 +52,54 @@ CModel::CModel(const char* name)
 /* @socom-skeleton stub __dt__Q23zdb6CModelFv */
 zdb::CModel::~CModel()
 {
+	/* 0x229dc0: leave the library's model list (the asset list's cached model is
+	   forgotten), then detach every node that uses this model: type-3 nodes (which hold
+	   the model as their child) drop their children, type-2/3 nodes forget it, every node
+	   forgets the model name. The ELF calls SetModelname(NULL) twice for types 2 and 3. */
+	if (m_AssetLib != NULL)
+	{
+		CModel* model = m_AssetLib->m_models.GetModel(m_name);
+
+		if (model != NULL)
+		{
+			m_AssetLib->m_models.erase(std::remove(m_AssetLib->m_models.begin(), m_AssetLib->m_models.end(), model),
+				m_AssetLib->m_models.end());
+			CAssetMgr::m_assets.m_cache_model = NULL;
+		}
+
+		m_AssetLib = NULL;
+	}
+
+	if (m_list.size() != 0)
+	{
+		for (CRefList::iterator it = m_list.begin(); it != m_list.end(); ++it)
+		{
+			CNode* node = *it;
+
+			if (node->m_type == (u32)TYPE::CHILD || node->m_type == (u32)TYPE::INSTANCE)
+			{
+				if (node->m_type == (u32)TYPE::CHILD)
+					node->DeleteChildren();
+
+				node->m_model = NULL;
+				node->SetModelname(NULL);
+			}
+
+			node->SetModelname(NULL);
+		}
+	}
+
+	m_list.erase(m_list.begin(), m_list.end());
 }
 
 /* @socom-skeleton stub Release__Q23zdb6CModelFPQ23zdb5CNode */
-void zdb::CModel::Release(zdb::CNode *)
+void zdb::CModel::Release(zdb::CNode *node)
 {
+	/* 0x229d60: forget one user of the model */
+	m_list.remove(node);
+
+	if (m_parent == node)
+		m_parent = NULL;
 }
 
 /* @socom-skeleton stub UpdateBBoxFromDI__Q23zdb5CNodeFb */
@@ -217,36 +260,41 @@ CNode* CNode::CreateXRef()
 /* @socom-skeleton body Delete__Q23zdb5CNodeFPQ23zdb5CNode */
 zdb::CNode * zdb::CNode::Delete(zdb::CNode *node)
 	{
-		/* port: static (a0 is the node; 0x228fd0). The body was written against `this`;
-		   members are now reached through `node`, and the result is NULL as in the binary. */
+		/* 0x228fd0 (static): a type-4 node hands its first child to its parent; an
+		   instance (type 2) leaves its model; both leave their parent; then the node is
+		   deleted. The ELF switches on the low half of m_type and returns 0. */
 		if (!node)
 			return NULL;
 
-		if (node->m_type == static_cast<u32>(TYPE::MULTI_PARENT))
+		switch ((u16)node->m_type)
 		{
-			if (node->m_child.size() != 0)
-			{
-				CNode* child = *node->m_child.data();
-				node->RemoveFromParent();
+		case (u16)TYPE::MULTI_PARENT:
+		{
+			CNode* parent = node->m_parent;
+			CNode* child = node->m_child.size() != 0 ? node->m_child.front() : NULL;
+			node->RemoveFromParent();
 
-				if (node->m_parent)
-					node->m_parent->AddChild(child);
-			}
+			if (child != NULL)
+				child->RemoveFromParent();
+
+			if (parent != NULL)
+				parent->AddChild(child);
+
+			break;
 		}
-		else if (node->m_type == static_cast<u32>(TYPE::INSTANCE))
+		case (u16)TYPE::INSTANCE:
 		{
-			// m_model->m_list.remove_if(this);
+			CModel* model = node->m_model;
 
-			if (node->m_model->m_parent == node)
-				node->m_model->m_parent = NULL;
+			if (model != NULL)
+				model->Release(node);
 
 			node->RemoveFromParent();
+			break;
 		}
-		
-		// Very bad. Only putting this here because of 
-		// the decompilation output.
-		delete node;
+		}
 
+		delete node;
 		return NULL;
 	}
 

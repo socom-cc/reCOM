@@ -14,6 +14,7 @@
  * socom-owner-annotations end socom:work:source-segment-041 */
 
 #include "zutil.h"
+#include <algorithm> /* std::remove_if (UnRegisterRebootCallback) */
 
 /* @socom-skeleton stub debug */
 COutput *debug;
@@ -45,8 +46,17 @@ int CIOPManager::RegisterRebootCallback(bool (*callback)(CIOPManager::RebootPhas
 }
 
 /* @socom-skeleton stub UnRegisterRebootCallback__11CIOPManagerFi */
-void CIOPManager::UnRegisterRebootCallback(int)
+void CIOPManager::UnRegisterRebootCallback(int id)
 {
+	/* 0x304420: drop the registrant with that id (remove_if with the delid functor) */
+	struct delid
+	{
+		int m_id;
+		bool operator()(const CRegistrant& registrant) const { return registrant.m_id == m_id; }
+	} pred = { id };
+
+	m_reboot_callback_vec.erase(std::remove_if(m_reboot_callback_vec.begin(), m_reboot_callback_vec.end(), pred),
+		m_reboot_callback_vec.end());
 }
 
 /* @socom-skeleton body __ct__7COutputFPCcb */

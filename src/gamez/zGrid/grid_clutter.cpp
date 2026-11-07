@@ -67,6 +67,12 @@ void zdb::CClutterList::Render(zdb::CCell *)
 /* @socom-skeleton stub Free__Q23zdb12CClutterListFv */
 void zdb::CClutterList::Free()
 {
+	/* 0x219040: delete every clutter object, empty the list (storage kept in the ELF's
+	   vector) */
+	for (iterator it = begin(); it != end(); ++it)
+		delete *it;
+
+	clear();
 }
 
 /* @socom-skeleton stub __ct__Q23zdb8CClutterFPQ23zdb5CNode */

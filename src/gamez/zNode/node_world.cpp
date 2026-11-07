@@ -91,6 +91,10 @@
 #include "gamez/zGrid/zgrid.h"
 #include "gamez/zVisual/zvis.h"
 #include "gamez/zTexture/ztex.h"
+#include "node_shadow.h" /* CRenderMap (DeleteChild) */
+#include "node_universe.h" /* NodeUniverse (destructor) */
+#include "Apps/FTS/game/orders.h" /* CBeachBall (destructor) */
+#include <algorithm>
 
 namespace zdb
 {
@@ -253,6 +257,73 @@ CWorld::CWorld(const char* name)
 /* @socom-skeleton stub __dt__Q23zdb6CWorldFv */
 zdb::CWorld::~CWorld()
 {
+	/* 0x22fca0: the children (virtual DeleteChildren: CWorld's), the landmarks, the
+	   camera, the DI ray, the shadow textures, every asset library (the recycle bin, then
+	   the loaded list), the character and decal texture sets (their GS buffers go), the
+	   node universe and the soil-type name; the members follow (the grid, the band
+	   objects, the render and light maps, the lights). */
+	CBeachBall::Uninit();
+	DeleteChildren();
+
+	for (CNodeVector::iterator it = m_landmarks.begin(); it != m_landmarks.end(); ++it)
+		CNode::Delete(*it);
+
+	m_landmarks.clear();
+
+	if (m_camera != NULL)
+		delete m_camera;
+
+	m_camera = NULL;
+	delete m_diInt;
+	m_diInt = NULL;
+
+	/* port: guard - the port's constructor does not create the shadow textures or their
+	   handle (see the constructor); the ELF calls SetTexture/Destroy on the handle as is */
+	if (m_shadowTexH != NULL)
+	{
+		m_shadowTexH->SetTexture(NULL);
+		CTexHandle::Destroy(m_shadowTexH);
+	}
+
+	for (s32 i = 0; i < 4; i++)
+		delete m_shadowTex[i];
+
+	EmptyAssetRecycleBin();
+	CAssetMgr::m_assets.Clear();
+	m_TextureCharacterCommon.clear();
+	m_TextureDecals.clear();
+
+	while (m_TextureAssetCharacters.size() != 0)
+	{
+		CTextureAssetCharacters* set = const_cast<CTextureAssetCharacters*>(
+			static_cast<const CTextureAssetCharacters*>(m_TextureAssetCharacters.front()));
+		m_TextureAssetCharacters.erase(m_TextureAssetCharacters.begin());
+
+		if (set != NULL)
+		{
+			CTexManager::m_texmanager.doDelBuffer(set->m_texBuffer);
+			delete set;
+		}
+	}
+
+	if (NodeUniverse != NULL)
+	{
+		NodeUniverse->clear();
+		delete NodeUniverse;
+		NodeUniverse = NULL;
+	}
+
+	m_world = NULL;
+
+	if (m_default_soiltype_name != NULL)
+		_free(m_default_soiltype_name, "node_world.cpp", 0x141);
+
+	m_default_soiltype_name = NULL;
+
+	/* port: the ELF destroys the CGrid it holds by value (+0x670) here, after the
+	   texture lists; the port holds it through a pointer made in the constructor */
+	delete m_grid;
+	m_grid = NULL;
 }
 
 /* @socom-skeleton body Initalize__Q23zdb6CWorldFv */
@@ -371,13 +442,103 @@ void CWorld::AddChild(CNode* child)
 }
 
 /* @socom-skeleton stub DeleteChild__Q23zdb6CWorldFPQ23zdb5CNode */
-short zdb::CWorld::DeleteChild(zdb::CNode *)
+short zdb::CWorld::DeleteChild(zdb::CNode *node)
 {
+	/* 0x22f530: a shadow caster's render maps go (delshadow deletes each map of the node),
+	   a reflective node's maps too; then a child of the world leaves the grid (cells stay),
+	   the children and its parent, and returns its remaining count (Release); a node that
+	   is not a child returns its count unchanged */
+	if (node == NULL)
+		return 0;
+
+	if (node->m_shadow)
+	{
+		struct delshadow
+		{
+			CNode* m_node;
+			bool operator()(CRenderMap* map) const
+			{
+				if (map->m_node != m_node)
+					return false;
+
+				delete map;
+				return true;
+			}
+		} pred = { node };
+
+		m_shadows.erase(std::remove_if(m_shadows.begin(), m_shadows.end(), pred), m_shadows.end());
+	}
+
+	if (node->m_reflective)
+	{
+		for (CRenderMapVector::iterator it = m_shadows.begin(); it != m_shadows.end(); ++it)
+		{
+			if ((*it)->m_node == node)
+			{
+				/* ELF quirk: erases from the match to the end (not one element), deletes the
+				   match it still holds, then keeps walking past the new end. port: stops
+				   after the erase instead of running off the vector. */
+				CRenderMap* map = *it;
+				m_shadows.erase(it, m_shadows.end());
+				delete map;
+				break;
+			}
+		}
+	}
+
+	if (node->m_parent != this)
+		return node->m_count;
+
+	if (dynamic_cast<CCell*>(node) == NULL)
+		m_grid->Remove(node);
+
+	m_child.Remove(node);
+	node->m_parent = NULL;
+	return node->Release();
 }
 
 /* @socom-skeleton stub DeleteChildren__Q23zdb6CWorldFv */
 void zdb::CWorld::DeleteChildren()
 {
+	/* 0x22f370: two passes over the children: first every node that is not a cell leaves
+	   the grid and its last reference deletes it, then the cells are deleted; the list is
+	   emptied without releasing its storage */
+	CWorld* world = this;
+
+	for (CNodeVector::iterator it = m_child.begin(); it != m_child.end(); ++it)
+	{
+		CNode* node = *it;
+
+		if (dynamic_cast<CCell*>(node) == NULL)
+		{
+			world->m_grid->Remove(node);
+			node->m_parent = NULL;
+
+			if (node->Release() == 0 && node != NULL)
+				delete node;
+
+			node = NULL;
+		}
+
+		*it = node;
+	}
+
+	for (CNodeVector::iterator it = m_child.begin(); it != m_child.end(); ++it)
+	{
+		CNode* node = *it;
+		CCell* cell = dynamic_cast<CCell*>(node);
+
+		if (cell != NULL)
+		{
+			cell->m_parent = NULL;
+			delete cell;
+			node = NULL;
+		}
+
+		*it = node;
+	}
+
+	m_child.clear();
 }
 
 /* @socom-skeleton body Update__Q23zdb6CWorldFv */
@@ -441,6 +602,11 @@ s32 CWorld::GenerateLandmarkList()
 /* @socom-skeleton stub ReleaseLandmarkList__Q23zdb6CWorldFv */
 void zdb::CWorld::ReleaseLandmarkList()
 {
+	/* 0x22f030 */
+	for (CNodeVector::iterator it = m_landmarks.begin(); it != m_landmarks.end(); ++it)
+		CNode::Delete(*it);
+
+	m_landmarks.clear();
 }
 
 /* @socom-skeleton body LightList_Search__FPQ23zdb5CNodeRQ23zdb10CLightList */
@@ -507,6 +673,8 @@ CLightList& CWorld::GenerateLightList()
 /* @socom-skeleton stub ReleaseLightList__Q23zdb6CWorldFv */
 void zdb::CWorld::ReleaseLightList()
 {
+	/* 0x22ed40: the list only refers to the lights (the nodes own them) */
+	m_lights.erase(m_lights.begin(), m_lights.end());
 }
 
 /* @socom-skeleton body AddLandmark__Q23zdb6CWorldFPQ23zdb5CNode */
@@ -559,8 +727,16 @@ zdb::IntersectStruct * zdb::CWorld::GetAltitude(const CPnt3D *pos, float height)
 }
 
 /* @socom-skeleton stub GetAltitudes__Q23zdb6CWorldFPC6CPnt3Df */
-zdb::DiIntersect * zdb::CWorld::GetAltitudes(const CPnt3D *, float)
+zdb::DiIntersect * zdb::CWorld::GetAltitudes(const CPnt3D *pos, float)
 {
+	/* 0x22ea30: the world's altitude ray at pos's x/z through the grid (the height argument
+	 * is not used); the hits stay in m_diInt */
+	f32 z = pos->z;
+	m_diInt->m_Tail.x = pos->x;
+	m_diInt->m_Tail.y = 0.0f;
+	m_diInt->m_Tail.z = z;
+	m_grid->GetAltitude(m_diInt);
+	return m_diInt;
 }
 
 /* @socom-skeleton stub GetIntersectBatch__Q23zdb6CWorldFPPQ23zdb11DiIntersecti */
@@ -609,8 +785,22 @@ int zdb::CWorld::RegProximityDelayed(zdb::DiIntersect *, const CPnt3D *, float)
 }
 
 /* @socom-skeleton stub Segregate_CCells__Q23zdb6CWorldFPQ23zdb5CNodeRQ23zdb11CNodeVectorRQ23zdb11CNodeVector */
-void zdb::CWorld::Segregate_CCells(zdb::CNode *, zdb::CNodeVector &, zdb::CNodeVector &)
+void zdb::CWorld::Segregate_CCells(zdb::CNode *node, zdb::CNodeVector &cells, zdb::CNodeVector &others)
 {
+	/* 0x22e760: split the node's children into grid cells and the rest (the ELF also
+	   casts the node to CWorld and ignores the result) */
+	if (node == NULL)
+		return;
+
+	for (CNodeVector::iterator it = node->m_child.begin(); it != node->m_child.end(); ++it)
+	{
+		CCell* cell = dynamic_cast<CCell*>(*it);
+
+		if (cell != NULL)
+			cells.insert(cells.end(), 1, cell);
+		else
+			others.insert(others.end(), 1, *it);
+	}
 }
 
 /* @socom-skeleton body DismemberWorldModel__Q23zdb6CWorldFv */
@@ -761,8 +951,18 @@ void zdb::CWorld::DeleteTextureAssetCharacter(zdb::CAssetLib *, zdb::CNode *)
 }
 
 /* @socom-skeleton stub FindTextureAssetCharacter__Q23zdb6CWorldFPQ23zdb5CNode */
-void zdb::CWorld::FindTextureAssetCharacter(zdb::CNode *)
+bool zdb::CWorld::FindTextureAssetCharacter(zdb::CNode *node)
 {
+	/* 0x22dfa0: whether a character texture set holds the node */
+	for (CTextureAssetCharacterList::iterator it = m_TextureAssetCharacters.begin(); it != m_TextureAssetCharacters.end(); ++it)
+	{
+		const CTextureAssetCharacters* set = static_cast<const CTextureAssetCharacters*>(*it);
+
+		if (const_cast<CTextureAssetCharacters*>(set)->m_nodes.Exists(node))
+			return true;
+	}
+
+	return false;
 }
 
 /* @socom-skeleton stub WipeoutTextureAssetCharacters__Q23zdb6CWorldFv */

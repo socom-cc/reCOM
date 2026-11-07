@@ -55,6 +55,9 @@ DiIntersect::DiIntersect(s32 count)
 /* @socom-skeleton stub __dt__Q23zdb11DiIntersectFv */
 zdb::DiIntersect::~DiIntersect()
 {
+	/* 0x21c6e0: the hit buffer */
+	if (m_Intersects != NULL)
+		_free(m_Intersects, "int_main.cpp", 0x35);
 }
 
 /* @socom-skeleton body __ct__Q23zdb3CDIFv */
@@ -94,6 +97,9 @@ void zdb::CDI::Allocate(int size)
 /* @socom-skeleton stub Release__Q23zdb3CDIFv */
 unsigned int zdb::CDI::Release()
 {
+	/* 0x21c510: the remaining reference count */
+	m_refcount--;
+	return m_refcount;
 }
 
 /* @socom-skeleton body Free__Q23zdb3CDIFv */

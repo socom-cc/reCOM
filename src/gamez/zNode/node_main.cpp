@@ -211,9 +211,15 @@ CNode::CNode()
 		m_TickNum = -1;
 		m_Opacity = 1.0f;
 		InitNodeParams(this, NULL);
-		m_customGlobalLight = false;
-		m_flatten = false;
+		/* 0x2285c0: bit 1 (m_modified) and bit 2 (m_character) of +0x9a cleared before
+		   InitNodeParams, then bit 0 (m_flatten) set, m_customGlobalLight -1 (no custom light
+		   scale), m_frameRendered 0 and m_unused 0; m_character_infov is left as allocated.
+		   Was: m_character never cleared (a node in reused heap memory could come out as a
+		   character - RenderNode then skips it), m_flatten false, m_customGlobalLight 0. */
 		m_modified = false;
+		m_character = false;
+		m_flatten = true;
+		m_customGlobalLight = -1;
 		m_parent = NULL; /* port: was `= false` (pointer member) */
 		m_unused = 0;
 		m_frameRendered = false;
@@ -496,7 +502,12 @@ s32 CNode::DeleteVisuals()
 }
 
 /* @socom-skeleton body RemoveFromParent__Q23zdb5CNodeFv */
-void zdb::CNode::RemoveFromParent() {}
+void zdb::CNode::RemoveFromParent()
+{
+	/* 0x2278a0: through the parent's virtual DeleteChild (a world also drops the grid entry) */
+	if (m_parent != NULL)
+		m_parent->DeleteChild(this);
+}
 
 /* @socom-skeleton body ReserveChildren__Q23zdb5CNodeFi */
 void zdb::CNode::ReserveChildren(int size)
@@ -540,9 +551,12 @@ void CNode::AddChild(CNode* node)
 
 /* @socom-skeleton body DeleteChild__Q23zdb5CNodeFPQ23zdb5CNode */
 namespace zdb {
-s32 CNode::DeleteChild(CNode* child)
+short CNode::DeleteChild(CNode* child)
 	{
-		s32 count = child->m_count;
+		/* 0x227650: returns the child's remaining reference count (-1 under a type-3 parent,
+		   which does not own its children; unchanged when it is not a child). Was: returned 0
+		   and set m_flatten - the ELF sets bit 1 of +0x9a, m_modified. */
+		s16 count = child->m_count;
 
 		if (m_child.Exists(child))
 		{
@@ -550,28 +564,23 @@ s32 CNode::DeleteChild(CNode* child)
 			{
 				m_child.Remove(child);
 				count = -1;
-				m_flatten = true;
+				m_modified = true;
 			}
 			else
 			{
 				child->m_count--;
 
 				if (child->m_count < 0)
-				{
 					child->m_count = 0;
-				}
 
 				count = child->m_count;
-
 				m_child.Remove(child);
-
 				child->m_parent = NULL;
-
-				m_flatten = true;
+				m_modified = true;
 			}
 		}
-		
-		return 0;
+
+		return count;
 	}
 }
 
@@ -910,16 +919,80 @@ void CNode::SetName(const char* name)
 /* @socom-skeleton stub __dt__Q23zdb5CNodeFv */
 zdb::CNode::~CNode()
 {
+	/* 0x2263a0: leave the world's character texture sets, release the visuals (the last
+	   reference deletes one) and the DI, delete the children, free the grid atoms, leave
+	   the model, free the names and leave the node universe. DeleteChildren is the
+	   virtual call; inside this destructor it is CNode's. */
+	if (CWorld::m_world != NULL)
+		CWorld::m_world->FindTextureAssetCharacter(this);
+
+	for (CVisualVector::iterator it = m_visual.begin(); it != m_visual.end(); ++it)
+	{
+		CVisual* visual = *it;
+
+		if (visual->Release() == 0 && visual != NULL)
+			delete visual;
+	}
+
+	m_visual.erase(m_visual.begin(), m_visual.end());
+	m_modified = true;
+	m_hasMesh = false;
+
+	if (m_hasDI)
+	{
+		for (CDIVector::iterator it = m_di.begin(); it != m_di.end(); ++it)
+		{
+			CDI* di = *it;
+
+			if (di->Release() == 0 && di != NULL)
+				delete di;
+		}
+
+		m_di.clear();
+		m_modified = true;
+	}
+
+	DeleteChildren();
+
+	if (m_Atom != NULL)
+		_free(m_Atom, "node_main.cpp", 0x51e);
+
+	m_Atom = NULL;
+	m_Atom = NULL;
+	m_AtomAlloc = 0;
+
+	if (m_model != NULL)
+		m_model->Release(this);
+
+	if (m_modelname != NULL)
+		_free(m_modelname, "node_main.cpp", 0x3dd);
+
+	m_modelname = NULL;
+
+	if (m_name != NULL && m_name != UNNAMED_NODE)
+		_free(m_name, "node_main.cpp", 0x3c3);
+
+	m_name = const_cast<char*>(UNNAMED_NODE);
+	m_name = const_cast<char*>(DELETED_NODE);
+
+	if (NodeUniverse != NULL)
+		NodeUniverse->RemoveNode(this);
+
+	numNodes--;
 }
 
 /* @socom-skeleton body DeleteChildren__Q23zdb5CNodeFv */
 namespace zdb {
 void CNode::DeleteChildren()
 	{
-		for (auto i = m_child.begin(); i != m_child.end(); ++i)
+		/* 0x226320: take the first child off until none is left; a child whose last
+		   reference this was is deleted (was: deleted every child while iterating) */
+		while (m_child.size() != 0)
 		{
-			DeleteChild(*i);
-			delete* i;
+			CNode* child = m_child.front();
+
+			if (DeleteChild(child) == 0 && child != NULL)
+				delete child;
 		}
 	}
 }

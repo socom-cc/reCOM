@@ -48,6 +48,10 @@ CBBox * zdb::CCell::UpdateBBox(bool)
 /* @socom-skeleton stub __dt__Q23zdb5CCellFv */
 zdb::CCell::~CCell()
 {
+	/* 0x217100: the light list only refers to lights; the clutter is owned. The members
+	   follow. */
+	m_lightList.erase(m_lightList.begin(), m_lightList.end());
+	m_clutterList.Free();
 }
 
 /* @socom-skeleton stub DeleteClutter__Q23zdb5CCellFv */

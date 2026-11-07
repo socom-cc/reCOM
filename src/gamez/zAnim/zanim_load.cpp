@@ -209,8 +209,14 @@ CZAnimZAR * CZAnimMain::OpenZAR(const char *name)
 }
 
 /* @socom-skeleton stub CloseZAR__10CZAnimMainFP9CZAnimZAR */
-void CZAnimMain::CloseZAR(CZAnimZAR *)
+void CZAnimMain::CloseZAR(CZAnimZAR *archive)
 {
+	/* 0x1c01f0: close and delete an archive OpenZAR made (the ELF returns 1; port: the
+	   skeleton declares void and no caller reads it) */
+	archive->Close();
+
+	if (archive != NULL)
+		delete archive;
 }
 
 /* @socom-skeleton stub LoadZAR__10CZAnimMainFPCcPCc */

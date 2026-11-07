@@ -249,7 +249,7 @@ public:
 		void doDelBuffer(zdb::CGSTexBuffer *);
 		static void WipePktBuf();
 		void doSetupBuffers(const char *);
-		void DestroyBuffers(zdb::CTexManager &, bool);
+		static void DestroyBuffers(zdb::CTexManager &, bool); /* static: CMenuState::UnInit passes the manager in a0, the flag in a1 (0x378d04) */
 		static void ClearPktBufs(zdb::CTexManager &, bool);
 		static float TexBufParams[4];
 		static int TexPhase[17][3];

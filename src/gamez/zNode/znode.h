@@ -203,8 +203,10 @@ public:
 		bool Delete();
 		
 		virtual void AddChild(CNode* child); /* virtual: __vt__Q23zdb5CNode +0x18 (CWorld overrides; CNode::Read adds through it) */
-		s32 DeleteChild(CNode* child);
-		void DeleteChildren();
+		/* virtual: __vt__Q23zdb5CNode +0x1c / +0x20 (CWorld overrides both; RemoveFromParent,
+		   CNode::DeleteChildren and the destructors call them through the vtable) */
+		virtual short DeleteChild(CNode* child);
+		virtual void DeleteChildren();
 		void RemoveFromParent();
 
 		/* GetAtom: the binary has only GetAtom__Q23zdb5CNodeFi (int), declared below */

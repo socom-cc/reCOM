@@ -43,6 +43,21 @@ CTexPalette::CTexPalette(const char* name)
 /* @socom-skeleton stub __dt__Q23zdb11CTexPaletteFv */
 zdb::CTexPalette::~CTexPalette()
 {
+	/* 0x2f9970: the name, the load-image record and the 128-byte-aligned CLUT copy */
+	if (m_name != NULL)
+		_free(m_name, "ztex_palette.cpp", 0x40);
+
+	m_name = NULL;
+
+	if (m_loadimage != NULL)
+		_free(m_loadimage, "ztex_palette.cpp", 0x42);
+
+	m_loadimage = NULL;
+
+	if (m_buffer != NULL)
+		_free(m_buffer, "ztex_palette.cpp", 0x43);
+
+	m_buffer = NULL;
 }
 
 /* @socom-skeleton body Read__Q23zdb11CTexPaletteFRQ23zdb9CSaveLoad */

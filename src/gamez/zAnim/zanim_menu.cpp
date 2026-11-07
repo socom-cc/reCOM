@@ -546,8 +546,27 @@ void CMenuStack::CleanPopup()
 }
 
 /* @socom-skeleton stub FlushHistory__10CMenuStackFb */
-void CMenuStack::FlushHistory(bool)
+void CMenuStack::FlushHistory(bool deletePopup)
 {
+	/* 0x1d5ce0: reset the command arguments, return every history name to the free pool,
+	   and on request delete the pop-up dialog */
+	for (u32 i = 0; i < 20; i++)
+		strcpy(m_cmds[i].arg, DEFAULT_ARGNAME);
+
+	while (!m_history.m_list.empty())
+	{
+		m_history.m_free.push_back(m_history.m_list.back());
+		strcpy(m_history.m_free.back(), MENUHISTORY_STRPOOL);
+		m_history.m_list.pop_back();
+	}
+
+	if (m_popup != NULL && deletePopup)
+	{
+		if (m_popup != NULL)
+			delete m_popup;
+
+		m_popup = NULL;
+	}
 }
 
 /* @socom-skeleton stub KillPopUp__10CMenuStackFv */

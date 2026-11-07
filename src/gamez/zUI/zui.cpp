@@ -170,6 +170,9 @@ CZAnimSet * GetLocalAnims()
 /* @socom-skeleton stub zUISchedulerClear__Fv */
 void zUISchedulerClear()
 {
+	/* 0x384eb0: every menu anim task goes */
+	zUIScheduler.Clear();
+	zUIScheduler.ClearFreeList(true);
 }
 
 /* @socom-skeleton stub Add2dNode__FP3C2DPQ23zdb16CTextureRelocMgrPQ23zdb5CNode */
@@ -359,6 +362,7 @@ void ActionItem::operator=(const ActionItem &other)
 }
 
 void RegisterMenuNode(zdb::CNode *); /* zanim_menu.cpp (0x1d6760) */
+void UnRegisterMenuNode(); /* zanim_menu.cpp (0x1d6750) */
 CRdrFile * FetchMissionFontsRdr(); /* zanim_menu.cpp (0x1d5e40) */
 void Unload_MissionReader(); /* zanim_menu.cpp */
 void TickSkb(float); /* zui_skb.cpp */
@@ -401,6 +405,13 @@ CGameMenu::CGameMenu()
 /* @socom-skeleton stub __dt__9CGameMenuFv */
 CGameMenu::~CGameMenu()
 {
+	/* 0x383bf0: tear the menu down, forget the menu root node and the current menu, let
+	   the display circuit follow again (zVid +0x59, which CMenuState::Init clears); the
+	   members follow (m_nodeTop last: its destructor deletes the planes) */
+	Clear();
+	UnRegisterMenuNode();
+	g_pCurMenu = NULL;
+	zVid.pcrtcDo = true;
 }
 
 /* @socom-skeleton stub AddNode__9CGameMenuFP3C2DPQ23zdb16CTextureRelocMgr */
