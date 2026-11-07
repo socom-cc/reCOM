@@ -118,23 +118,70 @@ CPnt3D * CZSIObject::GetVelRaw(CZSIScript *, int, int, CPnt3D *)
 }
 
 /* @socom-skeleton stub GetPosRaw__10CZSIObjectFiifP6CPnt3D */
-CPnt3D * CZSIObject::GetPosRaw(int, int, float, CPnt3D *)
+CPnt3D * CZSIObject::GetPosRaw(int a, int b, float t, CPnt3D *out)
 {
+	/* 0x1ddbb0: key a lerped toward key b by t (key 0 when the position is constant) */
+	if (m_constPos)
+	{
+		out->x = m_positionData[0];
+		out->y = m_positionData[1];
+		out->z = m_positionData[2];
+		return out;
+	}
+
+	f32 *pa = &m_positionData[a * 3];
+	f32 *pb = &m_positionData[b * 3];
+	out->x = pa[0] + t * (pb[0] - pa[0]);
+	out->y = pa[1] + t * (pb[1] - pa[1]);
+	out->z = pa[2] + t * (pb[2] - pa[2]);
+	return out;
 }
 
 /* @socom-skeleton stub GetRotRaw__10CZSIObjectFiifP5CQuat */
-CQuat * CZSIObject::GetRotRaw(int, int, float, CQuat *)
+CQuat * CZSIObject::GetRotRaw(int a, int b, float t, CQuat *out)
 {
+	/* 0x1dda00: the nearer key within 0.01 of either end, else key a slerped toward key b
+	 * (key 0 for both when the rotation is constant) */
+	if (m_constRot)
+	{
+		a = 0;
+		b = 0;
+	}
+
+	if (t < 0.01f || !(t <= 0.99f))
+	{
+		*out = m_rotations[t < 0.5f ? a : b];
+		return out;
+	}
+
+	CQuat qa = m_rotations[a];
+	CQuat qb = m_rotations[b];
+	qa.Slerp(&qb, t, out);
+	return out;
 }
 
 /* @socom-skeleton stub GetPosFast__10CZSIObjectFiifP6CPnt3D */
-CPnt3D * CZSIObject::GetPosFast(int, int, float, CPnt3D *)
+CPnt3D * CZSIObject::GetPosFast(int a, int b, float t, CPnt3D *out)
 {
+	/* 0x1dd920: the nearer of keys a and b (key 0 when the position is constant) */
+	s32 key = m_constPos ? 0 : (t < 0.5f ? a : b);
+	out->x = m_positionData[key * 3 + 0];
+	out->y = m_positionData[key * 3 + 1];
+	out->z = m_positionData[key * 3 + 2];
+	return out;
 }
 
 /* @socom-skeleton stub GetRotFast__10CZSIObjectFiifP5CQuat */
-CQuat * CZSIObject::GetRotFast(int, int, float, CQuat *)
+CQuat * CZSIObject::GetRotFast(int a, int b, float t, CQuat *out)
 {
+	/* 0x1dd870: the nearer of keys a and b (key 0 when the rotation is constant) */
+	s32 key = t < 0.5f ? a : b;
+
+	if (m_constRot)
+		key = 0;
+
+	*out = m_rotations[key];
+	return out;
 }
 
 /* @socom-skeleton stub Read__10CZSIObjectFPUcUiPCc */

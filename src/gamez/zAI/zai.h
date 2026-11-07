@@ -435,7 +435,7 @@ public:
 };
 
 class CAiMapVec : std::vector<CAiMap> { };
-class CAiMapLocVec : std::vector<CAiMapLoc> { };
+class CAiMapLocVec : public std::vector<CAiMapLoc> { }; /* port: public (CAiPathStats::reset 0x1968e0 clears it) */
 class points : std::vector<CPnt3D> { };
 
 class CAiMap
@@ -595,16 +595,16 @@ public:
 class CAiPathStats
 {
 public:
-	f32 nodes_searched;
-	f32 nodes_added;
-	f32 nodes_removed;
-	f32 nodes_visited;
-	f32 nodes_left;
+	s32 nodes_searched; /* DWARF sint (was f32) */
+	s32 nodes_added;
+	s32 nodes_removed;
+	s32 nodes_visited;
+	s32 nodes_left;
 
-	f32 path_length;
-	f32 path_cost;
+	s32 path_length;
+	s32 path_cost;
 
-	f32 m_ticks;
+	s32 m_ticks;
 	f32 m_time;
 	CAiMapLoc m_current;
 	CAiMapLocVec m_visited;

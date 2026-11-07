@@ -35,11 +35,25 @@ static unsigned char MultiplayerMsgStrings[28];
 /* @socom-skeleton stub __ct__9CSealAnimFv */
 CSealAnim::CSealAnim()
 {
+	/* 0x26e5e0: an empty stack; every frame weightless, without an anim, every part id -1 */
+	m_stack = (SEALANIM_STACK *)_malloc(sizeof(SEALANIM_STACK), "seal_anim.cpp", 56);
+	m_stack->m_depth = 0;
+
+	for (s32 i = 0; i < 8; i++)
+	{
+		m_stack->m_frames[i].m_wt = 0.0f;
+		m_stack->m_frames[i].m_anim = NULL;
+
+		for (s32 j = 0; j < 32; j++)
+			m_stack->m_frames[i].m_parts[j].m_id = -1;
+	}
 }
 
 /* @socom-skeleton stub __dt__9CSealAnimFv */
 CSealAnim::~CSealAnim()
 {
+	/* 0x26e580 */
+	_free(m_stack, "seal_anim.cpp", 86);
 }
 
 /* @socom-skeleton stub Animate__10CZSealBodyFv */
@@ -48,13 +62,105 @@ void CZSealBody::Animate()
 }
 
 /* @socom-skeleton stub AnimPush__9CSealAnimFP10CZSealBodyP11ACTIVE_ANIM */
-void CSealAnim::AnimPush(CZSealBody *, ACTIVE_ANIM *)
+int CSealAnim::AnimPush(CZSealBody *body, ACTIVE_ANIM *active)
 {
+	/* 0x26deb0: a new frame holds the anim's pose at the active anim's key pair: per body part
+	 * with a node and a script object, the script position (the node's own position for parts
+	 * 0-24 except the hips, root, biceps and shoulder weights) and the script rotation, raw
+	 * (interpolated) when the entity interpolates animations, else the nearer key. Returns the
+	 * new depth. ELF quirks: no depth check; the script's object list is indexed by part id
+	 * without a bound (port: the index is checked against its size). */
+	CZBodyAnim *anim = active->m_anim;
+	f32 t = active->m_script_wt;
+	s32 a = active->m_a;
+	s32 b = active->m_b;
+	CZSIScriptCommon *common = anim->m_pCommon;
+	m_stack->m_body = body;
+	SEALANIM_FRAME *frame = &m_stack->m_frames[m_stack->m_depth];
+	frame->m_anim = anim;
+	frame->m_wt = active->m_wt;
+
+	for (s32 i = 0; i < 32; i++)
+		frame->m_parts[i].m_id = -1;
+
+	for (s32 i = 0; i < 25; i++)
+		frame->m_parts[i].m_keep = 1;
+
+	frame->m_parts[body->m_hips->m_id].m_keep = 0;
+	frame->m_parts[body->m_root->m_id].m_keep = 0;
+	frame->m_parts[body->m_lbicep->m_id].m_keep = 0;
+	frame->m_parts[body->m_rbicep->m_id].m_keep = 0;
+	frame->m_parts[body->m_lshoulder_wgt->m_id].m_keep = 0;
+	frame->m_parts[body->m_rshoulder_wgt->m_id].m_keep = 0;
+
+	for (s32 i = 25; i < 32; i++)
+		frame->m_parts[i].m_keep = 0;
+
+	bool raw = body->m_interpolate_animations;
+
+	for (s32 i = 0; i < 32; i++)
+	{
+		CZBodyPart *part = body->m_body_parts[i];
+		CZSIObject *object = (u32)i < common->m_objects_for_body.size() ? common->m_objects_for_body[i] : NULL;
+
+		if (part == NULL || part->m_node == NULL || object == NULL)
+			continue;
+
+		SEALANIM_PART *pose = &frame->m_parts[i];
+		CPnt3D pos = CPnt3D::zero;
+
+		if (part == body->m_hips || pose->m_keep == 0)
+		{
+			if (body->m_interpolate_animations)
+				object->GetPosRaw(a, b, t, &pos);
+			else
+				object->GetPosFast(a, b, t, &pos);
+
+			pose->m_pos = pos;
+		}
+		else
+		{
+			pose->m_pos.x = part->m_node->m_matrix.m_matrix[3][0];
+			pose->m_pos.y = part->m_node->m_matrix.m_matrix[3][1];
+			pose->m_pos.z = part->m_node->m_matrix.m_matrix[3][2];
+		}
+
+		if (raw)
+			object->GetRotRaw(a, b, t, &pose->m_rot);
+		else
+			object->GetRotFast(a, b, t, &pose->m_rot);
+
+		pose->m_id = i;
+	}
+
+	m_stack->m_depth++;
+	return m_stack->m_depth;
 }
 
 /* @socom-skeleton stub AnimPop__9CSealAnimFP5CBody */
-void CSealAnim::AnimPop(CBody *)
+int CSealAnim::AnimPop(CBody *body)
 {
+	/* 0x26ddc0: the top frame's poses go to the body parts by id; returns the new depth */
+	SEALANIM_FRAME *frame = &m_stack->m_frames[m_stack->m_depth - 1];
+
+	for (s32 i = 0; i < 32; i++)
+	{
+		SEALANIM_PART *pose = &frame->m_parts[i];
+
+		if (pose->m_id < 0)
+			continue;
+
+		CZBodyPart *part = body->m_body_parts[pose->m_id];
+
+		if (part == NULL)
+			continue;
+
+		part->m_pos = pose->m_pos;
+		part->m_rot = pose->m_rot;
+	}
+
+	m_stack->m_depth--;
+	return m_stack->m_depth;
 }
 
 /* @socom-skeleton stub AnimBlend__9CSealAnimFi */

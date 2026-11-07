@@ -126,8 +126,19 @@ void ClearBodyPartNames_Map()
 }
 
 /* @socom-skeleton stub BodyWepPart__FP10CZSealBody9SEAL_ITEM */
-CZBodyPart * BodyWepPart(CZSealBody *, SEAL_ITEM)
+CZBodyPart * BodyWepPart(CZSealBody *body, SEAL_ITEM item)
 {
+	/* 0x280e30 */
+	if (item == SEAL_ITEM::itemThrowable)
+		return body->m_grenade;
+
+	if (item == SEAL_ITEM::itemPistol)
+		return body->m_pistol;
+
+	if (item == SEAL_ITEM::itemRifle)
+		return body->m_rifle;
+
+	return NULL;
 }
 
 /* @socom-skeleton stub GpAnim__10CZSealBodyFP10CZBodyAnim9SEAL_ITEM */
@@ -146,18 +157,83 @@ SEAL_ITEM CZSealBody::BaseFirePose()
 }
 
 /* @socom-skeleton stub BaseAnim__10CZSealBodyF8AnimType */
-CZBodyAnim * CZSealBody::BaseAnim(AnimType)
+CZBodyAnim * CZSealBody::BaseAnim(AnimType type)
 {
+	/* 0x280c20: the anim of that type, as played with the current item */
+	CZBodyAnim *anim = GetAnimByType(type);
+
+	if (anim == NULL)
+		return NULL;
+
+	return BaseAnim_0(anim, m_item);
 }
 
 /* @socom-skeleton stub BaseAnim_0__10CZSealBodyF8AnimType9SEAL_ITEM */
-CZBodyAnim * CZSealBody::BaseAnim_0(AnimType, SEAL_ITEM)
+CZBodyAnim * CZSealBody::BaseAnim_0(AnimType type, SEAL_ITEM item)
 {
+	/* 0x280bb0: the anim of that type, as played with item */
+	CZBodyAnim *anim = GetAnimByType(type);
+
+	if (anim == NULL)
+		return NULL;
+
+	return BaseAnim_0(anim, item);
 }
 
 /* @socom-skeleton stub BaseAnim_0__10CZSealBodyFP10CZBodyAnim9SEAL_ITEM */
-CZBodyAnim * CZSealBody::BaseAnim_0(CZBodyAnim *, SEAL_ITEM)
+CZBodyAnim * CZSealBody::BaseAnim_0(CZBodyAnim *anim, SEAL_ITEM item)
 {
+	/* 0x280500: the anim's variant for the item (anim itself when there is none). Another
+	 * item counts as the rifle when the bottom blend is a stand, else as the pistol. The
+	 * rifle plays the set's base anim; the pistol plays the CAnimsByFP pistol variant of the
+	 * stance/climb anims and of a list of action anims (separate ifs in the ELF, at most one
+	 * matches). ELF quirks: the bottom blend is read without a NULL check (port: an empty
+	 * stack counts as the pistol), and m_animset->m_animgps before the set's NULL check. */
+	CZBodyAnim *result = NULL;
+	AnimType type = (AnimType)anim->m_animType;
+
+	if (item != SEAL_ITEM::itemRifle && item != SEAL_ITEM::itemPistol)
+	{
+		CZBodyAnimBlend *bottom = m_blends->m_stack[0];
+		item = (bottom != NULL && bottom->m_animType == AnimType::animTypeStand) ? SEAL_ITEM::itemRifle : SEAL_ITEM::itemPistol;
+	}
+
+	if (item == SEAL_ITEM::itemPistol)
+	{
+		if (type == AnimType::animTypeHang2Climb || type == AnimType::animTypeStand2Hang
+			|| type == AnimType::animTypeFalling || type == AnimType::animTypeClimbLadder
+			|| type == AnimType::animTypeStep || type == AnimType::animTypeHang
+			|| type == AnimType::animTypeProne || type == AnimType::animTypeCrouch
+			|| type == AnimType::animTypeStand)
+		{
+			result = GetAnimByType(m_animset->m_animgps->PistolAnim(type));
+		}
+		else
+		{
+			static short *const pistol_types[] =
+			{
+				&AnimTypes::RifleReload, &AnimTypes::RifleCrouchReload, &AnimTypes::RifleProneReload,
+				&AnimTypes::RifleReturnThrowGrenade, &AnimTypes::Stab, &AnimTypes::CQB,
+				&AnimTypes::ApplyRestraints, &AnimTypes::BuddyCarryStand, &AnimTypes::BuddyCarryWalk,
+				&AnimTypes::BuddyCarryPickup, &AnimTypes::BuddyCarryStep, &AnimTypes::TossGrenadePeekRight,
+				&AnimTypes::TossGrenadePeekLeft, &AnimTypes::Ladder2Slide, &AnimTypes::LadderSlide,
+				&AnimTypes::LadderSlideLand, &AnimTypes::DefuseBombBegin, &AnimTypes::DefuseBombLoop,
+				&AnimTypes::DefuseBombEnd
+			};
+
+			for (u32 i = 0; i < sizeof(pistol_types) / sizeof(pistol_types[0]); i++)
+			{
+				if ((s16)type == *pistol_types[i])
+					result = GetAnimByType(m_animset->m_animgps->PistolAnim(type));
+			}
+		}
+	}
+	else
+	{
+		result = GetAnimByType(m_animset->BaseAnim(type));
+	}
+
+	return result != NULL ? result : anim;
 }
 
 /* @socom-skeleton stub ReadMotionRdr__10CZSealBodyFv */
@@ -650,18 +726,65 @@ void CZSealBody::AddDIPolys()
 }
 
 /* @socom-skeleton stub AddItem__10CZSealBodyFP14CCharacterGear */
-void CZSealBody::AddItem(CCharacterGear *)
+bool CZSealBody::AddItem(CCharacterGear *gear)
 {
+	/* 0x27dc60: an instance of the gear's model on its body part, named and with the body
+	 * id of the gear, kept as an obj-anim entry with its gear */
+	zdb::CNode *node = gear->CreateInstance(gear->m_name);
+
+	if (node == NULL)
+		return false;
+
+	CZBodyPart *part = AttachAuxNode(node, m_body_parts[gear->m_partid], &gear->m_offset, &gear->m_rotation);
+	part->m_id = (s16)BodyId(gear->m_name);
+	part->m_node->SetName(gear->m_name);
+	part->m_blendme = 0;
+	OBJ_ANIM *entry = new OBJ_ANIM;
+
+	if (entry != NULL)
+	{
+		entry->m_part = part;
+		entry->m_gear = gear;
+	}
+
+	m_obj_anims.m_obj_anims.push_back(entry);
+	return true;
 }
 
 /* @socom-skeleton stub AddItem__10CZSealBodyFPCc */
-void CZSealBody::AddItem(const char *)
+bool CZSealBody::AddItem(const char *name)
 {
+	/* 0x27dbb0: a node-less aux part with the body id of name, kept as an obj-anim entry
+	 * without gear */
+	CZBodyPart *part = NewBodyPart(NULL, NULL);
+	AttachAuxPart(part, NULL);
+	part->m_id = (s16)BodyId(name);
+	part->m_blendme = 0;
+	OBJ_ANIM *entry = new OBJ_ANIM;
+
+	if (entry != NULL)
+	{
+		entry->m_part = part;
+		entry->m_gear = NULL;
+	}
+
+	m_obj_anims.m_obj_anims.push_back(entry);
+	return true;
 }
 
 /* @socom-skeleton stub SetupEyes__10CZSealBodyFv */
 void CZSealBody::SetupEyes()
 {
+	/* 0x27dab0: body parts (under the head) for the eye and lid nodes found below the aux
+	 * nodes */
+	zdb::CNode *node = FindAuxNode("right_eyeball", true);
+	m_reyeball = node != NULL ? NewBodyPart(node, m_head) : NULL;
+	node = FindAuxNode("left_eyeball", true);
+	m_leyeball = node != NULL ? NewBodyPart(node, m_head) : NULL;
+	node = FindAuxNode("right_lid", true);
+	m_reyelid = node != NULL ? NewBodyPart(node, m_head) : NULL;
+	node = FindAuxNode("left_lid", true);
+	m_leyelid = node != NULL ? NewBodyPart(node, m_head) : NULL;
 }
 
 /* @socom-skeleton body SetupGear__10CZSealBodyFv */

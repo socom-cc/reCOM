@@ -70,11 +70,40 @@ const int CAiMapLoc::max_value = 8191;
 /* @socom-skeleton stub reset__12CAiPathStatsFv */
 void CAiPathStats::reset()
 {
+	/* 0x1968e0 */
+	nodes_searched = 0;
+	nodes_added = 0;
+	nodes_removed = 0;
+	nodes_visited = 0;
+	nodes_left = 0;
+	path_length = 0;
+	path_cost = 0;
+	m_ticks = 0;
+	m_time = 0.0f;
+	m_visited.clear();
 }
 
 /* @socom-skeleton stub __ct__7CAiPathFv */
 CAiPath::CAiPath()
 {
+	/* 0x1967d0: an empty default path, flags 3 */
+	m_stats.reset();
+	m_state = ::PATH_STATE::UNKNOWN;
+	m_type = ::PATH_TYPE::PATH_DEFAULT;
+	m_type_bias = 1.0f;
+	m_astar = NULL;
+	m_planner = NULL;
+	m_pathId = 0;
+	m_legcount = 0;
+	m_planleg = 0;
+	m_curleg = 0;
+	m_app_flags = 0;
+	m_flags = 3;
+	m_length = 0.0f;
+	m_template = NULL;
+	m_overlay = NULL;
+	m_snake_len = 0;
+	m_custom = false;
 }
 
 /* @socom-skeleton stub __dt__7CAiPathFv */

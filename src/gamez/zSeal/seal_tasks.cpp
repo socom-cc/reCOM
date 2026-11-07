@@ -528,8 +528,26 @@ bool CTPlay::Tick(_zanim_cmd_hdr* header, f32* dT)
 }
 
 /* @socom-skeleton stub Create__8CTSelectFP10CZSealBody */
-TASK_SELECT * CTSelect::Create(CZSealBody *)
+TASK_SELECT * CTSelect::Create(CZSealBody *seal)
 {
+	/* 0x2b7590: a 16-byte select task for seal and its AI controller (GetSealCtrlAi), of
+	 * command type ai_cmdid+8 (a u16) */
+	TASK_SELECT *task = (TASK_SELECT *)_calloc(16, 1, "seal_tasks.cpp", 27);
+	task->m_cmd.data_size = 16;
+	task->m_cmd.data_type = *(u16 *)&ai_cmdid[8];
+	task->m_seal = seal;
+
+	if (seal == NULL)
+	{
+		task->m_ai = NULL;
+	}
+	else
+	{
+		task->m_ai = ((CSealCtrl *)seal->m_control)->GetSealCtrlAi();
+		task->m_cmd.data_type = *(u16 *)&ai_cmdid[8];
+	}
+
+	return task;
 }
 
 /* @socom-skeleton body Parse__8CTSelectFP5_zrdr */

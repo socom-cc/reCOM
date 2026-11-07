@@ -234,18 +234,59 @@ CZBodyPart * CBody::AddBodyPart(zdb::CNode *node, CZBodyPart *parent)
 }
 
 /* @socom-skeleton stub AttachAuxNode__5CBodyFPQ23zdb5CNodeP10CZBodyPartPC6CPnt3DPC6CPnt3D */
-CZBodyPart * CBody::AttachAuxNode(zdb::CNode *, CZBodyPart *, const CPnt3D *, const CPnt3D *)
+CZBodyPart * CBody::AttachAuxNode(zdb::CNode *node, CZBodyPart *parent, const CPnt3D *pos, const CPnt3D *rot)
 {
+	/* 0x1e32d0: a new aux part for node under parent (node becomes a child of the
+	 * parent's node), posed at pos / the euler rot. ELF quirk: parent is not NULL-checked. */
+	CQuat quat;
+	QFromRot(&quat, rot);
+	CZBodyPart *part = new CZBodyPart(node);
+	part->m_parent = parent;
+	parent->m_node->AddChild(node);
+	part->m_node = node;
+	m_body_parts_aux.push_back(part);
+	part->m_pos = *pos;
+	part->m_rot = quat;
+	zdb::CNode *partnode = part->m_node;
+	partnode->SetPosition(part->m_pos.x, part->m_pos.y, part->m_pos.z);
+	partnode->SetRotation(&part->m_rot);
+	return part;
 }
 
 /* @socom-skeleton stub AttachAuxPart__5CBodyFP10CZBodyPartP10CZBodyPart */
-CZBodyPart * CBody::AttachAuxPart(CZBodyPart *, CZBodyPart *)
+CZBodyPart * CBody::AttachAuxPart(CZBodyPart *part, CZBodyPart *parent)
 {
+	/* 0x1e3240: an aux part under parent (its node becomes a child of parent's node) */
+	part->m_parent = parent;
+	zdb::CNode *node = part->m_node;
+
+	if (parent != NULL)
+		parent->m_node->AddChild(node);
+
+	part->m_node = node;
+	m_body_parts_aux.push_back(part);
+	return part;
 }
 
 /* @socom-skeleton stub FindAuxNode__5CBodyFPCcb */
-zdb::CNode * CBody::FindAuxNode(const char *, bool)
+zdb::CNode * CBody::FindAuxNode(const char *name, bool nested)
 {
+	/* 0x1e3160: the aux part node named name (not nested), else the first aux node with a
+	 * descendant of that name */
+	for (std::vector<CZBodyPart*>::iterator it = m_body_parts_aux.begin(); it != m_body_parts_aux.end(); ++it)
+	{
+		zdb::CNode *node = (*it)->m_node;
+
+		if (!nested && node != NULL && strcmp(name, node->m_name) == 0)
+			return node;
+
+		zdb::CNode *child = node != NULL ? node->FindChild(name, true) : NULL;
+
+		if (child != NULL)
+			return child;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub FindBodyPart__5CBodyFi */
@@ -410,13 +451,165 @@ void CBody::BodySetState(int state)
 }
 
 /* @socom-skeleton stub PushBlend__5CBodyFiiib */
-CZBodyAnimBlend * CBody::PushBlend(int, int, int, bool)
+CZBodyAnimBlend * CBody::PushBlend(int id, int type, int state, bool flag)
 {
+	/* 0x1e25e0: a pooled blend holding one active anim (the body anim id; NULL when out of
+	 * range) goes on the stack. The old top's anims lose flag 0x40; a looped new blend keeps
+	 * a looped old top's time. Parts save their pose while interpolating; the new anim's
+	 * blend time restarts the interpolation. Without a free blend or active anim the old
+	 * top is returned. */
+	f32 tfrac = 0.0f;
+	bool looped = false;
+	CZBodyAnimBlend *top = m_blends->Top();
+
+	if (top != NULL)
+	{
+		tfrac = top->m_tfrac;
+		looped = (top->m_flags & 0x40) != 0;
+
+		for (ACTIVE_ANIM *active = top->m_anims->Begin(); active != NULL; active = top->m_anims->Next())
+			active->m_anim->m_flags &= ~0x40;
+	}
+
+	CZBodyAnimBlend *blend = m_blend_pool->GetNext(true);
+
+	if (blend != NULL)
+		blend->Clear();
+
+	if (blend == NULL)
+		return top;
+
+	CZBodyAnim *anim = (id >= 0 && (u32)id < m_body_anims.size()) ? m_body_anims[id] : NULL;
+	ACTIVE_ANIM *active = m_active_anim_pool->GetActiveAnim(anim);
+
+	if (active == NULL)
+	{
+		blend->Clear();
+		m_blend_pool->PutBack(blend);
+		return top;
+	}
+
+	blend->m_anims->Clear();
+	blend->m_anims->Add(active);
+	blend->m_flags = 0;
+	blend->m_animType = AnimType::animTypeUndefined;
+	blend->m_tfrac = 0.0f;
+	active->m_wt = 1.0f;
+	blend->Reset();
+	blend->m_flags &= ~0x40;
+
+	if (active->m_anim->m_looped)
+		blend->m_flags |= 0x40;
+
+	if (active->m_anim->GetCallbackIndex(0) > 0)
+		blend->m_flags |= 0x1;
+	else
+		blend->m_flags &= ~0x1;
+
+	active->m_wt = 1.0f;
+	blend->m_callback.m_func = NULL;
+	blend->m_callback.m_tfrac = 0.0f;
+	blend->m_callback.m_userdata = NULL;
+	blend->m_animType = (AnimType)type;
+	blend->m_state = (s8)state;
+
+	if (looped && (blend->m_flags & 0x40) != 0)
+		blend->m_tfrac = tfrac;
+
+	m_blends->Push(blend);
+
+	if (!(m_interp1 <= 0.0f))
+	{
+		for (std::vector<CZBodyPart*>::iterator it = m_body_parts.begin(); it != m_body_parts.end(); ++it)
+		{
+			CZBodyPart *part = *it;
+
+			if (part != NULL)
+			{
+				part->m_saved_pos = part->m_pos;
+				part->m_saved_rot = part->m_rot;
+			}
+		}
+	}
+
+	f32 blendtime = blend->m_anims->Begin()->m_anim->m_pCommon->m_blendtime;
+	m_interp1 = blendtime;
+	m_interp2 = blendtime;
+
+	if (flag)
+		blend->m_flags |= 0x80;
+	else
+		blend->m_flags &= ~0x80;
+
+	return blend;
 }
 
 /* @socom-skeleton stub PopBlend__5CBodyFv */
 CZBodyAnimBlend * CBody::PopBlend()
 {
+	/* 0x1e2350: the top blend's anims and their overlays go back to the pool, the blend back
+	 * to its pool; the new top restarts the interpolation, is reset when it plays the same
+	 * anim, sets the body state and keeps a looped old top's time. ELF quirk: the old top is
+	 * not NULL-checked. */
+	CZBodyAnimBlend *top = m_blends->Top();
+
+	if (!(m_interp1 <= 0.0f))
+	{
+		for (std::vector<CZBodyPart*>::iterator it = m_body_parts.begin(); it != m_body_parts.end(); ++it)
+		{
+			CZBodyPart *part = *it;
+
+			if (part != NULL)
+			{
+				part->m_saved_pos = part->m_pos;
+				part->m_saved_rot = part->m_rot;
+			}
+		}
+	}
+
+	bool looped = (top->m_flags & 0x40) != 0;
+	f32 tfrac = top->m_tfrac;
+	CZBodyAnim *representative = top->m_anims->Begin()->m_anim;
+	ACTIVE_ANIM *active = top->m_anims->Begin();
+
+	while (active != NULL)
+	{
+		ACTIVE_ANIM *next = top->m_anims->Next();
+		active->m_anim->m_flags &= ~0x40;
+
+		for (ACTIVE_ANIM *overlay = active->m_overlay; overlay != NULL; )
+		{
+			ACTIVE_ANIM *after = overlay->m_overlay;
+			m_active_anim_pool->PutBack(overlay);
+			overlay = after;
+		}
+
+		active->m_overlay = NULL;
+		m_active_anim_pool->PutBack(active);
+		active = next;
+	}
+
+	top->Clear();
+	m_blend_pool->PutBack(top);
+	m_blends->Pop();
+	CZBodyAnimBlend *blend = m_blends->Top();
+
+	if (blend == NULL)
+		return NULL;
+
+	f32 blendtime = blend->m_anims->Begin()->m_anim->m_pCommon->m_blendtime;
+	m_interp1 = blendtime;
+	m_interp2 = blendtime;
+
+	if (blend->m_anims->Begin()->m_anim == representative)
+		blend->Reset();
+
+	m_state = blend->m_state;
+
+	if (looped && (blend->m_flags & 0x40) != 0)
+		blend->m_tfrac = tfrac;
+
+	return blend;
 }
 
 /* @socom-skeleton stub ClearBlendOverlay__5CBodyFv */
@@ -671,18 +864,44 @@ void CZBodyAnim::SetTimeScale(float scale)
 }
 
 /* @socom-skeleton stub GetActiveAnim__15CActiveAnimPoolFP10CZBodyAnim */
-ACTIVE_ANIM * CActiveAnimPool::GetActiveAnim(CZBodyAnim *)
+ACTIVE_ANIM * CActiveAnimPool::GetActiveAnim(CZBodyAnim *anim)
 {
+	/* 0x1e1a60: a cleared pooled active anim playing anim (which gets flags 0x2 and 0x4) */
+	ACTIVE_ANIM *active = GetNext(true);
+
+	if (active == NULL)
+		return NULL;
+
+	active->Clear();
+	active->m_anim = anim;
+
+	if (anim != NULL)
+		anim->m_flags |= 0x2 | 0x4;
+
+	return active;
 }
 
 /* @socom-skeleton stub PutBack__15CActiveAnimPoolFP11ACTIVE_ANIM */
-void CActiveAnimPool::PutBack(ACTIVE_ANIM *)
+void CActiveAnimPool::PutBack(ACTIVE_ANIM *active)
 {
+	/* 0x1e1a30: cleared, then back into the pool */
+	active->Clear();
+	RTArray<ACTIVE_ANIM>::PutBack(active);
 }
 
 /* @socom-skeleton stub Clear__11ACTIVE_ANIMFv */
 void ACTIVE_ANIM::Clear()
 {
+	/* 0x1e1a00 */
+	m_anim = NULL;
+	m_wt = 0.0f;
+	m_overlay = NULL;
+	m_tfrac = 0.0f;
+	m_dfrac = 0.0f;
+	m_playback = 0.0f;
+	m_script_wt = 0.0f;
+	m_a = 0;
+	m_b = 0;
 }
 
 /* @socom-skeleton stub ClearOverlays__11ACTIVE_ANIMFP5CBody */
@@ -718,6 +937,78 @@ void CBlendOverlay::CallbackTick(void *, float)
 /* @socom-skeleton stub Reset__15CZBodyAnimBlendFv */
 void CZBodyAnimBlend::Reset()
 {
+	/* 0x1e0b20: back to the start (the end when reversed, flag 0x20) with no motion, every
+	 * anim at time 0 with a positive time scale; an unlooped blend quits on its last frame.
+	 * The time setter is an inline expanded three times in the ELF: the time wraps into
+	 * [0, 1], m_script_wt is the fraction between key frames m_a and m_b. */
+	struct Local
+	{
+		static void SetTime(ACTIVE_ANIM *active, f32 t)
+		{
+			while (!(t <= 1.0f))
+				t -= 1.0f;
+
+			while (t < 0.0f)
+				t += 1.0f;
+
+			active->m_tfrac = t;
+			active->m_script_wt = t * (f32)active->m_anim->m_pCommon->m_nFrames;
+			f32 frame = floorf(active->m_script_wt);
+			active->m_a = (s16)(s32)frame;
+			active->m_b = active->m_a + 1;
+			active->m_script_wt = active->m_script_wt - frame;
+		}
+	};
+
+	m_flags &= ~0x10;
+	m_flags |= 0x80;
+	m_ctrl = 0;
+	m_quitT = 1.0f;
+	m_tfrac = 0.0f;
+	m_dpos = CPnt3D::zero;
+	m_drot = CPnt3D::zero;
+
+	for (ACTIVE_ANIM *active = m_anims->Begin(); active != NULL; active = m_anims->Next())
+	{
+		Local::SetTime(active, 0.0f);
+		active->m_anim->m_flags &= ~0x40;
+		active->m_anim->m_tScale = fabsf(active->m_anim->m_tScale);
+	}
+
+	ACTIVE_ANIM *first = m_anims->Begin();
+	CZBodyAnim *anim = m_anims->Begin()->m_anim;
+
+	if (anim->m_looped)
+	{
+		m_quitT = 1.0f;
+	}
+	else
+	{
+		f32 frames = (f32)anim->m_pCommon->m_nFrames;
+		m_quitT = frames <= 1.0f ? 1.0f : (frames - 1.0f) / frames;
+
+		if ((m_flags & 0x20) != 0)
+		{
+			m_tfrac = m_quitT;
+			anim->SetTimeScale(-1.0f);
+			Local::SetTime(first, m_quitT);
+		}
+		else
+		{
+			m_tfrac = 0.0f;
+			anim->SetTimeScale(1.0f);
+			Local::SetTime(first, 0.0f);
+		}
+	}
+
+	m_homing.m_blend = NULL;
+	m_homing.m_refpt_m = CPnt3D::zero;
+	m_homing.m_norm_w = CPnt3D::zero;
+	m_homing.m_int_w = CPnt3D::zero;
+	m_homing.m_refvec_m = CPnt3D::zero;
+	m_homing.m_target_refpt_m = CPnt3D::zero;
+	m_action_node = NULL;
+	m_result_parent = NULL;
 }
 
 /* @socom-skeleton stub CallbackTick__15CZBodyAnimBlendFP5CBodyff */
@@ -753,6 +1044,8 @@ void CZBodyAnimBlend::GetVelocity(CPnt3D *)
 /* @socom-skeleton stub ThisFoot__15CZBodyAnimBlendFv */
 int CZBodyAnimBlend::ThisFoot()
 {
+	/* 0x1dff80: the time in sixtieths */
+	return (s32)(60.0f * m_tfrac);
 }
 
 /* @socom-skeleton stub SetRepresentativeWt__15CZBodyAnimBlendFf */
@@ -765,21 +1058,87 @@ void CZBodyAnimBlend::SetRepresentativeWt(float wt)
 /* @socom-skeleton stub Representative__15CZBodyAnimBlendFv */
 CZBodyAnim * CZBodyAnimBlend::Representative()
 {
+	/* 0x1dff30: the first active anim's anim (ELF: no NULL check) */
+	return m_anims->Begin()->m_anim;
 }
 
 /* @socom-skeleton stub ReverseDir__15CZBodyAnimBlendFv */
 void CZBodyAnimBlend::ReverseDir()
 {
+	/* 0x1dfeb0: flag 0x20 and a negative time scale on the first anim; an unlooped blend
+	 * starts at its quit time */
+	m_flags |= 0x20;
+	CZBodyAnim *anim = m_anims->Begin()->m_anim;
+	anim->m_tScale = -fabsf(anim->m_tScale);
+
+	if ((m_flags & 0x40) == 0)
+		m_tfrac = m_quitT;
 }
 
 /* @socom-skeleton stub SetBlendAnims__15CZBodyAnimBlendFP5CBodyP15CActiveAnimList */
-void CZBodyAnimBlend::SetBlendAnims(CBody *, CActiveAnimList *)
+void CZBodyAnimBlend::SetBlendAnims(CBody *body, CActiveAnimList *list)
 {
+	/* 0x1dfd00: the current anims and their overlays go back to the body's pool; list's anims
+	 * replace them, normalized; flag 1 when any has a first callback */
+	ACTIVE_ANIM *active = m_anims->Begin();
+
+	while (active != NULL)
+	{
+		ACTIVE_ANIM *next = m_anims->Next();
+		m_anims->Remove(active);
+
+		for (ACTIVE_ANIM *overlay = active->m_overlay; overlay != NULL; )
+		{
+			ACTIVE_ANIM *after = overlay->m_overlay;
+			body->m_active_anim_pool->PutBack(overlay);
+			overlay = after;
+		}
+
+		active->m_overlay = NULL;
+		body->m_active_anim_pool->PutBack(active);
+		active = next;
+	}
+
+	for (active = list->Begin(); active != NULL; active = list->Next())
+		m_anims->Add(active);
+
+	Normalize();
+	m_flags &= ~0x1;
+
+	for (active = m_anims->Begin(); active != NULL; active = m_anims->Next())
+	{
+		if (active->m_anim != NULL && active->m_anim->GetCallbackIndex(0) > 0)
+		{
+			m_flags |= 0x1;
+			return;
+		}
+	}
 }
 
 /* @socom-skeleton stub Normalize__15CZBodyAnimBlendFv */
 void CZBodyAnimBlend::Normalize()
 {
+	/* 0x1dfc00: weights scaled to sum 1 (left alone when already within 1e-5 of 1, or when
+	 * the sum is not above 1e-5). ELF quirk: an empty pool (size 0) is tested, not an empty
+	 * list. */
+	if (m_anims->m_size == 0)
+		return;
+
+	f32 sum = 0.0f;
+
+	for (ACTIVE_ANIM *active = m_anims->Begin(); active != NULL; active = m_anims->Next())
+		sum += active->m_wt;
+
+	if (_close_enough(sum, 1.0f, 1e-5f))
+		return;
+
+	if (sum <= 1e-5f)
+		return;
+
+	f32 scale = 1.0f / sum;
+
+	for (ACTIVE_ANIM *active = m_anims->Begin(); active != NULL; active = m_anims->Next())
+		active->m_wt = scale * active->m_wt;
 }
 
 /* @socom-skeleton stub AddOverlay__15CZBodyAnimBlendFP11ACTIVE_ANIMP11ACTIVE_ANIMf */
@@ -788,18 +1147,57 @@ void CZBodyAnimBlend::AddOverlay(ACTIVE_ANIM *, ACTIVE_ANIM *, float)
 }
 
 /* @socom-skeleton stub FindAnim__15CZBodyAnimBlendFP10CZBodyAnim */
-ACTIVE_ANIM * CZBodyAnimBlend::FindAnim(CZBodyAnim *)
+ACTIVE_ANIM * CZBodyAnimBlend::FindAnim(CZBodyAnim *anim)
 {
+	/* 0x1dfab0 */
+	for (ACTIVE_ANIM *active = m_anims->Begin(); active != NULL; active = m_anims->Next())
+	{
+		if (active->m_anim == anim)
+			return active;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub CountAnims__15CZBodyAnimBlendFv */
 int CZBodyAnimBlend::CountAnims()
 {
+	/* 0x1dfa30: the anims and their overlays */
+	s32 count = 0;
+
+	for (ACTIVE_ANIM *active = m_anims->Begin(); active != NULL; active = m_anims->Next())
+	{
+		count++;
+
+		for (ACTIVE_ANIM *overlay = active->m_overlay; overlay != NULL; overlay = overlay->m_overlay)
+			count++;
+	}
+
+	return count;
 }
 
 /* @socom-skeleton stub Clear__15CZBodyAnimBlendFv */
 void CZBodyAnimBlend::Clear()
 {
+	/* 0x1df920: no anims, callback or homing (the motion is kept) */
+	m_quitT = 0.0f;
+	m_tfrac = 0.0f;
+	m_action_node = NULL;
+	m_result_parent = NULL;
+	m_flags = 0;
+	m_ctrl = 0;
+	m_state = 0;
+	m_animType = AnimType::animTypeUndefined;
+	m_anims->Clear();
+	m_callback.m_func = NULL;
+	m_callback.m_tfrac = 0.0f;
+	m_callback.m_userdata = NULL;
+	m_homing.m_blend = NULL;
+	m_homing.m_refpt_m = CPnt3D::zero;
+	m_homing.m_norm_w = CPnt3D::zero;
+	m_homing.m_int_w = CPnt3D::zero;
+	m_homing.m_refvec_m = CPnt3D::zero;
+	m_homing.m_target_refpt_m = CPnt3D::zero;
 }
 
 /* @socom-skeleton stub __dt__5CBodyFv */

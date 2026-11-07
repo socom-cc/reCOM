@@ -14,6 +14,8 @@ class CZBodyAnim;
 
 class CBody
 {
+	friend class CZBodyAnimBlend; /* port: SetBlendAnims 0x1dfd00 returns anims to m_active_anim_pool */
+	friend class CSealAnim; /* port: AnimPop 0x26ddc0 writes the parts' poses */
 public:
 	void SmoothAnims(f32 scale);
 	/* port: provisional non-const FindPart removed; the ELF one is FindPart(const char *) const */
@@ -129,6 +131,9 @@ class CZBodyPart
 {
 	friend class CBody;
 	friend class CZSealBody; /* port: BindAnimSet 0x27e7b0 reads m_root->m_parent */
+	friend class CSealAnim; /* port: AnimPush 0x26deb0 / AnimPop 0x26ddc0 read and write the pose */
+	friend class CObjAnims; /* port: GetObjAnim 0x27d510 reads m_id */
+	friend class CZKit; /* port: InitItemModel 0x2ae340 sets the grenade part's node */
 public:
 	CZBodyPart(zdb::CNode* node);
 	~CZBodyPart();

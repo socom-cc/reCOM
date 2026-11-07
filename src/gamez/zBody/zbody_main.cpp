@@ -9,6 +9,44 @@
 /* @socom-skeleton end include */
 
 /* @socom-skeleton stub PartInSpace__5CBodyCFP10CZBodyPartPC6CPnt3DP6CPnt3DP5CQuat */
-void CBody::PartInSpace(CZBodyPart *, const CPnt3D *, CPnt3D *, CQuat *) const
+void CBody::PartInSpace(CZBodyPart *part, const CPnt3D *local, CPnt3D *pos, CQuat *rot) const
 {
+	/* 0x1dc520: the point local (the origin without one) of part, and the part's rotation,
+	 * carried up the part chain to the root part's space (rot normalized) */
+	if (part == NULL)
+		return;
+
+	CPnt3D p;
+
+	if (local == NULL)
+		p = CPnt3D::zero;
+	else
+		part->m_rot.Apply(local, &p, 1);
+
+	CQuat q;
+
+	if (rot == NULL)
+		q = CQuat::identity;
+	else
+		q = part->m_rot;
+
+	for (; part->m_parent != NULL; part = part->m_parent)
+	{
+		CPnt3D moved;
+		static_cast<const CPnt3D &>(p).Add(&part->m_pos, &moved); /* Add__6CPnt3DCFPC6CPnt3DP6CPnt3D (the non-const overload is provisional) */
+		CQuat *parent = &part->m_parent->m_rot;
+		parent->Apply(&moved, &p, 1);
+
+		if (rot != NULL)
+		{
+			CQuat prev = q;
+			parent->Mul(&prev, &q);
+		}
+	}
+
+	if (pos != NULL)
+		static_cast<const CPnt3D &>(p).Add(&part->m_pos, pos);
+
+	if (rot != NULL)
+		q.Normalize(rot);
 }

@@ -53,6 +53,11 @@ void CZSealBody::WepWaitOff()
 /* @socom-skeleton stub WepWaitOn__10CZSealBodyFv */
 void CZSealBody::WepWaitOn()
 {
+	/* 0x2c0620: the weapon raise/wait/lower timing (the wait practically forever) */
+	m_wep_upT = 0.1f;
+	m_wep_waitT = 100000.0f;
+	m_wep_downT = 0.5f;
+	m_wep_sumT = 100000.6f;
 }
 
 /* @socom-skeleton stub SetWeaponState__10CZSealBodyF12WEAPON_STATE */
@@ -76,18 +81,107 @@ zdb::CNode * CZSealBody::GetFirepointNode(const char *)
 }
 
 /* @socom-skeleton stub GetNodePos__10CZSealBodyFPCQ23zdb5CNodeR6CPnt3Db */
-void CZSealBody::GetNodePos(const zdb::CNode *, CPnt3D &, bool)
+bool CZSealBody::GetNodePos(const zdb::CNode *node, CPnt3D &out, bool translate)
 {
+	/* 0x2bfed0: node's position (a child of the current item's weapon part) through the
+	 * weapon part chain, then the entity matrix (its translation only when translate);
+	 * false without a node, a weapon or its part */
+	if (node == NULL)
+		return false;
+
+	SEAL_ITEM item = m_kit.GetCurItemType();
+
+	if (m_weapons[(s8)item] == NULL)
+		return false;
+
+	CZBodyPart *part = BodyWepPart(this, item);
+
+	if (part == NULL || part->m_node == NULL)
+		return false;
+
+	CPnt3D local;
+	CPnt3D pos(node->m_matrix.m_matrix[3][0], node->m_matrix.m_matrix[3][1], node->m_matrix.m_matrix[3][2]);
+	PartInSpace(part, &pos, &local, NULL);
+	const sceVu0FMATRIX &m = m_node->m_matrix.m_matrix;
+	out.x = local.x * m[0][0] + local.y * m[1][0] + local.z * m[2][0];
+	out.y = local.x * m[0][1] + local.y * m[1][1] + local.z * m[2][1];
+	out.z = local.x * m[0][2] + local.y * m[1][2] + local.z * m[2][2];
+
+	if (translate)
+	{
+		out.x += m[3][0];
+		out.y += m[3][1];
+		out.z += m[3][2];
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub SetAimDirR__10CZSealBodyFPC6CPnt3Db */
-unsigned char CZSealBody::SetAimDirR(const CPnt3D *, bool)
+unsigned char CZSealBody::SetAimDirR(const CPnt3D *dir, bool reset)
 {
+	/* 0x2bfe60: the aim goal toward dir (relative); an unattainable dir with reset aims
+	 * straight ahead */
+	unsigned char result = CalcAimGoal(&m_aim_dir, dir, &m_aim_goal);
+
+	if (!result && reset)
+		m_aim_goal = CPnt3D::unit_nz;
+
+	return result;
 }
 
 /* @socom-skeleton stub CalcAimGoal__10CZSealBodyFPC6CPnt3DPC6CPnt3DP6CPnt3D */
-unsigned char CZSealBody::CalcAimGoal(const CPnt3D *, const CPnt3D *, CPnt3D *)
+unsigned char CZSealBody::CalcAimGoal(const CPnt3D *curr, const CPnt3D *dir, CPnt3D *out)
 {
+	/* 0x2bfba0: in the stand, crouch, in-air and prone states (a peek counts as its base
+	 * state) a dir inside the aim cone (the prone limits when prone) is the goal; outside
+	 * it CalcGoalDir clamps it. Other states cannot aim. */
+	SEAL_STATE state = (SEAL_STATE)m_state;
+
+	if (state == SEAL_STATE::statePeek)
+		state = PeekBaseState();
+
+	bool prone = state == SEAL_STATE::stateProne;
+
+	if (!prone && state != SEAL_STATE::stateInAir && state != SEAL_STATE::stateCrouch && state != SEAL_STATE::stateStand)
+	{
+		m_aimpt_attainable = false;
+		return 0;
+	}
+
+	f32 cosmin = prone ? theCharacterDynamics.m_cosProneMinAimPitch : theCharacterDynamics.m_cosMinAimPitch;
+	f32 cosmax = prone ? theCharacterDynamics.m_cosProneMaxAimPitch : theCharacterDynamics.m_cosMaxAimPitch;
+	f32 cosyaw = prone ? theCharacterDynamics.m_cosProneMaxAimYaw : theCharacterDynamics.m_cosMaxAimYaw;
+	bool inside = true;
+	f32 len = sqrtf(dir->x * dir->x + dir->z * dir->z);
+	f32 yawcos = len != 0.0f ? -dir->z / len : 1.0f;
+
+	if (dir->z >= 0.0f)
+	{
+		if (len < cosmax)
+			inside = false;
+	}
+	else if (len < cosmin)
+	{
+		inside = false;
+	}
+
+	if (yawcos < cosyaw)
+		inside = false;
+
+	if (inside)
+	{
+		*out = *dir;
+		m_aimpt_attainable = true;
+		return 1;
+	}
+
+	f32 minpitch = prone ? theCharacterDynamics.m_proneMinAimPitch : theCharacterDynamics.m_minAimPitch;
+	f32 maxpitch = prone ? theCharacterDynamics.m_proneMaxAimPitch : theCharacterDynamics.m_maxAimPitch;
+	f32 maxyaw = prone ? theCharacterDynamics.m_proneMaxAimYaw : theCharacterDynamics.m_maxAimYaw;
+	unsigned char result = CalcGoalDir(curr, dir, out, maxpitch, minpitch, -maxyaw, maxyaw);
+	m_aimpt_attainable = result;
+	return result;
 }
 
 /* @socom-skeleton stub SetAimPointW__10CZSealBodyFPC6CPnt3DPC6CPnt3Db */
@@ -98,6 +192,32 @@ void CZSealBody::SetAimPointW(const CPnt3D *, const CPnt3D *, bool)
 /* @socom-skeleton stub UpdateAimParams__10CZSealBodyFv */
 void CZSealBody::UpdateAimParams()
 {
+	/* 0x2bf920: the current weapon part's "aimpoint" and "firepoint" nodes (found once),
+	 * then their positions in the entity's frame (no translation) */
+	if (m_curr_aimpt == NULL)
+	{
+		SEAL_ITEM item = m_kit.GetCurItemType();
+		CZBodyPart *part = m_weapons[(s8)item] != NULL ? BodyWepPart(this, item) : NULL;
+
+		if (part == NULL || part->m_node == NULL)
+			m_curr_aimpt = NULL;
+		else
+			m_curr_aimpt = part->m_node->FindChild("aimpoint", false);
+	}
+
+	if (m_curr_firept == NULL)
+	{
+		SEAL_ITEM item = m_kit.GetCurItemType();
+		CZBodyPart *part = m_weapons[(s8)item] != NULL ? BodyWepPart(this, item) : NULL;
+
+		if (part == NULL || part->m_node == NULL)
+			m_curr_firept = NULL;
+		else
+			m_curr_firept = part->m_node->FindChild("firepoint", false);
+	}
+
+	GetNodePos(m_curr_aimpt, m_curr_aimpos, false);
+	GetNodePos(m_curr_firept, m_curr_firepos, false);
 }
 
 /* @socom-skeleton stub GetAP__10CZSealBodyFR6CPnt3D */

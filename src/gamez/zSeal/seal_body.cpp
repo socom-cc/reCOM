@@ -153,6 +153,7 @@
 #include "gamez/zBody/zbody.h"
 #include "gamez/zCharacter/zchar.h"
 #include "gamez/zMath/zmath.h"
+#include "gamez/zNetwork/znet.h" /* theNetwork (PushBlend) */
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
 class ACTIVE_ANIM;
@@ -220,13 +221,65 @@ static unsigned char MultiplayerMsgStrings[28];
 static unsigned char newanims[20];
 
 /* @socom-skeleton stub SetPartAsGear__10CZSealBodyFP10CZBodyPartP14CCharacterGear */
-void CZSealBody::SetPartAsGear(CZBodyPart *, CCharacterGear *)
+void CZSealBody::SetPartAsGear(CZBodyPart *part, CCharacterGear *gear)
 {
+	/* 0x27d9b0: the part takes the gear's offset and rotation, and leaves the animated parts */
+	part->m_pos = gear->m_offset;
+	CQuat rot;
+	part->m_rot = *QFromRot(&rot, &gear->m_rotation);
+
+	if (part->m_node != NULL)
+		part->Orient();
+
+	if (part->m_id < (s32)m_body_parts.size())
+		m_body_parts[part->m_id] = NULL;
 }
 
 /* @socom-skeleton stub ConfigureAuxPartAnim__10CZSealBodyFP10CZBodyAnim */
-void CZSealBody::ConfigureAuxPartAnim(CZBodyAnim *)
+void CZSealBody::ConfigureAuxPartAnim(CZBodyAnim *anim)
 {
+	/* 0x27d620: the aux slots 29-31 animate the obj-anim part whose id the anim's script
+	 * object for that slot names (none without an object); a part that leaves its slot is
+	 * set back as gear (SetPartAsGear, inline). ELF quirk: a part leaving for another part
+	 * is set as gear even when its entry has no gear (port: skipped then; the ELF reads from
+	 * address 0x1c). */
+	if (anim == NULL)
+		return;
+
+	for (u32 i = 29; i < 32; i++)
+	{
+		CZBodyPart *part = m_body_parts[i];
+		CCharacterGear *gear = NULL;
+
+		if (part != NULL)
+		{
+			OBJ_ANIM *entry = m_obj_anims.GetObjAnim(part->m_id);
+			gear = entry != NULL ? entry->m_gear : NULL;
+		}
+
+		std::vector<CZSIObject*> &objects = anim->m_pCommon->m_objects_for_body;
+		CZSIObject *object = i < objects.size() ? objects[i] : NULL;
+
+		if (object == NULL)
+		{
+			if (part != NULL && gear != NULL)
+				SetPartAsGear(part, gear);
+
+			if (i < m_body_parts.size())
+				m_body_parts[i] = NULL;
+		}
+		else
+		{
+			OBJ_ANIM *entry = m_obj_anims.GetObjAnim(object->m_body_part_id);
+			CZBodyPart *newpart = entry != NULL ? entry->m_part : NULL;
+
+			if (part != NULL && part != newpart && gear != NULL)
+				SetPartAsGear(part, gear);
+
+			if (i < m_body_parts.size())
+				m_body_parts[i] = newpart;
+		}
+	}
 }
 
 /* @socom-skeleton stub __dt__9CObjAnimsFv */
@@ -235,8 +288,16 @@ CObjAnims::~CObjAnims()
 }
 
 /* @socom-skeleton stub GetObjAnim__9CObjAnimsFi */
-void CObjAnims::GetObjAnim(int)
+OBJ_ANIM * CObjAnims::GetObjAnim(int id)
 {
+	/* 0x27d510: the entry whose part has that id */
+	for (std::vector<OBJ_ANIM*>::iterator it = m_obj_anims.begin(); it != m_obj_anims.end(); ++it)
+	{
+		if ((*it)->m_part->m_id == id)
+			return *it;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub GetSpeedState__10CZSealBodyFv */
@@ -276,11 +337,258 @@ void CZSealBody::ClearStack(unsigned int depth, bool reset)
 /* @socom-skeleton stub PopBlend__10CZSealBodyFv */
 CZBodyAnimBlend * CZSealBody::PopBlend()
 {
+	/* 0x27cbf0: the body pops its top blend; the new top configures the aux parts and is the
+	 * current type (undefined when none). A hang state top re-enters the hang state. The
+	 * popped climb/ladder anims then settle the entity: the node goes to the altitude (ladder
+	 * offsets for stand-to-ladder), the root's saved height to the climb end height. ELF
+	 * quirk: the old top is read without a NULL check. */
+	CZBodyAnimBlend *blend = m_blends->Top();
+	AnimType popped = m_CurrentBlendAnimType;
+	bool reversed = (blend->m_flags & 0x20) != 0;
+	blend = CBody::PopBlend();
+
+	if (blend == NULL)
+	{
+		m_CurrentBlendAnimType = AnimType::animTypeUndefined;
+		return blend;
+	}
+
+	ConfigureAuxPartAnim(blend->Representative());
+	m_CurrentBlendAnimType = m_animset->BaseAnim(blend->m_animType);
+
+	if (blend->m_state == 3)
+	{
+		if (m_state != 3)
+			((CSealCtrl *)m_control)->OnStateChange((SEAL_STATE)m_state, (SEAL_STATE)3);
+
+		BodySetState(3);
+	}
+
+	struct Local
+	{
+		/* the node to (x, altitude, z) and the root's saved pose height to y */
+		static void Settle(CZSealBody *body, f32 y)
+		{
+			CPnt3D *posw = body->GetPosW();
+			CPnt3D pos;
+			pos.x = posw->x;
+			pos.y = body->m_alt;
+			pos.z = posw->z;
+			body->GetNode()->SetPosition(pos.x, pos.y, pos.z);
+			CPnt3D saved;
+			saved.x = body->GetRootPart()->m_saved_pos.x;
+			saved.z = body->GetRootPart()->m_saved_pos.z;
+			saved.y = y;
+			body->GetRootPart()->m_saved_pos = saved;
+		}
+	};
+
+	if ((s16)popped == AnimTypes::ClimbOver)
+	{
+		m_skel_y_w = GetPosW()->y + GetRootPart()->m_pos.y;
+		m_fix_skel_y = 1;
+		m_alt = m_last_altitude.m_pos.y;
+	}
+	else if (popped == AnimType::animTypeClimbOffLadder)
+	{
+		if (reversed)
+		{
+			blend->m_tfrac = 0.95f;
+		}
+		else
+		{
+			CPnt3D *posw = GetPosW();
+			f32 x = posw->x;
+			f32 z = posw->z;
+			GetNode()->SetPosition(x, m_alt, z);
+		}
+	}
+	else if (popped == AnimType::animTypeStand2Ladder && !reversed)
+	{
+		CPnt3D *posw = GetPosW();
+		f32 x = posw->x;
+		f32 z = posw->z;
+		GetNode()->SetPosition(x, (m_alt + 15.3f) - 11.487f, z);
+	}
+	else if ((s16)popped == AnimTypes::Ladder2Slide)
+	{
+		m_alt = GetPosW()->y;
+	}
+	else if (popped == AnimType::animTypeClimbCrate)
+	{
+		Local::Settle(this, 11.4f);
+	}
+	else if ((s16)popped == AnimTypes::ClimbMedium)
+	{
+		Local::Settle(this, 11.5f);
+	}
+	else if (popped == AnimType::animTypeHang2Climb)
+	{
+		Local::Settle(this, 10.73f);
+	}
+	else if ((s16)popped == AnimTypes::StepUp)
+	{
+		Local::Settle(this, 10.45f);
+	}
+	else if ((s16)popped == AnimTypes::Rotate180)
+	{
+		PreClimbLadderDown();
+	}
+
+	return blend;
 }
 
 /* @socom-skeleton stub PushBlend__10CZSealBodyF8AnimTypeib */
-CZBodyAnimBlend * CZSealBody::PushBlend(AnimType, int, bool)
+CZBodyAnimBlend * CZSealBody::PushBlend(AnimType type, int state, bool reverse)
 {
+	/* 0x27c090: the item variant of the type's anim goes on the blend stack (an overlay anim,
+	 * flag 0x20, replaces the overlay instead). Nothing changes (the top is returned) while
+	 * the top blend is in state 8 outside body state 10, while stunned, without an anim or
+	 * id, while sliding, or for a CQB anim during a CQB anim. Stance and climb anims first cut
+	 * the stack to one or two blends (ClearStack, inline in the ELF); the pushed type then
+	 * sets the ladder time, the slide state, the jump launch timing or the pistol swap
+	 * callback. A local body tells the network. */
+	CZBodyAnimBlend *blend = m_blends->Top();
+
+	if (blend != NULL && m_state != 10 && blend->m_state == 8)
+		return blend;
+
+	if (m_am_stunned)
+		return blend;
+
+	CZBodyAnim *anim = BaseAnim(type);
+
+	if (anim == NULL)
+		return blend;
+
+	if (blend != NULL && m_CurrentBlendAnimType == m_animset->BaseAnim((AnimType)AnimTypes::Slide))
+		return blend;
+
+	if ((anim->m_flags & 0x20) != 0)
+	{
+		ClearBlendOverlay();
+		blend = AddBlendOverlay(type);
+	}
+	else
+	{
+		AnimType animtype = (AnimType)anim->m_animType;
+		s16 id = m_animset->AnimId(animtype);
+
+		if (id < 0)
+			return blend;
+
+		s16 cqbtype = (s16)animtype;
+
+		if (blend != NULL
+			&& (m_CurrentBlendAnimType == m_animset->BaseAnim((AnimType)AnimTypes::CQB)
+				|| m_CurrentBlendAnimType == m_animset->BaseAnim((AnimType)AnimTypes::PistolCQB)
+				|| m_CurrentBlendAnimType == m_animset->BaseAnim((AnimType)AnimTypes::CQBVictimFallBackwards)
+				|| m_CurrentBlendAnimType == m_animset->BaseAnim((AnimType)AnimTypes::CQBVictimFallForwards))
+			&& (cqbtype == AnimTypes::CQB || cqbtype == AnimTypes::PistolCQB
+				|| cqbtype == AnimTypes::CQBVictimFallBackwards || cqbtype == AnimTypes::CQBVictimFallForwards))
+		{
+			return blend;
+		}
+
+		if (animtype == AnimType::animTypeCrouch || animtype == AnimType::animTypeProne
+			|| animtype == AnimType::animTypeHang || animtype == AnimType::animTypeClimbLadder)
+		{
+			ClearStack(1, true);
+		}
+		else if (animtype == AnimType::animTypeStand2Crouch || animtype == AnimType::animTypeStand2Prone
+			|| animtype == AnimType::animTypeStand2Ladder)
+		{
+			ClearStack(reverse ? 1 : 2, true);
+		}
+		else if (animtype == AnimType::animTypeCrouch2Prone || animtype == AnimType::animTypeStand2Hang)
+		{
+			ClearStack(2, true);
+		}
+		else if (animtype == AnimType::animTypeHang2Climb || animtype == AnimType::animTypeHangJumpDown)
+		{
+			ClearStack(1, true);
+		}
+		else if (animtype == AnimType::animTypeClimbOffLadder)
+		{
+			ClearStack(reverse ? 2 : 1, true);
+		}
+		else if (cqbtype == AnimTypes::LadderSlide)
+		{
+			ClearStack(1, true);
+		}
+		else if (cqbtype == AnimTypes::StepUp || animtype == AnimType::animTypeClimbCrate
+			|| cqbtype == AnimTypes::ClimbMedium)
+		{
+			if (m_state == 0)
+			{
+				ClearStack(1, true);
+			}
+			else
+			{
+				ClearStack(2, true);
+				m_desiredState = SEAL_STATE::stateCrouch;
+			}
+		}
+
+		blend = CBody::PushBlend(id, (s32)animtype, state, false);
+		m_CurrentBlendAnimType = m_animset->BaseAnim(blend->m_animType);
+
+		if (reverse)
+			blend->ReverseDir();
+
+		ConfigureAuxPartAnim(anim);
+
+		if (m_CurrentBlendAnimType == m_animset->BaseAnim(AnimType::animTypeClimbLadder))
+		{
+			blend->m_tfrac = 0.0f;
+		}
+		else if (m_CurrentBlendAnimType == m_animset->BaseAnim((AnimType)AnimTypes::LadderSlide))
+		{
+			if (m_state != 5)
+				((CSealCtrl *)m_control)->OnStateChange((SEAL_STATE)m_state, (SEAL_STATE)5);
+
+			BodySetState(5);
+		}
+		else if (m_CurrentBlendAnimType == m_animset->BaseAnim(AnimType::animTypeJumpLaunch))
+		{
+			CZBodyAnim *representative = blend->Representative();
+			ACTIVE_ANIM *active = blend->m_anims->Begin();
+			f32 speed = sqrtf(m_velM.x * m_velM.x + m_velM.z * m_velM.z);
+			active->m_playback = (representative->m_pCommon->m_distance / speed) / representative->m_tf;
+			m_jumpTimer = 0.1f;
+			m_nextJumpTimer = 0.4f;
+			m_jumpImpulse = theCharacterDynamics.m_jumpFactor * (-0.4f * theCharacterDynamics.m_gravity);
+			m_inAirHorizVel = m_velW;
+		}
+		else
+		{
+			f32 tfrac = -1.0f;
+
+			if (m_CurrentBlendAnimType == m_animset->BaseAnim(AnimType::animTypeRifle2Pistol))
+				tfrac = 0.72f;
+			else if (m_CurrentBlendAnimType == m_animset->BaseAnim(AnimType::animTypeCrouchRifle2Pistol))
+				tfrac = 0.82f;
+			else if (m_CurrentBlendAnimType == m_animset->BaseAnim(AnimType::animTypeProneRifle2Pistol))
+				tfrac = 0.62f;
+
+			if (tfrac >= 0.0f)
+			{
+				blend->m_callback.m_func = reverse ? (void (*)())ParentPistolToRThighAsGearCallback : (void (*)())ParentPistolToRHandCallback;
+				blend->m_callback.m_tfrac = tfrac;
+				blend->m_callback.m_userdata = NULL;
+			}
+		}
+	}
+
+	if (theNetwork.m_bNetwork)
+	{
+		bool remote = m_control != NULL ? ((CSealCtrl *)m_control)->IsRemote() : false;
+
+		if (!remote)
+			NetSendPushBlend(m_id, (s16)type, state, false);
+	}
+
+	return blend;
 }
 
 /* @socom-skeleton stub IsCurrentBlend__10CZSealBodyCF8AnimType */
@@ -299,8 +607,28 @@ void CZSealBody::CanInterrupt()
 }
 
 /* @socom-skeleton stub CanHeadLook__10CZSealBodyFv */
-void CZSealBody::CanHeadLook()
+bool CZSealBody::CanHeadLook()
 {
+	/* 0x27bd70: always without a blend; never in body state 8 (or a state 8 blend), 9 or
+	 * 10; else whether the last anim of the first active anim's overlay chain allows head
+	 * looks (flag 0x400). ELF quirk: only the first active anim's chain is read. */
+	CZBodyAnimBlend *blend = m_blends->Top();
+
+	if (blend == NULL)
+		return true;
+
+	if (m_state == 8 || blend->m_state == 8)
+		return false;
+
+	if (m_state == 9 || m_state == 10)
+		return false;
+
+	bool can = false;
+
+	for (ACTIVE_ANIM *active = blend->m_anims->Begin(); active != NULL; active = active->m_overlay)
+		can = (active->m_anim->m_flags & 0x400) != 0;
+
+	return can;
 }
 
 /* @socom-skeleton stub CanPitch__10CZSealBodyFv */
@@ -597,6 +925,16 @@ void CZSealBody::AbortPeek()
 /* @socom-skeleton stub PeekBaseState__10CZSealBodyFv */
 SEAL_STATE CZSealBody::PeekBaseState()
 {
+	/* 0x273660: the state of the topmost blend that is not a peek (stand without one) */
+	for (s32 i = m_blends->m_top; i >= 0; i--)
+	{
+		SEAL_STATE state = (SEAL_STATE)m_blends->m_stack[i]->m_state;
+
+		if (state != SEAL_STATE::statePeek)
+			return state;
+	}
+
+	return SEAL_STATE::stateStand;
 }
 
 /* @socom-skeleton stub BaseState__10CZSealBodyFv */

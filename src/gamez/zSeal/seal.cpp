@@ -756,10 +756,12 @@ CZSealBody::CZSealBody(zdb::CNode* node, CCharacterType* chartype) : CEntity(ENT
 	node->SetDescendantDI(true);
 	node->SetDescendantVisuals(true);
 
-	for (std::vector<CZWeapon*>::iterator i = m_weapons.begin(); i != m_weapons.end(); i++)
+	/* 0x2585a4: the weapon parts lose their nodes (+0xc of CZBodyPart; m_weapons holds the
+	 * parts AddWeapon made) */
+	for (std::vector<CZBodyPart*>::iterator i = m_weapons.begin(); i != m_weapons.end(); i++)
 	{
 		if (*i != NULL)
-			*(u32*)((u8*)*i + 0xc) = 0; /* port: guess - CZWeapon +0xc is not declared; the ELF zeroes it for each weapon */
+			(*i)->m_node = NULL;
 	}
 
 	zdb::CHit* fwdhit = new zdb::CHit;
@@ -926,6 +928,8 @@ void CZSealBody::OnRecycleEntity(CEntity *)
 /* @socom-skeleton stub GetRootPart__10CZSealBodyCFv */
 CZBodyPart * CZSealBody::GetRootPart() const
 {
+	/* 0x257710 */
+	return m_root;
 }
 
 /* @socom-skeleton stub __dt__10CZSealBodyFv */
@@ -934,8 +938,36 @@ CZSealBody::~CZSealBody()
 }
 
 /* @socom-skeleton stub AddWeapon__10CZSealBodyF9SEAL_ITEM */
-void CZSealBody::AddWeapon(SEAL_ITEM)
+bool CZSealBody::AddWeapon(SEAL_ITEM item)
 {
+	/* 0x256e90: a new named node (freed with the body) as the item's weapon part: the
+	 * grenade in the right hand, the pistol in the right hand when it is the current item
+	 * (else on the hips), the rifle in the right hand when current (else on the lower
+	 * spine). ELF quirk: m_weapons is indexed by item without a bound (port: sized 6 in
+	 * the ctor). */
+	CZBodyPart *parent = NULL;
+	zdb::CNode *node = new zdb::CNode();
+	m_deallocList.insert(m_deallocList.end(), node);
+
+	if (item == SEAL_ITEM::itemThrowable)
+	{
+		parent = m_rhand;
+		node->SetName("grenade");
+	}
+	else if (item == SEAL_ITEM::itemPistol)
+	{
+		parent = m_item == SEAL_ITEM::itemPistol ? m_rhand : m_hips;
+		node->SetName("pistol");
+	}
+	else if (item == SEAL_ITEM::itemRifle)
+	{
+		parent = m_item == SEAL_ITEM::itemRifle ? m_rhand : m_spinelo;
+		node->SetName("rifle");
+	}
+
+	CZBodyPart *part = AddBodyPart(node, parent);
+	m_weapons[(u32)item] = part;
+	return part != NULL;
 }
 
 /* @socom-skeleton stub UpdateStance__10CZSealBodyFv */
@@ -1173,6 +1205,28 @@ void CSealStats::Kill(const CZSealBody &)
 /* @socom-skeleton stub Reset__10CSealStatsFv */
 void CSealStats::Reset()
 {
+	/* 0x24e8a0: every count zero */
+	m_headshots = 0;
+	m_headhits = 0;
+	m_hits = 0;
+	m_shots = 0;
+	m_kills = 0;
+	m_washit = 0;
+	m_deaths = 0;
+	m_hostages = 0;
+	m_num_times_seen = 0;
+	m_num_stealthkills = 0;
+	m_num_cqb_used = 0;
+	m_num_restrained = 0;
+	m_num_grenades_used = 0;
+	m_primary_rounds_fired = 0;
+	m_secondary_rounds_fired = 0;
+	m_hostages_rescued = 0;
+	m_bases_blown = 0;
+	m_hit_percent = 0.0f;
+	m_sMvpScore = 0;
+	m_iRoundsWon = 0;
+	m_iRoundsTied = 0;
 }
 
 /* @socom-skeleton stub IncrTimesSeen__10CSealStatsFi */

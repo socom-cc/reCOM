@@ -150,6 +150,8 @@
 /* @socom-skeleton decl include */
 #include "gamez/zEntity/zentity.h"
 #include "gamez/zMath/zmath.h"
+#include "gamez/zCamera/zcam.h" /* CCamera::m_screenOffset (the ctor) */
+#include "gamez/zNode/node_world.h" /* CWorld::m_world */
 #include "gamez/zTexture/ztex.h"
 #include "gamez/zWeapon/zweapon.h"
 /* @socom-skeleton end include */
@@ -245,6 +247,88 @@ void CZKit::HasSniperRifle()
 /* @socom-skeleton stub __ct__5CZKitFv */
 CZKit::CZKit()
 {
+	/* 0x2aedc0: no items, ammo, reloads or gear; zoom 0, selected item 0 (last -1),
+	 * reticule 2, the heartbeat on; room for 8 available items. The camera's screen offset
+	 * takes the (zero) sniper position. */
+	m_num_items = 0;
+	m_body = NULL;
+	m_flashlight_model = NULL;
+	m_lightMap = NULL;
+
+	for (s32 i = 0; i < 30; i++)
+	{
+		m_item[i] = NULL;
+		m_ammo[i] = NULL;
+		m_firemode[i] = 0;
+
+		for (s32 j = 0; j < 10; j++)
+			m_reloads[i][j] = 0;
+
+		m_currentmag[i] = 0;
+		m_associatedgear[i] = NULL;
+		m_iteminuse[i] = 0;
+		m_itemstate[i] = 0;
+	}
+
+	m_requested_item = 0;
+	m_tracercount = 0;
+	m_cur_zoom = 0;
+	m_restore_zoom = m_cur_zoom;
+	m_selected_item = 0;
+	m_last_selected = -1;
+	m_items_avail.reserve(8);
+	m_fire_delay = 0.0f;
+	m_burst_count = 0;
+	m_firetime = 0.0f;
+	m_waiting_to_fire = 0;
+	m_waiting_to_raise = 0;
+	m_retsize = 0.0f;
+	m_prev_retsize = 0.0f;
+	m_prev_factor = 0.0f;
+	m_prev_axis_a = 0.0f;
+	m_prev_axis_b = 0.0f;
+	m_retblockedsize = 0.0f;
+	m_retsizegoal = 0.0f;
+	m_retmin = 0.0f;
+	m_retmax = 0.0f;
+	m_reticuletypeChanged = 0;
+	m_retoffsetx = 0.0f;
+	m_retposx = 0.0f;
+	m_retoffsety = 0.0f;
+	m_retposy = 0.0f;
+	m_retblockedX = 0.0f;
+	m_retblockedY = 0.0f;
+	m_retblocked = 0;
+	m_curitemreticule = 2;
+	m_first = 1;
+	m_changeToRifle = 0;
+	m_current_requested_ammo = 0;
+	m_pickupRequestWait = 0.0f;
+	m_chill_parabola = 0.0f;
+	m_heartbeat_state = 0;
+	m_heartbeat_accum = 0.0f;
+	m_sniper_posx = 0.0f;
+	m_sniper_posy = 0.0f;
+	m_sniper_prev_posx = 0.0f;
+	m_sniper_prev_posx = 0.0f; /* ELF quirk: m_sniper_prev_posy is not cleared (prev_posx twice) */
+	m_firerifle_kick_baseline = 0.0f;
+	m_firerifle_kick_movedist = 0.0f;
+	m_firerifle_kick_accum = 0.0f;
+	m_firerifle_kick_state = 0;
+	m_nvg_enabled = 0;
+	m_binocs_enabled = 0;
+	m_heartbeat_enabled = 1;
+	m_lase_timer = 0.0f;
+	m_lase_anim = NULL;
+	m_lase_mapname = NULL;
+	m_lase_echo = 0;
+	m_lase_deploy_echo = 0;
+	m_unused = 0;
+	m_screenoffset_x = 0.0f;
+	m_screenoffset_y = 0.0f;
+	zdb::CCamera *camera = zdb::CWorld::m_world->m_camera;
+	camera->m_screenOffset.x = m_sniper_posx;
+	camera->m_screenOffset.y = m_sniper_posy;
 }
 
 /* @socom-skeleton stub __dt__5CZKitFv */
@@ -270,6 +354,11 @@ void CZKit::GetCurItemIDType()
 /* @socom-skeleton stub GetCurItemType__5CZKitFv */
 SEAL_ITEM CZKit::GetCurItemType()
 {
+	/* 0x2aec60 */
+	if (m_item[m_selected_item] == NULL)
+		return SEAL_ITEM::itemNone;
+
+	return m_item[m_selected_item]->m_type;
 }
 
 /* @socom-skeleton stub Init__5CZKitFv */
@@ -298,8 +387,41 @@ void CZKit::SetupBinocular()
 }
 
 /* @socom-skeleton stub InitItemModel__5CZKitFPCcPCc */
-void CZKit::InitItemModel(const char *, const char *)
+void CZKit::InitItemModel(const char *model, const char *name)
 {
+	/* 0x2ae340: an instance (at the origin) of the cached or world model for an item, named
+	 * name, goes to the available item models (NULL without a model); a "grenade" instance
+	 * is hidden and becomes the grenade part's node. ELF: returns 1 with a model (the only
+	 * caller drops it). */
+	zdb::CModel *found = static_cast<zdb::CModelVector&>(CCharacterModelCache::m_ModelCache).GetModel(model);
+
+	if (found == NULL)
+	{
+		found = zdb::CWorld::GetModel(model);
+
+		if (found != NULL)
+			CCharacterModelCache::m_ModelCache.insert(CCharacterModelCache::m_ModelCache.end(), found);
+	}
+
+	if (found == NULL)
+	{
+		m_items_avail.insert(m_items_avail.end(), (zdb::CNode *)NULL);
+		return;
+	}
+
+	CPnt3D pos = CPnt3D::zero;
+	CQuat rot = CQuat::identity;
+	zdb::CNode *node = zdb::CNode::CreateInstance(found, &pos, &rot);
+	found->SetDynamicLight(true, false);
+	node->SetName(name);
+
+	if (name != NULL && strcmp(name, "grenade") == 0)
+	{
+		node->SetActive(false);
+		m_body->m_grenade->m_node = node;
+	}
+
+	m_items_avail.insert(m_items_avail.end(), node);
 }
 
 /* @socom-skeleton stub ReParentToPistol__5CZKitFv */
@@ -548,11 +670,75 @@ void CZKit::CurReticuleTypeChanged()
 /* @socom-skeleton stub SetCurReticule__5CZKitFv */
 void CZKit::SetCurReticule()
 {
+	/* 0x2a87e0 */
+	m_reticuletypeChanged = 1;
+	m_curitemreticule = GetReticuleByIndex(m_selected_item);
 }
 
 /* @socom-skeleton stub GetReticuleByIndex__5CZKitFi */
-int CZKit::GetReticuleByIndex(int)
+int CZKit::GetReticuleByIndex(int index)
 {
+	/* 0x2a85b0: the reticule for the item at index (wrapped over the items): binoculars 6,
+	 * a magnifying zoom (above 1.5x on the current item) 5, a grenade launcher 3 (an M203
+	 * in a fire mode below 5: 1), the designator 8, else by weapon id range (none: -1).
+	 * ELF quirk: the M203 fire mode is read at the raw index, not the wrapped one. */
+	s32 slot = unwrap(index, m_num_items);
+	CZFTSWeapon *weapon = slot != -1 ? m_item[slot] : NULL;
+	EQUIP_ITEM id = weapon != NULL ? weapon->m_ID : EQUIP_ITEM::EQUIP_NONE;
+	ZOOMSTATE zoom = m_body->m_zoomstate;
+
+	if (zoom == ZOOMSTATE::ZOOMSTATE_BINOCS)
+		return 6;
+
+	f32 range = 1.0f;
+	CZFTSWeapon *current = m_item[m_selected_item];
+
+	if (current != NULL)
+	{
+		u32 level = (u32)((s32)zoom - 3);
+
+		if (level < current->m_zoommode.size())
+			range = current->GetZoomRange(level);
+	}
+
+	if (range > 1.5f)
+		return 5;
+
+	if (weapon != NULL && weapon->IsGrenadeLauncherWeapon())
+	{
+		if (weapon->IsM203Weapon() && m_firemode[index] < 5)
+			return 1;
+
+		return 3;
+	}
+
+	if (id == EQUIP_ITEM::DESIGNATOR)
+		return 8;
+
+	u8 v = (u8)id;
+
+	if (v <= 0x1d)
+		return 0;
+
+	if (v <= 0x4f)
+		return 1;
+
+	if (v <= 0x59)
+		return 2;
+
+	if (v <= 0x77)
+		return 1;
+
+	if (v <= 0x8b)
+		return 4;
+
+	if (v >= 0x96 && v <= 0x9f)
+		return 4;
+
+	if (v > 0xb3 && v < 0xfe)
+		return 0;
+
+	return -1;
 }
 
 /* @socom-skeleton stub GetItemName__5CZKitFi */
@@ -586,12 +772,14 @@ int CZKit::GetNumItems() const
 }
 
 /* @socom-skeleton stub SetBody__5CZKitFP10CZSealBody */
-void CZKit::SetBody(CZSealBody *)
+void CZKit::SetBody(CZSealBody *body)
 {
+	/* 0x2a8290 */
+	m_body = body;
 }
 
 /* @socom-skeleton stub SetItem__5CZKitFUi10EQUIP_ITEM */
-void CZKit::SetItem(unsigned int, EQUIP_ITEM)
+bool CZKit::SetItem(unsigned int, EQUIP_ITEM)
 {
 }
 

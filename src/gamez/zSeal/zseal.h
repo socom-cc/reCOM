@@ -88,7 +88,19 @@ class PlacedExplosive;
 enum SEAL_HANDSIGNAL { }; /* port: unproven: passed by value per the mangled name; kind and enumerators not in DWARF */
 enum SEAL_TASK { }; /* port: unproven: passed by value per the mangled name; kind and enumerators not in DWARF */
 class STUN_TYPE { }; /* port: unproven: passed by value; kept a class to match zinput.h's forward declaration; contents not in DWARF */
-class TASK_SELECT;
+/* DWARF TASK_HDR (8 bytes) / TASK_SELECT (16, database.cpp); CTSelect::Create 0x2b7590 */
+struct TASK_HDR
+{
+	_zanim_cmd_hdr m_cmd;
+	u32 m_seal_index;
+};
+class CSealCtrlAi;
+class CZSealBody;
+struct TASK_SELECT : public TASK_HDR
+{
+	CSealCtrlAi* m_ai;
+	CZSealBody* m_seal;
+};
 enum UNIT_MESSAGE { }; /* port: unproven: passed by value per the mangled name; kind and enumerators not in DWARF */
 enum WEAPON_STATE { }; /* port: unproven: passed by value per the mangled name; kind and enumerators not in DWARF */
 /* @socom-skeleton end forward */
@@ -249,12 +261,23 @@ namespace sealai
 	const char* get_state(AI_STATE state);
 }
 
-// TODO: Unknown type in std::vector
-class CObjAnims : public std::vector<void*> {
+/* one CObjAnims entry: an aux body part and the gear it shows (NULL for AddItem(const char *)).
+ * No DWARF: 8 bytes from AddItem 0x27dbb0 / 0x27dc60 (new 8) and ConfigureAuxPartAnim
+ * 0x27d620; port: guess for the type and member names */
+struct OBJ_ANIM
+{
+	CZBodyPart* m_part;
+	CCharacterGear* m_gear;
+};
+
+/* DWARF CObjAnims (12 bytes): m_obj_anims, a vector (element type not in DWARF 1) */
+class CObjAnims {
+public:
+	std::vector<OBJ_ANIM*> m_obj_anims;
 	/* @socom-skeleton decl 9CObjAnims */
 public:
 	~CObjAnims();
-	void GetObjAnim(int);
+	OBJ_ANIM * GetObjAnim(int); /* 0x27d510 returns the entry */
 	/* @socom-skeleton end 9CObjAnims */
 };
 
@@ -263,6 +286,11 @@ extern f32 fineTuneThreshold;
 extern f32 throttleFudge;
 
 void SealInitCharacterDynamics();
+void ParentPistolToRHandCallback(void *, void *); /* seal_env.cpp 0x2987b0 */
+void ParentPistolToRThighAsGearCallback(void *, void *); /* seal_env.cpp 0x2986e0 */
+void NetSendPushBlend(unsigned int, int, int, bool); /* fts_remote.cpp 0x2038a0 */
+CZBodyPart * BodyWepPart(CZSealBody *, SEAL_ITEM); /* seal_cfg.cpp 0x280e30 */
+namespace zdb { class CLightMap; }
 
 /* DWARF layouts: CFire and CTurnInPlace are a bare CSequence (16 bytes) */
 class CFire : public CSequence {};
@@ -287,7 +315,7 @@ public:
 	/* @socom-skeleton decl 5CLook */
 public:
 	CLook();
-	void SetLookDir(CZSealBody *, const CPnt3D *, float);
+	unsigned char SetLookDir(CZSealBody *, const CPnt3D *, float); /* unsigned char: 0x29d3c0 */
 	void SetDir(const CPnt3D *, const CPnt3D *, float);
 	void LookTick(float);
 	/* @socom-skeleton end 5CLook */
@@ -325,6 +353,22 @@ public:
 	f32 GetCurZoom() const;
 
 	void SetBody(const CZSealBody& body);
+
+	/* unwrap__5CZKitFii 0x2a5a00 (no source owner yet; written inline here): index wrapped into
+	 * [0, count); -1 when index equals count or there are no items */
+	int unwrap(int index, int count)
+	{
+		if (index == count || count == 0)
+			return -1;
+
+		while (index >= count)
+			index -= count;
+
+		while (index < 0)
+			index += count;
+
+		return index;
+	}
 
 	u32 m_first : 1;
 	u32 m_reticuletypeChanged : 1;
@@ -369,6 +413,7 @@ public:
 
 	f32 m_lase_timer;
 	CZAnim* m_lase_anim;
+	CAiMap::name* m_lase_mapname; /* DWARF +0x54 */
 	// name* m_lase_mapname // TODO: Create the name struct. I don't know why they named it that.
 
 	u32 m_itemstate[30];
@@ -383,14 +428,14 @@ public:
 	s32 m_cur_zoom;
 	s32 m_restore_zoom;
 	s32 m_burst_count;
-	s32 m_fire_delay;
+	f32 m_fire_delay; /* DWARF float */
 	s32 m_selected_item;
 	s32 m_last_selected;
 	s32 m_num_items;
 	
 	CZSealBody* m_body;
 	
-	std::vector<u8> m_items_avail;
+	std::vector<zdb::CNode*> m_items_avail; /* the item model instances (InitItemModel 0x2ae340; NULL entries without a model); was vector<u8> */
 
 	zdb::CNode* m_detonator_model;
 	zdb::CNode* m_flashlight_model;
@@ -411,11 +456,11 @@ public:
 	s32 m_tracercount;
 	f32 m_firetime;
 	
-	// zdb::CLightMap* m_lightMap; // TODO: Create the CLightMap class
+	zdb::CLightMap* m_lightMap; /* DWARF +0x864 */
 	CSnd* m_rldsnd;
 	CSnd* m_clicksnd;
-	CSnd* m_lasersnd_start;
-	CSnd* m_lasersnd_fin;
+	CSnd* m_lasesnd_start; /* DWARF names */
+	CSnd* m_lasesnd_fin;
 
 	f32 m_pickupRequestWait;
 	/* @socom-skeleton decl 5CZKit */
@@ -488,7 +533,7 @@ public:
 	zdb::CTexHandle * GetIcon(int);
 	int GetSelectedItemNum();
 	void SetBody(CZSealBody *);
-	void SetItem(unsigned int, EQUIP_ITEM);
+	bool SetItem(unsigned int, EQUIP_ITEM); /* bool: PostCreateSeal 0x289f94 tests v0 */
 	void SetItemAmmo(unsigned int, CZAmmo *, int, int);
 	unsigned char SetItemAmmo(unsigned int, CZAmmo *);
 	void isSelectableItem(int);
@@ -861,7 +906,7 @@ public:
 	f32 m_recoilParam;
 
 	CObjAnims m_obj_anims;
-	void* m_select; // TODO: Unknown void* type
+	TASK_SELECT* m_select; /* CTSelect::Create (PostCreateSeal 0x289e54) */
 
 	zdb::IntersectStruct m_last_altitude;
 	zdb::IntersectStruct m_last_reticule;
@@ -1038,7 +1083,7 @@ public:
 	f32 m_zoomval;
 	zdb::CHit* m_fwdhit;
 
-	std::vector<CZWeapon*> m_weapons;
+	std::vector<CZBodyPart*> m_weapons; /* the weapon parts by SEAL_ITEM (AddWeapon 0x256e90; DWARF 1 has no element type) */
 	zdb::IntersectStruct* m_wephit;
 
 	CFire* m_fire;
@@ -1094,7 +1139,7 @@ public:
 	virtual void ResetToInitialState();
 	virtual void UpdateAiMapLoc(bool &);
 	virtual void OnRecycleEntity(CEntity *);
-	void AddWeapon(SEAL_ITEM);
+	bool AddWeapon(SEAL_ITEM); /* bool: 0x256e90 */
 	void UpdateLODFlags();
 	void CreateAiEvent();
 	void UpdateAiEvent();
@@ -1154,7 +1199,7 @@ public:
 	void IsCurrentBlend(AnimType) const;
 	void CanTurn();
 	void CanInterrupt();
-	void CanHeadLook();
+	bool CanHeadLook(); /* bool: 0x27bd70 */
 	void CanPitch();
 	CZBodyAnimBlend * AddBlendOverlay(AnimType);
 	void SetMovingRifleReload(ACTIVE_ANIM *);
@@ -1246,8 +1291,8 @@ public:
 	void GetMaxXMotion(float &, float &);
 	void AnimsScaleTS(CActiveAnimList *, CBlendable *, float);
 	void AddDIPolys();
-	void AddItem(CCharacterGear *);
-	void AddItem(const char *);
+	bool AddItem(CCharacterGear *); /* bool: 0x27dc60 */
+	bool AddItem(const char *); /* bool: 0x27dbb0 returns 1 */
 	void IssueCommand(CZSealBody *, FT_COMMAND, void *, bool);
 	static CZSealBody * GetSeal(zdb::CNode *);
 	static CCharacterType * PreCreateSeal(const CCharacterType *, const char *, zdb::CNode **);
@@ -1280,8 +1325,8 @@ public:
 	CPnt3D * GetLookDirW(CPnt3D *) const;
 	void RotateHead(float, float);
 	unsigned char SetLookDir(const CPnt3D *, float);
-	void SetEyeLookDir(float, float, const CPnt3D *, float);
-	void CalcGoalDir(const CPnt3D *, const CPnt3D *, CPnt3D *, float, float, float, float);
+	bool SetEyeLookDir(float, float, const CPnt3D *, float); /* bool: 0x29db50 */
+	bool CalcGoalDir(const CPnt3D *, const CPnt3D *, CPnt3D *, float, float, float, float);
 	void ApplyLookAnim(float, float);
 	CPnt3D * GetLookDir() const;
 	void ApplyEyeLookAnim();
@@ -1379,7 +1424,7 @@ public:
 	void WeaponsTick(float);
 	void GetFirepointPos(CPnt3D &, const char *);
 	zdb::CNode * GetFirepointNode(const char *);
-	void GetNodePos(const zdb::CNode *, CPnt3D &, bool);
+	bool GetNodePos(const zdb::CNode *, CPnt3D &, bool); /* bool: 0x2bfed0 */
 	unsigned char SetAimDirR(const CPnt3D *, bool);
 	unsigned char CalcAimGoal(const CPnt3D *, const CPnt3D *, CPnt3D *);
 	void SetAimPointW(const CPnt3D *, const CPnt3D *, bool);

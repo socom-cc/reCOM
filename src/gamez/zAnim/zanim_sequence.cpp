@@ -29,8 +29,16 @@ class ACTIVE_ANIM;
 /* @socom-skeleton end forward */
 
 /* @socom-skeleton stub QFromRot__FP5CQuatPC6CPnt3D */
-CQuat * QFromRot(CQuat *, const CPnt3D *)
+CQuat * QFromRot(CQuat *out, const CPnt3D *rot)
 {
+	/* 0x1dd080: the euler rotation as z * y * x */
+	CQuat qx, qy, qz, qzy;
+	qx.MakeXRot(rot->x);
+	qy.MakeYRot(rot->y);
+	qz.MakeZRot(rot->z);
+	qz.Mul(&qy, &qzy);
+	qzy.Mul(&qx, out);
+	return out;
 }
 
 /* @socom-skeleton stub quadW__Ff */
@@ -44,8 +52,154 @@ void GetFractionalRotations(const CPnt3D *, float *, float *)
 }
 
 /* @socom-skeleton stub ClipToBox__FRC6CPnt3DRC6CPnt3DR6CPnt3Dffff */
-void ClipToBox(const CPnt3D &, const CPnt3D &, CPnt3D &, float, float, float, float)
+int ClipToBox(const CPnt3D &from, const CPnt3D &to, CPnt3D &out, float ymax, float ymin, float xmax, float xmin)
 {
+	/* 0x1dca40: to inside the box [xmin, xmax] x [ymin, ymax] is out (1). Otherwise the
+	 * segment from-to is cut at each violated edge and out (x and y only) is the crossing
+	 * on the edge the segment leaves through (0); an edge parallel to the segment cuts at
+	 * the edge value itself. */
+	f32 x = to.x;
+	f32 y = to.y;
+	bool below_ymax = y <= ymax;
+	bool above_ymin = ymin <= y;
+	bool below_xmax = x <= xmax;
+	bool above_xmin = xmin <= x;
+
+	if (below_ymax && above_ymin && below_xmax && above_xmin)
+	{
+		out.x = x;
+		out.y = to.y;
+		out.z = to.z;
+		return 1;
+	}
+
+	/* the crossings: x on the y edges, y on the x edges */
+	f32 x_at_ymax = x;
+
+	if (!below_ymax)
+		x_at_ymax = from.y != y ? from.x + ((ymax - from.y) / (y - from.y)) * (x - from.x) : ymax;
+
+	f32 x_at_ymin = x;
+
+	if (!above_ymin)
+		x_at_ymin = from.y != y ? from.x + ((ymin - from.y) / (y - from.y)) * (x - from.x) : ymin;
+
+	f32 y_at_xmax = y;
+
+	if (!below_xmax)
+		y_at_xmax = from.x != x ? from.y + ((xmax - from.x) / (x - from.x)) * (y - from.y) : xmax;
+
+	f32 y_at_xmin = y;
+
+	if (!above_xmin)
+		y_at_xmin = from.x != x ? from.y + ((xmin - from.x) / (x - from.x)) * (y - from.y) : xmin;
+
+	if (below_ymax)
+	{
+		if (above_ymin)
+		{
+			if (!below_xmax)
+			{
+				out.x = xmax;
+				out.y = y_at_xmax;
+			}
+			else if (!above_xmin)
+			{
+				out.x = xmin;
+				out.y = y_at_xmin;
+			}
+		}
+		else if (below_xmax)
+		{
+			if (above_xmin)
+			{
+				out.x = x_at_ymin;
+				out.y = ymin;
+			}
+			else if (xmin <= x_at_ymin || ymin <= y_at_xmax) /* ELF: y_at_xmax (here just y) */
+			{
+				if (x_at_ymin < xmin)
+				{
+					out.x = xmin;
+					out.y = y_at_xmin;
+				}
+				else
+				{
+					out.x = x_at_ymin;
+					out.y = ymin;
+				}
+			}
+			else
+			{
+				out.x = xmin;
+				out.y = ymin;
+			}
+		}
+		else if (x_at_ymin <= xmax || ymin <= y_at_xmax)
+		{
+			if (xmax < x_at_ymin)
+			{
+				out.x = xmax;
+				out.y = y_at_xmax;
+			}
+			else
+			{
+				out.x = x_at_ymin;
+				out.y = ymin;
+			}
+		}
+		else
+		{
+			out.x = xmax;
+			out.y = ymin;
+		}
+	}
+	else if (below_xmax)
+	{
+		if (above_xmin)
+		{
+			out.x = x_at_ymax;
+			out.y = ymax;
+		}
+		else if (xmin <= x_at_ymax || y_at_xmin <= ymax)
+		{
+			if (x_at_ymax < xmin)
+			{
+				out.x = xmin;
+				out.y = y_at_xmin;
+			}
+			else
+			{
+				out.x = x_at_ymax;
+				out.y = ymax;
+			}
+		}
+		else
+		{
+			out.x = xmin;
+			out.y = ymax;
+		}
+	}
+	else if (x_at_ymax <= xmax || y_at_xmax <= ymax)
+	{
+		if (xmax < x_at_ymax)
+		{
+			out.x = xmax;
+			out.y = y_at_xmax;
+		}
+		else
+		{
+			out.x = x_at_ymax;
+			out.y = ymax;
+		}
+	}
+	else
+	{
+		out.x = xmax;
+		out.y = ymax;
+	}
+
+	return 0;
 }
 
 /* @socom-skeleton stub PlaneConstant__FRC6CPnt3DRC6CPnt3D */
@@ -71,6 +225,11 @@ void CSequence::Start(float, float, float)
 /* @socom-skeleton stub Clear__9CSequenceFv */
 void CSequence::Clear()
 {
+	/* 0x1dc910 */
+	m_upT = 0.0f;
+	m_holdT = 0.0f;
+	m_downT = 0.0f;
+	m_currT = 0.0f;
 }
 
 /* @socom-skeleton stub Tick__9CSequenceFf */

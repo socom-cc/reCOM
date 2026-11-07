@@ -59,7 +59,24 @@ public:
 
 	~RTArray();
 
-	const Object& GetNext() const;
+	/* RTArray<CZBodyAnimBlend>::GetNext 0x1e40f0, RTArray<ACTIVE_ANIM>::GetNext 0x1e3dc0: the
+	 * last available object leaves the pool (its slot is cleared); a recycling pool appends it
+	 * to the in-use list. NULL when the pool is empty. ELF quirk: the bool is never read. */
+	Object* GetNext(bool)
+	{
+		if (m_available == 0)
+			return NULL;
+
+		m_available--;
+		Object* object = m_pool[m_available];
+		m_pool[m_available] = NULL;
+
+		if (m_supportRecycle)
+			m_inuse.push_back(object);
+
+		return object;
+	}
+
 	const Object& GetOldestUsed() const;
 	/* RTArray<ACTIVE_ANIM>::PutBack 0x1e3d50: back into the pool while there is room */
 	void PutBack(Object* instance)

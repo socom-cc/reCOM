@@ -334,13 +334,18 @@ float CZFTSWeapon::ResolveFTSDamage(float)
 }
 
 /* @socom-skeleton stub IsM203Weapon__11CZFTSWeaponFv */
-void CZFTSWeapon::IsM203Weapon()
+bool CZFTSWeapon::IsM203Weapon()
 {
+	/* 0x3158c0: weapon ids 52 and 61 */
+	return (u8)m_ID == 52 || (u8)m_ID == 61;
 }
 
 /* @socom-skeleton stub IsGrenadeLauncherWeapon__11CZFTSWeaponFv */
-void CZFTSWeapon::IsGrenadeLauncherWeapon()
+bool CZFTSWeapon::IsGrenadeLauncherWeapon()
 {
+	/* 0x315880: weapon ids 52, 61, 142 and 143 */
+	u8 id = (u8)m_ID;
+	return id == 52 || id == 61 || id == 142 || id == 143;
 }
 
 /* @socom-skeleton stub IsGrenadeLauncherAmmo__11CZFTSWeaponFv */
@@ -371,16 +376,10 @@ CTargetMods::CTargetMods()
 /* @socom-skeleton body GetZoomRange__11CZFTSWeaponFUi */
 float CZFTSWeapon::GetZoomRange(unsigned int range_level)
 {
-	f32 range = 0.0f;
-	
-	if (m_firstZoomLevel == 0 || range <= m_thirdZoomLevel)
-	{
-		range = 500.0f;
-	}
-	else
-	{
+	/* 0x315760: the zoom mode's range, 500 past the list (was a provisional body on the
+	 * provisional zoom level members) */
+	if (m_zoommode.size() != 0 && range_level < m_zoommode.size())
+		return m_zoommode[range_level];
 
-	}
-
-	return range;
+	return 500.0f;
 }

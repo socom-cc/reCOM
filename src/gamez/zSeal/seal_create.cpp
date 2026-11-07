@@ -25,6 +25,7 @@
 #include "zseal.h"
 
 #include "gamez/zNode/node_world.h" /* zdb::CWorld (PreCreateSeal) */
+#include "gamez/zGrid/zgrid.h" /* CGrid::m_ClutterAnimManager (PostCreateSeal) */
 #include "zseal.h"
 
 /* @socom-skeleton decl include */
@@ -79,12 +80,139 @@ CCharacterGear* CZSealBody::FindGear(const char* name)
 }
 
 /* @socom-skeleton stub PostCreateSeal__10CZSealBodyFP10CZSealBodyP9CSealCtrl */
-void CZSealBody::PostCreateSeal(CZSealBody *, CSealCtrl *)
+void CZSealBody::PostCreateSeal(CZSealBody *seal, CSealCtrl *controller)
 {
-	/* @socom-skeleton stub debug_uberii$2314 */
-	static int debug_uberii;
-	/* @socom-skeleton stub maxShadow$2345 */
-	static int maxShadow;
+	/* 0x289d60: after the ctor: the node takes the seal's CSealEx and a fixed box, the
+	 * controller, the AI event and task select; the character type's gear is attached,
+	 * the MP bomb gear hidden, eyes and gear parts found; the kit gets its "null" model and
+	 * one model and ammo per character weapon, then the reticule. Aim straight ahead, the
+	 * controller initializes, the node joins the clutter animation effectors, and the
+	 * first player casts a shadow. */
+	seal->m_HudUpdateViewCone = true;
+	zdb::CNode *node = seal->GetNode();
+	node->SetNodeEx(&seal->m_sealEx, true);
+	node->m_bbox.m_min = CPnt3D(-10.0f, 0.0f, -10.0f);
+	node->m_bbox.m_max = CPnt3D(10.0f, 20.0f, 10.0f);
+	seal->SetController(controller);
+	seal->CreateAiEvent();
+	seal->m_select = CTSelect::Create(seal);
+
+	static s32 debug_uberii = 0; /* ELF local static debug_uberii$2314: counted, never read */
+	debug_uberii++;
+
+	CCharacterGearList &gear = seal->m_charType->m_gear;
+
+	for (CCharacterGearList::iterator it = gear.begin(); it != gear.end(); ++it)
+		seal->AddItem(*it);
+
+	seal->EnableMPBombGear(false);
+	seal->SetupEyes();
+	seal->SetupGear();
+	CZKit *kit = &seal->m_kit;
+
+	if (kit != NULL)
+	{
+		kit->InitItemModel("null", "null");
+		CCharacterType *type = seal->m_charType;
+		u32 index = 0;
+
+		for (std::vector<CCharacterWeap>::iterator weap = type->m_weapons.begin(); weap != type->m_weapons.end(); ++weap)
+		{
+			if (!kit->SetItem(index, weap->m_wepId))
+				continue;
+
+			CZFTSWeapon *weapon = kit->GetItemByIndex(index);
+
+			if (weapon != NULL)
+			{
+				char model[1032];
+				strcpy(model, weapon->GetModelName());
+				strlen(model); /* ELF: the length is computed and dropped */
+				const char *where = "grenade";
+
+				if (weapon->m_type == SEAL_ITEM::itemPistol)
+					where = "pistol";
+				else if (weapon->m_type == SEAL_ITEM::itemRifle)
+					where = "rifle";
+
+				kit->InitItemModel(model, where);
+			}
+
+			s32 count = weap->m_ammoCount;
+			s32 mags = weap->m_magCount;
+
+			if (count * mags == 0)
+				kit->SetItemAmmo(index, CZAmmo::GetAmmo(weap->m_ammoId));
+			else
+				kit->SetItemAmmo(index, CZAmmo::GetAmmo(weap->m_ammoId), count, mags);
+
+			index++;
+		}
+
+		kit->SetCurReticule();
+	}
+
+	seal->m_TriggerCount = false;
+	seal->m_RemoteRoundCount = 0;
+	seal->m_RemoteFireElevation = 0.0f;
+	seal->SetAimDirR(&CPnt3D::unit_nz, false);
+	seal->m_left_game = false;
+	controller->Initalize();
+	zdb::CClutterAnimManager *clutter = zdb::CWorld::m_world->m_grid->m_ClutterAnimManager;
+
+	if (clutter != NULL)
+	{
+		/* the box the node uses (up to two m_use_parent_bbox hops, then GetBBox); the
+		 * effector radius is half the larger of |size.x| and size.z */
+		CBBox *bbox = &node->m_bbox;
+
+		if (node->m_use_parent_bbox)
+		{
+			zdb::CNode *owner = node->m_parent;
+			bbox = &owner->m_bbox;
+
+			if (owner->m_use_parent_bbox)
+			{
+				owner = owner->m_parent;
+				bbox = &owner->m_bbox;
+
+				if (owner->m_use_parent_bbox)
+					bbox = owner->m_parent->GetBBox();
+			}
+		}
+
+		CPnt3D size;
+		bbox->m_max.Sub(&bbox->m_min, &size);
+		f32 radius = fabsf(size.x);
+
+		if (radius < size.z)
+			radius = size.z;
+
+		clutter->RegisterEffector(seal, (CPnt3D *)&node->m_matrix.m_matrix[3][0], radius * 0.5f, &seal->m_velW);
+	}
+
+	static s32 maxShadow = 0; /* ELF local static maxShadow$2345 */
+
+	if (m_renderShadow)
+	{
+		CEntityCtrl *ctrl = seal->m_control;
+		bool player = ctrl != NULL && ((CSealCtrl *)ctrl)->IsPlayer();
+
+		if (player && CEntity::m_list.size() == 1)
+		{
+			node->m_shadow = true;
+			zdb::CWorld::m_world->AddShadow(node);
+		}
+		else if (maxShadow != 0)
+		{
+			maxShadow--;
+			node->m_shadow = true;
+			zdb::CWorld::m_world->AddShadow(node);
+		}
+	}
+
+	seal->m_useCachedReticuleSeal = false;
+	seal->m_cachedReticuleSeal = NULL;
 }
 
 /* @socom-skeleton stub ReCreate__10CZSealBodyFP10CZSealBodyPC14CCharacterType */

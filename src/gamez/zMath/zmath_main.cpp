@@ -94,8 +94,19 @@ void CQuat::MakeZRot(float angle)
 }
 
 /* @socom-skeleton stub MakeYXRot__5CQuatFff */
-void CQuat::MakeYXRot(float, float)
+void CQuat::MakeYXRot(float yaw, float pitch)
 {
+	/* 0x2216b0: rotation by yaw about y, then pitch about x (y * x) */
+	f32 hy = 0.5f * yaw;
+	f32 sy = sinf(hy);
+	f32 cy = cosf(hy);
+	f32 hx = 0.5f * pitch;
+	f32 sx = sinf(hx);
+	f32 cx = cosf(hx);
+	w = cy * cx;
+	vec.x = cy * sx;
+	vec.y = sy * cx;
+	vec.z = -sy * sx;
 }
 
 /* @socom-skeleton stub MakeYXZRot__5CQuatFfff */
@@ -232,8 +243,45 @@ void CQuat::Apply(const CPnt3D *in, CPnt3D *out, int count) const
 }
 
 /* @socom-skeleton stub Align__5CQuatFRC6CPnt3DRC6CPnt3D */
-void CQuat::Align(const CPnt3D &, const CPnt3D &)
+void CQuat::Align(const CPnt3D &from, const CPnt3D &to)
 {
+	/* 0x220fa0: the rotation taking from onto to, through the half vector; opposite
+	 * vectors turn half a turn about an axis perpendicular to from in the xy plane (x when
+	 * from.x is 0) */
+	CPnt3D half;
+	from.Add(&to, &half);
+
+	if (!(half.x == CPnt3D::zero.x && half.y == CPnt3D::zero.y && half.z == CPnt3D::zero.z))
+	{
+		half.Normalize();
+		CPnt3D axis;
+		axis.x = from.y * half.z - from.z * half.y;
+		axis.y = from.z * half.x - from.x * half.z;
+		axis.z = from.x * half.y - from.y * half.x;
+		bool zero = axis.x == CPnt3D::zero.x && axis.y == CPnt3D::zero.y && axis.z == CPnt3D::zero.z;
+
+		if (!zero || from.x * to.x + from.y * to.y + from.z * to.z >= 0.0f)
+		{
+			w = from.x * half.x + from.y * half.y + from.z * half.z;
+			vec = axis;
+			return;
+		}
+	}
+
+	w = 0.0f;
+	vec.z = 0.0f;
+
+	if (from.x == 0.0f)
+	{
+		vec.x = 1.0f;
+		vec.y = 0.0f;
+	}
+	else
+	{
+		f32 len = sqrtf(from.x * from.x + from.y * from.y);
+		vec.x = from.y * (1.0f / len);
+		vec.y = -from.x * (1.0f / len);
+	}
 }
 
 /* @socom-skeleton stub Div__5CQuatCFPC5CQuatP5CQuat */
@@ -242,8 +290,68 @@ void CQuat::Div(const CQuat *, CQuat *) const
 }
 
 /* @socom-skeleton stub Slerp__5CQuatCFPC5CQuatfP5CQuat */
-void CQuat::Slerp(const CQuat *, float, CQuat *) const
+void CQuat::Slerp(const CQuat *other, float t, CQuat *out) const
 {
+	/* 0x220c60: this at t <= 0, other at t >= 1; the shorter arc (other negated when the dot
+	 * is negative); above a cosine of 0.95 a normalized lerp, else the sine weights. The ELF
+	 * steps are VU0 library calls (InnerProduct, ScaleVector, AddVector on all four lanes). */
+	if (t <= 0.0f)
+	{
+		*out = *this;
+		return;
+	}
+
+	if (!(t < 1.0f))
+	{
+		*out = *other;
+		return;
+	}
+
+	f32 cosom = other->w * w + (vec.x * other->vec.x + vec.y * other->vec.y + vec.z * other->vec.z);
+	CQuat to;
+
+	if (cosom < 0.0f)
+	{
+		cosom = -cosom;
+		to.vec.x = -other->vec.x;
+		to.vec.y = -other->vec.y;
+		to.vec.z = -other->vec.z;
+		to.w = -other->w;
+	}
+	else
+	{
+		to = *other;
+	}
+
+	f32 s0, s1;
+
+	if (!(cosom <= 0.95f))
+	{
+		s0 = 1.0f - t;
+		s1 = t;
+	}
+	else
+	{
+		f32 omega = acosf(cosom);
+		f32 inv = 1.0f / sinf(omega);
+		s0 = inv * sinf((1.0f - t) * omega);
+		s1 = inv * sinf(t * omega);
+	}
+
+	out->vec.x = vec.x * s0 + to.vec.x * s1;
+	out->vec.y = vec.y * s0 + to.vec.y * s1;
+	out->vec.z = vec.z * s0 + to.vec.z * s1;
+	out->w = w * s0 + to.w * s1;
+
+	if (!(cosom <= 0.95f))
+	{
+		f32 len = sqrtf(out->w * out->w + (out->vec.x * out->vec.x + out->vec.y * out->vec.y + out->vec.z * out->vec.z));
+		f32 scale = 1.0f / len;
+		out->vec.x *= scale;
+		out->vec.y *= scale;
+		out->vec.z *= scale;
+		out->w *= scale;
+	}
 }
 
 /* @socom-skeleton stub SlerpFaster__5CQuatCFPC5CQuatfP5CQuat */

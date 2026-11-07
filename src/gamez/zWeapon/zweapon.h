@@ -650,6 +650,8 @@ public:
 	/* @socom-skeleton end 8CZWeapon */
 };
 
+enum class SEAL_ITEM; /* zseal.h */
+
 class CZFTSWeapon : public CZWeapon
 {
 public:
@@ -677,6 +679,8 @@ public:
 	f32 m_accuracyScalarMax;
 	f32 m_normalizedRange;
 	s32 m_slotCost;
+	SEAL_ITEM m_type; /* DWARF +0x1bc (CZKit::GetCurItemType 0x2aec60); the members above are provisional, not the DWARF layout */
+	std::vector<f32> m_zoommode; /* DWARF +0x1c0: the zoom ranges (GetZoomRange 0x315760 reads f32 elements) */
 	/* @socom-skeleton decl 11CZFTSWeapon */
 public:
 	virtual void Recoil();
@@ -697,8 +701,8 @@ public:
 	float GetZoommode(int);
 	void AddZoommode(float);
 	static float ResolveFTSDamage(float);
-	void IsM203Weapon();
-	void IsGrenadeLauncherWeapon();
+	bool IsM203Weapon(); /* bool: 0x3158c0 */
+	bool IsGrenadeLauncherWeapon(); /* bool: 0x315880 */
 	void IsGrenadeLauncherAmmo();
 	CTargetMods * TargetMods(int);
 	float GetZoomRange(unsigned int);

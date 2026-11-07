@@ -88,10 +88,13 @@ float decay(T base, T power, T& result, const T& original)
 	return result = original + (result - original) * exp;
 }
 
+/* _close_enough<f> 0x19d950, _close_enough<i> 0x26c8d0: |value - target| <= eps (was a
+ * provisional close_enough with the wrong test and no callers) */
 template<typename T>
-bool close_enough(T& value, T& min, T& max)
+bool _close_enough(const T& value, const T& target, const T& eps)
 {
-	return -max <= value - min || max < value - min;
+	T d = value - target;
+	return !(d < -eps) && d <= eps;
 }
 
 template<typename T>

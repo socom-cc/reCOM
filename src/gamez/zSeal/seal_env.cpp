@@ -514,8 +514,20 @@ void CZSealBody::SetWallHit(zdb::IntersectStruct* wallhit, CPnt3D* first, CPnt3D
 }
 
 /* @socom-skeleton stub SetWepHit__10CZSealBodyFPQ23zdb15IntersectStruct */
-void CZSealBody::SetWepHit(zdb::IntersectStruct *)
+void CZSealBody::SetWepHit(zdb::IntersectStruct *hit)
 {
+	/* 0x29fdb0: the weapon hit takes hit's point, normal and node (no node without a hit;
+	 * the poly is not copied) */
+	if (hit != NULL)
+	{
+		m_wephit->m_pos = hit->m_pos;
+		m_wephit->m_norm = hit->m_norm;
+		m_wephit->m_node = hit->m_node;
+	}
+	else
+	{
+		m_wephit->m_node = NULL;
+	}
 }
 
 /* @socom-skeleton stub PreCheckDIDown__10CZSealBodyFv */
@@ -541,8 +553,19 @@ CPnt3D * CZSealBody::GetLookDirW(CPnt3D *) const
 }
 
 /* @socom-skeleton stub RotateHead__10CZSealBodyFff */
-void CZSealBody::RotateHead(float, float)
+void CZSealBody::RotateHead(float pitch, float)
 {
+	/* 0x29e7c0: the forward look tilts by pitch about x (the second angle is unused) */
+	if (pitch == 0.0f)
+	{
+		m_fwdlook = CQuat::identity;
+	}
+	else
+	{
+		CQuat rot;
+		rot.MakeXRot(pitch);
+		m_fwdlook = rot;
+	}
 }
 
 /* @socom-skeleton stub ComputeDeltaLookQuat__FR6CPnt3DR6CPnt3DP5CQuatP6CPnt3D */
@@ -562,38 +585,233 @@ void CZSealBody::InitLookAnims()
 }
 
 /* @socom-skeleton stub SetLookDir__10CZSealBodyFPC6CPnt3Df */
-unsigned char CZSealBody::SetLookDir(const CPnt3D *, float)
+unsigned char CZSealBody::SetLookDir(const CPnt3D *dir, float rate)
 {
+	/* 0x29dd20 */
+	if (!CanHeadLook())
+		return 0;
+
+	return m_look->SetLookDir(this, dir, rate);
 }
 
 /* @socom-skeleton stub SetEyeLookDir__10CZSealBodyFffPC6CPnt3Df */
-void CZSealBody::SetEyeLookDir(float, float, const CPnt3D *, float)
+bool CZSealBody::SetEyeLookDir(float pitch, float yaw, const CPnt3D *, float rate)
 {
+	/* 0x29db50: with both eyeballs and either one rendered this frame, the eyes turn toward
+	 * the pitch/yaw fractions (pitch up to 8 degrees, down to 14, yaw 17 either way) at 1.5
+	 * times the head rate. ELF quirks: both yaw branches scale by -0.296706; the direction
+	 * argument is unused. */
+	if (m_reyeball == NULL || m_leyeball == NULL)
+		return false;
+
+	zdb::CNode *node = m_reyeball->m_node;
+	bool rendered = node != NULL && node->Rendered();
+
+	if (!rendered)
+	{
+		node = m_leyeball->m_node;
+		rendered = node != NULL && node->Rendered();
+	}
+
+	if (!rendered)
+		return false;
+
+	CPnt3D *curr = &m_eyelook->m_curr_dir;
+	CQuat qx, qy, q;
+
+	if (pitch >= 0.0f)
+		qx.MakeXRot(pitch * 0.13962634f);
+	else
+		qx.MakeXRot(pitch * -0.24434611f);
+
+	if (yaw >= 0.0f)
+		qy.MakeYRot(yaw * -0.296706f);
+	else
+		qy.MakeYRot(yaw * -0.296706f);
+
+	qx.Mul(&qy, &q);
+	CPnt3D dir, goal;
+	q.Apply(&CPnt3D::unit_nz, &dir, 1);
+	CalcGoalDir(curr, &dir, &goal, 0.13962634f, -0.24434611f, -0.296706f, 0.296706f);
+	m_eyelook->SetDir(&goal, curr, rate * 1.5f);
+	return true;
 }
 
 /* @socom-skeleton stub __ct__5CLookFv */
 CLook::CLook()
 {
+	/* 0x29daf0: looking down -z, done */
+	Clear();
+	m_curr_dir.x = 0.0f;
+	m_curr_dir.y = 0.0f;
+	m_curr_dir.z = -1.0f;
+	m_rate = 0.0f;
+	m_done = true;
+	m_goal_dir = m_curr_dir;
 }
 
 /* @socom-skeleton stub __ct__6CBlinkFv */
 CBlink::CBlink()
 {
+	/* 0x29da30: a CLook (inline) whose first blink comes 2-8 seconds in */
+	m_org = 0;
+	m_nextT = 2.0f + 6.0f * (4.656613e-10f * (f32)rand());
 }
 
 /* @socom-skeleton stub CalcGoalDir__10CZSealBodyFPC6CPnt3DPC6CPnt3DP6CPnt3Dffff */
-void CZSealBody::CalcGoalDir(const CPnt3D *, const CPnt3D *, CPnt3D *, float, float, float, float)
+bool CZSealBody::CalcGoalDir(const CPnt3D *curr, const CPnt3D *dir, CPnt3D *out, float maxpitch, float minpitch, float minyaw, float maxyaw)
 {
+	/* 0x29d740: dir's yaw (x) and pitch (y) angles; a forward-ish dir (z . dir > 0.8) keeps
+	 * its yaw on curr's side of the back. Inside the limits out is dir (true); else the
+	 * angles are clipped to the box and out is the clipped direction (false). */
+	f32 len = sqrtf(dir->x * dir->x + dir->z * dir->z);
+	f32 yawcos = 1.0f;
+
+	if (len != 0.0f)
+		yawcos = -dir->z / len;
+
+	CPnt3D angles;
+	angles.x = acosf(yawcos);
+
+	if (dir->x < 0.0f)
+		angles.x = -angles.x;
+
+	angles.y = acosf(len);
+
+	if (dir->y < 0.0f)
+		angles.y = -angles.y;
+
+	if (dir->x * CPnt3D::unit_z.x + dir->y * CPnt3D::unit_z.y + dir->z * CPnt3D::unit_z.z > 0.8f)
+	{
+		if (curr->x > 0.0f && angles.x < 0.0f)
+			angles.x += 6.2831855f;
+		else if (curr->x < 0.0f && angles.x > 0.0f)
+			angles.x -= 6.2831855f;
+	}
+
+	bool inside = true;
+
+	if (maxpitch < angles.y)
+		inside = false;
+	else if (angles.y < minpitch)
+		inside = false;
+
+	if (maxyaw < angles.x)
+		inside = false;
+	else if (angles.x < minyaw)
+		inside = false;
+
+	if (inside)
+	{
+		*out = *dir;
+	}
+	else
+	{
+		CPnt3D origin = CPnt3D::zero;
+		CPnt3D clipped;
+		ClipToBox(origin, angles, clipped, maxpitch, minpitch, maxyaw, minyaw);
+		CQuat rot;
+		rot.MakeYXRot(-clipped.x, clipped.y);
+		rot.Apply(&CPnt3D::unit_nz, out, 1);
+	}
+
+	return inside;
 }
 
 /* @socom-skeleton stub SetLookDir__5CLookFP10CZSealBodyPC6CPnt3Df */
-void CLook::SetLookDir(CZSealBody *, const CPnt3D *, float)
+unsigned char CLook::SetLookDir(CZSealBody *body, const CPnt3D *dir, float rate)
 {
+	/* 0x29d3c0: the head turns toward dir (forward without one; the current goal is kept,
+	 * returning 1). A dir outside the look cone (horizontal length against the pitch cosine
+	 * limits, -z share against the yaw cosine limit) is clamped by CalcGoalDir. The eyes
+	 * follow with the pitch/yaw as fractions of the limits. Returns whether dir was usable
+	 * unclamped (1 without a dir). */
+	unsigned char result = dir == NULL;
+
+	if (dir == NULL)
+		dir = &CPnt3D::unit_nz;
+
+	if (dir->x == m_goal_dir.x && dir->y == m_goal_dir.y && dir->z == m_goal_dir.z)
+		return 1;
+
+	if (!result)
+	{
+		bool inside = true;
+		f32 len = sqrtf(dir->x * dir->x + dir->z * dir->z);
+		f32 yawcos = len != 0.0f ? -dir->z / len : 1.0f;
+
+		if (dir->z < 0.0f)
+		{
+			if (len < theCharacterDynamics.m_cosMinLookPitch)
+				inside = false;
+		}
+		else if (len < theCharacterDynamics.m_cosMaxLookPitch)
+		{
+			inside = false;
+		}
+
+		if (yawcos < theCharacterDynamics.m_cosMaxLookYaw)
+			inside = false;
+
+		if (inside)
+			result = 1;
+	}
+
+	f32 maxpitch = theCharacterDynamics.m_maxLookPitch;
+	f32 minpitch = theCharacterDynamics.m_minLookPitch;
+	f32 maxyaw = theCharacterDynamics.m_maxLookYaw;
+	CPnt3D clamped;
+
+	if (!result)
+	{
+		clamped = m_curr_dir;
+		result = body->CalcGoalDir(&m_curr_dir, dir, &clamped, maxpitch, minpitch, -maxyaw, maxyaw);
+		dir = &clamped;
+	}
+
+	SetDir(dir, &m_curr_dir, rate);
+	f32 len = sqrtf(dir->x * dir->x + dir->z * dir->z);
+	f32 yawcos = len != 0.0f ? -dir->z / len : 1.0f;
+	f32 pitch = acosf(len);
+	f32 yaw = acosf(yawcos);
+
+	if (dir->y < 0.0f)
+		pitch = -pitch;
+
+	if (dir->x < 0.0f)
+		yaw = -yaw;
+
+	f32 pitchfrac = pitch >= 0.0f ? pitch / maxpitch : -pitch / minpitch;
+	body->SetEyeLookDir(pitchfrac, yaw / maxyaw, dir, rate);
+	return result;
 }
 
 /* @socom-skeleton stub SetDir__5CLookFPC6CPnt3DPC6CPnt3Df */
-void CLook::SetDir(const CPnt3D *, const CPnt3D *, float)
+void CLook::SetDir(const CPnt3D *goal, const CPnt3D *curr, float rate)
 {
+	/* 0x29d1f0: a new goal starts a turn from curr at rate turns per second (rate 0 is done
+	 * at once and keeps the old goal); the turn axis is curr x goal */
+	if (goal->x == m_goal_dir.x && goal->y == m_goal_dir.y && goal->z == m_goal_dir.z)
+		return;
+
+	m_quat0.Align(CPnt3D::unit_nz, *curr);
+	m_quat1.Align(CPnt3D::unit_nz, *goal);
+	m_rate = rate * 6.2831855f;
+
+	if (rate == 0.0f)
+	{
+		m_fracT = 1.0f;
+		m_done = true;
+		return;
+	}
+
+	m_fracT = 0.0f;
+	m_done = false;
+	m_deltaT = acosf(goal->x * curr->x + goal->y * curr->y + goal->z * curr->z) / m_rate;
+	m_goal_dir = *goal;
+	m_cross.x = curr->y * goal->z - curr->z * goal->y;
+	m_cross.y = curr->z * goal->x - curr->x * goal->z;
+	m_cross.z = curr->x * goal->y - curr->y * goal->x;
 }
 
 /* @socom-skeleton stub LookTick__5CLookFf */
@@ -1231,8 +1449,11 @@ void CZSealBody::SetupDefaultArmor()
 }
 
 /* @socom-skeleton stub SetArmor__10CZSealBodyF15DAMAGE_LOCATIONf */
-void CZSealBody::SetArmor(DAMAGE_LOCATION, float)
+void CZSealBody::SetArmor(DAMAGE_LOCATION location, float armor)
 {
+	/* 0x28f1f0: armor only goes up */
+	if (m_armor[(u8)location] < armor)
+		m_armor[(u8)location] = armor;
 }
 
 /* @socom-skeleton stub FindRandomDeathAnim__10CZSealBodyF15DAMAGE_LOCATIONPb */
@@ -1316,8 +1537,13 @@ void CZSealBody::HandlePickupAck(int, unsigned short, AckUnion *)
 }
 
 /* @socom-skeleton stub EnableMPBombGear__10CZSealBodyFb */
-void CZSealBody::EnableMPBombGear(bool)
+void CZSealBody::EnableMPBombGear(bool enable)
 {
+	/* 0x28c570: the "Satchel" aux node shown or hidden */
+	zdb::CNode *node = FindAuxNode("Satchel", false);
+
+	if (node != NULL)
+		node->SetActive(enable);
 }
 
 /* @socom-skeleton stub HandlePickupMPBomb__10CZSealBodyFP7CPickup */

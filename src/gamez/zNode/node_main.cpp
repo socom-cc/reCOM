@@ -94,12 +94,14 @@
 #include "node_model.h"
 #include "node_universe.h"
 #include "node_assetlib.h"
+#include "node_world.h" /* CWorld::m_grid (UpdateGrid) */
 
 #include "gamez/zGrid/zgrid.h"
 
 #include "gamez/zSystem/zsys.h"
 #include "gamez/zVisual/zvis.h"
 #include "gamez/zUtil/zutil.h"
+#include "gamez/zVideo/zvid.h" /* zVid.frameNumber (Rendered) */
 
 /* UNNAMED_NODE, DELETED_NODE: the skeleton definitions below (LOCAL symbols; UNNAMED_NODE is "NA") */
 
@@ -630,21 +632,33 @@ CNode* CNode::FindChild(CNode* child, bool nested)
 }
 
 /* @socom-skeleton stub SetNodeEx__Q23zdb5CNodeFPQ23zdb7CNodeExb */
-void zdb::CNode::SetNodeEx(zdb::CNodeEx *, bool)
+void zdb::CNode::SetNodeEx(CNodeEx *ex, bool descendants)
 {
+	/* 0x227330: the extension, for the whole subtree when descendants (the ELF unrolls one
+	 * level before recursing) */
+	m_nodeEx = ex;
+
+	if (!descendants)
+		return;
+
+	for (CNodeVector::iterator it = m_child.begin(); it != m_child.end(); ++it)
+		(*it)->SetNodeEx(ex, true);
 }
 
 /* @socom-skeleton body UpdateGrid__Q23zdb5CNodeFv */
 namespace zdb {
 bool CNode::UpdateGrid()
 	{
+		/* 0x2272e0: a world's child (parent type 6) re-enters the world's grid. Was: the
+		 * node's own type tested and the parent node itself used as the CGrid, which wrote
+		 * through garbage pointers (it clobbered LoadVehicle's saved registers). */
 		if (!m_parent)
 			return false;
 
-		if (m_type != (u32)TYPE::GRID)
+		if ((u16)m_parent->m_type != (u16)TYPE::GRID)
 			return false;
 
-		((CGrid*)m_parent)->Update(this);
+		((CWorld*)m_parent)->m_grid->Update(this);
 		return true;
 	}
 }
@@ -787,6 +801,8 @@ float zdb::CNode::GetRadius()
 /* @socom-skeleton stub Rendered__Q23zdb5CNodeFv */
 bool zdb::CNode::Rendered()
 {
+	/* 0x226f30: drawn this frame (the frame number's low byte) */
+	return m_frameRendered == (u8)zVid.frameNumber;
 }
 
 /* @socom-skeleton stub _Copy__Q23zdb6CLightCFPQ23zdb5CNode */
@@ -998,8 +1014,13 @@ void CNode::SetDynamicLight(bool self_light, bool apply_to_children)
 }
 
 /* @socom-skeleton stub SetUseParentBBoxTree__Q23zdb5CNodeFb */
-void zdb::CNode::SetUseParentBBoxTree(bool)
+void zdb::CNode::SetUseParentBBoxTree(bool enable)
 {
+	/* 0x225bd0: the whole subtree (the ELF unrolls two levels before recursing) */
+	m_use_parent_bbox = enable;
+
+	for (CNodeVector::iterator it = m_child.begin(); it != m_child.end(); ++it)
+		(*it)->SetUseParentBBoxTree(enable);
 }
 
 /* @socom-skeleton stub SetApplyDecals__Q23zdb5CNodeFb */
@@ -1063,13 +1084,58 @@ void zdb::CNode::ScrollTexture(zdb::CNode *, float, float, bool)
 }
 
 /* @socom-skeleton stub SetDescendantDI__Q23zdb5CNodeFb */
-void zdb::CNode::SetDescendantDI(bool)
+bool zdb::CNode::SetDescendantDI(bool enable)
 {
+	/* 0x224f30: m_hasDI over the subtree: set where the node or a descendant has DI (all
+	 * cleared when disabling); returns the node's value (false for a NULL node) */
+	if (this == NULL)
+		return false;
+
+	if (!enable)
+	{
+		m_hasDI = false;
+
+		for (CNodeVector::iterator it = m_child.begin(); it != m_child.end(); ++it)
+			(*it)->SetDescendantDI(false);
+
+		return false;
+	}
+
+	bool own = m_di.size() != 0;
+	bool below = false;
+
+	for (CNodeVector::iterator it = m_child.begin(); it != m_child.end(); ++it)
+		below |= (*it)->SetDescendantDI(true);
+
+	m_hasDI = own || below;
+	return own || below;
 }
 
 /* @socom-skeleton stub SetDescendantVisuals__Q23zdb5CNodeFb */
-void zdb::CNode::SetDescendantVisuals(bool)
+bool zdb::CNode::SetDescendantVisuals(bool enable)
 {
+	/* 0x224df0: m_hasVisuals over the subtree, as SetDescendantDI */
+	if (this == NULL)
+		return false;
+
+	if (!enable)
+	{
+		m_hasVisuals = false;
+
+		for (CNodeVector::iterator it = m_child.begin(); it != m_child.end(); ++it)
+			(*it)->SetDescendantVisuals(false);
+
+		return false;
+	}
+
+	bool own = m_visual.size() != 0;
+	bool below = false;
+
+	for (CNodeVector::iterator it = m_child.begin(); it != m_child.end(); ++it)
+		below |= (*it)->SetDescendantVisuals(true);
+
+	m_hasVisuals = own || below;
+	return own || below;
 }
 
 /* @socom-skeleton stub FindMeshTextures__Q23zdb5CNodeFv */
