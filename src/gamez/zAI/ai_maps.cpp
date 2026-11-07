@@ -241,6 +241,10 @@ CPnt3D * CAiMaps::GetCellCenter(const CAiMapLoc &loc, CPnt3D *out)
 /* @socom-skeleton stub GetInterpolatedShadow__7CAiMapsFRC9CAiMapLocPC6CPnt3Db */
 float CAiMaps::GetInterpolatedShadow(const CAiMapLoc &, const CPnt3D *, bool)
 {
+	/* 0x19b290 (2020 B): the AI map cells' shadow at a point, interpolated. port: stub - not
+	 * written: no shadow (0), so characters stay fully lit (CZSealBody::PostCheckDIDown sets
+	 * the node light from it). */
+	return 0.0f;
 }
 
 /* @socom-skeleton stub GetAltitude__7CAiMapsFRC9CAiMapLoc */

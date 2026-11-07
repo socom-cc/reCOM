@@ -57,17 +57,21 @@ bool CRemoteCtrl::AllowCommand(CZSealBody *, FT_COMMAND, void *)
 }
 
 /* @socom-skeleton stub Tick__11CRemoteCtrlFf */
-void CRemoteCtrl::Tick(float)
+bool CRemoteCtrl::Tick(float)
 {
+	/* 0x2ce6c0 returns 1; port: stub (the remote seal's network state is not written) */
+	return true;
 }
 
 /* @socom-skeleton stub PreTick__11CRemoteCtrlFf */
-void CRemoteCtrl::PreTick(float)
+bool CRemoteCtrl::PreTick(float)
 {
 	/* @socom-skeleton stub sm$2347 */
 	static float sm;
 	/* @socom-skeleton stub last_time$2348 */
 	static int last_time;
+	/* 0x2ce310 returns 1; port: stub (the remote seal's network throttles are not written) */
+	return true;
 }
 
 /* @socom-skeleton stub PostMortemPreTick__11CRemoteCtrlFf */

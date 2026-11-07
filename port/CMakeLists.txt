@@ -82,7 +82,8 @@ target_link_libraries(socom_port PRIVATE
 
 # Test hook, off by default: a scratch build configured with
 #   -DSOCOM_PORT_FAKE_PAD=<read>:<BUTTON>[,<read>:<BUTTON>...]
-# synthesizes pad port 0 and presses the buttons at those pad reads (compat/libpad.c),
+# synthesizes pad port 0 and presses the buttons at those pad reads (compat/libpad.c;
+# <read>:<AXIS>=<0..255>[+<reads>] terms move a stick, e.g. 300:LY=0+200 pushes up),
 # so batch emulator runs can drive the menus. Never set it in the default build.
 set(SOCOM_PORT_FAKE_PAD "" CACHE STRING "port test hook: scripted pad 0 presses (empty = off)")
 if(SOCOM_PORT_FAKE_PAD)

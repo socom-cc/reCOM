@@ -9,7 +9,10 @@
  * -DSOCOM_PORT_FAKE_PAD=<read>:<BUTTON>[,<read>:<BUTTON>...] (port/CMakeLists.txt) and
  * port 0 is a synthesized, always-stable analog pad that holds BUTTON down for three
  * reads starting at the given read count (CPad::Tick reads every other frame). Buttons:
- * START SELECT UP DOWN LEFT RIGHT CROSS CIRCLE SQUARE TRIANGLE L1 L2 R1 R2. */
+ * START SELECT UP DOWN LEFT RIGHT CROSS CIRCLE SQUARE TRIANGLE L1 L2 R1 R2. A stick term
+ * <read>:<AXIS>=<value>[+<reads>] holds an axis (LX LY RX RY, raw 0..255 decimal, 128 is
+ * centred; LY=0 is the left stick fully up) for <reads> reads (default 3) from <read>;
+ * otherwise the sticks stay centred. */
 #include <libpad.h> /* compat: the Sony declarations */
 #include <string.h>
 
@@ -51,6 +54,85 @@ static const struct
     { "CROSS", 0x0040 }, { "SQUARE", 0x0080 },
 };
 
+/* the stick axes by read data byte (rdata[4..7] = RX RY LX LY) */
+static const struct
+{
+    const char *name;
+    unsigned int byte;
+} socom_fake_axes[] =
+{
+    { "RX", 4 }, { "RY", 5 }, { "LX", 6 }, { "LY", 7 },
+};
+
+static unsigned int socom_fake_number(const char **pp)
+{
+    unsigned int v = 0;
+
+    while (**pp >= '0' && **pp <= '9')
+        v = v * 10 + (unsigned int)(*(*pp)++ - '0');
+
+    return v;
+}
+
+/* the raw value the script gives a stick byte at this read (0x80, centred, when none) */
+static unsigned char socom_fake_axis(unsigned int read, unsigned int byte)
+{
+    unsigned char value = 0x80;
+    const char *p = socom_fake_script;
+
+    while (*p != '\0')
+    {
+        unsigned int at;
+        char name[16];
+        unsigned int n = 0;
+        unsigned int i;
+        unsigned int v;
+        unsigned int reads = 3;
+
+        while (*p == ' ' || *p == ',')
+            p++;
+
+        at = socom_fake_number(&p);
+
+        if (*p == ':')
+            p++;
+
+        while (*p != '\0' && *p != ',' && *p != ' ' && *p != '=' && n < sizeof(name) - 1)
+            name[n++] = *p++;
+
+        name[n] = '\0';
+
+        if (*p != '=')
+        {
+            while (*p != '\0' && *p != ',' && *p != ' ')
+                p++;
+
+            continue;
+        }
+
+        p++;
+        v = socom_fake_number(&p);
+
+        if (*p == '+')
+        {
+            p++;
+            reads = socom_fake_number(&p);
+        }
+
+        for (i = 0; i < sizeof(socom_fake_axes) / sizeof(socom_fake_axes[0]); i++)
+        {
+            if (strcmp(name, socom_fake_axes[i].name) == 0 && socom_fake_axes[i].byte == byte
+                && read >= at && read < at + reads)
+                value = (unsigned char)(v > 255 ? 255 : v);
+        }
+
+        while (*p != '\0' && *p != ',' && *p != ' ')
+            p++;
+    }
+
+    return value;
+}
+
 /* the buttons the script holds down at this read */
 static unsigned short socom_fake_pressed(unsigned int read)
 {
@@ -77,6 +159,9 @@ static unsigned short socom_fake_pressed(unsigned int read)
             name[n++] = *p++;
 
         name[n] = '\0';
+
+        if (strchr(name, '=') != NULL)
+            continue; /* a stick term (socom_fake_axis) */
 
         for (i = 0; i < sizeof(socom_fake_buttons) / sizeof(socom_fake_buttons[0]); i++)
         {
@@ -138,7 +223,21 @@ int scePadRead(int port, int slot, unsigned char *rdata)
         rdata[1] = 0x73; /* analog, 3 words */
         rdata[2] = (unsigned char)~(pressed >> 8);
         rdata[3] = (unsigned char)~pressed;
-        rdata[4] = rdata[5] = rdata[6] = rdata[7] = 0x80; /* sticks centred */
+        /* the sticks: centred unless the script moves them */
+        rdata[4] = socom_fake_axis(socom_fake_reads - 1, 4);
+        rdata[5] = socom_fake_axis(socom_fake_reads - 1, 5);
+        rdata[6] = socom_fake_axis(socom_fake_reads - 1, 6);
+        rdata[7] = socom_fake_axis(socom_fake_reads - 1, 7);
+
+        if (rdata[4] != 0x80 || rdata[5] != 0x80 || rdata[6] != 0x80 || rdata[7] != 0x80)
+        {
+            static unsigned int traced;
+
+            if (traced++ % 60 == 0)
+                socom_port_trace("PAD: test hook read %u sticks RX %u RY %u LX %u LY %u", socom_fake_reads - 1,
+                    rdata[4], rdata[5], rdata[6], rdata[7]);
+        }
+
         return 32;
     }
 #endif

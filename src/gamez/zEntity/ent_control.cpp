@@ -24,11 +24,15 @@ CEntityCtrl::~CEntityCtrl()
 }
 
 /* @socom-skeleton stub PreTick__11CEntityCtrlFf */
-void CEntityCtrl::PreTick(float)
+bool CEntityCtrl::PreTick(float)
 {
+	/* 0x1f2040 */
+	return false;
 }
 
 /* @socom-skeleton stub Tick__11CEntityCtrlFf */
-void CEntityCtrl::Tick(float)
+bool CEntityCtrl::Tick(float)
 {
+	/* 0x1f2030 */
+	return false;
 }

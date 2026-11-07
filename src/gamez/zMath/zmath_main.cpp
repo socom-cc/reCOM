@@ -360,28 +360,25 @@ void CQuat::SlerpFaster(const CQuat *, float, CQuat *) const
 }
 
 /* @socom-skeleton body Exp__5CQuatFPC6CPnt3D */
-void CQuat::Exp(const CPnt3D *pointPtr)
+void CQuat::Exp(const CPnt3D *point)
 {
-	CQuat& quat = *this; /* port: binds the pre-skeleton body's names; body unverified */
-	const CPnt3D& point = *pointPtr;
-	f32 pointLengthSqr = point.z * point.z + point.y * point.y + point.x * point.x;
+	/* 0x220940: the rotation of angle |p| about p (cos |p|, p sin |p| / |p|); identity for 0.
+	 * port fix: the earlier body never set the vector part */
+	f32 len2 = point->x * point->x + point->y * point->y + point->z * point->z;
 
-	if (pointLengthSqr == 0.0f)
+	if (len2 == 0.0f)
 	{
-		quat.w = 1.0f;
-		quat.vec.x = 0.0f;
-		quat.vec.y = 0.0f;
-		quat.vec.z = 0.0f;
-	}
-	else
-	{
-		pointLengthSqr = sqrtf(pointLengthSqr);
-		f32 sin = sinf(pointLengthSqr);
-		f32 cos = cosf(pointLengthSqr);
-		quat.w = cos;
+		w = 1.0f;
+		vec.x = CPnt3D::zero.x;
+		vec.y = CPnt3D::zero.y;
+		vec.z = CPnt3D::zero.z;
+		return;
 	}
 
-	/* port: `return quat;` dropped (function returns void) */
+	f32 len = sqrtf(len2);
+	f32 s = sinf(len);
+	w = cosf(len);
+	point->Scale(s / len, &vec);
 }
 
 /* @socom-skeleton stub Exp__5CQuatFPC6CPnt3Df */
@@ -395,8 +392,32 @@ void CQuat::Ln(CPnt3D *)
 }
 
 /* @socom-skeleton stub Pow__5CQuatFfP5CQuat */
-void CQuat::Pow(float, CQuat *)
+void CQuat::Pow(float t, CQuat *out)
 {
+	/* 0x220610: the rotation's angle scaled by t (the short way round) */
+	f32 len2 = vec.z * vec.z + vec.x * vec.x + vec.y * vec.y;
+
+	if (len2 == 0.0f)
+	{
+		*out = *this;
+		return;
+	}
+
+	f32 len = sqrtf(len2);
+	f32 angle;
+
+	if (w >= 0.0f)
+		angle = t * atan2f(len, w);
+	else
+		angle = t * -atan2f(len, -w);
+
+	f32 s = sinf(angle);
+	out->w = cosf(angle);
+	CPnt3D v;
+	vec.Scale(s / len, &v);
+	out->vec.x = v.x;
+	out->vec.y = v.y;
+	out->vec.z = v.z;
 }
 
 /* @socom-skeleton stub zMath_Init__Fv */

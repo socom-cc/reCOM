@@ -816,7 +816,7 @@ void CSealCtrlAi::Dump()
 }
 
 /* @socom-skeleton stub Tick__11CSealCtrlAiFf */
-void CSealCtrlAi::Tick(float)
+bool CSealCtrlAi::Tick(float)
 {
 	/* @socom-skeleton stub threat_rate$2957 */
 	static float threat_rate;
@@ -828,6 +828,9 @@ void CSealCtrlAi::Tick(float)
 	static float audio_rate;
 	/* @socom-skeleton stub underfire_rate$2969 */
 	static float underfire_rate;
+	/* 0x268880 (2968 B) returns 1; port: stub (the AI brain is not written: the body ticks
+	 * with the throttles at rest) */
+	return true;
 }
 
 /* @socom-skeleton stub PostTick__11CSealCtrlAiFf */
@@ -856,10 +859,12 @@ void CSealCtrlAi::PostMortemPreTick(float)
 }
 
 /* @socom-skeleton stub PreTick__11CSealCtrlAiFf */
-void CSealCtrlAi::PreTick(float)
+bool CSealCtrlAi::PreTick(float)
 {
 	/* @socom-skeleton stub logFrameNum$3101 */
 	static long logFrameNum;
+	/* 0x2675e0 (1360 B) returns 1; port: stub (the AI brain is not written: no throttles) */
+	return true;
 }
 
 /* @socom-skeleton stub OnRecycleEntity__11CSealCtrlAiFP7CEntity */
@@ -989,10 +994,89 @@ unsigned char CSealCtrlAi::SlideTick(float)
 }
 
 /* @socom-skeleton stub SlideTick__9CSealCtrlFf */
-unsigned char CSealCtrl::SlideTick(float)
+unsigned char CSealCtrl::SlideTick(float dT)
 {
+	/* 0x264270: a goal position / direction set by a scripted slide is approached over the
+	 * goal timer as fudge velocities; 1 while sliding. Not sliding (no goal): 0. */
 	/* @socom-skeleton stub move_tolerance$3566 */
-	static int move_tolerance;
+	static float move_tolerance = 25.0f; /* init$3567: 0x41c80000 (unused) */
+	f32 dTI = 1.0f / dT; /* port: the ELF keeps 1/dT in a file static (__dTI) */
+	CEntity *entity = m_entity;
+
+	if (!m_goal_dir_valid && !m_goal_pos_valid)
+		return false;
+
+	f32 left = m_goal_timer.m_timer;
+	bool sliding = true;
+	bool expired = false;
+
+	if (left != CAiTimer::infinite)
+	{
+		m_goal_timer.m_timer = left - dT;
+		expired = m_goal_timer.m_timer != CAiTimer::infinite && m_goal_timer.m_timer <= 0.0f;
+	}
+
+	f32 frac = 1.0f;
+
+	if (expired)
+		sliding = false;
+	else if (left < dT)
+		sliding = false;
+	else
+		frac = dT / left;
+
+	zdb::CNode *node = m_entity->m_node;
+	CPnt3D fwd;
+	fwd.x = -node->m_matrix.m_matrix[2][0];
+	fwd.z = -node->m_matrix.m_matrix[2][2];
+	fwd.y = 0.0f;
+	fwd.Normalize();
+	CPnt3D move;
+	move.x = 0.0f;
+	move.y = 0.0f;
+	move.z = 0.0f;
+	(void)move_tolerance;
+
+	if (m_goal_pos_valid)
+	{
+		m_goal_pos.SubXZ(entity->GetPosW(), &move);
+		f32 dist = sqrtf(move.z * move.z + move.x * move.x);
+
+		if (dist != 0.0f)
+		{
+			move.x *= 1.0f / dist;
+			move.z *= 1.0f / dist;
+		}
+
+		move.Scale(dTI * dist * frac, &m_fudge_velW);
+
+		if (frac == 1.0f)
+			m_goal_pos_valid = 0;
+	}
+
+	if (m_goal_dir_valid)
+	{
+		f32 c = fwd.z * m_goal_dir.z + fwd.x * m_goal_dir.x + fwd.y * m_goal_dir.y;
+		bool right = m_goal_dir.z * fwd.x + m_goal_dir.x * -fwd.z + m_goal_dir.y * 0.0f >= 0.0f;
+
+		if (c < 1.0f)
+		{
+			f32 angle = acosf(c);
+			m_fudge_velR.y = angle * frac * dTI * (right ? -1.0f : 1.0f);
+		}
+	}
+
+	if (!sliding)
+	{
+		GOAL_TYPE type = m_goal_type;
+		SetGoalPos(type, NULL, 3.0f);
+		SetGoalDir(type, NULL, false);
+		m_goal_timer.m_timer = CAiTimer::infinite;
+		m_goal_timer.m_period.m_min = CAiTimer::infinite;
+		m_goal_timer.m_period.m_range = 0.0f;
+	}
+
+	return sliding;
 }
 
 /* @socom-skeleton stub SetDebug__11CSealCtrlAiFb */

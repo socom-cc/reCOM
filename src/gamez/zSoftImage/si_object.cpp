@@ -113,8 +113,32 @@ CZSIObject::~CZSIObject()
 }
 
 /* @socom-skeleton stub GetVelRaw__10CZSIObjectFP10CZSIScriptiiP6CPnt3D */
-CPnt3D * CZSIObject::GetVelRaw(CZSIScript *, int, int, CPnt3D *)
+CPnt3D * CZSIObject::GetVelRaw(CZSIScript *script, int a, int b, CPnt3D *out)
 {
+	/* 0x1ddc80: the key step b - a (at the last key, the step before it) per second of the
+	 * script (x frames x time scale / loop time); 0 for a constant position */
+	if (m_constPos)
+	{
+		*out = CPnt3D::zero;
+		return out;
+	}
+
+	if (b == script->m_pCommon->m_nFrames)
+	{
+		if (a > 0)
+			a--;
+
+		b--;
+	}
+
+	out->x = m_positionData[b * 3 + 0];
+	out->y = m_positionData[b * 3 + 1];
+	out->z = m_positionData[b * 3 + 2];
+	out->x -= m_positionData[a * 3 + 0];
+	out->y -= m_positionData[a * 3 + 1];
+	out->z -= m_positionData[a * 3 + 2];
+	out->Scale(script->m_tScale * (f32)script->m_pCommon->m_nFrames / script->m_tf, out);
+	return out;
 }
 
 /* @socom-skeleton stub GetPosRaw__10CZSIObjectFiifP6CPnt3D */

@@ -986,7 +986,17 @@ public:
 
 class CCompassAnchor
 {
-
+public:
+	/* DWARF CCompassAnchor (24 bytes, main.cpp CU); port: declared for CZSealBody::PostTick 0x255080 */
+	u32 m_enabled : 1;
+	u32 m_arrow_enabled : 1;
+	u32 m_name_enabled : 1;
+	u32 m_echo : 1;
+	u32 m_type : 16;
+	u32 m_unused : 12;
+	CPnt3D m_posW; /* +0x4 */
+	char* m_name; /* +0x10 */
+	CAiMapLoc* m_aiMapLoc; /* +0x14 */
 };
 
 /* port: DWARF class_type nav_package (die 0x302ada, hud_mapcompass.cpp CU), byte_size 20; element of navpoint_vec */

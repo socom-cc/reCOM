@@ -212,17 +212,41 @@
 #include "gamez/zMath/zmath.h"
 #include "gamez/zSound/zsnd.h"
 #include "gamez/zValve/zvalve.h"
+#include "gamez/zNode/node_world.h" /* zdb::CWorld::m_world (zoom states) */
+#include "Apps/FTS/hud/hud.h" /* CCompassAnchor (PostTick) */
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
 class CCompass;
 class CCompassAnchor;
 /* @socom-skeleton end forward */
 
+/* port: zdb::IntersectStruct::GetMaxRegionShift 0x2553c0 (static, emitted in this unit; not
+ * declared in the port): the index of the highest set region bit (0 for none) */
+static u32 MaxRegionShift(u32 regions)
+{
+	if (regions == 0)
+		return 0;
+
+	u32 shift = (u32)-1;
+
+	while (regions != 0)
+	{
+		regions >>= 1;
+		shift++;
+	}
+
+	return shift;
+}
+
 /* @socom-skeleton stub m_heartbeat_sound__10CZSealBody */
 int CZSealBody::m_heartbeat_sound[3] = {0};
 
 /* @socom-skeleton stub stoppedV__10CZSealBody */
 const float CZSealBody::stoppedV = 0.029999999329447746f;
+
+/* port: turnV__10CZSealBody (0x450d20, 4 bytes 0x3ccccccd) has no source owner yet; kept
+ * here beside stoppedV (0x450d28) */
+const float CZSealBody::turnV = 0.025f;
 
 /* @socom-skeleton stub m_renderShadow__10CZSealBody */
 unsigned char CZSealBody::m_renderShadow = 1;
@@ -981,21 +1005,442 @@ void CZSealBody::UpdateLODFlags()
 }
 
 /* @socom-skeleton stub PreTick__10CZSealBodyFf */
-void CZSealBody::PreTick(float)
+void CZSealBody::PreTick(float dT)
 {
+	/* 0x2563e0: the controller's input for the frame (a dead body runs its post-mortem tick
+	 * instead); then a dead-but-alive check, the carry distance (over 28 the carry breaks),
+	 * stance, peek and weapons, and the throttles taken from the controller (zero while
+	 * dying, stunned, in the air or picking up a buddy; carrying limits them; a ladder stops
+	 * turn and strafe; carried / carrying stop strafing; no turn when the anims cannot turn). */
+	m_dT = dT;
+	m_fix_skel_y = 0;
+	m_animate_me = 1;
+
+	if (!m_stunned)
+		m_am_stunned = 0;
+
+	if (appCamera->m_entity == this)
+		UpdateLODFlags();
+
+	CSealCtrl *ctrl = static_cast<CSealCtrl *>(m_control);
+
+	if (ctrl == NULL)
+		return;
+
+	if (m_state == 8)
+	{
+		ctrl->PostMortemPreTick(dT);
+		bool remote = m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsRemote();
+
+		if (!remote)
+			ctrl->TickRumbler(dT);
+
+		PostMortemPreTick(dT);
+		return;
+	}
+
+	m_doPostTick = ctrl->PreTick(dT);
+
+	if (m_state == 10 && m_carry != NULL)
+		ctrl = static_cast<CSealCtrl *>(m_carry->m_control);
+
+	if (!m_doPostTick)
+		return;
+
+	if (m_blends->Top()->m_state != 8 && !m_isAlive && m_state != 8 && m_state != 10)
+	{
+		bool flag = false;
+		WeaponHitAnim(FindRandomDeathAnim((DAMAGE_LOCATION)3, &flag), SEAL_STATE::stateDead, false);
+	}
+
+	CZSealBody *carry = m_carry;
+
+	if (carry != NULL)
+	{
+		CPnt3D d;
+		GetPosW()->Sub(carry->GetPosW(), &d);
+
+		if (!(d.x * d.x + d.y * d.y + d.z * d.z <= 784.0f))
+		{
+			m_carry->ClearToBase(false);
+			ClearToBase(false);
+
+			if (m_root->m_parent != NULL)
+				DetachBody();
+			else
+				m_carry->DetachBody();
+		}
+	}
+
+	CZBodyAnimBlend *top = m_blends->Top();
+	bool dying = top->m_state == 8;
+
+	if (!dying)
+	{
+		UpdateStance();
+		UpdatePeek();
+		WeaponsTick(dT);
+	}
+
+	pre_thr_lr = ctrl->m_throttle[2];
+	pre_thr_fb = ctrl->m_throttle[0];
+	pre_thr_strafe = ctrl->m_throttle[1];
+
+	if (dying || m_am_stunned || m_state == 6 || IsCurrentBlend((AnimType)AnimTypes::BuddyCarryPickup)
+		|| IsCurrentBlend((AnimType)AnimTypes::BuddyCarriedPickup))
+	{
+		pre_thr_lr = 0.0f;
+		pre_thr_fb = 0.0f;
+		pre_thr_strafe = 0.0f;
+	}
+
+	if (m_state == 1 && m_carry != NULL)
+	{
+		if (top->m_callback.m_func != NULL)
+		{
+			pre_thr_lr = 0.0f;
+			pre_thr_fb = 0.0f;
+			pre_thr_strafe = 0.0f;
+		}
+		else
+		{
+			m_carry->m_carry = NULL;
+			m_carry = NULL;
+		}
+	}
+
+	if (m_state == 5 || top->m_state == 5)
+	{
+		pre_thr_lr = 0.0f;
+		pre_thr_strafe = 0.0f;
+	}
+
+	if (m_state == 10 || m_state == 9)
+		pre_thr_strafe = 0.0f;
+
+	if (!CanTurn())
+		pre_thr_lr = 0.0f;
+
+	if (m_wephit != NULL && m_wephit->m_node != NULL)
+		HandleWepHit();
+
+	PreCheckDIDown();
 }
 
 /* @socom-skeleton stub Tick__10CZSealBodyFf */
-void CZSealBody::Tick(float)
+void CZSealBody::Tick(float dT)
 {
 	/* @socom-skeleton stub g_debug_timer$2685 */
-	static float g_debug_timer;
+	static float g_debug_timer = 0.0f; /* init$2686 */
 	/* @socom-skeleton stub g_debug_counter$2688 */
-	static float g_debug_counter;
+	static float g_debug_counter = 0.0f; /* init$2689 */
 	/* @socom-skeleton stub g_memmarker_delay$2691 */
-	static float g_memmarker_delay;
+	static float g_memmarker_delay = 10.0f; /* init$2692 */
 	/* @socom-skeleton stub adren_incr2$2814 */
-	static float adren_incr2;
+	static float adren_incr2 = 0.1f; /* init$2815 */
+	/* 0x255870: after the controller's tick: the forward wall check (with the action button,
+	 * or on a cycling blend unless the wall stops the body; hanging / ladder / idle states
+	 * have their own), the ground (PostCheckDIDown) and the terrain slowdown; then the
+	 * animation state: a running interruptible anim gives way to a strong throttle (> 0.1;
+	 * a moving reload / swap continues as an overlay) or to its end (CheckAnim), a cycling
+	 * blend follows the throttles (SealAnim); the blend's time step and the blend overlay;
+	 * the turn rate from the turn throttle; the adrenaline, scope and heartbeat with a
+	 * weapon; then Tick_0 (pose) and ComputeNextPosition. port: the ELF formats the memory
+	 * marker counter into an unused local string every 10 s; left out. */
+	m_doCZSealBodyPostTick = false;
+
+	if (!m_doPostTick)
+		return;
+
+	if (m_delayed_footbomb_creation && CPickup::m_isOpen && CreateMPBombPickup((const CPnt3D *)m_delayed_footbomb_creation_pos, false))
+		m_delayed_footbomb_creation = 0;
+
+	if (m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsPlayer())
+		g_debug_timer += dT;
+
+	if (g_memmarker_delay < g_debug_timer)
+	{
+		g_debug_counter += g_debug_timer;
+		g_debug_timer = 0.0f;
+	}
+
+	if (m_lastprojectile != NULL)
+		m_lastprojectile = NULL;
+
+	CSealCtrl *ctrl = static_cast<CSealCtrl *>(m_control);
+
+	if (ctrl == NULL)
+		return;
+
+	if (m_isAlive)
+	{
+		m_numDeathAnimsPlayed = 0;
+		m_TimeSpentDead = 0.0f;
+	}
+	else
+	{
+		m_TimeSpentDead += dT;
+	}
+
+	if (!ctrl->Tick(dT))
+		return;
+
+	if (m_state == 8)
+		return;
+
+	s16 prev = (s16)m_blends->Top()->m_animType;
+	CZBodyAnimBlend *top = m_blends->Top();
+	GetRootPart(); /* ELF quirk kept: called for nothing */
+
+	if ((top->m_flags & 0x40) == 0)
+	{
+		if (ctrl->m_action)
+			CheckDIFwd1(pre_thr_fb, pre_thr_strafe, pre_thr_lr);
+	}
+	else if (m_state == 4)
+	{
+		if (ctrl->m_action)
+			Stand(-1);
+	}
+	else if (m_state == 5)
+	{
+		if ((s16)top->m_animType != (s16)AnimType::animTypeClimbOffLadder && !PostCheckDILadder(pre_thr_fb, pre_thr_strafe, pre_thr_lr))
+		{
+			PopBlend();
+			PushBlend(AnimType::animTypeClimbOffLadder, 0, false);
+			m_alt = m_node->m_matrix.m_matrix[3][1];
+		}
+	}
+	else if (m_state == 7)
+	{
+		CPnt3D pos = *GetPosW();
+		zdb::IntersectStruct *hit = SealGetAltitude(&pos, 1.0f);
+
+		if (hit != NULL)
+			m_alt = hit->m_pos.y;
+
+		if (m_blends->Top() == NULL || idlehack != m_blends->Top()->m_animType)
+		{
+			Stand(1);
+			BodySetState(0);
+		}
+	}
+	else if (!DoWallStop())
+	{
+		CheckDIFwd1(pre_thr_fb, pre_thr_strafe, pre_thr_lr);
+	}
+
+	PostCheckDIDown(pre_thr_fb, pre_thr_strafe, pre_thr_lr);
+	f32 terrain = GetTerrainMotionFactor();
+
+	if (terrain < 0.99f)
+	{
+		pre_thr_fb *= terrain;
+		pre_thr_strafe *= terrain;
+		pre_thr_lr *= terrain;
+	}
+
+	velocityFactor = 1.0f;
+	top = m_blends->Top();
+	s8 bstate = top->m_state;
+
+	if ((top->m_flags & 0x40) == 0)
+	{
+		if (prev == (s16)top->m_animType)
+		{
+			bool go = false;
+			bool moved = false;
+			bool reversed = false;
+			f32 tfrac = 0.0f;
+
+			if ((CanInterrupt() && bstate != 8) || prev == (s16)AnimType::animTypeRifle2Pistol)
+			{
+				go = fabsf(pre_thr_fb) > 0.1f || fabsf(pre_thr_strafe) > 0.1f || fabsf(pre_thr_lr) > 0.1f;
+
+				if (go)
+				{
+					tfrac = top->m_tfrac;
+					moved = true;
+					reversed = (top->m_flags & 0x20) != 0;
+				}
+			}
+
+			if (!go)
+				go = CheckAnim();
+
+			if (go)
+			{
+				if (moved && prev == (s16)AnimType::animTypeStand2Crouch)
+					m_carry = NULL;
+
+				top->m_ctrl = 0;
+				top = SealAnim(go, pre_thr_fb, pre_thr_strafe, pre_thr_lr);
+
+				if (moved)
+				{
+					s16 moving = -1;
+					bool rifle = false;
+
+					if (prev == AnimTypes::RifleReload || prev == AnimTypes::RifleCrouchReload)
+						moving = AnimTypes::MovingRifleReload, rifle = true;
+					else if (prev == AnimTypes::PistolReload || prev == AnimTypes::PistolCrouchReload)
+						moving = AnimTypes::MovingPistolReload;
+					else if (prev == (s16)AnimType::animTypeRifle2Pistol)
+						moving = AnimTypes::MovingRifle2Pistol;
+
+					if (moving != -1)
+					{
+						ClearBlendOverlay();
+						ACTIVE_ANIM *active = m_active_anim_pool->GetActiveAnim(GetAnimByType((AnimType)moving));
+
+						if (prev == AnimTypes::RifleReload || prev == AnimTypes::RifleCrouchReload)
+							SetMovingRifleReload(active);
+						else if (prev == AnimTypes::PistolReload || prev == AnimTypes::PistolCrouchReload)
+							SetMovingPistolReload(active);
+						else if (reversed)
+							SetMovingChangeToRifle(active);
+						else
+							SetMovingChangeToPistol(active);
+
+						m_overlay->m_ovlyT = tfrac;
+						m_overlay->m_triggerT = -4.0f;
+					}
+
+					(void)rifle;
+				}
+			}
+		}
+	}
+	else
+	{
+		if (m_state == 5)
+		{
+			pre_thr_lr = 0.0f;
+			pre_thr_strafe = 0.0f;
+		}
+		else if (m_state == 4)
+		{
+			pre_thr_lr = 0.0f;
+		}
+
+		top = SealAnim(false, pre_thr_fb, pre_thr_strafe, pre_thr_lr);
+	}
+
+	if (m_state == 8)
+		return;
+
+	if (m_state == 10)
+		pre_thr_strafe = 0.0f;
+
+	f32 from = top->m_tfrac;
+	f32 to = top->Propagate(m_dT, false);
+
+	if (BlendOverlayPreTick(from, to))
+	{
+		m_blends->Top();
+		SealAnim(false, pre_thr_fb, pre_thr_strafe, pre_thr_lr);
+	}
+
+	if (m_state == 4)
+		pre_thr_lr = 0.0f;
+
+	top = m_blends->Top();
+
+	if (top != NULL)
+	{
+		s16 type = (s16)m_blends->Top()->m_animType;
+
+		if (type == (s16)AnimType::animTypeHopdownForward || type == (s16)AnimType::animTypeClimbCrate
+			|| type == (s16)AnimType::animTypeJumpLandHard || type == (s16)AnimType::animTypeJumpLand
+			|| type == (s16)AnimType::animTypeJumpFall || type == (s16)AnimType::animTypeJumpLaunch
+			|| type == (s16)AnimType::animTypeHangJumpDown || type == (s16)AnimType::animTypeHang2Climb
+			|| type == (s16)AnimType::animTypeStand2Hang)
+		{
+			pre_thr_lr = 0.0f;
+		}
+	}
+
+	if (m_state == 0)
+	{
+		s16 type = (s16)m_blends->Top()->m_animType;
+
+		if (type == (s16)AnimType::animTypeStand2Ladder || type == (s16)AnimType::animTypeStand2Ladder_P
+			|| type == (s16)AnimType::animTypeClimbOffLadder || type == (s16)AnimType::animTypeClimbOffLadder_P)
+		{
+			pre_thr_strafe = 0.0f;
+		}
+	}
+
+	if (!IsCurrentBlend((AnimType)AnimTypes::Rotate180))
+		m_velR.y = theCharacterDynamics.m_turn_maxRate * pre_thr_lr;
+
+	CZFTSWeapon *weapon;
+	m_kit.GetCurWeapon(&weapon, NULL);
+	bool player = m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsPlayer();
+
+	if (weapon != NULL && player)
+	{
+		CTargetMods *mods = weapon->TargetMods((int)GetStance(false));
+		f32 rate = mods->GetSniper_DecayRate();
+
+		if (GetSpeedState() == 3)
+			rate = 1.0f - fabsf(pre_thr_fb);
+
+		AdrenalineIncr(fabsf(pre_thr_fb));
+		AdrenalineIncr(adren_incr2 * fabsf(pre_thr_lr));
+		AdrenalineIncr(fabsf(pre_thr_strafe));
+		f32 eps = 0.005f;
+		CAiDecay *adrenaline = m_adrenaline;
+
+		if (adrenaline->m_goal != adrenaline->m_value)
+		{
+			if (adrenaline->m_type == ::TYPE::EXPONENTIAL)
+			{
+				decay(rate, dT, adrenaline->m_value, adrenaline->m_goal);
+
+				if (_close_enough(adrenaline->m_value, adrenaline->m_goal, eps))
+					adrenaline->m_value = adrenaline->m_goal;
+			}
+			else
+			{
+				f32 step = -rate * dT;
+				adrenaline->m_value += step * (adrenaline->m_goal - adrenaline->m_value);
+
+				if (_close_enough(adrenaline->m_value, adrenaline->m_goal, 0.005f < step ? step : eps))
+					adrenaline->m_value = adrenaline->m_goal;
+			}
+		}
+
+		if (m_kit.IsUsingScope() || m_kit.IsUsingBinocs())
+			m_kit.SniperTick(dT, *mods);
+
+		if (m_kit.m_heartbeat_enabled && m_kit.IsUsingScope())
+			TickHeartbeat();
+		else
+			StopAllHeartbeatSounds(); /* inline in the ELF */
+	}
+	else if (player)
+	{
+		StopAllHeartbeatSounds(); /* inline in the ELF */
+	}
+
+	m_fixed_foot = 0;
+	Tick_0(-m_velR.y);
+	ComputeNextPosition(dT);
+	m_doCZSealBodyPostTick = true;
+#ifdef SOCOM_PORT
+	if (player)
+	{
+		static s32 traced;
+
+		if (traced++ % 120 == 0)
+			SOCOM_PORT_TRACE("SEAL: player pos %.1f %.1f %.1f state %d blend %d (top %d, flags %x, t %.2f) velM %.2f %.2f %.2f velR %.2f thr fb %.2f st %.2f lr %.2f alt %.1f air %d items %d",
+				GetPosW()->x, GetPosW()->y, GetPosW()->z, m_state, (int)(s16)m_CurrentBlendAnimType,
+				(int)(s16)m_blends->Top()->m_animType, (int)m_blends->Top()->m_flags, m_blends->Top()->m_tfrac,
+				m_velM.x, m_velM.y, m_velM.z, m_velR.y, pre_thr_fb, pre_thr_strafe, pre_thr_lr, m_alt, (int)m_airborne,
+				m_kit.m_num_items);
+	}
+#endif
 }
 
 /* @socom-skeleton stub CreateAiEvent__10CZSealBodyFv */
@@ -1026,8 +1471,63 @@ int curChord;
 }
 
 /* @socom-skeleton stub PostTick__10CZSealBodyFf */
-void CZSealBody::PostTick(float)
+void CZSealBody::PostTick(float dT)
 {
+	/* 0x255080: the node's region shift from the ground region the player's camera sees;
+	 * then, after a ticked frame: a carried / stabbed / restrained body follows its carrier,
+	 * the AI event, the position (PostComputeNextPosition), the pose to the nodes (Post),
+	 * the hostage anchor, the aim history, the aim params, the controller's post tick, and
+	 * grenades, kit, stun, footsteps and blood. ELF quirk kept: a carrier copies its carried
+	 * body's region shift onto itself. */
+	zdb::CCamera *camera = zdb::CWorld::m_world->m_camera;
+	u32 region = m_last_altitude.GetRegion();
+
+	if (camera->PlayerCanSeeRegion(region))
+		GetNode()->m_region_shift = MaxRegionShift(camera->GetPlayerCanSeeRegion());
+
+	if (m_state == 9)
+	{
+		CZSealBody *carry = m_carry;
+		GetNode();
+		zdb::CNode *node = carry->GetNode();
+		node->m_region_shift = node->m_region_shift;
+	}
+
+	if (!m_doCZSealBodyPostTick)
+		return;
+
+	if ((m_state == 10 && m_carry != NULL) || IsCurrentBlend((AnimType)AnimTypes::Stabbed)
+		|| IsCurrentBlend((AnimType)AnimTypes::ReceiveRestraints))
+	{
+		CPnt3D pos;
+		CQuat rot;
+		PartInSpace(GetRootPart(), NULL, &pos, &rot);
+		GetRootPart()->m_pos = pos;
+		GetRootPart()->m_rot = rot;
+		GetNode()->SetMatrix(&m_carry->GetNode()->m_matrix);
+		m_next_quat = m_carry->m_quat;
+		zdb::CNode *carried = m_carry->GetNode();
+		GetNode()->SetPosition(carried->m_matrix.m_matrix[3][0], carried->m_matrix.m_matrix[3][1], carried->m_matrix.m_matrix[3][2]);
+	}
+
+	UpdateAiEvent();
+	PostComputeNextPosition(dT);
+	Post();
+
+	if (m_hostage_anchor != NULL)
+		m_hostage_anchor->m_posW = *GetPosW();
+
+	m_prev_aim_point = m_aim_point;
+	m_prev_aim_norm = m_aim_norm;
+	m_prev_reticle_pt = m_reticle_pt;
+	m_prev_have_aim_norm = m_have_aim_norm;
+	UpdateAimParams();
+	static_cast<CSealCtrl *>(m_control)->PostTick(dT);
+	HandleGrenadeExplosion();
+	m_kit.Tick(dT);
+	TickStun(dT);
+	HandleSealStep();
+	HandleBloodDrip(dT);
 }
 
 /* @socom-skeleton stub collideCylinders__FfffffffffffffR6CPnt3DR6CPnt3D */
@@ -1046,10 +1546,156 @@ void CZSealBody::HandleSliding(float)
 }
 
 /* @socom-skeleton stub ComputeNextPosition__10CZSealBodyFf */
-void CZSealBody::ComputeNextPosition(float)
+void CZSealBody::ComputeNextPosition(float dT)
 {
 	/* @socom-skeleton stub MoveAwayFromWallFactor$3232 */
 	static float MoveAwayFromWallFactor;
+	/* 0x250f40: the frame's motion. The blend's pending offsets and the controller's fudge
+	 * velocities go into the model velocity (anim root motion) and the turn rate; vertical
+	 * anim motion is dropped unless the anim uses it; the next rotation is the current one
+	 * turned by half the turn rate times dT through Exp (the ELF's own convention); falls and
+	 * jumps move by the descent only; the world velocity is the model velocity in the next
+	 * rotation, and the move dpos is it times dT (in the air, plus the in-air horizontal
+	 * velocity, which bleeds off at 150/s once landed). Sliding and player collisions adjust
+	 * the move; a still body (no move, turn or fire) does not query a new altitude. port:
+	 * not written - the ELF then registers the delayed wall probe chords (up to 50, through
+	 * CWorld::RegIntersectDelayed, 0x251880-0x2540b8: stance-sized fans at the spine, head,
+	 * hips and feet) that PostComputeNextPosition reads the next frame. The grid's batch
+	 * intersect (CGrid::GetIntersectBatch 0x213830) that answers them is not written, so no
+	 * chords are registered: the body does not collide with walls. */
+	(void)MoveAwayFromWallFactor;
+	CZBodyAnimBlend *top = m_blends->Top();
+
+	if (IsCurrentBlend(AnimType::animTypeCrouch2Prone))
+	{
+		CPnt3D shift = CPnt3D::zero;
+		shift.z = (top->m_flags & 0x20) == 0 ? 5.0f : -5.0f;
+		m_node->m_matrix.Rotate(&shift, &top->m_dpos, 1);
+	}
+
+	CSealCtrl *ctrl = static_cast<CSealCtrl *>(m_control);
+	m_velM.Add(&top->m_dpos, &m_velM);
+	top->m_dpos = CPnt3D::zero;
+	m_velR.Add(&top->m_drot, &m_velR);
+	top->m_drot = CPnt3D::zero;
+	m_velM.Add(&ctrl->m_fudge_velM, &m_velM);
+	ctrl->m_fudge_velM = CPnt3D::zero;
+	m_velR.Add(&ctrl->m_fudge_velR, &m_velR);
+	ctrl->m_fudge_velR = CPnt3D::zero;
+
+	if (!UseVelY())
+	{
+		m_my = m_velM.y;
+
+		if (top != NULL && (top->m_flags & 0x40) == 0)
+		{
+			m_velW.y = 0.0f;
+			m_velM.y = 0.0f;
+		}
+	}
+
+	m_next_quat = m_quat;
+	CPnt3D half;
+	m_velR.Scale(dT * 0.5f, &half);
+	CQuat spin;
+	spin.Exp(&half);
+	CQuat turned;
+	spin.Mul(&m_next_quat, &turned);
+	turned.Normalize(&m_next_quat);
+	bool falling = IsCurrentBlend((AnimType)AnimTypes::FallForward01) || IsCurrentBlend((AnimType)AnimTypes::FallBackward01);
+	bool jumping = IsCurrentBlend(AnimType::animTypeJumpLaunch) || IsCurrentBlend(AnimType::animTypeJumpFall);
+	bool air = jumping || falling;
+
+	if (air)
+	{
+		m_velM.x = 0.0f;
+		m_velM.y = -m_descent;
+		m_velM.z = 0.0f;
+	}
+
+	m_next_quat.Apply(&m_velM, &m_next_velw, 1);
+	m_next_velw.Add(&ctrl->m_fudge_velW, &m_next_velw);
+	ctrl->m_fudge_velW = CPnt3D::zero;
+	m_next_velw.Scale(dT, &dpos);
+
+	if (m_airborne || air
+		|| (m_blends->Top() != NULL && ((s16)m_blends->Top()->m_animType == (s16)AnimType::animTypeJumpLand
+			|| (s16)m_blends->Top()->m_animType == (s16)AnimType::animTypeJumpLandHard)))
+	{
+		m_next_velw.x = m_inAirHorizVel.x;
+		m_next_velw.z = m_inAirHorizVel.z;
+		dpos.x += m_inAirHorizVel.x * dT;
+		dpos.z += m_inAirHorizVel.z * dT;
+
+		if (!m_airborne && !air)
+		{
+			CPnt3D bleed = m_inAirHorizVel;
+			f32 len = sqrtf(bleed.z * bleed.z + bleed.x * bleed.x);
+
+			if (len != 0.0f)
+			{
+				bleed.x *= 1.0f / len;
+				bleed.z *= 1.0f / len;
+			}
+
+			bleed.Scale(m_dT * 150.0f, &bleed);
+
+			if ((m_inAirHorizVel.x > 0.0f && m_inAirHorizVel.x < bleed.x) || (m_inAirHorizVel.x < 0.0f && bleed.x < m_inAirHorizVel.x))
+				m_inAirHorizVel.x = 0.0f;
+			else
+				m_inAirHorizVel.x -= bleed.x;
+
+			if ((m_inAirHorizVel.z > 0.0f && m_inAirHorizVel.z < bleed.z) || (m_inAirHorizVel.z < 0.0f && bleed.z < m_inAirHorizVel.z))
+				m_inAirHorizVel.z = 0.0f;
+			else
+				m_inAirHorizVel.z -= bleed.z;
+		}
+	}
+
+	if (!IsCurrentBlend((AnimType)AnimTypes::ClimbOver))
+		HandleSliding(dT);
+
+	CollidePlayers(dpos);
+	numChords = 0;
+	bool still = fabsf(dpos.x) < 0.0005f && fabsf(dpos.y) < 0.0005f && fabsf(dpos.z) < 0.0005f;
+	f32 turn = fabsf(pre_thr_lr);
+	bool player_no_map = m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsPlayer() && !ai::do_aimap_collide;
+	bool move = true;
+
+	if ((m_state == 10 && m_carry != NULL) || m_state == 8)
+		move = false;
+	else if (player_no_map)
+	{
+		if (still && turn <= 0.001f && m_fire->Weight() == 0.0f)
+			move = false;
+	}
+	else if (still && m_fire->Weight() == 0.0f)
+	{
+		move = false;
+	}
+
+	if (!move)
+	{
+		dpos = CPnt3D::zero;
+		chordStart = -1;
+		m_get_new_altitude = 0;
+	}
+	else if (IsCurrentBlend((AnimType)AnimTypes::ClimbOver)
+		|| (IsCurrentBlend(AnimType::animTypeClimbOffLadder) && (m_blends->Top()->m_flags & 0x20) != 0))
+	{
+		chordStart = -1;
+		m_get_new_altitude = 0;
+	}
+	else if (!(UseVelY() && !air))
+	{
+		/* the chord fan setup (0x2517a0-0x251870) and registration are not written: see above */
+		chordStart = curChord;
+		numChords = 0;
+		m_get_new_altitude = 1;
+	}
+
+	if (UseVelY())
+		m_get_new_altitude = 1;
 }
 
 /* @socom-skeleton stub PostPreTick__10CZSealBodyFf */
@@ -1071,12 +1717,124 @@ bool CZSealBody::HandleWeaponIntersect()
 void CZSealBody::PostComputeNextPosition(float)
 {
 	/* @socom-skeleton stub radius$3465 */
-	static float radius;
+	static float radius = 5.0f; /* init$3466 */
+	/* 0x24fc10: the frame's move lands. port: not written - with probe chords
+	 * (numChords != 0) the ELF first slides the move along the walls they hit, steps up
+	 * low ones and records the wall hit (0x24fc3c-0x250790); ComputeNextPosition registers
+	 * no chords in the port (the grid's batch intersect is not written), so numChords is 0
+	 * and that part never runs. Then: the weapon intersect while firing, the next position
+	 * (with the AI map's cell repel when enabled), its height (SetVertical), the terrain
+	 * tilt, and the node's matrix from the next rotation; the rotation and world velocity
+	 * become current. */
+	CZBodyAnimBlend *top = m_blends->Top();
+
+	if (numChords != 0)
+		SOCOM_PORT_TRACE("SEAL: %d probe chords not processed (port: not written)", numChords);
+
+	top = m_blends->Top();
+
+	if ((top->m_flags & 0x40) != 0 && m_fire->LinearWeight() > 0.0f && m_state != 5)
+		HandleWeaponIntersect();
+
+	CPnt3D *pos = (CPnt3D *)&m_node->m_matrix.m_matrix[3][0];
+	pos->Add(&dpos, &next_posw);
+
+	if (ai::do_aimap_collide || static_cast<CSealCtrl *>(m_control)->m_do_aimap_collide)
+	{
+		CPnt3D repel = CPnt3D::zero;
+		f32 depth;
+
+		if (AiMaps.GetCellRepelParams(m_mapLocValid, &next_posw, radius, repel, depth))
+			next_posw.Add(&repel, &next_posw);
+	}
+
+	if (m_state != 10)
+		next_posw.y = SetVertical();
+
+	NormalizeToTerrain();
+	m_next_matrix.m_matrix[3][0] = next_posw.x;
+	m_next_matrix.m_matrix[3][1] = next_posw.y;
+	m_next_matrix.m_matrix[3][2] = next_posw.z;
+	m_next_quat.ToMatrix(&m_next_matrix);
+	GetNode()->SetMatrix(&m_next_matrix);
+	m_quat = m_next_quat;
+	m_velW = m_next_velw;
+
+	if (!UseVelY() && top != NULL && (top->m_flags & 0x40) == 0)
+	{
+		m_velW.y = m_my;
+		m_velM.y = m_my;
+	}
 }
 
 /* @socom-skeleton stub NormalizeToTerrain__10CZSealBodyFv */
 void CZSealBody::NormalizeToTerrain()
 {
+	/* 0x24f9a0: the root part tilts toward the ground normal (in body space) by a weight from
+	 * the representative anim's terrain window (m_terrnorm0..1 over the blend time; a dying
+	 * body in the air uses 0.8..0.99) */
+	CZBodyAnimBlend *top = m_blends->Top();
+	f32 a, b;
+
+	if (m_airborne)
+	{
+		if (top->m_state != 8)
+			return;
+
+		a = 0.8f;
+		b = 0.99f;
+	}
+	else
+	{
+		a = top->Representative()->m_pCommon->m_terrnorm0;
+		b = top->Representative()->m_pCommon->m_terrnorm1;
+	}
+
+	f32 t = top->m_tfrac;
+	f32 w = 0.0f; /* port: the ELF leaves it unset where no branch assigns (a == b < t <= b: impossible) */
+
+	if (a == b)
+	{
+		if (t <= a)
+			w = 0.0f;
+		else if (b < t)
+			w = 1.0f;
+	}
+	else if (a < b)
+	{
+		if (t <= a)
+			w = 0.0f;
+		else if (b <= t)
+			w = 1.0f;
+		else
+			w = (t - a) / (b - a);
+	}
+	else if (t <= b)
+	{
+		w = 1.0f;
+	}
+	else if (a <= t)
+	{
+		w = 0.0f;
+	}
+	else
+	{
+		w = 1.0f - (t - b) / (a - b);
+	}
+
+	if (w > 0.0f)
+	{
+		CQuat inv;
+		inv.w = m_quat.w;
+		inv.vec.x = -m_quat.vec.x;
+		inv.vec.y = -m_quat.vec.y;
+		inv.vec.z = -m_quat.vec.z;
+		CPnt3D n;
+		inv.Apply(&m_last_altitude.m_norm, &n, 1);
+		CQuat tilt;
+		tilt.Align(CPnt3D::unit_y, n);
+		tilt.Pow(w, &GetRootPart()->m_rot);
+	}
 }
 
 /* @socom-skeleton body OnDeath__10CZSealBodyFv */
@@ -1173,8 +1931,11 @@ void CZSealBody::ExecuteDelayedAction_Climb()
 }
 
 /* @socom-skeleton stub ExecuteDelayedAction_Jump__10CZSealBodyFv */
-void CZSealBody::ExecuteDelayedAction_Jump()
+bool CZSealBody::ExecuteDelayedAction_Jump()
 {
+	/* 0x24ecd0 */
+	m_action_jump = 1;
+	return true;
 }
 
 /* @socom-skeleton stub Death__10CSealStatsFRC10CZSealBody */
@@ -1287,6 +2048,8 @@ void CZSealBody::ActionAvailableMask(unsigned int, bool)
 /* @socom-skeleton stub ActionSelectionMask__10CZSealBodyFv */
 unsigned int CZSealBody::ActionSelectionMask()
 {
+	/* 0x24e520 */
+	return m_action_selection_mask;
 }
 
 /* @socom-skeleton stub ActionSelectionMask__10CZSealBodyFUib */
@@ -1305,8 +2068,10 @@ unsigned int CZSealBody::ActionCommand()
 }
 
 /* @socom-skeleton stub ActionCommand__10CZSealBodyFUi */
-void CZSealBody::ActionCommand(unsigned int)
+void CZSealBody::ActionCommand(unsigned int command)
 {
+	/* 0x24e4a0 */
+	m_action_command = command;
 }
 
 /* @socom-skeleton stub Open__8CCompassFv */
@@ -1355,18 +2120,189 @@ CPickup * CZSealBody::CurrentPickupSecondary()
 }
 
 /* @socom-skeleton stub SetCurZoomState__10CZSealBodyF9ZOOMSTATE */
-void CZSealBody::SetCurZoomState(ZOOMSTATE)
+void CZSealBody::SetCurZoomState(ZOOMSTATE zoom)
 {
+	/* 0x24df40: a new zoom state hides the body outside third person, resets the throw
+	 * power, marks a player zooming, clears the camera offset outside first person and sets
+	 * the zoom range (1, 1.5, binoculars 9, a weapon's own range) */
+	if (zoom == m_zoomstate)
+		return;
+
+	m_zoomstate_prev = m_zoomstate;
+	m_zoomstate = zoom;
+	m_zoomstate_echo = true;
+	static_cast<CSealCtrl *>(m_control)->TriggerPowerReset();
+
+	if (m_zoomstate == ZOOMSTATE::ZOOMSTATE_3RDPERSON)
+		GetNode()->m_Opacity = 255.0f;
+	else
+		GetNode()->m_Opacity = 0.0f;
+
+	if (m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsPlayer())
+		m_iszooming = 1;
+
+	if (m_zoomstate != ZOOMSTATE::ZOOMSTATE_1STPERSON)
+	{
+		appCamera->m_camera->m_screenOffset.x = 0.0f;
+		appCamera->m_camera->m_screenOffset.y = 0.0f;
+	}
+
+	switch (m_zoomstate)
+	{
+	case ZOOMSTATE::ZOOMSTATE_3RDPERSON:
+		m_zoom_range = 1.0f;
+		break;
+	case ZOOMSTATE::ZOOMSTATE_1STPERSON:
+	case ZOOMSTATE::ZOOMSTATE_NVG:
+		m_zoom_range = 1.5f;
+		break;
+	case ZOOMSTATE::ZOOMSTATE_BINOCS:
+		m_zoom_range = 9.0f;
+		m_kit.InitializeSniperKick();
+		break;
+	case ZOOMSTATE::ZOOMSTATE_WEAPONDEF1:
+	case ZOOMSTATE::ZOOMSTATE_WEAPONDEF2:
+	case ZOOMSTATE::ZOOMSTATE_WEAPONDEF3:
+	case ZOOMSTATE::ZOOMSTATE_WEAPONDEF4:
+	case ZOOMSTATE::ZOOMSTATE_WEAPONDEF5:
+	case ZOOMSTATE::ZOOMSTATE_WEAPONDEF6:
+	case ZOOMSTATE::ZOOMSTATE_WEAPONDEF7:
+	case ZOOMSTATE::ZOOMSTATE_WEAPONDEF8:
+	{
+		CZFTSWeapon *weapon = NULL;
+		m_kit.GetCurWeapon(&weapon, NULL);
+		u32 index = (u32)((int)m_zoomstate - 3);
+
+		if (weapon != NULL && index < weapon->m_zoommode.size())
+			m_zoom_range = weapon->GetZoomRange(index);
+
+		if (m_zoomstate_prev != ZOOMSTATE::ZOOMSTATE_WEAPONDEF2)
+			m_kit.InitializeSniperKick();
+		break;
+	}
+	default:
+		break;
+	}
 }
 
 /* @socom-skeleton stub IncrZoomState__10CZSealBodyFv */
 ZOOMSTATE CZSealBody::IncrZoomState()
 {
+	/* 0x24ddb0: one zoom step in (third -> first person -> NVG at night / binoculars or the
+	 * weapon's first zoom -> its next zooms); the new state is set and returned. ELF quirk
+	 * kept: InitializeSniperKick runs twice on the binocular / weapon steps. */
+	ZOOMSTATE zoom = m_zoomstate;
+
+	switch (m_zoomstate)
+	{
+	case ZOOMSTATE::ZOOMSTATE_3RDPERSON:
+		zoom = ZOOMSTATE::ZOOMSTATE_1STPERSON;
+		break;
+	case ZOOMSTATE::ZOOMSTATE_1STPERSON:
+		if (!zdb::CWorld::m_world->m_night_mission)
+		{
+			CZFTSWeapon *weapon = NULL;
+			m_kit.GetCurWeapon(&weapon, NULL);
+			zoom = ZOOMSTATE::ZOOMSTATE_BINOCS;
+
+			if (weapon != NULL && weapon->m_zoommode.size() >= 2)
+				zoom = ZOOMSTATE::ZOOMSTATE_WEAPONDEF1;
+		}
+		else
+		{
+			zoom = ZOOMSTATE::ZOOMSTATE_NVG;
+		}
+		break;
+	case ZOOMSTATE::ZOOMSTATE_NVG:
+	case ZOOMSTATE::ZOOMSTATE_BINOCS:
+	{
+		CZFTSWeapon *weapon = NULL;
+		m_kit.GetCurWeapon(&weapon, NULL);
+
+		if (weapon != NULL && weapon->m_zoommode.size() > 1)
+			zoom = ZOOMSTATE::ZOOMSTATE_WEAPONDEF1;
+
+		m_kit.InitializeSniperKick();
+		m_kit.InitializeSniperKick();
+		break;
+	}
+	case ZOOMSTATE::ZOOMSTATE_WEAPONDEF1:
+	case ZOOMSTATE::ZOOMSTATE_WEAPONDEF2:
+	case ZOOMSTATE::ZOOMSTATE_WEAPONDEF3:
+	case ZOOMSTATE::ZOOMSTATE_WEAPONDEF4:
+	case ZOOMSTATE::ZOOMSTATE_WEAPONDEF5:
+	case ZOOMSTATE::ZOOMSTATE_WEAPONDEF6:
+	case ZOOMSTATE::ZOOMSTATE_WEAPONDEF7:
+	{
+		CZFTSWeapon *weapon = NULL;
+		m_kit.GetCurWeapon(&weapon, NULL);
+
+		if (weapon != NULL && (u32)((int)m_zoomstate - 2) < weapon->m_zoommode.size())
+			zoom = (ZOOMSTATE)((int)m_zoomstate + 1);
+
+		if (m_zoomstate_prev != ZOOMSTATE::ZOOMSTATE_WEAPONDEF2)
+			m_kit.InitializeSniperKick();
+
+		if (m_zoomstate_prev != ZOOMSTATE::ZOOMSTATE_WEAPONDEF2)
+			m_kit.InitializeSniperKick();
+		break;
+	}
+	default:
+		break;
+	}
+
+	SetCurZoomState(zoom);
+	return zoom;
 }
 
 /* @socom-skeleton stub DecrZoomState__10CZSealBodyFv */
 ZOOMSTATE CZSealBody::DecrZoomState()
 {
+	/* 0x24dcc0: one zoom step out (a weapon zoom's first step goes to first person, NVG at
+	 * night); the new state is set and returned */
+	ZOOMSTATE zoom = m_zoomstate;
+
+	switch (m_zoomstate)
+	{
+	case ZOOMSTATE::ZOOMSTATE_1STPERSON:
+		zoom = ZOOMSTATE::ZOOMSTATE_3RDPERSON;
+		break;
+	case ZOOMSTATE::ZOOMSTATE_NVG:
+		zoom = ZOOMSTATE::ZOOMSTATE_1STPERSON;
+		break;
+	case ZOOMSTATE::ZOOMSTATE_BINOCS:
+		zoom = ZOOMSTATE::ZOOMSTATE_1STPERSON;
+		m_kit.InitializeSniperKick();
+		break;
+	case ZOOMSTATE::ZOOMSTATE_WEAPONDEF1:
+	case ZOOMSTATE::ZOOMSTATE_WEAPONDEF2:
+	case ZOOMSTATE::ZOOMSTATE_WEAPONDEF3:
+	case ZOOMSTATE::ZOOMSTATE_WEAPONDEF4:
+	case ZOOMSTATE::ZOOMSTATE_WEAPONDEF5:
+	case ZOOMSTATE::ZOOMSTATE_WEAPONDEF6:
+	case ZOOMSTATE::ZOOMSTATE_WEAPONDEF7:
+	case ZOOMSTATE::ZOOMSTATE_WEAPONDEF8:
+	{
+		CZFTSWeapon *weapon = NULL;
+		m_kit.GetCurWeapon(&weapon, NULL);
+
+		if (weapon != NULL)
+		{
+			s32 step = (int)m_zoomstate - 4;
+
+			if (step < 1)
+				zoom = zdb::CWorld::m_world->m_night_mission ? ZOOMSTATE::ZOOMSTATE_NVG : ZOOMSTATE::ZOOMSTATE_1STPERSON;
+			else if (step < (s32)weapon->m_zoommode.size())
+				zoom = (ZOOMSTATE)((int)m_zoomstate - 1);
+		}
+		break;
+	}
+	default:
+		break;
+	}
+
+	SetCurZoomState(zoom);
+	return zoom;
 }
 
 /* @socom-skeleton stub NetworkPlayerCreate__10CZSealBodyFv */

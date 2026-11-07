@@ -282,6 +282,7 @@ public:
 };
 
 extern f32 noTurnThreshold;
+extern float velocityFactor; /* seal.cpp 0x474f08: CZSealBody::Tick sets 1, Tick_0 scales the anim velocity by it */
 extern f32 fineTuneThreshold;
 extern f32 throttleFudge;
 
@@ -476,7 +477,7 @@ public:
 	CZKit();
 	~CZKit();
 	void NVG_Enabled() const;
-	void GetCurItemIDType();
+	EQUIP_ITEM GetCurItemIDType(); /* 0x2aec90: lbu of the item id, 0xfe without one */
 	SEAL_ITEM GetCurItemType();
 	void Init();
 	void UnInit();
@@ -492,7 +493,7 @@ public:
 	CZProjectile * FireCur(const CPnt3D *, const CPnt3D *, const CPnt3D *);
 	CZProjectile * Fire(int, const CPnt3D *, const CPnt3D *, const CPnt3D *);
 	void ChangeItemModel(int, int, int, bool);
-	void CanChangeItem();
+	bool CanChangeItem(); /* 0x2acc00: 0/1 */
 	void SetCurItemByIndex(int);
 	void GetCurNumMags();
 	int GetNumMags(int);
@@ -521,7 +522,7 @@ public:
 	void FetchLaseTarget();
 	void TickLaserDesignator(float);
 	void HandleFireWeapon(int, float, float);
-	void IsZoomed();
+	bool IsZoomed(); /* 0x2a89d0: 0/1 */
 	float GetCurZoom();
 	int UpdateCurItemReticule();
 	void CurReticuleTypeChanged();
@@ -562,13 +563,13 @@ public:
 	void RemoveItemAndAmmo(int);
 	void UpdateNumItems();
 	void PendingPickupHandled();
-	void IsUsingScope();
-	void IsUsingItem(EQUIP_ITEM);
-	void IsUsingItem(int);
+	bool IsUsingScope(); /* 0x2a5740: slt */
+	bool IsUsingItem(EQUIP_ITEM); /* 0x2a5670: 0/1 */
+	bool IsUsingItem(int); /* 0x2a5530: 0/1 */
 	void SniperTick(float, CTargetMods &);
 	void InitializeSniperKick();
 	void Binocs_Enabled(bool);
-	void IsUsingBinocs();
+	bool IsUsingBinocs(); /* 0x2a4fd0: sltiu */
 	float ScreenOffsetX();
 	float ScreenOffsetY();
 	void IncrScreenOffsetY(float);
@@ -743,23 +744,20 @@ public:
 	/// -------------------------------------------
 
 	bool CanAttainAim(CPnt3D& point) const;
-	bool CanChangeItem() const;
+	/* port: provisional const CanChangeItem / CanFire / CanInterrupt / CanTurn / CanZoom
+	   removed: the ELF members are the non-const skeleton declarations below */
 	bool CanClimbLadder() const;
 	bool CanClimbWall() const;
 	bool CanCrouch() const;
-	bool CanFire() const;
 	bool CanHeadLook() const;
-	bool CanInterrupt() const;
 	bool CanPickupNetItem(u16 hostIdx, u16 pickupIdx, u16* idxPtr, u8 type) const;
-	bool CanPitch() const;
+	/* port: provisional const CanPitch removed (the ELF member is the non-const skeleton one) */
 	bool CanProneAim() const;
 	bool CanTraverse(zdb::CDI::CDIType type) const;
-	bool CanTurn() const;
 	bool CanUseBodyCarry(CZSealBody* seal) const;
 	bool CanUseCQB(CZSealBody* seal) const;
 	bool CanUseKnife(CZSealBody* seal) const;
 	bool CanUseRestraint(CZSealBody* seal) const;
-	bool CanZoom() const;
 
 	/// -------------------------------------------
 	/// BEHAVIOR HANDLING
@@ -1156,7 +1154,7 @@ public:
 	void ExecuteAction_CQBAttack(CZSealBody *);
 	void ExecuteAction_ApplyRestraint(CZSealBody *);
 	void ExecuteDelayedAction_Climb();
-	void ExecuteDelayedAction_Jump();
+	bool ExecuteDelayedAction_Jump(); /* 0x24ecd0: li v0,1 */
 	unsigned int ActionAvailableMask();
 	unsigned char ActionDisplayOn();
 	void ActionAvailableMask(unsigned int, bool);
@@ -1190,17 +1188,17 @@ public:
 	void Post();
 	void SetPartAsGear(CZBodyPart *, CCharacterGear *);
 	void ConfigureAuxPartAnim(CZBodyAnim *);
-	void GetSpeedState();
+	s8 GetSpeedState(); /* 0x27d3e0: 0..3 (callers compare the byte) */
 	SEAL_STATE GetStance(bool) const;
 	void BodySetState(int);
 	void ClearStack(unsigned int, bool);
 	CZBodyAnimBlend * PopBlend();
 	CZBodyAnimBlend * PushBlend(AnimType, int, bool);
-	void IsCurrentBlend(AnimType) const;
-	void CanTurn();
-	void CanInterrupt();
+	bool IsCurrentBlend(AnimType) const; /* 0x27c050: sltiu */
+	bool CanTurn(); /* 0x27bfd0: 0/1 */
+	bool CanInterrupt(); /* 0x27be40: 0/1 */
 	bool CanHeadLook(); /* bool: 0x27bd70 */
-	void CanPitch();
+	bool CanPitch(); /* 0x27bc70: 0/1 */
 	CZBodyAnimBlend * AddBlendOverlay(AnimType);
 	void SetMovingRifleReload(ACTIVE_ANIM *);
 	void SetMovingPistolReload(ACTIVE_ANIM *);
@@ -1208,7 +1206,7 @@ public:
 	void SetMovingChangeToPistol(ACTIVE_ANIM *);
 	CZBodyAnimBlend * SealAnim(bool, float, float, float);
 	void IsStopped(float, float, float);
-	void SmoothXZThrottles(float &, float &);
+	bool SmoothXZThrottles(float &, float &); /* 0x27b130: 1 when limited */
 	CZBodyAnimBlend * InStateStand(float, float, float);
 	CZBodyAnimBlend * StandStill(float, float, float);
 	CZBodyAnimBlend * StandTurning(float, float, float);
@@ -1225,7 +1223,7 @@ public:
 	CZBodyAnimBlend * InAirControl(float, float, float);
 	CZBodyAnimBlend * MoveControl(float, float);
 	CZBodyAnimBlend * CrouchMoveControl(float, float, float);
-	void CheckAnim();
+	bool CheckAnim(); /* 0x277300: 0/1 */
 	void StanceChanged();
 	void SetStance(SEAL_STATE);
 	void Stand(int);
@@ -1239,14 +1237,14 @@ public:
 	CZBodyAnimBlend * BlendedClimb(float);
 	CZBodyAnimBlend * Climb(float);
 	void ClimbOver(float);
-	void PostFall();
+	bool PostFall(); /* 0x275170: 0 for a fall, 1 otherwise */
 	void BeginThrowItem(float, float &);
 	void GetThrowAnim(float, AnimType &, float &, float &, CPnt3D &);
 	void GetPutativeFirePointW(bool, bool, CPnt3D &);
 	CZBodyAnimBlend * ClimbLadder();
 	CZBodyAnimBlend * ClimbLadderDown();
 	CZBodyAnimBlend * SlideLadderDown();
-	void DoWallStop();
+	bool DoWallStop(); /* 0x2743f0: 0/1 */
 	void DropBody();
 	CZBodyAnimBlend * FlingBody(const CPnt3D *, float, float);
 	CZBodyAnimBlend * Jump();
@@ -1255,14 +1253,14 @@ public:
 	void AbortPeek();
 	SEAL_STATE PeekBaseState();
 	SEAL_STATE BaseState();
-	void ClearToBase(bool);
+	CZBodyAnimBlend * ClearToBase(bool); /* 0x273490 returns the top blend */
 	void UpdatePeek();
 	void RePose(SEAL_ITEM);
 	CZBodyAnimBlend * PerformAction(AnimType, SEAL_STATE);
 	void Recoil();
-	void UseVelY();
+	bool UseVelY(); /* 0x270cc0: 0/1 */
 	void Tick_0(float);
-	void BlendOverlayPreTick(float, float);
+	bool BlendOverlayPreTick(float, float); /* 0x26fe50: 1 when the overlay starts a pistol swap */
 	CZBodyAnimBlend * CrouchToPickupBuddy(CZSealBody *);
 	CZBodyAnimBlend * PickupBuddy(CZSealBody *);
 	CZBodyAnimBlend * PutdownBuddy();
@@ -1286,7 +1284,7 @@ public:
 	void BindAnimSet(AnimSet *);
 	void RefPoint(CZBodyAnim *, CPnt3D *);
 	float RefPointY(AnimType);
-	void MixAnims(CActiveAnimList *, CBlendable *, float, float, bool);
+	int MixAnims(CActiveAnimList *, CBlendable *, float, float, bool); /* 0x27e1b0 returns the anims picked */
 	void SetMaxMotion();
 	void GetMaxXMotion(float &, float &);
 	void AnimsScaleTS(CActiveAnimList *, CBlendable *, float);
@@ -1308,7 +1306,7 @@ public:
 	void HandleWater(zdb::IntersectStruct *, const CMaterialEx *, const CPnt3D *);
 	void HandleSmokeAndGas(zdb::IntersectStruct *, const CMaterialEx *, const CPnt3D *);
 	zdb::IntersectStruct * SealGetAltitude(CPnt3D *, float);
-	void CheckDIFwd1(float &, float &, float &);
+	bool CheckDIFwd1(float &, float &, float &); /* 0x2a1bb0: 1 when sliding along the hit */
 	void CanTraverse(CDIType);
 	void PlaceLaterally(CPnt3D *, CPnt3D *, CPnt3D *, bool);
 	void HomingTick();
@@ -1316,12 +1314,12 @@ public:
 	void AlignForClimb(bool, CPnt3D &, CPnt3D &, CPnt3D *);
 	CZBodyAnimBlend * PreClimbLadderDown();
 	void AlignForPickup(CPnt3D *, CPnt3D *);
-	void PostCheckDILadder(float &, float &, float &);
+	bool PostCheckDILadder(float &, float &, float &); /* 0x2a01d0: Tick 0x255b30 tests v0 */
 	void CheckDILadder(float &, float &, float &);
 	void Slide(zdb::IntersectStruct *);
 	void SetWepHit(zdb::IntersectStruct *);
 	void PreCheckDIDown();
-	void PostCheckDIDown(float &, float &, float &);
+	bool PostCheckDIDown(float &, float &, float &); /* 0x29eb00: 1 on a ground poly */
 	CPnt3D * GetLookDirW(CPnt3D *) const;
 	void RotateHead(float, float);
 	unsigned char SetLookDir(const CPnt3D *, float);
@@ -1348,15 +1346,15 @@ public:
 	void CanUseCQB(CZSealBody *);
 	AnimType FindDeathAnimTypeCQB(CZSealBody *);
 	void CanUseRestraint(CZSealBody *);
-	void CanZoom();
-	void CanChangeItem();
+	bool CanZoom(); /* 0x2993e0: 0/1 */
+	bool CanChangeItem(); /* 0x299360: 0/1 */
 	void CanUseBodyCarry(CZSealBody *);
 	void AimWeapon();
 	CZBodyAnimBlend * Reload();
-	void CanFire();
-	void IsThrowing(bool);
-	void IsReloading();
-	void IsChangingWeapons();
+	bool CanFire(); /* 0x298ad0: 0/1 */
+	bool IsThrowing(bool); /* 0x298a10: 0/1 */
+	bool IsReloading(); /* 0x298930: 0/1 */
+	bool IsChangingWeapons(); /* 0x298870: 0/1 */
 	void ChangeToPistolMode(bool);
 	void ChangeToRifleMode(bool);
 	void ChangeWeapon(SEAL_ITEM, SEAL_ITEM);
@@ -1389,7 +1387,7 @@ public:
 	int GetNumExplosiveHits(CZProjectile *);
 	void DamageRandomLocation(CZProjectile *);
 	void SetArmor(DAMAGE_LOCATION, float);
-	void FindRandomDeathAnim(DAMAGE_LOCATION, bool *);
+	AnimType FindRandomDeathAnim(DAMAGE_LOCATION, bool *); /* 0x28ee80: PreTick 0x2565c0 passes v0 to WeaponHitAnim as the AnimType */
 	void FindRandomDamageAnim(DAMAGE_LOCATION, bool *);
 	void DropAllItems();
 	void DropAmmo(int);
@@ -1408,7 +1406,7 @@ public:
 	void HandlePickupMPBomb(CPickup *);
 	void RemoteDropMPBomb();
 	void DropMPBomb();
-	static void CreateMPBombPickup(const CPnt3D *, bool);
+	static bool CreateMPBombPickup(const CPnt3D *, bool); /* 0x28c230: Tick 0x2558e0 tests v0 */
 	void AttemptBombDefuse();
 	zdb::CNode * GetAnimationNode(unsigned int);
 	void CanClimbLadder();
@@ -1417,7 +1415,7 @@ public:
 	void FootInSpace(CZBodyAnim *, CPnt3D *, CPnt3D *, float, float, bool);
 	void TurnSetup(int);
 	void CheckPathProximity(const CAiPath &, int, float) const;
-	void GetWeaponState() const;
+	WEAPON_STATE GetWeaponState() const; /* 0x2c0670: andi 0xff */
 	void WepWaitOff();
 	void WepWaitOn();
 	void SetWeaponState(WEAPON_STATE);
@@ -1452,6 +1450,7 @@ public:
 	static int m_steptexhandles;
 	static CZSealBody* player_; /* the first seal, the template AnimSetup copies anims from */
 	static const float stoppedV;
+	static const float turnV; /* 0x450d20 (0.025): InStateStand's turn dead zone; port: no stage-4 owner, defined in seal.cpp beside stoppedV */
 	/* @socom-skeleton end 10CZSealBody */
 };
 
@@ -1637,8 +1636,8 @@ public:
 	f32 m_weapon_pickup_timer;
 	/* @socom-skeleton decl 9CSealCtrl */
 public:
-	virtual void PreTick(float);
-	virtual void Tick(float);
+	virtual bool PreTick(float); /* 0x285af0: li v0,1 */
+	virtual bool Tick(float); /* 0x2872e0: li v0,1 */
 	virtual void PostMortemPreTick(float);
 	virtual void OnDeath();
 	virtual void PlayAiSound(CHARACTER_SOUND);
@@ -1691,7 +1690,7 @@ public:
 	static FT_COMMAND GetCommandId(const char *);
 	void SetTrigger(bool, float);
 	void SetTrigger(bool);
-	void ThrottlesPreTick(CPad *, float);
+	bool ThrottlesPreTick(CPad *, float); /* 0x286950: 1 = the frame's input ends here (menus) */
 	void TickAimPitch(float, float);
 	void CanPlaceBomb(CNodeAction *);
 	void CanPerformAction(CNodeAction *);
@@ -1752,8 +1751,8 @@ public:
 	/* @socom-skeleton decl 11CSealCtrlAi */
 public:
 	virtual ~CSealCtrlAi();
-	virtual void PreTick(float);
-	virtual void Tick(float);
+	virtual bool PreTick(float); /* 0x2675e0: li v0,1 */
+	virtual bool Tick(float); /* 0x268880: li v0,1 */
 	virtual void PostMortemPreTick(float);
 	virtual void OnDeath();
 	virtual void SetThrottle(unsigned int, float);
@@ -1907,8 +1906,8 @@ class CSealCtrlSquirm : public CSealCtrl
 	/* @socom-skeleton decl 15CSealCtrlSquirm */
 public:
 	virtual ~CSealCtrlSquirm();
-	virtual void PreTick(float);
-	virtual void Tick(float);
+	virtual bool PreTick(float); /* 0x2e24f0: li v0,1 */
+	virtual bool Tick(float); /* 0x2e24d0: li v0,1 */
 	virtual void PostMortemPreTick(float);
 	virtual void OnDeath();
 	virtual void Initalize();
@@ -2287,6 +2286,7 @@ public:
 class ai
 {
 public:
+	static bool do_aimap_collide; /* do_aimap_collide__2ai 0x475d50 (1 byte): the player also uses the AI map's cell repel (PostComputeNextPosition 0x24fc10); port: defined in zai_holding.cpp */
 	enum LINE_TYPE { }; /* port: unproven: passed by value per the mangled name; kind and enumerators not in DWARF */
 	static void FlushPlannerQueue();
 	void PathPlanBegin(CAiPath *);

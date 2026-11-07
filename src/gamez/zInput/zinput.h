@@ -210,8 +210,8 @@ class CRemoteCtrl : public CSealCtrl
 {
 public:
 	virtual ~CRemoteCtrl();
-	virtual void PreTick(float);
-	virtual void Tick(float);
+	virtual bool PreTick(float);
+	virtual bool Tick(float);
 	virtual void PostMortemPreTick(float);
 	virtual void OnDeath();
 	virtual void GetRemoteControl();

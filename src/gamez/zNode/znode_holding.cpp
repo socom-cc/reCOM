@@ -31,8 +31,11 @@ u32 numNodes = 0;
 namespace zdb {
 bool CNode::SetActive(bool active)
 	{
+		/* 0x17d2b0: returns the previous state (callers such as CZSealBody::SealGetAltitude
+		   0x2a2250 restore it); port fix: returned the new one */
+		bool was = m_active;
 		m_active = active;
-		return m_active;
+		return was;
 	}
 }
 

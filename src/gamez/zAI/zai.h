@@ -1389,4 +1389,6 @@ public:
 	void FindEvadeLocation(const CAiMapLoc &, CAiMapLoc &);
 };
 /* @socom-skeleton end 9CAiVisMap */
+
+extern CAiMaps AiMaps; /* ai_maps.cpp (0x49b190) */
 #endif

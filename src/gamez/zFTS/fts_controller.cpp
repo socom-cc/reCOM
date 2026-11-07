@@ -26,62 +26,312 @@
 #include "zfts.h"
 /* @socom-skeleton end include */
 
+/* port: the 24-byte config record Init 0x209b40 news (no DWARF type; layout from Init and the
+ * getters): +0 the name (an MSL string), +4..+9 the stick selectors and aim-mode flags
+ * (0 none, 1 left stick, 2 right stick), +10 one PAD_BUTTON per PadBtnFunc (16 = none). */
+namespace {
+struct CtrlrConfig
+{
+	std::string m_name;    /* +0 "Name" */
+	u8 m_moveLong;         /* +4 MoveLong stick */
+	u8 m_strafe;           /* +5 Strafe stick (0: the StrafeLeft/StrafeRight buttons) */
+	u8 m_pitch;            /* +6 Pitch stick */
+	u8 m_rotate;           /* +7 Rotate stick */
+	u8 m_moveAimOff;       /* +8 MoveLong AimMode "Off": no move while AimMode is held */
+	u8 m_pitchAimMode;     /* +9 Pitch has an AimMode tag: pitch only while AimMode is held */
+	u8 m_buttons[12];      /* +10 one PAD_BUTTON per PadBtnFunc */
+};
+
+/* inline in Init (0x209c0c and 0x20a12c): a config without mappings */
+CtrlrConfig *NewConfig(const char *name)
+{
+	CtrlrConfig *config = new CtrlrConfig;
+
+	if (name != NULL)
+		config->m_name.assign(name);
+	else
+		config->m_name.erase();
+
+	config->m_moveLong = 0;
+	config->m_strafe = 0;
+	config->m_pitch = 0;
+	config->m_rotate = 0;
+	config->m_moveAimOff = 0;
+	config->m_pitchAimMode = 0;
+
+	for (u8 *b = config->m_buttons; b < config->m_buttons + 12; b++)
+		*b = (u8)PAD_BUTTON::PAD_MAX_BUTTONS;
+
+	return config;
+}
+
+/* inline in the getters: the state of a mapped pad button (KEY_UP when unmapped) */
+inline KEY_STATE MappedState(u8 button, const CPad &pad)
+{
+	return button == (u8)PAD_BUTTON::PAD_MAX_BUTTONS ? KEY_UP : pad.m_state[button];
+}
+
+/* inline in the getters: a stick axis by selector (1 left, 2 right, else 0) */
+inline f32 StickAxis(u8 stick, f32 left, f32 right)
+{
+	f32 v = 0.0f;
+
+	if (stick == 2)
+		v = right;
+	else if (stick == 1)
+		v = left;
+
+	return v;
+}
+
+/* ReadBtnName 0x20a1e0 (CCtrlrConfigs::@unnamed@fts_controller_cpp@::ReadBtnName): a button
+ * name to its PAD_BUTTON; 16 (none) for anything else */
+u8 ReadBtnName(const char *name)
+{
+	if (strcasecmp(name, "Circle") == 0)
+		return (u8)PAD_BUTTON::PAD_CIRCLE;
+
+	if (strcasecmp(name, "L1") == 0)
+		return (u8)PAD_BUTTON::PAD_TRIGGER_L1;
+
+	if (strcasecmp(name, "L2") == 0)
+		return (u8)PAD_BUTTON::PAD_TRIGGER_L2;
+
+	if (strcasecmp(name, "LeftStickTap") == 0)
+		return (u8)PAD_BUTTON::PAD_LEFT_STICK;
+
+	if (strcasecmp(name, "R1") == 0)
+		return (u8)PAD_BUTTON::PAD_TRIGGER_R1;
+
+	if (strcasecmp(name, "R2") == 0)
+		return (u8)PAD_BUTTON::PAD_TRIGGER_R2;
+
+	if (strcasecmp(name, "RightStickTap") == 0)
+		return (u8)PAD_BUTTON::PAD_RIGHT_STICK;
+
+	if (strcasecmp(name, "Square") == 0)
+		return (u8)PAD_BUTTON::PAD_SQUARE;
+
+	return strcasecmp(name, "X") == 0 ? (u8)PAD_BUTTON::PAD_CROSS : (u8)PAD_BUTTON::PAD_MAX_BUTTONS;
+}
+}
+
 /* @socom-skeleton stub g_pCurrentConfig__28@unnamed@fts_controller_cpp@ */
 namespace {
-int g_pCurrentConfig;
+CtrlrConfig *g_pCurrentConfig;
 }
 
 /* @socom-skeleton stub g_vecConfigs__28@unnamed@fts_controller_cpp@ */
 namespace {
-int g_vecConfigs[3];
+std::vector<CtrlrConfig *> g_vecConfigs;
 }
 
 /* @socom-skeleton stub GetButtonState__13CCtrlrConfigsFQ210PadBtnFunc1_RC4CPad */
-void CCtrlrConfigs::GetButtonState(PadBtnFunc::_, const CPad &)
+KEY_STATE CCtrlrConfigs::GetButtonState(PadBtnFunc::_ func, const CPad &pad)
 {
+	/* 0x20a690: the state of the button the current config maps the function to */
+	return MappedState(g_pCurrentConfig->m_buttons[(u8)func], pad);
 }
 
 /* @socom-skeleton stub IsJumpAndActionShared__13CCtrlrConfigsFv */
-void CCtrlrConfigs::IsJumpAndActionShared()
+bool CCtrlrConfigs::IsJumpAndActionShared()
 {
+	/* 0x20a670 */
+	return g_pCurrentConfig->m_buttons[PadBtnFunc::Jump] == g_pCurrentConfig->m_buttons[PadBtnFunc::Action];
 }
 
 /* @socom-skeleton stub GetFireButtonPressure__13CCtrlrConfigsFRC4CPad */
-float CCtrlrConfigs::GetFireButtonPressure(const CPad &)
+float CCtrlrConfigs::GetFireButtonPressure(const CPad &pad)
 {
+	/* 0x20a5d0: the pressure byte of R1 (read data +17) or X (+14) when Fire maps to it,
+	 * else 0 (unscaled, 0..255) */
+	u8 fire = g_pCurrentConfig->m_buttons[PadBtnFunc::Fire];
+
+	if (fire == (u8)PAD_BUTTON::PAD_TRIGGER_R1)
+		return (f32)pad.m_InData[17];
+
+	if (fire == (u8)PAD_BUTTON::PAD_CROSS)
+		return (f32)pad.m_InData[14];
+
+	return 0.0f;
 }
 
 /* @socom-skeleton stub GetFwdBackStickPos__13CCtrlrConfigsFRC4CPad */
-float CCtrlrConfigs::GetFwdBackStickPos(const CPad &)
+float CCtrlrConfigs::GetFwdBackStickPos(const CPad &pad)
 {
+	/* 0x20a520: the MoveLong stick's vertical axis (up positive); 0 while AimMode is held
+	 * when MoveLong has AimMode "Off" */
+	if (g_pCurrentConfig->m_moveAimOff != 0 && MappedState(g_pCurrentConfig->m_buttons[PadBtnFunc::AimMode], pad) == KEY_DOWN)
+		return 0.0f;
+
+	return StickAxis(g_pCurrentConfig->m_moveLong, pad.m_LeftStick[1], pad.m_RightStick[1]);
 }
 
 /* @socom-skeleton stub GetPitchStickPosDilated__13CCtrlrConfigsFRC4CPad */
-float CCtrlrConfigs::GetPitchStickPosDilated(const CPad &)
+float CCtrlrConfigs::GetPitchStickPosDilated(const CPad &pad)
 {
+	/* 0x20a480: the Pitch stick's dilated vertical axis; with an AimMode tag only while
+	 * AimMode is held */
+	if (g_pCurrentConfig->m_pitchAimMode != 0 && MappedState(g_pCurrentConfig->m_buttons[PadBtnFunc::AimMode], pad) != KEY_DOWN)
+		return 0.0f;
+
+	return StickAxis(g_pCurrentConfig->m_pitch, pad.m_LeftStickDilated[1], pad.m_RightStickDilated[1]);
 }
 
 /* @socom-skeleton stub GetRotateStickPosDilated__13CCtrlrConfigsFRC4CPad */
-float CCtrlrConfigs::GetRotateStickPosDilated(const CPad &)
+float CCtrlrConfigs::GetRotateStickPosDilated(const CPad &pad)
 {
+	/* 0x20a430: the Rotate stick's dilated horizontal axis, negated (right positive) */
+	return -StickAxis(g_pCurrentConfig->m_rotate, pad.m_LeftStickDilated[0], pad.m_RightStickDilated[0]);
 }
 
 /* @socom-skeleton stub GetStrafeStickPos__13CCtrlrConfigsFRC4CPad */
-float CCtrlrConfigs::GetStrafeStickPos(const CPad &)
+float CCtrlrConfigs::GetStrafeStickPos(const CPad &pad)
 {
+	/* 0x20a350: the Strafe stick's horizontal axis, negated (right positive); without a
+	 * strafe stick StrafeLeft held is -1 and StrafeRight +1 */
+	if (g_pCurrentConfig->m_strafe != 0)
+		return -StickAxis(g_pCurrentConfig->m_strafe, pad.m_LeftStick[0], pad.m_RightStick[0]);
+
+	if (MappedState(g_pCurrentConfig->m_buttons[PadBtnFunc::StrafeLeft], pad) == KEY_DOWN)
+		return -1.0f;
+
+	if (MappedState(g_pCurrentConfig->m_buttons[PadBtnFunc::StrafeRight], pad) == KEY_DOWN)
+		return 1.0f;
+
+	return 0.0f;
 }
 
 /* @socom-skeleton stub Init__13CCtrlrConfigsFv */
 void CCtrlrConfigs::Init()
 {
+	/* 0x209b40: data/common/controller.rdr "ControllerConfigs": per entry a config named
+	 * "Name"; each "Mappings" entry maps "Result" (a function name, or MoveLong / Pitch /
+	 * Rotate / Strafe) to its "Input" "Control" (a button, or a stick axis, with AimMode
+	 * flags). The current config is "Default", else an empty "NoDefaultDummy". ELF quirk
+	 * kept: the configs are never freed (Init runs once per mission). */
+	static const char *const c_arrFuncNames[12] = /* c_arrFuncNames$799 0x44ec60 */
+	{
+		"Action", "AimMode", "Fire", "FireMode", "Inventory", "Jump", "Reload", "StrafeLeft",
+		"StrafeRight", "SwapWeapon1", "SwapWeapon2", "TeamCommand"
+	};
+	CRdrFile *file = zrdr_read("controller.rdr", "data/common", 0);
+	_zrdr *configs = zrdr_findtag(file, "ControllerConfigs");
+
+	for (u32 i = 0; configs != NULL && i < (configs->IsArray() ? (u32)configs->array->integer - 1 : 0u); i++)
+	{
+		_zrdr *entry = configs->Get(i);
+		CtrlrConfig *config = NewConfig(zrdr_findstring(entry, "Name"));
+		g_vecConfigs.push_back(config);
+
+		_zrdr *mappings = zrdr_findtag(entry, "Mappings");
+		s32 count = mappings != NULL && mappings->IsArray() ? mappings->array->integer - 1 : 0;
+
+		for (s32 j = 0; j < count; j++)
+		{
+			_zrdr *mapping = mappings->Get(j);
+			const char *result = zrdr_findstring(mapping, "Result");
+			_zrdr *input = zrdr_findtag(mapping, "Input");
+			const char *control = zrdr_findstring(input, "Control");
+
+			if (result == NULL || control == NULL)
+				continue;
+
+			bool found = false;
+
+			for (s32 f = 0; f < 12; f++)
+			{
+				if (strcasecmp(result, c_arrFuncNames[f]) == 0)
+				{
+					config->m_buttons[f] = ReadBtnName(control);
+					found = true;
+					break;
+				}
+			}
+
+			if (found)
+				continue;
+
+			if (strcasecmp(result, "MoveLong") == 0)
+			{
+				if (strcasecmp(control, "LeftStickVert") == 0)
+					config->m_moveLong = 1;
+				else if (strcasecmp(control, "RightStickVert") == 0)
+					config->m_moveLong = 2;
+
+				const char *aim = zrdr_findstring(input, "AimMode");
+
+				if (aim != NULL && strcasecmp(aim, "Off") == 0)
+					config->m_moveAimOff = 1;
+			}
+			else if (strcasecmp(result, "Pitch") == 0)
+			{
+				if (strcasecmp(control, "LeftStickVert") == 0)
+					config->m_pitch = 1;
+				else if (strcasecmp(control, "RightStickVert") == 0)
+					config->m_pitch = 2;
+
+				if (zrdr_findtag(input, "AimMode") != NULL)
+					config->m_pitchAimMode = 1;
+			}
+			else if (strcasecmp(result, "Rotate") == 0)
+			{
+				if (strcasecmp(control, "LeftStickHoriz") == 0)
+					config->m_rotate = 1;
+				else if (strcasecmp(control, "RightStickHoriz") == 0)
+					config->m_rotate = 2;
+			}
+			else if (strcasecmp(result, "Strafe") == 0)
+			{
+				if (strcasecmp(control, "LeftStickHoriz") == 0)
+					config->m_strafe = 1;
+				else if (strcasecmp(control, "RightStickHoriz") == 0)
+					config->m_strafe = 2;
+			}
+		}
+	}
+
+	zrdr_free(file);
+
+	for (u32 i = 0; i < g_vecConfigs.size(); i++)
+	{
+		if (strcasecmp("Default", g_vecConfigs[i]->m_name.c_str()) == 0)
+		{
+			g_pCurrentConfig = g_vecConfigs[i];
+			break;
+		}
+	}
+
+	if (g_pCurrentConfig == NULL)
+		g_pCurrentConfig = NewConfig("NoDefaultDummy");
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("PAD: controller config %s: move %d strafe %d pitch %d rotate %d, %d configs",
+		g_pCurrentConfig->m_name.c_str(), g_pCurrentConfig->m_moveLong, g_pCurrentConfig->m_strafe,
+		g_pCurrentConfig->m_pitch, g_pCurrentConfig->m_rotate, (int)g_vecConfigs.size());
+#endif
 }
 
 /* @socom-skeleton stub SelectConfig__13CCtrlrConfigsFPCc */
-void CCtrlrConfigs::SelectConfig(const char *)
+void CCtrlrConfigs::SelectConfig(const char *name)
 {
+	/* 0x209ab0: the config of that name becomes current (unchanged when none matches) */
+	for (u32 i = 0; i < g_vecConfigs.size(); i++)
+	{
+		if (strcasecmp(name, g_vecConfigs[i]->m_name.c_str()) == 0)
+		{
+			g_pCurrentConfig = g_vecConfigs[i];
+			return;
+		}
+	}
 }
 
 /* @socom-skeleton stub SetButtonState__13CCtrlrConfigsFP4CPadQ210PadBtnFunc1_9KEY_STATE */
-void CCtrlrConfigs::SetButtonState(CPad *, PadBtnFunc::_, KEY_STATE)
+void CCtrlrConfigs::SetButtonState(CPad *pad, PadBtnFunc::_ func, KEY_STATE state)
 {
+	/* 0x209a70: sets the state of the mapped button */
+	u8 button = g_pCurrentConfig->m_buttons[(u8)func];
+
+	if (button != (u8)PAD_BUTTON::PAD_MAX_BUTTONS)
+		pad->SetButtonState((PAD_BUTTON)button, state);
 }

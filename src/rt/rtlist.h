@@ -41,7 +41,7 @@ public:
 		}
 	}
 
-	~RTList(); /* 0x1e3ba0, not written */
+	~RTList() { delete[] m_pool; } /* RTList<ACTIVE_ANIM> 0x1e3ba0 */
 
 	Object* Begin()
 	{

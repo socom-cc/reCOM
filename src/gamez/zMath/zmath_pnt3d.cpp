@@ -57,8 +57,11 @@ void CPnt3D::Sub(const CPnt3D *other, CPnt3D *out) const
 }
 
 /* @socom-skeleton stub SubXZ__6CPnt3DCFPC6CPnt3DP6CPnt3D */
-void CPnt3D::SubXZ(const CPnt3D *, CPnt3D *) const
+void CPnt3D::SubXZ(const CPnt3D *other, CPnt3D *out) const
 {
+	/* 0x222e20: x and z only; out->y is untouched */
+	out->x = x - other->x;
+	out->z = z - other->z;
 }
 
 /* @socom-skeleton stub ToRightXZ__6CPnt3DCFP6CPnt3D */

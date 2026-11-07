@@ -142,13 +142,45 @@ CZBodyPart * BodyWepPart(CZSealBody *body, SEAL_ITEM item)
 }
 
 /* @socom-skeleton stub GpAnim__10CZSealBodyFP10CZBodyAnim9SEAL_ITEM */
-CZBodyAnim * CZSealBody::GpAnim(CZBodyAnim *, SEAL_ITEM)
+CZBodyAnim * CZSealBody::GpAnim(CZBodyAnim *anim, SEAL_ITEM item)
 {
+	/* 0x280d80: the pistol variant of the anim (by the anim groups) with the pistol; the anim
+	 * itself otherwise or when there is none */
+	CZBodyAnim *variant;
+
+	if (item == SEAL_ITEM::itemPistol)
+	{
+		AnimType type = m_animset->m_animgps->PistolAnim((AnimType)anim->m_animType);
+		variant = m_animset != NULL ? GetAnimById(m_animset->AnimId(type)) : NULL;
+	}
+	else
+	{
+		if (item != SEAL_ITEM::itemRifle)
+			return anim;
+
+		variant = anim;
+	}
+
+	return variant != NULL ? variant : anim;
 }
 
 /* @socom-skeleton stub FirePosAnim__10CZSealBodyFP10CZBodyAnim9SEAL_ITEM */
-CZBodyAnim * CZSealBody::FirePosAnim(CZBodyAnim *, SEAL_ITEM)
+CZBodyAnim * CZSealBody::FirePosAnim(CZBodyAnim *anim, SEAL_ITEM item)
 {
+	/* 0x280cc0: the anim's fire-position variant for the item (NULL when it has none) */
+	if (item == SEAL_ITEM::itemPistol)
+	{
+		AnimType type = m_animset->m_animgps->PistolFPAnim((AnimType)anim->m_animType);
+		return m_animset != NULL ? GetAnimById(m_animset->AnimId(type)) : NULL;
+	}
+
+	if (item == SEAL_ITEM::itemRifle)
+	{
+		AnimType type = m_animset->m_animgps->RifleFPAnim((AnimType)anim->m_animType);
+		return m_animset != NULL ? GetAnimById(m_animset->AnimId(type)) : NULL;
+	}
+
+	return anim;
 }
 
 /* @socom-skeleton stub BaseFirePose__10CZSealBodyFv */
@@ -645,8 +677,133 @@ float CZSealBody::RefPointY(AnimType)
 }
 
 /* @socom-skeleton stub MixAnims__10CZSealBodyFP15CActiveAnimListP10CBlendableffb */
-void CZSealBody::MixAnims(CActiveAnimList *, CBlendable *, float, float, bool)
+int CZSealBody::MixAnims(CActiveAnimList *list, CBlendable *set, float speed, float wt, bool)
 {
+	/* 0x27e1b0: of the set's anims (up to 4, ordered by speed range) the ones whose
+	 * (trans0, trans1] range holds the target speed (|speed| x 100 x the first anim's
+	 * throttle scale) run at that speed (taken from the top blend when it has them, overlays
+	 * cleared); none: the slowest or fastest one at its range end. With two the weight splits
+	 * across their common range; the list's earlier anims scale down by 1 - wt first.
+	 * Returns how many were picked. */
+	if (wt <= 0.0f)
+		return 0;
+
+	BLENDABLE_ANIM *b = set->m_blendable[0].m_animtype > AnimType::animTypeUndefined ? set->m_blendable : NULL;
+
+	if (b == NULL)
+		return 0;
+
+	s32 n = 0;
+	f32 absSpeed = fabsf(speed);
+	f32 hi = 100.0f;
+	f32 maxT1 = 0.0f;
+	CZBodyAnim *first = m_animset != NULL ? GetAnimById(m_animset->AnimId(b->m_animtype)) : NULL;
+	f32 target = absSpeed * 100.0f * first->m_pCommon->m_thr_scale;
+	f32 lo = 0.0f;
+	f32 minT0 = 100.0f;
+	CZBodyAnim *highest = NULL;
+	CZBodyAnim *lowest = NULL;
+	ACTIVE_ANIM *picked[12];
+
+	for (s32 i = 0; i < 4; i++, b++)
+	{
+		if (b->m_animtype == AnimType::animTypeUndefined)
+			break;
+
+		CZBodyAnim *anim = m_animset != NULL ? GetAnimById(m_animset->AnimId(b->m_animtype)) : NULL;
+		f32 t0 = b->m_trans0;
+		f32 t1 = b->m_trans1;
+
+		if (!(minT0 <= t0))
+		{
+			minT0 = t0;
+			lowest = anim;
+		}
+
+		if (!(t1 <= maxT1))
+		{
+			maxT1 = t1;
+			highest = anim;
+		}
+
+		if (t0 < target && target <= t1)
+		{
+			ACTIVE_ANIM *active = m_blends->Top()->FindAnim(anim);
+
+			if (active == NULL)
+			{
+				active = m_active_anim_pool->GetActiveAnim(anim);
+			}
+			else
+			{
+				m_blends->Top()->m_anims->Remove(active);
+				active->ClearOverlays(this);
+			}
+
+			picked[n++] = active;
+			anim->Reset();
+			anim->SetTimeScale(speed * anim->m_pCommon->m_thr_scale);
+
+			if (!(hi <= t1))
+				hi = t1;
+
+			if (!(t0 <= lo))
+				lo = t0;
+		}
+	}
+
+	if (n == 0)
+	{
+		if (target < minT0)
+		{
+			f32 s = absSpeed != speed ? -minT0 : minT0;
+			picked[0] = m_active_anim_pool->GetActiveAnim(lowest);
+			n = 1;
+			lowest->Reset();
+			lowest->SetTimeScale(s / 100.0f);
+		}
+		else if (maxT1 < target)
+		{
+			f32 s = absSpeed != speed ? -maxT1 : maxT1;
+			picked[0] = m_active_anim_pool->GetActiveAnim(highest);
+			n = 1;
+			highest->Reset();
+			highest->SetTimeScale(s / 100.0f);
+		}
+	}
+
+	if (n < 1)
+		return 0;
+
+	if (wt < 1.0f)
+		RenormAnims(list, 1.0f - wt);
+
+	if (n == 2)
+	{
+		f32 f = (target - lo) / (hi - lo);
+
+		if (1.0f <= f)
+		{
+			PushAnim(list, picked[1], wt);
+			m_active_anim_pool->PutBack(picked[0]);
+		}
+		else if (0.0f < f)
+		{
+			PushAnim(list, picked[0], (1.0f - f) * wt);
+			PushAnim(list, picked[1], f * wt);
+		}
+		else
+		{
+			PushAnim(list, picked[0], wt);
+			m_active_anim_pool->PutBack(picked[1]);
+		}
+	}
+	else
+	{
+		PushAnim(list, picked[0], wt);
+	}
+
+	return n;
 }
 
 /* @socom-skeleton stub SetMaxMotion__10CZSealBodyFv */
@@ -716,8 +873,16 @@ void CZSealBody::GetMaxXMotion(float &, float &)
 }
 
 /* @socom-skeleton stub AnimsScaleTS__10CZSealBodyFP15CActiveAnimListP10CBlendablef */
-void CZSealBody::AnimsScaleTS(CActiveAnimList *, CBlendable *, float)
+void CZSealBody::AnimsScaleTS(CActiveAnimList *list, CBlendable *set, float scale)
 {
+	/* 0x27de30: the set's anims in the list have their time scale scaled */
+	for (ACTIVE_ANIM *active = list->Begin(); active != NULL; active = list->Next())
+	{
+		f32 ts = active->m_anim->m_tScale;
+
+		if (set->Contains((AnimType)active->m_anim->m_animType))
+			active->m_anim->SetTS(scale * ts);
+	}
 }
 
 /* @socom-skeleton stub AddDIPolys__10CZSealBodyFv */

@@ -232,8 +232,8 @@ public:
 	/* virtuals in __vt__11CEntityCtrl (0x471b80) order */
 	virtual ~CEntityCtrl();
 
-	virtual void PreTick(f32 delta); /* port: ELF 0x1f2040 returns 0; void kept (overrides in zSeal/zInput) */
-	virtual void Tick(f32 delta); /* port: ELF 0x1f2030 returns 0; void kept (overrides in zSeal/zInput) */
+	virtual bool PreTick(f32 delta); /* 0x1f2040 returns 0; CZSealBody::PreTick 0x2563e0 keeps the override's result as m_doPostTick */
+	virtual bool Tick(f32 delta); /* 0x1f2030 returns 0; CZSealBody::Tick 0x255870 stops on 0 */
 	virtual void PostMortemPreTick(f32 delta) {} /* port: ELF 0x1f1fd0 returns 1; void kept (overrides in zSeal/zInput) */
 
 	virtual void OnDeath() {} /* ELF 0x1ee3c0: empty */

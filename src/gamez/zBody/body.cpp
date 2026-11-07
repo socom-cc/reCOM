@@ -429,8 +429,24 @@ void CBody::Snap()
 }
 
 /* @socom-skeleton stub SmoothAnims__5CBodyFf */
-void CBody::SmoothAnims(float)
+void CBody::SmoothAnims(float w)
 {
+	/* 0x1e2a00: every blending part moves w of the way back toward its snapshot */
+	f32 rest = 1.0f - w;
+
+	for (std::vector<CZBodyPart *>::iterator it = m_body_parts.begin(); it != m_body_parts.end(); ++it)
+	{
+		CZBodyPart *part = *it;
+
+		if (part == NULL || part->m_blendme == 0)
+			continue;
+
+		CPnt3D saved = part->m_saved_pos;
+		saved.Scale(w, &saved);
+		part->m_pos.Scale(rest, &part->m_pos);
+		part->m_pos.Add(&saved, &part->m_pos);
+		part->m_rot.Slerp(&part->m_saved_rot, w, &part->m_rot);
+	}
 }
 
 /* @socom-skeleton stub GetAnimById__5CBodyFi */
@@ -827,6 +843,9 @@ void CZBodyAnim::SetMultiplier(bool apply)
 /* @socom-skeleton stub Reset__10CZBodyAnimFv */
 void CZBodyAnim::Reset()
 {
+	/* 0x1e1bb0: not mirrored, forward time scale */
+	m_flags &= 0xffbf;
+	m_tScale = fabsf(m_tScale);
 }
 
 /* @socom-skeleton stub TrueLoopTime__10CZBodyAnimFv */
@@ -905,33 +924,178 @@ void ACTIVE_ANIM::Clear()
 }
 
 /* @socom-skeleton stub ClearOverlays__11ACTIVE_ANIMFP5CBody */
-void ACTIVE_ANIM::ClearOverlays(CBody *)
+void ACTIVE_ANIM::ClearOverlays(CBody *body)
 {
+	/* 0x1e1980: the overlay chain goes back to the body's pool */
+	ACTIVE_ANIM *overlay = m_overlay;
+
+	while (overlay != NULL)
+	{
+		ACTIVE_ANIM *next = overlay->m_overlay;
+		body->m_active_anim_pool->PutBack(overlay);
+		overlay = next;
+	}
+
+	m_overlay = NULL;
 }
 
 /* @socom-skeleton stub IsTriggerTime__13CBlendOverlayFffb */
-void CBlendOverlay::IsTriggerTime(float, float, bool)
+bool CBlendOverlay::IsTriggerTime(float from, float to, bool backwards)
 {
+	/* 0x1e1850: the overlay's trigger time lies in the step (always for -4); wraps by 1 */
+	f32 t = m_triggerT;
+
+	if (t == -4.0f)
+		return true;
+
+	if (backwards)
+	{
+		if (to <= from)
+			return to <= t && t <= from;
+
+		return !(t < to - 1.0f || from < t);
+	}
+
+	if (from <= to)
+		return from <= t && t <= to;
+
+	return from - 1.0f <= t && t <= to;
 }
 
 /* @socom-skeleton stub Trigger__13CBlendOverlayFP5CBodyb */
-void CBlendOverlay::Trigger(CBody *, bool)
+bool CBlendOverlay::Trigger(CBody *body, bool out)
 {
+	/* 0x1e1700: an idle overlay starts running (out: backwards, state -1, else 1); the body
+	 * blends over the anim's blend time from a snapshot */
+	if (m_anim == NULL || m_anim->m_anim == NULL)
+		return false;
+
+	if (m_state == 0)
+	{
+		m_state = out ? -1 : 1;
+
+		if (body->m_interp1 > 0.0f)
+			body->Snap(); /* inline in the ELF */
+
+		f32 blend = m_anim->m_anim->m_pCommon->m_blendtime;
+		body->m_interp1 = blend;
+		body->m_interp2 = blend;
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub Tick__13CBlendOverlayFP5CBodyf */
-void CBlendOverlay::Tick(CBody *, float)
+bool CBlendOverlay::Tick(CBody *body, float dT)
 {
+	/* 0x1e1210: a running overlay advances (or runs out, state -1); at its end (>= 1, or
+	 * <= 0 running out) its anim goes back to the pool, the overlay clears, the body blends
+	 * over the top blend's first anim's blend time from a snapshot, and 1 is returned.
+	 * Otherwise its time wraps into [0, 1] and sets its key pair; 0. */
+	if (m_state == 1)
+		m_ovlyT += dT;
+	else if (m_state == -1)
+		m_ovlyT -= dT;
+	else
+		return false;
+
+	CZBodyAnim *anim = m_anim->m_anim;
+	f32 loop = 1.0f;
+
+	if (!anim->m_looped)
+	{
+		f32 frames = (f32)anim->m_pCommon->m_nFrames;
+
+		if (!(frames <= 1.0f))
+			loop = (frames - 1.0f) / frames;
+	}
+
+	f32 t = m_ovlyT / (anim->m_tf * loop);
+	CZBodyAnimBlend *top = body->m_blends->Top();
+
+	if (m_state == -1 ? t <= 0.0f : 1.0f <= t)
+	{
+		body->m_active_anim_pool->PutBack(m_anim);
+		m_anim = NULL;
+		m_triggerT = 0.0f;
+		m_ovlyT = 0.0f;
+		m_state = 0;
+		m_event = 0;
+		m_callback.m_func = NULL;
+		m_callback.m_tfrac = 0.0f;
+		m_callback.m_userdata = NULL;
+
+		if (body->m_interp1 > 0.0f)
+			body->Snap(); /* inline in the ELF */
+
+		f32 blend = top->m_anims->Begin()->m_anim->m_pCommon->m_blendtime;
+		body->m_interp1 = blend;
+		body->m_interp2 = blend;
+		return true;
+	}
+
+	ACTIVE_ANIM *active = m_anim;
+
+	while (!(t <= 1.0f))
+		t -= 1.0f;
+
+	while (t < 0.0f)
+		t += 1.0f;
+
+	active->m_tfrac = t;
+	active->m_script_wt = t * (f32)active->m_anim->m_pCommon->m_nFrames;
+	f32 key = floorf(active->m_script_wt);
+	active->m_a = (s16)(s32)key;
+	active->m_b = active->m_a + 1;
+	active->m_script_wt -= key;
+	return false;
 }
 
 /* @socom-skeleton stub IsTriggerTime__13CBlendOverlayFff */
-void CBlendOverlay::IsTriggerTime(float, float)
+bool CBlendOverlay::IsTriggerTime(float t, float dT)
 {
+	/* 0x1e1030: t lies in this frame's step of the overlay anim (forwards from its time, or
+	 * backwards while it runs out, state -1; the forward step wraps by the loop length).
+	 * port: Ghidra reads the backward wrap bound as 0 (dead: the step is never negative) */
+	CZBodyAnim *anim = m_anim->m_anim;
+	f32 loop = 1.0f;
+
+	if (!anim->m_looped)
+	{
+		f32 frames = (f32)anim->m_pCommon->m_nFrames;
+
+		if (!(frames <= 1.0f))
+			loop = (frames - 1.0f) / frames;
+	}
+
+	f32 step = dT / (anim->m_tf * loop);
+	f32 now = m_anim->m_tfrac;
+
+	if (m_state == -1)
+	{
+		f32 end = now - step;
+		return !(t < end || now < t);
+	}
+
+	f32 end = now + step;
+
+	if (now <= end)
+		return now <= t && t <= end;
+
+	return now - loop <= t && t <= end;
 }
 
 /* @socom-skeleton stub CallbackTick__13CBlendOverlayFPvf */
-void CBlendOverlay::CallbackTick(void *, float)
+void CBlendOverlay::CallbackTick(void *body, float dT)
 {
+	/* 0x1e0fc0: the overlay's callback fires once when its time comes */
+	if (m_callback.m_func != NULL && IsTriggerTime(m_callback.m_tfrac, dT))
+	{
+		((void (*)(void *, void *))m_callback.m_func)(body, m_callback.m_userdata);
+		m_callback.m_func = NULL;
+		m_callback.m_tfrac = 0.0f;
+		m_callback.m_userdata = NULL;
+	}
 }
 
 /* @socom-skeleton stub Reset__15CZBodyAnimBlendFv */
@@ -1012,33 +1176,260 @@ void CZBodyAnimBlend::Reset()
 }
 
 /* @socom-skeleton stub CallbackTick__15CZBodyAnimBlendFP5CBodyff */
-void CZBodyAnimBlend::CallbackTick(CBody *, float, float)
+void CZBodyAnimBlend::CallbackTick(CBody *body, float from, float to)
 {
+	/* 0x1e08d0: the blend's own callback fires once when its time passes; with flag 1 every
+	 * anim's four callback slots (indices into BodyAnimCallbackList) whose time passes run
+	 * their zAnim (looked up by name once) on the body's root node (its parent node when it
+	 * has one) */
+	if (m_callback.m_func != NULL && IsTriggerTime(m_callback.m_tfrac, from, to))
+	{
+		((void (*)(void *, void *))m_callback.m_func)(body, m_callback.m_userdata);
+		m_callback.m_func = NULL;
+		m_callback.m_tfrac = 0.0f;
+		m_callback.m_userdata = NULL;
+	}
+
+	if ((m_flags & 1) == 0)
+		return;
+
+	for (ACTIVE_ANIM *active = m_anims->Begin(); active != NULL; active = m_anims->Next())
+	{
+		for (s32 slot = 0; slot < 4; slot++)
+		{
+			CZBodyAnim *anim = active->m_anim;
+			u32 index;
+
+			if (slot == 3)
+				index = anim->m_callback3_index;
+			else if (slot == 2)
+				index = anim->m_callback2_index;
+			else if (slot == 1)
+				index = anim->m_callback1_index;
+			else
+				index = anim->m_callback0_index;
+
+			if (index == 0)
+				break; /* ELF: the slot loop ends at the first empty slot */
+
+			BODYANIM_CALLBACK *cb = index < BodyAnimCallbackList.m_callbacks.size() ? BodyAnimCallbackList.m_callbacks[index] : NULL;
+
+			if (cb == NULL || !IsTriggerTime(cb->m_time, from, to))
+				continue;
+
+			if (cb->m_func == NULL && cb->m_valid)
+			{
+				cb->m_func = ZAnim.GetAnim(cb->m_name.c_str(), NULL);
+				cb->m_valid = false;
+			}
+
+			if (cb->m_func == NULL)
+				continue;
+
+			CZBodyPart *root = body->GetRootPart();
+
+			if (root == NULL)
+				continue;
+
+			zdb::CNode *node = root->m_node;
+
+			if (node != NULL && node->m_parent != NULL)
+				node = node->m_parent;
+
+			if (node != NULL)
+				static_cast<CZAnim *>(cb->m_func)->ActivateArg(1, 2, node, 0);
+		}
+	}
 }
 
 /* @socom-skeleton stub IsTriggerTime__15CZBodyAnimBlendFfff */
-void CZBodyAnimBlend::IsTriggerTime(float, float, float)
+bool CZBodyAnimBlend::IsTriggerTime(float t, float from, float to)
 {
+	/* 0x1e0730: t lies in the step from -> to (backwards for a reversed blend: flag 0x20,
+	 * or a cycling blend whose first anim runs backwards), across the wrap by m_quitT */
+	if (from == to)
+		return false;
+
+	bool backwards;
+
+	if ((m_flags & 0x40) == 0)
+		backwards = (m_flags & 0x20) != 0;
+	else
+		backwards = m_anims->Begin()->m_anim->m_tScale < 0.0f;
+
+	if (backwards)
+	{
+		if (to <= from)
+			return to <= t && t <= from;
+
+		return to - m_quitT <= t && t <= from;
+	}
+
+	if (from <= to)
+		return from <= t && t <= to;
+
+	return from - m_quitT <= t && t <= to;
 }
 
 /* @socom-skeleton stub IsDone__15CZBodyAnimBlendFf */
-void CZBodyAnimBlend::IsDone(float)
+bool CZBodyAnimBlend::IsDone(float dT)
 {
+	/* 0x1e0620: the first anim's step from dT reaches the quit time (backwards, flag 0x20:
+	 * reaches 0) */
+	CZBodyAnim *anim = m_anims->Begin()->m_anim;
+	f32 loop = 1.0f;
+
+	if (!anim->m_looped)
+	{
+		f32 frames = (f32)anim->m_pCommon->m_nFrames;
+
+		if (!(frames <= 1.0f))
+			loop = (frames - 1.0f) / frames;
+	}
+
+	f32 t = (dT * anim->m_tScale) / (anim->m_tf * loop) + m_tfrac;
+
+	if ((m_flags & 0x20) == 0)
+		return m_quitT <= t;
+
+	return t <= 0.0f;
 }
 
 /* @socom-skeleton stub Propagate__15CZBodyAnimBlendFfb */
-float CZBodyAnimBlend::Propagate(float, bool)
+float CZBodyAnimBlend::Propagate(float dT, bool apply)
 {
+	/* 0x1e0420: the blend's time fraction advanced by every anim's weighted share of dT over
+	 * its loop length (a non-looped anim of n frames ends at (n-1)/n); a cycling blend (flag
+	 * 0x40) wraps into [0, 1], else it clamps to [0, m_quitT]. Stored when apply is set; 0
+	 * without anims. ELF quirk kept: each anim's playback rate multiplies dT for the anims
+	 * after it too. */
+	if (m_anims->m_size == 0)
+		return 0.0f;
+
+	f32 sum = 0.0f;
+
+	for (ACTIVE_ANIM *active = m_anims->Begin(); active != NULL; active = m_anims->Next())
+	{
+		if (active->m_playback > 0.0f)
+			dT *= active->m_playback;
+
+		CZBodyAnim *anim = active->m_anim;
+		f32 loop = 1.0f;
+
+		if (!anim->m_looped)
+		{
+			f32 frames = (f32)anim->m_pCommon->m_nFrames;
+
+			if (!(frames <= 1.0f))
+				loop = (frames - 1.0f) / frames;
+		}
+
+		sum += dT * (active->m_wt * anim->m_tScale) / (anim->m_tf * loop);
+	}
+
+	f32 t = sum + m_tfrac;
+
+	if (m_flags & 0x40)
+	{
+		while (!(t <= 1.0f))
+			t -= 1.0f;
+
+		while (t < 0.0f)
+			t += 1.0f;
+	}
+	else if (!(t <= m_quitT))
+	{
+		t = m_quitT;
+	}
+	else if (t < 0.0f)
+	{
+		t = 0.0f;
+	}
+
+	if (apply)
+		m_tfrac = t;
+
+	return t;
 }
 
 /* @socom-skeleton stub Synch__15CZBodyAnimBlendFP5CBody */
 void CZBodyAnimBlend::Synch(CBody *)
 {
+	/* 0x1e0170: every anim takes the blend time plus its own offset (clamped to [0, quit]
+	 * or wrapped for a cycling blend, then wrapped into [0, 1]) and its key pair; overlays
+	 * take their anim's time before the last wrap */
+	f32 t = m_tfrac;
+
+	for (ACTIVE_ANIM *active = m_anims->Begin(); active != NULL; active = m_anims->Next())
+	{
+		f32 v = active->m_dfrac + t;
+
+		if ((m_flags & 0x40) == 0)
+		{
+			if (!(v <= m_quitT))
+				v = m_quitT;
+			else if (v < 0.0f)
+				v = 0.0f;
+		}
+		else
+		{
+			while (!(v <= 1.0f))
+				v -= 1.0f;
+
+			while (v < 0.0f)
+				v += 1.0f;
+		}
+
+		f32 overlay_t = v;
+
+		for (ACTIVE_ANIM *a = active; a != NULL; a = a->m_overlay)
+		{
+			f32 w = a == active ? v : overlay_t;
+
+			while (!(w <= 1.0f))
+				w -= 1.0f;
+
+			while (w < 0.0f)
+				w += 1.0f;
+
+			a->m_tfrac = w;
+			a->m_script_wt = w * (f32)a->m_anim->m_pCommon->m_nFrames;
+			f32 key = floorf(a->m_script_wt);
+			a->m_a = (s16)(s32)key;
+			a->m_b = a->m_a + 1;
+			a->m_script_wt -= key;
+		}
+	}
 }
 
 /* @socom-skeleton stub GetVelocity__15CZBodyAnimBlendFP6CPnt3D */
-void CZBodyAnimBlend::GetVelocity(CPnt3D *)
+void CZBodyAnimBlend::GetVelocity(CPnt3D *vel)
 {
+	/* 0x1dffa0: the weighted sum of every anim's base part velocity at its key pair (a
+	 * non-cycling blend's playback rate divides it out; a mirrored anim, flag 0x40,
+	 * negates x) */
+	*vel = CPnt3D::zero;
+
+	for (ACTIVE_ANIM *active = m_anims->Begin(); active != NULL; active = m_anims->Next())
+	{
+		CZBodyAnim *anim = active->m_anim;
+		u16 part = (u16)anim->m_basepart;
+		std::vector<CZSIObject *> &objects = anim->m_pCommon->m_objects_for_body;
+		CZSIObject *object = part < (u16)objects.size() ? objects[part] : NULL;
+		CPnt3D v;
+		object->GetVelRaw(anim, active->m_a, active->m_b, &v);
+
+		if ((m_flags & 0x40) == 0 && active->m_playback > 0.0f && active->m_playback != 1.0f)
+			v.Scale(1.0f / active->m_playback, &v);
+
+		if (anim->m_flags & 0x40)
+			v.x = -v.x;
+
+		f32 wt = active->m_wt;
+		vel->x += wt * v.x;
+		vel->y += wt * v.y;
+		vel->z += wt * v.z;
+	}
 }
 
 /* @socom-skeleton stub ThisFoot__15CZBodyAnimBlendFv */
@@ -1142,8 +1533,31 @@ void CZBodyAnimBlend::Normalize()
 }
 
 /* @socom-skeleton stub AddOverlay__15CZBodyAnimBlendFP11ACTIVE_ANIMP11ACTIVE_ANIMf */
-void CZBodyAnimBlend::AddOverlay(ACTIVE_ANIM *, ACTIVE_ANIM *, float)
+void CZBodyAnimBlend::AddOverlay(ACTIVE_ANIM *active, ACTIVE_ANIM *overlay, float wt)
 {
+	/* 0x1dfb20: the overlay hangs off the anim with the given weight and the anim's
+	 * playback, direction (flag 0x80 on a reversed blend) and time scale; an anim with a
+	 * callback marks the blend (flag 1) */
+	active->m_overlay = overlay;
+	overlay->m_overlay = NULL;
+	overlay->m_wt = wt;
+	overlay->m_playback = active->m_playback;
+	CZBodyAnim *oanim = overlay->m_anim;
+	CZBodyAnim *anim = active->m_anim;
+
+	if (m_flags & 0x20)
+		anim->m_flags = (anim->m_flags & 0xff7f) | 0x80;
+
+	if (anim->GetCallbackIndex(0) > 0)
+		m_flags = (m_flags & 0xfffe) | 1;
+
+	u16 flags = anim->m_flags;
+	oanim->m_flags &= 0xffbf;
+
+	if (flags & 0x40)
+		oanim->m_flags |= 0x40;
+
+	oanim->m_tScale = anim->m_tScale;
 }
 
 /* @socom-skeleton stub FindAnim__15CZBodyAnimBlendFP10CZBodyAnim */

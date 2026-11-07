@@ -59,6 +59,57 @@ CSealAnim::~CSealAnim()
 /* @socom-skeleton stub Animate__10CZSealBodyFv */
 void CZSealBody::Animate()
 {
+	/* 0x26e300: the pose: every anim of the top blend and its overlays is pushed on the pose
+	 * stack (each overlay laid over its anim), the anims blended, the blend overlay laid over
+	 * when it runs, and the result popped into the body parts (AnimPop, inline in the ELF).
+	 * The weapon part setup is skipped during a rifle/pistol swap. */
+	if (!m_animate_me)
+		return;
+
+	CZBodyAnimBlend *top = m_blends->Top();
+	m_take_snapshot = false;
+	s32 count = 0;
+	bool swapping = false;
+	m_sealanim->m_stack->m_depth = 0;
+
+	if (IsCurrentBlend(AnimType::animTypeRifle2Pistol) || IsCurrentBlend(AnimType::animTypeCrouchRifle2Pistol)
+		|| IsCurrentBlend(AnimType::animTypeProneRifle2Pistol))
+	{
+		swapping = true;
+	}
+
+	ACTIVE_ANIM *overlay = m_overlay->m_anim;
+
+	if (overlay != NULL && overlay->m_anim != NULL && overlay->m_anim->m_animType == AnimTypes::MovingRifle2Pistol)
+		swapping = true;
+
+	for (ACTIVE_ANIM *active = top->m_anims->Begin(); active != NULL; active = top->m_anims->Next())
+	{
+		if (!swapping)
+			ConfigureWeaponAnim(active->m_anim);
+
+		m_sealanim->AnimPush(this, active);
+		count++;
+
+		for (ACTIVE_ANIM *o = active->m_overlay; o != NULL; o = o->m_overlay)
+		{
+			if (!swapping)
+				ConfigureWeaponAnim(o->m_anim);
+
+			m_sealanim->AnimPush(this, o);
+			m_sealanim->AnimOverlay(o->m_wt);
+		}
+	}
+
+	m_sealanim->AnimBlend(count);
+
+	if (m_overlay->m_anim != NULL && m_overlay->m_state != 0)
+	{
+		m_sealanim->AnimPush(this, m_overlay->m_anim);
+		m_sealanim->AnimOverlay(1.0f);
+	}
+
+	m_sealanim->AnimPop(this);
 }
 
 /* @socom-skeleton stub AnimPush__9CSealAnimFP10CZSealBodyP11ACTIVE_ANIM */
@@ -164,36 +215,377 @@ int CSealAnim::AnimPop(CBody *body)
 }
 
 /* @socom-skeleton stub AnimBlend__9CSealAnimFi */
-void CSealAnim::AnimBlend(int)
+int CSealAnim::AnimBlend(int count)
 {
+	/* 0x26d6d0: the top `count` frames merge into the lowest of them: the positions of the
+	 * parts that take the script position (keep 0) are the frames' weighted sum; the
+	 * rotations combine pairwise (CombineRotations, the second frame dropped) first among
+	 * the frames whose anim has flag 0x100, then among those without, then any two, and the
+	 * survivor's rotations end in the lowest frame. Returns the new depth (fewer than two
+	 * frames: unchanged). ELF quirk kept: the pairing scans every frame from 0, not from the
+	 * merged range. */
+	if (count < 2)
+		return m_stack->m_depth;
+
+	s32 base = m_stack->m_depth - count;
+	SEALANIM_FRAME *lowest = &m_stack->m_frames[base];
+
+	for (s32 j = 0; j < 32; j++)
+	{
+		SEALANIM_PART *out = &lowest->m_parts[j];
+
+		if (out->m_keep != 0)
+			continue;
+
+		CPnt3D sum = CPnt3D::zero;
+
+		for (s32 f = m_stack->m_depth - count; f < m_stack->m_depth; f++)
+		{
+			SEALANIM_PART *part = &m_stack->m_frames[f].m_parts[j];
+
+			if (part->m_id != -1)
+			{
+				out->m_id = part->m_id;
+				CPnt3D scaled;
+				part->m_pos.Scale(m_stack->m_frames[f].m_wt, &scaled);
+				sum.Add(&scaled, &sum);
+			}
+		}
+
+		out->m_pos = sum;
+	}
+
+	s32 dropped[10];
+
+	for (s32 i = 0; i < 10; i++)
+		dropped[i] = 0;
+
+	for (s32 pass = 0; pass < 3; pass++)
+	{
+		for (s32 n = 0; n < 30; n++)
+		{
+			s32 pair[10];
+			s32 found = 0;
+
+			for (s32 i = 0; i < 10; i++)
+				pair[i] = 0;
+
+			for (s32 f = 0; f < m_stack->m_depth; f++)
+			{
+				if (dropped[f] < 0)
+					continue;
+
+				bool flagged = (m_stack->m_frames[f].m_anim->m_flags & 0x100) != 0;
+
+				if (pass == 2 || (pass == 0 ? flagged : !flagged))
+					pair[found++] = f;
+
+				if (found > 1)
+					break;
+			}
+
+			if (found == 2)
+			{
+				CombineRotations(pair[0], pair[1]);
+				dropped[pair[1]] = -1;
+			}
+			else if (found < 2)
+			{
+				break;
+			}
+		}
+	}
+
+	s32 survivor = 0;
+
+	while (survivor < m_stack->m_depth && dropped[survivor] != 0)
+		survivor++;
+
+	if (survivor != base)
+	{
+		for (s32 j = 0; j < 32; j++)
+			m_stack->m_frames[base].m_parts[j].m_rot = m_stack->m_frames[survivor].m_parts[j].m_rot;
+	}
+
+	m_stack->m_depth = base + 1;
+	return m_stack->m_depth;
 }
 
 /* @socom-skeleton stub CombineRotations__9CSealAnimFii */
-void CSealAnim::CombineRotations(int, int)
+void CSealAnim::CombineRotations(int a, int b)
 {
+	/* 0x26d550: frame a's part rotations slerp toward frame b's by b's share of the two
+	 * weights (b's above 0.999, a's own below 0.001); a's weight becomes the sum. ELF quirk
+	 * kept: a part frame b has no pose for (id -1) takes b's stale rotation. */
+	SEALANIM_FRAME *fa = &m_stack->m_frames[a];
+	SEALANIM_FRAME *fb = &m_stack->m_frames[b];
+	f32 sum = fa->m_wt + fb->m_wt;
+	f32 w = fb->m_wt / sum;
+
+	for (s32 j = 0; j < 32; j++)
+	{
+		SEALANIM_PART *pa = &fa->m_parts[j];
+		SEALANIM_PART *pb = &fb->m_parts[j];
+
+		if (pa->m_id == -1)
+			continue;
+
+		if (pb->m_id == -1)
+			pa->m_rot = pb->m_rot;
+		else if (w <= 0.001f)
+			continue;
+		else if (!(w < 0.999f))
+			pa->m_rot = pb->m_rot;
+		else
+			pa->m_rot.Slerp(&pb->m_rot, w, &pa->m_rot);
+	}
+
+	fa->m_wt = sum;
 }
 
 /* @socom-skeleton stub AnimOverlay__9CSealAnimFf */
-void CSealAnim::AnimOverlay(float)
+int CSealAnim::AnimOverlay(float wt)
 {
+	/* 0x26d250: the top frame overlays the one below at wt (a negative wt takes the top
+	 * frame's own weight): every part the top frame poses gets its id; keep-0 positions
+	 * blend linearly, rotations slerp (snap above 0.999, nothing below 0.001). Returns the
+	 * new depth. ELF quirk kept: the "below has no pose" branches test the id just stored,
+	 * so they never run. */
+	SEALANIM_FRAME *top = &m_stack->m_frames[m_stack->m_depth - 1];
+	SEALANIM_FRAME *below = &m_stack->m_frames[m_stack->m_depth - 2];
+	s32 newdepth = m_stack->m_depth - 1;
+
+	if (wt < 0.0f)
+		wt = top->m_wt;
+
+	f32 rest = 1.0f - wt;
+	f32 f = wt / (rest + wt);
+
+	for (s32 j = 0; j < 32; j++)
+	{
+		SEALANIM_PART *tp = &top->m_parts[j];
+		SEALANIM_PART *bp = &below->m_parts[j];
+
+		if (tp->m_id < 0)
+			continue;
+
+		bp->m_id = tp->m_id;
+
+		if (bp->m_id == -1)
+		{
+			bp->m_pos = tp->m_pos;
+		}
+		else if (bp->m_keep == 0)
+		{
+			if (rest == 0.0f)
+			{
+				bp->m_pos = tp->m_pos;
+			}
+			else if (wt != 0.0f)
+			{
+				CPnt3D a, b;
+				bp->m_pos.Scale(rest, &a);
+				tp->m_pos.Scale(wt, &b);
+				a.Add(&b, &bp->m_pos);
+			}
+		}
+	}
+
+	f32 clamped = f <= 1.0f ? f : 1.0f;
+
+	for (s32 j = 0; j < 32; j++)
+	{
+		SEALANIM_PART *tp = &top->m_parts[j];
+		SEALANIM_PART *bp = &below->m_parts[j];
+
+		if (tp->m_id < 0)
+			continue;
+
+		if (bp->m_id == -1 || !(f < 0.999f))
+		{
+			bp->m_rot = tp->m_rot;
+		}
+		else if (f > 0.001f)
+		{
+			CQuat q;
+			bp->m_rot.Slerp(&tp->m_rot, clamped, &q);
+			bp->m_rot = q;
+		}
+	}
+
+	m_stack->m_depth = newdepth;
+	return m_stack->m_depth;
 }
 
 /* @socom-skeleton stub ConfigureWeaponAnim__10CZSealBodyFP10CZBodyAnim */
-void CZSealBody::ConfigureWeaponAnim(CZBodyAnim *)
+void CZSealBody::ConfigureWeaponAnim(CZBodyAnim *anim)
 {
+	/* 0x26cf40: the held weapon (rifle or pistol) is animated either by its own part (the
+	 * anim has a script object for it: the weapon part slot is cleared) or through the
+	 * generic weapon part (the anim animates that one: the weapon's part slot holds the
+	 * weapon instead) */
+	std::vector<CZSIObject *> &objects = anim->m_pCommon->m_objects_for_body;
+	CZBodyPart *held;
+
+	if (m_item == SEAL_ITEM::itemRifle)
+		held = m_rifle;
+	else if (m_item == SEAL_ITEM::itemPistol)
+		held = m_pistol;
+	else
+		return;
+
+	s16 hid = held->m_id;
+	s16 wid = m_weapon->m_id;
+
+	if ((u32)hid < objects.size() && objects[hid] != NULL)
+	{
+		if ((u32)hid < m_body_parts.size())
+			m_body_parts[hid] = held;
+
+		if ((u32)wid < m_body_parts.size())
+			m_body_parts[wid] = NULL;
+
+		return;
+	}
+
+	if ((u32)wid < objects.size() && objects[wid] != NULL)
+	{
+		if ((u32)hid < m_body_parts.size())
+			m_body_parts[hid] = NULL;
+
+		if ((u32)wid < m_body_parts.size())
+			m_body_parts[wid] = held;
+	}
 }
 
 /* @socom-skeleton stub SetVertical__10CZSealBodyFv */
 float CZSealBody::SetVertical()
 {
+	/* 0x26cb90: the next height. Without vertical anim motion: the altitude (a pending
+	 * skeleton fix lifts the root so the skeleton stays at its world height, at least the
+	 * altitude). With it (climbs, ladders, falls): the anim's root motion (a ladder slide
+	 * falls by the descent) added to the node height (from the root's offset over the
+	 * standing root height 11.487 on the first frame); falls take the altitude from it; the
+	 * root is pinned at 11.487. */
+	if (!UseVelY())
+	{
+		m_used_vel_y = 0;
+
+		if (!m_fix_skel_y)
+			return m_alt;
+
+		CZBodyPart *root = GetRootPart();
+		m_fix_skel_y = 0;
+		m_get_new_altitude = 1;
+		f32 y = m_skel_y_w - root->m_pos.y;
+
+		if (y < m_alt)
+		{
+			root->m_pos.y = m_skel_y_w - m_alt;
+			f32 sx = GetRootPart()->m_saved_pos.x;
+			f32 sz = GetRootPart()->m_saved_pos.z;
+			f32 ry = root->m_pos.y;
+			CZBodyPart *r = GetRootPart();
+			r->m_saved_pos.x = sx;
+			r->m_saved_pos.y = ry;
+			r->m_saved_pos.z = sz;
+			CPnt3D *pos = GetPosW();
+			GetNode()->SetPosition(pos->x, m_alt, pos->z);
+			y = m_alt;
+		}
+
+		return y;
+	}
+
+	if ((IsCurrentBlend(AnimType::animTypeHangJumpDown) && m_blends->Top()->m_tfrac > 0.2f)
+		|| (IsCurrentBlend(AnimType::animTypeStand2Ladder) && (m_blends->Top()->m_flags & 0x20) != 0))
+	{
+		m_used_vel_y = 0;
+		return m_alt;
+	}
+
+	f32 dy;
+
+	if (IsCurrentBlend((AnimType)AnimTypes::LadderSlide))
+		dy = -m_descent * m_dT;
+	else
+		dy = m_velM.y * m_dT;
+
+	CZBodyPart *root = GetRootPart();
+	f32 y;
+
+	if (m_used_vel_y)
+		y = dy + GetPosW()->y;
+	else if (!IsCurrentBlend(AnimType::animTypeClimbOffLadder) || (m_blends->Top()->m_flags & 0x20) == 0)
+		y = (root->m_pos.y + dy + GetPosW()->y) - 11.487f;
+	else
+		y = dy + GetPosW()->y;
+
+	if (IsCurrentBlend((AnimType)AnimTypes::FallForward01) || IsCurrentBlend((AnimType)AnimTypes::FallBackward01))
+		m_alt = (y + 11.487f) - root->m_pos.y;
+
+	root->m_pos.y = 11.487f; /* 0x4137cac0 */
+	m_used_vel_y = 1;
+	return y;
 }
 
 /* @socom-skeleton stub GetRootPos__10CZSealBodyFfR6CPnt3D */
-void CZSealBody::GetRootPos(float, CPnt3D &)
+void CZSealBody::GetRootPos(float t, CPnt3D &pos)
 {
+	/* 0x26cae0: the top blend's representative anim's base part position at time t */
+	CZBodyAnim *anim = m_blends->Top()->Representative();
+	f32 f = t * (f32)anim->m_pCommon->m_nFrames;
+	f32 key = floorf(f);
+	s32 a = (s32)key;
+	anim->m_pCommon->m_objects_for_body[anim->m_basepart]->GetPosRaw(a, a + 1, f - key, &pos);
 }
 
 /* @socom-skeleton stub Post__10CZSealBodyFv */
 void CZSealBody::Post()
 {
+	/* 0x26c930: after the pose: while a blend transition runs (m_interp1 of m_interp2 left)
+	 * the parts ease from their snapshot (SmoothAnims at quadW of the remaining fraction;
+	 * at 0 the root and weapon parts blend again); without one the pose is snapshot. Then
+	 * every posed part's node takes its position and rotation. */
+	f32 w;
+	m_take_snapshot = true;
+
+	if (m_interp2 <= 0.0f || m_interp1 <= 0.0f)
+	{
+		w = 0.0f;
+	}
+	else
+	{
+		m_interp1 -= m_dT;
+
+		if (m_interp1 < 0.0f)
+			m_interp1 = 0.0f;
+
+		w = quadW(m_interp1 / m_interp2);
+
+		if (w == 0.0f)
+		{
+			m_root->m_blendme = 1;
+			m_rifle->m_blendme = 1;
+			m_pistol->m_blendme = 1;
+			m_weapon->m_blendme = 1;
+		}
+	}
+
+	if (w > 0.0f)
+		SmoothAnims(w);
+
+	if (m_interp1 <= 0.0f)
+		Snap();
+
+	for (std::vector<CZBodyPart *>::iterator it = m_body_parts.begin(); it != m_body_parts.end(); ++it)
+	{
+		CZBodyPart *part = *it;
+
+		if (part == NULL || part->m_id < 0 || part->m_node == NULL)
+			continue;
+
+		part->m_node->SetPosition(part->m_pos.x, part->m_pos.y, part->m_pos.z);
+		part->m_node->SetRotation(part->m_rot);
+	}
 }

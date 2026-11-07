@@ -347,8 +347,13 @@ void CZKit::NVG_Enabled(bool)
 }
 
 /* @socom-skeleton stub GetCurItemIDType__5CZKitFv */
-void CZKit::GetCurItemIDType()
+EQUIP_ITEM CZKit::GetCurItemIDType()
 {
+	/* 0x2aec90: 0xfe without a selected item */
+	if (m_item[m_selected_item] == NULL)
+		return (EQUIP_ITEM)0xfe;
+
+	return m_item[m_selected_item]->GetIDType();
 }
 
 /* @socom-skeleton stub GetCurItemType__5CZKitFv */
@@ -440,8 +445,25 @@ void CZKit::UseItemModel(int, const char *)
 }
 
 /* @socom-skeleton stub GetCurWeapon__5CZKitFPP11CZFTSWeaponPP6CZAmmo */
-void CZKit::GetCurWeapon(CZFTSWeapon **, CZAmmo **)
+void CZKit::GetCurWeapon(CZFTSWeapon **weapon, CZAmmo **ammo)
 {
+	/* 0x2adfb0: the selected slot's weapon and ammo; a grenade launcher in fire mode 4+
+	 * gives the launcher slot (fire mode - 3; the ELF indexes m_itemstate / m_item past
+	 * their ends, which lands on m_item / m_ammo) */
+	s32 index = m_selected_item;
+	s32 slot = unwrap(index, m_num_items);
+	*weapon = slot != -1 ? m_item[slot] : NULL;
+
+	if (ammo != NULL)
+		*ammo = m_ammo[index];
+
+	if (*weapon != NULL && (*weapon)->IsGrenadeLauncherWeapon() && m_firemode[index] > 3)
+	{
+		*weapon = m_item[m_firemode[index] - 3];
+
+		if (ammo != NULL)
+			*ammo = m_ammo[m_firemode[index] - 3];
+	}
 }
 
 /* @socom-skeleton stub GetWeapon__5CZKitFiPP11CZFTSWeaponPP6CZAmmo */
@@ -465,8 +487,14 @@ void CZKit::ChangeItemModel(int, int, int, bool)
 }
 
 /* @socom-skeleton stub CanChangeItem__5CZKitFv */
-void CZKit::CanChangeItem()
+bool CZKit::CanChangeItem()
 {
+	/* 0x2acc00: not while a shot is pending or firing, nor through binoculars or a scope */
+	if (m_waiting_to_fire || m_firetime > 0.0f)
+		return false;
+
+	ZOOMSTATE zoom = m_body->m_zoomstate;
+	return !((int)zoom > (int)ZOOMSTATE::ZOOMSTATE_BINOCS || zoom == ZOOMSTATE::ZOOMSTATE_BINOCS);
 }
 
 /* @socom-skeleton stub SetCurItemByIndex__5CZKitFi */
@@ -634,27 +662,29 @@ void CZKit::HandleFireWeapon(int, float, float)
 }
 
 /* @socom-skeleton stub IsZoomed__5CZKitFv */
-void CZKit::IsZoomed()
+bool CZKit::IsZoomed()
 {
+	/* 0x2a89d0: binoculars or a weapon zoom */
+	ZOOMSTATE zoom = m_body->m_zoomstate;
+	return !((int)zoom < (int)ZOOMSTATE::ZOOMSTATE_WEAPONDEF1 && zoom != ZOOMSTATE::ZOOMSTATE_BINOCS);
 }
 
 /* @socom-skeleton body GetCurZoom__5CZKitFv */
 float CZKit::GetCurZoom()
 {
-    f32 zoom = 1.0f;
-    CZFTSWeapon* item = m_item[m_selected_item];
+	/* 0x2a8970: the selected weapon's zoom range for a weapon zoom state, else 1 */
+	CZFTSWeapon *weapon = m_item[m_selected_item];
+	f32 zoom = 1.0f;
 
-    if (item)
-    {
-        f32 cur_zoom = m_body->m_zoomval;
+	if (weapon != NULL)
+	{
+		u32 index = (u32)((int)m_body->m_zoomstate - 3);
 
-        if (cur_zoom < static_cast<f32>(item->m_thirdZoomLevel))
-        {
-            zoom = item->GetZoomRange(cur_zoom);
-        }
-    }
+		if (index < weapon->m_zoommode.size())
+			zoom = weapon->GetZoomRange(index);
+	}
 
-    return zoom;
+	return zoom;
 }
 
 /* @socom-skeleton stub UpdateCurItemReticule__5CZKitFv */
@@ -934,18 +964,58 @@ void CZKit::SetWeaponInfoChanged()
 }
 
 /* @socom-skeleton stub IsUsingScope__5CZKitFv */
-void CZKit::IsUsingScope()
+bool CZKit::IsUsingScope()
 {
+	/* 0x2a5740: a weapon zoom */
+	return (int)m_body->m_zoomstate > (int)ZOOMSTATE::ZOOMSTATE_BINOCS;
 }
 
 /* @socom-skeleton stub IsUsingItem__5CZKitF10EQUIP_ITEM */
-void CZKit::IsUsingItem(EQUIP_ITEM)
+bool CZKit::IsUsingItem(EQUIP_ITEM item)
 {
+	/* 0x2a5670: binoculars = the binocular or a weapon zoom, the old NVG id = the NVG zoom,
+	 * else the first kit slot holding the item */
+	if (item == EQUIP_ITEM::BINOCULARS)
+	{
+		ZOOMSTATE zoom = m_body->m_zoomstate;
+		return !(zoom != ZOOMSTATE::ZOOMSTATE_BINOCS && (int)zoom < (int)ZOOMSTATE::ZOOMSTATE_WEAPONDEF1);
+	}
+
+	if (item == EQUIP_ITEM::OLD_NVG_ID)
+		return m_body->m_zoomstate == ZOOMSTATE::ZOOMSTATE_NVG;
+
+	for (s32 i = 0; i < m_num_items; i++)
+	{
+		if (m_item[i] != NULL && m_item[i]->m_ID == item)
+			return IsUsingItem(i);
+	}
+
+	return false;
 }
 
 /* @socom-skeleton stub IsUsingItem__5CZKitFi */
-void CZKit::IsUsingItem(int)
+bool CZKit::IsUsingItem(int index)
 {
+	/* 0x2a5530: by the slot's item id: binoculars / NVG by the zoom, weapons and the other
+	 * selectable items when selected, anything else by its item state bit 3 */
+	u8 id = (u8)m_item[index]->GetIDType();
+
+	if (id == 0xb6)
+	{
+		ZOOMSTATE zoom = m_body->m_zoomstate;
+		return !(zoom != ZOOMSTATE::ZOOMSTATE_BINOCS && (int)zoom < (int)ZOOMSTATE::ZOOMSTATE_WEAPONDEF1);
+	}
+
+	if (id == 0xb8)
+		return m_body->m_zoomstate == ZOOMSTATE::ZOOMSTATE_NVG;
+
+	if (id == 0x00 || id == 0x1e || id == 0x32 || id == 0x50 || id == 0x5a || id == 0x64 || id == 0x78
+		|| id == 0x8c || id == 0x96 || id == 0xa0)
+	{
+		return m_selected_item == index;
+	}
+
+	return (m_itemstate[index] & 8) != 0;
 }
 
 /* @socom-skeleton stub SniperTick__5CZKitFfR11CTargetMods */
@@ -956,6 +1026,14 @@ void CZKit::SniperTick(float, CTargetMods &)
 /* @socom-skeleton stub InitializeSniperKick__5CZKitFv */
 void CZKit::InitializeSniperKick()
 {
+	/* 0x2a5010: the kick baseline is the controller's aim pitch (CSealCtrl +0x130) */
+	m_firerifle_kick_movedist = 0.0f;
+	CEntityCtrl *control = m_body->m_control;
+
+	if (control != NULL)
+		m_firerifle_kick_baseline = static_cast<CSealCtrl *>(control)->m_aimPitch;
+
+	m_body->AdrenalineIncr(0.5f);
 }
 
 /* @socom-skeleton stub Binocs_Enabled__5CZKitFb */
@@ -964,26 +1042,40 @@ void CZKit::Binocs_Enabled(bool)
 }
 
 /* @socom-skeleton stub IsUsingBinocs__5CZKitFv */
-void CZKit::IsUsingBinocs()
+bool CZKit::IsUsingBinocs()
 {
+	/* 0x2a4fd0 */
+	return m_body->m_zoomstate == ZOOMSTATE::ZOOMSTATE_BINOCS;
 }
 
 /* @socom-skeleton stub ScreenOffsetX__5CZKitFv */
 float CZKit::ScreenOffsetX()
 {
+	/* 0x2a4fc0 */
+	return m_screenoffset_x;
 }
 
 /* @socom-skeleton stub ScreenOffsetY__5CZKitFv */
 float CZKit::ScreenOffsetY()
 {
+	/* 0x2a4fb0 */
+	return m_screenoffset_y;
 }
 
 /* @socom-skeleton stub IncrScreenOffsetY__5CZKitFf */
-void CZKit::IncrScreenOffsetY(float)
+void CZKit::IncrScreenOffsetY(float dy)
 {
+	/* 0x2a4fa0 */
+	m_screenoffset_y += dy;
 }
 
 /* @socom-skeleton stub ResetScreenOffsetXY__5CZKitFv */
 void CZKit::ResetScreenOffsetXY()
 {
+	/* 0x2a4f70: the view bob offsets clear; the camera takes the sniper sway */
+	m_screenoffset_x = 0.0f;
+	m_screenoffset_y = 0.0f;
+	zdb::CCamera *camera = zdb::CWorld::m_world->m_camera;
+	camera->m_screenOffset.x = m_sniper_posx;
+	camera->m_screenOffset.y = m_sniper_posy;
 }

@@ -15,9 +15,13 @@ class CZBodyAnim;
 class CBody
 {
 	friend class CZBodyAnimBlend; /* port: SetBlendAnims 0x1dfd00 returns anims to m_active_anim_pool */
+	friend class ACTIVE_ANIM; /* port: ClearOverlays 0x1e1980 returns overlays to m_active_anim_pool */
 	friend class CSealAnim; /* port: AnimPop 0x26ddc0 writes the parts' poses */
 	friend class CAppCamera; /* port: CAppCamera::Tick 0x1ea4c4 reads the seal's m_state */
+	friend class CSealCtrl; /* port: CSealCtrl::PreTick 0x285af0 / Tick 0x2872e0 read the seal's m_state */
+	friend class CBlendOverlay; /* port: CBlendOverlay::Tick 0x1e1210 / Trigger 0x1e1700 set the blend interpolation */
 public:
+	virtual CZBodyPart* GetRootPart() const = 0; /* __vt__5CBody +0x10 is 0 (pure); CZSealBody's override 0x257710; CallbackTick 0x1e08d0 calls it through the CBody vtable */
 	void SmoothAnims(f32 scale);
 	/* port: provisional non-const FindPart removed; the ELF one is FindPart(const char *) const */
 	CZBodyPart* NewBodyPart(zdb::CNode* node, CZBodyPart* part); /* port: returns CZBodyPart* (Ghidra 0x1e34b0, skeleton stub) */
@@ -77,10 +81,10 @@ public:
 
 	/* @socom-skeleton decl 13CBlendOverlay */
 public:
-	void IsTriggerTime(float, float, bool);
-	void Trigger(CBody *, bool);
-	void Tick(CBody *, float);
-	void IsTriggerTime(float, float);
+	bool IsTriggerTime(float, float, bool); /* 0x1e1850: 0/1 */
+	bool Trigger(CBody *, bool); /* 0x1e1700: 0/1 */
+	bool Tick(CBody *, float); /* 0x1e1210: 1 when the overlay ends */
+	bool IsTriggerTime(float, float); /* 0x1e1030: 0/1 */
 	void CallbackTick(void *, float);
 	/* @socom-skeleton end 13CBlendOverlay */
 };
@@ -135,6 +139,7 @@ class CZBodyPart
 	friend class CSealAnim; /* port: AnimPush 0x26deb0 / AnimPop 0x26ddc0 read and write the pose */
 	friend class CObjAnims; /* port: GetObjAnim 0x27d510 reads m_id */
 	friend class CZKit; /* port: InitItemModel 0x2ae340 sets the grenade part's node */
+	friend class CZBodyAnimBlend; /* port: CallbackTick 0x1e08d0 reads the root part's node */
 public:
 	CZBodyPart(zdb::CNode* node);
 	~CZBodyPart();

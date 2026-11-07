@@ -271,6 +271,8 @@
 #include "gamez/zNode/znode.h"
 #include "gamez/zReader/zrdr.h"
 #include "gamez/zWeapon/zweapon.h"
+#include "gamez/zNode/node_world.h" /* zdb::CWorld::m_world (altitude, regions) */
+#include "gamez/zAI/zai.h" /* CAiMaps (shadow) */
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
 /* port: AckUnion is declared in gamez/zSeal/zseal.h */
@@ -419,13 +421,139 @@ zdb::IntersectStruct * CZSealBody::SealGetIntersect(const CPnt3D *, const CPnt3D
 }
 
 /* @socom-skeleton stub SealProcessAltitude__10CZSealBodyFPQ23zdb11DiIntersectPC6CPnt3Df */
-zdb::IntersectStruct * CZSealBody::SealProcessAltitude(zdb::DiIntersect *, const CPnt3D *, float)
+zdb::IntersectStruct * CZSealBody::SealProcessAltitude(zdb::DiIntersect *di, const CPnt3D *pos, float above)
 {
+	/* 0x2a2c70: of the altitude hits, volumetric materials (smoke/gas) and liquids are
+	 * handled apart; of the rest (no standing seal) the highest at most `above` over pos,
+	 * else the lowest; dropped when more than 20 above the current altitude. The player's
+	 * camera learns the ground region (and its region trigger runs). ELF quirk kept: the
+	 * water anims stop only when m_inwater is both set and clear (never). */
+	m_volumetricAltitudes.clear();
+
+	if (m_isingas)
+		m_isingas = 0;
+
+	if (m_isinsmoke)
+		m_isinsmoke = 0;
+
+	zdb::IntersectStruct *best = NULL;
+
+	if (di == NULL)
+		return NULL;
+
+	m_inwater = 0;
+	m_waterdepth = 0.0f;
+	zdb::IntersectStruct *lowest = NULL;
+
+	if (di->m_Cnt != 0)
+	{
+		f32 y = pos->y;
+
+		for (s32 i = 0; i < di->m_Cnt; i++)
+		{
+			zdb::IntersectStruct *hit = &di->m_Intersects[i];
+			u32 index = hit->GetMaterial();
+
+			if (index >= CMaterialExArray::m_materialex_list.size())
+				index = 0;
+
+			CMaterialEx *mat = CMaterialExArray::m_materialex_list[index];
+
+			if (mat != NULL && mat->m_volumetric)
+			{
+				m_volumetricAltitudes.push_back(hit);
+				HandleSmokeAndGas(hit, mat, pos);
+				continue;
+			}
+
+			if (mat != NULL && mat->m_liquid)
+			{
+				HandleWater(hit, mat, pos);
+				continue;
+			}
+
+			CZSealBody *seal = GetSeal(hit->m_node);
+
+			if (seal != NULL && seal->m_state != 2 && seal->m_state != 8)
+				continue;
+
+			f32 hy = hit->m_pos.y;
+
+			if (hy <= y + above && !(best != NULL && hy < best->m_pos.y))
+				best = hit;
+
+			if (!(lowest != NULL && lowest->m_pos.y < hy))
+				lowest = hit;
+		}
+	}
+
+	if (m_inwater && !m_inwater)
+	{
+		if (m_belowwateranim != NULL && m_belowwateranim->Running())
+		{
+			m_belowwateranim->Stop();
+			m_belowwateranim = NULL;
+		}
+
+		if (m_inwateranim != NULL && m_inwateranim->Running())
+		{
+			m_inwateranim->Stop();
+			m_inwateranim = NULL;
+		}
+	}
+
+	if (best == NULL)
+		best = lowest;
+
+	if (best != NULL && m_alt + 20.0f < best->m_pos.y)
+		best = NULL;
+
+	if (best != NULL && m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsPlayer())
+	{
+		zdb::CCamera *camera = zdb::CWorld::m_world->m_camera;
+		camera->SetPlayerCanSeeRegions(best->GetRegion());
+		CheckForRegionTrigger(best->GetRegion());
+	}
+
+	return best;
 }
 
 /* @socom-skeleton stub GetTerrainMotionFactor__10CZSealBodyFv */
 float CZSealBody::GetTerrainMotionFactor()
 {
+	/* 0x2a2a80: on the ground the throttles slow in water (by depth, to a floor) and, for a
+	 * cycling blend, uphill by the slope along the body's z; 1 in the air or out of range */
+	if (m_airborne)
+		return 1.0f;
+
+	f32 slope = 1.0f;
+	f32 water = 1.0f;
+
+	if (m_waterdepth > 0.0f)
+	{
+		f32 w = 1.0f - m_waterdepth * theCharacterDynamics.m_waterFactorSlope;
+		water = theCharacterDynamics.m_minWaterFactor;
+
+		if (theCharacterDynamics.m_minWaterFactor <= w)
+			water = w;
+	}
+
+	if (m_blends->Top()->m_flags & 0x40)
+	{
+		CPnt3D z;
+		m_node->m_matrix.Rotate(&CPnt3D::unit_z, &z, 1);
+		f32 d = m_last_altitude.m_norm.z * z.z + m_last_altitude.m_norm.x * z.x + m_last_altitude.m_norm.y * z.y;
+
+		if (d > 0.0f)
+			slope = sqrtf(1.0f - d * d);
+	}
+
+	f32 f = water * slope;
+
+	if (f < 0.0f || f > 1.0f)
+		f = 1.0f;
+
+	return f;
 }
 
 /* @socom-skeleton stub HandleWater__10CZSealBodyFPQ23zdb15IntersectStructPC11CMaterialExPC6CPnt3D */
@@ -439,13 +567,128 @@ void CZSealBody::HandleSmokeAndGas(zdb::IntersectStruct *, const CMaterialEx *, 
 }
 
 /* @socom-skeleton stub SealGetAltitude__10CZSealBodyFP6CPnt3Df */
-zdb::IntersectStruct * CZSealBody::SealGetAltitude(CPnt3D *, float)
+zdb::IntersectStruct * CZSealBody::SealGetAltitude(CPnt3D *pos, float above)
 {
+	/* 0x2a2250: the world's altitude hits under pos (this seal's node inactive; characters
+	 * too when m_QueryCharacterAltitude), processed */
+	zdb::CWorld *world = zdb::CWorld::m_world;
+	zdb::CNode *node = GetNode();
+	bool active = node->SetActive(false);
+	zdb::DiIntersect *di = world->m_diInt;
+	bool characters = di->m_AltitudeCharacters;
+
+	if (m_QueryCharacterAltitude)
+		di->m_AltitudeCharacters = 1;
+
+	zdb::DiIntersect *hits = world->GetAltitudes(pos, 10000.0f);
+	di->m_AltitudeCharacters = characters;
+	node->SetActive(active);
+	return SealProcessAltitude(hits, pos, above);
 }
 
 /* @socom-skeleton stub CheckDIFwd1__10CZSealBodyFRfRfRf */
-void CZSealBody::CheckDIFwd1(float &, float &, float &)
+bool CZSealBody::CheckDIFwd1(float &fb, float &strafe, float &)
 {
+	/* 0x2a1bb0: without a forward hit a pending jump action jumps. With one (and no jump),
+	 * a shallow approach (the move against the hit normal, or the body's z against it,
+	 * under 0.65) slides along (blend control 3, returns 1); otherwise the body stops at the
+	 * wall: impact, the fb/strafe throttles and the velocities cleared (the hit is kept only
+	 * for a climbable wall, appflags 2). ELF quirk kept: the hit probe point (the root bone
+	 * pushed along the move by 1.2 x the hit distance, at least 8) is computed and unused. */
+	zdb::CHit *hit = m_fwdhit->m_node != NULL ? m_fwdhit : NULL;
+
+	if (hit == NULL)
+	{
+		if (m_action_jump)
+		{
+			m_action_jump = 0;
+			Jump();
+		}
+
+		return false;
+	}
+
+	if (m_action_jump)
+	{
+		m_action_jump = 0;
+		return false;
+	}
+
+	zdb::CNode *rootnode = GetRootPart()->m_node;
+	GetPosW();
+	CPnt3D local;
+	local.x = rootnode->m_matrix.m_matrix[3][0];
+	local.y = rootnode->m_matrix.m_matrix[3][1];
+	local.z = rootnode->m_matrix.m_matrix[3][2];
+	CPnt3D rootw;
+	m_node->m_matrix.Transform(&local, &rootw, 1);
+	CZBodyAnimBlend *top = m_blends->Top();
+	hit = m_fwdhit->m_node != NULL ? m_fwdhit : NULL;
+	CPnt3D d = hit->m_pos;
+	d.Sub(&rootw, &d);
+	f32 dist = sqrtf(d.z * d.z + d.x * d.x + d.y * d.y);
+	CPnt3D move;
+	move.x = strafe;
+	move.y = 0.0f;
+	move.z = -fb;
+	f32 along;
+
+	if (move.z * move.z + move.x * move.x + 0.0f > 0.0f)
+	{
+		move.Normalize();
+		along = move.z * CPnt3D::unit_nz.z + move.x * CPnt3D::unit_nz.x + move.y * CPnt3D::unit_nz.y;
+	}
+	else
+	{
+		along = 1.0f;
+		move = CPnt3D::unit_nz;
+	}
+
+	along = dist * 1.2f * along;
+
+	if (along < 8.0f)
+		along = 8.0f;
+
+	CPnt3D push;
+	move.Scale(along, &push);
+	local.Add(&push, &local);
+	CPnt3D probe;
+	m_node->m_matrix.Transform(&local, &probe, 1);
+	(void)probe;
+	hit = m_fwdhit->m_node != NULL ? m_fwdhit : NULL;
+
+	if (hit == NULL)
+	{
+		/* ELF quirk kept: dead (the hit was tested above); it would read a NULL hit */
+		return false;
+	}
+
+	CPnt3D away = hit->m_pos;
+	rootw = *GetPosW();
+	away.Sub(&pi_diTail, &away);
+	away.y = 0.0f;
+	f32 len = sqrtf(away.z * away.z + away.x * away.x + 0.0f);
+	away.Scale(-1.0f, &away);
+	CPnt3D bodyz;
+	m_node->m_matrix.Rotate(&CPnt3D::unit_z, &bodyz, 1);
+
+	if ((away.z * hit->m_norm.z + away.x * hit->m_norm.x + away.y * hit->m_norm.y) / len < 0.65f
+		|| bodyz.z * hit->m_norm.z + bodyz.x * hit->m_norm.x + bodyz.y * hit->m_norm.y < 0.65f)
+	{
+		top->m_ctrl = 3;
+		return true;
+	}
+
+	ImpactFront(hit, &rootw);
+
+	if (hit->m_poly->m_appflags != 2)
+		m_fwdhit->m_node = NULL;
+
+	fb = 0.0f;
+	strafe = 0.0f;
+	m_velM = CPnt3D::zero;
+	m_inAirHorizVel = CPnt3D::zero;
+	return false;
 }
 
 /* @socom-skeleton stub CanTraverse__10CZSealBodyF7CDIType */
@@ -484,7 +727,7 @@ void CZSealBody::AlignForPickup(CPnt3D *, CPnt3D *)
 }
 
 /* @socom-skeleton stub PostCheckDILadder__10CZSealBodyFRfRfRf */
-void CZSealBody::PostCheckDILadder(float &, float &, float &)
+bool CZSealBody::PostCheckDILadder(float &, float &, float &)
 {
 }
 
@@ -533,13 +776,308 @@ void CZSealBody::SetWepHit(zdb::IntersectStruct *hit)
 /* @socom-skeleton stub PreCheckDIDown__10CZSealBodyFv */
 void CZSealBody::PreCheckDIDown()
 {
+	/* 0x29fda0 */
+	pa_diIntersectHandle = -999;
 }
 
 /* @socom-skeleton stub PostCheckDIDown__10CZSealBodyFRfRfRf */
-void CZSealBody::PostCheckDIDown(float &, float &, float &)
+bool CZSealBody::PostCheckDIDown(float &fb, float &strafe, float &lr)
 {
 	/* @socom-skeleton stub do_shadows$3021 */
-	static unsigned char do_shadows;
+	static unsigned char do_shadows = 1; /* init$3022 */
+	/* 0x29eb00: the ground under the root bone (a fresh altitude query when m_get_new_altitude,
+	 * else the last one). Climbs, ladders and hanging just take its height. Otherwise
+	 * gravity: the descent grows and the altitude falls until it meets the ground (plus the
+	 * material's foot offset); on it (within the ground touch distance) the body lands and
+	 * takes the ground normal. In the air the throttles stop; leaving the ground starts the
+	 * fall anim; landing ends falls, ladder slides and climbs (fast landings keep the speed).
+	 * On a ground poly: the material, the AI map shadow on the node's light, and the hop-down
+	 * edges (appflags 2/3: a fall when the ground beyond drops more than 8; appflags 1: the
+	 * altitude snaps to the ground). Returns 1 on a ground poly. ELF quirks kept: the hop
+	 * branch's probe result of appflags 1 is unused; the shadow light is set every frame. */
+	CZBodyAnimBlend *top = m_blends->Top();
+	CPnt3D probe = *GetPosW();
+	zdb::CNode *rootnode = GetRootPart()->m_node;
+	CPnt3D local;
+	local.x = rootnode->m_matrix.m_matrix[3][0];
+	local.y = rootnode->m_matrix.m_matrix[3][1];
+	local.z = rootnode->m_matrix.m_matrix[3][2];
+	CPnt3D off;
+	m_node->m_matrix.Rotate(&local, &off, 1);
+
+	if (m_state == 3)
+		probe.y += off.y;
+	else
+		probe.Add(&off, &probe);
+
+	zdb::IntersectStruct *ground = &m_last_altitude;
+
+	if (m_get_new_altitude)
+	{
+		ground = SealGetAltitude(&probe, 1.0f); /* inline in the ELF */
+
+		if (ground == NULL)
+		{
+			CPnt3D norm = m_last_altitude.m_norm;
+			ground = &m_last_altitude;
+			m_last_altitude.m_pos = CPnt3D::zero;
+			m_last_altitude.m_norm = CPnt3D::zero;
+			m_last_altitude.m_poly = NULL;
+			m_last_altitude.m_node = NULL;
+			m_last_altitude.m_pos.x = m_node->m_matrix.m_matrix[3][0];
+			m_last_altitude.m_pos.y = m_node->m_matrix.m_matrix[3][1];
+			m_last_altitude.m_pos.z = m_node->m_matrix.m_matrix[3][2];
+			m_last_altitude.m_norm = norm;
+		}
+	}
+
+	if (GetSeal(ground->m_node) == NULL)
+	{
+		m_last_altitude.m_pos = ground->m_pos;
+		m_last_altitude.m_poly = ground->m_poly;
+		m_last_altitude.m_norm = ground->m_norm;
+		m_last_altitude.m_node = ground->m_node;
+	}
+	else
+	{
+		m_last_altitude.m_pos = ground->m_pos;
+	}
+
+	if (IsCurrentBlend(AnimType::animTypeClimbOffLadder) || IsCurrentBlend(AnimType::animTypeClimbCrate)
+		|| IsCurrentBlend((AnimType)AnimTypes::ClimbMedium) || IsCurrentBlend(AnimType::animTypeHang2Climb)
+		|| IsCurrentBlend((AnimType)AnimTypes::StepUp) || IsCurrentBlend(AnimType::animTypeClimbLadder)
+		|| IsCurrentBlend((AnimType)AnimTypes::Ladder2Slide) || m_state == 4)
+	{
+		if (ground != NULL)
+			m_alt = ground->m_pos.y;
+
+		return false;
+	}
+
+	f32 descent = m_descent;
+
+	if (m_nextJumpTimer > 0.0f)
+	{
+		m_nextJumpTimer -= m_dT;
+
+		if (m_nextJumpTimer < 0.0f)
+			m_nextJumpTimer = 0.0f;
+	}
+
+	if (m_jumpTimer > 0.0f)
+	{
+		m_jumpTimer -= m_dT;
+
+		if (m_jumpTimer <= 0.0f)
+			m_descent = m_jumpImpulse;
+
+		m_jumped = 1;
+	}
+
+	bool grounded = !m_airborne; /* before this frame */
+	m_airborne = 1;
+
+	if (ground != NULL && !IsCurrentBlend((AnimType)AnimTypes::ClimbOver))
+	{
+		bool falling = IsCurrentBlend((AnimType)AnimTypes::FallForward01) || IsCurrentBlend((AnimType)AnimTypes::FallBackward01);
+		m_descent += theCharacterDynamics.m_gravity * m_dT;
+		f32 alt = m_alt - m_descent * m_dT;
+		m_alt = alt;
+
+		if (falling)
+		{
+			CPnt3D root;
+			GetRootPos(top->Propagate(m_dT, false), root);
+			alt = (GetPosW()->y + 11.487f) - root.y;
+		}
+
+		if (alt <= ground->m_pos.y)
+		{
+			if (m_descent >= 0.0f)
+			{
+				descent = m_descent;
+				m_descent = 0.0f;
+			}
+
+			u32 index = ground->GetMaterial();
+
+			if (index >= CMaterialExArray::m_materialex_list.size())
+				index = 0;
+
+			alt = ground->m_pos.y + CMaterialExArray::m_materialex_list[index]->m_foot_step_offset;
+			m_alt = alt;
+		}
+
+		f32 touch = grounded ? theCharacterDynamics.m_groundTouchDistance : 0.0f;
+
+		if (alt <= ground->m_pos.y + touch && m_descent >= 0.0f)
+		{
+			m_airborne = 0;
+
+			if (GetSeal(ground->m_node) == NULL)
+			{
+				m_groundNormal = ground->m_norm;
+
+				if (ground->m_poly != NULL)
+					m_inside = ground->m_poly->m_inside;
+			}
+		}
+	}
+
+	if (m_airborne)
+	{
+		fb = 0.0f;
+		lr = 0.0f;
+		strafe = 0.0f;
+	}
+
+	if (m_health <= 0.0f || !m_airborne || m_carry != NULL || IsCurrentBlend(AnimType::animTypeJumpLaunch)
+		|| IsCurrentBlend(AnimType::animTypeJumpFall) || IsCurrentBlend((AnimType)AnimTypes::FallForward01)
+		|| IsCurrentBlend((AnimType)AnimTypes::FallBackward01) || IsCurrentBlend((AnimType)AnimTypes::ClimbOver)
+		|| IsCurrentBlend((AnimType)AnimTypes::LadderSlide))
+	{
+		if (!m_airborne && !grounded)
+		{
+			if (IsCurrentBlend((AnimType)AnimTypes::FallBackward01) || IsCurrentBlend((AnimType)AnimTypes::FallForward01))
+			{
+				PostFall();
+			}
+			else if (m_state != 9 && m_state != 10)
+			{
+				if (IsCurrentBlend((AnimType)AnimTypes::LadderSlide))
+				{
+					ClearStack(1, true);
+					PushBlend((AnimType)AnimTypes::LadderSlideLand, 0, false);
+				}
+				else if (IsCurrentBlend((AnimType)AnimTypes::ClimbOver))
+				{
+					PopBlend();
+				}
+				else
+				{
+					m_nextJumpTimer = 0.4f;
+
+					if (m_state != 8 && m_blends->Top()->m_state != 8)
+					{
+						m_jumped = 0;
+
+						if (m_carry == NULL)
+						{
+							if (m_velW.z * m_velW.z + m_velW.x * m_velW.x + m_velW.y * m_velW.y < 400.0f)
+							{
+								ClearStack(1, true);
+							}
+							else
+							{
+								PopBlend();
+								CQuat inv;
+								inv.w = m_quat.w;
+								inv.vec.x = -m_quat.vec.x;
+								inv.vec.y = -m_quat.vec.y;
+								inv.vec.z = -m_quat.vec.z;
+								inv.Apply(&m_velW, &m_velM, 1);
+							}
+						}
+
+						HandleLanding(descent);
+					}
+				}
+			}
+		}
+		else if (!m_airborne && grounded)
+		{
+			if (IsCurrentBlend((AnimType)AnimTypes::FallBackward01) || IsCurrentBlend((AnimType)AnimTypes::FallForward01))
+				PostFall();
+
+			if (IsCurrentBlend((AnimType)AnimTypes::LadderSlide))
+			{
+				ClearStack(1, true);
+				PushBlend((AnimType)AnimTypes::LadderSlideLand, 0, false);
+			}
+		}
+	}
+	else if (!IsCurrentBlend(AnimType::animTypeJumpFall))
+	{
+		if (m_state != 9 && m_state != 10 && m_state != 3)
+		{
+			PushBlend(AnimType::animTypeJumpFall, 6, false);
+			BodySetState(6);
+		}
+
+		m_inAirHorizVel = m_velW;
+	}
+
+	if (ground == NULL || ground->m_poly == NULL)
+		return false;
+
+	m_onMaterial = ground->GetMaterial();
+	f32 shadow = AiMaps.GetInterpolatedShadow(m_mapLoc, GetPosW(), true);
+
+	if (shadow < 0.0f)
+		shadow = 0.0f;
+
+	if (shadow > 1.0f)
+		shadow = 1.0f;
+
+	if (!do_shadows)
+		GetNode()->m_customGlobalLight = -1;
+	else
+		GetNode()->m_customGlobalLight = (s8)(s32)((1.0f - shadow) * 127.0f);
+
+	CPnt3D dir;
+	dir.x = strafe;
+	dir.z = -fb;
+	dir.y = 0.0f;
+	f32 facing;
+
+	if (dir.z * dir.z + dir.x * dir.x + 0.0f > 0.0f)
+	{
+		dir.Normalize();
+		facing = dir.z * CPnt3D::unit_nz.z + dir.x * CPnt3D::unit_nz.x + dir.y * CPnt3D::unit_nz.y;
+	}
+	else
+	{
+		facing = 1.0f;
+		dir = CPnt3D::unit_nz;
+	}
+
+	CPnt3D ref = CPnt3D::zero;
+	u32 appflags = ground->m_poly->m_appflags;
+
+	if (appflags == 2 || appflags == 3 || appflags == 1)
+	{
+		if (appflags == 1)
+			m_alt = ground->m_pos.y;
+
+		CZBodyAnim *hop = GetAnimByType(facing < 0.0f ? AnimType::animTypeHopdownBw : AnimType::animTypeHopdownForward);
+
+		if (hop != NULL)
+		{
+			CPnt3D refpt;
+			RefPoint(hop, &refpt);
+			ref.z = refpt.z;
+		}
+
+		CPnt3D off2;
+		m_node->m_matrix.Rotate(&ref, &off2, 1);
+		CPnt3D beyond = *GetPosW();
+		beyond.Add(&off2, &beyond);
+		zdb::IntersectStruct *below = SealGetAltitude(&beyond, 1.0f); /* inline in the ELF */
+
+		if (appflags != 1 && m_alt - below->m_pos.y > 8.0f && !IsCurrentBlend(AnimType::animTypeJumpFall))
+		{
+			if (m_state != 10 && m_state != 9)
+			{
+				ClearStack(1, true);
+				PushBlend(AnimType::animTypeJumpFall, 6, false);
+				BodySetState(6);
+			}
+
+			m_inAirHorizVel = m_velW;
+		}
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub HandleLanding__10CZSealBodyFf */
@@ -837,6 +1375,8 @@ void CZSealBody::ApplyLookAnim(float, float)
 /* @socom-skeleton stub GetLookDir__10CZSealBodyCFv */
 CPnt3D * CZSealBody::GetLookDir() const
 {
+	/* 0x29cde0 */
+	return &m_look->m_curr_dir;
 }
 
 /* @socom-skeleton stub ApplyEyeLookAnim__10CZSealBodyFv */
@@ -868,6 +1408,10 @@ void CZSealBody::OnWeaponHit(zdb::IntersectStruct* intersection, CZProjectile* p
 /* @socom-skeleton stub HandleWepHit__10CZSealBodyFv */
 void CZSealBody::HandleWepHit()
 {
+	/* 0x29c420: the weapon hit is consumed. ELF quirk kept: the top blend is read for
+	 * nothing. */
+	m_wephit->m_node = NULL;
+	m_blends->Top();
 }
 
 /* @socom-skeleton stub HandleFallingDamage__10CZSealBodyFf */
@@ -966,13 +1510,48 @@ void CZSealBody::CanUseRestraint(CZSealBody *)
 }
 
 /* @socom-skeleton stub CanZoom__10CZSealBodyFv */
-void CZSealBody::CanZoom()
+bool CZSealBody::CanZoom()
 {
+	/* 0x2993e0: alive, standing / crouched / prone / peeking / in the air, not dead, and not
+	 * throwing, swapping, stabbing, restraining, in CQB or with an overlay */
+	if (!m_isAlive)
+		return false;
+
+	CZBodyAnimBlend *top = m_blends->Top();
+	s8 state = m_state;
+
+	if (!(state == 6 || state == 3 || state == 2 || state == 1 || state == 0))
+		return false;
+
+	if (top->m_state == 8 || IsThrowing(false) || IsChangingWeapons())
+		return false;
+
+	s16 type = (s16)m_blends->Top()->m_animType;
+
+	if (type == AnimTypes::PistolStab || type == AnimTypes::Stab)
+		return false;
+
+	type = (s16)m_blends->Top()->m_animType;
+
+	if (type == AnimTypes::ApplyRestraints || type == AnimTypes::PistolApplyRestraints)
+		return false;
+
+	type = (s16)m_blends->Top()->m_animType;
+
+	if (type == AnimTypes::CQB || type == AnimTypes::PistolCQB)
+		return false;
+
+	return m_overlay->m_anim == NULL;
 }
 
 /* @socom-skeleton stub CanChangeItem__10CZSealBodyFv */
-void CZSealBody::CanChangeItem()
+bool CZSealBody::CanChangeItem()
 {
+	/* 0x299360: alive, able to fire, on the ground and not in the air state */
+	if (!m_isAlive || !CanFire())
+		return false;
+
+	return !m_airborne && m_state != 6;
 }
 
 /* @socom-skeleton stub CanUseBodyCarry__10CZSealBodyFP10CZSealBody */
@@ -991,23 +1570,106 @@ CZBodyAnimBlend * CZSealBody::Reload()
 }
 
 /* @socom-skeleton stub CanFire__10CZSealBodyFv */
-void CZSealBody::CanFire()
+bool CZSealBody::CanFire()
 {
+	/* 0x298ad0: standing, crouched, prone, peeking or in the air; not zooming, dead, throwing,
+	 * reloading, swapping, stabbing, restraining, in CQB, carrying, with an overlay, stunned;
+	 * then the last overlay anim's fire time reached */
+	CZBodyAnimBlend *top = m_blends->Top();
+	s8 state = m_state;
+
+	if (!(state == 6 || state == 3 || state == 2 || state == 1 || state == 0))
+		return false;
+
+	if (m_iszooming || top->m_state == 8 || IsThrowing(false) || IsReloading() || IsChangingWeapons())
+		return false;
+
+	s16 type = (s16)m_blends->Top()->m_animType;
+
+	if (type == AnimTypes::PistolStab || type == AnimTypes::Stab)
+		return false;
+
+	type = (s16)m_blends->Top()->m_animType;
+
+	if (type == AnimTypes::ApplyRestraints || type == AnimTypes::PistolApplyRestraints)
+		return false;
+
+	type = (s16)m_blends->Top()->m_animType;
+
+	if (type == AnimTypes::CQB || type == AnimTypes::PistolCQB)
+		return false;
+
+	if (m_state == 9 || m_overlay->m_anim != NULL || m_carry != NULL || m_am_stunned)
+		return false;
+
+	f32 t = top->m_tfrac;
+	bool ok = false;
+
+	for (ACTIVE_ANIM *active = top->m_anims->Begin(); active != NULL; active = active->m_overlay)
+		ok = active->m_anim->m_pCommon->m_fire_val <= t;
+
+	return ok;
 }
 
 /* @socom-skeleton stub IsThrowing__10CZSealBodyFb */
-void CZSealBody::IsThrowing(bool)
+bool CZSealBody::IsThrowing(bool noPeek)
 {
+	/* 0x298a10: the top blend is a grenade throw or toss (the peek tosses only when the
+	 * flag is clear) */
+	s16 type = (s16)m_blends->Top()->m_animType;
+
+	if (type == AnimTypes::ThrowGrenade || type == AnimTypes::CrouchThrowGrenade || type == AnimTypes::ProneThrowGrenade
+		|| type == AnimTypes::TossGrenade || type == AnimTypes::PistolTossGrenade || type == AnimTypes::ProneTossGrenade
+		|| type == AnimTypes::PistolProneTossGrenade || type == AnimTypes::CrouchThrowGrenade)
+	{
+		return true;
+	}
+
+	return !noPeek && (type == AnimTypes::TossGrenadePeekRight || type == AnimTypes::TossGrenadePeekLeft);
 }
 
 /* @socom-skeleton stub IsReloading__10CZSealBodyFv */
-void CZSealBody::IsReloading()
+bool CZSealBody::IsReloading()
 {
+	/* 0x298930: a reload blend, or a moving reload overlay. ELF quirk kept: Top is read
+	 * twice. */
+	m_blends->Top();
+	s16 type = (s16)m_blends->Top()->m_animType;
+
+	if (type == AnimTypes::RifleReload || type == AnimTypes::PistolReload || type == AnimTypes::RifleCrouchReload
+		|| type == AnimTypes::PistolCrouchReload || type == AnimTypes::RifleProneReload
+		|| type == AnimTypes::PistolProneReload || type == AnimTypes::RifleM203Reload)
+	{
+		return true;
+	}
+
+	ACTIVE_ANIM *overlay = m_overlay->m_anim;
+
+	if (overlay == NULL || overlay->m_anim == NULL)
+		return false;
+
+	s16 otype = overlay->m_anim->m_animType;
+	return otype == AnimTypes::MovingRifleReload || otype == AnimTypes::MovingPistolReload;
 }
 
 /* @socom-skeleton stub IsChangingWeapons__10CZSealBodyFv */
-void CZSealBody::IsChangingWeapons()
+bool CZSealBody::IsChangingWeapons()
 {
+	/* 0x298870: a rifle-to-pistol blend that is not done, or the moving swap overlay */
+	CZBodyAnimBlend *blend = m_blends->Top();
+
+	if (IsCurrentBlend(AnimType::animTypeRifle2Pistol) || IsCurrentBlend(AnimType::animTypeCrouchRifle2Pistol)
+		|| IsCurrentBlend(AnimType::animTypeProneRifle2Pistol))
+	{
+		return !blend->IsDone(m_dT);
+	}
+
+	ACTIVE_ANIM *overlay = m_overlay->m_anim;
+
+	if (overlay == NULL || overlay->m_anim == NULL)
+		return false;
+
+	return overlay->m_anim->m_animType == AnimTypes::MovingRifle2Pistol;
 }
 
 /* @socom-skeleton stub ParentPistolToRHandCallback__FPvPv */
@@ -1457,7 +2119,7 @@ void CZSealBody::SetArmor(DAMAGE_LOCATION location, float armor)
 }
 
 /* @socom-skeleton stub FindRandomDeathAnim__10CZSealBodyF15DAMAGE_LOCATIONPb */
-void CZSealBody::FindRandomDeathAnim(DAMAGE_LOCATION, bool *)
+AnimType CZSealBody::FindRandomDeathAnim(DAMAGE_LOCATION, bool *)
 {
 }
 
@@ -1562,7 +2224,7 @@ void CZSealBody::DropMPBomb()
 }
 
 /* @socom-skeleton stub CreateMPBombPickup__10CZSealBodyFPC6CPnt3Db */
-void CZSealBody::CreateMPBombPickup(const CPnt3D *, bool)
+bool CZSealBody::CreateMPBombPickup(const CPnt3D *, bool)
 {
 }
 

@@ -1225,8 +1225,8 @@ public:
 public:
 	void Reset();
 	void CallbackTick(CBody *, float, float);
-	void IsTriggerTime(float, float, float);
-	void IsDone(float);
+	bool IsTriggerTime(float, float, float); /* 0x1e0730: 0/1 */
+	bool IsDone(float); /* 0x1e0620: 0/1 */
 	float Propagate(float, bool);
 	void Synch(CBody *);
 	void GetVelocity(CPnt3D *);
@@ -1372,14 +1372,20 @@ public:
 public:
 	int AnimPush(CZSealBody *, ACTIVE_ANIM *); /* int: 0x26deb0 returns the new depth */
 	int AnimPop(CBody *); /* int: 0x26ddc0 returns the new depth */
-	void AnimBlend(int);
+	int AnimBlend(int); /* 0x26d6d0 returns the new depth */
 	void CombineRotations(int, int);
-	void AnimOverlay(float);
+	int AnimOverlay(float); /* 0x26d250 returns the new depth */
 	/* @socom-skeleton end 9CSealAnim */
 };
 
+float quadW(float); /* zanim_sequence.cpp 0x1dd020 */
+void PushAnim(CActiveAnimList *, ACTIVE_ANIM *, float); /* zanim_sequence.cpp 0x1dc6a0 */
+void RenormAnims(CActiveAnimList *, float); /* zanim_sequence.cpp 0x1dc6b0 */
+void GetFractionalRotations(const CPnt3D *, float *, float *); /* zanim_sequence.cpp 0x1dcde0 */
+
 class CSequence
 {
+	friend class CZSealBody; /* port: StandTurning 0x27a5d0 sets the turn-in-place sequence's time */
 private:
 	f32 m_upT;
 	f32 m_holdT;

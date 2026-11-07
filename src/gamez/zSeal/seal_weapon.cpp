@@ -41,8 +41,10 @@ static unsigned char MultiplayerMsgStrings[28];
 static int nullAimPoint[3];
 
 /* @socom-skeleton stub GetWeaponState__10CZSealBodyCFv */
-void CZSealBody::GetWeaponState() const
+WEAPON_STATE CZSealBody::GetWeaponState() const
 {
+	/* 0x2c0670: m_weapon_state without bit 4, as a byte */
+	return (WEAPON_STATE)(u8)(m_weapon_state & ~0x10u);
 }
 
 /* @socom-skeleton stub WepWaitOff__10CZSealBodyFv */

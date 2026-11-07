@@ -25,4 +25,10 @@ void CZSealBody::FootInSpace(CZBodyAnim *, CPnt3D *, CPnt3D *, float, float, boo
 /* @socom-skeleton stub TurnSetup__10CZSealBodyFi */
 void CZSealBody::TurnSetup(int)
 {
+	/* 0x2a4d30: the turn starts from the feet's current positions (mirrored anim: left) */
+	CZBodyAnim *rep = m_blends->Top()->Representative();
+	u16 flags = rep->m_flags;
+	m_local_drot = 0.0f;
+	m_twist_back = 0.0f;
+	FootInSpace(rep, &m_footL, &m_footR, 0.0f, 0.0f, (flags & 0x40) == 0);
 }

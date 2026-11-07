@@ -113,6 +113,8 @@
 #include "gamez/zMath/zmath.h"
 #include "gamez/zNode/node_action.h"
 #include "gamez/zWeapon/zweapon.h"
+#include "gamez/zFTS/zfts.h" /* CCtrlrConfigs, PadBtnFunc, CZSealState (PreTick, Tick) */
+#include "gamez/zNode/node_world.h" /* zdb::CWorld::m_world (PreTick) */
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
 /* port: CHARACTER_SOUND is declared in gamez/zCharacter/zchar.h */
@@ -350,33 +352,623 @@ void CSealCtrl::PostTick(float)
 }
 
 /* @socom-skeleton stub Tick__9CSealCtrlFf */
-void CSealCtrl::Tick(float)
+bool CSealCtrl::Tick(float dT)
 {
 	/* @socom-skeleton stub _scale$2809 */
-	static float _scale;
+	static float _scale = -1.5f; /* init$2810: 0xbfc00000 on first use */
+	/* 0x2872e0: the look follows the turn (AIL_TURNING) while the body stands or crouches
+	 * with the weapon down, else it looks straight ahead (AIL_TASK); then the scan and the
+	 * network copy of the local seal. Always 1 (the body ticks). */
+	CZSealBody *body = static_cast<CZSealBody *>(m_entity);
+	f32 turn = m_throttle[2];
+	static const f32 zero = 0.0f;   /* @2801 */
+	static const f32 epsilon = 0.001f; /* @2802; port: guess (the constant is read from .sdata, value not checked) */
+	bool still = fabsf(turn - zero) <= epsilon;
+	WEAPON_STATE wep = body->GetWeaponState();
+	bool upright = body->m_state == 0 || body->m_state == 1;
+
+	if ((int)wep == 1 || !upright)
+	{
+		SetLookDirR(AI_LOOK::AIL_TASK, &CPnt3D::unit_nz, true);
+	}
+	else
+	{
+		ClearLook(AI_LOOK::AIL_TASK);
+
+		if (!still)
+		{
+			f32 angle = _scale * m_scan_limits * turn;
+			CPnt3D dir;
+			dir.x = sinf(angle);
+			dir.z = -cosf(angle);
+			dir.y = 0.0f;
+			SetLookDirR(AI_LOOK::AIL_TURNING, &dir, true);
+		}
+		else
+		{
+			ClearLook(AI_LOOK::AIL_TURNING);
+		}
+	}
+
+	ScanTick(dT);
+	CZSealState::UpdateLocalSeal(body);
+	return true;
 }
 
 /* @socom-skeleton stub OKToPeek__FP9CSealCtrlf9SEAL_PEEK */
-void OKToPeek(CSealCtrl *, float, SEAL_PEEK)
+bool OKToPeek(CSealCtrl *, float, SEAL_PEEK)
 {
+	/* 0x286f70 (868 B: the peek ray test through CWorld::GetIntersect); port: stub (peeking is
+	 * not written: never OK, so the caller aborts the peek) */
+	return false;
+}
+
+/* port: helpers for code the ELF repeats inline in PreTick 0x285af0 / ThrottlesPreTick 0x286950 */
+
+/* the trigger after the button is let go (0x286a0c, 0x286498) */
+static TRIGGER ReleasedTrigger(TRIGGER trigger)
+{
+	switch (trigger)
+	{
+	case TRIGGER::TRIGGER_RISING:
+		return TRIGGER::TRIGGER_UP;
+	case TRIGGER::TRIGGER_FALLING:
+	case TRIGGER::TRIGGER_DOWN:
+		return TRIGGER::TRIGGER_RISING;
+	case TRIGGER::TRIGGER_UP:
+		return TRIGGER::TRIGGER_UP;
+	default:
+		return trigger;
+	}
+}
+
+/* the pad's rumble motors (0x286a5c, 0x286858): the low motor at the rumble strength while
+ * its time runs, the high one on while its time runs */
+static void TickPadRumble(CSealCtrl *ctrl, f32 dT)
+{
+	CPad *pad = ctrl->m_padid < 2 ? CInput::m_pads[ctrl->m_padid] : NULL;
+
+	if (pad == NULL)
+		return;
+
+	if (ctrl->m_rumbletime > 0.0f)
+	{
+		pad->m_ActData[1] = (u8)(s32)ctrl->m_rumblestr;
+		ctrl->m_rumbletime -= dT;
+	}
+	else
+	{
+		ctrl->m_rumblestr = 0.0f;
+		pad->m_ActData[1] = (u8)(s32)0.0f;
+	}
+
+	if (ctrl->m_highrumbletime > 0.0f)
+	{
+		pad->m_ActData[0] = 1;
+		ctrl->m_highrumbletime -= dT;
+	}
+	else
+	{
+		pad->m_ActData[0] = 0;
+	}
+}
+
+/* the weapon timer restarts at a random point of its period (0x28659c and three more) */
+static void ResetWeaponTimer(CSealCtrl *ctrl)
+{
+	CAiTimer &timer = ctrl->m_wep_state;
+
+	if (timer.m_period.m_range == 0.0f)
+		timer.m_timer = timer.m_period.m_min;
+	else
+		timer.m_timer = timer.m_period.m_min + timer.m_period.m_range * ((f32)rand() * 4.656613e-10f);
 }
 
 /* @socom-skeleton stub ThrottlesPreTick__9CSealCtrlFP4CPadf */
-void CSealCtrl::ThrottlesPreTick(CPad *, float)
+bool CSealCtrl::ThrottlesPreTick(CPad *pad, float dT)
 {
 	/* @socom-skeleton stub pitchSpeedControl$2856 */
-	static float pitchSpeedControl;
+	static float pitchSpeedControl = 1.05f; /* init$2857: 0x3f866666 on first use */
 	/* @socom-skeleton stub yawSpeedControl$2859 */
-	static float yawSpeedControl;
+	static float yawSpeedControl = 1.15f; /* init$2860: 0x3f933333 */
 	/* @socom-skeleton stub use_piecewise$2862 */
-	static unsigned char use_piecewise;
+	static unsigned char use_piecewise = 0; /* init$2863 */
 	/* @socom-skeleton stub fangle$2879 */
-	static float fangle;
+	static float fangle = 0.0f; /* init$2880 */
+	/* 0x286950: outside the order / pause / map menus and with input enabled, the pad's
+	 * analog sticks become the fwd-back [0], strafe [1] and turn [2] throttles (turn and
+	 * pitch dilated and speed-scaled, all scaled by the move speed and 1 / the zoom; moving
+	 * slows to 0.2 through a scope or binoculars; optional piecewise turn/pitch curves and a
+	 * first-person view bob), then the aim pitch. Returns 0. Otherwise the throttles and the
+	 * trigger are released, the rumble ticks, and 1 is returned (the caller's PreTick ends).
+	 * ELF quirk kept: a pad that is not analog leaves the throttles as they were. */
+	CZSealBody *body = static_cast<CZSealBody *>(m_entity);
+	CZKit *kit = &body->m_kit;
+
+	if (((u8)m_menustate < stateOrders || (u8)m_menustate > stateFullScreenMapAnim) && m_input_enabled)
+	{
+		f32 pitch = 0.0f;
+
+		if (pad->m_IsAnalog)
+		{
+			f32 turn = -CCtrlrConfigs::GetRotateStickPosDilated(*pad);
+			f32 strafe = CCtrlrConfigs::GetStrafeStickPos(*pad);
+			f32 fwd = CCtrlrConfigs::GetFwdBackStickPos(*pad);
+			pitch = hackPitchFactor * CCtrlrConfigs::GetPitchStickPosDilated(*pad) * pitchSpeedControl;
+			turn *= yawSpeedControl;
+
+			if (use_piecewise)
+			{
+				f32 sign = 1.0f;
+
+				if (turn < 0.0f)
+				{
+					sign = -1.0f;
+					turn = -turn;
+				}
+
+				if (turn <= theCharacterDynamics.m_turnThrottleA)
+					turn *= theCharacterDynamics.m_turnThrottleB / theCharacterDynamics.m_turnThrottleA;
+				else
+					turn = theCharacterDynamics.m_turnThrottleB + (1.0f - theCharacterDynamics.m_turnThrottleB)
+						* ((turn - theCharacterDynamics.m_turnThrottleA) / (1.0f - theCharacterDynamics.m_turnThrottleA));
+
+				turn = sign * turn;
+				sign = 1.0f;
+
+				if (pitch < 0.0f)
+				{
+					sign = -1.0f;
+					pitch = -pitch;
+				}
+
+				if (pitch <= theCharacterDynamics.m_pitchThrottleA)
+					pitch *= theCharacterDynamics.m_pitchThrottleB / theCharacterDynamics.m_pitchThrottleA;
+				else
+					pitch = theCharacterDynamics.m_pitchThrottleB + (1.0f - theCharacterDynamics.m_pitchThrottleB)
+						* ((pitch - theCharacterDynamics.m_pitchThrottleA) / (1.0f - theCharacterDynamics.m_pitchThrottleA));
+
+				pitch = sign * pitch;
+			}
+
+			/* ELF quirk kept: a zoom of 0 scales the turn and pitch by 0 (1 / zoom otherwise) */
+			f32 zoom = kit->GetCurZoom();
+
+			if (zoom != 0.0f)
+				zoom = 1.0f / zoom;
+
+			f32 speed = body->m_movespeedmod;
+			pitch *= zoom;
+			turn *= zoom;
+			fwd *= speed;
+			turn *= speed;
+			strafe *= speed;
+
+			if (kit->IsUsingScope() || kit->IsUsingBinocs())
+			{
+				fwd *= 0.2f;
+				strafe *= 0.2f;
+			}
+
+			if (m_bobbing1stperson_enabled)
+			{
+				CEntityCtrl *control = body->m_control;
+				bool player = control != NULL && static_cast<CSealCtrl *>(control)->IsPlayer();
+
+				if (player && (body->m_zoomstate == ZOOMSTATE::ZOOMSTATE_1STPERSON || body->m_zoomstate == ZOOMSTATE::ZOOMSTATE_NVG))
+				{
+					SEAL_STATE stance = body->GetStance(false);
+
+					if ((int)stance < (int)SEAL_STATE::statePeek && (fwd != 0.0f || strafe != 0.0f))
+					{
+						f32 c = cosf(fangle);
+						s32 prone = stance == SEAL_STATE::stateProne ? 1 : 0;
+						f32 rate;
+
+						if (fwd != 0.0f && strafe != 0.0f)
+							rate = (fabsf(fwd) + fabsf(strafe)) * 0.5f;
+						else
+							rate = fwd != 0.0f ? fwd : strafe;
+
+						kit->IncrScreenOffsetY(c * m_bobbing1stperson_amplitude[prone]);
+						fangle += rate * (dT * m_bobbing1stperson_rate[prone]);
+
+						if (!(fangle <= 6.2831855f))
+							fangle -= 6.2831855f;
+					}
+				}
+			}
+
+			m_throttle[0] = fwd == 0.0f ? 0.0f : fwd;
+			m_throttle[2] = turn;
+			m_throttle[1] = strafe == 0.0f ? 0.0f : strafe;
+#ifdef SOCOM_PORT
+			{
+				static s32 traced;
+
+				if ((fwd != 0.0f || strafe != 0.0f || turn != 0.0f) && traced++ % 60 == 0)
+					SOCOM_PORT_TRACE("CTRL: throttles fwd %.3f strafe %.3f turn %.3f (pad stick raw %02x %02x %02x %02x)",
+						fwd, strafe, turn, pad->m_InData[4], pad->m_InData[5], pad->m_InData[6], pad->m_InData[7]);
+			}
+#endif
+		}
+
+		TickAimPitch(dT, pitch);
+		return false;
+	}
+
+	SetThrottle(0, 0.0f);
+	SetThrottle(2, 0.0f);
+	SetThrottle(1, 0.0f);
+	m_trigger = ReleasedTrigger(m_trigger);
+	body->SetWeaponState((WEAPON_STATE)2);
+	TickPadRumble(this, dT);
+	TickPickups(dT);
+	TickVictims();
+	return true;
 }
 
 /* @socom-skeleton stub PreTick__9CSealCtrlFf */
-void CSealCtrl::PreTick(float)
+bool CSealCtrl::PreTick(float dT)
 {
+	/* 0x285af0: the player's per-frame input. Follow params and the screen offset reset, the
+	 * view cone and sensors tick; a goal slide (SlideTick) or a menu (ThrottlesPreTick)
+	 * ends the frame here with the throttles released. Otherwise the buttons: jump / action
+	 * (shared or not), the MP bomb timer, weapon hot swaps, zoom (pad up/down), stance
+	 * (triangle: click down a stance, double click up), peek (pad left/right pressure),
+	 * reload, fire mode, then the grenade throw power or the trigger state machine and the
+	 * weapon state, accuracy, the HUD screen offset, rumble, pickups and victims. Always 1.
+	 * ELF quirks kept: the pad is not NULL-tested before ThrottlesPreTick reads it; both
+	 * screen offsets are written to the camera's y. */
+	CZSealBody *body = static_cast<CZSealBody *>(m_entity);
+	CZKit *kit = &body->m_kit;
+
+	body->InvalidateFollowParams();
+	kit->ResetScreenOffsetXY();
+	UpdateViewCone();
+	SensorPreTick(dT);
+
+	s32 wep = 2;
+
+	if ((s32)m_targetSum > 0 || (kit->IsZoomed() && !kit->IsUsingItem(EQUIP_ITEM::BINOCULARS)))
+		wep = 1;
+
+	CPad *pad = m_padid < 2 ? CInput::m_pads[m_padid] : NULL;
+
+	if (SlideTick(dT))
+	{
+		SetThrottle(0, 0.0f);
+		SetThrottle(1, 0.0f);
+		SetThrottle(2, 0.0f);
+		return true;
+	}
+
+	if (ThrottlesPreTick(pad, dT))
+		return true;
+
+	bool jump = CCtrlrConfigs::GetButtonState(PadBtnFunc::Jump, *pad) == KEY_FALLING;
+	bool action_rising = false;
+	bool action_down = false;
+	bool action_falling = false;
+	bool shared = CCtrlrConfigs::IsJumpAndActionShared();
+
+	if (m_menustate == stateNone)
+	{
+		KEY_STATE action = CCtrlrConfigs::GetButtonState(PadBtnFunc::Action, *pad);
+		action_rising = action == KEY_RISING;
+		action_down = action == KEY_DOWN;
+		action_falling = action == KEY_FALLING;
+	}
+
+	if (m_menustate != stateWeaponSel)
+	{
+		if (!shared)
+		{
+			if (jump)
+			{
+				body->ExecuteDelayedAction_Jump();
+				m_action = 1;
+			}
+			else
+			{
+				m_action = 0;
+			}
+
+			if (action_rising)
+				OnActionButton();
+		}
+		else if (action_falling)
+		{
+			bool act = false;
+
+			if (fabsf(m_throttle[2]) > 0.0f || fabsf(m_throttle[1]) > 0.0f)
+				act = true;
+			else if (body->ActionSelectionMask() == 0)
+				act = true;
+
+			m_action = act;
+
+			if (act)
+				body->ExecuteDelayedAction_Jump();
+		}
+		else if (action_rising)
+		{
+			m_action = 0;
+			OnActionButton();
+		}
+		else
+		{
+			m_action = 0;
+		}
+
+		bool reset_bomb = true;
+
+		if (action_down)
+		{
+			if (pad->m_state[(u8)PAD_BUTTON::PAD_LEFT] == KEY_FALLING)
+				body->ActionCommand(3);
+			else if (pad->m_state[(u8)PAD_BUTTON::PAD_RIGHT] == KEY_FALLING)
+				body->ActionCommand(2);
+
+			if (m_mpbomb_bTimerAvailable)
+			{
+				if (m_mpbomb_node == NULL)
+					InitMPBomb();
+
+				TickMPBomb(dT);
+				reset_bomb = false;
+			}
+		}
+		else if (m_mpbomb_bTimerAvailable)
+		{
+			m_mpbomb_bTimerEngaged = 0;
+			m_mpbomb_timer = 5.0f;
+			m_mpbomb_node = NULL;
+		}
+
+		if (!m_mpbomb_bTimerAvailable && reset_bomb)
+		{
+			m_mpbomb_bTimerAvailable = 0;
+			m_mpbomb_bTimerEngaged = 0;
+			m_mpbomb_timer = 5.0f;
+			m_mpbomb_node = NULL;
+		}
+
+		if (CCtrlrConfigs::GetButtonState(PadBtnFunc::SwapWeapon1, *pad) == KEY_FALLING)
+		{
+			if (body->CanChangeItem() && kit->CanChangeItem())
+				kit->SetCurItemByIndex((s32)m_hotswapL1);
+			else
+				CSnd::PlayErrorSound();
+		}
+
+		if (CCtrlrConfigs::GetButtonState(PadBtnFunc::SwapWeapon2, *pad) == KEY_FALLING)
+		{
+			if (body->CanChangeItem() && kit->CanChangeItem())
+				kit->SetCurItemByIndex((s32)m_hotswapL2);
+			else
+				CSnd::PlayErrorSound();
+		}
+
+		if (body->CanZoom())
+		{
+			if (pad->m_state[(u8)PAD_BUTTON::PAD_DOWN] == KEY_FALLING)
+			{
+				if (m_menustate == stateNone)
+				{
+					ZOOMSTATE zoom = body->DecrZoomState();
+
+					if (body->m_zoomstate_echo && (s8)zoom <= 0 && body->m_carry != NULL)
+					{
+						zdb::CNode *node = body->m_carry->GetNode();
+
+						if (node != NULL)
+							node->m_Opacity = 255.0f;
+					}
+				}
+			}
+			else if (pad->m_state[(u8)PAD_BUTTON::PAD_UP] == KEY_FALLING && m_menustate == stateNone)
+			{
+				ZOOMSTATE zoom = body->IncrZoomState();
+
+				if (body->m_zoomstate_echo && (s8)zoom > 0 && body->m_carry != NULL)
+				{
+					zdb::CNode *node = body->m_carry->GetNode();
+
+					if (node != NULL)
+						node->m_Opacity = 0.0f;
+				}
+			}
+		}
+	}
+
+	if (static_cast<CSealCtrl *>(body->m_control)->m_menustate == stateNone)
+	{
+		if (pad->GetSingleClick(PAD_BUTTON::PAD_TRIANGLE))
+		{
+			if (body->m_desiredState == SEAL_STATE::stateProne)
+				body->m_desiredState = SEAL_STATE::stateStand;
+			else if (body->m_desiredState == SEAL_STATE::stateCrouch)
+				body->m_desiredState = SEAL_STATE::stateProne;
+			else if (body->m_desiredState == SEAL_STATE::stateStand)
+				body->m_desiredState = SEAL_STATE::stateCrouch;
+		}
+		else if (pad->GetDoubleClick(PAD_BUTTON::PAD_TRIANGLE))
+		{
+			if (body->m_desiredState == SEAL_STATE::stateProne)
+				body->m_desiredState = SEAL_STATE::stateCrouch;
+			else if (body->m_desiredState == SEAL_STATE::stateCrouch)
+				body->m_desiredState = SEAL_STATE::stateStand;
+			else if (body->m_desiredState == SEAL_STATE::stateStand)
+				body->m_desiredState = SEAL_STATE::stateProne;
+		}
+	}
+
+	body->m_desiredPeek = SEAL_PEEK::PEEK_NONE;
+
+	if (body->m_state != 8 && (pad->m_Data & 0x10) == 0 && !action_down)
+	{
+		if ((pad->m_Data & 0x8000) != 0)
+		{
+			if ((f32)pad->m_InData[9] / 255.0f > 0.03f && OKToPeek(this, 12.0f, SEAL_PEEK::PEEK_LEFT))
+				body->m_desiredPeek = SEAL_PEEK::PEEK_LEFT;
+			else
+				body->AbortPeek();
+		}
+		else if ((pad->m_Data & 0x2000) != 0)
+		{
+			if ((f32)pad->m_InData[8] / 255.0f > 0.03f && OKToPeek(this, 12.0f, SEAL_PEEK::PEEK_RIGHT))
+				body->m_desiredPeek = SEAL_PEEK::PEEK_RIGHT;
+			else
+				body->AbortPeek();
+		}
+	}
+
+	if (CCtrlrConfigs::GetButtonState(PadBtnFunc::Reload, *pad) == KEY_FALLING)
+		kit->Reload();
+
+	if (CCtrlrConfigs::GetButtonState(PadBtnFunc::FireMode, *pad) == KEY_FALLING)
+		kit->CycleFireMode();
+
+	if (m_throwing || m_justthrew)
+	{
+		f32 pressure = CCtrlrConfigs::GetFireButtonPressure(*pad);
+
+		if (m_justthrew)
+		{
+			if (!body->IsThrowing(false))
+			{
+				m_throwing = 0;
+				m_justthrew = 0;
+				body->SetWeaponState((WEAPON_STATE)2);
+				m_trigger = ReleasedTrigger(m_trigger);
+			}
+		}
+		else if (pressure == 0.0f)
+		{
+			f32 power = GetThrowAverage();
+			body->SetWeaponState((WEAPON_STATE)1);
+			m_trigger_power = power;
+			SetTrigger(true);
+			m_justthrew = 1;
+			m_throwwait = 1;
+			m_firstreading = 0;
+			m_lastreading = 0;
+			m_buttonreading[m_lastreading] = 0.0f;
+		}
+		else
+		{
+			m_buttonreading[m_lastreading] = pressure;
+			m_lastreading++;
+
+			if (m_lastreading >= 10)
+				m_lastreading -= 10;
+
+			if (m_lastreading == m_firstreading)
+			{
+				m_firstreading++;
+
+				if (m_firstreading >= 10)
+					m_firstreading -= 10;
+			}
+
+			m_trigger_power = GetThrowAverage();
+		}
+	}
+	else
+	{
+		bool pressed = CCtrlrConfigs::GetButtonState(PadBtnFunc::Fire, *pad) == KEY_DOWN;
+
+		switch (m_trigger)
+		{
+		case TRIGGER::TRIGGER_RISING:
+			m_trigger = pressed ? TRIGGER::TRIGGER_FALLING : TRIGGER::TRIGGER_UP;
+			break;
+		case TRIGGER::TRIGGER_FALLING:
+		case TRIGGER::TRIGGER_DOWN:
+			m_trigger = pressed ? TRIGGER::TRIGGER_DOWN : TRIGGER::TRIGGER_RISING;
+			break;
+		case TRIGGER::TRIGGER_UP:
+			m_trigger = pressed ? TRIGGER::TRIGGER_FALLING : TRIGGER::TRIGGER_UP;
+			break;
+		default:
+			break;
+		}
+
+		bool grenade = kit->GetCurItemIDType() == (EQUIP_ITEM)0x78;
+
+		switch (m_trigger)
+		{
+		case TRIGGER::TRIGGER_UP:
+			if (grenade)
+			{
+				wep = 2;
+			}
+			else if (wep == 2)
+			{
+				bool expired = false;
+
+				if (m_wep_state.m_timer != CAiTimer::infinite)
+				{
+					m_wep_state.m_timer -= dT;
+					expired = m_wep_state.m_timer != CAiTimer::infinite && m_wep_state.m_timer <= 0.0f;
+				}
+
+				if (!expired)
+					wep = 1;
+			}
+			else
+			{
+				ResetWeaponTimer(this);
+			}
+
+			body->SetWeaponState((WEAPON_STATE)wep);
+			break;
+		case TRIGGER::TRIGGER_RISING:
+			ResetWeaponTimer(this);
+			break;
+		case TRIGGER::TRIGGER_DOWN:
+			body->SetWeaponState((WEAPON_STATE)1);
+			ResetWeaponTimer(this);
+			break;
+		case TRIGGER::TRIGGER_FALLING:
+			ResetWeaponTimer(this);
+
+			if (!grenade)
+			{
+				body->SetWeaponState((WEAPON_STATE)1);
+			}
+			else
+			{
+				m_throwing = 1;
+				m_lastreading = 0;
+				m_firstreading = 0;
+				m_trigger_power = 0.0f;
+				SetTrigger(false);
+				m_trigger_power = 0.0f;
+				SetTrigger(false);
+			}
+			break;
+		default:
+			break;
+		}
+	}
+
+	kit->SetCurAccuracy();
+
+	CEntityCtrl *control = body->m_control;
+
+	if (control != NULL && static_cast<CSealCtrl *>(control)->IsPlayer())
+	{
+		zdb::CCamera *camera = zdb::CWorld::m_world->m_camera;
+		camera->m_screenOffset.y = kit->ScreenOffsetX();
+		camera->m_screenOffset.y = kit->ScreenOffsetY();
+	}
+
+	TickPadRumble(this, dT);
+	TickPickups(dT);
+	TickVictims();
+	return true;
 }
 
 /* @socom-skeleton stub TickAimPitch__9CSealCtrlFff */
@@ -436,6 +1028,35 @@ void CSealCtrl::OnActionButton()
 /* @socom-skeleton stub GetThrowAverage__9CSealCtrlFv */
 float CSealCtrl::GetThrowAverage()
 {
+	/* 0x2844a0: the highest of the last six fire-button pressure readings, scaled to 0..1 */
+	s32 last = m_lastreading;
+	s32 i = last - 1;
+
+	if (i < 0)
+		i = last + 9;
+
+	f32 best = m_buttonreading[i];
+
+	if (!(m_buttonreading[last] < best))
+		best = m_buttonreading[last];
+
+	for (s32 n = 0; n < 5; n++)
+	{
+		s32 prev = i - 1;
+
+		if (prev < 0)
+			prev = i + 9;
+
+		i = prev;
+
+		if (!(m_buttonreading[i] <= best))
+			best = m_buttonreading[i];
+	}
+
+	if (best != 0.0f)
+		best /= 255.0f;
+
+	return best;
 }
 
 /* @socom-skeleton stub TriggerPowerReset__9CSealCtrlFv */

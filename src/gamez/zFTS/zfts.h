@@ -36,10 +36,26 @@ class CMissionCam;
 
 class CZNetGame;
 
-/* port: unproven: only the mangled Q210PadBtnFunc1_ is known (an enum `_` scoped by PadBtnFunc); enumerators not in DWARF */
+/* port: only the mangled Q210PadBtnFunc1_ is known (an enum `_` scoped by PadBtnFunc); not in
+ * DWARF. The enumerators follow c_arrFuncNames$799 (0x44ec60), the names CCtrlrConfigs::Init
+ * 0x209b40 maps by index (port: enumerator spellings from those strings). */
 namespace PadBtnFunc
 {
-	enum _ { };
+	enum _
+	{
+		Action,
+		AimMode,
+		Fire,
+		FireMode,
+		Inventory,
+		Jump,
+		Reload,
+		StrafeLeft,
+		StrafeRight,
+		SwapWeapon1,
+		SwapWeapon2,
+		TeamCommand
+	};
 }
 
 extern CMission theMission;
@@ -301,8 +317,8 @@ public:
 class CCtrlrConfigs
 {
 public:
-	void GetButtonState(PadBtnFunc::_, const CPad &);
-	static void IsJumpAndActionShared();
+	static KEY_STATE GetButtonState(PadBtnFunc::_, const CPad &); /* 0x20a690: a0 = function, a1 = pad (no this); lb of CPad::m_state */
+	static bool IsJumpAndActionShared(); /* 0x20a670: sltiu (0/1) */
 	static float GetFireButtonPressure(const CPad &);
 	static float GetFwdBackStickPos(const CPad &);
 	static float GetPitchStickPosDilated(const CPad &);
@@ -310,7 +326,7 @@ public:
 	static float GetStrafeStickPos(const CPad &);
 	static void Init();
 	static void SelectConfig(const char *);
-	void SetButtonState(CPad *, PadBtnFunc::_, KEY_STATE);
+	static void SetButtonState(CPad *, PadBtnFunc::_, KEY_STATE); /* 0x209a70: a0 = pad (no this) */
 };
 /* @socom-skeleton end 13CCtrlrConfigs */
 /* @socom-skeleton decl 11CLadderList */
@@ -472,7 +488,7 @@ public:
 	static void RemoteSealPostUpdateCallback(int, int, int);
 	void UpdateRollandsUnitStuff(CZSealBody *, CZSealState::TypeSealState *);
 	static int CreateLocalSeal(CZSealBody *, bool);
-	void UpdateLocalSeal(CZSealBody *);
+	static void UpdateLocalSeal(CZSealBody *); /* port: static (CSealCtrl::Tick 0x28741c passes the body in a0) */
 	static void UnloadRemoteGuyList();
 	static CZSealBody * GetBodyFromObjectIndex(int);
 	void GetPackedWeaponData(CZSealBody *);

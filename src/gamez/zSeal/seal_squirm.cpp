@@ -81,7 +81,7 @@ void CSealCtrlSquirm::ResetToInitialState()
 }
 
 /* @socom-skeleton stub PreTick__15CSealCtrlSquirmFf */
-void CSealCtrlSquirm::PreTick(float)
+bool CSealCtrlSquirm::PreTick(float)
 {
 	/* @socom-skeleton stub _hackPitchFactor$2295 */
 	static float _hackPitchFactor;
@@ -89,11 +89,15 @@ void CSealCtrlSquirm::PreTick(float)
 	static int item_index;
 	/* @socom-skeleton stub star_scale$2314 */
 	static float star_scale;
+	/* 0x2e24f0 (1800 B) returns 1; port: stub (squirm mode is not written) */
+	return true;
 }
 
 /* @socom-skeleton stub Tick__15CSealCtrlSquirmFf */
-void CSealCtrlSquirm::Tick(float)
+bool CSealCtrlSquirm::Tick(float)
 {
+	/* 0x2e24d0 returns 1; port: stub (squirm mode is not written) */
+	return true;
 }
 
 /* @socom-skeleton stub PostMortemPreTick__15CSealCtrlSquirmFf */

@@ -42,8 +42,14 @@ CQuat * QFromRot(CQuat *out, const CPnt3D *rot)
 }
 
 /* @socom-skeleton stub quadW__Ff */
-float quadW(float)
+float quadW(float w)
 {
+	/* 0x1dd020: ease in-out */
+	if (w <= 0.5f)
+		return w * 2.0f * w;
+
+	f32 d = (w - 1.0f) * 2.0f;
+	return 1.0f - d * 0.5f * d;
 }
 
 /* @socom-skeleton stub GetFractionalRotations__FPC6CPnt3DPfPf */
@@ -218,8 +224,13 @@ void PointAlongLine(const CPnt3D &, const CPnt3D &, float, CPnt3D &)
 }
 
 /* @socom-skeleton stub Start__9CSequenceFfff */
-void CSequence::Start(float, float, float)
+void CSequence::Start(float up, float hold, float down)
 {
+	/* 0x1dc930: the sequence counts down from its full length */
+	m_upT = up;
+	m_holdT = hold;
+	m_downT = down;
+	m_currT = down + up + hold;
 }
 
 /* @socom-skeleton stub Clear__9CSequenceFv */
@@ -240,19 +251,44 @@ float CSequence::Tick(float)
 /* @socom-skeleton stub LinearWeight__9CSequenceFv */
 float CSequence::LinearWeight()
 {
+	/* 0x1dc820: 0 -> 1 over the down time, 1 while held, 1 -> 0 over the up time (the time
+	 * is clamped to the total) */
+	f32 total = m_downT + m_upT + m_holdT;
+	f32 t = m_currT;
+
+	if (total <= t)
+		t = total;
+
+	m_currT = t;
+
+	if (!(t > 0.0f))
+		return 0.0f;
+
+	if (m_holdT + m_downT < t)
+		return (total - t) / m_upT;
+
+	return t < m_downT ? t / m_downT : 1.0f;
 }
 
 /* @socom-skeleton stub Weight__9CSequenceFv */
 float CSequence::Weight()
 {
+	/* 0x1dc710: LinearWeight eased in and out (quadW) */
+	return quadW(LinearWeight());
 }
 
 /* @socom-skeleton stub RenormAnims__FP15CActiveAnimListf */
-void RenormAnims(CActiveAnimList *, float)
+void RenormAnims(CActiveAnimList *list, float scale)
 {
+	/* 0x1dc6b0: every weight scaled */
+	for (ACTIVE_ANIM *active = list->Begin(); active != NULL; active = list->Next())
+		active->m_wt = scale * active->m_wt;
 }
 
 /* @socom-skeleton stub PushAnim__FP15CActiveAnimListP11ACTIVE_ANIMf */
-void PushAnim(CActiveAnimList *, ACTIVE_ANIM *, float)
+void PushAnim(CActiveAnimList *list, ACTIVE_ANIM *active, float wt)
 {
+	/* 0x1dc6a0: the anim, at weight wt, appended (RTList::Add inline; dropped when full) */
+	active->m_wt = wt;
+	list->Add(active);
 }
