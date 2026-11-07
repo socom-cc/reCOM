@@ -2000,7 +2000,50 @@ void CZSealBody::PitchAnim(CPnt3D *, CPnt3D *aim_goal)
 /* @socom-skeleton body OnWeaponHit__10CZSealBodyFPQ23zdb15IntersectStructP12CZProjectile */
 void CZSealBody::OnWeaponHit(zdb::IntersectStruct* intersection, CZProjectile* projectile)
 {
-    
+	/* 0x29c430 (CSealEx::OnWeaponHit: a projectile hit one of the body's collision shapes,
+	 * AddDIPolys): nothing for an invincible body, nor in a network game for another seal's
+	 * friendly fire (unless m_allow_friendly_fire; a hostage, team bit 17, is fair game). A
+	 * live body whose node is active tells its controller, gains adrenaline (0.99), keeps
+	 * the hit (m_wephit: position, normal, node; no node without a hit) and takes the
+	 * damage; a dead or inactive one plays a body-hit death anim. */
+	if (m_invincible)
+		return;
+
+	if (theNetwork.m_bNetwork)
+	{
+		s32 id = projectile->m_shooterID;
+		CZSealBody *shooter = SealOfEntity(CEntity::m_list.GetEntityById(id));
+
+		if (id != 0 && !m_allow_friendly_fire && shooter != NULL && (shooter->m_team & m_team) != 0
+			&& (m_team & 0x20000) == 0 && this != shooter)
+			return;
+	}
+
+	if (m_isAlive && GetNode()->m_active)
+	{
+		if (m_control != NULL) /* port: guard (the ELF calls through the controller unchecked) */
+			static_cast<CSealCtrl *>(m_control)->OnWeaponHit(intersection, projectile);
+
+		AdrenalineIncr(0.99f);
+
+		if (intersection == NULL)
+		{
+			m_wephit->m_node = NULL;
+		}
+		else
+		{
+			m_wephit->m_pos = intersection->m_pos;
+			m_wephit->m_norm = intersection->m_norm;
+			m_wephit->m_node = intersection->m_node;
+		}
+
+		HandleDamage(projectile);
+		return;
+	}
+
+	bool mirror;
+	AnimType anim = FindRandomDeathAnim((DAMAGE_LOCATION)3, &mirror);
+	WeaponHitAnim(anim, SEAL_STATE::stateDead, false);
 }
 
 /* @socom-skeleton stub HandleWepHit__10CZSealBodyFv */
@@ -2102,13 +2145,132 @@ void CZSealBody::HandleDamageExplosive(CZProjectile *, CZBodyPart *, DAMAGE_LOCA
 }
 
 /* @socom-skeleton stub HandleDamageNonExplosive__10CZSealBodyFP12CZProjectileP10CZBodyPart15DAMAGE_LOCATION */
-void CZSealBody::HandleDamageNonExplosive(CZProjectile *, CZBodyPart *, DAMAGE_LOCATION)
+void CZSealBody::HandleDamageNonExplosive(CZProjectile *projectile, CZBodyPart *part, DAMAGE_LOCATION)
 {
+	/* 0x29bc20 (HandleDamage: the part hit; single player, or the network player's own
+	 * shots): head or neck, the arms (bicep, forearm), the body (spine high, spine low,
+	 * hips), the legs (thigh, calf). Head and body hits remember the projectile. A leg hit
+	 * once the right leg is spent goes to the body instead. ELF quirk kept: the left leg
+	 * tests m_rleg_health too. The location argument is not read. */
+	if (theNetwork.m_bNetwork && !projectile->m_isplayer)
+		return;
+
+	bool body = false;
+
+	if (part == m_head || part == m_neck)
+	{
+		DamageHead(projectile);
+		m_lastprojectile = projectile;
+	}
+	else if (part == m_lbicep || part == m_lforearm)
+	{
+		DamageLArm(projectile);
+	}
+	else if (part == m_rbicep || part == m_rforearm)
+	{
+		DamageRArm(projectile);
+	}
+	else if (part == m_spinehi || part == m_spinelo || part == m_hips)
+	{
+		DamageBody(projectile);
+		m_lastprojectile = projectile;
+	}
+	else if (part == m_lthigh || part == m_lcalf)
+	{
+		if (m_rleg_health <= 0.0f)
+			body = true;
+		else
+			DamageLLeg(projectile);
+	}
+	else if (part == m_rthigh || part == m_rcalf)
+	{
+		if (m_rleg_health <= 0.0f)
+			body = true;
+		else
+			DamageRLeg(projectile);
+	}
+
+	if (body)
+		DamageBody(projectile);
 }
 
 /* @socom-skeleton stub HandleDamage__10CZSealBodyFP12CZProjectile */
-void CZSealBody::HandleDamage(CZProjectile *)
+void CZSealBody::HandleDamage(CZProjectile *projectile)
 {
+	/* 0x29b940 (OnWeaponHit): a projectile's damage, once per projectile when it explodes.
+	 * The body part whose node m_wephit hit (parts with an id; the ELF walks a copy of the
+	 * part list) takes it, explosive ammo through HandleDamageExplosive; then the overall
+	 * health (location 0, a bullet death) - in a network game only for an unknown shooter
+	 * or a local one. A body that dies here: the killer's controller hears of it and the
+	 * killer is recorded, or without a seal shooter only the death is counted. */
+	bool was_alive = m_isAlive;
+
+	if (projectile == NULL || projectile->m_ammo == NULL)
+		return;
+
+	if (projectile == m_lastprojectile)
+		return;
+
+	if (!(projectile->m_ammo->GetExplosionDamage() <= 0.0f))
+		m_lastprojectile = projectile;
+
+	std::vector<CZBodyPart *> parts = m_body_parts;
+	zdb::IntersectStruct *hit = m_wephit->m_node != NULL ? m_wephit : NULL;
+	bool searching = true;
+
+	for (std::vector<CZBodyPart *>::iterator it = parts.begin(); searching && it != parts.end(); ++it)
+	{
+		CZBodyPart *part = *it;
+
+		if (part == NULL || part->m_id < 0)
+			continue;
+
+		if (hit == NULL) /* port: guard (the ELF compares the part's node through the NULL) */
+			continue;
+
+		if (part->m_node != hit->m_node)
+			continue;
+
+		if (!(projectile->m_ammo->GetExplosionRadius() <= 0.0f))
+			HandleDamageExplosive(projectile, part, (DAMAGE_LOCATION)0);
+		else
+			HandleDamageNonExplosive(projectile, part, (DAMAGE_LOCATION)0);
+
+		searching = false;
+	}
+
+	if (!theNetwork.m_bNetwork)
+	{
+		UpdateHealth((DAMAGE_LOCATION)0, SEAL_DEATH_TYPE::DEATH_BULLET);
+	}
+	else
+	{
+		s32 id = projectile->m_shooterID;
+		CZSealBody *shooter = SealOfEntity(CEntity::m_list.GetEntityById(id));
+
+		if (id == 0 || (shooter != NULL
+			&& !(shooter->m_control != NULL && static_cast<CSealCtrl *>(shooter->m_control)->IsRemote())))
+			UpdateHealth((DAMAGE_LOCATION)0, SEAL_DEATH_TYPE::DEATH_BULLET);
+	}
+
+	if (was_alive && !m_isAlive)
+	{
+		s32 id = projectile->m_shooterID;
+		CZSealBody *killer = SealOfEntity(CEntity::m_list.GetEntityById(id));
+
+		if (killer == NULL)
+		{
+			m_stats.Death(*this);
+		}
+		else
+		{
+			if (killer->m_control != NULL) /* port: guard (unchecked in the ELF) */
+				static_cast<CSealCtrl *>(killer->m_control)->NotifyTargetDown(this);
+
+			m_killer_index = id;
+			HandleKiller(id);
+		}
+	}
 }
 
 /* @socom-skeleton stub SetMoveWeaponEncumbMod__10CZSealBodyFv */
@@ -3191,100 +3353,662 @@ void CZSealBody::PostChangeWeapon(SEAL_ITEM item)
 }
 
 /* @socom-skeleton stub DamageRArm__10CZSealBodyFP12CZProjectile */
-bool CZSealBody::DamageRArm(CZProjectile *)
+bool CZSealBody::DamageRArm(CZProjectile *projectile)
 {
+	/* 0x296ae0: as DamageBody (location 1); the network flinch comes before the hit report */
+	if (!theNetwork.m_bNetwork)
+	{
+		s32 id = projectile->m_shooterID;
+		CZSealBody *shooter = SealOfEntity(CEntity::m_list.GetEntityById(id));
+
+		if (projectile->m_isfirsthit)
+		{
+			projectile->m_isfirsthit = 0;
+
+			if (shooter != NULL)
+				shooter->m_stats.Hit(*shooter);
+
+			m_stats.WasHit(*this);
+		}
+
+		bool hit;
+
+		if (projectile->m_shottype == PROJECTILE_TYPE::ONE_FRAME_SHOTGUN)
+		{
+			f32 damage = FindHighestProximityDamage(projectile);
+			hit = DamageRArm(damage, projectile->m_ammo->GetArmorPierce());
+		}
+		else
+		{
+			f32 damage = projectile->GetDamage(GetPosW(), 0.0f);
+			hit = DamageRArm(damage, projectile->m_ammo->GetArmorPierce());
+		}
+
+		if (!m_isAlive)
+		{
+			m_killer_index = id;
+			HandleKiller(id);
+		}
+
+		return hit;
+	}
+
+	s32 id = projectile->m_shooterID;
+	CZSealBody *shooter = SealOfEntity(CEntity::m_list.GetEntityById(id));
+
+	if (id != 0 && (shooter == NULL
+		|| (shooter->m_control != NULL && static_cast<CSealCtrl *>(shooter->m_control)->IsRemote())))
+		return false;
+
+	WeaponHitAnim(AnimType::animTypeFlinchRArm, GetStance(false), false);
+	s32 victim = m_id;
+	s32 from = projectile->m_shooterID;
+	u8 weapon = (u8)projectile->m_weapon->m_ID;
+	f32 damage = projectile->GetDamage(GetPosW(), 0.0f);
+	ReportWeaponHitDamage(from, victim, (DAMAGE_LOCATION)1, damage, projectile->m_ammo->GetArmorPierce(), projectile->m_isfirsthit, weapon);
+
+	if (projectile->m_isfirsthit)
+		projectile->m_isfirsthit = 0;
+
+	if (m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsRemote())
+		return false;
+
+	if (projectile->m_shottype == PROJECTILE_TYPE::ONE_FRAME_SHOTGUN)
+	{
+		f32 near = FindHighestProximityDamage(projectile);
+		return DamageRArm(near, projectile->m_ammo->GetArmorPierce());
+	}
+
+	f32 at = projectile->GetDamage(GetPosW(), 0.0f);
+	return DamageRArm(at, projectile->m_ammo->GetArmorPierce());
 }
 
 /* @socom-skeleton stub DamageRArm__10CZSealBodyFff */
-bool CZSealBody::DamageRArm(float, float)
+bool CZSealBody::DamageRArm(float damage, float pierce)
 {
+	/* 0x296910: no damage, no hit; a spent arm only flinches (false). Else the
+	 * armor-resolved damage (m_armor[1]) and the reticle penalty by the arm's state (10 at
+	 * 30% or less, 3 at 90% or less), then the arm's flinch (location 1) */
+	if (damage == 0.0f)
+		return false;
+
+	bool mirror;
+
+	if (m_rarm_health <= 0.0f)
+	{
+		AnimType flinch = FindRandomDamageAnim((DAMAGE_LOCATION)1, &mirror);
+		WeaponHitAnim(flinch, GetStance(false), mirror);
+		return false;
+	}
+
+	CZProjectile::ResolveDamage(&m_rarm_health, &m_armor[1], damage, pierce);
+	f32 max = m_rarm_healthMax;
+	f32 health = m_rarm_health;
+	s32 level;
+
+	if (health <= max * 0.3f)
+		level = 3;
+	else if (!(max * 0.7f < health))
+		level = 2;
+	else if (health <= max * 0.9f)
+		level = 1;
+	else
+		level = 0;
+
+	if (level == 3)
+		m_retmods += 10.0f;
+	else if (level == 2 || level == 1)
+		m_retmods += 3.0f;
+
+	AnimType flinch = FindRandomDamageAnim((DAMAGE_LOCATION)1, &mirror);
+	WeaponHitAnim(flinch, GetStance(false), mirror);
+	return true;
 }
 
 /* @socom-skeleton stub DamageLArm__10CZSealBodyFP12CZProjectile */
-bool CZSealBody::DamageLArm(CZProjectile *)
+bool CZSealBody::DamageLArm(CZProjectile *projectile)
 {
+	/* 0x2965f0: as DamageBody (location 2; the flinch mirrored). ELF quirk kept: in a network
+	 * game only an unknown shooter's (id 0) hits count here. */
+	if (!theNetwork.m_bNetwork)
+	{
+		s32 id = projectile->m_shooterID;
+		CZSealBody *shooter = SealOfEntity(CEntity::m_list.GetEntityById(id));
+
+		if (projectile->m_isfirsthit)
+		{
+			projectile->m_isfirsthit = 0;
+
+			if (shooter != NULL)
+				shooter->m_stats.Hit(*shooter);
+
+			m_stats.WasHit(*this);
+		}
+
+		bool hit;
+
+		if (projectile->m_shottype == PROJECTILE_TYPE::ONE_FRAME_SHOTGUN)
+		{
+			f32 damage = FindHighestProximityDamage(projectile);
+			hit = DamageLArm(damage, projectile->m_ammo->GetArmorPierce());
+		}
+		else
+		{
+			f32 damage = projectile->GetDamage(GetPosW(), 0.0f);
+			hit = DamageLArm(damage, projectile->m_ammo->GetArmorPierce());
+		}
+
+		if (!m_isAlive)
+		{
+			m_killer_index = id;
+			HandleKiller(id);
+		}
+
+		return hit;
+	}
+
+	s32 id = projectile->m_shooterID;
+	CEntity::m_list.GetEntityById(id); /* ELF quirk kept: looked up for nothing */
+
+	if (id != 0)
+		return false;
+
+	s32 victim = m_id;
+	s32 from = projectile->m_shooterID;
+	u8 weapon = (u8)projectile->m_weapon->m_ID;
+	f32 damage = projectile->GetDamage(GetPosW(), 0.0f);
+	ReportWeaponHitDamage(from, victim, (DAMAGE_LOCATION)2, damage, projectile->m_ammo->GetArmorPierce(), projectile->m_isfirsthit, weapon);
+
+	if (projectile->m_isfirsthit)
+		projectile->m_isfirsthit = 0;
+
+	WeaponHitAnim(AnimType::animTypeFlinchRArm, GetStance(false), true);
+
+	if (m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsRemote())
+		return false;
+
+	if (projectile->m_shottype == PROJECTILE_TYPE::ONE_FRAME_SHOTGUN)
+	{
+		f32 near = FindHighestProximityDamage(projectile);
+		return DamageLArm(near, projectile->m_ammo->GetArmorPierce());
+	}
+
+	f32 at = projectile->GetDamage(GetPosW(), 0.0f);
+	return DamageLArm(at, projectile->m_ammo->GetArmorPierce());
 }
 
 /* @socom-skeleton stub DamageLArm__10CZSealBodyFff */
-bool CZSealBody::DamageLArm(float, float)
+bool CZSealBody::DamageLArm(float damage, float pierce)
 {
+	/* 0x296420: as DamageRArm for the left arm (m_armor[2], location 2) */
+	if (damage == 0.0f)
+		return false;
+
+	bool mirror;
+
+	if (m_larm_health <= 0.0f)
+	{
+		AnimType flinch = FindRandomDamageAnim((DAMAGE_LOCATION)2, &mirror);
+		WeaponHitAnim(flinch, GetStance(false), mirror);
+		return false;
+	}
+
+	CZProjectile::ResolveDamage(&m_larm_health, &m_armor[2], damage, pierce);
+	f32 max = m_larm_healthMax;
+	f32 health = m_larm_health;
+	s32 level;
+
+	if (health <= max * 0.3f)
+		level = 3;
+	else if (!(max * 0.7f < health))
+		level = 2;
+	else if (health <= max * 0.9f)
+		level = 1;
+	else
+		level = 0;
+
+	if (level == 3)
+		m_retmods += 10.0f;
+	else if (level == 2 || level == 1)
+		m_retmods += 3.0f;
+
+	AnimType flinch = FindRandomDamageAnim((DAMAGE_LOCATION)2, &mirror);
+	WeaponHitAnim(flinch, GetStance(false), mirror);
+	return true;
 }
 
 /* @socom-skeleton stub DamageHead__10CZSealBodyFP12CZProjectile */
-bool CZSealBody::DamageHead(CZProjectile *)
+bool CZSealBody::DamageHead(CZProjectile *projectile)
 {
+	/* 0x295ae0: as DamageBody (location 0) with the head damage inline (no DamageHead(f, f)
+	 * symbol): none once the head is spent or without damage; else the armor-resolved
+	 * damage (m_armor[0]), the reticle penalty (3 at 99% or less while above 0) and the
+	 * head's flinch. A first head hit by non-explosive damage counts a head shot for the
+	 * shooter. In a network game the flinch comes before the hit report. */
+	auto damageHead = [this](f32 damage, f32 pierce)
+	{
+		if (m_head_health <= 0.0f || damage == 0.0f)
+			return false;
+
+		CZProjectile::ResolveDamage(&m_head_health, &m_armor[0], damage, pierce);
+		f32 health = m_head_health;
+		s32 level;
+
+		if (health <= 0.0f)
+			level = 3;
+		else if (health <= m_head_healthMax * 0.5f)
+			level = 2;
+		else if (health <= m_head_healthMax * 0.99f)
+			level = 1;
+		else
+			level = 0;
+
+		if (level == 2 || level == 1)
+			m_retmods += 3.0f;
+
+		bool mirror;
+		AnimType flinch = FindRandomDamageAnim((DAMAGE_LOCATION)0, &mirror);
+		WeaponHitAnim(flinch, GetStance(false), mirror);
+		return true;
+	};
+
+	if (!theNetwork.m_bNetwork)
+	{
+		s32 id = projectile->m_shooterID;
+		CZSealBody *shooter = SealOfEntity(CEntity::m_list.GetEntityById(id));
+
+		if (projectile->m_isfirsthit)
+		{
+			projectile->m_isfirsthit = 0;
+
+			if (shooter != NULL)
+				shooter->m_stats.Hit(*shooter);
+
+			m_stats.WasHit(*this);
+		}
+
+		if (m_stats.m_headhits < 1 && projectile->GetExplosionDamage() == 0.0f)
+		{
+			if (shooter != NULL)
+				shooter->m_stats.HeadShot(*shooter);
+
+			m_stats.m_headhits++;
+		}
+
+		bool hit;
+
+		if (projectile->m_shottype == PROJECTILE_TYPE::ONE_FRAME_SHOTGUN)
+		{
+			f32 damage = FindHighestProximityDamage(projectile);
+			hit = damageHead(damage, projectile->m_ammo->GetArmorPierce());
+		}
+		else
+		{
+			f32 pierce = projectile->m_ammo->GetArmorPierce();
+			hit = damageHead(projectile->GetDamage(GetPosW(), 0.0f), pierce);
+		}
+
+		if (!m_isAlive)
+		{
+			m_killer_index = id;
+			HandleKiller(id);
+		}
+
+		return hit;
+	}
+
+	s32 id = projectile->m_shooterID;
+	CZSealBody *shooter = SealOfEntity(CEntity::m_list.GetEntityById(id));
+
+	if (id != 0 && (shooter == NULL
+		|| (shooter->m_control != NULL && static_cast<CSealCtrl *>(shooter->m_control)->IsRemote())))
+		return false;
+
+	WeaponHitAnim(AnimType::animTypeFlinchRArm, GetStance(false), false);
+	s32 victim = m_id;
+	s32 from = projectile->m_shooterID;
+	u8 weapon = (u8)projectile->m_weapon->m_ID;
+	f32 damage = projectile->GetDamage(GetPosW(), 0.0f);
+	ReportWeaponHitDamage(from, victim, (DAMAGE_LOCATION)0, damage, projectile->m_ammo->GetArmorPierce(), projectile->m_isfirsthit, weapon);
+
+	if (projectile->m_isfirsthit)
+		projectile->m_isfirsthit = 0;
+
+	if (m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsRemote())
+		return false;
+
+	if (projectile->m_shottype == PROJECTILE_TYPE::ONE_FRAME_SHOTGUN)
+	{
+		f32 near = FindHighestProximityDamage(projectile);
+		return damageHead(near, projectile->m_ammo->GetArmorPierce());
+	}
+
+	f32 pierce = projectile->m_ammo->GetArmorPierce();
+	return damageHead(projectile->GetDamage(GetPosW(), 0.0f), pierce);
 }
 
 /* @socom-skeleton stub DamageLLeg__10CZSealBodyFP12CZProjectile */
-bool CZSealBody::DamageLLeg(CZProjectile *)
+bool CZSealBody::DamageLLeg(CZProjectile *projectile)
 {
+	/* 0x295790: as DamageBody (location 5; the flinch is FlinchRLeg mirrored). ELF quirk kept:
+	 * single player has no shotgun case here (the damage at the body's position). */
+	if (!theNetwork.m_bNetwork)
+	{
+		s32 id = projectile->m_shooterID;
+		CZSealBody *shooter = SealOfEntity(CEntity::m_list.GetEntityById(id));
+
+		if (projectile->m_isfirsthit)
+		{
+			projectile->m_isfirsthit = 0;
+
+			if (shooter != NULL)
+				shooter->m_stats.Hit(*shooter);
+
+			m_stats.WasHit(*this);
+		}
+
+		f32 damage = projectile->GetDamage(GetPosW(), 0.0f);
+		bool hit = DamageLLeg(damage, projectile->m_ammo->GetArmorPierce());
+
+		if (!m_isAlive)
+		{
+			m_killer_index = id;
+			HandleKiller(id);
+		}
+
+		return hit;
+	}
+
+	s32 id = projectile->m_shooterID;
+	CZSealBody *shooter = SealOfEntity(CEntity::m_list.GetEntityById(id));
+
+	if (id != 0 && (shooter == NULL
+		|| (shooter->m_control != NULL && static_cast<CSealCtrl *>(shooter->m_control)->IsRemote())))
+		return false;
+
+	s32 victim = m_id;
+	s32 from = projectile->m_shooterID;
+	u8 weapon = (u8)projectile->m_weapon->m_ID;
+	f32 damage = projectile->GetDamage(GetPosW(), 0.0f);
+	ReportWeaponHitDamage(from, victim, (DAMAGE_LOCATION)5, damage, projectile->m_ammo->GetArmorPierce(), projectile->m_isfirsthit, weapon);
+
+	if (projectile->m_isfirsthit)
+		projectile->m_isfirsthit = 0;
+
+	WeaponHitAnim(AnimType::animTypeFlinchRLeg, GetStance(false), true);
+
+	if (m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsRemote())
+		return false;
+
+	if (projectile->m_shottype == PROJECTILE_TYPE::ONE_FRAME_SHOTGUN)
+	{
+		f32 near = FindHighestProximityDamage(projectile);
+		return DamageLLeg(near, projectile->m_ammo->GetArmorPierce());
+	}
+
+	f32 at = projectile->GetDamage(GetPosW(), 0.0f);
+	return DamageLLeg(at, projectile->m_ammo->GetArmorPierce());
 }
 
 /* @socom-skeleton stub DamageLLeg__10CZSealBodyFff */
-bool CZSealBody::DamageLLeg(float, float)
+bool CZSealBody::DamageLLeg(float damage, float pierce)
 {
+	/* 0x2955e0: as DamageRLeg for the left leg (m_armor[5], location 5) */
+	if (damage == 0.0f)
+		return false;
+
+	bool mirror;
+
+	if (m_lleg_health <= 0.0f)
+	{
+		AnimType flinch = FindRandomDamageAnim((DAMAGE_LOCATION)5, &mirror);
+		WeaponHitAnim(flinch, GetStance(false), mirror);
+		return false;
+	}
+
+	CZProjectile::ResolveDamage(&m_lleg_health, &m_armor[5], damage, pierce);
+	f32 max = m_lleg_healthMax;
+	f32 health = m_lleg_health;
+	s32 level;
+
+	if (health <= max * 0.3f)
+		level = 3;
+	else if (!(max * 0.7f < health))
+		level = 2;
+	else if (health <= max * 0.9f)
+		level = 1;
+	else
+		level = 0;
+
+	if (level == 3 || level == 2)
+		m_limp = 1;
+
+	AnimType flinch = FindRandomDamageAnim((DAMAGE_LOCATION)5, &mirror);
+	WeaponHitAnim(flinch, GetStance(false), mirror);
+	return true;
 }
 
 /* @socom-skeleton stub DamageRLeg__10CZSealBodyFP12CZProjectile */
-bool CZSealBody::DamageRLeg(CZProjectile *)
+bool CZSealBody::DamageRLeg(CZProjectile *projectile)
 {
+	/* 0x295250: as DamageBody (location 4; the flinch is FlinchRLeg) */
+	if (!theNetwork.m_bNetwork)
+	{
+		s32 id = projectile->m_shooterID;
+		CZSealBody *shooter = SealOfEntity(CEntity::m_list.GetEntityById(id));
+
+		if (projectile->m_isfirsthit)
+		{
+			projectile->m_isfirsthit = 0;
+
+			if (shooter != NULL)
+				shooter->m_stats.Hit(*shooter);
+
+			m_stats.WasHit(*this);
+		}
+
+		bool hit;
+
+		if (projectile->m_shottype == PROJECTILE_TYPE::ONE_FRAME_SHOTGUN)
+		{
+			f32 damage = FindHighestProximityDamage(projectile);
+			hit = DamageRLeg(damage, projectile->m_ammo->GetArmorPierce());
+		}
+		else
+		{
+			f32 damage = projectile->GetDamage(GetPosW(), 0.0f);
+			hit = DamageRLeg(damage, projectile->m_ammo->GetArmorPierce());
+		}
+
+		if (!m_isAlive)
+		{
+			m_killer_index = id;
+			HandleKiller(id);
+		}
+
+		return hit;
+	}
+
+	s32 id = projectile->m_shooterID;
+	CZSealBody *shooter = SealOfEntity(CEntity::m_list.GetEntityById(id));
+
+	if (id != 0 && (shooter == NULL
+		|| (shooter->m_control != NULL && static_cast<CSealCtrl *>(shooter->m_control)->IsRemote())))
+		return false;
+
+	s32 victim = m_id;
+	s32 from = projectile->m_shooterID;
+	u8 weapon = (u8)projectile->m_weapon->m_ID;
+	f32 damage = projectile->GetDamage(GetPosW(), 0.0f);
+	ReportWeaponHitDamage(from, victim, (DAMAGE_LOCATION)4, damage, projectile->m_ammo->GetArmorPierce(), projectile->m_isfirsthit, weapon);
+
+	if (projectile->m_isfirsthit)
+		projectile->m_isfirsthit = 0;
+
+	WeaponHitAnim(AnimType::animTypeFlinchRLeg, GetStance(false), false);
+
+	if (m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsRemote())
+		return false;
+
+	if (projectile->m_shottype == PROJECTILE_TYPE::ONE_FRAME_SHOTGUN)
+	{
+		f32 near = FindHighestProximityDamage(projectile);
+		return DamageRLeg(near, projectile->m_ammo->GetArmorPierce());
+	}
+
+	f32 at = projectile->GetDamage(GetPosW(), 0.0f);
+	return DamageRLeg(at, projectile->m_ammo->GetArmorPierce());
 }
 
 /* @socom-skeleton stub DamageRLeg__10CZSealBodyFff */
-bool CZSealBody::DamageRLeg(float, float)
+bool CZSealBody::DamageRLeg(float damage, float pierce)
 {
+	/* 0x2950a0: no damage, no hit; a spent leg only flinches (false). Else the
+	 * armor-resolved damage (m_armor[4]), a limp at 70% or less, and the leg's flinch
+	 * (location 4) */
+	if (damage == 0.0f)
+		return false;
+
+	bool mirror;
+
+	if (m_rleg_health <= 0.0f)
+	{
+		AnimType flinch = FindRandomDamageAnim((DAMAGE_LOCATION)4, &mirror);
+		WeaponHitAnim(flinch, GetStance(false), mirror);
+		return false;
+	}
+
+	CZProjectile::ResolveDamage(&m_rleg_health, &m_armor[4], damage, pierce);
+	f32 max = m_rleg_healthMax;
+	f32 health = m_rleg_health;
+	s32 level;
+
+	if (health <= max * 0.3f)
+		level = 3;
+	else if (!(max * 0.7f < health))
+		level = 2;
+	else if (health <= max * 0.9f)
+		level = 1;
+	else
+		level = 0;
+
+	if (level == 3 || level == 2)
+		m_limp = 1;
+
+	AnimType flinch = FindRandomDamageAnim((DAMAGE_LOCATION)4, &mirror);
+	WeaponHitAnim(flinch, GetStance(false), mirror);
+	return true;
 }
 
 /* @socom-skeleton stub DamageBody__10CZSealBodyFP12CZProjectile */
-bool CZSealBody::DamageBody(CZProjectile *)
+bool CZSealBody::DamageBody(CZProjectile *projectile)
 {
+	/* 0x294d10: single player: the projectile's first hit counts (the shooter's Hit, this
+	 * body's WasHit), then the damage at this body's position (a shotgun: the highest at any
+	 * part) with the ammo's armor pierce; a death records the killer. Network: only for an
+	 * unknown (id 0) or local shooter - the hit report (location 3), the flinch
+	 * (FlinchRArm), and the damage unless this body is remote. */
+	if (!theNetwork.m_bNetwork)
+	{
+		s32 id = projectile->m_shooterID;
+		CZSealBody *shooter = SealOfEntity(CEntity::m_list.GetEntityById(id));
+
+		if (projectile->m_isfirsthit)
+		{
+			projectile->m_isfirsthit = 0;
+
+			if (shooter != NULL)
+				shooter->m_stats.Hit(*shooter);
+
+			m_stats.WasHit(*this);
+		}
+
+		bool hit;
+
+		if (projectile->m_shottype == PROJECTILE_TYPE::ONE_FRAME_SHOTGUN)
+		{
+			f32 damage = FindHighestProximityDamage(projectile);
+			hit = DamageBody(damage, projectile->m_ammo->GetArmorPierce());
+		}
+		else
+		{
+			f32 damage = projectile->GetDamage(GetPosW(), 0.0f);
+			hit = DamageBody(damage, projectile->m_ammo->GetArmorPierce());
+		}
+
+		if (!m_isAlive)
+		{
+			m_killer_index = id;
+			HandleKiller(id);
+		}
+
+		return hit;
+	}
+
+	s32 id = projectile->m_shooterID;
+	CZSealBody *shooter = SealOfEntity(CEntity::m_list.GetEntityById(id));
+
+	if (id != 0 && (shooter == NULL
+		|| (shooter->m_control != NULL && static_cast<CSealCtrl *>(shooter->m_control)->IsRemote())))
+		return false;
+
+	s32 victim = m_id;
+	s32 from = projectile->m_shooterID;
+	u8 weapon = (u8)projectile->m_weapon->m_ID;
+	f32 damage = projectile->GetDamage(GetPosW(), 0.0f);
+	ReportWeaponHitDamage(from, victim, (DAMAGE_LOCATION)3, damage, projectile->m_ammo->GetArmorPierce(), projectile->m_isfirsthit, weapon);
+
+	if (projectile->m_isfirsthit)
+		projectile->m_isfirsthit = 0;
+
+	WeaponHitAnim(AnimType::animTypeFlinchRArm, GetStance(false), false);
+
+	if (m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsRemote())
+		return false;
+
+	if (projectile->m_shottype == PROJECTILE_TYPE::ONE_FRAME_SHOTGUN)
+	{
+		f32 near = FindHighestProximityDamage(projectile);
+		return DamageBody(near, projectile->m_ammo->GetArmorPierce());
+	}
+
+	f32 at = projectile->GetDamage(GetPosW(), 0.0f);
+	return DamageBody(at, projectile->m_ammo->GetArmorPierce());
 }
 
 /* @socom-skeleton body DamageBody__10CZSealBodyFff */
-bool CZSealBody::DamageBody(f32 damage, f32 multiplier)
+bool CZSealBody::DamageBody(f32 damage, f32 pierce)
 {
-	s8 retidx = 0;
-
+	/* 0x294b60: none once the body is spent or without damage; else the armor-resolved
+	 * damage (m_armor[3]), the reticle penalty (3 at 70% or less while above 10%) and the
+	 * body's flinch (location 3, also at 10% or less). Was a provisional body without the
+	 * flinch. */
 	if (m_body_health <= 0.0f || damage == 0.0f)
 		return false;
 
-	CZProjectile::ResolveDamage(&m_body_health, &m_armor[3], damage, multiplier);
+	CZProjectile::ResolveDamage(&m_body_health, &m_armor[3], damage, pierce);
+	f32 max = m_body_healthMax;
+	f32 health = m_body_health;
+	s32 level;
 
-	if (m_body_health <= m_body_healthMax * 0.1)
-	{
-		retidx = 4;
-	}
+	if (health <= max * 0.1f)
+		level = 4;
+	else if (health <= max * 0.3f)
+		level = 3;
+	else if (health <= max * 0.7f)
+		level = 2;
+	else if (health <= max * 0.9f)
+		level = 1;
 	else
-	{
-		retidx = 3;
+		level = 0;
 
-		if (m_body_healthMax * 0.3f < m_body_health)
-		{
-			if (m_body_health <= m_body_healthMax * 0.7f)
-			{
-				retidx = 2;
-			}
-			else
-			{
-				retidx = 0;
+	if (level == 3 || level == 2)
+		m_retmods += 3.0f;
 
-				if (m_body_health <= m_body_healthMax * 0.9f)
-				{
-					retidx = 1;
-				}
-			}
-		}
-			
-		if (retidx != 4 && retidx == 3 || retidx == 2)
-			m_retmods += 3.0f;
-
-		// AnimType damageAnim = FindRandomDamageAnim(DAMAGE_LOCATION::BODY);
-		SEAL_STATE stance = GetStance(false); /* port: GetStance returns SEAL_STATE */
-		// WeaponHitAnim(damageAnim, stance, false);
-		return true;
-	}
-
-	return false;
+	bool mirror;
+	AnimType flinch = FindRandomDamageAnim((DAMAGE_LOCATION)3, &mirror);
+	WeaponHitAnim(flinch, GetStance(false), mirror);
+	return true;
 }
 
 /* @socom-skeleton stub GetHeadDamage__10CZSealBodyFff */
@@ -3308,8 +4032,115 @@ int CZSealBody::GetBodyDamage(float, float)
 }
 
 /* @socom-skeleton stub UpdateHealth__10CZSealBodyF15DAMAGE_LOCATION15SEAL_DEATH_TYPE */
-void CZSealBody::UpdateHealth(DAMAGE_LOCATION, SEAL_DEATH_TYPE)
+void CZSealBody::UpdateHealth(DAMAGE_LOCATION location, SEAL_DEATH_TYPE death)
 {
+	/* 0x294210: the overall health from the parts: body and head weigh 4 each, the limbs 1,
+	 * over 12. Body: 1 above 90%, 0.75 above 70%, 0.5 above 30%, 0.25 above 10%; head: 1
+	 * above 99%, 0.5 above 50%, 0.1 above 0; limbs: 1 / 0.75 / 0.5 / 0.25 at the 90/70/30%
+	 * marks. A body at 10% or less or a head at 0 kills: health 0 with the death type, and
+	 * a body alive until now (not remote) falls with a death anim for the location, drops
+	 * its items, the player hears his death sound, the HUD shows the hit. Otherwise a lower
+	 * health shows the hit. */
+	bool was_alive = m_isAlive;
+	bool dead = false;
+	f32 h = m_body_health;
+	f32 max = m_body_healthMax;
+	f32 body;
+
+	if (h <= max * 0.1f)
+	{
+		dead = true;
+		body = 0.0f;
+	}
+	else if (h <= max * 0.3f)
+	{
+		body = 0.25f;
+	}
+	else if (!(max * 0.7f < h))
+	{
+		body = 0.5f;
+	}
+	else if (h <= max * 0.9f)
+	{
+		body = 0.75f;
+	}
+	else
+	{
+		body = 1.0f;
+	}
+
+	h = m_head_health;
+	f32 head;
+
+	if (h <= 0.0f)
+	{
+		dead = true;
+		head = 0.0f;
+	}
+	else if (h <= m_head_healthMax * 0.5f)
+	{
+		head = 0.1f;
+	}
+	else if (h <= m_head_healthMax * 0.99f)
+	{
+		head = 0.5f;
+	}
+	else
+	{
+		head = 1.0f;
+	}
+
+	auto limb = [](f32 health, f32 limit)
+	{
+		if (health <= limit * 0.3f)
+			return 0.25f;
+
+		if (!(limit * 0.7f < health))
+			return 0.5f;
+
+		if (health <= limit * 0.9f)
+			return 0.75f;
+
+		return 1.0f;
+	};
+	f32 lleg = limb(m_lleg_health, m_lleg_healthMax);
+	f32 rleg = limb(m_rleg_health, m_rleg_healthMax);
+	f32 rarm = limb(m_rarm_health, m_rarm_healthMax);
+	f32 larm = limb(m_larm_health, m_larm_healthMax);
+
+	if (dead)
+	{
+		SetHealth(0.0f, death);
+
+		if (!was_alive)
+			return;
+
+		if (!(m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsRemote()))
+		{
+			bool mirror;
+			AnimType anim = FindRandomDeathAnim(location, &mirror);
+			WeaponHitAnim(anim, SEAL_STATE::stateDead, false);
+		}
+
+		DropAllItems();
+
+		if (m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsPlayer())
+		{
+			CSnd *sound = CSnd::GetSoundByName("SND_PLAYER_DEATH_V2");
+
+			if (sound != NULL)
+				sound->PlaySound(NULL, 255);
+		}
+
+		m_hudwashit = 1;
+		return;
+	}
+
+	f32 old = m_health;
+	SetHealth((head * 4.0f + body * 4.0f + larm + rarm + rleg + lleg) / 12.0f, SEAL_DEATH_TYPE::DEATH_NONE);
+
+	if (m_health < old)
+		m_hudwashit = 1;
 }
 
 /* @socom-skeleton stub GetHudHitFlag__10CZSealBodyFv */
@@ -3508,13 +4339,174 @@ void CZSealBody::CheckForRegionTrigger(unsigned int)
 }
 
 /* @socom-skeleton stub WeaponHitAnim__10CZSealBodyF8AnimType10SEAL_STATEb */
-void CZSealBody::WeaponHitAnim(AnimType, SEAL_STATE, bool)
+void CZSealBody::WeaponHitAnim(AnimType anim, SEAL_STATE state, bool mirror)
 {
+	/* 0x291190: the hit (or death) anim of a local body. Carrying (state 9) only a death
+	 * plays (the carried body is dropped first); carried bodies, the stabbed and close-combat
+	 * victims and bodies already falling (FallForward01/FallBackward01: a death only marks
+	 * the top blend dead) keep their anim. A body dying already (top blend dead) replays a
+	 * death at most twice while its fall is 5..50% done (single player). A dead body takes a
+	 * death anim. A death clears to the base (a stance change: the stack under it; a ladder:
+	 * FallBackward01) with no peek and no control on the top blend; a peeking hit clears to
+	 * the base; a stance change clears under it; otherwise the hit plays over an
+	 * interruptible top blend (flag 0x40) or replaces an idle stretch/slouch. The pushed
+	 * blend's anim is mirrored (flag 0x40) when asked. */
+	if (m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsRemote())
+		return;
+
+	if (anim == AnimType::animTypeUndefined)
+		return;
+
+	if (m_state == 1 && m_carry != NULL)
+	{
+		m_carry->m_carry = NULL;
+		m_carry = NULL;
+	}
+
+	CZBodyAnimBlend *top = m_blends->Top();
+	s8 topstate = top->m_state;
+	CZBodyAnimBlend *pushed = NULL;
+
+	if (m_state == 9)
+	{
+		if (state != SEAL_STATE::stateDead || topstate == 8)
+			return;
+
+		DropBody();
+	}
+	else
+	{
+		if (m_state == 10)
+			return;
+
+		if (IsCurrentBlend((AnimType)AnimTypes::Stabbed) || IsCurrentBlend((AnimType)AnimTypes::CQBVictimFallBackwards)
+			|| IsCurrentBlend((AnimType)AnimTypes::CQBVictimFallForwards))
+			return;
+	}
+
+	if (IsCurrentBlend((AnimType)AnimTypes::FallForward01) || IsCurrentBlend((AnimType)AnimTypes::FallBackward01))
+	{
+		if (state == SEAL_STATE::stateDead)
+			top->m_state = 8;
+
+		return;
+	}
+
+	if (topstate == 8)
+	{
+		if (theNetwork.m_bNetwork)
+			return;
+
+		f32 t = top->m_tfrac;
+
+		if (!(t <= 0.5f) || t < 0.05f || !(m_numDeathAnimsPlayed < 2))
+			return;
+
+		AnimType death = FindRandomDeathAnim((DAMAGE_LOCATION)3, &mirror);
+		m_numDeathAnimsPlayed++;
+		ClearStack(1, true);
+		PushBlend(death, 8, false);
+		return;
+	}
+
+	if (!m_isAlive && state != SEAL_STATE::stateDead)
+	{
+		state = SEAL_STATE::stateDead;
+		anim = FindRandomDeathAnim((DAMAGE_LOCATION)3, &mirror);
+	}
+
+	auto changing = [this]()
+	{
+		return IsCurrentBlend(AnimType::animTypeStand2Crouch) || IsCurrentBlend(AnimType::animTypeCrouch2Prone)
+			|| IsCurrentBlend(AnimType::animTypeStand2Prone);
+	};
+
+	if (state == SEAL_STATE::stateDead)
+	{
+		m_blends->Top()->m_ctrl = 0;
+		m_desiredPeek = SEAL_PEEK::PEEK_NONE;
+
+		if (changing())
+		{
+			ClearStack(topstate == 0 ? 1 : 2, true);
+			m_carry = NULL;
+			pushed = PushBlend(anim, 8, false);
+		}
+		else if (m_state == 5)
+		{
+			ClearStack(1, true);
+			pushed = PushBlend((AnimType)AnimTypes::FallBackward01, 8, false);
+		}
+		else
+		{
+			ClearToBase(false);
+			pushed = PushBlend(anim, 8, false);
+		}
+	}
+	else if (m_state == 3)
+	{
+		ClearToBase(false);
+		pushed = PushBlend(anim, m_state, false);
+	}
+	else if (changing())
+	{
+		ClearStack(topstate == 0 ? 1 : 2, true);
+		m_carry = NULL;
+		pushed = PushBlend(anim, m_state, false);
+	}
+	else
+	{
+		if (m_state == 5 || m_state == 9)
+			return;
+
+		if (top->m_flags & 0x40)
+		{
+			pushed = PushBlend(anim, (u8)state, false);
+		}
+		else if (IsCurrentBlend((AnimType)AnimTypes::StandStretch) || IsCurrentBlend((AnimType)AnimTypes::Slouch)
+			|| IsCurrentBlend((AnimType)AnimTypes::SlouchSmoke))
+		{
+			PopBlend();
+			pushed = PushBlend(anim, (u8)state, false);
+		}
+	}
+
+	if (pushed != NULL && mirror)
+	{
+		CZBodyAnim *rep = pushed->Representative();
+		rep->m_flags = (rep->m_flags & 0xffbf) | 0x40;
+	}
 }
 
 /* @socom-skeleton stub ReportWeaponHitDamage__10CZSealBodyFii15DAMAGE_LOCATIONffbUc */
-void CZSealBody::ReportWeaponHitDamage(int, int, DAMAGE_LOCATION, float, float, bool, unsigned char)
+void CZSealBody::ReportWeaponHitDamage(int shooter, int victim, DAMAGE_LOCATION location, float damage, float pierce, bool first, unsigned char weapon)
 {
+	/* 0x291040 (network only): a seal shooter's hit goes out (SendHitMessage); a first hit
+	 * counts (the shooter's Hit, this body's WasHit); a first head hit (location 0) a head
+	 * shot */
+	if (!theNetwork.m_bNetwork)
+		return;
+
+	CZSealBody *seal = SealOfEntity(CEntity::m_list.GetEntityById(shooter));
+
+	if (seal != NULL)
+		SendHitMessage(shooter, victim, (int)location, damage, pierce, first, weapon);
+
+	if (first)
+	{
+		if (seal != NULL)
+			seal->m_stats.Hit(*seal);
+
+		m_stats.WasHit(*this);
+	}
+
+	if ((int)location == 0 && m_stats.m_headhits < 1)
+	{
+		if (seal != NULL)
+			seal->m_stats.HeadShot(*seal);
+
+		m_stats.m_headhits++;
+	}
 }
 
 /* @socom-skeleton stub GetMPStats__10CZSealBodyFP11MPSealStatsb */
@@ -3568,8 +4560,37 @@ void CZSealBody::SetRLegDamage(int)
 }
 
 /* @socom-skeleton stub FindHighestProximityDamage__10CZSealBodyFP12CZProjectile */
-float CZSealBody::FindHighestProximityDamage(CZProjectile *)
+float CZSealBody::FindHighestProximityDamage(CZProjectile *projectile)
 {
+	/* 0x290180 (shotgun hits): the largest damage the projectile does at any body part (with
+	 * an id and a node) placed in the world; none for the "player" node. The ELF walks a
+	 * copy of the part list. */
+	if (strcmp("player", m_node->m_name) == 0)
+		return 0.0f;
+
+	std::vector<CZBodyPart *> parts = m_body_parts;
+	f32 best = 0.0f;
+
+	for (std::vector<CZBodyPart *>::iterator it = parts.begin(); it != parts.end(); ++it)
+	{
+		CZBodyPart *part = *it;
+
+		if (part == NULL || part->m_id < 0 || part->m_node == NULL)
+			continue;
+
+		CPnt3D local;
+		CQuat rot;
+		PartInSpace(part, &CPnt3D::zero, &local, &rot);
+		CPnt3D world;
+		m_quat.Apply(&local, &world, 1);
+		world.Add(GetPosW(), &world);
+		f32 damage = projectile->GetDamage(&world, 0.0f);
+
+		if (!(damage <= best))
+			best = damage;
+	}
+
+	return best;
 }
 
 /* @socom-skeleton stub GetNumExplosiveHits__10CZSealBodyFP12CZProjectile */
@@ -3633,18 +4654,169 @@ void CZSealBody::SetArmor(DAMAGE_LOCATION location, float armor)
 }
 
 /* @socom-skeleton stub FindRandomDeathAnim__10CZSealBodyF15DAMAGE_LOCATIONPb */
-AnimType CZSealBody::FindRandomDeathAnim(DAMAGE_LOCATION, bool *)
+AnimType CZSealBody::FindRandomDeathAnim(DAMAGE_LOCATION location, bool *mirror)
 {
+	/* 0x28ee80: a random death anim for the hit location and stance (AnimSet tables
+	 * [location][stand/crouch/prone]; teammates of the player use the teammate table, the
+	 * player and the others the plain one; -1 for an empty list). The stance: a dead body's
+	 * base stance (and it is set dead), carried/carrying: standing, other states their base;
+	 * stunned: prone; during a stance change less than half done, the stance it left. A body
+	 * not in the dead state takes it as its desired state. The mirror flag is cleared. */
+	*mirror = false;
+	SEAL_STATE stance = GetStance(false);
+	u8 s = (u8)stance;
+
+	if (s == 8)
+	{
+		stance = BaseState();
+		BodySetState(8);
+	}
+	else if (s == 10 || s == 9)
+	{
+		stance = SEAL_STATE::stateStand;
+	}
+	else if (s != 2 && s != 1 && s != 0)
+	{
+		stance = BaseState();
+	}
+
+	if (m_am_stunned)
+		stance = SEAL_STATE::stateProne;
+
+	if (IsCurrentBlend(AnimType::animTypeStand2Crouch) || IsCurrentBlend(AnimType::animTypeCrouch2Prone)
+		|| IsCurrentBlend(AnimType::animTypeStand2Prone))
+	{
+		f32 t = m_blends->Top()->m_tfrac;
+		bool reversed = (m_blends->Top()->m_flags & 0x20) != 0;
+		bool early = reversed ? !(t <= 0.5f) : t < 0.5f;
+
+		if (early)
+		{
+			if (IsCurrentBlend(AnimType::animTypeStand2Crouch))
+				stance = reversed ? SEAL_STATE::stateCrouch : SEAL_STATE::stateStand;
+
+			if (IsCurrentBlend(AnimType::animTypeCrouch2Prone))
+				stance = reversed ? SEAL_STATE::stateProne : SEAL_STATE::stateCrouch;
+
+			if (IsCurrentBlend(AnimType::animTypeStand2Prone))
+				stance = reversed ? SEAL_STATE::stateProne : SEAL_STATE::stateStand;
+		}
+	}
+
+	if (m_state != 8)
+		m_desiredState = stance;
+
+	bool player = m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsPlayer();
+	std::vector<AnimType> *list;
+
+	if (!player && (ftsGetPlayer()->m_team & m_team) != 0)
+		list = &AnimSet::teammatedeathanim[(u8)location][(u8)stance];
+	else
+		list = &AnimSet::deathanim[(u8)location][(u8)stance];
+
+	s32 count = (s32)list->size();
+
+	if (count <= 0)
+		return AnimType::animTypeUndefined;
+
+	s32 pick = count == 1 ? 0 : rand() % count;
+	return (*list)[pick];
 }
 
 /* @socom-skeleton stub FindRandomDamageAnim__10CZSealBodyF15DAMAGE_LOCATIONPb */
-void CZSealBody::FindRandomDamageAnim(DAMAGE_LOCATION, bool *)
+AnimType CZSealBody::FindRandomDamageAnim(DAMAGE_LOCATION location, bool *mirror)
 {
+	/* 0x28ebb0: as FindRandomDeathAnim from the AnimSet damage table: idle, carried and
+	 * carrying count as standing; the stunned test comes after the stance-change one; the
+	 * desired state is set unless the body is dead (8), idle (7) or carrying/carried. */
+	*mirror = false;
+	SEAL_STATE stance = GetStance(false);
+	u8 s = (u8)stance;
+
+	if (s == 8)
+	{
+		stance = BaseState();
+		BodySetState(8);
+	}
+	else if (s == 10 || s == 9 || s == 7)
+	{
+		stance = SEAL_STATE::stateStand;
+	}
+	else if (s != 2 && s != 1 && s != 0)
+	{
+		stance = BaseState();
+	}
+
+	if (IsCurrentBlend(AnimType::animTypeStand2Crouch) || IsCurrentBlend(AnimType::animTypeCrouch2Prone)
+		|| IsCurrentBlend(AnimType::animTypeStand2Prone))
+	{
+		f32 t = m_blends->Top()->m_tfrac;
+		bool reversed = (m_blends->Top()->m_flags & 0x20) != 0;
+		bool early = reversed ? !(t <= 0.5f) : t < 0.5f;
+
+		if (early)
+		{
+			if (IsCurrentBlend(AnimType::animTypeStand2Crouch))
+				stance = reversed ? SEAL_STATE::stateCrouch : SEAL_STATE::stateStand;
+
+			if (IsCurrentBlend(AnimType::animTypeCrouch2Prone))
+				stance = reversed ? SEAL_STATE::stateProne : SEAL_STATE::stateCrouch;
+
+			if (IsCurrentBlend(AnimType::animTypeStand2Prone))
+				stance = reversed ? SEAL_STATE::stateProne : SEAL_STATE::stateStand;
+		}
+	}
+
+	if (m_am_stunned)
+		stance = SEAL_STATE::stateProne;
+
+	if (m_state != 8 && m_state != 7 && (u32)(m_state - 9) >= 2)
+		m_desiredState = stance;
+
+	std::vector<AnimType> &list = AnimSet::damageanim[(u8)location][(u8)stance];
+	s32 count = (s32)list.size();
+
+	if (count <= 0)
+		return AnimType::animTypeUndefined;
+
+	s32 pick = count == 1 ? 0 : rand() % count;
+	return list[pick];
 }
 
 /* @socom-skeleton stub DropAllItems__10CZSealBodyFv */
 void CZSealBody::DropAllItems()
 {
+	/* 0x28ea60 (a death): the ammo and every kit item drop - not for AI Navy SEALs in single
+	 * player; in a network game only the player's, and a carried MP bomb goes to the ground
+	 * (its satchel hidden). port: DropAmmo / DropItem (pickups) are not written yet. */
+	if (!theNetwork.m_bNetwork)
+	{
+		/* port: guard (the ELF asks the controller unchecked) */
+		CSealCtrlAi *ai = m_control != NULL ? static_cast<CSealCtrl *>(m_control)->GetSealCtrlAi() : NULL;
+
+		if (ai != NULL && ai->m_navyseal)
+			return;
+	}
+	else
+	{
+		if (!(m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsPlayer()))
+			return;
+
+		if (m_kit.HasItem(EQUIP_ITEM::MPBOMB))
+		{
+			CZBombState::RequestNewBombState(m_id, CZBombState::BOMB_GROUNDED, GetPosW());
+			zdb::CNode *satchel = FindAuxNode("Satchel", false);
+
+			if (satchel != NULL)
+				satchel->SetActive(false);
+		}
+	}
+
+	DropAmmo(-1);
+	s32 count = m_kit.GetNumItems();
+
+	for (s32 i = 0; i < count; i++)
+		DropItem(i, false);
 }
 
 /* @socom-skeleton stub DropAmmo__10CZSealBodyFi */
@@ -3678,8 +4850,55 @@ void CZSealBody::RemotePickupItem(CPickup *)
 }
 
 /* @socom-skeleton stub HandleKiller__10CZSealBodyFi */
-void CZSealBody::HandleKiller(int)
+void CZSealBody::HandleKiller(int id)
 {
+	/* 0x28da30 (once per killer): the killer (a seal) scores a kill, or loses one for a
+	 * teammate or itself; a dead hostage (team bit 17) counts for the killer and, in a
+	 * network game, ticks the hostages-killed valve of the killer's side (team bit 8: the
+	 * terrorists, bit 0: the SEALs). The death is counted. */
+	if (m_lastkiller_id == id)
+		return;
+
+	CZSealBody *killer = SealOfEntity(CEntity::m_list.GetEntityById(id));
+	m_lastkiller_id = id;
+	u32 team = m_team;
+
+	if (killer != NULL)
+	{
+		if (this == killer || (killer->m_team & team) != 0)
+			killer->m_stats.DeductKill(*killer);
+		else if ((m_team & killer->m_team) == 0)
+			killer->m_stats.Kill(*killer);
+
+		if ((team & 0x20000) != 0)
+		{
+			if (theMission.m_pNetGame != NULL)
+			{
+				u32 side = killer->m_team;
+				CValve *valve = NULL;
+
+				if (side & 0x100)
+					valve = theMission.m_pNetGame->m_HostagesKilledByTurdsValve;
+				else if (side & 1)
+					valve = theMission.m_pNetGame->m_HostagesKilledBySealsValve;
+
+				if (valve != NULL)
+				{
+					u32 old = valve->m_value;
+					u32 next = old + 1;
+					s32 state = old == next ? 0 : (next != 0 ? 1 : 2);
+					valve->m_value = next;
+
+					if (state != 0)
+						valve->MakeCallbacks((VALVE_STATE)state);
+				}
+			}
+
+			killer->m_stats.m_hostages++;
+		}
+	}
+
+	m_stats.Death(*this);
 }
 
 /* @socom-skeleton stub FillNetworkAmmoPickupValues__10CZSealBodyFP20CZAmmoPickupInstancePiPUsPUs */

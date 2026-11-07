@@ -610,10 +610,8 @@ void BitmapReticule::UpdateColor()
 	}
 	else if (!seal->m_kit.m_retblocked || (seal->m_kit.m_retblockedX <= m_retsize && seal->m_kit.m_retblockedY <= m_retsize))
 	{
-		/* port: not called - CZSealBody::GetReticuleSeal 0x29a800 (seal_env.cpp: the cached
-		 * reticule seal, or GetSeal of the reticule DI node) is an unwritten non-void stub
-		 * that would STOP the game; no seal under the reticule */
-		CZSealBody* target = NULL;
+		/* 0x3cee34: the seal under the reticule (its collision shapes, CheckDIShoot) */
+		CZSealBody* target = seal->GetReticuleSeal();
 		bool visible = false;
 		bool friendly = false;
 

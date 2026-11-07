@@ -2034,6 +2034,33 @@ void OKToStand(CZSealBody *)
 /* @socom-skeleton stub DropBody__10CZSealBodyFv */
 void CZSealBody::DropBody()
 {
+	/* 0x274030 (WeaponHitAnim: a carrier killed): while carrying (state 9) the carried body
+	 * is let go - detached, its blends popped down to the base (the last one, or the top,
+	 * loses its control), no peek, falling dead forward (FallForward01) with its own world
+	 * velocity as its in-air velocity; the carry ends. port: DetachBody is not written yet
+	 * (carrying needs the unwritten action menu). */
+	if (m_state != 9)
+		return;
+
+	CZSealBody *carried = m_carry;
+
+	if (carried != NULL)
+	{
+		carried->DetachBody();
+		CZBodyAnimBlend *top = carried->m_blends->Top();
+
+		while ((u32)(carried->m_blends->m_top + 1) >= 2)
+			top = carried->PopBlend();
+
+		if (top != NULL)
+			top->m_ctrl = 0;
+
+		carried->m_desiredPeek = SEAL_PEEK::PEEK_NONE;
+		carried->PushBlend((AnimType)AnimTypes::FallForward01, 8, false);
+		carried->m_inAirHorizVel = carried->m_velW;
+	}
+
+	m_carry = NULL;
 }
 
 /* @socom-skeleton stub FlingBody__10CZSealBodyFPC6CPnt3Dff */
@@ -2122,6 +2149,22 @@ SEAL_STATE CZSealBody::PeekBaseState()
 /* @socom-skeleton stub BaseState__10CZSealBodyFv */
 SEAL_STATE CZSealBody::BaseState()
 {
+	/* 0x2735f0: the stance of the topmost stand/crouch/prone blend (stand without one) */
+	for (s32 i = m_blends->m_top; i >= 0; i--)
+	{
+		s8 state = m_blends->m_stack[i]->m_state;
+
+		if (state == 0)
+			return SEAL_STATE::stateStand;
+
+		if (state == 1)
+			return SEAL_STATE::stateCrouch;
+
+		if (state == 2)
+			return SEAL_STATE::stateProne;
+	}
+
+	return SEAL_STATE::stateStand;
 }
 
 /* @socom-skeleton stub ClearToBase__10CZSealBodyFb */

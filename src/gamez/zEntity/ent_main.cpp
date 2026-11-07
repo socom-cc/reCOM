@@ -366,8 +366,19 @@ CEntity * CEntityList::GetEntity(const char *) const
 }
 
 /* @socom-skeleton stub GetEntityById__11CEntityListCFUi */
-CEntity * CEntityList::GetEntityById(unsigned int) const
+CEntity * CEntityList::GetEntityById(unsigned int id) const
 {
+	/* 0x1ee190: the listed entity with the id; none for CEntity::invalidId */
+	if (id == (unsigned int)CEntity::invalidId)
+		return NULL;
+
+	for (const_iterator it = begin(); it != end(); ++it)
+	{
+		if ((*it)->m_id == id)
+			return *it;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub GetEntityByIndex__11CEntityListCFUi */

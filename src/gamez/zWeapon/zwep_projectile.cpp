@@ -889,11 +889,94 @@ void CZProjectile::SetInstance(zdb::CNode *node)
 /* @socom-skeleton stub GetExplosionDamage__12CZProjectileFv */
 float CZProjectile::GetExplosionDamage()
 {
+	/* 0x317ca0 */
+	return m_ammo->GetExplosionDamage();
 }
 
 /* @socom-skeleton stub GetDamage__12CZProjectileFPC6CPnt3Df */
-float CZProjectile::GetDamage(const CPnt3D *, float)
+float CZProjectile::GetDamage(const CPnt3D *at, float min)
 {
+	/* 0x317800: the ammo's impact damage at `at`, falling off linearly from the weapon's
+	 * effective range to its max range (none when that span is empty); without impact damage
+	 * the explosion damage, full to half the radius, then down to none at the radius (both
+	 * from the projectile's position). None or below `min`: 0, else the FTS resolution. A
+	 * claymore does a 16th outside its blast cone (along its -z), a shotgun nothing outside
+	 * its cone (along its velocity from the frame start); the cones are as long as the
+	 * explosion radius, radius x tan(84.375 deg) wide. */
+	const CMatrix &m = m_instance->m_matrix;
+	CPnt3D pos(m.m_matrix[3][0], m.m_matrix[3][1], m.m_matrix[3][2]);
+	CPnt3D d;
+	pos.Sub(at, &d);
+	f32 dist = sqrtf(d.x * d.x + d.y * d.y + d.z * d.z);
+	f32 damage = m_ammo->GetImpactDamage();
+	f32 effective = m_weapon->GetEffectiveRange();
+
+	if (!(dist <= effective))
+	{
+		f32 span = m_weapon->GetMaxRange() - effective;
+
+		if (span <= 0.0f)
+			damage = 0.0f;
+		else
+			damage = damage * (1.0f - (dist - effective) / span);
+	}
+
+	if (damage == 0.0f)
+	{
+		damage = m_ammo->GetExplosionDamage();
+		const CMatrix &n = m_instance->m_matrix;
+		CPnt3D at_blast(n.m_matrix[3][0], n.m_matrix[3][1], n.m_matrix[3][2]);
+		CPnt3D e;
+		at_blast.Sub(at, &e);
+		f32 r = sqrtf(e.x * e.x + e.y * e.y + e.z * e.z) / m_ammo->GetExplosionRadius();
+
+		if (!(r <= 1.0f))
+			damage = 0.0f;
+		else if (!(r <= 0.5f))
+			damage = damage * (1.0f - (r - 0.5f) * 2.0f);
+	}
+
+	f32 result;
+
+	if (damage == 0.0f || damage < min)
+		result = 0.0f;
+	else
+		result = CZFTSWeapon::ResolveFTSDamage(damage);
+
+	if (m_weapon->m_ID == EQUIP_ITEM::CLAYMORE)
+	{
+		const CMatrix &c = m_instance->m_matrix;
+		CPnt3D origin(c.m_matrix[3][0], c.m_matrix[3][1], c.m_matrix[3][2]);
+		CPnt3D dir(-c.m_matrix[2][0], -c.m_matrix[2][1], -c.m_matrix[2][2]);
+		f32 radius = m_ammo->GetExplosionRadius();
+		CAiCone cone; /* ELF: m_dot, m_vec and the cone position/direction are left unset */
+		cone.m_radius = (f32)((double)radius * tan((double)1.4726216f));
+		cone.m_height = radius;
+		cone.m_point_radius = 0.0f;
+		cone.m_inv_height = 1.0f / radius;
+
+		if (!cone.ContainsPoint(&origin, &dir, at))
+			result = result / 16.0f;
+
+		return result;
+	}
+
+	if (m_weapon->GetIDType() == EQUIP_ITEM::EQUIP_SHOTGUN)
+	{
+		CPnt3D dir = m_vel;
+		dir.Normalize();
+		f32 radius = m_ammo->GetExplosionRadius();
+		CAiCone cone;
+		cone.m_radius = (f32)((double)radius * tan((double)1.4726216f));
+		cone.m_height = radius;
+		cone.m_point_radius = 0.0f;
+		cone.m_inv_height = 1.0f / radius;
+
+		if (!cone.ContainsPoint(&m_framestartpos, &dir, at))
+			result = 0.0f;
+	}
+
+	return result;
 }
 
 /* @socom-skeleton stub GetDamage__12CZProjectileFPC6CPnt3DPfPff */

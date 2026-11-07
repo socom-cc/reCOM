@@ -41,6 +41,35 @@
 /* @socom-skeleton decl include */
 #include "zentity.h"
 /* @socom-skeleton end include */
+#include <algorithm>
+
+/* port: CRobin has no DWARF record; layout and setup from CRobin::setup 0x1f0180 (this
+ * unit's round robin over the entity list in UpdateTargetList). As read from the asm: with
+ * at least `count` entities the first `count` indices are always inside (m_wrap = count);
+ * with fewer, the window's overflow past the end wraps to the front. */
+struct CRobin
+{
+	s32 m_first;
+	s32 m_end;
+	s32 m_count;
+	s32 m_total;
+	s32 m_wrap;
+
+	void setup(s32 first, s32 count, s32 total)
+	{
+		m_first = first;
+		m_count = count;
+		m_total = total;
+		m_end = m_first + m_count;
+
+		if (!(total < count))
+			m_wrap = count;
+		else if (total < m_end)
+			m_wrap = m_end - total;
+		else
+			m_wrap = 0;
+	}
+};
 
 /* @socom-skeleton stub rrTargetListCount__7CEntity */
 int CEntity::rrTargetListCount = 2;
@@ -58,13 +87,23 @@ std::list<CEntity*> CEntity::m_target_add; /* entities to add to them */
 std::list<CEntity*> CEntity::m_target_rem; /* entities to remove from them */
 
 /* @socom-skeleton stub _sort_target__FRC7CTargetRC7CTarget */
-bool _sort_target(const CTarget &, const CTarget &)
+bool _sort_target(const CTarget &a, const CTarget &b)
 {
+	/* 0x1f0d70: nearer first */
+	return a.m_distSq < b.m_distSq;
 }
 
 /* @socom-skeleton stub SetUpdateTargetList__7CEntityFb */
-void CEntity::SetUpdateTargetList(bool)
+void CEntity::SetUpdateTargetList(bool update)
 {
+	/* 0x1f0d00: switching the target list off empties it */
+	if (update == (bool)m_update_targetlist)
+		return;
+
+	if (!update)
+		m_targets.clear();
+
+	m_update_targetlist = update;
 }
 
 /* @socom-skeleton stub SetIncludeInTargetList__7CEntityFb */
@@ -102,10 +141,120 @@ void CEntity::ReplaceTargetList(CEntity *, CEntity *)
 }
 
 /* @socom-skeleton stub OnUpdateTargetList__7CEntityFbb */
-void CEntity::OnUpdateTargetList(bool, bool)
+bool CEntity::OnUpdateTargetList(bool force, bool sort)
 {
+	/* 0x1f0380 (UpdateTargetList, every entity that keeps a target list, each frame): one
+	 * CTarget per other listed entity (m_target_inc) with the vector to it and its squared
+	 * distance (CTarget::Update inline; no entity: 1e6 away along z). When the count changed
+	 * (or forced) the list is rebuilt in m_target_inc order and, with `sort`, sorted near to
+	 * far. Otherwise the targets are refreshed in place; one that is nearer than the one
+	 * before it by more than range_tolerance (100) and within m_max_target_range_sq marks the
+	 * list unsorted, and with `sort` the list is sorted up to the last such target. True
+	 * when sorted. */
 	/* @socom-skeleton stub range_tolerance$1225 */
-	static float range_tolerance;
+	static float range_tolerance = 100.0f; /* ELF: set to 100 by the first call (init flag) */
+
+	auto update = [this](CTarget *target, CEntity *ent)
+	{
+		if (ent == NULL)
+		{
+			target->m_vec.x = 0.0f;
+			target->m_vec.y = 0.0f;
+			target->m_vec.z = 1e6f;
+		}
+		else
+		{
+			ent->GetPosW()->Sub(GetPosW(), &target->m_vec);
+		}
+
+		target->m_distSq = target->m_vec.z * target->m_vec.z + target->m_vec.x * target->m_vec.x + target->m_vec.y * target->m_vec.y;
+		target->m_d_computed = 0;
+
+		if (target->m_ent != ent)
+		{
+			target->m_ent = ent;
+			target->m_aware = 0.0f;
+			target->m_visible = 0;
+			target->m_known = 0;
+			target->m_hostile = 0;
+			target->m_targeted = 0;
+			target->m_diHandle = 0;
+		}
+	};
+
+	u32 size = m_targets.size();
+	u32 want = m_target_inc.size();
+
+	if (m_include_in_targetlist)
+		want--;
+
+	bool unsorted = false;
+	CTarget *sort_end = m_targets.data() + size;
+
+	if (force || want != size)
+	{
+		m_targets.resize(want);
+		CTarget *target = m_targets.data();
+		sort_end = target + m_targets.size();
+
+		for (std::list<CEntity *>::iterator it = m_target_inc.begin(); it != m_target_inc.end(); ++it)
+		{
+			CEntity *ent = *it;
+
+			if (ent == this)
+				continue;
+
+			if (target == sort_end) /* port: guard (the ELF writes past the end if this entity is included but not yet listed) */
+				break;
+
+			update(target, ent);
+			target++;
+		}
+
+		unsorted = true;
+	}
+	else
+	{
+		CTarget *target = m_targets.data();
+		CTarget *end = target + m_targets.size();
+		f32 limit = 0.0f;
+
+		for (; target != end; target++)
+		{
+			update(target, target->m_ent);
+			f32 dist = target->m_distSq;
+
+			if (dist < limit && dist < m_max_target_range_sq)
+			{
+				unsorted = true;
+				break;
+			}
+
+			limit = dist - range_tolerance;
+		}
+
+		if (unsorted)
+		{
+			sort_end = ++target;
+
+			for (; target != end; target++)
+			{
+				update(target, target->m_ent);
+				f32 dist = target->m_distSq;
+
+				if (dist < limit && !(m_max_target_range_sq <= dist))
+					sort_end = target + 1;
+			}
+		}
+	}
+
+	if (sort && unsorted)
+	{
+		std::sort(m_targets.data(), sort_end, _sort_target);
+		return true;
+	}
+
+	return false;
 }
 
 /* @socom-skeleton stub RefreshAwareCounters__7CEntityFv */
@@ -116,24 +265,169 @@ void CEntity::RefreshAwareCounters()
 /* @socom-skeleton stub UpdateTargetList__7CEntityFb */
 void CEntity::UpdateTargetList(bool)
 {
+	/* 0x1efbf0 (PreTickAll each frame; the mission start): every entity first updates its AI
+	 * map location. Pending removals leave every target list (and m_target_inc); else
+	 * pending additions join every keeping entity's list (a CTarget each, updated) and
+	 * m_target_inc; else the target lists are refreshed, sorted round robin: index 0, the
+	 * indices below the robin's wrap and the robin window [first, first + count) sort; a
+	 * window entity that did not sort widens the window by one; the next window starts after
+	 * the ones that sorted. The bool argument is not read. */
+	bool located = false;
+
+	if (!m_target_rem.empty())
+	{
+		for (CEntityList::iterator it = m_list.begin(); it != m_list.end(); ++it)
+		{
+			CEntity *ent = *it;
+			ent->UpdateAiMapLoc(located);
+
+			for (std::list<CEntity *>::iterator r = m_target_rem.begin(); r != m_target_rem.end(); ++r)
+			{
+				CEntity *gone = *r;
+				CTarget *first = ent->m_targets.data();
+				CTarget *last = first + ent->m_targets.size();
+				CTarget *keep = std::remove_if(first, last, [gone](const CTarget &t) { return t.m_ent == gone; });
+				ent->m_targets.erase(ent->m_targets.begin() + (keep - first), ent->m_targets.end());
+			}
+		}
+
+		for (std::list<CEntity *>::iterator r = m_target_rem.begin(); r != m_target_rem.end(); ++r)
+			m_target_inc.remove(*r);
+
+		m_target_rem.clear();
+		return;
+	}
+
+	if (!m_target_add.empty())
+	{
+		for (CEntityList::iterator it = m_list.begin(); it != m_list.end(); ++it)
+		{
+			CEntity *ent = *it;
+			ent->UpdateAiMapLoc(located);
+
+			if (!ent->m_update_targetlist)
+				continue;
+
+			for (std::list<CEntity *>::iterator a = m_target_add.begin(); a != m_target_add.end(); ++a)
+			{
+				CEntity *added = *a;
+
+				if (ent == added)
+					continue;
+
+				CTarget target;
+				ent->m_targets.insert(ent->m_targets.end(), target);
+				ent->m_targets.back().Update(ent, added);
+			}
+		}
+
+		for (std::list<CEntity *>::iterator a = m_target_add.begin(); a != m_target_add.end(); ++a)
+			m_target_inc.insert(m_target_inc.end(), *a);
+
+		m_target_add.clear();
+		return;
+	}
+
+	CRobin robin;
+	robin.setup(rrTargetListFirst, rrTargetListCount, m_list.size());
+	s32 sorted = 0;
+	s32 index = 0;
+
+	for (CEntityList::iterator it = m_list.begin(); it != m_list.end(); ++it, index++)
+	{
+		bool window = index == 0 || index < robin.m_wrap || (robin.m_first <= index && index < robin.m_end);
+		CEntity *ent = *it;
+		ent->UpdateAiMapLoc(located);
+		bool did = false;
+
+		if (ent->m_update_targetlist)
+			did = ent->OnUpdateTargetList(false, window);
+
+		if (window && !did)
+			robin.setup(robin.m_first, robin.m_count + 1, robin.m_total);
+		else if (did)
+			sorted++;
+	}
+
+	rrTargetListFirst = robin.m_first + sorted;
+
+	if (robin.m_total <= rrTargetListFirst)
+		rrTargetListFirst = robin.m_total == 0 ? 0 : rrTargetListFirst % robin.m_total;
 }
 
 /* @socom-skeleton stub FindTarget__11CTargetListFP7CEntity */
-CTarget * CTargetList::FindTarget(CEntity *)
+CTarget * CTargetList::FindTarget(CEntity *ent)
 {
+	/* 0x1efba0: the target for the entity, NULL if it is not in the list */
+	for (iterator it = begin(); it != end(); ++it)
+	{
+		if (it->m_ent == ent)
+			return &*it;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub __ct__7CTargetFv */
 CTarget::CTarget()
 {
+	/* 0x1efad0: m_vec is left unset (ELF) */
+	m_ent = NULL;
+	m_distSq = 0.0f;
+	m_dist = 0.0f;
+	m_visibility = 0.0f;
+	m_aware = 0.0f;
+	m_diHandle = 0;
+	m_d_computed = 0;
+	m_known = 0;
+	m_visible = 0;
+	m_hostile = 0;
+	m_targeted = 0;
+	m_unused = 0;
 }
 
 /* @socom-skeleton stub Update__7CTargetFP7CEntityP7CEntity */
-float CTarget::Update(CEntity *, CEntity *)
+float CTarget::Update(CEntity *owner, CEntity *ent)
 {
+	/* 0x1ef980: the vector from the owner to the entity (none: 1e6 away along z) and its
+	 * squared distance; a new entity resets the perception state. Returns m_distSq. */
+	if (ent == NULL)
+	{
+		m_vec.x = 0.0f;
+		m_vec.y = 0.0f;
+		m_vec.z = 1e6f;
+	}
+	else
+	{
+		ent->GetPosW()->Sub(owner->GetPosW(), &m_vec);
+	}
+
+	m_distSq = m_vec.z * m_vec.z + m_vec.x * m_vec.x + m_vec.y * m_vec.y;
+	m_d_computed = 0;
+
+	if (m_ent != ent)
+	{
+		m_ent = ent;
+		m_aware = 0.0f;
+		m_visible = 0;
+		m_known = 0;
+		m_hostile = 0;
+		m_targeted = 0;
+		m_diHandle = 0;
+	}
+
+	return m_distSq;
 }
 
 /* @socom-skeleton stub GetRange__7CTargetFv */
 float CTarget::GetRange()
 {
+	/* 0x1ef920: the distance, computed once per update */
+	if (!m_d_computed)
+	{
+		m_dist = sqrtf(m_distSq);
+		m_d_computed = 1;
+	}
+
+	return m_dist;
 }

@@ -202,6 +202,7 @@
 #include "zseal.h"
 
 #include "gamez/zAI/zai.h"
+#include <float.h> /* FLT_MAX (collideCylinders) */
 #include "gamez/zNode/znode.h"
 
 /* @socom-skeleton decl include */
@@ -1038,8 +1039,7 @@ void CZSealBody::UpdateLODFlags()
 	 * any other controller sets it on every target and on itself. This body, rendered,
 	 * blinks, interpolates, leans and recoils; its footsteps always animate. ELF quirks
 	 * kept: a zoomed target beyond 250 keeps its blink flag; the player's own collision
-	 * flag is never cleared here. port: the ELF's target list holds CTargets by value (40
-	 * bytes); the port's CTargetList holds pointers (zentity.h). */
+	 * flag is never cleared here. */
 	const f32 blink = 6400.0f;
 	const f32 blink_zoomed = 62500.0f;
 	const f32 detail = 250000.0f;
@@ -1047,7 +1047,7 @@ void CZSealBody::UpdateLODFlags()
 
 	for (CTargetList::iterator it = m_targets.begin(); it != m_targets.end(); ++it)
 	{
-		CTarget *target = *it;
+		CTarget *target = &*it;
 		CEntity *ent = target->m_ent;
 		CZSealBody *seal = ent != NULL && ent->m_type == CEntity::ENT_TYPE_SEAL ? static_cast<CZSealBody *>(ent) : NULL;
 
@@ -1641,13 +1641,232 @@ void CZSealBody::PostTick(float dT)
 }
 
 /* @socom-skeleton stub collideCylinders__FfffffffffffffR6CPnt3DR6CPnt3D */
-void collideCylinders(float, float, float, float, float, float, float, float, float, float, float, float, float, CPnt3D &, CPnt3D &)
+bool collideCylinders(float ox, float oy, float oz, float orad, float oheight, float sx, float sy, float sz, float srad, float sheight, float dx, float dy, float dz, CPnt3D &at, CPnt3D &normal)
 {
+	/* 0x254d90 (CollidePlayers): whether the upright cylinder at s (radius srad, height
+	 * sheight, base at sy) moving by d hits the one at o within the move. The vertical
+	 * overlap bounds the move fraction [t0, t1] (without vertical motion the spans must
+	 * overlap: [0, 1]); the horizontal circles (radii summed) meet at the quadratic's roots.
+	 * The first contact inside the move: at = s + t d, normal = the horizontal unit vector
+	 * from o to it. port: the PS2 FPU's x / 0 is the largest float, kept for a move with no
+	 * horizontal part. */
+	f32 t0 = 0.0f;
+	f32 t1;
+
+	if (dy == 0.0f)
+	{
+		if (!(sy <= oy + oheight))
+			return false;
+
+		if (!(oy <= sy + sheight))
+			return false;
+
+		t1 = 1.0f;
+	}
+	else
+	{
+		f32 inv = 1.0f / dy;
+
+		if (!(dy <= 0.0f))
+		{
+			t0 = inv * ((oy - sy) - sheight);
+			t1 = inv * ((oy + oheight) - sy);
+		}
+		else
+		{
+			t0 = inv * ((oy + oheight) - sy);
+			t1 = inv * ((oy - sy) - sheight);
+		}
+
+		if (t1 < 0.0f)
+			return false;
+
+		if (!(t0 <= 1.0f))
+			return false;
+
+		if (t0 < 0.0f)
+			t0 = 0.0f;
+
+		if (!(t1 <= 1.0f))
+			t1 = 1.0f;
+	}
+
+	f32 ex = ox - sx;
+	f32 ez = oz - sz;
+	f32 sum = orad + srad;
+	f32 a = dx * dx + dz * dz;
+	f32 b = ex * dx + ez * dz;
+	f32 c = (ex * ex + ez * ez) - sum * sum;
+	f32 disc = b * b - a * c;
+
+	if (disc < 0.0f)
+		return false;
+
+	f32 root = sqrtf(disc);
+	f32 inv = a != 0.0f ? 1.0f / a : FLT_MAX;
+	f32 lo = inv * (b - root);
+	f32 hi = inv * (b + root);
+
+	if (!(t0 <= hi))
+		return false;
+
+	if (t1 < lo)
+		return false;
+
+	f32 t = t0 <= lo ? lo : t0;
+	at.x = sx + t * dx;
+	at.y = sy + t * dy;
+	at.z = sz + t * dz;
+	normal.x = at.x - ox;
+	normal.y = 0.0f;
+	normal.z = at.z - oz;
+	normal.Normalize();
+	return true;
 }
 
 /* @socom-skeleton stub CollidePlayers__10CZSealBodyFR6CPnt3D */
-void CZSealBody::CollidePlayers(CPnt3D &)
+bool CZSealBody::CollidePlayers(CPnt3D &dpos)
 {
+	/* 0x2545e0 (ComputeNextPosition: this frame's move dpos): a live body that checks player
+	 * collision (UpdateLODFlags) against the seals in its target list. Cylinders by state:
+	 * prone radius 8 height 6, crouched 5.5 / 15, else 3.5 / 19.1 (a dead seal counts as
+	 * prone). A standing or crouched (or carrying) body not dying only asks for the
+	 * character altitude over a prone or dead seal (it can step on it). Skipped: inactive
+	 * seals, its carrier, the one it carries, and seals beyond 2.5 x (radii sum squared plus
+	 * the player's fire point reach). The player's fire point (moved) is pushed out of the
+	 * other's radius horizontally. Within the radii sum (squared distance), a seal in the
+	 * way of the move (x/z extents) whose cylinder the move hits removes the move's and the
+	 * in-air velocity's parts into the contact normal. True when something was pushed. */
+	bool hit = false;
+	m_QueryCharacterAltitude = 0;
+
+	if (!m_isAlive || !m_check_player_collision)
+		return false;
+
+	const CMatrix &self = m_node->m_matrix;
+	f32 px = self.m_matrix[3][0];
+	f32 py = self.m_matrix[3][1];
+	f32 pz = self.m_matrix[3][2];
+	s8 state = m_state;
+	f32 radius = state == 2 ? 8.0f : (state == 1 ? 5.5f : 3.5f);
+	f32 height = state == 2 ? 6.0f : (state == 1 ? 15.0f : 19.1f);
+	f32 reach = 0.0f;
+
+	if (m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsPlayer())
+		reach = m_curr_firepos.x * m_curr_firepos.x + m_curr_firepos.z * m_curr_firepos.z;
+
+	s8 top = m_blends->Top()->m_state;
+	bool upright = top != 8 && (state == 0 || state == 1 || state == 9);
+
+	for (CTargetList::iterator it = m_targets.begin(); it != m_targets.end(); ++it)
+	{
+		CTarget *target = &*it;
+		CZSealBody *seal = SealOfEntity(target->m_ent);
+
+		if (seal == NULL)
+			continue;
+
+		bool low = seal->m_state == 2 || seal->m_state == 8;
+
+		if (!seal->GetNode()->m_active || seal->m_carry == this || m_carry == seal)
+			continue;
+
+		if (low && upright)
+		{
+			m_QueryCharacterAltitude = 1;
+			continue;
+		}
+
+		f32 other = low ? 8.0f : (seal->m_state == 1 ? 5.5f : 3.5f);
+		f32 near = (radius + other) * (radius + other);
+
+		if (!(target->m_distSq < (near + reach) * 2.5f))
+			continue;
+
+		const CMatrix &om = seal->GetNode()->m_matrix;
+		CPnt3D at(om.m_matrix[3][0], om.m_matrix[3][1], om.m_matrix[3][2]);
+
+		if (m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsPlayer())
+		{
+			const CPnt3D *pos = reinterpret_cast<const CPnt3D *>(&m_node->m_matrix.m_matrix[3][0]);
+			CPnt3D fire;
+			pos->Add(&m_curr_firepos, &fire);
+			CPnt3D moved;
+			fire.Add(&dpos, &moved);
+			CPnt3D gap(moved.x, at.y, moved.z);
+			gap.Sub(&at, &gap);
+			f32 dist = sqrtf(gap.x * gap.x + gap.y * gap.y + gap.z * gap.z);
+
+			if (dist < other)
+			{
+				f32 push = other - dist;
+				CPnt3D away;
+				reinterpret_cast<const CPnt3D *>(&m_node->m_matrix.m_matrix[3][0])->Sub(&at, &away);
+				away.y = 0.0f;
+				f32 len = sqrtf(away.x * away.x + away.z * away.z);
+
+				if (len != 0.0f)
+				{
+					away.x *= 1.0f / len;
+					away.z *= 1.0f / len;
+				}
+
+				CPnt3D shove;
+				away.Scale(push, &shove);
+				dpos.Add(&shove, &dpos);
+				hit = true;
+			}
+		}
+
+		if (!(target->m_distSq < near))
+			continue;
+
+		f32 dx = dpos.x;
+		f32 dz = dpos.z;
+		f32 sum = other + radius;
+
+		if (!(dx <= 0.0f) && (at.x < px - sum || !(at.x <= sum + (px + dx))))
+			continue;
+
+		if (dx < 0.0f && (at.x < px + (dx - sum) || !(at.x <= px + sum)))
+			continue;
+
+		if (!(dz <= 0.0f) && (at.z < pz - sum || !(at.z <= sum + (pz + dz))))
+			continue;
+
+		if (dz < 0.0f && (at.z < pz + (dz - sum) || !(at.z <= pz + sum)))
+			continue;
+
+		s8 ostate = seal->m_state;
+		f32 oheight = ostate == 2 ? 6.0f : (ostate == 1 ? 15.0f : 19.1f);
+		CPnt3D contact;
+		CPnt3D normal;
+
+		if (!collideCylinders(at.x, at.y, at.z, other, oheight, px, py, pz, radius, height, dpos.x, dpos.y, dpos.z, contact, normal))
+			continue;
+
+		f32 into = dpos.x * normal.x + dpos.y * normal.y + dpos.z * normal.z;
+
+		if (into < 0.0f)
+		{
+			CPnt3D cut;
+			normal.Scale(into, &cut);
+			dpos.Sub(&cut, &dpos);
+		}
+
+		into = m_inAirHorizVel.x * normal.x + m_inAirHorizVel.y * normal.y + m_inAirHorizVel.z * normal.z;
+
+		if (into < 0.0f)
+		{
+			CPnt3D cut;
+			normal.Scale(into, &cut);
+			m_inAirHorizVel.Sub(&cut, &m_inAirHorizVel);
+		}
+
+		hit = true;
+	}
+
+	return hit;
 }
 
 /* @socom-skeleton stub HandleSliding__10CZSealBodyFf */
@@ -2576,11 +2795,124 @@ void CZSealBody::NormalizeToTerrain()
 }
 
 /* @socom-skeleton body OnDeath__10CZSealBodyFv */
-void CZSealBody::OnDeath() {}
+void CZSealBody::OnDeath()
+{
+	/* 0x24f6d0 (SetHealth at 0 health): the entity dies (CEntity::OnDeath: not alive, the
+	 * controller told), its AI map cell is freed, the time noted. The local player's view
+	 * loses its lens effects, night vision and binoculars, goes back to third person, the
+	 * listener dies and the pad rumbles. Single player: the team valves count it down
+	 * (port: not written yet). Network: a "fragged" message for a seal killer, the remote
+	 * voice messages (a hostage's own), and the team valves are recounted. */
+	CEntity::OnDeath();
+	AiMaps.SetOccupied(m_mapLocValid, reinterpret_cast<const CAiMapLoc &>(CAiMapLoc::invalid), m_id);
+	m_time_of_death = theMission.m_timer;
+
+	if (m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsPlayer()
+		&& !(m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsRemote()))
+	{
+		CSnd::OnListenerDeath();
+		CZKit *kit = &m_kit;
+
+		if (kit != NULL)
+		{
+			kit->Apply_LensEffects(false, NULL);
+			kit->NVG_Enabled(false);
+			kit->Binocs_Enabled(false);
+		}
+
+		SetCurZoomState(ZOOMSTATE::ZOOMSTATE_3RDPERSON);
+		CSealCtrl *control = static_cast<CSealCtrl *>(m_control);
+
+		if (control != NULL)
+		{
+			control->StopRumbler();
+			control->SetLowRumbleTime(0.18f, 175.0f);
+			control->SetHighRumbleTime(0.04f);
+		}
+	}
+
+	if (!theNetwork.m_bNetwork)
+	{
+		theMission.DecrementTeamValves(this);
+		return;
+	}
+
+	u32 team = m_team;
+	s32 shift = (team & 1) == 0 ? 8 : 0;
+
+	if ((team & 0x20000) != 0)
+	{
+		PlayRemoteMsg(this, 62);
+	}
+	else
+	{
+		CZSealBody *killer = SealOfEntity(CEntity::m_list.GetEntityById(m_killer_index));
+
+		if (killer != NULL)
+		{
+			char text[264];
+			sprintf(text, "%s fragged %s with %s", killer->m_display_name, m_display_name,
+				CZWeapon::GetWeaponName((EQUIP_ITEM)(u8)m_killer_weapon_index));
+			theMission.m_messenger.Add_Message(text, 255, 74, 8);
+		}
+
+		if (ftsGetPlayer() != this)
+		{
+			u32 state = static_cast<CSealCtrl *>(m_control)->GetAiNetState();
+
+			if (((state >> 30) & 1) == 0)
+			{
+				if (((1 << shift) & ftsGetPlayer()->m_team) != 0)
+					PlayRemoteMsg(this, 37);
+				else
+					PlayRemoteMsg(this, 36);
+			}
+		}
+	}
+
+	theMission.RefreshTeamValves();
+}
 
 /* @socom-skeleton stub SetHealth__10CZSealBodyFf15SEAL_DEATH_TYPE */
-float CZSealBody::SetHealth(float, SEAL_DEATH_TYPE)
+float CZSealBody::SetHealth(float health, SEAL_DEATH_TYPE death)
 {
+	/* 0x24f590: an unchanged health does nothing. An invincible body keeps 0.1. A dead body
+	 * given health lives again (back in the target lists); a live body brought to 0 dies
+	 * with the death type (OnDeath); otherwise the controller hears the change (new, old).
+	 * Returns the health. */
+	f32 old = m_health;
+
+	if (old == health)
+		return old;
+
+	if (health <= 0.0f && m_invincible)
+		health = 0.1f;
+
+	bool alive = m_isAlive;
+	m_health = health;
+	CSealCtrl *control = static_cast<CSealCtrl *>(m_control);
+
+	if (!alive && !(health <= 0.0f))
+	{
+		if (control != NULL) /* port: guard (unchecked in the ELF) */
+			control->OnSetHealth(health, old);
+
+		m_isAlive = 1;
+		SetIncludeInTargetList(true);
+		return m_health;
+	}
+
+	if (alive && health <= 0.0f)
+	{
+		m_deathType = death;
+		OnDeath();
+		return m_health;
+	}
+
+	if (control != NULL) /* port: guard (unchecked in the ELF) */
+		control->OnSetHealth(health, old);
+
+	return m_health;
 }
 
 /* @socom-skeleton stub ResetToInitialState__10CZSealBodyFv */
@@ -2681,28 +3013,72 @@ bool CZSealBody::ExecuteDelayedAction_Jump()
 }
 
 /* @socom-skeleton stub Death__10CSealStatsFRC10CZSealBody */
-void CSealStats::Death(const CZSealBody &)
+void CSealStats::Death(const CZSealBody &body)
 {
+	/* 0x24ec60: single player, or the network player's own */
+	if (!theNetwork.m_bNetwork || &body == ftsGetPlayer())
+		m_deaths++;
 }
 
 /* @socom-skeleton stub DeductKill__10CSealStatsFRC10CZSealBody */
-void CSealStats::DeductKill(const CZSealBody &)
+void CSealStats::DeductKill(const CZSealBody &body)
 {
+	/* 0x24eb70: a kill taken back (a teammate or itself), and the MVP score as Shot */
+	if (theNetwork.m_bNetwork && &body != ftsGetPlayer())
+		return;
+
+	m_kills--;
+
+	if (theNetwork.m_bNetwork && &body != ftsGetPlayer())
+		return;
+
+	s16 rounds = (s16)((s16)m_kills + (s16)m_iRoundsTied + 2 * (s16)m_iRoundsWon);
+	s32 ratio = m_shots != 0 ? (m_hits << 8) / m_shots : 0;
+	m_sMvpScore = (s16)((rounds << 8) + ratio);
 }
 
 /* @socom-skeleton stub HeadShot__10CSealStatsFRC10CZSealBody */
-void CSealStats::HeadShot(const CZSealBody &)
+void CSealStats::HeadShot(const CZSealBody &body)
 {
+	/* 0x24eb00: single player, or the network player's own */
+	if (!theNetwork.m_bNetwork || &body == ftsGetPlayer())
+		m_headshots++;
 }
 
 /* @socom-skeleton stub Hit__10CSealStatsFRC10CZSealBody */
-void CSealStats::Hit(const CZSealBody &)
+void CSealStats::Hit(const CZSealBody &body)
 {
+	/* 0x24e9f0: a hit counted; as Shot, the hit percentage and the MVP score */
+	m_hits++;
+
+	if (theNetwork.m_bNetwork && &body != ftsGetPlayer())
+		return;
+
+	m_hit_percent = (f32)m_hits / (f32)m_shots;
+
+	if (theNetwork.m_bNetwork && &body != ftsGetPlayer())
+		return;
+
+	s16 rounds = (s16)((s16)m_kills + (s16)m_iRoundsTied + 2 * (s16)m_iRoundsWon);
+	s32 ratio = m_shots != 0 ? (m_hits << 8) / m_shots : 0;
+	m_sMvpScore = (s16)((rounds << 8) + ratio);
 }
 
 /* @socom-skeleton stub Kill__10CSealStatsFRC10CZSealBody */
-void CSealStats::Kill(const CZSealBody &)
+void CSealStats::Kill(const CZSealBody &body)
 {
+	/* 0x24e900: a kill counted, and the MVP score as Shot */
+	if (theNetwork.m_bNetwork && &body != ftsGetPlayer())
+		return;
+
+	m_kills++;
+
+	if (theNetwork.m_bNetwork && &body != ftsGetPlayer())
+		return;
+
+	s16 rounds = (s16)((s16)m_kills + (s16)m_iRoundsTied + 2 * (s16)m_iRoundsWon);
+	s32 ratio = m_shots != 0 ? (m_hits << 8) / m_shots : 0;
+	m_sMvpScore = (s16)((rounds << 8) + ratio);
 }
 
 /* @socom-skeleton stub Reset__10CSealStatsFv */
@@ -2790,8 +3166,11 @@ void CSealStats::UpdateMvpScore(const CZSealBody &)
 }
 
 /* @socom-skeleton stub WasHit__10CSealStatsFRC10CZSealBody */
-void CSealStats::WasHit(const CZSealBody &)
+void CSealStats::WasHit(const CZSealBody &body)
 {
+	/* 0x24e5a0: single player, or the network player's own */
+	if (!theNetwork.m_bNetwork || &body == ftsGetPlayer())
+		m_washit++;
 }
 
 /* @socom-skeleton stub ActionAvailableMask__10CZSealBodyFv */

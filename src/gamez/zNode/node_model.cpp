@@ -110,6 +110,9 @@ CBBox * zdb::CNode::UpdateBBoxFromDI(bool)
 /* @socom-skeleton stub UpdateBBox__Q23zdb5CNodeFb */
 CBBox * zdb::CNode::UpdateBBox(bool)
 {
+	/* 0x2297f0: nothing is recomputed: the node's bounding box (GetBBox, inline two
+	 * parent levels in the ELF) */
+	return GetBBox();
 }
 
 /* @socom-skeleton body ComputeFacadeMatrix__Q23zdb5CNodeFPC7CMatrixP7CMatrix */

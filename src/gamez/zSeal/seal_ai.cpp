@@ -776,8 +776,15 @@ void CSealCtrlAi::OnStunDamage(STUN_TYPE, float, const CPnt3D *)
 }
 
 /* @socom-skeleton stub OnSetHealth__11CSealCtrlAiFff */
-void CSealCtrlAi::OnSetHealth(float, float)
+void CSealCtrlAi::OnSetHealth(float health, float old)
 {
+	/* 0x269bb0: a health loss cuts the character's sounds (CSndInstance::Remove of its
+	 * entity) and plays its hurt sound (0x39) */
+	if (health < old)
+	{
+		CSndInstance::Remove(m_entity->m_id, true, true);
+		PlayAiSound((CHARACTER_SOUND)0x39);
+	}
 }
 
 /* @socom-skeleton stub OnDeath__11CSealCtrlAiFv */

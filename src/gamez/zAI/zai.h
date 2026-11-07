@@ -1274,6 +1274,24 @@ public: /* port: public - CSealCtrl's ctor (0x288330) sets the cone fields */
 	f32 m_inv_height;
 	CPnt3D m_cone_pos;
 	CPnt3D m_cone_dir;
+
+	/* 0x267e20 (emitted from this header; CZProjectile::GetDamage): whether the point lies in
+	 * the cone from pos along the unit dir: in front, no farther than m_height along the axis
+	 * and within m_point_radius + (dot * m_inv_height) * m_radius of it. ELF: m_vec (point -
+	 * pos) and m_dot (its length along dir) are stored although the method is const. */
+	bool ContainsPoint(const CPnt3D *pos, const CPnt3D *dir, const CPnt3D *point) const
+	{
+		CAiCone *self = const_cast<CAiCone *>(this);
+		point->Sub(pos, &self->m_vec);
+		f32 dot = dir->x * m_vec.x + dir->y * m_vec.y + dir->z * m_vec.z;
+		self->m_dot = dot;
+
+		if (dot <= 0.0f || !(dot <= m_height))
+			return false;
+
+		f32 radius = m_point_radius + dot * m_inv_height * m_radius;
+		return m_vec.x * m_vec.x + m_vec.y * m_vec.y + m_vec.z * m_vec.z - dot * dot <= radius * radius;
+	}
 };
 
 class CAiVismap

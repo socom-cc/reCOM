@@ -349,4 +349,8 @@ public:
 		virtual void OnSelect(CNode* node, bool selected) {}
 	};
 }
+
+/* free functions of node_world.cpp (CZSealBody::AddDIPolys uses them) */
+void SetDIBBox(zdb::CNode *node, const CBBox *box, bool update); /* 0x22c420 */
+void SetMaterial(zdb::CNode *node, int material); /* 0x22c3c0 */
 #endif

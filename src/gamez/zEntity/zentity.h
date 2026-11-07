@@ -36,7 +36,7 @@ class CCameraParams;
 
 class CEntityList;
 
-class CTargetList : public std::vector<CTarget*> {
+class CTargetList : public std::vector<CTarget> { /* DWARF: vector<CTarget> (40-byte CTargets by value; was CTarget*) */
 	/* @socom-skeleton decl 11CTargetList */
 public:
 	CTarget * FindTarget(CEntity *);
@@ -212,7 +212,7 @@ public:
 	void SetUpdateTargetList(bool);
 	void SetIncludeInTargetList(bool);
 	static void ReplaceTargetList(CEntity *, CEntity *);
-	void OnUpdateTargetList(bool, bool);
+	bool OnUpdateTargetList(bool, bool); /* 0x1f0380: true when the list was sorted */
 	void RefreshAwareCounters();
 	static void UpdateTargetList(bool);
 	static const int invalidId;

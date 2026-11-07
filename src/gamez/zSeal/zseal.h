@@ -290,6 +290,8 @@ void SealInitCharacterDynamics();
 void ParentPistolToRHandCallback(void *, void *); /* seal_env.cpp 0x2987b0 */
 void ParentPistolToRThighAsGearCallback(void *, void *); /* seal_env.cpp 0x2986e0 */
 void NetSendPushBlend(unsigned int, int, int, bool); /* fts_remote.cpp 0x2038a0 */
+void SendHitMessage(int, int, int, float, float, bool, unsigned char); /* fts_remote.cpp 0x203af0 */
+void PlayRemoteMsg(CEntity *, int); /* seal_unit.cpp 0x2cf330 */
 CZBodyPart * BodyWepPart(CZSealBody *, SEAL_ITEM); /* seal_cfg.cpp 0x280e30 */
 namespace zdb { class CLightMap; }
 
@@ -1141,7 +1143,7 @@ public:
 	void UpdateLODFlags();
 	void CreateAiEvent();
 	void UpdateAiEvent();
-	void CollidePlayers(CPnt3D &);
+	bool CollidePlayers(CPnt3D &); /* 0x2545e0: true when pushed */
 	void PostComputeNextPosition(float);
 	void NormalizeToTerrain();
 	float SetHealth(float, SEAL_DEATH_TYPE);
@@ -1388,7 +1390,7 @@ public:
 	void DamageRandomLocation(CZProjectile *);
 	void SetArmor(DAMAGE_LOCATION, float);
 	AnimType FindRandomDeathAnim(DAMAGE_LOCATION, bool *); /* 0x28ee80: PreTick 0x2565c0 passes v0 to WeaponHitAnim as the AnimType */
-	void FindRandomDamageAnim(DAMAGE_LOCATION, bool *);
+	AnimType FindRandomDamageAnim(DAMAGE_LOCATION, bool *); /* 0x28ebb0 returns the anim (lh v0; -1 none) */
 	void DropAllItems();
 	void DropAmmo(int);
 	void DropItem(int, bool);
@@ -1453,6 +1455,13 @@ public:
 	static const float turnV; /* 0x450d20 (0.025): InStateStand's turn dead zone; port: no stage-4 owner, defined in seal.cpp beside stoppedV */
 	/* @socom-skeleton end 10CZSealBody */
 };
+
+/* port: the ELF's inline entity-to-seal test (sltu; lbu 0x10 == ENT_TYPE_SEAL), e.g. after
+ * CEntityList::GetEntityById in the damage code: the entity if it is a seal, else NULL */
+inline CZSealBody *SealOfEntity(CEntity *ent)
+{
+	return ent != NULL && ent->m_type == CEntity::ENT_TYPE_SEAL ? static_cast<CZSealBody *>(ent) : NULL;
+}
 
 class CSealUnit
 {

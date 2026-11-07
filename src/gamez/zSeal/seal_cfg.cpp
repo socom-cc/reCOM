@@ -923,6 +923,22 @@ void CZSealBody::AnimsScaleTS(CActiveAnimList *list, CBlendable *set, float scal
 /* @socom-skeleton stub AddDIPolys__10CZSealBodyFv */
 void CZSealBody::AddDIPolys()
 {
+	/* 0x27dd50 (the constructor, after AnimSetup): the collision shapes. Every body part
+	 * but the weapon slots gets a box DI over its node's bounding box with the PERSON
+	 * material; the parts' nodes follow the skeleton, so the boxes do too. */
+	s32 material = CMaterialExArray::ResolveMaterialIndex("PERSON");
+
+	for (std::vector<CZBodyPart*>::iterator it = m_body_parts.begin(); it != m_body_parts.end(); ++it)
+	{
+		CZBodyPart *part = *it;
+
+		if (part == NULL || part == m_rifle || part == m_pistol || part == m_grenade || part == m_weapon)
+			continue;
+
+		zdb::CNode *node = part->m_node;
+		SetDIBBox(node, &node->m_bbox, true);
+		SetMaterial(node, material);
+	}
 }
 
 /* @socom-skeleton stub AddItem__10CZSealBodyFP14CCharacterGear */

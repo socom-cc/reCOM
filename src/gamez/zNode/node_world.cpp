@@ -1192,11 +1192,26 @@ void CWind::Reset()
 }
 
 /* @socom-skeleton stub SetDIBBox__FPQ23zdb5CNodePC5CBBoxb */
-void SetDIBBox(zdb::CNode *, const CBBox *, bool)
+void SetDIBBox(zdb::CNode *node, const CBBox *, bool)
 {
+	/* 0x22c420 (AddDIPolys: a body part's collision shape): a box DI (type 3: wall and
+	 * floor) over the node's bounding box (GetBBox, inline two levels in the ELF), added
+	 * to the node, then the node's virtual UpdateBBox(true). ELF quirk kept: the box and
+	 * bool arguments are never read. */
+	zdb::CDIBBox *di = new zdb::CDIBBox;
+	di->m_ditype = 3;
+	di->m_box = node->GetBBox();
+	node->AddDI(di);
+	node->UpdateBBox(true);
 }
 
 /* @socom-skeleton stub SetMaterial__FPQ23zdb5CNodei */
-void SetMaterial(zdb::CNode *, int)
+void SetMaterial(zdb::CNode *node, int material)
 {
+	/* 0x22c3c0: every DI of the node takes the material (its low 8 bits) */
+	if (node->m_di.size() == 0)
+		return;
+
+	for (zdb::CDIVector::iterator it = node->m_di.begin(); it != node->m_di.end(); ++it)
+		(*it)->m_material = material & 0xff;
 }

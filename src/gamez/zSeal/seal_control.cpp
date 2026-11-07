@@ -286,6 +286,8 @@ void CSealCtrl::Initalize()
 /* @socom-skeleton stub OnWeaponHit__9CSealCtrlFPQ23zdb15IntersectStructP12CZProjectile */
 void CSealCtrl::OnWeaponHit(zdb::IntersectStruct *, CZProjectile *)
 {
+	/* 0x288010: a short high rumble (0.05, SetHighRumbleTime inline) */
+	SetHighRumbleTime(0.05f);
 }
 
 /* @socom-skeleton stub OnStunDamage__9CSealCtrlF9STUN_TYPEfPC6CPnt3D */
@@ -296,6 +298,16 @@ void CSealCtrl::OnStunDamage(STUN_TYPE, float, const CPnt3D *)
 /* @socom-skeleton stub OnSetHealth__9CSealCtrlFff */
 void CSealCtrl::OnSetHealth(float, float)
 {
+	/* 0x287d30: the character's hurt sound (0x39); a local body's pad rumbles (low 0.18 s at
+	 * 175, high 0.04 s; SetLowRumbleTime / SetHighRumbleTime inline). ELF: also when the
+	 * health rises. */
+	PlayAiSound((CHARACTER_SOUND)0x39);
+
+	if (!IsRemote())
+	{
+		SetLowRumbleTime(0.18f, 175.0f);
+		SetHighRumbleTime(0.04f);
+	}
 }
 
 /* @socom-skeleton stub OnDeath__9CSealCtrlFv */

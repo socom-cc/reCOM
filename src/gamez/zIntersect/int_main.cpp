@@ -46,10 +46,12 @@ DiIntersect::DiIntersect(s32 count)
         m_Node = NULL;
         m_Cnt = 0;
 
+        /* 0x21c750: rays take characters and proximity tests by default; altitude probes
+           do not (was: all three false, so no ray ever reached a character's DIs) */
         m_Type = 0;
-        m_IntersectCharacters = false;
+        m_IntersectCharacters = true;
         m_AltitudeCharacters = false;
-        m_ProximityCharacters = false;
+        m_ProximityCharacters = true;
     }
 }
 
