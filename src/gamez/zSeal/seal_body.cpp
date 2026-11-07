@@ -714,28 +714,92 @@ bool CZSealBody::CanPitch()
 }
 
 /* @socom-skeleton stub AddBlendOverlay__10CZSealBodyF8AnimType */
-CZBodyAnimBlend * CZSealBody::AddBlendOverlay(AnimType)
+CZBodyAnimBlend * CZSealBody::AddBlendOverlay(AnimType type)
 {
+	/* 0x27bab0 (PushBlend, an overlay anim: flag 0x20): an active anim of the type for the
+	 * body's upper-body overlay; NULL without the anim or a free active anim, else the top
+	 * blend (unchanged). The moving reloads and the moving rifle/pistol change set the overlay
+	 * up as Tick's SetMoving* calls do (inline here in the ELF): the change by the item in
+	 * hand (rifle: to the pistol; pistol: to the rifle; other items: no setup). */
+	CZBodyAnimBlend *top = m_blends->Top();
+	CZBodyAnim *anim = GetAnimByType(type);
+
+	if (anim == NULL)
+		return NULL;
+
+	ACTIVE_ANIM *active = m_active_anim_pool->GetActiveAnim(anim);
+
+	if (active == NULL)
+		return NULL;
+
+	if ((s16)type == AnimTypes::MovingRifleReload)
+		SetMovingRifleReload(active);
+
+	if ((s16)type == AnimTypes::MovingPistolReload)
+		SetMovingPistolReload(active);
+
+	if ((s16)type == AnimTypes::MovingRifle2Pistol)
+	{
+		if (m_item == SEAL_ITEM::itemRifle)
+			SetMovingChangeToPistol(active);
+		else if (m_item == SEAL_ITEM::itemPistol)
+			SetMovingChangeToRifle(active);
+	}
+
+	return top;
 }
 
 /* @socom-skeleton stub SetMovingRifleReload__10CZSealBodyFP11ACTIVE_ANIM */
-void CZSealBody::SetMovingRifleReload(ACTIVE_ANIM *)
+void CZSealBody::SetMovingRifleReload(ACTIVE_ANIM *active)
 {
+	/* 0x27ba80: the overlay plays the anim from its start, trigger time -4, event 1 */
+	CBlendOverlay *overlay = m_overlay;
+	overlay->m_anim = active;
+	overlay->m_triggerT = -4.0f;
+	overlay->m_ovlyT = 0.0f;
+	overlay->m_state = 0;
+	overlay->m_event = 1;
 }
 
 /* @socom-skeleton stub SetMovingPistolReload__10CZSealBodyFP11ACTIVE_ANIM */
-void CZSealBody::SetMovingPistolReload(ACTIVE_ANIM *)
+void CZSealBody::SetMovingPistolReload(ACTIVE_ANIM *active)
 {
+	/* 0x27ba50: as SetMovingRifleReload, event 2 */
+	CBlendOverlay *overlay = m_overlay;
+	overlay->m_anim = active;
+	overlay->m_triggerT = -4.0f;
+	overlay->m_ovlyT = 0.0f;
+	overlay->m_state = 0;
+	overlay->m_event = 2;
 }
 
 /* @socom-skeleton stub SetMovingChangeToRifle__10CZSealBodyFP11ACTIVE_ANIM */
-void CZSealBody::SetMovingChangeToRifle(ACTIVE_ANIM *)
+void CZSealBody::SetMovingChangeToRifle(ACTIVE_ANIM *active)
 {
+	/* 0x27b9b0: the rifle/pistol change anim played backwards (from its true loop time, the
+	 * anim's flag 0x80), event 3; trigger time -4 in the air, else 0 */
+	f32 trigger = m_airborne ? -4.0f : 0.0f;
+	f32 end = active->m_anim->TrueLoopTime();
+	CBlendOverlay *overlay = m_overlay;
+	overlay->m_anim = active;
+	overlay->m_triggerT = trigger;
+	overlay->m_ovlyT = end;
+	overlay->m_state = 0;
+	overlay->m_event = 3;
+	active->m_anim->m_flags = (active->m_anim->m_flags & 0xff7f) | 0x80;
 }
 
 /* @socom-skeleton stub SetMovingChangeToPistol__10CZSealBodyFP11ACTIVE_ANIM */
-void CZSealBody::SetMovingChangeToPistol(ACTIVE_ANIM *)
+void CZSealBody::SetMovingChangeToPistol(ACTIVE_ANIM *active)
 {
+	/* 0x27b960: the change anim from its start, event 4; trigger time -4 in the air, else 0 */
+	f32 trigger = m_airborne ? -4.0f : 0.0f;
+	CBlendOverlay *overlay = m_overlay;
+	overlay->m_anim = active;
+	overlay->m_triggerT = trigger;
+	overlay->m_ovlyT = 0.0f;
+	overlay->m_state = 0;
+	overlay->m_event = 4;
 }
 
 /* @socom-skeleton stub SealAnim__10CZSealBodyFbfff */
