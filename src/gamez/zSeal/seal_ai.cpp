@@ -348,6 +348,14 @@ namespace sealai
 #include "gamez/zValve/zvalve.h"
 #include "gamez/zWeapon/zweapon.h"
 /* @socom-skeleton end include */
+#include <cctype>
+#include <cstdarg>
+#include <cstdio>
+#include <cstring>
+#include "gamez/zFTS/zfts.h" /* ftsGetPlayer */
+#include "gamez/zNetwork/znet.h" /* theNetwork */
+#include "gamez/zSeal/zseal.h"
+#include "gamez/zSound/zsnd.h"
 /* @socom-skeleton decl forward */
 class AI_FIREPARAMS;
 class AI_REACTION;
@@ -397,7 +405,7 @@ float ai::underfire_threshold = 1.5f;
 float ai::underfire_return = 0.75f;
 
 /* @socom-skeleton stub throttleEps */
-static unsigned char throttleEps[4] = {10, 215, 35, 60};
+static const float throttleEps = 0.01f; /* 0x474f54: 0x3c23d70a (was the four bytes) */
 
 /* @socom-skeleton stub aiAccuracyAngle__11CSealCtrlAi */
 float CSealCtrlAi::aiAccuracyAngle = 0.2617993950843811f;
@@ -425,6 +433,98 @@ static float _dT;
 
 /* @socom-skeleton stub _dTI */
 static float _dTI;
+
+/* port: .sbss statics of this unit that have no skeleton fence yet (ELF symbols
+ * aiActiveCount__11CSealCtrlAi 0x475d54, aiSleepingCount 0x475d58, aiSnoozingCount 0x475d5c,
+ * diCount 0x475d60, snooze_time__2ai 0x475d48, snooze_count__2ai 0x475d4c) */
+int CSealCtrlAi::aiActiveCount;
+int CSealCtrlAi::aiSleepingCount;
+int CSealCtrlAi::aiSnoozingCount;
+int CSealCtrlAi::diCount;
+float ai::snooze_time;
+int ai::snooze_count;
+
+/* port: file-local helpers for code the ELF inlines at every use (no symbols) */
+
+/* Rfloat::operator float 0x25aba0: a value drawn from {min, range} */
+static f32 RandomIn(const Rfloat &r)
+{
+	if (r.m_range == 0.0f)
+		return r.m_min;
+
+	return r.m_min + r.m_range * ((f32)rand() * 4.656613e-10f);
+}
+
+/* CAiTrigger reset: the trigger-up time is drawn into m_marker and the count starts at
+ * marker + a drawn trigger-down time; the trigger is down while m_timer > m_marker */
+static void ResetTrigger(CAiTrigger &trigger)
+{
+	trigger.m_marker = RandomIn(trigger.m_up_time);
+	trigger.m_timer = (f32)((double)trigger.m_marker + (double)RandomIn(trigger.m_dn_time));
+}
+
+/* CAiDecay tick (CSealCtrlAi::Tick 0x268880, seven times): linear types decay exponentially
+ * (_decay<f> 0x258f30), the others move a fraction -rate x dT of the way; within 0.005 (or
+ * that fraction, when larger) the value snaps to the goal */
+static void DecayTick(CAiDecay &d, f32 rate, f32 dT)
+{
+	f32 eps = 0.005f;
+
+	if (d.m_goal == d.m_value)
+		return;
+
+	if ((s32)d.m_type == 1)
+	{
+		d.m_value = d.m_goal + (d.m_value - d.m_goal) * expf(rate * dT);
+
+		if (_close_enough<f32>(d.m_value, d.m_goal, eps))
+			d.m_value = d.m_goal;
+	}
+	else
+	{
+		f32 k = -rate * dT;
+		d.m_value += k * (d.m_goal - d.m_value);
+
+		if (_close_enough<f32>(d.m_value, d.m_goal, k <= eps ? eps : k))
+			d.m_value = d.m_goal;
+	}
+}
+
+/* no living target, or one out of sight for more than 3 s (Tick 0x2692a0,
+ * OnSetTargetVisible 0x2b1aa4) */
+static bool TargetLost(CSealCtrlAi *ai)
+{
+	CEntity* e = ai->m_target.m_target.m_ent;
+
+	if (!(e != NULL && e->m_isAlive))
+		return true;
+
+	if (ai->m_target.m_target.m_visible)
+		return false;
+
+	return !(ai->m_target.GetTimeSinceLastSighting() <= 3.0f);
+}
+
+/* the attack is dropped (AttackTick 0x2626c0, five times): weapon state, no aim point, a
+ * fresh trigger count, GOAL_SHOOT cleared, trigger released */
+static void StopAttack(CSealCtrlAi *ai, WEAPON_STATE state)
+{
+	CZSealBody* seal = static_cast<CZSealBody *>(ai->m_entity);
+	seal->SetWeaponState(state);
+	seal->SetAimPointW(NULL, NULL, false);
+	ResetTrigger(ai->m_ai_trigger);
+
+	if ((u8)ai->m_goal_type == GOAL_SHOOT)
+	{
+		ai->SetGoalPos(GOAL_SHOOT, NULL, 3.0f);
+		ai->SetGoalDir(GOAL_SHOOT, NULL, false);
+		ai->m_goal_timer.m_timer = CAiTimer::infinite;
+		ai->m_goal_timer.m_period.m_min = CAiTimer::infinite;
+		ai->m_goal_timer.m_period.m_range = 0.0f;
+	}
+
+	ai->SetTrigger(false);
+}
 
 /* @socom-skeleton stub MultiplayerMsgStrings */
 static unsigned char MultiplayerMsgStrings[28];
@@ -548,8 +648,17 @@ const char* get_state(AI_STATE state)
 namespace sealai {
 AI_STATE get_state(const char* name)
 	{
-		AI_STATE state;
-		return state;
+		/* 0x26c290: the state of that name (any case), STATE_UNKNOWN for none */
+		if (name == NULL)
+			return STATE_UNKNOWN;
+
+		for (u32 i = 0; i < 30; i++)
+		{
+			if (strcasecmp(get_state((AI_STATE)i), name) == 0)
+				return (AI_STATE)i;
+		}
+
+		return STATE_UNKNOWN;
 	}
 }
 
@@ -558,22 +667,26 @@ const char * sealai::get_aiseq(unsigned int sequence) /* port: the body returns 
 	{
 		const char* str;
 
+		/* 0x26c210: the script sequence for an awareness level */
 		switch (sequence)
 		{
-		case AIS_AWARE0:
+		case 0:
 			str = "on_aware0";
 			break;
-		case AIS_AWARE1:
-			str = "on_aware0";
+		case 1:
+			str = "on_aware1";
 			break;
-		case AIS_AWARE2:
-			str = "on_aware0";
+		case 2:
+			str = "on_aware2";
 			break;
-		case AIS_AWARE3:
-			str = "on_aware0";
+		case 3:
+			str = "on_aware3";
+			break;
+		case 4:
+			str = "on_aware4";
 			break;
 		default:
-			str = "on_awarex";
+			str = "on_awareX";
 		}
 
 		return str;
@@ -583,7 +696,20 @@ const char * sealai::get_aiseq(unsigned int sequence) /* port: the body returns 
 namespace sealai {
 const char* get_stance(SEAL_STANCE stance)
 	{
-		return "";
+		/* 0x26c1a0 */
+		switch ((s8)stance)
+		{
+		case 0:
+			return "stand";
+		case 1:
+			return "crouch";
+		case 2:
+			return "prone";
+		case 3:
+			return "idle";
+		default:
+			return "none";
+		}
 	}
 }
 
@@ -591,8 +717,14 @@ const char* get_stance(SEAL_STANCE stance)
 namespace sealai {
 SEAL_STANCE get_stance(const char* name)
 	{
-		SEAL_STANCE stance;
-		return stance;
+		/* 0x26c0c0: the stance of that name (any case), -1 for none */
+		for (s32 i = 0; name != NULL && i < 4; i++)
+		{
+			if (strcasecmp(get_stance((SEAL_STANCE)i), name) == 0)
+				return (SEAL_STANCE)i;
+		}
+
+		return (SEAL_STANCE)-1;
 	}
 }
 
@@ -622,8 +754,10 @@ void CSealCtrlAi::StopAiSound(AI_SOUND)
 }
 
 /* @socom-skeleton stub GetAiLog__11CSealCtrlAiFv */
-void CSealCtrlAi::GetAiLog()
+CAiLog * CSealCtrlAi::GetAiLog()
 {
+	/* 0x26be30: port: not written (the AI log file, CAiLog); no log */
+	return NULL;
 }
 
 /* @socom-skeleton stub SetAiLogEnabled__11CSealCtrlAiFbb */
@@ -637,13 +771,19 @@ void CSealCtrlAi::SetAiEnabled(bool, bool)
 }
 
 /* @socom-skeleton stub GetAiStateEnum__11CSealCtrlAiCFv */
-void CSealCtrlAi::GetAiStateEnum() const
+AI_STATE CSealCtrlAi::GetAiStateEnum() const
 {
+	/* 0x26bb90 */
+	CAiState* top = GetAiState();
+	return (AI_STATE)(top != NULL ? top->m_state : 0);
 }
 
 /* @socom-skeleton stub AiStateIs__11CSealCtrlAiCF8AI_STATE */
-void CSealCtrlAi::AiStateIs(AI_STATE) const
+bool CSealCtrlAi::AiStateIs(AI_STATE state) const
 {
+	/* 0x26bb40: the top state is of that type */
+	CAiState* top = GetAiState();
+	return (top != NULL ? top->m_state : 0) == (u8)state;
 }
 
 /* @socom-skeleton body get_valve__11CSealCtrlAiFPCc */
@@ -718,6 +858,114 @@ char * CSealCtrlAi::GetStatusString()
 /* @socom-skeleton stub __ct__11CSealCtrlAiFv */
 CSealCtrlAi::CSealCtrlAi()
 {
+	/* 0x26b1c0 */
+	m_peek_timer.m_period.m_min = 0.0f;
+	m_peek_timer.m_period.m_range = 0.0f;
+	m_peek_timer.m_timer = RandomIn(m_peek_timer.m_period);
+	m_fire_params.reset();
+	m_reaction.m_none = 1.0f;
+	m_reaction.m_rush = 0.0f;
+	m_reaction.m_flee = 0.0f;
+	m_reaction.m_surrender = 0.0f;
+	m_aiParams.mask = 0;
+	m_aiParams.accuracy = 0.8f;
+	m_aiParams.courage = 0.6f;
+	m_aiParams.surrender = 0.2f;
+	m_aiParams.stealth = 0.5f;
+	m_aiParams.training = 0.5f;
+	m_aiParams.visual_sens = 0.8f;
+	m_aiParams.visual_range = 400.0f;
+	m_aiParams.visual_fov = 60.0f;
+	m_aiParams.aware_decay = -0.075f;
+	m_aiParams.thip_range = 25.0f;
+	m_aiParams.respawn = 0;
+	m_aiParams.target_delay = 0.75f;
+	m_aiParams.target_discipline = 0.5f;
+	m_aiParams.m_veh = NULL;
+	m_courage.m_value = 0.0f;
+	m_courage.m_goal = 0.0f;
+	m_courage.m_type = TYPE::LINEAR;
+	m_audiofactor.m_value = 0.0f;
+	m_audiofactor.m_goal = 0.0f;
+	m_audiofactor.m_type = TYPE::LINEAR;
+	m_dicipline.m_value = 0.0f;
+	m_dicipline.m_goal = 0.0f;
+	m_dicipline.m_type = TYPE::LINEAR;
+	m_underfire.m_value = 0.0f;
+	m_underfire.m_goal = 0.0f;
+	m_underfire.m_type = TYPE::LINEAR;
+	m_ai_trigger.m_dn_time.m_min = 0.5f;
+	m_ai_trigger.m_dn_time.m_range = 0.7f;
+	m_ai_trigger.m_up_time.m_min = 0.1f;
+	m_ai_trigger.m_up_time.m_range = 0.4f;
+	m_ai_trigger.m_marker = RandomIn(m_ai_trigger.m_up_time);
+	m_ai_trigger.m_timer = (f32)((double)RandomIn(m_ai_trigger.m_dn_time) + (double)m_ai_trigger.m_marker);
+	/* ELF: m_navyseal, m_evasive_travel and m_creeping are not set here (InitAiBrain sets
+	 * m_navyseal; PreTick m_creeping); port: cleared */
+	m_debug = 0;
+	m_navyseal = 0;
+	m_noturn_travel = 0;
+	m_evasive_travel = 0;
+	m_creeping = 0;
+	m_nofade = 0;
+	m_nobindanimset = 0;
+	m_do_reaction = 0;
+	m_sleeping = 0;
+	m_snoozing = 0;
+	m_nosnooze = 0;
+	m_weapon_ready = 0;
+	m_do_corpse = 1;
+	m_unused = 0;
+	m_speed = 1.0f;
+	memcpy(&m_last_action, CAiMapLoc::invalid, sizeof(m_last_action));
+	m_close_door = m_last_action;
+	m_lastDeployPosW.x = 0.0f;
+	m_lastDeployPosW.y = 0.0f;
+	m_lastDeployPosW.z = 0.0f;
+	m_sprayTimer = 0.0f;
+	m_awareTimer = 0.0f;
+	m_stuckTimer = 0.0f;
+	SetViewFOV(0.7853982f);
+	SetViewRange(400.0f);
+	m_aware.m_value = 0.0f;
+	m_aware.m_goal = 0.0f;
+	m_mode = AIM_IDLE;
+	m_audiofactor.m_value = 1.0f;
+	m_audiofactor.m_goal = 1.0f;
+	m_master = NULL;
+	m_followOfs.x = 30.0f;
+	m_followOfs.y = 0.0f;
+	m_followOfs.z = 30.0f;
+	m_followSlop = 3.0f;
+	m_followScan.x = 0.0f;
+	m_followScan.y = 0.0f;
+	m_followScan.z = -1.0f;
+	m_followStance = -1.0f;
+	m_followMode = 0;
+	m_padid = 1;
+	m_recycleTimer = 0.0f;
+	m_ladder_state = 0;
+	m_scan_limits = 1.0471976f;
+	m_holdCover = false;
+	memset(m_valve, 0, sizeof(m_valve));
+	memset(m_task_anim, 0, sizeof(m_task_anim));
+	memset(m_task_handle, 0, sizeof(m_task_handle));
+	UpdateStackFlags(false);
+	m_stance_goal = 0;
+	m_stance = 0;
+	m_stance_delay = 0.0f;
+	m_pathTolerance = 0.0f;
+	m_underfire_pos = CPnt3D::zero;
+	m_underfire_shooter = NULL;
+	m_underfire.m_goal = 0.0f;
+	m_handle = 0;
+	/* port: members the ELF's ctor leaves unset and the code reads before writing */
+	m_modeTimer = 0.0f;
+	m_idleTimer = 0.0f;
+	m_stateTimer = 0.0f;
+	m_peek_goal = 2;
+	m_eventMask = 0;
+	m_eventQueue.m_diRequested = false;
 }
 
 /* @socom-skeleton stub __dt__11CSealCtrlAiFv */
@@ -762,6 +1010,12 @@ void CSealCtrlAi::Initalize()
 /* @socom-skeleton stub OnMissionStart__11CSealCtrlAiFv */
 void CSealCtrlAi::OnMissionStart()
 {
+	/* 0x26ae40: the seal's script anims are found; "<name>_start" runs as the script state
+	 * (pushed) and "<name>_ambient" beside it, each with the seal's select task and its node
+	 * as arguments */
+	SetupAnimations();
+	ActivateEx((SEAL_TASK)1, true, 1, static_cast<CZSealBody *>(m_entity)->m_select, 3, m_entity->GetNode(), 0);
+	ActivateEx((SEAL_TASK)4, false, 1, static_cast<CZSealBody *>(m_entity)->m_select, 3, m_entity->GetNode(), 0);
 }
 
 /* @socom-skeleton stub OnMissionEnd__11CSealCtrlAiFv */
@@ -772,6 +1026,111 @@ void CSealCtrlAi::OnMissionEnd()
 /* @socom-skeleton stub InitAiBrain__11CSealCtrlAiFv */
 void CSealCtrlAi::InitAiBrain()
 {
+	/* 0x26a8d0 (after the vehicle entry's parameters are copied in): reset the brain. The
+	 * alive valve is set, look / states / route cleared, idle mode. The player's team (bit
+	 * 1) makes it a SEAL: hold-fire valve set, no fade, no snooze, the player's
+	 * invincibility, team 26, and its handle from the node name (H / B / D); everyone else
+	 * is an enemy with binoculars. The character type's AI parameters are merged in and
+	 * seed courage, discipline, the view (fov in degrees, range, sensitivity). */
+	CZSealBody* seal = static_cast<CZSealBody *>(m_entity);
+
+	m_aware.m_value = 0.0f;
+	m_aware.m_goal = 0.0f;
+	CValve* alive = m_valve[2];
+
+	if (alive != NULL)
+	{
+		bool changed = alive->m_value != 1;
+		alive->m_value = 1;
+
+		if (changed)
+			alive->MakeCallbacks((VALVE_STATE)1);
+	}
+
+	ClearLook((AI_LOOK)-1);
+	ClearAiState(true);
+	SetAiState(STATE_UNKNOWN);
+	Debug("ClearRoute()...\n");
+	/* ELF: ClearRoute inlined - ai::AbortPathPlan(&m_path), m_path.Clear(), the default
+	 * path type with bias 1.0. port: not written (the path planner is not written) */
+	SetAiMode(AIM_IDLE);
+
+	if (seal->m_team & 2)
+	{
+		m_navyseal = 1;
+
+		if (m_valve[0] != NULL)
+			m_valve[0]->Set(1);
+
+		m_nofade = 1;
+		m_nosnooze = 1;
+		seal->m_invincible = ftsGetPlayer()->m_invincible;
+		seal->JoinTeam(26);
+		m_debug = 0;
+
+		switch (toupper(seal->m_node->m_name[0]))
+		{
+		case 'D':
+			m_handle = 3;
+			break;
+		case 'B':
+			m_handle = 2;
+			break;
+		case 'H':
+			m_handle = 1;
+			break;
+		}
+	}
+	else
+	{
+		m_navyseal = 0;
+
+		if (m_valve[0] != NULL)
+			m_valve[0]->Set(0);
+
+		seal->m_kit.SetupBinocular();
+		m_handle = 0;
+		m_debug = 0;
+	}
+
+	/* ELF: m_do_aimap_collide = 1 here (the body is then kept on the AI map's cells:
+	 * CZSealBody::PostComputeNextPosition -> CAiMaps::GetCellRepelParams). port: left
+	 * clear until CAiMap::GetCellRepelParams (0x1853a0, 1796 B) is written - an AI that
+	 * does not follow paths yet has nothing to be kept on */
+	UpdateEventMask();
+	CCharacterType* type = seal->GetCharacter();
+
+	if (type != NULL)
+	{
+		m_aiParams.Merge(m_aiParams, type->m_aiParams);
+		m_courage.m_value = m_aiParams.courage;
+		m_courage.m_goal = m_aiParams.courage;
+		m_dicipline.m_value = m_aiParams.target_discipline;
+		m_dicipline.m_goal = m_aiParams.target_discipline;
+		SetViewFOV(0.01745329f * m_aiParams.visual_fov);
+		SetViewRange(m_aiParams.visual_range);
+		m_vissens.m_value = m_aiParams.visual_sens;
+		m_vissens.m_goal = m_aiParams.visual_sens;
+	}
+
+	if (seal->m_team & 0x10000000)
+		seal->m_restrainable = 1;
+
+	/* ELF: team bit 0x20000 (hostages): restrained from the start in a network game
+	 * (STATE_RESTRAINED, unit 17), an "ESCORTEE" compass anchor. port: not written */
+
+	if (m_has_respawned)
+	{
+		OnMissionStart();
+		/* ELF: a STATE_SCRIPT top state runs its "on_respawn" sequence. port: not written
+		 * (CAiSScript) */
+	}
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("AI: %s brain: %s range %d fov %d sens %d%% acc %d%% courage %d%% delay %d ms", seal->m_node->m_name,
+		m_navyseal ? "seal" : "enemy", (int)m_visrange.m_value, (int)m_aiParams.visual_fov, (int)(m_vissens.m_value * 100.0f),
+		(int)(m_aiParams.accuracy * 100.0f), (int)(m_aiParams.courage * 100.0f), (int)(m_aiParams.target_delay * 1000.0f));
+#endif
 }
 
 /* @socom-skeleton stub CreateAiEvent__9CSealCtrlFQ28CAiEvent5EVENTffbPC6CPnt3DUi */
@@ -857,26 +1216,171 @@ void CSealCtrlAi::Dump()
 }
 
 /* @socom-skeleton stub Tick__11CSealCtrlAiFf */
-bool CSealCtrlAi::Tick(float)
+bool CSealCtrlAi::Tick(float dT)
 {
+	/* 0x268880 (CZSealBody::Tick). The head scan (when the top state allows), the
+	 * reaction choice for an enemy that is outmatched (awareness at the top with courage
+	 * -1, or courage at or under the target threat) and not already fleeing or
+	 * surrendering, the decaying quantities (awareness at aware_decay toward its goal;
+	 * courage, view range and sensitivity, hearing, target threat, under-fire), the aware
+	 * valve (the awareness level 0-4, with its sound cue on a rise), and - under fire past
+	 * the threshold without a target in sight - STATE_SHOTAT toward the shot. */
 	/* @socom-skeleton stub threat_rate$2957 */
-	static float threat_rate;
+	static float threat_rate = -0.125f;
 	/* @socom-skeleton stub courage_rate$2960 */
-	static float courage_rate;
+	static float courage_rate = -0.125f;
 	/* @socom-skeleton stub visual_rate$2963 */
-	static float visual_rate;
+	static float visual_rate = -0.15f;
 	/* @socom-skeleton stub audio_rate$2966 */
-	static float audio_rate;
+	static float audio_rate = -0.15f;
 	/* @socom-skeleton stub underfire_rate$2969 */
-	static float underfire_rate;
-	/* 0x268880 (2968 B) returns 1; port: stub (the AI brain is not written: the body ticks
-	 * with the throttles at rest) */
+	static float underfire_rate = -0.1f;
+	f32 aware_decay = m_aiParams.aware_decay;
+
+	if (GetAiState()->CanScan())
+		ScanTick(dT);
+
+	if (!theNetwork.m_bNetwork && !m_navyseal && !m_do_reaction)
+	{
+		CZSealBody* seal = static_cast<CZSealBody *>(m_entity);
+		bool fearless = m_aiParams.courage == -1.0f;
+		bool outmatched = fearless ? GetAiAware() == AIA_SPECIFIC : m_courage.m_value <= m_targetThreat.m_value;
+
+		if ((ftsGetPlayer()->m_team & seal->m_team) != 0)
+			outmatched = false;
+
+		bool reacted = FindAiState(STATE_FLEE) != NULL || FindAiState(STATE_SURRENDER) != NULL;
+
+		if (outmatched && !reacted)
+		{
+			m_do_reaction = !m_navyseal;
+
+			if (m_do_reaction)
+			{
+				if (fearless)
+				{
+					m_reaction.m_none = 0.0f;
+					m_reaction.m_rush = 0.0f;
+					m_reaction.m_flee = 0.0f;
+					m_reaction.m_surrender = 1.0f;
+				}
+				else
+				{
+					f32 keep = 1.0f - m_aiParams.surrender;
+					m_reaction.m_none = 0.0f * keep;
+					m_reaction.m_rush = 1.0f * keep;
+					m_reaction.m_flee = 0.25f * keep;
+					m_reaction.m_surrender = 0.25f * m_aiParams.surrender;
+				}
+			}
+		}
+	}
+
+	if (m_do_reaction)
+		DoReaction();
+
+	DecayTick(m_aware, aware_decay, dT);
+	DecayTick(m_courage, courage_rate, dT);
+	DecayTick(m_visrange, visual_rate, dT);
+	DecayTick(m_vissens, visual_rate, dT);
+	DecayTick(m_audiofactor, audio_rate, dT);
+	DecayTick(m_targetThreat, threat_rate, dT);
+	DecayTick(m_underfire, underfire_rate, dT);
+
+	u32 level = GetAiAware();
+	CValve* aware = m_valve[3];
+	u32 old = aware != NULL ? aware->m_value : 0;
+	bool changed = false;
+
+	if (aware != NULL)
+	{
+		u32 before = aware->m_value;
+		aware->m_value = level;
+
+		if (before != level)
+		{
+			aware->MakeCallbacks(level != 0 ? (VALVE_STATE)1 : (VALVE_STATE)2);
+			changed = true;
+		}
+	}
+
+	if (changed)
+	{
+		u32 now = m_valve[3] != NULL ? m_valve[3]->m_value : 0;
+
+		if (old < now)
+			CSndInstance::AwarenessUpgrade(m_entity->m_id);
+
+		if (old != now)
+		{
+			Debug("aware %d --> %d (%.2fs)\n", old, now, (double)m_awareTimer);
+			m_awareTimer = 0.0f;
+		}
+	}
+
+	m_awareTimer += dT;
+
+	if ((double)m_underfire.m_value > (double)ai::underfire_threshold && TargetLost(this) && PushAiState(STATE_SHOTAT, true))
+	{
+		/* port: unreachable while STATE_SHOTAT is not written (PushAiState refuses it). The
+		 * ELF fills the state: the shot's position (m_underfire_pos; with noise - ai::AddNoise,
+		 * ai::eventNoise - when it is outside the view cone) at +0x2c, the shooter at +0x38,
+		 * and sets m_setup. */
+	}
+
+	/* ELF: CZSealState::UpdateLocalSeal(seal) 0x204740 (network replication; not written) */
 	return true;
 }
 
 /* @socom-skeleton stub PostTick__11CSealCtrlAiFf */
-void CSealCtrlAi::PostTick(float)
+void CSealCtrlAi::PostTick(float dT)
 {
+	/* 0x268530 (CZSealBody::PostTick, after the world's delayed intersection batch): the
+	 * sensors read their sight lines (not while surrendered); the stuck timer grows while
+	 * the body moves less than 0.6 of what its forward throttle should give; a delayed
+	 * stance change and the peek timer run out. */
+	CAiState* state = const_cast<const CSealCtrlAi *>(this)->GetAiState();
+
+	if ((state != NULL ? state->m_state : 0) != STATE_SURRENDER)
+		SensorTick(dT);
+
+	CZSealBody* seal = static_cast<CZSealBody *>(m_entity);
+
+	if (m_throttle[0] != 0.0f)
+	{
+		f32 speed = GetSpeedFromThrottle(m_throttle[0], 0) * seal->GetTerrainMotionFactor();
+		CPnt3D moved;
+		m_lastPos.Sub(seal->GetPosW(), &moved);
+		f32 expect = speed * dT;
+
+		if (moved.x * moved.x + moved.y * moved.y + moved.z * moved.z < 0.6f * (expect * expect))
+			m_stuckTimer += dT;
+		else
+			m_stuckTimer = 0.0f;
+	}
+
+	if (m_stance != m_stance_goal)
+	{
+		m_stance_delay -= dT;
+
+		if (m_stance_delay < 0.0f)
+			DoSetStance((SEAL_STANCE)m_stance_goal);
+	}
+
+	if (m_peek_timer.m_timer != CAiTimer::infinite)
+	{
+		m_peek_timer.m_timer -= dT;
+
+		if (m_peek_timer.m_timer != CAiTimer::infinite && m_peek_timer.m_timer <= 0.0f)
+		{
+			seal->m_desiredPeek = (SEAL_PEEK)2;
+			m_peek_goal = 2;
+		}
+	}
+
+	/* ELF: a hostage (team bit 0x20000) in STATE_FOLLOW that reaches a region of type 1
+	 * (the extraction zone, CAiMaps::GetRegionTypeContainer) switches to STATE_RESCUED with
+	 * the region and its follow master. port: not written (hostages, AI map regions) */
 }
 
 /* @socom-skeleton stub GetAiNetState__11CSealCtrlAiCFv */
@@ -900,11 +1404,111 @@ void CSealCtrlAi::PostMortemPreTick(float)
 }
 
 /* @socom-skeleton stub PreTick__11CSealCtrlAiFf */
-bool CSealCtrlAi::PreTick(float)
+bool CSealCtrlAi::PreTick(float dT)
 {
+	/* 0x2675e0 (CZSealBody::PreTick): the AI's frame. A sleeping or snoozing AI only
+	 * counts itself and ticks its events. An awake one: target upkeep, view cone, sensors
+	 * (which run the attack), the state stack, then the movement mode's tick; the throttles
+	 * ramp to their goals (accelRate when growing, decelRate when shrinking) and the
+	 * shot-at valve counts down. Returns whether the body runs its post tick. */
 	/* @socom-skeleton stub logFrameNum$3101 */
-	static long logFrameNum;
-	/* 0x2675e0 (1360 B) returns 1; port: stub (the AI brain is not written: no throttles) */
+	static long logFrameNum = -1;
+
+	_dT = dT;
+	_dTI = dT <= 0.0f ? 0.0f : 1.0f / dT;
+	/* ELF: with aiLogEnabled a frame record (type 0) is written to the AI log once per
+	 * frame (logFrameNum). port: not written (CAiLog) */
+	CZSealBody* seal = static_cast<CZSealBody *>(m_entity);
+	CAiState* state = const_cast<const CSealCtrlAi *>(this)->GetAiState();
+
+	if ((state != NULL ? state->m_state : 0) == STATE_SUSPENDED)
+	{
+		StateTick(dT);
+
+		if ((!m_snoozing && !m_sleeping) || !aiEnabled)
+			return false;
+	}
+
+	if (!seal->m_isAlive)
+		return true;
+
+	if (!(!m_snoozing && !m_sleeping))
+	{
+		aiSleepingCount += m_sleeping ? 1 : 0;
+		aiSnoozingCount += m_snoozing ? 1 : 0;
+		EventTick(dT);
+		return false;
+	}
+
+	aiActiveCount++;
+	m_lastPos = *seal->GetPosW();
+	m_target.Tick(seal, dT);
+	seal->InvalidateFollowParams();
+	UpdateViewCone();
+	m_creeping = 0;
+	state = const_cast<const CSealCtrlAi *>(this)->GetAiState();
+
+	if ((state != NULL ? state->m_state : 0) != STATE_SURRENDER)
+		SensorPreTick(dT);
+
+	StateTick(dT);
+
+	switch (m_mode)
+	{
+	case AIM_IDLE:
+		IdleTick(dT);
+		break;
+	case AIM_HOLD:
+		if (m_throttle[2] != 0.0f)
+			Output("spinner!\n");
+
+		break;
+	case AIM_PATH:
+		PathFollowTick(dT);
+		break;
+	case AIM_CREEP:
+		CreepTick(dT);
+		break;
+	case AIM_SLIDE:
+		SlideTick(dT);
+		break;
+	case AIM_FOLLOW:
+		FollowTick(dT);
+		break;
+	default:
+		break;
+	}
+
+	m_modeTimer += dT;
+
+	for (s32 i = 0; i < 3; i++)
+	{
+		f32 goal = m_throttle_goal[i];
+		f32 delta = goal - m_throttle[i];
+
+		if (delta == 0.0f)
+			continue;
+
+		f32 rate = (fabsf(goal) <= fabsf(m_throttle[i]) ? decelRate[i] : accelRate[i]) * dT;
+		f32 step = delta < 0.0f ? -rate : rate;
+
+		if (!(fabsf(step) <= fabsf(delta)))
+			step = delta;
+
+		m_throttle[i] += step;
+
+		if (_close_enough<f32>(m_throttle[i], m_throttle_goal[i], throttleEps))
+			m_throttle[i] = m_throttle_goal[i];
+	}
+
+	CValve* shotat = m_valve[1];
+	u32 value = shotat->m_value;
+	u32 next = value != 0 ? value - 1 : 0;
+	shotat->m_value = next;
+
+	if (value != next)
+		shotat->MakeCallbacks(next != 0 ? (VALVE_STATE)1 : (VALVE_STATE)2);
+
 	return true;
 }
 
@@ -919,18 +1523,110 @@ void CSealCtrlAi::ResetToInitialState()
 }
 
 /* @socom-skeleton stub ClearGoal__9CSealCtrlF9GOAL_TYPE */
-void CSealCtrl::ClearGoal(GOAL_TYPE)
+void CSealCtrl::ClearGoal(GOAL_TYPE type)
 {
+	/* 0x267470: clear the goal of that type (GOAL_NONE: whatever the current one is) */
+	if ((u8)type == 0)
+		type = (GOAL_TYPE)(s8)m_goal_type;
+
+	if ((u8)m_goal_type != (u8)type)
+		return;
+
+	m_goal_pos_valid = 0;
+
+	if (!m_goal_dir_valid)
+		m_goal_type = (GOAL_TYPE)0;
+
+	SetGoalDir(type, NULL, false);
+	m_goal_timer.m_timer = CAiTimer::infinite;
+	m_goal_timer.m_period.m_min = CAiTimer::infinite;
+	m_goal_timer.m_period.m_range = 0.0f;
 }
 
 /* @socom-skeleton stub SetGoalPos__9CSealCtrlF9GOAL_TYPEPC6CPnt3Df */
-void CSealCtrl::SetGoalPos(GOAL_TYPE, const CPnt3D *, float)
+bool CSealCtrl::SetGoalPos(GOAL_TYPE type, const CPnt3D *pos, float tolerance)
 {
+	/* 0x267380: set (or with NULL clear) the position to creep to, unless a higher goal
+	 * type is in force (returns 0 then). A goal of another type loses its direction. */
+	if ((s32)(u8)type < (s32)(u8)m_goal_type)
+		return false;
+
+	if (pos != NULL)
+	{
+		m_goal_pos = *pos;
+		m_goal_pos_tolerance = tolerance;
+		m_goal_pos_valid = 1;
+
+		if (m_goal_dir_valid && (u8)m_goal_type != (u8)type)
+			SetGoalDir((GOAL_TYPE)(s8)m_goal_type, NULL, false);
+
+		m_goal_type = type;
+	}
+	else
+	{
+		m_goal_pos_valid = 0;
+
+		if (!m_goal_dir_valid)
+			m_goal_type = (GOAL_TYPE)0;
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub SetGoalDir__9CSealCtrlF9GOAL_TYPEPC6CPnt3Db */
-void CSealCtrl::SetGoalDir(GOAL_TYPE, const CPnt3D *, bool)
+float CSealCtrl::SetGoalDir(GOAL_TYPE type, const CPnt3D *dir, bool unit)
 {
+	/* 0x2671e0: set (or with NULL clear) the direction to turn to, unless a higher goal
+	 * type is in force. The direction is flattened to XZ and normalized (not with `unit`
+	 * and a zero y: it is taken as given). Returns how far the body already faces it (dot
+	 * with the body's forward, -Z of its matrix; 1.0 when nothing was set). A goal of
+	 * another type loses its position. */
+	f32 dot = 1.0f;
+
+	if ((s32)(u8)type < (s32)(u8)m_goal_type)
+		return dot;
+
+	if (dir != NULL)
+	{
+		m_goal_dir.x = dir->x;
+		m_goal_dir.y = 0.0f;
+		m_goal_dir.z = dir->z;
+
+		if (!(unit && dir->y == 0.0f))
+		{
+			f32 len = sqrtf(m_goal_dir.x * m_goal_dir.x + m_goal_dir.z * m_goal_dir.z);
+
+			if (len != 0.0f)
+			{
+				f32 inv = 1.0f / len;
+				m_goal_dir.x *= inv;
+				m_goal_dir.z *= inv;
+			}
+		}
+
+		m_goal_dir_valid = 1;
+		const CMatrix& m = m_entity->m_node->m_matrix;
+		dot = -m.m_matrix[2][0] * m_goal_dir.x + -m.m_matrix[2][2] * m_goal_dir.z;
+
+		if (m_goal_pos_valid && (u8)m_goal_type != (u8)type)
+		{
+			m_goal_pos_valid = 0;
+
+			if (!m_goal_dir_valid)
+				m_goal_type = (GOAL_TYPE)0;
+		}
+
+		m_goal_type = type;
+	}
+	else
+	{
+		m_goal_dir_valid = 0;
+
+		if (!m_goal_pos_valid)
+			m_goal_type = (GOAL_TYPE)0;
+	}
+
+	return dot;
 }
 
 /* @socom-skeleton stub SetSnoozing__11CSealCtrlAiFb */
@@ -944,19 +1640,88 @@ void CSealCtrlAi::SetSleeping(bool)
 }
 
 /* @socom-skeleton stub SetAiMode__11CSealCtrlAiF7AI_MODE */
-void CSealCtrlAi::SetAiMode(AI_MODE)
+void CSealCtrlAi::SetAiMode(AI_MODE mode)
 {
+	/* 0x266bf0: the movement mode the PreTick runs (idle / hold / path / creep / slide /
+	 * follow). Follow mode is not left while the top state is STATE_FOLLOW. */
+	static const char* const names[8] = { "sleep", "idle", "hold", "path", "creep", "slide", "follow", "" };
+	u8 old = m_mode;
+
+	if (old == (u8)mode)
+		return;
+
+	if (old == AIM_FOLLOW)
+	{
+		CAiState* state = const_cast<const CSealCtrlAi *>(this)->GetAiState();
+
+		if ((state != NULL ? state->m_state : 0) == STATE_FOLLOW)
+			return;
+	}
+
+	m_ladder_state = 0;
+
+	switch (mode)
+	{
+	case AIM_IDLE:
+		m_idleTimer = 0.0f;
+		break;
+	case AIM_PATH:
+		m_pathGoalVec = CPnt3D::zero;
+		m_pathGoalDist = 0.0f;
+		m_pathGoalDot = 0.0f;
+		break;
+	case AIM_FOLLOW:
+		m_followError = 0.0f;
+		m_followPoint = CPnt3D::zero;
+		m_followTimer = 0.0f;
+		m_followMode = 0;
+		/* fall through */
+	case AIM_HOLD:
+		m_throttle_goal[0] = 0.0f;
+		m_throttle_goal[1] = 0.0f;
+		m_throttle_goal[2] = 0.0f;
+		m_throttle[1] = 0.0f;
+		m_throttle[2] = 0.0f;
+		m_throttle[0] = 0.0f;
+		break;
+	default:
+		break;
+	}
+
+	Debug("ai_mode change [%s] to [%s]\n", names[old < 8 ? old : 7], names[(u8)mode < 8 ? (u8)mode : 7]);
+	m_mode = (u8)mode;
+	m_modeTimer = 0.0f;
 }
 
 /* @socom-skeleton stub ComputeTurnThrottle__9CSealCtrlFPC6CPnt3DPC6CPnt3DPf */
-float CSealCtrl::ComputeTurnThrottle(const CPnt3D *, const CPnt3D *, float *)
+float CSealCtrl::ComputeTurnThrottle(const CPnt3D *facing, const CPnt3D *goal, float *dotOut)
 {
+	/* 0x266ab0: the turn throttle (-1..1) that brings `facing` to `goal` (XZ): full turn
+	 * beyond 30 degrees (dot under 0.866), proportional (cross x 1.75) inside */
 	/* @socom-skeleton stub noTurnThreshold$3253 */
-	static float noTurnThreshold;
+	static float noTurnThreshold = 1.0f;
 	/* @socom-skeleton stub fineTuneThreshold$3256 */
-	static float fineTuneThreshold;
+	static float fineTuneThreshold = 0.866f;
 	/* @socom-skeleton stub throttleFudge$3259 */
-	static float throttleFudge;
+	static float throttleFudge = 1.75f;
+	f32 dot = facing->z * goal->z + facing->x * goal->x;
+	f32 throttle = 0.0f;
+
+	if (dot <= noTurnThreshold)
+	{
+		f32 cross = facing->z * goal->x - facing->x * goal->z;
+
+		if (!(dot <= fineTuneThreshold))
+			throttle = cross * throttleFudge;
+		else
+			throttle = cross < 0.0f ? -1.0f : 1.0f;
+	}
+
+	if (dotOut != NULL)
+		*dotOut = dot;
+
+	saturate<f32>(throttle, -1.0f, 1.0f);
+	return throttle;
 }
 
 /* @socom-skeleton stub LadderClimbTick__11CSealCtrlAiFf */
@@ -1001,37 +1766,201 @@ void CSealCtrlAi::PathFollowTick(float)
 }
 
 /* @socom-skeleton stub SetThrottle__11CSealCtrlAiFUif */
-void CSealCtrlAi::SetThrottle(unsigned int, float)
+void CSealCtrlAi::SetThrottle(unsigned int index, float throttle)
 {
+	/* 0x264dc0: the AI's throttles are goals (PreTick ramps the real ones at accelRate /
+	 * decelRate); only the turn throttle (2) is taken at once. In hold mode only a zero is
+	 * accepted. */
+	if (m_mode == AIM_HOLD && throttle != 0.0f)
+		return;
+
+	m_throttle_goal[index] = throttle;
+
+	if (index == 2)
+		m_throttle[2] = throttle;
 }
 
 /* @socom-skeleton stub AllStop__11CSealCtrlAiFb */
-void CSealCtrlAi::AllStop(bool)
+void CSealCtrlAi::AllStop(bool slew)
 {
+	/* 0x264d30: zero the throttle goals (slew: through SetThrottle, the throttles then
+	 * ramp down) or goals and throttles at once */
+	if (slew)
+	{
+		SetThrottle(1, 0.0f);
+		SetThrottle(2, 0.0f);
+		SetThrottle(0, 0.0f);
+	}
+	else
+	{
+		m_throttle_goal[0] = 0.0f;
+		m_throttle_goal[1] = 0.0f;
+		m_throttle_goal[2] = 0.0f;
+		m_throttle[1] = 0.0f;
+		m_throttle[2] = 0.0f;
+		m_throttle[0] = 0.0f;
+	}
 }
 
 /* @socom-skeleton stub IdleTick__11CSealCtrlAiFf */
-void CSealCtrlAi::IdleTick(float)
+void CSealCtrlAi::IdleTick(float dT)
 {
+	/* 0x264c20: idle mode creeps to any goal. ELF: every idle_limit (4 s) without a look
+	 * above AIL_NORMAL a new look direction is chosen from the AI map (ChooseLookDir,
+	 * SetLookDirW(AIL_NORMAL, dir), look flag 1 cleared, "IdleTimer Expired!  New Look
+	 * Direction %d"). port: that part is not written (ChooseLookDir 0x2597a0 and the look
+	 * code in seal_aiscan.cpp are not written); the timer runs. */
 	/* @socom-skeleton stub idle_limit$3507 */
-	static float idle_limit;
+	static float idle_limit = 4.0f;
+
+	m_idleTimer += dT;
+
+	if (!(m_idleTimer < idle_limit))
+		m_idleTimer = 0.0f;
+
+	CreepTick(dT);
 }
 
 /* @socom-skeleton stub CreepTick__11CSealCtrlAiFf */
-void CSealCtrlAi::CreepTick(float)
+void CSealCtrlAi::CreepTick(float dT)
 {
+	/* 0x264af0: without a goal the AI stands still; else it creeps (CSealCtrl::CreepTick),
+	 * and a goal reached ends creep mode and clears the goal */
+	if (!m_goal_dir_valid && !m_goal_pos_valid)
+	{
+		m_throttle_goal[0] = 0.0f;
+		m_throttle_goal[1] = 0.0f;
+		m_throttle_goal[2] = 0.0f;
+		m_throttle[1] = 0.0f;
+		m_throttle[2] = 0.0f;
+		m_throttle[0] = 0.0f;
+		return;
+	}
+
+	m_creeping = 1;
+	CSealCtrl::CreepTick(dT);
+
+	if (m_goal_dir_valid || m_goal_pos_valid)
+		return;
+
+	if (m_mode == AIM_CREEP)
+		SetAiMode(AIM_IDLE);
+
+	GOAL_TYPE type = (GOAL_TYPE)(s8)m_goal_type;
+	SetGoalPos(type, NULL, 3.0f);
+	SetGoalDir(type, NULL, false);
+	m_goal_timer.m_timer = CAiTimer::infinite;
+	m_goal_timer.m_period.m_min = CAiTimer::infinite;
+	m_goal_timer.m_period.m_range = 0.0f;
 }
 
 /* @socom-skeleton stub CreepTick__9CSealCtrlFf */
-void CSealCtrl::CreepTick(float)
+void CSealCtrl::CreepTick(float dT)
 {
+	/* 0x2646a0: steer to the current goal with throttles: toward the goal position (XZ;
+	 * forward and strafe throttles from the speed needed to arrive this frame, clamped to
+	 * m_speed and ai::rateStrafeMax) until within its tolerance, and - once clear of the
+	 * last 25 units - turn to the goal direction (ComputeTurnThrottle) until the turn
+	 * throttle is under 0.1. An expired goal timer clears the goal. */
 	/* @socom-skeleton stub move_tolerance$3532 */
-	static float move_tolerance;
+	static float move_tolerance = 25.0f;
+
+	_dTI = 1.0f / dT;
+
+	if (!m_goal_dir_valid && !m_goal_pos_valid)
+		return;
+
+	bool expired = false;
+
+	if (m_goal_timer.m_timer != CAiTimer::infinite)
+	{
+		m_goal_timer.m_timer -= dT;
+		expired = m_goal_timer.m_timer != CAiTimer::infinite && m_goal_timer.m_timer <= 0.0f;
+	}
+
+	if (expired)
+	{
+		GOAL_TYPE type = (GOAL_TYPE)(s8)m_goal_type;
+		SetGoalPos(type, NULL, 3.0f);
+		SetGoalDir(type, NULL, false);
+		m_goal_timer.m_timer = CAiTimer::infinite;
+		m_goal_timer.m_period.m_min = CAiTimer::infinite;
+		m_goal_timer.m_period.m_range = 0.0f;
+		return;
+	}
+
+	const CMatrix& m = m_entity->m_node->m_matrix;
+	CPnt3D fwd;
+	fwd.x = -m.m_matrix[2][0];
+	fwd.y = 0.0f;
+	fwd.z = -m.m_matrix[2][2];
+	fwd.Normalize();
+	f32 throttle[3] = { 0.0f, 0.0f, 0.0f };
+	bool turn = true;
+
+	if (m_goal_pos_valid)
+	{
+		CPnt3D to;
+		m_goal_pos.SubXZ(m_entity->GetPosW(), &to);
+		f32 dist = sqrtf(to.x * to.x + to.z * to.z);
+
+		if (dist != 0.0f)
+		{
+			to.x *= 1.0f / dist;
+			to.z *= 1.0f / dist;
+		}
+
+		f32 ahead = fwd.x * to.x + fwd.z * to.z;
+		f32 aside = -fwd.z * to.x + fwd.x * to.z;
+
+		if (dist < move_tolerance)
+			turn = false;
+
+		f32 t = GetThrottleFromSpeed(dist * _dTI, 0);
+		saturate<f32>(t, -m_speed, m_speed);
+		throttle[0] = ahead * t;
+		t = GetThrottleFromSpeed(dist * _dTI, 1);
+		saturate<f32>(t, -ai::rateStrafeMax, ai::rateStrafeMax);
+		throttle[1] = aside * t;
+		throttle[2] = 0.0f;
+
+		if (dist <= m_goal_pos_tolerance)
+		{
+			m_goal_pos_valid = 0;
+			turn = true;
+		}
+	}
+
+	if (m_goal_dir_valid && (!m_goal_pos_valid || turn))
+	{
+		f32 dot = 0.0f;
+		throttle[2] = ComputeTurnThrottle(&fwd, &m_goal_dir, &dot);
+
+		if (_close_enough<f32>(throttle[2], 0.0f, 0.1f))
+			m_goal_dir_valid = 0;
+	}
+
+	SetThrottle(0, throttle[0]);
+	SetThrottle(1, throttle[1]);
+	SetThrottle(2, throttle[2]);
 }
 
 /* @socom-skeleton stub SlideTick__11CSealCtrlAiFf */
-unsigned char CSealCtrlAi::SlideTick(float)
+unsigned char CSealCtrlAi::SlideTick(float dT)
 {
+	/* 0x264640: no throttles while sliding; a finished slide returns to idle */
+	m_throttle_goal[0] = 0.0f;
+	m_throttle_goal[1] = 0.0f;
+	m_throttle_goal[2] = 0.0f;
+	m_throttle[1] = 0.0f;
+	m_throttle[2] = 0.0f;
+	m_throttle[0] = 0.0f;
+	bool sliding = CSealCtrl::SlideTick(dT);
+
+	if (!sliding)
+		SetAiMode(AIM_IDLE);
+
+	return sliding;
 }
 
 /* @socom-skeleton stub SlideTick__9CSealCtrlFf */
@@ -1121,8 +2050,10 @@ unsigned char CSealCtrl::SlideTick(float dT)
 }
 
 /* @socom-skeleton stub SetDebug__11CSealCtrlAiFb */
-void CSealCtrlAi::SetDebug(bool)
+void CSealCtrlAi::SetDebug(bool debug)
 {
+	/* 0x264250 */
+	m_debug = debug;
 }
 
 /* @socom-skeleton stub PutAiLog__11CSealCtrlAiFUiUiPCv */
@@ -1131,18 +2062,66 @@ void CSealCtrlAi::PutAiLog(unsigned int, unsigned int, const void *)
 }
 
 /* @socom-skeleton stub Debug__11CSealCtrlAiFPCce */
-void CSealCtrlAi::Debug(const char *, ...)
+void CSealCtrlAi::Debug(const char *format, ...)
 {
+	/* 0x2641a0: 36 bytes - the retail build formats nothing. port: as Output */
+#if defined(SOCOM_PORT) && defined(SOCOM_PORT_TRACE_ON)
+	char text[160];
+	va_list args;
+	va_start(args, format);
+	vsnprintf(text, sizeof(text), format, args);
+	va_end(args);
+	size_t n = strlen(text);
+
+	if (n != 0 && text[n - 1] == '\n')
+		text[n - 1] = '\0';
+
+	SOCOM_PORT_TRACE("AI: %s: %s", m_entity != NULL ? m_entity->m_node->m_name : "?", text);
+#else
+	(void)format;
+#endif
 }
 
 /* @socom-skeleton stub Output__11CSealCtrlAiFPCce */
-void CSealCtrlAi::Output(const char *, ...)
+void CSealCtrlAi::Output(const char *format, ...)
 {
+	/* 0x264170: 36 bytes - the retail build formats nothing. port: with the port trace on,
+	 * the ELF's own AI messages go to the trace log */
+#if defined(SOCOM_PORT) && defined(SOCOM_PORT_TRACE_ON)
+	char text[160];
+	va_list args;
+	va_start(args, format);
+	vsnprintf(text, sizeof(text), format, args);
+	va_end(args);
+	size_t n = strlen(text);
+
+	if (n != 0 && text[n - 1] == '\n')
+		text[n - 1] = '\0';
+
+	SOCOM_PORT_TRACE("AI: %s: %s", m_entity != NULL ? m_entity->m_node->m_name : "?", text);
+#else
+	(void)format;
+#endif
 }
 
 /* @socom-skeleton stub SetTarget__11CSealCtrlAiFP7CTarget */
-void CSealCtrlAi::SetTarget(CTarget *)
+void CSealCtrlAi::SetTarget(CTarget *target)
 {
+	/* 0x2640d0: a different target entity (or none) that may be attacked becomes the target */
+	bool same = target != NULL ? m_target.m_target.m_ent == target->m_ent : m_target.m_target.m_ent == NULL;
+
+	if (same)
+		return;
+
+	CEntity* e = target != NULL ? target->m_ent : NULL;
+
+	if (e == NULL || CanAttack(e))
+	{
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("AI: %s target -> %s", m_entity->m_node->m_name, e != NULL ? e->m_node->m_name : "(none)");
+#endif
+		m_target.SetTarget(target, 0.0f);
+	}
 }
 
 /* @socom-skeleton stub SetValve__11CSealCtrlAiF10SEAL_VALVEUi */
@@ -1167,32 +2146,401 @@ bool CSealCtrlAi::SetValve(SEAL_VALVE which, unsigned int value)
 /* @socom-skeleton stub SelectFireParams__11CSealCtrlAiFv */
 void CSealCtrlAi::SelectFireParams()
 {
+	/* 0x263a30: the next burst's fire mode and trigger timing (trigger-down time, then
+	 * trigger-up time, each {min, range}): a thrown item 1 s down / 8 s up; a weapon without
+	 * burst modes single shots, 0.15-0.5 s down / 0.15-1.3 s up; beyond 1.2 x the weapon's
+	 * effective range single shots, 0.15-0.25 / 0.15-1.3; else 0.5-1 s down / 0.5-1.5 s up
+	 * in BURST (always for the SEALs, else one time in two) or AUTOFIRE. */
+	CZSealBody* seal = static_cast<CZSealBody *>(m_entity);
+	CZKit* kit = &seal->m_kit;
+	CZFTSWeapon* item = kit->GetCurItem();
+	u8 id = (u8)kit->GetCurItemEnum();
+
+	if (id >= 120 && id < 126)
+	{
+		m_ai_trigger.m_dn_time.m_min = 1.0f;
+		m_ai_trigger.m_dn_time.m_range = 0.0f;
+		m_ai_trigger.m_up_time.m_min = 8.0f;
+		m_ai_trigger.m_up_time.m_range = 0.0f;
+		ResetTrigger(m_ai_trigger);
+		return;
+	}
+
+	kit->GetCurFireMode();
+
+	if (!(m_target.m_target.m_ent != NULL && m_target.m_target.m_ent->m_isAlive))
+		return;
+
+	FIREMODE mode;
+
+	if ((s32)(u8)item->m_maxfiremode < 2)
+	{
+		m_ai_trigger.m_dn_time.m_min = 0.15f;
+		m_ai_trigger.m_dn_time.m_range = 0.35f;
+		m_ai_trigger.m_up_time.m_min = 0.15f;
+		m_ai_trigger.m_up_time.m_range = 1.15f;
+		mode = (FIREMODE)1;
+	}
+	else if (!(m_target.m_target.GetRange() <= 1.2f * CAiWepHint::GetWeaponEffectiveRange(item)))
+	{
+		m_ai_trigger.m_dn_time.m_min = 0.15f;
+		m_ai_trigger.m_dn_time.m_range = 0.09999999f;
+		m_ai_trigger.m_up_time.m_min = 0.15f;
+		m_ai_trigger.m_up_time.m_range = 1.15f;
+		mode = (FIREMODE)1;
+	}
+	else
+	{
+		m_ai_trigger.m_dn_time.m_min = 0.5f;
+		m_ai_trigger.m_dn_time.m_range = 0.5f;
+		m_ai_trigger.m_up_time.m_min = 0.5f;
+		m_ai_trigger.m_up_time.m_range = 1.0f;
+		mode = (m_navyseal || (f32)rand() * 4.656613e-10f <= 0.5f) ? (FIREMODE)2 : (FIREMODE)3;
+	}
+
+	ResetTrigger(m_ai_trigger);
+	kit->SetCurFireMode(mode);
 }
 
 /* @socom-skeleton stub CanAttack__11CSealCtrlAiFP7CEntity */
-unsigned char CSealCtrlAi::CanAttack(CEntity *)
+unsigned char CSealCtrlAi::CanAttack(CEntity *e)
 {
+	/* 0x2639e0: not a no-shoot entity, and not entity type 3 */
+	if (e == NULL || e->m_noshoot)
+		return false;
+
+	return (u8)e->m_type != 3;
 }
 
 /* @socom-skeleton stub SetSprayTimer__11CSealCtrlAiFf */
-void CSealCtrlAi::SetSprayTimer(float)
+void CSealCtrlAi::SetSprayTimer(float time)
 {
+	/* 0x263970: start a spray with a weapon that has automatic fire */
+	CZSealBody* seal = static_cast<CZSealBody *>(m_entity);
+
+	if ((s32)(u8)seal->m_kit.GetCurItem()->m_maxfiremode < 3)
+		return;
+
+	seal->SetWeaponState((WEAPON_STATE)1);
+	seal->SetAimDirR(&CPnt3D::unit_nz, false);
+	m_sprayTimer = time;
 }
 
 /* @socom-skeleton stub AttackTick__11CSealCtrlAiFfb */
-unsigned char CSealCtrlAi::AttackTick(float, bool)
+unsigned char CSealCtrlAi::AttackTick(float dT, bool allowFire)
 {
+	/* 0x2626c0 (every PreTick, from SensorPreTick; allowFire: this frame's fire slots are
+	 * not used up). Returns whether the kit will fire this frame. In order:
+	 * - a spray (suppressive burst, m_sprayTimer; enemies only) holds the trigger in
+	 *   AUTOFIRE until the timer or the ammunition runs out;
+	 * - a state stack that forbids attacking (m_stateFlags bit 1 clear), no item, no living
+	 *   target, or a target that is not visible: the attack is dropped (aim point cleared,
+	 *   trigger timing redrawn, GOAL_SHOOT cleared, trigger released);
+	 * - an empty magazine pushes STATE_RELOAD (ammunition left) or STATE_NOAMMO;
+	 * - with the hold-fire valve set only hostile targets are engaged;
+	 * - the target must have been visible for target_delay seconds, and the body must face
+	 *   it within a cone that tightens with discipline (dot 0.866 .. 0.99985); GOAL_SHOOT
+	 *   turns the body;
+	 * - then the trigger: m_ai_trigger counts down m_dn_time (trigger down) + m_up_time; in
+	 *   the first part the fire parameters are computed and FireWhenReady decides each
+	 *   frame; when the count ends SelectFireParams draws the next burst. */
 	/* @socom-skeleton stub max_dot$3740 */
-	static float max_dot;
+	static float max_dot = 0.999848f;
 	/* @socom-skeleton stub min_dot$3743 */
-	static float min_dot;
+	static float min_dot = 0.866025f;
+	CZSealBody* seal = static_cast<CZSealBody *>(m_entity);
+	CZKit* kit = &seal->m_kit;
+	CSealUnit* unit = m_unit;
+	bool spraying = false;
+
+	if (!m_navyseal && !(m_sprayTimer <= 0.0f) && (u8)seal->GetWeaponState() == 1)
+	{
+		if (!kit->CurItemHasAmmo())
+		{
+			m_sprayTimer = 0.0f;
+		}
+		else
+		{
+			m_sprayTimer -= dT;
+			kit->SetCurFireMode((FIREMODE)3);
+			SetTrigger(true, 0.0f);
+			spraying = true;
+
+			if (m_sprayTimer <= 0.0f)
+				m_sprayTimer = 0.0f;
+		}
+	}
+
+	if (spraying)
+		return kit->WillFireWeapon();
+
+	CAiState* state = GetAiState();
+
+	if (!(m_stateFlags & 2))
+	{
+		StopAttack(this, seal->GetWeaponState());
+		return false;
+	}
+
+	CZFTSWeapon* item = kit->GetCurItem();
+
+	if (item == NULL)
+		return false;
+
+	/* the weapon is carried ready (1) when looking at something (look flag 0x10), when the
+	 * unit is in an ambush (CSealUnit::m_ambush) or with m_weapon_ready; else lowered (2) */
+	WEAPON_STATE rest = (WEAPON_STATE)2;
+
+	/* port: CSealUnit::m_ambush (+0x7f) is not declared in the port (the unit code is not
+	 * written): treated as clear */
+	(void)unit;
+
+	if ((m_look_flags & 0x10) || m_weapon_ready)
+		rest = (WEAPON_STATE)1;
+
+	CEntity* te = m_target.m_target.m_ent;
+
+	if (!(te != NULL && te->m_isAlive))
+	{
+		StopAttack(this, rest);
+		return false;
+	}
+
+	seal->SetWeaponState((WEAPON_STATE)1);
+
+	if (!m_target.m_target.m_visible || !allowFire)
+	{
+		StopAttack(this, (WEAPON_STATE)1);
+		return false;
+	}
+
+	f32 range = m_target.m_target.GetRange();
+
+	/* ELF: out of ammunition, or a weapon under 0.6 accuracy at this range, asks
+	 * ChooseWeapon(CAiWepHint &) for another one. port: not written (ChooseWeapon 0x261eb0,
+	 * 1524 B): the AI keeps its current weapon */
+	(void)range;
+
+	if (!kit->CurMagHasAmmo())
+	{
+		if (kit->CurItemHasAmmo())
+		{
+			if (PushAiState(STATE_RELOAD, true))
+				GetAiState()->m_setup = 1;
+		}
+		else if (PushAiState(STATE_NOAMMO, true))
+		{
+			GetAiState()->m_setup = 1;
+		}
+
+		StopAttack(this, rest);
+		return false;
+	}
+
+	bool engage = true;
+
+	if (m_valve[0] != NULL && m_valve[0]->m_value != 0 && !m_target.m_target.m_hostile)
+		engage = false;
+
+	/* an engaging AI outside STATE_TARGETING / STATE_PURSUE whose top state allows pursuit
+	 * pushes STATE_TARGETING for 2.5 s (holding cover, a sniper rifle, a guard region, a unit
+	 * order, an unaware SEAL, or one time in four) or else STATE_PURSUE (5 s for a SEAL,
+	 * open-ended otherwise). port: the guard-region test (CAiMaps::GetRegionTypeContainer,
+	 * region type 6, unwritten) is taken as "not in one"; the unit order test reads no unit
+	 * (CSealUnit unwritten; the ELF reads m_unit+0x4c without a NULL test). While STATE_PURSUE
+	 * is refused (CanPushAiState's port gate) the draw is repeated every frame, so targeting
+	 * follows within a few frames. */
+	if (engage)
+	{
+		const CAiState* top = static_cast<const CSealCtrlAi *>(this)->GetAiState();
+		u8 type = top != NULL ? top->m_state : 0;
+
+		if (type != STATE_TARGETING && type != STATE_PURSUE && state->CanPursue(this))
+		{
+			bool targeting = m_holdCover || kit->HasSniperRifle();
+
+			if (!targeting && m_unit != NULL)
+				targeting = false; /* port: CSealUnit +0x4c (an order) not declared */
+
+			if (!targeting && m_navyseal && m_aware.m_value == 0.0f)
+				targeting = true;
+
+			if (!targeting)
+				targeting = (f32)rand() * (1.0f / 2147483648.0f) <= 0.25f;
+
+			if (targeting)
+			{
+				if (PushAiState(STATE_TARGETING, true))
+				{
+					CAiState* t = GetAiState();
+					f32 duration = 2.5f;
+					memcpy(&t->m_unk_08, &duration, 4); /* CAiSTarget's duration (+0x08) */
+					t->m_setup = 1;
+				}
+			}
+			else if (PushAiState(STATE_PURSUE, true))
+			{
+				CAiState* t = GetAiState();
+				static_cast<CAiSPursue *>(t)->m_duration = m_navyseal ? 5.0f : -1.0f;
+				t->m_setup = 1;
+			}
+		}
+	}
+
+	bool fire = engage;
+
+	if (engage && !m_target.m_target.m_targeted)
+	{
+		fire = !(m_target.GetTimeVisible() <= m_aiParams.target_delay);
+
+		if (fire)
+			m_target.m_targeted = 1;
+	}
+
+	if (!fire)
+	{
+		SetTrigger(false);
+		return false;
+	}
+
+	f32 dot = SetGoalDir(GOAL_SHOOT, &m_target.m_target.m_vec, false);
+
+	if (dot < (1.0f - m_dicipline.m_value) * min_dot + m_dicipline.m_value * max_dot)
+	{
+		SetTrigger(false);
+		return false;
+	}
+
+	AI_FIREPARAMS& fp = m_fire_params;
+
+	if ((fp.m_flags & 0x2000000) && !(fp.m_timeout <= 3.0f))
+	{
+		fp.m_flags &= 0xfdefffff;
+		fp.m_timeout = 0.0f;
+		ResetTrigger(m_ai_trigger);
+	}
+
+	bool pull = false;
+
+	if (!(fp.m_flags & 0x2000000))
+	{
+		CPnt3D point;
+		te->GetTargetPosW(&point);
+		fp.setup(kit, &point, &te->m_velW, 6);
+		bool down = !(m_ai_trigger.m_timer <= m_ai_trigger.m_marker);
+		m_ai_trigger.m_timer -= dT;
+
+		if (down)
+		{
+			if (!(fp.m_flags & 0x2000000))
+			{
+				bool ready;
+
+				if (fp.m_flags & 0x40000)
+				{
+					/* port: not written - ComputeThrowFireParams 0x25e360 (grenade throws) */
+					ready = false;
+					SetTrigger(false);
+					SetTrigger(false);
+				}
+				else
+				{
+					ready = ComputeProjectileFireParams(fp);
+				}
+
+				if (ready)
+				{
+					fp.m_flags |= 0x100000;
+					fp.m_timeout = 0.0f;
+				}
+			}
+
+			pull = (fp.m_flags & 0x100000) != 0;
+		}
+	}
+	/* ELF: a throw being worked (0x2000000 with 0x40000 and 4) is re-aimed at the moving
+	 * target here. port: not written (ComputeThrowFireParams) */
+
+	if (pull)
+	{
+		SetTrigger(FireWhenReady(fp, dT), fp.m_throwPower);
+	}
+	else
+	{
+		SetTrigger(false);
+		fp.m_flags &= 0xfdefffff;
+		fp.m_timeout = 0.0f;
+	}
+
+	if (m_ai_trigger.m_timer <= 0.0f)
+	{
+		SelectFireParams();
+		ResetTrigger(m_ai_trigger);
+	}
+
+	return kit->WillFireWeapon();
 }
 
 /* @socom-skeleton stub FireWhenReady__11CSealCtrlAiFR13AI_FIREPARAMSf */
-unsigned char CSealCtrlAi::FireWhenReady(AI_FIREPARAMS &, float)
+unsigned char CSealCtrlAi::FireWhenReady(AI_FIREPARAMS &fp, float dT)
 {
+	/* 0x2624b0: whether the trigger may be pulled for fp this frame. In order: the head
+	 * must be within 0.98 of the look direction (flag 0x1000000; the look is requested as
+	 * AIL_DEPLOY), the body able to fire, the line of fire clear of team mates within 10
+	 * (0x400000), the aim set (direction 0x80000 or point 0x200000; neither: the shot is
+	 * dropped), and with 0x800000 the weapon raised (state 1) and the aim within 0.98 of
+	 * its goal. */
 	/* @socom-skeleton stub look_dot_threshold$3770 */
-	static float look_dot_threshold;
+	static float look_dot_threshold = 0.98f;
+	CZSealBody* seal = static_cast<CZSealBody *>(m_entity);
+
+	fp.m_timeout += dT;
+
+	if (fp.m_flags & 0x1000000)
+	{
+		if ((s8)m_look_mode != AIL_DEPLOY)
+			SetLookDirW(AIL_DEPLOY, &fp.m_lookDirW, true);
+
+		const CMatrix& m = seal->m_node->m_matrix;
+
+		if (-m.m_matrix[2][0] * fp.m_lookDirW.x + -m.m_matrix[2][1] * fp.m_lookDirW.y + -m.m_matrix[2][2] * fp.m_lookDirW.z < look_dot_threshold)
+			return false;
+	}
+
+	bool ok = seal->CanFire();
+
+	if (ok && (fp.m_flags & 0x400000))
+		ok = ai::CheckLineOfFire(seal, &m_target.m_target, 10.0f);
+
+	if (!ok)
+		return false;
+
+	bool aimed;
+
+	if (fp.m_flags & 0x80000)
+	{
+		aimed = seal->SetAimDirR(&fp.m_aimDirM, false);
+	}
+	else if (fp.m_flags & 0x200000)
+	{
+		aimed = seal->SetAimPointW(&fp.m_aimPointW, NULL, false);
+	}
+	else
+	{
+		fp.m_flags &= 0xfdefffff;
+		fp.m_timeout = 0.0f;
+		aimed = false;
+	}
+
+	if (!aimed || !(fp.m_flags & 0x800000))
+		return aimed;
+
+	seal->SetWeaponState((WEAPON_STATE)1);
+
+	if (seal->GetAimDot() <= 0.98f)
+		return false;
+
+	return seal->m_weapon_state == 1;
 }
 
 /* @socom-skeleton stub ChooseWeapon__11CSealCtrlAiFR10CAiWepHint */
@@ -1210,23 +2558,130 @@ void CSealCtrlAi::GetDuckStance(CZSealBody *, SEAL_STANCE &) const
 }
 
 /* @socom-skeleton stub SetStance__11CSealCtrlAiF11SEAL_STANCE */
-unsigned char CSealCtrlAi::SetStance(SEAL_STANCE)
+unsigned char CSealCtrlAi::SetStance(SEAL_STANCE stance)
 {
+	/* 0x261d00 */
+	return DoSetStance(stance);
 }
 
 /* @socom-skeleton stub SetStanceDelayed__11CSealCtrlAiF11SEAL_STANCEf */
-unsigned char CSealCtrlAi::SetStanceDelayed(SEAL_STANCE, float)
+unsigned char CSealCtrlAi::SetStanceDelayed(SEAL_STANCE stance, float delay)
 {
+	/* 0x261ac0: the stance is taken after the delay (-1: a random 0.15 .. 0.75 s; 0: now).
+	 * ELF quirk kept as dead code is left out: the random delay is tested against 0 and -1
+	 * again (it is neither). */
+	if (delay == 0.0f)
+		return DoSetStance(stance);
+
+	if ((s8)stance == m_stance_goal)
+		return true;
+
+	if (delay == -1.0f)
+		delay = 0.15f + 0.6f * ((f32)rand() * (1.0f / 2147483648.0f));
+
+	m_stance_goal = (s8)stance;
+	m_stance_delay = delay;
+	Debug("SetStanceDelayed( %s, %.2f)\n", sealai::get_stance(stance), (double)delay);
+	return true;
 }
 
 /* @socom-skeleton stub DoSetStance__11CSealCtrlAiF11SEAL_STANCE */
-unsigned char CSealCtrlAi::DoSetStance(SEAL_STANCE)
+unsigned char CSealCtrlAi::DoSetStance(SEAL_STANCE stance)
 {
+	/* 0x261740: stand and crouch are taken at once (the body's desired state 0 / 1). Prone
+	 * (2) is denied - crouch instead - when a visible living target is close (under 250) or
+	 * steep (y^2 / dist^2 over 0.07) and fire is not held, inside, or for a hurt non-SEAL,
+	 * unless a grenade state or a restrained state (outside follow) is stacked. Other
+	 * stances (idle) fail. */
+	CZSealBody* body = static_cast<CZSealBody *>(m_entity);
+	s8 s = (s8)stance;
+	bool ok = false;
+	m_stance_delay = 0.0f;
+
+	if (m_stance == s)
+	{
+		ok = true;
+	}
+	else if (s == 0)
+	{
+		body->m_desiredState = (SEAL_STATE)0;
+		ok = true;
+	}
+	else if (s == 1)
+	{
+		body->m_desiredState = (SEAL_STATE)1;
+		ok = true;
+	}
+	else if (s == 2)
+	{
+		bool deny = false;
+		CEntity* target = m_target.m_target.m_ent;
+
+		if (target != NULL && target->m_isAlive && m_target.m_target.m_visible)
+		{
+			CValve* holdfire = m_valve[0];
+
+			if (holdfire == NULL || holdfire->m_value == 0)
+			{
+				f32 y = m_target.m_target.m_vec.y;
+
+				if (!(y * y / m_target.m_target.m_distSq <= 0.07f))
+					deny = true;
+
+				if (m_target.m_target.m_distSq < 62500.0f)
+					deny = true;
+			}
+		}
+
+		bool allow = true;
+
+		if (FindAiState(STATE_GRENADE) == NULL)
+		{
+			CAiState* top = GetAiState();
+			allow = top != NULL && top->m_state != STATE_FOLLOW && FindAiState(STATE_RESTRAINED) != NULL;
+		}
+
+		bool hurt = body->m_health < 1.0f && !m_navyseal;
+
+		if ((deny || body->m_inside || hurt) && !allow)
+		{
+			Debug("DoSetStance( %s) PRONE DENIED\n", sealai::get_stance(stance));
+			s = 1;
+			body->m_desiredState = (SEAL_STATE)1;
+		}
+		else
+		{
+			Debug("DoSetStance( %s)\n", sealai::get_stance(stance));
+			body->m_desiredState = (SEAL_STATE)2;
+		}
+
+		ok = true;
+	}
+
+	if (ok)
+	{
+		m_stance_goal = s;
+		m_stance = s;
+		m_stance_delay = 0.0f;
+	}
+
+	return ok;
 }
 
 /* @socom-skeleton stub SetupAnimations__11CSealCtrlAiFv */
 void CSealCtrlAi::SetupAnimations()
 {
+	/* 0x261660: the seal's script anims by its node's name: task 3 "<name>_special", task 1
+	 * "<name>_start", task 4 "<name>_ambient". port: void (the ELF returns 1) */
+	char name[1024];
+	const char* node = m_entity->m_node->m_name;
+
+	sprintf(name, "%s_%s", node, "special");
+	m_task_anim[3] = ZAnim.GetAnim(name, NULL);
+	sprintf(name, "%s_%s", node, "start");
+	m_task_anim[1] = ZAnim.GetAnim(name, NULL);
+	sprintf(name, "%s_%s", node, "ambient");
+	m_task_anim[4] = ZAnim.GetAnim(name, NULL);
 }
 
 /* @socom-skeleton stub GetRouteComplete__11CSealCtrlAiCFv */
@@ -1294,8 +2749,47 @@ void CSealCtrlAi::AnimSignal(CZAnim *, AI_SIGNAL)
 }
 
 /* @socom-skeleton stub ActivateEx__11CSealCtrlAiF9SEAL_TASKbe */
-void CSealCtrlAi::ActivateEx(SEAL_TASK, bool, ...)
+void CSealCtrlAi::ActivateEx(SEAL_TASK task, bool push, ...)
 {
+	/* 0x260830: the task's anim runs with the (type, value) argument pairs (0 ends them) and
+	 * becomes the task's handle; with push it is run by a new script state. Nothing while the
+	 * AI is disabled. port: void (the ELF returns whether the anim started) */
+	if (!aiEnabled)
+		return;
+
+	u32 t = (u8)task;
+	CZAnim* anim = m_task_anim[t];
+	CZAnim* handle = NULL;
+
+	if (anim != NULL)
+	{
+		va_list args;
+		va_start(args, push);
+		handle = anim->ActivateArgV(static_cast<char *>(args)); /* port: GCC's n32 va_list is a pointer to the 8-byte slots */
+		va_end(args);
+		Debug("Activating task %d...%s\n", (int)t, handle != NULL ? "OK" : "FAILED");
+	}
+	else
+	{
+		Debug("Task %d NULL -- Activation failed!\n", (int)t);
+	}
+
+	m_task_handle[t] = handle;
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("AI: %s task %d anim %s -> %s%s", m_entity->m_node->m_name, (int)t, anim != NULL ? anim->GetName() : "(none)",
+		handle != NULL ? "running" : "not started", push ? " (script state)" : "");
+#endif
+
+	if (handle == NULL || !push)
+		return;
+
+	if (PushAiState(STATE_SCRIPT, false))
+	{
+		CAiState* state = GetAiState();
+		CAiSScript* script = state->m_state == STATE_SCRIPT ? static_cast<CAiSScript *>(state) : NULL; /* ELF: NULL is written through */
+		script->m_anim = anim;
+		script->m_setup = 1;
+	}
 }
 
 /* @socom-skeleton stub SetDoReaction__11CSealCtrlAiFbRC11AI_REACTIONb */
@@ -1309,13 +2803,55 @@ void CSealCtrlAi::DoReaction()
 }
 
 /* @socom-skeleton stub SetAiAware__11CSealCtrlAiFfUi */
-void CSealCtrlAi::SetAiAware(float, unsigned int)
+void CSealCtrlAi::SetAiAware(float value, unsigned int flags)
 {
+	/* 0x260420: bit 0 sets the value, bit 1 the decay goal; bit 2 makes `value` an offset
+	 * from the goal */
+	if (flags & 1)
+	{
+		f32 v = value;
+
+		if (flags & 4)
+			v += m_aware.m_goal;
+
+		saturate<f32>(v, 0.0f, 1.0f);
+		m_aware.m_value = v;
+	}
+
+	if (flags & 2)
+	{
+		f32 v = value;
+
+		if (flags & 4)
+			v += m_aware.m_goal;
+
+		saturate<f32>(v, 0.0f, 1.0f);
+		m_aware.m_goal = v;
+	}
 }
 
 /* @socom-skeleton stub SetAiAware__11CSealCtrlAiF8AI_AWAREPC6CPnt3D */
-void CSealCtrlAi::SetAiAware(AI_AWARE, const CPnt3D *)
+void CSealCtrlAi::SetAiAware(AI_AWARE aware, const CPnt3D *pos)
 {
+	/* 0x2602d0: raise the awareness to (just under the top of) a level; it never lowers
+	 * it. From AIA_GENERAL up the decay goal is held at that level's floor. AIA_DIRECTION
+	 * with a position, below AIA_SPECIFIC, also raises a generic event there. */
+	f32 value = awareRangeMax[aware] - 0.001f;
+
+	if (aware >= AIA_GENERAL && m_aware.m_goal < awareRangeMax[AIA_GENERAL])
+		m_aware.m_goal = awareRangeMin[AIA_GENERAL];
+
+	if (pos != NULL && aware == AIA_DIRECTION && GetAiAware() < AIA_SPECIFIC)
+		SetAiEvent(CAiEvent::AIE_GENERIC, 1.5f, pos);
+
+	if (!(value <= m_aware.m_value))
+	{
+		saturate<f32>(value, 0.0f, 1.0f);
+		m_aware.m_value = value;
+
+		if (aware == AIA_SUSPICIOUS)
+			Output("SetAiAware(%s)\n", "AIA_SUSPICIOUS");
+	}
 }
 
 /* @socom-skeleton stub AcquireAiAware__11CSealCtrlAiFP11CSealCtrlAi */
@@ -1326,13 +2862,23 @@ void CSealCtrlAi::AcquireAiAware(CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub GetAiAware__11CSealCtrlAiFf */
-AI_AWARE CSealCtrlAi::GetAiAware(float)
+AI_AWARE CSealCtrlAi::GetAiAware(float value)
 {
+	/* 0x260000 */
+	for (s32 i = 0; i < 5; i++)
+	{
+		if (value < awareRangeMax[i])
+			return (AI_AWARE)i;
+	}
+
+	return AIA_SPECIFIC;
 }
 
 /* @socom-skeleton stub GetAiAware__11CSealCtrlAiCFv */
 AI_AWARE CSealCtrlAi::GetAiAware() const
 {
+	/* 0x25ffb0: the awareness level of m_aware's value (awareRangeMax: 0.05 / 0.4 / 0.6 / 0.8 / 1) */
+	return GetAiAware(m_aware.m_value);
 }
 
 /* @socom-skeleton stub PerformCollisionActions__11CSealCtrlAiFv */
@@ -1388,20 +2934,112 @@ bool CAiSAction::Tick(float, CSealCtrlAi *)
 /* @socom-skeleton stub reset__13AI_FIREPARAMSFv */
 void AI_FIREPARAMS::reset()
 {
+	/* 0x25ed40 (m_timeout is left alone) */
+	m_weapon = NULL;
+	m_ammo = NULL;
+	m_targetVel = CPnt3D::zero;
+	m_targetPos = m_targetVel;
+	m_lookDirW = CPnt3D::unit_nz;
+	m_aimPointW = CPnt3D::zero;
+	m_aimDirM = CPnt3D::unit_nz;
+	m_throwVec = CPnt3D::zero;
+	m_throwPower = 0.0f;
+	m_flags = 0;
+	m_stance = 0;
 }
 
 /* @socom-skeleton stub setup__13AI_FIREPARAMSFP5CZKitPC6CPnt3DPC6CPnt3DUi */
-void AI_FIREPARAMS::setup(CZKit *, const CPnt3D *, const CPnt3D *, unsigned int)
+bool AI_FIREPARAMS::setup(CZKit *kit, const CPnt3D *targetPos, const CPnt3D *targetVel, unsigned int flags)
 {
+	/* 0x25eab0: start a shot at a target with the kit's current weapon. Nothing while a
+	 * shot is being worked (0x2000000). m_flags: `flags` | 0x10000; thrown items (120-125)
+	 * add 0x60000, the M203 or a 170-type weapon in its special fire mode 0x20000 (arced). */
+	if (m_flags & 0x2000000)
+		return false;
+
+	reset();
+	kit->GetCurWeapon(&m_weapon, &m_ammo);
+	m_targetPos = *targetPos;
+	m_targetVel = targetVel != NULL ? *targetVel : CPnt3D::zero;
+	m_flags = flags | 0x10000;
+	u8 type = (u8)m_weapon->GetIDType();
+	u8 id = (u8)m_weapon->m_ID;
+
+	if (id >= 120 && id < 126)
+	{
+		m_flags |= 0x60000;
+	}
+	else if (m_weapon->IsM203Weapon() || type == 170)
+	{
+		if ((s32)(u8)kit->GetCurFireMode() >= 4)
+			m_flags |= 0x20000;
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub ComputeProjectileFireParams__11CSealCtrlAiFR13AI_FIREPARAMS */
-void CSealCtrlAi::ComputeProjectileFireParams(AI_FIREPARAMS &)
+bool CSealCtrlAi::ComputeProjectileFireParams(AI_FIREPARAMS &fp)
 {
+	/* 0x25e7b0: where to aim a bullet (or an arced round) at fp's target. With flag 2 the
+	 * target is led for the muzzle velocity (CAi::LeadTargetG). Direct fire: aim at the
+	 * point (0x200000) and check the line of fire (0x400000). Arced (0x20000): out of range
+	 * beyond v^2/g, else a model-space aim direction raised by up to 0.707 with the range
+	 * (0x80000 aim direction, 0x400000, 0x1000000 look that way first). Then every weapon
+	 * but item 152 waits for the aim (0x800000); 152 only has to look that way. */
 	/* @socom-skeleton stub g$4392 */
-	static float g;
+	static int g = 0x42c40000; /* ELF: the float 98.0 stored in an int-typed static */
 	/* @socom-skeleton stub max_y$4397 */
-	static float max_y;
+	static float max_y = sinf(0.8726646f);
+	CZSealBody* seal = static_cast<CZSealBody *>(m_entity);
+	CPnt3D* pos = seal->GetPosW();
+	CPnt3D point;
+
+	if (fp.m_flags & 2)
+		CAi::LeadTargetG(pos, &seal->m_velW, fp.m_weapon->GetMuzzleVelocity(), &fp.m_targetPos, &fp.m_targetVel, &point);
+	else
+		point = fp.m_targetPos;
+
+	CPnt3D dir;
+	point.Sub(pos, &dir);
+	f32 dist = dir.Normalize();
+
+	if (!(fp.m_flags & 0x20000))
+	{
+		fp.m_aimPointW = point;
+		fp.m_lookDirW = dir;
+		fp.m_aimDirM = CPnt3D::unit_nz;
+		fp.m_flags |= 0x600000;
+	}
+	else
+	{
+		f32 v = fp.m_weapon->GetMuzzleVelocity();
+		f32 reach = v * v / 98.0f;
+
+		if (!(dist <= reach))
+			return false;
+
+		f32 r = dist / reach;
+		f32 y = 0.0f * (1.0f - r) + 0.707f * r + dir.y;
+		saturate<f32>(y, 0.0f, max_y);
+		fp.m_aimDirM.x = 0.0f;
+		fp.m_aimDirM.y = y;
+		fp.m_aimDirM.z = -sqrtf(1.0f - y * y);
+		fp.m_lookDirW = dir;
+		fp.m_flags |= 0x1480000;
+	}
+
+	if ((u8)fp.m_weapon->m_ID != 152)
+	{
+		fp.m_flags |= 0x800000;
+	}
+	else
+	{
+		fp.m_flags &= 0xffbfffff;
+		fp.m_flags |= 0x1000000;
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub UpdateThrowFireParams__11CSealCtrlAiFR13AI_FIREPARAMSb */

@@ -227,7 +227,7 @@ public:
 	void Interp(const CPnt3D *, float, CPnt3D *) const;
 	CPnt3D Reflect(const CPnt3D *); /* 0x222b10 returns the reflection by value (a0) */
 	void DistToVector(const CPnt3D *, const CPnt3D *, CPnt3D *, float *) const;
-	void DistToVector(const CPnt3D *, const CPnt3D *, float *) const;
+	bool DistToVector(const CPnt3D *, const CPnt3D *, float *) const; /* 0x222490 returns 0/1: the point projects inside the segment */
 	static const CPnt3D unit_x; /* 12 bytes; CPnt3D per __sinit_zmath_pnt3d.cpp stores (was float[3]) */
 	static const CPnt3D unit_y;
 	static const CPnt3D unit_z;

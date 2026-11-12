@@ -1396,7 +1396,10 @@ void CMission::OnMissionStart()
 	if (mission)
 		mission->Start();
 
-	// TODO: Animation init loop
+	/* 0x1f4660: every entity hears that the mission starts (the AI seals start their script
+	 * anims, CSealCtrlAi::OnMissionStart) */
+	for (CEntityList::iterator it = CEntity::m_list.begin(); it != CEntity::m_list.end(); ++it)
+		(*it)->OnMissionStart();
 
 	if (!theNetwork.m_bNetwork)
 		CSnd::Open();

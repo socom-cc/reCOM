@@ -93,8 +93,26 @@ void AI_PARAMS::Parse(_zrdr* reader)
 }
 
 /* @socom-skeleton stub Merge__9AI_PARAMSFRC9AI_PARAMSRC9AI_PARAMS */
-void AI_PARAMS::Merge(const AI_PARAMS &, const AI_PARAMS &)
+void AI_PARAMS::Merge(const AI_PARAMS &a, const AI_PARAMS &b)
 {
+	/* 0x1a3930: per value, a's when a sets it (mask bit), else b's when b sets it, else
+	 * a's; the masks are or-ed */
+#define SOCOM_AI_MERGE(bit, member) member = (a.mask & (bit)) ? a.member : (b.mask & (bit)) ? b.member : a.member
+	SOCOM_AI_MERGE(0x1, accuracy);
+	SOCOM_AI_MERGE(0x2, courage);
+	SOCOM_AI_MERGE(0x4, surrender);
+	SOCOM_AI_MERGE(0x8, stealth);
+	SOCOM_AI_MERGE(0x20, visual_range);
+	SOCOM_AI_MERGE(0x40, visual_fov);
+	SOCOM_AI_MERGE(0x10, visual_sens);
+	SOCOM_AI_MERGE(0x80, aware_decay);
+	SOCOM_AI_MERGE(0x100, training);
+	SOCOM_AI_MERGE(0x200, thip_range);
+	SOCOM_AI_MERGE(0x400, respawn);
+	SOCOM_AI_MERGE(0x800, target_delay);
+	SOCOM_AI_MERGE(0x1000, target_discipline);
+#undef SOCOM_AI_MERGE
+	mask = a.mask | b.mask;
 }
 
 /* @socom-skeleton stub __ct__11CVehicleRdrFv */

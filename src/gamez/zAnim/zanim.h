@@ -1254,8 +1254,8 @@ public:
 	void StopSequence(const char *);
 	void PauseSequence(const char *);
 	void ResumeSequence(const char *);
-	void SequenceExists(const char *);
-	void SequenceRunning(const char *);
+	unsigned char SequenceExists(const char *); /* 0x1c3600 returns 0/1 */
+	unsigned char SequenceRunning(const char *); /* 0x1c34f0 returns 0/1 */
 	void GetNodeSearchScope(const char *, int *);
 	zdb::CNode * GetDatabaseNode(const char *, int);
 	static void GetDirectionRelativeToNode(CPnt3D *, zdb::CNode *);

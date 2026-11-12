@@ -213,7 +213,7 @@ public:
 	void SetIncludeInTargetList(bool);
 	static void ReplaceTargetList(CEntity *, CEntity *);
 	bool OnUpdateTargetList(bool, bool); /* 0x1f0380: true when the list was sorted */
-	void RefreshAwareCounters();
+	static void RefreshAwareCounters(); /* static: 0x1f0220 is called without an object (CSealCtrlAi::PreTick 0x2b3de4) */
 	static void UpdateTargetList(bool);
 	static const int invalidId;
 	static std::list<CEntity*> m_recycle; /* 0x4bc440, 12 B MSL list (was int[3]); PreTickAll recycles its front */

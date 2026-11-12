@@ -23,8 +23,40 @@ namespace zdb
 /* @socom-skeleton end include */
 
 /* @socom-skeleton stub GetFogVisibility__Q23zdb7CCameraCFPC6CPnt3DPC6CPnt3D */
-float zdb::CCamera::GetFogVisibility(const CPnt3D *, const CPnt3D *) const
+float zdb::CCamera::GetFogVisibility(const CPnt3D *from, const CPnt3D *to) const
 {
+	/* 0x1e85f0: the fog term between two points, 0..1 (1/255 of the GS fog value): the
+	   distance fog fogA + fogB * |to - from| clamped to 0..255, scaled with the altitude fog
+	   (the lower point's height over m_fog_bottom, times 1 / (top - bottom), clamped to
+	   0..1) when that is enabled. */
+	CPnt3D d;
+
+	to->Sub(from, &d);
+
+	f32 dist = sqrtf(d.x * d.x + d.y * d.y + d.z * d.z);
+	f32 fog = m_fogA + m_fogB * dist;
+
+	if (fog < 0.0f)
+		fog = 0.0f;
+
+	if (fog > 255.0f)
+		fog = 255.0f;
+
+	if (m_fog_alt_enabled)
+	{
+		f32 y = (to->y < from->y) ? to->y : from->y;
+		f32 alt = (y - m_fog_bottom) * m_fog_alt[1].y;
+
+		if (alt < 0.0f)
+			alt = 0.0f;
+
+		if (alt > 1.0f)
+			alt = 1.0f;
+
+		fog *= alt;
+	}
+
+	return (1.0f / 255.0f) * fog;
 }
 
 /* @socom-skeleton body Update__Q23zdb7CCameraFQ23zdb13tag_ZCAM_TYPE */

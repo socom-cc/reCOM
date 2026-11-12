@@ -476,7 +476,7 @@ public:
 	void GetAmmoIndex(EQUIP_AMMO, int);
 	int GetItemIndex(SEAL_ITEM);
 	bool HasItem(EQUIP_ITEM) const; /* 0x2af310: 0/1 */
-	void HasSniperRifle();
+	bool HasSniperRifle(); /* 0x2af290 returns 0/1 */
 	CZKit();
 	~CZKit();
 	bool NVG_Enabled() const; /* 0x2aed30: sltiu (0/1) */
@@ -1436,7 +1436,7 @@ public:
 	bool GetNodePos(const zdb::CNode *, CPnt3D &, bool); /* bool: 0x2bfed0 */
 	unsigned char SetAimDirR(const CPnt3D *, bool);
 	unsigned char CalcAimGoal(const CPnt3D *, const CPnt3D *, CPnt3D *);
-	void SetAimPointW(const CPnt3D *, const CPnt3D *, bool);
+	unsigned char SetAimPointW(const CPnt3D *, const CPnt3D *, bool); /* 0x2bfa80 returns UpdateAimDir's result (0 without a point) */
 	void UpdateAimParams();
 	bool GetAP(CPnt3D &); /* 0x2bf8a0 returns 0/1 */
 	void GetFP(CPnt3D &);
@@ -1688,8 +1688,8 @@ public:
 	virtual void OnSetTargetVisible(CTarget &, bool, zdb::DiIntersect *);
 	virtual void SetTarget(CTarget *);
 	void CreateAiEvent(CAiEvent::EVENT, float, float, bool, const CPnt3D *, unsigned int);
-	void SetGoalPos(GOAL_TYPE, const CPnt3D *, float);
-	void SetGoalDir(GOAL_TYPE, const CPnt3D *, bool);
+	bool SetGoalPos(GOAL_TYPE, const CPnt3D *, float); /* 0x267380 returns 0 when a higher goal type is in force */
+	float SetGoalDir(GOAL_TYPE, const CPnt3D *, bool); /* 0x2671e0 returns the dot of the body's facing with the goal direction (f0; AttackTick uses it) */
 	float ComputeTurnThrottle(const CPnt3D *, const CPnt3D *, float *);
 	void SetLookRate(float);
 	void SetLookTimer(float);
@@ -1732,7 +1732,7 @@ public:
 	void TickMPBomb(float);
 	void InitMPBomb();
 	void MPBomb_TimerAvailable(bool);
-	void _GetTargetPerception(CTarget &);
+	bool _GetTargetPerception(CTarget &); /* 0x2b2ca0 returns 0/1: the target is in range and in the view cone (a sight line is requested) */
 	void SensorPreTick(float);
 	void SensorTick(float);
 	float ComputeVisibility(zdb::DiIntersect *, CTarget *);
@@ -1742,6 +1742,66 @@ public:
 	/* @socom-skeleton end 9CSealCtrl */
 };
 
+/* @socom-skeleton decl 13AI_FIREPARAMS */
+class AI_FIREPARAMS
+{
+public:
+	/* DWARF: AI_FIREPARAMS, byte_size 96 */
+	CZFTSWeapon* m_weapon;
+	CZAmmo* m_ammo;
+	CPnt3D m_targetPos;
+	CPnt3D m_targetVel;
+	CPnt3D m_lookDirW;
+	CPnt3D m_aimPointW;
+	CPnt3D m_aimDirM;
+	CPnt3D m_throwVec;
+	f32 m_throwPower;
+	f32 m_timeout;
+	u8 m_stance; /* SEAL_STANCE (DWARF byte_size 1) */
+	u32 m_flags;
+	void reset();
+	bool setup(CZKit *, const CPnt3D *, const CPnt3D *, unsigned int); /* 0x25eab0 returns 0 while a shot is being worked */
+};
+/* @socom-skeleton end 13AI_FIREPARAMS */
+/* DWARF: AI_REACTION, byte_size 16 */
+class AI_REACTION
+{
+public:
+	f32 m_none;
+	f32 m_rush;
+	f32 m_flee;
+	f32 m_surrender;
+};
+/* @socom-skeleton decl 9CAiTarget */
+class CAiTarget
+{
+public:
+	/* DWARF: CAiTarget, byte_size 100 */
+	CTarget m_target;
+	f32 m_threat;
+	CPnt3D m_aim_noise;
+	f32 m_time_acquired;
+	f32 m_time_visible;
+	f32 m_time_lost_sight;
+	CPnt3D m_last_pos;
+	CPnt3D m_last_vel;
+	u32 m_reset_aim : 1;
+	u32 m_first_aim : 1;
+	u32 m_targeted : 1;
+	u32 m_unused : 30; /* DWARF: a second word at +0x60 */
+	CAiTarget();
+	bool UpdateTarget(CTarget *, float); /* 0x2ea020 returns 0/1: the target entity changed */
+	void SetTarget(CTarget *, float);
+	void UpdateLastKnownPosW();
+	float GetTimeSinceLastSighting() const;
+	float GetTimeAcquired() const;
+	float GetTimeVisible() const;
+	void Tick(CEntity *, float);
+	void OnSetVisible(bool);
+	void ModifyAimDir(CPnt3D *, float, float);
+};
+/* @socom-skeleton end 9CAiTarget */
+
 class CSealCtrlAi : public CSealCtrl
 {
 public:
@@ -1750,8 +1810,16 @@ public:
 	static SEAL_VALVE get_valve(const char* valve);
 	static const char* get_valve(SEAL_VALVE valve);
 
-	/* port: DWARF members (CSealCtrlAi 0x5d0 bytes) are declared as code needs them;
-	 * the rest of the layout is not declared yet */
+	/* DWARF members (CSealCtrlAi, 0x5d0 bytes) in order; the 1-byte DWARF enums are kept as
+	 * bytes where the port's enum is wider */
+	bool m_holdCover; /* +0x240 */
+	CPnt3D m_lastDeployPosW;
+	CZSealBody* m_last_master;
+	CPnt3D m_master_last_pos;
+	CPnt3D m_master_head;
+	s32 m_saved_distance_to_masterSQ;
+	f32 m_last_route_error;
+	f32 m_throttle_goal[3]; /* +0x274 */
 	u32 m_debug : 1; /* +0x280 bit 0 */
 	u32 m_navyseal : 1;
 	u32 m_noturn_travel : 1;
@@ -1766,8 +1834,61 @@ public:
 	u32 m_weapon_ready : 1;
 	u32 m_do_corpse : 1;
 	u32 m_unused : 19;
-	CValve* m_valve[4]; /* DWARF +0x5bc: the AI's script valves "<node>_valve_holdfire/shotat/alive/aware" (SEAL_VALVE order; Initalize) */
+	u8 m_handle; /* +0x284 SEAL_HANDLE */
+	s8 m_stance; /* +0x285 SEAL_STANCE (DWARF: NONE -1, STAND 0, CROUCH 1, PRONE 2, IDLE 3) */
+	s8 m_stance_goal;
+	f32 m_stance_delay;
+	s8 m_peek_goal; /* +0x28c SEAL_PEEK */
+	CAiTimer m_peek_timer;
+	AI_FIREPARAMS m_fire_params; /* +0x29c */
+	AI_REACTION m_reaction; /* +0x2fc */
+	u8 m_mode; /* +0x30c AI_MODE */
+	f32 m_modeTimer;
+	f32 m_idleTimer;
+	CPnt3D m_lastPos; /* +0x318 */
+	CAiStateStack m_stateStack; /* +0x324 */
+	f32 m_stateTimer;
+	u32 m_stateFlags;
+	u8 m_ladder_state; /* +0x338 AI_LADDER_STATE */
+	CZAnim* m_task_anim[6]; /* +0x33c; port: element type unproven (24 bytes cleared by the ctor) */
+	CZAnim* m_task_handle[6]; /* +0x354; port: element type unproven */
+	CAiPath m_path; /* +0x36c */
+	f32 m_stuckTimer; /* +0x408 */
+	CAiMapLoc m_last_loc;
+	CAiMapLoc m_close_door;
+	CAiMapLoc m_last_action;
+	CZSealBody* m_master;
+	CPnt3D m_followOfs;
+	CPnt3D m_followScan;
+	CPnt3D m_followPoint;
+	f32 m_followError;
+	f32 m_followDistance;
+	f32 m_followStance;
+	f32 m_followSlop;
+	f32 m_followTimer;
+	s32 m_followMode;
+	CPnt3D m_followLastValidGoal;
+	bool m_followStay;
+	CPnt3D m_pathGoalVec;
+	f32 m_pathGoalDist;
+	f32 m_pathGoalDot;
+	f32 m_pathTolerance;
+	CAiEvent m_event; /* +0x480 */
+	CAiEventQ m_eventQueue; /* +0x4a8 */
+	u32 m_eventMask;
+	CAiTarget m_target; /* +0x4bc */
+	f32 m_recycleTimer;
 	AI_PARAMS m_aiParams; /* +0x524 (0x1fd4a4 copies the vehicle's, then sets m_veh) */
+	CAiDecay m_courage; /* +0x560 */
+	CAiDecay m_audiofactor;
+	CAiDecay m_dicipline;
+	CAiDecay m_underfire;
+	CPnt3D m_underfire_pos;
+	CEntity* m_underfire_shooter;
+	CAiTrigger m_ai_trigger; /* +0x5a0 */
+	f32 m_sprayTimer;
+	CValve* m_valve[4]; /* +0x5bc: the AI's script valves "<node>_valve_holdfire/shotat/alive/aware" (SEAL_VALVE order; Initalize) */
+	f32 m_awareTimer; /* +0x5cc */
 	/* @socom-skeleton decl 11CSealCtrlAi */
 public:
 	virtual ~CSealCtrlAi();
@@ -1812,11 +1933,11 @@ public:
 	static void SetAiAccuracyAngle(float);
 	void PlayAiSound(AI_SOUND);
 	void StopAiSound(AI_SOUND);
-	void GetAiLog();
+	CAiLog * GetAiLog(); /* 0x26be30 returns the log (NULL when logging is off) */
 	static void SetAiLogEnabled(bool, bool);
 	static void SetAiEnabled(bool, bool);
-	void GetAiStateEnum() const;
-	void AiStateIs(AI_STATE) const;
+	AI_STATE GetAiStateEnum() const;
+	bool AiStateIs(AI_STATE) const; /* 0x26bb40 returns 0/1 */
 	char * GetStatusString();
 	CSealCtrlAi();
 	void InitAiBrain();
@@ -1869,7 +1990,7 @@ public:
 	AI_AWARE GetAiAware() const;
 	void ConfirmAiState(CAiState *, bool);
 	void FindCoverLoc(const CPnt3D *, CAiMapLoc &, SEAL_PEEK &, int);
-	void ComputeProjectileFireParams(AI_FIREPARAMS &);
+	bool ComputeProjectileFireParams(AI_FIREPARAMS &); /* 0x25e7b0 returns 0/1 */
 	void UpdateThrowFireParams(AI_FIREPARAMS &, bool);
 	void ComputeThrowFireParams(AI_FIREPARAMS &);
 	void SetReturnVelocity(CZProjectile *, CPnt3D *, bool);
@@ -1887,16 +2008,16 @@ public:
 	void HandleFollowTickMasterPath();
 	void HandleFollowTickPointMode();
 	void FollowTick(float);
-	void GetAiState();
-	void GetAiState() const;
-	void FindAiState(AI_STATE) const;
+	CAiState * GetAiState(); /* 0x2dbd70: the top of the stack, else the shared CAiSUnknown */
+	CAiState * GetAiState() const; /* 0x2dbd20 */
+	CAiState * FindAiState(AI_STATE) const; /* 0x2dbc30: the stacked state of that type or NULL */
 	void ClearAiState(bool);
-	void CanPushAiState(AI_STATE);
-	void SetAiState(AI_STATE);
-	void PushAiState(AI_STATE, bool);
+	bool CanPushAiState(AI_STATE); /* 0x2db7c0 returns 0/1 */
+	bool SetAiState(AI_STATE); /* 0x2db580 returns 0/1 */
+	bool PushAiState(AI_STATE, bool); /* 0x2db390 returns 0/1 */
 	void PopAiState();
 	void PopToAiState(AI_STATE);
-	void PopAiState(AI_STATE);
+	AI_STATE PopAiState(AI_STATE); /* 0x2dadf0 returns the top state's type afterwards */
 	void UpdateStackFlags(bool);
 	void StateTick(float);
 	void ActivateSeq(const char *, unsigned int);
@@ -1910,6 +2031,10 @@ public:
 	void SensorTick(float);
 	void RegisterCanSee(int &, const CPnt3D *);
 	static float aiAccuracyAngle;
+	static int aiActiveCount; /* aiActiveCount__11CSealCtrlAi 0x475d54: AIs awake this frame */
+	static int aiSleepingCount; /* 0x475d58 */
+	static int aiSnoozingCount; /* 0x475d5c */
+	static int diCount; /* diCount__11CSealCtrlAi 0x475d60: sight lines queued this frame */
 	static const EQUIP_ITEM aiDeployList[11];
 	static unsigned char aiEnabled;
 	static unsigned char aiLogEnabled;
@@ -2203,14 +2328,7 @@ public:
 	static _zanim_cmd_hdr* Parse(_zrdr* reader);
 	static bool Tick(_zanim_cmd_hdr* header, f32* delta);
 };
-/* @socom-skeleton decl 13AI_FIREPARAMS */
-class AI_FIREPARAMS
-{
-public:
-	void reset();
-	void setup(CZKit *, const CPnt3D *, const CPnt3D *, unsigned int);
-};
-/* @socom-skeleton end 13AI_FIREPARAMS */
+
 /* @socom-skeleton decl 8CAiDodge */
 class CAiDodge
 {
@@ -2257,22 +2375,7 @@ public:
 	virtual ~CAiSUnknown() {}
 };
 /* @socom-skeleton end 11CAiSUnknown */
-/* @socom-skeleton decl 9CAiTarget */
-class CAiTarget
-{
-public:
-	CAiTarget();
-	unsigned char UpdateTarget(CTarget *, float);
-	void SetTarget(CTarget *, float);
-	void UpdateLastKnownPosW();
-	float GetTimeSinceLastSighting() const;
-	float GetTimeAcquired() const;
-	float GetTimeVisible() const;
-	void Tick(CEntity *, float);
-	void OnSetVisible(bool);
-	void ModifyAimDir(CPnt3D *, float, float);
-};
-/* @socom-skeleton end 9CAiTarget */
+
 /* @socom-skeleton decl 10CAiWepHint */
 class CAiWepHint
 {
@@ -2317,14 +2420,16 @@ public:
 	static void ResetPathPlan();
 	static bool TickPathPlanner(float, void *);
 	static void PathPlanImmediate(CAiMap *, const CAiMapLoc &, const CAiMapLoc &, CAiPath *);
-	static void is_moving(const CPnt3D *, float);
+	static bool is_moving(const CPnt3D *, float); /* 0x17ec00 returns 0/1 */
+	static float snooze_time; /* snooze_time__2ai 0x475d48 */
+	static int snooze_count; /* snooze_count__2ai 0x475d4c */
 	static CPnt3D * MakeNoise(CPnt3D *, const PNT2D &);
 	static CPnt3D * AddNoise(const CPnt3D *, CPnt3D *, const PNT2D &);
 	static CPnt3D * AddNoise(CPnt3D *, const PNT2D &);
 	static void elevate(CPnt3D &, float, float);
 	void quadratic(float, float, float, float &, float &);
 	void get_clock_direction(const CPnt3D *);
-	static void CheckLineOfFire(const CEntity *, const CTarget *, float);
+	static bool CheckLineOfFire(const CEntity *, const CTarget *, float); /* 0x2e96d0 returns 0/1 */
 	static void plot_tick(float, bool);
 	static void PushLineColor(const CPnt3D &);
 	static void PopLineColor();

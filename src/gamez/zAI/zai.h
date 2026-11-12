@@ -103,6 +103,9 @@ class CGraph;
 class CValve;
 class CZKit;
 class CZSealBody;
+class CZAnim;
+class AnimSet;
+#include <list>
 #include <vector>
 
 #include "gamez/zMath/zmath.h"
@@ -273,7 +276,7 @@ enum AI_MODE
 
 enum AI_LOOK
 {
-	AIL_ALL,
+	AIL_ALL = -1, /* DWARF element_list: ALL -1, NORMAL 0 ... DEPLOY 9 (was 0..10) */
 	AIL_NORMAL,
 	AIL_TURNING,
 	AIL_CURIOUS,
@@ -402,12 +405,16 @@ public:
 
 	static f32 GetEventRate(EVENT event);
 
-	s32 aiBitMask;
-	f32 expiration;
-	f32 soundRadiusSqr;
-	CPnt3D* source;
-	CEntity* originator;
-	s32 dummy;
+	/* DWARF: CAiEvent, byte_size 40 (was six guessed members) */
+	CPnt3D m_pos;
+	f32 m_rangeSq;
+	f32 m_duration;
+	s32 m_owner;
+	u32 m_id : 16;
+	u32 m_visible : 1;
+	u32 m_type : 15;
+	u32 m_userdata;
+	CBits m_bits;
 	/* @socom-skeleton decl 8CAiEvent */
 public:
 	enum EVENT_CLASS { }; /* port: unproven: passed by value per the mangled name; kind and enumerators not in DWARF */
@@ -874,12 +881,24 @@ public:
 	virtual bool CanSwitchAiState(AI_STATE state, CSealCtrlAi* controller) { return true; }
 
 	void Reset(AI_STATE state);
-protected:
-	u32 m_bitfield;
-	AI_STATE m_state;
-	s32 m_field1_0x4;
-	s32 m_field2_0x8;
-	s32 m_field8_0x14;
+public: /* port: public - CSealCtrlAi fills a pushed state's parameters and reads m_state */
+	/* port: no DWARF record for CAiState; a 40-byte base (derived data starts at +0x28:
+	 * CAiSEvent, CAiSShotAt). Layout from Reset 0x2d1e60, StateTick 0x2da980 and the state
+	 * users; member names invented. */
+	u32 m_option_flags; /* +0x04: per-state option bits (CAiSEvent: 4, 8) */
+	u32 m_unk_08; /* +0x08: Reset clears it */
+	u32 m_setup : 1; /* +0x0c bit 0: set by the code that pushed the state once its parameters are filled */
+	u32 m_unk_0c_1 : 1; /* bit 1: Reset clears it */
+	u32 m_response : 1; /* bit 2: a script response sequence is running (StateTick) */
+	u32 m_unk_0c_3 : 29; /* bits 3-31: Reset clears them */
+	u8 m_state; /* +0x10: AI_STATE (a byte) */
+	u32 m_unk_14; /* +0x14: Reset clears it */
+	u32 m_unk_18;
+	u32 m_unk_1c_0 : 9; /* +0x1c */
+	u32 m_ticked : 1; /* +0x1d bit 1: cleared after every Tick (StateTick) */
+	u32 m_unk_1c_10 : 22;
+	u32 m_unk_20;
+	u32 m_unk_24;
 	/* @socom-skeleton decl 8CAiState */
 public:
 	virtual const char * GetStatus() const { return ""; } /* ELF 0x2591f0 returns "" (0x4511e8) */
@@ -892,7 +911,22 @@ public:
 class CAiSScript : public CAiState
 {
 public:
-	bool CanPursue(CSealCtrlAi* controller);
+	/* port: no DWARF record; layout from CAiSScript's OnSignal 0x2d91a0, Tick 0x2d8d50 and
+	 * ActivateSequence 0x2d9570, member names invented */
+	CZAnim* m_anim; /* +0x28: the seal's script anim (ActivateEx) */
+	u8 m_critical : 1; /* +0x2c bit 0: a critical sequence runs: no aware switching */
+	u8 m_first_tick : 1; /* bit 1: set when (re)entered; the next Tick only clears it */
+	u8 m_keep_anim : 1; /* bit 2: a living seal's anim is not stopped when the state pops */
+	u8 m_unused_2c : 5;
+	u8 m_unk_2d;
+	u8 m_aware; /* +0x2e: the awareness the running on_aware sequence was chosen for (255 none) */
+	u8 m_seq; /* +0x2f: the AI_AWARE whose sequence was last started (255 none) */
+	f32 m_timer; /* +0x30: time at the current awareness */
+	s8 m_mode; /* +0x34: the AI mode saved when covered */
+	char m_response[16]; /* +0x35: the response sequence running on the anim ("" none) */
+	AnimSet* m_animset; /* +0x48: the seal's anim set saved when covered */
+	u32 m_unk_4c; /* +0x4c: cleared by OnSignal(4) */
+	bool KillResponse(CSealCtrlAi *ctrl, bool force); /* 0x2d9040 */
 	/* @socom-skeleton decl 10CAiSScript */
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
@@ -900,7 +934,7 @@ public:
 	virtual const char * GetStatus() const; /* override: CAiState::GetStatus returns const char * */
 	virtual bool CanPursue(CSealCtrlAi *) const;
 	virtual ~CAiSScript() {}
-	void ActivateSequence(const char *, unsigned int);
+	bool ActivateSequence(const char *, unsigned int); /* 0x2d9570 returns 0/1 */
 	/* @socom-skeleton end 10CAiSScript */
 };
 
@@ -1020,6 +1054,8 @@ public:
 
 class CAiSPursue : public CAiState
 {
+public:
+	f32 m_duration; /* +0x28 (CTPursue::Begin 0x2b80b0); port: the rest of the layout unknown */
 
 	/* @socom-skeleton decl 10CAiSPursue */
 public:
@@ -1263,6 +1299,23 @@ public:
 	f32 m_timer;
 };
 
+/* DWARF: CAiTrigger, byte_size 24 */
+class CAiTrigger
+{
+public:
+	Rfloat m_up_time;
+	Rfloat m_dn_time;
+	f32 m_timer;
+	f32 m_marker;
+};
+
+class CAiState;
+/* DWARF: CAiStateStack, byte_size 12: an MSL list (pointer storage); the top of the stack is
+ * the front (CSealCtrlAi::GetAiState 0x2dbd20) */
+class CAiStateStack : public std::list<CAiState *>
+{
+};
+
 class CAiCone
 {
 public: /* port: public - CSealCtrl's ctor (0x288330) sets the cone fields */
@@ -1302,16 +1355,28 @@ class CAiVismap
 class CAi
 {
 public:
-	void LeadTargetG(const CPnt3D *, const CPnt3D *, float, const CPnt3D *, const CPnt3D *, CPnt3D *);
+	static bool LeadTargetG(const CPnt3D *, const CPnt3D *, float, const CPnt3D *, const CPnt3D *, CPnt3D *); /* 0x17eeb0: no `this` use; returns 0/1 */
 	static void Extrapolate(const CPnt3D *, const CPnt3D *, float, CPnt3D *);
 	static void AlignToPoint(const CMatrix *, const CPnt3D *, CMatrix *, float);
 	static float GetToRightXZ(const CPnt3D *, CPnt3D *, bool);
 };
 /* @socom-skeleton end 3CAi */
 /* @socom-skeleton decl 9CAiEventQ */
+/* port: no DWARF record (only list<CAiEventHandle> storage); 8 bytes used by
+ * CSealCtrlAi::SensorTick 0x2b0d20: a 16-bit state at +2 and a word at +4 (the line of sight
+ * request of an event that asked for one). Member names invented. */
+class CAiEventHandle
+{
+public:
+	u16 m_id;
+	u16 m_state;
+	u32 m_data;
+};
+
 class CAiEventQ : public std::list<CAiEventHandle>
 {
 public:
+	bool m_diRequested; /* DWARF +0xc (uchar) */
 	void Create(unsigned int);
 };
 /* @socom-skeleton end 9CAiEventQ */

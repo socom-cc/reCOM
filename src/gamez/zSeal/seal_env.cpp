@@ -4607,8 +4607,13 @@ CPnt3D * CZSealBody::GetTargetPosW(CPnt3D *pos)
 }
 
 /* @socom-skeleton stub GetHeadParams__10CZSealBodyFP6CPnt3DP6CPnt3D */
-void CZSealBody::GetHeadParams(CPnt3D *, CPnt3D *)
+void CZSealBody::GetHeadParams(CPnt3D *pos, CPnt3D *dir)
 {
+	/* 0x2917f0: the head part's position in the world and the look direction (the look
+	 * sequence's current direction, model space) turned into the world */
+	PartInSpace(m_head, NULL, pos, NULL);
+	m_node->m_matrix.Transform(pos, 1);
+	m_node->m_matrix.Rotate(&m_look->m_curr_dir, dir, 1);
 }
 
 /* @socom-skeleton stub CheckForRegionTrigger__10CZSealBodyFUi */

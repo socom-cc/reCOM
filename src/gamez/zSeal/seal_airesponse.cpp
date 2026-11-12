@@ -226,13 +226,30 @@ bool CAiSEvent::Tick(float, CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub OnSignal__10CAiSTargetFQ28CAiState6SIGNALP11CSealCtrlAi */
-void CAiSTarget::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+void CAiSTarget::OnSignal(CAiState::SIGNAL signal, CSealCtrlAi *ctrl)
 {
+	/* 0x2e5e10: targeting creeps (turns to the shot goal where it stands); uncovered, the
+	 * goal is cleared */
+	if ((s32)signal == 0)
+		ctrl->SetAiMode(AIM_CREEP);
+	else if ((s32)signal == 3)
+		ctrl->ClearGoal((GOAL_TYPE)0);
 }
 
 /* @socom-skeleton stub Tick__10CAiSTargetFfP11CSealCtrlAi */
-bool CAiSTarget::Tick(float, CSealCtrlAi *)
+bool CAiSTarget::Tick(float dT, CSealCtrlAi *ctrl)
 {
+	/* 0x2e5db0: held for the duration set by the push (+0x08: AttackTick 2.5 s) */
+	f32 duration;
+	memcpy(&duration, &m_unk_08, 4);
+
+	if (!m_setup)
+		return false;
+
+	if (!(ctrl->m_stateTimer < duration))
+		m_setup = 0;
+
+	return m_setup;
 }
 
 /* @socom-skeleton stub OnSignal__8CAiSFleeFQ28CAiState6SIGNALP11CSealCtrlAi */

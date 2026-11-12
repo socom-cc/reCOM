@@ -594,8 +594,18 @@ CZBodyAnim * CZSealBody::GetAnimByType(AnimType type)
 }
 
 /* @socom-skeleton stub BindAnimSet__10CZSealBodyFPCc */
-void CZSealBody::BindAnimSet(const char *)
+void CZSealBody::BindAnimSet(const char *name)
 {
+	/* 0x27e9a0: the anim set of that name is bound (nothing when there is none). port: void
+	 * (the ELF returns whether it was found) */
+	for (std::vector<AnimSet*>::iterator it = AnimSet::list.begin(); it != AnimSet::list.end(); ++it)
+	{
+		if (strcmp(name, (*it)->m_name.c_str()) == 0)
+		{
+			BindAnimSet(*it);
+			return;
+		}
+	}
 }
 
 /* @socom-skeleton stub BindAnimSet__10CZSealBodyFP7AnimSet */

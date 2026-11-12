@@ -339,19 +339,19 @@ unsigned char CZSealBody::CalcAimGoal(const CPnt3D *curr, const CPnt3D *dir, CPn
 }
 
 /* @socom-skeleton stub SetAimPointW__10CZSealBodyFPC6CPnt3DPC6CPnt3Db */
-void CZSealBody::SetAimPointW(const CPnt3D *point, const CPnt3D *norm, bool keep_reticle)
+unsigned char CZSealBody::SetAimPointW(const CPnt3D *point, const CPnt3D *norm, bool keep_reticle)
 {
 	/* 0x2bfa80: the world aim point (and the reticle point too, unless keep_reticle: a
 	   blocked shot keeps the reticle where the player looks) and its normal, then the aim
 	   direction (UpdateAimDir); without a point, no aim point and the aim straight ahead.
-	   port: the ELF returns UpdateAimDir's result (0 without a point); every caller drops
-	   it and the port declaration is void */
+	   Returns UpdateAimDir's result (0 without a point): CSealCtrlAi::FireWhenReady
+	   0x262608 uses it */
 	if (point == NULL)
 	{
 		m_have_aim_norm = 0;
 		m_aim_point_valid = 0;
 		CalcAimGoal(&m_aim_dir, &CPnt3D::unit_nz, &m_aim_goal);
-		return;
+		return 0;
 	}
 
 	m_aim_point = *point;
@@ -370,7 +370,7 @@ void CZSealBody::SetAimPointW(const CPnt3D *point, const CPnt3D *norm, bool keep
 		m_have_aim_norm = 0;
 	}
 
-	UpdateAimDir(keep_reticle);
+	return UpdateAimDir(keep_reticle);
 }
 
 /* @socom-skeleton stub UpdateAimParams__10CZSealBodyFv */
@@ -539,6 +539,8 @@ void CZSealBody::CanProneAim()
 /* @socom-skeleton stub GetAimDot__10CZSealBodyFv */
 float CZSealBody::GetAimDot()
 {
+	/* 0x2bf210: how close the aim direction is to its goal */
+	return m_aim_dir.x * m_aim_goal.x + m_aim_dir.y * m_aim_goal.y + m_aim_dir.z * m_aim_goal.z;
 }
 
 /* @socom-skeleton stub CanAttainAim__10CZSealBodyFR6CPnt3D */

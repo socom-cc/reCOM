@@ -60,8 +60,31 @@ float CSealCtrl::GetThrottleFromSpeed(float, int)
 }
 
 /* @socom-skeleton stub GetSpeedFromThrottle__9CSealCtrlFfi */
-float CSealCtrl::GetSpeedFromThrottle(float, int)
+float CSealCtrl::GetSpeedFromThrottle(float throttle, int axis)
 {
+	/* 0x284020: the speed a throttle gives: forward (0) and strafe (1) scale the seal's
+	 * maximum motion (x its move speed modifier), turn (2) the character dynamics' maximum
+	 * turn rate. ELF: another axis multiplies an unset local (kept as 0 here). */
+	CZSealBody* seal = static_cast<CZSealBody *>(m_entity);
+	f32 max = 0.0f;
+	f32 other;
+
+	if (axis == 1)
+	{
+		seal->GetMaxXMotion(max, other);
+		max *= seal->m_movespeedmod;
+	}
+	else if (axis == 0)
+	{
+		seal->GetMaxZMotion(max, other);
+		max *= seal->m_movespeedmod;
+	}
+	else if (axis == 2)
+	{
+		max = theCharacterDynamics.m_turn_maxRate;
+	}
+
+	return throttle * max;
 }
 
 /* @socom-skeleton stub PostMortemPreTick__9CSealCtrlFf */
@@ -94,8 +117,24 @@ void CSealCtrl::UpdateAiVisMap()
 }
 
 /* @socom-skeleton stub SetViewRange__9CSealCtrlFf */
-void CSealCtrl::SetViewRange(float)
+void CSealCtrl::SetViewRange(float range)
 {
+	/* 0x283e00: the view range (value and decay goal); zero or less: 0.95 of the camera's
+	 * mid plane */
+	if (!(range <= 0.0f))
+	{
+		m_visrange.m_value = range;
+		m_visrange.m_goal = range;
+		return;
+	}
+
+	zdb::CCamera* cam = zdb::CWorld::m_world->m_camera;
+
+	if (cam != NULL)
+	{
+		m_visrange.m_value = 0.95f * cam->m_mid_plane;
+		m_visrange.m_goal = m_visrange.m_value;
+	}
 }
 
 /* @socom-skeleton stub PerturbAimVector__9CSealCtrlFP6CPnt3D */

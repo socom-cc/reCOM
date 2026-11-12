@@ -339,8 +339,12 @@ void CEntity::TeleportTo(const CPnt3D *pos, const CQuat *rot)
 }
 
 /* @socom-skeleton stub GetTargetPosW__7CEntityFP6CPnt3D */
-CPnt3D * CEntity::GetTargetPosW(CPnt3D *)
+CPnt3D * CEntity::GetTargetPosW(CPnt3D *pos)
 {
+	/* 0x1ee3f0: an entity is aimed at (and seen) at its position; CZSealBody uses its
+	 * upper spine */
+	*pos = *GetPosW();
+	return pos;
 }
 
 /* @socom-skeleton stub UpdateAiMapLoc__7CEntityFRb */

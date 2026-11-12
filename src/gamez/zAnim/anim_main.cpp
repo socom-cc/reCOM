@@ -772,23 +772,107 @@ void CZAnimMain::StopSequence(const char *name)
 }
 
 /* @socom-skeleton stub PauseSequence__10CZAnimMainFPCc */
-void CZAnimMain::PauseSequence(const char *)
+void CZAnimMain::PauseSequence(const char *name)
 {
+	/* 0x1c3780: the current anim's first running sequence of that name is paused */
+	if (name == NULL)
+		return;
+
+	_zsequence* saved = m_CurSeq;
+
+	for (m_CurSeq = reinterpret_cast<_zsequence*>(m_CurAnim->m_seq_data);
+		reinterpret_cast<char*>(m_CurSeq) < m_CurAnim->m_seq_data + m_CurAnim->m_seq_data_size;
+		m_CurSeq = reinterpret_cast<_zsequence*>(reinterpret_cast<char*>(m_CurSeq) + m_CurSeq->seq_data_size))
+	{
+		char* seqname = m_CurAnim->GetName(m_CurSeq->name_index);
+
+		if (seqname != NULL && strcmp(seqname, name) == 0 && StateRunning(m_CurSeq->state))
+		{
+			m_CurSeq->paused = 1;
+			break;
+		}
+	}
+
+	m_CurSeq = saved;
 }
 
 /* @socom-skeleton stub ResumeSequence__10CZAnimMainFPCc */
-void CZAnimMain::ResumeSequence(const char *)
+void CZAnimMain::ResumeSequence(const char *name)
 {
+	/* 0x1c36c0: the current anim's first sequence of that name is unpaused (running or not) */
+	if (name == NULL)
+		return;
+
+	_zsequence* saved = m_CurSeq;
+
+	for (m_CurSeq = reinterpret_cast<_zsequence*>(m_CurAnim->m_seq_data);
+		reinterpret_cast<char*>(m_CurSeq) < m_CurAnim->m_seq_data + m_CurAnim->m_seq_data_size;
+		m_CurSeq = reinterpret_cast<_zsequence*>(reinterpret_cast<char*>(m_CurSeq) + m_CurSeq->seq_data_size))
+	{
+		char* seqname = m_CurAnim->GetName(m_CurSeq->name_index);
+
+		if (seqname != NULL && strcmp(seqname, name) == 0)
+		{
+			m_CurSeq->paused = 0;
+			break;
+		}
+	}
+
+	m_CurSeq = saved;
 }
 
 /* @socom-skeleton stub SequenceExists__10CZAnimMainFPCc */
-void CZAnimMain::SequenceExists(const char *)
+unsigned char CZAnimMain::SequenceExists(const char *name)
 {
+	/* 0x1c3600: the current anim has a sequence of that name */
+	if (name == NULL)
+		return false;
+
+	_zsequence* saved = m_CurSeq;
+	bool found = false;
+
+	for (m_CurSeq = reinterpret_cast<_zsequence*>(m_CurAnim->m_seq_data);
+		reinterpret_cast<char*>(m_CurSeq) < m_CurAnim->m_seq_data + m_CurAnim->m_seq_data_size;
+		m_CurSeq = reinterpret_cast<_zsequence*>(reinterpret_cast<char*>(m_CurSeq) + m_CurSeq->seq_data_size))
+	{
+		char* seqname = m_CurAnim->GetName(m_CurSeq->name_index);
+
+		if (seqname != NULL && strcmp(seqname, name) == 0)
+		{
+			found = true;
+			break;
+		}
+	}
+
+	m_CurSeq = saved;
+	return found;
 }
 
 /* @socom-skeleton stub SequenceRunning__10CZAnimMainFPCc */
-void CZAnimMain::SequenceRunning(const char *)
+unsigned char CZAnimMain::SequenceRunning(const char *name)
 {
+	/* 0x1c34f0: a sequence of that name in the current anim is running */
+	if (name == NULL)
+		return false;
+
+	_zsequence* saved = m_CurSeq;
+	bool running = false;
+
+	for (m_CurSeq = reinterpret_cast<_zsequence*>(m_CurAnim->m_seq_data);
+		reinterpret_cast<char*>(m_CurSeq) < m_CurAnim->m_seq_data + m_CurAnim->m_seq_data_size;
+		m_CurSeq = reinterpret_cast<_zsequence*>(reinterpret_cast<char*>(m_CurSeq) + m_CurSeq->seq_data_size))
+	{
+		char* seqname = m_CurAnim->GetName(m_CurSeq->name_index);
+
+		if (seqname != NULL && strcmp(seqname, name) == 0 && StateRunning(m_CurSeq->state))
+		{
+			running = true;
+			break;
+		}
+	}
+
+	m_CurSeq = saved;
+	return running;
 }
 
 /* @socom-skeleton stub GetNodeSearchScope__10CZAnimMainFPCcPi */

@@ -968,7 +968,12 @@ CZSealBody::CZSealBody(zdb::CNode* node, CCharacterType* chartype) : CEntity(ENT
 }
 
 /* @socom-skeleton body OnMissionStart__10CZSealBodyFv */
-void CZSealBody::OnMissionStart() {}
+void CZSealBody::OnMissionStart()
+{
+	/* 0x257790: the kit's mission-start setup (armor, ammo load), then the controller */
+	m_kit.PostSetupItems();
+	static_cast<CSealCtrl *>(m_control)->OnMissionStart();
+}
 
 /* @socom-skeleton body OnMissionEnd__10CZSealBodyFv */
 void CZSealBody::OnMissionEnd() {}

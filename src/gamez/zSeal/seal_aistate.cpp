@@ -94,21 +94,59 @@
 /* @socom-skeleton decl include */
 #include "gamez/zAI/zai.h"
 /* @socom-skeleton end include */
+#include "gamez/zSeal/zseal.h"
 
 /* @socom-skeleton stub MultiplayerMsgStrings */
 static unsigned char MultiplayerMsgStrings[28];
 
 /* @socom-skeleton stub _unknown */
-static int _unknown[10];
+static CAiSUnknown _unknown; /* 0x509870 (40 bytes): the state an empty stack reports; state 0 */
+
+/* port: file-local helper for the pop sequence the ELF inlines in StateTick 0x2da980,
+ * PopAiState(AI_STATE) 0x2dadf0 and ClearAiState 0x2dba40: the body's order flag is set,
+ * the top state gets signal 1 and is deleted, the state under it gets signal 3. Returns the
+ * new top (NULL when the stack is empty). */
+static CAiState* PopTop(CSealCtrlAi *ai)
+{
+	static_cast<CZSealBody *>(ai->m_entity)->m_order_flag = 1;
+	CAiState* top = !ai->m_stateStack.empty() ? ai->m_stateStack.front() : NULL;
+
+	if (top == NULL)
+		top = &_unknown;
+
+	AI_STATE old = (AI_STATE)top->m_state;
+	top->Signal((CAiState::SIGNAL)1, ai);
+
+	if (!ai->m_stateStack.empty())
+	{
+		delete ai->m_stateStack.front();
+		ai->m_stateStack.erase(ai->m_stateStack.begin());
+	}
+
+	CAiState* now = !ai->m_stateStack.empty() ? ai->m_stateStack.front() : NULL;
+
+	if (now != NULL)
+	{
+		now->Signal((CAiState::SIGNAL)3, ai);
+		ai->m_stateTimer = 0.0f;
+		ai->UpdateStackFlags(false);
+	}
+
+	ai->Debug("PopAiState ***** [old_state=%s]\n", sealai::get_state(old));
+	return now;
+}
 
 /* @socom-skeleton body Create__8CAiStateF8AI_STATE */
 CAiState* CAiState::Create(AI_STATE state)
 {
-	CAiState* aiState;
+	CAiState* aiState = NULL;
 
 	switch (state)
 	{
 	case STATE_UNKNOWN:
+		/* 0x2dc9d0 (also every state without its own class): a plain CAiState */
+		aiState = new CAiState();
+		aiState->Reset(state);
 		break;
 	case STATE_SCRIPT:
 		aiState = new CAiSScript();
@@ -217,52 +255,260 @@ CAiState* CAiState::Create(AI_STATE state)
 		break;
 	}
 
-	return NULL;
+	/* every state's constructor resets it to its type (the ELF inlines CAiState's ctor with
+	 * Reset(state) before setting the vtable, 0x2dc240); the cases above without their own
+	 * Reset get it here */
+	if (aiState != NULL && aiState->m_state != (u8)state)
+		aiState->Reset(state);
+
+		return aiState; /* port: was `return NULL` (the created state was dropped) */
 }
 
 /* @socom-skeleton stub Signal__8CAiStateFQ28CAiState6SIGNALP11CSealCtrlAi */
-void CAiState::Signal(CAiState::SIGNAL, CSealCtrlAi *)
+void CAiState::Signal(CAiState::SIGNAL signal, CSealCtrlAi *ctrl)
 {
+	/* 0x2dbdc0: the stack tells a state it was pushed (0), popped (1), covered by a new state
+	 * (2: the controller's travel flag, stance, mode, speed and map location are saved in the
+	 * state) or uncovered (3: they come back); the goal is cleared and the trigger released
+	 * before the state's own OnSignal. A pushed state is reset (OnSignal 4) and starts in mode
+	 * 1 at full speed. port: the AI log record (PutAiLog 5) is left out (no AI log) */
+	CZSealBody* body = ctrl != NULL ? static_cast<CZSealBody *>(ctrl->m_entity) : NULL;
+
+	if (ctrl != NULL)
+		ctrl->ClearGoal((GOAL_TYPE)0);
+
+	switch ((s32)signal)
+	{
+	case 0:
+		ctrl->Debug("ENTERING ***** [%s] (depth=%d)\n", sealai::get_state((AI_STATE)m_state), (int)ctrl->m_stateStack.size());
+
+		if (ctrl->m_stateFlags & 4)
+			ctrl->Debug("*** IN CRITICAL ***\n");
+
+		body->m_order_flag = 1;
+		m_ticked = 1;
+		Reset((AI_STATE)m_state);
+		OnSignal((CAiState::SIGNAL)4, NULL);
+		ctrl->SetAiMode((AI_MODE)1);
+		ctrl->m_speed = 1.0f;
+		saturate<f32>(ctrl->m_speed, 0.0f, 1.0f);
+		ctrl->m_noturn_travel = 0;
+		body->m_desiredPeek = (SEAL_PEEK)2;
+		m_setup = 1;
+		break;
+
+	case 1:
+		ctrl->Debug("EXITING ***** [%s] (depth=%d)\n", sealai::get_state((AI_STATE)m_state), (int)ctrl->m_stateStack.size());
+		body->m_desiredPeek = (SEAL_PEEK)2;
+		break;
+
+	case 2:
+	{
+		ctrl->Debug("PUSHING ***** [%s] (depth=%d)\n", sealai::get_state((AI_STATE)m_state), (int)ctrl->m_stateStack.size());
+		/* +0x1c: bit 0 the travel flag, bits 1-4 the stance, bits 5-8 the mode; +0x20 the
+		 * speed; +0x24 the entity's map location */
+		u32 saved = m_unk_1c_0 & ~0x1ffu;
+		saved |= ctrl->m_noturn_travel ? 1 : 0;
+		saved |= ((u32)ctrl->m_stance & 0xf) << 1;
+		saved |= ((u32)ctrl->m_mode & 0xf) << 5;
+		m_unk_1c_0 = saved;
+		memcpy(&m_unk_20, &ctrl->m_speed, 4);
+		memcpy(&m_unk_24, &ctrl->m_entity->m_mapLocValid, 4);
+		break;
+	}
+
+	case 3:
+		ctrl->Debug("RESUMING ***** [%s] (depth=%d)\n", sealai::get_state((AI_STATE)m_state), (int)ctrl->m_stateStack.size());
+		body->m_order_flag = 1;
+		ctrl->m_noturn_travel = (m_unk_1c_0 & 1) ? 1 : 0;
+		ctrl->SetStance((SEAL_STANCE)(s8)((m_unk_1c_0 >> 1) & 0xf));
+		ctrl->SetAiMode((AI_MODE)((m_unk_1c_0 >> 5) & 0xf));
+		memcpy(&ctrl->m_speed, &m_unk_20, 4);
+		saturate<f32>(ctrl->m_speed, 0.0f, 1.0f);
+		break;
+
+	default:
+		break;
+	}
+
+	ctrl->SetTrigger(false);
+	ctrl->SetTrigger(false);
+	OnSignal(signal, ctrl);
 }
 
 /* @socom-skeleton stub GetAiState__11CSealCtrlAiFv */
-void CSealCtrlAi::GetAiState()
+CAiState * CSealCtrlAi::GetAiState()
 {
+	/* 0x2dbd70 */
+	CAiState* top = !m_stateStack.empty() ? m_stateStack.front() : NULL;
+	return top != NULL ? top : &_unknown;
 }
 
 /* @socom-skeleton stub GetAiState__11CSealCtrlAiCFv */
-void CSealCtrlAi::GetAiState() const
+CAiState * CSealCtrlAi::GetAiState() const
 {
+	/* 0x2dbd20: the top state; an empty stack (or a NULL top) gives the shared _unknown */
+	CAiState* top = !m_stateStack.empty() ? m_stateStack.front() : NULL;
+	return top != NULL ? top : &_unknown;
 }
 
 /* @socom-skeleton stub FindAiState__11CSealCtrlAiCF8AI_STATE */
-void CSealCtrlAi::FindAiState(AI_STATE) const
+CAiState * CSealCtrlAi::FindAiState(AI_STATE state) const
 {
+	/* 0x2dbc30: the first stacked state of that type (top down) or NULL */
+	for (std::list<CAiState *>::const_iterator i = m_stateStack.begin(); i != m_stateStack.end(); ++i)
+	{
+		if ((*i)->m_state == (u8)state)
+			return *i;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub ClearAiState__11CSealCtrlAiFb */
-void CSealCtrlAi::ClearAiState(bool)
+void CSealCtrlAi::ClearAiState(bool force)
 {
+	/* 0x2dba40: pop every state down to STATE_UNKNOWN. Without `force` only for a dead
+	 * body or a SEAL (a living enemy keeps its states). */
+	if (!force && m_entity->m_isAlive && !m_navyseal)
+	{
+		UpdateStackFlags(false);
+		return;
+	}
+
+	while (!AiStateIs(STATE_UNKNOWN))
+		PopTop(this);
+
+	UpdateStackFlags(false);
 }
 
 /* @socom-skeleton stub CanPushAiState__11CSealCtrlAiF8AI_STATE */
-void CSealCtrlAi::CanPushAiState(AI_STATE)
+bool CSealCtrlAi::CanPushAiState(AI_STATE state)
 {
+	/* 0x2db7c0: not while sleeping or snoozing; the top state's mask (table 0x4576f0, by its
+	 * type) says which states may cover it; then, inside a critical script sequence, only
+	 * SUSPENDED, DEPLOY, ANIMATE, ACTION, GOTO, HOLD, SCRIPT and CQB may. */
+	static const u32 masks[30] = {
+		0x3ffffffe, 0x3ffdfbd6, 0x3ffffffa, 0x000448c2, 0x18044ac6, 0x18044ac6, 0x18044a86,
+		0x18048300, 0x3ffffefe, 0x1ffffdfe, 0x1ffffbf6, 0x1ffff7fe, 0x3bffe8f6, 0x17ffdffe,
+		0x10040000, 0x180449c6, 0x1ffc48c6, 0x190c48c6, 0x00000000, 0x30040000, 0x380448c2,
+		0x380448c2, 0x380448c2, 0x180448c2, 0x380448c2, 0x381c48c2, 0x380448c2, 0x300468c2,
+		0x20042000, 0x100de9da
+	};
+
+	if (m_snoozing || m_sleeping)
+		return false;
+
+	u32 top = (u8)GetAiStateEnum();
+	u32 mask = top < 30 ? masks[top] : 0;
+	u32 s = (u8)state;
+
+	if (!(mask & (1u << s)))
+		return false;
+
+#ifdef SOCOM_PORT
+	/* port: only the states whose behaviour is written may be pushed (UNKNOWN, SCRIPT,
+	 * TARGETING); the other states' Tick functions are not written yet, so their pushes
+	 * (event, shot-at, reload, pursue, avoid ...) are refused here, a path every caller
+	 * handles */
+	if (s != STATE_UNKNOWN && s != STATE_SCRIPT && s != STATE_TARGETING)
+		return false;
+#endif
+
+	if (s == STATE_SUSPENDED)
+		return true;
+
+	if ((m_stateFlags & 4) && s != STATE_CQB)
+		return s == STATE_DEPLOY || s == STATE_ANIMATE || s == STATE_ACTION || s == STATE_GOTO || s == STATE_HOLD || s == STATE_SCRIPT;
+
+	return true;
 }
 
 /* @socom-skeleton stub SetAiState__11CSealCtrlAiF8AI_STATE */
-void CSealCtrlAi::SetAiState(AI_STATE)
+bool CSealCtrlAi::SetAiState(AI_STATE state)
 {
+	/* 0x2db580: replace the top state (signal 1, deleted) with a new one (signal 0); an
+	 * empty stack just gets it */
+	if (!CanPushAiState(state))
+		return false;
+
+	if (!m_stateStack.empty())
+	{
+		CAiState* top = m_stateStack.front();
+
+		if (top == NULL)
+			top = &_unknown;
+
+		top->Signal((CAiState::SIGNAL)1, this);
+
+		if (!m_stateStack.empty())
+		{
+			delete m_stateStack.front();
+			m_stateStack.erase(m_stateStack.begin());
+		}
+	}
+
+	m_stateStack.push_front(CAiState::Create(state));
+	CAiState* now = m_stateStack.front();
+
+	if (now != NULL)
+	{
+		now->Signal((CAiState::SIGNAL)0, this);
+		m_stateTimer = 0.0f;
+	}
+
+	Debug("SetAiState ***** [%s]\n", sealai::get_state(state));
+	UpdateStackFlags(false);
+	return true;
 }
 
 /* @socom-skeleton stub PushAiState__11CSealCtrlAiF8AI_STATEb */
-void CSealCtrlAi::PushAiState(AI_STATE, bool)
+bool CSealCtrlAi::PushAiState(AI_STATE state, bool unique)
 {
+	/* 0x2db390: put a new state on top (not when the stack refuses it, nor - with
+	 * `unique` - when the top already is of that type). The old top gets signal 2, the new
+	 * state signal 0; the caller then fills the new state's parameters and sets m_setup. */
+	if (!CanPushAiState(state))
+		return false;
+
+	if (unique && AiStateIs(state))
+		return false;
+
+	CAiState* top = !m_stateStack.empty() ? m_stateStack.front() : NULL;
+
+	if (top == NULL)
+		top = &_unknown;
+
+	top->Signal((CAiState::SIGNAL)2, this);
+	CAiSScript* script = top->m_state == STATE_SCRIPT ? static_cast<CAiSScript *>(top) : NULL;
+	m_stateStack.push_front(CAiState::Create(state));
+	CAiState* now = m_stateStack.front();
+
+	if (now != NULL)
+	{
+		now->Signal((CAiState::SIGNAL)0, this);
+		m_stateTimer = 0.0f;
+	}
+
+	/* a new state with a script response starts that sequence on the script state it
+	 * covered and then waits for it (StateTick). ELF: the new state is not NULL-tested */
+	const char* response = now->GetScriptResponse();
+
+	if (response != NULL && script != NULL && script->ActivateSequence(response, 7))
+		now->m_response = 1;
+
+	Debug("PushAiState ***** [%s]\n", sealai::get_state(state));
+	UpdateStackFlags(false);
+	return true;
 }
 
 /* @socom-skeleton stub PopAiState__11CSealCtrlAiFv */
 void CSealCtrlAi::PopAiState()
 {
+	/* 0x2db200: pop the top state. port: written from the same sequence inlined in
+	 * StateTick / PopAiState(AI_STATE) / ClearAiState; this function's own 400 bytes were
+	 * not read */
+	PopTop(this);
 }
 
 /* @socom-skeleton stub PopToAiState__11CSealCtrlAiF8AI_STATE */
@@ -271,18 +517,97 @@ void CSealCtrlAi::PopToAiState(AI_STATE)
 }
 
 /* @socom-skeleton stub PopAiState__11CSealCtrlAiF8AI_STATE */
-void CSealCtrlAi::PopAiState(AI_STATE)
+AI_STATE CSealCtrlAi::PopAiState(AI_STATE state)
 {
+	/* 0x2dadf0: pop the top state if it is of that type; returns the new top's type (the
+	 * current one when nothing was popped) */
+	if (!AiStateIs(state))
+		return GetAiStateEnum();
+
+	CAiState* top = PopTop(this);
+	return (AI_STATE)(top != NULL ? top->m_state : 0);
 }
 
 /* @socom-skeleton stub UpdateStackFlags__11CSealCtrlAiFb */
-void CSealCtrlAi::UpdateStackFlags(bool)
+void CSealCtrlAi::UpdateStackFlags(bool ifDirty)
 {
+	/* 0x2dac90: m_stateFlags from the whole stack (bottom to top): bit 1 (2) while every
+	 * state allows attacking; bit 2 (4) when a script state that allows it has its +0x2c
+	 * bit 0 clear. With ifDirty only when bit 0 asks for it. */
+	if (ifDirty && !(m_stateFlags & 1))
+		return;
+
+	m_stateFlags = 2;
+
+	for (std::list<CAiState *>::reverse_iterator i = m_stateStack.rbegin(); i != m_stateStack.rend(); ++i)
+	{
+		CAiState* state = *i;
+
+		if (!state->CanAttack())
+		{
+			m_stateFlags &= ~2u;
+		}
+		else if (state->m_state == STATE_SCRIPT && static_cast<CAiSScript *>(state)->m_critical)
+		{
+			/* a critical script sequence runs (bit 2: 4) */
+			m_stateFlags |= 4;
+		}
+	}
 }
 
 /* @socom-skeleton stub StateTick__11CSealCtrlAiFf */
-void CSealCtrlAi::StateTick(float)
+void CSealCtrlAi::StateTick(float dT)
 {
+	/* 0x2da980: tick the top state. A state that returns false is popped: it gets signal
+	 * 1, is deleted, and the state under it gets signal 3 ("PopAiState ***** [old_state=%s]").
+	 * A state whose script response sequence has ended drops its response flag. */
+	CAiState* state = !m_stateStack.empty() ? m_stateStack.front() : NULL;
+
+	if (state == NULL)
+		state = &_unknown;
+
+	bool keep = state->Tick(dT, this);
+	m_stateTimer += dT;
+	state->m_ticked = 0;
+
+	if (keep)
+	{
+		if (m_stateFlags & 1)
+			UpdateStackFlags(false);
+
+		/* a state waiting for a script response: when the script state under it has its anim
+		 * paused, or the response sequence has ended (killed, the anim paused again), the wait
+		 * is over. ELF: the script's anim is not NULL-tested */
+		if (!state->m_response)
+			return;
+
+		std::list<CAiState *>::iterator under = m_stateStack.begin();
+		++under;
+
+		if (under == m_stateStack.end() || (*under)->m_state != STATE_SCRIPT)
+			return;
+
+		CAiSScript* script = static_cast<CAiSScript *>(*under);
+		bool running = false;
+
+		if (!script->m_anim->m_paused)
+		{
+			running = script->m_response[0] != 0 && script->m_anim->SequenceRunning(script->m_response);
+
+			if (!running)
+			{
+				script->KillResponse(this, false);
+				script->m_anim->Pause();
+			}
+		}
+
+		if (!running)
+			state->m_response = 0;
+
+		return;
+	}
+
+	PopTop(this);
 }
 
 /* @socom-skeleton stub OnSignal__10CAiSPickupFQ28CAiState6SIGNALP11CSealCtrlAi */
@@ -348,35 +673,279 @@ bool CAiSGoto::Tick(float, CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub ActivateSeq__11CSealCtrlAiFPCcUi */
-void CSealCtrlAi::ActivateSeq(const char *, unsigned int)
+void CSealCtrlAi::ActivateSeq(const char *name, unsigned int flags)
 {
+	/* 0x2d96c0: a sequence of the script anim, when the top state is the script state.
+	 * port: void (the ELF returns ActivateSequence's 0/1; no caller in the port reads it) */
+	if (!AiStateIs(STATE_SCRIPT))
+		return;
+
+	CAiState* top = !m_stateStack.empty() ? m_stateStack.front() : NULL;
+
+	if (top == NULL)
+		top = &_unknown;
+
+	if (top->m_state == STATE_SCRIPT)
+		static_cast<CAiSScript *>(top)->ActivateSequence(name, flags);
 }
 
 /* @socom-skeleton stub ActivateSequence__10CAiSScriptFPCcUi */
-void CAiSScript::ActivateSequence(const char *, unsigned int)
+bool CAiSScript::ActivateSequence(const char *name, unsigned int flags)
 {
+	/* 0x2d9570: a response sequence of the script anim starts (outside a critical sequence,
+	 * once the state is set up, when the anim has it); the on_aware sequence it interrupts
+	 * is paused. flags: 1 the new sequence is critical, 2 the awareness is chosen again
+	 * afterwards, 4 the anim must be paused (it is resumed and the state marked) */
+	if (name == NULL || !m_setup || m_critical || m_anim == NULL || !m_anim->SequenceExists(name))
+		return false;
+
+	if (flags & 4)
+	{
+		if (!m_anim->m_paused)
+			return false;
+
+		m_anim->Resume();
+		m_option_flags |= 4;
+	}
+
+	m_anim->PauseSequence(sealai::get_aiseq(m_seq));
+	m_anim->ActivateSequence(name);
+	m_critical = (flags & 1) ? 1 : 0;
+
+	if (flags & 2)
+		m_aware = 255;
+
+	strncpy(m_response, name, 16);
+	return true;
 }
 
 /* @socom-skeleton stub GetStatus__10CAiSScriptCFv */
 const char * CAiSScript::GetStatus() const
 {
 	/* @socom-skeleton stub status_buffer$2808 */
-	static unsigned char status_buffer[64];
+	static char status_buffer[64];
+	/* 0x2d94e0: the anim's name (+ " CRIT") into the buffer. ELF quirk kept: the anim's name
+	 * is returned, not the buffer */
+	const char* name = m_anim != NULL ? m_anim->GetName() : "";
+	strcpy(status_buffer, name);
+
+	if (m_critical)
+		strcat(status_buffer, " CRIT");
+
+	return name;
 }
 
 /* @socom-skeleton stub OnSignal__10CAiSScriptFQ28CAiState6SIGNALP11CSealCtrlAi */
-void CAiSScript::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+void CAiSScript::OnSignal(CAiState::SIGNAL signal, CSealCtrlAi *ctrl)
 {
+	/* 0x2d91a0: 0 entered, 1 popped (the anim stops unless it is kept for a living seal; the
+	 * default anim set comes back), 2 covered (the anim pauses, the anim set and AI mode are
+	 * saved), 3 uncovered (mode, a finished response and the anim come back), 4 full reset */
+	CZSealBody* body = ctrl != NULL ? static_cast<CZSealBody *>(ctrl->m_entity) : NULL;
+
+	switch ((s32)signal)
+	{
+	case 0:
+		m_critical = 0;
+		m_aware = 255;
+		m_seq = 255;
+		m_first_tick = 1;
+		m_timer = 0.0f;
+		m_animset = NULL;
+		break;
+
+	case 1:
+		if (m_anim != NULL && !(m_keep_anim && body->m_isAlive))
+			m_anim->Stop();
+
+		if (!ctrl->m_nobindanimset)
+			body->BindAnimSet(body->m_default_animset);
+
+		break;
+
+	case 2:
+		ctrl->Debug("pausing script [%s]...\n", m_anim != NULL ? m_anim->GetName() : "");
+		m_mode = (s8)ctrl->m_mode;
+
+		if (m_anim != NULL)
+			m_anim->Pause();
+
+		if (!ctrl->m_nobindanimset)
+		{
+			m_animset = body->m_animset;
+			body->BindAnimSet(body->m_default_animset);
+		}
+
+		break;
+
+	case 3:
+		ctrl->SetAiMode((AI_MODE)m_mode);
+
+		if (m_anim != NULL)
+		{
+			if (m_option_flags & 4)
+			{
+				if (m_response[0] != 0)
+				{
+					/* ELF: SequenceRunning is asked and its answer dropped, then the response
+					 * is killed as KillResponse does it (inlined) */
+					m_anim->SequenceRunning(m_response);
+					const char* seq = sealai::get_aiseq(m_seq);
+					m_first_tick = 0;
+					m_anim->StopSequence(m_response);
+					m_anim->ResumeSequence(seq);
+					m_critical = 0;
+					ctrl->Debug("CAiSScript::KillResponse() -- response seq (%s) stopped -- resuming %s\n", m_response, seq);
+					m_response[0] = 0;
+				}
+
+				m_option_flags &= ~4u;
+			}
+
+			m_first_tick = 1;
+			m_anim->Resume();
+		}
+
+		if (m_animset != NULL)
+		{
+			if (body->m_isAlive)
+				body->BindAnimSet(m_animset);
+
+			m_animset = NULL;
+		}
+
+		break;
+
+	case 4:
+		m_response[0] = 0;
+		m_critical = 0;
+		m_first_tick = 1;
+		m_aware = 255;
+		m_seq = 255;
+		m_mode = 1;
+		m_anim = NULL;
+		m_timer = 0.0f;
+		m_keep_anim = 0;
+		m_animset = NULL;
+		m_unk_4c = 0;
+		break;
+
+	default:
+		break;
+	}
 }
 
 /* @socom-skeleton stub CanPursue__10CAiSScriptCFP11CSealCtrlAi */
-bool CAiSScript::CanPursue(CSealCtrlAi *) const
+bool CAiSScript::CanPursue(CSealCtrlAi *ctrl) const
 {
+	/* 0x2d9130: once the awareness has held for 5 s */
+	return m_aware == (u8)ctrl->GetAiAware() && !(m_timer < 5.0f);
+}
+
+/* port: KillResponse 0x2d9040 (seal_aistate.cpp's artifact; no skeleton fence was generated
+ * for it): a response sequence that has ended (or any, with force) is stopped and the
+ * on_aware sequence it interrupted resumes; true when one was killed */
+bool CAiSScript::KillResponse(CSealCtrlAi *ctrl, bool force)
+{
+	if (m_response[0] == 0)
+		return false;
+
+	if (m_anim->SequenceRunning(m_response) && !force)
+		return false;
+
+	const char* seq = sealai::get_aiseq(m_seq);
+	m_first_tick = 0;
+	m_anim->StopSequence(m_response);
+	m_anim->ResumeSequence(seq);
+	m_critical = 0;
+	ctrl->Debug("CAiSScript::KillResponse() -- response seq (%s) stopped -- resuming %s\n", m_response, seq);
+	m_response[0] = 0;
+	return true;
 }
 
 /* @socom-skeleton stub Tick__10CAiSScriptFfP11CSealCtrlAi */
-bool CAiSScript::Tick(float, CSealCtrlAi *)
+bool CAiSScript::Tick(float dT, CSealCtrlAi *ctrl)
 {
+	/* 0x2d8d50: the script anim runs the seal; when the awareness changes the anim's
+	 * on_aware<N> sequence for it starts (the old one paused when 0 -> 1, resumed when 1 -> 0,
+	 * else stopped). A running response sequence holds the switch; a critical one blocks it.
+	 * The state ends when its anim stops. */
+	CZAnim* anim = m_anim;
+
+	if (!m_setup || anim == NULL)
+		return false;
+
+	const char* name = anim->GetName();
+
+	if (!anim->Running())
+	{
+		ctrl->Debug("CAiSScript::Tick() --> ANIM (%s) IS STOPPED\n", name);
+		m_setup = 0;
+		return m_setup;
+	}
+
+	if (m_response[0] != 0 && anim->SequenceRunning(m_response))
+		return m_setup;
+
+	KillResponse(ctrl, false);
+
+	if (m_first_tick)
+	{
+		m_first_tick = 0;
+		ctrl->Debug("CAiSScript::Tick() FIRST TICK (%s)\n", name);
+		return true;
+	}
+
+	u8 old = m_aware;
+	u8 aware = (u8)ctrl->GetAiAware();
+
+	if (old == aware)
+	{
+		m_timer += dT;
+		return true;
+	}
+
+	if (m_critical)
+	{
+		ctrl->Debug("IN CRITICAL SECTION (anim:%s) -- can't switch sequences\n", name);
+		return true;
+	}
+
+	const char* from = sealai::get_aiseq(old);
+	const char* to = sealai::get_aiseq(aware);
+
+	if (anim->SequenceExists(to))
+	{
+		if (old == 0 && aware == 1)
+		{
+			ctrl->Debug("anim(%s) PAUSING seq(%s) / STARTING seq(%s)\n", name, from, to);
+			anim->PauseSequence(from);
+			anim->ActivateSequence(to);
+		}
+		else if (aware == 0 && old == 1)
+		{
+			ctrl->Debug("anim(%s) STOPPING seq(%s) / RESUMING seq(%s)\n", name, from, to);
+			anim->StopSequence(from);
+			anim->ResumeSequence(to);
+		}
+		else
+		{
+			ctrl->Debug("anim(%s) STOPPING seq(%s) / STARTING seq(%s)\n", name, from, to);
+			anim->StopSequence(from);
+			anim->ActivateSequence(to);
+		}
+
+		m_timer = 0.0f;
+		m_seq = aware;
+	}
+	else
+	{
+		ctrl->Debug("IGNORING anim(%s) seq(%s) because it doesn't exist\n", name, to);
+		m_timer = 5.0f;
+	}
+
+	m_aware = aware;
+	return true;
 }
 
 /* @socom-skeleton stub OnSignal__10CAiSBreachFQ28CAiState6SIGNALP11CSealCtrlAi */
@@ -409,11 +978,14 @@ bool CAiSSuspended::Tick(float, CSealCtrlAi *)
 /* @socom-skeleton stub OnSignal__11CAiSUnknownFQ28CAiState6SIGNALP11CSealCtrlAi */
 void CAiSUnknown::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
 {
+	/* 0x2d7c50: empty */
 }
 
 /* @socom-skeleton stub Tick__11CAiSUnknownFfP11CSealCtrlAi */
 bool CAiSUnknown::Tick(float, CSealCtrlAi *)
 {
+	/* 0x2d7c40: stays */
+	return true;
 }
 
 /* @socom-skeleton stub OnSignal__13CAiSCQBAttackFQ28CAiState6SIGNALP11CSealCtrlAi */

@@ -24,62 +24,266 @@
 #include "gamez/zMath/zmath.h"
 #include "zseal.h"
 /* @socom-skeleton end include */
+#include "gamez/zFTS/zfts.h" /* theMission (the mission clock) */
+
+/* port: CTarget::operator=(const CTarget *) 0x2e9e60 is not declared in zentity.h; this
+ * file-local helper is its body: a NULL source only clears the entity, else every member is
+ * copied */
+static void assign_target(CTarget &dst, const CTarget *src)
+{
+	if (src == NULL)
+		dst.m_ent = NULL;
+	else
+		dst = *src;
+}
+
+/* 0x2e9fe0 compare_target(const CTarget *, const CTarget *) (no skeleton fence): the same
+ * record, or two records of the same entity */
+static bool compare_target(const CTarget *a, const CTarget *b)
+{
+	if (a == b)
+		return true;
+
+	if (a == NULL || b == NULL)
+		return false;
+
+	return a->m_ent == b->m_ent;
+}
 
 /* @socom-skeleton stub __ct__9CAiTargetFv */
 CAiTarget::CAiTarget()
 {
+	/* 0x2ea2d0 */
+	m_threat = 0.0f;
+	m_aim_noise = CPnt3D::zero;
+	m_time_acquired = 0.0f;
+	m_time_visible = 0.0f;
+	m_time_lost_sight = 0.0f;
+	m_last_pos = CPnt3D::zero;
+	m_last_vel = CPnt3D::zero;
+	m_targeted = 0;
+	m_unused = 0;
+	m_reset_aim = 1;
+	m_first_aim = 0;
 }
 
 /* @socom-skeleton stub UpdateTarget__9CAiTargetFP7CTargetf */
-unsigned char CAiTarget::UpdateTarget(CTarget *, float)
+bool CAiTarget::UpdateTarget(CTarget *target, float threat)
 {
+	/* 0x2ea020: refresh the copy from the list entry (NULL: no target entity). Returns
+	 * whether the entity changed (ELF: a NULL target always counts as a change). */
+	bool changed = !compare_target(target, &m_target);
+
+	assign_target(m_target, target);
+
+	m_threat = threat;
+
+	if (target != NULL)
+	{
+		m_last_pos = *target->m_ent->GetPosW(); /* ELF: no entity test */
+
+		if (changed)
+			m_targeted = target->m_targeted;
+		else
+			target->m_targeted = m_targeted;
+	}
+
+	return changed;
 }
 
 /* @socom-skeleton stub SetTarget__9CAiTargetFP7CTargetf */
-void CAiTarget::SetTarget(CTarget *, float)
+void CAiTarget::SetTarget(CTarget *target, float threat)
 {
+	/* 0x2e9ca0: take a copy of the target record (NULL clears it). A new entity restarts
+	 * the acquisition clocks and takes the list entry's m_targeted; the same entity gets
+	 * this record's m_targeted written back to the list entry. */
+	bool changed = !compare_target(target, &m_target);
+
+	assign_target(m_target, target);
+	m_threat = threat;
+
+	if (target != NULL)
+	{
+		m_last_pos = *target->m_ent->GetPosW(); /* ELF: no entity test */
+
+		if (changed)
+			m_targeted = target->m_targeted;
+		else
+			target->m_targeted = m_targeted;
+	}
+
+	if (changed)
+	{
+		m_time_acquired = theMission.m_timer;
+		m_time_visible = theMission.m_timer;
+	}
+
+	if (target != NULL)
+	{
+		m_last_pos = *target->m_ent->GetPosW();
+		m_time_lost_sight = theMission.m_timer;
+	}
+
+	m_reset_aim = 1;
+	m_first_aim = changed;
 }
 
 /* @socom-skeleton stub UpdateLastKnownPosW__9CAiTargetFv */
 void CAiTarget::UpdateLastKnownPosW()
 {
+	/* 0x2e9c40 */
+	CPnt3D* pos = m_target.m_ent != NULL ? m_target.m_ent->GetPosW() : NULL;
+
+	if (pos != NULL)
+		m_last_pos = *pos;
 }
 
 /* @socom-skeleton stub GetTimeSinceLastSighting__9CAiTargetCFv */
 float CAiTarget::GetTimeSinceLastSighting() const
 {
+	/* 0x2e9c20 */
+	return theMission.m_timer - m_time_lost_sight;
 }
 
 /* @socom-skeleton stub GetTimeAcquired__9CAiTargetCFv */
 float CAiTarget::GetTimeAcquired() const
 {
+	/* 0x2e9c00 */
+	return theMission.m_timer - m_time_acquired;
 }
 
 /* @socom-skeleton stub GetTimeVisible__9CAiTargetCFv */
 float CAiTarget::GetTimeVisible() const
 {
+	/* 0x2e9b90: how long the living target has been in sight (0 when it is not) */
+	const CEntity* e = m_target.m_ent;
+
+	if (e != NULL && e->m_isAlive && m_target.m_visible)
+		return theMission.m_timer - m_time_visible;
+
+	return 0.0f;
 }
 
 /* @socom-skeleton stub Tick__9CAiTargetFP7CEntityf */
-void CAiTarget::Tick(CEntity *, float)
+void CAiTarget::Tick(CEntity *owner, float)
 {
+	/* 0x2e9ad0: a target that died or is (now) on the owner's team is dropped */
+	CEntity* e = m_target.m_ent;
+
+	if (e != NULL && e->m_isAlive && (e->m_team & owner->m_team) == 0)
+		return;
+
+	bool changed = UpdateTarget(NULL, 0.0f);
+
+	if (changed)
+	{
+		m_time_acquired = theMission.m_timer;
+		m_time_visible = theMission.m_timer;
+	}
+
+	m_reset_aim = 1;
+	m_first_aim = changed;
 }
 
 /* @socom-skeleton stub OnSetVisible__9CAiTargetFb */
-void CAiTarget::OnSetVisible(bool)
+void CAiTarget::OnSetVisible(bool visible)
 {
+	/* 0x2e99e0: the living target came into or went out of sight: its position and
+	 * velocity are remembered with the mission time; coming into sight restarts the aim */
+	CEntity* e = m_target.m_ent;
+
+	if (e == NULL || !e->m_isAlive)
+		return;
+
+	m_last_pos = *e->GetPosW();
+	m_last_vel = e->m_velW;
+
+	if (visible)
+	{
+		m_time_visible = theMission.m_timer;
+		m_reset_aim = 1;
+		m_first_aim = 0;
+	}
+	else
+	{
+		m_time_lost_sight = theMission.m_timer;
+	}
 }
 
 /* @socom-skeleton stub ModifyAimDir__9CAiTargetFP6CPnt3Dff */
-void CAiTarget::ModifyAimDir(CPnt3D *, float, float)
+void CAiTarget::ModifyAimDir(CPnt3D *dir, float accuracy, float angle)
 {
+	/* 0x2e9900: the aim error. A new error vector is drawn (ai::MakeNoise, each component
+	 * +-[min, max]) whenever m_reset_aim is set - which this function leaves set (ELF: the
+	 * bit is rewritten 1), so every shot draws one; the first shot at a new target draws
+	 * from 0.75 x max up, later ones from 0. max = angle x (1 - accuracy). The error's z is
+	 * dropped and the sum renormalized. */
+	PNT2D noise = { 0.0f, 0.0f }; /* @1484 (0x4763f0) */
+	f32 spread = angle * (1.0f - accuracy);
+
+	if (m_reset_aim)
+	{
+		if (m_first_aim)
+			noise.x = 0.75f * spread;
+
+		noise.y = spread;
+		ai::MakeNoise(&m_aim_noise, noise);
+		m_first_aim = 0;
+		m_reset_aim = 1;
+	}
+
+	m_aim_noise.z = 0.0f;
+	dir->Add(&m_aim_noise, dir);
+	dir->Normalize();
 }
 
 /* @socom-skeleton stub CheckLineOfFire__2aiFPC7CEntityPC7CTargetf */
-void ai::CheckLineOfFire(const CEntity *, const CTarget *, float)
+bool ai::CheckLineOfFire(const CEntity *me, const CTarget *target, float radius)
 {
+	/* 0x2e96d0: whether a shot at the target is clear of team mates: walking the shooter's
+	 * target list (near to far) the target must come before any living team mate that
+	 * stands within `radius` of the chest-high line to it. No target: clear. ELF: a list
+	 * entry without an entity is dereferenced (kept: the list holds none). */
 	/* @socom-skeleton stub height$1495 */
-	static float height;
+	static float height = 18.0f;
 	/* @socom-skeleton stub offset$1498 */
-	static float offset[3];
+	static CPnt3D offset;
+	/* port: the ELF's init flag (init$1499) is this function-local flag */
+	static bool offset_init = false;
+
+	if (!offset_init)
+	{
+		offset.x = 0.0f;
+		offset.y = 0.5f * height;
+		offset.z = 0.0f;
+		offset_init = true;
+	}
+
+	if (target == NULL || target->m_ent == NULL)
+		return true;
+
+	CPnt3D tail;
+	CPnt3D tip;
+	me->GetPosW()->Add(&offset, &tail);
+	target->m_ent->GetPosW()->Add(&offset, &tip);
+
+	for (const CTarget* t = me->m_targets.data(); t != me->m_targets.data() + me->m_targets.size(); t++)
+	{
+		CEntity* e = t->m_ent;
+
+		if (e == target->m_ent)
+			return true;
+
+		if (!e->m_isAlive || (e->m_team & me->m_team) == 0)
+			continue;
+
+		CPnt3D p;
+		f32 dist;
+		e->GetPosW()->Add(&offset, &p);
+
+		if (p.DistToVector(&tail, &tip, &dist) && dist < radius)
+			return false;
+	}
+
+	return false;
 }

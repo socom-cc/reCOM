@@ -157,6 +157,61 @@ struct TASK_SIGNAL : public TASK_HDR /* ai::SIGNAL (Tick 0x2b6c50) */
 	char m_entity[1]; /* +0x0c the entity to signal instead of the select's seal ("" for none) */
 };
 
+struct TASK_DEBUG : public TASK_HDR /* ai::DEBUG (Parse 0x2bdc90) */
+{
+	s32 m_enable;  /* +0x08: 1 debug output on, 0 off, -1 (a text) unchanged */
+	char m_text[4]; /* +0x0c the text (to the record's end) */
+};
+
+struct TASK_HOLD : public TASK_HDR /* ai::HOLD (Parse 0x2bc030) */
+{
+	Rfloat m_wait; /* +0x08 the hold time; -1 (true): hold mode stays on */
+	f32 m_timer;   /* +0x10 Begin: the time drawn */
+};
+
+struct TASK_PARAM : public TASK_HDR /* ai::PARAM (Parse 0x2b93d0) */
+{
+	u16 m_param;     /* +0x08 get_param 0x2b96a0: 1 courage, 2 health, 3 speed, 4 accuracy,
+	                  * 5 sleep, 6 stance, 7 aware, 8 aware_decay, 9 inside, 10 outside,
+	                  * 11 weapon_up, 12 spray, 13 docorpse */
+	u16 m_op;        /* +0x0a CValve::ParseOperator: 7 assigns, 0..6 compare (Tick) */
+	f32 m_value;     /* +0x0c */
+	char m_entity[4]; /* +0x10 the seal entity to use instead of the select's ("" none) */
+};
+
+struct TASK_STANCE : public TASK_HDR /* ai::STANCE (Parse 0x2b6010) */
+{
+	s32 m_peek;   /* +0x08 SEAL_PEEK: -1 left, 1 right, 0 up, 2 none */
+	s32 m_stance; /* +0x0c SEAL_STANCE (get_stance) */
+	f32 m_delay;  /* +0x10 how long the task holds */
+	f32 m_timer;  /* +0x14 */
+};
+
+struct TASK_SETMODE : public TASK_HDR /* ai::SETMODE (Parse 0x2b73a0) */
+{
+	s32 m_mode; /* +0x08 AI_MODE (get_mode; 1 by default) */
+};
+
+struct TASK_SETANIMSET : public TASK_HDR /* ai::SETANIMSET (Parse 0x2b7130) */
+{
+	u8 m_default : 1; /* +0x08: it becomes the seal's default set too */
+	u8 m_unused : 7;
+	char m_name[4];   /* +0x0c the anim set's name */
+};
+
+struct TASK_MACRO : public TASK_HDR /* ai::MACRO (Parse 0x2bacd0) */
+{
+	CZAnim *m_anim;    /* +0x08 Begin: the anim of that name */
+	u8 m_blocking : 1; /* +0x0c (not read by the handlers: a macro always covers the script) */
+	u8 m_unused : 7;
+	char m_name[4];    /* +0x10 the anim's name */
+};
+
+struct TASK_PURSUE : public TASK_HDR /* ai::PURSUE (Parse 0x2b81a0) */
+{
+	f32 m_duration; /* +0x08 (-1 by default) */
+};
+
 /* 0x2b4190: the index-th command argument of that command type of the running anim (the
  * select tasks: the AI's own, or the one CNodeAction::ExecuteAction passes for the seal
  * that uses an action); NULL when there is none */
@@ -279,7 +334,29 @@ _zanim_cmd_hdr* CTDebug::Parse(_zrdr* reader)
 /* @socom-skeleton body Tick__7CTDebugFP14_zanim_cmd_hdrPf */
 bool CTDebug::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
-	return false;
+	/* 0x2bdb70: the AI's debug output is switched (1 / 0) and the text goes to it. A select
+	 * without a seal or controller uses up the frame's time. */
+	TASK_DEBUG *task = reinterpret_cast<TASK_DEBUG *>(header);
+	CZSealBody *seal = taskSeal(task->m_seal_index);
+	CSealCtrl *ctrl = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control) : NULL;
+	CSealCtrlAi *ai = ctrl != NULL ? ctrl->GetSealCtrlAi() : NULL;
+
+	if (seal == NULL || ctrl == NULL)
+	{
+		*dT = 0.0f;
+		return true;
+	}
+
+	if (ai == NULL)
+		return true;
+
+	if (task->m_enable == 1)
+		ai->SetDebug(true);
+	else if (task->m_enable == 0)
+		ai->SetDebug(false);
+
+	ai->Debug("%s\n", task->m_text);
+	return true;
 }
 
 /* @socom-skeleton body Parse__6CTDoorFP5_zrdr */
@@ -404,18 +481,56 @@ _zanim_cmd_hdr* CTHold::Parse(_zrdr* reader)
 /* @socom-skeleton body Begin__6CTHoldFP14_zanim_cmd_hdr */
 void CTHold::Begin(_zanim_cmd_hdr* header)
 {
+	/* 0x2bbf30: the hold time is drawn; any hold puts the AI in hold mode (2) */
+	TASK_HOLD *task = reinterpret_cast<TASK_HOLD *>(header);
+	CZSealBody *seal = taskSeal(task->m_seal_index);
+	CSealCtrlAi *ai = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi() : NULL;
 
+	if (ai == NULL)
+		return;
+
+	f32 t = task->m_wait.m_min;
+
+	if (task->m_wait.m_range != 0.0f)
+		t = task->m_wait.m_min + task->m_wait.m_range * ((f32)rand() * (1.0f / 2147483648.0f));
+
+	task->m_timer = t;
+
+	if (t != 0.0f)
+		ai->SetAiMode((AI_MODE)2);
 }
 
 /* @socom-skeleton body Tick__6CTHoldFP14_zanim_cmd_hdrPf */
 bool CTHold::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
-	return false;
+	/* 0x2bbe50: done when the time has run out (at once for -1); the frame's time is used up */
+	TASK_HOLD *task = reinterpret_cast<TASK_HOLD *>(header);
+	CZSealBody *seal = taskSeal(task->m_seal_index);
+	CSealCtrlAi *ai = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi() : NULL;
+	bool done = true;
+
+	if (ai != NULL)
+	{
+		done = task->m_timer <= 0.0f;
+
+		if (!done)
+			task->m_timer -= *dT;
+	}
+
+	*dT = 0.0f;
+	return done;
 }
 
 /* @socom-skeleton body End__6CTHoldFP14_zanim_cmd_hdr */
 void CTHold::End(_zanim_cmd_hdr* header)
 {
+	/* 0x2bbda0: back to mode 1, except after an endless hold (-1) */
+	TASK_HOLD *task = reinterpret_cast<TASK_HOLD *>(header);
+	CZSealBody *seal = taskSeal(task->m_seal_index);
+	CSealCtrlAi *ai = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi() : NULL;
+
+	if (ai != NULL && task->m_timer != -1.0f)
+		ai->SetAiMode((AI_MODE)1);
 
 }
 
@@ -475,13 +590,55 @@ _zanim_cmd_hdr* CTMacro::Parse(_zrdr* reader)
 /* @socom-skeleton body Begin__7CTMacroFP14_zanim_cmd_hdr */
 void CTMacro::Begin(_zanim_cmd_hdr* header)
 {
+	/* 0x2babe0: the anim is looked up by name (for an AI seal) */
+	TASK_MACRO *task = reinterpret_cast<TASK_MACRO *>(header);
+	CZSealBody *seal = taskSeal(task->m_seal_index);
+	CSealCtrlAi *ai = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi() : NULL;
+
+	if (ai != NULL)
+		task->m_anim = ZAnim.GetAnim(task->m_name, NULL);
 
 }
 
 /* @socom-skeleton body Tick__7CTMacroFP14_zanim_cmd_hdrPf */
 bool CTMacro::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
-	return false;
+	/* 0x2baa30: the macro anim runs with the seal's select task and node as arguments, as a
+	 * new script state over the current one (the anim set is left alone while it is pushed);
+	 * done at once, the frame's time used up */
+	TASK_MACRO *task = reinterpret_cast<TASK_MACRO *>(header);
+	CZSealBody *seal = taskSeal(task->m_seal_index);
+	CSealCtrlAi *ai = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi() : NULL;
+
+	if (ai == NULL)
+	{
+		*dT = 0.0f;
+		return true;
+	}
+
+	CZAnim *handle = task->m_anim != NULL ? task->m_anim->ActivateArg(1, 1, seal->m_select, 3, seal->GetNode(), 0) : NULL;
+
+	if (handle != NULL)
+	{
+		u32 nobind = ai->m_nobindanimset;
+		ai->m_nobindanimset = 1;
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("AI: %s macro %s", seal->m_node->m_name, task->m_name);
+#endif
+
+		if (ai->PushAiState(STATE_SCRIPT, false))
+		{
+			CAiState *state = ai->GetAiState();
+			CAiSScript *script = state->m_state == STATE_SCRIPT ? static_cast<CAiSScript *>(state) : NULL; /* ELF: NULL is written through */
+			script->m_anim = handle;
+			script->m_setup = 1;
+		}
+
+		ai->m_nobindanimset = nobind;
+	}
+
+	*dT = 0.0f;
+	return true;
 }
 
 /* @socom-skeleton body Parse__5CTMapFP5_zrdr */
@@ -701,9 +858,147 @@ _zanim_cmd_hdr* CTParam::Parse(_zrdr* reader)
 }
 
 /* @socom-skeleton body Tick__7CTParamFP14_zanim_cmd_hdrPf */
+/* the compare of CTParam::Tick (inlined per parameter in the ELF, jump table 0x454740 ...):
+ * the current value against the task's */
+static bool taskParamCompare(u32 op, f32 cur, f32 value)
+{
+	switch (op)
+	{
+	case 1:
+		return cur != value;
+	case 2:
+		return cur == value;
+	case 3:
+		return !(cur <= value);
+	case 4:
+		return cur < value;
+	case 5:
+		return !(cur < value);
+	case 6:
+		return cur <= value;
+	default:
+		return true;
+	}
+}
+
 bool CTParam::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
-	return false;
+	/* 0x2b8230: on the select's seal (or the named seal entity): op 7 sets a parameter
+	 * (courage goal, health, speed, accuracy, sleeping, awareness, weapon ready, spray time,
+	 * corpse), the other ops compare one and the task is done when the compare holds. The
+	 * frame's time is used up (not when there is no seal). port: the inside / outside tests
+	 * (9, 10: the flags of the seal's AI map cell) are not written: they hold. */
+	TASK_PARAM *task = reinterpret_cast<TASK_PARAM *>(header);
+	CZSealBody *seal = NULL;
+
+	if (task->m_entity[0] != 0)
+	{
+		CEntity *entity = CEntity::m_list.GetEntity(task->m_entity);
+
+		if (entity != NULL && (u8)entity->m_type == CEntity::ENT_TYPE_SEAL)
+			seal = static_cast<CZSealBody *>(entity);
+	}
+	else
+	{
+		seal = taskSeal(task->m_seal_index);
+	}
+
+	if (seal == NULL)
+		return true;
+
+	CSealCtrlAi *ai = static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi();
+	AI_PARAMS *params = ai != NULL ? &ai->m_aiParams : NULL;
+	u32 op = task->m_op & 0xff;
+	f32 v = task->m_value;
+	bool done = true;
+
+	if (op == 7)
+	{
+		if (ai != NULL)
+		{
+#ifdef SOCOM_PORT
+			SOCOM_PORT_TRACE("AI: %s param %d = %g", seal->m_node->m_name, (int)task->m_param, (double)v);
+#endif
+
+			switch (task->m_param)
+			{
+			case 1:
+				ai->m_courage.m_goal = v;
+				break;
+			case 2:
+				seal->SetHealth(v, (SEAL_DEATH_TYPE)0);
+				break;
+			case 3:
+				ai->m_speed = v;
+				saturate<f32>(ai->m_speed, 0.0f, 1.0f);
+				break;
+			case 4:
+				params->accuracy = v;
+				break;
+			case 5:
+				ai->SetSleeping(v != 0.0f);
+				break;
+			case 7:
+				ai->SetAiAware((AI_AWARE)(s32)v, NULL);
+				break;
+			case 11:
+				ai->m_weapon_ready = v != 0.0f;
+				break;
+			case 12:
+				ai->SetSprayTimer(v);
+				break;
+			case 13:
+				ai->m_do_corpse = v != 0.0f;
+				break;
+			default:
+				break;
+			}
+		}
+
+		*dT = 0.0f;
+		return true;
+	}
+
+	switch (task->m_param)
+	{
+	case 1:
+		done = ai != NULL && taskParamCompare(op, ai->m_courage.m_value, v);
+		break;
+	case 2:
+		done = taskParamCompare(op, seal->m_health, v);
+		break;
+	case 3:
+		done = ai != NULL && taskParamCompare(op, ai->m_speed, v);
+		break;
+	case 4:
+		done = ai != NULL && taskParamCompare(op, params->accuracy, v);
+		break;
+	case 5:
+		done = ai != NULL && taskParamCompare(op, ai->m_sleeping ? 1.0f : 0.0f, v);
+		break;
+	case 6:
+		done = ai != NULL && taskParamCompare(op, (f32)ai->m_stance, v);
+		break;
+	case 8:
+		done = ai != NULL && taskParamCompare(op, params->aware_decay, v);
+		break;
+	case 11:
+		done = ai != NULL && taskParamCompare(op, ai->m_weapon_ready ? 1.0f : 0.0f, v);
+		break;
+	case 12:
+		done = ai != NULL && taskParamCompare(op, ai->m_sprayTimer, v);
+		break;
+	case 13:
+		done = ai != NULL && taskParamCompare(op, ai->m_do_corpse ? 1.0f : 0.0f, v);
+		break;
+	default:
+		/* 0, 7 (no compare) and the unwritten 9, 10 */
+		done = true;
+		break;
+	}
+
+	*dT = 0.0f;
+	return done;
 }
 
 /* @socom-skeleton body Parse__8CTPursueFP5_zrdr */
@@ -715,13 +1010,31 @@ _zanim_cmd_hdr* CTPursue::Parse(_zrdr* reader)
 /* @socom-skeleton body Begin__8CTPursueFP14_zanim_cmd_hdr */
 void CTPursue::Begin(_zanim_cmd_hdr* header)
 {
+	/* 0x2b80b0: the AI pursues its target (STATE_PURSUE, unique) for the duration */
+	TASK_PURSUE *task = reinterpret_cast<TASK_PURSUE *>(header);
+	CZSealBody *seal = taskSeal(task->m_seal_index);
+	CSealCtrlAi *ai = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi() : NULL;
+
+	if (ai == NULL || !ai->PushAiState(STATE_PURSUE, true))
+		return;
+
+	CAiState *state = ai->GetAiState();
+	CAiState *pursue = state->m_state == STATE_PURSUE ? state : NULL; /* ELF: NULL is written through */
+	static_cast<CAiSPursue *>(pursue)->m_duration = task->m_duration;
+	pursue->m_setup = 1;
 
 }
 
 /* @socom-skeleton body Tick__8CTPursueFP14_zanim_cmd_hdrPf */
 bool CTPursue::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
-	return false;
+	/* 0x2b8000: done when the script state is on top again (the pursuit has ended); the
+	 * frame's time is used up */
+	TASK_PURSUE *task = reinterpret_cast<TASK_PURSUE *>(header);
+	CZSealBody *seal = taskSeal(task->m_seal_index);
+	CSealCtrlAi *ai = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi() : NULL;
+	*dT = 0.0f;
+	return ai == NULL || ai->AiStateIs(STATE_SCRIPT);
 }
 
 /* @socom-skeleton body End__8CTPursueFP14_zanim_cmd_hdr */
@@ -925,7 +1238,40 @@ _zanim_cmd_hdr* CTSetMode::Parse(_zrdr* reader)
 /* @socom-skeleton body Tick__9CTSetModeFP14_zanim_cmd_hdrPf */
 bool CTSetMode::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
-	return false;
+	/* 0x2b7250: an AI takes the mode (0: it goes to sleep); a player seal told to hold gets a
+	 * position goal where it stands. A missing seal or controller uses up the frame's time. */
+	TASK_SETMODE *task = reinterpret_cast<TASK_SETMODE *>(header);
+	CZSealBody *seal = taskSeal(task->m_seal_index);
+	CSealCtrl *ctrl = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control) : NULL;
+	CSealCtrlAi *ai = ctrl != NULL ? ctrl->GetSealCtrlAi() : NULL;
+
+	if (seal == NULL || ctrl == NULL)
+	{
+		*dT = 0.0f;
+		return true;
+	}
+
+	if (ai != NULL)
+	{
+		u8 mode = (u8)task->m_mode;
+
+		if (mode == 0)
+			ai->SetSleeping(true);
+		else
+			ai->SetAiMode((AI_MODE)mode);
+
+		return true;
+	}
+
+	if (task->m_mode == 2 && ctrl->SetGoalPos((GOAL_TYPE)3, seal->GetPosW(), 3.0f))
+	{
+		ctrl->m_goal_pos_tolerance = -1.0f;
+		ctrl->m_goal_timer.m_timer = 1.5f;
+		ctrl->m_goal_timer.m_period.m_min = 1.5f;
+		ctrl->m_goal_timer.m_period.m_range = 0.0f;
+	}
+
+	return true;
 }
 
 /* @socom-skeleton body Parse__12CTSetAnimSetFP5_zrdr */
@@ -937,7 +1283,23 @@ _zanim_cmd_hdr* CTSetAnimSet::Parse(_zrdr* reader)
 /* @socom-skeleton body Tick__12CTSetAnimSetFP14_zanim_cmd_hdrPf */
 bool CTSetAnimSet::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
-	return false;
+	/* 0x2b7050: the seal binds the anim set of that name (and keeps it as its default) */
+	TASK_SETANIMSET *task = reinterpret_cast<TASK_SETANIMSET *>(header);
+	CZSealBody *seal = taskSeal(task->m_seal_index);
+	CSealCtrl *ctrl = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control) : NULL;
+
+	if (seal == NULL || ctrl == NULL)
+	{
+		*dT = 0.0f;
+		return true;
+	}
+
+	seal->BindAnimSet(task->m_name);
+
+	if (task->m_default)
+		seal->m_default_animset = seal->m_animset;
+
+	return true;
 }
 
 /* @socom-skeleton body GetSignalByName__8CTSignalFPCc */
@@ -1037,19 +1399,50 @@ _zanim_cmd_hdr* CTStance::Parse(_zrdr* reader)
 /* @socom-skeleton body Begin__8CTStanceFP14_zanim_cmd_hdr */
 void CTStance::Begin(_zanim_cmd_hdr* header)
 {
+	/* 0x2b5f70: the stance and the peek are set, the delay starts */
+	TASK_STANCE *task = reinterpret_cast<TASK_STANCE *>(header);
+	CZSealBody *seal = taskSeal(task->m_seal_index);
+	CSealCtrlAi *ai = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi() : NULL;
+
+	if (ai == NULL)
+		return;
+
+	ai->SetStance((SEAL_STANCE)(s8)task->m_stance);
+	seal->m_desiredPeek = (SEAL_PEEK)(s8)task->m_peek;
+	task->m_timer = task->m_delay;
 
 }
 
 /* @socom-skeleton body End__8CTStanceFP14_zanim_cmd_hdr */
 void CTStance::End(_zanim_cmd_hdr* header)
 {
+	/* 0x2b5eb0: a peek held for a while ends */
+	TASK_STANCE *task = reinterpret_cast<TASK_STANCE *>(header);
+	CZSealBody *seal = taskSeal(task->m_seal_index);
+	CSealCtrlAi *ai = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi() : NULL;
+
+	if (ai != NULL && task->m_delay != 0.0f && task->m_peek != 2)
+		seal->m_desiredPeek = (SEAL_PEEK)2;
 
 }
 
 /* @socom-skeleton body Tick__8CTStanceFP14_zanim_cmd_hdrPf */
 bool CTStance::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
-	return false;
+	/* 0x2b5de0: done when the delay has run out; the frame's time is used up */
+	TASK_STANCE *task = reinterpret_cast<TASK_STANCE *>(header);
+	CZSealBody *seal = taskSeal(task->m_seal_index);
+	CSealCtrlAi *ai = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi() : NULL;
+
+	if (ai == NULL)
+	{
+		*dT = 0.0f;
+		return true;
+	}
+
+	task->m_timer -= *dT;
+	*dT = 0.0f;
+	return task->m_timer <= 0.0f;
 }
 
 /* @socom-skeleton body Parse__7CTStateFP5_zrdr */

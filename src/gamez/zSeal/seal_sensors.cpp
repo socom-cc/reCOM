@@ -133,6 +133,11 @@
 #include "gamez/zWeapon/zweapon.h"
 #include "zseal.h"
 /* @socom-skeleton end include */
+#include <list>
+#include <new>
+#include "gamez/zFTS/zfts.h" /* theMission, ftsGetPlayer */
+#include "gamez/zCamera/zcam.h"
+#include "gamez/zNode/node_world.h"
 
 /* @socom-skeleton stub diPoolSize */
 static int diPoolSize = 6;
@@ -176,10 +181,10 @@ static int diNonVolCount;
 static unsigned char MultiplayerMsgStrings[28];
 
 /* @socom-skeleton stub range */
-static unsigned char range[128];
+static float range[32]; /* 0x508ee0 (128 bytes): squared distances of a sight line's hits (SortNearToFar) */
 
 /* @socom-skeleton stub sorted */
-static unsigned char sorted[128];
+static int sorted[32]; /* 0x508f60 (128 bytes): hit indices, near to far */
 
 /* @socom-skeleton stub _colorViewDir */
 static int _colorViewDir[3];
@@ -193,43 +198,310 @@ static int _colorEntNoBlock[3];
 /* @socom-skeleton stub _colorPlayerNoSee */
 static int _colorPlayerNoSee[3];
 
+/* port: CDiPool has no DWARF record. Layout from __sinit_seal_sensors.cpp 0x46d2d0 and the
+ * users below; member names invented. The pool owns diPoolSize sight-line DiIntersects (32
+ * hits each); a `dir` is one queued request. Requests wait in m_active (state 3), get a
+ * DiIntersect for one frame in PrePostTick (state 4, m_index), are read by SensorTick after
+ * the world's delayed intersection batch (state 1) and go back to m_free in PostTick. */
+class CDiPool
+{
+public:
+	class dir
+	{
+	public:
+		u8 m_state; /* +0x00: 0 free, 1 done, 2 fire slot, 3 queued, 4 in this frame's batch */
+		CPnt3D m_tail; /* +0x04 */
+		CPnt3D m_tip; /* +0x10 */
+		s32 m_index; /* +0x1c: the DiIntersect it uses, -1 none */
+		u32 m_special; /* +0x20: counted against diMaxSpecial when set */
+		f32 m_time; /* +0x24: time waited (scales the visibility gain) */
+		CEntity* m_owner; /* +0x28: its node is ignored by the line */
+		zdb::CNode* m_node; /* +0x2c: the target's node */
+		CEntity* m_target; /* +0x30 */
+
+		dir() /* 0x2b0d00 */
+		{
+			m_state = 0;
+			m_owner = NULL;
+			m_node = NULL;
+			m_special = 0;
+			m_target = NULL;
+		}
+	};
+
+	zdb::DiIntersect* m_di; /* +0x00 */
+	s32 m_size; /* +0x04 */
+	std::list<dir *> m_active; /* +0x08 */
+	std::list<dir *> m_free; /* +0x14 */
+	u32 m_unk_20; /* +0x20 */
+	u8 m_unk_24; /* +0x24 */
+
+	CDiPool()
+	{
+		m_size = diPoolSize;
+		m_unk_20 = 0;
+		m_unk_24 = 0;
+		m_di = (zdb::DiIntersect *)zmalloc(m_size * sizeof(zdb::DiIntersect));
+
+		for (s32 i = 0; i < m_size; i++)
+			new (&m_di[i]) zdb::DiIntersect(32);
+	}
+
+	/* port: file-local helper for the inlined "take a request from m_free or make one" */
+	dir* Acquire()
+	{
+		if (m_free.empty())
+			return new dir();
+
+		dir* d = m_free.front();
+		m_free.erase(m_free.begin());
+		return d;
+	}
+
+	/* port: file-local helper for the inlined "DiIntersect of a finished request" */
+	zdb::DiIntersect* Take(dir* d)
+	{
+		if (d == NULL || d->m_state != 4)
+			return NULL;
+
+		d->m_state = 1;
+		return d->m_index >= 0 ? &m_di[d->m_index] : NULL;
+	}
+};
+
 /* @socom-skeleton stub _diPool */
-static int _diPool[10];
+static CDiPool _diPool; /* 0x509030 (40 bytes); port: the ELF's destructor (0x2b3e40, at exit) is not written */
 
 /* @socom-skeleton stub PreTick__11CSealCtrlAiFfPv */
-bool CSealCtrlAi::PreTick(float, void *)
+bool CSealCtrlAi::PreTick(float dT, void *)
 {
+	/* 0x2b3880 (task ai_pre_tick): once a second, when more AIs are awake than active_limit
+	 * (or some snooze), walk the player's target list (near to far): awake AIs beyond the
+	 * limit that may snooze and are not level with the player inside the sleep radius, and
+	 * snoozing AIs within the limit that are outside the player's view cone, are collected;
+	 * the first (count - limit) of them snooze, the rest wake. Then the per-frame counters
+	 * are cleared (the AIs count themselves in their PreTick). */
 	/* @socom-skeleton stub snooze_rate$2473 */
-	static float snooze_rate;
+	static float snooze_rate = 1.0f;
 	/* @socom-skeleton stub snoozer_sleep_radius$2476 */
-	static float snoozer_sleep_radius;
+	static float snoozer_sleep_radius = 100.0f;
 	/* @socom-skeleton stub snoozer_wakeup_radius$2479 */
-	static int snoozer_wakeup_radius;
+	static int snoozer_wakeup_radius = 0x42960000; /* ELF: the float 75.0 stored in an int-typed static (unused) */
 	/* @socom-skeleton stub snoozer_height$2482 */
-	static float snoozer_height;
+	static float snoozer_height = 50.0f;
 	/* @socom-skeleton stub active_limit$2485 */
-	static int active_limit;
+	static int active_limit = 9;
 	/* @socom-skeleton stub debug_snoozer$2490 */
-	static int debug_snoozer;
+	static int debug_snoozer = 0;
 
-	/* port: stub - AI behaviour (0x2b3880, 1464 B: snoozer radii, active limit, per-AI
-	   pre-ticks) is not written; the ELF task ends returning false (keep the task) */
+	s32 over = aiActiveCount - active_limit;
+	diFireCount = 0;
+	diSpecialCount = 0;
+
+	if (aiEnabled)
+	{
+		ai::snooze_time += dT;
+
+		if (!(ai::snooze_time <= snooze_rate) && (ai::snooze_count != 0 || over > 0))
+		{
+			ai::snooze_time = 0.0f;
+			CZSealBody* player = ftsGetPlayer();
+			CSealCtrl* pctrl = static_cast<CSealCtrl *>(player->m_control);
+			f32 height = snoozer_height;
+			f32 radiusSq = snoozer_sleep_radius * snoozer_sleep_radius;
+			CPnt3D ppos = *player->GetPosW();
+			std::list<CZSealBody *> sleepers;
+			s32 count = 0;
+
+			for (CTarget* t = player->m_targets.data(); t != player->m_targets.data() + player->m_targets.size(); t++)
+			{
+				CEntity* e = t->m_ent;
+				CZSealBody* seal = (e != NULL && (u8)e->m_type == 2) ? static_cast<CZSealBody *>(e) : NULL;
+
+				if (seal == NULL)
+					continue;
+
+				if (seal->m_control == NULL || !static_cast<CSealCtrl *>(seal->m_control)->IsAi())
+					continue;
+
+				if (!seal->m_isAlive)
+					continue;
+
+				CSealCtrlAi* ai = static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi();
+
+				if (!ai->m_snoozing && !ai->m_sleeping)
+				{
+					count++;
+
+					if (count <= active_limit || ai->m_nosnooze)
+						continue;
+
+					/* near the player's level and inside the sleep radius: stays awake */
+					CPnt3D* pos = seal->GetPosW();
+					f32 dy = pos->y - ppos.y;
+
+					if (!(dy < 0.0f) && dy <= height)
+					{
+						CPnt3D d;
+						pos->SubXZ(&ppos, &d);
+
+						if (d.x * d.x + d.z * d.z < radiusSq)
+							continue;
+					}
+
+					sleepers.push_back(seal);
+				}
+				else if (ai->m_snoozing)
+				{
+					if (!(count < active_limit))
+						continue;
+
+					if (pctrl->m_view_cone.ContainsPoint(&pctrl->m_view_cone.m_cone_pos, &pctrl->m_view_cone.m_cone_dir, seal->GetPosW()))
+						continue;
+
+					count++;
+					sleepers.push_back(seal);
+				}
+			}
+
+			if (!sleepers.empty())
+			{
+				s32 n = count - active_limit;
+
+				/* ELF: with debug_snoozer >= 2 the player's controller is dumped (vtable 0x68) before and after */
+				if (debug_snoozer >= 2)
+					pctrl->Dump();
+
+				/* last to first: the farthest ones snooze */
+				for (std::list<CZSealBody *>::reverse_iterator i = sleepers.rbegin(); i != sleepers.rend(); ++i)
+				{
+					CSealCtrlAi* ai = static_cast<CSealCtrl *>((*i)->m_control)->GetSealCtrlAi();
+
+					if (n > 0)
+					{
+						ai->SetSnoozing(true);
+						n--;
+					}
+					else
+					{
+						ai->SetSnoozing(false);
+					}
+				}
+
+				if (debug_snoozer >= 2)
+					pctrl->Dump();
+			}
+
+			CEntity::RefreshAwareCounters();
+		}
+	}
+
+	aiSnoozingCount = 0;
+	aiSleepingCount = 0;
+	aiActiveCount = 0;
 	return false;
 }
 
 /* @socom-skeleton stub PrePostTick__11CSealCtrlAiFfPv */
-bool CSealCtrlAi::PrePostTick(float, void *)
+bool CSealCtrlAi::PrePostTick(float dT, void *)
 {
-	/* port: stub - AI DI registration (0x2b3600, 640 B) is not written; the ELF task
-	   returns false (keep the task) */
+	/* 0x2b3600 (task ai_direg_tick, after the entity ticks): hand this frame's sight-line
+	 * DiIntersects to the first queued requests (up to the pool size; "special" ones up to
+	 * diMaxSpecial) and register them for the world's delayed batch (diTick), ignoring the
+	 * owner's node; the lines do not take characters. Every request's wait time grows. */
+	zdb::CWorld* world = zdb::CWorld::m_world;
+	s32 used = 0;
+	s32 index = 0;
+	std::list<CDiPool::dir *>::iterator i = _diPool.m_active.begin();
+
+	for (; used < _diPool.m_size && i != _diPool.m_active.end(); ++i)
+	{
+		CDiPool::dir* d = *i;
+
+		if (d->m_state == 1 || d->m_state == 4)
+			continue;
+
+		if (d->m_special != 0)
+		{
+			if (!(diSpecialCount < diMaxSpecial))
+				continue;
+
+			diSpecialCount++;
+		}
+
+		used++;
+
+		if (d->m_state == 2)
+			continue;
+
+		d->m_index = index;
+		d->m_state = 4;
+		d->m_time += dT;
+		index++;
+		zdb::DiIntersect* di = &_diPool.m_di[d->m_index];
+		di->m_IntersectCharacters = 0;
+
+		if (world->RegIntersectDelayed(di, &d->m_tail, &d->m_tip) == -1)
+		{
+			d->m_index = -1;
+			continue;
+		}
+
+		if (d->m_owner != NULL)
+			world->RegIgnoreNodeDelayed(&_diPool.m_di[d->m_index], d->m_owner->GetNode());
+		else
+			world->ClearIgnoreNodeDelayed(&_diPool.m_di[d->m_index]);
+	}
+
+	diCount = used;
+
+	for (; i != _diPool.m_active.end(); ++i)
+		(*i)->m_time += dT;
+
 	return false;
 }
 
 /* @socom-skeleton stub PostTick__11CSealCtrlAiFfPv */
 bool CSealCtrlAi::PostTick(float, void *)
 {
-	/* port: stub - AI post-tick (0x2b33b0, 532 B) is not written; the ELF task returns
-	   false (keep the task) */
+	/* 0x2b33b0 (task ai_post_tick): finished (1) and fire-slot (2) requests go back to the
+	 * free list; a request still holding its DiIntersect (4) loses it (index -1, then
+	 * counted down each frame it stays unread). ELF: the requests counted below -1 are
+	 * collected in a local list that is never used. */
+	std::list<CDiPool::dir *> stale;
+	std::list<CDiPool::dir *>::iterator i = _diPool.m_active.begin();
+
+	while (i != _diPool.m_active.end())
+	{
+		CDiPool::dir* d = *i;
+
+		if (d->m_state == 2 || d->m_state == 1)
+		{
+			d->m_state = 0;
+			d->m_node = NULL;
+			_diPool.m_free.push_back(d);
+			i = _diPool.m_active.erase(i);
+			continue;
+		}
+
+		if (d->m_state == 4)
+		{
+			if (d->m_index >= 0)
+			{
+				d->m_index = -1;
+			}
+			else
+			{
+				if (d->m_index < -1)
+					stale.push_back(d);
+
+				d->m_index--;
+			}
+		}
+
+		++i;
+	}
+
 	return false;
 }
 
@@ -241,6 +513,7 @@ void CleanupDiPool(CZSealBody *)
 /* @socom-skeleton stub OpenDiPool__11CSealCtrlAiFv */
 void CSealCtrlAi::OpenDiPool()
 {
+	/* 0x2b3240: empty (the pool is built by the unit's static initializer) */
 }
 
 /* @socom-skeleton stub CloseDiPool__11CSealCtrlAiFv */
@@ -249,66 +522,584 @@ void CSealCtrlAi::CloseDiPool()
 }
 
 /* @socom-skeleton stub _GetTargetPerception__9CSealCtrlFR7CTarget */
-void CSealCtrl::_GetTargetPerception(CTarget &)
+bool CSealCtrl::_GetTargetPerception(CTarget &target)
 {
+	/* 0x2b2ca0: whether the target can be perceived at all this frame, and if so a sight
+	 * line from this seal's target point to the target's is queued (or the queued one
+	 * refreshed). Non-players ignore team mates; dead targets and sleeping/snoozing AIs are
+	 * not seen; the range is m_visrange (cut to the camera's mid plane); the target point
+	 * must be in the view cone, or - in front of the seal - move faster than 50 (XZ). */
 	/* @socom-skeleton stub vSquaredThreshold$2606 */
-	static float vSquaredThreshold;
+	static float vSquaredThreshold = 2500.0f;
+	CEntity* e = target.m_ent;
+	CEntity* me = m_entity;
+
+	if (e == NULL)
+		return false;
+
+	if (!IsPlayer() && (e->m_team & me->m_team) != 0)
+		return false;
+
+	if (!e->m_isAlive)
+		return false;
+
+	CZSealBody* seal = (u8)e->m_type == 2 ? static_cast<CZSealBody *>(e) : NULL;
+
+	if (seal != NULL)
+	{
+		CSealCtrlAi* ai = static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi();
+
+		if (ai != NULL && !(!ai->m_snoozing && !ai->m_sleeping))
+			return false;
+	}
+
+	f32 rangeSq = m_visrange.m_value * m_visrange.m_value;
+	zdb::CCamera* cam = zdb::CWorld::m_world->m_camera;
+
+	if (cam != NULL)
+	{
+		f32 midSq = cam->m_mid_plane * cam->m_mid_plane;
+
+		if (midSq < rangeSq)
+			rangeSq = midSq;
+	}
+
+	if (!(target.m_distSq <= rangeSq))
+		return false;
+
+	CPnt3D point;
+	e->GetTargetPosW(&point);
+	bool seen = m_view_cone.ContainsPoint(&m_view_cone.m_cone_pos, &m_view_cone.m_cone_dir, &point);
+
+	if (!seen && !(m_view_cone.m_dot <= 0.0f) && !(e->m_velW.x * e->m_velW.x + e->m_velW.z * e->m_velW.z <= vSquaredThreshold))
+		seen = true;
+
+	if (!seen)
+		return false;
+
+	CPnt3D tail;
+	CPnt3D tip;
+	me->GetTargetPosW(&tail);
+	e->GetTargetPosW(&tip);
+	zdb::CNode* node = e->GetNode();
+	CDiPool::dir* d = (CDiPool::dir *)target.m_diHandle;
+
+	if (d == NULL)
+	{
+		d = _diPool.Acquire();
+
+		if (d != NULL)
+		{
+			d->m_tail = tail;
+			d->m_tip = tip;
+			d->m_state = 3;
+			d->m_index = -1;
+			d->m_time = 0.0f;
+			d->m_owner = me;
+			d->m_node = node;
+			d->m_special = 0;
+			d->m_target = e;
+			_diPool.m_active.push_back(d);
+			target.m_diHandle = (s32)d;
+		}
+	}
+	else
+	{
+		d->m_tail = tail;
+		d->m_tip = tip;
+		d->m_node = node;
+		d->m_special = 0;
+		d->m_target = e;
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub SensorPreTick__11CSealCtrlAiFf */
-void CSealCtrlAi::SensorPreTick(float)
+void CSealCtrlAi::SensorPreTick(float dT)
 {
+	/* 0x2b21e0 (PreTick): the attack runs first (an AI that will fire takes one of the
+	 * frame's diMaxFire fire slots, a state-2 request in the pool); then events; then every
+	 * living seal in the target list: a visible enemy inside 25 with a clear line may be
+	 * taken in close quarters (STATE_CQB), a team mate inside 50 shares its awareness, a
+	 * human team mate inside 15 is avoided (STATE_AVOID, popped when nobody is that close);
+	 * enemies get their perception (as CSealCtrl::SensorPreTick, without its range cut:
+	 * _GetTargetPerception tests the range). */
 	/* @socom-skeleton stub AVOID_THRESHOLD$2651 */
-	static float AVOID_THRESHOLD;
+	static float AVOID_THRESHOLD = 225.0f;
 	/* @socom-skeleton stub CQB_THRESHOLD$2654 */
-	static float CQB_THRESHOLD;
+	static float CQB_THRESHOLD = 625.0f;
 	/* @socom-skeleton stub AWARE_THRESHOLD$2657 */
-	static float AWARE_THRESHOLD;
+	static float AWARE_THRESHOLD = 2500.0f;
 	/* @socom-skeleton stub pickupSearchRadius$2692 */
-	static float pickupSearchRadius;
+	static float pickupSearchRadius = 200.0f;
+	CZSealBody* me = static_cast<CZSealBody *>(m_entity);
+
+	if (AttackTick(dT, diFireCount < diMaxFire))
+	{
+		diFireCount++;
+		CDiPool::dir* d = _diPool.Acquire();
+		d->m_state = 2;
+		d->m_owner = me;
+		d->m_node = NULL;
+		d->m_special = 0;
+		d->m_target = NULL;
+		_diPool.m_active.push_front(d);
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("AI: %s fires at %s (range %d)", me->m_node->m_name,
+			m_target.m_target.m_ent != NULL ? m_target.m_target.m_ent->m_node->m_name : "?", (int)m_target.m_target.GetRange());
+#endif
+	}
+
+	EventTick(dT);
+	bool avoiding = false;
+
+	for (CTarget* t = me->m_targets.data(); t != me->m_targets.data() + me->m_targets.size(); t++)
+	{
+		CEntity* e = t->m_ent;
+
+		if (e == NULL || !e->m_isAlive)
+			continue;
+
+		f32 distSq = t->m_distSq;
+		bool enemy = (e->m_team & me->m_team) == 0;
+		CZSealBody* seal = (u8)e->m_type == 2 ? static_cast<CZSealBody *>(e) : NULL;
+
+		if (seal == NULL)
+			continue;
+
+		CSealCtrlAi* other = static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi();
+
+		if (enemy)
+		{
+			if (t->m_visible && !t->m_dirty_di && distSq < CQB_THRESHOLD && (m_stateFlags & 2) && !AiStateIs(STATE_CQB))
+			{
+				/* ELF: "[%s] within CQB Range!"; me->CanUseCQB(seal) (0x2999f0) decides: yes
+				 * pushes STATE_CQB with the victim (+0x28 of the state, m_setup; this also
+				 * keeps STATE_AVOID), no logs "CanUseCQB( %s) failed!". port: not written
+				 * (CanUseCQB and the CQB state are not written) */
+			}
+		}
+		else
+		{
+			if (distSq < AWARE_THRESHOLD && other != NULL)
+				AcquireAiAware(other);
+
+			if (distSq < AVOID_THRESHOLD && CanPushAiState(STATE_AVOID) && other == NULL)
+			{
+				avoiding = true;
+
+				if (PushAiState(STATE_AVOID, true))
+				{
+					/* port: unreachable while STATE_AVOID is not written (the ELF stores the
+					 * entity at +0x28 of the state and sets m_setup) */
+				}
+			}
+		}
+
+		if (!enemy)
+			continue;
+
+		if (_GetTargetPerception(*t))
+			continue;
+
+		f32 v = vis_rate_min * dT + t->m_visibility;
+		saturate<f32>(v, vis_rate_min, vis_rate_max);
+		t->m_visibility = v;
+		CDiPool::dir* d = (CDiPool::dir *)t->m_diHandle;
+
+		if (d != NULL)
+		{
+			d->m_state = 1;
+			d->m_index = -1;
+		}
+
+		t->m_diHandle = 0;
+		OnSetTargetVisible(*t, false, NULL);
+	}
+
+	if (!avoiding)
+		PopAiState(STATE_AVOID);
+
+	/* ELF: then the pickups within pickupSearchRadius are walked: a live grenade nearby
+	 * pushes STATE_GRENADE (and STATE_EVENT toward it), a dropped item seen by the unit is
+	 * called out. port: not written (CPickup iteration, the grenade and event states) */
 }
 
 /* @socom-skeleton stub SensorPreTick__9CSealCtrlFf */
-void CSealCtrl::SensorPreTick(float)
+void CSealCtrl::SensorPreTick(float dT)
 {
+	/* 0x2b20b0 (the player's controller): each living target within m_visrange (the list is
+	 * near to far, so the first one beyond ends the walk) that cannot be perceived loses
+	 * visibility at vis_rate_min per second, drops its sight-line request and is reported
+	 * not visible. */
+	CEntity* me = m_entity;
+
+	for (CTarget* t = me->m_targets.data(); t != me->m_targets.data() + me->m_targets.size(); t++)
+	{
+		CEntity* e = t->m_ent;
+
+		if (e == NULL || !e->m_isAlive)
+			continue;
+
+		if (!(t->m_distSq <= m_visrange.m_value * m_visrange.m_value))
+			break;
+
+		if (_GetTargetPerception(*t))
+			continue;
+
+		f32 v = vis_rate_min * dT + t->m_visibility;
+		saturate<f32>(v, vis_rate_min, vis_rate_max);
+		t->m_visibility = v;
+		CDiPool::dir* d = (CDiPool::dir *)t->m_diHandle;
+
+		if (d != NULL)
+		{
+			d->m_state = 1;
+			d->m_index = -1;
+		}
+
+		t->m_diHandle = 0;
+		OnSetTargetVisible(*t, false, NULL);
+	}
 }
 
 /* @socom-skeleton stub OnSetTargetVisible__11CSealCtrlAiFR7CTargetbPQ23zdb11DiIntersect */
-void CSealCtrlAi::OnSetTargetVisible(CTarget &, bool, zdb::DiIntersect *)
+void CSealCtrlAi::OnSetTargetVisible(CTarget &target, bool visible, zdb::DiIntersect *di)
 {
+	/* 0x2b1980: a target's sight state changed (or was confirmed).
+	 * Coming into sight: a target never seen before is called out by a SEAL
+	 * (EnemyCallout), or startles an enemy that has nothing to shoot at (STATE_EVENT at
+	 * the target's position); it is counted in the seal's statistics; it becomes known, the
+	 * pending event is dropped. Seeing a target always raises the awareness to
+	 * AIA_SPECIFIC; the current target's record and threat are refreshed.
+	 * Going out of sight: the current (living) target leaves a generic event at its
+	 * position for 1-4 s ("Lost sight of %s,  setting up POI") and the awareness is held at
+	 * AIA_DIRECTION. */
 	/* @socom-skeleton stub surprisedRange$2792 */
-	static int surprisedRange;
+	static int surprisedRange = 0x43160000; /* ELF: the float 150.0 stored in an int-typed static (unused) */
+	/* port: ComputeThreat(CZSealBody *, CTarget &)'s local statics (see CSealCtrl::SensorTick) */
+	static float threatRangeThreshold = 1000000.0f;
+	static float threatRangeFactor = 1e-6f;
+	static float threatWEPFactor = 0.35f;
+	static float threatHostileFactor = 0.3f;
+	static float threatFacingFactor = 0.35f;
+	static float threatBuddyBonus = -1.5f;
+	static float threatVerticalThreshold = -20.0f;
+	static float threatVerticalFactor = 0.5f;
+	CZSealBody* me = static_cast<CZSealBody *>(m_entity);
+	CEntity* e = target.m_ent;
+	bool current = m_target.m_target.m_ent == e;
+	bool friendly = (e->m_team & me->m_team) != 0;
+
+	target.m_dirty_di = di != NULL ? diNonVolCount > 0 : true;
+
+	if (visible)
+	{
+		if (!target.m_visible)
+		{
+			if (!target.m_known)
+			{
+#ifdef SOCOM_PORT
+				SOCOM_PORT_TRACE("AI: %s sees %s (range %d, visibility %d%%, aware %d)", me->m_node->m_name, e->m_node->m_name,
+					(int)target.GetRange(), (int)(target.m_visibility * 100.0f), (int)GetAiAware());
+#endif
+
+				if (m_navyseal)
+				{
+					EnemyCallout(&target, ftsGetPlayer());
+				}
+				else
+				{
+					target.GetRange();
+					CEntity* cur = m_target.m_target.m_ent;
+					bool startled = true;
+
+					if (cur != NULL && cur->m_isAlive)
+						startled = m_target.m_target.m_visible ? false : !(m_target.GetTimeSinceLastSighting() <= 3.0f);
+
+					if (startled && PushAiState(STATE_EVENT, true))
+					{
+						/* port: unreachable while STATE_EVENT is not written (the ELF fills the
+						 * event state: the target's position at +0x2c, 0.25 at +0x44, option
+						 * bit 8, m_setup) */
+					}
+				}
+
+				if ((u8)e->m_type == 2 && !friendly)
+					me->m_mp_stats.IncrTimesSeen(1);
+			}
+
+			target.m_known = 1;
+			m_event.Initalize();
+
+			if (current)
+				m_target.OnSetVisible(true);
+		}
+
+		target.m_visible = 1;
+		SetAiAware(AIA_SPECIFIC, NULL);
+		CEntity* cur = m_target.m_target.m_ent;
+
+		if (!(cur != NULL && cur->m_isAlive) || !current)
+			return;
+
+		CZSealBody* seal = (u8)e->m_type == 2 ? static_cast<CZSealBody *>(e) : NULL;
+		f32 threat = 0.0f;
+
+		if (seal != NULL && target.m_distSq < threatRangeThreshold)
+		{
+			if ((e->m_team & me->m_team) == 0)
+			{
+				if ((u8)seal->GetWeaponState() == 1)
+					threat += threatWEPFactor;
+
+				if (target.m_hostile)
+					threat += threatHostileFactor;
+
+				const CMatrix& m = seal->m_node->m_matrix;
+
+				if (!(target.m_vec.x * m.m_matrix[2][0] + target.m_vec.y * m.m_matrix[2][1] + target.m_vec.z * m.m_matrix[2][2] <= 0.0f))
+					threat += threatFacingFactor;
+
+				if (target.m_vec.y < threatVerticalThreshold)
+					threat *= threatVerticalFactor;
+			}
+			else
+			{
+				CSealCtrlAi* buddy = static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi();
+				threat = threatBuddyBonus * (buddy != NULL ? buddy->m_aiParams.training : 1.0f);
+			}
+
+			threat *= 1.0f - threatRangeFactor * target.m_distSq;
+		}
+
+		m_target.UpdateTarget(&target, threat);
+		return;
+	}
+
+	if (target.m_visible)
+	{
+		if (current)
+		{
+			CEntity* cur = m_target.m_target.m_ent;
+
+			if (cur != NULL && cur->m_isAlive)
+			{
+				Debug("Lost sight of %s,  setting up POI\n", e->m_node->m_name);
+				f32 duration = 1.0f + 3.0f * ((f32)rand() * 4.656613e-10f);
+				SetAiEvent(CAiEvent::AIE_GENERIC, duration, e->GetPosW());
+				m_target.OnSetVisible(false);
+			}
+		}
+
+		SetAiAware(AIA_DIRECTION, NULL);
+	}
+
+	target.m_visible = 0;
+
+	if (current)
+		m_target.UpdateTarget(&target, 0.0f);
 }
 
 /* @socom-skeleton stub SetTarget__9CSealCtrlFP7CTarget */
 void CSealCtrl::SetTarget(CTarget *)
 {
+	/* 0x2b1970: empty */
 }
 
 /* @socom-skeleton stub OnSetTargetVisible__9CSealCtrlFR7CTargetbPQ23zdb11DiIntersect */
-void CSealCtrl::OnSetTargetVisible(CTarget &, bool, zdb::DiIntersect *)
+void CSealCtrl::OnSetTargetVisible(CTarget &target, bool visible, zdb::DiIntersect *di)
 {
+	/* 0x2b1910: with a sight line, m_dirty_di tells whether a solid (non-volumetric) hit
+	 * blocked it; without one it is set */
+	target.m_dirty_di = di != NULL ? diNonVolCount > 0 : true;
+	target.m_visible = visible;
 }
 
 /* @socom-skeleton stub SensorTick__9CSealCtrlFf */
 void CSealCtrl::SensorTick(float)
 {
+	/* 0x2b1110 (PostTick, after the world's delayed intersection batch): per target the
+	 * threat it poses (ComputeThreat, inlined: an enemy seal within 1000 scores for a raised
+	 * weapon, hostility, and its facing; a team mate scores -1.5 x its AI training; both fade
+	 * with squared distance) feeds this seal's target threat goal, and a target whose sight
+	 * line came back gets its visibility integrated: the line's visibility (ComputeVisibility)
+	 * blends vis_rate_min..max, scaled by the time waited and m_vissens; reaching
+	 * vis_rate_see makes it visible (invisible seals never are). The last visible enemy that
+	 * is no less threatening than the visible enemy before it becomes the target. */
 	/* @socom-skeleton stub v_min$2826 */
-	static int v_min;
+	static int v_min = 0x3f800000; /* ELF: 1.0f stored in an int-typed static (unused) */
 	/* @socom-skeleton stub v_max$2829 */
-	static int v_max;
+	static int v_max = 0x402df3b6; /* ELF: 2.718f (unused) */
 	/* @socom-skeleton stub nominal_time_base$2868 */
-	static float nominal_time_base;
+	static float nominal_time_base = 1.0f;
+	/* port: ComputeThreat(CZSealBody *, CTarget &)'s local statics (0x4760fc..0x476134) */
+	static float threatRangeThreshold = 1000000.0f;
+	static float threatRangeFactor = 1e-6f; /* 0x358637bd */
+	static float threatWEPFactor = 0.35f;
+	static float threatHostileFactor = 0.3f;
+	static float threatFacingFactor = 0.35f;
+	static float threatBuddyBonus = -1.5f;
+	static float threatVerticalThreshold = -20.0f;
+	static float threatVerticalFactor = 0.5f;
+	CEntity* me = m_entity;
+	CTarget* best = NULL;
+	s32 enemies = 0;
+	s32 buddies = 0;
+	f32 enemyMax = 0.0f;
+	f32 enemySum = 0.0f;
+	f32 buddyMin = 0.0f;
+	f32 buddySum = 0.0f;
+	f32 lastVisible = 0.0f;
+	f32 lastHidden = 0.0f;
+
+	m_targetSum = 0;
+
+	for (CTarget* t = me->m_targets.data(); t != me->m_targets.data() + me->m_targets.size(); t++)
+	{
+		CEntity* e = t->m_ent;
+
+		if (e == NULL)
+			continue;
+
+		bool friendly = (me->m_team & e->m_team) != 0;
+		f32 threat = 0.0f;
+
+		if (!e->m_isAlive)
+		{
+			OnSetTargetVisible(*t, false, NULL);
+		}
+		else
+		{
+			if (t->m_visible && !friendly)
+				m_targetSum++;
+
+			CZSealBody* seal = (u8)e->m_type == 2 ? static_cast<CZSealBody *>(e) : NULL;
+
+			if (seal != NULL && t->m_distSq < threatRangeThreshold)
+			{
+				if ((e->m_team & me->m_team) == 0)
+				{
+					if ((u8)seal->GetWeaponState() == 1)
+						threat += threatWEPFactor;
+
+					if (t->m_hostile)
+						threat += threatHostileFactor;
+
+					const CMatrix& m = seal->m_node->m_matrix;
+
+					if (!(t->m_vec.x * m.m_matrix[2][0] + t->m_vec.y * m.m_matrix[2][1] + t->m_vec.z * m.m_matrix[2][2] <= 0.0f))
+						threat += threatFacingFactor;
+
+					if (t->m_vec.y < threatVerticalThreshold)
+						threat *= threatVerticalFactor;
+				}
+				else
+				{
+					CSealCtrlAi* buddy = static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi();
+					threat = threatBuddyBonus * (buddy != NULL ? buddy->m_aiParams.training : 1.0f);
+				}
+
+				threat *= 1.0f - threatRangeFactor * t->m_distSq;
+			}
+
+			if (!friendly && !(threat < 0.0f))
+			{
+				if (t->m_visible)
+				{
+					if (!(threat <= 0.0f))
+					{
+						enemySum += threat;
+						enemies++;
+
+						if (!(threat <= enemyMax))
+							enemyMax = threat;
+					}
+
+					if (!(threat < lastVisible))
+					{
+						lastVisible = threat;
+						best = t;
+					}
+				}
+				else if (!(threat < lastHidden))
+				{
+					lastHidden = threat; /* ELF: kept but never used */
+				}
+			}
+
+			if (threat < 0.0f && IsAi() && GetSealCtrlAi()->FindAiState(STATE_STUNNED) == NULL)
+			{
+				buddySum += threat;
+				buddies++;
+
+				if (threat < buddyMin)
+					buddyMin = threat;
+			}
+		}
+
+		CDiPool::dir* d = (CDiPool::dir *)t->m_diHandle;
+
+		if (d == NULL || d->m_state != 4)
+			continue;
+
+		t->m_diHandle = 0;
+		zdb::DiIntersect* di = _diPool.Take(d);
+
+		if (di == NULL)
+			continue;
+
+		f32 waited = d->m_time;
+		f32 v = ComputeVisibility(di, t);
+		t->m_aware = v;
+		v = (vis_rate_min * (1.0f - v) + vis_rate_max * v) * (nominal_time_base * waited * m_vissens.m_value) + t->m_visibility;
+		bool see = !(v < vis_rate_see);
+		saturate<f32>(v, vis_rate_min, vis_rate_max);
+		t->m_visibility = v;
+		CZSealBody* seal = (t->m_ent != NULL && (u8)t->m_ent->m_type == 2) ? static_cast<CZSealBody *>(t->m_ent) : NULL;
+
+		if (seal != NULL && seal->m_invisible)
+			see = false;
+
+		OnSetTargetVisible(*t, see, di);
+	}
+
+	if (best != NULL)
+		SetTarget(best);
+
+	/* the threat goal: the strongest enemy (weighted by how badly the enemies outnumber the
+	 * buddies) plus the enemies' mean, and the same for the (negative) buddies */
+	f32 enemy = enemyMax * (f32)(buddies < enemies ? enemies / (buddies + 1) + 1 : 1);
+
+	if (enemies > 0)
+		enemyMax = enemySum / (f32)enemies;
+
+	enemy += enemyMax;
+	f32 buddy = buddyMin * (f32)(enemies < buddies ? buddies / (enemies + 1) + 1 : 1);
+
+	if (buddies > 0)
+		buddyMin = buddySum / (f32)buddies;
+
+	buddy += buddyMin;
+	f32 goal = enemy + buddy;
+
+	if (goal < 0.0f)
+		goal = 0.0f;
+
+	m_targetThreat.m_goal = goal;
 }
 
 /* @socom-skeleton stub NotifyTargetDown__11CSealCtrlAiFP10CZSealBody */
 void CSealCtrlAi::NotifyTargetDown(CZSealBody *)
 {
+	/* 0x2b10f0: port: not written (20 B) */
 }
 
 /* @socom-skeleton stub NotifyTargetDown__9CSealCtrlFP10CZSealBody */
 void CSealCtrl::NotifyTargetDown(CZSealBody *)
 {
+	/* 0x2b10e0: empty */
 }
 
 /* @socom-skeleton stub EnemyCallout__11CSealCtrlAiFPC7CTargetP7CEntity */
@@ -321,8 +1112,40 @@ void CSealCtrlAi::EnemyCallout(const CTarget *, CEntity *)
 }
 
 /* @socom-skeleton stub SensorTick__11CSealCtrlAiFf */
-void CSealCtrlAi::SensorTick(float)
+void CSealCtrlAi::SensorTick(float dT)
 {
+	/* 0x2b0d20: events that asked for a sight line read it here (visibility under 0.25:
+	 * state 1 / data 16, else state 3), then the targets (CSealCtrl::SensorTick) */
+	if (m_eventQueue.m_diRequested)
+	{
+		for (std::list<CAiEventHandle>::iterator i = m_eventQueue.begin(); i != m_eventQueue.end(); ++i)
+		{
+			if ((u8)i->m_state != 2)
+				continue;
+
+			CDiPool::dir* d = (CDiPool::dir *)i->m_data;
+
+			if (d == NULL || d->m_state != 4)
+				continue;
+
+			f32 v = ComputeVisibility(_diPool.Take(d), (zdb::CNode *)NULL);
+			i->m_data = 0;
+
+			if (v < 0.25f)
+			{
+				i->m_state = 1;
+				i->m_data = 16;
+			}
+			else
+			{
+				i->m_state = 3;
+			}
+		}
+
+		m_eventQueue.m_diRequested = false;
+	}
+
+	CSealCtrl::SensorTick(dT);
 }
 
 /* @socom-skeleton stub RegisterCanSee__11CSealCtrlAiFRiPC6CPnt3D */
@@ -331,25 +1154,236 @@ void CSealCtrlAi::RegisterCanSee(int &, const CPnt3D *)
 }
 
 /* @socom-skeleton stub ComputeVisibility__9CSealCtrlFPQ23zdb11DiIntersectP7CTarget */
-float CSealCtrl::ComputeVisibility(zdb::DiIntersect *, CTarget *)
+float CSealCtrl::ComputeVisibility(zdb::DiIntersect *di, CTarget *target)
 {
+	/* 0x2b06b0: the chance of seeing the target along a finished sight line. The line
+	 * itself must be clear (the node version: 0 when blocked). For a seal the result is
+	 * zero_range_probability - (range / cone height)^2 x factors: crouched x1.5, prone x2,
+	 * standing in water up to x2 (w_func: the part of the body above the surface), and for a
+	 * crouched or prone target the AI map's line visibility (cover) scales it up to x2.5 /
+	 * x5 (prone also doubles the range); fog shortens the range by up to half. */
 	/* @socom-skeleton stub watch_id$2956 */
-	static int watch_id;
+	static int watch_id = 0;
 	/* @socom-skeleton stub zero_range_probability$2961 */
-	static float zero_range_probability;
+	static float zero_range_probability = 1.25f;
 	/* @socom-skeleton stub prone_factor$2964 */
-	static float prone_factor;
+	static float prone_factor = 2.0f;
 	/* @socom-skeleton stub crouch_factor$2967 */
-	static float crouch_factor;
+	static float crouch_factor = 1.5f;
 	/* @socom-skeleton stub ff_min$2981 */
-	static float ff_min;
+	static float ff_min = 0.5f;
 	/* @socom-skeleton stub ff_max$2984 */
-	static float ff_max;
+	static float ff_max = 1.0f;
+	/* port: w_func(CZSealBody *)'s local statics (0x47618c, 0x476194) */
+	static float wf_min = 1.0f;
+	static float wf_max = 0.5f;
+	CEntity* e = target->m_ent;
+	CEntity* me = m_entity;
+	zdb::CCamera* cam = zdb::CWorld::m_world->m_camera;
+	CZSealBody* seal = (e != NULL && (u8)e->m_type == 2) ? static_cast<CZSealBody *>(e) : NULL;
+	f32 line = ComputeVisibility(di, e->GetNode());
+
+	if (seal == NULL)
+		return line;
+
+	if (line <= 0.0f)
+		return 0.0f;
+
+	f32 range = target->GetRange();
+
+	if (range <= 0.0f)
+		return line;
+
+	f32 k = -1.0f / (m_view_cone.m_height * m_view_cone.m_height);
+	bool crouched = false;
+	bool prone = false;
+	/* DWARF SEAL_STANCE: STAND 0, CROUCH 1, PRONE 2 (ELF: GetStance is called twice) */
+	s32 stance = (u8)seal->GetStance(false);
+
+	if (stance == 2)
+	{
+		prone = true;
+		k *= prone_factor;
+	}
+	else if (stance == 1)
+	{
+		crouched = true;
+		k *= crouch_factor;
+	}
+
+	f32 depth = seal->m_inwater ? seal->m_waterdepth : 0.0f;
+	f32 w = 1.0f;
+
+	if (!(depth <= 0.0f))
+	{
+		CBBox* box = seal->GetNode()->GetBBox();
+		f32 h = (box->m_max.y - box->m_min.y) / depth;
+		saturate<f32>(h, 0.0f, 1.0f);
+		w = wf_min * (1.0f - h) + wf_max * h;
+	}
+
+	k *= (1.0f - w) + 2.0f * w;
+	f32 fog = cam->GetFogVisibility(target->m_ent != NULL ? target->m_ent->GetPosW() : NULL, me->GetPosW());
+	range *= ff_min * (1.0f - fog) + ff_max * fog;
+
+	if (crouched || prone)
+	{
+		f32 cover = AiMaps.ComputeLineVisibility(me->m_mapLocValid, e->m_mapLocValid);
+
+		if (prone)
+		{
+			k *= 5.0f * (1.0f - cover) + cover;
+			range *= 2.0f * (1.0f - cover) + cover;
+		}
+		else
+		{
+			k *= 2.5f * (1.0f - cover) + cover;
+		}
+	}
+
+	return zero_range_probability + k * (range * range);
 }
 
 /* @socom-skeleton stub ComputeVisibility__9CSealCtrlFPQ23zdb11DiIntersectPQ23zdb5CNode */
-float CSealCtrl::ComputeVisibility(zdb::DiIntersect *, zdb::CNode *)
+float CSealCtrl::ComputeVisibility(zdb::DiIntersect *di, zdb::CNode *)
 {
+	/* 0x2affe0: how clear a finished sight line is: 1 minus the opacity of everything it
+	 * hit, near to far. A solid material takes its full opacity (and counts in
+	 * diNonVolCount: the line is blocked, not just dimmed); a volumetric one (smoke, fog
+	 * volumes) is entered and left - its opacity times the distance travelled inside, and a
+	 * volume never left counts to the end of the line. A hit without a material blocks. The
+	 * node argument is not used. */
+	diNonVolCount = 0;
+
+	if (di == NULL)
+		return 0.0f;
+
+	struct volume
+	{
+		zdb::IntersectStruct* m_hit;
+		CMaterialEx* m_mat;
+		f32 m_dist;
+	};
+
+	/* port: file-local helper for the opacity block the ELF repeats twice */
+	auto opacity = [](volume* v, f32 depth) -> f32
+	{
+		if (v->m_hit == NULL || v->m_mat == NULL)
+			return 1.0f;
+
+		f32 op = v->m_mat->m_opacity;
+
+		if (!v->m_mat->m_particle_system)
+		{
+			if (v->m_mat->m_volumetric)
+				op *= depth;
+		}
+		/* port: not written - a particle system's volume (ELF: its node's bbox volume x the
+		 * CParticleEx emitter's Props::m_visualDensity x depth); CParticleEx is not
+		 * declared in the port, the material's opacity is used as it is */
+
+		saturate<f32>(op, 0.0f, 1.0f);
+		return op;
+	};
+
+	s32 count = di->m_Cnt;
+	f32 vis = 1.0f;
+	std::list<volume *> open;
+
+	di->SortNearToFar(sorted, range);
+
+	for (s32 i = 0; !(vis <= 0.0f) && i < count; i++)
+	{
+		s32 index = sorted[i];
+		f32 dist = range[index];
+		diStopper = index;
+		zdb::IntersectStruct* hit = &di->m_Intersects[index];
+		zdb::CNode* node = hit->m_node;
+		u32 m = hit->GetMaterial();
+
+		if (!(m < CMaterialExArray::m_materialex_list.size()))
+			m = 0;
+
+		CMaterialEx* mat = CMaterialExArray::m_materialex_list.data()[m];
+
+		if (mat == NULL)
+		{
+			vis = 0.0f;
+			diNonVolCount = 1;
+			break;
+		}
+
+		f32 op = 0.0f;
+
+		if (mat->m_volumetric)
+		{
+			dist = sqrtf(dist);
+			volume* v = NULL;
+
+			for (std::list<volume *>::iterator j = open.begin(); j != open.end(); ++j)
+			{
+				if ((*j)->m_hit->m_node == node)
+				{
+					v = *j;
+					break;
+				}
+			}
+
+			if (v != NULL)
+			{
+				volume now = { hit, mat, 0.0f };
+				op = opacity(&now, dist - v->m_dist);
+				open.remove(v);
+				delete v;
+			}
+			else
+			{
+				v = new volume;
+				v->m_hit = hit;
+				v->m_mat = mat;
+				v->m_dist = dist;
+				open.push_back(v);
+			}
+		}
+		else
+		{
+			diNonVolCount++;
+			op = mat->m_opacity;
+		}
+
+		saturate<f32>(op, 0.0f, 1.0f);
+		vis -= op;
+	}
+
+	if (!open.empty())
+	{
+		if (!(vis <= 0.0f))
+		{
+			CPnt3D d;
+			di->m_Tail.Sub(&di->m_Tip, &d);
+			f32 length = sqrtf(d.x * d.x + d.y * d.y + d.z * d.z);
+
+			while (!open.empty())
+			{
+				volume* v = open.front();
+				open.erase(open.begin());
+				vis -= opacity(v, length - v->m_dist);
+				delete v;
+			}
+		}
+		else
+		{
+			while (!open.empty())
+			{
+				volume* v = open.front();
+				open.erase(open.begin());
+				delete v;
+			}
+		}
+	}
+
+	saturate<f32>(vis, 0.0f, 1.0f);
+	return vis;
 }
 
 /* @socom-skeleton stub SetViewFOV__9CSealCtrlFf */
@@ -366,24 +1400,104 @@ void CSealCtrl::SetViewFOV(float fov)
 /* @socom-skeleton stub UpdateViewCone__9CSealCtrlFv */
 void CSealCtrl::UpdateViewCone()
 {
+	/* 0x2afeb0: the view cone from the head: m_visrange long (x the kit's zoom), m_fovtan
+	 * wide at the range (narrowed by the zoom), 25 wide at the eye */
+	CZSealBody* seal = static_cast<CZSealBody *>(m_entity);
+	f32 zoom = seal->m_kit.GetCurZoom();
+	CPnt3D pos;
+	CPnt3D dir;
+	seal->GetHeadParams(&pos, &dir);
+	m_view_cone.m_height = zoom * m_visrange.m_value;
+	m_view_cone.m_inv_height = 1.0f / m_view_cone.m_height;
+	m_view_cone.m_radius = m_fovtan * m_visrange.m_value / zoom;
+	m_view_cone.m_point_radius = 25.0f;
+	m_view_cone.m_cone_pos = pos;
+	m_view_cone.m_cone_dir = dir;
 }
 
 /* @socom-skeleton stub UpdateViewCone__11CSealCtrlAiFv */
 void CSealCtrlAi::UpdateViewCone()
 {
+	/* 0x2afdb0: as CSealCtrl's, but the length grows with half of the current weapon's last
+	 * zoom mode (a scoped weapon sees farther) and the width is not narrowed */
+	CZSealBody* seal = static_cast<CZSealBody *>(m_entity);
+	f32 zoom = 1.0f;
+	CZFTSWeapon* weapon = NULL;
+	CZAmmo* ammo;
+	seal->m_kit.GetCurWeapon(&weapon, &ammo);
+
+	if (weapon != NULL)
+		zoom = 1.0f + (weapon->GetZoommode((int)weapon->m_zoommode.size()) - 1.0f) / 2.0f;
+
+	CPnt3D pos;
+	CPnt3D dir;
+	seal->GetHeadParams(&pos, &dir);
+	m_view_cone.m_height = zoom * m_visrange.m_value;
+	m_view_cone.m_inv_height = 1.0f / m_view_cone.m_height;
+	m_view_cone.m_radius = m_fovtan * m_visrange.m_value;
+	m_view_cone.m_point_radius = 25.0f;
+	m_view_cone.m_cone_pos = pos;
+	m_view_cone.m_cone_dir = dir;
 }
 
 /* @socom-skeleton stub GetWeaponEffectiveRange__10CAiWepHintFP8CZWeapon */
-float CAiWepHint::GetWeaponEffectiveRange(CZWeapon *)
+float CAiWepHint::GetWeaponEffectiveRange(CZWeapon *weapon)
 {
+	/* 0x2afd70: the middle of the weapon's AI range band */
+	if (weapon == NULL)
+		return 0.0f;
+
+	return 0.5f * (weapon->m_ai_params.m_max_range + weapon->m_ai_params.m_min_range);
 }
 
 /* @socom-skeleton stub GetWeaponAccuracy__10CAiWepHintFP8CZWeaponfb */
-float CAiWepHint::GetWeaponAccuracy(CZWeapon *, float, bool)
+float CAiWepHint::GetWeaponAccuracy(CZWeapon *weapon, float range, bool)
 {
+	/* 0x2afd40 */
+	if (weapon == NULL)
+		return 0.0f;
+
+	return weapon->m_ai_params.GetAccuracy(range);
 }
 
 /* @socom-skeleton stub PerturbAimVector__11CSealCtrlAiFP6CPnt3D */
-void CSealCtrlAi::PerturbAimVector(CPnt3D *)
+void CSealCtrlAi::PerturbAimVector(CPnt3D *dir)
 {
+	/* 0x2afbc0 (the weapon's fire code, per shot): the AI's aim error. Accuracy = the
+	 * weapon's AI accuracy at the target's range x the AI's own (standing x0.9, crouched
+	 * x1.25, prone x1.5; moving faster than 25 x0.7), x1.2 for a SEAL, clamped to 0..1; the
+	 * error cone is aiAccuracyAngle x (1 - accuracy) (CAiTarget::ModifyAimDir). */
+	CZSealBody* seal = static_cast<CZSealBody *>(m_entity);
+	CZFTSWeapon* item = seal->m_kit.GetCurItem();
+
+	if (item == NULL)
+		return;
+
+	f32 weapon = item->m_ai_params.GetAccuracy(m_target.m_target.GetRange());
+	f32 own = m_aiParams.accuracy;
+
+	/* DWARF SEAL_STANCE: STAND 0, CROUCH 1, PRONE 2 */
+	switch ((u8)seal->GetStance(false))
+	{
+	case 0:
+		own *= 0.9f;
+		break;
+	case 1:
+		own *= 1.25f;
+		break;
+	case 2:
+		own *= 1.5f;
+		break;
+	}
+
+	if (ai::is_moving(&seal->m_velW, 625.0f))
+		own *= 0.7f;
+
+	f32 accuracy = weapon * own;
+
+	if (m_navyseal)
+		accuracy *= 1.2f;
+
+	saturate<f32>(accuracy, 0.0f, 1.0f);
+	m_target.ModifyAimDir(dir, accuracy, aiAccuracyAngle);
 }

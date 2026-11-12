@@ -9,12 +9,13 @@ bool ai::do_aimap_collide;
 /* held from src/gamez/zAI/ai_main.cpp:129 */
 void CAiState::Reset(AI_STATE state)
 {
-	m_bitfield = m_bitfield & 0b11111101;
-	m_state = state;
-	m_field8_0x14 = 0;
-	m_bitfield = m_bitfield & 0b11111110;
-	m_field2_0x8 = 0;
-	m_field1_0x4 = 0;
-	m_bitfield = m_bitfield & 0b11111011;
-	m_bitfield = m_bitfield & 0b00000111;
+	/* 0x2d1e60 */
+	m_unk_0c_1 = 0;
+	m_state = (u8)state;
+	m_unk_14 = 0;
+	m_setup = 0;
+	m_unk_08 = 0;
+	m_option_flags = 0;
+	m_response = 0;
+	m_unk_0c_3 = 0;
 }

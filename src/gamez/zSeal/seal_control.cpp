@@ -350,13 +350,35 @@ void CSealCtrl::ResetToInitialState()
 }
 
 /* @socom-skeleton stub SetTrigger__9CSealCtrlFbf */
-void CSealCtrl::SetTrigger(bool, float)
+void CSealCtrl::SetTrigger(bool down, float power)
 {
+	/* 0x287b50: as SetTrigger(bool), with the trigger power (throws) */
+	m_trigger_power = power;
+	SetTrigger(down);
 }
 
 /* @socom-skeleton stub SetTrigger__9CSealCtrlFb */
-void CSealCtrl::SetTrigger(bool)
+void CSealCtrl::SetTrigger(bool down)
 {
+	/* 0x287ae0: the trigger's edge state from this frame's wish: up -> falling (just
+	 * pulled) -> down -> rising (just released) -> up */
+	switch (m_trigger)
+	{
+	case TRIGGER::TRIGGER_UP:
+		m_trigger = down ? TRIGGER::TRIGGER_FALLING : TRIGGER::TRIGGER_UP;
+		break;
+	case TRIGGER::TRIGGER_DOWN:
+		m_trigger = down ? TRIGGER::TRIGGER_DOWN : TRIGGER::TRIGGER_RISING;
+		break;
+	case TRIGGER::TRIGGER_FALLING:
+		m_trigger = down ? TRIGGER::TRIGGER_DOWN : TRIGGER::TRIGGER_RISING;
+		break;
+	case TRIGGER::TRIGGER_RISING:
+		m_trigger = down ? TRIGGER::TRIGGER_FALLING : TRIGGER::TRIGGER_UP;
+		break;
+	default:
+		break;
+	}
 }
 
 /* @socom-skeleton body GetMenuState__9CSealCtrlFv */

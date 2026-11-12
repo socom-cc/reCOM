@@ -618,33 +618,77 @@ CZAnimArgList::~CZAnimArgList()
 }
 
 /* @socom-skeleton stub ActivateSequence__6CZAnimFPCc */
-void CZAnim::ActivateSequence(const char *)
+void CZAnim::ActivateSequence(const char *name)
 {
+	/* ZAnim.ActivateSequence on this anim (the current anim swapped in, the current sequence cleared) */
+	ZAnim.m_CurSeq = NULL;
+	CZAnim* saved = ZAnim.m_CurAnim;
+	ZAnim.m_CurAnim = this;
+	ZAnim.ActivateSequence(name);
+	ZAnim.m_CurAnim = saved;
+	ZAnim.m_CurSeq = NULL;
 }
 
 /* @socom-skeleton stub StopSequence__6CZAnimFPCc */
-void CZAnim::StopSequence(const char *)
+void CZAnim::StopSequence(const char *name)
 {
+	/* ZAnim.StopSequence on this anim (the current anim swapped in, the current sequence cleared) */
+	ZAnim.m_CurSeq = NULL;
+	CZAnim* saved = ZAnim.m_CurAnim;
+	ZAnim.m_CurAnim = this;
+	ZAnim.StopSequence(name);
+	ZAnim.m_CurAnim = saved;
+	ZAnim.m_CurSeq = NULL;
 }
 
 /* @socom-skeleton stub PauseSequence__6CZAnimFPCc */
-void CZAnim::PauseSequence(const char *)
+void CZAnim::PauseSequence(const char *name)
 {
+	/* ZAnim.PauseSequence on this anim (the current anim swapped in, the current sequence cleared) */
+	ZAnim.m_CurSeq = NULL;
+	CZAnim* saved = ZAnim.m_CurAnim;
+	ZAnim.m_CurAnim = this;
+	ZAnim.PauseSequence(name);
+	ZAnim.m_CurAnim = saved;
+	ZAnim.m_CurSeq = NULL;
 }
 
 /* @socom-skeleton stub ResumeSequence__6CZAnimFPCc */
-void CZAnim::ResumeSequence(const char *)
+void CZAnim::ResumeSequence(const char *name)
 {
+	/* ZAnim.ResumeSequence on this anim (the current anim swapped in, the current sequence cleared) */
+	ZAnim.m_CurSeq = NULL;
+	CZAnim* saved = ZAnim.m_CurAnim;
+	ZAnim.m_CurAnim = this;
+	ZAnim.ResumeSequence(name);
+	ZAnim.m_CurAnim = saved;
+	ZAnim.m_CurSeq = NULL;
 }
 
 /* @socom-skeleton stub SequenceExists__6CZAnimFPCc */
-unsigned char CZAnim::SequenceExists(const char *)
+unsigned char CZAnim::SequenceExists(const char *name)
 {
+	/* ZAnim.SequenceExists on this anim (the current anim swapped in, the current sequence cleared) */
+	ZAnim.m_CurSeq = NULL;
+	CZAnim* saved = ZAnim.m_CurAnim;
+	ZAnim.m_CurAnim = this;
+	unsigned char result = ZAnim.SequenceExists(name);
+	ZAnim.m_CurAnim = saved;
+	ZAnim.m_CurSeq = NULL;
+	return result;
 }
 
 /* @socom-skeleton stub SequenceRunning__6CZAnimFPCc */
-unsigned char CZAnim::SequenceRunning(const char *)
+unsigned char CZAnim::SequenceRunning(const char *name)
 {
+	/* ZAnim.SequenceRunning on this anim (the current anim swapped in, the current sequence cleared) */
+	ZAnim.m_CurSeq = NULL;
+	CZAnim* saved = ZAnim.m_CurAnim;
+	ZAnim.m_CurAnim = this;
+	unsigned char result = ZAnim.SequenceRunning(name);
+	ZAnim.m_CurAnim = saved;
+	ZAnim.m_CurSeq = NULL;
+	return result;
 }
 
 /* @socom-skeleton stub Refresh__6CZAnimFb */
@@ -746,11 +790,17 @@ unsigned char CZAnim::Running()
 /* @socom-skeleton stub Pause__6CZAnimFv */
 void CZAnim::Pause()
 {
+	/* 0x1cc8f0: a running anim (Running) is paused. port: void (the ELF returns whether it
+	 * ran; no caller in the port reads it) */
+	if (Running())
+		m_paused = 1;
 }
 
 /* @socom-skeleton stub Resume__6CZAnimFv */
 void CZAnim::Resume()
 {
+	/* 0x1cc820: unpaused. port: void (the ELF returns Running()) */
+	m_paused = 0;
 }
 
 /* @socom-skeleton stub Stop__6CZAnimFv */

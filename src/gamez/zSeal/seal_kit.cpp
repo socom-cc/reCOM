@@ -284,8 +284,14 @@ bool CZKit::HasItem(EQUIP_ITEM item) const
 }
 
 /* @socom-skeleton stub HasSniperRifle__5CZKitFv */
-void CZKit::HasSniperRifle()
+bool CZKit::HasSniperRifle()
 {
+	/* 0x2af290: the selected item is a sniper rifle (ID type 100) with ammunition for its
+	 * fire mode */
+	CZFTSWeapon *item = m_item[m_selected_item];
+	u32 type = item != NULL ? (u8)item->GetIDType() : 254;
+
+	return type == 100 && ItemHasAmmo(m_selected_item, (FIREMODE)(u8)m_firemode[m_selected_item]);
 }
 
 /* @socom-skeleton stub __ct__5CZKitFv */

@@ -164,6 +164,45 @@ void CPnt3D::DistToVector(const CPnt3D *, const CPnt3D *, CPnt3D *, float *) con
 }
 
 /* @socom-skeleton stub DistToVector__6CPnt3DCFPC6CPnt3DPC6CPnt3DPf */
-void CPnt3D::DistToVector(const CPnt3D *, const CPnt3D *, float *) const
+bool CPnt3D::DistToVector(const CPnt3D *a, const CPnt3D *b, float *dist) const
 {
+	/* 0x222490: this point against the segment a-b. Beyond either end: the distance to
+	 * that end, false. Else the perpendicular distance (the ELF: along the normalized
+	 * ba x (bp x ba)), true. */
+	f32 abx = b->x - a->x, aby = b->y - a->y, abz = b->z - a->z;
+	f32 apx = x - a->x, apy = y - a->y, apz = z - a->z;
+
+	if (abx * apx + aby * apy + abz * apz <= 0.0f)
+	{
+		*dist = sqrtf(apx * apx + apy * apy + apz * apz);
+		return false;
+	}
+
+	f32 bax = a->x - b->x, bay = a->y - b->y, baz = a->z - b->z;
+	f32 bpx = x - b->x, bpy = y - b->y, bpz = z - b->z;
+
+	if (bax * bpx + bay * bpy + baz * bpz <= 0.0f)
+	{
+		*dist = sqrtf(bpx * bpx + bpy * bpy + bpz * bpz);
+		return false;
+	}
+
+	/* n = bp x ba; m = ba x n, normalized; dist = m . bp */
+	f32 nx = bpy * baz - bpz * bay;
+	f32 ny = bpz * bax - bpx * baz;
+	f32 nz = bpx * bay - bpy * bax;
+	f32 mx = bay * nz - baz * ny;
+	f32 my = baz * nx - bax * nz;
+	f32 mz = bax * ny - bay * nx;
+	f32 len = sqrtf(mx * mx + my * my + mz * mz);
+
+	if (len != 0.0f) /* port: sceVu0Normalize divides without this test */
+	{
+		mx /= len;
+		my /= len;
+		mz /= len;
+	}
+
+	*dist = mx * bpx + my * bpy + mz * bpz;
+	return true;
 }

@@ -20,8 +20,37 @@
 /* @socom-skeleton end include */
 
 /* @socom-skeleton stub LeadTargetG__3CAiFPC6CPnt3DPC6CPnt3DfPC6CPnt3DPC6CPnt3DP6CPnt3D */
-void CAi::LeadTargetG(const CPnt3D *, const CPnt3D *, float, const CPnt3D *, const CPnt3D *, CPnt3D *)
+bool CAi::LeadTargetG(const CPnt3D *pos, const CPnt3D *vel, float speed, const CPnt3D *targetPos, const CPnt3D *targetVel, CPnt3D *out)
 {
+	/* 0x17eeb0: where to aim a projectile of that speed, fired from a moving shooter, to
+	 * meet a moving target: the intercept time t solves |d + v t| = speed t for the
+	 * relative position d and velocity v; the point is raised by 49 t^2 (half of g = 98)
+	 * for the drop. False (out untouched) for a zero speed or a target that cannot be
+	 * caught. */
+	if (speed == 0.0f)
+		return false;
+
+	f32 inv = 1.0f / speed;
+	CPnt3D d;
+	targetPos->Sub(pos, &d);
+	d.Scale(inv, &d);
+	CPnt3D v;
+	targetVel->Sub(vel, &v);
+	CPnt3D vs;
+	v.Scale(inv, &vs);
+	f32 a = 1.0f - (vs.x * vs.x + vs.y * vs.y + vs.z * vs.z);
+
+	if (a <= 0.0f)
+		return false;
+
+	f32 b = vs.x * d.x + vs.y * d.y + vs.z * d.z;
+	f32 c = d.x * d.x + d.y * d.y + d.z * d.z;
+	f32 t = (b + sqrtf(a * c + b * b)) / a;
+	CPnt3D lead;
+	v.Scale(t, &lead);
+	lead.y += 49.0f * (t * t);
+	targetPos->Add(&lead, out);
+	return true;
 }
 
 /* @socom-skeleton stub Extrapolate__3CAiFPC6CPnt3DPC6CPnt3DfP6CPnt3D */
@@ -40,13 +69,29 @@ float CAi::GetToRightXZ(const CPnt3D *, CPnt3D *, bool)
 }
 
 /* @socom-skeleton stub is_moving__2aiFPC6CPnt3Df */
-void ai::is_moving(const CPnt3D *, float)
+bool ai::is_moving(const CPnt3D *vel, float thresholdSq)
 {
+	/* 0x17ec00: the squared speed exceeds the threshold */
+	return !(vel->x * vel->x + vel->y * vel->y + vel->z * vel->z <= thresholdSq);
 }
 
 /* @socom-skeleton stub MakeNoise__2aiFP6CPnt3DRC5PNT2D */
-CPnt3D * ai::MakeNoise(CPnt3D *, const PNT2D &)
+CPnt3D * ai::MakeNoise(CPnt3D *out, const PNT2D &range)
 {
+	/* 0x17e8a0: a random vector: each component a magnitude drawn from [range.x, range.y]
+	 * with a random sign */
+	f32 min = range.x;
+	f32 span = range.y - range.x;
+	f32* c = &out->x;
+
+	for (s32 i = 0; i < 3; i++)
+	{
+		f32 sign = (f32)rand() * 4.656613e-10f <= 0.5f ? 1.0f : -1.0f;
+		f32 mag = span == 0.0f ? min : min + span * ((f32)rand() * 4.656613e-10f);
+		c[i] = (f32)((double)mag * (double)sign);
+	}
+
+	return out;
 }
 
 /* @socom-skeleton stub AddNoise__2aiFPC6CPnt3DP6CPnt3DRC5PNT2D */
