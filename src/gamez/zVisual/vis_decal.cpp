@@ -45,6 +45,7 @@ namespace zdb
 #include "gamez/zTexture/ztex.h"
 #include "vis_vector.h"
 /* @socom-skeleton end include */
+#include "gamez/zSystem/zsys.h" /* _free */
 /* @socom-skeleton decl forward */
 namespace zdb {
 class AddonPoint;
@@ -53,91 +54,293 @@ class AddonPoint;
 
 /* @socom-skeleton stub m_tempPool__Q23zdb6CDecal */
 namespace zdb {
-CDecalPool CDecal::m_tempPool; /* 20-byte pool; CDecalPool layout unproven (vis_vector.h TODO) */
+CDecalPool CDecal::m_tempPool; /* 0x511ba0, 20 bytes (TEMP_DECAL_POOL) */
 }
 
 /* @socom-skeleton stub m_permPool__Q23zdb6CDecal */
 namespace zdb {
-CDecalPool CDecal::m_permPool; /* port: unproven type */
+CDecalPool CDecal::m_permPool; /* 0x511bc0 (PERM_DECAL_POOL) */
 }
 
 /* @socom-skeleton stub m_tempPool__Q23zdb10CMeshDecal */
 namespace zdb {
-CMeshDecalPool CMeshDecal::m_tempPool; /* 20-byte pool; layout unproven */
+CMeshDecalPool CMeshDecal::m_tempPool; /* 0x511be0 */
 }
 
 /* @socom-skeleton stub m_permPool__Q23zdb10CMeshDecal */
 namespace zdb {
-CMeshDecalPool CMeshDecal::m_permPool; /* port: unproven type */
+CMeshDecalPool CMeshDecal::m_permPool; /* 0x511c00 */
 }
 
 /* @socom-skeleton stub UVCompare__3zdbFP6CPnt3DP6CPnt3DP6CPnt3D */
-void zdb::UVCompare(CPnt3D *, CPnt3D *, CPnt3D *)
+bool zdb::UVCompare(CPnt3D *a, CPnt3D *b, CPnt3D *c)
 {
+	/* 0x3134d0: true when the bounding box of the three points (x = u, y = v) touches the
+	   unit square (returns 0/1; was declared void) */
+	f32 lo = a->x < b->x ? a->x : b->x;
+
+	if (!(lo < c->x))
+		lo = c->x;
+
+	if (!(lo <= 1.0f))
+		return false;
+
+	f32 hi = a->x <= b->x ? b->x : a->x;
+
+	if (hi <= c->x)
+		hi = c->x;
+
+	if (hi < 0.0f)
+		return false;
+
+	lo = a->y < b->y ? a->y : b->y;
+
+	if (!(lo < c->y))
+		lo = c->y;
+
+	if (!(lo <= 1.0f))
+		return false;
+
+	hi = a->y <= b->y ? b->y : a->y;
+
+	if (hi <= c->y)
+		hi = c->y;
+
+	if (hi < 0.0f)
+		return false;
+
+	return true;
 }
 
 /* @socom-skeleton stub Init__Q23zdb10CDecalPoolFUiUi */
-void zdb::CDecalPool::Init(unsigned int, unsigned int)
+void zdb::CDecalPool::Init(unsigned int base, unsigned int overflow)
 {
+	/* 0x313460: base + overflow decals made up front, with the in-use list (m_count and
+	   m_recycle are left as they are: zero at start-up and after CZMarkList::UnInit) */
+	m_base = base;
+	m_overflow = overflow;
+	m_array = new RTArray<CDecal>(base + overflow, true, true);
 }
 
 /* @socom-skeleton stub Get__Q23zdb10CDecalPoolFb */
-void zdb::CDecalPool::Get(bool)
+zdb::CDecal * zdb::CDecalPool::Get(bool recycle)
 {
+	/* 0x3133e0: the next free decal; one taken beyond m_base marks the oldest for
+	   RecycleTick. NULL when all base + overflow are out. */
+	CDecal* decal = NULL;
+
+	if (m_count < m_base + m_overflow)
+	{
+		decal = m_array->GetNext(recycle);
+
+		if (decal != NULL)
+		{
+			m_count++;
+
+			if (m_base < m_count)
+				m_recycle++;
+		}
+	}
+
+	return decal;
 }
 
 /* @socom-skeleton body RecycleTick__Q23zdb10CDecalPoolFv */
 namespace zdb {
 void CDecalPool::RecycleTick()
-    {
+	{
+		/* 0x313360 (CPipe::RenderWorld, on CDecal::m_tempPool): take back the oldest decal
+		   in use for every one taken beyond the base. ELF quirk kept: the counter is this
+		   pool's, the decals always come from CDecal::m_tempPool. */
+		while (m_recycle != 0)
+		{
+			CDecal* decal = CDecal::m_tempPool.m_array->GetOldestUsed();
 
-    }
+			CDecal::m_tempPool.m_count--;
+			CDecal::m_tempPool.m_array->PutBack(decal);
+			decal->m_visual->RemoveDecal(decal);
+			m_recycle--;
+		}
+	}
 }
 
 /* @socom-skeleton stub PutTempDecal__Q23zdb6CDecalFPQ23zdb6CDecal */
-void zdb::CDecal::PutTempDecal(zdb::CDecal *)
+void zdb::CDecal::PutTempDecal(zdb::CDecal *decal)
 {
+	/* 0x313320: back into the temp pool; one pending recycle fewer */
+	if (m_tempPool.m_recycle != 0)
+		m_tempPool.m_recycle--;
+
+	m_tempPool.m_count--;
+	m_tempPool.m_array->PutBack(decal);
 }
 
 /* @socom-skeleton stub PutPermDecal__Q23zdb6CDecalFPQ23zdb6CDecal */
-void zdb::CDecal::PutPermDecal(zdb::CDecal *)
+void zdb::CDecal::PutPermDecal(zdb::CDecal *decal)
 {
+	/* 0x3132f0 */
+	m_permPool.m_count--;
+	m_permPool.m_array->PutBack(decal);
 }
 
 /* @socom-skeleton stub Init__Q23zdb14CMeshDecalPoolFUiUi */
-void zdb::CMeshDecalPool::Init(unsigned int, unsigned int)
+void zdb::CMeshDecalPool::Init(unsigned int base, unsigned int overflow)
 {
+	/* 0x313280 */
+	m_base = base;
+	m_overflow = overflow;
+	m_array = new RTArray<CMeshDecal>(base + overflow, true, true);
 }
 
 /* @socom-skeleton stub PutTempDecal__Q23zdb10CMeshDecalFPQ23zdb10CMeshDecal */
-void zdb::CMeshDecal::PutTempDecal(zdb::CMeshDecal *)
+void zdb::CMeshDecal::PutTempDecal(zdb::CMeshDecal *decal)
 {
+	/* 0x313240 */
+	if (m_tempPool.m_recycle != 0)
+		m_tempPool.m_recycle--;
+
+	m_tempPool.m_count--;
+	m_tempPool.m_array->PutBack(decal);
 }
 
 /* @socom-skeleton body RecycleTick__Q23zdb14CMeshDecalPoolFv */
 namespace zdb {
 void CMeshDecalPool::RecycleTick()
-    {
+	{
+		/* 0x313190 (CPipe::RenderWorld, on CMeshDecal::m_tempPool): as CDecalPool::RecycleTick;
+		   the decal leaves its mesh and frees its memory (FreeMem inline) */
+		while (m_recycle != 0)
+		{
+			CMeshDecal* decal = CMeshDecal::m_tempPool.m_array->GetOldestUsed();
 
-    }
+			CMeshDecal::m_tempPool.m_count--;
+			CMeshDecal::m_tempPool.m_array->PutBack(decal);
+			decal->m_mesh->RemoveMeshDecal(decal);
+
+			if (decal->m_mem != NULL)
+				_free(decal->m_mem, "vis_decal.cpp", 518);
+
+			decal->m_mem = NULL;
+			decal->m_chain = NULL;
+			decal->m_qwc = 0;
+			m_recycle--;
+		}
+	}
 }
 
 /* @socom-skeleton stub AddDecal__Q23zdb6CDecalFfPPQ23zdb10AddonPointUiPQ23zdb10CTexHandlePQ23zdb7CVisualUi */
-void zdb::CDecal::AddDecal(float, zdb::AddonPoint **, unsigned int, zdb::CTexHandle *, zdb::CVisual *, unsigned int)
+void zdb::CDecal::AddDecal(float opacity, zdb::AddonPoint **points, unsigned int, zdb::CTexHandle *handle, zdb::CVisual *visual, unsigned int vid)
 {
+	/* 0x312e80: fill the decal from three points: the texture's VU select tag and a DMA REF
+	   to the decal's own VIF packet - a one-triangle batch in the layout the VU1 batch
+	   programs take (header qwords 0-3, float vertices from 4 on with their colours, the
+	   index entry at 13, the triangle normal at 14), closed by MSCNT. The GIF tags' PRIM is
+	   a lit, textured, fogged triangle (fan in tag 0), alpha blended for a transparent
+	   texture that is no bump map. The point count (third argument) is not read. */
+	CTexture* texture = handle->m_texture;
+
+	m_opacity = opacity;
+	m_vid = vid;
+	m_visual = visual;
+	m_next = NULL;
+	m_kind = opacity < 0.0f ? 2 : 1;
+
+	u32 prim = 0x301dc000;
+
+	if (texture->m_transparent && !texture->m_bumpmap)
+		prim |= 0x00200000;
+
+	u32 tri = (prim & 0xfffc7fff) | 0x18000;
+	u32 fan = (tri & 0xfffc7fff) | 0x28000;
+
+	m_select = texture->m_dmaRefVu;
+	m_ref.u32[0] = 0x3000000e; /* REF, 14 qwords */
+	m_ref.u32[1] = reinterpret_cast<u32>(m_color) & 0x0fffffff;
+	m_ref.u32[2] = 0x01000103; /* STCYCL cl 3, wl 1 */
+	m_ref.u32[3] = 0x6e038006 | 0x4000; /* UNPACK V4-8 x3 to 6 (TOPS-relative), unsigned */
+
+	m_color[0] = *points[0]->m_color;
+	m_color[1] = *points[1]->m_color;
+	m_color[2] = *points[2]->m_color;
+
+	m_vif_header[0] = 0x01000101; /* STCYCL cl 1, wl 1 */
+	m_vif_header[1] = 0x6c048000; /* UNPACK V4-32 x4 to 0 */
+	m_header[0][0] = 0x8000;
+	m_header[0][1] = fan;
+	m_header[0][2] = 0x412;
+	m_header[0][3] = 0;
+	m_header[1][0] = 0x8003;
+	m_header[1][1] = tri;
+	m_header[1][2] = 0x412;
+	m_header[1][3] = 0;
+	m_header[2][0] = 13; /* offset of the index list */
+	m_header[2][1] = 0;
+	m_header[2][2] = 3;  /* vertices */
+	m_header[2][3] = 1;  /* triangles */
+	m_header[3][0] = 0;
+	m_header[3][1] = 0;
+	m_header[3][2] = 0;
+	m_header[3][3] = 0;
+
+	m_vif_vertex[0] = 0x01000203; /* STCYCL cl 3, wl 2 */
+	m_vif_vertex[1] = 0x6c068004; /* UNPACK V4-32 x6 to 4 */
+
+	for (u32 i = 0; i < 3; i++)
+	{
+		AddonPoint* point = points[i];
+
+		m_vertex[i][0] = point->m_pos.x;
+		m_vertex[i][1] = point->m_pos.y;
+		m_vertex[i][2] = point->m_pos.z;
+		m_vertex[i][3] = point->m_nx;
+		m_vertex[i][4] = point->m_uv.x;
+		m_vertex[i][5] = point->m_uv.y;
+		m_vertex[i][6] = point->m_ny;
+		m_vertex[i][7] = point->m_nz;
+	}
+
+	m_vif_index[0] = 0x01000102; /* STCYCL cl 2, wl 1 */
+	m_vif_index[1] = 0x6e01800d | 0x4000; /* UNPACK V4-8 x1 to 13, unsigned */
+	m_index[0] = 0;
+	m_index[1] = 3;
+	m_index[2] = 6;
+	m_index[3] = 1;
+
+	m_vif_normal[0] = 0x01000102;
+	m_vif_normal[1] = 0x6901800e; /* UNPACK V3-16 x1 to 14 */
+	m_normal[0] = points[2]->m_tri_normal[0];
+	m_normal[1] = points[2]->m_tri_normal[1];
+	m_normal[2] = points[2]->m_tri_normal[2];
+	m_normal[3] = 0;
+
+	m_vif_end[0] = 0x17000000; /* MSCNT */
+	m_vif_end[1] = 0;
 }
 
 /* @socom-skeleton stub Tick__Q23zdb6CDecalFf */
 void zdb::CDecal::Tick(float)
 {
+	/* 0x312e70: empty */
 }
 
 /* @socom-skeleton stub FreeMem__Q23zdb10CMeshDecalFv */
 void zdb::CMeshDecal::FreeMem()
 {
+	/* 0x312e20 */
+	if (m_mem != NULL)
+		_free(m_mem, "vis_decal.cpp", 518);
+
+	m_mem = NULL;
+	m_chain = NULL;
+	m_qwc = 0;
 }
 
 /* @socom-skeleton stub Uninit__Q23zdb14CMeshDecalPoolFv */
 void zdb::CMeshDecalPool::Uninit()
 {
+	/* 0x312de0 */
+	delete m_array;
+	m_array = NULL;
+	m_count = 0;
+	m_recycle = 0;
 }

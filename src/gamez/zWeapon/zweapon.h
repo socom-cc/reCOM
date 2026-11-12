@@ -554,7 +554,7 @@ public:
 	static CZWeaponList m_listWeapons;
 
 	static CSnd* m_bulletPassSound;
-	static CZMarkList* m_pMarklist; /* 0x476680 (CreateMarkList; port: NULL, decals not written) */
+	static CZMarkList* m_pMarklist; /* 0x476680 (CreateMarkList) */
 
 	/* DWARF CZWeapon (176 bytes, vptr at +0) */
 	char* m_name;
@@ -872,15 +872,25 @@ public:
 	void Tick(float);
 };
 /* @socom-skeleton end 14CFlyoutMachine */
+/* DWARF CZDecalDef (12 bytes): one decal texture and the size range it is drawn at */
+class CZDecalDef
+{
+public:
+	f32 m_decalminsize;
+	f32 m_decalmaxsize;
+	zdb::CTexHandle* m_texture;
+};
+
 /* @socom-skeleton decl 10CZDecalSet */
 class CZDecalSet
 {
 public:
-	/* DWARF CZDecalSet (12 bytes) */
+	/* DWARF CZDecalSet (12 bytes): a DECAL_SETS entry of decals.rdr - one CZDecalDef per
+	 * material (by material index), the set's name, and whether its marks are permanent */
 	CZDecalDef* m_decals;
 	char* m_name;
 	bool m_permenant;
-	void DestroyDecalSet();
+	static bool DestroyDecalSet(); /* 0x31d1e0: static (reads no this), 0/1 */
 	static CZDecalSet * GetDecalSetByName(const char *);
 	static void ReadDecalSet(_zrdr *);
 	void ReadDecalEntry(_zrdr *);
@@ -891,9 +901,45 @@ public:
 class CZMarkList
 {
 public:
+	/* inline (CZWeapon::CreateMarkList 0x31f530): the list and the two vectors, the three
+	 * tables NULL; m_decal_list_size is not set */
+	CZMarkList()
+	{
+		m_decalTexture = NULL;
+		m_decalminsize = NULL;
+		m_decalmaxsize = NULL;
+	}
+	/* inline (CZWeapon::DestroyMarkList 0x31f440: the frees carry "zweapon.h" 1826-1828) */
+	~CZMarkList()
+	{
+		if (m_decalTexture != NULL)
+			_free(m_decalTexture, "zweapon.h", 1826);
+
+		m_decalTexture = NULL;
+
+		if (m_decalminsize != NULL)
+			_free(m_decalminsize, "zweapon.h", 1827);
+
+		m_decalminsize = NULL;
+
+		if (m_decalmaxsize != NULL)
+			_free(m_decalmaxsize, "zweapon.h", 1828);
+
+		m_decalmaxsize = NULL;
+	}
+
+	/* DWARF CZMarkList (52 bytes) */
+	std::list<zdb::CNode*> m_marklist;       /* +0x0: the 40 "bullet_mark" instances (Init) */
+	zdb::CTexHandle** m_decalTexture;        /* +0xc: per material (WEAPON_DECALS) */
+	std::vector<CZDecalDef> m_bloodDecals;   /* +0x10: BLOOD_DECALS */
+	std::vector<CZDecalDef> m_farBloodDecals; /* +0x1c: never filled */
+	f32* m_decalminsize;                     /* +0x28: per material */
+	f32* m_decalmaxsize;                     /* +0x2c */
+	s32 m_decal_list_size;                   /* +0x30: materials (ReadDecalNames) */
+
 	void Init();
 	void UnInit();
-	void ReadDecalNames(char *);
+	bool ReadDecalNames(char *); /* 0x31dae0: 0 without decals.rdr, else 1 */
 	void ReadWeaponDecals(_zrdr *);
 	void ReadBloodDecals(_zrdr *);
 	void AddNewMark(zdb::IntersectStruct *, CZProjectile *, float);

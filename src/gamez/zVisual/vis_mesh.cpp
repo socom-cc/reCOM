@@ -330,15 +330,47 @@ void zdb::CSubMesh::Write(zar::CZAR &)
 }
 
 /* @socom-skeleton stub RemoveMeshDecal__Q23zdb5CMeshFPQ23zdb10CMeshDecal */
-void zdb::CMesh::RemoveMeshDecal(zdb::CMeshDecal *)
+void zdb::CMesh::RemoveMeshDecal(zdb::CMeshDecal *decal)
 {
+	/* 0x30ede0: unlink from m_mesh_decals */
+	CMeshDecal* prev = NULL;
+
+	for (CMeshDecal* d = m_mesh_decals; d != NULL; prev = d, d = d->m_next)
+	{
+		if (d != decal)
+			continue;
+
+		if (prev != NULL)
+			prev->m_next = d->m_next;
+		else
+			m_mesh_decals = d->m_next;
+
+		d->m_next = NULL;
+		return;
+	}
 }
 
 /* @socom-skeleton stub DereferenceDecals__Q23zdb5CMeshFUi */
 void zdb::CMesh::DereferenceDecals(unsigned int)
 {
-	/* 0x30ed60: each decal (next at +4): FreeMem, clear +0/+4/+8/+16/+48/+52, PutTempDecal.
-	   port: not written - the CMeshDecal record is not recovered and CDecal::AddDecal is a
-	   stub, so the list stays empty */
+	/* 0x30ed60: every mesh decal freed, cleared and back to the temp pool (the list is
+	   never filled: see CMeshDecal) */
+	CMeshDecal* decal = m_mesh_decals;
+
+	while (decal != NULL)
+	{
+		CMeshDecal* next = decal->m_next;
+
+		decal->FreeMem();
+		decal->m_unk00 = 0;
+		decal->m_next = NULL;
+		decal->m_mesh = NULL;
+		decal->m_mem = NULL;
+		decal->m_chain = NULL;
+		decal->m_qwc = 0;
+		CMeshDecal::PutTempDecal(decal);
+		decal = next;
+	}
+
 	m_mesh_decals = NULL;
 }

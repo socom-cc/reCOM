@@ -25,6 +25,11 @@ void sceVu0Normalize(sceVu0FVECTOR v0, sceVu0FVECTOR v1);
 void sceVu0ApplyMatrix(sceVu0FVECTOR v0, sceVu0FMATRIX m0, sceVu0FVECTOR v1);
 /* inverse of a rigid transform: transposed 3x3, negated rotated translation (0x152360) */
 void sceVu0InversMatrix(sceVu0FMATRIX m0, sceVu0FMATRIX m1);
+/* m0 = m1 with tv added to the translation row (0x152498) */
+void sceVu0TransMatrix(sceVu0FMATRIX m0, sceVu0FMATRIX m1, sceVu0FVECTOR tv);
+/* world-to-view matrix from position p, view direction zd and up vector yd (0x152850;
+   zdb::CalcWorldToUV 0x30cd8c) */
+void sceVu0CameraMatrix(sceVu0FMATRIX m, sceVu0FVECTOR p, sceVu0FVECTOR zd, sceVu0FVECTOR yd);
 /* v0 = v1 + v2 (0x152438) */
 void sceVu0AddVector(sceVu0FVECTOR v0, sceVu0FVECTOR v1, sceVu0FVECTOR v2);
 /* v0 = v1 * t (0x152480) */

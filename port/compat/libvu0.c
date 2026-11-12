@@ -131,6 +131,38 @@ void sceVu0CopyVector(sceVu0FVECTOR v0, sceVu0FVECTOR v1)
         v0[k] = v1[k];
 }
 
+/* 0x152498: rows 0..2 of m0 = rows 0..2 of m1; row 3 = m1[3] with tv.xyz added (w kept).
+ * tv and m1 are read before m0 is written. */
+void sceVu0TransMatrix(sceVu0FMATRIX m0, sceVu0FMATRIX m1, sceVu0FVECTOR tv)
+{
+    const float x = m1[3][0] + tv[0], y = m1[3][1] + tv[1], z = m1[3][2] + tv[2], w = m1[3][3];
+    int i, j;
+    for (i = 0; i < 3; i++)
+        for (j = 0; j < 4; j++)
+            m0[i][j] = m1[i][j];
+    m0[3][0] = x;
+    m0[3][1] = y;
+    m0[3][2] = z;
+    m0[3][3] = w;
+}
+
+/* 0x152850: the world-to-view matrix of a camera at p looking along zd with yd up:
+ * a unit matrix whose row 0 = normalize(yd x zd), row 2 = normalize(zd), row 1 = row 2 x
+ * row 0, translated by p (sceVu0TransMatrix), then sceVu0InversMatrix. */
+void sceVu0CameraMatrix(sceVu0FMATRIX m, sceVu0FVECTOR p, sceVu0FVECTOR zd, sceVu0FVECTOR yd)
+{
+    sceVu0FMATRIX m0;
+    sceVu0FVECTOR xd;
+
+    sceVu0UnitMatrix(m0);
+    sceVu0OuterProduct(xd, yd, zd);
+    sceVu0Normalize(m0[0], xd);
+    sceVu0Normalize(m0[2], zd);
+    sceVu0OuterProduct(m0[1], m0[2], m0[0]);
+    sceVu0TransMatrix(m0, m0, p);
+    sceVu0InversMatrix(m, m0);
+}
+
 /* 0x152a28: m = M2 * M1 (sceVu0MulMatrix(m, M2, M1)), where M1 is the unit matrix with
  * [0][0] = [1][1] = scrz, [2][2] = [3][3] = 0, [2][3] = [3][2] = 1, and M2 the unit matrix
  * with [0][0] = ax, [1][1] = ay, [2][2] = farz*nearz*(zmax-zmin)/(farz-nearz),

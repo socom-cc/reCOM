@@ -1140,8 +1140,23 @@ void zdb::CNode::SetUseParentBBoxTree(bool enable)
 }
 
 /* @socom-skeleton stub SetApplyDecals__Q23zdb5CNodeFb */
-void zdb::CNode::SetApplyDecals(bool)
+void zdb::CNode::SetApplyDecals(bool apply)
 {
+	/* 0x225a10: m_apply_decals on every visual of the subtree (the children's visuals in
+	   line, then their children by recursion) */
+	for (CVisualVector::iterator it = m_visual.begin(); it != m_visual.end(); ++it)
+		(*it)->m_apply_decals = apply;
+
+	for (CNodeVector::iterator it = m_child.begin(); it != m_child.end(); ++it)
+	{
+		CNode* child = *it;
+
+		for (CVisualVector::iterator vis = child->m_visual.begin(); vis != child->m_visual.end(); ++vis)
+			(*vis)->m_apply_decals = apply;
+
+		for (CNodeVector::iterator sub = child->m_child.begin(); sub != child->m_child.end(); ++sub)
+			(*sub)->SetApplyDecals(apply);
+	}
 }
 
 /* @socom-skeleton stub SetApplyMultipassEffects__Q23zdb5CNodeFb */
@@ -1190,13 +1205,81 @@ bool zdb::CNode::VisualEffectsTick(float dT, void *)
 }
 
 /* @socom-skeleton stub ApplyDecal__Q23zdb5CNodeFPQ23zdb5CNodefP6CPnt3DP6CPnt3DP6CPnt3DPQ23zdb10CTexHandlefP6CPnt3D */
-void zdb::CNode::ApplyDecal(zdb::CNode *, float, CPnt3D *, CPnt3D *, CPnt3D *, zdb::CTexHandle *, float, CPnt3D *)
+void zdb::CNode::ApplyDecal(zdb::CNode *instance, float opacity, CPnt3D *pos, CPnt3D *proj, CPnt3D *dir, zdb::CTexHandle *handle, float size, CPnt3D *up)
 {
+	/* 0x2253a0: a decal of the texture, size wide, at world position pos projected along
+	   proj (its v axis from up when given), on the triangles facing against dir of every
+	   visual of this node that takes decals (instance: the node whose m_vid picks the
+	   visuals' instance; opacity < 0: a permanent decal). A node with a submesh visual
+	   (vtype 2) stops there; otherwise the children follow. */
+	CVisual* submesh = NULL;
+
+	if (m_hasVisuals)
+	{
+		CMatrix worldToUV;
+		CMatrix mtw;
+
+		BuildMTW(mtw);
+
+		if (up != NULL)
+			CalcWorldToUV(pos, proj, up, handle->m_texture, size, &worldToUV);
+		else
+			CalcWorldToUV(pos, proj, handle->m_texture, size, &worldToUV);
+
+		for (CVisualVector::iterator it = m_visual.begin(); it != m_visual.end(); ++it)
+		{
+			CVisual* visual = *it;
+
+			if (!visual->m_apply_decals)
+				continue;
+
+			if (visual->m_vtype == 2)
+				submesh = visual;
+			else
+				visual->ApplyDecalRender(&mtw, instance, opacity, proj, dir, handle, &worldToUV);
+		}
+	}
+
+	if (submesh == NULL && m_child.size() != 0)
+	{
+		for (CNodeVector::iterator it = m_child.begin(); it != m_child.end(); ++it)
+			(*it)->ApplyDecal(instance, opacity, pos, proj, dir, handle, size, up);
+	}
 }
 
 /* @socom-skeleton stub RemoveDecals__Q23zdb5CNodeFv */
 void zdb::CNode::RemoveDecals()
 {
+	/* 0x2251d0: the decals of this node's instance of its visuals back to their pools,
+	   then the same for the subtree (the children's visuals in line, their children by
+	   recursion) */
+	for (CVisualVector::iterator it = m_visual.begin(); it != m_visual.end(); ++it)
+	{
+		CVisual* visual = *it;
+
+		if (visual->m_vtype == 1)
+			static_cast<CMesh*>(visual)->DereferenceDecals(m_vid);
+		else
+			visual->DereferenceDecals(m_vid);
+	}
+
+	for (CNodeVector::iterator it = m_child.begin(); it != m_child.end(); ++it)
+	{
+		CNode* child = *it;
+
+		for (CVisualVector::iterator vis = child->m_visual.begin(); vis != child->m_visual.end(); ++vis)
+		{
+			CVisual* visual = *vis;
+
+			if (visual->m_vtype == 1)
+				static_cast<CMesh*>(visual)->DereferenceDecals(child->m_vid);
+			else
+				visual->DereferenceDecals(child->m_vid);
+		}
+
+		for (CNodeVector::iterator sub = child->m_child.begin(); sub != child->m_child.end(); ++sub)
+			(*sub)->RemoveDecals();
+	}
 }
 
 /* @socom-skeleton stub ScrollTexture__Q23zdb5CNodeFPQ23zdb5CNodeffb */

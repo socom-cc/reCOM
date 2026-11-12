@@ -125,6 +125,7 @@
 #include "gamez/zArchive/zar.h" /* CZAR (Init) */
 #include "gamez/zSystem/zsys.h" /* _malloc, _free, _strdup */
 #include <string.h>
+#include <stdlib.h> /* rand (CZMarkList::AddNewMark) */
 #include <strings.h> /* strcasecmp */
 
 // 	RVA: 0x339A60 -> SCUS_971.34
@@ -241,16 +242,21 @@ bool CZWeapon::DestroyProjectileList()
 /* @socom-skeleton stub CreateMarkList__8CZWeaponFv */
 bool CZWeapon::CreateMarkList()
 {
-	/* 0x31f530: the mark (decal) list, a 52-byte CZMarkList. port: not written (decals are
-	 * out of scope; CZMarkList has no members yet), so no list: false */
-	return false;
+	/* 0x31f530: the mark (decal) list, a 52-byte CZMarkList */
+	m_pMarklist = new CZMarkList;
+	return m_pMarklist != NULL;
 }
 
 /* @socom-skeleton stub DestroyMarkList__8CZWeaponFv */
 bool CZWeapon::DestroyMarkList()
 {
-	/* 0x31f440: false without a mark list (port: CreateMarkList makes none) */
-	return false;
+	/* 0x31f440: false without a mark list */
+	if (m_pMarklist == NULL)
+		return false;
+
+	delete m_pMarklist;
+	m_pMarklist = NULL;
+	return true;
 }
 
 /* @socom-skeleton stub CreateWeaponList__8CZWeaponFv */
@@ -967,26 +973,211 @@ char * CZWeapon::GetWeaponVUIName(EQUIP_ITEM id)
 /* @socom-skeleton stub Init__10CZMarkListFv */
 void CZMarkList::Init()
 {
+	/* 0x31de10 (CMission::Open): 40 instances of the model "bullet_mark" in the world,
+	   when the mission has one, then the decal tables and pools */
+	zdb::CModel* model = zdb::CWorld::GetModel("bullet_mark");
+
+	if (model != NULL)
+	{
+		for (s32 i = 0; i < 40; i++)
+		{
+			CPnt3D pos = CPnt3D::zero;
+			CQuat rot = CQuat::identity;
+			zdb::CNode* node = zdb::CNode::CreateInstance(model, &pos, &rot);
+
+			zdb::CWorld::m_world->AddChild(node);
+			m_marklist.push_back(node);
+		}
+	}
+
+	ReadDecalNames((char *)"decals.rdr");
 }
 
 /* @socom-skeleton stub UnInit__10CZMarkListFv */
 void CZMarkList::UnInit()
 {
+	/* 0x31dd10 (CCoreState::auxUnload): the list emptied, the three tables freed, the four
+	   decal pools destroyed. ELF quirk kept: the CDecal pools' m_array pointers are left
+	   pointing at the freed arrays (only the counters are cleared). */
+	m_marklist.clear();
+
+	if (m_decalTexture != NULL)
+		_free(m_decalTexture, "zwep_weapon.cpp", 1098);
+
+	m_decalTexture = NULL;
+
+	if (m_decalminsize != NULL)
+		_free(m_decalminsize, "zwep_weapon.cpp", 1099);
+
+	m_decalminsize = NULL;
+
+	if (m_decalmaxsize != NULL)
+		_free(m_decalmaxsize, "zwep_weapon.cpp", 1100);
+
+	m_decalmaxsize = NULL;
+	m_decal_list_size = 0;
+
+	delete zdb::CDecal::m_tempPool.m_array;
+	zdb::CDecal::m_tempPool.m_count = 0;
+	zdb::CDecal::m_tempPool.m_recycle = 0;
+	delete zdb::CDecal::m_permPool.m_array;
+	zdb::CDecal::m_permPool.m_count = 0;
+	zdb::CDecal::m_permPool.m_recycle = 0;
+	zdb::CMeshDecal::m_tempPool.Uninit();
+	zdb::CMeshDecal::m_permPool.Uninit();
 }
 
 /* @socom-skeleton stub ReadDecalNames__10CZMarkListFPc */
-void CZMarkList::ReadDecalNames(char *)
+bool CZMarkList::ReadDecalNames(char *)
 {
+	/* 0x31dae0: the per-material tables (no texture, sizes 0.3 to 1.8), then from the
+	   mission's decals.rdr (theMission.m_decalsRdr; the name argument is not read) the pool
+	   sizes - TEMP_DECAL_POOL BASE 300 / OVERFLOW BASE + 50, PERM_DECAL_POOL 1 / 1 unless
+	   given - and the WEAPON_DECALS and BLOOD_DECALS lists */
+	m_decal_list_size = CMaterialExArray::m_materialex_list.size();
+
+	if (m_decal_list_size > 0)
+	{
+		m_decalTexture = static_cast<zdb::CTexHandle**>(_malloc(m_decal_list_size * 4, "zwep_weapon.cpp", 1119));
+		m_decalminsize = static_cast<f32*>(_malloc(m_decal_list_size * 4, "zwep_weapon.cpp", 1120));
+		m_decalmaxsize = static_cast<f32*>(_malloc(m_decal_list_size * 4, "zwep_weapon.cpp", 1121));
+
+		for (s32 i = 0; i < m_decal_list_size; i++)
+		{
+			m_decalTexture[i] = NULL;
+			m_decalminsize[i] = 0.3f;
+			m_decalmaxsize[i] = 1.8f;
+		}
+	}
+
+	CRdrFile* rdr = theMission.m_decalsRdr;
+
+	if (rdr == NULL)
+		return false;
+
+	s32 base = 300;
+	s32 overflow = 50;
+	_zrdr* pool = zrdr_findtag(rdr, "TEMP_DECAL_POOL");
+
+	if (pool != NULL)
+	{
+		zrdr_findint(pool, "BASE", &base, 1);
+		overflow = base + 50;
+		zrdr_findint(pool, "OVERFLOW", &overflow, 1);
+	}
+
+	zdb::CDecal::m_tempPool.Init(base, overflow);
+	zdb::CMeshDecal::m_tempPool.Init(base, overflow);
+	base = 1;
+	overflow = 1;
+	pool = zrdr_findtag(rdr, "PERM_DECAL_POOL");
+
+	if (pool != NULL)
+	{
+		zrdr_findint(pool, "BASE", &base, 1);
+		zrdr_findint(pool, "OVERFLOW", &overflow, 1);
+	}
+
+	zdb::CDecal::m_permPool.Init(base, overflow);
+	zdb::CMeshDecal::m_permPool.Init(base, overflow);
+	ReadWeaponDecals(rdr);
+	ReadBloodDecals(rdr);
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("DECAL: pools temp %u+%u perm %d+%d, %d materials, %u blood decals", zdb::CDecal::m_tempPool.m_base,
+		zdb::CDecal::m_tempPool.m_overflow, base, overflow, m_decal_list_size, (u32)m_bloodDecals.size());
+#endif
+	return true;
 }
 
 /* @socom-skeleton stub ReadWeaponDecals__10CZMarkListFP5_zrdr */
-void CZMarkList::ReadWeaponDecals(_zrdr *)
+void CZMarkList::ReadWeaponDecals(_zrdr *rdr)
 {
+	/* 0x31d960: WEAPON_DECALS entries (MATERIALNAME, TEXTURENAME, MIN_SIZE 0.3, MAX_SIZE
+	   1.8) into the per-material tables.
+	   ELF quirk kept: both names are cleared before the material lookup, which gets a NULL
+	   name and returns 0, so no entry is ever stored (the marks come from the weapons'
+	   decal sets, CZDecalSet). */
+	_zrdr* list = zrdr_findtag(rdr, "WEAPON_DECALS");
+
+	if (list == NULL)
+		return;
+
+	const char* texname = NULL;
+	const char* matname = NULL;
+
+	for (s32 i = 1; i < list->array->integer; i++)
+	{
+		_zrdr* entry = &list->array[i];
+
+		if (!zrdr_findSTRING(entry, "MATERIALNAME", &matname))
+			continue;
+
+		f32 minsize = 0.3f;
+		f32 maxsize = 1.8f;
+
+		if (!zrdr_findSTRING(entry, "TEXTURENAME", &texname))
+			continue;
+
+		zrdr_findreal(entry, "MIN_SIZE", &minsize, 1);
+		zrdr_findreal(entry, "MAX_SIZE", &maxsize, 1);
+
+		zdb::CTexHandle* texture = zdb::CWorld::GetTexHandle(texname);
+
+		texname = NULL;
+		matname = NULL;
+
+		for (s32 index = CMaterialExArray::ResolveDecalMaterialIndex(NULL, 0); index != 0;
+			index = CMaterialExArray::ResolveDecalMaterialIndex(matname, index))
+		{
+			m_decalminsize[index] = minsize;
+			m_decalmaxsize[index] = maxsize;
+			m_decalTexture[index] = texture;
+		}
+	}
 }
 
 /* @socom-skeleton stub ReadBloodDecals__10CZMarkListFP5_zrdr */
-void CZMarkList::ReadBloodDecals(_zrdr *)
+void CZMarkList::ReadBloodDecals(_zrdr *rdr)
 {
+	/* 0x31d800: BLOOD_DECALS entries (TEXTURENAME, MIN_SIZE, MAX_SIZE) into m_bloodDecals;
+	   their textures join the world's decal textures */
+	_zrdr* list = zrdr_findtag(rdr, "BLOOD_DECALS");
+
+	if (list == NULL)
+		return;
+
+	const char* texname = NULL;
+	CZDecalDef def;
+
+	def.m_decalminsize = 0.0f;
+	def.m_decalmaxsize = 0.0f;
+	def.m_texture = NULL;
+
+	for (s32 i = 1; i < list->array->integer; i++)
+	{
+		_zrdr* entry = &list->array[i];
+
+		if (!zrdr_findSTRING(entry, "TEXTURENAME", &texname))
+			continue;
+
+		f32 minsize = 0.0f;
+		f32 maxsize = 0.0f;
+
+		zrdr_findreal(entry, "MIN_SIZE", &minsize, 1);
+		zrdr_findreal(entry, "MAX_SIZE", &maxsize, 1);
+
+		zdb::CTexHandle* texture = zdb::CWorld::GetTexHandle(texname);
+
+		def.m_decalminsize = minsize;
+		def.m_decalmaxsize = maxsize;
+		def.m_texture = texture;
+		m_bloodDecals.push_back(def);
+#ifdef SOCOM_PORT
+		if (texture == NULL) /* port: guard - the ELF passes a missing texture on */
+			continue;
+#endif
+		zdb::CWorld::m_world->AddTextureAssetDecals(texture);
+	}
 }
 
 /* @socom-skeleton stub GetDecalNode__FPQ23zdb5CNode */
@@ -1029,13 +1220,157 @@ zdb::CNode * GetVisualNode(zdb::CNode *node)
 }
 
 /* @socom-skeleton stub AddNewMark__10CZMarkListFPQ23zdb15IntersectStructP12CZProjectilef */
-void CZMarkList::AddNewMark(zdb::IntersectStruct *, CZProjectile *, float)
+void CZMarkList::AddNewMark(zdb::IntersectStruct *hit, CZProjectile *projectile, float scale)
 {
+	/* 0x31d360 (CZProjectile::HandleImpact, HandleDetonateExplosion): leave a mark at a hit.
+	   The decal goes on the hit node's nearest ancestor with visuals. A round that went
+	   through a person leaves a blood decal (half size) on what it hits next, within 100
+	   of the person (the far list, within 200, is never filled); any other hit takes the
+	   decal of the hit material from the weapon's decal set, permanent when the set says
+	   so. The size is random between the decal's limits; the projection is against the
+	   surface normal, the facing test along the round's direction (the normal's for
+	   explosives and rounds without a weapon). */
+	zdb::CNode* node = hit->m_node;
+
+	while (node != NULL)
+	{
+		if (node->m_hasVisuals)
+			break;
+
+		zdb::CNode* parent = node->m_parent;
+
+		if (parent == zdb::CWorld::m_world)
+			break;
+
+		node = parent;
+	}
+
+	if (node == NULL)
+		return;
+
+	s32 material = hit->GetMaterial();
+	f32 opacity = 100.0f;
+	CZDecalDef* def = NULL;
+	bool permanent = false;
+	bool blood = projectile->m_lastHitWasPerson;
+	zdb::CNode* instance;
+
+	if (blood)
+	{
+		instance = hit->m_node;
+		scale *= 0.5f;
+	}
+	else
+	{
+		instance = GetDecalNode(hit->m_node);
+	}
+
+	if (blood && material != CMaterialExArray::ResolveMaterialIndex("PERSON"))
+	{
+		CPnt3D delta;
+
+		projectile->m_lastPlayerHitPos.Sub(&hit->m_pos, &delta);
+
+		f32 distsq = delta.x * delta.x + delta.y * delta.y + delta.z * delta.z;
+
+		if (distsq < 10000.0f)
+		{
+			u32 count = m_bloodDecals.size();
+
+			if (count != 0)
+				def = &m_bloodDecals[rand() % count];
+		}
+		else if (distsq < 40000.0f)
+		{
+			u32 count = m_farBloodDecals.size();
+
+			if (count != 0)
+				def = &m_farBloodDecals[rand() % count];
+		}
+	}
+	else
+	{
+		s32 index = hit->GetMaterial();
+
+		if (!(index < m_decal_list_size))
+			return;
+
+		if (projectile->m_weapon != NULL && projectile->m_weapon->m_decalset != NULL)
+		{
+			CZDecalSet* set = projectile->m_weapon->m_decalset;
+
+			permanent = set->m_permenant;
+			def = &set->m_decals[index];
+		}
+	}
+
+	if (def == NULL)
+		return;
+
+	f32 size = def->m_decalminsize;
+
+	size += (rand() * 4.656613e-10f) * (def->m_decalmaxsize - size);
+	size *= scale;
+
+	CPnt3D proj = CPnt3D::zero;
+
+	hit->m_norm.Scale(-1.0f, &proj);
+
+	if (permanent)
+		opacity = -1.0f;
+
+	if (def->m_texture == NULL)
+		return;
+
+	CPnt3D dir = projectile->m_vel;
+	bool round = false;
+
+	if (projectile->m_weapon != NULL)
+	{
+		u32 type = (u8)CZWeapon::GetIDType(projectile->m_weapon->m_ID);
+
+		round = !(type == 170 || type == 120 || type == 150 || type == 180);
+	}
+
+	if (round)
+		dir.Normalize();
+	else
+		dir = proj;
+
+	node->ApplyDecal(instance, opacity, &hit->m_pos, &proj, &dir, def->m_texture, size, NULL);
 }
 
 /* @socom-skeleton stub DestroyDecalSet__10CZDecalSetFv */
-void CZDecalSet::DestroyDecalSet()
+bool CZDecalSet::DestroyDecalSet()
 {
+	/* 0x31d1e0 (CMission::Close): every set freed from the back, the list's storage
+	   released; false when there was none */
+	if (m_decalsets.size() == 0)
+		return false;
+
+	while (m_decalsets.size() != 0)
+	{
+		CZDecalSet* set = m_decalsets.back();
+
+		m_decalsets.pop_back();
+
+		if (set != NULL)
+		{
+			if (set->m_decals != NULL)
+				_free(set->m_decals, "zwep_weapon.cpp", 1505);
+
+			set->m_decals = NULL;
+
+			if (set->m_name != NULL)
+				_free(set->m_name, "zwep_weapon.cpp", 1506);
+
+			set->m_name = NULL;
+			delete set;
+		}
+	}
+
+	std::vector<CZDecalSet*>().swap(m_decalsets);
+	return true;
 }
 
 /* @socom-skeleton stub GetDecalSetByName__10CZDecalSetFPCc */
@@ -1052,13 +1387,102 @@ CZDecalSet * CZDecalSet::GetDecalSetByName(const char *name)
 }
 
 /* @socom-skeleton stub ReadDecalSet__10CZDecalSetFP5_zrdr */
-void CZDecalSet::ReadDecalSet(_zrdr *)
+void CZDecalSet::ReadDecalSet(_zrdr *rdr)
 {
+	/* 0x31cf50: one DECAL_SETS entry: a new set (inline constructor: one cleared CZDecalDef
+	   per material, no name, not permanent; the list reserves 128), its entries read, the
+	   set appended */
+	if (rdr == NULL)
+		return;
+
+	CZDecalSet* set = new CZDecalSet;
+
+	if (set != NULL)
+	{
+		s32 count = CMaterialExArray::m_materialex_list.size();
+
+		set->m_decals = static_cast<CZDecalDef*>(_malloc(count * 12, "zwep_weapon.cpp", 1493));
+		set->m_name = NULL;
+
+		for (s32 i = 0; i < count; i++)
+		{
+			set->m_decals[i].m_decalminsize = 0.0f;
+			set->m_decals[i].m_decalmaxsize = 0.0f;
+			set->m_decals[i].m_texture = NULL;
+		}
+
+		m_decalsets.reserve(128);
+		set->m_permenant = false;
+	}
+
+	for (s32 i = 1; i < rdr->array->integer; i++)
+		set->ReadDecalEntry(&rdr->array[i]);
+
+	m_decalsets.push_back(set);
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("DECAL: set %s perm %d", set->m_name ? set->m_name : "?", set->m_permenant);
+#endif
 }
 
 /* @socom-skeleton stub ReadDecalEntry__10CZDecalSetFP5_zrdr */
-void CZDecalSet::ReadDecalEntry(_zrdr *)
+void CZDecalSet::ReadDecalEntry(_zrdr *entry)
 {
+	/* 0x31cd90: one entry of a decal set: SETNAME (the set's name), PERMENANT (as the ELF
+	   spells it), or a material's decal: MATERIALNAME, TEXTURENAME, MIN_SIZE, MAX_SIZE. The
+	   texture joins the world's decal textures (the character textures for PERSON). */
+	if (entry == NULL)
+		return;
+
+	const char* name = NULL;
+	const char* permanent = NULL;
+
+	if (zrdr_findSTRING(entry, "SETNAME", &name))
+	{
+		if (m_name != NULL)
+			_free(m_name, "zwep_weapon.cpp", 1510);
+
+		m_name = NULL;
+		m_name = _strdup(name, "zwep_weapon.cpp", 1511);
+		return;
+	}
+
+	if (zrdr_findSTRING(entry, "PERMENANT", &permanent))
+	{
+		m_permenant = true;
+		return;
+	}
+
+	const char* matname = NULL;
+
+	if (!zrdr_findSTRING(entry, "MATERIALNAME", &matname))
+		return;
+
+	s32 index = CMaterialExArray::ResolveMaterialIndex(matname);
+	const char* texname = NULL;
+
+	if (!zrdr_findSTRING(entry, "TEXTURENAME", &texname))
+		return;
+
+	f32 minsize = 0.0f;
+	f32 maxsize = 0.0f;
+
+	zrdr_findreal(entry, "MIN_SIZE", &minsize, 1);
+	zrdr_findreal(entry, "MAX_SIZE", &maxsize, 1);
+
+	zdb::CTexHandle* texture = zdb::CWorld::GetTexHandle(texname);
+
+	m_decals[index].m_decalminsize = minsize;
+	m_decals[index].m_decalmaxsize = maxsize;
+	m_decals[index].m_texture = texture;
+#ifdef SOCOM_PORT
+	if (texture == NULL) /* port: guard - the ELF passes a missing texture on */
+		return;
+#endif
+
+	if (strcmp(matname, "PERSON") == 0)
+		zdb::CWorld::m_world->AddTextureAssetCharacterAll(texture);
+	else
+		zdb::CWorld::m_world->AddTextureAssetDecals(texture);
 }
 
 /* @socom-skeleton stub Init__8CZWeaponFv */
@@ -1092,6 +1516,21 @@ bool CZWeapon::Open()
 /* @socom-skeleton stub OpenDecals__8CZWeaponFv */
 void CZWeapon::OpenDecals()
 {
+	/* 0x31cbb0 (CMission::Open): the DECAL_SETS of the mission's decals.rdr */
+	CRdrFile* rdr = theMission.m_decalsRdr;
+
+	if (rdr == NULL)
+		return;
+
+	_zrdr* sets = zrdr_findtag(rdr, "DECAL_SETS");
+
+	if (sets == NULL)
+		return;
+
+	s32 count = sets->IsArray() ? sets->array->integer - 1 : 0;
+
+	for (s32 i = 0; i < count; i++)
+		CZDecalSet::ReadDecalSet(sets->Get(i));
 }
 
 /* @socom-skeleton body Close__8CZWeaponFv */

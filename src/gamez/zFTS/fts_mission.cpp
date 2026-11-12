@@ -886,8 +886,9 @@ void CMission::Open(const char *db, int ai)
 	CreateLadderTable();
 	CCharacterModelCache::m_ModelCache.clear(); /* 0x1f8420: the cache vector's size word = 0 */
 	CZWeapon::OpenDecals();
-	/* port: not written - the ELF runs m_pMarklist->Init() when CreateMarkList made one
-	 * (CZWeapon::m_pMarklist, 0x476680, is not declared; CreateMarkList is not written) */
+
+	if (CZWeapon::m_pMarklist != NULL)
+		CZWeapon::m_pMarklist->Init();
 
 	if (theNetwork.m_bNetwork)
 		CZSealBody::NetworkPlayerCreate();

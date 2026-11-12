@@ -109,6 +109,7 @@ enum tag_VU1_COMMAND
 	VU1_MP_SHADOW_MAP1 = 62,
 	VU1_GATHER_FIX_KICK_SHADOW = 64,
 	VU1_SLEEP = 66,
+	VU1_COLOR_TO_FLOAT0 = 70,
 	VU1_COLOR_TO_FLOAT1 = 72,
 	VU1_NEXT_CLIP_TRI = 76,
 	VU1_NEXT_CLIP_LINE = 78,
@@ -216,6 +217,15 @@ namespace zdb
 	/* CVisBase is a global class (symbols __ct__8CVisBaseFUib, m_instance_count__8CVisBase),
 	   declared in vis_local.h */
 
+	/* A cursor over the triangles of one instance chain of a visual (96 bytes: visData
+	 * 0x511a20, _vdataTex). No DWARF; members from Clear 0x310a30, SelectVertex 0x3109a0,
+	 * SearchVertex 0x3107b0, NextVertex 0x310560 and their callers (names invented). The chain
+	 * header's low half is the packet count; the packets are the 16-byte DMA tags after it, the
+	 * packet type in byte 2 and the data address in word 1. A vertex packet (types 2, 10) is
+	 * the VIF data of one batch: batch header at +40 (z vertex count, w triangle count),
+	 * decompression vector at +56, 16-byte vertex records {s16 x, y, z, nx, s, t, ny, nz} at
+	 * +80, then (8 bytes on) the index list, 4 bytes a triangle {3 vertex offsets (index * 3),
+	 * 1 flag}, then (8 bytes on) one s16 normal triple a triangle. */
 	class CVisData
 	{
 	public:
@@ -223,26 +233,41 @@ namespace zdb
 		~CVisData() {} /* __dt__Q23zdb8CVisDataFv (inline, 0x231d80): empty body */
 
 		void Clear();
-		void NextVertex(u32 vertex);
-		void SearchVertex();
-		void SelectVertex(CVisual* vis, u32 vertex);
+		CVisData* NextVertex(u32 count);   /* 0x310560 returns this, NULL past the last batch */
+		CVisData* SearchVertex();          /* 0x3107b0 likewise */
 
-		void SetBilinear(_word128* qwc, bool bilinear);
-
-		u32 m_vertex_start;
-		u32 m_vertex_count;
-		u8* m_cur_vertex;
-
-		_word128* m_data;
-		_word128* m_nextGif;
+		u32 m_tex_data;       /* +0: address word of the last type 3 or 5 packet */
+		u32 m_pkt_count;      /* +4 */
+		u32 m_vertex_count;   /* +8: of the current batch */
+		u32 m_tri_count;      /* +12 */
+		_word128* m_chain;    /* +16: the instance chain header (CVisual::m_buffers entry) */
+		u32* m_batch_hdr;     /* +20: batch header qword (x, y, z vertex count, w triangle count) */
+		f32* m_decompress;    /* +24: xyz offset, w scale (1: positions are x / 16 + offset) */
+		u32 m_unk28;          /* +28: only cleared */
+		u32* m_color_base;    /* +32: address word of the last type 4 packet: one rgba a vertex */
+		s16* m_normal_base;   /* +36: triangle normals of the batch */
+		u8* m_index;          /* +40: current entry of the index list */
+		s16* m_vertex_base;   /* +44: vertex records of the batch */
+		_word128* m_pkt;      /* +48: current packet */
+		u32 m_unk52;          /* +52: only cleared */
+		s16* m_vertex;        /* +56: record of the current vertex */
+		u32* m_color;         /* +60: colour of the current vertex */
+		s16* m_normal;        /* +64: triangle normal cursor (the callers step it) */
+		u32 m_pkt_idx;        /* +68 */
+		u32 m_index_pos;      /* +72: index number over the whole chain */
+		u32 m_index_first;    /* +76: index number of the current batch's first index */
+		u32 m_index_end;      /* +80: index number past the current batch */
+		u32 m_unk84;          /* +84: Clear sets 0xffff */
+		u32 m_unk88;          /* +88: only cleared */
+		u32 m_unk92;          /* +92: Clear sets 0xffff */
 		/* @socom-skeleton decl Q23zdb8CVisData */
 public:
-		void SelectVertex(zdb::CVisual *, unsigned int, unsigned int);
+		CVisData * SelectVertex(zdb::CVisual *, unsigned int, unsigned int); /* 0x3109a0 returns SearchVertex's result */
 		void ReplaceTextureData(unsigned __int128 *);
 		void SetBilinear(unsigned __int128 *, unsigned int);
 		/* @socom-skeleton end Q23zdb8CVisData */
 	};
-	
+
 	/// <summary>
 	/// Representation of an object in 3D space, which will get passed to the rendering pipeline.
 	/// </summary>
@@ -260,7 +285,9 @@ public:
 
 		static void AddLocalLight(CLight* light, CPnt3D* position);
 		static void AlphaEnable(bool enableAlpha);
-		static s32 ApplyDecal(u32 vertex, f32 opacity, CPnt3D* position, CMatrix* mat, CTexHandle* handle);
+		/* ApplyDecal__Q23zdb7CVisualFUifP6CPnt3DP7CMatrixPQ23zdb10CTexHandle 0x3096e0: a member
+		   (ApplyDecalRender passes this); returns the decals attached */
+		s32 ApplyDecal(u32 vid, f32 opacity, CPnt3D* dir, CMatrix* toUV, CTexHandle* handle);
 		static CVisual* Create(zar::CZAR& archive);
 		static void LandmarkEnable(bool enableLandmarks);
 		static void NodeSetup(CNode* node, CNode* other, CMatrix* matrix, s32 status);
@@ -268,8 +295,6 @@ public:
 		static void Init(); /* zRndrInit 0x241850 calls it with no object */
 
 		virtual bool Read(zar::CZAR& archive); /* vtable slot __vt__Q23zdb7CVisual +0x18; Create calls it */
-
-		void ApplyDecal(CDecal* decal);
 
 		/* SetBuffer: the binary has only SetBuffer__Q23zdb7CVisualFP8_word128UiP8CVisBase, declared below */
 		bool GetChainData();
@@ -328,7 +353,7 @@ public:
 		s32 m_ref_count;                       /* +24: instances sharing this visual (Clone, Release) */
 		s32 m_render_mode;                     /* +28: 3, or -2 for vparams bit 10 (Read); CPipe
 		                                          sets -3; VuBatchProgram runs its full program at 3 */
-		std::vector<CDecal*> m_decals;         /* +36: decal list per instance (m_stack_vid top) */
+		std::vector<CDecal*> m_decals;         /* +36: per instance (m_stack_vid top) the head of its decal list (CDecal::m_next) */
 		std::vector<_word128*> m_buffers;      /* +48: chain header per instance (SetBuffer) */
 		std::vector<_word128*> m_alloc_blocks; /* +60: chain parts SetBuffer copied out of the model buffer */
 		CDynTexList m_dyn_tex_list;            /* +72: textures the chains use */
@@ -447,7 +472,31 @@ public:
 		/* @socom-skeleton end Q23zdb8CSubMesh */
 	};
 
-	class CDecal : public CVisual
+	/* One vertex of a decal triangle as CVisual::ApplyDecal 0x3096e0 gathers it (48 bytes:
+	 * decaldata 0x511a80 holds 6, decalps 0x43b530 points at them). No DWARF; members from
+	 * ApplyDecal and CDecal::AddDecal 0x312e80 (names invented). */
+	class AddonPoint
+	{
+	public:
+		CPnt3D m_uv;       /* +0: the vertex through the world-to-UV matrix: u, v, depth */
+		s16 m_index;       /* +12: vertex number in its batch */
+		s16 m_unk0e;       /* +14: not written */
+		CPnt3D m_pos;      /* +16: model-space position */
+		u32* m_color;      /* +28: the vertex's rgba in the instance colour buffer */
+		f32 m_nx;          /* +32: the vertex record's normal (s16 / 32768) */
+		f32 m_ny;          /* +36 */
+		f32 m_nz;          /* +40 */
+		s16* m_tri_normal; /* +44: the triangle's normal triple in the batch */
+	};
+
+	/* A decal: one triangle of a visual drawn again with the decal texture (272 bytes,
+	 * RTArray<zdb::CDecal> 0x3137d0; not a CVisual: no constructor, no vtable). No DWARF;
+	 * members from AddDecal 0x312e80, CVisual::AttachDecal 0x3093c0, RemoveDecal 0x309360,
+	 * DereferenceDecals 0x3092b0 and VuUpdate 0x30a900 (names invented). VuUpdate copies
+	 * m_select (when the texture changes) and m_ref into the VIF1 packet; m_ref sends the 14
+	 * qwords from m_color on: a batch of 3 vertices and 1 triangle with float vertices
+	 * (program vuColorToFloat0 instead of vuDecompress). */
+	class CDecal
 	{
 	public:
 		static CDecalPool m_tempPool;
@@ -457,20 +506,64 @@ public:
 		static void PutPermDecal(zdb::CDecal *);
 		void AddDecal(float, zdb::AddonPoint **, unsigned int, zdb::CTexHandle *, zdb::CVisual *, unsigned int);
 		static void Tick(float);
-		static CDecalPool m_permPool; /* port: unproven type - 20-byte object like m_tempPool (skeleton had int[5]) */
+		static CDecalPool m_permPool;
 		/* @socom-skeleton end Q23zdb6CDecal */
+
+		CDecal* m_next;       /* +0: next decal of the same instance */
+		CVisual* m_visual;    /* +4 */
+		f32 m_opacity;        /* +8: negative for a permanent decal */
+		u16 m_vid;            /* +12: instance (index into CVisual::m_decals) */
+		u16 m_kind;           /* +14: 1 from the temp pool, 2 from the perm pool */
+		_word128 m_select;    /* +16: the texture's m_dmaRefVu */
+		_word128 m_ref;       /* +32: DMA REF 14 qwords at m_color; STCYCL 3,1 + UNPACK V4-8 x3 to 6 */
+		u32 m_color[3];       /* +48 */
+		u32 m_vif_header[2];  /* +60: STCYCL 1,1 + UNPACK V4-32 x4 to 0 */
+		u32 m_header[4][4];   /* +68: two GIF tags, the batch header, the decompression vector */
+		u32 m_vif_vertex[2];  /* +132: STCYCL 3,2 + UNPACK V4-32 x6 to 4 */
+		f32 m_vertex[3][8];   /* +140: {x, y, z, nx}, {u, v, ny, nz} a vertex */
+		u32 m_vif_index[2];   /* +236: STCYCL 2,1 + UNPACK V4-8 x1 to 13 */
+		u8 m_index[4];        /* +244: 0, 3, 6, 1 */
+		u32 m_vif_normal[2];  /* +248: STCYCL 2,1 + UNPACK V3-16 x1 to 14 */
+		s16 m_normal[4];      /* +256: the triangle normal, 0 */
+		u32 m_vif_end[2];     /* +264: MSCNT, NOP */
 	};
 
-	class CMeshDecal : public CDecal
+	/* A decal on a skinned mesh (64 bytes, RTArray<zdb::CMeshDecal> 0x313aa0, whose inline
+	 * constructor clears the members named here; not a CDecal). The ELF has no code that
+	 * takes one from its pools (no RTArray<zdb::CMeshDecal>::GetNext), so CMesh::m_mesh_decals
+	 * stays empty. No DWARF; members from FreeMem 0x312e20, CMesh::RemoveMeshDecal 0x30ede0
+	 * and VuUpdate (names invented). */
+	class CMeshDecal
 	{
 	public:
+		CMeshDecal() /* inline (RTArray<zdb::CMeshDecal> 0x313aa0) */
+		{
+			m_unk00 = 0;
+			m_next = NULL;
+			m_mesh = NULL;
+			m_mem = NULL;
+			m_chain = NULL;
+			m_qwc = 0;
+		}
+
 		static CMeshDecalPool m_tempPool;
 		/* @socom-skeleton decl Q23zdb10CMeshDecal */
 public:
 		static void PutTempDecal(zdb::CMeshDecal *);
 		void FreeMem();
-		static CMeshDecalPool m_permPool; /* port: unproven type - 20-byte object like m_tempPool (skeleton had int[5]) */
+		static CMeshDecalPool m_permPool;
 		/* @socom-skeleton end Q23zdb10CMeshDecal */
+
+		u32 m_unk00;          /* +0 */
+		CMeshDecal* m_next;   /* +4 */
+		CMesh* m_mesh;        /* +8 */
+		u32 m_unk0c;          /* +12 */
+		void* m_mem;          /* +16: _malloc'd (FreeMem) */
+		u32 m_unk14[3];       /* +20 */
+		_word128 m_select;    /* +32: VuUpdate copies it before the chain */
+		u32 m_qwc;            /* +48: qwords at m_chain */
+		_word128* m_chain;    /* +52 */
+		u32 m_unk38[2];       /* +56 */
 	};
 
 	class C2DVisual : public CVisual
@@ -485,7 +578,7 @@ namespace zdb
 	/* free functions defined in vis_main.cpp, vis_decal.cpp, vis_texfx.cpp (GLOBAL symbols) */
 	void CalcWorldToUV(CPnt3D *, CPnt3D *, CPnt3D *, zdb::CTexture *, float, CMatrix *);
 	void CalcWorldToUV(CPnt3D *, CPnt3D *, zdb::CTexture *, float, CMatrix *);
-	void UVCompare(CPnt3D *, CPnt3D *, CPnt3D *);
+	bool UVCompare(CPnt3D *, CPnt3D *, CPnt3D *); /* 0x3134d0 returns 0/1 */
 	void LimitUVs(short *, short *, short *);
 }
 #endif

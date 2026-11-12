@@ -1045,6 +1045,11 @@ void zdb::CWorld::ClearShadowList()
 /* @socom-skeleton stub RemoveDecals__Q23zdb6CWorldFv */
 void zdb::CWorld::RemoveDecals()
 {
+	/* 0x22dc50 (CMission::Close, ReOpen_Unload1): every child's decals */
+	u32 count = m_child.size();
+
+	for (u32 i = 0; i < count; i++)
+		m_child[i]->RemoveDecals();
 }
 
 /* @socom-skeleton stub TestFOV__Q23zdb26CTextureAssetCharacterListFPQ23zdb7CCameraPPQ23zdb23CTextureAssetCharacters */

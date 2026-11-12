@@ -127,16 +127,104 @@ void zdb::CScrollingTexture_Object::Read(zdb::CSaveLoad *)
 /* @socom-skeleton stub Clear__Q23zdb8CVisDataFv */
 void zdb::CVisData::Clear()
 {
+	/* 0x310a30 (the texture word and the vertex, colour and normal cursors are left) */
+	m_unk28 = 0;
+	m_color_base = NULL;
+	m_chain = NULL;
+	m_index_pos = 0;
+	m_index = NULL;
+	m_pkt_count = 0;
+	m_pkt_idx = 0;
+	m_pkt = NULL;
+	m_index_first = 0;
+	m_index_end = 0;
+	m_unk52 = 0;
+	m_tri_count = 0;
+	m_vertex_count = 0;
+	m_batch_hdr = NULL;
+	m_decompress = NULL;
+	m_unk84 = 0xffff;
+	m_unk88 = 0;
+	m_unk92 = 0xffff;
 }
 
 /* @socom-skeleton stub SelectVertex__Q23zdb8CVisDataFPQ23zdb7CVisualUiUi */
-void zdb::CVisData::SelectVertex(zdb::CVisual *, unsigned int, unsigned int)
+zdb::CVisData * zdb::CVisData::SelectVertex(zdb::CVisual *visual, unsigned int vid, unsigned int index)
 {
+	/* 0x3109a0: start on instance vid's chain at index number index */
+	Clear();
+	m_chain = visual->m_buffers[vid];
+	m_pkt_count = m_chain->u16[0];
+	m_pkt = m_chain + 1;
+	m_index_pos = index;
+	m_pkt_idx = 0;
+	return SearchVertex();
 }
 
 /* @socom-skeleton stub SearchVertex__Q23zdb8CVisDataFv */
-void zdb::CVisData::SearchVertex()
+zdb::CVisData * zdb::CVisData::SearchVertex()
 {
+	/* 0x3107b0: walk the packets from the current one to the vertex batch that starts at
+	   (or after) the wanted index number, noting the colour buffer (type 4) and the texture
+	   word (types 3, 5) on the way. NULL (and cleared) when the chain ends. ELF quirks kept:
+	   a batch that starts before the wanted index is skipped, so the walk into a batch
+	   below never runs; the first vertex of a batch is record 0 whatever its index entry. */
+	while (m_pkt_idx < m_pkt_count)
+	{
+		u8 type = m_pkt->u8[2];
+
+		if (type == 1)
+		{
+		}
+		else if (type == 5 || type == 3)
+		{
+			m_tex_data = m_pkt->u32[1];
+		}
+		else if (type == 10 || type == 2)
+		{
+			u8* data = reinterpret_cast<u8*>(m_pkt->u32[1]);
+
+			m_batch_hdr = reinterpret_cast<u32*>(data + 40);
+			m_vertex_count = m_batch_hdr[2];
+			m_tri_count = m_batch_hdr[3];
+			m_index_first = m_index_end;
+			m_index_end += m_tri_count * 3;
+
+			if (!(m_index_first < m_index_pos) && m_index_pos < m_index_end)
+			{
+				m_decompress = reinterpret_cast<f32*>(data + 56);
+				m_vertex = reinterpret_cast<s16*>(data + 80);
+				m_vertex_base = m_vertex;
+				m_index = reinterpret_cast<u8*>(m_vertex) + m_vertex_count * 16 + 8;
+				m_normal = reinterpret_cast<s16*>(m_index + m_tri_count * 4 + 8);
+				m_normal_base = m_normal;
+
+				if (m_index_first < m_index_pos)
+				{
+					for (u32 i = 0; i < m_index_pos - m_index_first; i++)
+					{
+						if (i % 3 == 0)
+							m_index++;
+
+						m_index++;
+					}
+				}
+
+				return this;
+			}
+		}
+		else if (type == 4)
+		{
+			m_color_base = reinterpret_cast<u32*>(m_pkt->u32[1]);
+			m_color = reinterpret_cast<u32*>(m_pkt->u32[1]);
+		}
+
+		m_pkt_idx++;
+		m_pkt++;
+	}
+
+	Clear();
+	return NULL;
 }
 
 /* @socom-skeleton stub ReplaceTextureData__Q23zdb8CVisDataFP1 */
@@ -147,17 +235,56 @@ void zdb::CVisData::ReplaceTextureData(unsigned __int128 *)
 /* @socom-skeleton body SetBilinear__Q23zdb8CVisDataFP1Ui */
 void zdb::CVisData::SetBilinear(unsigned __int128 *qwc, unsigned int bilinear)
 	{
-		while (m_nextGif->u8[2] != 8)
+		/* 0x310650: the chain's first type 8 packet: its data's second qword starts with the
+		   TEX1 value; MMAG (bit 5) and MMIN (bits 6-8) are set from the flag, through the
+		   uncached mirror (0x20000000) */
+		_word128* chain = reinterpret_cast<_word128*>(qwc);
+
+		m_pkt_count = chain->u16[0];
+		m_pkt_idx = 0;
+		m_pkt = chain + 1;
+
+		while (m_pkt_idx < m_pkt_count)
 		{
-			m_nextGif++;
+			if (m_pkt->u8[2] == 8)
+			{
+				u8* reg = reinterpret_cast<u8*>((m_pkt->u32[1] + 16) | 0x20000000);
+
+				*reinterpret_cast<u16*>(reg) = (*reinterpret_cast<u16*>(reg) & ~0x1c0) | ((bilinear & 7) << 6);
+				*reg = (*reg & ~0x20) | ((bilinear & 1) << 5);
+				return;
+			}
+
+			m_pkt_idx++;
+			m_pkt++;
 		}
 	}
 
 /* @socom-skeleton body NextVertex__Q23zdb8CVisDataFUi */
 namespace zdb {
-void CVisData::NextVertex(u32 stride)
+CVisData* CVisData::NextVertex(u32 count)
 	{
-		
+		/* 0x310560: count index entries on; into the next batch when this one is done. Each
+		   fourth byte of the index list (the triangle's flag) is stepped over. */
+		m_index_pos += count;
+
+		if (!(m_index_pos < m_index_end))
+		{
+			m_pkt_idx++;
+			m_pkt++;
+			return SearchVertex();
+		}
+
+		m_index += count;
+
+		if ((m_index_pos - m_index_first) % 3 == 0)
+			m_index++;
+
+		u32 vertex = *m_index / 3;
+
+		m_vertex = m_vertex_base + vertex * 8;
+		m_color = m_color_base + vertex;
+		return this;
 	}
 }
 

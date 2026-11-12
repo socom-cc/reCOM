@@ -151,7 +151,9 @@
 #include "gamez/zRender/zrender.h"
 #include "gamez/zSystem/zsys_spr.h" /* CSPR, zSysSprGetPacket */
 #include "gamez/zVideo/zvid.h" /* zVid_ZTestOnWriteSet */
-#include <libvu0.h> /* sceVu0ApplyMatrix, sceVu0CopyMatrix */
+#include <libvu0.h> /* sceVu0ApplyMatrix, sceVu0CopyMatrix, sceVu0CameraMatrix */
+#include <eekernel.h> /* FlushCache (AttachDecal) */
+#include <math.h> /* fabsf */
 
 namespace zdb
 {
@@ -487,7 +489,11 @@ CMatrix CVisual::m_WorldToModel;
 static unsigned char visData[96];
 
 /* @socom-skeleton stub decaldata */
-static unsigned char decaldata[288];
+static zdb::AddonPoint decaldata[6]; /* 288 bytes: the corners CVisual::ApplyDecal gathers */
+
+/* decalps 0x43b530 (.data, 24 bytes, LOCAL; no skeleton stub): the six records by address,
+   the point list ApplyDecal hands to AttachDecal */
+static zdb::AddonPoint* decalps[6] = { &decaldata[0], &decaldata[1], &decaldata[2], &decaldata[3], &decaldata[4], &decaldata[5] };
 
 /* port: file-local helpers, not ELF functions - CVisual::VuUpdate 0x30a900 and VuBatchProgram
    0x30bda0 write these steps inline at every use */
@@ -1052,18 +1058,164 @@ void CVisual::LandmarkEnable(bool enable)
 }
 
 /* @socom-skeleton stub CalcWorldToUV__3zdbFP6CPnt3DP6CPnt3DP6CPnt3DPQ23zdb8CTexturefP7CMatrix */
-void zdb::CalcWorldToUV(CPnt3D *, CPnt3D *, CPnt3D *, zdb::CTexture *, float, CMatrix *)
+void zdb::CalcWorldToUV(CPnt3D *pos, CPnt3D *dir, CPnt3D *up, zdb::CTexture *texture, float size, CMatrix *out)
 {
+	/* 0x30ce20: the world-to-UV matrix of a decal size wide at pos, projected along dir, its
+	   v axis from up: a view matrix at pos looking along dir (side = up x dir, the view's up
+	   = side x dir), then u, v = view x, y * (width - 1) / (size * width) + 0.5 with width
+	   the texture's; z stays the depth along dir. */
+	CMatrix view;
+	CMatrix scale;
+	sceVu0FVECTOR u = { up->x, up->y, up->z, 1.0f };
+	sceVu0FVECTOR d = { dir->x, dir->y, dir->z, 1.0f };
+	sceVu0FVECTOR side;
+
+	sceVu0OuterProduct(side, u, d);
+	sceVu0Normalize(side, side);
+
+	sceVu0FVECTOR s = { side[0], side[1], side[2], 0.0f }; /* the ELF passes a CPnt3D copy: w is not read */
+	sceVu0FVECTOR zd = { dir->x, dir->y, dir->z, 1.0f };
+	sceVu0FVECTOR p = { pos->x, pos->y, pos->z, 1.0f };
+	sceVu0FVECTOR yd;
+
+	sceVu0OuterProduct(yd, s, zd);
+	sceVu0CameraMatrix(view.m_matrix, p, zd, yd);
+	sceVu0UnitMatrix(scale.m_matrix);
+
+	f32 width = texture->m_width;
+	f32 factor = (width - 1.0f) / (size * width);
+
+	scale.m_matrix[3][1] = 0.5f;
+	scale.m_matrix[3][0] = 0.5f;
+	scale.m_matrix[1][1] = factor;
+	scale.m_matrix[0][0] = factor;
+	sceVu0MulMatrix(out->m_matrix, scale.m_matrix, view.m_matrix);
 }
 
 /* @socom-skeleton stub CalcWorldToUV__3zdbFP6CPnt3DP6CPnt3DPQ23zdb8CTexturefP7CMatrix */
-void zdb::CalcWorldToUV(CPnt3D *, CPnt3D *, zdb::CTexture *, float, CMatrix *)
+void zdb::CalcWorldToUV(CPnt3D *pos, CPnt3D *dir, zdb::CTexture *texture, float size, CMatrix *out)
 {
+	/* 0x30cc50: as above without an up vector: the view's up is dir x the world axis dir
+	   has the least of. */
+	CMatrix view;
+	CMatrix scale;
+	sceVu0FVECTOR d = { dir->x, dir->y, dir->z, 0.0f };
+	/* port: zeroed - the ELF sets only the one component below and leaves the rest of this
+	   stack vector as it finds it */
+	sceVu0FVECTOR axis = { 0.0f, 0.0f, 0.0f, 0.0f };
+	u32 least = 0;
+	f32 smallest = fabsf(d[0]);
+
+	if (fabsf(d[1]) < smallest)
+	{
+		least = 1;
+		smallest = fabsf(d[1]);
+	}
+
+	if (fabsf(d[2]) < smallest)
+		least = 2;
+
+	axis[least] = 1.0f;
+
+	sceVu0FVECTOR yd;
+
+	sceVu0OuterProduct(yd, d, axis);
+	sceVu0Normalize(yd, yd);
+
+	sceVu0FVECTOR zd = { dir->x, dir->y, dir->z, 1.0f };
+	sceVu0FVECTOR p = { pos->x, pos->y, pos->z, 1.0f };
+
+	sceVu0CameraMatrix(view.m_matrix, p, zd, yd);
+	sceVu0UnitMatrix(scale.m_matrix);
+
+	f32 width = texture->m_width;
+	f32 factor = (width - 1.0f) / (size * width);
+
+	scale.m_matrix[3][1] = 0.5f;
+	scale.m_matrix[3][0] = 0.5f;
+	scale.m_matrix[1][1] = factor;
+	scale.m_matrix[0][0] = factor;
+	sceVu0MulMatrix(out->m_matrix, scale.m_matrix, view.m_matrix);
 }
 
 /* @socom-skeleton stub VuBatchProgram_Decals__Q23zdb7CVisualFP8_word128P16tag_ObjectHeader */
-_word128 * zdb::CVisual::VuBatchProgram_Decals(_word128 *, tag_ObjectHeader *)
+_word128 * zdb::CVisual::VuBatchProgram_Decals(_word128 *p, tag_ObjectHeader *header)
 {
+	/* 0x30c9c0: the command list for decal batches: as VuBatchProgram's mode 3 without
+	   texture kick and multipass, and with vuColorToFloat0 for vuDecompress (a decal's
+	   vertices are floats already) */
+	_word128* start = p;
+	u32 n = 0;
+
+	if (m_vtype == 1)
+	{
+		p = VuCommand(p, VU1_CMESH, 0, 1);
+		p = VuCommand(p, VU1_BUILD_NORMALS, 0, 1);
+		n += 2;
+	}
+	else
+	{
+		p = VuCommand(p, VU1_COLOR_TO_FLOAT0, 0, 1);
+		n++;
+	}
+
+	if (m_flag3)
+	{
+		p = VuCommand(p, VU1_FRONT_FACE, 0, 1);
+		n++;
+	}
+
+	if (m_fovStatus == 0)
+	{
+		p = VuCommand(p, VU1_GATHER_CLIP_TRI, 0, 1);
+		n++;
+		p = VuCommand(p, VU1_XFORM1, n, 1);
+
+		if (m_fogEnable)
+			p = VuCommand(p, VU1_FOG1, n, 1);
+
+		if (m_lightingEnable)
+		{
+			p = VuCommand(p, VU1_INIT_LIGHT1, n, 1);
+
+			if (m_applyLocalLights && m_local_light_cnt != 0)
+				p = VuCommand(p, VU1_LOCAL_LIGHT1, n, m_local_light_cnt);
+
+			p = VuCommand(p, VU1_GLOBAL_LIGHT1, n, 1);
+		}
+
+		if (m_applyScaleColor)
+			p = VuCommand(p, VU1_SCALE_COLOR1, n, 1);
+
+		p = VuCommand(p, VU1_FIX_KICK1, n, 1);
+		p = VuCommand(p, VU1_NEXT_CLIP_TRI, n, 1);
+	}
+	else
+	{
+		p = VuCommand(p, VU1_XFORM0, 0, 1);
+
+		if (m_fogEnable)
+			p = VuCommand(p, VU1_FOG0, n, 1);
+
+		if (m_lightingEnable)
+		{
+			p = VuCommand(p, VU1_INIT_LIGHT0, n, 1);
+
+			if (m_applyLocalLights && m_local_light_cnt != 0)
+				p = VuCommand(p, VU1_LOCAL_LIGHT0, n, m_local_light_cnt);
+
+			p = VuCommand(p, VU1_GLOBAL_LIGHT0, n, 1);
+		}
+
+		if (m_applyScaleColor)
+			p = VuCommand(p, VU1_SCALE_COLOR0, n, 1);
+
+		p = VuCommand(p, VU1_GATHER_FIX_KICK, n, 1);
+	}
+
+	p = VuCommand(p, VU1_SLEEP, n, 1);
+	header->m_batch_qwc = p - start;
+	return p;
 }
 
 /* @socom-skeleton body Render__Q23zdb7CVisualFP7CMatrix */
@@ -1674,15 +1826,66 @@ void zdb::CVisual::VuUpdate(float opacity)
 			}
 		}
 
-		/* decals: a CMesh's list (+108), else the instance's m_decals entry. port: not
-		   written - the decal records are not recovered and CDecal::AddDecal is a stub, so
-		   both lists stay empty (VuBatchProgram_Decals + VuExecuteState0, then per decal its
-		   select qword(s) and a CSPR::Copy of its chain) */
+		/* decals: one packet with the decal program, then per decal its texture's VU select
+		   tag (when the texture changes) and the DMA REF to its own batch. A CMesh draws its
+		   m_mesh_decals instead: select qword, then the decal's chain copied in. */
 		if (m_vtype == 1)
 		{
+			CMesh* mesh = static_cast<CMesh*>(this);
+
+			if (mesh->m_mesh_decals != NULL)
+			{
+				_word128* last = NULL;
+
+				packet = VuNewPacket();
+				header = reinterpret_cast<tag_ObjectHeader*>(packet + 1);
+				p = VuBatchProgram_Decals(packet + 3, header);
+				p = VuExecuteState0(p, packet);
+
+				for (CMeshDecal* decal = mesh->m_mesh_decals; decal != NULL; decal = decal->m_next)
+				{
+					if ((u32)(CSPR::m_sprPacketEnd - p) < decal->m_qwc + 1)
+						p = CSPR::Kick(p, true);
+
+					if (last != &decal->m_select) /* ELF quirk: compares the address, so always copied */
+					{
+						last = &decal->m_select;
+						*p++ = decal->m_select;
+					}
+
+					p = CSPR::Copy(p, decal->m_chain, decal->m_qwc);
+				}
+			}
 		}
 		else if (m_stack_vid.back() < m_decals.size() /* port: guard */ && m_decals[m_stack_vid.back()] != NULL)
 		{
+			CDecal* decal = m_decals[m_stack_vid.back()];
+			u32 lastSelect = 0;
+
+			packet = VuNewPacket();
+			header = reinterpret_cast<tag_ObjectHeader*>(packet + 1);
+			p = VuBatchProgram_Decals(packet + 3, header);
+			p = VuExecuteState0(p, packet);
+
+			for (; decal != NULL; decal = decal->m_next)
+			{
+				u32 select = decal->m_select.u32[1]; /* the select block's address */
+
+				if ((u32)(CSPR::m_sprPacketEnd - p) < 2)
+					p = CSPR::Kick(p, true);
+
+				if (select != lastSelect)
+				{
+					lastSelect = select;
+					p[0] = decal->m_select;
+					p[1] = decal->m_ref;
+					p += 2;
+				}
+				else
+				{
+					*p++ = decal->m_ref;
+				}
+			}
 		}
 
 		CSPR::Kick(p, false);
@@ -1877,48 +2080,210 @@ void hookupVisuals(zar::CZAR* archive, zdb::CModel* model)
 }
 
 /* @socom-skeleton body ApplyDecal__Q23zdb7CVisualFUifP6CPnt3DP7CMatrixPQ23zdb10CTexHandle */
-int zdb::CVisual::ApplyDecal(unsigned int, float, CPnt3D *, CMatrix *, zdb::CTexHandle *)
+int zdb::CVisual::ApplyDecal(unsigned int vid, float opacity, CPnt3D *dir, CMatrix *toUV, zdb::CTexHandle *handle)
     {
-#if 0 /* port: this body was written for an ApplyDecal(CDecal*) member (no such symbol);
-         it does not fit the static ApplyDecal__Q23zdb7CVisualFUifP6CPnt3DP7CMatrixPQ23zdb10CTexHandle */
+	/* 0x3096e0: every triangle of instance vid's chain that faces against dir (model
+	   space; its stored normal . dir < -0.01) and whose corners, through the model-to-UV
+	   matrix, touch the unit square within 5 of the decal plane gets a decal (AttachDecal).
+	   Positions are decompressed as the VU1 does (scale 1: x / 16 + offset, else
+	   x / 32768 * scale). Returns the triangles taken.
+	   ELF quirks kept: the second corner's vertex normal is written into the third
+	   corner's record (then overwritten), so decaldata[1]'s normal stays as it was (zero);
+	   the counters allow for more than one triangle a decal, but a decal is attached at
+	   every first. */
+	CVisData data;
+	u32 tris = 0;
+	u32 used = 0;
+	s32 total = 0;
 
-        CDecal* applied = NULL;
+	if (vid >= m_buffers.size() || vid >= m_decals.size() || m_buffers[vid] == NULL) /* port: guard - the ELF reads whatever an empty vector holds */
+		return 0;
 
-        for (auto i = m_decals.begin(); i != m_decals.end(); i++)
-        {
-            if (!(*i))
-                return;
+	data.Clear();
 
-            if ((*i) == decal)
-            {
-                if (!applied)
-                    m_decals[m_decal_idx] = *i;
-                else
-                    applied = *i;
+	CVisData* vd = data.SelectVertex(this, vid, 0);
 
-                break;
-            }
-        }
-    
-#endif
+	while (vd != NULL)
+	{
+		s16* normal = vd->m_normal;
+		f32 nx = normal[0] / 32768.0f;
+		f32 ny = normal[1] / 32768.0f;
+		f32 nz = normal[2] / 32768.0f;
+
+		vd->m_normal += 3;
+
+		if (!(nx * dir->x + ny * dir->y + nz * dir->z < -0.01f))
+		{
+			vd = vd->NextVertex(3);
+			continue;
+		}
+
+		AddonPoint* points = &decaldata[used];
+
+		for (u32 i = 0; i < 3; i++)
+		{
+			AddonPoint* point = &points[i];
+			f32* decompress = vd->m_decompress;
+
+			if (decompress[3] == 1.0f)
+			{
+				point->m_pos.x = decompress[0] + vd->m_vertex[0] / 16.0f;
+				point->m_pos.y = decompress[1] + vd->m_vertex[1] / 16.0f;
+				point->m_pos.z = decompress[2] + vd->m_vertex[2] / 16.0f;
+			}
+			else
+			{
+				point->m_pos.x = decompress[3] * (vd->m_vertex[0] / 32768.0f);
+				point->m_pos.y = decompress[3] * (vd->m_vertex[1] / 32768.0f);
+				point->m_pos.z = decompress[3] * (vd->m_vertex[2] / 32768.0f);
+			}
+
+			AddonPoint* lit = i == 0 ? point : &points[2];
+
+			lit->m_nx = vd->m_vertex[3] / 32768.0f;
+			lit->m_ny = vd->m_vertex[6] / 32768.0f;
+			lit->m_nz = vd->m_vertex[7] / 32768.0f;
+			point->m_color = vd->m_color;
+			point->m_index = *vd->m_index / 3;
+			vd = vd->NextVertex(1);
+		}
+
+		CPnt3D uv[3];
+
+		for (u32 i = 0; i < 3; i++)
+		{
+			f32 x = points[i].m_pos.x;
+			f32 y = points[i].m_pos.y;
+			f32 z = points[i].m_pos.z;
+
+			uv[i].x = toUV->m_matrix[0][0] * x + toUV->m_matrix[1][0] * y + toUV->m_matrix[2][0] * z + toUV->m_matrix[3][0];
+			uv[i].y = toUV->m_matrix[0][1] * x + toUV->m_matrix[1][1] * y + toUV->m_matrix[2][1] * z + toUV->m_matrix[3][1];
+			uv[i].z = toUV->m_matrix[0][2] * x + toUV->m_matrix[1][2] * y + toUV->m_matrix[2][2] * z + toUV->m_matrix[3][2];
+		}
+
+		if (UVCompare(&uv[0], &uv[1], &uv[2]) && fabsf(uv[0].z) <= 5.0f && fabsf(uv[1].z) <= 5.0f && fabsf(uv[2].z) <= 5.0f)
+		{
+			tris++;
+			used += 3;
+			total++;
+
+			for (u32 i = 0; i < 3; i++)
+			{
+				points[i].m_uv = uv[i];
+				points[i].m_tri_normal = normal;
+			}
+
+			if (tris == 1)
+			{
+				AttachDecal(vid, opacity, tris, decalps, handle);
+				tris = 0;
+				used = 0;
+			}
+		}
+	}
+
+	return total;
     }
 
 /* @socom-skeleton stub ApplyDecalRender__Q23zdb7CVisualFP7CMatrixPQ23zdb5CNodefP6CPnt3DP6CPnt3DPQ23zdb10CTexHandleP7CMatrix */
-void zdb::CVisual::ApplyDecalRender(CMatrix *, zdb::CNode *, float, CPnt3D *, CPnt3D *, zdb::CTexHandle *, CMatrix *)
+void zdb::CVisual::ApplyDecalRender(CMatrix *mtw, zdb::CNode *node, float opacity, CPnt3D *proj, CPnt3D *dir, zdb::CTexHandle *handle, CMatrix *worldToUV)
 {
+	/* 0x309500: decals on the instance of node (its m_vid; 0 without a node): dir rotated
+	   into model space by the inverse of the model-to-world matrix, and the model-to-UV
+	   matrix = worldToUV after mtw. ELF quirk: proj is rotated too and not used. */
+	CMatrix toUV;
+	CMatrix inverse;
+	u32 vid = node != NULL ? node->m_vid : 0;
+
+	sceVu0CopyMatrix(inverse.m_matrix, mtw->m_matrix);
+	Vu0MatrixInverseWithUniformScale(&inverse, &inverse);
+
+	CPnt3D local;
+
+	local.x = inverse.m_matrix[0][0] * dir->x + inverse.m_matrix[1][0] * dir->y + inverse.m_matrix[2][0] * dir->z;
+	local.y = inverse.m_matrix[0][1] * dir->x + inverse.m_matrix[1][1] * dir->y + inverse.m_matrix[2][1] * dir->z;
+	local.z = inverse.m_matrix[0][2] * dir->x + inverse.m_matrix[1][2] * dir->y + inverse.m_matrix[2][2] * dir->z;
+
+	sceVu0MulMatrix(toUV.m_matrix, worldToUV->m_matrix, mtw->m_matrix);
+	ApplyDecal(vid, opacity, &local, &toUV, handle);
 }
 
 /* @socom-skeleton stub AttachDecal__Q23zdb7CVisualFUifUiPPQ23zdb10AddonPointPQ23zdb10CTexHandle */
-void zdb::CVisual::AttachDecal(unsigned int, float, unsigned int, zdb::AddonPoint **, zdb::CTexHandle *)
+void zdb::CVisual::AttachDecal(unsigned int vid, float opacity, unsigned int count, zdb::AddonPoint **points, zdb::CTexHandle *handle)
 {
+	/* 0x3093c0: a decal from the perm pool (negative opacity) or the temp pool, filled and
+	   appended to the instance's list; nothing when the pool is empty */
+	CDecal* decal;
+
+	if (opacity < 0.0f)
+		decal = CDecal::m_permPool.Get(false);
+	else
+		decal = CDecal::m_tempPool.Get(true);
+
+	if (decal == NULL)
+		return;
+
+	CDecal* last = m_decals[vid];
+
+	while (last != NULL && last->m_next != NULL)
+		last = last->m_next;
+
+	decal->AddDecal(opacity, points, count, handle, this, vid);
+	decal->m_next = NULL;
+
+	if (last != NULL)
+		last->m_next = decal;
+	else
+		m_decals[vid] = decal;
+
+	FlushCache(0);
 }
 
 /* @socom-skeleton stub RemoveDecal__Q23zdb7CVisualFPQ23zdb6CDecal */
-void zdb::CVisual::RemoveDecal(zdb::CDecal *)
+void zdb::CVisual::RemoveDecal(zdb::CDecal *decal)
 {
+	/* 0x309360: unlink from its instance's list */
+	CDecal** head = &m_decals[decal->m_vid];
+	CDecal* prev = NULL;
+
+	for (CDecal* d = *head; d != NULL; prev = d, d = d->m_next)
+	{
+		if (d != decal)
+			continue;
+
+		if (prev != NULL)
+			prev->m_next = d->m_next;
+		else
+			*head = d->m_next;
+
+		d->m_next = NULL;
+		return;
+	}
 }
 
 /* @socom-skeleton stub DereferenceDecals__Q23zdb7CVisualFUi */
-void zdb::CVisual::DereferenceDecals(unsigned int)
+void zdb::CVisual::DereferenceDecals(unsigned int vid)
 {
+	/* 0x3092b0: every decal of the instance back to its pool (only for a visual of vtype 0
+	   with decal slots) */
+	if (m_vtype != 0)
+		return;
+
+	if (m_decals.size() == 0)
+		return;
+
+	CDecal* decal = m_decals[vid];
+
+	if (decal == NULL)
+		return;
+
+	for (; decal != NULL; decal = decal->m_next)
+	{
+		if (decal->m_kind == 1)
+			CDecal::PutTempDecal(decal);
+		else
+			CDecal::PutPermDecal(decal);
+	}
+
+	m_decals[vid] = NULL;
 }

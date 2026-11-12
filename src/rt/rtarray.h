@@ -57,7 +57,18 @@ public:
 		m_supportRecycle = supportRecycle;
 	}
 
-	~RTArray();
+	/* RTArray<zdb::CDecal> 0x31f980, RTArray<zdb::CMeshDecal> 0x3139a0: the objects still in
+	 * the pool, then the pool array (objects that are out are not freed here) */
+	~RTArray()
+	{
+		for (unsigned int i = 0; i < m_size; i++)
+		{
+			if (m_pool[i] != NULL)
+				delete m_pool[i];
+		}
+
+		delete[] m_pool;
+	}
 
 	/* RTArray<CZBodyAnimBlend>::GetNext 0x1e40f0, RTArray<ACTIVE_ANIM>::GetNext 0x1e3dc0: the
 	 * last available object leaves the pool (its slot is cleared); a recycling pool appends it
@@ -77,7 +88,18 @@ public:
 		return object;
 	}
 
-	const Object& GetOldestUsed() const;
+	/* RTArray<zdb::CDecal>::GetOldestUsed 0x313660, RTArray<zdb::CMeshDecal> 0x3138d0: the
+	 * front of the in-use list leaves it (it stays out of the pool until PutBack); NULL when
+	 * nothing is in use. Returns the object (was declared const Object&). */
+	Object* GetOldestUsed()
+	{
+		if (m_inuse.size() == 0)
+			return NULL;
+
+		Object* object = static_cast<Object*>(const_cast<void*>(m_inuse.front()));
+		m_inuse.remove(object);
+		return object;
+	}
 	/* RTArray<ACTIVE_ANIM>::PutBack 0x1e3d50: back into the pool while there is room */
 	void PutBack(Object* instance)
 	{
