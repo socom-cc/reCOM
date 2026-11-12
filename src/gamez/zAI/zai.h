@@ -649,7 +649,7 @@ public:
 	void GetCellRepelParams(const CAiMapLoc &, const CPnt3D *, float, CPnt3D &, float &);
 	char * AllocEx(unsigned int);
 	void FreeEx();
-	void GetMapEx(const CAiMapLoc &);
+	char * GetMapEx(const CAiMapLoc &); /* 0x19f270 returns the cell's extra bytes (NULL without; ftsGetAltitudeApprox tests it) */
 	CAiMap::name * GetCellName(const CAiMapLoc &);
 	bool GetLocation(const char *, CAiMapLoc &) const; /* bool: CAiMaps::GetLocation 0x19c8e0 tests it */
 	CAiMap::action * GetCellAction(const CAiMapLoc &); /* 0x19f030 */
@@ -695,6 +695,25 @@ public:
 			return m_scanlines[y].GetCell(loc.x);
 
 		return NULL;
+	}
+
+	/* GetLocation__6CAiMapCFPC6CPnt3DR9CAiMapLoc 0x19b0f0 (emitted from this header, no unit
+	 * owns it): the cell under a point inside the map's x/z box (truncated grid indexes, map id
+	 * 0); false outside the box (loc untouched) or past the grid */
+	bool GetLocation(const CPnt3D *pos, CAiMapLoc &loc) const
+	{
+		if (!(pos->x >= m_bbox.m_min.x && pos->x <= m_bbox.m_max.x))
+			return false;
+
+		if (!(pos->z >= m_bbox.m_min.z && pos->z <= m_bbox.m_max.z))
+			return false;
+
+		s32 x = (s32)((pos->x - m_bbox.m_min.x) * m_idx);
+		s32 y = (s32)((pos->z - m_bbox.m_min.z) * m_idy);
+		loc.x = x & 0x1fff;
+		loc.y = y & 0x1fff;
+		loc.m_mapid = 0;
+		return loc.y < m_ny && loc.x < m_nx;
 	}
 
 	/* neighbor__6CAiMap 0x4390b0: the cell step (x, y) of each DIR (N is -y) */

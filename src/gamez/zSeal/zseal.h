@@ -87,7 +87,21 @@ class MPSealStats;
 class PlacedExplosive;
 enum SEAL_HANDSIGNAL { }; /* port: unproven: passed by value per the mangled name; kind and enumerators not in DWARF */
 enum SEAL_TASK { }; /* port: unproven: passed by value per the mangled name; kind and enumerators not in DWARF */
-class STUN_TYPE { }; /* port: unproven: passed by value; kept a class to match zinput.h's forward declaration; contents not in DWARF */
+/* No DWARF record. Passed by value as a byte (HandleStunDamage 0x293f30 masks it to 8 bits and
+ * indexes m_stunval[7]); the values are from HandleStunFromHit 0x293e30, HandleGrenadeExplosion
+ * 0x28f840 and HandleStunRecovery 0x294080 (the reticle penalty each one takes off m_retmods).
+ * port: enumerator names invented from those callers. */
+enum STUN_TYPE
+{
+	STUN_FLASHBANG = 0,      /* flashbang: reticle -10 */
+	STUN_TEARGAS = 1,        /* tear gas: -6 */
+	STUN_TYPE_2 = 2,         /* -3; no caller found */
+	STUN_SMOKE = 3,          /* smoke: -3 */
+	STUN_EXPLOSION = 4,      /* frag, HE, C4, satchel, claymore, M203 HE: no penalty */
+	STUN_TASER = 5,          /* taser: no penalty; its recovery starts STUN_TASER_AFTER for 20 */
+	STUN_TASER_AFTER = 6,    /* -3 */
+	STUN_TYPE_COUNT = 7
+};
 /* DWARF TASK_HDR (8 bytes) / TASK_SELECT (16, database.cpp); CTSelect::Create 0x2b7590 */
 struct TASK_HDR
 {
@@ -807,9 +821,7 @@ public:
 	void HandleSealStep();
 	void HandleSliding(f32 delta);
 	void HandleSmokeAndGas(zdb::IntersectStruct* intersection, const void* material, const CPnt3D* position); // TODO: Create the CMaterialEx type
-	void HandleStunDamage(u8 stunType, f32 damage, const CPnt3D* position); // TODO: Create the STUN_TYPE enum
 	void HandleStunFromHit(EQUIP_ITEM itemType, const CPnt3D* position);
-	void HandleStunRecovery(u8 stunType); // TODO: Create the STUN_TYPE enum
 	void HandleWater(zdb::IntersectStruct* intersection, const void* material, const CPnt3D* position); // TODO: Create the CMaterialEx type
 	static void HandleWeaponEvent(CZProjectile* projectile, u32 eventIdx, void* eventData); /* static: the weapon event callback ReInitDatabaseHandles registers (0x293bc0) */
 	bool HandleWeaponIntersect();
@@ -1458,7 +1470,7 @@ public:
 	static int m_aim_anims[3];
 	static unsigned char m_allow_friendly_fire;
 	static CZAnim* m_bigrippleanim[3]; /* 0x508680: big_ripple_anim, _walk, _run (ReInitDatabaseHandles) */
-	static int m_blooddriptexhandles[3];
+	static std::vector<CZDecalDef> m_blooddriptexhandles; /* MSL vector<CZDecalDef> (12 bytes): BLOOD_DRIP_DECALS (InitDecalHandles 0x293910) */
 	static CSnd *m_body_fall_sound; /* 0x476064: ReInitDatabaseHandles stores CSnd::GetSoundByName, HandleFallingDamage plays it (was int) */
 	static CCompass m_compass;
 	static CSnd* m_cqb_sound; /* SND_RIFLE_BUTT (ReInitDatabaseHandles) */

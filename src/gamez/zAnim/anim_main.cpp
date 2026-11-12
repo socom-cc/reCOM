@@ -171,8 +171,17 @@ bool CZAnimMain::Close()
 }
 
 /* @socom-skeleton stub InvExp__10CZAnimMainFf */
-float CZAnimMain::InvExp(float)
+float CZAnimMain::InvExp(float x)
 {
+	/* 0x1c52e0: the table entry at 40 x, clamped to 0..40 */
+	s32 index = (s32)(40.0f * x);
+
+	if (index > 40)
+		index = 40;
+	else if (index < 0)
+		index = 0;
+
+	return m_inv_exp[index];
 }
 
 /* @socom-skeleton stub GetNetworkPacket__10CZAnimMainFi */
@@ -909,8 +918,19 @@ zdb::CNode * CZAnimMain::GetDatabaseNode(const char *name, int scope)
 }
 
 /* @socom-skeleton stub GetDirectionRelativeToNode__10CZAnimMainFP6CPnt3DPQ23zdb5CNode */
-void CZAnimMain::GetDirectionRelativeToNode(CPnt3D *, zdb::CNode *)
+void CZAnimMain::GetDirectionRelativeToNode(CPnt3D *dir, zdb::CNode *node)
 {
+	/* 0x1c30a0: the direction turned into the world by the node's matrix (the point and the
+	 * origin both transformed, then subtracted) and normalised */
+	CPnt3D origin(0.0f, 0.0f, 0.0f);
+	CMatrix world;
+	node->BuildMTW(world);
+	world.Transform(dir, 1);
+	world.Transform(&origin, 1);
+	CPnt3D out;
+	dir->Sub(&origin, &out);
+	*dir = out;
+	dir->Normalize();
 }
 
 /* @socom-skeleton stub GetName__15CZAnimNameTableFi */

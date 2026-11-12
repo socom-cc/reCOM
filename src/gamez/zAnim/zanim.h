@@ -612,6 +612,56 @@ struct _zanim_cmd_motion_from_to /* OBJECT_MOTION_FROM_TO (0x1ba630 begin, 0x1ba
 	/* +0x80: a CZAnimFromToAcc follows when accelerated (0x2000/0x4000) */
 };
 
+struct _zanim_motion_material /* OBJECT_MOTION per-material contact entry (zAnimObjectMotionTick 0x1bb330); 12 bytes */
+{
+	u32 has_sound_speed : 1;  /* bit 0: sound_speed replaces the command's */
+	u32 has_elasticity : 1;   /* bit 1: elasticity replaces the command's */
+	u32 material : 8;         /* bits 2-9: CMaterialEx index the entry is for */
+	u32 sound : 8;            /* bits 10-17: the anim's sound reference played on contact (0 none) */
+	u32 sequence : 8;         /* bits 18-25: the anim's name index of the sequence started on contact (0 none) */
+	u32 unused : 6;
+	f32 sound_speed;          /* +0x4: contact speed for full volume */
+	f32 elasticity;           /* +0x8: velocity factor after a bounce */
+};
+
+struct _zanim_cmd_motion      /* OBJECT_MOTION (0x1bc540 begin, 0x1bb330 tick): ballistic motion with contacts.
+                               * The sub-records are at signed offsets from the command start. */
+{
+	_zanim_cmd_hdr header;
+	u32 flags;                /* +0x4: 1 duration; 2 gravity (and drag while falling); 8 velocity from data
+	                           * or args, 0x10 random direction (base/range), 0x800 add ARG_VELOCITY;
+	                           * 0x1000 direction ARG_NORMAL, 0x2000/0x4000 direction ARG_VELOCITY
+	                           * (0x4000 reflected, 0x8000 normalised); 0x20000 args in node space;
+	                           * 0x20 contact sound; 0x40 ground contact, 0x80 ray contact; 0x100 spin,
+	                           * 0x200 roll by distance, 0x400 roll by velocity; 0x10000 scale */
+	u8 node_ref;              /* +0x8 */
+	u8 rel_node_ref;          /* +0x9: directions are relative to this node */
+	u8 impact_sequence;       /* +0xa: name index of the default contact sequence */
+	u8 impact_sound;          /* +0xb: default contact sound reference */
+	f32 sound_speed;          /* +0xc: default contact speed for full volume (< 0: always full) */
+	f32 gravity_scale;        /* +0x10: times CZAnimMain::m_gravity into acceleration y */
+	f32 drag;                 /* +0x14: InvExp(velocity y * drag) scales the fall */
+	f32 input_scale;          /* +0x18: ARG_VELOCITY factor (0x800) */
+	u8 unknown_1c;            /* +0x1c: not read by begin/tick */
+	s8 material_count;        /* +0x1d */
+	s16 material_offset;      /* +0x1e: _zanim_motion_material[material_count] */
+	s16 base_offset;          /* +0x20: f32[4] azimuth, zenith (degrees), speed, acceleration */
+	s16 range_offset;         /* +0x22: f32[4] random ranges of the same (0x10) */
+	f32 velocity0[3];         /* +0x24: initial velocity */
+	f32 accel0[3];            /* +0x30: initial acceleration */
+	f32 velocity[3];          /* +0x3c */
+	f32 accel[3];             /* +0x48 */
+	f32 direction[3];         /* +0x54 */
+	f32 elasticity;           /* +0x60: default velocity factor after a bounce */
+	f32 rotation[3];          /* +0x64: Euler angles applied to the node */
+	s16 roll_offset;          /* +0x70: f32[3] initial, rate, current roll factor (0x200/0x400) */
+	s16 spin_offset;          /* +0x72: f32[9] initial, change, current spin (0x100) */
+	s16 scale_offset;         /* +0x74: f32[9] initial, change, current scale rate (0x10000) */
+	s16 offset_offset;        /* +0x76: f32[8] base and range of an azimuth, zenith, speed, acceleration
+	                           * offset added to the direction (> 0: present) */
+	f32 duration;             /* +0x78 (flag 1; zeroed otherwise) */
+};
+
 struct _zanim_cmd_sound       /* SOUND (zAnimLoadSound 0x1b4920, zAnimSoundTick 0x1be170); 32 bytes */
 {
 	_zanim_cmd_hdr header;
@@ -1576,6 +1626,7 @@ void zAnimMultiObjectMotionScriptBegin(_zanim_cmd_hdr*);
 void zAnimWaitBegin(_zanim_cmd_hdr*);
 void zAnimObjectOpacityFromToBegin(_zanim_cmd_hdr*);
 void zAnimObjectMotionBegin(_zanim_cmd_hdr*);
+void zAnimGetDirectionFromAzimuthZenith(f32 azimuth, f32 zenith, CPnt3D* dir); /* zanim_cmd_parse.cpp 0x1b7b90 */
 void zAnimObjectMotionFromToBegin(_zanim_cmd_hdr*);
 
 bool zAnimCallAnimTick(_zanim_cmd_hdr*, f32*);

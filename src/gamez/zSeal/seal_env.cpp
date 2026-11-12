@@ -286,7 +286,7 @@
 class CMaterialEx;
 class CZAmmoPickupInstance;
 class MPSealStats;
-class STUN_TYPE;
+/* port: STUN_TYPE is declared in gamez/zSeal/zseal.h */
 void Draw2DLine(CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *); /* port: c2dline.cpp (no header declares it) */
 void PointAlongLine(const CPnt3D &, const CPnt3D &, float, CPnt3D &); /* port: zanim_sequence.cpp (no header declares it) */
 /* @socom-skeleton end forward */
@@ -405,7 +405,7 @@ CZAnim* CZSealBody::m_bigrippleanim[3];
 CZAnim* CZSealBody::m_smallrippleanim[3];
 
 /* @socom-skeleton stub m_blooddriptexhandles__10CZSealBody */
-int CZSealBody::m_blooddriptexhandles[3];
+std::vector<CZDecalDef> CZSealBody::m_blooddriptexhandles; /* 12 bytes (MSL vector<CZDecalDef>): BLOOD_DRIP_DECALS */
 
 /* @socom-skeleton stub BuddyPickupRefpoint */
 float BuddyPickupRefpoint[3];
@@ -4643,23 +4643,148 @@ void CZSealBody::SetHudHitFlag()
 }
 
 /* @socom-skeleton stub HandleStunRecovery__10CZSealBodyF9STUN_TYPE */
-void CZSealBody::HandleStunRecovery(STUN_TYPE)
+void CZSealBody::HandleStunRecovery(STUN_TYPE type)
 {
+	/* 0x294080: a stun ran out: the reticle penalty its start took is given back; a taser's end
+	 * starts the after-effect (STUN_TASER_AFTER, 20) */
+	m_am_stunned = 0;
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("STUN: %s type %d recovered", m_node != NULL && m_node->m_name != NULL ? m_node->m_name : "-", (s32)(u8)type);
+#endif
+
+	switch (type)
+	{
+	case STUN_FLASHBANG:
+		m_retmods += 10.0f;
+		break;
+	case STUN_TEARGAS:
+		m_retmods += 6.0f;
+		break;
+	case STUN_TYPE_2:
+		m_retmods += 3.0f;
+		break;
+	case STUN_SMOKE:
+		m_retmods += 3.0f;
+		break;
+	case STUN_TASER:
+		HandleStunDamage(STUN_TASER_AFTER, 20.0f, NULL);
+		break;
+	case STUN_TASER_AFTER:
+		m_retmods += 3.0f;
+		break;
+	default:
+		break;
+	}
 }
 
 /* @socom-skeleton stub HandleStunDamage__10CZSealBodyF9STUN_TYPEfPC6CPnt3D */
-void CZSealBody::HandleStunDamage(STUN_TYPE, float, const CPnt3D *)
+void CZSealBody::HandleStunDamage(STUN_TYPE type, float amount, const CPnt3D *position)
 {
+	/* 0x293f30: the stun of that type rises to the amount (it never drops here); the
+	 * controller hears of it (vtable +0x50); a stun that was not running takes its reticle
+	 * penalty. ELF quirk kept: the type test is "< 8" against the 7 timers (type 7 would write
+	 * the next member, m_head_health); the port never passes 7. */
+	u32 index = (u8)type;
+
+	if (index >= 8)
+		return;
+
+	f32 *value = &m_stunval[index];
+	bool running = !(*value <= 0.0f);
+	m_stunned = true;
+
+	if (*value < amount)
+		*value = amount;
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("STUN: %s type %d amount %.2f -> %.2f%s, reticle %.1f", m_node != NULL && m_node->m_name != NULL ? m_node->m_name : "-",
+		(s32)index, amount, *value, running ? " (running)" : "", m_retmods);
+#endif
+
+	static_cast<CSealCtrl *>(m_control)->OnStunDamage(type, *value, position);
+
+	if (running)
+		return;
+
+	switch (index)
+	{
+	case STUN_FLASHBANG:
+		m_retmods -= 10.0f;
+		break;
+	case STUN_TEARGAS:
+		m_retmods -= 6.0f;
+		break;
+	case STUN_TYPE_2:
+		m_retmods -= 3.0f;
+		break;
+	case STUN_SMOKE:
+		m_retmods -= 3.0f;
+		break;
+	case STUN_TASER_AFTER:
+		m_retmods -= 3.0f;
+		break;
+	default:
+		break;
+	}
 }
 
 /* @socom-skeleton stub HandleStunFromHit__10CZSealBodyF10EQUIP_ITEMPC6CPnt3D */
-void CZSealBody::HandleStunFromHit(EQUIP_ITEM, const CPnt3D *)
+void CZSealBody::HandleStunFromHit(EQUIP_ITEM item, const CPnt3D *position)
 {
+	/* 0x293e30 (HandleSmokeAndGas): the stun a hit by that item gives */
+	switch (item)
+	{
+	case EQUIP_ITEM::M203_HE:
+	case EQUIP_ITEM::CLAYMORE:
+	case EQUIP_ITEM::SATCHEL_CHARGE:
+	case EQUIP_ITEM::C4:
+	case EQUIP_ITEM::HE_GRENADE:
+	case EQUIP_ITEM::GRENADE:
+		HandleStunDamage(STUN_EXPLOSION, 2.0f, position);
+		break;
+	case EQUIP_ITEM::TASER:
+		HandleStunDamage(STUN_TASER, 100.0f, position);
+		break;
+	case EQUIP_ITEM::SMOKE_GRENADE:
+		HandleStunDamage(STUN_SMOKE, 2.0f, position);
+		break;
+	case EQUIP_ITEM::TEARGAS_GRENADE:
+		HandleStunDamage(STUN_TEARGAS, 3.0f, position);
+		break;
+	case EQUIP_ITEM::FLASHBANG:
+		HandleStunDamage(STUN_FLASHBANG, 2.0f, position);
+		break;
+	default:
+		break;
+	}
 }
 
 /* @socom-skeleton stub TickStun__10CZSealBodyFf */
-void CZSealBody::TickStun(float)
+void CZSealBody::TickStun(float dT)
 {
+	/* 0x293d20 (PostTick): while any stun runs, each running one wears off by the character
+	 * type's recovery factor per second; one that reaches zero recovers (HandleStunRecovery) */
+	if (!m_stunned)
+		return;
+
+	m_stunned = false;
+
+	for (s32 i = 0; i < STUN_TYPE_COUNT; i++)
+	{
+		f32 *value = &m_stunval[i];
+		bool running = !(*value <= 0.0f);
+
+		if (!(*value <= 0.0f) && m_charType != NULL)
+		{
+			*value -= (f32)m_charType->m_recovery_factor * dT;
+
+			if (!(*value <= 0.0f))
+				m_stunned = true;
+		}
+
+		if (running && *value <= 0.0f)
+			HandleStunRecovery((STUN_TYPE)i);
+	}
 }
 
 /* @socom-skeleton stub HandleWeaponEvent__10CZSealBodyFP12CZProjectileUiPv */
@@ -4671,26 +4796,55 @@ void CZSealBody::HandleWeaponEvent(CZProjectile *, unsigned int, void *)
 void CZSealBody::InitDecalHandles()
 {
 	/* 0x293910: the footstep decal texture of each material (decals.rdr FOOTSTEP_DECALS:
-	 * MATERIALNAME, TEXTURENAME), in a calloc'd table by material index.
-	 * port: not written - BLOOD_DRIP_DECALS (TEXTURENAME, MIN_SIZE, MAX_SIZE) fill the
-	 * vector<CZDecalDef> m_blooddriptexhandles (0x5086b0) for HandleBloodDrip (unwritten) */
+	 * MATERIALNAME, TEXTURENAME), in a calloc'd table by material index; then the blood
+	 * drip decals (BLOOD_DRIP_DECALS: TEXTURENAME, MIN_SIZE, MAX_SIZE; entries whose texture
+	 * is not found are skipped) appended to m_blooddriptexhandles */
 	CRdrFile* rdr = theMission.m_decalsRdr;
 	m_steptexhandles = static_cast<zdb::CTexHandle**>(_calloc(4, CMaterialExArray::m_materialex_list.size(), "seal_env.cpp", 0x2089));
 	_zrdr* decals = zrdr_findtag(rdr, "FOOTSTEP_DECALS");
 
-	if (decals == NULL)
+	if (decals != NULL)
+	{
+		s32 count = decals->IsArray() ? decals->array->integer - 1 : 0;
+
+		for (s32 i = 0; i < count; i++)
+		{
+			_zrdr* entry = decals->Get(i);
+			char* material = zrdr_findstring(entry, "MATERIALNAME");
+			char* texture = zrdr_findstring(entry, "TEXTURENAME");
+			s32 index = CMaterialExArray::ResolveMaterialIndex(material);
+			m_steptexhandles[index] = zdb::CWorld::GetTexHandle(texture);
+		}
+	}
+
+	_zrdr* drips = zrdr_findtag(rdr, "BLOOD_DRIP_DECALS");
+
+	if (drips == NULL)
 		return;
 
-	s32 count = decals->IsArray() ? decals->array->integer - 1 : 0;
+	s32 count = drips->IsArray() ? drips->array->integer - 1 : 0;
+	m_blooddriptexhandles.reserve(count);
 
 	for (s32 i = 0; i < count; i++)
 	{
-		_zrdr* entry = decals->Get(i);
-		char* material = zrdr_findstring(entry, "MATERIALNAME");
-		char* texture = zrdr_findstring(entry, "TEXTURENAME");
-		s32 index = CMaterialExArray::ResolveMaterialIndex(material);
-		m_steptexhandles[index] = zdb::CWorld::GetTexHandle(texture);
+		_zrdr* entry = drips->Get(i);
+		zdb::CTexHandle* texture = zdb::CWorld::GetTexHandle(zrdr_findstring(entry, "TEXTURENAME"));
+
+		if (texture == NULL)
+			continue;
+
+		f32 sizes[2] = { 0.0f, 0.0f };
+		zrdr_findreal(entry, "MIN_SIZE", &sizes[0], 1);
+		zrdr_findreal(entry, "MAX_SIZE", &sizes[1], 1);
+		CZDecalDef def;
+		def.m_decalminsize = sizes[0];
+		def.m_decalmaxsize = sizes[1];
+		def.m_texture = texture;
+		m_blooddriptexhandles.insert(m_blooddriptexhandles.end(), def);
 	}
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("BLOOD: %d blood drip decals", (s32)m_blooddriptexhandles.size());
+#endif
 }
 
 /* @socom-skeleton stub InitDatabaseHandles__10CZSealBodyFv */
@@ -4838,13 +4992,13 @@ void AnimSet::ReadFlinchAnimations(_zrdr *rdr, const char *name, DAMAGE_LOCATION
 void CZSealBody::UninitDatabaseHandles()
 {
 	/* 0x292210 (CMission::Close): the footstep decal table and the per-material footfall
-	 * anims (both calloc'd) are freed, the blood drip decals released (port: the vector is an
-	 * untyped placeholder, never filled), the drop anim forgotten and the weapon event
+	 * anims (both calloc'd) are freed, the blood drip decals released, the drop anim forgotten and the weapon event
 	 * callback removed */
 	if (m_steptexhandles != NULL)
 		_free(m_steptexhandles, "seal_env.cpp", 8697);
 
 	m_steptexhandles = NULL;
+	std::vector<CZDecalDef>().swap(m_blooddriptexhandles); /* clear and swap with an empty one: the storage is freed */
 	m_dropanim = NULL;
 
 	if (m_sealstep != NULL)
@@ -4977,8 +5131,45 @@ void CZSealBody::HandleSealStep()
 }
 
 /* @socom-skeleton stub HandleBloodDrip__10CZSealBodyFf */
-void CZSealBody::HandleBloodDrip(float)
+void CZSealBody::HandleBloodDrip(float dT)
 {
+	/* 0x2919a0 (PostTick): a wounded body (health under 1, not in a network game) drops a
+	 * blood decal on the ground it last stood on every 0..3 s (a random blood drip texture,
+	 * projected down onto the altitude hit). ELF quirk kept: the size is min + r * (max - max),
+	 * i.e. always the minimum. */
+	if (!(m_health < 1.0f))
+		return;
+
+	if (theNetwork.m_bNetwork)
+		return;
+
+	if (!(m_blooddriptimer <= 0.0f))
+	{
+		m_blooddriptimer -= dT;
+		return;
+	}
+
+	m_blooddriptimer = 3.0f * ((f32)rand() * 4.656613e-10f);
+	u32 count = m_blooddriptexhandles.size();
+
+	if (count == 0)
+		return;
+
+	const CZDecalDef* def = &m_blooddriptexhandles[count == 1 ? 0 : (u32)rand() % count];
+	zdb::CNode* visual = GetVisualNode(m_last_altitude.m_node);
+
+	if (visual == NULL)
+		return;
+
+	CPnt3D normal;
+	m_last_altitude.m_norm.Scale(-1.0f, &normal);
+	f32 size = def->m_decalminsize + ((f32)rand() * 4.656613e-10f) * (def->m_decalmaxsize - def->m_decalmaxsize);
+	zdb::CNode* decal = GetDecalNode(m_last_altitude.m_node);
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("BLOOD: %s drip at %.1f %.1f %.1f size %.1f health %.2f", m_node != NULL && m_node->m_name != NULL ? m_node->m_name : "-",
+		m_last_altitude.m_pos.x, m_last_altitude.m_pos.y, m_last_altitude.m_pos.z, size, m_health);
+#endif
+	visual->ApplyDecal(decal, 100.0f, &m_last_altitude.m_pos, &normal, &projDirDown, def->m_texture, size, NULL);
 }
 
 /* @socom-skeleton stub GetTargetPosW__10CZSealBodyFP6CPnt3D */
@@ -5431,24 +5622,23 @@ void CZSealBody::HandleGrenadeExplosion()
 		if (id == EQUIP_ITEM::M203_HE || id == EQUIP_ITEM::CLAYMORE || id == EQUIP_ITEM::SATCHEL_CHARGE || id == EQUIP_ITEM::C4
 			|| id == EQUIP_ITEM::HE_GRENADE || id == EQUIP_ITEM::GRENADE)
 		{
-			/* port: HandleStunDamage(4, 2.0, blast) - STUN_TYPE is an empty class in the port
-			 * (needs an enum first); the stun is unwritten */
+			HandleStunDamage(STUN_EXPLOSION, 2.0f, blast);
 		}
 		else if (id == EQUIP_ITEM::TASER)
 		{
-			/* port: HandleStunDamage(5, 100.0, blast) (as above) */
+			HandleStunDamage(STUN_TASER, 100.0f, blast);
 		}
 		else if (id == EQUIP_ITEM::SMOKE_GRENADE)
 		{
-			/* port: HandleStunDamage(3, 2.0, blast) (as above) */
+			HandleStunDamage(STUN_SMOKE, 2.0f, blast);
 		}
 		else if (id == EQUIP_ITEM::TEARGAS_GRENADE)
 		{
-			/* port: HandleStunDamage(1, 3.0, blast) (as above) */
+			HandleStunDamage(STUN_TEARGAS, 3.0f, blast);
 		}
 		else if (id == EQUIP_ITEM::FLASHBANG)
 		{
-			/* port: HandleStunDamage(0, 2.0, blast) (as above) */
+			HandleStunDamage(STUN_FLASHBANG, 2.0f, blast);
 		}
 
 		bool player = m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsPlayer();

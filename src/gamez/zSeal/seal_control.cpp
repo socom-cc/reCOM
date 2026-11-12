@@ -117,13 +117,15 @@
 #include "gamez/zNode/node_world.h" /* zdb::CWorld::m_world (PreTick) */
 #include "gamez/zNetwork/znet.h" /* theNetwork (OnDeath) */
 /* @socom-skeleton end include */
+#include "Apps/FTS/hud/hud.h" /* theHUD (OnStunDamage) */
+#include <math.h> /* cosf (FLASHBANG_DOT) */
 /* @socom-skeleton decl forward */
 /* port: CHARACTER_SOUND is declared in gamez/zCharacter/zchar.h */
-class STUN_TYPE;
+/* port: STUN_TYPE is declared in gamez/zSeal/zseal.h */
 /* @socom-skeleton end forward */
 
 /* @socom-skeleton stub FLASHBANG_DOT */
-static const float FLASHBANG_DOT = 0;
+static const float FLASHBANG_DOT = cosf(0.8726646f); /* __sinit_seal_control.cpp 0x46c960: cos(50 deg) */
 
 /* @socom-skeleton stub m_bobbing1stperson_enabled__9CSealCtrl */
 unsigned char CSealCtrl::m_bobbing1stperson_enabled = 1;
@@ -292,8 +294,43 @@ void CSealCtrl::OnWeaponHit(zdb::IntersectStruct *, CZProjectile *)
 }
 
 /* @socom-skeleton stub OnStunDamage__9CSealCtrlF9STUN_TYPEfPC6CPnt3D */
-void CSealCtrl::OnStunDamage(STUN_TYPE, float, const CPnt3D *)
+void CSealCtrl::OnStunDamage(STUN_TYPE type, float, const CPnt3D *position)
 {
+	/* 0x287e30: a flashbang with a position ducks sound groups 2, 3 and 5 to 0.65 for 5 s;
+	 * facing it (the node's z row against the unit blast-to-body vector, above cos 50 deg)
+	 * within 150, the HUD flashes grey (128) at 1 - facing (times a falloff from 80 to 150 out),
+	 * 1.2 / 2 / 4. The stun amount is not used. */
+	if (position == NULL || (u8)type != STUN_FLASHBANG)
+		return;
+
+	const CPnt3D *eye = m_entity->GetPosW();
+	const f32 *look = m_entity->m_node->m_matrix.m_matrix[2];
+	CPnt3D dir;
+	eye->Sub(position, &dir);
+	dir.Normalize();
+	f32 facing = look[0] * dir.x + look[1] * dir.y + look[2] * dir.z;
+	CSnd::SetGroupVolTemp(5.0f, 0.65f, 0, 2, 3, 5, -1, -1, -1);
+
+	if (facing <= FLASHBANG_DOT)
+		return;
+
+	CPnt3D d;
+	eye->Sub(position, &d);
+	f32 dsq = d.x * d.x + d.y * d.y + d.z * d.z;
+
+	if (!(dsq < 22500.0f))
+		return;
+
+	f32 falloff = 1.0f;
+
+	if (!(dsq <= 6400.0f))
+		falloff = 1.0f - 6.2e-5f * (dsq - 6400.0f);
+
+	CPnt3D color(128.0f, 128.0f, 128.0f);
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("STUN: flashbang facing %.2f distance %.1f: HUD flash %.2f", facing, sqrtf(dsq), 1.0f - facing * falloff);
+#endif
+	theHUD->Flash(1.0f - facing * falloff, color, 1.2f, 2.0f, 4.0f);
 }
 
 /* @socom-skeleton stub OnSetHealth__9CSealCtrlFff */

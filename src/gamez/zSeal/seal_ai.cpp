@@ -367,7 +367,7 @@ class CAiWepHint;
 /* port: CHARACTER_SOUND is declared in gamez/zCharacter/zchar.h */
 class MAP_LINEWALK_STRUCT;
 /* port: SEAL_TASK is declared in gamez/zSeal/zseal.h */
-class STUN_TYPE;
+/* port: STUN_TYPE is declared in gamez/zSeal/zseal.h */
 /* @socom-skeleton end forward */
 
 /* @socom-skeleton stub accelRate */

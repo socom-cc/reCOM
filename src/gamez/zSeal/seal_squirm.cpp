@@ -34,7 +34,7 @@
 #include "zseal.h"
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
-class STUN_TYPE;
+/* port: STUN_TYPE is declared in gamez/zSeal/zseal.h */
 /* @socom-skeleton end forward */
 
 /* @socom-skeleton stub MultiplayerMsgStrings */

@@ -151,8 +151,22 @@ void CAiMap::FreeEx()
 }
 
 /* @socom-skeleton stub GetMapEx__6CAiMapFRC9CAiMapLoc */
-void CAiMap::GetMapEx(const CAiMapLoc &)
+char * CAiMap::GetMapEx(const CAiMapLoc &loc)
 {
+	/* 0x19f270: the location's m_mapex_bytes in its row's extra data; NULL without extra
+	 * data, off the grid or outside the row's span */
+	if (m_mapex == NULL)
+		return NULL;
+
+	if (!((u32)loc.y < m_ny && loc.x < m_nx))
+		return NULL;
+
+	const scanline &row = m_scanlines[loc.y];
+
+	if (loc.x < row.m_start || !(loc.x < row.m_end))
+		return NULL;
+
+	return row.m_mapEx + m_mapex_bytes * (loc.x - row.m_start);
 }
 
 /* @socom-skeleton body ValidateName__Q26CAiMap4nameFv */

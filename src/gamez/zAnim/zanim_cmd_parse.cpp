@@ -104,8 +104,20 @@ void zAnim_ResetSequenceOffsetStackSize()
 }
 
 /* @socom-skeleton stub zAnimGetDirectionFromAzimuthZenith__FffP6CPnt3D */
-void zAnimGetDirectionFromAzimuthZenith(float, float, CPnt3D *)
+void zAnimGetDirectionFromAzimuthZenith(float azimuth, float zenith, CPnt3D *dir)
 {
+	/* 0x1b7b90: azimuth in degrees around y (0 = -z), zenith in degrees as a linear height:
+	 * y = zenith / 90 and the horizontal part shrinks by 1 - |y| (not a unit vector off the axes) */
+	f32 angle = azimuth * 0.017453292f;
+	dir->x = sinf(angle);
+	dir->z = cosf(angle);
+	f32 y = zenith * 0.011111111f;
+	dir->x = -dir->x;
+	dir->z = -dir->z;
+	dir->y = y;
+	f32 flat = y < 0.0f ? 1.0f + y : 1.0f - y;
+	dir->x *= flat;
+	dir->z *= flat;
 }
 
 /* @socom-skeleton stub zAnimCmdAddData__FP14_zanim_cmd_hdrPvi */

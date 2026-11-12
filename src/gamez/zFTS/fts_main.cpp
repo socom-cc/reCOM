@@ -26,21 +26,90 @@
 #include "gamez/zIntersect/zintersect.h"
 #include "gamez/zMath/zmath.h"
 /* @socom-skeleton end include */
+#include "gamez/zNode/node_world.h" /* CWorld::m_world (ftsGetAltitudeApprox) */
+#include "gamez/zAI/zai.h" /* AiMaps (ftsGetAltitudeApprox) */
 
 /* @socom-skeleton stub MultiplayerMsgStrings */
 static unsigned char MultiplayerMsgStrings[28];
 
 /* @socom-skeleton stub di */
-static int di[9];
+/* 36 bytes: the DI record of ftsGetAltitudeApprox's AI-map hits (only its material bits are
+ * written). port: a CDIPoly object so GCC's CDI layout carries the material (the ELF uses the
+ * raw .bss record, never constructed) */
+static zdb::CDIPoly di;
 
 /* @socom-skeleton stub hit */
-static float hit[8];
+static zdb::IntersectStruct hit; /* 32 bytes: ftsGetAltitudeApprox's AI-map hit */
 
 /* @socom-skeleton stub ftsGetAltitudeApprox__FPC6CPnt3Dfb */
-zdb::IntersectStruct * ftsGetAltitudeApprox(const CPnt3D *, float, bool)
+zdb::IntersectStruct * ftsGetAltitudeApprox(const CPnt3D *position, float offset, bool skip_aimap)
 {
+	/* 0x1f20f0: unless skipped, the AI map's altitude under the point: the map holding the point
+	 * lifted by the offset, its cell (not one with a bad altitude or soil 10), the cell under the
+	 * point in that map, its flat altitude (bbox min y + the 10-bit altitude in 1/1024 of the map's
+	 * height) or bilinear altitude; with the cell's extra data present, the result is the file's
+	 * hit record (normal unit_y, the extra data's byte 3 as the DI's material). Otherwise, or with
+	 * "compare" set, the world's GetAltitude. The statics start 1 and 0 (first-call init guards
+	 * in the ELF). */
 	/* @socom-skeleton stub useaimap$2199 */
-	static unsigned char useaimap;
+	static unsigned char useaimap = 1;
 	/* @socom-skeleton stub compare$2202 */
-	static unsigned char compare;
+	static unsigned char compare = 0;
+	bool found = false;
+
+	if (useaimap && !skip_aimap)
+	{
+		CPnt3D probe(position->x, position->y + offset, position->z);
+		CAiMapLoc loc;
+
+		if (AiMaps.GetLocation(&probe, loc))
+		{
+			CAiMap *map = AiMaps.GetMapByIndex(loc.m_mapid);
+			CAiCell *cell = map->GetCell(loc);
+			f32 altitude = 0.0f;
+
+			/* port: guard - off the grid the ELF reads the flags of a NULL cell */
+			if (cell != NULL && !cell->m_badalt && cell->m_soil != 10)
+			{
+				CAiMapLoc local;
+				bool have = false;
+
+				if (map->GetLocation(position, local))
+				{
+					CAiCell *under = map->GetCell(local);
+
+					if (under != NULL && under->m_bilinear)
+					{
+						/* port: not written - CAiMap::GetBilinearAltitude 0x19a820 (2244 bytes, zAI);
+						 * bilinear cells take the world's altitude below */
+					}
+					else if (under != NULL)
+					{
+						altitude = map->m_bbox.m_min.y + (map->m_bbox.m_max.y - map->m_bbox.m_min.y) * 0.00097656297f * (f32)under->m_altitude;
+						have = true;
+					}
+				}
+
+				if (have)
+				{
+					if (char *extra = map->GetMapEx(loc))
+					{
+						hit.m_node = NULL;
+						hit.m_norm = CPnt3D::unit_y;
+						hit.m_pos.x = position->x;
+						hit.m_pos.y = altitude;
+						hit.m_pos.z = position->z;
+						hit.m_poly = &di;
+						di.m_material = (u8)extra[3];
+						found = true;
+					}
+				}
+			}
+		}
+	}
+
+	if (!found || compare)
+		return zdb::CWorld::m_world->GetAltitude(position, offset);
+
+	return &hit;
 }

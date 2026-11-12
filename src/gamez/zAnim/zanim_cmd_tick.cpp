@@ -77,6 +77,10 @@
 #include "gamez/zValve/zvalve.h" /* CValve::Create (OBJECT_MOTION_FROM_TO valve targets) */
 #include "gamez/zFTS/zfts.h" /* Headset (zAnimSoundTick STOP) */
 #include <math.h> /* sqrtf */
+#include <stdlib.h> /* rand (OBJECT_MOTION) */
+#include <string.h> /* memcpy */
+#include "gamez/zNode/node_world.h" /* CWorld::m_world (OBJECT_MOTION contacts) */
+#include "gamez/zMath/zmath_vu.h" /* Vu0MatrixInverseWithUniformScale */
 /* @socom-skeleton decl forward */
 class _zanim_object_motion_script;
 class zanim_script_frame_header;
@@ -840,14 +844,579 @@ bool zAnimObjectRotateStateTick(_zanim_cmd_hdr *header, float *)
 }
 
 /* @socom-skeleton stub zAnimObjectMotionBegin__FP14_zanim_cmd_hdr */
-void zAnimObjectMotionBegin(_zanim_cmd_hdr *)
+void zAnimObjectMotionBegin(_zanim_cmd_hdr *header)
 {
+	/* 0x1bc540: the start velocity and acceleration of a ballistic move. An optional random
+	 * offset (azimuth/zenith direction plus speed and acceleration terms) is drawn first; the
+	 * direction then comes from the anim's normal or velocity argument, from the data relative
+	 * to a node (8), or from a random azimuth/zenith (0x10). Gravity, spin, roll and scale take
+	 * their start values; an input velocity can be added. */
+	_zanim_cmd_motion* cmd = reinterpret_cast<_zanim_cmd_motion*>(header);
+	CZAnim* anim = ZAnim.m_CurAnim;
+	zdb::CNode* node = anim->GetNode(cmd->node_ref, false);
+
+	if (node == NULL)
+		return;
+
+	if (!(cmd->flags & 0x1))
+		cmd->duration = 0.0f;
+
+	bool offset = false;
+	CPnt3D offset_dir;
+	f32 speed_ofs = 0.0f; /* port: initialised (the ELF reads them only when offset is set) */
+	f32 accel_ofs = 0.0f;
+
+	if (cmd->offset_offset > 0)
+	{
+		const f32* base = reinterpret_cast<const f32*>(reinterpret_cast<u8*>(cmd) + cmd->offset_offset);
+		const f32* range = base + 4;
+		offset = true;
+		f32 azimuth = base[0] + range[0] * ((f32)rand() * 4.656613e-10f); /* rand() / 2^31 */
+		f32 zenith = base[1] + range[1] * ((f32)rand() * 4.656613e-10f);
+		speed_ofs = base[2] + range[2] * ((f32)rand() * 4.656613e-10f);
+		accel_ofs = base[3] + range[3] * ((f32)rand() * 4.656613e-10f);
+		zAnimGetDirectionFromAzimuthZenith(azimuth, zenith, &offset_dir);
+	}
+
+	CPnt3D* velocity0 = reinterpret_cast<CPnt3D*>(cmd->velocity0);
+	CPnt3D* accel0 = reinterpret_cast<CPnt3D*>(cmd->accel0);
+
+	if (cmd->flags & 0x8)
+	{
+		const f32* base = reinterpret_cast<const f32*>(reinterpret_cast<u8*>(cmd) + cmd->base_offset);
+
+		if (cmd->flags & 0x1000)
+		{
+			/* along the anim's normal argument */
+			const CPnt3D* normal = anim->m_arg_list != NULL ? anim->m_arg_list->GetPnt3D(CZAnimArg::ARG_NORMAL) : NULL;
+
+			if (normal != NULL)
+			{
+				if (offset)
+				{
+					CPnt3D dir;
+					normal->Add(&offset_dir, &dir);
+					dir.Scale(base[2] + speed_ofs, velocity0);
+					dir.Scale(base[3] + accel_ofs, accel0);
+				}
+				else
+				{
+					normal->Scale(base[2], velocity0);
+					normal->Scale(base[3], accel0);
+				}
+			}
+		}
+		else if ((cmd->flags & 0x2000) || (cmd->flags & 0x4000))
+		{
+			/* along the anim's velocity argument */
+			const CPnt3D* input = anim->m_arg_list != NULL ? anim->m_arg_list->GetPnt3D(CZAnimArg::ARG_VELOCITY) : NULL;
+
+			if (input != NULL)
+			{
+				CPnt3D dir = *input;
+
+				if (cmd->flags & 0x8000)
+					dir.Normalize();
+
+				if (cmd->flags & 0x4000)
+				{
+					const CPnt3D* normal = anim->m_arg_list != NULL ? anim->m_arg_list->GetPnt3D(CZAnimArg::ARG_NORMAL) : NULL;
+
+					/* ELF quirk kept: the reflection is returned by value and dropped */
+					if (normal != NULL)
+						(void)dir.Reflect(normal);
+				}
+
+				if (cmd->flags & 0x20000)
+				{
+					/* into the node's space */
+					CMatrix world;
+					node->BuildMTW(world);
+					Vu0MatrixInverseWithUniformScale(&world, &world);
+					world.Rotate(&dir, &dir, 1);
+				}
+
+				if (offset)
+				{
+					f32 length = sqrtf(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
+					CPnt3D scaled;
+					offset_dir.Scale(length, &scaled);
+					dir.Add(&scaled, &dir);
+					dir.Scale(base[2] + speed_ofs, velocity0);
+					dir.Scale(base[3] + accel_ofs, accel0);
+				}
+				else
+				{
+					dir.Scale(base[2], velocity0);
+					dir.Scale(base[3], accel0);
+				}
+			}
+		}
+		else if (cmd->rel_node_ref != 0)
+		{
+			/* the data's direction, relative to a node */
+			if (zdb::CNode* rel = ZAnim.m_CurAnim->GetNode(cmd->rel_node_ref, false))
+			{
+				CPnt3D dir(cmd->direction[0], cmd->direction[1], cmd->direction[2]);
+				CZAnimMain::GetDirectionRelativeToNode(&dir, rel);
+
+				if (offset)
+				{
+					CPnt3D sum;
+					dir.Add(&offset_dir, &sum);
+					sum.Scale(base[2] + speed_ofs, velocity0);
+					sum.Scale(base[3] + accel_ofs, accel0);
+				}
+				else
+				{
+					dir.Scale(base[2], velocity0);
+					dir.Scale(base[3], accel0);
+				}
+			}
+		}
+
+		memcpy(cmd->velocity, cmd->velocity0, 12);
+		memcpy(cmd->accel, cmd->accel0, 12);
+	}
+
+	if (cmd->flags & 0x10)
+	{
+		/* a random direction from the base and range azimuth/zenith */
+		const f32* base = reinterpret_cast<const f32*>(reinterpret_cast<u8*>(cmd) + cmd->base_offset);
+		const f32* range = reinterpret_cast<const f32*>(reinterpret_cast<u8*>(cmd) + cmd->range_offset);
+		f32 azimuth = base[0] + range[0] * ((f32)rand() * 4.656613e-10f);
+		f32 zenith = base[1] + range[1] * ((f32)rand() * 4.656613e-10f);
+		f32 speed = base[2] + range[2] * ((f32)rand() * 4.656613e-10f);
+		f32 accel = base[3] + range[3] * ((f32)rand() * 4.656613e-10f);
+		zAnimGetDirectionFromAzimuthZenith(azimuth, zenith, reinterpret_cast<CPnt3D*>(cmd->direction));
+		CPnt3D dir(cmd->direction[0], cmd->direction[1], cmd->direction[2]);
+
+		if (cmd->rel_node_ref != 0)
+		{
+			if (zdb::CNode* rel = ZAnim.m_CurAnim->GetNode(cmd->rel_node_ref, false))
+				CZAnimMain::GetDirectionRelativeToNode(&dir, rel);
+		}
+
+		if (offset)
+		{
+			CPnt3D sum;
+			offset_dir.Add(&dir, &sum);
+			sum.Scale(speed + speed_ofs, velocity0);
+			sum.Scale(accel + accel_ofs, accel0);
+		}
+		else
+		{
+			dir.Scale(speed, velocity0);
+			dir.Scale(accel, accel0);
+		}
+
+		memcpy(cmd->velocity, cmd->velocity0, 12);
+		memcpy(cmd->accel, cmd->accel0, 12);
+	}
+
+	if (cmd->flags & 0x2)
+		cmd->accel[1] += cmd->gravity_scale * ZAnim.m_gravity;
+
+	if (cmd->flags & 0x100)
+	{
+		f32* spin = reinterpret_cast<f32*>(reinterpret_cast<u8*>(cmd) + cmd->spin_offset);
+		memcpy(spin + 6, spin, 12);
+		node->GetRotation(reinterpret_cast<CPnt3D*>(cmd->rotation));
+	}
+
+	if ((cmd->flags & 0x200) || (cmd->flags & 0x400))
+	{
+		f32* roll = reinterpret_cast<f32*>(reinterpret_cast<u8*>(cmd) + cmd->roll_offset);
+		memcpy(roll + 2, roll, 4);
+	}
+
+	if (cmd->flags & 0x800)
+	{
+		/* plus the anim's velocity argument */
+		CZAnimArgList* args = ZAnim.m_CurAnim->m_arg_list;
+		const CPnt3D* input = args != NULL ? args->GetPnt3D(CZAnimArg::ARG_VELOCITY) : NULL;
+
+		if (input != NULL)
+		{
+			CPnt3D* velocity = reinterpret_cast<CPnt3D*>(cmd->velocity);
+			CPnt3D add;
+
+			if (cmd->flags & 0x20000)
+			{
+				CMatrix world;
+				node->BuildMTW(world);
+				Vu0MatrixInverseWithUniformScale(&world, &world);
+				CPnt3D local;
+				world.Rotate(input, &local, 1);
+				local.Scale(cmd->input_scale, &add);
+			}
+			else
+			{
+				input->Scale(cmd->input_scale, &add);
+			}
+
+			velocity->Add(&add, velocity);
+		}
+	}
+
+	if (cmd->flags & 0x10000)
+	{
+		f32* scale = reinterpret_cast<f32*>(reinterpret_cast<u8*>(cmd) + cmd->scale_offset);
+		memcpy(scale + 6, scale, 12);
+	}
+}
+
+/* zAnimObjectMotionTick: the material entry for a contact (inline loop in the ELF) */
+static _zanim_motion_material* motion_material(_zanim_cmd_motion* cmd, zdb::IntersectStruct* hit)
+{
+	if (cmd->material_offset <= 0)
+		return NULL;
+
+	_zanim_motion_material* entry = reinterpret_cast<_zanim_motion_material*>(reinterpret_cast<u8*>(cmd) + cmd->material_offset);
+
+	for (s32 i = 0; i < cmd->material_count; i++, entry++)
+	{
+		if (entry->material == hit->GetMaterial())
+			return entry;
+	}
+
+	return NULL;
+}
+
+/* zAnimObjectMotionTick: the contact's material record, NULL for none (inline in the ELF) */
+static CMaterialEx* motion_contact_material(zdb::IntersectStruct* hit)
+{
+	if (hit == NULL)
+		return NULL;
+
+	u32 index = hit->GetMaterial();
+
+	if (index >= CMaterialExArray::m_materialex_list.size())
+		index = 0;
+
+	return CMaterialExArray::m_materialex_list[index];
 }
 
 /* @socom-skeleton stub zAnimObjectMotionTick__FP14_zanim_cmd_hdrPf */
-bool zAnimObjectMotionTick(_zanim_cmd_hdr *, float *)
+bool zAnimObjectMotionTick(_zanim_cmd_hdr *header, float *dT)
 {
-	return true; /* port: stub - not written (command tick) */
+	/* 0x1bb330: one frame of the move. The step (velocity times the frame) is cut against the
+	 * ground (0x40, the altitude under the node, lifted by a share of the node's height) and
+	 * against a ray along the step (0x80); a contact reflects the velocity (elasticity from
+	 * the material entry or the command), keeps the rest of the frame for the bounced step, and
+	 * ends the command when the bounce is slower than 0.08 of the acceleration (at rest). The
+	 * contact starts the material's (or the command's) sequence and plays its sound, quieter
+	 * below the reference speed. Then gravity (with drag while falling), spin, roll and scale. */
+	_zanim_cmd_motion* cmd = reinterpret_cast<_zanim_cmd_motion*>(header);
+	CZAnim* anim = ZAnim.m_CurAnim;
+	CPnt3D step(0.0f, 0.0f, 0.0f);
+	zdb::CNode* node = anim->GetNode(cmd->node_ref, false);
+
+	if (node == NULL)
+		return true;
+
+	f32 dt;
+	bool done;
+
+	if ((cmd->flags & 0x1) && !(*dT + ZAnim.m_CurSeq->cmd_timer <= cmd->duration))
+	{
+		dt = cmd->duration - ZAnim.m_CurSeq->cmd_timer;
+		done = true;
+		*dT -= dt;
+	}
+	else
+	{
+		dt = *dT;
+		done = false;
+		*dT = 0.0f;
+	}
+
+	f32 accel_dt = dt;
+	f32 remaining = dt;
+	CPnt3D* velocity = reinterpret_cast<CPnt3D*>(cmd->velocity);
+	CPnt3D* accel = reinterpret_cast<CPnt3D*>(cmd->accel);
+
+	if ((cmd->flags & 0x8) || (cmd->flags & 0x10) || (cmd->flags & 0x800))
+	{
+		CPnt3D pos(0.0f, 0.0f, 0.0f);
+		bool bounced = false;
+		bool hit = false;
+		f32 impact_speed = 0.0f; /* port: initialised (set before every use in the ELF) */
+		_zanim_motion_material* ground_entry = NULL;
+		_zanim_motion_material* ray_entry = NULL;
+
+		/* the ground contact is lifted by 0.35 of the node's height in the world */
+		CBBox* box = node->GetBBox();
+		CPnt3D extent;
+		box->m_max.Sub(&box->m_min, &extent);
+		CPnt3D rotated;
+		node->m_matrix.Rotate(&extent, &rotated, 1);
+		f32 lift = fabsf(rotated.y) * 0.35f;
+
+		velocity->Scale(remaining, &step);
+		pos.x = node->m_matrix.m_matrix[3][0];
+		pos.y = node->m_matrix.m_matrix[3][1];
+		pos.z = node->m_matrix.m_matrix[3][2];
+
+		if ((cmd->flags & 0x40) || (cmd->flags & 0x80))
+		{
+			while (remaining > 0.01f)
+			{
+				bool contact = false;
+				bool stop = false;
+				bool ray = false;
+				f32 flat = step.x * step.x + step.z * step.z;
+
+				/* the ray is skipped for a slow, nearly vertical fall */
+				if (cmd->flags & 0x80)
+				{
+					if (!(step.y < 0.0f) || !(flat <= step.y * step.y) || !(flat <= 0.1f))
+						ray = true;
+				}
+
+				if ((cmd->flags & 0x40) && cmd->velocity[1] < 0.0f && !ray)
+				{
+					contact = true;
+					CPnt3D probe = pos;
+					bool active = node->m_active;
+					node->SetActive(false); /* the node is off for its own ground test (vtable +0x34) */
+					zdb::IntersectStruct* ground = ftsGetAltitudeApprox(&probe, lift, false);
+
+					if (ground == NULL)
+						ground = zdb::CWorld::m_world->GetAltitude(&probe, lift);
+
+					node->SetActive(active);
+					CMaterialEx* material = motion_contact_material(ground);
+
+					if (material == NULL || material->m_liquid)
+					{
+						stop = true;
+						remaining = 0.0f;
+					}
+					else
+					{
+						ground->m_pos.y += lift; /* the hit record itself is lifted */
+						f32 ground_y = ground->m_pos.y;
+
+						if (pos.y < ground_y - lift)
+						{
+							/* under the ground: put on it, at rest */
+							done = true;
+							remaining = 0.0f;
+							pos = ground->m_pos;
+							step = CPnt3D::zero;
+						}
+						else if (ground_y < pos.y + step.y)
+						{
+							/* the step stays above the ground */
+							stop = true;
+							remaining = 0.0f;
+						}
+						else
+						{
+							bounced = true;
+							impact_speed = sqrtf(velocity->x * velocity->x + velocity->y * velocity->y + velocity->z * velocity->z);
+							ground_entry = motion_material(cmd, ground);
+							CPnt3D unit;
+							static_cast<const CPnt3D*>(velocity)->Normalize(&unit);
+							f32 facing = fabsf(unit.x * ground->m_norm.x + unit.y * ground->m_norm.y + unit.z * ground->m_norm.z);
+							remaining *= 1.0f - (ground_y - pos.y) / step.y;
+							*velocity = velocity->Reflect(&ground->m_norm);
+							f32 elasticity = (ground_entry != NULL && ground_entry->has_elasticity) ? ground_entry->elasticity : cmd->elasticity;
+
+							if (elasticity < 1.0f)
+								velocity->Scale(1.0f - (1.0f - elasticity) * facing, velocity);
+							else
+								velocity->Scale(elasticity, velocity);
+
+							pos = ground->m_pos;
+							f32 accel_len = sqrtf(accel->x * accel->x + accel->y * accel->y + accel->z * accel->z);
+							f32 speed = sqrtf(velocity->x * velocity->x + velocity->y * velocity->y + velocity->z * velocity->z);
+
+							if (speed < 0.08f * accel_len)
+							{
+								done = true;
+								step = CPnt3D::zero;
+							}
+							else
+							{
+								velocity->Scale(remaining, &step);
+								accel_dt = remaining;
+								cmd->accel[1] = cmd->gravity_scale * ZAnim.m_gravity;
+							}
+						}
+					}
+				}
+
+				if (!done && ((cmd->flags & 0x80) || ray) && !stop)
+				{
+					contact = true;
+					CPnt3D end;
+					pos.Add(&step, &end);
+					bool active = node->m_active;
+					node->SetActive(false);
+					zdb::IntersectStruct* isect = zdb::CWorld::m_world->GetIntersect(&pos, &end);
+					node->SetActive(active);
+					CMaterialEx* material = motion_contact_material(isect);
+
+					if (material == NULL || material->m_liquid)
+					{
+						remaining = 0.0f;
+					}
+					else
+					{
+						f32 fall = cmd->velocity[1];
+						hit = true;
+						ray_entry = motion_material(cmd, isect);
+
+						if (cmd->flags & 0x20)
+							impact_speed = sqrtf(velocity->x * velocity->x + velocity->y * velocity->y + velocity->z * velocity->z);
+
+						*velocity = velocity->Reflect(&isect->m_norm);
+						f32 elasticity = (ray_entry != NULL && ray_entry->has_elasticity) ? ray_entry->elasticity : cmd->elasticity;
+						velocity->Scale(elasticity, velocity);
+
+						/* up to the hit, kept "lift" short of it */
+						CPnt3D to_hit;
+						isect->m_pos.Sub(&pos, &to_hit);
+						f32 step_len = sqrtf(step.x * step.x + step.y * step.y + step.z * step.z);
+						f32 hit_len = sqrtf(to_hit.x * to_hit.x + to_hit.y * to_hit.y + to_hit.z * to_hit.z);
+						remaining *= 1.0f - hit_len / step_len;
+						f32 share = 1.0f - lift / hit_len;
+
+						if (!(share <= 1.0f))
+							share = 1.0f;
+
+						CPnt3D move;
+						to_hit.Scale(share, &move);
+						pos.Add(&move, &pos);
+						f32 accel_len = sqrtf(accel->x * accel->x + accel->y * accel->y + accel->z * accel->z);
+						f32 speed = sqrtf(velocity->x * velocity->x + velocity->y * velocity->y + velocity->z * velocity->z);
+
+						if (isect->m_norm.y > 0.3f && fall <= 0.0f && speed < 0.08f * accel_len)
+						{
+							done = true;
+							step = CPnt3D::zero;
+						}
+						else
+						{
+							velocity->Scale(remaining, &step);
+
+							if (isect->m_norm.y > 0.3f)
+							{
+								accel_dt = remaining;
+								cmd->accel[1] = cmd->gravity_scale * ZAnim.m_gravity;
+							}
+						}
+					}
+				}
+
+				if (!contact)
+					remaining = 0.0f;
+			}
+		}
+
+		CPnt3D next;
+		pos.Add(&step, &next);
+		node->SetPosition(next.x, next.y, next.z);
+
+		if (bounced || hit)
+		{
+			_zanim_motion_material* entry = ground_entry != NULL ? ground_entry : ray_entry;
+
+			if (entry != NULL && entry->sequence != 0)
+				ZAnim.ActivateSequence(anim->GetName(entry->sequence));
+			else if (cmd->impact_sequence != 0)
+				ZAnim.ActivateSequence(anim->GetName(cmd->impact_sequence));
+
+			if (cmd->flags & 0x20)
+			{
+				_zanim_sound* sound = NULL;
+
+				if (entry != NULL && entry->sound != 0)
+					sound = anim->GetSoundRef(entry->sound);
+				else if (cmd->impact_sound != 0)
+					sound = anim->GetSoundRef(cmd->impact_sound);
+
+				if (sound != NULL && sound->sound_handle != NULL) /* port: guard (the ELF calls through the handle) */
+				{
+					f32 volume = 1.0f;
+					f32 full = (entry != NULL && entry->has_sound_speed) ? entry->sound_speed : cmd->sound_speed;
+
+					if (!(full < 0.0f) && impact_speed < full)
+						volume = impact_speed / full;
+
+					sound->sound_handle->PlaySound3D(&next, true, volume, 0, NULL, 255);
+				}
+			}
+		}
+
+		if ((cmd->flags & 0x2) && cmd->velocity[1] < 0.0f)
+		{
+			/* falling: the gravity share shrinks with the fall speed */
+			f32 factor = ZAnim.InvExp(cmd->velocity[1] * cmd->drag);
+			cmd->velocity[1] += cmd->accel[1] * factor * dt;
+			cmd->velocity[0] += cmd->accel[0] * dt;
+			cmd->velocity[2] += cmd->accel[2] * dt;
+		}
+		else
+		{
+			CPnt3D add;
+			accel->Scale(accel_dt, &add);
+			velocity->Add(&add, velocity);
+		}
+	}
+
+	CPnt3D* rotation = reinterpret_cast<CPnt3D*>(cmd->rotation);
+
+	if (cmd->flags & 0x100)
+	{
+		f32* spin = reinterpret_cast<f32*>(reinterpret_cast<u8*>(cmd) + cmd->spin_offset);
+		CPnt3D* current = reinterpret_cast<CPnt3D*>(spin + 6);
+		CPnt3D add;
+		current->Scale(dt, &add);
+		rotation->Add(&add, rotation);
+		node->SetRotation(rotation);
+		reinterpret_cast<CPnt3D*>(spin + 3)->Scale(dt, &add);
+		current->Add(&add, current);
+	}
+
+	if (cmd->flags & 0x200)
+	{
+		/* rolled by the distance moved */
+		f32* roll = reinterpret_cast<f32*>(reinterpret_cast<u8*>(cmd) + cmd->roll_offset);
+		CPnt3D add(roll[2] * step.z, 0.0f, -(roll[2] * step.x));
+		rotation->Add(&add, rotation);
+		node->SetRotation(rotation);
+	}
+
+	if (cmd->flags & 0x400)
+	{
+		/* rolled along the velocity */
+		f32* roll = reinterpret_cast<f32*>(reinterpret_cast<u8*>(cmd) + cmd->roll_offset);
+		CPnt3D unit = *velocity;
+		unit.Normalize();
+		CPnt3D add(dt * (roll[2] * unit.z), 0.0f, -(dt * (roll[2] * unit.x)));
+		rotation->Add(&add, rotation);
+		node->SetRotation(rotation);
+		roll[2] += roll[1] * dt;
+	}
+
+	if (cmd->flags & 0x10000)
+	{
+		f32* rate = reinterpret_cast<f32*>(reinterpret_cast<u8*>(cmd) + cmd->scale_offset);
+		CPnt3D* current = reinterpret_cast<CPnt3D*>(rate + 6);
+		CPnt3D scale;
+		node->GetScale(&scale);
+		CPnt3D add;
+		current->Scale(dt, &add);
+		scale.Add(&add, &scale);
+		node->SetScale(&scale);
+		reinterpret_cast<CPnt3D*>(rate + 3)->Scale(dt, &add);
+		current->Add(&add, current);
+	}
+
+	return done;
 }
 
 /* @socom-skeleton stub ComputeRunTime__15CZAnimFromToAccFP6CPnt3DP6CPnt3D */

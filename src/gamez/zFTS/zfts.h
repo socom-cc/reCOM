@@ -68,6 +68,10 @@ void ftsSetPlayer(CZSealBody* player);
 bool ftsGetSquirm();
 void ftsSetSquirm(bool squirm);
 
+/* fts_main.cpp 0x1f20f0: ground under the point (AI map, else the world); OBJECT_MOTION and
+ * aiMapPlaceItem call it */
+zdb::IntersectStruct* ftsGetAltitudeApprox(const CPnt3D* position, float offset, bool skip_aimap);
+
 void ftsNetworkGameInit();
 void ftsNetworkGameUninit();
 void ftsNetworkPlayerInit();
