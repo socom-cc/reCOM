@@ -10,26 +10,124 @@
 #include "gamez/zMath/zmath.h"
 #include "zai.h"
 /* @socom-skeleton end include */
+#include <math.h> /* sqrtf */
 /* @socom-skeleton decl forward */
 class MAP_FLOODFILL_STRUCT;
 /* @socom-skeleton end forward */
 
-/* @socom-skeleton stub _find_cover__FR20MAP_FLOODFILL_STRUCTPv */
-void _find_cover(MAP_FLOODFILL_STRUCT &, void *)
+/* the search record FindLookLoc / FindCoverLoc hand FloodFill's callbacks (no DWARF record;
+ * names invented) */
+struct FIND_DATA
 {
+	CAiMapLoc m_loc; /* +0x00 the spot found */
+	CPnt3D m_target; /* +0x04 the point to see / to hide from */
+	f32 m_dist;      /* +0x10 the distance to it from the start (not read by the callbacks) */
+};
+
+/* @socom-skeleton stub _find_cover__FR20MAP_FLOODFILL_STRUCTPv */
+bool _find_cover(MAP_FLOODFILL_STRUCT &fill, void *data)
+{
+	/* 0x1a9e40: walkable neighbours are searched on; a blocking neighbour (soil 0, 8 or 10)
+	 * lying exactly in the target's direction from it makes the cell taken the cover spot */
+	FIND_DATA *find = (FIND_DATA *)data;
+
+	if (fill.m_state == 1)
+		return true;
+
+	if (fill.m_state != 0)
+		return false;
+
+	CAiCell *cell = fill.m_cell;
+
+	if (CAiMap::IsWalkable(cell))
+		return true;
+
+	if (!(cell->m_soil == 0 || cell->m_soil == 8 || cell->m_soil == 10))
+		return false;
+
+	CAiMap::DIR toward = fill.m_map->GetClosestDir(fill.m_next, &find->m_target);
+
+	if (CAiMap::GetDirDelta(toward, (CAiMap::DIR)(s8)fill.m_next_dir) != 0)
+		return false;
+
+	fill.m_state = 2;
+	find->m_loc = fill.m_loc;
+	return true;
 }
 
 /* @socom-skeleton stub _find_look__FR20MAP_FLOODFILL_STRUCTPv */
-void _find_look(MAP_FLOODFILL_STRUCT &, void *)
+bool _find_look(MAP_FLOODFILL_STRUCT &fill, void *data)
 {
+	/* 0x1a9d50: walkable neighbours are searched on; the first cell taken with a clear map
+	 * line to the target is the look spot (the walk stops) */
+	FIND_DATA *find = (FIND_DATA *)data;
+
+	if (fill.m_state == 1)
+	{
+		CAiMapLoc blocked;
+
+		if (fill.m_map->CanSeeLine(fill.m_loc, &find->m_target, &blocked))
+		{
+			fill.m_state = 2;
+			find->m_loc = fill.m_loc;
+			return false;
+		}
+
+		return true;
+	}
+
+	if (fill.m_state == 0)
+		return CAiMap::IsWalkable(fill.m_cell);
+
+	return false;
+}
+
+/* port: the start of FindCoverLoc / FindLookLoc (identical in the ELF): the flood fill from
+ * loc in the target's direction with the callback */
+static bool find_spot(CAiMap *map, const CAiMapLoc &loc, const CPnt3D *target, CAiMapLoc &out, CAiMap::DIR &dir, int depth, bool (*callback)(MAP_FLOODFILL_STRUCT &, void *))
+{
+	CPnt3D pos;
+
+	if (!map->GetCellPos(loc, pos))
+		return false;
+
+	CPnt3D d;
+	target->SubXZ(&pos, &d);
+	d.y = 0.0f;
+	f32 dist = sqrtf(d.x * d.x + d.z * d.z);
+
+	if (dist != 0.0f)
+	{
+		f32 inv = 1.0f / dist;
+		d.x *= inv;
+		d.z *= inv;
+	}
+
+	dir = CAiMap::GetClosestDir(&d);
+	FIND_DATA find;
+	find.m_loc = loc;
+	find.m_target = *target;
+	find.m_dist = dist;
+
+	if (!map->FloodFill(loc, (CAiMap::DIR)(s8)dir, depth, callback, &find))
+		return false;
+
+	out = find.m_loc;
+	return true;
 }
 
 /* @socom-skeleton stub FindCoverLoc__6CAiMapFRC9CAiMapLocPC6CPnt3DR9CAiMapLocRQ26CAiMap3DIRi */
-void CAiMap::FindCoverLoc(const CAiMapLoc &, const CPnt3D *, CAiMapLoc &, CAiMap::DIR &, int)
+bool CAiMap::FindCoverLoc(const CAiMapLoc &loc, const CPnt3D *target, CAiMapLoc &out, CAiMap::DIR &dir, int depth)
 {
+	/* 0x1a9970: a cell near loc (flood fill, depth) beside a wall in the target's direction;
+	 * dir is the target's direction from loc */
+	return find_spot(this, loc, target, out, dir, depth, _find_cover);
 }
 
 /* @socom-skeleton stub FindLookLoc__6CAiMapFRC9CAiMapLocPC6CPnt3DR9CAiMapLocRQ26CAiMap3DIRi */
-void CAiMap::FindLookLoc(const CAiMapLoc &, const CPnt3D *, CAiMapLoc &, CAiMap::DIR &, int)
+bool CAiMap::FindLookLoc(const CAiMapLoc &loc, const CPnt3D *target, CAiMapLoc &out, CAiMap::DIR &dir, int depth)
 {
+	/* 0x1a9590: the nearest cell (flood fill, depth) with a clear map line to the target;
+	 * dir is the target's direction from loc */
+	return find_spot(this, loc, target, out, dir, depth, _find_look);
 }

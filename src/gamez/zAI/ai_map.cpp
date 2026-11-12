@@ -209,13 +209,56 @@ CAiMap::DIR CAiMap::GetDirByName(const char *)
 }
 
 /* @socom-skeleton stub GetDirDelta__6CAiMapFQ26CAiMap3DIRQ26CAiMap3DIR */
-void CAiMap::GetDirDelta(CAiMap::DIR, CAiMap::DIR)
+int CAiMap::GetDirDelta(CAiMap::DIR from, CAiMap::DIR to)
 {
+	/* 0x187a70: the turn from one direction to the other, -4..4 eighths */
+	int d = (int)(u8)to - (int)(u8)from;
+
+	if (!(d < 5))
+		d -= 8;
+	else if (d < -4)
+		d += 8;
+
+	return d;
+}
+
+/* port: 0x187680 GetClosestDir__FUiUiPC6CPnt3D (this file's artifact; no skeleton fence was
+ * generated): of the directions first..last (mod 8) the one closest to the unit vector
+ * (least 1 - dot), first when none is under 1 */
+static CAiMap::DIR GetClosestDir(u32 first, u32 last, const CPnt3D *vec)
+{
+	u32 best = (first + 8) & 7;
+	f32 least = 1.0f;
+
+	for (u32 i = first; !(last < i); i++)
+	{
+		u32 d = (i + 8) & 7;
+		CPnt3D v;
+		CAiMap::GetDirVec((CAiMap::DIR)d, v);
+		f32 cost = 1.0f - (vec->x * v.x + vec->y * v.y + vec->z * v.z);
+
+		if (cost < least)
+		{
+			best = d;
+			least = cost;
+		}
+	}
+
+	return (CAiMap::DIR)best;
 }
 
 /* @socom-skeleton stub GetClosestDir__6CAiMapFPC6CPnt3D */
-CAiMap::DIR CAiMap::GetClosestDir(const CPnt3D *)
+CAiMap::DIR CAiMap::GetClosestDir(const CPnt3D *vec)
 {
+	/* 0x187890: the direction closest to a unit vector: S half (E..W) when it points away
+	 * from N, else W..E through N (the helper above, inlined) */
+	CPnt3D n;
+	GetDirVec(N, n);
+
+	if (vec->x * n.x + vec->y * n.y + vec->z * n.z < 0.0f)
+		return ::GetClosestDir(2, 6, vec);
+
+	return ::GetClosestDir(6, 10, vec);
 }
 
 /* @socom-skeleton stub GetClosestDir__6CAiMapFRC9CAiMapLocRC9CAiMapLoc */
@@ -224,8 +267,26 @@ CAiMap::DIR CAiMap::GetClosestDir(const CAiMapLoc &, const CAiMapLoc &)
 }
 
 /* @socom-skeleton stub GetClosestDir__6CAiMapFRC9CAiMapLocPC6CPnt3D */
-CAiMap::DIR CAiMap::GetClosestDir(const CAiMapLoc &, const CPnt3D *)
+CAiMap::DIR CAiMap::GetClosestDir(const CAiMapLoc &loc, const CPnt3D *pos)
 {
+	/* 0x187330: the direction from the cell's position to a point (in x/z); DIR_COUNT for a
+	 * location off the map */
+	CPnt3D here;
+
+	if (!GetCellPos(loc, here))
+		return DIR_COUNT;
+
+	CPnt3D d;
+	pos->Sub(&here, &d);
+	d.y = 0.0f;
+	d.Normalize();
+	CPnt3D n;
+	GetDirVec(N, n);
+
+	if (d.x * n.x + d.y * n.y + d.z * n.z < 0.0f)
+		return ::GetClosestDir(2, 6, &d);
+
+	return ::GetClosestDir(6, 10, &d);
 }
 
 /* @socom-skeleton stub GetSoilByName__6CAiMapFPCc */
@@ -286,8 +347,11 @@ CAiMap::~CAiMap()
 }
 
 /* @socom-skeleton stub _reset_rtflag__6CAiMapFRC18MAP_FOREACH_STRUCTPv */
-void CAiMap::_reset_rtflag(const MAP_FOREACH_STRUCT &, void *)
+bool CAiMap::_reset_rtflag(const MAP_FOREACH_STRUCT &each, void *)
 {
+	/* 0x186bf0: the cell's search mark cleared */
+	each.m_cell->m_rtflag = 0;
+	return true;
 }
 
 /* @socom-skeleton body _validate_cell__6CAiMapFRC18MAP_FOREACH_STRUCTPv */

@@ -1141,19 +1141,58 @@ void CSealCtrlAi::InitAiBrain()
 }
 
 /* @socom-skeleton stub CreateAiEvent__9CSealCtrlFQ28CAiEvent5EVENTffbPC6CPnt3DUi */
-void CSealCtrl::CreateAiEvent(CAiEvent::EVENT, float, float, bool, const CPnt3D *, unsigned int)
+bool CSealCtrl::CreateAiEvent(CAiEvent::EVENT event, float duration, float radius, bool visible, const CPnt3D *pos, unsigned int userdata)
 {
+	/* 0x26a760 (OnWeaponEvent): an event from this seal (at pos, else its own position), no
+	 * sooner after the last of that type than the type's rate (on the mission clock) */
+	f32 *last = &m_event_time[(s8)event];
+	f32 now = theMission.m_timer;
+
+	if (now - *last <= CAiEvent::GetEventRate(event))
+		return false;
+
+	*last = now;
+	CEntity *body = m_entity;
+	CAiEvent *ev = CAiEvent::Acquire();
+	ev->m_type = (s8)event;
+	ev->m_duration = duration;
+	ev->m_rangeSq = radius * radius;
+	ev->m_visible = visible ? 1 : 0;
+	ev->m_pos = pos != NULL ? *pos : *body->GetPosW();
+	ev->m_userdata = userdata;
+	ev->m_owner = body->m_id;
+	CAiEvent::Create(ev);
+	return true;
 }
 
 /* @socom-skeleton stub UpdateEventMask__11CSealCtrlAiFv */
 void CSealCtrlAi::UpdateEventMask()
 {
+	/* 0x26a5b0 (InitAiBrain, SetSleeping, ai::TEAM): which event types the AI hears. A
+	 * sleeping or snoozing AI (or team bit 0x4000000) ignores types 0-4, 6, 7 and 10-14
+	 * (it hears only WEPHIT, WEPFIRE and EXPLOSION); hostages (team 0x10000000 or 0x20000)
+	 * ignore 0-4, 6 and 12-14; SEALs (team 2) ignore UNKNOWN and GENERIC; nothing is heard
+	 * in a network game */
 	/* @socom-skeleton stub sleeper_ignore$2774 */
-	static int sleeper_ignore;
+	static u32 sleeper_ignore = CAiEvent::MakeMaskEx(CAiEvent::AIE_UNKNOWN, 1, 2, 3, 4, 6, 7, 10, 11, 12, 13, 14, -1);
 	/* @socom-skeleton stub hostage_ignore$2777 */
-	static int hostage_ignore;
+	static u32 hostage_ignore = CAiEvent::MakeMaskEx(CAiEvent::AIE_UNKNOWN, 1, 2, 3, 4, 6, 12, 13, 14, -1);
 	/* @socom-skeleton stub navyseal_ignore$2780 */
-	static int navyseal_ignore;
+	static u32 navyseal_ignore = CAiEvent::MakeMaskEx(CAiEvent::AIE_UNKNOWN, 1, -1);
+	CEntity *body = m_entity;
+	m_eventMask = (u32)-1;
+
+	if ((m_snoozing || m_sleeping) || (body->m_team & 0x4000000))
+		m_eventMask &= ~sleeper_ignore;
+
+	if ((body->m_team & 0x10000000) || (body->m_team & 0x20000))
+		m_eventMask &= ~hostage_ignore;
+
+	if (body->m_team & 2)
+		m_eventMask &= ~navyseal_ignore;
+
+	if (theNetwork.m_bNetwork)
+		m_eventMask = 0;
 }
 
 /* @socom-skeleton stub OnWeaponEvent__11CSealCtrlAiFP12CZProjectileUiPv */
@@ -2722,9 +2761,7 @@ unsigned char CSealCtrlAi::AttackTick(float dT, bool allowFire)
 	 * order, an unaware SEAL, or one time in four) or else STATE_PURSUE (5 s for a SEAL,
 	 * open-ended otherwise). port: the guard-region test (CAiMaps::GetRegionTypeContainer,
 	 * region type 6, unwritten) is taken as "not in one"; the unit order test reads no unit
-	 * (CSealUnit unwritten; the ELF reads m_unit+0x4c without a NULL test). While STATE_PURSUE
-	 * is refused (CanPushAiState's port gate) the draw is repeated every frame, so targeting
-	 * follows within a few frames. */
+	 * (CSealUnit unwritten; the ELF reads m_unit+0x4c without a NULL test). */
 	if (engage)
 	{
 		const CAiState* top = static_cast<const CSealCtrlAi *>(this)->GetAiState();
@@ -2749,7 +2786,7 @@ unsigned char CSealCtrlAi::AttackTick(float dT, bool allowFire)
 				{
 					CAiState* t = GetAiState();
 					f32 duration = 2.5f;
-					memcpy(&t->m_unk_08, &duration, 4); /* CAiSTarget's duration (+0x08) */
+					t->m_time = duration; /* CAiSTarget's duration (+0x08) */
 					t->m_setup = 1;
 				}
 			}
@@ -3368,7 +3405,7 @@ void CSealCtrlAi::SetAiAware(AI_AWARE aware, const CPnt3D *pos)
 		m_aware.m_goal = awareRangeMin[AIA_GENERAL];
 
 	if (pos != NULL && aware == AIA_DIRECTION && GetAiAware() < AIA_SPECIFIC)
-		SetAiEvent(CAiEvent::AIE_GENERIC, 1.5f, pos);
+		SetAiEvent(CAiEvent::AIE_POINT, 1.5f, pos);
 
 	if (!(value <= m_aware.m_value))
 	{
@@ -3437,9 +3474,47 @@ void CSealCtrlAi::PlayAiSound(CHARACTER_SOUND)
 {
 }
 
-/* @socom-skeleton stub FindPeekDir__FP6CAiMapRC9CAiMapLocQ26CAiMap3DIR */
-void FindPeekDir(CAiMap *, const CAiMapLoc &, CAiMap::DIR)
+/* port: inline in FindPeekDir (three times): the neighbour cell in a direction, NULL off the
+ * map or its row */
+static CAiCell *peek_cell(CAiMap *map, const CAiMapLoc &loc, u32 dir)
 {
+	int x = (int)loc.x + CAiMap::neighbor[dir & 7][0];
+	int y = (int)loc.y + CAiMap::neighbor[dir & 7][1];
+
+	if (x < 0 || (u32)x >= map->m_nx || y < 0 || (u32)y >= map->m_ny)
+		return NULL;
+
+	CAiMapLoc n;
+	n.m_mapid = 0; /* ELF: the stack word's map id is left as it was (GetCell ignores it) */
+	n.x = x;
+	n.y = y;
+	return map->GetCell(n);
+}
+
+/* @socom-skeleton stub FindPeekDir__FP6CAiMapRC9CAiMapLocQ26CAiMap3DIR */
+int FindPeekDir(CAiMap *map, const CAiMapLoc &loc, CAiMap::DIR dir)
+{
+	/* 0x25f6e0 (CAiSPursue): the side to peek round from a spot facing dir: none (2) when the
+	 * cell ahead is walkable; else right (1) when the cell ahead-right is not soil 0, 8 or
+	 * 10, left (-1) - which wins - when the cell ahead-left is not. ELF quirk kept: soil 9
+	 * counts as open for the sides (not for the cell ahead) */
+	int peek = 2;
+	CAiCell *ahead = peek_cell(map, loc, dir);
+
+	if (ahead != NULL && CAiMap::IsWalkable(ahead))
+		return peek;
+
+	CAiCell *right = peek_cell(map, loc, (u32)dir + 9);
+
+	if (right != NULL && !(right->m_soil == 0 || right->m_soil == 8 || right->m_soil == 10))
+		peek = 1;
+
+	CAiCell *left = peek_cell(map, loc, (u32)dir + 7);
+
+	if (left != NULL && !(left->m_soil == 0 || left->m_soil == 8 || left->m_soil == 10))
+		peek = -1;
+
+	return peek;
 }
 
 /* @socom-skeleton stub FindCoverLoc__11CSealCtrlAiFPC6CPnt3DR9CAiMapLocR9SEAL_PEEKi */
@@ -3646,39 +3721,473 @@ bool CAiSAnimate::Tick(float, CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub OnSignal__10CAiSPursueFQ28CAiState6SIGNALP11CSealCtrlAi */
-void CAiSPursue::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+void CAiSPursue::OnSignal(CAiState::SIGNAL signal, CSealCtrlAi *)
 {
+	/* 0x25acb0: reset (4): no time out, the phase timer at 0 */
+	if ((u8)signal == 4)
+	{
+		m_duration = -1.0f;
+		m_timer = 0.0f;
+	}
 }
 
 /* @socom-skeleton stub GetStatus__10CAiSPursueCFv */
 const char * CAiSPursue::GetStatus() const
 {
+	/* 0x25ac10 */
+	static const char *const names[8] = { "delay", "plan", "goto", "hold", "panic", "search", "search_goto", "search_pause" };
+	return m_substate < 8 ? names[m_substate] : "unknown";
+}
+
+/* port: inline in CAiSPursue::Tick: the target is alive and in sight */
+static bool pursue_seen(const CSealCtrlAi *ai)
+{
+	CEntity *e = ai->m_target.m_target.m_ent;
+	return e != NULL && e->m_isAlive && ai->m_target.m_target.m_visible;
+}
+
+/* port: inline in CAiSPursue::Tick (and CAiSEvent's): the route is done - neither being
+ * followed (points and COMPLETE) nor being planned (PLANNING, INQUEUE, ABORT) */
+static bool pursue_route_done(const CSealCtrlAi *ai)
+{
+	u8 ps = (u8)ai->m_path.m_state;
+
+	if (!ai->m_path.m_points.empty() && ps == CAiPath::COMPLETE)
+		return false;
+
+	return !(ps == CAiPath::PLANNING || ps == CAiPath::INQUEUE || ps == CAiPath::ABORT);
+}
+
+/* port: inline in CAiSPursue::Tick: a spot from the AI's cell toward a point (the look or
+ * the cover search, FloodFill depth 10) and the peek side there; 0 when none */
+static bool pursue_find_spot(CAiSPursue *st, CZSealBody *body, const CPnt3D *toward, bool cover, CAiMapLoc &spot)
+{
+	CAiMapLoc here = body->m_mapLocValid;
+	CAiMap *map = AiMaps.GetMapByIndex(here.m_mapid);
+	CAiMap::DIR dir = CAiMap::DIR_COUNT;
+	st->m_peekdir = 2;
+
+	if (map == NULL)
+		return false;
+
+	bool found = cover ? map->FindCoverLoc(here, toward, spot, dir, 10) : map->FindLookLoc(here, toward, spot, dir, 10);
+
+	if (found)
+		st->m_peekdir = (s8)FindPeekDir(map, spot, dir);
+
+	return found;
 }
 
 /* @socom-skeleton stub Tick__10CAiSPursueFfP11CSealCtrlAi */
-bool CAiSPursue::Tick(float, CSealCtrlAi *)
+bool CAiSPursue::Tick(float dT, CSealCtrlAi *ctrl)
 {
+	/* 0x259930: chase a target that is out of sight. delay -> plan: a spot to look from
+	 * toward the target (or, while it is seen, cover from it, perhaps spraying) is routed to
+	 * at full speed (goto), else panic (1.75 s crouched); goto -> hold at the spot (peeking
+	 * round its corner, crouched or standing); hold: seen and under fire for over 2 s ->
+	 * plan cover; held for 1 s at cover -> look; unseen at a look spot -> search after 2 s;
+	 * search: a spot to look from toward the last known position (or that position) is
+	 * walked to at 0.35 speed (search_goto, up to 5 s), then search_pause (1-4 s, scanning)
+	 * and search again. A seen target sends it back to plan; no spot ends the state. Ends
+	 * (false) without a living target or after m_duration on the state clock. */
 	/* @socom-skeleton stub pursuitRange$4923 */
-	static int pursuitRange;
+	static float pursuitRange = 350.0f; /* port: float, as the ELF's word (0x43af0000); unused here */
 	/* @socom-skeleton stub pursuitClose$4926 */
-	static int pursuitClose;
+	static float pursuitClose = 150.0f; /* unused here */
 	/* @socom-skeleton stub pursuitBubble$4929 */
-	static int pursuitBubble;
+	static float pursuitBubble = 50.0f; /* unused here */
 	/* @socom-skeleton stub pursuitTime$4932 */
-	static float pursuitTime;
+	static float pursuitTime = 2.0f;
 	/* @socom-skeleton stub pursuitHold$4935 */
-	static float pursuitHold;
+	static float pursuitHold = 1.0f;
 	/* @socom-skeleton stub pursuitPanic$4938 */
-	static float pursuitPanic;
+	static float pursuitPanic = 1.75f;
 	/* @socom-skeleton stub pursuitSearch$4941 */
-	static int pursuitSearch;
+	static float pursuitSearch = 3.0f; /* unused here */
 	/* @socom-skeleton stub pursueSearchLook$4944 */
-	static signed char pursueSearchLook;
+	static signed char pursueSearchLook = AIL_FRANTIC;
+	(void)pursuitRange;
+	(void)pursuitClose;
+	(void)pursuitBubble;
+	(void)pursuitSearch;
+	CZSealBody *body = ctrl != NULL ? static_cast<CZSealBody *>(ctrl->m_entity) : NULL;
+
+	if (!m_setup)
+		return false;
+
+	CEntity *target = ctrl->m_target.m_target.m_ent;
+
+	if (!(target != NULL && target->m_isAlive))
+		return false;
+
+	if (m_duration != -1.0f && !(ctrl->m_stateTimer <= m_duration))
+	{
+		ctrl->Debug("PURSUIT STATE TIMED OUT ( m_timeout = %.2f)\n", (double)m_duration);
+		return false;
+	}
+
+	u8 phase = (u8)m_substate;
+	CPnt3D dir = ctrl->m_target.m_target.m_vec;
+	target->GetPosW(); /* ELF: called, the answer dropped */
+	dir.Normalize();
+	bool seen = pursue_seen(ctrl);
+
+	if (!seen && ctrl->m_look_mode != AIL_TASK && ctrl->SetLookDirR(AIL_TASK, &CPnt3D::unit_nz, true))
+	{
+		ctrl->SetScanAngle(1.047198f);
+		ctrl->ModifyLookFlags(4, 0);
+		ctrl->SetLookTimer(5.0f);
+	}
+
+	m_timer += dT;
+
+	switch (phase)
+	{
+	case 0: /* delay */
+		if (m_timer <= 0.0f || (m_option_flags & 6))
+			break;
+
+		phase = 1;
+
+		if (seen)
+			m_option_flags = (m_option_flags & ~2u) | 4;
+		else
+			m_option_flags = (m_option_flags & ~4u) | 2;
+
+		break;
+
+	case 1: /* plan */
+	{
+		body->m_desiredPeek = (SEAL_PEEK)2;
+		ctrl->m_peek_timer.m_period.m_min = 0.0f;
+		ctrl->m_peek_timer.m_period.m_range = 0.0f;
+		ctrl->m_peek_timer.m_timer = RandomIn(ctrl->m_peek_timer.m_period);
+		bool found = false;
+		SEAL_STANCE stance = (SEAL_STANCE)(s8)ctrl->m_stance;
+		CAiMapLoc spot;
+
+		if (m_option_flags & 2)
+		{
+			ctrl->Debug("Finding LOOK location\n");
+			found = pursue_find_spot(this, body, target->GetPosW(), false, spot);
+			ctrl->m_noturn_travel = 1;
+		}
+		else if (m_option_flags & 4)
+		{
+			ctrl->Debug("Finding COVER location\n");
+			found = pursue_find_spot(this, body, target->GetPosW(), true, spot);
+			ctrl->m_noturn_travel = 1;
+			stance = (SEAL_STANCE)0;
+
+			if (0.0f + 1.0f * ((f32)rand() * 4.656613e-10f) <= 0.5f)
+			{
+				f32 spray = 0.25f + 1.25f * ((f32)rand() * 4.656613e-10f);
+				CZSealBody *me = static_cast<CZSealBody *>(ctrl->m_entity);
+
+				if ((u8)me->m_kit.GetCurItem()->m_maxfiremode >= 3)
+				{
+					me->SetWeaponState((WEAPON_STATE)1);
+					me->SetAimDirR(&CPnt3D::unit_nz, false);
+					ctrl->m_sprayTimer = spray;
+				}
+			}
+		}
+
+		if (found && ctrl->SetRoute(spot))
+		{
+			ctrl->SetAiMode((AI_MODE)3);
+			ctrl->SetStanceDelayed(stance, 0.0f);
+			ctrl->m_speed = 1.0f;
+			saturate<f32>(ctrl->m_speed, 0.0f, 1.0f);
+			phase = 2;
+		}
+
+		if (phase != 2)
+		{
+			phase = 4;
+			m_time = ctrl->m_stateTimer + pursuitPanic;
+			ctrl->SetStanceDelayed((SEAL_STANCE)1, 0.0f);
+		}
+
+		break;
+	}
+
+	case 2: /* goto */
+	{
+		ctrl->SetAiMode((AI_MODE)3);
+
+		if (!pursue_route_done(ctrl))
+			break;
+
+		CZSealBody *me = static_cast<CZSealBody *>(ctrl->m_entity);
+
+		if ((u8)me->m_kit.GetCurItem()->m_maxfiremode >= 3)
+		{
+			me->SetWeaponState((WEAPON_STATE)1);
+			me->SetAimDirR(&CPnt3D::unit_nz, false);
+			ctrl->m_sprayTimer = 0.0f;
+		}
+
+		ctrl->SetStanceDelayed(0.0f + 1.0f * ((f32)rand() * 4.656613e-10f) <= 0.5f ? (SEAL_STANCE)1 : (SEAL_STANCE)0, 0.0f);
+		phase = 3;
+		break;
+	}
+
+	case 3: /* hold */
+		ctrl->SetAiMode((AI_MODE)1);
+
+		if (seen)
+		{
+			m_option_flags = (m_option_flags & ~4u) | 2;
+
+			if ((double)ctrl->m_underfire.m_value > 0.0 && !(m_timer <= pursuitTime))
+			{
+				m_option_flags = (m_option_flags & ~2u) | 4;
+				phase = 1;
+			}
+		}
+		else if (m_option_flags & 4)
+		{
+			if (!(m_timer <= pursuitHold))
+				m_option_flags = (m_option_flags & ~4u) | 2;
+		}
+		else if (m_option_flags & 2)
+		{
+			if ((s8)body->m_desiredPeek != 2)
+				break;
+
+			s8 peek = m_peekdir;
+
+			if (peek == 2 || pursue_seen(ctrl))
+			{
+				body->m_desiredPeek = (SEAL_PEEK)peek;
+				ctrl->m_peek_timer.m_period.m_min = 1.5f;
+				ctrl->m_peek_timer.m_period.m_range = 0.0f;
+				ctrl->m_peek_timer.m_timer = RandomIn(ctrl->m_peek_timer.m_period);
+			}
+
+			m_peekdir = 2;
+
+			if (!(m_timer <= pursuitTime))
+				phase = 5;
+		}
+		else
+		{
+			phase = 0;
+		}
+
+		break;
+
+	case 4: /* panic */
+		static_cast<CZSealBody *>(ctrl->m_entity)->m_desiredPeek = (SEAL_PEEK)2;
+		ctrl->m_peek_timer.m_period.m_min = 0.0f;
+		ctrl->m_peek_timer.m_period.m_range = 0.0f;
+		ctrl->m_peek_timer.m_timer = RandomIn(ctrl->m_peek_timer.m_period);
+
+		if (ctrl->m_stateTimer < m_time)
+			break;
+
+		m_option_flags = (m_option_flags & ~4u) | 2;
+		phase = 5;
+		break;
+
+	case 5: /* search */
+	{
+		if (pursue_seen(ctrl))
+		{
+			phase = 1;
+		}
+		else
+		{
+			CPnt3D *last = &ctrl->m_target.m_last_pos;
+			CAiMapLoc spot;
+			bool go = false;
+
+			if (pursue_find_spot(this, body, last, false, spot))
+			{
+				/* the spot is where the AI stands: the last known position itself */
+				CAiMapLoc here = body->m_mapLocValid;
+				go = true;
+
+				if (here.x == spot.x && here.y == spot.y)
+					go = AiMaps.GetLocation(last, spot);
+			}
+
+			if (go && ctrl->SetRoute(spot))
+			{
+				ctrl->m_path.m_search_limit = ai::pathShortLimit;
+				ctrl->SetStanceDelayed((SEAL_STANCE)1, 0.0f);
+				ctrl->SetAiMode((AI_MODE)3);
+				ctrl->m_speed = 0.35f;
+				saturate<f32>(ctrl->m_speed, 0.0f, 1.0f);
+
+				if (ctrl->SetLookPosW((AI_LOOK)pursueSearchLook, last))
+				{
+					ctrl->SetScanAngle(0.5235988f);
+					ctrl->SetLookFlags(4);
+				}
+
+				m_time = ctrl->m_stateTimer + 5.0f;
+				phase = 6;
+			}
+		}
+
+		if (phase != 6)
+		{
+			/* seen again, or nowhere to search: the pursuit ends */
+			m_setup = 0;
+			ctrl->ClearLook(AIL_ALL);
+		}
+
+		break;
+	}
+
+	case 6: /* search_goto */
+		if (!(ctrl->m_stateTimer < m_time))
+		{
+			ctrl->SetAiMode((AI_MODE)1);
+			phase = 7;
+
+			if (ctrl->SetLookPosW((AI_LOOK)pursueSearchLook, &ctrl->m_target.m_last_pos))
+			{
+				ctrl->SetScanAngle(0.5235988f);
+				ctrl->ModifyLookFlags(4, 0);
+			}
+
+			m_time = ctrl->m_stateTimer + (1.5f + 2.5f * ((f32)rand() * 4.656613e-10f));
+			break;
+		}
+
+		{
+			u8 ps = (u8)ctrl->m_path.m_state;
+			bool failed;
+
+			if (ps == CAiPath::PLANNING || ps == CAiPath::INQUEUE || ps == CAiPath::ABORT)
+				failed = false;
+			else if (!ctrl->m_path.m_points.empty() && ps == CAiPath::COMPLETE)
+				failed = false;
+			else
+				failed = (s8)ctrl->m_path.m_status != 0;
+
+			if (failed)
+			{
+				m_setup = 0;
+				break;
+			}
+		}
+
+		if (pursue_seen(ctrl))
+		{
+			phase = 1;
+			break;
+		}
+
+		if (!pursue_route_done(ctrl))
+			break;
+
+		ctrl->m_target.UpdateLastKnownPosW();
+		ctrl->SetLookPosW((AI_LOOK)pursueSearchLook, &ctrl->m_target.m_last_pos);
+		phase = 5;
+		break;
+
+	case 7: /* search_pause */
+		if (pursue_seen(ctrl))
+		{
+			phase = 1;
+			break;
+		}
+
+		if (!(ctrl->m_stateTimer < m_time))
+		{
+			m_time = ctrl->m_stateTimer + (1.0f + 3.0f * ((f32)rand() * 4.656613e-10f));
+
+			if (ctrl->SetLookPosW((AI_LOOK)pursueSearchLook, &ctrl->m_target.m_last_pos))
+			{
+				ctrl->SetScanAngle(1.48353f);
+				ctrl->SetScanRate(0.25f + 0.75f * ((f32)rand() * 4.656613e-10f));
+				ctrl->SetLookFlags(5);
+			}
+
+			ctrl->SetAiMode((AI_MODE)3);
+			phase = 6;
+			break;
+		}
+
+		if (ctrl->m_look_mode != AIL_FRANTIC && ctrl->SetLookDirR(AIL_FRANTIC, &CPnt3D::unit_nz, true))
+		{
+			ctrl->ModifyLookFlags(1, 0);
+			ctrl->SetScanAngle(1.570796f);
+			ctrl->SetLookTimer(2.5f);
+		}
+
+		break;
+
+	default:
+		break;
+	}
+
+	if (phase != (u8)m_substate)
+	{
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("AI: %s pursue %d -> %d (flags %x, seen %d)", body->m_node->m_name, (int)(u8)m_substate, (int)phase, m_option_flags, (int)pursue_seen(ctrl));
+#endif
+		ctrl->Debug("PURSUIT (%d)\n", (int)phase);
+		m_timer = 0.0f;
+	}
+
+	m_substate = phase;
+	return m_setup;
 }
 
 /* @socom-skeleton stub ChooseLookDir__11CSealCtrlAiFRC9CAiMapLocPC6CPnt3DbP9CAiMapLociPi */
-CAiMap::DIR CSealCtrlAi::ChooseLookDir(const CAiMapLoc &, const CPnt3D *, bool, CAiMapLoc *, int, int *)
+CAiMap::DIR CSealCtrlAi::ChooseLookDir(const CAiMapLoc &loc, const CPnt3D *toward, bool travel, CAiMapLoc *far_loc, int depth, int *count)
 {
+	/* 0x2597a0 (static: no `this`): the direction from loc with the most open cells (seen,
+	 * or with `travel` walkable, along each of the 8 directions up to depth); a direction
+	 * toward a point gets one more and is where the search starts (else N); the far cell of
+	 * that direction and its count are returned too.
+	 * port: the counts start at 0 (the ELF leaves them unset off the map) */
+	int counts[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+	CAiMapLoc locs[8];
+	u32 best = 0;
+	CAiMap *map = AiMaps.GetMapByIndex(loc.m_mapid);
+
+	if (map != NULL)
+	{
+		if (travel)
+			map->CountMapTravelDir(loc, counts, locs, depth);
+		else
+			map->CountMapVisDir(loc, counts, locs, depth);
+
+		u32 start = 0;
+
+		if (toward != NULL)
+		{
+			CPnt3D n;
+			toward->Normalize(&n);
+			start = (u8)CAiMap::GetClosestDir(&n);
+			best = start;
+			counts[start]++;
+		}
+
+		u32 d = start;
+
+		do
+		{
+			if (counts[best] < counts[d])
+				best = d;
+
+			d = (d + 9) & 7;
+		} while (d != start);
+	}
+
+	if (count != NULL)
+		*count = counts[best];
+
+	if (far_loc != NULL)
+		*far_loc = locs[best];
+
+	return (CAiMap::DIR)best;
 }
 
 /* @socom-skeleton stub OnSignal__11CAiSRescuedFQ28CAiState6SIGNALP11CSealCtrlAi */
@@ -3697,11 +4206,16 @@ bool CAiSRescued::Tick(float, CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub InGuardRegion__11CSealCtrlAiFv */
-void CSealCtrlAi::InGuardRegion()
+bool CSealCtrlAi::InGuardRegion()
 {
+	/* 0x259240: the seal stands in a guard region (type 6) */
+	CAiMapLoc loc = m_entity->m_mapLocValid;
+	return AiMaps.GetRegionTypeContainer((CAiMap::region::TYPE)6, loc) != NULL;
 }
 
 /* @socom-skeleton stub HasSniperRifle__11CSealCtrlAiFv */
-void CSealCtrlAi::HasSniperRifle()
+bool CSealCtrlAi::HasSniperRifle()
 {
+	/* 0x259230 (tail call) */
+	return static_cast<CZSealBody *>(m_entity)->m_kit.HasSniperRifle();
 }

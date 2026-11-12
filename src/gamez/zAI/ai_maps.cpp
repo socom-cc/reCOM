@@ -413,8 +413,14 @@ unsigned char CAiMaps::CanTravelLine(const CAiMapLoc &from, const CAiMapLoc &to,
 }
 
 /* @socom-skeleton stub CanSeeLine__7CAiMapsFRC9CAiMapLocRC9CAiMapLocP9CAiMapLoc */
-unsigned char CAiMaps::CanSeeLine(const CAiMapLoc &, const CAiMapLoc &, CAiMapLoc *)
+unsigned char CAiMaps::CanSeeLine(const CAiMapLoc &from, const CAiMapLoc &to, CAiMapLoc *blocked)
 {
+	/* 0x19a480: only on one map */
+	if (from.m_mapid != to.m_mapid)
+		return false;
+
+	CAiMap *map = GetMapByIndex(from.m_mapid);
+	return map != NULL ? map->CanSeeLine(from, to, blocked) : false;
 }
 
 /* @socom-skeleton stub ComputeLineVisibility__7CAiMapsFRC9CAiMapLocRC9CAiMapLoc */
@@ -760,8 +766,11 @@ void CAiMaps::GetClosestRegion(const CAiMapLoc &, CAiMap::region::TYPE, bool)
 }
 
 /* @socom-skeleton stub GetRegionTypeContainer__7CAiMapsFQ36CAiMap6region4TYPERC9CAiMapLoc */
-void CAiMaps::GetRegionTypeContainer(CAiMap::region::TYPE, const CAiMapLoc &)
+CAiMap::region * CAiMaps::GetRegionTypeContainer(CAiMap::region::TYPE, const CAiMapLoc &)
 {
+	/* 0x1976d0 (464 B): the region of that type holding the location. port: not written -
+	 * none (an AI is never in a guard region: CSealCtrlAi::InGuardRegion, AttackTick) */
+	return NULL;
 }
 
 /* @socom-skeleton stub GetRandomLoc__7CAiMapsFPCQ26CAiMap6regionR9CAiMapLoc */

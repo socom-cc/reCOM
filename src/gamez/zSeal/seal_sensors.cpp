@@ -820,9 +820,21 @@ void CSealCtrlAi::OnSetTargetVisible(CTarget &target, bool visible, zdb::DiInter
 
 					if (startled && PushAiState(STATE_EVENT, true))
 					{
-						/* port: unreachable while STATE_EVENT is not written (the ELF fills the
-						 * event state: the target's position at +0x2c, 0.25 at +0x44, option
-						 * bit 8, m_setup) */
+						/* 0x2b1b4c: a GENERIC event at the target, 0.25 s looks, startled
+						 * (option 8) */
+						CAiState* top = GetAiState();
+						CAiSEvent* st = top->m_state == STATE_EVENT ? static_cast<CAiSEvent *>(top) : NULL;
+						const CPnt3D* at = target.m_ent != NULL ? target.m_ent->GetPosW() : NULL;
+						st->m_type = CAiEvent::AIE_GENERIC;
+
+						if (at != NULL) /* port: guard - the ELF copies from a NULL position */
+							st->m_pos = *at;
+
+						st->m_vec = CPnt3D::zero;
+						st->m_look_time.m_min = 0.25f;
+						st->m_look_time.m_range = 0.0f;
+						st->m_option_flags |= 8;
+						st->m_setup = 1;
 					}
 				}
 
@@ -888,7 +900,7 @@ void CSealCtrlAi::OnSetTargetVisible(CTarget &target, bool visible, zdb::DiInter
 			{
 				Debug("Lost sight of %s,  setting up POI\n", e->m_node->m_name);
 				f32 duration = 1.0f + 3.0f * ((f32)rand() * 4.656613e-10f);
-				SetAiEvent(CAiEvent::AIE_GENERIC, duration, e->GetPosW());
+				SetAiEvent(CAiEvent::AIE_POINT, duration, e->GetPosW());
 				m_target.OnSetVisible(false);
 			}
 		}
@@ -1149,8 +1161,45 @@ void CSealCtrlAi::SensorTick(float dT)
 }
 
 /* @socom-skeleton stub RegisterCanSee__11CSealCtrlAiFRiPC6CPnt3D */
-void CSealCtrlAi::RegisterCanSee(int &, const CPnt3D *)
+bool CSealCtrlAi::RegisterCanSee(int &handle, const CPnt3D *pos)
 {
+	/* 0x2b0b40 (HandleEvent): a sight line from the seal's target point to pos is queued in
+	 * the pool (a special request, no target node) or the queued one moved there; handle
+	 * keeps the request (SensorTick reads it). Always 1. */
+	CEntity *me = m_entity;
+	CPnt3D tail;
+	me->GetTargetPosW(&tail);
+	CDiPool::dir *d = (CDiPool::dir *)handle;
+
+	if (d == NULL)
+	{
+		d = _diPool.Acquire();
+
+		if (d != NULL)
+		{
+			d->m_tail = tail;
+			d->m_tip = *pos;
+			d->m_state = 3;
+			d->m_index = -1;
+			d->m_time = 0.0f;
+			d->m_owner = me;
+			d->m_node = NULL;
+			d->m_special = 1;
+			d->m_target = NULL;
+			_diPool.m_active.push_back(d);
+			handle = (int)d;
+		}
+	}
+	else
+	{
+		d->m_tail = tail;
+		d->m_tip = *pos;
+		d->m_node = NULL;
+		d->m_special = 1;
+		d->m_target = NULL;
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub ComputeVisibility__9CSealCtrlFPQ23zdb11DiIntersectP7CTarget */

@@ -60,6 +60,7 @@
 #include "gamez/zSeal/zseal.h" /* ai::AbortPathPlan (Clear) */
 #include <math.h> /* sqrtf, acosf */
 #include <algorithm> /* remove_if */
+#include <string.h> /* memcpy */
 /* @socom-skeleton decl forward */
 class MAP_LINEWALK_STRUCT;
 /* @socom-skeleton end forward */
@@ -179,8 +180,63 @@ CAiMap * CAiPath::GetLegMap(int leg)
 }
 
 /* @socom-skeleton stub GetLegBoundary__7CAiPathCFRiRii */
-void CAiPath::GetLegBoundary(int &, int &, int) const
+bool CAiPath::GetLegBoundary(int &first, int &last, int leg) const
 {
+	/* 0x196210: the point indices of a leg's start and goal (-1: the leg being planned); the
+	 * points are stored goal first, so the walk goes from the back, counting legs at each goal.
+	 * One leg: the whole path. False past the last leg.
+	 * ELF quirk kept: a leg index that becomes -1 takes m_planleg's waypoints. */
+	first = -1;
+	last = -1;
+	u32 want = leg == -1 ? m_planleg : (u32)leg;
+
+	if (!(want < m_legcount))
+		return false;
+
+	if (m_legcount == 1)
+	{
+		first = (int)m_points.size() - 1;
+		last = 0;
+		return true;
+	}
+
+	int index = (int)m_points.size() - 1;
+	u32 cur = 0;
+	CAiMapLoc start, goal;
+	memset(&start, 0, sizeof(start));
+	memset(&goal, 0, sizeof(goal));
+
+	if (m_legcount != 0)
+	{
+		start = m_waypts[0];
+		goal = m_waypts[1];
+	}
+
+	for (points::const_reverse_iterator p = m_points.rbegin(); p != m_points.rend(); ++p, index--)
+	{
+		if (p->m_loc.x == start.x && p->m_loc.y == start.y && cur == want)
+			first = index;
+
+		if (p->m_loc.x == goal.x && p->m_loc.y == goal.y)
+		{
+			if (cur == want)
+			{
+				last = index;
+				return true;
+			}
+
+			cur++;
+			u32 next = (s32)cur == -1 ? m_planleg : cur;
+
+			if (next < m_legcount)
+			{
+				start = m_waypts[next * 2];
+				goal = m_waypts[next * 2 + 1];
+			}
+		}
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub plan_setup__7CAiPathFv */
@@ -468,13 +524,103 @@ bool CAiPath::SmoothPath()
 }
 
 /* @socom-skeleton stub _SmoothLineCallback__FRC19MAP_LINEWALK_STRUCTPv */
-void _SmoothLineCallback(const MAP_LINEWALK_STRUCT &, void *)
+bool _SmoothLineCallback(const MAP_LINEWALK_STRUCT &walk, void *data)
 {
+	/* 0x194f80: as _TravelLineCallback (walkable; on soil 11 not climbing), and - for a path
+	 * with flag 8 and a template - only through the template's cells */
+	CAiPath *path = (CAiPath *)data;
+	CAiCell *cell = walk.m_cell;
+
+	if (cell == NULL)
+		return false;
+
+	bool ok = CAiMap::IsWalkable(cell);
+
+	if (ok && cell->m_soil == 11 && walk.m_prev != cell && walk.m_prev != NULL)
+	{
+		const CAiMap *map = walk.m_map;
+		f32 scale = 0.000976563f * (map->m_bbox.m_max.y - map->m_bbox.m_min.y);
+		f32 prev = map->m_bbox.m_min.y + scale * (f32)walk.m_prev->m_altitude;
+		f32 here = map->m_bbox.m_min.y + scale * (f32)cell->m_altitude;
+
+		if (!(here <= prev))
+			ok = false;
+	}
+
+	if (ok && (path->m_flags & 8) && path->m_template != NULL)
+		ok = path->m_template->PointInPath(walk.m_loc, NULL);
+
+	return ok;
+}
+
+/* port: inline in SmoothPathLeg (three times): whether a point may be smoothed away - not a
+ * cell with an action of type 1, and on a stealth path not a shadowed walkable cell nor soil
+ * 2, 4, 5 or 12 */
+static bool smooth_point_ok(const CAiPath *path, CAiMap *map, const CAiMapLoc &loc)
+{
+	CAiCell *cell = ((u32)(u16)loc.y < map->m_ny && loc.x < map->m_nx) ? map->GetCell(loc) : NULL;
+
+	if (cell != NULL && cell->m_action && map->GetCellAction(loc)->m_type == 1)
+		return false;
+
+	if ((u8)path->m_type != 2)
+		return true;
+
+	if (cell->m_shadow != 0 && CAiMap::IsWalkable(cell)) /* ELF: cell not NULL-tested here */
+		return false;
+
+	u32 soil = cell->m_soil;
+	return !(soil == 2 || soil == 4 || soil == 12 || soil == 5);
 }
 
 /* @socom-skeleton stub SmoothPathLeg__7CAiPathFi */
-void CAiPath::SmoothPathLeg(int)
+bool CAiPath::SmoothPathLeg(int leg)
 {
+	/* 0x194700: along a leg (-1: the leg being planned), from its start, each point whose
+	 * neighbours on both sides can be joined by a straight walkable line (_SmoothLineCallback)
+	 * is dropped (set to CAiMapLoc::invalid, removed by the caller); a point that cannot be
+	 * dropped becomes the new anchor. Legs of fewer than 3 points are left. */
+	u32 i = leg == -1 ? m_planleg : (u32)leg;
+	CAiMap *map = i < m_legcount ? m_maps[i] : NULL;
+
+	if (map == NULL)
+		return false;
+
+	int first, last;
+
+	if (!GetLegBoundary(first, last, leg))
+		return false;
+
+	bool changed = false;
+
+	if (first - last < 3)
+		return changed;
+
+	int anchor = first;
+	int mid = first - 1;
+
+	while (last < mid)
+	{
+		point &a = m_points[anchor];
+		point &m = m_points[mid];
+		point &n = m_points[mid - 1];
+		bool ok = smooth_point_ok(this, map, a.m_loc) && smooth_point_ok(this, map, m.m_loc) && smooth_point_ok(this, map, n.m_loc)
+			&& map->WalkLine(a.m_loc, n.m_loc, _SmoothLineCallback, this);
+
+		if (ok)
+		{
+			changed = true;
+			memcpy(&m_points[mid].m_loc, CAiMapLoc::invalid, 4);
+			mid--;
+		}
+		else
+		{
+			anchor = mid;
+			mid--;
+		}
+	}
+
+	return changed;
 }
 
 /* @socom-skeleton stub UpdateTurnAngles__7CAiPathFv */
@@ -606,6 +752,29 @@ void CAiPath::PrintPath() const
 }
 
 /* @socom-skeleton stub PointInPath__7CAiPathCFRC9CAiMapLocPUi */
-void CAiPath::PointInPath(const CAiMapLoc &, unsigned int *) const
+bool CAiPath::PointInPath(const CAiMapLoc &loc, unsigned int *left) const
 {
+	/* 0x193540: on a path with widths (flag 4), a point within its width (city-block
+	 * distance) of the location; left gets the points after it */
+	if (m_points.size() == 0 || !(m_flags & 4))
+		return false;
+
+	u32 count = m_points.size();
+	u32 k = 0;
+
+	for (points::const_iterator p = m_points.begin(); p != m_points.end(); ++p, k++)
+	{
+		u32 dx = loc.x < p->m_loc.x ? p->m_loc.x - loc.x : loc.x - p->m_loc.x;
+		s32 dy = (s32)loc.y < (s32)p->m_loc.y ? (s32)p->m_loc.y - (s32)loc.y : (s32)loc.y - (s32)p->m_loc.y;
+
+		if (!((s32)p->m_width < (s32)(dx + dy)))
+		{
+			if (left != NULL)
+				*left = count - k - 1;
+
+			return true;
+		}
+	}
+
+	return false;
 }

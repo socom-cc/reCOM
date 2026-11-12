@@ -12,9 +12,9 @@ void CAiState::Reset(AI_STATE state)
 	/* 0x2d1e60 */
 	m_unk_0c_1 = 0;
 	m_state = (u8)state;
-	m_unk_14 = 0;
+	m_substate = 0;
 	m_setup = 0;
-	m_unk_08 = 0;
+	m_time = 0.0f;
 	m_option_flags = 0;
 	m_response = 0;
 	m_unk_0c_3 = 0;

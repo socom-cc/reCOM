@@ -25,6 +25,10 @@
 #include "gamez/zMath/zmath.h"
 #include "zseal.h"
 /* @socom-skeleton end include */
+#include "gamez/zVideo/zvid.h" /* zVid.frameNumber */
+#include "gamez/zValve/zvalve.h"
+#include <stdlib.h>
+#include <string.h>
 /* @socom-skeleton decl forward */
 class CAiCell;
 /* @socom-skeleton end forward */
@@ -32,32 +36,672 @@ class CAiCell;
 /* @socom-skeleton stub MultiplayerMsgStrings */
 static unsigned char MultiplayerMsgStrings[28];
 
-/* @socom-skeleton stub SetAiEvent__11CSealCtrlAiFQ28CAiEvent5EVENTfPC6CPnt3D */
-void CSealCtrlAi::SetAiEvent(CAiEvent::EVENT, float, const CPnt3D *)
+/* port: file-local helpers for sequences the ELF inlines in this file */
+
+/* a uniform draw in [0, 1) (rand() * 2^-31) */
+static f32 ev_rand01()
 {
+	return (f32)rand() * (1.0f / 2147483648.0f);
+}
+
+/* the target is gone or out of sight: no living target, or not visible and not seen for
+ * longer than `t` seconds */
+static bool ev_target_stale(CSealCtrlAi *ai, f32 t)
+{
+	CEntity *e = ai->m_target.m_target.m_ent;
+
+	if (!(e != NULL && e->m_isAlive))
+		return true;
+
+	if (e->m_isAlive && ai->m_target.m_target.m_visible)
+		return false;
+
+	return !(ai->m_target.GetTimeSinceLastSighting() <= t);
+}
+
+/* the target is alive and visible */
+static bool ev_target_seen(CSealCtrlAi *ai)
+{
+	CEntity *e = ai->m_target.m_target.m_ent;
+	return e != NULL && e->m_isAlive && ai->m_target.m_target.m_visible;
+}
+
+/* the asking seal's bit in the event (ENTITY events are never marked) */
+static void ev_mark(const CAiEvent *ev, u32 bit, bool set)
+{
+	if (ev->m_type == CAiEvent::AIE_ENTITY)
+		return;
+
+	u32 *word = &ev->m_bits.m_vec[bit >> 5];
+
+	if (set)
+		*word |= 1u << (bit & 0x1f);
+	else
+		*word &= ~(1u << (bit & 0x1f));
+}
+
+/* CAiEvent's assignment (inlined): every field, the bit words resized and copied */
+static void ev_copy(CAiEvent &dst, const CAiEvent *src)
+{
+	dst.m_pos = src->m_pos;
+	dst.m_rangeSq = src->m_rangeSq;
+	dst.m_duration = src->m_duration;
+	dst.m_owner = src->m_owner;
+	dst.m_id = src->m_id;
+	dst.m_visible = src->m_visible;
+	dst.m_type = src->m_type;
+	dst.m_userdata = src->m_userdata;
+	dst.m_bits.Resize(src->m_bits.m_bits);
+	memcpy(dst.m_bits.m_vec, src->m_bits.m_vec, ((dst.m_bits.m_bits >> 5) + 1) * 4);
+}
+
+/* the event becomes the AI's own (what it looks at), for `duration` seconds */
+static void ev_take(CSealCtrlAi *ai, const CAiEvent *ev, f32 duration, const CPnt3D *pos)
+{
+	ev_copy(ai->m_event, ev);
+	ai->m_event.m_duration = duration;
+
+	if (pos != NULL)
+		ai->m_event.m_pos = *pos;
+
+	ai->Debug("EVENT: [%4d] [%8.2f] [owner=%4d] [%s]\n", (int)ev->m_id, 0.0, ev->m_owner, CAiEvent::GetEventString((CAiEvent::EVENT)(s8)ev->m_type));
+}
+
+/* STATE_EVENT pushed (unique) with the event's type and position, the source at the origin;
+ * NULL when refused */
+static CAiSEvent *ev_push(CSealCtrlAi *ai, const CAiEvent *ev, s8 type)
+{
+	if (!ai->PushAiState(STATE_EVENT, true))
+		return NULL;
+
+	CAiState *top = ai->GetAiState();
+	CAiSEvent *st = top->m_state == STATE_EVENT ? static_cast<CAiSEvent *>(top) : NULL;
+	/* ELF: the state is not NULL-tested (the top is the pushed state) */
+	st->m_type = type;
+	st->m_pos = ev->m_pos;
+	st->m_vec = CPnt3D::zero;
+	return st;
+}
+
+/* @socom-skeleton stub SetAiEvent__11CSealCtrlAiFQ28CAiEvent5EVENTfPC6CPnt3D */
+void CSealCtrlAi::SetAiEvent(CAiEvent::EVENT event, float duration, const CPnt3D *pos)
+{
+	/* 0x2deff0: the AI's own event (what it looks at, EventTick) */
+	m_event.m_type = (s8)event;
+	m_event.m_duration = duration;
+	m_event.m_pos = *pos;
 }
 
 /* @socom-skeleton stub EventTick__11CSealCtrlAiFf */
-void CSealCtrlAi::EventTick(float)
+void CSealCtrlAi::EventTick(float dT)
 {
+	/* 0x2debc0 (SensorPreTick): the AI's own event counts down; every other frame (by the
+	 * seal id's parity) the target look is kept up (cleared once the target is dead or unseen
+	 * for 3 s; the target itself while seen or for 2 s, else its last position); then the
+	 * events it hears (the in-use ones with its event mask, then - not asleep - the
+	 * persistent ones) go to HandleEvent until one is taken; without a seen target the AI
+	 * looks at its own event until that runs out. */
 	/* @socom-skeleton stub do_every_other$2058 */
-	static unsigned char do_every_other;
+	static unsigned char do_every_other = 1;
+	CEntity *body = m_entity;
+	m_event.Tick(dT);
+	bool seen = ev_target_seen(this);
+
+	if (((zVid.frameNumber ^ (s64)(u32)body->m_id) & 1) == 0 && do_every_other)
+		return;
+
+	if (ev_target_stale(this, 3.0f))
+	{
+		ClearLook(AIL_TARGET);
+	}
+	else
+	{
+		f32 t = m_target.GetTimeSinceLastSighting();
+
+		if (ev_target_seen(this) || t < 2.0f)
+			SetLookPosW(AIL_TARGET, m_target.m_target.m_ent->GetPosW());
+		else
+			SetLookPosW(AIL_TARGET, &m_target.m_last_pos);
+	}
+
+	const CPnt3D *pos = body->GetPosW();
+	bool handled = false;
+
+	if (m_eventMask != 0)
+	{
+		CAiEvent::iterator it = CAiEvent::GetFirstEvent(CAiEvent::EVENT_EXPIRING);
+		it.m_bit = body->m_index;
+		it.m_owner = body->m_id;
+		it.m_mask = m_eventMask;
+		CAiEvent *ev;
+
+		while ((ev = CAiEvent::GetNextEvent(pos, it, m_audiofactor.m_value)) != NULL)
+		{
+			if (HandleEvent(ev))
+			{
+				handled = true;
+				break;
+			}
+		}
+	}
+
+	if (m_snoozing || m_sleeping)
+		return;
+
+	if (!handled)
+	{
+		CAiEvent::iterator it = CAiEvent::GetFirstEvent(CAiEvent::EVENT_PERSISTENT);
+		it.m_bit = body->m_index;
+		it.m_owner = body->m_id;
+		it.m_mask = m_eventMask;
+		CAiEvent *ev;
+
+		while ((ev = CAiEvent::GetNextEvent(pos, it, m_audiofactor.m_value)) != NULL)
+		{
+			if (HandleEvent(ev))
+				break;
+		}
+	}
+
+	if (seen)
+		return;
+
+	if (m_event.m_duration != CAiEvent::NoExpire && m_event.m_duration <= 0.0f)
+		ClearLook(AIL_EVENT);
+	else
+		SetLookPosW(AIL_EVENT, &m_event.m_pos);
 }
 
 /* @socom-skeleton stub CanHearAttenuatedExplosionEvent__FP7CAiCellP7CAiCellff */
-void CanHearAttenuatedExplosionEvent(CAiCell *, CAiCell *, float, float)
+bool CanHearAttenuatedExplosionEvent(CAiCell *from, CAiCell *to, float distSq, float rangeSq)
 {
+	/* 0x2dea90: the squared distance counts 16 times when both cells are inside (1 times
+	 * within 200), 4 times when one is; heard by chance (a draw under the range left) */
+	bool in1 = from != NULL ? from->m_inside != 0 : false;
+	bool in2 = to != NULL ? to->m_inside != 0 : false;
+	f32 scale = 1.0f;
+
+	if (in1 && in2)
+	{
+		if (!(distSq <= 40000.0f))
+			scale = 16.0f;
+	}
+	else if (in1 || in2)
+	{
+		scale = 4.0f;
+	}
+
+	f32 left = (rangeSq - distSq * scale) / rangeSq;
+
+	if (left <= 0.0f)
+		return false;
+
+	return 0.0f + 1.0f * ev_rand01() <= left;
 }
 
 /* @socom-skeleton stub HandleEvent__11CSealCtrlAiFPC8CAiEvent */
-void CSealCtrlAi::HandleEvent(const CAiEvent *)
+bool CSealCtrlAi::HandleEvent(const CAiEvent *ev)
 {
+	/* 0x2dcd60 (EventTick): one event the AI hears. Not its own, not one it has seen, not of a
+	 * lower type than its own live event. A visible event is first looked for (the seal's
+	 * event handle: seen at once within 100 in front with a clear map line, else a sight line
+	 * is asked for when it lies in the view cone; until seen the event is not taken). Then
+	 * by type (jump table 0x457ae0); `friendly` is an owner of the seal's team. */
 	/* @socom-skeleton stub event_autosee$2130 */
-	static float event_autosee;
+	static float event_autosee = 10000.0f;
 	/* @socom-skeleton stub awareDecrementUnit$2247 */
-	static float awareDecrementUnit;
+	static float awareDecrementUnit = 0.2f;
 	/* @socom-skeleton stub hearReductionHit$2255 */
-	static float hearReductionHit;
+	static float hearReductionHit = 0.5f;
 	/* @socom-skeleton stub maxHelpTargetRange$2270 */
-	static float maxHelpTargetRange;
+	static float maxHelpTargetRange = 90000.0f;
+	CZSealBody *body = static_cast<CZSealBody *>(m_entity);
+
+	if (ev->m_owner == (s32)body->m_id)
+		return false;
+
+	s8 type = (s8)ev->m_type;
+	bool marked = type == CAiEvent::AIE_ENTITY ? false : (ev->m_bits.m_vec[body->m_index >> 5] & (1u << (body->m_index & 0x1f))) != 0;
+	bool visible = ev->m_visible != 0;
+
+	if (marked)
+		return false;
+
+	bool own_live = !(m_event.m_duration != CAiEvent::NoExpire && m_event.m_duration <= 0.0f);
+
+	if (own_live && (s32)type - (s32)(s8)m_event.m_type < 0)
+		return false;
+
+	CEntity *owner = CEntity::m_list.GetEntityById(ev->m_owner);
+	bool friendly = owner != NULL && (body->m_team & owner->m_team) != 0;
+	CAiMapLoc here = body->m_mapLocValid;
+	CAiMapLoc there;
+	bool on_map = AiMaps.GetLocation(&ev->m_pos, there);
+
+	if (visible)
+	{
+		CAiEventHandle *handle = m_eventQueue.Create(ev->m_id);
+		CPnt3D d;
+		ev->m_pos.Sub(body->GetPosW(), &d);
+		const CMatrix &m = body->m_node->m_matrix;
+		f32 distSq = d.x * d.x + d.y * d.y + d.z * d.z;
+		f32 front = -m.m_matrix[2][0] * d.x + -m.m_matrix[2][1] * d.y + -m.m_matrix[2][2] * d.z;
+
+		if (!on_map)
+		{
+			ev_mark(ev, body->m_index, true);
+			return false;
+		}
+
+		bool wait = true;
+
+		switch ((u8)handle->m_state)
+		{
+		case 0:
+			if (distSq < event_autosee && !(front <= 0.0f) && AiMaps.CanSeeLine(here, there, NULL))
+			{
+				Output("EVENT: AUTO Sighted [%s]\n", CAiEvent::GetEventString((CAiEvent::EVENT)type));
+				handle->m_state = 3;
+				ev_mark(ev, body->m_index, true);
+				wait = false;
+			}
+
+			if ((u8)handle->m_state == 0 && m_view_cone.ContainsPoint(&m_view_cone.m_cone_pos, &m_view_cone.m_cone_dir, &ev->m_pos)
+				&& RegisterCanSee(*(int *)&handle->m_data, &ev->m_pos))
+			{
+				handle->m_state = 2;
+				m_eventQueue.m_diRequested = true;
+			}
+
+			break;
+		case 1:
+			if ((s32)handle->m_data > 0)
+				handle->m_data--;
+			else
+				handle->m_state = 0;
+
+			break;
+		case 2:
+			RegisterCanSee(*(int *)&handle->m_data, &ev->m_pos);
+			break;
+		case 3:
+			Debug("EVENT: Sighted [%s]\n", CAiEvent::GetEventString((CAiEvent::EVENT)type));
+			ev_mark(ev, body->m_index, true);
+			wait = false;
+			break;
+		default:
+			break;
+		}
+
+		if (wait)
+			return false;
+	}
+	else
+	{
+		ev_mark(ev, body->m_index, true);
+	}
+
+	bool taken = false;
+
+	switch (type)
+	{
+	case CAiEvent::AIE_ENTITY:
+		/* an enemy entity: an enemy AI without a fresh target goes to look (STATE_EVENT, looks
+		 * of 1.25-3 s), a SEAL turns its head to it */
+		if (friendly)
+			return false;
+
+		if (ev_target_stale(this, 5.0f))
+		{
+			if (!m_navyseal)
+			{
+				CAiSEvent *st = ev_push(this, ev, type);
+
+				if (st != NULL)
+				{
+					st->m_look_time.m_min = 1.25f;
+					st->m_look_time.m_range = 1.75f;
+					st->m_setup = 1;
+				}
+			}
+			else
+			{
+				if (m_look_mode != AIL_CURIOUS && SetLookPosW(AIL_CURIOUS, &ev->m_pos))
+					SetLookTimer(0.5f);
+
+				if (GetAiAware() == 0)
+					SetAiAware((AI_AWARE)1, NULL);
+			}
+		}
+
+		ev_mark(ev, body->m_index, false);
+		return true;
+
+	case CAiEvent::AIE_EXPLOSION:
+		/* heard through the cells (inside walls muffle it): fully aware; without a fresh
+		 * target the AI goes to look, ending when it sees the target or comes under fire */
+		if (!on_map || friendly)
+			break;
+		{
+			CPnt3D d;
+			body->GetPosW()->Sub(&ev->m_pos, &d);
+			f32 distSq = d.x * d.x + d.y * d.y + d.z * d.z;
+			CAiCell *c1 = AiMaps.GetCell(there);
+			CAiCell *c2 = AiMaps.GetCell(here);
+
+			if (!CanHearAttenuatedExplosionEvent(c1, c2, distSq, ev->m_rangeSq))
+				break;
+		}
+
+		SetAiAware((AI_AWARE)3, &ev->m_pos);
+		taken = true;
+
+		if (ev_target_stale(this, 5.0f))
+		{
+			CAiSEvent *st = ev_push(this, ev, type);
+
+			if (st != NULL)
+			{
+				st->m_option_flags |= 6;
+				st->m_look_time.m_min = 3.0f;
+				st->m_look_time.m_range = 7.0f;
+				st->m_setup = 1;
+			}
+		}
+
+		break;
+
+	case CAiEvent::AIE_ALARM:
+		SetAiAware((AI_AWARE)2, NULL);
+		break;
+
+	case CAiEvent::AIE_LIGHTSOFF:
+		if (m_navyseal)
+			break;
+
+		{
+			CAiSEvent *st = ev_push(this, ev, type);
+
+			if (st != NULL)
+			{
+				st->m_option_flags |= 8;
+				st->m_setup = 1;
+			}
+		}
+
+		SetAiAware((AI_AWARE)2, NULL);
+		break;
+
+	case CAiEvent::AIE_WEPHIT:
+		/* a round landed near: the valve, and without a fresh target an attackable shooter
+		 * becomes hostile and is looked for (flinching while not yet aware) */
+		if (friendly)
+			break;
+
+		GetAiAware(); /* ELF: the answer is dropped */
+		SetValve((SEAL_VALVE)1, 2);
+
+		if (ev_target_stale(this, 0.5f) && owner != NULL && CanAttack(owner))
+		{
+			CTarget *t = body->m_targets.FindTarget(owner);
+
+			if (t != NULL)
+				t->m_hostile = 1;
+
+			if (PushAiState(STATE_EVENT, true))
+			{
+				CAiState *top = GetAiState();
+				CAiSEvent *st = top->m_state == STATE_EVENT ? static_cast<CAiSEvent *>(top) : NULL;
+				const CPnt3D *src = owner->GetPosW();
+				st->m_type = type;
+				st->m_pos = ev->m_pos;
+				st->m_vec = src != NULL ? *src : CPnt3D::zero;
+				st->m_option_flags |= 1;
+
+				if (GetAiAware() < 3)
+					st->m_option_flags |= 4;
+
+				st->m_setup = 1;
+			}
+
+			SetAiAware((AI_AWARE)3, owner->GetPosW());
+		}
+
+		taken = true;
+		break;
+
+	case CAiEvent::AIE_WEPFIRE:
+		/* gunfire: an enemy's makes the AI fully aware and look there for 1-4 s (unless it
+		 * already is and has a fresh target); a team mate's draws the look to what the shooter
+		 * aims at (its AI's target, else its aim point) for 0.3-0.5 s */
+		if (!friendly)
+		{
+			if (ev_target_stale(this, 1.0f) || GetAiAware() < 3)
+			{
+				SetAiAware((AI_AWARE)3, NULL);
+				ev_take(this, ev, 1.0f + 3.0f * ev_rand01(), NULL);
+			}
+
+			CTarget *t = body->m_targets.FindTarget(owner);
+
+			if (t != NULL)
+				t->m_hostile = 1;
+
+			taken = true;
+			break;
+		}
+
+		{
+			CEntity *cur = m_target.m_target.m_ent;
+
+			if (cur != NULL && cur->m_isAlive)
+			{
+				taken = true;
+				break;
+			}
+		}
+
+		{
+			CZSealBody *seal = owner != NULL && owner->m_type == 2 ? static_cast<CZSealBody *>(owner) : NULL;
+			CSealCtrlAi *ally = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi() : NULL;
+			CEntity *aim = ally != NULL ? ally->m_target.m_target.m_ent : NULL;
+
+			if (ally != NULL && aim != NULL && aim->m_isAlive)
+			{
+				SetAiAware((AI_AWARE)3, NULL);
+				const CPnt3D *p = aim->GetPosW();
+				ev_take(this, ev, 0.3f + 0.2f * ev_rand01(), p);
+			}
+			else
+			{
+				SetAiAware((AI_AWARE)3, NULL);
+
+				if (seal != NULL)
+					ev_take(this, ev, 0.3f + 0.2f * ev_rand01(), &seal->m_aim_point);
+			}
+		}
+
+		taken = true;
+		break;
+
+	case CAiEvent::AIE_CORPSE:
+		/* a body: a team mate's may be investigated (STATE_CORPSE) by an enemy AI that is not
+		 * holding cover, has no sniper rifle and does not guard a region; always aware and
+		 * looking there for 1-2 s */
+		Debug("CORPSE! (%d:%d)\n", (int)ev->m_id, (int)type);
+
+		if (friendly)
+		{
+			CEntity *cur = m_target.m_target.m_ent;
+
+			if (!(cur != NULL && cur->m_isAlive) && owner != NULL && !m_navyseal && m_do_corpse)
+			{
+				AI_AWARE aware = GetAiAware();
+
+				if ((u8)aware < 4)
+				{
+					bool skip = m_holdCover != 0 || HasSniperRifle() || (!m_navyseal && InGuardRegion());
+
+					if (!skip && PushAiState(STATE_CORPSE, true))
+					{
+						CAiState *top = GetAiState();
+						CAiSCorpse *st = top->m_state == STATE_CORPSE ? static_cast<CAiSCorpse *>(top) : NULL;
+						st->SetCorpse(owner);
+						st->m_substate = (u8)aware < 3 ? 0 : 3;
+						st->m_setup = 1;
+					}
+				}
+			}
+		}
+
+		SetAiAware((AI_AWARE)2, NULL);
+		ev_take(this, ev, 1.0f + 1.0f * ev_rand01(), NULL);
+		return true;
+
+	case CAiEvent::AIE_SURRENDER:
+	case CAiEvent::AIE_GETDOWN:
+		if (!friendly)
+		{
+			/* an enemy's call: courage drops by 0.2 per awareness level below 4, more when
+			 * the AI faces away, less with distance and (by half) without a clear map line */
+			f32 drop = 0.0f;
+
+			for (s32 a = (u8)GetAiAware(); a < 4; a++)
+				drop += awareDecrementUnit;
+
+			CPnt3D d;
+			ev->m_pos.Sub(body->GetPosW(), &d);
+			CPnt3D flat = d;
+			flat.y = 0.0f;
+			flat.Normalize();
+			const CMatrix &m = body->m_node->m_matrix;
+			CPnt3D fwd;
+			fwd.x = -m.m_matrix[2][0];
+			fwd.y = -m.m_matrix[2][1];
+			fwd.z = -m.m_matrix[2][2];
+			fwd.y = 0.0f;
+			fwd.Normalize();
+			drop += (1.0f - (fwd.x * flat.x + fwd.y * flat.y + fwd.z * flat.z)) / 3.0f;
+			ev->m_pos.Sub(body->GetPosW(), &d);
+			f32 far = (d.x * d.x + d.y * d.y + d.z * d.z) / ev->m_rangeSq;
+			f32 hidden = 0.0f;
+			CAiMapLoc me = body->m_mapLocValid;
+
+			if (on_map && !AiMaps.CanSeeLine(me, there, NULL))
+				hidden = hearReductionHit;
+
+			f32 courage = m_courage.m_value - drop * (1.0f - far) * (1.0f - hidden);
+
+			if (courage < 0.0f)
+				courage = 0.0f;
+
+			m_courage.m_value = courage;
+			break;
+		}
+
+		/* a team mate's (SEALs only; the caller is neither an AI nor a remote player): the AI
+		 * answers and passes the order on (150 around it, 0.5 s) */
+		if (!m_navyseal)
+			break;
+
+		{
+			CZSealBody *seal = owner != NULL && owner->m_type == 2 ? static_cast<CZSealBody *>(owner) : NULL;
+			CSealCtrl *ctrl = static_cast<CSealCtrl *>(seal->m_control); /* ELF quirk kept: seal not NULL-tested */
+
+			if (ctrl != NULL && ctrl->IsAi())
+				break;
+
+			if (ctrl != NULL && ctrl->IsRemote())
+				break;
+		}
+
+		if (type == CAiEvent::AIE_GETDOWN)
+			PlayAiSound((CHARACTER_SOUND)6);
+		else if (type == CAiEvent::AIE_SURRENDER)
+			PlayAiSound((CHARACTER_SOUND)5);
+
+		{
+			CAiEvent *relay = CAiEvent::Acquire();
+			relay->m_type = type;
+			relay->m_duration = 0.5f;
+			relay->m_rangeSq = 22500.0f;
+			relay->m_visible = 0;
+			relay->m_pos = *body->GetPosW();
+			relay->m_owner = body->m_id;
+			CAiEvent::Create(relay);
+		}
+
+		break;
+
+	case CAiEvent::AIE_HELPATTACK:
+		/* a team mate asks for help with its target (the event's userdata, an entity id):
+		 * without a valve block and a fresh target of its own the AI takes that target when
+		 * it is within 300 and pursues it (10 s) */
+		if (!friendly)
+			break;
+
+		{
+			CValve *valve = GetValve((SEAL_VALVE)0);
+			u16 blocked = valve != NULL ? (u16)valve->m_value : 0;
+
+			if (blocked != 0)
+			{
+				taken = true;
+				break;
+			}
+		}
+
+		if (ev_target_stale(this, 3.0f))
+		{
+			Output("%s HELP ATTACK: my target is stale (%.1f seconds), I'll go help!\n", m_navyseal ? "SEAL" : "TERRORIST", (double)m_target.GetTimeSinceLastSighting());
+			CEntity *e = CEntity::m_list.GetEntityById(ev->m_userdata);
+			CTarget *t = body->m_targets.FindTarget(e);
+
+			if (t == NULL)
+				return true;
+
+			if (t->m_distSq < maxHelpTargetRange)
+			{
+				SetTarget(t);
+
+				if (PushAiState(STATE_PURSUE, true))
+				{
+					Output("%s HELP ATTACK: pursue pushed!\n", m_navyseal ? "SEAL" : "TERRORIST");
+					CAiState *top = GetAiState();
+					CAiSPursue *st = top->m_state == STATE_PURSUE ? static_cast<CAiSPursue *>(top) : NULL;
+					st->m_duration = 10.0f;
+					st->m_setup = 1;
+				}
+			}
+		}
+
+		taken = true;
+		break;
+
+	default:
+		/* UNKNOWN, GENERIC, POINT, VOICE, DOOR (and any other): an enemy AI without a fresh
+		 * target goes to look */
+		if (friendly)
+			break;
+
+		if (!ev_target_stale(this, 0.5f))
+			break;
+
+		taken = true;
+		{
+			CAiSEvent *st = ev_push(this, ev, type);
+
+			if (st != NULL)
+				st->m_setup = 1;
+		}
+
+		break;
+	}
+
+#ifdef SOCOM_PORT
+	if (taken)
+		SOCOM_PORT_TRACE("AI: %s takes event %s (id %d, owner %d%s)", body->m_node->m_name, CAiEvent::GetEventString((CAiEvent::EVENT)type), (int)ev->m_id, ev->m_owner, friendly ? ", friend" : "");
+#endif
+
+	return taken;
 }

@@ -126,6 +126,15 @@ class CAiPlanner;
 class CAiPathStats;
 class CAiMapLoc;
 class CAiEventHandle; /* port: unproven: only std::list<CAiEventHandle> instances in DWARF */
+class CAiEvent;
+/* CAiEvent::m_callbacks' element (no DWARF record; names invented): CAiEvent::Create 0x17f8f0
+ * calls m_fn(event, m_data) for every new event */
+class CAiEventCallback
+{
+public:
+	void (*m_fn)(CAiEvent *, void *);
+	void *m_data;
+};
 
 /* port: opaque declaration; the definition is in gamez/zWeapon/zweapon.h (DWARF byte_size 1) */
 enum class EQUIP_ITEM : unsigned char;
@@ -382,9 +391,10 @@ public:
 class CAiEvent
 {
 public:
+	/* values from GetEventString's jump table 0x449010 (0 'UNKNOWN' .. 14 'LIGHTSOFF'); AIE_MAX
+	 * (15) is the iterator's "any type". The port enum had a leading AIE_NONE, one off. */
 	enum EVENT
 	{
-		AIE_NONE,
 		AIE_UNKNOWN,
 		AIE_GENERIC,
 		AIE_POINT,
@@ -420,27 +430,43 @@ public:
 	CBits m_bits;
 	/* @socom-skeleton decl 8CAiEvent */
 public:
-	enum EVENT_CLASS { }; /* port: unproven: passed by value per the mangled name; kind and enumerators not in DWARF */
-	class iterator;
-	static char * GetEventString(CAiEvent::EVENT);
-	static void GetEventFromString(const char *, CAiEvent::EVENT);
+	/* GetFirstEvent 0x17f660: 0 the in-use (expiring) list, 1 the persistent one, else none.
+	 * port: enumerator names invented (not in DWARF) */
+	enum EVENT_CLASS { EVENT_EXPIRING = 0, EVENT_PERSISTENT = 1 };
+	/* GetFirstEvent / GetNextEvent's 24-byte cursor (no DWARF record; names invented): the
+	 * list, the next node, the bit of the asking seal (-1 none: already-seen events are
+	 * skipped), an owner to skip, a type (AIE_MAX any) and a mask of 1 << type */
+	class iterator
+	{
+	public:
+		std::list<CAiEvent *> *m_list; /* +0x00 */
+		std::list<CAiEvent *>::iterator m_node; /* +0x04 */
+		s32 m_bit; /* +0x08 */
+		s32 m_owner; /* +0x0c */
+		s8 m_type; /* +0x10 */
+		u32 m_mask; /* +0x14 */
+	};
+	static const char * GetEventString(CAiEvent::EVENT);
+	static CAiEvent::EVENT GetEventFromString(const char *, CAiEvent::EVENT);
 	static void Open(unsigned int);
 	static void Close();
 	static void Release(CAiEvent *);
 	static bool Tick(float, void *);
-	void GetFirstEvent(CAiEvent::EVENT_CLASS);
-	void GetNextEvent(const CPnt3D *, CAiEvent::iterator &, float);
+	static CAiEvent::iterator GetFirstEvent(CAiEvent::EVENT_CLASS); /* 0x17f660: no `this` */
+	static CAiEvent * GetNextEvent(const CPnt3D *, CAiEvent::iterator &, float); /* 0x17f4a0 */
 	CAiEvent();
+	~CAiEvent(); /* 0x17fc20: frees the bit words */
 	void Initalize();
-	void Tick(float);
-	void MakeMaskEx(CAiEvent::EVENT, ...);
+	bool Tick(float); /* 0x17f210: true when the event has expired */
+	static u32 MakeMaskEx(CAiEvent::EVENT, ...); /* 0x17f180: types up to a -1, as 1 << type */
 	static const float NoExpire;
 	static int bit_count;
-	static unsigned char m_callbacks[12];
-	static int m_inuse[3];
-	static unsigned char m_persist[12];
-	static int m_pool[3];
-	static unsigned char nextId[4];
+	/* port: the MSL lists (12 bytes each in the ELF) as std::list */
+	static std::list<CAiEventCallback> m_callbacks;
+	static std::list<CAiEvent *> m_inuse;
+	static std::list<CAiEvent *> m_persist;
+	static std::list<CAiEvent *> m_pool;
+	static u32 nextId;
 	/* @socom-skeleton end 8CAiEvent */
 };
 
@@ -633,14 +659,14 @@ public:
 	static CPnt3D * GetDirVec(CAiMap::DIR, CPnt3D &); /* 0x187d90 returns the vector */
 	static CQuat * GetDirQuat(CAiMap::DIR, CQuat &, bool);
 	static CAiMap::DIR GetDirByName(const char *);
-	void GetDirDelta(CAiMap::DIR, CAiMap::DIR);
+	static int GetDirDelta(CAiMap::DIR, CAiMap::DIR); /* 0x187a70: -4..4 */
 	static CAiMap::DIR GetClosestDir(const CPnt3D *);
 	static CAiMap::DIR GetClosestDir(const CAiMapLoc &, const CAiMapLoc &);
 	CAiMap::DIR GetClosestDir(const CAiMapLoc &, const CPnt3D *);
 	static unsigned char GetSoilByName(const char *);
 	CAiMap();
 	~CAiMap();
-	void _reset_rtflag(const MAP_FOREACH_STRUCT &, void *);
+	static bool _reset_rtflag(const MAP_FOREACH_STRUCT &, void *); /* 0x186bf0 */
 	static bool _validate_cell(const MAP_FOREACH_STRUCT &, void *); /* 0x186a30: callback, returns 1 */
 	unsigned int ValidateCells(); /* 0x186430 returns the count of links on unwalkable cells */
 	void ResetCells();
@@ -671,16 +697,16 @@ public:
 	int GetLocationWidth(const CAiMapLoc &, int);
 	unsigned char CanTravelLine(const CAiMapLoc &, const CAiMapLoc &, CAiMapLoc *);
 	unsigned char CanSeeLine(const CAiMapLoc &, const CAiMapLoc &, CAiMapLoc *);
-	void CanSeeLine(const CAiMapLoc &, const CPnt3D *, CAiMapLoc *);
+	bool CanSeeLine(const CAiMapLoc &, const CPnt3D *, CAiMapLoc *);
 	float ComputeLineVisibility(const CAiMapLoc &, const CAiMapLoc &);
 	bool WalkLine(const CAiMapLoc &, const CAiMapLoc &, bool (*)(const MAP_LINEWALK_STRUCT &, void *), void *); /* 0x1a7570: 0 when the callback stopped the walk */
-	void WalkLine(const CAiMapLoc &, const CPnt3D *, bool (*)(const MAP_LINEWALK_STRUCT &, void *), void *);
-	void FloodFill(const CAiMapLoc &, CAiMap::DIR, int, bool (*)(MAP_FLOODFILL_STRUCT &, void *), void *);
+	bool WalkLine(const CAiMapLoc &, const CPnt3D *, bool (*)(const MAP_LINEWALK_STRUCT &, void *), void *); /* 0x1a6b00 */
+	bool FloodFill(const CAiMapLoc &, CAiMap::DIR, int, bool (*)(MAP_FLOODFILL_STRUCT &, void *), void *); /* 0x1a61e0: 1 when the callback stopped it */
 	unsigned char Tile(const CAiMap::region *, unsigned int, unsigned int);
 	void CountMapVisDir(const CAiMapLoc &, int *, CAiMapLoc *, int);
 	void CountMapTravelDir(const CAiMapLoc &, int *, CAiMapLoc *, int);
-	void FindCoverLoc(const CAiMapLoc &, const CPnt3D *, CAiMapLoc &, CAiMap::DIR &, int);
-	void FindLookLoc(const CAiMapLoc &, const CPnt3D *, CAiMapLoc &, CAiMap::DIR &, int);
+	bool FindCoverLoc(const CAiMapLoc &, const CPnt3D *, CAiMapLoc &, CAiMap::DIR &, int); /* 0x1a9970 */
+	bool FindLookLoc(const CAiMapLoc &, const CPnt3D *, CAiMapLoc &, CAiMap::DIR &, int); /* 0x1a9590 */
 	void CenterRegion(const CAiMapLoc &, CAiMap::region &) const;
 	void UpdateVisibilityMap(CAiVisMap &, int &);
 	static const int version;
@@ -740,6 +766,11 @@ public:
 		return !walkable || IsWalkable(cell);
 	}
 
+	/* port: inline in the ELF (GetClosestDir(loc, pnt) 0x187330, FindLookLoc/FindCoverLoc,
+	 * WalkLine): a cell's centre, y its quantized altitude, moved offset_length along an
+	 * action cell's offset direction (8 none); false off the map */
+	bool GetCellPos(const CAiMapLoc &loc, CPnt3D &out);
+
 	/* port: inline in the ELF everywhere (soil 0 none, 8, 9, 10 blocked) */
 	static bool IsWalkable(const CAiCell *cell)
 	{
@@ -786,6 +817,22 @@ public:
 	CAiCell *m_cell;
 	const CAiMap::region *m_region;
 	CAiMapLoc m_loc;
+};
+
+/* port: no DWARF definition; the record FloodFill 0x1a61e0 passes its callbacks (_find_look
+ * 0x1a9d50, _find_cover 0x1a9e40); names invented */
+class MAP_FLOODFILL_STRUCT
+{
+public:
+	CAiMap *m_map;          /* +0x00 */
+	CAiMapLoc m_start;      /* +0x04 */
+	u8 m_dir;               /* +0x08 the direction asked for (unused by the walk) */
+	CAiMapLoc m_loc;        /* +0x0c the cell taken from the queue */
+	CAiMapLoc m_next;       /* +0x10 its neighbour being offered */
+	CAiCell *m_cell;        /* +0x14 the cell of m_loc (state 1) or m_next (state 0) */
+	u8 m_next_dir;          /* +0x18 the direction of m_next from m_loc */
+	u8 m_state;             /* +0x19 1 m_loc taken, 0 a neighbour offered; a callback sets 2 to stop */
+	CAiMap::region m_region; /* +0x20 the cells taken (their m_rtflag is cleared afterwards) */
 };
 
 struct line_data /* DWARF: line_data, byte_size 4 */
@@ -910,7 +957,7 @@ public:
 	float GetLength(bool);
 	bool GetLegPoints(CAiMapLoc &, CAiMapLoc &, int) const;
 	CAiMap * GetLegMap(int);
-	void GetLegBoundary(int &, int &, int) const;
+	bool GetLegBoundary(int &, int &, int) const; /* 0x196210 */
 	void plan_setup();
 	bool plan_addleg(CAiMap *, const CAiMapLoc &, const CAiMapLoc &);
 	void plan_complete(CAiPath::PATH_STATE);
@@ -922,7 +969,7 @@ public:
 	bool InsertPathLoc(const CAiMapLoc &, CAiMap *);
 	void PostProcess();
 	bool SmoothPath();
-	void SmoothPathLeg(int);
+	bool SmoothPathLeg(int); /* 0x194700: whether points were dropped */
 	void UpdateTurnAngles();
 	void UpdatePointFlags();
 	void UpdatePathWidth(unsigned int);
@@ -931,7 +978,7 @@ public:
 	bool SetPathType(CAiPath::PATH_TYPE); /* 0x1938f0: whether the path has that type now */
 	void PassesThrough(const CAiMapLoc &, CAiMap::DIR, int);
 	void PrintPath() const;
-	void PointInPath(const CAiMapLoc &, unsigned int *) const;
+	bool PointInPath(const CAiMapLoc &, unsigned int *) const; /* 0x193540 */
 	/* @socom-skeleton end 7CAiPath */
 };
 
@@ -970,13 +1017,15 @@ public: /* port: public - CSealCtrlAi fills a pushed state's parameters and read
 	 * CAiSEvent, CAiSShotAt). Layout from Reset 0x2d1e60, StateTick 0x2da980 and the state
 	 * users; member names invented. */
 	u32 m_option_flags; /* +0x04: per-state option bits (CAiSEvent: 4, 8) */
-	u32 m_unk_08; /* +0x08: Reset clears it */
+	f32 m_time; /* +0x08: Reset clears it; a duration (CAiSTarget) or a deadline on the state
+	             * clock (CAiSPursue) */
 	u32 m_setup : 1; /* +0x0c bit 0: set by the code that pushed the state once its parameters are filled */
 	u32 m_unk_0c_1 : 1; /* bit 1: Reset clears it */
 	u32 m_response : 1; /* bit 2: a script response sequence is running (StateTick) */
 	u32 m_unk_0c_3 : 29; /* bits 3-31: Reset clears them */
 	u8 m_state; /* +0x10: AI_STATE (a byte) */
-	u32 m_unk_14; /* +0x14: Reset clears it */
+	u32 m_substate; /* +0x14: Reset clears it; the state's own phase (CAiSEvent, CAiSPursue,
+	                 * CAiSCorpse) */
 	u32 m_unk_18;
 	u32 m_unk_1c_0 : 9; /* +0x1c */
 	u32 m_ticked : 1; /* +0x1d bit 1: cleared after every Tick (StateTick) */
@@ -1072,6 +1121,9 @@ public:
 
 class CAiSRestrained : public CAiState
 {
+public:
+	/* m_option_flags: 1 sitting (a hostage, team 0x20000), 2 the team change is pending */
+	u32 m_team; /* +0x28 the restrainer's team mask (Tick 0x2e66f0; name invented) */
 
 	/* @socom-skeleton decl 14CAiSRestrained */
 public:
@@ -1139,14 +1191,19 @@ public:
 class CAiSPursue : public CAiState
 {
 public:
-	f32 m_duration; /* +0x28 (CTPursue::Begin 0x2b80b0); port: the rest of the layout unknown */
+	/* 52 bytes (CAiState::Create 0x2dc6dc); names invented. m_substate: 0 delay, 1 plan,
+	 * 2 goto, 3 hold, 4 panic, 5 search, 6 search_goto, 7 search_pause (GetStatus 0x25ac10);
+	 * m_option_flags: 1 no attack, 2 find a look spot, 4 find cover */
+	f32 m_duration; /* +0x28 the time out on the state clock (-1 none; CTPursue::Begin 0x2b80b0) */
+	s8 m_peekdir;   /* +0x2c the CAiMap::DIR to peek at the spot (2 none) */
+	f32 m_timer;    /* +0x30 time in the phase */
 
 	/* @socom-skeleton decl 10CAiSPursue */
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
 	virtual bool Tick(float, CSealCtrlAi *);
 	virtual const char * GetStatus() const; /* override: CAiState::GetStatus returns const char * */
-	virtual bool CanAttack() const { return true; } /* port: stub; ELF 0x26c660 returns !(bit 0 of the word at +4), CAiState layout unproven */
+	virtual bool CanAttack() const { return !(m_option_flags & 1); } /* 0x26c660 */
 	virtual ~CAiSPursue() {}
 	/* @socom-skeleton end 10CAiSPursue */
 };
@@ -1272,10 +1329,26 @@ class CAiSPlan : public CAiState
 
 class CAiSEvent : public CAiState
 {
+public:
+	/* 88 bytes (CAiState::Create 0x2dc45c, which clears m_look_time); layout from Tick
+	 * 0x2e5e80 and HandleEvent 0x2dcd60, names invented. m_option_flags: 1 look at m_vec,
+	 * 2 go to m_vec (else m_pos), 4 flinch, 8 startled (sound 20, no attack), 0x10 end when the target is
+	 * seen, 0x20 end when under fire, 0x40 resume when uncovered */
+	s8 m_type;          /* +0x28 CAiEvent::EVENT */
+	CPnt3D m_pos;       /* +0x2c the event's position */
+	CPnt3D m_vec;       /* +0x38 its source (a shooter) */
+	Rfloat m_look_time; /* +0x44 how long each look lasts */
+	CAiMapLoc m_start;  /* +0x4c where the AI stood when it set off */
+	f32 m_timer;        /* +0x50 the wait (phase 7) */
+	u8 m_next;          /* +0x54 the phase after the wait */
+	CAiSEvent() { m_look_time.m_min = 0.0f; m_look_time.m_range = 0.0f; }
 
 	/* @socom-skeleton decl 9CAiSEvent */
 public:
-	class EVENT_STATE;
+	/* m_substate (Tick's jump table 0x457fc0; names invented): 0 react, 1 look at the spot,
+	 * 2 look at the source, 3 route, 4 travel, 5 arrived, 6 done waiting, 7 wait, 8 look
+	 * around, 9 last look */
+	enum EVENT_STATE : u8 { ES_REACT, ES_LOOK, ES_LOOK_SOURCE, ES_ROUTE, ES_TRAVEL, ES_ARRIVED, ES_WAITED, ES_WAIT, ES_LOOK_AROUND, ES_LAST_LOOK };
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
 	virtual bool Tick(float, CSealCtrlAi *);
 	virtual const char * GetStatus() const; /* override: CAiState::GetStatus returns const char * */
@@ -1467,7 +1540,7 @@ class CAiEventQ : public std::list<CAiEventHandle>
 {
 public:
 	bool m_diRequested; /* DWARF +0xc (uchar) */
-	void Create(unsigned int);
+	CAiEventHandle * Create(unsigned int); /* 0x17f080: the seal's handle of an event id */
 };
 /* @socom-skeleton end 9CAiEventQ */
 /* @socom-skeleton decl 6CAiLog */
@@ -1530,7 +1603,7 @@ public:
 	char * GetCellNameString(const CAiMapLoc &) const;
 	void Tile(const CAiMap::region *, unsigned int, unsigned int);
 	void GetClosestRegion(const CAiMapLoc &, CAiMap::region::TYPE, bool);
-	void GetRegionTypeContainer(CAiMap::region::TYPE, const CAiMapLoc &);
+	CAiMap::region * GetRegionTypeContainer(CAiMap::region::TYPE, const CAiMapLoc &);
 	bool GetRandomLoc(const CAiMap::region *, CAiMapLoc &); /* 0x197340: 0 when none found */
 	void SetRegionType(const CAiMap::region *, CAiMap::region::TYPE);
 	void SetOccupied(const CAiMapLoc &, const CAiMapLoc &, unsigned int);

@@ -62,6 +62,7 @@
 #include "gamez/zFTS/zfts.h" /* CZGrenadeState */
 #include "gamez/zEntity/zentity.h" /* CPickup */
 #include "gamez/zMath/zmath_vu.h" /* sceVu0 matrix helpers */
+#include "gamez/zAI/zai.h" /* CAiEvent */
 #include <stdlib.h>
 #include <string.h>
 
@@ -851,8 +852,17 @@ bool CZProjectile::HandleImpact(zdb::IntersectStruct *hit, float, float dist, CP
 
 		if (radius > 1.0f && !m_lastHitWasPerson)
 		{
-			/* port: not written - an AIE_WEPHIT AI event (CAiEvent::Acquire/Create, the AI
-			 * event pool, are unwritten) at the hit, range radius, 0.1 s, owner the shooter */
+			/* an AIE_WEPHIT AI event (0x3183c0): at the hit, range radius, 0.1 s, owner the
+			 * shooter */
+			CAiEvent *ev = CAiEvent::Acquire();
+			ev->m_pos.x = pos[0];
+			ev->m_pos.y = pos[1];
+			ev->m_pos.z = pos[2];
+			ev->m_rangeSq = radius * radius;
+			ev->m_duration = 0.1f;
+			ev->m_type = CAiEvent::AIE_WEPHIT;
+			ev->m_owner = m_shooterID;
+			CAiEvent::Create(ev);
 		}
 	}
 
@@ -962,9 +972,15 @@ void CZProjectile::HandleDelayedDetonate()
 
 	if (!(radius <= 1.0f))
 	{
-		/* port: not written - an AI event (type 18) at the frame start, range radius^2,
-		 * 0.5 s, owner the shooter (CAiEvent::Acquire / Create, the AI event pool, are
-		 * unwritten) */
+		/* an AIE_EXPLOSION AI event (0x317e40; the halfword 18 is type 9 in m_type's bits) at
+		 * the frame start, range radius^2, 0.5 s, owner the shooter */
+		CAiEvent *ev = CAiEvent::Acquire();
+		ev->m_pos = m_framestartpos;
+		ev->m_rangeSq = radius * radius;
+		ev->m_duration = 0.5f;
+		ev->m_type = CAiEvent::AIE_EXPLOSION;
+		ev->m_owner = m_shooterID;
+		CAiEvent::Create(ev);
 	}
 
 	EQUIP_ITEM id = m_weapon->m_ID;

@@ -1710,7 +1710,7 @@ public:
 	virtual void UpdateViewCone();
 	virtual void OnSetTargetVisible(CTarget &, bool, zdb::DiIntersect *);
 	virtual void SetTarget(CTarget *);
-	void CreateAiEvent(CAiEvent::EVENT, float, float, bool, const CPnt3D *, unsigned int);
+	bool CreateAiEvent(CAiEvent::EVENT, float, float, bool, const CPnt3D *, unsigned int); /* 0x26a760: false when rate-limited */
 	bool SetGoalPos(GOAL_TYPE, const CPnt3D *, float); /* 0x267380 returns 0 when a higher goal type is in force */
 	float SetGoalDir(GOAL_TYPE, const CPnt3D *, bool); /* 0x2671e0 returns the dot of the body's facing with the goal direction (f0; AttackTick uses it) */
 	float ComputeTurnThrottle(const CPnt3D *, const CPnt3D *, float *);
@@ -2018,11 +2018,11 @@ public:
 	void ComputeThrowFireParams(AI_FIREPARAMS &);
 	void SetReturnVelocity(CZProjectile *, CPnt3D *, bool);
 	static CAiMap::DIR ChooseLookDir(const CAiMapLoc &, const CPnt3D *, bool, CAiMapLoc *, int, int *);
-	void InGuardRegion();
-	void HasSniperRifle();
+	bool InGuardRegion(); /* 0x259240 */
+	bool HasSniperRifle(); /* 0x259230 */
 	void SetAiEvent(CAiEvent::EVENT, float, const CPnt3D *);
 	void EventTick(float);
-	void HandleEvent(const CAiEvent *);
+	bool HandleEvent(const CAiEvent *); /* 0x2dcd60: true when the event was taken */
 	void SetFollowMaster(CZSealBody *);
 	void SetFollowOffset(const CPnt3D *);
 	CZSealBody * GetFollowMaster(int *);
@@ -2052,7 +2052,7 @@ public:
 	void SensorPreTick(float);
 	void EnemyCallout(const CTarget *, CEntity *);
 	void SensorTick(float);
-	void RegisterCanSee(int &, const CPnt3D *);
+	bool RegisterCanSee(int &, const CPnt3D *); /* 0x2b0b40 returns 1 */
 	static float aiAccuracyAngle;
 	static int aiActiveCount; /* aiActiveCount__11CSealCtrlAi 0x475d54: AIs awake this frame */
 	static int aiSleepingCount; /* 0x475d58 */

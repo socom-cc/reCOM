@@ -218,6 +218,20 @@ struct TASK_PURSUE : public TASK_HDR /* ai::PURSUE (Parse 0x2b81a0) */
 	f32 m_duration; /* +0x08 (-1 by default) */
 };
 
+struct TASK_EVENT : public TASK_HDR /* ai::EVENT (Parse 0x2bd860, 36 bytes) */
+{
+	CPnt3D m_pos;      /* +0x08 'pos' */
+	f32 m_range;       /* +0x14 'range' */
+	f32 m_duration;    /* +0x18 'duration' */
+	s32 m_node;        /* +0x1c 'node': the anim's node argument (CZAnim::LoadNodeNames) */
+	s16 m_type;        /* +0x20 'type' (CAiEvent::EVENT; GENERIC by default) */
+	u8 m_visible : 1;  /* +0x22 'vis' */
+	u8 m_has_range : 1;
+	u8 m_has_duration : 1;
+	u8 m_has_node : 1; /* m_pos is in the node's space */
+	u8 m_unused : 4;
+};
+
 struct TASK_GOTO : public TASK_HDR /* ai::GOTO (Begin 0x2bc300, Parse 0x2bc4f0) */
 {
 	f32 m_speed;          /* +0x08 the AI's speed (0..1) */
@@ -476,14 +490,53 @@ void CTEvent::Begin(_zanim_cmd_hdr* header)
 /* @socom-skeleton body Tick__7CTEventFP14_zanim_cmd_hdrPf */
 bool CTEvent::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
-	/* 0x2bd5e0: an AI event (what the AIs near a used door or switch notice) is made from the
-	 * task: CAiEvent::Acquire(), m_duration = the task's +0x18 when its flag byte +0x22 has
-	 * bit 2 (else CAiEvent::NoExpire), m_rangeSq = (+0x14)^2 with bit 1, m_visible = bit 0,
-	 * m_pos = the point +0x08, in the space of the anim's node argument +0x1c with bit 3
-	 * (CZAnim::GetNode, BuildMTW; zero when the node is missing), m_owner = the select seal's
-	 * m_id, m_type = the s8 +0x20; then CAiEvent::Create(event). Always done.
-	 * port: the event is not made: CAiEvent (zAI/ai_events.cpp: Acquire, Create, the pool)
-	 * is unwritten, so nothing could receive it. */
+	/* 0x2bd5e0: an AI event the AIs around react to (scripted noise at a door or a switch):
+	 * the task's type and position (in the anim node's space with a node), its range and
+	 * duration (no expiry without one), visible or heard; owned by the select seal. Always
+	 * done. */
+	TASK_EVENT *task = reinterpret_cast<TASK_EVENT *>(header);
+	CZSealBody *seal = taskSeal(task->m_seal_index);
+
+	if (seal != NULL)
+		static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi(); /* ELF: called, the answer dropped */
+
+	CAiEvent *event = CAiEvent::Acquire();
+	event->m_duration = task->m_has_duration ? task->m_duration : CAiEvent::NoExpire;
+
+	if (task->m_has_range)
+		event->m_rangeSq = task->m_range * task->m_range;
+
+	event->m_visible = task->m_visible ? 1 : 0;
+	CPnt3D pos = CPnt3D::zero;
+
+	if (task->m_has_node)
+	{
+		zdb::CNode *node = ZAnim.m_CurAnim->GetNode(task->m_node, false);
+
+		if (node != NULL)
+		{
+			CMatrix mtw;
+			sceVu0UnitMatrix(mtw.m_matrix);
+			node->BuildMTW(mtw);
+			/* ELF: the VU0 multiply-add (vmulax/vmadday/vmaddaz/vmaddw) inlined */
+			const CPnt3D &p = task->m_pos;
+			pos.x = mtw.m_matrix[0][0] * p.x + mtw.m_matrix[1][0] * p.y + mtw.m_matrix[2][0] * p.z + mtw.m_matrix[3][0];
+			pos.y = mtw.m_matrix[0][1] * p.x + mtw.m_matrix[1][1] * p.y + mtw.m_matrix[2][1] * p.z + mtw.m_matrix[3][1];
+			pos.z = mtw.m_matrix[0][2] * p.x + mtw.m_matrix[1][2] * p.y + mtw.m_matrix[2][2] * p.z + mtw.m_matrix[3][2];
+		}
+	}
+	else
+	{
+		pos = task->m_pos;
+	}
+
+	event->m_pos = pos;
+
+	if (seal != NULL)
+		event->m_owner = seal->m_id;
+
+	event->m_type = (s8)task->m_type;
+	CAiEvent::Create(event);
 	return true;
 }
 

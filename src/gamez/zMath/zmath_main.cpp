@@ -51,8 +51,34 @@ const CQuat CQuat::zero = { CPnt3D(0.0f, 0.0f, 0.0f), 0.0f }; /* values: __sinit
 const CQuat CQuat::identity = { CPnt3D(0.0f, 0.0f, 0.0f), 1.0f }; /* values: __sinit_zmath_main.cpp (w = 1) */
 
 /* @socom-skeleton stub Resize__5CBitsFUi */
-void CBits::Resize(unsigned int)
+void CBits::Resize(unsigned int bits)
 {
+	/* 0x221980: room for (bits >> 5) + 1 words - allocated the first time, reallocated only to
+	 * grow - and the bits from the old count up to the new one cleared; then the count. ELF
+	 * quirks kept: a shrink or a same-size resize keeps (and does not clear) the words; a
+	 * fresh buffer is cleared only from the old count on. port: void (the ELF returns 1) */
+	u32 words = (bits >> 5) + 1;
+	u32 old = (m_bits >> 5) + 1;
+	bool clear = false;
+
+	if (m_vec == NULL)
+	{
+		m_vec = (u32 *)zmalloc(words * 4);
+		clear = true;
+	}
+	else if (words != old && old < words)
+	{
+		m_vec = (u32 *)zrealloc(m_vec, words * 4);
+		clear = true;
+	}
+
+	if (clear)
+	{
+		for (u32 i = m_bits; i < bits; i++)
+			m_vec[i >> 5] &= ~(1u << (i & 0x1f));
+	}
+
+	m_bits = bits;
 }
 
 /* @socom-skeleton stub GetIntersect__5CBBoxFP6CPnt4DP6CPnt4DP6CPnt4DP6CPnt4Db */

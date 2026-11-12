@@ -68,6 +68,9 @@
 /* @socom-skeleton decl include */
 #include "gamez/zMath/zmath.h"
 /* @socom-skeleton end include */
+#include <stdarg.h>
+#include <string.h>
+#include <strings.h> /* strcasecmp */
 
 /* @socom-skeleton stub NoExpire__8CAiEvent */
 const float CAiEvent::NoExpire = -99.0f;
@@ -76,28 +79,50 @@ const float CAiEvent::NoExpire = -99.0f;
 int CAiEvent::bit_count = 32;
 
 /* @socom-skeleton stub nextId__8CAiEvent */
-unsigned char CAiEvent::nextId[4];
+u32 CAiEvent::nextId;
 
 /* @socom-skeleton stub m_pool__8CAiEvent */
-int CAiEvent::m_pool[3];
+std::list<CAiEvent *> CAiEvent::m_pool; /* the released events, reused by Acquire */
 
 /* @socom-skeleton stub m_inuse__8CAiEvent */
-int CAiEvent::m_inuse[3];
+std::list<CAiEvent *> CAiEvent::m_inuse; /* the live events that expire */
 
 /* @socom-skeleton stub m_persist__8CAiEvent */
-unsigned char CAiEvent::m_persist[12];
+std::list<CAiEvent *> CAiEvent::m_persist; /* the live events without expiry (NoExpire) */
 
 /* @socom-skeleton stub m_callbacks__8CAiEvent */
-unsigned char CAiEvent::m_callbacks[12];
+std::list<CAiEventCallback> CAiEvent::m_callbacks;
 
 /* @socom-skeleton stub GetEventString__8CAiEventFQ28CAiEvent5EVENT */
-char * CAiEvent::GetEventString(CAiEvent::EVENT)
+const char * CAiEvent::GetEventString(CAiEvent::EVENT event)
 {
+	/* 0x180000 */
+	switch ((s8)event)
+	{
+	case AIE_UNKNOWN: return "UNKNOWN";
+	case AIE_GENERIC: return "GENERIC";
+	case AIE_POINT: return "POINT";
+	case AIE_ENTITY: return "ENTITY";
+	case AIE_VOICE: return "VOICE";
+	case AIE_WEPHIT: return "WEPHIT";
+	case AIE_CORPSE: return "CORPSE";
+	case AIE_DOOR: return "DOOR";
+	case AIE_WEPFIRE: return "WEPFIRE";
+	case AIE_EXPLOSION: return "EXPLOSION";
+	case AIE_SURRENDER: return "SURRENDER";
+	case AIE_GETDOWN: return "GETDOWN";
+	case AIE_HELPATTACK: return "HELPATTACK";
+	case AIE_ALARM: return "ALARM";
+	case AIE_LIGHTSOFF: return "LIGHTSOFF";
+	default: return "UNKNOWN";
+	}
 }
 
 /* @socom-skeleton body GetEventRate__8CAiEventFQ28CAiEvent5EVENT */
 f32 CAiEvent::GetEventRate(EVENT event)
 {
+	/* 0x17ffb0: the least time between two events of a type from one seal
+	 * (CSealCtrl::CreateAiEvent); only HELPATTACK (12) is limited */
 	f32 rate = 0.0f;
 
 	switch (event)
@@ -113,92 +138,303 @@ f32 CAiEvent::GetEventRate(EVENT event)
 	case AIE_WEPFIRE:
 	case AIE_EXPLOSION:
 	case AIE_SURRENDER:
-	case AIE_HELPATTACK:
-	case AIE_ALARM:
-		break;
 	case AIE_GETDOWN:
+	case AIE_ALARM:
+	case AIE_LIGHTSOFF:
+		break;
+	case AIE_HELPATTACK:
 		rate = 5.0f;
+	default:
+		break;
 	}
 
 	return rate;
 }
 
 /* @socom-skeleton stub GetEventFromString__8CAiEventFPCcQ28CAiEvent5EVENT */
-void CAiEvent::GetEventFromString(const char *, CAiEvent::EVENT)
+CAiEvent::EVENT CAiEvent::GetEventFromString(const char *name, CAiEvent::EVENT fallback)
 {
+	/* 0x17ff30: the type of that name (any case), else the fallback */
+	if (name != NULL)
+	{
+		for (u32 i = 0; i < AIE_MAX; i++)
+		{
+			if (strcasecmp(GetEventString((EVENT)i), name) == 0)
+				return (EVENT)i;
+		}
+	}
+
+	return fallback;
 }
 
 /* @socom-skeleton stub Open__8CAiEventFUi */
-void CAiEvent::Open(unsigned int)
+void CAiEvent::Open(unsigned int bits)
 {
+	/* 0x17fe70: the seal count new events get bits for; the in-use list is emptied.
+	 * ELF quirk kept: its events are dropped, not moved to the pool (the list is empty at
+	 * mission start) */
+	bit_count = bits;
+
+	if (m_inuse.size() != 0)
+		m_inuse.clear();
 }
 
 /* @socom-skeleton stub Close__8CAiEventFv */
 void CAiEvent::Close()
 {
 	/* 0x17fca0 (CMission::Close, ReOpen_Unload2): the bit counter back to 32, every in-use
-	 * event moved to the pool, then every pooled event deleted (its slot cleared) and both
-	 * lists emptied; then the vis maps (CAiVisMap::CloseAll).
-	 * port: not written - m_inuse / m_pool are untyped placeholders (int[3], declared in
-	 * zai.h) and CAiEvent::Open / Acquire are unwritten, so both lists are always empty */
+	 * event moved to the pool, then every pooled event deleted and both lists emptied; then
+	 * the vis maps (CAiVisMap::CloseAll). ELF quirk kept: the persistent list is left as it
+	 * is */
 	bit_count = 32;
+
+	for (std::list<CAiEvent *>::iterator i = m_inuse.begin(); i != m_inuse.end(); ++i)
+		m_pool.push_back(*i);
+
+	m_inuse.clear();
+
+	for (std::list<CAiEvent *>::iterator i = m_pool.begin(); i != m_pool.end(); ++i)
+	{
+		delete *i;
+		*i = NULL;
+	}
+
+	m_pool.clear();
 	CAiVisMap::CloseAll();
 }
 
 /* @socom-skeleton stub Acquire__8CAiEventFv */
 CAiEvent * CAiEvent::Acquire()
 {
+	/* 0x17f9f0: a cleared event - the pool's first, or a new one - with the next id */
+	CAiEvent *event;
+
+	if (m_pool.size() == 0)
+	{
+		event = new CAiEvent();
+	}
+	else
+	{
+		event = m_pool.front();
+		m_pool.erase(m_pool.begin());
+		event->Initalize();
+	}
+
+	event->m_id = (u16)nextId;
+	nextId++;
+	return event;
 }
 
 /* @socom-skeleton stub Create__8CAiEventFP8CAiEvent */
-CAiEvent * CAiEvent::Create(CAiEvent *)
+CAiEvent * CAiEvent::Create(CAiEvent *event)
 {
+	/* 0x17f8f0: the filled-in event goes live (persistent without expiry, else in-use), then
+	 * every callback hears of it. port: returns the event (the ELF returns nothing useful; no
+	 * caller reads it) */
+	if (event->m_duration == NoExpire)
+		m_persist.push_back(event);
+	else
+		m_inuse.push_back(event);
+
+	for (std::list<CAiEventCallback>::iterator i = m_callbacks.begin(); i != m_callbacks.end(); ++i)
+		i->m_fn(event, i->m_data);
+
+	return event;
 }
 
 /* @socom-skeleton stub Release__8CAiEventFP8CAiEvent */
-void CAiEvent::Release(CAiEvent *)
+void CAiEvent::Release(CAiEvent *event)
 {
+	/* 0x17f840: off its live list and into the pool */
+	if (event->m_duration == NoExpire)
+		m_persist.remove(event);
+	else
+		m_inuse.remove(event);
+
+	m_pool.push_back(event);
 }
 
 /* @socom-skeleton stub Tick__8CAiEventFfPv */
-bool CAiEvent::Tick(float, void *)
+bool CAiEvent::Tick(float dT, void *)
 {
-	/* port: stub - AI events (0x17f780: CAiVisMap::TickVisMaps, then remove_if/erase of
-	   the events whose _tick is done) are not written; the ELF task returns false */
+	/* 0x17f780 (task CAiEventTick 4.5): the vis maps, then every in-use event counts down;
+	 * the expired ones go to the pool's end (remove_if with the _tick functor 0x1800f0) */
+	CAiVisMap::TickVisMaps(dT);
+#ifdef SOCOM_PORT
+	static u32 trace_count = 0;
+
+	if (++trace_count % 900 == 0)
+		SOCOM_PORT_TRACE("AI: events in use %d, persistent %d, pooled %d, next id %d", (int)m_inuse.size(), (int)m_persist.size(), (int)m_pool.size(), (int)nextId);
+#endif
+	std::list<CAiEvent *>::iterator i = m_inuse.begin();
+
+	while (i != m_inuse.end())
+	{
+		if ((*i)->Tick(dT))
+		{
+			m_pool.push_back(*i);
+			i = m_inuse.erase(i);
+		}
+		else
+		{
+			++i;
+		}
+	}
+
 	return false;
 }
 
 /* @socom-skeleton stub GetFirstEvent__8CAiEventFQ28CAiEvent11EVENT_CLASS */
-void CAiEvent::GetFirstEvent(CAiEvent::EVENT_CLASS)
+CAiEvent::iterator CAiEvent::GetFirstEvent(CAiEvent::EVENT_CLASS which)
 {
+	/* 0x17f660: a cursor at the start of the in-use (0) or persistent (1) list (no list
+	 * otherwise); every type, no seal bit, no owner skipped */
+	iterator it;
+	it.m_list = (u8)which == EVENT_EXPIRING ? &m_inuse : (u8)which == EVENT_PERSISTENT ? &m_persist : NULL;
+
+	if (it.m_list != NULL)
+		it.m_node = it.m_list->begin();
+
+	it.m_type = AIE_MAX;
+	it.m_mask = (u32)-1;
+	it.m_owner = -1;
+	it.m_bit = -1;
+	return it;
 }
 
 /* @socom-skeleton stub GetNextEvent__8CAiEventFPC6CPnt3DRQ28CAiEvent8iteratorf */
-void CAiEvent::GetNextEvent(const CPnt3D *, CAiEvent::iterator &, float)
+CAiEvent * CAiEvent::GetNextEvent(const CPnt3D *pos, CAiEvent::iterator &it, float scale)
 {
+	/* 0x17f4a0: the next event in the cursor's list whose type is in its mask (and is its
+	 * type unless that is AIE_MAX), not from the skipped owner, not yet seen by the asking
+	 * seal's bit (ENTITY events are never marked), and heard at pos: no range, or a squared
+	 * distance under the range times scale (the hearing factor) */
+	CAiEvent *found = NULL;
+
+	if (it.m_list == NULL) /* port: guard - the ELF reads the NULL list's end */
+		return NULL;
+
+	while (found == NULL && it.m_node != it.m_list->end())
+	{
+		CAiEvent *event = *it.m_node;
+		++it.m_node;
+		s8 type = (s8)event->m_type;
+
+		if (!(it.m_mask & (1u << type)))
+			continue;
+
+		if (it.m_type != AIE_MAX && it.m_type != type)
+			continue;
+
+		if (it.m_owner == event->m_owner)
+			continue;
+
+		if (it.m_bit != -1)
+		{
+			bool seen = event->m_type == AIE_ENTITY ? false : (event->m_bits.m_vec[(u32)it.m_bit >> 5] & (1u << (it.m_bit & 0x1f))) != 0;
+
+			if (seen)
+				continue;
+		}
+
+		if (event->m_rangeSq == 0.0f)
+		{
+			found = event;
+			continue;
+		}
+
+		CPnt3D d;
+		event->m_pos.Sub(pos, &d);
+
+		if (d.x * d.x + d.y * d.y + d.z * d.z < event->m_rangeSq * scale)
+			found = event;
+	}
+
+	return found;
 }
 
 /* @socom-skeleton stub __ct__8CAiEventFv */
 CAiEvent::CAiEvent()
 {
+	/* 0x17f330: bits for bit_count seals, then cleared (Initalize) */
+	m_bits.m_bits = 0;
+	m_bits.m_vec = NULL;
+	m_bits.Resize(bit_count);
+	Initalize();
+}
+
+/* port: the destructor 0x17fc20 (this file's artifact; no skeleton fence was generated): the
+ * bit words are freed */
+CAiEvent::~CAiEvent()
+{
+	zfree(m_bits.m_vec);
+	m_bits.m_vec = NULL;
 }
 
 /* @socom-skeleton stub Initalize__8CAiEventFv */
 void CAiEvent::Initalize()
 {
+	/* 0x17f270: no duration, at the origin, no type/owner/id/userdata, not visible, no seal
+	 * has seen it (m_rangeSq is left as it was) */
+	m_duration = 0.0f;
+	m_pos = CPnt3D::zero;
+	m_type = 0;
+	m_owner = -1;
+	m_visible = 0;
+	m_id = 0;
+	m_userdata = 0;
+
+	if (m_bits.m_vec != NULL)
+		memset(m_bits.m_vec, 0, ((m_bits.m_bits >> 5) + 1) * 4);
+	else
+		m_bits.m_bits = 0;
 }
 
 /* @socom-skeleton stub Tick__8CAiEventFf */
-void CAiEvent::Tick(float)
+bool CAiEvent::Tick(float dT)
 {
+	/* 0x17f210: an event without expiry never ends; else true once its time has run out */
+	if (m_duration == NoExpire)
+		return false;
+
+	m_duration -= dT;
+	return m_duration <= 0.0f;
 }
 
 /* @socom-skeleton stub MakeMaskEx__8CAiEventFQ28CAiEvent5EVENTe */
-void CAiEvent::MakeMaskEx(CAiEvent::EVENT, ...)
+u32 CAiEvent::MakeMaskEx(CAiEvent::EVENT first, ...)
 {
+	/* 0x17f180: 1 << each type of the list up to a -1 */
+	u32 mask = 0;
+	va_list args;
+	va_start(args, first);
+	s8 event = (s8)first;
+
+	while (event != -1)
+	{
+		mask |= 1u << event;
+		event = (s8)va_arg(args, int);
+	}
+
+	va_end(args);
+	return mask;
 }
 
 /* @socom-skeleton stub Create__9CAiEventQFUi */
-void CAiEventQ::Create(unsigned int)
+CAiEventHandle * CAiEventQ::Create(unsigned int id)
 {
+	/* 0x17f080: the seal's handle of the event with that id, a new one (state 0, no data)
+	 * at the end when it has none yet */
+	for (iterator i = begin(); i != end(); ++i)
+	{
+		if (i->m_id == (u16)id)
+			return &*i;
+	}
+
+	CAiEventHandle handle;
+	handle.m_id = (u16)id;
+	handle.m_state = 0;
+	handle.m_data = 0;
+	push_back(handle);
+	return &back();
 }

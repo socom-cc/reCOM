@@ -2966,8 +2966,7 @@ CZBodyAnimBlend * CZSealBody::RestrainBuddy(CZSealBody *victim)
 			if (state != NULL && state->m_state == STATE_RESTRAINED)
 			{
 				state->m_option_flags |= 2;
-				/* port: not written: the restrainer's team at +0x28 (CAiSRestrained has no
-				 * member declared in zai.h) */
+				static_cast<CAiSRestrained *>(state)->m_team = m_team; /* +0x28 the restrainer's team */
 				state->m_setup = 1;
 			}
 		}

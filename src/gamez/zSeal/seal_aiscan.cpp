@@ -36,6 +36,7 @@
 #include "gamez/zMath/zmath.h"
 #include "zseal.h"
 /* @socom-skeleton end include */
+#include <math.h> /* sinf, cosf */
 #include <stdlib.h> /* rand */
 
 /* @socom-skeleton stub MultiplayerMsgStrings */
@@ -254,17 +255,160 @@ void CSealCtrl::ClearLook(AI_LOOK look)
 	SetDefaultLookParams(AIL_NORMAL);
 }
 
-/* @socom-skeleton stub ScanTick__9CSealCtrlFf */
-void CSealCtrl::ScanTick(float)
+/* port: the Rfloat draw ScanTick inlines (min, plus range times a uniform draw) */
+static f32 scan_draw(const Rfloat &r)
 {
+	if (r.m_range == 0.0f)
+		return r.m_min;
+
+	return r.m_min + r.m_range * ((f32)rand() * (1.0f / 2147483648.0f));
+}
+
+/* @socom-skeleton stub ScanTick__9CSealCtrlFf */
+void CSealCtrl::ScanTick(float dT)
+{
+	/* 0x2e3bf0 (CSealCtrlAi::Tick, CSealCtrl::Tick): the head follows the look. A point (type
+	 * 1, not within minRange) or a world direction (type 2) is turned into the body's space
+	 * (the inverse rotation); type 3 is already a body-space direction. A new look (flag
+	 * 0x20) plus the scan bias is sent to the head (SetLookDir, at a speed drawn from the
+	 * look rate) unless it is within ~14 degrees of the last; the body is turned toward the
+	 * look (goal 1) when the head cannot reach it (unless flag 2) or always with flag 1.
+	 * The look times out back to straight ahead (default params); a scan (flags 4/8) draws a
+	 * new bias angle whenever its timer runs out (8: any in the scan range; else swinging
+	 * from side to side, at least half way). */
 	/* @socom-skeleton stub minRange$2078 */
-	static float minRange;
+	static float minRange = 10.0f;
 	/* @socom-skeleton stub _look_threshold$2085 */
-	static float _look_threshold;
+	static float _look_threshold = 0.97f;
 	/* @socom-skeleton stub r_min$2093 */
-	static float r_min;
+	static float r_min = 0.25f;
 	/* @socom-skeleton stub r_max$2096 */
-	static float r_max;
+	static float r_max = 1.0f;
 	/* @socom-skeleton stub yDir$2115 */
-	static int yDir;
+	static float yDir = 0.2f; /* port: float, as the ELF's word (0x3e4ccccd); unused */
+	(void)yDir;
+	CZSealBody *body = static_cast<CZSealBody *>(m_entity);
+	bool have = false;
+	CPnt3D world;  /* the look in world space (sp+0x90) */
+	CPnt3D local;  /* the look in the body's space (sp+0x80) */
+	body->GetLookDir(); /* ELF: called, the answer dropped */
+
+	switch ((u8)m_look_type)
+	{
+	case 1:
+	{
+		m_look_data.Sub(body->GetPosW(), &world);
+
+		if (world.Normalize() < minRange)
+			break;
+
+		CQuat inv = body->m_quat;
+		inv.vec.x = -inv.vec.x;
+		inv.vec.y = -inv.vec.y;
+		inv.vec.z = -inv.vec.z;
+		inv.Apply(&world, &local, 1);
+		have = true;
+		m_look_flags |= 0x20;
+		break;
+	}
+	case 2:
+	{
+		world = m_look_data;
+		CQuat inv = body->m_quat;
+		inv.vec.x = -inv.vec.x;
+		inv.vec.y = -inv.vec.y;
+		inv.vec.z = -inv.vec.z;
+		inv.Apply(&world, &local, 1);
+		have = true;
+		m_look_flags |= 0x20;
+		break;
+	}
+	case 3:
+		local = m_look_data;
+		have = true;
+		break;
+	default:
+		break;
+	}
+
+	if (have && (m_look_flags & 0x20))
+	{
+		m_look_flags &= ~0x20u;
+		local.Add(&m_look_bias, &local);
+		local.Normalize();
+		bool reached = true;
+
+		if (local.x * m_look_data_mdir.x + local.y * m_look_data_mdir.y + local.z * m_look_data_mdir.z < _look_threshold)
+		{
+			f32 r = scan_draw(m_look_rate);
+			reached = body->SetLookDir(&local, r_min * (1.0f - r) + r_max * r) != 0;
+			m_look_data_mdir = local;
+		}
+
+		if ((u8)m_look_type != 3)
+		{
+			if ((!reached && !(m_look_flags & 2)) || (m_look_flags & 1))
+				SetGoalDir((GOAL_TYPE)1, &world, false);
+		}
+	}
+
+	if (m_look_timer != CAiTimer::infinite)
+	{
+		m_look_timer -= dT;
+
+		if (m_look_timer <= 0.0f)
+		{
+			m_look_data = CPnt3D::unit_nz;
+			m_look_type = (LOOK_DATA_TYPE)3;
+			m_look_mode = (AI_LOOK)0;
+			m_look_timer = CAiTimer::infinite;
+			m_look_flags = 0;
+			SetDefaultLookParams((AI_LOOK)0);
+		}
+	}
+
+	if (!(m_look_flags & 0xc))
+		return;
+
+	bool draw = false;
+
+	if (m_scan_timer.m_timer != CAiTimer::infinite)
+	{
+		m_scan_timer.m_timer -= dT;
+		draw = m_scan_timer.m_timer != CAiTimer::infinite && m_scan_timer.m_timer <= 0.0f;
+
+		if (draw)
+			m_scan_timer.m_timer = scan_draw(m_scan_timer.m_period);
+	}
+
+	if (!draw)
+		return;
+
+	CPnt3D v = CPnt3D::zero;
+	f32 angle;
+
+	if (m_look_flags & 8)
+	{
+		angle = scan_draw(m_scan_angle);
+	}
+	else
+	{
+		f32 swing = 0.5f + 0.5f * ((f32)rand() * (1.0f / 2147483648.0f));
+
+		if (m_look_bias.x == 0.0f)
+			angle = scan_draw(m_scan_angle);
+		else if (m_look_bias.x <= 0.0f)
+			angle = (m_scan_angle.m_min + m_scan_angle.m_range) * swing;
+		else
+			angle = m_scan_angle.m_min * swing;
+	}
+
+	v.x = sinf(angle);
+	v.z = -cosf(angle);
+
+	if (v.y != 0.0f)
+		v.Normalize();
+
+	v.Sub(&CPnt3D::unit_nz, &m_look_bias);
+	m_look_flags |= 0x20;
 }

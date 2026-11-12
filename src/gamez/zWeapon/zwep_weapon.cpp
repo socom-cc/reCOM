@@ -143,6 +143,7 @@
 #include "gamez/zNode/znode.h"
 #include "gamez/zReader/zrdr.h"
 #include "gamez/zSound/zsnd.h"
+#include "gamez/zAI/zai.h" /* CAiEvent */
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
 class CZDecalSet;
@@ -293,8 +294,15 @@ void CZWeapon::Fire(zdb::CNode *owner, CZAmmo *ammo, const CPnt3D *from, const C
 
 	if (IsDirectFire() && m_soundradius > 1.0f)
 	{
-		/* port: not written - an AIE_WEPFIRE AI event (CAiEvent::Acquire/Create, the AI event
-		 * pool, are unwritten) at from, range the sound radius, 0.1 s, owner id */
+		/* an AIE_WEPFIRE AI event (0x31f388): at from, range the sound radius, 0.1 s, owner
+		 * id; heard by the AIs around (CSealCtrlAi::HandleEvent) */
+		CAiEvent *ev = CAiEvent::Acquire();
+		ev->m_pos = *from;
+		ev->m_rangeSq = m_soundradius * m_soundradius;
+		ev->m_duration = 0.1f;
+		ev->m_type = CAiEvent::AIE_WEPFIRE;
+		ev->m_owner = id;
+		CAiEvent::Create(ev);
 	}
 }
 
@@ -324,7 +332,14 @@ void CZWeapon::Fire(zdb::CNode *owner, CZWeapon *weapon, CZAmmo *ammo, const CPn
 
 	if (weapon->m_soundradius > 1.0f)
 	{
-		/* port: not written - the AIE_WEPFIRE AI event (CAiEvent pool unwritten) */
+		/* the AIE_WEPFIRE AI event (0x31f204): at from, range the sound radius, 0.1 s, owner id */
+		CAiEvent *ev = CAiEvent::Acquire();
+		ev->m_pos = *from;
+		ev->m_rangeSq = weapon->m_soundradius * weapon->m_soundradius;
+		ev->m_duration = 0.1f;
+		ev->m_type = CAiEvent::AIE_WEPFIRE;
+		ev->m_owner = id;
+		CAiEvent::Create(ev);
 	}
 }
 
@@ -348,7 +363,16 @@ void CZWeapon::Fire(CZProjectile& projectile)
 
 	if (projectile.m_weapon->m_soundradius > 1.0f)
 	{
-		/* port: not written - the AIE_WEPFIRE AI event (CAiEvent pool unwritten) */
+		/* the AIE_WEPFIRE AI event (0x31f06c): at the projectile's frame start, range the
+		 * sound radius, 0.1 s, owner the shooter */
+		f32 radius = projectile.m_weapon->m_soundradius;
+		CAiEvent *ev = CAiEvent::Acquire();
+		ev->m_pos = projectile.m_framestartpos;
+		ev->m_rangeSq = radius * radius;
+		ev->m_duration = 0.1f;
+		ev->m_type = CAiEvent::AIE_WEPFIRE;
+		ev->m_owner = projectile.m_shooterID;
+		CAiEvent::Create(ev);
 	}
 }
 

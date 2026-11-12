@@ -41,6 +41,8 @@
 #include "zai.h"
 /* @socom-skeleton end include */
 #include <math.h> /* sqrtf */
+#include <string.h>
+#include <list>
 /* @socom-skeleton decl forward */
 class MAP_FLOODFILL_STRUCT;
 class MAP_FOREACH_STRUCT;
@@ -78,8 +80,17 @@ bool _TravelLineCallback(const MAP_LINEWALK_STRUCT &walk, void *data)
 }
 
 /* @socom-skeleton stub _SeeLineCallback__FRC19MAP_LINEWALK_STRUCTPv */
-void _SeeLineCallback(const MAP_LINEWALK_STRUCT &, void *)
+bool _SeeLineCallback(const MAP_LINEWALK_STRUCT &walk, void *data)
 {
+	/* 0x1a8460: a cell of soil 0, 8 or 10 blocks the view; the first one is stored at data (a
+	 * CAiMapLoc *, may be NULL) */
+	u32 soil = walk.m_cell->m_soil;
+	bool open = !(soil == 0 || soil == 8 || soil == 10);
+
+	if (!open && data != NULL)
+		*(CAiMapLoc *)data = walk.m_loc;
+
+	return open;
 }
 
 /* @socom-skeleton stub _VisLineCallback__FRC19MAP_LINEWALK_STRUCTPv */
@@ -101,13 +112,17 @@ unsigned char CAiMap::CanTravelLine(const CAiMapLoc &from, const CAiMapLoc &to, 
 }
 
 /* @socom-skeleton stub CanSeeLine__6CAiMapFRC9CAiMapLocRC9CAiMapLocP9CAiMapLoc */
-unsigned char CAiMap::CanSeeLine(const CAiMapLoc &, const CAiMapLoc &, CAiMapLoc *)
+unsigned char CAiMap::CanSeeLine(const CAiMapLoc &from, const CAiMapLoc &to, CAiMapLoc *blocked)
 {
+	/* 0x1a8340 (tail call) */
+	return WalkLine(from, to, _SeeLineCallback, blocked);
 }
 
 /* @socom-skeleton stub CanSeeLine__6CAiMapFRC9CAiMapLocPC6CPnt3DP9CAiMapLoc */
-void CAiMap::CanSeeLine(const CAiMapLoc &, const CPnt3D *, CAiMapLoc *)
+bool CAiMap::CanSeeLine(const CAiMapLoc &from, const CPnt3D *to, CAiMapLoc *blocked)
 {
+	/* 0x1a8330 (tail call) */
+	return WalkLine(from, to, _SeeLineCallback, blocked);
 }
 
 /* @socom-skeleton stub ComputeLineVisibility__6CAiMapFRC9CAiMapLocRC9CAiMapLoc */
@@ -117,77 +132,271 @@ float CAiMap::ComputeLineVisibility(const CAiMapLoc &, const CAiMapLoc &)
 	static unsigned char shadow_scale[16] = {0, 0, 128, 63, 102, 102, 102, 63, 0, 0, 0, 63, 195, 245, 168, 62};
 }
 
+/* port: inline in the ELF (see zai.h) */
+bool CAiMap::GetCellPos(const CAiMapLoc &loc, CPnt3D &out)
+{
+	if (!((u32)(u16)loc.y < m_ny && loc.x < m_nx))
+		return false;
+
+	CAiCell *cell = GetCell(loc);
+	out.x = m_bbox.m_min.x + ((f32)loc.x * m_dx + 0.5f * m_dx);
+	out.z = m_bbox.m_min.z + ((f32)loc.y * m_dy + 0.5f * m_dy);
+
+	if (cell != NULL)
+		out.y = m_bbox.m_min.y + (0.000976563f * (m_bbox.m_max.y - m_bbox.m_min.y)) * (f32)cell->m_altitude;
+	else
+		out.y = 0.0f;
+
+	if (cell->m_action) /* ELF: the cell is not NULL-tested here */
+	{
+		CAiMap::action *action = GetCellAction(loc);
+
+		if (action->m_offset != 8)
+		{
+			CPnt3D offset;
+			CAiMap::GetDirVec((CAiMap::DIR)action->m_offset, offset);
+			offset.Scale(CAiMap::action::offset_length, &offset);
+			out.Add(&offset, &out);
+		}
+	}
+
+	return true;
+}
+
+/* port: the walk both WalkLines inline (identical code in 0x1a6b00 and 0x1a7570): from p0 to
+ * p1 in x/z, in steps of a fifth of a cell (t from 0 by 0.2 * dx / length, the point's cell by
+ * vftoi0 of (p - bbox min) * idx/idy, map id 0); each new cell goes to the callback (m_dist =
+ * t * length, m_prev the cell before). It fails when a point leaves the bounds, the map or its
+ * row, or the callback answers 0; the end point (t = 1) is offered last (only its bounds are
+ * tested: outside them the previous cell stands). Returns the callback's last answer. */
+static bool walk_line(CAiMap *map, MAP_LINEWALK_STRUCT &walk, const CPnt3D &p0, const CPnt3D &p1, bool (*callback)(const MAP_LINEWALK_STRUCT &, void *), void *data)
+{
+	CPnt3D d;
+	p1.Sub(&p0, &d);
+	f32 length = sqrtf(d.x * d.x + d.z * d.z);
+	f32 step = 1.0f / (length / (0.2f * map->m_dx));
+	bool ok = true;
+	f32 t = 0.0f;
+	CAiMapLoc loc;
+	memset(&loc, 0, sizeof(loc));
+
+	/* vftoi0: truncation toward zero */
+	while (ok && t < 1.0f)
+	{
+		f32 px = p0.x * (1.0f - t) + p1.x * t;
+		f32 pz = p0.z * (1.0f - t) + p1.z * t;
+
+		if (px < map->m_bbox.m_min.x || !(px <= map->m_bbox.m_max.x) || pz < map->m_bbox.m_min.z || !(pz <= map->m_bbox.m_max.z))
+			return false;
+
+		loc.x = (s32)((px - map->m_bbox.m_min.x) * map->m_idx);
+		loc.y = (s32)((pz - map->m_bbox.m_min.z) * map->m_idy);
+		loc.m_mapid = 0;
+
+		if (!((u32)(u16)loc.y < map->m_ny && loc.x < map->m_nx))
+			return false;
+
+		const CAiMap::scanline &row = map->m_scanlines[loc.y];
+
+		if (!(loc.x >= row.m_start && loc.x < row.m_end))
+			return false;
+
+		if (loc.x != walk.m_loc.x || loc.y != walk.m_loc.y)
+		{
+			walk.m_prev = walk.m_cell;
+			walk.m_dist = t * length;
+			walk.m_cell = map->GetCell(loc);
+			walk.m_loc = loc;
+			ok = callback(walk, data);
+		}
+
+		t += step;
+	}
+
+	if (!ok)
+		return false;
+
+	t = 1.0f;
+	f32 px = p0.x * (1.0f - t) + p1.x * t;
+	f32 pz = p0.z * (1.0f - t) + p1.z * t;
+
+	if (!(px < map->m_bbox.m_min.x) && px <= map->m_bbox.m_max.x && !(pz < map->m_bbox.m_min.z) && pz <= map->m_bbox.m_max.z)
+	{
+		loc.x = (s32)((px - map->m_bbox.m_min.x) * map->m_idx);
+		loc.y = (s32)((pz - map->m_bbox.m_min.z) * map->m_idy);
+		loc.m_mapid = 0;
+	}
+
+	if (loc.x == walk.m_loc.x && loc.y == walk.m_loc.y)
+		return ok;
+
+	walk.m_prev = walk.m_cell;
+	walk.m_dist = t * length;
+	walk.m_cell = map->GetCell(loc);
+	walk.m_loc = loc;
+	return callback(walk, data);
+}
+
 /* @socom-skeleton stub WalkLine__6CAiMapFRC9CAiMapLocRC9CAiMapLocPFRC19MAP_LINEWALK_STRUCTPv_bPv */
 bool CAiMap::WalkLine(const CAiMapLoc &from, const CAiMapLoc &to, bool (*callback)(const MAP_LINEWALK_STRUCT &, void *), void *data)
 {
-	/* 0x1a7570 (3332 bytes): the ELF walks the straight line between the two cells' centres
-	 * (an action cell's centre moved by offset_length along its direction) in fractions of its
-	 * length, the point converted to a cell (vftoi0 of (p - bbox min) * idx/idy) and the
-	 * callback called with each new cell (m_dist = the fraction times the length); it stops
-	 * when the callback returns 0 or the line leaves the map, and returns the callback's
-	 * last answer.
-	 * port: interim, not transcribed from the ELF: the same walk in half-cell steps without
-	 * the action-cell offsets; the start cell is reported first (_look_ahead expects it) */
+	/* 0x1a7570: the line between the two cells' positions (GetCellPos: an action cell's
+	 * moved by offset_length); false when either is off the map. The walk record starts at
+	 * CAiMapLoc::invalid (all 0), so the start cell is offered first. */
 	MAP_LINEWALK_STRUCT walk;
 	walk.m_map = this;
 	walk.m_start = from;
 	walk.m_end = to;
-	walk.m_loc = from;
-	walk.m_cell = GetCell(from);
+	memcpy(&walk.m_loc, CAiMapLoc::invalid, 4);
 	walk.m_dist = 0.0f;
+	walk.m_cell = NULL;
 	walk.m_prev = NULL;
+	CPnt3D p0, p1;
 
-	if (walk.m_cell == NULL)
+	if (!GetCellPos(from, p0) || !GetCellPos(to, p1))
 		return false;
 
-	if (!callback(walk, data))
-		return false;
-
-	f32 ax = (f32)from.x + 0.5f, az = (f32)from.y + 0.5f;
-	f32 bx = (f32)to.x + 0.5f, bz = (f32)to.y + 0.5f;
-	f32 cells = sqrtf((bx - ax) * (bx - ax) + (bz - az) * (bz - az));
-	f32 length = sqrtf((bx - ax) * (bx - ax) * m_dx * m_dx + (bz - az) * (bz - az) * m_dy * m_dy);
-	int steps = (int)(cells * 2.0f) + 1;
-	bool ok = true;
-
-	for (int i = 1; i <= steps && ok; i++)
-	{
-		f32 t = (f32)i / (f32)steps;
-		int x = (int)(ax + (bx - ax) * t);
-		int y = (int)(az + (bz - az) * t);
-
-		if (x < 0 || (u32)x >= m_nx || y < 0 || (u32)y >= m_ny)
-			return false;
-
-		if ((u32)x == walk.m_loc.x && (u32)y == walk.m_loc.y)
-			continue;
-
-		CAiMapLoc loc;
-		loc.m_mapid = m_mapid;
-		loc.x = x;
-		loc.y = y;
-		walk.m_prev = walk.m_cell;
-		walk.m_cell = GetCell(loc);
-		walk.m_loc = loc;
-		walk.m_dist = t * length;
-
-		if (walk.m_cell == NULL)
-			return false;
-
-		ok = callback(walk, data);
-	}
-
-	return ok;
+	return walk_line(this, walk, p0, p1, callback, data);
 }
 
 /* @socom-skeleton stub WalkLine__6CAiMapFRC9CAiMapLocPC6CPnt3DPFRC19MAP_LINEWALK_STRUCTPv_bPv */
-void CAiMap::WalkLine(const CAiMapLoc &, const CPnt3D *, bool (*)(const MAP_LINEWALK_STRUCT &, void *), void *)
+bool CAiMap::WalkLine(const CAiMapLoc &from, const CPnt3D *to, bool (*callback)(const MAP_LINEWALK_STRUCT &, void *), void *data)
 {
+	/* 0x1a6b00: the line from the cell's position to a point (m_end invalid).
+	 * port: false for a start off the map (the ELF walks from an unset position then) */
+	MAP_LINEWALK_STRUCT walk;
+	walk.m_map = this;
+	walk.m_start = from;
+	memcpy(&walk.m_end, CAiMapLoc::invalid, 4);
+	memcpy(&walk.m_loc, CAiMapLoc::invalid, 4);
+	walk.m_dist = 0.0f;
+	walk.m_cell = NULL;
+	walk.m_prev = NULL;
+	CPnt3D p0;
+
+	if (!GetCellPos(from, p0))
+		return false;
+
+	return walk_line(this, walk, p0, *to, callback, data);
 }
 
 /* @socom-skeleton stub FloodFill__6CAiMapFRC9CAiMapLocQ26CAiMap3DIRiPFR20MAP_FLOODFILL_STRUCTPv_bPv */
-void CAiMap::FloodFill(const CAiMapLoc &, CAiMap::DIR, int, bool (*)(MAP_FLOODFILL_STRUCT &, void *), void *)
+bool CAiMap::FloodFill(const CAiMapLoc &start, CAiMap::DIR dir, int depth, bool (*callback)(MAP_FLOODFILL_STRUCT &, void *), void *data)
 {
+	/* 0x1a61e0: a breadth-first walk from start over at most (2 * depth)^2 cells. Each cell
+	 * taken from the queue goes to the callback (state 1; 0 stops the walk), then each of its
+	 * 8 neighbours on the map not yet visited (m_rtflag) is offered (state 0): when accepted
+	 * it is marked, joins the region and the queue - unless the callback set state 2 (stop).
+	 * Afterwards the region's cells are unmarked. Returns 1 when the walk was stopped.
+	 * ELF quirks kept: the start cell is never marked; a table of directions ordered from
+	 * `dir` is built and not used (left out here). */
+	MAP_FLOODFILL_STRUCT fill;
+	fill.m_map = this;
+	fill.m_start = start;
+	fill.m_loc = start;
+	fill.m_dir = (u8)dir;
+	fill.m_cell = NULL;
+	fill.m_next_dir = 0;
+	fill.m_state = 0;
+	std::list<CAiMapLoc> queue;
+	s32 count = 0;
+	s32 limit = (depth * 2) * (depth * 2);
+	bool stop = false;
+	fill.m_region.m_dx = 0;
+	fill.m_region.m_dy = 0;
+	fill.m_region.m_type = 0;
+	fill.m_region.m_nodisplay = 0;
+	fill.m_region.m_flags = 0;
+	fill.m_region.m_unused = 0;
+	fill.m_region.m_name[0] = 0;
+	fill.m_region.m_loc = start;
+	queue.push_back(start);
+
+	while (!stop && queue.size() != 0 && count < limit)
+	{
+		fill.m_loc = queue.front();
+		queue.pop_front();
+		count++;
+		fill.m_cell = ((u32)(u16)fill.m_loc.y < m_ny && fill.m_loc.x < m_nx) ? GetCell(fill.m_loc) : NULL;
+		fill.m_state = 1;
+
+		if (!callback(fill, data))
+		{
+			stop = true;
+			break;
+		}
+
+		fill.m_state = 0;
+
+		for (u32 i = 0; !stop && i < 8; i++)
+		{
+			int x = (int)fill.m_loc.x + neighbor[i][0];
+			int y = (int)fill.m_loc.y + neighbor[i][1];
+
+			if (x < 0 || (u32)x >= m_nx || y < 0 || (u32)y >= m_ny)
+				continue;
+
+			fill.m_next.x = x;
+			fill.m_next.y = y;
+			fill.m_next.m_mapid = m_mapid;
+			fill.m_cell = GetCell(fill.m_next);
+
+			if (fill.m_cell == NULL || fill.m_cell->m_rtflag)
+				continue;
+
+			fill.m_next_dir = (u8)i;
+
+			if (!callback(fill, data))
+				continue;
+
+			fill.m_cell->m_rtflag = 1;
+			fill.m_region.Union(fill.m_next);
+
+			if (fill.m_state == 2)
+				stop = true;
+			else
+				queue.push_back(fill.m_next);
+		}
+	}
+
+	/* the marks go: every cell of the region inside its rows' spans (_reset_rtflag) */
+	MAP_FOREACH_STRUCT each;
+	each.m_map = this;
+	each.m_region = &fill.m_region;
+	each.m_loc.m_mapid = m_mapid;
+	s32 y0 = fill.m_region.m_loc.y;
+	s32 y1 = y0 + fill.m_region.m_dy;
+	s32 ny = m_scanlines.size();
+	saturate<s32>(y0, 0, ny);
+	saturate<s32>(y1, 0, ny);
+
+	for (s32 y = y0; y < y1; y++)
+	{
+		const CAiMap::scanline &row = m_scanlines[y];
+		each.m_loc.y = y;
+		u16 x0 = fill.m_region.m_loc.x;
+		u16 x1 = fill.m_region.m_loc.x + fill.m_region.m_dx;
+		s32 from = row.m_start > x0 ? row.m_start : x0;
+		s32 to = row.m_end < x1 ? row.m_end : x1;
+		bool go = true;
+
+		for (s32 x = from; x < to; x++)
+		{
+			each.m_loc.x = x;
+			each.m_cell = &row.m_cell[x - row.m_start];
+
+			if (!_reset_rtflag(each, NULL))
+			{
+				go = false;
+				break;
+			}
+		}
+
+		if (!go)
+			break;
+	}
+
+	return stop;
 }
 
 /* @socom-skeleton stub _tile_soil__FRC18MAP_FOREACH_STRUCTPv */
@@ -206,11 +415,58 @@ unsigned char CAiMap::Tile(const CAiMap::region *, unsigned int, unsigned int)
 }
 
 /* @socom-skeleton stub CountMapVisDir__6CAiMapFRC9CAiMapLocPiP9CAiMapLoci */
-void CAiMap::CountMapVisDir(const CAiMapLoc &, int *, CAiMapLoc *, int)
+void CAiMap::CountMapVisDir(const CAiMapLoc &loc, int *counts, CAiMapLoc *ends, int depth)
 {
+	/* 0x1a56d0: per direction the cells seen from loc (not soil 0, 8 or 10) up to depth and
+	 * the last one; leaving the map counts as fully open on a map other than the first
+	 * (another floor). port: void (the ELF returns 1, no caller reads it) */
+	for (u32 d = 0; d < 8; d++)
+	{
+		ends[d] = loc;
+		counts[d] = 0;
+
+		for (int i = 0; i < depth; i++)
+		{
+			CAiMapLoc next;
+			CAiCell *cell;
+
+			if (!GetNeighbor(ends[d], (CAiMap::DIR)d, next, cell, false))
+			{
+				if (m_mapid != 0)
+					counts[d] = depth;
+
+				break;
+			}
+
+			if (cell->m_soil == 0 || cell->m_soil == 8 || cell->m_soil == 10)
+				break;
+
+			ends[d] = next;
+			counts[d]++;
+		}
+	}
 }
 
 /* @socom-skeleton stub CountMapTravelDir__6CAiMapFRC9CAiMapLocPiP9CAiMapLoci */
-void CAiMap::CountMapTravelDir(const CAiMapLoc &, int *, CAiMapLoc *, int)
+void CAiMap::CountMapTravelDir(const CAiMapLoc &loc, int *counts, CAiMapLoc *ends, int depth)
 {
+	/* 0x1a5400: per direction the walkable cells from loc up to depth and the last one.
+	 * port: void (the ELF returns 1, no caller reads it) */
+	for (u32 d = 0; d < 8; d++)
+	{
+		ends[d] = loc;
+		counts[d] = 0;
+
+		for (int i = 0; i < depth; i++)
+		{
+			CAiMapLoc next;
+			CAiCell *cell;
+
+			if (!GetNeighbor(ends[d], (CAiMap::DIR)d, next, cell, true))
+				break;
+
+			counts[d]++;
+			ends[d] = next;
+		}
+	}
 }

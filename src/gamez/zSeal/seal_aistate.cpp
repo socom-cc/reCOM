@@ -408,10 +408,10 @@ bool CSealCtrlAi::CanPushAiState(AI_STATE state)
 
 #ifdef SOCOM_PORT
 	/* port: only the states whose behaviour is written may be pushed (UNKNOWN, SCRIPT,
-	 * TARGETING); the other states' Tick functions are not written yet, so their pushes
-	 * (event, shot-at, reload, pursue, avoid ...) are refused here, a path every caller
+	 * TARGETING, PURSUE, EVENT, RESTRAINED); the other states' Tick functions are not written yet, so
+	 * their pushes (shot-at, reload, corpse, avoid ...) are refused here, a path every caller
 	 * handles */
-	if (s != STATE_UNKNOWN && s != STATE_SCRIPT && s != STATE_TARGETING)
+	if (s != STATE_UNKNOWN && s != STATE_SCRIPT && s != STATE_TARGETING && s != STATE_PURSUE && s != STATE_EVENT && s != STATE_RESTRAINED)
 		return false;
 #endif
 

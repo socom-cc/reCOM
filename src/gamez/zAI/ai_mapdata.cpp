@@ -293,13 +293,71 @@ void CAiMap::GetRegionContaining(const CAiMapLoc &, CAiMap::region::TYPE, bool)
 }
 
 /* @socom-skeleton stub InflateRegion__Q26CAiMap6regionFiiiiPC6CAiMap */
-void CAiMap::region::InflateRegion(int, int, int, int, const CAiMap *)
+void CAiMap::region::InflateRegion(int left, int top, int right, int bottom, const CAiMap *map)
 {
+	/* 0x19e7e0: the region grown by the cell counts on each side, kept inside the map (or
+	 * inside CAiMapLoc::max_value without one) */
+	int x = (int)m_loc.x - left;
+	int y = (int)m_loc.y - top;
+	int w = right + ((int)m_loc.x + (int)(u16)m_dx) - x;
+	int h = (int)m_loc.y + (int)(u16)m_dy + bottom - y;
+	int maxx = CAiMapLoc::max_value;
+	int maxy = CAiMapLoc::max_value;
+
+	if (map != NULL)
+	{
+		maxx = (int)map->m_nx - 1;
+		maxy = (int)map->m_ny - 1;
+	}
+
+	saturate<int>(x, 0, maxx);
+	m_loc.x = x;
+	saturate<int>(y, 0, maxy);
+	m_loc.y = y;
+	int roomx = maxx - (int)m_loc.x;
+	saturate<int>(w, 0, roomx);
+	m_dx = (u16)w;
+	int roomy = maxy - (int)m_loc.y;
+	saturate<int>(h, 0, roomy);
+	m_dy = (u16)h;
 }
 
 /* @socom-skeleton stub Union__Q26CAiMap6regionFRC9CAiMapLoc */
-void CAiMap::region::Union(const CAiMapLoc &)
+void CAiMap::region::Union(const CAiMapLoc &loc)
 {
+	/* 0x19e710: grown (InflateRegion, no map) to take the location in */
+	int left = 0, right = 0, top = 0, bottom = 0;
+	bool grow = false;
+	int rx = m_loc.x;
+	int lx = loc.x;
+
+	if (lx < rx)
+	{
+		left = rx - lx;
+		grow = true;
+	}
+	else if (rx + (int)(u16)m_dx < lx)
+	{
+		right = lx - (rx + (int)(u16)m_dx);
+		grow = true;
+	}
+
+	int ry = m_loc.y;
+	int ly = loc.y;
+
+	if (ly < ry)
+	{
+		top = ry - ly;
+		grow = true;
+	}
+	else if (ry + (int)(u16)m_dy < ly)
+	{
+		bottom = ly - (ry + (int)(u16)m_dy);
+		grow = true;
+	}
+
+	if (grow)
+		InflateRegion(left, top, right, bottom, NULL);
 }
 
 /* @socom-skeleton stub GetCenter__Q26CAiMap6regionCFR9CAiMapLoc */

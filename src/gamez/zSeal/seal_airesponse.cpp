@@ -84,6 +84,7 @@
 #include "gamez/zWeapon/zweapon.h"
 #include "zseal.h"
 /* @socom-skeleton end include */
+#include "gamez/zFTS/zfts.h" /* theMission */
 
 /* @socom-skeleton stub MultiplayerMsgStrings */
 static unsigned char MultiplayerMsgStrings[28];
@@ -186,43 +187,300 @@ bool CAiSStunResponse::Tick(float, CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub OnSignal__14CAiSRestrainedFQ28CAiState6SIGNALP11CSealCtrlAi */
-void CAiSRestrained::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+void CAiSRestrained::OnSignal(CAiState::SIGNAL signal, CSealCtrlAi *ctrl)
 {
+	/* 0x2e6870: pushed (0): AI mode 2 (hold), a hostage sits (option 1); reset (4): no team */
+	CEntity *body = ctrl != NULL ? ctrl->m_entity : NULL;
+
+	switch ((u8)signal)
+	{
+	case 0:
+		ctrl->SetAiMode((AI_MODE)2);
+
+		if (body->m_team & 0x20000)
+			m_option_flags |= 1;
+
+		break;
+	case 4:
+		m_team = 0;
+		break;
+	default:
+		break;
+	}
 }
 
 /* @socom-skeleton stub Tick__14CAiSRestrainedFfP11CSealCtrlAi */
-bool CAiSRestrained::Tick(float, CSealCtrlAi *)
+bool CAiSRestrained::Tick(float dT, CSealCtrlAi *ctrl)
 {
+	/* 0x2e66f0: no goal; once (option 2) the seal leaves its teams 4-15 and 30-31 (but the
+	 * restrainer's) and joins team 26 (0x4000000, the restrained), the team valves are
+	 * refreshed; then it crouches (a hostage sits). Never ends by itself. */
+	ctrl->ClearGoal((GOAL_TYPE)0);
+	CEntity *body = ctrl != NULL ? ctrl->m_entity : NULL;
+
+	if (m_option_flags & 2)
+	{
+		m_option_flags &= ~2u;
+		u32 mask = 0;
+
+		for (int i = 4; i < 16; i++)
+			mask |= 1u << i;
+
+		mask |= 0xc0000000;
+		mask &= ~m_team;
+		body->SetTeamMask((body->m_team & ~mask) | 0x4000000);
+		theMission.RefreshTeamValves();
+	}
+
+	if (m_option_flags & 1)
+		ctrl->SetStance((SEAL_STANCE)0);
+	else
+		ctrl->SetStance((SEAL_STANCE)2);
+
+	return true;
 }
 
 /* @socom-skeleton stub OnSignal__9CAiSEventFQ28CAiState6SIGNALP11CSealCtrlAi */
-void CAiSEvent::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+void CAiSEvent::OnSignal(CAiState::SIGNAL signal, CSealCtrlAi *ctrl)
 {
+	/* 0x2e6600: pushed (0): AI mode 4, and the state ends when the target is seen or under
+	 * fire (0x30); uncovered (3): it goes on only with option 0x40; reset (4): looks of 1-3 s,
+	 * no type, at the origin */
+	switch ((u8)signal)
+	{
+	case 0:
+		ctrl->SetAiMode((AI_MODE)4);
+		m_option_flags |= 0x30;
+		break;
+	case 3:
+		m_setup = (m_option_flags & 0x40) != 0;
+		break;
+	case 4:
+		m_look_time.m_min = 1.0f;
+		m_look_time.m_range = 2.0f;
+		m_type = 0;
+		m_pos = CPnt3D::zero;
+		break;
+	default:
+		break;
+	}
 }
 
 /* @socom-skeleton stub CanAttack__9CAiSEventCFv */
 bool CAiSEvent::CanAttack() const
 {
+	/* 0x2e65d0: not while flinching (4) or reacting to the lights (8) */
+	return !(m_option_flags & 4) && !(m_option_flags & 8);
 }
 
 /* @socom-skeleton stub CanPursue__9CAiSEventCFP11CSealCtrlAi */
 bool CAiSEvent::CanPursue(CSealCtrlAi *) const
 {
+	/* 0x2e65c0 */
+	return false;
 }
 
 /* @socom-skeleton stub GetStatus__9CAiSEventCFv */
 const char * CAiSEvent::GetStatus() const
 {
+	/* 0x2e65b0: the event type's name */
+	return CAiEvent::GetEventString((CAiEvent::EVENT)m_type);
 }
 
 /* @socom-skeleton stub ComputeNextState__9CAiSEventFRQ29CAiSEvent11EVENT_STATEf */
-void CAiSEvent::ComputeNextState(CAiSEvent::EVENT_STATE &, float)
+void CAiSEvent::ComputeNextState(CAiSEvent::EVENT_STATE &state, float wait)
 {
+	/* 0x2e6520: after reacting the spot is looked at, then (option 1) the source, then
+	 * (option 2) the AI goes there, else it looks around; with a wait the state waits first */
+	u8 next = ES_LOOK_AROUND;
+
+	if (state == ES_LOOK_SOURCE)
+	{
+		if (m_option_flags & 2)
+			next = ES_ROUTE;
+	}
+	else if (state == ES_LOOK)
+	{
+		if (m_option_flags & 1)
+			next = ES_LOOK_SOURCE;
+		else if (m_option_flags & 2)
+			next = ES_ROUTE;
+	}
+	else if (state == ES_REACT)
+	{
+		next = ES_LOOK;
+	}
+
+	m_timer = wait;
+	m_next = next;
+	state = wait == 0.0f ? (EVENT_STATE)next : ES_WAIT;
+}
+
+/* port: file-local helper for the Rfloat draw the ELF inlines (min, plus range times a
+ * uniform draw when the range is not 0) */
+static f32 rfloat_draw(const Rfloat &r)
+{
+	if (r.m_range == 0.0f)
+		return r.m_min;
+
+	return r.m_min + r.m_range * ((f32)rand() * (1.0f / 2147483648.0f));
 }
 
 /* @socom-skeleton stub Tick__9CAiSEventFfP11CSealCtrlAi */
-bool CAiSEvent::Tick(float, CSealCtrlAi *)
+bool CAiSEvent::Tick(float dT, CSealCtrlAi *ctrl)
 {
+	/* 0x2e5e80: an AI investigating an event: it reacts (a flinch or a sound), looks at the
+	 * spot and the source, may walk there (route search limit 5000), looks around and ends.
+	 * Ends early (false) when the target is seen (0x10) or under fire (0x20). The phase is
+	 * m_substate (a byte). */
+	if (!m_setup)
+		return false;
+
+	CZSealBody *body = static_cast<CZSealBody *>(ctrl->m_entity);
+
+	if (m_option_flags & 0x10)
+	{
+		CEntity *e = ctrl->m_target.m_target.m_ent;
+
+		if (e != NULL && e->m_isAlive && ctrl->m_target.m_target.m_visible)
+			return false;
+	}
+
+	if ((m_option_flags & 0x20) && (double)ctrl->m_underfire.m_value > 1.0)
+		return false;
+
+	EVENT_STATE state = (EVENT_STATE)(u8)m_substate;
+
+	switch (state)
+	{
+	case ES_REACT:
+		ComputeNextState(state, 0.0f);
+
+		if (m_option_flags & 4)
+		{
+			ctrl->PlayAiSound((CHARACTER_SOUND)63);
+			SEAL_STATE stance = body->GetStance(false);
+
+			if ((u8)stance == 0 || (u8)stance == 1)
+			{
+				if (0.0f + 1.0f * ((f32)rand() * (1.0f / 2147483648.0f)) <= 0.5f)
+					ctrl->PlayAnim("Flinch right arm", stance);
+				else
+					ctrl->PlayAnim("Flinch left arm", stance);
+			}
+		}
+		else if (m_option_flags & 8)
+		{
+			ctrl->PlayAiSound((CHARACTER_SOUND)20);
+		}
+
+		break;
+
+	case ES_LOOK:
+		if (ctrl->SetLookPosW(AIL_EVENT, &m_pos))
+		{
+			ctrl->SetLookTimer(rfloat_draw(m_look_time));
+			ctrl->SetScanAngle(0.3490658f);
+		}
+
+		ComputeNextState(state, rfloat_draw(m_look_time));
+		ctrl->m_stateFlags |= 1;
+		break;
+
+	case ES_LOOK_SOURCE:
+		if (ctrl->SetLookPosW(AIL_EVENT, &m_vec))
+		{
+			ctrl->ModifyLookFlags(1, 0);
+			ctrl->SetLookTimer(rfloat_draw(m_look_time));
+			ctrl->SetScanAngle(0.3490658f);
+		}
+
+		ComputeNextState(state, rfloat_draw(m_look_time));
+		break;
+
+	case ES_ROUTE:
+	{
+		state = ES_LOOK_AROUND;
+		m_start = body->m_mapLocValid;
+		CAiMapLoc goal;
+
+		if (AiMaps.GetLocation((m_option_flags & 2) ? &m_vec : &m_pos, goal) && ctrl->SetRoute(goal))
+		{
+			ctrl->SetRouteSearchLimit(5000);
+			state = ES_TRAVEL;
+		}
+
+		break;
+	}
+
+	case ES_TRAVEL:
+	{
+		u8 ps = (u8)ctrl->m_path.m_state;
+
+		if (ps == CAiPath::PLANNING || ps == CAiPath::INQUEUE || ps == CAiPath::ABORT)
+			ctrl->SetAiMode((AI_MODE)1);
+		else if (ctrl->m_path.m_points.size() != 0 && ps == CAiPath::COMPLETE)
+			ctrl->SetAiMode((AI_MODE)3);
+		else
+			state = ES_ARRIVED;
+
+		break;
+	}
+
+	case ES_ARRIVED:
+		m_timer = 0.25f;
+		m_next = ES_WAITED;
+		state = ES_WAIT;
+		break;
+
+	case ES_WAITED:
+		state = ES_LOOK_AROUND;
+		break;
+
+	case ES_WAIT:
+		m_timer -= dT;
+
+		if (m_timer <= 0.0f)
+		{
+			m_timer = 0.0f;
+			state = (EVENT_STATE)(s8)m_next;
+		}
+
+		break;
+
+	case ES_LOOK_AROUND:
+	{
+		CAiMap::DIR dir = CSealCtrlAi::ChooseLookDir(body->m_mapLocValid, NULL, false, NULL, 0, NULL);
+
+		if (ctrl->SetLookDirW((AI_LOOK)0, dir))
+		{
+			ctrl->ModifyLookFlags(5, 0);
+			ctrl->SetScanAngle(0.2617994f);
+		}
+
+		m_timer = 0.5f;
+		state = ES_LAST_LOOK;
+		break;
+	}
+
+	case ES_LAST_LOOK:
+		m_timer -= dT;
+
+		if (m_timer <= 0.0f)
+			m_setup = 0;
+
+		break;
+
+	default:
+		break;
+	}
+
+#ifdef SOCOM_PORT
+	if ((u8)state != (u8)m_substate)
+		SOCOM_PORT_TRACE("AI: %s event state %d -> %d (%s, flags %x)", body->m_node->m_name, (int)(u8)m_substate, (int)(u8)state, GetStatus(), m_option_flags);
+#endif
+	m_substate = (u8)state;
+	return m_setup;
 }
 
 /* @socom-skeleton stub OnSignal__10CAiSTargetFQ28CAiState6SIGNALP11CSealCtrlAi */
@@ -241,7 +499,7 @@ bool CAiSTarget::Tick(float dT, CSealCtrlAi *ctrl)
 {
 	/* 0x2e5db0: held for the duration set by the push (+0x08: AttackTick 2.5 s) */
 	f32 duration;
-	memcpy(&duration, &m_unk_08, 4);
+	duration = m_time;
 
 	if (!m_setup)
 		return false;
