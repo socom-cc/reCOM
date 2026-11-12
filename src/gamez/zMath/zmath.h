@@ -421,6 +421,10 @@ public:
 class CBits
 {
 public:
+	/* DWARF members (8 bytes): the bit count and the word buffer (CPickup::Create clears
+	 * (m_bits >> 5) + 1 words when the buffer exists) */
+	u32 m_bits;
+	u32* m_vec;
 	void Resize(unsigned int);
 };
 /* @socom-skeleton end 5CBits */

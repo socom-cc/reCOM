@@ -307,13 +307,43 @@ static unsigned char qlookhead[108] = {20, 121, 38, 63, 138, 62, 127, 62, 125, 2
 static const float FLASHBANG_DOT = 0;
 
 /* @socom-skeleton stub RESTRAINT_DOT */
-static const float RESTRAINT_DOT = 0;
+static const float RESTRAINT_DOT = cosf(1.48353f); /* __sinit_seal_env.cpp 0x46cee0: cos(85 deg) */
 
 /* @socom-skeleton stub KNIFE_DOT */
-static const float KNIFE_DOT = 0;
+static const float KNIFE_DOT = cosf(0.4363323f); /* cos(25 deg) */
 
 /* @socom-skeleton stub CQB_DOT */
-static const float CQB_DOT = 0;
+static const float CQB_DOT = cosf(1.134464f); /* cos(65 deg) */
+
+/* port: the facing tests the CanUse* functions repeat inline in the ELF, factored out:
+ * the dot of the seal's level forward (node -z) with the level unit direction to the other
+ * (length = the level distance), and whether the other's level forward points away from the
+ * seal (its unnormalised forward against the unnormalised direction back to the seal) */
+static f32 CqbFacingDot(CZSealBody *seal, CZSealBody *other, f32 *length)
+{
+	const CMatrix &m = seal->GetNode()->m_matrix;
+	CPnt3D fwd(-m.m_matrix[2][0], 0.0f, -m.m_matrix[2][2]);
+	CPnt3D d;
+	((CPnt3D *)&other->GetNode()->m_matrix.m_matrix[3][0])->Sub((CPnt3D *)&m.m_matrix[3][0], &d);
+	d.y = 0.0f;
+	fwd.Normalize();
+	f32 l = d.Normalize();
+
+	if (length != NULL)
+		*length = l;
+
+	return fwd.x * d.x + fwd.y * d.y + fwd.z * d.z;
+}
+
+static bool CqbFacesAway(CZSealBody *other, CZSealBody *seal)
+{
+	const CMatrix &m = other->GetNode()->m_matrix;
+	CPnt3D fwd(-m.m_matrix[2][0], 0.0f, -m.m_matrix[2][2]);
+	CPnt3D d;
+	((CPnt3D *)&seal->GetNode()->m_matrix.m_matrix[3][0])->Sub((CPnt3D *)&m.m_matrix[3][0], &d);
+	d.y = 0.0f;
+	return fwd.x * d.x + fwd.y * d.y + fwd.z * d.z < 0.0f;
+}
 
 /* @socom-skeleton stub FALLBACK_DOT_MIN */
 static const float FALLBACK_DOT_MIN = 0;
@@ -2824,23 +2854,191 @@ CPickup * CZSealBody::GetProximityMPBomb()
 }
 
 /* @socom-skeleton stub GetProximityWeapon__10CZSealBodyFPP7CPickup */
-CPickup * CZSealBody::GetProximityWeapon(CPickup **)
+CPickup * CZSealBody::GetProximityWeapon(CPickup **secondary)
 {
+	/* 0x29a2d0 (TickPickups, without a reticule weapon): the closest weapon pickup within 20 of
+	 * the body (GetClosest; a pistol goes to the out pointer when within 20). v0 = the weapon
+	 * when within 20. ELF quirk kept: with an out pointer the secondary's distance replaces
+	 * the primary's before the primary's range test. */
+	f32 d = 9999.0f;
+	CPickup *second = NULL;
+	CPickup *pickup = CPickup::GetClosest(GetPosW(), 20.0f, CPickup::PU_WEAPON, secondary != NULL ? &second : NULL);
+
+	if (pickup != NULL)
+	{
+		CPnt3D delta;
+		GetPosW()->Sub(pickup->GetPosW(), &delta);
+		d = delta.x * delta.x + delta.y * delta.y + delta.z * delta.z;
+	}
+
+	if (second != NULL && secondary != NULL)
+	{
+		CPnt3D delta;
+		GetPosW()->Sub(second->GetPosW(), &delta);
+		d = delta.x * delta.x + delta.y * delta.y + delta.z * delta.z;
+
+		if (d < 400.0f)
+			*secondary = second;
+	}
+
+	if (!(d <= 400.0f))
+		pickup = NULL;
+
+	return pickup;
 }
 
 /* @socom-skeleton stub GetReticuleWeapon__10CZSealBodyFPP7CPickup */
-CPickup * CZSealBody::GetReticuleWeapon(CPickup **)
+CPickup * CZSealBody::GetReticuleWeapon(CPickup **secondary)
 {
+	/* 0x29a050 (TickPickups): the reticule's last hit on a PICKUP material: the closest weapon
+	 * pickup within 20 of the hit point (a pistol to the out pointer when within 20 of the
+	 * body); network games also take a closer MP bomb (11) within 20. v0 = the pickup when
+	 * within 20 of the body. ELF quirks kept: the distances are to the body, not to the hit;
+	 * with an out pointer the secondary's distance replaces the primary's. */
+	zdb::IntersectStruct *hit = &m_last_reticule;
+	u32 material = hit->GetMaterial();
+
+	if (material >= CMaterialExArray::m_materialex_list.size())
+		material = 0;
+
+	CMaterialEx *ex = CMaterialExArray::m_materialex_list[material];
+
+	if (ex == NULL || !ex->m_pickup)
+		return NULL;
+
+	f32 d = 9999.0f;
+	CPickup *second = NULL;
+	CPickup *pickup = CPickup::GetClosest(&hit->m_pos, 20.0f, CPickup::PU_WEAPON, secondary != NULL ? &second : NULL);
+
+	if (pickup != NULL)
+	{
+		CPnt3D delta;
+		GetPosW()->Sub(pickup->GetPosW(), &delta);
+		d = delta.x * delta.x + delta.y * delta.y + delta.z * delta.z;
+	}
+
+	if (second != NULL && secondary != NULL)
+	{
+		CPnt3D delta;
+		GetPosW()->Sub(second->GetPosW(), &delta);
+		d = delta.x * delta.x + delta.y * delta.y + delta.z * delta.z;
+
+		if (d < 400.0f)
+			*secondary = second;
+	}
+
+	if (theNetwork.m_bNetwork)
+	{
+		CPickup *bomb = CPickup::GetClosest(&hit->m_pos, 20.0f, CPickup::PU_MPBOMB, NULL);
+
+		if (bomb != NULL)
+		{
+			CPnt3D delta;
+			GetPosW()->Sub(bomb->GetPosW(), &delta);
+			f32 b = delta.x * delta.x + delta.y * delta.y + delta.z * delta.z;
+
+			if (b < d)
+			{
+				d = b;
+				pickup = bomb;
+			}
+		}
+	}
+
+	if (!(d <= 400.0f))
+		pickup = NULL;
+
+	return pickup;
 }
 
 /* @socom-skeleton stub CanUseKnife__10CZSealBodyFP10CZSealBody */
-bool CZSealBody::CanUseKnife(CZSealBody *)
+bool CZSealBody::CanUseKnife(CZSealBody *victim)
 {
+	/* 0x299d10 (PerformProximityActions): a living enemy, not restrained nor protected
+	 * (m_noshoot); the seal not stunned, not stabbing / stabbed, not on a scope, standing; an
+	 * AI victim not alerted (awareness 3, 4); the seal faces it within 25 degrees (KNIFE_DOT)
+	 * and it faces away from the seal. ELF quirk kept: the victim's controller is used
+	 * unchecked (port: guarded). */
+	if (victim == NULL || !victim->m_isAlive || (victim->m_team & m_team) != 0)
+		return false;
+
+	if (victim->m_restrained || m_am_stunned)
+		return false;
+
+	if (IsCurrentBlend((AnimType)AnimTypes::Stab) || IsCurrentBlend((AnimType)AnimTypes::PistolStab) || IsCurrentBlend((AnimType)AnimTypes::Stabbed))
+		return false;
+
+	if (m_kit.IsUsingScope() || victim->m_noshoot)
+		return false;
+
+	CSealCtrlAi *ai = victim->m_control != NULL ? static_cast<CSealCtrl *>(victim->m_control)->GetSealCtrlAi() : NULL;
+
+	if ((u8)GetStance(false) != 0)
+		return false;
+
+	if (ai != NULL)
+	{
+		u8 aware = (u8)ai->GetAiAware();
+
+		if (aware == 3 || aware == 4)
+			return false;
+	}
+
+	if (CqbFacingDot(this, victim, NULL) <= KNIFE_DOT)
+		return false;
+
+	return CqbFacesAway(victim, this);
 }
 
 /* @socom-skeleton stub CanUseCQB__10CZSealBodyFP10CZSealBody */
-bool CZSealBody::CanUseCQB(CZSealBody *)
+bool CZSealBody::CanUseCQB(CZSealBody *victim)
 {
+	/* 0x2999f0 (PerformProximityActions): a living enemy; the seal not stunned; neither in a
+	 * CQB anim (attack or the victim's falls); the victim not restrained nor protected; the
+	 * seal holds an item (an id), not on a scope, standing or crouching; an AI victim lying
+	 * down only when surrendering; the victim within 25 (level) and within 65 degrees of the
+	 * seal's facing (CQB_DOT). ELF quirk kept: the victim's controller is used unchecked
+	 * (port: guarded). */
+	if (victim == NULL || !victim->m_isAlive || (victim->m_team & m_team) != 0)
+		return false;
+
+	if (m_am_stunned)
+		return false;
+
+	if (IsCurrentBlend((AnimType)AnimTypes::CQB) || IsCurrentBlend((AnimType)AnimTypes::PistolCQB)
+		|| IsCurrentBlend((AnimType)AnimTypes::CQBVictimFallBackwards) || IsCurrentBlend((AnimType)AnimTypes::CQBVictimFallForwards))
+		return false;
+
+	if (victim->IsCurrentBlend((AnimType)AnimTypes::CQB) || victim->IsCurrentBlend((AnimType)AnimTypes::PistolCQB)
+		|| victim->IsCurrentBlend((AnimType)AnimTypes::CQBVictimFallBackwards) || victim->IsCurrentBlend((AnimType)AnimTypes::CQBVictimFallForwards))
+		return false;
+
+	if (victim->m_restrained || victim->m_noshoot)
+		return false;
+
+	CZFTSWeapon *item = m_kit.GetCurItem();
+
+	if (item == NULL || (u8)item->m_ID == 0xff)
+		return false;
+
+	if (m_kit.IsUsingScope())
+		return false;
+
+	if ((u8)GetStance(true) >= 2)
+		return false;
+
+	CSealCtrlAi *ai = victim->m_control != NULL ? static_cast<CSealCtrl *>(victim->m_control)->GetSealCtrlAi() : NULL;
+
+	if (ai != NULL && (u8)victim->GetStance(false) >= 2 && !ai->AiStateIs(STATE_SURRENDER))
+		return false;
+
+	f32 length;
+	f32 dot = CqbFacingDot(this, victim, &length);
+
+	if (!(length <= 25.0f))
+		return false;
+
+	return !(dot <= CQB_DOT);
 }
 
 /* @socom-skeleton stub FindDeathAnimTypeCQB__10CZSealBodyFP10CZSealBody */
@@ -2865,8 +3063,38 @@ AnimType CZSealBody::FindDeathAnimTypeCQB(CZSealBody *victim)
 }
 
 /* @socom-skeleton stub CanUseRestraint__10CZSealBodyFP10CZSealBody */
-bool CZSealBody::CanUseRestraint(CZSealBody *)
+bool CZSealBody::CanUseRestraint(CZSealBody *victim)
 {
+	/* 0x299600 (PerformProximityActions): a living restrainable seal (any team: team bit
+	 * 0x10000000 at InitAiBrain, surrender); the seal not stunned, not in a restraint anim,
+	 * not on a scope, standing or crouching, facing it within 85 degrees (RESTRAINT_DOT); then
+	 * a surrendering AI, or a victim facing away. ELF quirk kept: the victim's controller is
+	 * used unchecked (port: guarded). */
+	if (victim == NULL || !victim->m_isAlive || !victim->m_restrainable)
+		return false;
+
+	if (m_am_stunned)
+		return false;
+
+	if (IsCurrentBlend((AnimType)AnimTypes::ReceiveRestraints) || IsCurrentBlend((AnimType)AnimTypes::ApplyRestraints)
+		|| IsCurrentBlend((AnimType)AnimTypes::PistolApplyRestraints))
+		return false;
+
+	if (m_kit.IsUsingScope())
+		return false;
+
+	if ((u8)GetStance(false) >= 2)
+		return false;
+
+	if (CqbFacingDot(this, victim, NULL) <= RESTRAINT_DOT)
+		return false;
+
+	CSealCtrlAi *ai = victim->m_control != NULL ? static_cast<CSealCtrl *>(victim->m_control)->GetSealCtrlAi() : NULL;
+
+	if (ai != NULL && ai->AiStateIs(STATE_SURRENDER))
+		return true;
+
+	return CqbFacesAway(victim, this);
 }
 
 /* @socom-skeleton stub CanZoom__10CZSealBodyFv */
@@ -2915,8 +3143,38 @@ bool CZSealBody::CanChangeItem()
 }
 
 /* @socom-skeleton stub CanUseBodyCarry__10CZSealBodyFP10CZSealBody */
-bool CZSealBody::CanUseBodyCarry(CZSealBody *)
+bool CZSealBody::CanUseBodyCarry(CZSealBody *corpse)
 {
+	/* 0x299170 (PerformProximityActions): a dead body not carried (state 9, 10), not
+	 * restrained, shown and not fading (node active, opacity 1); the seal not stunned, not on
+	 * a scope, not in state 3 (nor its top blend), not carrying (9, 10, m_carry); within 300
+	 * squared (about 17.3). */
+	if (corpse == NULL || corpse->m_isAlive)
+		return false;
+
+	if (corpse->m_state == 9 || corpse->m_state == 10)
+		return false;
+
+	if (corpse->m_restrained || m_am_stunned)
+		return false;
+
+	zdb::CNode *node = corpse->GetNode();
+
+	if (!node->m_active || node->m_Opacity < 1.0f)
+		return false;
+
+	if (m_kit.IsUsingScope())
+		return false;
+
+	if (m_state == 3 || m_blends->Top()->m_state == 3)
+		return false;
+
+	if (m_state == 9 || m_state == 10 || m_carry != NULL)
+		return false;
+
+	CPnt3D d;
+	GetPosW()->Sub(corpse->GetPosW(), &d);
+	return d.x * d.x + d.y * d.y + d.z * d.z <= 300.0f;
 }
 
 /* @socom-skeleton stub AimWeapon__10CZSealBodyFv */
@@ -5488,28 +5746,279 @@ void CZSealBody::DropAllItems()
 }
 
 /* @socom-skeleton stub DropAmmo__10CZSealBodyFi */
-void CZSealBody::DropAmmo(int)
+void CZSealBody::DropAmmo(int index)
 {
+	/* 0x28e7b0 (DropAllItems: -1 = every slot; PickupItem: the swapped slot): in a network game
+	 * only the local player's. The slot's ammo (and non-gun items) into a new ammo record
+	 * (FillAmmoPickupInstance), an ammo box model ("fiftycal_box") at the body, dynamic, a
+	 * character node with the character textures, an ammo pickup (9) with the record (network:
+	 * NetworkCreate and SendAmmoPUMessage; port: not written) and the drop anim on it. Without
+	 * the model the record is deleted. ELF quirk kept: an empty record still makes a box. */
+	if (theNetwork.m_bNetwork && !(m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsPlayer()))
+		return;
+
+	CZAmmoPickupInstance *box = new CZAmmoPickupInstance;
+	m_kit.FillAmmoPickupInstance(box, index);
+	CPnt3D local = CPnt3D::zero;
+	CPnt3D pos;
+	m_quat.Apply(&local, &pos, 1);
+	pos.Add(GetPosW(), &pos);
+	CQuat rot;
+	rot.MakeYXZRot(0.0f, 0.0f, 0.0f);
+	zdb::CNode *node = zdb::CNode::CreateInstance(zdb::CWorld::GetModel("fiftycal_box"), &pos, &rot);
+
+	if (node == NULL)
+	{
+		if (box != NULL)
+			delete box;
+
+		return;
+	}
+
+	node->SetDynamic(true, true);
+	node->m_character = 1;
+	zdb::CWorld::m_world->AddTextureAssetCharacter((zdb::_RenderPhase)2, node);
+	CPickup *pickup = NULL;
+
+	if (theNetwork.m_bNetwork)
+	{
+		/* port: not written (no network game): NetworkCreate(m_id, 9, node, box),
+		 * FillNetworkAmmoPickupValues, SendAmmoPUMessage */
+	}
+	else
+	{
+		pickup = CPickup::Create(CPickup::PU_AMMO, node, box);
+	}
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("PICKUP: %s drops ammo box %d (%d entries) at %.1f %.1f %.1f", m_node != NULL ? m_node->m_name : "-",
+		pickup != NULL ? (int)pickup->m_id : -1, (int)box->m_weapons.size(), pos.x, pos.y, pos.z);
+#endif
+
+	if (m_dropanim != NULL && pickup != NULL)
+		m_dropanim->ActivateArg(1, 3, pickup->m_node, 0);
 }
 
 /* @socom-skeleton stub DropItem__10CZSealBodyFib */
-void CZSealBody::DropItem(int, bool)
+CPickup * CZSealBody::DropItem(int index, bool noanim)
 {
+	/* 0x28e3e0 (DropAllItems with false; PickupItem with true, no drop anim): in a network game
+	 * only the local player's. The slot's gun (FillWeaponEnum) by its type (rifle / pistol) is
+	 * the one on that weapon part: the part's node leaves its parent; the slot's item model
+	 * (m_items_avail[index + 1], cleared) gets the part's world position and rotation, goes
+	 * into the world (dynamic, a character node with the character textures, DI and visuals
+	 * on) and becomes a weapon pickup (8) with the gun (a pistol is the secondary); the drop
+	 * anim on it unless told not to. v0 = the pickup. ELF quirks kept: a gun not on its part
+	 * detaches whatever the part holds; an item model past the vector is NULL. */
+	if (theNetwork.m_bNetwork && !(m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsPlayer()))
+		return NULL;
+
+	CZFTSWeapon *weapon = NULL;
+
+	if (m_kit.GetNumItems() < index)
+		return NULL;
+
+	m_kit.FillWeaponEnum(index, &weapon);
+
+	if (weapon == NULL)
+		return NULL;
+
+	CPnt3D local = CPnt3D::zero;
+	CZBodyPart *part;
+
+	if (weapon->m_type == SEAL_ITEM::itemPistol)
+		part = m_weapons[(u32)SEAL_ITEM::itemPistol];
+	else if (weapon->m_type == SEAL_ITEM::itemRifle)
+		part = m_weapons[(u32)SEAL_ITEM::itemRifle];
+	else
+		return NULL;
+
+	if (part == NULL || part->m_node == NULL)
+		return NULL;
+
+	CQuat partrot;
+	CPnt3D pos;
+	PartInSpace(part, &CPnt3D::zero, &local, &partrot);
+	m_quat.Apply(&local, &pos, 1);
+	pos.Add(GetPosW(), &pos);
+	zdb::CNode *held = part->m_node;
+
+	if (held->m_parent == NULL)
+		return NULL;
+
+	held->m_parent->DeleteChild(held);
+	CQuat rot;
+	m_quat.Mul(&partrot, &rot);
+	u32 slot = index + 1;
+	zdb::CNode *model = slot < m_kit.m_items_avail.size() ? m_kit.m_items_avail[slot] : NULL;
+
+	if (slot < m_kit.m_items_avail.size())
+		m_kit.m_items_avail[slot] = NULL;
+
+	/* port: guard (the ELF uses a missing model unchecked) */
+	if (model == NULL)
+		return NULL;
+
+	model->SetPosition(pos.x, pos.y, pos.z);
+	model->SetRotation(rot);
+
+	if (part->m_node == model)
+		part->m_node = NULL;
+
+	zdb::CWorld::m_world->AddChild(model);
+	model->SetDynamic(true, true);
+	model->m_character = 1;
+	zdb::CWorld::m_world->AddTextureAssetCharacter((zdb::_RenderPhase)2, model);
+	model->SetDescendantDI(true);
+	model->SetDescendantVisuals(true);
+	CPickup *pickup = NULL;
+
+	if (theNetwork.m_bNetwork)
+	{
+		/* port: not written (no network game): NetworkCreate(m_id, 8, model, weapon) and
+		 * SendWeaponPUMessage */
+	}
+	else
+	{
+		pickup = CPickup::Create(CPickup::PU_WEAPON, model, weapon);
+	}
+
+	if (pickup != NULL && weapon != NULL)
+		pickup->m_secondary = weapon->m_type == SEAL_ITEM::itemPistol;
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("PICKUP: %s drops %s (pickup %d%s) at %.1f %.1f %.1f", m_node != NULL ? m_node->m_name : "-",
+		weapon->GetName(), pickup != NULL ? (int)pickup->m_id : -1, pickup != NULL && pickup->m_secondary ? ", secondary" : "",
+		pos.x, pos.y, pos.z);
+#endif
+
+	if (m_dropanim != NULL && !noanim && pickup != NULL)
+		m_dropanim->ActivateArg(1, 3, pickup->m_node, 0);
+
+	return pickup;
 }
 
 /* @socom-skeleton stub HandlePickupAmmoInstance__10CZSealBodyFP7CPickup */
-void CZSealBody::HandlePickupAmmoInstance(CPickup *)
+void CZSealBody::HandlePickupAmmoInstance(CPickup *pickup)
 {
+	/* 0x28e3b0 (PickupObject, an ammo box): a living seal's kit takes it */
+	if (m_isAlive)
+		m_kit.PickupAmmo(pickup);
 }
 
 /* @socom-skeleton stub HandlePickupEquip__10CZSealBodyFP7CPickup */
-void CZSealBody::HandlePickupEquip(CPickup *)
+void CZSealBody::HandlePickupEquip(CPickup *pickup)
 {
+	/* 0x28e2f0 (PickupObject, a weapon): a living seal takes it (PickupItem); a network game
+	 * asks the owner (CanPickupNetItem / SendMayIPickupMessage; port: not written) */
+	if (!m_isAlive)
+		return;
+
+	if (theNetwork.m_bNetwork)
+		return; /* port: the network request is not written */
+
+	PickupItem(pickup);
 }
 
 /* @socom-skeleton stub PickupItem__10CZSealBodyFP7CPickup */
-void CZSealBody::PickupItem(CPickup *)
+void CZSealBody::PickupItem(CPickup *pickup)
 {
+	/* 0x28df50 (HandlePickupEquip): a remote seal's pickup goes to RemotePickupItem (port: not
+	 * written). A rifle swaps slot 0, a pistol slot 1: that slot's ammo and gun drop (no drop
+	 * anim). The pickup's node leaves the world and goes onto the part for the held item (a
+	 * rifle into the right hand when a rifle is held, else slung on the lower spine; a pistol
+	 * into the right hand when no rifle is held, else on the hips), named rifle / pistol, as
+	 * the slot's item model; the "Swap rifle" action plays; the gun takes the slot; the kit
+	 * requests the item and the controller its HUD weapon update; the pickup is destroyed.
+	 * The new gun has no ammo until an ammo box is walked over. ELF quirk kept: the item model
+	 * slot is written without a bound test (port: tested). */
+	if (theNetwork.m_bNetwork && !(m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsPlayer()))
+	{
+		/* port: RemotePickupItem is not written (no network game) */
+		return;
+	}
+
+	if (pickup == NULL)
+		return;
+
+	CZFTSWeapon *weapon = static_cast<CZFTSWeapon *>(pickup->m_data);
+
+	if (weapon == NULL)
+		return;
+
+	SEAL_ITEM type = weapon->m_type;
+	s32 slot;
+
+	if (type == SEAL_ITEM::itemPistol)
+		slot = 1;
+	else if (type == SEAL_ITEM::itemRifle)
+		slot = 0;
+	else
+		return;
+
+	DropAmmo(slot);
+	CPickup *dropped = DropItem(slot, true);
+
+	if (dropped == NULL)
+		return;
+
+	zdb::CNode *node = pickup->m_node;
+
+	if (node == NULL)
+		return;
+
+	zdb::CWorld::m_world->DeleteTextureAssetCharacter((zdb::_RenderPhase)2, node);
+	pickup->m_node = NULL;
+
+	if (node->m_parent != NULL)
+		node->m_parent->DeleteChild(node);
+
+	zdb::CNode *mount = NULL;
+	bool rifle_held = m_item == SEAL_ITEM::itemRifle;
+
+	if (rifle_held && type == SEAL_ITEM::itemRifle)
+		mount = m_rhand->m_node;
+
+	if (rifle_held && type == SEAL_ITEM::itemPistol)
+		mount = m_hips->m_node;
+
+	if (!rifle_held && type == SEAL_ITEM::itemRifle)
+		mount = m_spinelo->m_node;
+
+	if (!rifle_held && type == SEAL_ITEM::itemPistol)
+		mount = m_rhand->m_node;
+
+	if (mount == NULL)
+		return;
+
+	AnimType swap = FindAnimType("Swap rifle");
+	u32 id = theNetwork.m_bNetwork ? dropped->m_netid : dropped->m_id;
+	Action(swap, true, id * 2, m_rhand->m_id, -1);
+	mount->AddChild(node);
+
+	if (type == SEAL_ITEM::itemRifle)
+		node->SetName("rifle");
+	else if (type == SEAL_ITEM::itemPistol)
+		node->SetName("pistol");
+	else
+		node->SetName("grenade");
+
+	u32 model = slot + 1;
+
+	if (model < m_kit.m_items_avail.size())
+		m_kit.m_items_avail[model] = NULL;
+
+	if (model < m_kit.m_items_avail.size())
+		m_kit.m_items_avail[model] = node;
+
+	m_kit.SetItemByIndex(slot, weapon);
+	m_kit.m_requested_item = 1;
+	static_cast<CSealCtrl *>(m_control)->m_HudUpdateWeapon = 1;
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("PICKUP: %s takes %s into slot %d (pickup %d; dropped %d), items %d", m_node != NULL ? m_node->m_name : "-",
+		weapon->GetName(), slot, (int)pickup->m_id, (int)dropped->m_id, m_kit.GetNumItems());
+#endif
+	CPickup::Destroy(pickup);
 }
 
 /* @socom-skeleton stub RemotePickupItem__10CZSealBodyFP7CPickup */

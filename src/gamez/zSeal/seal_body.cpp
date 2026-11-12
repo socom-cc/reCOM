@@ -2810,21 +2810,200 @@ CZBodyAnimBlend * CZSealBody::PutdownBuddy()
 /* @socom-skeleton stub DetachBody__10CZSealBodyFv */
 void CZSealBody::DetachBody()
 {
+	/* 0x26f0f0 (CheckAnim at the end of a stab / restraint / carry pickup, PreTick, FlingBody,
+	 * DropBody, BindAnimSet): the root part leaves its carrier's root; where the anim left
+	 * the root (rotated by the node, level) becomes the node's position, the node turns by
+	 * the root's rotation, and the root goes back to (0, its height, 0) unrotated (Snap).
+	 * The altitude hit is the carrier's (its position only when the carrier stands on a
+	 * seal); both carry links are cleared. */
+	m_root->m_parent = NULL;
+	CPnt3D local;
+	CQuat rot;
+	PartInSpace(m_root, NULL, &local, &rot);
+	const CMatrix &m = GetNode()->m_matrix;
+	CPnt3D pos;
+	pos.x = m.m_matrix[0][0] * local.x + m.m_matrix[1][0] * local.y + m.m_matrix[2][0] * local.z;
+	pos.y = 0.0f;
+	pos.z = m.m_matrix[0][2] * local.x + m.m_matrix[1][2] * local.y + m.m_matrix[2][2] * local.z;
+	pos.Add(GetPosW(), &pos);
+	GetNode()->SetPosition(pos.x, pos.y, pos.z);
+	CQuat turned;
+	m_quat.Mul(&rot, &turned);
+	m_quat = turned;
+	GetNode()->SetRotation(turned);
+	m_root->m_pos.x = 0.0f;
+	m_root->m_pos.y = local.y;
+	m_root->m_pos.z = 0.0f;
+	m_root->m_rot = CQuat::identity;
+	zdb::CNode *root = m_root->m_node;
+
+	if (m_root != NULL)
+		root->SetPosition(m_root->m_pos.x, m_root->m_pos.y, m_root->m_pos.z);
+
+	root->SetRotation(CQuat::identity);
+	Snap();
+
+	/* port: guard (the ELF reads the carrier unchecked) */
+	if (m_carry != NULL)
+	{
+		zdb::IntersectStruct *alt = &m_carry->m_last_altitude;
+
+		if (GetSeal(alt->m_node) != NULL)
+		{
+			m_last_altitude.m_pos = alt->m_pos;
+		}
+		else
+		{
+			m_last_altitude.m_pos = alt->m_pos;
+			m_last_altitude.m_poly = alt->m_poly;
+			m_last_altitude.m_norm = alt->m_norm;
+			m_last_altitude.m_node = alt->m_node;
+		}
+
+		m_carry->m_carry = NULL;
+	}
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("CQB: %s detached at %.1f %.1f %.1f (state %d)", m_node->m_name, pos.x, pos.y, pos.z, (int)m_state);
+#endif
+	m_carry = NULL;
 }
 
 /* @socom-skeleton stub RestoreCameraPosition__FPvPv */
 void RestoreCameraPosition(void *, void *)
 {
+	/* 0x26f0e0 (the stab / restraint blend callback): empty in the ELF (jr ra) */
 }
 
 /* @socom-skeleton stub StabBuddy__10CZSealBodyFP10CZSealBody */
-CZBodyAnimBlend * CZSealBody::StabBuddy(CZSealBody *)
+CZBodyAnimBlend * CZSealBody::StabBuddy(CZSealBody *victim)
 {
+	/* 0x26ef00 (ExecuteAction_KnifeAttack): the victim's blends go down to the base one
+	 * (ClearStack inline), it plays Stabbed (state 8), the two are linked as carrier and
+	 * carried, the victim dies (SetHealth 0, death type 1), its root hangs on the attacker's
+	 * root and its node moves onto the attacker's; the attacker's blends go down to the base,
+	 * it plays Stab (state 0, the controller told), the top blend gets the (empty) camera
+	 * callback at 99%; the victim drops its items. v0 = the Stab blend (the top without a
+	 * victim). CheckAnim ends it: Stab done -> the victim to state 8, DetachBody. */
+	if (victim == NULL)
+		return m_blends->Top();
+
+	victim->ClearStack(1, true);
+	victim->PushBlend((AnimType)AnimTypes::Stabbed, 8, false);
+	victim->m_carry = this;
+	m_carry = victim;
+	victim->SetHealth(0.0f, (SEAL_DEATH_TYPE)1);
+	victim->GetRootPart()->m_parent = GetRootPart();
+	CPnt3D *pos = (CPnt3D *)&GetNode()->m_matrix.m_matrix[3][0];
+	victim->GetNode()->SetPosition(pos->x, pos->y, pos->z);
+	ClearStack(1, true);
+	CZBodyAnimBlend *stab = PushBlend((AnimType)AnimTypes::Stab, 0, false);
+	BodySetState(0); /* inline in the ELF */
+	CZBodyAnimBlend *top = m_blends->Top();
+
+	if (top != NULL)
+	{
+		top->m_callback.m_func = (void (*)())RestoreCameraPosition;
+		top->m_callback.m_tfrac = 0.99f;
+		top->m_callback.m_userdata = NULL;
+	}
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("CQB: %s stabs %s (anims %d / %d)", m_node->m_name, victim->m_node->m_name, (int)AnimTypes::Stab, (int)AnimTypes::Stabbed);
+#endif
+
+	if (victim->m_blends->Top() != NULL)
+		victim->DropAllItems();
+
+	return stab;
 }
 
 /* @socom-skeleton stub RestrainBuddy__10CZSealBodyFP10CZSealBody */
-CZBodyAnimBlend * CZSealBody::RestrainBuddy(CZSealBody *)
+CZBodyAnimBlend * CZSealBody::RestrainBuddy(CZSealBody *victim)
 {
+	/* 0x26eb70 (ExecuteAction_ApplyRestraint): the victim gets the "Restrained anim set" (also
+	 * its default set), is no longer restrainable; an AI victim keeps that set
+	 * (m_nobindanimset) and is pushed into STATE_RESTRAINED (critical) with the restrainer's
+	 * team; its blends go down to the base, it plays anim 26 and ReceiveRestraints (state 2),
+	 * is linked with the restrainer, restrained, drops its items, hangs its root on the
+	 * restrainer's root and moves onto the restrainer's node. The restrainer's blends go down
+	 * to the base, it plays ApplyRestraints (state 0, the controller told); in camera mode 2
+	 * (first person) with a zoom the top blend gets the (empty) camera callback. v0 = the
+	 * ApplyRestraints blend (the top without a victim). CheckAnim ends it (DetachBody).
+	 * ELF quirks kept: a top state that is not STATE_RESTRAINED is written through NULL (port:
+	 * skipped); the victim's controller is not NULL-tested (port: guarded). */
+	if (victim == NULL)
+		return m_blends->Top();
+
+	AnimSet *restrained = NULL;
+
+	for (std::vector<AnimSet *>::iterator it = AnimSet::list.begin(); it != AnimSet::list.end(); ++it)
+	{
+		if (strcmp((*it)->m_name.c_str(), "Restrained anim set") == 0)
+		{
+			restrained = *it;
+			break;
+		}
+	}
+
+	if (restrained != NULL)
+	{
+		victim->BindAnimSet(restrained);
+		victim->m_default_animset = restrained;
+	}
+
+	victim->m_restrainable = 0;
+	CSealCtrlAi *ai = victim->m_control != NULL ? static_cast<CSealCtrl *>(victim->m_control)->GetSealCtrlAi() : NULL;
+
+	if (ai != NULL)
+	{
+		ai->m_nobindanimset = 1;
+
+		if (ai->PushAiState(STATE_RESTRAINED, true))
+		{
+			CAiState *state = ai->GetAiState();
+
+			if (state != NULL && state->m_state == STATE_RESTRAINED)
+			{
+				state->m_option_flags |= 2;
+				/* port: not written: the restrainer's team at +0x28 (CAiSRestrained has no
+				 * member declared in zai.h) */
+				state->m_setup = 1;
+			}
+		}
+	}
+
+	victim->ClearStack(1, true);
+	victim->PushBlend((AnimType)26, 2, false);
+	victim->PushBlend((AnimType)AnimTypes::ReceiveRestraints, 2, false);
+	victim->m_carry = this;
+	m_carry = victim;
+	victim->m_restrained = 1;
+	victim->DropAllItems();
+	victim->GetRootPart()->m_parent = GetRootPart();
+	CPnt3D *pos = (CPnt3D *)&GetNode()->m_matrix.m_matrix[3][0];
+	victim->GetNode()->SetPosition(pos->x, pos->y, pos->z);
+	ClearStack(1, true);
+	CZBodyAnimBlend *apply = PushBlend((AnimType)AnimTypes::ApplyRestraints, 0, false);
+	BodySetState(0); /* inline in the ELF */
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("CQB: %s restrains %s (set %s)", m_node->m_name, victim->m_node->m_name, restrained != NULL ? "found" : "missing");
+#endif
+
+	if (appCamera->m_camera_mode == PLAYER_CAM_STATE::cam_mode_FP)
+	{
+		CZBodyAnimBlend *top = m_blends->Top();
+
+		if (top != NULL && m_kit.GetCurZoom() != 1.0f)
+		{
+			top->m_callback.m_func = (void (*)())RestoreCameraPosition;
+			top->m_callback.m_tfrac = 0.0f;
+			top->m_callback.m_userdata = NULL;
+		}
+	}
+
+	return apply;
 }
 
 /* @socom-skeleton stub Action__10CZSealBodyF8AnimTypebiii */

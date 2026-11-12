@@ -256,8 +256,16 @@ EQUIP_ITEM CZKit::GetCurItemEnum() const
 }
 
 /* @socom-skeleton stub GetItemIndex__5CZKitCF10EQUIP_ITEM */
-int CZKit::GetItemIndex(EQUIP_ITEM) const
+int CZKit::GetItemIndex(EQUIP_ITEM id) const
 {
+	/* 0x2af520: the first slot holding the item id, -1 without one */
+	for (s32 i = 0; i < m_num_items; i++)
+	{
+		if (m_item[i] != NULL && (u8)m_item[i]->m_ID == (u8)id)
+			return i;
+	}
+
+	return -1;
 }
 
 /* @socom-skeleton stub GetAmmoIndex__5CZKitF10EQUIP_AMMOi */
@@ -972,18 +980,23 @@ CZProjectile * CZKit::Fire(int index, const CPnt3D *from, const CPnt3D *dir, con
 	f32 removal = 0.0f;
 	CPickup *pickup = NULL;
 
-	/* port: not written - thrown and launched grenade fuses / pickups (CPickup::Create is
-	 * unwritten): frag / HE 5 s (network 3), smoke 3 / 40, M203 HE 10, illum 1.5 / 40,
-	 * flashbang 3 / 3.5, gas and WP 3 / 40 etc.; the fuse times decide the Fire branch below */
+	/* 0x2ad750: the fuse (detonation) and removal times by ammo: frag / HE 5 / 5.5 s (network
+	 * 3 / 3.5), smoke 3 / 40, M203 HE 10, illum 1.5 / 40, flashbang 3 / 3.5, gas and WP 3 / 40
+	 * etc.; the fuse times decide the Fire branch below. Hand grenades and the lingering ones
+	 * become pickups on the projectile's instance (data: the projectile): frag / HE type 1
+	 * (an AI may throw it back: PickupObject), smoke / gas / WP / 0x7c type 2, flashbang type 3
+	 * (types 2 and 3 have no PickupObject branch) */
 	if (v == 0x79 || v == 0x7e)
 	{
 		time = theNetwork.m_bNetwork ? 3.0f : 5.0f;
 		removal = theNetwork.m_bNetwork ? 3.5f : 5.5f;
+		pickup = CPickup::Create(CPickup::PU_GRENADE, projectile->GetInstance(), projectile);
 	}
 	else if (v == 0x7a || v == 0xad || v == 0xb2 || v == 0x7d)
 	{
 		time = 3.0f;
 		removal = 40.0f;
+		pickup = CPickup::Create((CPickup::PU_TYPE)2, projectile->GetInstance(), projectile);
 	}
 	else if (v == 0xac || v == 0xb1)
 	{
@@ -1003,6 +1016,7 @@ CZProjectile * CZKit::Fire(int index, const CPnt3D *from, const CPnt3D *dir, con
 	{
 		time = 3.0f;
 		removal = 3.5f;
+		pickup = CPickup::Create(v == 0x7b ? (CPickup::PU_TYPE)3 : (CPickup::PU_TYPE)2, projectile->GetInstance(), projectile);
 	}
 
 	CZAnim *fire = NULL;
@@ -3033,8 +3047,12 @@ PlacedExplosive * CZKit::HandleRemotePlaceExplosive(const CPnt3D *, const CQuat 
 }
 
 /* @socom-skeleton stub FillWeaponEnum__5CZKitFiPP11CZFTSWeapon */
-void CZKit::FillWeaponEnum(int, CZFTSWeapon **)
+void CZKit::FillWeaponEnum(int index, CZFTSWeapon **weapon)
 {
+	/* 0x2a6e40 (DropItem): the slot's item (the index wrapped, unwrap inline). ELF quirk kept: an
+	 * index equal to the count (or no items) reads m_item[-1] (port: NULL) */
+	s32 slot = unwrap(index, m_num_items);
+	*weapon = slot != -1 ? m_item[slot] : NULL;
 }
 
 /* @socom-skeleton stub SetItemByIndex__5CZKitFiP8CZWeapon */
@@ -3118,13 +3136,116 @@ void CZKit::PickupMPBomb()
 }
 
 /* @socom-skeleton stub PickupAmmo__5CZKitFP7CPickup */
-void CZKit::PickupAmmo(CPickup *)
+void CZKit::PickupAmmo(CPickup *pickup)
 {
+	/* 0x2a6530 (HandlePickupAmmoInstance: an ammo box walked over): a pending network request
+	 * (m_current_requested_ammo) blocks until m_pickupRequestWait runs out; each entry of the
+	 * box goes through PickupAmmo(weapon, ammo, &count) and the entry is written back with the
+	 * rounds left. Network games ask the server instead (CanAddAmmo per entry, then
+	 * SendMayIPickupMessage; port: not written, no network game). ELF quirk kept: an entry index
+	 * equal to the box's size is read (and written) one past the end (port: not read). The box
+	 * stays even when empty (only the network ack cleans it up). */
+	if (m_pickupRequestWait <= 0.0f)
+	{
+		m_current_requested_ammo = 0;
+		m_pickupRequestWait = 0.0f;
+	}
+
+	if (m_current_requested_ammo)
+		return;
+
+	CZAmmoPickupInstance *box = static_cast<CZAmmoPickupInstance *>(pickup->m_data);
+
+	/* port: guard (the ELF reads the box unchecked) */
+	if (box == NULL)
+		return;
+
+	s32 count = (s32)box->m_weapons.size();
+
+	if (theNetwork.m_bNetwork)
+		return; /* port: the network request path is not written */
+
+	for (s32 i = 0; i < count; i++)
+	{
+		if (i >= (s32)box->m_weapons.size())
+			continue;
+
+		CZFTSWeapon *weapon = box->m_weapons[i];
+		CZAmmo *ammo = box->m_ammo[i];
+		s32 rounds = box->m_counts[i];
+		PickupAmmo(weapon, ammo, &rounds);
+		box->m_weapons[i] = weapon;
+		box->m_ammo[i] = ammo;
+		box->m_counts[i] = rounds;
+	}
 }
 
 /* @socom-skeleton stub PickupAmmo__5CZKitFP11CZFTSWeaponP6CZAmmoPi */
-void CZKit::PickupAmmo(CZFTSWeapon *, CZAmmo *, int *)
+void CZKit::PickupAmmo(CZFTSWeapon *weapon, CZAmmo *ammo, int *rounds)
 {
+	/* 0x2a6300 (PickupAmmo(CPickup *)): an item entry (grenades...) adds its rounds to the slot
+	 * holding the same item id, else takes the next free slot (the item, its ammo, the rounds,
+	 * its model under "grenade"); a gun's ammo goes into every slot whose gun takes it (the
+	 * slot's ammo becomes the box's). *rounds = what is left. Anything taken plays the reload
+	 * sound and, for the player, names the ammo in the message queue (unless the last message
+	 * already does). */
+	s32 before = *rounds;
+
+	if (weapon != NULL)
+	{
+		s32 count = m_num_items;
+		s32 slot = -1;
+
+		for (s32 i = 0; i < count; i++)
+		{
+			if (m_item[i] != NULL && (u8)m_item[i]->m_ID == (u8)weapon->m_ID)
+			{
+				slot = i;
+				break;
+			}
+		}
+
+		if (slot != -1)
+		{
+			*rounds = AddAmmo(slot, *rounds);
+		}
+		else
+		{
+			SetItemByIndex(count, weapon);
+			m_ammo[count] = ammo;
+			*rounds = AddAmmo(count, *rounds);
+			InitItemModel(weapon->GetModelName(), "grenade");
+		}
+	}
+	else
+	{
+		for (s32 i = 0; i < m_num_items; i++)
+		{
+			if (m_item[i] != NULL && m_item[i]->IsLegalAmmo(ammo))
+			{
+				m_ammo[i] = ammo;
+				*rounds = AddAmmo(i, *rounds);
+			}
+		}
+	}
+
+	if (!(*rounds < before))
+		return;
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("PICKUP: ammo %s taken: %d -> %d left in the box, items %d", ammo != NULL ? ammo->GetName() : "-", before, *rounds, m_num_items);
+#endif
+
+	if (m_rldsnd != NULL)
+		m_rldsnd->PlaySound(NULL, 255);
+
+	CEntityCtrl *ctrl = m_body->m_control;
+
+	if (ctrl != NULL && static_cast<CSealCtrl *>(ctrl)->IsPlayer())
+	{
+		/* port: not written: C2DMessage_Q::LastMessage / Add_Message (unwritten in
+		 * ztwod_messageq.cpp) would show the ammo's name unless it is the last message */
+	}
 }
 
 /* @socom-skeleton stub CanAddAmmo__5CZKitFii */
@@ -3133,13 +3254,149 @@ void CZKit::CanAddAmmo(int, int)
 }
 
 /* @socom-skeleton stub AddAmmo__5CZKitFii */
-int CZKit::AddAmmo(int, int)
+int CZKit::AddAmmo(int slot, int rounds)
 {
+	/* 0x2a5eb0 (PickupAmmo): the rounds fill the slot's magazines in order up to the gun's
+	 * capacity (the mag count doubled for small arms with the double ammo load, at most 10);
+	 * magazines past the count are emptied. A claymore carrier without a detonator gets one
+	 * (as in PostSetupItems).
+	 * The weapon info changes. v0 = the rounds left. ELF quirk kept: the item is not NULL-tested
+	 * before GetNumMags / GetAmmoCapacity (port: guarded). */
+	CZFTSWeapon *weapon = m_item[slot];
+
+	if (weapon == NULL)
+		return rounds;
+
+	s32 mags = weapon->GetNumMags();
+	s32 capacity = weapon->GetAmmoCapacity();
+	bool doubled = false;
+
+	for (s32 i = 0; i < m_num_items; i++)
+	{
+		if (m_item[i] != NULL && m_item[i]->m_ID == EQUIP_ITEM::DOUBLE_AMMO_LOAD)
+		{
+			doubled = true;
+			break;
+		}
+	}
+
+	if (doubled)
+	{
+		EQUIP_ITEM type = weapon->GetIDType();
+
+		if (type == EQUIP_ITEM::EQUIP_PISTOL || type == EQUIP_ITEM::EQUIP_SMG || type == EQUIP_ITEM::EQUIP_ASSAULT_RIFLE
+			|| type == EQUIP_ITEM::EQUIP_SHOTGUN || type == EQUIP_ITEM::EQUIP_MACHINEGUN || type == EQUIP_ITEM::EQUIP_SNIPER_RIFLE)
+			mags *= 2;
+	}
+
+	if (mags > 10)
+		mags = 10;
+
+	for (s32 i = 0; i < 10; i++)
+	{
+		if (i >= mags)
+		{
+			m_reloads[slot][i] = 0;
+			continue;
+		}
+
+		s32 room = capacity - m_reloads[slot][i];
+
+		if (room < rounds)
+		{
+			m_reloads[slot][i] += room;
+			rounds -= room;
+		}
+		else
+		{
+			m_reloads[slot][i] += rounds;
+			rounds = 0;
+		}
+	}
+
+	if (m_body->m_kit.HasItem(EQUIP_ITEM::CLAYMORE) && !HasItem(EQUIP_ITEM::DETONATOR))
+	{
+		u32 index = m_num_items;
+		CZWeapon *detonator = CZWeapon::m_listWeapons.GetWeapon(EQUIP_ITEM::DETONATOR);
+
+		if (detonator != NULL && index < 30)
+			SetItemByIndex(index, detonator);
+	}
+	else if (!theNetwork.m_bNetwork)
+	{
+		/* port: as in PostSetupItems: no units (CSealUnit unwritten); the ELF asks unit 1's
+		 * AllowCommand(m_body, 2, CLAYMORE) unchecked and on true adds the detonator */
+	}
+
+	m_weaponinfoChanged = 1;
+	return rounds;
 }
 
 /* @socom-skeleton stub FillAmmoPickupInstance__5CZKitFP20CZAmmoPickupInstancei */
-void CZKit::FillAmmoPickupInstance(CZAmmoPickupInstance *, int)
+void CZKit::FillAmmoPickupInstance(CZAmmoPickupInstance *box, int index)
 {
+	/* 0x2a5bb0 (DropAmmo): the slot (every slot for -1) goes into the box: one entry with the
+	 * item (NULL for a gun: rifle / pistol keep the item), the ammo and the rounds of all its
+	 * magazines (with ammo only); the slot loses its ammo (and a non-gun its item) and its
+	 * magazines are emptied (the slot index wrapped by unwrap). Then the item count is redone
+	 * and an empty or out-of-range selection goes to 0 (UpdateNumItems inline). */
+	for (s32 i = 0; i < m_num_items; i++)
+	{
+		if (index != -1 && index != i)
+			continue;
+
+		CZFTSWeapon *weapon = m_item[i];
+
+		if (weapon == NULL)
+			continue;
+
+		if (weapon->m_type == SEAL_ITEM::itemRifle || weapon->m_type == SEAL_ITEM::itemPistol)
+			weapon = NULL;
+
+		CZAmmo *ammo = m_ammo[i];
+		s32 slot = unwrap(i, m_num_items);
+		s32 rounds = 0;
+
+		for (s32 j = 0; j < 10; j++)
+			rounds += m_reloads[slot][j];
+
+		if (ammo != NULL)
+		{
+			box->m_weapons.push_back(weapon);
+			box->m_ammo.push_back(ammo);
+			box->m_counts.push_back(rounds);
+		}
+
+		m_ammo[i] = NULL;
+
+		if (weapon != NULL)
+			m_item[i] = NULL;
+
+		slot = unwrap(i, m_num_items);
+
+		/* port: guard (unwrap gives -1 only for an empty kit, which never reaches here) */
+		if (slot != -1)
+		{
+			for (s32 j = 0; j < 10; j++)
+				m_reloads[slot][j] = 0;
+		}
+	}
+
+	s32 last = -1;
+
+	for (s32 i = 0; i < 30; i++)
+	{
+		if (m_item[i] != NULL)
+			last = i;
+	}
+
+	m_num_items = last + 1;
+
+	if (m_num_items < m_selected_item || m_item[m_selected_item] == NULL)
+	{
+		m_selected_item = 0;
+		m_weaponinfoChanged = 1;
+	}
 }
 
 /* @socom-skeleton stub RemoveAmmo__5CZKitFi */

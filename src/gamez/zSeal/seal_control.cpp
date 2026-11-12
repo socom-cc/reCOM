@@ -1163,22 +1163,152 @@ void CSealCtrl::TickVictims()
 	/* @socom-skeleton stub range_threshold$3175 */
 	static float range_threshold;
 
-	/* 0x285650 (PreTick / ThrottlesPreTick): the victim (a living seal that is no sleeping or
-	 * snoozing AI) and the corpse for the close-combat and body-carry actions, cleared each
-	 * tick. port: only the clearing is written: the target scan (the first target within
-	 * range_threshold, 400 from the first call) is left out because the actions it enables
-	 * (CanUseCQB / CanUseRestraint / CanUseKnife / CanUseBodyCarry and their Execute*) are
-	 * unwritten; the ELF ctor never sets m_corpsebody, this clears it before
-	 * PerformProximityActions reads it */
+	/* 0x285650 (PreTick / ThrottlesPreTick): the victim and the corpse for the close-combat and
+	 * body-carry actions, from the seal's target list (nearest first) while the squared range is
+	 * within range_threshold (400 from the first call): a seal that is no sleeping or snoozing AI;
+	 * the first living one is the victim (the scan ends), the first dead one the corpse. */
+	static bool init = false;
+
+	if (!init)
+	{
+		range_threshold = 400.0f;
+		init = true;
+	}
+
+	CZSealBody *seal = static_cast<CZSealBody *>(m_entity);
 	m_victimbody = NULL;
 	m_corpsebody = NULL;
+
+	for (CTargetList::iterator it = seal->m_targets.begin(); it != seal->m_targets.end(); ++it)
+	{
+		if (!(it->m_distSq <= range_threshold))
+			return;
+
+		CZSealBody *target = SealOfEntity(it->m_ent);
+
+		if (target == NULL)
+			continue;
+
+		CEntityCtrl *control = target->m_control;
+
+		if (control != NULL && static_cast<CSealCtrl *>(control)->IsAi())
+		{
+			CSealCtrlAi *ai = static_cast<CSealCtrl *>(control)->GetSealCtrlAi();
+
+			if (ai->m_snoozing || ai->m_sleeping)
+				continue;
+		}
+
+		if (target->m_isAlive)
+		{
+			m_victimbody = target;
+			return;
+		}
+
+		if (m_corpsebody == NULL)
+			m_corpsebody = target;
+	}
 }
 
 /* @socom-skeleton stub TickPickups__9CSealCtrlFf */
-void CSealCtrl::TickPickups(float)
+void CSealCtrl::TickPickups(float dT)
 {
 	/* @socom-skeleton stub lastpickup$3201 */
 	static int lastpickup;
+
+	/* 0x2852e0 (PreTick / ThrottlesPreTick): ammo boxes (9) within 20 of the seal are taken at
+	 * once (PickupObject), each only once while it stays in range (lastpickup; cleared when none
+	 * is in range); the weapon under the reticule (else the closest within 20) and the closest
+	 * pistol become the offered pickups (m_curpickup_ID / secondary) unless the pickup timer
+	 * still runs (it counts down) or the kit already holds that item id. Network games also
+	 * find the dropped MP bomb (port: not written, see below). ELF quirk kept: lastpickup holds
+	 * a pointer in an int. */
+	CZSealBody *seal = static_cast<CZSealBody *>(m_entity);
+
+	if (seal == NULL)
+		return;
+
+	std::list<CPickup *>::iterator it = CPickup::GetFirst();
+	bool took = false;
+	CPickup *ammo;
+
+	while ((ammo = CPickup::GetNext(it, seal->GetPosW(), 20.0f, CPickup::PU_AMMO)) != NULL)
+	{
+		if ((CPickup *)(uintptr_t)lastpickup != ammo)
+		{
+#ifdef SOCOM_PORT
+			if (lastpickup == 0)
+				SOCOM_PORT_TRACE("PICKUP: walks over ammo box %d", (int)ammo->m_id);
+#endif
+			seal->PickupObject(ammo);
+		}
+
+		lastpickup = (int)(uintptr_t)ammo;
+		took = true;
+	}
+
+	if (!took)
+		lastpickup = 0;
+
+	CPickup *secondary = NULL;
+	CPickup *pickup = seal->GetReticuleWeapon(&secondary);
+
+	if (pickup == NULL)
+		pickup = seal->GetProximityWeapon(&secondary);
+
+	s32 offered = m_curpickup_ID;
+
+	if (pickup == NULL)
+	{
+		m_curpickup_ID = -1;
+	}
+	else if (!(m_weapon_pickup_timer <= 0.0f))
+	{
+		m_weapon_pickup_timer -= dT;
+		m_curpickup_ID = -1;
+	}
+	else if (pickup->m_type == CPickup::PU_WEAPON)
+	{
+		CZFTSWeapon *weapon = static_cast<CZFTSWeapon *>(pickup->m_data);
+
+		if (weapon == NULL || seal->m_kit.HasItem(weapon->m_ID))
+			m_curpickup_ID = -1;
+		else
+			m_curpickup_ID = pickup->m_id;
+	}
+
+	if (secondary == NULL)
+	{
+		m_curpickup_secondary_ID = -1;
+	}
+	else if (!(m_weapon_pickup_timer <= 0.0f))
+	{
+		m_weapon_pickup_timer -= dT;
+		m_curpickup_secondary_ID = -1;
+	}
+	else if (secondary->m_type == CPickup::PU_WEAPON)
+	{
+		CZFTSWeapon *weapon = static_cast<CZFTSWeapon *>(secondary->m_data);
+
+		if (weapon == NULL || seal->m_kit.HasItem(weapon->m_ID))
+			m_curpickup_secondary_ID = -1;
+		else
+			m_curpickup_secondary_ID = secondary->m_id;
+	}
+
+#ifdef SOCOM_PORT
+	if (m_curpickup_ID != offered && m_curpickup_ID != -1)
+	{
+		CZFTSWeapon *weapon = static_cast<CZFTSWeapon *>(pickup->m_data);
+		SOCOM_PORT_TRACE("PICKUP: offered pickup %d (%s)", (int)m_curpickup_ID, weapon != NULL ? weapon->GetName() : "-");
+	}
+#endif
+
+	if (theNetwork.m_bNetwork)
+	{
+		/* port: not written (no network game): the bomb pickup timer, the dropped MP bomb's
+		 * defusal node (zdb::CNode::GetClosestNode on the camera ray) and GetProximityMPBomb */
+	}
 }
 
 /* @socom-skeleton stub PerformCollisionActions__9CSealCtrlFv */
@@ -1246,7 +1376,9 @@ void CSealCtrl::PerformProximityActions()
 
 		if (victim != NULL)
 		{
-			if (seal->CanUseCQB(victim))
+			/* port: CQB (12) is not offered: ExecuteAction_CQBAttack needs CZAnim::ActivateEx
+			 * ("ai_cqb_attack" with both seals' select tasks) and CAiEvent, both unwritten */
+			if (false && seal->CanUseCQB(victim))
 				seal->ActionAvailableMask(12, true);
 
 			if (seal->CanUseRestraint(victim))
@@ -1263,7 +1395,9 @@ void CSealCtrl::PerformProximityActions()
 			}
 		}
 
-		if (corpse != NULL && seal->CanUseBodyCarry(corpse))
+		/* port: body carry (8) is not offered: CrouchToPickupBuddy, PickupBuddy, PutdownBuddy and
+		 * their callbacks (with Crouch_0, CanCrouch, AlignForPickup) are unwritten */
+		if (false && corpse != NULL && seal->CanUseBodyCarry(corpse))
 			seal->ActionAvailableMask(8, true);
 	}
 
@@ -1443,10 +1577,15 @@ void CSealCtrl::OnActionButton()
 
 			if (pickup != NULL)
 			{
+#ifdef SOCOM_PORT
+				SOCOM_PORT_TRACE("PICKUP: action button takes pickup %d", (int)m_curpickup_ID);
+#endif
+				/* the MP bomb (11) is taken without the pickup echo */
+				bool echo = pickup->m_type != CPickup::PU_MPBOMB;
 				seal->PickupObject(pickup);
-				/* port: the ELF leaves m_echo_pickup for type-11 pickups (CPickup::m_type is
-				 * private in zentity.h); unreachable: TickPickups is unwritten (no pickup id) */
-				seal->m_echo_pickup = 1;
+
+				if (echo)
+					seal->m_echo_pickup = 1;
 			}
 		}
 	}

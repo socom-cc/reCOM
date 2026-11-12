@@ -298,35 +298,40 @@ public:
 class CPickup
 {
 public:
-	void Pickup(std::vector<CEntity*> entityList);
-	void Destroy();
-private:
-	zdb::CNode* m_node;
-	void* m_data;
-	u8 m_type;
-	bool m_locked;
-	bool m_secondary;
-	u8 m_unused;
-	s16 m_id;
-	s16 m_netid;
-	bool m_visible_by_units;
+	/* DWARF (database.cpp) 28 bytes; the ELF's callers (TickPickups, PickupObject, the HUD) read
+	 * the members directly */
+	zdb::CNode* m_node; /* +0x00 the model in the world (the dropped weapon, the ammo box) */
+	void* m_data; /* +0x04 type 8: the weapon (CZFTSWeapon), 9: a CZAmmoPickupInstance, 1: the projectile */
+	u32 m_type : 7; /* +0x08 PU_TYPE */
+	u32 m_locked : 1;
+	u32 m_secondary : 1; /* a pistol (DropItem) */
+	u32 m_unused : 7;
+	u32 m_id : 16; /* +0x0a (nextPickupId) */
+	u16 m_netid; /* +0x0c */
+	CBits m_bits; /* +0x10 seen by unit (SensorPreTick) */
+	u32 m_visible_by_units; /* +0x18 */
 	/* @socom-skeleton decl 7CPickup */
 public:
-	enum PU_TYPE { }; /* port: unproven: passed by value (Q27CPickup7PU_TYPE); enumerators not in DWARF (m_type is a 7-bit field) */
+	/* port: unproven: passed by value (Q27CPickup7PU_TYPE); the enumerator names are invented (not in
+	 * DWARF), the values are the ELF's: 1 a live grenade (PickupObject: ai_pickup_grenade), 8 a
+	 * weapon (DropItem), 9 an ammo box (DropAmmo), 10 data only (Destroy deletes m_data), 11 the MP
+	 * bomb (CreateMPBombPickup; GetMPBomb) */
+	enum PU_TYPE { PU_NONE = 0, PU_GRENADE = 1, PU_WEAPON = 8, PU_AMMO = 9, PU_DATA = 10, PU_MPBOMB = 11 };
 	static void Open(unsigned int);
 	static void Close(bool);
 	void DebugPickups();
-	void NetworkCreate(unsigned char, CPickup::PU_TYPE, zdb::CNode *, void *);
+	static CPickup * NetworkCreate(unsigned char, CPickup::PU_TYPE, zdb::CNode *, void *); /* static: DropItem calls it without a pickup and keeps v0 */
 	void GetVisibleByUnit(unsigned int);
 	void SetVisibleByUnit(unsigned int);
-	void Create(CPickup::PU_TYPE, zdb::CNode *, void *);
+	static CPickup * Create(CPickup::PU_TYPE, zdb::CNode *, void *); /* 0x24cfe0: static, v0 = the pickup */
 	static void Destroy(CPickup *);
 	static void DestroyNetPickups(unsigned char);
-	void GetFirst();
-	/* port: MSL list::generic_iterator<0> is the library's list<CPickup *>::iterator typedef */
-	void GetNext(std::list<CPickup *>::iterator &, CPickup::PU_TYPE);
-	void GetNext(std::list<CPickup *>::iterator &, const CPnt3D *, float, CPickup::PU_TYPE);
-	void GetClosest(const CPnt3D *, float, CPickup::PU_TYPE, CPickup **);
+	static std::list<CPickup *>::iterator GetFirst(); /* 0x24cbe0: the list's first node (hidden return) */
+	/* port: MSL list::generic_iterator<0> is the library's list<CPickup *>::iterator typedef;
+	 * GetNext / GetClosest are static and return the pickup found (v0) */
+	static CPickup * GetNext(std::list<CPickup *>::iterator &, CPickup::PU_TYPE);
+	static CPickup * GetNext(std::list<CPickup *>::iterator &, const CPnt3D *, float, CPickup::PU_TYPE);
+	static CPickup * GetClosest(const CPnt3D *, float, CPickup::PU_TYPE, CPickup **);
 	static CPickup * FindPickup(unsigned int);
 	void IsNetIdUsed(unsigned char, unsigned char);
 	static unsigned short GetEntityIDFromNetID(unsigned short);
@@ -337,10 +342,10 @@ public:
 	unsigned short GetPickupNetEntityID();
 	static int bit_count;
 	static unsigned char m_isOpen;
-	static int m_list[3];
+	static std::list<CPickup *> m_list; /* MSL list<const void *> (12 bytes) */
 	static zdb::CNode *m_mpbombnode;
 	static unsigned char m_nextNetPickupId;
-	static int m_pool[3];
+	static std::list<CPickup *> m_pool; /* the destroyed pickups, reused by Create */
 	static unsigned short nextPickupId;
 	/* @socom-skeleton end 7CPickup */
 };

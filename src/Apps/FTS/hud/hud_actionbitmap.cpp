@@ -226,14 +226,43 @@ unsigned char CActionTxtrMachine::UpdateDriverPickup()
 {
 	/* 0x3d7f40: the first entry a pickup (4 primary, 5 secondary): the driver's current
 	 * pickup of type 8 (a weapon) gives the node and the weapon's name (UNKNOWN without one);
-	 * v0 = a node found. port: the pickup test is not written: CPickup's members are private
-	 * in zentity.h and CZSealBody::CurrentPickup / CurrentPickupSecondary are unwritten
-	 * nonvoid stubs; unreachable: no pickup actions are offered (TickPickups is unwritten, the
-	 * pickup ids stay -1) */
+	 * v0 = a node found. ELF quirk: the list read is the global ActionTxtrMachine_HUD's (the
+	 * only machine; port: this one's). */
 	m_curpickup_node = NULL;
 
 	if (size() == 0 || m_driver == NULL)
 		return m_curpickup_node != NULL;
+
+	u32 id = (*this)[0]->m_action_id;
+	CPickup *pickup = NULL;
+
+	if (id == 4)
+		pickup = m_driver->CurrentPickup();
+	else if (id == 5)
+		pickup = m_driver->CurrentPickupSecondary();
+	else
+		return m_curpickup_node != NULL;
+
+	if (pickup == NULL || pickup->m_type != CPickup::PU_WEAPON)
+		return m_curpickup_node != NULL;
+
+	CZWeapon *weapon = static_cast<CZWeapon *>(pickup->m_data);
+	m_curpickup_node = pickup->m_node;
+
+	if (weapon != NULL)
+		strcpy(m_pickup_name, weapon->GetName());
+	else
+		strcpy(m_pickup_name, "UNKNOWN");
+
+#ifdef SOCOM_PORT
+	static CPickup *traced = NULL;
+
+	if (traced != pickup)
+	{
+		SOCOM_PORT_TRACE("HUD: pickup action %u \"%s %s\" (pickup %d)", id, (*this)[0]->m_name, m_pickup_name, (int)pickup->m_id);
+		traced = pickup;
+	}
+#endif
 
 	return m_curpickup_node != NULL;
 }

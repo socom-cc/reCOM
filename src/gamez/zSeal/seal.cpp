@@ -2935,8 +2935,29 @@ void _rethrow_grenade(CValve *, void *)
 }
 
 /* @socom-skeleton stub PickupObject__10CZSealBodyFP7CPickup */
-void CZSealBody::PickupObject(CPickup *)
+void CZSealBody::PickupObject(CPickup *pickup)
 {
+	/* 0x24f330 (OnActionButton, TickPickups, CAiSPickup / CAiSNoAmmo): a living seal takes the
+	 * pickup by type: a weapon (8) HandlePickupEquip, an ammo box (9) HandlePickupAmmoInstance,
+	 * the MP bomb (11) HandlePickupMPBomb; data (10) nothing. port: void (v0 = the grenade
+	 * anim's activation for type 1, else 0; no port caller reads it). Type 1 (an AI picking up
+	 * a live grenade: "ai_pickup_grenade" anim, a valve with the _rethrow_grenade callback, the
+	 * projectile stopped and turned to the seal) is not written: AI only, CValve::AddCallback
+	 * and _rethrow_grenade are unwritten. */
+	if (!m_isAlive || pickup == NULL)
+		return;
+
+	u32 type = pickup->m_type;
+
+	if (type == CPickup::PU_DATA)
+		return;
+
+	if (type == CPickup::PU_MPBOMB)
+		HandlePickupMPBomb(pickup);
+	else if (type == CPickup::PU_AMMO)
+		HandlePickupAmmoInstance(pickup);
+	else if (type == CPickup::PU_WEAPON)
+		HandlePickupEquip(pickup);
 }
 
 /* @socom-skeleton stub PostMortemPreTick__10CZSealBodyFf */
@@ -3007,8 +3028,15 @@ void CZSealBody::SetSnakePathUpdate(bool, unsigned int)
 }
 
 /* @socom-skeleton stub ExecuteAction_KnifeAttack__10CZSealBodyFP10CZSealBody */
-void CZSealBody::ExecuteAction_KnifeAttack(CZSealBody *)
+void CZSealBody::ExecuteAction_KnifeAttack(CZSealBody *victim)
 {
+	/* 0x24ee90 (OnActionButton, knife 0x400): stab the victim (StabBuddy) and count a stealth
+	 * kill. port: void (v0 = 1 with a victim; no caller reads it) */
+	if (victim == NULL)
+		return;
+
+	StabBuddy(victim);
+	m_mp_stats.m_num_stealthkills++;
 }
 
 /* @socom-skeleton stub ExecuteAction_CQBAttack__10CZSealBodyFP10CZSealBody */
@@ -3017,8 +3045,15 @@ void CZSealBody::ExecuteAction_CQBAttack(CZSealBody *)
 }
 
 /* @socom-skeleton stub ExecuteAction_ApplyRestraint__10CZSealBodyFP10CZSealBody */
-void CZSealBody::ExecuteAction_ApplyRestraint(CZSealBody *)
+void CZSealBody::ExecuteAction_ApplyRestraint(CZSealBody *victim)
 {
+	/* 0x24ed10 (OnActionButton, restraint 0x800): restrain the victim (RestrainBuddy) and count
+	 * it. port: void (v0 = 1 with a victim; no caller reads it) */
+	if (victim == NULL)
+		return;
+
+	RestrainBuddy(victim);
+	m_mp_stats.m_num_restrained++;
 }
 
 /* @socom-skeleton stub ExecuteDelayedAction_Climb__10CZSealBodyFv */
@@ -3303,11 +3338,21 @@ unsigned char CZSealBody::CompassAnchor_Hostage(CCompassAnchor *)
 /* @socom-skeleton stub CurrentPickup__10CZSealBodyFv */
 CPickup * CZSealBody::CurrentPickup()
 {
+	/* 0x24e110 (CActionTxtrMachine::UpdateDriverPickup): the controller's offered pickup */
+	if (m_control == NULL)
+		return NULL;
+
+	return CPickup::FindPickup(static_cast<CSealCtrl *>(m_control)->m_curpickup_ID);
 }
 
 /* @socom-skeleton stub CurrentPickupSecondary__10CZSealBodyFv */
 CPickup * CZSealBody::CurrentPickupSecondary()
 {
+	/* 0x24e0e0: the controller's offered secondary pickup */
+	if (m_control == NULL)
+		return NULL;
+
+	return CPickup::FindPickup(static_cast<CSealCtrl *>(m_control)->m_curpickup_secondary_ID);
 }
 
 /* @socom-skeleton stub SetCurZoomState__10CZSealBodyF9ZOOMSTATE */

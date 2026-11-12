@@ -105,6 +105,17 @@ struct TASK_SELECT : public TASK_HDR
 enum UNIT_MESSAGE { }; /* port: unproven: passed by value per the mangled name; kind and enumerators not in DWARF */
 enum WEAPON_STATE { }; /* port: unproven: passed by value per the mangled name; kind and enumerators not in DWARF */
 /* @socom-skeleton end forward */
+/* An ammo box's contents (CPickup type 9 data). No DWARF record: 36 bytes, three MSL
+ * vector_pod<unsigned int> (DropAmmo 0x28e7b0 constructs them, CZKit::FillAmmoPickupInstance
+ * 0x2a5bb0 appends one entry per kit slot, CZKit::PickupAmmo 0x2a6530 reads and writes them back).
+ * port: member names invented. */
+class CZAmmoPickupInstance
+{
+public:
+	std::vector<CZFTSWeapon*> m_weapons; /* +0x00 the item for a non-gun (grenades...), NULL for a gun's ammo */
+	std::vector<CZAmmo*> m_ammo; /* +0x0c */
+	std::vector<s32> m_counts; /* +0x18 rounds left in the box */
+};
 /* @socom-skeleton decl 8AI_AWARE */
 enum AI_AWARE
 {
@@ -1402,7 +1413,7 @@ public:
 	AnimType FindRandomDamageAnim(DAMAGE_LOCATION, bool *); /* 0x28ebb0 returns the anim (lh v0; -1 none) */
 	void DropAllItems();
 	void DropAmmo(int);
-	void DropItem(int, bool);
+	CPickup * DropItem(int, bool); /* 0x28e3e0: v0 = the pickup (PickupItem tests it) */
 	void HandlePickupAmmoInstance(CPickup *);
 	void HandlePickupEquip(CPickup *);
 	void PickupItem(CPickup *);

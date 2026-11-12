@@ -39,6 +39,8 @@
 #include "gamez/zNode/znode.h"
 #include "zentity.h"
 /* @socom-skeleton end include */
+#include "gamez/zNode/node_world.h" /* CWorld::DeleteTextureAssetCharacter (Close, Destroy) */
+#include "gamez/zSeal/zseal.h" /* CZAmmoPickupInstance (Destroy, CleanupAmmoPickup) */
 
 /* @socom-skeleton stub nextPickupId__7CPickup */
 unsigned short CPickup::nextPickupId = 1;
@@ -56,19 +58,67 @@ zdb::CNode *CPickup::m_mpbombnode;
 unsigned char CPickup::m_isOpen;
 
 /* @socom-skeleton stub m_list__7CPickup */
-int CPickup::m_list[3];
+std::list<CPickup *> CPickup::m_list;
 
 /* @socom-skeleton stub m_pool__7CPickup */
-int CPickup::m_pool[3];
+std::list<CPickup *> CPickup::m_pool;
 
 /* @socom-skeleton stub Open__7CPickupFUi */
-void CPickup::Open(unsigned int)
+void CPickup::Open(unsigned int bits)
 {
+	/* 0x24d630 (CMission::Open: the entity count): the unit-visibility bit count; open */
+	bit_count = bits;
+	m_isOpen = true;
 }
 
 /* @socom-skeleton stub Close__7CPickupFb */
-void CPickup::Close(bool)
+void CPickup::Close(bool all)
 {
+	/* 0x24d4a0 (CMission::Close, ReOpen_Unload1, network _OnMissionComplete): every listed
+	 * pickup is destroyed; then the multiplayer bomb (GetMPBomb's pickup, else the bare bomb
+	 * node: out of its parent, out of the character texture sets, deleted); with the
+	 * argument the pool's pickups are deleted too and the pool emptied; closed. ELF quirk
+	 * kept: GetMPBomb searches the list after it was emptied (never finds one). */
+	while (m_list.size() != 0)
+		Destroy(m_list.front());
+
+	CPickup *mpbomb = GetMPBomb();
+
+	if (mpbomb != NULL)
+	{
+		Destroy(mpbomb);
+	}
+	else
+	{
+		zdb::CNode *bomb = m_mpbombnode;
+
+		if (bomb != NULL)
+		{
+			if (bomb->m_parent != NULL)
+				bomb->m_parent->DeleteChild(bomb);
+
+			zdb::CWorld::m_world->DeleteTextureAssetCharacter((zdb::_RenderPhase)2, bomb);
+			zdb::CNode::Delete(bomb);
+			m_mpbombnode = NULL;
+		}
+	}
+
+	if (all)
+	{
+		/* the ELF runs the CBits dtor and deletes each pooled pickup (port: CBits has no dtor:
+		 * Resize is unwritten, so no buffer exists) */
+		for (std::list<CPickup *>::iterator it = m_pool.begin(); it != m_pool.end(); ++it)
+		{
+			if (*it != NULL)
+				delete *it;
+
+			*it = NULL;
+		}
+
+		m_pool.clear();
+	}
+
+	m_isOpen = false;
 }
 
 /* @socom-skeleton stub DebugPickups__7CPickupFv */
@@ -77,8 +127,11 @@ void CPickup::DebugPickups()
 }
 
 /* @socom-skeleton stub NetworkCreate__7CPickupFUcQ27CPickup7PU_TYPEPQ23zdb5CNodePv */
-void CPickup::NetworkCreate(unsigned char, CPickup::PU_TYPE, zdb::CNode *, void *)
+CPickup * CPickup::NetworkCreate(unsigned char, CPickup::PU_TYPE, zdb::CNode *, void *)
 {
+	/* 0x24d200 (network games only: DropItem / DropAmmo / CreateMP*): a pickup with a network id.
+	 * port: not written (no network game) */
+	return NULL;
 }
 
 /* @socom-skeleton stub GetVisibleByUnit__7CPickupFUi */
@@ -92,13 +145,133 @@ void CPickup::SetVisibleByUnit(unsigned int)
 }
 
 /* @socom-skeleton stub Create__7CPickupFQ27CPickup7PU_TYPEPQ23zdb5CNodePv */
-void CPickup::Create(CPickup::PU_TYPE, zdb::CNode *, void *)
+CPickup * CPickup::Create(CPickup::PU_TYPE type, zdb::CNode *node, void *data)
 {
+	/* 0x24cfe0 (DropItem, DropAmmo, CZKit::Fire, ftsFixupAiMap...): nothing while closed; a
+	 * pooled pickup (the pool's first) or a new one (bits sized for bit_count), cleared and
+	 * given the type, node, data and the next id; appended to the list. v0 = the pickup. */
+	if (!m_isOpen)
+		return NULL;
+
+	CPickup *pickup;
+
+	if (m_pool.size() == 0)
+	{
+		pickup = new CPickup;
+
+		if (pickup != NULL)
+		{
+			pickup->m_secondary = 0;
+			pickup->m_bits.m_bits = 0;
+			pickup->m_bits.m_vec = NULL;
+			pickup->m_bits.Resize(bit_count);
+		}
+	}
+	else
+	{
+		pickup = m_pool.front();
+		m_pool.pop_front();
+	}
+
+	/* port: guard (the ELF writes through a failed allocation) */
+	if (pickup == NULL)
+		return NULL;
+
+	pickup->m_visible_by_units = 0;
+	pickup->m_type = type;
+	pickup->m_node = node;
+	pickup->m_data = data;
+
+	if (pickup->m_bits.m_vec != NULL)
+		memset(pickup->m_bits.m_vec, 0, (((s32)pickup->m_bits.m_bits >> 5) + 1) * 4);
+	else
+		pickup->m_bits.m_bits = 0;
+
+	pickup->m_locked = 0;
+	pickup->m_id = nextPickupId;
+	nextPickupId++;
+	pickup->m_netid = 0;
+	m_list.push_back(pickup);
+	return pickup;
 }
 
 /* @socom-skeleton stub Destroy__7CPickupFP7CPickup */
-void CPickup::Destroy(CPickup *)
+void CPickup::Destroy(CPickup *pickup)
 {
+	/* 0x24ccb0 (PickupItem, Close, the projectiles, CleanupAmmoPickup): only a listed pickup:
+	 * out of the list; by type its data / node go: data only (10) deletes the data; a weapon
+	 * (8) deletes the node (out of its parent and the character texture sets) and keeps the
+	 * weapon; an ammo box (9) deletes the ammo record and the node; the MP bomb (11) deletes
+	 * the bomb node. Then cleared (no type, unlocked, id 0, bits cleared) into the pool. */
+	std::list<CPickup *>::iterator it = m_list.begin();
+
+	while (it != m_list.end() && *it != pickup)
+		++it;
+
+	if (it == m_list.end())
+		return;
+
+	m_list.remove(pickup);
+	u32 type = pickup->m_type;
+	zdb::CNode *node = NULL;
+
+	if (type == PU_DATA)
+	{
+		if (pickup->m_data != NULL)
+			::operator delete(pickup->m_data); /* __dl__FPv: no destructor */
+
+		pickup->m_data = NULL;
+	}
+	else if (type == PU_WEAPON)
+	{
+		node = pickup->m_node;
+	}
+	else if (type == PU_AMMO)
+	{
+		CZAmmoPickupInstance *ammo = static_cast<CZAmmoPickupInstance *>(pickup->m_data);
+
+		if (ammo != NULL)
+			delete ammo;
+
+		pickup->m_data = NULL;
+		node = pickup->m_node;
+	}
+	else if (type == PU_MPBOMB)
+	{
+		zdb::CNode *bomb = m_mpbombnode;
+
+		if (bomb != NULL)
+		{
+			if (bomb->m_parent != NULL)
+				bomb->m_parent->DeleteChild(bomb);
+
+			zdb::CWorld::m_world->DeleteTextureAssetCharacter((zdb::_RenderPhase)2, bomb);
+			zdb::CNode::Delete(bomb);
+			m_mpbombnode = NULL;
+		}
+	}
+
+	if (node != NULL)
+	{
+		if (node->m_parent != NULL)
+			node->m_parent->DeleteChild(node);
+
+		zdb::CWorld::m_world->DeleteTextureAssetCharacter((zdb::_RenderPhase)2, node);
+		zdb::CNode::Delete(node);
+	}
+
+	pickup->m_data = NULL;
+	pickup->m_node = NULL;
+	pickup->m_type = PU_NONE;
+	pickup->m_locked = 0;
+	pickup->m_id = 0;
+
+	if (pickup->m_bits.m_vec != NULL)
+		memset(pickup->m_bits.m_vec, 0, (((s32)pickup->m_bits.m_bits >> 5) + 1) * 4);
+	else
+		pickup->m_bits.m_bits = 0;
+
+	m_pool.push_back(pickup);
 }
 
 /* @socom-skeleton stub DestroyNetPickups__7CPickupFUc */
@@ -107,28 +280,129 @@ void CPickup::DestroyNetPickups(unsigned char)
 }
 
 /* @socom-skeleton stub GetFirst__7CPickupFv */
-void CPickup::GetFirst()
+std::list<CPickup *>::iterator CPickup::GetFirst()
 {
+	/* 0x24cbe0: the list's first node */
+	return m_list.begin();
 }
 
 /* @socom-skeleton stub GetNext__7CPickupFRQ33std44list<P7CPickup,Q23std20allocator<P7CPickup>>19generic_iterator<0>Q27CPickup7PU_TYPE */
-void CPickup::GetNext(std::list<CPickup *>::iterator &, CPickup::PU_TYPE)
+CPickup * CPickup::GetNext(std::list<CPickup *>::iterator &it, CPickup::PU_TYPE type)
 {
+	/* 0x24cb40: from the iterator on, the next pickup of the type (0: any); the iterator is left
+	 * past it. v0 = the pickup, NULL at the end. */
+	if (m_list.size() == 0)
+		return NULL;
+
+	while (it != m_list.end())
+	{
+		CPickup *pickup = *it;
+		++it;
+
+		if ((u8)type == 0 || pickup->m_type == (u8)type)
+			return pickup;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub GetNext__7CPickupFRQ33std44list<P7CPickup,Q23std20allocator<P7CPickup>>19generic_iterator<0>PC6CPnt3DfQ27CPickup7PU_TYPE */
-void CPickup::GetNext(std::list<CPickup *>::iterator &, const CPnt3D *, float, CPickup::PU_TYPE)
+CPickup * CPickup::GetNext(std::list<CPickup *>::iterator &it, const CPnt3D *pos, float radius, CPickup::PU_TYPE type)
 {
+	/* 0x24ca00 (TickPickups: ammo boxes within 20): from the iterator on, the next pickup of the
+	 * type (0: any) whose node is within the radius of the point; the iterator is left past
+	 * it. v0 = the pickup, NULL at the end. */
+	if (m_list.size() == 0)
+		return NULL;
+
+	f32 range = radius * radius;
+
+	while (it != m_list.end())
+	{
+		CPickup *pickup = *it;
+		++it;
+
+		if ((u8)type != 0 && pickup->m_type != (u8)type)
+			continue;
+
+		/* port: guard (the ELF subtracts from a NULL node's position) */
+		if (pickup->m_node == NULL)
+			continue;
+
+		CPnt3D delta;
+		((CPnt3D *)&pickup->m_node->m_matrix.m_matrix[3][0])->Sub(pos, &delta);
+
+		if (delta.x * delta.x + delta.y * delta.y + delta.z * delta.z < range)
+			return pickup;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub GetClosest__7CPickupFPC6CPnt3DfQ27CPickup7PU_TYPEPP7CPickup */
-void CPickup::GetClosest(const CPnt3D *, float, CPickup::PU_TYPE, CPickup **)
+CPickup * CPickup::GetClosest(const CPnt3D *pos, float radius, CPickup::PU_TYPE type, CPickup **secondary)
 {
+	/* 0x24c840 (GetReticuleWeapon, GetProximityWeapon, GetProximityMPBomb): the closest pickup of
+	 * the type (0: any) within the radius (squared + 1); with an out pointer the closest
+	 * secondary weapon (a pistol, type 8) goes there instead and is not a candidate. v0 = the
+	 * closest. */
+	CPickup *best = NULL;
+
+	if (m_list.size() == 0)
+		return NULL;
+
+	f32 best_d = 1.0f + radius * radius;
+	f32 second_d = best_d;
+
+	for (std::list<CPickup *>::iterator it = m_list.begin(); it != m_list.end(); ++it)
+	{
+		CPickup *pickup = *it;
+		u32 kind = pickup->m_type;
+
+		if ((u8)type != 0 && (u8)type != kind)
+			continue;
+
+		/* port: guard (the ELF subtracts from a NULL node's position) */
+		if (pickup->m_node == NULL)
+			continue;
+
+		CPnt3D delta;
+		((CPnt3D *)&pickup->m_node->m_matrix.m_matrix[3][0])->Sub(pos, &delta);
+		f32 d = delta.x * delta.x + delta.y * delta.y + delta.z * delta.z;
+
+		if (secondary != NULL && kind == PU_WEAPON && pickup->m_secondary)
+		{
+			if (d < second_d)
+			{
+				*secondary = pickup;
+				second_d = d;
+			}
+		}
+		else if (d < best_d)
+		{
+			best_d = d;
+			best = pickup;
+		}
+	}
+
+	return best;
 }
 
 /* @socom-skeleton stub FindPickup__7CPickupFUi */
-CPickup * CPickup::FindPickup(unsigned int)
+CPickup * CPickup::FindPickup(unsigned int id)
 {
+	/* 0x24c7a0: the listed pickup with the id (16 bits compared with the whole argument: -1
+	 * finds none) */
+	if (m_list.size() == 0)
+		return NULL;
+
+	for (std::list<CPickup *>::iterator it = m_list.begin(); it != m_list.end(); ++it)
+	{
+		if ((*it)->m_id == id)
+			return *it;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub IsNetIdUsed__7CPickupFUcUc */
@@ -147,18 +421,64 @@ CPickup * CPickup::FindNetPickup(unsigned int)
 }
 
 /* @socom-skeleton stub CleanupAmmoPickup__7CPickupFP7CPickup */
-void CPickup::CleanupAmmoPickup(CPickup *)
+void CPickup::CleanupAmmoPickup(CPickup *pickup)
 {
+	/* 0x24c4c0 (network HandlePickupAck): an ammo box loses its entries without weapon and
+	 * ammo and goes when none is left; a weapon pickup without its weapon goes */
+	u32 type = pickup->m_type;
+
+	if (type == PU_AMMO)
+	{
+		CZAmmoPickupInstance *ammo = static_cast<CZAmmoPickupInstance *>(pickup->m_data);
+		u32 i = 0;
+
+		while (i < ammo->m_weapons.size())
+		{
+			if (ammo->m_weapons[i] == NULL && ammo->m_ammo[i] == NULL)
+			{
+				ammo->m_weapons.erase(ammo->m_weapons.begin() + i);
+				ammo->m_ammo.erase(ammo->m_ammo.begin() + i);
+				ammo->m_counts.erase(ammo->m_counts.begin() + i);
+			}
+			else
+			{
+				i++;
+			}
+		}
+
+		if (ammo->m_weapons.size() == 0)
+			Destroy(pickup);
+	}
+	else if (type == PU_WEAPON && pickup->m_data == NULL)
+	{
+		Destroy(pickup);
+	}
 }
 
 /* @socom-skeleton stub GetMPBomb__7CPickupFv */
 CPickup * CPickup::GetMPBomb()
 {
+	/* 0x24c420: the first listed MP bomb pickup (11) */
+	if (m_list.size() == 0)
+		return NULL;
+
+	for (std::list<CPickup *>::iterator it = m_list.begin(); it != m_list.end(); ++it)
+	{
+		if ((*it)->m_type == PU_MPBOMB)
+			return *it;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub GetPosW__7CPickupCFv */
 CPnt3D * CPickup::GetPosW() const
 {
+	/* 0x24c400: the node's position (row 3), NULL without a node */
+	if (m_node == NULL)
+		return NULL;
+
+	return (CPnt3D *)&m_node->m_matrix.m_matrix[3][0];
 }
 
 /* @socom-skeleton stub GetPickupNetEntityID__7CPickupFv */
