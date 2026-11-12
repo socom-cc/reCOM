@@ -116,6 +116,12 @@
 #include "gamez/zAnim/zanim.h" /* ZAnim */
 #include <math.h> /* sqrtf */
 #include <stdlib.h> /* rand */
+#include <vector> /* CTGoto::Begin's waypoints */
+#include <strings.h> /* strcasecmp */
+#include <string.h> /* strlen */
+#include "gamez/zSound/zsnd.h" /* CSnd (CTSound) */
+#include "gamez/zValve/zvalve.h" /* VALVE_CMD_DATA (CTValve) */
+#include "gamez/zEntity/zentity.h" /* CEntity::m_list (CTLookAt) */
 /* @socom-skeleton decl forward */
 class TASK_SELECT;
 struct _zanim_cmd_hdr;
@@ -211,6 +217,75 @@ struct TASK_PURSUE : public TASK_HDR /* ai::PURSUE (Parse 0x2b81a0) */
 {
 	f32 m_duration; /* +0x08 (-1 by default) */
 };
+
+struct TASK_GOTO : public TASK_HDR /* ai::GOTO (Begin 0x2bc300, Parse 0x2bc4f0) */
+{
+	f32 m_speed;          /* +0x08 the AI's speed (0..1) */
+	u16 m_wait : 1;       /* +0x0c the script waits for the arrival */
+	u16 m_armed : 1;      /* Begin routes only when set; it clears it, End sets it on arrival */
+	u16 m_count : 8;      /* the locations */
+	u16 m_unused : 4;
+	u16 m_waypoints : 1;  /* bit 14: a route through all of them, else one picked at random */
+	u16 m_random : 1;     /* bit 15: a random spot of each location's region */
+	u32 m_locs[1];        /* +0x10 m_count locations, map id << 26 | x << 13 | y */
+};
+
+struct TASK_LOOKAT : public TASK_HDR /* ai::LOOKAT (Tick 0x2badf0, Begin 0x2bb0b0) */
+{
+	Rfloat m_time;    /* +0x08 how long (min, range; -1: until the next look) */
+	f32 m_timer;      /* +0x10 Begin: the time drawn */
+	f32 m_rate;       /* +0x14 the turn rate */
+	u8 m_mode : 4;    /* +0x18: 1 a point, 2 an entity, 3 nothing, 4 an AI map direction */
+	u8 m_unused : 4;
+	u8 m_pad[2];
+	u8 m_dir;         /* +0x1b CAiMap::DIR (mode 4) */
+	CPnt3D m_pos;     /* +0x1c (mode 1) */
+	s32 m_entity;     /* +0x28 the entity's id: -1 none, -3 not looked up yet (by m_name) */
+	char m_name[4];   /* +0x2c the entity's name ("player": the first entity) */
+};
+
+struct TASK_WAIT : public TASK_HDR /* ai::WAIT (Begin 0x2b4230, Tick 0x2b4030) */
+{
+	Rfloat m_wait; /* +0x08 the time (-1: forever) */
+	f32 m_timer;   /* +0x10 */
+};
+
+struct TASK_VALVE : public TASK_HDR /* ai::VALVE (Tick 0x2b4450) */
+{
+	VALVE_CMD_DATA m_cmd; /* +0x08 the compare (m_valve filled in by Tick) */
+	u8 m_which;           /* +0x14 SEAL_VALVE: the AI's own valve */
+};
+
+struct TASK_STATE : public TASK_HDR /* ai::STATE (Tick 0x2b5820) */
+{
+	u8 m_state;       /* +0x08 AI_STATE */
+	u32 m_flags;      /* +0x0c RUSH: or'd into the state's flags */
+	f32 m_unused;     /* +0x10 */
+	f32 m_time;       /* +0x14 RUSH */
+	CPnt3D m_offset;  /* +0x18 FOLLOW: the offset; RUSH: +0x18 the range */
+	char m_names[4];  /* +0x24 the entity name */
+};
+
+struct TASK_SOUND : public TASK_HDR /* ai::SOUND (Tick 0x2b64b0) */
+{
+	u8 m_aware;                 /* +0x08 the most aware the seal may be; non-zero: attached;
+	                             * bit 0: wait for the sound (port: one byte, as the ELF reads) */
+	u8 m_pending : 1;           /* +0x09 set by Begin */
+	u8 m_unused : 7;
+	u16 m_count;                /* +0x0a the sound names */
+	CSndInstance *m_instance;   /* +0x0c */
+	char m_names[4];            /* +0x10 the entity's name, then the sound names */
+};
+
+/* inline in CTGoto::Begin: a task location word as a CAiMapLoc */
+static CAiMapLoc task_loc(u32 word)
+{
+	CAiMapLoc loc;
+	loc.m_mapid = (word >> 26) & 0x3f;
+	loc.x = (word >> 13) & 0x1fff;
+	loc.y = word & 0x1fff;
+	return loc;
+}
 
 /* 0x2b4190: the index-th command argument of that command type of the running anim (the
  * select tasks: the AI's own, or the one CNodeAction::ExecuteAction passes for the seal
@@ -457,19 +532,136 @@ _zanim_cmd_hdr* CTGoto::Parse(_zrdr* reader)
 /* @socom-skeleton body Begin__6CTGotoFP14_zanim_cmd_hdr */
 void CTGoto::Begin(_zanim_cmd_hdr* header)
 {
+	/* 0x2bc300: an armed goto routes the AI to one of its locations (picked at random when
+	 * there are several and they are not all waypoints) or through all of them, each a
+	 * random spot of the location's region with bit 15; then (armed or not) the AI's speed is
+	 * set, path mode on, standing, and the task disarmed (End re-arms it on arrival) */
+	TASK_GOTO *task = reinterpret_cast<TASK_GOTO *>(header);
+	CZSealBody *seal = taskSeal(task->m_seal_index);
+	CSealCtrl *ctrl = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control) : NULL;
+	CSealCtrlAi *ai = ctrl != NULL ? ctrl->GetSealCtrlAi() : NULL;
 
+	if (seal == NULL || ctrl == NULL || ai == NULL)
+		return;
+
+	if (!task->m_armed)
+		return;
+
+	bool ok = false;
+	int count = task->m_count;
+
+	if (!task->m_waypoints || count == 1)
+	{
+		CAiMapLoc goal;
+		goal.m_mapid = 0;
+		goal.x = 0;
+		goal.y = 0; /* CAiMapLoc::invalid */
+		int i = 0;
+
+		if (count >= 2)
+			i = rand() % count;
+
+		CAiMapLoc loc = task_loc(task->m_locs[i]);
+
+		if (task->m_random)
+		{
+			CAiMap::region *region = AiMaps.GetRegion(loc);
+
+			if (region != NULL)
+				AiMaps.GetRandomLoc(region, goal);
+		}
+		else
+			goal = loc;
+
+		if (goal.x != 0 || goal.y != 0)
+			ok = ai->SetRoute(goal);
+	}
+	else if (count >= 2)
+	{
+		std::vector<CAiMapLoc> goals;
+		goals.reserve(count);
+
+		for (int i = 0; i < count; i++)
+		{
+			CAiMapLoc loc = task_loc(task->m_locs[i]);
+
+			if (task->m_random)
+			{
+				CAiMap::region *region = AiMaps.GetRegion(loc);
+				CAiMapLoc spot;
+
+				if (region != NULL && AiMaps.GetRandomLoc(region, spot))
+					goals.push_back(spot);
+			}
+			else
+				goals.push_back(loc);
+		}
+
+		ok = ai->SetRoute(goals.data(), goals.size());
+	}
+
+	if (ok && ai->m_debug)
+	{
+		/* ELF: also when aiDebugEnabled__11CSealCtrlAi (0x475d64) */
+		ai->Debug("CTGoto -- SetRoute() OK!\n");
+		ai->m_path.PrintPath();
+	}
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("AI: %s: GOTO (%d:%d,%d) x%d speed %.2f -> %s", seal->m_node->m_name, task->m_locs[0] >> 26, (task->m_locs[0] >> 13) & 0x1fff, task->m_locs[0] & 0x1fff, count, task->m_speed, ok ? "route" : "NO ROUTE");
+#endif
+	f32 speed = task->m_speed;
+	ai->m_speed = speed < 0.0f ? 0.0f : (speed > 1.0f ? 1.0f : speed); /* _saturate<f> 0..1 */
+	ai->SetAiMode(AIM_PATH);
+	ai->SetStance((SEAL_STANCE)0);
+	task->m_armed = 0;
 }
 
 /* @socom-skeleton body Tick__6CTGotoFP14_zanim_cmd_hdrPf */
 bool CTGoto::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
-	return false;
+	/* 0x2bc210: a waiting goto (bit 0) holds the script until the route is complete; the
+	 * frame's time is used up either way */
+	TASK_GOTO *task = reinterpret_cast<TASK_GOTO *>(header);
+	CZSealBody *seal = taskSeal(task->m_seal_index);
+	CSealCtrl *ctrl = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control) : NULL;
+	CSealCtrlAi *ai = ctrl != NULL ? ctrl->GetSealCtrlAi() : NULL;
+
+	if (seal == NULL || ctrl == NULL || ai == NULL)
+	{
+		*dT = 0.0f;
+		return true;
+	}
+
+	bool done = ai->GetRouteComplete();
+	*dT = 0.0f;
+
+	if (!task->m_wait)
+		return true;
+
+	return done;
 }
 
 /* @socom-skeleton body End__6CTGotoFP14_zanim_cmd_hdr */
 void CTGoto::End(_zanim_cmd_hdr* header)
 {
+	/* 0x2bc100: arrived: the goto is armed again for the next time the script reaches it */
+	TASK_GOTO *task = reinterpret_cast<TASK_GOTO *>(header);
+	CZSealBody *seal = taskSeal(task->m_seal_index);
+	CSealCtrl *ctrl = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control) : NULL;
+	CSealCtrlAi *ai = ctrl != NULL ? ctrl->GetSealCtrlAi() : NULL;
 
+	if (seal == NULL || ctrl == NULL || ai == NULL)
+		return;
+
+	if (!ai->GetRouteComplete())
+		return;
+
+	ai->Debug("CTGoto::End()\n");
+	task->m_armed = 1;
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("AI: %s: GOTO arrived (%d:%d,%d)", seal->m_node->m_name, seal->m_mapLocValid.m_mapid, seal->m_mapLocValid.x, seal->m_mapLocValid.y);
+#endif
 }
 
 /* @socom-skeleton body Parse__6CTHoldFP5_zrdr */
@@ -572,12 +764,109 @@ _zanim_cmd_hdr* CTLookAt::Parse(_zrdr* reader)
 /* @socom-skeleton body Begin__8CTLookAtFP14_zanim_cmd_hdr */
 void CTLookAt::Begin(_zanim_cmd_hdr* header)
 {
+	/* 0x2bb0b0: the look's time is drawn */
+	TASK_LOOKAT *task = reinterpret_cast<TASK_LOOKAT *>(header);
+	CZSealBody *seal = taskSeal(task->m_seal_index);
+	CSealCtrl *ctrl = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control) : NULL;
 
+	if (seal == NULL || ctrl == NULL || ctrl->GetSealCtrlAi() == NULL)
+		return;
+
+	f32 t = task->m_time.m_min;
+
+	if (task->m_time.m_range != 0.0f)
+		t = task->m_time.m_min + task->m_time.m_range * ((f32)rand() * (1.0f / 2147483648.0f));
+
+	task->m_timer = t;
 }
 
 /* @socom-skeleton body Tick__8CTLookAtFP14_zanim_cmd_hdrPf */
 bool CTLookAt::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
+	/* 0x2badf0: every tick the AI is told to look (as a task look, 5) at the point, the
+	 * entity or the direction, at the task's rate; the task ends when its time runs out (the
+	 * look cleared) or at once for an endless look (left on for 3 s) */
+	TASK_LOOKAT *task = reinterpret_cast<TASK_LOOKAT *>(header);
+	CZSealBody *seal = taskSeal(task->m_seal_index);
+	CSealCtrl *ctrl = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control) : NULL;
+	CSealCtrlAi *ai = ctrl != NULL ? ctrl->GetSealCtrlAi() : NULL;
+
+	if (seal == NULL || ai == NULL)
+	{
+		*dT = 0.0f;
+		return true;
+	}
+
+	bool set = false;
+
+	switch (task->m_mode)
+	{
+	case 1:
+		set = ctrl->SetLookPosW(AIL_TASK, &task->m_pos);
+		break;
+
+	case 2:
+	{
+		CEntity *entity = NULL;
+
+		if (task->m_entity != CEntity::invalidId)
+		{
+			if (task->m_entity == -3) /* CEntity::unknownId 0x44cd80 */
+			{
+				entity = CEntity::m_list.GetEntity(task->m_name);
+
+				if (entity != NULL)
+					task->m_entity = entity->m_id;
+				else if (strcasecmp(task->m_name, "player") == 0)
+				{
+					entity = CEntity::m_list.GetEntityByIndex(0);
+
+					if (entity != NULL)
+						task->m_entity = entity->m_id;
+				}
+			}
+			else
+				entity = CEntity::m_list.GetEntityById(task->m_entity);
+		}
+
+		if (entity != NULL)
+			set = ctrl->SetLookPosW(AIL_TASK, entity->GetPosW());
+
+		break;
+	}
+
+	case 4:
+		set = ctrl->SetLookDirW(AIL_TASK, (CAiMap::DIR)task->m_dir);
+		break;
+
+	default:
+		break;
+	}
+
+	if (set)
+	{
+		ctrl->SetLookRate(task->m_rate);
+		ctrl->SetLookFlags(1);
+	}
+
+	if (task->m_timer == CAiTimer::infinite)
+	{
+		ctrl->SetLookTimer(3.0f);
+		*dT = 0.0f;
+		return true;
+	}
+
+	task->m_timer -= *dT;
+	bool done = task->m_timer != CAiTimer::infinite && task->m_timer <= 0.0f;
+	*dT = 0.0f;
+
+	if (done)
+	{
+		ctrl->ClearLook(AIL_ALL);
+		return true;
+	}
+
+	ctrl->SetLookTimer(task->m_timer);
 	return false;
 }
 
@@ -1351,19 +1640,97 @@ _zanim_cmd_hdr* CTSound::Parse(_zrdr* reader)
 /* @socom-skeleton body Begin__7CTSoundFP14_zanim_cmd_hdr */
 void CTSound::Begin(_zanim_cmd_hdr* header)
 {
-
+	/* 0x2b6820: the sound is due; no instance yet */
+	TASK_SOUND *task = reinterpret_cast<TASK_SOUND *>(header);
+	task->m_pending = 1;
+	task->m_instance = NULL;
 }
 
 /* @socom-skeleton body End__7CTSoundFP14_zanim_cmd_hdr */
 void CTSound::End(_zanim_cmd_hdr* header)
 {
+	/* 0x2b67e0: the instance is let finish on its own */
+	TASK_SOUND *task = reinterpret_cast<TASK_SOUND *>(header);
 
+	if (task->m_instance != NULL)
+		task->m_instance->TerminateOnFinish();
+
+	task->m_instance = NULL;
 }
 
 /* @socom-skeleton body Tick__7CTSoundFP14_zanim_cmd_hdrPf */
-bool CTSound::Tick(_zanim_cmd_hdr* header, f32* delta)
+bool CTSound::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
-	return false;
+	/* 0x2b64b0: once, one of the task's sounds (picked at random from the names after the
+	 * entity name; the entity, else the select's seal) is played by a seal whose AI is not
+	 * more aware than m_aware: attached to it (m_aware non-zero: the sound's +0x20 set to 2)
+	 * or at its position. The task then holds while the instance plays when m_aware's bit 0
+	 * is set (ELF: the answer is IsPlaying itself), else it is done.
+	 * port: +0x8's bits are not separated (no Parse read): m_aware is used whole as the ELF
+	 * does */
+	TASK_SOUND *task = reinterpret_cast<TASK_SOUND *>(header);
+	CZSealBody *seal = taskSeal(task->m_seal_index);
+	bool done = true;
+
+	if (task->m_pending)
+	{
+		const char *entity = task->m_names;
+		u32 pick = task->m_count - 1 != 0 ? (u32)(rand() % task->m_count) + 1 : 1;
+		const char *name = NULL;
+
+		if (!(*(u32 *)&task->m_aware < pick)) /* ELF quirk kept: the whole word against the pick */
+		{
+			name = task->m_names;
+
+			for (u32 i = pick; i != 0; i--)
+				name += strlen(name) + 1;
+		}
+
+		if (name == NULL)
+		{
+			*dT = 0.0f;
+			return true;
+		}
+
+		if (entity[0] != '\0')
+		{
+			CEntity *e = CEntity::m_list.GetEntity(entity);
+			seal = e != NULL && e->m_type == CEntity::ENT_TYPE_SEAL ? static_cast<CZSealBody *>(e) : NULL;
+		}
+
+		if (seal != NULL)
+		{
+			CSealCtrl *ctrl = static_cast<CSealCtrl *>(seal->m_control);
+			u32 aware = 0;
+
+			if (ctrl != NULL && ctrl->IsAi())
+				aware = ctrl->GetSealCtrlAi()->GetAiAware();
+
+			if (!((u32)task->m_aware < aware))
+			{
+				CSnd *snd = CSnd::GetSoundByName(name);
+
+				if (snd != NULL)
+				{
+					if (task->m_aware != 0)
+					{
+						*((u8 *)snd + 0x20) = 2; /* port: CSnd +0x20 unnamed */
+						task->m_instance = snd->PlaySound((CSndInstance *)NULL, seal->m_id);
+					}
+					else
+						task->m_instance = snd->PlaySound3D(seal->GetPosW(), 1.0f, 0, NULL, seal->m_id);
+				}
+			}
+		}
+
+		task->m_pending = 0;
+	}
+
+	if (!task->m_pending && (task->m_aware & 1) && task->m_instance != NULL)
+		done = task->m_instance->IsPlaying();
+
+	*dT = 0.0f;
+	return done;
 }
 
 /* @socom-skeleton body Parse__9CTSpecialFP5_zrdr */
@@ -1454,7 +1821,22 @@ _zanim_cmd_hdr* CTState::Parse(_zrdr* reader)
 /* @socom-skeleton body Tick__7CTStateFP14_zanim_cmd_hdrPf */
 bool CTState::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
-	return false;
+	/* 0x2b5820: the AI state is pushed (critical); a FOLLOW state gets its master (the
+	 * entity named after the task's strings) and offset (+0x18), a RUSH state its
+	 * parameters (+0x14 time, +0x18 range squared, flags +0xc) and target (that seal, else
+	 * the AI's target); always done.
+	 * port: those two states' set-up is not written - their Ticks are unwritten and
+	 * CanPushAiState refuses them, so the push fails before it */
+	TASK_STATE *task = reinterpret_cast<TASK_STATE *>(header);
+	CZSealBody *seal = taskSeal(task->m_seal_index);
+	CSealCtrlAi *ai = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi() : NULL;
+	*dT = 0.0f;
+
+	if (ai == NULL)
+		return true;
+
+	ai->PushAiState((AI_STATE)task->m_state, true);
+	return true;
 }
 
 /* @socom-skeleton body Parse__9CTStopAllFP5_zrdr */
@@ -1514,7 +1896,20 @@ _zanim_cmd_hdr* CTValve::Parse(_zrdr* reader)
 /* @socom-skeleton body Tick__7CTValveFP14_zanim_cmd_hdrPf */
 bool CTValve::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
-	return false;
+	/* 0x2b4450: the AI's own valve (SEAL_VALVE) is compared as the task says; without an AI
+	 * it is done */
+	TASK_VALVE *task = reinterpret_cast<TASK_VALVE *>(header);
+	CZSealBody *seal = taskSeal(task->m_seal_index);
+	CSealCtrlAi *ai = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi() : NULL;
+	*dT = 0.0f;
+
+	if (ai == NULL)
+		return true;
+
+	task->m_cmd.m_valve = (u32)ai->GetValve((SEAL_VALVE)task->m_which);
+	bool ok = task->m_cmd.Compare();
+	task->m_cmd.m_valve = 0;
+	return ok;
 }
 
 /* @socom-skeleton body Parse__6CTWaitFP5_zrdr */
@@ -1526,11 +1921,41 @@ _zanim_cmd_hdr* CTWait::Parse(_zrdr* reader)
 /* @socom-skeleton body Begin__6CTWaitFP14_zanim_cmd_hdr */
 void CTWait::Begin(_zanim_cmd_hdr* header)
 {
+	/* 0x2b4230: the wait's time is drawn (the select's controller is asked for its AI, the
+	 * answer is not used) */
+	TASK_WAIT *task = reinterpret_cast<TASK_WAIT *>(header);
+	f32 t = task->m_wait.m_min;
 
+	if (task->m_wait.m_range != 0.0f)
+		t = task->m_wait.m_min + task->m_wait.m_range * ((f32)rand() * (1.0f / 2147483648.0f));
+
+	task->m_timer = t;
 }
 
 /* @socom-skeleton body Tick__6CTWaitFP14_zanim_cmd_hdrPf */
 bool CTWait::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
-	return false;
+	/* 0x2b4030: done when the time has run out (never for -1); the time is drawn again for
+	 * the next pass; the frame's time is used up */
+	TASK_WAIT *task = reinterpret_cast<TASK_WAIT *>(header);
+	bool done = false;
+
+	if (task->m_timer != CAiTimer::infinite)
+	{
+		task->m_timer -= *dT;
+		done = task->m_timer != CAiTimer::infinite && task->m_timer <= 0.0f;
+
+		if (done)
+		{
+			f32 t = task->m_wait.m_min;
+
+			if (task->m_wait.m_range != 0.0f)
+				t = task->m_wait.m_min + task->m_wait.m_range * ((f32)rand() * (1.0f / 2147483648.0f));
+
+			task->m_timer = t;
+		}
+	}
+
+	*dT = 0.0f;
+	return done;
 }

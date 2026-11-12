@@ -57,9 +57,19 @@
 /* @socom-skeleton decl include */
 #include "zai.h"
 /* @socom-skeleton end include */
+#include "gamez/zSeal/zseal.h" /* ai::AbortPathPlan (Clear) */
+#include <math.h> /* sqrtf, acosf */
+#include <algorithm> /* remove_if */
 /* @socom-skeleton decl forward */
 class MAP_LINEWALK_STRUCT;
 /* @socom-skeleton end forward */
+
+/* inline in the ELF (PostProcess 0x195210, SmoothPath 0x195130: find, remove_copy, erase): the
+ * points SmoothPathLeg set to CAiMapLoc::invalid (x and y 0) are dropped */
+static void remove_invalid(CAiPath::points &points)
+{
+	points.erase(std::remove_if(points.begin(), points.end(), [](const CAiPath::point &p) { return p.m_loc.x == 0 && p.m_loc.y == 0; }), points.end());
+}
 
 /* @socom-skeleton stub invalid__9CAiMapLoc */
 const unsigned char CAiMapLoc::invalid[4] = {0};
@@ -109,21 +119,63 @@ CAiPath::CAiPath()
 /* @socom-skeleton stub __dt__7CAiPathFv */
 CAiPath::~CAiPath()
 {
+	/* 0x196650: the members' vectors are released (implicit here) */
 }
 
 /* @socom-skeleton stub GetLength__7CAiPathFb */
-float CAiPath::GetLength(bool)
+float CAiPath::GetLength(bool force)
 {
+	/* 0x196510: the path's length in cells, the straight steps between consecutive points on
+	 * the same map summed; kept in m_length until it is zero or a recount is forced */
+	if (m_points.size() == 0)
+	{
+		m_length = 0.0f;
+		return m_length;
+	}
+
+	if (m_length == 0.0f || force)
+	{
+		m_length = 0.0f;
+		CAiMapLoc prev = m_points[0].m_loc;
+
+		for (u32 i = 1; i < m_points.size(); i++)
+		{
+			CAiMapLoc loc = m_points[i].m_loc;
+
+			if (loc.m_mapid == prev.m_mapid)
+			{
+				int dx = (int)prev.x - (int)loc.x;
+				int dy = (int)prev.y - (int)loc.y;
+				m_length += sqrtf((f32)(dx * dx + dy * dy));
+			}
+
+			prev = loc;
+		}
+	}
+
+	return m_length;
 }
 
 /* @socom-skeleton stub GetLegPoints__7CAiPathCFR9CAiMapLocR9CAiMapLoci */
-void CAiPath::GetLegPoints(CAiMapLoc &, CAiMapLoc &, int) const
+bool CAiPath::GetLegPoints(CAiMapLoc &start, CAiMapLoc &goal, int leg) const
 {
+	/* 0x1964b0: a leg's start and goal (-1: the leg being planned) */
+	u32 i = leg == -1 ? m_planleg : (u32)leg;
+
+	if (i >= m_legcount)
+		return true; /* ELF quirk kept: 1 with the outputs untouched */
+
+	start = m_waypts[i * 2];
+	goal = m_waypts[i * 2 + 1];
+	return true;
 }
 
 /* @socom-skeleton stub GetLegMap__7CAiPathFi */
-void CAiPath::GetLegMap(int)
+CAiMap * CAiPath::GetLegMap(int leg)
 {
+	/* 0x196470: a leg's map (-1: the leg being planned), NULL past the last */
+	u32 i = leg == -1 ? m_planleg : (u32)leg;
+	return i < m_legcount ? m_maps[i] : NULL;
 }
 
 /* @socom-skeleton stub GetLegBoundary__7CAiPathCFRiRii */
@@ -134,56 +186,285 @@ void CAiPath::GetLegBoundary(int &, int &, int) const
 /* @socom-skeleton stub plan_setup__7CAiPathFv */
 void CAiPath::plan_setup()
 {
+	/* 0x1961a0: an empty plan */
+	m_points.clear();
+	m_waypts.clear();
+	m_maps.clear();
+	m_stats.nodes_searched = 0;
+	m_stats.nodes_added = 0;
+	m_stats.nodes_removed = 0;
+	m_stats.nodes_visited = 0;
+	m_stats.nodes_left = 0;
+	m_stats.path_length = 0;
+	m_stats.path_cost = 0;
+	m_stats.m_ticks = 0;
+	m_stats.m_time = 0.0f;
+	m_stats.m_visited.clear();
+	m_state = ::PATH_STATE::UNKNOWN;
+	m_legcount = 0;
+	m_planleg = 0;
 }
 
 /* @socom-skeleton stub plan_addleg__7CAiPathFP6CAiMapRC9CAiMapLocRC9CAiMapLoc */
-void CAiPath::plan_addleg(CAiMap *, const CAiMapLoc &, const CAiMapLoc &)
+bool CAiPath::plan_addleg(CAiMap *map, const CAiMapLoc &start, const CAiMapLoc &goal)
 {
+	/* 0x195b90: a leg on one map, between two cells someone can walk on */
+	CAiCell *cell = map->GetCell(start);
+
+	if (cell == NULL || !CAiMap::IsWalkable(cell))
+		return false;
+
+	cell = map->GetCell(goal);
+
+	if (cell == NULL || !CAiMap::IsWalkable(cell))
+		return false;
+
+	if (m_flags & 0x20)
+	{
+		/* ELF: with flag 0x20 (cleared while it runs) a leg between two regions of type 4
+		 * (CAiMap::GetRegionContaining) is split along the map graph's route between them
+		 * (CGraph::GetNodeByNodeEx / BuildRoute / FindEdge), one plan_addleg per edge point,
+		 * and the leg itself is then not added.
+		 * port: not written (GetRegionContaining 0x19e970, CGraph::BuildRoute 0x20fa60 and
+		 * CGRoute are unwritten): the leg is planned direct */
+	}
+
+	m_waypts.push_back(start);
+	m_waypts.push_back(goal);
+	m_maps.push_back(map);
+	m_legcount++;
+	return true;
 }
 
 /* @socom-skeleton stub plan_complete__7CAiPathFQ27CAiPath10PATH_STATE */
-void CAiPath::plan_complete(CAiPath::PATH_STATE)
+void CAiPath::plan_complete(CAiPath::PATH_STATE state)
 {
+	/* 0x195af0 */
+	m_state = (::PATH_STATE)state;
+	m_planleg = 0;
+	m_curleg = 0;
+
+	if (m_flags & 1)
+		SmoothPath();
+
+	UpdatePointFlags();
+
+	if (m_flags & 2)
+		UpdateTurnAngles();
+
+	if (m_flags & 4)
+		UpdatePathWidth(5);
+
+	if (m_flags & 0x40)
+		PrintPath();
+
+	m_pathId++;
 }
 
 /* @socom-skeleton stub IncrementPathId__7CAiPathFv */
 void CAiPath::IncrementPathId()
 {
+	/* 0x195ab0 */
+	m_pathId++;
+
+	if (m_flags & 0x40)
+		PrintPath();
 }
 
 /* @socom-skeleton stub plan_legcomplete__7CAiPathFQ27CAiPath10PATH_STATE */
-void CAiPath::plan_legcomplete(CAiPath::PATH_STATE)
+bool CAiPath::plan_legcomplete(CAiPath::PATH_STATE state)
 {
+	/* 0x1959c0: the legs are planned from the last back to the first (the points are kept goal
+	 * first); after a planned leg the one before it is queued, after the first (or a failure)
+	 * the path is done */
+	m_astar = NULL;
+
+	if (state == COMPLETE && m_planleg != 0)
+	{
+		m_planleg--;
+		m_state = ::PATH_STATE::INQUEUE;
+		m_stats.path_length = 0;
+		m_stats.path_cost = 0;
+		m_stats.m_ticks = 0;
+		m_stats.m_time = 0.0f;
+		return true;
+	}
+
+	m_state = (::PATH_STATE)state;
+	m_planleg = 0;
+	m_curleg = 0;
+	PostProcess();
+	m_pathId++;
+	return false;
 }
 
 /* @socom-skeleton stub Clear__7CAiPathFv */
-void CAiPath::Clear()
+bool CAiPath::Clear()
 {
+	/* 0x1958e0: a queued or running plan is aborted first; the state is left as it is */
+	if (m_state == ::PATH_STATE::PLANNING || m_state == ::PATH_STATE::INQUEUE || m_state == ::PATH_STATE::ABORT)
+		ai::AbortPathPlan(this);
+
+	if (m_state == ::PATH_STATE::PLANNING || m_state == ::PATH_STATE::INQUEUE || m_state == ::PATH_STATE::ABORT)
+		return false;
+
+	m_points.clear();
+	m_waypts.clear();
+	m_maps.clear();
+	m_stats.nodes_searched = 0;
+	m_stats.nodes_added = 0;
+	m_stats.nodes_removed = 0;
+	m_stats.nodes_visited = 0;
+	m_stats.nodes_left = 0;
+	m_stats.path_length = 0;
+	m_stats.path_cost = 0;
+	m_stats.m_ticks = 0;
+	m_stats.m_time = 0.0f;
+	m_stats.m_visited.clear();
+	m_legcount = 0;
+	m_planleg = 0;
+	return true;
 }
 
 /* @socom-skeleton stub SetTemplatePath__7CAiPathFP7CAiPath */
-void CAiPath::SetTemplatePath(CAiPath *)
+void CAiPath::SetTemplatePath(CAiPath *path)
 {
+	/* 0x1958d0 */
+	m_template = path;
 }
 
 /* @socom-skeleton stub AppendPathLoc__7CAiPathFRC9CAiMapLocP6CAiMap */
-void CAiPath::AppendPathLoc(const CAiMapLoc &, CAiMap *)
+bool CAiPath::AppendPathLoc(const CAiMapLoc &loc, CAiMap *map)
 {
+	/* 0x195590: a point added at the far end (the front: the points are kept goal first); on
+	 * another map than the last waypoint a leg is added, else the last waypoint moves there */
+	bool ok = false;
+
+	if (m_state == ::PATH_STATE::PLANNING || m_state == ::PATH_STATE::INQUEUE || m_state == ::PATH_STATE::ABORT)
+		return false;
+
+	if (m_points.size() == 0)
+	{
+		point p;
+		p.m_loc = loc;
+		p.m_width = 0;
+		p.m_flags = 0;
+		p.m_unused = 0;
+		p.m_angle = 0.0f;
+		m_points.push_back(p);
+		m_state = ::PATH_STATE::COMPLETE;
+		ok = true;
+	}
+	else if (m_state == ::PATH_STATE::COMPLETE && m_points[0].m_loc.m_mapid == loc.m_mapid)
+	{
+		point p;
+		p.m_loc = loc;
+		p.m_width = 0;
+		p.m_flags = 0;
+		p.m_unused = 0;
+		p.m_angle = 0.0f;
+		m_points.insert(m_points.begin(), p);
+
+		if (m_waypts.size() == 0 || m_waypts.back().m_mapid != loc.m_mapid)
+		{
+			m_waypts.push_back(loc);
+			m_waypts.push_back(loc);
+			m_maps.push_back(map);
+			m_legcount++;
+		}
+		else
+			m_waypts.back() = loc;
+
+		ok = true;
+	}
+
+	if (ok)
+	{
+		m_pathId++;
+
+		if (m_flags & 0x40)
+			PrintPath();
+	}
+
+	return ok;
 }
 
 /* @socom-skeleton stub InsertPathLoc__7CAiPathFRC9CAiMapLocP6CAiMap */
-void CAiPath::InsertPathLoc(const CAiMapLoc &, CAiMap *)
+bool CAiPath::InsertPathLoc(const CAiMapLoc &loc, CAiMap *)
 {
+	/* 0x195380: a point added as the next one to walk to (the back) */
+	bool ok = false;
+
+	if (m_state == ::PATH_STATE::PLANNING || m_state == ::PATH_STATE::INQUEUE || m_state == ::PATH_STATE::ABORT)
+		return false;
+
+	point p;
+	p.m_loc = loc;
+	p.m_width = 0;
+	p.m_flags = 0;
+	p.m_unused = 0;
+	p.m_angle = 0.0f;
+
+	if (m_points.size() == 0)
+	{
+		m_points.push_back(p);
+		m_state = ::PATH_STATE::COMPLETE;
+		ok = true;
+	}
+	else if (m_state == ::PATH_STATE::COMPLETE)
+	{
+		m_points.push_back(p);
+		ok = true;
+	}
+
+	if (ok)
+	{
+		m_pathId++;
+
+		if (m_flags & 0x40)
+			PrintPath();
+	}
+
+	return ok;
 }
 
 /* @socom-skeleton stub PostProcess__7CAiPathFv */
 void CAiPath::PostProcess()
 {
+	/* 0x195210: a completed path is smoothed leg by leg (the points SmoothPathLeg drops are
+	 * set invalid and removed here), then its flags, turn angles and widths are set */
+	if ((m_flags & 1) && m_points.size() != 0 && m_state == ::PATH_STATE::COMPLETE)
+	{
+		for (u32 i = 0; i < m_legcount; i++)
+			SmoothPathLeg(i);
+
+		remove_invalid(m_points);
+	}
+
+	UpdatePointFlags();
+
+	if (m_flags & 2)
+		UpdateTurnAngles();
+
+	if (m_flags & 4)
+		UpdatePathWidth(5);
+
+	if (m_flags & 0x40)
+		PrintPath();
 }
 
 /* @socom-skeleton stub SmoothPath__7CAiPathFv */
-void CAiPath::SmoothPath()
+bool CAiPath::SmoothPath()
 {
+	/* 0x195130: as PostProcess's smoothing */
+	if (m_points.size() == 0 || m_state != ::PATH_STATE::COMPLETE)
+		return false;
+
+	for (u32 i = 0; i < m_legcount; i++)
+		SmoothPathLeg(i);
+
+	remove_invalid(m_points);
+	return true;
 }
 
 /* @socom-skeleton stub _SmoothLineCallback__FRC19MAP_LINEWALK_STRUCTPv */
@@ -199,11 +480,89 @@ void CAiPath::SmoothPathLeg(int)
 /* @socom-skeleton stub UpdateTurnAngles__7CAiPathFv */
 void CAiPath::UpdateTurnAngles()
 {
+	/* 0x194470: each inner point's turn: the angle between the steps into and out of it (in
+	 * walking order); pi/2 where the maps change, 0 at a repeated point. The next point (the
+	 * back) gets 0; the goal (the front) is left as it is. */
+	u32 n = m_points.size();
+
+	if (n < 3)
+		return;
+
+	m_points[n - 1].m_angle = 0.0f;
+
+	for (u32 i = n - 2; i >= 1; i--)
+	{
+		point &a = m_points[i + 1]; /* the point walked from */
+		point &b = m_points[i];
+		point &c = m_points[i - 1]; /* the point walked to */
+
+		if (a.m_loc.m_mapid != b.m_loc.m_mapid || b.m_loc.m_mapid != c.m_loc.m_mapid)
+			b.m_angle = 1.5707964f;
+		else if ((a.m_loc.x == b.m_loc.x && a.m_loc.y == b.m_loc.y) || (c.m_loc.x == b.m_loc.x && c.m_loc.y == b.m_loc.y))
+			b.m_angle = 0.0f;
+		else
+		{
+			CPnt3D in((f32)((int)b.m_loc.x - (int)a.m_loc.x), 0.0f, (f32)((int)b.m_loc.y - (int)a.m_loc.y));
+			CPnt3D out((f32)((int)c.m_loc.x - (int)b.m_loc.x), 0.0f, (f32)((int)c.m_loc.y - (int)b.m_loc.y));
+			in.Normalize();
+			out.Normalize();
+			b.m_angle = acosf(in.x * out.x + in.y * out.y + in.z * out.z);
+		}
+	}
 }
 
 /* @socom-skeleton stub UpdatePointFlags__7CAiPathFv */
 void CAiPath::UpdatePointFlags()
 {
+	/* 0x1940a0: in walking order, the points at a leg's goal (and the one after) get flag 2;
+	 * a point gets 1 when the cell of the point after it is an action cell, and 4 when that
+	 * cell is shaded and walkable or of soil 2, 4, 5 or 12 (ELF: the flags go on the point
+	 * before the cell's) */
+	u32 n = m_points.size();
+
+	if (n < 3)
+		return;
+
+	u32 leg = 0;
+	CAiMap *map = m_legcount != 0 ? m_maps[0] : NULL;
+	CAiMapLoc boundary;
+
+	if (m_legcount != 0)
+		boundary = m_waypts[1];
+	else
+		boundary.x = boundary.y = 0, boundary.m_mapid = 0; /* port: the ELF reads an unset local */
+
+	for (u32 i = n - 1; i >= 1; i--)
+	{
+		point &prev = m_points[i];
+		point &cur = m_points[i - 1];
+
+		if (prev.m_loc.x == boundary.x && prev.m_loc.y == boundary.y)
+		{
+			prev.m_flags |= 2;
+			cur.m_flags |= 2;
+			leg++;
+			map = leg < m_legcount ? m_maps[leg] : NULL;
+
+			if (leg < m_legcount)
+				boundary = m_waypts[leg * 2 + 1];
+
+			continue;
+		}
+
+		CAiCell *cell = map != NULL ? map->GetCell(cur.m_loc) : NULL; /* port: NULL map tested */
+
+		if (cell == NULL)
+			continue;
+
+		if (cell->m_action)
+			prev.m_flags |= 1;
+
+		u32 soil = cell->m_soil;
+
+		if ((cell->m_shadow != 0 && CAiMap::IsWalkable(cell)) || soil == 2 || soil == 4 || soil == 12 || soil == 5)
+			prev.m_flags |= 4;
+	}
 }
 
 /* @socom-skeleton stub UpdatePathWidth__7CAiPathFUi */
@@ -222,8 +581,13 @@ void CAiPath::AddSnakePoint(const CAiMapLoc &)
 }
 
 /* @socom-skeleton stub SetPathType__7CAiPathFQ27CAiPath9PATH_TYPE */
-void CAiPath::SetPathType(CAiPath::PATH_TYPE)
+bool CAiPath::SetPathType(CAiPath::PATH_TYPE type)
 {
+	/* 0x1938f0: not while a plan runs */
+	if (m_state != ::PATH_STATE::PLANNING)
+		m_type = (::PATH_TYPE)type;
+
+	return m_type == (::PATH_TYPE)type;
 }
 
 /* @socom-skeleton stub PassesThrough__7CAiPathFRC9CAiMapLocQ26CAiMap3DIRi */
@@ -234,6 +598,11 @@ void CAiPath::PassesThrough(const CAiMapLoc &, CAiMap::DIR, int)
 /* @socom-skeleton stub PrintPath__7CAiPathCFv */
 void CAiPath::PrintPath() const
 {
+	/* 0x193630: the ELF's output is compiled out (it walks the points and their cell names
+	 * and prints nothing). port: a trace line instead. */
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("AIPATH: path %p state %d status %d legs %u points %u", this, (int)m_state, (int)m_status, m_legcount, (u32)m_points.size());
+#endif
 }
 
 /* @socom-skeleton stub PointInPath__7CAiPathCFRC9CAiMapLocPUi */

@@ -1709,10 +1709,10 @@ public:
 	void SetScanAngle(float);
 	void SetScanRate(float);
 	void SetDefaultLookParams(AI_LOOK);
-	void SetLookPosW(AI_LOOK, const CPnt3D *);
-	void SetLookDirW(AI_LOOK, const CPnt3D *, bool);
-	void SetLookDirW(AI_LOOK, CAiMap::DIR);
-	void SetLookDirR(AI_LOOK, const CPnt3D *, bool);
+	bool SetLookPosW(AI_LOOK, const CPnt3D *); /* 0x2e4600: 0 under a higher look */
+	bool SetLookDirW(AI_LOOK, const CPnt3D *, bool);
+	bool SetLookDirW(AI_LOOK, CAiMap::DIR);
+	bool SetLookDirR(AI_LOOK, const CPnt3D *, bool);
 	void ScanTick(float);
 	unsigned char AllowCommandFOLLOW(CZSealBody *);
 	unsigned char AllowCommandHOLDPOS(CZSealBody *);
@@ -1959,7 +1959,7 @@ public:
 	void SetSnoozing(bool);
 	void SetSleeping(bool);
 	void SetAiMode(AI_MODE);
-	void LadderClimbTick(float);
+	bool LadderClimbTick(float); /* 0x266320: 1 while climbing (PathFollowTick waits) */
 	void PathFollowTick(float);
 	void AllStop(bool);
 	void IdleTick(float);
@@ -1979,16 +1979,16 @@ public:
 	unsigned char SetStanceDelayed(SEAL_STANCE, float);
 	unsigned char DoSetStance(SEAL_STANCE);
 	void SetupAnimations();
-	void GetRouteComplete() const;
+	bool GetRouteComplete() const; /* 0x2615e0: no points left and no plan running */
 	ASTAR_STATUS GetRouteFailed() const;
-	void ClearRoute();
-	void GetDefaultRouteType();
+	bool ClearRoute(); /* 0x261500 returns CAiPath::Clear's answer */
+	CAiPath::PATH_TYPE GetDefaultRouteType();
 	float GetDefaultRouteBias();
-	void SetRoute(const CAiMapLoc &);
-	void SetRoute(const CAiMapLoc *, int);
+	bool SetRoute(const CAiMapLoc &); /* 0x261090 returns 0/1 */
+	bool SetRoute(const CAiMapLoc *, int); /* 0x260eb0 returns 0/1 */
 	void SetRouteType(CAiPath::PATH_TYPE, float);
 	void SetRouteSearchLimit(unsigned int);
-	void GetValve(SEAL_VALVE) const;
+	CValve * GetValve(SEAL_VALVE) const; /* 0x260e30 */
 	unsigned char SetHoldFire(bool);
 	void AnimSignal(CZAnim *, AI_SIGNAL);
 	void ActivateEx(SEAL_TASK, bool, ...);
@@ -2423,14 +2423,14 @@ public:
 	static bool do_aimap_collide; /* do_aimap_collide__2ai 0x475d50 (1 byte): the player also uses the AI map's cell repel (PostComputeNextPosition 0x24fc10); port: defined in zai_holding.cpp */
 	enum LINE_TYPE { }; /* port: unproven: passed by value per the mangled name; kind and enumerators not in DWARF */
 	static void FlushPlannerQueue();
-	void PathPlanBegin(CAiPath *);
+	static bool PathPlanBegin(CAiPath *); /* 0x1810d0 returns 1 */
 	static unsigned char PathPlanAddLeg(CAiMap *, const CAiMapLoc &, const CAiMapLoc &);
-	void PathPlanAbort();
-	void PathPlanExecute();
-	void AbortPathPlan(CAiPath *);
+	static void PathPlanAbort();
+	static void PathPlanExecute();
+	static bool AbortPathPlan(CAiPath *); /* 0x180e30 returns 1 */
 	static void ResetPathPlan();
 	static bool TickPathPlanner(float, void *);
-	static void PathPlanImmediate(CAiMap *, const CAiMapLoc &, const CAiMapLoc &, CAiPath *);
+	static bool PathPlanImmediate(CAiMap *, const CAiMapLoc &, const CAiMapLoc &, CAiPath *); /* 0x180ae0: 0 while the path is being planned */
 	static bool is_moving(const CPnt3D *, float); /* 0x17ec00 returns 0/1 */
 	static float snooze_time; /* snooze_time__2ai 0x475d48 */
 	static int snooze_count; /* snooze_count__2ai 0x475d4c */
@@ -2452,7 +2452,7 @@ public:
 	static void LineTo(const CPnt3D &);
 	void DrawLine(ai::LINE_TYPE, const CPnt3D *, const CPnt3D *);
 	static CPickup * find_closest_ammo(const CPnt3D *, CZKit *, CZWeapon *, float);
-	static int _plan_path;
+	static CAiPath *_plan_path; /* _plan_path__2ai 0x475748: the path PathPlanBegin opened */
 	static int ai_line_color[3];
 	static int ai_line_mask;
 	static float ai_line_opacity;
@@ -2463,7 +2463,16 @@ public:
 	static unsigned char eventNoise[8];
 	static float minTurnAngle;
 	static int pathShortLimit;
-	static int path_queue[6];
+	/* path_queue__2ai 0x49b160 (24 bytes): the MSL list of paths waiting for the planner, then
+	 * three counters (names invented): the longest queue, the paths planned, the planner's
+	 * steps (TickPathPlanner 0x180c00, PathPlanExecute 0x180f00) */
+	struct path_queue_t : public std::list<CAiPath *>
+	{
+		u32 m_peak;
+		u32 m_planned;
+		u32 m_steps;
+	};
+	static path_queue_t path_queue;
 	static float rateRotateMax;
 	static float rateStrafeMax;
 	static float underfire_hit_delta;

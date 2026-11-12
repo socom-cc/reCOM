@@ -353,6 +353,8 @@ namespace sealai
 #include <cstdio>
 #include <cstring>
 #include "gamez/zFTS/zfts.h" /* ftsGetPlayer */
+#include "gamez/zNode/node_action.h" /* CNodeAction (PathFollowTick's doors) */
+#include <math.h> /* fabsf, sqrtf (PathFollowTick) */
 #include "gamez/zNetwork/znet.h" /* theNetwork */
 #include "gamez/zSeal/zseal.h"
 #include "gamez/zSound/zsnd.h"
@@ -1725,12 +1727,18 @@ float CSealCtrl::ComputeTurnThrottle(const CPnt3D *facing, const CPnt3D *goal, f
 }
 
 /* @socom-skeleton stub LadderClimbTick__11CSealCtrlAiFf */
-void CSealCtrlAi::LadderClimbTick(float)
+bool CSealCtrlAi::LadderClimbTick(float)
 {
 	/* @socom-skeleton stub mmt_move$3307 */
 	static float mmt_move;
 	/* @socom-skeleton stub _look$3310 */
 	static const unsigned char _look[12] = {0};
+
+	/* 0x266320 (1932 bytes): an AI on a ladder climbs it and PathFollowTick waits (1).
+	 * port: not written (ladders are another slice): never on a ladder */
+	(void)mmt_move;
+	(void)_look;
+	return false;
 }
 
 /* @socom-skeleton stub awareRangeMin */
@@ -1739,30 +1747,392 @@ static const float awareRangeMin[5] = {0.0f, 0.05000000074505806f, 0.40000000596
 /* @socom-skeleton stub awareRangeMax */
 static const float awareRangeMax[5] = {0.05000000074505806f, 0.4000000059604645f, 0.6000000238418579f, 0.800000011920929f, 1.0f};
 
-/* @socom-skeleton stub _look_ahead__FRC19MAP_LINEWALK_STRUCTPv */
-void _look_ahead(const MAP_LINEWALK_STRUCT &, void *)
+/* PathFollowTick's look-ahead record (the ELF's stack struct passed to _look_ahead as data;
+ * names invented) */
+struct PATH_LOOKAHEAD
 {
+	bool m_blocked;     /* +0x0 an unwalkable cell on the line */
+	bool m_progressed;  /* +0x1 a walkable cell passed */
+	bool m_unused;      /* +0x2 tested by PathFollowTick, never set */
+	f32 m_range;        /* +0x4 the distance looked along (30) */
+	CAiMapLoc m_where;  /* +0x8 the blocked cell */
+	CAiMapLoc m_target; /* +0xc the point looked at */
+};
+
+/* inline in PathFollowTick 0x264e20 (five times): the next point is passed - it becomes the
+ * last location, leaves the path (its back) - and the goal dot is reset */
+static void next_path_point(CSealCtrlAi *ai)
+{
+	if (ai->m_path.m_points.size() != 0)
+	{
+		ai->m_last_loc = ai->m_path.m_points.back().m_loc;
+		ai->m_path.m_points.pop_back();
+	}
+
+	ai->m_pathGoalDot = 0.0f;
+}
+
+/* @socom-skeleton stub _look_ahead__FRC19MAP_LINEWALK_STRUCTPv */
+bool _look_ahead(const MAP_LINEWALK_STRUCT &walk, void *data)
+{
+	/* 0x2661d0: PathFollowTick's look along the line to the next point: up to the point or
+	 * the distance limit; an unwalkable cell stops it (blocked, where); a cell with a link
+	 * (another map) ends it quietly */
+	PATH_LOOKAHEAD *look = (PATH_LOOKAHEAD *)data;
+
+	if (walk.m_loc.x == walk.m_start.x && walk.m_loc.y == walk.m_start.y)
+		return true;
+
+	if (walk.m_loc.x == look->m_target.x && walk.m_loc.y == look->m_target.y)
+		return false;
+
+	if (!(walk.m_dist < look->m_range))
+		return false;
+
+	if (walk.m_cell->m_link)
+		return false;
+
+	if (CAiMap::IsWalkable(walk.m_cell))
+	{
+		look->m_progressed = true;
+		return true;
+	}
+
+	look->m_blocked = true;
+	look->m_where = walk.m_loc;
+	return false;
 }
 
 /* @socom-skeleton stub PathFollowTick__11CSealCtrlAiFf */
-void CSealCtrlAi::PathFollowTick(float)
+void CSealCtrlAi::PathFollowTick(float dT)
 {
 	/* @socom-skeleton stub k_fudge$3241 */
-	static float k_fudge;
+	static float k_fudge = 0.9f;
 	/* @socom-skeleton stub k$3421 */
-	static float k;
+	static float k = 5.0f;
 	/* @socom-skeleton stub stuckThreshold$3433 */
-	static float stuckThreshold;
+	static float stuckThreshold = 1.5f;
 	/* @socom-skeleton stub edge_tolerance$3442 */
-	static float edge_tolerance;
+	static float edge_tolerance = 5.0f;
 	/* @socom-skeleton stub edge_correction_tolerance$3445 */
-	static float edge_correction_tolerance;
+	static float edge_correction_tolerance = 0.5f + 5.0f;
 	/* @socom-skeleton stub tscale_min$3469 */
-	static int tscale_min;
+	static float tscale_min = 1.0f;
 	/* @socom-skeleton stub tscale_max$3472 */
-	static int tscale_max;
+	static float tscale_max = 0.15f;
 	/* @socom-skeleton stub strafeFactor$3478 */
-	static float strafeFactor;
+	static float strafeFactor = 0.5f;
+
+	/* 0x264e20 (AI mode 3, PreTick): the AI walks its path's points (the back is the next one).
+	 * A point is passed (popped, then the tick runs again) when the AI stands in its cell, when
+	 * it is the last one and the AI is within m_pathTolerance, or once the AI has gone past it
+	 * with the point after it in reach. Otherwise the forward throttle aims for the AI's speed
+	 * (slower into turns, stopping at action cells, slow at waypoints and across maps, braking
+	 * into the last point), the turn throttle turns it to the point and the strafe throttle
+	 * pulls it back onto the line from the point before. A planning path creeps (CreepTick);
+	 * a finished or missing one idles. (The ELF's statics are set on first use.) */
+	CAiPath &path = m_path;
+
+	if (path.m_state == ::PATH_STATE::PLANNING || path.m_state == ::PATH_STATE::INQUEUE || path.m_state == ::PATH_STATE::ABORT)
+	{
+		m_throttle_goal[0] = m_throttle_goal[1] = m_throttle_goal[2] = 0.0f;
+		m_throttle[1] = m_throttle[2] = m_throttle[0] = 0.0f;
+		CreepTick(dT);
+		return;
+	}
+
+	u32 count = path.m_points.size();
+
+	if (count == 0 || path.m_state != ::PATH_STATE::COMPLETE)
+	{
+		m_throttle_goal[0] = m_throttle_goal[1] = m_throttle_goal[2] = 0.0f;
+		m_throttle[1] = m_throttle[2] = m_throttle[0] = 0.0f;
+		SetAiMode(AIM_IDLE);
+		return;
+	}
+
+	CAiPath::point *target = &path.m_points[count - 1];
+	CAiPath::point *next = count >= 2 ? &path.m_points[count - 2] : NULL; /* port: the ELF points before the vector */
+	CZSealBody *seal = static_cast<CZSealBody *>(m_entity);
+	const CPnt3D *pos = seal->GetPosW();
+	CAiMapLoc here = seal->m_mapLocValid;
+	CAiCell *cell = AiMaps.GetCell(target->m_loc);
+
+	if (cell == NULL)
+	{
+		m_throttle_goal[0] = m_throttle_goal[1] = m_throttle_goal[2] = 0.0f;
+		m_throttle[1] = m_throttle[2] = m_throttle[0] = 0.0f;
+		SetAiMode(AIM_IDLE);
+		return;
+	}
+
+	if (LadderClimbTick(dT))
+		return;
+
+	u32 delta = AiMaps.GetLocationDelta(here, target->m_loc);
+	bool last = count == 1 && (path.m_app_flags & 1) == 0;
+
+	if (cell->m_action && !last)
+	{
+		CAiMap::action *action = AiMaps.GetCellAction(target->m_loc);
+
+		if (action->m_type == 1)
+		{
+			/* a door on the way: a shut one is opened by the action state (STATE_ACTION) */
+			CNodeAction *door = CNodeAction::GetActionById(action->m_actionId);
+
+			if (door != NULL && next != NULL && door->m_valve->m_value == 0)
+			{
+				if (PushAiState(STATE_ACTION, true))
+				{
+					/* ELF: Output("ActionExecute: ..."), the action state gets the door (+0x28),
+					 * 1 (+0x2c), 16 (+0x4) and its flag bit 0; an unaware enemy remembers to
+					 * shut it behind (m_close_door / m_last_action).
+					 * port: not reached - STATE_ACTION's Tick is unwritten and the push is
+					 * refused (CanPushAiState) */
+					return;
+				}
+
+				m_throttle_goal[0] = m_throttle_goal[1] = m_throttle_goal[2] = 0.0f;
+				m_throttle[1] = m_throttle[2] = m_throttle[0] = 0.0f;
+				return;
+			}
+		}
+	}
+	else if (here.x == m_close_door.x && here.y == m_close_door.y)
+	{
+		/* the cell past a door it opened: an unaware enemy shuts it (STATE_ACTION) */
+		CAiMap::action *action = AiMaps.GetCellAction(m_last_action);
+		Output("Attempting to close door!\n");
+		m_close_door.m_mapid = 0;
+		m_close_door.x = 0;
+		m_close_door.y = 0; /* CAiMapLoc::invalid */
+
+		if (action != NULL && action->m_type != 4)
+		{
+			CNodeAction *door = CNodeAction::GetActionById(action->m_actionId);
+
+			if (door != NULL && door->m_valve->m_value == 1 && PushAiState(STATE_ACTION, true))
+			{
+				/* ELF: the action state gets the door, the cell centre (+0x30), 0, 16 and bit 0.
+				 * port: not reached (the push is refused) */
+				return;
+			}
+		}
+	}
+
+	f32 speed = m_speed;
+
+	if (last)
+		speed = 0.0f;
+	else if (target->m_flags & 1)
+		speed = 0.0f;
+	else if (target->m_flags & 2)
+		speed = 0.2f;
+	else if (here.m_mapid != target->m_loc.m_mapid)
+		speed = 0.25f;
+	else
+	{
+		f32 angle = target->m_angle;
+
+		/* ELF quirk kept: the test is angle against -minTurnAngle on both sides, so every
+		 * turn (angles are >= 0) slows the AI to what it can turn through */
+		if ((angle < -ai::minTurnAngle || !(angle <= -ai::minTurnAngle)) && target->m_width < 2)
+		{
+			f32 limit = GetThrottleFromSpeed(fabsf(GetSpeedFromThrottle(ai::rateRotateMax, 2) * k / angle), 0);
+			speed = m_speed < limit ? m_speed : limit;
+		}
+	}
+
+	bool advance = delta == 0;
+
+	if (!advance)
+	{
+		int dx = (int)here.x - (int)target->m_loc.x;
+		int dy = (int)here.y - (int)target->m_loc.y;
+		advance = dx == 0 && dy == 0;
+	}
+
+	if (advance)
+	{
+		next_path_point(this);
+		PathFollowTick(dT);
+		return;
+	}
+
+	/* the line to the point is looked along (30 units) for a blocked cell */
+	PATH_LOOKAHEAD look;
+	look.m_blocked = false;
+	look.m_progressed = false;
+	look.m_unused = false;
+	look.m_range = 30.0f;
+	look.m_where.m_mapid = 0;
+	look.m_where.x = 0;
+	look.m_where.y = 0;
+	look.m_target = look.m_where; /* CAiMapLoc::invalid */
+	CAiMapLoc from = seal->m_mapLoc;
+	bool clear = false;
+
+	if (target->m_loc.m_mapid == from.m_mapid)
+	{
+		CAiMap *map = AiMaps.GetMapByIndex(from.m_mapid);
+		look.m_target = target->m_loc;
+		look.m_range = 30.0f;
+		map->WalkLine(from, target->m_loc, _look_ahead, &look);
+		clear = !look.m_blocked && !look.m_unused;
+	}
+
+	if (clear)
+		m_stuckTimer = 0.0f;
+	else if (!look.m_progressed)
+		m_stuckTimer += dT;
+
+	if (m_stuckTimer > stuckThreshold)
+	{
+		m_stuckTimer = 0.0f;
+
+		if (PushAiState(STATE_PATHRECO, true))
+		{
+			/* ELF: the path recovery state gets the point (+0xc4) and its flag bit 0.
+			 * port: not reached - STATE_PATHRECO's Tick is unwritten and the push refused */
+			return;
+		}
+	}
+
+	CPnt3D center;
+	AiMaps.GetCellCenter(target->m_loc, &center);
+	CPnt3D fwd(-seal->m_node->m_matrix.m_matrix[2][0], 0.0f, -seal->m_node->m_matrix.m_matrix[2][2]);
+	fwd.Normalize();
+	f32 fx = fwd.x;
+	f32 nfz = -fwd.z;
+
+	CPnt3D vec;
+	center.Sub(pos, &vec);
+	f32 dist = sqrtf(vec.x * vec.x + vec.z * vec.z);
+
+	if (dist != 0.0f)
+	{
+		f32 inv = 1.0f / dist;
+		vec.x *= inv;
+		vec.z *= inv;
+	}
+
+	f32 ahead = fwd.x * vec.x + fwd.y * vec.y + fwd.z * vec.z; /* the point's forward share */
+	f32 side = nfz * vec.x + 0.0f * vec.y + fx * vec.z;         /* its sideways share */
+
+	/* the AI's distance from the line between the point before and this one */
+	CPnt3D prev;
+	CPnt3D onLine;
+	f32 off = 0.0f;
+	bool inside = false;
+
+	if (AiMaps.GetCellCenter(m_last_loc, &prev) != NULL)
+	{
+		CPnt3D to(center.x, 0.0f, center.z);
+		prev.y = 0.0f;
+		CPnt3D at(pos->x, 0.0f, pos->y); /* ELF quirk kept: the height in the z slot */
+		inside = at.DistToVector(&prev, &to, &onLine, &off);
+	}
+
+	if (inside && (f32)target->m_width > 0.1f * dist && off <= edge_tolerance)
+	{
+		next_path_point(this);
+		PathFollowTick(dT);
+		return;
+	}
+
+	if (last && dist <= m_pathTolerance)
+	{
+		next_path_point(this);
+		PathFollowTick(dT);
+		return;
+	}
+
+	if (m_pathGoalDot != 0.0f && !(m_pathGoalDot <= 0.0f) && ahead < 0.0f)
+	{
+		/* gone past the point: on to the next when it is in reach */
+		if (delta < 2 || (next != NULL && AiMaps.CanTravelLine(here, next->m_loc, NULL)))
+		{
+			next_path_point(this);
+			PathFollowTick(dT);
+			return;
+		}
+	}
+
+	m_pathGoalDot = ahead;
+	f32 thr[3] = {0.0f, 0.0f, 0.0f};
+	bool strafe = m_noturn_travel || (seal->m_aim_point_valid && (m_stateFlags & 2));
+	f32 cur = m_throttle[0];
+	f32 rate = speed == 0.0f ? decelRate[0] : accelRate[0];
+
+	if (strafe)
+	{
+		/* moving without turning (or aiming): forward and sideways shares of the point */
+		f32 lo = -ai::rateStrafeMax;
+		f32 hi = ai::rateStrafeMax;
+		f32 s = GetThrottleFromSpeed(off * _dTI, 1);
+		s = s < lo ? lo : (s > hi ? hi : s); /* _saturate<f> */
+		thr[1] = side * s;
+
+		f32 scale = k_fudge * GetSpeedFromThrottle(1.0f, 0);
+		f32 t = fabsf(cur - speed) / rate;
+		f32 stop = scale * (0.5f * rate * (t * t) + cur * t);
+
+		if (!(10.0f + dist <= stop))
+		{
+			f32 lo2 = -m_speed;
+			speed = GetThrottleFromSpeed(dist * _dTI, 0);
+			speed = speed < lo2 ? lo2 : (speed > m_speed ? m_speed : speed); /* _saturate<f> */
+		}
+
+		thr[0] = ahead * speed;
+
+		if (m_goal_dir_valid)
+		{
+			CPnt3D dir = m_goal_dir;
+			thr[2] = ComputeTurnThrottle(&fwd, &dir, NULL);
+		}
+	}
+	else
+	{
+		thr[2] = ComputeTurnThrottle(&fwd, &vec, NULL);
+
+		f32 scale = k_fudge * GetSpeedFromThrottle(1.0f, 0);
+		f32 t = fabsf(cur - speed) / rate;
+		f32 stop = scale * (0.5f * rate * (t * t) + cur * t);
+
+		if (!(10.0f + dist <= stop))
+		{
+			f32 lo2 = -m_speed;
+			speed = GetThrottleFromSpeed(dist * _dTI, 0);
+			speed = speed < lo2 ? lo2 : (speed > m_speed ? m_speed : speed); /* _saturate<f> */
+		}
+
+		thr[0] = speed;
+
+		/* slower the harder it turns (ai::_interp) */
+		f32 x = fabsf(thr[2]);
+		thr[0] *= tscale_min * (1.0f - x) + tscale_max * x;
+
+		if (inside && off > edge_correction_tolerance)
+		{
+			/* off the line: a sideways pull back onto it */
+			CPnt3D back;
+			onLine.SubXZ(pos, &back);
+			back.y = 0.0f;
+			back.Normalize();
+			f32 across = back.x * nfz + back.y * 0.0f + back.z * fx;
+			f32 lo = -ai::rateStrafeMax;
+			f32 hi = ai::rateStrafeMax;
+			f32 s = GetThrottleFromSpeed(off * _dTI, 1);
+			s = s < lo ? lo : (s > hi ? hi : s); /* _saturate<f> */
+			thr[1] = across * strafeFactor * s;
+		}
+	}
+
+	SetThrottle(1, thr[1]);
+	SetThrottle(2, thr[2]);
+	SetThrottle(0, thr[0]);
 }
 
 /* @socom-skeleton stub SetThrottle__11CSealCtrlAiFUif */
@@ -2685,57 +3055,208 @@ void CSealCtrlAi::SetupAnimations()
 }
 
 /* @socom-skeleton stub GetRouteComplete__11CSealCtrlAiCFv */
-void CSealCtrlAi::GetRouteComplete() const
+bool CSealCtrlAi::GetRouteComplete() const
 {
+	/* 0x2615e0: no points left to walk (or a path that is not COMPLETE) and no plan queued,
+	 * running or aborting */
+	if (m_path.m_points.size() != 0 && m_path.m_state == ::PATH_STATE::COMPLETE)
+		return false;
+
+	if (m_path.m_state == ::PATH_STATE::PLANNING || m_path.m_state == ::PATH_STATE::INQUEUE || m_path.m_state == ::PATH_STATE::ABORT)
+		return false;
+
+	return true;
 }
 
 /* @socom-skeleton stub GetRouteFailed__11CSealCtrlAiCFv */
 ASTAR_STATUS CSealCtrlAi::GetRouteFailed() const
 {
+	/* 0x261570: 0 while planning, or while a completed path has points; else the planner's
+	 * status */
+	::PATH_STATE state = m_path.m_state;
+
+	if (state == ::PATH_STATE::PLANNING || state == ::PATH_STATE::INQUEUE || state == ::PATH_STATE::ABORT)
+		return (ASTAR_STATUS)0;
+
+	if (m_path.m_points.size() != 0 && state == ::PATH_STATE::COMPLETE)
+		return (ASTAR_STATUS)0;
+
+	return m_path.m_status;
 }
 
 /* @socom-skeleton stub ClearRoute__11CSealCtrlAiFv */
-void CSealCtrlAi::ClearRoute()
+bool CSealCtrlAi::ClearRoute()
 {
+	/* 0x261500: the plan dropped, the points cleared, the default path type with bias 1 */
+	Debug("ClearRoute()...\n");
+	ai::AbortPathPlan(&m_path);
+
+	if (!m_path.Clear())
+		return false;
+
+	if (m_path.SetPathType(CAiPath::PATH_DEFAULT))
+		m_path.m_type_bias = 1.0f;
+
+	m_path.m_search_limit = 0;
+	return true;
 }
 
 /* @socom-skeleton stub GetDefaultRouteType__11CSealCtrlAiFv */
-void CSealCtrlAi::GetDefaultRouteType()
+CAiPath::PATH_TYPE CSealCtrlAi::GetDefaultRouteType()
 {
+	/* 0x261460: a team-mate that has not been seen by an enemy sneaks (stealth) in the goto
+	 * state; everyone else plans the default way */
+	if (m_navyseal && m_entity->m_aware_counter == 0)
+	{
+		CAiState *state = GetAiState();
+
+		if (state != NULL && state->m_state == STATE_GOTO)
+			return CAiPath::PATH_STEALTH;
+	}
+
+	return CAiPath::PATH_DEFAULT;
 }
 
 /* @socom-skeleton stub GetDefaultRouteBias__11CSealCtrlAiFv */
 float CSealCtrlAi::GetDefaultRouteBias()
 {
 	/* @socom-skeleton stub default_bias$3965 */
-	static int default_bias;
+	static float default_bias;
 	/* @socom-skeleton stub aware_scale$3968 */
-	static int aware_scale;
+	static float aware_scale;
+
+	/* 0x261400: ELF quirk kept: a team-mate sets up its two statics (0.5) but every AI gets
+	 * bias 1 */
+	if (m_navyseal)
+	{
+		static bool init = false;
+
+		if (!init)
+		{
+			default_bias = 0.5f;
+			aware_scale = 0.5f;
+			init = true;
+		}
+	}
+
+	return 1.0f;
 }
 
 /* @socom-skeleton stub SetRoute__11CSealCtrlAiFRC9CAiMapLoc */
-void CSealCtrlAi::SetRoute(const CAiMapLoc &)
+bool CSealCtrlAi::SetRoute(const CAiMapLoc &goal)
 {
+	/* 0x261090: a route from the seal's cell to the goal is queued for the planner and the AI
+	 * set to path mode. No goal (CAiMapLoc::invalid): the route is cleared. The goal is the
+	 * seal's own cell: the route is cleared but the AI is still put in path mode (the route
+	 * is complete at once). An unwalkable goal: 0. */
+	bool ok = false;
+
+	if (goal.x == 0 && goal.y == 0)
+	{
+		Debug("ClearRoute()...\n");
+		ai::AbortPathPlan(&m_path);
+
+		if (m_path.Clear())
+		{
+			if (m_path.SetPathType(CAiPath::PATH_DEFAULT))
+				m_path.m_type_bias = 1.0f;
+
+			m_path.m_search_limit = 0;
+		}
+
+		return false;
+	}
+
+	CAiMapLoc here = m_entity->m_mapLocValid;
+
+	if (here.x == goal.x && here.y == goal.y)
+	{
+		Debug("ClearRoute()...\n");
+		ok = true;
+		ai::AbortPathPlan(&m_path);
+
+		if (m_path.Clear())
+		{
+			if (m_path.SetPathType(CAiPath::PATH_DEFAULT))
+				m_path.m_type_bias = 1.0f;
+
+			m_path.m_search_limit = 0;
+		}
+	}
+	else
+	{
+		CAiMap *map = AiMaps.GetMapByIndex(goal.m_mapid);
+		CAiCell *cell = map != NULL ? map->GetCell(goal) : NULL;
+
+		if (cell != NULL && CAiMap::IsWalkable(cell) && AiMaps.RegisterPathPlan(here, goal, &m_path))
+			ok = true;
+	}
+
+	if (!ok)
+		return false;
+
+	SetAiMode(AIM_PATH);
+	f32 bias = GetDefaultRouteBias();
+
+	if (m_path.SetPathType(GetDefaultRouteType()))
+		m_path.m_type_bias = bias;
+
+	m_path.m_search_limit = 0;
+	m_pathTolerance = 0.0f;
+	m_last_loc = here;
+	return true;
 }
 
 /* @socom-skeleton stub SetRoute__11CSealCtrlAiFPC9CAiMapLoci */
-void CSealCtrlAi::SetRoute(const CAiMapLoc *, int)
+bool CSealCtrlAi::SetRoute(const CAiMapLoc *goals, int count)
 {
+	/* 0x260eb0: a route through several goals */
+	CAiMapLoc here = m_entity->m_mapLocValid;
+	bool ok = AiMaps.RegisterPathPlan(here, goals, count, &m_path);
+
+	if (ok)
+	{
+		SetAiMode(AIM_PATH);
+		f32 bias = GetDefaultRouteBias();
+
+		if (m_path.SetPathType(GetDefaultRouteType()))
+			m_path.m_type_bias = bias;
+
+		m_path.m_search_limit = 0;
+		m_pathTolerance = 0.0f;
+	}
+	else
+	{
+		Debug("SetRoute() failed: %d goals\n", count); /* ELF: the text at 0x451b80 (not read) */
+
+		for (int i = 0; i < count; i++)
+			Debug("\t%2d:%3d:%3d -- %s\n", goals[i].m_mapid, goals[i].x, goals[i].y, "");
+	}
+
+	return ok;
 }
 
 /* @socom-skeleton stub SetRouteType__11CSealCtrlAiFQ27CAiPath9PATH_TYPEf */
-void CSealCtrlAi::SetRouteType(CAiPath::PATH_TYPE, float)
+void CSealCtrlAi::SetRouteType(CAiPath::PATH_TYPE type, float bias)
 {
+	/* 0x260e70 */
+	if (m_path.SetPathType(type))
+		m_path.m_type_bias = bias;
 }
 
 /* @socom-skeleton stub SetRouteSearchLimit__11CSealCtrlAiFUi */
-void CSealCtrlAi::SetRouteSearchLimit(unsigned int)
+void CSealCtrlAi::SetRouteSearchLimit(unsigned int limit)
 {
+	/* 0x260e60 */
+	m_path.m_search_limit = limit;
 }
 
 /* @socom-skeleton stub GetValve__11CSealCtrlAiCF10SEAL_VALVE */
-void CSealCtrlAi::GetValve(SEAL_VALVE) const
+CValve * CSealCtrlAi::GetValve(SEAL_VALVE valve) const
 {
+	/* 0x260e30: one of the AI's four script valves */
+	u32 i = (u8)valve;
+	return i < 4 ? m_valve[i] : NULL;
 }
 
 /* @socom-skeleton stub SetHoldFire__11CSealCtrlAiFb */

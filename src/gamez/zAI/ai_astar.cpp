@@ -69,6 +69,8 @@
 #include "gamez/zSeal/zseal.h"
 #include "zai.h"
 /* @socom-skeleton end include */
+#include <eeregs.h> /* T0_COUNT (the planner's time slice) */
+#include <algorithm> /* push_heap, pop_heap */
 /* @socom-skeleton decl forward */
 class CAiStar;
 /* @socom-skeleton end forward */
@@ -86,88 +88,611 @@ static int timeroffset;
 signed char comp;
 
 /* @socom-skeleton stub path_queue__2ai */
-int ai::path_queue[6];
+ai::path_queue_t ai::path_queue;
+
+/* neighbor__6CAiMap 0x4390b0 (port: no owner annotation found; placed with its user
+ * CAiMap::GetNeighbor 0x182830, which this file defines) */
+const int CAiMap::neighbor[8][2] = {{0, -1}, {1, -1}, {1, 0}, {1, 1}, {0, 1}, {-1, 1}, {-1, 0}, {-1, -1}};
+
+/* std::greater<CAiStar::node> (inline in the MSL heap functions 0x183960 / 0x183af0 /
+ * 0x184fe0): the open list is a min-heap on f = g + h */
+static bool node_greater(const CAiStar::node &a, const CAiStar::node &b)
+{
+	return a.m_g + a.m_h > b.m_g + b.m_h;
+}
+
+/* 0x182ec0 */
+void CAiPlanner::reset()
+{
+}
+
+/* 0x182a90: the estimate to the goal, ten per cell of Manhattan distance */
+int CAiPlanner::dist(CAiMap &, const CAiMapLoc &a, const CAiMapLoc &b)
+{
+	int dx = (int)b.x - (int)a.x;
+	int dy = (int)b.y - (int)a.y;
+
+	if (dx < 0)
+		dx = -dx;
+
+	if (dy < 0)
+		dy = -dy;
+
+	return (dx + dy) * 10;
+}
+
+/* 0x1827e0: the cell can be walked on */
+bool CAiPlanner::is_traversable(CAiMap *, CAiPath *, const CAiMapLoc &, CAiMap::DIR, CAiMapLoc &, CAiCell *&cell)
+{
+	return CAiMap::IsWalkable(cell);
+}
+
+/* 0x182500: a step costs 1 (1.3 diagonally); where either cell has soil 11, a step up (by the
+ * cells' quantised altitudes over the map's height range) costs 10 */
+float CAiPlanner::fcost(CAiMap &map, const CAiMapLoc &from, CAiMap::DIR dir, const CAiMapLoc &to)
+{
+	CAiCell *a = map.GetCell(from);
+	CAiCell *b = map.GetCell(to);
+
+	if (a->m_soil == 11 || b->m_soil == 11)
+	{
+		f32 scale = (map.m_bbox.m_max.y - map.m_bbox.m_min.y) * 0.000976563f;
+		f32 altA = 0.0f; /* port: the ELF leaves these unset when a cell is missing */
+		f32 altB = 0.0f;
+
+		if (a != NULL)
+			altA = map.m_bbox.m_min.y + scale * (f32)a->m_altitude;
+
+		if (b != NULL)
+			altB = map.m_bbox.m_min.y + scale * (f32)b->m_altitude;
+
+		if (!(altB <= altA))
+			return 10.0f;
+	}
+
+	return (dir & 1) ? 1.3f : 1.0f;
+}
+
+/* 0x183450. port: not written (1216 bytes); the default cost is used */
+float CBasicTravel::fcost(CAiMap &map, const CAiMapLoc &from, CAiMap::DIR dir, const CAiMapLoc &to)
+{
+	return CAiPlanner::fcost(map, from, dir, to);
+}
+
+/* 0x182ed0. port: not written (1396 bytes); the default cost is used */
+float CStealthTravel::fcost(CAiMap &map, const CAiMapLoc &from, CAiMap::DIR dir, const CAiMapLoc &to)
+{
+	return CAiPlanner::fcost(map, from, dir, to);
+}
+
+/* 0x182db0. port: not written (260 bytes); the default test is used */
+bool CRestrainedTravel::is_traversable(CAiMap *map, CAiPath *path, const CAiMapLoc &from, CAiMap::DIR dir, CAiMapLoc &to, CAiCell *&cell)
+{
+	return CAiPlanner::is_traversable(map, path, from, dir, to, cell);
+}
 
 /* @socom-skeleton stub __dt__7CAiStarFv */
 CAiStar::~CAiStar()
 {
+	/* 0x182b00: the cells of every open node get their search fields back (no direction,
+	 * f and g -1), the closed nodes' cells their direction and g (f is -1 already) */
+	for (std::vector<node>::iterator i = m_open.begin(); i != m_open.end(); ++i)
+	{
+		CAiCell *cell = m_map->GetCell(i->m_loc);
+		cell->m_astar_dir = 8;
+		cell->m_astar_f = -1;
+		cell->m_astar_g = -1;
+	}
+
+	for (std::vector<node>::iterator i = m_closed.begin(); i != m_closed.end(); ++i)
+	{
+		CAiCell *cell = m_map->GetCell(i->m_loc);
+		cell->m_astar_dir = 8;
+		cell->m_astar_g = -1;
+	}
 }
 
 /* @socom-skeleton stub find_path__7CAiStarFP7CAiPath */
-void CAiStar::find_path(CAiPath *)
+void CAiStar::find_path(CAiPath *path)
 {
 	/* @socom-skeleton stub defaultDirections$1063 */
 	static unsigned char defaultDirections[8] = {0, 1, 2, 3, 4, 5, 6, 7};
 	/* @socom-skeleton stub customDirections$1064 */
 	static unsigned char customDirections[8] = {0, 1, 2, 3, 4, 5, 6, 7};
+
+	/* 0x1814c0: A* over the leg's map cells, the cells holding the search (m_astar_dir points
+	 * back to the parent, f = g + h, f -1 once closed). It runs while open nodes remain and
+	 * the planner's time slice lasts (RCNT0 against timerlimit); a slice that runs out leaves
+	 * the path PLANNING for the next tick. Found: the points are pushed from the goal back to
+	 * the start (the points are kept goal first), the path COMPLETE with status 0. Failed:
+	 * FAILED with 2 (200 slices), 3 (search limit) or 4 (no open nodes). */
+	m_stats->m_ticks++;
+
+	if (path->m_state == ::PATH_STATE::INQUEUE)
+	{
+		node n;
+		n.m_loc = m_start;
+		n.m_g = 0;
+		n.m_h = (s16)m_planner->dist(*m_map, m_start, m_goal);
+		m_open.push_back(n);
+		CAiCell *cell = m_map->GetCell(m_start);
+		cell->m_astar_f = n.m_g + n.m_h;
+		cell->m_astar_g = n.m_g;
+		m_stats->nodes_added++;
+		path->m_state = ::PATH_STATE::PLANNING;
+	}
+
+	CAiPlanner::bias = path->m_type_bias;
+	bool intime = true;
+	bool found = false;
+	u8 status = 0;
+	node cur;
+	cur.m_loc = m_start;
+
+	while (m_open.size() != 0)
+	{
+		intime = (u32)(*T0_COUNT - timeroffset) < (u32)timerlimit;
+
+		if (!intime)
+			break;
+
+		cur = m_open.front();
+		std::pop_heap(m_open.begin(), m_open.end(), node_greater);
+		m_open.pop_back();
+		m_map->GetCell(cur.m_loc)->m_astar_f = -1;
+		m_closed.push_back(cur);
+		m_stats->nodes_removed++;
+		m_stats->m_current = cur.m_loc;
+
+		if (cur.m_loc.x == m_goal.x && cur.m_loc.y == m_goal.y)
+		{
+			found = true;
+			break;
+		}
+
+		if (m_stats->m_ticks >= 200)
+		{
+			status = 2;
+			break;
+		}
+
+		if (path->m_search_limit != 0 && path->m_search_limit < (u32)m_stats->nodes_searched)
+		{
+			status = 3;
+			break;
+		}
+
+		CAiCell *curCell = m_map->GetCell(cur.m_loc);
+		unsigned char *dirs = defaultDirections;
+		int count = 8;
+
+		if (curCell->m_action)
+		{
+			/* an action cell (a door, a ladder ...) is left only along its direction, and a
+			 * door's not even diagonally */
+			CAiMap::action *action = m_map->GetCellAction(cur.m_loc);
+			u32 d = action->m_direction;
+
+			if (d != 8)
+			{
+				customDirections[0] = d;
+				customDirections[1] = (d + 4) & 7;
+				count = 2;
+
+				if (action->m_type != 1)
+				{
+					customDirections[2] = (customDirections[0] + 9) & 7;
+					customDirections[3] = (customDirections[0] + 7) & 7;
+					customDirections[4] = (customDirections[1] + 9) & 7;
+					customDirections[5] = (customDirections[1] + 7) & 7;
+					customDirections[6] = (customDirections[0] + 10) & 7;
+					customDirections[7] = (customDirections[0] + 6) & 7;
+					count = 8;
+				}
+
+				dirs = customDirections;
+			}
+		}
+
+		for (int i = 0; i < count; i++)
+		{
+			CAiMap::DIR dir = (CAiMap::DIR)(s8)dirs[i];
+			CAiMapLoc next;
+			CAiCell *cell = NULL;
+			bool ok = m_map->GetNeighbor(cur.m_loc, dir, next, cell, false);
+
+			if (ok)
+				ok = m_planner->is_traversable(m_map, path, cur.m_loc, dir, next, cell);
+
+			if (ok && cell->m_occupied && (path->m_flags & 0x10))
+				ok = false;
+
+			if (!ok)
+				continue;
+
+			if (cell->m_action)
+			{
+				/* a door is entered only along its direction */
+				CAiMap::action *action = m_map->GetCellAction(next);
+				u32 d = action->m_direction;
+
+				if (action->m_type == 1 && d != 8 && (u32)dir != d && (((u32)dir + 4) & 7) != d)
+					continue;
+			}
+
+			s16 g = cur.m_g + (s16)(int)(10.0f * m_planner->fcost(*m_map, cur.m_loc, dir, next));
+			s16 h = (s16)m_planner->dist(*m_map, next, m_goal);
+
+			if (cell->m_astar_dir == 8)
+			{
+				/* a new cell */
+				cell->m_astar_dir = ((u32)dir + 4) & 7;
+				cell->m_astar_f = g + h;
+				cell->m_astar_g = g;
+				node n;
+				n.m_loc = next;
+				n.m_g = g;
+				n.m_h = h;
+				m_open.push_back(n);
+				std::push_heap(m_open.begin(), m_open.end(), node_greater);
+				m_stats->nodes_added++;
+			}
+			else if (cell->m_astar_f != -1 && g < cell->m_astar_g)
+			{
+				/* an open cell reached cheaper: its node is found and moved up the heap */
+				std::vector<node>::iterator n = m_open.begin();
+
+				for (; n != m_open.end(); ++n)
+				{
+					m_stats->nodes_searched++;
+
+					if (n->m_loc.x == next.x && n->m_loc.y == next.y)
+						break;
+				}
+
+				cell->m_astar_dir = ((u32)dir + 4) & 7;
+				cell->m_astar_g = g;
+				cell->m_astar_f = g + h;
+
+				if (n == m_open.end())
+					continue; /* port: the ELF writes the node past the end */
+
+				n->m_g = g;
+				std::push_heap(m_open.begin(), n + 1, node_greater);
+			}
+		}
+	}
+
+	if (!found)
+	{
+		if (m_open.size() == 0)
+			status = 4; /* ELF quirk kept: also over a 2 or 3 found with the last node */
+		else if (!intime)
+			status = 5;
+	}
+
+	if (status != 0)
+	{
+		if (status != 5)
+		{
+			path->m_state = ::PATH_STATE::FAILED;
+			path->m_status = (ASTAR_STATUS)status;
+		}
+
+		return;
+	}
+
+	path->m_state = ::PATH_STATE::COMPLETE;
+	path->m_status = (ASTAR_STATUS)status;
+	m_stats->path_cost = cur.m_g;
+
+	/* the parents are followed from the goal back to the start (a direction that would go
+	 * straight back ends the walk) */
+	CAiMapLoc loc = cur.m_loc;
+	CAiCell *cell = m_map->GetCell(loc);
+	u32 prev = 8;
+
+	while (!(loc.x == m_start.x && loc.y == m_start.y))
+	{
+		u32 dir = cell->m_astar_dir;
+
+		if (prev != 8 && ((prev + 4) & 7) == dir)
+			break;
+
+		prev = dir;
+		CAiPath::point p;
+		p.m_loc = loc;
+		p.m_width = 0;
+		p.m_flags = 0;
+		p.m_unused = 0;
+		p.m_angle = 0.0f;
+		path->m_points.push_back(p);
+
+		int x = (int)loc.x + CAiMap::neighbor[dir][0];
+		int y = (int)loc.y + CAiMap::neighbor[dir][1];
+		CAiMapLoc next;
+		next.m_mapid = m_map->m_mapid;
+		next.x = x;
+		next.y = y;
+
+		if (x >= 0 && (u32)x < m_map->m_nx && y >= 0 && (u32)y < m_map->m_ny)
+			cell = m_map->GetCell(next);
+
+		loc = next;
+		m_stats->path_length++;
+	}
+
+	CAiPath::point p;
+	p.m_loc = m_start;
+	p.m_width = 0;
+	p.m_flags = 0;
+	p.m_unused = 0;
+	p.m_angle = 0.0f;
+	path->m_points.push_back(p);
+	m_stats->nodes_left = m_open.size();
+	m_stats->nodes_visited = m_closed.size();
 }
 
 /* @socom-skeleton stub CreatePlanner__7CAiPathFv */
 CAiStar * CAiPath::CreatePlanner()
 {
 	/* @socom-skeleton stub defaultPlanner$1125 */
-	static unsigned char defaultPlanner[8];
+	static CAiPlanner defaultPlanner;
 	/* @socom-skeleton stub basicPlanner$1128 */
-	static unsigned char basicPlanner[8];
+	static CBasicTravel basicPlanner;
 	/* @socom-skeleton stub stealthPlanner$1131 */
-	static unsigned char stealthPlanner[8];
+	static CStealthTravel stealthPlanner;
 	/* @socom-skeleton stub restrainedPlanner$1134 */
-	static unsigned char restrainedPlanner[8];
+	static CRestrainedTravel restrainedPlanner;
+
+	/* 0x1812d0: the path type's shared planner (unless the path brings its own) and a search
+	 * of the leg being planned, its node lists reserved for 8192 nodes each */
+	if (!m_custom)
+	{
+		switch (m_type)
+		{
+		case ::PATH_TYPE::PATH_RESTRAINED: m_planner = &restrainedPlanner; break;
+		case ::PATH_TYPE::PATH_STEALTH: m_planner = &stealthPlanner; break;
+		case ::PATH_TYPE::PATH_BASIC: m_planner = &basicPlanner; break;
+		case ::PATH_TYPE::PATH_DEFAULT: m_planner = &defaultPlanner; break;
+		}
+	}
+
+	CAiStar *star = new CAiStar;
+
+	if (star != NULL)
+	{
+		star->m_planner = m_planner;
+		star->m_map = GetLegMap(-1);
+		star->m_stats = &m_stats;
+		GetLegPoints(star->m_start, star->m_goal, -1);
+		star->m_open.reserve(8192);
+		star->m_closed.reserve(8192);
+	}
+
+	m_astar = star;
+	return m_astar;
 }
 
 /* @socom-skeleton stub _plan_path__2ai */
-int ai::_plan_path;
+CAiPath *ai::_plan_path;
 
 /* @socom-skeleton stub DeletePlanner__7CAiPathFv */
 void CAiPath::DeletePlanner()
 {
+	/* 0x181280 */
+	delete m_astar;
+	m_astar = NULL;
+
+	if (m_custom)
+		delete m_planner;
+
+	m_planner = NULL;
+	m_custom = false;
 }
 
 /* @socom-skeleton stub FlushPlannerQueue__2aiFv */
 void ai::FlushPlannerQueue()
 {
+	/* 0x1811c0 (CAiMaps::Close, ReOpen_Unload1): the queued path plans are dropped, then
+	 * every map's cells validated again (their search fields reset) */
+	path_queue.erase(path_queue.begin(), path_queue.end());
+
+	for (CAiMaps::iterator i = AiMaps.begin(); i != AiMaps.end(); ++i)
+		((CAiMap*)*i)->ValidateCells();
 }
 
 /* @socom-skeleton stub PathPlanBegin__2aiFP7CAiPath */
-void ai::PathPlanBegin(CAiPath *)
+bool ai::PathPlanBegin(CAiPath *path)
 {
+	/* 0x1810d0: a plan of the path is opened (a queued or running one is dropped first) */
+	if (path->m_state == ::PATH_STATE::PLANNING)
+	{
+		path->DeletePlanner();
+		path->plan_complete(CAiPath::UNKNOWN);
+		path_queue.remove(path);
+	}
+	else if (path->m_state == ::PATH_STATE::INQUEUE)
+	{
+		path->plan_complete(CAiPath::FAILED);
+		path_queue.remove(path);
+	}
+
+	path->plan_setup();
+	_plan_path = path;
+	return true;
 }
 
 /* @socom-skeleton stub PathPlanAddLeg__2aiFP6CAiMapRC9CAiMapLocRC9CAiMapLoc */
-unsigned char ai::PathPlanAddLeg(CAiMap *, const CAiMapLoc &, const CAiMapLoc &)
+unsigned char ai::PathPlanAddLeg(CAiMap *map, const CAiMapLoc &start, const CAiMapLoc &goal)
 {
+	/* 0x1810a0 */
+	return _plan_path->plan_addleg(map, start, goal);
 }
 
 /* @socom-skeleton stub PathPlanAbort__2aiFv */
 void ai::PathPlanAbort()
 {
+	/* 0x181070 */
+	CAiPath *path = _plan_path;
+	path->Clear();
+	path->m_state = ::PATH_STATE::UNKNOWN;
+	_plan_path = NULL;
 }
 
 /* @socom-skeleton stub PathPlanExecute__2aiFv */
 void ai::PathPlanExecute()
 {
+	/* 0x180f00: the opened plan is queued for the planner, its last leg first (no legs: it is
+	 * dropped) */
+	CAiPath *path = _plan_path;
+
+	if (path->m_legcount == 0)
+	{
+		if (path->m_state == ::PATH_STATE::PLANNING)
+		{
+			path->DeletePlanner();
+			path->plan_complete(CAiPath::UNKNOWN);
+			path_queue.remove(path);
+		}
+		else if (path->m_state == ::PATH_STATE::INQUEUE)
+		{
+			path->plan_complete(CAiPath::FAILED);
+			path_queue.remove(path);
+		}
+
+		_plan_path = NULL;
+		return;
+	}
+
+	if (path->m_state != ::PATH_STATE::INQUEUE)
+	{
+		path->m_state = ::PATH_STATE::INQUEUE;
+		path_queue.push_back(path);
+
+		if (path_queue.m_peak < path_queue.size())
+			path_queue.m_peak = path_queue.size();
+	}
+
+	path->m_planleg = path->m_legcount - 1;
+	_plan_path = NULL;
 }
 
 /* @socom-skeleton stub AbortPathPlan__2aiFP7CAiPath */
-void ai::AbortPathPlan(CAiPath *)
+bool ai::AbortPathPlan(CAiPath *path)
 {
+	/* 0x180e30: a running plan ends UNKNOWN, a queued one FAILED; either leaves the queue */
+	if (path->m_state == ::PATH_STATE::PLANNING)
+	{
+		path->DeletePlanner();
+		path->plan_complete(CAiPath::UNKNOWN);
+		path_queue.remove(path);
+	}
+	else if (path->m_state == ::PATH_STATE::INQUEUE)
+	{
+		path->plan_complete(CAiPath::FAILED);
+		path_queue.remove(path);
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub ResetPathPlan__2aiFv */
 void ai::ResetPathPlan()
 {
+	/* 0x180da0: the plan at the front of the queue starts its leg again */
+	if (path_queue.size() == 0)
+		return;
+
+	CAiPath *path = path_queue.front();
+
+	if (path->m_state != ::PATH_STATE::PLANNING)
+		return;
+
+	path->DeletePlanner();
+	path->m_planleg = 0; /* ELF quirk kept: back to leg 0, not the leg that was running */
+	path->m_points.clear();
+	path->m_stats.reset();
+	path->m_state = ::PATH_STATE::INQUEUE;
 }
 
 /* @socom-skeleton stub TickPathPlanner__2aiFfPv */
 bool ai::TickPathPlanner(float, void *)
 {
-	/* port: stub - the A* route planner (0x180c00: path_queue within timerlimit RCNT0
-	   counts, CAiPath::CreatePlanner / CAiStar::find_path) is not written; the ELF task
-	   returns false */
+	/* 0x180c00 (task "ai_route_planner" 10.5): the queued plans are worked from the front for
+	 * timerlimit RCNT0 counts (H-blanks, about 2 ms): finished ones leave the queue; a leg's
+	 * search runs (CAiStar::find_path) until it is done, then the leg before it is queued in
+	 * its place (plan_legcomplete) or the path leaves the queue */
+	timeroffset = *T0_COUNT;
+
+	while (path_queue.size() != 0 && (u32)(*T0_COUNT - timeroffset) < (u32)timerlimit)
+	{
+		CAiPath *path = path_queue.front();
+		::PATH_STATE state = path->m_state;
+
+		if (state == ::PATH_STATE::FAILED || state == ::PATH_STATE::COMPLETE || state == ::PATH_STATE::UNKNOWN)
+		{
+			path->PrintPath();
+			path_queue.pop_front();
+			continue;
+		}
+
+		if (state == ::PATH_STATE::INQUEUE)
+		{
+			if (path->CreatePlanner() == NULL)
+			{
+				path->m_state = ::PATH_STATE::FAILED;
+				continue;
+			}
+		}
+		else if (state != ::PATH_STATE::PLANNING)
+			continue; /* ELF quirk kept: an ABORT path at the front holds the queue for the tick */
+
+		path->m_astar->find_path(path);
+
+		if (path->m_state != ::PATH_STATE::PLANNING)
+		{
+			path->DeletePlanner();
+
+			if (!path->plan_legcomplete((CAiPath::PATH_STATE)path->m_state))
+			{
+				path_queue.pop_front();
+				path_queue.m_planned++;
+#ifdef SOCOM_PORT
+				SOCOM_PORT_TRACE("AIPATH: %p planned: state %d status %d points %u legs %u nodes %d/%d ticks %d", path, (int)path->m_state, (int)path->m_status, (u32)path->m_points.size(), path->m_legcount, path->m_stats.nodes_removed, path->m_stats.nodes_added, path->m_stats.m_ticks);
+#endif
+			}
+		}
+
+		path_queue.m_steps++;
+	}
+
 	return false;
 }
 
 /* @socom-skeleton stub PathPlanImmediate__2aiFP6CAiMapRC9CAiMapLocRC9CAiMapLocP7CAiPath */
-void ai::PathPlanImmediate(CAiMap *, const CAiMapLoc &, const CAiMapLoc &, CAiPath *)
+bool ai::PathPlanImmediate(CAiMap *map, const CAiMapLoc &start, const CAiMapLoc &goal, CAiPath *path)
 {
+	/* 0x180ae0: a one-leg path planned at once, without a time limit (0 while the path is
+	 * being planned by the queue) */
+	if (path->m_state == ::PATH_STATE::PLANNING)
+		return false;
+
+	if (path->m_state == ::PATH_STATE::INQUEUE)
+		path_queue.remove(path);
+
+	int limit = timerlimit;
+	timerlimit = -1;
+	path->plan_setup();
+
+	if (path->plan_addleg(map, start, goal))
+	{
+		path->m_state = ::PATH_STATE::INQUEUE;
+		path->CreatePlanner()->find_path(path);
+		path->DeletePlanner();
+		path->plan_complete((CAiPath::PATH_STATE)path->m_state);
+	}
+
+	timerlimit = limit;
+	return true;
 }

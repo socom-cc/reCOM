@@ -65,8 +65,13 @@ void _free(void *block, const char *, int)
 }
 
 /* @socom-skeleton stub _delete__FPvPCci */
-void _delete(void *, const char *, int)
+void _delete(void *block, const char *, int)
 {
+	/* 0x2f48a0: the general heap's free (operator delete's last resort). port: this was an
+	 * empty stub, so every delete leaked */
+	DIntr();
+	free(block);
+	EIntr();
 }
 
 /* @socom-skeleton stub _new__FUiPCci */

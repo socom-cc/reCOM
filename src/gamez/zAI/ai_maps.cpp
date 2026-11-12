@@ -81,6 +81,8 @@
 #include "gamez/zGraph/graph_node.h"
 #include "gamez/zMath/zmath.h"
 #include "zai.h"
+#include "gamez/zSeal/zseal.h" /* ai::PathPlanBegin ... (RegisterPathPlan) */
+#include <math.h> /* fabsf */
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
 class CAiCell;
@@ -140,11 +142,115 @@ CAiMap * CAiMaps::GetMapByIndex(unsigned int index) const
 	return (CAiMap*)*i;
 }
 
+/* inline in GetLocation(pos) 0x19c9b0: the cell of a map under a position (x/z inside the
+ * bounds, the cell index vftoi0((p - min) * idx), inside the row's span), NULL elsewhere */
+static CAiCell *map_cell_at(CAiMap *map, const CPnt3D *pos, CAiMapLoc &loc)
+{
+	if (pos->x < map->m_bbox.m_min.x || !(pos->x <= map->m_bbox.m_max.x) || pos->z < map->m_bbox.m_min.z || !(pos->z <= map->m_bbox.m_max.z))
+		return NULL;
+
+	int x = (int)((pos->x - map->m_bbox.m_min.x) * map->m_idx);
+	int y = (int)((pos->z - map->m_bbox.m_min.z) * map->m_idy);
+
+	if (x < 0 || (u32)x >= map->m_nx || y < 0 || (u32)y >= map->m_ny)
+		return NULL;
+
+	loc.m_mapid = 0;
+	loc.x = x;
+	loc.y = y;
+	const CAiMap::scanline &row = map->m_scanlines[y];
+
+	if (loc.x < row.m_start || !(loc.x < row.m_end))
+		return NULL;
+
+	return map->GetCell(loc);
+}
+
+/* inline: a cell's altitude (10 bits over the map's height range) */
+static f32 cell_altitude(const CAiMap *map, const CAiCell *cell)
+{
+	return map->m_bbox.m_min.y + (map->m_bbox.m_max.y - map->m_bbox.m_min.y) * 0.000976563f * (f32)cell->m_altitude;
+}
+
 /* @socom-skeleton stub GetLocation__7CAiMapsFPC6CPnt3DR9CAiMapLoc */
-void CAiMaps::GetLocation(const CPnt3D *, CAiMapLoc &)
+bool CAiMaps::GetLocation(const CPnt3D *pos, CAiMapLoc &out)
 {
 	/* @socom-skeleton stub floorTolerance$1168 */
-	static float floorTolerance;
+	static float floorTolerance = -10.0f;
+
+	/* 0x19c9b0: the cell under a position: the first map (in set order) whose bounds hold it
+	 * in x/z with a cell there that is not soil 10. A height within half a unit of that cell's
+	 * altitude settles it; else, when the set's first map has the cell's third byte set (port:
+	 * the field is not named; the ELF reads the byte), the later maps are tried too and the
+	 * one whose cell lies closest below (no more than 10 above) the position wins. */
+	if (size() == 0)
+		return false;
+
+	bool found = false;
+	bool more = false;
+	CAiMapLoc best;
+	f32 diff = 0.0f;
+	u32 index = 0;
+	iterator i = begin();
+
+	for (; i != end(); ++i, index++)
+	{
+		CAiMap *map = (CAiMap *)*i;
+		CAiMapLoc loc;
+		CAiCell *cell = map_cell_at(map, pos, loc);
+
+		if (cell == NULL)
+			continue;
+
+		if (index == 0)
+			more = ((const u8 *)cell)[2] != 0;
+
+		if (cell->m_soil == 10)
+			continue;
+
+		found = true;
+		best = loc;
+		best.m_mapid = index;
+		diff = pos->y - cell_altitude(map, cell);
+
+		if (diff < 0.5f && diff > -0.5f)
+			break;
+
+		if (!more)
+			break;
+
+		/* the later maps (other floors) */
+		++i;
+		index++;
+
+		for (; i != end(); ++i, index++)
+		{
+			map = (CAiMap *)*i;
+			cell = map_cell_at(map, pos, loc);
+
+			if (cell == NULL || cell->m_soil == 10)
+				continue;
+
+			f32 d = pos->y - cell_altitude(map, cell);
+
+			if (d <= floorTolerance)
+				continue;
+
+			if (d - 0.0f <= fabsf(diff) && 0.0f - d <= fabsf(diff)) /* _close_enough<f>(d, 0, |diff|) */
+			{
+				diff = d;
+				best = loc;
+				best.m_mapid = index;
+			}
+		}
+
+		break;
+	}
+
+	if (found)
+		out = best;
+
+	return found;
 }
 
 /* @socom-skeleton stub GetLocation__7CAiMapsFPCcR9CAiMapLoc */
@@ -179,11 +285,17 @@ CAiMap::region * CAiMaps::GetRegion(const char *, CAiMapLoc &)
 /* @socom-skeleton stub GetRegion__7CAiMapsFRC9CAiMapLoc */
 CAiMap::region * CAiMaps::GetRegion(const CAiMapLoc &)
 {
+	/* 0x19c660: the region of the location's cell (CAiMap::GetRegion 0x19eb30).
+	 * port: not written (CAiMap::GetRegion is unwritten): no region */
+	return NULL;
 }
 
 /* @socom-skeleton stub GetCellAction__7CAiMapsFRC9CAiMapLoc */
-void CAiMaps::GetCellAction(const CAiMapLoc &)
+CAiMap::action * CAiMaps::GetCellAction(const CAiMapLoc &loc)
 {
+	/* 0x19c5a0: the action of the location's cell on its map (NULL off the set) */
+	CAiMap *map = GetMapByIndex(loc.m_mapid);
+	return map != NULL ? map->GetCellAction(loc) : NULL;
 }
 
 /* @socom-skeleton stub GetBoundary__7CAiMapsFRC9CAiMapLoc */
@@ -266,8 +378,14 @@ float CAiMaps::GetAltitude(const CAiMapLoc &loc)
 }
 
 /* @socom-skeleton stub CanTravelLine__7CAiMapsFRC9CAiMapLocRC9CAiMapLocP9CAiMapLoc */
-unsigned char CAiMaps::CanTravelLine(const CAiMapLoc &, const CAiMapLoc &, CAiMapLoc *)
+unsigned char CAiMaps::CanTravelLine(const CAiMapLoc &from, const CAiMapLoc &to, CAiMapLoc *blocked)
 {
+	/* 0x19a570: only on one map */
+	if (from.m_mapid != to.m_mapid)
+		return false;
+
+	CAiMap *map = GetMapByIndex(from.m_mapid);
+	return map != NULL ? map->CanTravelLine(from, to, blocked) : false;
 }
 
 /* @socom-skeleton stub CanSeeLine__7CAiMapsFRC9CAiMapLocRC9CAiMapLocP9CAiMapLoc */
@@ -281,18 +399,91 @@ float CAiMaps::ComputeLineVisibility(const CAiMapLoc &, const CAiMapLoc &)
 }
 
 /* @socom-skeleton stub RegisterPathPlan__7CAiMapsFRC9CAiMapLocPC9CAiMapLociP7CAiPath */
-void CAiMaps::RegisterPathPlan(const CAiMapLoc &, const CAiMapLoc *, int, CAiPath *)
+bool CAiMaps::RegisterPathPlan(const CAiMapLoc &start, const CAiMapLoc *goals, int count, CAiPath *path)
 {
+	/* 0x199870: a path from start through the goals is queued for the planner, one leg per
+	 * goal on the same map; a goal on another map is reached along the map set's graph (its
+	 * nodes are the maps' links, a node's data their CAiMapLoc). Every cell must be walkable. */
+	CAiMap *map = GetMapByIndex(start.m_mapid);
+	CAiCell *cell = map != NULL ? map->GetCell(start) : NULL;
+
+	if (cell == NULL || !CAiMap::IsWalkable(cell))
+		return false;
+
+	for (int i = 0; i < count; i++)
+	{
+		map = GetMapByIndex(goals[i].m_mapid);
+		cell = map != NULL ? map->GetCell(goals[i]) : NULL;
+
+		if (cell == NULL || !CAiMap::IsWalkable(cell))
+			return false;
+	}
+
+	ai::PathPlanBegin(path);
+	bool ok = true;
+	CAiMapLoc from = start;
+
+	for (int i = 0; ok && i < count; i++)
+	{
+		CAiMapLoc goal = goals[i];
+
+		if (from.m_mapid == goal.m_mapid)
+		{
+			map = GetMapByIndex(from.m_mapid);
+			ok = map != NULL;
+
+			if (ok)
+				ai::PathPlanAddLeg(map, from, goal); /* ELF: the answer is not tested */
+		}
+		else
+		{
+			/* ELF: temporary "start" and "end" nodes are linked (CreateEdge, length the cell
+			 * delta) to the graph nodes on the two maps, CGraph::BuildRoute runs between them
+			 * and a leg is added for each route node on the map walked on, then the two nodes
+			 * are deleted.
+			 * port: not written (CGraph::BuildRoute 0x20fa60, DeleteNode, CGRoute are
+			 * unwritten): a goal on another map fails the plan */
+			ok = false;
+		}
+
+		from = goal;
+	}
+
+	if (!ok)
+	{
+		ai::PathPlanAbort();
+		return false;
+	}
+
+	ai::PathPlanExecute();
+	return true;
 }
 
 /* @socom-skeleton stub RegisterPathPlan__7CAiMapsFRC9CAiMapLocRC9CAiMapLocP7CAiPath */
-void CAiMaps::RegisterPathPlan(const CAiMapLoc &, const CAiMapLoc &, CAiPath *)
+bool CAiMaps::RegisterPathPlan(const CAiMapLoc &start, const CAiMapLoc &goal, CAiPath *path)
 {
+	/* 0x199860 (tail call): one goal */
+	return RegisterPathPlan(start, &goal, 1, path);
 }
 
 /* @socom-skeleton stub GetLocationDelta__7CAiMapsFRC9CAiMapLocRC9CAiMapLoc */
-unsigned int CAiMaps::GetLocationDelta(const CAiMapLoc &, const CAiMapLoc &)
+unsigned int CAiMaps::GetLocationDelta(const CAiMapLoc &a, const CAiMapLoc &b)
 {
+	/* 0x199610: the cells between two locations (|dx| + |dy|); across maps b is moved onto a's
+	 * map (CAiMap::TransformTo), else the larger map's cell count.
+	 * port: TransformTo 0x185b50 is unwritten, so across maps the cell count is returned */
+	if (a.m_mapid == b.m_mapid)
+	{
+		int dx = (int)b.x - (int)a.x;
+		int dy = (int)b.y - (int)a.y;
+		return (u32)((dx < 0 ? -dx : dx) + (dy < 0 ? -dy : dy));
+	}
+
+	CAiMap *ma = GetMapByIndex(a.m_mapid);
+	CAiMap *mb = GetMapByIndex(b.m_mapid);
+	u32 ca = ma != NULL ? ma->m_cellcount : 0;
+	u32 cb = mb != NULL ? mb->m_cellcount : 0;
+	return ca > cb ? ca : cb;
 }
 
 /* @socom-skeleton stub SmoothPath__7CAiMapsFR7CAiPath */
@@ -550,8 +741,11 @@ void CAiMaps::GetRegionTypeContainer(CAiMap::region::TYPE, const CAiMapLoc &)
 }
 
 /* @socom-skeleton stub GetRandomLoc__7CAiMapsFPCQ26CAiMap6regionR9CAiMapLoc */
-void CAiMaps::GetRandomLoc(const CAiMap::region *, CAiMapLoc &)
+bool CAiMaps::GetRandomLoc(const CAiMap::region *, CAiMapLoc &)
 {
+	/* 0x197340 (788 bytes): a random walkable cell of the region.
+	 * port: not written: none found */
+	return false;
 }
 
 /* @socom-skeleton stub SetRegionType__7CAiMapsFPCQ26CAiMap6regionQ36CAiMap6region4TYPE */

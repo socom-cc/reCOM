@@ -159,8 +159,32 @@ CPnt3D CPnt3D::Reflect(const CPnt3D *normal)
 }
 
 /* @socom-skeleton stub DistToVector__6CPnt3DCFPC6CPnt3DPC6CPnt3DP6CPnt3DPf */
-void CPnt3D::DistToVector(const CPnt3D *, const CPnt3D *, CPnt3D *, float *) const
+bool CPnt3D::DistToVector(const CPnt3D *a, const CPnt3D *b, CPnt3D *closest, float *dist) const
 {
+	/* 0x222750: as the three-argument DistToVector (beyond either end: the distance to that
+	 * end, false, closest untouched); inside, closest is the foot on the segment: a + (b - a)
+	 * times the share of this point's projections from a and from b (along the unit segment
+	 * direction) that lies on a's side */
+	if (!DistToVector(a, b, dist))
+		return false;
+
+	f32 abx = b->x - a->x, aby = b->y - a->y, abz = b->z - a->z;
+	f32 len = sqrtf(abx * abx + aby * aby + abz * abz);
+
+	if (len == 0.0f)
+		return true;
+
+	f32 fa = ((x - a->x) * abx + (y - a->y) * aby + (z - a->z) * abz) / len;
+	f32 fb = ((x - b->x) * -abx + (y - b->y) * -aby + (z - b->z) * -abz) / len;
+
+	if (fa + fb <= 0.0f)
+		return true;
+
+	f32 t = fa / (fa + fb);
+	closest->x = a->x + abx * t;
+	closest->y = a->y + aby * t;
+	closest->z = a->z + abz * t;
+	return true;
 }
 
 /* @socom-skeleton stub DistToVector__6CPnt3DCFPC6CPnt3DPC6CPnt3DPf */

@@ -36,70 +36,222 @@
 #include "gamez/zMath/zmath.h"
 #include "zseal.h"
 /* @socom-skeleton end include */
+#include <stdlib.h> /* rand */
 
 /* @socom-skeleton stub MultiplayerMsgStrings */
 static unsigned char MultiplayerMsgStrings[28];
 
 /* @socom-skeleton stub SetLookRate__9CSealCtrlFf */
-void CSealCtrl::SetLookRate(float)
+void CSealCtrl::SetLookRate(float rate)
 {
+	/* 0x2e4a40 */
+	m_look_rate.m_min = rate;
+	m_look_rate.m_range = 0.0f;
 }
 
 /* @socom-skeleton stub SetLookTimer__9CSealCtrlFf */
-void CSealCtrl::SetLookTimer(float)
+void CSealCtrl::SetLookTimer(float time)
 {
+	/* 0x2e4a30 */
+	m_look_timer = time;
 }
 
 /* @socom-skeleton stub SetLookFlags__9CSealCtrlFUi */
-void CSealCtrl::SetLookFlags(unsigned int)
+void CSealCtrl::SetLookFlags(unsigned int flags)
 {
+	/* 0x2e4a20 */
+	m_look_flags = flags;
 }
 
 /* @socom-skeleton stub ModifyLookFlags__9CSealCtrlFUiUi */
-void CSealCtrl::ModifyLookFlags(unsigned int, unsigned int)
+void CSealCtrl::ModifyLookFlags(unsigned int set, unsigned int clear)
 {
+	/* 0x2e4a00 */
+	m_look_flags &= ~clear;
+	m_look_flags |= set;
 }
 
 /* @socom-skeleton stub SetScanAngle__9CSealCtrlFf */
-void CSealCtrl::SetScanAngle(float)
+void CSealCtrl::SetScanAngle(float angle)
 {
+	/* 0x2e49e0: -angle .. +angle */
+	m_scan_angle.m_min = -angle;
+	m_scan_angle.m_range = angle + angle;
 }
 
 /* @socom-skeleton stub SetScanRate__9CSealCtrlFf */
-void CSealCtrl::SetScanRate(float)
+void CSealCtrl::SetScanRate(float period)
 {
+	/* 0x2e49d0 */
+	m_scan_timer.m_timer = period;
+	m_scan_timer.m_period.m_min = period;
+	m_scan_timer.m_period.m_range = 0.0f;
 }
 
 /* @socom-skeleton stub SetDefaultLookParams__9CSealCtrlF7AI_LOOK */
-void CSealCtrl::SetDefaultLookParams(AI_LOOK)
+void CSealCtrl::SetDefaultLookParams(AI_LOOK look)
 {
 	/* @socom-skeleton stub look_rate$2015 */
-	static float look_rate[2];
+	static float look_rate[2] = {0.1f, 0.3f};
+
+	/* 0x2e4660: a look's defaults: turn rate 0.1..0.4, a 1..3 s timer, flags 0x20, no bias;
+	 * NORMAL scans the whole scan range every 1..3 s and lasts (flags 6), EVENT half the
+	 * range every 0.5..2.5 s (flag 1, rate 0.8), FRANTIC the whole range every 0.5..1.2 s
+	 * (flags 0xa, rate 0.8), BUDDY lasts 1..2.5 s, DEPLOY lasts at rate 1 (flag 1). The look
+	 * becomes the current one. (The ELF's static is set on first use.) */
+	m_look_rate.m_min = look_rate[0];
+	m_look_rate.m_range = look_rate[1];
+	m_look_timer = 1.0f + 2.0f * ((f32)rand() * (1.0f / 2147483648.0f));
+	m_look_flags = 0x20;
+	m_look_bias = CPnt3D::zero;
+
+	switch (look)
+	{
+	case AIL_DEPLOY:
+		m_look_flags |= 1;
+		m_look_rate.m_min = 1.0f;
+		m_look_rate.m_range = 0.0f;
+		m_look_timer = CAiTimer::infinite;
+		break;
+
+	case AIL_EVENT:
+		m_look_flags |= 1;
+		m_scan_angle.m_min = 0.5f * -m_scan_limits;
+		m_scan_angle.m_range = 0.5f * m_scan_limits - m_scan_angle.m_min;
+		m_scan_timer.m_period.m_min = 0.5f;
+		m_scan_timer.m_period.m_range = 2.0f;
+		m_scan_timer.m_timer = m_scan_timer.m_period.m_min + m_scan_timer.m_period.m_range * ((f32)rand() * (1.0f / 2147483648.0f));
+		m_look_rate.m_min = 0.8f;
+		m_look_rate.m_range = 0.0f;
+		break;
+
+	case AIL_BUDDY:
+		m_look_timer = 1.0f + 1.5f * ((f32)rand() * (1.0f / 2147483648.0f));
+		break;
+
+	case AIL_FRANTIC:
+		m_scan_angle.m_min = -m_scan_limits;
+		m_scan_angle.m_range = m_scan_limits - m_scan_angle.m_min;
+		m_scan_timer.m_period.m_min = 0.5f;
+		m_scan_timer.m_period.m_range = 0.7f;
+		m_scan_timer.m_timer = m_scan_timer.m_period.m_min + m_scan_timer.m_period.m_range * ((f32)rand() * (1.0f / 2147483648.0f));
+		m_look_rate.m_min = 0.8f;
+		m_look_rate.m_range = 0.0f;
+		m_look_flags |= 0xa;
+		break;
+
+	case AIL_NORMAL:
+		m_scan_angle.m_min = -m_scan_limits;
+		m_scan_angle.m_range = m_scan_limits - m_scan_angle.m_min;
+		m_scan_timer.m_period.m_min = 1.0f;
+		m_scan_timer.m_period.m_range = 2.0f;
+		m_scan_timer.m_timer = m_scan_timer.m_period.m_min + m_scan_timer.m_period.m_range * ((f32)rand() * (1.0f / 2147483648.0f));
+		m_look_timer = CAiTimer::infinite;
+		m_look_flags |= 6;
+		break;
+
+	default:
+		break;
+	}
+
+	/* ELF: on a change of look an AI seal's controller is asked for GetSealCtrlAi (the answer
+	 * is not used) */
+	m_look_mode = look;
 }
 
 /* @socom-skeleton stub SetLookPosW__9CSealCtrlF7AI_LOOKPC6CPnt3D */
-void CSealCtrl::SetLookPosW(AI_LOOK, const CPnt3D *)
+bool CSealCtrl::SetLookPosW(AI_LOOK look, const CPnt3D *pos)
 {
+	/* 0x2e4600: a look at a world point; refused under a higher look */
+	if ((s8)look < (s8)m_look_mode)
+		return false;
+
+	m_look_data = *pos;
+	m_look_type = LOOK_POSW;
+	SetDefaultLookParams(look);
+	return true;
 }
 
 /* @socom-skeleton stub SetLookDirW__9CSealCtrlF7AI_LOOKPC6CPnt3Db */
-void CSealCtrl::SetLookDirW(AI_LOOK, const CPnt3D *, bool)
+bool CSealCtrl::SetLookDirW(AI_LOOK look, const CPnt3D *dir, bool normalized)
 {
+	/* 0x2e4510: a look along a world direction (normalized here unless said; a direction
+	 * shorter than 0.1 is refused); refused under a higher look */
+	if ((s8)look < (s8)m_look_mode)
+		return false;
+
+	if (normalized)
+		m_look_data = *dir;
+	else
+	{
+		CPnt3D old = m_look_data;
+
+		if (dir->Normalize(&m_look_data) <= 0.1f)
+		{
+			m_look_data = old;
+			return false;
+		}
+	}
+
+	m_look_type = LOOK_DIRW;
+	SetDefaultLookParams(look);
+	return true;
 }
 
 /* @socom-skeleton stub SetLookDirW__9CSealCtrlF7AI_LOOKQ26CAiMap3DIR */
-void CSealCtrl::SetLookDirW(AI_LOOK, CAiMap::DIR)
+bool CSealCtrl::SetLookDirW(AI_LOOK look, CAiMap::DIR dir)
 {
+	/* 0x2e4480: a look along an AI map direction */
+	CPnt3D vec;
+	CAiMap::GetDirVec(dir, vec);
+
+	if ((s8)look < (s8)m_look_mode)
+		return false;
+
+	m_look_data = vec;
+	m_look_type = LOOK_DIRW;
+	SetDefaultLookParams(look);
+	return true;
 }
 
 /* @socom-skeleton stub SetLookDirR__9CSealCtrlF7AI_LOOKPC6CPnt3Db */
-void CSealCtrl::SetLookDirR(AI_LOOK, const CPnt3D *, bool)
+bool CSealCtrl::SetLookDirR(AI_LOOK look, const CPnt3D *dir, bool normalized)
 {
+	/* 0x2e4390: as SetLookDirW, a direction relative to the body */
+	if ((s8)look < (s8)m_look_mode)
+		return false;
+
+	if (normalized)
+		m_look_data = *dir;
+	else
+	{
+		CPnt3D old = m_look_data;
+
+		if (dir->Normalize(&m_look_data) <= 0.1f)
+		{
+			m_look_data = old;
+			return false;
+		}
+	}
+
+	m_look_type = LOOK_DIRR;
+	SetDefaultLookParams(look);
+	return true;
 }
 
 /* @socom-skeleton stub ClearLook__9CSealCtrlF7AI_LOOK */
-void CSealCtrl::ClearLook(AI_LOOK)
+void CSealCtrl::ClearLook(AI_LOOK look)
 {
+	/* 0x2e4310: that look (or any: -1) ends: straight ahead (relative -z), the normal look */
+	if (look != AIL_ALL && (s8)look != (s8)m_look_mode)
+		return;
+
+	m_look_data = CPnt3D::unit_nz;
+	m_look_type = LOOK_DIRR;
+	m_look_mode = AIL_NORMAL;
+	m_look_timer = CAiTimer::infinite;
+	m_look_flags = 0;
+	SetDefaultLookParams(AIL_NORMAL);
 }
 
 /* @socom-skeleton stub ScanTick__9CSealCtrlFf */

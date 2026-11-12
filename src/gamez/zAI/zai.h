@@ -135,7 +135,10 @@ class CEntity;
 class CSealCtrlAi;
 class CVehicleRdrEntry;
 
-enum class ASTAR_STATUS
+/* DWARF byte_size 1 (CAiPath::m_status +0x79). The ELF stores the planner's own codes:
+ * 0 found, 2 too many ticks (200 find_path calls), 3 over the search limit, 4 no open nodes,
+ * 5 out of time this tick (CAiStar::find_path 0x1814c0); the enumerator names are unproven */
+enum class ASTAR_STATUS : u8
 {
 	ASTAR_STATUS_UNKNOWN,
 	ASTAR_SUCCESS,
@@ -153,7 +156,7 @@ enum class TYPE
 	EXPONENTIAL
 };
 
-enum class PATH_TYPE
+enum class PATH_TYPE : u8 /* DWARF byte_size 1 (CAiPath::m_type +0x9) */
 {
 	PATH_DEFAULT,
 	PATH_BASIC,
@@ -161,7 +164,7 @@ enum class PATH_TYPE
 	PATH_RESTRAINED
 };
 
-enum class PATH_STATE
+enum class PATH_STATE : u8 /* DWARF byte_size 1 (CAiPath::m_state +0x78) */
 {
 	UNKNOWN,
 	INQUEUE,
@@ -456,13 +459,12 @@ public:
 	/* @socom-skeleton end 9CAiMapLoc */
 };
 
-class CAiMapVec : std::vector<CAiMap> { };
+class CAiMapVec : public std::vector<CAiMap *> { }; /* the legs' maps (CAiPath::m_maps: MSL vector_pod<Ui> of map pointers, plan_addleg 0x195b90) */
 class CAiMapLocVec : public std::vector<CAiMapLoc> /* port: public (CAiPathStats::reset 0x1968e0 clears it) */
 {
 public:
 	float ComputeLength() const; /* 0x19dea0 */
 };
-class points : std::vector<CPnt3D> { };
 
 struct AIMAP_PARAMS /* DWARF: byte_size 164; read whole from the map file (CAiMap::Read 0x189390) */
 {
@@ -671,7 +673,7 @@ public:
 	unsigned char CanSeeLine(const CAiMapLoc &, const CAiMapLoc &, CAiMapLoc *);
 	void CanSeeLine(const CAiMapLoc &, const CPnt3D *, CAiMapLoc *);
 	float ComputeLineVisibility(const CAiMapLoc &, const CAiMapLoc &);
-	void WalkLine(const CAiMapLoc &, const CAiMapLoc &, bool (*)(const MAP_LINEWALK_STRUCT &, void *), void *);
+	bool WalkLine(const CAiMapLoc &, const CAiMapLoc &, bool (*)(const MAP_LINEWALK_STRUCT &, void *), void *); /* 0x1a7570: 0 when the callback stopped the walk */
 	void WalkLine(const CAiMapLoc &, const CPnt3D *, bool (*)(const MAP_LINEWALK_STRUCT &, void *), void *);
 	void FloodFill(const CAiMapLoc &, CAiMap::DIR, int, bool (*)(MAP_FLOODFILL_STRUCT &, void *), void *);
 	unsigned char Tile(const CAiMap::region *, unsigned int, unsigned int);
@@ -695,6 +697,37 @@ public:
 		return NULL;
 	}
 
+	/* neighbor__6CAiMap 0x4390b0: the cell step (x, y) of each DIR (N is -y) */
+	static const int neighbor[8][2];
+
+	/* 0x182830 (emitted from this header): the next cell in a direction; false off the map or
+	 * row, or (when asked) on a cell nobody can walk (soil 0, 8, 9, 10) */
+	bool GetNeighbor(const CAiMapLoc &loc, CAiMap::DIR dir, CAiMapLoc &out, CAiCell *&cell, bool walkable) const
+	{
+		int x = (int)loc.x + neighbor[dir][0];
+		int y = (int)loc.y + neighbor[dir][1];
+
+		if (x < 0 || (u32)x >= m_nx || y < 0 || (u32)y >= m_ny)
+			return false;
+
+		out.x = x;
+		out.y = y;
+		out.m_mapid = m_mapid;
+		cell = GetCell(out);
+
+		if (cell == NULL)
+			return false;
+
+		return !walkable || IsWalkable(cell);
+	}
+
+	/* port: inline in the ELF everywhere (soil 0 none, 8, 9, 10 blocked) */
+	static bool IsWalkable(const CAiCell *cell)
+	{
+		u32 soil = cell->m_soil;
+		return !(soil == 0 || soil == 10 || soil == 8 || soil == 9);
+	}
+
 	u32 m_version;
 	CAiCell *m_cell;
 	char *m_mapex;
@@ -711,6 +744,20 @@ public:
 	CAiMap::scanlines m_scanlines;
 	class CAiOverlay *m_overlay; /* port: CAiOverlay has no DWARF definition */
 	CGraph *m_graph;
+};
+
+/* port: no DWARF definition; the walk record WalkLine 0x1a7570 passes its callbacks (read by
+ * _look_ahead 0x2661d0, _TravelLineCallback 0x1a84c0); m_end's slot and all names unproven */
+class MAP_LINEWALK_STRUCT
+{
+public:
+	CAiMap *m_map;     /* +0x00 */
+	CAiMapLoc m_start; /* +0x04 */
+	CAiMapLoc m_end;   /* +0x08 */
+	CAiMapLoc m_loc;   /* +0x0c the cell reached */
+	CAiCell *m_cell;   /* +0x10 its cell */
+	f32 m_dist;        /* +0x14 the distance walked (world units) */
+	CAiCell *m_prev;   /* +0x18 the cell before */
 };
 
 class MAP_FOREACH_STRUCT /* port: no DWARF definition; layout from ValidateCells 0x186430 / _validate_cell 0x186a30 (names unproven) */
@@ -770,7 +817,24 @@ public:
 class CAiPath
 {
 public:
-	CAiAStar* m_astar;
+	/* DWARF: CAiPath::point, byte_size 12. m_flags (UpdatePointFlags 0x1940a0): 1 an action
+	 * cell, 2 a leg boundary (waypoint), 4 a cell to slow down in (shadow or special soil) */
+	class point
+	{
+	public:
+		CAiMapLoc m_loc;
+		u32 m_width : 8;
+		u32 m_flags : 8;
+		u32 m_unused : 16;
+		f32 m_angle; /* UpdateTurnAngles 0x194470: the turn at this point (pi/2 across maps) */
+	};
+	/* DWARF: points (byte_size 12, a vector of CAiPath::point); port: nested here because its
+	 * element is CAiPath's nested class. The points are stored goal first: back() is the next
+	 * point to walk to (CAiStar::find_path pushes from the goal back to the start, the
+	 * follower pops the back, AppendPathLoc inserts at the front). */
+	class points : public std::vector<point> { };
+
+	class CAiStar* m_astar;
 	CAiPlanner* m_planner;
 
 	bool m_custom;
@@ -781,13 +845,14 @@ public:
 	CAiPath* m_template;
 	void* m_overlay;
 
-	s32 m_flags;
-	s32 m_app_flags;
-	s32 m_legcount;
-	s32 m_planleg;
-	s32 m_curleg;
+	u32 m_flags; /* 1 smooth, 2 turn angles, 4 widths, 0x10 avoid occupied cells, 0x20 route
+	              * legs through the map's region graph, 0x40 print */
+	u32 m_app_flags;
+	u32 m_legcount;
+	u32 m_planleg;
+	u32 m_curleg;
 
-	CAiMapLocVec m_waypts;
+	CAiMapLocVec m_waypts; /* two per leg: its start and goal */
 	CAiMapVec m_maps;
 	CAiPathStats m_stats;
 
@@ -795,12 +860,12 @@ public:
 	ASTAR_STATUS m_status;
 
 	f32 m_length;
-	s32 m_tolerance;
-	s32 m_search_limit;
-	s32 m_snake_len;
+	u32 m_tolerance;
+	u32 m_search_limit;
+	u32 m_snake_len;
 
 	points m_points;
-	s32 m_pathId;
+	u32 m_pathId;
 	/* @socom-skeleton decl 7CAiPath */
 public:
 	enum PATH_STATE
@@ -824,27 +889,27 @@ public:
 	CAiPath();
 	~CAiPath();
 	float GetLength(bool);
-	void GetLegPoints(CAiMapLoc &, CAiMapLoc &, int) const;
-	void GetLegMap(int);
+	bool GetLegPoints(CAiMapLoc &, CAiMapLoc &, int) const;
+	CAiMap * GetLegMap(int);
 	void GetLegBoundary(int &, int &, int) const;
 	void plan_setup();
-	void plan_addleg(CAiMap *, const CAiMapLoc &, const CAiMapLoc &);
+	bool plan_addleg(CAiMap *, const CAiMapLoc &, const CAiMapLoc &);
 	void plan_complete(CAiPath::PATH_STATE);
 	void IncrementPathId();
-	void plan_legcomplete(CAiPath::PATH_STATE);
-	void Clear();
+	bool plan_legcomplete(CAiPath::PATH_STATE); /* 0x1959c0: 1 while legs remain to plan */
+	bool Clear(); /* 0x1958e0: 0 while a plan runs */
 	void SetTemplatePath(CAiPath *);
-	void AppendPathLoc(const CAiMapLoc &, CAiMap *);
-	void InsertPathLoc(const CAiMapLoc &, CAiMap *);
+	bool AppendPathLoc(const CAiMapLoc &, CAiMap *);
+	bool InsertPathLoc(const CAiMapLoc &, CAiMap *);
 	void PostProcess();
-	void SmoothPath();
+	bool SmoothPath();
 	void SmoothPathLeg(int);
 	void UpdateTurnAngles();
 	void UpdatePointFlags();
 	void UpdatePathWidth(unsigned int);
 	void SetSnakeLength(unsigned int);
 	void AddSnakePoint(const CAiMapLoc &);
-	void SetPathType(CAiPath::PATH_TYPE);
+	bool SetPathType(CAiPath::PATH_TYPE); /* 0x1938f0: whether the path has that type now */
 	void PassesThrough(const CAiMapLoc &, CAiMap::DIR, int);
 	void PrintPath() const;
 	void PointInPath(const CAiMapLoc &, unsigned int *) const;
@@ -1256,26 +1321,32 @@ class CAiPlanner
 	/* @socom-skeleton decl 10CAiPlanner */
 public:
 	virtual void reset();
-	virtual void dist(CAiMap &, const CAiMapLoc &, const CAiMapLoc &);
-	virtual void is_traversable(CAiMap *, CAiPath *, const CAiMapLoc &, CAiMap::DIR, CAiMapLoc &, CAiCell *&);
+	virtual int dist(CAiMap &, const CAiMapLoc &, const CAiMapLoc &); /* 0x182a90: the A* estimate */
+	virtual bool is_traversable(CAiMap *, CAiPath *, const CAiMapLoc &, CAiMap::DIR, CAiMapLoc &, CAiCell *&);
 	virtual float fcost(CAiMap &, const CAiMapLoc &, CAiMap::DIR, const CAiMapLoc &);
 	static float bias;
 	/* @socom-skeleton end 10CAiPlanner */
+	u8 m_unused; /* +0x4: the planners are 8 bytes (CreatePlanner 0x1812d0 clears this byte) */
 };
 
-class CBasicPlanner : public CAiPlanner
+/* the path types' planners (vtables 0x471900 / 0x4718e0 / 0x4718c0; RTTI names CBasicTravel,
+ * CStealthTravel, CRestrainedTravel) */
+class CBasicTravel : public CAiPlanner
 {
-
+public:
+	virtual float fcost(CAiMap &, const CAiMapLoc &, CAiMap::DIR, const CAiMapLoc &); /* 0x183450 */
 };
 
-class CStealthPlanner : public CAiPlanner
+class CStealthTravel : public CAiPlanner
 {
-
+public:
+	virtual float fcost(CAiMap &, const CAiMapLoc &, CAiMap::DIR, const CAiMapLoc &); /* 0x182ed0 */
 };
 
-class CRestrainedPlanner : public CAiPlanner
+class CRestrainedTravel : public CAiPlanner
 {
-
+public:
+	virtual bool is_traversable(CAiMap *, CAiPath *, const CAiMapLoc &, CAiMap::DIR, CAiMapLoc &, CAiCell *&); /* 0x182db0 */
 };
 
 class CAiDecay
@@ -1411,12 +1482,12 @@ public:
 	void Close();
 	void Reset();
 	CAiMap * GetMapByIndex(unsigned int) const;
-	void GetLocation(const CPnt3D *, CAiMapLoc &);
+	bool GetLocation(const CPnt3D *, CAiMapLoc &); /* 0x19c9b0: 0 off every map */
 	bool GetLocation(const char *, CAiMapLoc &); /* bool: 0x19c8e0 returns 0/1 */
 	void GetActionById(unsigned int, CAiMapLoc &, CAiMap::action **);
 	CAiMap::region * GetRegion(const char *, CAiMapLoc &);
 	CAiMap::region * GetRegion(const CAiMapLoc &);
-	void GetCellAction(const CAiMapLoc &);
+	CAiMap::action * GetCellAction(const CAiMapLoc &); /* 0x19c5a0 */
 	unsigned int GetBoundary(const CAiMapLoc &);
 	CAiCell * GetCell(const CAiMapLoc &);
 	CPnt3D * GetCellCenter(const CAiMapLoc &, CPnt3D *);
@@ -1425,8 +1496,8 @@ public:
 	unsigned char CanTravelLine(const CAiMapLoc &, const CAiMapLoc &, CAiMapLoc *);
 	unsigned char CanSeeLine(const CAiMapLoc &, const CAiMapLoc &, CAiMapLoc *);
 	float ComputeLineVisibility(const CAiMapLoc &, const CAiMapLoc &);
-	void RegisterPathPlan(const CAiMapLoc &, const CAiMapLoc *, int, CAiPath *);
-	void RegisterPathPlan(const CAiMapLoc &, const CAiMapLoc &, CAiPath *);
+	bool RegisterPathPlan(const CAiMapLoc &, const CAiMapLoc *, int, CAiPath *); /* 0x199870: 0 when a cell is unwalkable or a leg cannot be routed */
+	bool RegisterPathPlan(const CAiMapLoc &, const CAiMapLoc &, CAiPath *);
 	unsigned int GetLocationDelta(const CAiMapLoc &, const CAiMapLoc &);
 	void SmoothPath(CAiPath &);
 	void ExtendPath(CAiPath &, const CAiMapLoc &);
@@ -1441,7 +1512,7 @@ public:
 	void Tile(const CAiMap::region *, unsigned int, unsigned int);
 	void GetClosestRegion(const CAiMapLoc &, CAiMap::region::TYPE, bool);
 	void GetRegionTypeContainer(CAiMap::region::TYPE, const CAiMapLoc &);
-	void GetRandomLoc(const CAiMap::region *, CAiMapLoc &);
+	bool GetRandomLoc(const CAiMap::region *, CAiMapLoc &); /* 0x197340: 0 when none found */
 	void SetRegionType(const CAiMap::region *, CAiMap::region::TYPE);
 	void SetOccupied(const CAiMapLoc &, const CAiMapLoc &, unsigned int);
 	static const char *default_mapset;
@@ -1451,6 +1522,20 @@ public:
 class CAiStar
 {
 public:
+	/* no DWARF record: 44 bytes (CreatePlanner 0x1812d0, find_path 0x1814c0); names invented */
+	struct node /* MSL heap element (push_heap<node*, greater<node>>: ordered by m_g + m_h) */
+	{
+		CAiMapLoc m_loc;
+		s16 m_g; /* the cost so far, in tenths of a cell */
+		s16 m_h; /* the estimate to the goal (CAiPlanner::dist) */
+	};
+	CAiPlanner *m_planner;     /* +0x00 the path type's planner */
+	std::vector<node> m_open;   /* +0x04 the open list, a heap */
+	std::vector<node> m_closed; /* +0x10 */
+	CAiMap *m_map;             /* +0x1c the leg's map */
+	CAiMapLoc m_start;         /* +0x20 */
+	CAiMapLoc m_goal;          /* +0x24 */
+	CAiPathStats *m_stats;     /* +0x28 the path's stats */
 	~CAiStar();
 	void find_path(CAiPath *);
 };

@@ -364,9 +364,21 @@ void CEntity::OnDeath()
 	m_control->OnDeath();
 }
 
+#include <strings.h> /* strcasecmp (CEntityList::GetEntity) */
 /* @socom-skeleton stub GetEntity__11CEntityListCFPCc */
-CEntity * CEntityList::GetEntity(const char *) const
+CEntity * CEntityList::GetEntity(const char *name) const
 {
+	/* 0x1ee290: the listed entity whose node has the name (any case); none for NULL */
+	if (name == NULL)
+		return NULL;
+
+	for (const_iterator it = begin(); it != end(); ++it)
+	{
+		if (strcasecmp(name, (*it)->m_node->m_name) == 0)
+			return *it;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub GetEntityById__11CEntityListCFUi */
@@ -386,6 +398,14 @@ CEntity * CEntityList::GetEntityById(unsigned int id) const
 }
 
 /* @socom-skeleton stub GetEntityByIndex__11CEntityListCFUi */
-CEntity * CEntityList::GetEntityByIndex(unsigned int) const
+CEntity * CEntityList::GetEntityByIndex(unsigned int index) const
 {
+	/* 0x1ee0f0: the index-th listed entity (0: the player), NULL past the end */
+	for (const_iterator it = begin(); it != end(); ++it, index--)
+	{
+		if (index == 0)
+			return *it;
+	}
+
+	return NULL;
 }

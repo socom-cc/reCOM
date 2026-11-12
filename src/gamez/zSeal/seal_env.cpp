@@ -449,8 +449,52 @@ void ftmask_create(_zrdr *)
 }
 
 /* @socom-skeleton stub UpdateAiMapLoc__10CZSealBodyFRb */
-void CZSealBody::UpdateAiMapLoc(bool &)
+void CZSealBody::UpdateAiMapLoc(bool &changed)
 {
+	/* 0x2a4700: the seal's AI map location from its position (CAiMaps::GetLocation); a
+	 * walkable new cell also becomes the valid location: a snake path gets the point, the
+	 * AI's vis map is updated (when asked: changed), a live seal moves its occupied mark, and
+	 * the position is kept as the last valid one. The player then gets the boundary warnings
+	 * (GetBoundary of the old and new cell, AI sounds 0/1, the mission's boundary valve). */
+	CAiMapLoc old = m_mapLocValid;
+	CAiMapLoc loc;
+	bool found = AiMaps.GetLocation(GetPosW(), loc);
+
+	if (found)
+	{
+		m_mapLoc = loc;
+		CAiMap *map = AiMaps.GetMapByIndex(loc.m_mapid);
+		CAiCell *cell = map != NULL ? map->GetCell(loc) : NULL;
+
+		if (cell != NULL && CAiMap::IsWalkable(cell))
+		{
+			if (old.x != loc.x || old.y != loc.y)
+			{
+				m_mapLocValid = loc;
+
+				if (m_snake_path)
+					m_snakePath.AddSnakePoint(loc);
+
+				if (changed)
+				{
+					/* ELF: changed = CSealCtrl::UpdateAiVisMap(m_control).
+					 * port: UpdateAiVisMap 0x283e60 is unwritten; changed is left set */
+				}
+
+				if (m_isAlive)
+					AiMaps.SetOccupied(old, loc, m_id);
+			}
+
+			m_last_valid_CPnt = *GetPosW();
+		}
+	}
+
+	if (found && m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsPlayer())
+	{
+		/* ELF (not on the network): leaving / entering the mission boundary plays the AI
+		 * warning sounds and sets the mission's boundary valve.
+		 * port: not written (CAiMaps::GetBoundary 0x19c120 is unwritten) */
+	}
 }
 
 /* @socom-skeleton stub SealGetIntersect__10CZSealBodyFPC6CPnt3DPC6CPnt3D */

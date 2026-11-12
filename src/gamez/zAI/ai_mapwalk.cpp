@@ -40,6 +40,7 @@
 #include "gamez/zMath/zmath.h"
 #include "zai.h"
 /* @socom-skeleton end include */
+#include <math.h> /* sqrtf */
 /* @socom-skeleton decl forward */
 class MAP_FLOODFILL_STRUCT;
 class MAP_FOREACH_STRUCT;
@@ -52,8 +53,28 @@ int CAiMap::GetLocationWidth(const CAiMapLoc &, int)
 }
 
 /* @socom-skeleton stub _TravelLineCallback__FRC19MAP_LINEWALK_STRUCTPv */
-void _TravelLineCallback(const MAP_LINEWALK_STRUCT &, void *)
+bool _TravelLineCallback(const MAP_LINEWALK_STRUCT &walk, void *data)
 {
+	/* 0x1a84c0: a walkable cell, and on soil 11 not higher than the cell before; the first
+	 * cell that fails is stored at data (a CAiMapLoc *, may be NULL) */
+	CAiCell *cell = walk.m_cell;
+	bool ok = CAiMap::IsWalkable(cell);
+
+	if (ok && cell->m_soil == 11 && walk.m_prev != cell && walk.m_prev != NULL)
+	{
+		const AIMAP_PARAMS *map = walk.m_map;
+		f32 scale = (map->m_bbox.m_max.y - map->m_bbox.m_min.y) * 0.000976563f;
+		f32 prev = map->m_bbox.m_min.y + scale * (f32)walk.m_prev->m_altitude;
+		f32 here = map->m_bbox.m_min.y + scale * (f32)cell->m_altitude;
+
+		if (!(here <= prev))
+			ok = false;
+	}
+
+	if (!ok && data != NULL)
+		*(CAiMapLoc *)data = walk.m_loc;
+
+	return ok;
 }
 
 /* @socom-skeleton stub _SeeLineCallback__FRC19MAP_LINEWALK_STRUCTPv */
@@ -73,8 +94,10 @@ void _VisLineCallback(const MAP_LINEWALK_STRUCT &, void *)
 }
 
 /* @socom-skeleton stub CanTravelLine__6CAiMapFRC9CAiMapLocRC9CAiMapLocP9CAiMapLoc */
-unsigned char CAiMap::CanTravelLine(const CAiMapLoc &, const CAiMapLoc &, CAiMapLoc *)
+unsigned char CAiMap::CanTravelLine(const CAiMapLoc &from, const CAiMapLoc &to, CAiMapLoc *blocked)
 {
+	/* 0x1a8350 (tail call) */
+	return WalkLine(from, to, _TravelLineCallback, blocked);
 }
 
 /* @socom-skeleton stub CanSeeLine__6CAiMapFRC9CAiMapLocRC9CAiMapLocP9CAiMapLoc */
@@ -95,8 +118,66 @@ float CAiMap::ComputeLineVisibility(const CAiMapLoc &, const CAiMapLoc &)
 }
 
 /* @socom-skeleton stub WalkLine__6CAiMapFRC9CAiMapLocRC9CAiMapLocPFRC19MAP_LINEWALK_STRUCTPv_bPv */
-void CAiMap::WalkLine(const CAiMapLoc &, const CAiMapLoc &, bool (*)(const MAP_LINEWALK_STRUCT &, void *), void *)
+bool CAiMap::WalkLine(const CAiMapLoc &from, const CAiMapLoc &to, bool (*callback)(const MAP_LINEWALK_STRUCT &, void *), void *data)
 {
+	/* 0x1a7570 (3332 bytes): the ELF walks the straight line between the two cells' centres
+	 * (an action cell's centre moved by offset_length along its direction) in fractions of its
+	 * length, the point converted to a cell (vftoi0 of (p - bbox min) * idx/idy) and the
+	 * callback called with each new cell (m_dist = the fraction times the length); it stops
+	 * when the callback returns 0 or the line leaves the map, and returns the callback's
+	 * last answer.
+	 * port: interim, not transcribed from the ELF: the same walk in half-cell steps without
+	 * the action-cell offsets; the start cell is reported first (_look_ahead expects it) */
+	MAP_LINEWALK_STRUCT walk;
+	walk.m_map = this;
+	walk.m_start = from;
+	walk.m_end = to;
+	walk.m_loc = from;
+	walk.m_cell = GetCell(from);
+	walk.m_dist = 0.0f;
+	walk.m_prev = NULL;
+
+	if (walk.m_cell == NULL)
+		return false;
+
+	if (!callback(walk, data))
+		return false;
+
+	f32 ax = (f32)from.x + 0.5f, az = (f32)from.y + 0.5f;
+	f32 bx = (f32)to.x + 0.5f, bz = (f32)to.y + 0.5f;
+	f32 cells = sqrtf((bx - ax) * (bx - ax) + (bz - az) * (bz - az));
+	f32 length = sqrtf((bx - ax) * (bx - ax) * m_dx * m_dx + (bz - az) * (bz - az) * m_dy * m_dy);
+	int steps = (int)(cells * 2.0f) + 1;
+	bool ok = true;
+
+	for (int i = 1; i <= steps && ok; i++)
+	{
+		f32 t = (f32)i / (f32)steps;
+		int x = (int)(ax + (bx - ax) * t);
+		int y = (int)(az + (bz - az) * t);
+
+		if (x < 0 || (u32)x >= m_nx || y < 0 || (u32)y >= m_ny)
+			return false;
+
+		if ((u32)x == walk.m_loc.x && (u32)y == walk.m_loc.y)
+			continue;
+
+		CAiMapLoc loc;
+		loc.m_mapid = m_mapid;
+		loc.x = x;
+		loc.y = y;
+		walk.m_prev = walk.m_cell;
+		walk.m_cell = GetCell(loc);
+		walk.m_loc = loc;
+		walk.m_dist = t * length;
+
+		if (walk.m_cell == NULL)
+			return false;
+
+		ok = callback(walk, data);
+	}
+
+	return ok;
 }
 
 /* @socom-skeleton stub WalkLine__6CAiMapFRC9CAiMapLocPC6CPnt3DPFRC19MAP_LINEWALK_STRUCTPv_bPv */

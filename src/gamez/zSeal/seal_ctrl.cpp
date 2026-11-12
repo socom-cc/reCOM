@@ -55,8 +55,32 @@ void CSealCtrl::TickRumbler(float)
 }
 
 /* @socom-skeleton stub GetThrottleFromSpeed__9CSealCtrlFfi */
-float CSealCtrl::GetThrottleFromSpeed(float, int)
+float CSealCtrl::GetThrottleFromSpeed(float speed, int axis)
 {
+	/* 0x2840d0: the throttle that gives a speed (GetSpeedFromThrottle's inverse): forward (0)
+	 * and strafe (1) over the seal's maximum motion times its move speed modifier, turn (2)
+	 * over the character dynamics' maximum turn rate. ELF: another axis divides by an unset
+	 * local (kept as 1 here). */
+	CZSealBody* seal = static_cast<CZSealBody *>(m_entity);
+	f32 max = 1.0f;
+	f32 other;
+
+	if (axis == 1)
+	{
+		seal->GetMaxXMotion(max, other);
+		max *= seal->m_movespeedmod;
+	}
+	else if (axis == 0)
+	{
+		seal->GetMaxZMotion(max, other);
+		max *= seal->m_movespeedmod;
+	}
+	else if (axis == 2)
+	{
+		max = theCharacterDynamics.m_turn_maxRate;
+	}
+
+	return speed / max;
 }
 
 /* @socom-skeleton stub GetSpeedFromThrottle__9CSealCtrlFfi */
