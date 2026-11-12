@@ -776,8 +776,20 @@ void zdb::CTexManager::DestroyBuffers(zdb::CTexManager &manager, bool all)
 }
 
 /* @socom-skeleton stub ClearPktBufs__Q23zdb11CTexManagerFRQ23zdb11CTexManagerb */
-void zdb::CTexManager::ClearPktBufs(zdb::CTexManager &, bool)
+void zdb::CTexManager::ClearPktBufs(zdb::CTexManager &manager, bool all)
 {
+	/* 0x2fa130 (ReOpen_Unload1): the upload packets of every buffer (all, or all but the
+	 * first, the UI's buffer) are released and its chain pointer cleared; Load rebuilds them */
+	for (u32 i = 0; i < manager.size(); i++)
+	{
+		if (i == 0 && !all)
+			continue;
+
+		CGSTexBuffer* buffer = reinterpret_cast<CGSTexBuffer*>(manager[i]); /* port: see doAddBuffer */
+		buffer->m_pktbuf.clear();
+		std::vector<_word128>().swap(buffer->m_pktbuf);
+		buffer->m_chainp = NULL;
+	}
 }
 
 /* @socom-skeleton stub UpdateTextureSelects__Q23zdb12CGSTexBufferFv */

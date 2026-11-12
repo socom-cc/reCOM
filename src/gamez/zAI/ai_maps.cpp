@@ -81,8 +81,7 @@
 #include "gamez/zGraph/graph_node.h"
 #include "gamez/zMath/zmath.h"
 #include "zai.h"
-#include "gamez/zSeal/zseal.h" /* ai::PathPlanBegin ... (RegisterPathPlan) */
-#include <math.h> /* fabsf */
+#include "gamez/zSeal/zseal.h" /* ai::FlushPlannerQueue (Close) */
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
 class CAiCell;
@@ -115,11 +114,36 @@ CAiMaps::~CAiMaps()
 /* @socom-skeleton stub FreeTables__7CAiMapsFv */
 void CAiMaps::FreeTables()
 {
+	/* 0x19d570: the spore, name (6) and region (7) tables are released and the map set's
+	 * graph destroyed */
+	CAiMap::spores().swap(m_spores);
+
+	for (s32 i = 0; i < 6; i++)
+		CAiMap::names().swap(m_names[i]);
+
+	for (s32 i = 0; i < 7; i++)
+		CAiMapLocVec().swap(m_regions[i]);
+
+	CGraph::Destroy(m_graph);
+	m_graph = NULL;
 }
 
 /* @socom-skeleton stub Close__7CAiMapsFv */
 void CAiMaps::Close()
 {
+	/* 0x19d4e0 (CMission::Close): the planner queue flushed, every map taken from the front
+	 * and deleted, the tables freed; the cookie counts the map sets */
+	ai::FlushPlannerQueue();
+
+	while (size() != 0)
+	{
+		CAiMap* map = (CAiMap*)front();
+		pop_front();
+		delete map;
+	}
+
+	FreeTables();
+	m_cookie++;
 }
 
 /* @socom-skeleton stub Reset__7CAiMapsFv */

@@ -1000,6 +1000,13 @@ void CCharacterType::InitMultiplayerMessages(_zrdr *)
 /* @socom-skeleton stub ClearMultiplayerMessageSounds__14CCharacterTypeFv */
 void CCharacterType::ClearMultiplayerMessageSounds()
 {
+	/* 0x247bb0 (CMission::Close): every character type's multiplayer messages lose their
+	 * sound handle (word +0x4; port: MultiplayerMsg's layout is unproven beyond its size) */
+	for (std::vector<CCharacterType*>::iterator type = m_char_list.begin(); type != m_char_list.end(); ++type)
+	{
+		for (std::vector<MultiplayerMsg*>::iterator msg = (*type)->MultiplayerMessages.begin(); msg != (*type)->MultiplayerMessages.end(); ++msg)
+			(*msg)->m_words[1] = 0;
+	}
 }
 
 /* @socom-skeleton stub PlayAt__14CCharacterTypeF15CHARACTER_SOUNDUiPC6CPnt3D */

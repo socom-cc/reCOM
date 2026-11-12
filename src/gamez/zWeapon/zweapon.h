@@ -611,7 +611,7 @@ public:
 public:
 	virtual void Fire(zdb::CNode *, CZAmmo *, const CPnt3D *, const CPnt3D *, const CPnt3D *, CZProjectile *, int, zdb::CModel *, float, float);
 	static void AddWeaponEventCallback(void (*)(CZProjectile *, unsigned int, void *), unsigned int, void *); /* static: 0x2936e0 passes the callback in a0 */
-	void RemoveWeaponEventCallback(void (*)(CZProjectile *, unsigned int, void *));
+	static void RemoveWeaponEventCallback(void (*)(CZProjectile *, unsigned int, void *)); /* static: 0x292288 passes the callback in a0 (UninitDatabaseHandles) */
 	static void MakeWeaponEventCallbacks(unsigned int, CZProjectile *);
 	static bool CreateProjectileList(int); /* 0x31f5f0: 0/1 */
 	static bool CreateMarkList(); /* static: testLoad (0x173658) passes no this; 0/1 */

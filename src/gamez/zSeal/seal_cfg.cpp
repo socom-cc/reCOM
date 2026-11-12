@@ -125,6 +125,11 @@ int BodyId(const char *name)
 /* @socom-skeleton stub ClearBodyPartNames_Map__Fv */
 void ClearBodyPartNames_Map()
 {
+	/* 0x280e80 (CMission::Close): the map is emptied and rebuilt by the next BodyId. ELF
+	 * quirk kept: bodyPartNameCount and the names table keep their entries, so the rebuild
+	 * maps the same names again. */
+	bodyPartNames_map.clear();
+	BodyPartNamesMap_Inited = false;
 }
 
 /* @socom-skeleton stub BodyWepPart__FP10CZSealBody9SEAL_ITEM */

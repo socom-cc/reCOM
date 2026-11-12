@@ -214,6 +214,8 @@
 #include "gamez/zSound/zsnd.h"
 #include "gamez/zValve/zvalve.h"
 #include "gamez/zNode/node_world.h" /* zdb::CWorld::m_world (zoom states) */
+#include "gamez/zGrid/zgrid.h" /* CGrid, CClutterAnimManager (~CZSealBody) */
+#include "gamez/zWeapon/zweapon.h" /* CZWeapon::ClearTimer (~CZSealBody) */
 #include "Apps/FTS/hud/hud.h" /* CCompassAnchor (PostTick) */
 #include "gamez/zFTS/zfts.h" /* ftsGetPlayer, theMission (fire path) */
 #include "gamez/zNetwork/znet.h" /* theNetwork (CSealStats::Shot) */
@@ -993,6 +995,168 @@ CZBodyPart * CZSealBody::GetRootPart() const
 /* @socom-skeleton stub __dt__10CZSealBodyFv */
 CZSealBody::~CZSealBody()
 {
+	/* 0x256fe0 (CEntity::RemoveAll): a carried seal is let go; the player template is
+	 * forgotten; the player's lens effects, night vision and binoculars go off, the
+	 * heartbeat stops and the weapon timer is cleared; the zoom state resets. A respawning
+	 * seal keeps its control, any other deletes it. Then: out of the clutter effectors,
+	 * every blend popped, the motion reference points deleted, the kit uninitialised, the
+	 * adrenaline and the three compass anchors deleted; the model node leaves the grids,
+	 * the character texture sets (clib, flib) and its parent, the camera effects node goes,
+	 * the model releases the instance and the node is deleted. The eye parts are deleted,
+	 * the rifle, pistol, grenade and weapon parts go back into their body part slots (so
+	 * CBody deletes them), the projectile DI is deleted, slots 29-31 cleared, the weapon
+	 * vector released, the character type released, the selection task freed, the AI event
+	 * released, the eight motion helpers and the weapon hit deleted, and every node of the
+	 * dealloc list deleted. The members, CBody and CEntity follow. */
+	if (m_carry != NULL)
+	{
+		m_carry->m_carry = NULL;
+		m_carry = NULL;
+	}
+
+	player_ = NULL;
+	CSealCtrl* control = static_cast<CSealCtrl*>(m_control);
+
+	if (control != NULL && control->IsPlayer())
+	{
+		m_kit.Apply_LensEffects(false, NULL);
+		m_kit.NVG_Enabled(false);
+		m_kit.Binocs_Enabled(false);
+
+		if (m_heartbeat_sndisnt != NULL)
+		{
+			m_heartbeat_sndisnt->Stop();
+			CSndInstance::ReleaseSoundInstance(m_heartbeat_sndisnt);
+			m_heartbeat_sndisnt = NULL;
+			m_heartbeat_curindex = -1;
+		}
+
+		CZWeapon::ClearTimer();
+		m_iszooming = false;
+	}
+
+	m_zoomstate = (ZOOMSTATE)0;
+	m_zoomstate_prev = (ZOOMSTATE)-1;
+	m_zoomstate_echo = false;
+	m_zoom_range = 1.0f;
+
+	if (!m_respawning)
+	{
+		/* port: not written - the network branch (RemoveNetSeal / SealDeleteCleanup by
+		 * IsRemote, 0x2570f8-0x257168); the port has no network play */
+		if (m_control != NULL)
+			delete m_control;
+	}
+
+	zdb::CWorld* world = zdb::CWorld::m_world;
+
+	if (world->m_grid->m_ClutterAnimManager != NULL) /* port: guard - the port never makes the clutter manager */
+		world->m_grid->m_ClutterAnimManager->UnRegisterEffector(this);
+
+	while (m_blends->m_top + 1 > 0)
+		PopBlend();
+
+	for (std::vector<SEAL_REFPOINT*>::iterator it = m_refpoints.begin(); it != m_refpoints.end(); ++it)
+		delete *it;
+
+	m_refpoints.clear();
+	m_kit.UnInit();
+	delete m_adrenaline;
+	m_adrenaline = NULL;
+	CZSealBody::m_compass.DeleteAnchor(m_mpbomb_anchor); /* port: DeleteAnchor is declared a member; the ELF one is static */
+	m_mpbomb_anchor = NULL;
+	CZSealBody::m_compass.DeleteAnchor(m_mpbase_anchor);
+	m_mpbase_anchor = NULL;
+	CZSealBody::m_compass.DeleteAnchor(m_hostage_anchor);
+	m_hostage_anchor = NULL;
+
+	zdb::CNode* parent = m_node->m_parent;
+	world->m_grid->gridRemoveNodeFromGrids(m_node);
+	world->DeleteTextureAssetCharacter(const_cast<char*>("clib"), m_node);
+
+	if (zdb::CAssetMgr::m_assets.FindLib("flib") != NULL)
+		world->DeleteTextureAssetCharacter(const_cast<char*>("flib"), m_node);
+
+	parent->DeleteChild(m_node); /* ELF quirk kept: the parent is not NULL-checked */
+	DeleteCameraEffectsNode();
+
+	if (m_node->m_model != NULL)
+		m_node->m_model->Release(m_node);
+
+	if (m_node != NULL)
+		delete m_node;
+
+	m_node = NULL;
+	delete m_reyeball;
+	m_reyeball = NULL;
+	delete m_reyelid;
+	m_reyelid = NULL;
+	delete m_leyeball;
+	m_leyeball = NULL;
+	delete m_leyelid;
+	m_leyelid = NULL;
+
+	CZBodyPart* weapons[3] = { m_rifle, m_pistol, m_grenade };
+
+	for (s32 i = 0; i < 3; i++)
+	{
+		u32 id = (u32)(s32)weapons[i]->m_id; /* ELF quirk kept: no NULL test */
+
+		if (id < m_body_parts.size())
+			m_body_parts[id] = weapons[i];
+	}
+
+	if (m_projectiledi != NULL)
+		delete m_projectiledi;
+
+	m_projectiledi = NULL;
+	u32 weapon = (u32)(s32)m_weapon->m_id;
+
+	if (weapon < m_body_parts.size())
+		m_body_parts[weapon] = m_weapon;
+
+	for (u32 i = 29; i < 32; i++)
+	{
+		if (i < m_body_parts.size())
+			m_body_parts[i] = NULL;
+	}
+
+	std::vector<CZBodyPart*>().swap(m_weapons);
+	m_node = NULL;
+	m_charType->Release();
+
+	if (m_select != NULL)
+		_free(m_select, "seal.cpp", 786);
+
+	m_select = NULL;
+
+	if (m_aiEvent != NULL) /* port: guard - the ELF releases without a test (CAiEvent::Acquire is unwritten, so the port's seals have none) */
+		CAiEvent::Release(m_aiEvent);
+
+	m_aiEvent = NULL;
+	delete m_crouch;
+	m_crouch = NULL;
+	delete m_fire;
+	m_fire = NULL;
+	delete m_look;
+	m_look = NULL;
+	delete m_eyelook;
+	m_eyelook = NULL;
+	delete m_blink;
+	m_blink = NULL;
+	delete m_lookitem;
+	m_lookitem = NULL;
+	delete m_turnip;
+	m_turnip = NULL;
+	delete m_fwdhit;
+	m_fwdhit = NULL;
+	delete m_wephit;
+	m_wephit = NULL;
+
+	for (std::vector<void*>::iterator it = m_deallocList.begin(); it != m_deallocList.end(); ++it)
+		zdb::CNode::Delete(static_cast<zdb::CNode*>(*it));
+
+	m_deallocList.clear();
 }
 
 /* @socom-skeleton stub AddWeapon__10CZSealBodyF9SEAL_ITEM */

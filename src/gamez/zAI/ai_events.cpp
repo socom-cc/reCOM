@@ -136,6 +136,13 @@ void CAiEvent::Open(unsigned int)
 /* @socom-skeleton stub Close__8CAiEventFv */
 void CAiEvent::Close()
 {
+	/* 0x17fca0 (CMission::Close, ReOpen_Unload2): the bit counter back to 32, every in-use
+	 * event moved to the pool, then every pooled event deleted (its slot cleared) and both
+	 * lists emptied; then the vis maps (CAiVisMap::CloseAll).
+	 * port: not written - m_inuse / m_pool are untyped placeholders (int[3], declared in
+	 * zai.h) and CAiEvent::Open / Acquire are unwritten, so both lists are always empty */
+	bit_count = 32;
+	CAiVisMap::CloseAll();
 }
 
 /* @socom-skeleton stub Acquire__8CAiEventFv */

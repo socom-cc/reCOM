@@ -275,6 +275,17 @@ void CZSealBody::Destroy(CZSealBody *)
 /* @socom-skeleton stub DeleteCameraEffectsNode__10CZSealBodyFv */
 void CZSealBody::DeleteCameraEffectsNode()
 {
+	/* 0x289830 (~CZSealBody): the character's camera_effects child leaves its parent and is
+	 * deleted (virtual deleting dtor) */
+	zdb::CNode* effects = GetNode()->FindChild("camera_effects", true);
+
+	if (effects == NULL)
+		return;
+
+	if (effects->m_parent != NULL)
+		effects->m_parent->DeleteChild(effects);
+
+	delete effects;
 }
 
 /* @socom-skeleton body GetCharacter__10CZSealBodyFv */

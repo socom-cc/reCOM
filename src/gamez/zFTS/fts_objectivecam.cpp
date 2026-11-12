@@ -31,6 +31,27 @@ CMissionObjectiveCam::CMissionObjectiveCam()
 /* @socom-skeleton stub __dt__20CMissionObjectiveCamFv */
 CMissionObjectiveCam::~CMissionObjectiveCam()
 {
+	/* 0x20ab90: the map text and the three valve names are freed, the line vector (+0x44)
+	 * released (port: m_vecLines is not declared), then the CMissionCam part */
+	if (m_maptext != NULL)
+		_free(m_maptext, "fts_objectivecam.cpp", 52);
+
+	m_maptext = NULL;
+
+	if (m_valvename != NULL)
+		_free(m_valvename, "fts_objectivecam.cpp", 53);
+
+	m_valvename = NULL;
+
+	if (m_invalidvalvename != NULL)
+		_free(m_invalidvalvename, "fts_objectivecam.cpp", 54);
+
+	m_invalidvalvename = NULL;
+
+	if (m_szDisplayValveName != NULL)
+		_free(m_szDisplayValveName, "fts_objectivecam.cpp", 55);
+
+	m_szDisplayValveName = NULL;
 }
 
 /* @socom-skeleton stub IsAvailable__20CMissionObjectiveCamCFv */
@@ -63,6 +84,15 @@ void CMissionObjectiveCam::IsInvalid() const
 /* @socom-skeleton stub ClearValves__24CMissionObjectiveCamListFv */
 void CMissionObjectiveCamList::ClearValves()
 {
+	/* 0x20a830 (ReOpen_Unload1): every objective forgets its three valves (they go with
+	 * CValve::Close; ReOpen_Load looks them up again) */
+	for (iterator it = begin(); it != end(); ++it)
+	{
+		CMissionObjectiveCam* cam = (CMissionObjectiveCam*)*it;
+		cam->m_valve = NULL;
+		cam->m_invalidvalve = NULL;
+		cam->m_pDisplayValve = NULL;
+	}
 }
 
 /* @socom-skeleton stub Reset__24CMissionObjectiveCamListFv */

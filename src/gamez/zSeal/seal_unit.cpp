@@ -217,6 +217,23 @@ void CSealUnit::Notify(CZSealBody *, UNIT_MESSAGE, void *)
 /* @socom-skeleton stub UnInit__9CSealUnitFv */
 void CSealUnit::UnInit()
 {
+	/* 0x2d5570 (CMission::Close, ReOpen_Unload1): every unit leaves the list and is deleted
+	 * (the inlined dtor deletes its compass anchor (+0x0) and empties its member lists), then
+	 * the units count as not created. port: the unit's anchor and lists are not declared
+	 * (their dtors run as members once they are); CreateSinglePlayerUnits is unwritten, so
+	 * the list is empty today. */
+	std::list<CSealUnit*>::iterator it = m_list.begin();
+
+	while (it != m_list.end())
+	{
+		CSealUnit* unit = *it;
+		it = m_list.erase(it);
+
+		if (unit != NULL)
+			delete unit;
+	}
+
+	m_created_units_test = false;
 }
 
 /* @socom-skeleton stub CreateMultiPlayerUnits__9CSealUnitFv */

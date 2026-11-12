@@ -160,6 +160,7 @@
 #include "gamez/zFTS/zfts.h" /* ftsGetPlayer, theMission (fire path) */
 #include "gamez/zSound/zsnd.h" /* CSnd::GetSoundByName (Init) */
 #include "gamez/zCharacter/zchar.h" /* CCharacterType::m_gear_list */
+#include "gamez/zNode/node_light.h" /* CLightMap (UnInit) */
 /* @socom-skeleton decl forward */
 class CTargetMods;
 class CZAmmoPickupInstance;
@@ -489,6 +490,22 @@ void CZKit::Init()
 /* @socom-skeleton stub UnInit__5CZKitFv */
 void CZKit::UnInit()
 {
+	/* 0x2ae910 (~CZSealBody): every item model instance that is not attached (no parent) is
+	 * deleted, the slots cleared and the vector emptied; the kit's light map node deleted */
+	for (std::vector<zdb::CNode*>::iterator it = m_items_avail.begin(); it != m_items_avail.end(); ++it)
+	{
+		if (*it != NULL && (*it)->m_parent == NULL)
+			zdb::CNode::Delete(*it);
+
+		*it = NULL;
+	}
+
+	m_items_avail.clear();
+
+	if (m_lightMap != NULL)
+		delete m_lightMap;
+
+	m_lightMap = NULL;
 }
 
 /* @socom-skeleton stub PostSetupItems__5CZKitFv */

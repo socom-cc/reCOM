@@ -738,6 +738,11 @@ void CSealCtrlAi::AcquireDatabaseHandles()
 /* @socom-skeleton stub ReleaseDatabaseHandles__11CSealCtrlAiFv */
 void CSealCtrlAi::ReleaseDatabaseHandles()
 {
+	/* 0x26c030 (CMission::Close, ReOpen_Unload1): the AI sound handles and instances (8 bytes
+	 * each) cleared, then the DI pool closed */
+	memset(aiSoundHandle, 0, 8);
+	memset(aiSoundInstance, 0, 8);
+	CloseDiPool();
 }
 
 /* @socom-skeleton stub SetAiAccuracyAngle__11CSealCtrlAiFf */

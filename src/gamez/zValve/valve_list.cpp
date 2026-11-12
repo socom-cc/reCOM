@@ -28,6 +28,7 @@
  * socom-owner-annotations end socom:work:source-segment-040 */
 
 #include "zvalve.h"
+#include <algorithm> /* std::remove_if (Reset, Close) */
 
 /* @socom-skeleton decl include */
 #include "gamez/zReader/zrdr.h"
@@ -272,14 +273,47 @@ bool CValve::Open(const char* name, VALVE_TYPE type)
 	return true;
 }
 
+/* port: file-local helper, not an ELF function - the CValveOpDelete pass both Reset and Close
+ * inline (std::remove_if 0x2f6ee0 with the temporary type 2, then erase to the end): a
+ * temporary valve goes back to the pool (its name freed), the others keep their order. When
+ * no remaining valve holds a pooled name the name buffer starts over. */
+static void ReleaseTempValves()
+{
+	std::list<CValve*>::iterator kept = std::remove_if(CValve::m_list.begin(), CValve::m_list.end(), [](CValve* valve)
+	{
+		if (valve->m_type != (u32)VALVE_TYPE::VTYPE_TEMP)
+			return false;
+
+		valvePool.Release(valve);
+		return true;
+	});
+
+	CValve::m_list.erase(kept, CValve::m_list.end());
+	s32 named = 0;
+
+	for (std::list<CValve*>::iterator it = CValve::m_list.begin(); it != CValve::m_list.end(); ++it)
+	{
+		if ((*it)->m_name_pooled)
+			named++;
+	}
+
+	if (named == 0)
+		valvePool.m_pool_name = valvePool.m_pool_base;
+}
+
 /* @socom-skeleton stub Reset__6CValveFv */
 void CValve::Reset()
 {
+	/* 0x2f6530 (CCoreState::UnInit): the temporary valves go back to the pool. ELF: the same
+	 * body as Close; permanent and persistent valves (and their values) stay. */
+	ReleaseTempValves();
 }
 
 /* @socom-skeleton stub Close__6CValveFv */
 void CValve::Close()
 {
+	/* 0x2f6410 (CMission::Close, ReOpen_Unload1): as Reset */
+	ReleaseTempValves();
 }
 
 /* @socom-skeleton body Parse__6CValveFP8CRdrFile10VALVE_TYPE */

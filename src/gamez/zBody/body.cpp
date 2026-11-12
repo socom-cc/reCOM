@@ -142,6 +142,8 @@ CZBodyPart::CZBodyPart(zdb::CNode* node)
 /* @socom-skeleton stub __dt__10CZBodyPartFv */
 CZBodyPart::~CZBodyPart()
 {
+	/* 0x1e3850: the part forgets its node (the node belongs to the model) */
+	m_node = NULL;
 }
 
 /* @socom-skeleton stub __ct__5CBodyFv */
@@ -1617,11 +1619,87 @@ void CZBodyAnimBlend::Clear()
 /* @socom-skeleton stub __dt__5CBodyFv */
 CBody::~CBody()
 {
+	/* 0x1df870: Destroy, then the three vectors go with their destructors */
+	Destroy();
 }
 
 /* @socom-skeleton stub Destroy__5CBodyFv */
 void CBody::Destroy()
 {
+	/* 0x1df610 (~CBody): the overlay's anim back to the pool and the overlay cleared, every
+	 * blend popped, the overlay deleted, every body anim (virtual deleting dtor) and every
+	 * body part (main and aux) deleted with their slots cleared and the vectors emptied, then
+	 * the blend pool, the blend stack (its array first) and the active anim pool deleted.
+	 * ELF quirk kept: the stack's Top is read once and dropped. */
+	ACTIVE_ANIM* active = m_overlay->m_anim;
+
+	if (active != NULL)
+	{
+		active->Clear();
+		m_active_anim_pool->PutBack(active);
+	}
+
+	m_overlay->m_anim = NULL;
+	m_overlay->m_triggerT = 0.0f;
+	m_overlay->m_ovlyT = 0.0f;
+	m_overlay->m_state = 0;
+	m_overlay->m_event = 0;
+	m_overlay->m_callback.m_userdata = NULL;
+	m_overlay->m_callback.m_func = NULL;
+	m_overlay->m_callback.m_tfrac = 0.0f;
+	m_blends->Top();
+
+	while (m_blends->m_top + 1 != 0)
+		PopBlend();
+
+	if (m_overlay != NULL)
+		delete m_overlay;
+
+	m_overlay = NULL;
+
+	for (std::vector<CZBodyAnim*>::iterator it = m_body_anims.begin(); it != m_body_anims.end(); ++it)
+	{
+		if (*it != NULL)
+			delete *it;
+
+		*it = NULL;
+	}
+
+	m_body_anims.clear();
+
+	for (std::vector<CZBodyPart*>::iterator it = m_body_parts.begin(); it != m_body_parts.end(); ++it)
+	{
+		delete *it;
+		*it = NULL;
+	}
+
+	m_body_parts.clear();
+
+	for (std::vector<CZBodyPart*>::iterator it = m_body_parts_aux.begin(); it != m_body_parts_aux.end(); ++it)
+	{
+		delete *it;
+		*it = NULL;
+	}
+
+	m_body_parts_aux.clear();
+
+	if (m_blend_pool != NULL)
+		delete m_blend_pool;
+
+	m_blend_pool = NULL;
+
+	if (m_blends != NULL)
+	{
+		delete[] m_blends->m_stack;
+		delete m_blends;
+	}
+
+	m_blends = NULL;
+
+	if (m_active_anim_pool != NULL)
+		delete m_active_anim_pool;
+
+	m_active_anim_pool = NULL;
 }
 
 /* @socom-skeleton stub __dt__10CZBodyAnimFv */
@@ -1637,6 +1715,13 @@ CZBodyAnimCallbackList::~CZBodyAnimCallbackList()
 /* @socom-skeleton stub Clear__22CZBodyAnimCallbackListFv */
 void CZBodyAnimCallbackList::Clear()
 {
+	/* 0x1df300 (CMission::Close, ReOpen_Unload1): every entry deleted (name string first),
+	 * then the storage released (size 0, swap with an empty vector). The ELF swaps the global
+	 * BodyAnimCallbackList, not this (the only instance). */
+	for (std::vector<BODYANIM_CALLBACK*>::iterator it = m_callbacks.begin(); it != m_callbacks.end(); ++it)
+		delete *it;
+
+	std::vector<BODYANIM_CALLBACK*>().swap(BodyAnimCallbackList.m_callbacks);
 }
 
 /* @socom-skeleton stub AddCallback__22CZBodyAnimCallbackListFPCcf */

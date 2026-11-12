@@ -208,8 +208,40 @@ void CHUD::HudText_to_upper(char *text)
 }
 
 /* @socom-skeleton stub ReleaseHUD__4CHUDFPP4CHUD */
-unsigned char CHUD::ReleaseHUD(CHUD **)
+unsigned char CHUD::ReleaseHUD(CHUD **hudp)
 {
+	/* 0x3bc010 (CCoreState::auxUnload): the mission's three message queues are emptied, the
+	 * HUD forgets its reticle texture and weapon/seal selection, its font is deleted, the
+	 * map uninitialised and the map items' shared textures forgotten; then the HUD is deleted
+	 * and the caller's pointer cleared. 0 without a HUD. */
+	if (hudp == NULL)
+		return false;
+
+	CHUD* hud = *hudp;
+
+	if (hud == NULL)
+		return false;
+
+	theMission.m_messenger.Clear_Messages();
+	theMission.m_ammoMessenger.Clear_Messages();
+	theMission.m_Subtitles.Clear_Messages();
+	hud->reticuletexture = NULL;
+	hud->m_curweapon = 0;
+	hud->m_curseal = 0;
+
+	if (hud->m_myfont != NULL)
+		delete hud->m_myfont;
+
+	hud->m_myfont = NULL;
+	hud->m_newmap.UninitMap();
+	CZPlayerMapItem::m_conetex = NULL;
+	CZPlayerMapItem::m_alivebliptex = NULL;
+	CZPlayerMapItem::m_deadbliptex = NULL;
+	CZClaymoreMapItem::m_claymoretex = NULL;
+	CZMPBombMapItem::m_mpbombtex = NULL;
+	delete *hudp;
+	*hudp = NULL;
+	return true;
 }
 
 /* @socom-skeleton stub __dt__4CHUDFv */

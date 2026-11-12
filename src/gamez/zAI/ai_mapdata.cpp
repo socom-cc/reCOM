@@ -141,6 +141,13 @@ char * CAiMap::AllocEx(unsigned int bytes)
 /* @socom-skeleton stub FreeEx__6CAiMapFv */
 void CAiMap::FreeEx()
 {
+	/* 0x19f330 (~CAiMap): the per-cell extra data is freed; the rows forget their part */
+	delete[] m_mapex;
+	m_mapex = NULL;
+	m_mapex_bytes = 0;
+
+	for (scanlines::iterator i = m_scanlines.begin(); i != m_scanlines.end(); ++i)
+		i->m_mapEx = NULL;
 }
 
 /* @socom-skeleton stub GetMapEx__6CAiMapFRC9CAiMapLoc */
@@ -298,6 +305,15 @@ CAiMap::reader::reader()
 /* @socom-skeleton stub __dt__Q26CAiMap7readersFv */
 CAiMap::readers::~readers()
 {
+	/* 0x19e5c0: every reader's packed rdr file is freed (then the vector storage) */
+	for (iterator i = begin(); i != end(); ++i)
+	{
+		if (i->m_reader != NULL)
+		{
+			zrdr_free(i->m_reader);
+			i->m_reader = NULL;
+		}
+	}
 }
 
 /* @socom-skeleton body SetReader__Q26CAiMap6readerFP8CRdrFile */
@@ -432,4 +448,8 @@ void CAiMap::CreateGraph(bool rebuild)
 /* @socom-skeleton stub DestroyGraph__6CAiMapFv */
 void CAiMap::DestroyGraph()
 {
+	/* 0x19dca0 (~CAiMap): the route graph is destroyed; flag bit 0 (has a graph) cleared */
+	CGraph::Destroy(m_graph);
+	m_graph = NULL;
+	m_flags &= ~1u;
 }

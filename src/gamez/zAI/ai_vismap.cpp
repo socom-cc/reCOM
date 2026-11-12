@@ -93,6 +93,11 @@ void CAiVisMap::ReleaseDynamicVisMap(CAiVisMap *)
 /* @socom-skeleton stub CloseAll__9CAiVisMapFv */
 void CAiVisMap::CloseAll()
 {
+	/* 0x1a1dd0 (CAiEvent::Close): every vis map of globalVisMap gets id -1, its counts
+	 * cleared, its cell array (+0x50, new[]) and itself deleted; then globalVisMap and
+	 * dynamicVisMap are emptied.
+	 * port: not written - both lists are untyped placeholders (int[3]) and nothing in the
+	 * port creates a vis map (RegisterDynamicVisMap and the ctor are unwritten) */
 }
 
 /* @socom-skeleton stub __ct__9CAiVisMapFv */

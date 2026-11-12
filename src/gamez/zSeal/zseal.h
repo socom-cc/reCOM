@@ -688,7 +688,7 @@ public:
 	static void InitLookAnims();
 
 	void Destroy();
-	bool DestroyAimAnims();
+	static bool DestroyAimAnims(); /* static: CMission::Close 0x1f7460 passes no object */
 	void DeleteCameraEffectsNode();
 
 	/// -------------------------------------------
@@ -2344,7 +2344,7 @@ public:
 class CAiDodge
 {
 public:
-	void Destroy();
+	static void Destroy(); /* static: CMission::Close 0x1f7468 passes no object */
 	static int m_list[3];
 };
 /* @socom-skeleton end 8CAiDodge */

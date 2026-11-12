@@ -2020,6 +2020,11 @@ void CZSealBody::ApplyBlinkAnim()
 /* @socom-skeleton stub DestroyAimAnims__10CZSealBodyFv */
 bool CZSealBody::DestroyAimAnims()
 {
+	/* 0x29cbf0 (CMission::Close, ReOpen_Unload1): the shared aim anims are deleted from the
+	 * back; 0 when there were none, else 1.
+	 * port: not written - m_aim_anims is an untyped placeholder (int[3], zseal.h) and the aim
+	 * anims are never made in the port (CreateAimAnims is unwritten), so there are none */
+	return false;
 }
 
 /* @socom-skeleton stub PitchAnim__10CZSealBodyFP6CPnt3DP6CPnt3D */
@@ -4832,11 +4837,35 @@ void AnimSet::ReadFlinchAnimations(_zrdr *rdr, const char *name, DAMAGE_LOCATION
 /* @socom-skeleton stub UninitDatabaseHandles__10CZSealBodyFv */
 void CZSealBody::UninitDatabaseHandles()
 {
+	/* 0x292210 (CMission::Close): the footstep decal table and the per-material footfall
+	 * anims (both calloc'd) are freed, the blood drip decals released (port: the vector is an
+	 * untyped placeholder, never filled), the drop anim forgotten and the weapon event
+	 * callback removed */
+	if (m_steptexhandles != NULL)
+		_free(m_steptexhandles, "seal_env.cpp", 8697);
+
+	m_steptexhandles = NULL;
+	m_dropanim = NULL;
+
+	if (m_sealstep != NULL)
+		_free(m_sealstep, "seal_env.cpp", 8705);
+
+	m_sealstep = NULL;
+	CZWeapon::RemoveWeaponEventCallback(HandleWeaponEvent);
 }
 
 /* @socom-skeleton stub Uninit_ReInitDatabaseHandles__10CZSealBodyFv */
 void CZSealBody::Uninit_ReInitDatabaseHandles()
 {
+	/* 0x2921d0 (ReOpen_Unload1): what ReInitDatabaseHandles made: the footfall anims, the
+	 * drop anim, the weapon event callback */
+	m_dropanim = NULL;
+
+	if (m_sealstep != NULL)
+		_free(m_sealstep, "seal_env.cpp", 8705);
+
+	m_sealstep = NULL;
+	CZWeapon::RemoveWeaponEventCallback(HandleWeaponEvent);
 }
 
 /* @socom-skeleton stub HandleFootfallSound__10CZSealBodyFP6CPnt3D */

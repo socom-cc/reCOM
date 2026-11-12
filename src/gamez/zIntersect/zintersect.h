@@ -54,8 +54,7 @@ public:
 
     struct DiIntersect
     {
-        DiIntersect() {}
-        DiIntersect(s32 count);
+        DiIntersect(s32 count = 8); /* 0x21c750; the default constructor (__defctor 0x258eb0) passes 8. Was an empty DiIntersect() that left m_Intersects unset, so ~DiIntersect freed a stale pointer */
         
         u32 m_Type : 16;
         u32 m_IntersectCharacters : 1;

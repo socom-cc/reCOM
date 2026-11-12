@@ -53,10 +53,14 @@
 #include "gamez/zWeapon/zweapon.h" /* CZWeapon::PreTick/PostTick */
 #include <eeregs.h> /* T0_COUNT, GIF_MODE */
 #include <eekernel.h> /* CreateThread, StartThread, ExitDeleteThread, ThreadParam, _gp */
+#include <libgraph.h> /* sceGsSyncPath (OnPush) */
+#include "gamez/zValve/zvalve.h" /* CValve::Reset (UnInit) */
 #include <stdlib.h> /* exit */
 #include <string.h> /* memset */
 
 bool testLoad(); /* database.cpp (0x173610) */
+bool testUnload(); /* database.cpp (0x1735e0) */
+void DMEDisconnectFromGameServer(); /* fts_network_dme.cpp (0x201800) */
 char* GetDatabase(); /* zanim_menu.cpp (0x1d6770) */
 void recoTick(); /* reco.cpp (0x336440) */
 int recoIsRecognizing(); /* reco.cpp (0x336da0) */
@@ -112,11 +116,36 @@ void CCinematicState::UnInit() {}
 /* @socom-skeleton stub OnPush__10CCoreStateFi */
 void CCoreState::OnPush(int)
 {
+	/* 0x17d8c0 (a state goes on top: the debrief): the frame finished, the GS idle, the
+	 * first pad's two rumble motors off */
+	zSysFifoEnd();
+	sceGsSyncPath(0, 0);
+	CInput::m_pads[0]->m_ActData[1] = 0;
+	CInput::m_pads[0]->m_ActData[0] = 0;
 }
 
 /* @socom-skeleton stub OnPop__10CCoreStateFi */
-void CCoreState::OnPop(int)
+void CCoreState::OnPop(int index)
 {
+	/* 0x17d7f0 (the state above popped): the two HUD texture buffers reloaded, the falling
+	 * wait back to 10 s; index 1 (the debrief's replay) zooms back, reopens the mission
+	 * (ReOpen_Load), starts it, attaches the player and reinitialises the HUD. Two frames
+	 * are drawn without a swap. */
+	reinterpret_cast<zdb::CGSTexBuffer*>(zdb::CTexManager::m_texmanager[zdb::CTexManager::TexPhase[zdb::HUDSET1][0]])->Load(true);
+	reinterpret_cast<zdb::CGSTexBuffer*>(zdb::CTexManager::m_texmanager[zdb::CTexManager::TexPhase[zdb::HUDSET2][1]])->Load(true);
+	zVid_Sync0();
+	theMission.m_wait_before_falling = 10.0f;
+
+	if (index == 1)
+	{
+		CameraZoom::SetGoal(1.0f);
+		theMission.ReOpen_Load();
+		theMission.OnMissionStart();
+		CameraZoom::AttachSeal(ftsGetPlayer());
+		m_hud->ReInit_Init();
+	}
+
+	m_skip_swap = 2;
 }
 
 /* @socom-skeleton body __ct__10CCoreStateFv */
@@ -352,7 +381,23 @@ bool CCoreState::Tick(f32 dT)
 }
 
 /* @socom-skeleton body UnInit__10CCoreStateFv */
-void CCoreState::UnInit() {}
+void CCoreState::UnInit()
+{
+	/* 0x17cc70 (the switch back to the menus): intermittent PATH3 off again, not loading,
+	 * the mission unloaded (auxUnload), the valves reset, the scheduler's free list
+	 * emptied and the frame rate unlimited */
+	*GIF_MODE &= ~4;
+	asm volatile("sync" ::: "memory");
+	m_loading = false;
+	m_loadstarted = false;
+	auxUnload();
+	CValve::Reset();
+	zTaskScheduler.ClearFreeList(true);
+	CVideo::MaxFrameRate(-1);
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("CORE: UnInit done");
+#endif
+}
 
 /* @socom-skeleton stub LoadThreadEntry__FPv */
 void LoadThreadEntry(void *)
@@ -423,9 +468,62 @@ void CCoreState::Load(bool threaded)
 /* @socom-skeleton stub Unload__10CCoreStateFv */
 void CCoreState::Unload()
 {
+	/* 0x17ca80: not loading, then auxUnload (a tail call) */
+	m_loading = false;
+	m_loadstarted = false;
+	auxUnload();
 }
 
 /* @socom-skeleton stub auxUnload__10CCoreStateFv */
 void CCoreState::auxUnload()
 {
+	/* 0x17c850: a network game in state 4 leaves the server first. The game frame's
+	 * scheduler tasks go, the projectiles are uninitialised, the mission and the world
+	 * unloaded (testUnload; a failure exits), the mark list uninitialised, the GS texture
+	 * buffers (all but the UI's) deleted, the world forgotten, the HUD detached and
+	 * released, no player, the projectile and mark lists deleted, readerm.zar dropped and
+	 * the scheduler's free list emptied. */
+	if (theNetwork.m_bNetwork && (u8)theMission.m_state == 4)
+	{
+		ftsNetworkGameUninit();
+		DMEDisconnectFromGameServer();
+	}
+
+	zTaskScheduler.RemoveTask("CAiEventTick", false);
+	zTaskScheduler.RemoveTask("UnitTick", false);
+	zTaskScheduler.RemoveTask("ai_pre_tick", false);
+	zTaskScheduler.RemoveTask("entity_pre_tick", false);
+	zTaskScheduler.RemoveTask("weapon_pre_tick", false);
+	zTaskScheduler.RemoveTask("ai_post_tick", false);
+	zTaskScheduler.RemoveTask("ai_direg_tick", false);
+	zTaskScheduler.RemoveTask("entity_post_tick", false);
+	zTaskScheduler.RemoveTask("entity_tick", false);
+	zTaskScheduler.RemoveTask("weapon_post_tick", false);
+	zTaskScheduler.RemoveTask("ai_route_planner", false);
+	zTaskScheduler.RemoveTask("sound_post_tick", false);
+	zTaskScheduler.RemoveTask("light_tick", false);
+	CZMarkList* marks = CZWeapon::m_pMarklist;
+
+	if (CZWeapon::m_pProjectilelist != NULL)
+		CZWeapon::m_pProjectilelist->UnInit();
+
+	if (!testUnload())
+		exit(0);
+
+	if (marks != NULL)
+		marks->UnInit();
+
+	zdb::CTexManager::DestroyBuffers(zdb::CTexManager::m_texmanager, false);
+	m_world = NULL;
+	CameraZoom::AttachHud(NULL);
+	CHUD::ReleaseHUD(&m_hud);
+	ftsSetPlayer(NULL);
+	CameraZoom::AttachSeal(NULL);
+	CZWeapon::DestroyProjectileList();
+	CZWeapon::DestroyMarkList();
+	CRdrArchive::RemoveArchive("readerm.zar", NULL);
+	zTaskScheduler.ClearFreeList(true);
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("CORE: auxUnload done");
+#endif
 }

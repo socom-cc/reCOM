@@ -24,6 +24,24 @@ CMissionCam::CMissionCam()
 /* @socom-skeleton stub __dt__11CMissionCamFv */
 CMissionCam::~CMissionCam()
 {
+	/* 0x20afc0: the identifier, name and three description strings are freed */
+	if (m_identifier != NULL)
+		_free(m_identifier, "fts_missioncam.cpp", 33);
+
+	m_identifier = NULL;
+
+	if (m_name != NULL)
+		_free(m_name, "fts_missioncam.cpp", 34);
+
+	m_name = NULL;
+
+	for (s32 i = 0; i < 3; i++)
+	{
+		if (m_description[i] != NULL)
+			_free(m_description[i], "fts_missioncam.cpp", 36);
+
+		m_description[i] = NULL;
+	}
 }
 
 /* @socom-skeleton stub Set__11CMissionCamFPCcPCcPCcPCcPCcPCcPCc */

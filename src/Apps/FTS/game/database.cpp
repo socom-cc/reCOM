@@ -137,10 +137,17 @@ extern bool testLoad()
 	return player != NULL;
 }
 
+extern void UnloadTheWorld(); /* below (0x1728e0) */
+
 /* @socom-skeleton body testUnload__Fv */
 extern bool testUnload()
 {
-	return false;
+	/* 0x1735e0 (CCoreState::auxUnload): the mission closed, no sound listener, the world
+	 * unloaded; always 1 (was a stub returning 0, which made auxUnload exit) */
+	theMission.Close();
+	CSnd::m_listener = NULL;
+	UnloadTheWorld();
+	return true;
 }
 
 /* @socom-skeleton body LoadWorld__FPCc */

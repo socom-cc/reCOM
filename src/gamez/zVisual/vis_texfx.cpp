@@ -65,6 +65,11 @@ void zdb::CTextureFX::Uninit()
 /* @socom-skeleton stub Clear__Q23zdb10CTextureFXFb */
 void zdb::CTextureFX::Clear(bool)
 {
+	/* 0x314170 (CMission::Close): every active texture effect of m_texfxpool goes back to the
+	 * free pool, the active list is emptied, and with the argument the free pool's entries
+	 * are deleted (RTPool<CTextureFX>::Clear 0x314330).
+	 * port: not written - both pools are untyped placeholders and nothing in the port makes a
+	 * texture effect (Init / InitScrollTexture are unwritten), so they are empty */
 }
 
 /* @socom-skeleton stub InTexfxpool__Q23zdb10CTextureFXFPQ23zdb7CVisual */

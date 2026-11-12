@@ -177,6 +177,12 @@
 #include "gamez/zNode/node_action.h" /* CNodeAction::Open */
 #include "gamez/zWeapon/zweapon.h" /* CZWeapon::Open, OpenDecals */
 #include "gamez/zEntity/zentity.h" /* CEntity::m_list, CPickup::Open */
+#include "gamez/zBody/zbody.h" /* BodyAnimCallbackList (Close, ReOpen_Unload1) */
+#include "gamez/zRender/zrender.h" /* thePipe (ReOpen_Unload1) */
+#include "gamez/zTexture/ztex.h" /* CTexManager::ClearPktBufs, CTextureFX::Clear */
+#include "gamez/zCamera/zcam.h" /* appCamera (ReOpen_Unload1) */
+#include "gamez/zGrid/zgrid.h" /* CGrid, CClutterAnimManager (ReOpen_Unload1) */
+void ClearBodyPartNames_Map(); /* seal_cfg.cpp (0x280e80) */
 
 char* GetDatabase(); /* zanim_menu.cpp (0x1d6770) */
 void UpdateCharWeaponUiVars(int); /* below (0x1fa2b0) */
@@ -936,11 +942,119 @@ void CMission::Open(const char *db, int ai)
 /* @socom-skeleton stub ReOpen_Unload1__8CMissionFv */
 void CMission::ReOpen_Unload1()
 {
+	/* 0x1f7c60 (CExitState::Init, before the debrief): the mission is taken down to what a
+	 * replay (ReOpen_Load) rebuilds: the extraction and objective compass anchors, the HUD's
+	 * selected objective, the headset, the decals and character texture sets, the fade task,
+	 * the camera's seal, the planner queue, the clutter anims, the per-material seal anims,
+	 * the "common" and "mission" anim sets stopped, garbage collected and reset, the aim
+	 * anims, dodges, AI handles, spawners, body anim callbacks, pickups, units, node actions
+	 * reset, the objectives' valves, the weapons, the temporary valves, the HUD's mission
+	 * part, the three message queues, the pooled particle instances, the particle textures
+	 * and nodes, the render pipe and the GS upload packets. The ELF returns 1. */
+	while (!m_anchor_extraction.empty())
+	{
+		CZSealBody::m_compass.DeleteAnchor((CCompassAnchor*)m_anchor_extraction.back()); /* port: DeleteAnchor is declared a member; the ELF one is static */
+		m_anchor_extraction.pop_back();
+	}
+
+	/* port: not written - the objective anchor vector m_objanchor_vec (+0x98) is not
+	 * declared (CreateCompassNavPoints, which fills it, is unwritten) */
+	if (theHUD != NULL)
+		theHUD->m_newmap.m_objectivelist.m_cur_selected_objective = NULL;
+
+	Headset::ftsDeleteHeadset();
+	zdb::CWorld* world = zdb::CWorld::m_world;
+	world->m_diIntDelayCnt = 0;
+	world->RemoveDecals();
+	world->WipeoutTextureAssetCharacters();
+	zTaskScheduler.RemoveTask("MissionFadeToEnd", true);
+	zTaskScheduler.ClearFreeList(false);
+	appCamera->AttachTo(NULL);
+	m_timer = 0.0f;
+	m_chars_loaded = false;
+	ai::FlushPlannerQueue();
+
+	if (world->m_grid->m_ClutterAnimManager != NULL) /* port: guard - the port never makes the clutter manager */
+	{
+		world->m_grid->m_ClutterAnimManager->ClearEffectors();
+		world->m_grid->m_ClutterAnimManager->ClearAnimations(true);
+	}
+
+	CZSealBody::Uninit_ReInitDatabaseHandles();
+	CZAnimSet* set = ZAnim.GetAnimSet("common");
+
+	if (set != NULL)
+	{
+		set->Stop();
+		set->GarbageCollect();
+	}
+
+	set = ZAnim.GetAnimSet("mission");
+
+	if (set != NULL)
+	{
+		set->Stop();
+		set->GarbageCollect();
+	}
+
+	set = ZAnim.GetAnimSet("common");
+
+	if (set != NULL)
+		set->Reset();
+
+	set = ZAnim.GetAnimSet("mission");
+
+	if (set != NULL)
+		set->Reset();
+
+	CZSealBody::DestroyAimAnims();
+	CAiDodge::Destroy();
+	CSealCtrlAi::ReleaseDatabaseHandles();
+	spawners.Clear();
+	BodyAnimCallbackList.Clear();
+	CPickup::Close(true);
+	CSealUnit::UnInit();
+	CNodeAction::Reset();
+	reinterpret_cast<CMissionObjectiveCamList*>(&m_objectivecams)->ClearValves();
+	CZWeapon::Close();
+	CValve::Close();
+	theHUD->ReInit_Uninit();
+	m_messenger.Clear_Messages();
+	m_Subtitles.Clear_Messages();
+	m_ammoMessenger.Clear_Messages();
+
+	while (Particle::Instance::m_instance_pool != NULL)
+	{
+		Particle::Instance* instance = Particle::Instance::m_instance_pool;
+		Particle::Instance::m_instance_pool = reinterpret_cast<Particle::Instance*>(instance->m_source);
+		instance->m_source = NULL;
+		delete instance;
+	}
+
+	Particle::FlushDynTexList();
+	Particle::FreeNodePool();
+	thePipe.Flush();
+	zdb::CTexManager::ClearPktBufs(zdb::CTexManager::m_texmanager, true);
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("MISSION: ReOpen_Unload1 done (%u entities)", (u32)CEntity::m_list.size());
+#endif
 }
 
 /* @socom-skeleton stub ReOpen_Unload2__8CMissionFv */
 void CMission::ReOpen_Unload2()
 {
+	/* 0x1f7c10 (CExitState::Init, after the debrief's stats are read): every entity deleted,
+	 * the AI events closed, the light map and shadow lists cleared and the world's children
+	 * shrunk. The ELF returns 1. */
+	zdb::CWorld* world = zdb::CWorld::m_world;
+	CEntity::RemoveAll();
+	CAiEvent::Close();
+	world->ClearLightMapList();
+	world->ClearShadowList();
+	world->GarbageCollect();
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("MISSION: ReOpen_Unload2 done");
+#endif
 }
 
 /* @socom-skeleton stub ReOpen_Load__8CMissionFv */
@@ -1000,6 +1114,115 @@ void CMission::ZAnimLoad()
 /* @socom-skeleton stub Close__8CMissionFv */
 void CMission::Close()
 {
+	/* 0x1f7180 (testUnload, the way back to the menus): the mission is unloaded: no state,
+	 * every sound stopped, the decals, the mission archive and database name, the objective
+	 * and mission cameras deleted, the "common" and "mission" anim sets stopped and
+	 * unloaded, the body anim callbacks, the HUD's selected objective, the jukebox and every
+	 * sound bank, the character model cache, the multiplayer message sounds, the body part
+	 * map, the materials, the seal and AI database handles, the decal sets, the particles,
+	 * the ladders, the aim anims, dodges, spawners, every entity, the vehicle reader, the AI
+	 * events, pickups, weapons, texture effects, units, node actions, AI maps, the temporary
+	 * valves, light maps and shadows, the mission's scheduler tasks, the headset, the bomb
+	 * shacks, the compass anchors and the compass. */
+	m_state = MISSION_UNLOADED;
+	/* port: not written - a network game also clears theLobby +0x5c (0x1f71a4) */
+	CSndInstance::StopAllSounds();
+	zdb::CWorld* world = zdb::CWorld::m_world;
+
+	if (world != NULL)
+	{
+		world->m_diIntDelayCnt = 0;
+		world->RemoveDecals();
+	}
+
+	m_chars_loaded = false;
+	UpdateMissionArchive(m_database, NULL);
+	m_database = NULL;
+
+	for (std::list<void const*>::iterator it = m_objectivecams.begin(); it != m_objectivecams.end(); ++it)
+		delete (CMissionObjectiveCam*)*it;
+
+	m_objectivecams.clear();
+	/* port: not written - the mission camera list m_missioncams (+0x5b4) is not declared
+	 * (LoadMissionCams, which fills it, is unwritten); the ELF deletes each the same way */
+	CZAnimSet* set = ZAnim.GetAnimSet("common");
+
+	if (set != NULL)
+	{
+		set->Stop();
+		set->Unload();
+	}
+
+	set = ZAnim.GetAnimSet("mission");
+
+	if (set != NULL)
+	{
+		set->Stop();
+		set->Unload();
+	}
+
+	BodyAnimCallbackList.Clear();
+	std::vector<BODYANIM_CALLBACK*>().swap(BodyAnimCallbackList.m_callbacks); /* ELF: clear + swap again after Clear */
+
+	if (theHUD != NULL)
+		theHUD->m_newmap.m_objectivelist.m_cur_selected_objective = NULL;
+
+	CSndJukebox::Stop();
+	CSnd::UnloadAllSounds();
+	CSndJukebox::Cleanup();
+	CCharacterModelCache::m_ModelCache.clear(); /* 0x1f73e8: the cache vector's size word = 0 */
+	CCharacterType::ClearMultiplayerMessageSounds();
+	ClearBodyPartNames_Map();
+	CMaterialExArray::UnInit();
+	CZSealBody::UninitDatabaseHandles();
+	CSealCtrlAi::ReleaseDatabaseHandles();
+	CZDecalSet::DestroyDecalSet();
+	Particle::Close();
+	/* port: not written - the ladder table m_ladders (+0x580) is not declared
+	 * (CreateLadderTable is unwritten); the ELF clears and deletes it */
+	CZSealBody::DestroyAimAnims();
+	CAiDodge::Destroy();
+	spawners.Clear();
+	CEntity::RemoveAll();
+	CloseVehicleRdr();
+	CAiEvent::Close();
+	CPickup::Close(true);
+	CZWeapon::Close();
+	zdb::CTextureFX::Clear(true);
+	CSealUnit::UnInit();
+	CNodeAction::Close();
+	AiMaps.Close();
+	CValve::Close();
+
+	if (world != NULL)
+	{
+		world->ClearLightMapList();
+		world->ClearShadowList();
+	}
+
+	zTaskScheduler.RemoveTask("Mission", false);
+	zTaskScheduler.RemoveTask("Update visual effects", false);
+	zTaskScheduler.RemoveTask("diTick", false);
+	zTaskScheduler.ClearFreeList(true);
+	/* port: not written - a network game also resets theNetwork +0x1188 (strncpy, 31) and
+	 * +0x11a6 (0x1f7554) */
+	Headset::ftsDeleteHeadset();
+	m_sealbombshack = NULL;
+	m_terroristbombshack = NULL;
+
+	while (!m_anchor_extraction.empty())
+	{
+		CZSealBody::m_compass.DeleteAnchor((CCompassAnchor*)m_anchor_extraction.back()); /* port: DeleteAnchor is declared a member; the ELF one is static */
+		m_anchor_extraction.pop_back();
+	}
+
+	/* port: not written - m_navpoints (+0x8c) and m_objanchor_vec (+0x98) are not declared
+	 * (CreateCompassNavPoints is unwritten); the ELF deletes their anchors the same way */
+	CZSealBody::m_compass.Close();
+	std::vector<CObjAnchor*>().swap(m_anchor_extraction);
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("MISSION: Close done");
+#endif
 }
 
 /* @socom-skeleton body Read__8CMissionFP5_zrdr */

@@ -225,6 +225,37 @@ bool CZSIScript::Read(zar::CZAR &archive, int)
 /* @socom-skeleton stub __dt__10CZSIScriptFv */
 CZSIScript::~CZSIScript()
 {
+	/* 0x1de430: the shared common loses a reference; the last one takes it out of the
+	 * common list and deletes it (its object pointer and body-object count cleared first;
+	 * the objects themselves stay in their archive data) */
+	CZSIScriptCommon* common = m_pCommon;
+
+	if (common != NULL)
+	{
+		common->m_refCount--;
+
+		if (common->m_refCount == 0)
+		{
+			std::vector<CZSIScriptCommon*>::iterator it = CZSIScriptCommon::list.begin();
+
+			while (it != CZSIScriptCommon::list.end())
+			{
+				if (*it == common)
+					it = CZSIScriptCommon::list.erase(it);
+				else
+					++it;
+			}
+
+			common->m_objects_for_body.clear();
+			common->m_pObjects = NULL;
+			numSiCommon--;
+			delete common;
+		}
+
+		m_pCommon = NULL;
+	}
+
+	numSiScript--;
 }
 
 /* @socom-skeleton stub GetObject__10CZSIScriptFPCcb */

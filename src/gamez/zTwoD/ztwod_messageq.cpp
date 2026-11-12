@@ -156,6 +156,18 @@ C2DMessage_Q::~C2DMessage_Q()
 /* @socom-skeleton stub Clear_Messages__12C2DMessage_QFv */
 void C2DMessage_Q::Clear_Messages()
 {
+	/* 0x200920 (ReOpen_Unload1, CHUD::ReleaseHUD): every queued message leaves the list and
+	 * is deleted (virtual deleting dtor) */
+	iterator it = begin();
+
+	while (it != end())
+	{
+		C2D* message = *it;
+		it = erase(it);
+
+		if (message != NULL)
+			delete message;
+	}
 }
 
 /* @socom-skeleton stub LastMessage__12C2DMessage_QFv */

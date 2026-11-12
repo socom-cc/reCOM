@@ -588,4 +588,7 @@ void CSpawners::Tick(float)
 /* @socom-skeleton stub Clear__9CSpawnersFv */
 void CSpawners::Clear()
 {
+	/* 0x1fcb00 (CMission::Close, ReOpen_Unload1): erases the whole spawn_map list (+0xc).
+	 * port: not written - CSpawners has no members modelled and nothing in the port adds a
+	 * spawn entry (Tick and the spawn adders are unwritten), so the list is always empty */
 }

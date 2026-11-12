@@ -148,6 +148,28 @@ void CEntity::DoRecycleEntity(CEntity *)
 /* @socom-skeleton stub RemoveAll__7CEntityFv */
 void CEntity::RemoveAll()
 {
+	/* 0x1ef010 (CMission::Close, ReOpen_Unload2): the recycle queue is dropped, every entity
+	 * leaves m_list from the front and is deleted (virtual deleting dtor) - the recycler's
+	 * entity only when its count runs out (then its entity and node are deleted and the
+	 * recycler cleared) - the recycler is cleared again, entity ids restart at 0 and the
+	 * three target lists are emptied.
+	 * port: the recycler (file-local, an untyped placeholder) is never made (CreateRecycler
+	 * is unwritten), so its branches are not written */
+	m_recycle.clear();
+
+	while (!m_list.empty())
+	{
+		CEntity* entity = m_list.front();
+		m_list.pop_front();
+
+		if (entity != NULL)
+			delete entity;
+	}
+
+	nextEntityId = 0;
+	m_target_inc.clear();
+	m_target_rem.clear();
+	m_target_add.clear();
 }
 
 /* @socom-skeleton stub PreTickAll__7CEntityFfPv */
@@ -257,6 +279,13 @@ CEntity::CEntity(TYPE type, zdb::CNode* node)
 /* @socom-skeleton stub __dt__7CEntityFv */
 CEntity::~CEntity()
 {
+	/* 0x1ee7b0: the display name freed, out of the target lists; the target vector and the
+	 * ten CSaferStr members go with their destructors */
+	if (m_display_name != NULL)
+		_free(m_display_name, "ent_main.cpp", 370);
+
+	m_display_name = NULL;
+	SetIncludeInTargetList(false);
 }
 
 /* @socom-skeleton body GetNode__7CEntityFv */

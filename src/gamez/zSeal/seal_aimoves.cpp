@@ -25,4 +25,8 @@ int CAiDodge::m_list[3];
 /* @socom-skeleton stub Destroy__8CAiDodgeFv */
 void CAiDodge::Destroy()
 {
+	/* 0x2df040 (CMission::Close, ReOpen_Unload1): every dodge leaves the list and is deleted
+	 * (returns 1, or 0 when the list was empty).
+	 * port: not written - m_list is an untyped placeholder (int[3]) and nothing in the port
+	 * creates a dodge, so the list is empty */
 }

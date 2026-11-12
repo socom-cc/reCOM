@@ -267,6 +267,22 @@ CAiMap::CAiMap()
 /* @socom-skeleton stub __dt__6CAiMapFv */
 CAiMap::~CAiMap()
 {
+	/* 0x186c20 (CAiMaps::Close): the bounds and grid size cleared, the cells (_malloc'd by
+	 * read_cells) freed, the extra data and the graph released; the tables go with their
+	 * member destructors (the readers free their rdr files) */
+	m_bbox.m_min = CPnt3D::zero;
+	m_bbox.m_max = CPnt3D::zero;
+	m_nx = 0;
+	m_ny = 0;
+	m_dx = 0.0f;
+	m_dy = 0.0f;
+
+	if (m_cell != NULL)
+		_free(m_cell, "ai_map.cpp", 368);
+
+	m_cell = NULL;
+	FreeEx();
+	DestroyGraph();
 }
 
 /* @socom-skeleton stub _reset_rtflag__6CAiMapFRC18MAP_FOREACH_STRUCTPv */

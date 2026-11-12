@@ -367,8 +367,10 @@ void zdb::CWorld::AddLightMap(zdb::CLightMap *)
 }
 
 /* @socom-skeleton stub DeleteLightMap__Q23zdb6CWorldFPQ23zdb9CLightMap */
-void zdb::CWorld::DeleteLightMap(zdb::CLightMap *)
+void zdb::CWorld::DeleteLightMap(zdb::CLightMap *map)
 {
+	/* 0x22fa80: the map leaves the light map list (the node itself is not deleted) */
+	m_lightMaps.erase(std::remove(m_lightMaps.begin(), m_lightMaps.end(), map), m_lightMaps.end());
 }
 
 /* @socom-skeleton stub AddShadow__Q23zdb6CWorldFPQ23zdb5CNode */
@@ -1002,18 +1004,48 @@ void zdb::CWorld::AddTextureAssetDecals(zdb::CTexHandle *handle)
 }
 
 /* @socom-skeleton stub DeleteTextureAssetCharacter__Q23zdb6CWorldFPcPQ23zdb5CNode */
-void zdb::CWorld::DeleteTextureAssetCharacter(char *, zdb::CNode *)
+void zdb::CWorld::DeleteTextureAssetCharacter(char *name, zdb::CNode *node)
 {
+	/* 0x22e240: by library name */
+	DeleteTextureAssetCharacter(CAssetMgr::m_assets.FindLib(name), node);
 }
 
 /* @socom-skeleton stub DeleteTextureAssetCharacter__Q23zdb6CWorldFQ23zdb12_RenderPhasePQ23zdb5CNode */
-void zdb::CWorld::DeleteTextureAssetCharacter(zdb::_RenderPhase, zdb::CNode *)
+void zdb::CWorld::DeleteTextureAssetCharacter(zdb::_RenderPhase phase, zdb::CNode *node)
 {
+	/* 0x22e1f0: by render phase */
+	DeleteTextureAssetCharacter(CAssetMgr::m_assets.FindLib(phase), node);
 }
 
 /* @socom-skeleton stub DeleteTextureAssetCharacter__Q23zdb6CWorldFPQ23zdb9CAssetLibPQ23zdb5CNode */
-void zdb::CWorld::DeleteTextureAssetCharacter(zdb::CAssetLib *, zdb::CNode *)
+void zdb::CWorld::DeleteTextureAssetCharacter(zdb::CAssetLib *, zdb::CNode *node)
 {
+	/* 0x22e070 (a character's removal): the node leaves every character texture set; a set
+	 * left without nodes is taken from the list, its GS buffer given back and deleted, and
+	 * the walk starts over. ELF quirk kept: the library argument is not used. */
+	CTextureAssetCharacterList::iterator it = m_TextureAssetCharacters.begin();
+
+	while (it != m_TextureAssetCharacters.end())
+	{
+		CTextureAssetCharacters* set = (CTextureAssetCharacters*)*it;
+		set->m_nodes.Remove(node);
+
+		if (set->m_nodes.size() != 0)
+		{
+			++it;
+			continue;
+		}
+
+		m_TextureAssetCharacters.remove(set);
+
+		if (set != NULL)
+		{
+			CTexManager::m_texmanager.doDelBuffer(set->m_texBuffer);
+			delete set;
+		}
+
+		it = m_TextureAssetCharacters.begin();
+	}
 }
 
 /* @socom-skeleton stub FindTextureAssetCharacter__Q23zdb6CWorldFPQ23zdb5CNode */
@@ -1034,16 +1066,62 @@ bool zdb::CWorld::FindTextureAssetCharacter(zdb::CNode *node)
 /* @socom-skeleton stub WipeoutTextureAssetCharacters__Q23zdb6CWorldFv */
 void zdb::CWorld::WipeoutTextureAssetCharacters()
 {
+	/* 0x22de80 (ReOpen_Unload1): every character texture set: its node vector released, its
+	 * GS buffer given back, the set deleted; then the list emptied */
+	for (CTextureAssetCharacterList::iterator it = m_TextureAssetCharacters.begin(); it != m_TextureAssetCharacters.end(); ++it)
+	{
+		CTextureAssetCharacters* set = (CTextureAssetCharacters*)*it;
+		CNodeVector().swap(set->m_nodes);
+
+		if (set != NULL)
+		{
+			CTexManager::m_texmanager.doDelBuffer(set->m_texBuffer);
+			delete set;
+		}
+	}
+
+	m_TextureAssetCharacters.clear();
 }
 
 /* @socom-skeleton stub ClearLightMapList__Q23zdb6CWorldFv */
 void zdb::CWorld::ClearLightMapList()
 {
+	/* 0x22dda0 (CMission::Close, ReOpen_Unload2): every light map deleted (virtual deleting
+	 * dtor), the slots cleared, the storage released */
+	if (m_lightMaps.size() != 0)
+	{
+		for (CLightMapVector::iterator it = m_lightMaps.begin(); it != m_lightMaps.end(); ++it)
+		{
+			if (*it != NULL)
+				delete *it;
+
+			*it = NULL;
+		}
+
+		m_lightMaps.clear();
+	}
+
+	CLightMapVector().swap(m_lightMaps);
 }
 
 /* @socom-skeleton stub ClearShadowList__Q23zdb6CWorldFv */
 void zdb::CWorld::ClearShadowList()
 {
+	/* 0x22dcc0: the same for the shadow (render map) nodes */
+	if (m_shadows.size() != 0)
+	{
+		for (CRenderMapVector::iterator it = m_shadows.begin(); it != m_shadows.end(); ++it)
+		{
+			if (*it != NULL)
+				delete *it;
+
+			*it = NULL;
+		}
+
+		m_shadows.clear();
+	}
+
+	CRenderMapVector().swap(m_shadows);
 }
 
 /* @socom-skeleton stub RemoveDecals__Q23zdb6CWorldFv */
