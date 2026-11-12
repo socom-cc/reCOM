@@ -22,8 +22,20 @@
  * socom-owner-annotations end socom:work:source-segment-047 */
 
 #include "zmpeg.h"
+#include "gamez/zSystem/zsys.h" /* _malloc, _memalign, _free */
+#include "gamez/zVideo/zvid.h" /* zVid.renderBuf, zVid.displayBuf */
+#include <eeregs.h> /* T0_COUNT */
 
 #include <cstdlib>
+#include <string.h> /* memset */
+
+/* the CMPEG work areas, carved 64-aligned from the caller's buffer while it has room
+ * (else allocated): decoder, picture, PATH3 tags, video ring, PCM ring */
+#define MPEG_BUFF_SIZE (_Max_Height * 5760 / 2 + 5992)
+#define RGB32_SIZE (_Max_Height / 16 * 5 << 13)
+#define PATH3TAG_SIZE (((_Max_Height / 16 * 240 + 10) * 4 + 63) / 64 << 9)
+#define DEMUX_BUFF_SIZE 0x30000
+#define AUDIO_BUFF_SIZE 0xc000
 
 /* @socom-skeleton stub BlockingPSSPlayback */
 unsigned char BlockingPSSPlayback;
@@ -35,7 +47,7 @@ unsigned char internal_init;
 
 /* @socom-skeleton stub p_mp__19@unnamed@zmpeg_cpp@ */
 namespace {
-int p_mp;
+sceMpeg *p_mp;
 }
 
 /* @socom-skeleton stub mpegBuffAlloc__19@unnamed@zmpeg_cpp@ */
@@ -65,83 +77,217 @@ unsigned char audioBuffAlloc;
 
 /* @socom-skeleton stub rsrcs__19@unnamed@zmpeg_cpp@ */
 namespace {
-int rsrcs[12];
+playPssRsrcs rsrcs;
+}
+
+/* one work area: from the buffer (64-aligned, 64 bytes of slack) or allocated. ELF quirk
+ * kept: _memalign's line argument is 64, the alignment (0x334070 moves a0 to a3). */
+static void* Carve(unsigned char*& buf, int& left, int size)
+{
+	void* area;
+
+	if ((unsigned int)(size + 64) < (unsigned int)left)
+	{
+		area = buf + ((64 - (unsigned int)buf) & 63);
+		left -= size + 64;
+		buf += size + 64;
+	}
+	else
+	{
+		area = _memalign(64, size, "zmpeg.cpp", 64);
+	}
+
+	memset(area, 0, size);
+	return area;
 }
 
 /* @socom-skeleton stub Init__5CMPEGFPvi */
-void CMPEG::Init(void *, int)
+bool CMPEG::Init(void *buffer, int size)
 {
+	/* 0x333f90: the work areas for _Max_Height lines (an area is "Alloc" when it did not
+	 * fit the buffer), then the PCM decoder */
+	unsigned char* buf = (unsigned char*)buffer;
+	int left = size;
+	int before = left;
+
+	rsrcs.mpegBuff = (unsigned char*)Carve(buf, left, MPEG_BUFF_SIZE);
+	rsrcs.mpegBuffSize = MPEG_BUFF_SIZE;
+	mpegBuffAlloc = before == left;
+	before = left;
+	rsrcs.rgb32 = (unsigned char*)Carve(buf, left, RGB32_SIZE);
+	rgb32Alloc = before == left;
+	before = left;
+	rsrcs.path3tag = (unsigned int*)Carve(buf, left, PATH3TAG_SIZE);
+	path3tagAlloc = before == left;
+	before = left;
+	rsrcs.demuxBuff = (unsigned char*)Carve(buf, left, DEMUX_BUFF_SIZE);
+	demuxBuffAlloc = before == left;
+	rsrcs.demuxBuffSize = DEMUX_BUFF_SIZE;
+	before = left;
+	rsrcs.audioBuff = (unsigned char*)Carve(buf, left, AUDIO_BUFF_SIZE);
+	audioBuffAlloc = before == left;
+	rsrcs.audioBuffSize = AUDIO_BUFF_SIZE;
+	rsrcs.iopBuffSize = 24576;
+	initPssAudio(&rsrcs);
+	return true;
 }
 
 /* @socom-skeleton body Uninit__5CMPEGFv */
 void CMPEG::Uninit()
 {
-    // uninitPssAudio();
+	/* 0x333ec0: the PCM decoder and whatever Init allocated */
+	uninitPssAudio();
 
-    if (mpegBuffAlloc)
-    {
-        free((void *)rsrcs[0]); /* port: rsrcs is a 48-byte playPssRsrcs; 0x333ec0 frees and clears its +0 word */
-    }
+	if (mpegBuffAlloc)
+		_free(rsrcs.mpegBuff, "zmpeg.cpp", 166);
 
-    if (rgb32Alloc)
-    {
+	if (rgb32Alloc)
+		_free(rsrcs.rgb32, "zmpeg.cpp", 168);
 
-    }
+	if (path3tagAlloc)
+		_free(rsrcs.path3tag, "zmpeg.cpp", 170);
 
-    if (path3tagAlloc)
-    {
+	if (demuxBuffAlloc)
+		_free(rsrcs.demuxBuff, "zmpeg.cpp", 172);
 
-    }
+	if (audioBuffAlloc)
+		_free(rsrcs.audioBuff, "zmpeg.cpp", 174);
 
-    if (demuxBuffAlloc)
-    {
-
-    }
-
-    if (audioBuffAlloc)
-    {
-
-    }
-
-    rsrcs[0] = 0;
+	rsrcs.mpegBuff = 0;
 }
 
 /* @socom-skeleton stub Run__5CMPEGFPCcbb */
-void CMPEG::Run(const char *, bool, bool)
+bool CMPEG::Run(const char *name, bool, bool blocking)
 {
+	/* 0x333de0: open the movie; without a prior Init the work areas are allocated here
+	 * for 480 lines (shown 448); a blocking run plays it to the end, otherwise the
+	 * caller ticks it */
+	BlockingPSSPlayback = blocking;
+
+	if (!strFileOpen(name))
+		return false;
+
+	if (rsrcs.mpegBuff == 0)
+	{
+		_Max_Height = 480;
+		_Display_Height = 448;
+		Init(0, 0);
+		internal_init = 1;
+	}
+	else
+	{
+		internal_init = 0;
+	}
+
+	if (BlockingPSSPlayback)
+	{
+		playPss(strFileRead, &rsrcs);
+		return true;
+	}
+
+	p_mp = (sceMpeg*)_malloc(72, "zmpeg.cpp", 210);
+	memset(p_mp, 0, 72);
+	startPss(p_mp, strFileRead, &rsrcs, zVid.renderBuf << 5, zVid.displayBuf << 5);
+	return true;
 }
 
 /* @socom-skeleton stub Tick__5CMPEGFi */
-void CMPEG::Tick(int)
+void CMPEG::Tick(int fbp)
 {
+	/* 0x333db0: one picture into frame buffer page fbp */
+	if (!BlockingPSSPlayback)
+		tickPss(p_mp, &rsrcs, fbp << 5);
 }
 
 /* @socom-skeleton stub IdleTick__5CMPEGFv */
 void CMPEG::IdleTick()
 {
+	/* 0x333d50 (zVid_Swap): while a movie runs, read ahead until H-blank 480 of the frame
+	 * (T0 counts H-blanks from the last swap: this also paces the movie to 525 lines) */
+	if (p_mp == NULL)
+		return;
+
+	while (*T0_COUNT % 525 < 480)
+		fillBuff(p_mp, 0);
 }
 
 /* @socom-skeleton stub End__5CMPEGFv */
 void CMPEG::End()
 {
+	/* 0x333c30 */
+	if (!BlockingPSSPlayback && p_mp != NULL)
+	{
+		stopPss(p_mp);
+		_free(p_mp, "zmpeg.cpp", 257);
+		p_mp = NULL;
+	}
+
+	strFileClose();
+
+	if (internal_init)
+	{
+		uninitPssAudio();
+
+		if (mpegBuffAlloc)
+			_free(rsrcs.mpegBuff, "zmpeg.cpp", 166);
+
+		if (rgb32Alloc)
+			_free(rsrcs.rgb32, "zmpeg.cpp", 168);
+
+		if (path3tagAlloc)
+			_free(rsrcs.path3tag, "zmpeg.cpp", 170);
+
+		if (demuxBuffAlloc)
+			_free(rsrcs.demuxBuff, "zmpeg.cpp", 172);
+
+		if (audioBuffAlloc)
+			_free(rsrcs.audioBuff, "zmpeg.cpp", 174);
+
+		internal_init = 0;
+		rsrcs.mpegBuff = 0;
+	}
 }
 
 /* @socom-skeleton stub Done__5CMPEGFv */
 unsigned char CMPEG::Done()
 {
+	/* 0x333bf0 */
+	if (BlockingPSSPlayback)
+		return 1;
+
+	return testdonePss(p_mp);
 }
 
 /* @socom-skeleton stub Loop__5CMPEGFv */
-void CMPEG::Loop()
+bool CMPEG::Loop()
 {
+	/* 0x333ab0: restart a non-blocking movie from the beginning (cleared work areas) */
+	if (!BlockingPSSPlayback)
+	{
+		stopPss(p_mp);
+		strFileRewind();
+		memset(rsrcs.mpegBuff, 0, rsrcs.mpegBuffSize);
+		memset(rsrcs.rgb32, 0, RGB32_SIZE);
+		memset(rsrcs.path3tag, 0, PATH3TAG_SIZE);
+		memset(rsrcs.demuxBuff, 0, DEMUX_BUFF_SIZE);
+		memset(rsrcs.audioBuff, 0, rsrcs.audioBuffSize);
+		memset(p_mp, 0, 72);
+		startPss(p_mp, strFileRead, &rsrcs, zVid.renderBuf << 5, zVid.displayBuf << 5);
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub SetMaxHeight__5CMPEGFi */
-void CMPEG::SetMaxHeight(int)
+void CMPEG::SetMaxHeight(int height)
 {
+	/* 0x333aa0 */
+	_Max_Height = height;
 }
 
 /* @socom-skeleton stub SetDisplayHeight__5CMPEGFi */
-void CMPEG::SetDisplayHeight(int)
+void CMPEG::SetDisplayHeight(int height)
 {
+	/* 0x333a90 */
+	_Display_Height = height;
 }

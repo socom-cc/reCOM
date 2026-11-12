@@ -92,6 +92,19 @@ typedef struct {
 	unsigned long long fba1, fba1addr;
 } sceGsAlphaEnv;
 
+/* GS -> main memory transfer (CVideo::ReadGsMemory 0x308ac0): GIF A+D tag, BITBLTBUF, TRXPOS,
+ * TRXREG, FINISH, TRXDIR (port layout, 96 bytes; compat/libgraph.c) */
+typedef struct {
+	sceGifTag giftag0;
+	unsigned long long bitbltbuf, bitbltbufaddr;
+	unsigned long long trxpos, trxposaddr;
+	unsigned long long trxreg, trxregaddr;
+	unsigned long long finish, finishaddr;
+	unsigned long long trxdir, trxdiraddr;
+	unsigned int qwc;
+	unsigned int pad[3];
+} sceGsStoreImage;
+
 #define SCE_GS_NOINTERLACE 0
 #define SCE_GS_INTERLACE 1
 #define SCE_GS_FIELD 0
@@ -119,6 +132,9 @@ void sceGsSetDefDBuff(sceGsDBuff *dp, short psm, short w, short h, short ztest, 
 int sceGsSetDefLoadImage(sceGsLoadImage *lp, short dbp, short dbw, short dpsm, short x, short y, short w, short h);
 int sceGsExecLoadImage(sceGsLoadImage *lp, unsigned __int128 *srcaddr);
 int sceGsSetDefAlphaEnv(sceGsAlphaEnv *ap, short pabe);
+int sceGsSetDefStoreImage(sceGsStoreImage *sp, short sbp, short sbw, short spsm, short x, short y, short w, short h);
+int sceGsExecStoreImage(sceGsStoreImage *sp, unsigned __int128 *dstaddr);
+void sceGsPutDispEnv(sceGsDispEnv *disp);
 
 #ifdef __cplusplus
 }

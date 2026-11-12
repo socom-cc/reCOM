@@ -11,51 +11,274 @@
  * @socom-artifact defines main socom:function:0x334bd0
  * socom-owner-annotations end socom:work:source-segment-047 */
 
+/* The movie's PCM (private stream 1: a 40-byte SShd/SSbd header, then 16-bit stereo
+ * interleaved in 512-byte blocks) goes through an EE ring into an IOP buffer that
+ * 989snd's movie sound plays (snd_InitMovieSound / snd_StartMovieSound). */
+
+#include "gamez/zMPEG/zmpeg.h"
+#include <989snd.h> /* snd_*MovieSound, snd_GetTransStatus */
+#include <sifdev.h> /* sceSifSetDma, sceSifDmaStat */
+#include <eekernel.h> /* FlushCache */
+
 /* @socom-skeleton decl forward */
-class AudioDec;
 /* @socom-skeleton end forward */
 
-/* @socom-skeleton stub audioDecCreate__FP8AudioDecPUcii */
-void audioDecCreate(AudioDec *, unsigned char *, int, int)
+/* one EE -> IOP SIF DMA, waited for (each transfer in sendToIOP2area) */
+static void SendDma(unsigned char *src, int dst, int size)
 {
+	sceSifDmaData d;
+	d.data = (unsigned int)src;
+	d.addr = (unsigned int)dst;
+	d.size = (unsigned int)size;
+	d.mode = 0;
+	FlushCache(0);
+	int id = (int)sceSifSetDma(&d, 1);
+
+	while (sceSifDmaStat(id) >= 0)
+		;
+}
+
+/* @socom-skeleton stub audioDecCreate__FP8AudioDecPUcii */
+unsigned char audioDecCreate(AudioDec *ad, unsigned char *buff, int buffSize, int iopBuffSize)
+{
+	/* 0x334bd0 */
+	ad->state = 0;
+	ad->hdrCount = 0;
+	ad->data = buff;
+	ad->put = 0;
+	ad->count = 0;
+	ad->size = buffSize;
+	ad->totalBytes = 0;
+	ad->totalBytesSent = 0;
+	ad->iopBuffSize = iopBuffSize;
+	ad->iopLastPos = 0;
+	ad->iopPausePos = 0;
+	ad->iopBuff = snd_InitMovieSound(iopBuffSize, 819, 0, 2);
+	return ad->iopBuff >= 0;
 }
 
 /* @socom-skeleton stub audioDecReset__FP8AudioDec */
-void audioDecReset(AudioDec *)
+void audioDecReset(AudioDec *ad)
 {
+	/* 0x334b80 */
+	snd_ResetMovieSound();
+	ad->state = 0;
+	ad->hdrCount = 0;
+	ad->put = 0;
+	ad->count = 0;
+	ad->totalBytes = 0;
+	ad->totalBytesSent = 0;
+	ad->iopLastPos = 0;
+	ad->iopPausePos = 0;
 }
 
 /* @socom-skeleton stub audioDecDelete__FP8AudioDec */
-void audioDecDelete(AudioDec *)
+unsigned char audioDecDelete(AudioDec *)
 {
+	/* 0x334b60 */
+	snd_CloseMovieSound();
+	return 1;
 }
 
 /* @socom-skeleton stub audioDecBeginPut__FP8AudioDecPPUcPiPPUcPi */
-void audioDecBeginPut(AudioDec *, unsigned char **, int *, unsigned char **, int *)
+void audioDecBeginPut(AudioDec *ad, unsigned char **ptr0, int *len0, unsigned char **ptr1, int *len1)
 {
+	/* 0x334aa0: where the next bytes go - the header until it is complete, then the free
+	 * part of the ring (in two pieces when it wraps) */
+	if (ad->state == 0)
+	{
+		*ptr0 = ad->hdr + ad->hdrCount;
+		*len0 = 40 - ad->hdrCount;
+		*ptr1 = ad->data;
+		*len1 = ad->size;
+		return;
+	}
+
+	int room = ad->size - ad->count;
+	int toEnd = ad->size - ad->put;
+
+	if (toEnd < room)
+	{
+		*ptr0 = ad->data + ad->put;
+		*len0 = ad->size - ad->put;
+		*ptr1 = ad->data;
+		*len1 = room - (ad->size - ad->put);
+	}
+	else
+	{
+		*ptr0 = ad->data + ad->put;
+		*len0 = room;
+		*ptr1 = 0;
+		*len1 = 0;
+	}
 }
 
 /* @socom-skeleton stub audioDecEndPut__FP8AudioDeci */
-void audioDecEndPut(AudioDec *, int)
+void audioDecEndPut(AudioDec *ad, int len)
 {
+	/* 0x334a10 */
+	if (ad->state == 0)
+	{
+		unsigned int n = 40 - ad->hdrCount;
+
+		if ((unsigned int)len < n)
+			n = len;
+
+		ad->hdrCount += n;
+
+		if ((unsigned int)ad->hdrCount >= 40)
+			ad->state = 1;
+
+		len -= n;
+	}
+
+	ad->put = (ad->put + len) % ad->size;
+	ad->count += len;
+	ad->totalBytes += len;
 }
 
 /* @socom-skeleton stub audioDecIsPreset__FP8AudioDec */
-void audioDecIsPreset(AudioDec *)
+unsigned char audioDecIsPreset(AudioDec *ad)
 {
+	/* 0x3349f0: the IOP buffer has been filled once */
+	return !(ad->totalBytesSent < ad->iopBuffSize);
 }
 
 /* @socom-skeleton stub audioDecStart__FP8AudioDec */
-void audioDecStart(AudioDec *)
+void audioDecStart(AudioDec *ad)
 {
+	/* 0x3349a0 */
+	snd_StartMovieSound(ad->iopBuff, ad->iopBuffSize / 1024 * 1024, ad->iopBuff + ad->iopPausePos);
+	ad->state = 2;
 }
 
 /* @socom-skeleton stub audioDecSendToIOP__FP8AudioDec */
-void audioDecSendToIOP(AudioDec *)
+int audioDecSendToIOP(AudioDec *ad)
 {
+	/* 0x3347c0: move whole KB of the ring to the IOP buffer - before playback as much as
+	 * fills it, while playing the part the SPU has already played (989snd's transfer
+	 * position, less 1 KB) */
+	int dst0, dsz0, dst1, dsz1;
+	int sent = 0;
+
+	switch (ad->state)
+	{
+	case 3:
+		return 0;
+
+	case 2:
+	{
+		int pos = snd_GetTransStatus() & 0xffffff;
+		int room = (pos - ad->iopBuff + ad->iopBuffSize - ad->iopLastPos - 1024) % ad->iopBuffSize / 1024 * 1024;
+		dsz0 = ad->iopBuffSize - ad->iopLastPos;
+
+		if (dsz0 < room)
+		{
+			dst0 = ad->iopBuff + ad->iopLastPos;
+			dst1 = ad->iopBuff;
+			dsz1 = room - dsz0;
+		}
+		else
+		{
+			dst0 = ad->iopBuff + ad->iopLastPos;
+			dsz0 = room;
+			dst1 = 0;
+			dsz1 = 0;
+		}
+
+		break;
+	}
+
+	case 1:
+		dsz0 = ad->iopBuffSize - ad->totalBytesSent;
+		dst0 = ad->iopBuff + ad->totalBytesSent % ad->iopBuffSize;
+		dst1 = 0;
+		dsz1 = 0;
+		break;
+
+	case 0:
+		return 0;
+
+	default:
+		/* port: the ELF reaches the copy below with whatever a1-a3 held (no state other
+		 * than 0-3 is ever set) */
+		return 0;
+	}
+
+	unsigned char* src0 = ad->data + (ad->put - ad->count + ad->size) % ad->size;
+	int whole = ad->count / 1024 * 1024;
+	int ssz0 = ad->data + ad->size - src0;
+
+	if (!(ssz0 < whole))
+		ssz0 = whole;
+
+	int ssz1 = whole - ssz0;
+
+	if (dsz0 + dsz1 >= 1024 && ssz0 + ssz1 >= 1024)
+		sent = sendToIOP2area(dst0, dsz0, dst1, dsz1, src0, ssz0, ad->data, ssz1);
+
+	ad->count -= sent;
+	ad->totalBytesSent += sent;
+	ad->iopLastPos = (ad->iopLastPos + sent) % ad->iopBuffSize;
+	return sent;
 }
 
 /* @socom-skeleton stub sendToIOP2area__FiiiiPUciPUci */
-int sendToIOP2area(int, int, int, int, unsigned char *, int, unsigned char *, int)
+int sendToIOP2area(int dst0, int dsz0, int dst1, int dsz1, unsigned char *src0, int ssz0, unsigned char *src1, int ssz1)
 {
+	/* 0x334460: two source pieces into two destination areas, clipped to the room */
+	if (dsz0 + dsz1 < ssz0 + ssz1)
+	{
+		int excess = ssz0 + ssz1 - (dsz0 + dsz1);
+
+		if (excess < ssz1)
+		{
+			ssz1 -= excess;
+		}
+		else
+		{
+			ssz0 -= excess - ssz1;
+			ssz1 = 0;
+		}
+	}
+
+	if (!(ssz0 < dsz0))
+	{
+		/* the first piece fills area 0 and spills into area 1 */
+		if (dsz0 > 0)
+			SendDma(src0, dst0, dsz0);
+
+		if (ssz0 - dsz0 > 0)
+			SendDma(src0 + dsz0, dst1, ssz0 - dsz0);
+
+		if (ssz1 > 0)
+			SendDma(src1, dst1 + ssz0 - dsz0, ssz1);
+	}
+	else
+	{
+		int left0 = dsz0 - ssz0;
+
+		if (!(ssz1 < left0))
+		{
+			/* the second piece fills the rest of area 0 and spills into area 1 */
+			if (ssz0 > 0)
+				SendDma(src0, dst0, ssz0);
+
+			if (left0 > 0)
+				SendDma(src1, dst0 + ssz0, left0);
+
+			if (ssz1 - left0 > 0)
+				SendDma(src1 + dsz0 - ssz0, dst1, ssz1 - left0);
+		}
+		else
+		{
+			if (ssz0 > 0)
+				SendDma(src0, dst0, ssz0);
+
+			if (ssz1 > 0)
+				SendDma(src1, dst0 + ssz0, ssz1);
+		}
+	}
+
+	return ssz0 + ssz1;
 }

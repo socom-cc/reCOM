@@ -115,10 +115,10 @@ public:
 	static s32 m_defaultFrameRate;
 	/* @socom-skeleton decl 6CVideo */
 public:
-	void Fade(float, unsigned char, unsigned char, unsigned char);
+	static void Fade(float, unsigned char, unsigned char, unsigned char); /* static: 0x308ed0 uses no object */
 	static void RestoreImage(char *);
-	void ReadGsMemory(unsigned int, unsigned __int128 *, unsigned int);
-	void WriteGsMemory(unsigned int, unsigned __int128 *, unsigned int);
+	static void ReadGsMemory(unsigned int, unsigned __int128 *, unsigned int); /* static: 0x308ac0 uses no object */
+	static void WriteGsMemory(unsigned int, unsigned __int128 *, unsigned int); /* static: 0x308a00 uses no object */
 	void Brightness(float);
 	/* @socom-skeleton end 6CVideo */
 };

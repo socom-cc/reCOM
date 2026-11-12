@@ -1279,9 +1279,7 @@ unsigned char UIPlayMPEG(C2DAnimCmdHdr *cmd, float *)
 	if (!was)
 	{
 		theGame.m_cinematicSubState.SetMovie(ZAnim.m_CurAnim->GetName(cmd->m_argument_index));
-		/* port: not written - theGame.Push(&theGame.m_cinematicSubState, 0): the port has no
-		 * MPEG player (CMPEG and CCinematicState::Init/Tick are unwritten), so the movie is
-		 * skipped and the anim goes on next frame */
+		theGame.Push(&theGame.m_cinematicSubState, 0);
 	}
 
 	return was;

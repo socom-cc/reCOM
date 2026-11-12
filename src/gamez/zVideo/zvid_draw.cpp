@@ -21,6 +21,7 @@
 #include <eekernel.h> /* FlushCache */
 #include <libgraph.h>
 #include <libdma.h>
+#include <eeregs.h> /* D1_*, D_CTRL (ReadGsMemory) */
 
 /* @socom-skeleton stub __ct__4CTTYFv */
 CTTY::CTTY()
@@ -51,8 +52,15 @@ f32 CVideo::MaxFrameRate(s32 fr)
 }
 
 /* @socom-skeleton stub Fade__6CVideoFfUcUcUc */
-void CVideo::Fade(float, unsigned char, unsigned char, unsigned char)
+void CVideo::Fade(float level, unsigned char r, unsigned char g, unsigned char b)
 {
+	/* 0x308ed0: the display's background colour and its blend level (zVid_Swap: alpha
+	 * 0xff = picture only, lower blends towards the colour) */
+	u8* bg = (u8*)&zvid.bgcolor;
+	bg[0] = r;
+	bg[1] = g;
+	bg[2] = b;
+	bg[3] = (u8)(unsigned int)(255.0f * level);
 }
 
 /* @socom-skeleton body RestoreImage__6CVideoFPc */
@@ -87,11 +95,61 @@ void CVideo::RestoreImage(char *img)
 }
 
 /* @socom-skeleton stub ReadGsMemory__6CVideoFUiP1Ui */
-void CVideo::ReadGsMemory(unsigned int, unsigned __int128 *, unsigned int)
+void CVideo::ReadGsMemory(unsigned int gsaddr, unsigned __int128 *buf, unsigned int size)
 {
+	/* 0x308ac0: GS memory back into main memory in 256 KB blocks (256 x 256 PSMCT32 from
+	 * block address gsaddr), through VIF1 - its DMA (the MFIFO) held and restored */
+	DIntr();
+	*D1_CHCR &= 0xfeff;
+	__asm__ volatile("sync.l");
+	u32 chcr = *D1_CHCR;
+	u32 tadr = *D1_TADR;
+	u32 qwc = *D1_QWC;
+	u32 madr = *D1_MADR;
+	u32 ctrl = *D_CTRL;
+	*D_CTRL = 1;
+	sceGsSyncPath(0, 0);
+
+	do
+	{
+		sceGsStoreImage store;
+		sceGsSetDefStoreImage(&store, (short)gsaddr, 4, 0, 0, 0, 256, 256);
+		FlushCache(0);
+		sceGsExecStoreImage(&store, buf);
+		size -= 0x40000;
+		buf += 0x4000;
+		gsaddr += 1024;
+		sceGsSyncPath(0, 0);
+	} while (size != 0);
+
+	*D_CTRL = ctrl;
+	*D1_MADR = madr;
+	*D1_QWC = qwc;
+	*D1_TADR = tadr;
+	*D1_CHCR = chcr | 0x100;
+	__asm__ volatile("sync.l");
+	EIntr();
 }
 
 /* @socom-skeleton stub WriteGsMemory__6CVideoFUiP1Ui */
-void CVideo::WriteGsMemory(unsigned int, unsigned __int128 *, unsigned int)
+void CVideo::WriteGsMemory(unsigned int gsaddr, unsigned __int128 *buf, unsigned int size)
 {
+	/* 0x308a00: main memory into GS memory in 256 KB blocks (256 x 256 PSMCT32 at block
+	 * address gsaddr) by PATH3 image transfers */
+	DIntr();
+	sceDmaSync(zSys.DmaToGif, 0, 0);
+
+	do
+	{
+		sceGsLoadImage load;
+		sceGsSetDefLoadImage(&load, (short)gsaddr, 4, 0, 0, 0, 256, 256);
+		FlushCache(0);
+		sceGsExecLoadImage(&load, buf);
+		sceDmaSync(zSys.DmaToGif, 0, 0);
+		size -= 0x40000;
+		buf += 0x4000;
+		gsaddr += 1024;
+	} while (size != 0);
+
+	EIntr();
 }

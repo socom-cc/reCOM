@@ -11,43 +11,235 @@
  * @socom-artifact defines main socom:data:0x530c70
  * socom-owner-annotations end socom:work:source-segment-047 */
 
+#include "gamez/zMPEG/zmpeg.h"
+#include "gamez/zSystem/zsys.h" /* zSys.isCdBoot */
+#include "gamez/zUtil/util_systemio.h" /* CFileIO::PS2FileName, CFileCD */
+#include <989snd.h> /* snd_DoExternCall, snd_StreamSafeCdSync */
+#include <sifdev.h> /* sceOpen ... sceSifAllocIopHeap */
+#include <eeregs.h> /* D2_CHCR, D2_QWC, D2_TADR */
+
+/* 'dstr': the disc's 989DSTRM.IRX, reached through 989snd's extern call (cmd 0 init,
+ * 1 open at a sector, 2 seek to a sector, 4 close, 5 read sectors into EE memory) */
+#define STR_EXTERN_ID 0x64737472
+
+/* port: no DWARF type; the 20-byte infile (0x530c70) as strFileOpen (0x335b10) uses it */
+struct _strfile
+{
+	int isCd;           /* +0x00 */
+	int size;           /* +0x04: file size (CD: the TOC entry's +0xc) */
+	_FILECD* toc;       /* +0x08 */
+	void* iopBuff;      /* +0x0c: 989dstrm's IOP buffer */
+	int fd;             /* +0x10: host/IOP file descriptor */
+};
+
 /* @socom-skeleton stub nonBlockReadReq */
 static int nonBlockReadReq;
 
 /* @socom-skeleton stub infile */
-static int infile[5];
+static _strfile infile;
 
 /* @socom-skeleton stub strFileOpen__FPCc */
-void strFileOpen(const char *)
+unsigned char strFileOpen(const char *name)
 {
+	/* 0x335b10: from the disc the movie streams through 989dstrm (an 80-sector IOP
+	 * buffer); otherwise an ordinary non-blocking IOP file */
+	char path[1024];
+	CFileIO::PS2FileName(name, path, true);
+
+	if (zSys.isCdBoot)
+	{
+		infile.isCd = 1;
+		snd_StreamSafeCdSync(0);
+		infile.iopBuff = sceSifAllocIopHeap(0x28010);
+		snd_DoExternCall(STR_EXTERN_ID, 0, 80, 5, ((int)infile.iopBuff + 15) & ~15, 0, 0);
+		infile.toc = CFileCD::Find(path);
+
+		if (infile.toc == NULL)
+			return 0;
+
+		infile.size = infile.toc->sectorSize;
+		unsigned char status[3];
+		status[0] = 0;
+		status[1] = 0;
+		status[2] = 0;
+		snd_DoExternCall(STR_EXTERN_ID, 1, infile.toc->startSector, (int)status, 0, 0, 0);
+		CFileCD::m_streamingActive = 1;
+		return 1;
+	}
+
+	infile.isCd = 0;
+	infile.fd = sceOpen(path, SCE_NOWAIT | SCE_RDONLY);
+
+	int busy;
+	do
+		sceIoctl(infile.fd, SCE_FS_EXECUTING, &busy);
+	while (busy == 1);
+
+	if (infile.fd < 0)
+		return 0;
+
+	infile.size = sceLseek(infile.fd, 0, SCE_SEEK_END);
+
+	if (infile.size < 0)
+	{
+		sceClose(infile.fd);
+		return 0;
+	}
+
+	if (sceLseek(infile.fd, 0, SCE_SEEK_SET) < 0)
+	{
+		sceClose(infile.fd);
+		return 0;
+	}
+
+	nonBlockReadReq = 0;
+	return 1;
 }
 
 /* @socom-skeleton stub strFileRewind__Fv */
-void strFileRewind()
+unsigned char strFileRewind()
 {
+	/* 0x335a80: back to the first sector / byte. ELF quirk kept: a failed seek closes
+	 * infile.fd on the CD path too. */
+	int result;
+
+	if (zSys.isCdBoot)
+		result = snd_DoExternCall(STR_EXTERN_ID, 2, infile.toc->startSector, 0, 0, 0, 0);
+	else
+		result = sceLseek(infile.fd, 0, SCE_SEEK_SET);
+
+	if (result < 0)
+	{
+		sceClose(infile.fd);
+		return 0;
+	}
+
+	return 1;
 }
 
 /* @socom-skeleton stub strFileClose__Fv */
-void strFileClose()
+unsigned char strFileClose()
 {
+	/* 0x335a10 */
+	if (infile.isCd)
+	{
+		snd_DoExternCall(STR_EXTERN_ID, 4, 0, 0, 0, 0, 0);
+		sceSifFreeIopHeap(infile.iopBuff);
+		CFileCD::m_streamingActive = 0;
+	}
+	else
+	{
+		sceClose(infile.fd);
+		CFileCD::m_streamingActive = 0;
+	}
+
+	return 1;
 }
 
 /* @socom-skeleton stub strFileRead__FPvi */
-int strFileRead(void *, int)
+int strFileRead(void *buf, int size)
 {
+	/* 0x335960: whole sectors from 989dstrm (what it has buffered; 0 while it waits), or
+	 * one non-blocking IOP read: 0 until the request has finished, then the size */
+	if (infile.isCd)
+	{
+		int status;
+		return snd_DoExternCall(STR_EXTERN_ID, 5, (unsigned int)size >> 11, (int)buf, 0, (int)&status, 0) << 11;
+	}
+
+	if (!nonBlockReadReq)
+	{
+		sceRead(infile.fd, buf, size);
+		nonBlockReadReq = 1;
+	}
+
+	int busy;
+	sceIoctl(infile.fd, SCE_FS_EXECUTING, &busy);
+
+	if (busy != 0)
+		return 0;
+
+	nonBlockReadReq = 0;
+	return size;
 }
 
 /* @socom-skeleton stub setLoadImageTags__FPUiPviiUi */
-void setLoadImageTags(unsigned int *, void *, int, int, unsigned int)
+void setLoadImageTags(unsigned int *tags, void *image, int width, int height, unsigned int dbp)
 {
+	/* 0x335940 */
+	setLoadImageTagsYX(tags, image, 1024, width, height, dbp);
 }
 
 /* @socom-skeleton stub setLoadImageTagsYX__FPUiPviiiUi */
-void setLoadImageTagsYX(unsigned int *, void *, int, int, int, unsigned int)
+void setLoadImageTagsYX(unsigned int *tags, void *image, int step, int width, int height, unsigned int dbp)
 {
+	/* 0x3356e0: a GIF DMA chain (written uncached) that loads the picture's 16x16
+	 * macroblocks into the frame buffer at dbp (width 640, PSMCT32): BITBLTBUF/TRXREG,
+	 * then per macroblock TRXPOS/TRXDIR and an IMAGE tag with a REF to its 1024 bytes.
+	 * Macroblocks are column-major (x outer, y inner); rows at or below
+	 * _Display_Height are skipped; EOP on the last one, then DMA END. */
+	int mbw = width >> 4;
+	int mbh = height >> 4;
+	int dispRows = _Display_Height >> 4;
+	unsigned int* p = (unsigned int*)(((unsigned int)tags & 0x0fffffff) | 0x20000000);
+	unsigned char* src = (unsigned char*)image;
+
+	*(unsigned long long*)&p[0] = 0x10000003;                    /* DMA CNT, 3 qw */
+	p[4] = 2;
+	p[5] = 0x10000000;                                           /* GIF A+D, NLOOP 2 */
+	p[6] = 0xe;
+	p[7] = 0;
+	*(unsigned long long*)&p[8] = (unsigned long long)dbp << 32 | 0xaULL << 48; /* BITBLTBUF DBP, DBW 10 */
+	p[10] = 0x50;
+	p[11] = 0;
+	p[12] = 16;
+	p[13] = 16;                                                  /* TRXREG 16 x 16 */
+	p[14] = 0x52;
+	p[15] = 0;
+	p += 16;
+
+	for (int x = 0; x < mbw; x++)
+	{
+		for (int y = 0; y < mbh; y++)
+		{
+			if (y < dispRows)
+			{
+				int lastRow = (mbh < dispRows ? mbh : dispRows) - 1;
+				int eop = (y == lastRow && x == mbw - 1) ? 1 : 0;
+				unsigned int addr = ((unsigned int)src & 0x0fffffff) & ~15u;
+
+				*(unsigned long long*)&p[0] = 0x10000004;            /* DMA CNT, 4 qw */
+				p[4] = 2;
+				p[5] = 0x10000000;                                   /* GIF A+D, NLOOP 2 */
+				p[6] = 0xe;
+				p[7] = 0;
+				*(unsigned long long*)&p[8] = (unsigned long long)(x * 16) << 32 | (unsigned long long)(y * 16) << 48; /* TRXPOS */
+				p[10] = 0x51;
+				p[11] = 0;
+				p[12] = 0;
+				p[13] = 0;                                           /* TRXDIR host -> local */
+				p[14] = 0x53;
+				p[15] = 0;
+				p[16] = eop << 15 | 0x40;                            /* GIF IMAGE, NLOOP 64 */
+				p[17] = 0x08000000;
+				p[18] = 0;
+				p[19] = 0;
+				*(unsigned long long*)&p[20] = (unsigned long long)addr << 32 | 0x30000040; /* DMA REF, 64 qw */
+				p += 24;
+			}
+
+			src += step;
+		}
+	}
+
+	*(unsigned long long*)&p[0] = 0x70000000; /* DMA END */
 }
 
 /* @socom-skeleton stub loadImage__FPUi */
-void loadImage(unsigned int *)
+void loadImage(unsigned int *tags)
 {
+	/* 0x3356b0: start the chain on the GIF channel (PATH3) */
+	*D2_TADR = (unsigned int)tags & 0x0fffffff;
+	*D2_QWC = 0;
+	*D2_CHCR = 0x105;
 }

@@ -57,6 +57,8 @@
 #include "gamez/zValve/zvalve.h" /* CValve::Reset (UnInit) */
 #include <stdlib.h> /* exit */
 #include <string.h> /* memset */
+#include "gamez/zMPEG/zmpeg.h" /* CMPEG (CCinematicState) */
+#include "gamez/zBone/zbone.h" /* pBuffer_MotionRdr (CCinematicState) */
 
 bool testLoad(); /* database.cpp (0x173610) */
 bool testUnload(); /* database.cpp (0x1735e0) */
@@ -97,21 +99,140 @@ unsigned char load_thread_stack[69632];
 /* @socom-skeleton stub __dt__15CCinematicStateFv */
 CCinematicState::~CCinematicState()
 {
+	/* 0x17dcc0 (then ~CGameState) */
+	if (m_moviename)
+		_free(m_moviename, "st_core.cpp", 89);
+
+	m_moviename = NULL;
 }
 
 /* @socom-skeleton stub SetMovie__15CCinematicStateFPCc */
-void CCinematicState::SetMovie(const char *)
+void CCinematicState::SetMovie(const char *moviename)
 {
+	/* 0x17dc60 */
+	if (m_moviename)
+		_free(m_moviename, "st_core.cpp", 97);
+
+	m_moviename = NULL;
+	m_moviename = _strdup(moviename, "st_core.cpp", 98);
 }
 
 /* @socom-skeleton body Init__15CCinematicStateFv */
-bool CCinematicState::Init() { return true; }
+bool CCinematicState::Init()
+{
+	/* 0x17db20 (pushed by UIPlayMPEG): streaming idle, FIFO off, black; no frame limit;
+	 * two 640 x 224 frame buffers at pages 0 and 70 in 224-line mode (doMpeg224), GIF
+	 * intermittent mode off. The motion data buffer (pBuffer_MotionRdr) is parked in GS
+	 * memory from gsTexAddr and lent to the movie player as its work area. */
+	CSnd::WaitForCDRead();
+	zSysFifoEnd();
+	zSysFifoDisable();
+	m_movierunning = false;
+	CVideo::Clear(0, 0, 0, 0);
+	m_savedFrameRate = (s32)CVideo::MaxFrameRate(-1);
+	m_videoSave[0] = zVid.displayBuf;
+	m_videoSave[1] = zVid.renderBuf;
+
+	if (zVid.displayBuf == 0)
+	{
+		zVid.displayBuf = 0;
+		zVid.renderBuf = 70;
+	}
+	else
+	{
+		zVid.renderBuf = 0;
+		zVid.displayBuf = 70;
+	}
+
+	zVid.doMpeg224 = true;
+	*GIF_MODE &= ~4;
+	__asm__ volatile("sync.l");
+	void* work = pBuffer_MotionRdr;
+	CVideo::WriteGsMemory(gsTexAddr, (unsigned __int128*)work, mpegWorkspaceSize);
+	CMPEG::SetMaxHeight(224);
+	CMPEG::SetDisplayHeight(224);
+	CMPEG::Init(work, mpegWorkspaceSize);
+
+	if (m_moviename)
+		m_movierunning = CMPEG::Run(m_moviename, true, false);
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("MPEG: cinematic '%s' running %d (work %p, %u bytes; motion buffer %u bytes)",
+		m_moviename ? m_moviename : "", m_movierunning, work, mpegWorkspaceSize, (unsigned int)Sizeof_MotionRdr);
+#endif
+	m_fadeTime = -1.0f;
+	return true;
+}
 
 /* @socom-skeleton body Tick__15CCinematicStateFf */
-bool CCinematicState::Tick(float dT) {}
+bool CCinematicState::Tick(float dT)
+{
+	/* 0x17d9d0: CROSS fades the movie out over a second (then stops it); at the end the
+	 * state pops itself, otherwise one picture into the render buffer and a swap */
+	CInput::Tick(dT);
+
+	if (CInput::m_pads[0] != NULL && CInput::m_pads[0]->m_state[(int)PAD_BUTTON::PAD_CROSS] == KEY_FALLING && m_fadeTime < 0.0f)
+		m_fadeTime = 1.1f;
+
+	if (!(m_fadeTime <= 0.0f))
+	{
+		m_fadeTime -= dT;
+
+		if (m_fadeTime < 0.1f)
+		{
+			CVideo::Fade(0.0f, 0, 0, 0);
+
+			if (m_fadeTime < 0.0f)
+			{
+				m_fadeTime = -1.0f;
+				m_movierunning = false;
+			}
+		}
+		else
+		{
+			CVideo::Fade(m_fadeTime - 0.1f, 0, 0, 0);
+		}
+	}
+
+	if (!m_movierunning || CMPEG::Done())
+	{
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("MPEG: cinematic ends (%s)", m_movierunning ? "movie done" : "skipped");
+#endif
+		CMPEG::End();
+		m_movierunning = false;
+		theGame.Pop(0);
+		return false;
+	}
+
+	CMPEG::Tick(zVid.renderBuf);
+	zVid_Swap(true);
+	return false;
+}
 
 /* @socom-skeleton body UnInit__15CCinematicStateFv */
-void CCinematicState::UnInit() {}
+void CCinematicState::UnInit()
+{
+	/* 0x17d900: the motion data back from GS memory, the frame limit and buffers back
+	 * (ELF: display page 0, render the larger of the saved two), normal display mode,
+	 * intermittent mode on, no fade */
+	CMPEG::Uninit();
+	zSysFifoEnd();
+	zSysFifoDisable();
+	CVideo::ReadGsMemory(gsTexAddr, (unsigned __int128*)pBuffer_MotionRdr, mpegWorkspaceSize);
+	CVideo::MaxFrameRate(m_savedFrameRate);
+	zVid.displayBuf = 0;
+	zVid.renderBuf = m_videoSave[1] < m_videoSave[0] ? m_videoSave[0] : m_videoSave[1];
+	zVid.doMpeg224 = false;
+	*GIF_MODE |= 4;
+	__asm__ volatile("sync.l");
+
+	if (m_moviename)
+		_free(m_moviename, "st_core.cpp", 275);
+
+	m_moviename = NULL;
+	CVideo::Fade(1.0f, 0, 0, 0);
+}
 
 /* @socom-skeleton stub OnPush__10CCoreStateFi */
 void CCoreState::OnPush(int)

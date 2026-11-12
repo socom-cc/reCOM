@@ -220,3 +220,26 @@ int sceLseek(int fd, int offset, int whence)
 {
     return lseek(fd, offset, whence);
 }
+
+/* Movie player (src/gamez/zMPEG/strfile.cpp, audiodec.cpp): port reads are blocking, so a
+ * read is never still executing; IOP heap and EE->IOP DMA map onto ps2sdk directly
+ * (sceSifSetDma / sceSifDmaStat come from ps2sdk itself). */
+
+int sceIoctl(int fd, int req, void *arg)
+{
+    (void)fd;
+    if (req == SCE_FS_EXECUTING && arg != NULL)
+        *(int *)arg = 0;
+    return 0;
+}
+
+void *sceSifAllocIopHeap(unsigned int size)
+{
+    return SifAllocIopHeap(size);
+}
+
+int sceSifFreeIopHeap(void *addr)
+{
+    return SifFreeIopHeap(addr);
+}
+

@@ -78,7 +78,7 @@ target_include_directories(socom_port PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/compa
 target_compile_definitions(socom_port PRIVATE SOCOM_PORT _EE SOCOM_PORT_TRACE_ON)
 target_link_libraries(socom_port PRIVATE
   -Wl,--whole-archive socom_game -Wl,--no-whole-archive
-  -liopreboot -lpatches -lcdvd -lpad -ldebug -leedebug -lkernel)
+  -liopreboot -lpatches -lcdvd -lpad -lmpeg -ldebug -leedebug -lkernel)
 
 # Test hook, off by default: a scratch build configured with
 #   -DSOCOM_PORT_FAKE_PAD=<read>:<BUTTON>[,<read>:<BUTTON>...]

@@ -292,6 +292,43 @@ void zvid_KickPacket(unsigned long long *packet, int qwc, bool fifo)
 /* @socom-skeleton stub zvid_MpegReset__Fv */
 void zvid_MpegReset()
 {
+	/* 0x308220 (zVid_Swap while doMpeg224): the drawing environment for 224-line movie
+	 * frames (mpegcode: FRAME_1/2 at the render buffer, XYOFFSET_1/2 with the field's half
+	 * line, SCISSOR 640 x 224). In DTV480P the whole 64-bit FRAMEs are set and finalcode
+	 * goes first (its +0x50 word 96 with pcrtcDo). */
+	if (zVid.vidMode == ZVID_MODE_DTV480P)
+	{
+		u64 frame = (u64)zVid.renderBuf | 0xa0000;
+		mpegcode[2] = frame;
+		mpegcode[4] = frame;
+		finalcode[10] = zVid.pcrtcDo ? 96 : 0;
+		FlushCache(0);
+		u32* tag = (u32*)zSysSprGetPacket(NULL);
+		tag[0] = 0x30000010; /* DMA REF, 16 qw */
+		tag[1] = (u32)finalcode;
+		tag[2] = 0x13000000; /* VIF FLUSHA */
+		tag[3] = 0x50000010; /* VIF DIRECT 16 */
+		zSysFifoKick((unsigned __int128*)tag, 1);
+	}
+	else
+	{
+		u16 fbp = (u16)(zVid.renderBuf & 0x1ff);
+		u16* frame1 = (u16*)&mpegcode[4];
+		u16* frame2 = (u16*)&mpegcode[2];
+		*frame1 = (*frame1 & ~0x1ff) | fbp;
+		*frame2 = (*frame2 & ~0x1ff) | (*frame1 & 0x1ff);
+		u16 offsetY = (u16)((s16)zvid.vsync_odd * 8 + 0x7900);
+		((u16*)&mpegcode[8])[2] = offsetY;
+		((u16*)&mpegcode[6])[2] = offsetY;
+		FlushCache(0);
+	}
+
+	u32* tag = (u32*)zSysSprGetPacket(NULL);
+	tag[0] = 0x3000000d; /* DMA REF, 13 qw */
+	tag[1] = (u32)mpegcode;
+	tag[2] = 0x13000000; /* VIF FLUSHA */
+	tag[3] = 0x5000000d; /* VIF DIRECT 13 */
+	zSysFifoKick((unsigned __int128*)tag, 1);
 }
 
 /* @socom-skeleton body zVid_ClearColor__FPUi */

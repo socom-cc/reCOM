@@ -107,4 +107,21 @@
 #define GIF_MODE ((volatile unsigned int *)0x10003010)
 #endif
 
+/* movie player: toIPU channel (playpss nodataCallback), VIF1 channel (CVideo::ReadGsMemory) */
+#ifndef D4_CHCR
+#define D4_CHCR ((volatile unsigned int *)0x1000b400)
+#endif
+#ifndef D4_MADR
+#define D4_MADR ((volatile unsigned int *)0x1000b410)
+#endif
+#ifndef D4_QWC
+#define D4_QWC ((volatile unsigned int *)0x1000b420)
+#endif
+#ifndef D1_MADR
+#define D1_MADR ((volatile unsigned int *)0x10009010)
+#endif
+#ifndef D1_QWC
+#define D1_QWC ((volatile unsigned int *)0x10009020)
+#endif
+
 #endif /* SOCOM_COMPAT_EEREGS_H */

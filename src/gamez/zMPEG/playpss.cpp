@@ -33,11 +33,26 @@
  * @socom-artifact defines main socom:data:0x530c40
  * socom-owner-annotations end socom:work:source-segment-047 */
 
+/* Movie playback (PSS: MPEG-2 program stream, MPEG-2 video + SPU2 PCM) on the PS2 SDK
+ * libmpeg: the file is read 16 KB at a time and demultiplexed; video goes into a ring
+ * (demuxBuff) that the decoder's no-data callback feeds to the IPU by DMA, PCM into
+ * audioDec. Each tick decodes one picture and loads it into the frame buffer being drawn
+ * by a PATH3 DMA chain. */
+
+#include "gamez/zMPEG/zmpeg.h"
+#include "gamez/zSystem/zsys.h" /* _malloc, _free */
+#include <libgraph.h> /* sceGsResetGraph, sceGsSyncV, sceGsSyncPath, sceGsDispEnv */
+#include <eeregs.h> /* T0_COUNT, D4_* */
+#include <string.h> /* memcpy */
+
+extern unsigned char BlockingPSSPlayback; /* zmpeg.cpp (0x4767d8) */
+
 /* @socom-skeleton decl forward */
-class playPssRsrcs;
-class sceMpeg;
-class sceMpegCbData;
-class sceMpegCbDataStr;
+int videoCallback(sceMpeg *, sceMpegCbDataStr *, void *);
+int audioCallback(sceMpeg *, sceMpegCbDataStr *, void *);
+int nodataCallback(sceMpeg *, sceMpegCbData *, void *);
+int backgroundCallback(sceMpeg *, sceMpegCbData *, void *);
+int errorCallback(sceMpeg *, sceMpegCbData *, void *);
 /* @socom-skeleton end forward */
 
 /* @socom-skeleton stub doAudio */
@@ -47,13 +62,13 @@ static bool doAudio = 1;
 int _Max_Height = 480;
 
 /* @socom-skeleton stub _Display_Height */
-unsigned char _Display_Height[4] = {192, 1, 0, 0};
+int _Display_Height = 448;
 
 /* @socom-skeleton stub isStarted */
 static int isStarted;
 
 /* @socom-skeleton stub fileRead */
-static int fileRead;
+static int (*fileRead)(void *, int);
 
 /* @socom-skeleton stub OKtoFillBuff */
 unsigned char OKtoFillBuff;
@@ -65,96 +80,389 @@ static int gFrameCount;
 static int muxBuffFullness;
 
 /* @socom-skeleton stub path3tag */
-static int path3tag;
+static unsigned int *path3tag;
 
 /* @socom-skeleton stub demuxBuff */
-static int demuxBuff;
+static unsigned char *demuxBuff;
 
 /* @socom-skeleton stub demuxBuffSize */
 static int demuxBuffSize;
 
 /* @socom-skeleton stub demuxBuffPast */
-static int demuxBuffPast;
+static unsigned char *demuxBuffPast;
 
 /* @socom-skeleton stub demuxBuffPresent */
-static int demuxBuffPresent;
+static unsigned char *demuxBuffPresent;
 
 /* @socom-skeleton stub demuxBuffFuture */
-static int demuxBuffFuture;
+static unsigned char *demuxBuffFuture;
 
 /* @socom-skeleton stub dbp */
-static int dbp[2];
+static unsigned int dbp[2];
 
 /* @socom-skeleton stub audioDec */
-static unsigned char audioDec[92];
+static AudioDec audioDec;
 
 /* @socom-skeleton stub muxBuff */
+#ifdef SOCOM_PORT
+static unsigned char muxBuff[16384] __attribute__((aligned(64))); /* port: 989dstrm DMAs into it; the ELF places it at 0x52cc40 */
+#else
 static unsigned char muxBuff[16384];
+#endif
 
 /* @socom-skeleton stub disp */
-static unsigned char disp[40];
+static sceGsDispEnv disp;
+
+/* the PATH3 chain for the second frame buffer follows the first in path3tag (half of the
+ * area CMPEG::Init sizes: ((Max_Height / 16 * 240 + 10) * 4 + 63) / 64 * 512 bytes) */
+static unsigned int *SecondTags()
+{
+	return (unsigned int*)((unsigned char*)path3tag + (((_Max_Height / 16 * 240 + 10) * 4 + 63) / 64 << 8));
+}
+
+static inline unsigned char *Uncached(unsigned char *p)
+{
+	return (unsigned char*)(((unsigned int)p & 0x0fffffff) | 0x20000000);
+}
 
 /* @socom-skeleton stub initPssAudio__FP12playPssRsrcs */
-void initPssAudio(playPssRsrcs *)
+void initPssAudio(playPssRsrcs *rsrcs)
 {
+	/* 0x335670 */
+	if (doAudio)
+	{
+		audioDecCreate(&audioDec, rsrcs->audioBuff, rsrcs->audioBuffSize, rsrcs->iopBuffSize);
+		isStarted = 0;
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("MPEG: PCM decoder: IOP buffer 0x%x (%d bytes)", audioDec.iopBuff, rsrcs->iopBuffSize);
+#endif
+	}
 }
 
 /* @socom-skeleton stub uninitPssAudio__Fv */
 void uninitPssAudio()
 {
+	/* 0x335640 */
+	if (doAudio)
+		audioDecDelete(&audioDec);
 }
 
 /* @socom-skeleton stub startPss__FP7sceMpegPFPvi_iP12playPssRsrcsUiUi */
-void startPss(sceMpeg *, int (*)(void *, int), playPssRsrcs *, unsigned int, unsigned int)
+sceMpeg* startPss(sceMpeg *mp, int (*read)(void *, int), playPssRsrcs *rsrcs, unsigned int dbp0, unsigned int dbp1)
 {
+	/* 0x335440: decoder and callbacks, the video ring, the first reads (until the demuxer
+	 * takes no more); a blocking player also sets up its own display */
+	dbp[0] = dbp0;
+	dbp[1] = dbp1;
+
+	if (BlockingPSSPlayback)
+	{
+		sceGsResetGraph(0, SCE_GS_INTERLACE, SCE_GS_NTSC, SCE_GS_FIELD);
+		sceGsResetPath();
+	}
+
+	path3tag = rsrcs->path3tag;
+	sceMpegInit();
+	sceMpegCreate(mp, rsrcs->mpegBuff, rsrcs->mpegBuffSize);
+	sceMpegAddStrCallback(mp, sceMpegStrM2V, 0, (sceMpegCallback)videoCallback, NULL);
+	sceMpegAddStrCallback(mp, sceMpegStrPCM, 0, (sceMpegCallback)audioCallback, NULL);
+	sceMpegAddCallback(mp, sceMpegCbNodata, nodataCallback, NULL);
+	sceMpegAddCallback(mp, sceMpegCbBackground, backgroundCallback, NULL);
+	sceMpegAddCallback(mp, sceMpegCbError, errorCallback, NULL);
+	muxBuffFullness = 0;
+	demuxBuff = rsrcs->demuxBuff;
+	demuxBuffSize = rsrcs->demuxBuffSize;
+	fileRead = read;
+	demuxBuffPresent = demuxBuff;
+	demuxBuffPast = demuxBuff + 16;
+	demuxBuffFuture = demuxBuff + 16;
+
+	while (fillBuff(mp, 1))
+		;
+
+	if (BlockingPSSPlayback)
+	{
+		sceGsSetDefDispEnv(&disp, 0, 640, (short)_Display_Height, 0, 0);
+
+		if (_Display_Height < _Max_Height)
+		{
+			/* DISPFB.DBY: the middle _Display_Height lines */
+			unsigned int hi = (unsigned int)(disp.dispfb >> 32);
+			hi = (hi & 0xffc007ff) | (((_Max_Height - _Display_Height) / 2) & 0x7ff) << 11;
+			disp.dispfb = (disp.dispfb & 0xffffffffULL) | (unsigned long long)hi << 32;
+		}
+
+		/* DISPFB.FBW = 10 (640 pixels) */
+		disp.dispfb = (disp.dispfb & ~0x7e00ULL) | 0x1400;
+		sceGsPutDispEnv(&disp);
+	}
+
+	return mp;
 }
 
 /* @socom-skeleton stub tickPss__FP7sceMpegP12playPssRsrcsUi */
-void tickPss(sceMpeg *, playPssRsrcs *, unsigned int)
+int tickPss(sceMpeg *mp, playPssRsrcs *rsrcs, unsigned int fbp)
 {
+	/* 0x335220: decode the next picture, load it into frame buffer fbp (the tags are built
+	 * on the first picture, the picture centred in _Display_Height on whole 32-line page
+	 * rows), then move PCM to the IOP and start it once the IOP buffer is full */
+	OKtoFillBuff = 0;
+
+	while (sceMpegGetPicture(mp, rsrcs->rgb32, _Max_Height / 16 * 40) < 0)
+		;
+
+	if (mp->frameCount == 0)
+	{
+		int offset = (_Display_Height - mp->height) * 10 / 2;
+		offset -= offset % 320;
+
+		if (offset < 0)
+			offset = 0;
+
+		setLoadImageTags(path3tag, rsrcs->rgb32, mp->width, mp->height, dbp[0] + offset);
+		setLoadImageTags(SecondTags(), rsrcs->rgb32, mp->width, mp->height, dbp[1] + offset);
+	}
+
+	gFrameCount = mp->frameCount;
+	sceGsSyncPath(0, 0);
+
+	if (fbp == dbp[0])
+		loadImage(path3tag);
+	else if (fbp == dbp[1])
+		loadImage(SecondTags());
+
+	if (doAudio)
+	{
+		audioDecSendToIOP(&audioDec);
+
+		if (!isStarted && audioDecIsPreset(&audioDec))
+		{
+			audioDecStart(&audioDec);
+			isStarted = 1;
+#ifdef SOCOM_PORT
+			SOCOM_PORT_TRACE("MPEG: PCM start at picture %d (IOP buffer 0x%x, %d bytes sent)", mp->frameCount, audioDec.iopBuff, audioDec.totalBytesSent);
+#endif
+		}
+	}
+
+	return 0;
 }
 
 /* @socom-skeleton stub testdonePss__FP7sceMpeg */
-void testdonePss(sceMpeg *)
+unsigned char testdonePss(sceMpeg *mp)
 {
+	/* 0x335200 */
+	return sceMpegIsEnd(mp) != 0;
 }
 
 /* @socom-skeleton stub stopPss__FP7sceMpeg */
-void stopPss(sceMpeg *)
+void stopPss(sceMpeg *mp)
 {
+	/* 0x3351b0 */
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("MPEG: stop: %d PCM bytes demuxed, %d sent to the IOP", audioDec.totalBytes, audioDec.totalBytesSent);
+#endif
+	if (doAudio)
+	{
+		audioDecReset(&audioDec);
+		isStarted = 0;
+	}
+
+	sceMpegReset(mp);
+	sceMpegDelete(mp);
 }
 
 /* @socom-skeleton stub playPss__FPFPvi_iP12playPssRsrcs */
-void playPss(int (*)(void *, int), playPssRsrcs *)
+void playPss(int (*read)(void *, int), playPssRsrcs *rsrcs)
 {
+	/* 0x3350b0: the whole movie in one call (BlockingPSSPlayback) */
+	sceMpeg* mp = (sceMpeg*)_malloc(72, "playpss.cpp", 354);
+	startPss(mp, read, rsrcs, 0, 0);
+
+	while (sceGsSyncV(0) == 1)
+		;
+
+	while (!sceMpegIsEnd(mp))
+		tickPss(mp, rsrcs, 1);
+
+	if (doAudio)
+	{
+		audioDecReset(&audioDec);
+		isStarted = 0;
+	}
+
+	sceMpegReset(mp);
+	sceMpegDelete(mp);
+	_free(mp, "playpss.cpp", 373);
 }
 
 /* @socom-skeleton stub videoCallback__FP7sceMpegP16sceMpegCbDataStrPv */
-void videoCallback(sceMpeg *, sceMpegCbDataStr *, void *)
+int videoCallback(sceMpeg *, sceMpegCbDataStr *str, void *)
 {
+	/* 0x334fb0: append the video payload to the ring (uncached: the IPU DMA reads it);
+	 * 0 = no room, the demuxer keeps the packet */
+	int room = demuxBuffPresent - demuxBuffPast;
+
+	if (room < 0)
+		room += demuxBuffSize;
+
+	if ((unsigned int)room < str->len)
+		return 0;
+
+	int over = (demuxBuffPast - demuxBuff) + str->len - demuxBuffSize;
+
+	if (over > 0)
+	{
+		memcpy(Uncached(demuxBuffPast), str->data, str->len - over);
+		memcpy(Uncached(demuxBuff), str->data + str->len - over, over);
+		demuxBuffPast = demuxBuff + over;
+	}
+	else
+	{
+		memcpy(Uncached(demuxBuffPast), str->data, str->len);
+		demuxBuffPast += str->len;
+	}
+
+	return 1;
 }
 
 /* @socom-skeleton stub audioCallback__FP7sceMpegP16sceMpegCbDataStrPv */
-void audioCallback(sceMpeg *, sceMpegCbDataStr *, void *)
+int audioCallback(sceMpeg *, sceMpegCbDataStr *str, void *)
 {
+	/* 0x334ec0: the PCM payload after its 4-byte sub-stream header into audioDec. ELF
+	 * quirk kept: the header is stripped from the record before the room test. */
+	if (!doAudio)
+		return 1;
+
+	unsigned char* ptr0;
+	unsigned char* ptr1;
+	int len0;
+	int len1;
+	audioDecBeginPut(&audioDec, &ptr0, &len0, &ptr1, &len1);
+	str->len -= 4;
+	str->data += 4;
+
+	if ((unsigned int)(len0 + len1) < str->len)
+		return 0;
+
+	int rest = str->len - len0;
+
+	if (rest > 0)
+	{
+		memcpy(ptr0, str->data, str->len - rest);
+		memcpy(ptr1, str->data + str->len - rest, rest);
+	}
+	else
+	{
+		memcpy(ptr0, str->data, str->len);
+	}
+
+	audioDecEndPut(&audioDec, str->len);
+	return 1;
 }
 
 /* @socom-skeleton stub nodataCallback__FP7sceMpegP13sceMpegCbDataPv */
-void nodataCallback(sceMpeg *, sceMpegCbData *, void *)
+int nodataCallback(sceMpeg *mp, sceMpegCbData *, void *)
 {
+	/* 0x334d80: the decoder wants bitstream - read and demultiplex until 4 KB are in the
+	 * ring (or the file gives no more), then DMA up to 4 KB (to the ring's end) to the IPU */
+	demuxBuffPresent = demuxBuffFuture;
+	int avail = demuxBuffPast - demuxBuffFuture;
+
+	if (avail < 0)
+		avail += demuxBuffSize;
+
+	while (avail < 4096)
+	{
+		if (!fillBuff(mp, 1))
+		{
+			avail += 15;
+			break;
+		}
+
+		avail = demuxBuffPast - demuxBuffFuture;
+
+		if (avail < 0)
+			avail += demuxBuffSize;
+	}
+
+	int size = avail & ~15;
+
+	if (size > 4096)
+		size = 4096;
+
+	if (demuxBuff + demuxBuffSize < demuxBuffPresent + size)
+		size = demuxBuff + demuxBuffSize - demuxBuffPresent;
+
+	*D4_QWC = size / 16;
+	*D4_MADR = (unsigned int)demuxBuffPresent;
+	*D4_CHCR = 0x101;
+	demuxBuffFuture = demuxBuffPresent + size;
+
+	if (!(demuxBuffFuture < demuxBuff + demuxBuffSize))
+		demuxBuffFuture -= demuxBuffSize;
+
+	return 1;
 }
 
 /* @socom-skeleton stub backgroundCallback__FP7sceMpegP13sceMpegCbDataPv */
-void backgroundCallback(sceMpeg *, sceMpegCbData *, void *)
+int backgroundCallback(sceMpeg *mp, sceMpegCbData *, void *)
 {
+	/* 0x334d20: while the decoder waits - a blocking player reads ahead up to H-blank 480;
+	 * otherwise CMPEG::IdleTick may read ahead this frame */
+	if (BlockingPSSPlayback)
+	{
+		while (*T0_COUNT < 480)
+			fillBuff(mp, 0);
+	}
+	else
+	{
+		OKtoFillBuff = 1;
+	}
+
+	return 1;
 }
 
 /* @socom-skeleton stub errorCallback__FP7sceMpegP13sceMpegCbDataPv */
-void errorCallback(sceMpeg *, sceMpegCbData *, void *)
+int errorCallback(sceMpeg *, sceMpegCbData *, void *)
 {
+	/* 0x334d10 */
+	return 1;
 }
 
 /* @socom-skeleton stub fillBuff__FP7sceMpegi */
-void fillBuff(sceMpeg *, int)
+int fillBuff(sceMpeg *mp, int blocking)
 {
+	/* 0x334c40: demultiplex what is left of the last 16 KB read, else read the next 16 KB
+	 * (blocking: until the read returns data; otherwise only once the decoder has called
+	 * back this frame). Returns the bytes the demuxer took. ELF quirk kept: a blocking
+	 * fill at the end of the file reads forever (the decoder ends before that). */
+	if (sceMpegIsEnd(mp))
+		return 0;
+
+	if (!blocking && !OKtoFillBuff)
+		return 0;
+
+	unsigned char* data;
+
+	if (muxBuffFullness != 0)
+	{
+		data = muxBuff + sizeof(muxBuff) - muxBuffFullness; /* ELF: &disp - muxBuffFullness */
+	}
+	else
+	{
+		do
+		{
+			muxBuffFullness = fileRead(muxBuff, sizeof(muxBuff));
+
+			if (muxBuffFullness == 0 && !blocking)
+				return 0;
+		} while (muxBuffFullness == 0);
+
+		data = muxBuff;
+	}
+
+	int taken = sceMpegDemuxPss(mp, data, muxBuffFullness);
+	muxBuffFullness -= taken;
+	return taken;
 }

@@ -363,3 +363,85 @@ int sceGsSetDefAlphaEnv(sceGsAlphaEnv *ap, short pabe)
     ap->fba1 = 0;
     return 4;
 }
+
+/* GS -> main memory (CVideo::ReadGsMemory): the transfer registers by GIF DMA, then the
+ * local -> host data through VIF1 (FDR set, GS BUSDIR 1) into dstaddr. Port implementation
+ * on the documented GS/VIF registers (the ELF's sceGsExecStoreImage is 0x14f550). */
+#define GS_BUSDIR (*(volatile unsigned long long *)0x12001040)
+#define D1_MADR (*(volatile unsigned int *)0x10009010)
+#define D1_QWC (*(volatile unsigned int *)0x10009020)
+
+int sceGsSetDefStoreImage(sceGsStoreImage *sp, short sbp, short sbw, short spsm, short x, short y, short w, short h)
+{
+    unsigned int bytes;
+
+    switch (spsm) {
+    case 0: case 0x30: bytes = (unsigned int)(w * h) * 4; break;
+    case 1: case 0x31: bytes = (unsigned int)(w * h) * 3; break;
+    default: bytes = (unsigned int)(w * h) * 2; break;
+    }
+    sp->giftag0.tag[0] = 0x1000000000008005ull; /* NLOOP 5, EOP, NREG 1 */
+    sp->giftag0.tag[1] = 0xe;                   /* A+D */
+    sp->bitbltbuf = (unsigned long long)(unsigned short)sbp | ((unsigned long long)sbw << 16) |
+                    ((unsigned long long)spsm << 24);
+    sp->bitbltbufaddr = 0x50;
+    sp->trxpos = (unsigned long long)(unsigned short)x | ((unsigned long long)(unsigned short)y << 16);
+    sp->trxposaddr = 0x51;
+    sp->trxreg = (unsigned long long)w | ((unsigned long long)(unsigned short)h << 32);
+    sp->trxregaddr = 0x52;
+    sp->finish = 0;
+    sp->finishaddr = 0x61;
+    sp->trxdir = 1; /* local -> host */
+    sp->trxdiraddr = 0x53;
+    sp->qwc = bytes >> 4;
+    return 5;
+}
+
+int sceGsExecStoreImage(sceGsStoreImage *sp, unsigned __int128 *dstaddr)
+{
+    unsigned int n = 0;
+    unsigned int qwc = sp->qwc;
+
+    while ((D2_CHCR & 0x100) || (D1_CHCR & 0x100))
+        if (++n > 0x1000000)
+            goto stuck;
+    FlushCache(0);
+    D2_QWC = 6;
+    D2_MADR = dma_address(sp);
+    D2_CHCR = 0x101;
+    while (D2_CHCR & 0x100)
+        if (++n > 0x1000000)
+            goto stuck;
+    while (GIF_STAT & 0xc00) /* PATH3 still active / queued */
+        if (++n > 0x1000000)
+            goto stuck;
+
+    VIF1_STAT = 0x00800000; /* FDR: VIF1 FIFO towards the EE */
+    GS_BUSDIR = 1;
+    D1_QWC = qwc;
+    D1_MADR = dma_address(dstaddr);
+    D1_CHCR = 0x100; /* from VIF1, normal mode */
+    __asm__ volatile("sync.l");
+    while (D1_CHCR & 0x100)
+        if (++n > 0x2000000)
+            break;
+    VIF1_STAT = 0;
+    GS_BUSDIR = 0;
+    InvalidDCache(dstaddr, (unsigned char *)dstaddr + qwc * 16 - 1);
+    if (n > 0x2000000)
+        goto stuck;
+    return 0;
+stuck:
+    socom_port_trace("sceGsExecStoreImage: DMA stuck (D1 0x%x D2 0x%x GIF 0x%x)", D1_CHCR, D2_CHCR, GIF_STAT);
+    return -1;
+}
+
+/* 0x14e588: the display environment into the GS (CRTC on circuit 2). */
+void sceGsPutDispEnv(sceGsDispEnv *disp)
+{
+    *(volatile unsigned long long *)0x12000000 = disp->pmode;
+    *(volatile unsigned long long *)0x12000020 = disp->smode2;
+    *(volatile unsigned long long *)0x12000090 = disp->dispfb;
+    *(volatile unsigned long long *)0x120000a0 = disp->display;
+    *(volatile unsigned long long *)0x120000e0 = disp->bgcolor;
+}

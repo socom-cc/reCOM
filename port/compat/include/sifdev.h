@@ -35,7 +35,31 @@ int sceSifInitIopHeap(void);
 void sceSifLoadFileReset(void);
 void sceFsReset(void);
 
+/* Movie player (src/gamez/zMPEG): non-blocking read status, IOP heap and EE->IOP SIF DMA.
+ * sceIoctl(fd, SCE_FS_EXECUTING, &status) answers status 0 (port reads are blocking). */
+#define SCE_FS_EXECUTING 0x1
+#define SCE_NOWAIT 0x8000
+int sceIoctl(int fd, int req, void *arg);
+void *sceSifAllocIopHeap(unsigned int size);
+int sceSifFreeIopHeap(void *addr);
+
 #ifdef __cplusplus
+}
+#endif
+
+/* EE -> IOP SIF DMA: ps2sdk has the Sony entry points (sifdma.h: sceSifSetDma, sceSifDmaStat
+ * on SifDmaTransfer_t, the same layout); sceSifDmaData spells the Sony member names. */
+#include <sifdma.h>
+typedef struct {
+	unsigned int data; /* EE source */
+	unsigned int addr; /* IOP destination */
+	unsigned int size;
+	unsigned int mode;
+} sceSifDmaData;
+#ifdef __cplusplus
+static inline unsigned int sceSifSetDma(sceSifDmaData *sdd, int len)
+{
+	return (unsigned int)sceSifSetDma((SifDmaTransfer_t *)sdd, len);
 }
 #endif
 
