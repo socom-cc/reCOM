@@ -743,11 +743,37 @@ void zdb::CGrid::NodeGetIntersectBatch(zdb::CNode *node, zdb::DiIntersect **dis,
 /* @socom-skeleton stub InitDescendantsDI__Q23zdb5CGridFv */
 void zdb::CGrid::InitDescendantsDI()
 {
+	/* 0x212210 (CWorld::InitDescendantsDI, at the end of CMission::Open): every atom of the
+	 * whole grid (the extents as a two-point boundary) gets its m_hasDI set over its subtree
+	 * (CNode::SetDescendantDI), so the DI walks reach DI polys below nodes saved without the
+	 * flag (the doors' "doorhit" nodes). port: not written - a cell atom first does the same
+	 * for its clutter nodes (0x212270-0x2122c4): the port never fills CClutterList (see
+	 * GetAltitude) */
+	CPnt3D bounds[2];
+	bounds[0].x = m_extents.left;
+	bounds[1].x = m_extents.right;
+	bounds[0].z = m_extents.top;
+	bounds[1].z = m_extents.bottom;
+	SetTraversalBoundary(bounds, 2, false);
+
+	for (CGridAtom* atom = StartTraversal(); atom != NULL; atom = GetNextAtom())
+		atom->Ent->SetDescendantDI(true);
 }
 
 /* @socom-skeleton stub InitDescendantsVisuals__Q23zdb5CGridFv */
 void zdb::CGrid::InitDescendantsVisuals()
 {
+	/* 0x212110: as InitDescendantsDI, m_hasVisuals (CNode::SetDescendantVisuals). port: the
+	 * clutter nodes are left out the same way */
+	CPnt3D bounds[2];
+	bounds[0].x = m_extents.left;
+	bounds[1].x = m_extents.right;
+	bounds[0].z = m_extents.top;
+	bounds[1].z = m_extents.bottom;
+	SetTraversalBoundary(bounds, 2, false);
+
+	for (CGridAtom* atom = StartTraversal(); atom != NULL; atom = GetNextAtom())
+		atom->Ent->SetDescendantVisuals(true);
 }
 
 /* @socom-skeleton stub NodeGetIntersect__Q23zdb5CGridFPQ23zdb5CNodePQ23zdb11DiIntersect */

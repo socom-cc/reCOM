@@ -411,7 +411,7 @@ static unsigned char di0[72];
 static unsigned char di1[72];
 
 /* @socom-skeleton stub projDirDown */
-static int projDirDown[3];
+static CPnt3D projDirDown(0.0f, -1.0f, 0.0f); /* 0x508cd8 (12 bytes): (0, -1, 0), stored by __sinit_seal_env.cpp (0x46d1c0) */
 
 /* @socom-skeleton stub ftmask_create__FP5_zrdr */
 void ftmask_create(_zrdr *)
@@ -744,8 +744,95 @@ bool CZSealBody::CheckDIFwd1(float &fb, float &strafe, float &)
 }
 
 /* @socom-skeleton stub CanTraverse__10CZSealBodyF7CDIType */
-void CZSealBody::CanTraverse(CDIType)
+bool CZSealBody::CanTraverse(CDIType type)
 {
+	/* 0x2a1850 (CanClimbWall / CanClimbLadder, the HUD's action sampling): the forward probe's
+	 * wall (m_fwdhit) is a DI poly of these app flags that the seal faces (its node's z axis
+	 * against the wall normal in x/z, at least 0.65), not while dead (2), on a ladder (5, also
+	 * the top blend's state), hanging (8), carrying or carried (9, 10) or stunned, nor while a
+	 * step-up, medium or crate climb plays; then the poly's top edge above the feet (with the
+	 * material's foot-step offset) decides: flags 1, 2, 3, 5 always; 4 (steps, climb walls) up
+	 * to 5 or from 10 to 32 high; a 5..10 step is climbed right here (ImpactFront from the
+	 * seal's position) and the action is not offered. ELF quirks kept: m_fwdhit itself is not
+	 * NULL-tested; the facing's y term is 0 * normal.y. */
+	zdb::CHit* hit = m_fwdhit->m_node != NULL ? m_fwdhit : NULL;
+
+	if (hit == NULL)
+		return false;
+
+	if (m_state == 2)
+		return false;
+
+	CZBodyAnimBlend* top = m_blends->Top();
+
+	if (m_state == 8 || top->m_state == 8)
+		return false;
+
+	if (m_state == 5 || top->m_state == 5)
+		return false;
+
+	if (m_state == 9 || m_state == 10)
+		return false;
+
+	if (m_am_stunned)
+		return false;
+
+	u32 flags = hit->m_poly->m_appflags;
+
+	if (flags != (u8)type)
+		return false;
+
+	s16 playing = top->Representative()->m_animType;
+
+	if (playing == AnimTypes::StepUp || playing == AnimTypes::ClimbMedium || playing == (s16)AnimType::animTypeClimbCrate)
+		return false;
+
+	f32 x = m_node->m_matrix.m_matrix[2][0];
+	f32 z = m_node->m_matrix.m_matrix[2][2];
+	f32 length = sqrtf(x * x + 0.0f + z * z);
+	f32 facing = (x * hit->m_norm.x + 0.0f * hit->m_norm.y + z * hit->m_norm.z) / length;
+
+	if (facing < 0.65f)
+		return false;
+
+	CPnt3D top_edge;
+	CPnt3D bottom_edge;
+
+	if (!hit->GetIntersectedEdgePoints(&top_edge, &bottom_edge))
+		return false;
+
+	u32 material = hit->GetMaterial();
+
+	if (material >= CMaterialExArray::m_materialex_list.size())
+		material = 0;
+
+	f32 offset = CMaterialExArray::m_materialex_list[material]->m_foot_step_offset;
+	f32 height = (top_edge.y + offset) - GetPosW()->y;
+
+	switch (flags)
+	{
+	case 1:
+	case 2:
+	case 3:
+	case 5:
+		return true;
+
+	case 4:
+		if (height <= 5.0f)
+			return true;
+
+		if (height <= 10.0f)
+		{
+			CPnt3D pos = *GetPosW();
+			ImpactFront(m_fwdhit->m_node != NULL ? m_fwdhit : NULL, &pos);
+			return false;
+		}
+
+		return height <= 32.0f;
+
+	default:
+		return false;
+	}
 }
 
 /* @socom-skeleton stub PlaceLaterally__10CZSealBodyFP6CPnt3DP6CPnt3DP6CPnt3Db */
@@ -2463,16 +2550,6 @@ void CZSealBody::CheckDIShoot(CPnt3D *eye, CMatrix *mat)
 
 		return !ex->m_volumetric && !ex->m_liquid && (ex->m_penetration < 0.99f || ex->m_pickup);
 	};
-	/* CNodeAction::GetAction(node, true) 0x29a6b0 (its first two levels inline here): the
-	   node's or an ancestor's action. port: a loop; the port declares no such member */
-	auto action_of = [](zdb::CNode *at) {
-		CNodeAction *found = NULL;
-
-		for (; at != NULL && found == NULL; at = at->m_parent)
-			found = dynamic_cast<CNodeAction *>(at->m_nodeEx);
-
-		return found;
-	};
 
 	s32 count = hits->m_Cnt;
 	f32 limit = (reach + 1.0f) * (reach + 1.0f);
@@ -2501,7 +2578,7 @@ void CZSealBody::CheckDIShoot(CPnt3D *eye, CMatrix *mat)
 				action_dist = solid_dist; /* ELF quirk kept: also when the action is nearer */
 			}
 		}
-		else if (action_of(hit->m_node) != NULL)
+		else if (CNodeAction::GetAction(hit->m_node, true) != NULL) /* 0x29a6b0 (its first two levels inline in the ELF) */
 		{
 			CPnt3D d;
 			hit->m_pos.Sub(eye, &d);
@@ -2653,8 +2730,39 @@ void CZSealBody::CacheReticuleSeal(bool)
 }
 
 /* @socom-skeleton stub GetReticuleAction__10CZSealBodyFb */
-CNodeAction * CZSealBody::GetReticuleAction(bool)
+CNodeAction * CZSealBody::GetReticuleAction(bool in_range)
 {
+	/* 0x29a540: the action of the reticule's action hit (CheckDIShoot), else of the aim hit
+	 * (its node's or an ancestor's: CNodeAction::GetAction's first level inline). With
+	 * in_range an action of a known type whose valve is not 99 must be within its range of
+	 * the seal in x/z. */
+	zdb::CNode* node = m_last_reticule_action.m_node;
+
+	if (node == NULL)
+		node = m_last_reticule.m_node;
+
+	CNodeAction* action = NULL;
+
+	if (node != NULL)
+		action = CNodeAction::GetAction(node, true);
+
+	if (action == NULL)
+		return NULL;
+
+	if (action->m_valve->m_value == 99 || action->m_type == CNodeAction::ACT_UNKNOWN)
+		return action;
+
+	CMatrix world;
+	sceVu0UnitMatrix(world.m_matrix);
+	action->m_node->BuildMTW(world);
+	CPnt3D d;
+	reinterpret_cast<const CPnt3D *>(world.m_matrix[3])->SubXZ(GetPosW(), &d);
+	f32 dist = d.x * d.x + d.z * d.z;
+
+	if (in_range && !(dist <= action->m_range * action->m_range))
+		action = NULL;
+
+	return action;
 }
 
 /* @socom-skeleton stub GetProximityMPBomb__10CZSealBodyFv */
@@ -2673,22 +2781,38 @@ CPickup * CZSealBody::GetReticuleWeapon(CPickup **)
 }
 
 /* @socom-skeleton stub CanUseKnife__10CZSealBodyFP10CZSealBody */
-void CZSealBody::CanUseKnife(CZSealBody *)
+bool CZSealBody::CanUseKnife(CZSealBody *)
 {
 }
 
 /* @socom-skeleton stub CanUseCQB__10CZSealBodyFP10CZSealBody */
-void CZSealBody::CanUseCQB(CZSealBody *)
+bool CZSealBody::CanUseCQB(CZSealBody *)
 {
 }
 
 /* @socom-skeleton stub FindDeathAnimTypeCQB__10CZSealBodyFP10CZSealBody */
-AnimType CZSealBody::FindDeathAnimTypeCQB(CZSealBody *)
+AnimType CZSealBody::FindDeathAnimTypeCQB(CZSealBody *victim)
 {
+	/* 0x299900 (CTPlay::Tick, the CQB victim anims): the victim falls forwards when this
+	 * (the attacker) stands behind it in x/z, else backwards. ELF quirk kept: neither seal
+	 * is NULL-tested (CTPlay::Tick passes the first select's seal, NULL without one) */
+	zdb::CNode *node = victim->m_node;
+	CPnt3D facing;
+	facing.x = -node->m_matrix.m_matrix[2][0];
+	facing.y = 0.0f;
+	facing.z = -node->m_matrix.m_matrix[2][2];
+	CPnt3D d;
+	reinterpret_cast<const CPnt3D *>(m_node->m_matrix.m_matrix[3])->Sub(reinterpret_cast<const CPnt3D *>(node->m_matrix.m_matrix[3]), &d);
+	d.y = 0.0f;
+
+	if (d.x * facing.x + d.y * facing.y + d.z * facing.z < 0.0f)
+		return (AnimType)AnimTypes::CQBVictimFallForwards;
+
+	return (AnimType)AnimTypes::CQBVictimFallBackwards;
 }
 
 /* @socom-skeleton stub CanUseRestraint__10CZSealBodyFP10CZSealBody */
-void CZSealBody::CanUseRestraint(CZSealBody *)
+bool CZSealBody::CanUseRestraint(CZSealBody *)
 {
 }
 
@@ -2738,7 +2862,7 @@ bool CZSealBody::CanChangeItem()
 }
 
 /* @socom-skeleton stub CanUseBodyCarry__10CZSealBodyFP10CZSealBody */
-void CZSealBody::CanUseBodyCarry(CZSealBody *)
+bool CZSealBody::CanUseBodyCarry(CZSealBody *)
 {
 }
 
@@ -4459,7 +4583,7 @@ void CZSealBody::HandleSealStep()
 					{
 						CPnt3D normal;
 						m_last_altitude.m_norm.Scale(-1.0f, &normal);
-						visual->ApplyDecal(decal, 100.0f, &foot, &normal, reinterpret_cast<CPnt3D*>(projDirDown),
+						visual->ApplyDecal(decal, 100.0f, &foot, &normal, &projDirDown,
 							m_steptexhandles[material], 3.5f, reinterpret_cast<CPnt3D*>(m_node->m_matrix.m_matrix[2]));
 					}
 				}
@@ -5130,11 +5254,15 @@ zdb::CNode * CZSealBody::GetAnimationNode(unsigned int)
 }
 
 /* @socom-skeleton stub CanClimbLadder__10CZSealBodyFv */
-void CZSealBody::CanClimbLadder()
+bool CZSealBody::CanClimbLadder()
 {
+	/* 0x28c170 (tail call) */
+	return CanTraverse((CDIType)2);
 }
 
 /* @socom-skeleton stub CanClimbWall__10CZSealBodyFv */
-void CZSealBody::CanClimbWall()
+bool CZSealBody::CanClimbWall()
 {
+	/* 0x28c100: a climb (3), a step or climb wall (4), a hang climb (1) or a climb over (5) */
+	return CanTraverse((CDIType)3) || CanTraverse((CDIType)4) || CanTraverse((CDIType)1) || CanTraverse((CDIType)5);
 }

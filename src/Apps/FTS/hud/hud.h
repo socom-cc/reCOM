@@ -1140,7 +1140,7 @@ public:
 };
 /* @socom-skeleton end 11CActionTxtr */
 /* @socom-skeleton decl 18CActionTxtrMachine */
-class CActionTxtrMachine : public std::vector<unsigned int> /* port: element type from MSL pointer storage in DWARF; real element unproven */
+class CActionTxtrMachine : public std::vector<CActionTxtr *> /* DWARF vector (MSL pointer storage): the listed pool entries (HudTick 0x3d5dd4 reads [0]->m_action_id, Add 0x3d81cc inserts the CActionTxtr *) */
 {
 public:
 	CPnt3D *m_main_iconcolor;

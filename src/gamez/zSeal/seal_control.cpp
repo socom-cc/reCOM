@@ -1076,13 +1076,63 @@ void CSealCtrl::TickAimPitch(float dT, float pitch)
 }
 
 /* @socom-skeleton stub CanPlaceBomb__9CSealCtrlFP11CNodeAction */
-void CSealCtrl::CanPlaceBomb(CNodeAction *)
+bool CSealCtrl::CanPlaceBomb(CNodeAction *action)
 {
+	/* 0x2858b0 (MP bomb, captured): the action is the seal team's (team bit 0x100) bomb shack,
+	 * else the terrorists', and the kit holds a loaded MP bomb (item 154). ELF quirk kept: the
+	 * team is read before the seal is NULL-tested */
+	CZSealBody *seal = static_cast<CZSealBody *>(m_entity);
+	bool seals = (seal->m_team & 0x100) != 0;
+	bool site = false;
+
+	if (seals && action->m_node == theMission.m_sealbombshack)
+		site = true;
+
+	if (!seals && action->m_node == theMission.m_terroristbombshack)
+		site = true;
+
+	if (seal == NULL)
+		return false;
+
+	if (!seal->m_kit.HasItem((EQUIP_ITEM)154) || !seal->m_kit.ItemHasAmmo((EQUIP_ITEM)154))
+		return false;
+
+	return site;
 }
 
 /* @socom-skeleton stub CanPerformAction__9CSealCtrlFP11CNodeAction */
-void CSealCtrl::CanPerformAction(CNodeAction *)
+bool CSealCtrl::CanPerformAction(CNodeAction *action)
 {
+	/* 0x2857d0 (CActionTxtrMachine::Add; inline in OnActionButton and PerformProximityActions):
+	 * an MP bomb site by the bomb's state (captured: CanPlaceBomb; on the ground or placed:
+	 * no); a satchel site (and an MP bomb site in any other state) needs a loaded satchel
+	 * (item 152) and the site's valve still 0; every other type can */
+	CNodeAction::ACTION_TYPE type = action->m_type;
+
+	if (type != CNodeAction::ACT_SATCHEL_CHARGE)
+	{
+		if (type != CNodeAction::ACT_MPBOMB)
+			return true;
+
+		u8 state = (u8)CZBombState::m_BombStatus.CurrentBombState;
+
+		if (state == 2)
+			return CanPlaceBomb(action);
+
+		if (state == 1 || state == 3)
+			return false;
+	}
+
+	CZSealBody *seal = static_cast<CZSealBody *>(m_entity);
+	CValve *valve = action->m_valve;
+
+	if (seal == NULL || !seal->m_kit.HasItem((EQUIP_ITEM)152) || !seal->m_kit.ItemHasAmmo((EQUIP_ITEM)152))
+		return false;
+
+	if (valve == NULL)
+		return false;
+
+	return valve->m_value == 0;
 }
 
 /* @socom-skeleton stub TickVictims__9CSealCtrlFv */
@@ -1090,6 +1140,16 @@ void CSealCtrl::TickVictims()
 {
 	/* @socom-skeleton stub range_threshold$3175 */
 	static float range_threshold;
+
+	/* 0x285650 (PreTick / ThrottlesPreTick): the victim (a living seal that is no sleeping or
+	 * snoozing AI) and the corpse for the close-combat and body-carry actions, cleared each
+	 * tick. port: only the clearing is written: the target scan (the first target within
+	 * range_threshold, 400 from the first call) is left out because the actions it enables
+	 * (CanUseCQB / CanUseRestraint / CanUseKnife / CanUseBodyCarry and their Execute*) are
+	 * unwritten; the ELF ctor never sets m_corpsebody, this clears it before
+	 * PerformProximityActions reads it */
+	m_victimbody = NULL;
+	m_corpsebody = NULL;
 }
 
 /* @socom-skeleton stub TickPickups__9CSealCtrlFf */
@@ -1102,26 +1162,327 @@ void CSealCtrl::TickPickups(float)
 /* @socom-skeleton stub PerformCollisionActions__9CSealCtrlFv */
 void CSealCtrl::PerformCollisionActions()
 {
+	/* 0x2852d0: none (v0 = 0) */
 }
 
 /* @socom-skeleton stub PerformReticleActions__9CSealCtrlFv */
 void CSealCtrl::PerformReticleActions()
 {
+	/* 0x2851f0 (SampleActionAvailable): the team orders FOLLOW (14) and HOLD POSITION (15)
+	 * when unit 17 allows them for the seal; v0 = any action, or a seal under the reticule
+	 * (single player). port: void (no caller reads v0); the unit orders are not offered:
+	 * CSealUnit::AllowCommand is declared void (the ELF tests v0) and no units exist in the
+	 * port (CSealUnit::Create / CreateSinglePlayerUnits are unwritten) */
+	CZSealBody *seal = static_cast<CZSealBody *>(m_entity);
+	CSealUnit *unit = CSealUnit::GetUnitByTeam(17);
+
+	if (unit != NULL)
+	{
+		/* port: not written (see above): AllowCommand(seal, 4 / 5, NULL) -> mask 14 / 15 */
+	}
+
+	if (!theNetwork.m_bNetwork)
+		seal->GetReticuleSeal();
 }
 
 /* @socom-skeleton stub PerformProximityActions__9CSealCtrlFv */
 void CSealCtrl::PerformProximityActions()
 {
+	/* 0x284d20 (SampleActionAvailable): the actions near the seal into its available mask:
+	 * single player, the victim (when it is the reticule seal, a team mate or a visible
+	 * target): CQB (12), restraint (11), knife (10; an AI victim gets m_nobindanimset); the
+	 * corpse: body carry (8). The reticule's action in range that can be performed: MP bomb
+	 * 7, satchel 17, else 13 (the action clears m_action). The pickups (4, 5), the MP bomb
+	 * defusal (7: the placed bomb, the owner valve by team) and dropping an MP bomb while
+	 * aiming down (6). port: void (v0 = any action; no caller reads it). ELF quirk kept: the
+	 * node's negated forward vector is computed and unused (left out) */
+	CZSealBody *seal = static_cast<CZSealBody *>(m_entity);
+	CNodeAction *action = seal->GetReticuleAction(true);
+	CZSealBody *corpse = m_corpsebody;
+	CZSealBody *victim = m_victimbody;
+
+	if (!theNetwork.m_bNetwork)
+	{
+		CZSealBody *aimed = seal->GetReticuleSeal();
+		bool keep = false;
+
+		if (victim != NULL)
+		{
+			if (victim == aimed)
+				keep = true;
+			else if ((victim->m_team & seal->m_team) != 0)
+				keep = true;
+			else
+			{
+				CTarget *target = seal->m_targets.FindTarget(victim);
+				keep = target != NULL && target->m_visible;
+			}
+		}
+
+		if (!keep)
+			victim = NULL;
+
+		if (victim != NULL)
+		{
+			if (seal->CanUseCQB(victim))
+				seal->ActionAvailableMask(12, true);
+
+			if (seal->CanUseRestraint(victim))
+				seal->ActionAvailableMask(11, true);
+
+			if (seal->CanUseKnife(victim))
+			{
+				CEntityCtrl *control = victim->m_control;
+
+				if (control != NULL && static_cast<CSealCtrl *>(control)->IsAi())
+					static_cast<CSealCtrl *>(control)->GetSealCtrlAi()->m_nobindanimset = 1;
+
+				seal->ActionAvailableMask(10, true);
+			}
+		}
+
+		if (corpse != NULL && seal->CanUseBodyCarry(corpse))
+			seal->ActionAvailableMask(8, true);
+	}
+
+	if (action != NULL && CanPerformAction(action)) /* 0x2857d0 inline */
+	{
+		if (action->m_type == CNodeAction::ACT_MPBOMB)
+			seal->ActionAvailableMask(7, true);
+		else if (action->m_type == CNodeAction::ACT_SATCHEL_CHARGE)
+			seal->ActionAvailableMask(17, true);
+		else
+			seal->ActionAvailableMask(13, true);
+
+		m_action = 0;
+	}
+
+	if (m_curpickup_ID != -1 && CPickup::FindPickup(m_curpickup_ID) != NULL)
+		seal->ActionAvailableMask(4, true);
+
+	if (m_curpickup_secondary_ID != -1 && CPickup::FindPickup(m_curpickup_secondary_ID) != NULL)
+		seal->ActionAvailableMask(5, true);
+
+	if (m_bomb_defusal_node != NULL)
+	{
+		CZSealBody *defuser = static_cast<CZSealBody *>(m_entity);
+		CZNetGame *game = theMission.m_pNetGame;
+		bool defuse = false;
+
+		if (defuser != NULL && (u8)CZBombState::m_BombStatus.CurrentBombState == 3)
+		{
+			bool seals = (defuser->m_team & 0x100) != 0;
+			CValve *owner = game->m_pBombOwnerValve;
+
+			if (owner != NULL)
+			{
+				if (owner->m_value == 1 && seals)
+					defuse = true;
+				else if (owner->m_value == 2 && !seals)
+					defuse = true;
+			}
+		}
+
+		if (defuse)
+			seal->ActionAvailableMask(7, true);
+	}
+
+	CZSealBody *dropper = static_cast<CZSealBody *>(m_entity);
+
+	if (dropper->m_kit.HasItem((EQUIP_ITEM)154) && dropper->m_aim_goal.y < -0.5f)
+		seal->ActionAvailableMask(6, true);
 }
 
 /* @socom-skeleton stub SampleActionAvailable__9CSealCtrlFv */
 void CSealCtrl::SampleActionAvailable()
 {
+	/* 0x284b40 (CZActionBitmap::HudTick, every HUD tick with the mask cleared): a goal clears
+	 * the pending action; nothing through a scope or binoculars, nor without a pending action
+	 * while the action display is off. Carrying a buddy (9) outside the pickup anims: put
+	 * down (9). Able to fire: the collision, reticule and proximity actions and the climbs
+	 * (2: a wall, a step or a ladder). On a ladder (5): slide down (16). ELF quirk kept: the
+	 * kit is NULL-tested before the scope test only. */
+	CZSealBody *seal = static_cast<CZSealBody *>(m_entity);
+
+	if (m_goal_dir_valid || m_goal_pos_valid)
+		m_action = 0;
+
+	bool pending = m_action;
+	CZKit *kit = &seal->m_kit;
+
+	if (kit != NULL && kit->IsUsingScope())
+		return;
+
+	if (kit->IsUsingBinocs())
+		return;
+
+	if (!pending && !seal->ActionDisplayOn())
+		return;
+
+	bool sample = true;
+
+	if (seal->m_state == 9)
+	{
+		s16 playing = (s16)seal->m_blends->Top()->m_animType;
+
+		if (playing != AnimTypes::BuddyCarriedPickup && playing != AnimTypes::BuddyCarryPickup)
+		{
+			seal->ActionAvailableMask(9, true);
+			sample = false;
+		}
+	}
+
+	if (sample && seal->CanFire())
+	{
+		PerformCollisionActions();
+		PerformReticleActions();
+		PerformProximityActions();
+
+		if (seal->CanClimbWall())
+			seal->ActionAvailableMask(2, true);
+
+		if (seal->CanClimbLadder())
+			seal->ActionAvailableMask(2, true);
+	}
+
+	if (seal->m_state == 5)
+		seal->ActionAvailableMask(16, true);
 }
 
 /* @socom-skeleton stub OnActionButton__9CSealCtrlFv */
 void CSealCtrl::OnActionButton()
 {
+	/* 0x284560 (PreTick, the action button released): with the action display off a delayed
+	 * jump; else the selected action (the HUD's first action: one mask bit). 0/1: cancel the
+	 * display; 13: the reticule's action (not an MP bomb site); 17: place a satchel on the
+	 * reticule's site (valve set to 1); 2: a delayed climb with the pending action (next tick's
+	 * CheckDIFwd1 climbs the wall); 3: nothing; 4/5: take the pickup; 6: drop the MP bomb; 8:
+	 * pick up the corpse; 9: put the buddy down; 10/11/12: knife / restraint / CQB on the
+	 * victim; 14/15: order unit 17 (FOLLOW / HOLD POSITION); 16: slide down the ladder. Then
+	 * the pending action stays only for a climb, and both masks clear. ELF quirk kept: the
+	 * jump's pending action is cleared again at the end. */
+	CZSealBody *seal = static_cast<CZSealBody *>(m_entity);
+	u32 selected = seal->ActionSelectionMask();
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("ACTION: button, display %d, selected 0x%x", (int)seal->ActionDisplayOn(), selected);
+#endif
+
+	if (!seal->ActionDisplayOn())
+	{
+		seal->ExecuteDelayedAction_Jump();
+		m_action = 1;
+	}
+	else if (selected & 0x3)
+	{
+		m_action = 0;
+		seal->ActionDisplayOn(false);
+		seal->ActionAvailableMask(0, false);
+		seal->ActionSelectionMask(0, false);
+	}
+	else if (selected & 0x2000)
+	{
+		CNodeAction *action = seal->GetReticuleAction(true);
+
+		if (action != NULL && CanPerformAction(action) && action->m_type != CNodeAction::ACT_MPBOMB) /* 0x2857d0 inline */
+			action->ExecuteAction(seal, 0);
+	}
+	else if (selected & 0x20000)
+	{
+		CNodeAction *action = seal->GetReticuleAction(true);
+
+		if (action != NULL && action->m_type == CNodeAction::ACT_SATCHEL_CHARGE)
+		{
+			CZSealBody *placer = static_cast<CZSealBody *>(m_entity);
+			CValve *valve = action->m_valve;
+
+			if (placer != NULL && placer->m_kit.HasItem((EQUIP_ITEM)152) && placer->m_kit.ItemHasAmmo((EQUIP_ITEM)152)
+				&& valve != NULL && valve->m_value == 0)
+			{
+				action->ExecuteAction(placer, 0);
+				placer->m_kit.HandlePlacingExlosive((EQUIP_ITEM)152, 1.0f, 0.2f);
+				valve->Set(1); /* inline */
+			}
+		}
+	}
+	else if (selected & 0x4)
+	{
+		seal->ExecuteDelayedAction_Climb();
+		m_action = 1;
+	}
+	else if (selected & 0x8)
+	{
+	}
+	else if (selected & 0x10)
+	{
+		if (m_curpickup_ID != -1)
+		{
+			CPickup *pickup = CPickup::FindPickup(m_curpickup_ID);
+			m_weapon_pickup_timer = 3.0f;
+
+			if (pickup != NULL)
+			{
+				seal->PickupObject(pickup);
+				/* port: the ELF leaves m_echo_pickup for type-11 pickups (CPickup::m_type is
+				 * private in zentity.h); unreachable: TickPickups is unwritten (no pickup id) */
+				seal->m_echo_pickup = 1;
+			}
+		}
+	}
+	else if (selected & 0x20)
+	{
+		if (m_curpickup_secondary_ID != -1)
+		{
+			CPickup *pickup = CPickup::FindPickup(m_curpickup_secondary_ID);
+			m_weapon_pickup_timer = 3.0f;
+
+			if (pickup != NULL)
+			{
+				seal->PickupObject(pickup);
+				seal->m_echo_pickup = 1;
+			}
+		}
+	}
+	else if (selected & 0x40)
+	{
+		seal->DropMPBomb();
+		m_bombpickuptimer = 4.0f;
+	}
+	else if (selected & 0x100)
+	{
+		seal->CrouchToPickupBuddy(m_corpsebody);
+	}
+	else if (selected & 0x200)
+	{
+		seal->PutdownBuddy();
+	}
+	else if (selected & 0x400)
+	{
+		seal->ExecuteAction_KnifeAttack(m_victimbody);
+	}
+	else if (selected & 0x800)
+	{
+		seal->ExecuteAction_ApplyRestraint(m_victimbody);
+	}
+	else if (selected & 0x1000)
+	{
+		seal->ExecuteAction_CQBAttack(m_victimbody);
+	}
+	else if (selected & 0xc000)
+	{
+		/* port: not written: unit 17's AllowCommand(seal, 4 / 5, NULL) then
+		 * IssueCommand(ftsGetPlayer(), 4 / 5, NULL, false); AllowCommand is declared void
+		 * and PerformReticleActions never offers these */
+	}
+	else if (selected & 0x10000)
+	{
+		seal->SlideLadderDown();
+	}
+
+	if (!(selected & 0x4))
+		m_action = 0;
+
+	seal->ActionAvailableMask(0, false);
+	seal->ActionSelectionMask(0, false);
 }
 
 /* @socom-skeleton stub GetThrowAverage__9CSealCtrlFv */

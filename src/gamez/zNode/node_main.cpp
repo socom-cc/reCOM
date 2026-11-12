@@ -755,7 +755,10 @@ CPnt3D * zdb::CNode::GetScale(CPnt3D *scale)
 /* @socom-skeleton body GetRotation__Q23zdb5CNodeCFP6CPnt3D */
 CPnt3D * zdb::CNode::GetRotation(CPnt3D *rotation) const
 	{
-		return NULL;
+		/* 0x227010: the node matrix's Euler angles (CMatrix::ToEuler); was a NULL stub that left
+		 * the caller's vector unset (OBJECT_MOTION_FROM_TO without ROTATE_FROM starts from it) */
+		m_matrix.ToEuler(rotation);
+		return rotation;
 	}
 
 /* @socom-skeleton body GetRadiusSq__Q23zdb5CNodeFv */

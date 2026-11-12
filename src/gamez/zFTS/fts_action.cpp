@@ -48,6 +48,15 @@
 #include "gamez/zTexture/ztex.h"
 #include "gamez/zValve/zvalve.h"
 /* @socom-skeleton end include */
+#include "gamez/zNetwork/znet.h" /* theNetwork */
+#include "gamez/zReader/zrdr.h"
+#include "gamez/zSystem/zsys.h" /* _strdup, _free */
+#include <ctype.h> /* tolower (GetVUIString) */
+#include <math.h> /* fabs (GetClosestAction) */
+#include <string.h> /* strlen, strcasecmp */
+#include <strings.h>
+
+void NetSendActionAnim(int, unsigned int, unsigned char, int); /* fts_remote.cpp 0x203580 (no header declares it) */
 
 /* @socom-skeleton stub UISTR_ACT_DOOR */
 static char *UISTR_ACT_DOOR[2] = {"CLOSE DOOR", "OPEN DOOR"};
@@ -74,7 +83,7 @@ static char *UISTR_ACT_BREACH = "BREACH";
 static unsigned char MultiplayerMsgStrings[28];
 
 /* @socom-skeleton stub m_actions__11CNodeAction */
-std::vector<CNodeAction, std::allocator<CNodeAction> > CNodeAction::m_actions;
+CNodeAction::Container CNodeAction::m_actions;
 
 /* @socom-skeleton body GetActionType__11CNodeActionFQ211CNodeAction11ACTION_TYPE */
 const char * CNodeAction::GetActionType(CNodeAction::ACTION_TYPE type)
@@ -103,97 +112,374 @@ const char * CNodeAction::GetActionType(CNodeAction::ACTION_TYPE type)
 /* @socom-skeleton stub _actionValveCallback__FP6CValvePv */
 void _actionValveCallback(CValve *, void *)
 {
+	/* 0x1ff7d0 (Open registers it on each action's valve, state mask 3): with an action,
+	 * CAiMaps::GetActionById(m_id, loc, &act) and, when found, act->byte 6 bits 4..6 = the
+	 * valve's value & 7 (the AI map's door state). port: not written: CAiMaps::GetActionById
+	 * (ai_maps.cpp) is an unwritten void stub, and CValve::MakeCallbacks is empty in the port,
+	 * so the callback never runs. */
 }
 
 /* @socom-skeleton stub Close__11CNodeActionFv */
 void CNodeAction::Close()
 {
+	/* 0x1ff6b0: each action leaves its node (if still the node's extension) and is deleted;
+	 * the list is emptied */
+	for (Container::iterator it = m_actions.begin(); it != m_actions.end(); ++it)
+	{
+		CNodeAction* action = *it;
+
+		if (action != NULL && action->m_node != NULL && action->m_node->m_nodeEx == action)
+			action->m_node->SetNodeEx(NULL, false);
+
+		delete action;
+		*it = NULL;
+	}
+
+	m_actions.erase(m_actions.begin(), m_actions.end());
 }
 
 /* @socom-skeleton stub Reset__11CNodeActionFv */
 void CNodeAction::Reset()
 {
+	/* 0x1ff5b0 (mission replay): every action's valve back to 0, no running copy */
+	for (Container::iterator it = m_actions.begin(); it != m_actions.end(); ++it)
+	{
+		CNodeAction* action = *it;
+
+		if (action == NULL)
+			continue;
+
+		if (action->m_valve != NULL)
+			action->m_valve->Set(0);
+
+		action->m_handle = NULL;
+	}
 }
 
 /* @socom-skeleton stub Open__11CNodeActionFPQ23zdb6CWorldPCc */
-void CNodeAction::Open(zdb::CWorld *, const char *)
+void CNodeAction::Open(zdb::CWorld *world, const char *readerName)
 {
+	/* 0x1ff140 (CMission::Open, "actions.rdr"): each entry of the reader's actions list names
+	 * a world node, its valve, anims, type, range (32 default), HUD bitmap and text. A found
+	 * node without an extension gets a new action (id = its index), the valve's callback and
+	 * the extra anims of the anim list. ELF quirks kept: the reader is not NULL-tested; the
+	 * valve is made before the extension test (a node that has one keeps the valve unused);
+	 * the anim list's extra elements are not NULL-tested. port: the ELF returns 0. */
+	CRdrFile* rdr = zrdr_read(readerName, NULL, 0);
+	_zrdr* actions = zrdr_findtag(rdr, "actions");
+
+	if (actions != NULL && actions->IsArray())
+	{
+		s32 count = actions->IsArray() ? actions->array->integer - 1 : 0;
+
+		for (s32 i = 0; i < count; i++)
+		{
+			_zrdr* entry = actions->Get(i);
+			f32 range = 32.0f;
+			char* node_name = zrdr_findstring(entry, "node");
+			char* anim_name = zrdr_findstring(entry, "anim");
+			char* valve_name = zrdr_findstring(entry, "valve");
+			char* bitmap = zrdr_findstring(entry, "bitmap");
+			char* descriptor = zrdr_findstring(entry, "descriptor");
+			zdb::CTexHandle* texture = NULL;
+
+			if (bitmap != NULL)
+				texture = zdb::CWorld::GetTexHandle(bitmap);
+
+			zrdr_findreal(entry, "range", &range, 1);
+			zdb::CNode* node = world->FindChild(node_name, true);
+			CZAnim* anim = anim_name != NULL ? ZAnim.GetAnim(anim_name, NULL) : NULL;
+
+			if (node == NULL)
+				continue;
+
+			CValve* valve = CValve::Create(valve_name, VALVE_TYPE::VTYPE_PERM);
+
+			if (node->m_nodeEx != NULL)
+				continue;
+
+			CNodeAction* action = new CNodeAction(node, anim, valve, texture);
+			action->m_id = m_actions.size();
+			m_actions.insert(m_actions.end(), action);
+			action->m_range = range;
+			node->SetNodeEx(action, false);
+			valve->AddCallback(3, _actionValveCallback, action);
+
+			if (descriptor != NULL)
+				action->m_descriptor = _strdup(descriptor, "fts_action.cpp", 158);
+
+			if (zrdr_findtag(entry, "no_netlog") != NULL)
+				action->m_network_log = 0;
+
+			char* type = zrdr_findstring(entry, "type");
+
+			if (type != NULL)
+			{
+				s32 t;
+
+				for (t = 0; t < 7; t++)
+				{
+					if (strcasecmp(type, GetActionType((ACTION_TYPE)(u8)t)) == 0)
+						break;
+				}
+
+				action->m_type = t < 7 ? (ACTION_TYPE)(u8)t : ACT_UNKNOWN;
+			}
+
+			_zrdr* anims = zrdr_findtag(entry, "anim");
+
+			if (anims == NULL)
+				continue;
+
+			u32 n = anims->IsArray() ? anims->array->integer - 1 : 0;
+
+			for (u32 k = 1; k < n; k++)
+			{
+				_zrdr* name = anims->Get(k);
+				CZAnim* extra = ZAnim.GetAnim(name->type == ZRDR_STRING ? name->string : NULL, NULL);
+
+				if (extra != NULL)
+					action->m_anim.push_back(extra);
+			}
+		}
+	}
+
+	zrdr_free(rdr);
 }
 
 /* @socom-skeleton stub FindActionByValve__11CNodeActionFPC6CValve */
-CNodeAction * CNodeAction::FindActionByValve(const CValve *)
+CNodeAction * CNodeAction::FindActionByValve(const CValve *valve)
 {
+	/* 0x1ff080 */
+	if (valve == NULL)
+		return NULL;
+
+	for (Container::iterator it = m_actions.begin(); it != m_actions.end(); ++it)
+	{
+		if ((*it)->m_valve == valve)
+			return *it;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub GetActionById__11CNodeActionFUi */
-CNodeAction * CNodeAction::GetActionById(unsigned int)
+CNodeAction * CNodeAction::GetActionById(unsigned int id)
 {
+	/* 0x1fefd0 */
+	for (Container::iterator it = m_actions.begin(); it != m_actions.end(); ++it)
+	{
+		if ((*it)->m_id == id)
+			return *it;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub GetClosestAction__11CNodeActionFPC6CPnt3Df */
-void CNodeAction::GetClosestAction(const CPnt3D *, float)
+int CNodeAction::GetClosestAction(const CPnt3D *point, float height)
 {
+	/* 0x1fee40 (ftsFixupAiMap): the id of the action whose node is nearest the point in x/z,
+	 * among those within height of it in y (any height when -1); -1 when none. ELF quirk
+	 * kept: a first unit matrix is made and unused. */
+	CMatrix unused;
+	sceVu0UnitMatrix(unused.m_matrix);
+	f32 best = -1.0f;
+	int id = -1;
+
+	for (Container::iterator it = m_actions.begin(); it != m_actions.end(); ++it)
+	{
+		CNodeAction* action = *it;
+		zdb::CNode* node = action->m_node;
+
+		if (node == NULL)
+			continue;
+
+		CMatrix world;
+		sceVu0UnitMatrix(world.m_matrix);
+
+		if (node->BuildMTW(world) == NULL)
+			continue;
+
+		CPnt3D d;
+		reinterpret_cast<const CPnt3D*>(world.m_matrix[3])->Sub(point, &d);
+
+		if (height != -1.0f && !(fabs((double)d.y) < (double)height))
+			continue;
+
+		f32 dist = d.x * d.x + d.z * d.z;
+
+		if (best == -1.0f || dist < best)
+		{
+			id = action->m_id;
+			best = dist;
+		}
+	}
+
+	return id;
 }
 
 /* @socom-skeleton stub __ct__11CNodeActionFPQ23zdb5CNodeP6CZAnimP6CValvePQ23zdb10CTexHandle */
-CNodeAction::CNodeAction(zdb::CNode *, CZAnim *, CValve *, zdb::CTexHandle *)
+CNodeAction::CNodeAction(zdb::CNode *node, CZAnim *anim, CValve *valve, zdb::CTexHandle *texture)
 {
+	/* 0x1fed20: m_range is left to Open */
+	m_handle = NULL;
+	m_node = node;
+	m_valve = valve;
+	m_type = ACT_UNKNOWN;
+	m_pTexHandle = texture;
+
+	if (anim != NULL)
+		m_anim.push_back(anim);
+
+	m_id = 0;
+	m_network_log = 1;
+	m_descriptor = NULL;
 }
 
 /* @socom-skeleton stub __dt__11CNodeActionFv */
 CNodeAction::~CNodeAction()
 {
+	/* 0x1fec80 */
+	CValve::Destroy(m_valve);
+	m_valve = NULL;
+
+	if (m_descriptor != NULL)
+		_free(m_descriptor, "fts_action.cpp", 381);
+
+	m_descriptor = NULL;
 }
 
 /* @socom-skeleton stub GetUIString__11CNodeActionFRQ23std59basic_string<c,Q23std14char_traits<c>,Q23std12allocator<c>> */
-void CNodeAction::GetUIString(std::basic_string<char, std::char_traits<char>, std::allocator<char> > &)
+void CNodeAction::GetUIString(std::basic_string<char, std::char_traits<char>, std::allocator<char> > &out)
 {
+	/* 0x1feb00 (OrdersMenu): as GetUIString(), into the string; nothing for other types.
+	 * ELF quirk kept: the valve is read before the type is tested */
+	u32 value = m_valve->m_value;
+	const char* text;
+
+	switch (m_type)
+	{
+	case ACT_DOOR:
+		text = value != 0 ? UISTR_ACT_DOOR[0] : UISTR_ACT_DOOR[1];
+		break;
+	case ACT_WINDOW:
+		text = value != 0 ? UISTR_ACT_WINDOW[0] : UISTR_ACT_WINDOW[1];
+		break;
+	case ACT_SWITCH:
+		text = UISTR_ACT_SWITCH;
+		break;
+	case ACT_DEFUSE:
+		text = UISTR_ACT_DEFUSE;
+		break;
+	case ACT_MPBOMB:
+		text = UISTR_ACT_MPBOMB;
+		break;
+	case ACT_BREACH:
+		text = UISTR_ACT_BREACH;
+		break;
+	case ACT_SATCHEL_CHARGE:
+		text = UISTR_ACT_SATCHEL_CHARGE;
+		break;
+	default:
+		return;
+	}
+
+	out.assign(text, strlen(text));
 }
 
 /* @socom-skeleton body GetUIString__11CNodeActionFv */
 const char* CNodeAction::GetUIString()
 {
-	switch (m_actionType)
+	/* 0x1fea50 (CActionTxtrMachine::Add): the HUD text; a door or window offers to close when
+	 * its valve is set; NULL for other types */
+	switch (m_type)
 	{
-	case ACTION_TYPE::ACT_DOOR:
-		if (m_uiVars.size() != 0)
-			return "UIVAR_ACT_DOOR";
-		else
-			return "OPEN DOOR";
-	case ACTION_TYPE::ACT_WINDOW:
-		if (m_uiVars.size() != 0)
-			return "UIVAR_ACT_WINDOW";
-		else
-			return "OPEN WINDOW";
-	case ACTION_TYPE::ACT_SWITCH:
-		return "UIVAR_ACT_SWITCH";
-	case ACTION_TYPE::ACT_DEFUSE:
-		return "UIVAR_ACT_DEFUSE";
-	case ACTION_TYPE::ACT_MPBOMB:
-		return "UIVAR_ACT_MPBOMB";
-	case ACTION_TYPE::ACT_BREACH:
-		return "UIVAR_ACT_BREACH";
-	case ACTION_TYPE::ACT_SATCHEL_CHARGE:
-		return "UIVAR_ACT_SATCHEL_CHARGE";
+	case ACT_DOOR:
+		return m_valve->m_value != 0 ? UISTR_ACT_DOOR[0] : UISTR_ACT_DOOR[1];
+	case ACT_WINDOW:
+		return m_valve->m_value != 0 ? UISTR_ACT_WINDOW[0] : UISTR_ACT_WINDOW[1];
+	case ACT_SWITCH:
+		return UISTR_ACT_SWITCH;
+	case ACT_DEFUSE:
+		return UISTR_ACT_DEFUSE;
+	case ACT_MPBOMB:
+		return UISTR_ACT_MPBOMB;
+	case ACT_BREACH:
+		return UISTR_ACT_BREACH;
+	case ACT_SATCHEL_CHARGE:
+		return UISTR_ACT_SATCHEL_CHARGE;
+	default:
+		return NULL;
 	}
 }
 
 /* @socom-skeleton stub GetVUIString__11CNodeActionFRQ23std59basic_string<c,Q23std14char_traits<c>,Q23std12allocator<c>> */
-void CNodeAction::GetVUIString(std::basic_string<char, std::char_traits<char>, std::allocator<char> > &)
+void CNodeAction::GetVUIString(std::basic_string<char, std::char_traits<char>, std::allocator<char> > &out)
 {
+	/* 0x1fe9d0 (OrdersMenu, the voice command words): the UI string in lower case */
+	GetUIString(out);
+
+	for (std::basic_string<char, std::char_traits<char>, std::allocator<char> >::iterator it = out.begin(); it != out.end(); ++it)
+		*it = tolower(*it);
 }
 
 /* @socom-skeleton stub OnAction__11CNodeActionFPQ23zdb5CNodePv */
-void CNodeAction::OnAction(zdb::CNode *, void *)
+void CNodeAction::OnAction(zdb::CNode *, void *seal)
 {
+	/* 0x1fe9c0: the action for that seal, the first anim */
+	ExecuteAction(static_cast<CZSealBody *>(seal), 0);
 }
 
 /* @socom-skeleton stub ExecuteAction__11CNodeActionFP10CZSealBodyUi */
-void CNodeAction::ExecuteAction(CZSealBody *, unsigned int)
+bool CNodeAction::ExecuteAction(CZSealBody *seal, unsigned int index)
 {
+	/* 0x1fe850: not while the last copy runs. The anim of that index (the first when out of
+	 * range) runs on the node with the valve and the seal's select task as arguments; the
+	 * seal stops (desired state 0). A network game logs a local seal's action. */
+	if (m_handle != NULL && m_handle->Running())
+		return false;
+
+	u32 count = m_anim.size();
+
+	if (count == 0)
+		return false;
+
+	CZAnim* anim = index < count ? m_anim[index] : m_anim[0];
+
+	if (anim == NULL)
+		return false;
+
+	if (seal != NULL)
+		seal->m_desiredState = (SEAL_STATE)0;
+
+	m_handle = NULL;
+	TASK_SELECT* select = seal != NULL ? seal->m_select : NULL;
+	m_handle = anim->ActivateArg(1, 3, m_node, 4, m_valve, 1, select, 0); /* (type, value) pairs: 3 node, 4 valve, 1 command task; 0 ends */
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("ACTION: execute %d (type %d, valve %d) anim %p -> %p", (int)m_id, (int)m_type, m_valve != NULL ? (int)m_valve->m_value : -1, anim, m_handle);
+#endif
+
+	if (m_handle != NULL && m_network_log && theNetwork.m_bNetwork && seal != NULL)
+	{
+		bool remote = seal->m_control != NULL ? static_cast<CSealCtrl *>(seal->m_control)->IsRemote() : false;
+
+		if (!remote)
+			NetSendActionAnim(seal->m_id, m_id, m_valve->m_value, -1);
+	}
+
+	return m_handle != NULL;
 }
 
 /* @socom-skeleton stub SyncActionsMP__11CNodeActionFi */
-void CNodeAction::SyncActionsMP(int)
+void CNodeAction::SyncActionsMP(int player)
 {
+	/* 0x1fe790 (a joining player): every logged action whose valve is set */
+	for (Container::iterator it = m_actions.begin(); it != m_actions.end(); ++it)
+	{
+		CNodeAction* action = *it;
+
+		if (action->m_network_log && action->m_valve->m_value != 0)
+			NetSendActionAnim(-1, action->m_id, action->m_valve->m_value, player);
+	}
 }

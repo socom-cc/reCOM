@@ -2650,8 +2650,23 @@ bool CZKit::isSelectableItem(int index)
 }
 
 /* @socom-skeleton stub ItemHasAmmo__5CZKitF10EQUIP_ITEM */
-void CZKit::ItemHasAmmo(EQUIP_ITEM)
+bool CZKit::ItemHasAmmo(EQUIP_ITEM item)
 {
+	/* 0x2a7e90 (the satchel / MP bomb actions): the first slot holding the item, -1 when
+	 * none, then ItemHasAmmo(int) inline. ELF quirk kept: without the item the inline test
+	 * runs for slot -1 (-1 < m_num_items) */
+	s32 slot = -1;
+
+	for (s32 i = 0; i < m_num_items; i++)
+	{
+		if (m_item[i] != NULL && m_item[i]->m_ID == item)
+		{
+			slot = i;
+			break;
+		}
+	}
+
+	return ItemHasAmmo(slot);
 }
 
 /* @socom-skeleton stub CurItemHasAmmo__5CZKitFv */

@@ -13,11 +13,17 @@
 /* port: forward declarations for names this header uses */
 class CZAnim;
 class CZSealBody;
+class CValve;
 #include "znode.h"
 
+/* DWARF CNodeAction (48 bytes, orders.cpp / hud_actionbitmap.cpp units): a world object the
+ * player can use (doors, switches, bomb sites), read from the mission's actions.rdr by Open
+ * 0x1ff140 and hung on its node as the node's extension. */
 class CNodeAction : public zdb::CNodeEx
 {
 public:
+	/* DWARF ACTION_TYPE (1 byte; port: GCC's enum is 4 bytes): the names Open matches the
+	 * rdr's type against (GetActionType 0x1ff840) */
 	enum ACTION_TYPE
 	{
 		ACT_DOOR,
@@ -30,52 +36,58 @@ public:
 		ACT_UNKNOWN
 	};
 
-	// CNodeAction(zdb::CNode* node, CZAnim* animToPlay, CValve* actionValve, zdb::CTexHandle* handle);
-	// ~CNodeAction();
+	/* m_actions' type: an MSL list of action pointers (its dtor 0x1ff8d0 is emitted from
+	 * this header: the list's erase) */
+	class Container : public std::list<CNodeAction*> {};
 
 	static void Open(zdb::CWorld* world, const char* readerName);
 	static void Close();
 
-	// CNodeAction* FindActionByValve(const CValve* valve) const;
-	CNodeAction* GetAction(bool isBase) const;
-	CNodeAction* GetActionById(s32 id) const;
-	const char* GetActionType(ACTION_TYPE type) const;
-	CNodeAction* GetClosestAction(const CPnt3D* position, f32 radius) const;
+	/* 0x29a6b0 (emitted from this header; GetReticuleAction and CheckDIShoot inline its first
+	 * levels): the node's action, else (parents) the nearest ancestor's */
+	static CNodeAction* GetAction(zdb::CNode* node, bool parents)
+	{
+		if (node == NULL)
+			return NULL;
+
+		CNodeAction* action = dynamic_cast<CNodeAction*>(node->m_nodeEx);
+
+		if (action == NULL && parents)
+			action = GetAction(node->m_parent, true);
+
+		return action;
+	}
+
 	const char* GetUIString();
-	// bool ExecuteAction(CZSealBody* seal, unsigned int actionFlags) const;
 
-	template<class T>
-	bool OnAction(zdb::CNode* node, T* type) const;
-private:
-	static std::vector<CNodeAction> m_actions;
+	/* data members in DWARF order. port: public (DWARF has no access; CSealCtrl, the HUD and
+	 * CZSealBody read them) */
+	std::vector<CZAnim*> m_anim;      /* +0x04 the rdr's anim list; ExecuteAction plays one */
+	CZAnim* m_handle;                 /* +0x10 the running copy */
+	zdb::CNode* m_node;               /* +0x14 */
+	CValve* m_valve;                  /* +0x18 the action's state (doors: 0 shut, 1 open) */
+	f32 m_range;                      /* +0x1c reach in x/z (rdr range, 32 default) */
+	ACTION_TYPE m_type;               /* +0x20 */
+	zdb::CTexHandle* m_pTexHandle;    /* +0x24 the HUD icon (rdr bitmap) */
+	char* m_descriptor;               /* +0x28 the HUD text (rdr descriptor), else GetUIString */
+	u32 m_id : 16;                    /* +0x2c the index in m_actions */
+	u32 m_network_log : 1;            /* cleared by the rdr's no_netlog */
+	u32 m_unused : 15;
 
-	ACTION_TYPE m_actionType;
-
-	CNodeAction** actionList;
-
-	zdb::CNode* node;
-	// CZAnim** animations;
-	// std::vector<CZAnim*> animVector;
-	// CZAnim* actionAnimation;
-	std::vector<char*> m_uiVars;
-	CValve* m_valve;
-	zdb::CTexHandle* m_actionBitmap;
-
-	s32 m_type;
-	u32 m_flags;
+	static Container m_actions;
 	/* @socom-skeleton decl 11CNodeAction */
 public:
 	virtual void OnAction(zdb::CNode *, void *);
-	const char * GetActionType(CNodeAction::ACTION_TYPE);
+	static const char * GetActionType(CNodeAction::ACTION_TYPE); /* port: static (0x1ff840 takes the type in a0) */
 	static void Reset();
 	static CNodeAction * FindActionByValve(const CValve *);
 	static CNodeAction * GetActionById(unsigned int);
-	void GetClosestAction(const CPnt3D *, float);
+	static int GetClosestAction(const CPnt3D *, float); /* port: static, returns the id or -1 (0x1fee40: v0 = m_id, a0 = the point) */
 	CNodeAction(zdb::CNode *, CZAnim *, CValve *, zdb::CTexHandle *);
 	~CNodeAction();
 	void GetUIString(std::basic_string<char, std::char_traits<char>, std::allocator<char> > &);
 	void GetVUIString(std::basic_string<char, std::char_traits<char>, std::allocator<char> > &);
-	void ExecuteAction(CZSealBody *, unsigned int);
+	bool ExecuteAction(CZSealBody *, unsigned int); /* 0x1fe850: v0 = the running copy != NULL */
 	static void SyncActionsMP(int);
 	/* @socom-skeleton end 11CNodeAction */
 };

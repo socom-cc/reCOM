@@ -205,6 +205,8 @@ public:
 	void SetUV(f32 u0, f32 v0, f32 u1, f32 v1);
 	void SetColor(f32 red, f32 green, f32 blue);
 	friend class C2DButton; /* port: C2DButton::DrawBackground (0x393940) reads _bmp.m_iWidth */
+	friend class CActionTxtrMachine; /* port: Render_ver_2 (0x3d7134) sets the pool icons' m_fade_dx / m_fade_limit */
+	friend class CZActionBitmap; /* port: Init (0x3d60e4) sets the pool icons' m_fade_enable */
 protected: /* port: protected (was private) - CPlainBmp::SetMapOffset reads the size */
 	s32 m_x;
 	s32 m_y;

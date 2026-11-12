@@ -1724,8 +1724,30 @@ CZBodyAnimBlend * CZSealBody::Prone_0(int)
 }
 
 /* @socom-skeleton stub SetStanceIdle__10CZSealBodyF8AnimType */
-CZBodyAnimBlend * CZSealBody::SetStanceIdle(AnimType)
+CZBodyAnimBlend * CZSealBody::SetStanceIdle(AnimType type)
 {
+	/* 0x275da0 (ai::ANIMATE, CTPlay::Tick): a scripted one-shot anim as the idle state (7):
+	 * the blend stack is popped to its base, the type is remembered (idlehack: PreTick leaves
+	 * the idle state once another blend is on top) and pushed in state 7 with its
+	 * representative's flag 0x40 cleared. Not while already idle (the top blend is returned). */
+	CZBodyAnimBlend *top = m_blends->Top();
+
+	if (m_state == 7 || top->m_state == 7)
+		return top;
+
+	top = m_blends->Top();
+
+	while ((u32)(m_blends->m_top + 1) > 1)
+		top = PopBlend();
+
+	if (top != NULL)
+		top->m_ctrl = 0;
+
+	m_desiredPeek = SEAL_PEEK::PEEK_NONE;
+	idlehack = type;
+	CZBodyAnimBlend *blend = PushBlend(type, 7, false);
+	blend->Representative()->m_flags &= ~0x40;
+	return blend;
 }
 
 /* @socom-skeleton stub Hang_0__10CZSealBodyFii */

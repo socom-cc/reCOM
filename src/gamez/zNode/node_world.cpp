@@ -764,11 +764,15 @@ void zdb::CWorld::GetIntersectBatch(zdb::DiIntersect **dis, int count)
 /* @socom-skeleton stub InitDescendantsDI__Q23zdb6CWorldFv */
 void zdb::CWorld::InitDescendantsDI()
 {
+	/* 0x22ea10 (tail call) */
+	m_grid->InitDescendantsDI();
 }
 
 /* @socom-skeleton stub InitDescendantsVisuals__Q23zdb6CWorldFv */
 void zdb::CWorld::InitDescendantsVisuals()
 {
+	/* 0x22ea00 (tail call) */
+	m_grid->InitDescendantsVisuals();
 }
 
 /* @socom-skeleton stub diTick__Q23zdb6CWorldFfPv */

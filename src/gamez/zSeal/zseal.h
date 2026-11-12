@@ -541,7 +541,7 @@ public:
 	bool SetItemAmmo(unsigned int, CZAmmo *, int, int); /* 0x2a8130: 0/1 */
 	bool SetItemAmmo(unsigned int, CZAmmo *); /* 0x2a80a0: 0/1 */
 	bool isSelectableItem(int); /* bool: 0x2a7f40 returns 0/1 */
-	void ItemHasAmmo(EQUIP_ITEM);
+	bool ItemHasAmmo(EQUIP_ITEM); /* 0x2a7e90: v0 = 0/1 */
 	bool CurItemHasAmmo(); /* 0x2a7db0: 0/1 */
 	bool ItemHasAmmo(int, FIREMODE); /* 0x2a7c50: 0/1 */
 	bool ItemHasAmmo(int); /* 0x2a7bf0: 0/1 */
@@ -761,18 +761,14 @@ public:
 	bool CanAttainAim(CPnt3D& point) const;
 	/* port: provisional const CanChangeItem / CanFire / CanInterrupt / CanTurn / CanZoom
 	   removed: the ELF members are the non-const skeleton declarations below */
-	bool CanClimbLadder() const;
-	bool CanClimbWall() const;
+	/* port: provisional const CanClimbLadder / CanClimbWall / CanTraverse / CanUseBodyCarry /
+	   CanUseCQB / CanUseKnife / CanUseRestraint removed: the ELF members are the non-const
+	   skeleton declarations below */
 	bool CanCrouch() const;
 	bool CanHeadLook() const;
 	bool CanPickupNetItem(u16 hostIdx, u16 pickupIdx, u16* idxPtr, u8 type) const;
 	/* port: provisional const CanPitch removed (the ELF member is the non-const skeleton one) */
 	bool CanProneAim() const;
-	bool CanTraverse(zdb::CDI::CDIType type) const;
-	bool CanUseBodyCarry(CZSealBody* seal) const;
-	bool CanUseCQB(CZSealBody* seal) const;
-	bool CanUseKnife(CZSealBody* seal) const;
-	bool CanUseRestraint(CZSealBody* seal) const;
 
 	/// -------------------------------------------
 	/// BEHAVIOR HANDLING
@@ -1322,7 +1318,7 @@ public:
 	void HandleSmokeAndGas(zdb::IntersectStruct *, const CMaterialEx *, const CPnt3D *);
 	zdb::IntersectStruct * SealGetAltitude(CPnt3D *, float);
 	bool CheckDIFwd1(float &, float &, float &); /* 0x2a1bb0: 1 when sliding along the hit */
-	void CanTraverse(CDIType);
+	bool CanTraverse(CDIType); /* 0x2a1850: v0 = 0/1 */
 	bool PlaceLaterally(CPnt3D *, CPnt3D *, CPnt3D *, bool); /* 0x2a15d0 returns 0/1 (placed; was void) */
 	void HomingTick();
 	float ImpactFront(zdb::IntersectStruct *, CPnt3D *);
@@ -1357,13 +1353,13 @@ public:
 	CPickup * GetProximityMPBomb();
 	CPickup * GetProximityWeapon(CPickup **);
 	CPickup * GetReticuleWeapon(CPickup **);
-	void CanUseKnife(CZSealBody *);
-	void CanUseCQB(CZSealBody *);
+	bool CanUseKnife(CZSealBody *); /* 0x299d10: PerformProximityActions tests v0 */
+	bool CanUseCQB(CZSealBody *); /* 0x2999f0: PerformProximityActions tests v0 */
 	AnimType FindDeathAnimTypeCQB(CZSealBody *);
-	void CanUseRestraint(CZSealBody *);
+	bool CanUseRestraint(CZSealBody *); /* 0x299600: PerformProximityActions tests v0 */
 	bool CanZoom(); /* 0x2993e0: 0/1 */
 	bool CanChangeItem(); /* 0x299360: 0/1 */
-	void CanUseBodyCarry(CZSealBody *);
+	bool CanUseBodyCarry(CZSealBody *); /* 0x299170: PerformProximityActions tests v0 */
 	void AimWeapon();
 	CZBodyAnimBlend * Reload();
 	bool CanFire(); /* 0x298ad0: 0/1 */
@@ -1424,8 +1420,8 @@ public:
 	static bool CreateMPBombPickup(const CPnt3D *, bool); /* 0x28c230: Tick 0x2558e0 tests v0 */
 	void AttemptBombDefuse();
 	zdb::CNode * GetAnimationNode(unsigned int);
-	void CanClimbLadder();
-	void CanClimbWall();
+	bool CanClimbLadder(); /* 0x28c170: CanTraverse(2) */
+	bool CanClimbWall(); /* 0x28c100: CanTraverse 3, 4, 1 or 5 */
 	void DoHandSignal(SEAL_HANDSIGNAL);
 	void FootInSpace(CZBodyAnim *, CPnt3D *, CPnt3D *, float, float, bool);
 	void TurnSetup(int);
@@ -1715,8 +1711,8 @@ public:
 	void SetTrigger(bool);
 	bool ThrottlesPreTick(CPad *, float); /* 0x286950: 1 = the frame's input ends here (menus) */
 	void TickAimPitch(float, float);
-	void CanPlaceBomb(CNodeAction *);
-	void CanPerformAction(CNodeAction *);
+	bool CanPlaceBomb(CNodeAction *); /* 0x2858b0: v0 = 0/1 */
+	bool CanPerformAction(CNodeAction *); /* 0x2857d0: v0 = 0/1 */
 	void TickVictims();
 	void TickPickups(float);
 	void SampleActionAvailable();

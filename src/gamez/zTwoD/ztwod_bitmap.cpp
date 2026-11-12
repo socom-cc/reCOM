@@ -335,16 +335,18 @@ void C2DBitmap::Reset()
 /* @socom-skeleton body TickFade__9C2DBitmapFv */
 void C2DBitmap::TickFade()
 {
+	/* 0x3030e0: the alpha steps by m_fade_dx towards m_fade_limit (clamped to 0..128).
+	 * port: was SetTrans(0) always: the branch locals shadowed alpha and limit */
 	float alpha = 0.0f;
 	float limit = 0.0f;
 
 	if (m_fade_enable)
 	{
-		float alpha = m_RGB[0][3] + m_fade_dx;
+		alpha = m_RGB[0][3] + m_fade_dx;
 
 		if (m_fade_dx < 0.0f)
 		{
-			float limit = m_fade_limit;
+			limit = m_fade_limit;
 
 			if ((m_fade_limit <= alpha) && (limit = alpha, alpha < 0.0f))
 			{
@@ -353,7 +355,7 @@ void C2DBitmap::TickFade()
 		}
 		else
 		{
-			float limit = m_fade_limit;
+			limit = m_fade_limit;
 
 			if ((alpha <= m_fade_limit) && (limit = 128.0f, alpha <= 128.0f))
 			{

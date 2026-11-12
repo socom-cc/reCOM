@@ -113,6 +113,9 @@
 /* @socom-skeleton decl include */
 #include "gamez/zReader/zrdr.h"
 /* @socom-skeleton end include */
+#include "gamez/zAnim/zanim.h" /* ZAnim */
+#include <math.h> /* sqrtf */
+#include <stdlib.h> /* rand */
 /* @socom-skeleton decl forward */
 class TASK_SELECT;
 struct _zanim_cmd_hdr;
@@ -123,6 +126,66 @@ unsigned char ai_cmdid[24] = {0};
 
 /* @socom-skeleton stub MultiplayerMsgStrings */
 static unsigned char MultiplayerMsgStrings[28];
+
+/* Task command records. DWARF has TASK_HDR and TASK_SELECT only; these layouts come from
+ * the handlers that read them and the member names are invented. */
+struct TASK_MOVE : public TASK_HDR /* ai::MOVE and ai::DOOR (Begin 0x2b9c90) */
+{
+	CPnt3D m_pos;    /* +0x08 the rdr's ofs / pos */
+	CPnt3D m_dir;    /* +0x14 a facing in the target seal's space (mode 4) */
+	f32 m_dist;      /* +0x20 */
+	s32 m_target;    /* +0x24 the anim's node argument (mode 1) or a select task (modes 3, 4) */
+	u8 m_mode : 4;   /* +0x28: 1 a node, 2 the seal itself, 3 a seal, 4 a seal's facing */
+	u8 m_unknown : 4;
+};
+
+struct TASK_PLAY : public TASK_HDR /* ai::ANIMATE (Tick 0x2b7640) */
+{
+	Rfloat m_prewait;      /* +0x08 */
+	Rfloat m_postwait;     /* +0x10 */
+	f32 m_pre_timer;       /* +0x18 Begin: the prewait drawn; negative once the anim started */
+	f32 m_post_timer;      /* +0x1c Begin: the postwait drawn; done when negative */
+	u16 m_keep_state : 1;  /* +0x20 End leaves the seal's desired state alone */
+	u16 m_count : 8;
+	u16 m_unknown : 7;
+	s32 m_anims[1];        /* +0x24 m_count anim types, one picked at random */
+};
+
+struct TASK_SIGNAL : public TASK_HDR /* ai::SIGNAL (Tick 0x2b6c50) */
+{
+	u8 m_signal;      /* +0x08 AI_SIGNAL */
+	char m_entity[1]; /* +0x0c the entity to signal instead of the select's seal ("" for none) */
+};
+
+/* 0x2b4190: the index-th command argument of that command type of the running anim (the
+ * select tasks: the AI's own, or the one CNodeAction::ExecuteAction passes for the seal
+ * that uses an action); NULL when there is none */
+_zanim_cmd_hdr *taskFindParam(unsigned int type, int index)
+{
+	CZAnimArgList *args = ZAnim.m_CurAnim->m_arg_list;
+
+	if (args == NULL)
+		return NULL;
+
+	for (int i = 0;; i++)
+	{
+		_zanim_cmd_hdr *cmd = args->GetCmd(i);
+
+		if (cmd == NULL)
+			return NULL;
+
+		if (cmd->data_type == type && index-- == 0)
+			return cmd;
+	}
+}
+
+/* the seal of a task's select argument (inline in every handler of the ELF:
+ * taskFindParam(ai_cmdid+8, the task's m_seal_index)->m_seal) */
+static CZSealBody *taskSeal(u32 index)
+{
+	TASK_SELECT *select = reinterpret_cast<TASK_SELECT *>(taskFindParam(*(u16 *)&ai_cmdid[8], index));
+	return select != NULL ? select->m_seal : NULL;
+}
 
 /* @socom-skeleton body RegisterCommands__11CSealCtrlAiFv */
 bool CSealCtrlAi::RegisterCommands()
@@ -148,7 +211,9 @@ bool CSealCtrlAi::RegisterCommands()
 	ZAnim.AddCmd("ai::ANIMATE", CTPlay::Parse, CTPlay::Begin, CTPlay::Tick, CTPlay::End);
 	ZAnim.AddCmd("ai::INRANGE", CTRange::Parse, NULL, CTRange::Tick, NULL);
 	ZAnim.AddCmd("ai::INREGION", CTRegion::Parse, NULL, CTRegion::Tick, NULL);
-	ZAnim.AddCmd("ai::SELECT", CTSelect::Parse, NULL, CTSelect::Tick, NULL);
+	/* 0x2beb5c: ai_cmdid+8 is ai::SELECT's command type (taskFindParam's key, CTSelect::Create)
+	 * and +0xc ai::SPECIAL's; the ELF stores every other id in the first word */
+	*(u16 *)&ai_cmdid[8] = ZAnim.AddCmd("ai::SELECT", CTSelect::Parse, NULL, CTSelect::Tick, NULL);
 	ZAnim.AddCmd("ai::SETMODE", CTSetMode::Parse, NULL, CTSetMode::Tick, NULL);
 	ZAnim.AddCmd("ai::SETANIMSET", CTSetAnimSet::Parse, NULL, CTSetAnimSet::Tick, NULL);
 	ZAnim.AddCmd("ai::SIGNAL", CTSignal::Parse, NULL, CTSignal::Tick, NULL);
@@ -156,10 +221,10 @@ bool CSealCtrlAi::RegisterCommands()
 	ZAnim.AddCmd("ai::STANCE", CTStance::Parse, CTStance::Begin, CTStance::Tick, CTStance::End);
 	ZAnim.AddCmd("ai::STATE", CTState::Parse, NULL, CTState::Tick, NULL);
 	ZAnim.AddCmd("ai::STOPALL", CTStopAll::Parse, NULL, CTStopAll::Tick, NULL);
-	ZAnim.AddCmd("ai::SPECIAL", CTSpecial::Parse, CTSpecial::Begin, CTSpecial::Tick, CTSpecial::End);
+	*(u16 *)&ai_cmdid[12] = ZAnim.AddCmd("ai::SPECIAL", CTSpecial::Parse, CTSpecial::Begin, CTSpecial::Tick, CTSpecial::End);
 	ZAnim.AddCmd("ai::TEAM", CTTeam::Parse, NULL, CTTeam::Tick, NULL);
 	ZAnim.AddCmd("ai::VALVE", CTValve::Parse, NULL, CTValve::Tick, NULL);
-	ZAnim.AddCmd("ai::WAIT", CTWait::Parse, CTWait::Begin, CTValve::Tick, NULL);
+	ZAnim.AddCmd("ai::WAIT", CTWait::Parse, CTWait::Begin, CTWait::Tick, NULL); /* 0x2bedb8: Tick__6CTWait (was CTValve::Tick) */
 
     return true;
 }
@@ -226,19 +291,22 @@ _zanim_cmd_hdr* CTDoor::Parse(_zrdr* reader)
 /* @socom-skeleton body Begin__6CTDoorFP14_zanim_cmd_hdr */
 void CTDoor::Begin(_zanim_cmd_hdr* header)
 {
-
+	/* 0x2bdb50 (tail call): ai::DOOR is ai::MOVE (Parse 0x2bdb60 too) */
+	CTMove::Begin(header);
 }
 
 /* @socom-skeleton body Tick__6CTDoorFP14_zanim_cmd_hdrPf */
 bool CTDoor::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
-	return false;
+	/* 0x2bda90: as CTMove::Tick */
+	*dT = 0.0f;
+	return true;
 }
 
 /* @socom-skeleton body End__6CTDoorFP14_zanim_cmd_hdr */
 void CTDoor::End(_zanim_cmd_hdr* header)
 {
-
+	/* 0x2bda20: nothing (as CTMove::End) */
 }
 
 /* @socom-skeleton body Parse__7CTEventFP5_zrdr */
@@ -256,7 +324,15 @@ void CTEvent::Begin(_zanim_cmd_hdr* header)
 /* @socom-skeleton body Tick__7CTEventFP14_zanim_cmd_hdrPf */
 bool CTEvent::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
-	return false;
+	/* 0x2bd5e0: an AI event (what the AIs near a used door or switch notice) is made from the
+	 * task: CAiEvent::Acquire(), m_duration = the task's +0x18 when its flag byte +0x22 has
+	 * bit 2 (else CAiEvent::NoExpire), m_rangeSq = (+0x14)^2 with bit 1, m_visible = bit 0,
+	 * m_pos = the point +0x08, in the space of the anim's node argument +0x1c with bit 3
+	 * (CZAnim::GetNode, BuildMTW; zero when the node is missing), m_owner = the select seal's
+	 * m_id, m_type = the s8 +0x20; then CAiEvent::Create(event). Always done.
+	 * port: the event is not made: CAiEvent (zAI/ai_events.cpp: Acquire, Create, the pool)
+	 * is unwritten, so nothing could receive it. */
+	return true;
 }
 
 /* @socom-skeleton body Parse__10CTFireModeFP5_zrdr */
@@ -429,19 +505,176 @@ _zanim_cmd_hdr* CTMove::Parse(_zrdr* reader)
 /* @socom-skeleton body Begin__6CTMoveFP14_zanim_cmd_hdr */
 void CTMove::Begin(_zanim_cmd_hdr* header)
 {
+	/* 0x2b9c90 (also ai::DOOR's Begin, a tail call at 0x2bdb50): the task's seal gets a move
+	 * goal (GOAL_MOVE) for its controller's slide (CSealCtrl::SlideTick, 0.4 s, also for the
+	 * player who uses an action), by mode:
+	 *   1 a node of the anim: the point m_pos in the node's space; the seal goes to m_dist
+	 *     from it on its own side (x/z) and faces it;
+	 *   2 the seal itself: m_pos * m_dist in its own space (no facing);
+	 *   3 a seal: m_pos in that seal's space when not zero (the facing from the seal's
+	 *     origin to that point, reversed), else m_dist beyond the seal, facing it;
+	 *   4 a seal's facing: m_dir rotated by that seal (no position).
+	 * An AI seal goes to slide mode. ELF quirks kept: the controller's GetSealCtrlAi is also
+	 * called for nothing before the tests (left out); SetGoalPos's tolerance 3 is replaced
+	 * by 1 right after. */
+	TASK_MOVE *task = reinterpret_cast<TASK_MOVE *>(header);
+	CZSealBody *seal = taskSeal(task->m_seal_index);
+	CSealCtrl *ctrl = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control) : NULL;
 
+	if (seal == NULL || ctrl == NULL)
+		return;
+
+	u32 goal = 0; /* bit 0: position, bit 1: direction */
+	CPnt3D pos;
+	CPnt3D dir;
+
+	switch (task->m_mode)
+	{
+	case 1:
+	{
+		zdb::CNode *node = ZAnim.m_CurAnim->GetNode(task->m_target, false);
+
+		if (node == NULL)
+			break;
+
+		CMatrix world;
+		sceVu0UnitMatrix(world.m_matrix);
+
+		if (node->BuildMTW(world) == NULL)
+			break;
+
+		CPnt3D away(0.0f, 0.0f, 0.0f);
+		world.Transform(&task->m_pos, &pos, 1);
+		seal->GetPosW()->SubXZ(&pos, &away);
+		away.y = 0.0f;
+		f32 len = sqrtf(away.x * away.x + away.z * away.z);
+
+		if (len != 0.0f)
+		{
+			away.x *= 1.0f / len;
+			away.z *= 1.0f / len;
+		}
+
+		dir.x = -away.x;
+		dir.y = -away.y;
+		dir.z = -away.z;
+		away.Scale(task->m_dist, &away);
+		pos.Add(&away, &pos);
+		goal = 3;
+		break;
+	}
+
+	case 2:
+		task->m_pos.Scale(task->m_dist, &pos);
+		seal->m_node->m_matrix.Transform(&pos, 1);
+		goal = 1;
+		break;
+
+	case 3:
+	{
+		CZSealBody *target = taskSeal(task->m_target);
+
+		if (target == NULL)
+			break;
+
+		CPnt3D d(0.0f, 0.0f, 0.0f);
+
+		if (task->m_pos.x != CPnt3D::zero.x || task->m_pos.y != CPnt3D::zero.y || task->m_pos.z != CPnt3D::zero.z)
+		{
+			target->m_node->m_matrix.Transform(&task->m_pos, &pos, 1);
+			pos.SubXZ(target->GetPosW(), &d);
+			d.y = 0.0f;
+			f32 len = sqrtf(d.x * d.x + d.z * d.z);
+
+			if (len != 0.0f)
+			{
+				d.x *= 1.0f / len;
+				d.z *= 1.0f / len;
+			}
+
+			dir.x = -d.x;
+			dir.y = -d.y;
+			dir.z = -d.z;
+		}
+		else
+		{
+			target->GetPosW()->SubXZ(seal->GetPosW(), &d);
+			f32 len = sqrtf(d.x * d.x + d.z * d.z);
+
+			if (len != 0.0f)
+			{
+				d.x *= 1.0f / len;
+				d.z *= 1.0f / len;
+			}
+
+			dir = d;
+			d.Scale(task->m_dist, &d);
+			target->GetPosW()->Add(&d, &pos);
+		}
+
+		goal = 3;
+		break;
+	}
+
+	case 4:
+	{
+		CZSealBody *target = taskSeal(task->m_target);
+
+		if (target == NULL)
+			break;
+
+		CPnt3D d(0.0f, 0.0f, 0.0f);
+		target->m_node->m_matrix.Rotate(&task->m_dir, &d, 1);
+		f32 len = sqrtf(d.x * d.x + d.z * d.z);
+
+		if (len != 0.0f)
+		{
+			d.x *= 1.0f / len;
+			d.z *= 1.0f / len;
+		}
+
+		dir = d;
+		goal = 2;
+		break;
+	}
+
+	default:
+		break;
+	}
+
+	if (goal == 0)
+		return;
+
+	CSealCtrlAi *ai = ctrl->GetSealCtrlAi();
+	ctrl->SetGoalPos(GOAL_MOVE, (goal & 1) ? &pos : NULL, 3.0f);
+	ctrl->SetGoalDir(GOAL_MOVE, (goal & 2) ? &dir : NULL, false);
+	static f32 goalTimer = 0.4f; /* goalTimer$2994 (0x4761cc), init$2995 */
+	ctrl->m_goal_timer.m_timer = goalTimer;
+	ctrl->m_goal_timer.m_period.m_min = goalTimer;
+	ctrl->m_goal_timer.m_period.m_range = 0.0f;
+	ctrl->m_goal_pos_tolerance = 1.0f;
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("TASK: move mode %d goal %u pos %.1f %.1f %.1f dir %.2f %.2f", (int)task->m_mode, goal, pos.x, pos.y, pos.z, dir.x, dir.z);
+#endif
+
+	if (ai != NULL)
+		ai->SetAiMode(AIM_SLIDE);
 }
 
 /* @socom-skeleton body Tick__6CTMoveFP14_zanim_cmd_hdrPf */
 bool CTMove::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
-	return false;
+	/* 0x2b9bd0: done at once (the slide goes on by itself); the rest of the frame's time is
+	 * used up. ELF quirk kept: the seal lookups (and a GetSealCtrlAi call for nothing) change
+	 * nothing (left out) */
+	*dT = 0.0f;
+	return true;
 }
 
 /* @socom-skeleton body End__6CTMoveFP14_zanim_cmd_hdr */
 void CTMove::End(_zanim_cmd_hdr* header)
 {
-
+	/* 0x2b9b30: nothing (the ELF looks the seal up and calls GetSealCtrlAi for nothing) */
 }
 
 /* @socom-skeleton body Parse__7CTPaintFP5_zrdr */
@@ -512,19 +745,139 @@ _zanim_cmd_hdr* CTPlay::Parse(_zrdr* reader)
 /* @socom-skeleton body Begin__6CTPlayFP14_zanim_cmd_hdr */
 void CTPlay::Begin(_zanim_cmd_hdr* header)
 {
+	/* 0x2b7ae0: the waits before and after the anim are drawn from their ranges */
+	TASK_PLAY *task = reinterpret_cast<TASK_PLAY *>(header);
+	CZSealBody *seal = taskSeal(task->m_seal_index);
 
+	if (seal == NULL || seal->m_control == NULL)
+		return;
+
+	if (task->m_prewait.m_range == 0.0f)
+		task->m_pre_timer = task->m_prewait.m_min;
+	else
+		task->m_pre_timer = task->m_prewait.m_min + task->m_prewait.m_range * ((f32)rand() * (1.0f / 2147483648.0f));
+
+	if (task->m_postwait.m_range == 0.0f)
+		task->m_post_timer = task->m_postwait.m_min;
+	else
+		task->m_post_timer = task->m_postwait.m_min + task->m_postwait.m_range * ((f32)rand() * (1.0f / 2147483648.0f));
 }
 
 /* @socom-skeleton body End__6CTPlayFP14_zanim_cmd_hdr */
 void CTPlay::End(_zanim_cmd_hdr* header)
 {
+	/* 0x2b7a10: the seal goes back to standing unless the task keeps its state */
+	TASK_PLAY *task = reinterpret_cast<TASK_PLAY *>(header);
+	CZSealBody *seal = taskSeal(task->m_seal_index);
 
+	if (seal == NULL || seal->m_control == NULL)
+		return;
+
+	if (!task->m_keep_state)
+		seal->m_desiredState = SEAL_STATE::stateStand;
 }
 
 /* @socom-skeleton body Tick__6CTPlayFP14_zanim_cmd_hdrPf */
 bool CTPlay::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
-	return false;
+	/* 0x2b7640: after the prewait one of the task's anim types (at random) plays on the
+	 * seal: the put-down / get anims (64, 65, 67, 68) as a blend unless already on top; the
+	 * CQB victim falls (the direction by the first select's seal, FindDeathAnimTypeCQB) drop
+	 * the carried body, clear the stack and kill the seal (an invincible one only plays the
+	 * fall); the CQB attacks as a blend in the stance; any other type as the idle state's
+	 * anim (SetStanceIdle). Then the postwait runs; done when it is below 0. The frame's
+	 * time is used up. ELF quirks kept: a prewait that ends at exactly 0 plays again next
+	 * tick; a negative type plays type 1. port: one anim is not drawn at random (the ELF's
+	 * rand() % count runs for every count but 1, also 0: a division by zero GCC would trap). */
+	TASK_PLAY *task = reinterpret_cast<TASK_PLAY *>(header);
+	CZSealBody *seal = taskSeal(task->m_seal_index);
+	CSealCtrl *ctrl = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control) : NULL;
+
+	if (seal == NULL || ctrl == NULL)
+	{
+		*dT = 0.0f;
+		return true;
+	}
+
+	CSealCtrlAi *ai = ctrl->GetSealCtrlAi();
+
+	if (task->m_pre_timer < 0.0f)
+	{
+		task->m_post_timer -= *dT;
+	}
+	else
+	{
+		task->m_pre_timer -= *dT;
+
+		if (task->m_pre_timer <= 0.0f)
+		{
+			u32 count = task->m_count;
+			s32 pick = count < 2 ? 0 : rand() % (s32)count;
+			s32 raw = task->m_anims[pick];
+
+			if (raw != -1)
+			{
+				s16 type = (s16)raw;
+
+				if (ai != NULL)
+					ai->Debug("CTPlay::Tick() ANIMATION %d\n", (int)type);
+
+				if (type < 0)
+					type = 1;
+
+#ifdef SOCOM_PORT
+				SOCOM_PORT_TRACE("TASK: animate type %d (of %u), state %d", (int)type, count, (int)seal->m_state);
+#endif
+
+				if (type == 68 || type == 67 || type == 65 || type == 64)
+				{
+					if ((s16)seal->m_blends->Top()->m_animType != type)
+						seal->PushBlend((AnimType)type, 0, false);
+				}
+				else if (type == AnimTypes::CQBVictimFallBackwards || type == AnimTypes::CQBVictimFallForwards)
+				{
+					CZSealBody *attacker = taskSeal(0);
+					AnimType fall = attacker->FindDeathAnimTypeCQB(seal);
+
+					if (ai != NULL)
+						ai->m_nobindanimset = 1;
+
+					seal->DropBody();
+					seal->ClearStack(1, true);
+
+					if (seal->m_invincible)
+					{
+						seal->WeaponHitAnim(fall, (SEAL_STATE)0, false);
+					}
+					else
+					{
+						seal->WeaponHitAnim(fall, (SEAL_STATE)8, false);
+						seal->SetHealth(0.0f, SEAL_DEATH_TYPE::DEATH_CQB);
+						seal->SetHudHitFlag();
+						seal->DropAllItems();
+
+						if (CZSealBody::m_cqb_sound != NULL)
+							CZSealBody::m_cqb_sound->PlaySound3D(seal->GetPosW(), true, 1.0f, 0, NULL, 255);
+					}
+				}
+				else if (type == AnimTypes::CQB || type == AnimTypes::PistolCQB)
+				{
+					if (ai != NULL)
+						ai->m_nobindanimset = 1;
+
+					seal->PushBlend((AnimType)type, (u8)seal->GetStance(false), false);
+				}
+				else
+				{
+					seal->SetStanceIdle((AnimType)type);
+				}
+			}
+		}
+	}
+
+	bool done = task->m_post_timer < 0.0f;
+	*dT = 0.0f;
+	return done;
 }
 
 /* @socom-skeleton stub Create__8CTSelectFP10CZSealBody */
@@ -559,7 +912,8 @@ _zanim_cmd_hdr* CTSelect::Parse(_zrdr* reader)
 /* @socom-skeleton body Tick__8CTSelectFP14_zanim_cmd_hdrPf */
 bool CTSelect::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
-	return false;
+	/* 0x2b74a0: li v0,1 */
+	return true;
 }
 
 /* @socom-skeleton body Parse__9CTSetModeFP5_zrdr */
@@ -601,7 +955,29 @@ _zanim_cmd_hdr* CTSignal::Parse(_zrdr* reader)
 /* @socom-skeleton body Tick__8CTSignalFP14_zanim_cmd_hdrPf */
 bool CTSignal::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
-	return false;
+	/* 0x2b6c50: the anim signal (AISIG_ANIMCOMPLETE...) for the AI controller of the select's
+	 * seal, or of the named seal entity when the task names one (none when that is no seal);
+	 * a seal without AI (the player using an action) gets nothing. The frame's time is used
+	 * up. ELF quirk kept: the select's controller is not NULL-tested. */
+	TASK_SIGNAL *task = reinterpret_cast<TASK_SIGNAL *>(header);
+	CZSealBody *seal = taskSeal(task->m_seal_index);
+	CSealCtrlAi *ai = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi() : NULL;
+
+	if (task->m_entity[0] != 0)
+	{
+		CEntity *entity = CEntity::m_list.GetEntity(task->m_entity);
+
+		if (entity != NULL && (u8)entity->m_type == CEntity::ENT_TYPE_SEAL)
+			ai = static_cast<CSealCtrl *>(entity->m_control)->GetSealCtrlAi();
+		else
+			ai = NULL;
+	}
+
+	if (ai != NULL)
+		ai->AnimSignal(ZAnim.m_CurAnim, (AI_SIGNAL)task->m_signal);
+
+	*dT = 0.0f;
+	return true;
 }
 
 /* @socom-skeleton body Parse__7CTSoundFP5_zrdr */

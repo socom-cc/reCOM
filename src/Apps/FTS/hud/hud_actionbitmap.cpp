@@ -72,6 +72,15 @@
 
 #include "gamez/zNetwork/znet.h"
 #include "gamez/zNode/node_assetlib.h"
+#include "gamez/zEntity/zentity.h" /* CPickup::m_mpbombnode */
+#include "gamez/zNode/node_action.h"
+#include "gamez/zSeal/zseal.h"
+#include "gamez/zVideo/zvid.h" /* zVid.frameTime */
+#include <stdio.h>
+#include <string.h>
+
+int recoIsRecognizing(); /* reco.cpp 0x336da0 (no header declares it) */
+float recoGetNumHeads(); /* reco.cpp 0x3360a0 */
 
 /* @socom-skeleton decl include */
 #include "gamez/zGame/zgame.h"
@@ -125,7 +134,7 @@ static float BOMBTIMER_INSET_SIZE = 2.0f;
 static float BOMBTIMER_SCALAR = 0.20000000298023224f;
 
 /* @socom-skeleton stub posWeaponTakenStr */
-static PNT2D posWeaponTakenStr = {0.0f, 435.0f};
+static PNT2D posWeaponTakenStr = {ACTIONICON_CENTERX, 435.0f}; /* port: x 0.0 in .data; __sinit_hud_actionbitmap.cpp 0x470350 stores ACTIONICON_CENTERX */
 
 /* @socom-skeleton stub DEFAULT_ACTION_NAME */
 static char *DEFAULT_ACTION_NAME = "UNKNOWN";
@@ -134,22 +143,22 @@ static char *DEFAULT_ACTION_NAME = "UNKNOWN";
 static float color_scalar_rate = 4.0f;
 
 /* @socom-skeleton stub ACTIONICON_HWIDTH */
-static float ACTIONICON_HWIDTH;
+static float ACTIONICON_HWIDTH = 0.5f * ACTIONICON_WIDTH; /* __sinit 0x470350 (also the five below) */
 
 /* @socom-skeleton stub ACTIONICON_HHEIGHT */
-static float ACTIONICON_HHEIGHT;
+static float ACTIONICON_HHEIGHT = 0.5f * ACTIONICON_HEIGHT;
 
 /* @socom-skeleton stub BOMBTIMER_IMAGE_POSX1 */
-static float BOMBTIMER_IMAGE_POSX1;
+static float BOMBTIMER_IMAGE_POSX1 = BOMBTIMER_BKGRD_POSX1 + BOMBTIMER_INSET_SIZE;
 
 /* @socom-skeleton stub BOMBTIMER_IMAGE_POSY1 */
-static float BOMBTIMER_IMAGE_POSY1;
+static float BOMBTIMER_IMAGE_POSY1 = BOMBTIMER_BKGRD_POSY1 + BOMBTIMER_INSET_SIZE;
 
 /* @socom-skeleton stub BOMBTIMER_IMAGE_POSY2 */
-static float BOMBTIMER_IMAGE_POSY2;
+static float BOMBTIMER_IMAGE_POSY2 = BOMBTIMER_BKGRD_POSY2 - BOMBTIMER_INSET_SIZE;
 
 /* @socom-skeleton stub BOMBTIMER_IMAGE_WIDTH */
-static float BOMBTIMER_IMAGE_WIDTH;
+static float BOMBTIMER_IMAGE_WIDTH = BOMBTIMER_BKGRD_POSX2 - BOMBTIMER_IMAGE_POSX1 - BOMBTIMER_INSET_SIZE;
 
 /* @socom-skeleton stub color_scalar */
 static float color_scalar;
@@ -170,13 +179,63 @@ static CActionTxtrMachine ActionTxtrMachine_HUD;
 static CPnt3D color_canvas;
 
 /* @socom-skeleton stub Add__18CActionTxtrMachineFP11CActionTxtr */
-unsigned int CActionTxtrMachine::Add(CActionTxtr *)
+unsigned int CActionTxtrMachine::Add(CActionTxtr *txtr)
 {
+	/* 0x3d8070 (Open): an action on the list. The cancel entry (0) marks selection bit 0. The
+	 * reticule-action entries (13 action, 7 MP bomb, 17 satchel) take the action's icon and
+	 * text (its descriptor, else its UI string, else DEFAULT_ACTION_NAME) when the driver can
+	 * perform it; with a dropped MP bomb in the world entry 7 keeps its own icon. Starts
+	 * transparent. ELF quirk kept: the descriptor is tested twice. v0 = 0. */
+	if (txtr->m_action_id == 0)
+		m_driver->ActionSelectionMask(0, true);
+
+	u32 id = txtr->m_action_id;
+
+	if (id == 13 || id == 7 || id == 17)
+	{
+		zdb::CNode *bomb = CPickup::m_mpbombnode;
+		CNodeAction *action = m_driver->GetReticuleAction(true);
+
+		if (bomb != NULL && txtr->m_action_id == 7)
+		{
+			txtr->m_texhandle = ActionTxtrPool[7].m_texhandle;
+		}
+		else if (action != NULL && static_cast<CSealCtrl *>(m_driver->m_control)->CanPerformAction(action))
+		{
+			txtr->m_texhandle = action->m_pTexHandle;
+
+			if (action->m_descriptor != NULL)
+			{
+				strcpy(txtr->m_name, action->m_descriptor != NULL ? action->m_descriptor : DEFAULT_ACTION_NAME);
+			}
+			else
+			{
+				const char *text = action->GetUIString();
+				strcpy(txtr->m_name, text != NULL ? text : DEFAULT_ACTION_NAME);
+			}
+		}
+	}
+
+	txtr->m_2DBitmap.SetTrans(0.0f);
+	push_back(txtr);
+	return 0;
 }
 
 /* @socom-skeleton stub UpdateDriverPickup__18CActionTxtrMachineFv */
 unsigned char CActionTxtrMachine::UpdateDriverPickup()
 {
+	/* 0x3d7f40: the first entry a pickup (4 primary, 5 secondary): the driver's current
+	 * pickup of type 8 (a weapon) gives the node and the weapon's name (UNKNOWN without one);
+	 * v0 = a node found. port: the pickup test is not written: CPickup's members are private
+	 * in zentity.h and CZSealBody::CurrentPickup / CurrentPickupSecondary are unwritten
+	 * nonvoid stubs; unreachable: no pickup actions are offered (TickPickups is unwritten, the
+	 * pickup ids stay -1) */
+	m_curpickup_node = NULL;
+
+	if (size() == 0 || m_driver == NULL)
+		return m_curpickup_node != NULL;
+
+	return m_curpickup_node != NULL;
 }
 
 /* @socom-skeleton stub SpecializeActionString__18CActionTxtrMachineFv */
@@ -184,16 +243,211 @@ void CActionTxtrMachine::SpecializeActionString()
 {
 	/* @socom-skeleton stub tempstr$2631 */
 	static char tempstr[128] = {85, 78, 85, 83, 69, 68, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+	/* 0x3d7b90 (Render_ver_2): the first entry's text centred on posWeaponTakenStr. An MP
+	 * bomb entry (7): with the bomb timer available and engaged the timer bar (its width the
+	 * remaining time); else the bar fades out and the text is BOMB DEFUSAL (a dropped bomb in
+	 * the world) or DEMOLITION. A pickup (4, 5) shows "<name> <pickup>", nothing without the
+	 * pickup's node. */
+	CActionTxtr *first = (*this)[0];
+	u32 id = first->m_action_id;
+
+	if (id == 7)
+	{
+		CSealCtrl *ctrl = static_cast<CSealCtrl *>(m_driver->m_control);
+
+		if (ctrl->m_mpbomb_bTimerEngaged && ctrl->m_mpbomb_bTimerAvailable)
+		{
+			f32 left = ctrl->m_mpbomb_timer;
+
+			if (left < 0.0f)
+				left = 0.0f;
+
+			m_timer_BKGRD.On();
+			m_timer_BKGRD.SetTrans(38.4f);
+			m_timer_IMAGE.On();
+			m_timer_IMAGE.SetTrans(100.0f);
+			m_timer_IMAGE.SetPos((s32)BOMBTIMER_IMAGE_POSX1, (s32)BOMBTIMER_IMAGE_POSY1,
+				(s32)(BOMBTIMER_IMAGE_POSX1 + BOMBTIMER_IMAGE_WIDTH * (left * BOMBTIMER_SCALAR)), (s32)BOMBTIMER_IMAGE_POSY2);
+			return;
+		}
+
+		if (m_timer_IMAGE.IsOn())
+		{
+			f32 step = 400.0f * zVid.frameTime;
+			f32 alpha = m_timer_IMAGE.GetTrans() - step;
+
+			if (alpha < 0.0f)
+			{
+				alpha = 0.0f;
+				m_timer_IMAGE.Off();
+				m_timer_BKGRD.Off();
+			}
+
+			m_timer_IMAGE.SetTrans(alpha);
+			m_timer_BKGRD.SetTrans(alpha);
+		}
+
+		m_action_string.SetString(CPickup::m_mpbombnode != NULL ? "BOMB DEFUSAL" : "DEMOLITION");
+	}
+	else if (id == 5 || id == 4)
+	{
+		if (m_curpickup_node == NULL)
+			return;
+
+		sprintf(tempstr, "%s %s", first->m_name, m_pickup_name);
+		m_action_string.SetString(tempstr);
+	}
+	else
+	{
+		m_action_string.SetString(first->m_name);
+	}
+
+	s32 y = (s32)posWeaponTakenStr.y;
+	s32 x = (s32)(posWeaponTakenStr.x - 0.5f * (TEXT_SCALAR * ((f32)m_action_string.m_numChars * m_action_string.m_charwidth)));
+	m_action_string.m_pos.x = x << 4;
+	m_action_string.m_pos.y = y << 4;
+	m_action_string.On();
 }
 
 /* @socom-skeleton stub TickTransparencyFade__18CActionTxtrMachineFb */
-void CActionTxtrMachine::TickTransparencyFade(bool)
+void CActionTxtrMachine::TickTransparencyFade(bool active)
 {
+	/* 0x3d7930 (HudTick): 400 alpha a second. With actions the text is opaque and the pool
+	 * icons no longer listed fade out; without, the text, the bomb timer and every pool icon
+	 * fade out. An icon reaching 0 also turns the text off. Entry 0 is never faded. */
+	f32 step = 400.0f * zVid.frameTime;
+
+	if (active)
+	{
+		m_action_string.m_color.w = 128.0f;
+
+		for (u32 i = 1; i < 18; i++)
+		{
+			CActionTxtr *txtr = &ActionTxtrPool[i];
+
+			if (!txtr->m_2DBitmap.IsOn() || txtr->m_active)
+				continue;
+
+			f32 alpha = txtr->m_2DBitmap.GetTrans();
+
+			if (alpha == 0.0f)
+				continue;
+
+			alpha -= step;
+
+			if (alpha < 0.0f)
+			{
+				alpha = 0.0f;
+				m_action_string.Off();
+			}
+
+			txtr->m_2DBitmap.SetTrans(alpha);
+		}
+
+		return;
+	}
+
+	if (m_action_string.IsOn())
+	{
+		f32 alpha = m_action_string.m_color.w - step;
+
+		if (alpha < 0.0f)
+		{
+			alpha = 0.0f;
+			m_action_string.Off();
+		}
+
+		m_action_string.m_color.w = alpha;
+	}
+
+	if (m_timer_IMAGE.IsOn())
+	{
+		f32 alpha = m_timer_IMAGE.GetTrans() - step;
+
+		if (alpha < 0.0f)
+		{
+			alpha = 0.0f;
+			m_timer_IMAGE.Off();
+			m_timer_BKGRD.Off();
+		}
+
+		m_timer_IMAGE.SetTrans(alpha);
+		m_timer_BKGRD.SetTrans(alpha);
+	}
+
+	for (u32 i = 1; i < 18; i++)
+	{
+		CActionTxtr *txtr = &ActionTxtrPool[i];
+
+		if (!txtr->m_2DBitmap.IsOn())
+			continue;
+
+		f32 alpha = txtr->m_2DBitmap.GetTrans();
+
+		if (alpha == 0.0f)
+			continue;
+
+		alpha -= step;
+
+		if (alpha < 0.0f)
+		{
+			alpha = 0.0f;
+			m_action_string.Off();
+		}
+
+		txtr->m_2DBitmap.SetTrans(alpha);
+	}
 }
 
 /* @socom-skeleton stub Open__18CActionTxtrMachineFUi */
-unsigned int CActionTxtrMachine::Open(unsigned int)
+unsigned int CActionTxtrMachine::Open(unsigned int mask)
 {
+	/* 0x3d7380 (HudTick, the available mask changed): the list again from the mask, in this
+	 * priority (unrolled in the ELF): ladder slide, cancel, restraint, knife, CQB, climb,
+	 * action, satchel, talk, pickups, MP bomb, drop bomb, body carry, drop body, the two
+	 * orders. Each listed pool icon turns on and is marked active. Then the driver's pickup
+	 * and its MP bomb timer (available when the first entry is the bomb). v0 = the count.
+	 * ELF quirk kept: m_driver is not NULL-tested. */
+	static const u8 order[17] = { 16, 1, 11, 10, 12, 2, 13, 17, 3, 4, 5, 7, 6, 8, 9, 14, 15 };
+	u32 count = 0;
+
+	clear();
+
+	if (mask != 0)
+	{
+		for (u32 i = 0; i < 17; i++)
+		{
+			CActionTxtr *txtr = &ActionTxtrPool[order[i]];
+
+			if (mask & (1u << order[i]))
+			{
+				Add(txtr);
+				txtr->m_2DBitmap.On();
+				txtr->m_active = 1;
+			}
+			else
+			{
+				txtr->m_active = 0;
+			}
+
+			if (txtr->m_active)
+				count++;
+		}
+	}
+
+	UpdateDriverPickup();
+	CSealCtrl *ctrl = static_cast<CSealCtrl *>(m_driver->m_control);
+	ctrl->MPBomb_TimerAvailable(size() != 0 && (*this)[0]->m_action_id == 7);
+#ifdef SOCOM_PORT
+	static u32 traced = 0;
+
+	if (mask != traced)
+		SOCOM_PORT_TRACE("ACTION: HUD list 0x%x: %d (first %s)", mask, (int)size(), size() != 0 ? (*this)[0]->m_name : "-");
+
+	traced = mask;
+#endif
+	return count;
 }
 
 /* @socom-skeleton stub Render_ver_2__18CActionTxtrMachineFR14CZActionBitmap */
@@ -207,21 +461,365 @@ unsigned char CActionTxtrMachine::Render_ver_2(CZActionBitmap &)
 	static const CPnt3D mainicon_nvg(0.0f, 128.0f, 0.0f); /* port: guarded init at 0x3d6f80 */
 	/* @socom-skeleton stub sideicon_nvg$2760 */
 	static const CPnt3D sideicon_nvg(0.0f, 128.0f, 0.0f); /* port: guarded init at 0x3d6fc0 */
+
+	/* 0x3d6ea0 (HudTick): the first entry's icon in the centre slot (ACTIONICON_* box) in the
+	 * pulsing HUD colour (color_base + color_incr * color_scalar, the scalar sweeping 0..1 at
+	 * color_scalar_rate; green-ish in night vision), fading in to 90 by 28 a tick, and its
+	 * text; the next two entries beside it (right, then left, 12 apart) in the plain HUD
+	 * colour, fading in to 64 by 19; the rest off. v0 = 1 (0 with no list or driver). ELF
+	 * quirks kept: the four icon colours are made and unused; the side icon's transparency is
+	 * read and unused; the bitmap argument is unused. */
+	if (size() == 0)
+		return 0;
+
+	if (m_driver == NULL)
+		return 0;
+
+	CZKit *kit = &m_driver->m_kit;
+
+	if (kit == NULL)
+		return 0;
+
+	color_canvas = color_base;
+	CPnt3D incr;
+	color_incr.Scale(color_scalar, &incr);
+	CPnt3D add = incr;
+	add.Add(&color_canvas, &color_canvas);
+
+	if (kit->NVG_Enabled())
+	{
+		color_canvas.x = 40.0f;
+		color_canvas.z = 40.0f;
+	}
+
+	if (bFadeColor)
+	{
+		color_scalar += zVid.frameTime * color_scalar_rate;
+
+		if (!(color_scalar <= 1.0f))
+		{
+			color_scalar = 1.0f;
+			bFadeColor = 0;
+		}
+	}
+	else
+	{
+		color_scalar -= zVid.frameTime * color_scalar_rate;
+
+		if (color_scalar < 0.0f)
+		{
+			color_scalar = 0.0f;
+			bFadeColor = 1;
+		}
+	}
+
+	CActionTxtr *first = (*this)[0];
+	first->m_2DBitmap.Load(ACTIONICON_CENTERX - ACTIONICON_HWIDTH, ACTIONICON_YPOS, ACTIONICON_CENTERX + ACTIONICON_HWIDTH,
+		ACTIONICON_YPOS + ACTIONICON_HEIGHT, first->m_texhandle);
+	first->m_2DBitmap.m_fade_dx = 28.0f;
+	first->m_2DBitmap.m_fade_limit = 90.0f;
+	first->m_2DBitmap.TickFade();
+	first->m_2DBitmap.SetColor(color_canvas.x, color_canvas.y, color_canvas.z);
+	first->m_2DBitmap.On();
+	SpecializeActionString();
+
+	u32 count = size();
+	u32 right = 0;
+	u32 left = 0;
+
+	for (u32 i = 1; i < count; i++)
+	{
+		CActionTxtr *txtr = (*this)[i];
+
+		if (i >= 3)
+		{
+			txtr->m_2DBitmap.Off();
+			continue;
+		}
+
+		if (i & 1)
+		{
+			f32 x = ACTIONICON_CENTERX + (f32)(right + 1) * (12.0f + ACTIONICON_WIDTH);
+			txtr->m_2DBitmap.Load(x - ACTIONICON_HWIDTH, ACTIONICON_YPOS, x + ACTIONICON_HWIDTH, ACTIONICON_YPOS + ACTIONICON_HEIGHT, txtr->m_texhandle);
+			right++;
+		}
+		else
+		{
+			f32 x = ACTIONICON_CENTERX - (f32)(left + 1) * (12.0f + ACTIONICON_WIDTH);
+			txtr->m_2DBitmap.Load(x - ACTIONICON_HWIDTH, ACTIONICON_YPOS, x + ACTIONICON_HWIDTH, ACTIONICON_YPOS + ACTIONICON_HEIGHT, txtr->m_texhandle);
+			left++;
+		}
+
+		txtr->m_2DBitmap.GetTrans();
+		txtr->m_2DBitmap.m_fade_dx = 19.0f;
+		txtr->m_2DBitmap.m_fade_limit = 64.0f;
+		txtr->m_2DBitmap.TickFade();
+
+		if (kit->NVG_Enabled())
+			txtr->m_2DBitmap.SetColor(40.0f, color_base.y, 40.0f);
+		else
+			txtr->m_2DBitmap.SetColor(color_base.x, color_base.y, color_base.z);
+
+		txtr->m_2DBitmap.On();
+	}
+
+	return 1;
 }
 
 /* @socom-skeleton stub Init__14CZActionBitmapFP4CHUDP7C2DFont */
-void CZActionBitmap::Init(CHUD *, C2DFont *)
+void CZActionBitmap::Init(CHUD *hud, C2DFont *font)
 {
+	/* 0x3d5e40 (CHUD::Init): off and nearly opaque, with no children but its own: the voice
+	 * icon, the 18 pool icons (each with its icon, action id and default text), the action
+	 * text (with a font), the bomb timer bar and background, and the two voice meters. The
+	 * icons come from the asset manager; the mask bit of each pool entry is its index. */
+	CActionTxtrMachine &machine = ActionTxtrMachine_HUD;
+
+	Off();
+	SetTrans(127.0f);
+	erase(begin(), end());
+
+	zdb::CTexHandle *x = zdb::CAssetMgr::m_assets.GetTexHandle("action_x.tif");
+	zdb::CTexHandle *climb = zdb::CAssetMgr::m_assets.GetTexHandle("action_climb.tif");
+	zdb::CTexHandle *slide = zdb::CAssetMgr::m_assets.GetTexHandle("action_slide.tif");
+	zdb::CTexHandle *talk = zdb::CAssetMgr::m_assets.GetTexHandle("action_talk.tif");
+	zdb::CTexHandle *mpbomb = zdb::CAssetMgr::m_assets.GetTexHandle("action_MP_bomb.tif");
+	zdb::CTexHandle *knife = zdb::CAssetMgr::m_assets.GetTexHandle("action_knife.tif");
+	zdb::CTexHandle *restrain = zdb::CAssetMgr::m_assets.GetTexHandle("action_restrain.tif");
+	zdb::CTexHandle *pickup1 = zdb::CAssetMgr::m_assets.GetTexHandle("action_pickup_item1.tif");
+	zdb::CTexHandle *pickup2 = zdb::CAssetMgr::m_assets.GetTexHandle("action_pickup_item2.tif");
+	zdb::CTexHandle *cqb = zdb::CAssetMgr::m_assets.GetTexHandle("action_close_combat.tif");
+	zdb::CTexHandle *body = zdb::CAssetMgr::m_assets.GetTexHandle("action_conceal_body.tif");
+	zdb::CTexHandle *follow = zdb::CAssetMgr::m_assets.GetTexHandle("action_talk.tif");
+	zdb::CTexHandle *hold = zdb::CAssetMgr::m_assets.GetTexHandle("action_talk.tif");
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("ACTION: HUD icons x %p climb %p (tex %p) talk %p", x, climb, climb != NULL ? climb->m_texture : NULL, talk);
+#endif
+
+	C2DBitmap *icon = &machine.m_reco_speechIcon;
+	icon->Reset();
+	icon->Off();
+	icon->m_fade_enable = false;
+	icon->SetColor(color_base.x, color_base.y, color_base.z);
+	icon->Load(0.0f, 0.0f, 0.0f, 0.0f, talk);
+	push_back(icon);
+
+	static const struct { u32 index; const char *name; } entries[18] = {
+		{ 0, "UNKNOWN" }, { 16, "LADDER SLIDE" }, { 1, "ACTION" }, { 2, "CLIMB" }, { 3, "TALK" },
+		{ 4, "TAKE" }, { 5, "TAKE" }, { 6, "DROP BOMB" }, { 7, "PRESS AND HOLD   " }, { 8, "PICKUP BODY" },
+		{ 9, "DROP BODY" }, { 10, "KNIFE ATTACK" }, { 11, "RESTRAIN" }, { 12, "RIFLE BUTT" },
+		{ 13, "UNDEFINED" }, { 17, "SATCHEL" }, { 14, "FOLLOW!" }, { 15, "HOLD POSITION" }
+	};
+	zdb::CTexHandle *textures[18]; /* by pool index */
+	textures[0] = x;
+	textures[1] = x;
+	textures[2] = climb;
+	textures[3] = talk;
+	textures[4] = pickup1;
+	textures[5] = pickup2;
+	textures[6] = x;
+	textures[7] = mpbomb;
+	textures[8] = body;
+	textures[9] = body;
+	textures[10] = knife;
+	textures[11] = restrain;
+	textures[12] = cqb;
+	textures[13] = x;
+	textures[14] = follow;
+	textures[15] = hold;
+	textures[16] = slide;
+	textures[17] = x;
+
+	/* the ELF's order (unrolled): 0, 16, 1, 2 ... 13, 17, 14, 15 */
+	for (u32 i = 0; i < 18; i++)
+	{
+		CActionTxtr *txtr = &ActionTxtrPool[entries[i].index];
+		txtr->m_texhandle = textures[entries[i].index];
+		txtr->m_action_id = entries[i].index;
+		txtr->m_2DBitmap.Reset();
+		txtr->m_2DBitmap.Off();
+		txtr->m_2DBitmap.m_fade_enable = true;
+		push_back(&txtr->m_2DBitmap);
+		strcpy(txtr->m_name, entries[i].name);
+	}
+
+	if (font != NULL)
+	{
+		machine.m_action_string.Load(0.8f, "ACTION ICON", font, 306, 358);
+		machine.m_action_string.Off();
+		machine.m_action_string.m_color.x = CHUD::m_hud_textcolor.x;
+		machine.m_action_string.m_color.y = CHUD::m_hud_textcolor.y;
+		machine.m_action_string.m_color.z = CHUD::m_hud_textcolor.z;
+		machine.m_action_string.m_color.w = CHUD::m_hud_textcolor.w;
+		push_back(&machine.m_action_string);
+	}
+
+	C2DBitmap *back = &machine.m_timer_BKGRD;
+	back->m_hasTexture = false;
+	back->SetColor(0.0f, 0.0f, 0.0f);
+	back->SetPos((s32)BOMBTIMER_BKGRD_POSX1, (s32)BOMBTIMER_BKGRD_POSY1, (s32)BOMBTIMER_BKGRD_POSX2, (s32)BOMBTIMER_BKGRD_POSY2);
+	back->SetTrans(0.0f);
+	push_back(back);
+
+	C2DBitmap *bar = &machine.m_timer_IMAGE;
+	bar->m_hasTexture = false;
+	bar->SetColor(CHUD::m_hud_textcolor.x, CHUD::m_hud_textcolor.y, CHUD::m_hud_textcolor.z);
+	bar->SetPos((s32)BOMBTIMER_IMAGE_POSX1, (s32)BOMBTIMER_IMAGE_POSY1, (s32)(BOMBTIMER_IMAGE_POSX1 + BOMBTIMER_IMAGE_WIDTH), (s32)BOMBTIMER_IMAGE_POSY2);
+	bar->SetTrans(0.0f);
+	push_back(bar);
+
+	for (u32 i = 0; i < 2; i++)
+	{
+		C2DBitmap *meterback = &machine.m_reco_speechmeterBKGD[i];
+		meterback->m_hasTexture = false;
+		meterback->SetColor(0.0f, 0.0f, 0.0f);
+		meterback->SetPos(70, 10, 120, 50);
+		meterback->SetTrans(38.4f);
+		push_back(meterback);
+
+		C2DBitmap *meter = &machine.m_reco_speechmeter[i];
+		meter->m_hasTexture = false;
+		meter->SetColor(color_base.x, color_base.y, color_base.z);
+		push_back(meter);
+	}
+
+	machine.m_reco_speechmeterBKGD[0].SetPos(280, 400, 283, 368);
+	machine.m_reco_speechmeterBKGD[1].SetPos(332, 400, 329, 368);
+	m_parent = hud;
 }
 
 /* @socom-skeleton stub UnInit__14CZActionBitmapFv */
 void CZActionBitmap::UnInit()
 {
+	/* 0x3d5e30 (tail call) */
+	ActionTxtrMachine_HUD.m_action_string.ClearAndWipe();
 }
 
 /* @socom-skeleton stub HudTick__14CZActionBitmapF10MENU_STATE */
-void CZActionBitmap::HudTick(MENU_STATE)
+void CZActionBitmap::HudTick(MENU_STATE state)
 {
+	/* 0x3d5870 (CHUD::Tick): with the HUD on and the full-screen map off. Off (and the
+	 * owner's action display off) unless the owner is a living player. The text and bomb bar
+	 * take the HUD colour (green in night vision). While the voice recognizer listens in the
+	 * orders menu: the voice icon and meters, no actions. Else: on, the owner drives the list;
+	 * the pad's left / right (ActionCommand 3 / 2) rotate it; the available mask is sampled
+	 * afresh (CSealCtrl::SampleActionAvailable) and the list rebuilt when it was empty or
+	 * changed; the icons drawn and faded; the selection is the first entry's bit. */
+	CActionTxtrMachine &machine = ActionTxtrMachine_HUD;
+
+	if (!theHUD->IsOn())
+		return;
+
+	if (theHUD->m_newmap.m_isFullScreen)
+		return;
+
+	CZSealBody *owner = theHUD->GetHUDOwner();
+	bool player = false;
+
+	if (owner->m_isAlive)
+		player = owner->m_control != NULL && static_cast<CSealCtrl *>(owner->m_control)->IsPlayer();
+
+	if (!player)
+	{
+		owner->ActionDisplayOn(false);
+		Off();
+		return;
+	}
+
+	CZKit *kit = &owner->m_kit;
+
+	if (kit != NULL)
+	{
+		if (kit->NVG_Enabled())
+		{
+			machine.m_action_string.m_color.x = 0.0f;
+			machine.m_action_string.m_color.y = 127.0f;
+			machine.m_action_string.m_color.z = 0.0f;
+			machine.m_timer_IMAGE.SetColor(0.0f, 127.0f, 0.0f);
+		}
+		else
+		{
+			machine.m_action_string.m_color.x = CHUD::m_hud_textcolor.x;
+			machine.m_action_string.m_color.y = CHUD::m_hud_textcolor.y;
+			machine.m_action_string.m_color.z = CHUD::m_hud_textcolor.z;
+			machine.m_timer_IMAGE.SetColor(CHUD::m_hud_textcolor.x, CHUD::m_hud_textcolor.y, CHUD::m_hud_textcolor.z);
+		}
+	}
+
+	if (recoIsRecognizing() && (u8)state == 2)
+	{
+		owner->ActionAvailableMask(0, false);
+		f32 level = 0.25f * (recoGetNumHeads() - 1.0f);
+		machine.m_reco_speechIcon.On();
+		machine.m_reco_speechIcon.SetPos(290, 368, 322, 400);
+		machine.m_reco_speechmeterBKGD[0].On();
+		machine.m_reco_speechmeter[0].On();
+		s32 top = (s32)(400.0f - 32.0f * level);
+		machine.m_reco_speechmeter[0].SetPos(280, 400, 283, top);
+		machine.m_reco_speechmeterBKGD[1].On();
+		machine.m_reco_speechmeter[1].On();
+		machine.m_reco_speechmeter[1].SetPos(332, 400, 329, top);
+		owner->ActionAvailableMask(0, false);
+		machine.Open(0);
+		return;
+	}
+
+	machine.m_reco_speechIcon.Off();
+	machine.m_reco_speechmeterBKGD[0].Off();
+	machine.m_reco_speechmeterBKGD[1].Off();
+	machine.m_reco_speechmeter[0].Off();
+	machine.m_reco_speechmeter[1].Off();
+
+	CSealCtrl *control = static_cast<CSealCtrl *>(owner->m_control);
+	owner->ActionDisplayOn(true);
+	On();
+	machine.m_driver = owner;
+	u32 command = owner->ActionCommand();
+
+	if (command != 0)
+	{
+		u32 count = machine.size();
+
+		if (command == 3 && count >= 2)
+		{
+			CActionTxtr *first = machine[0];
+
+			for (u32 i = 1; i < count; i++)
+				machine[i - 1] = machine[i];
+
+			machine[count - 1] = first;
+			machine.UpdateDriverPickup();
+		}
+		else if (command == 2 && count >= 2)
+		{
+			CActionTxtr *last = machine[count - 1];
+
+			for (u32 i = count - 1; i != 0; i--)
+				machine[i] = machine[i - 1];
+
+			machine[0] = last;
+			machine.UpdateDriverPickup();
+		}
+
+		owner->ActionCommand(0);
+	}
+
+	u32 before = owner->ActionAvailableMask();
+	owner->ActionAvailableMask(0, false);
+	control->SampleActionAvailable();
+	u32 mask = owner->ActionAvailableMask();
+
+	if (before == 0 || mask != before)
+		machine.Open(mask);
+
+	bool active = machine.size() != 0;
+	machine.Render_ver_2(*this);
+	machine.TickTransparencyFade(active);
+
+	if (active)
+		owner->ActionSelectionMask(machine[0]->m_action_id, false);
+	else
+		owner->ActionSelectionMask(0, false);
 }
 
 /* @socom-skeleton stub Init__19CZStaticRadioBitmapFP4CHUD */

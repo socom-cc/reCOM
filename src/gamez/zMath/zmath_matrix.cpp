@@ -85,8 +85,27 @@ CMatrix::CMatrix(f32 m00, f32 m01, f32 m02, f32 m03, f32 m10, f32 m11, f32 m12, 
 }
 
 /* @socom-skeleton stub SetRotate__7CMatrixFPC6CPnt3D */
-void CMatrix::SetRotate(const CPnt3D *)
+void CMatrix::SetRotate(const CPnt3D *angles)
 {
+	/* 0x222250 (CNode::SetRotation: the anim rotations, doors, switch levers): the 3x3
+	 * rotation from Euler angles in radians (z, then x, then y: ToEuler's inverse); the w
+	 * column and the translation row are kept, any scale is lost */
+	f32 sx = sinf(angles->x);
+	f32 cx = cosf(angles->x);
+	f32 sy = sinf(angles->y);
+	f32 cy = cosf(angles->y);
+	f32 sz = sinf(angles->z);
+	f32 cz = cosf(angles->z);
+
+	m_matrix[0][0] = cz * cy + sz * (sy * sx);
+	m_matrix[0][1] = sz * cx;
+	m_matrix[0][2] = -cz * sy + (cy * sz) * sx;
+	m_matrix[1][0] = -(cy * sz) + cz * (sy * sx);
+	m_matrix[1][1] = cz * cx;
+	m_matrix[1][2] = sz * sy + sx * (cz * cy);
+	m_matrix[2][0] = cx * sy;
+	m_matrix[2][1] = -sx;
+	m_matrix[2][2] = cx * cy;
 }
 
 /* @socom-skeleton body ToQuat__7CMatrixCFP5CQuat */
@@ -195,9 +214,35 @@ void CMatrix::SetZero()
 /* @socom-skeleton body ToEuler__7CMatrixCFP6CPnt3D */
 void CMatrix::ToEuler(CPnt3D *p) const
 {
-	p->x = acosf(-m_matrix[1][2]);
-	p->y = atan2f(-m_matrix[2][2], m_matrix[0][2]);
-	p->z = atan2f(-m_matrix[1][0], m_matrix[1][1]);
+	/* 0x221e30: the Euler angles SetRotate takes (radians); zero for CMatrix::identity
+	 * itself. At the poles (|m21| >= 1) x is -+pi/2 and the turn goes to y (z = 0).
+	 * port: was acosf(-m12), atan2f(-m22, m02), atan2f(-m10, m11) (not the ELF's) */
+	if (this == &CMatrix::identity)
+	{
+		p->x = 0.0f;
+		p->y = 0.0f;
+		p->z = 0.0f;
+		return;
+	}
+
+	f64 m21 = (f64)m_matrix[2][1];
+
+	if (fabs(m21) < 1.0)
+	{
+		p->x = asinf((f32)-m21);
+		p->y = atan2f(m_matrix[2][0], m_matrix[2][2]);
+		p->z = atan2f(m_matrix[0][1], m_matrix[1][1]);
+		return;
+	}
+
+	f64 half_pi = fabs(1.5707963705062866);
+
+	if ((f32)m21 < 0.0f)
+		half_pi = -half_pi;
+
+	p->x = -(f32)half_pi;
+	p->y = atan2f(-m_matrix[0][2], m_matrix[0][0]);
+	p->z = 0.0f;
 }
 
 /* @socom-skeleton body Multiply__6CStackFPC7CMatrixb */
