@@ -44,11 +44,13 @@ struct cam_wiggle
 
 struct throw_params
 {
-	f32 m_abort_threshold;
-	f32 max_distance_stand;
-	f32 max_distance_crouch;
-	f32 toss_power_threshold;
-	f32 toss_aim_threshold;
+	/* defaults: theCharacterDynamics' inlined ctor in __sinit_seal_dyn.cpp (0x46ce3c..0x46ce68);
+	 * m8's dynamics.rdr has no THROW_PARAMS, so these are the values the game throws with */
+	f32 m_abort_threshold = 0.15f;
+	f32 max_distance_stand = 600.0f;
+	f32 max_distance_crouch = 300.0f;
+	f32 toss_power_threshold = 0.6f;
+	f32 toss_aim_threshold = 0.3f;
 };
 
 struct HEALTH_PARAMS

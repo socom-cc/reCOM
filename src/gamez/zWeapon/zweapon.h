@@ -801,7 +801,7 @@ public:
 	void ReportGrenadeStatus();
 	void UpdateGrenade(CPnt3D *, CPnt3D *, GRENADE_STATE);
 	void SetProjectileState(PROJECTILE_STATE, bool);
-	void WasDetonated();
+	bool WasDetonated(); /* 0x317350: 0/1 */
 	/* @socom-skeleton end 12CZProjectile */
 };
 

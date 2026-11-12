@@ -2227,8 +2227,61 @@ int CZSealBody::HandleFallingDamage(float impact)
 }
 
 /* @socom-skeleton stub HandleDamageExplosive__10CZSealBodyFP12CZProjectileP10CZBodyPart15DAMAGE_LOCATION */
-void CZSealBody::HandleDamageExplosive(CZProjectile *, CZBodyPart *, DAMAGE_LOCATION)
+void CZSealBody::HandleDamageExplosive(CZProjectile *projectile, CZBodyPart *, DAMAGE_LOCATION)
 {
+	/* 0x29bdd0 (HandleDamage: a blast's proximity test found one of the body's parts): a
+	 * blast that does damage at the body throws it (FlingBody with the ammo's explosion
+	 * damage and radius; 10 / 30 without ammo); in a network game only the local player's
+	 * body (no damage: only the shooter's own blast). The projectile is no longer a first
+	 * hit and is kept (m_tempprojectile) with a new sight line from the blast to the head
+	 * (ignoring the body): HandleGrenadeExplosion applies the damage next frame. The part and
+	 * location are not read. */
+	f32 damage = projectile->GetDamage(GetPosW(), 0.0f);
+
+	if (!(damage <= 0.0f))
+	{
+		if (theNetwork.m_bNetwork && this != ftsGetPlayer())
+			return;
+
+		CZAmmo *ammo = projectile->m_ammo;
+		f32 blast = 10.0f;
+		f32 radius = 30.0f;
+
+		if (ammo != NULL)
+		{
+			blast = ammo->GetExplosionDamage();
+			radius = ammo->GetExplosionRadius();
+		}
+
+		FlingBody(&projectile->m_framestartpos, blast, radius);
+	}
+	else if (theNetwork.m_bNetwork && !projectile->m_isplayer)
+	{
+		return;
+	}
+
+	projectile->m_isfirsthit = 0;
+	m_tempprojectile = projectile;
+
+	if (m_projectiledi != NULL)
+	{
+		delete m_projectiledi;
+		m_projectiledi = NULL;
+	}
+
+	m_projectiledi = new zdb::DiIntersect(64);
+	CPnt3D head;
+	PartInSpace(m_head, NULL, &head, NULL);
+	m_quat.Apply(&head, &head, 1);
+	CPnt3D at;
+	head.Add(GetPosW(), &at);
+	head = at;
+	m_projectileintersecthandle = zdb::CWorld::m_world->RegIntersectDelayed(m_projectiledi, &projectile->m_framestartpos, &head);
+	zdb::CWorld::m_world->RegIgnoreNodeDelayed(m_projectiledi, GetNode());
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("GREN: blast reaches %s: damage %.1f at the body, sight line to the head registered",
+		m_node != NULL && m_node->m_name != NULL ? m_node->m_name : "-", damage);
+#endif
 }
 
 /* @socom-skeleton stub HandleDamageNonExplosive__10CZSealBodyFP12CZProjectileP10CZBodyPart15DAMAGE_LOCATION */
@@ -4877,18 +4930,350 @@ float CZSealBody::FindHighestProximityDamage(CZProjectile *projectile)
 }
 
 /* @socom-skeleton stub GetNumExplosiveHits__10CZSealBodyFP12CZProjectile */
-int CZSealBody::GetNumExplosiveHits(CZProjectile *)
+int CZSealBody::GetNumExplosiveHits(CZProjectile *projectile)
 {
+	/* 0x28feb0 (HandleGrenadeExplosion): how many fragments hit: 3 within 20 of the blast,
+	 * plus 1..6 at random (5% 1, 10% 2, 35% 3, 35% 4, 10% 5, 5% 6); crouched one fewer,
+	 * prone three fewer (not below 0); beyond 30 scaled by 900 / distance^2, the fraction
+	 * rounded up at random. */
+	CPnt3D pos = *GetPosW();
+	CPnt3D d;
+	pos.Sub(&projectile->m_framestartpos, &d);
+	f32 dsq = d.x * d.x + d.y * d.y + d.z * d.z;
+	s32 hits = dsq < 400.0f ? 3 : 0;
+	f32 r = (f32)rand() * 4.656613e-10f;
+
+	if (r < 0.05f)
+		hits += 1;
+	else if (r < 0.15f)
+		hits += 2;
+	else if (r < 0.5f)
+		hits += 3;
+	else if (r < 0.85f)
+		hits += 4;
+	else if (r < 0.95f)
+		hits += 5;
+	else if (r <= 1.0f)
+		hits += 6;
+
+	u8 stance = (u8)GetStance(false);
+
+	if (stance == 1)
+		hits -= 1;
+	else if (stance == 2)
+		hits -= 3;
+
+	if (hits < 0)
+		hits = 0;
+
+	if (hits > 0 && !(dsq <= 900.0f))
+	{
+		f32 scaled = 900.0f * (f32)hits / dsq;
+		hits = (s32)scaled;
+		f32 frac = scaled - (f32)hits;
+
+		if (0.0f + 1.0f * ((f32)rand() * 4.656613e-10f) <= frac)
+			hits++;
+	}
+
+	return hits;
 }
 
 /* @socom-skeleton stub HandleGrenadeExplosion__10CZSealBodyFv */
 void CZSealBody::HandleGrenadeExplosion()
 {
+	/* 0x28f840 (PostTick, the frame after HandleDamageExplosive): the blast's sight line to
+	 * the head: its hits nearest first, skipping the body's own nodes and passing particle
+	 * systems, liquids and pickups; any other surface shields the body (nothing happens).
+	 * Unshielded: the grenade's stun (frag, HE, C4, satchel, claymore, M203 HE: 4 for 2 s;
+	 * taser 5 for 100; smoke 3 for 2; tear gas 1 for 3; flashbang 0 for 2); the player (not
+	 * for shotguns) inside the blast radius hears ringing ears at 1 - d^2/r^2 and (but for
+	 * the flashbang) the camera wiggles by it; then GetNumExplosiveHits fragments each hit a
+	 * random location, and the health updates (the last location, an explosion death). A
+	 * body that dies here: the shooter's controller hears of it and the killer is kept. The
+	 * kept projectile and its sight line are dropped either way; a dead body's top blend
+	 * goes to state 8. ELF quirk kept: with no fragment the location is an uninitialised
+	 * stack byte (0 here). */
+	CZProjectile *projectile = m_tempprojectile;
+
+	if (projectile == NULL)
+		return;
+
+	bool was_alive = m_isAlive;
+	zdb::CWorld::m_world->ClearIgnoreNodeDelayed(m_projectiledi);
+	bool blocked = false;
+	bool done = false;
+	zdb::IntersectStruct *nearest = NULL;
+	zdb::DiIntersect *di = m_projectiledi;
+	s32 count = di->m_Cnt;
+
+	do
+	{
+		f32 best = 0.0f;
+		f32 from;
+
+		if (nearest == NULL)
+		{
+			from = best;
+		}
+		else
+		{
+			CPnt3D d;
+			nearest->m_pos.Sub(&di->m_Tail, &d);
+			from = d.x * d.x + d.y * d.y + d.z * d.z;
+		}
+
+		nearest = NULL;
+
+		for (s32 i = 0; i < count; i++)
+		{
+			zdb::IntersectStruct *hit = &di->m_Intersects[i];
+
+			if (hit->m_node != NULL)
+			{
+				bool own = false;
+
+				for (zdb::CNode *p = hit->m_node->m_parent; p != NULL && !own; p = p->m_parent)
+				{
+					if (p == GetNode())
+						own = true;
+				}
+
+				if (own)
+					continue;
+			}
+
+			CPnt3D d;
+			hit->m_pos.Sub(&di->m_Tail, &d);
+			f32 sq = d.x * d.x + d.y * d.y + d.z * d.z;
+
+			if (sq <= from)
+				continue;
+
+			if (nearest == NULL || sq < best)
+			{
+				nearest = hit;
+				best = sq;
+			}
+		}
+
+		if (nearest == NULL)
+		{
+			done = true;
+		}
+		else
+		{
+			u32 index = nearest->GetMaterial();
+
+			if (index >= CMaterialExArray::m_materialex_list.size())
+				index = 0;
+
+			CMaterialEx *material = CMaterialExArray::m_materialex_list[index];
+
+			if (material != NULL && !material->m_particle_system && !material->m_liquid && !material->m_pickup)
+			{
+				blocked = true;
+				done = true;
+#ifdef SOCOM_PORT
+				{
+					CZSealBody *owner = nearest->m_node != NULL ? CZSealBody::GetSeal(nearest->m_node) : NULL;
+					SOCOM_PORT_TRACE("GREN: %s: sight line blocked by %s of %s (material %s) at %.1f %.1f %.1f", m_node != NULL && m_node->m_name != NULL ? m_node->m_name : "-",
+						nearest->m_node != NULL && nearest->m_node->m_name != NULL ? nearest->m_node->m_name : "-",
+						owner != NULL && owner->m_node != NULL && owner->m_node->m_name != NULL ? owner->m_node->m_name : "-",
+						material->m_name != NULL ? material->m_name : "-", nearest->m_pos.x, nearest->m_pos.y, nearest->m_pos.z);
+				}
+#endif
+			}
+		}
+	} while (!done);
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("GREN: %s: sight line %d hits, %s", m_node != NULL && m_node->m_name != NULL ? m_node->m_name : "-",
+		count, blocked ? "shielded" : "exposed");
+#endif
+
+	if (!blocked)
+	{
+		const CPnt3D *blast = &projectile->m_framestartpos;
+		EQUIP_ITEM id = projectile->m_weapon->m_ID;
+
+		if (id == EQUIP_ITEM::M203_HE || id == EQUIP_ITEM::CLAYMORE || id == EQUIP_ITEM::SATCHEL_CHARGE || id == EQUIP_ITEM::C4
+			|| id == EQUIP_ITEM::HE_GRENADE || id == EQUIP_ITEM::GRENADE)
+		{
+			/* port: HandleStunDamage(4, 2.0, blast) - STUN_TYPE is an empty class in the port
+			 * (needs an enum first); the stun is unwritten */
+		}
+		else if (id == EQUIP_ITEM::TASER)
+		{
+			/* port: HandleStunDamage(5, 100.0, blast) (as above) */
+		}
+		else if (id == EQUIP_ITEM::SMOKE_GRENADE)
+		{
+			/* port: HandleStunDamage(3, 2.0, blast) (as above) */
+		}
+		else if (id == EQUIP_ITEM::TEARGAS_GRENADE)
+		{
+			/* port: HandleStunDamage(1, 3.0, blast) (as above) */
+		}
+		else if (id == EQUIP_ITEM::FLASHBANG)
+		{
+			/* port: HandleStunDamage(0, 2.0, blast) (as above) */
+		}
+
+		bool player = m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsPlayer();
+		u32 v = (u8)id;
+
+		if (player && v != 81 && v != 82 && v != 83 && v != 84)
+		{
+			CPnt3D pos = *GetPosW();
+			CPnt3D d;
+			pos.Sub(blast, &d);
+			f32 dsq = d.x * d.x + d.y * d.y + d.z * d.z;
+			f32 radius = projectile->m_ammo != NULL ? projectile->m_ammo->GetExplosionRadius() : 0.0f;
+			f32 rsq = radius * radius;
+
+			if (radius != 0.0f && !(rsq <= dsq))
+			{
+				f32 level = 1.0f - dsq / rsq;
+				CSnd *ringing = CSnd::GetSoundByName("SND_RINGING_EARS");
+
+				if (ringing != NULL)
+					ringing->PlaySound3D(blast, true, level, 0, NULL, 255);
+
+				if (id != EQUIP_ITEM::FLASHBANG)
+				{
+					appCamera->WiggleScalar(level);
+					appCamera->WiggleEcho(true);
+				}
+			}
+		}
+
+		s32 hits = GetNumExplosiveHits(projectile);
+		DAMAGE_LOCATION location = (DAMAGE_LOCATION)0;
+
+		for (s32 i = 0; i < hits; i++)
+			location = DamageRandomLocation(projectile);
+
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("GREN: %s: %d fragment hits, last location %d, health %.3f", m_node != NULL && m_node->m_name != NULL ? m_node->m_name : "-",
+			hits, (s32)location, m_health);
+#endif
+		UpdateHealth(location, (SEAL_DEATH_TYPE)4);
+		s32 id_shooter = projectile->m_shooterID;
+		CZSealBody *shooter = SealOfEntity(CEntity::m_list.GetEntityById(id_shooter));
+
+		if (was_alive && !m_isAlive)
+		{
+			if (shooter != NULL && shooter->m_control != NULL) /* port: guard (the controller is unchecked in the ELF) */
+				static_cast<CSealCtrl *>(shooter->m_control)->NotifyTargetDown(this);
+
+			m_killer_index = id_shooter;
+			HandleKiller(id_shooter);
+#ifdef SOCOM_PORT
+			SOCOM_PORT_TRACE("GREN: %s killed by the blast (shooter %d)", m_node != NULL && m_node->m_name != NULL ? m_node->m_name : "-", id_shooter);
+#endif
+		}
+	}
+
+	m_tempprojectile = NULL;
+	m_projectileintersecthandle = -1;
+	delete m_projectiledi;
+	m_projectiledi = NULL;
+
+	if (!m_isAlive)
+		m_blends->Top()->m_state = 8;
 }
 
 /* @socom-skeleton stub DamageRandomLocation__10CZSealBodyFP12CZProjectile */
-void CZSealBody::DamageRandomLocation(CZProjectile *)
+DAMAGE_LOCATION CZSealBody::DamageRandomLocation(CZProjectile *projectile)
 {
+	/* 0x28f490 (HandleGrenadeExplosion, per fragment): a fragment hits a random location
+	 * with the projectile's damage at the body and the ammo's armour pierce: 10% the head
+	 * (a live head with damage: resolved against the head armour, a little more reticule
+	 * spread when it is at half or below / just hurt, and a hit anim), 30% the body, 15% each
+	 * arm, 10% the left leg, 20% the right leg; a spent limb passes the hit to the body
+	 * (DamageBody with the projectile). Returns the location (0 head, 3 body, 2 left arm, 1
+	 * right arm, 5 left leg, 4 right leg; numbering as the ELF passes it). */
+	f32 r = (f32)rand() * 4.656613e-10f;
+	f32 damage = projectile->GetDamage(GetPosW(), 0.0f);
+	f32 pierce = projectile->m_ammo->GetArmorPierce();
+	bool body = false;
+	s32 location = 0;
+
+	if (r < 0.1f)
+	{
+		if (!(m_head_health <= 0.0f) && damage != 0.0f)
+		{
+			CZProjectile::ResolveDamage(&m_head_health, &m_armor[0], damage, pierce);
+			f32 health = m_head_health;
+			f32 max = m_head_healthMax;
+			s32 level;
+
+			if (health <= 0.0f)
+				level = 3;
+			else if (health <= 0.5f * max)
+				level = 2;
+			else if (health <= 0.99f * max)
+				level = 1;
+			else
+				level = 0;
+
+			if (level == 2 || level == 1)
+				m_retmods += 3.0f;
+
+			bool mirror;
+			AnimType anim = FindRandomDamageAnim((DAMAGE_LOCATION)0, &mirror);
+			WeaponHitAnim(anim, GetStance(false), mirror);
+		}
+
+		location = 0;
+	}
+	else if (r < 0.4f)
+	{
+		DamageBody(damage, pierce);
+		location = 3;
+	}
+	else if (r < 0.55f)
+	{
+		if (m_larm_health <= 0.0f)
+			body = true;
+		else
+			DamageLArm(damage, pierce);
+
+		location = 2;
+	}
+	else if (r < 0.7f)
+	{
+		if (m_rarm_health <= 0.0f)
+			body = true;
+		else
+			DamageRArm(damage, pierce);
+
+		location = 1;
+	}
+	else if (r < 0.8f)
+	{
+		if (m_lleg_health <= 0.0f)
+			body = true;
+		else
+			DamageLLeg(damage, pierce);
+
+		location = 5;
+	}
+	else if (r <= 1.0f)
+	{
+		if (m_rleg_health <= 0.0f)
+			body = true;
+		else
+			DamageRLeg(damage, pierce);
+
+		location = 4;
+	}
+
+	if (body)
+		DamageBody(projectile);
+
+	return (DAMAGE_LOCATION)location;
 }
 
 /* @socom-skeleton stub SetupKevlarInsertArmor__10CZSealBodyFv */

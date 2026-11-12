@@ -1737,6 +1737,57 @@ void CZKit::TickReticule(float dT)
 	}
 }
 
+/* port: file-local helpers for TickExplosives' throw. CDynGrenade (no DWARF class; inline
+ * members emitted out of line next to CSealCtrl::PostTick, which draws the same throw line)
+ * and the ai:: templates _saturate<f> 0x1a8dd0 / _max<f> 0x26c8a0 are not declared in src/;
+ * their bodies follow the ELF. */
+namespace
+{
+/* _saturate<f>: clamp into [lo, hi] (the ELF returns whether it clamped; unused here) */
+inline void throw_saturate(f32 *value, const f32 &lo, const f32 &hi)
+{
+	if (!(*value <= hi))
+		*value = hi;
+	else if (*value < lo)
+		*value = lo;
+}
+
+/* _max<f> */
+inline const f32 &throw_max(const f32 &a, const f32 &b)
+{
+	return a < b ? b : a;
+}
+
+/* CDynGrenade::ComputeMaxVel 0x2879f0: the speed that carries a 45 degree throw `dist`
+ * far from `height` (g = 98); the flight time out */
+f32 DynGrenadeComputeMaxVel(f32 dist, f32 height, f32 *time)
+{
+	static const f32 tan_45 = 1.0f;       /* tan_45$localstatic3 */
+	static const f32 cos_45 = 0.70710725f; /* cos_45$localstatic5 (0x3f3504f7) */
+	f32 t = sqrtf(2.0f * (height + tan_45 * dist) / 98.0f);
+	f32 speed = dist / (cos_45 * t);
+
+	if (time != NULL)
+		*time = t;
+
+	return speed;
+}
+
+/* CDynGrenade::ComputeElevOfs 0x287980: 10 to 12 degrees more elevation with the power */
+f32 DynGrenadeComputeElevOfs(f32 power)
+{
+	static const f32 elev_offset_min = 10.0f; /* elev_offset_min$localstatic3 */
+	static const f32 elev_offset_max = 12.0f; /* elev_offset_max$localstatic5 */
+	return 0.017453292f * (elev_offset_min * (1.0f - power) + elev_offset_max * power);
+}
+
+/* CDynGrenade::Initalize's elevation limits (min_elev 0x452ff8, max_elev 0x453000) and
+ * do_adjust (true) */
+const f32 throw_min_elev = 0.0f;
+const f32 throw_max_elev = 0.95993114f; /* 0x3f75be0b: 55 degrees */
+const f32 throw_min_speed = 0.0f;       /* @2331 0x475034 */
+}
+
 /* @socom-skeleton stub TickExplosives__5CZKitFf */
 bool CZKit::TickExplosives(float dT)
 {
@@ -1747,9 +1798,9 @@ bool CZKit::TickExplosives(float dT)
 	/* @socom-skeleton stub r_offset$3288 */
 	static float r_offset[3];
 	/* @socom-skeleton stub l_offset$3291 */
-	static int l_offset[3];
+	static float l_offset[3];
 	/* @socom-skeleton stub can_fire$3296 */
-	static unsigned char can_fire;
+	static unsigned char can_fire = 1; /* set to 1 on first use (init$3297) and never changed */
 	CEntityCtrl *ctrl = m_body->m_control;
 
 	if (ctrl != NULL && ((CSealCtrl *)ctrl)->IsRemote())
@@ -1806,11 +1857,89 @@ bool CZKit::TickExplosives(float dT)
 		}
 
 		m_fire_delay = 0.0f;
-		can_fire = 1;
-		/* port: not written - the throw itself (the hand's release point, the grenade's
-		 * velocity from the trigger power (CDynGrenade::ComputeMaxVel / ComputeElevOfs, the
-		 * aim elevation, ai::quadratic / elevate), CZKit::Fire with it; AI throwers use their
-		 * fire params) and the last selected item restored. Grenades are out of scope. */
+		/* 0x2aad5c: the release point: (2, 0, 0) in the throwing hand (the left one for the
+		 * left lean toss), in body space. ELF: both hands use r_offset. */
+		r_offset[0] = 2.0f;
+		r_offset[1] = 0.0f;
+		r_offset[2] = 0.0f;
+		l_offset[0] = 2.0f;
+		l_offset[1] = 0.0f;
+		l_offset[2] = 0.0f;
+		CZBodyPart *hand = m_body->m_rhand;
+
+		if (m_body->IsCurrentBlend((AnimType)AnimTypes::TossGrenadePeekLeft))
+			hand = m_body->m_lhand;
+
+		CPnt3D release = CPnt3D::zero;
+		m_body->PartInSpace(hand, reinterpret_cast<const CPnt3D *>(r_offset), &release, NULL);
+
+		if (can_fire)
+		{
+			const throw_params &params = m_body->GetDynamics()->m_throw_params;
+			f32 reach = m_body->m_state == 0 ? params.max_distance_stand : params.max_distance_crouch;
+			CEntityCtrl *thrower = m_body->m_control;
+
+			if (thrower != NULL && ((CSealCtrl *)thrower)->IsPlayer())
+			{
+				/* the player: CDynGrenade::Initalize inlined. The 45 degree speed for the
+				 * stance's reach from the hand's height; the elevation from the aim (0 to 55
+				 * degrees) plus 10..12 by power; the speed from 30% (no power) to 100% of it;
+				 * the flight time to the ground and so the reach; the throw turned from the
+				 * hand toward the point that far ahead and elevated, and (ELF quirk kept) its
+				 * speed becomes the hand's horizontal distance to that point, at most the
+				 * 45 degree speed. Into world space, then thrown. */
+				f32 power = ((CSealCtrl *)thrower)->m_trigger_power;
+				f32 height = release.y;
+				zdb::CNode *node = m_body->m_node;
+				f32 time = 0.0f;
+				f32 maxvel = DynGrenadeComputeMaxVel(reach, height, &time);
+				f32 elev = asinf(m_body->m_aim_goal.y);
+				throw_saturate(&elev, throw_min_elev, throw_max_elev);
+				elev += DynGrenadeComputeElevOfs(power);
+				f32 s = sinf(elev);
+				f32 c = cosf(elev);
+				f32 speed = 0.3f * maxvel * (1.0f - power) + maxvel * power;
+				f32 r1;
+				f32 r2;
+				f32 t = ai::quadratic(0.5f * -98.0f, speed * s, height, r1, r2) ? throw_max(r1, r2) : 0.0f;
+				f32 dist = speed * c * t;
+				CPnt3D dir;
+				/* do_adjust$localstatic5 is set on first use and never cleared */
+				speed = sqrtf(release.x * release.x + release.z * release.z + dist * dist + 2.0f * dist * release.z);
+				throw_saturate(&speed, throw_min_speed, maxvel);
+				dir.x = -release.x;
+				dir.y = 0.0f;
+				dir.z = -(dist + release.z);
+				dir.Normalize();
+				ai::elevate(dir, s, c);
+				node->m_matrix.Rotate(&dir, &dir, 1);
+				CPnt3D from;
+				node->m_matrix.Transform(&release, &from, 1);
+				dir.Scale(speed, &dir);
+				((CSealCtrl *)thrower)->TriggerPowerReset();
+#ifdef SOCOM_PORT
+				SOCOM_PORT_TRACE("GREN: throw params abort %.2f stand %.1f crouch %.1f toss power %.2f aim %.2f, stance %d, hand %.1f %.1f %.1f",
+					params.m_abort_threshold, params.max_distance_stand, params.max_distance_crouch, params.toss_power_threshold,
+					params.toss_aim_threshold, (s32)m_body->m_state, release.x, release.y, release.z);
+				SOCOM_PORT_TRACE("GREN: thrown by %s: power %.2f, reach %.1f, elevation %.1f deg, speed %.1f (45 deg %.1f), from %.1f %.1f %.1f, vel %.1f %.1f %.1f",
+					node->m_name != NULL ? node->m_name : "-", power, reach, elev * 57.29578f, speed, maxvel, from.x, from.y, from.z, dir.x, dir.y, dir.z);
+#endif
+				Fire(m_selected_item, &from, &dir, &CPnt3D::zero);
+			}
+			else if (thrower != NULL && ((CSealCtrl *)thrower)->IsAi())
+			{
+				/* port: not written - an AI thrower (the release point into world space,
+				 * CSealCtrlAi::UpdateThrowFireParams, Fire along the fire params' throw
+				 * vector, the params' throw flag and power cleared); enemy throws are out of
+				 * scope */
+			}
+
+			if (m_last_selected >= 0)
+			{
+				SetCurItemByIndex(m_last_selected);
+				m_last_selected = -1;
+			}
+		}
 	}
 
 	return true;

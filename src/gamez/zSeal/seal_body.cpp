@@ -1930,29 +1930,114 @@ bool CZSealBody::PostFall()
 }
 
 /* @socom-skeleton stub BeginThrowItem__10CZSealBodyFfRf */
-bool CZSealBody::BeginThrowItem(float, float &)
+bool CZSealBody::BeginThrowItem(float power, float &firetime)
 {
+	/* 0x2750d0 (CZKit::HandleFireWeapon): the throw anim for the power and stance starts;
+	 * the item leaves the hand at its release fraction of the anim's loop time (plus the
+	 * offset, always 0). False when the stance has no throw. */
+	AnimType anim;
+	f32 frac = 0.0f;
+	f32 offset = 0.0f;
+	CPnt3D release;
+
+	if (!GetThrowAnim(power, anim, frac, offset, release))
+		return false;
+
+	CZBodyAnimBlend *blend = PushBlend(anim, (s32)m_state, false);
+	firetime = offset + frac * blend->Representative()->TrueLoopTime();
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("GREN: throw begins: power %.2f, anim %d, stance %d, release after %.2f s", power, (s32)anim,
+		(s32)m_state, firetime);
+#endif
+	return true;
 }
 
 /* @socom-skeleton stub GetThrowAnim__10CZSealBodyFfR8AnimTypeRfRfR6CPnt3D */
-void CZSealBody::GetThrowAnim(float, AnimType &, float &, float &, CPnt3D &)
+bool CZSealBody::GetThrowAnim(float power, AnimType &anim, float &frac, float &offset, CPnt3D &release)
 {
+	/* 0x274ae0 (BeginThrowItem, CSealCtrl::PostTick's throw line): the throw for the stance:
+	 * standing a throw, or an underhand toss below the toss power with the aim below the toss
+	 * aim threshold; crouched the crouch throw (moving faster than 15: the standing throw);
+	 * prone the prone throw or toss; peeking (state 3) the lean toss to the peek's side. With
+	 * the anim come its release fraction and the release point offset (hand space). False in
+	 * other states (and peeking without a peek anim). The offset out is always 0. */
 	/* @socom-skeleton stub stand_throw_offset$3258 */
-	static float stand_throw_offset[3];
+	static float stand_throw_offset[3] = { 4.03f, 21.13f, 4.41f };
 	/* @socom-skeleton stub stand_toss_offset$3261 */
-	static int stand_toss_offset[3];
+	static float stand_toss_offset[3] = { 3.13f, 13.8f, -10.5f };
 	/* @socom-skeleton stub crouch_throw_offset$3264 */
-	static float crouch_throw_offset[3];
+	static float crouch_throw_offset[3] = { 6.05f, 15.59f, 1.96f };
 	/* @socom-skeleton stub prone_throw_offset$3267 */
-	static int prone_throw_offset[3];
+	static float prone_throw_offset[3] = { 6.29f, 15.05f, -0.97f };
 	/* @socom-skeleton stub prone_toss_offset$3270 */
-	static int prone_toss_offset[3];
+	static float prone_toss_offset[3] = { 2.39f, 7.87f, -8.53f };
 	/* @socom-skeleton stub peek_right_offset$3273 */
-	static float peek_right_offset[3];
+	static float peek_right_offset[3] = { 7.8f, 10.13f, -5.31f };
 	/* @socom-skeleton stub peek_left_offset$3276 */
-	static float peek_left_offset[3];
+	static float peek_left_offset[3] = { -8.83f, 11.47f, -6.48f };
 	/* @socom-skeleton stub moving_threshold_sq$3279 */
-	static float moving_threshold_sq;
+	static float moving_threshold_sq = 225.0f;
+	/* (the ELF fills the statics on first use: 0x274b64..0x274d34) */
+	f32 aim = m_aim_goal.y;
+	const throw_params &params = GetDynamics()->m_throw_params;
+	bool toss = power < params.toss_power_threshold && aim < params.toss_aim_threshold;
+	frac = 0.0f;
+	offset = 0.0f;
+	bool moving = !(m_velM.x * m_velM.x + m_velM.y * m_velM.y + m_velM.z * m_velM.z <= moving_threshold_sq);
+	const float *at;
+
+	switch (m_state)
+	{
+	case 0:
+		anim = (AnimType)(toss ? AnimTypes::TossGrenade : AnimTypes::ThrowGrenade);
+		frac = toss ? STAND_TOSS_FRAC : STAND_THROW_FRAC;
+		at = toss ? stand_toss_offset : stand_throw_offset;
+		break;
+	case 1:
+		if (moving)
+		{
+			anim = (AnimType)AnimTypes::ThrowGrenade;
+			frac = STAND_THROW_FRAC;
+			at = stand_throw_offset;
+		}
+		else
+		{
+			anim = (AnimType)AnimTypes::CrouchThrowGrenade;
+			frac = CROUCH_THROW_FRAC;
+			at = crouch_throw_offset;
+		}
+		break;
+	case 2:
+		anim = (AnimType)(toss ? AnimTypes::ProneTossGrenade : AnimTypes::ProneThrowGrenade);
+		frac = toss ? PRONE_TOSS_FRAC : PRONE_THROW_FRAC;
+		at = toss ? prone_toss_offset : prone_throw_offset;
+		break;
+	case 3:
+		if (m_CurrentBlendAnimType == m_animset->BaseAnim((AnimType)30) || m_CurrentBlendAnimType == m_animset->BaseAnim((AnimType)32))
+		{
+			anim = (AnimType)AnimTypes::TossGrenadePeekRight;
+			frac = RIGHT_LEAN_FRAC;
+			at = peek_right_offset;
+		}
+		else if (m_CurrentBlendAnimType == m_animset->BaseAnim((AnimType)29) || m_CurrentBlendAnimType == m_animset->BaseAnim((AnimType)31))
+		{
+			anim = (AnimType)AnimTypes::TossGrenadePeekLeft;
+			frac = LEFT_LEAN_FRAC;
+			at = peek_left_offset;
+		}
+		else
+		{
+			return false;
+		}
+		break;
+	default:
+		return false;
+	}
+
+	release.x = at[0];
+	release.y = at[1];
+	release.z = at[2];
+	return true;
 }
 
 /* @socom-skeleton stub GetPutativeFirePointW__10CZSealBodyFbbR6CPnt3D */
@@ -2086,8 +2171,105 @@ void CZSealBody::DropBody()
 }
 
 /* @socom-skeleton stub FlingBody__10CZSealBodyFPC6CPnt3Dff */
-CZBodyAnimBlend * CZSealBody::FlingBody(const CPnt3D *, float, float)
+CZBodyAnimBlend * CZSealBody::FlingBody(const CPnt3D *from, float damage, float radius)
 {
+	/* 0x273bd0 (HandleDamageExplosive): a blast at `from` throws the body: nothing outside
+	 * the radius (measured to the root part's height) or below 2 of falloff-scaled damage
+	 * (1 - d^2/r^2). A carried body is dropped (falling forward). The stack is popped down to
+	 * a stand, crouch or prone base anim, the top blend loses its control, no peek; prone
+	 * bodies take "Prone cover", others fall away from the blast (backward when it comes
+	 * from the front of the body). The push: gravity / 98.1 x damage in newtons x falloff /
+	 * mass (at most 150) along the blast direction, added to the velocity; an upward push
+	 * also sets the descent (at least the push, up to 3 x it for a flat push). Single
+	 * player: stunned. Returns the fall blend. */
+	CPnt3D pos = *GetPosW();
+	pos.y += GetRootPart()->m_pos.y;
+	CPnt3D dir;
+	pos.Sub(from, &dir);
+	f32 dist = dir.Normalize();
+
+	if (!(dist < radius))
+		return NULL;
+
+	f32 falloff = 1.0f - dist * dist / (radius * radius);
+
+	if (damage * falloff < 2.0f)
+		return NULL;
+
+	if (m_state == 9)
+	{
+		CZSealBody *carried = m_carry;
+
+		if (carried != NULL)
+		{
+			carried->DetachBody();
+			carried->ClearStack(1, true);
+			carried->PushBlend((AnimType)AnimTypes::FallForward01, 8, false);
+			carried->m_inAirHorizVel = carried->m_velW;
+		}
+
+		m_carry = NULL;
+	}
+
+	while (m_blends->m_top + 1 >= 2)
+	{
+		AnimType current = m_CurrentBlendAnimType;
+
+		if (current == m_animset->BaseAnim((AnimType)1) || current == m_animset->BaseAnim((AnimType)18)
+			|| current == m_animset->BaseAnim((AnimType)26))
+			break;
+
+		PopBlend();
+	}
+
+	m_blends->Top()->m_ctrl = 0;
+	m_desiredPeek = SEAL_PEEK::PEEK_NONE;
+	m_blends->Top(); /* ELF: read for nothing */
+	s8 stance = m_state;
+	CQuat inverse;
+	inverse.vec.x = -m_quat.vec.x;
+	inverse.vec.y = -m_quat.vec.y;
+	inverse.vec.z = -m_quat.vec.z;
+	inverse.w = m_quat.w;
+	CPnt3D local;
+	inverse.Apply(&dir, &local, 1);
+	CZBodyAnimBlend *blend;
+
+	if (stance == 2)
+		blend = PushBlend(FindAnimType("Prone cover"), stance, false);
+	else if (!(local.z <= 0.0f))
+		blend = PushBlend((AnimType)AnimTypes::FallBackward01, stance, false);
+	else
+		blend = PushBlend((AnimType)AnimTypes::FallForward01, stance, false);
+
+	f32 push = theCharacterDynamics.m_gravity / 98.100006f * (damage * theCharacterDynamics.m_DamageToNewtons) * falloff / m_mass;
+
+	if (!(push <= 150.0f))
+		push = 150.0f;
+
+	f32 up = dir.y;
+	dir.Scale(push, &dir);
+	m_inAirHorizVel = m_velW;
+	m_inAirHorizVel.Add(&dir, &m_inAirHorizVel);
+
+	if (!(dir.y <= 0.0f))
+	{
+		f32 scale = 3.0f * (1.0f - up);
+
+		if (scale < 1.0f)
+			scale = 1.0f;
+
+		m_descent = -dir.y * scale;
+	}
+
+	if (!theNetwork.m_bNetwork)
+		m_am_stunned = 1;
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("GREN: fling %s: dist %.1f of %.1f, push %.1f, blend %s", m_node != NULL && m_node->m_name != NULL ? m_node->m_name : "-",
+		dist, radius, push, stance == 2 ? "prone cover" : !(local.z <= 0.0f) ? "fall backward" : "fall forward");
+#endif
+	return blend;
 }
 
 /* @socom-skeleton stub Jump__10CZSealBodyFv */

@@ -12,7 +12,8 @@
  * START SELECT UP DOWN LEFT RIGHT CROSS CIRCLE SQUARE TRIANGLE L1 L2 R1 R2. A stick term
  * <read>:<AXIS>=<value>[+<reads>] holds an axis (LX LY RX RY, raw 0..255 decimal, 128 is
  * centred; LY=0 is the left stick fully up) for <reads> reads (default 3) from <read>;
- * otherwise the sticks stay centred. */
+ * otherwise the sticks stay centred. Held buttons read full pressure (255) unless a term
+ * <read>:<BUTTON>P=<value>[+<reads>] (R1P, CROSSP, ...) gives another value. */
 #include <libpad.h> /* compat: the Sony declarations */
 #include <string.h>
 
@@ -62,6 +63,9 @@ static const struct
 } socom_fake_axes[] =
 {
     { "RX", 4 }, { "RY", 5 }, { "LX", 6 }, { "LY", 7 },
+    /* the pressure bytes (only while the button is held, see scePadRead) */
+    { "RIGHTP", 8 }, { "LEFTP", 9 }, { "UPP", 10 }, { "DOWNP", 11 }, { "TRIANGLEP", 12 }, { "CIRCLEP", 13 },
+    { "CROSSP", 14 }, { "SQUAREP", 15 }, { "L1P", 16 }, { "R1P", 17 }, { "L2P", 18 }, { "R2P", 19 },
 };
 
 static unsigned int socom_fake_number(const char **pp)
@@ -228,6 +232,25 @@ int scePadRead(int port, int slot, unsigned char *rdata)
         rdata[5] = socom_fake_axis(socom_fake_reads - 1, 5);
         rdata[6] = socom_fake_axis(socom_fake_reads - 1, 6);
         rdata[7] = socom_fake_axis(socom_fake_reads - 1, 7);
+
+        /* the pressure bytes (rdata[8..19]: right, left, up, down, triangle, circle, cross,
+         * square, L1, R1, L2, R2) are full for held buttons: the game reads them directly
+         * (CCtrlrConfigs::GetFireButtonPressure: the throw power, d-pad peeks) */
+        {
+            static const unsigned short pressure_bits[12] =
+            {
+                0x2000, 0x8000, 0x1000, 0x4000, 0x0010, 0x0020, 0x0040, 0x0080, 0x0004, 0x0008, 0x0001, 0x0002,
+            };
+            unsigned int i;
+
+            for (i = 0; i < 12; i++)
+            {
+                /* a held button's pressure can be lowered by a term <read>:<BUTTON>P=<value>[+<reads>]
+                 * (e.g. 800:R1P=100+40; 128 reads as "no term") */
+                unsigned char level = socom_fake_axis(socom_fake_reads - 1, 8 + i);
+                rdata[8 + i] = (pressed & pressure_bits[i]) == 0 ? 0x00 : level != 0x80 ? level : 0xff;
+            }
+        }
 
         if (rdata[4] != 0x80 || rdata[5] != 0x80 || rdata[6] != 0x80 || rdata[7] != 0x80)
         {

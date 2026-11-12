@@ -1250,7 +1250,7 @@ public:
 	void ClimbOver(float);
 	bool PostFall(); /* 0x275170: 0 for a fall, 1 otherwise */
 	bool BeginThrowItem(float, float &); /* 0x2750d0: HandleFireWeapon tests v0 */
-	void GetThrowAnim(float, AnimType &, float &, float &, CPnt3D &);
+	bool GetThrowAnim(float, AnimType &, float &, float &, CPnt3D &); /* 0x274ae0 returns 0/1 (BeginThrowItem tests v0) */
 	void GetPutativeFirePointW(bool, bool, CPnt3D &);
 	CZBodyAnimBlend * ClimbLadder();
 	CZBodyAnimBlend * ClimbLadderDown();
@@ -1396,7 +1396,7 @@ public:
 	void SetRLegDamage(int);
 	float FindHighestProximityDamage(CZProjectile *);
 	int GetNumExplosiveHits(CZProjectile *);
-	void DamageRandomLocation(CZProjectile *);
+	DAMAGE_LOCATION DamageRandomLocation(CZProjectile *); /* 0x28f490 returns the location (HandleGrenadeExplosion keeps the last) */
 	void SetArmor(DAMAGE_LOCATION, float);
 	AnimType FindRandomDeathAnim(DAMAGE_LOCATION, bool *); /* 0x28ee80: PreTick 0x2565c0 passes v0 to WeaponHitAnim as the AnimType */
 	AnimType FindRandomDamageAnim(DAMAGE_LOCATION, bool *); /* 0x28ebb0 returns the anim (lh v0; -1 none) */
@@ -2427,7 +2427,7 @@ public:
 	static CPnt3D * AddNoise(const CPnt3D *, CPnt3D *, const PNT2D &);
 	static CPnt3D * AddNoise(CPnt3D *, const PNT2D &);
 	static void elevate(CPnt3D &, float, float);
-	void quadratic(float, float, float, float &, float &);
+	static bool quadratic(float, float, float, float &, float &); /* 0x17e070 returns 0/1 (real roots); static: no this */
 	void get_clock_direction(const CPnt3D *);
 	static bool CheckLineOfFire(const CEntity *, const CTarget *, float); /* 0x2e96d0 returns 0/1 */
 	static void plot_tick(float, bool);

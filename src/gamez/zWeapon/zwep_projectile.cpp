@@ -724,8 +724,90 @@ void CZProjectile::DoHit(zdb::IntersectStruct *hit, float dT, float dist, CPnt3D
 }
 
 /* @socom-skeleton stub HandleBounce__12CZProjectileFPQ23zdb15IntersectStructfP6CPnt3D */
-bool CZProjectile::HandleBounce(zdb::IntersectStruct *, float, CPnt3D *)
+bool CZProjectile::HandleBounce(zdb::IntersectStruct *hit, float dT, CPnt3D *end)
 {
+	/* 0x318750 (HandleIntersections / DoHit: grenades, explosives, M203 illum / smoke): a
+	 * liquid or a nearly penetrable material (penetration 0.99 or more) is passed through:
+	 * the material's hit anim (the splash), the velocity scaled by its elasticity, the
+	 * segment on a tenth of a second past the hit, the hit node hears it. Otherwise the
+	 * projectile bounces: the hit anim (not under water), the velocity reflected about the
+	 * hit normal and scaled by the elasticity (the first bounce by three quarters of it);
+	 * slower than 5 it comes to rest; the segment ends at the hit, 0.4 off the surface, plus
+	 * this frame's travel. Always 0. ELF quirk kept: with a hit anim the bounce reads the
+	 * material's under-water bit without a NULL test (guarded here). */
+	u32 index = hit->GetMaterial();
+	u32 slot = index < CMaterialExArray::m_materialex_list.size() ? index : 0;
+	CMaterialEx *material = CMaterialExArray::m_materialex_list[slot];
+
+	if (material != NULL && (material->m_liquid || !(material->m_penetration < 0.99f)))
+	{
+		CZAnim *anim = m_weapon->GetHitAnim(index);
+
+		if (anim != NULL && CZWeapon::m_allowImpactAnimations)
+		{
+			f32 pos[3] = { hit->m_pos.x, hit->m_pos.y, hit->m_pos.z };
+			anim->ActivateArg(1, 5, pos, 0);
+		}
+
+		m_vel.Scale(material->m_elasticity_coeff, &m_vel);
+		CPnt3D step;
+		m_vel.Scale(0.1f, &step);
+		hit->m_pos.Add(&step, end);
+		zdb::CNode *node = hit->m_node;
+
+		if (node != NULL && node->m_nodeEx != NULL)
+			node->m_nodeEx->OnWeaponHit(node, hit, this);
+
+		return false;
+	}
+
+	CZAnim *anim = m_weapon->GetHitAnim(index);
+
+	if (anim != NULL && (material == NULL || !material->m_underwater) && CZWeapon::m_allowImpactAnimations) /* port: guard (material) */
+	{
+		f32 pos[3] = { hit->m_pos.x, hit->m_pos.y, hit->m_pos.z };
+		anim->ActivateArg(1, 5, pos, 0);
+	}
+
+	CPnt3D reflected = m_vel.Reflect(&hit->m_norm);
+	f32 elasticity = material != NULL ? material->m_elasticity_coeff : 0.0f;
+
+	if (m_isfirsthit)
+	{
+		reflected.Scale(0.75f * elasticity, &m_vel);
+		m_isfirsthit = 0;
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("GREN: first bounce at %.1f %.1f %.1f material %u (%s, elasticity %.2f), speed now %.1f",
+			hit->m_pos.x, hit->m_pos.y, hit->m_pos.z, index, material != NULL && material->m_name != NULL ? material->m_name : "-",
+			elasticity, sqrtf(m_vel.x * m_vel.x + m_vel.y * m_vel.y + m_vel.z * m_vel.z));
+#endif
+	}
+	else
+	{
+		reflected.Scale(elasticity, &m_vel);
+	}
+
+	if (sqrtf(m_vel.x * m_vel.x + m_vel.y * m_vel.y + m_vel.z * m_vel.z) < 5.0f && m_state != PROJECTILE_STATE::PROJECTILE_AT_REST)
+	{
+		m_vel.z = 0.0f;
+		m_vel.y = 0.0f;
+		m_vel.x = 0.0f;
+		SetProjectileState(PROJECTILE_STATE::PROJECTILE_AT_REST, false); /* inline in the ELF */
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("GREN: at rest at %.1f %.1f %.1f, fuse %.2f", hit->m_pos.x, hit->m_pos.y, hit->m_pos.z, m_time);
+#endif
+	}
+
+	CPnt3D normal = hit->m_norm;
+	normal.Normalize();
+	CPnt3D off;
+	normal.Scale(0.4f, &off);
+	CPnt3D travel;
+	m_vel.Scale(dT, &travel);
+	CPnt3D at;
+	hit->m_pos.Add(&travel, &at);
+	at.Add(&off, end);
+	return false;
 }
 
 /* @socom-skeleton stub HandleShotgunImpact__12CZProjectileFPQ23zdb15IntersectStructffP6CPnt3D */
@@ -862,16 +944,141 @@ void CZProjectile::Cleanup()
 /* @socom-skeleton stub Detonate__12CZProjectileFv */
 void CZProjectile::Detonate()
 {
+	/* 0x3180c0: to be detonated (the next PreTick registers the blast) */
+	m_state = PROJECTILE_STATE::PROJECTILE_TO_BE_DETONATED;
 }
 
 /* @socom-skeleton stub HandleDelayedDetonate__12CZProjectileFv */
 void CZProjectile::HandleDelayedDetonate()
 {
+	/* 0x317df0 (PostTick, the frame after the blast was registered): detonated. A loud
+	 * weapon makes an AI event; smoke, M203 illum / smoke, tear gas and the claymore play the
+	 * weapon's default special anim on the instance, the rest the special anim of the ground
+	 * material below (the default one without a material, or when the ground is 10 or more
+	 * below) at the projectile; explosive ammo explodes; the pickup goes; the claymore's
+	 * instance is hidden. */
+	m_state = PROJECTILE_STATE::PROJECTILE_WAS_DETONATED;
+	f32 radius = m_weapon->GetImpactRadius();
+
+	if (!(radius <= 1.0f))
+	{
+		/* port: not written - an AI event (type 18) at the frame start, range radius^2,
+		 * 0.5 s, owner the shooter (CAiEvent::Acquire / Create, the AI event pool, are
+		 * unwritten) */
+	}
+
+	EQUIP_ITEM id = m_weapon->m_ID;
+	CZAnim *anim;
+
+	if (id == EQUIP_ITEM::SMOKE_GRENADE || id == EQUIP_ITEM::M203_IL || id == EQUIP_ITEM::M203_SMOKE
+		|| id == EQUIP_ITEM::TEARGAS_GRENADE || id == EQUIP_ITEM::CLAYMORE)
+	{
+		anim = m_weapon->GetDefaultSpecialAnim();
+
+		if (anim != NULL && CZWeapon::m_allowImpactAnimations)
+			anim->ActivateArg(1, 3, m_instance, 0);
+	}
+	else
+	{
+		zdb::IntersectStruct *ground = zdb::CWorld::m_world->GetAltitude(&m_framestartpos, 0.5f);
+		u32 index = 0;
+		CMaterialEx *material = NULL;
+
+		if (ground != NULL)
+		{
+			index = ground->GetMaterial();
+			u32 slot = index < CMaterialExArray::m_materialex_list.size() ? index : 0;
+			material = CMaterialExArray::m_materialex_list[slot];
+		}
+
+		if (material == NULL)
+		{
+			anim = m_weapon->GetDefaultSpecialAnim();
+		}
+		else
+		{
+			anim = NULL;
+
+			if (!(ground->m_pos.y <= m_framestartpos.y - 10.0f))
+				anim = m_weapon->GetSpecialMaterialAnim(index);
+
+			if (anim == NULL)
+				anim = m_weapon->GetDefaultSpecialAnim();
+		}
+
+		if (anim != NULL && CZWeapon::m_allowImpactAnimations)
+			anim->ActivateArg(1, 5, &m_framestartpos, 0);
+	}
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("GREN: detonated %s at %.1f %.1f %.1f, special anim %s, blast radius %.1f",
+		m_weapon->m_name != NULL ? m_weapon->m_name : "-", m_framestartpos.x, m_framestartpos.y, m_framestartpos.z,
+		anim != NULL ? "yes" : "none", m_ammo->GetExplosionRadius());
+#endif
+
+	if (!(m_ammo->GetExplosionRadius() <= 0.0f))
+		HandleDetonateExplosion();
+
+	if (m_pickup != NULL)
+	{
+		CPickup::Destroy(m_pickup);
+		m_pickup = NULL;
+	}
+
+	if (m_weapon->m_ID == EQUIP_ITEM::CLAYMORE)
+		m_instance->SetActive(false);
+
+	SetProjectileState(PROJECTILE_STATE::PROJECTILE_WAS_DETONATED, false); /* inline in the ELF */
 }
 
 /* @socom-skeleton stub HandleDetonateExplosion__12CZProjectileFv */
 void CZProjectile::HandleDetonateExplosion()
 {
+	/* 0x317cd0 (HandleDelayedDetonate): a blast mark on the ground within 10 below; every
+	 * node the blast's proximity test found (PreTick) hears the hit through its extension,
+	 * its world matrix built first. ELF quirks kept: the ground's region is read for nothing;
+	 * the node is tested twice; the matrix is not used. */
+	zdb::IntersectStruct *ground = zdb::CWorld::m_world->GetAltitude(&m_framestartpos, 10.0f);
+
+	if (ground != NULL)
+	{
+		ground->GetRegion();
+		CZWeapon::m_pMarklist->AddNewMark(ground, this, 1.0f);
+	}
+
+	zdb::DiIntersect *di = m_di;
+
+	if (di == NULL)
+		return;
+
+#ifdef SOCOM_PORT
+	s32 heard = 0;
+#endif
+
+	for (s32 i = 0; i < di->m_Cnt; i++)
+	{
+		zdb::IntersectStruct *hit = &di->m_Intersects[i];
+		zdb::CNode *node = hit->m_node;
+
+		if (node == NULL)
+			continue;
+
+		zdb::CNodeEx *ex = node->m_nodeEx;
+
+		if (ex == NULL)
+			continue;
+
+		CMatrix mtw = CMatrix::identity; /* sceVu0CopyMatrix in the ELF */
+		hit->m_node->BuildMTW(mtw);
+		ex->OnWeaponHit(hit->m_node, hit, this);
+#ifdef SOCOM_PORT
+		heard++;
+#endif
+	}
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("GREN: blast: %d proximity hits, %d heard (mark %s)", di->m_Cnt, heard, ground != NULL ? "yes" : "no ground");
+#endif
 }
 
 /* @socom-skeleton body GetInstance__12CZProjectileFv */
@@ -1043,8 +1250,10 @@ void CZProjectile::SetProjectileState(PROJECTILE_STATE state, bool force)
 }
 
 /* @socom-skeleton stub WasDetonated__12CZProjectileFv */
-void CZProjectile::WasDetonated()
+bool CZProjectile::WasDetonated()
 {
+	/* 0x317350 */
+	return m_state == PROJECTILE_STATE::PROJECTILE_WAS_DETONATED;
 }
 
 /* @socom-skeleton body Reset__12CZProjectileFv */

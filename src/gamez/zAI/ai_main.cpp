@@ -105,13 +105,49 @@ CPnt3D * ai::AddNoise(CPnt3D *, const PNT2D &)
 }
 
 /* @socom-skeleton stub elevate__2aiFR6CPnt3Dff */
-void ai::elevate(CPnt3D &, float, float)
+void ai::elevate(CPnt3D &dir, float s, float c)
 {
+	/* 0x17e190 (CZKit::TickExplosives, CSealCtrl::PostTick): a horizontal unit direction
+	 * raised to the elevation with that sine and cosine */
+	dir.x *= c;
+	dir.z *= c;
+	dir.y = s;
 }
 
 /* @socom-skeleton stub quadratic__2aiFfffRfRf */
-void ai::quadratic(float, float, float, float &, float &)
+bool ai::quadratic(float a, float b, float c, float &r1, float &r2)
 {
+	/* 0x17e070: the real roots of a x^2 + b x + c (r1 with +sqrt, r2 with -sqrt; a double
+	 * root in both); false without one. Linear (a = 0): -c / b, false for b = 0. ELF quirk
+	 * kept: the linear root is stored twice to r2, r1 is left as it was. */
+	if (a == 0.0f)
+	{
+		if (b == 0.0f)
+			return false;
+
+		r2 = -c / b;
+		r2 = -c / b;
+		return true;
+	}
+
+	f32 disc = b * b - 4.0f * a * c;
+	f32 inv = 1.0f / (2.0f * a);
+
+	if (!(disc <= 0.0f))
+	{
+		f32 root = sqrtf(disc);
+		r1 = inv * (-b + root);
+		r2 = inv * (-b - root);
+		return true;
+	}
+
+	if (disc < 0.0f)
+		return false;
+
+	f32 root = -b * inv;
+	r2 = root;
+	r1 = root;
+	return true;
 }
 
 /* @socom-skeleton stub get_clock_direction__2aiFPC6CPnt3D */
