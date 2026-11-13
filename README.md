@@ -12,7 +12,8 @@ The workspace is self-contained except for the live semantic project:
 - immutable reference ELF: `support/socom.elf`;
 - canonical live semantics: external Ghidra project `soCOM`, program
   `/socom.elf`;
-- pinned compiler: `compiler/mwcps2-2.4-001213`;
+- pinned compiler: `compiler/mwcps2-2.4-001213` (proprietary, not tracked: `python
+  tools/socom.py toolchain bootstrap` fetches and verifies it per machine);
 - workflow and state: `AGENTS.md`, `.agent`, and `tools/socom.py`;
 - provisional recovered source/data: `src` and `data`.
 

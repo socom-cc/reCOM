@@ -4,7 +4,18 @@ The pinned toolchain ID is `mwcps2-2.4-001213`. It is fetched from the
 decomp.me compiler archive at upstream commit
 `804c712453592c7ca15732c432fee2efa13d1825`.
 
-`compiler/PROVENANCE.json` records:
+The compiler files are proprietary, so `compiler/` is not tracked. Acquire and
+verify them per machine with:
+
+```powershell
+python tools/socom.py toolchain bootstrap
+```
+
+The expected file sizes and SHA-256s are pinned in `tools/_socom/toolchain.py`.
+Until the toolchain is installed, `doctor` reports the four files as missing
+and the toolchain tests skip.
+
+`compiler/PROVENANCE.json`, written by the bootstrap, records:
 
 - the immutable archive URL and SHA-256;
 - every extracted filename, size, and SHA-256;
