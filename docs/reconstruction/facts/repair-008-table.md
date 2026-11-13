@@ -1,0 +1,27 @@
+# Recon repair 008: rules v19 void prototypes
+
+Item `socom:work:recon-repair-008` (plan `build/recon-plans/socom-work-recon-repair-008.json`). Every row is
+`recon void --rules 19` VERDICT void and `recon draft --rules 19` P-void (P-slot-void for 0x380600). Parameters are
+exactly as live; rows 1-13 were accepted partial rows (return `undefined`), the last 2 were unresolved Ghidra defaults.
+
+v19 parts: 1 = function-pointer table entry with an integer table-family verdict (UICommandTable VERDICT uchar);
+2 = `__ct` returning this with no table/address refs; 3 = slot family joined through a base without its own vtable;
+null-arg callback = `move a3,zero` now fits AddTask's `void *`, so the callback's declared `bool` result ends the f0 chain.
+
+| # | Address | Function | Live signature | Proposed signature | v19 rule part | Evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 0x1814c0 | CAiStar::find_path | `undefined __stdcall CAiStar::find_path(CAiStar * this, CAiPath * path)` | `void __stdcall CAiStar::find_path(CAiStar * this, CAiPath * path)` | null-arg callback | chain ends at ai::TickPathPlanner, passed in a2 to AddTask with move a3,zero (0x17d524/0x17d528); bool result |
+| 2 | 0x1cd3c0 | CZAnim::Refresh | `undefined __stdcall CZAnim::Refresh(CZAnim * this, bool param_2)` | `void __stdcall CZAnim::Refresh(CZAnim * this, bool param_2)` | 1 table column | chain ends at UIRefreshGamePlayerList, only ref UICommandTable+0x410 (VERDICT uchar) |
+| 3 | 0x1d97a0 | zar::CZAR::Close | `undefined __stdcall zar::CZAR::Close(CZAR * this)` | `void __stdcall zar::CZAR::Close(CZAR * this)` | 1 table column | chain ReOpen -> FindRdr -> zrdr_read -> CSnd::UIOpen ends at UISysPostInit, UICommandTable+0x6a4 |
+| 4 | 0x1d9910 | zar::CZAR::SetFilename | `undefined __stdcall zar::CZAR::SetFilename(CZAR * this, char * filename)` | `void __stdcall zar::CZAR::SetFilename(CZAR * this, char * filename)` | 1 table column | same chain as Close, ends at UISysPostInit, UICommandTable+0x6a4 |
+| 5 | 0x1fa2b0 | UpdateCharWeaponUiVars | `undefined __stdcall UpdateCharWeaponUiVars(int param_1)` | `void __stdcall UpdateCharWeaponUiVars(int param_1)` | 1 table column | chain ends at OnRemoveEquipment, only ref UICommandTable+0x38 |
+| 6 | 0x23a860 | Particle::Source::Default | `undefined __stdcall Particle::Source::Default(Source * this)` | `void __stdcall Particle::Source::Default(Source * this)` | null-arg callback | via Particle::Source::Tick to Particle::Tick, AddTask at 0x23435c with move a3,zero |
+| 7 | 0x2cf7f0 | CSealUnit::Tick | `undefined __stdcall CSealUnit::Tick(CSealUnit * this, float param_2, void * param_3)` | `void __stdcall CSealUnit::Tick(CSealUnit * this, float param_2, void * param_3)` | null-arg callback | chain ends at CSealUnit::TickAll, AddTask at 0x17d3b0 with move a3,zero |
+| 8 | 0x2f4e90 | CIOPManager::RebootIOP | `undefined __stdcall CIOPManager::RebootIOP(CIOPManager * this, RebootMode param_2)` | `void __stdcall CIOPManager::RebootIOP(CIOPManager * this, RebootMode param_2)` | 1 table column | chain ends at UIRebootIOP, only ref UICommandTable+0x644 |
+| 9 | 0x2fbc50 | zdb::CGSTexBuffer::Hookup | `undefined __stdcall zdb::CGSTexBuffer::Hookup(CGSTexBuffer * this, CAssetLib * lib)` | `void __stdcall zdb::CGSTexBuffer::Hookup(CGSTexBuffer * this, CAssetLib * lib)` | 3 base-joined slot family | chain ends at CBatchRelocator::EndBatchReloc, whose family (with CTextureRelocMgr::EndBatchReloc, empty body) is void |
+| 10 | 0x31ac00 | CZProjectileList::PostTick | `undefined __stdcall CZProjectileList::PostTick(CZProjectileList * this, float param_2)` | `void __stdcall CZProjectileList::PostTick(CZProjectileList * this, float param_2)` | null-arg callback | chain ends at CZWeapon::PostTick, AddTask at 0x17d4fc with move a3,zero |
+| 11 | 0x31ad80 | CZProjectileList::PreTick | `undefined __stdcall CZProjectileList::PreTick(CZProjectileList * this, float param_2)` | `void __stdcall CZProjectileList::PreTick(CZProjectileList * this, float param_2)` | null-arg callback | chain ends at CZWeapon::PreTick, AddTask at 0x17d42c with move a3,zero (RECONSTRUCTION.md example) |
+| 12 | 0x380600 | CDblBufTextureRelocator::PreGetSprPacket | `undefined __stdcall CDblBufTextureRelocator::PreGetSprPacket(CDblBufTextureRelocator * this, CTexHandle * handle)` | `void __stdcall CDblBufTextureRelocator::PreGetSprPacket(CDblBufTextureRelocator * this, CTexHandle * handle)` | 3 base-joined slot family | own family with CTextureRelocMgr::PreGetSprPacket (__vt__Q23zdb15CBatchRelocator+0x10, empty body) |
+| 13 | 0x3f7b20 | CSaveManager::RegisterModule | `undefined __stdcall CSaveManager::RegisterModule(CSaveManager * this, CSaveModule * module)` | `void __stdcall CSaveManager::RegisterModule(CSaveManager * this, CSaveModule * module)` | 2 __ct contract | chain ends at CSaveModule::CSaveModule (returns this; 0 relocated words, 0 address-formed sites) |
+| 14 | 0x195210 | CAiPath::PostProcess | `undefined CAiPath::PostProcess(void)` | `void __stdcall CAiPath::PostProcess(CAiPath * this)` | null-arg callback | via plan_legcomplete to ai::TickPathPlanner (AddTask 0x17d524, a3=zero); receiver = caller entry a0 at 0x195a5c/0x195a7c |
+| 15 | 0x2f4490 | zsys_MemoryReport | `undefined zsys_MemoryReport(void)` | `void __stdcall zsys_MemoryReport(void)` | 1 table column | via RebootIOP to UIRebootIOP, UICommandTable+0x644; no params: __Fv, printf formats use only a1/a2 |
