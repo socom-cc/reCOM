@@ -256,13 +256,18 @@ public:
 		void Draw(float (&)[4][4]);
 		static int m_spr;
 	};
+	/* a glass / debris shard of DESTRUCTION_SOURCE (112 bytes: operator new 0x70 in Create
+	   0x2367a0): an Instance whose pool node carries its own one-triangle visual. No DWARF;
+	   the extra member is from the constructor 0x2368a0 and Tick 0x236390. */
 	class Destruction_Instance : public Particle::Instance
 	{
 	public:
 		virtual void Tick(float);
 		virtual void Render(const CMatrix &);
 		Destruction_Instance(const CPnt4D &, const CPnt4D &, const CPnt3D &, float, float, float, zdb::CVisual *, CPnt3D, Particle::Props *);
-		void Create(const CPnt4D &, const CPnt4D &, const CPnt3D &, float, float, float, zdb::CVisual *, CPnt3D, Particle::Props *);
+		static void Create(const CPnt4D &, const CPnt4D &, const CPnt3D &, float, float, float, zdb::CVisual *, CPnt3D, Particle::Props *); /* static: 0x2367a0 takes the position in a0 */
+
+		f32 m_opacity; /* +0x6c: the node's opacity, set again every tick */
 	};
 	static void Init();
 	static bool Tick(float, void *);
@@ -271,7 +276,9 @@ public:
 	static void ReserveNodePool();
 	static void FreeNodePool();
 	static void PullVisuals(zdb::CNode *, zdb::CDIVector *);
-	void CreateVisuals(CPnt3D *, CPnt3D *, CPnt3D *, CPnt3D, CPnt3D, CPnt3D, CMatrix, zdb::CTexHandle *, CPnt4D *, float, zdb::CModel *, CPnt3D *, CPnt3D *, CPnt3D *, Particle::Props *, float);
+	/* static: 0x232ea0 takes the first corner in a0; it returns the shard's visual (NULL when
+	   it split the triangle or made none) */
+	static zdb::CVisual * CreateVisuals(CPnt3D *, CPnt3D *, CPnt3D *, CPnt3D, CPnt3D, CPnt3D, CMatrix, zdb::CTexHandle *, CPnt4D *, float, zdb::CModel *, CPnt3D *, CPnt3D *, CPnt3D *, Particle::Props *, float);
 	static void Create3Sided(zdb::CDIVector *, zdb::CNode *, CPnt4D *, zdb::CTexHandle *, float, zdb::CModel *, CPnt3D *, CPnt3D *, CPnt3D *, CPnt3D *, Particle::Props *, float);
 	static void DestructionManager(zdb::CNode *, char *, CPnt4D *, float, CPnt3D *, CPnt3D *, CPnt3D *, CPnt3D *, int, float);
 	static zdb::CNode * GetFreeInstance();

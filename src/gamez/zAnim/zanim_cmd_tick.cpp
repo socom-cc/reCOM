@@ -81,6 +81,8 @@
 #include <string.h> /* memcpy */
 #include "gamez/zNode/node_world.h" /* CWorld::m_world (OBJECT_MOTION contacts) */
 #include "gamez/zMath/zmath_vu.h" /* Vu0MatrixInverseWithUniformScale */
+#include "gamez/zParticle/zparticle.h" /* Particle::DestructionManager (DESTRUCTION_SOURCE) */
+#include <stdio.h> /* sprintf (DESTRUCTION_SOURCE) */
 /* @socom-skeleton decl forward */
 class _zanim_object_motion_script;
 class zanim_script_frame_header;
@@ -101,9 +103,24 @@ bool zAnimQuadAlignTick(_zanim_cmd_hdr* header, f32* dT)
 }
 
 /* @socom-skeleton stub zAnimDestructorTick__FP14_zanim_cmd_hdrPf */
-bool zAnimDestructorTick(_zanim_cmd_hdr *, float *)
+bool zAnimDestructorTick(_zanim_cmd_hdr *header, float *)
 {
-	return true; /* port: stub - not written (command tick) */
+	/* 0x1bfd90 (DESTRUCTION_SOURCE): the anim's node (ref +0x4) breaks into shards
+	 * (Particle::DestructionManager) with the texture named by ref +0x5, strips +0x6, colour
+	 * +0x8, size +0x18, the velocity ranges x +0x1c..+0x20, y +0x24..+0x28, z +0x2c..+0x30,
+	 * life +0x34..+0x38, friction +0x3c, acceleration +0x40, opacity +0x4c. Done at once. */
+	u8* rec = reinterpret_cast<u8*>(header);
+	f32* f = reinterpret_cast<f32*>(header);
+	CZAnim* anim = ZAnim.m_CurAnim;
+	CPnt3D vel0(f[7], f[9], f[11]);
+	CPnt3D vel1(f[8], f[10], f[12]);
+	CPnt3D life(f[13], f[14], f[15]);
+	CPnt3D accel(f[16], f[17], f[18]);
+	char name[144];
+	sprintf(name, "%s", anim->GetName(rec[5]));
+	zdb::CNode* node = anim->GetNode(rec[4], false);
+	Particle::DestructionManager(node, name, reinterpret_cast<CPnt4D*>(rec + 8), f[6], &vel0, &vel1, &life, &accel, rec[6], f[19]);
+	return true;
 }
 
 /* @socom-skeleton stub zAnimTimerTick__FP14_zanim_cmd_hdrPf */

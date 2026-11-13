@@ -228,8 +228,33 @@ zdb::CVisData * zdb::CVisData::SearchVertex()
 }
 
 /* @socom-skeleton stub ReplaceTextureData__Q23zdb8CVisDataFP1 */
-void zdb::CVisData::ReplaceTextureData(unsigned __int128 *)
+void zdb::CVisData::ReplaceTextureData(unsigned __int128 *qwc)
 {
+	/* 0x310700: every texture select of the selected chain (type 5 REF, or an unresolved
+	 * type 6 name, which becomes type 5) is replaced by the given qword (a texture's
+	 * m_dmaRefVu). ELF quirks kept: a replaced type 5 keeps the new qword's byte 2 as its type
+	 * and loses one qword when a type 8 block follows */
+	const _word128* select = reinterpret_cast<const _word128*>(qwc);
+	m_pkt_idx = 0;
+	m_pkt = m_chain + 1;
+
+	for (; m_pkt_idx < m_pkt_count; m_pkt_idx++, m_pkt++)
+	{
+		u8 type = m_pkt->u8[2];
+
+		if (type == 5)
+		{
+			*m_pkt = *select;
+
+			if (m_pkt[1].u8[2] == 8)
+				m_pkt->u16[0]--;
+		}
+		else if (type == 6)
+		{
+			*m_pkt = *select;
+			m_pkt->u8[2] = 5;
+		}
+	}
 }
 
 /* @socom-skeleton body SetBilinear__Q23zdb8CVisDataFP1Ui */

@@ -940,8 +940,69 @@ void zdb::CVisual::SetBuffer(_word128 *chain, unsigned int instance, ::CVisBase 
 	}
 
 /* @socom-skeleton stub CopyBuffer__Q23zdb7CVisualFPP8CVisBaseUi */
-void zdb::CVisual::CopyBuffer(::CVisBase **, unsigned int)
+_word128 * zdb::CVisual::CopyBuffer(::CVisBase **out, unsigned int vid)
 {
+	/* 0x30d2b0 (Particle::CreateVisuals): a private copy of instance vid's model buffer in a new
+	 * CVisBase. When the chain was relocated, the copy's header is marked unrelocated again: its
+	 * batch blocks copied out of the buffer (type 8) are copied once more, the texture selects
+	 * (type 5) stay, every other packet's address is turned back into a buffer offset, so
+	 * SetBuffer relocates the copy onto its own buffer. Returns the copy's chain header.
+	 * ELF quirk kept: the qword loops are do-while (a zero count copies for ever / 65536). */
+	_word128* header = m_buffers[vid];
+	::CVisBase* vbase = reinterpret_cast<::CVisBase*>(header->u32[2]);
+	_word128* base = vbase->m_data_buffer;
+	_word128* old = reinterpret_cast<_word128*>(reinterpret_cast<u8*>(base) + vbase->m_node_ofs);
+	::CVisBase* copy = new ::CVisBase(vbase->m_data_size, false);
+	copy->m_node_ofs = vbase->m_node_ofs;
+
+	s32 qwc = (s32)vbase->m_data_size / 16;
+	_word128* from = base;
+	_word128* to = copy->m_data_buffer;
+
+	do
+	{
+		*to++ = *from++;
+	} while (--qwc != 0);
+
+	_word128* chain = reinterpret_cast<_word128*>(reinterpret_cast<u8*>(copy->m_data_buffer) + copy->m_node_ofs);
+
+	if (chain->u8[2] == 1)
+	{
+		chain->u8[2] = 0;
+		u32 count = chain->u16[0];
+		_word128* tag = chain + 1;
+		old++;
+
+		for (u32 i = 0; i < count; i++, tag++, old++)
+		{
+			u8 type = tag->u8[2];
+
+			if (type == 5)
+				continue;
+
+			if (type == 8)
+			{
+				u32 n = tag->u16[0];
+				_word128* block = static_cast<_word128*>(_malloc(n * 16, "vis_main.cpp", 875));
+				_word128* src = reinterpret_cast<_word128*>(tag->u32[1]);
+				_word128* dst = block;
+
+				do
+				{
+					*dst++ = *src++;
+				} while (--n != 0);
+
+				tag->u32[1] = reinterpret_cast<u32>(block);
+			}
+			else
+			{
+				tag->u32[1] = old->u32[1] - reinterpret_cast<u32>(base);
+			}
+		}
+	}
+
+	*out = copy;
+	return chain;
 }
 
 /* @socom-skeleton body Release__Q23zdb7CVisualFv */

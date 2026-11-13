@@ -554,21 +554,122 @@ void Particle::Instance::Render(const CMatrix &view)
 }
 
 /* @socom-skeleton stub __ct__Q28Particle20Destruction_InstanceFRC6CPnt4DRC6CPnt4DRC6CPnt3DfffPQ23zdb7CVisual6CPnt3DPQ28Particle5Props */
-Particle::Destruction_Instance::Destruction_Instance(const CPnt4D &, const CPnt4D &, const CPnt3D &, float, float, float, zdb::CVisual *, CPnt3D, Particle::Props *)
+Particle::Destruction_Instance::Destruction_Instance(const CPnt4D &pos, const CPnt4D &vel, const CPnt3D &spin, float radius, float lifespan, float opacity, zdb::CVisual *visual, CPnt3D scale, Particle::Props *props)
 {
+	/* 0x2368a0: no source; the Props gains a reference; a pool node carries the shard's visual
+	 * (the node transparent as the visual, at the shard's opacity) */
+	m_props = NULL;
+	m_source = NULL;
+	m_texture = NULL; /* port: the ELF leaves it (Destruction_Instance never reads it) */
+	m_prev = CPnt4D::zero; /* port: likewise */
+	props->m_refCount++;
+	m_pos = pos;
+	m_vel = vel;
+	m_age = 0.0f;
+	m_spin = spin;
+	m_props = props;
+	m_opacity = opacity;
+	m_radius = radius;
+	m_lifespan = lifespan;
+	m_invLifespan = 1.0f / lifespan;
+	m_node = GetFreeInstance();
+
+	if (m_node != NULL && visual != NULL)
+	{
+		m_node->AddVisual(visual);
+		m_node->m_transparent = visual->m_transparent && !visual->m_bumpmap;
+		m_node->m_Opacity = opacity;
+	}
+
+	m_scale = scale;
 }
 
 /* @socom-skeleton stub Create__Q28Particle20Destruction_InstanceFRC6CPnt4DRC6CPnt4DRC6CPnt3DfffPQ23zdb7CVisual6CPnt3DPQ28Particle5Props */
-void Particle::Destruction_Instance::Create(const CPnt4D &, const CPnt4D &, const CPnt3D &, float, float, float, zdb::CVisual *, CPnt3D, Particle::Props *)
+void Particle::Destruction_Instance::Create(const CPnt4D &pos, const CPnt4D &vel, const CPnt3D &spin, float radius, float lifespan, float opacity, zdb::CVisual *visual, CPnt3D scale, Particle::Props *props)
 {
+	/* 0x2367a0: a new shard at the end of the live instances */
+	Destruction_Instance* instance = new Destruction_Instance(pos, vel, spin, radius, lifespan, opacity, visual, scale, props);
+	Instance::list.insert(Instance::list.end(), instance);
 }
 
 /* @socom-skeleton stub Render__Q28Particle20Destruction_InstanceFRC7CMatrix */
 void Particle::Destruction_Instance::Render(const CMatrix &)
 {
+	/* 0x236750: a live shard's node is put at its position */
+	if (m_age < m_lifespan && m_node != NULL)
+		m_node->SetPosition(m_pos.x, m_pos.y, m_pos.z);
 }
 
 /* @socom-skeleton stub Tick__Q28Particle20Destruction_InstanceFf */
-void Particle::Destruction_Instance::Tick(float)
+void Particle::Destruction_Instance::Tick(float dT)
 {
+	/* 0x236390: ages by dT; expired, its node is hidden (the list frees it). Alive, it moves by
+	 * its velocity and the velocity gains the Props acceleration (with the list's m_dT); with a
+	 * node the fall gains another 20 a second, the node turns by the spin, takes the scale and
+	 * the opacity; with friction the velocity relaxes towards the wind (times the wind factor,
+	 * w 0) by exp(-friction * dT) as in Instance::Tick */
+	m_age += dT;
+
+	if (!(m_age < m_lifespan))
+	{
+		m_node->SetActive(false); /* ELF: no NULL test (virtual SetActive, vtable +0x34) */
+		return;
+	}
+
+	m_pos.x += m_vel.x * m_dT;
+	m_pos.y += m_vel.y * m_dT;
+	m_pos.z += m_vel.z * m_dT;
+	m_pos.w += m_vel.w * m_dT;
+	m_vel.x += m_props->m_accelW.x * m_dT;
+	m_vel.y += m_props->m_accelW.y * m_dT;
+	m_vel.z += m_props->m_accelW.z * m_dT;
+	m_vel.w += m_props->m_accelW.w * m_dT;
+
+	if (m_node != NULL)
+	{
+		CMatrix matrix;
+		m_vel.y -= 20.0f * m_dT;
+		CPnt3D rotation;
+		CPnt3D turn;
+		m_node->GetRotation(&rotation);
+		m_spin.Scale(m_dT, &turn);
+		rotation.Add(&turn, &rotation);
+		m_node->SetRotation(&rotation);
+		matrix.m_matrix[0][0] = m_scale.x;
+		matrix.m_matrix[1][1] = m_scale.y;
+		matrix.m_matrix[2][2] = m_scale.z;
+		sceVu0MulMatrix(matrix.m_matrix, m_node->m_matrix.m_matrix, matrix.m_matrix);
+		m_node->m_Opacity = m_opacity;
+		m_node->SetMatrix(&matrix);
+	}
+
+	if (m_props->m_friction != 0.0f)
+	{
+		const CPnt4D& wind = zdb::CWorld::m_world->m_Wind.m_Wind;
+		f32 factor = m_props->m_windFactor;
+		CPnt4D target(wind.x * factor, wind.y * factor, wind.z * factor, 0.0f);
+		f32 x = -m_props->m_friction * m_dT;
+		bool negative = x < 0.0f;
+
+		if (negative)
+			x = -x;
+
+		s32 halvings = 0;
+
+		for (; 0.5f < x; x *= 0.5f)
+			halvings++;
+
+		x = x * (x * (x * (x * ((x + 0.166666f) * x + 0.2f) + 0.25f) + 0.333333f) + 0.5f) + 1.0f;
+
+		for (; halvings != 0; halvings--)
+			x *= x;
+
+		if (negative)
+			x = 1.0f / x;
+
+		m_vel.x = target.x + (m_vel.x - target.x) * x;
+		m_vel.y = target.y + (m_vel.y - target.y) * x;
+		m_vel.z = target.z + (m_vel.z - target.z) * x;
+		m_vel.w = target.w + (m_vel.w - target.w) * x;
+	}
 }

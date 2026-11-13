@@ -371,7 +371,7 @@ public:
 		static _word128 * GetTextureSelectBlock_ver2(unsigned int, _word128 **, _word128 *, _word128 *);
 		zdb::CTexture * ResolveTextureName(_word128 *, unsigned int);
 		void SetBuffer(_word128 *, unsigned int, ::CVisBase *);
-		void CopyBuffer(::CVisBase **, unsigned int);
+		_word128 * CopyBuffer(::CVisBase **, unsigned int); /* 0x30d2b0 returns the copy's chain header (v0) */
 		_word128 * VuBatchProgram_Decals(_word128 *, tag_ObjectHeader *);
 		_word128 * VuObjectSetup(_word128 *, tag_ObjectHeader *);
 		_word128 * VuBatchProgram(_word128 *, tag_ObjectHeader *, zdb::tag_DETAIL_PARAMS *);

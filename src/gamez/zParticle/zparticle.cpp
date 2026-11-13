@@ -39,7 +39,10 @@
 #include "zparticle.h"
 /* @socom-skeleton end include */
 #include "gamez/zCamera/zcam.h" /* the camera position (Tick) */
+#include "gamez/zVisual/zvis.h" /* CVisual, CVisData (the shard visuals) */
+#include "gamez/zVisual/vis_local.h" /* CVisBase */
 #include <stdio.h> /* sprintf (pool node names) */
+#include <stdlib.h> /* rand */
 
 #ifndef SOCOM_PORT /* port: MSL <iostream> per-unit init objects; libstdc++ has no std::__msl_ios_base_* */
 /* @socom-skeleton stub __msl_ios_base_ninit__3std */
@@ -169,23 +172,273 @@ void Particle::FlushDynTexList()
 }
 
 /* @socom-skeleton stub PullVisuals__8ParticleFPQ23zdb5CNodePQ23zdb9CDIVector */
-void Particle::PullVisuals(zdb::CNode *, zdb::CDIVector *)
+void Particle::PullVisuals(zdb::CNode *node, zdb::CDIVector *polys)
 {
+	/* 0x233dc0: the DI polys of the node, then of its children, then (an instance node, type 2)
+	 * of its model, appended in that order */
+	if (node == NULL)
+		return;
+
+	for (zdb::CDIVector::iterator it = node->m_di.begin(); it != node->m_di.end(); ++it)
+		polys->insert(polys->end(), 1, *it);
+
+	for (zdb::CNodeVector::iterator it = node->m_child.begin(); it != node->m_child.end(); ++it)
+		PullVisuals(*it, polys);
+
+	if (node->m_type == 2)
+		PullVisuals(node->m_model, polys);
+}
+
+/* port: helpers for CreateVisuals - the ELF's soft-float fptosi (0x16d6b0) and fptoui saturate
+ * out-of-range values, and the stores keep the low half (sh) or byte (sb) */
+static inline s16 ShardFix16(f32 value)
+{
+	s32 v;
+
+	if (!(value < 2147483648.0f))
+		v = 0x7fffffff;
+	else if (!(value > -2147483648.0f))
+		v = (s32)0x80000000;
+	else
+		v = (s32)value;
+
+	return (s16)v;
+}
+
+static inline u8 ShardByte(f32 value)
+{
+	if (!(value > 0.0f))
+		return 0;
+
+	if (!(value < 4294967296.0f))
+		return 0xff;
+
+	return (u8)(u32)value;
 }
 
 /* @socom-skeleton stub CreateVisuals__8ParticleFP6CPnt3DP6CPnt3DP6CPnt3D6CPnt3D6CPnt3D6CPnt3D7CMatrixPQ23zdb10CTexHandleP6CPnt4DfPQ23zdb6CModelP6CPnt3DP6CPnt3DP6CPnt3DPQ28Particle5Propsf */
-void Particle::CreateVisuals(CPnt3D *, CPnt3D *, CPnt3D *, CPnt3D, CPnt3D, CPnt3D, CMatrix, zdb::CTexHandle *, CPnt4D *, float, zdb::CModel *, CPnt3D *, CPnt3D *, CPnt3D *, Particle::Props *, float)
+zdb::CVisual * Particle::CreateVisuals(CPnt3D *p0, CPnt3D *p1, CPnt3D *p2, CPnt3D uv0, CPnt3D uv1, CPnt3D uv2, CMatrix matrix, zdb::CTexHandle *texture, CPnt4D *colour, float size, zdb::CModel *model, CPnt3D *vel0, CPnt3D *vel1, CPnt3D *life, Particle::Props *props, float opacity)
 {
+	/* 0x232ea0: one world-space triangle of the broken object. Bigger than size (the length of
+	 * the summed corner cross products, i.e. twice its area) it is split at a random 0.4-0.6
+	 * along each edge into four, each handled again; else three in four become a shard: a copy
+	 * of the "fragment" model's first visual whose triangle gets these corners (relative to the
+	 * centre, x16), the colour, the texture (its VU select replaces the model's) and UVs (x4096),
+	 * thrown with a random velocity between vel0 and vel1, a spin of -5..5 a second on each axis
+	 * and a life between life x and y. Returns the shard's visual, else NULL.
+	 * ELF quirks kept: every corner gets the normal p0 x p1 (world space, not unit) times 32768;
+	 * the matrix is not used (the leaf's first centre sum from its translation is overwritten). */
+	zdb::CVisData data;
+	data.Clear();
+
+	CPnt3D n0;
+	CPnt3D n1;
+	CPnt3D n2;
+	p0->Cross(p1, &n0, false); /* inline Cross: w = 1 copies, sceVu0OuterProduct */
+	p1->Cross(p2, &n1, false);
+	p2->Cross(p0, &n2, false);
+
+	CPnt3D sum;
+	n0.Add(&n1, &sum);
+	sum.Add(&n2, &sum);
+
+	if (!(sqrtf(sum.x * sum.x + sum.y * sum.y + sum.z * sum.z) <= size))
+	{
+		f32 t = 0.4f + 0.2f * ((f32)rand() * 4.656613e-10f);
+		CPnt3D m01(p1->x + t * (p0->x - p1->x), p1->y + t * (p0->y - p1->y), p1->z + t * (p0->z - p1->z));
+		CPnt3D t01(uv1.x + t * (uv0.x - uv1.x), uv1.y + t * (uv0.y - uv1.y), 0.0f);
+		CPnt3D m12(p2->x + t * (p1->x - p2->x), p2->y + t * (p1->y - p2->y), p2->z + t * (p1->z - p2->z));
+		CPnt3D t12(uv2.x + t * (uv1.x - uv2.x), uv2.y + t * (uv1.y - uv2.y), 0.0f);
+		CPnt3D m20(p2->x + t * (p0->x - p2->x), p2->y + t * (p0->y - p2->y), p2->z + t * (p0->z - p2->z));
+		CPnt3D t20(uv2.x + t * (uv0.x - uv2.x), uv2.y + t * (uv0.y - uv2.y), 0.0f);
+
+		CreateVisuals(p0, &m01, &m20, uv0, t01, t20, matrix, texture, colour, size, model, vel0, vel1, life, props, opacity);
+		CreateVisuals(&m01, &m12, &m20, t01, t12, t20, matrix, texture, colour, size, model, vel0, vel1, life, props, opacity);
+		CreateVisuals(p1, &m01, &m12, uv1, t01, t12, matrix, texture, colour, size, model, vel0, vel1, life, props, opacity);
+		CreateVisuals(p2, &m20, &m12, uv2, t20, t12, matrix, texture, colour, size, model, vel0, vel1, life, props, opacity);
+		return NULL;
+	}
+
+	if (!((f32)rand() * 4.656613e-10f <= 0.75f))
+		return NULL;
+
+	CPnt3D centre;
+	p0->Add(p1, &centre);
+	centre.Add(p2, &centre);
+	centre.Scale(0.33333334f, &centre);
+
+	CPnt3D d[3];
+	p0->Sub(&centre, &d[0]);
+	p1->Sub(&centre, &d[1]);
+	p2->Sub(&centre, &d[2]);
+	const CPnt3D* uv[3] = { &uv0, &uv1, &uv2 };
+
+	::CVisBase* vbase = NULL;
+	_word128* chain = model->m_visual[0]->CopyBuffer(&vbase, 0);
+	zdb::CVisual* visual = new zdb::CVisual();
+	visual->m_buffers.insert(visual->m_buffers.end(), 1, static_cast<_word128*>(NULL));
+	visual->m_decals.insert(visual->m_decals.end(), 1, static_cast<zdb::CDecal*>(NULL));
+	visual->SetBuffer(chain, 0, vbase);
+
+	zdb::CVisData* vd = data.SelectVertex(visual, 0, 0);
+	zdb::CTexture* tex = texture->m_texture;
+	vd->ReplaceTextureData(reinterpret_cast<unsigned __int128*>(&tex->m_dmaRefVu));
+	visual->m_bumpmap = tex->m_bumpmap;
+	visual->m_transparent = tex->m_transparent && !tex->m_bumpmap;
+	visual->m_alpha_blend = tex->m_transparent && !tex->m_bumpmap && !(tex->m_transp_1bit && !tex->m_bilinear);
+	vd = vd->SelectVertex(visual, 0, 0);
+
+	for (s32 i = 0; i < 3; i++)
+	{
+		if (vd == NULL) /* port: guard - the ELF writes through it (the fragment model has a second triangle) */
+			return visual;
+
+		s16* vertex = vd->m_vertex;
+		u8* rgba = reinterpret_cast<u8*>(vd->m_color);
+		vertex[0] = ShardFix16(16.0f * d[i].x);
+		vertex[1] = ShardFix16(16.0f * d[i].y);
+		vertex[2] = ShardFix16(16.0f * d[i].z);
+		rgba[0] = ShardByte(0.5f + colour->x);
+		rgba[1] = ShardByte(0.5f + colour->y);
+		rgba[2] = ShardByte(0.5f + colour->z);
+		rgba[3] = ShardByte(0.5f + colour->w);
+		vertex[3] = ShardFix16(32768.0f * n0.x);
+		vertex[6] = ShardFix16(32768.0f * n0.y);
+		vertex[7] = ShardFix16(32768.0f * n0.z);
+		vertex[4] = ShardFix16(4096.0f * uv[i]->x);
+		vertex[5] = ShardFix16(4096.0f * uv[i]->y);
+		vd = vd->NextVertex(1);
+	}
+
+	if (vd != NULL) /* port: guard (see above) */
+	{
+		vd->m_batch_hdr[3] = 1; /* one triangle */
+		vd->m_batch_hdr[2] = 3; /* three vertices */
+	}
+
+	CPnt4D vel;
+	f32 base = vel0->x;
+	vel.x = base + (vel1->x - base) * ((f32)rand() * 4.656613e-10f);
+	base = vel0->y;
+	vel.y = base + (vel1->y - base) * ((f32)rand() * 4.656613e-10f);
+	base = vel0->z;
+	vel.z = base + (vel1->z - base) * ((f32)rand() * 4.656613e-10f);
+	vel.w = 0.0f; /* port: the ELF leaves it (stack) */
+
+	CPnt3D spin;
+	spin.x = -5.0f + 10.0f * ((f32)rand() * 4.656613e-10f);
+	spin.y = -5.0f + 10.0f * ((f32)rand() * 4.656613e-10f);
+	spin.z = -5.0f + 10.0f * ((f32)rand() * 4.656613e-10f);
+
+	base = life->x;
+	f32 lifespan = base + (life->y - base) * ((f32)rand() * 4.656613e-10f);
+	CPnt4D pos(centre.x, centre.y, centre.z, 0.0f); /* port: w (the ELF leaves it) */
+	Destruction_Instance::Create(pos, vel, spin, 0.0f, lifespan, opacity, visual, CPnt3D(1.0f, 1.0f, 1.0f), props);
+	(void)matrix;
+	return visual;
 }
 
 /* @socom-skeleton stub Create3Sided__8ParticleFPQ23zdb9CDIVectorPQ23zdb5CNodeP6CPnt4DPQ23zdb10CTexHandlefPQ23zdb6CModelP6CPnt3DP6CPnt3DP6CPnt3DP6CPnt3DPQ28Particle5Propsf */
-void Particle::Create3Sided(zdb::CDIVector *, zdb::CNode *, CPnt4D *, zdb::CTexHandle *, float, zdb::CModel *, CPnt3D *, CPnt3D *, CPnt3D *, CPnt3D *, Particle::Props *, float)
+void Particle::Create3Sided(zdb::CDIVector *polys, zdb::CNode *node, CPnt4D *colour, zdb::CTexHandle *texture, float size, zdb::CModel *model, CPnt3D *vel0, CPnt3D *vel1, CPnt3D *life, CPnt3D *accel, Particle::Props *props, float opacity)
 {
+	/* 0x232a50: each poly is cut into a fan of triangles (corner 0 with each later pair); the
+	 * corners go to world space through the node's model-to-world matrix and the UVs come from
+	 * each point's w word (u the high half, signed; v the low half; / 4096). The colour's alpha
+	 * becomes 100 for every triangle (the DESTRUCTION_SOURCE record itself). accel is not used
+	 * (the Props carry it). */
+	CMatrix mtw;
+	sceVu0UnitMatrix(mtw.m_matrix);
+	node->BuildMTW(mtw);
+	(void)accel;
+
+	for (zdb::CDIVector::iterator it = polys->begin(); it != polys->end(); ++it)
+	{
+		zdb::CDI* poly = *it;
+		const CPnt4D* pts = poly->m_pts;
+		CPnt3D p[3];
+		CPnt3D uv[3];
+
+		for (s32 k = 0; k < 3; k++)
+			uv[k].z = 0.0f;
+
+		s32 w = *reinterpret_cast<const s32*>(&pts[0].w);
+		uv[0].x = 2.4414e-4f * (f32)(w >> 16);
+		uv[0].y = 2.4414e-4f * (f32)(w & 0xffff);
+		CPnt3D local(pts[0].x, pts[0].y, pts[0].z);
+		mtw.Transform(&local, &p[0], 1);
+
+		for (s32 i = 1; i < (s32)poly->m_ptcount - 1; i++)
+		{
+			for (s32 k = 1; k < 3; k++)
+			{
+				const CPnt4D& pt = pts[i + k - 1];
+				w = *reinterpret_cast<const s32*>(&pt.w);
+				uv[k].x = 2.4414e-4f * (f32)(w >> 16);
+				uv[k].y = 2.4414e-4f * (f32)(w & 0xffff);
+				local = CPnt3D(pt.x, pt.y, pt.z);
+				mtw.Transform(&local, &p[k], 1);
+			}
+
+			colour->w = 100.0f;
+			CreateVisuals(&p[0], &p[1], &p[2], uv[0], uv[1], uv[2], mtw, texture, colour, size, model, vel0, vel1, life, props, opacity);
+		}
+	}
 }
 
 /* @socom-skeleton stub DestructionManager__8ParticleFPQ23zdb5CNodePcP6CPnt4DfP6CPnt3DP6CPnt3DP6CPnt3DP6CPnt3Dif */
-void Particle::DestructionManager(zdb::CNode *, char *, CPnt4D *, float, CPnt3D *, CPnt3D *, CPnt3D *, CPnt3D *, int, float)
+void Particle::DestructionManager(zdb::CNode *node, char *texname, CPnt4D *colour, float size, CPnt3D *vel0, CPnt3D *vel1, CPnt3D *life, CPnt3D *accel, int strips, float opacity)
 {
+	/* 0x232820 (DESTRUCTION_SOURCE): the node's DI polys (its subtree's and its instance
+	 * model's) become shards with the named texture (else null_xmas.bmp; neither: nothing),
+	 * which joins the particles' texture list with its palette, made from the "fragment" model.
+	 * One Props for them all: friction life.z, acceleration accel, no reference of its own.
+	 * Only strips 0 makes shards. ELF quirk kept: the Props leaks when none are made. */
+	if (node == NULL)
+		return;
+
+	zdb::CDIVector polys;
+	PullVisuals(node, &polys);
+	zdb::CTexHandle* texture = zdb::CWorld::GetTexHandle(texname);
+
+	if (texture == NULL || texture->m_texture == NULL)
+	{
+		texture = zdb::CWorld::GetTexHandle("null_xmas.bmp");
+
+		if (texture == NULL || texture->m_texture == NULL)
+			return;
+	}
+
+	m_dyntexlist.Add(texture, true);
+
+	if (texture->m_texture->m_palette != NULL)
+		m_dyntexlist.Add(texture->m_texture->m_palette, true);
+
+	zdb::CModel* model = zdb::CWorld::GetModel("fragment");
+
+	if (model == NULL)
+		return;
+
+	Props* props = Props::Create();
+	props->m_friction = life->z;
+	props->m_accelW.x = accel->x;
+	props->m_accelW.y = accel->y;
+	props->m_accelW.z = accel->z;
+	props->m_refCount = 0;
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("DESTR: %s: %u polys, texture %s, fragment model %p (%u visuals), strips %d", node->m_name != NULL ? node->m_name : "-",
+		(u32)polys.size(), texname, model, (u32)model->m_visual.size(), strips);
+#endif
+
+	if (strips != 0)
+		return;
+
+#ifdef SOCOM_PORT
+	u32 before = (u32)Instance::list.size();
+#endif
+	Create3Sided(&polys, node, colour, texture, size, model, vel0, vel1, life, accel, props, opacity);
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("DESTR: %u shards", (u32)Instance::list.size() - before);
+#endif
 }
 
 /* @socom-skeleton stub GetFreeInstance__8ParticleFv */
