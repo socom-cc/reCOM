@@ -439,7 +439,7 @@ public:
 	f32 m_rCx;
 	f32 m_rCy;
 	f32 m_Radius;
-	void CircleSegmentClip(CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *);
+	int CircleSegmentClip(CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *); /* 0..4 (CZLineMap::Clip switches on it) */
 };
 }
 /* @socom-skeleton end Q23zdb11CCircleClip */

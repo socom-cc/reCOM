@@ -405,6 +405,15 @@ public:
 	void UpdateExplosives();
 	CZMPBombMapItem * FindMPBombItem();
 	/* @socom-skeleton end 11CZNewHudMap */
+	/* WorldToDraw__11CZNewHudMapCFRC6CPnt3D 0x3c8b10 (inline, emitted in hud_linemap.cpp's
+	 * unit): a world point through the map matrix, y scaled about the centre (CalcDrawPos) */
+	CPnt3D WorldToDraw(const CPnt3D &world) const
+	{
+		CPnt3D draw;
+		m_matrix.Transform(&world, &draw, 1);
+		draw.y = CalcDrawPos(draw.y);
+		return draw;
+	}
 };
 
 class CWeaponSel : public C2D
@@ -1211,10 +1220,11 @@ public:
 };
 /* @socom-skeleton end 17CZClaymoreMapItem */
 /* @socom-skeleton decl 9CZLineMap */
+class C2DWidePolyline;
 class CZLineMap : public CZMapItem
 {
 public:
-	virtual ~CZLineMap() {}
+	virtual ~CZLineMap(); /* 0x3c7210 (hud_linemap.cpp) */
 	virtual bool Tick(CZNewHudMap *, float);
 	virtual void Draw(zdb::CCamera *);
 	virtual void Clip(CZNewHudMap *);
@@ -1228,9 +1238,9 @@ public:
 	u32 m_lastline;                  /* +0xfa30 */
 	C2DString m_stringlist[32];      /* +0xfa34 */
 	u32 m_laststring;                /* +0x10b34 */
-	std::vector<C2D*> m_vecTriangles;               /* +0x10b38: port: element type unproven (Draw calls the C2D Draw slot) */
+	std::vector<C2DPoly*> m_vecTriangles;            /* +0x10b38: the polygon fan triangles (SetupPolygon news C2DPolys, kept and reused) */
 	s32 m_iNumActiveTriangles;                       /* +0x10b44 */
-	std::vector<std::vector<C2D*>*> m_vecWideLines;  /* +0x10b48: port: element type unproven (vectors of C2D pointers, Tick deletes both) */
+	std::vector<C2DWidePolyline*> m_vecWideLines;    /* +0x10b48: the wide lines of this tick (TickLine) */
 	std::vector<CPlainBmp*> m_vecBitmaps;            /* +0x10b54: the anchor icons TickAnchors makes each tick */
 	zdb::CTexture* m_linetex;                        /* +0x10b60: FOV.tif (CZNewHudMap::InitMap) */
 	C2DLine * LineTo(const CPnt3D *);

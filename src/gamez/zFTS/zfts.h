@@ -218,7 +218,7 @@ public:
 	f32 m_wait_before_falling;
 
 	std::vector<CObjAnchor*> m_anchor_extraction;
-	// std::vector<CNavPoint> m_navpoints;
+	std::vector<CCompassAnchor*> m_navpoints; /* DWARF +0x8c (MSL pointer vector): the compass anchors of the AI maps' named places (CreateCompassNavPoints) */
 	std::vector<SObjectiveCam_Anchor> m_objanchor_vec; /* DWARF +0x98 CObjAnchorVec: compass anchors of the current objectives (TickObjectives) */
 	CMissionObjectiveCam* m_prev_selected_objcam;
 	f32 m_objectives_timer;

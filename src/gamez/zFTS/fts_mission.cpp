@@ -841,13 +841,40 @@ void CMission::PreOpen(const char* db)
 }
 
 /* @socom-skeleton stub FilterNavPointString__FPCc */
-void FilterNavPointString(const char *)
+unsigned short FilterNavPointString(const char *name)
 {
+	/* 0x1f8700: a nav point's compass anchor type from its name's first letter: 'c'..'z'
+	 * (any case) are types 9..32 (the compass images of those letters), anything else 0 */
+	s32 letter = (s8)tolower(name[0]) - 'c';
+
+	if (letter < 0 || letter >= 24)
+		return 0;
+
+	return (unsigned short)(letter + 9);
 }
 
 /* @socom-skeleton stub CreateCompassNavPoints__8CMissionFv */
 void CMission::CreateCompassNavPoints()
 {
+	/* 0x1f85f0 (CMission::Open): a compass anchor at the cell of every AI-map name of type 1
+	 * (AiMaps.m_names[1]), named and typed by it (FilterNavPointString), keeping the name
+	 * record as its map location; kept in m_navpoints (Close deletes them) */
+	CAiMap::names& names = AiMaps.m_names[1];
+	u32 count = names.size();
+
+	for (u32 i = 0; i < count; i++)
+	{
+		CAiMap::name* name = &names[i];
+		CPnt3D pos;
+		AiMaps.GetCellCenter(name->m_loc, &pos); /* ELF: the result is not tested */
+		CCompassAnchor* anchor = CCompass::CreateAnchor(pos, name->m_name);
+		anchor->m_type = FilterNavPointString(name->m_name);
+		anchor->m_aiMapLoc = &name->m_loc;
+		m_navpoints.push_back(anchor);
+	}
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("MISSION: %u compass nav points", (u32)m_navpoints.size());
+#endif
 }
 
 /* @socom-skeleton stub Open__8CMissionFPCci */
@@ -1350,10 +1377,16 @@ void CMission::Close()
 		m_anchor_extraction.pop_back();
 	}
 
-	/* port: not written - m_navpoints (+0x8c) and m_objanchor_vec (+0x98) are not declared
-	 * (CreateCompassNavPoints is unwritten); the ELF deletes their anchors the same way */
+	while (!m_navpoints.empty())
+	{
+		CZSealBody::m_compass.DeleteAnchor(m_navpoints.back());
+		m_navpoints.pop_back();
+	}
+
+	/* port: not written - the ELF deletes m_objanchor_vec's (+0x98) anchors the same way */
 	CZSealBody::m_compass.Close();
 	std::vector<CObjAnchor*>().swap(m_anchor_extraction);
+	std::vector<CCompassAnchor*>().swap(m_navpoints);
 #ifdef SOCOM_PORT
 	SOCOM_PORT_TRACE("MISSION: Close done");
 #endif

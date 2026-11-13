@@ -774,6 +774,14 @@ public:
 	 * action cell's offset direction (8 none); false off the map */
 	bool GetCellPos(const CAiMapLoc &loc, CPnt3D &out);
 
+	/* GetCellCenter__6CAiMapCFRC9CAiMapLocP6CPnt3D 0x197cb0 (an out-of-line copy of the same
+	 * inline code; the tac map's line, region and polygon walkers call it): the cell's position
+	 * as GetCellPos computes it, out, or NULL off the map */
+	CPnt3D * GetCellCenter(const CAiMapLoc &loc, CPnt3D *out) const
+	{
+		return const_cast<CAiMap *>(this)->GetCellPos(loc, *out) ? out : NULL;
+	}
+
 	/* port: inline in the ELF everywhere (soil 0 none, 8, 9, 10 blocked) */
 	static bool IsWalkable(const CAiCell *cell)
 	{

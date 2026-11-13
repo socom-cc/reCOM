@@ -521,6 +521,88 @@ CFRect::CFRect()
 }
 
 /* @socom-skeleton stub CircleSegmentClip__Q23zdb11CCircleClipFP6CPnt4DP6CPnt4DP6CPnt4DP6CPnt4DP6CPnt4DP6CPnt4DP6CPnt4DP6CPnt4DP6CPnt4DP6CPnt4DP6CPnt4DP6CPnt4D */
-void zdb::CCircleClip::CircleSegmentClip(CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *)
+int zdb::CCircleClip::CircleSegmentClip(CPnt4D *po0, CPnt4D *po1, CPnt4D *pi0, CPnt4D *pi1, CPnt4D *rgbo0, CPnt4D *rgbo1, CPnt4D *rgbi0, CPnt4D *rgbi1, CPnt4D *uvo0, CPnt4D *uvo1, CPnt4D *uvi0, CPnt4D *uvi1)
 {
+	/* 0x220170: the segment pi0 -> pi1 (x, y) against the circle (m_Cx, m_Cy) radius
+	 * m_Radius. m_rCx keeps the centre's distance along the segment, m_rCy its distance off
+	 * it. 0: no part inside (po0.x / po1.x may be written); 3: wholly inside (nothing
+	 * written); 1: the start is clipped (po0, rgbo0, uvo0); 2: the end is clipped (po1,
+	 * rgbo1, uvo1); 4: both. A clipped end's colour and UV are interpolated
+	 * (sceVu0InterVector, written out here) at its fraction of the length; only its x and y
+	 * are written. */
+	f32 dx = pi1->x - pi0->x;
+	f32 dy = pi1->y - pi0->y;
+	f32 len = sqrtf(dx * dx + dy * dy);
+	f32 inv = len;
+
+	if (len != 0.0f)
+		inv = 1.0f / len;
+
+	f32 ox = dx;
+	f32 oy = dy;
+	dx *= inv;
+	dy *= inv;
+	f32 length = ox * dx + oy * dy;
+	f32 cx = m_Cx - pi0->x;
+	f32 cy = m_Cy - pi0->y;
+	m_rCx = cx * dx + cy * dy;
+	f32 off = cy * dx - cx * dy;
+	m_rCy = off;
+
+	if (off < 0.0f)
+		m_rCy = -off;
+
+	if (!(m_rCy <= m_Radius))
+		return 0;
+
+	f32 h = sqrtf(m_Radius * m_Radius - m_rCy * m_rCy);
+	f32 t1 = m_rCx + h;
+	po1->x = t1;
+
+	if (t1 <= 0.0f)
+		return 0;
+
+	f32 t0 = m_rCx - h;
+	po0->x = t0;
+
+	if (!(t0 < length))
+		return 0;
+
+	bool clip0 = 0.0f < t0;
+	bool clip1 = !(length <= po1->x);
+
+	if (!clip0 && !clip1)
+		return 3;
+
+	int result = clip0 ? (clip1 ? 4 : 1) : 2;
+
+	if (clip0)
+	{
+		f32 f = length != 0.0f ? t0 / length : 0.0f;
+
+		for (int c = 0; c < 4; c++)
+		{
+			(&rgbo0->x)[c] = (&rgbi1->x)[c] * f + (&rgbi0->x)[c] * (1.0f - f);
+			(&uvo0->x)[c] = (&uvi1->x)[c] * f + (&uvi0->x)[c] * (1.0f - f);
+		}
+
+		po0->y = pi0->y + po0->x * dy;
+		po0->x = pi0->x + po0->x * dx;
+	}
+
+	if (clip1)
+	{
+		f32 f = length != 0.0f ? po1->x / length : 0.0f;
+
+		for (int c = 0; c < 4; c++)
+		{
+			(&rgbo1->x)[c] = (&rgbi1->x)[c] * f + (&rgbi0->x)[c] * (1.0f - f);
+			(&uvo1->x)[c] = (&uvi1->x)[c] * f + (&uvi0->x)[c] * (1.0f - f);
+		}
+
+		po1->y = pi0->y + po1->x * dy;
+		po1->x = pi0->x + po1->x * dx;
+	}
+
+	return result;
 }

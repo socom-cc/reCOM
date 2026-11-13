@@ -48,8 +48,16 @@ void CTeamMateNames::UnInit()
 }
 
 /* @socom-skeleton stub WordIntersectionTest__FiiiiP9C2DString */
-unsigned char WordIntersectionTest(int, int, int, int, C2DString *)
+unsigned char WordIntersectionTest(int x1, int y1, int x2, int y2, C2DString *str)
 {
+	/* 0x3dece0: does the box (x1, y1)-(x2, y2) overlap the string's box (its position in
+	 * pixels, its length wide, its font's display height high)? */
+	s32 left = str->m_pos.x >> 4;
+	s32 top = str->m_pos.y >> 4;
+	s32 bottom = top + (str->m_font->m_displaybottom - str->m_font->m_displaytop);
+	s32 right = (s32)((f32)left + str->m_length);
+
+	return x1 < right && left < x2 && y1 < bottom && top < y2;
 }
 
 /* @socom-skeleton stub Tick__14CTeamMateNamesFf */

@@ -31,51 +31,214 @@ static int zOffset = 2;
 /* @socom-skeleton stub __ct__7C2DLineFv */
 C2DLine::C2DLine()
 {
+	/* 0x300980: the C2D defaults, placeholder vertices (w 1), white at alpha 100, no
+	 * texture, UVs from @1340 (0x43a870: (0, 1, 1, 0) and (1, 0, 1, 0)), then grey 128 and
+	 * (virtual) SetTrans 127 */
+	m_vertex[0][0] = -6.3e-05f;
+	m_vertex[0][1] = -4.6e-05f;
+	m_vertex[0][2] = 0.0001f;
+	m_vertex[0][3] = 1.0f;
+	m_vertex[1][0] = -3e-05f;
+	m_vertex[1][1] = -2e-05f;
+	m_vertex[1][2] = 0.0001f;
+	m_vertex[1][3] = 1.0f;
+	m_x = 0;
+	m_y = 0;
+	do3D = 0;
+
+	for (int i = 0; i < 2; i++)
+	{
+		m_RGB[i][0] = 255.0f;
+		m_RGB[i][1] = 255.0f;
+		m_RGB[i][2] = 255.0f;
+		m_RGB[i][3] = 100.0f;
+	}
+
+	m_texture = NULL;
+	m_NewUV[0][0] = 0.0f;
+	m_NewUV[0][1] = 1.0f;
+	m_NewUV[0][2] = 1.0f;
+	m_NewUV[0][3] = 0.0f;
+	m_NewUV[1][0] = 1.0f;
+	m_NewUV[1][1] = 0.0f;
+	m_NewUV[1][2] = 1.0f;
+	m_NewUV[1][3] = 0.0f;
+
+	for (int i = 0; i < 2; i++)
+	{
+		m_RGB[i][0] = 128.0f;
+		m_RGB[i][1] = 128.0f;
+		m_RGB[i][2] = 128.0f;
+	}
+
+	SetTrans(127.0f);
 }
 
 /* @socom-skeleton stub SetColor__7C2DLineFfff */
-void C2DLine::SetColor(float, float, float)
+void C2DLine::SetColor(float r, float g, float b)
 {
+	/* 0x300960: both ends */
+	m_RGB[0][0] = r;
+	m_RGB[0][1] = g;
+	m_RGB[0][2] = b;
+	m_RGB[1][0] = r;
+	m_RGB[1][1] = g;
+	m_RGB[1][2] = b;
 }
 
 /* @socom-skeleton stub SetTrans__7C2DLineFf */
-void C2DLine::SetTrans(float)
+void C2DLine::SetTrans(float trans)
 {
+	/* 0x300930 */
+	m_RGB[0][3] = trans;
+	m_RGB[1][3] = trans;
+	m_isTrans = true;
 }
 
 /* @socom-skeleton stub Load__7C2DLineFffffPQ23zdb8CTexture */
-void C2DLine::Load(float, float, float, float, zdb::CTexture *)
+void C2DLine::Load(float x0, float y0, float x1, float y1, zdb::CTexture *texture)
 {
+	/* 0x300800: the ends truncated to whole pixels, then to GS window coordinates; without a
+	 * texture nothing is placed (ELF: only `first` is cleared) */
+	m_texture = texture;
+
+	if (m_texture == NULL)
+	{
+		if (first)
+			first = false;
+
+		return;
+	}
+
+	m_x = (s32)x0;
+	m_y = (s32)y0;
+	m_vertex[0][0] = C2D::m_topx + (f32)m_x * C2D::m_fXPixel;
+	m_vertex[0][1] = C2D::m_topy + (f32)m_y * C2D::m_fYPixel;
+	m_vertex[1][0] = C2D::m_topx + (f32)(s32)x1 * C2D::m_fXPixel;
+	m_vertex[1][1] = C2D::m_topy + (f32)(s32)y1 * C2D::m_fYPixel;
 }
 
 /* @socom-skeleton stub SetPos__7C2DLineFiiii */
-void C2DLine::SetPos(int, int, int, int)
+void C2DLine::SetPos(int x0, int y0, int x1, int y1)
 {
+	/* 0x300780: as Load without the texture */
+	m_x = x0;
+	m_y = y0;
+	m_vertex[0][0] = C2D::m_topx + (f32)x0 * C2D::m_fXPixel;
+	m_vertex[0][1] = C2D::m_topy + (f32)y0 * C2D::m_fYPixel;
+	m_vertex[1][0] = C2D::m_topx + (f32)x1 * C2D::m_fXPixel;
+	m_vertex[1][1] = C2D::m_topy + (f32)y1 * C2D::m_fYPixel;
 }
 
 /* @socom-skeleton stub SetUV__7C2DLineFffff */
-void C2DLine::SetUV(float, float, float, float)
+void C2DLine::SetUV(float u0, float v0, float u1, float v1)
 {
+	/* 0x300760: T is stored negated */
+	m_NewUV[0][0] = u0;
+	m_NewUV[0][1] = -v0;
+	m_NewUV[1][0] = u1;
+	m_NewUV[1][1] = -v1;
 }
 
 /* @socom-skeleton stub Draw__7C2DLineFPQ23zdb7CCamera */
-void C2DLine::Draw(zdb::CCamera *)
+void C2DLine::Draw(zdb::CCamera *camera)
 {
+	/* 0x300700: only a line with a texture is drawn, then the children */
+	if (!IsOn() || m_texture == NULL)
+		return;
+
+	MakePacket(camera);
+	C2D::Draw(camera);
 }
 
 /* @socom-skeleton stub MakePacket__7C2DLineFPQ23zdb7CCamera */
 void C2DLine::MakePacket(zdb::CCamera *)
 {
+	/* 0x300520: one GS LINE kicked straight into the MFIFO (sceVif1Pk calls):
+	 *   [the texture's REF tag]                                         if m_texture
+	 *   CNT n (VIF NOP, DIRECT n)
+	 *   GIFtag (@1407 0x43a890: REGS 0x412) NLOOP 2 EOP PRE NREG 3, PRIM LINE | TME
+	 *          (m_hasTexture) | ABE (m_isTrans) | AA1 (m_isAA), PACKED ST RGBAQ XYZ2
+	 *   per end: ST m_NewUV[i], RGBAQ ftoi0(m_RGB[i]),
+	 *            XYZ2 vftoi4 x/y (truncated, no rounding), z 1000, ftoi0 w */
+	_word128* packet = reinterpret_cast<_word128*>(zSysSprGetPacket(NULL));
+	_word128* cnt = packet;
+
+	if (m_texture != NULL)
+	{
+		*cnt = m_texture->m_dmaRef;
+		cnt++;
+	}
+
+	_word128* p = cnt + 1;
+	u64 prim = 1; /* LINE */
+
+	if (m_hasTexture)
+		prim |= 0x10;
+	if (m_isTrans)
+		prim |= 0x40;
+	if (m_isAA)
+		prim |= 0x80;
+
+	p->u64[0] = 2 | 0x8000 | 0x400000000000ull | (prim << 47) | 0x3000000000000000ull;
+	p->u64[1] = 0x412; /* ST, RGBAQ, XYZ2 */
+	p++;
+
+	for (int i = 0; i < 2; i++)
+	{
+		p->f32[0] = m_NewUV[i][0];
+		p->f32[1] = m_NewUV[i][1];
+		p->f32[2] = m_NewUV[i][2];
+		p->f32[3] = m_NewUV[i][3];
+		p++;
+
+		for (int c = 0; c < 4; c++)
+			p->u32[c] = (u32)(s32)m_RGB[i][c]; /* sceVu0FTOI0Vector */
+		p++;
+
+		p->u32[0] = (u32)(s32)(m_vertex[i][0] * 16.0f); /* vftoi4 */
+		p->u32[1] = (u32)(s32)(m_vertex[i][1] * 16.0f);
+		p->u32[2] = 1000;
+		p->u32[3] = (u32)(s32)m_vertex[i][3];
+		p++;
+	}
+
+	u32 qwc = (u32)(p - cnt) - 1;
+	cnt->u32[0] = qwc | 0x10000000; /* DMAtag CNT */
+	cnt->u32[1] = 0;
+	cnt->u32[2] = 0;                /* VIF NOP */
+	cnt->u32[3] = qwc | 0x50000000; /* VIF DIRECT */
+	zSysFifoKick(reinterpret_cast<unsigned __int128*>(packet), (u32)(p - packet));
 }
 
 /* @socom-skeleton stub FillClipInfo__7C2DLineFPA4_fPA4_fPA4_f */
-void C2DLine::FillClipInfo(float (*)[4], float (*)[4], float (*)[4])
+void C2DLine::FillClipInfo(float (*pos)[4], float (*rgb)[4], float (*uv)[4])
 {
+	/* 0x300480: both ends' vertex, colour and UV out */
+	for (int i = 0; i < 2; i++)
+	{
+		for (int c = 0; c < 4; c++)
+		{
+			pos[i][c] = m_vertex[i][c];
+			rgb[i][c] = m_RGB[i][c];
+			uv[i][c] = m_NewUV[i][c];
+		}
+	}
 }
 
 /* @socom-skeleton stub SetClipInfo__7C2DLineFPA4_fPA4_fPA4_fi */
-void C2DLine::SetClipInfo(float (*)[4], float (*)[4], float (*)[4], int)
+void C2DLine::SetClipInfo(float (*pos)[4], float (*rgb)[4], float (*uv)[4], int)
 {
+	/* 0x3003e0: both ends back in (the count is not read) */
+	for (int i = 0; i < 2; i++)
+	{
+		for (int c = 0; c < 4; c++)
+		{
+			m_vertex[i][c] = pos[i][c];
+			m_RGB[i][c] = rgb[i][c];
+			m_NewUV[i][c] = uv[i][c];
+		}
+	}
 }
 
 /* @socom-skeleton stub Draw3DLine__FP6CPnt4DP6CPnt4DP6CPnt4DP6CPnt4D */
@@ -98,7 +261,24 @@ void clip3DLine(CPnt4D *, CPnt4D *, CPnt4D *)
 {
 }
 
-/* port: stub GetAssetLibs__7C2DLineFRQ23C2D8CLibList (no owner in the render) */
-void C2DLine::GetAssetLibs(C2D::CLibList &) /* port: stub */
+/* port: GetAssetLibs__7C2DLineFRQ23C2D8CLibList 0x2ffb20 has no skeleton fence */
+void C2DLine::GetAssetLibs(C2D::CLibList &libs)
 {
+	/* 0x2ffb20: the texture's asset library (ELF quirk: added only when the search result
+	 * is a NULL pointer, as C2DPoly::GetAssetLibs), then the children's */
+	if (m_texture != NULL && m_texture->m_AssetLib != NULL)
+	{
+		zdb::CAssetLib* lib = m_texture->m_AssetLib;
+		zdb::CAssetLib** i = libs.data();
+		zdb::CAssetLib** last = i + libs.size();
+
+		while (i != last && *i != lib)
+			i++;
+
+		if (i == NULL)
+			libs.insert(libs.end(), lib);
+	}
+
+	for (auto c = begin(); c != end(); ++c)
+		(*c)->GetAssetLibs(libs);
 }

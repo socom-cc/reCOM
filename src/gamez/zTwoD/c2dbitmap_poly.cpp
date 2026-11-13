@@ -282,6 +282,95 @@ void C2DBitmapPoly::GetAssetLibs(C2D::CLibList& libs)
 }
 
 /* @socom-skeleton stub SetSegments__15C2DWidePolylineFP6CPtItrf */
-void C2DWidePolyline::SetSegments(CPtItr *, float)
+void C2DWidePolyline::SetSegments(CPtItr *it, float width)
 {
+	/* 0x2fd370: one quad (a new C2DBitmapPoly, untextured) per segment of the iterator's
+	 * points, width wide: its start edge is the previous quad's end edge, a joint between two
+	 * segments is mitred (the offset along the bisector of the two half-width normals, scaled
+	 * so it stands half the width off both segments), the last end is square. The quads go to
+	 * _vecSegments; the caller colours them. Fewer than two points make nothing.
+	 * (CPnt2D$1514 of this unit, the ELF's two-float point, is PNT2D here.) */
+	if (!it->IsValid())
+		return;
+
+	PNT2D a = it->GetPt();
+	it->Advance();
+
+	if (!it->IsValid())
+		return;
+
+	PNT2D b = it->GetPt();
+	f32 half = 0.5f * width;
+
+	/* the current segment a -> b and its half-width normal n (d.y, -d.x) */
+	PNT2D seg0 = a;
+	PNT2D seg1 = b;
+	f32 dx = b.x - a.x;
+	f32 dy = b.y - a.y;
+	f32 k = half / (f32)sqrt((double)(dx * dx + dy * dy));
+	f32 nx = dy * k;
+	f32 ny = dx * -k;
+
+	PNT2D prevL, prevR, curL, curR;
+	prevL.x = seg0.x + nx;
+	prevL.y = seg0.y + ny;
+	prevR.x = seg0.x - nx;
+	prevR.y = seg0.y - ny;
+
+	for (;;)
+	{
+		it->Advance();
+
+		if (!it->IsValid())
+		{
+			/* the last end: square */
+			curL.x = seg1.x + nx;
+			curL.y = seg1.y + ny;
+			curR.x = seg1.x - nx;
+			curR.y = seg1.y - ny;
+		}
+		else
+		{
+			PNT2D c = it->GetPt();
+			f32 ex = c.x - b.x;
+			f32 ey = c.y - b.y;
+			f32 k2 = half / (f32)sqrt((double)(ex * ex + ey * ey));
+			f32 n2x = ey * k2;
+			f32 n2y = ex * -k2;
+
+			/* the mitre: the mean of the two offset points, pushed out to half the width */
+			PNT2D q1, q0;
+			q1.x = b.x + n2x;
+			q1.y = b.y + n2y;
+			q0.x = seg1.x + nx;
+			q0.y = seg1.y + ny;
+			f32 vx = (q0.x + q1.x) * 0.5f - b.x;
+			f32 vy = (q0.y + q1.y) * 0.5f - b.y;
+			f32 s = (0.25f * (width * width)) / (vx * vx + vy * vy);
+			f32 ox = vx * s;
+			f32 oy = vy * s;
+			curL.x = b.x + ox;
+			curL.y = b.y + oy;
+			curR.x = b.x - ox;
+			curR.y = b.y - oy;
+
+			/* the next segment b -> c */
+			seg0 = b;
+			seg1 = c;
+			b = c;
+			nx = n2x;
+			ny = n2y;
+		}
+
+		C2DBitmapPoly* quad = new C2DBitmapPoly;
+		_vecSegments.push_back(quad);
+		quad->m_tris[0].SetPos(prevL.x, prevL.y, prevR.x, prevR.y, curL.x, curL.y);
+		quad->m_tris[1].SetPos(prevL.x, prevL.y, curL.x, curL.y, curR.x, curR.y);
+
+		if (!it->IsValid())
+			return;
+
+		prevL = curL;
+		prevR = curR;
+	}
 }

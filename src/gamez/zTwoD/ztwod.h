@@ -749,6 +749,14 @@ public:
 	void MakePacket(zdb::CCamera *);
 	void FillClipInfo(float (*)[4], float (*)[4], float (*)[4]);
 	void SetClipInfo(float (*)[4], float (*)[4], float (*)[4], int);
+	/* DWARF members (160 bytes, hud_newhudmap.cpp CU) */
+	s32 m_x;               /* +0x1c */
+	s32 m_y;               /* +0x20 */
+	f32 m_vertex[2][4];    /* +0x30 GS window x, y (z, w unused by the packet but for w) */
+	f32 m_RGB[2][4];       /* +0x50 */
+	f32 m_NewUV[2][4];     /* +0x70 S, -T, Q */
+	zdb::CTexture* m_texture; /* +0x90 Draw needs one */
+	u8 do3D;               /* +0x94 cleared by the ctor; no reader in the map code */
 };
 /* @socom-skeleton end 7C2DLine */
 /* @socom-skeleton decl 9C2DTriFan */
@@ -766,6 +774,9 @@ class C2DWidePolyline
 {
 public:
 	void SetSegments(CPtItr *, float);
+	/* DWARF member (12 bytes, hud_linemap.cpp CU); element type unproven: SetSegments news
+	 * C2DBitmapPolys into it and CZLineMap::TickLine calls C2DBitmapPoly::SetColor on them */
+	std::vector<C2DBitmapPoly*> _vecSegments;
 };
 /* @socom-skeleton end 15C2DWidePolyline */
 #endif

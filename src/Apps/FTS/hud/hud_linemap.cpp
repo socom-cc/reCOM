@@ -71,23 +71,63 @@
 /* @socom-skeleton decl forward */
 class C2DLine;
 /* @socom-skeleton end forward */
+unsigned char WordIntersectionTest(int, int, int, int, C2DString *); /* port: hud_teammatenames.cpp 0x3dece0 (no header declares it) */
 /* @socom-skeleton decl Q225@unnamed@hud_linemap_cpp@12CAiLinePtItr */
 namespace {
+/* DWARF: 28 bytes (_line @4, _it @8, _map @0xc, _pt @0x10). The points of an AI-map line in
+ * map draw coordinates for C2DWidePolyline::SetSegments; cells off the map are skipped.
+ * port: the ctor is inline in CZLineMap::TickLine (0x3c8f0c) */
 class CAiLinePtItr : public CPtItr
 {
 public:
+	CAiLinePtItr(const CAiMap::line &line, CZLineMap &map) : _line(line), _it(line.data()), _map(map) { }
 	virtual void Advance()
 	{
+		/* 0x3cab20: the next point, past cells off the map */
+		_it++;
+
+		while (IsValid())
+		{
+			if (_map.m_map->GetCellCenter(*_it, &_pt) != NULL)
+			{
+				_pt = _map.m_hudmap->WorldToDraw(_pt);
+				return;
+			}
+
+			_it++;
+		}
 	}
 	virtual PNT2D GetPt() const
 	{
+		/* 0x3cabe0 */
+		PNT2D pt;
+		pt.x = _pt.x;
+		pt.y = _pt.y;
+		return pt;
 	}
 	virtual bool IsValid() const
 	{
+		/* 0x3c91c0: not at the line's end */
+		return _it != _line.data() + _line.size();
 	}
 	void FindValid()
 	{
+		/* 0x3c90f0: the first point on the map from the current one */
+		while (IsValid())
+		{
+			if (_map.m_map->GetCellCenter(*_it, &_pt) != NULL)
+			{
+				_pt = _map.m_hudmap->WorldToDraw(_pt);
+				return;
+			}
+
+			_it++;
+		}
 	}
+	const CAiMap::line &_line;
+	const CAiMapLoc *_it;
+	CZLineMap &_map;
+	CPnt3D _pt;
 };
 }
 /* @socom-skeleton end Q225@unnamed@hud_linemap_cpp@12CAiLinePtItr */
@@ -198,16 +238,165 @@ CZLineMap::CZLineMap()
 	m_linetex = NULL;
 }
 
-/* @socom-skeleton stub LineTo__9CZLineMapFPC6CPnt3D */
-C2DLine * CZLineMap::LineTo(const CPnt3D *)
+/* port: __dt__9CZLineMapFv 0x3c7210 has no skeleton fence (hud.h declared it inline) */
+CZLineMap::~CZLineMap()
 {
+	/* 0x3c7210: every triangle made (active or not), every wide line with its quads and
+	 * every anchor icon; the line and string arrays destroy themselves */
+	for (u32 i = 0; i < m_vecTriangles.size(); i++)
+		delete m_vecTriangles[i];
+
+	for (u32 i = 0; i < m_vecWideLines.size(); i++)
+	{
+		C2DWidePolyline* wide = m_vecWideLines[i];
+
+		if (wide == NULL)
+			continue;
+
+		for (u32 j = 0; j < wide->_vecSegments.size(); j++)
+			delete wide->_vecSegments[j];
+
+		delete wide;
+	}
+
+	for (u32 i = 0; i < m_vecBitmaps.size(); i++)
+		delete m_vecBitmaps[i];
+}
+
+/* port: TickLine and SetupPolygon inline the same two lookups (no symbol). A line type's
+ * colour: the hud.rdr TacMap entry of the type, else for types 0..6 the built-in _linedata
+ * entry types[type] names, else none. */
+static const LINE_DATA *FindLineData(const std::map<int, LINE_DATA> &props, s32 type, const LINE_TYPES *types)
+{
+	std::map<int, LINE_DATA>::const_iterator it = props.find(type);
+
+	if (it != props.end())
+		return &it->second;
+
+	if (type >= 0 && type < 7)
+		return &_linedata[types[type]];
+
+	return NULL;
+}
+
+/* port: the other inline lookup: the line's id (non-zero) is one of the current objective's
+ * LINE_IDS, so it pulses */
+static bool IsObjectiveLine(CZNewHudMap *hudmap, u32 id)
+{
+	if (id == 0)
+		return false;
+
+	CMissionObjectiveCam* objective = hudmap->m_objectivelist.GetCurrentObjective();
+
+	if (objective == NULL)
+		return false;
+
+	for (u32 i = 0; i < objective->m_vecLines.size(); i++)
+	{
+		if (id == objective->m_vecLines[i])
+			return true;
+	}
+
+	return false;
+}
+
+/* @socom-skeleton stub LineTo__9CZLineMapFPC6CPnt3D */
+C2DLine * CZLineMap::LineTo(const CPnt3D *world)
+{
+	/* 0x3ca5e0: a line from the last point (m_pointA) to this one (m_pointB, map draw
+	 * coordinates), unless both ends lie past the same edge of the map rectangle or the 400
+	 * lines are used up; textured with the FOV texel (0.5, 0.9375) and switched on. The point
+	 * becomes the next line's start either way. */
+	CPnt3D draw;
+	m_hudmap->m_matrix.Transform(world, &draw, 1);
+	draw.y = m_hudmap->CalcDrawPos(draw.y);
+	m_pointB = draw;
+
+	C2DLine* line = NULL;
+	bool outside = (m_pointA.x < m_hudmap->m_screenx1 && m_pointB.x < m_hudmap->m_screenx1)
+		|| (m_pointA.x > m_hudmap->m_screenx2 && m_pointB.x > m_hudmap->m_screenx2)
+		|| (m_pointA.y < m_hudmap->m_screeny1 && m_pointB.y < m_hudmap->m_screeny1)
+		|| (m_pointA.y > m_hudmap->m_screeny2 && m_pointB.y > m_hudmap->m_screeny2);
+
+	if (!outside)
+	{
+		if (m_lastline < 400)
+			line = &m_linelist[m_lastline++];
+
+		if (line != NULL)
+		{
+			line->Load(m_pointA.x, m_pointA.y, m_pointB.x, m_pointB.y, m_linetex);
+			line->SetUV(0.5f, 0.9375f, 0.5f, 0.9375f);
+			line->On();
+		}
+	}
+
+	m_pointA = m_pointB;
+	return line;
 }
 
 /* @socom-skeleton stub SetupPolygon__9CZLineMapFRCQ26CAiMap4linefb */
-void CZLineMap::SetupPolygon(const CAiMap::line &, float, bool)
+void CZLineMap::SetupPolygon(const CAiMap::line &line, float fPulseTrans, bool bDistant)
 {
+	/* 0x3c9950: a filled polygon line as a fan of triangles from its first point (C2DPolys
+	 * kept in m_vecTriangles and reused tick to tick), textured with the FOV texel, coloured
+	 * by the type's TacMap Polygons entry (else the built-in one); the current objective's
+	 * polygons pulse, another visible map's are a quarter as opaque. A point off the map ends
+	 * the polygon. */
 	/* @socom-skeleton stub c_arrTypes$2525 */
 	static const LINE_TYPES c_arrTypes[7] = {(LINE_TYPES)0, (LINE_TYPES)2, (LINE_TYPES)4, (LINE_TYPES)5, (LINE_TYPES)6, (LINE_TYPES)7, (LINE_TYPES)8};
+
+	if (line.size() < 3)
+		return;
+
+	const CAiMapLoc* loc = line.data();
+	CPnt3D p0, p1, p2;
+
+	if (m_map->GetCellCenter(loc[0], &p0) == NULL)
+		return;
+
+	p0 = m_hudmap->WorldToDraw(p0);
+
+	if (m_map->GetCellCenter(loc[1], &p1) == NULL)
+		return;
+
+	p1 = m_hudmap->WorldToDraw(p1);
+
+	const LINE_DATA* data = FindLineData(g_mapPolyProps, line.m_type, c_arrTypes);
+	bool bObjective = IsObjectiveLine(m_hudmap, line.m_id);
+	float fOpacity = data != NULL ? data->opacity : 0.0f;
+	float fTrans = bObjective ? fPulseTrans : fOpacity;
+
+	if (bDistant)
+		fTrans *= 0.25f;
+
+	for (const CAiMapLoc* it = loc + 2; ; )
+	{
+		if (m_map->GetCellCenter(*it, &p2) == NULL)
+			return;
+
+		p2 = m_hudmap->WorldToDraw(p2);
+
+		if ((u32)m_iNumActiveTriangles == m_vecTriangles.size())
+			m_vecTriangles.push_back(new C2DPoly);
+
+		C2DPoly* tri = m_vecTriangles[m_iNumActiveTriangles++];
+		tri->Load(p0.x, p0.y, p1.x, p1.y, p2.x, p2.y, m_linetex);
+		tri->SetUV(0.5f, 0.9375f, 0.5f, 0.9375f, 0.5f, 0.9375f);
+
+		if (data != NULL)
+		{
+			tri->SetColor(data->color.x, data->color.y, data->color.z);
+			tri->SetTrans(fTrans);
+		}
+
+		it++;
+
+		if (it == line.data() + line.size())
+			return;
+
+		p1 = p2;
+	}
 }
 
 /* @socom-skeleton stub Tick__9CZLineMapFP11CZNewHudMapf */
@@ -239,15 +428,15 @@ bool CZLineMap::Tick(CZNewHudMap *map, float dT)
 
 	for (u32 i = 0; i < m_vecWideLines.size(); i++)
 	{
-		std::vector<C2D*>* segments = m_vecWideLines[i];
+		C2DWidePolyline* wide = m_vecWideLines[i];
 
-		if (segments == NULL)
+		if (wide == NULL)
 			continue;
 
-		for (u32 j = 0; j < segments->size(); j++)
-			delete (*segments)[j];
+		for (u32 j = 0; j < wide->_vecSegments.size(); j++)
+			delete wide->_vecSegments[j];
 
-		delete segments;
+		delete wide;
 	}
 
 	m_vecWideLines.clear();
@@ -286,6 +475,15 @@ bool CZLineMap::Tick(CZNewHudMap *map, float dT)
 	}
 
 	TickAnchors(g_fPulseTrans);
+#ifdef SOCOM_PORT
+	{
+		/* port trace: what the tac map drew, every 2 s while the full-screen map is open */
+		static u32 s_traceTick = 0;
+
+		if (map->m_isFullScreen && (s_traceTick++ % 60) == 0)
+			SOCOM_PORT_TRACE("TACMAP: map %u lines %u strings %u tris %d wide %u icons %u (ai lines %u regions %u names %u)", viewer_map, m_lastline, m_laststring, m_iNumActiveTriangles, (u32)m_vecWideLines.size(), (u32)m_vecBitmaps.size(), m_map != NULL ? (u32)m_map->m_lineTable.size() : 0, m_map != NULL ? (u32)m_map->m_regionTable.size() : 0, m_map != NULL ? (u32)m_map->m_namesTable.size() : 0);
+	}
+#endif
 	m_map = NULL;
 	m_hudmap = NULL;
 	return false;
@@ -344,30 +542,335 @@ void CZLineMap::TickAnchors(float fPulseTrans)
 }
 
 /* @socom-skeleton stub TickLine__9CZLineMapFRCQ26CAiMap4linefb */
-void CZLineMap::TickLine(const CAiMap::line &, float, bool)
+void CZLineMap::TickLine(const CAiMap::line &line, float fPulseTrans, bool bDistant)
 {
+	/* 0x3c8cc0: an AI-map line in its type's TacMap Lines colour (else the built-in one), at
+	 * the type's opacity (the current objective's lines pulse; another visible map's are a
+	 * quarter as opaque). Wider than 1.01: one C2DWidePolyline of quads; else thin C2DLines
+	 * cell centre to cell centre (LineTo drops those outside the map rectangle). */
+	/* port: SetupPolygon's c_arrTypes$2525 (0x465618) is read here too (the lookup is
+	 * inline in both); this copy holds the same values */
+	static const LINE_TYPES c_arrTypes[7] = {(LINE_TYPES)0, (LINE_TYPES)2, (LINE_TYPES)4, (LINE_TYPES)5, (LINE_TYPES)6, (LINE_TYPES)7, (LINE_TYPES)8};
+
+	if (line.size() == 0)
+		return;
+
+	const LINE_DATA* data = FindLineData(g_mapLineProps, line.m_type, c_arrTypes);
+	bool bObjective = IsObjectiveLine(m_hudmap, line.m_id);
+	float fOpacity = data != NULL ? data->opacity : 0.0f;
+	float fTrans = bObjective ? fPulseTrans : fOpacity;
+
+	if (bDistant)
+		fTrans *= 0.25f;
+
+	if (data != NULL && !(data->_fWidth <= 1.01f))
+	{
+		PNT3D color = data->color;
+		float fWidth = data->_fWidth;
+		C2DWidePolyline* wide = new C2DWidePolyline;
+		m_vecWideLines.push_back(wide);
+
+		CAiLinePtItr itr(line, *this);
+		itr.FindValid();
+		wide->SetSegments(&itr, fWidth);
+
+		for (u32 i = 0; i < wide->_vecSegments.size(); i++)
+			wide->_vecSegments[i]->SetColor(color.x, color.y, color.z);
+
+		float fScale = 0.0078125f * fTrans;
+
+		for (u32 i = 0; i < wide->_vecSegments.size(); i++)
+			wide->_vecSegments[i]->SetTrans(128.0f * fScale);
+
+		return;
+	}
+
+	const CAiMapLoc* loc = line.data();
+	CPnt3D pos;
+
+	if (m_map->GetCellCenter(*loc, &pos) != NULL)
+		m_pointA = m_hudmap->WorldToDraw(pos);
+
+	for (loc++; loc != line.data() + line.size(); loc++)
+	{
+		C2DLine* segment = NULL;
+
+		if (m_map->GetCellCenter(*loc, &pos) != NULL)
+			segment = LineTo(&pos);
+
+		if (segment != NULL && data != NULL)
+		{
+			segment->SetColor(data->color.x, data->color.y, data->color.z);
+			segment->SetTrans(fTrans);
+		}
+	}
 }
 
 /* @socom-skeleton stub TickLines__9CZLineMapFRC6CAiMapfb */
-void CZLineMap::TickLines(const CAiMap &, float, bool)
+void CZLineMap::TickLines(const CAiMap &map, float fPulseTrans, bool bDistant)
 {
+	/* 0x3c8be0: every line of the map: drawn unless it is a polygon without outline; a
+	 * polygon is also filled */
+	for (const CAiMap::line* line = map.m_lineTable.data(); line != map.m_lineTable.data() + map.m_lineTable.size(); line++)
+	{
+		if (!line->m_polygon || line->m_outline)
+			TickLine(*line, fPulseTrans, bDistant);
+
+		if (line->m_polygon)
+			SetupPolygon(*line, fPulseTrans, bDistant);
+	}
 }
 
 /* @socom-skeleton stub TickRegions__9CZLineMapFRC6CAiMapb */
-void CZLineMap::TickRegions(const CAiMap &, bool)
+void CZLineMap::TickRegions(const CAiMap &map, bool bDistant)
 {
+	/* 0x3c86b0: the outline of every region of type 1 or 5, corner cell centre to corner
+	 * cell centre, in _linedata[1]'s colour and opacity (a quarter for another visible map).
+	 * The three far corners are taken on map id 0. */
 	/* @socom-skeleton stub ld$2688 */
 	static const LINE_DATA &ld = _linedata[1]; /* port: _linedata is const */
+
+	float fTrans = ld.opacity;
+
+	if (bDistant)
+		fTrans *= 0.25f;
+
+	for (const CAiMap::region* region = map.m_regionTable.data(); region != map.m_regionTable.data() + map.m_regionTable.size(); region++)
+	{
+		if (region->m_type != 1 && region->m_type != 5)
+			continue;
+
+		CAiMapLoc corners[4];
+		corners[0] = region->m_loc;
+		corners[1].m_mapid = 0;
+		corners[1].x = region->m_loc.x + region->m_dx - 1;
+		corners[1].y = region->m_loc.y;
+		corners[2].m_mapid = 0;
+		corners[2].x = region->m_loc.x + region->m_dx - 1;
+		corners[2].y = region->m_loc.y + region->m_dy - 1;
+		corners[3].m_mapid = 0;
+		corners[3].x = region->m_loc.x;
+		corners[3].y = region->m_loc.y + region->m_dy - 1;
+
+		CPnt3D pos;
+
+		if (m_map->GetCellCenter(corners[0], &pos) != NULL)
+			m_pointA = m_hudmap->WorldToDraw(pos);
+
+		for (int i = 1; i <= 4; i++)
+		{
+			C2DLine* segment = NULL;
+
+			if (m_map->GetCellCenter(corners[i & 3], &pos) != NULL)
+				segment = LineTo(&pos);
+
+			if (segment != NULL)
+			{
+				segment->SetColor(ld.color.x, ld.color.y, ld.color.z);
+				segment->SetTrans(fTrans);
+			}
+		}
+	}
+}
+
+/* port: TickWayPoints repeats this inline (no symbol): the next free map label, NULL when
+ * the 32 are used up */
+static C2DString *NextMapString(C2DString *strings, u32 &last)
+{
+	if (last < 32)
+		return &strings[last++];
+
+	return NULL;
+}
+
+/* port: TickWayPoints' inline label placement: a map label at a map point in the HUD font,
+ * 0.8 scale, dark green */
+static void LoadMapString(C2DString *str, const char *text, const CPnt3D &draw)
+{
+	str->m_color.x = 30.0f;
+	str->m_color.y = 100.0f;
+	str->m_color.z = 30.0f;
+	str->Load(0.8f, text, theHUD->m_myfont, (s32)draw.x, (s32)draw.y);
+	str->UpdatePos();
 }
 
 /* @socom-skeleton stub TickWayPoints__9CZLineMapFRC6CAiMapb */
-void CZLineMap::TickWayPoints(const CAiMap &, bool)
+void CZLineMap::TickWayPoints(const CAiMap &map, bool bDistant)
 {
+	/* 0x3c7a70: the map's labels (dark green, 0.8 scale, the HUD font):
+	 * - on the viewer's own map: "ABLE" centred on the player, "BRAVO" on the first seal of
+	 *   team 8 (switched on);
+	 * - the names of type 1 or 5 at their cells (20 left, 5 down): whole on the full-screen
+	 *   map, only the first letter on the small one;
+	 * then labels that overlap one another (each grown by 10 around, 15 below) are pushed
+	 * down 3 pixels at a time - the lower of the two - and the check starts over.
+	 * The points go through the map matrix only (no CalcDrawPos, as the ELF). */
+	if (!bDistant)
+	{
+		bool bBravo = false;
+
+		for (CEntityList::iterator it = CEntity::m_list.begin(); it != CEntity::m_list.end(); ++it)
+		{
+			CEntity* entity = *it;
+			CZSealBody* seal = entity != NULL && entity->m_type == CEntity::ENT_TYPE_SEAL ? static_cast<CZSealBody*>(entity) : NULL;
+
+			if (seal == NULL)
+				continue;
+
+			const char* text = NULL;
+
+			if (seal->m_control != NULL && static_cast<CSealCtrl*>(seal->m_control)->IsPlayer())
+				text = "ABLE";
+			else if ((seal->m_team & 8) != 0 && !bBravo)
+			{
+				bBravo = true;
+				text = "BRAVO";
+			}
+
+			if (text == NULL)
+				continue;
+
+			C2DString* str = NextMapString(m_stringlist, m_laststring);
+
+			if (str == NULL) /* port: the ELF writes through NULL with all 32 labels used */
+				continue;
+
+			CPnt3D draw;
+			m_hudmap->m_matrix.Transform(seal->GetPosW(), &draw, 1);
+			LoadMapString(str, text, draw);
+			str->m_pos.x = (s32)(draw.x - str->m_length / 2.0f) << 4;
+			str->m_pos.y = (s32)draw.y << 4;
+			str->On();
+		}
+	}
+
+	for (const CAiMap::name* name = map.m_namesTable.data(); name != map.m_namesTable.data() + map.m_namesTable.size(); name++)
+	{
+		if (name->m_type != 1 && name->m_type != 5)
+			continue;
+
+		CPnt3D pos;
+
+		if (map.GetCellCenter(name->m_loc, &pos) == NULL)
+			continue;
+
+		CPnt3D draw;
+		m_hudmap->m_matrix.Transform(&pos, &draw, 1);
+		draw.x += -20.0f;
+		draw.y += 5.0f;
+
+		C2DString* str = NextMapString(m_stringlist, m_laststring);
+
+		if (str == NULL)
+			continue;
+
+		if (m_hudmap->m_isFullScreen)
+			LoadMapString(str, name->m_name, draw);
+		else
+		{
+			char initial[2] = { name->m_name[0], '\0' }; /* @2737: a two-byte zero */
+			LoadMapString(str, initial, draw);
+		}
+	}
+
+	for (s32 i = 0; i < (s32)m_laststring; i++)
+	{
+		for (s32 j = 0; j < i; j++)
+		{
+			C2DString& a = m_stringlist[i];
+			C2DString& b = m_stringlist[j];
+			float x = (float)(a.m_pos.x >> 4);
+			float y = (float)(a.m_pos.y >> 4);
+			float w = a.m_length;
+
+			if (!WordIntersectionTest((s32)(x - 10.0f), (s32)(y - 10.0f), (s32)(10.0f + (x + w)), (s32)(15.0f + y), &b))
+				continue;
+
+			if (b.m_pos.y < a.m_pos.y)
+			{
+				y += 3.0f;
+				a.m_pos.x = (s32)x << 4;
+				a.m_pos.y = (s32)y << 4;
+			}
+			else
+			{
+				b.m_pos.x = (b.m_pos.x >> 4) << 4;
+				b.m_pos.y = ((b.m_pos.y >> 4) + 3) << 4;
+				i = -1;
+			}
+
+			j = -1;
+
+			if (i < 0)
+				break;
+		}
+	}
 }
 
 /* @socom-skeleton stub Clip__9CZLineMapFP11CZNewHudMap */
-void CZLineMap::Clip(CZNewHudMap *)
+void CZLineMap::Clip(CZNewHudMap *map)
 {
+	/* 0x3c76e0: every line of this tick against the map's clip circle (radius four half
+	 * widths on the full-screen map: nothing is cut there); the cut ends are written back,
+	 * a line wholly outside is switched off. No clipper, no clipping. */
+	for (u32 i = 0; i < m_lastline && i < 400; i++)
+	{
+		zdb::CCircleClip* clipper = map->m_circleclipper;
+
+		if (clipper == NULL)
+			return;
+
+		C2DLine* line = &m_linelist[i];
+		line->FillClipInfo(m_pi, m_rgbi, m_uvi);
+
+		bool bVisible = true;
+
+		switch (clipper->CircleSegmentClip((CPnt4D*)m_po[0], (CPnt4D*)m_po[1], (CPnt4D*)m_pi[0], (CPnt4D*)m_pi[1],
+			(CPnt4D*)m_rgbo[0], (CPnt4D*)m_rgbo[1], (CPnt4D*)m_rgbi[0], (CPnt4D*)m_rgbi[1],
+			(CPnt4D*)m_uvo[0], (CPnt4D*)m_uvo[1], (CPnt4D*)m_uvi[0], (CPnt4D*)m_uvi[1]))
+		{
+		case 0:
+			bVisible = false;
+			break;
+		case 1: /* the start was cut: the end as it was */
+			for (int c = 0; c < 4; c++)
+			{
+				m_po[1][c] = m_pi[1][c];
+				m_rgbo[1][c] = m_rgbi[1][c];
+				m_uvo[1][c] = m_uvi[1][c];
+			}
+			break;
+		case 2: /* the end was cut: the start as it was */
+			for (int c = 0; c < 4; c++)
+			{
+				m_po[0][c] = m_pi[0][c];
+				m_rgbo[0][c] = m_rgbi[0][c];
+				m_uvo[0][c] = m_uvi[0][c];
+			}
+			break;
+		case 3: /* wholly inside */
+			for (int e = 0; e < 2; e++)
+			{
+				for (int c = 0; c < 4; c++)
+				{
+					m_po[e][c] = m_pi[e][c];
+					m_rgbo[e][c] = m_rgbi[e][c];
+					m_uvo[e][c] = m_uvi[e][c];
+				}
+			}
+			break;
+		default: /* 4: both ends cut */
+			break;
+		}
+
+		if (bVisible)
+		{
+			line->SetClipInfo(m_po, m_rgbo, m_uvo, 2);
+			line->On();
+		}
+		else
+			line->Off();
+	}
 }
 
 /* @socom-skeleton stub Draw__9CZLineMapFPQ23zdb7CCamera */
@@ -383,10 +886,10 @@ void CZLineMap::Draw(zdb::CCamera *camera)
 
 	for (u32 i = 0; i < m_vecWideLines.size(); i++)
 	{
-		std::vector<C2D*>* segments = m_vecWideLines[i];
+		C2DWidePolyline* wide = m_vecWideLines[i];
 
-		for (u32 j = 0; j < segments->size(); j++)
-			(*segments)[j]->Draw(camera);
+		for (u32 j = 0; j < wide->_vecSegments.size(); j++)
+			wide->_vecSegments[j]->Draw(camera);
 	}
 
 	for (u32 i = 0; i < m_vecBitmaps.size(); i++)
