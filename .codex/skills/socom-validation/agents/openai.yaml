@@ -1,4 +1,0 @@
-interface:
-  display_name: "soCOM Validation"
-  short_description: "Run the correct soCOM checks"
-  default_prompt: "Use $socom-validation to select and run the narrowest trustworthy validation for a soCOM change."

@@ -1,4 +1,0 @@
-interface:
-  display_name: "soCOM Source Owner Scrutiny"
-  short_description: "Review positive source-owner claims"
-  default_prompt: "Use $socom-source-owner-scrutiny to independently review a proposed soCOM source-owner or source-shape claim."

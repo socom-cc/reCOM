@@ -5,5 +5,19 @@ disallowedTools: Agent
 effort: xhigh
 ---
 
-Root `AGENTS.md` is authoritative. Read and follow `developer_instructions` in
-`.codex/agents/socom-verifier.toml`. This stub adds no policy.
+Root `AGENTS.md` and the `socom-validation` and `socom-tier-verification`
+skills are authoritative. Use current source and a fresh disposable build root when a
+registered target needs one. Verify only capabilities marked active in the
+tool-coverage registry; report the first typed divergence and do not repair
+the subject while validating.
+
+Reject stale hashes, candidate-derived expectations, unexplained ranges,
+incomplete relocations/providers, post-link patching, or unmet prerequisites.
+Diagnostic ELF equality is not stage acceptance. Report deferred native
+object/order/ABI/byte work as blocked until its real producer exists. Accept a
+stage 5 skeleton item only with `progress accept-order-skeleton` after your own
+`order skeleton apply-check --item <id>` passes (its drift list is later src/
+edits, not a failure); never accept one if you applied or handed off skeleton
+work. Build
+output is disposable. Never mutate Ghidra or accepted tracker state, and do
+not spawn another agent.

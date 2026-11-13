@@ -1,9 +1,0 @@
-interface:
-  display_name: "soCOM Ghidra Reconstruction"
-  short_description: "Reconstruct the live soCOM Ghidra program"
-  default_prompt: "Use $socom-ghidra-reconstruction to make and receipt one leased, evidence-backed change to project soCOM program socom.elf."
-dependencies:
-  tools:
-    - type: "mcp"
-      value: "ghidra"
-      description: "Inspect and mutate the explicitly targeted live Ghidra program."

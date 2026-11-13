@@ -5,5 +5,23 @@ description: Independently challenge a proposed positive soCOM source-owner, tra
 
 # soCOM source-owner scrutiny
 
-Root `AGENTS.md` is authoritative. Read and follow the canonical procedure at
-`.codex/skills/socom-source-owner-scrutiny/SKILL.md`.
+Root [`AGENTS.md`](../../../AGENTS.md) is authoritative.
+
+Review the complete proposed owner and dependency closure, not a favorable
+address subset. Check DWARF paths, neighboring physical order, source literals,
+symbol/relocation/static-init evidence, header emission, providers, tables,
+globals, and exact compiler behavior.
+
+For a stage 4 owner plan, run
+`python tools/socom.py source plan validate --plan <plan> --check` and
+`python tools/socom.py source plan draft --check <plan>` first; a valid plan
+is only the start of the review, never its conclusion. Rows that keep a
+`draft_rule` are proven by the rules; challenge the hand-written rows, the
+overrides and the owner and header-emit row changes the check lists (each
+with its changed fields). Challenge a confirmed inferred reservation as
+hard as any placement claim.
+
+Return the strongest competing model, evidence for and against each model,
+unexplained artifacts, and a clear accept/reject/block recommendation. Do not
+edit source, Ghidra, or tracker state. A behavior or byte pass alone is not
+source-shape proof.

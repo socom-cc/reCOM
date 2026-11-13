@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 from pathlib import Path
 
@@ -267,22 +268,70 @@ def test_retired_surface_normalizes_wrapped_terms(tmp_path: Path) -> None:
     assert report["findings"] == [{"path": "role.md", "where": "content"}]
 
 
-def test_agent_surface_rejects_mirror_authority_drift(
+def _copy_agent_surface(root: Path, target: Path) -> None:
+    shutil.copytree(root / ".claude", target / ".claude")
+    shutil.copyfile(root / "CLAUDE.md", target / "CLAUDE.md")
+    shutil.copyfile(root / "AGENTS.md", target / "AGENTS.md")
+
+
+def test_agent_surface_rejects_skill_authority_drift(
     tmp_path: Path, root: Path
 ) -> None:
-    shutil.copytree(root / ".codex", tmp_path / ".codex")
-    shutil.copytree(root / ".claude", tmp_path / ".claude")
-    shutil.copyfile(root / "CLAUDE.md", tmp_path / "CLAUDE.md")
-    mirror = tmp_path / ".claude" / "skills" / "socom-ghidra-workflow" / "SKILL.md"
-    mirror.write_text(
-        mirror.read_text(encoding="utf-8").replace(
-            "Root `AGENTS.md` is authoritative. ", ""
+    _copy_agent_surface(root, tmp_path)
+    assert audits.agent_surface(tmp_path, _command_rows())["ok"] is True
+    skill = tmp_path / ".claude" / "skills" / "socom-ghidra-workflow" / "SKILL.md"
+    skill.write_text(
+        skill.read_text(encoding="utf-8").replace(
+            "Root [`AGENTS.md`](../../../AGENTS.md) is authoritative; read it with",
+            "Read",
         ),
         encoding="utf-8",
     )
     report = audits.agent_surface(tmp_path, _command_rows())
     assert report["ok"] is False
-    assert any("omits root authority" in error for error in report["errors"])
+    assert any(
+        "skill socom-ghidra-workflow: body omits root authority" in error
+        for error in report["errors"]
+    )
+
+
+def test_agent_surface_rejects_stubs_access_drift_and_retired_codex(
+    tmp_path: Path, root: Path
+) -> None:
+    _copy_agent_surface(root, tmp_path)
+    (tmp_path / ".codex" / "agents").mkdir(parents=True)
+    role = tmp_path / ".claude" / "agents" / "socom-verifier.md"
+    frontmatter = re.match(
+        r"^---\n.*?\n---\n", role.read_text(encoding="utf-8"), re.S
+    )
+    assert frontmatter
+    role.write_text(
+        frontmatter.group(0)
+        + "\nRoot `AGENTS.md` is authoritative. Read and follow"
+        + " `developer_instructions` in `.codex/agents/socom-verifier.toml`.\n",
+        encoding="utf-8",
+    )
+    claude_md = tmp_path / "CLAUDE.md"
+    claude_md.write_text(
+        claude_md.read_text(encoding="utf-8").replace(
+            "| `socom-scaffold-auditor` | read-only |",
+            "| `socom-scaffold-auditor` | workspace-write |",
+        )
+        + "\nSee `socom-missing-role`.\n",
+        encoding="utf-8",
+    )
+    errors = audits.agent_surface(tmp_path, _command_rows())["errors"]
+    expected = [
+        ".codex is a retired harness surface",
+        "role socom-verifier: body keeps pointer-stub wording",
+        "role socom-verifier: body is too short to be self-contained",
+        "role socom-verifier: body does not forbid spawning another agent",
+        "role socom-scaffold-auditor: workspace-write role blocks workspace writes",
+        "CLAUDE.md: references unknown skill or role socom-missing-role",
+        ".claude/agents/socom-verifier.md: references the retired .codex surface",
+    ]
+    for fragment in expected:
+        assert any(fragment in error for error in errors), fragment
 
 
 def test_final_elf_catalog_is_incomplete_for_current_reference(root: Path) -> None:

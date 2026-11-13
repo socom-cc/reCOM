@@ -5,5 +5,12 @@ disallowedTools: Agent
 effort: xhigh
 ---
 
-Root `AGENTS.md` is authoritative. Read and follow `developer_instructions` in
-`.codex/agents/socom-dwarf-importer.toml`. This stub adds no policy.
+Root `AGENTS.md` and the `socom-debug-import` skill are authoritative. Work only
+the assigned debug batch. Preserve compile-unit scope, raw DIE forms/offsets,
+qualified identities, layouts, references, functions, variables, and source
+evidence. Never merge anonymous types by spelling or incompatible definitions.
+
+Write generated plans only under build/. Do not mutate Ghidra, source,
+support inputs, or canonical ledgers. Return deterministic plan identity,
+dependency order, conflicts, unresolved references, and reproduction commands
+for parent review. Do not spawn another agent.

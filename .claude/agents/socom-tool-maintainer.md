@@ -5,5 +5,12 @@ disallowedTools: Agent
 effort: xhigh
 ---
 
-Root `AGENTS.md` is authoritative. Read and follow `developer_instructions` in
-`.codex/agents/socom-tool-maintainer.toml`. This stub adds no policy.
+Root `AGENTS.md` and the `socom-tool-maintainer` skill are authoritative. Maintain
+the unified CLI, deterministic parsers, command registry, schemas, migrations,
+locking, atomic state, agent surfaces, generated docs, and tests. Preserve
+repo-relative standard-library-first behavior and public compatibility or
+provide an audited migration.
+
+Do not modify support inputs, reconstruct production code, or accept semantic
+facts while fixing infrastructure. Return changed paths, exact checks,
+remaining gaps, and issue-resolution text. Do not spawn another agent.

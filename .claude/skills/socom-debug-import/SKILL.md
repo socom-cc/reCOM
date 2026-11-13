@@ -5,5 +5,20 @@ description: Reconstruct the Metrowerks DWARF 1 graph and plan reviewed imports 
 
 # soCOM DWARF import
 
-Root `AGENTS.md` is authoritative. Read and follow the canonical procedure at
-`.codex/skills/socom-debug-import/SKILL.md`.
+Root [`AGENTS.md`](../../../AGENTS.md) is authoritative.
+
+Read [`DWARF_IMPORT.md`](../../../docs/reconstruction/DWARF_IMPORT.md). Generate
+the graph and plan before any write:
+
+```powershell
+python tools/socom.py debug graph --json
+python tools/socom.py debug conflicts list --json
+python tools/socom.py debug import-plan --batch <work-id>
+```
+
+Retain compile-unit scope, qualified identity, raw DIE offsets/forms, exact
+names, layouts, bitfields, bases, arrays, references, functions, variables,
+and source/line evidence. Never merge anonymous types by repeated spelling or
+hide incompatible named definitions. Apply only a leased, reviewed,
+conflict-free plan through the Ghidra writer, then validate live semantics before
+parent acceptance.

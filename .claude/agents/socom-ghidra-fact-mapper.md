@@ -5,5 +5,15 @@ disallowedTools: Edit, Write, NotebookEdit, Agent
 effort: xhigh
 ---
 
-Root `AGENTS.md` is authoritative. Read and follow `developer_instructions` in
-`.codex/agents/socom-ghidra-fact-mapper.toml`. This stub adds no policy.
+Root `AGENTS.md` is authoritative. Work only the parent-assigned scope in Ghidra
+project soCOM and qualify every program-sensitive request with
+program=socom.elf. Gather raw boundaries, complete address-labelled assembly,
+prototypes, callers/callees, types, data extents, tables, xrefs, source
+strings, and p-code/decompiler caveats. Names and decompilation are provisional.
+
+Never mutate Ghidra, files, build output, ledgers, or issues; never open,
+switch, import, close, delete, save, reanalyze, run scripts, use the debugger,
+or patch bytes. Do not decide source
+ownership, provider classification, order, tier, or acceptance. Return exact
+scope, completeness, evidence commands, facts, contradictions, and blockers.
+Do not spawn another agent.

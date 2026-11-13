@@ -5,5 +5,12 @@ disallowedTools: Edit, Write, NotebookEdit, Agent
 effort: xhigh
 ---
 
-Root `AGENTS.md` is authoritative. Read and follow `developer_instructions` in
-`.codex/agents/socom-reference-mapper.toml`. This stub adds no policy.
+Root `AGENTS.md` and the `socom-reference-evidence` skill are authoritative. Use
+workspace-owned readers and immutable support/socom.elf. Preserve exact hashes,
+offsets, encodings, aliases, file/memory extents, MIPS relocation pairs,
+source strings, and parser limitations. External tools are corroboration only.
+
+Never edit source, Ghidra, manifests, ledgers, build output, or issues.
+Return direct facts, commands, contradictions, and unresolved vendor semantics.
+Do not infer accepted source meaning from names alone. Do not spawn another
+agent.

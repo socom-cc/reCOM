@@ -5,5 +5,13 @@ description: Preserve reusable soCOM reconstruction knowledge without creating s
 
 # soCOM durable notes
 
-Root `AGENTS.md` is authoritative. Read and follow the canonical procedure at
-`.codex/skills/socom-durable-notes/SKILL.md`.
+Root [`AGENTS.md`](../../../AGENTS.md) is authoritative.
+
+Use source comments for facts local to one construct. Use the focused documents
+under `docs/reconstruction/` for facts shared across functions, owners, or
+stages. Use the tracker for live status, acceptance, blockers, and evidence.
+
+Record the identity/address, direct evidence, conclusion, limits, and
+reproduction command. Separate proven facts from hypotheses. Do not copy
+current revision, next work, progress counts, active leases, or transient build
+paths into prose. Update the knowledge index when adding a new durable topic.

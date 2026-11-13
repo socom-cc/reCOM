@@ -1,4 +1,0 @@
-interface:
-  display_name: "soCOM Source Model Recovery"
-  short_description: "Recover source ownership and shape"
-  default_prompt: "Use $socom-source-model-recovery to correlate accepted soCOM binary facts with the original source model."

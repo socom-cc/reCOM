@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import argparse
 import re
-import tomllib
 from pathlib import Path
 
 from tools._socom.cli import COMMAND_SPECS, build_parser
@@ -152,75 +151,72 @@ def test_workspace_has_only_the_ghidra_analysis_surface(root: Path) -> None:
     assert findings == []
 
 
-def test_agent_surfaces_are_complete_and_thin(root: Path) -> None:
-    canonical = {
-        path.parent.name
-        for path in (root / ".codex" / "skills").glob("*/SKILL.md")
-    }
-    compatibility = {
-        path.parent.name
-        for path in (root / ".claude" / "skills").glob("*/SKILL.md")
-    }
-    assert canonical == compatibility
-    assert len(canonical) == 16
-    for path in (root / ".claude" / "skills").glob("*/SKILL.md"):
-        canonical_path = root / ".codex" / "skills" / path.parent.name / "SKILL.md"
-        canonical_frontmatter = re.match(
-            r"^---\n(.*?)\n---\n",
-            canonical_path.read_text(encoding="utf-8"),
-            re.S,
-        )
-        mirror_frontmatter = re.match(
-            r"^---\n(.*?)\n---\n", path.read_text(encoding="utf-8"), re.S
-        )
-        assert canonical_frontmatter
-        assert mirror_frontmatter
-        assert canonical_frontmatter.group(1) == mirror_frontmatter.group(1)
-        keys = {
-            line.split(":", 1)[0]
-            for line in canonical_frontmatter.group(1).splitlines()
-            if ":" in line
-        }
-        assert keys == {"name", "description"}
-        mirror_body = path.read_text(encoding="utf-8")[
-            mirror_frontmatter.end() :
-        ]
-        assert ".codex/skills/" in mirror_body
-        assert len(mirror_body.splitlines()) <= 5
-        metadata = canonical_path.parent / "agents" / "openai.yaml"
-        assert metadata.is_file()
-        metadata_text = metadata.read_text(encoding="utf-8")
-        assert f"${path.parent.name}" in metadata_text
-        short = re.search(r'  short_description: "([^"]+)"', metadata_text)
-        assert short
-        assert 25 <= len(short.group(1)) <= 64
+def _split_surface_file(path: Path) -> tuple[dict[str, str], str]:
+    text = path.read_text(encoding="utf-8").replace("\r\n", "\n")
+    match = re.match(r"^---\n(.*?)\n---\n", text, re.S)
+    assert match, f"{path} has no frontmatter"
+    fields = dict(
+        line.split(": ", 1) for line in match.group(1).splitlines() if line.strip()
+    )
+    return fields, text[match.end() :]
+
+
+def test_skills_are_complete_and_self_contained(root: Path) -> None:
+    assert not (root / ".codex").exists()
+    skills = sorted((root / ".claude" / "skills").glob("*/SKILL.md"))
+    assert len(skills) == 16
+    for path in skills:
+        fields, body = _split_surface_file(path)
+        assert set(fields) == {"name", "description"}
+        assert fields["name"] == path.parent.name
+        assert 0 < len(fields["description"]) <= 1024
+        normalized = " ".join(body.split())
+        assert re.search(r"^# \S", body, re.M)
+        assert "Root [`AGENTS.md`](../../../AGENTS.md) is authoritative" in normalized
+        assert ".codex" not in body
+        assert "canonical procedure" not in normalized
+        assert len(normalized.split()) >= 40
         if path.parent.name in {
             "socom-ghidra-workflow",
             "socom-ghidra-reconstruction",
         }:
-            assert 'type: "mcp"' in metadata_text
-            assert 'value: "ghidra"' in metadata_text
+            assert "`ghidra` MCP" in normalized
+            assert "program=socom.elf" in normalized
 
 
-def test_agent_roles_are_discoverable_and_paired(root: Path) -> None:
-    codex = {path.stem: path for path in (root / ".codex" / "agents").glob("*.toml")}
-    claude = {path.stem: path for path in (root / ".claude" / "agents").glob("*.md")}
-    assert codex.keys() == claude.keys()
-    assert len(codex) == 13
-    for path in codex.values():
-        value = tomllib.loads(path.read_text(encoding="utf-8"))
-        assert value["model"] in {"gpt-5.6-sol", "gpt-5.6-terra"}
-        assert value["model_reasoning_effort"] == "xhigh"
-        assert value["sandbox_mode"] in {"read-only", "workspace-write"}
-        assert value["developer_instructions"]
-        normalized_instructions = " ".join(
-            value["developer_instructions"].split()
+def test_agent_roles_are_discoverable_and_self_contained(root: Path) -> None:
+    agents = {path.stem: path for path in (root / ".claude" / "agents").glob("*.md")}
+    assert len(agents) == 13
+    claude_md = (root / "CLAUDE.md").read_text(encoding="utf-8")
+    assert claude_md.splitlines()[0] == "@AGENTS.md"
+    documented = {
+        match.group(1): match.group(2).split()[0]
+        for match in re.finditer(
+            r"^\| `(socom-[a-z0-9-]+)` \| ([^|]+?) \|\s*$", claude_md, re.M
         )
-        assert "spawn another agent" in normalized_instructions.casefold()
+    }
+    assert documented.keys() == agents.keys()
+    write_tools = {"Edit", "Write", "NotebookEdit"}
+    for name, path in agents.items():
+        fields, body = _split_surface_file(path)
+        assert fields["name"] == name
+        assert fields["description"]
+        assert fields["effort"] == "xhigh"
+        disallowed = {value.strip() for value in fields["disallowedTools"].split(",")}
+        assert "Agent" in disallowed
+        if documented[name] == "read-only":
+            assert write_tools <= disallowed
+        else:
+            assert documented[name] == "workspace-write"
+            assert not write_tools & disallowed
+        normalized = " ".join(body.split())
+        assert normalized.startswith("Root `AGENTS.md`")
+        assert "spawn another agent" in normalized.casefold()
+        assert ".codex" not in body
+        assert "developer_instructions" not in body
+        assert len(normalized.split()) >= 40
     for name in ("socom-ghidra-fact-mapper", "socom-ghidra-reconstructor"):
-        value = tomllib.loads(codex[name].read_text(encoding="utf-8"))
-        assert "program=socom.elf" in value["developer_instructions"]
-    assert (root / "CLAUDE.md").read_text(encoding="utf-8").splitlines()[0] == "@AGENTS.md"
+        assert "program=socom.elf" in agents[name].read_text(encoding="utf-8")
 
 
 def _leaf_commands(parser: argparse.ArgumentParser, prefix: tuple[str, ...] = ()) -> set[str]:

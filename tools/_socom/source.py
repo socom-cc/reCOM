@@ -38,7 +38,6 @@ SKELETON_FENCE_RE = re.compile(r"^@socom-skeleton (?:stub|body|decl|end) \S+$")
 
 AUDIT_ROOTS = (
     ".agent",
-    ".codex",
     ".claude",
     "docs",
     "tests",
@@ -46,7 +45,6 @@ AUDIT_ROOTS = (
 )
 
 PORTABILITY_ROOTS = (
-    ".codex",
     ".claude",
     "docs",
     "tests",

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import re
-import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -14,112 +13,231 @@ from .source import audit_independence
 from .tracker import load_tracker
 
 
-def _frontmatter(path: Path) -> dict[str, str]:
-    text = path.read_text(encoding="utf-8")
+SKILL_FRONTMATTER_KEYS = frozenset({"name", "description"})
+AGENT_FRONTMATTER_REQUIRED = frozenset({"name", "description", "disallowedTools", "effort"})
+# Claude Code subagent frontmatter fields; anything else is a typo or a foreign harness key.
+AGENT_FRONTMATTER_KEYS = AGENT_FRONTMATTER_REQUIRED | {
+    "tools",
+    "model",
+    "permissionMode",
+    "maxTurns",
+    "skills",
+    "mcpServers",
+    "hooks",
+    "memory",
+    "background",
+    "isolation",
+    "color",
+}
+AGENT_EFFORTS = frozenset({"low", "medium", "high", "xhigh", "max"})
+ROLE_ACCESS = frozenset({"read-only", "workspace-write"})
+WRITE_TOOLS = frozenset({"Edit", "Write", "NotebookEdit"})
+GHIDRA_SKILLS = ("socom-ghidra-workflow", "socom-ghidra-reconstruction")
+GHIDRA_ROLES = ("socom-ghidra-fact-mapper", "socom-ghidra-reconstructor")
+SURFACE_NAME_RE = re.compile(r"^socom-[a-z0-9]+(?:-[a-z0-9]+)*$")
+SURFACE_REFERENCE_RE = re.compile(r"`(socom-[a-z0-9]+(?:-[a-z0-9]+)*)`")
+ROOT_AUTHORITY_RE = re.compile(
+    r"\bRoot (?:`AGENTS\.md`|\[`AGENTS\.md`\]\([^)\s]+\))"
+    r"(?: and .{1,160}?)? (?:is|are) authoritative"
+)
+# Wording of the retired pointer stubs: a skill or role must hold its own text.
+STUB_WORDING_RE = re.compile(
+    r"\.codex[/\\]|canonical procedure at|developer_instructions|"
+    r"this (?:stub|mirror) adds no",
+    re.I,
+)
+RETIRED_SURFACE_RE = re.compile(r"\.codex[/\\`]")
+MIN_SURFACE_WORDS = 40
+
+
+def _read_text(path: Path) -> str:
+    return path.read_text(encoding="utf-8").replace("\r\n", "\n") if path.is_file() else ""
+
+
+def _split_frontmatter(path: Path) -> tuple[dict[str, str] | None, str, list[str]]:
+    """Return (fields, body, problems); fields is None when there is no frontmatter."""
+
+    text = _read_text(path)
     match = re.match(r"^---\n(.*?)\n---\n", text, re.S)
     if not match:
-        return {}
-    result: dict[str, str] = {}
+        return None, text, ["missing frontmatter"]
+    fields: dict[str, str] = {}
+    problems: list[str] = []
     for line in match.group(1).splitlines():
-        if ": " in line:
-            key, value = line.split(": ", 1)
-            result[key] = value
-    return result
+        if not line.strip():
+            continue
+        if ": " not in line or line.startswith(" "):
+            problems.append(f"malformed frontmatter line {line!r}")
+            continue
+        key, value = line.split(": ", 1)
+        if key in fields:
+            problems.append(f"duplicate frontmatter key {key!r}")
+        fields[key] = value.strip()
+    return fields, text[match.end() :], problems
+
+
+def _frontmatter(path: Path) -> dict[str, str]:
+    fields, _body, _problems = _split_frontmatter(path)
+    return fields or {}
+
+
+def _normalized(text: str) -> str:
+    return re.sub(r"\s+", " ", text)
+
+
+def _documented_roles(claude_md: str) -> dict[str, str]:
+    """Role -> access posture from the CLAUDE.md role table."""
+
+    roles: dict[str, str] = {}
+    for line in claude_md.splitlines():
+        match = re.match(r"^\| `(socom-[a-z0-9-]+)` \| ([^|]+?) \|\s*$", line)
+        if match:
+            roles[match.group(1)] = match.group(2).split()[0]
+    return roles
+
+
+def _documented_skills(agents_md: str) -> set[str]:
+    """Skill names from the table rows of the AGENTS.md "Skills and roles" section."""
+
+    section = re.search(r"^## Skills and roles\n(.*?)(?=^## |\Z)", agents_md, re.S | re.M)
+    if not section:
+        return set()
+    return {
+        name
+        for line in section.group(1).splitlines()
+        if line.startswith("|")
+        for name in SURFACE_REFERENCE_RE.findall(line)
+    }
+
+
+def _surface_body_errors(body: str) -> list[str]:
+    errors: list[str] = []
+    normalized = _normalized(body)
+    if not ROOT_AUTHORITY_RE.search(normalized):
+        errors.append("body omits root authority")
+    if STUB_WORDING_RE.search(normalized):
+        errors.append("body keeps pointer-stub wording")
+    if len(normalized.split()) < MIN_SURFACE_WORDS:
+        errors.append("body is too short to be self-contained")
+    return errors
 
 
 def agent_surface(root: Path, commands: list[dict[str, Any]]) -> dict[str, Any]:
     errors: list[str] = []
-    codex_skills = {
-        path.parent.name: path
-        for path in (root / ".codex" / "skills").glob("*/SKILL.md")
-    }
-    claude_skills = {
-        path.parent.name: path
-        for path in (root / ".claude" / "skills").glob("*/SKILL.md")
-    }
-    if codex_skills.keys() != claude_skills.keys():
-        errors.append(
-            "Codex/Claude skill names differ: "
-            + repr(sorted(codex_skills.keys() ^ claude_skills.keys()))
-        )
-    for name, canonical in codex_skills.items():
-        mirror = claude_skills.get(name)
-        if mirror and _frontmatter(canonical) != _frontmatter(mirror):
-            errors.append(f"{name}: Claude skill frontmatter differs from canonical")
-        if mirror:
-            body = mirror.read_text(encoding="utf-8")
-            if "Root `AGENTS.md` is authoritative" not in body:
-                errors.append(f"{name}: Claude mirror omits root authority")
-            expected_path = f".codex/skills/{name}/SKILL.md"
-            if expected_path not in body:
-                errors.append(f"{name}: Claude mirror omits {expected_path}")
-        metadata = canonical.parent / "agents" / "openai.yaml"
-        if not metadata.is_file():
-            errors.append(f"{name}: missing agents/openai.yaml")
-        elif f"${name}" not in metadata.read_text(encoding="utf-8"):
-            errors.append(f"{name}: default prompt does not invoke the skill")
-        elif name in {"socom-ghidra-workflow", "socom-ghidra-reconstruction"}:
-            metadata_text = metadata.read_text(encoding="utf-8")
-            if 'type: "mcp"' not in metadata_text or 'value: "ghidra"' not in metadata_text:
-                errors.append(f"{name}: metadata omits the Ghidra MCP dependency")
+    if (root / ".codex").exists():
+        errors.append(".codex is a retired harness surface; .claude is the only home")
+    agents_md = _read_text(root / "AGENTS.md")
+    claude_md_text = _read_text(root / "CLAUDE.md")
 
-    codex_agents = {
-        path.stem: path for path in (root / ".codex" / "agents").glob("*.toml")
+    skills = {
+        path.parent.name: path
+        for path in sorted((root / ".claude" / "skills").glob("*/SKILL.md"))
     }
-    claude_agents = {
-        path.stem: path for path in (root / ".claude" / "agents").glob("*.md")
-    }
-    if codex_agents.keys() != claude_agents.keys():
-        errors.append(
-            "Codex/Claude agent names differ: "
-            + repr(sorted(codex_agents.keys() ^ claude_agents.keys()))
-        )
-    for name, path in codex_agents.items():
-        try:
-            row = tomllib.loads(path.read_text(encoding="utf-8"))
-        except Exception as exc:
-            errors.append(f"{name}: invalid Codex agent TOML: {exc}")
+    if not skills:
+        errors.append(".claude/skills defines no skills")
+    bodies: dict[str, str] = {}
+    for name, path in skills.items():
+        label = f"skill {name}"
+        fields, body, problems = _split_frontmatter(path)
+        errors.extend(f"{label}: {problem}" for problem in problems)
+        if fields is None:
             continue
-        required = {
-            "name",
-            "description",
-            "model",
-            "model_reasoning_effort",
-            "sandbox_mode",
-            "developer_instructions",
-        }
-        missing = sorted(key for key in required if not row.get(key))
+        bodies[path.relative_to(root).as_posix()] = body
+        if set(fields) != SKILL_FRONTMATTER_KEYS:
+            errors.append(
+                f"{label}: frontmatter keys must be exactly "
+                f"{sorted(SKILL_FRONTMATTER_KEYS)}, found {sorted(fields)}"
+            )
+        if fields.get("name") != name or not SURFACE_NAME_RE.match(name):
+            errors.append(f"{label}: frontmatter name must equal its directory name")
+        description = fields.get("description", "")
+        if not description or len(description) > 1024:
+            errors.append(f"{label}: description must be 1-1024 characters")
+        if not re.search(r"^# \S", body, re.M):
+            errors.append(f"{label}: body has no title heading")
+        errors.extend(f"{label}: {error}" for error in _surface_body_errors(body))
+        if name in GHIDRA_SKILLS and (
+            "`ghidra` MCP" not in _normalized(body) or "program=socom.elf" not in body
+        ):
+            errors.append(f"{label}: omits the `ghidra` MCP and program=socom.elf contract")
+    for name in sorted(_documented_skills(agents_md) - skills.keys()):
+        errors.append(f"AGENTS.md documents missing skill {name}")
+
+    agents = {
+        path.stem: path for path in sorted((root / ".claude" / "agents").glob("*.md"))
+    }
+    if not agents:
+        errors.append(".claude/agents defines no roles")
+    documented_roles = _documented_roles(claude_md_text)
+    for name in sorted(documented_roles.keys() - agents.keys()):
+        errors.append(f"CLAUDE.md documents missing role {name}")
+    for name, path in agents.items():
+        label = f"role {name}"
+        fields, body, problems = _split_frontmatter(path)
+        errors.extend(f"{label}: {problem}" for problem in problems)
+        if fields is None:
+            continue
+        bodies[path.relative_to(root).as_posix()] = body
+        missing = sorted(AGENT_FRONTMATTER_REQUIRED - fields.keys())
         if missing:
-            errors.append(f"{name}: missing Codex agent fields {missing}")
-            continue
-        mirror = claude_agents.get(name)
-        if mirror is None:
-            continue
-        mirror_frontmatter = _frontmatter(mirror)
-        expected_name = str(row["name"]).replace("_", "-")
-        if mirror_frontmatter.get("name") != expected_name:
-            errors.append(f"{name}: Claude role name differs from canonical")
-        if mirror_frontmatter.get("description") != row["description"]:
-            errors.append(f"{name}: Claude role description differs from canonical")
-        if mirror_frontmatter.get("effort") != row["model_reasoning_effort"]:
-            errors.append(f"{name}: Claude role effort differs from canonical")
+            errors.append(f"{label}: missing frontmatter keys {missing}")
+        unknown = sorted(fields.keys() - AGENT_FRONTMATTER_KEYS)
+        if unknown:
+            errors.append(f"{label}: unknown frontmatter keys {unknown}")
+        if fields.get("name") != name or not SURFACE_NAME_RE.match(name):
+            errors.append(f"{label}: frontmatter name must equal its file name")
+        if not fields.get("description"):
+            errors.append(f"{label}: description is empty")
+        if fields.get("effort") not in AGENT_EFFORTS:
+            errors.append(f"{label}: effort must be one of {sorted(AGENT_EFFORTS)}")
         disallowed = {
             value.strip()
-            for value in mirror_frontmatter.get("disallowedTools", "").split(",")
+            for value in fields.get("disallowedTools", "").split(",")
             if value.strip()
         }
         if "Agent" not in disallowed:
-            errors.append(f"{name}: Claude role must disallow nested agents")
-        readonly_tools = {"Edit", "Write", "NotebookEdit"}
-        if row["sandbox_mode"] == "read-only" and not readonly_tools <= disallowed:
-            errors.append(f"{name}: Claude role does not mirror read-only sandbox")
-        if row["sandbox_mode"] == "workspace-write" and readonly_tools & disallowed:
-            errors.append(f"{name}: Claude role incorrectly blocks workspace writes")
-        body = mirror.read_text(encoding="utf-8")
-        if "Root `AGENTS.md` is authoritative" not in body:
-            errors.append(f"{name}: Claude role omits root authority")
-        if f".codex/agents/{name}.toml" not in body:
-            errors.append(f"{name}: Claude role omits canonical role path")
+            errors.append(f"{label}: must disallow nested agents")
+        access = documented_roles.get(name)
+        if access is None:
+            errors.append(f"{label}: not documented in the CLAUDE.md role table")
+        elif access not in ROLE_ACCESS:
+            errors.append(
+                f"{label}: CLAUDE.md access {access!r} is not one of {sorted(ROLE_ACCESS)}"
+            )
+        elif access == "read-only" and not WRITE_TOOLS <= disallowed:
+            errors.append(f"{label}: read-only role does not disallow {sorted(WRITE_TOOLS)}")
+        elif access == "workspace-write" and WRITE_TOOLS & disallowed:
+            errors.append(f"{label}: workspace-write role blocks workspace writes")
+        errors.extend(f"{label}: {error}" for error in _surface_body_errors(body))
+        if "spawn another agent" not in _normalized(body).casefold():
+            errors.append(f"{label}: body does not forbid spawning another agent")
+        if name in GHIDRA_ROLES and "program=socom.elf" not in body:
+            errors.append(f"{label}: omits the program=socom.elf contract")
+
+    # Every backticked socom-* name in the instructions and the surface itself
+    # must resolve to a skill or a role, and no document may point at the
+    # retired .codex surface.
+    known = skills.keys() | agents.keys()
+    references = {
+        "AGENTS.md": agents_md,
+        "CLAUDE.md": claude_md_text,
+        ".claude/README.md": _read_text(root / ".claude" / "README.md"),
+        **bodies,
+    }
+    for label, text in references.items():
+        for name in sorted(set(SURFACE_REFERENCE_RE.findall(text)) - known):
+            errors.append(f"{label}: references unknown skill or role {name}")
+    documents = {
+        **references,
+        "README.md": _read_text(root / "README.md"),
+        **{
+            path.relative_to(root).as_posix(): _read_text(path)
+            for path in sorted((root / "docs").rglob("*.md"))
+        },
+    }
+    for label, text in documents.items():
+        if RETIRED_SURFACE_RE.search(text):
+            errors.append(f"{label}: references the retired .codex surface")
     claude_md = (root / "CLAUDE.md").read_text(encoding="utf-8").splitlines()
     if not claude_md or claude_md[0].strip() != "@AGENTS.md":
         errors.append("CLAUDE.md must begin with @AGENTS.md")
@@ -172,8 +290,8 @@ def agent_surface(root: Path, commands: list[dict[str, Any]]) -> dict[str, Any]:
         errors.append(f"command registry is missing {missing_commands}")
     return {
         "ok": not errors,
-        "canonical_skill_count": len(codex_skills),
-        "paired_agent_count": len(codex_agents),
+        "skill_count": len(skills),
+        "agent_count": len(agents),
         "command_count": len(commands),
         "errors": errors,
     }
@@ -318,7 +436,6 @@ def docs(root: Path, commands: list[dict[str, Any]]) -> dict[str, Any]:
         root / "CLAUDE.md",
         root / "README.md",
         *sorted((root / "docs").rglob("*.md")),
-        *sorted((root / ".codex" / "skills").glob("*/SKILL.md")),
         *sorted((root / ".claude" / "skills").glob("*/SKILL.md")),
         *sorted((root / ".claude" / "agents").glob("*.md")),
         root / ".claude" / "README.md",

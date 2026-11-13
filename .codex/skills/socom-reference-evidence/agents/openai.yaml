@@ -1,4 +1,0 @@
-interface:
-  display_name: "soCOM Reference Evidence"
-  short_description: "Inspect immutable ELF and DWARF facts"
-  default_prompt: "Use $socom-reference-evidence to inspect and verify immutable soCOM ELF, symbol, relocation, and DWARF evidence."

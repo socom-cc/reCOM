@@ -7,7 +7,7 @@ inapplicable means the capability would encode the wrong executable format or AB
 | Capability | Status | Commands or blocker | Rationale |
 | --- | --- | --- | --- |
 | `control-plane` | active | `commands`, `progress audit`, `progress migrate`, `progress add-repair`, `progress work reopen`, `progress work packet`, `issue audit` | Canonical CAS-protected state, migration, work contracts, and discovery. |
-| `dual-harness` | active | `audit agent-surface` | Claude and Codex expose paired roles and skills. |
+| `agent-surface` | active | `audit agent-surface` | Claude Code skills and roles are self-contained, well-formed, and match the documented sets. |
 | `elf-evidence` | active | `reference census`, `reference verify`, `reference relocations` | ELF32 MIPS evidence is parsed locally. |
 | `metrowerks-name-mangling` | active | `reference demangle` | Metrowerks C++ symbol names (CodeWarrior PS2 2.4.1, cfront/ARM scheme) parse into a structured form, render as C++ declaration text and mangle back exactly; every ELF symbol round-trips, and the non-function forms (vtables, RTTI, thunks, static initializers, local statics and their flags, labels) are classified. It is the grammar the stage 5 phase B signature check is to use. |
 | `dwarf-planning` | active | `debug graph`, `debug import-plan`, `debug apply-program`, `debug batch-program` | DWARF plans and their Ghidra type translations are deterministic and file-only. |

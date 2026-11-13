@@ -5,31 +5,33 @@
 The imported root instructions are authoritative. This file only maps them
 onto Claude Code.
 
-Project skills are discovered through `.claude/skills/socom-*/SKILL.md`.
-Mirrors retain canonical discovery frontmatter and point to
-`.codex/skills/<skill>/SKILL.md`.
+Project skills are discovered through `.claude/skills/socom-*/SKILL.md`. Each
+skill file holds its discovery frontmatter (`name`, `description`) and the
+complete procedure.
 
-Claude agent types use hyphens; canonical role names use underscores:
+Project roles are Claude agents defined in `.claude/agents/<role>.md`. The
+access column is each role's write posture; read-only roles disallow the
+`Edit`, `Write`, and `NotebookEdit` tools, and every role disallows `Agent`:
 
-| Canonical role | Claude agent |
+| Claude agent | Access |
 | --- | --- |
-| `socom_ghidra_fact_mapper` | `socom-ghidra-fact-mapper` |
-| `socom_ghidra_reconstructor` | `socom-ghidra-reconstructor` |
-| `socom_dwarf_importer` | `socom-dwarf-importer` |
-| `socom_recon_planner` | `socom-recon-planner` |
-| `socom_reference_mapper` | `socom-reference-mapper` |
-| `socom_provider_data_classifier` | `socom-provider-data-classifier` |
-| `socom_scaffold_auditor` | `socom-scaffold-auditor` |
-| `socom_source_owner_mapper` | `socom-source-owner-mapper` |
-| `socom_source_owner_scrutinizer` | `socom-source-owner-scrutinizer` |
-| `socom_source_worker` | `socom-source-worker` |
-| `socom_tool_maintainer` | `socom-tool-maintainer` |
-| `socom_verifier` | `socom-verifier` |
-| `socom_workspace_librarian` | `socom-workspace-librarian` |
+| `socom-ghidra-fact-mapper` | read-only |
+| `socom-ghidra-reconstructor` | read-only (Ghidra writes only under the `ghidra-writer` lease) |
+| `socom-dwarf-importer` | workspace-write |
+| `socom-recon-planner` | workspace-write |
+| `socom-reference-mapper` | read-only |
+| `socom-provider-data-classifier` | read-only |
+| `socom-scaffold-auditor` | read-only |
+| `socom-source-owner-mapper` | workspace-write |
+| `socom-source-owner-scrutinizer` | read-only |
+| `socom-source-worker` | workspace-write |
+| `socom-tool-maintainer` | workspace-write |
+| `socom-verifier` | workspace-write |
+| `socom-workspace-librarian` | read-only |
 
-Each stub defers to its paired `.codex/agents/*.toml` instructions. Roles do
-not launch nested agents. The parent owns scheduling, integration, issue
-routing, and acceptance.
+Each agent file holds that role's complete instructions. Roles do not launch
+nested agents. The parent owns scheduling, integration, issue routing, and
+acceptance.
 
 - PowerShell is the primary shell.
 - Use `python tools/socom.py` for every public reconstruction command.

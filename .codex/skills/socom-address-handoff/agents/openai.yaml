@@ -1,4 +1,0 @@
-interface:
-  display_name: "soCOM Address Handoff"
-  short_description: "Select and reserve soCOM work"
-  default_prompt: "Use $socom-address-handoff to select and expand the next authoritative soCOM reconstruction packet."

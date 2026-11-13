@@ -1,4 +1,0 @@
-interface:
-  display_name: "soCOM Progress Tracker"
-  short_description: "Coordinate tracker work safely"
-  default_prompt: "Use $socom-progress-tracker to inspect, claim, hand off, or accept authoritative soCOM reconstruction work."

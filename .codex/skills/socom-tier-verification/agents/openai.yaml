@@ -1,4 +1,0 @@
-interface:
-  display_name: "soCOM Tier Verification"
-  short_description: "Verify order ABI and byte evidence"
-  default_prompt: "Use $socom-tier-verification to validate an active soCOM evidence tier, receipt, behavior target, or candidate ELF comparison."

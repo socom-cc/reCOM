@@ -335,8 +335,8 @@ match the reference census.
 
 ## Skills and roles
 
-Canonical skills live under `.codex/skills`; `.claude/skills` are thin mirrors
-with identical discovery frontmatter.
+Skills live under `.claude/skills/<skill>/SKILL.md`. Each file holds its
+discovery frontmatter (`name`, `description`) and the complete procedure.
 
 | Work | Skill |
 | --- | --- |
@@ -350,9 +350,11 @@ with identical discovery frontmatter.
 | providers and ABI boundaries | `socom-provider-boundary` |
 | verification and exact build | `socom-tier-verification`, `socom-metrowerks-final-build` |
 | tools, audits, validation | `socom-tool-maintainer`, `socom-workspace-audit`, `socom-validation` |
+| durable cross-cutting notes | `socom-durable-notes` |
+| behavioural verification targets | `socom-functional-targets` |
 
-Codex role definitions live in `.codex/agents` and paired Claude definitions
-in `.claude/agents`. Ghidra read-only and writer roles are
+Role definitions live in `.claude/agents/<role>.md`; each file holds its
+frontmatter and complete instructions. Ghidra read-only and writer roles are
 `socom-ghidra-fact-mapper` and `socom-ghidra-reconstructor`; DWARF planning is
 `socom-dwarf-importer`; stage 3 group planning is `socom-recon-planner`
 ([RECONSTRUCTION.md](docs/reconstruction/RECONSTRUCTION.md)). Roles do not launch nested agents. The controlling
