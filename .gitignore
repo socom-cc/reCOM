@@ -421,3 +421,8 @@ build/cache/
 # soCOM workspace: generated, disposable and user-local (never commit)
 build/
 .mcp.json
+
+# Python tool caches and virtual environment
+.pytest_cache/
+.ruff_cache/
+.venv/
