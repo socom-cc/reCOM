@@ -1506,8 +1506,79 @@ CZBodyAnimBlend * CZSealBody::InStateCrouch(float fb, float lr, float strafe)
 }
 
 /* @socom-skeleton stub InStateProne__10CZSealBodyFfff */
-CZBodyAnimBlend * CZSealBody::InStateProne(float, float, float)
+CZBodyAnimBlend * CZSealBody::InStateProne(float fb, float lr, float strafe)
 {
+	/* 0x2792e0 (SealAnim, state 2): prone. In deeper water than 2 or unable to aim prone
+	 * (CanProneAim): crouch instead (wanted state crouch, stance changed, Crouch inline).
+	 * Stopped without a turn: down to two blends, the prone blend (one popped first when
+	 * missing), not moving or turning, the top at full weight; turning: the prone turn blend
+	 * once (two blends, the last foot from the current one) and TurnControl; moving: moving,
+	 * not turning, ProneControl. ClearStack(2, true) is inline in the ELF. */
+	static const f32 zero_turn = 0.0f; /* @2728 */
+
+	struct Local
+	{
+		static void ToTwo(CZSealBody *body)
+		{
+			CZBodyAnimBlend *blend = body->m_blends->Top();
+
+			while ((u32)(body->m_blends->m_top + 1) > 2)
+				blend = body->PopBlend();
+
+			if (blend != NULL)
+				blend->m_ctrl = 0;
+
+			body->m_desiredPeek = SEAL_PEEK::PEEK_NONE;
+		}
+	};
+
+	if (!((!m_inwater || m_waterdepth <= 2.0f) && CanProneAim()))
+	{
+		m_desiredState = SEAL_STATE::stateCrouch;
+		m_stancechanged = 1;
+		return Crouch(); /* inline in the ELF */
+	}
+
+	UpdateQuadrant(strafe, fb, true);
+	CZBodyAnimBlend *top = m_blends->Top();
+	s32 foot = top->ThisFoot();
+
+	if (!IsStopped(fb, strafe, lr))
+	{
+		m_is_moving = 1;
+		m_is_turning = 0;
+		return ProneControl(fb, lr, strafe);
+	}
+
+	if (_close_enough(lr, zero_turn, turnV))
+	{
+		Local::ToTwo(this);
+
+		if (m_CurrentBlendAnimType != m_animset->BaseAnim(AnimType::animTypeProne))
+		{
+			if (m_blends->m_top + 1 >= 2)
+				PopBlend();
+
+			PushBlend(AnimType::animTypeProne, 2, false);
+		}
+
+		top = m_blends->Top();
+		m_is_moving = 0;
+		m_is_turning = 0;
+		top->SetRepresentativeWt(1.0f);
+		return top;
+	}
+
+	if (m_CurrentBlendAnimType != m_animset->BaseAnim(AnimType::animTypeProneTurn))
+	{
+		Local::ToTwo(this);
+		PushBlend(AnimType::animTypeProneTurn, 2, false);
+		m_last_foot = foot > 0x10 && foot < 0x30 ? 0x20 : 2;
+	}
+
+	m_is_moving = 0;
+	m_is_turning = 1;
+	return TurnControl(fb, lr);
 }
 
 /* @socom-skeleton stub InStateHang__10CZSealBodyFfff */
@@ -1760,8 +1831,84 @@ CZBodyAnimBlend * CZSealBody::TurnControl(float, float turn)
 }
 
 /* @socom-skeleton stub ProneControl__10CZSealBodyFfff */
-CZBodyAnimBlend * CZSealBody::ProneControl(float, float, float)
+CZBodyAnimBlend * CZSealBody::ProneControl(float fb, float, float strafe)
 {
+	/* 0x278230 (InStateProne, moving): crawling. In deeper water than 1.5: crouch instead
+	 * (wanted state crouch, stance changed, Crouch inline). The sideways share of the throttle
+	 * (|strafe| / length, 0..1) picks the anim: below 1 the crawl blend, above 0 the prone
+	 * strafe blend for the side (pushed over two blends when missing; any sideways throttle
+	 * ends on the strafe anim). The anim at full weight, snapped on a quadrant change (blend
+	 * time interpolation), timed by the larger throttle (negative backward) and the anim's
+	 * throttle scale. */
+	if (m_inwater && !(m_waterdepth <= 1.5f))
+	{
+		m_desiredState = SEAL_STATE::stateCrouch;
+		m_stancechanged = 1;
+		return Crouch(); /* inline in the ELF */
+	}
+
+	struct Local
+	{
+		static CZBodyAnimBlend *Push(CZSealBody *body, AnimType type)
+		{
+			CZBodyAnimBlend *blend = body->m_blends->Top();
+
+			while ((u32)(body->m_blends->m_top + 1) > 2)
+				blend = body->PopBlend();
+
+			if (blend != NULL)
+				blend->m_ctrl = 0;
+
+			body->m_desiredPeek = SEAL_PEEK::PEEK_NONE;
+			return body->PushBlend(type, 2, false);
+		}
+	};
+
+	CZBodyAnimBlend *top = m_blends->Top();
+	f32 rate = fabsf(fb);
+	f32 side = fabsf(strafe);
+
+	if (rate <= side)
+		rate = side;
+
+	f32 len = sqrtf(fb * fb + strafe * strafe);
+	f32 share = 0.0f;
+
+	if (!(len <= 0.0f))
+		share = side / len;
+
+	if (!(share <= 1.0f))
+		share = 1.0f;
+	else if (share < 0.0f)
+		share = 0.0f;
+
+	if (share < 1.0f && m_CurrentBlendAnimType != m_animset->BaseAnim(AnimType::animTypeProneCrawl))
+		top = Local::Push(this, AnimType::animTypeProneCrawl);
+
+	if (!(share <= 0.0f))
+	{
+		AnimType type = (AnimType)(strafe < 0.0f ? AnimTypes::ProneLStrafe : AnimTypes::ProneRStrafe);
+
+		if (m_CurrentBlendAnimType != m_animset->BaseAnim(type))
+			top = Local::Push(this, type);
+	}
+
+	CZBodyAnim *rep = top->Representative();
+	top->SetRepresentativeWt(1.0f);
+
+	if (m_prev_throttleQuadrant >= 0 && m_prev_throttleQuadrant != m_throttleQuadrant)
+	{
+		Snap();
+		f32 blendtime = top->Representative()->m_pCommon->m_blendtime;
+		m_interp1 = blendtime;
+		m_interp2 = blendtime;
+	}
+
+	if (fb < 0.0f)
+		rate = -rate;
+
+	rep->SetTimeScale(rate * rep->m_pCommon->m_thr_scale);
+	return top;
 }
 
 /* @socom-skeleton stub InAirControl__10CZSealBodyFfff */
@@ -2113,13 +2260,65 @@ bool CZSealBody::CheckAnim()
 }
 
 /* @socom-skeleton stub StanceChanged__10CZSealBodyFv */
-void CZSealBody::StanceChanged()
+bool CZSealBody::StanceChanged()
 {
+	/* 0x2772d0 (PoseBitmap::Tick): the stance-changed flag, cleared once it is read */
+	if (!m_stancechanged)
+		return false;
+
+	m_stancechanged = 0;
+	return true;
 }
 
 /* @socom-skeleton stub SetStance__10CZSealBodyF10SEAL_STATE */
-void CZSealBody::SetStance(SEAL_STATE)
+void CZSealBody::SetStance(SEAL_STATE state)
 {
+	/* 0x276960 (UpdateStance after Stand / Crouch / Prone; CSealCtrlSquirm::PreTick): a state
+	 * change is told to the controller (OnStateChange), the body takes the state (CBody's
+	 * BodySetState), then a transition switch on (state, new state): to standing (one blend,
+	 * Stand_0 up), crouching (Crouch, inline), prone (Prone, inline) or hanging (one blend,
+	 * Hang_0). ELF quirk kept: the switch reads m_state after it was set, so only the equal
+	 * pairs are reached and none of the transitions runs. The ELF returns 0 / 1 (unused;
+	 * port: void as declared). */
+	u8 s = (u8)state;
+
+	if ((s8)s != m_state)
+		static_cast<CSealCtrl *>(m_control)->OnStateChange((SEAL_STATE)(u8)m_state, (SEAL_STATE)s);
+
+	CBody::BodySetState(s);
+
+	struct Local
+	{
+		static void ToBase(CZSealBody *body, s8 to)
+		{
+			CZBodyAnimBlend *top = body->m_blends->Top();
+			s8 from = body->m_state;
+
+			if (from == to || top->m_state == to)
+				return;
+
+			body->ClearStack(1, true);
+
+			if (to == 0)
+				body->Stand_0(from, 1);
+			else
+				body->Hang_0(from, 1);
+		}
+	};
+
+	s8 from = m_state;
+
+	if (from != 0 && from != 1 && from != 2 && from != 4)
+		return;
+
+	if (s == 4 && from != 4)
+		Local::ToBase(this, 4);
+	else if (s == 2 && from != 2)
+		Prone(); /* inline in the ELF */
+	else if (s == 1 && from != 1)
+		Crouch(); /* inline in the ELF */
+	else if (s == 0 && from != 0)
+		Local::ToBase(this, 0);
 }
 
 /* @socom-skeleton stub Stand__10CZSealBodyFi */
@@ -2188,6 +2387,35 @@ CZBodyAnimBlend * CZSealBody::Stand_0(int from, int arg)
 /* @socom-skeleton stub Crouch__10CZSealBodyFv */
 CZBodyAnimBlend * CZSealBody::Crouch()
 {
+	/* 0x276530 (UpdateStance, SetStance, UpdateAimDir): to crouching. Unable to crouch
+	 * (CanCrouch, inline): stand up instead (wanted state stand, stance changed; from another
+	 * stance one blend, then Stand_0 up). Already crouched (body or top blend): the top.
+	 * Else one blend (ClearStack(1, true), inline) and Crouch_0 from the state at the top's
+	 * time. */
+	CZBodyAnimBlend *top = m_blends->Top();
+
+	if (!CanCrouch()) /* inline in the ELF */
+	{
+		m_desiredState = SEAL_STATE::stateStand;
+		m_stancechanged = 1;
+		top = m_blends->Top();
+		s8 state = m_state;
+
+		if (state == 0 || top->m_state == 0)
+			return top;
+
+		ClearStack(1, true);
+		return Stand_0(state, 1);
+	}
+
+	s8 state = m_state;
+
+	if (state == 1 || top->m_state == 1)
+		return top;
+
+	f32 t = top->m_tfrac;
+	ClearStack(1, true); /* inline in the ELF */
+	return Crouch_0(state, t);
 }
 
 /* @socom-skeleton stub Crouch_0__10CZSealBodyFif */
@@ -2251,11 +2479,73 @@ CZBodyAnimBlend * CZSealBody::Crouch_0(int from, float t)
 /* @socom-skeleton stub Prone__10CZSealBodyFv */
 CZBodyAnimBlend * CZSealBody::Prone()
 {
+	/* 0x275fa0 (UpdateStance): to prone. Not in deeper water than 2 and able to aim prone
+	 * (CanProneAim), else crouch instead (wanted state crouch, stance changed, Crouch inline).
+	 * Moving faster than 2: no; the wanted state goes back to standing (stance changed) and
+	 * the top is returned. Already prone (body or top blend): the top. Else one blend
+	 * (ClearStack(1, true), inline) and Prone_0 from the state (inline). */
+	CZBodyAnimBlend *top = m_blends->Top();
+	bool can = (!m_inwater || m_waterdepth <= 2.0f) && CanProneAim();
+
+	if (!can)
+	{
+		m_desiredState = SEAL_STATE::stateCrouch;
+		m_stancechanged = 1;
+		return Crouch(); /* inline in the ELF */
+	}
+
+	if (!(sqrtf(m_velM.x * m_velM.x + m_velM.y * m_velM.y + m_velM.z * m_velM.z) <= 2.0f))
+	{
+		m_desiredState = SEAL_STATE::stateStand;
+		m_stancechanged = 1;
+		return top;
+	}
+
+	s8 state = m_state;
+
+	if (state == 2 || top->m_state == 2)
+		return top;
+
+	ClearStack(1, true); /* inline in the ELF */
+	return Prone_0(state); /* inline in the ELF (its hang case calls Prone_0(0)) */
 }
 
 /* @socom-skeleton stub Prone_0__10CZSealBodyFi */
-CZBodyAnimBlend * CZSealBody::Prone_0(int)
+CZBodyAnimBlend * CZSealBody::Prone_0(int from)
 {
+	/* 0x275e80: the prone transition from a state, all pushed in the prone state over the
+	 * prone blend: standing stand-to-prone, crouched crouch-to-prone; hanging the stand-to-
+	 * prone pair, then Stand_0 drops from the hang. The last foot is 2 and the transition's
+	 * representative loses flag 0x40. ELF quirk: from a hang or another state the
+	 * representative of NULL is written (port: guarded, NULL returned). */
+	CZBodyAnimBlend *blend = NULL;
+
+	if (from == 4)
+	{
+		PushBlend(AnimType::animTypeProne, 2, false);
+		CZBodyAnimBlend *drop = PushBlend(AnimType::animTypeStand2Prone, 2, false);
+		m_last_foot = 2;
+		drop->Representative()->m_flags &= 0xffbf;
+		Stand_0(4, -1);
+	}
+	else if (from == 0)
+	{
+		PushBlend(AnimType::animTypeProne, 2, false);
+		blend = PushBlend(AnimType::animTypeStand2Prone, 2, false);
+	}
+	else if (from == 1)
+	{
+		PushBlend(AnimType::animTypeProne, 2, false);
+		blend = PushBlend(AnimType::animTypeCrouch2Prone, 2, false);
+	}
+
+	m_last_foot = 2;
+
+	if (blend == NULL) /* port: guard (see above) */
+		return NULL;
+
+	blend->Representative()->m_flags &= 0xffbf;
+	return blend;
 }
 
 /* @socom-skeleton stub SetStanceIdle__10CZSealBodyF8AnimType */
@@ -3804,14 +4094,58 @@ CZBodyAnimBlend * CZSealBody::RestrainBuddy(CZSealBody *victim)
 	return apply;
 }
 
+int BodyId(const char *); /* seal_cfg.cpp (0x280eb0) */
+
 /* @socom-skeleton stub Action__10CZSealBodyF8AnimTypebiii */
-void CZSealBody::Action(AnimType, bool, int, int, int)
+void CZSealBody::Action(AnimType type, bool reversed, int node_id, int part_id, int result_id)
 {
+	/* 0x26ea00 (PickupItem: "Swap rifle", reversed, the dropped gun's pickup node, the right
+	 * hand, no result part): an anim that carries a world node in a body part. The node
+	 * (GetAnimationNode: an id * 2 is a pickup's node) goes onto the part's node as the
+	 * "rifle_out" object part (parented to the part, not blended), active; the anim is pushed
+	 * in the current state and carries that part (its action node; the result part from the
+	 * body parts, or none for result -1: CheckAnim then puts the node into the world at the
+	 * part, upright). The ELF returns 0 when the node, the part or the object part is missing,
+	 * else 1 (port: void as declared). ELF quirks kept: the node is added to the part's node,
+	 * then deleted from its (new) parent and added again; the object part's entry is not
+	 * NULL-tested (port: tested). */
+	zdb::CNode *node = GetAnimationNode((u32)node_id);
+
+	if (node == NULL)
+		return;
+
+	CZBodyPart *part = FindBodyPart(part_id);
+
+	if (part == NULL)
+		return;
+
+	OBJ_ANIM *entry = m_obj_anims.GetObjAnim(BodyId("rifle_out"));
+	CZBodyPart *carry = entry != NULL ? entry->m_part : NULL;
+
+	if (carry == NULL)
+		return;
+
+	carry->m_parent = part;
+	carry->m_node = node;
+	part->m_node->AddChild(node);
+	carry->m_blendme = 0;
+	node->m_parent->DeleteChild(node);
+	node->SetActive(true);
+	part->m_node->AddChild(node);
+	CZBodyAnimBlend *blend = PushBlend(type, m_state, reversed);
+	blend->m_result_parent = result_id < 0 ? NULL : m_body_parts[result_id];
+	blend->m_action_node = carry;
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("SEAL: %s action anim %d (reversed %d) carries node %s in part %d", m_node != NULL ? m_node->m_name : "-",
+		(int)(s16)type, (int)reversed, node->m_name != NULL ? node->m_name : "-", part_id);
+#endif
 }
 
 /* @socom-skeleton stub Adrenaline__10CZSealBodyFv */
 CAiDecay * CZSealBody::Adrenaline()
 {
+	/* 0x26e9f0 (TickHeartbeat, CZKit::SniperTick) */
+	return m_adrenaline;
 }
 
 /* @socom-skeleton stub AdrenalineIncr__10CZSealBodyFf */

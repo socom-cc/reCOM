@@ -6513,8 +6513,15 @@ void CZSealBody::AttemptBombDefuse()
 void CZSealBody::HandleBombDefuse() {}
 
 /* @socom-skeleton stub GetAnimationNode__10CZSealBodyFUi */
-zdb::CNode * CZSealBody::GetAnimationNode(unsigned int)
+zdb::CNode * CZSealBody::GetAnimationNode(unsigned int id)
 {
+	/* 0x28c180 (Action): an even id is a pickup's (id / 2; the network pickup in a network
+	 * game): its node; odd ids none */
+	if ((id & 1) == 1)
+		return NULL;
+
+	CPickup *pickup = theNetwork.m_bNetwork ? CPickup::FindNetPickup(id >> 1) : CPickup::FindPickup(id >> 1);
+	return pickup != NULL ? pickup->m_node : NULL;
 }
 
 /* @socom-skeleton stub CanClimbLadder__10CZSealBodyFv */

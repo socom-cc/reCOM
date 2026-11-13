@@ -3515,8 +3515,160 @@ bool CZKit::IsUsingItem(int index)
 }
 
 /* @socom-skeleton stub SniperTick__5CZKitFfR11CTargetMods */
-void CZKit::SniperTick(float, CTargetMods &)
+void CZKit::SniperTick(float dT, CTargetMods &mods)
 {
+	/* 0x2a5040 (CZSealBody::Tick, scoped or with binoculars): the adrenaline (1 without
+	 * one; it rises with the throttles and decays at the stance's sniper decay rate) drives
+	 * three things. Above 0.2, not with binoculars, the heartbeat rumble: a beat (low
+	 * rumble 0.1 s, then 0.16 s, at 20 + 100 x adrenaline) after 0.3 + 0.24 x (1 - a) and
+	 * 0.8 + 0.64 x (1 - a) seconds in turn. The rifle kick: the aim pitch climbs at the kick
+	 * rate until the kick distance, then returns at the return rate to the baseline. Above
+	 * 0.2 the scope wander: the screen offsets x / y move at the stance's distance per frame
+	 * (faster towards the limits), bouncing at limits of 0.2 + 0.8 x a of the stance's limit,
+	 * so the wander shrinks as the adrenaline decays and stops at 0.2. ELF quirks kept: the
+	 * step is (0.25 + d) + (0.75 + d) x |offset| / limit with the signed per-frame distance
+	 * d; at 0.2 and below the offsets freeze where they are; the y limit's "below 0.1" zero
+	 * is unreachable. */
+	CAiDecay *adrenaline = m_body->Adrenaline();
+	f32 a = adrenaline != NULL ? adrenaline->m_value : 1.0f;
+	f32 calm = 1.0f - a;
+#ifdef SOCOM_PORT
+	{
+		static f32 trace_t = 0.0f;
+		trace_t += dT;
+
+		if (trace_t >= 0.5f)
+		{
+			trace_t = 0.0f;
+			SOCOM_PORT_TRACE("KIT: scope wander adrenaline %.3f offset %.3f %.3f", (double)a,
+				(double)m_sniper_posx, (double)m_sniper_posy);
+		}
+	}
+#endif
+
+	if (!(a <= 0.2f) && m_body->m_zoomstate != ZOOMSTATE::ZOOMSTATE_BINOCS)
+	{
+		m_heartbeat_accum += dT;
+
+		if (m_heartbeat_state == 0)
+		{
+			if (!(m_heartbeat_accum <= 0.3f + 0.24f * calm))
+			{
+				f32 strength = 20.0f + 100.0f * a;
+
+				if (!(strength <= 0.0f))
+					static_cast<CSealCtrl *>(m_body->m_control)->SetLowRumbleTime(0.1f, strength);
+
+				m_heartbeat_accum = 0.0f;
+				m_heartbeat_state = 1;
+			}
+		}
+		else if (!(m_heartbeat_accum <= 0.8f + 0.64f * calm))
+		{
+			f32 strength = 20.0f + 100.0f * a;
+
+			if (!(strength <= 0.0f))
+				static_cast<CSealCtrl *>(m_body->m_control)->SetLowRumbleTime(0.16f, strength);
+
+			m_heartbeat_accum = 0.0f;
+			m_heartbeat_state = 0;
+		}
+	}
+
+	if (m_firerifle_kick_state == 1)
+	{
+		if (!(m_firerifle_kick_movedist <= 0.0f))
+		{
+			f32 rate = mods.GetFireRifle_KickRate();
+			CSealCtrl *control = static_cast<CSealCtrl *>(m_body->m_control);
+
+			if (control != NULL)
+			{
+				f32 step = rate * dT;
+				m_firerifle_kick_accum += step;
+
+				if (!(m_firerifle_kick_accum <= m_firerifle_kick_movedist))
+					m_firerifle_kick_state = 2;
+				else
+					control->m_aimPitch += step;
+			}
+		}
+	}
+	else if (m_firerifle_kick_state == 2)
+	{
+		f32 rate = mods.GetFireRifle_KickReturnRate();
+		CSealCtrl *control = static_cast<CSealCtrl *>(m_body->m_control);
+
+		if (control != NULL)
+		{
+			f32 step = rate * dT;
+			m_firerifle_kick_accum -= step;
+			f32 pitch = control->m_aimPitch - step;
+
+			if (pitch < m_firerifle_kick_baseline)
+			{
+				control->m_aimPitch = m_firerifle_kick_baseline;
+				m_firerifle_kick_state = 0;
+				m_firerifle_kick_movedist = 0.0f;
+				m_firerifle_kick_accum = 0.0f;
+			}
+			else
+			{
+				control->m_aimPitch = pitch;
+			}
+		}
+	}
+
+	f32 limit = mods.GetSniper_DistLimit_PosX();
+	limit = 0.8f * limit * a + 0.2f * limit;
+
+	if (a <= 0.2f)
+		return;
+
+	f32 ratio = m_sniper_posx / limit;
+
+	if (ratio < 0.0f)
+		ratio = -ratio;
+
+	f32 fast = 0.75f + mods.GetSniper_DistPPFrame_PosX();
+	m_sniper_posx += dT * ((0.25f + mods.GetSniper_DistPPFrame_PosX()) + fast * ratio);
+
+	if (!(m_sniper_posx <= limit))
+	{
+		mods.SetSniper_DistPPFrame_PosX(-mods.GetSniper_DistPPFrame_PosX());
+		m_sniper_posx = limit;
+	}
+	else if (m_sniper_posx < -limit)
+	{
+		mods.SetSniper_DistPPFrame_PosX(-mods.GetSniper_DistPPFrame_PosX());
+		m_sniper_posx = -limit;
+	}
+
+	limit = mods.GetSniper_DistLimit_PosY();
+	limit = 0.2f * limit + 0.8f * limit * a;
+
+	if (a < 0.1f)
+		limit = 0.0f;
+
+	ratio = m_sniper_posy / limit;
+
+	if (ratio < 0.0f)
+		ratio = -ratio;
+
+	fast = 0.75f + mods.GetSniper_DistPPFrame_PosY();
+	m_sniper_posy += dT * ((0.25f + mods.GetSniper_DistPPFrame_PosY()) + fast * ratio);
+
+	if (!(m_sniper_posy <= limit))
+	{
+		mods.SetSniper_DistPPFrame_PosY(-mods.GetSniper_DistPPFrame_PosY());
+		m_sniper_posy = limit;
+	}
+	else if (m_sniper_posy < -limit)
+	{
+		mods.SetSniper_DistPPFrame_PosY(-mods.GetSniper_DistPPFrame_PosY());
+		m_sniper_posy = -limit;
+	}
+
 }
 
 /* @socom-skeleton stub InitializeSniperKick__5CZKitFv */

@@ -438,8 +438,42 @@ unsigned char CAiMaps::CanSeeLine(const CAiMapLoc &from, const CAiMapLoc &to, CA
 }
 
 /* @socom-skeleton stub ComputeLineVisibility__7CAiMapsFRC9CAiMapLocRC9CAiMapLoc */
-float CAiMaps::ComputeLineVisibility(const CAiMapLoc &, const CAiMapLoc &)
+float CAiMaps::ComputeLineVisibility(const CAiMapLoc &from, const CAiMapLoc &to)
 {
+	/* 0x19a120 (CSealCtrl::ComputeVisibility): on one map, that map's line visibility (1
+	 * without the map); between map 0 and another the other end is moved onto map 0
+	 * (TransformTo) and measured there (1 when it cannot be); other pairs 1. ELF quirk: the
+	 * other map is not NULL-tested before TransformTo (port: guarded, 1). */
+	u32 a = from.m_mapid;
+	u32 b = to.m_mapid;
+
+	if (a == b)
+	{
+		CAiMap *map = GetMapByIndex(a);
+		return map != NULL ? map->ComputeLineVisibility(from, to) : 1.0f;
+	}
+
+	if (a == 0)
+	{
+		CAiMap *map = GetMapByIndex(b);
+		CAiMapLoc moved;
+
+		if (map != NULL && map->TransformTo(to, GetMapByIndex(0), moved))
+			return ComputeLineVisibility(from, moved);
+
+		return 1.0f;
+	}
+
+	if (b == 0)
+	{
+		CAiMap *map = GetMapByIndex(a);
+		CAiMapLoc moved;
+
+		if (map != NULL && map->TransformTo(from, GetMapByIndex(0), moved))
+			return ComputeLineVisibility(moved, to);
+	}
+
+	return 1.0f;
 }
 
 /* @socom-skeleton stub RegisterPathPlan__7CAiMapsFRC9CAiMapLocPC9CAiMapLociP7CAiPath */

@@ -292,8 +292,16 @@ zdb::CNode * CBody::FindAuxNode(const char *name, bool nested)
 }
 
 /* @socom-skeleton stub FindBodyPart__5CBodyFi */
-CZBodyPart * CBody::FindBodyPart(int)
+CZBodyPart * CBody::FindBodyPart(int id)
 {
+	/* 0x1e3110 (CZSealBody::Action): the first body part with that id, NULL if none */
+	for (std::vector<CZBodyPart*>::iterator it = m_body_parts.begin(); it != m_body_parts.end(); ++it)
+	{
+		if (*it != NULL && (*it)->m_id == id)
+			return *it;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton body FindPart__5CBodyCFPCc */

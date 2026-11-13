@@ -532,8 +532,26 @@ unsigned char CZSealBody::UpdateAimDir(bool)
 }
 
 /* @socom-skeleton stub CanProneAim__10CZSealBodyFv */
-void CZSealBody::CanProneAim()
+bool CZSealBody::CanProneAim()
 {
+	/* 0x2bf240 (Prone, InStateProne, SetStance): moving, yes; stopped, only while the camera's
+	 * view axis is within 0.642 (cosine) of the ground plane: the dot of the reversed view
+	 * axis with the ground normal between -0.642 and 0.642 */
+	if (!(m_velM.x * m_velM.x + m_velM.y * m_velM.y + m_velM.z * m_velM.z == 0.0f))
+		return true;
+
+	const f32 (&m)[4][4] = zdb::CWorld::m_world->m_camera->m_matrix.m_matrix;
+	CPnt3D view;
+	view.x = m[2][0];
+	view.y = m[2][1];
+	view.z = m[2][2];
+	view.Scale(-1.0f, &view);
+	f32 dot = view.x * m_groundNormal.x + view.y * m_groundNormal.y + view.z * m_groundNormal.z;
+
+	if (dot < -0.642f)
+		return false;
+
+	return dot <= 0.642f;
 }
 
 /* @socom-skeleton stub GetAimDot__10CZSealBodyFv */

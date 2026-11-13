@@ -85,10 +85,43 @@ void PoseBitmap::Tick(float dT)
 	if (seal == NULL)
 		return;
 
-	/* port: CZSealBody::StanceChanged is declared void (zseal.h; the ELF returns and
-	 * clears the stance-changed flag) and CEntityCtrl::IsRemote is not virtual in the
-	 * port, so the stance word does not change: only its fade-out runs */
-	seal->StanceChanged();
+	if (seal->StanceChanged())
+	{
+		CSealCtrl *control = static_cast<CSealCtrl *>(seal->m_control);
+		bool remote = control != NULL && control->IsRemote();
+
+		if (!remote)
+		{
+			const char *word = NULL;
+
+			switch ((u8)seal->m_desiredState)
+			{
+			case 0:
+				word = "stand";
+				break;
+			case 1:
+				word = "crouch";
+				break;
+			case 2:
+				word = "prone";
+				break;
+			default:
+				break;
+			}
+
+			/* ELF: m_trans is set before the state test, the word only for the three */
+			m_trans = 127.0f;
+
+			if (word != NULL)
+			{
+				m_text.SetString(word);
+				m_text.m_pos.x = (s32)m_posx << 4;
+				m_text.m_pos.y = (s32)m_posy << 4;
+			}
+
+			return;
+		}
+	}
 
 	if (m_trans > 0.0f)
 	{

@@ -248,7 +248,7 @@ static u32 MaxRegionShift(u32 regions)
 }
 
 /* @socom-skeleton stub m_heartbeat_sound__10CZSealBody */
-int CZSealBody::m_heartbeat_sound[3] = {0};
+CSnd *CZSealBody::m_heartbeat_sound[3] = {NULL, NULL, NULL};
 
 /* @socom-skeleton stub stoppedV__10CZSealBody */
 const float CZSealBody::stoppedV = 0.029999999329447746f;
@@ -1195,6 +1195,58 @@ bool CZSealBody::AddWeapon(SEAL_ITEM item)
 /* @socom-skeleton stub UpdateStance__10CZSealBodyFv */
 void CZSealBody::UpdateStance()
 {
+	/* 0x256c80 (PreTick): the wanted stance (m_desiredState: the player's TRIANGLE, the AI's
+	 * DoSetStance) is taken from a cycling top blend (flag 0x40) or during a stance transition
+	 * (stand-to-crouch, crouch-to-prone, stand-to-prone): standing from crouched or prone
+	 * (not during crouch-to-prone) Stand(1); crouching from standing or prone Crouch; prone
+	 * from standing or crouched (not during stand-to-crouch) Prone; each marks the stance
+	 * changed and sets the state (SetStance) */
+	CZBodyAnimBlend *top = m_blends->Top();
+
+	if (!(top->m_flags & 0x40) && !IsCurrentBlend(AnimType::animTypeStand2Crouch)
+		&& !IsCurrentBlend(AnimType::animTypeCrouch2Prone) && !IsCurrentBlend(AnimType::animTypeStand2Prone))
+		return;
+
+	s8 state = m_state;
+
+	switch ((u8)m_desiredState)
+	{
+	case 0:
+		if ((s16)m_blends->Top()->m_animType == (s16)AnimType::animTypeCrouch2Prone)
+			return;
+
+		if (state == 1 || state == 2)
+		{
+			m_stancechanged = 1;
+			Stand(1);
+			SetStance(SEAL_STATE::stateStand);
+		}
+		break;
+
+	case 1:
+		if (state == 0 || state == 2)
+		{
+			m_stancechanged = 1;
+			Crouch();
+			SetStance(SEAL_STATE::stateCrouch);
+		}
+		break;
+
+	case 2:
+		if ((s16)m_blends->Top()->m_animType == (s16)AnimType::animTypeStand2Crouch)
+			return;
+
+		if (state == 0 || state == 1)
+		{
+			m_stancechanged = 1;
+			Prone();
+			SetStance(SEAL_STATE::stateProne);
+		}
+		break;
+
+	default:
+		break;
+	}
 }
 
 /* @socom-skeleton stub UpdateLODFlags__10CZSealBodyFv */
@@ -3900,11 +3952,20 @@ void CZSealBody::UnMakeGhost()
 /* @socom-skeleton stub OpenHeartbeatSounds__10CZSealBodyFv */
 void CZSealBody::OpenHeartbeatSounds()
 {
+	/* 0x24d8a0 (ReInitDatabaseHandles): the three heartbeat loops */
+	m_heartbeat_sound[0] = CSnd::GetSoundByName("SND_HEARTBEAT_SLOW_LOOP");
+	m_heartbeat_sound[1] = CSnd::GetSoundByName("SND_HEARTBEAT_MEDIUM_LOOP");
+	m_heartbeat_sound[2] = CSnd::GetSoundByName("SND_HEARTBEAT_FAST_LOOP");
 }
 
 /* @socom-skeleton stub CloseHeartbeatSounds__10CZSealBodyFv */
 void CZSealBody::CloseHeartbeatSounds()
 {
+	/* 0x24d840: the playing loop stops (StopAllHeartbeatSounds, inline), the sounds go */
+	StopAllHeartbeatSounds(); /* inline in the ELF */
+	m_heartbeat_sound[0] = NULL;
+	m_heartbeat_sound[1] = NULL;
+	m_heartbeat_sound[2] = NULL;
 }
 
 /* @socom-skeleton body StopAllHeartbeatSounds__10CZSealBodyFv */
@@ -3922,4 +3983,38 @@ void CZSealBody::StopAllHeartbeatSounds()
 /* @socom-skeleton stub TickHeartbeat__10CZSealBodyFv */
 void CZSealBody::TickHeartbeat()
 {
+	/* 0x24d6e0 (Tick, the player scoped in with the heartbeat on): the loop follows the
+	 * adrenaline (1 without one): slow below 0.33, medium below 0.66, else fast; a change of
+	 * loop stops the playing one and starts the new one at 255. ELF quirk kept: on a change
+	 * the new loop's sound is not NULL-tested (only the first start tests it). */
+	CAiDecay *adrenaline = Adrenaline();
+	f32 value = adrenaline != NULL ? adrenaline->m_value : 1.0f;
+	s32 index;
+
+	if (value < 0.33f)
+		index = 0;
+	else if (value < 0.66f)
+		index = 1;
+	else
+		index = 2;
+
+	if (m_heartbeat_sndisnt != NULL && m_heartbeat_curindex != index)
+	{
+		m_heartbeat_sndisnt->Stop();
+		CSndInstance::ReleaseSoundInstance(m_heartbeat_sndisnt);
+		m_heartbeat_sndisnt = NULL;
+		m_heartbeat_sndisnt = m_heartbeat_sound[index]->PlaySound(NULL, 255);
+		m_heartbeat_curindex = index;
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("SEAL: heartbeat loop %d (adrenaline %.3f)", (int)index, (double)value);
+#endif
+	}
+	else if (m_heartbeat_sndisnt == NULL && m_heartbeat_sound[index] != NULL)
+	{
+		m_heartbeat_sndisnt = m_heartbeat_sound[index]->PlaySound(NULL, 255);
+		m_heartbeat_curindex = index;
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("SEAL: heartbeat start, loop %d (adrenaline %.3f)", (int)index, (double)value);
+#endif
+	}
 }

@@ -138,14 +138,42 @@ bool _SeeLineCallback(const MAP_LINEWALK_STRUCT &walk, void *data)
 }
 
 /* @socom-skeleton stub _VisLineCallback__FRC19MAP_LINEWALK_STRUCTPv */
-void _VisLineCallback(const MAP_LINEWALK_STRUCT &, void *)
+bool _VisLineCallback(const MAP_LINEWALK_STRUCT &walk, void *data)
 {
+	/* 0x1a8360 (CAiMap::ComputeLineVisibility): each cell's cover adds up (grass soil 12
+	 * 0.1, brush 4 0.22, forest 5 0.4); the first and the last cell's shadow are kept; the
+	 * walk goes on while the cover is below 1. data: the visibility walk record (no DWARF;
+	 * cover, first shadow (-1: none yet), last shadow). */
 	/* @socom-skeleton stub grass_density$789 */
-	static float grass_density;
+	static float grass_density = 0.1f;
 	/* @socom-skeleton stub brush_density$792 */
-	static float brush_density;
+	static float brush_density = 0.22f;
 	/* @socom-skeleton stub forest_density$795 */
-	static float forest_density;
+	static float forest_density = 0.4f;
+	struct Vis
+	{
+		f32 m_cover;
+		s32 m_first_shadow;
+		s32 m_last_shadow;
+	} *vis = static_cast<Vis *>(data);
+	u32 soil = walk.m_cell->m_soil;
+	f32 cover = 0.0f;
+
+	if (soil == 12)
+		cover = grass_density;
+	else if (soil == 4)
+		cover = brush_density;
+	else if (soil == 5)
+		cover = forest_density;
+
+	vis->m_cover += cover;
+	s32 shadow = walk.m_cell->m_shadow;
+
+	if (vis->m_first_shadow == -1)
+		vis->m_first_shadow = shadow;
+
+	vis->m_last_shadow = shadow;
+	return vis->m_cover < 1.0f;
 }
 
 /* @socom-skeleton stub CanTravelLine__6CAiMapFRC9CAiMapLocRC9CAiMapLocP9CAiMapLoc */
@@ -170,10 +198,33 @@ bool CAiMap::CanSeeLine(const CAiMapLoc &from, const CPnt3D *to, CAiMapLoc *bloc
 }
 
 /* @socom-skeleton stub ComputeLineVisibility__6CAiMapFRC9CAiMapLocRC9CAiMapLoc */
-float CAiMap::ComputeLineVisibility(const CAiMapLoc &, const CAiMapLoc &)
+float CAiMap::ComputeLineVisibility(const CAiMapLoc &from, const CAiMapLoc &to)
 {
+	/* 0x1a8280 (CAiMaps::ComputeLineVisibility; CSealCtrl::ComputeVisibility for crouched or
+	 * prone targets): 1 - the cover along the line (saturated 0..1), scaled by the shadow
+	 * step from the first to the last cell (a darker end: 0.9, 0.5, 0.33). ELF quirk kept:
+	 * the step is not bounded (the table has four entries). */
 	/* @socom-skeleton stub shadow_scale$821 */
-	static unsigned char shadow_scale[16] = {0, 0, 128, 63, 102, 102, 102, 63, 0, 0, 0, 63, 195, 245, 168, 62};
+	static const f32 shadow_scale[4] = {1.0f, 0.9f, 0.5f, 0.33f};
+	struct Vis
+	{
+		f32 m_cover;
+		s32 m_first_shadow;
+		s32 m_last_shadow;
+	} vis;
+	vis.m_cover = 0.0f;
+	vis.m_first_shadow = -1;
+	vis.m_last_shadow = -1;
+	WalkLine(from, to, _VisLineCallback, &vis);
+	f32 v = vis.m_cover;
+	saturate<f32>(v, 0.0f, 1.0f);
+	v = 1.0f - v;
+	s32 step = vis.m_last_shadow - vis.m_first_shadow;
+
+	if (step > 0)
+		v *= shadow_scale[step];
+
+	return v;
 }
 
 /* port: inline in the ELF (see zai.h) */

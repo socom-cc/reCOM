@@ -1258,8 +1258,8 @@ public:
 	CZBodyAnimBlend * MoveControl(float, float);
 	CZBodyAnimBlend * CrouchMoveControl(float, float, float);
 	bool CheckAnim(); /* 0x277300: 0/1 */
-	void StanceChanged();
-	void SetStance(SEAL_STATE);
+	bool StanceChanged(); /* 0x2772d0 returns the flag (PoseBitmap::Tick tests v0) */
+	void SetStance(SEAL_STATE); /* port: void (0x276960 returns 0/1, unused) */
 	void Stand(int);
 	CZBodyAnimBlend * Stand_0(int, int);
 	CZBodyAnimBlend * Crouch();
@@ -1464,7 +1464,7 @@ public:
 	bool GetAP(CPnt3D &); /* 0x2bf8a0 returns 0/1 */
 	void GetFP(CPnt3D &);
 	unsigned char UpdateAimDir(bool);
-	void CanProneAim();
+	bool CanProneAim(); /* 0x2bf240 returns 0/1 (Prone / InStateProne test v0) */
 	float GetAimDot();
 	bool CanAttainAim(CPnt3D &); /* 0x2befc0: UpdateAimDir tests v0 */
 	static int m_aim_anims[3];
@@ -1477,7 +1477,7 @@ public:
 	static unsigned char m_delayed_footbomb_creation;
 	static float m_delayed_footbomb_creation_pos[3];
 	static CZAnim* m_dropanim; /* drop_item (ReInitDatabaseHandles) */
-	static int m_heartbeat_sound[3];
+	static CSnd* m_heartbeat_sound[3]; /* SND_HEARTBEAT_SLOW / MEDIUM / FAST_LOOP (OpenHeartbeatSounds 0x24d8a0) */
 	static unsigned char m_renderShadow;
 	static CZAnim** m_sealstep; /* per material: seal_footfall_<material> (calloc, ReInitDatabaseHandles) */
 	static CZAnim* m_smallrippleanim[3]; /* 0x508690: small_ripple_anim, _walk, _run */

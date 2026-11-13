@@ -1376,8 +1376,24 @@ void CSealCtrlAi::OnDeath()
 }
 
 /* @socom-skeleton stub OnStateChange__11CSealCtrlAiF10SEAL_STATE10SEAL_STATE */
-void CSealCtrlAi::OnStateChange(SEAL_STATE, SEAL_STATE)
+void CSealCtrlAi::OnStateChange(SEAL_STATE from, SEAL_STATE to)
 {
+	/* 0x269850 (the body's state changes): the controller's stance follows the body's new
+	 * stand / crouch / prone state ("fixing"), other states keep stance 0. ELF quirks kept:
+	 * the old state's stance is computed for nothing; sealai::get_stance is inline. */
+	CZSealBody::GetStanceFromState(from, (SEAL_STANCE)0);
+	s8 stance = (s8)CZSealBody::GetStanceFromState(to, (SEAL_STANCE)0);
+
+	if (stance != m_stance)
+	{
+		Debug("OnStateChange( %d, %d) --> fixing (%s to %s)\n", (int)(u8)from, (int)(u8)to,
+			sealai::get_stance((SEAL_STANCE)stance), sealai::get_stance((SEAL_STANCE)m_stance));
+		m_stance = stance;
+	}
+	else
+	{
+		Debug("OnStateChange( %d, %d)\n", (int)(u8)from, (int)(u8)to);
+	}
 }
 
 /* @socom-skeleton stub AnimIsPlaying__11CSealCtrlAiF8AnimType */
