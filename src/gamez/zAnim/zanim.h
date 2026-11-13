@@ -1034,7 +1034,7 @@ public:
 	void HealthInit();
 	float GetHealth();
 	CZAnim * Activate(CZAnim *);
-	void ActivateEx(int, ...);
+	CZAnim * ActivateEx(int, ...); /* 0x1ceee0 returns the activated copy (ExecuteAction_CQBAttack tests v0) */
 	CZAnim * ActivateArgV(char *);
 	CZAnim * ActivateArg(int, ...);
 	void ActivateSequence(const char *);

@@ -1185,7 +1185,7 @@ public:
 	void ResetAltitude(float);
 	void SetSnakePathUpdate(bool, unsigned int);
 	void ExecuteAction_KnifeAttack(CZSealBody *);
-	void ExecuteAction_CQBAttack(CZSealBody *);
+	bool ExecuteAction_CQBAttack(CZSealBody *); /* 0x24ed60: v0 0/1 (the anim started) */
 	void ExecuteAction_ApplyRestraint(CZSealBody *);
 	bool ExecuteDelayedAction_Climb(); /* 0x24ecf0: li v0,1 (was void) */
 	bool ExecuteDelayedAction_Jump(); /* 0x24ecd0: li v0,1 */
@@ -1239,13 +1239,13 @@ public:
 	void SetMovingChangeToRifle(ACTIVE_ANIM *);
 	void SetMovingChangeToPistol(ACTIVE_ANIM *);
 	CZBodyAnimBlend * SealAnim(bool, float, float, float);
-	void IsStopped(float, float, float);
+	bool IsStopped(float, float, float); /* 0x27b300: the InState* callers test v0 */
 	bool SmoothXZThrottles(float &, float &); /* 0x27b130: 1 when limited */
 	CZBodyAnimBlend * InStateStand(float, float, float);
 	CZBodyAnimBlend * StandStill(float, float, float);
 	CZBodyAnimBlend * StandTurning(float, float, float);
 	void UpdateQuadrant(float &, float &, bool);
-	void CanCrouch();
+	bool CanCrouch(); /* 0x27a1b0: CrouchToPickupBuddy tests v0 */
 	CZBodyAnimBlend * InStateCrouch(float, float, float);
 	CZBodyAnimBlend * InStateProne(float, float, float);
 	CZBodyAnimBlend * InStateHang(float, float, float);
@@ -1349,7 +1349,7 @@ public:
 	CZBodyAnimBlend * PreClimbLadderDown();
 	void AlignForPickup(CPnt3D *, CPnt3D *);
 	bool PostCheckDILadder(float &, float &, float &); /* 0x2a01d0: Tick 0x255b30 tests v0 */
-	void CheckDILadder(float &, float &, float &);
+	bool CheckDILadder(float &, float &, float &); /* 0x29ff80: PostCheckDILadder returns its v0 */
 	void Slide(zdb::IntersectStruct *);
 	void SetWepHit(zdb::IntersectStruct *);
 	void PreCheckDIDown();

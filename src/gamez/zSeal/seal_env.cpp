@@ -408,7 +408,7 @@ CZAnim* CZSealBody::m_smallrippleanim[3];
 std::vector<CZDecalDef> CZSealBody::m_blooddriptexhandles; /* 12 bytes (MSL vector<CZDecalDef>): BLOOD_DRIP_DECALS */
 
 /* @socom-skeleton stub BuddyPickupRefpoint */
-float BuddyPickupRefpoint[3];
+float BuddyPickupRefpoint[3] = { 5.26f, -4.22f, -3.26f }; /* __sinit_seal_env.cpp 0x46d010 (0x40a851ec, 0xc0870a3d, 0xc050a3d7) */
 
 /* @socom-skeleton stub dQlookhead */
 static unsigned char dQlookhead[192];
@@ -1287,21 +1287,121 @@ void CZSealBody::AlignForClimb(bool down, CPnt3D &at, CPnt3D &top, CPnt3D *norm)
 /* @socom-skeleton stub PreClimbLadderDown__10CZSealBodyFv */
 CZBodyAnimBlend * CZSealBody::PreClimbLadderDown()
 {
+	/* 0x2a0350 (PopBlend after Rotate180: turning onto a ladder top to climb down). UNTESTED:
+	 * no mission on the port's disc has a ladder (see the port notes). The top blend's refpoint
+	 * goal is invalidated; a remote seal's top gets no homing (all zero); a seal not getting
+	 * off a ladder goes down to its base blend (ClearStack(1, true)); else the top blend homes
+	 * the model refpoint (0.347, -1.412 - 11.487, 3.2) onto the goal point 1.412 lower, the
+	 * model z axis against the goal normal (negated in place in the goal), target refpoint
+	 * (0, 8, 0). v0 = the top blend. ELF quirks kept: IsRemote is called twice (the first
+	 * result unused); the representative is fetched for nothing; the refvec and target are
+	 * written twice (unit_nz / zero, then unit_z / (0, 8, 0)). */
+	CZBodyAnimBlend *top = m_blends->Top();
+	REFPT_INFO *info = top->m_refpt_info;
+	info->m_valid = false;
+	CSealCtrl *control = static_cast<CSealCtrl *>(m_control);
+
+	if (control != NULL)
+		control->IsRemote();
+
+	if (control != NULL && control->IsRemote())
+	{
+		top->m_homing.m_blend = NULL;
+		top->m_homing.m_refpt_m = CPnt3D::zero;
+		top->m_homing.m_norm_w = CPnt3D::zero;
+		top->m_homing.m_int_w = CPnt3D::zero;
+		top->m_homing.m_refvec_m = CPnt3D::zero;
+		top->m_homing.m_target_refpt_m = CPnt3D::zero;
+		return top;
+	}
+
+	if (!IsCurrentBlend(AnimType::animTypeClimbOffLadder))
+	{
+		ClearStack(1, true);
+		return top;
+	}
+
+	CPnt3D goal(info->m_goal_pos.x, info->m_goal_pos.y - 1.412f, info->m_goal_pos.z);
+	m_blends->Top()->Representative();
+	info->m_goal_norm.Scale(-1.0f, &info->m_goal_norm);
+	top->m_homing.m_blend = top;
+	top->m_homing.m_refpt_m = CPnt3D(0.347f, -1.412f - 11.487f, 3.2f);
+	top->m_homing.m_norm_w = info->m_goal_norm;
+	top->m_homing.m_int_w = goal;
+	top->m_homing.m_refvec_m = CPnt3D::unit_z;
+	top->m_homing.m_target_refpt_m = CPnt3D(0.0f, 8.0f, 0.0f);
+	return top;
 }
 
 /* @socom-skeleton stub AlignForPickup__10CZSealBodyFP6CPnt3DP6CPnt3D */
-void CZSealBody::AlignForPickup(CPnt3D *, CPnt3D *)
+void CZSealBody::AlignForPickup(CPnt3D *pos, CPnt3D *dir)
 {
+	/* 0x2a0210 (CrouchToPickupBuddy): the top blend homes the pickup: its model refpoint
+	 * BuddyPickupRefpoint onto the world point pos (the buddy's root), the model -z axis
+	 * against the world normal -dir; the target refpoint is zero. ELF quirks kept: dir is
+	 * negated in place (the caller's vector); the target is written twice (zero both
+	 * times); the top is not NULL-tested. */
+	CZBodyAnimBlend *blend = m_blends->Top();
+	CPnt3D refpt(BuddyPickupRefpoint[0], BuddyPickupRefpoint[1], BuddyPickupRefpoint[2]);
+	CPnt3D target = CPnt3D::zero;
+	dir->Scale(-1.0f, dir);
+	blend->m_homing.m_blend = blend;
+	blend->m_homing.m_refpt_m = refpt;
+	blend->m_homing.m_norm_w = *dir;
+	blend->m_homing.m_int_w = *pos;
+	blend->m_homing.m_refvec_m = CPnt3D::unit_nz;
+	blend->m_homing.m_target_refpt_m = target;
 }
 
 /* @socom-skeleton stub PostCheckDILadder__10CZSealBodyFRfRfRf */
-bool CZSealBody::PostCheckDILadder(float &, float &, float &)
+bool CZSealBody::PostCheckDILadder(float &fb, float &lr, float &strafe)
 {
+	/* 0x2a01d0 (Tick, after the climb-off anim): no forward throttle -> 1; else whether the
+	 * ladder is still there (CheckDILadder). UNTESTED (no ladder on the port's disc). */
+	if (fb < stoppedV)
+		return true;
+
+	return CheckDILadder(fb, lr, strafe);
 }
 
 /* @socom-skeleton stub CheckDILadder__10CZSealBodyFRfRfRf */
-void CZSealBody::CheckDILadder(float &, float &, float &)
+bool CZSealBody::CheckDILadder(float &, float &, float &)
 {
+	/* 0x29ff80 (PostCheckDILadder): a ladder still in front: the root node's model position
+	 * raised to the climb-off anim's refpoint height (on the node's axes; unrotated when it is
+	 * on the node's y axis) and that point 8 further along the model -z, both to the world,
+	 * must hit something (SealGetIntersect). The throttles are unused. UNTESTED (no ladder on
+	 * the port's disc). */
+	zdb::CNode *root = GetRootPart()->m_node;
+	CPnt3D *posw = GetPosW();
+	CPnt3D ahead(0.0f, 0.0f, -8.0f);
+	const float *t = root->m_matrix.m_matrix[3];
+	CPnt3D p(t[0], t[1], t[2]);
+	CPnt3D ref;
+	RefPoint(GetAnimByType(AnimType::animTypeClimbOffLadder), &ref);
+	p.y += ref.y;
+	const CMatrix &m = m_node->m_matrix;
+	CPnt3D from;
+
+	if (p.x == 0.0f && p.z == 0.0f)
+	{
+		from = p;
+	}
+	else
+	{
+		from.x = m.m_matrix[0][0] * p.x + m.m_matrix[1][0] * p.y + m.m_matrix[2][0] * p.z;
+		from.y = m.m_matrix[0][1] * p.x + m.m_matrix[1][1] * p.y + m.m_matrix[2][1] * p.z;
+		from.z = m.m_matrix[0][2] * p.x + m.m_matrix[1][2] * p.y + m.m_matrix[2][2] * p.z;
+	}
+
+	from.Add(posw, &from);
+	p.Add(&ahead, &p);
+	CPnt3D to;
+	to.x = m.m_matrix[0][0] * p.x + m.m_matrix[1][0] * p.y + m.m_matrix[2][0] * p.z;
+	to.y = m.m_matrix[0][1] * p.x + m.m_matrix[1][1] * p.y + m.m_matrix[2][1] * p.z;
+	to.z = m.m_matrix[0][2] * p.x + m.m_matrix[1][2] * p.y + m.m_matrix[2][2] * p.z;
+	to.Add(posw, &to);
+	return SealGetIntersect(&from, &to) != NULL;
 }
 
 /* @socom-skeleton stub Slide__10CZSealBodyFPQ23zdb15IntersectStruct */
@@ -4640,6 +4740,8 @@ void CZSealBody::HudUpdateViewCone()
 /* @socom-skeleton stub SetHudHitFlag__10CZSealBodyFv */
 void CZSealBody::SetHudHitFlag()
 {
+	/* 0x294180: the HUD shows the seal was hit */
+	m_hudwashit = 1;
 }
 
 /* @socom-skeleton stub HandleStunRecovery__10CZSealBodyF9STUN_TYPE */

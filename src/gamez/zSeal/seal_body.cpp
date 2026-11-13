@@ -323,7 +323,29 @@ s8 CZSealBody::GetSpeedState()
 /* @socom-skeleton body GetStance__10CZSealBodyCFb */
 SEAL_STATE CZSealBody::GetStance(bool flag) const
 {
-	return SEAL_STATE::stateStand; /* port: was SEAL_STANCE::STANCE_NONE (same value 0); GetStance returns SEAL_STATE (Ghidra 0x27d2a0) */
+	/* 0x27d2a0: the body's state; with flag, during a stance transition (the top blend not
+	 * cycling) the stance it started from: stand-to-crouch 0 (reversed 1), crouch-to-prone 1
+	 * (reversed 2), stand-to-prone 0 (reversed 2) */
+	if (flag)
+	{
+		u16 flags = m_blends->Top()->m_flags;
+
+		if ((flags & 0x40) == 0)
+		{
+			bool reversed = (flags & 0x20) != 0;
+
+			if (m_CurrentBlendAnimType == m_animset->BaseAnim(AnimType::animTypeStand2Crouch))
+				return reversed ? SEAL_STATE::stateCrouch : SEAL_STATE::stateStand;
+
+			if (m_CurrentBlendAnimType == m_animset->BaseAnim(AnimType::animTypeCrouch2Prone))
+				return reversed ? SEAL_STATE::stateProne : SEAL_STATE::stateCrouch;
+
+			if (m_CurrentBlendAnimType == m_animset->BaseAnim(AnimType::animTypeStand2Prone))
+				return reversed ? SEAL_STATE::stateProne : SEAL_STATE::stateStand;
+		}
+	}
+
+	return (SEAL_STATE)(u8)m_state;
 }
 
 /* @socom-skeleton stub BodySetState__10CZSealBodyFi */
@@ -909,8 +931,34 @@ CZBodyAnimBlend * CZSealBody::SealAnim(bool next, float fb, float strafe, float 
 }
 
 /* @socom-skeleton stub IsStopped__10CZSealBodyFfff */
-void CZSealBody::IsStopped(float, float, float)
+bool CZSealBody::IsStopped(float z, float x, float turn)
 {
+	/* 0x27b300 (InStateCrouch / InStateProne / InStateCarrying / InStateCarried; arguments:
+	 * forward, sideways, turn throttles): no sideways throttle, and: turning in place - the
+	 * forward throttle inside the turn-scaled window InStateStand uses; moving - no forward
+	 * throttle; else no throttle at all (forward and turn together), or inside that window */
+	static const f32 zero_x = 0.0f; /* @2501 */
+	static const f32 zero_z = 0.0f; /* @2513 */
+	static const f32 zero_len = 0.0f; /* @2518 */
+
+	if (!_close_enough(x, zero_x, stoppedV))
+		return false;
+
+	if (!m_is_turning)
+	{
+		if (m_is_moving)
+			return _close_enough(z, zero_z, stoppedV);
+
+		f32 len = sqrtf(z * z + turn * turn);
+
+		if (_close_enough(len, zero_len, stoppedV))
+			return true;
+	}
+
+	if (!(z < stoppedV + turn * turn * (0.3f - stoppedV)))
+		return false;
+
+	return !(z <= -(stoppedV * 1.5f + turn * turn * (0.5f - stoppedV * 1.5f)));
 }
 
 /* @socom-skeleton stub SmoothXZThrottles__10CZSealBodyFRfRf */
@@ -1251,13 +1299,210 @@ void CZSealBody::UpdateQuadrant(float &x, float &z, bool snap)
 }
 
 /* @socom-skeleton stub CanCrouch__10CZSealBodyFv */
-void CZSealBody::CanCrouch()
+bool CZSealBody::CanCrouch()
 {
+	/* 0x27a1b0: the anim set has the crouch anim and anim 87; in water only up to 8.5 deep */
+	if (m_animset->AnimId(AnimType::animTypeCrouch) < 0)
+		return false;
+
+	if (m_animset->AnimId((AnimType)87) < 0)
+		return false;
+
+	if (!m_inwater)
+		return true;
+
+	return m_waterdepth <= 8.5f;
 }
 
+/* port: OKToStand (0x2740f0) is defined further down with the other file-level helpers */
+bool OKToStand(CZSealBody *seal);
+
 /* @socom-skeleton stub InStateCrouch__10CZSealBodyFfff */
-CZBodyAnimBlend * CZSealBody::InStateCrouch(float, float, float)
+CZBodyAnimBlend * CZSealBody::InStateCrouch(float fb, float lr, float strafe)
 {
+	/* 0x279740 (SealAnim, state 1): crouched. Unable to crouch (CanCrouch, inline): stand
+	 * up (wanted state stand; from another stance one blend, then Stand_0 up). Stopped
+	 * without a turn: the crouch blend (two blends at most; the last foot from the crouch
+	 * strafe anims' weight, the turn or the current foot), not moving or turning; turning:
+	 * the crouch step blend once (the right foot half way in, the turn-in-place sequence
+	 * from its hold) and TurnControl. Moving fast (the unquadranted throttles past
+	 * 10.36 / 14.8) with head room (OKToStand): the move blend (sneak, pushed in the crouched
+	 * state) and MoveControl; else the crouch walk blend (popped down to a base stance
+	 * first) and CrouchMoveControl. ELF quirks kept: the crouch strafe weight is not
+	 * mirrored by the strafe side (StandStill's is); the move path's MoveControl gets the
+	 * smoothed throttles but the crouch walk's CrouchMoveControl the quadranted ones, with
+	 * a first argument of 1. */
+	static const f32 zero_turn = 0.0f; /* @2675 */
+	f32 rawfb = fb;
+	f32 rawstrafe = strafe;
+
+	struct Local
+	{
+		/* the inline CanCrouch failure: stand up */
+		static CZBodyAnimBlend *StandUp(CZSealBody *body)
+		{
+			body->m_desiredState = SEAL_STATE::stateStand;
+			body->m_stancechanged = 1;
+			CZBodyAnimBlend *top = body->m_blends->Top();
+			s8 state = body->m_state;
+
+			if (state == 0 || top->m_state == 0)
+				return top;
+
+			body->ClearStack(1, true);
+			return body->Stand_0(state, 1);
+		}
+
+		/* ClearStack(2, true), inline */
+		static void ToTwo(CZSealBody *body)
+		{
+			CZBodyAnimBlend *top = body->m_blends->Top();
+
+			while ((u32)(body->m_blends->m_top + 1) > 2)
+				top = body->PopBlend();
+
+			if (top != NULL)
+				top->m_ctrl = 0;
+
+			body->m_desiredPeek = SEAL_PEEK::PEEK_NONE;
+		}
+	};
+
+	if (!CanCrouch()) /* inline in the ELF */
+		return Local::StandUp(this);
+
+	UpdateQuadrant(strafe, fb, true);
+	CZBodyAnimBlend *top = m_blends->Top();
+	s32 foot = top->ThisFoot();
+
+	if (IsStopped(fb, strafe, lr))
+	{
+		if (_close_enough(lr, zero_turn, turnV))
+		{
+			if (m_CurrentBlendAnimType != m_animset->BaseAnim(AnimType::animTypeCrouch))
+			{
+				f32 side = 0.0f;
+				CBlendable *set = m_animset->m_crouchstrafeR_anims;
+				bool mirrored = false;
+
+				for (ACTIVE_ANIM *active = top->m_anims->Begin(); active != NULL; active = top->m_anims->Next())
+				{
+					if (set->Contains((AnimType)active->m_anim->m_animType))
+					{
+						side += active->m_wt;
+
+						if (active->m_anim->m_flags & 0x40)
+							mirrored = true;
+					}
+				}
+
+				if (mirrored)
+					side = -side;
+
+				s16 last = (m_blends->Top()->Representative()->m_flags & 0x40) == 0 ? 2 : 0x20;
+				Local::ToTwo(this);
+
+				if (0.6f < side)
+					m_last_foot = 2;
+				else if (side < -0.6f)
+					m_last_foot = 0x20;
+				else if (m_is_turning)
+					m_last_foot = last;
+				else
+					m_last_foot = foot > 0x10 && foot < 0x30 ? 0x20 : 2;
+
+				if (m_CurrentBlendAnimType != m_animset->BaseAnim(AnimType::animTypeCrouch))
+				{
+					if ((u32)(m_blends->m_top + 1) > 1)
+						PopBlend();
+
+					PushBlend(AnimType::animTypeCrouch, 1, false);
+				}
+
+				if (m_CurrentBlendAnimType != m_animset->BaseAnim(AnimType::animTypeCrouch))
+					return Local::StandUp(this); /* the CanCrouch failure tail, inline */
+			}
+
+			m_turnip->Clear();
+			top = m_blends->Top();
+			m_is_moving = 0;
+			m_is_turning = 0;
+			top->SetRepresentativeWt(1.0f);
+			top->Representative()->m_flags &= 0xffbf;
+			return top;
+		}
+
+		if (m_CurrentBlendAnimType != m_animset->BaseAnim(AnimType::animTypeCrouchStep))
+		{
+			Local::ToTwo(this);
+			top = PushBlend(AnimType::animTypeCrouchStep, 1, false);
+
+			if (m_CurrentBlendAnimType != m_animset->BaseAnim(AnimType::animTypeCrouchStep))
+				return top;
+
+			m_last_foot = foot > 0x10 && foot < 0x30 ? 0x20 : 2;
+
+			if (m_last_foot == 0x20)
+				top->m_tfrac = 0.5f;
+
+			TurnSetup(foot);
+			m_turnip->Start(0.8f, 3000.0f, 0.4f);
+			m_turnip->m_currT = m_turnip->m_holdT + m_turnip->m_downT;
+		}
+
+		m_is_turning = 1;
+		m_is_moving = 0;
+		top = TurnControl(fb, lr);
+		top->Representative()->m_flags &= 0xffbf;
+		return top;
+	}
+
+	if (!(14.8f * (14.8f * (rawstrafe * rawstrafe + rawfb * rawfb)) < 107.3296f) && OKToStand(this))
+	{
+		f32 x = rawstrafe;
+		f32 z = rawfb;
+		SmoothXZThrottles(x, z);
+		m_blends->Top();
+
+		if (m_CurrentBlendAnimType != m_animset->BaseAnim(AnimType::animTypeSneak)
+			&& m_CurrentBlendAnimType != m_animset->BaseAnim(AnimType::animTypeSkitter)
+			&& m_CurrentBlendAnimType != m_animset->BaseAnim(AnimType::animTypeRun))
+		{
+			ClearToBase(false);
+			PushBlend(AnimType::animTypeSneak, m_state, false);
+		}
+
+		m_turnip->Clear();
+		m_is_turning = 0;
+		m_is_moving = 1;
+		return MoveControl(z, x);
+	}
+
+	if (m_CurrentBlendAnimType != m_animset->BaseAnim(AnimType::animTypeCrouchWalk)
+		&& m_CurrentBlendAnimType != m_animset->BaseAnim(AnimType::animTypeJumpFall))
+	{
+		while ((u32)(m_blends->m_top + 1) > 1
+			&& m_CurrentBlendAnimType != m_animset->BaseAnim(AnimType::animTypeStand)
+			&& m_CurrentBlendAnimType != m_animset->BaseAnim(AnimType::animTypeCrouch)
+			&& m_CurrentBlendAnimType != m_animset->BaseAnim(AnimType::animTypeProne))
+		{
+			PopBlend();
+		}
+
+		m_blends->Top()->m_ctrl = 0;
+		m_desiredPeek = SEAL_PEEK::PEEK_NONE;
+		m_blends->Top();
+		top = PushBlend(AnimType::animTypeCrouchWalk, 1, false);
+
+		if (m_CurrentBlendAnimType != m_animset->BaseAnim(AnimType::animTypeCrouchWalk))
+			return top;
+	}
+
+	m_is_turning = 0;
+	m_is_moving = 1;
+	top = CrouchMoveControl(1.0f, fb, strafe);
+	top->Representative()->m_flags &= 0xffbf;
+	return top;
 }
 
 /* @socom-skeleton stub InStateProne__10CZSealBodyFfff */
@@ -1304,18 +1549,166 @@ CZBodyAnimBlend * CZSealBody::InStateHang(float fb, float, float strafe)
 }
 
 /* @socom-skeleton stub InStateClimbLadder__10CZSealBodyFfff */
-CZBodyAnimBlend * CZSealBody::InStateClimbLadder(float, float, float)
+CZBodyAnimBlend * CZSealBody::InStateClimbLadder(float fb, float, float)
 {
+	/* 0x278f20 (SealAnim, state 5): on a ladder. UNTESTED: no mission on the port's disc has
+	 * a ladder (port notes). Sliding: nothing. Else the climb blend (pushed in state 5 when
+	 * missing); climbing down within 1 of the altitude steps off (the climb blend popped,
+	 * stand-to-ladder reversed into standing; v0 = that blend); else the climb anim at full
+	 * weight, timed by the forward throttle (and its throttle scale). */
+	CZBodyAnimBlend *top = m_blends->Top();
+	CPnt3D *posw = GetPosW();
+
+	if (m_CurrentBlendAnimType == m_animset->BaseAnim((AnimType)AnimTypes::LadderSlide))
+		return top;
+
+	if (m_CurrentBlendAnimType != m_animset->BaseAnim(AnimType::animTypeClimbLadder))
+		PushBlend(AnimType::animTypeClimbLadder, 5, false);
+
+	if (fb < 0.0f && posw->y < m_alt + 1.0f)
+	{
+		if (m_CurrentBlendAnimType == m_animset->BaseAnim(AnimType::animTypeClimbLadder))
+			PopBlend();
+
+		return PushBlend(AnimType::animTypeStand2Ladder, 0, true);
+	}
+
+	top = m_blends->Top();
+	CZBodyAnim *rep = top->Representative();
+	top->SetRepresentativeWt(1.0f);
+	rep->SetTimeScale(fb * rep->m_pCommon->m_thr_scale);
+	return top;
 }
 
 /* @socom-skeleton stub InStateCarrying__10CZSealBodyFfff */
-CZBodyAnimBlend * CZSealBody::InStateCarrying(float, float, float)
+CZBodyAnimBlend * CZSealBody::InStateCarrying(float fb, float lr, float strafe)
 {
+	/* 0x278bc0 (SealAnim, state 9): carrying a body. Stopped without a turn: down to two
+	 * blends, not moving or turning, the top at full weight; turning: the carry step blend
+	 * once (the last foot from the current one) and TurnControl; moving: the carry walk blend
+	 * once a forward throttle is given, its representative timed by the forward throttle
+	 * (and its anim's throttle scale). ClearStack(2, true) is inline in the ELF. */
+	static const f32 zero_turn = 0.0f; /* @2778 */
+	UpdateQuadrant(strafe, fb, true);
+	CZBodyAnimBlend *top = m_blends->Top();
+	s32 foot = top->ThisFoot();
+
+	struct Local
+	{
+		static void ToTwo(CZSealBody *body)
+		{
+			CZBodyAnimBlend *blend = body->m_blends->Top();
+
+			while ((u32)(body->m_blends->m_top + 1) > 2)
+				blend = body->PopBlend();
+
+			if (blend != NULL)
+				blend->m_ctrl = 0;
+
+			body->m_desiredPeek = SEAL_PEEK::PEEK_NONE;
+		}
+	};
+
+	if (IsStopped(fb, strafe, lr))
+	{
+		if (_close_enough(lr, zero_turn, turnV))
+		{
+			Local::ToTwo(this);
+			top = m_blends->Top();
+			m_is_moving = 0;
+			m_is_turning = 0;
+			top->SetRepresentativeWt(1.0f);
+			return top;
+		}
+
+		if (m_CurrentBlendAnimType != m_animset->BaseAnim((AnimType)AnimTypes::BuddyCarryStep))
+		{
+			Local::ToTwo(this);
+			PushBlend((AnimType)AnimTypes::BuddyCarryStep, 9, false);
+			m_last_foot = foot > 0x10 && foot < 0x30 ? 0x20 : 2;
+		}
+
+		m_is_moving = 0;
+		m_is_turning = 1;
+		return TurnControl(fb, lr);
+	}
+
+	if (fb != 0.0f && m_CurrentBlendAnimType != m_animset->BaseAnim((AnimType)AnimTypes::BuddyCarryWalk))
+	{
+		Local::ToTwo(this);
+		top = PushBlend((AnimType)AnimTypes::BuddyCarryWalk, 9, false);
+	}
+
+	m_is_moving = 1;
+	m_is_turning = 0;
+	CZBodyAnim *rep = top->Representative();
+	top->SetRepresentativeWt(1.0f);
+	rep->SetTimeScale(fb * rep->m_pCommon->m_thr_scale);
+	return top;
 }
 
 /* @socom-skeleton stub InStateCarried__10CZSealBodyFfff */
-CZBodyAnimBlend * CZSealBody::InStateCarried(float, float, float)
+CZBodyAnimBlend * CZSealBody::InStateCarried(float fb, float lr, float strafe)
 {
+	/* 0x2788b0 (SealAnim, state 10): carried over a shoulder, as InStateCarrying with the
+	 * carried anims (no quadrant snap): stopped without a turn, down to two blends with the
+	 * representative timed by the forward throttle; turning, the carried step blend and
+	 * TurnControl; moving, the carried walk blend. ClearStack(2, true) is inline. ELF quirk
+	 * kept: the stopped case leaves m_is_moving / m_is_turning as they were. */
+	static const f32 zero_turn = 0.0f; /* @2794 */
+	CZBodyAnimBlend *top = m_blends->Top();
+
+	struct Local
+	{
+		static CZBodyAnimBlend *ToTwo(CZSealBody *body)
+		{
+			CZBodyAnimBlend *blend = body->m_blends->Top();
+
+			while ((u32)(body->m_blends->m_top + 1) > 2)
+				blend = body->PopBlend();
+
+			if (blend != NULL)
+				blend->m_ctrl = 0;
+
+			body->m_desiredPeek = SEAL_PEEK::PEEK_NONE;
+			return blend;
+		}
+	};
+
+	if (IsStopped(fb, strafe, lr))
+	{
+		if (_close_enough(lr, zero_turn, turnV))
+		{
+			top = Local::ToTwo(this);
+			CZBodyAnim *rep = top->Representative();
+			top->SetRepresentativeWt(1.0f);
+			rep->SetTimeScale(fb * rep->m_pCommon->m_thr_scale);
+			return top;
+		}
+
+		if (m_CurrentBlendAnimType != m_animset->BaseAnim((AnimType)AnimTypes::BuddyCarriedStep))
+		{
+			Local::ToTwo(this);
+			PushBlend((AnimType)AnimTypes::BuddyCarriedStep, 10, false);
+		}
+
+		m_is_moving = 0;
+		m_is_turning = 1;
+		return TurnControl(fb, lr);
+	}
+
+	if (fb != 0.0f && m_CurrentBlendAnimType != m_animset->BaseAnim((AnimType)AnimTypes::BuddyCarriedWalk))
+	{
+		Local::ToTwo(this);
+		top = PushBlend((AnimType)AnimTypes::BuddyCarriedWalk, 10, false);
+	}
+
+	m_is_moving = 1;
+	m_is_turning = 0;
+	CZBodyAnim *rep = top->Representative();
+	top->SetRepresentativeWt(1.0f);
+	rep->SetTimeScale(fb * rep->m_pCommon->m_thr_scale);
+	return top;
 }
 
 /* @socom-skeleton stub TurnControl__10CZSealBodyFff */
@@ -1492,8 +1885,97 @@ CZBodyAnimBlend * CZSealBody::MoveControl(float fb, float strafe)
 }
 
 /* @socom-skeleton stub CrouchMoveControl__10CZSealBodyFfff */
-CZBodyAnimBlend * CZSealBody::CrouchMoveControl(float, float, float)
+CZBodyAnimBlend * CZSealBody::CrouchMoveControl(float, float fb, float strafe)
 {
+	/* 0x277970 (InStateCrouch): the crouched move anims. The sideways share (sideways
+	 * throttle over the speed, linear, 0..1) splits the anims: forward the crouch walk anim
+	 * timed by the throttle (else, without it, the crouch move set), backward the crouch
+	 * back set (reversed time scale afterwards); sideways the crouch strafe-right set with
+	 * the signed strafe throttle. No anim: two blends at most, the top returned. Else the
+	 * strafe anims start half way through, the top takes the mix; a quadrant change snaps
+	 * the body and restarts the interpolation from the anim's blend time. The first argument
+	 * is unused. */
+	CZBodyAnimBlend *top = m_blends->Top();
+	newanims.Clear();
+
+	if (fabsf(fb) <= stoppedV)
+		fb = 0.0f;
+
+	fabsf(fb);
+	f32 side = fabsf(strafe);
+	f32 speed = sqrtf(fb * fb + strafe * strafe);
+	f32 share = 0.0f;
+
+	if (!(speed <= 0.0f))
+		share = side / speed;
+
+	if (1.0f < share)
+		share = 1.0f;
+	else if (share < 0.0f)
+		share = 0.0f;
+
+	if (share < 1.0f)
+	{
+		if (fb < 0.0f)
+		{
+			MixAnims(&newanims, m_animset->m_crouchmoveback_anims, fb, 1.0f, true);
+		}
+		else
+		{
+			ACTIVE_ANIM *active = m_active_anim_pool->GetActiveAnim(GetAnimByType(AnimType::animTypeCrouchWalk));
+
+			if (active->m_anim != NULL)
+			{
+				active->m_anim->SetTimeScale(fb * active->m_anim->m_pCommon->m_thr_scale);
+				PushAnim(&newanims, active, 1.0f);
+			}
+			else
+			{
+				m_active_anim_pool->PutBack(active);
+				MixAnims(&newanims, m_animset->m_crouchmove_anims, fb, 1.0f, true);
+			}
+		}
+	}
+
+	if (!(share <= 0.0f))
+		MixAnims(&newanims, m_animset->m_crouchstrafeR_anims, strafe, share, true);
+
+	if (newanims.Begin() == NULL)
+	{
+		CZBodyAnimBlend *blend = m_blends->Top();
+
+		while ((u32)(m_blends->m_top + 1) > 2)
+			blend = PopBlend();
+
+		if (blend != NULL)
+			blend->m_ctrl = 0;
+
+		m_desiredPeek = SEAL_PEEK::PEEK_NONE;
+		return m_blends->Top();
+	}
+
+	CBlendable *strafes = m_animset->m_crouchstrafeR_anims;
+
+	for (ACTIVE_ANIM *active = newanims.Begin(); active != NULL; active = newanims.Next())
+	{
+		if (strafes->Contains((AnimType)active->m_anim->m_animType))
+			active->m_dfrac = 0.5f;
+	}
+
+	top->SetBlendAnims(this, &newanims);
+
+	if (m_prev_throttleQuadrant >= 0 && m_prev_throttleQuadrant != m_throttleQuadrant)
+	{
+		Snap();
+		f32 blendtime = top->Representative()->m_pCommon->m_blendtime;
+		m_interp1 = blendtime;
+		m_interp2 = blendtime;
+	}
+
+	if (fb < 0.0f)
+		AnimsScaleTS(&newanims, m_animset->m_crouchmoveback_anims, -1.0f);
+
+	return top;
 }
 
 /* @socom-skeleton stub CheckAnim__10CZSealBodyFv */
@@ -1709,8 +2191,61 @@ CZBodyAnimBlend * CZSealBody::Crouch()
 }
 
 /* @socom-skeleton stub Crouch_0__10CZSealBodyFif */
-CZBodyAnimBlend * CZSealBody::Crouch_0(int, float)
+CZBodyAnimBlend * CZSealBody::Crouch_0(int from, float t)
 {
+	/* 0x2762d0: the crouch transition from a state (t < 0: the top's time). Standing: the
+	 * crouch blend goes under, then moving fast (> 20) the sneak anim crouched, faster than
+	 * 10 the crouch walk (both at the same time, the controller's throttle 0 set to 1 for
+	 * the walk), else stand-to-crouch; prone: under the crouch blend crouch-to-prone
+	 * reversed; hanging: drop (Crouch_0 from standing, then Stand_0 from the hang). ELF
+	 * quirk: hanging and the other states leave no blend and the representative of NULL is
+	 * written (port: guarded, NULL returned). */
+	CZBodyAnimBlend *top = m_blends->Top();
+
+	if (t < 0.0f)
+		t = top->m_tfrac;
+
+	CZBodyAnimBlend *blend = NULL;
+
+	if (from == 4)
+	{
+		Crouch_0(0, -1.0f);
+		Stand_0(4, -1);
+	}
+	else if (from == 0)
+	{
+		PushBlend(AnimType::animTypeCrouch, 1, false);
+		f32 speed = sqrtf(m_velM.x * m_velM.x + m_velM.y * m_velM.y + m_velM.z * m_velM.z);
+
+		if (20.0f < speed)
+		{
+			blend = PushBlend(AnimType::animTypeSneak, 1, false);
+			blend->m_tfrac = t;
+			BodySetState(1); /* inline in the ELF */
+		}
+		else if (10.0f < speed)
+		{
+			blend = PushBlend(AnimType::animTypeCrouchWalk, 1, false);
+			blend->m_tfrac = t;
+			BodySetState(1); /* inline in the ELF */
+			m_control->SetThrottle(0, 1.0f);
+		}
+		else
+		{
+			blend = PushBlend(AnimType::animTypeStand2Crouch, 1, false);
+		}
+	}
+	else if (from == 2)
+	{
+		PushBlend(AnimType::animTypeCrouch, 1, false);
+		blend = PushBlend(AnimType::animTypeCrouch2Prone, 1, true);
+	}
+
+	if (blend == NULL) /* port: guard (see above) */
+		return NULL;
+
+	blend->Representative()->m_flags &= 0xffbf;
+	return blend;
 }
 
 /* @socom-skeleton stub Prone__10CZSealBodyFv */
@@ -2089,6 +2624,32 @@ CZBodyAnimBlend * CZSealBody::ClimbLadderDown()
 /* @socom-skeleton stub SlideLadderDown__10CZSealBodyFv */
 CZBodyAnimBlend * CZSealBody::SlideLadderDown()
 {
+	/* 0x274450 (OnActionButton, action 16): only while climbing. UNTESTED (no ladder on the
+	 * port's disc). The blends pop down to a base stance (stand, crouch or prone; one blend at
+	 * least), the top's control cleared, no peek; the slide (state 6) with ladder-to-slide over
+	 * it (state 5), the body in state 5 (the controller told, inline). v0 = the ladder-to-
+	 * slide blend (the top when not climbing). */
+	CZBodyAnimBlend *top = m_blends->Top();
+
+	if (m_CurrentBlendAnimType != m_animset->BaseAnim(AnimType::animTypeClimbLadder))
+		return top;
+
+	while ((u32)(m_blends->m_top + 1) > 1
+		&& m_CurrentBlendAnimType != m_animset->BaseAnim(AnimType::animTypeStand)
+		&& m_CurrentBlendAnimType != m_animset->BaseAnim(AnimType::animTypeCrouch)
+		&& m_CurrentBlendAnimType != m_animset->BaseAnim(AnimType::animTypeProne))
+	{
+		PopBlend();
+	}
+
+	m_blends->Top()->m_ctrl = 0;
+	m_desiredPeek = SEAL_PEEK::PEEK_NONE;
+	m_blends->Top();
+	PushBlend((AnimType)AnimTypes::LadderSlide, 6, false);
+	CZBodyAnimBlend *slide = PushBlend((AnimType)AnimTypes::Ladder2Slide, 5, false);
+	BodySetState(5); /* inline in the ELF */
+	slide->Representative()->m_flags &= 0xffbf;
+	return slide;
 }
 
 /* @socom-skeleton stub DoWallStop__10CZSealBodyFv */
@@ -2134,8 +2695,25 @@ bool OKToJump(CSealCtrl *ctrl)
 }
 
 /* @socom-skeleton stub OKToStand__FP10CZSealBody */
-void OKToStand(CZSealBody *)
+bool OKToStand(CZSealBody *seal)
 {
+	/* 0x2740f0 (InStateCrouch): head room to stand up: a 7-unit ray straight up from 2
+	 * above the head's model height, over the body's world position (not rotated), must hit
+	 * nothing or only a camera-type-1 poly; run as OKToJump's (node inactive, camera collide
+	 * flag set, cleared on both ends). ELF quirk kept: the hit's poly is not NULL-tested. */
+	CPnt3D head;
+	seal->PartInSpace(seal->m_head, NULL, &head, NULL);
+	head.y += 2.0f;
+	CPnt3D from(0.0f, head.y, 0.0f);
+	from.Add(seal->GetPosW(), &from);
+	CPnt3D to(from.x, from.y + 7.0f, from.z);
+	bool active = seal->GetNode()->SetActive(false);
+	zdb::SetCameraCollideFlagRequired(true);
+	zdb::IntersectStruct *hit = zdb::CWorld::m_world->GetIntersect(&from, &to);
+	seal->GetNode()->SetActive(active);
+	bool ok = hit == NULL || hit->m_poly->m_cameratype == 1;
+	zdb::SetCameraCollideFlagRequired(false);
+	return ok;
 }
 
 /* @socom-skeleton stub DropBody__10CZSealBodyFv */
@@ -2783,28 +3361,249 @@ bool CZSealBody::BlendOverlayPreTick(float from, float to)
 }
 
 /* @socom-skeleton stub PickupBuddyCallback__FPvPv */
-CZBodyAnimBlend * PickupBuddyCallback(void *, void *)
+CZBodyAnimBlend * PickupBuddyCallback(void *seal, void *buddy)
 {
+	/* 0x26fe40 (the crouch blend's callback set by CrouchToPickupBuddy): a tail jump */
+	return static_cast<CZSealBody *>(seal)->PickupBuddy(static_cast<CZSealBody *>(buddy));
 }
 
 /* @socom-skeleton stub CrouchToPickupBuddyCallback__FPvPv */
-void CrouchToPickupBuddyCallback(void *, void *)
+void CrouchToPickupBuddyCallback(void *seal, void *buddy)
 {
+	/* 0x26fdb0 (CrouchToPickupBuddy during a crouch transition while crouched): down to two
+	 * blends (ClearStack(2, true), inline), then CrouchToPickupBuddy again */
+	CZSealBody *body = static_cast<CZSealBody *>(seal);
+
+	if (body == NULL)
+		return;
+
+	body->ClearStack(2, true); /* inline in the ELF */
+	body->CrouchToPickupBuddy(static_cast<CZSealBody *>(buddy));
 }
 
+extern float BuddyPickupRefpoint[3]; /* port: declaration (seal_env.cpp 0x5086d0, __sinit_seal_env) */
+
 /* @socom-skeleton stub CrouchToPickupBuddy__10CZSealBodyFP10CZSealBody */
-CZBodyAnimBlend * CZSealBody::CrouchToPickupBuddy(CZSealBody *)
+CZBodyAnimBlend * CZSealBody::CrouchToPickupBuddy(CZSealBody *buddy)
 {
+	/* 0x26f750 (OnActionButton, body carry): not while moving faster than 8. The buddy's
+	 * root in the world and the level direction its lower spine faces away from (its x axis,
+	 * levelled in the body and turned by its node, negated) are where the pickup anim homes
+	 * to (AlignForPickup). Already crouched: PickupBuddy fires from the crouch blend after a
+	 * delay (the turn still to make, 0.8 * (1 - facing dot), at least 0.2, or the distance
+	 * beyond the refpoint over 30, whichever is larger, as a fraction of the anim's loop,
+	 * wrapped); crouching down (stand-to-crouch or crouch-to-prone into the crouch state):
+	 * at 99% of it, CrouchToPickupBuddyCallback when standing (GetStance) else PickupBuddy;
+	 * otherwise the seal wants to crouch: it crouches (Crouch_0 from its state at the top's
+	 * time, one blend first) unless it already is, or stands up when it cannot crouch, and
+	 * PickupBuddy fires at 99% of that blend. Then the buddy becomes the carried body, the
+	 * controller zooms out and an AI buddy does not fade. v0 = that blend (the top without
+	 * a buddy or when moving). ELF quirks kept: the buddy's node z row is copied and
+	 * overwritten (left out); the buddy's controller is not NULL-tested (port: guarded). */
+	if (buddy == NULL)
+		return m_blends->Top();
+
+	if (!(m_velM.x * m_velM.x + m_velM.y * m_velM.y + m_velM.z * m_velM.z <= 64.0f))
+		return m_blends->Top();
+
+	const CMatrix &bm = buddy->GetNode()->m_matrix;
+	CPnt3D rootpos = buddy->GetRootPart()->m_pos;
+	CPnt3D rootw;
+	rootw.x = bm.m_matrix[0][0] * rootpos.x + bm.m_matrix[1][0] * rootpos.y + bm.m_matrix[2][0] * rootpos.z + bm.m_matrix[3][0];
+	rootw.y = bm.m_matrix[0][1] * rootpos.x + bm.m_matrix[1][1] * rootpos.y + bm.m_matrix[2][1] * rootpos.z + bm.m_matrix[3][1];
+	rootw.z = bm.m_matrix[0][2] * rootpos.x + bm.m_matrix[1][2] * rootpos.y + bm.m_matrix[2][2] * rootpos.z + bm.m_matrix[3][2];
+	CQuat rot;
+	buddy->PartInSpace(buddy->m_spinelo, NULL, NULL, &rot);
+	CPnt3D away;
+	rot.Apply(&CPnt3D::unit_x, &away, 1);
+	away.y = 0.0f;
+	away.Normalize();
+	away.Scale(-1.0f, &away);
+	CPnt3D dir;
+	dir.x = bm.m_matrix[0][0] * away.x + bm.m_matrix[1][0] * away.y + bm.m_matrix[2][0] * away.z;
+	dir.y = bm.m_matrix[0][1] * away.x + bm.m_matrix[1][1] * away.y + bm.m_matrix[2][1] * away.z;
+	dir.z = bm.m_matrix[0][2] * away.x + bm.m_matrix[1][2] * away.y + bm.m_matrix[2][2] * away.z;
+	CZBodyAnimBlend *blend = m_blends->Top();
+
+	if (m_CurrentBlendAnimType == m_animset->BaseAnim(AnimType::animTypeCrouch))
+	{
+		const CMatrix &m = m_node->m_matrix;
+		f32 delay = 0.8f * (1.0f - (dir.x * m.m_matrix[2][0] + dir.y * m.m_matrix[2][1] + dir.z * m.m_matrix[2][2]));
+
+		if (delay < 0.2f)
+			delay = 0.2f;
+
+		f32 t = blend->m_tfrac;
+		CPnt3D d;
+		GetPosW()->Sub(buddy->GetPosW(), &d);
+		f32 dd = d.x * d.x + d.y * d.y + d.z * d.z;
+		f32 rr = BuddyPickupRefpoint[0] * BuddyPickupRefpoint[0] + BuddyPickupRefpoint[1] * BuddyPickupRefpoint[1]
+			+ BuddyPickupRefpoint[2] * BuddyPickupRefpoint[2];
+
+		if (!(dd <= rr))
+		{
+			f32 beyond = sqrtf(dd - rr) / 30.0f;
+
+			if (!(beyond <= delay))
+				delay = beyond;
+		}
+
+		t += delay / blend->Representative()->TrueLoopTime();
+
+		if (!(t <= 1.0f))
+			t -= 1.0f;
+
+		blend->m_callback.m_func = (void (*)())PickupBuddyCallback;
+		blend->m_callback.m_tfrac = t;
+		blend->m_callback.m_userdata = buddy;
+	}
+	else if ((m_CurrentBlendAnimType == m_animset->BaseAnim(AnimType::animTypeStand2Crouch)
+			|| m_CurrentBlendAnimType == m_animset->BaseAnim(AnimType::animTypeCrouch2Prone))
+		&& blend->m_state == 1)
+	{
+		if (GetStance(true) == SEAL_STATE::stateCrouch)
+			blend->m_callback.m_func = (void (*)())CrouchToPickupBuddyCallback;
+		else
+			blend->m_callback.m_func = (void (*)())PickupBuddyCallback;
+
+		blend->m_callback.m_tfrac = 0.99f;
+		blend->m_callback.m_userdata = buddy;
+		blend->Representative()->m_flags &= 0xfffb;
+	}
+	else
+	{
+		m_desiredState = SEAL_STATE::stateCrouch;
+		m_stancechanged = 1;
+		CZBodyAnimBlend *top = m_blends->Top();
+
+		if (!CanCrouch())
+		{
+			m_desiredState = SEAL_STATE::stateStand;
+			m_stancechanged = 1;
+			blend = m_blends->Top();
+			s8 state = m_state;
+
+			if (state != 0 && blend->m_state != 0)
+			{
+				ClearStack(1, true);
+				blend = Stand_0(state, 1);
+			}
+		}
+		else
+		{
+			s8 state = m_state;
+			blend = top;
+
+			if (state != 1 && top->m_state != 1)
+			{
+				f32 t = top->m_tfrac;
+				ClearStack(1, true);
+				blend = Crouch_0(state, t);
+			}
+		}
+
+		if (blend == NULL) /* port: guard (Crouch_0 from a hang or another state) */
+			return m_blends->Top();
+
+		blend->m_callback.m_func = (void (*)())PickupBuddyCallback;
+		blend->m_callback.m_tfrac = 0.99f;
+		blend->m_callback.m_userdata = buddy;
+		blend->Representative()->m_flags &= 0xfffb;
+	}
+
+	m_carry = buddy;
+	AlignForPickup(&rootw, &dir);
+
+	if (m_control != NULL)
+		static_cast<CSealCtrl *>(m_control)->m_zoomout = 1;
+
+	CSealCtrlAi *ai = buddy->m_control != NULL ? static_cast<CSealCtrl *>(buddy->m_control)->GetSealCtrlAi() : NULL;
+
+	if (ai != NULL)
+		ai->m_nofade = 1;
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("CARRY: %s crouches to pick up %s (state %d, blend %d, callback %.2f)", m_node->m_name,
+		buddy->m_node->m_name, (int)m_state, (int)(s16)blend->m_animType, blend->m_callback.m_tfrac);
+#endif
+	return blend;
 }
 
 /* @socom-skeleton stub PickupBuddy__10CZSealBodyFP10CZSealBody */
-CZBodyAnimBlend * CZSealBody::PickupBuddy(CZSealBody *)
+CZBodyAnimBlend * CZSealBody::PickupBuddy(CZSealBody *buddy)
 {
+	/* 0x26f530 (PickupBuddyCallback): the buddy goes down to its base blend (ClearStack(1,
+	 * true), inline), stands carried and plays the carried pickup (state 10), is carried by
+	 * the seal, its root and hips stop blending, its root hangs on the seal's root and its
+	 * node moves onto the seal's. The seal goes down to its base blend, stands carrying and
+	 * plays the carry pickup (state 9), carries the buddy and leaves any zoom. v0 = the
+	 * carry pickup blend (the top without a buddy). CheckAnim ends the pickup anims. */
+	if (buddy == NULL)
+		return m_blends->Top();
+
+	buddy->ClearStack(1, true); /* inline in the ELF */
+	buddy->PushBlend((AnimType)AnimTypes::BuddyCarriedStand, 10, false);
+	buddy->PushBlend((AnimType)AnimTypes::BuddyCarriedPickup, 10, false);
+	buddy->BodySetState(10); /* inline in the ELF */
+	buddy->m_carry = this;
+	buddy->GetRootPart()->m_blendme = 0;
+	buddy->m_hips->m_blendme = 0;
+	buddy->GetRootPart()->m_parent = GetRootPart();
+	CPnt3D *pos = (CPnt3D *)&GetNode()->m_matrix.m_matrix[3][0];
+	buddy->GetNode()->SetPosition(pos->x, pos->y, pos->z);
+	ClearStack(1, true); /* inline in the ELF */
+	PushBlend((AnimType)AnimTypes::BuddyCarryStand, 9, false);
+	CZBodyAnimBlend *pickup = PushBlend((AnimType)AnimTypes::BuddyCarryPickup, 9, false);
+	m_carry = buddy;
+	BodySetState(9); /* inline in the ELF */
+	SetCurZoomState((ZOOMSTATE)0);
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("CARRY: %s picks up %s", m_node->m_name, buddy->m_node->m_name);
+#endif
+	return pickup;
 }
 
 /* @socom-skeleton stub PutdownBuddy__10CZSealBodyFv */
 CZBodyAnimBlend * CZSealBody::PutdownBuddy()
 {
+	/* 0x26f350 (OnActionButton, put down): the carried body goes down to its base blend
+	 * (ClearStack(1, true), inline), state 10, the carried body anim (state 8) with the
+	 * carried pickup reversed over it, and takes the seal's altitude hit (only its position
+	 * when the seal stands on a seal). The seal goes down to its base blend, state 9, the
+	 * crouch (state 1) with the carry pickup reversed over it. CheckAnim ends it: the
+	 * reversed carry pickup done -> the body detaches (DetachBody). v0 = the seal's top
+	 * (NULL when nothing is carried). */
+	CZSealBody *buddy = m_carry;
+
+	if (buddy == NULL)
+		return NULL;
+
+	buddy->ClearStack(1, true); /* inline in the ELF */
+	buddy->BodySetState(10); /* inline in the ELF */
+	buddy->PushBlend((AnimType)AnimTypes::BuddyCarryBody, 8, false);
+	buddy->PushBlend((AnimType)AnimTypes::BuddyCarriedPickup, 10, true);
+	zdb::IntersectStruct *alt = &m_last_altitude;
+
+	if (GetSeal(alt->m_node) != NULL)
+	{
+		buddy->m_last_altitude.m_pos = alt->m_pos;
+	}
+	else
+	{
+		buddy->m_last_altitude.m_pos = alt->m_pos;
+		buddy->m_last_altitude.m_poly = alt->m_poly;
+		buddy->m_last_altitude.m_norm = alt->m_norm;
+		buddy->m_last_altitude.m_node = alt->m_node;
+	}
+
+	ClearStack(1, true); /* inline in the ELF */
+	BodySetState(9); /* inline in the ELF */
+	PushBlend(AnimType::animTypeCrouch, 1, false);
+	PushBlend((AnimType)AnimTypes::BuddyCarryPickup, 1, true);
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("CARRY: %s puts down %s", m_node->m_name, buddy->m_node->m_name);
+#endif
+	return m_blends->Top();
 }
 
 /* @socom-skeleton stub DetachBody__10CZSealBodyFv */

@@ -1413,9 +1413,7 @@ void CSealCtrl::PerformProximityActions()
 
 		if (victim != NULL)
 		{
-			/* port: CQB (12) is not offered: ExecuteAction_CQBAttack needs CZAnim::ActivateEx
-			 * ("ai_cqb_attack" with both seals' select tasks) and CAiEvent, both unwritten */
-			if (false && seal->CanUseCQB(victim))
+			if (seal->CanUseCQB(victim))
 				seal->ActionAvailableMask(12, true);
 
 			if (seal->CanUseRestraint(victim))
@@ -1432,9 +1430,7 @@ void CSealCtrl::PerformProximityActions()
 			}
 		}
 
-		/* port: body carry (8) is not offered: CrouchToPickupBuddy, PickupBuddy, PutdownBuddy and
-		 * their callbacks (with Crouch_0, CanCrouch, AlignForPickup) are unwritten */
-		if (false && corpse != NULL && seal->CanUseBodyCarry(corpse))
+		if (corpse != NULL && seal->CanUseBodyCarry(corpse))
 			seal->ActionAvailableMask(8, true);
 	}
 

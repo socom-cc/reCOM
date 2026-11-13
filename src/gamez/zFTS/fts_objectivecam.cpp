@@ -98,4 +98,19 @@ void CMissionObjectiveCamList::ClearValves()
 /* @socom-skeleton stub Reset__24CMissionObjectiveCamListFv */
 void CMissionObjectiveCamList::Reset()
 {
+	/* 0x20a750 (ReOpen_Load): every objective takes its named valves again (type 2, made
+	 * when missing) */
+	for (iterator it = begin(); it != end(); ++it)
+	{
+		CMissionObjectiveCam* cam = (CMissionObjectiveCam*)*it;
+
+		if (cam->m_valvename != NULL)
+			cam->m_valve = CValve::Create(cam->m_valvename, (VALVE_TYPE)2);
+
+		if (cam->m_invalidvalvename != NULL)
+			cam->m_invalidvalve = CValve::Create(cam->m_invalidvalvename, (VALVE_TYPE)2);
+
+		if (cam->m_szDisplayValveName != NULL)
+			cam->m_pDisplayValve = CValve::Create(cam->m_szDisplayValveName, (VALVE_TYPE)2);
+	}
 }

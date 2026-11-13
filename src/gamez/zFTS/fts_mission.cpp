@@ -1060,6 +1060,64 @@ void CMission::ReOpen_Unload2()
 /* @socom-skeleton stub ReOpen_Load__8CMissionFv */
 void CMission::ReOpen_Load()
 {
+	/* 0x1f79a0 (CCoreState::OnPop(1): the replay from the debrief or the pause menu): the
+	 * mission is built again on what ReOpen_Unload1/2 left: falling wait 10 s, the readers
+	 * closed and the UI reader archive dropped, the valves reset, the objectives' valves
+	 * looked up again, the end valves made again (mission_replay set to 1), the team valves,
+	 * the AI maps reset, the extraction point, the weapons, the characters (LoadVehicles with
+	 * the AI flags of Open; the character semaphore signalled once), the sound and database
+	 * handles, the AI events and pickups for the entities, the units, the team valves
+	 * refreshed, every AI map fixed up, the particle node pool, the camera on the player, the
+	 * readers closed, and the three message queues scrolled up to their targets over 2 s.
+	 * The ELF returns 1. */
+	m_wait_before_falling = 10.0f;
+	CRdrArchive::CloseAll();
+	CRdrArchive::RemoveArchive("readerc.zar", "run/ui");
+	CValve::Reset();
+	reinterpret_cast<CMissionObjectiveCamList*>(&m_objectivecams)->Reset();
+	m_valve_complete = CValve::Create("mission_complete", 0, VALVE_TYPE::VTYPE_PERM);
+	m_valve_failure = CValve::Create("mission_failure", 0, VALVE_TYPE::VTYPE_PERM);
+	m_valve_abort = CValve::Create("mission_abort", 0, VALVE_TYPE::VTYPE_PERM);
+	m_valve_timeout = CValve::Create("mission_timeout", 0, VALVE_TYPE::VTYPE_PERM);
+	CValve::Create("mission_replay", 1, VALVE_TYPE::VTYPE_PERM);
+	m_valve_nofade = CValve::Create("nofade", 0, VALVE_TYPE::VTYPE_PERM);
+	InitalizeTeamValves();
+	AiMaps.Reset();
+	Sample_ExtractionLoc();
+	CZWeapon::Open();
+	LoadVehicles(m_load_ai);
+
+	if (!m_chars_loaded)
+		SignalSema(m_CharLoadSem);
+
+	m_chars_loaded = true;
+	CCharacterType::AcquireSoundHandles();
+	CSealCtrlAi::AcquireDatabaseHandles();
+	CZSealBody::ReInitDatabaseHandles();
+	u32 entities = (u32)CEntity::m_list.size(); /* port: as Open (the ELF passes the first word of CEntity::m_list) */
+	CAiEvent::Open(entities);
+	CPickup::Open(entities);
+	CSealUnit::CreateSinglePlayerUnits();
+	RefreshTeamValves();
+
+	for (CAiMaps::iterator i = AiMaps.begin(); i != AiMaps.end(); ++i)
+		ftsFixupAiMap((CAiMap*)*i);
+
+	Particle::ReserveNodePool();
+	appCamera->AttachTo(ftsGetPlayer());
+	CRdrArchive::CloseAll();
+	C2DMessage_Q* queues[3] = { &m_messenger, &m_ammoMessenger, &m_Subtitles }; /* ELF order: +0x100, +0x400, +0x280 */
+
+	for (int i = 0; i < 3; i++)
+	{
+		queues[i]->ScrollUp();
+		queues[i]->m_moveTime = 2.0f;
+		queues[i]->m_cur_top = (s32)queues[i]->m_target_top;
+	}
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("MISSION: ReOpen_Load done (%u entities, player %p)", (u32)CEntity::m_list.size(), (void *)ftsGetPlayer());
+#endif
 }
 
 /* @socom-skeleton stub ZAnimLoad__8CMissionFv */

@@ -3291,8 +3291,39 @@ void CZSealBody::ExecuteAction_KnifeAttack(CZSealBody *victim)
 }
 
 /* @socom-skeleton stub ExecuteAction_CQBAttack__10CZSealBodyFP10CZSealBody */
-void CZSealBody::ExecuteAction_CQBAttack(CZSealBody *)
+bool CZSealBody::ExecuteAction_CQBAttack(CZSealBody *victim)
 {
+	/* 0x24ed60 (OnActionButton, action 12): the victim's HUD hit flag; the "ai_cqb_attack"
+	 * anim activated with both seals' select commands (CZAnim::ActivateEx); started: the
+	 * seal's CQB count (network stats) rises and a weapon-hit AI event (range^2 4, 0.1 s,
+	 * owned by the seal) at the victim. v0 = started. */
+	if (victim == NULL)
+		return false;
+
+	victim->SetHudHitFlag();
+	CZAnim *anim = ZAnim.GetAnim("ai_cqb_attack", NULL);
+	CZAnim *started = anim != NULL ? anim->ActivateEx(2, m_select, victim->m_select, (_zanim_cmd_hdr *)NULL) : NULL;
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("CQB: %s attacks %s (ai_cqb_attack %p -> %p)", m_node->m_name, victim->m_node->m_name, (void *)anim, (void *)started);
+#endif
+
+	if (started == NULL)
+		return false;
+
+	m_mp_stats.m_num_cqb_used++;
+	CAiEvent *event = CAiEvent::Acquire();
+
+	if (event != NULL)
+	{
+		event->m_owner = m_id;
+		event->m_pos = *victim->GetPosW();
+		event->m_rangeSq = 4.0f;
+		event->m_duration = 0.1f;
+		event->m_type = CAiEvent::AIE_WEPHIT;
+		CAiEvent::Create(event);
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub ExecuteAction_ApplyRestraint__10CZSealBodyFP10CZSealBody */

@@ -306,8 +306,52 @@ static void ReRootAnim(CZAnim* anim, zdb::CNode* node)
 }
 
 /* @socom-skeleton stub ActivateEx__6CZAnimFie */
-void CZAnim::ActivateEx(int, ...)
+CZAnim * CZAnim::ActivateEx(int count, ...)
 {
+	/* 0x1ceee0 (ExecuteAction_CQBAttack): the available copy (its old argument list deleted)
+	 * gets the command pointers after the count, up to and including a NULL one, both as
+	 * its user command array (grown by one each) and as command arguments (type 1); then it
+	 * is activated. v0 = the activated copy (NULL when none is available). The count only
+	 * anchors the arguments. */
+	va_list args;
+	va_start(args, count);
+	CZAnim* anim = GetAvailable();
+
+	if (anim == NULL)
+	{
+		va_end(args);
+		return NULL;
+	}
+
+	if (anim->m_arg_list != NULL)
+		delete anim->m_arg_list;
+
+	anim->m_arg_list = NULL;
+	int n = 0;
+	_zanim_cmd_hdr* cmd;
+
+	do
+	{
+		cmd = va_arg(args, _zanim_cmd_hdr*);
+		anim->m_user_cmd = static_cast<_zanim_cmd_hdr**>(_realloc(anim->m_user_cmd, (n + 1) * sizeof(_zanim_cmd_hdr*), "zanim_anim.cpp", 474));
+		anim->m_user_cmd[n] = cmd;
+		CZAnimArgCmd* arg = new CZAnimArgCmd();
+		arg->m_type = 0;
+		arg->m_reserved = 0;
+		arg->m_type = CZAnimArg::ARG_CMD;
+		arg->m_cmd = cmd;
+		arg->m_type = CZAnimArg::ARG_CMD;
+
+		if (anim->m_arg_list == NULL)
+			anim->m_arg_list = new CZAnimArgList();
+
+		anim->m_arg_list->push_back(arg);
+		n++;
+	}
+	while (cmd != NULL);
+
+	va_end(args);
+	return anim->Activate(this);
 }
 
 /* @socom-skeleton stub ActivateArgV__6CZAnimFPc */
