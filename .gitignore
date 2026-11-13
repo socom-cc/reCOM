@@ -417,3 +417,7 @@ build/cache/
 
 # Tracker/ledger lock files (contain local paths; never commit)
 .agent/*.lock
+
+# soCOM workspace: generated, disposable and user-local (never commit)
+build/
+.mcp.json
