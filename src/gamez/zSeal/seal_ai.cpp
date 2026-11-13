@@ -907,6 +907,69 @@ const char* CSealCtrlAi::get_valve(SEAL_VALVE valve)
 /* @socom-skeleton stub GetStatusString__11CSealCtrlAiFv */
 char * CSealCtrlAi::GetStatusString()
 {
+	/* 0x26b7e0 (CTeamNames::Tick): the team panel's word for what the AI does, from the
+	 * top AI state (NULL: nothing shown). The type is read through the const GetAiState,
+	 * the state through the other one (the ELF calls both). */
+	const CAiState *top = static_cast<const CSealCtrlAi *>(this)->GetAiState();
+	u8 type = top != NULL ? top->m_state : 0;
+	CAiState *state = GetAiState();
+	const char *status = NULL;
+
+	switch (type)
+	{
+	case STATE_HOLD:
+		status = (state->m_option_flags & 0x20) ? "COVERING" : "HOLDING";
+		break;
+	case STATE_GOTO:
+		if (state->m_option_flags & 4)
+			status = "LEADING";
+		else if (state->m_option_flags & 8)
+			status = "ATTACKING";
+		else
+			status = "TRAVELING";
+		break;
+	case STATE_DEPLOY:
+		status = "DEPLOYING";
+		break;
+	case STATE_BREACH:
+		status = state->m_substate < 7 ? "BREACHING" : "CLEARING";
+		break;
+	case STATE_FOLLOW:
+		status = "FOLLOWING";
+		break;
+	case STATE_LASING:
+		status = "LASING";
+		break;
+	case STATE_PURSUE:
+	case STATE_TARGETING:
+		status = "ENGAGING";
+		break;
+	case STATE_ACTION:
+	{
+		/* a door action: OPENING / CLOSING by the valve value wanted */
+		CAiSAction *action = state->m_state == STATE_ACTION ? static_cast<CAiSAction *>(state) : NULL;
+
+		if (action == NULL || action->m_action == NULL)
+			break;
+
+		CAiMapLoc loc;
+		CAiMap::action *record = NULL;
+
+		if (!AiMaps.GetActionById(action->m_action->m_id, loc, &record))
+			break;
+
+		u8 kind = record->m_type_invalid ? 0 : (u8)record->m_type;
+
+		if (kind == 1)
+			status = action->m_value == 1 ? "OPENING" : "CLOSING";
+
+		break;
+	}
+	default:
+		break;
+	}
+
+	return const_cast<char *>(status);
 }
 
 /* @socom-skeleton stub __ct__11CSealCtrlAiFv */

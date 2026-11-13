@@ -4732,8 +4732,15 @@ void CZSealBody::UpdateHealth(DAMAGE_LOCATION location, SEAL_DEATH_TYPE death)
 }
 
 /* @socom-skeleton stub GetHudHitFlag__10CZSealBodyFv */
-void CZSealBody::GetHudHitFlag()
+bool CZSealBody::GetHudHitFlag()
 {
+	/* 0x2941d0 (CTeamNames::Tick): test and clear: true once after the seal was hit
+	 * (UpdateHealth, SetHudHitFlag) */
+	if (!m_hudwashit)
+		return false;
+
+	m_hudwashit = 0;
+	return true;
 }
 
 /* @socom-skeleton stub HudUpdateViewCone__10CZSealBodyFv */

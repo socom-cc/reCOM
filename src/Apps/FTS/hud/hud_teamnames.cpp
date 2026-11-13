@@ -154,10 +154,9 @@ void CTeamNames::Init()
 		push_back(&m_healthdot[i]);
 	}
 
-	/* port: not called - CSealUnit::GetUnitByTeam 0x2d7590 (seal_unit.cpp: the unit of
-	 * that team in CSealUnit::m_list) is an unwritten non-void stub that would STOP the
-	 * game, and the port creates no units yet: no Able (team 2) or Bravo (team 3) names */
-	CSealUnit* unit = NULL;
+	/* the units exist by now (CMission::Open / ReOpen_Load create them before CHUD::Init /
+	 * ReInit_Init); a missing member gives a NULL seal, which SetupTeamNameEntry skips */
+	CSealUnit* unit = CSealUnit::GetUnitByTeam(2);
 
 	if (unit != NULL)
 	{
@@ -165,7 +164,7 @@ void CTeamNames::Init()
 		SetupTeamNameEntry(1, unit->GetSealByIndex(1));
 	}
 
-	unit = NULL; /* port: as above, CSealUnit::GetUnitByTeam(3) */
+	unit = CSealUnit::GetUnitByTeam(3);
 
 	if (unit != NULL)
 	{
@@ -182,15 +181,28 @@ void CTeamNames::Init()
 /* @socom-skeleton stub Clear__10CTeamNamesFv */
 void CTeamNames::Clear()
 {
+	/* 0x3d8940 (CHUD::ReInit_Uninit, single player): the names' and order texts' strings
+	 * freed, the brackets emptied and every child dropped. ELF: m_ally is left as it is
+	 * (ReInit_Init's Init sets the rows again) */
+	for (int i = 0; i < 4; i++)
+	{
+		m_teamname[i].ClearAndWipe();
+		m_order[i].ClearAndWipe();
+	}
+
+	g_strAlphaBracket.SetString(NULL);
+	g_strBravoBracket.SetString(NULL);
+	erase(begin(), end());
 }
 
 /* @socom-skeleton stub Tick__10CTeamNamesFf */
 void CTeamNames::Tick(float dT)
 {
 	/* 0x3d83d0: per teammate the health dot eases (500/s) towards its goal colour; a hit
-	 * flashes it (yellow, then a green that fades with health below 100%); a dead one
-	 * goes grey with a dark red name and its order text off. A pending order shows the AI
-	 * controller's status text. */
+	 * flashes it (yellow, then a colour from yellow-green to red by health); a dead one
+	 * goes grey with a dark red name and its order text off. A changed order or AI state
+	 * (CZSealBody::m_order_flag) shows the AI controller's status text right of the name.
+	 * ELF: the text stays until the next one (m_arrOrderFadeTimes is written, never read) */
 	/* @socom-skeleton stub deadColor$2617 */
 	static CPnt3D deadColor(30.0f, 30.0f, 30.0f);
 
@@ -201,37 +213,74 @@ void CTeamNames::Tick(float dT)
 		if (seal == NULL)
 			continue;
 
-		/* port: CZSealBody::GetHudHitFlag is declared void (zseal.h; the ELF returns and
-		 * clears the HUD hit flag), so the dot only eases: the no-hit path */
-		seal->GetHudHitFlag();
-
-		f32* colour[3] = { &m_allycolor[i].x, &m_allycolor[i].y, &m_allycolor[i].z };
-		f32 goal[3] = { m_allycolorgoal[i].x, m_allycolorgoal[i].y, m_allycolorgoal[i].z };
-
-		for (int c = 0; c < 3; c++)
+		if (seal->GetHudHitFlag())
 		{
-			f32 value = *colour[c];
-			f32 step = dT * m_increment;
-
-			if (value < goal[c])
+			if (!seal->m_isAlive)
 			{
-				value += step;
-
-				if (value > goal[c])
-					value = goal[c];
+				/* dead: a grey dot that stays grey, a dark red name, no order text */
+				m_healthdot[i].SetColor(deadColor.x * 0.5f, deadColor.y * 0.5f, deadColor.z * 0.5f);
+				m_allycolor[i].x = deadColor.x;
+				m_allycolor[i].y = deadColor.y;
+				m_allycolor[i].z = deadColor.z;
+				m_teamname[i].m_color.x = 50.0f;
+				m_teamname[i].m_color.y = 20.0f;
+				m_teamname[i].m_color.z = 5.0f;
+				m_allycolorgoal[i].x = deadColor.x;
+				m_allycolorgoal[i].y = deadColor.y;
+				m_allycolorgoal[i].z = deadColor.z;
+				m_order[i].Off();
 			}
-			else if (goal[c] < value)
+			else
 			{
-				value -= step;
+				/* hit: the dot flashes yellow and then eases to (150, g, 10): g falls from
+				 * 160 at full health to 10 at 75% health or less (yellow-green to red) */
+				f32 health = seal->m_health;
+				f32 part = health <= 0.75f ? 0.0f : (health - 0.75f) * 4.0f;
+				f32 green = part * 150.0f + 10.0f;
+
+				if (green < 10.0f)
+					green = 10.0f;
+
+				m_allycolorgoal[i].x = 150.0f;
+				m_allycolorgoal[i].y = green;
+				m_allycolorgoal[i].z = 10.0f;
+				m_healthdot[i].SetColor(127.5f, 127.5f, 5.0f);
+				m_allycolor[i].x = 255.0f;
+				m_allycolor[i].y = 255.0f;
+				m_allycolor[i].z = 10.0f;
+			}
+		}
+		else
+		{
+			/* the dot eases (m_increment per second) towards its goal colour */
+			f32* colour[3] = { &m_allycolor[i].x, &m_allycolor[i].y, &m_allycolor[i].z };
+			f32 goal[3] = { m_allycolorgoal[i].x, m_allycolorgoal[i].y, m_allycolorgoal[i].z };
+
+			for (int c = 0; c < 3; c++)
+			{
+				f32 value = *colour[c];
+				f32 step = dT * m_increment;
 
 				if (value < goal[c])
-					value = goal[c];
+				{
+					value += step;
+
+					if (value > goal[c])
+						value = goal[c];
+				}
+				else if (goal[c] < value)
+				{
+					value -= step;
+
+					if (value < goal[c])
+						value = goal[c];
+				}
+
+				*colour[c] = value;
 			}
 
-			*colour[c] = value;
+			m_healthdot[i].SetColor(*colour[0] * 0.5f, *colour[1] * 0.5f, *colour[2] * 0.5f);
 		}
-
-		m_healthdot[i].SetColor(*colour[0] * 0.5f, *colour[1] * 0.5f, *colour[2] * 0.5f);
 
 		if (seal->m_isAlive)
 		{
@@ -261,5 +310,4 @@ void CTeamNames::Tick(float dT)
 		}
 	}
 
-	(void)deadColor; /* port: the hit and death colours are on the GetHudHitFlag path */
 }

@@ -20,13 +20,31 @@
 static CSTable MultiplayerMsgStrings;
 
 /* @socom-skeleton stub Init__14CTeamMateNamesFP7C2DFont */
-void CTeamMateNames::Init(C2DFont *)
+void CTeamMateNames::Init(C2DFont *font)
 {
+	/* 0x3dee20 (CHUD::Init / ReInit_Init, network games only): the 15 name texts (the
+	 * floating team-mate names) get the HUD font at scale 0.8 and become children */
+	xMargin = 0.0f;
+
+	for (int i = 0; i < 15; i++)
+	{
+		C2DString *name = &m_teamMateNames[i];
+		name->SetFont(font);
+		name->m_scale = 0.8f;
+		push_back(name);
+	}
 }
 
 /* @socom-skeleton stub UnInit__14CTeamMateNamesFv */
 void CTeamMateNames::UnInit()
 {
+	/* 0x3deda0 (CHUD::ReInit_Uninit, every game): each name text off and emptied. ELF: the
+	 * children stay listed, so a network ReInit_Init's Init lists them again */
+	for (int i = 0; i < 15; i++)
+	{
+		m_teamMateNames[i].Off();
+		m_teamMateNames[i].SetString(NULL);
+	}
 }
 
 /* @socom-skeleton stub WordIntersectionTest__FiiiiP9C2DString */

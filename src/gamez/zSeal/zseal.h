@@ -1394,7 +1394,7 @@ public:
 	bool ChangeWeapon(SEAL_ITEM, SEAL_ITEM); /* 0x297060: 0/1 */
 	void PostChangeWeapon(SEAL_ITEM);
 	void UpdateHealth(DAMAGE_LOCATION, SEAL_DEATH_TYPE);
-	void GetHudHitFlag();
+	bool GetHudHitFlag(); /* 0x2941d0: test and clear m_hudwashit */
 	bool HudUpdateViewCone(); /* 0x2941a0: 0/1 in v0 */
 	void SetHudHitFlag();
 	void HandleStunRecovery(STUN_TYPE);

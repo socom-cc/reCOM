@@ -266,15 +266,80 @@ zdb::CTexture * GetTextureByName(zdb::CWorld *, const char *name)
 }
 
 /* @socom-skeleton body ReInit_Uninit__4CHUDFv */
+void hudTurnOffScorePopup(); /* hud_scorepopup.cpp 0x421d40 (no header declares it) */
+
 void CHUD::ReInit_Uninit()
 {
-    // CZNewHudMap::UninitMap();
+	/* 0x3bb1c0 (CMission::ReOpen_Unload1: mission replay; a network game's mission start):
+	 * the map, the team panel (single player), the weapon menus, the mission-camera texts,
+	 * the action icons and the reticule are released, the HUD texts' strings freed, the
+	 * pause menu, stance icon, order menu, flashes, team-mate names, map items and the
+	 * score popup cleared */
+	m_newmap.UninitMap();
+
+	if (!theNetwork.m_bNetwork)
+		m_teamnames.Clear();
+
+	m_weaponsel.UnInit();
+	m_ingameweaponsel.UnInit();
+	m_missioncams.UnInit();
+	m_actionbitmap.UnInit();
+	m_bitmapReticule.UnInit();
+	m_firemodename.ClearAndWipe();
+	m_ammocount.ClearAndWipe();
+	m_magscount.ClearAndWipe();
+	m_ammotype.ClearAndWipe();
+	m_weaponname.ClearAndWipe();
+	m_rangetext.ClearAndWipe();
+	m_zoomleveltext.ClearAndWipe();
+	m_message.ClearAndWipe();
+	m_timertext.ClearAndWipe();
+
+	for (int i = 0; i < 30; i++)
+		m_perfstats[i].ClearAndWipe();
+
+	m_pausetest.ClosePauseMenu();
+	m_pausetest.Clear();
+	m_poseBitmap.Clear();
+	m_ordermenu.ClearText();
+	m_ordermenu.Disable();
+	m_FlashFXVector.Reset();
+	m_teamMateNames.UnInit();
+	CZPlayerMapItem::MissionEndCleanup();
+	hudTurnOffScorePopup();
 }
 
 /* @socom-skeleton body ReInit_Init__4CHUDFv */
 void CHUD::ReInit_Init()
 {
+	/* 0x3bb050 (CCoreState::OnPop after a replay; a network game's mission start): the HUD
+	 * on without letterbox, the piggy-back texts off, the map, the zoomed-out layout, the
+	 * team panel (single player; off in a network game), the pause menu, the stance icon,
+	 * the team-mate names (network; else off) and the map's viewer set up again. ELF: On
+	 * and the letterbox go through theHUD */
+	theHUD->On();
+	theHUD->m_letterbox.RemoveLetterbox();
+	m_piggyback_text1.Off();
+	m_piggyback_text2.Off();
+	m_piggyback_text3.Off();
+	m_newmap.InitMap(zdb::CWorld::m_world);
+	ZoomOut();
 
+	if (!theNetwork.m_bNetwork)
+		m_teamnames.Init();
+	else
+		m_teamnames.Off();
+
+	m_pausetest.Init();
+	m_poseBitmap.Init(zdb::CWorld::m_world);
+
+	if (theNetwork.m_bNetwork)
+		m_teamMateNames.Init(m_myfont);
+	else
+		m_teamMateNames.Off();
+
+	m_newmap.m_viewer = ftsGetPlayer();
+	m_newmap.ReInit();
 }
 
 /* @socom-skeleton body Init__4CHUDFPQ23zdb6CWorld */
