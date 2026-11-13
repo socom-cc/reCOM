@@ -383,8 +383,13 @@ void CAiMap::region::Union(const CAiMapLoc &loc)
 }
 
 /* @socom-skeleton stub GetCenter__Q26CAiMap6regionCFR9CAiMapLoc */
-CAiMapLoc * CAiMap::region::GetCenter(CAiMapLoc &) const
+CAiMapLoc * CAiMap::region::GetCenter(CAiMapLoc &out) const
 {
+	/* 0x19e690 (CAiMaps::GetClosestRegion): the cell halfway across the region; out's map id
+	 * is left as it was */
+	out.x = m_loc.x + ((s32)m_dx >> 1);
+	out.y = (u16)m_loc.y + ((s32)m_dy >> 1);
+	return &out;
 }
 
 /* @socom-skeleton body __ct__Q26CAiMap6readerFv */

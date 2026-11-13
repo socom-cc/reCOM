@@ -867,8 +867,59 @@ void CAiMaps::Tile(const CAiMap::region *, unsigned int, unsigned int)
 }
 
 /* @socom-skeleton stub GetClosestRegion__7CAiMapsFRC9CAiMapLocQ36CAiMap6region4TYPEb */
-void CAiMaps::GetClosestRegion(const CAiMapLoc &, CAiMap::region::TYPE, bool)
+CAiMap::region * CAiMaps::GetClosestRegion(const CAiMapLoc &loc, CAiMap::region::TYPE type, bool inside)
 {
+	/* 0x1978a0 (CAiSFlee: the safehouse, type 2): of the regions of that type (m_regions[type]:
+	 * their corner locations), the one whose centre cell is nearest in x/z to the location's
+	 * cell centre; unless `inside`, regions holding the location are passed over.
+	 * port: the centre cell takes the region's map id (the ELF's GetCenter leaves it to an
+	 * unset stack word); a corner on an unknown map is skipped (the ELF reads a NULL region) */
+	CAiMap::region *best = NULL;
+	f32 best_dsq = 0.0f;
+	CPnt3D here;
+	CAiMap *map = GetMapByIndex(loc.m_mapid);
+
+	if (map != NULL)
+		map->GetCellPos(loc, here);
+
+	CAiMapLocVec &list = m_regions[(u8)type];
+
+	for (CAiMapLocVec::iterator it = list.begin(); it != list.end(); ++it)
+	{
+		CAiMap *rmap = GetMapByIndex(it->m_mapid);
+		CAiMap::region *r = rmap != NULL ? rmap->GetRegion(*it) : NULL;
+
+		if (r == NULL)
+			continue; /* port: the ELF reads it */
+
+		if (!inside)
+		{
+			s32 dx = (s32)loc.x - (s32)r->m_loc.x;
+			s32 dy = (s32)(u16)loc.y - (s32)(u16)r->m_loc.y;
+
+			if (dx >= 0 && dx < (s32)r->m_dx && dy >= 0 && dy < (s32)r->m_dy)
+				continue;
+		}
+
+		CAiMapLoc centre = r->m_loc;
+		r->GetCenter(centre);
+		CAiMap *cmap = GetMapByIndex(centre.m_mapid);
+		CPnt3D there;
+
+		if (cmap != NULL)
+			cmap->GetCellPos(centre, there);
+
+		there.Sub(&here, &there);
+		f32 dsq = there.x * there.x + there.z * there.z;
+
+		if (best == NULL || dsq < best_dsq)
+		{
+			best = r;
+			best_dsq = dsq;
+		}
+	}
+
+	return best;
 }
 
 /* @socom-skeleton stub GetRegionTypeContainer__7CAiMapsFQ36CAiMap6region4TYPERC9CAiMapLoc */
@@ -898,10 +949,26 @@ CAiMap::region * CAiMaps::GetRegionTypeContainer(CAiMap::region::TYPE type, cons
 }
 
 /* @socom-skeleton stub GetRandomLoc__7CAiMapsFPCQ26CAiMap6regionR9CAiMapLoc */
-bool CAiMaps::GetRandomLoc(const CAiMap::region *, CAiMapLoc &)
+bool CAiMaps::GetRandomLoc(const CAiMap::region *region, CAiMapLoc &loc)
 {
-	/* 0x197340 (788 bytes): a random walkable cell of the region.
-	 * port: not written: none found */
+	/* 0x197340 (CAiSFlee): up to 8 random cells of the region (rand() % width / height from
+	 * its corner, on its map) until one is walkable; false when none was */
+	for (s32 n = 8; n != 0; n--)
+	{
+		s32 w = (s32)region->m_dx - 1;
+		s32 x = w != 0 ? rand() % (w + 1) : 0;
+		s32 h = (s32)region->m_dy - 1;
+		s32 y = h != 0 ? rand() % (h + 1) : 0;
+		loc.x = region->m_loc.x + x;
+		loc.y = (u16)region->m_loc.y + y;
+		loc.m_mapid = region->m_loc.m_mapid;
+		CAiMap *map = GetMapByIndex(loc.m_mapid);
+		CAiCell *cell = map != NULL ? map->GetCell(loc) : NULL;
+
+		if (cell != NULL && CAiMap::IsWalkable(cell))
+			return true;
+	}
+
 	return false;
 }
 

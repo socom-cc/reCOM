@@ -103,6 +103,7 @@ class CGraph;
 class CValve;
 class CZKit;
 class CZSealBody;
+class CSealUnit;
 class CZAnim;
 class AnimSet;
 #include <list>
@@ -1117,6 +1118,14 @@ public:
 
 class CAiSSurrender : public CAiState
 {
+public:
+	/* port: no DWARF record; 60 bytes (Create 0x2dc8f8); layout from Tick 0x2e7340 and
+	 * OnSignal 0x2e7640; names invented */
+	s32 m_anim; /* +0x28: "Surrender" (an AnimType, read as a half word) */
+	s32 m_loop_anim; /* +0x2c: "Surrender loop", the idle afterwards */
+	u8 m_drop; /* +0x30: the gear is still to be dropped */
+	CSealUnit *m_unit; /* +0x34: the unit left, rejoined on pop */
+	u32 m_team; /* +0x38: the team before surrendering */
 
 	/* @socom-skeleton decl 13CAiSSurrender */
 public:
@@ -1260,6 +1269,14 @@ public:
 
 class CAiSFlee : public CAiState
 {
+public:
+	/* port: no DWARF record; 52 bytes (Create 0x2dc4a0); layout from Tick 0x2e5850 and OnSignal
+	 * 0x2e5d60; names invented */
+	u8 m_rechoose; /* +0x28: set by OnSignal(4): a flee that finds no safehouse asks for a new
+	                * reaction (rush / surrender) */
+	CAiMapLoc m_loc; /* +0x2c: the safehouse spot */
+	CSealUnit *m_unit; /* +0x30: cleared by OnSignal(4); with one, a route passing near its
+	                    * members is dropped (CSealUnit::CheckPathProximity) */
 
 	/* @socom-skeleton decl 8CAiSFlee */
 public:
@@ -1322,6 +1339,13 @@ public:
 
 class CAiSShotAt : public CAiState
 {
+public:
+	/* port: no DWARF record; 64 bytes (CAiState::Create 0x2dc844); layout from Tick 0x2e8590,
+	 * OnSignal 0x2e8f90 and CSealCtrlAi::Tick's push (0x2693d0); names invented */
+	s8 m_old_stance; /* +0x28: the stance when pushed, restored on pop */
+	CPnt3D m_pos; /* +0x2c: where the shots came from (later: the spot the AI dodged from) */
+	CEntity *m_shooter; /* +0x38 */
+	u8 m_moving; /* +0x3c: on its way to a cover cell */
 
 	/* @socom-skeleton decl 10CAiSShotAt */
 public:
@@ -1441,6 +1465,14 @@ public:
 
 class CAiSRush : public CAiState
 {
+public:
+	/* port: no DWARF record; 52 bytes (Create 0x2dc7cc); layout from Tick 0x2e4ab0, OnSignal
+	 * 0x2e51f0, SetTarget 0x2e51d0 and CTState::Tick 0x2b5820; names invented. m_option_flags:
+	 * bit 0 end at m_time (state clock), bit 1 end within sqrt(m_range_sq) of the target, bit 2
+	 * end when the AI's own target is in sight, bit 3 one route failure is waited out */
+	f32 m_range_sq; /* +0x28 */
+	u32 m_target; /* +0x2c: the rushed seal's entity id (invalidId none) */
+	CAiMapLoc m_dest; /* +0x30: the target's cell the route was planned to */
 
 	/* @socom-skeleton decl 8CAiSRush */
 public:
@@ -1646,7 +1678,7 @@ public:
 	CAiMap::name * GetCellName(const CAiMapLoc &) const;
 	char * GetCellNameString(const CAiMapLoc &) const;
 	void Tile(const CAiMap::region *, unsigned int, unsigned int);
-	void GetClosestRegion(const CAiMapLoc &, CAiMap::region::TYPE, bool);
+	CAiMap::region * GetClosestRegion(const CAiMapLoc &, CAiMap::region::TYPE, bool); /* 0x1978a0: NULL for none */
 	CAiMap::region * GetRegionTypeContainer(CAiMap::region::TYPE, const CAiMapLoc &);
 	bool GetRandomLoc(const CAiMap::region *, CAiMapLoc &); /* 0x197340: 0 when none found */
 	void SetRegionType(const CAiMap::region *, CAiMap::region::TYPE);

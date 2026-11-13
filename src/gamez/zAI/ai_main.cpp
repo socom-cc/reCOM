@@ -54,8 +54,11 @@ bool CAi::LeadTargetG(const CPnt3D *pos, const CPnt3D *vel, float speed, const C
 }
 
 /* @socom-skeleton stub Extrapolate__3CAiFPC6CPnt3DPC6CPnt3DfP6CPnt3D */
-void CAi::Extrapolate(const CPnt3D *, const CPnt3D *, float, CPnt3D *)
+void CAi::Extrapolate(const CPnt3D *pos, const CPnt3D *vel, float time, CPnt3D *out)
 {
+	/* 0x17ee60 (ComputeThrowFireParams): where a point moving at vel is after `time` */
+	vel->Scale(time, out);
+	out->Add(pos, out);
 }
 
 /* @socom-skeleton stub AlignToPoint__3CAiFPC7CMatrixPC6CPnt3DP7CMatrixf */
@@ -95,13 +98,23 @@ CPnt3D * ai::MakeNoise(CPnt3D *out, const PNT2D &range)
 }
 
 /* @socom-skeleton stub AddNoise__2aiFPC6CPnt3DP6CPnt3DRC5PNT2D */
-CPnt3D * ai::AddNoise(const CPnt3D *, CPnt3D *, const PNT2D &)
+CPnt3D * ai::AddNoise(const CPnt3D *pnt, CPnt3D *out, const PNT2D &range)
 {
+	/* 0x17e520 (CSealCtrlAi::Tick's STATE_SHOTAT set-up): out = pnt + a MakeNoise vector
+	 * (inlined in the ELF: per component a random sign, then a magnitude in the range) */
+	MakeNoise(out, range);
+	out->Add(pnt, out);
+	return out;
 }
 
 /* @socom-skeleton stub AddNoise__2aiFP6CPnt3DRC5PNT2D */
-CPnt3D * ai::AddNoise(CPnt3D *, const PNT2D &)
+CPnt3D * ai::AddNoise(CPnt3D *pnt, const PNT2D &range)
 {
+	/* 0x17e1b0 (OnWeaponHit): pnt moved by a MakeNoise vector (inlined) */
+	CPnt3D noise;
+	MakeNoise(&noise, range);
+	pnt->Add(&noise, pnt);
+	return pnt;
 }
 
 /* @socom-skeleton stub elevate__2aiFR6CPnt3Dff */

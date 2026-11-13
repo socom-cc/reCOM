@@ -90,30 +90,332 @@
 static unsigned char MultiplayerMsgStrings[28];
 
 /* @socom-skeleton stub ClearTeamMask__FUiUi */
-unsigned int ClearTeamMask(unsigned int, unsigned int)
+unsigned int ClearTeamMask(unsigned int team, unsigned int keep)
 {
+	/* 0x2e9090 (CAiSSurrender::OnSignal): the team without the enemy team bits 4-15, 30 and
+	 * 31 (those also in `keep`, the player's team, stay), plus the surrendered bit 0x4000000 */
+	u32 mask = 0;
+
+	for (s32 i = 4; i < 16; i++)
+		mask |= 1u << i;
+
+	mask |= 0xc0000000u;
+	mask &= ~keep;
+	return (team & ~mask) | 0x4000000u;
 }
 
 /* @socom-skeleton stub OnSignal__10CAiSShotAtFQ28CAiState6SIGNALP11CSealCtrlAi */
-void CAiSShotAt::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+void CAiSShotAt::OnSignal(CAiState::SIGNAL signal, CSealCtrlAi *ctrl)
 {
+	/* 0x2e8f90: pushed (0): the stance is kept and the reaction waits 0.05-0.25 s; popped (1):
+	 * the old stance comes back after 0.25-0.5 s, the frantic look ends and the underfire is
+	 * cleared */
+	switch ((s32)signal)
+	{
+	case 0:
+		m_old_stance = ctrl->m_stance;
+		m_time = 0.05f + 0.2f * ((f32)rand() * 4.656613e-10f);
+		break;
+
+	case 1:
+		ctrl->SetStanceDelayed((SEAL_STANCE)m_old_stance, 0.25f + 0.25f * ((f32)rand() * 4.656613e-10f));
+		ctrl->ClearLook(AIL_FRANTIC);
+		ctrl->m_underfire.m_value = 0.0f;
+		break;
+
+	default:
+		break;
+	}
 }
 
 /* @socom-skeleton stub Tick__10CAiSShotAtFfP11CSealCtrlAi */
-bool CAiSShotAt::Tick(float, CSealCtrlAi *)
+bool CAiSShotAt::Tick(float dT, CSealCtrlAi *ctrl)
 {
+	/* 0x2e8590 (STATE_SHOTAT: under fire with no target in sight). Phases (m_substate):
+	 * 0 hold (creep mode) for the OnSignal delay;
+	 * 1 duck (crouch, or prone one time in four, after 0.2-0.7 s; not when already prone),
+	 *   awareness AIA_DIRECTION toward the shots, a frantic look at them, full speed; then a
+	 *   cover cell within 5 cells hidden from them (FindCoverLoc): routed there (path mode, no
+	 *   turning) for 5-10 s -> 2; without one a dodge: up to 3 walkable cells straight away
+	 *   from the shots (ChooseLookDir's direction); the body steps there facing the shots
+	 *   (creep mode, GOAL_MOVE) for up to 2.5 s, m_pos = where it stood -> 4;
+	 * 2 at cover: the time runs, an arrival leaves 0.5 s more -> 3;
+	 * 3 done (the state ends);
+	 * 4 dodging: when there or out of time, back to the old spot if the underfire has eased
+	 *   under underfire_return (-> 5), else done;
+	 * 5 walking back -> 3 when there. */
+	CEntity *body = ctrl != NULL ? ctrl->m_entity : NULL;
+
+	if (!m_setup)
+		return false;
+
+	u32 phase = m_substate;
+
+	switch (phase)
+	{
+	case 0:
+		if (!(ctrl->m_stateTimer < m_time))
+			phase = 1;
+
+		ctrl->SetAiMode(AIM_CREEP);
+
+		if (phase != 1)
+			break;
+		/* fall through */
+
+	case 1:
+	{
+		if (ctrl->m_stance != 2)
+		{
+			f32 chance = 0.25f;
+			SEAL_STANCE stance = 0.0f + 1.0f * ((f32)rand() * 4.656613e-10f) <= chance ? (SEAL_STANCE)2 : (SEAL_STANCE)1;
+			ctrl->SetStanceDelayed(stance, 0.2f + 0.5f * ((f32)rand() * 4.656613e-10f));
+		}
+
+		ctrl->SetAiAware(AIA_DIRECTION, &m_pos);
+		phase = 2;
+
+		if (ctrl->SetLookPosW(AIL_FRANTIC, &m_pos))
+			ctrl->ModifyLookFlags(1, 4);
+
+		ctrl->m_speed = 1.0f;
+		saturate<f32>(ctrl->m_speed, 0.0f, 1.0f);
+		CAiMapLoc cover;
+		SEAL_PEEK peek;
+
+		if (ctrl->FindCoverLoc(&m_pos, cover, peek, 5))
+		{
+			ctrl->Debug("Found Hide Location! (%d:%d:%d)\n", (int)cover.m_mapid, (int)cover.x, (int)cover.y);
+#ifdef SOCOM_PORT
+			SOCOM_PORT_TRACE("AI: %s: shot at: cover cell %d,%d peek %d (shots from %.0f %.0f %.0f)", body->m_node->m_name, (int)cover.x, (int)cover.y, (int)peek, m_pos.x, m_pos.y, m_pos.z);
+#endif
+
+			if (!ctrl->SetRoute(cover))
+				break;
+
+			ctrl->SetAiMode(AIM_PATH);
+			ctrl->m_noturn_travel = 1;
+			m_time = ctrl->m_stateTimer + (5.0f + 5.0f * ((f32)rand() * 4.656613e-10f));
+			m_moving = 1;
+			break;
+		}
+
+		CAiMapLoc cur = body->m_mapLocValid;
+		CAiMap *map = AiMaps.GetMapByIndex(cur.m_mapid);
+
+		if (map == NULL)
+			break;
+
+		CPnt3D away;
+		body->GetPosW()->Sub(&m_pos, &away);
+		CPnt3D dir = away;
+		dir.Normalize();
+		CAiMap::DIR d = CSealCtrlAi::ChooseLookDir(cur, &dir, false, NULL, 0, NULL);
+		bool moved = false;
+
+		for (s32 n = 3; n != 0; n--)
+		{
+			CAiMapLoc next;
+			CAiCell *cell;
+
+			if (!map->GetNeighbor(cur, d, next, cell, true))
+				break;
+
+			moved = true;
+			cur = next;
+		}
+
+		if (!moved)
+			break;
+
+		/* ELF: off the map the goal position would be NULL; cur is always on it here */
+		CPnt3D spot;
+		map->GetCellPos(cur, spot);
+
+		if (!ctrl->SetGoalPos(GOAL_MOVE, &spot, 3.0f))
+			break;
+
+		dir.x = -dir.x;
+		dir.y = -dir.y;
+		dir.z = -dir.z;
+		ctrl->SetGoalDir(GOAL_MOVE, &dir, true);
+		m_pos = *body->GetPosW();
+		ctrl->SetAiMode(AIM_CREEP);
+		ctrl->m_noturn_travel = 1;
+		phase = 4;
+		m_time = ctrl->m_stateTimer + 2.5f;
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("AI: %s: shot at: no cover, dodging to %d,%d", body->m_node->m_name, (int)cur.x, (int)cur.y);
+#endif
+		break;
+	}
+
+	case 2:
+		if (!(ctrl->m_stateTimer < m_time))
+		{
+			phase = 3;
+			break;
+		}
+
+		if (m_moving && ctrl->GetRouteComplete())
+		{
+			m_time = ctrl->m_stateTimer + 0.5f;
+			m_moving = 0;
+		}
+
+		break;
+
+	case 3:
+		m_setup = 0;
+		break;
+
+	case 4:
+		if ((ctrl->m_goal_dir_valid || ctrl->m_goal_pos_valid) && ctrl->m_stateTimer < m_time)
+			break;
+
+		phase = 3;
+
+		if ((double)ctrl->m_underfire.m_value < (double)ai::underfire_return && ctrl->SetGoalPos(GOAL_MOVE, &m_pos, 5.0f))
+		{
+			ctrl->SetAiMode(AIM_CREEP);
+			phase = 5;
+		}
+
+		break;
+
+	case 5:
+		if (!(ctrl->m_goal_dir_valid || ctrl->m_goal_pos_valid))
+			phase = 3;
+
+		break;
+
+	default:
+		break;
+	}
+
+	m_substate = (u8)phase;
+	return m_setup;
 }
 
 /* @socom-skeleton stub OnSignal__10CAiSReloadFQ28CAiState6SIGNALP11CSealCtrlAi */
 void CAiSReload::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
 {
+	/* 0x2e8580: nothing */
 }
 
 /* @socom-skeleton stub Tick__10CAiSReloadFfP11CSealCtrlAi */
-bool CAiSReload::Tick(float, CSealCtrlAi *)
+bool CAiSReload::Tick(float dT, CSealCtrlAi *ctrl)
 {
+	/* 0x2e8030 (STATE_RELOAD, AttackTick: an empty magazine with ammunition left). Phases:
+	 * 0 full speed, no turning while travelling, weapon lowered; the stance is kept and three
+	 * draws made: a reload call (7%), prone rather than crouch (25%), and - with a living
+	 * target - an evade move (50%): to the target's vis map evade spot (CAiVisMap::
+	 * FindEvadeLocation) when it is within maxReloadRange cells and routed (path mode) -> 1;
+	 * 1 the call (character sound 61) once; while evading: standing, until the route is done;
+	 *   then a standing AI crouches (or goes prone), the kit reloads, 0.5 s -> 2;
+	 * 2 the state ends after the 0.5 s.
+	 * port: the seals' vis maps (CSealCtrl::m_vismap, ai_vismap.cpp) are not written, so
+	 * m_vismap is NULL and the evade move is never taken (as in the ELF without a vis map) */
 	/* @socom-skeleton stub maxReloadRange$2324 */
-	static int maxReloadRange;
+	static u32 maxReloadRange = 10;
+	CZSealBody *body = static_cast<CZSealBody *>(ctrl->m_entity);
+
+	if (!m_setup)
+		return false;
+
+	u32 phase = m_substate;
+
+	switch (phase)
+	{
+	case 0:
+	{
+		ctrl->m_speed = 1.0f;
+		saturate<f32>(ctrl->m_speed, 0.0f, 1.0f);
+		ctrl->m_noturn_travel = 1;
+		body->SetWeaponState((WEAPON_STATE)2);
+		m_old_stance = ctrl->m_stance;
+		f32 cry = 0.07f;
+		m_cry = 0.0f + 1.0f * ((f32)rand() * 4.656613e-10f) <= cry;
+		f32 prone = 0.25f;
+		m_prone = 0.0f + 1.0f * ((f32)rand() * 4.656613e-10f) <= prone;
+		CEntity *te = ctrl->m_target.m_target.m_ent;
+		bool evade = false;
+
+		if (te != NULL && te->m_isAlive)
+		{
+			f32 half = 0.5f;
+			evade = 0.0f + 1.0f * ((f32)rand() * 4.656613e-10f) <= half;
+		}
+
+		m_evade = evade;
+
+		if (m_evade)
+		{
+			m_evade = 0;
+			CZSealBody *ts = te != NULL && (u8)te->m_type == 2 ? static_cast<CZSealBody *>(te) : NULL;
+			CAiVisMap *vis = ts != NULL ? static_cast<CSealCtrl *>(ts->m_control)->m_vismap : NULL;
+
+			if (vis != NULL)
+			{
+				CAiMapLoc here = body->m_mapLocValid;
+				CAiMapLoc spot;
+				vis->FindEvadeLocation(here, spot);
+				u32 dx = spot.x < here.x ? here.x - spot.x : spot.x - here.x;
+				s32 sy = (s32)(u16)spot.y, hy = (s32)(u16)here.y;
+				u32 dy = (u32)(hy < sy ? sy - hy : hy - sy);
+
+				if (dx + dy < maxReloadRange && ctrl->SetRoute(spot))
+				{
+					ctrl->SetAiMode(AIM_PATH);
+					m_evade = 1;
+				}
+			}
+		}
+
+		phase = 1;
+		break;
+	}
+
+	case 1:
+		if (m_cry)
+		{
+			body->GetCharacter()->PlayAt((CHARACTER_SOUND)61, body->m_id, body->GetPosW());
+			m_cry = 0;
+		}
+
+		if (m_evade)
+		{
+			ctrl->SetStance((SEAL_STANCE)0);
+
+			if (ctrl->GetRouteComplete())
+				m_evade = 0;
+
+			break;
+		}
+
+		if (m_old_stance == 0)
+			ctrl->SetStance(m_prone ? (SEAL_STANCE)2 : (SEAL_STANCE)1);
+
+		body->m_kit.Reload();
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("AI: %s: reloading (stance %d -> %d)", body->m_node->m_name, (int)m_old_stance, (int)ctrl->m_stance);
+#endif
+		m_time = ctrl->m_stateTimer + 0.5f;
+		phase = 2;
+		break;
+
+	case 2:
+		if (!(ctrl->m_stateTimer < m_time))
+			m_setup = 0;
+
+		break;
+
+	default:
+		break;
+	}
+
+	m_substate = phase;
+	return m_setup;
 }
 
 /* @socom-skeleton stub find_closest_ammo__2aiFPC6CPnt3DP5CZKitP8CZWeaponf */
@@ -137,18 +439,187 @@ bool CAiSNoAmmo::Tick(float, CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub delayed_dropitems__FPvPv */
-void delayed_dropitems(void *, void *)
+void delayed_dropitems(void *body, void *)
 {
+	/* 0x2e77e0: the surrender anim's callback (0.65 into it): the seal drops its gear */
+	static_cast<CZSealBody *>(body)->DropAllItems();
 }
 
 /* @socom-skeleton stub OnSignal__13CAiSSurrenderFQ28CAiState6SIGNALP11CSealCtrlAi */
-void CAiSSurrender::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+void CAiSSurrender::OnSignal(CAiState::SIGNAL signal, CSealCtrlAi *ctrl)
 {
+	/* 0x2e7640. Reset (4): no anims yet, the gear is to be dropped. Pushed (0): no target;
+	 * the team is kept and the body leaves the enemy teams (ClearTeamMask with the player's
+	 * team: team bits 4-15 and 30-31 off, the surrendered bit 0x4000000 on), standing, team
+	 * valves recounted. Popped (1): out of its (hostage) unit, the old team and unit back,
+	 * valves, the default anim set. Covered (2, restrained): the default anim set, the blends
+	 * to base, no longer restrainable. Uncovered (3): back to phase 4, standing. */
+	CZSealBody *body = ctrl != NULL ? static_cast<CZSealBody *>(ctrl->m_entity) : NULL;
+
+	switch ((s32)signal)
+	{
+	case 4:
+		m_loop_anim = -1;
+		m_anim = -1;
+		m_drop = 1;
+		m_unit = NULL;
+		m_team = 0;
+		break;
+
+	case 0:
+	{
+		ctrl->SetTarget(NULL);
+		m_team = body->m_team;
+		CZSealBody *player = ftsGetPlayer();
+		body->SetTeamMask(ClearTeamMask(m_team, player != NULL ? player->m_team : 0));
+		ctrl->SetStance((SEAL_STANCE)0);
+		theMission.RefreshTeamValves();
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("AI: %s: SURRENDER (team 0x%x -> 0x%x)", body->m_node->m_name, m_team, body->m_team);
+#endif
+		break;
+	}
+
+	case 1:
+		if (ctrl->m_unit != NULL)
+			CSealUnit::SealLeaveUnit(body);
+
+		body->SetTeamMask(m_team);
+
+		if (m_unit != NULL)
+			m_unit->SealJoinUnit(body);
+
+		theMission.RefreshTeamValves();
+		body->BindAnimSet(body->m_default_animset);
+		break;
+
+	case 2:
+		body->BindAnimSet(body->m_default_animset);
+		body->ClearToBase(false);
+		body->m_restrainable = 0;
+		break;
+
+	case 3:
+		m_substate = 4;
+		ctrl->SetStance((SEAL_STANCE)0);
+		break;
+
+	default:
+		break;
+	}
 }
 
 /* @socom-skeleton stub Tick__13CAiSSurrenderFfP11CSealCtrlAi */
-bool CAiSSurrender::Tick(float, CSealCtrlAi *)
+bool CAiSSurrender::Tick(float dT, CSealCtrlAi *ctrl)
 {
+	/* 0x2e7340 (STATE_SURRENDER, a DoReaction choice). Phases: 0 hold fire, stop, idle mode,
+	 * weapon lowered, the "Surrender" / "Surrender loop" anims looked up, 0.25-0.5 s -> 1;
+	 * 1 the wait -> 2; 2 the surrender anim (the gear dropped 0.65 into it, once) -> 3; 3 at
+	 * its end the "No_weapon anim set" becomes the body's (default) set -> 4; 4 the seal
+	 * leaves its unit (a hostage, team bit 17, joins unit 17), valves recounted, the loop anim
+	 * as its idle, restrainable -> 5; 5 waits (to be restrained). */
+	CZSealBody *body = static_cast<CZSealBody *>(ctrl->m_entity);
+
+	if (!m_setup)
+		return false;
+
+	u32 phase = m_substate;
+
+	switch (phase)
+	{
+	case 0:
+		ctrl->SetHoldFire(true);
+		ctrl->AllStop(false);
+		ctrl->SetAiMode(AIM_IDLE);
+		body->SetWeaponState((WEAPON_STATE)2);
+		m_time = ctrl->m_stateTimer + (0.25f + 0.25f * ((f32)rand() * 4.656613e-10f));
+		m_anim = (s16)FindAnimType("Surrender");
+		m_loop_anim = (s16)FindAnimType("Surrender loop");
+		phase = 1;
+		break;
+
+	case 1:
+		if (!(ctrl->m_stateTimer < m_time))
+			phase = 2;
+
+		break;
+
+	case 2:
+		if (!ctrl->PlayAnim((AnimType)(s16)m_anim, (SEAL_STATE)0))
+			break;
+
+		if (m_drop)
+		{
+			CZBodyAnimBlend *top = body->m_blends->Top();
+
+			if (top != NULL)
+			{
+				top->m_callback.m_func = (void (*)())delayed_dropitems;
+				top->m_callback.m_tfrac = 0.65f;
+				top->m_callback.m_userdata = NULL;
+			}
+
+			m_drop = 0;
+		}
+
+		phase = 3;
+		break;
+
+	case 3:
+	{
+		if (ctrl->AnimIsPlaying((AnimType)(s16)m_anim))
+			break;
+
+		AnimSet *set = NULL;
+
+		for (std::vector<AnimSet *>::iterator it = AnimSet::list.begin(); it != AnimSet::list.end(); ++it)
+		{
+			if (strcmp("No_weapon anim set", (*it)->m_name.c_str()) == 0)
+			{
+				set = *it;
+				break;
+			}
+		}
+
+		if (set != NULL)
+		{
+			body->BindAnimSet(set);
+			body->m_default_animset = set;
+		}
+
+		phase = 4;
+		break;
+	}
+
+	case 4:
+	{
+		m_unit = ctrl->m_unit;
+
+		if (m_unit != NULL)
+			CSealUnit::SealLeaveUnit(body);
+
+		if (body->m_team & 0x20000)
+		{
+			CSealUnit *unit = CSealUnit::GetUnitByTeam(17);
+
+			if (unit != NULL)
+				unit->SealJoinUnit(body);
+		}
+
+		theMission.RefreshTeamValves();
+		body->SetStanceIdle((AnimType)(s16)m_loop_anim);
+		body->m_restrainable = 1;
+		phase = 5;
+		m_time = ctrl->m_stateTimer + 5.0f;
+		break;
+	}
+
+	default:
+		break;
+	}
+
+	m_substate = phase;
+	return m_setup;
 }
 
 /* @socom-skeleton stub OnSignal__8CAiSHoldFQ28CAiState6SIGNALP11CSealCtrlAi */
@@ -800,18 +1271,186 @@ bool CAiSTarget::Tick(float dT, CSealCtrlAi *ctrl)
 }
 
 /* @socom-skeleton stub OnSignal__8CAiSFleeFQ28CAiState6SIGNALP11CSealCtrlAi */
-void CAiSFlee::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+void CAiSFlee::OnSignal(CAiState::SIGNAL signal, CSealCtrlAi *)
 {
+	/* 0x2e5d60: reset (4): no unit; a flee that fails asks for another reaction */
+	if ((s32)signal == 4)
+	{
+		m_unit = NULL;
+		m_rechoose = 1;
+	}
 }
 
 /* @socom-skeleton stub CanAttack__8CAiSFleeCFv */
 bool CAiSFlee::CanAttack() const
 {
+	/* 0x2e5d50: not while running to the safehouse */
+	return m_substate != 2;
 }
 
 /* @socom-skeleton stub Tick__8CAiSFleeFfP11CSealCtrlAi */
-bool CAiSFlee::Tick(float, CSealCtrlAi *)
+bool CAiSFlee::Tick(float dT, CSealCtrlAi *ctrl)
 {
+	/* 0x2e5850 (STATE_FLEE, a DoReaction choice). Phases:
+	 * 0 a random spot in the closest safehouse region (type 2), routed there (three times in
+	 *   four the AI cries out first, sound 65), standing, full speed, no target -> 1; no region
+	 *   or spot -> 4;
+	 * 1 the plan: queued / planning / aborting -> wait; planned with points -> path mode -> 2
+	 *   (with a unit whose members the route passes near: dropped -> 4); failed -> 4;
+	 * 2 running -> 3 on arrival;
+	 * 3 STATE_HOLD replaces the flee (set up);
+	 * 4 the first time: a new reaction is asked for (rush or surrender at even odds, before
+	 *   the surrender parameter) and the state ends; else -> 5;
+	 * 5 a living target: cover within 10 cells hidden from it, routed there -> 6 (5 s); no
+	 *   target -> 3 (3 s);
+	 * 6 routing to cover: while the route stands nothing; else the time runs out -> 0.
+	 * A phase change sets m_stateFlags bit 0. */
+	if (!m_setup)
+		return false;
+
+	CEntity *body = ctrl->m_entity;
+	CAiMapLoc here = body->m_mapLocValid;
+	CAiPath *path = &ctrl->m_path;
+	u32 phase = m_substate;
+
+	switch (phase)
+	{
+	case 0:
+	{
+		CAiMap::region *region = AiMaps.GetClosestRegion(here, (CAiMap::region::TYPE)2, false);
+
+		if (region == NULL)
+		{
+			ctrl->Output("FLEE: failed to find a random safehouse region\n");
+			phase = 4;
+			break;
+		}
+
+		if (!AiMaps.GetRandomLoc(region, m_loc) || !ctrl->SetRoute(m_loc))
+		{
+			ctrl->Output("failed to find a random location in region %s\n", region->m_name);
+			phase = 4;
+			break;
+		}
+
+		f32 chance = 0.75f;
+
+		if (0.0f + 1.0f * ((f32)rand() * 4.656613e-10f) <= chance)
+			ctrl->PlayAiSound((CHARACTER_SOUND)65);
+
+		ctrl->SetStance((SEAL_STANCE)0);
+		ctrl->m_speed = 1.0f;
+		saturate<f32>(ctrl->m_speed, 0.0f, 1.0f);
+		ctrl->SetTarget(NULL);
+		phase = 1;
+		break;
+	}
+
+	case 1:
+	{
+		u8 st = (u8)path->m_state;
+
+		if (st == CAiPath::PLANNING || st == CAiPath::INQUEUE || st == CAiPath::ABORT)
+			break;
+
+		if (!(!path->m_points.empty() && st == CAiPath::COMPLETE))
+		{
+			phase = 4;
+			break;
+		}
+
+		/* ELF: with m_unit, CSealUnit::CheckPathProximity(path, 4, 30) drops the route (-> 4).
+		 * port: nothing sets m_unit (OnSignal clears it) and CheckPathProximity is unwritten */
+		ctrl->SetAiMode(AIM_PATH);
+		phase = 2;
+		break;
+	}
+
+	case 2:
+		if (ctrl->GetRouteComplete())
+			phase = 3;
+
+		break;
+
+	case 3:
+		if (ctrl->SetAiState(STATE_HOLD))
+		{
+			CAiState *now = ctrl->GetAiState();
+			now = now->m_state == STATE_HOLD ? now : NULL; /* ELF: not NULL-tested */
+			now->m_setup = 1;
+			return true;
+		}
+
+		break;
+
+	case 4:
+		if (m_rechoose)
+		{
+			AI_REACTION r;
+			r.m_none = 0.0f;
+			r.m_rush = 50.0f;
+			r.m_flee = 0.0f;
+			r.m_surrender = 50.0f;
+			ctrl->SetDoReaction(true, r, false);
+			m_setup = 0;
+			break;
+		}
+
+		phase = 5;
+		break;
+
+	case 5:
+	{
+		CEntity *te = ctrl->m_target.m_target.m_ent;
+
+		if (te != NULL && te->m_isAlive)
+		{
+			SEAL_PEEK peek = (SEAL_PEEK)2;
+			CAiMapLoc cover;
+
+			/* port: the ELF routes to an unset stack word beside the cover cell it found
+			 * (SetRoute(sp+0x54) after FindCoverLoc wrote sp+0x50); the cover cell is used */
+			if (ctrl->FindCoverLoc(te->GetPosW(), cover, peek, 10) && ctrl->SetRoute(cover))
+			{
+				phase = 6;
+				m_time = 5.0f;
+			}
+
+			break;
+		}
+
+		m_time = 3.0f;
+		phase = 3;
+		break;
+	}
+
+	case 6:
+	{
+		u8 st = (u8)path->m_state;
+
+		if (st == CAiPath::PLANNING || st == CAiPath::INQUEUE || st == CAiPath::ABORT)
+			break;
+
+		if (!path->m_points.empty() && st == CAiPath::COMPLETE)
+			break;
+
+		m_time -= dT;
+
+		if (m_time <= 0.0f)
+			phase = 0;
+
+		break;
+	}
+
+	default:
+		break;
+	}
+
+	if ((u8)phase != m_substate)
+		ctrl->m_stateFlags |= 1;
+
+	m_substate = (u8)phase;
+	return m_setup;
 }
 
 /* @socom-skeleton stub OnSignal__15CAiSPathRecoverFQ28CAiState6SIGNALP11CSealCtrlAi */
@@ -830,18 +1469,182 @@ bool CAiSPathRecover::Tick(float, CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub OnSignal__8CAiSRushFQ28CAiState6SIGNALP11CSealCtrlAi */
-void CAiSRush::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+void CAiSRush::OnSignal(CAiState::SIGNAL signal, CSealCtrlAi *ctrl)
 {
+	/* 0x2e51f0: pushed (0): standing, no deadline yet; uncovered (3): the rush is over; reset
+	 * (4): no target */
+	switch ((s32)signal)
+	{
+	case 0:
+		ctrl->SetStance((SEAL_STANCE)0);
+		m_time = -1.0f;
+		break;
+
+	case 3:
+		m_setup = 0;
+		break;
+
+	case 4:
+		m_target = (u32)CEntity::invalidId;
+		break;
+
+	default:
+		break;
+	}
 }
 
 /* @socom-skeleton stub SetTarget__8CAiSRushFP10CZSealBody */
-void CAiSRush::SetTarget(CZSealBody *)
+void CAiSRush::SetTarget(CZSealBody *target)
 {
+	/* 0x2e51d0 (CTState::Tick) */
+	m_target = target != NULL ? target->m_id : (u32)CEntity::invalidId;
+}
+
+/* port: |a - b| in x plus in y, in cells (inlined three times in CAiSRush::Tick) */
+static u32 rush_cells(const CAiMapLoc &a, const CAiMapLoc &b)
+{
+	u32 ax = a.x, bx = b.x;
+	s32 ay = (s32)(u16)a.y, by = (s32)(u16)b.y;
+	u32 dx = bx < ax ? ax - bx : bx - ax;
+	u32 dy = (u32)(by < ay ? ay - by : by - ay);
+	return dx + dy;
 }
 
 /* @socom-skeleton stub Tick__8CAiSRushFfP11CSealCtrlAi */
-bool CAiSRush::Tick(float, CSealCtrlAi *)
+bool CAiSRush::Tick(float dT, CSealCtrlAi *ctrl)
 {
+	/* 0x2e4ab0 (STATE_RUSH, from a script's ai::STATE): run at a seal. It ends when the seal
+	 * is gone or dead, past m_time (flag 1), within the range (flag 2), or when the AI's own
+	 * target is in sight (flag 4). Phases: 0 start -> 1; 1 the seal's cell must be walkable,
+	 * routed there (cry 64) -> 2; 2 a failed route ends the rush (flag 8: waited out once ->
+	 * 3); while running, a seal more than rush_threshold cells from the planned cell is
+	 * chased straight when the line is clear (the route replaced by its cell) or planned
+	 * again (1); at the route's end: on the seal's cell the rush ends, else 1; 3 waits until
+	 * the seal is 2 cells from the planned cell -> 1. */
 	/* @socom-skeleton stub rush_threshold$2899 */
-	static int rush_threshold;
+	static u32 rush_threshold = 4;
+	CEntity *body = ctrl->m_entity;
+
+	if (!m_setup)
+		return false;
+
+	u32 phase = m_substate;
+	CEntity *t = CEntity::m_list.GetEntityById(m_target);
+
+	if (!(t != NULL && (u8)t->m_type == 2) || !t->m_isAlive)
+		return false;
+
+	CAiMapLoc here = body->m_mapLocValid;
+	CAiMapLoc there = t->m_mapLocValid;
+
+	if ((m_option_flags & 1) && !(ctrl->m_stateTimer <= m_time))
+		return false;
+
+	if (m_option_flags & 2)
+	{
+		CPnt3D d;
+		body->GetPosW()->Sub(t->GetPosW(), &d);
+		f32 dsq = d.x * d.x + d.y * d.y + d.z * d.z;
+
+		if (dsq <= m_range_sq)
+		{
+			ctrl->Debug("RUSH within range_sq (%.2f < %.2f)\n", (double)dsq, (double)m_range_sq);
+			return false;
+		}
+	}
+
+	if (m_option_flags & 4)
+	{
+		CEntity *te = ctrl->m_target.m_target.m_ent;
+
+		if (te != NULL && te->m_isAlive && ctrl->m_target.m_target.m_visible)
+		{
+			ctrl->Debug("RUSH contact -- target (%s) is visible!\n", te->m_node->m_name);
+			return false;
+		}
+	}
+
+	switch (phase)
+	{
+	case 0:
+		ctrl->Debug("RUSH_INIT\n");
+		phase = 1;
+		break;
+
+	case 1:
+	{
+		CAiMap *map = AiMaps.GetMapByIndex(there.m_mapid);
+		CAiCell *cell = map != NULL ? map->GetCell(there) : NULL;
+		m_setup = cell != NULL && CAiMap::IsWalkable(cell);
+
+		if (!m_setup)
+			break;
+
+		m_setup = ctrl->SetRoute(there);
+
+		if (!m_setup)
+			break;
+
+		m_dest = there;
+		ctrl->PlayAiSound((CHARACTER_SOUND)64);
+		phase = 2;
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("AI: %s: RUSH %s at cell %d,%d (from %d,%d)", body->m_node->m_name, t->m_node->m_name, (int)there.x, (int)there.y, (int)here.x, (int)here.y);
+#endif
+		break;
+	}
+
+	case 2:
+		if ((u8)ctrl->GetRouteFailed() != 0)
+		{
+			if (m_option_flags & 8)
+			{
+				m_option_flags &= ~8u;
+				phase = 3;
+			}
+			else
+			{
+				m_setup = 0;
+			}
+
+			break;
+		}
+
+		if (!ctrl->GetRouteComplete())
+		{
+			if (rush_cells(m_dest, there) > rush_threshold)
+			{
+				if (AiMaps.CanTravelLine(here, there, NULL))
+				{
+					ctrl->ClearRoute();
+					ctrl->m_path.AppendPathLoc(there, AiMaps.GetMapByIndex(there.m_mapid));
+				}
+				else
+				{
+					phase = 1;
+				}
+			}
+
+			break;
+		}
+
+		if (rush_cells(here, there) != 0)
+			phase = 1;
+		else
+			m_setup = 0;
+
+		break;
+
+	case 3:
+		if (!(rush_cells(m_dest, there) < 2))
+			phase = 1;
+
+		break;
+
+	default:
+		break;
+	}
+
+	m_substate = phase;
+	return m_setup;
 }

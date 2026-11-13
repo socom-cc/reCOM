@@ -2051,10 +2051,10 @@ public:
 	static AI_AWARE GetAiAware(float);
 	AI_AWARE GetAiAware() const;
 	void ConfirmAiState(CAiState *, bool);
-	void FindCoverLoc(const CPnt3D *, CAiMapLoc &, SEAL_PEEK &, int);
+	bool FindCoverLoc(const CPnt3D *, CAiMapLoc &, SEAL_PEEK &, int); /* 0x25f460: a cover cell was found */
 	bool ComputeProjectileFireParams(AI_FIREPARAMS &); /* 0x25e7b0 returns 0/1 */
-	void UpdateThrowFireParams(AI_FIREPARAMS &, bool);
-	void ComputeThrowFireParams(AI_FIREPARAMS &);
+	bool UpdateThrowFireParams(AI_FIREPARAMS &, bool); /* 0x25e6a0: a throw is being worked */
+	bool ComputeThrowFireParams(AI_FIREPARAMS &); /* 0x25e360: 0 out of reach */
 	void SetReturnVelocity(CZProjectile *, CPnt3D *, bool);
 	static CAiMap::DIR ChooseLookDir(const CAiMapLoc &, const CPnt3D *, bool, CAiMapLoc *, int, int *);
 	bool InGuardRegion(); /* 0x259240 */
@@ -2426,6 +2426,13 @@ public:
 class CAiSReload : public CAiState
 {
 public:
+	/* port: no DWARF record; 48 bytes (CAiState::Create 0x2dc718); layout from Tick 0x2e8030;
+	 * names invented */
+	s8 m_old_stance; /* +0x28: the stance when the reload began */
+	u8 m_cry : 1; /* +0x29 bit 0: call out the reload (7%) */
+	u8 m_prone : 1; /* bit 1: a standing AI goes prone rather than crouching (25%) */
+	u8 m_evade : 1; /* bit 2: moving to an evade spot first */
+	u8 m_unused : 5;
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
 	virtual bool Tick(float, CSealCtrlAi *); /* port: an override returns its base's type */
 	virtual bool CanAttack() const { return false; } /* ELF: move v0,zero */
@@ -2446,6 +2453,18 @@ public:
 class CAiWepHint
 {
 public:
+	/* port: no DWARF members; 8 bytes, layout from ChooseWeapon 0x261eb0, AttackTick's hint
+	 * (0x262d50) and CTFireMode::Parse 0x2bd3a0. Each 2-bit preference: 1 prefers (0.2 off
+	 * the score without), 2 avoids (1 off with), 3 requires (1 off without) */
+	u8 m_quiet : 2; /* +0x00 bits 0-1: a quiet weapon (sound radius under 100) */
+	u8 m_quiet_again : 2; /* bits 2-3: non-zero applies m_quiet's penalty once more, without testing the weapon */
+	u8 m_auto : 2; /* bits 4-5: full auto (m_maxfiremode >= 3) */
+	u8 m_burst : 2; /* bits 6-7: burst (m_maxfiremode >= 2) */
+	u8 m_use_accuracy : 1; /* +0x01 bit 0: score by the accuracy at m_range (else 0: nothing is chosen) */
+	u8 m_use_index : 1; /* bit 1: take kit item m_index */
+	u8 m_index : 4; /* bits 2-5 */
+	u8 m_unused : 2;
+	f32 m_range; /* +0x04 */
 	static float GetWeaponEffectiveRange(CZWeapon *);
 	static float GetWeaponAccuracy(CZWeapon *, float, bool);
 };

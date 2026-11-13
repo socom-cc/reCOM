@@ -1959,10 +1959,21 @@ bool CZKit::TickExplosives(float dT)
 			}
 			else if (thrower != NULL && ((CSealCtrl *)thrower)->IsAi())
 			{
-				/* port: not written - an AI thrower (the release point into world space,
-				 * CSealCtrlAi::UpdateThrowFireParams, Fire along the fire params' throw
-				 * vector, the params' throw flag and power cleared); enemy throws are out of
-				 * scope */
+				/* 0x2ab0c4: an AI thrower: the release point into world space, the throw
+				 * re-aimed and its working ended (UpdateThrowFireParams), thrown along the fire
+				 * params' throw vector; the params' fire flags and timeout cleared */
+				CSealCtrlAi *ai = ((CSealCtrl *)thrower)->GetSealCtrlAi();
+				AI_FIREPARAMS &fp = ai->m_fire_params;
+				CPnt3D from;
+				m_body->m_node->m_matrix.Transform(&release, &from, 1);
+				ai->UpdateThrowFireParams(fp, true);
+#ifdef SOCOM_PORT
+				SOCOM_PORT_TRACE("GREN: thrown by AI %s from %.1f %.1f %.1f, vel %.1f %.1f %.1f", m_body->m_node->m_name, from.x, from.y, from.z,
+					fp.m_throwVec.x, fp.m_throwVec.y, fp.m_throwVec.z);
+#endif
+				Fire(m_selected_item, &from, &fp.m_throwVec, &CPnt3D::zero);
+				fp.m_flags &= 0xfdefffffu;
+				fp.m_timeout = 0.0f;
 			}
 
 			if (m_last_selected >= 0)

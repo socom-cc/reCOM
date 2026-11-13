@@ -145,6 +145,14 @@ struct TASK_MOVE : public TASK_HDR /* ai::MOVE and ai::DOOR (Begin 0x2b9c90) */
 	u8 m_unknown : 4;
 };
 
+struct TASK_FIREMODE : public TASK_HDR /* ai::FIREMODE (Parse 0x2bd3a0, Begin 0x2bd1a0) */
+{
+	CAiWepHint m_hint; /* +0x08 the weapon wanted ("weapon": an index; fullauto / burst) */
+	f32 m_dn_time;     /* +0x10 "trigger": down */
+	f32 m_up_time;     /* +0x14 up */
+	u8 m_trigger;      /* +0x18 bit 0: a trigger timing was given */
+};
+
 struct TASK_PLAY : public TASK_HDR /* ai::ANIMATE (Tick 0x2b7640) */
 {
 	Rfloat m_prewait;      /* +0x08 */
@@ -619,13 +627,48 @@ _zanim_cmd_hdr* CTFireMode::Parse(_zrdr* reader)
 /* @socom-skeleton body Begin__10CTFireModeFP14_zanim_cmd_hdr */
 void CTFireMode::Begin(_zanim_cmd_hdr* header)
 {
+	/* 0x2bd1a0: the seal takes the weapon the hint names (ChooseWeapon); a given trigger timing
+	 * replaces its burst timing (fixed down / up times, the count restarted as ResetTrigger
+	 * does, inlined); fire is no longer held; a required full auto (3) or burst sets the fire
+	 * mode. m8: two uses (on_aware4), kit item 0, trigger 0.2 s down / 3.5 s up. */
+	TASK_FIREMODE *task = reinterpret_cast<TASK_FIREMODE *>(header);
+	CZSealBody *seal = taskSeal(task->m_seal_index);
+	CSealCtrlAi *ai = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi() : NULL;
 
+	if (ai == NULL)
+		return;
+
+	ai->ChooseWeapon(task->m_hint);
+
+	if (task->m_trigger & 1)
+	{
+		CAiTrigger &trigger = ai->m_ai_trigger;
+		trigger.m_dn_time.m_min = task->m_dn_time;
+		trigger.m_dn_time.m_range = 0.0f;
+		trigger.m_up_time.m_min = task->m_up_time;
+		trigger.m_up_time.m_range = 0.0f;
+		f32 up = trigger.m_up_time.m_range == 0.0f ? trigger.m_up_time.m_min
+			: trigger.m_up_time.m_min + trigger.m_up_time.m_range * ((f32)rand() * 4.656613e-10f);
+		trigger.m_marker = up;
+		f32 dn = trigger.m_dn_time.m_range == 0.0f ? trigger.m_dn_time.m_min
+			: trigger.m_dn_time.m_min + trigger.m_dn_time.m_range * ((f32)rand() * 4.656613e-10f);
+		trigger.m_timer = (f32)((double)trigger.m_marker + (double)dn);
+	}
+
+	ai->SetHoldFire(false);
+
+	if (task->m_hint.m_auto == 3)
+		seal->m_kit.SetCurFireMode((FIREMODE)3);
+	else if (task->m_hint.m_burst == 3)
+		seal->m_kit.SetCurFireMode((FIREMODE)2);
 }
 
 /* @socom-skeleton body Tick__10CTFireModeFP14_zanim_cmd_hdrPf */
 bool CTFireMode::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
-	return false;
+	/* 0x2bd100: done at once (the frame's time used up), with or without a seal */
+	*dT = 0.0f;
+	return true;
 }
 
 /* @socom-skeleton body Parse__12CTFireWeaponFP5_zrdr */
@@ -1947,9 +1990,8 @@ bool CTState::Tick(_zanim_cmd_hdr* header, f32* dT)
 	/* 0x2b5820: the AI state is pushed (critical); a FOLLOW state gets its master (the
 	 * entity named after the task's strings) and offset (+0x18), a RUSH state its
 	 * parameters (+0x14 time, +0x18 range squared, flags +0xc) and target (that seal, else
-	 * the AI's target); always done.
-	 * port: those two states' set-up is not written - their Ticks are unwritten and
-	 * CanPushAiState refuses them, so the push fails before it */
+	 * the AI's target); always done. A time / range of 0 clears its flag (1 / 2); the target
+	 * name is the first of the task's strings. ELF: the new top state is not NULL-tested. */
 	TASK_STATE *task = reinterpret_cast<TASK_STATE *>(header);
 	CZSealBody *seal = taskSeal(task->m_seal_index);
 	CSealCtrlAi *ai = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi() : NULL;
@@ -1958,7 +2000,66 @@ bool CTState::Tick(_zanim_cmd_hdr* header, f32* dT)
 	if (ai == NULL)
 		return true;
 
-	ai->PushAiState((AI_STATE)task->m_state, true);
+	u8 state = task->m_state;
+
+	if (!ai->PushAiState((AI_STATE)state, true))
+		return true;
+
+	CAiState *top = ai->GetAiState();
+
+	if (state == STATE_FOLLOW)
+	{
+		CAiState *follow = top->m_state == STATE_FOLLOW ? top : NULL;
+		CEntity *e = CEntity::m_list.GetEntity(task->m_names);
+		CZSealBody *master = e != NULL && (u8)e->m_type == 2 ? static_cast<CZSealBody *>(e) : NULL;
+
+		if (master != NULL)
+		{
+			ai->SetFollowMaster(master);
+			ai->SetFollowOffset(&task->m_offset);
+			follow->m_setup = 1;
+		}
+	}
+	else if (state == STATE_RUSH)
+	{
+		CAiSRush *rush = top->m_state == STATE_RUSH ? static_cast<CAiSRush *>(top) : NULL;
+		f32 time = task->m_time;
+		rush->m_time = time;
+
+		if (0.0f == time)
+			rush->m_option_flags &= ~1u;
+		else
+			rush->m_option_flags |= 1;
+
+		f32 range = task->m_offset.x;
+		rush->m_range_sq = range * range;
+
+		if (0.0f == range)
+			rush->m_option_flags &= ~2u;
+		else
+			rush->m_option_flags |= 2;
+
+		rush->m_option_flags |= task->m_flags;
+		CEntity *e = CEntity::m_list.GetEntity(task->m_names);
+		CZSealBody *target = e != NULL && (u8)e->m_type == 2 ? static_cast<CZSealBody *>(e) : NULL;
+
+		if (target != NULL)
+		{
+			rush->SetTarget(target);
+			rush->m_setup = 1;
+		}
+		else
+		{
+			CEntity *te = ai->m_target.m_target.m_ent;
+
+			if (te != NULL && te->m_isAlive)
+			{
+				rush->SetTarget((u8)te->m_type == 2 ? static_cast<CZSealBody *>(te) : NULL);
+				rush->m_setup = 1;
+			}
+		}
+	}
+
 	return true;
 }
 

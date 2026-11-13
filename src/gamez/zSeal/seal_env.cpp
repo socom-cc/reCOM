@@ -4908,8 +4908,23 @@ void CZSealBody::TickStun(float dT)
 }
 
 /* @socom-skeleton stub HandleWeaponEvent__10CZSealBodyFP12CZProjectileUiPv */
-void CZSealBody::HandleWeaponEvent(CZProjectile *, unsigned int, void *)
+void CZSealBody::HandleWeaponEvent(CZProjectile *projectile, unsigned int event, void *data)
 {
+	/* 0x293bc0 (the weapon event callback ReInitDatabaseHandles registers, event 1: a
+	 * projectile flew this frame): every seal's controller hears of it (OnWeaponEvent) */
+#ifdef SOCOM_PORT
+	static u32 calls;
+
+	if ((calls++ % 200) == 0)
+		SOCOM_PORT_TRACE("SEAL: weapon event %u (shooter %d)", event, (int)projectile->m_shooterID);
+#endif
+	for (std::list<CEntity *>::iterator it = CEntity::m_list.begin(); it != CEntity::m_list.end(); ++it)
+	{
+		CEntity *e = *it;
+
+		if (e != NULL && (u8)e->m_type == 2)
+			static_cast<CSealCtrl *>(e->m_control)->OnWeaponEvent(projectile, event, data);
+	}
 }
 
 /* @socom-skeleton stub InitDecalHandles__10CZSealBodyFv */

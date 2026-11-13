@@ -1306,17 +1306,94 @@ void CSealCtrlAi::UpdateEventMask()
 }
 
 /* @socom-skeleton stub OnWeaponEvent__11CSealCtrlAiFP12CZProjectileUiPv */
-void CSealCtrlAi::OnWeaponEvent(CZProjectile *, unsigned int, void *)
+void CSealCtrlAi::OnWeaponEvent(CZProjectile *projectile, unsigned int, void *)
 {
+	/* 0x26a290 (CZSealBody::HandleWeaponEvent: a projectile flew this frame, weapon event 1).
+	 * An awake, living AI measures how close the projectile's frame segment passed: an enemy's
+	 * shot by the player within player_threshold makes the player call for help (HELPATTACK
+	 * event, 0.5 s, range 1500, carrying this AI's id); any enemy shot within thip_range opens
+	 * the shot-at valve, adds underfire (underfire_thip_delta, more the closer), keeps where it
+	 * came from and who fired, and raises the awareness to just under AIA_SPECIFIC (a POINT
+	 * event at the shot while below it: SetAiAware(AIA_DIRECTION) inlined). ELF: helpattack_range is set but not read here. */
 	/* @socom-skeleton stub player_threshold$2799 */
-	static float player_threshold;
+	static float player_threshold = 70.0f;
 	/* @socom-skeleton stub helpattack_range$2802 */
-	static int helpattack_range;
+	static float helpattack_range = 300.0f; /* port: float, as the ELF's word (0x43960000) */
+	(void)helpattack_range;
+	CEntity *body = m_entity;
+
+	if (m_snoozing || m_sleeping || !body->m_isAlive)
+		return;
+
+	const CPnt3D *pos = body->GetPosW();
+	const CPnt3D *from = &projectile->m_framestartpos;
+	f32 dist = 999999.0f;
+	CEntity *shooter = CEntity::m_list.GetEntityById(projectile->m_shooterID);
+	bool enemy = shooter != NULL && (shooter->m_team & body->m_team) == 0;
+	u32 shooter_id = projectile->m_shooterID;
+	CZSealBody *player = ftsGetPlayer();
+
+	if (!enemy)
+		return;
+
+	if (!pos->DistToVector(from, &projectile->m_frameendpos, &dist))
+		return;
+
+	if (dist < player_threshold && shooter_id == player->m_id)
+		static_cast<CSealCtrl *>(player->m_control)->CreateAiEvent(CAiEvent::AIE_HELPATTACK, 0.5f, 1500.0f, false, player->GetPosW(), body->m_id);
+
+	if (!(dist < m_aiParams.thip_range))
+		return;
+
+	SetValve((SEAL_VALVE)1, 2);
+	m_underfire.m_value += ai::underfire_thip_delta * (1.0f - dist / m_aiParams.thip_range);
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("AI: %s: a round passed %.1f away: underfire %.2f", body->m_node->m_name, (double)dist, (double)m_underfire.m_value);
+#endif
+	m_underfire_pos = *from;
+	m_underfire_shooter = shooter;
+
+	SetAiAware(AIA_DIRECTION, from); /* inlined in the ELF */
 }
 
 /* @socom-skeleton stub OnWeaponHit__11CSealCtrlAiFPQ23zdb15IntersectStructP12CZProjectile */
-void CSealCtrlAi::OnWeaponHit(zdb::IntersectStruct *, CZProjectile *)
+void CSealCtrlAi::OnWeaponHit(zdb::IntersectStruct *, CZProjectile *projectile)
 {
+	/* 0x26a0a0 (CZSealBody::OnWeaponHit, before the damage): the shooter (the seal of the
+	 * projectile's owner node) is marked hostile in this body's target list and its position
+	 * kept; without one the position is -100 x the projectile's velocity (ELF quirk kept: not
+	 * offset by anything). Unless the shooter is the current target the position gets event
+	 * noise and the awareness rises as for a passing shot. Underfire grows by
+	 * underfire_hit_delta, the shot's position and shooter are kept, the shot-at valve opens. */
+	CZSealBody *shooter = CZSealBody::GetSeal(projectile->m_owner);
+	CPnt3D pos;
+
+	if (shooter != NULL)
+	{
+		Debug("OnWeaponHit() *** SHOT BY: [%s] projectile=0x%08x\n", shooter->m_node->m_name, (u32)(uintptr_t)projectile);
+		CTarget *t = m_entity->m_targets.FindTarget(shooter);
+		pos = *shooter->GetPosW();
+
+		if (t != NULL)
+			t->m_hostile = 1;
+	}
+	else
+	{
+		projectile->m_vel.Scale(-100.0f, &pos);
+	}
+
+	if (m_target.m_target.m_ent != shooter)
+	{
+		PNT2D noise;
+		memcpy(&noise, ai::eventNoise, sizeof(noise));
+		ai::AddNoise(&pos, noise);
+		SetAiAware(AIA_DIRECTION, &pos); /* inlined in the ELF */
+	}
+
+	m_underfire.m_value += ai::underfire_hit_delta;
+	m_underfire_pos = pos;
+	m_underfire_shooter = shooter;
+	SetValve((SEAL_VALVE)1, 2);
 }
 
 /* @socom-skeleton stub OnStunDamage__11CSealCtrlAiF9STUN_TYPEfPC6CPnt3D */
@@ -1625,10 +1702,24 @@ bool CSealCtrlAi::Tick(float dT)
 
 	if ((double)m_underfire.m_value > (double)ai::underfire_threshold && TargetLost(this) && PushAiState(STATE_SHOTAT, true))
 	{
-		/* port: unreachable while STATE_SHOTAT is not written (PushAiState refuses it). The
-		 * ELF fills the state: the shot's position (m_underfire_pos; with noise - ai::AddNoise,
-		 * ai::eventNoise - when it is outside the view cone) at +0x2c, the shooter at +0x38,
-		 * and sets m_setup. */
+		/* the state gets the shot's position (with event noise when it is outside the view
+		 * cone) and the shooter. ELF: the state is not NULL-tested */
+		CAiState *now = GetAiState();
+		CAiSShotAt *shot = now->m_state == STATE_SHOTAT ? static_cast<CAiSShotAt *>(now) : NULL;
+
+		if (!m_view_cone.ContainsPoint(&m_view_cone.m_cone_pos, &m_view_cone.m_cone_dir, &m_underfire_pos))
+		{
+			PNT2D noise;
+			memcpy(&noise, ai::eventNoise, sizeof(noise));
+			ai::AddNoise(&m_underfire_pos, &shot->m_pos, noise);
+		}
+		else
+		{
+			shot->m_pos = m_underfire_pos;
+		}
+
+		shot->m_shooter = m_underfire_shooter;
+		shot->m_setup = 1;
 	}
 
 	/* ELF: CZSealState::UpdateLocalSeal(seal) 0x204740 (network replication; not written) */
@@ -3050,12 +3141,20 @@ unsigned char CSealCtrlAi::AttackTick(float dT, bool allowFire)
 		return false;
 	}
 
+	/* out of ammunition, or a weapon under 0.6 accuracy at the target's range, asks for
+	 * another one: by accuracy at that range, preferring full auto and burst (0x262d50) */
+	CAiWepHint hint;
+	memset(&hint, 0, sizeof(hint));
+	hint.m_quiet = 0;
+	hint.m_quiet_again = 2;
+	hint.m_auto = 1;
+	hint.m_burst = 1;
+	hint.m_use_accuracy = 1;
 	f32 range = m_target.m_target.GetRange();
+	hint.m_range = range;
 
-	/* ELF: out of ammunition, or a weapon under 0.6 accuracy at this range, asks
-	 * ChooseWeapon(CAiWepHint &) for another one. port: not written (ChooseWeapon 0x261eb0,
-	 * 1524 B): the AI keeps its current weapon */
-	(void)range;
+	if (!kit->CurItemHasAmmo() || CAiWepHint::GetWeaponAccuracy(item, range, false) < 0.6f)
+		ChooseWeapon(hint);
 
 	if (!kit->CurMagHasAmmo())
 	{
@@ -3172,8 +3271,8 @@ unsigned char CSealCtrlAi::AttackTick(float dT, bool allowFire)
 
 				if (fp.m_flags & 0x40000)
 				{
-					/* port: not written - ComputeThrowFireParams 0x25e360 (grenade throws) */
-					ready = false;
+					/* a thrown item: the lob (the trigger is released twice, as the ELF) */
+					ready = ComputeThrowFireParams(fp);
 					SetTrigger(false);
 					SetTrigger(false);
 				}
@@ -3192,8 +3291,12 @@ unsigned char CSealCtrlAi::AttackTick(float dT, bool allowFire)
 			pull = (fp.m_flags & 0x100000) != 0;
 		}
 	}
-	/* ELF: a throw being worked (0x2000000 with 0x40000 and 4) is re-aimed at the moving
-	 * target here. port: not written (ComputeThrowFireParams) */
+	else
+	{
+		/* a throw being worked (0x2000000 with 0x40000) keeps the trigger pulled, re-aimed at
+		 * a tracked target (flag 4): UpdateThrowFireParams without the clear, inlined */
+		pull = UpdateThrowFireParams(fp, false);
+	}
 
 	if (pull)
 	{
@@ -3278,8 +3381,116 @@ unsigned char CSealCtrlAi::FireWhenReady(AI_FIREPARAMS &fp, float dT)
 }
 
 /* @socom-skeleton stub ChooseWeapon__11CSealCtrlAiFR10CAiWepHint */
-void CSealCtrlAi::ChooseWeapon(CAiWepHint &)
+void CSealCtrlAi::ChooseWeapon(CAiWepHint &hint)
 {
+	/* 0x261eb0 (AttackTick: out of ammunition or under 0.6 accuracy at the target's range;
+	 * CTFireMode::Begin): the kit item that best fits the hint. A named item (m_use_index, in
+	 * the kit) wins outright; else every item with ammunition is scored - its accuracy at
+	 * m_range (m_use_accuracy; else 0), less the hint's penalties while still above 0 (quiet,
+	 * the quiet rule again, full auto, burst), held to 0..1 - until one scores 1. The best (over
+	 * 0) becomes the current item; the trigger is released. ELF: returns 1 when one was chosen
+	 * (no caller reads it; port: void) */
+	CZKit *kit = &static_cast<CZSealBody *>(m_entity)->m_kit;
+	s32 count = kit->GetNumItems();
+	s32 best_index = -1;
+	f32 best = 0.0f;
+	bool same = true;
+	s32 i = 0;
+
+	if (hint.m_use_index && (s32)hint.m_index < count)
+	{
+		best_index = hint.m_index;
+		best = 1.0f;
+		CZFTSWeapon *item = kit->GetItemByIndex(best_index);
+		same = item == NULL || item == kit->GetCurItem();
+		i = count; /* the scoring is skipped */
+	}
+
+	for (; best < 1.0f && i < count; i++)
+	{
+		if (!kit->ItemHasAmmo(i))
+			continue;
+
+		CZFTSWeapon *item = kit->GetItemByIndex(i);
+
+		if (item == NULL)
+			continue;
+
+		f32 score = 0.0f;
+
+		if (hint.m_use_accuracy)
+			score = CAiWepHint::GetWeaponAccuracy(item, hint.m_range, false);
+
+		if (!(score <= 0.0f) && hint.m_quiet != 0)
+		{
+			bool quiet = item->m_soundradius < 100.0f;
+
+			if (hint.m_quiet == 1)
+				score -= quiet ? 0.0f : 0.2f;
+			else if (hint.m_quiet == 2)
+				score -= quiet ? 1.0f : 0.0f;
+			else
+				score -= quiet ? 0.0f : 1.0f;
+		}
+
+		if (!(score <= 0.0f) && hint.m_auto != 0)
+		{
+			bool has = (s32)(u8)item->m_maxfiremode >= 3;
+
+			if (hint.m_auto == 1)
+				score -= has ? 0.0f : 0.2f;
+			else if (hint.m_auto == 2)
+				score -= has ? 1.0f : 0.0f;
+			else
+				score -= has ? 0.0f : 1.0f;
+		}
+
+		if (!(score <= 0.0f) && hint.m_burst != 0)
+		{
+			bool has = (s32)(u8)item->m_maxfiremode >= 2;
+
+			if (hint.m_burst == 1)
+				score -= has ? 0.0f : 0.2f;
+			else if (hint.m_burst == 2)
+				score -= has ? 1.0f : 0.0f;
+			else
+				score -= has ? 0.0f : 1.0f;
+		}
+
+		/* ELF quirk kept: the quiet rule's penalty again, the weapon not tested */
+		if (!(score <= 0.0f) && hint.m_quiet_again != 0)
+		{
+			if (hint.m_quiet == 1)
+				score -= 0.2f;
+			else if (hint.m_quiet == 3)
+				score -= 1.0f;
+		}
+
+		saturate<f32>(score, 0.0f, 1.0f);
+
+		if (!(score <= best))
+		{
+			best = score;
+			best_index = i;
+			same = item == kit->GetCurItem();
+		}
+	}
+
+	if (best_index < 0)
+	{
+		Debug("No suitable weapon to choose\n");
+		return;
+	}
+
+	if (!same)
+	{
+		CZFTSWeapon *old = kit->GetCurItem();
+		kit->SetCurItemByIndex(best_index);
+		CZFTSWeapon *now = kit->GetItemByIndex(best_index);
+		Debug("ChooseWeapon() [%s] --> [%d:%s(%.2f%%)]\n", old->GetName(), (int)best_index, now->GetName(), (double)(100.0f * best));
+	}
+
+	SetTrigger(false);
 }
 
 /* @socom-skeleton stub GetDuckStance__11CSealCtrlAiCFP10CZSealBodyR11SEAL_STANCE */
@@ -3714,13 +3925,71 @@ void CSealCtrlAi::ActivateEx(SEAL_TASK task, bool push, ...)
 }
 
 /* @socom-skeleton stub SetDoReaction__11CSealCtrlAiFbRC11AI_REACTIONb */
-void CSealCtrlAi::SetDoReaction(bool, const AI_REACTION &, bool)
+void CSealCtrlAi::SetDoReaction(bool on, const AI_REACTION &reaction, bool exact)
 {
+	/* 0x260770 (CAiSFlee, CAiSNoAmmo): ask for a reaction choice (never for a SEAL) with these
+	 * weights; unless `exact` the AI's surrender parameter scales the surrender weight and
+	 * (1 - surrender) the others. ELF: returns m_do_reaction (no caller reads it; port: void) */
+	m_do_reaction = m_navyseal ? 0 : (on ? 1 : 0);
+
+	if (!m_do_reaction)
+		return;
+
+	m_reaction = reaction;
+
+	if (!exact)
+	{
+		f32 surrender = m_aiParams.surrender;
+		f32 keep = 1.0f - surrender;
+		m_reaction.m_surrender = m_reaction.m_surrender * surrender;
+		m_reaction.m_none = m_reaction.m_none * keep;
+		m_reaction.m_rush = m_reaction.m_rush * keep;
+		m_reaction.m_flee = m_reaction.m_flee * keep;
+	}
 }
 
 /* @socom-skeleton stub DoReaction__11CSealCtrlAiFv */
 void CSealCtrlAi::DoReaction()
 {
+	/* 0x2604e0 (Tick, when m_do_reaction is set): the request is consumed and one reaction
+	 * drawn by the weights (none, rush, flee, surrender; a draw of 0 when they sum to 0):
+	 * RUSH is pushed over the current states, FLEE and SURRENDER replace them all (ClearAiState
+	 * forced). Each pushed state is marked set up. ELF quirks kept: a zero vector is copied to
+	 * an unused local; the RUSH pushed here has no target (OnSignal 4 sets invalidId), so its
+	 * Tick ends it at once - only a script's ai::STATE RUSH charges. */
+	m_do_reaction = 0;
+	f32 sum = m_reaction.m_none + m_reaction.m_rush + m_reaction.m_flee + m_reaction.m_surrender - 0.0f;
+	f32 r = 0.0f;
+
+	if (!(0.0f == sum))
+		r = 0.0f + sum * ((f32)rand() * 4.656613e-10f);
+
+	f32 none = m_reaction.m_none;
+	f32 rush = none + m_reaction.m_rush;
+	f32 flee = rush + m_reaction.m_flee;
+	AI_STATE pick;
+
+	if (r <= none)
+		pick = STATE_UNKNOWN;
+	else if (r <= rush)
+		pick = STATE_RUSH;
+	else if (r <= flee)
+		pick = STATE_FLEE;
+	else
+		pick = STATE_SURRENDER;
+
+	if (pick == STATE_UNKNOWN)
+		return;
+
+	if (pick != STATE_RUSH)
+		ClearAiState(true);
+
+	if (!PushAiState(pick, true))
+		return;
+
+	CAiState *now = GetAiState();
+	now = now->m_state == (u8)pick ? now : NULL; /* ELF: written through without a NULL test */
+	now->m_setup = 1;
 }
 
 /* @socom-skeleton stub SetAiAware__11CSealCtrlAiFfUi */
@@ -3909,8 +4178,50 @@ int FindPeekDir(CAiMap *map, const CAiMapLoc &loc, CAiMap::DIR dir)
 }
 
 /* @socom-skeleton stub FindCoverLoc__11CSealCtrlAiFPC6CPnt3DR9CAiMapLocR9SEAL_PEEKi */
-void CSealCtrlAi::FindCoverLoc(const CPnt3D *, CAiMapLoc &, SEAL_PEEK &, int)
+bool CSealCtrlAi::FindCoverLoc(const CPnt3D *from, CAiMapLoc &loc, SEAL_PEEK &peek, int range)
 {
+	/* 0x25f460 (CAiSShotAt, CAiSFlee): a cell within `range` cells hidden from `from`
+	 * (CAiMap::FindCoverLoc on the AI's map) and how to peek out of it: with the cell toward
+	 * the threat (the direction FindCoverLoc gives) blocked, an open side cell clockwise of it
+	 * gives peek 1, one counter-clockwise -1 (that one wins); otherwise 2 (none). */
+	CAiMapLoc here = m_entity->m_mapLocValid;
+	CAiMap *map = AiMaps.GetMapByIndex(here.m_mapid);
+	CAiMap::DIR dir = (CAiMap::DIR)8;
+	peek = (SEAL_PEEK)2;
+
+	if (map == NULL)
+		return false;
+
+	if (!map->FindCoverLoc(here, from, loc, dir, range))
+		return false;
+
+	s32 d = (s8)dir;
+	CAiCell *cell = NULL;
+	CAiMapLoc next;
+	s32 side = 2;
+
+	if (!map->GetNeighbor(loc, (CAiMap::DIR)(u8)d, next, cell, true))
+	{
+		/* soil 0, 8 and 10 block a side (9 does not, as in the ELF's test) */
+		if (map->GetNeighbor(loc, (CAiMap::DIR)(u8)((d + 9) % 8), next, cell, false))
+		{
+			u32 soil = cell->m_soil;
+
+			if (!(soil == 0 || soil == 8 || soil == 10))
+				side = 1;
+		}
+
+		if (map->GetNeighbor(loc, (CAiMap::DIR)(u8)((d + 7) % 8), next, cell, false))
+		{
+			u32 soil = cell->m_soil;
+
+			if (!(soil == 0 || soil == 8 || soil == 10))
+				side = -1;
+		}
+	}
+
+	peek = (SEAL_PEEK)side;
+	return true;
 }
 
 /* @socom-skeleton stub OnSignal__10CAiSActionFQ28CAiState6SIGNALP11CSealCtrlAi */
@@ -4202,15 +4513,96 @@ bool CSealCtrlAi::ComputeProjectileFireParams(AI_FIREPARAMS &fp)
 }
 
 /* @socom-skeleton stub UpdateThrowFireParams__11CSealCtrlAiFR13AI_FIREPARAMSb */
-void CSealCtrlAi::UpdateThrowFireParams(AI_FIREPARAMS &, bool)
+bool CSealCtrlAi::UpdateThrowFireParams(AI_FIREPARAMS &fp, bool clear)
 {
+	/* 0x25e6a0 (CZKit::TickExplosives, at the AI's release): a throw being worked (0x2000000
+	 * with 0x40000) is aimed once more at a living target that is tracked (flag 4: its target
+	 * point and velocity now) and FireWhenReady asked; `clear` ends the working. False for
+	 * anything but a throw being worked. */
+	if (!(fp.m_flags & 0x2000000))
+		return false;
+
+	if (!(fp.m_flags & 0x40000))
+		return false;
+
+	if (fp.m_flags & 4)
+	{
+		CEntity *te = m_target.m_target.m_ent;
+
+		if (te != NULL && te->m_isAlive)
+		{
+			te->GetTargetPosW(&fp.m_targetPos);
+			fp.m_targetVel = m_target.m_target.m_ent->m_velW;
+
+			if (ComputeThrowFireParams(fp))
+				FireWhenReady(fp, 0.0f);
+		}
+	}
+
+	if (clear)
+		fp.m_flags &= ~0x2000000u;
+
+	return true;
 }
 
 /* @socom-skeleton stub ComputeThrowFireParams__11CSealCtrlAiFR13AI_FIREPARAMS */
-void CSealCtrlAi::ComputeThrowFireParams(AI_FIREPARAMS &)
+bool CSealCtrlAi::ComputeThrowFireParams(AI_FIREPARAMS &fp)
 {
+	/* 0x25e360 (AttackTick, UpdateThrowFireParams, SetReturnVelocity, CAiSDeploy): a lob at
+	 * the target point (1.5 s ahead along its velocity with flag 2) from (5, 10, 0) in the
+	 * seal's space. Out of the stance's throw reach (the dynamics' max_distance_stand) -> 0.
+	 * The apex 10 over the higher end gives the up speed (sqrt(2 g h), g 98); the time to come
+	 * down to the target's height the across speed (flag 1: nominal_x_velocity). The throw
+	 * vector, the power (distance / reach, at least the abort threshold), the look direction
+	 * (level, toward the target), aim -z, standing, and flags 0x7080000 are set; 1. */
 	/* @socom-skeleton stub nominal_x_velocity$4433 */
-	static float nominal_x_velocity;
+	static float nominal_x_velocity = 100.0f;
+	CZSealBody *seal = static_cast<CZSealBody *>(m_entity);
+	CPnt3D hand(5.0f, 10.0f, 0.0f);
+	CPnt3D from;
+	seal->m_node->m_matrix.Transform(&hand, &from, 1);
+	CPnt3D target = fp.m_targetPos;
+
+	if (fp.m_flags & 2)
+		CAi::Extrapolate(&fp.m_targetPos, &fp.m_targetVel, 1.5f, &target);
+
+	CPnt3D d;
+	target.Sub(&from, &d);
+	CPnt3D dir = d;
+	f32 dy = dir.y;
+	dir.y = 0.0f;
+	f32 dist = dir.Normalize();
+	fp.m_lookDirW = dir;
+	CharacterDynamics *dyn = seal->GetDynamics();
+	f32 reach = dyn->m_throw_params.max_distance_stand;
+
+	if (!(dist <= reach))
+		return false;
+
+	f32 h = dy < 0.0f ? 10.0f : 10.0f + dy;
+	f32 vy = sqrtf(196.0f * h);
+	f32 t0, t1;
+
+	if (!ai::quadratic(-49.0f, vy, -dy, t0, t1))
+		return false;
+
+	f32 t = t0 <= t1 ? t1 : t0;
+	f32 vx = (fp.m_flags & 1) ? nominal_x_velocity : dist / t;
+	dir.Scale(vx, &dir);
+	f32 power = dist / reach;
+	dir.y = vy;
+	fp.m_throwVec = dir;
+	f32 low = dyn->m_throw_params.m_abort_threshold;
+	fp.m_throwPower = low < power ? power : low;
+	fp.m_aimDirM = CPnt3D::unit_nz;
+	fp.m_stance = 0;
+	fp.m_flags |= 0x7080000u;
+#ifdef SOCOM_PORT
+	if (!(fp.m_flags & 0x2000000)) /* traced once per throw (not the re-aims) */
+	SOCOM_PORT_TRACE("AI: %s: throw at %.0f %.0f %.0f: distance %.0f of %.0f, up %.1f, time %.2f, vel %.1f %.1f %.1f, power %.2f", seal->m_node->m_name,
+		target.x, target.y, target.z, (double)dist, (double)reach, (double)dy, (double)t, dir.x, dir.y, dir.z, (double)fp.m_throwPower);
+#endif
+	return true;
 }
 
 /* @socom-skeleton stub OnSignal__10CAiSDeployFQ28CAiState6SIGNALP11CSealCtrlAi */
