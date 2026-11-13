@@ -26,13 +26,27 @@ static unsigned char MultiplayerMsgStrings[28];
 /* @socom-skeleton stub __ct__20CMissionObjectiveCamFv */
 CMissionObjectiveCam::CMissionObjectiveCam()
 {
+	/* 0x20acb0: strings and valves cleared, all four flags off, the line vector empty (the
+	 * ELF also builds and destroys a temporary CMissionCam here) */
+	m_szDisplayValveName = NULL;
+	m_pDisplayValve = NULL;
+	m_isCompass = 0;
+	m_valvename = NULL;
+	m_valve = NULL;
+	m_invalidvalvename = NULL;
+	m_invalidvalve = NULL;
+	m_maptext = NULL;
+	m_isSecondary = 0;
+	m_isSubObjective = 0;
+	m_bExtraction = 0;
+	m_unused = 0;
 }
 
 /* @socom-skeleton stub __dt__20CMissionObjectiveCamFv */
 CMissionObjectiveCam::~CMissionObjectiveCam()
 {
 	/* 0x20ab90: the map text and the three valve names are freed, the line vector (+0x44)
-	 * released (port: m_vecLines is not declared), then the CMissionCam part */
+	 * released (its member destructor), then the CMissionCam part */
 	if (m_maptext != NULL)
 		_free(m_maptext, "fts_objectivecam.cpp", 52);
 
@@ -57,11 +71,71 @@ CMissionObjectiveCam::~CMissionObjectiveCam()
 /* @socom-skeleton stub IsAvailable__20CMissionObjectiveCamCFv */
 unsigned char CMissionObjectiveCam::IsAvailable() const
 {
+	/* 0x20aae0: not complete, not invalid, shown (no display valve counts as shown) and
+	 * marked for the compass */
+	bool available = !IsComplete();
+
+	if (available)
+		available = !IsInvalid();
+
+	if (available)
+		available = IsDisplayOn();
+
+	if (available)
+		available = m_isCompass;
+
+	return available;
 }
 
 /* @socom-skeleton stub Set__20CMissionObjectiveCamFPCcPCcPCcPCcPCcPCcPCcPCcPCcPCcPC5PNT2D */
-void CMissionObjectiveCam::Set(const char *, const char *, const char *, const char *, const char *, const char *, const char *, const char *, const char *, const char *, const PNT2D *)
+void CMissionObjectiveCam::Set(const char *identifier, const char *name, const char *description, const char *description2, const char *description3, const char *animation, const char *music, const char *valve, const char *invalid_valve, const char *display_valve, const PNT2D *pos)
 {
+	/* 0x20a960: the camera part, then copies of the valve names and the three valves (type
+	 * 2, made when missing) and the map position. ELF quirk kept: m_maptext is freed and
+	 * cleared, never set. */
+	CMissionCam::Set(identifier, name, description, description2, description3, animation, music);
+
+	if (m_maptext != NULL)
+		_free(m_maptext, "fts_objectivecam.cpp", 52);
+
+	m_maptext = NULL;
+
+	if (m_valvename != NULL)
+		_free(m_valvename, "fts_objectivecam.cpp", 53);
+
+	m_valvename = NULL;
+
+	if (m_invalidvalvename != NULL)
+		_free(m_invalidvalvename, "fts_objectivecam.cpp", 54);
+
+	m_invalidvalvename = NULL;
+
+	if (m_szDisplayValveName != NULL)
+		_free(m_szDisplayValveName, "fts_objectivecam.cpp", 55);
+
+	m_szDisplayValveName = NULL;
+	m_vecLines.clear();
+
+	if (valve != NULL)
+		m_valvename = _strdup(valve, "fts_objectivecam.cpp", 83);
+
+	if (invalid_valve != NULL)
+		m_invalidvalvename = _strdup(invalid_valve, "fts_objectivecam.cpp", 86);
+
+	if (display_valve != NULL)
+		m_szDisplayValveName = _strdup(display_valve, "fts_objectivecam.cpp", 89);
+
+	if (m_valvename != NULL)
+		m_valve = CValve::Create(m_valvename, (VALVE_TYPE)2);
+
+	if (m_invalidvalvename != NULL)
+		m_invalidvalve = CValve::Create(m_invalidvalvename, (VALVE_TYPE)2);
+
+	if (m_szDisplayValveName != NULL)
+		m_pDisplayValve = CValve::Create(m_szDisplayValveName, (VALVE_TYPE)2);
+
+	m_pos.x = pos->x;
+	m_pos.y = pos->y;
 }
 
 /* @socom-skeleton stub IsComplete__20CMissionObjectiveCamCFv */
@@ -74,11 +148,15 @@ unsigned char CMissionObjectiveCam::IsComplete() const
 /* @socom-skeleton stub IsDisplayOn__20CMissionObjectiveCamCFv */
 unsigned char CMissionObjectiveCam::IsDisplayOn() const
 {
+	/* 0x20a900: shown while its display valve is set; shown without one */
+	return m_pDisplayValve != NULL ? m_pDisplayValve->m_value != 0 : true;
 }
 
 /* @socom-skeleton stub IsInvalid__20CMissionObjectiveCamCFv */
-void CMissionObjectiveCam::IsInvalid() const
+unsigned char CMissionObjectiveCam::IsInvalid() const
 {
+	/* 0x20a8d0: the invalid valve is set (none: valid) */
+	return m_invalidvalve != NULL ? m_invalidvalve->m_value != 0 : false;
 }
 
 /* @socom-skeleton stub ClearValves__24CMissionObjectiveCamListFv */

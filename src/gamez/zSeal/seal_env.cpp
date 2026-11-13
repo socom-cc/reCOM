@@ -1814,8 +1814,12 @@ void CZSealBody::HandleLanding(float impact)
 }
 
 /* @socom-skeleton stub GetLookDirW__10CZSealBodyCFP6CPnt3D */
-CPnt3D * CZSealBody::GetLookDirW(CPnt3D *) const
+CPnt3D * CZSealBody::GetLookDirW(CPnt3D *dir) const
 {
+	/* 0x29e850: the look direction (CLook::m_curr_dir) turned into world space by the node
+	 * rotation */
+	m_node->m_matrix.Rotate(&m_look->m_curr_dir, dir, 1);
+	return dir;
 }
 
 /* @socom-skeleton stub RotateHead__10CZSealBodyFff */
@@ -4733,8 +4737,15 @@ void CZSealBody::GetHudHitFlag()
 }
 
 /* @socom-skeleton stub HudUpdateViewCone__10CZSealBodyFv */
-void CZSealBody::HudUpdateViewCone()
+bool CZSealBody::HudUpdateViewCone()
 {
+	/* 0x2941a0: test and clear: true once after m_HudUpdateViewCone was set (a new seal: the
+	 * map then gives it a CZPlayerMapItem) */
+	if (!m_HudUpdateViewCone)
+		return false;
+
+	m_HudUpdateViewCone = false;
+	return true;
 }
 
 /* @socom-skeleton stub SetHudHitFlag__10CZSealBodyFv */

@@ -1204,8 +1204,37 @@ float CZProjectile::GetDamage(const CPnt3D *at, float min)
 }
 
 /* @socom-skeleton stub GetDamage__12CZProjectileFPC6CPnt3DPfPff */
-void CZProjectile::GetDamage(const CPnt3D *, float *, float *, float)
+void CZProjectile::GetDamage(const CPnt3D *at, float *health, float *armor, float shield)
 {
+	/* 0x3176c0 (CZAnimEx::OnWeaponHit): the shot's damage (impact, else explosion; none when
+	 * it does not beat the shield) at the point: the armor takes its share (armor x pierce /
+	 * 10, losing a quarter of it), the rest comes off the health; neither goes below 0. The
+	 * ELF returns 0.0 in f0 always (port: void). */
+	float damage = m_ammo->GetImpactDamage();
+
+	if (damage == 0.0f)
+		damage = m_ammo->GetExplosionDamage();
+
+	if (damage < shield)
+		return;
+
+	float d = GetDamage(at, shield);
+	float pierce = m_ammo->GetArmorPierce();
+	float through = d - *armor * (pierce / 10.0f);
+
+	if (through <= 0.0f)
+		through = 0.0f;
+
+	float absorbed = d - through;
+	*armor -= absorbed / 4.0f;
+
+	if (*armor <= 0.0f)
+		*armor = 0.0f;
+
+	*health -= through;
+
+	if (*health <= 0.0f)
+		*health = 0.0f;
 }
 
 /* @socom-skeleton body ResolveDamage__12CZProjectileFPfPfff */

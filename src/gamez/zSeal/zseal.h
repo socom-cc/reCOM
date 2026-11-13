@@ -1395,7 +1395,7 @@ public:
 	void PostChangeWeapon(SEAL_ITEM);
 	void UpdateHealth(DAMAGE_LOCATION, SEAL_DEATH_TYPE);
 	void GetHudHitFlag();
-	void HudUpdateViewCone();
+	bool HudUpdateViewCone(); /* 0x2941a0: 0/1 in v0 */
 	void SetHudHitFlag();
 	void HandleStunRecovery(STUN_TYPE);
 	void HandleStunDamage(STUN_TYPE, float, const CPnt3D *);

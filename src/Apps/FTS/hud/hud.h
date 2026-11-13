@@ -91,6 +91,7 @@ zdb::CTexture* GetTextureByName(zdb::CWorld* world, const char* name); /* hud_ma
 void hudTickScorePopup(const CPad& pad);
 bool hudAddPolyType(_zrdr* node);
 bool hudAddLineType(_zrdr* node);
+float hudGetTacMapPulseTrans(); /* hud_linemap.cpp 0x3ca970 */
 
 struct LINE_DATA
 {
@@ -317,13 +318,26 @@ public:
 };
 /* @socom-skeleton end 15CZObjectiveList */
 
+/* DWARF class_type CScrollBools (4 bytes, hud_newhudmap.cpp CU): GetScrollPermissions' result
+ * (returned through a0); one flag per full-screen map scroll arrow */
+class CScrollBools
+{
+public:
+	bool _bUp;
+	bool _bLeft;
+	bool _bRight;
+	bool _bDown;
+};
+
+class CZMapItem;
+
 class CZNewHudMap : public C2D
 {
 public:
 	void UninitMap();
 	void SwitchToCompassMap();
-	
-	std::list<void*> m_itemlist;
+
+	std::list<CZMapItem*> m_itemlist; /* DWARF list (MSL pointer list): the map items (line map, player blips, explosives) */
 
 	CZSealBody* m_viewer;
 
@@ -375,13 +389,13 @@ public:
 	float GetZoomOut() const;
 	void ReInit();
 	void InitMap(zdb::CWorld *);
-	void MapWorldPointToUV(const CPnt3D *, const CBBox *, zdb::CTexture *);
+	CPnt3D MapWorldPointToUV(const CPnt3D *, const CBBox *, zdb::CTexture *); /* 0x3c5be0: result through a0 (DWARF returns CPnt3D) */
 	void RefreshBackground(zdb::CWorld *);
 	void SetMapScreenPos(float, float, float, float);
 	void SetWorldWidth(float);
 	float CalcDrawPos(float) const;
 	void CalcNewMatrix();
-	void GetScrollPermissions() const;
+	CScrollBools GetScrollPermissions() const; /* 0x3c50f0: DWARF returns CScrollBools */
 	void SwitchMapToFullScreen();
 	void HandleScrolling(float, float);
 	void TickCompassMap(CPad *, MENU_STATE);
@@ -1205,6 +1219,20 @@ public:
 	virtual void Draw(zdb::CCamera *);
 	virtual void Clip(CZNewHudMap *);
 	CZLineMap();
+	/* DWARF members (68464 bytes) */
+	CPnt3D m_pointA;                 /* +0x4 */
+	CPnt3D m_pointB;                 /* +0x10 */
+	CAiMap* m_map;                   /* +0x1c */
+	CZNewHudMap* m_hudmap;           /* +0x20 */
+	C2DLine m_linelist[400];         /* +0x30 */
+	u32 m_lastline;                  /* +0xfa30 */
+	C2DString m_stringlist[32];      /* +0xfa34 */
+	u32 m_laststring;                /* +0x10b34 */
+	std::vector<C2D*> m_vecTriangles;               /* +0x10b38: port: element type unproven (Draw calls the C2D Draw slot) */
+	s32 m_iNumActiveTriangles;                       /* +0x10b44 */
+	std::vector<std::vector<C2D*>*> m_vecWideLines;  /* +0x10b48: port: element type unproven (vectors of C2D pointers, Tick deletes both) */
+	std::vector<CPlainBmp*> m_vecBitmaps;            /* +0x10b54: the anchor icons TickAnchors makes each tick */
+	zdb::CTexture* m_linetex;                        /* +0x10b60: FOV.tif (CZNewHudMap::InitMap) */
 	C2DLine * LineTo(const CPnt3D *);
 	void SetupPolygon(const CAiMap::line &, float, bool);
 	void TickAnchors(float);
@@ -1252,6 +1280,20 @@ public:
 	static void InitStaticItems();
 	static void UnInitStaticItems();
 	CZPlayerMapItem(CEntity *);
+	/* DWARF members (1376 bytes) */
+	CEntity* m_entity;               /* +0x4 */
+	C2DBitmapPoly m_blip;            /* +0x10 */
+	C2DBitmapPoly m_cone;            /* +0x200 */
+	C2DTriFan m_clippedblip[2];      /* +0x3f0 */
+	C2DTriFan m_clippedcone[2];      /* +0x448 */
+	bool m_wasalive;                 /* +0x4a0 */
+	zdb::CTexture* m_myconetex;      /* +0x4a4 */
+	zdb::CTexture* m_mybliptex;      /* +0x4a8 */
+	CPnt3D m_oldrot;                 /* +0x4ac: the last look direction (kept while hidden) */
+	CPnt3D m_oldpos;                 /* +0x4b8 */
+	f32 m_fadeval;                   /* +0x4c4 */
+	bool m_fadein;                   /* +0x4c8 */
+	C2DString m_namestring;          /* +0x4cc */
 	static void DrawAlphaBravo(zdb::CCamera *);
 	unsigned int GetBlipID(CZSealBody *);
 	void TickSealCone(CZNewHudMap *);

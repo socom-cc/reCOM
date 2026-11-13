@@ -147,8 +147,13 @@ int CZAnimSet::AddName(const char *name)
 }
 
 /* @socom-skeleton stub AddAnimEx__9CZAnimSetFP8CZAnimEx */
-void CZAnimSet::AddAnimEx(CZAnimEx *)
+void CZAnimSet::AddAnimEx(CZAnimEx *ex)
 {
+	/* 0x1c7be0: the set's list of weapon-hit extensions, made on first use */
+	if (m_AnimExList == NULL)
+		m_AnimExList = new CZAnimExVector;
+
+	m_AnimExList->Add(ex);
 }
 
 /* @socom-skeleton stub SIScript__9CZAnimSetFi */

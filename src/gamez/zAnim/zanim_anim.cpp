@@ -181,41 +181,205 @@ static void RemoveAnimFromWorld(CZAnim* anim)
 /* @socom-skeleton stub OnWeaponHitInit__6CZAnimFv */
 void CZAnim::OnWeaponHitInit()
 {
+	/* 0x1cfc90 (Start, Copy, clones of an activation-3 anim): the node that takes the hits
+	 * (the health record's node, else the instance node, else the root node) gets a CZAnimEx
+	 * with the health record's shield, armor and health (zero without one), unless it has a
+	 * node extension already; the current anim set keeps it */
+	zdb::CNode* node = m_health != NULL ? GetNode(m_health->m_health_node_index, false) : NULL;
+
+	if (node == NULL)
+	{
+		node = m_instance_node;
+
+		if (node == NULL)
+			node = m_root_node_index != 0 ? m_node_ref_list[m_root_node_index].node_ptr : NULL;
+	}
+
+	if (node == NULL || node->m_nodeEx != NULL)
+		return;
+
+	CZAnimEx* ex = new CZAnimEx;
+	ex->m_anim = this;
+	ex->m_nodeEx = node;
+
+	if (m_instance_node != NULL)
+		ex->m_root_node = m_instance_node;
+	else
+		ex->m_root_node = m_root_node_index != 0 ? m_node_ref_list[m_root_node_index].node_ptr : NULL;
+
+	if (m_health != NULL)
+	{
+		ex->m_shield = m_health->shield;
+		ex->m_armor = m_health->armor;
+		ex->m_armor_max = m_health->armor;
+		ex->m_health = m_health->health;
+		ex->m_health_max = m_health->health;
+	}
+	else
+	{
+		ex->m_shield = 0.0f;
+		ex->m_armor = 0.0f;
+		ex->m_armor_max = 0.0f;
+		ex->m_health = 0.0f;
+		ex->m_health_max = 0.0f;
+	}
+
+	m_animEx = ex;
+	node->SetNodeEx(m_animEx, true);
+
+	if (ZAnim.m_CurAnimSet != NULL)
+		ZAnim.m_CurAnimSet->AddAnimEx(m_animEx);
+
+	SOCOM_PORT_TRACE("ANIMEX: %s on %s: health %.0f armor %.0f shield %.0f", GetName() != NULL ? GetName() : "-",
+		node->m_name != NULL ? node->m_name : "-", ex->m_health, ex->m_armor, ex->m_shield);
 }
 
 /* @socom-skeleton stub __dt__8CZAnimExFv */
 CZAnimEx::~CZAnimEx()
 {
+	/* 0x1cfc20: the node lets go of it */
+	if (m_nodeEx != NULL)
+		m_nodeEx->SetNodeEx(NULL, true);
 }
 
 /* @socom-skeleton stub Add__14CZAnimExVectorFP8CZAnimEx */
-void CZAnimExVector::Add(CZAnimEx *)
+void CZAnimExVector::Add(CZAnimEx *ex)
 {
+	/* 0x1cfbb0: grows 15 at a time */
+	if (size() == capacity())
+		reserve(size() + 15);
+
+	push_back(ex);
 }
 
 /* @socom-skeleton stub Free__14CZAnimExVectorFv */
 void CZAnimExVector::Free()
 {
+	/* 0x1cfb30 */
+	for (iterator it = begin(); it != end(); ++it)
+		delete *it;
+
+	clear();
 }
 
 /* @socom-skeleton stub Reset__14CZAnimExVectorFv */
 void CZAnimExVector::Reset()
 {
+	/* 0x1cfab0: every one back to full armor and health */
+	for (iterator it = begin(); it != end(); ++it)
+		(*it)->Reset(NULL, NULL);
 }
 
 /* @socom-skeleton stub OnWeaponHit__8CZAnimExFPQ23zdb5CNodePQ23zdb15IntersectStructP12CZProjectile */
-void CZAnimEx::OnWeaponHit(zdb::CNode *, zdb::IntersectStruct *, CZProjectile *)
+void CZAnimEx::OnWeaponHit(zdb::CNode *node, zdb::IntersectStruct *, CZProjectile *projectile)
 {
+	/* 0x1cf660 (CZProjectile::HandleImpact through the node's extension): the shot's damage
+	 * at the node comes off its armor and health. Each hit plays the anim's damage sequence;
+	 * when the health is gone the anim activates (on its root node, with the shot's velocity:
+	 * for a blast the push away from it, 1000 x (1 - distance / radius)). */
+	CPnt3D p;
+	p.x = 0.0f;
+	p.y = 0.0f;
+	p.z = 0.0f;
+	node->TransformToWorld(p);
+	projectile->GetDamage(&p, &m_health, &m_armor, m_shield);
+	bool dead = m_health <= 0.0f;
+
+	if (!dead && m_anim->m_damage_seq_offset == 0)
+		return;
+
+	CZAnim* anim = m_anim->GetAvailable();
+
+	if (anim == NULL)
+		return;
+
+	SOCOM_PORT_TRACE("ANIMEX: hit %s: health %.1f armor %.1f%s", node->m_name != NULL ? node->m_name : "-", m_health, m_armor, dead ? " - destroyed" : "");
+	zdb::CNode* root = m_root_node;
+
+	if (root != NULL && anim->m_root_node_index != 0 && anim->m_node_ref_list[anim->m_root_node_index].node_ptr != root)
+	{
+		anim->ClearNodePtrs();
+		anim->m_node_ref_list[anim->m_root_node_index].node_ptr = root;
+		anim->GetNodes();
+
+		if (anim->m_instance_node != NULL)
+		{
+			delete anim->m_instance_node;
+			anim->m_instance_node = NULL;
+		}
+
+		anim->CreateInstanceNode();
+	}
+
+	if (anim->m_health != NULL)
+	{
+		anim->m_health->armor = m_armor;
+		anim->m_health->health = m_health;
+	}
+
+	if (anim->m_damage_seq_offset != 0)
+		anim->ExecuteSpecialSequence(anim->m_damage_seq_offset);
+
+	if (!dead)
+		return;
+
+	if (projectile == NULL)
+	{
+		if (m_root_node != NULL)
+			anim->ActivateArg(1, 2, m_root_node, 0);
+		else
+			anim->Activate(NULL);
+
+		return;
+	}
+
+	CPnt3D vel = projectile->m_vel;
+
+	if (vel.x * vel.x + vel.y * vel.y + vel.z * vel.z < 1.0f && !(projectile->m_ammo->GetExplosionRadius() <= 0.001f))
+	{
+		CPnt3D center = projectile->m_framestartpos;
+		CPnt3D dir;
+		p.Sub(&center, &dir);
+		float dist = sqrtf(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
+
+		if (fabsf(center.y - p.y) < 5.0f)
+		{
+			/* a blast level with the node pushes up and out at 45 degrees */
+			center.y -= dist;
+			p.Sub(&center, &dir);
+			dir.Scale(0.707f, &dir);
+			dist *= 0.707f;
+		}
+
+		float fraction = dist / projectile->m_ammo->GetExplosionRadius();
+		dir.Scale(1000.0f * ((1.0f - fraction) / dist), &dir);
+		vel = dir;
+	}
+
+	if (m_root_node != NULL)
+		anim->ActivateArg(1, 2, m_root_node, 6, &vel, 0);
+	else
+		anim->ActivateArg(1, 6, &vel, 0);
 }
 
 /* @socom-skeleton stub Reset__8CZAnimExFPfPf */
-void CZAnimEx::Reset(float *, float *)
+void CZAnimEx::Reset(float *armor, float *health)
 {
+	/* 0x1cf620: the given values, else the maxima */
+	m_armor = armor != NULL ? *armor : m_armor_max;
+	m_health = health != NULL ? *health : m_health_max;
 }
 
 /* @socom-skeleton stub HealthInit__6CZAnimFv */
 void CZAnim::HealthInit()
 {
+	/* 0x1cf5d0: an empty health record on the root node, made once */
+	if (m_health != NULL)
+		return;
+
+	m_health = static_cast<CZAnimHealth*>(operator new(24));
+	memset(m_health, 0, 24);
+	m_health->m_health_node_index = m_root_node_index;
 }
 
 /* @socom-skeleton stub GetHealth__6CZAnimFv */

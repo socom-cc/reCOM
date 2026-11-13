@@ -65,6 +65,8 @@
 #include "gamez/zTwoD/ztwod.h"
 #include "gamez/zUtil/util_stable.h"
 #include "hud.h"
+#include "gamez/zFTS/zfts.h" /* ftsGetNumVisibleMaps, ftsGetVisibleMap (Tick) */
+#include "gamez/zSeal/zseal.h" /* CZSealBody::m_compass (TickAnchors) */
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
 class C2DLine;
@@ -177,11 +179,23 @@ bool hudAddPolyType(_zrdr* node)
 /* @socom-skeleton stub hudGetTacMapPulseTrans__Fv */
 float hudGetTacMapPulseTrans()
 {
+	/* 0x3ca970: the pulsing transparency of the map's objective icons and cones (60..127,
+	 * CZLineMap::Tick) */
+	return g_fPulseTrans;
 }
 
 /* @socom-skeleton stub __ct__9CZLineMapFv */
 CZLineMap::CZLineMap()
 {
+	/* 0x3ca850: no AI map or HUD map yet, no triangles (the line, string and vector members
+	 * construct themselves) */
+	m_map = NULL;
+	m_hudmap = NULL;
+	m_iNumActiveTriangles = 0;
+	/* port: also cleared here (the ELF leaves them to the first Tick) */
+	m_lastline = 0;
+	m_laststring = 0;
+	m_linetex = NULL;
 }
 
 /* @socom-skeleton stub LineTo__9CZLineMapFPC6CPnt3D */
@@ -197,15 +211,136 @@ void CZLineMap::SetupPolygon(const CAiMap::line &, float, bool)
 }
 
 /* @socom-skeleton stub Tick__9CZLineMapFP11CZNewHudMapf */
-bool CZLineMap::Tick(CZNewHudMap *, float)
+bool CZLineMap::Tick(CZNewHudMap *map, float dT)
 {
+	/* 0x3c9590: the pulse runs 60..127 at 167.5 a second; last tick's lines, strings, wide
+	 * lines and icons are dropped and rebuilt for the viewer's AI map and the maps visible
+	 * from it, then the objective anchors. Never finished (false). */
 	/* @socom-skeleton stub transp_delta$2609 */
-	static float transp_delta;
+	static float transp_delta = 167.5f;
+
+	g_fPulseTrans += transp_delta * dT;
+
+	if (g_fPulseTrans > 127.0f)
+	{
+		g_fPulseTrans = 127.0f;
+		transp_delta = -transp_delta;
+	}
+	else if (g_fPulseTrans < 60.0f)
+	{
+		g_fPulseTrans = 60.0f;
+		transp_delta = -transp_delta;
+	}
+
+	m_hudmap = map;
+	m_lastline = 0;
+	m_laststring = 0;
+	m_iNumActiveTriangles = 0;
+
+	for (u32 i = 0; i < m_vecWideLines.size(); i++)
+	{
+		std::vector<C2D*>* segments = m_vecWideLines[i];
+
+		if (segments == NULL)
+			continue;
+
+		for (u32 j = 0; j < segments->size(); j++)
+			delete (*segments)[j];
+
+		delete segments;
+	}
+
+	m_vecWideLines.clear();
+
+	for (u32 i = 0; i < m_vecBitmaps.size(); i++)
+		delete m_vecBitmaps[i];
+
+	m_vecBitmaps.clear();
+
+	if (map->m_viewer == NULL)
+		return false;
+
+	u32 viewer_map = map->m_viewer->m_mapLoc.m_mapid;
+
+	for (s32 i = 0; i < ftsGetNumVisibleMaps(viewer_map); i++)
+	{
+		float pulse = g_fPulseTrans;
+		m_map = AiMaps.GetMapByIndex(ftsGetVisibleMap(viewer_map, i));
+
+		if (m_map != NULL)
+		{
+			TickLines(*m_map, pulse, true);
+			TickWayPoints(*m_map, true);
+			TickRegions(*m_map, true);
+		}
+	}
+
+	float pulse = g_fPulseTrans;
+	m_map = AiMaps.GetMapByIndex(viewer_map);
+
+	if (m_map != NULL)
+	{
+		TickLines(*m_map, pulse, false);
+		TickWayPoints(*m_map, false);
+		TickRegions(*m_map, false);
+	}
+
+	TickAnchors(g_fPulseTrans);
+	m_map = NULL;
+	m_hudmap = NULL;
+	return false;
 }
 
 /* @socom-skeleton stub TickAnchors__9CZLineMapFf */
-void CZLineMap::TickAnchors(float)
+void CZLineMap::TickAnchors(float fPulseTrans)
 {
+	/* 0x3c9220: an icon (a new CPlainBmp each tick, 16 x 16, the compass image and colour of
+	 * the anchor type) for every extraction (5), primary (6) and secondary (7) objective
+	 * anchor of the compass; objective icons pulse, the extraction one only while the
+	 * selected objective is the extraction */
+	for (u32 iAnchor = 0; iAnchor < CZSealBody::m_compass.size(); iAnchor++)
+	{
+		CCompassAnchor* pAnchor = CZSealBody::m_compass[iAnchor];
+
+		if (pAnchor == NULL)
+			continue;
+
+		s32 iType = pAnchor->m_type;
+		bool bExtract = iType == 5;
+		bool bPrim = iType == 6;
+		bool b2nd = iType == 7;
+
+		if (!bExtract && !bPrim && !b2nd)
+			continue;
+
+		CPlainBmp* bmp = new CPlainBmp;
+		m_vecBitmaps.push_back(bmp);
+
+		CPnt3D ptDraw;
+		m_hudmap->m_matrix.Transform(&pAnchor->m_posW, &ptDraw, 1);
+		ptDraw.y = m_hudmap->CalcDrawPos(ptDraw.y);
+
+		MapCompass& compass = theHUD->m_mapcompass;
+		float fRightX = 16.0f + ptDraw.x;
+		float fBotY = 16.0f + ptDraw.y;
+		zdb::CTexHandle* image = iType >= 0 && iType < 33 ? compass.m_anchor_img[iType] : NULL;
+		bmp->Load(ptDraw.x, ptDraw.y, fRightX, fBotY, image);
+
+		/* port: ELF quirk not reachable (types 5..7 only) - another type would take an
+		 * unset stack colour */
+		CPnt3D ptColor = iType >= 0 && iType < 33 ? compass.m_anchor_clr[iType] : CPnt3D::zero;
+		bmp->SetColor(ptColor.x, ptColor.y, ptColor.z);
+
+		bool bPulse = true;
+
+		if (bExtract)
+		{
+			CMissionObjectiveCam* pObjv = m_hudmap->m_objectivelist.GetCurrentObjective();
+			bPulse = pObjv != NULL && pObjv->m_bExtraction;
+		}
+
+		bmp->SetTrans(bPulse ? fPulseTrans : 128.0f);
+	}
 }
 
 /* @socom-skeleton stub TickLine__9CZLineMapFRCQ26CAiMap4linefb */
@@ -236,6 +371,27 @@ void CZLineMap::Clip(CZNewHudMap *)
 }
 
 /* @socom-skeleton stub Draw__9CZLineMapFPQ23zdb7CCamera */
-void CZLineMap::Draw(zdb::CCamera *)
+void CZLineMap::Draw(zdb::CCamera *camera)
 {
+	/* 0x3c74d0: the region triangles, the lines (at most 400), the wide lines, the anchor
+	 * icons and the strings (at most 32) */
+	for (s32 i = 0; i < m_iNumActiveTriangles; i++)
+		m_vecTriangles[i]->Draw(camera);
+
+	for (u32 i = 0; i < m_lastline && i < 400; i++)
+		m_linelist[i].Draw(camera);
+
+	for (u32 i = 0; i < m_vecWideLines.size(); i++)
+	{
+		std::vector<C2D*>* segments = m_vecWideLines[i];
+
+		for (u32 j = 0; j < segments->size(); j++)
+			(*segments)[j]->Draw(camera);
+	}
+
+	for (u32 i = 0; i < m_vecBitmaps.size(); i++)
+		m_vecBitmaps[i]->Draw(camera);
+
+	for (u32 i = 0; i < m_laststring && i < 32; i++)
+		m_stringlist[i].Draw(camera);
 }

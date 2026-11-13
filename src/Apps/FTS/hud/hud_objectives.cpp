@@ -70,6 +70,8 @@
 #include "gamez/zTwoD/ztwod.h"
 #include "gamez/zUtil/util_stable.h"
 #include "hud.h"
+#include "gamez/zSound/zsnd.h" /* CSnd::PostTick */
+#include "gamez/zNode/znode.h" /* zdb::CAssetMgr, zdb::CWorld::GetTexHandle */
 /* @socom-skeleton end include */
 
 /* @socom-skeleton stub c_arrLegendAnchorTypes__28@unnamed@hud_objectives_cpp@ */
@@ -133,6 +135,13 @@ C2DBitmap g_bmpAnchorsDiv;
 /* @socom-skeleton stub __ct__15CZObjectiveListFv */
 CZObjectiveList::CZObjectiveList()
 {
+	/* 0x3c24e0: no objective selected, the checkbox textures unset, the highlight rising */
+	m_objectivenames.reserve(4);
+	m_selected_objective = -1;
+	m_unfinished_tex = NULL;
+	m_completed_tex = NULL;
+	m_increment = true;
+	m_cur_selected_objective = NULL;
 }
 
 /* @socom-skeleton stub __dt__15CZObjectiveListFv */
@@ -140,108 +149,602 @@ CZObjectiveList::~CZObjectiveList()
 {
 }
 
-/* @socom-skeleton stub AddObjective__15CZObjectiveListFRC20CMissionObjectiveCamf */
-unsigned char CZObjectiveList::AddObjective(const CMissionObjectiveCam &, float)
+namespace {
+/* port: the ELF repeats these two steps inline after every change of the selection (no
+ * symbol): the selected objective is looked up again and the mission's objective anchors
+ * re-ticked at once (1000 s) */
+void UpdateSelection(CZObjectiveList* list)
 {
+	list->m_cur_selected_objective = list->GetObjective(list->m_selected_objective);
+	SOCOM_PORT_TRACE("MAP: objective %d %s", list->m_selected_objective, list->m_cur_selected_objective != NULL && list->m_cur_selected_objective->m_name != NULL ? list->m_cur_selected_objective->m_name : "-");
+	theMission.TickObjectives(1000.0f);
+}
+
+/* port: inline step of NextObjective / SelectNextObjective: one down, wrapping to the top */
+void StepDown(CZObjectiveList* list)
+{
+	list->m_selected_objective++;
+	UpdateSelection(list);
+
+	if (static_cast<u32>(list->m_selected_objective) >= list->m_objectivenames.size())
+	{
+		list->m_selected_objective = 0;
+		UpdateSelection(list);
+	}
+}
+
+/* port: inline step of PreviousObjective / SelectPreviousObjective: one up, wrapping to the
+ * bottom (0 for an empty list) */
+void StepUp(CZObjectiveList* list)
+{
+	list->m_selected_objective--;
+	UpdateSelection(list);
+
+	if (list->m_selected_objective < 0)
+	{
+		list->m_selected_objective = static_cast<s32>(list->m_objectivenames.size()) - 1;
+		UpdateSelection(list);
+	}
+
+	if (list->m_selected_objective < 0)
+	{
+		list->m_selected_objective = 0;
+		UpdateSelection(list);
+	}
+}
+
+/* port: the heading / label pattern of RefreshStatics: scaled text, grey, added to the list */
+void AddLabel(CZObjectiveList* list, C2DString* string, float scale, const char* text, int x, int y)
+{
+	string->Load(scale, text, theHUD->m_myfont, x, y);
+	string->m_color.x = 80.0f;
+	string->m_color.y = 80.0f;
+	string->m_color.z = 80.0f;
+	list->push_back(string);
+}
+}
+
+/* @socom-skeleton stub AddObjective__15CZObjectiveListFRC20CMissionObjectiveCamf */
+unsigned char CZObjectiveList::AddObjective(const CMissionObjectiveCam &objective, float ypos)
+{
+	/* 0x3c2210: a name string and a checkbox for the objective (every objective gets both,
+	 * so the indices follow theMission.m_objectivecams); hidden ones are switched off and
+	 * take no line (0). Secondary objectives are indented. */
+	C2DString* string = new C2DString;
+	C2DBitmap* bitmap = new C2DBitmap;
+	m_objectivecompletedbitmap.push_back(bitmap);
+	m_objectivenames.push_back(string);
+
+	bool secondary = objective.m_isSecondary;
+	string->Load(0.68f, objective.m_name, theHUD->m_myfont, (int)(10.0f + (float)(secondary ? 45 : 30)), (int)ypos);
+
+	bool bComplete = objective.IsComplete();
+	bool bValid = !objective.IsInvalid();
+	bool bSelectable = !bComplete && bValid;
+
+	if (bSelectable)
+		bSelectable = objective.IsDisplayOn();
+
+	m_vecSelectable.push_back(bSelectable);
+
+	if (!objective.IsDisplayOn())
+	{
+		string->Off();
+		bitmap->Off();
+		return 0;
+	}
+
+	float fXOffset = (float)(secondary ? 25 : 10);
+	zdb::CTexHandle* tex = bComplete ? m_completed_tex : m_unfinished_tex;
+
+	if (bComplete || !bValid)
+	{
+		string->m_color.x = 30.0f;
+		string->m_color.y = 30.0f;
+		string->m_color.z = 30.0f;
+	}
+	else
+	{
+		string->m_color.x = 80.0f;
+		string->m_color.y = 80.0f;
+		string->m_color.z = 80.0f;
+	}
+
+	float fLeftX = 10.0f + fXOffset;
+	float fTopY = -15.0f + ypos;
+	bitmap->Load(fLeftX, fTopY, 15.0f + fLeftX, 15.0f + fTopY, tex);
+	push_back(bitmap);
+	push_back(string);
+	return 1;
 }
 
 /* @socom-skeleton stub Init__15CZObjectiveListFv */
 void CZObjectiveList::Init()
 {
+	/* 0x3c21c0 */
+	m_unfinished_tex = zdb::CWorld::GetTexHandle("hud_checkbox.tif");
+	m_completed_tex = zdb::CWorld::GetTexHandle("hud_check.tif");
+	m_background_tex = zdb::CWorld::GetTexHandle("team_background.tif");
 }
 
 /* @socom-skeleton stub Tick__15CZObjectiveListFf */
-void CZObjectiveList::Tick(float)
+void CZObjectiveList::Tick(float dT)
 {
+	/* 0x3c2080: while no mission camera plays, sounds keep ticking (the game is paused under
+	 * the map) and the selected name pulses yellow 0..255 at 600 a second, the X label
+	 * with it */
+	if (theHUD->m_missioncams.IsPlaying())
+		return;
+
+	CSnd::PostTick(0.0f, NULL);
+
+	if (m_selected_objective < 0 || m_selected_objective >= static_cast<s32>(m_objectivenames.size()))
+		return;
+
+	C2DString* name = m_objectivenames[m_selected_objective];
+	float c = name->m_color.x;
+
+	if (m_increment)
+	{
+		c += 600.0f * dT;
+
+		if (c > 255.0f)
+		{
+			c = 255.0f;
+			m_increment = false;
+		}
+	}
+	else
+	{
+		c -= 600.0f * dT;
+
+		if (c < 0.0f)
+		{
+			c = 0.0f;
+			m_increment = true;
+		}
+	}
+
+	name->m_color.x = c;
+	name->m_color.y = c;
+	name->m_color.z = 0.0f;
+	m_strXLabel.SetTrans(0.5f * c);
 }
 
 /* @socom-skeleton stub RefreshList__15CZObjectiveListFv */
 void CZObjectiveList::RefreshList()
 {
+	/* 0x3c1c40 (the map opening): the list rebuilt from theMission.m_objectivecams, 15 a line
+	 * from y 80, then the first selectable primary objective selected. ELF quirk kept: when
+	 * that one is found the function returns at once (no colour hand-over below). */
+	m_cur_selected_objective = GetObjective(m_selected_objective);
+	clear();
+
+	for (u32 i = 0; i < m_objectivenames.size(); i++)
+		delete m_objectivenames[i];
+
+	m_objectivenames.clear();
+
+	for (u32 i = 0; i < m_objectivecompletedbitmap.size(); i++)
+		delete m_objectivecompletedbitmap[i];
+
+	m_objectivecompletedbitmap.clear();
+	m_vecSelectable.clear();
+	RefreshStatics();
+
+	float ypos = 80.0f;
+	std::list<void const*>& objectives = theMission.m_objectivecams;
+
+	for (std::list<void const*>::iterator it = objectives.begin(); it != objectives.end(); ++it)
+	{
+		if (AddObjective(*(const CMissionObjectiveCam*)*it, ypos))
+			ypos += 15.0f;
+	}
+
+	m_selected_objective = 0;
+	UpdateSelection(this);
+
+	for (std::list<void const*>::iterator it = objectives.begin(); it != objectives.end(); ++it)
+	{
+		if (!((const CMissionObjectiveCam*)*it)->m_isSecondary && m_vecSelectable[m_selected_objective])
+			return;
+
+		m_selected_objective++;
+		UpdateSelection(this);
+	}
+
+	m_selected_objective = m_objectivenames.size();
+	UpdateSelection(this);
+	s32 previous = m_selected_objective;
+
+	if (!IsAnySelectable())
+		return;
+
+	StepDown(this);
+
+	if (!m_vecSelectable[m_selected_objective])
+		SelectNextObjective();
+
+	SetCurColor(previous);
+	int index;
+
+	if (ResolveIndex(previous, &index))
+	{
+		m_objectivenames[index]->m_color.x = 80.0f;
+		m_objectivenames[index]->m_color.y = 80.0f;
+		m_objectivenames[index]->m_color.z = 80.0f;
+	}
 }
 
 /* @socom-skeleton stub RefreshStatics__15CZObjectiveListFv */
 void CZObjectiveList::RefreshStatics()
 {
+	/* 0x3c0c90: the full-screen map's frame - background panels and dividers
+	 * (team_background.tif), the headings, the pad legend and the map legend (anchor icons
+	 * and colours from the compass) - each added to the list */
 	/* @socom-skeleton stub c_szAnalogL$2617 */
-	static char *const c_szAnalogL = 0;
+	static const char *const c_szAnalogL = "LEFT ANALOG STICK = MOVE MAP";
 	/* @socom-skeleton stub c_szAnalogR$2620 */
-	static char *const c_szAnalogR = 0;
+	static const char *const c_szAnalogR = "RIGHT ANALOG STICK = ZOOM";
 	/* @socom-skeleton stub c_szCircleLabel$2623 */
-	static char *const c_szCircleLabel = 0;
+	static const char *const c_szCircleLabel = "CENTER OBJECTIVE/PLAYER";
+
+	m_textbackground.Load(0.0f, 0.0f, 230.0f, 448.0f, m_background_tex);
+	m_textbackground.SetUV(0.5f, 0.5f, 0.5f, 0.5f);
+	push_back(&m_textbackground);
+	g_bmpMapTitleBg.Load(230.0f, 0.0f, 640.0f, 60.0f, m_background_tex);
+	g_bmpMapTitleBg.SetUV(0.5f, 0.5f, 0.5f, 0.5f);
+	push_back(&g_bmpMapTitleBg);
+	m_mapbackground.Load(230.0f, 60.0f, 640.0f, 365.0f, m_background_tex);
+	m_mapbackground.SetUV(0.2f, 0.5f, 0.2f, 0.5f);
+	push_back(&m_mapbackground);
+	g_bmpLegendBg.Load(230.0f, 365.0f, 640.0f, 448.0f, m_background_tex);
+	g_bmpLegendBg.SetUV(0.5f, 0.5f, 0.5f, 0.5f);
+	push_back(&g_bmpLegendBg);
+	m_backgrounddivider.Load(225.0f, 0.0f, 230.0f, 365.0f, m_background_tex);
+	m_backgrounddivider.SetUV(0.8f, 0.5f, 0.8f, 0.5f);
+	push_back(&m_backgrounddivider);
+	g_bmpTitlesDiv.Load(0.0f, 57.0f, 640.0f, 60.0f, m_background_tex);
+	g_bmpTitlesDiv.SetUV(0.8f, 0.5f, 0.8f, 0.5f);
+	push_back(&g_bmpTitlesDiv);
+	g_bmpLegendDiv.Load(0.0f, 365.0f, 640.0f, 368.0f, m_background_tex);
+	g_bmpLegendDiv.SetUV(0.8f, 0.5f, 0.8f, 0.5f);
+	push_back(&g_bmpLegendDiv);
+
+	AddLabel(this, &m_heading, 1.2f, "OBJECTIVES", 50, 30);
+	AddLabel(this, &m_strMapHeading, 1.2f, "TACTICAL MAP", 370, 30);
+	int x = (int)320.0f;
+	AddLabel(this, &m_strAnalogL, 0.8f, c_szAnalogL, x, 390);
+	AddLabel(this, &m_strAnalogR, 0.8f, c_szAnalogR, x, 415);
+
+	g_bmpXBtn.Load(46.0f, 32.0f, 66.0f, 50.666664f, zdb::CAssetMgr::m_assets.GetTexHandle("action_x.tif"));
+	push_back(&g_bmpXBtn);
+	g_bmpCircleBtn.Load(20.0f, 400.0f, 40.0f, 418.66666f, zdb::CAssetMgr::m_assets.GetTexHandle("action_circle.tif"));
+	push_back(&g_bmpCircleBtn);
+	g_bmpTriBtn.Load(375.0f, 32.0f, 395.0f, 50.666664f, zdb::CAssetMgr::m_assets.GetTexHandle("action_triangle.tif"));
+	push_back(&g_bmpTriBtn);
+	g_bmpSquareBtn.Load(20.0f, 375.0f, 40.0f, 393.66666f, zdb::CAssetMgr::m_assets.GetTexHandle("action_square.tif"));
+	push_back(&g_bmpSquareBtn);
+
+	AddLabel(this, &m_strXLabel, 0.8f, "PLAY MOVIE", 76, 47);
+	m_strXLabel.SetTrans(0.0f);
+	AddLabel(this, &m_strCircleLabel, 0.8f, c_szCircleLabel, 50, 415);
+	AddLabel(this, &m_strSquareLabel, 0.8f, "CENTER PLAYER", 50, 390);
+	AddLabel(this, &m_strTriLabel, 0.8f, "RESUME GAME", 405, 47);
+
+	/* the map legend: the compass anchor icons, left of their labels */
+	MapCompass& compass = theHUD->m_mapcompass;
+	g_arrAnchorIconBitmaps[6].Load(43.0f, 346.0f, 59.0f, 362.0f, compass.m_anchor_img[5]);
+	g_arrAnchorIconBitmaps[5].Load(43.0f, 328.0f, 59.0f, 344.0f, compass.m_anchor_img[8]);
+	g_arrAnchorIconBitmaps[4].Load(43.0f, 310.0f, 59.0f, 326.0f, compass.m_anchor_img[4]);
+	g_arrAnchorIconBitmaps[3].Load(43.0f, 292.0f, 59.0f, 308.0f, compass.m_anchor_img[32]);
+	g_arrAnchorIconBitmaps[2].Load(20.0f, 292.0f, 36.0f, 308.0f, compass.m_anchor_img[9]);
+	g_arrAnchorIconBitmaps[1].Load(43.0f, 274.0f, 59.0f, 290.0f, compass.m_anchor_img[7]);
+	g_arrAnchorIconBitmaps[0].Load(43.0f, 256.0f, 59.0f, 272.0f, compass.m_anchor_img[6]);
+
+	for (s32 i = 0; i < 7; i++)
+	{
+		s32 type = c_arrLegendAnchorTypes[i];
+		/* port: ELF quirk not reachable - a type outside 0..32 would take an unset stack colour */
+		CPnt3D colour = type >= 0 && type < 33 ? compass.m_anchor_clr[type] : CPnt3D::zero;
+		g_arrAnchorIconBitmaps[i].SetColor(colour.x, colour.y, colour.z);
+		push_back(&g_arrAnchorIconBitmaps[i]);
+	}
+
+	AddLabel(this, &m_arrAnchorStrings[6], 0.64f, "EXTRACTION POINT", 62, 360);
+	AddLabel(this, &m_arrAnchorStrings[5], 0.64f, "BRAVO's POSITION", 62, 342);
+	AddLabel(this, &m_arrAnchorStrings[4], 0.64f, "HOSTAGE/POW/TRAITOR", 62, 324);
+	AddLabel(this, &m_arrAnchorStrings[2], 0.64f, "NAV POINTS", 62, 306);
+	AddLabel(this, &m_arrAnchorStrings[3], 0.64f, "-", 38, 306);
+	AddLabel(this, &m_arrAnchorStrings[1], 0.64f, "SECONDARY OBJECTIVE", 62, 288);
+	AddLabel(this, &m_arrAnchorStrings[0], 0.64f, "PRIMARY OBJECTIVE", 62, 270);
+
+	g_bmpAnchorsDiv.Load(0.0f, 253.0f, 225.0f, 250.0f, m_background_tex);
+	g_bmpAnchorsDiv.SetUV(0.8f, 0.5f, 0.8f, 0.5f);
+	push_back(&g_bmpAnchorsDiv);
 }
 
 /* @socom-skeleton stub FreeList__15CZObjectiveListFb */
-void CZObjectiveList::FreeList(bool)
+void CZObjectiveList::FreeList(bool release)
 {
+	/* 0x3c0ab0 (the map closing): the list emptied and the objective lines deleted; with
+	 * release the vectors give their storage back too */
+	m_cur_selected_objective = GetObjective(m_selected_objective);
+	clear();
+
+	for (u32 i = 0; i < m_objectivenames.size(); i++)
+		delete m_objectivenames[i];
+
+	m_objectivenames.clear();
+
+	if (release)
+		std::vector<C2DString*>().swap(m_objectivenames);
+
+	for (u32 i = 0; i < m_objectivecompletedbitmap.size(); i++)
+		delete m_objectivecompletedbitmap[i];
+
+	m_objectivecompletedbitmap.clear();
+
+	if (release)
+		std::vector<C2DBitmap*>().swap(m_objectivecompletedbitmap);
+
+	m_vecSelectable.clear();
+
+	if (release)
+		std::vector<bool>().swap(m_vecSelectable);
 }
 
 /* @socom-skeleton stub ResolveIndex__15CZObjectiveListCFiPi */
-unsigned char CZObjectiveList::ResolveIndex(int, int *) const
+unsigned char CZObjectiveList::ResolveIndex(int index, int *resolved) const
 {
+	/* 0x3c0a80 */
+	if (index < 0 || index >= static_cast<s32>(m_objectivenames.size()))
+		return 0;
+
+	*resolved = index;
+	return 1;
 }
 
 /* @socom-skeleton stub IsAnySelectable__15CZObjectiveListCFv */
 unsigned char CZObjectiveList::IsAnySelectable() const
 {
+	/* 0x3c09f0 */
+	s32 count = m_objectivenames.size();
+
+	for (s32 i = 0; i < count; i++)
+	{
+		if (m_vecSelectable[i])
+			return 1;
+	}
+
+	return 0;
 }
 
 /* @socom-skeleton stub SetCurColor__15CZObjectiveListFi */
-void CZObjectiveList::SetCurColor(int)
+void CZObjectiveList::SetCurColor(int previous)
 {
+	/* 0x3c0960: the selected line takes the colour the previous one had */
+	s32 count = m_objectivenames.size();
+
+	if (previous < 0 || previous >= count)
+		return;
+
+	CPnt4D colour = m_objectivenames[previous]->m_color;
+
+	if (m_selected_objective < 0 || m_selected_objective >= count)
+		return;
+
+	m_objectivenames[m_selected_objective]->m_color.x = colour.x;
+	m_objectivenames[m_selected_objective]->m_color.y = colour.y;
+	m_objectivenames[m_selected_objective]->m_color.z = colour.z;
 }
 
 /* @socom-skeleton stub NextObjective__15CZObjectiveListFv */
 void CZObjectiveList::NextObjective()
 {
+	/* 0x3c0650 (DOWN on the map): the next selectable objective; the highlight moves with it
+	 * and the old line goes grey */
+	s32 previous = m_selected_objective;
+
+	if (!IsAnySelectable())
+		return;
+
+	StepDown(this);
+
+	if (!m_vecSelectable[m_selected_objective])
+	{
+		StepDown(this);
+
+		if (!m_vecSelectable[m_selected_objective])
+			SelectNextObjective();
+	}
+
+	int index;
+
+	if (ResolveIndex(previous, &index))
+	{
+		CPnt4D colour = m_objectivenames[index]->m_color;
+		int current;
+
+		if (ResolveIndex(m_selected_objective, &current))
+		{
+			m_objectivenames[current]->m_color.x = colour.x;
+			m_objectivenames[current]->m_color.y = colour.y;
+			m_objectivenames[current]->m_color.z = colour.z;
+		}
+	}
+
+	if (ResolveIndex(previous, &index))
+	{
+		m_objectivenames[index]->m_color.x = 80.0f;
+		m_objectivenames[index]->m_color.y = 80.0f;
+		m_objectivenames[index]->m_color.z = 80.0f;
+	}
 }
 
 /* @socom-skeleton stub SelectNextObjective__15CZObjectiveListFv */
 void CZObjectiveList::SelectNextObjective()
 {
+	/* 0x3c0460: down until a selectable one (the callers make sure there is one) */
+	StepDown(this);
+
+	if (m_vecSelectable[m_selected_objective])
+		return;
+
+	StepDown(this);
+
+	if (m_vecSelectable[m_selected_objective])
+		return;
+
+	StepDown(this);
+
+	if (!m_vecSelectable[m_selected_objective])
+		SelectNextObjective();
 }
 
 /* @socom-skeleton stub PreviousObjective__15CZObjectiveListFv */
 void CZObjectiveList::PreviousObjective()
 {
+	/* 0x3c01b0 (UP on the map) */
+	s32 previous = m_selected_objective;
+
+	if (!IsAnySelectable())
+		return;
+
+	StepUp(this);
+
+	if (!m_vecSelectable[m_selected_objective])
+		SelectPreviousObjective();
+
+	int index;
+
+	if (ResolveIndex(previous, &index))
+	{
+		CPnt4D colour = m_objectivenames[index]->m_color;
+		int current;
+
+		if (ResolveIndex(m_selected_objective, &current))
+		{
+			m_objectivenames[current]->m_color.x = colour.x;
+			m_objectivenames[current]->m_color.y = colour.y;
+			m_objectivenames[current]->m_color.z = colour.z;
+		}
+	}
+
+	if (ResolveIndex(previous, &index))
+	{
+		m_objectivenames[index]->m_color.x = 80.0f;
+		m_objectivenames[index]->m_color.y = 80.0f;
+		m_objectivenames[index]->m_color.z = 80.0f;
+	}
 }
 
 /* @socom-skeleton stub SelectPreviousObjective__15CZObjectiveListFv */
 void CZObjectiveList::SelectPreviousObjective()
 {
+	/* 0x3bfff0 */
+	StepUp(this);
+
+	if (m_vecSelectable[m_selected_objective])
+		return;
+
+	StepUp(this);
+
+	if (!m_vecSelectable[m_selected_objective])
+		SelectPreviousObjective();
 }
 
 /* @socom-skeleton stub SelectObjective__15CZObjectiveListFv */
 void CZObjectiveList::SelectObjective()
 {
+	/* 0x3bff60 (CROSS on the map): the objective's camera, unless one plays or the letterbox
+	 * is sliding out */
+	CMissionObjectiveCam* objective = GetObjective(m_selected_objective);
+
+	if (objective == NULL || theHUD->m_missioncams.IsPlaying())
+		return;
+
+	if (theHUD->m_letterbox.m_slidedir == CLetterBox::SLIDE_OUT)
+		return;
+
+	theHUD->m_missioncams.PlayCamera(objective, false);
 }
 
 /* @socom-skeleton stub Draw__15CZObjectiveListFPQ23zdb7CCamera */
-void CZObjectiveList::Draw(zdb::CCamera *)
+void CZObjectiveList::Draw(zdb::CCamera *camera)
 {
+	/* 0x3bfe60: every item of the list, unless a mission camera plays (the ELF also makes a
+	 * dynamic_cast to C2DString whose result it drops) */
+	if (!IsOn() || theHUD->m_missioncams.IsPlaying())
+		return;
+
+	for (iterator it = begin(); it != end(); ++it)
+		(*it)->Draw(camera);
 }
 
 /* @socom-skeleton stub GetCurrentObjective__15CZObjectiveListCFv */
 CMissionObjectiveCam * CZObjectiveList::GetCurrentObjective() const
 {
+	/* 0x3bfd70 */
+	return GetObjective(m_selected_objective);
 }
 
 /* @socom-skeleton stub GetCurrentObjectiveRetainer__15CZObjectiveListCFv */
 CMissionObjectiveCam * CZObjectiveList::GetCurrentObjectiveRetainer() const
 {
+	/* 0x3bfd60 */
+	return m_cur_selected_objective;
 }
 
 /* @socom-skeleton stub GetObjective__15CZObjectiveListCFi */
-CMissionObjectiveCam * CZObjectiveList::GetObjective(int) const
+CMissionObjectiveCam * CZObjectiveList::GetObjective(int index) const
 {
+	/* 0x3bfc70: the index-th objective of theMission (the list has one line for each) */
+	if (index < 0 || index >= static_cast<s32>(m_objectivenames.size()))
+		return NULL;
+
+	std::list<void const*>::iterator it = theMission.m_objectivecams.begin();
+
+	for (s32 i = 0; i < index; i++)
+		++it;
+
+	return (CMissionObjectiveCam*)*it;
 }
 
 /* @socom-skeleton stub MissionEndCleanup__15CZObjectiveListFv */
 void CZObjectiveList::MissionEndCleanup()
 {
+	/* 0x3bf8e0 */
+	m_heading.ClearAndWipe();
+	m_strMapHeading.ClearAndWipe();
+	m_strAnalogL.ClearAndWipe();
+	m_strAnalogR.ClearAndWipe();
+	m_strCircleLabel.ClearAndWipe();
+	m_strSquareLabel.ClearAndWipe();
+	m_strTriLabel.ClearAndWipe();
+	m_strXLabel.ClearAndWipe();
+
+	for (s32 i = 0; i < 7; i++)
+		m_arrAnchorStrings[i].ClearAndWipe();
+
+	m_cur_selected_objective = GetObjective(m_selected_objective);
+	clear();
+
+	for (u32 i = 0; i < m_objectivenames.size(); i++)
+		delete m_objectivenames[i];
+
+	std::vector<C2DString*>().swap(m_objectivenames);
+
+	for (u32 i = 0; i < m_objectivecompletedbitmap.size(); i++)
+		delete m_objectivecompletedbitmap[i];
+
+	std::vector<C2DBitmap*>().swap(m_objectivecompletedbitmap);
+	std::vector<bool>().swap(m_vecSelectable);
 }
 
 /* @socom-skeleton stub IsPlayingAnimation__15CZObjectiveListFv */
 unsigned char CZObjectiveList::IsPlayingAnimation()
 {
+	/* 0x3bf8c0 */
+	return theHUD->m_missioncams.IsPlaying();
 }

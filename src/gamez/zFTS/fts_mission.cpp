@@ -306,33 +306,57 @@ void CreateCustomCharTypes(_zrdr *)
 }
 
 /* @socom-skeleton stub ftsGetNumVisibleMaps__FUi */
-int ftsGetNumVisibleMaps(unsigned int)
+int ftsGetNumVisibleMaps(unsigned int map)
 {
+	/* 0x1fa880: how many AI maps can be seen from this one (0 past the ten maps) */
+	if (map >= 10)
+		return 0;
+
+	return g_arrMapVisCounts[map];
 }
 
 /* @socom-skeleton stub ftsGetTacMapZoom__Fv */
 float ftsGetTacMapZoom()
 {
+	/* 0x1fa870: the full-screen map's first zoom (mission.rdr, CMission::PreOpen) */
+	return g_fTacMapZoomInit;
 }
 
 /* @socom-skeleton stub ftsGetTacMapZoomFar__Fv */
 float ftsGetTacMapZoomFar()
 {
+	/* 0x1fa860 */
+	return g_fTacMapZoomFar;
 }
 
 /* @socom-skeleton stub ftsGetTacMapZoomNear__Fv */
 float ftsGetTacMapZoomNear()
 {
+	/* 0x1fa850 */
+	return g_fTacMapZoomNear;
 }
 
 /* @socom-skeleton stub ftsGetVisibleMap__FUii */
-unsigned char ftsGetVisibleMap(unsigned int, int)
+unsigned char ftsGetVisibleMap(unsigned int map, int index)
 {
+	/* 0x1fa830: no range test (ELF) */
+	return g_arrMapVis[map * 9 + index];
 }
 
 /* @socom-skeleton stub ftsIsMapInVisibleList__FUiUi */
-void ftsIsMapInVisibleList(unsigned int, unsigned int)
+bool ftsIsMapInVisibleList(unsigned int map, unsigned int viewer_map)
 {
+	/* 0x1fa7c0: is the map in the viewer map's visibility list */
+	if (viewer_map >= 10)
+		return false;
+
+	for (s32 i = 0; i < g_arrMapVisCounts[viewer_map]; i++)
+	{
+		if (g_arrMapVis[viewer_map * 9 + i] == map)
+			return true;
+	}
+
+	return false;
 }
 
 /* @socom-skeleton stub GetCustomCharTypeName__Fi */
@@ -357,8 +381,25 @@ char * GetDefCharTypeName(int index)
 
 /* @socom-skeleton stub LoadMissionMapVisibilities__25@unnamed@fts_mission_cpp@FP8CRdrFile */
 namespace {
-void LoadMissionMapVisibilities(CRdrFile *)
+void LoadMissionMapVisibilities(CRdrFile *mission)
 {
+	/* 0x1fa500: mission.rdr ai_map_visibility = one list per AI map (up to ten) of the maps
+	 * seen from it (up to nine) */
+	for (s32 i = 0; i < 10; i++)
+		g_arrMapVisCounts[i] = 0;
+
+	_zrdr* lists = zrdr_findtag(mission, "ai_map_visibility");
+
+	for (u32 i = 0; i < (lists != NULL && lists->IsArray() ? static_cast<u32>(lists->array->integer - 1) : 0) && i < 10; i++)
+	{
+		_zrdr* list = lists->Get(i);
+		s32 count = list != NULL && list->IsArray() ? list->array->integer - 1 : 0;
+
+		g_arrMapVisCounts[i] = count < 10 ? count : 9;
+
+		for (s32 j = 0; j < g_arrMapVisCounts[i]; j++)
+			g_arrMapVis[i * 9 + j] = static_cast<unsigned char>(list->Get(j)->GetInt());
+	}
 }
 }
 
@@ -839,7 +880,7 @@ void CMission::Open(const char *db, int ai)
 		return;
 
 	m_anchor_extraction.reserve(8);
-	/* port: not written - m_objanchor_vec (+0x98) is not declared; the ELF reserves 16 */
+	m_objanchor_vec.reserve(16);
 	CZSealBody::m_compass.Open();
 
 	if (db != NULL)
@@ -1444,8 +1485,130 @@ void CMission::Tick(f32 dT)
 }
 
 /* @socom-skeleton stub TickObjectives__8CMissionFf */
-void CMission::TickObjectives(float)
+void CMission::TickObjectives(float dT)
 {
+	/* 0x1f6610, once a second (the objective list passes 1000 to force it): the compass
+	 * anchor of the objective picked on the map, else of the first open objective, and
+	 * anchors of completed objectives deleted */
+	m_objectives_timer += dT;
+
+	if (m_objectives_timer <= 1.0f)
+		return;
+
+	m_objectives_timer = 0.0f;
+	CMissionObjectiveCam* selected = theHUD->m_newmap.m_objectivelist.GetCurrentObjectiveRetainer();
+
+	if (selected != NULL && selected->IsAvailable() && m_prev_selected_objcam != selected)
+	{
+		for (u32 i = 0; i < m_objanchor_vec.size(); i++)
+			CZSealBody::m_compass.DeleteAnchor(m_objanchor_vec[i].m_anchor); /* port: DeleteAnchor is declared a member; the ELF one is static */
+
+		m_objanchor_vec.clear();
+
+		CPnt3D pos;
+		pos.x = selected->m_pos.x;
+		pos.y = 0.0f;
+		pos.z = selected->m_pos.y;
+
+		SObjectiveCam_Anchor entry = { NULL, NULL };
+		m_objanchor_vec.push_back(entry);
+		SObjectiveCam_Anchor& added = m_objanchor_vec.back();
+		added.m_objective = selected;
+
+		if (selected->m_isSecondary)
+		{
+			added.m_anchor = CCompass::CreateAnchor(pos, "SECONDARY OBJ");
+			added.m_anchor->m_type = 7;
+		}
+		else
+		{
+			added.m_anchor = CCompass::CreateAnchor(pos, "PRIMARY OBJ");
+			added.m_anchor->m_type = 6;
+		}
+
+		m_prev_selected_objcam = added.m_objective;
+		return;
+	}
+
+	if (m_objanchor_vec.size() == 0)
+	{
+		/* the first open objective; when it is closed but the next one is a secondary,
+		 * the first open secondary after it */
+		bool found = false;
+
+		for (std::list<void const*>::iterator it = m_objectivecams.begin(); it != m_objectivecams.end() && !found; ++it)
+		{
+			std::list<void const*>::iterator next = it;
+			++next;
+			CMissionObjectiveCam* cam = (CMissionObjectiveCam*)*it;
+			bool skip = true;
+
+			if (next != m_objectivecams.end() && ((CMissionObjectiveCam*)*next)->m_isSecondary && !cam->IsAvailable())
+				skip = false;
+
+			if (cam->IsAvailable())
+			{
+				CPnt3D pos;
+				pos.x = cam->m_pos.x;
+				pos.y = 0.0f;
+				pos.z = cam->m_pos.y;
+
+				SObjectiveCam_Anchor entry = { NULL, NULL };
+				m_objanchor_vec.push_back(entry);
+				SObjectiveCam_Anchor& added = m_objanchor_vec.back();
+				added.m_objective = cam;
+				/* ELF quirk kept: named and typed a primary even for a secondary objective */
+				added.m_anchor = CCompass::CreateAnchor(pos, "PRIMARY OBJ");
+				added.m_anchor->m_type = 6;
+				found = true;
+			}
+			else if (!skip)
+			{
+				for (; next != m_objectivecams.end() && !found; ++next)
+				{
+					CMissionObjectiveCam* secondary = (CMissionObjectiveCam*)*next;
+
+					if (!secondary->m_isSecondary || !secondary->IsAvailable())
+						continue;
+
+					CPnt3D pos;
+					pos.x = secondary->m_pos.x;
+					pos.y = 0.0f;
+					pos.z = secondary->m_pos.y;
+
+					SObjectiveCam_Anchor entry = { NULL, NULL };
+					m_objanchor_vec.push_back(entry);
+					SObjectiveCam_Anchor& added = m_objanchor_vec.back();
+					added.m_objective = secondary;
+					added.m_anchor = CCompass::CreateAnchor(pos, "SECONDARY OBJ");
+					added.m_anchor->m_type = 7;
+					found = true;
+				}
+			}
+		}
+	}
+
+	u32 count = m_objanchor_vec.size();
+
+	for (u32 i = 0; i < count; i++)
+	{
+		if (!m_objanchor_vec[i].m_objective->IsComplete())
+			continue;
+
+		CZSealBody::m_compass.DeleteAnchor(m_objanchor_vec[i].m_anchor);
+		u32 last = m_objanchor_vec.size() - 1;
+
+		if (m_objanchor_vec.size() >= 2 && i != last)
+		{
+			SObjectiveCam_Anchor swap = m_objanchor_vec[i];
+			m_objanchor_vec[i] = m_objanchor_vec[last];
+			m_objanchor_vec[last] = swap;
+		}
+
+		m_objanchor_vec.pop_back();
+		count = m_objanchor_vec.size();
+		i--;
+	}
 }
 
 /* @socom-skeleton stub CreateNetGame__8CMissionFv */
@@ -2008,8 +2171,61 @@ void CMission::LoadMissionCams(CRdrFile *reader)
 }
 
 /* @socom-skeleton stub LoadObjectiveCams__8CMissionFP8CRdrFile */
-void CMission::LoadObjectiveCams(CRdrFile *)
+void CMission::LoadObjectiveCams(CRdrFile *rdr)
 {
+	/* 0x1f2ca0 (bool in v0, the one caller ignores it): the objectives of hudobjectives.rdr
+	 * HUD_OBJECTIVES, after the old ones are deleted. An entry without a NAME is skipped. */
+	for (std::list<void const*>::iterator it = m_objectivecams.begin(); it != m_objectivecams.end(); ++it)
+		delete (CMissionObjectiveCam*)*it;
+
+	m_objectivecams.clear();
+
+	if (rdr == NULL)
+		return;
+
+	_zrdr* list = zrdr_findtag(rdr, "HUD_OBJECTIVES");
+
+	if (list == NULL)
+		return;
+
+	for (u32 i = 0; i < (list->IsArray() ? static_cast<u32>(list->array->integer - 1) : 0); i++)
+	{
+		_zrdr* entry = list->Get(i);
+		char* identifier = zrdr_findstring(entry, "IDENTIFIER");
+		char* name = zrdr_findstring(entry, "NAME");
+		char* description = zrdr_findstring(entry, "DESCRIPTION");
+		char* description2 = zrdr_findstring(entry, "DESCRIPTION2");
+		char* description3 = zrdr_findstring(entry, "DESCRIPTION3");
+		char* valve = zrdr_findstring(entry, "VALVE");
+		char* invalid_valve = zrdr_findstring(entry, "INVALID_VALVE");
+		char* display_valve = zrdr_findstring(entry, "DISPLAY_VALVE");
+		PNT2D location;
+		zrdr_findPNT2D(entry, "LOCATION", &location);
+		char* animation = zrdr_findstring(entry, "ON_CALL_ANIMATION");
+		char* music = zrdr_findstring(entry, "ON_CALL_MUSIC");
+		bool sub_objective = zrdr_findtag(entry, "ISSUB_OBJECTIVE") != NULL;
+		bool secondary = zrdr_findtag(entry, "ISSECONDARY") != NULL;
+		bool compass = zrdr_findtag(entry, "NO_COMPASS_ICON") == NULL;
+
+		if (name == NULL)
+			continue;
+
+		CMissionObjectiveCam* cam = new CMissionObjectiveCam;
+		cam->Set(identifier, name, description, description2, description3, animation, music, valve, invalid_valve, display_valve, &location);
+		cam->m_isSecondary = secondary;
+		cam->m_isSubObjective = sub_objective;
+		cam->m_isCompass = compass;
+		cam->m_bExtraction = zrdr_findtag(entry, "ISEXTRACTION") != NULL;
+
+		_zrdr* lines = zrdr_findtag(entry, "LINE_IDS");
+		s32 count = lines != NULL && lines->IsArray() ? lines->array->integer - 1 : 0;
+
+		for (s32 j = 0; j < count; j++)
+			cam->m_vecLines.push_back(static_cast<u32>(lines->Get(j)->GetInt()));
+
+		m_objectivecams.push_back(cam);
+		SOCOM_PORT_TRACE("OBJ: %s '%s' at %.0f %.0f valve %s%s%s", identifier != NULL ? identifier : "-", name, location.x, location.y, valve != NULL ? valve : "-", secondary ? " secondary" : "", cam->m_bExtraction ? " extraction" : "");
+	}
 }
 
 /* @socom-skeleton stub GetMissionCamByIdentifier__8CMissionFPCc */

@@ -1094,11 +1094,24 @@ public:
 	/* @socom-skeleton end 6CZAnim */
 };
 
+/* DWARF CZAnimHealth (24 bytes): an activation-3 (weapon hit) anim's damage model, from the
+ * ZAR's Anim_Health key (CZAnim::Load) */
+class CZAnimHealth
+{
+public:
+	u8 m_health_node_index; /* +0x0: the node that takes the hits (the root node by default) */
+	f32 health;             /* +0x4 */
+	f32 max_health;         /* +0x8 */
+	f32 armor;              /* +0xc */
+	f32 max_armor;          /* +0x10 */
+	f32 shield;             /* +0x14 */
+};
+
 class CZAnimEx : public zdb::CNodeEx
 {
 public:
 	void AddAnimEx();
-private:
+public: /* port: public (DWARF has no access; CZAnim::OnWeaponHitInit builds it inline) */
 	CZAnim* m_anim;
 
 	zdb::CNode* m_nodeEx;

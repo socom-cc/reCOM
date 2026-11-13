@@ -29,6 +29,15 @@ class CMission;
 class CMissionObjectiveCam;
 class CObjAnchor;
 class CObjAnchorVec;
+class CCompassAnchor;
+
+/* DWARF SObjectiveCam_Anchor (8 bytes): an objective and the compass anchor TickObjectives
+ * made for it (CMission::m_objanchor_vec, DWARF CObjAnchorVec = MSL vector of these) */
+struct SObjectiveCam_Anchor
+{
+	CMissionObjectiveCam* m_objective; /* +0x0 */
+	CCompassAnchor* m_anchor;          /* +0x4 */
+};
 
 class CVehicleRdr;
 class CVehicleRdrEntry;
@@ -81,6 +90,15 @@ void ftsNetworkPlayerInit();
 void ftsNetworkSealInit();
 
 s32 FilterMissionFolder(const char* prefix, const char* infix, const char* postfix, char* output);
+
+/* fts_mission.cpp: the full-screen map's zoom range (mission.rdr TACMAP_ZOOM, CMission::PreOpen)
+ * and the AI maps visible from each other (LoadMissionMapVisibilities) */
+float ftsGetTacMapZoom();
+float ftsGetTacMapZoomNear();
+float ftsGetTacMapZoomFar();
+bool ftsIsMapInVisibleList(unsigned int map, unsigned int viewer_map); /* 0x1fa7c0: 0/1 in v0 */
+int ftsGetNumVisibleMaps(unsigned int map);
+unsigned char ftsGetVisibleMap(unsigned int map, int index);
 
 _zanim_cmd_hdr* HUDCmdParseOn(_zrdr* reader);
 bool HUDCmdTickControlSwitch(_zanim_cmd_hdr* header, f32* dT);
@@ -201,7 +219,7 @@ public:
 
 	std::vector<CObjAnchor*> m_anchor_extraction;
 	// std::vector<CNavPoint> m_navpoints;
-	// CObjAnchorVec m_objanchor_vec;
+	std::vector<SObjectiveCam_Anchor> m_objanchor_vec; /* DWARF +0x98 CObjAnchorVec: compass anchors of the current objectives (TickObjectives) */
 	CMissionObjectiveCam* m_prev_selected_objcam;
 	f32 m_objectives_timer;
 	bool m_ignore_objectives;
@@ -368,7 +386,7 @@ public:
 /* @socom-skeleton decl 20CMissionObjectiveCam */
 class CMissionObjectiveCam : public CMissionCam
 {
-public: /* DWARF CMissionObjectiveCam (80 bytes) after the CMissionCam part; port: m_vecLines (+0x44, a vector of unproven element type) left out */
+public: /* DWARF CMissionObjectiveCam (80 bytes) after the CMissionCam part */
 	char* m_maptext;               /* +0x1c */
 	char* m_valvename;             /* +0x20 */
 	char* m_invalidvalvename;      /* +0x24 */
@@ -382,6 +400,7 @@ public: /* DWARF CMissionObjectiveCam (80 bytes) after the CMissionCam part; por
 	u32 m_isCompass : 1;
 	u32 m_bExtraction : 1;
 	u32 m_unused : 28;
+	std::vector<u32> m_vecLines;   /* +0x44: hudobjectives.rdr LINE_IDS (MSL vector_pod<Ui>) */
 public:
 	CMissionObjectiveCam();
 	~CMissionObjectiveCam();
@@ -389,7 +408,7 @@ public:
 	void Set(const char *, const char *, const char *, const char *, const char *, const char *, const char *, const char *, const char *, const char *, const PNT2D *);
 	unsigned char IsComplete() const; /* 0x20a930: result in v0 (was void) */
 	unsigned char IsDisplayOn() const;
-	void IsInvalid() const;
+	unsigned char IsInvalid() const; /* 0x20a8d0: result in v0 (was void) */
 };
 /* @socom-skeleton end 20CMissionObjectiveCam */
 /* @socom-skeleton decl 24CMissionObjectiveCamList */

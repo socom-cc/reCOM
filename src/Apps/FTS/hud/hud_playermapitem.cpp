@@ -41,6 +41,7 @@
 #include "gamez/zTwoD/ztwod.h"
 #include "gamez/zUtil/util_stable.h"
 #include "hud.h"
+#include "gamez/zFTS/zfts.h" /* ftsIsMapInVisibleList */
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
 class BLIP_COLOR;
@@ -70,68 +71,356 @@ C2DString CZPlayerMapItem::m_bravostring;
 /* @socom-skeleton stub InitStaticItems__15CZPlayerMapItemFv */
 void CZPlayerMapItem::InitStaticItems()
 {
+	/* 0x3dca10: the ALPHA / BRAVO labels off, green */
+	m_ablestring.m_color.x = 20.0f;
+	m_ablestring.m_color.y = 80.0f;
+	m_ablestring.m_color.z = 20.0f;
+	m_ablestring.Off();
+	m_bravostring.m_color.x = 20.0f;
+	m_bravostring.m_color.y = 80.0f;
+	m_bravostring.m_color.z = 20.0f;
+	m_bravostring.Off();
 }
 
 /* @socom-skeleton stub UnInitStaticItems__15CZPlayerMapItemFv */
 void CZPlayerMapItem::UnInitStaticItems()
 {
+	/* 0x3dc9d0 */
+	m_bravostring.SetString(NULL);
+	m_ablestring.SetString(NULL);
 }
 
 /* @socom-skeleton stub __ct__15CZPlayerMapItemFP7CEntity */
-CZPlayerMapItem::CZPlayerMapItem(CEntity *)
+CZPlayerMapItem::CZPlayerMapItem(CEntity *entity)
 {
+	/* 0x3dc850: alive, the cone and live-blip textures, faded out and fading in, a blue name
+	 * string. port: the clipped-fan texture copies (+0x418/+0x444/+0x470/+0x49c) are not
+	 * made - C2DTriFan has no texture member yet; Clip is empty, so the fans never draw. */
+	m_wasalive = true;
+	m_entity = entity;
+	m_mybliptex = NULL;
+	m_myconetex = NULL;
+	m_myconetex = m_conetex;
+	m_mybliptex = m_alivebliptex;
+	m_oldpos = CPnt3D::zero;
+	m_fadeval = 0.0f;
+	m_fadein = true;
+	m_namestring.m_color.x = 10.0f;
+	m_namestring.m_color.y = 10.0f;
+	m_namestring.m_color.z = 40.0f;
 }
 
 /* @socom-skeleton stub __dt__15CZPlayerMapItemFv */
 CZPlayerMapItem::~CZPlayerMapItem()
 {
+	/* 0x3db870: member destructors only */
 }
 
 /* @socom-skeleton stub Tick__15CZPlayerMapItemFP11CZNewHudMapf */
-bool CZPlayerMapItem::Tick(CZNewHudMap *, float)
+bool CZPlayerMapItem::Tick(CZNewHudMap *map, float dT)
 {
+	/* 0x3dc770: finished (true: the map deletes it) once the entity is gone; else the
+	 * blip fades in or out at 0.51 a second and follows the seal */
+	if (!CEntity::EntityIsValid(m_entity))
+		return true;
+
+	if (m_fadein)
+	{
+		m_fadeval += 0.51f * dT;
+
+		if (m_fadeval > 1.0f)
+			m_fadeval = 1.0f;
+	}
+	else
+	{
+		m_fadeval -= 0.51f * dT;
+
+		if (m_fadeval < 0.0f)
+			m_fadeval = 0.0f;
+	}
+
+	TickSealCone(map);
+	return false;
 }
 
 /* @socom-skeleton stub Clip__15CZPlayerMapItemFP11CZNewHudMap */
 void CZPlayerMapItem::Clip(CZNewHudMap *)
 {
+	/* 0x3dc760: empty (the ELF clips nothing for blips) */
 }
 
 /* @socom-skeleton stub Draw__15CZPlayerMapItemFPQ23zdb7CCamera */
-void CZPlayerMapItem::Draw(zdb::CCamera *)
+void CZPlayerMapItem::Draw(zdb::CCamera *camera)
 {
+	/* 0x3dc6c0 */
+	m_blip.Draw(camera);
+	m_cone.Draw(camera);
+	m_clippedcone[0].Draw(camera);
+	m_clippedcone[1].Draw(camera);
+	m_clippedblip[0].Draw(camera);
+	m_clippedblip[1].Draw(camera);
 }
 
 /* @socom-skeleton stub PostDraw__15CZPlayerMapItemFPQ23zdb7CCamera */
 void CZPlayerMapItem::PostDraw(zdb::CCamera *)
 {
+	/* 0x3dc6a0: tail call of the name string's C2D slot +0x18 = Off (ELF: the name is never
+	 * drawn) */
+	m_namestring.Off();
 }
 
 /* @socom-skeleton stub DrawAlphaBravo__15CZPlayerMapItemFPQ23zdb7CCamera */
-void CZPlayerMapItem::DrawAlphaBravo(zdb::CCamera *)
+void CZPlayerMapItem::DrawAlphaBravo(zdb::CCamera *camera)
 {
+	/* 0x3dc640 */
+	m_ablestring.Draw(camera);
+	m_bravostring.Draw(camera);
+	m_ablestring.Off();
+	m_bravostring.Off();
 }
 
 /* @socom-skeleton stub GetBlipID__15CZPlayerMapItemFP10CZSealBody */
-unsigned int CZPlayerMapItem::GetBlipID(CZSealBody *)
+unsigned int CZPlayerMapItem::GetBlipID(CZSealBody *viewer)
 {
+	/* 0x3dc3f0: the colour row of _blips for this seal seen by the viewer: 0 team-mate,
+	 * 1..4 enemy by awareness, 5 enemy (player-controlled), 6 / 7 entity flag 8 / 0x20000,
+	 * 8 dead or no seal, 9 hidden (asleep, or an enemy nobody is aware of) */
 	/* @socom-skeleton stub show_all$2592 */
-	static unsigned char show_all;
+	static unsigned char show_all = 0;
 	/* @socom-skeleton stub show_enemies$2602 */
-	static unsigned char show_enemies;
+	static unsigned char show_enemies = 1;
+
+	if (m_entity == NULL)
+		return 8;
+
+	CZSealBody* seal = m_entity->m_type == CEntity::ENT_TYPE_SEAL ? static_cast<CZSealBody*>(m_entity) : NULL;
+
+	if (seal == NULL || !seal->m_isAlive)
+		return 8;
+
+	CSealCtrl* control = static_cast<CSealCtrl*>(seal->m_control);
+
+	if (control != NULL && control->IsAi())
+	{
+		CSealCtrlAi* ai = control->GetSealCtrlAi();
+
+		if (ai->m_sleeping)
+			return 9;
+
+		u8 aware = ai->GetAiAware();
+
+		if (seal->m_team & 8)
+			return 6;
+
+		if (seal->m_team & 4)
+			return 0;
+
+		if (seal->m_team & 0x20000)
+			return 7;
+
+		if (viewer->m_team & seal->m_team)
+			return 0;
+
+		if (show_all || seal->m_aware_counter > 0)
+			return aware + 1;
+
+		return 9;
+	}
+
+	if (control != NULL && control->IsRemote())
+	{
+		if (viewer->m_team & seal->m_team)
+			return 0;
+
+		if (!show_enemies)
+			return 9;
+
+		return seal->m_aware_counter > 0 ? 5 : 9;
+	}
+
+	return (seal->m_team & viewer->m_team) == 0 ? 5 : 0;
 }
 
 /* @socom-skeleton stub TickSealCone__15CZPlayerMapItemFP11CZNewHudMap */
-void CZPlayerMapItem::TickSealCone(CZNewHudMap *)
+void CZPlayerMapItem::TickSealCone(CZNewHudMap *map)
 {
+	/* 0x3dbe70: only team-mates of the viewer on a visible AI map are shown; a seal that just
+	 * died swaps to the dead blip and hides once. The cone follows the look direction (AI
+	 * and remote seals, with their view range / fov) or the node heading. */
+	CZSealBody* seal = m_entity != NULL && m_entity->m_type == CEntity::ENT_TYPE_SEAL ? static_cast<CZSealBody*>(m_entity) : NULL;
+
+	if (seal == NULL)
+	{
+		m_blip.Off();
+		m_cone.Off();
+		m_clippedblip[0].Off();
+		m_clippedblip[1].Off();
+		m_clippedcone[0].Off();
+		m_clippedcone[1].Off();
+		return;
+	}
+
+	CZSealBody* viewer = map->m_viewer;
+
+	if (viewer == NULL)
+		return;
+
+	bool visible = false;
+
+	if (viewer->m_team & seal->m_team)
+	{
+		u32 map_id = seal->m_mapLoc.m_mapid;
+		u32 viewer_map = viewer->m_mapLoc.m_mapid;
+		visible = map_id == viewer_map ? true : ftsIsMapInVisibleList(map_id, viewer_map);
+	}
+
+	if (!visible)
+	{
+		m_blip.Off();
+		m_cone.Off();
+		m_clippedblip[0].Off();
+		m_clippedblip[1].Off();
+		m_clippedcone[0].Off();
+		m_clippedcone[1].Off();
+		return;
+	}
+
+	if (m_wasalive && !seal->m_isAlive)
+	{
+		m_myconetex = NULL;
+		m_mybliptex = m_deadbliptex;
+		/* port: the clipped fans' texture copies are not made (see the ctor) */
+		m_wasalive = false;
+		m_blip.Off();
+		m_cone.Off();
+		return;
+	}
+
+	CPnt3D* pos = seal->GetPosW();
+	CSealCtrl* control = static_cast<CSealCtrl*>(seal->m_control);
+	CSealCtrlAi* ai = seal != NULL ? control->GetSealCtrlAi() : NULL;
+	unsigned int blip = GetBlipID(viewer);
+	CPnt3D dir;
+
+	if (ai != NULL)
+	{
+		seal->GetLookDirW(&dir);
+
+		if (blip == 9)
+		{
+			m_fadein = false;
+			SetViewCone(map, &m_oldrot, &m_oldpos, 9, ai->m_visrange.m_value, ai->m_fovtan);
+			return;
+		}
+
+		m_fadein = true;
+		SetViewCone(map, &dir, pos, blip, ai->m_visrange.m_value, ai->m_fovtan);
+		m_oldrot = dir;
+		m_oldpos = *pos;
+		return;
+	}
+
+	if (control != NULL && control->IsRemote() && control != NULL)
+	{
+		seal->GetLookDirW(&dir);
+
+		if (blip == 9)
+		{
+			m_fadein = false;
+			SetViewCone(map, &m_oldrot, &m_oldpos, 9, control->m_visrange.m_value, control->m_fovtan);
+			return;
+		}
+
+		m_fadein = true;
+		SetViewCone(map, &dir, pos, blip, control->m_visrange.m_value, control->m_fovtan);
+		m_oldrot = dir;
+		m_oldpos = *pos;
+		return;
+	}
+
+	const float* forward = seal->m_node->m_matrix.m_matrix[2];
+	dir.x = -forward[0];
+	dir.y = -forward[1];
+	dir.z = -forward[2];
+	SetViewCone(map, &dir, pos, blip, 200.0f, 0.5f);
 }
 
 /* @socom-skeleton stub SetViewCone__15CZPlayerMapItemFP11CZNewHudMapPC6CPnt3DPC6CPnt3DUiff */
-void CZPlayerMapItem::SetViewCone(CZNewHudMap *, const CPnt3D *, const CPnt3D *, unsigned int, float, float)
+void CZPlayerMapItem::SetViewCone(CZNewHudMap *map, const CPnt3D *dir, const CPnt3D *pos, unsigned int blipId, float, float fovTAN)
 {
+	/* 0x3db9c0: a hidden blip that has faded out goes off. Else the cone (player seals only):
+	 * a quad from the seal to two points 200 x zoom ahead, fovTAN to each side; the blip a
+	 * square of 4 (8 with the hostage icon for blip 7). The range argument is unused (ELF). */
+	if (blipId == 9 && m_fadeval == 0.0f)
+	{
+		m_blip.Off();
+		m_cone.Off();
+		m_clippedblip[0].Off();
+		m_clippedblip[1].Off();
+		m_clippedcone[0].Off();
+		m_clippedcone[1].Off();
+		return;
+	}
+
+	CZSealBody* seal = m_entity != NULL && m_entity->m_type == CEntity::ENT_TYPE_SEAL ? static_cast<CZSealBody*>(m_entity) : NULL;
+	float fConeLen = 200.0f * map->GetZoomOut();
+	float CONEWID = fConeLen * fovTAN;
+	CPnt3D point[3];
+	point[0] = *pos;
+	point[1].x = pos->x + fConeLen * dir->x + CONEWID * dir->z;
+	point[1].y = pos->y;
+	point[1].z = pos->z + fConeLen * dir->z - CONEWID * dir->x;
+	point[2].x = pos->x + fConeLen * dir->x - CONEWID * dir->z;
+	point[2].y = pos->y;
+	point[2].z = pos->z + fConeLen * dir->z + CONEWID * dir->x;
+	map->m_matrix.Transform(point, 3);
+
+	if (seal->m_control != NULL && static_cast<CSealCtrl*>(seal->m_control)->IsPlayer())
+	{
+		float xdiff = (point[2].x - point[1].x) / 2.0f;
+		float ydiff = (point[2].y - point[1].y) / 2.0f;
+		float x4 = point[0].x + xdiff;
+		float x5 = point[0].x - xdiff;
+		float y4 = point[0].y + ydiff;
+		float y5 = point[0].y - ydiff;
+		float fTopY = map->CalcDrawPos(point[1].y);
+		y5 = map->CalcDrawPos(y5);
+		y4 = map->CalcDrawPos(y4);
+		m_cone.Load(point[1].x, fTopY, x5, y5, x4, y4, point[2].x, map->CalcDrawPos(point[2].y), m_myconetex);
+	}
+
+	float fBlipHalfSide = 4.0f;
+	zdb::CTexture* pTex = m_mybliptex;
+
+	if (blipId == 7)
+	{
+		zdb::CTexHandle* pHandle = theHUD->m_mapcompass.m_anchor_img[4];
+		pTex = pHandle != NULL ? pHandle->m_texture : NULL;
+		fBlipHalfSide = 8.0f;
+	}
+
+	float fLeftX = point[0].x - fBlipHalfSide;
+	float fRightX = point[0].x + fBlipHalfSide;
+	float fTopY = map->CalcDrawPos(point[0].y - fBlipHalfSide);
+	float fBotY = map->CalcDrawPos(point[0].y + fBlipHalfSide);
+	m_blip.Load(fLeftX, fTopY, fLeftX, fBotY, fRightX, fBotY, fRightX, fTopY, pTex);
+	m_blip.On();
+	m_cone.On();
+
+	/* port: _blips has nine rows; blip 9 (hidden, still fading) reads the row past it in the
+	 * ELF (zeros and NaN): black here */
+	static const BLIP_COLOR c_hidden = {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
+	const BLIP_COLOR& c = blipId < 9 ? _blips[blipId] : c_hidden;
+	m_cone.SetColor(c.cone.x, c.cone.y, c.cone.z);
+	m_blip.SetColor(c.blip.x, c.blip.y, c.blip.z);
+	m_cone.SetTrans(m_fadeval * hudGetTacMapPulseTrans());
+	m_blip.SetTrans(127.0f * m_fadeval);
 }
 
 /* @socom-skeleton stub MissionEndCleanup__15CZPlayerMapItemFv */
 void CZPlayerMapItem::MissionEndCleanup()
 {
+	/* 0x3db990 */
+	m_ablestring.ClearAndWipe();
+	m_bravostring.ClearAndWipe();
 }

@@ -69,7 +69,14 @@
 #include "gamez/zTexture/ztex.h"
 #include "gamez/zTwoD/ztwod.h"
 #include "gamez/zUtil/util_stable.h"
+#include "gamez/zAI/zai.h" /* AiMaps */
+#include "gamez/zFTS/zfts.h" /* ftsGetTacMapZoom* */
+#include "gamez/zSound/zsnd.h" /* CSnd */
+#include "gamez/zVideo/zvid.h" /* zVid_Scissor */
+#include <math.h>
 /* @socom-skeleton end include */
+
+void zVid_Scissor(int, int, int, int); /* zvid_init.cpp (0x308420); no header declares it */
 /* @socom-skeleton decl forward */
 class CZMPBombMapItem;
 namespace {
@@ -171,8 +178,27 @@ COverlayLine::~COverlayLine()
 
 /* @socom-skeleton stub SetupNorthIndicator__27@unnamed@hud_newhudmap_cpp@FP10CZSealBody */
 namespace {
-void SetupNorthIndicator(CZSealBody *)
+void SetupNorthIndicator(CZSealBody *seal)
 {
+	/* 0x3c6a50: the full-screen north arrow at 600,100 turned by the seal's heading (shaft
+	 * ends 10 and 30 out, the barb from 20 out), and the "N" */
+	const float* forward = seal->m_node->m_matrix.m_matrix[2];
+	CPnt3D dir;
+	dir.x = -forward[0];
+	dir.y = -forward[1];
+	dir.z = -forward[2];
+	float inv = (float)(1.0 / sqrt((double)(dir.x * dir.x + dir.z * dir.z)));
+	float nz = dir.z * inv;
+	float nx = dir.x * inv;
+	float tipx = 600.0f - 30.0f * nx;
+	float tipy = 100.0f + 30.0f * nz;
+	g_lineNorthIndFrontShaft.Load(600.0f - 10.0f * nx, 100.0f + 10.0f * nz, tipx, tipy, g_pFov);
+	g_lineNorthIndFrontShaft.SetUV(0.5f, 0.9375f, 0.5f, 0.9375f);
+	g_lineNorthIndRearShaft.Load(600.0f + 10.0f * nx, 100.0f - 10.0f * nz, 600.0f + 30.0f * nx, 100.0f - 30.0f * nz, g_pFov);
+	g_lineNorthIndRearShaft.SetUV(0.5f, 0.9375f, 0.5f, 0.9375f);
+	g_lineNorthIndBarb.Load((600.0f - 20.0f * nx) - 10.0f * nz, (100.0f + 20.0f * nz) - 10.0f * nx, tipx, tipy, g_pFov);
+	g_lineNorthIndBarb.SetUV(0.5f, 0.9375f, 0.5f, 0.9375f);
+	g_strNorthIndN.Load(1.0f, "N", theHUD->m_myfont, 596, 107);
 }
 }
 
@@ -213,9 +239,18 @@ CZNewHudMap::CZNewHudMap()
 	g_strNorthIndN.m_color.x = 64.0f;
 	g_strNorthIndN.m_color.y = 192.0f;
 	g_strNorthIndN.m_color.z = 255.0f;
-	/* port: the C2DLine::SetTrans calls on the north-indicator and grid lines (full-screen
-	 * map only) are not made: C2DLine has no SetTrans in the port yet */
+	g_lineNorthIndFrontShaft.SetTrans(128.0f);
+	g_lineNorthIndRearShaft.SetTrans(128.0f);
+	g_lineNorthIndBarb.SetTrans(128.0f);
 	g_strNorthIndN.m_color.w = 128.0f;
+
+	/* ELF quirk kept: the loop constant is reloaded in the branch delay slot, so only the
+	 * first horizontal grid line gets 128, the others 8 */
+	for (u32 i = 0; i < 7; i++)
+		g_arrHorGridLines[i].SetTrans(i == 0 ? 128.0f : 8.0f);
+
+	for (u32 i = 0; i < 9; i++)
+		g_arrVertGridLines[i].SetTrans(8.0f);
 }
 
 /* @socom-skeleton stub __dt__11CZNewHudMapFv */
@@ -226,29 +261,217 @@ CZNewHudMap::~CZNewHudMap()
 /* @socom-skeleton stub GetZoomOut__11CZNewHudMapCFv */
 float CZNewHudMap::GetZoomOut() const
 {
+	/* 0x3c6470: the shown world width over 2200 (4.5455e-4) */
+	return 4.5454545e-4f * m_width;
 }
 
 /* @socom-skeleton stub ReInit__11CZNewHudMapFv */
 void CZNewHudMap::ReInit()
 {
+	/* 0x3c6440 */
+	if (m_isFullScreen)
+		SwitchToCompassMap();
 }
 
 /* @socom-skeleton stub InitMap__11CZNewHudMapFPQ23zdb6CWorld */
 void CZNewHudMap::InitMap(zdb::CWorld *)
 {
+	/* 0x3c5d90: the zoom sounds, the objective list, the level map texture (levelmap.tif) as
+	 * the background child, the line map item (objective anchors, AI map lines), the map
+	 * item textures, the scroll arrows and the full-screen grid / hash lines */
+	m_zoominsound = CSnd::GetSoundByName("SND_SLIDE_UP_2");
+	m_zoomoutsound = CSnd::GetSoundByName("SND_SLIDE_DOWN_2");
+	m_objectivelist.Init();
+	m_backtex = GetTextureByName(NULL, "levelmap.tif");
+	m_background.SetTrans(64.0f);
+	m_background.SetUV(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f);
+
+	float topy = CalcDrawPos(m_screeny1);
+	float boty = CalcDrawPos(m_screeny2);
+	m_background.Load(m_screenx1, topy, m_screenx1, boty, m_screenx2, boty, m_screenx2, topy, m_backtex);
+	push_back(&m_background);
+
+	g_pFov = GetTextureByName(NULL, "FOV.tif");
+	CZLineMap* linemap = new CZLineMap;
+	linemap->m_linetex = g_pFov;
+	m_itemlist.push_back(linemap);
+
+	CZPlayerMapItem::m_conetex = GetTextureByName(NULL, "FOV.tif");
+	CZPlayerMapItem::m_alivebliptex = GetTextureByName(NULL, "teammate_health.tif");
+	CZPlayerMapItem::m_deadbliptex = CZPlayerMapItem::m_alivebliptex;
+	CZClaymoreMapItem::m_claymoretex = GetTextureByName(NULL, "FOV.tif");
+	CZClaymoreMapItem::m_U0 = 0.4375f;
+	CZClaymoreMapItem::m_V0 = 0.875f;
+	CZClaymoreMapItem::m_U1 = 0.53125f;
+	CZClaymoreMapItem::m_V1 = 0.96875f;
+	CZClaymoreMapItem::m_explosiontex = GetTextureByName(NULL, "compass_bomb_ring.tif");
+	CZClaymoreMapItem::m_explosionU1 = 1.0f;
+	CZClaymoreMapItem::m_explosionV1 = 1.0f;
+	CZClaymoreMapItem::m_explosionU0 = 0.0f;
+	CZClaymoreMapItem::m_explosionV0 = 0.0f;
+	CZMPBombMapItem::m_mpbombtex = GetTextureByName(NULL, "FOV.tif");
+	CZMPBombMapItem::m_U0 = 0.4375f;
+	CZMPBombMapItem::m_V0 = 0.875f;
+	CZMPBombMapItem::m_U1 = 0.53125f;
+	CZMPBombMapItem::m_V1 = 0.96875f;
+	CZMPBombMapItem::m_explosiontex = GetTextureByName(NULL, "compass_bomb_ring.tif");
+	CZMPBombMapItem::m_explosionU0 = 0.0f;
+	CZMPBombMapItem::m_explosionU1 = 1.0f;
+	CZMPBombMapItem::m_explosionV1 = 1.0f;
+	CZMPBombMapItem::m_explosionV0 = 0.0f;
+	CZPlayerMapItem::InitStaticItems();
+
+	zdb::CTexture* arrow = GetTextureByName(NULL, "hud_arrow_off2.tif");
+	float height = arrow != NULL ? (float)arrow->m_height : 0.0f;
+	float width = arrow != NULL ? (float)arrow->m_width : 0.0f;
+	float upx = 0.5f * (870.0f - width);
+	float upx2 = upx + width;
+	g_bmpScrollUp.Load(upx, 60.0f, upx, 60.0f + height, upx2, 60.0f + height, upx2, 60.0f, arrow);
+
+	/* the side arrows use the texture turned a quarter (sizes swapped, scaled 448/480) */
+	float sidew = 448.0f * width / 480.0f;
+	float sideh = 480.0f * height / 448.0f;
+	float sidey = 0.5f * (425.0f - sidew);
+	float sidey2 = sidey + sidew;
+	g_bmpScrollLeft.Load(230.0f, sidey2, 230.0f + sideh, sidey2, 230.0f + sideh, sidey, 230.0f, sidey, arrow);
+	g_bmpScrollRight.Load(640.0f, sidey, 640.0f - sideh, sidey, 640.0f - sideh, sidey2, 640.0f, sidey2, arrow);
+	g_bmpScrollDown.Load(upx2, 365.0f, upx2, 365.0f - height, upx, 365.0f - height, upx, 365.0f, arrow);
+
+	for (u32 i = 0; i < 7; i++)
+	{
+		g_arrHorGridLines[i].Load(0.0f, 0.0f, 0.0f, 0.0f, g_pFov);
+		g_arrHorGridLines[i].SetUV(0.5f, 0.9375f, 0.5f, 0.9375f);
+	}
+
+	for (u32 i = 0; i < 9; i++)
+	{
+		g_arrVertGridLines[i].Load(0.0f, 0.0f, 0.0f, 0.0f, g_pFov);
+		g_arrVertGridLines[i].SetUV(0.5f, 0.9375f, 0.5f, 0.9375f);
+	}
+
+	/* the hash marks along the top (0..29) and bottom (30..59) edges of the map: three
+	 * between each pair of the nine vertical grid lines (10.2123 apart) */
+	for (s32 i = 0; i < 10; i++)
+	{
+		for (s32 j = 0; j < 3; j++)
+		{
+			float x = 230.0f + 10.212296f * (float)(j + 4 * i + 1);
+			g_arrHashLines[i * 3 + j].Load(x, 60.0f, x, 70.0f, g_pFov);
+			g_arrHashLines[i * 3 + j].SetUV(0.5f, 0.9375f, 0.5f, 0.9375f);
+		}
+	}
+
+	for (s32 i = 0; i < 10; i++)
+	{
+		for (s32 j = 0; j < 3; j++)
+		{
+			float x = 230.0f + 10.212296f * (float)(j + 4 * i + 1);
+			g_arrHashLines[(i + 10) * 3 + j].Load(x, 355.0f, x, 365.0f, g_pFov);
+			g_arrHashLines[(i + 10) * 3 + j].SetUV(0.5f, 0.9375f, 0.5f, 0.9375f);
+		}
+	}
 }
 
 /* @socom-skeleton body UninitMap__11CZNewHudMapFv */
-void CZNewHudMap::UninitMap() {}
+void CZNewHudMap::UninitMap()
+{
+	/* 0x3c5c80: the map items deleted, the objective list cleaned, the children dropped */
+	for (std::list<CZMapItem*>::iterator it = m_itemlist.begin(); it != m_itemlist.end(); ++it)
+	{
+		if (*it != NULL)
+			delete *it;
+	}
+
+	m_itemlist.clear();
+	m_objectivelist.MissionEndCleanup();
+	g_strNorthIndN.SetString(NULL);
+
+	while (!empty())
+		erase(begin());
+}
 
 /* @socom-skeleton stub MapWorldPointToUV__11CZNewHudMapFPC6CPnt3DPC5CBBoxPQ23zdb8CTexture */
-void CZNewHudMap::MapWorldPointToUV(const CPnt3D *, const CBBox *, zdb::CTexture *)
+CPnt3D CZNewHudMap::MapWorldPointToUV(const CPnt3D *worldpoint, const CBBox *destBBox, zdb::CTexture *tex)
 {
+	/* 0x3c5be0: the point's place in the box as texture UV (through texel units, ELF) */
+	float texwidth = (float)tex->m_width;
+	float texheight = (float)tex->m_height;
+	CPnt3D p;
+	p.x = (worldpoint->x - destBBox->m_min.x) * (texwidth / (destBBox->m_max.x - destBBox->m_min.x));
+	p.y = (worldpoint->z - destBBox->m_min.z) * (texheight / (destBBox->m_max.z - destBBox->m_min.z));
+	p.x = p.x / texwidth;
+	p.y = p.y / texheight;
+	p.z = 0.0f;
+	return p;
+}
+
+namespace {
+/* port: _TransformPointXYZ__FPC6CPnt4DP6CPnt4D (0x3c5bc0, file-local asm helper: VF4..VF7
+ * hold the matrix the caller loaded) - here the matrix is passed */
+void TransformPointXYZ(const CMatrix& m, const CPnt4D* in, CPnt4D* out)
+{
+	f32 x = in->x, y = in->y, z = in->z;
+	out->x = m.m_matrix[0][0] * x + m.m_matrix[1][0] * y + m.m_matrix[2][0] * z + m.m_matrix[3][0];
+	out->y = m.m_matrix[0][1] * x + m.m_matrix[1][1] * y + m.m_matrix[2][1] * z + m.m_matrix[3][1];
+	out->z = m.m_matrix[0][2] * x + m.m_matrix[1][2] * y + m.m_matrix[2][2] * z + m.m_matrix[3][2];
+}
 }
 
 /* @socom-skeleton stub RefreshBackground__11CZNewHudMapFPQ23zdb6CWorld */
 void CZNewHudMap::RefreshBackground(zdb::CWorld *)
 {
+	/* 0x3c5780: the level map texture spread over the AI map 0 box; the quad drawn is the
+	 * world square of the shown width around the viewer, turned with him, in map
+	 * coordinates (UVs from its corners), over the old background frame */
+	if (m_backtex == NULL)
+		return;
+
+	CAiMap* map0 = AiMaps.GetMapByIndex(0);
+
+	if (map0 == NULL)
+	{
+		m_background.Off();
+		return;
+	}
+
+	m_background.On();
+
+	float half = sqrtf(m_width * m_width);
+	CPnt4D point[4];
+	point[0].x = -half; point[0].y = 0.0f; point[0].z = -half; point[0].w = 0.0f;
+	point[1].x = half;  point[1].y = 0.0f; point[1].z = -half; point[1].w = 0.0f;
+	point[2].x = half;  point[2].y = 0.0f; point[2].z = half;  point[2].w = 0.0f;
+	point[3].x = -half; point[3].y = 0.0f; point[3].z = half;  point[3].w = 0.0f;
+
+	const CMatrix& viewer = m_viewer->m_node->m_matrix;
+
+	for (s32 i = 0; i < 4; i++)
+		TransformPointXYZ(viewer, &point[i], &point[i]);
+
+	const CBBox* bbox = reinterpret_cast<const CBBox*>(map0); /* CAiMap starts with its box (AIMAP_PARAMS::m_bbox) */
+	CPnt3D result[4];
+
+	for (s32 i = 0; i < 4; i++)
+	{
+		CPnt3D corner;
+		corner.x = point[i].x;
+		corner.y = point[i].y;
+		corner.z = point[i].z;
+		result[i] = MapWorldPointToUV(&corner, bbox, m_backtex);
+	}
+
+	for (s32 i = 0; i < 4; i++)
+		TransformPointXYZ(m_matrix, &point[i], &point[i]);
+
+	m_background.Load(point[0].x, CalcDrawPos(point[0].y), point[1].x, CalcDrawPos(point[1].y), point[2].x, CalcDrawPos(point[2].y), point[3].x, CalcDrawPos(point[3].y), m_backtex);
+
+	float topy = CalcDrawPos(m_screeny1);
+	float boty = CalcDrawPos(m_screeny2);
+	m_oldbackground.Load(m_screenx1, topy, m_screenx1, boty, m_screenx2, boty, m_screenx2, topy, m_oldbacktex);
+	m_oldbackground.SetTrans(128.0f);
+	m_background.SetUseFrameBufferAlpha(true);
+	m_background.SetUV(result[0].x, result[0].y, result[1].x, result[1].y, result[2].x, result[2].y, result[3].x, result[3].y);
+	m_background.SetColor(75.0f, 75.0f, 75.0f);
 }
 
 /* @socom-skeleton stub SetMapScreenPos__11CZNewHudMapFffff */
@@ -289,26 +512,289 @@ float CZNewHudMap::CalcDrawPos(float y) const
 /* @socom-skeleton stub CalcNewMatrix__11CZNewHudMapFv */
 void CZNewHudMap::CalcNewMatrix()
 {
+	/* 0x3c5510: world -> map screen: moved to the viewer (compass) or the scroll centre (full
+	 * screen), turned so the viewer's heading points up, scaled to the shown width, placed at
+	 * the map centre (world z goes to screen y) */
+	if (m_viewer == NULL)
+		return;
+
+	CPnt3D* pos = m_viewer->GetPosW();
+	const float* forward = m_viewer->m_node->m_matrix.m_matrix[2];
+	CPnt3D dir;
+	dir.x = -forward[0];
+	dir.y = -forward[1];
+	dir.z = -forward[2];
+	float heading = atan2f(dir.z, dir.x);
+
+	sceVu0UnitMatrix(reinterpret_cast<sceVu0FVECTOR*>(m_matrix.m_matrix));
+
+	if (m_isFullScreen)
+	{
+		m_matrix.m_matrix[3][0] = -m_centerx;
+		m_matrix.m_matrix[3][1] = 0.0f;
+		m_matrix.m_matrix[3][2] = -m_centerz;
+	}
+	else
+	{
+		/* ELF quirk kept: y is not negated */
+		m_matrix.m_matrix[3][0] = -pos->x;
+		m_matrix.m_matrix[3][1] = pos->y;
+		m_matrix.m_matrix[3][2] = -pos->z;
+	}
+
+	float angle = 1.5707964f + heading;
+
+	if (!(angle < 3.1415927f))
+		angle -= 6.2831855f;
+
+	sceVu0RotMatrixY(reinterpret_cast<sceVu0FVECTOR*>(m_matrix.m_matrix), reinterpret_cast<sceVu0FVECTOR*>(m_matrix.m_matrix), angle);
+
+	float scale = (m_screenx2 - m_screenx1) / m_width;
+	CMatrix screen;
+	sceVu0UnitMatrix(reinterpret_cast<sceVu0FVECTOR*>(screen.m_matrix));
+	screen.SetZero();
+	screen.m_matrix[0][0] = scale;
+	screen.m_matrix[1][2] = 1.0f;
+	screen.m_matrix[2][1] = scale;
+	screen.m_matrix[3][0] = m_screencenterx;
+	screen.m_matrix[3][1] = m_screencentery;
+	sceVu0MulMatrix(reinterpret_cast<sceVu0FVECTOR*>(m_matrix.m_matrix), reinterpret_cast<sceVu0FVECTOR*>(screen.m_matrix), reinterpret_cast<sceVu0FVECTOR*>(m_matrix.m_matrix));
+
+	m_width = m_width;
+	m_worldcenterx = pos->x;
+	m_worldcentery = pos->z;
 }
 
 /* @socom-skeleton stub GetScrollPermissions__11CZNewHudMapCFv */
-void CZNewHudMap::GetScrollPermissions() const
+CScrollBools CZNewHudMap::GetScrollPermissions() const
 {
+	/* 0x3c50f0: which full-screen arrows show - the scroll centre against the viewer's AI map
+	 * box, the four world directions mapped onto the turned screen by the heading (the
+	 * diagonal cases or two of them) */
 	/* @socom-skeleton stub boxFallback$2760 */
 	static CBBox boxFallback;
+
+	const float* forward = m_viewer->m_node->m_matrix.m_matrix[2];
+	CPnt3D ptDir;
+	ptDir.x = -forward[0];
+	ptDir.y = -forward[1];
+	ptDir.z = -forward[2];
+
+	const CBBox* box = &boxFallback;
+
+	if (m_viewer != NULL)
+	{
+		CAiMap* map = AiMaps.GetMapByIndex(m_viewer->m_mapLoc.m_mapid);
+
+		if (map != NULL)
+			box = reinterpret_cast<const CBBox*>(map);
+	}
+
+	bool bXUnderMax = m_centerx < box->m_max.x;
+	bool bXOverMin = !(m_centerx <= box->m_min.x);
+	bool bZUnderMax = m_centerz < box->m_max.z;
+	bool bZOverMin = !(m_centerz <= box->m_min.z);
+	CScrollBools result = { false, false, false, false };
+	const float eps = 0.01f;
+
+	if (ptDir.x < -eps)
+	{
+		if (ptDir.z < -eps)
+		{
+			result._bUp = bXOverMin || bZOverMin;
+			result._bLeft = bZUnderMax || bXOverMin;
+			result._bRight = bZOverMin || bXUnderMax;
+			result._bDown = bXUnderMax || bZUnderMax;
+		}
+		else if (!(ptDir.z <= eps))
+		{
+			result._bUp = bXOverMin || bZUnderMax;
+			result._bLeft = bZUnderMax || bXUnderMax;
+			result._bRight = bZOverMin || bXOverMin;
+			result._bDown = bXUnderMax || bZOverMin;
+		}
+		else
+		{
+			result._bUp = bXOverMin;
+			result._bLeft = bZUnderMax;
+			result._bRight = bZOverMin;
+			result._bDown = bXUnderMax;
+		}
+	}
+	else if (!(ptDir.x <= eps))
+	{
+		if (ptDir.z < -eps)
+		{
+			result._bUp = bXUnderMax || bZOverMin;
+			result._bLeft = bZOverMin || bXOverMin;
+			result._bRight = bZUnderMax || bXUnderMax;
+			result._bDown = bXOverMin || bZUnderMax;
+		}
+		else if (!(ptDir.z <= eps))
+		{
+			result._bUp = bXUnderMax || bZUnderMax;
+			result._bLeft = bZOverMin || bXUnderMax;
+			result._bRight = bZUnderMax || bXOverMin;
+			result._bDown = bXOverMin || bZOverMin;
+		}
+		else
+		{
+			result._bUp = bXUnderMax;
+			result._bLeft = bZOverMin;
+			result._bRight = bZUnderMax;
+			result._bDown = bXOverMin;
+		}
+	}
+	else if (ptDir.z < -eps)
+	{
+		result._bUp = bZOverMin;
+		result._bLeft = bXOverMin;
+		result._bRight = bXUnderMax;
+		result._bDown = bZUnderMax;
+	}
+	else if (!(ptDir.z <= eps))
+	{
+		result._bUp = bZUnderMax;
+		result._bLeft = bXUnderMax;
+		result._bRight = bXOverMin;
+		result._bDown = bZOverMin;
+	}
+
+	return result;
 }
 
 /* @socom-skeleton stub SwitchMapToFullScreen__11CZNewHudMapFv */
 void CZNewHudMap::SwitchMapToFullScreen()
 {
+	/* 0x3c4e20 (SELECT): the full-screen map menu - rumble stopped, the lens effect (night
+	 * vision / scope) taken off, the compass hidden, the map rectangle 230,60 - 640,365 at
+	 * the mission's zoom, centred on the viewer, the objective list built, the HUD switched,
+	 * the grid drawn in from nothing */
+	m_isFullScreen = true;
+	CZSealBody* owner = CHUD::GetHUDOwner();
+	CSealCtrl* control = static_cast<CSealCtrl*>(owner->m_control);
+	CPad* pad = control->m_padid < 2 ? CInput::m_pads[control->m_padid] : NULL;
+	control->StopRumbler();
+	pad->SetButtonState(PAD_BUTTON::PAD_SELECT, KEY_FALLING);
+	m_oldmenustate = control->GetMenuState();
+	control->SetMenuState(stateFullScreenMapMenu);
+
+	if (owner->m_control != NULL && static_cast<CSealCtrl*>(owner->m_control)->IsPlayer())
+		owner->m_kit.Apply_LensEffects(false, NULL);
+
+	m_parent->m_mapcompass.Off();
+	SetMapScreenPos(230.0f, 60.0f, 640.0f, 365.0f);
+	m_width = 2200.0f / ftsGetTacMapZoom();
+	RefreshBackground(zdb::CWorld::m_world);
+	m_scale = 1.0f;
+
+	CPnt3D* pos = m_viewer->GetPosW();
+	m_centerx = pos->x;
+	m_centerz = pos->z;
+
+	/* the clipper grows to four times the half width: nothing is clipped in full screen */
+	zdb::CCircleClip* clip = m_circleclipper;
+	clip->m_Cx = C2D::m_topx + m_screencenterx;
+	clip->m_Cy = C2D::m_topy + m_screencentery;
+	clip->m_Radius = 4.0f * (m_screencenterx - m_screenx1);
+
+	m_objectivelist.RefreshList();
+	SetupNorthIndicator(m_viewer);
+	theHUD->SwitchToFullScreenMap();
+	g_fShowTime = 0.0f;
+	SOCOM_PORT_TRACE("MAP: full screen (width %.0f, centre %.0f %.0f, level map %p, %u objectives, %u items)", m_width, m_centerx, m_centerz, m_backtex, (u32)m_objectivelist.m_objectivenames.size(), (u32)m_itemlist.size());
+
+	for (u32 i = 0; i < 7; i++)
+		g_arrHorGridLines[i].SetPos(0, 0, 0, 0);
+
+	for (u32 i = 0; i < 9; i++)
+		g_arrVertGridLines[i].SetPos(0, 0, 0, 0);
+
+	for (u32 i = 0; i < 60; i++)
+		g_arrHashLines[i].SetTrans(0.0f);
 }
 
 /* @socom-skeleton body SwitchToCompassMap__11CZNewHudMapFv */
-void CZNewHudMap::SwitchToCompassMap() { }
+void CZNewHudMap::SwitchToCompassMap()
+{
+	/* 0x3c4c10 (SELECT / TRIANGLE on the map, the pause menu, ReInit): the menu state back,
+	 * the lens effect back on in a night mission when zoomed with night vision (2) or the
+	 * starlight scope (3 and up), the compass map rectangle and width again, the objective
+	 * list freed, TRIANGLE held so it does not act again, the HUD switched back */
+	m_isFullScreen = false;
+	CZSealBody* owner = CHUD::GetHUDOwner();
+	CSealCtrl* control = static_cast<CSealCtrl*>(owner->m_control);
+	CPad* pad = control->m_padid < 2 ? CInput::m_pads[control->m_padid] : NULL;
+	control->SetMenuState(m_oldmenustate);
+	m_oldmenustate = stateNone;
+
+	zdb::CWorld* world = zdb::CWorld::m_world;
+	s8 zoom = static_cast<s8>(owner->m_zoomstate);
+
+	if (world->m_night_mission && owner->m_control != NULL && static_cast<CSealCtrl*>(owner->m_control)->IsPlayer())
+	{
+		if (zoom == 2)
+		{
+			CPnt3D colour = world->m_lensfx_nvg;
+			owner->m_kit.Apply_LensEffects(true, &colour);
+		}
+		else if (zoom >= 3)
+		{
+			CPnt3D colour = world->m_lensfx_starlightscope;
+			owner->m_kit.Apply_LensEffects(true, &colour);
+		}
+	}
+
+	SetMapScreenPos(486.0f, 2.0f, 614.0f, 130.0f);
+	SetWorldWidth(1200.0f);
+	m_scale = 1.0f;
+	m_parent->m_mapcompass.On();
+	RefreshBackground(zdb::CWorld::m_world);
+	m_objectivelist.FreeList(false);
+	pad->SetButtonState(PAD_BUTTON::PAD_TRIANGLE, KEY_DOWN);
+	theHUD->SwitchToCompassMap();
+	SOCOM_PORT_TRACE("MAP: compass map again");
+}
 
 /* @socom-skeleton stub HandleScrolling__11CZNewHudMapFff */
-void CZNewHudMap::HandleScrolling(float, float)
+void CZNewHudMap::HandleScrolling(float fStickX, float fStickY)
 {
+	/* 0x3c4950: the left stick moves the scroll centre 20 a tick along the turned screen
+	 * axes, while it stays inside the viewer's AI map box */
+	/* port: the ELF shares GetScrollPermissions' boxFallback (one static, one init flag) */
+	static CBBox boxFallback;
+
+	if (fStickX == 0.0f && fStickY == 0.0f)
+		return;
+
+	if (m_viewer == NULL)
+		return;
+
+	const float* forward = m_viewer->m_node->m_matrix.m_matrix[2];
+	CPnt3D ptDir;
+	ptDir.x = -forward[0];
+	ptDir.y = -forward[1];
+	ptDir.z = -forward[2];
+	float fDirLength = sqrtf(ptDir.x * ptDir.x + ptDir.z * ptDir.z);
+	float fConst = 20.0f / fDirLength;
+
+	const CBBox* box = &boxFallback;
+	CAiMap* map = AiMaps.GetMapByIndex(m_viewer->m_mapLoc.m_mapid);
+
+	if (map != NULL)
+		box = reinterpret_cast<const CBBox*>(map);
+
+	float fXMove = fConst * (fStickX * ptDir.z + fStickY * ptDir.x);
+	bool allowed = fXMove > 0.0f ? m_centerx < box->m_max.x : !(m_centerx <= box->m_min.x);
+
+	if (allowed)
+		m_centerx += fXMove;
+
+	float fZMove = fConst * (fStickX * -ptDir.x + fStickY * ptDir.z);
+	allowed = fZMove > 0.0f ? m_centerz < box->m_max.z : !(m_centerz <= box->m_min.z);
+
+	if (allowed)
+		m_centerz += fZMove;
 }
 
 /* @socom-skeleton stub TickCompassMap__11CZNewHudMapFP4CPad10MENU_STATE */
@@ -329,8 +815,122 @@ void CZNewHudMap::TickCompassMap(CPad *pad, MENU_STATE menustate)
 }
 
 /* @socom-skeleton stub TickFullScreenMap__11CZNewHudMapFP4CPad10MENU_STATE */
-void CZNewHudMap::TickFullScreenMap(CPad *, MENU_STATE)
+void CZNewHudMap::TickFullScreenMap(CPad *pad, MENU_STATE)
 {
+	/* 0x3c4420: (no mission camera playing, input enabled) SELECT or TRIANGLE close the map;
+	 * DOWN / UP pick the next / previous objective, CROSS plays its camera, CIRCLE centres
+	 * between the player and the objective zoomed out to show both, SQUARE centres on the
+	 * player. With an analog pad the left stick scrolls and the right stick zooms (2200 /
+	 * far .. 2200 / near), with the slide sounds. */
+	if (m_objectivelist.IsPlayingAnimation())
+		return;
+
+	CZSealBody* owner = CHUD::GetHUDOwner();
+	CSealCtrl* control = owner != NULL ? static_cast<CSealCtrl*>(owner->m_control) : NULL;
+
+	if (control == NULL || !control->m_input_enabled)
+		return;
+
+	if (pad->m_state[(int)PAD_BUTTON::PAD_SELECT] == KEY_FALLING || pad->m_state[(int)PAD_BUTTON::PAD_TRIANGLE] == KEY_FALLING)
+	{
+		SwitchToCompassMap();
+	}
+	else if (pad->m_state[(int)PAD_BUTTON::PAD_DOWN] == KEY_FALLING)
+	{
+		m_objectivelist.NextObjective();
+	}
+	else if (pad->m_state[(int)PAD_BUTTON::PAD_UP] == KEY_FALLING)
+	{
+		m_objectivelist.PreviousObjective();
+	}
+	else if (pad->m_state[(int)PAD_BUTTON::PAD_CROSS] == KEY_FALLING)
+	{
+		m_objectivelist.SelectObjective();
+	}
+	else if (pad->m_state[(int)PAD_BUTTON::PAD_CIRCLE] == KEY_FALLING)
+	{
+		float z = m_viewer->GetPosW()->z;
+		float x = m_viewer->GetPosW()->x;
+		CMissionObjectiveCam* objective = m_objectivelist.GetCurrentObjective();
+
+		if (objective != NULL)
+		{
+			x = (x + objective->m_pos.x) * 0.5f;
+			z = (z + objective->m_pos.y) * 0.5f;
+		}
+
+		m_centerx = x;
+		m_centerz = z;
+		CalcNewMatrix();
+
+		if (objective != NULL)
+		{
+			CPnt3D p;
+			m_matrix.Transform(m_viewer->GetPosW(), &p, 1);
+			p.y = CalcDrawPos(p.y);
+
+			float factor = 1.0f;
+			float d = fabsf(m_screencenterx - p.x);
+			float limit = (m_screencenterx - m_screenx1) - 20.0f;
+
+			if (!(d <= limit))
+				factor = d / limit;
+
+			d = fabsf(m_screencentery - p.y);
+			limit = (m_screencentery - m_screeny1) - 20.0f;
+
+			if (!(d <= limit))
+			{
+				float f = d / limit;
+
+				if (!(f <= factor))
+					factor = f;
+			}
+
+			float width = m_width * factor;
+			float widest = 2200.0f / ftsGetTacMapZoomFar();
+			m_width = width < widest ? width : widest;
+		}
+	}
+	else if (pad->m_state[(int)PAD_BUTTON::PAD_SQUARE] == KEY_FALLING)
+	{
+		m_centerx = m_viewer->GetPosW()->x;
+		m_centerz = m_viewer->GetPosW()->z;
+	}
+
+	if (!pad->m_IsAnalog || !m_isFullScreen)
+		return;
+
+	HandleScrolling(pad->m_LeftStick[0], pad->m_LeftStick[1]);
+	float zoom = pad->m_RightStick[1];
+	m_width -= 20.0f * zoom;
+
+	float widest = 2200.0f / ftsGetTacMapZoomFar();
+
+	if (!(m_width <= widest))
+	{
+		m_width = widest;
+		return;
+	}
+
+	float closest = 2200.0f / ftsGetTacMapZoomNear();
+
+	if (m_width < closest)
+	{
+		m_width = closest;
+		return;
+	}
+
+	if (!(zoom <= 0.0f))
+	{
+		if (m_zoominsound != NULL)
+			m_zoominsound->PlaySound(static_cast<CSndInstance*>(NULL), 255); /* vtable +0xc */
+	}
+	else if (zoom < 0.0f)
+	{
+		if (m_zoomoutsound != NULL)
+			m_zoomoutsound->PlaySound(static_cast<CSndInstance*>(NULL), 255); /* vtable +0xc */
+	}
 }
 
 /* @socom-skeleton stub HudTick__11CZNewHudMapFP4CPadf */
@@ -338,7 +938,9 @@ void CZNewHudMap::HudTick(CPad *pad, float dT)
 {
 	/* 0x3c3fc0: compass mode watches for SELECT; the full-screen map ticks its menu. The
 	 * rest runs only for the full-screen map or with gopt.doRadar (off in the ELF's
-	 * defaults, so the compass-mode radar never ticks or draws). */
+	 * defaults, so the compass-mode radar never ticks or draws): the background and matrix,
+	 * the map items (finished ones deleted) and a new CZPlayerMapItem for every seal whose
+	 * HudUpdateViewCone says so */
 	CZSealBody* seal = CHUD::GetHUDOwner();
 	MENU_STATE menustate = static_cast<CSealCtrl*>(seal->m_control)->GetMenuState();
 
@@ -358,38 +960,213 @@ void CZNewHudMap::HudTick(CPad *pad, float dT)
 		TickFullScreenAnims(dT);
 	}
 
-	/* port: not written (0x3c4040 on, full-screen map / radar only): RefreshBackground,
-	 * CalcNewMatrix, the map items' Tick (finished ones deleted), and a CZPlayerMapItem
-	 * for every seal whose CZSealBody::HudUpdateViewCone says so */
+	RefreshBackground(zdb::CWorld::m_world);
+	CalcNewMatrix();
+
+	std::list<CZMapItem*> finished;
+
+	for (std::list<CZMapItem*>::iterator it = m_itemlist.begin(); it != m_itemlist.end(); ++it)
+	{
+		CZMapItem* item = *it;
+
+		if (item->Tick(this, dT))
+			finished.push_back(item);
+	}
+
+	for (std::list<CZMapItem*>::iterator it = finished.begin(); it != finished.end(); ++it)
+	{
+		CZMapItem* item = *it;
+
+		for (std::list<CZMapItem*>::iterator find = m_itemlist.begin(); find != m_itemlist.end(); ++find)
+		{
+			if (*find == item)
+			{
+				m_itemlist.remove(item);
+				break;
+			}
+		}
+
+		if (item != NULL)
+			delete item;
+	}
+
+	for (CEntityList::iterator it = CEntity::m_list.begin(); it != CEntity::m_list.end(); ++it)
+	{
+		CEntity* entity = *it;
+		CZSealBody* body = entity != NULL && entity->m_type == CEntity::ENT_TYPE_SEAL ? static_cast<CZSealBody*>(entity) : NULL;
+
+		if (body != NULL && body->HudUpdateViewCone())
+			m_itemlist.push_back(new CZPlayerMapItem(body));
+	}
 }
 
 /* @socom-skeleton stub Draw__11CZNewHudMapFPQ23zdb7CCamera */
 void CZNewHudMap::Draw(zdb::CCamera *camera)
 {
 	/* 0x3c3c60: only the full-screen map, or the radar with gopt.doRadar (off in the
-	 * ELF's defaults): nothing in compass mode */
+	 * ELF's defaults): nothing in compass mode. The objective list, then (no mission camera
+	 * playing) the background and items scissored to the map rectangle, the ALPHA / BRAVO
+	 * labels, and in full screen the north indicator, scroll arrows and grid lines. */
 	if (!IsOn() || (!m_isFullScreen && !gopt.doRadar))
 		return;
 
-	/* port: not written (0x3c3c94 on): the objective list, the scissored background and
-	 * children, the map items (Clip, Draw, PostDraw), DrawAlphaBravo, and in full screen
-	 * the north indicator, scroll arrows and grid lines */
-	(void)camera;
+	m_objectivelist.Draw(camera);
+
+	if (m_objectivelist.IsPlayingAnimation())
+		return;
+
+	float boty = m_screencentery + m_scale * (m_screeny2 - m_screencentery);
+	s32 x1 = (s32)m_screenx1;
+	s32 y1 = (s32)(m_screencentery + m_scale * (m_screeny1 - m_screencentery));
+	s32 x2 = (s32)m_screenx2;
+	zVid_Scissor(x1, y1, x2, (s32)boty - 1);
+	C2D::Draw(camera);
+
+	for (std::list<CZMapItem*>::iterator it = m_itemlist.begin(); it != m_itemlist.end(); ++it)
+	{
+		CZMapItem* item = *it;
+		item->Clip(this);
+		item->Draw(camera);
+	}
+
+	for (std::list<CZMapItem*>::iterator it = m_itemlist.begin(); it != m_itemlist.end(); ++it)
+		(*it)->PostDraw(camera);
+
+	CZPlayerMapItem::DrawAlphaBravo(camera);
+
+	if (m_isFullScreen)
+	{
+		g_lineNorthIndFrontShaft.Draw(camera);
+		g_lineNorthIndRearShaft.Draw(camera);
+		g_lineNorthIndBarb.Draw(camera);
+		g_strNorthIndN.Draw(camera);
+		g_bmpScrollUp.Draw(camera);
+		g_bmpScrollLeft.Draw(camera);
+		g_bmpScrollRight.Draw(camera);
+		g_bmpScrollDown.Draw(camera);
+
+		for (u32 i = 0; i < 7; i++)
+			g_arrHorGridLines[i].Draw(camera);
+
+		for (s32 i = 0; i < 9; i++)
+			g_arrVertGridLines[i].Draw(camera);
+
+		for (u32 i = 0; i < 60; i++)
+			g_arrHashLines[i].Draw(camera);
+	}
+
+	zVid_Scissor(0, 0, 640, 448);
 }
 
 /* @socom-skeleton stub TickFullScreenAnims__11CZNewHudMapCFf */
-void CZNewHudMap::TickFullScreenAnims(float) const
+void CZNewHudMap::TickFullScreenAnims(float dT) const
 {
+	/* 0x3c3790: the scroll arrows that can move pulse 64..128 over 2 s (the others stay at
+	 * 32); after the map opens the grid lines grow in over a second, one a tenth of a
+	 * second after the other, then the hash marks fade in, until 1.8 s */
 	/* @socom-skeleton stub fArrowPulseTime$3011 */
 	static float fArrowPulseTime;
+
+	fArrowPulseTime += dT;
+
+	if (!(fArrowPulseTime < 2.0f))
+		fArrowPulseTime = 0.0f;
+
+	float t = fArrowPulseTime;
+	float pulse = t < 1.0f ? 64.0f + 64.0f * t : 128.0f - 64.0f * (t - 1.0f);
+	CScrollBools perm = GetScrollPermissions();
+	g_bmpScrollUp.SetTrans(perm._bUp ? pulse : 32.0f);
+	g_bmpScrollLeft.SetTrans(perm._bLeft ? pulse : 32.0f);
+	g_bmpScrollRight.SetTrans(perm._bRight ? pulse : 32.0f);
+	g_bmpScrollDown.SetTrans(perm._bDown ? pulse : 32.0f);
+
+	if (g_fShowTime < 0.0f)
+		return;
+
+	g_fShowTime += dT;
+
+	for (u32 i = 0; i < 7; i++)
+	{
+		float start = 0.1f * (float)(s32)i;
+		float f;
+
+		if (g_fShowTime <= start)
+			f = 0.0f;
+		else
+		{
+			f = g_fShowTime - start;
+
+			if (!(f < 1.0f))
+				f = 1.0f;
+		}
+
+		if (f == 0.0f)
+			continue;
+
+		s32 y = (s32)(60.0f + 38.125f * (float)(s32)(i + 1));
+		s32 x2 = (s32)(230.0f + 410.0f * f);
+		g_arrHorGridLines[i].SetPos(230, y, x2, y);
+	}
+
+	for (u32 i = 0; i < 9; i++)
+	{
+		float start = 0.1f * (float)(s32)i;
+		float f;
+
+		if (g_fShowTime <= start)
+			f = 0.0f;
+		else
+		{
+			f = g_fShowTime - start;
+
+			if (!(f < 1.0f))
+				f = 1.0f;
+		}
+
+		/* ELF quirk kept: this loop stops (the horizontal one skips) at the first line not
+		 * started yet */
+		if (f == 0.0f)
+			break;
+
+		s32 x = (s32)(230.0f + 40.848f * (float)(s32)(i + 1));
+		s32 y2 = (s32)(60.0f + 305.0f * f);
+		g_arrVertGridLines[i].SetPos(x, 60, x, y2);
+	}
+
+	if (!(g_fShowTime <= 1.0f))
+	{
+		float trans = 8.0f * (2.0f * (g_fShowTime - 1.0f));
+
+		if (!(trans <= 8.0f))
+			trans = 8.0f;
+
+		for (s32 i = 0; (float)i < 60.0f; i++)
+			g_arrHashLines[i].SetTrans(trans);
+	}
+
+	if (!(g_fShowTime < 1.8f))
+		g_fShowTime = -1.0f;
 }
 
 /* @socom-skeleton stub UpdateExplosives__11CZNewHudMapFv */
 void CZNewHudMap::UpdateExplosives()
 {
+	/* port: not written (0x3c3580, 524 B): a CZClaymoreMapItem for every placed claymore of
+	 * CZWeapon::m_pProjectilelist not on the map yet (claymore items are not written; the
+	 * m8 single-player kit has none) */
 }
 
 /* @socom-skeleton stub FindMPBombItem__11CZNewHudMapFv */
 CZMPBombMapItem * CZNewHudMap::FindMPBombItem()
 {
+	/* 0x3c34c0: the first map item that is a CZMPBombMapItem (multiplayer) */
+	for (std::list<CZMapItem*>::iterator it = m_itemlist.begin(); it != m_itemlist.end(); ++it)
+	{
+		CZMPBombMapItem* bomb = dynamic_cast<CZMPBombMapItem*>(*it);
+
+		if (bomb != NULL)
+			return bomb;
+	}
+
+	return NULL;
 }
