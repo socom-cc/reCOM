@@ -187,8 +187,10 @@ def workspace(tmp_path: Path, root: Path, stage3_tracker: dict) -> tuple[Path, d
     tracker = decompose(stage3_tracker, graph)
     workspace = _cli_root(tmp_path, root, tracker, graph)
     (workspace / ".agent" / "REFERENCE_CENSUS.json").write_text(json.dumps(_census(graph)), encoding="utf-8")
-    # Tracker mutations refresh the README progress snapshot.
-    (workspace / "README.md").write_bytes((root / "README.md").read_bytes())
+    # Tracker mutations refresh the progress snapshot.
+    snapshot = workspace / "docs" / "reconstruction" / "WORKSPACE.md"
+    snapshot.parent.mkdir(parents=True, exist_ok=True)
+    snapshot.write_bytes((root / "docs" / "reconstruction" / "WORKSPACE.md").read_bytes())
     return workspace, graph
 
 

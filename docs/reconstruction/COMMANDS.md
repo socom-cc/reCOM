@@ -72,7 +72,7 @@ Generated from `python tools/socom.py commands --json`.
 | `python tools/socom.py issue request` | issue | yes | none | no | Record a tooling/process improvement request. |
 | `python tools/socom.py issue resolve` | issue | yes | none | no | Resolve a workspace issue. |
 | `python tools/socom.py issue reopen` | issue | yes | none | no | Reopen a workspace issue. |
-| `python tools/socom.py docs readme-progress` | docs | yes | none | no | Check or update the generated README progress snapshot. |
+| `python tools/socom.py docs progress-snapshot` | docs | yes | none | no | Check or update the generated progress snapshot in docs/reconstruction/WORKSPACE.md. |
 | `python tools/socom.py docs command-index` | docs | yes | none | no | Check or update the generated complete command index. |
 | `python tools/socom.py docs capability-coverage` | docs | yes | none | no | Check or update the generated tool coverage inventory. |
 | `python tools/socom.py recon graph` | recon | no | none | no | Build the deterministic callee-first function groups from the ELF. |
@@ -111,7 +111,7 @@ Generated from `python tools/socom.py commands --json`.
 | `python tools/socom.py progress find` | progress | no | none | no | Search unified reconstruction entities. |
 | `python tools/socom.py progress sql` | progress | no | none | no | Query the derived read-only SQLite cache of tracker, census and issues. |
 | `python tools/socom.py progress audit` | progress | no | none | no | Audit tracker structure and strict derived invariants. |
-| `python tools/socom.py progress snapshot` | progress | yes | none | no | Check or update the README progress snapshot. |
+| `python tools/socom.py progress snapshot` | progress | yes | none | no | Check or update the progress snapshot in docs/reconstruction/WORKSPACE.md. |
 | `python tools/socom.py progress report` | progress | no | none | no | Render an on-demand progress report. |
 | `python tools/socom.py progress migrate` | progress | yes | none | no | Migrate canonical tracker state to the current schema. |
 | `python tools/socom.py progress add-repair` | progress | yes | none | no | Add a recorded Ghidra repair item once the applies it corrects are accepted. |

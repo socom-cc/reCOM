@@ -22,7 +22,7 @@ def test_independence_flags_foreign_tool_entry_points_but_not_own_tests(
 ) -> None:
     foreign = "python " + "Tooling/" + "tools/" + "recoil" + ".py --workspace ../Rebuild"
     own_test = "tests/" + "tools/" + "test_cli" + ".py"
-    (tmp_path / "README.md").write_text(f"{foreign}\n{own_test}\n", encoding="utf-8")
+    (tmp_path / "AGENTS.md").write_text(f"{foreign}\n{own_test}\n", encoding="utf-8")
     findings = audit_independence(tmp_path)
     assert [row["rule"] for row in findings] == ["foreign reconstruction CLI"]
     assert findings[0]["line"] == 1
@@ -34,7 +34,7 @@ def test_independence_rejects_machine_specific_paths(tmp_path: Path) -> None:
     unix_home = "/" + "home" + "/" + "example" + "/tool"
     unc_path = "\\" * 2 + "build-host" + "\\share\\tool"
     device_path = "\\" * 2 + "?" + "\\" + windows_home
-    (tmp_path / "README.md").write_text(
+    (tmp_path / "AGENTS.md").write_text(
         "\n".join((windows_home, windows_tool, unix_home, unc_path, device_path)),
         encoding="utf-8",
     )
@@ -72,7 +72,7 @@ def test_independence_rejects_dynamic_local_identities(
 ) -> None:
     monkeypatch.setenv("USERNAME", "ExampleAccount")
     monkeypatch.setenv("COMPUTERNAME", "EXAMPLE-HOST")
-    (tmp_path / "README.md").write_text(
+    (tmp_path / "AGENTS.md").write_text(
         "ExampleAccount configured EXAMPLE-HOST.\n", encoding="utf-8"
     )
 
@@ -323,6 +323,6 @@ def test_source_inventory(root: Path) -> None:
     assert len({owner["id"] for owner in owners}) == len(owners)
 
 
-def test_readme_progress_snapshot_is_fresh(root: Path) -> None:
+def test_progress_snapshot_is_fresh(root: Path) -> None:
     tracker = load_tracker(root / ".agent" / "RECONSTRUCTION_PROGRESS.json")
     assert snapshot_status(root, tracker)["fresh"] is True

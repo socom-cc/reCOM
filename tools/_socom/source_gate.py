@@ -459,7 +459,7 @@ def review_gate(
     # Strict audits and current generated snapshots.
     problems.extend(f"progress audit --strict: {error}" for error in audit_tracker(tracker, strict=True, census=census))
     if not snapshot_status(root, tracker)["fresh"]:
-        problems.append("the README progress snapshot is stale (docs readme-progress --write)")
+        problems.append("the progress snapshot is stale (docs progress-snapshot --write)")
     if issues is None:
         problems.append("the workspace issue ledger .agent/WORKSPACE_ISSUES.json is missing")
     else:

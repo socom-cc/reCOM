@@ -55,7 +55,6 @@ ROOT_AUDIT_FILES = (
     ".gitignore",
     "AGENTS.md",
     "CLAUDE.md",
-    "README.md",
     "CMakeLists.txt",
     "CMakePresets.json",
 )

@@ -6,6 +6,9 @@ without becoming a second progress system.
 
 | Topic | Document |
 | --- | --- |
+| Workspace overview, health checks, generated progress snapshot | [WORKSPACE.md](WORKSPACE.md) |
+| Maintainer decisions and working practices | [CONVENTIONS.md](CONVENTIONS.md) |
+| Functional port: notes, worker brief | [../port/README.md](../port/README.md) |
 | Pipeline, work lifecycle, evidence packets | [WORKFLOW.md](WORKFLOW.md) |
 | Unified tracker and issue ledger | [TRACKER.md](TRACKER.md) |
 | Ghidra safety, receipts, and completion rules | [GHIDRA.md](GHIDRA.md) |

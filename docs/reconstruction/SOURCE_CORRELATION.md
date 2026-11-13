@@ -1473,7 +1473,7 @@ checks and refuse while any of them fails. The checks are:
    `progress open-capability-gate`; no item is leased except the gate,
    held by its reviewer; and no open tracker blocker names the stage;
 2. strict audits and current generated metadata: `progress audit --strict`
-   (with the reference census), a fresh README progress snapshot, and a
+   (with the reference census), a fresh progress snapshot, and a
    valid issue ledger;
 3. reproducible evidence: the graph is the decomposition's
    (`graph_sha256`) and verifies;

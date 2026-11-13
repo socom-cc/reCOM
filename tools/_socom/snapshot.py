@@ -1,4 +1,4 @@
-"""Generated README progress snapshot."""
+"""Generated progress snapshot, kept in docs/reconstruction/WORKSPACE.md."""
 
 from __future__ import annotations
 
@@ -10,6 +10,11 @@ from .util import SocomError, atomic_write_text
 
 BEGIN = "<!-- SOCOM_PROGRESS_BEGIN -->"
 END = "<!-- SOCOM_PROGRESS_END -->"
+SNAPSHOT_RELPATH = "docs/reconstruction/WORKSPACE.md"
+
+
+def snapshot_path(root: Path) -> Path:
+    return root / SNAPSHOT_RELPATH
 
 
 def render_snapshot(tracker: dict[str, Any]) -> str:
@@ -54,7 +59,7 @@ def replace_snapshot(readme: str, snapshot: str) -> str:
     begin = readme.find(BEGIN)
     end = readme.find(END)
     if begin < 0 or end < 0 or end < begin:
-        raise SocomError("README progress markers are missing or malformed")
+        raise SocomError(f"{SNAPSHOT_RELPATH}: progress markers are missing or malformed")
     end += len(END)
     suffix = readme[end:]
     if suffix.startswith("\r\n"):
@@ -65,7 +70,7 @@ def replace_snapshot(readme: str, snapshot: str) -> str:
 
 
 def snapshot_status(root: Path, tracker: dict[str, Any]) -> dict[str, Any]:
-    path = root / "README.md"
+    path = snapshot_path(root)
     actual = path.read_text(encoding="utf-8")
     expected = replace_snapshot(actual, render_snapshot(tracker))
     return {"fresh": actual == expected, "expected": expected, "actual": actual}
@@ -73,5 +78,5 @@ def snapshot_status(root: Path, tracker: dict[str, Any]) -> dict[str, Any]:
 
 def write_snapshot(root: Path, tracker: dict[str, Any]) -> None:
     status = snapshot_status(root, tracker)
-    atomic_write_text(root / "README.md", status["expected"])
+    atomic_write_text(snapshot_path(root), status["expected"])
 

@@ -1456,7 +1456,7 @@ def _progress_audit(arguments: argparse.Namespace) -> int:
     if arguments.strict:
         status = snapshot_status(root, tracker)
         if not status["fresh"]:
-            errors.append("README progress snapshot is stale")
+            errors.append("progress snapshot is stale (docs/reconstruction/WORKSPACE.md)")
     report: dict[str, Any] = {"ok": not errors, "revision": tracker["revision"], "errors": errors}
     opened = open_source_amendments(tracker)
     if opened:
@@ -2556,8 +2556,8 @@ def _audit(arguments: argparse.Namespace) -> int:
         report = {
             "ok": status["fresh"],
             "revision": tracker["revision"],
-            "readme_progress_fresh": status["fresh"],
-            "errors": [] if status["fresh"] else ["README progress snapshot is stale"],
+            "progress_snapshot_fresh": status["fresh"],
+            "errors": [] if status["fresh"] else ["progress snapshot is stale (docs/reconstruction/WORKSPACE.md)"],
         }
     elif name == "provenance":
         toolchain = verify_toolchain(root, compile_probe=False)
@@ -2674,7 +2674,7 @@ def _issue_status(arguments: argparse.Namespace) -> int:
     return 0
 
 
-def _docs_readme_progress(arguments: argparse.Namespace) -> int:
+def _docs_progress_snapshot(arguments: argparse.Namespace) -> int:
     root = _root(arguments)
     tracker = load_tracker(tracker_path(root))
     if arguments.write:
@@ -3071,7 +3071,7 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     _spec("issue request", "issue", "Record a tooling/process improvement request.", mutates=True),
     _spec("issue resolve", "issue", "Resolve a workspace issue.", mutates=True),
     _spec("issue reopen", "issue", "Reopen a workspace issue.", mutates=True),
-    _spec("docs readme-progress", "docs", "Check or update the generated README progress snapshot.", mutates=True),
+    _spec("docs progress-snapshot", "docs", "Check or update the generated progress snapshot in docs/reconstruction/WORKSPACE.md.", mutates=True),
     _spec("docs command-index", "docs", "Check or update the generated complete command index.", mutates=True),
     _spec("docs capability-coverage", "docs", "Check or update the generated tool coverage inventory.", mutates=True),
     _spec("recon graph", "recon", "Build the deterministic callee-first function groups from the ELF."),
@@ -3114,7 +3114,7 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     _spec("progress find", "progress", "Search unified reconstruction entities."),
     _spec("progress sql", "progress", "Query the derived read-only SQLite cache of tracker, census and issues."),
     _spec("progress audit", "progress", "Audit tracker structure and strict derived invariants."),
-    _spec("progress snapshot", "progress", "Check or update the README progress snapshot.", mutates=True),
+    _spec("progress snapshot", "progress", "Check or update the progress snapshot in docs/reconstruction/WORKSPACE.md.", mutates=True),
     _spec("progress report", "progress", "Render an on-demand progress report."),
     _spec("progress migrate", "progress", "Migrate canonical tracker state to the current schema.", mutates=True),
     _spec(
@@ -3580,9 +3580,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     docs = commands.add_parser("docs")
     docs_commands = docs.add_subparsers(dest="docs_command", required=True)
-    readme_progress = docs_commands.add_parser("readme-progress")
-    readme_progress.add_argument("--write", action="store_true")
-    readme_progress.set_defaults(handler=_docs_readme_progress)
+    docs_snapshot = docs_commands.add_parser("progress-snapshot")
+    docs_snapshot.add_argument("--write", action="store_true")
+    docs_snapshot.set_defaults(handler=_docs_progress_snapshot)
     command_index = docs_commands.add_parser("command-index")
     command_index.add_argument("--write", action="store_true")
     command_index.set_defaults(handler=_docs_command_index)

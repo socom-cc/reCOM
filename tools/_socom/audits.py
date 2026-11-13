@@ -229,7 +229,6 @@ def agent_surface(root: Path, commands: list[dict[str, Any]]) -> dict[str, Any]:
             errors.append(f"{label}: references unknown skill or role {name}")
     documents = {
         **references,
-        "README.md": _read_text(root / "README.md"),
         **{
             path.relative_to(root).as_posix(): _read_text(path)
             for path in sorted((root / "docs").rglob("*.md"))
@@ -283,7 +282,7 @@ def agent_surface(root: Path, commands: list[dict[str, Any]]) -> dict[str, Any]:
         "progress work packet",
         "reference verify",
         "reference relocations",
-        "docs readme-progress",
+        "docs progress-snapshot",
     }
     missing_commands = sorted(required_commands - set(paths))
     if missing_commands:
@@ -434,7 +433,6 @@ def docs(root: Path, commands: list[dict[str, Any]]) -> dict[str, Any]:
     markdown = [
         root / "AGENTS.md",
         root / "CLAUDE.md",
-        root / "README.md",
         *sorted((root / "docs").rglob("*.md")),
         *sorted((root / ".claude" / "skills").glob("*/SKILL.md")),
         *sorted((root / ".claude" / "agents").glob("*.md")),

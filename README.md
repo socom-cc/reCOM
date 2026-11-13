@@ -1,130 +1,85 @@
-![soCOM logo](img/recom-logo.png)
+![Isolated.png](https://github.com/Not-Enough-Photons/reCOM/blob/main/img/recom-logo.png?raw=true)
 
-# soCOM
+# Intro
+This repository houses the reverse engineered code of the SOCOM games, alongside the engine, GameZ.
 
-soCOM is an evidence-driven reconstruction of PlayStation 2 executable
-SCUS-972.05 and its GameZ engine code. The goal is maintainable C/C++ that
-reproduces the original Metrowerks/R5900 program—not merely source that builds
-on a modern host.
+It is a work in progress, and a lot needs to make sure the SOCOM experience is one-to-one with the PlayStation 2.
 
-The repository holds the workflow, state, and recovered source. Three inputs
-come from outside it: the reference executable, the pinned compiler, and the
-live semantic project.
+# Compilation
+1. Clone this project by doing ``git clone https://github.com/Not-Enough-Photons/reCOM`` into a directory of your choice, or by downloading the source code ZIP and extracting it anywhere
+2. CD into the main directory of the project
+3. Type ``premake5 vs2022`` or any other build profile you know
+4. Open the project in an IDE and do Left Control + Shift + B, or click the play button
+5. Drag all DLL files into ``output/debug`` or ``output/release``
+6. That's it!
 
-- immutable reference ELF: `support/socom.elf` (proprietary, not tracked:
-  supply your own copy of the SCUS-972.05 executable at that path; its
-  SHA-256, listed below, is recorded in `.agent/REFERENCE_ELF.json`). Without
-  it, `doctor` reports a failed `reference-elf` check and the tests that read
-  it are skipped;
-- canonical live semantics: external Ghidra project `soCOM`, program
-  `/socom.elf`;
-- pinned compiler: `compiler/mwcps2-2.4-001213` (proprietary, not tracked: `python
-  tools/socom.py toolchain bootstrap` fetches and verifies it per machine);
-- workflow and state: `AGENTS.md`, `.agent`, and `tools/socom.py`;
-- provisional recovered source/data: `src` and `data`.
+# ROM Information
+The ROM information used in this decompilation project is listed below:
+- Name: **SCUS_972.05**
+- Build Date: **May 13th, 2002 at 9:10:36 AM PST**
+- sha256: **00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a**
+- Compiler: **Metrowerks MIPS C Compiler v2.4.1.01**
 
-No Ghidra project/archive is tracked. Portable semantic receipt digests and
-target facts live in the tracker; disposable receipt files belong under
-`build/`.
+# Source Trees
+## Apps - Application Layer
+| Module | Description |
+| ------ | ----------- |
+| [FTS](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/Apps/FTS) | App initialization code, command line arguments |
+| [game](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/Apps/FTS/game) | Game world loading, camera zoom, memory overloads, etc. |
+| [hud](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/Apps/FTS/hud) | Heads-up display modules like the letterbox, lensflares, map, compass, etc. |
+| [state](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/Apps/FTS/state) | Game state classes and functions |
 
-## Reference
+## gamez - Core Engine
+| Module | Description |
+| ------ | :---------- |
+| [zAI](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zAI) | AI path generation, A* algorithm implementation, and AI state behavior |
+| [zAnim](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zAnim) | Animation logic and animation keyframe logic; animation blending |
+| [zArchive](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zArchive) | GameZ's primary format for storing binary data such as levels, readers, and meshes |
+| [zAssetLib](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zAssetLib) | Asset library that contains models, textures, and palettes |
+| [zBody](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zBody) | Skeleton classes, animation blending, body parts, etc. |
+| [zBone](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zBone) | Armature data types and controls |
+| [zCamera](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zCamera) | Camera behavior, FOV controls, and app-specific camera behavior |
+| [zCharacter](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zCharacter) | NPC setup classes and settings definitions for NPCs |
+| [zEntity](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zEntity) | Generic game entity definitions and interactions |
+| [zFTS](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zFTS) | App foundation that provides implementations, like missions |
+| [zGame](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zGame) | Game states and managers |
+| [zGraph](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zGraph) | Node graph for AI pathfinding/traversal |
+| [zGrid](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zGrid) | World block map for fast traversal of entities and intersections |
+| [zIMGUI](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zIMGUI) | IMGUI debug interface (is not a part of the original source tree) |
+| [zInput](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zInput) | Input handling for gamepads and keyboards |
+| [zIntersect](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zIntersect) | Raycasts, intersections, and collision logic |
+| [zMath](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zMath) | Math functions for vectors, quaternions, matricies, and more |
+| [zMPEG](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zMPEG) | Video playback and video managers in-engine |
+| [zNetwork](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zNetwork) | Network objects and managers for multiplayer, and for Medius |
+| [zNode](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zNode) | GameZ's node-based system and node management |
+| [zParticle](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zParticle) | GPU instanced particle system |
+| [zPhysics](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zPhysics) | Physics engine for GameZ (not part of original source tree) |
+| [zReader](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zReader) | LISP processor for compiled and non-compiled data files |
+| [zRender](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zRender) | Main GameZ rendering pipeline; renders nodes, visuals, etc. |
+| [zSave](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zSave) | Saver/loader for GameZ saves and save states |
+| [zSeal](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zSeal) | NPC code, player controller, and AI controller code for NPC objects |
+| [zShader](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zShader) | GLSL/HLSL shader classes (not part of the original source tree) |
+| [zSoftImage](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zSoftImage) | Autodesk SoftImage script parsers and object parsers |
+| [zSound](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zSound) | Sound management, handling, and playback |
+| [zSystem](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zSystem) | Game system management and memory management |
+| [zTexture](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zTexture) | Textures, management of textures, and container types for textures |
+| [zTwoD](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zTwoD) | 2D elements and handling of 2D elements to be drawn to the UI |
+| [zUI](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zUI) | UI framework to house 2D elements |
+| [zUtil](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zUtil) | Utilities for file I/O and buffered I/O, and more |
+| [zValve](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zValve) | Game signals and counters to dispatch UI events and game events |
+| [zVehicle](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zVehicle) | Manages character types and AI stats (NOT related to drivable vehicles) |
+| [zVideo](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zVideo) | Render control and controls for the main framebuffer |
+| [zVisual](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zVisual) | Interface for dealing with OpenFlight (.FLT) meshes, decals, and sub-meshes |
+| [zWeapon](https://github.com/Not-Enough-Photons/reCOM/tree/main/src/gamez/zWeapon) | Generic weapon implementation and ammo |
 
-| Property | Value |
-| --- | --- |
-| Product code | SCUS-972.05 |
-| Build date | May 13, 2002, 09:10:36 PST |
-| Target | PlayStation 2, little-endian ELF32 MIPS/R5900 |
-| Entry point | `0x140010` |
-| SHA-256 | `00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a` |
-| Compiler comment | `MW MIPS C Compiler (2.4.1.01)` |
-| Ghidra baseline | `12.1.4`, `r5900:LE:32:default`, compiler `default` |
+# Background
+Currently, I (adamdev) am the sole contributor to this project. I have been using Ghidra to reverse engineer the binaries of the games, to some luck.
 
-The workspace census identifies 12 ELF sections, 21,894 symbol-table entries,
-115,142 relocations, 289 `.mwcats` records, 116,691 DWARF 1 DIEs, 959 compile
-units, 16,602 named type records, and 880 line units. Of 52 original
-`Z:\dev\...` paths, 16 map exactly to the provisional source layout and 36
-require deliberate correlation.
+I have sourced a demo disk that contains all debug symbols (thank you Zero1UP!), which is indispensable to this project.
 
-## Bootstrap and health checks
+# Disclaimer
+This repository **will NOT** contain any copyrighted assets. Models, textures, and sounds will be sourced from a legal copy game disc.
 
-Python 3.11 or newer is required. Ghidra must have project `soCOM` open with
-program `/socom.elf`; CMake is a convenience wrapper for host-side tests.
+If you are using this project to play SOCOM titles, you **MUST** own legal copies of the games for this to work. Borrowing does **NOT** count. Any technical assistance given will be for owners who legally own the game. We will not distribute illegal copies of the game with the project.
 
-```powershell
-python tools/socom.py toolchain verify --identity-only
-python tools/socom.py reference verify
-python tools/socom.py doctor --infrastructure-only --ghidra
-python tools/socom.py ghidra preflight --strict
-python tools/socom.py progress audit --strict
-python tools/socom.py progress next --json
-python -m pytest -q tests/tools
-```
-
-The pinned compiler reports `Version 2.4 (Engineering Build 0017)` and carries
-the `2.4.1.01` internal signature. Its upstream archive contains no FLEXlm
-license, so native compilation remains blocked until the user supplies a valid
-one. The workspace reports that blocker and provides no bypass.
-
-## Reconstruction workflow
-
-The ten stages are:
-
-1. reference census;
-2. debug-metadata import;
-3. Ghidra semantic reconstruction;
-4. source correlation;
-5. authored function order;
-6. authored call contracts;
-7. authored byte matching;
-8. full function order;
-9. linked byte matching;
-10. final validation.
-
-The immediate work begins by reconciling the global DWARF type graph and then
-reconstructing Ghidra functions, types, globals, data, and xrefs before source
-correlation.
-
-DWARF work uses separate plan and apply leases: planners write deterministic
-files under `build/import-plans`, while only reviewed apply items may acquire
-the Ghidra writer. Later native order/call/byte stages remain explicitly
-deferred until their real producers and compiler/provider prerequisites exist.
-
-<!-- SOCOM_PROGRESS_BEGIN -->
-### Generated progress snapshot
-
-- Tracker revision: `4490`
-- Next work item: `none`
-- Work items: 1091 total (0 ready, 0 active, 0 awaiting acceptance, 1038 accepted, 53 dependency-blocked)
-- Open blockers: 3
-- Provisional source owners still unverified: 316
-
-| Stage | Status |
-| --- | --- |
-| `reference-census` | accepted |
-| `debug-metadata-import` | accepted |
-| `ghidra-reconstruction` | accepted |
-| `source-correlation` | accepted |
-| `authored-function-order` | pending |
-| `authored-call-contract` | pending |
-| `authored-byte-match` | pending |
-| `full-function-order` | pending |
-| `linked-byte-match` | pending |
-| `final-validation` | pending |
-<!-- SOCOM_PROGRESS_END -->
-
-## Documentation
-
-- [authoritative reconstruction instructions](AGENTS.md)
-- [Ghidra workflow](docs/reconstruction/GHIDRA.md)
-- [reconstruction workflow](docs/reconstruction/WORKFLOW.md)
-- [tracker and receipt model](docs/reconstruction/TRACKER.md)
-- [DWARF import design](docs/reconstruction/DWARF_IMPORT.md)
-- [Metrowerks toolchain](docs/reconstruction/TOOLCHAIN.md)
-- [final ELF readiness](docs/reconstruction/FINAL_ELF.md)
-- [target-native tool coverage](docs/reconstruction/TOOL_COVERAGE.md)
-- [knowledge index](docs/reconstruction/KNOWLEDGE_INDEX.md)
-- [complete command index](docs/reconstruction/COMMANDS.md)
-
-Use `python tools/socom.py commands --json` for machine-readable discovery and
-`python tools/socom.py docs command-index --write` to regenerate the public
-command reference.
+All rights are reserved to Zipper Interactive Incorporated and Sony Computer Entertainment of America. SOCOM is a registered trademark of Sony Computer Entertainment of America and Zipper Interactive Incorporated.

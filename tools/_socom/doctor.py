@@ -56,9 +56,9 @@ def run_doctor(
         readme = snapshot_status(root, tracker)
         checks.append(
             {
-                "name": "readme-progress-snapshot",
+                "name": "progress-snapshot",
                 "ok": readme["fresh"],
-                "errors": [] if readme["fresh"] else ["README progress snapshot is stale"],
+                "errors": [] if readme["fresh"] else ["progress snapshot is stale (docs/reconstruction/WORKSPACE.md)"],
             }
         )
 
