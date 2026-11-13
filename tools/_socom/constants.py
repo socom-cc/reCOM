@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from .util import SocomError
+
 PROJECT_NAME = "soCOM"
 SCHEMA_VERSION = 6
 TRACKER_ID = "socom:tracker:main"
@@ -11,6 +13,11 @@ TRACKER_ID = "socom:tracker:main"
 # that type globals wait for the zero-fill tail to be mapped.
 ZERO_FILL_MEMORY_ID = "socom:work:ghidra-zero-fill-memory"
 REFERENCE_ID = "socom:binary:scus-972.05"
+REFERENCE_PRODUCT_CODE = "SCUS-972.05"
+# The reference executable is proprietary and untracked: each checkout
+# supplies its own copy here, identified by REFERENCE_SHA256.
+REFERENCE_RELATIVE_PATH = "support/socom.elf"
+REFERENCE_RECORD_PATH = ".agent/REFERENCE_ELF.json"
 
 REFERENCE_SHA256 = (
     "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a"
@@ -75,7 +82,37 @@ def agent_dir(root: Path | None = None) -> Path:
 
 
 def reference_path(root: Path | None = None) -> Path:
-    return (root or workspace_root()) / "support" / "socom.elf"
+    return (root or workspace_root()) / REFERENCE_RELATIVE_PATH
+
+
+class ReferenceMissingError(SocomError):
+    """The untracked reference executable has not been supplied."""
+
+
+def is_reference_path(path: object) -> bool:
+    """True when ``path`` names ``<root>/support/socom.elf`` for any root."""
+
+    if path is None:
+        return False
+    return tuple(Path(str(path)).parts[-2:]) == tuple(REFERENCE_RELATIVE_PATH.split("/"))
+
+
+def reference_missing_message() -> str:
+    return (
+        f"reference executable {REFERENCE_RELATIVE_PATH} is missing: it is not part of the "
+        f"repository. Supply your own copy of the {REFERENCE_PRODUCT_CODE} executable at "
+        f"{REFERENCE_RELATIVE_PATH}; its SHA-256 must be {REFERENCE_SHA256} "
+        f"(recorded in {REFERENCE_RECORD_PATH})"
+    )
+
+
+def require_reference(root: Path | None = None) -> Path:
+    """``support/socom.elf`` under ``root``, or a clean error naming where to supply it."""
+
+    path = reference_path(root)
+    if not path.is_file():
+        raise ReferenceMissingError(reference_missing_message())
+    return path
 
 
 def tracker_path(root: Path | None = None) -> Path:

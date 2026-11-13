@@ -12,6 +12,10 @@ the evidence, tracking, mutation, or acceptance rules below.
 
 - `support/socom.elf` is immutable reference evidence. Its SHA-256 is
   `00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a`.
+  `support/` is not tracked: each checkout supplies its own copy of the
+  executable at `support/socom.elf`, identified by that hash (also recorded in
+  `.agent/REFERENCE_ELF.json`); until it is present, commands that read it fail
+  with a `reference-elf` error and the tests that need it are skipped.
 - The canonical semantic workspace is the external Ghidra project `soCOM`,
   program `/socom.elf`. Always pass `program=socom.elf`; never rely on the
   active CodeBrowser program.

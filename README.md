@@ -7,9 +7,15 @@ SCUS-972.05 and its GameZ engine code. The goal is maintainable C/C++ that
 reproduces the original Metrowerks/R5900 program—not merely source that builds
 on a modern host.
 
-The workspace is self-contained except for the live semantic project:
+The repository holds the workflow, state, and recovered source. Three inputs
+come from outside it: the reference executable, the pinned compiler, and the
+live semantic project.
 
-- immutable reference ELF: `support/socom.elf`;
+- immutable reference ELF: `support/socom.elf` (proprietary, not tracked:
+  supply your own copy of the SCUS-972.05 executable at that path; its
+  SHA-256, listed below, is recorded in `.agent/REFERENCE_ELF.json`). Without
+  it, `doctor` reports a failed `reference-elf` check and the tests that read
+  it are skipped;
 - canonical live semantics: external Ghidra project `soCOM`, program
   `/socom.elf`;
 - pinned compiler: `compiler/mwcps2-2.4-001213` (proprietary, not tracked: `python

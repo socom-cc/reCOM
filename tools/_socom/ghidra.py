@@ -13,7 +13,7 @@ from typing import Any, Callable
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from .constants import EXPECTED_ENTRY, EXPECTED_GHIDRA_VERSION, REFERENCE_SHA256
+from .constants import EXPECTED_ENTRY, EXPECTED_GHIDRA_VERSION, REFERENCE_SHA256, reference_missing_message
 from .elf import Elf32File
 from .mips_flow import lo16_targets
 from .type_apply import parse_enum_values, parse_struct_layout
@@ -443,7 +443,9 @@ def live_preflight(
 
     expected_source = root / "support" / "socom.elf"
     source_hash = sha256_file(expected_source) if expected_source.is_file() else None
-    if source_hash != REFERENCE_SHA256:
+    if source_hash is None:
+        errors.append(reference_missing_message())
+    elif source_hash != REFERENCE_SHA256:
         errors.append(
             f"reference SHA-256 is {source_hash}, expected {REFERENCE_SHA256}"
         )

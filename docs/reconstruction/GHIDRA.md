@@ -11,7 +11,7 @@ semantic receipts, and evidence only.
 | --- | --- |
 | Ghidra | `12.1.4` |
 | Program | `socom.elf` at project path `/socom.elf` |
-| Executable source | this workspace’s `support/socom.elf` |
+| Executable source | `support/socom.elf` (untracked; each workspace supplies its own copy) |
 | Source SHA-256 | `00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a` |
 | Language | `r5900:LE:32:default` |
 | Compiler specification | `default` |

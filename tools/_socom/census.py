@@ -17,6 +17,7 @@ from .constants import (
     EXPECTED_SYMBOL_COUNT,
     REFERENCE_ID,
     REFERENCE_SHA256,
+    require_reference,
 )
 from .dwarf1 import Dwarf1Debug, Dwarf1Line, debug_summary, line_summary
 from .elf import Elf32File, SHT_NOBITS
@@ -81,7 +82,7 @@ def _source_correlation(source_paths: list[str], root: Path) -> dict[str, Any]:
 
 
 def build_census(root: Path, *, include_rows: bool = True) -> dict[str, Any]:
-    reference = root / "support" / "socom.elf"
+    reference = require_reference(root)
     digest = sha256_file(reference)
     elf = Elf32File(reference)
     symbols = elf.symbols()

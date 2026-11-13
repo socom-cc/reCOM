@@ -7,6 +7,7 @@ import struct
 from pathlib import Path
 from typing import Iterator
 
+from .constants import ReferenceMissingError, is_reference_path, reference_missing_message
 from .util import SocomError, hex0
 
 ELF_MAGIC = b"\x7fELF"
@@ -176,6 +177,8 @@ class Elf32File:
             try:
                 self.data = path.read_bytes()
             except FileNotFoundError as exc:
+                if is_reference_path(path):
+                    raise ReferenceMissingError(reference_missing_message()) from exc
                 raise SocomError(f"ELF does not exist: {path}") from exc
         self.header = self._parse_header()
         self.program_headers = self._parse_program_headers()

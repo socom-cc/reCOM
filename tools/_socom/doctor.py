@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .census import build_census, verify_census
-from .constants import tracker_path
+from .constants import ReferenceMissingError, tracker_path
 from .ghidra import live_preflight
 from .source import audit_independence
 from .snapshot import snapshot_status
@@ -22,13 +22,19 @@ def run_doctor(
 ) -> dict[str, Any]:
     checks: list[dict[str, Any]] = []
 
-    census = build_census(root, include_rows=False)
-    reference_errors = verify_census(census)
+    try:
+        census = build_census(root, include_rows=False)
+    except ReferenceMissingError as exc:
+        # support/ is untracked: a fresh clone reports the missing file and
+        # still runs every check that does not read it.
+        reference_check: dict[str, Any] = {"missing": True, "errors": [str(exc)]}
+    else:
+        reference_check = {"errors": verify_census(census)}
     checks.append(
         {
             "name": "reference-elf",
-            "ok": not reference_errors,
-            "errors": reference_errors,
+            "ok": not reference_check["errors"],
+            **reference_check,
         }
     )
 

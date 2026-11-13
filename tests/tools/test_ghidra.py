@@ -9,6 +9,7 @@ import pytest
 
 from tools._socom import ghidra
 from tools._socom.util import SocomError
+from reference_elf import require_reference_elf
 
 
 def test_bridge_supplies_explicit_program(monkeypatch) -> None:
@@ -99,6 +100,7 @@ def _preflight_bridge(executable_sha256: str | None):
 def test_preflight_identifies_program_by_hash_not_import_path(
     monkeypatch, root: Path
 ) -> None:
+    require_reference_elf(root)
     monkeypatch.setattr(
         ghidra, "GhidraBridge", _preflight_bridge(ghidra.REFERENCE_SHA256)
     )
@@ -111,10 +113,25 @@ def test_preflight_identifies_program_by_hash_not_import_path(
     assert report["program_executable_sha256"] == ghidra.REFERENCE_SHA256
 
 
+def test_preflight_names_a_reference_executable_that_was_never_supplied(
+    monkeypatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(
+        ghidra, "GhidraBridge", _preflight_bridge(ghidra.REFERENCE_SHA256)
+    )
+    monkeypatch.setattr(
+        ghidra, "_local_profile_versions", lambda: [ghidra.EXPECTED_GHIDRA_VERSION]
+    )
+    report = ghidra.live_preflight(tmp_path, strict_baseline=False)
+    assert report["ok"] is False
+    assert report["errors"] == [ghidra.reference_missing_message()]
+
+
 @pytest.mark.parametrize("executable_sha256", [None, "0" * 64])
 def test_preflight_rejects_missing_or_foreign_executable_hash(
     monkeypatch, root: Path, executable_sha256: str | None
 ) -> None:
+    require_reference_elf(root)
     monkeypatch.setattr(ghidra, "GhidraBridge", _preflight_bridge(executable_sha256))
     monkeypatch.setattr(
         ghidra, "_local_profile_versions", lambda: [ghidra.EXPECTED_GHIDRA_VERSION]
@@ -406,6 +423,7 @@ def test_zero_fill_mapping_adds_relocation_references_without_analysis(
 def test_zero_fill_mapping_refuses_overlap_and_outside_changes(
     monkeypatch, root: Path
 ) -> None:
+    require_reference_elf(root)
     monkeypatch.setattr(ghidra, "live_preflight", lambda *_args, **_kwargs: {"ok": True, "errors": []})
     bridge, _calls = _zero_fill_bridge(mapped=True, block="bss")
     monkeypatch.setattr(ghidra, "GhidraBridge", bridge)

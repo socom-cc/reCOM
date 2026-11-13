@@ -20,7 +20,10 @@ from .census import build_census, require_valid_census, verify_census
 from .constants import (
     EXPECTED_GHIDRA_VERSION,
     STAGES,
+    ReferenceMissingError,
     agent_dir,
+    is_reference_path,
+    reference_missing_message,
     tracker_path,
     workspace_root,
 )
@@ -3781,8 +3784,18 @@ def main(argv: list[str] | None = None) -> int:
     arguments.json = json_requested
     try:
         return int(arguments.handler(arguments))
+    except ReferenceMissingError as exc:
+        _emit({"ok": False, "check": "reference-elf", "error": str(exc)})
+        return 2
     except SocomError as exc:
         _emit({"ok": False, "error": str(exc)})
+        return 2
+    except FileNotFoundError as exc:
+        # Readers hash or stat support/socom.elf directly; without the
+        # untracked file they name it here instead of printing a traceback.
+        if not is_reference_path(exc.filename):
+            raise
+        _emit({"ok": False, "check": "reference-elf", "error": reference_missing_message()})
         return 2
     except KeyboardInterrupt:
         _emit({"ok": False, "error": "interrupted"})

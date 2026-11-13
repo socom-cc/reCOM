@@ -7,6 +7,7 @@ from pathlib import Path
 
 from tools._socom.constants import EXPECTED_GHIDRA_VERSION
 from tools._socom.tracker import load_tracker, next_work
+from reference_elf import require_reference_elf
 
 
 def _run(root: Path, *arguments: str) -> tuple[int, dict]:
@@ -39,6 +40,7 @@ def test_progress_next_accepts_trailing_json(root: Path) -> None:
 
 
 def test_reference_verify(root: Path) -> None:
+    require_reference_elf(root)
     code, result = _run(root, "reference", "verify", "--json")
     assert code == 0
     assert result["ok"] is True
@@ -61,6 +63,7 @@ def test_reference_relocation_query(root: Path) -> None:
 
 
 def test_infrastructure_doctor(root: Path) -> None:
+    require_reference_elf(root)
     code, result = _run(
         root, "doctor", "--infrastructure-only", "--ghidra", "--json"
     )
@@ -82,6 +85,7 @@ def test_registered_alignment_audits(root: Path) -> None:
 
 
 def test_live_ghidra_preflight_is_explicitly_targeted(root: Path) -> None:
+    require_reference_elf(root)
     code, result = _run(root, "ghidra", "preflight", "--strict", "--json")
     assert code == 0, result
     assert result["ok"] is True
@@ -96,6 +100,7 @@ def test_live_ghidra_preflight_is_explicitly_targeted(root: Path) -> None:
 
 
 def test_assembly_verification_reads_explicit_ghidra_program(root: Path) -> None:
+    require_reference_elf(root)
     code, result = _run(root, "verify", "asm", "main", "--json")
     assert code == 0, result
     assert result["ok"] is True
@@ -104,6 +109,7 @@ def test_assembly_verification_reads_explicit_ghidra_program(root: Path) -> None
 
 
 def test_identical_final_candidate_is_diagnostic_not_acceptance(root: Path) -> None:
+    require_reference_elf(root)
     code, result = _run(
         root,
         "verify",
@@ -132,6 +138,7 @@ def test_identical_final_candidate_is_diagnostic_not_acceptance(root: Path) -> N
 
 
 def test_current_final_catalog_fails_closed_without_crashing(root: Path) -> None:
+    require_reference_elf(root)
     code, result = _run(root, "audit", "final-elf-catalog")
     assert code == 1
     assert result["complete"] is False

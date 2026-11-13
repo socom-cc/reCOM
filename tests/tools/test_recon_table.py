@@ -11,6 +11,8 @@ from tools._socom import recon_table
 from tools._socom.recon_facts import context
 from tools._socom.recon_table import _fits, _value, table_family, table_family_text
 
+from reference_elf import require_reference_elf
+
 # The UICommandTable handler rows of the 2026-10-24 narrow-return audit whose
 # uchar rested only on zAnimUIMenuTick narrowing the result into its own bool.
 AUDITED_HANDLERS = (
@@ -141,6 +143,7 @@ def test_a_struct_of_function_pointers_is_not_a_family(ctx) -> None:
 
 
 def test_cli_prints_json_on_request(root: Path) -> None:
+    require_reference_elf(root)
     completed = subprocess.run(
         [sys.executable, "tools/socom.py", "recon", "table-family", "--table", "0x439548", "--json"],
         cwd=root, text=True, encoding="utf-8", capture_output=True, check=False,
