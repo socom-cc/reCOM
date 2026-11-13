@@ -260,8 +260,30 @@ void ftsSetPlayerCount(int count)
 }
 
 /* @socom-skeleton stub ParseTeamBlock__FP5_zrdr */
-void ParseTeamBlock(_zrdr *)
+u32 ParseTeamBlock(_zrdr *block)
 {
+	/* 0x1fda10 (OrdersMenu ctor: an orders.rdr cmdtable row's team list): a bit per team
+	 * number. ELF quirk kept: a number outside 0..31 ends the scan and becomes the mask */
+	u32 mask = 0;
+
+	if (block == NULL || block->type != ZRDR_ARRAY)
+		return 0;
+
+	for (u32 i = 0; i < (u32)(block->array->integer - 1); i++)
+	{
+		_zrdr *entry = block->Get(i);
+		s32 team = entry->GetInt();
+
+		if (team < 0 || team >= 32)
+		{
+			mask = team;
+			break;
+		}
+
+		mask |= 1 << team;
+	}
+
+	return mask;
 }
 
 /* @socom-skeleton body OpenVehicleRdr__8CMissionFv */

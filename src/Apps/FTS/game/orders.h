@@ -32,10 +32,45 @@ public:
 	static void Uninit();
 };
 /* @socom-skeleton end 10CBeachBall */
+/* DWARF CSubMenu (12 bytes, orders.cpp): one context (third column) entry of an order; the
+ * strings are _strdup'd (RefreshContext), m_data is the order's argument (a packed map loc,
+ * a deploy item, a seal) */
+class CSubMenu
+{
+public:
+	char* m_display;
+	char* m_explanation;
+	void* m_data;
+	CSubMenu() : m_display(NULL), m_explanation(NULL), m_data(NULL) {} /* 0x17bbd0 */
+	~CSubMenu() /* 0x177990 (port: inline here; orders.cpp has no fence for it): the strings freed */
+	{
+		if (m_display != NULL)
+			_free(m_display, "orders.cpp", 181);
+
+		m_display = NULL;
+
+		if (m_explanation != NULL)
+			_free(m_explanation, "orders.cpp", 181);
+
+		m_explanation = NULL;
+	}
+};
 /* @socom-skeleton decl 9CMD_TABLE */
 class CMD_TABLE
 {
 public:
+	/* DWARF CMD_TABLE (220 bytes, orders.cpp): one orders.rdr cmdtable row */
+	char display[32];
+	char vuiword[32];
+	char explanation[128];
+	int vuiID;
+	FT_COMMAND command;
+	unsigned int mask; /* the teams it is offered to (ParseTeamBlock) */
+	unsigned char isMultiOnly;
+	int submenu_items;
+	CSubMenu* submenu;
+	int index; /* its row in the command column, -1 when not offered */
+	CMD_TABLE() : submenu_items(0), submenu(NULL) {} /* 0x178d50 */
 	~CMD_TABLE();
 };
 /* @socom-skeleton end 9CMD_TABLE */
@@ -92,4 +127,19 @@ public:
 	char explanation[128];
 };
 /* @socom-skeleton end 10TEAM_TABLE */
+
+/* reco.cpp: the voice recogniser (gsapi provider, offline in the port) */
+int recoInit2();
+int recoUnInit();
+int recoIsRecognizing();
+int recoStartRecognizing();
+int recoStopRecognizing();
+int recoSetContextByCol(int);
+int recoGetWordID(const char *);
+void recoDisableAllWords(int);
+void recoEnableWord(int, int);
+int recoThresholdUp();
+int recoThresholdDown();
+int recoSpeechThresholdUp();
+int recoSpeechThresholdDown();
 #endif

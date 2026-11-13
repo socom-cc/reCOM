@@ -105,6 +105,8 @@
 #include "gamez/zMath/zmath.h"
 #include "gamez/zFTS/zfts.h" /* theMission, ftsGetPlayer */
 #include "gamez/zValve/zvalve.h" /* CValve::Create */
+#include "gamez/zNetwork/znet.h" /* theNetwork (AllowCommand) */
+#include "Apps/FTS/hud/hud.h" /* CCompassAnchor (Bravo's compass anchor) */
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
 class MAP_LINEWALK_STRUCT;
@@ -222,18 +224,159 @@ void CSealUnit::GetMyLookDir(CPnt3D *out, CPnt3D *dir, CZSealBody *seal)
 }
 
 /* @socom-skeleton stub can_run_anim__FPCc */
-CZAnim * can_run_anim(const char *)
+CZAnim * can_run_anim(const char *name)
 {
 	/* @socom-skeleton stub run_once$2378 */
-	static unsigned char run_once;
+	static unsigned char run_once = 1;
+
+	/* 0x2d72c0 (inline in AllowCommand): the anim when it is ready (state 1), or - never,
+	 * run_once stays set - finished (5) */
+	CZAnim *anim = ZAnim.GetAnim(name, NULL);
+
+	if (anim == NULL)
+		return NULL;
+
+	if (anim->m_state == 1 || (!run_once && anim->m_state == 5))
+		return anim;
+
+	return NULL;
 }
 
 /* @socom-skeleton stub AllowCommand__9CSealUnitFP10CZSealBody10FT_COMMANDPv */
-bool CSealUnit::AllowCommand(CZSealBody *, FT_COMMAND, void *)
+bool CSealUnit::AllowCommand(CZSealBody *source, FT_COMMAND cmd, void *data)
 {
-	/* 0x2d6bf0 (1736 bytes): whether a member may take the order (the orders menu's
-	 * filter). port: not written - nothing allowed */
-	return false;
+	/* 0x2d6bf0 (the orders menu's filter): the fireteam (1) asks Bravo (3) about the orders
+	 * only Bravo takes (HOLDPOS, ESCORT, the moving orders but GOTONODE, COVERTARGET, AMBUSH).
+	 * Network: the radio / message teams (24, 25, 26, 30, 31) allow anything to a living
+	 * source. Else a member's control decides (the first that allows), then: BOMB while the
+	 * air support anim is ready (state 1); EXTRACT while the extraction anim is ready and a
+	 * rescued escortee stands in the source's extraction region (type 1); AMBUSH when the unit
+	 * has seals; any other order when a member or a sub-unit allows it, or (the escortee unit)
+	 * a restrained escortee of another unit at the source's reticle. ELF quirks kept: the
+	 * members' answer is not used for BOMB / EXTRACT / AMBUSH; a missing Bravo / escortee unit
+	 * is not NULL-tested */
+	bool allow = false;
+
+	if (m_unit_num == 1)
+	{
+		switch (cmd)
+		{
+		case CMD_HOLDPOS:
+		case CMD_ESCORT:
+		case CMD_ATTACKTO:
+		case CMD_RUNTO:
+		case CMD_STEALTHTO:
+		case CMD_LEADTO:
+		case CMD_COVERTARGET:
+		case CMD_AMBUSH:
+		{
+			CSealUnit *bravo = NULL;
+
+			for (std::list<CSealUnit *>::iterator i = m_list.begin(); i != m_list.end(); ++i)
+			{
+				if ((*i)->m_unit_num == 3)
+				{
+					bravo = *i;
+					break;
+				}
+			}
+
+			return bravo->AllowCommand(source, cmd, data);
+		}
+
+		default:
+			break;
+		}
+	}
+
+	if (theNetwork.m_bNetwork)
+	{
+		u32 num = m_unit_num;
+
+		if (num - 25 < 2 || num - 30 < 2 || num == 24)
+		{
+			if (source->m_isAlive)
+				return true;
+		}
+	}
+
+	for (std::list<CZSealBody *>::iterator i = m_seals.begin(); i != m_seals.end() && !allow; ++i)
+	{
+		CSealCtrl *ctrl = *i != NULL ? static_cast<CSealCtrl *>((*i)->m_control) : NULL;
+		allow = ctrl != NULL ? ctrl->AllowCommand(source, cmd, data) : false;
+	}
+
+	switch (cmd)
+	{
+	case CMD_EXTRACT:
+	{
+		if (can_run_anim("escortee_extract") == NULL)
+			return false;
+
+		CAiMap::region *region = AiMaps.GetRegionTypeContainer((CAiMap::region::TYPE)1, source->m_mapLocValid);
+
+		if (region == NULL)
+			return false;
+
+		CSealUnit *escortees = NULL;
+
+		for (std::list<CSealUnit *>::iterator i = m_list.begin(); i != m_list.end(); ++i)
+		{
+			if ((*i)->m_unit_num == 17)
+			{
+				escortees = *i;
+				break;
+			}
+		}
+
+		for (std::list<CZSealBody *>::iterator i = escortees->m_seals.begin(); i != escortees->m_seals.end(); ++i)
+		{
+			CZSealBody *seal = *i;
+
+			if (seal == NULL)
+				continue;
+
+			CSealCtrlAi *ai = static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi();
+
+			/* port: CAiMap::region::Contains (0x19e020) is not written: no rescued escortee is
+			 * taken to stand in the region (EXTRACT is not offered) */
+			if (ai != NULL && ai->AiStateIs(STATE_RESCUED))
+				(void)region;
+		}
+
+		return false;
+	}
+
+	case CMD_BOMB:
+		return can_run_anim("team_airsupport") != NULL;
+
+	case CMD_AMBUSH:
+		return !m_seals.empty();
+
+	default:
+		break;
+	}
+
+	for (std::list<CSealUnit *>::iterator i = m_sub_units.begin(); i != m_sub_units.end() && !allow; ++i)
+		allow = (*i)->AllowCommand(source, cmd, data);
+
+	if (allow)
+		return true;
+
+	if (m_unit_num == 17)
+	{
+		CZSealBody *target = source->GetReticuleSeal();
+
+		if (target != NULL && (target->m_team & 0x20000))
+		{
+			CSealCtrl *ctrl = static_cast<CSealCtrl *>(target->m_control);
+
+			if (ctrl != NULL && ctrl->m_unit != this)
+				allow = ctrl->AllowCommand(source, cmd, data);
+		}
+	}
+
+	return allow;
 }
 
 /* @socom-skeleton stub __ct__9CSealUnitFUi */
@@ -505,9 +648,14 @@ void CSealUnit::CreateSinglePlayerUnits()
 	fireteam->m_sub_units.push_back(bravo);
 	bravo->m_parent = fireteam;
 
-	/* ELF: Bravo's compass anchor CCompass::CreateAnchor(CPnt3D::zero, "BRAVOTEAM") with
-	 * type bits 0x80 (anchor +0 bits 4..19). port: not made - CCompass::CreateAnchor is an
-	 * unwritten stub (no compass marker for Bravo) */
+	/* Bravo's compass anchor (type 8, "BRAVOTEAM"), once */
+	if (bravo->m_compassanchor == NULL)
+	{
+		CCompassAnchor* anchor = CCompass::CreateAnchor(CPnt3D::zero, "BRAVOTEAM");
+		anchor->m_type = 8;
+		bravo->m_compassanchor = anchor;
+	}
+
 
 	for (u32 num = 5; num < 16; num++)
 	{
@@ -628,8 +776,60 @@ CZSealBody * CSealUnit::SetFormation(CZSealBody *source, CPnt3D *offset)
 }
 
 /* @socom-skeleton stub VoiceHandSignal__9CSealUnitFP10CZSealBody10FT_COMMANDPvb */
-void CSealUnit::VoiceHandSignal(CZSealBody *, FT_COMMAND, void *, bool)
+void CSealUnit::VoiceHandSignal(CZSealBody *source, FT_COMMAND cmd, void *, bool)
 {
+	/* 0x2d2f40 (IssueCommand, before the order is recorded): the source gives the order's
+	 * hand signal - the moving orders and FOLLOW (unless the last order was FOLLOW) signal 0,
+	 * HOLDPOS 1, FIREATWILL 2, LASETARGET / DEPLOY 3; the player signals Bravo only when he
+	 * can see its first member. Nothing for a unit without members */
+	if (m_seals.empty() || source == NULL)
+		return;
+
+	s8 signal = -1;
+
+	switch (cmd)
+	{
+	case CMD_ATTACKTO:
+	case CMD_LEADTO:
+	case CMD_RUNTO:
+	case CMD_STEALTHTO:
+		signal = 0;
+		break;
+	case CMD_FIREATWILL:
+		signal = 2;
+		break;
+	case CMD_HOLDPOS:
+		signal = 1;
+		break;
+	case CMD_FOLLOW:
+		if (FrontCommand() != CMD_FOLLOW)
+			signal = 0;
+		break;
+	case CMD_LASETARGET:
+	case CMD_DEPLOY:
+		signal = 3;
+		break;
+	default:
+		break;
+	}
+
+	if (signal == -1)
+		return;
+
+	CSealCtrl *ctrl = static_cast<CSealCtrl *>(source->m_control);
+	bool player = ctrl != NULL && ctrl->IsPlayer();
+
+	if (player && m_unit_num == 3)
+	{
+		CAiMapLoc from = source->m_mapLocValid;
+		CAiMapLoc to = FrontSeal()->m_mapLocValid; /* ELF: the list head is not tested */
+
+		if (!AiMaps.CanSeeLine(from, to, NULL))
+			signal = -1;
+	}
+
+	if (signal != -1)
+		source->DoHandSignal((SEAL_HANDSIGNAL)signal);
 }
 
 /* @socom-skeleton stub HandleSupport__9CSealUnitFP10CZSealBody10FT_COMMANDPvb */
@@ -799,23 +999,126 @@ CZSealBody * CSealUnit::IssueCommand(CZSealBody *source, FT_COMMAND cmd, void *b
 		SetFormation(source, (CPnt3D *)buffer);
 		return NULL;
 
+	case CMD_REGROUP:
+	{
+		/* 0x2d135c: the player regroups the fireteam: Bravo goes to the fifth point of his
+		 * trail (when it has five) and Able follows him (quiet) */
+		if (source != ftsGetPlayer() || m_unit_num != 1)
+			return NULL;
+
+		CSealUnit *bravo = NULL;
+		CSealUnit *able = NULL;
+
+		for (std::list<CSealUnit *>::iterator i = m_list.begin(); i != m_list.end(); ++i)
+		{
+			if ((*i)->m_unit_num == 3)
+			{
+				bravo = *i;
+				break;
+			}
+		}
+
+		for (std::list<CSealUnit *>::iterator i = m_list.begin(); i != m_list.end(); ++i)
+		{
+			if ((*i)->m_unit_num == 2)
+			{
+				able = *i;
+				break;
+			}
+		}
+
+		CAiPath::points &trail = source->m_snakePath.m_points;
+
+		if (trail.size() < 5)
+			return NULL;
+
+		const CAiMapLoc &loc = trail[4].m_loc;
+		u32 packed = ((u32)loc.m_mapid << 26) | ((u32)loc.x << 13) | (u32)loc.y;
+		bravo->IssueCommand(source, CMD_GOTONODE, (void *)(uintptr_t)packed, false);
+		able->IssueCommand(source, CMD_FOLLOW, NULL, true);
+		return NULL;
+	}
+
+	case CMD_ATTACKTO:
+		/* 0x2d1508: fire at will first, then as the other moving orders */
+		IssueCommand(source, CMD_FIREATWILL, buffer, quiet);
+		/* fall through */
+	case CMD_LEADTO:
+	case CMD_RUNTO:
+	case CMD_STEALTHTO:
+	case CMD_GOTONODE:
+	{
+		/* 0x2d1528: the fireteam passes it to Bravo. The destination: the buffer's packed
+		 * map location ((map id << 26) | (x << 13) | y), else the cell under the source's
+		 * reticle hit; the unit's first other member gets the order and the unit forms up
+		 * behind it */
+		m_hold_up = 0;
+
+		if (m_unit_num == 1)
+		{
+			CSealUnit *bravo = NULL;
+
+			for (std::list<CSealUnit *>::iterator i = m_list.begin(); i != m_list.end(); ++i)
+			{
+				if ((*i)->m_unit_num == 3)
+				{
+					bravo = *i;
+					break;
+				}
+			}
+
+			bravo->IssueCommand(source, cmd, buffer, quiet); /* ELF: not NULL-tested */
+			return NULL;
+		}
+
+		CAiMapLoc dest;
+		memcpy(&dest, CAiMapLoc::invalid, 4);
+		CAiMapLoc invalid = dest;
+
+		if (buffer != NULL)
+		{
+			u32 packed = (u32)(uintptr_t)buffer;
+			dest.m_mapid = (packed >> 26) & 0x3f;
+			dest.x = (packed >> 13) & 0x1fff;
+			dest.y = packed & 0x1fff;
+		}
+		else
+		{
+			/* the reticle hit (IntersectStruct starts with the hit point) */
+			AiMaps.GetLocation((const CPnt3D *)source->GetReticuleDi(), dest);
+			buffer = (void *)(uintptr_t)(((u32)dest.m_mapid << 26) | ((u32)dest.x << 13) | (u32)dest.y);
+		}
+
+		if (dest.x == invalid.x && dest.y == invalid.y)
+			return NULL;
+
+		for (std::list<CZSealBody *>::iterator i = m_seals.begin(); i != m_seals.end(); ++i)
+		{
+			CZSealBody *seal = *i;
+
+			if (seal == source)
+				continue;
+
+			seal->IssueCommand(source, cmd, buffer, quiet);
+			m_follow_source = seal;
+			SetFormation(seal, NULL);
+			return seal;
+		}
+
+		return NULL;
+	}
+
 	case CMD_BREACHNONECLEAR:
 	case CMD_BREACHFRAGCLEAR:
 	case CMD_BREACHBANGCLEAR:
 	case CMD_COVERTARGET:
 	case CMD_LASETARGET:
 	case CMD_DEPLOY:
-	case CMD_LEADTO:
-	case CMD_RUNTO:
-	case CMD_STEALTHTO:
-	case CMD_GOTONODE:
-	case CMD_ATTACKTO:
-	case CMD_REGROUP:
 	case CMD_AMBUSH:
 	case CMD_ACTION:
 	case CMD_ESCORT:
 		/* port: not written (0x2d0ef8..0x2d1d00: breach teams, cover / lase targets, deploy,
-		 * the moving orders' destinations, regroup, ambush, action, escort) */
+		 * ambush, action, escort) */
 		SOCOM_PORT_TRACE("UNIT: %d: order %d not written", m_unit_num, (int)cmd);
 		return NULL;
 
@@ -1152,8 +1455,29 @@ void CSealUnit::Tick(float dT, void *buf)
 		m_unit_in_point = 0;
 	}
 
-	/* ELF: the compass anchor follows the leader (position, shown bit 0) or is hidden.
-	 * port: units have no anchor (CreateSinglePlayerUnits) */
+	/* the compass anchor follows the leader (the first member, else the first sub-unit's first
+	 * member or leader) and is shown, or is hidden */
+	CZSealBody* lead = NULL;
+
+	if (!m_seals.empty())
+		lead = m_seals.front();
+	else if (!m_sub_units.empty())
+	{
+		CSealUnit* sub = m_sub_units.front();
+
+		if (!sub->m_seals.empty())
+			lead = sub->m_seals.front();
+		else if (!sub->m_sub_units.empty())
+			lead = sub->m_sub_units.front()->GetLeader();
+	}
+
+	if (lead != NULL && m_compassanchor != NULL)
+	{
+		m_compassanchor->m_posW = *lead->GetPosW();
+		m_compassanchor->m_enabled = 1;
+	}
+	else if (m_compassanchor != NULL)
+		m_compassanchor->m_enabled = 0;
 }
 
 /* @socom-skeleton body TickAll__9CSealUnitFfPv */

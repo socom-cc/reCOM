@@ -128,6 +128,12 @@ static int energy[10000];
 /* @socom-skeleton stub recoUnInit__Fv */
 int recoUnInit()
 {
+	/* 0x336dc0: 1 when recognition never started; otherwise the gsapi engine is released
+	 * (port: not written - the provider is offline and recoInited stays 0) */
+	if (!recoInited)
+		return 1;
+
+	return 1;
 }
 
 /* @socom-skeleton stub recoIsRecognizing__Fv */
@@ -148,6 +154,15 @@ int recoInit()
 /* @socom-skeleton stub recoInit2__Fv */
 int recoInit2()
 {
+	/* 0x336be0: 0 unless recoInit asked for it, 1 when already running; then the gsapi engine
+	 * set-up (port: not written - the provider is offline and recoInited stays 0) */
+	if (!recoShouldInit)
+		return 0;
+
+	if (recoInited)
+		return 1;
+
+	return 0;
 }
 
 /* @socom-skeleton stub recoGrabMemory__Fv */
@@ -163,26 +178,63 @@ int recoSetupLanguage()
 /* @socom-skeleton stub recoSetContextByCol__Fi */
 int recoSetContextByCol(int)
 {
+	/* 0x336820: 0 without recognition; otherwise the engine switches to the column's context
+	 * (port: offline provider, recoInited stays 0) */
+	if (!recoInited)
+		return 0;
+
+	return 0;
 }
 
 /* @socom-skeleton stub recoSpeechThresholdUp__Fv */
 int recoSpeechThresholdUp()
 {
+	/* 0x336730 (orders menu, L2 + right): the speech threshold +300, at most 4000; with
+	 * recognition running the engine is stopped, set and restarted (offline in the port).
+	 * ELF: without recognition v0 is an unset saved register; port: 0 */
+	recoParams.speechThreshold += 300;
+
+	if (recoParams.speechThreshold > 4000)
+		recoParams.speechThreshold = 4000;
+
+	return 0;
 }
 
 /* @socom-skeleton stub recoSpeechThresholdDown__Fv */
 int recoSpeechThresholdDown()
 {
+	/* 0x336650 (orders menu, L2 + left): the speech threshold -300, at least 0 (see Up) */
+	recoParams.speechThreshold -= 300;
+
+	if (recoParams.speechThreshold < 0)
+		recoParams.speechThreshold = 0;
+
+	return 0;
 }
 
 /* @socom-skeleton stub recoThresholdUp__Fv */
 int recoThresholdUp()
 {
+	/* 0x336560 (orders menu, L1 + right): the recognition threshold +500, at most 10000 (see
+	 * recoSpeechThresholdUp) */
+	recoParams.threshold += 500;
+
+	if (recoParams.threshold > 10000)
+		recoParams.threshold = 10000;
+
+	return 0;
 }
 
 /* @socom-skeleton stub recoThresholdDown__Fv */
 int recoThresholdDown()
 {
+	/* 0x336470 (orders menu, L1 + left): the recognition threshold -500, at least 0 */
+	recoParams.threshold -= 500;
+
+	if (recoParams.threshold < 0)
+		recoParams.threshold = 0;
+
+	return 0;
 }
 
 /* @socom-skeleton stub recoTick__Fv */
@@ -199,6 +251,15 @@ int recoStartRecognizing()
 {
 	/* @socom-skeleton stub iRecoMode$2795 */
 	static int iRecoMode;
+
+	/* 0x3363b0: 0 without recognition; otherwise one head, the engine started (port: offline
+	 * provider, recoInited stays 0) */
+	(void)iRecoMode;
+
+	if (!recoInited)
+		return 0;
+
+	return 0;
 }
 
 /* @socom-skeleton stub ec */
@@ -227,6 +288,12 @@ unsigned char recoGetNextWordID(int *)
 /* @socom-skeleton stub recoStopRecognizing__Fv */
 int recoStopRecognizing()
 {
+	/* 0x3360b0: 0 without recognition; otherwise the engine stops (port: offline provider) */
+	if (!recoInited)
+		return 0;
+
+	recoRecognizing = false;
+	return 0;
 }
 
 /* @socom-skeleton stub recoGetNumHeads__Fv */
@@ -258,4 +325,10 @@ void cbrecoResult(void *, unsigned int, _GSAPI_RESULT *, unsigned int)
 /* @socom-skeleton stub recoGetWordID__FPCc */
 int recoGetWordID(const char *)
 {
+	/* 0x335cc0: -1 without recognition; otherwise the word's index among the engine's result
+	 * strings (port: offline provider, recoInited stays 0) */
+	if (!recoInited)
+		return -1;
+
+	return -1;
 }

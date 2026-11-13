@@ -3585,21 +3585,80 @@ void CZSealBody::ActionCommand(unsigned int command)
 /* @socom-skeleton stub Open__8CCompassFv */
 void CCompass::Open()
 {
+	/* 0x24e490 (CMission::Open): room for 48 anchors */
+	reserve(48);
 }
 
 /* @socom-skeleton stub Close__8CCompassFv */
 void CCompass::Close()
 {
+	/* 0x24e440 (CMission::Close): the list emptied and its storage released (the anchors are
+	 * their owners' to delete) */
+	CCompassAnchorVec empty;
+	swap(empty);
 }
 
 /* @socom-skeleton stub CreateAnchor__8CCompassFRC6CPnt3DPCc */
-CCompassAnchor * CCompass::CreateAnchor(const CPnt3D &, const char *)
+CCompassAnchor * CCompass::CreateAnchor(const CPnt3D &pos, const char *name)
 {
+	/* 0x24e290: a shown anchor (no arrow, name or echo, type 0) at the point, with a copy of
+	 * the name, appended to CZSealBody::m_compass */
+	CCompassAnchor *anchor = new CCompassAnchor;
+	anchor->m_enabled = 1;
+	anchor->m_arrow_enabled = 0;
+	anchor->m_name_enabled = 0;
+	anchor->m_echo = 0;
+	anchor->m_type = 0;
+	anchor->m_unused = 0;
+	anchor->m_posW = CPnt3D::zero;
+	anchor->m_name = NULL;
+	anchor->m_aiMapLoc = NULL;
+	anchor->m_posW = pos;
+
+	if (anchor->m_name != NULL)
+		_free(anchor->m_name, "seal.cpp", 4901);
+
+	anchor->m_name = NULL;
+
+	if (name != NULL)
+		anchor->m_name = _strdup(name, "seal.cpp", 4906);
+
+	CZSealBody::m_compass.push_back(anchor);
+	return anchor;
 }
 
 /* @socom-skeleton stub DeleteAnchor__8CCompassFP14CCompassAnchor */
-void CCompass::DeleteAnchor(CCompassAnchor *)
+void CCompass::DeleteAnchor(CCompassAnchor *anchor)
 {
+	/* 0x24e1a0 (static in the ELF): out of CZSealBody::m_compass (swapped with the last entry,
+	 * the scan goes on), its name freed, deleted. port: void (the ELF returns whether it was
+	 * listed; no caller reads it) */
+	if (anchor == NULL)
+		return;
+
+	CCompassAnchorVec &list = CZSealBody::m_compass;
+
+	for (u32 i = 0; i < list.size(); i++)
+	{
+		if (list[i] != anchor)
+			continue;
+
+		u32 last = list.size() - 1;
+
+		if (list.size() >= 2 && i != last)
+		{
+			list[i] = list[last];
+			list[last] = anchor;
+		}
+
+		list.pop_back();
+	}
+
+	if (anchor->m_name != NULL)
+		_free(anchor->m_name, "seal.cpp", 4901);
+
+	anchor->m_name = NULL;
+	delete anchor;
 }
 
 /* @socom-skeleton stub CompassAnchor_MPBomb__10CZSealBodyFP14CCompassAnchor */

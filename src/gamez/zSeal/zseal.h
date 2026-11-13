@@ -1303,7 +1303,7 @@ public:
 	CZBodyAnimBlend * RestrainBuddy(CZSealBody *);
 	void Action(AnimType, bool, int, int, int);
 	CAiDecay * Adrenaline();
-	void FindValidReticleGotoLoc(int *);
+	bool FindValidReticleGotoLoc(int *); /* 0x26e700: v0 = 1 */
 	CharacterDynamics * GetDynamics();
 	CZBodyAnim * GpAnim(CZBodyAnim *, SEAL_ITEM);
 	CZBodyAnim * FirePosAnim(CZBodyAnim *, SEAL_ITEM);
@@ -1445,7 +1445,7 @@ public:
 	zdb::CNode * GetAnimationNode(unsigned int);
 	bool CanClimbLadder(); /* 0x28c170: CanTraverse(2) */
 	bool CanClimbWall(); /* 0x28c100: CanTraverse 3, 4, 1 or 5 */
-	void DoHandSignal(SEAL_HANDSIGNAL);
+	int DoHandSignal(SEAL_HANDSIGNAL); /* 0x2e3760: the anim type, -1 none */
 	void FootInSpace(CZBodyAnim *, CPnt3D *, CPnt3D *, float, float, bool);
 	void TurnSetup(int);
 	void CheckPathProximity(const CAiPath &, int, float) const;

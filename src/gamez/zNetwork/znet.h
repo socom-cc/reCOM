@@ -372,6 +372,7 @@ public:
 class CZNetVoice
 {
 public:
+	friend class OrdersMenu; /* port: the orders menu sets m_isPushed (push-to-talk, 0x52cb50) */
 	bool PreTick();
 	bool Tick(f32 dT);
 private:

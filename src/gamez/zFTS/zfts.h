@@ -64,6 +64,7 @@ extern CZSealBody* ftsPlayer;
 
 CZSealBody* ftsGetPlayer();
 void ftsSetPlayer(CZSealBody* player);
+u32 ParseTeamBlock(_zrdr *block); /* 0x1fda10 (fts_player.cpp): a team-number list as a bit mask */
 
 bool ftsGetSquirm();
 void ftsSetSquirm(bool squirm);

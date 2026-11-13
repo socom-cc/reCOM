@@ -681,7 +681,7 @@ public:
 	CAiMap::name * GetCellName(const CAiMapLoc &);
 	bool GetLocation(const char *, CAiMapLoc &) const; /* bool: CAiMaps::GetLocation 0x19c8e0 tests it */
 	CAiMap::action * GetCellAction(const CAiMapLoc &); /* 0x19f030 */
-	void FindActionLocation(unsigned int, CAiMapLoc &, CAiMap::action **);
+	bool FindActionLocation(unsigned int, CAiMapLoc &, CAiMap::action **); /* 0x19efc0: v0 = found */
 	CAiMap::link * SetCellLink(const CAiMapLoc &, bool);
 	CAiMap::link * GetCellLink(const CAiMapLoc &);
 	CAiMap::region * GetRegion(const CAiMapLoc &);
@@ -1152,6 +1152,15 @@ class CAiSUseVehicle : public CAiState
 
 class CAiSGoto : public CAiState
 {
+public:
+	/* port: no DWARF record; layout from CAiSGoto::Tick 0x2d9780 / OnSignal 0x2da1d0 and
+	 * OnCommand's moving orders (0x282278), names invented. m_option_flags: 1 stealth (crouch,
+	 * stealth route), 2 run, 4 lead (wait for the player, point out), 8 attack, 0x10 take cover
+	 * at the destination (m_coverDir), 0x20 stop within m_dist cells. m_substate: 0 plan,
+	 * 1 planning, 2 travel, 3 done */
+	u32 m_dist; /* +0x28 */
+	CPnt3D m_coverDir; /* +0x2c */
+	CAiMapLoc m_dest; /* +0x38 */
 
 	/* @socom-skeleton decl 8CAiSGoto */
 public:
@@ -1605,7 +1614,7 @@ public:
 	CAiMap * GetMapByIndex(unsigned int) const;
 	bool GetLocation(const CPnt3D *, CAiMapLoc &); /* 0x19c9b0: 0 off every map */
 	bool GetLocation(const char *, CAiMapLoc &); /* bool: 0x19c8e0 returns 0/1 */
-	void GetActionById(unsigned int, CAiMapLoc &, CAiMap::action **);
+	bool GetActionById(unsigned int, CAiMapLoc &, CAiMap::action **); /* 0x19c800: v0 = found */
 	CAiMap::region * GetRegion(const char *, CAiMapLoc &);
 	CAiMap::region * GetRegion(const CAiMapLoc &);
 	CAiMap::action * GetCellAction(const CAiMapLoc &); /* 0x19c5a0 */

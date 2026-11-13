@@ -415,6 +415,7 @@ public:
 
 class C2DOrderItem : public C2DBitmap
 {
+public: /* port: public (DWARF has no access) - OrdersMenu and its orders.cpp helpers set the items' targets, states and textures */
 	f32 m_width;
 	f32 m_height;
 	f32 m_speed;
@@ -444,6 +445,15 @@ class C2DOrderItem : public C2DBitmap
 	bool m_bArrow;
 	/* @socom-skeleton decl 12C2DOrderItem */
 public:
+	C2DOrderItem() /* 0x178cc0 (inline, emitted in orders.cpp's unit) */
+	{
+		m_Explanation = NULL;
+		m_blinkTime = 0.0f;
+		m_time = 0.0f;
+		m_glow = false;
+		m_trans_step = 2.0f;
+		m_bArrow = false;
+	}
 	virtual ~C2DOrderItem() {} /* 0x1747e0, emitted from orders.h */
 	virtual void Draw(zdb::CCamera *);
 	virtual void SetTrans(float);

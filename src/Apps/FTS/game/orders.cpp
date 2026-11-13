@@ -106,6 +106,19 @@
 #include "gamez/zTwoD/ztwod.h"
 #include "gamez/zUtil/util_stable.h"
 #include "orders.h"
+#include "gamez/zSeal/zseal.h" /* CSealUnit, CSealCtrl, CSealCtrlAi::aiDeployList */
+#include "gamez/zFTS/zfts.h" /* theMission, ftsGetPlayer, CCtrlrConfigs, ParseTeamBlock, CZPersonaState */
+#include "gamez/zNetwork/znet.h" /* theNetwork, theVoice */
+#include "gamez/zAnim/zanim.h" /* ZAnim (the lase targets) */
+#include "gamez/zWeapon/zweapon.h" /* CZWeapon (the deploy items' names) */
+#include "gamez/zSound/zsnd.h" /* CSnd */
+#include "gamez/zNode/node_action.h" /* CNodeAction */
+#include "gamez/zReader/zrdr.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <strings.h>
+#include <string>
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
 class CMD_TABLE;
@@ -197,104 +210,1486 @@ RecoTuple tuples[300];
 /* @socom-skeleton stub recoResult */
 int recoResult[14];
 
+/* port: file-local helpers, not ELF functions - sequences the ELF repeats inline in this unit:
+ * a menu sound (no sound found: that sound is off from now on), the close (HandlePad,
+ * Enable, Disable), the team row lookup, an item's target / text / layout, the packed map
+ * location an order carries ((map id << 26) | (x << 13) | y), the rdr reads of the ctor */
+namespace
+{
+void orders_play(bool &has, CSaferStr &name)
+{
+	if (!has)
+		return;
+
+	CSnd *snd = CSnd::GetSoundByName(name.c_str());
+
+	if (snd != NULL)
+		snd->PlaySound(true, NULL, 255);
+	else
+		has = false;
+}
+
+int orders_team_by_index(int index)
+{
+	for (int i = 0; i < n_teams; i++)
+	{
+		if (team_table[i].index == index)
+			return i;
+	}
+
+	return -1;
+}
+
+void orders_close(OrdersMenu *menu)
+{
+	theMission.m_messenger.m_bEnabled = true;
+	theMission.m_ammoMessenger.m_bEnabled = true;
+	ftsGetPlayer()->CacheReticuleSeal(false);
+	recoStopRecognizing();
+	menu->PlayScrollSound();
+	menu->m_was_PTT = menu->m_no_menu;
+	static_cast<CSealCtrl *>(ftsGetPlayer()->m_control)->SetMenuState(stateNone);
+	menu->m_list.Off();
+	OrdersMenu::recoHack = NULL;
+	menu->m_team_text[menu->m_selection[0]].m_glow = false;
+	menu->m_team_text[menu->m_selection[0]].m_state = 2;
+	menu->m_cmd_text[menu->m_selection[1]].m_glow = false;
+	menu->m_cmd_text[menu->m_selection[1]].m_state = 2;
+	menu->m_aux_text[menu->m_selection[2]].m_glow = false;
+	menu->m_aux_text[menu->m_selection[2]].m_state = 2;
+}
+
+void orders_item_target(C2DOrderItem *item, int x, int y)
+{
+	item->m_time = 0.0f;
+	item->m_blinkTime = 0.0f;
+	item->m_target_x = x;
+	item->m_target_y = y;
+	item->m_state = 0;
+}
+
+void orders_text_color(C2DOrderItem *item)
+{
+	item->m_text.m_color.x = 86.0f;
+	item->m_text.m_color.y = 63.0f;
+	item->m_text.m_color.z = 27.0f;
+}
+
+/* the upper-cased text at (x, 50), the plate (x, 50)-(x + width, 50 + height) with the
+ * inactive texture and the arrow in its bottom-right 20 px */
+void orders_item_load(C2DOrderItem *item, const char *display, char *text, C2DFont *font, int x)
+{
+	strncpy(text, display, 31);
+	CHUD::HudText_to_upper(text);
+	item->m_text.Load(ORDERS_TEXTSIZE, text, font, x, 50);
+	f32 fx = (f32)x;
+	item->Load(fx, 50.0f, fx + item->m_width, 50.0f + item->m_height, item->m_inactive_tex);
+	f32 right = fx + item->m_width;
+	f32 bottom = 50.0f + item->m_height;
+	item->m_arrow.Load(right, bottom - 20.0f, 20.0f + right, bottom, item->m_arrow_tex);
+}
+
+void orders_item_layout(OrdersMenu *menu, C2DOrderItem *item)
+{
+	item->m_width = menu->m_item_width;
+	item->m_height = menu->m_item_height;
+	item->m_speed = menu->m_order_speed;
+	item->m_text_offset.x = menu->m_text_offset.x;
+	item->m_text_offset.y = menu->m_text_offset.y;
+	menu->m_list.push_back(item);
+}
+
+void *orders_loc_data(const CAiMapLoc &loc)
+{
+	return (void *)(uintptr_t)(((u32)loc.m_mapid << 26) | ((u32)loc.x << 13) | (u32)loc.y);
+}
+
+/* |dx| + |dy| of two cells (the lase target next to the player) */
+u32 orders_loc_delta(const CAiMapLoc &a, const CAiMapLoc &b)
+{
+	u32 dx = a.x > b.x ? a.x - b.x : b.x - a.x;
+	s32 dy = (s32)a.y > (s32)b.y ? (s32)a.y - (s32)b.y : (s32)b.y - (s32)a.y;
+	return dx + (u32)dy;
+}
+
+u32 orders_rdr_count(const _zrdr *array)
+{
+	return array != NULL && array->type == ZRDR_ARRAY ? (u32)(array->array->integer - 1) : 0;
+}
+
+const char *orders_rdr_string(const _zrdr *entry)
+{
+	return entry != NULL && entry->type == ZRDR_STRING ? entry->string : NULL;
+}
+
+/* a sound tag: its name (an empty one when it has no string), or that sound off */
+void orders_read_sound(CRdrFile *rdr, const char *tag, CSaferStr &name, bool &has)
+{
+	if (zrdr_findtag(rdr, tag) == NULL)
+	{
+		has = false;
+		return;
+	}
+
+	const char *s = zrdr_findstring(rdr, tag);
+
+	if (s != NULL)
+		name.assign(s, strlen(s));
+	else
+		name.assign("");
+}
+}
+
 /* @socom-skeleton stub OnRecoCmd__10OrdersMenuFiiiiPc */
 void OrdersMenu::OnRecoCmd(int, int, int, int, char *)
 {
+	/* 0x17c540: the voice recogniser's result callback (headset input: stays stubbed in the
+	 * port, the recogniser never starts) */
 }
 
 /* @socom-skeleton stub __dt__9CMD_TABLEFv */
 CMD_TABLE::~CMD_TABLE()
 {
+	/* 0x17c4d0 */
+	if (submenu != NULL)
+	{
+		delete[] submenu;
+		submenu = NULL;
+	}
 }
 
 /* @socom-skeleton stub Draw__12C2DOrderItemFPQ23zdb7CCamera */
-void C2DOrderItem::Draw(zdb::CCamera *)
+void C2DOrderItem::Draw(zdb::CCamera *camera)
 {
+	/* 0x17c3a0: highlighted: the glow frame (10 px around the item, its active texture) is
+	 * loaded and faded like the item - ELF quirk kept: it is never drawn. Then the arrow (an
+	 * order with a context column), the plate and the text at the item's transparency */
+	if (!IsOn())
+		return;
+
+	if (m_glow)
+	{
+		f32 x = (f32)m_x;
+		f32 y = (f32)m_y;
+		m_glowing_background.Load(x - 10.0f, y - 10.0f, 10.0f + (x + m_width), 10.0f + (y + m_height), m_active_tex);
+		m_glowing_background.SetTrans(GetTrans());
+		m_glowing_background.SetUV(0.01f, 0.01f, 0.99f, 0.99f);
+	}
+
+	if (m_bArrow)
+		m_arrow.Draw(camera);
+
+	m_text.SetTrans(GetTrans());
+	C2DBitmap::Draw(camera);
+	m_text.Draw(camera);
 }
 
 /* @socom-skeleton stub HandleMoving__12C2DOrderItemFf */
-void C2DOrderItem::HandleMoving(float)
+void C2DOrderItem::HandleMoving(float dT)
 {
+	/* 0x17bfb0: slide towards the target over m_speed seconds (hidden: jump there). Arrived:
+	 * a fading-out item (-1) is done (-2), others settle (2) unless they wait for a second leg
+	 * (-4); the arrow sits small at the plate's right edge, while moving it spans the plate's
+	 * bottom-right 20 px. ELF quirk kept: when the remaining time is exactly one step the
+	 * target x takes the target y (and the item stays put this frame) */
+	if (!IsOn())
+	{
+		m_time = m_speed;
+		m_x = m_target_x;
+		m_y = m_target_y;
+		return;
+	}
+
+	m_time += dT;
+
+	if (!(m_time < m_speed))
+	{
+		m_x = m_target_x;
+		m_y = m_target_y;
+		m_time = m_speed;
+	}
+
+	if (m_x == m_target_x && m_y == m_target_y)
+	{
+		if (m_state == -1)
+			m_state = -2;
+		else if (m_state != -4)
+			m_state = 2;
+
+		s32 x = m_x;
+		s32 y = m_y;
+		SetPos(x, y, (s32)((f32)x + m_width), (s32)((f32)y + m_height));
+		f32 right = (f32)m_x + m_width;
+		s32 ay = m_y;
+		m_arrow.SetPos((s32)right, ay + 5, (s32)(12.0f + right), ay + 17);
+		return;
+	}
+
+	f32 left = (m_speed - m_time) - dT;
+
+	if (left == 0.0f)
+		m_target_x = m_target_y;
+	else
+	{
+		f32 step = dT / left;
+
+		if (step > 1.0f)
+			step = 1.0f;
+
+		if (step < 0.0f)
+			step = 0.0f;
+
+		f32 dy = (f32)(m_target_y - m_y);
+		m_x += (s32)((f32)(m_target_x - m_x) * step);
+		m_y += (s32)(dy * step);
+	}
+
+	s32 x = m_x;
+	s32 y = m_y;
+	SetPos(x, y, (s32)((f32)x + m_width), (s32)((f32)y + m_height));
+	f32 right = (f32)m_x + m_width;
+	f32 bottom = (f32)m_y + m_height;
+	m_arrow.SetPos((s32)right, (s32)(bottom - 20.0f), (s32)(20.0f + right), (s32)bottom);
 }
 
 /* @socom-skeleton stub SetTrans__12C2DOrderItemFf */
-void C2DOrderItem::SetTrans(float)
+void C2DOrderItem::SetTrans(float trans)
 {
+	/* 0x17bf40: the text, the arrow and the plate */
+	m_text.SetTrans(trans);
+	m_arrow.SetTrans(trans);
+	C2DBitmap::SetTrans(trans);
 }
 
 /* @socom-skeleton stub Tick__12C2DOrderItemFf */
-void C2DOrderItem::Tick(float)
+void C2DOrderItem::Tick(float dT)
 {
+	/* 0x17bbf0 (jump table 0x448ce0, states -5..2): -5 blink (the chosen item flashes
+	 * numBlinkenLights times over m_speed, then shows), -4 slide then take the second leg's
+	 * target and state, -3 appear after m_speed (dim), -2 hidden, -1 slide while fading out,
+	 * 0 slide, 1 the highlighted item pulses (trans 90..128), 2 dim. The text follows the
+	 * plate (12.4 fixed point) */
+	switch (m_state)
+	{
+	case -5:
+		m_time += dT;
+
+		if (m_time > m_speed)
+		{
+			m_state = 0;
+			SetTrans(128.0f);
+			m_time = 0.0f;
+		}
+		else
+		{
+			m_blinkTime += dT;
+			f32 period = m_speed / numBlinkenLights;
+
+			if (m_blinkTime > period)
+			{
+				m_blinkTime -= period;
+
+				if (m_glow)
+				{
+					m_glow = g_FlashGlow;
+					SetTrans(75.0f);
+				}
+				else
+				{
+					m_glow = true;
+					SetTrans(128.0f);
+				}
+			}
+		}
+		break;
+
+	case -4:
+		HandleMoving(dT);
+
+		if (!(m_time < m_speed))
+		{
+			m_time = 0.0f;
+			m_blinkTime = 0.0f;
+			m_target_x = m_target_x2;
+			m_target_y = m_target_y2;
+			m_state = 0;
+			m_state = m_state2;
+		}
+		break;
+
+	case -3:
+		if (!(m_time <= m_speed))
+		{
+			On();
+			SetTrans(75.0f);
+			m_state = 0;
+			m_time = 0.0f;
+		}
+		else
+			m_time = m_time + dT;
+		break;
+
+	case -2:
+		Off();
+		break;
+
+	case -1:
+	{
+		HandleMoving(dT);
+		f32 trans = 128.0f * (0.5f - m_time / m_speed);
+
+		if (m_state == -2)
+			Off();
+
+		if (trans < 0.0f)
+			trans = 0.0f;
+
+		SetTrans(trans);
+		break;
+	}
+
+	case 0:
+		HandleMoving(dT);
+		break;
+
+	case 1:
+	{
+		m_glow = true;
+		f32 trans = GetTrans() + 38.0f * (m_trans_step * dT);
+
+		if (!(trans <= 128.0f))
+		{
+			m_trans_step = -2.0f;
+			trans = 128.0f;
+		}
+
+		if (trans < 90.0f)
+		{
+			trans = 90.0f;
+			m_trans_step = 2.0f;
+		}
+
+		SetTrans(trans);
+		break;
+	}
+
+	case 2:
+		SetTrans(75.0f);
+		break;
+
+	default:
+		break;
+	}
+
+	m_text.m_pos.x = (m_x + m_text_offset.x) << 4;
+	m_text.m_pos.y = (m_y + m_text_offset.y) << 4;
+	m_text.Update();
 }
 
 /* @socom-skeleton stub RefreshContext__10OrdersMenuFP9CMD_TABLE */
-void OrdersMenu::RefreshContext(CMD_TABLE *)
+void OrdersMenu::RefreshContext(CMD_TABLE *cmd)
 {
+	/* 0x17b000: the order's context (third) column, rebuilt from the world: LASETARGET the
+	 * active lase targets (the crosshairs when a target is next to the player), DEPLOY the
+	 * items the unit may deploy, the moving orders the crosshair point and the nav points,
+	 * the votes the players (multiplayer). Multiplayer-only orders keep theirs in single
+	 * player. ELF quirks kept: the moving orders' list is sized for every nav point but only
+	 * nav points of type 1 are filled; the DEPLOY unit is not NULL-tested */
+	CZSealBody *player = ftsGetPlayer();
+	int t = orders_team_by_index(m_selection[0]);
+	CSealUnit *unit = t != -1 ? team_table[t].unit : NULL;
+
+	if (!theNetwork.m_bNetwork && cmd->isMultiOnly)
+		return;
+
+	switch (cmd->command)
+	{
+	case CMD_LASETARGET:
+	{
+		CPnt3D pos = player->m_aim_point;
+		CAiMap::names &targets = AiMaps.m_names[3];
+		bool crosshairs = true;
+		int count = 0;
+		int n = 0;
+
+		for (CAiMap::names::iterator i = targets.begin(); i != targets.end(); ++i)
+		{
+			CZAnim *anim = ZAnim.GetAnim(i->m_name, NULL);
+
+			if (anim != NULL && anim->m_state == 1)
+				count++;
+		}
+
+		CAiMapLoc loc;
+
+		if (AiMaps.GetLocation(&pos, loc))
+		{
+			for (CAiMap::names::iterator i = targets.begin(); i != targets.end(); ++i)
+			{
+				if (orders_loc_delta(i->m_loc, loc) >= 10)
+					continue;
+
+				CZAnim *anim = ZAnim.GetAnim(i->m_name, NULL);
+
+				if (anim == NULL || anim->m_state != 1)
+					continue;
+
+				cmd->submenu_items = 0;
+				delete[] cmd->submenu;
+				cmd->submenu = NULL;
+				count++;
+
+				if (count != 0)
+				{
+					cmd->submenu_items = count;
+					cmd->submenu = new CSubMenu[count];
+				}
+
+				crosshairs = false;
+				n++;
+				CSubMenu *sub = cmd->submenu;
+				sub->m_display = _strdup("Cross hairs", "orders.cpp", 182);
+				sub->m_data = orders_loc_data(i->m_loc);
+				sub->m_explanation = _strdup("EXECUTE ORDER AT THE CROSSHAIRS", "orders.cpp", 182);
+				break;
+			}
+		}
+
+		if (crosshairs)
+		{
+			cmd->submenu_items = 0;
+			delete[] cmd->submenu;
+			cmd->submenu = NULL;
+
+			if (count != 0)
+			{
+				cmd->submenu_items = count;
+				cmd->submenu = new CSubMenu[count];
+			}
+		}
+
+		for (CAiMap::names::iterator i = targets.begin(); i != targets.end(); ++i)
+		{
+			int name = 0;
+
+			if (strcasecmp(i->m_name, "bunker1") == 0)
+				name = 0;
+			else if (strcasecmp(i->m_name, "bunker2") == 0)
+				name = 1;
+			else if (strcasecmp(i->m_name, "bunker3") == 0)
+				name = 2;
+			else if (strcasecmp(i->m_name, "bunker4") == 0)
+				name = 3;
+
+			CZAnim *anim = ZAnim.GetAnim(i->m_name, NULL);
+
+			if (anim == NULL || anim->m_state != 1)
+				continue;
+
+			CSubMenu *sub = &cmd->submenu[n++];
+			sub->m_display = _strdup(UILaseNames[name], "orders.cpp", 182);
+			sub->m_data = orders_loc_data(i->m_loc);
+			sub->m_explanation = _strdup("LASE AT THIS TARGET", "orders.cpp", 182);
+		}
+		break;
+	}
+
+	case CMD_GOTONODE:
+	case CMD_STEALTHTO:
+	case CMD_RUNTO:
+	case CMD_LEADTO:
+	case CMD_ATTACKTO:
+	{
+		CAiMap::names &navs = AiMaps.m_names[1];
+		int count = (int)navs.size();
+		int aim = 0;
+		bool crosshairs = false;
+
+		if (player->FindValidReticleGotoLoc(&aim))
+		{
+			count++;
+			crosshairs = true;
+		}
+
+		if (count <= 0)
+			break;
+
+		cmd->submenu_items = 0;
+		delete[] cmd->submenu;
+		cmd->submenu = NULL;
+		int n = 0;
+
+		if (count != 0)
+		{
+			cmd->submenu_items = count;
+			cmd->submenu = new CSubMenu[count];
+		}
+
+		if (crosshairs)
+		{
+			CSubMenu *sub = &cmd->submenu[n++];
+			sub->m_display = _strdup("crosshairs", "orders.cpp", 182);
+			sub->m_data = (void *)(uintptr_t)(u32)aim;
+			sub->m_explanation = _strdup("EXECUTE ORDER AT THE CROSSHAIRS", "orders.cpp", 182);
+		}
+
+		for (CAiMap::names::iterator i = navs.begin(); i != navs.end(); ++i)
+		{
+			if (i->m_type != 1)
+				continue;
+
+			CSubMenu *sub = &cmd->submenu[n++];
+			sub->m_display = _strdup(i->m_name, "orders.cpp", 182);
+			sub->m_data = orders_loc_data(i->m_loc);
+			sub->m_explanation = _strdup("EXECUTE ORDER AT THIS NAV POINT", "orders.cpp", 182);
+		}
+		break;
+	}
+
+	case CMD_DEPLOY:
+	{
+		int items = 0;
+
+		while ((u8)CSealCtrlAi::aiDeployList[items] != 0xff)
+			items++;
+
+		u8 *allowed = new u8[items + 1];
+		int count = 0;
+
+		for (int i = 0; (u8)CSealCtrlAi::aiDeployList[i] != 0xff; i++)
+		{
+			if (unit->AllowCommand(player, CMD_DEPLOY, (void *)(uintptr_t)(u8)CSealCtrlAi::aiDeployList[i]))
+			{
+				count++;
+				allowed[i] = 1;
+			}
+			else
+				allowed[i] = 0;
+		}
+
+		cmd->submenu_items = 0;
+		delete[] cmd->submenu;
+		cmd->submenu = NULL;
+
+		if (count != 0)
+		{
+			cmd->submenu_items = count;
+			cmd->submenu = new CSubMenu[count];
+		}
+
+		int n = 0;
+
+		for (int i = 0; (u8)CSealCtrlAi::aiDeployList[i] != 0xff; i++)
+		{
+			if (!allowed[i])
+				continue;
+
+			EQUIP_ITEM item = CSealCtrlAi::aiDeployList[i];
+			CSubMenu *sub = &cmd->submenu[n++];
+			sub->m_display = _strdup(CZWeapon::GetWeaponUIName(item), "orders.cpp", 182);
+			sub->m_data = (void *)(uintptr_t)(u8)item;
+			sub->m_explanation = _strdup("DEPLOY THIS WEAPON", "orders.cpp", 182);
+		}
+
+		delete[] allowed;
+		break;
+	}
+
+	case CMD_VOTE_ON:
+	case CMD_VOTE_OFF:
+		/* port: multiplayer only, not written (0x17b8b4: the other live players of the
+		 * player's team, "Cast vote on this player", their entity ids) */
+		break;
+
+	default:
+		break;
+	}
 }
 
 /* @socom-skeleton stub EnableTuples__10OrdersMenuFi */
-void OrdersMenu::EnableTuples(int)
+void OrdersMenu::EnableTuples(int col)
 {
+	/* 0x17aed0: the recogniser's words for the column: all off, then each tuple's words
+	 * (the object, verb and subject ids, each once per run of equal ids); recognition is
+	 * paused around it */
+	bool restart = false;
+
+	if (recoIsRecognizing())
+	{
+		recoStopRecognizing();
+		restart = true;
+	}
+
+	recoDisableAllWords(col);
+	int subject = -1;
+	int verb = -1;
+	int object = -1;
+
+	for (int i = 0; i < num_tuples; i++)
+	{
+		RecoTuple *tuple = &tuples[i];
+
+		if (object != tuple->objectID && tuple->objectID >= 0)
+		{
+			object = tuple->objectID;
+			recoEnableWord(col, object);
+		}
+
+		if (verb != tuple->verbID && tuple->verbID >= 0)
+		{
+			verb = tuple->verbID;
+			recoEnableWord(col, verb);
+		}
+
+		if (subject != tuple->subjectID && tuple->subjectID >= 0)
+		{
+			subject = tuple->subjectID;
+			recoEnableWord(col, subject);
+		}
+	}
+
+	if (restart)
+		recoStartRecognizing();
 }
 
 /* @socom-skeleton stub SetupTuple__10OrdersMenuFiiPCcPCcPCciiiiiibPv10FT_COMMANDPv */
-void OrdersMenu::SetupTuple(int, int, const char *, const char *, const char *, int, int, int, int, int, int, bool, void *, FT_COMMAND, void *)
+void OrdersMenu::SetupTuple(int col, int index, const char *subject, const char *verb, const char *object, int subjectID, int verbID, int objectID, int snum, int vnum, int onum, bool send, void *unit, FT_COMMAND command, void *data)
 {
+	/* 0x17ac50: one voice-command tuple: the subject (team) only in the first column, the
+	 * verb (order) in the first two */
+	RecoTuple *tuple = &tuples[index];
+
+	if (col == 0)
+	{
+		sprintf(tuple->subject, "%s", subject);
+		tuple->subjectID = subjectID;
+		tuple->snum = snum;
+	}
+	else
+	{
+		sprintf(tuple->subject, "");
+		tuple->subjectID = -1;
+		tuple->snum = 0;
+	}
+
+	if (col < 2)
+	{
+		sprintf(tuple->verb, "%s", verb);
+		tuple->verbID = verbID;
+		tuple->vnum = vnum;
+	}
+	else
+	{
+		sprintf(tuple->verb, "");
+		tuple->verbID = -1;
+		tuple->vnum = 0;
+	}
+
+	sprintf(tuple->object, "%s", object);
+	tuple->objectID = objectID;
+	tuple->onum = onum;
+	tuple->send_command = send;
+	tuple->command = command;
+	tuple->data = data;
+	tuple->unit = unit;
 }
 
 /* @socom-skeleton stub SetupTuples__10OrdersMenuFi */
-void OrdersMenu::SetupTuples(int)
+void OrdersMenu::SetupTuples(int col)
 {
+	/* 0x179da0: the voice grammar for the column (all teams, or the chosen team), and - for
+	 * the first column - which teams have an order the menu may offer (has_command,
+	 * num_commandable_teams): a team has one when a cmdtable order is offered to it (its
+	 * mask) and its unit allows it. The tuples carry the order's argument like the context
+	 * column (the crosshair / nav points, the deploy items, the lase targets). In single
+	 * player "drop your weapons" and "get down" follow when the menu was opened by the
+	 * button. ELF quirk kept: the network-only teams 32 / 25 count as commandable */
+	num_commandable_teams = 0;
+	int subjnum = 0;
+	int first = 0;
+	bool team_has = false;
+	int last = n_teams;
+	int n = 0;
+	recoSetContextByCol(col);
+
+	if (col > 0)
+	{
+		first = m_selection[0];
+		last = first + 1;
+	}
+
+	CZSealBody *player = ftsGetPlayer();
+
+	for (int t = first; t < last; t++)
+	{
+		TEAM_TABLE *team = &team_table[t];
+		CSealUnit *unit = team->unit;
+		u32 mask = (u32)team->team == 32 ? ~0u : 1u << (u32)team->team;
+		subjnum = t;
+		team->vuiID = recoGetWordID(team->vuiword);
+		int ncmd = 0;
+
+		for (int c = 0; c < n_cmds; c++)
+		{
+			CMD_TABLE *cmd = &cmd_table[c];
+
+			if (!theNetwork.m_bNetwork && cmd->isMultiOnly)
+				continue;
+
+			if (t == first)
+				cmd->vuiID = recoGetWordID(cmd->vuiword);
+
+			int objects = 0;
+
+			if (!(mask & cmd->mask) || unit == NULL)
+				continue;
+
+			if (!unit->AllowCommand(ftsGetPlayer(), cmd->command, NULL))
+				continue;
+
+			if (reco_learn_mode && !team_has && col == 0)
+			{
+				SetupTuple(col, n, team->display, "", "", team->vuiID, -1, -1, t, 0, 0, false, NULL, cmd->command, NULL);
+				n++;
+			}
+
+			team_has = true;
+
+			if (reco_learn_mode && col == 1)
+			{
+				if (cmd->command != CMD_ACTION)
+					SetupTuple(col, n, "", cmd->display, "", 0, cmd->vuiID, -1, -1, ncmd, 0, false, NULL, cmd->command, NULL);
+				else
+				{
+					std::string vui("unknown");
+					CNodeAction *action = ftsGetPlayer()->GetReticuleAction(false);
+
+					if (action != NULL)
+						action->GetVUIString(vui);
+
+					cmd->vuiID = recoGetWordID(vui.c_str());
+					SetupTuple(col, n, "", vui.c_str(), "", 0, cmd->vuiID, -1, -1, ncmd, 0, false, NULL, cmd->command, NULL);
+				}
+
+				n++;
+			}
+
+			if (col == 2 && m_selection[1] != cmd->index)
+				continue;
+
+			switch (cmd->command)
+			{
+			case CMD_ACTION:
+			{
+				std::string vui("unknown");
+				CNodeAction *action = ftsGetPlayer()->GetReticuleAction(false);
+
+				if (action != NULL)
+					action->GetVUIString(vui);
+
+				cmd->vuiID = recoGetWordID(vui.c_str());
+				SetupTuple(col, n, team->display, vui.c_str(), "", team->vuiID, cmd->vuiID, -1, t, ncmd, 0, true, unit, cmd->command, NULL);
+				n++;
+				break;
+			}
+
+			case CMD_DEPLOY:
+			{
+				int items = 0;
+
+				while ((u8)CSealCtrlAi::aiDeployList[items] != 0xff)
+					items++;
+
+				u8 *allowed = new u8[items + 1];
+
+				for (int i = 0; (u8)CSealCtrlAi::aiDeployList[i] != 0xff; i++)
+					allowed[i] = unit->AllowCommand(player, CMD_DEPLOY, (void *)(uintptr_t)(u8)CSealCtrlAi::aiDeployList[i]) ? 1 : 0;
+
+				for (int i = 0; (u8)CSealCtrlAi::aiDeployList[i] != 0xff; i++)
+				{
+					if (!allowed[i])
+						continue;
+
+					EQUIP_ITEM item = CSealCtrlAi::aiDeployList[i];
+					const char *name = CZWeapon::GetWeaponVUIName(item);
+
+					if (name == NULL)
+						name = "NoName";
+
+					SetupTuple(col, n, team->display, cmd->display, name, team->vuiID, cmd->vuiID, recoGetWordID(name), t, ncmd, objects, true, unit, cmd->command, (void *)(uintptr_t)(u8)item);
+					objects++;
+					n++;
+				}
+
+				delete[] allowed;
+				break;
+			}
+
+			case CMD_ATTACKTO:
+			case CMD_RUNTO:
+			case CMD_STEALTHTO:
+			case CMD_LEADTO:
+			case CMD_GOTONODE:
+			{
+				CAiMap::names &navs = AiMaps.m_names[1];
+				int count = (int)navs.size();
+				int aim = 0;
+				bool crosshairs = false;
+
+				if (ftsGetPlayer()->FindValidReticleGotoLoc(&aim))
+				{
+					count++;
+					crosshairs = true;
+				}
+
+				if (count <= 0)
+					break;
+
+				if (crosshairs)
+				{
+					SetupTuple(col, n, team->display, cmd->display, "cross hairs", team->vuiID, cmd->vuiID, recoGetWordID("cross hairs"), t, ncmd, 0, true, unit, cmd->command, (void *)(uintptr_t)(u32)aim);
+					objects++;
+					n++;
+				}
+
+				for (CAiMap::names::iterator i = navs.begin(); i != navs.end(); ++i)
+				{
+					SetupTuple(col, n, team->display, cmd->display, i->m_name, team->vuiID, cmd->vuiID, recoGetWordID(i->m_name), t, ncmd, objects, true, unit, cmd->command, orders_loc_data(i->m_loc));
+					objects++;
+					n++;
+				}
+				break;
+			}
+
+			case CMD_LASETARGET:
+			{
+				CPnt3D pos = ftsGetPlayer()->m_aim_point;
+				CAiMap::names &targets = AiMaps.m_names[3];
+				CAiMapLoc loc;
+
+				if (AiMaps.GetLocation(&pos, loc))
+				{
+					for (CAiMap::names::iterator i = targets.begin(); i != targets.end(); ++i)
+					{
+						if (orders_loc_delta(i->m_loc, loc) >= 10)
+							continue;
+
+						CZAnim *anim = ZAnim.GetAnim(i->m_name, NULL);
+
+						if (anim == NULL || anim->m_state != 1)
+							continue;
+
+						SetupTuple(col, n, team->display, cmd->display, "cross hairs", team->vuiID, cmd->vuiID, recoGetWordID("cross hairs"), t, ncmd, 0, true, unit, cmd->command, orders_loc_data(i->m_loc));
+						objects++;
+						n++;
+						break;
+					}
+				}
+
+				for (CAiMap::names::iterator i = targets.begin(); i != targets.end(); ++i)
+				{
+					CZAnim *anim = ZAnim.GetAnim(i->m_name, NULL);
+
+					if (anim == NULL || anim->m_state != 1)
+						continue;
+
+					int name = 0;
+
+					if (strcasecmp(i->m_name, "bunker1") == 0)
+						name = 0;
+					else if (strcasecmp(i->m_name, "bunker2") == 0)
+						name = 1;
+					else if (strcasecmp(i->m_name, "bunker3") == 0)
+						name = 2;
+					else if (strcasecmp(i->m_name, "bunker4") == 0)
+						name = 3;
+
+					SetupTuple(col, n, team->display, cmd->display, UILaseNames[name], team->vuiID, cmd->vuiID, recoGetWordID(UILaseNames[name]), t, ncmd, objects, true, unit, cmd->command, orders_loc_data(i->m_loc));
+					objects++;
+					n++;
+				}
+				break;
+			}
+
+			default:
+				if (col == 0 || !reco_learn_mode)
+				{
+					SetupTuple(col, n, team->display, cmd->display, "", team->vuiID, cmd->vuiID, -1, t, ncmd, 0, true, unit, cmd->command, NULL);
+					n++;
+				}
+				else if (col == 1)
+					tuples[n - 1].send_command = true;
+				break;
+			}
+
+			ncmd++;
+		}
+
+		if (col == 0)
+		{
+			if (team_has)
+			{
+				subjnum++;
+				num_commandable_teams++;
+				team->has_command = true;
+			}
+			else if ((u32)team->team == 32 && theNetwork.m_bNetwork)
+			{
+				subjnum++;
+				team->has_command = true;
+				num_commandable_teams++;
+			}
+			else if ((u32)team->team == 25 && theNetwork.m_bNetwork && ftsGetPlayer()->m_isAlive)
+			{
+				subjnum++;
+				team->has_command = true;
+				num_commandable_teams++;
+			}
+			else
+				team->has_command = false;
+		}
+
+		team_has = false;
+	}
+
+	if (m_no_menu && col == 0 && !theNetwork.m_bNetwork)
+	{
+		recoSurrenderWordID = recoGetWordID(recoSurrenderWordString);
+		recoSurrenderSubjectNum = subjnum;
+		SetupTuple(col, n, recoSurrenderWordString, "", "", recoSurrenderWordID, -1, -1, subjnum, 0, 0, true, NULL, CMD_UNKNOWN, NULL);
+		recoGetDownWordID = recoGetWordID(recoGetDownWordString);
+		recoGetDownSubjectNum = subjnum + 1;
+		SetupTuple(col, n + 1, recoGetDownWordString, "", "", recoGetDownWordID, -1, -1, subjnum + 1, 0, 0, true, NULL, CMD_UNKNOWN, NULL);
+		n += 2;
+	}
+
+	num_tuples = n;
+	EnableTuples(col);
 }
 
 /* @socom-skeleton stub SetupTeamDisplay__10OrdersMenuFv */
 void OrdersMenu::SetupTeamDisplay()
 {
+	/* 0x1798c0: the team column: the first commandable team slides in from the left edge
+	 * (bright), the other commandable ones appear one row apart after a pause (dim), the rest
+	 * stay hidden; each commandable team's row number is its index */
+	bool first = true;
+	int y = 50;
+	int firstIndex = -1;
+	char text[32];
+
+	for (int i = 0; i < n_teams; i++)
+	{
+		C2DOrderItem *item = &m_team_text[i];
+		TEAM_TABLE *team = &team_table[i];
+		item->Off();
+
+		if (team->has_command)
+		{
+			item->m_active_tex = m_team_active_tex;
+			item->m_inactive_tex = m_team_inactive_tex;
+			item->m_arrow_tex = m_arrow_tex;
+			item->SetTrans(75.0f);
+			item->SetUV(0.01f, 0.01f, 0.99f, 0.99f);
+			orders_text_color(item);
+
+			if (first)
+			{
+				orders_item_target(item, 15, 50);
+				int x = (int)(-m_item_width);
+				orders_item_load(item, team->display, text, m_ordersfont, x);
+				item->m_Explanation = team->explanation;
+				item->SetTrans(128.0f);
+				item->m_state = 0;
+				item->On();
+				first = false;
+			}
+			else
+			{
+				orders_item_target(item, 15, y);
+				orders_item_load(item, team->display, text, m_ordersfont, 15);
+				item->m_Explanation = team->explanation;
+				item->Off();
+				item->m_state = -3;
+			}
+
+			team->index = i;
+			y += TEXT_YOFFSET;
+
+			if (firstIndex == -1)
+				firstIndex = i;
+		}
+		else
+		{
+			item->m_active_tex = m_team_active_tex;
+			item->m_inactive_tex = m_team_inactive_tex;
+			item->m_arrow_tex = m_arrow_tex;
+			orders_item_load(item, team->display, text, m_ordersfont, 15);
+			item->m_Explanation = team->explanation;
+			item->Off();
+			item->m_state = -2;
+		}
+	}
+
+	m_size[0] = n_teams;
 }
 
 /* @socom-skeleton stub SetupCommandDisplay__10OrdersMenuFv */
 void OrdersMenu::SetupCommandDisplay()
 {
+	/* 0x1792c0: the order column for the chosen team: the cmdtable orders offered to its
+	 * mask that its unit allows (all one-team orders for the network team 32) get rows; the
+	 * first is shown at once, the others appear after a pause. ACTION shows the reticle
+	 * action's name, the SOP messages the persona's. Their context columns are refreshed */
+	bool first = true;
+	u32 mask = (u32)m_selected_team == 32 ? ~0u : 1u << (u32)m_selected_team;
+	int count = 0;
+	char text[32];
+
+	for (int c = 0; c < n_cmds; c++)
+	{
+		CMD_TABLE *cmd = &cmd_table[c];
+		int t = orders_team_by_index(m_selection[0]);
+		CSealUnit *unit = t != -1 ? team_table[t].unit : NULL;
+		bool offer = (u32)team_table[m_selection[0]].team == 32 && cmd->mask == 1;
+
+		if (!offer && (mask & cmd->mask) && unit != NULL && unit->AllowCommand(ftsGetPlayer(), cmd->command, NULL))
+			offer = true;
+
+		if (offer)
+			cmd->index = count++;
+		else
+			cmd->index = -1;
+	}
+
+	m_size[1] = count;
+
+	for (int c = 0; c < n_cmds; c++)
+	{
+		if (cmd_table[c].index != -1)
+			SOCOM_PORT_TRACE("ORDERS: team %d order row %d: %s", m_selection[0], cmd_table[c].index, cmd_table[c].display);
+	}
+
+	int k = 0;
+	int y = 50;
+
+	for (int c = 0; c < n_cmds; c++)
+	{
+		CMD_TABLE *cmd = &cmd_table[c];
+
+		if (cmd->index == -1)
+			continue;
+
+		RefreshContext(cmd);
+		C2DOrderItem *item = &m_cmd_text[k];
+		item->m_bArrow = cmd->submenu != NULL;
+		item->m_active_tex = m_cmd_active_tex;
+		item->m_inactive_tex = m_cmd_inactive_tex;
+		item->m_arrow_tex = m_arrow_tex;
+		item->SetUV(0.01f, 0.01f, 0.99f, 0.99f);
+		orders_item_target(item, (int)(30.0f + m_item_width), y);
+		item->m_glow = false;
+		int x;
+
+		if (first)
+		{
+			item->SetTrans(128.0f);
+			x = 15;
+			first = false;
+		}
+		else
+		{
+			item->Off();
+			item->m_state = -3;
+			x = (int)(30.0f + m_item_width);
+		}
+
+		u8 command = cmd->command;
+
+		if (command == CMD_ACTION)
+		{
+			std::string ui("unknown");
+			CNodeAction *action = ftsGetPlayer()->GetReticuleAction(false);
+
+			if (action != NULL)
+				action->GetUIString(ui);
+
+			orders_item_load(item, ui.c_str(), text, m_ordersfont, x);
+			item->m_Explanation = cmd->explanation;
+		}
+		else
+		{
+			if (command >= CMD_SOP1 && command < CMD_TAUNT1)
+				sprintf(cmd->display, "%s", CZPersonaState::GetSOUPString(ftsGetPlayer(), command - CMD_SOP1));
+
+			orders_item_load(item, cmd->display, text, m_ordersfont, x);
+			item->m_Explanation = cmd->explanation;
+		}
+
+		orders_text_color(item);
+		k++;
+		y += TEXT_YOFFSET;
+	}
+
+	for (; k < n_cmds; k++)
+		m_cmd_text[k].Off();
+
+	m_selection[1] = 0;
 }
 
 /* @socom-skeleton stub SetupContextDisplay__10OrdersMenuFb */
-unsigned char OrdersMenu::SetupContextDisplay(bool)
+unsigned char OrdersMenu::SetupContextDisplay(bool show)
 {
+	/* 0x178eb0: the context column of the chosen order (show): its entries one row apart,
+	 * the first bright, the others after a pause; the unused items hidden. Whether there is a
+	 * context column. Port deviation: an entry the list left unfilled (see RefreshContext)
+	 * shows an empty text (the ELF copies from address 0) */
+	m_size[2] = 0;
+	m_submenu = NULL;
+	int count = 0;
+
+	if (show && m_command != NULL)
+	{
+		CMD_TABLE *cmd = m_command;
+		int x = (int)((45.0f + m_item_width) + m_item_width);
+		RefreshContext(cmd);
+		bool first = true;
+		int y = 50;
+		char text[32];
+
+		for (count = 0; count < cmd->submenu_items; count++)
+		{
+			C2DOrderItem *item = &m_aux_text[count];
+			CSubMenu *sub = &cmd->submenu[count];
+			item->m_active_tex = m_aux_active_tex;
+			item->m_inactive_tex = m_aux_inactive_tex;
+			item->m_arrow_tex = m_arrow_tex;
+			item->m_glow = false;
+			item->SetUV(0.01f, 0.01f, 0.99f, 0.99f);
+			orders_item_target(item, x, y);
+			orders_text_color(item);
+			const char *display = sub->m_display != NULL ? sub->m_display : "";
+
+			if (first)
+			{
+				item->SetTrans(128.0f);
+				int tx = (int)(30.0f + m_item_width);
+				orders_item_load(item, display, text, m_ordersfont, tx);
+				item->m_Explanation = sub->m_explanation;
+				first = false;
+			}
+			else
+			{
+				item->SetTrans(75.0f);
+				orders_item_load(item, display, text, m_ordersfont, x);
+				item->m_Explanation = sub->m_explanation;
+				item->Off();
+				item->m_state = -3;
+			}
+
+			y += TEXT_YOFFSET;
+		}
+
+		m_size[2] = count;
+	}
+
+	for (int i = count; i < n_aux; i++)
+		m_aux_text[i].Off();
+
+	return m_size[2] > 0;
 }
 
 /* @socom-skeleton stub __ct__10OrdersMenuFv */
 OrdersMenu::OrdersMenu()
 {
+	/* 0x1780c0: the layout and sounds from orders.rdr (theMission.m_ordersRdr), the team
+	 * table's names and the command table (cmdtable: name, voice word, order, teams,
+	 * explanation, MP_ONLY), then an item per team, order and context entry. Port: the
+	 * multiplayer renaming of the SOP orders from the player's character is not written */
+	recoInit2();
+	m_item_height = 30.0f;
+	m_item_width = 135.0f;
+	m_has_scroll_sound = true;
+	m_has_select_sound = true;
+	m_has_complete_sound = true;
+	m_time_since_last_chat = 2.0f;
+	m_circle_down_time = 0.0f;
+	CRdrFile *rdr = theMission.m_ordersRdr;
+
+	if (rdr != NULL)
+	{
+		m_text_offset.y = 0;
+		m_text_offset.x = 0;
+		zrdr_findreal(rdr, "order_speed", &m_order_speed, 1);
+		zrdr_findreal(rdr, "height", &m_item_height, 1);
+		TEXT_YOFFSET = (int)(1.0f + m_item_height);
+		zrdr_findreal(rdr, "text_size", &ORDERS_TEXTSIZE, 1);
+		m_ExplanationText.m_scale = ORDERS_TEXTSIZE;
+		orders_read_sound(rdr, "scroll_sound", m_upSound, m_has_scroll_sound);
+		orders_read_sound(rdr, "select_sound", m_selectSound, m_has_select_sound);
+		orders_read_sound(rdr, "complete_sound", m_completeSound, m_has_complete_sound);
+		zrdr_findreal(rdr, "width", &m_item_width, 1);
+		zrdr_findIPNT2D(rdr, "text_offset", &m_text_offset);
+		zrdr_findreal(rdr, "PTT_circle_down_time", &m_circle_down_max, 1);
+		_zrdr *teams = zrdr_findtag(rdr, "teamtable");
+
+		for (int i = 0; i < n_teams && (u32)i < orders_rdr_count(teams); i++)
+		{
+			_zrdr *row = teams->Get(i);
+
+			if (row == NULL || row->type != ZRDR_ARRAY || orders_rdr_count(row) < 3)
+				continue;
+
+			TEAM_TABLE *team = &team_table[i];
+			sprintf(team->display, "%s", orders_rdr_string(row->Get(0)));
+			sprintf(team->explanation, "%s", orders_rdr_string(row->Get(2)));
+			CHUD::HudText_to_upper(team->explanation);
+			sprintf(team->vuiword, "%s", orders_rdr_string(row->Get(1)));
+			team->vuiID = recoGetWordID(team->vuiword);
+		}
+
+		_zrdr *cmds = zrdr_findtag(rdr, "cmdtable");
+		n_cmds = (int)orders_rdr_count(cmds);
+		cmd_table = new CMD_TABLE[n_cmds];
+
+		for (int i = 0; i < n_cmds; i++)
+		{
+			_zrdr *row = cmds->Get(i);
+			CMD_TABLE *cmd = &cmd_table[i];
+			u32 count = orders_rdr_count(row);
+			sprintf(cmd->display, "%s", orders_rdr_string(count > 0 ? row->Get(0) : NULL));
+			sprintf(cmd->vuiword, "%s", orders_rdr_string(count > 1 ? row->Get(1) : NULL));
+			cmd->vuiID = recoGetWordID(cmd->vuiword);
+			cmd->command = CSealCtrl::GetCommandId(orders_rdr_string(count > 2 ? row->Get(2) : NULL));
+			cmd->mask = ParseTeamBlock(count > 3 ? row->Get(3) : NULL);
+			sprintf(cmd->explanation, "%s", orders_rdr_string(count > 4 ? row->Get(4) : NULL));
+			CHUD::HudText_to_upper(cmd->explanation);
+			cmd->isMultiOnly = zrdr_findtag(row, "MP_ONLY") != NULL;
+		}
+
+		SOCOM_PORT_TRACE("ORDERS: menu: %d teams, %d orders (orders.rdr %p)", n_teams, n_cmds, (void *)rdr);
+	}
+
+	m_size[0] = 0;
+	m_size[1] = 0;
+	m_size[2] = 0;
+	m_selected_row = 0;
+	m_selected_col = 0;
+	m_list.Off();
+	m_selection[2] = 0;
+	m_selection[1] = 0;
+	m_selection[0] = 0;
+	m_selected_team = (FIRETEAM)1;
+	m_command = NULL;
+	m_submenu = NULL;
+	m_team_text = new C2DOrderItem[n_teams];
+	m_cmd_text = new C2DOrderItem[n_cmds];
+	m_aux_text = new C2DOrderItem[n_aux];
+	m_shutdown = false;
+	m_fade_time = -1.0f;
+	m_no_menu = false;
+	m_was_PTT = false;
 }
 
 /* @socom-skeleton stub __dt__10OrdersMenuFv */
 OrdersMenu::~OrdersMenu()
 {
+	/* 0x177f60: the items and the command table (members follow) */
+	recoUnInit();
+	delete[] m_team_text;
+	delete[] m_cmd_text;
+	delete[] m_aux_text;
+	delete[] cmd_table;
+	cmd_table = NULL; /* port: cleared (a HUD built again re-reads the table) */
 }
 
 /* @socom-skeleton stub Enable__10OrdersMenuFv */
 void OrdersMenu::Enable()
 {
+	/* 0x177bc0 (the orders button released quickly): the message queues pause, each team
+	 * looks up its unit (the network radio team 25 takes 31's, an SOP player's teams 30); the
+	 * menu opens at the first commandable team with its orders hidden and no context. No
+	 * commandable team: closes again */
+	theMission.m_messenger.m_bEnabled = false;
+	theMission.m_messenger.ScrollUp();
+	theMission.m_ammoMessenger.m_bEnabled = false;
+	theMission.m_ammoMessenger.ScrollUp();
+	ftsGetPlayer();
+
+	for (int i = 0; i < n_teams; i++)
+	{
+		TEAM_TABLE *team = &team_table[i];
+		team->unit = CSealUnit::GetUnitByTeam((u32)team->team);
+
+		if ((u32)team->team == 25)
+			team->unit = CSealUnit::GetUnitByTeam(31);
+	}
+
+	if (theNetwork.m_bNetwork && (ftsGetPlayer()->m_team & 0x100))
+	{
+		CSealUnit *unit = CSealUnit::GetUnitByTeam(30);
+		team_table[7].unit = unit;
+		team_table[5].unit = unit;
+	}
+
+	m_selected_col = 0;
+	m_selected_row = 0;
+	m_selection[0] = 0;
+	m_selection[1] = 0;
+	m_selection[2] = 0;
+
+	if (num_commandable_teams <= 0)
+	{
+		orders_close(this);
+		return;
+	}
+
+	m_list.On();
+	SetupTeamDisplay();
+
+	if (!team_table[0].has_command)
+	{
+		m_selected_row++;
+
+		if (m_selected_col == 0)
+		{
+			if (m_selected_row >= n_teams)
+				m_selected_row = 0;
+
+			while (!team_table[m_selected_row].has_command)
+			{
+				m_selected_row++;
+
+				if (m_selected_row >= n_teams)
+					m_selected_row = 0;
+			}
+
+			m_selection[0] = m_selected_row;
+		}
+		else
+		{
+			if (m_selected_row >= m_size[m_selected_col])
+				m_selected_row = 0;
+
+			m_selection[m_selected_col] = m_selected_row;
+		}
+	}
+
+	m_shutdown = false;
+
+	for (int i = 0; i < n_cmds; i++)
+		m_cmd_text[i].Off();
+
+	SetupContextDisplay(false);
+	SOCOM_PORT_TRACE("ORDERS: menu open, %d commandable teams, team row %d", num_commandable_teams, m_selection[0]);
 }
 
 /* @socom-skeleton stub Disable__10OrdersMenuFv */
 void OrdersMenu::Disable()
 {
+	/* 0x177a20 (CHUD::ReInit_Uninit): closed at once */
+	orders_close(this);
 }
 
 /* @socom-skeleton stub ClearText__10OrdersMenuFv */
 void OrdersMenu::ClearText()
 {
+	/* 0x177830 (CHUD::ReInit_Uninit): the items' texts and explanations, the orders' context
+	 * lists and the explanation line */
+	for (int i = 0; i < n_teams; i++)
+	{
+		m_team_text[i].m_text.ClearAndWipe();
+		m_team_text[i].m_Explanation = NULL;
+	}
+
+	for (int i = 0; i < n_cmds; i++)
+	{
+		m_cmd_text[i].m_text.ClearAndWipe();
+		m_cmd_text[i].m_Explanation = NULL;
+	}
+
+	if (m_command != NULL)
+	{
+		for (int i = 0; i < m_command->submenu_items; i++)
+		{
+			m_aux_text[i].m_text.ClearAndWipe();
+			m_aux_text[i].m_Explanation = NULL;
+		}
+	}
+
+	for (int i = 0; i < n_cmds; i++)
+	{
+		CMD_TABLE *cmd = &cmd_table[i];
+
+		if (cmd->submenu != NULL)
+		{
+			delete[] cmd->submenu;
+			cmd->submenu = NULL;
+		}
+	}
+
+	m_ExplanationText.ClearAndWipe();
 }
 
 /* @socom-skeleton stub Load__10OrdersMenuFffff */
-void OrdersMenu::Load(float, float, float, float)
+void OrdersMenu::Load(float topx, float topy, float botx, float boty)
 {
+	/* 0x1777c0 (CHUD::Init): the menu's screen rectangle */
+	m_topx = (s32)topx;
+	m_topy = (s32)topy;
+	m_botx = (s32)botx;
+	m_boty = (s32)boty;
 }
 
 /* @socom-skeleton stub LoadTextures__10OrdersMenuFPQ23zdb6CWorldP7C2DFont */
-void OrdersMenu::LoadTextures(zdb::CWorld *, C2DFont *)
+void OrdersMenu::LoadTextures(zdb::CWorld *, C2DFont *font)
 {
+	/* 0x1772a0 (CHUD::Init): the menu list joins the HUD (its draw phase by texture), every
+	 * item gets the layout and joins the list, the plates' textures (TCM.tif; the active ones
+	 * stay NULL), the explanation line and its four background pieces */
+	m_ordersfont = font;
+	theHUD->Add2D(&m_list, -1, true);
+
+	for (int i = 0; i < n_teams; i++)
+		orders_item_layout(this, &m_team_text[i]);
+
+	for (int i = 0; i < n_cmds; i++)
+		orders_item_layout(this, &m_cmd_text[i]);
+
+	for (int i = 0; i < n_aux; i++)
+		orders_item_layout(this, &m_aux_text[i]);
+
+	m_team_inactive_tex = zdb::CAssetMgr::m_assets.GetTexHandle("TCM.tif");
+	m_team_active_tex = NULL;
+	m_cmd_inactive_tex = zdb::CAssetMgr::m_assets.GetTexHandle("TCM.tif");
+	m_cmd_active_tex = NULL;
+	m_aux_inactive_tex = zdb::CAssetMgr::m_assets.GetTexHandle("TCM.tif");
+	m_aux_active_tex = NULL;
+	m_arrow_tex = zdb::CAssetMgr::m_assets.GetTexHandle("TCMArrow.tif");
+	m_ExplanationText.SetFont(font);
+	m_ExplanationText.m_pos.x = 400;
+	m_ExplanationText.m_pos.y = 640;
+	m_ExplanationText.SetString("EXPLANATION OF THE HIGHLIGHTED TCM ELEMENT IS HERE");
+	m_ExplanationText.m_color.x = 86.0f;
+	m_ExplanationText.m_color.y = 63.0f;
+	m_ExplanationText.m_color.z = 27.0f;
+	m_ExplanationBackgroundRight.Load(0.0f, 0.0f, m_team_inactive_tex);
+	m_ExplanationBackgroundLeft.Load(0.0f, 0.0f, m_team_inactive_tex);
+	m_ExplanationBackgroundCenterLeft.Load(0.0f, 0.0f, m_team_inactive_tex);
+	m_ExplanationBackgroundCenterRight.Load(0.0f, 0.0f, m_team_inactive_tex);
+	m_ExplanationBackgroundLeft.SetPos(15, 20, 135, 45);
+	m_ExplanationBackgroundCenterLeft.SetPos(135, 20, 245, 45);
+	m_ExplanationBackgroundCenterRight.SetPos(245, 20, 355, 45);
+	m_ExplanationBackgroundRight.SetPos(355, 20, 465, 45);
+	m_ExplanationBackgroundLeft.SetUV(0.0f, 0.0f, 0.8f, 1.0f);
+	m_ExplanationBackgroundCenterLeft.SetUV(0.1f, 0.0f, 0.8f, 1.0f);
+	m_ExplanationBackgroundCenterRight.SetUV(0.1f, 0.0f, 0.8f, 1.0f);
+	m_ExplanationBackgroundRight.SetUV(0.1f, 0.0f, 1.0f, 1.0f);
+	m_list.push_back(&m_ExplanationBackgroundLeft);
+	m_list.push_back(&m_ExplanationBackgroundCenterLeft);
+	m_list.push_back(&m_ExplanationBackgroundCenterRight);
+	m_list.push_back(&m_ExplanationBackgroundRight);
+	m_list.push_back(&m_ExplanationText);
 }
 
 /* @socom-skeleton stub HandleRecoCmd__10OrdersMenuFiiiiPc */
@@ -305,39 +1700,718 @@ void OrdersMenu::HandleRecoCmd(int, int, int, int, char *)
 /* @socom-skeleton stub DoOrdersMenuCalculations__10OrdersMenuFv */
 void OrdersMenu::DoOrdersMenuCalculations()
 {
+	/* 0x176d60 (the orders button pressed): the reticle seal is held, the teams look up
+	 * their units, the selection resets and the first column's grammar is built (which teams
+	 * are commandable); recognition starts, the scroll sound plays */
+	ftsGetPlayer()->CacheReticuleSeal(true);
+	m_no_menu = true;
+
+	for (int i = 0; i < n_teams; i++)
+		team_table[i].unit = CSealUnit::GetUnitByTeam((u32)team_table[i].team);
+
+	m_selected_row = 0;
+	m_selected_col = 0;
+	m_selection[0] = 0;
+	m_selection[1] = 0;
+	m_selection[2] = 0;
+	SetupTuples(0);
+	recoStartRecognizing();
+	orders_play(m_has_scroll_sound, m_upSound);
+	recoHack = this;
 }
 
 /* @socom-skeleton stub PlayScrollSound__10OrdersMenuFv */
 void OrdersMenu::PlayScrollSound()
 {
+	/* 0x176cf0: no sound found: none from now on */
+	orders_play(m_has_scroll_sound, m_upSound);
 }
 
 /* @socom-skeleton stub HandlePad__10OrdersMenuFP4CPadf */
-int OrdersMenu::HandlePad(CPad *, float)
+int OrdersMenu::HandlePad(CPad *pad, float dT)
 {
+	/* 0x175ff0 (CHUD::Tick, menu state none or orders): the orders button (TeamCommand):
+	 * pressed - the menu state goes to orders and the teams are evaluated; released before
+	 * PTT_circle_down_time - the menu opens (single player: when a team is commandable),
+	 * else closes (held longer: push-to-talk, the headset). Open: START closes, L1 / L2 with
+	 * left / right tune the recogniser, up / down move in the column, X or the orders button
+	 * steps right (the last column gives the order), triangle steps left (out of the first
+	 * closes). A closing menu folds and fades for m_fade_time. Dead in single player: closed.
+	 * Returns 1 when opened, -1 when closed or the order given, else 0.
+	 * ELF quirks kept: START's close still runs the second button chain (L2 with left / right
+	 * there run again); the TeamCommand state is set to pressed again after the press.
+	 * Port deviation: moving up in the first column wraps before the team is tested (the ELF
+	 * tests team_table[-1] first) */
+	bool wasOn = m_list.IsOn();
+	int result = 0;
+
+	if (!theNetwork.m_bNetwork && !ftsGetPlayer()->m_isAlive)
+	{
+		if (!wasOn)
+			return 0;
+
+		m_shutdown = true;
+	}
+
+	if (theNetwork.m_bNetwork)
+	{
+		if ((m_shutdown && m_fade_time < dT) || !(m_circle_down_time <= 10.0f))
+			theVoice.m_isPushed = false;
+	}
+
+	if (m_shutdown)
+	{
+		m_fade_time -= dT;
+
+		if (m_fade_time < 0.0f)
+		{
+			if (theNetwork.m_bNetwork)
+				theVoice.m_isPushed = false;
+
+			orders_close(this);
+			pad->Flush();
+			m_shutdown = false;
+			return -1;
+		}
+
+		Tick(dT);
+		return 0;
+	}
+
+	KEY_STATE button = CCtrlrConfigs::GetButtonState(PadBtnFunc::TeamCommand, *pad);
+
+	if (!m_list.IsOn())
+	{
+		if (handle_reco_result)
+		{
+			handle_reco_result = false;
+
+			if (m_was_PTT)
+				HandleRecoCmd(recoResult[0], recoResult[1], recoResult[2], recoResult[3], (char *)&recoResult[4]);
+		}
+
+		CZSealBody *player = ftsGetPlayer();
+		CSealCtrl *ctrl = player != NULL ? static_cast<CSealCtrl *>(player->m_control) : NULL;
+
+		if (ctrl != NULL && ctrl->m_input_enabled)
+		{
+			if (button == KEY_UP)
+			{
+				if (theNetwork.m_bNetwork)
+					theVoice.m_isPushed = false;
+
+				m_time_since_last_chat += dT;
+			}
+			else if (button == KEY_FALLING)
+			{
+				if (!theNetwork.m_bNetwork)
+				{
+					m_circle_down_time = 0.0f;
+					DoOrdersMenuCalculations();
+					CSealCtrl *control = static_cast<CSealCtrl *>(ftsGetPlayer()->m_control);
+					CPad *ctrlpad = control->m_padid < 2 ? CInput::m_pads[control->m_padid] : NULL;
+					control->SetMenuState(stateOrders);
+					control->StopRumbler();
+					CCtrlrConfigs::SetButtonState(ctrlpad, PadBtnFunc::TeamCommand, KEY_FALLING);
+					result = 1;
+				}
+				else
+				{
+					m_circle_down_time = 0.0f;
+					DoOrdersMenuCalculations();
+					result = 1;
+				}
+			}
+			else if (button == KEY_DOWN)
+			{
+				m_circle_down_time += dT;
+
+				if (theNetwork.m_bNetwork && !(m_circle_down_time < m_circle_down_max) && m_circle_down_time < 10.0f
+					&& (m_time_since_last_chat == 0.0f || !(m_time_since_last_chat <= 2.0f)))
+				{
+					m_time_since_last_chat = 0.0f;
+					theVoice.m_isPushed = true;
+				}
+			}
+			else if (button == KEY_RISING)
+			{
+				if ((theNetwork.m_bNetwork && m_circle_down_time < m_circle_down_max)
+					|| (m_circle_down_time < m_circle_down_max && num_commandable_teams > 0))
+				{
+					static_cast<CSealCtrl *>(ftsGetPlayer()->m_control)->SetMenuState(stateOrders);
+					m_no_menu = false;
+					Enable();
+				}
+				else
+				{
+					ftsGetPlayer()->CacheReticuleSeal(false);
+					recoStopRecognizing();
+					orders_play(m_has_scroll_sound, m_upSound);
+					m_was_PTT = m_no_menu;
+					static_cast<CSealCtrl *>(ftsGetPlayer()->m_control)->SetMenuState(stateNone);
+					result = -1;
+				}
+			}
+		}
+	}
+	else
+	{
+		u8 *state = (u8 *)pad->m_state;
+
+		if ((s8)state[(u8)PAD_BUTTON::PAD_START] != 0)
+		{
+			orders_close(this);
+			SOCOM_PORT_TRACE("ORDERS: menu closed (START)");
+		}
+		else if (state[(u8)PAD_BUTTON::PAD_TRIGGER_L1] == KEY_DOWN && state[(u8)PAD_BUTTON::PAD_RIGHT] == KEY_FALLING)
+		{
+			orders_play(m_has_scroll_sound, m_upSound);
+			recoThresholdUp();
+		}
+		else if (state[(u8)PAD_BUTTON::PAD_TRIGGER_L1] == KEY_DOWN && state[(u8)PAD_BUTTON::PAD_LEFT] == KEY_FALLING)
+		{
+			orders_play(m_has_scroll_sound, m_upSound);
+			recoThresholdDown();
+		}
+		else if (state[(u8)PAD_BUTTON::PAD_TRIGGER_L2] == KEY_DOWN && state[(u8)PAD_BUTTON::PAD_RIGHT] == KEY_FALLING)
+		{
+			orders_play(m_has_scroll_sound, m_upSound);
+			recoSpeechThresholdUp();
+		}
+		else if (state[(u8)PAD_BUTTON::PAD_TRIGGER_L2] == KEY_DOWN && state[(u8)PAD_BUTTON::PAD_LEFT] == KEY_FALLING)
+		{
+			orders_play(m_has_scroll_sound, m_upSound);
+			recoSpeechThresholdDown();
+		}
+
+		if (state[(u8)PAD_BUTTON::PAD_TRIGGER_L2] == KEY_DOWN && state[(u8)PAD_BUTTON::PAD_RIGHT] == KEY_FALLING)
+		{
+			orders_play(m_has_scroll_sound, m_upSound);
+			recoSpeechThresholdUp();
+		}
+		else if (state[(u8)PAD_BUTTON::PAD_TRIGGER_L2] == KEY_DOWN && state[(u8)PAD_BUTTON::PAD_LEFT] == KEY_FALLING)
+		{
+			orders_play(m_has_scroll_sound, m_upSound);
+			recoSpeechThresholdDown();
+		}
+		else if (state[(u8)PAD_BUTTON::PAD_UP] == KEY_FALLING)
+		{
+			orders_play(m_has_scroll_sound, m_upSound);
+			m_selected_row--;
+
+			if (m_selected_col == 0)
+			{
+				if (m_selected_row < 0)
+					m_selected_row = n_teams - 1; /* port deviation: wrapped before the test */
+
+				while (!team_table[m_selected_row].has_command)
+				{
+					m_selected_row--;
+
+					if (m_selected_row < 0)
+						m_selected_row = n_teams - 1;
+				}
+
+				m_selection[0] = m_selected_row;
+			}
+			else
+			{
+				if (m_selected_row < 0)
+					m_selected_row = m_size[m_selected_col] - 1;
+
+				m_selection[m_selected_col] = m_selected_row;
+			}
+		}
+		else if (state[(u8)PAD_BUTTON::PAD_DOWN] == KEY_FALLING)
+		{
+			orders_play(m_has_scroll_sound, m_upSound);
+			m_selected_row++;
+
+			if (m_selected_col == 0)
+			{
+				if (m_selected_row >= n_teams)
+					m_selected_row = 0;
+
+				while (!team_table[m_selected_row].has_command)
+				{
+					m_selected_row++;
+
+					if (m_selected_row >= n_teams)
+						m_selected_row = 0;
+				}
+
+				m_selection[0] = m_selected_row;
+			}
+			else
+			{
+				if (m_selected_row >= m_size[m_selected_col])
+					m_selected_row = 0;
+
+				m_selection[m_selected_col] = m_selected_row;
+			}
+		}
+		else if (state[(u8)PAD_BUTTON::PAD_CROSS] == KEY_FALLING || button == KEY_FALLING)
+			ScrollForward();
+		else if (state[(u8)PAD_BUTTON::PAD_TRIANGLE] == KEY_FALLING)
+		{
+			orders_play(m_has_scroll_sound, m_upSound);
+			ScrollBack();
+		}
+
+		Tick(dT);
+	}
+
+	if (wasOn && !m_list.IsOn())
+	{
+		if (!m_shutdown)
+			m_shutdown = true;
+
+		m_fade_time = 4.0f * m_order_speed;
+		AllCollapse(false);
+	}
+
+	return result;
 }
 
 /* @socom-skeleton stub RefreshDisplay__10OrdersMenuFv */
 unsigned char OrdersMenu::RefreshDisplay()
 {
+	/* 0x175cf0 (ScrollForward, a column entered): column 1 - the orders of the chosen team;
+	 * column 2 - the team rows return (the chosen one bright and settled); column 3 - the
+	 * context rows show, the order rows return and the context entry is taken. 1 for the
+	 * third column */
+	unsigned char result = 0;
+
+	switch (m_selected_col)
+	{
+	case 0:
+		SetupCommandDisplay();
+		break;
+
+	case 1:
+		for (int i = 0; i < m_size[1]; i++)
+			m_cmd_text[i].On();
+
+		for (int i = 0; i < n_teams; i++)
+		{
+			if (!team_table[i].has_command)
+				continue;
+
+			C2DOrderItem *item = &m_team_text[i];
+			item->On();
+			orders_item_target(item, 15, 50);
+
+			if (i == m_selection[0])
+			{
+				item->m_state = 0;
+				item->m_glow = true;
+			}
+			else
+			{
+				item->m_state = -1;
+				item->m_glow = false;
+			}
+		}
+		break;
+
+	case 2:
+		for (int i = 0; i < m_size[2]; i++)
+			m_aux_text[i].On();
+
+		for (int i = 0; i < m_size[1]; i++)
+		{
+			C2DOrderItem *item = &m_cmd_text[i];
+			item->On();
+			orders_item_target(item, (int)(30.0f + m_item_width), 50);
+
+			if (i == m_selection[1])
+			{
+				item->m_state = 0;
+				item->m_glow = true;
+			}
+			else
+			{
+				item->m_state = -1;
+				item->m_glow = false;
+			}
+		}
+
+		result = 1;
+		m_submenu = &m_command->submenu[m_selected_row];
+		break;
+
+	default:
+		break;
+	}
+
+	return result;
 }
 
 /* @socom-skeleton stub AllCollapse__10OrdersMenuFb */
-void OrdersMenu::AllCollapse(bool)
+void OrdersMenu::AllCollapse(bool given)
 {
+	/* 0x175a50: everything folds left and fades (the chosen rows blink when an order was
+	 * given); the message queues resume */
+	theMission.m_messenger.m_bEnabled = true;
+	theMission.m_ammoMessenger.m_bEnabled = true;
+
+	for (int i = 0; i < n_teams; i++)
+	{
+		if (!team_table[i].has_command)
+			continue;
+
+		C2DOrderItem *item = &m_team_text[i];
+		orders_item_target(item, 15, 50);
+		item->m_state = -4;
+		item->m_target_x2 = -400;
+		item->m_target_y2 = 50;
+		item->m_state2 = m_selection[0] == i ? (given ? -5 : -1) : -2;
+	}
+
+	for (int i = 0; i < m_size[1]; i++)
+	{
+		C2DOrderItem *item = &m_cmd_text[i];
+		orders_item_target(item, (int)(30.0f + m_item_width), 50);
+		item->m_state = -4;
+		item->m_target_x2 = -300;
+		item->m_target_y2 = 50;
+		item->m_state2 = m_selection[1] == i ? (given ? -5 : -1) : -2;
+	}
+
+	for (int i = 0; i < m_size[2]; i++)
+	{
+		C2DOrderItem *item = &m_aux_text[i];
+		orders_item_target(item, (int)(45.0f + 2.0f * m_item_width), 50);
+		item->m_state = -4;
+		item->m_target_x2 = -200;
+		item->m_target_y2 = 50;
+		item->m_state2 = m_selection[2] == i ? (given ? -5 : -1) : -2;
+	}
 }
 
 /* @socom-skeleton stub ScrollForward__10OrdersMenuFv */
 unsigned char OrdersMenu::ScrollForward()
 {
+	/* 0x175420: step right. The context column, an order without one, or a taunt (a random
+	 * one not sent last) gives the order: the confirmation, the unit's IssueCommand with the
+	 * context entry's data, the menu folds with the chosen rows blinking. Otherwise the next
+	 * column opens (the orders of the chosen team). 1 when the order was given.
+	 * Port: the votes (multiplayer) are not written. ELF: the team lookups read
+	 * team_table[-1] when the row matches no team (port: none) */
+	m_selection[m_selected_col] = m_selected_row;
+	bool issue = false;
+
+	switch (m_selected_col)
+	{
+	case 2:
+		issue = true;
+		break;
+
+	case 1:
+	{
+		CMD_TABLE *chosen = NULL;
+
+		for (int i = 0; i < n_cmds; i++)
+		{
+			if (m_selected_row == cmd_table[i].index)
+			{
+				chosen = &cmd_table[i];
+				break;
+			}
+		}
+
+		m_command = chosen;
+		m_selection[2] = 0;
+		issue = !SetupContextDisplay(true);
+		break;
+	}
+
+	case 0:
+	{
+		int t = orders_team_by_index(m_selection[0]);
+
+		if (t != -1 && (u32)team_table[t].team == 26)
+		{
+			int taunt = LastTauntSent;
+
+			while (taunt == LastTauntSent)
+				taunt = rand() % 7 + CMD_TAUNT1;
+
+			LastTauntSent = taunt;
+
+			for (int i = 0; i < n_cmds; i++)
+			{
+				if (taunt == cmd_table[i].command)
+				{
+					m_command = &cmd_table[i];
+					break;
+				}
+			}
+
+			issue = true;
+		}
+		break;
+	}
+
+	default:
+		break;
+	}
+
+	if (issue)
+	{
+		was_reco_command = false;
+		CZSealBody *player = ftsGetPlayer();
+		int t = orders_team_by_index(m_selection[0]);
+		CSealUnit *unit = t != -1 ? team_table[t].unit : NULL;
+
+		if (unit != NULL || m_command->command == CMD_VOTE_ON || m_command->command == CMD_VOTE_OFF)
+		{
+			if (m_selected_col == 2)
+				m_submenu = &m_command->submenu[m_selected_row];
+
+			if (m_command->command == CMD_VOTE_ON || m_command->command == CMD_VOTE_OFF)
+			{
+				/* port: multiplayer only, not written (0x175714: SendVoteMessage for the
+				 * chosen player's entity) */
+			}
+			else
+			{
+				u32 num = unit->m_unit_num;
+
+				if (num == 2 || num == 3 || num == 1 || num == 17 || num == 29)
+					unit->ConfirmCommand(player, m_command->command, (char *)&recoResult[4]);
+
+				void *data = m_submenu != NULL ? m_submenu->m_data : NULL;
+				SOCOM_PORT_TRACE("ORDERS: order %s to %s (unit %u, data %p)", m_command->display, team_table[t].display, num, data);
+				unit->IssueCommand(player, m_command->command, data, false);
+			}
+		}
+
+		m_shutdown = true;
+		m_fade_time = 4.0f * m_order_speed;
+		AllCollapse(true);
+		orders_play(m_has_complete_sound, m_completeSound);
+		return issue;
+	}
+
+	orders_play(m_has_select_sound, m_selectSound);
+	int t = orders_team_by_index(m_selection[0]);
+	m_selected_team = t != -1 ? team_table[t].team : (FIRETEAM)1;
+
+	if (m_selected_col == 0)
+		SetupCommandDisplay();
+
+	if (m_size[m_selected_col] > 0)
+	{
+		m_selected_col++;
+		m_selected_row = 0;
+		SetupTuples(m_selected_col);
+		RefreshDisplay();
+		SOCOM_PORT_TRACE("ORDERS: column %d (%d rows)", m_selected_col, m_size[m_selected_col]);
+	}
+
+	return issue;
 }
 
 /* @socom-skeleton stub ScrollBack__10OrdersMenuFv */
 void OrdersMenu::ScrollBack()
 {
+	/* 0x174e40: step left; out of the first column the menu closes (fold, 3 x order_speed).
+	 * Back to the teams: the team rows rebuild (appearing after a pause), the orders fold
+	 * under the chosen team; back to the orders: they line up again (dim), the context rows
+	 * fold under the chosen order. The row returns to that column's choice */
+	m_selected_col--;
+
+	if (m_selected_col < 0)
+	{
+		m_selected_row = 0;
+		m_shutdown = true;
+		m_fade_time = 3.0f * m_order_speed;
+		AllCollapse(false);
+		return;
+	}
+
+	SetupTuples(m_selected_col);
+	char text[32];
+
+	if (m_selected_col == 0)
+	{
+		int y = 50;
+
+		for (int i = 0; i < n_teams; i++)
+		{
+			TEAM_TABLE *team = &team_table[i];
+			C2DOrderItem *item = &m_team_text[i];
+
+			if (team->has_command)
+			{
+				orders_item_target(item, 15, y);
+				orders_item_load(item, team->display, text, m_ordersfont, 15);
+				item->m_Explanation = team->explanation;
+				item->m_state = -3;
+				orders_text_color(item);
+				team->index = i;
+				y += TEXT_YOFFSET;
+			}
+			else
+			{
+				orders_item_load(item, team->display, text, m_ordersfont, 15);
+				item->m_Explanation = team->explanation;
+				item->Off();
+				item->m_state = -2;
+			}
+		}
+
+		m_size[0] = n_teams;
+
+		for (int i = 0; i < m_size[1]; i++)
+		{
+			C2DOrderItem *item = &m_cmd_text[i];
+			orders_item_target(item, (int)(30.0f + m_item_width), 50);
+
+			if (m_selection[1] == i)
+			{
+				item->m_state = -4;
+				item->m_target_x2 = 15;
+				item->m_target_y2 = 50;
+				item->m_state2 = -1;
+			}
+			else
+				item->m_state = -1;
+		}
+	}
+	else if (m_selected_col == 1)
+	{
+		for (int i = 0; i < m_size[1]; i++)
+		{
+			C2DOrderItem *item = &m_cmd_text[i];
+			f32 width = m_item_width;
+			int x0 = (int)(30.0f + width);
+			int x1 = (int)(30.0f + 2.0f * width);
+			item->SetPos(x0, 50, x1, (int)(50.0f + m_item_height));
+			int y = 50 + i * TEXT_YOFFSET;
+			orders_item_target(item, (int)(30.0f + m_item_width), y);
+			item->m_state = -3;
+			item->SetTrans(75.0f);
+		}
+
+		for (int i = 0; i < m_size[2]; i++)
+		{
+			C2DOrderItem *item = &m_aux_text[i];
+			orders_item_target(item, (int)(45.0f + 2.0f * m_item_width), 50);
+
+			if (m_selection[2] == i)
+			{
+				item->m_state = -4;
+				item->m_target_x2 = (int)(30.0f + m_item_width);
+				item->m_target_y2 = 50;
+				item->m_state2 = -1;
+			}
+			else
+				item->m_state = -1;
+		}
+	}
+
+	m_selected_row = m_selection[m_selected_col];
+
+	if (m_selected_row >= m_size[m_selected_col])
+		m_selected_row = m_size[m_selected_col] - 1;
 }
 
 /* @socom-skeleton stub Tick__10OrdersMenuFf */
-void OrdersMenu::Tick(float)
+void OrdersMenu::Tick(float dT)
 {
+	/* 0x174b30: the glow flag flips each frame (the blink); a voice result is handled; in
+	 * each column the chosen row is highlighted (pulsing in the current column, the
+	 * explanation line shows it) and the others dim; the items tick */
+	g_FlashGlow = !g_FlashGlow;
+
+	if (handle_reco_result)
+	{
+		handle_reco_result = false;
+
+		if (!m_shutdown || m_was_PTT)
+			HandleRecoCmd(recoResult[0], recoResult[1], recoResult[2], recoResult[3], (char *)&recoResult[4]);
+	}
+
+	for (int i = 0; i < m_size[2]; i++)
+	{
+		C2DOrderItem *item = &m_aux_text[i];
+
+		if (item->m_state > 0)
+		{
+			if (m_selection[2] == i)
+			{
+				item->m_state = 1;
+				item->m_glow = true;
+				m_ExplanationText.SetString(item->m_Explanation);
+			}
+			else
+			{
+				item->m_state = 2;
+				item->m_glow = false;
+			}
+		}
+
+		item->Tick(dT);
+	}
+
+	for (int i = 0; i < m_size[1]; i++)
+	{
+		C2DOrderItem *item = &m_cmd_text[i];
+
+		if (item->m_state > 0)
+		{
+			if (m_selection[1] == i)
+			{
+				if (m_selected_col == 1)
+				{
+					item->m_state = 1;
+					m_ExplanationText.SetString(item->m_Explanation);
+				}
+				else
+					item->m_state = 2;
+
+				item->m_glow = true;
+			}
+			else
+			{
+				item->m_state = 2;
+				item->m_glow = false;
+			}
+		}
+
+		item->Tick(dT);
+	}
+
+	for (int i = 0; i < n_teams; i++)
+	{
+		if (!team_table[i].has_command)
+			continue;
+
+		C2DOrderItem *item = &m_team_text[i];
+
+		if (item->m_state > 0)
+		{
+			if (m_selection[0] == i)
+			{
+				if (m_selected_col == 0)
+				{
+					item->m_state = 1;
+					m_ExplanationText.SetString(item->m_Explanation);
+				}
+				else
+					item->m_state = 2;
+
+				item->m_glow = true;
+			}
+			else
+			{
+				item->m_state = 2;
+				item->m_glow = false;
+			}
+		}
+
+		item->Tick(dT);
+	}
 }

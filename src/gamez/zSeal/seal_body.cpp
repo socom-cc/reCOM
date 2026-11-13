@@ -3833,6 +3833,62 @@ void CZSealBody::AdrenalineIncr(float incr)
 }
 
 /* @socom-skeleton stub FindValidReticleGotoLoc__10CZSealBodyFPi */
-void CZSealBody::FindValidReticleGotoLoc(int *)
+bool CZSealBody::FindValidReticleGotoLoc(int *loc)
 {
+	/* 0x26e700 (the orders menu's moving orders): a walkable cell at the aim point - walking
+	 * back towards the seal 10 units a step (at most 100 steps, one more once within 15 of the
+	 * seal) past cells off the map, of soil 0 / 8 / 9 / 10, linked (a cell link), or whose centre is above
+	 * the point. *loc = the last point's cell, packed ((map id << 26) | (x << 13) | y). ELF:
+	 * always 1 (the last point's cell even when none was valid) */
+	*loc = 0;
+	CPnt3D aim = m_aim_point;
+	CPnt3D pos = *GetPosW();
+	CPnt3D dir;
+	aim.Sub(&pos, &dir);
+	dir.Normalize();
+	dir.Scale(10.0f, &dir);
+	CPnt3D point = aim;
+	point.Sub(&dir, &point);
+	s32 tries = 100;
+
+	while (true)
+	{
+		CAiMapLoc cell;
+		bool valid = false;
+
+		if (AiMaps.GetLocation(&point, cell))
+		{
+			CAiCell *c = AiMaps.GetCell(cell);
+
+			if (c != NULL)
+			{
+				u32 soil = c->m_soil;
+
+				if (soil != 0 && soil != 10 && soil != 8 && soil != 9 && !c->m_link)
+				{
+					CPnt3D centre;
+					AiMaps.GetCellCenter(cell, &centre);
+
+					if (centre.y <= point.y)
+						valid = true;
+				}
+			}
+		}
+
+		if (valid)
+			break;
+
+		if (tries-- <= 0)
+			break;
+
+		point.Sub(&dir, &point);
+
+		if ((f32)fabs(point.z - pos.z) + (f32)fabs(point.x - pos.x) < 15.0f)
+			tries = 1;
+	}
+
+	CAiMapLoc last;
+	AiMaps.GetLocation(&point, last);
+	*loc = (s32)(((u32)last.m_mapid << 26) | ((u32)last.x << 13) | (u32)last.y);
+	return true;
 }

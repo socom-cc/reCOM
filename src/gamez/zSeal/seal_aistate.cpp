@@ -95,6 +95,7 @@
 #include "gamez/zAI/zai.h"
 /* @socom-skeleton end include */
 #include "gamez/zSeal/zseal.h"
+#include "gamez/zFTS/zfts.h" /* ftsGetPlayer (CAiSGoto::Tick) */
 
 /* @socom-skeleton stub MultiplayerMsgStrings */
 static unsigned char MultiplayerMsgStrings[28];
@@ -407,11 +408,12 @@ bool CSealCtrlAi::CanPushAiState(AI_STATE state)
 
 #ifdef SOCOM_PORT
 	/* port: only the states whose behaviour is written may be pushed (UNKNOWN, SCRIPT,
-	 * TARGETING, PURSUE, EVENT, RESTRAINED, FOLLOW, HOLD, ACTION, CORPSE, STUNNED); the other states' Tick functions are not written
+	 * TARGETING, PURSUE, EVENT, RESTRAINED, FOLLOW, HOLD, ACTION, CORPSE, STUNNED, GOTO); the other states' Tick functions are not written
 	 * yet, so their pushes (shot-at, reload, avoid ...) are refused here, a path every caller
 	 * handles */
 	if (s != STATE_UNKNOWN && s != STATE_SCRIPT && s != STATE_TARGETING && s != STATE_PURSUE && s != STATE_EVENT && s != STATE_RESTRAINED
-		&& s != STATE_FOLLOW && s != STATE_HOLD && s != STATE_ACTION && s != STATE_CORPSE && s != STATE_STUNNED)
+		&& s != STATE_FOLLOW && s != STATE_HOLD && s != STATE_ACTION && s != STATE_CORPSE && s != STATE_STUNNED
+		&& s != STATE_GOTO)
 		return false;
 #endif
 
@@ -664,33 +666,268 @@ bool CAiSHostage::Tick(float, CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub OnSignal__8CAiSGotoFQ28CAiState6SIGNALP11CSealCtrlAi */
-void CAiSGoto::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+void CAiSGoto::OnSignal(CAiState::SIGNAL signal, CSealCtrlAi *ai)
 {
+	/* 0x2da1d0: started - crouched for a stealthy move (option 1), else standing; the route
+	 * gets path flag 0x20, the unit's point-out resets. Critical: the flag is cleared.
+	 * Suspended: planned again when resumed. Released: no destination, cover or distance */
+	switch (signal)
+	{
+	case CAiState::SIGNAL::AISIG_UNKNOWN:
+		ai->SetStance((m_option_flags & 1) ? (SEAL_STANCE)1 : (SEAL_STANCE)0);
+		ai->m_path.m_flags |= 0x20;
+		ai->m_unit->ResetPointOutState();
+		break;
+
+	case CAiState::SIGNAL::AISIG_BEGINCRITICAL:
+		ai->m_path.m_flags &= ~0x20u;
+		break;
+
+	case CAiState::SIGNAL::AISIG_SUSPEND:
+		m_substate = 0;
+		break;
+
+	case CAiState::SIGNAL::AISIG_RELEASE:
+		memcpy(&m_dest, CAiMapLoc::invalid, 4);
+		m_coverDir = CPnt3D::zero;
+		m_dist = 0;
+		break;
+
+	default:
+		break;
+	}
 }
 
 /* @socom-skeleton stub Tick__8CAiSGotoFfP11CSealCtrlAi */
-bool CAiSGoto::Tick(float, CSealCtrlAi *)
+bool CAiSGoto::Tick(float, CSealCtrlAi *ai)
 {
 	/* @socom-skeleton stub hacknumPercent$2724 */
-	static long hacknumPercent;
+	static double hacknumPercent = 0.65f;
 	/* @socom-skeleton stub hacknumMin$2727 */
-	static long hacknumMin;
+	static double hacknumMin = 0.3f;
 	/* @socom-skeleton stub warnedWait$2730 */
-	static unsigned char warnedWait;
+	static unsigned char warnedWait = 0;
 	/* @socom-skeleton stub warnedAbort$2733 */
-	static unsigned char warnedAbort;
+	static unsigned char warnedAbort = 0;
 	/* @socom-skeleton stub waitDistanceAi$2736 */
-	static int waitDistanceAi;
+	static int waitDistanceAi = 35;
 	/* @socom-skeleton stub waitResetDistanceAi$2739 */
-	static int waitResetDistanceAi;
+	static int waitResetDistanceAi = 25;
 	/* @socom-skeleton stub warnDistanceAi$2742 */
-	static int warnDistanceAi;
+	static int warnDistanceAi = 70;
 	/* @socom-skeleton stub warnResetDistanceAi$2745 */
-	static int warnResetDistanceAi;
+	static int warnResetDistanceAi = 50;
 	/* @socom-skeleton stub abortDistanceAi$2748 */
-	static int abortDistanceAi;
+	static int abortDistanceAi = 90;
 	/* @socom-skeleton stub NormalWaitDistance$2777 */
-	static int NormalWaitDistance;
+	static int NormalWaitDistance = 25;
+
+	/* 0x2d9780 (the moving orders, pushed over a hold): leading (option 4) the seal stops
+	 * while its unit points out a direction (turning and signalling). Then: plan the route to
+	 * the destination (with cover: the cover cell there; stealthy: a stealth route), confirm
+	 * the order (or refuse it when no route); wait for the planner; travel until the route is
+	 * done (option 0x20: within m_dist cells of the destination). Leading, the seal waits for
+	 * the player when he falls behind (35 cells; calls at 35 and 70, gives up at 90) and else
+	 * keeps to 0.65 of his speed (at least throttle 0.3); otherwise it slows for a follower
+	 * that is far behind (25 cells). Done: stand, the state ends (the hold below remains) */
+	CZSealBody *seal = static_cast<CZSealBody *>(ai->m_entity);
+
+	if (!m_setup)
+		return false;
+
+	u8 step = (u8)m_substate;
+
+	if (m_option_flags & 4)
+	{
+		CSealUnit *unit = ai->m_unit;
+		unit->UpdatePointOutState();
+
+		if (ai->m_unit->m_unit_in_point)
+		{
+			CPnt3D *dir = NULL;
+
+			if (ai->m_unit->GetMyPointOutTurnDir(seal, &dir) && ai->SetLookDirW((AI_LOOK)5, dir, true))
+			{
+				ai->ModifyLookFlags(1, 0);
+				ai->SetLookTimer(10.0f);
+			}
+
+			if (ai->m_unit->GetMyPointOutAnimStart(seal))
+				seal->DoHandSignal((SEAL_HANDSIGNAL)4);
+
+			ai->SetAiMode((AI_MODE)1);
+			ai->m_speed = 0.0f;
+			saturate<f32>(ai->m_speed, 0.0f, 1.0f);
+			return true;
+		}
+
+		ai->SetAiMode((AI_MODE)3);
+	}
+
+	switch (step)
+	{
+	case 0:
+		ai->SetAiMode((AI_MODE)2);
+
+		if (m_option_flags & 0x10)
+		{
+			CAiMapLoc from = seal->m_mapLocValid;
+			CAiMap::DIR dir;
+
+			if (!AiMaps.GetMapByIndex(from.m_mapid)->FindCoverLoc(from, &m_coverDir, m_dest, dir, 5))
+				memcpy(&m_dest, CAiMapLoc::invalid, 4);
+		}
+
+		if (ai->SetRoute(m_dest))
+		{
+			step = 1;
+
+			if (m_option_flags & 1)
+				ai->SetRouteType((CAiPath::PATH_TYPE)2, 1.0f); /* stealth */
+
+			ai->ConfirmAiState(this, true);
+		}
+		else
+		{
+			ai->ConfirmAiState(this, false);
+			step = 3;
+		}
+		break;
+
+	case 1:
+	{
+		PATH_STATE state = ai->m_path.m_state;
+
+		if (state == PATH_STATE::PLANNING || state == PATH_STATE::INQUEUE || state == PATH_STATE::ABORT)
+			break;
+
+		if (!ai->m_path.m_points.empty() && state == PATH_STATE::COMPLETE)
+		{
+			ai->ConfirmAiState(this, true);
+			ai->SetAiMode((AI_MODE)3);
+			step = 2;
+		}
+		else
+		{
+			ai->ConfirmAiState(this, false);
+			step = 3;
+		}
+		break;
+	}
+
+	case 2:
+	{
+		if ((m_option_flags & 0x20) && !ai->m_path.m_points.empty() && ai->m_path.m_state == PATH_STATE::COMPLETE)
+		{
+			CAiMapLoc here = seal->m_mapLocValid;
+			const CAiMapLoc &first = ai->m_path.m_points.front().m_loc;
+			u32 dx = here.x > first.x ? here.x - first.x : first.x - here.x;
+			s32 dy = (s32)first.y > (s32)here.y ? (s32)first.y - (s32)here.y : (s32)here.y - (s32)first.y;
+
+			if (!(m_dist < dx + (u32)dy))
+			{
+				ai->ClearRoute();
+				step = 3;
+			}
+
+			break;
+		}
+
+		if (ai->GetRouteComplete())
+		{
+			step = 3;
+			break;
+		}
+
+		if (m_option_flags & 4)
+		{
+			/* |dx| + |dy| in cells */
+			auto cells = [](const CAiMapLoc &a, const CAiMapLoc &b) -> s32
+			{
+				u32 dx = a.x > b.x ? a.x - b.x : b.x - a.x;
+				s32 dy = (s32)a.y > (s32)b.y ? (s32)a.y - (s32)b.y : (s32)b.y - (s32)a.y;
+				return (s32)(dx + (u32)dy);
+			};
+			bool wait = false;
+			bool abort = false;
+			CZSealBody *player = ftsGetPlayer();
+			CAiMapLoc dest = m_dest;
+			CAiMapLoc at = seal->m_mapLocValid;
+			CAiMapLoc his = player->m_mapLocValid;
+			s32 apart = cells(at, his);
+
+			if (cells(at, dest) < cells(his, dest))
+			{
+				if (apart < waitResetDistanceAi)
+					warnedWait = 0;
+
+				if (apart < warnResetDistanceAi)
+					warnedAbort = 0;
+
+				if (waitDistanceAi < apart)
+				{
+					wait = true;
+
+					if (!warnedWait)
+					{
+						ai->PlayAiSound((CHARACTER_SOUND)1);
+						warnedWait = 1;
+					}
+				}
+
+				if (warnDistanceAi < apart && !warnedAbort)
+				{
+					ai->PlayAiSound((CHARACTER_SOUND)2);
+					warnedAbort = 1;
+				}
+
+				if (abortDistanceAi < apart)
+				{
+					ai->PlayAiSound((CHARACTER_SOUND)0);
+					abort = true;
+				}
+			}
+
+			if (!wait)
+			{
+				CSealCtrl *his_ctrl = static_cast<CSealCtrl *>(player->m_control);
+				f32 speed = (f32)((double)his_ctrl->GetSpeedFromThrottle(his_ctrl->m_throttle[0], 0) * hacknumPercent);
+				f32 throttle = ai->GetThrottleFromSpeed(speed, 0);
+
+				if ((double)throttle < hacknumMin)
+					throttle = (f32)hacknumMin;
+
+				ai->m_speed = throttle;
+				saturate<f32>(ai->m_speed, 0.0f, 1.0f);
+			}
+			else
+			{
+				ai->m_speed = 0.0f;
+				saturate<f32>(ai->m_speed, 0.0f, 1.0f);
+			}
+
+			if (abort)
+				step = 3;
+		}
+		else if (seal->HasFollower())
+		{
+			ai->m_speed = seal->m_MaxFollowerDistance < NormalWaitDistance ? 1.0f : 0.0f;
+			saturate<f32>(ai->m_speed, 0.0f, 1.0f);
+		}
+		break;
+	}
+
+	case 3:
+		ai->SetStance((SEAL_STANCE)1);
+		m_setup = 0;
+		break;
+
+	default:
+		break;
+	}
+
+	m_substate = step;
+	return m_setup;
 }
 
 /* @socom-skeleton stub ActivateSeq__11CSealCtrlAiFPCcUi */

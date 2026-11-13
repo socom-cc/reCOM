@@ -39,17 +39,131 @@
 static unsigned char MultiplayerMsgStrings[28];
 
 /* @socom-skeleton stub AllowCommandFOLLOW__9CSealCtrlFP10CZSealBody */
-unsigned char CSealCtrl::AllowCommandFOLLOW(CZSealBody *)
+unsigned char CSealCtrl::AllowCommandFOLLOW(CZSealBody *source)
 {
 	/* @socom-skeleton stub rangeSqThreshold$2333 */
-	static float rangeSqThreshold;
+	static float rangeSqThreshold = 250000.0f;
 	/* @socom-skeleton stub rangeScale$2336 */
-	static float rangeScale;
+	static float rangeScale = 0.9f;
+
+	/* 0x283350: a seal (team bit 1; an escortee only when restrained and at the source's
+	 * reticle) that is not the player, not rescued and not team 0x10000000 may be told to
+	 * follow when it is not following already. An escortee: in the escortee unit (or, single
+	 * player, Bravo) when within 50 cells; else when it follows someone else and the source is
+	 * nearer than 0.9 x that master and 500 units. Port: the network (remote control) branch
+	 * is not written: a remote seal reads as state 0, no master */
+	if (source == NULL || IsPlayer())
+		return false;
+
+	CZSealBody *seal = static_cast<CZSealBody *>(m_entity);
+	bool aimed = seal == source->GetReticuleSeal();
+	bool net = theNetwork.m_bNetwork;
+	bool escortee = (seal->m_team & 0x20000) != 0;
+	bool other = (seal->m_team & 0x10000000) != 0;
+	AI_STATE state = (AI_STATE)0;
+	CZSealBody *master = NULL;
+	bool ok = escortee && seal->m_restrained ? aimed : false;
+
+	if (IsAi())
+	{
+		CSealCtrlAi *ai = GetSealCtrlAi();
+		state = ai->GetAiStateEnum();
+		master = ai->GetFollowMaster(NULL);
+
+		if (!net && !ok)
+			ok = (seal->m_team & 2) != 0;
+	}
+
+	if (ok)
+		ok = state != STATE_RESCUED;
+
+	if (ok)
+		ok = !other;
+
+	if (!ok)
+		return false;
+
+	if (!escortee)
+		return state != STATE_FOLLOW;
+
+	if (CSealUnit::IsMemberOfUnit(17, seal, true) || (!net && CSealUnit::IsMemberOfUnit(3, seal, true)))
+	{
+		u32 dx = source->m_mapLocValid.x > seal->m_mapLocValid.x ? source->m_mapLocValid.x - seal->m_mapLocValid.x : seal->m_mapLocValid.x - source->m_mapLocValid.x;
+		s32 sy = (s32)source->m_mapLocValid.y;
+		s32 ey = (s32)seal->m_mapLocValid.y;
+		s32 dy = ey < sy ? sy - ey : ey - sy;
+		return (s32)(dx + dy) < 50;
+	}
+
+	if (master == NULL || master == source || state != STATE_FOLLOW)
+		return false;
+
+	CPnt3D d;
+	master->GetPosW()->Sub(seal->GetPosW(), &d);
+	f32 masterSq = d.x * d.x + d.y * d.y + d.z * d.z;
+	source->GetPosW()->Sub(seal->GetPosW(), &d);
+	f32 sourceSq = d.x * d.x + d.y * d.y + d.z * d.z;
+	return sourceSq < masterSq * rangeScale && sourceSq < rangeSqThreshold;
 }
 
 /* @socom-skeleton stub AllowCommandHOLDPOS__9CSealCtrlFP10CZSealBody */
-unsigned char CSealCtrl::AllowCommandHOLDPOS(CZSealBody *)
+unsigned char CSealCtrl::AllowCommandHOLDPOS(CZSealBody *source)
 {
+	/* 0x283090: a seal that is not the player or team 0x10000000 may be told to hold unless
+	 * it already holds a plain hold (a hold without option 0x20); an escortee only when
+	 * restrained and at the source's reticle, in the source's unit (single player: or in
+	 * Bravo) and within 50 cells. Port: the network (remote control) branch is not written
+	 * (a remote seal is refused) */
+	if (source == NULL || IsPlayer())
+		return false;
+
+	CZSealBody *seal = static_cast<CZSealBody *>(m_entity);
+	bool aimed = seal == source->GetReticuleSeal();
+	bool net = theNetwork.m_bNetwork;
+	bool escortee = (seal->m_team & 0x20000) != 0;
+	bool other = (seal->m_team & 0x10000000) != 0;
+	bool ok = false;
+
+	if (IsAi())
+	{
+		CSealCtrlAi *ai = GetSealCtrlAi();
+		AI_STATE state = ai->GetAiStateEnum();
+		ai->GetFollowMaster(NULL);
+
+		if (escortee)
+			ok = seal->m_restrained;
+		else if (state == STATE_HOLD)
+			ok = (ai->GetAiState()->m_option_flags & 0x20) != 0;
+		else
+			ok = true;
+	}
+
+	if (ok)
+		ok = !other;
+
+	if (ok)
+		ok = !escortee || aimed;
+
+	if (!ok)
+		return false;
+
+	if (!escortee)
+		return true;
+
+	if (static_cast<CSealCtrl *>(source->m_control)->m_unit != m_unit)
+	{
+		if (net)
+			return false;
+
+		if (!CSealUnit::IsMemberOfUnit(3, seal, true))
+			return false;
+	}
+
+	u32 dx = source->m_mapLocValid.x > seal->m_mapLocValid.x ? source->m_mapLocValid.x - seal->m_mapLocValid.x : seal->m_mapLocValid.x - source->m_mapLocValid.x;
+	s32 sy = (s32)source->m_mapLocValid.y;
+	s32 ey = (s32)seal->m_mapLocValid.y;
+	s32 dy = ey < sy ? sy - ey : ey - sy;
+	return (s32)(dx + dy) < 50;
 }
 
 /* @socom-skeleton stub GetCommandName__9CSealCtrlF10FT_COMMAND */
@@ -99,15 +213,186 @@ bool CSealCtrl::AllowCommand(CZSealBody *, FT_COMMAND, void *)
 }
 
 /* @socom-skeleton stub CanDeploy__FP5CZKit10EQUIP_ITEMP11CNodeAction */
-void CanDeploy(CZKit *, EQUIP_ITEM, CNodeAction *)
+bool CanDeploy(CZKit *kit, EQUIP_ITEM item, CNodeAction *action)
 {
+	/* 0x282c10 (AllowCommand DEPLOY): the kit holds the item with ammo; item 152 only at an
+	 * action of type 6 (no action: type 7) */
+	u8 type = action != NULL ? (u8)action->m_type : 7;
+
+	if (!kit->HasItem(item) || !kit->ItemHasAmmo(kit->GetItemIndex(item)))
+		return false;
+
+	if ((u8)item == 152 && type != 6)
+		return false;
+
+	return true;
 }
 
 /* @socom-skeleton stub AllowCommand__11CSealCtrlAiFP10CZSealBody10FT_COMMANDPv */
-bool CSealCtrlAi::AllowCommand(CZSealBody *, FT_COMMAND, void *)
+bool CSealCtrlAi::AllowCommand(CZSealBody *source, FT_COMMAND cmd, void *data)
 {
 	/* @socom-skeleton stub always_allow$2300 */
 	static unsigned char always_allow;
+
+	/* 0x2826d0 (jump table 0x452940, orders 0..25): whether this living AI takes the order
+	 * from the source: ACTION at the source's reticle action of type 1..3; DEPLOY when a
+	 * deploy state may be pushed and an item can be deployed (data: that item, 152 only at
+	 * an action of type 6); FIREATWILL / HOLDFIRE when the hold-fire valve is set / clear;
+	 * FOLLOW / HOLDPOS their tests; REGROUP, the moving orders and COVERTARGET always;
+	 * RESTRAIN at a restrainable reticle seal; the breaches at a breach action with a
+	 * flashbang (123) and ammo; ESCORT a restrained, unrescued escortee at the reticle (not
+	 * in Bravo; network: any escortee); LASETARGET with a live lase target. The rest no */
+	CZSealBody *seal = static_cast<CZSealBody *>(m_entity);
+
+	if (seal == NULL || !seal->m_isAlive)
+		return false;
+
+	switch (cmd)
+	{
+	case CMD_ACTION:
+	{
+		if (source == NULL)
+			return false;
+
+		CNodeAction *action = source->GetReticuleAction(false);
+		CAiMapLoc loc;
+		CAiMap::action *record = NULL;
+
+		if (action == NULL || !AiMaps.GetActionById(action->m_id, loc, &record))
+			return false;
+
+		u8 type = record->m_type_invalid ? 0 : (u8)record->m_type;
+		return type == 1 || type == 2 || type == 3;
+	}
+
+	case CMD_DEPLOY:
+	{
+		if (data == NULL)
+		{
+			if (!CanPushAiState(STATE_DEPLOY))
+				return false;
+
+			CNodeAction *action = source->GetReticuleAction(false);
+
+			for (int i = 0; (u8)aiDeployList[i] != 0xff; i++)
+			{
+				if (CanDeploy(&seal->m_kit, aiDeployList[i], action))
+					return true;
+			}
+
+			return false;
+		}
+
+		EQUIP_ITEM item = (EQUIP_ITEM)(u8)(uintptr_t)data;
+		CNodeAction *action = source->GetReticuleAction(false);
+		u8 type = action != NULL ? (u8)action->m_type : 7;
+		bool ok = false;
+
+		if (seal->m_kit.HasItem(item) && seal->m_kit.ItemHasAmmo(seal->m_kit.GetItemIndex(item)))
+			ok = (u8)item != 152 || type == 6;
+
+		return ok && CanPushAiState(STATE_DEPLOY);
+	}
+
+	case CMD_FIREATWILL:
+	{
+		CValve *valve = GetValve((SEAL_VALVE)0);
+		return valve != NULL && valve->m_value != 0;
+	}
+
+	case CMD_FOLLOW:
+		return AllowCommandFOLLOW(source);
+
+	case CMD_HOLDPOS:
+		return AllowCommandHOLDPOS(source);
+
+	case CMD_HOLDFIRE:
+	{
+		CValve *valve = GetValve((SEAL_VALVE)0);
+		return !(valve != NULL && valve->m_value != 0);
+	}
+
+	case CMD_REGROUP:
+		return true;
+
+	case CMD_RESTRAIN:
+	{
+		CZSealBody *target = source != NULL ? source->GetReticuleSeal() : NULL;
+		return target != NULL && source->GetReticuleSeal()->m_restrainable;
+	}
+
+	case CMD_GOTONODE:
+	case CMD_STEALTHTO:
+	case CMD_RUNTO:
+	case CMD_LEADTO:
+	case CMD_ATTACKTO:
+		return true;
+
+	case CMD_BREACHBANGCLEAR:
+	case CMD_BREACHFRAGCLEAR:
+	case CMD_BREACHNONECLEAR:
+	{
+		CNodeAction *action = source->GetReticuleAction(false);
+		CAiMapLoc loc;
+		CAiMap::action *record = NULL;
+
+		if (action == NULL || !AiMaps.GetActionById(action->m_id, loc, &record))
+			return false;
+
+		if (!record->m_locExValid)
+			return false;
+
+		return seal->m_kit.HasItem((EQUIP_ITEM)123) && seal->m_kit.ItemHasAmmo(seal->m_kit.GetItemIndex((EQUIP_ITEM)123));
+	}
+
+	case CMD_ESCORT:
+	{
+		CZSealBody *target = source->GetReticuleSeal();
+
+		if (target == NULL)
+			return false;
+
+		bool escortee = (target->m_team & 0x20000) != 0;
+		bool restrained = target->m_restrained;
+		CSealCtrlAi *ai = static_cast<CSealCtrl *>(target->m_control)->GetSealCtrlAi();
+		bool rescued = ai != NULL && ai->AiStateIs(STATE_RESCUED);
+		bool ok = always_allow != 0;
+
+		if (!ok)
+		{
+			ok = escortee && restrained;
+
+			if (ok)
+				ok = !rescued;
+		}
+
+		if (!ok)
+			ok = escortee && theNetwork.m_bNetwork;
+
+		return ok && !CSealUnit::IsMemberOfUnit(3, target, true);
+	}
+
+	case CMD_COVERTARGET:
+		return true;
+
+	case CMD_LASETARGET:
+	{
+		CAiMap::names &targets = AiMaps.m_names[3];
+
+		for (CAiMap::names::iterator i = targets.begin(); i != targets.end(); ++i)
+		{
+			CZAnim *anim = ZAnim.GetAnim(i->m_name, NULL);
+
+			if (anim != NULL && anim->m_state == 1)
+				return true;
+		}
+
+		return false;
+	}
+
+	default:
+		return false;
+	}
 }
 
 /* @socom-skeleton stub IssueCommand__10CZSealBodyFP10CZSealBody10FT_COMMANDPvb */
@@ -147,7 +432,8 @@ void CSealCtrlAi::OnCommand(CZSealBody *source, FT_COMMAND cmd, void *buffer, bo
 
 	/* 0x281080: an order to this AI (jump table 0x4528d0 for orders 0..27). Written: the
 	 * fire orders, HOLDPOS / COVERTARGET (hold here watching the unit's sector or the
-	 * target), FOLLOW (follow the source at the given offset). */
+	 * target), FOLLOW (follow the source at the given offset), the moving orders (go to a
+	 * map location). */
 	(void)HOSTAGE_ORDER_RANGE_SQUARED;
 	CZSealBody* seal = static_cast<CZSealBody *>(m_entity);
 	Debug("COMMAND: source=%s, [%s] data=0x%08x\n", source != NULL ? source->m_node->m_name : "UNKNOWN", GetCommandName(cmd), (u32)(uintptr_t)buffer);
@@ -276,9 +562,62 @@ void CSealCtrlAi::OnCommand(CZSealBody *source, FT_COMMAND cmd, void *buffer, bo
 		break;
 	}
 
+	case CMD_GOTONODE:
+	case CMD_STEALTHTO:
+	case CMD_RUNTO:
+	case CMD_LEADTO:
+	case CMD_ATTACKTO:
+	{
+		/* 0x282278: to the packed map location (buffer: (map id << 26) | (x << 13) | y): a
+		 * hold (not to be confirmed) with a goto on top - stealthy 1, run 2, lead 4, attack 8 */
+		if (buffer == NULL)
+			break;
+
+		u32 packed = (u32)(uintptr_t)buffer;
+		CAiMapLoc dest;
+		dest.m_mapid = (packed >> 26) & 0x3f;
+		dest.x = (packed >> 13) & 0x1fff;
+		dest.y = packed & 0x1fff;
+		ClearAiState(false);
+
+		if (!PushAiState(STATE_HOLD, true))
+			break;
+
+		CAiState *hold = GetAiState();
+		hold->m_setup = 1;
+		hold->m_unk_0c_1 = 1;
+
+		if (!PushAiState(STATE_GOTO, true))
+			break;
+
+		CAiState *state = GetAiState();
+		CAiSGoto *go = state->m_state == STATE_GOTO ? static_cast<CAiSGoto *>(state) : NULL;
+		go->m_dest = dest; /* ELF: not NULL-tested */
+		go->m_setup = 1;
+
+		switch (cmd)
+		{
+		case CMD_ATTACKTO:
+			go->m_option_flags = 8;
+			break;
+		case CMD_LEADTO:
+			go->m_option_flags = 4;
+			break;
+		case CMD_RUNTO:
+			go->m_option_flags = 2;
+			break;
+		case CMD_STEALTHTO:
+			go->m_option_flags = 1;
+			break;
+		default:
+			go->m_option_flags = 0;
+			break;
+		}
+		break;
+	}
+
 	default:
-		/* port: not written: ACTION 0x28240c, DEPLOY 0x281a80, GETDOWN 0x281f10, the moving
-		 * orders 13..17 0x282278, the breaches 0x282574, LASETARGET 0x281148, AWARE 0x2824b4,
+		/* port: not written: ACTION 0x28240c, DEPLOY 0x281a80, GETDOWN 0x281f10, the breaches 0x282574, LASETARGET 0x281148, AWARE 0x2824b4,
 		 * AWAKE 0x282588 (the others have no case in the ELF) */
 		break;
 	}

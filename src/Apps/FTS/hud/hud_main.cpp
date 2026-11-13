@@ -590,9 +590,10 @@ void CHUD::Tick(float dT)
 		}
 	}
 
-	/* port: not called - OrdersMenu::HandlePad 0x175ff0 (orders.cpp, the radio command menu,
-	   3312 bytes) is an unwritten non-void stub that would STOP the game; the ELF calls it
-	   here when menustate is stateNone or stateOrders and discards its result */
+	/* the orders menu (the result is discarded). Port deviation: not without a pad (the ELF
+	 * passes it unchecked; NULL only for a network spectator) */
+	if ((menustate == stateNone || menustate == stateOrders) && pad != NULL)
+		m_ordermenu.HandlePad(pad, dT);
 
 	m_mapcompass.Tick(seal);
 	m_bitmapReticule.HudTick(dT);

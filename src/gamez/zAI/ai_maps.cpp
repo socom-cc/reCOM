@@ -297,8 +297,22 @@ bool CAiMaps::GetLocation(const char *name, CAiMapLoc &loc)
 }
 
 /* @socom-skeleton stub GetActionById__7CAiMapsFUiR9CAiMapLocPPQ26CAiMap6action */
-void CAiMaps::GetActionById(unsigned int, CAiMapLoc &, CAiMap::action **)
+bool CAiMaps::GetActionById(unsigned int id, CAiMapLoc &loc, CAiMap::action **out)
 {
+	/* 0x19c800: the first map holding the action; its location (with the map's index as the
+	 * map id) and record */
+	u32 index = 0;
+
+	for (iterator i = begin(); i != end(); ++i, index++)
+	{
+		if (((CAiMap *)*i)->FindActionLocation(id, loc, out))
+		{
+			loc.m_mapid = index;
+			return true;
+		}
+	}
+
+	return false;
 }
 
 /* @socom-skeleton stub GetRegion__7CAiMapsFPCcR9CAiMapLoc */

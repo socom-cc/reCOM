@@ -223,8 +223,22 @@ CAiMap::action * CAiMap::GetCellAction(const CAiMapLoc &loc)
 }
 
 /* @socom-skeleton stub FindActionLocation__6CAiMapFUiR9CAiMapLocPPQ26CAiMap6action */
-void CAiMap::FindActionLocation(unsigned int, CAiMapLoc &, CAiMap::action **)
+bool CAiMap::FindActionLocation(unsigned int id, CAiMapLoc &loc, CAiMap::action **out)
 {
+	/* 0x19efc0: the action table's entry with that id: its record (when asked) and cell */
+	for (CAiMap::actions::iterator i = m_actionTable.begin(); i != m_actionTable.end(); ++i)
+	{
+		if (i->m_actionId == id)
+		{
+			if (out != NULL)
+				*out = &*i;
+
+			loc = i->m_loc;
+			return true;
+		}
+	}
+
+	return false;
 }
 
 /* @socom-skeleton body SetCellLink__6CAiMapFRC9CAiMapLocb */

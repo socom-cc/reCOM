@@ -203,8 +203,7 @@ bool CAiSHold::Tick(float, CSealCtrlAi *ai)
 		}
 		else if (opts & 2)
 		{
-			seal->DoHandSignal((SEAL_HANDSIGNAL)(s8)m_signal);
-			m_result = 0; /* ELF: DoHandSignal's v0 (void in the port) */
+			m_result = seal->DoHandSignal((SEAL_HANDSIGNAL)(s8)m_signal);
 			phase = 3;
 		}
 

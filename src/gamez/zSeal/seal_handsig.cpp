@@ -33,12 +33,64 @@ CHandSignal::CHandSignal()
 /* @socom-skeleton body InitHandSignals__10CZSealBodyFv */
 void CZSealBody::InitHandSignals()
 {
+	/* 0x2e38c0: the hand-signal anim types per signal and body state (stand, crouch, prone):
+	 * follow, holdposition, fireatwill, deploy ("Signal %s", "Crouch signal %s", "Prone signal
+	 * %s"), then Point, Wave, Shrug, Radio (one anim for all three) */
+	static const char *const signals[4] = {"follow", "holdposition", "fireatwill", "deploy"};
+	static const char *const formats[3] = {"Signal %s", "Crouch signal %s", "Prone signal %s"};
+	static const char *const others[4] = {"Point", "Wave", "Shrug", "Radio"};
 	char buf[256];
 
-	sprintf(buf, "Signal %s", "follow");
+	for (int s = 0; s < 4; s++)
+	{
+		for (int f = 0; f < 3; f++)
+		{
+			sprintf(buf, formats[f], signals[s]);
+			m_handSignal[s * 3 + f] = (s16)FindAnimType(buf);
+		}
+	}
+
+	for (int s = 0; s < 4; s++)
+	{
+		s32 type = (s16)FindAnimType(others[s]);
+		m_handSignal[(4 + s) * 3] = type;
+		m_handSignal[(4 + s) * 3 + 1] = type;
+		m_handSignal[(4 + s) * 3 + 2] = type;
+	}
 }
 
 /* @socom-skeleton stub DoHandSignal__10CZSealBodyF15SEAL_HANDSIGNAL */
-void CZSealBody::DoHandSignal(SEAL_HANDSIGNAL)
+int CZSealBody::DoHandSignal(SEAL_HANDSIGNAL signal)
 {
+	/* 0x2e3760: the signal's anim for the body state (crouched 1, prone 2, else standing)
+	 * goes on the blend stack unless it already plays; -1 (none) in body states 8, 9, 4, 5 (or
+	 * a top blend in 8, 4, 5) or carrying a body. Returns the anim type */
+	CZBodyAnimBlend *top = m_blends->Top();
+	s8 state = (s8)m_state;
+
+	if (state == 8 || top->m_state == 8)
+		return -1;
+
+	if (state == 9)
+		return -1;
+
+	if (m_carry != NULL)
+		return -1;
+
+	if (state == 4 || top->m_state == 4)
+		return -1;
+
+	if (state == 5 || top->m_state == 5)
+		return -1;
+
+	int column = state == 2 ? 2 : state == 1 ? 1 : 0;
+	int type = m_handSignal[(s8)signal * 3 + column];
+
+	if (type == -1)
+		return -1;
+
+	if ((int)m_blends->Top()->m_animType != type)
+		PushBlend((AnimType)type, (u8)state, false);
+
+	return type;
 }

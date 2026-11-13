@@ -45,6 +45,7 @@
 class C2DLine;
 class CActionTxtr;
 class CMD_TABLE;
+class CSubMenu;
 class CZMPBombMapItem;
 /* @socom-skeleton end forward */
 /* @socom-skeleton decl 10LINE_TYPES */
@@ -631,8 +632,8 @@ public: /* port: public (DWARF has no access; CHUD and the HUD units set these) 
 	s32 m_selection[3];
 
 	FIRETEAM m_selected_team;
-	void* m_submenu;
-	void* m_command;
+	CSubMenu* m_submenu; /* the chosen context entry */
+	CMD_TABLE* m_command; /* the chosen order */
 
 	C2D m_list;
 
@@ -659,9 +660,9 @@ public: /* port: public (DWARF has no access; CHUD and the HUD units set these) 
 
 	IPNT2D m_text_offset;
 
-	// CSaferStr m_upSound;
-	// CSaferStr m_selectSound;
-	// CSaferStr m_completeSound;
+	CSaferStr m_upSound; /* orders.rdr scroll_sound */
+	CSaferStr m_selectSound; /* select_sound */
+	CSaferStr m_completeSound; /* complete_sound */
 
 	C2DString m_ExplanationText;
 	C2DBitmap m_ExplanationBackgroundLeft;
