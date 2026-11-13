@@ -1114,11 +1114,29 @@ CZSealBody * CSealUnit::IssueCommand(CZSealBody *source, FT_COMMAND cmd, void *b
 	case CMD_COVERTARGET:
 	case CMD_LASETARGET:
 	case CMD_DEPLOY:
+	case CMD_ESCORT:
+	{
+		/* 0x2d0ef8: the seal at the source's reticle, when an escortee (team bit 0x20000),
+		 * joins this unit as one (EscorteeJoinUnit inline) and is ordered to FOLLOW the unit's
+		 * first seal. ELF: the reticle seal is not NULL-tested. */
+		CZSealBody *target = source->GetReticuleSeal();
+
+		if (target != NULL && (target->m_team & 0x20000) != 0 && !m_seals.empty()) /* port: an empty unit is skipped */
+		{
+			EscorteeJoinUnit(target);
+			target->IssueCommand(m_seals.front(), CMD_FOLLOW, NULL, false);
+#ifdef SOCOM_PORT
+			SOCOM_PORT_TRACE("UNIT: %d: escort %s (follows %s)", m_unit_num, target->m_node->m_name, m_seals.front()->m_node->m_name);
+#endif
+		}
+
+		return NULL;
+	}
+
 	case CMD_AMBUSH:
 	case CMD_ACTION:
-	case CMD_ESCORT:
-		/* port: not written (0x2d0ef8..0x2d1d00: breach teams, cover / lase targets, deploy,
-		 * ambush, action, escort) */
+		/* port: not written (0x2d0fcc..0x2d1d00: breach teams, cover / lase targets, deploy,
+		 * ambush, action) */
 		SOCOM_PORT_TRACE("UNIT: %d: order %d not written", m_unit_num, (int)cmd);
 		return NULL;
 

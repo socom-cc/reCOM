@@ -402,12 +402,20 @@ public:
 	/* @socom-skeleton end 9C2DString */
 };
 
-class C2DMessageString : public C2D
+/* No DWARF type; 152 bytes (new in C2DMessage_Q::Add_Message 0x2004b0): a C2DString (ctor 0x302ed0,
+ * __vt__16C2DMessageString 0x471d40) that types its text out and fades. Member names invented. */
+class C2DMessageString : public C2DString
 {
+public:
+	f32 m_time;        /* +0x88 how long it stays before it fades (0.5 s) */
+	f32 m_elapsed;     /* +0x8c 0 in the ctor */
+	f32 m_ttySpeed;    /* +0x90 typing speed (string length per second; 10000 in the ctor) */
+	std::string m_text; /* +0x94 the whole text; the C2DString holds what is typed so far */
+	C2DMessageString() : m_elapsed(0.0f), m_ttySpeed(10000.0f) { } /* inline in Add_Message */
 
 	/* @socom-skeleton decl 16C2DMessageString */
 public:
-	virtual ~C2DMessageString() {}
+	virtual ~C2DMessageString() {} /* 0x200070 */
 	virtual void Tick(float);
 	virtual void SetString(const char *);
 	/* @socom-skeleton end 16C2DMessageString */
@@ -582,6 +590,7 @@ public:
 	f32 m_displayTime;
 	bool m_bEnabled;
 	f32 m_Distance;
+	const char *QueueMessage(C2DMessageString *msg, const char *text); /* port: the part both Add_Messages inline */
 	/* @socom-skeleton decl 12C2DMessage_Q */
 public:
 	virtual ~C2DMessage_Q();

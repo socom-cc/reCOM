@@ -493,8 +493,25 @@ void CAiMap::GetMapRegion(CAiMap::region &) const
 }
 
 /* @socom-skeleton stub TransformTo__6CAiMapFRC9CAiMapLocP6CAiMapR9CAiMapLoc */
-unsigned char CAiMap::TransformTo(const CAiMapLoc &, CAiMap *, CAiMapLoc &)
+unsigned char CAiMap::TransformTo(const CAiMapLoc &loc, CAiMap *other, CAiMapLoc &out)
 {
+	/* 0x185b50 (paths across maps: the dredge's floors): the cell's position on this map
+	 * (GetCellPos inline: centre, quantized altitude, action offset) as a location on the other
+	 * map (its GetLocation inline: inside its x/z box and grid), with the other map's id. 0
+	 * without the other map, off this map or outside the other. */
+	if (other == NULL)
+		return 0;
+
+	CPnt3D pos;
+
+	if (!GetCellPos(loc, pos))
+		return 0;
+
+	if (!other->GetLocation(&pos, out))
+		return 0;
+
+	out.m_mapid = other->m_mapid;
+	return 1;
 }
 
 /* @socom-skeleton stub GetCellRepelParams__7CAiMapsFRC9CAiMapLocPC6CPnt3DfR6CPnt3DRf */

@@ -1323,6 +1323,10 @@ public:
 	virtual const char * GetScriptResponse() const { return "on_rescued"; } /* ELF returns "on_rescued" (0x4511d8) */
 	virtual ~CAiSRescued() {}
 	void SetExtractValve(CValve *);
+	/* port: no DWARF members; from CSealCtrlAi::PostTick 0x268818 and Tick 0x2592f0 (names invented) */
+	CAiMap::region *m_region; /* +0x28 the extraction region the escortee reached */
+	u32 m_master;             /* +0x2c its follow master's entity id (0: none) */
+	CValve *m_valve;          /* +0x30 SetExtractValve (CMD_EXTRACT: "hostage_rescue"); option bit 0 = set */
 	/* @socom-skeleton end 11CAiSRescued */
 };
 

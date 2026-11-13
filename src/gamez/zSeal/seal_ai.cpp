@@ -1513,6 +1513,75 @@ void CSealCtrlAi::OnSetHealth(float health, float old)
 /* @socom-skeleton stub OnDeath__11CSealCtrlAiFv */
 void CSealCtrlAi::OnDeath()
 {
+	/* 0x2699b0 (CZSealBody::OnDeath): the "<node>_valve_alive" valve goes to 0 (callbacks with
+	 * 2 when it changes - the mission scripts' "X_valve_alive == 0"), throttles stop, the
+	 * seal's sounds are removed, the death line (59 for death types 1-3, none for 6, else
+	 * 58), the unit is told (message 1), the AI states cleared, awareness 0, the hostage
+	 * compass anchor removed, no longer restrained; a respawning AI leaves the target lists;
+	 * its event queue is emptied, it stops updating its target list and colliding with the
+	 * AI map. port: CleanupDiPool (0x2b3250, empty in the port) is not called. */
+	CZSealBody *seal = static_cast<CZSealBody *>(m_entity);
+	CSealUnit *unit = m_unit;
+	CValve *alive = m_valve[2];
+
+	if (alive != NULL)
+	{
+		bool changed = alive->m_value != 0;
+		alive->m_value = 0;
+
+		if (changed)
+			alive->MakeCallbacks((VALVE_STATE)2);
+	}
+
+	m_throttle_goal[0] = 0.0f;
+	m_throttle_goal[1] = 0.0f;
+	m_throttle_goal[2] = 0.0f;
+	m_throttle[1] = 0.0f;
+	m_throttle[2] = 0.0f;
+	m_throttle[0] = 0.0f;
+	CSndInstance::Remove(seal->m_id, true, true);
+
+	switch ((int)seal->m_deathType)
+	{
+	case 6:
+		break;
+
+	case 1:
+	case 2:
+	case 3:
+		PlayAiSound((CHARACTER_SOUND)59);
+		break;
+
+	default:
+		PlayAiSound((CHARACTER_SOUND)58);
+		break;
+	}
+
+	if (unit != NULL)
+		unit->Notify(seal, (UNIT_MESSAGE)1, NULL);
+
+	ClearAiState(true);
+	m_aware.m_value = 0.0f; /* ELF: _saturate(0, 0, 1) */
+	m_aware.m_goal = 0.0f;
+	CZSealBody *body = static_cast<CZSealBody *>(m_entity);
+
+	if (body->m_hostage_anchor != NULL)
+	{
+		CZSealBody::m_compass.DeleteAnchor(body->m_hostage_anchor); /* port: DeleteAnchor is declared a member; the ELF one is static */
+		body->CompassAnchor_Hostage(NULL);
+	}
+
+	seal->m_restrained = 0;
+
+	if (m_aiParams.respawn != 0)
+		seal->SetIncludeInTargetList(false);
+
+	m_eventQueue.clear();
+	seal->SetUpdateTargetList(false);
+	m_do_aimap_collide = 0;
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("AI: %s dead (alive valve %s)", seal->m_node->m_name, alive != NULL ? "0" : "none");
+#endif
 }
 
 /* @socom-skeleton stub OnStateChange__11CSealCtrlAiF10SEAL_STATE10SEAL_STATE */
@@ -1772,9 +1841,37 @@ void CSealCtrlAi::PostTick(float dT)
 		}
 	}
 
-	/* ELF: a hostage (team bit 0x20000) in STATE_FOLLOW that reaches a region of type 1
-	 * (the extraction zone, CAiMaps::GetRegionTypeContainer) switches to STATE_RESCUED with
-	 * the region and its follow master. port: not written (hostages, AI map regions) */
+	/* 0x268704: an escortee (team bit 0x20000) in STATE_FOLLOW inside a region of type 1 (an
+	 * extraction zone, by its m_mapLocValid) switches to STATE_RESCUED with the region and its
+	 * follow master. ELF: the new state is not NULL-tested. */
+	state = const_cast<const CSealCtrlAi *>(this)->GetAiState();
+
+	if ((state != NULL ? state->m_state : 0) == STATE_FOLLOW && (seal->m_team & 0x20000) != 0)
+	{
+		CAiMap::region *region = AiMaps.GetRegionTypeContainer((CAiMap::region::TYPE)1, seal->m_mapLocValid);
+
+		if (region != NULL)
+		{
+			CZSealBody *master = GetFollowMaster(NULL);
+
+			if (SetAiState(STATE_RESCUED))
+			{
+				CAiState *top = GetAiState();
+				CAiSRescued *rescued = top != NULL && top->m_state == STATE_RESCUED ? static_cast<CAiSRescued *>(top) : NULL;
+
+				if (rescued != NULL)
+				{
+					rescued->m_region = region;
+					rescued->m_master = master != NULL ? master->m_id : 0;
+					rescued->m_setup = 1;
+				}
+#ifdef SOCOM_PORT
+				SOCOM_PORT_TRACE("AI: %s rescued in region %s (master %s)", seal->m_node->m_name, region->m_name,
+					master != NULL ? master->m_node->m_name : "-");
+#endif
+			}
+		}
+	}
 }
 
 /* @socom-skeleton stub GetAiNetState__11CSealCtrlAiCFv */
@@ -5141,18 +5238,195 @@ CAiMap::DIR CSealCtrlAi::ChooseLookDir(const CAiMapLoc &loc, const CPnt3D *towar
 }
 
 /* @socom-skeleton stub OnSignal__11CAiSRescuedFQ28CAiState6SIGNALP11CSealCtrlAi */
-void CAiSRescued::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+void CAiSRescued::OnSignal(CAiState::SIGNAL signal, CSealCtrlAi *ai)
 {
+	/* 0x2596c0: signal 0 (the state begins): the escortee's hostage compass anchor goes (and
+	 * its hostage anchor is cleared); in a network game the state starts at phase 2 (the fade)
+	 * and the seal becomes invincible. Signal 4: region, master and valve forgotten. */
+	CZSealBody *seal = ai != NULL ? static_cast<CZSealBody *>(ai->m_entity) : NULL;
+
+	switch ((int)signal)
+	{
+	case 0:
+	{
+		CZSealBody *body = static_cast<CZSealBody *>(ai->m_entity); /* ELF: not NULL-tested */
+
+		if (body->m_hostage_anchor != NULL)
+		{
+			CZSealBody::m_compass.DeleteAnchor(body->m_hostage_anchor); /* port: DeleteAnchor is declared a member; the ELF one is static */
+			body->CompassAnchor_Hostage(NULL);
+		}
+
+		if (theNetwork.m_bNetwork)
+		{
+			m_substate = 2;
+			seal->m_invincible = 1;
+		}
+
+		break;
+	}
+
+	case 4:
+		m_region = NULL;
+		m_master = 0;
+		m_valve = NULL;
+		break;
+
+	default:
+		break;
+	}
 }
 
 /* @socom-skeleton stub SetExtractValve__11CAiSRescuedFP6CValve */
-void CAiSRescued::SetExtractValve(CValve *)
+void CAiSRescued::SetExtractValve(CValve *valve)
 {
+	/* 0x259680 (CSealUnit::HandleSupport, CMD_EXTRACT): the valve, and option bit 0 = given */
+	m_valve = valve;
+
+	if (valve != NULL)
+		m_option_flags |= 1;
+	else
+		m_option_flags &= ~1u;
 }
 
 /* @socom-skeleton stub Tick__11CAiSRescuedFfP11CSealCtrlAi */
-bool CAiSRescued::Tick(float, CSealCtrlAi *)
+bool CAiSRescued::Tick(float dT, CSealCtrlAi *ai)
 {
+	/* 0x2592f0, phases (m_substate): 0 the escortee joins the escortee unit 17; 1 waits for an
+	 * extract valve (CMD_EXTRACT); 2 (network) fades the node out and hides it at 0; 3 waits
+	 * until the valve is 2 or more; 4 routes to the region (3 s timer); 5 once it stops moving
+	 * and the timer ran out the valve becomes 3; 6 suspended (STATE_SUSPENDED with options 0xe).
+	 * Running while set up. */
+	if (!m_setup)
+		return false;
+
+	u32 phase = m_substate;
+	CZSealBody *seal = static_cast<CZSealBody *>(ai->m_entity);
+
+	switch (phase)
+	{
+	case 0:
+	{
+		CSealUnit *unit = CSealUnit::GetUnitByTeam(17);
+		phase = 1;
+
+		if (unit != ai->m_unit)
+			unit->SealJoinUnit(seal); /* ELF: the unit is not NULL-tested */
+
+		m_substate = phase;
+		return m_setup != 0;
+	}
+
+	case 1:
+		if (m_option_flags & 1)
+			phase = 3;
+		break;
+
+	case 2:
+	{
+		zdb::CNode *node = seal->GetNode();
+		f32 opacity = node->m_Opacity;
+
+		if (opacity != 0.0f)
+		{
+			if (0.0f <= opacity)
+			{
+				opacity -= 0.75f * dT;
+
+				if (opacity > 1.0f)
+					opacity = 1.0f;
+				else if (opacity < 0.0f)
+					opacity = 0.0f;
+			}
+			else
+			{
+				opacity = 0.0f; /* ELF: += 0.75 dT clamped to [0, 0] */
+			}
+
+			node->m_Opacity = opacity;
+		}
+
+		node->SetActive(opacity != 0.0f);
+		break;
+	}
+
+	case 3:
+		if (m_valve->m_value >= 2)
+			phase = 4;
+		break;
+
+	case 4:
+	{
+		m_time = 3.0f;
+		ai->Debug("ClearRoute()...\n");
+		phase = 5;
+		ai::AbortPathPlan(&ai->m_path);
+
+		if (ai->m_path.Clear())
+		{
+			if (ai->m_path.SetPathType((CAiPath::PATH_TYPE)0))
+				ai->m_path.m_type_bias = 1.0f;
+
+			ai->m_path.m_search_limit = 0;
+		}
+
+		CAiMapLoc loc;
+
+		if (m_region != NULL && AiMaps.GetLocation(m_region->m_name, loc))
+			ai->SetRoute(loc);
+
+		break;
+	}
+
+	case 5:
+	{
+		bool moving = !ai->m_path.m_points.empty() && (u32)ai->m_path.m_state == 4;
+
+		if (!moving)
+		{
+			u32 s = (u32)ai->m_path.m_state;
+			bool planning = s == 2 || s == 1 || s == 3;
+
+			if (!planning)
+			{
+				m_time -= dT;
+
+				if (m_time <= 0.0f)
+				{
+					bool changed = m_valve->m_value != 3;
+					m_valve->m_value = 3;
+
+					if (changed)
+						m_valve->MakeCallbacks((VALVE_STATE)1);
+
+					phase = 6;
+				}
+			}
+		}
+
+		break;
+	}
+
+	case 6:
+		if (ai->PushAiState(STATE_SUSPENDED, true))
+		{
+			CAiState *top = ai->GetAiState();
+
+			if (top != NULL && top->m_state == STATE_SUSPENDED) /* ELF: written through NULL otherwise */
+			{
+				top->m_option_flags |= 0xe;
+				top->m_setup = 1;
+			}
+		}
+
+		break;
+
+	default:
+		break;
+	}
+
+	m_substate = phase;
+	return m_setup != 0;
 }
 
 /* @socom-skeleton stub InGuardRegion__11CSealCtrlAiFv */

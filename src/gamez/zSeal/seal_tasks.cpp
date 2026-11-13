@@ -903,10 +903,40 @@ _zanim_cmd_hdr* CTInState::Parse(_zrdr* reader)
 	return NULL;
 }
 
+/* ai::INSTATE record (Tick 0x2bb9c0; Parse 0x2bbb00 stores get_state_fixup's state) */
+struct TASK_INSTATE : public TASK_HDR
+{
+	u8 m_state;       /* +0x08 AI_STATE */
+	u8 m_pad[2];
+	u8 m_unused : 7;  /* +0x0b */
+	u8 m_anywhere : 1; /* bit 7: anywhere on the state stack, else the top state */
+	char m_entity[4]; /* +0x0c the seal entity to test instead of the select's ("" none) */
+};
+
 /* @socom-skeleton body Tick__9CTInStateFP14_zanim_cmd_hdrPf */
 bool CTInState::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
-	return false;
+	/* 0x2bb9c0 (the m8 objectives: Snow3 restrained / following / rescued): whether the
+	 * select's seal - or the named seal entity - is in that AI state (its top state, or any
+	 * stacked one). Not done (false) without the seal or its AI. */
+	TASK_INSTATE *task = reinterpret_cast<TASK_INSTATE *>(header);
+	CZSealBody *seal = taskSeal(task->m_seal_index);
+	CSealCtrlAi *ai = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi() : NULL;
+
+	if (task->m_entity[0] != '\0')
+	{
+		CEntity *e = CEntity::m_list.GetEntity(task->m_entity);
+		seal = e != NULL && (u8)e->m_type == 2 ? static_cast<CZSealBody *>(e) : NULL;
+		ai = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi() : NULL;
+	}
+
+	if (seal == NULL || ai == NULL)
+		return false;
+
+	if (task->m_anywhere)
+		return ai->FindAiState((AI_STATE)task->m_state) != NULL;
+
+	return ai->AiStateIs((AI_STATE)task->m_state);
 }
 
 /* @socom-skeleton body Parse__8CTInViewFP5_zrdr */
@@ -915,10 +945,50 @@ _zanim_cmd_hdr* CTInView::Parse(_zrdr* reader)
 	return NULL;
 }
 
+/* ai::INVIEW record (Tick 0x2bb680; Parse 0x2bb800) */
+struct TASK_INVIEW : public TASK_HDR
+{
+	s32 m_item;       /* +0x08 EQUIP_ITEM the viewer must be using (0: any) */
+	u32 m_teams;      /* +0x0c a team mask: any visible target of those teams (0: the named target) */
+	char m_names[4];  /* +0x10 the viewer's name, then the target's */
+};
+
 /* @socom-skeleton body Tick__8CTInViewFP14_zanim_cmd_hdrPf */
 bool CTInView::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
-	return false;
+	/* 0x2bb680 (m8 SpotKola: Snow3 in the player's view): the named viewer seal (using the
+	 * item, if one is given) has the named target - or any target of the team mask - visible
+	 * in its target list. The frame's time is used up. */
+	TASK_INVIEW *task = reinterpret_cast<TASK_INVIEW *>(header);
+	bool seen = false;
+	CEntity *e = CEntity::m_list.GetEntity(task->m_names);
+	CZSealBody *viewer = e != NULL && (u8)e->m_type == 2 ? static_cast<CZSealBody *>(e) : NULL;
+
+	if (viewer != NULL && (task->m_item == 0 || viewer->m_kit.IsUsingItem((EQUIP_ITEM)(u8)task->m_item)))
+	{
+		if (task->m_teams == 0)
+		{
+			CEntity *target = CEntity::m_list.GetEntity(task->m_names + strlen(task->m_names) + 1);
+			CTarget *t = viewer->m_targets.FindTarget(target);
+
+			if (t != NULL && t->m_visible)
+				seen = true;
+		}
+		else
+		{
+			for (CTargetList::iterator t = viewer->m_targets.begin(); t != viewer->m_targets.end(); ++t)
+			{
+				if ((task->m_teams & t->m_ent->m_team) != 0 && t->m_visible)
+				{
+					seen = true;
+					break;
+				}
+			}
+		}
+	}
+
+	*dT = 0.0f;
+	return seen;
 }
 
 /* @socom-skeleton body Parse__8CTLookAtFP5_zrdr */
@@ -2085,10 +2155,58 @@ _zanim_cmd_hdr* CTRange::Parse(_zrdr* reader)
 	return NULL;
 }
 
+/* ai::INRANGE record (Tick 0x2b53f0) */
+struct TASK_RANGE : public TASK_HDR
+{
+	f32 m_range;      /* +0x08 compared with the squared distance (Parse squares it) */
+	s32 m_entity;     /* +0x0c the entity's id: CEntity::invalidId none, -3 not looked up yet */
+	char m_name[4];   /* +0x10 the entity's name ("player": the first entity) */
+};
+
+/* the entity of a task's id / name (inline in CTRange::Tick and CTRegion::Tick): invalidId
+ * none, -3 (unknownId 0x44cd80) looked up by name once ("player" is the first entity), else by
+ * its id */
+static CEntity *taskEntity(s32 &id, const char *name)
+{
+	if (id == CEntity::invalidId)
+		return NULL;
+
+	if (id != -3)
+		return CEntity::m_list.GetEntityById((u32)id);
+
+	CEntity *e = CEntity::m_list.GetEntity(name);
+
+	if (e == NULL && strcasecmp(name, "player") == 0)
+		e = CEntity::m_list.GetEntityByIndex(0);
+
+	if (e != NULL)
+		id = (s32)e->m_id;
+
+	return e;
+}
+
 /* @socom-skeleton body Tick__7CTRangeFP14_zanim_cmd_hdrPf */
 bool CTRange::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
-	return false;
+	/* 0x2b53f0 (Snow3's on_aware0: Snow2 within 40): whether the entity is within the range of
+	 * the select's seal; done at once (time used up) without the seal or its controller */
+	TASK_RANGE *task = reinterpret_cast<TASK_RANGE *>(header);
+	CZSealBody *seal = taskSeal(task->m_seal_index);
+
+	if (seal == NULL || seal->m_control == NULL)
+	{
+		*dT = 0.0f;
+		return true;
+	}
+
+	CEntity *e = taskEntity(task->m_entity, task->m_name);
+
+	if (e == NULL)
+		return false;
+
+	CPnt3D d;
+	seal->GetPosW()->Sub(e->GetPosW(), &d);
+	return d.x * d.x + d.y * d.y + d.z * d.z <= task->m_range;
 }
 
 /* @socom-skeleton body Parse__8CTRegionFP5_zrdr */
@@ -2097,9 +2215,87 @@ _zanim_cmd_hdr* CTRegion::Parse(_zrdr* reader)
 	return NULL;
 }
 
+/* ai::INREGION record (Tick 0x2b4c50) */
+struct TASK_REGION : public TASK_HDR
+{
+	CAiMapLoc m_loc;           /* +0x08 the region's location (map id, x, y) */
+	CAiMap::region *m_region;  /* +0x0c looked up from m_loc, again when AiMaps' cookie changes */
+	u8 m_team;                 /* +0x10 a team's bit number: any live member of it (0: an entity) */
+	u8 m_cookie;               /* +0x11 AiMaps.m_cookie at the lookup */
+	u16 m_pickup;              /* +0x12 non-zero: a pickup mode (see Tick) */
+	s32 m_entity;              /* +0x14 the entity's id: invalidId: the select's seal, -3 by name */
+	char m_name[4];            /* +0x18 the entity's name ("player": the first entity) */
+};
+
+/* inline in CTRegion::Tick: a location inside the region (same map, within its extent) */
+static bool regionHolds(const CAiMap::region *region, const CAiMapLoc &task, const CAiMapLoc &loc)
+{
+	if (task.m_mapid != loc.m_mapid)
+		return false;
+
+	s32 dx = (s32)loc.x - (s32)region->m_loc.x;
+	s32 dy = (s32)loc.y - (s32)region->m_loc.y;
+	return dx >= 0 && dx < (s32)region->m_dx && dy >= 0 && dy < (s32)region->m_dy;
+}
+
 /* @socom-skeleton body Tick__8CTRegionFP14_zanim_cmd_hdrPf */
 bool CTRegion::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
+	/* 0x2b4c50 (the m8 objectives: InsertObj, SearchLodge, Extract...): whether the entity -
+	 * the select's seal (id invalidId), a named one, or any live member of a team (m_team: its
+	 * bit number) - stands in the AI map region (by its m_mapLoc). The region is looked up
+	 * again when AiMaps' cookie changed. A missing entity clears the name's first byte.
+	 * port: the pickup mode (m_pickup != 0: pickups of types 4-7 whose data's +0xc object has
+	 * that byte at +0x60, by CAiMaps::GetLocation of their positions) is not written - no
+	 * script of the m8 disc uses it. */
+	TASK_REGION *task = reinterpret_cast<TASK_REGION *>(header);
+	CAiMap::region *region;
+
+	if (task->m_region != NULL && task->m_cookie == AiMaps.m_cookie)
+	{
+		region = task->m_region;
+	}
+	else
+	{
+		task->m_cookie = AiMaps.m_cookie;
+		region = AiMaps.GetRegion(task->m_loc);
+		task->m_region = region;
+	}
+
+	if (region == NULL)
+		return false;
+
+	if (task->m_pickup != 0)
+		return false; /* port: not written (see above) */
+
+	if (task->m_team == 0)
+	{
+		CEntity *e;
+
+		if (task->m_entity == CEntity::invalidId)
+			e = taskSeal(task->m_seal_index);
+		else
+			e = taskEntity(task->m_entity, task->m_name);
+
+		if (e == NULL)
+		{
+			task->m_name[0] = '\0';
+			return false;
+		}
+
+		return regionHolds(region, task->m_loc, e->m_mapLoc);
+	}
+
+	u32 bit = 1u << task->m_team;
+
+	for (CEntityList::iterator it = CEntity::m_list.begin(); it != CEntity::m_list.end(); ++it)
+	{
+		CEntity *e = *it;
+
+		if (e != NULL && e->m_isAlive && (bit & e->m_team) != 0 && regionHolds(region, task->m_loc, e->m_mapLoc))
+			return true;
+	}
+
 	return false;
 }
 
@@ -2109,10 +2305,42 @@ _zanim_cmd_hdr* CTTeam::Parse(_zrdr* reader)
 	return NULL;
 }
 
+/* ai::TEAM record (Tick 0x2b49f0) */
+struct TASK_TEAM : public TASK_HDR
+{
+	u32 m_mask; /* +0x08 team bits */
+	s32 m_op;   /* +0x0c 0 add them, 1 remove them, 2 nothing */
+};
+
 /* @socom-skeleton body Tick__6CTTeamFP14_zanim_cmd_hdrPf */
 bool CTTeam::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
-	return false;
+	/* 0x2b49f0: the select's seal joins (0) or leaves (1) the teams of the mask, its AI's event
+	 * mask follows; always done, the frame's time used up */
+	TASK_TEAM *task = reinterpret_cast<TASK_TEAM *>(header);
+	CZSealBody *seal = taskSeal(task->m_seal_index);
+	CSealCtrlAi *ai = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi() : NULL;
+
+	if (seal != NULL && seal->m_control != NULL)
+	{
+		if (task->m_op == 0)
+		{
+			seal->SetTeamMask(seal->m_team | task->m_mask);
+
+			if (ai != NULL)
+				ai->UpdateEventMask();
+		}
+		else if (task->m_op == 1)
+		{
+			seal->SetTeamMask(seal->m_team & ~task->m_mask);
+
+			if (ai != NULL)
+				ai->UpdateEventMask();
+		}
+	}
+
+	*dT = 0.0f;
+	return true;
 }
 
 /* @socom-skeleton body Parse__7CTValveFP5_zrdr */

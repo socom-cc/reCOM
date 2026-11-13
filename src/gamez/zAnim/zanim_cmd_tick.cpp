@@ -129,10 +129,33 @@ bool zAnimTimerTick(_zanim_cmd_hdr *, float *)
 	return true; /* port: stub - not written (command tick) */
 }
 
-/* @socom-skeleton stub zAnimMessageTick__FP14_zanim_cmd_hdrPf */
-bool zAnimMessageTick(_zanim_cmd_hdr *, float *)
+/* MESSAGE record (zAnimLoadMessage 0x1aacb0; no DWARF, names the port's) */
+struct _zanim_cmd_message
 {
-	return true; /* port: stub - not written (command tick) */
+	_zanim_cmd_hdr header;
+	u8 m_text;  /* +4 the anim's name index of the text */
+	u8 m_red;   /* +5 RED, GREEN, BLUE (all 0: the queue's colour) */
+	u8 m_green; /* +6 */
+	u8 m_blue;  /* +7 */
+};
+
+/* @socom-skeleton stub zAnimMessageTick__FP14_zanim_cmd_hdrPf */
+bool zAnimMessageTick(_zanim_cmd_hdr *header, float *)
+{
+	/* 0x1bfce0: the text goes to the mission's message queue (theMission.m_messenger), in its
+	 * own colour when one is given, else in the queue's colour for the queue's fade time */
+	_zanim_cmd_message *cmd = reinterpret_cast<_zanim_cmd_message *>(header);
+	const char *text = ZAnim.m_CurAnim->GetName(cmd->m_text);
+
+	if (cmd->m_red != 0 || cmd->m_green != 0 || cmd->m_blue != 0)
+		theMission.m_messenger.Add_Message(text, cmd->m_red, cmd->m_green, cmd->m_blue);
+	else
+		theMission.m_messenger.Add_Message(text, 0);
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("MESSAGE: %s", text != NULL ? text : "(null)");
+#endif
+	return true;
 }
 
 /* @socom-skeleton stub zAnimParticleSourceTick__FP14_zanim_cmd_hdrPf */

@@ -321,11 +321,12 @@ CAiMap::region * CAiMaps::GetRegion(const char *, CAiMapLoc &)
 }
 
 /* @socom-skeleton stub GetRegion__7CAiMapsFRC9CAiMapLoc */
-CAiMap::region * CAiMaps::GetRegion(const CAiMapLoc &)
+CAiMap::region * CAiMaps::GetRegion(const CAiMapLoc &loc)
 {
-	/* 0x19c660: the region of the location's cell (CAiMap::GetRegion 0x19eb30).
-	 * port: not written (CAiMap::GetRegion is unwritten): no region */
-	return NULL;
+	/* 0x19c660 (CTRegion::Tick, CTGoto): on the location's map (NULL off the set), the region
+	 * whose origin is the location (CAiMap::GetRegion 0x19eb30) */
+	CAiMap *map = GetMapByIndex(loc.m_mapid);
+	return map != NULL ? map->GetRegion(loc) : NULL;
 }
 
 /* @socom-skeleton stub GetCellAction__7CAiMapsFRC9CAiMapLoc */
