@@ -426,3 +426,6 @@ build/
 .pytest_cache/
 .ruff_cache/
 .venv/
+
+# Metrowerks compiler files (proprietary; fetched per machine with the toolchain bootstrap)
+compiler/
