@@ -29,6 +29,10 @@
 #include "gamez/zNode/node_action.h"
 #include "gamez/zWeapon/zweapon.h"
 #include "zseal.h"
+#include "gamez/zFTS/zfts.h" /* theMission, ftsGetPlayer */
+#include "gamez/zNetwork/znet.h" /* theNetwork */
+#include <string.h> /* strcasecmp */
+#include <stdint.h> /* uintptr_t */
 /* @socom-skeleton end include */
 
 /* @socom-skeleton stub MultiplayerMsgStrings */
@@ -49,18 +53,49 @@ unsigned char CSealCtrl::AllowCommandHOLDPOS(CZSealBody *)
 }
 
 /* @socom-skeleton stub GetCommandName__9CSealCtrlF10FT_COMMAND */
-char * CSealCtrl::GetCommandName(FT_COMMAND)
+char * CSealCtrl::GetCommandName(FT_COMMAND cmd)
 {
+	/* 0x282d40: the order's name (jump table 0x452ef0), "BOGUS COMMAND" past the last */
+	static const char* const names[66] = {
+		"CMD_UNKNOWN", "CMD_ACTION", "CMD_DEPLOY", "CMD_FIREATWILL", "CMD_FOLLOW", "CMD_HOLDPOS",
+		"CMD_HOLDFIRE", "CMD_REGROUP", "CMD_REMOVEKILLS", "CMD_AMBUSH", "CMD_RESTRAIN", "CMD_GETDOWN",
+		"CMD_ESCORT", "CMD_GOTONODE", "CMD_STEALTHTO", "CMD_RUNTO", "CMD_LEADTO", "CMD_ATTACKTO",
+		"CMD_BREACHBANGCLEAR", "CMD_BREACHFRAGCLEAR", "CMD_BREACHNONECLEAR", "CMD_BOMB", "CMD_EXTRACT",
+		"CMD_COVERTARGET", "CMD_LASETARGET", "CMD_CLEARAREA", "CMD_AWARE", "CMD_AWAKE",
+		"CMD_RADIO_CHANNEL_ZERO", "CMD_RADIO_CHANNEL_ONE", "CMD_RADIO_CHANNEL_TWO", "CMD_RADIO_CHANNEL_THREE",
+		"CMD_RADIO_CHANNEL_ONOFF", "CMD_VOTE_ON", "CMD_VOTE_OFF", "CMD_GRENADE_THROWN", "CMD_ENEMY_DEAD",
+		"CMD_FRIEND_DEAD", "CMD_UNDER_FIRE", "CMD_GOT_ONE", "CMD_ESCORTEE_FOLLOWING", "CMD_PLAYER_HAS_KILLED",
+		"CMD_COVER_ME", "CMD_DEFUSE", "CMD_PROTECT", "CMD_POINT", "CMD_SOP1", "CMD_SOP2", "CMD_SOP3",
+		"CMD_SOP4", "CMD_SOP5", "CMD_SOP6", "CMD_SOP7", "CMD_TAUNT1", "CMD_TAUNT2", "CMD_TAUNT3",
+		"CMD_TAUNT4", "CMD_TAUNT5", "CMD_TAUNT6", "CMD_TAUNT7", "CMD_SEALS_WINNING",
+		"CMD_TERRORISTS_WINNING", "CMD_HOSTAGE_KILLED", "CMD_BOMB_PLANTED", "CMD_TARGET_DESTROYED",
+		"CMD_BOMB_DEFUSED"
+	};
+	u32 i = (u8)cmd;
+	return (char *)(i < 66 ? names[i] : "BOGUS COMMAND");
 }
 
 /* @socom-skeleton stub GetCommandId__9CSealCtrlFPCc */
-FT_COMMAND CSealCtrl::GetCommandId(const char *)
+FT_COMMAND CSealCtrl::GetCommandId(const char *name)
 {
+	/* 0x282cd0: the order of that name (case ignored), CMD_UNKNOWN if none */
+	if (name == NULL)
+		return CMD_UNKNOWN;
+
+	for (int i = 0; i < 66; i++)
+	{
+		if (strcasecmp(GetCommandName((FT_COMMAND)i), name) == 0)
+			return (FT_COMMAND)i;
+	}
+
+	return CMD_UNKNOWN;
 }
 
 /* @socom-skeleton stub AllowCommand__9CSealCtrlFP10CZSealBody10FT_COMMANDPv */
 bool CSealCtrl::AllowCommand(CZSealBody *, FT_COMMAND, void *)
 {
+	/* 0x282cc0: the player takes no orders */
+	return false;
 }
 
 /* @socom-skeleton stub CanDeploy__FP5CZKit10EQUIP_ITEMP11CNodeAction */
@@ -76,18 +111,175 @@ bool CSealCtrlAi::AllowCommand(CZSealBody *, FT_COMMAND, void *)
 }
 
 /* @socom-skeleton stub IssueCommand__10CZSealBodyFP10CZSealBody10FT_COMMANDPvb */
-void CZSealBody::IssueCommand(CZSealBody *, FT_COMMAND, void *, bool)
+void CZSealBody::IssueCommand(CZSealBody *source, FT_COMMAND cmd, void *buffer, bool quiet)
 {
+	/* 0x2825e0: the order goes to the seal's control (OnCommand, vtable +0x88); GETDOWN only
+	 * when the control allows it. The order flag marks the seal as ordered. ELF: the
+	 * control is not NULL-tested */
+	CSealCtrl* ctrl = static_cast<CSealCtrl *>(m_control);
+
+	if (cmd == CMD_GETDOWN)
+	{
+		if (ctrl->AllowCommand(source, cmd, buffer))
+		{
+			ctrl->OnCommand(source, cmd, buffer, quiet);
+			m_order_flag = 1;
+		}
+
+		return;
+	}
+
+	ctrl->OnCommand(source, cmd, buffer, quiet);
+	m_order_flag = 1;
 }
 
 /* @socom-skeleton stub OnCommand__9CSealCtrlFP10CZSealBody10FT_COMMANDPvb */
 void CSealCtrl::OnCommand(CZSealBody *, FT_COMMAND, void *, bool)
 {
+	/* 0x2825d0: the player ignores orders */
 }
 
 /* @socom-skeleton stub OnCommand__11CSealCtrlAiFP10CZSealBody10FT_COMMANDPvb */
-void CSealCtrlAi::OnCommand(CZSealBody *, FT_COMMAND, void *, bool)
+void CSealCtrlAi::OnCommand(CZSealBody *source, FT_COMMAND cmd, void *buffer, bool quiet)
 {
 	/* @socom-skeleton stub HOSTAGE_ORDER_RANGE_SQUARED$2655 */
 	static float HOSTAGE_ORDER_RANGE_SQUARED;
+
+	/* 0x281080: an order to this AI (jump table 0x4528d0 for orders 0..27). Written: the
+	 * fire orders, HOLDPOS / COVERTARGET (hold here watching the unit's sector or the
+	 * target), FOLLOW (follow the source at the given offset). */
+	(void)HOSTAGE_ORDER_RANGE_SQUARED;
+	CZSealBody* seal = static_cast<CZSealBody *>(m_entity);
+	Debug("COMMAND: source=%s, [%s] data=0x%08x\n", source != NULL ? source->m_node->m_name : "UNKNOWN", GetCommandName(cmd), (u32)(uintptr_t)buffer);
+	SOCOM_PORT_TRACE("ORDER: %s <- %s: %s (%p)%s", seal->m_node->m_name, source != NULL ? source->m_node->m_name : "-", GetCommandName(cmd), buffer, quiet ? " quiet" : "");
+	CSealCtrlAi* sourceAi = source != NULL ? static_cast<CSealCtrl *>(source->m_control)->GetSealCtrlAi() : NULL;
+	(void)sourceAi;
+
+	switch (cmd)
+	{
+	case CMD_FIREATWILL:
+	case CMD_HOLDFIRE:
+		SetHoldFire(cmd == CMD_HOLDFIRE);
+		break;
+
+	case CMD_HOLDPOS:
+	case CMD_COVERTARGET:
+	{
+		bool look = true;
+		ClearRoute();
+		AllStop(true);
+		ClearAiState(false);
+
+		if (!PopToAiState(STATE_RESTRAINED) && !PopToAiState(STATE_SURRENDER) && SetAiState(STATE_HOLD))
+		{
+			CAiState* state = GetAiState();
+			CAiSHold* hold = state->m_state == STATE_HOLD ? static_cast<CAiSHold *>(state) : NULL;
+			hold->m_setup = 1; /* ELF: not NULL-tested */
+
+			if (cmd == CMD_COVERTARGET)
+			{
+				hold->m_option_flags = 0x20;
+				hold->m_lookPos = source->m_aim_point;
+				look = false;
+				CAiMapLoc from = seal->m_mapLocValid;
+				CAiMapLoc to;
+
+				if (AiMaps.GetLocation(&source->m_aim_point, to))
+				{
+					if (!AiMaps.CanSeeLine(from, to, NULL))
+					{
+						PlayAiSound((CHARACTER_SOUND)52);
+						quiet = true;
+					}
+				}
+				else
+					Output("Couldn't get Loc for source's AimPtW %.1f, %.1f, %.1f", (double)source->m_aim_point.x,
+						(double)source->m_aim_point.y, (double)source->m_aim_point.z);
+			}
+			else
+			{
+				hold->m_option_flags = (u32)(uintptr_t)buffer;
+
+				if (hold->m_option_flags & 8)
+					look = false;
+			}
+		}
+
+		if (seal->m_team & 0x20000)
+		{
+			PlayAiSound((CHARACTER_SOUND)53);
+			CSealUnit::GetUnitByTeam(17)->SealJoinUnit(seal);
+			break;
+		}
+
+		if (look)
+		{
+			CPnt3D dir;
+			m_unit->GetMyLookDir(&dir, &m_master_head, seal);
+
+			if (SetLookDirW(AIL_TASK, &dir, false))
+			{
+				ModifyLookFlags(1, 0);
+				SetLookTimer(10.0f);
+			}
+			else
+				Output("Setting lookdir failed for HOLDPOS in seal_command.\n");
+		}
+
+		if (!quiet && m_unit->FrontSeal() == seal)
+			PlayAiSound((CHARACTER_SOUND)53);
+
+		SetStance((SEAL_STANCE)1);
+		break;
+	}
+
+	case CMD_FOLLOW:
+	{
+		if (source == NULL)
+			break;
+
+		bool following = AiStateIs(STATE_FOLLOW);
+		CSealUnit* sourceUnit = static_cast<CSealCtrl *>(source->m_control)->m_unit;
+		bool join = false;
+
+		if (seal->m_team & 0x20000)
+			join = theNetwork.m_bNetwork ? m_unit != sourceUnit : m_unit->m_unit_num == 17;
+
+		if (join && sourceUnit != NULL)
+		{
+			following = false;
+			sourceUnit->EscorteeJoinUnit(seal);
+			PlayAiSound((CHARACTER_SOUND)53);
+			/* ELF: a network game also sends the remote message 40 */
+		}
+
+		CPnt3D offset(15.0f, 0.0f, -15.0f);
+
+		if (buffer != NULL)
+			offset = *(const CPnt3D *)buffer;
+
+		SetFollowOffset(&offset);
+		SetFollowMaster(source);
+		ClearAiState(false);
+
+		if (PushAiState(STATE_FOLLOW, true))
+		{
+			CAiState* state = GetAiState();
+			/* m_setup: filled; bit 1 (no confirmation): already following, a quiet order or
+			 * not the unit's first seal */
+			state->m_setup = 1;
+			state->m_unk_0c_1 = following;
+			state->m_unk_0c_1 = state->m_unk_0c_1 | quiet;
+			state->m_unk_0c_1 = state->m_unk_0c_1 | (m_unit->FrontSeal() != seal);
+		}
+
+		break;
+	}
+
+	default:
+		/* port: not written: ACTION 0x28240c, DEPLOY 0x281a80, GETDOWN 0x281f10, the moving
+		 * orders 13..17 0x282278, the breaches 0x282574, LASETARGET 0x281148, AWARE 0x2824b4,
+		 * AWAKE 0x282588 (the others have no case in the ELF) */
+		break;
+	}
 }

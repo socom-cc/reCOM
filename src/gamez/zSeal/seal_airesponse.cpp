@@ -152,13 +152,135 @@ bool CAiSSurrender::Tick(float, CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub OnSignal__8CAiSHoldFQ28CAiState6SIGNALP11CSealCtrlAi */
-void CAiSHold::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+void CAiSHold::OnSignal(CAiState::SIGNAL signal, CSealCtrlAi *ai)
 {
+	/* 0x2e72c0: entering (0) or resuming (3) drops the route; leaving (1) leaves cover;
+	 * 4 forgets the signal */
+	switch ((int)signal)
+	{
+	case 0:
+	case 3:
+		ai->ClearRoute();
+		break;
+	case 1:
+		ai->m_holdCover = 0;
+		break;
+	case 4:
+		m_signal = -1;
+		break;
+	default:
+		break;
+	}
 }
 
 /* @socom-skeleton stub Tick__8CAiSHoldFfP11CSealCtrlAi */
-bool CAiSHold::Tick(float, CSealCtrlAi *)
+bool CAiSHold::Tick(float, CSealCtrlAi *ai)
 {
+	/* 0x2e6ef0: hold the spot. First tick (phase 0): hold mode (creep mode without anim /
+	 * signal options), the anim or hand signal (phase 3: hold with it), cover (0x20), the
+	 * look - at m_lookPos (0x10 / 0x20, phase 4 retries a refused look), else the best open
+	 * direction ahead (ChooseLookDir) unless option 8; then phase 1: duck when in front of
+	 * the unit's leader. Phase 2 ends at m_time. */
+	if (!m_setup)
+		return false;
+
+	u32 phase = m_substate;
+	CZSealBody* seal = static_cast<CZSealBody *>(ai->m_entity);
+	u32 opts = m_option_flags;
+	bool lookRefused = false;
+
+	switch (phase)
+	{
+	case 0:
+	{
+		ai->SetAiMode((opts & 3) ? AIM_HOLD : AIM_CREEP);
+
+		if (opts & 1)
+		{
+			ai->PlayAnim((AnimType)(s16)m_signal, (SEAL_STATE)(u8)seal->m_state);
+			m_result = m_signal;
+			phase = 3;
+		}
+		else if (opts & 2)
+		{
+			seal->DoHandSignal((SEAL_HANDSIGNAL)(s8)m_signal);
+			m_result = 0; /* ELF: DoHandSignal's v0 (void in the port) */
+			phase = 3;
+		}
+
+		if (m_option_flags & 0x20)
+			ai->m_holdCover = 1;
+
+		if (m_option_flags & 0x30)
+		{
+			CPnt3D dir = m_lookPos;
+			dir.Sub(seal->GetPosW(), &dir);
+
+			if (ai->SetLookDirW(AIL_NORMAL, &dir, false))
+			{
+				ai->ModifyLookFlags(5, 0);
+				ai->SetScanAngle(0.2617994f);
+			}
+			else
+				lookRefused = true;
+		}
+		else if (!(opts & 8))
+		{
+			const f32* row = seal->m_node->m_matrix.m_matrix[2];
+			CPnt3D ahead(-row[0], -row[1], -row[2]);
+			CAiMapLoc loc = seal->m_mapLocValid;
+			CAiMap::DIR look = CSealCtrlAi::ChooseLookDir(loc, &ahead, false, NULL, 0, NULL);
+
+			if (ai->SetLookDirW(AIL_NORMAL, look))
+			{
+				ai->ModifyLookFlags(5, 0);
+				ai->SetScanAngle(0.2617994f);
+			}
+		}
+
+		if (phase == 0)
+			phase = lookRefused ? 4 : 1;
+
+		break;
+	}
+
+	case 4:
+	{
+		CPnt3D dir = m_lookPos;
+		dir.Sub(seal->GetPosW(), &dir);
+
+		if (ai->SetLookDirW(AIL_NORMAL, &dir, false))
+		{
+			ai->ModifyLookFlags(5, 0);
+			ai->SetScanAngle(0.2617994f);
+			phase = 1;
+		}
+
+		break;
+	}
+
+	case 1:
+	{
+		SEAL_STANCE stance = (SEAL_STANCE)ai->m_stance; /* ELF: left unset */
+
+		if (ai->GetDuckStance(NULL, stance))
+			ai->SetStanceDelayed(stance, -1.0f);
+
+		break;
+	}
+
+	case 2:
+		if (!(ai->m_stateTimer < m_time))
+			m_setup = 0;
+
+		break;
+
+	default:
+		break;
+	}
+
+	m_substate = phase;
+	return m_setup;
 }
 
 /* @socom-skeleton stub OnSignal__10CAiSCorpseFQ28CAiState6SIGNALP11CSealCtrlAi */

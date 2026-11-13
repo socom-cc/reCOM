@@ -23,6 +23,8 @@ class CBody
 	friend class CSealCtrl; /* port: CSealCtrl::PreTick 0x285af0 / Tick 0x2872e0 read the seal's m_state */
 	friend class CBlendOverlay; /* port: CBlendOverlay::Tick 0x1e1210 / Trigger 0x1e1700 set the blend interpolation */
 	friend class CWeaponSel; /* port: CWeaponSel::OnOpen 0x3d3de0 reads the seal's m_state */
+	friend class CSealCtrlAi; /* port: FollowTick 0x2df1c0 reads the master's m_state */
+	friend class CAiSHold; /* port: CAiSHold::Tick 0x2e6ef0 plays its anim in the seal's m_state */
 	friend class CTPlay; /* port: CTPlay::Tick 0x2b7640 (ai::ANIMATE) reads the seal's top blend */
 	friend class CZKit; /* port: CZKit::TickExplosives 0x2aae34 reads the seal's m_state (the throw reach) */
 	friend void ParentPistolToRHandCallback(void *, void *); /* port: seal_env.cpp 0x2987b0 sets the pistol's body part */

@@ -49,9 +49,53 @@ class MAP_FOREACH_STRUCT;
 class MAP_LINEWALK_STRUCT;
 /* @socom-skeleton end forward */
 
-/* @socom-skeleton stub GetLocationWidth__6CAiMapFRC9CAiMapLoci */
-int CAiMap::GetLocationWidth(const CAiMapLoc &, int)
+/* port: inline in GetLocationWidth (four times): a walkable cell at (x, y) of this map */
+static bool walkable_at(CAiMap *map, int x, int y)
 {
+	CAiMapLoc at;
+	at.m_mapid = 0;
+	at.x = x;
+	at.y = y;
+	CAiCell *cell = ((u32)(u16)at.y < map->m_ny && at.x < map->m_nx) ? map->GetCell(at) : NULL;
+	return cell != NULL && CAiMap::IsWalkable(cell);
+}
+
+/* @socom-skeleton stub GetLocationWidth__6CAiMapFRC9CAiMapLoci */
+int CAiMap::GetLocationWidth(const CAiMapLoc &loc, int max)
+{
+	/* 0x1a8630 (AddSnakePoint, UpdatePathWidth): how far around the cell is walkable: the
+	 * first radius (1..max) whose square ring leaves the map or holds an unwalkable cell,
+	 * max + 1 when all are clear. ELF quirks kept: the ring's top and bottom rows stop short
+	 * of the right column, its side columns short of the bottom row's neighbour. */
+	int r = 1;
+
+	for (; r <= max; r++)
+	{
+		int x0 = (int)loc.x - r;
+		int y0 = (int)(u16)loc.y - r;
+		int x1 = (int)loc.x + r;
+		int y1 = (int)(u16)loc.y + r;
+
+		if (x0 < 0 || y0 < 0)
+			return r;
+
+		if (!((u32)x1 < m_nx && (u32)y1 < m_ny))
+			return r;
+
+		for (int i = x0; i < x1; i++)
+		{
+			if (!walkable_at(this, i, y0) || !walkable_at(this, i, y1))
+				return r;
+		}
+
+		for (int j = y0 + 1; j < y1 - 1; j++)
+		{
+			if (!walkable_at(this, x0, j) || !walkable_at(this, x1, j))
+				return r;
+		}
+	}
+
+	return r;
 }
 
 /* @socom-skeleton stub _TravelLineCallback__FRC19MAP_LINEWALK_STRUCTPv */

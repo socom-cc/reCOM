@@ -411,7 +411,8 @@ bool CSealCtrlAi::CanPushAiState(AI_STATE state)
 	 * TARGETING, PURSUE, EVENT, RESTRAINED); the other states' Tick functions are not written yet, so
 	 * their pushes (shot-at, reload, corpse, avoid ...) are refused here, a path every caller
 	 * handles */
-	if (s != STATE_UNKNOWN && s != STATE_SCRIPT && s != STATE_TARGETING && s != STATE_PURSUE && s != STATE_EVENT && s != STATE_RESTRAINED)
+	if (s != STATE_UNKNOWN && s != STATE_SCRIPT && s != STATE_TARGETING && s != STATE_PURSUE && s != STATE_EVENT && s != STATE_RESTRAINED
+		&& s != STATE_FOLLOW && s != STATE_HOLD) /* FOLLOW, HOLD: socom-port-fireteam */
 		return false;
 #endif
 
@@ -512,8 +513,29 @@ void CSealCtrlAi::PopAiState()
 }
 
 /* @socom-skeleton stub PopToAiState__11CSealCtrlAiF8AI_STATE */
-void CSealCtrlAi::PopToAiState(AI_STATE)
+bool CSealCtrlAi::PopToAiState(AI_STATE state)
 {
+	/* 0x2dafa0 (OnCommand HOLDPOS): pop states (PopAiState inlined: the order flag, signal
+	 * 1, delete, signal 3 to the new top, its timer, the stack flags, the debug line) until
+	 * one of that type is on top; nothing when none is stacked. Whether it is on top. */
+	bool stacked = false;
+
+	for (CAiStateStack::iterator it = m_stateStack.begin(); it != m_stateStack.end(); ++it)
+	{
+		if (*it != NULL && (*it)->m_state == (u8)state)
+		{
+			stacked = true;
+			break;
+		}
+	}
+
+	if (!stacked)
+		return false;
+
+	while (!m_stateStack.empty() && !AiStateIs(state))
+		PopTop(this);
+
+	return AiStateIs(state);
 }
 
 /* @socom-skeleton stub PopAiState__11CSealCtrlAiF8AI_STATE */

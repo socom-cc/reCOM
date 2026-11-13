@@ -1073,7 +1073,14 @@ public:
 
 class CAiSHold : public CAiState
 {
-
+public:
+	/* port: no DWARF record; 60 bytes (CAiState::Create 0x2dc590); layout from CAiSHold's
+	 * Tick 0x2e6ef0 / OnSignal 0x2e72c0 and OnCommand HOLDPOS 0x281c18, names invented.
+	 * m_option_flags: 1 play the anim m_signal, 2 the hand signal m_signal, 8 no look,
+	 * 0x10 / 0x20 watch m_lookPos (0x20 also takes cover: m_holdCover) */
+	s32 m_signal; /* +0x28 (OnSignal 4: -1) */
+	s32 m_result; /* +0x2c: the anim / hand signal started */
+	CPnt3D m_lookPos; /* +0x30 */
 	/* @socom-skeleton decl 8CAiSHold */
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
@@ -1592,7 +1599,7 @@ public:
 	bool RegisterPathPlan(const CAiMapLoc &, const CAiMapLoc &, CAiPath *);
 	unsigned int GetLocationDelta(const CAiMapLoc &, const CAiMapLoc &);
 	void SmoothPath(CAiPath &);
-	void ExtendPath(CAiPath &, const CAiMapLoc &);
+	bool ExtendPath(CAiPath &, const CAiMapLoc &); /* 0x199220: true when extended */
 	void UpdateActionTables();
 	void UpdateNameTables();
 	void GetSporeLocation(unsigned int, unsigned int, CPnt3D *, CPnt3D *);

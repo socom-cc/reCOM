@@ -517,13 +517,71 @@ unsigned int CAiMaps::GetLocationDelta(const CAiMapLoc &a, const CAiMapLoc &b)
 }
 
 /* @socom-skeleton stub SmoothPath__7CAiMapsFR7CAiPath */
-void CAiMaps::SmoothPath(CAiPath &)
+void CAiMaps::SmoothPath(CAiPath &path)
 {
+	/* 0x199600: a tail call of CAiPath::SmoothPath */
+	path.SmoothPath();
 }
 
 /* @socom-skeleton stub ExtendPath__7CAiMapsFR7CAiPathRC9CAiMapLoc */
-void CAiMaps::ExtendPath(CAiPath &, const CAiMapLoc &)
+bool CAiMaps::ExtendPath(CAiPath &path, const CAiMapLoc &goal)
 {
+	/* 0x199220 (FollowTick): move a path's goal end on to a new goal on the same map: a
+	 * straight walkable line from the old goal appends the new one; else a path following a
+	 * template (flag 8: the master's snake trail) takes the template's points between the
+	 * two, then the goal (both smoothed, turn angles updated). True when extended. */
+	if (path.m_points.size() == 0)
+		return false;
+
+	CAiMapLoc end = path.m_points[0].m_loc; /* the goal end (points are stored goal first) */
+
+	if (end.m_mapid != goal.m_mapid)
+		return false;
+
+	if (end.x == goal.x && end.y == goal.y)
+		return true;
+
+	CAiMap* map = GetMapByIndex(end.m_mapid);
+
+	if (map != NULL && map->CanTravelLine(end, goal, NULL))
+	{
+		path.AppendPathLoc(goal, NULL);
+
+		if (path.m_flags & 1)
+			path.SmoothPath();
+
+		path.IncrementPathId();
+		return true;
+	}
+
+	CAiPath* tmpl = path.m_template;
+
+	if (!(path.m_flags & 8) || tmpl == NULL)
+		return false;
+
+	bool extended = false;
+	unsigned int from, to;
+
+	if (tmpl->PointInPath(end, &from))
+	{
+		if (tmpl->PointInPath(goal, &to))
+		{
+			int step = to < from ? -1 : 1;
+
+			for (unsigned int i = from; i != to; i += step)
+			{
+				CAiPath::point &p = tmpl->m_points[tmpl->m_points.size() - i - 1];
+				path.AppendPathLoc(p.m_loc, GetMapByIndex(p.m_loc.m_mapid));
+			}
+
+			path.AppendPathLoc(goal, GetMapByIndex(goal.m_mapid));
+			extended = true;
+		}
+	}
+
+	path.SmoothPath();
+	path.UpdateTurnAngles();
+	return extended;
 }
 
 /* @socom-skeleton body UpdateActionTables__7CAiMapsFv */

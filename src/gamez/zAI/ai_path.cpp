@@ -717,13 +717,82 @@ void CAiPath::UpdatePathWidth(unsigned int)
 }
 
 /* @socom-skeleton stub SetSnakeLength__7CAiPathFUi */
-void CAiPath::SetSnakeLength(unsigned int)
+void CAiPath::SetSnakeLength(unsigned int len)
 {
+	/* 0x193d40 (CZSealBody::SetSnakePathUpdate): a snake path keeps the last `len` cells its
+	 * seal walked (AddSnakePoint), with widths (flag 4) and COMPLETE. 0 turns the widths off
+	 * and empties it (a running plan is aborted first; CAiPath::Clear inlined).
+	 * ELF quirk kept: 0 leaves m_snake_len as it was, so the trail goes on being recorded. */
+	if (len == 0 && m_snake_len != 0)
+	{
+		m_flags &= ~4u;
+		Clear();
+		return;
+	}
+
+	if (len == m_snake_len)
+		return;
+
+	if (len < m_points.size())
+		m_points.resize(len);
+
+	m_points.reserve(len);
+	m_snake_len = len;
+	m_flags |= 4;
+	m_state = ::PATH_STATE::COMPLETE;
 }
 
 /* @socom-skeleton stub AddSnakePoint__7CAiPathFRC9CAiMapLoc */
-void CAiPath::AddSnakePoint(const CAiMapLoc &)
+void CAiPath::AddSnakePoint(const CAiMapLoc &loc)
 {
+	/* 0x193930 (CZSealBody::UpdateAiMapLoc): a new cell at the front of the trail (the
+	 * oldest drops off past m_snake_len); m_length keeps the largest city-block distance
+	 * from the new cell to the oldest one; the new point's width is the walkable width
+	 * there (5 at most); the path id changes */
+	if (m_snake_len == 0)
+		return;
+
+	u32 n = m_points.size();
+	point p;
+	p.m_loc = loc;
+	p.m_width = 0;
+	p.m_flags = 0;
+	p.m_unused = 0;
+	p.m_angle = 0.0f;
+
+	if (n == 0)
+	{
+		m_points.reserve(m_snake_len);
+		m_points.push_back(p);
+	}
+	else
+	{
+		const point &oldest = m_points[n - 1];
+
+		if (oldest.m_loc.m_mapid == loc.m_mapid)
+		{
+			s32 dx = (s32)oldest.m_loc.x - (s32)loc.x;
+			s32 dy = (s32)(u16)oldest.m_loc.y - (s32)(u16)loc.y;
+			f32 d = (f32)((dx < 0 ? -dx : dx) + (dy < 0 ? -dy : dy));
+
+			if (d > m_length)
+				m_length = d;
+		}
+
+		if (n < m_snake_len)
+			m_points.resize(n + 1);
+
+		u32 count = n < m_snake_len - 1 ? n : m_snake_len - 1;
+		memmove(&m_points[1], &m_points[0], count * sizeof(point));
+		m_points[0] = p;
+	}
+
+	CAiMap* map = AiMaps.GetMapByIndex(loc.m_mapid);
+
+	if (map != NULL)
+		m_points[0].m_width = map->GetLocationWidth(loc, 5);
+
+	m_pathId++;
 }
 
 /* @socom-skeleton stub SetPathType__7CAiPathFQ27CAiPath9PATH_TYPE */

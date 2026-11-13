@@ -69,134 +69,998 @@
 #include "gamez/zAI/zai.h"
 #include "gamez/zMath/zmath.h"
 #include "zseal.h"
+#include <math.h> /* floorf, ceilf, sqrtf */
+#include <stdlib.h> /* rand */
 /* @socom-skeleton end include */
 
 /* @socom-skeleton stub snakeStateData */
+/* 0x43a620: per handle (6 bytes each) debug flags of the follow code, written only: 0 on the
+ * trail, 1 trail too short, 2 trail seen, 3 trail goal, 4 hiding, 5 arrived */
 unsigned char snakeStateData[24] = {0};
 
 /* @socom-skeleton stub MultiplayerMsgStrings */
 static unsigned char MultiplayerMsgStrings[28];
 
 /* @socom-skeleton stub GetSnakeFollowLoc__FR7CAiPathiiR9CAiMapLocRC6CPnt3D */
-void GetSnakeFollowLoc(CAiPath &, int, int, CAiMapLoc &, const CPnt3D &)
+bool GetSnakeFollowLoc(CAiPath &snake, int index, int side, CAiMapLoc &out, const CPnt3D &dir)
 {
+	/* 0x2e20e0 (FollowTick): the cell `index` points back along the master's trail, then
+	 * up to |side| cells across it (dir turned 90 degrees: x steps by dir.z, y by dir.x)
+	 * while still on the trail (within its width) and walkable */
+	if (snake.m_snake_len == 0)
+		return false;
+
+	CAiPath::point* p = (u32)index < snake.m_points.size() ? &snake.m_points[index] : NULL;
+
+	if (p == NULL)
+		return false;
+
+	if (AiMaps.GetMapByIndex(p->m_loc.m_mapid) == NULL)
+		return false;
+
+	CAiMapLoc best = p->m_loc;
+	CAiMapLoc cur = p->m_loc;
+	f32 fy = 0.5f;
+	f32 fx = 0.5f;
+	int n = side < 0 ? -side : side;
+
+	while (n-- != 0)
+	{
+		fy += dir.z;
+		fx += dir.x;
+		cur.x = p->m_loc.x + (s32)fy;
+		cur.y = (u16)p->m_loc.y + (s32)fx;
+
+		if (!snake.PointInPath(cur, NULL))
+			break;
+
+		CAiMap* map = AiMaps.GetMapByIndex(cur.m_mapid);
+		CAiCell* cell = map != NULL && (u32)(u16)cur.y < map->m_ny && cur.x < map->m_nx ? map->GetCell(cur) : NULL;
+
+		if (cell == NULL || !CAiMap::IsWalkable(cell))
+			break;
+
+		best = cur;
+	}
+
+	out = best;
+	return true;
 }
 
 /* @socom-skeleton stub OnSignal__10CAiSFollowFQ28CAiState6SIGNALP11CSealCtrlAi */
-void CAiSFollow::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+void CAiSFollow::OnSignal(CAiState::SIGNAL signal, CSealCtrlAi *ai)
 {
+	/* 0x2e1f20: on entry (0) and resume (3) the AI goes to follow mode with its path
+	 * marked as a follow path (app flag 1) on the master's trail; leaving (1) aborts the
+	 * plan and drops the trail; covered (2) clears the follow mark. The AI-map collision
+	 * (m_do_aimap_collide) is off while following.
+	 * port: the collision is never turned on (CAiMap::GetCellRepelParams is unwritten, see
+	 * InitAiBrain) */
+	CAiPath* path = ai != NULL ? &ai->m_path : NULL;
+	CAiPath* snake = ai != NULL && ai->m_master != NULL ? &ai->m_master->m_snakePath : NULL;
+
+	switch ((int)signal)
+	{
+	case 0:
+		ai->SetAiMode(AIM_FOLLOW);
+		path->m_app_flags |= 1;
+
+		if (snake != NULL)
+			path->SetTemplatePath(snake);
+
+		ai->m_do_aimap_collide = 0;
+		break;
+
+	case 1:
+		ai::AbortPathPlan(path);
+		path->m_app_flags &= ~1u;
+		path->SetTemplatePath(NULL);
+		path->m_flags &= ~8u;
+#ifndef SOCOM_PORT
+		ai->m_do_aimap_collide = 1;
+#endif
+		break;
+
+	case 2:
+		path->m_app_flags &= ~1u;
+		ai->m_do_aimap_collide = 0;
+		break;
+
+	case 3:
+		ai->SetAiMode(AIM_FOLLOW);
+		path->m_app_flags |= 1;
+		m_substate = 0;
+#ifndef SOCOM_PORT
+		ai->m_do_aimap_collide = 1;
+#endif
+		break;
+
+	default:
+		break;
+	}
 }
 
 /* @socom-skeleton stub GetStatus__10CAiSFollowCFv */
 const char * CAiSFollow::GetStatus() const
 {
+	/* 0x2e1e70: the follow mode's name (jump table 0x457c60) */
+	static const char* const names[10] = {
+		"INIT", "PLAN", "FOLLOW", "WAIT", "HIDE", "HIDE PLAN", "HIDE WAIT", "HIDE FOLLOW", "COVERING", "AVOID"
+	};
+	return m_substate < 10 ? names[m_substate] : "UNKNOWN";
 }
 
 /* @socom-skeleton stub Tick__10CAiSFollowFfP11CSealCtrlAi */
-bool CAiSFollow::Tick(float, CSealCtrlAi *)
+bool CAiSFollow::Tick(float, CSealCtrlAi *ai)
 {
+	/* 0x2e1d80: the order is confirmed (the unit leader answers); the state shows the follow
+	 * mode; it ends when the head of the follow chain is gone or dead (an escortee keeps
+	 * following) */
+	ai->ConfirmAiState(this, true);
+	m_substate = ai->m_followMode;
+	CZSealBody* master = ai->m_master;
+
+	if (master != NULL)
+	{
+		CSealCtrlAi* up = static_cast<CSealCtrl *>(master->m_control)->GetSealCtrlAi();
+
+		if (up != NULL && up != ai)
+		{
+			CZSealBody* head = up->GetFollowMaster(NULL);
+
+			if (head != NULL)
+				master = head;
+		}
+	}
+
+	if ((master == NULL || !master->m_isAlive) && !(static_cast<CZSealBody *>(ai->m_entity)->m_team & 0x20000))
+		m_setup = 0;
+
+	return m_setup;
 }
 
 /* @socom-skeleton stub SetFollowMaster__11CSealCtrlAiFP10CZSealBody */
-void CSealCtrlAi::SetFollowMaster(CZSealBody *)
+void CSealCtrlAi::SetFollowMaster(CZSealBody *master)
 {
+	/* 0x2e1d60: ELF: the master is stored even when it is the seal itself; a new master
+	 * restarts the follow modes */
+	m_master = master;
+
+	if (master != m_entity)
+		m_followMode = 0;
 }
 
 /* @socom-skeleton stub SetFollowOffset__11CSealCtrlAiFPC6CPnt3D */
-void CSealCtrlAi::SetFollowOffset(const CPnt3D *)
+void CSealCtrlAi::SetFollowOffset(const CPnt3D *offset)
 {
+	/* 0x2e1d00: the place beside / behind the master (x to the side, z along) */
+	m_followOfs = *offset;
+	m_followDistance = sqrtf(m_followOfs.x * m_followOfs.x + m_followOfs.y * m_followOfs.y + m_followOfs.z * m_followOfs.z);
 }
 
 /* @socom-skeleton stub GetFollowMaster__11CSealCtrlAiFPi */
-CZSealBody * CSealCtrlAi::GetFollowMaster(int *)
+CZSealBody * CSealCtrlAi::GetFollowMaster(int *depth)
 {
+	/* 0x2e1c20: the head of the follow chain (the master's own master, recursively; a
+	 * player or another non-AI master ends it); depth counts the steps up */
+	CZSealBody* master = m_master;
+
+	if (master == NULL)
+		return NULL;
+
+	CSealCtrlAi* ai = static_cast<CSealCtrl *>(master->m_control)->GetSealCtrlAi();
+
+	if (ai == NULL || ai == this)
+		return master;
+
+	CZSealBody* up = ai->m_master;
+
+	if (up != NULL)
+	{
+		CSealCtrlAi* upAi = static_cast<CSealCtrl *>(up->m_control)->GetSealCtrlAi();
+
+		if (upAi != NULL && upAi != ai)
+		{
+			CZSealBody* head = upAi->GetFollowMaster(depth);
+
+			if (head != NULL)
+			{
+				if (depth != NULL)
+					(*depth)++;
+
+				up = head;
+			}
+		}
+	}
+
+	if (up != NULL)
+	{
+		if (depth != NULL)
+			(*depth)++;
+
+		master = up;
+	}
+
+	return master;
 }
 
 /* @socom-skeleton stub HasFollower__10CZSealBodyFv */
 unsigned char CZSealBody::HasFollower()
 {
+	/* 0x2e1c10: someone updated this seal's follow parameters lately */
+	return m_saved_formation_dir_is_valid;
 }
 
 /* @socom-skeleton stub InvalidateFollowParams__10CZSealBodyFv */
 void CZSealBody::InvalidateFollowParams()
 {
+	/* 0x2e1ba0 (every PreTick): the follow parameters are stale; a seal nobody followed in
+	 * the last frame loses its formation and (unless it is the player) its trail */
+	if (!m_follow_params_are_current)
+	{
+		m_saved_formation_dir_is_valid = 0;
+		CSealCtrl* ctrl = static_cast<CSealCtrl *>(m_control);
+
+		if (!(ctrl != NULL && ctrl->IsPlayer()))
+			SetSnakePathUpdate(false, 50);
+	}
+
+	m_follow_params_are_current = 0;
 }
 
 /* @socom-skeleton stub UpdateFollowParams__10CZSealBodyFf */
-void CZSealBody::UpdateFollowParams(float)
+void CZSealBody::UpdateFollowParams(float dT)
 {
 	/* @socom-skeleton stub VelThreshSquared$2132 */
-	static float VelThreshSquared;
+	static float VelThreshSquared = 800.0f;
 	/* @socom-skeleton stub cant$2135 */
 	static float cant;
 	/* @socom-skeleton stub DotThresh$2136 */
-	static float DotThresh;
+	static float DotThresh = 0.82f;
 	/* @socom-skeleton stub velsquared$2139 */
 	static float velsquared;
 	/* @socom-skeleton stub dotVal$2140 */
 	static float dotVal;
 	/* @socom-skeleton stub TimeThresh$2141 */
-	static int TimeThresh;
+	static int TimeThresh = 2000;
+
+	/* 0x2e18b0 (once a frame, for the first follower): the master records its trail; its
+	 * formation faces where it looks, or - after 2 s moving steadily forward (speed above
+	 * sqrt(800), within 35 degrees of its facing) - where it moves; the follower distance
+	 * of the last frame becomes current. ELF quirk kept: the statics are shuffled at the end
+	 * (velsquared gets cant, cant the dot). */
+	if (m_follow_params_are_current)
+		return;
+
+	m_MaxFollowerDistance = m_MaxFollowerDistanceNext;
+	m_MaxFollowerDistanceNext = 0;
+	SetSnakePathUpdate(true, 75);
+	CPnt3D vel(m_velW.x, 0.0f, m_velW.z);
+	const f32* row = m_node->m_matrix.m_matrix[2];
+	CPnt3D fwd(-row[0], 0.0f, -row[2]);
+	fwd.Normalize();
+	velsquared = m_velW.x * m_velW.x + m_velW.y * m_velW.y + m_velW.z * m_velW.z;
+	bool steady = false;
+
+	if (!(vel.x * vel.x + vel.y * vel.y + vel.z * vel.z <= VelThreshSquared))
+	{
+		cant = velsquared;
+		vel.Normalize();
+		dotVal = fwd.x * vel.x + fwd.y * vel.y + fwd.z * vel.z;
+
+		if (!(dotVal <= DotThresh))
+		{
+			m_formation_clock += (s32)(1000.0f * dT);
+
+			if (TimeThresh < m_formation_clock)
+			{
+				vel.Normalize();
+				steady = true;
+				m_formation_dir = vel;
+				m_saved_formation_dir = vel;
+			}
+		}
+		else
+			m_formation_clock = 0;
+	}
+	else
+		m_formation_clock = 0;
+
+	if (!steady)
+	{
+		if (m_saved_formation_dir_is_valid)
+			m_formation_dir = m_saved_formation_dir;
+		else
+		{
+			m_formation_dir = fwd;
+			m_saved_formation_dir = fwd;
+		}
+	}
+
+	velsquared = cant;
+	cant = dotVal;
+	m_look_dir = fwd;
+	m_saved_formation_dir_is_valid = 1;
+	m_follow_params_are_current = 1;
 }
 
 /* @socom-skeleton stub GetStanceFromState__10CZSealBodyF10SEAL_STATE11SEAL_STANCE */
-SEAL_STANCE CZSealBody::GetStanceFromState(SEAL_STATE, SEAL_STANCE)
+SEAL_STANCE CZSealBody::GetStanceFromState(SEAL_STATE state, SEAL_STANCE stance)
 {
+	/* 0x2e1860: stand, crouch and prone states map to that stance, others keep `stance` */
+	switch ((u8)state)
+	{
+	case 0:
+		return (SEAL_STANCE)0;
+	case 1:
+		return (SEAL_STANCE)1;
+	case 2:
+		return (SEAL_STANCE)2;
+	default:
+		return stance;
+	}
 }
 
 /* @socom-skeleton stub HandleFollowTickHideCheck__11CSealCtrlAiFbb9CAiMapLocPv */
-void CSealCtrlAi::HandleFollowTickHideCheck(bool, bool, CAiMapLoc, void *)
+bool CSealCtrlAi::HandleFollowTickHideCheck(bool arrived, bool hiding, CAiMapLoc, void *mode)
 {
 	/* @socom-skeleton stub distanceSQ$2201 */
-	static float distanceSQ;
+	static int distanceSQ = 4200;
 	/* @socom-skeleton stub HutchinsDistanceSQ$2204 */
-	static float HutchinsDistanceSQ;
+	static int HutchinsDistanceSQ = 1600;
+
+	/* 0x2e1510: whether a hiding (waiting) follower stays put. Arrived: yes. The unit's
+	 * first seal (and handle 1, Hutchins) waits while near its last valid goal or the master
+	 * is still within the saved distance, else it moves again (follow mode INIT, the unit's
+	 * hold-up released). The others count the follow timer down from -4 and move when it
+	 * reaches -1 and the unit no longer holds up. */
+	u8 handle = m_handle;
+	CZSealBody* seal = static_cast<CZSealBody *>(m_entity);
+	CZSealBody* master = m_master;
+	CPnt3D toGoal;
+	m_followLastValidGoal.Sub(seal->GetPosW(), &toGoal);
+	u8* data = &snakeStateData[handle * 6];
+
+	if (data[4] && !hiding)
+		data[4] = 0;
+
+	if (!data[4] && hiding)
+		data[4] = 1;
+
+	if (!hiding)
+		return false;
+
+	if (arrived)
+		return true;
+
+	CSealUnit* unit = m_unit;
+
+	if (unit->FrontSeal() == seal || handle == 1)
+	{
+		const CPnt3D* at = seal->GetPosW();
+		CPnt3D toMaster;
+		master->GetPosW()->Sub(at, &toMaster);
+		f32 goalSq = toGoal.x * toGoal.x + toGoal.y * toGoal.y + toGoal.z * toGoal.z;
+		f32 masterSq = toMaster.x * toMaster.x + toMaster.y * toMaster.y + toMaster.z * toMaster.z;
+		f32 limit = handle == 1 ? (f32)HutchinsDistanceSQ : (f32)distanceSQ;
+
+		if (goalSq <= limit || masterSq <= (f32)m_saved_distance_to_masterSQ)
+			return true;
+
+		*(u8 *)mode = 0;
+		unit->m_hold_up = 0;
+		return false;
+	}
+
+	if (m_followTimer == -1.0f && !unit->m_hold_up)
+	{
+		*(u8 *)mode = 0;
+		return false;
+	}
+
+	if (m_followTimer == -2.0f)
+		m_followTimer = -1.0f;
+
+	if (m_followTimer == -3.0f)
+		m_followTimer = -2.0f;
+
+	if (m_followTimer == -4.0f)
+		m_followTimer = -3.0f;
+
+	return true;
 }
 
 /* @socom-skeleton stub HandleFollowTickStance__11CSealCtrlAiFbbf */
-void CSealCtrlAi::HandleFollowTickStance(bool, bool, float)
+void CSealCtrlAi::HandleFollowTickStance(bool stopped, bool hiding, float dT)
 {
+	/* 0x2e12a0: the follower's stance (after 0.5..1.5 s): moving, SEALs crouch and others
+	 * stand; stopped or hiding, the master's stance (a standing hider crouches behind the
+	 * player), or a duck when in front of the master. Also notes the farthest follower
+	 * distance for the master. */
+	CZSealBody* master = m_master;
+	CZSealBody* seal = static_cast<CZSealBody *>(m_entity);
+
+	if (!master->m_follow_params_are_current)
+		master->UpdateFollowParams(dT);
+
+	s32 dx = (s32)seal->m_mapLocValid.x - (s32)master->m_mapLocValid.x;
+	s32 dy = (s32)(u16)seal->m_mapLocValid.y - (s32)(u16)master->m_mapLocValid.y;
+	s32 d = (dx < 0 ? -dx : dx) + (dy < 0 ? -dy : dy);
+
+	if (master->m_MaxFollowerDistanceNext < d)
+		master->m_MaxFollowerDistanceNext = d;
+
+	SEAL_STANCE current = (SEAL_STANCE)m_stance;
+	SEAL_STANCE stance = current;
+	SEAL_STANCE theirs = CZSealBody::GetStanceFromState(master->GetStance(false), current);
+
+	if (stopped || hiding)
+	{
+		if (hiding && (s8)current == 0)
+		{
+			CSealCtrl* ctrl = static_cast<CSealCtrl *>(master->m_control);
+			stance = ctrl != NULL && ctrl->IsPlayer() ? (SEAL_STANCE)1 : theirs;
+		}
+
+		if (!GetDuckStance(master, stance))
+		{
+			if (theirs != current && !hiding)
+				stance = theirs;
+			else if (hiding && (s8)theirs == 2)
+				stance = theirs;
+		}
+	}
+	else
+		stance = m_navyseal ? (SEAL_STANCE)1 : (SEAL_STANCE)0;
+
+	SetStanceDelayed(stance, 0.5f + 1.0f * ((f32)rand() * 4.656613e-10f));
 }
 
 /* @socom-skeleton stub HandleFollowTickMasterPath__11CSealCtrlAiFv */
-void CSealCtrlAi::HandleFollowTickMasterPath()
+bool CSealCtrlAi::HandleFollowTickMasterPath()
 {
 	/* @socom-skeleton stub MIN_PATH_LENGTH_BEFORE_MOVING$2264 */
-	static float MIN_PATH_LENGTH_BEFORE_MOVING;
+	static float MIN_PATH_LENGTH_BEFORE_MOVING = 8.0f;
+
+	/* 0x2e11b0: wait until the master's trail is 8 long (the debug state bytes note it).
+	 * ELF: the trail (the master's) is not NULL-tested */
+	CAiPath* snake = m_master != NULL ? &m_master->m_snakePath : NULL;
+	u8* data = &snakeStateData[(u8)m_handle * 6];
+
+	if (!data[2])
+		data[2] = 1;
+
+	if (snake->GetLength(false) < MIN_PATH_LENGTH_BEFORE_MOVING)
+	{
+		if (!data[1])
+			data[1] = 1;
+
+		return false;
+	}
+
+	if (data[1])
+		data[1] = 0;
+
+	return true;
 }
 
 /* @socom-skeleton stub HandleFollowTickPointMode__11CSealCtrlAiFv */
-void CSealCtrlAi::HandleFollowTickPointMode()
+bool CSealCtrlAi::HandleFollowTickPointMode()
 {
+	/* 0x2e10d0: while the unit points something out the follower turns that way, gives
+	 * the point hand signal and stands still (idle mode, speed 0); else path mode (kept as
+	 * follow mode while STATE_FOLLOW is on top) */
+	CZSealBody* seal = static_cast<CZSealBody *>(m_entity);
+
+	if (!m_unit->m_unit_in_point)
+	{
+		SetAiMode(AIM_PATH);
+		return true;
+	}
+
+	CPnt3D* dir = NULL;
+
+	if (m_unit->GetMyPointOutTurnDir(seal, &dir) && SetLookDirW(AIL_TASK, dir, true))
+	{
+		ModifyLookFlags(1, 0);
+		SetLookTimer(10.0f);
+	}
+
+	if (m_unit->GetMyPointOutAnimStart(seal))
+		seal->DoHandSignal((SEAL_HANDSIGNAL)4);
+
+	SetAiMode(AIM_IDLE);
+	m_speed = 0.0f; /* _saturate<f>(m_speed, 0, 1) */
+	return false;
 }
 
 /* @socom-skeleton stub FollowTick__11CSealCtrlAiFf */
-void CSealCtrlAi::FollowTick(float)
+void CSealCtrlAi::FollowTick(float dT)
 {
 	/* @socom-skeleton stub lostFollowThreshold$2298 */
-	static float lostFollowThreshold;
+	static float lostFollowThreshold = 90000.0f;
 	/* @socom-skeleton stub SLOP$2316 */
-	static float SLOP;
+	static float SLOP = 15.0f;
 	/* @socom-skeleton stub foobar$2328 */
-	static int foobar;
+	static int foobar = 1;
 	/* @socom-skeleton stub waitUpLengthSquared$2350 */
-	static float waitUpLengthSquared;
+	static float waitUpLengthSquared = 10000.0f;
 	/* @socom-skeleton stub waitUpTimer$2353 */
-	static float waitUpTimer;
+	static float waitUpTimer = -1.0f;
 	/* @socom-skeleton stub waitUpResetTime$2356 */
-	static float waitUpResetTime;
+	static float waitUpResetTime = 10.0f;
 	/* @socom-skeleton stub a_followMultiplier$2441 */
-	static int a_followMultiplier;
+	static float a_followMultiplier = 0.2f; /* ELF: unused */
 	/* @socom-skeleton stub a_pathMultiplier$2444 */
-	static float a_pathMultiplier;
+	static float a_pathMultiplier = 0.1f;
 	/* @socom-skeleton stub b_acceptablePathSlop$2449 */
-	static int b_acceptablePathSlop;
+	static int b_acceptablePathSlop = 3;
 	/* @socom-skeleton stub acceptablePathDelta$2455 */
-	static int acceptablePathDelta;
+	static int acceptablePathDelta = 5; /* ELF: unused */
 	/* @socom-skeleton stub a_numPathLocsThreshold$2458 */
-	static int a_numPathLocsThreshold;
+	static int a_numPathLocsThreshold = 10;
 	/* @socom-skeleton stub a_maximumUnplannedLocs$2461 */
-	static int a_maximumUnplannedLocs;
+	static int a_maximumUnplannedLocs = 15;
 	/* @socom-skeleton stub acceptableMinPathLocs$2464 */
-	static int acceptableMinPathLocs;
+	static int acceptableMinPathLocs = 7;
+
+	/* 0x2df1c0 (PreTick, follow mode): the follower's goal is its place on the master's
+	 * trail (GetSnakeFollowLoc: m_followOfs.z/10 cells back, x/10 across), else the master's
+	 * position half a second ahead plus the offset turned to the formation direction; an
+	 * unusable goal falls back to the last valid one or the master's cell. Follow modes
+	 * (m_followMode): 0 INIT plans a route (or hides when there), 2 waits for the plan,
+	 * 3 follows it - re-planning when the goal moved far, extending it along the trail -
+	 * until there (4 HIDE: hold the spot watching the unit's sector, then 7 wait),
+	 * 5/6 hide planning, 8 COVERING after a failed plan, 9 AVOID. Stance and hiding are
+	 * decided by the helpers. An escortee (team 0x20000) whose master died or is far gives
+	 * up (HOLDPOS); handle 0 (hostages) calls "wait up" when far behind. */
+	(void)a_followMultiplier;
+	(void)acceptablePathDelta;
+	CZSealBody* seal = static_cast<CZSealBody *>(m_entity);
+
+	if (m_master == NULL)
+	{
+		seal->IssueCommand(NULL, CMD_HOLDPOS, NULL, false);
+#ifdef SOCOM_PORT
+		/* port: the ELF goes on reading the (NULL) master's fields (low memory on the PS2) */
+		return;
+#endif
+	}
+	else if (AiStateIs(STATE_FOLLOW) && (seal->m_team & 0x20000) && (!m_master->m_isAlive || m_followError > lostFollowThreshold))
+		seal->IssueCommand(NULL, CMD_HOLDPOS, NULL, false);
+
+	u8 mode = (u8)m_followMode;
+	u8 handle = (u8)m_handle;
+
+	if (!HandleFollowTickPointMode())
+		return;
+
+	CZSealBody* master = m_master;
+	m_followSlop = SLOP;
+
+	if (!master->m_follow_params_are_current)
+		master->UpdateFollowParams(dT);
+
+	m_master_head = master->m_formation_dir;
+
+	/* the master runs at the follower: moving (both throttles set) toward it */
+	bool masterComing = false;
+	{
+		CZSealBody* m = m_master;
+		CEntityCtrl* mctrl = m->m_control;
+
+		if (mctrl->m_throttle[0] != 0.0f && mctrl->m_throttle[1] != 0.0f)
+		{
+			const CPnt3D* mp = m->GetPosW();
+			CPnt3D away;
+			seal->GetPosW()->Sub(mp, &away);
+			away.Normalize();
+			CPnt3D vel = m->m_velW;
+			vel.Normalize();
+			f32 dot = vel.x * away.x + vel.y * away.y + vel.z * away.z;
+
+			if (!(dot <= 0.3f))
+				masterComing = true;
+			/* ELF: else away.x += dot (dead) */
+		}
+	}
+
+	CAiPath* snake = master != NULL ? &master->m_snakePath : NULL;
+	u8* data = &snakeStateData[handle * 6];
+	bool trailLoc = false;
+
+	if (snake != NULL)
+	{
+		if (!HandleFollowTickMasterPath())
+		{
+			/* the trail is too short yet: match the master's stance (a duck when in front) */
+			SEAL_STANCE stance = CZSealBody::GetStanceFromState((SEAL_STATE)(u8)master->m_state, (SEAL_STANCE)1);
+			GetDuckStance(master, stance);
+			SetStanceDelayed(stance, -1.0f);
+			return;
+		}
+	}
+	else if (data[2])
+		data[2] = 0;
+
+	CAiMapLoc myLoc = seal->m_mapLocValid;
+	CAiMapLoc goalLoc;
+	CPnt3D goal;
+	f32 z = 0.1f * m_followOfs.z;
+	s32 back = m_followOfs.z < 0.0f ? (s32)(-floorf(z)) : (s32)(-ceilf(z));
+	f32 x = 0.1f * m_followOfs.x;
+	s32 across = m_followOfs.x < 0.0f ? (s32)(-floorf(x)) : (s32)(-ceilf(x));
+
+	if (snake != NULL)
+	{
+		CAiMapLoc onTrail;
+
+		if (GetSnakeFollowLoc(*snake, back * foobar, across * foobar, onTrail, m_master_head))
+		{
+			CAiMap* map = AiMaps.GetMapByIndex(onTrail.m_mapid);
+
+			if (map != NULL && map->GetCellPos(onTrail, goal))
+			{
+				trailLoc = true;
+				goalLoc = onTrail;
+			}
+		}
+	}
+
+	if (trailLoc && !data[3])
+		data[3] = 1;
+	else if (!trailLoc && data[3])
+		data[3] = 0;
+
+	if (!trailLoc)
+	{
+		CPnt3D half;
+		master->m_velW.Scale(0.5f, &half);
+		CPnt3D ahead;
+		master->GetPosW()->Add(&half, &ahead);
+		goal = ahead;
+		CPnt3D turned;
+		turned.x = m_master_head.z * m_followOfs.x + m_master_head.x * m_followOfs.z;
+		turned.y = 0.0f;
+		turned.z = -m_master_head.x * m_followOfs.x + m_master_head.z * m_followOfs.z;
+		goal.Add(&turned, &goal);
+	}
+
+	CPnt3D delta = goal;
+	delta.Sub(seal->GetPosW(), &delta);
+	f32 near = 1.5f * m_followSlop;
+	bool arrived = false;
+	bool close = false;
+	m_followError = delta.x * delta.x + delta.z * delta.z;
+
+	if (m_followError <= near * near)
+	{
+		close = true;
+		arrived = true;
+	}
+	else if (m_followError <= 10000.0f && seal->m_aware_counter == 0)
+		close = true;
+
+	if (handle == 0 && !(delta.x * delta.x + delta.z * delta.z <= waitUpLengthSquared))
+	{
+		if (waitUpTimer < 0.0f)
+		{
+			PlayAiSound((CHARACTER_SOUND)47);
+			f32 spread = waitUpResetTime / 2.0f - 0.0f;
+			waitUpTimer = waitUpResetTime;
+
+			if (spread != 0.0f)
+				waitUpTimer += 0.0f + spread * ((f32)rand() * 4.656613e-10f);
+			else
+				waitUpTimer += 0.0f;
+		}
+		else
+			waitUpTimer = waitUpTimer - dT;
+	}
+
+	bool haveGoal = trailLoc ? true : AiMaps.GetLocation(&goal, goalLoc);
+	bool goalWalkable = false;
+
+	if (haveGoal)
+	{
+		CAiMap* map = AiMaps.GetMapByIndex(goalLoc.m_mapid);
+		CAiCell* cell = map != NULL && (u32)(u16)goalLoc.y < map->m_ny && goalLoc.x < map->m_nx ? map->GetCell(goalLoc) : NULL;
+		goalWalkable = cell != NULL && CAiMap::IsWalkable(cell);
+	}
+
+	/* ELF: with a trail goal the goal position's own location and cell are looked up and
+	 * not used (left out) */
+	arrived = false;
+
+	if (!haveGoal || !goalWalkable)
+	{
+		if (m_master == m_last_master)
+		{
+			goal = m_followLastValidGoal;
+
+			if (!AiMaps.GetLocation(&goal, goalLoc))
+			{
+				AllStop(false);
+				return;
+			}
+		}
+		else
+		{
+			goalLoc = master->m_mapLocValid;
+			m_followLastValidGoal = master->m_last_valid_CPnt;
+		}
+
+		if (goalLoc.m_mapid == myLoc.m_mapid)
+		{
+			s32 dx = (s32)goalLoc.x - (s32)myLoc.x;
+			s32 dy = (s32)(u16)goalLoc.y - (s32)(u16)myLoc.y;
+			arrived = (dx < 0 ? -dx : dx) + (dy < 0 ? -dy : dy) < 2;
+		}
+	}
+	else
+	{
+		m_followLastValidGoal = goal;
+		arrived = m_followError <= near * near;
+	}
+
+	m_last_master = m_master;
+
+	if (data[5] && !arrived)
+		data[5] = 0;
+
+	if (!data[5] && arrived)
+		data[5] = 1;
+
+	bool onTrail = snake != NULL ? snake->PointInPath(myLoc, NULL) : false;
+
+	if (onTrail)
+	{
+		if (!data[0])
+		{
+			m_path.m_flags |= 8;
+			data[0] = 1;
+		}
+	}
+	else if (data[0])
+	{
+		m_path.m_flags &= ~8u;
+		data[0] = 0;
+	}
+
+	bool hidingMode = mode == 4 || mode == 5 || mode == 6 || mode == 7;
+	bool hide = HandleFollowTickHideCheck(arrived, hidingMode, goalLoc, &mode);
+	HandleFollowTickStance(arrived || close, hide, dT);
+	bool wait = false;
+	bool follow = false;
+	m_noturn_travel = arrived || hide;
+
+	switch (mode)
+	{
+	case 0: /* INIT */
+		if (arrived)
+		{
+			m_path.SetTemplatePath(NULL);
+			mode = 4;
+			m_followTimer = -4.0f;
+			break;
+		}
+
+		m_path.SetTemplatePath(onTrail ? snake : NULL);
+		ai::AbortPathPlan(&m_path);
+		SetRoute(goalLoc);
+		mode = 2;
+		break;
+
+	case 1:
+		break;
+
+	case 9: /* AVOID */
+		if (PushAiState(STATE_AVOID, true))
+		{
+			CAiState* state = GetAiState();
+			CAiState* avoid = state->m_state == STATE_AVOID ? state : NULL;
+			*(CZSealBody **)((u8 *)avoid + 0x28) = m_master; /* port: CAiSAvoid's +0x28 (undeclared) */
+			avoid->m_setup = 1;
+		}
+
+		break;
+
+	case 2: /* the plan */
+		if (m_path.m_state == ::PATH_STATE::PLANNING || m_path.m_state == ::PATH_STATE::INQUEUE || m_path.m_state == ::PATH_STATE::ABORT)
+			break;
+
+		if (m_path.m_points.size() == 0 || m_path.m_state != ::PATH_STATE::COMPLETE)
+		{
+			m_path.PrintPath();
+			mode = 8;
+			m_followTimer = 2.5f;
+			break;
+		}
+
+		AiMaps.SmoothPath(m_path);
+		mode = 3;
+		/* fall through */
+
+	case 3: /* following the route */
+		if (m_path.m_points.size() != 0 && m_path.m_state == ::PATH_STATE::COMPLETE)
+		{
+			const CAiMapLoc &end = m_path.m_points[0].m_loc;
+			s32 ex = (s32)goalLoc.x - (s32)end.x, ey = (s32)(u16)goalLoc.y - (s32)(u16)end.y;
+			s32 goalMoved = (ex < 0 ? -ex : ex) + (ey < 0 ? -ey : ey);
+			s32 gx = (s32)myLoc.x - (s32)goalLoc.x, gy = (s32)(u16)myLoc.y - (s32)(u16)goalLoc.y;
+			s32 toGoal = (gx < 0 ? -gx : gx) + (gy < 0 ? -gy : gy);
+			s32 mx = (s32)myLoc.x - (s32)end.x, my = (s32)(u16)myLoc.y - (s32)(u16)end.y;
+			s32 toEnd = (mx < 0 ? -mx : mx) + (my < 0 ? -my : my);
+			bool nearGoal = (f32)toGoal <= a_pathMultiplier * (m_followDistance + m_followSlop);
+
+			if (myLoc.m_mapid == goalLoc.m_mapid)
+			{
+				s32 length = (s32)m_path.GetLength(true);
+				bool line = AiMaps.CanTravelLine(myLoc, goalLoc, NULL);
+
+				if (line && toGoal + b_acceptablePathSlop < length)
+					mode = 0; /* the route is much longer than the straight line now */
+			}
+
+			bool keep = (a_numPathLocsThreshold < toEnd && goalMoved < a_maximumUnplannedLocs) || goalMoved == 0;
+
+			if (nearGoal)
+				m_path.m_app_flags &= ~1u;
+			else
+				m_path.m_app_flags |= 1;
+
+			if (!arrived && !keep)
+			{
+				if (!AiMaps.ExtendPath(m_path, goalLoc) && !(acceptableMinPathLocs < toEnd))
+					mode = 0;
+			}
+
+			if (arrived && toEnd == 0)
+			{
+				mode = handle != 0 ? 4 : 7;
+				m_followTimer = -4.0f;
+			}
+
+			m_speed = 1.0f; /* _saturate<f>(m_speed, 0, 1) */
+			follow = true;
+		}
+		else if (arrived)
+		{
+			m_followTimer = -4.0f;
+			mode = handle != 0 ? 4 : 7;
+		}
+		else
+			mode = 0;
+
+		break;
+
+	case 4: /* HIDE: stop here, watch the unit's sector */
+	{
+		if (m_unit->FrontSeal() == seal || handle == 1)
+			m_unit->m_hold_up = 1;
+
+		m_path.SetTemplatePath(NULL);
+		CAiMapLoc spot = myLoc;
+		SetRoute(spot);
+		f32 far = m_followOfs.x * m_followOfs.x + m_followOfs.y * m_followOfs.y + m_followOfs.z * m_followOfs.z
+			+ m_followSlop * (2.0f * (m_followOfs.x + m_followOfs.y)) + m_followSlop * m_followSlop;
+		CPnt3D toMaster;
+		master->GetPosW()->Sub(seal->GetPosW(), &toMaster);
+		m_saved_distance_to_masterSQ = (s32)(toMaster.x * toMaster.x + toMaster.y * toMaster.y + toMaster.z * toMaster.z
+			+ 4.0f * (m_followSlop * m_followSlop));
+
+		if ((f32)m_saved_distance_to_masterSQ < far)
+			m_saved_distance_to_masterSQ = (s32)far;
+
+		CAiMap* map = AiMaps.GetMapByIndex(spot.m_mapid);
+		CPnt3D at;
+
+		if (map != NULL && map->GetCellPos(spot, at))
+		{
+			CPnt3D d;
+			master->GetPosW()->Sub(&at, &d);
+			f32 sq = d.x * d.x + d.y * d.y + d.z * d.z + m_followSlop * (2.0f * (d.x + d.y)) + m_followSlop * m_followSlop;
+
+			if (!(sq <= (f32)m_saved_distance_to_masterSQ))
+				m_saved_distance_to_masterSQ = (s32)sq;
+		}
+
+		m_noturn_travel = 1;
+		CPnt3D dir;
+		m_unit->GetMyLookDir(&dir, &m_master_head, seal);
+		CAiMap::DIR look = ChooseLookDir(myLoc, &dir, false, NULL, 0, NULL);
+
+		if (SetLookDirW(AIL_TASK, look))
+		{
+			ModifyLookFlags(5, 0);
+			SetScanAngle(0.3490658f);
+			SetLookTimer(10.0f);
+		}
+
+		wait = true;
+		mode = spot.x == myLoc.x && spot.y == myLoc.y ? 7 : 5; /* ELF: always 7 */
+		break;
+	}
+
+	case 5: /* HIDE PLAN */
+		if (m_path.m_state == ::PATH_STATE::PLANNING || m_path.m_state == ::PATH_STATE::INQUEUE || m_path.m_state == ::PATH_STATE::ABORT)
+		{
+			wait = true;
+			break;
+		}
+
+		if (m_path.m_points.size() == 0 || m_path.m_state != ::PATH_STATE::COMPLETE)
+		{
+			mode = 8;
+			m_followTimer = 2.5f;
+			break;
+		}
+
+		AiMaps.SmoothPath(m_path);
+		mode = 6;
+		m_followTimer = -4.0f;
+		/* fall through */
+
+	case 6: /* HIDE WAIT: walk to the spot */
+		if (m_path.m_points.size() != 0 && m_path.m_state == ::PATH_STATE::COMPLETE)
+		{
+			m_speed = 1.0f;
+			follow = true;
+		}
+		else
+		{
+			m_followTimer = -4.0f;
+			mode = 7;
+		}
+
+		break;
+
+	case 7: /* waiting hidden */
+		wait = true;
+		break;
+
+	case 8: /* COVERING: after a failed plan */
+		if (m_followTimer == -1.0f)
+		{
+			if (!arrived && !masterComing)
+				mode = 0;
+		}
+		else
+		{
+			bool done = m_followTimer < 0.0f;
+			m_followTimer = 0.0f; /* ELF: stored in the branch delay slot either way */
+
+			if (done)
+				mode = 0;
+		}
+
+		break;
+
+	default:
+		break;
+	}
+
+	if ((u32)m_followMode != mode)
+	{
+		static const char* const names[10] = {
+			"INIT", "PLAN", "FOLLOW", "WAIT", "HIDE", "HIDE PLAN", "HIDE WAIT", "HIDE FOLLOW", "COVERING", "AVOID"
+		};
+		Debug("New follow mode: %s\n", mode < 10 ? names[mode] : "UNKNOWN");
+		SOCOM_PORT_TRACE("FOLLOW: %s mode %d -> %d err %d goal (%d,%d) me (%d,%d)%s", seal->m_node->m_name, (int)m_followMode, (int)mode,
+			(int)sqrtf(m_followError), (int)goalLoc.x, (int)(u16)goalLoc.y, (int)myLoc.x, (int)(u16)myLoc.y, trailLoc ? " trail" : "");
+	}
+
+	/* ELF quirk kept: the timer countdown compares with -3 / -4 by assignment, so every value
+	 * but -1 and -2 becomes -3 here (HandleFollowTickHideCheck counts -3 .. -1 down) */
+	if (m_followTimer != -1.0f && m_followTimer != -2.0f)
+		m_followTimer = -3.0f;
+
+	m_followMode = mode;
+
+	if (wait)
+		CreepTick(dT);
+	else if (follow)
+		PathFollowTick(dT);
+	else
+		AllStop(false);
 }

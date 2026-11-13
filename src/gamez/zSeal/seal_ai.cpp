@@ -2705,11 +2705,9 @@ unsigned char CSealCtrlAi::AttackTick(float dT, bool allowFire)
 	 * unit is in an ambush (CSealUnit::m_ambush) or with m_weapon_ready; else lowered (2) */
 	WEAPON_STATE rest = (WEAPON_STATE)2;
 
-	/* port: CSealUnit::m_ambush (+0x7f) is not declared in the port (the unit code is not
-	 * written): treated as clear */
-	(void)unit;
-
-	if ((m_look_flags & 0x10) || m_weapon_ready)
+	if ((m_look_flags & 0x10) || (unit != NULL && unit->m_ambush) || m_weapon_ready) /* ELF: unit not NULL-tested;
+	                                                                   * port: tested (CSpawners::Tick, which
+	                                                                   * puts respawned seals in units, is unwritten) */
 		rest = (WEAPON_STATE)1;
 
 	CEntity* te = m_target.m_target.m_ent;
@@ -2760,8 +2758,8 @@ unsigned char CSealCtrlAi::AttackTick(float dT, bool allowFire)
 	 * pushes STATE_TARGETING for 2.5 s (holding cover, a sniper rifle, a guard region, a unit
 	 * order, an unaware SEAL, or one time in four) or else STATE_PURSUE (5 s for a SEAL,
 	 * open-ended otherwise). port: the guard-region test (CAiMaps::GetRegionTypeContainer,
-	 * region type 6, unwritten) is taken as "not in one"; the unit order test reads no unit
-	 * (CSealUnit unwritten; the ELF reads m_unit+0x4c without a NULL test). */
+	 * region type 6, unwritten) is taken as "not in one". The unit test: a unit escorting
+	 * someone (m_unit+0x4c, m_escortees' size) stays (ELF: m_unit not NULL-tested). */
 	if (engage)
 	{
 		const CAiState* top = static_cast<const CSealCtrlAi *>(this)->GetAiState();
@@ -2771,8 +2769,8 @@ unsigned char CSealCtrlAi::AttackTick(float dT, bool allowFire)
 		{
 			bool targeting = m_holdCover || kit->HasSniperRifle();
 
-			if (!targeting && m_unit != NULL)
-				targeting = false; /* port: CSealUnit +0x4c (an order) not declared */
+			if (!targeting && m_unit != NULL && !m_unit->m_escortees.empty()) /* port: NULL-tested as above */
+				targeting = true;
 
 			if (!targeting && m_navyseal && m_aware.m_value == 0.0f)
 				targeting = true;
@@ -2961,12 +2959,39 @@ void CSealCtrlAi::ChooseWeapon(CAiWepHint &)
 }
 
 /* @socom-skeleton stub GetDuckStance__11CSealCtrlAiCFP10CZSealBodyR11SEAL_STANCE */
-void CSealCtrlAi::GetDuckStance(CZSealBody *, SEAL_STANCE &) const
+bool CSealCtrlAi::GetDuckStance(CZSealBody *master, SEAL_STANCE &stance) const
 {
 	/* @socom-skeleton stub duckRange$3858 */
-	static float duckRange;
+	static float duckRange = 120.0f;
 	/* @socom-skeleton stub duckThreshold$3861 */
-	static float duckThreshold;
+	static float duckThreshold = 0.9f;
+
+	/* 0x261d20 (follow, hold): within 120 in front of the master (or the unit's leader),
+	 * in its line of fire (dot > 0.9 with its facing), duck: crouch when it stands, else
+	 * prone */
+	CZSealBody* seal = static_cast<CZSealBody *>(m_entity);
+
+	if (master == NULL)
+		master = m_unit->GetLeader();
+
+	if (master == NULL)
+		return false;
+
+	const CPnt3D* at = master->GetPosW();
+	CPnt3D d;
+	seal->GetPosW()->Sub(at, &d);
+
+	if (!(d.Normalize() < duckRange))
+		return false;
+
+	const f32* row = master->m_node->m_matrix.m_matrix[2];
+
+	if (!(-row[0] * d.x + -row[1] * d.y + -row[2] * d.z > duckThreshold))
+		return false;
+
+	SEAL_STANCE theirs = CZSealBody::GetStanceFromState(master->GetStance(false), stance);
+	stance = (s8)theirs == 0 ? (SEAL_STANCE)1 : (SEAL_STANCE)2;
+	return true;
 }
 
 /* @socom-skeleton stub SetStance__11CSealCtrlAiF11SEAL_STANCE */
@@ -3302,8 +3327,17 @@ CValve * CSealCtrlAi::GetValve(SEAL_VALVE valve) const
 }
 
 /* @socom-skeleton stub SetHoldFire__11CSealCtrlAiFb */
-unsigned char CSealCtrlAi::SetHoldFire(bool)
+unsigned char CSealCtrlAi::SetHoldFire(bool hold)
 {
+	/* 0x260db0 (orders FIREATWILL / HOLDFIRE): the hold-fire valve; returns whether it was
+	 * set before */
+	CValve* valve = m_valve[0];
+	bool was = valve != NULL && valve->m_value != 0;
+
+	if (valve != NULL)
+		valve->Set(hold ? 1 : 0);
+
+	return was;
 }
 
 /* @socom-skeleton stub AnimSignal__11CSealCtrlAiFP6CZAnim9AI_SIGNAL */
@@ -3465,8 +3499,34 @@ void CSealCtrlAi::OnActionButton()
 }
 
 /* @socom-skeleton stub ConfirmAiState__11CSealCtrlAiFP8CAiStateb */
-void CSealCtrlAi::ConfirmAiState(CAiState *, bool)
+void CSealCtrlAi::ConfirmAiState(CAiState *state, bool yes)
 {
+	/* 0x25fd30 (CAiSFollow::Tick): once per order (bit 1 of the state), the seal looks at
+	 * its unit leader (the player when it leads) for 0.5..1.5 s and answers "right away" (53)
+	 * or "not a chance" (54): a SEAL on the radio, others at their position */
+	if (state == NULL || !state->m_setup || state->m_unk_0c_1)
+		return;
+
+	ftsGetPlayer(); /* ELF: called, result dropped */
+	CZSealBody* leader = m_unit->GetLeader();
+
+	if (leader == m_entity)
+		leader = ftsGetPlayer();
+
+	CPnt3D buf;
+
+	if (SetLookPosW((AI_LOOK)8, leader->GetTargetPosW(&buf)))
+	{
+		SetLookTimer(0.5f + 1.0f * ((f32)rand() * 4.656613e-10f));
+		SetLookRate(1.0f);
+	}
+
+	CZSealBody* seal = static_cast<CZSealBody *>(m_entity);
+	CHARACTER_SOUND sound = (CHARACTER_SOUND)(yes ? 53 : 54);
+	seal->GetCharacter()->PlayAt(sound, seal->m_id, m_navyseal ? NULL : seal->GetPosW());
+	Debug(yes ? "*** RIGHT AWAY SIR!!\n" : "*** NOT A CHANCE SIR!!\n");
+	SOCOM_PORT_TRACE("ORDER: %s confirms: %s", seal->m_node->m_name, yes ? "right away" : "not a chance");
+	state->m_unk_0c_1 = 1;
 }
 
 /* @socom-skeleton stub PlayAiSound__11CSealCtrlAiF15CHARACTER_SOUND */

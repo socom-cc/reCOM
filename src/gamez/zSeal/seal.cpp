@@ -3187,8 +3187,15 @@ void CZSealBody::ResetAltitude(float)
 }
 
 /* @socom-skeleton stub SetSnakePathUpdate__10CZSealBodyFbUi */
-void CZSealBody::SetSnakePathUpdate(bool, unsigned int)
+void CZSealBody::SetSnakePathUpdate(bool on, unsigned int len)
 {
+	/* 0x24eee0 (UpdateFollowParams 75, InvalidateFollowParams 50 off, CSealCtrl::Initalize):
+	 * the seal records its trail (m_snakePath, filled by UpdateAiMapLoc) for its followers */
+	if (on && m_snake_path)
+		return;
+
+	m_snake_path = on;
+	m_snakePath.SetSnakeLength(on ? len : 0);
 }
 
 /* @socom-skeleton stub ExecuteAction_KnifeAttack__10CZSealBodyFP10CZSealBody */

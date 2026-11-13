@@ -1495,16 +1495,55 @@ inline CZSealBody *SealOfEntity(CEntity *ent)
 	return ent != NULL && ent->m_type == CEntity::ENT_TYPE_SEAL ? static_cast<CZSealBody *>(ent) : NULL;
 }
 
+/* DWARF UnitPointData (20 bytes, orders.cpp): a unit's point-out (hand signal) state for its
+ * leader or its followers */
+struct UnitPointData
+{
+	u8 start_anim;
+	u8 start_turn;
+	u8 in_point;
+	CPnt3D dirW;
+	f32 timer; /* DWARF ft14 */
+};
+
 class CSealUnit
 {
 public:
 	static bool TickAll(f32 dT, void* buf);
-	u32 m_unit_num; /* DWARF +0x38 (GetUnitByTeam 0x2d7590) */
-	CSealUnit* m_parent; /* DWARF +0x3c (the other members are not declared yet) */
+	/* DWARF members (CSealUnit, 164 bytes, orders.cpp); the ELF vptr is at +0x4 (after
+	 * m_compassanchor), GCC's at +0 (port layout). The MSL lists slist / ulist / clist are
+	 * std::list of CZSealBody * / CSealUnit * / FT_COMMAND (node_base: +0 prev, +4 next). */
+	CCompassAnchor* m_compassanchor; /* +0x0 */
+	u8 m_unit_in_point; /* +0x8 */
+	UnitPointData m_follower_point_data; /* +0xc */
+	UnitPointData m_leader_point_data; /* +0x20 */
+	u8 m_hold_up; /* +0x34 */
+	u32 m_unit_num; /* +0x38 (GetUnitByTeam 0x2d7590) */
+	CSealUnit* m_parent; /* +0x3c */
+	std::list<CZSealBody*> m_seals; /* +0x40 */
+	std::list<CZSealBody*> m_escortees; /* +0x4c */
+	std::list<CSealUnit*> m_sub_units; /* +0x58 */
+	std::list<CZSealBody*> m_dead_guys; /* +0x64 */
+	std::list<FT_COMMAND> m_commands; /* +0x70: the unit's orders, the latest at the front */
+	u8 m_issue_unit_follow; /* +0x7c: Tick re-issues FOLLOW from m_follow_source */
+	u8 m_issue_sub_unit_follow; /* +0x7d */
+	u8 m_member_died; /* +0x7e */
+	u8 m_ambush; /* +0x7f */
+	CPnt3D m_ambush_dir; /* +0x80 */
+	CZSealBody* m_follow_source; /* +0x8c */
+	CTarget* m_leader_target; /* +0x90 */
+	CTarget* m_follower_target; /* +0x94 */
+	u8 m_follower_is_pointing; /* +0x98 */
+	s32 m_point_ticks; /* +0x9c */
+	CValve* m_radio_channel_valve; /* +0xa0 */
+	/* port: inline helpers for the MSL list reads the ELF inlines (front() of an empty list
+	 * reads the list head there) */
+	FT_COMMAND FrontCommand() const { return m_commands.empty() ? CMD_UNKNOWN : m_commands.front(); }
+	CZSealBody* FrontSeal() const { return m_seals.empty() ? NULL : m_seals.front(); }
 	/* @socom-skeleton decl 9CSealUnit */
 public:
-	virtual void IssueCommand(CZSealBody *, FT_COMMAND, void *, bool);
-	virtual void AllowCommand(CZSealBody *, FT_COMMAND, void *);
+	virtual CZSealBody * IssueCommand(CZSealBody *, FT_COMMAND, void *, bool); /* 0x2d07e0 returns the last seal / sub-unit result */
+	virtual bool AllowCommand(CZSealBody *, FT_COMMAND, void *);
 	static CSealUnit * Create(unsigned int);
 	static CSealUnit * GetUnitByTeam(unsigned int);
 	void GetMyLookDir(CPnt3D *, CPnt3D *, CZSealBody *);
@@ -1513,8 +1552,8 @@ public:
 	void EscorteeJoinUnit(CZSealBody *);
 	static void SealLeaveUnit(CZSealBody *);
 	void Revive(CZSealBody *);
-	void IsMemberOfUnit(unsigned int, CZSealBody *, bool);
-	void IsMemberOfUnit(CZSealBody *, bool);
+	static bool IsMemberOfUnit(unsigned int, CZSealBody *, bool); /* 0x2d61b0: a0 is the unit number */
+	bool IsMemberOfUnit(CZSealBody *, bool);
 	CZSealBody * GetSealByIndex(unsigned int);
 	void PrivateNotify(CZSealBody *, UNIT_MESSAGE, void *);
 	void DistributeNotify(CZSealBody *, UNIT_MESSAGE, void *);
@@ -1537,8 +1576,8 @@ public:
 	unsigned int GetAwareCounter() const;
 	void UpdatePointOutState();
 	void ResetPointOutState();
-	void GetMyPointOutTurnDir(CZSealBody *, CPnt3D **);
-	void GetMyPointOutAnimStart(CZSealBody *);
+	bool GetMyPointOutTurnDir(CZSealBody *, CPnt3D **);
+	bool GetMyPointOutAnimStart(CZSealBody *);
 	void CheckPathProximity(const CAiPath &, int, float) const;
 	static unsigned char m_created_units_test;
 	static std::list<CSealUnit*> m_list; /* 0x5097b0, MSL list (was int[3]); TickAll walks it */
@@ -1986,7 +2025,7 @@ public:
 	unsigned char AttackTick(float, bool);
 	unsigned char FireWhenReady(AI_FIREPARAMS &, float);
 	void ChooseWeapon(CAiWepHint &);
-	void GetDuckStance(CZSealBody *, SEAL_STANCE &) const;
+	bool GetDuckStance(CZSealBody *, SEAL_STANCE &) const; /* 0x261d20: whether to duck (stance set) */
 	unsigned char SetStance(SEAL_STANCE);
 	unsigned char SetStanceDelayed(SEAL_STANCE, float);
 	unsigned char DoSetStance(SEAL_STANCE);
@@ -2026,10 +2065,10 @@ public:
 	void SetFollowMaster(CZSealBody *);
 	void SetFollowOffset(const CPnt3D *);
 	CZSealBody * GetFollowMaster(int *);
-	void HandleFollowTickHideCheck(bool, bool, CAiMapLoc, void *);
+	bool HandleFollowTickHideCheck(bool, bool, CAiMapLoc, void *); /* 0x2e1510 returns its 2nd argument or 0 */
 	void HandleFollowTickStance(bool, bool, float);
-	void HandleFollowTickMasterPath();
-	void HandleFollowTickPointMode();
+	bool HandleFollowTickMasterPath(); /* 0x2e11b0: 0 while the master's trail is too short */
+	bool HandleFollowTickPointMode(); /* 0x2e10d0: 0 while the unit points something out */
 	void FollowTick(float);
 	CAiState * GetAiState(); /* 0x2dbd70: the top of the stack, else the shared CAiSUnknown */
 	CAiState * GetAiState() const; /* 0x2dbd20 */
@@ -2039,7 +2078,7 @@ public:
 	bool SetAiState(AI_STATE); /* 0x2db580 returns 0/1 */
 	bool PushAiState(AI_STATE, bool); /* 0x2db390 returns 0/1 */
 	void PopAiState();
-	void PopToAiState(AI_STATE);
+	bool PopToAiState(AI_STATE); /* 0x2dafa0: whether that state is on top afterwards */
 	AI_STATE PopAiState(AI_STATE); /* 0x2dadf0 returns the top state's type afterwards */
 	void UpdateStackFlags(bool);
 	void StateTick(float);

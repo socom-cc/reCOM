@@ -103,6 +103,8 @@
 #include "gamez/zAnim/zanim.h"
 #include "gamez/zEntity/zentity.h"
 #include "gamez/zMath/zmath.h"
+#include "gamez/zFTS/zfts.h" /* theMission, ftsGetPlayer */
+#include "gamez/zValve/zvalve.h" /* CValve::Create */
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
 class MAP_LINEWALK_STRUCT;
@@ -125,8 +127,20 @@ static unsigned char MultiplayerMsgStrings[28];
 std::list<CSealUnit*> CSealUnit::m_list;
 
 /* @socom-skeleton stub Create__9CSealUnitFUi */
-CSealUnit * CSealUnit::Create(unsigned int)
+CSealUnit * CSealUnit::Create(unsigned int num)
 {
+	/* 0x2d7620: the unit with that number, made (and appended to m_list) when missing; unit
+	 * 24 gets the multiplayer radio channel valve, every other one none */
+	CSealUnit* unit = GetUnitByTeam(num);
+
+	if (unit == NULL)
+	{
+		unit = new CSealUnit(num);
+		m_list.push_back(unit);
+	}
+
+	unit->m_radio_channel_valve = num == 24 ? CValve::Create("mp_radio_channel_valve", (VALVE_TYPE)1) : NULL;
+	return unit;
 }
 
 /* @socom-skeleton stub GetUnitByTeam__9CSealUnitFUi */
@@ -143,8 +157,68 @@ CSealUnit * CSealUnit::GetUnitByTeam(unsigned int team)
 }
 
 /* @socom-skeleton stub GetMyLookDir__9CSealUnitFP6CPnt3DP6CPnt3DP10CZSealBody */
-void CSealUnit::GetMyLookDir(CPnt3D *, CPnt3D *, CZSealBody *)
+void CSealUnit::GetMyLookDir(CPnt3D *out, CPnt3D *dir, CZSealBody *seal)
 {
+	/* 0x2d7340 (FollowTick, OnCommand HOLDPOS): where a member watches. In an ambush the
+	 * ambush direction; behind the player Bravo's first seal 45 degrees left, its second 90
+	 * degrees left, Able's second 45 degrees right (the first along `dir`, keeping its y);
+	 * behind another seal a pair splits 60 degrees each way, a single one looks along dir */
+	if (m_ambush)
+	{
+		*out = m_ambush_dir;
+		return;
+	}
+
+	*out = *dir;
+	const f32 c45 = 0.7071f;
+	const f32 c60 = 0.5f;
+	const f32 s60 = 0.866f;
+
+	if (m_follow_source == ftsGetPlayer())
+	{
+		if (m_unit_num == 3)
+		{
+			if (FrontSeal() == seal)
+			{
+				out->x = c45 * dir->x - c45 * dir->z;
+				out->y = 0.0f;
+				out->z = c45 * dir->x + c45 * dir->z;
+			}
+			else
+			{
+				out->x = -dir->z;
+				out->y = 0.0f;
+				out->z = dir->x;
+			}
+		}
+		else if (FrontSeal() != seal)
+		{
+			out->x = c45 * dir->x + c45 * dir->z;
+			out->y = 0.0f;
+			out->z = -c45 * dir->x + c45 * dir->z;
+		}
+	}
+	else if (m_seals.size() == 2)
+	{
+		if (FrontSeal() == seal)
+		{
+			out->x = c60 * dir->x - s60 * dir->z;
+			out->y = 0.0f;
+			out->z = s60 * dir->x + c60 * dir->z;
+		}
+		else
+		{
+			out->x = c60 * dir->x + s60 * dir->z;
+			out->y = 0.0f;
+			out->z = -s60 * dir->x + c60 * dir->z;
+		}
+	}
+	else
+	{
+		out->x = dir->x;
+		out->y = 0.0f;
+		out->z = dir->z;
+	}
 }
 
 /* @socom-skeleton stub can_run_anim__FPCc */
@@ -155,28 +229,123 @@ CZAnim * can_run_anim(const char *)
 }
 
 /* @socom-skeleton stub AllowCommand__9CSealUnitFP10CZSealBody10FT_COMMANDPv */
-void CSealUnit::AllowCommand(CZSealBody *, FT_COMMAND, void *)
+bool CSealUnit::AllowCommand(CZSealBody *, FT_COMMAND, void *)
 {
+	/* 0x2d6bf0 (1736 bytes): whether a member may take the order (the orders menu's
+	 * filter). port: not written - nothing allowed */
+	return false;
 }
 
 /* @socom-skeleton stub __ct__9CSealUnitFUi */
-CSealUnit::CSealUnit(unsigned int)
+CSealUnit::CSealUnit(unsigned int num)
 {
+	/* 0x2d6a20 */
+	m_follower_point_data.start_anim = 0;
+	m_follower_point_data.in_point = 0;
+	m_follower_point_data.dirW = CPnt3D::unit_z;
+	m_follower_point_data.timer = 0.0f;
+	m_leader_point_data.start_anim = 0;
+	m_leader_point_data.in_point = 0;
+	m_leader_point_data.dirW = CPnt3D::unit_z;
+	m_leader_point_data.timer = 0.0f;
+	m_unit_num = num;
+	m_parent = NULL;
+	m_issue_unit_follow = 0;
+	m_issue_sub_unit_follow = 0;
+	m_member_died = 0;
+	m_follow_source = NULL;
+	m_ambush = 0;
+	m_hold_up = 0;
+	m_unit_in_point = 0;
+	m_point_ticks = 0;
+	m_compassanchor = NULL;
+	/* ELF: start_turn, m_ambush_dir, the targets, m_follower_is_pointing and the valve are
+	 * left as allocated (Create sets the valve) */
+	m_follower_point_data.start_turn = 0;
+	m_leader_point_data.start_turn = 0;
+	m_ambush_dir = CPnt3D::zero;
+	m_leader_target = NULL;
+	m_follower_target = NULL;
+	m_follower_is_pointing = 0;
+	m_radio_channel_valve = NULL;
 }
 
 /* @socom-skeleton stub SealJoinUnit__9CSealUnitFP10CZSealBody */
-void CSealUnit::SealJoinUnit(CZSealBody *)
+void CSealUnit::SealJoinUnit(CZSealBody *seal)
 {
+	/* 0x2d68e0: the seal leaves its unit and joins this one; an escortee (team 0x20000)
+	 * joins as an escortee (EscorteeJoinUnit inlined) unless this is the escortee unit 17.
+	 * The first seal of a unit other than 17 becomes its follow source. */
+	SealLeaveUnit(seal);
+
+	if (m_unit_num != 17 && (seal->m_team & 0x20000))
+	{
+		EscorteeJoinUnit(seal);
+		return;
+	}
+
+	if (m_unit_num != 17 && m_seals.empty())
+		m_follow_source = seal;
+
+	m_seals.push_back(seal);
+	static_cast<CSealCtrl *>(seal->m_control)->m_unit = this;
 }
 
 /* @socom-skeleton stub EscorteeJoinUnit__9CSealUnitFP10CZSealBody */
-void CSealUnit::EscorteeJoinUnit(CZSealBody *)
+void CSealUnit::EscorteeJoinUnit(CZSealBody *seal)
 {
+	/* 0x2d67a0: in unit 17 an escortee is an ordinary member (SealJoinUnit inlined); in
+	 * another unit it joins the escortees, which follow when the unit's order is FOLLOW */
+	SealLeaveUnit(seal);
+
+	if (m_unit_num == 17)
+	{
+		SealJoinUnit(seal);
+		return;
+	}
+
+	m_escortees.push_back(seal);
+	static_cast<CSealCtrl *>(seal->m_control)->m_unit = this;
+
+	if (FrontCommand() == CMD_FOLLOW || m_unit_num == 0)
+		m_issue_unit_follow = 1;
 }
 
 /* @socom-skeleton stub SealLeaveUnit__9CSealUnitFP10CZSealBody */
-void CSealUnit::SealLeaveUnit(CZSealBody *)
+void CSealUnit::SealLeaveUnit(CZSealBody *seal)
 {
+	/* 0x2d6570: the seal is taken out of its unit's seals, escortees and dead (the first
+	 * match in each); a follow source that left is replaced by the first seal, and the unit
+	 * then re-issues FOLLOW when that is its order. ELF: the seal's m_unit is kept. */
+	CSealUnit* unit = static_cast<CSealCtrl *>(seal->m_control)->m_unit;
+
+	if (unit == NULL)
+		return;
+
+	bool found = false;
+	std::list<CZSealBody*>* lists[3] = { &unit->m_seals, &unit->m_escortees, &unit->m_dead_guys };
+
+	for (int i = 0; i < 3; i++)
+	{
+		for (std::list<CZSealBody*>::iterator it = lists[i]->begin(); it != lists[i]->end(); ++it)
+		{
+			if (*it == seal)
+			{
+				lists[i]->erase(it);
+				found = true;
+				break;
+			}
+		}
+	}
+
+	if (!found)
+		return;
+
+	if (unit->m_follow_source == seal)
+		unit->m_follow_source = unit->FrontSeal();
+
+	if (unit->m_follow_source != NULL && (unit->FrontCommand() == CMD_FOLLOW || unit->m_unit_num == 0))
+		unit->m_issue_unit_follow = 1;
 }
 
 /* @socom-skeleton stub Revive__9CSealUnitFP10CZSealBody */
@@ -185,18 +354,54 @@ void CSealUnit::Revive(CZSealBody *)
 }
 
 /* @socom-skeleton stub IsMemberOfUnit__9CSealUnitFUiP10CZSealBodyb */
-void CSealUnit::IsMemberOfUnit(unsigned int, CZSealBody *, bool)
+bool CSealUnit::IsMemberOfUnit(unsigned int num, CZSealBody *seal, bool deep)
 {
+	/* 0x2d61b0: as above for unit `num` (GetUnitByTeam and the member test inlined) */
+	CSealUnit* unit = GetUnitByTeam(num);
+	return unit != NULL && unit->IsMemberOfUnit(seal, deep);
 }
 
 /* @socom-skeleton stub IsMemberOfUnit__9CSealUnitFP10CZSealBodyb */
-void CSealUnit::IsMemberOfUnit(CZSealBody *, bool)
+bool CSealUnit::IsMemberOfUnit(CZSealBody *seal, bool deep)
 {
+	/* 0x2d6040: a seal or escortee of this unit, or (deep) of a sub-unit */
+	for (std::list<CZSealBody*>::iterator it = m_seals.begin(); it != m_seals.end(); ++it)
+	{
+		if (*it == seal)
+			return true;
+	}
+
+	for (std::list<CZSealBody*>::iterator it = m_escortees.begin(); it != m_escortees.end(); ++it)
+	{
+		if (*it == seal)
+			return true;
+	}
+
+	if (deep)
+	{
+		for (std::list<CSealUnit*>::iterator it = m_sub_units.begin(); it != m_sub_units.end(); ++it)
+		{
+			if ((*it)->IsMemberOfUnit(seal, true))
+				return true;
+		}
+	}
+
+	return false;
 }
 
 /* @socom-skeleton stub GetSealByIndex__9CSealUnitFUi */
-CZSealBody * CSealUnit::GetSealByIndex(unsigned int)
+CZSealBody * CSealUnit::GetSealByIndex(unsigned int index)
 {
+	/* 0x2d5fb0: the index'th seal, NULL past the end */
+	if (!(index < m_seals.size()))
+		return NULL;
+
+	std::list<CZSealBody*>::iterator it = m_seals.begin();
+
+	while (index-- != 0)
+		++it;
+
+	return *it;
 }
 
 /* @socom-skeleton stub PrivateNotify__9CSealUnitFP10CZSealBody12UNIT_MESSAGEPv */
@@ -242,13 +447,104 @@ void CSealUnit::CreateMultiPlayerUnits()
 }
 
 /* @socom-skeleton stub InitalizeSealUnit__9CSealUnitFP10CZSealBody */
-void CSealUnit::InitalizeSealUnit(CZSealBody *)
+void CSealUnit::InitalizeSealUnit(CZSealBody *seal)
 {
+	/* 0x2d4250 (CreateSinglePlayerUnits, CSpawners::Tick): the seal joins the unit of its
+	 * team: bit 8 Bravo (3), bit 4 Able (2), 0x10000000 unit 28, 0x20000 the escortees (17),
+	 * the first of bits 5..15 that unit, else unit 4. SealJoinUnit is inlined each time; the
+	 * unit (GetUnitByTeam inlined) is not NULL-tested. */
+	if (seal == NULL)
+		return;
+
+	u32 team = seal->m_team;
+
+	if (team & 8)
+		GetUnitByTeam(3)->SealJoinUnit(seal);
+	else if (team & 4)
+		GetUnitByTeam(2)->SealJoinUnit(seal);
+	else if (team & 0x10000000)
+		GetUnitByTeam(28)->SealJoinUnit(seal);
+	else if (team & 0x20000)
+		GetUnitByTeam(17)->SealJoinUnit(seal);
+	else
+	{
+		bool joined = false;
+
+		for (u32 bit = 5; bit < 16; bit++)
+		{
+			if ((seal->m_team & (1u << bit)) && !joined)
+			{
+				GetUnitByTeam(bit)->SealJoinUnit(seal);
+				joined = true;
+			}
+		}
+
+		if (!joined)
+			GetUnitByTeam(4)->SealJoinUnit(seal);
+	}
 }
 
 /* @socom-skeleton stub CreateSinglePlayerUnits__9CSealUnitFv */
 void CSealUnit::CreateSinglePlayerUnits()
 {
+	/* 0x2d3750 (CMission::Open, ReOpen_Load): the fireteam (1) with Able (2) and Bravo (3)
+	 * under it, units 28, 17 (escortees), 4 (the enemies, with 5..15 under it) and 29
+	 * (support), all Create inlined; every seal joins its unit; then the fireteam is told to
+	 * hold fire and given the mission's fireteam order (theMission ai params, default
+	 * FOLLOW) - with HOLDPOS Bravo holds (option 8: no look) and Able follows. */
+	CSealUnit* fireteam = Create(1);
+	CSealUnit* able = Create(2);
+	CSealUnit* bravo = Create(3);
+	Create(28);
+	Create(17);
+	CSealUnit* enemies = Create(4);
+	Create(29);
+
+	fireteam->m_sub_units.push_back(able);
+	able->m_parent = fireteam;
+	fireteam->m_sub_units.push_back(bravo);
+	bravo->m_parent = fireteam;
+
+	/* ELF: Bravo's compass anchor CCompass::CreateAnchor(CPnt3D::zero, "BRAVOTEAM") with
+	 * type bits 0x80 (anchor +0 bits 4..19). port: not made - CCompass::CreateAnchor is an
+	 * unwritten stub (no compass marker for Bravo) */
+
+	for (u32 num = 5; num < 16; num++)
+	{
+		CSealUnit* unit = Create(num);
+		enemies->m_sub_units.push_back(unit);
+		unit->m_parent = enemies;
+	}
+
+	for (std::list<CEntity*>::iterator it = CEntity::m_list.begin(); it != CEntity::m_list.end(); ++it)
+	{
+		CEntity* entity = *it;
+		InitalizeSealUnit(entity != NULL && entity->m_type == 2 ? static_cast<CZSealBody *>(entity) : NULL);
+	}
+
+	CZSealBody* player = ftsGetPlayer();
+	fireteam->IssueCommand(player, CMD_HOLDFIRE, NULL, true);
+	FT_COMMAND order = theMission.m_ai_params.fireteam_command;
+
+	if (order == CMD_HOLDPOS)
+	{
+		bravo->IssueCommand(player, CMD_HOLDPOS, (void *)8, true);
+		able->IssueCommand(player, CMD_FOLLOW, NULL, true);
+	}
+	else
+		fireteam->IssueCommand(player, order, NULL, true);
+
+	m_created_units_test = 1;
+#ifdef SOCOM_PORT
+	for (std::list<CSealUnit*>::iterator it = m_list.begin(); it != m_list.end(); ++it)
+	{
+		CSealUnit* unit = *it;
+
+		if (!unit->m_seals.empty() || !unit->m_escortees.empty())
+			SOCOM_PORT_TRACE("UNIT: %d: %d seals (%s ...), %d escortees, order %d", unit->m_unit_num, (int)unit->m_seals.size(),
+				unit->m_seals.empty() ? "-" : unit->m_seals.front()->m_node->m_name, (int)unit->m_escortees.size(), (int)unit->FrontCommand());
+	}
+#endif
 }
 
 /* @socom-skeleton stub AddBreachMember__FP10CAiSBreachP11CSealCtrlAi */
@@ -257,16 +553,78 @@ void AddBreachMember(CAiSBreach *, CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub SetFormation__9CSealUnitFP10CZSealBodyP6CPnt3D */
-CZSealBody * CSealUnit::SetFormation(CZSealBody *, CPnt3D *)
+CZSealBody * CSealUnit::SetFormation(CZSealBody *source, CPnt3D *offset)
 {
 	/* @socom-skeleton stub Xoff$2886 */
-	static float Xoff;
+	static float Xoff = 25.0f;
 	/* @socom-skeleton stub Zoff$2889 */
-	static float Zoff;
+	static float Zoff = -25.0f;
 	/* @socom-skeleton stub UoffMult$2892 */
-	static float UoffMult;
+	static float UoffMult = 1.5f;
 	/* @socom-skeleton stub EoffMult$2895 */
-	static float EoffMult;
+	static float EoffMult = 1.0f;
+
+	/* 0x2d31d0 (IssueCommand FOLLOW): every member but the source follows it at the running
+	 * offset (from `offset`, else (Xoff, 0, Zoff)): each seal one step further out to its
+	 * side and back; the escortees (after the first seal) one step inside; each sub-unit
+	 * after the first member a wider step (UoffMult) to the other side, going on from where
+	 * the sub-unit left the offset. The offset reached is written back. */
+	m_follow_source = source;
+	bool escortees = !m_escortees.empty();
+	CPnt3D off(Xoff, 0.0f, Zoff);
+
+	if (offset != NULL)
+		off = *offset;
+
+	bool first = true;
+
+	for (std::list<CZSealBody*>::iterator it = m_seals.begin(); it != m_seals.end(); ++it)
+	{
+		CZSealBody* seal = *it;
+
+		if (seal != source)
+		{
+			seal->IssueCommand(source, CMD_FOLLOW, &off, true);
+			off.x = off.x < 0.0f ? off.x - Xoff : off.x + Xoff;
+			off.z = off.z + Zoff;
+		}
+
+		if (escortees)
+		{
+			f32 x = off.x;
+
+			for (std::list<CZSealBody*>::iterator e = m_escortees.begin(); e != m_escortees.end(); ++e)
+			{
+				off.x = off.x - Xoff;
+				off.z = off.z - Zoff * (1.0f - EoffMult);
+				(*e)->IssueCommand(source, CMD_FOLLOW, &off, true);
+				off.x = off.x + Xoff;
+				off.z = off.z + Zoff;
+			}
+
+			off.x = x;
+			escortees = false;
+		}
+
+		first = false;
+	}
+
+	for (std::list<CSealUnit*>::iterator it = m_sub_units.begin(); it != m_sub_units.end(); ++it)
+	{
+		if (!first)
+		{
+			off.z = off.z + Zoff * UoffMult;
+			off.x = off.x < 0.0f ? Xoff * UoffMult : -Xoff * UoffMult;
+		}
+
+		(*it)->IssueCommand(source, CMD_FOLLOW, &off, true);
+		first = false;
+	}
+
+	if (offset != NULL)
+		*offset = off;
+
+	return source;
 }
 
 /* @socom-skeleton stub VoiceHandSignal__9CSealUnitFP10CZSealBody10FT_COMMANDPvb */
@@ -300,13 +658,17 @@ void GetNodeNameStringFromSRString(char *, char *)
 }
 
 /* @socom-skeleton stub SetConfirmVoiceCommands__9CSealUnitFb */
-void CSealUnit::SetConfirmVoiceCommands(bool)
+void CSealUnit::SetConfirmVoiceCommands(bool on)
 {
+	/* 0x2d22b0 */
+	ShouldConfirmVoiceCommands = on;
 }
 
 /* @socom-skeleton stub GetConfirmVoiceCommands__9CSealUnitFv */
 unsigned char CSealUnit::GetConfirmVoiceCommands()
 {
+	/* 0x2d22a0 */
+	return ShouldConfirmVoiceCommands;
 }
 
 /* @socom-skeleton stub ConfirmCommand__9CSealUnitFP10CZSealBody10FT_COMMANDPc */
@@ -320,32 +682,478 @@ SEAL_HANDLE CSealUnit::GetUnitLeaderHandle()
 }
 
 /* @socom-skeleton stub IssueCommand__9CSealUnitFP10CZSealBody10FT_COMMANDPvb */
-void CSealUnit::IssueCommand(CZSealBody *, FT_COMMAND, void *, bool)
+CZSealBody * CSealUnit::IssueCommand(CZSealBody *source, FT_COMMAND cmd, void *buffer, bool quiet)
 {
 	/* @socom-skeleton stub targetOffset$2842 */
 	static float targetOffset;
 	/* @socom-skeleton stub breachState$3368 */
 	static unsigned char breachState[96];
+
+	/* 0x2d07e0: an order to the unit. The fireteam (1) passes the positional orders (HOLDPOS,
+	 * ESCORT, ATTACKTO, RUNTO, STEALTHTO, LEADTO, COVERTARGET, AMBUSH) to Bravo. The order is
+	 * signalled / voiced (VoiceHandSignal), recorded (most orders replace the list, ACTION,
+	 * REMOVEKILLS, RESTRAIN, BREACH*, DEPLOY are added in front), reported to the parent
+	 * unless quiet, an ambush ends on a moving / firing order; then by order: FOLLOW sets the
+	 * formation, everything else goes to each member but the source and to each sub-unit. */
+	(void)targetOffset;
+	(void)breachState;
+
+	if (m_unit_num == 1)
+	{
+		switch (cmd)
+		{
+		case CMD_HOLDPOS:
+		case CMD_ESCORT:
+		case CMD_ATTACKTO:
+		case CMD_RUNTO:
+		case CMD_STEALTHTO:
+		case CMD_LEADTO:
+		case CMD_COVERTARGET:
+		case CMD_AMBUSH:
+			return GetUnitByTeam(3)->IssueCommand(source, cmd, buffer, quiet);
+		default:
+			break;
+		}
+	}
+
+	/* ELF: in a network game the radio units (26, 30, 31) send the order as a message and
+	 * unit 24 switches the voice channel (CMD_RADIO_CHANNEL_*). port: not written (single
+	 * player only) */
+	if (m_unit_num == 29)
+	{
+		HandleSupport(source, cmd, buffer, quiet);
+		return NULL; /* ELF: v0 left from HandleSupport (void) */
+	}
+
+	VoiceHandSignal(source, cmd, buffer, quiet);
+
+	switch (cmd)
+	{
+	case CMD_ATTACKTO:
+	case CMD_LEADTO:
+	case CMD_RUNTO:
+	case CMD_STEALTHTO:
+	case CMD_GOTONODE:
+	case CMD_GETDOWN:
+	case CMD_REGROUP:
+	case CMD_HOLDPOS:
+	case CMD_FOLLOW:
+		m_commands.clear();
+		m_commands.push_front(cmd);
+		break;
+	case CMD_REMOVEKILLS:
+	case CMD_ACTION:
+	case CMD_RESTRAIN:
+	case CMD_BREACHNONECLEAR:
+	case CMD_BREACHFRAGCLEAR:
+	case CMD_BREACHBANGCLEAR:
+	case CMD_DEPLOY:
+		m_commands.push_front(cmd);
+		break;
+	default:
+		break;
+	}
+
+	if (m_parent != NULL && !quiet)
+		m_parent->CommandNotifyFromChild(this, source, cmd, buffer);
+
+	if (m_unit_num == 17)
+	{
+		/* ELF: the escortee unit gives the order to the seal under the source's reticule when
+		 * it accepts it (FOLLOW with the default offset (15, 0, -15)). port: not written */
+	}
+
+	if (m_ambush)
+	{
+		switch (cmd)
+		{
+		case CMD_CLEARAREA:
+		case CMD_BREACHNONECLEAR:
+		case CMD_BREACHFRAGCLEAR:
+		case CMD_BREACHBANGCLEAR:
+		case CMD_ATTACKTO:
+		case CMD_RUNTO:
+		case CMD_GOTONODE:
+		case CMD_LEADTO:
+		case CMD_STEALTHTO:
+		case CMD_FIREATWILL:
+		case CMD_FOLLOW:
+			m_ambush = 0;
+			break;
+		default:
+			break;
+		}
+	}
+
+	switch (cmd)
+	{
+	case CMD_FOLLOW:
+		if (m_unit_num == 17)
+		{
+			/* ELF: the first escortee that allows it follows at (15, 0, -15). port: not
+			 * written (no escortees in single player m8) */
+			return NULL;
+		}
+
+		m_hold_up = 0;
+		SetFormation(source, (CPnt3D *)buffer);
+		return NULL;
+
+	case CMD_BREACHNONECLEAR:
+	case CMD_BREACHFRAGCLEAR:
+	case CMD_BREACHBANGCLEAR:
+	case CMD_COVERTARGET:
+	case CMD_LASETARGET:
+	case CMD_DEPLOY:
+	case CMD_LEADTO:
+	case CMD_RUNTO:
+	case CMD_STEALTHTO:
+	case CMD_GOTONODE:
+	case CMD_ATTACKTO:
+	case CMD_REGROUP:
+	case CMD_AMBUSH:
+	case CMD_ACTION:
+	case CMD_ESCORT:
+		/* port: not written (0x2d0ef8..0x2d1d00: breach teams, cover / lase targets, deploy,
+		 * the moving orders' destinations, regroup, ambush, action, escort) */
+		SOCOM_PORT_TRACE("UNIT: %d: order %d not written", m_unit_num, (int)cmd);
+		return NULL;
+
+	default:
+		break;
+	}
+
+	CZSealBody* result = NULL;
+
+	for (std::list<CZSealBody*>::iterator it = m_seals.begin(); it != m_seals.end(); ++it)
+	{
+		result = *it;
+
+		if (result != source)
+			result->IssueCommand(source, cmd, buffer, quiet);
+	}
+
+	for (std::list<CSealUnit*>::iterator it = m_sub_units.begin(); it != m_sub_units.end(); ++it)
+		result = (*it)->IssueCommand(source, cmd, buffer, quiet);
+
+	return result;
 }
 
 /* @socom-skeleton stub CommandNotifyFromChild__9CSealUnitFP9CSealUnitP10CZSealBody10FT_COMMANDPv */
-void CSealUnit::CommandNotifyFromChild(CSealUnit *, CZSealBody *, FT_COMMAND, void *)
+void CSealUnit::CommandNotifyFromChild(CSealUnit *child, CZSealBody *, FT_COMMAND cmd, void *)
 {
+	/* 0x2d0620: a sub-unit was told to FOLLOW: when every AI member already follows and
+	 * every sub-unit's order is FOLLOW the whole unit re-forms (m_issue_unit_follow); when
+	 * only some do, the sub-units are chained (m_issue_sub_unit_follow) */
+	if (cmd != CMD_FOLLOW)
+		return;
+
+	bool all = true;
+	bool some = false;
+
+	for (std::list<CZSealBody*>::iterator it = m_seals.begin(); it != m_seals.end(); ++it)
+	{
+		CSealCtrl* ctrl = static_cast<CSealCtrl *>((*it)->m_control);
+
+		if (ctrl != NULL && ctrl->IsAi())
+		{
+			if (ctrl->GetSealCtrlAi()->FindAiState(STATE_FOLLOW) != NULL)
+				some = true;
+			else
+				all = false;
+		}
+	}
+
+	for (std::list<CSealUnit*>::iterator it = m_sub_units.begin(); it != m_sub_units.end(); ++it)
+	{
+		if ((*it)->FrontCommand() == CMD_FOLLOW)
+		{
+			if (*it != child)
+				some = true;
+		}
+		else
+			all = false;
+	}
+
+	if (all)
+	{
+		some = false;
+		m_issue_unit_follow = 1;
+	}
+
+	if (some)
+		m_issue_sub_unit_follow = 1;
 }
 
 /* @socom-skeleton stub GetLeader__9CSealUnitCFv */
 CZSealBody * CSealUnit::GetLeader() const
 {
+	/* 0x2d04f0: the first seal, else the first sub-unit's leader (two levels inlined) */
+	if (!m_seals.empty())
+		return m_seals.front();
+
+	if (m_sub_units.empty())
+		return NULL;
+
+	return m_sub_units.front()->GetLeader();
 }
 
 /* @socom-skeleton stub GetTail__9CSealUnitFv */
 CZSealBody * CSealUnit::GetTail()
 {
+	/* 0x2d03b0: the last sub-unit's tail (one level inlined), else the last seal, escortee
+	 * or dead member */
+	CZSealBody* tail = NULL;
+
+	if (!m_sub_units.empty())
+		tail = m_sub_units.back()->GetTail();
+
+	if (tail == NULL && !m_seals.empty())
+		tail = m_seals.back();
+
+	if (tail == NULL && !m_escortees.empty())
+		tail = m_escortees.back();
+
+	if (tail == NULL && !m_dead_guys.empty())
+		tail = m_dead_guys.back();
+
+	return tail;
 }
 
 /* @socom-skeleton stub Tick__9CSealUnitFfPv */
-void CSealUnit::Tick(float, void *)
+void CSealUnit::Tick(float dT, void *buf)
 {
+	/* 0x2cf7f0 (TickAll, per sub-unit): after a death the dead members move to m_dead_guys
+	 * (a dead escortee also marks unit 17), the follow source re-forms the unit; with no
+	 * living member the escortees hold. A dead follow source is replaced by its unit's
+	 * tail. The FOLLOW re-issue (whole unit from the source, or each AI member after the
+	 * last at +-30 to the side and each following sub-unit), the sub-units' ticks, a dead
+	 * player's corpse state for the leader, the point-out timers and the compass anchor. */
+	CZSealBody* deadPlayer = NULL;
+	int alive = 0;
+
+	if (m_member_died)
+	{
+		m_member_died = 0;
+		std::list<CZSealBody*>::iterator it = m_seals.begin();
+
+		while (it != m_seals.end())
+		{
+			CZSealBody* seal = *it;
+
+			if (seal->m_isAlive)
+			{
+				alive++;
+				++it;
+				continue;
+			}
+
+			CSealCtrl* ctrl = static_cast<CSealCtrl *>(seal->m_control);
+
+			if (ctrl != NULL && ctrl->IsPlayer())
+				deadPlayer = seal;
+
+			it = m_seals.erase(it);
+			m_dead_guys.push_back(seal);
+		}
+
+		it = m_escortees.begin();
+
+		while (it != m_escortees.end())
+		{
+			CZSealBody* seal = *it;
+
+			if (seal->m_isAlive)
+			{
+				++it;
+				continue;
+			}
+
+			if (m_unit_num != 17)
+			{
+				CSealUnit* escortees = GetUnitByTeam(17);
+				escortees->m_member_died = 1; /* ELF: not NULL-tested */
+			}
+
+			it = m_escortees.erase(it);
+			m_dead_guys.push_back(seal);
+		}
+
+		if (m_follow_source != NULL && m_follow_source->m_isAlive)
+		{
+			if (FrontCommand() == CMD_FOLLOW || m_unit_num == 0)
+				m_issue_unit_follow = 1;
+			else if (!m_issue_unit_follow)
+			{
+				for (std::list<CSealUnit*>::iterator s = m_sub_units.begin(); s != m_sub_units.end(); ++s)
+				{
+					if ((*s)->FrontCommand() == CMD_FOLLOW)
+						m_issue_sub_unit_follow = 1;
+				}
+			}
+		}
+
+		if (alive <= 0)
+		{
+			it = m_escortees.begin();
+
+			while (it != m_escortees.end())
+			{
+				CZSealBody* seal = *it;
+				CZSealBody* dead = m_dead_guys.empty() ? NULL : m_dead_guys.front();
+				CSealCtrl* ctrl = static_cast<CSealCtrl *>(seal->m_control);
+
+				if (dead != NULL && ctrl != NULL)
+				{
+					ctrl->OnCommand(dead, CMD_HOLDPOS, NULL, false);
+
+					if (ctrl->IsRemote())
+					{
+						it = m_escortees.erase(it);
+						continue;
+					}
+				}
+
+				++it;
+			}
+		}
+	}
+
+	CZSealBody* source = m_follow_source;
+
+	if (m_issue_unit_follow || m_issue_sub_unit_follow)
+	{
+		if (source != NULL && !source->m_isAlive)
+		{
+			m_follow_source = static_cast<CSealCtrl *>(source->m_control)->m_unit->GetTail();
+			source = m_follow_source;
+		}
+
+		if (source == NULL)
+		{
+			m_issue_unit_follow = 0;
+			m_issue_sub_unit_follow = 0;
+		}
+	}
+
+	if (m_unit_num != 1 && m_unit_num != 2 && m_unit_num != 3 && m_unit_num != 0)
+	{
+		m_issue_unit_follow = 0;
+		m_issue_sub_unit_follow = 0;
+	}
+
+	if (m_issue_unit_follow)
+	{
+		m_issue_unit_follow = 0;
+		m_issue_sub_unit_follow = 0;
+
+		if (m_follow_source != NULL)
+			IssueCommand(m_follow_source, CMD_FOLLOW, NULL, false);
+	}
+
+	if (m_issue_sub_unit_follow)
+	{
+		CPnt3D offset(30.0f, 0.0f, 30.0f);
+		m_issue_sub_unit_follow = 0;
+		CZSealBody* prev = source;
+
+		for (std::list<CZSealBody*>::iterator it = m_seals.begin(); it != m_seals.end(); ++it)
+		{
+			CZSealBody* seal = *it;
+			CSealCtrl* ctrl = static_cast<CSealCtrl *>(seal->m_control);
+
+			if (seal == m_follow_source || ctrl == NULL || !ctrl->IsAi())
+				continue;
+
+			if (prev != NULL)
+			{
+				seal->IssueCommand(prev, CMD_FOLLOW, &offset, true);
+				offset.x = -offset.x;
+			}
+
+			prev = seal;
+		}
+
+		for (std::list<CSealUnit*>::iterator it = m_sub_units.begin(); it != m_sub_units.end(); ++it)
+		{
+			if ((*it)->FrontCommand() == CMD_FOLLOW && prev != NULL)
+			{
+				CZSealBody* last = (*it)->IssueCommand(prev, CMD_FOLLOW, NULL, true);
+
+				if (last != NULL)
+					prev = last;
+			}
+		}
+	}
+
+	for (std::list<CSealUnit*>::iterator it = m_sub_units.begin(); it != m_sub_units.end(); ++it)
+		(*it)->Tick(dT, buf);
+
+	if (deadPlayer != NULL)
+	{
+		CZSealBody* leader = GetLeader();
+
+		if (leader != NULL)
+		{
+			CSealCtrlAi* ai = static_cast<CSealCtrl *>(leader->m_control)->GetSealCtrlAi();
+
+			if (ai != NULL && ai->PushAiState(STATE_CORPSE, true))
+			{
+				CAiState* state = ai->GetAiState();
+				CAiSCorpse* corpse = state->m_state == STATE_CORPSE ? static_cast<CAiSCorpse *>(state) : NULL;
+				corpse->SetCorpse(deadPlayer); /* ELF: not NULL-tested */
+				corpse->m_setup = 1;
+			}
+		}
+	}
+
+	if (m_point_ticks > 0)
+	{
+		m_point_ticks--;
+		m_leader_point_data.timer -= dT;
+
+		if (!(0.0f <= m_leader_point_data.timer))
+		{
+			m_leader_point_data.timer = 0.0f;
+
+			if (m_leader_point_data.in_point)
+			{
+				m_leader_point_data.start_anim = 0;
+				m_leader_point_data.start_turn = 0;
+				m_leader_point_data.in_point = 0;
+			}
+		}
+
+		m_follower_point_data.timer -= dT;
+
+		if (!(0.0f <= m_follower_point_data.timer))
+		{
+			m_follower_point_data.timer = 0.0f;
+
+			if (m_follower_point_data.in_point)
+			{
+				m_follower_point_data.start_anim = 0;
+				m_follower_point_data.start_turn = 0;
+				m_follower_point_data.in_point = 0;
+			}
+		}
+
+		if (m_unit_in_point)
+			m_unit_in_point = m_leader_point_data.in_point || m_follower_point_data.in_point;
+	}
+	else
+	{
+		m_leader_point_data.in_point = 0;
+		m_leader_point_data.start_anim = 0;
+		m_leader_point_data.start_turn = 0;
+		m_follower_point_data.in_point = 0;
+		m_follower_point_data.start_anim = 0;
+		m_follower_point_data.start_turn = 0;
+		m_unit_in_point = 0;
+	}
+
+	/* ELF: the compass anchor follows the leader (position, shown bit 0) or is hidden.
+	 * port: units have no anchor (CreateSinglePlayerUnits) */
 }
 
 /* @socom-skeleton body TickAll__9CSealUnitFfPv */
@@ -368,11 +1176,15 @@ bool CSealUnit::TickAll(f32 dT, void* buf)
 /* @socom-skeleton stub GetPlayAutoMessages__Fv */
 unsigned char GetPlayAutoMessages()
 {
+	/* 0x2cf730 */
+	return bgAutoMessagesOn;
 }
 
 /* @socom-skeleton stub SetPlayAutoMessages__Fb */
-void SetPlayAutoMessages(bool)
+void SetPlayAutoMessages(bool on)
 {
+	/* 0x2cf720 */
+	bgAutoMessagesOn = on;
 }
 
 /* @socom-skeleton stub PlayRemoteMsg__FP7CEntityi */
@@ -396,17 +1208,94 @@ void CSealUnit::ResetPointOutState()
 }
 
 /* @socom-skeleton stub GetMyPointOutTurnDir__9CSealUnitFP10CZSealBodyPP6CPnt3D */
-void CSealUnit::GetMyPointOutTurnDir(CZSealBody *, CPnt3D **)
+bool CSealUnit::GetMyPointOutTurnDir(CZSealBody *seal, CPnt3D **dir)
 {
+	/* 0x2cf010 (HandleFollowTickPointMode): a SEAL member of a unit pointing something out
+	 * turns once: the first seal to the leader's point direction, the second to the
+	 * followers' */
+	CSealCtrlAi* ai = static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi();
+
+	if (!ai->m_navyseal || !m_unit_in_point)
+		return false;
+
+	if (FrontSeal() == seal)
+	{
+		if (!m_leader_point_data.start_turn)
+			return false;
+
+		*dir = &m_leader_point_data.dirW;
+		m_leader_point_data.start_turn = 0;
+		return true;
+	}
+
+	std::list<CZSealBody*>::iterator second = m_seals.begin();
+	++second; /* ELF: the second node, not tested against the end */
+
+	if (second == m_seals.end() || *second != seal || !m_follower_point_data.start_turn)
+		return false;
+
+	*dir = &m_follower_point_data.dirW;
+	m_follower_point_data.start_turn = 0;
+	return true;
 }
 
 /* @socom-skeleton stub GetMyPointOutAnimStart__9CSealUnitFP10CZSealBody */
-void CSealUnit::GetMyPointOutAnimStart(CZSealBody *)
+bool CSealUnit::GetMyPointOutAnimStart(CZSealBody *seal)
 {
 	/* @socom-skeleton stub startAnimLengthSqThreshold$3822 */
-	static float startAnimLengthSqThreshold;
+	static float startAnimLengthSqThreshold = 40000.0f;
 	/* @socom-skeleton stub startAnimDotThreshold$3827 */
-	static long startAnimDotThreshold;
+	static double startAnimDotThreshold = -0.8; /* ELF: the double 0xbfe99999a0000000 */
+
+	/* 0x2ced80: the pointing member (as above) starts its point-out hand signal when within
+	 * 200 of the player and in front of him (dot < -0.8 between the direction to the player
+	 * and the player's facing) */
+	CSealCtrlAi* ai = static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi();
+
+	if (!ai->m_navyseal)
+		return false;
+
+	UnitPointData* data = NULL;
+
+	if (m_unit_in_point)
+	{
+		if (FrontSeal() == seal)
+		{
+			if (m_leader_point_data.start_anim)
+				data = &m_leader_point_data;
+		}
+		else
+		{
+			std::list<CZSealBody*>::iterator second = m_seals.begin();
+			++second;
+
+			if (second != m_seals.end() && *second == seal && m_follower_point_data.start_anim)
+				data = &m_follower_point_data;
+		}
+	}
+
+	if (data == NULL)
+		return false;
+
+	const CPnt3D* at = seal->GetPosW();
+	CZSealBody* player = ftsGetPlayer();
+	CPnt3D d;
+	player->GetPosW()->Sub(at, &d);
+
+	if (!(d.x * d.x + d.y * d.y + d.z * d.z <= startAnimLengthSqThreshold))
+		return false;
+
+	d.y = 0.0f;
+	d.Normalize();
+	const f32* row = ftsGetPlayer()->m_node->m_matrix.m_matrix[2];
+	CPnt3D fwd(-row[0], 0.0f, -row[2]);
+	fwd.Normalize();
+
+	if (!((double)(fwd.x * d.x + fwd.y * d.y + fwd.z * d.z) < startAnimDotThreshold))
+		return false;
+
+	data->start_anim = 0;
+	return true;
 }
 
 /* @socom-skeleton stub _check_proximity__FRC19MAP_LINEWALK_STRUCTPv */
