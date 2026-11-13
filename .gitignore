@@ -429,3 +429,6 @@ build/
 
 # Metrowerks compiler files (proprietary; fetched per machine with the toolchain bootstrap)
 compiler/
+
+# Reference game executable (proprietary; each contributor supplies their own copy, SHA-256 in AGENTS.md)
+support/
