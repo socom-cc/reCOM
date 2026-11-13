@@ -284,28 +284,196 @@ bool CAiSHold::Tick(float, CSealCtrlAi *ai)
 }
 
 /* @socom-skeleton stub OnSignal__10CAiSCorpseFQ28CAiState6SIGNALP11CSealCtrlAi */
-void CAiSCorpse::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+void CAiSCorpse::OnSignal(CAiState::SIGNAL signal, CSealCtrlAi *ctrl)
 {
+	/* 0x2e6e80: only 4 (reset): no body */
+	if ((s32)signal == 4)
+	{
+		m_pos = CPnt3D::zero;
+		m_corpse = CEntity::invalidId;
+	}
 }
 
 /* @socom-skeleton stub SetCorpse__10CAiSCorpseFP7CEntity */
-void CAiSCorpse::SetCorpse(CEntity *)
+void CAiSCorpse::SetCorpse(CEntity *corpse)
 {
+	/* 0x2e6e20: the body's position and id */
+	m_pos = *corpse->GetPosW();
+	m_corpse = corpse->m_id;
 }
 
 /* @socom-skeleton stub Tick__10CAiSCorpseFfP11CSealCtrlAi */
-bool CAiSCorpse::Tick(float, CSealCtrlAi *)
+bool CAiSCorpse::Tick(float dT, CSealCtrlAi *ctrl)
 {
+	/* 0x2e6c30: a team mate's body was found (HandleEvent AIE_CORPSE, CSealUnit::Tick). 0: a
+	 * route to it, standing, at full speed (no route: phase 3, ended); 1: walk there; when
+	 * the route is done crouch and look at the body for 1 s (2); then (option 0) stand up,
+	 * the state is popped and the script's on_corpse sequence runs (ActivateSeq, mode 3).
+	 * Options 1 / 2 keep looking. ELF quirk kept: phase 0 runs on into phase 1's code in
+	 * the same tick (also after a failed route: an empty route is complete, so phase 2). */
+	if (!m_setup || m_corpse == (u32)CEntity::invalidId)
+		return false;
+
+	u32 next = m_substate & 0xff;
+
+	switch (next)
+	{
+	case 0:
+	{
+		CAiMapLoc loc;
+		next = 3;
+
+		if (AiMaps.GetLocation(&m_pos, loc))
+		{
+			if (ctrl->SetRoute(loc))
+			{
+				ctrl->SetStance((SEAL_STANCE)0);
+				next = 1;
+				ctrl->SetAiMode(AIM_PATH);
+				ctrl->m_speed = 1.0f;
+				saturate<f32>(ctrl->m_speed, 0.0f, 1.0f);
+			}
+		}
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("AI: %s: corpse %d at %.0f %.0f %.0f: %s", ctrl->m_entity->m_node->m_name, (int)m_corpse, m_pos.x, m_pos.y, m_pos.z,
+			next == 1 ? "going to it" : "no route");
+#endif
+	}
+		/* fall through (ELF) */
+	case 1:
+		ctrl->SetAiMode(AIM_PATH);
+
+		if (ctrl->GetRouteComplete())
+		{
+			ctrl->SetStance((SEAL_STANCE)1);
+			ctrl->SetLookPosW((AI_LOOK)4, &m_pos);
+			next = 2;
+			m_time = ctrl->m_stateTimer + 1.0f;
+#ifdef SOCOM_PORT
+			SOCOM_PORT_TRACE("AI: %s: at the corpse %d: crouch and look", ctrl->m_entity->m_node->m_name, (int)m_corpse);
+#endif
+		}
+
+		break;
+
+	case 2:
+	{
+		u8 option = (u8)m_option_flags;
+
+		if (option == 0 && !(ctrl->m_stateTimer <= m_time))
+		{
+			ctrl->SetStance((SEAL_STANCE)0);
+#ifdef SOCOM_PORT
+			SOCOM_PORT_TRACE("AI: %s: corpse looked at: on_corpse", ctrl->m_entity->m_node->m_name);
+#endif
+			ctrl->PopAiState(); /* deletes this state */
+			ctrl->ActivateSeq("on_corpse", 3);
+			return true;
+		}
+
+		break;
+	}
+
+	default:
+		m_setup = 0;
+		break;
+	}
+
+	m_substate = next;
+	return m_setup != 0;
 }
 
 /* @socom-skeleton stub OnSignal__16CAiSStunResponseFQ28CAiState6SIGNALP11CSealCtrlAi */
-void CAiSStunResponse::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+void CAiSStunResponse::OnSignal(CAiState::SIGNAL signal, CSealCtrlAi *ctrl)
 {
+	/* 0x2e6b70: entered: the reaction starts after 0..0.75 s and the courage goal drops to
+	 * 0; popped: the courage goal is the AI's parameter again; 4: no delay */
+	switch ((s32)signal)
+	{
+	case 0:
+		m_delay = 0.0f + 0.75f * ((f32)rand() * 4.656613e-10f);
+		ctrl->m_courage.m_goal = 0.0f;
+		break;
+
+	case 1:
+		ctrl->m_courage.m_goal = ctrl->m_aiParams.courage;
+		break;
+
+	case 4:
+		m_delay = 0.0f;
+		break;
+
+	default:
+		break;
+	}
 }
 
 /* @socom-skeleton stub Tick__16CAiSStunResponseFfP11CSealCtrlAi */
-bool CAiSStunResponse::Tick(float, CSealCtrlAi *)
+bool CAiSStunResponse::Tick(float dT, CSealCtrlAi *ctrl)
 {
+	/* 0x2e6930: STATE_STUNNED. 0: the delay; 1: the reaction anim (cower / cough) in the
+	 * seal's stance (none: the state ends); 2: while it plays, a cough sound every
+	 * m_cough_period at the seal; the state ends with the anim. */
+	if (!m_setup)
+		return false;
+
+	u32 phase = m_substate;
+	CZSealBody *body = static_cast<CZSealBody *>(ctrl->m_entity);
+
+	switch (phase)
+	{
+	case 0:
+		if (m_delay > 0.0f)
+		{
+			m_delay -= dT;
+			break;
+		}
+		/* fall through (ELF) */
+	case 1:
+	{
+		SEAL_STATE stance = body->GetStance(false);
+		m_setup = ctrl->PlayAnim((AnimType)(s16)m_anim, stance) ? 1 : 0;
+		phase = 2;
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("AI: %s: stun reaction anim %d %s", body->m_node->m_name, (int)(s16)m_anim, m_setup ? "playing" : "none");
+#endif
+		break;
+	}
+
+	case 2:
+		if (ctrl->AnimIsPlaying((AnimType)(s16)m_anim))
+		{
+			bool cough = false;
+
+			if (m_cough_timer != CAiTimer::infinite)
+			{
+				m_cough_timer -= dT;
+				cough = m_cough_timer != CAiTimer::infinite && m_cough_timer <= 0.0f;
+
+				if (cough)
+					m_cough_timer = m_cough_period.m_range == 0.0f ? m_cough_period.m_min
+						: m_cough_period.m_min + m_cough_period.m_range * ((f32)rand() * 4.656613e-10f);
+			}
+
+			if (cough && m_sound != NULL)
+				m_sound->PlaySound3D(body->GetPosW(), 1.0f, 0, NULL, 255);
+		}
+		else
+		{
+#ifdef SOCOM_PORT
+			SOCOM_PORT_TRACE("AI: %s: stun reaction over", body->m_node->m_name);
+#endif
+			m_setup = 0;
+		}
+
+		break;
+
+	default:
+		break;
+	}
+
+	m_substate = phase;
+	return m_setup != 0;
 }
 
 /* @socom-skeleton stub OnSignal__14CAiSRestrainedFQ28CAiState6SIGNALP11CSealCtrlAi */

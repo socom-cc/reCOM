@@ -2004,9 +2004,9 @@ public:
 	CSealCtrlAi();
 	void InitAiBrain();
 	void UpdateEventMask();
-	void AnimIsPlaying(AnimType);
-	void PlayAnim(const char *, SEAL_STATE);
-	void PlayAnim(AnimType, SEAL_STATE);
+	bool AnimIsPlaying(AnimType); /* 0x269800 */
+	bool PlayAnim(const char *, SEAL_STATE); /* 0x2696e0: 1 when pushed */
+	bool PlayAnim(AnimType, SEAL_STATE); /* 0x2695d0 */
 	void SetSnoozing(bool);
 	void SetSleeping(bool);
 	void SetAiMode(AI_MODE);
@@ -2403,6 +2403,10 @@ public:
 class CAiSCorpse : public CAiState
 {
 public:
+	/* STATE_CORPSE, 56 bytes (CAiState::Create 0x2dc3a8); layout from SetCorpse 0x2e6e20 and
+	 * Tick 0x2e6c30, names invented. m_substate: 0 route, 1 walk, 2 look, 3 end */
+	CPnt3D m_pos;  /* +0x28 the body's position */
+	u32 m_corpse;  /* +0x34 the body's entity id (CEntity::invalidId: none) */
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
 	virtual bool Tick(float, CSealCtrlAi *); /* port: an override returns its base's type */
 	virtual ~CAiSCorpse() {}

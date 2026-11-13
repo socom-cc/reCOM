@@ -81,6 +81,7 @@
 #include "gamez/zNode/node_world.h" /* zdb::CWorld::GetModel */
 #include "gamez/zSeal/zseal.h" /* CSealCtrlAi::SetAiAccuracyAngle */
 #include "posix/strcasecmp.h"
+#include "gamez/zSound/zsnd.h" /* CSnd (AcquireSoundHandles, PlayAt) */
 
 int BodyId(const char *); /* seal_cfg.cpp (0x280eb0) */
 CHARACTER_SOUND GetCharacterSoundType(const char *); /* below (0x248110) */
@@ -990,6 +991,47 @@ CHARACTER_SOUND GetCharacterSoundType(const char *name)
 /* @socom-skeleton stub AcquireSoundHandles__14CCharacterTypeFv */
 void CCharacterType::AcquireSoundHandles()
 {
+	/* 0x247fc0 (CMission::Open / ReOpen_Load): every character type with references looks
+	 * its 66 sounds up by name (an empty name keeps the handle); found sounds get type 2,
+	 * the damage / death ones (57-59) type 3. Without its own, 57 is MALE_DAMAGE and 58
+	 * DEATH_SOUNDS. */
+	for (std::vector<CCharacterType*>::iterator it = m_char_list.begin(); it != m_char_list.end(); ++it)
+	{
+		CCharacterType* type = *it;
+
+		if (type->m_ref_count <= 0)
+			continue;
+
+		for (u32 i = 0; i < 66; i++)
+		{
+			if (!type->m_arrSoundNames[i].empty())
+				type->m_sounds[i] = CSnd::GetSoundByName(type->m_arrSoundNames[i].c_str());
+
+			if (type->m_sounds[i] != NULL)
+			{
+				type->m_sounds[i]->m_type = 2;
+
+				if (i - 57 < 2 || i == 59)
+					type->m_sounds[i]->m_type = 3;
+			}
+		}
+
+		if (type->m_sounds[57] == NULL)
+		{
+			type->m_sounds[57] = CSnd::GetSoundByName("MALE_DAMAGE");
+
+			if (type->m_sounds[57] != NULL)
+				type->m_sounds[57]->m_type = 3;
+		}
+
+		if (type->m_sounds[58] == NULL)
+		{
+			type->m_sounds[58] = CSnd::GetSoundByName("DEATH_SOUNDS");
+
+			if (type->m_sounds[58] != NULL)
+				type->m_sounds[58]->m_type = 3;
+		}
+	}
 }
 
 /* @socom-skeleton stub InitMultiplayerMessages__14CCharacterTypeFP5_zrdr */
@@ -1010,8 +1052,20 @@ void CCharacterType::ClearMultiplayerMessageSounds()
 }
 
 /* @socom-skeleton stub PlayAt__14CCharacterTypeF15CHARACTER_SOUNDUiPC6CPnt3D */
-void CCharacterType::PlayAt(CHARACTER_SOUND, unsigned int, const CPnt3D *)
+void CCharacterType::PlayAt(CHARACTER_SOUND sound, unsigned int id, const CPnt3D *pos)
 {
+	/* 0x247a70: the character's sound for that line (0..65), at a point (3D) or, without
+	 * one, as the entity id's own (2D); the instance ends with its sound */
+	s32 i = (s8)sound;
+	CSnd* snd = i >= 0 && i < 66 ? m_sounds[i] : NULL;
+
+	if (snd == NULL)
+		return;
+
+	CSndInstance* inst = pos != NULL ? snd->PlaySound3D(pos, false, 1.0f, 0, NULL, 0) : snd->PlaySound(true, NULL, id);
+
+	if (inst != NULL)
+		inst->TerminateOnFinish();
 }
 
 /* @socom-skeleton stub match_name_to_chartype__14CCharacterTypeFP8CRdrFilePCcPCc */

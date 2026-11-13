@@ -278,8 +278,16 @@ CAiMap::link * CAiMap::GetCellLink(const CAiMapLoc &loc)
 }
 
 /* @socom-skeleton stub GetRegion__6CAiMapFRC9CAiMapLoc */
-CAiMap::region * CAiMap::GetRegion(const CAiMapLoc &)
+CAiMap::region * CAiMap::GetRegion(const CAiMapLoc &loc)
 {
+	/* 0x19eb30: the region whose corner location is that cell (x/y; NULL none) */
+	for (regions::iterator r = m_regionTable.begin(); r != m_regionTable.end(); ++r)
+	{
+		if (r->m_loc.x == loc.x && r->m_loc.y == loc.y)
+			return &*r;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub GetRegion__6CAiMapFPCcR9CAiMapLoc */

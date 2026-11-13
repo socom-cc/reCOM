@@ -824,10 +824,28 @@ void CAiMaps::GetClosestRegion(const CAiMapLoc &, CAiMap::region::TYPE, bool)
 }
 
 /* @socom-skeleton stub GetRegionTypeContainer__7CAiMapsFQ36CAiMap6region4TYPERC9CAiMapLoc */
-CAiMap::region * CAiMaps::GetRegionTypeContainer(CAiMap::region::TYPE, const CAiMapLoc &)
+CAiMap::region * CAiMaps::GetRegionTypeContainer(CAiMap::region::TYPE type, const CAiMapLoc &loc)
 {
-	/* 0x1976d0 (464 B): the region of that type holding the location. port: not written -
-	 * none (an AI is never in a guard region: CSealCtrlAi::InGuardRegion, AttackTick) */
+	/* 0x1976d0: the first region of that type (m_regions[type]: their corner locations) whose
+	 * x/y box (corner + m_dx / m_dy) holds the location; the map id is not compared. ELF: a
+	 * corner on a map id past the list reads a NULL region; port: skipped */
+	CAiMapLocVec &list = m_regions[(u8)type];
+
+	for (CAiMapLocVec::iterator it = list.begin(); it != list.end(); ++it)
+	{
+		CAiMap *map = GetMapByIndex(it->m_mapid);
+		CAiMap::region *r = map != NULL ? map->GetRegion(*it) : NULL;
+
+		if (r == NULL)
+			continue; /* port: the ELF reads it */
+
+		s32 dx = (s32)loc.x - (s32)r->m_loc.x;
+		s32 dy = (s32)loc.y - (s32)r->m_loc.y;
+
+		if (dx >= 0 && dx < (s32)r->m_dx && dy >= 0 && dy < (s32)r->m_dy)
+			return r;
+	}
+
 	return NULL;
 }
 

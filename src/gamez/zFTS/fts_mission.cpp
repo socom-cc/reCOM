@@ -1552,8 +1552,85 @@ void aiMapPlaceItem(zdb::CNode *, const CPnt3D &, int, const CPnt3D *, const CPn
 }
 
 /* @socom-skeleton stub ftsFixupAiMap__FP6CAiMap */
-void ftsFixupAiMap(CAiMap *)
+void ftsFixupAiMap(CAiMap *map)
 {
+	/* 0x1f47d0 (CMission::Open / ReOpen_Load, per AI map): the map's extra data is freed
+	 * (unless 4 bytes); outside a network game the pickups listed in its reader table are
+	 * placed; then every action of the map's action table is tied to its world object: the
+	 * cell's centre (quantized altitude, moved 0.75 along the action's offset direction) finds
+	 * a ladder (type 4: the closest within 25) or a node action (types 1, 2, 3, 5: the action
+	 * of the valve named after the cell, else the closest within 25), whose id the action
+	 * takes (PathFollowTick's doors, CAiSAction).
+	 * port: the pickup part (PICKUP / WEAPON / AMMO entries, 0x1f4838..0x1f5128: model
+	 * instances, aiMapPlaceItem, CPickup::Create) is not written. CLadderList::GetClosestLadder
+	 * is void in the port (unwritten): ladder actions keep their id. */
+	if (map->m_mapex_bytes != 4)
+		map->FreeEx();
+
+	for (CAiMap::actions::iterator a = map->m_actionTable.begin(); a != map->m_actionTable.end(); ++a)
+	{
+		const CAiMapLoc &loc = a->m_loc;
+
+		if (!((u32)(u16)loc.y < map->m_ny && loc.x < map->m_nx))
+			continue;
+
+		CAiCell *cell = map->GetCell(loc);
+		CPnt3D pos;
+		pos.x = map->m_bbox.m_min.x + ((f32)loc.x * map->m_dx + 0.5f * map->m_dx);
+		pos.z = map->m_bbox.m_min.z + ((f32)loc.y * map->m_dy + 0.5f * map->m_dy);
+
+		if (cell != NULL)
+			pos.y = map->m_bbox.m_min.y + ((map->m_bbox.m_max.y - map->m_bbox.m_min.y) * 0.00097656297f) * (f32)cell->m_altitude;
+		else
+			pos.y = 0.0f;
+
+		if (cell->m_action) /* ELF: no NULL test (a cell on the map is never NULL) */
+		{
+			CAiMap::action *act = map->GetCellAction(loc);
+
+			if (act->m_offset != 8)
+			{
+				CPnt3D offset;
+				CAiMap::GetDirVec((CAiMap::DIR)act->m_offset, offset);
+				offset.Scale(CAiMap::action::offset_length, &offset);
+				pos.Add(&offset, &pos);
+			}
+		}
+
+		s32 id = -1;
+
+		switch (a->m_type)
+		{
+		case 1:
+		case 2:
+		case 3:
+		case 5:
+			if (cell != NULL && cell->m_name)
+			{
+				CAiMap::name *name = map->GetCellName(loc);
+				CNodeAction *node = CNodeAction::FindActionByValve(CValve::GetByName(name->m_name));
+
+				if (node != NULL)
+					id = (u16)node->m_id;
+			}
+
+			if (id == -1)
+				id = CNodeAction::GetClosestAction(&pos, 25.0f);
+
+			break;
+
+		case 4:
+			/* ELF: id = theMission.m_ladders->GetClosestLadder(&pos, 25.0f) (CMission +0x580).
+			 * port: CMission has no m_ladders and GetClosestLadder is void (unwritten): no id */
+			break;
+
+		default:
+			break;
+		}
+
+		if (id != -1)
+			a->m_actionId = (u16)id;
+	}
 }
 
 /* @socom-skeleton body OnMissionStart__8CMissionFv */

@@ -1210,8 +1210,105 @@ void CSealCtrlAi::OnWeaponHit(zdb::IntersectStruct *, CZProjectile *)
 }
 
 /* @socom-skeleton stub OnStunDamage__11CSealCtrlAiF9STUN_TYPEfPC6CPnt3D */
-void CSealCtrlAi::OnStunDamage(STUN_TYPE, float, const CPnt3D *)
+void CSealCtrlAi::OnStunDamage(STUN_TYPE type, float amount, const CPnt3D *from)
 {
+	/* 0x269c00: an enemy hit by a stun (CZSealBody::HandleStunDamage) loses sight range,
+	 * discipline, hearing and courage by type and gets STATE_STUNNED with a reaction anim:
+	 * flashbang - a cower (stand / crouch: one of two at random; prone: ProneCover) when the
+	 * head faces away from the blast or it went off within 15, else no anim; tear gas -
+	 * Cough_stagger, smoke - Cough, both coughing (SND_COUGH every 0.15-0.4 s); explosion -
+	 * hearing only. A SEAL, or an AI already stunned, only gets the stun's duration again
+	 * (m_time). A grenade throw being set up is dropped. */
+	CAiState *top = GetAiState();
+
+	if (!m_navyseal && (top == NULL || top->m_state != STATE_STUNNED))
+	{
+		f32 dot = 1.0f;
+		f32 dist = 0.0f;
+		u32 t = (u8)type;
+
+		if (from != NULL)
+		{
+			CPnt3D head, dir, d;
+			static_cast<CZSealBody *>(m_entity)->GetHeadParams(&head, &dir);
+			head.Sub(from, &d);
+			dist = d.Normalize();
+			dot = d.x * dir.x + d.y * dir.y + d.z * dir.z;
+		}
+
+		CSnd *sound = NULL;
+		s16 anim = -1;
+
+		switch (t)
+		{
+		case 0:
+			m_visrange.m_value *= 0.1f;
+			m_dicipline.m_value *= 0.6f;
+			m_audiofactor.m_value = 0.0f;
+			m_courage.m_value *= 0.5f;
+
+			if (dot <= 0.0f && !(dist <= 15.0f))
+				break;
+			{
+				bool first = (f32)rand() * 4.656613e-10f * 1.0f + 0.0f <= 0.5f;
+
+				if (m_stance == 0)
+					anim = (s16)FindAnimType(first ? "Flashbang cower" : "Flashbang cower2");
+				else if (m_stance == 1)
+					anim = (s16)FindAnimType(first ? "Crouch flashbang cower" : "Crouch flashbang cower2");
+				else if (m_stance == 2)
+					anim = AnimTypes::ProneCover;
+			}
+			break;
+
+		case 1:
+			m_visrange.m_value *= 0.1f;
+			m_dicipline.m_value *= 0.6f;
+			anim = (s16)FindAnimType("Cough_stagger");
+			sound = CSnd::GetSoundByName("SND_COUGH");
+			break;
+
+		case 3:
+			m_dicipline.m_value *= 0.6f;
+			anim = (s16)FindAnimType("Cough");
+			sound = CSnd::GetSoundByName("SND_COUGH");
+			break;
+
+		case 4:
+			m_audiofactor.m_value *= 0.1f;
+			break;
+
+		default:
+			break;
+		}
+
+		if (GetAiState()->m_state == STATE_GRENADE)
+			GetAiState()->m_setup = 0;
+
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("AI: %s: stunned (type %d, %.2f, dist %.0f, dot %.2f): anim %d", m_entity->m_node->m_name, (int)t, amount, dist, dot, (int)anim);
+#endif
+
+		if (PushAiState(STATE_STUNNED, true))
+		{
+			CAiState *now = GetAiState();
+			CAiSStunResponse *st = now->m_state == STATE_STUNNED ? static_cast<CAiSStunResponse *>(now) : NULL; /* ELF: NULL is written through */
+			st->m_time = amount;
+			st->m_type = t;
+			st->m_anim = anim;
+			st->m_cough_period.m_min = 0.15f;
+			st->m_cough_period.m_range = 0.25f;
+			st->m_sound = sound;
+			st->m_setup = 1;
+		}
+
+		return;
+	}
+
+	top = GetAiState();
+
+	if (top->m_state == STATE_STUNNED && top->m_setup)
+		top->m_time = amount;
 }
 
 /* @socom-skeleton stub OnSetHealth__11CSealCtrlAiFff */
@@ -1237,18 +1334,52 @@ void CSealCtrlAi::OnStateChange(SEAL_STATE, SEAL_STATE)
 }
 
 /* @socom-skeleton stub AnimIsPlaying__11CSealCtrlAiF8AnimType */
-void CSealCtrlAi::AnimIsPlaying(AnimType)
+bool CSealCtrlAi::AnimIsPlaying(AnimType type)
 {
+	/* 0x269800: the body's top blend plays that anim type */
+	CBodyAnimBlendStack *blends = static_cast<CZSealBody *>(m_entity)->m_blends;
+	CZBodyAnimBlend *top = blends->Top();
+
+	if (top == NULL)
+		return false;
+
+	return (s16)type == (s16)top->m_animType;
 }
 
 /* @socom-skeleton stub PlayAnim__11CSealCtrlAiFPCc10SEAL_STATE */
-void CSealCtrlAi::PlayAnim(const char *, SEAL_STATE)
+bool CSealCtrlAi::PlayAnim(const char *name, SEAL_STATE state)
 {
+	/* 0x2696e0: PlayAnim(AnimType) with the type of that name (inlined in the ELF) */
+	return PlayAnim(FindAnimType(name), state);
 }
 
 /* @socom-skeleton stub PlayAnim__11CSealCtrlAiF8AnimType10SEAL_STATE */
-void CSealCtrlAi::PlayAnim(AnimType, SEAL_STATE)
+bool CSealCtrlAi::PlayAnim(AnimType type, SEAL_STATE state)
 {
+	/* 0x2695d0: push the anim on the body's blend stack (not an undefined one, nor the one
+	 * already on top). Types 79, 82 and 83 are deaths: they play in state 8 and the seal is
+	 * killed (SetHealth 0, death type 2). ELF quirk kept: the stack's Top is first read for
+	 * nothing (left out). */
+	CZSealBody *body = static_cast<CZSealBody *>(m_entity);
+	s16 t = (s16)type;
+
+	if (t == -1)
+		return false;
+
+	CZBodyAnimBlend *top = body->m_blends->Top();
+
+	if (top != NULL && t == (s16)top->m_animType)
+		return false;
+
+	if (t == 79 || t == 82 || t == 83)
+	{
+		body->PushBlend(type, 8, false);
+		body->SetHealth(0.0f, (SEAL_DEATH_TYPE)2);
+		return true;
+	}
+
+	body->PushBlend(type, (u8)state, false);
+	return true;
 }
 
 /* @socom-skeleton stub Dump__9CSealCtrlFv */
@@ -1681,8 +1812,49 @@ void CSealCtrlAi::SetSnoozing(bool)
 }
 
 /* @socom-skeleton stub SetSleeping__11CSealCtrlAiFb */
-void CSealCtrlAi::SetSleeping(bool)
+void CSealCtrlAi::SetSleeping(bool on)
 {
+	/* 0x266eb0: a sleeping AI is switched off: its node inactive, out of the target lists
+	 * (ai::PARAM sleeping, ai::SETMODE 0); waking (ai::COMM 27) turns it back on in idle mode.
+	 * A snoozing AI is first woken from the snooze (only when put to sleep). The event mask
+	 * follows (UpdateEventMask). */
+	if (on == (bool)m_sleeping)
+		return;
+
+	if (m_snoozing)
+	{
+		if (!on)
+			return;
+
+		SetSnoozing(false);
+	}
+
+	CEntity *ent = m_entity;
+
+	if (on)
+	{
+		ent->GetNode()->SetActive(false);
+		ent->SetUpdateTargetList(false);
+		ent->SetIncludeInTargetList(false);
+		m_sleeping = 1;
+	}
+	else
+	{
+		ent->GetNode()->SetActive(true);
+		ent->SetUpdateTargetList(true);
+		ent->SetIncludeInTargetList(true);
+		SetAiMode(AIM_IDLE);
+		m_sleeping = 0;
+		AI_AWARE aware = GetAiAware(m_aware.m_value);
+
+		if (aware != AIA_UNAWARE)
+			Debug("Waking up in aware_%d!\n", (int)aware);
+	}
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("AI: %s %s", ent->m_node->m_name, on ? "goes to sleep" : "wakes up");
+#endif
+	UpdateEventMask();
 }
 
 /* @socom-skeleton stub SetAiMode__11CSealCtrlAiF7AI_MODE */
@@ -1929,11 +2101,28 @@ void CSealCtrlAi::PathFollowTick(float dT)
 			{
 				if (PushAiState(STATE_ACTION, true))
 				{
-					/* ELF: Output("ActionExecute: ..."), the action state gets the door (+0x28),
-					 * 1 (+0x2c), 16 (+0x4) and its flag bit 0; an unaware enemy remembers to
-					 * shut it behind (m_close_door / m_last_action).
-					 * port: not reached - STATE_ACTION's Tick is unwritten and the push is
-					 * refused (CanPushAiState) */
+					/* the action state opens it where the AI stands (16: anim 0, no route);
+					 * a relaxed enemy (not a SEAL, not team 0x20000) remembers to shut it
+					 * behind: the cell past it and the door's cell */
+					Output("ActionExecute: loc=(%d:%d,%d) nextPt=(%d:%d,%d)\n", target->m_loc.m_mapid, target->m_loc.x, target->m_loc.y,
+						next->m_loc.m_mapid, next->m_loc.x, next->m_loc.y);
+#ifdef SOCOM_PORT
+					SOCOM_PORT_TRACE("AI: %s: door %d on the path (%d:%d,%d), shut: opening it", seal->m_node->m_name, (int)door->m_id,
+						target->m_loc.m_mapid, target->m_loc.x, target->m_loc.y);
+#endif
+					CAiState *top = GetAiState();
+					CAiSAction *act = top->m_state == STATE_ACTION ? static_cast<CAiSAction *>(top) : NULL; /* ELF: NULL is written through */
+					act->m_action = door;
+					act->m_value = 1;
+					act->m_option_flags = 16;
+					act->m_setup = 1;
+
+					if (GetAiAware(m_aware.m_value) == AIA_UNAWARE && !m_navyseal && !(seal->m_team & 0x20000))
+					{
+						m_close_door = next->m_loc;
+						m_last_action = target->m_loc;
+					}
+
 					return;
 				}
 
@@ -1958,8 +2147,17 @@ void CSealCtrlAi::PathFollowTick(float dT)
 
 			if (door != NULL && door->m_valve->m_value == 1 && PushAiState(STATE_ACTION, true))
 			{
-				/* ELF: the action state gets the door, the cell centre (+0x30), 0, 16 and bit 0.
-				 * port: not reached (the push is refused) */
+				/* the action state slides to this cell's centre and shuts the door (16) */
+#ifdef SOCOM_PORT
+				SOCOM_PORT_TRACE("AI: %s: past door %d (%d:%d,%d): shutting it", seal->m_node->m_name, (int)door->m_id, here.m_mapid, here.x, here.y);
+#endif
+				CAiState *top = GetAiState();
+				CAiSAction *act = top->m_state == STATE_ACTION ? static_cast<CAiSAction *>(top) : NULL; /* ELF: NULL is written through */
+				act->m_action = door;
+				act->m_value = 0;
+				AiMaps.GetCellCenter(here, &act->m_pos);
+				act->m_option_flags = 16;
+				act->m_setup = 1;
 				return;
 			}
 		}
@@ -3530,8 +3728,15 @@ void CSealCtrlAi::ConfirmAiState(CAiState *state, bool yes)
 }
 
 /* @socom-skeleton stub PlayAiSound__11CSealCtrlAiF15CHARACTER_SOUND */
-void CSealCtrlAi::PlayAiSound(CHARACTER_SOUND)
+void CSealCtrlAi::PlayAiSound(CHARACTER_SOUND sound)
 {
+	/* 0x25fc90: the character's sound for that line, at the seal (a SEAL's: unplaced) */
+	CCharacterType *ct = static_cast<CZSealBody *>(m_entity)->GetCharacter();
+
+	if (m_navyseal)
+		ct->PlayAt(sound, m_entity->m_id, NULL);
+	else
+		ct->PlayAt(sound, m_entity->m_id, m_entity->GetPosW());
 }
 
 /* port: inline in FindPeekDir (three times): the neighbour cell in a direction, NULL off the
@@ -3583,13 +3788,180 @@ void CSealCtrlAi::FindCoverLoc(const CPnt3D *, CAiMapLoc &, SEAL_PEEK &, int)
 }
 
 /* @socom-skeleton stub OnSignal__10CAiSActionFQ28CAiState6SIGNALP11CSealCtrlAi */
-void CAiSAction::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+void CAiSAction::OnSignal(CAiState::SIGNAL signal, CSealCtrlAi *ctrl)
 {
+	/* 0x25f300: 4 (reset) clears the action and the stand point; 3 (uncovered) starts over
+	 * when the AI was moved off the cell it stood on when covered (Signal 2 saved it, +0x24) */
+	CEntity *ent = ctrl != NULL ? ctrl->m_entity : NULL;
+
+	switch ((s32)signal)
+	{
+	case 3:
+	{
+		CAiMapLoc here = ent->m_mapLocValid;
+		CAiMapLoc saved;
+		memcpy(&saved, &m_unk_24, 4);
+
+		if (here.x != saved.x || here.y != saved.y)
+			m_substate = 0;
+
+		break;
+	}
+
+	case 4:
+		m_action = NULL;
+		m_pos = CPnt3D::zero;
+		break;
+
+	default:
+		break;
+	}
 }
 
 /* @socom-skeleton stub Tick__10CAiSActionFfP11CSealCtrlAi */
-bool CAiSAction::Tick(float, CSealCtrlAi *)
+bool CAiSAction::Tick(float dT, CSealCtrlAi *ctrl)
 {
+	/* 0x25ee30: run a node action (a door on the AI's path). Done (false) once the action's
+	 * valve has the wanted value. 0: with a stand point slide there first (goal GOAL_MOVE,
+	 * tolerance 1, 0.25 s; slide mode), then (flag 0x10) execute where the AI is, else take a
+	 * route to the action's cell (2: confirmed as an order; 3: planning; 4: travel). 6: the
+	 * action's anim runs on the seal (anim index = option bits 0-3) under a pushed script state
+	 * that keeps the anim; 7: done. */
+	if (!m_setup || m_action == NULL)
+		return false;
+
+	CValve *valve = m_action->m_valve;
+	CEntity *ent = ctrl->m_entity;
+	u32 next = m_substate & 0xff;
+
+	if (valve == NULL || m_value == (u32)valve->m_value)
+		return false;
+
+	switch (next)
+	{
+	case 0:
+		next = (m_option_flags & 0x10) ? 6 : 2;
+
+		if (m_pos.x != CPnt3D::zero.x || m_pos.y != CPnt3D::zero.y || m_pos.z != CPnt3D::zero.z)
+		{
+			/* ELF: SetGoalPos(GOAL_MOVE, &m_pos, 1.0f) inlined (refused above GOAL_MOVE) */
+			ctrl->SetGoalPos(GOAL_MOVE, &m_pos, 1.0f);
+			ctrl->m_goal_timer.m_timer = 0.25f;
+			ctrl->m_goal_timer.m_period.m_min = 0.25f;
+			ctrl->m_goal_timer.m_period.m_range = 0.0f;
+			ctrl->SetAiMode(AIM_SLIDE);
+			next = 1;
+		}
+
+		break;
+
+	case 1:
+		if (!ctrl->m_goal_dir_valid && !ctrl->m_goal_pos_valid)
+			next = (m_option_flags & 0x10) ? 6 : 2;
+
+		break;
+
+	case 2:
+	{
+		CAiMapLoc loc;
+
+		/* port: GetActionById (CAiMaps, 0x19c800) is still a stub: the loc stays invalid and
+		 * SetRoute fails (the PathFollowTick pushes carry 0x10 and skip this phase) */
+		loc.m_mapid = 0;
+		loc.x = 0;
+		loc.y = 0;
+		AiMaps.GetActionById(m_action->m_id, loc, NULL);
+
+		if (loc.x != 0 || loc.y != 0 || loc.m_mapid != 0)
+		{
+			if (ctrl->SetRoute(loc))
+			{
+				ctrl->ConfirmAiState(this, true);
+				next = 3;
+				ctrl->m_pathTolerance = 20.0f;
+			}
+			else
+			{
+				ctrl->ConfirmAiState(this, false);
+				next = 7;
+			}
+		}
+		else
+		{
+			ctrl->Output("Failed to GetActionId (%d)\n", (int)m_action->m_id);
+			ctrl->ConfirmAiState(this, false);
+			next = 7;
+		}
+
+		break;
+	}
+
+	case 3:
+	{
+		::PATH_STATE st = ctrl->m_path.m_state;
+
+		if (st == ::PATH_STATE::PLANNING || st == ::PATH_STATE::INQUEUE || st == ::PATH_STATE::ABORT)
+			break;
+
+		if (ctrl->m_path.m_points.size() != 0 && st == ::PATH_STATE::COMPLETE)
+		{
+			AiMaps.SmoothPath(ctrl->m_path);
+			ctrl->SetAiMode(AIM_PATH);
+			next = 4;
+		}
+		else
+		{
+			next = 7;
+		}
+
+		break;
+	}
+
+	case 4:
+	{
+		/* travel until the route is walked (ELF: GetRouteComplete inlined) */
+		::PATH_STATE st = ctrl->m_path.m_state;
+		bool walking = !ctrl->m_path.m_points.empty() && st == ::PATH_STATE::COMPLETE;
+
+		if (!walking && st != ::PATH_STATE::PLANNING && st != ::PATH_STATE::INQUEUE && st != ::PATH_STATE::ABORT)
+			next = 6;
+
+		break;
+	}
+
+	case 6:
+		next = 7;
+
+		if (m_action->ExecuteAction(static_cast<CZSealBody *>(ent), m_option_flags & 0xf))
+		{
+			CZAnim *handle = m_action->m_handle;
+#ifdef SOCOM_PORT
+			SOCOM_PORT_TRACE("AI: %s: action %d (valve %d -> %d) anim %s", ent->m_node->m_name, (int)m_action->m_id, (int)valve->m_value, (int)m_value,
+				handle != NULL ? handle->GetName() : "-");
+#endif
+
+			if (ctrl->PushAiState(STATE_SCRIPT, true))
+			{
+				CAiState *top = ctrl->GetAiState();
+				CAiSScript *script = top->m_state == STATE_SCRIPT ? static_cast<CAiSScript *>(top) : NULL; /* ELF: NULL is written through */
+				script->m_anim = handle;
+				script->m_keep_anim = 1;
+				script->m_setup = 1;
+			}
+		}
+
+		break;
+
+	case 7:
+		m_setup = 0;
+		break;
+
+	default:
+		break;
+	}
+
+	m_substate = next;
+	return m_setup != 0;
 }
 
 /* @socom-skeleton stub reset__13AI_FIREPARAMSFv */

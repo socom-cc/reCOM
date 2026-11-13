@@ -233,8 +233,7 @@ CAiState* CAiState::Create(AI_STATE state)
 		aiState = new CAiSHostage();
 		break;
 	case STATE_CORPSE:
-		// aiState = new CAiSCorpse();
-
+		aiState = new CAiSCorpse();
 		break;
 	case STATE_EVENT:
 		aiState = new CAiSEvent();
@@ -246,7 +245,7 @@ CAiState* CAiState::Create(AI_STATE state)
 		aiState = new CAiSGrenade();
 		break;
 	case STATE_STUNNED:
-		// aiState = new CAiSStunned();
+		aiState = new CAiSStunResponse(); /* 0x2dc880: 68 bytes, the cough timer starts at its period */
 		break;
 	case STATE_RUSH:
 		aiState = new CAiSRush();
@@ -408,11 +407,11 @@ bool CSealCtrlAi::CanPushAiState(AI_STATE state)
 
 #ifdef SOCOM_PORT
 	/* port: only the states whose behaviour is written may be pushed (UNKNOWN, SCRIPT,
-	 * TARGETING, PURSUE, EVENT, RESTRAINED); the other states' Tick functions are not written yet, so
-	 * their pushes (shot-at, reload, corpse, avoid ...) are refused here, a path every caller
+	 * TARGETING, PURSUE, EVENT, RESTRAINED, FOLLOW, HOLD, ACTION, CORPSE, STUNNED); the other states' Tick functions are not written
+	 * yet, so their pushes (shot-at, reload, avoid ...) are refused here, a path every caller
 	 * handles */
 	if (s != STATE_UNKNOWN && s != STATE_SCRIPT && s != STATE_TARGETING && s != STATE_PURSUE && s != STATE_EVENT && s != STATE_RESTRAINED
-		&& s != STATE_FOLLOW && s != STATE_HOLD) /* FOLLOW, HOLD: socom-port-fireteam */
+		&& s != STATE_FOLLOW && s != STATE_HOLD && s != STATE_ACTION && s != STATE_CORPSE && s != STATE_STUNNED)
 		return false;
 #endif
 

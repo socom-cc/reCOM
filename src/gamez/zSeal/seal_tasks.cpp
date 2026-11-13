@@ -163,6 +163,12 @@ struct TASK_SIGNAL : public TASK_HDR /* ai::SIGNAL (Tick 0x2b6c50) */
 	char m_entity[1]; /* +0x0c the entity to signal instead of the select's seal ("" for none) */
 };
 
+struct TASK_COMM : public TASK_HDR /* ai::COMM (Parse 0x2be230, 16 bytes) */
+{
+	s32 m_team; /* +0x08 the team's bit number (rdr "team", -1 default) */
+	u16 m_cmd;  /* +0x0c FT_COMMAND (rdr "cmd", CSealCtrl::GetCommandId) */
+};
+
 struct TASK_DEBUG : public TASK_HDR /* ai::DEBUG (Parse 0x2bdc90) */
 {
 	s32 m_enable;  /* +0x08: 1 debug output on, 0 off, -1 (a text) unchanged */
@@ -411,7 +417,71 @@ _zanim_cmd_hdr* CTComm::Parse(_zrdr* reader)
 /* @socom-skeleton body Tick__6CTCommFP14_zanim_cmd_hdrPf */
 bool CTComm::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
-	return false;
+	/* 0x2bde00: a team order. 27: every AI seal of the team wakes up (SetSleeping false; all
+	 * five m8 uses: team 8, the sleeping reinforcements); 26: with a living target of its own
+	 * the select's AI raises every AI of the team to AIA_GENERAL. Any command but 0 is then
+	 * issued to the team's unit (IssueCommand, with the select's seal and the target). Done at
+	 * once, the frame's time used up. */
+	TASK_COMM *task = reinterpret_cast<TASK_COMM *>(header);
+	CZSealBody *seal = taskSeal(task->m_seal_index);
+	CSealCtrlAi *ai = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi() : NULL;
+	u8 cmd = (u8)task->m_cmd;
+	CEntity *target = NULL;
+
+	if (cmd == 0)
+	{
+		*dT = 0.0f;
+		return true;
+	}
+
+	if (cmd == 26 || cmd == 27)
+	{
+		CEntity *cur = ai != NULL ? ai->m_target.m_target.m_ent : NULL;
+
+		if (cmd == 26 && (cur == NULL || !cur->m_isAlive))
+			goto issue;
+
+		if (cmd == 26)
+			target = cur;
+
+		for (std::list<CEntity*>::iterator it = CEntity::m_list.begin(); it != CEntity::m_list.end(); ++it)
+		{
+			CEntity *e = *it;
+			CZSealBody *s = e != NULL && (u8)e->m_type == 2 ? static_cast<CZSealBody *>(e) : NULL;
+
+			if (s == NULL || !((1u << task->m_team) & s->m_team))
+				continue;
+
+			CSealCtrl *ctrl = static_cast<CSealCtrl *>(s->m_control);
+
+			if (ctrl == NULL || !ctrl->IsAi())
+				continue;
+
+			if (cmd == 26)
+			{
+				ai->Debug("Setting (%s) AIA_GENERAL\n", s->m_node->m_name);
+				ctrl->GetSealCtrlAi()->SetAiAware(AIA_GENERAL, NULL);
+			}
+			else
+			{
+#ifdef SOCOM_PORT
+				SOCOM_PORT_TRACE("AI: COMM wake: %s", s->m_node->m_name);
+#endif
+				ctrl->GetSealCtrlAi()->SetSleeping(false);
+			}
+		}
+	}
+
+issue:
+	{
+		CSealUnit *unit = CSealUnit::GetUnitByTeam(task->m_team);
+
+		if (unit != NULL)
+			unit->IssueCommand(seal, (FT_COMMAND)cmd, target, false);
+	}
+
+	*dT = 0.0f;
+	return true;
 }
 
 /* @socom-skeleton body Parse__7CTDebugFP5_zrdr */

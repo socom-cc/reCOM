@@ -140,6 +140,8 @@ public:
 enum class EQUIP_ITEM : unsigned char;
 
 class CEntity;
+class CNodeAction;
+class CSnd;
 
 class CSealCtrlAi;
 class CVehicleRdrEntry;
@@ -1186,6 +1188,15 @@ public:
 
 class CAiSAction : public CAiState
 {
+public:
+	/* 60 bytes (CAiState::Create 0x2dc240); layout from Tick 0x25ee30, OnSignal 0x25f300 and
+	 * the pushes in PathFollowTick (0x26510c / 0x265374); names invented. m_option_flags: bits
+	 * 0-3 the action's anim index, 0x10 run the action where the AI stands (no route to the
+	 * action cell). m_substate (Tick's jump table 0x451a30): 0 start, 1 slide to m_pos, 2 route,
+	 * 3 planning, 4 travel, 5 (idle), 6 execute, 7 done */
+	CNodeAction *m_action; /* +0x28 the node action (a door) */
+	u32 m_value;           /* +0x2c the valve value wanted: done once the valve has it */
+	CPnt3D m_pos;          /* +0x30 where to stand first (zero: where the AI is) */
 
 	/* @socom-skeleton decl 10CAiSAction */
 public:
@@ -1392,6 +1403,17 @@ public:
 
 class CAiSStunResponse : public CAiState
 {
+public:
+	/* STATE_STUNNED, 68 bytes (CAiState::Create 0x2dc880); layout from Tick 0x2e6930, OnSignal
+	 * 0x2e6b70 and CSealCtrlAi::OnStunDamage 0x269c00, names invented. m_time: the stun's
+	 * amount. m_substate: 0 delay, 1 start the anim, 2 the anim plays (state ends with it) */
+	u32 m_type;            /* +0x28 STUN_TYPE */
+	s32 m_anim;            /* +0x2c the reaction's AnimType (read as s16; -1 none) */
+	f32 m_delay;           /* +0x30 before the anim (OnSignal 0: 0..0.75 s) */
+	CSnd *m_sound;         /* +0x34 the cough (NULL none) */
+	Rfloat m_cough_period; /* +0x38 a CAiTimer (0.15 + 0..0.25 s between coughs) */
+	f32 m_cough_timer;     /* +0x40 */
+	CAiSStunResponse() { m_cough_period.m_min = 0.0f; m_cough_period.m_range = 0.0f; m_cough_timer = 0.0f; } /* ELF: the timer starts at the period (0) */
 
 	/* @socom-skeleton decl 16CAiSStunResponse */
 public:

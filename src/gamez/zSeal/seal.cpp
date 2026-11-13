@@ -1725,23 +1725,103 @@ void CZSealBody::Tick(float dT)
 /* @socom-skeleton stub CreateAiEvent__10CZSealBodyFv */
 void CZSealBody::CreateAiEvent()
 {
+	/* 0x2557c0 (PostCreateSeal): every seal owns a persistent AI event at its position - an
+	 * ENTITY noise while alive, a visible CORPSE once dead (UpdateAiEvent) */
+	m_aiEvent = CAiEvent::Acquire();
+	m_aiEvent->m_type = CAiEvent::AIE_ENTITY;
+	m_aiEvent->m_duration = CAiEvent::NoExpire;
+	m_aiEvent->m_rangeSq = 0.0001f;
+	m_aiEvent->m_pos = *GetPosW();
+	m_aiEvent->m_owner = m_id;
+	CAiEvent::Create(m_aiEvent);
 }
 
 /* @socom-skeleton stub UpdateAiEvent__10CZSealBodyFv */
 void CZSealBody::UpdateAiEvent()
 {
+	/* 0x255400 (PostTick): alive, the seal's event is its noise: an unseen ENTITY event whose
+	 * range is 1.8 x (0.5 + its x/z speed)^2 (speed 0 while its throttles are within 0.15),
+	 * scaled by stance (crouch 0.67, prone 0.33), by the ground's material (1.5 - its stealth
+	 * factor) and by the character's stealth (1 - stealth, 0.01..1); an invisible seal
+	 * makes 0.01. Dead, it becomes a visible CORPSE event with range 400, 10 above the body. */
 	/* @socom-skeleton stub _speed_bias$2840 */
-	static float _speed_bias;
+	static float _speed_bias = 0.5f;
 	/* @socom-skeleton stub _speed_scale$2843 */
-	static float _speed_scale;
+	static float _speed_scale = 1.8f;
 	/* @socom-skeleton stub _crouch_scale$2846 */
-	static float _crouch_scale;
+	static float _crouch_scale = 0.67f;
 	/* @socom-skeleton stub _prone_scale$2849 */
-	static float _prone_scale;
+	static float _prone_scale = 0.33f;
 	/* @socom-skeleton stub _default_scale$2852 */
-	static float _default_scale;
+	static float _default_scale = 1.0f;
 	/* @socom-skeleton stub _throttle_threshold$2855 */
-	static float _throttle_threshold;
+	static float _throttle_threshold = 0.15f;
+
+	if (m_aiEvent == NULL)
+		return;
+
+	if (m_isAlive)
+	{
+		CSealCtrl *ctrl = static_cast<CSealCtrl *>(m_control);
+		f32 speed = 0.0f;
+
+		if (!(fabsf(ctrl->m_throttle[1]) + fabsf(ctrl->m_throttle[0]) <= _throttle_threshold))
+			speed = fabsf(m_velW.z) + fabsf(m_velW.x);
+
+		f32 range = _speed_scale * ((_speed_bias + speed) * (_speed_bias + speed));
+
+		switch ((u8)GetStance(true))
+		{
+		case 0:
+			break;
+		case 1:
+			range *= _crouch_scale;
+			break;
+		case 2:
+			range *= _prone_scale;
+			break;
+		default:
+			range *= _default_scale;
+			break;
+		}
+
+		if (m_last_altitude.m_poly != NULL)
+		{
+			u32 material = m_last_altitude.m_poly->m_material;
+
+			if (material >= CMaterialExArray::m_materialex_list.size())
+				material = 0;
+
+			CMaterialEx *ex = CMaterialExArray::m_materialex_list[material];
+
+			if (ex != NULL)
+				range *= 1.5f - ex->m_stealth_factor;
+		}
+
+		f32 stealth = GetCharacter()->m_aiParams.stealth;
+		f32 hide = 1.0f * (1.0f - stealth) + 0.0f * stealth;
+		saturate<f32>(hide, 0.01f, 1.0f);
+		range *= hide;
+
+		if (m_invisible)
+			range = 0.01f;
+
+		m_aiEvent->m_pos = *GetPosW();
+		m_aiEvent->m_rangeSq = range * range;
+		m_aiEvent->m_type = CAiEvent::AIE_ENTITY;
+		m_aiEvent->m_visible = 0;
+		return;
+	}
+
+	if ((s8)m_aiEvent->m_type == 0)
+		return;
+
+	m_aiEvent->m_type = CAiEvent::AIE_CORPSE;
+	m_aiEvent->m_rangeSq = 160000.0f;
+	m_aiEvent->m_visible = 1;
+	CPnt3D pos = *GetPosW();
+	pos.y += 10.0f;
+	m_aiEvent->m_pos = pos;
 }
 
 /* @socom-skeleton stub curChord__18@unnamed@seal_cpp@ */
