@@ -14,6 +14,9 @@
 /* @socom-skeleton decl include */
 #include "zweapon.h"
 /* @socom-skeleton end include */
+#include "zwep_projectilelist.h" /* CZWeapon::m_pProjectilelist (DI release) */
+#include "gamez/zNetwork/znet.h" /* theNetwork */
+#include "gamez/zNode/node_world.h" /* CWorld (texture sets, the blast) */
 
 /* @socom-skeleton stub MultiplayerMsgStrings */
 static unsigned char MultiplayerMsgStrings[28];
@@ -21,24 +24,103 @@ static unsigned char MultiplayerMsgStrings[28];
 /* @socom-skeleton stub __ct__15PlacedExplosiveFv */
 PlacedExplosive::PlacedExplosive()
 {
+	/* 0x315710: not detonating, no fuse (9999999) */
+	m_detonate = false;
+	m_time = 9999999.0f;
 }
 
 /* @socom-skeleton stub __dt__15PlacedExplosiveFv */
 PlacedExplosive::~PlacedExplosive()
 {
+	/* 0x315660: the instance leaves the character texture sets and the DI goes back to its
+	 * pool (direct or indirect by the shot type); then ~CZProjectile */
+	zdb::CWorld::m_world->DeleteTextureAssetCharacter((zdb::_RenderPhase)2, m_instance);
+
+	if (m_shottype == PROJECTILE_TYPE::ONE_FRAME)
+		CZWeapon::m_pProjectilelist->ReleaseDirectFireDI(&m_di, &m_di_handle);
+	else
+		CZWeapon::m_pProjectilelist->ReleaseIndirectFireDI(&m_di, &m_di_handle);
 }
 
 /* @socom-skeleton stub RemoteDetonate__15PlacedExplosiveFv */
 void PlacedExplosive::RemoteDetonate()
 {
+	/* 0x315650 (CZKit::DetonateRemoteExplosives): the next PostTick detonates it */
+	m_detonate = true;
 }
 
 /* @socom-skeleton stub PostTick__15PlacedExplosiveFf */
-bool PlacedExplosive::PostTick(float)
+bool PlacedExplosive::PostTick(float dT)
 {
+	/* 0x315490 (CZProjectileList::PostTick; true: finished, the list destroys it). Removed:
+	 * done (a network game reports the removal). Blast registered: the detonation (anim,
+	 * damage). Detonated: the removal time runs out (none set: at once), then removed.
+	 * Otherwise the fuse runs (a network game only for the local player's; none set: never)
+	 * and a timed charge whose fuse is out detonates; so does a remote one told to. */
+	PROJECTILE_STATE state = m_state;
+
+	if (state == PROJECTILE_STATE::PROJECTILE_TO_BE_REMOVED)
+	{
+		if (theNetwork.m_bNetwork)
+		{
+			m_grenadestate = GRENADE_STATE::REMOVE;
+			ReportGrenadeStatus();
+		}
+
+		return true;
+	}
+
+	if (state == PROJECTILE_STATE::PROJECTILE_DETONATION_TO_BE_HANDLED)
+	{
+		HandleDelayedDetonate();
+		return false;
+	}
+
+	if (state == PROJECTILE_STATE::PROJECTILE_WAS_DETONATED)
+	{
+		if ((!theNetwork.m_bNetwork || m_isplayer) && m_removaltime != 9999999.0f)
+			m_removaltime -= dT;
+
+		if (m_removaltime <= 0.0f || m_removaltime == 9999999.0f)
+			SetProjectileState(PROJECTILE_STATE::PROJECTILE_TO_BE_REMOVED, false);
+
+		return false;
+	}
+
+	if (m_time != 9999999.0f)
+	{
+		if (m_isplayer || !theNetwork.m_bNetwork)
+			m_time -= dT;
+
+		if (m_time <= 0.0f && !m_remote)
+			m_detonate = true;
+	}
+
+	if (m_detonate)
+	{
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("EXPL: placed %s detonates at %.1f %.1f %.1f (%s)", m_weapon != NULL && m_weapon->m_name != NULL ? m_weapon->m_name : "-",
+			m_framestartpos.x, m_framestartpos.y, m_framestartpos.z, m_remote ? "remote" : "fuse");
+#endif
+		Detonate();
+		m_grenadestate = GRENADE_STATE::DETONATE;
+		ReportGrenadeStatus();
+	}
+
+	return false;
 }
 
 /* @socom-skeleton stub PreTick__15PlacedExplosiveFf */
 bool PlacedExplosive::PreTick(float)
 {
+	/* 0x315420 (CZProjectileList::PreTick): a charge to be detonated registers its blast
+	 * (a proximity test of the explosion radius at its position); always true */
+	if (m_state == PROJECTILE_STATE::PROJECTILE_TO_BE_DETONATED)
+	{
+		zdb::CWorld *world = zdb::CWorld::m_world;
+		m_intersecthandle = world->RegProximityDelayed(m_di, &m_framestartpos, m_ammo->GetExplosionRadius());
+		SetProjectileState(PROJECTILE_STATE::PROJECTILE_DETONATION_TO_BE_HANDLED, true);
+	}
+
+	return true;
 }

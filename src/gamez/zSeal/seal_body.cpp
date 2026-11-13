@@ -3305,8 +3305,15 @@ void CZSealBody::RePose(SEAL_ITEM item)
 }
 
 /* @socom-skeleton stub PerformAction__10CZSealBodyF8AnimType10SEAL_STATE */
-CZBodyAnimBlend * CZSealBody::PerformAction(AnimType, SEAL_STATE)
+CZBodyAnimBlend * CZSealBody::PerformAction(AnimType type, SEAL_STATE state)
 {
+	/* 0x272dc0 (HandleFireWeapon: placing C4 / claymores / satchels / the MP bomb,
+	 * RemoteDropMPBomb): the action's anim pushed in the state (not reversed); when it is
+	 * already the current blend's base anim, that top blend is returned instead */
+	if (m_CurrentBlendAnimType == m_animset->BaseAnim(type))
+		return m_blends->Top();
+
+	return PushBlend(type, (s32)state, false);
 }
 
 /* @socom-skeleton stub Recoil__10CZSealBodyFv */

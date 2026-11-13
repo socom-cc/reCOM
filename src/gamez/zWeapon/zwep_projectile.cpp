@@ -1272,8 +1272,13 @@ void CZProjectile::SetAnimInstance(CZAnim *anim)
 }
 
 /* @socom-skeleton stub IsInRange__12CZProjectileFPC6CPnt3Df */
-void CZProjectile::IsInRange(const CPnt3D *, float)
+bool CZProjectile::IsInRange(const CPnt3D *pos, float range)
 {
+	/* 0x317550 (CZKit::DetonateRemoteExplosives): pos within range of the projectile's frame
+	 * start (squared distances; 0/1) */
+	CPnt3D d;
+	pos->Sub(&m_framestartpos, &d);
+	return d.x * d.x + d.y * d.y + d.z * d.z <= range * range;
 }
 
 /* @socom-skeleton stub ReportGrenadeStatus__12CZProjectileFv */

@@ -797,7 +797,7 @@ public:
 	float GetDamage(const CPnt3D *, float);
 	void GetDamage(const CPnt3D *, float *, float *, float);
 	void SetAnimInstance(CZAnim *);
-	void IsInRange(const CPnt3D *, float);
+	bool IsInRange(const CPnt3D *, float); /* 0x317550: 0/1 */
 	void ReportGrenadeStatus();
 	void UpdateGrenade(CPnt3D *, CPnt3D *, GRENADE_STATE);
 	void SetProjectileState(PROJECTILE_STATE, bool);

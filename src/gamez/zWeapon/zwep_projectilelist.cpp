@@ -713,8 +713,22 @@ void CZProjectileList::RemoveProjectile(CZProjectile *projectile)
 }
 
 /* @socom-skeleton stub RemoveExplosive__16CZProjectileListFP15PlacedExplosive */
-void CZProjectileList::RemoveExplosive(PlacedExplosive *)
+void CZProjectileList::RemoveExplosive(PlacedExplosive *explosive)
 {
+	/* 0x31a8c0: a listed placed explosive loses its pickup, is destroyed and leaves the list */
+	if (explosive == NULL)
+		return;
+
+	for (std::vector<CZProjectile*>::iterator it = m_explosives.begin(); it != m_explosives.end(); ++it)
+	{
+		if (*it == explosive)
+		{
+			CPickup::Destroy(explosive->m_pickup);
+			delete explosive;
+			m_explosives.erase(it);
+			return;
+		}
+	}
 }
 
 /* @socom-skeleton stub GetNumRemoteExplosives__16CZProjectileListFi */

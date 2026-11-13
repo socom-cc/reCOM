@@ -1068,17 +1068,120 @@ void BitmapReticule::ChangeReticule(int type)
 }
 
 /* @socom-skeleton stub SetGBarVal__14BitmapReticuleFf */
-void BitmapReticule::SetGBarVal(float)
+void BitmapReticule::SetGBarVal(float val)
 {
-	/* port: not written (0x3cd490, 1172 bytes): the grenade throw-power bar; reached only
-	 * with a throwable in the kit (no weapons load yet) */
+	/* 0x3cd490 (CHUD::Tick, ChangeReticule): the grenade reticule (type 4) as a throw-power
+	 * gauge around its centre (w, h = the reticule texture's size): the reticule's left half;
+	 * two bar polys of the full-bar texture filling with the power (the first half of val on
+	 * one side, the second half on the other), the two back polys, the bar colour; the left
+	 * and right strips of the full bar / reticule textures cut at val; all at alpha 128. A
+	 * missing texture the first time sets m_error. ELF quirks kept: x extents use the height
+	 * and y extents the width (the textures are square); m_error is never read here and the
+	 * textures are used without a NULL test. */
 	/* @socom-skeleton stub first$3045 */
-	static unsigned char first;
+	static unsigned char first = 1; /* init$3046: set on first use */
+
+	if (m_rettype != 4)
+		return;
+
+	if (m_reticuleTex[m_rettype] == NULL && first)
+	{
+		m_error = true;
+		first = 0;
+	}
+
+	if (m_grenadebartex_full == NULL && first)
+	{
+		m_error = true;
+		first = 0;
+	}
+
+	zdb::CTexHandle *tex = m_reticuleTex[m_rettype];
+	zdb::CTexture *texture = tex->m_texture;
+	f32 w = (f32)texture->m_width;
+	f32 h = (f32)texture->m_height;
+	f32 hw = 0.5f * w;
+	f32 hh = 0.5f * h;
+	m_bitmap.Load(m_posx - hh, m_posy - hw, m_posx, m_posy + hw, tex);
+	m_bitmap.SetUV(0.0f, 0.0f, 0.5f, 1.0f);
+	m_bitmap.On();
+
+	f32 second = val - 0.5f;
+
+	if (second < 0.0f)
+		second = 0.0f;
+	else
+		second *= 2.0f;
+
+	f32 firsthalf = val <= 0.5f ? val : 0.5f;
+	firsthalf *= 2.0f;
+
+	zdb::CTexture *full = m_grenadebartex_full->m_texture;
+	f32 bottom = m_posy + hw;
+	f32 top = bottom - firsthalf * w;
+	m_grenadeactive[0].Load(m_posx, top, m_posx, bottom, m_posx + h, bottom, m_posx + h, top, full);
+	m_grenadeactive[0].SetUV(firsthalf, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, firsthalf, 1.0f);
+
+	f32 upper = m_posy - hw;
+	f32 lower = upper + second * w;
+	m_grenadeactive[1].Load(m_posx, lower, m_posx, upper, m_posx - h, upper, m_posx - h, lower, full);
+	m_grenadeactive[1].SetUV(second, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, second, 1.0f);
+
+	zdb::CTexture *back = m_reticuleTex[m_rettype]->m_texture;
+	m_grenadeback[0].Load(m_posx, m_posy - hw, m_posx, m_posy + hw, m_posx + h, m_posy + hw, m_posx + h, m_posy - hw, back);
+	m_grenadeback[0].SetUV(1.0f, 0.02f, 0.02f, 0.02f, 0.02f, 1.0f, 1.0f, 1.0f);
+	back = m_reticuleTex[m_rettype]->m_texture;
+	m_grenadeback[1].Load(m_posx, m_posy - hw, m_posx, m_posy + hw, m_posx - h, m_posy + hw, m_posx - h, m_posy - hw, back);
+	m_grenadeback[1].SetUV(1.0f, 0.02f, 0.02f, 0.02f, 0.02f, 0.95f, 1.0f, 0.95f);
+
+	UpdateGBarColor(val);
+	m_grenadebitmap.On();
+	m_grenadebitmap2.On();
+
+	m_grenadebitmap.Load(m_posx, m_posy + hw - val * w, m_posx + hh, m_posy + hw, m_grenadebartex_full);
+	m_grenadebitmap.SetUV(0.5f, 0.97f - val, 1.0f, 1.0f);
+	f32 rest = 1.0f - val;
+	m_grenadebitmap2.Load(m_posx, m_posy - hw, m_posx + hh, m_posy - hw + rest * w, m_reticuleTex[m_rettype]);
+	m_grenadebitmap2.SetUV(0.5f, 0.0f, 1.0f, rest);
+
+	m_bitmap.SetTrans(128.0f);
+	m_grenadebitmap.SetTrans(128.0f);
+	m_grenadebitmap2.SetTrans(128.0f);
 }
 
 /* @socom-skeleton stub UpdateGBarColor__14BitmapReticuleFf */
-void BitmapReticule::UpdateGBarColor(float)
+void BitmapReticule::UpdateGBarColor(float val)
 {
+	/* 0x3cd320 (SetGBarVal): the bar polys' colour: grey 150 up to 0.15; then a low-power
+	 * aim-down throw (power under the toss power threshold and the aim under the toss aim
+	 * threshold: the underhand toss) brown (172, 126, 54) x val, else yellow (200, 200, 10)
+	 * x val. ELF: the dynamics are fetched a second time for nothing. */
+	CZSealBody *seal = CHUD::GetHUDOwner();
+	f32 aim = seal->m_aim_goal.y;
+	f32 power = ((CSealCtrl *)seal->m_control)->m_trigger_power;
+	const throw_params &params = seal->GetDynamics()->m_throw_params;
+	bool toss = power < params.toss_power_threshold && aim < params.toss_aim_threshold;
+	f32 r, g, b;
+
+	if (val <= 0.15f)
+	{
+		r = g = b = 150.0f;
+	}
+	else if (toss)
+	{
+		r = 2.0f * (86.0f * val);
+		g = 2.0f * (63.0f * val);
+		b = 2.0f * (27.0f * val);
+	}
+	else
+	{
+		g = 200.0f * val;
+		b = 10.0f * val;
+		r = g;
+	}
+
+	m_grenadeactive[0].SetColor(r, g, b);
+	m_grenadeactive[1].SetColor(r, g, b);
 }
 
 /* @socom-skeleton stub TimerProgressTick__14BitmapReticuleFfP10CZSealBody */

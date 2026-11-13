@@ -240,8 +240,112 @@ void CZKit::SetCurItemState(unsigned int state)
 }
 
 /* @socom-skeleton stub SetCurItemEnum__5CZKitF10EQUIP_ITEM */
-void CZKit::SetCurItemEnum(EQUIP_ITEM)
+void CZKit::SetCurItemEnum(EQUIP_ITEM id)
 {
+	/* 0x2af610 (DetonateRemoteExplosives, HandleRemotePlaceExplosive): select the first slot
+	 * holding the item (none: nothing; the ELF returns 0/1, no caller tests it). The HUD
+	 * weapon box is refreshed; a lit flashlight goes out. Launcher grenades select the first
+	 * grenade launcher in that grenade's fire mode (slot + 3; no launcher: the old item stays).
+	 * A rifle / pistol requests the weapon change unless already in hand, other items use the
+	 * "aimnodes" part; encumbrance and weapon info refreshed. ELF quirk kept: for a plain item
+	 * the throw raise timing follows the OLD item's type (the launcher path the launcher's). */
+	s32 slot = -1;
+
+	for (s32 i = 0; i < m_num_items; i++)
+	{
+		if (m_item[i] != NULL && m_item[i]->m_ID == id)
+		{
+			slot = i;
+			break;
+		}
+	}
+
+	if (slot == -1)
+		return;
+
+	s32 old = m_selected_item;
+	((CSealCtrl *)m_body->m_control)->m_HudUpdateWeapon = 1;
+
+	if (m_item[m_selected_item] != NULL && m_item[m_selected_item]->m_ID == EQUIP_ITEM::FLASHLIGHT
+		&& (m_itemstate[m_selected_item] & 8) != 0)
+		SetCurItemState(0);
+
+	if (m_item[slot]->IsGrenadeLauncherAmmo())
+	{
+		m_selected_item = -1;
+
+		for (s32 i = 0; i < m_num_items; i++)
+		{
+			if (m_item[i]->IsGrenadeLauncherWeapon())
+			{
+				m_selected_item = i;
+				break;
+			}
+		}
+
+		if (m_selected_item == -1)
+		{
+			m_selected_item = old;
+			return;
+		}
+
+		CZFTSWeapon *launcher = m_item[m_selected_item];
+		s32 type = (s32)launcher->m_type;
+
+		if (type == 2)
+		{
+			if (m_body->m_item != SEAL_ITEM::itemPistol)
+				m_requested_item = 1;
+		}
+		else if (type == 1)
+		{
+			if (m_body->m_item != SEAL_ITEM::itemRifle)
+				m_requested_item = 1;
+		}
+		else
+		{
+			UseItemModel(type, "aimnodes");
+		}
+
+		if (m_item[m_selected_item]->m_type == SEAL_ITEM::itemThrowable)
+			m_body->WepWaitOff();
+		else
+			m_body->WepWaitOn();
+
+		m_firemode[m_selected_item] = slot + 3;
+	}
+	else
+	{
+		m_selected_item = slot;
+
+		if (m_item[old] != NULL)
+		{
+			s32 type = (s32)m_item[slot]->m_type;
+
+			if (type == 2)
+			{
+				if (m_body->m_item != SEAL_ITEM::itemPistol)
+					m_requested_item = 1;
+			}
+			else if (type == 1)
+			{
+				if (m_body->m_item != SEAL_ITEM::itemRifle)
+					m_requested_item = 1;
+			}
+			else
+			{
+				UseItemModel(type, "aimnodes");
+			}
+
+			if (m_item[old]->m_type == SEAL_ITEM::itemThrowable)
+				m_body->WepWaitOff();
+			else
+				m_body->WepWaitOn();
+		}
+	}
+
+	m_body->SetMoveWeaponEncumbMod();
+	m_weaponinfoChanged = 1;
 }
 
 /* @socom-skeleton stub GetCurItemEnum__5CZKitCFv */
@@ -1864,13 +1968,71 @@ bool CZKit::TickExplosives(float dT)
 
 	if (c4 || placed)
 	{
-		/* port: not written - the C4 wall placement (a 16-unit probe along the aim from the
-		 * right hand, the material checks, HandleRemotePlaceExplosive) and the claymore /
-		 * satchel / MP bomb ground placement (GetAltitude below the hand, then
-		 * HandleRemotePlaceExplosive); both restore the last selected item. The ELF returns
-		 * false for C4 and for a placement on the ground (true without ground). */
+		/* 0x2aa928: the right hand's point in world space (body rotation + position) */
+		CPnt3D hand = CPnt3D::zero;
+		CPnt3D offset = CPnt3D::zero;
+		m_body->PartInSpace(m_body->m_rhand, &offset, &hand, NULL);
+		m_body->m_quat.Apply(&hand, &hand, 1);
+		CPnt3D from;
+		hand.Add(m_body->GetPosW(), &from);
+		zdb::IntersectStruct *spot;
+
+		if (c4)
+		{
+			/* C4: a 16-unit level probe along the aim (characters ignored); nothing hit, the
+			 * material 1, an invisible DI, volumetric or liquid material: not placed */
+			CPnt3D dir;
+			m_body->m_quat.Apply(&m_body->m_aim_goal, &dir, 1);
+			dir.Scale(16.0f, &dir);
+			dir.y = 0.0f;
+			CPnt3D to;
+			from.Add(&dir, &to);
+			zdb::CWorld *world = zdb::CWorld::m_world;
+			zdb::DiIntersect *di = world->m_diInt;
+			u32 characters = di->m_IntersectCharacters;
+			di->m_IntersectCharacters = 0;
+			spot = world->GetIntersect(&from, &to);
+			di->m_IntersectCharacters = characters;
+
+			if (spot == NULL)
+			{
+#ifdef SOCOM_PORT
+				SOCOM_PORT_TRACE("EXPL: C4 not placed: no wall within 16 of the hand (%.1f %.1f %.1f)", from.x, from.y, from.z);
+#endif
+				return false;
+			}
+
+			u32 index = spot->GetMaterial();
+			CMaterialEx *material = CMaterialExArray::m_materialex_list[index < CMaterialExArray::m_materialex_list.size() ? index : 0];
+
+			if (spot->GetMaterial() == 1 || strcmp(material->m_name, "INVISIBLE_DI") == 0 || material->m_volumetric || material->m_liquid)
+			{
+#ifdef SOCOM_PORT
+				SOCOM_PORT_TRACE("EXPL: C4 not placed: material %u %s", index, material->m_name);
+#endif
+				return false;
+			}
+		}
+		else
+		{
+			/* claymore, satchel, MP bomb: on the ground within 14.3 below the hand */
+			spot = zdb::CWorld::m_world->GetAltitude(&from, 14.3f);
+
+			if (spot == NULL)
+				return false;
+		}
+
+		CPnt3D pos = spot->m_pos;
+		HandleRemotePlaceExplosive(&pos, &m_body->m_quat);
 		(void)r_offset;
 		(void)l_offset;
+
+		if (m_last_selected >= 0)
+		{
+			SetCurItemByIndex(m_last_selected);
+			m_last_selected = -1;
+		}
+
 		return false;
 	}
 
@@ -2322,6 +2484,27 @@ float CZKit::GetFireDelay()
 /* @socom-skeleton stub DetonateRemoteExplosives__5CZKitFv */
 void CZKit::DetonateRemoteExplosives()
 {
+	/* 0x2a96c0 (HandleFireWeapon with the detonator): every remote charge this seal placed
+	 * within 500 of it is told to detonate; then the claymore is selected again and the burst
+	 * counts the shot. ELF: a local vector_pod is built and destroyed unused. */
+	std::vector<CZProjectile*> &explosives = CZWeapon::m_pProjectilelist->m_explosives;
+	s32 id = m_body->m_id;
+
+	for (std::vector<CZProjectile*>::iterator it = explosives.begin(); it != explosives.end(); ++it)
+	{
+		PlacedExplosive *explosive = (PlacedExplosive *)*it;
+
+		if (explosive->m_shooterID == id && explosive->m_remote && explosive->IsInRange(m_body->GetPosW(), 500.0f))
+		{
+#ifdef SOCOM_PORT
+			SOCOM_PORT_TRACE("EXPL: detonator fires %s", explosive->m_weapon != NULL && explosive->m_weapon->m_name != NULL ? explosive->m_weapon->m_name : "-");
+#endif
+			explosive->RemoteDetonate();
+		}
+	}
+
+	SetCurItemEnum(EQUIP_ITEM::CLAYMORE);
+	m_burst_count++;
 }
 
 /* @socom-skeleton stub HandlePlacingExlosive__5CZKitF10EQUIP_ITEMff */
@@ -2335,8 +2518,12 @@ bool CZKit::FetchLaseTarget()
 }
 
 /* @socom-skeleton stub Timer_PlaceC4__FPvPv */
-void Timer_PlaceC4(void *, void *)
+void Timer_PlaceC4(void *, void *firetime)
 {
+	/* 0x2a9340: the put-on-wall anim's callback (0.45 in): the kit's fire time (its user
+	 * data) to 0, so the next TickExplosives places the charge */
+	if (firetime != NULL)
+		*(f32 *)firetime = 0.0f;
 }
 
 /* @socom-skeleton stub TickLaserDesignator__5CZKitFf */
@@ -2404,8 +2591,20 @@ void CZKit::HandleFireWeapon(int index, float power, float delay)
 	}
 	else if (id == EQUIP_ITEM::C4)
 	{
-		/* port: not written - C4 (PerformAction(animTypePutOnWall) with the Timer_PlaceC4
-		 * callback at 0.45 driving m_firetime); C4 is not in the single-player kits here */
+		/* C4 goes on a wall: the put-on-wall action whose callback (0.45 in) clears the fire
+		 * time; until then the fire time is 99 */
+		CZBodyAnimBlend *blend = body->PerformAction(AnimType::animTypePutOnWall, SEAL_STATE::stateStand);
+
+		if (blend != NULL)
+		{
+			blend->m_callback.m_func = (void (*)())Timer_PlaceC4;
+			blend->m_callback.m_tfrac = 0.45f;
+			blend->m_callback.m_userdata = &m_firetime;
+		}
+
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("EXPL: C4 put-on-wall action %s", blend != NULL ? "started" : "none");
+#endif
 		m_waiting_to_fire = 1;
 		m_firetime = 99.0f;
 		m_burst_count++;
@@ -3070,8 +3269,139 @@ CZProjectile * CZKit::FireGrenade(const CPnt3D *, const CPnt3D *)
 }
 
 /* @socom-skeleton stub HandleRemotePlaceExplosive__5CZKitFPC6CPnt3DPC5CQuat */
-PlacedExplosive * CZKit::HandleRemotePlaceExplosive(const CPnt3D *, const CQuat *)
+PlacedExplosive * CZKit::HandleRemotePlaceExplosive(const CPnt3D *pos, const CQuat *rot)
 {
+	/* 0x2a6ed0 (TickExplosives): the selected charge placed at pos: a placed explosive whose
+	 * instance (an XRef of the weapon's model, a character node in the character texture
+	 * sets) stands there. Fuse / removal time by item: C4 a 5 s fuse; a satchel the mission's
+	 * satchel timer (none below 0); a claymore is remote (the detonator, removed 10 s after
+	 * its blast); the MP bomb sets the mission's win/loss timer to 30 (a network game asks
+	 * for the bomb state instead). A pickup of the charge's kind (4 C4, 5 satchel, 6
+	 * claymore, 7 MP bomb); a timed charge of the player's team shows its timer on the HUD.
+	 * Listed with the placed explosives, one round taken, a remote charge selects the
+	 * detonator; an AI deploying keeps the charge. The HUD weapon box is refreshed. */
+	f32 fuse = 9999999.0f;
+	f32 removal = 9999999.0f;
+	bool remote = false;
+	bool timed = false;
+	PlacedExplosive *explosive = NULL;
+	CZFTSWeapon *weapon = m_item[m_selected_item];
+	zdb::CModel *model = zdb::CWorld::GetModel(weapon->GetModelName());
+
+	switch (weapon->m_ID)
+	{
+	case EQUIP_ITEM::MPBOMB:
+		fuse = 30.0f;
+
+		if (theNetwork.m_bNetwork)
+		{
+			CZBombState::RequestNewBombState(m_body->m_id, (CZBombState::EnumBombState)3, pos);
+			return NULL;
+		}
+
+		theMission.m_winlosstimer = fuse;
+		break;
+	case EQUIP_ITEM::C4:
+		fuse = 5.0f;
+		timed = true;
+		break;
+	case EQUIP_ITEM::SATCHEL_CHARGE:
+		fuse = theMission.m_satcheltimer;
+
+		if (fuse < 0.0f)
+			fuse = 9999999.0f;
+		else
+			timed = true;
+		break;
+	case EQUIP_ITEM::CLAYMORE:
+		removal = 10.0f;
+		remote = true;
+		break;
+	default:
+		return NULL;
+	}
+
+	if (model != NULL)
+	{
+		explosive = new PlacedExplosive;
+		zdb::CNode *node = zdb::CNode::CreateXRef();
+		explosive->SetInstance(node);
+		node->SetActive(false);
+		node = explosive->GetInstance();
+		node->SetModel(model);
+
+		if (pos != NULL)
+			node->SetPosition(pos->x, pos->y, pos->z);
+
+		if (rot != NULL)
+			node->SetRotation(*rot);
+
+		node->m_character = 1;
+		zdb::CWorld::m_world->AddTextureAssetCharacter((zdb::_RenderPhase)2, node);
+		node->SetActive(true);
+		CPnt3D zero(0.0f, 0.0f, 0.0f);
+		explosive->m_isplayer = m_body == ftsGetPlayer();
+
+		if (!explosive->SetProjectile(m_body->GetNode(), weapon, m_ammo[m_selected_item], pos, &zero, &zero, m_body->m_id, model, fuse, removal))
+		{
+			delete explosive;
+			return NULL;
+		}
+
+		CPickup *pickup;
+
+		switch (m_item[m_selected_item]->m_ID)
+		{
+		case EQUIP_ITEM::C4:
+			pickup = CPickup::Create((CPickup::PU_TYPE)4, node, explosive);
+			break;
+		case EQUIP_ITEM::SATCHEL_CHARGE:
+			pickup = CPickup::Create((CPickup::PU_TYPE)5, node, explosive);
+			break;
+		case EQUIP_ITEM::CLAYMORE:
+			pickup = CPickup::Create((CPickup::PU_TYPE)6, node, explosive);
+			break;
+		default: /* the MP bomb */
+			pickup = CPickup::Create((CPickup::PU_TYPE)7, node, explosive);
+			break;
+		}
+
+		if (timed && m_body != NULL)
+		{
+			explosive->m_echo = 1;
+
+			if ((ftsGetPlayer()->m_team & m_body->m_team) != 0)
+				CZWeapon::RegisterTimer(&explosive->m_time, explosive->m_time, true);
+		}
+
+		explosive->m_pickup = pickup;
+		explosive->m_remote = remote;
+		CZWeapon::m_pProjectilelist->m_explosives.insert(CZWeapon::m_pProjectilelist->m_explosives.end(), 1, explosive);
+
+		if (!m_body->m_infiniteammo)
+		{
+			s32 slot = unwrap(m_selected_item, m_num_items);
+			m_weaponinfoChanged = 1;
+
+			if (m_reloads[slot][m_currentmag[slot]] > 0)
+				m_reloads[slot][m_currentmag[slot]]--;
+		}
+
+		if (remote)
+			SetCurItemEnum(EQUIP_ITEM::DETONATOR);
+
+		/* an AI in STATE_DEPLOY keeps the charge in its deploy state (+0x54); the ELF writes
+		 * through NULL + 0x54 when the state is another one. port: not written (CAiSDeploy has
+		 * no members declared; the player never deploys through the AI) */
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("EXPL: %s placed by %s at %.1f %.1f %.1f: fuse %.1f, removal %.1f, %s, pickup %s",
+			weapon->m_name != NULL ? weapon->m_name : "-", m_body->m_node != NULL && m_body->m_node->m_name != NULL ? m_body->m_node->m_name : "-",
+			pos->x, pos->y, pos->z, fuse, removal, remote ? "remote" : timed ? "timed" : "untimed", pickup != NULL ? "yes" : "none");
+#endif
+	}
+
+	((CSealCtrl *)m_body->m_control)->m_HudUpdateWeapon = 1;
+	return explosive;
 }
 
 /* @socom-skeleton stub FillWeaponEnum__5CZKitFiPP11CZFTSWeapon */
