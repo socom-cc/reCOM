@@ -29,9 +29,12 @@
 #include "gamez/zUtil/util_stable.h"
 #include "hud.h"
 /* @socom-skeleton end include */
+#include "gamez/zGame/zgame.h" /* MENU_STATE */
+#include "gamez/zSound/zsnd.h" /* CSndJukebox */
+#include "gamez/zWeapon/zweapon.h" /* CZWeapon::m_weaponTickDisabled */
 
 /* @socom-skeleton stub cur_zoomstate */
-static ZOOMSTATE cur_zoomstate = (ZOOMSTATE)255;
+static ZOOMSTATE cur_zoomstate = ZOOMSTATE::ZOOMSTATE_UNKNOWN; /* ELF: the byte 0xff (-1, none saved) */
 
 /* @socom-skeleton stub cur_camzoom */
 static float cur_camzoom = 1.0f;
@@ -77,6 +80,12 @@ void CZHudMissionCams::Init()
 /* @socom-skeleton stub UnInit__16CZHudMissionCamsFv */
 void CZHudMissionCams::UnInit()
 {
+	/* 0x4040f0 (CHUD::ReInit_Uninit): the texts are wiped */
+	for (int i = 0; i < 3; i++)
+		m_letterboxobjectivedescription[i].ClearAndWipe();
+
+	m_letterboxobjectivename.ClearAndWipe();
+	m_crosstext.ClearAndWipe();
 }
 
 /* @socom-skeleton stub HudTick__16CZHudMissionCamsFP4CPadf */
@@ -132,8 +141,71 @@ void CZHudMissionCams::HudTick(CPad *pad, float dT)
 }
 
 /* @socom-skeleton stub CleanupCamera__16CZHudMissionCamsFP4CPad */
-void CZHudMissionCams::CleanupCamera(CPad *)
+void CZHudMissionCams::CleanupCamera(CPad *pad)
 {
+	/* 0x403d10 (HudTick, once the camera's animation has ended): texts off, the camera's
+	 * music faded out, weapons and AI on again, the player's menu state back; a lens
+	 * effect the camera turned off returns (night: NVG / starlight scope tint), the saved
+	 * zoom too; the heartbeat display on, the pad flushed, one frame without a swap, the
+	 * letterbox out and the HUD on */
+	m_letterboxobjectivename.Off();
+
+	for (int i = 0; i < 3; i++)
+		m_letterboxobjectivedescription[i].Off();
+
+	m_animhandle = NULL;
+	m_crosstext.Off();
+	m_crossbitmap.Off();
+
+	if (m_currentcam->m_music != NULL)
+	{
+		CSndJukebox::FadeOut();
+		CSndJukebox::ClearQueue();
+	}
+
+	CZWeapon::m_weaponTickDisabled = false;
+	CSealCtrlAi::SetAiEnabled(true, true);
+	CZSealBody* owner = CHUD::GetHUDOwner();
+	static_cast<CSealCtrl*>(owner->m_control)->SetMenuState(m_lastmenustate);
+	CZKit* kit = &owner->m_kit;
+
+	if (kit != NULL && cur_zoomstate != ZOOMSTATE::ZOOMSTATE_UNKNOWN)
+	{
+		zdb::CWorld* world = zdb::CWorld::m_world;
+
+		if (cur_zoomstate == ZOOMSTATE::ZOOMSTATE_NVG)
+		{
+			CPnt3D lens = world->m_lensfx_nvg;
+			kit->Apply_LensEffects(true, &lens);
+		}
+		else if (cur_zoomstate > ZOOMSTATE::ZOOMSTATE_NVG)
+		{
+			CPnt3D lens = world->m_lensfx_starlightscope;
+			kit->Apply_LensEffects(true, &lens);
+		}
+
+		cur_zoomstate = ZOOMSTATE::ZOOMSTATE_UNKNOWN;
+	}
+
+	if (cur_camzoom != 1.0f)
+	{
+		appCamera->SetZoom(cur_camzoom);
+		cur_camzoom = 1.0f;
+	}
+
+	if (kit != NULL)
+		kit->m_heartbeat_enabled = 1;
+
+	if (pad != NULL)
+		pad->Flush();
+
+	m_currentcam = NULL;
+	theGame.m_coreState.m_skip_swap = 1;
+	theHUD->m_letterbox.RemoveLetterbox();
+	theHUD->On();
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("MISSIONCAM: camera done");
+#endif
 }
 
 /* @socom-skeleton stub Draw__16CZHudMissionCamsFPQ23zdb7CCamera */
@@ -153,13 +225,122 @@ void CZHudMissionCams::Draw(zdb::CCamera *camera)
 }
 
 /* @socom-skeleton stub PlayCamera__16CZHudMissionCamsFPCc */
-void CZHudMissionCams::PlayCamera(const char *)
+void CZHudMissionCams::PlayCamera(const char *identifier)
 {
+	/* 0x403c10 (HUD_TRIGGER_MISSION_CAM): the mission camera of that identifier, with the
+	 * lens effects off */
+	CMissionCam* cam = theMission.GetMissionCamByIdentifier(identifier);
+
+	if (cam != NULL)
+		PlayCamera(cam, true);
 }
 
 /* @socom-skeleton stub PlayCamera__16CZHudMissionCamsFP11CMissionCamb */
-void CZHudMissionCams::PlayCamera(CMissionCam *, bool)
+void CZHudMissionCams::PlayCamera(CMissionCam *cam, bool lens)
 {
+	/* 0x403830 (also CZObjectiveList::SelectObjective): unless one plays or the command
+	 * menu is open, the camera's animation starts (no arguments); its music, if any,
+	 * replaces the jukebox's; the letterbox comes in, the HUD goes off, weapons and the AI
+	 * stop (STOPALL style: SetAiEnabled(false, true)); the name (top, centred) and the
+	 * three description lines (x 20, from y 400, 15 apart; "" for a missing one) and
+	 * "TO ABORT" beside the cross bitmap are loaded off (HudTick turns them on once the
+	 * letterbox is in), grey 80; the zoom is saved and reset to 1; with lens set the
+	 * player's lens effect goes off (a night zoom state 2+ is saved for CleanupCamera); the
+	 * heartbeat display off; the player's menu state saved and set to 5 */
+	if (cam == NULL || m_currentcam != NULL)
+		return;
+
+	CZSealBody* owner = CHUD::GetHUDOwner();
+	CSealCtrl* ctrl = static_cast<CSealCtrl*>(owner->m_control);
+
+	if (ctrl->GetMenuState() == stateOrders)
+		return;
+
+	m_pause_for_frame = 0;
+	m_currentcam = cam;
+
+	if (cam->m_anim == NULL)
+		return;
+
+	m_animhandle = cam->m_anim->ActivateArg(0, 0);
+
+	if (m_animhandle == NULL)
+		return;
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("MISSIONCAM: play %s (%s)", cam->m_identifier, cam->m_description[0] != NULL ? cam->m_description[0] : "");
+#endif
+	CSnd* music = cam->m_music;
+
+	if (music != NULL)
+	{
+		CSndJukebox::FadeOut();
+		CSndJukebox::ClearQueue();
+		CSndJukebox::Play(MODE_3, music);
+	}
+
+	theHUD->m_letterbox.AddLetterbox();
+	theHUD->Off();
+	CZWeapon::m_weaponTickDisabled = true;
+	CSealCtrlAi::SetAiEnabled(false, true);
+
+	m_letterboxobjectivename.Load(0.8f, cam->m_name, theHUD->m_myfont, 20, 20);
+	m_letterboxobjectivename.UpdatePos();
+	m_letterboxobjectivename.m_pos.x = (s32)(320.0f - m_letterboxobjectivename.m_length / 2.0f) << 4;
+	m_letterboxobjectivename.m_pos.y = 320; /* ELF: 320 = 20 << 4 */
+	m_letterboxobjectivename.UpdatePos();
+	m_letterboxobjectivename.Off();
+	m_letterboxobjectivename.m_color.x = 80.0f;
+	m_letterboxobjectivename.m_color.y = 80.0f;
+	m_letterboxobjectivename.m_color.z = 80.0f;
+
+	for (int i = 0; i < 3; i++)
+	{
+		C2DString* line = &m_letterboxobjectivedescription[i];
+
+		if (cam->m_description[i] != NULL)
+			line->Load(0.8f, cam->m_description[i], theHUD->m_myfont, 20, 400 + 15 * i);
+		else
+			line->Load(0.8f, "", theHUD->m_myfont, 20, 400 + 15 * i);
+
+		line->Off();
+		line->m_color.x = 80.0f;
+		line->m_color.y = 80.0f;
+		line->m_color.z = 80.0f;
+	}
+
+	m_crosstext.Load(0.8f, "TO ABORT", theHUD->m_myfont, 290, 56);
+	m_crosstext.Off();
+	m_crosstext.m_color.x = 80.0f;
+	m_crosstext.m_color.y = 80.0f;
+	m_crosstext.m_color.z = 80.0f;
+	m_crossbitmap.Load(270.0f, 40.0f, 286.0f, 56.0f, m_crosstexture);
+	m_crossbitmap.Off();
+
+	if (cur_camzoom == 1.0f)
+	{
+		cur_camzoom = appCamera->m_camera->m_screenAspect.y;
+		appCamera->SetZoom(1.0f);
+	}
+
+	CZKit* kit = &owner->m_kit;
+
+	if (kit != NULL && lens && cur_zoomstate == ZOOMSTATE::ZOOMSTATE_UNKNOWN && zdb::CWorld::m_world->m_night_mission)
+	{
+		ZOOMSTATE zoom = owner->m_zoomstate;
+
+		if (zoom >= ZOOMSTATE::ZOOMSTATE_NVG)
+			cur_zoomstate = zoom;
+
+		if (zoom != ZOOMSTATE::ZOOMSTATE_UNKNOWN)
+			kit->Apply_LensEffects(false, NULL);
+	}
+
+	if (kit != NULL)
+		kit->m_heartbeat_enabled = 0;
+
+	m_lastmenustate = ctrl->GetMenuState();
+	ctrl->SetMenuState(stateFullScreenMapAnim);
 }
 
 /* @socom-skeleton stub IsPlaying__16CZHudMissionCamsFv */

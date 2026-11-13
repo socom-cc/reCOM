@@ -25,73 +25,432 @@
 #include "gamez/zSound/zsnd.h"
 /* @socom-skeleton end include */
 
+#include <989snd.h> /* the 989snd EE client (port/compat/snd989.c) */
+#include <stdio.h>
+
+void zSysUnloadIRX(int); /* zsys_init.cpp (no header declares it) */
+
+/* port: the headset IRX's extern-call id (989snd snd_DoExternCall a0) */
+#define HEADSET_EXTERN_ID 0x12c4e67a
+
 /* @socom-skeleton stub theHeadsetState__7Headset */
 unsigned char Headset::theHeadsetState;
 
 /* @socom-skeleton stub theHeadset__7Headset */
-int Headset::theHeadset;
+Headset* Headset::theHeadset;
 
 /* @socom-skeleton body ftsGetHeadset__7HeadsetFv */
-void * Headset::ftsGetHeadset() { return NULL; }
+void * Headset::ftsGetHeadset()
+{
+	/* 0x2f36b0: the headset; without one yet a new one, disconnected (state 2), idle */
+	if (theHeadsetState == 1)
+		return theHeadset;
+
+	if (theHeadsetState == 2)
+		return theHeadset;
+
+	if (theHeadset == NULL)
+		theHeadset = new Headset();
+
+	theHeadsetState = 2;
+	theHeadset->m_state = 3;
+	return theHeadset;
+}
 
 /* @socom-skeleton stub __ct__7HeadsetFv */
 Headset::Headset()
 {
+	/* 0x2f3600: 20 free slots; m_state is set by ftsGetHeadset */
+	m_entries = new Entry[20];
+
+	for (int i = 0; i < 20; i++)
+		m_free.insert(m_free.end(), (u32)i);
+
+	m_irx = 0;
+	m_instance = NULL;
+	m_stop = false;
 }
 
 /* @socom-skeleton stub __dt__7HeadsetFv */
 Headset::~Headset()
 {
+	/* 0x2f34e0: a connected headset is told to stop (extern call 7), else the line's
+	 * stream instance goes back to the pool; the lists empty, the slots and the IRX go */
+	if (theHeadsetState == 1)
+	{
+		snd_DoExternCall(HEADSET_EXTERN_ID, 7, 0, 0, 0, 0, 0);
+	}
+	else if (m_instance != NULL)
+	{
+		CSndInstance::ReleaseSoundInstance(m_instance);
+		m_instance = NULL;
+	}
+
+	m_queue.clear();
+	m_free.clear();
+
+	if (m_entries != NULL)
+		delete[] m_entries;
+
+	if (m_irx > 0)
+		zSysUnloadIRX(m_irx);
 }
 
 /* @socom-skeleton body ftsDeleteHeadset__7HeadsetFv */
-void Headset::ftsDeleteHeadset() {}
+void Headset::ftsDeleteHeadset()
+{
+	/* 0x2f3400 (mission close, CSnd::Uninit): a connected line is stopped, the queue
+	 * drained and freed, the headset deleted; state none */
+	Headset* headset = theHeadset;
+
+	if (headset != NULL)
+	{
+		if (theHeadsetState == 1 && headset->m_state != 3)
+		{
+			snd_DoExternCall(HEADSET_EXTERN_ID, 6, 0, 0, 0, 0, 0);
+			headset->m_state = 3;
+			headset->m_stop = false;
+		}
+
+		while (headset->DeQueue(NULL, &headset->m_entity, &headset->m_sound, &headset->m_volume))
+			;
+
+		std::vector<u32> empty;
+		headset->m_queue.clear();
+		headset->m_queue.swap(empty);
+		delete theHeadset;
+		theHeadset = NULL;
+	}
+
+	theHeadsetState = 0;
+}
 
 /* @socom-skeleton stub Queue__7HeadsetFUiP4CSndi */
-void Headset::Queue(unsigned int, CSnd *, int)
+bool Headset::Queue(unsigned int entity, CSnd *sound, int volume)
 {
+	/* 0x2f3290 (CSnd::PlaySound3D / PlaySoundVolPanPitch for a headset sound): the line
+	 * takes the last free slot and joins the queue (false when none is free). A sitrep
+	 * drops the entity's queued conversational lines, a death/damage line its
+	 * conversational and sitrep ones (Remove; the current line may be stopped too) */
+	if (m_free.size() == 0)
+		return false;
+
+	u32 slot = m_free[m_free.size() - 1];
+
+	if (slot == 0xffffffff)
+		return false;
+
+	m_free.erase(m_free.end() - 1);
+	m_entries[slot].entity = entity;
+	m_entries[slot].sound = sound;
+	m_entries[slot].volume = volume;
+	m_queue.insert(m_queue.end(), slot);
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("HEADSET: queue %s (entity 0x%x, type %d, vol %d), %d queued", sound->m_name != NULL ? sound->m_name : "?",
+		entity, (int)sound->m_type, volume, (int)m_queue.size());
+#endif
+
+	if (sound->m_type == SND_SITREP)
+		Remove(entity, true, false);
+	else if (sound->m_type == SND_DEATH_DAMAGE)
+		Remove(entity, true, true);
+
+	return true;
 }
 
 /* @socom-skeleton stub DeQueue__7HeadsetFPPiPUiPP4CSndPi */
-void Headset::DeQueue(int **, unsigned int *, CSnd **, int *)
+bool Headset::DeQueue(int **skip, unsigned int *entity, CSnd **sound, int *volume)
 {
+	/* 0x2f30f0: takes queued lines out (their slots back to the free list) into the
+	 * outputs; skip, when given, is a list (count, then entity pointers) of entities whose
+	 * lines stay queued. True when a line was taken.
+	 * ELF quirk kept: the loop has no exit after a line is taken, so every queued line is
+	 * taken and the outputs hold the newest one: of the lines queued while one played,
+	 * only the last is heard.
+	 * Port deviation: a skipped line advances the loop (the ELF stays on it and loops
+	 * for ever; every caller passes no list) */
+	bool taken = false;
+	std::vector<u32>::iterator it = m_queue.begin();
+
+	while (it != m_queue.end())
+	{
+		u32 slot = *it;
+		bool skipped = false;
+
+		if (skip != NULL)
+		{
+			int count = *skip[0];
+
+			for (int i = 1; i <= count; i++)
+			{
+				if (m_entries[slot].entity == (u32)*skip[i])
+				{
+					skipped = true;
+					break;
+				}
+			}
+		}
+
+		if (skipped)
+		{
+			++it;
+			continue;
+		}
+
+		*entity = m_entries[slot].entity;
+		*sound = m_entries[slot].sound;
+		*volume = m_entries[slot].volume;
+		it = m_queue.erase(it);
+		m_free.insert(m_free.end(), slot);
+		taken = true;
+	}
+
+	return taken;
 }
 
 /* @socom-skeleton stub StaticSoundSysCallback__7HeadsetFUiUl */
-void Headset::StaticSoundSysCallback(unsigned int, unsigned long)
+void Headset::StaticSoundSysCallback(unsigned int result, unsigned long user)
 {
+	/* 0x2f30c0: the extern call's answer for the headset passed as user data */
+	if ((s32)user != 0)
+		reinterpret_cast<Headset*>(user)->SoundSysCallback(result);
 }
 
 /* @socom-skeleton stub SoundSysCallback__7HeadsetFUi */
-void Headset::SoundSysCallback(unsigned int)
+void Headset::SoundSysCallback(unsigned int result)
 {
+	/* 0x2f3040 (connected headset): the answer to a start (state 0: playing, or 0 =
+	 * failed: the headset counts as disconnected and resets) or to a status query
+	 * (state 2: still playing, or 0 = done: idle, no stop pending) */
+	switch (m_state)
+	{
+	case 0:
+		if (result == 0)
+		{
+			theHeadsetState = 2;
+			m_state = 4;
+		}
+		else
+		{
+			m_state = 1;
+		}
+
+		break;
+	case 2:
+		if (result == 0)
+		{
+			m_state = 3;
+			m_stop = false;
+		}
+		else
+		{
+			m_state = 1;
+		}
+
+		break;
+	default:
+		break;
+	}
 }
 
 /* @socom-skeleton stub Tick__7HeadsetFf */
-void Headset::Tick(float)
+void Headset::Tick(float dT)
 {
+	/* 0x2f2ff0 (CSnd::PostTick) */
+	if (theHeadsetState == 2)
+		DisconnectedTick(dT);
+	else if (theHeadsetState == 1)
+		ConnectedTick(dT);
 }
 
 /* @socom-skeleton stub DisconnectedTick__7HeadsetFf */
 void Headset::DisconnectedTick(float)
 {
+	/* 0x2f2ea0: no USB headset - the lines play on the TV, one at a time, as streams
+	 * (StreamSoundVolPan, centred): a playing line is stopped on request or released when
+	 * its stream ends; when idle the next queued line starts */
+	bool next = false;
+
+	if (m_state == 4)
+	{
+		m_instance = NULL;
+		m_state = 3;
+	}
+
+	if (m_state == 3)
+	{
+		next = true;
+	}
+	else if (m_state == 1)
+	{
+		if (m_stop && m_instance != NULL)
+		{
+			m_instance->Stop();
+			CSndInstance::ReleaseSoundInstance(m_instance);
+			m_instance = NULL;
+			m_stop = false;
+			m_state = 3;
+		}
+		else if (m_instance != NULL && !m_instance->IsPlaying())
+		{
+			CSndInstance::ReleaseSoundInstance(m_instance);
+			m_instance = NULL;
+			m_state = 3;
+		}
+	}
+
+	if (!next)
+		return;
+
+	if (!DeQueue(NULL, &m_entity, &m_sound, &m_volume))
+		return;
+
+	m_instance = CSndInstance::AcquireSoundInstance(0xffffffff, m_sound);
+
+	if (m_instance == NULL)
+		return;
+
+	if (m_sound->StreamSoundVolPan(m_volume, 0, m_instance) != 0)
+	{
+		m_state = 1;
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("HEADSET: %s (entity 0x%x) streams, vol %d", m_sound->m_name != NULL ? m_sound->m_name : "?",
+			m_entity, m_volume);
+#endif
+	}
+	else
+	{
+		m_instance->m_handle = 0;
+		CSndInstance::ReleaseSoundInstance(m_instance);
+		m_instance = NULL;
+		m_state = 3;
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("HEADSET: %s did not stream", m_sound->m_name != NULL ? m_sound->m_name : "?");
+#endif
+	}
 }
 
 /* @socom-skeleton stub ConnectedTick__7HeadsetFf */
 void Headset::ConnectedTick(float)
 {
+	/* 0x2f2cf0 (USB headset, through the headset IRX's extern calls): a playing line is
+	 * stopped on request (call 6) or polled (call 2); when idle the next queued line's
+	 * <HN>.WAV is started from its CD location in VAGSTORE.ZAR at 0.75 of its volume
+	 * (call 1) */
 	/* @socom-skeleton stub soundname$1360 */
-	static unsigned char soundname[60];
+	static char soundname[60];
 	/* @socom-skeleton stub sound_mod$1363 */
-	static float sound_mod;
+	static float sound_mod = 0.75f; /* ELF: set to 0.75 on the first use (guard init$1364) */
+	bool next = false;
+
+	if (m_state == 3)
+	{
+		next = true;
+	}
+	else if (m_state == 1)
+	{
+		if (m_stop)
+		{
+			snd_DoExternCall_A(HEADSET_EXTERN_ID, 6, 0, 0, 0, 0, 0);
+			m_state = 3;
+			m_stop = false;
+		}
+		else
+		{
+			snd_DoExternCall_CB(HEADSET_EXTERN_ID, 2, 0, 0, 0, 0, 0, StaticSoundSysCallback, (unsigned long)this);
+			m_state = 2;
+		}
+	}
+
+	if (!next)
+		return;
+
+	if (!DeQueue(NULL, &m_entity, &m_sound, &m_volume))
+		return;
+
+	u32 offset = 0;
+	u32 size = 0;
+	sprintf(soundname, "%s.WAV", m_sound->m_headsetstreamname);
+	bool found = CSnd::vagReadOffset(soundname, offset, size);
+	int sector = (int)(offset >> 11) + CSnd::m_vagoffset;
+	offset &= 0x7ff;
+
+	if (!found)
+		return;
+
+	m_volume = (int)((f32)m_volume * sound_mod);
+	snd_DoExternCall_CB(HEADSET_EXTERN_ID, 1, sector, (int)offset, m_volume, 2, 0, StaticSoundSysCallback, (unsigned long)this);
+	m_state = 0;
 }
 
 /* @socom-skeleton stub Remove__7HeadsetFibb */
-void Headset::Remove(int, bool, bool)
+void Headset::Remove(int entity, bool conversational, bool sitrep)
 {
+	/* 0x2f2b30: the entity's queued conversational (and/or sitrep) lines are dropped; its
+	 * current line is stopped (state 0..2).
+	 * ELF quirk kept: for the current line the type is tested only without
+	 * conversational: with it set any current line of the entity stops, and a
+	 * conversational current line stops even when only sitreps are removed */
+	std::vector<u32>::iterator it = m_queue.begin();
+
+	while (it != m_queue.end())
+	{
+		u32 slot = *it;
+		bool erased = false;
+
+		if (m_entries[slot].entity == (u32)entity)
+		{
+			u8 type = m_entries[slot].sound->m_type;
+
+			if ((conversational && type == SND_CONVERSATIONAL) || (sitrep && type == SND_SITREP))
+			{
+				it = m_queue.erase(it);
+				m_free.insert(m_free.end(), slot);
+				erased = true;
+			}
+		}
+
+		if (!erased)
+			++it;
+	}
+
+	if (m_entity != (u32)entity)
+		return;
+
+	u8 type = m_sound != NULL ? m_sound->m_type : 0; /* port: guarded (no line yet) */
+
+	if (conversational || type == SND_CONVERSATIONAL || (sitrep && type == SND_SITREP))
+	{
+		if (m_state == 1 || m_state == 0 || m_state == 2)
+			m_stop = true;
+	}
 }
 
 /* @socom-skeleton stub StopSound__7HeadsetFiP4CSnd */
-void Headset::StopSound(int, CSnd *)
+void Headset::StopSound(int entity, CSnd *sound)
 {
+	/* 0x2f2a00 (zAnimSoundTick STOP): the entity's queued copies of the sound are dropped;
+	 * the current line stops when it is that one (state 0..2) */
+	std::vector<u32>::iterator it = m_queue.begin();
+
+	while (it != m_queue.end())
+	{
+		u32 slot = *it;
+
+		if (m_entries[slot].entity == (u32)entity && m_entries[slot].sound == sound)
+		{
+			it = m_queue.erase(it);
+			m_free.insert(m_free.end(), slot);
+		}
+		else
+		{
+			++it;
+		}
+	}
+
+	if (m_entity == (u32)entity && m_sound == sound)
+	{
+		if (m_state == 1 || m_state == 0 || m_state == 2)
+			m_stop = true;
+	}
 }

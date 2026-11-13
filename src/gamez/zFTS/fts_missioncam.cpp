@@ -12,6 +12,8 @@
 /* @socom-skeleton decl include */
 #include "zfts.h"
 /* @socom-skeleton end include */
+#include "gamez/zAnim/zanim.h" /* ZAnim.GetAnim (Set) */
+#include "gamez/zSound/zsnd.h" /* CSnd::GetSoundByName (Set) */
 
 /* @socom-skeleton stub MultiplayerMsgStrings */
 static unsigned char MultiplayerMsgStrings[28];
@@ -19,6 +21,14 @@ static unsigned char MultiplayerMsgStrings[28];
 /* @socom-skeleton stub __ct__11CMissionCamFv */
 CMissionCam::CMissionCam()
 {
+	/* 0x20b0a0 */
+	m_identifier = NULL;
+	m_name = NULL;
+	m_anim = NULL;
+	m_music = NULL;
+	m_description[0] = NULL;
+	m_description[1] = NULL;
+	m_description[2] = NULL;
 }
 
 /* @socom-skeleton stub __dt__11CMissionCamFv */
@@ -45,6 +55,49 @@ CMissionCam::~CMissionCam()
 }
 
 /* @socom-skeleton stub Set__11CMissionCamFPCcPCcPCcPCcPCcPCcPCc */
-void CMissionCam::Set(const char *, const char *, const char *, const char *, const char *, const char *, const char *)
+void CMissionCam::Set(const char *identifier, const char *name, const char *description1, const char *description2,
+	const char *description3, const char *animation, const char *music)
 {
+	/* 0x20adf0 (CMission::LoadMissionCams): the old strings are freed; the identifier
+	 * ("default" without one), the name and the descriptions given are copied; the
+	 * ON_CALL animation is looked up in any set, the ON_CALL_MUSIC sound by name */
+	if (m_identifier != NULL)
+		_free(m_identifier, "fts_missioncam.cpp", 33);
+
+	m_identifier = NULL;
+
+	if (m_name != NULL)
+		_free(m_name, "fts_missioncam.cpp", 34);
+
+	m_name = NULL;
+
+	for (s32 i = 0; i < 3; i++)
+	{
+		if (m_description[i] != NULL)
+			_free(m_description[i], "fts_missioncam.cpp", 36);
+
+		m_description[i] = NULL;
+	}
+
+	if (identifier == NULL)
+		m_identifier = _strdup("default", "fts_missioncam.cpp", 49);
+	else
+		m_identifier = _strdup(identifier, "fts_missioncam.cpp", 51);
+
+	if (name != NULL)
+		m_name = _strdup(name, "fts_missioncam.cpp", 53);
+
+	if (description1 != NULL)
+		m_description[0] = _strdup(description1, "fts_missioncam.cpp", 55);
+
+	if (description2 != NULL)
+		m_description[1] = _strdup(description2, "fts_missioncam.cpp", 57);
+
+	if (description3 != NULL)
+		m_description[2] = _strdup(description3, "fts_missioncam.cpp", 59);
+
+	m_anim = ZAnim.GetAnim(animation, NULL);
+
+	if (music != NULL)
+		m_music = CSnd::GetSoundByName(music);
 }

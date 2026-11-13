@@ -33,6 +33,8 @@ class CObjAnchorVec;
 class CVehicleRdr;
 class CVehicleRdrEntry;
 class CMissionCam;
+class CSnd;
+class CSndInstance;
 
 class CZNetGame;
 
@@ -97,8 +99,8 @@ public:
 public:
 	Headset();
 	~Headset();
-	void Queue(unsigned int, CSnd *, int);
-	void DeQueue(int **, unsigned int *, CSnd **, int *);
+	bool Queue(unsigned int, CSnd *, int); /* bool: 0x2f3290 returns whether the line was queued */
+	bool DeQueue(int **, unsigned int *, CSnd **, int *); /* bool: 0x2f30f0 returns whether a line was taken */
 	static void StaticSoundSysCallback(unsigned int, unsigned long);
 	void SoundSysCallback(unsigned int);
 	void Tick(float);
@@ -106,9 +108,31 @@ public:
 	void ConnectedTick(float);
 	void Remove(int, bool, bool);
 	void StopSound(int, CSnd *);
-	static unsigned char theHeadsetState;
-	static int theHeadset;
+	static unsigned char theHeadsetState; /* 0 none, 1 connected (USB headset), 2 disconnected (TV) */
+	static Headset* theHeadset; /* port: Headset* (was int); ftsGetHeadset news it (60 bytes) */
 	/* @socom-skeleton end 7Headset */
+
+	/* port: no DWARF type; members from the asm (0x2f2a00-0x2f3730), ELF offsets noted.
+	 * The headset plays the HN (headset) voice lines one at a time from a queue of 20
+	 * slots: m_queue holds the queued slot numbers in order, m_free the unused ones. */
+	struct Entry
+	{
+		u32 entity;
+		CSnd* sound;
+		s32 volume;
+	};
+
+	u8 m_unk_00[9];             /* +0x0: never read or written by the headset code */
+	u8 m_state;                 /* +0x9: 0 starting, 1 playing, 2 waiting for the IOP, 3 idle, 4 reset */
+	bool m_stop;                /* +0xa: stop the current line */
+	u32 m_entity;               /* +0xc: the current line's entity */
+	CSnd* m_sound;              /* +0x10: the current line */
+	s32 m_volume;               /* +0x14 */
+	std::vector<u32> m_queue;   /* +0x18 vector_pod<Ui> */
+	std::vector<u32> m_free;    /* +0x24 vector_pod<Ui> */
+	s32 m_irx;                  /* +0x30: the headset IRX's module id (0: none) */
+	Entry* m_entries;           /* +0x34: new[] of 20 */
+	CSndInstance* m_instance;   /* +0x38: the stream playing the current line (disconnected) */
 };
 
 enum MISSION_STATE
@@ -215,8 +239,7 @@ public:
 	CRdrFile* m_smallmessagesRdr;
 
 	CSaferStr m_strLoadingScrLib;
-	// 
-	// CMissionCamList m_missioncams;
+	std::list<CMissionCam*> m_missioncams; /* +0x5b4 DWARF CMissionCamList (an MSL list of CMissionCam*): LoadMissionCams fills it */
 	std::list<void const*> m_objectivecams; /* +0x5c0 DWARF CMissionObjectiveCamList (declared later in this header: its list base here; CExitState::Init, SetRoundStatUiVars) */
 
 	f32 m_fighttimer;
@@ -267,7 +290,7 @@ public:
 
 class CMissionCam
 {
-private:
+public: /* port: public (was private; DWARF has no access): CZHudMissionCams::PlayCamera reads them */
 	char* m_identifier;
 	char* m_name;
 	char* m_description[3];

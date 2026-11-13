@@ -1105,7 +1105,11 @@ void CSealCtrl::SensorTick(float)
 /* @socom-skeleton stub NotifyTargetDown__11CSealCtrlAiFP10CZSealBody */
 void CSealCtrlAi::NotifyTargetDown(CZSealBody *)
 {
-	/* 0x2b10f0: port: not written (20 B) */
+	/* 0x2b10f0 (CZSealBody::HandleDamage, the killer's control): "tango down" */
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("CALLOUT: %s: tango down", m_entity->m_node->m_name);
+#endif
+	PlayAiSound((CHARACTER_SOUND)18);
 }
 
 /* @socom-skeleton stub NotifyTargetDown__9CSealCtrlFP10CZSealBody */
@@ -1115,12 +1119,66 @@ void CSealCtrl::NotifyTargetDown(CZSealBody *)
 }
 
 /* @socom-skeleton stub EnemyCallout__11CSealCtrlAiFPC7CTargetP7CEntity */
-void CSealCtrlAi::EnemyCallout(const CTarget *, CEntity *)
+void CSealCtrlAi::EnemyCallout(const CTarget *target, CEntity *listener)
 {
+	/* 0x2b0e90 (SensorTick, a SEAL's first sight of a target): once per team - a target
+	 * first seen by one of the player's teams (2, 4, 8) counts as seen by all three - the
+	 * unit is told (Notify 0) and the seal calls it out: "tango sighted", its clock
+	 * direction from the listener (the player; "high" over 0.15 up), "tango moving" when
+	 * its speed squared is over 800 */
 	/* @socom-skeleton stub MoveSqThresh$2902 */
-	static float MoveSqThresh;
+	static float MoveSqThresh = 800.0f; /* ELF: set on the first use (guard init$2903) */
 	/* @socom-skeleton stub HighHeight$2905 */
-	static float HighHeight;
+	static float HighHeight = 0.15f; /* ELF: set on the first use (guard init$2906) */
+	CEntity* ent = target != NULL ? target->m_ent : NULL;
+
+	if (ent == NULL)
+		return;
+
+	Output("EnemyCallout() -- sighted [%s]\n", ent->m_node->m_name);
+	u32 team = m_entity->m_team;
+	bool fresh = (team & ent->m_UnitsSeenBy) == 0;
+
+	if (fresh)
+	{
+		if (team == 8 || team == 4 || team == 2)
+			ent->m_UnitsSeenBy |= 0xe;
+		else
+			ent->m_UnitsSeenBy |= team;
+	}
+
+	if (!fresh)
+		return;
+
+	m_unit->Notify(static_cast<CZSealBody *>(m_entity), (UNIT_MESSAGE)0, ent);
+	bool moving = ai::is_moving(&target->m_ent->m_velW, MoveSqThresh);
+	const CPnt3D* from = target->m_ent != NULL ? target->m_ent->GetPosW() : NULL;
+	CPnt3D dir;
+	from->Sub(listener->GetPosW(), &dir);
+	dir.Normalize();
+	CQuat inverse;
+	inverse.vec.x = -listener->m_quat.vec.x;
+	inverse.vec.y = -listener->m_quat.vec.y;
+	inverse.vec.z = -listener->m_quat.vec.z;
+	inverse.w = listener->m_quat.w;
+	inverse.Apply(&dir, &dir, 1);
+	bool high = !(dir.y <= HighHeight);
+	dir.y = 0.0f;
+	dir.Normalize();
+	PlayAiSound((CHARACTER_SOUND)55);
+	int sound = ai::get_clock_direction(&dir) + 20;
+
+	if (high)
+		sound += 12;
+
+	PlayAiSound((CHARACTER_SOUND)(s8)sound);
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("CALLOUT: %s sighted %s: tango sighted, clock sound %d%s", m_entity->m_node->m_name,
+		ent->m_node->m_name, sound, moving ? ", moving" : "");
+#endif
+
+	if (moving)
+		PlayAiSound((CHARACTER_SOUND)45);
 }
 
 /* @socom-skeleton stub SensorTick__11CSealCtrlAiFf */

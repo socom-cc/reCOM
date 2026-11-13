@@ -248,14 +248,15 @@ _zanim_cmd_hdr* CCamera::CmdParseAcquire(_zrdr* reader)
 namespace zdb {
 bool CCamera::CmdTickControlSwitch(_zanim_cmd_hdr* header, f32* dT)
 	{
-		if (header->timeless)
-		{
-			// m_dynamics_controlled = false;
-		}
-		else if (!header->timeless)
-		{
-			// m_dynamics_controlled = true;
-		}
+		/* 0x1e7470: DYNAMICS_RELEASE_CAMERA (flag bit 0 of the byte at +4) hands the camera
+		   to the animation, DYNAMICS_ACQUIRE_CAMERA (bit 1) gives it back to the camera
+		   dynamics (CAppCamera::Tick) */
+		u8 flags = reinterpret_cast<u8*>(header)[4];
+
+		if (flags & 1)
+			m_dynamics_controlled = false;
+		else if (flags & 2)
+			m_dynamics_controlled = true;
 
 		return true;
 	}
@@ -293,6 +294,8 @@ _zanim_cmd_hdr* CCamera::CmdParseSetRegions(_zrdr* reader)
 namespace zdb {
 bool CCamera::CmdTickSetRegions(_zanim_cmd_hdr* header, f32* dT)
 	{
+		/* 0x1e72f0: SET_CAMERA_REGION_TEST ON (bit 0 of the byte at +4) / OFF */
+		m_do_region_test = (reinterpret_cast<u8*>(header)[4] & 1) != 0;
 		return true;
 	}
 }
@@ -310,7 +313,8 @@ _zanim_cmd_hdr* CCamera::CmdParseGetRegions(_zrdr* reader)
 namespace zdb {
 bool CCamera::CmdTickGetRegions(_zanim_cmd_hdr* header, f32* dT)
 	{
-		return true;
+		/* 0x1e7270: whether the camera region test is on */
+		return m_do_region_test;
 	}
 }
 

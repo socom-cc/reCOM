@@ -151,6 +151,37 @@ bool ai::quadratic(float a, float b, float c, float &r1, float &r2)
 }
 
 /* @socom-skeleton stub get_clock_direction__2aiFPC6CPnt3D */
-void ai::get_clock_direction(const CPnt3D *)
+int ai::get_clock_direction(const CPnt3D *dir)
 {
+	/* 0x17de90 (EnemyCallout): the clock hour (1..12) of a unit direction in the seal's
+	 * own frame (z < 0 ahead, x > 0 right): sectors at |x| 0.2833 and 0.708.
+	 * ELF quirk kept: with |x| over 0.708 ahead, z at or below -0.2833 gives 9 / 3 and a
+	 * flatter z 10 / 2; behind, that test can never pass, so it is 8 / 4 */
+	f32 ax = fabsf(dir->x);
+	f32 z = dir->z;
+
+	if (z < 0.0f)
+	{
+		if (ax <= 0.2833f)
+			return 12;
+
+		if (ax <= 0.708f)
+			return dir->x <= 0.0f ? 11 : 1;
+
+		if (z <= -0.2833f)
+			return dir->x <= 0.0f ? 9 : 3;
+
+		return dir->x <= 0.0f ? 10 : 2;
+	}
+
+	if (ax <= 0.2833f)
+		return 6;
+
+	if (ax <= 0.708f)
+		return dir->x <= 0.0f ? 7 : 5;
+
+	if (z <= -0.2833f)
+		return dir->x <= 0.0f ? 9 : 3;
+
+	return dir->x <= 0.0f ? 8 : 4;
 }

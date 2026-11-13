@@ -773,8 +773,55 @@ void CSealCtrlAi::SetAiLogEnabled(bool, bool)
 }
 
 /* @socom-skeleton stub SetAiEnabled__11CSealCtrlAiFbb */
-void CSealCtrlAi::SetAiEnabled(bool, bool)
+void CSealCtrlAi::SetAiEnabled(bool enable, bool keep)
 {
+	/* 0x26bbc0 (ai::STOPALL, mission cameras): on a change every AI seal's throttles
+	 * stop; disabled, each is pushed into STATE_SUSPENDED (option bit 0 - the node
+	 * goes inactive while suspended - unless keep), enabled, popped out of it */
+	if (enable == (aiEnabled != 0))
+		return;
+
+	aiEnabled = enable;
+
+	for (std::list<CEntity*>::iterator it = CEntity::m_list.begin(); it != CEntity::m_list.end(); ++it)
+	{
+		CEntity *e = *it;
+		CZSealBody *seal = e != NULL && (u8)e->m_type == 2 ? static_cast<CZSealBody *>(e) : NULL;
+
+		if (seal == NULL)
+			continue;
+
+		CSealCtrl *ctrl = static_cast<CSealCtrl *>(seal->m_control);
+
+		if (ctrl == NULL || !ctrl->IsAi())
+			continue;
+
+		CSealCtrlAi *ai = ctrl->GetSealCtrlAi();
+		ai->m_throttle_goal[0] = 0.0f;
+		ai->m_throttle_goal[1] = 0.0f;
+		ai->m_throttle_goal[2] = 0.0f;
+		ai->m_throttle[1] = 0.0f;
+		ai->m_throttle[2] = 0.0f;
+		ai->m_throttle[0] = 0.0f;
+
+		if (enable)
+		{
+			ai->PopAiState(STATE_SUSPENDED);
+			continue;
+		}
+
+		if (!ai->PushAiState(STATE_SUSPENDED, false))
+			continue;
+
+		CAiState *state = ai->GetAiState();
+		state = state->m_state == STATE_SUSPENDED ? state : NULL; /* ELF: not tested for NULL */
+		state->m_option_flags |= keep ? 0u : 1u;
+		state->m_setup = 1;
+	}
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("AI: %s (SetAiEnabled)", enable ? "enabled" : "disabled");
+#endif
 }
 
 /* @socom-skeleton stub GetAiStateEnum__11CSealCtrlAiCFv */

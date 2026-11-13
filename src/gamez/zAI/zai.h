@@ -1312,6 +1312,12 @@ public:
 	virtual bool CanPursue(CSealCtrlAi *) const { return false; } /* ELF: move v0,zero */
 	virtual ~CAiSSuspended() {}
 	/* @socom-skeleton end 13CAiSSuspended */
+
+	/* port: no DWARF type; from Tick 0x2d7c60 / OnSignal 0x2d7e10 */
+	CMatrix m_matrix;         /* +0x30: the node's world matrix when suspended (put back on exit) */
+	u8 m_was_active : 1;      /* +0x70 bit 0: the node was active */
+	u8 m_was_updating : 1;    /* bit 1: the entity updated its target list */
+	u8 m_was_targetable : 1;  /* bit 2: the entity was in target lists */
 };
 
 class CAiSShotAt : public CAiState

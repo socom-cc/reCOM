@@ -1971,7 +1971,11 @@ _zanim_cmd_hdr* CTStopAll::Parse(_zrdr* reader)
 /* @socom-skeleton body Tick__9CTStopAllFP14_zanim_cmd_hdrPf */
 bool CTStopAll::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
-	return false;
+	/* 0x2b5700: ai::STOPALL (true / false): the AI off (bit 0 of the byte at +8) or on;
+	 * bit 1 is passed inverted as the second argument */
+	u8 flags = reinterpret_cast<u8*>(header)[8];
+	CSealCtrlAi::SetAiEnabled((flags & 1) == 0, (flags & 2) == 0);
+	return true;
 }
 
 /* @socom-skeleton body Parse__7CTRangeFP5_zrdr */

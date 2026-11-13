@@ -2494,7 +2494,7 @@ public:
 	static CPnt3D * AddNoise(CPnt3D *, const PNT2D &);
 	static void elevate(CPnt3D &, float, float);
 	static bool quadratic(float, float, float, float &, float &); /* 0x17e070 returns 0/1 (real roots); static: no this */
-	void get_clock_direction(const CPnt3D *);
+	static int get_clock_direction(const CPnt3D *); /* 0x17de90: the clock hour 1..12; static: no this */
 	static bool CheckLineOfFire(const CEntity *, const CTarget *, float); /* 0x2e96d0 returns 0/1 */
 	static void plot_tick(float, bool);
 	static void PushLineColor(const CPnt3D &);

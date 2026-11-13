@@ -882,7 +882,7 @@ CSndInstance * CSnd::PlaySoundVolPanPitch(float volume, int pan, int pitch, CSnd
 
 	if (m_isHeadsetStream && m_headsetstreamname != NULL && !theNetwork.m_bNetwork)
 	{
-		/* port: the headset is offline (voice); its Queue is a stub */
+		/* single player: every headset (HN) line goes to the headset's queue (Headset::Queue) */
 		static_cast<Headset*>(Headset::ftsGetHeadset())->Queue(entity, this, (int)(1024.0f * volume));
 		return NULL;
 	}
@@ -980,7 +980,7 @@ CSndInstance * CSnd::PlaySound3D(const CPnt3D *pos, float volume, int pitch, CSn
 
 	if (m_isHeadsetStream && m_headsetstreamname != NULL && !theNetwork.m_bNetwork)
 	{
-		/* port: the headset is offline (voice); its Queue is a stub */
+		/* single player: every headset (HN) line goes to the headset's queue (Headset::Queue) */
 		static_cast<Headset*>(Headset::ftsGetHeadset())->Queue(entity, this, vol << 10);
 		return NULL;
 	}

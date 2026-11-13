@@ -1224,13 +1224,107 @@ bool CAiSBreach::Tick(float, CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub OnSignal__13CAiSSuspendedFQ28CAiState6SIGNALP11CSealCtrlAi */
-void CAiSSuspended::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+void CAiSSuspended::OnSignal(CAiState::SIGNAL signal, CSealCtrlAi *ctrl)
 {
+	/* 0x2d7e10 (SetAiEnabled(false) pushes this state): entering, the seal stops at once
+	 * and its node's activity, world matrix and target-list flags are saved; leaving, the
+	 * node goes back into the world if it was taken out, the seal back to that matrix,
+	 * the node's activity and the target-list flags back; resumed, the option flags apply
+	 * again on the next Tick (m_ticked); reset: active, identity matrix */
+	CEntity *entity = ctrl != NULL ? ctrl->m_entity : NULL;
+
+	switch ((s32)signal)
+	{
+	case 0:
+	{
+		ctrl->AllStop(false);
+		zdb::CNode *node = entity->GetNode();
+		m_was_active = node->m_active;
+		sceVu0UnitMatrix(m_matrix.m_matrix);
+		node->BuildMTW(m_matrix);
+		m_was_targetable = entity->m_include_in_targetlist;
+		m_was_updating = entity->m_update_targetlist;
+		break;
+	}
+	case 1:
+	{
+		zdb::CNode *node = entity->GetNode();
+		zdb::CWorld *world = zdb::CWorld::m_world;
+
+		if (node->m_parent != world)
+			world->AddChild(node);
+
+		entity->TeleportTo(&m_matrix);
+		node->SetActive(m_was_active);
+		entity->SetUpdateTargetList(m_was_updating);
+		entity->SetIncludeInTargetList(m_was_targetable);
+		break;
+	}
+	case 3:
+		m_ticked = 1;
+		break;
+	case 4:
+		m_was_active = 1;
+		sceVu0UnitMatrix(m_matrix.m_matrix);
+		break;
+	default:
+		break;
+	}
 }
 
 /* @socom-skeleton stub Tick__13CAiSSuspendedFfP11CSealCtrlAi */
-bool CAiSSuspended::Tick(float, CSealCtrlAi *)
+bool CAiSSuspended::Tick(float dT, CSealCtrlAi *ctrl)
 {
+	/* 0x2d7c60: option 8 fades the node out (opacity down 0.75 a second, clamped 0..1; a
+	 * negative opacity is clamped to 0) until it is inactive, then the option ends; on a
+	 * new or resumed state (m_ticked) option 1 (without the fade) makes the node
+	 * inactive, 2 stops its target-list updates, 4 takes it out of target lists */
+	bool fade = (m_option_flags & 8) != 0;
+	CEntity *entity = ctrl != NULL ? ctrl->m_entity : NULL;
+	zdb::CNode *node = entity->GetNode(); /* ELF: called without testing the entity */
+
+	if (fade)
+	{
+		f32 opacity = node->m_Opacity;
+		f32 zero = 0.0f;
+		static const f32 lo = 0.0f; /* @2228 */
+		static const f32 hi = 1.0f; /* @2230 */
+
+		if (opacity != 0.0f)
+		{
+			if (!(0.0f <= opacity))
+			{
+				opacity += 0.75f * dT;
+				saturate<f32>(opacity, lo, zero);
+			}
+			else
+			{
+				opacity -= 0.75f * dT;
+				saturate<f32>(opacity, zero, hi);
+			}
+
+			node->m_Opacity = opacity;
+		}
+
+		node->SetActive(opacity != 0.0f);
+
+		if (!node->m_active)
+			m_option_flags &= ~8u;
+	}
+
+	if (m_ticked)
+	{
+		if (!fade && (m_option_flags & 1))
+			node->SetActive(false);
+
+		if (m_option_flags & 2)
+			entity->SetUpdateTargetList(false);
+
+		if (m_option_flags & 4)
+			entity->SetIncludeInTargetList(false);
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub OnSignal__11CAiSUnknownFQ28CAiState6SIGNALP11CSealCtrlAi */

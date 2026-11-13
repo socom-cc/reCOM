@@ -515,14 +515,46 @@ bool HUDLetterBoxCmdTick(_zanim_cmd_hdr* header, f32* dT)
     return false;
 }
 
-/* @socom-skeleton stub HUDTriggerMissionCamParse__FP5_zrdr */
-_zanim_cmd_hdr * HUDTriggerMissionCamParse(_zrdr *)
+/* port: no DWARF type; the 8-byte record HUDTriggerMissionCamParse builds (0x1f9980) */
+struct zanim_cmd_missioncam
 {
+	_zanim_cmd_hdr header;
+	u8 identifier;  /* +0x4: the mission camera's identifier in the animation's name table */
+};
+
+/* @socom-skeleton stub HUDTriggerMissionCamParse__FP5_zrdr */
+_zanim_cmd_hdr * HUDTriggerMissionCamParse(_zrdr *reader)
+{
+	/* 0x1f9980: HUD_TRIGGER_MISSION_CAM ('identifier'): timeless, 8 bytes, the identifier
+	 * added to the animation being loaded's name table (no record without a string) */
+	zanim_cmd_missioncam* cmd = NULL;
+
+	if (reader == NULL)
+		return NULL;
+
+	_zrdr* first = reader->Get(0);
+
+	if (first != NULL && first->type == ZRDR_STRING)
+	{
+		CZAnim* anim = ZAnim.m_CurAnim;
+		cmd = (zanim_cmd_missioncam*)_calloc(1, 8, "fts_mission.cpp", 961);
+		cmd->header.data_size = 8;
+		cmd->header.timeless = 1;
+		cmd->identifier = (u8)anim->AddName(first->string);
+	}
+
+	return cmd != NULL ? &cmd->header : NULL;
 }
 
 /* @socom-skeleton stub HUDTriggerMissionCamBegin__FP14_zanim_cmd_hdr */
-void HUDTriggerMissionCamBegin(_zanim_cmd_hdr *)
+void HUDTriggerMissionCamBegin(_zanim_cmd_hdr *header)
 {
+	/* 0x1f9930: the HUD plays the mission camera of that identifier */
+	if (theHUD == NULL)
+		return;
+
+	zanim_cmd_missioncam* cmd = reinterpret_cast<zanim_cmd_missioncam*>(header);
+	theHUD->m_missioncams.PlayCamera(ZAnim.m_CurAnim->GetName(cmd->identifier));
 }
 
 /* @socom-skeleton stub HUDTriggerMissionCamTick__FP14_zanim_cmd_hdrPf */
@@ -1201,8 +1233,11 @@ void CMission::Close()
 		delete (CMissionObjectiveCam*)*it;
 
 	m_objectivecams.clear();
-	/* port: not written - the mission camera list m_missioncams (+0x5b4) is not declared
-	 * (LoadMissionCams, which fills it, is unwritten); the ELF deletes each the same way */
+
+	for (std::list<CMissionCam*>::iterator it = m_missioncams.begin(); it != m_missioncams.end(); ++it)
+		delete *it;
+
+	m_missioncams.clear();
 	CZAnimSet* set = ZAnim.GetAnimSet("common");
 
 	if (set != NULL)
@@ -1929,8 +1964,47 @@ void CMission::UnSerialize(const char *, CRdrFile *, int)
 }
 
 /* @socom-skeleton stub LoadMissionCams__8CMissionFP8CRdrFile */
-void CMission::LoadMissionCams(CRdrFile *)
+void CMission::LoadMissionCams(CRdrFile *reader)
 {
+	/* 0x1f31b0 (Open): missioncams.rdr MISSIONCAMS - each entry with a NAME becomes a
+	 * mission camera (IDENTIFIER, NAME, DESCRIPTION, DESCRIPTION2, DESCRIPTION3,
+	 * ON_CALL_ANIMATION, ON_CALL_MUSIC); the old ones are deleted first. ELF: returns 1
+	 * (0 without the reader or the tag; no caller reads it) */
+	for (std::list<CMissionCam*>::iterator it = m_missioncams.begin(); it != m_missioncams.end(); ++it)
+		delete *it;
+
+	m_missioncams.clear();
+
+	if (reader == NULL)
+		return;
+
+	_zrdr* cams = zrdr_findtag(reader, "MISSIONCAMS");
+
+	if (cams == NULL)
+		return;
+
+	for (u32 i = 0; i < (cams->IsArray() ? (u32)(cams->array->integer - 1) : 0u); i++)
+	{
+		_zrdr* cam = cams->Get(i);
+		char* identifier = zrdr_findstring(cam, "IDENTIFIER");
+		char* name = zrdr_findstring(cam, "NAME");
+		char* description1 = zrdr_findstring(cam, "DESCRIPTION");
+		char* description2 = zrdr_findstring(cam, "DESCRIPTION2");
+		char* description3 = zrdr_findstring(cam, "DESCRIPTION3");
+		char* animation = zrdr_findstring(cam, "ON_CALL_ANIMATION");
+		char* music = zrdr_findstring(cam, "ON_CALL_MUSIC");
+
+		if (name == NULL)
+			continue;
+
+		CMissionCam* mission_cam = new CMissionCam();
+		mission_cam->Set(identifier, name, description1, description2, description3, animation, music);
+		m_missioncams.insert(m_missioncams.end(), mission_cam);
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("MISSIONCAM: %s (%s) anim %s -> %p", mission_cam->m_identifier,
+			description1 != NULL ? description1 : "", animation != NULL ? animation : "-", mission_cam->m_anim);
+#endif
+	}
 }
 
 /* @socom-skeleton stub LoadObjectiveCams__8CMissionFP8CRdrFile */
@@ -1939,8 +2013,18 @@ void CMission::LoadObjectiveCams(CRdrFile *)
 }
 
 /* @socom-skeleton stub GetMissionCamByIdentifier__8CMissionFPCc */
-CMissionCam * CMission::GetMissionCamByIdentifier(const char *)
+CMissionCam * CMission::GetMissionCamByIdentifier(const char *identifier)
 {
+	/* 0x1f2bf0: the first mission camera of that identifier */
+	for (std::list<CMissionCam*>::iterator it = m_missioncams.begin(); it != m_missioncams.end(); ++it)
+	{
+		CMissionCam* cam = *it;
+
+		if (cam != NULL && strcmp(cam->m_identifier, identifier) == 0)
+			return cam;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton body TickInFirefight__8CMissionFf */

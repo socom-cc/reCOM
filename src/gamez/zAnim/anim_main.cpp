@@ -80,6 +80,7 @@ static f32 _x;
 #include "gamez/zMath/zmath.h"
 #include "gamez/zNode/znode.h"
 #include "gamez/zNode/node_world.h" /* zdb::CWorld (GetDatabaseNode) */
+#include "gamez/zNode/node_universe.h" /* zdb::NodeUniverse (GetDatabaseNode) */
 #include "gamez/zReader/zrdr.h"
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
@@ -904,7 +905,14 @@ zdb::CNode * CZAnimMain::GetDatabaseNode(const char *name, int scope)
 		if (node == NULL)
 			node = world->FindChild(name, true);
 
-		/* port: not written - the world's landmark list is searched next (0x1c32c8) */
+		/* then the world's landmarks: one of that name, or a child of one */
+		for (zdb::CNodeVector::iterator it = world->m_landmarks.begin(); it != world->m_landmarks.end() && node == NULL; ++it)
+		{
+			if (strcmp((*it)->m_name, name) == 0)
+				node = *it;
+			else
+				node = (*it)->FindChild(name, true);
+		}
 	}
 
 	if (node == NULL && world != NULL && (scope == 2 || scope == 0))
@@ -913,7 +921,20 @@ zdb::CNode * CZAnimMain::GetDatabaseNode(const char *name, int scope)
 	if (node == NULL && scope == 4 && GetMenuNode() != NULL)
 		node = GetMenuNode()->FindChild(name, true);
 
-	/* port: not written - scope 0 finally searches zdb::NodeUniverse (0x1c33d4) */
+	/* GLOBAL: finally every node (zdb::NodeUniverse: the world camera "camera", ...) */
+	if (node == NULL && scope == 0 && zdb::NodeUniverse != NULL)
+	{
+		/* ELF: CNodeVector::GetNode on the universe (port: CNodeUniverse is a std::vector here) */
+		for (std::vector<zdb::CNode*>::iterator it = zdb::NodeUniverse->begin(); it != zdb::NodeUniverse->end(); ++it)
+		{
+			if (*it != NULL && (*it)->m_name != NULL && strcmp(name, (*it)->m_name) == 0)
+			{
+				node = *it;
+				break;
+			}
+		}
+	}
+
 	return node;
 }
 
