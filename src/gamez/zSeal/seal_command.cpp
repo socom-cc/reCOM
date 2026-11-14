@@ -656,9 +656,109 @@ void CSealCtrlAi::OnCommand(CZSealBody *source, FT_COMMAND cmd, void *buffer, bo
 		break;
 	}
 
+	case CMD_ACTION:
+	{
+		/* 0x28240c: use the node action given (else the one under the source's reticle):
+		 * STATE_ACTION, done when the action's valve is 0 (a closed / unset valve: wanted 1) */
+		if (source == NULL || !PushAiState(STATE_ACTION, true))
+			break;
+
+		CNodeAction *action = buffer != NULL ? (CNodeAction *)buffer : source->GetReticuleAction(false);
+		CValve *valve = action != NULL ? action->m_valve : NULL;
+		CAiState *state = GetAiState();
+		CAiSAction *act = state->m_state == STATE_ACTION ? static_cast<CAiSAction *>(state) : NULL;
+
+		if (act != NULL) /* port: NULL-tested (ELF writes through it) */
+		{
+			act->m_action = action;
+			act->m_value = valve != NULL ? (valve->m_value == 0) : 1;
+			act->m_setup = 1;
+		}
+		break;
+	}
+
+	case CMD_DEPLOY:
+	{
+		/* 0x281a80: deploy the item (the buffer: an EQUIP_ITEM) at the source's aim point from
+		 * the player's reticle cell (FindValidReticleGotoLoc; invalid: from where the AI is);
+		 * 15 s for C4 / satchel / claymore, else 5 */
+		if (source == NULL || !PushAiState(STATE_DEPLOY, true))
+			break;
+
+		CAiState *state = GetAiState();
+		CAiSDeploy *deploy = state->m_state == STATE_DEPLOY ? static_cast<CAiSDeploy *>(state) : NULL;
+
+		if (deploy == NULL) /* port: NULL-tested (ELF writes through it) */
+			break;
+
+		deploy->m_target = source->m_aim_point;
+		int packed;
+
+		if (ftsGetPlayer()->FindValidReticleGotoLoc(&packed))
+		{
+			u32 p = (u32)packed;
+			deploy->m_dest.m_mapid = (p >> 26) & 0x3f;
+			deploy->m_dest.x = (p >> 13) & 0x1fff;
+			deploy->m_dest.y = p & 0x1fff;
+		}
+		else
+		{
+			memcpy(&deploy->m_dest, CAiMapLoc::invalid, 4);
+		}
+
+		CPnt3D unused; /* ELF: the target less the AI's position, not used */
+		deploy->m_target.Sub(seal->GetPosW(), &unused);
+		deploy->m_offset = CPnt3D::zero;
+		deploy->m_item = (u32)(uintptr_t)buffer;
+		u32 code = (u8)(uintptr_t)buffer;
+		deploy->m_time = (code == 153 || code == 152 || code == 151) ? 15.0f : 5.0f;
+		deploy->m_setup = 1;
+		break;
+	}
+
+	case CMD_BREACHBANGCLEAR:
+	case CMD_BREACHFRAGCLEAR:
+	case CMD_BREACHNONECLEAR:
+		/* 0x282574: the buffer is the unit's breach template (CSealUnit::IssueCommand) */
+		AddBreachMember((CAiSBreach *)buffer, this);
+		break;
+
+	case CMD_AWARE:
+	{
+		/* 0x2824b4: from an AI source: target the entity given when this AI knows it, and
+		 * take the source's awareness */
+		if (sourceAi == NULL)
+			break;
+
+		CEntity *entity = (CEntity *)buffer;
+		CTarget *target = seal->m_targets.FindTarget(entity);
+
+		if (target != NULL)
+		{
+			Debug("CMD_AWARE target is %s\n", entity->m_node->m_name);
+			SetTarget(target);
+		}
+		else if (entity != NULL)
+		{
+			Debug("CMD_AWARE:  Can't find target %s\n", entity->m_node->m_name);
+		}
+		else
+		{
+			Debug("CMD_AWARE:  Missing data...\n");
+		}
+
+		if (sourceAi->GetAiAware() != 0)
+			SetAiAware(sourceAi->GetAiAware(), NULL);
+		break;
+	}
+
+	case CMD_AWAKE:
+		/* 0x282588 */
+		SetSleeping(false);
+		break;
+
 	default:
-		/* port: not written: ACTION 0x28240c, DEPLOY 0x281a80, the breaches 0x282574, LASETARGET 0x281148, AWARE 0x2824b4,
-		 * AWAKE 0x282588 (the others have no case in the ELF) */
+		/* port: not written: LASETARGET 0x281148 (the others have no case in the ELF) */
 		break;
 	}
 }

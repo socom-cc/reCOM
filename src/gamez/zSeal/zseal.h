@@ -318,6 +318,9 @@ void ParentPistolToRThighAsGearCallback(void *, void *); /* seal_env.cpp 0x2986e
 void NetSendPushBlend(unsigned int, int, int, bool); /* fts_remote.cpp 0x2038a0 */
 void SendHitMessage(int, int, int, float, float, bool, unsigned char); /* fts_remote.cpp 0x203af0 */
 void PlayRemoteMsg(CEntity *, int); /* seal_unit.cpp 0x2cf330 */
+class CAiSBreach;
+class CSealCtrlAi;
+void AddBreachMember(CAiSBreach *, CSealCtrlAi *); /* seal_unit.cpp 0x2d3540 (OnCommand's breach orders) */
 CZBodyPart * BodyWepPart(CZSealBody *, SEAL_ITEM); /* seal_cfg.cpp 0x280e30 */
 namespace zdb { class CLightMap; }
 
@@ -498,7 +501,7 @@ public:
 	bool SetCurItemEnum(EQUIP_ITEM); /* bool: 0x2af610 returns 0/1; IncrementalUpdateRemoteSeal tests it */
 	EQUIP_ITEM GetCurItemEnum() const;
 	int GetItemIndex(EQUIP_ITEM) const;
-	void GetAmmoIndex(EQUIP_AMMO, int);
+	int GetAmmoIndex(EQUIP_AMMO, int); /* 0x2af3d0: the slot or -1 */
 	int GetItemIndex(SEAL_ITEM);
 	bool HasItem(EQUIP_ITEM) const; /* 0x2af310: 0/1 */
 	bool HasSniperRifle(); /* 0x2af290 returns 0/1 */
@@ -1453,7 +1456,7 @@ public:
 	int DoHandSignal(SEAL_HANDSIGNAL); /* 0x2e3760: the anim type, -1 none */
 	void FootInSpace(CZBodyAnim *, CPnt3D *, CPnt3D *, float, float, bool);
 	void TurnSetup(int);
-	void CheckPathProximity(const CAiPath &, int, float) const;
+	bool CheckPathProximity(const CAiPath &, int, float) const; /* returns 0/1 */
 	WEAPON_STATE GetWeaponState() const; /* 0x2c0670: andi 0xff */
 	void WepWaitOff();
 	void WepWaitOn();
@@ -1583,7 +1586,7 @@ public:
 	void ResetPointOutState();
 	bool GetMyPointOutTurnDir(CZSealBody *, CPnt3D **);
 	bool GetMyPointOutAnimStart(CZSealBody *);
-	void CheckPathProximity(const CAiPath &, int, float) const;
+	bool CheckPathProximity(const CAiPath &, int, float) const; /* returns 0/1 */
 	static unsigned char m_created_units_test;
 	static std::list<CSealUnit*> m_list; /* 0x5097b0, MSL list (was int[3]); TickAll walks it */
 	/* @socom-skeleton end 9CSealUnit */
@@ -2114,6 +2117,17 @@ public:
 
 class CSealCtrlSquirm : public CSealCtrl
 {
+public:
+	/* port: no DWARF members; layout from the ctor 0x2e2e00 and Initalize 0x2e2c50 (after
+	 * CSealCtrl's 0x240 bytes); names invented */
+	u32 m_unk_240;       /* +0x240 */
+	u8 m_on;             /* +0x244 set by Initalize */
+	Rfloat m_wait;       /* +0x248 (0.1, 0.4); Initalize: (1, 0) */
+	Rfloat m_hold;       /* +0x250 (0.5, 0.7); Initalize: (5, 0) */
+	f32 m_until;         /* +0x258 m_timer + a hold drawn */
+	f32 m_timer;         /* +0x25c a wait drawn */
+	Rfloat m_unk_260;    /* +0x260 (0, 0); Initalize: (8, 0) */
+	f32 m_unk_268;       /* +0x268 drawn from it */
 
 	/* @socom-skeleton decl 15CSealCtrlSquirm */
 public:
@@ -2499,6 +2513,7 @@ class CHandSignal
 {
 public:
 	CHandSignal();
+	s32 m_value[3]; /* port: no DWARF members; the ctor 0x2e3bd0 sets three words to -1 (m_handSignal holds 8) */
 };
 /* @socom-skeleton end 11CHandSignal */
 /* @socom-skeleton decl 2ai */

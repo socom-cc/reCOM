@@ -376,13 +376,38 @@ int CZKit::GetItemIndex(EQUIP_ITEM id) const
 }
 
 /* @socom-skeleton stub GetAmmoIndex__5CZKitF10EQUIP_AMMOi */
-void CZKit::GetAmmoIndex(EQUIP_AMMO, int)
+int CZKit::GetAmmoIndex(EQUIP_AMMO ammo, int count)
 {
+	/* 0x2af3d0: the first slot holding that ammo type whose magazines total the count; -1 */
+	for (int i = 0; i < m_num_items; i++)
+	{
+		if (m_ammo[i] == NULL || (u8)m_ammo[i]->m_ID != (u8)ammo)
+			continue;
+
+		s32 slot = unwrap(i, m_num_items);
+		s32 total = 0;
+
+		for (int j = 0; j < 10; j++)
+			total += m_reloads[slot][j];
+
+		if (total == count)
+			return i;
+	}
+
+	return -1;
 }
 
 /* @socom-skeleton stub GetItemIndex__5CZKitF9SEAL_ITEM */
-int CZKit::GetItemIndex(SEAL_ITEM)
+int CZKit::GetItemIndex(SEAL_ITEM type)
 {
+	/* 0x2af370: the slot of the first item of that seal-item type, else -1 */
+	for (int i = 0; i < m_num_items; i++)
+	{
+		if (m_item[i] != NULL && (u8)m_item[i]->m_type == (u8)type)
+			return i;
+	}
+
+	return -1;
 }
 
 /* @socom-skeleton stub HasItem__5CZKitCF10EQUIP_ITEM */
@@ -499,6 +524,7 @@ CZKit::CZKit()
 /* @socom-skeleton stub __dt__5CZKitFv */
 CZKit::~CZKit()
 {
+	/* 0x2aed50: m_items_avail's storage is freed (the vector's own destructor) */
 }
 
 /* @socom-skeleton stub NVG_Enabled__5CZKitCFv */
@@ -888,8 +914,10 @@ void CZKit::GetWeapon(int index, CZFTSWeapon **weapon, CZAmmo **ammo)
 }
 
 /* @socom-skeleton stub FireCur__5CZKitFPC6CPnt3DPC6CPnt3DPC6CPnt3D */
-CZProjectile * CZKit::FireCur(const CPnt3D *, const CPnt3D *, const CPnt3D *)
+CZProjectile * CZKit::FireCur(const CPnt3D *from, const CPnt3D *dir, const CPnt3D *vel)
 {
+	/* 0x2adea0: Fire with the selected item */
+	return Fire(m_selected_item, from, dir, vel);
 }
 
 /* @socom-skeleton stub Fire__5CZKitFiPC6CPnt3DPC6CPnt3DPC6CPnt3D */
@@ -1219,8 +1247,18 @@ CZProjectile * CZKit::Fire(int index, const CPnt3D *from, const CPnt3D *dir, con
 	{
 		weapon->Fire(m_body->GetNode(), ammo, from, dir, vel, projectile, m_body->m_id, model, time, removal);
 
-		/* port: not written - an AI thrower in the grenade state keeps the projectile
-		 * (CSealCtrlAi::GetAiState, AI) */
+		/* 0x2adc9c: an AI deploying (STATE_DEPLOY) keeps the projectile in its deploy state
+		 * (CAiSDeploy::Tick waits for its fuse) */
+		CSealCtrlAi *ai = static_cast<CSealCtrl *>(m_body->m_control)->GetSealCtrlAi();
+
+		if (ai != NULL && ai->AiStateIs(STATE_DEPLOY))
+		{
+			CAiState *top = ai->GetAiState();
+
+			if (top->m_state == STATE_DEPLOY) /* port: tested (ELF writes through NULL + 0x54) */
+				static_cast<CAiSDeploy *>(top)->m_projectile = projectile;
+		}
+
 		if (weapon->IsDirectFire())
 			m_body->m_stats.Shot(*m_body);
 	}
@@ -1532,8 +1570,17 @@ int CZKit::GetCurMaxAmmoCount()
 }
 
 /* @socom-skeleton stub EmptyAmmoCountTotal__5CZKitFi */
-void CZKit::EmptyAmmoCountTotal(int)
+void CZKit::EmptyAmmoCountTotal(int index)
 {
+	/* 0x2ac100: every magazine of the slot emptied (the index wrapped; ELF quirk kept: an
+	 * index equal to the count, or no items, empties slot -1, port: nothing) */
+	s32 slot = unwrap(index, m_num_items);
+
+	if (slot < 0) /* port */
+		return;
+
+	for (int j = 0; j < 10; j++)
+		m_reloads[slot][j] = 0;
 }
 
 /* @socom-skeleton stub GetAmmoCount__5CZKitFi */
@@ -2203,6 +2250,52 @@ bool CZKit::TickExplosives(float dT)
 /* @socom-skeleton stub TickFlashlight__5CZKitFf */
 void CZKit::TickFlashlight(float)
 {
+	/* 0x2aa4e0: the flashlight (item 181) switched on (item state 8): its light map is put at
+	 * the end of a 100-long ray from 12 over the body along the aim, or (something hit, the
+	 * body's node hidden for the test) at the hit, its range from the ray's length beyond the
+	 * hit (minimum 0.9 of it). ELF quirks kept: the range is that remainder; the projection's
+	 * translation is the negated position */
+	if (m_lightMap == NULL)
+		return;
+
+	s32 slot = m_selected_item;
+	CZFTSWeapon *item = m_item[slot];
+
+	if (item == NULL || (u8)item->m_ID != 181 || !(m_itemstate[slot] & 8))
+		return;
+
+	CPnt3D dir;
+	m_body->m_quat.Apply(&m_body->m_aim_goal, &dir, 1);
+	const CPnt3D *pos = m_body->GetPosW();
+	CPnt3D from(pos->x, pos->y + 12.0f, pos->z);
+	CPnt3D ray;
+	dir.Scale(100.0f, &ray);
+	CPnt3D at;
+	from.Add(&ray, &at);
+	zdb::CNode *node = m_body->GetNode();
+	bool active = node->SetActive(false);
+	zdb::IntersectStruct *hit = zdb::CWorld::m_world->GetIntersect(&from, &at);
+	m_body->GetNode()->SetActive(active);
+
+	if (hit != NULL)
+	{
+		const CPnt3D *hitPos = (const CPnt3D *)hit; /* the hit point leads the record */
+		CPnt3D rest;
+		at.Sub(hitPos, &rest);
+		f32 range = sqrtf(rest.x * rest.x + rest.y * rest.y + rest.z * rest.z);
+		m_lightMap->m_minRange = 0.9f * range;
+		m_lightMap->m_maxRange = range;
+		m_lightMap->m_maxRangeSq = range * range;
+		m_lightMap->m_invMaxRange = 1.0f / m_lightMap->m_maxRange;
+		m_lightMap->m_invDeltaRange = 1.0f / (m_lightMap->m_maxRange - m_lightMap->m_minRange);
+		m_lightMap->UpdateBBox(false);
+		at = *hitPos;
+	}
+
+	m_lightMap->m_worldToUV.m_matrix[3][0] = -at.x;
+	m_lightMap->m_worldToUV.m_matrix[3][1] = -at.y;
+	m_lightMap->m_worldToUV.m_matrix[3][2] = -at.z;
+	m_lightMap->SetPosition(at.x, at.y, at.z);
 }
 
 /* @socom-skeleton stub Apply_LensEffects__5CZKitFbP6CPnt3D */
@@ -2559,13 +2652,91 @@ void CZKit::DetonateRemoteExplosives()
 }
 
 /* @socom-skeleton stub HandlePlacingExlosive__5CZKitF10EQUIP_ITEMff */
-void CZKit::HandlePlacingExlosive(EQUIP_ITEM, float, float)
+void CZKit::HandlePlacingExlosive(EQUIP_ITEM item, float a, float b)
 {
+	/* 0x2a94f0 (the action button on a charge spot, TickMPBomb): the explosive item is
+	 * selected (the previous slot remembered); a direct-fire item puts the previous one back.
+	 * When the body can fire, the fire delay is over and a charge is left (infinite ammo, a
+	 * grenade launcher magazine, the detonator 186 / item 183, or the slot's magazine), it is
+	 * fired (placed) through HandleFireWeapon */
+	m_last_selected = m_selected_item;
+
+	if (!SetCurItemEnum(item))
+	{
+		m_last_selected = -1;
+		return;
+	}
+
+	if (m_item[m_selected_item]->IsDirectFire())
+	{
+		if (m_last_selected >= 0)
+		{
+			SetCurItemByIndex(m_last_selected);
+			m_last_selected = -1;
+		}
+		return;
+	}
+
+	if (!m_body->CanFire() || !(m_fire_delay <= 0.0f))
+		return;
+
+	bool ok;
+	s32 sel = m_selected_item;
+
+	if (m_body->m_infiniteammo)
+	{
+		ok = true;
+	}
+	else if (WeaponIsGrenadeLauncherMode(sel))
+	{
+		s32 gl = m_firemode[sel] - 3; /* ELF: the fire mode less 3 used as the slot */
+		ok = m_reloads[gl][m_currentmag[gl]] > 0;
+	}
+	else
+	{
+		u8 cur = (u8)GetCurItemEnum();
+		ok = cur == 186 || cur == 183 || m_reloads[sel][m_currentmag[sel]] > 0;
+	}
+
+	if (ok)
+		HandleFireWeapon(sel, a, b);
 }
 
 /* @socom-skeleton stub FetchLaseTarget__5CZKitFv */
 bool CZKit::FetchLaseTarget()
 {
+	/* 0x2a9360 (the designator's fire): the first lase target (AiMaps' name table 3) within
+	 * m_lase_dist_max cells of the aim point whose anim is ready (state 1) is taken: the lase
+	 * timer starts (registered for the HUD, m_lase_delay) */
+	CAiMapLoc loc;
+
+	if (!AiMaps.GetLocation(&m_body->m_aim_point, loc))
+		return false;
+
+	CAiMap::names &targets = AiMaps.m_names[3];
+
+	for (CAiMap::names::iterator it = targets.begin(); it != targets.end(); ++it)
+	{
+		s32 dx = (s32)it->m_loc.x - (s32)loc.x;
+		s32 dy = (s32)it->m_loc.y - (s32)loc.y;
+
+		if (!((dx < 0 ? -dx : dx) + (dy < 0 ? -dy : dy) < m_lase_dist_max))
+			continue;
+
+		CZAnim *anim = ZAnim.GetAnim(it->m_name, NULL);
+
+		if (anim == NULL || anim->m_state != 1)
+			continue;
+
+		m_lase_mapname = &*it;
+		m_lase_anim = anim;
+		m_lase_timer = 0.0001f;
+		m_lase_echo = 1;
+		CZWeapon::RegisterTimer(&m_lase_timer, m_lase_delay, true);
+		return true;
+	}
+
+	return false;
 }
 
 /* @socom-skeleton stub Timer_PlaceC4__FPvPv */
@@ -2578,8 +2749,68 @@ void Timer_PlaceC4(void *, void *firetime)
 }
 
 /* @socom-skeleton stub TickLaserDesignator__5CZKitFf */
-void CZKit::TickLaserDesignator(float)
+void CZKit::TickLaserDesignator(float dT)
 {
+	/* 0x2a90a0: while the trigger is held (1) on the same lase target (in range, its anim
+	 * still ready) the timer runs; let go (0, 3) or off the target, the lase is dropped. After
+	 * m_lase_delay the target's anim runs (the strike), m_lase_deploy_echo is set and the lase
+	 * ends. ELF quirk kept: CSnd::PlayErrorSound is called when the finish sound exists */
+	if (m_lase_mapname == NULL || m_lase_anim == NULL)
+		return;
+
+	u8 trigger = (u8)static_cast<CSealCtrl *>(m_body->m_control)->m_trigger;
+
+	if (trigger == 1)
+	{
+		CAiMapLoc loc;
+		bool on = AiMaps.GetLocation(&m_body->m_aim_point, loc);
+
+		if (on)
+		{
+			s32 dx = (s32)loc.x - (s32)m_lase_mapname->m_loc.x;
+			s32 dy = (s32)loc.y - (s32)m_lase_mapname->m_loc.y;
+			on = (dx < 0 ? -dx : dx) + (dy < 0 ? -dy : dy) < m_lase_dist_max && m_lase_anim->m_state == 1;
+		}
+
+		if (on)
+		{
+			m_lase_timer += dT;
+		}
+		else
+		{
+			for (int i = 0; i < 2; i++) /* ELF: cleared twice */
+			{
+				m_lase_mapname = NULL;
+				m_lase_anim = NULL;
+				m_lase_timer = 0.0f;
+				m_lase_echo = 0;
+				CZWeapon::ClearTimer();
+			}
+		}
+	}
+	else if (trigger == 0 || trigger == 3)
+	{
+		m_lase_mapname = NULL;
+		m_lase_anim = NULL;
+		m_lase_timer = 0.0f;
+		m_lase_echo = 0;
+		CZWeapon::ClearTimer();
+	}
+
+	if (m_lase_timer <= m_lase_delay)
+		return;
+
+	m_lase_anim->Activate(NULL);
+
+	if (m_lasesnd_fin != NULL)
+		CSnd::PlayErrorSound();
+
+	m_lase_deploy_echo = 1;
+	m_lase_mapname = NULL;
+	m_lase_anim = NULL;
+	m_lase_timer = 0.0f;
+	m_lase_echo = 0;
+	CZWeapon::ClearTimer();
 }
 
 /* @socom-skeleton stub HandleFireWeapon__5CZKitFiff */
@@ -3315,8 +3546,20 @@ s32 CZKit::GetTotalEnc()
 }
 
 /* @socom-skeleton stub FireGrenade__5CZKitFPC6CPnt3DPC6CPnt3D */
-CZProjectile * CZKit::FireGrenade(const CPnt3D *, const CPnt3D *)
+CZProjectile * CZKit::FireGrenade(const CPnt3D *from, const CPnt3D *dir)
 {
+	/* 0x2a7410: the selected item: an explosive (150) is placed at the point with the body's
+	 * rotation, anything else is fired with no velocity */
+	CPnt3D vel = CPnt3D::zero;
+	CZFTSWeapon *item = m_item[m_selected_item];
+
+	if (item == NULL)
+		return NULL;
+
+	if ((u8)item->GetIDType() == 150)
+		return (CZProjectile *)HandleRemotePlaceExplosive(from, &m_body->m_quat);
+
+	return Fire(m_selected_item, from, dir, &vel);
 }
 
 /* @socom-skeleton stub HandleRemotePlaceExplosive__5CZKitFPC6CPnt3DPC5CQuat */
@@ -3441,9 +3684,17 @@ PlacedExplosive * CZKit::HandleRemotePlaceExplosive(const CPnt3D *pos, const CQu
 		if (remote)
 			SetCurItemEnum(EQUIP_ITEM::DETONATOR);
 
-		/* an AI in STATE_DEPLOY keeps the charge in its deploy state (+0x54); the ELF writes
-		 * through NULL + 0x54 when the state is another one. port: not written (CAiSDeploy has
-		 * no members declared; the player never deploys through the AI) */
+		/* 0x2a734c: an AI in STATE_DEPLOY keeps the charge in its deploy state */
+		CSealCtrlAi *ai = static_cast<CSealCtrl *>(m_body->m_control)->GetSealCtrlAi();
+
+		if (ai != NULL && ai->AiStateIs(STATE_DEPLOY))
+		{
+			CAiState *top = ai->GetAiState();
+
+			if (top->m_state == STATE_DEPLOY) /* port: tested (ELF writes through NULL + 0x54) */
+				static_cast<CAiSDeploy *>(top)->m_projectile = explosive;
+		}
+
 #ifdef SOCOM_PORT
 		SOCOM_PORT_TRACE("EXPL: %s placed by %s at %.1f %.1f %.1f: fuse %.1f, removal %.1f, %s, pickup %s",
 			weapon->m_name != NULL ? weapon->m_name : "-", m_body->m_node != NULL && m_body->m_node->m_name != NULL ? m_body->m_node->m_name : "-",
@@ -3888,6 +4139,9 @@ void CZKit::UpdateNumItems()
 /* @socom-skeleton stub PendingPickupHandled__5CZKitFv */
 void CZKit::PendingPickupHandled()
 {
+	/* 0x2a5780: the pickup request is answered */
+	m_current_requested_ammo = 0;
+	m_pickupRequestWait = 0;
 }
 
 /* @socom-skeleton stub SetWeaponInfoChanged__5CZKitFv */

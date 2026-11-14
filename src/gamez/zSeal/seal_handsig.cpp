@@ -28,6 +28,10 @@ static int m_handSignal[24];
 /* @socom-skeleton stub __ct__11CHandSignalFv */
 CHandSignal::CHandSignal()
 {
+	/* 0x2e3bd0: three words set to -1 */
+	m_value[0] = -1;
+	m_value[1] = -1;
+	m_value[2] = -1;
 }
 
 /* @socom-skeleton body InitHandSignals__10CZSealBodyFv */

@@ -153,6 +153,49 @@ struct TASK_FIREMODE : public TASK_HDR /* ai::FIREMODE (Parse 0x2bd3a0, Begin 0x
 	u8 m_trigger;      /* +0x18 bit 0: a trigger timing was given */
 };
 
+struct TASK_ACTION : public TASK_HDR /* ai::ACTION (Parse 0x2be520, 16 bytes) */
+{
+	s32 m_valve;            /* +0x08 the anim's valve index ("action", CZAnim::AddValve) */
+	u16 m_state;            /* +0x0c the valve value wanted ("state", 1 default) */
+	u8 m_auto_return : 1;   /* +0x0e "auto_return" */
+	u8 m_unk_0e : 7;
+};
+
+struct TASK_MAP : public TASK_HDR /* ai::MAP (Parse 0x2ba8a0, 20 bytes) */
+{
+	u8 m_mode;       /* +0x08: 1 clear_action, 2 set a region's type */
+	u32 m_type;      /* +0x0c the region type ("set_type", CAiMap::region::GetTypeName) */
+	CAiMapLoc m_loc; /* +0x10 the region ("region" "name") */
+};
+
+struct TASK_PAINT : public TASK_HDR /* ai::PAINT (Parse 0x2b98d0, 20 bytes) */
+{
+	CAiMapLoc m_loc; /* +0x08 the region */
+	u32 m_mask;      /* +0x0c the cell bits to change */
+	u16 m_value;     /* +0x10 the soil / boundary / region type */
+	u8 m_mode;       /* +0x12: 1 soil, 2 boundary, 3 region type */
+	u8 m_unk_13;
+};
+
+struct TASK_SPECIAL : public TASK_HDR /* ai::SPECIAL (Parse 0x2b6450, 12 bytes) */
+{
+	u8 m_index;      /* +0x08 the anim argument command running (from 1) */
+	u8 m_phase : 4;  /* +0x09: 0 begin, 1 tick, 2 end */
+	u8 m_unk_09 : 4;
+};
+
+struct TASK_FIREWEAPON : public TASK_HDR /* ai::FIREWEAPON (Parse 0x2bd060, 44 bytes) */
+{
+	u32 m_item;         /* +0x08 the EQUIP_ITEM ("weapon": CZWeapon::GetWeaponId) */
+	u8 m_armed : 1;     /* +0x0c Begin: the seal has the item */
+	u8 m_has_pos : 1;   /* bit 1: m_pos */
+	u8 m_unk_0c_2 : 1;
+	u8 m_has_loc : 1;   /* bit 3: m_loc */
+	u8 m_unk_0c_4 : 4;
+	CAiMapLoc m_loc;    /* +0x10 */
+	CPnt3D m_pos;       /* +0x14 */
+};
+
 struct TASK_PLAY : public TASK_HDR /* ai::ANIMATE (Tick 0x2b7640) */
 {
 	Rfloat m_prewait;      /* +0x08 */
@@ -345,6 +388,17 @@ static CZSealBody *taskSeal(u32 index)
 	return select != NULL ? select->m_seal : NULL;
 }
 
+/* port: file-local for the Parse functions' inline header set-up: a zeroed record of that
+ * size (_calloc, as the ELF), its command type the one being parsed (ai_cmdid's first half
+ * word) and its size in the header */
+static _zanim_cmd_hdr *task_alloc(u32 size, u16 type)
+{
+	_zanim_cmd_hdr *hdr = (_zanim_cmd_hdr *)_calloc(size, 1, "seal_tasks.cpp", 27);
+	hdr->data_size = size;
+	hdr->data_type = type;
+	return hdr;
+}
+
 /* @socom-skeleton body RegisterCommands__11CSealCtrlAiFv */
 bool CSealCtrlAi::RegisterCommands()
 {
@@ -390,36 +444,81 @@ bool CSealCtrlAi::RegisterCommands()
 /* @socom-skeleton body Parse__8CTActionFP5_zrdr */
 _zanim_cmd_hdr* CTAction::Parse(_zrdr* reader)
 {
-	// Look inside the "action" tag to find a string value
-	/*
-	* action 
-	(
-		state (YOUR_STATE_HERE)
-		auto_return (true)
-	)
-	*/
-	const char* action = zrdr_findstring(reader, "action");
-	u32 state = zrdr_finduint(reader, "state", &state, 1);
-	bool auto_return = zrdr_findbool(reader, "auto_return", &auto_return);
+	/* 0x2be520 (written, untested): "action" (a valve of the anim being loaded), "state"
+	 * (the value wanted, 0xffff when not given), "auto_return"; no action: no record */
+	u32 state = 0xffff;
+	bool autoReturn = false;
+	char *action = zrdr_findstring(reader, "action");
+	zrdr_finduint(reader, "state", &state, 1);
+	zrdr_findbool(reader, "auto_return", &autoReturn);
 
-	if (action != NULL)
-	{
+	if (action == NULL)
+		return NULL;
 
-	}
-
-	return NULL;
+	TASK_ACTION *task = (TASK_ACTION *)task_alloc(16, *(u16 *)&ai_cmdid[0]);
+	task->m_valve = ZAnim.m_CurAnim->AddValve(action);
+	task->m_state = (u16)state;
+	task->m_auto_return = autoReturn ? 1 : 0;
+	return (_zanim_cmd_hdr *)task;
 }
 
 /* @socom-skeleton body Tick__8CTActionFP14_zanim_cmd_hdrPf */
 bool CTAction::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
-	return false;
+	/* 0x2be2f0: the AI uses the node action whose valve is the anim's valve m_valve until the
+	 * valve has m_state (STATE_ACTION); with auto_return a GOTO back to where it stands is
+	 * pushed under it first. Always done at once (the frame's time used up) */
+	TASK_ACTION *task = reinterpret_cast<TASK_ACTION *>(header);
+	CZSealBody *seal = taskSeal(task->m_seal_index);
+	CSealCtrlAi *ai = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi() : NULL;
+
+	if (ai != NULL)
+	{
+		CNodeAction *action = CNodeAction::FindActionByValve(ZAnim.m_CurAnim->GetValve(task->m_valve));
+
+		if (action != NULL)
+		{
+			if (task->m_auto_return && ai->PushAiState(STATE_GOTO, true))
+			{
+				CAiState *top = ai->GetAiState();
+				CAiSGoto *go = top->m_state == STATE_GOTO ? static_cast<CAiSGoto *>(top) : NULL;
+
+				if (go != NULL) /* port: NULL-tested (ELF writes through it) */
+				{
+					go->m_dest = ai->m_entity->m_mapLocValid;
+					go->m_setup = 1;
+				}
+			}
+
+			if (ai->PushAiState(STATE_ACTION, true))
+			{
+				CAiState *top = ai->GetAiState();
+				CAiSAction *act = top->m_state == STATE_ACTION ? static_cast<CAiSAction *>(top) : NULL;
+
+				if (act != NULL) /* port: NULL-tested (ELF writes through it) */
+				{
+					act->m_action = action;
+					act->m_value = task->m_state;
+					act->m_setup = 1;
+				}
+			}
+		}
+	}
+
+	*dT = 0.0f;
+	return true;
 }
 
 /* @socom-skeleton body Parse__6CTCommFP5_zrdr */
 _zanim_cmd_hdr* CTComm::Parse(_zrdr* reader)
 {
-	return NULL;
+	/* 0x2be230 (written, untested): "team" (-1 none), "cmd" (CSealCtrl::GetCommandId) */
+	TASK_COMM *task = (TASK_COMM *)task_alloc(16, *(u16 *)&ai_cmdid[0]);
+	task->m_team = -1;
+	task->m_cmd = 0;
+	zrdr_findint(reader, "team", &task->m_team, 1);
+	task->m_cmd = (u8)CSealCtrl::GetCommandId(zrdr_findstring(reader, "cmd"));
+	return (_zanim_cmd_hdr *)task;
 }
 
 /* @socom-skeleton body Tick__6CTCommFP14_zanim_cmd_hdrPf */
@@ -529,7 +628,8 @@ bool CTDebug::Tick(_zanim_cmd_hdr* header, f32* dT)
 /* @socom-skeleton body Parse__6CTDoorFP5_zrdr */
 _zanim_cmd_hdr* CTDoor::Parse(_zrdr* reader)
 {
-	return NULL;
+	/* 0x2bdb60: as ai::MOVE */
+	return CTMove::Parse(reader);
 }
 
 /* @socom-skeleton body Begin__6CTDoorFP14_zanim_cmd_hdr */
@@ -674,19 +774,83 @@ bool CTFireMode::Tick(_zanim_cmd_hdr* header, f32* dT)
 /* @socom-skeleton body Parse__12CTFireWeaponFP5_zrdr */
 _zanim_cmd_hdr* CTFireWeapon::Parse(_zrdr* reader)
 {
-	return NULL;
+	/* 0x2bd060 (written, untested): "weapon" (CZWeapon::GetWeaponId); not armed */
+	TASK_FIREWEAPON *task = (TASK_FIREWEAPON *)task_alloc(44, *(u16 *)&ai_cmdid[0]);
+	task->m_item = (u8)CZWeapon::GetWeaponId(zrdr_findstring(reader, "weapon"));
+	task->m_armed = 0;
+	return (_zanim_cmd_hdr *)task;
 }
 
 /* @socom-skeleton body Begin__12CTFireWeaponFP14_zanim_cmd_hdr */
 void CTFireWeapon::Begin(_zanim_cmd_hdr* header)
 {
+	/* 0x2bcfa0: armed only when the select's seal is an AI with the item in its kit */
+	TASK_FIREWEAPON *task = reinterpret_cast<TASK_FIREWEAPON *>(header);
+	CZSealBody *seal = taskSeal(task->m_seal_index);
+	CSealCtrlAi *ai = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi() : NULL;
 
+	if (ai != NULL && seal->m_kit.HasItem((EQUIP_ITEM)(s8)(u8)task->m_item))
+		task->m_armed = 1;
 }
 
 /* @socom-skeleton body Tick__12CTFireWeaponFP14_zanim_cmd_hdrPf */
 bool CTFireWeapon::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
-	return false;
+	/* 0x2bcd70: once armed: the AI deploys the item (STATE_DEPLOY, option 1) at the task's
+	 * position (flag 2), the centre of its map cell (flag 8) or else its live target. Always
+	 * done at once (the frame's time used up) */
+	TASK_FIREWEAPON *task = reinterpret_cast<TASK_FIREWEAPON *>(header);
+	CZSealBody *seal = taskSeal(task->m_seal_index);
+	CSealCtrlAi *ai = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi() : NULL;
+
+	if (ai == NULL || !task->m_armed)
+	{
+		*dT = 0.0f;
+		return true;
+	}
+
+	task->m_armed = 0;
+	CPnt3D at;
+	bool ok = false;
+
+	if (task->m_has_pos)
+	{
+		at = task->m_pos;
+		ok = true;
+	}
+	else if (task->m_has_loc)
+	{
+		ok = AiMaps.GetCellCenter(task->m_loc, &at) != NULL;
+	}
+	else
+	{
+		CEntity *target = ai->m_target.m_target.m_ent;
+
+		if (target != NULL && target->m_isAlive)
+		{
+			at = *target->GetPosW();
+			ok = true;
+		}
+	}
+
+	if (ok && ai->PushAiState(STATE_DEPLOY, true))
+	{
+		CAiState *top = ai->GetAiState();
+		CAiSDeploy *deploy = top->m_state == STATE_DEPLOY ? static_cast<CAiSDeploy *>(top) : NULL;
+
+		if (deploy != NULL) /* port: NULL-tested (ELF writes through it) */
+		{
+			deploy->m_option_flags = 1;
+			deploy->m_target = at;
+			deploy->m_offset = CPnt3D::zero;
+			deploy->m_unk_40 = 0;
+			deploy->m_item = task->m_item;
+			deploy->m_setup = 1;
+		}
+	}
+
+	*dT = 0.0f;
+	return true;
 }
 
 /* @socom-skeleton body Parse__6CTGotoFP5_zrdr */
@@ -833,7 +997,21 @@ void CTGoto::End(_zanim_cmd_hdr* header)
 /* @socom-skeleton body Parse__6CTHoldFP5_zrdr */
 _zanim_cmd_hdr* CTHold::Parse(_zrdr* reader)
 {
-	return NULL;
+	/* 0x2bc030 (written, untested): "wait" (-1: hold on); a bare true / false: -1 / 0 */
+	TASK_HOLD *task = (TASK_HOLD *)task_alloc(20, *(u16 *)&ai_cmdid[0]);
+	task->m_wait.m_min = -1.0f;
+	task->m_wait.m_range = 0.0f;
+	task->m_timer = 0.0f;
+	zrdr_findRfloat(reader, "wait", &task->m_wait);
+	bool b = false;
+
+	if (zrdr_tobool(reader, &b))
+	{
+		task->m_wait.m_min = b ? -1.0f : 0.0f;
+		task->m_wait.m_range = 0.0f;
+	}
+
+	return (_zanim_cmd_hdr *)task;
 }
 
 /* @socom-skeleton body Begin__6CTHoldFP14_zanim_cmd_hdr */
@@ -1175,7 +1353,38 @@ _zanim_cmd_hdr* CTMap::Parse(_zrdr* reader)
 /* @socom-skeleton body Tick__5CTMapFP14_zanim_cmd_hdrPf */
 bool CTMap::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
-	return false;
+	/* 0x2ba710: mode 1 (clear_action): the anim's node action (its root node's, else an
+	 * ancestor's) leaves the AI map (its map action marked invalid) and its valve goes to 99;
+	 * mode 2 (set_type): the region at m_loc takes m_type. Always done at once */
+	TASK_MAP *task = reinterpret_cast<TASK_MAP *>(header);
+
+	if (task->m_mode == 1)
+	{
+		CNodeAction *action = CNodeAction::GetAction(ZAnim.m_CurAnim->GetRootNode(), true);
+		CAiMapLoc loc;
+		CAiMap::action *act = NULL;
+
+		if (action != NULL && AiMaps.GetActionById(action->m_id, loc, &act))
+		{
+			act->m_type_invalid = 1;
+			CValve *valve = action->m_valve;
+			bool changed = valve->m_value != 99;
+			valve->m_value = 99;
+
+			if (changed)
+				valve->MakeCallbacks((VALVE_STATE)1);
+		}
+	}
+	else if (task->m_mode == 2)
+	{
+		CAiMap::region *region = AiMaps.GetRegion(task->m_loc);
+
+		if (region != NULL)
+			AiMaps.SetRegionType(region, (CAiMap::region::TYPE)(u8)task->m_type);
+	}
+
+	*dT = 0.0f;
+	return true;
 }
 
 /* @socom-skeleton body Parse__6CTMoveFP5_zrdr */
@@ -1368,7 +1577,30 @@ _zanim_cmd_hdr* CTPaint::Parse(_zrdr* reader)
 /* @socom-skeleton body Tick__7CTPaintFP14_zanim_cmd_hdrPf */
 bool CTPaint::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
-	return false;
+	/* 0x2b9820: the region at m_loc: modes 1 (soil) and 2 have its cells tiled with m_value
+	 * under m_mask, mode 3 (reg_type) sets its type to m_value. Always done at once */
+	TASK_PAINT *task = reinterpret_cast<TASK_PAINT *>(header);
+	CAiMap::region *region = AiMaps.GetRegion(task->m_loc);
+
+	switch (task->m_mode)
+	{
+	case 1:
+	case 2:
+		if (region != NULL)
+			AiMaps.Tile(region, task->m_value, task->m_mask);
+		break;
+
+	case 3:
+		if (region != NULL) /* port: NULL-tested (ELF passes it on) */
+			AiMaps.SetRegionType(region, (CAiMap::region::TYPE)(u8)task->m_value);
+		break;
+
+	default:
+		break;
+	}
+
+	*dT = 0.0f;
+	return true;
 }
 
 /* @socom-skeleton stub get_param__FPCc */
@@ -1529,7 +1761,11 @@ bool CTParam::Tick(_zanim_cmd_hdr* header, f32* dT)
 /* @socom-skeleton body Parse__8CTPursueFP5_zrdr */
 _zanim_cmd_hdr* CTPursue::Parse(_zrdr* reader)
 {
-	return NULL;
+	/* 0x2b81a0 (written, untested: the m8 scripts are compiled): "duration" (-1 none) */
+	TASK_PURSUE *task = (TASK_PURSUE *)task_alloc(12, *(u16 *)&ai_cmdid[0]);
+	task->m_duration = -1.0f;
+	zrdr_findreal(reader, "duration", &task->m_duration, 1);
+	return (_zanim_cmd_hdr *)task;
 }
 
 /* @socom-skeleton body Begin__8CTPursueFP14_zanim_cmd_hdr */
@@ -1978,25 +2214,91 @@ bool CTSound::Tick(_zanim_cmd_hdr* header, f32* dT)
 /* @socom-skeleton body Parse__9CTSpecialFP5_zrdr */
 _zanim_cmd_hdr* CTSpecial::Parse(_zrdr* reader)
 {
-	return NULL;
+	/* 0x2b6450 (written, untested): no arguments; the record type is ai::SPECIAL's own id */
+	return task_alloc(12, *(u16 *)&ai_cmdid[12]);
 }
 
 /* @socom-skeleton body Begin__9CTSpecialFP14_zanim_cmd_hdr */
 void CTSpecial::Begin(_zanim_cmd_hdr* header)
 {
+	/* 0x2b63d0: from the anim's first argument command (index 1), phase 0 */
+	TASK_SPECIAL *task = reinterpret_cast<TASK_SPECIAL *>(header);
+	TASK_SELECT *select = reinterpret_cast<TASK_SELECT *>(taskFindParam(*(u16 *)&ai_cmdid[8], task->m_seal_index));
+	CSealCtrlAi *ai = select != NULL ? select->m_ai : NULL;
 
+	if (ai != NULL) /* port: tested (ELF: Debug on a NULL controller) */
+		ai->Debug("CTSpecial::BEGIN\n");
+
+	task->m_index = 1;
+	task->m_phase = 0;
 }
 
 /* @socom-skeleton body End__9CTSpecialFP14_zanim_cmd_hdr */
 void CTSpecial::End(_zanim_cmd_hdr* header)
 {
+	/* 0x2b62d0: the anim's argument commands from index 1 on are wiped (10s) and freed (they
+	 * are built at run time for the special); back to index 1, phase 0 */
+	TASK_SPECIAL *task = reinterpret_cast<TASK_SPECIAL *>(header);
+	TASK_SELECT *select = reinterpret_cast<TASK_SELECT *>(taskFindParam(*(u16 *)&ai_cmdid[8], task->m_seal_index));
+	CSealCtrlAi *ai = select != NULL ? select->m_ai : NULL;
 
+	if (ai != NULL) /* port: tested (ELF: Debug on a NULL controller) */
+		ai->Debug("CTSpecial::COMPLETE\n");
+
+	for (int i = 1;; i++)
+	{
+		CZAnimArgList *args = ZAnim.m_CurAnim->m_arg_list;
+		_zanim_cmd_hdr *cmd = args != NULL ? args->GetCmd(i) : NULL;
+
+		if (cmd == NULL)
+			break;
+
+		memset(cmd, 10, cmd->data_size);
+		_free(cmd, "seal_tasks.cpp", 2768);
+	}
+
+	task->m_index = 1;
+	task->m_phase = 0;
 }
 
 /* @socom-skeleton body Tick__9CTSpecialFP14_zanim_cmd_hdrPf */
 bool CTSpecial::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
-	return false;
+	/* 0x2b6150: runs the anim's argument commands one after another as sub-commands (each
+	 * one's Begin, Tick until done, End); done when there is none left */
+	TASK_SPECIAL *task = reinterpret_cast<TASK_SPECIAL *>(header);
+	CZAnimArgList *args = ZAnim.m_CurAnim->m_arg_list;
+	_zanim_cmd_hdr *cmd = args != NULL ? args->GetCmd(task->m_index) : NULL;
+	zanim_cmd *entry = cmd != NULL ? ZAnim.GetCmdEntry((unsigned short)cmd->data_type) : NULL;
+	bool done = true;
+
+	if (entry != NULL)
+	{
+		done = false;
+
+		if (task->m_phase == 0)
+		{
+			if (entry->begin != NULL)
+				reinterpret_cast<void (*)(_zanim_cmd_hdr *)>(entry->begin)(cmd);
+
+			task->m_phase = 1;
+		}
+
+		if (task->m_phase == 1 && entry->tick != NULL && reinterpret_cast<bool (*)(_zanim_cmd_hdr *, float *)>(entry->tick)(cmd, dT))
+			task->m_phase = 2;
+
+		if (task->m_phase == 2)
+		{
+			if (entry->end != NULL)
+				reinterpret_cast<void (*)(_zanim_cmd_hdr *)>(entry->end)(cmd);
+
+			task->m_phase = 0;
+			task->m_index++;
+		}
+	}
+
+	*dT = 0.0f;
+	return done;
 }
 
 /* @socom-skeleton body Parse__8CTStanceFP5_zrdr */

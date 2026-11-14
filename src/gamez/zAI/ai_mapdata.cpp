@@ -73,6 +73,15 @@ template <class V, class T> static T *FindByLocation(V &table, const CAiMapLoc &
 	return NULL;
 }
 
+/* 0x19e020 (CSealUnit::HandleSupport): the location lies in the region's box: x from the
+ * corner's x up to (not with) x + m_dx, y likewise (the map id is not compared) */
+bool CAiMap::region::Contains(const CAiMapLoc &loc) const
+{
+	s32 dx = (s32)loc.x - (s32)m_loc.x;
+	s32 dy = (s32)loc.y - (s32)m_loc.y;
+	return dx >= 0 && dx < (s32)m_dx && dy >= 0 && dy < (s32)m_dy;
+}
+
 template <class V, class T> static typename V::iterator FindIteratorByLocation(V &table, const CAiMapLoc &loc)
 {
 	typename V::iterator i = table.begin();

@@ -648,6 +648,7 @@ public:
 		void InflateRegion(int, int, int, int, const CAiMap *);
 		void Union(const CAiMapLoc &);
 		CAiMapLoc * GetCenter(CAiMapLoc &) const;
+		bool Contains(const CAiMapLoc &) const; /* 0x19e020 (ai_mapdata.cpp) */
 	};
 	class regions : public std::vector<region> { }; /* DWARF: CAiMap::regions */
 	class route /* DWARF: byte_size 36 */
@@ -1117,8 +1118,30 @@ public:
 	/* @socom-skeleton end 9CAiSAvoid */
 };
 
+class CZWeapon;
+class CZProjectile;
+
 class CAiSDeploy : public CAiState
 {
+public:
+	/* port: no DWARF record; 100 bytes (CAiState::Create 0x2dc420); layout from Tick 0x25d110,
+	 * OnSignal 0x25e290 and the pushers (OnCommand DEPLOY 0x281a80, CAiSBreach::Tick's BANG,
+	 * CTFireWeapon::Tick, CZKit::Fire / HandleRemotePlaceExplosive store the projectile);
+	 * names invented. m_option_flags: 4 the fire params' flag 1, 8 no wait after the throw,
+	 * 0x10 the fuse is m_fuse, 0x20 the item is given when the kit lacks it. m_substate: 0 start,
+	 * 1 in reach?, 2 route, 3 travel, 4 prefire, 5 aim, 6 fire, 7 fire anyway?, 8 wait for the
+	 * projectile, 9 lasing, 10 complete, 11 failed */
+	CPnt3D m_target;           /* +0x28 where the item goes */
+	CPnt3D m_offset;           /* +0x34 the aim offset (AI_FIREPARAMS::setup) */
+	u32 m_unk_40;              /* +0x40 cleared on release */
+	u32 m_item;                /* +0x44 the EQUIP_ITEM (read as its low byte) */
+	CAiMapLoc m_dest;          /* +0x48 where to deploy from (invalid: from here) */
+	CAiMapLoc m_lase;          /* +0x4c a designator's lase target cell */
+	CZWeapon *m_weapon;        /* +0x50 the item's weapon */
+	CZProjectile *m_projectile; /* +0x54 the thrown / placed item (the kit stores it) */
+	f32 m_fuse;                /* +0x58 */
+	f32 m_travel;              /* +0x5c time on the way */
+	u32 m_unk_60;              /* +0x60 cleared with m_travel */
 
 	/* @socom-skeleton decl 10CAiSDeploy */
 public:
@@ -1126,7 +1149,7 @@ public:
 	virtual bool Tick(float, CSealCtrlAi *);
 	virtual bool CanAttack() const { return false; } /* ELF: move v0,zero */
 	virtual ~CAiSDeploy() {}
-	void CanDeployItem(CZKit *, EQUIP_ITEM);
+	bool CanDeployItem(CZKit *, EQUIP_ITEM); /* 0x25e190 returns 0/1 */
 	/* @socom-skeleton end 10CAiSDeploy */
 };
 
@@ -1207,6 +1230,25 @@ public:
 
 class CAiSBreach : public CAiState
 {
+public:
+	/* port: no DWARF record; 96 bytes (CAiState::Create 0x2dc32c); layout from Tick 0x2d8000,
+	 * OnSignal 0x2d8c20, AddBreachMember 0x2d3540 and CSealUnit::IssueCommand's breach
+	 * template (0x2d1a40); names invented. m_option_flags: 1 frag clear, 2 flashbang clear.
+	 * m_substate (GetStatus 0x2d8b60): 0 BEGIN, 1 READY, 2 STACK, 3 WAIT, 4 OPEN, 5 BANG,
+	 * 6 (UNKNOWN: wait for the opener's throw), 7 PAUSE, 8 ENTER, 9 CLEAR, 10 END, 11 ABORT */
+	CPnt3D m_target;           /* +0x28 the door's cell centre, 9 up: looked at, thrown at */
+	CSealCtrlAi *m_leader;     /* +0x34 the first member */
+	CSealCtrlAi *m_opener;     /* +0x38 the member that opens / throws (AddBreachMember) */
+	u32 m_index;               /* +0x3c this member's stack place (m_locEx index; entry: + 3) */
+	CValve *m_count;           /* +0x40 the members still on their way to their places */
+	CNodeAction *m_action;     /* +0x44 the door's node action (the source's reticle) */
+	CAiMap::action *m_map_action; /* +0x48 its AI map action */
+	CValve *m_valve;           /* +0x4c the breach valve, named after the action cell */
+	CAiMapLoc m_loc;           /* +0x50 the action cell */
+	Rfloat m_shout_time;       /* +0x54 the clearing shout interval (entry: 0.5 + 0.5) */
+	f32 m_shout_timer;         /* +0x5c */
+
+	CAiSBreach() { m_shout_time.m_min = 0.0f; m_shout_time.m_range = 0.0f; m_shout_timer = 0.0f; } /* ELF: Rfloat{0, 0} drawn */
 
 	/* @socom-skeleton decl 10CAiSBreach */
 public:

@@ -266,23 +266,47 @@ CSealCtrl::~CSealCtrl()
 }
 
 /* @socom-skeleton stub OnWeaponEvent__9CSealCtrlFP12CZProjectileUiPv */
-void CSealCtrl::OnWeaponEvent(CZProjectile *, unsigned int, void *)
+void CSealCtrl::OnWeaponEvent(CZProjectile *proj, unsigned int, void *)
 {
+	/* 0x288150 (a projectile's flight past the seal): another's bullet whose frame segment
+	 * passes within 70 of the seal makes a shot-at AI event (12, 0.5 s, radius 1500, by the
+	 * shooter); within 20 the weapon's bullet-pass sound plays where it passed closest */
+	if (proj->m_weapon == NULL || !proj->m_weapon->IsDirectFire() || proj->m_isplayer)
+		return;
+
+	const CPnt3D *pos = m_entity->GetPosW();
+	CPnt3D closest;
+	f32 dist = 999999.0f;
+	bool along = pos->DistToVector(&proj->m_framestartpos, &proj->m_frameendpos, &closest, &dist);
+
+	if (along && dist < 70.0f)
+		CreateAiEvent((CAiEvent::EVENT)12, 0.5f, 1500.0f, false, pos, proj->m_shooterID);
+
+	if (along && dist < 20.0f)
+	{
+		CSnd *snd = CZWeapon::GetBulletPassSound();
+
+		if (snd != NULL)
+			snd->PlaySound3D(&closest, 1.0f, 0, NULL, 255);
+	}
 }
 
 /* @socom-skeleton stub OnRecycleEntity__9CSealCtrlFP7CEntity */
 void CSealCtrl::OnRecycleEntity(CEntity *)
 {
+	/* 0x288140: empty in the ELF */
 }
 
 /* @socom-skeleton stub OnMissionStart__9CSealCtrlFv */
 void CSealCtrl::OnMissionStart()
 {
+	/* 0x288130: empty in the ELF */
 }
 
 /* @socom-skeleton stub OnMissionEnd__9CSealCtrlFv */
 void CSealCtrl::OnMissionEnd()
 {
+	/* 0x288120: empty in the ELF */
 }
 
 /* @socom-skeleton stub Initalize__9CSealCtrlFv */
@@ -393,13 +417,17 @@ void CSealCtrl::OnDeath()
 }
 
 /* @socom-skeleton stub PlayAiSound__9CSealCtrlF15CHARACTER_SOUND */
-void CSealCtrl::PlayAiSound(CHARACTER_SOUND)
+void CSealCtrl::PlayAiSound(CHARACTER_SOUND sound)
 {
+	/* 0x287bd0: the seal's character plays the sound at its position */
+	CZSealBody *seal = static_cast<CZSealBody *>(m_entity);
+	seal->GetCharacter()->PlayAt(sound, seal->m_id, seal->GetPosW());
 }
 
 /* @socom-skeleton stub ResetToInitialState__9CSealCtrlFv */
 void CSealCtrl::ResetToInitialState()
 {
+	/* 0x287bc0: empty in the ELF */
 }
 
 /* @socom-skeleton stub SetTrigger__9CSealCtrlFbf */

@@ -755,8 +755,10 @@ void CSealCtrlAi::ReleaseDatabaseHandles()
 }
 
 /* @socom-skeleton stub SetAiAccuracyAngle__11CSealCtrlAiFf */
-void CSealCtrlAi::SetAiAccuracyAngle(float)
+void CSealCtrlAi::SetAiAccuracyAngle(float angle)
 {
+	/* 0x26c010: the tangent is kept */
+	aiAccuracyAngle = tanf(angle);
 }
 
 /* @socom-skeleton stub PlayAiSound__11CSealCtrlAiF8AI_SOUND */
@@ -792,8 +794,22 @@ CAiLog * CSealCtrlAi::GetAiLog()
 }
 
 /* @socom-skeleton stub SetAiLogEnabled__11CSealCtrlAiFbb */
-void CSealCtrlAi::SetAiLogEnabled(bool, bool)
+void CSealCtrlAi::SetAiLogEnabled(bool on, bool flag)
 {
+	/* 0x26bdf0: on: the flag is kept; off with the flag: the log file is closed (deleted). port:
+	 * aiLogFile holds the CAiLog pointer (an int in the skeleton) */
+	aiLogEnabled = on;
+	aiLogFlag = 0;
+
+	if (on)
+	{
+		aiLogFlag = flag;
+	}
+	else if (flag)
+	{
+		delete (CAiLog *)(uintptr_t)aiLogFile;
+		aiLogFile = 0;
+	}
 }
 
 /* @socom-skeleton stub SetAiEnabled__11CSealCtrlAiFbb */
@@ -1173,6 +1189,16 @@ void CSealCtrlAi::OnMissionStart()
 /* @socom-skeleton stub OnMissionEnd__11CSealCtrlAiFv */
 void CSealCtrlAi::OnMissionEnd()
 {
+	/* 0x26adf0: the state stack cleared, the running task anim (+0x364) stopped, hold mode */
+	ClearAiState(true);
+
+	if (m_task_handle[4] != NULL)
+	{
+		m_task_handle[4]->Stop();
+		m_task_handle[4] = NULL;
+	}
+
+	SetAiMode(AIM_HOLD);
 }
 
 /* @socom-skeleton stub InitAiBrain__11CSealCtrlAiFv */
@@ -2149,6 +2175,11 @@ void CSealCtrlAi::OnRecycleEntity(CEntity *entity)
 /* @socom-skeleton stub ResetToInitialState__11CSealCtrlAiFv */
 void CSealCtrlAi::ResetToInitialState()
 {
+	/* 0x267520: the controller's reset, the stack cleared, the start task run again with the
+	 * seal's select and node (as Initalize) */
+	CSealCtrl::ResetToInitialState();
+	ClearAiState(true);
+	ActivateEx((SEAL_TASK)1, true, 1, static_cast<CZSealBody *>(m_entity)->m_select, 3, m_entity->GetNode(), 0);
 }
 
 /* @socom-skeleton stub ClearGoal__9CSealCtrlF9GOAL_TYPE */
@@ -3162,8 +3193,16 @@ void CSealCtrlAi::SetDebug(bool debug)
 }
 
 /* @socom-skeleton stub PutAiLog__11CSealCtrlAiFUiUiPCv */
-void CSealCtrlAi::PutAiLog(unsigned int, unsigned int, const void *)
+void CSealCtrlAi::PutAiLog(unsigned int type, unsigned int size, const void *data)
 {
+	/* 0x2641d0: a record with the seal's id in the AI log, when logging */
+	if (!aiLogEnabled)
+		return;
+
+	CAiLog *log = GetAiLog();
+
+	if (log != NULL)
+		log->Write(type, m_entity->m_id, size, data);
 }
 
 /* @socom-skeleton stub Debug__11CSealCtrlAiFPCce */
@@ -4464,21 +4503,25 @@ AI_AWARE CSealCtrlAi::GetAiAware() const
 /* @socom-skeleton stub PerformCollisionActions__11CSealCtrlAiFv */
 void CSealCtrlAi::PerformCollisionActions()
 {
+	/* 0x25ffa0: empty in the ELF */
 }
 
 /* @socom-skeleton stub PerformReticleActions__11CSealCtrlAiFv */
 void CSealCtrlAi::PerformReticleActions()
 {
+	/* 0x25ff90: empty in the ELF */
 }
 
 /* @socom-skeleton stub PerformProximityActions__11CSealCtrlAiFv */
 void CSealCtrlAi::PerformProximityActions()
 {
+	/* 0x25ff80: empty in the ELF */
 }
 
 /* @socom-skeleton stub OnActionButton__11CSealCtrlAiFv */
 void CSealCtrlAi::OnActionButton()
 {
+	/* 0x25ff70: empty in the ELF */
 }
 
 /* @socom-skeleton stub ConfirmAiState__11CSealCtrlAiFP8CAiStateb */
@@ -4996,20 +5039,477 @@ bool CSealCtrlAi::ComputeThrowFireParams(AI_FIREPARAMS &fp)
 }
 
 /* @socom-skeleton stub OnSignal__10CAiSDeployFQ28CAiState6SIGNALP11CSealCtrlAi */
-void CAiSDeploy::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+void CAiSDeploy::OnSignal(CAiState::SIGNAL signal, CSealCtrlAi *ai)
 {
+	/* 0x25e290: popped (1) the kit back to its first item in the fire mode 2, no deploy look,
+	 * the fire params' shot flags and time out cleared; released (4) the item, weapon,
+	 * projectile and timers forgotten */
+	CZSealBody *seal = ai != NULL ? static_cast<CZSealBody *>(ai->m_entity) : NULL;
+
+	switch ((int)signal)
+	{
+	case 1:
+	{
+		CZKit *kit = &seal->m_kit;
+		kit->SetCurItemByIndex(0);
+		kit->SetCurFireMode((FIREMODE)2);
+		ai->ClearLook(AIL_DEPLOY);
+		ai->m_fire_params.m_flags &= 0xfdefffffu;
+		ai->m_fire_params.m_timeout = 0.0f;
+		break;
+	}
+
+	case 4:
+		m_weapon = NULL;
+		m_projectile = NULL;
+		m_unk_60 = 0;
+		m_travel = 0.0f;
+		m_item = 0;
+		m_unk_40 = 0;
+		break;
+
+	default:
+		break;
+	}
 }
 
 /* @socom-skeleton stub CanDeployItem__10CAiSDeployFP5CZKit10EQUIP_ITEM */
-void CAiSDeploy::CanDeployItem(CZKit *, EQUIP_ITEM)
+bool CAiSDeploy::CanDeployItem(CZKit *kit, EQUIP_ITEM item)
 {
+	/* 0x25e190: a designator always; an item the kit has with ammo; else (option 0x20) the
+	 * item is added (or found) and given one magazine of one round */
+	if ((u8)item == 11)
+		return true;
+
+	if (kit->HasItem(item) && kit->ItemHasAmmo(item))
+		return true;
+
+	if (!(m_option_flags & 0x20))
+		return false;
+
+	u32 index;
+
+	if (!kit->HasItem(item))
+	{
+		index = kit->GetNumItems();
+		kit->SetItem(index, item);
+	}
+	else
+	{
+		index = kit->GetItemIndex(item);
+	}
+
+	kit->SetItemAmmo(index, NULL, 1, 1);
+	return true;
 }
 
 /* @socom-skeleton stub Tick__10CAiSDeployFfP11CSealCtrlAi */
-bool CAiSDeploy::Tick(float, CSealCtrlAi *)
+bool CAiSDeploy::Tick(float dT, CSealCtrlAi *ai)
 {
 	/* @socom-skeleton stub aimTolerance$4473 */
-	static int aimTolerance;
+	static float aimTolerance = 0.95f; /* ELF: set on the first Tick (init$4474), never read */
+
+	/* 0x25d110 (a deploy order, a breach throw, a script's fire-weapon task): use an item on
+	 * m_target. In reach (the weapon's effective range in cells, 60 for a grenade, 1000
+	 * without a weapon) and in sight the seal fires from where it stands, else it walks to
+	 * m_dest (giving up on the walk after 20-30 s or 6 s when within 4 cells, firing from the
+	 * way when the target is in range and in its line of fire). Then the kit takes the item,
+	 * the fire params are worked out (throw or projectile), the seal aims and fires; it waits
+	 * for a thrown item's fuse (a designator lases 30 s, then the lase target's anim runs),
+	 * the weapon is lowered and the state ends. Returns m_setup. */
+	(void)aimTolerance;
+
+	if (!m_setup)
+		return false;
+
+	CZSealBody *seal = static_cast<CZSealBody *>(ai->m_entity);
+	AI_FIREPARAMS &fp = ai->m_fire_params;
+	CZKit *kit = &seal->m_kit;
+	u32 next = (u8)m_substate;
+	u32 code = (u8)m_item;
+	EQUIP_ITEM item = (EQUIP_ITEM)(s8)code;
+	bool thrown = code >= 120 && code <= 125;
+	CAiMapLoc from = seal->m_mapLocValid;
+	/* ELF: a CAiVisMap is constructed here and destroyed at the end, unused */
+
+	m_weapon = CZWeapon::m_listWeapons.GetWeapon(item);
+	s32 range = 1000;
+	f32 rangeSq = 160000.0f;
+
+	if (m_weapon != NULL)
+	{
+		if (thrown)
+		{
+			range = 60;
+			rangeSq = 360000.0f;
+		}
+		else
+		{
+			f32 r = m_weapon->GetEffectiveRange();
+			range = (s32)(r / 10.0f);
+			rangeSq = r * r;
+		}
+	}
+
+	if (range == 0 && code == 11)
+		range = 50;
+
+	CAiMapLoc at;
+	bool onmap = AiMaps.GetLocation(&m_target, at);
+	CPnt3D d;
+	seal->GetPosW()->Sub(&m_target, &d);
+	f32 distSq = d.x * d.x + d.y * d.y + d.z * d.z;
+	s32 cells = ((u32)from.x < (u32)at.x ? (s32)at.x - (s32)from.x : (s32)from.x - (s32)at.x)
+		+ ((s32)from.y < (s32)at.y ? (s32)at.y - (s32)from.y : (s32)from.y - (s32)at.y);
+
+	switch (next)
+	{
+	case 0:
+		kit->SetCurFireMode((FIREMODE)1);
+
+		if (!CanDeployItem(kit, item))
+		{
+			ai->PlayAiSound((CHARACTER_SOUND)54);
+			next = 11;
+			break;
+		}
+
+		m_unk_60 = 0;
+		m_travel = 0.0f;
+		/* fall through */
+
+	case 1:
+		if (!onmap)
+			ai->Debug("DEPLOY:  LOCATION not on map -- this is not an error!\n");
+
+		if (!(range < cells) && onmap)
+		{
+			CAiMapLoc hit;
+			memcpy(&hit, CAiMapLoc::invalid, 4); /* port: set (the ELF's stack slot) */
+
+			if (AiMaps.CanSeeLine(from, at, &hit) || (hit.x == at.x && hit.y == at.y))
+			{
+				ai->Debug("DEPLOY: I can see it from here!\n");
+				ai->ConfirmAiState(this, true);
+				next = 4;
+				break;
+			}
+		}
+
+		ai->Debug("DEPLOY: moving out to %d: %d, %d!!\n", (int)m_dest.m_mapid, (int)m_dest.x, (int)m_dest.y);
+		/* fall through */
+
+	case 2:
+		if (!ai->SetRoute(m_dest))
+		{
+			ai->Debug("DEPLOY: the route didn't set right!\n");
+			next = 7;
+			break;
+		}
+
+		ai->SetAiMode(AIM_PATH);
+		ai->ConfirmAiState(this, true);
+		ai->Debug("DEPLOY: on my way, Sir!!\n");
+		ai->PlayAiSound((CHARACTER_SOUND)15);
+		next = 3;
+		break;
+
+	case 3:
+	{
+		if (ai->GetRouteComplete())
+		{
+			ai->Debug("DEPLOY: This must be the place!\n");
+			next = 4;
+
+			if (code == 152)
+				break;
+
+			if (onmap)
+			{
+				CAiMapLoc hit;
+				memcpy(&hit, CAiMapLoc::invalid, 4); /* port: set */
+
+				if (AiMaps.CanSeeLine(from, at, &hit) || (hit.x == at.x && hit.y == at.y))
+					break;
+			}
+
+			ai->Debug("DEPLOY: but actually I still can't see the target!\n");
+			next = 7;
+			break;
+		}
+
+		m_travel += dT;
+
+		if (!(m_travel <= 30.0f) || (!(m_travel <= 20.0f) && code != 152))
+		{
+			if (!(cells < 4))
+			{
+				next = 7;
+				break;
+			}
+
+			ai->ConfirmAiState(this, true);
+			ai->Debug("DEPLOY: Time's up, but I'm pretty close, so I'll deploy.\n");
+			next = 4; /* ELF: on to the tests below with 4 */
+		}
+
+		if (!(m_travel <= 6.0f) && cells < 4 && code != 152)
+		{
+			ai->ConfirmAiState(this, true);
+			ai->Debug("DEPLOY: GEE, I MUST BE STUCK.  BAILING ON MOVING.\n");
+			next = 4;
+			break;
+		}
+
+		/* in range and in the line of fire from here: fire from the way */
+		bool see = AiMaps.CanSeeLine(from, at, NULL);
+
+		if (!see)
+		{
+			zdb::CNode *node = seal->GetNode();
+			bool active = node->m_active;
+			node->SetActive(false);
+			CPnt3D point;
+			seal->GetPutativeFirePointW(thrown, false, point);
+			point.y += 20.0f;
+			CPnt3D target = m_target;
+			CPnt3D toTarget;
+			target.Sub(&point, &toTarget);
+			zdb::IntersectStruct *hit = zdb::CWorld::m_world->GetIntersect(&point, &target);
+
+			if (hit != NULL)
+			{
+				CPnt3D hitPos = *(const CPnt3D *)hit; /* the hit point leads the record */
+				CPnt3D toHit;
+				point.Sub(&hitPos, &toHit);
+				f32 targetSq = toTarget.x * toTarget.x + toTarget.y * toTarget.y + toTarget.z * toTarget.z;
+				f32 seeSq = toHit.x * toHit.x + toHit.y * toHit.y + toHit.z * toHit.z;
+				ai->Debug("DEPLOY: target length SQ = %.1f, see length SQ = %.1f\n", (double)targetSq, (double)seeSq);
+				ai->Debug("        weapon range SQ = %.1f, distance to target SQ = %.1f.\n", (double)rangeSq, (double)distSq);
+
+				if (targetSq / seeSq < 1.11f)
+					see = true;
+			}
+			else
+			{
+				see = true;
+			}
+
+			node->SetActive(active);
+		}
+
+		if (rangeSq < distSq || !onmap || !see)
+			break;
+
+		ai->Debug("DEPLOY: I'm not there, but I can see it -- I'll fire from here.\n");
+		ai->ClearRoute();
+		ai->SetAiMode(AIM_CREEP);
+		ai->ConfirmAiState(this, true);
+		next = 4;
+		break;
+	}
+
+	case 4:
+		ai->Debug("DEPLOY: prefire: ");
+
+		if (!CanDeployItem(kit, item) || !kit->SetCurItemEnum(item) || (fp.m_flags & 0x2000000))
+		{
+			ai->Debug("no AMMO!?!\n");
+			ai->PlayAiSound((CHARACTER_SOUND)54);
+			next = 11;
+			break;
+		}
+
+		if (!thrown)
+			seal->SetWeaponState((WEAPON_STATE)1);
+
+		fp.setup(kit, &m_target, &m_offset, 0);
+
+		if (m_option_flags & 4)
+			fp.m_flags |= 1;
+
+		if (!(fp.m_flags & 0x2000000))
+		{
+			bool ok;
+
+			if (fp.m_flags & 0x40000)
+			{
+				ok = ai->ComputeThrowFireParams(fp);
+				ai->SetTrigger(false);
+				ai->SetTrigger(false);
+			}
+			else
+			{
+				ok = ai->ComputeProjectileFireParams(fp);
+			}
+
+			if (ok)
+			{
+				fp.m_flags |= 0x100000;
+				fp.m_timeout = 0.0f;
+			}
+		}
+
+		if (!(fp.m_flags & 0x100000))
+		{
+			ai->Output("DEPLOY:  <baby on> WAH!!! I can't throw that far! <baby off>\n");
+			next = 11;
+			ai->PlayAiSound((CHARACTER_SOUND)48);
+			break;
+		}
+
+		ai->SetAiMode(AIM_CREEP);
+
+		if (fp.m_flags & 0x4000000)
+			ai->SetStanceDelayed((SEAL_STANCE)(s8)fp.m_stance, 0.0f);
+
+		ai->m_lastDeployPosW = m_target;
+		next = 5;
+		/* fall through */
+
+	case 5:
+		if (!ai->FireWhenReady(fp, dT))
+		{
+			if ((fp.m_flags & 0x100000) && fp.m_timeout <= 5.0f)
+				break;
+
+			ai->Output("DEPLOY: fire params no longer valid!\n");
+			fp.m_flags &= 0xfdefffffu;
+			next = 11;
+			fp.m_timeout = 0.0f;
+			break;
+		}
+
+		next = 6;
+		/* fall through */
+
+	case 6:
+		ai->Debug("DEPLOY_FIRE m_timer = %.2f\n", (double)m_time);
+
+		if (code == 11)
+		{
+			/* a designator lases for 30 s */
+			m_time = ai->m_stateTimer + 30.0f;
+			ai->PlayAiSound((CHARACTER_SOUND)13);
+			next = 9;
+			break;
+		}
+
+		ai->SetTrigger(true, fp.m_throwPower);
+
+		if (!kit->WillFireWeapon())
+		{
+			fp.m_flags &= 0xfdefffffu;
+			ai->Output("DEPLOY_FIRE: kit won't fire weapon!\n");
+			fp.m_timeout = 0.0f;
+			next = 11;
+		}
+		else
+		{
+			m_time = ai->m_stateTimer + (thrown ? 10.0f : 3.0f);
+			next = 8;
+		}
+
+		if (next != 11)
+			ai->PlayAiSound((CHARACTER_SOUND)11);
+		break;
+
+	case 7:
+		if (!(range < 11) && code != 11)
+		{
+			ai->ConfirmAiState(this, true);
+			ai->Debug("DEPLOY: FIRING anyway.\n");
+			next = 4;
+			break;
+		}
+
+		ai->Debug("DEPLOY: not FIRING anyway.  Sorry!\n");
+		ai->PlayAiSound((CHARACTER_SOUND)48);
+		next = 11;
+		break;
+
+	case 9:
+	{
+		/* lasing: when the time is up the lase target's anim (AiMaps' name table 3, the
+		 * entry on m_lase) runs */
+		if (ai->m_stateTimer < m_time)
+			goto wait_fuse; /* ELF: substate 8's code */
+
+		CAiMap::names &targets = AiMaps.m_names[3];
+
+		for (CAiMap::names::iterator it = targets.begin(); it != targets.end(); ++it)
+		{
+			s32 dx = (s32)it->m_loc.x - (s32)m_lase.x;
+			s32 dy = (s32)it->m_loc.y - (s32)m_lase.y;
+
+			if ((dx < 0 ? -dx : dx) + (dy < 0 ? -dy : dy) == 0)
+			{
+				CZAnim *anim = ZAnim.GetAnim(it->m_name, NULL);
+
+				if (anim != NULL)
+					anim->Activate(NULL);
+				break;
+			}
+		}
+
+		f32 clock = ai->m_stateTimer;
+		m_time = clock + (1.0f - (clock - m_time));
+		ai->PlayAiSound((CHARACTER_SOUND)14);
+		next = 10;
+		break;
+	}
+
+	case 8:
+	wait_fuse:
+	{
+		/* the thrown item's fuse (m_fuse with option 0x10, 3 s for smoke) runs out; option 8
+		 * does not wait */
+		f32 clock = ai->m_stateTimer;
+
+		if (clock < m_time && m_projectile == NULL)
+			break;
+
+		f32 over = clock - m_time;
+
+		if (!thrown)
+			m_time = 0.0f;
+		else if (m_projectile == NULL)
+			m_time = clock + (2.0f - over);
+		else if (m_option_flags & 0x10)
+		{
+			m_projectile->m_time = m_fuse;
+			m_time = (m_option_flags & 8) ? 0.0f : clock + m_fuse;
+		}
+		else
+		{
+			f32 fuse = code == 122 ? 3.0f : m_projectile->m_time;
+			m_time = (m_option_flags & 8) ? 0.0f : clock + fuse;
+		}
+
+		next = 10;
+		break;
+	}
+
+	case 10:
+		if (ai->m_stateTimer < m_time || seal->IsThrowing(false))
+			break;
+
+		ai->Debug("DEPLOY_COMPLETE m_timer = %.2f\n", (double)m_time);
+		seal->SetWeaponState((WEAPON_STATE)2);
+		m_setup = 0;
+		break;
+
+	case 11:
+		seal->SetWeaponState((WEAPON_STATE)2);
+		m_setup = 0;
+		break;
+
+	default:
+		break;
+	}
+
+	m_substate = (u8)next;
+	return m_setup;
 }
 
 /* @socom-skeleton stub OnSignal__11CAiSGrenadeFQ28CAiState6SIGNALP11CSealCtrlAi */

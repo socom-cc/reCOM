@@ -1504,8 +1504,15 @@ bool CAiSFlee::Tick(float dT, CSealCtrlAi *ctrl)
 			break;
 		}
 
-		/* ELF: with m_unit, CSealUnit::CheckPathProximity(path, 4, 30) drops the route (-> 4).
-		 * port: nothing sets m_unit (OnSignal clears it) and CheckPathProximity is unwritten */
+		/* 0x2e5ab8: with m_unit, a route passing within 4 cells of its members (30 along it) is
+		 * dropped (-> 4). (Nothing sets m_unit: OnSignal only clears it) */
+		if (m_unit != NULL && m_unit->CheckPathProximity(*path, 4, 30.0f))
+		{
+			ctrl->ClearRoute();
+			phase = 4;
+			break;
+		}
+
 		ctrl->SetAiMode(AIM_PATH);
 		phase = 2;
 		break;

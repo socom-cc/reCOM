@@ -50,8 +50,35 @@ void CSealCtrl::StopRumbler()
 }
 
 /* @socom-skeleton stub TickRumbler__9CSealCtrlFf */
-void CSealCtrl::TickRumbler(float)
+void CSealCtrl::TickRumbler(float dT)
 {
+	/* 0x284180: the controller pad's actuators: the small motor at the rumble strength while
+	 * the rumble time runs (0 after), the big one on while the high rumble time runs */
+	CPad *pad = (u32)m_padid < 2 ? CInput::m_pads[m_padid] : NULL;
+
+	if (pad == NULL)
+		return;
+
+	if (!(m_rumbletime <= 0.0f))
+	{
+		pad->m_ActData[1] = (u8)(s32)m_rumblestr;
+		m_rumbletime -= dT;
+	}
+	else
+	{
+		m_rumblestr = 0.0f;
+		pad->m_ActData[1] = (u8)(s32)m_rumblestr;
+	}
+
+	if (!(m_highrumbletime <= 0.0f))
+	{
+		pad->m_ActData[0] = 1;
+		m_highrumbletime -= dT;
+	}
+	else
+	{
+		pad->m_ActData[0] = 0;
+	}
 }
 
 /* @socom-skeleton stub GetThrottleFromSpeed__9CSealCtrlFfi */

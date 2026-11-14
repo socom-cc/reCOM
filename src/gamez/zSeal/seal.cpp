@@ -978,7 +978,15 @@ void CZSealBody::OnMissionStart()
 }
 
 /* @socom-skeleton body OnMissionEnd__10CZSealBodyFv */
-void CZSealBody::OnMissionEnd() {}
+void CZSealBody::OnMissionEnd()
+{
+	/* 0x257740: a seal with an id drops its network pickups; then its controller's
+	 * OnMissionEnd (vtable +0x60) */
+	if (m_id != CEntity::invalidId)
+		CPickup::DestroyNetPickups((u8)m_id);
+
+	static_cast<CSealCtrl *>(m_control)->OnMissionEnd();
+}
 
 /* @socom-skeleton stub OnRecycleEntity__10CZSealBodyFP7CEntity */
 void CZSealBody::OnRecycleEntity(CEntity *entity)
@@ -2757,6 +2765,7 @@ void CZSealBody::PostPreTick(float)
 /* @socom-skeleton stub PrePostTick__10CZSealBodyFf */
 void CZSealBody::PrePostTick(float)
 {
+	/* 0x250f20: empty in the ELF */
 }
 
 /* @socom-skeleton stub HandleWeaponIntersect__10CZSealBodyFv */
@@ -3318,6 +3327,8 @@ float CZSealBody::SetHealth(float health, SEAL_DEATH_TYPE death)
 /* @socom-skeleton stub ResetToInitialState__10CZSealBodyFv */
 void CZSealBody::ResetToInitialState()
 {
+	/* 0x24f570: the controller's (vtable +0x58) */
+	static_cast<CSealCtrl *>(m_control)->ResetToInitialState();
 }
 
 /* @socom-skeleton stub _rethrow_grenade__FP6CValvePv */
@@ -3442,13 +3453,23 @@ void CZSealBody::TeleportTo(const CPnt3D *pos, const CQuat *rot)
 }
 
 /* @socom-skeleton stub TeleportTo__10CZSealBodyFPC7CMatrix */
-void CZSealBody::TeleportTo(const CMatrix *)
+void CZSealBody::TeleportTo(const CMatrix *mtx)
 {
+	/* 0x24ef80: as TeleportTo(pos, rot) with the matrix: the altitude from its translation,
+	 * looked up again; the AI map location refreshed */
+	m_alt = mtx->m_matrix[3][1];
+	m_get_new_altitude = true;
+	CEntity::TeleportTo(mtx);
+	bool changed = false;
+	UpdateAiMapLoc(changed);
 }
 
 /* @socom-skeleton stub ResetAltitude__10CZSealBodyFf */
-void CZSealBody::ResetAltitude(float)
+void CZSealBody::ResetAltitude(float alt)
 {
+	/* 0x24ef60: the altitude, looked up again */
+	m_alt = alt;
+	m_get_new_altitude = true;
 }
 
 /* @socom-skeleton stub SetSnakePathUpdate__10CZSealBodyFbUi */
@@ -3665,8 +3686,15 @@ void CSealStats::IncrSecondaryRoundsFired(int count)
 }
 
 /* @socom-skeleton stub GetPointsEarned__10CSealStatsCFiiif */
-int CSealStats::GetPointsEarned(int, int, int, float) const
+int CSealStats::GetPointsEarned(int a, int b, int c, float x) const
 {
+	/* 0x24e7d0: 3.8 * kills / (1 + a) * b / 8 + 40 * (x - 0.5) * (5 + c) / (5 + b); the
+	 * meaning of the arguments is not proven (no caller in the single-player game) */
+	f32 kills = (f32)m_kills;
+	f32 fb = (f32)b;
+	f32 rate = 3.8f * (kills / (1.0f + (f32)a));
+	f32 ratio = (5.0f + (f32)c) / (5.0f + fb);
+	return (int)((fb / 8.0f) * rate + 40.0f * (x - 0.5f) * ratio);
 }
 
 /* @socom-skeleton stub Shot__10CSealStatsFRC10CZSealBody */
@@ -3849,18 +3877,30 @@ void CCompass::DeleteAnchor(CCompassAnchor *anchor)
 }
 
 /* @socom-skeleton stub CompassAnchor_MPBomb__10CZSealBodyFP14CCompassAnchor */
-unsigned char CZSealBody::CompassAnchor_MPBomb(CCompassAnchor *)
+unsigned char CZSealBody::CompassAnchor_MPBomb(CCompassAnchor *anchor)
 {
+	/* 0x24e180: the anchor is stored; 1 when there was none before */
+	bool first = m_mpbomb_anchor == NULL;
+	m_mpbomb_anchor = anchor;
+	return first;
 }
 
 /* @socom-skeleton stub CompassAnchor_MPBase__10CZSealBodyFP14CCompassAnchor */
-unsigned char CZSealBody::CompassAnchor_MPBase(CCompassAnchor *)
+unsigned char CZSealBody::CompassAnchor_MPBase(CCompassAnchor *anchor)
 {
+	/* 0x24e160: the anchor is stored; 1 when there was none before */
+	bool first = m_mpbase_anchor == NULL;
+	m_mpbase_anchor = anchor;
+	return first;
 }
 
 /* @socom-skeleton stub CompassAnchor_Hostage__10CZSealBodyFP14CCompassAnchor */
-unsigned char CZSealBody::CompassAnchor_Hostage(CCompassAnchor *)
+unsigned char CZSealBody::CompassAnchor_Hostage(CCompassAnchor *anchor)
 {
+	/* 0x24e140: the anchor is stored; 1 when there was none before */
+	bool first = m_hostage_anchor == NULL;
+	m_hostage_anchor = anchor;
+	return first;
 }
 
 /* @socom-skeleton stub CurrentPickup__10CZSealBodyFv */

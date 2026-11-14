@@ -1621,8 +1621,20 @@ bool CZSealBody::CheckDILadder(float &, float &, float &)
 }
 
 /* @socom-skeleton stub Slide__10CZSealBodyFPQ23zdb15IntersectStruct */
-void CZSealBody::Slide(zdb::IntersectStruct *)
+void CZSealBody::Slide(zdb::IntersectStruct *hit)
 {
+	/* 0x29fea0: the model-space velocity loses its part into the hit's normal (the normal
+	 * taken into model space by the inverse rotation) */
+	CQuat inv = m_quat;
+	inv.vec.x = -inv.vec.x;
+	inv.vec.y = -inv.vec.y;
+	inv.vec.z = -inv.vec.z;
+	CPnt3D n;
+	inv.Apply(&hit->m_norm, &n, 1);
+	n.Scale(-1.0f, &n);
+	f32 dot = n.x * m_velM.x + n.y * m_velM.y + n.z * m_velM.z;
+	n.Scale(dot, &n);
+	m_velM.Sub(&n, &m_velM);
 }
 
 /* @socom-skeleton body SetWallHit__10CZSealBodyFPQ23zdb15IntersectStructP6CPnt3DP6CPnt3D */
@@ -3355,8 +3367,20 @@ CZSealBody * CZSealBody::GetReticuleSeal()
 }
 
 /* @socom-skeleton stub CacheReticuleSeal__10CZSealBodyFb */
-void CZSealBody::CacheReticuleSeal(bool)
+void CZSealBody::CacheReticuleSeal(bool on)
 {
+	/* 0x29a790: on: the seal under the last reticle hit is cached (GetReticuleSeal answers
+	 * it); off: no cache */
+	if (on)
+	{
+		m_useCachedReticuleSeal = 1;
+		m_cachedReticuleSeal = GetSeal(m_last_reticule.m_node);
+	}
+	else
+	{
+		m_useCachedReticuleSeal = 0;
+		m_cachedReticuleSeal = NULL;
+	}
 }
 
 /* @socom-skeleton stub GetReticuleAction__10CZSealBodyFb */
@@ -4994,23 +5018,57 @@ bool CZSealBody::DamageBody(f32 damage, f32 pierce)
 }
 
 /* @socom-skeleton stub GetHeadDamage__10CZSealBodyFff */
-int CZSealBody::GetHeadDamage(float, float)
+int CZSealBody::GetHeadDamage(float health, float max)
 {
+	/* 0x294af0: the head wound level: 3 dead (<= 0), 2 at half, 1 at 0.99, else 0 */
+	if (health <= 0.0f)
+		return 3;
+	if (health <= 0.5f * max)
+		return 2;
+	if (health <= 0.99f * max)
+		return 1;
+	return 0;
 }
 
 /* @socom-skeleton stub GetLegDamage__10CZSealBodyFff */
-int CZSealBody::GetLegDamage(float, float)
+int CZSealBody::GetLegDamage(float health, float max)
 {
+	/* 0x294a70: 3 at 0.3 of max, 2 at 0.7, 1 at 0.9, else 0 */
+	if (health <= 0.3f * max)
+		return 3;
+	if (health <= 0.7f * max)
+		return 2;
+	if (health <= 0.9f * max)
+		return 1;
+	return 0;
 }
 
 /* @socom-skeleton stub GetArmDamage__10CZSealBodyFff */
-int CZSealBody::GetArmDamage(float, float)
+int CZSealBody::GetArmDamage(float health, float max)
 {
+	/* 0x2949f0: as the legs (0.3, 0.7, 0.9) */
+	if (health <= 0.3f * max)
+		return 3;
+	if (health <= 0.7f * max)
+		return 2;
+	if (health <= 0.9f * max)
+		return 1;
+	return 0;
 }
 
 /* @socom-skeleton stub GetBodyDamage__10CZSealBodyFff */
-int CZSealBody::GetBodyDamage(float, float)
+int CZSealBody::GetBodyDamage(float health, float max)
 {
+	/* 0x294940: 4 at 0.1 of max, 3 at 0.3, 2 at 0.7, 1 at 0.9, else 0 */
+	if (health <= 0.1f * max)
+		return 4;
+	if (health <= 0.3f * max)
+		return 3;
+	if (health <= 0.7f * max)
+		return 2;
+	if (health <= 0.9f * max)
+		return 1;
+	return 0;
 }
 
 /* @socom-skeleton stub UpdateHealth__10CZSealBodyF15DAMAGE_LOCATION15SEAL_DEATH_TYPE */
@@ -5721,8 +5779,35 @@ void CZSealBody::GetHeadParams(CPnt3D *pos, CPnt3D *dir)
 }
 
 /* @socom-skeleton stub CheckForRegionTrigger__10CZSealBodyFUi */
-void CZSealBody::CheckForRegionTrigger(unsigned int)
+void CZSealBody::CheckForRegionTrigger(unsigned int regions)
 {
+	/* 0x291710: when the region mask changes, OnEnterRegion<n> runs for every region bit set
+	 * (0-30), OnEnterRegion0 when none is */
+	if (m_lastregion != regions)
+	{
+		for (int i = 0; i < 31; i++)
+		{
+			if (!((1u << i) & regions))
+				continue;
+
+			char name[48];
+			sprintf(name, "OnEnterRegion%d", i);
+			CZAnim *anim = ZAnim.GetAnim(name, NULL);
+
+			if (anim != NULL)
+				anim->Activate(NULL);
+		}
+
+		if (regions == 0)
+		{
+			CZAnim *anim = ZAnim.GetAnim("OnEnterRegion0", NULL);
+
+			if (anim != NULL)
+				anim->Activate(NULL);
+		}
+	}
+
+	m_lastregion = regions;
 }
 
 /* @socom-skeleton stub WeaponHitAnim__10CZSealBodyF8AnimType10SEAL_STATEb */

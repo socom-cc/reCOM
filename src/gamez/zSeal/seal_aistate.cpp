@@ -96,6 +96,9 @@
 /* @socom-skeleton end include */
 #include "gamez/zSeal/zseal.h"
 #include "gamez/zFTS/zfts.h" /* ftsGetPlayer (CAiSGoto::Tick) */
+#include "gamez/zValve/zvalve.h" /* CAiSBreach's valves */
+#include "gamez/zNode/node_action.h" /* CAiSBreach's door */
+#include <stdlib.h> /* rand (CAiSBreach) */
 
 /* @socom-skeleton stub MultiplayerMsgStrings */
 static unsigned char MultiplayerMsgStrings[28];
@@ -409,7 +412,7 @@ bool CSealCtrlAi::CanPushAiState(AI_STATE state)
 	/* port: only the states whose behaviour is written may be pushed (UNKNOWN, SCRIPT,
 	 * TARGETING, PURSUE, EVENT, RESTRAINED, FOLLOW, HOLD, ACTION, CORPSE, STUNNED, GOTO, SHOTAT, FLEE,
 	 * RUSH, SURRENDER, RELOAD, RESCUED, SUSPENDED, AVOID, NOAMMO, ANIMATE, CQB, PATHRECO, PICKUP, HOSTAGE,
-	 * GRENADE); the other states' Tick functions are not written
+	 * GRENADE, BREACH, DEPLOY); the other states' Tick functions are not written
 	 * yet, so their pushes (shot-at, reload, avoid ...) are refused here, a path every caller
 	 * handles */
 	if (s != STATE_UNKNOWN && s != STATE_SCRIPT && s != STATE_TARGETING && s != STATE_PURSUE && s != STATE_EVENT && s != STATE_RESTRAINED
@@ -417,7 +420,7 @@ bool CSealCtrlAi::CanPushAiState(AI_STATE state)
 		&& s != STATE_GOTO && s != STATE_SHOTAT && s != STATE_FLEE && s != STATE_RUSH
 		&& s != STATE_SURRENDER && s != STATE_RELOAD && s != STATE_RESCUED && s != STATE_SUSPENDED
 		&& s != STATE_AVOID && s != STATE_NOAMMO && s != STATE_ANIMATE && s != STATE_CQB && s != STATE_PATHRECO
-		&& s != STATE_PICKUP && s != STATE_HOSTAGE && s != STATE_GRENADE)
+		&& s != STATE_PICKUP && s != STATE_HOSTAGE && s != STATE_GRENADE && s != STATE_BREACH && s != STATE_DEPLOY)
 		return false;
 #endif
 
@@ -1401,21 +1404,403 @@ bool CAiSScript::Tick(float dT, CSealCtrlAi *ctrl)
 	return true;
 }
 
-/* @socom-skeleton stub OnSignal__10CAiSBreachFQ28CAiState6SIGNALP11CSealCtrlAi */
-void CAiSBreach::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+/* port: file-local for the ELF's inline valve store (CAiSBreach): the value, and the
+ * callbacks on a change (1 to non-zero, 2 to zero) */
+static void BreachSetValve(CValve *valve, u32 value)
 {
+	u32 change = valve->m_value == value ? 0 : (value != 0 ? 1 : 2);
+	valve->m_value = value;
+
+	if (change != 0)
+		valve->MakeCallbacks((VALVE_STATE)change);
+}
+
+/* @socom-skeleton stub OnSignal__10CAiSBreachFQ28CAiState6SIGNALP11CSealCtrlAi */
+void CAiSBreach::OnSignal(CAiState::SIGNAL signal, CSealCtrlAi *ai)
+{
+	/* 0x2d8c20: 0 (pushed) no goal, no look; 1 (popped) a dead member aborts the breach
+	 * (valve 3), the weapon is lowered; 3 resumed; 4 (released; also the unit's template, with
+	 * no controller) the team and the door are forgotten */
+	CZSealBody *seal = ai != NULL ? static_cast<CZSealBody *>(ai->m_entity) : NULL;
+
+	switch ((int)signal)
+	{
+	case 0:
+		ai->ClearGoal(GOAL_NONE);
+		ai->ClearLook(AIL_ALL);
+		break;
+
+	case 1:
+		if (!seal->m_isAlive && m_valve != NULL)
+			BreachSetValve(m_valve, 3);
+
+		seal->SetWeaponState((WEAPON_STATE)2);
+		break;
+
+	case 3:
+		ai->Output("Resuming BREACH (%s)!\n", GetStatus());
+		break;
+
+	case 4:
+		m_leader = NULL;
+		m_count = NULL;
+		m_action = NULL;
+		m_index = 0;
+		m_map_action = NULL;
+		m_valve = NULL;
+		break;
+
+	default:
+		break;
+	}
 }
 
 /* @socom-skeleton stub GetStatus__10CAiSBreachCFv */
 const char * CAiSBreach::GetStatus() const
 {
+	/* 0x2d8b60 (substate 6 has no name) */
+	switch ((u8)m_substate)
+	{
+	case 0: return "BEGIN";
+	case 1: return "READY";
+	case 2: return "STACK";
+	case 3: return "WAIT";
+	case 4: return "OPEN";
+	case 5: return "BANG";
+	case 7: return "PAUSE";
+	case 8: return "ENTER";
+	case 9: return "CLEAR";
+	case 10: return "END";
+	case 11: return "ABORT";
+	default: return "UNKNOWN";
+	}
 }
 
 /* @socom-skeleton stub Tick__10CAiSBreachFfP11CSealCtrlAi */
-bool CAiSBreach::Tick(float, CSealCtrlAi *)
+bool CAiSBreach::Tick(float dT, CSealCtrlAi *ai)
 {
 	/* @socom-skeleton stub breachTimeout$2919 */
-	static float breachTimeout;
+	static float breachTimeout = 10.0f; /* ELF: set on the first Tick (init$2920) */
+
+	/* 0x2d8000 (a fire-team breach order: AddBreachMember fills the state from the unit's
+	 * template). The first member leads, the second opens the door and throws the frag /
+	 * flashbang. Each member goes to its stack place by the door (2), waits there (3); the
+	 * leader waits for all (10 s, else abort), then the door is opened (4: STATE_ACTION when
+	 * shut) and the opener throws (5: STATE_DEPLOY); the others wait for his throw (6), then
+	 * all go in behind the leader to their entry cells (8), shouting while they clear (9). A
+	 * dead leader, a missing state or a failed route aborts (11); the breach valve (named
+	 * after the door's cell) goes 1 moving, 2 done, 3 aborted. Returns m_setup. */
+	u32 next = (u8)m_substate;
+
+	if (!m_setup)
+	{
+		m_substate = next;
+		return false;
+	}
+
+	CSealCtrlAi *opener = m_opener;
+	CSealCtrlAi *leader = m_leader;
+
+	if (m_count == NULL || m_map_action == NULL)
+	{
+		ai->Output("Invalid BREACH Parameters...\n");
+		next = 11;
+	}
+	else if (m_valve == NULL)
+	{
+		m_valve = CValve::Create(AiMaps.GetCellNameString(m_map_action->m_loc), 0, VALVE_TYPE::VTYPE_TEMP);
+	}
+
+	if (leader == NULL || !leader->m_entity->m_isAlive)
+	{
+		ai->Debug("Breach leader is dead -- ABORT BREACH\n");
+
+		if (m_valve != NULL) /* port: NULL-tested */
+			BreachSetValve(m_valve, 3);
+
+		next = 11;
+	}
+	else if (m_valve != NULL && m_valve->m_value == 3) /* port: NULL-tested */
+	{
+		next = 11;
+	}
+
+	if (opener == NULL || !opener->m_entity->m_isAlive)
+		opener = leader;
+
+	bool isOpener = opener == ai;
+	bool isLeader = leader == ai;
+	CAiSBreach *lead = NULL;
+
+	if (leader != NULL) /* port: NULL-tested (ELF: the leader's stack is read through NULL) */
+	{
+		for (std::list<CAiState *>::const_iterator it = leader->m_stateStack.begin(); it != leader->m_stateStack.end(); ++it)
+		{
+			if ((*it)->m_state == STATE_BREACH)
+			{
+				lead = static_cast<CAiSBreach *>(*it);
+				break;
+			}
+		}
+	}
+
+	if (lead == NULL)
+		next = 11;
+
+	switch (next)
+	{
+	case 0:
+	{
+		/* BEGIN: route to the stack place */
+		const CAiMapLoc *loc = m_index < 6 ? &m_map_action->m_locEx[m_index] : (const CAiMapLoc *)CAiMapLoc::invalid;
+
+		if (ai->SetRoute(*loc))
+		{
+			ai->m_speed = 1.0f; /* ELF: _saturate(1, 0, 1) */
+			ai->ConfirmAiState(this, true);
+			next = 2;
+			BreachSetValve(m_valve, 1);
+		}
+		else
+		{
+#ifdef SOCOM_PORT
+			SOCOM_PORT_TRACE("BREACH: %s: no route to place %u (%d:%d,%d)", ai->m_entity->m_node->m_name, m_index,
+				(int)loc->m_mapid, (int)loc->x, (int)loc->y);
+#endif
+			ai->ConfirmAiState(this, false);
+			next = 11;
+		}
+		break;
+	}
+
+	case 2:
+		/* STACK: there - one fewer to wait for; creep, look at the door */
+		if (ai->GetRouteComplete())
+		{
+			u32 count = m_count->m_value;
+			BreachSetValve(m_count, count != 0 ? count - 1 : 0);
+			ai->SetAiMode(AIM_CREEP);
+			ai->SetLookPosW(AIL_DEPLOY, &m_target);
+			next = 3;
+		}
+		break;
+
+	case 3:
+		/* WAIT: the leader for everybody (or the time out), the others for the leader */
+		m_time += dT;
+
+		if (isLeader)
+		{
+			if (m_count->m_value == 0)
+				next = 4;
+			else if (!(m_time <= breachTimeout))
+				next = 11;
+		}
+		else if (lead->m_substate >= 4)
+		{
+			ai->SetAiMode(AIM_CREEP);
+			next = isOpener ? 5 : 6;
+		}
+		break;
+
+	case 4:
+	{
+		/* OPEN: a shut door (map action type 1, valve 0) is opened where the AI stands */
+		CNodeAction *action = m_action;
+
+		if (action != NULL)
+		{
+			u32 type = m_map_action->m_type_invalid ? 0 : (u8)m_map_action->m_type;
+
+			if (type == 1)
+			{
+				u32 door = action->m_valve->m_value;
+
+				if (door == 0)
+				{
+					if (!ai->PushAiState(STATE_ACTION, true))
+					{
+						next = 11;
+						break;
+					}
+
+					CAiState *top = ai->GetAiState();
+					CAiSAction *open = top->m_state == STATE_ACTION ? static_cast<CAiSAction *>(top) : NULL;
+
+					if (open != NULL) /* port: NULL-tested (ELF writes through it) */
+					{
+						open->m_action = action;
+						open->m_value = 1;
+						open->m_option_flags = 0x10;
+						open->m_substate = 6;
+						open->m_setup = 1;
+					}
+				}
+				else if (door != 1)
+				{
+					break; /* the door is moving: wait */
+				}
+			}
+		}
+
+		next = isOpener ? 5 : 6;
+		break;
+	}
+
+	case 5:
+	{
+		/* BANG: the opener throws a flashbang (option 2) or a frag (option 1) at the door */
+		EQUIP_ITEM item;
+		f32 fuse;
+
+		if (m_option_flags & 2)
+		{
+			item = EQUIP_ITEM::FLASHBANG;
+			fuse = 1.0f;
+		}
+		else if (m_option_flags & 1)
+		{
+			item = EQUIP_ITEM::GRENADE;
+			fuse = 2.0f;
+		}
+		else
+		{
+			next = 6;
+			break;
+		}
+
+		if (ai->PushAiState(STATE_DEPLOY, true))
+		{
+			CAiState *top = ai->GetAiState();
+			CAiSDeploy *deploy = top->m_state == STATE_DEPLOY ? static_cast<CAiSDeploy *>(top) : NULL;
+
+			if (deploy != NULL) /* port: NULL-tested (ELF writes through it) */
+			{
+				deploy->m_target = m_target;
+				deploy->m_offset.x = 0.0f;
+				deploy->m_offset.y = 0.0f;
+				deploy->m_offset.z = 100.0f;
+				deploy->m_item = (u8)item;
+				deploy->m_option_flags = 0x34;
+				deploy->m_fuse = fuse;
+				deploy->m_substate = 4;
+				deploy->m_setup = 1;
+			}
+		}
+
+		next = 6;
+		break;
+	}
+
+	case 6:
+	{
+		/* the others wait while the opener still deploys */
+		if (isOpener)
+		{
+			next = 8;
+			break;
+		}
+
+		bool deploying = false;
+
+		for (std::list<CAiState *>::const_iterator it = m_opener->m_stateStack.begin(); it != m_opener->m_stateStack.end(); ++it)
+		{
+			if ((*it)->m_state == STATE_DEPLOY)
+			{
+				deploying = true;
+				break;
+			}
+		}
+
+		if (!deploying)
+			next = 8;
+		break;
+	}
+
+	case 8:
+	{
+		/* ENTER: behind the leader (once he clears), to the entry cell */
+		if (!isLeader)
+		{
+			ai->SetAiMode(AIM_CREEP);
+
+			if (ai->SetLookPosW(AIL_TASK, &m_target))
+				ai->ModifyLookFlags(1, 0);
+
+			if (!leader->AiStateIs(STATE_BREACH) || lead->m_substate < 9)
+				break;
+		}
+
+		u32 i = m_index + 3;
+		CAiMapLoc dest = i < 6 ? m_map_action->m_locEx[i] : *(const CAiMapLoc *)CAiMapLoc::invalid;
+		ai->Debug("BREACH_ENTER -- setting route to (%d:%d,%d)\n", (int)dest.m_mapid, (int)dest.x, (int)dest.y);
+		next = 11;
+
+		if (ai->SetRoute(dest))
+		{
+			ai->ClearLook(AIL_TASK);
+			next = 9;
+			m_shout_time.m_min = 0.5f;
+			m_shout_time.m_range = 0.5f;
+		}
+		break;
+	}
+
+	case 9:
+	{
+		/* CLEAR: on the way in, a shout (sound 5 or 6) every 0.5-1 s */
+		if (ai->GetRouteComplete())
+			next = 10;
+		else
+			ai->SetAiMode(AIM_PATH);
+
+		bool shout = false;
+
+		if (m_shout_timer != CAiTimer::infinite)
+		{
+			m_shout_timer -= dT;
+			shout = m_shout_timer != CAiTimer::infinite && m_shout_timer <= 0.0f;
+
+			if (shout)
+				m_shout_timer = m_shout_time.m_range == 0.0f ? m_shout_time.m_min
+					: m_shout_time.m_min + m_shout_time.m_range * ((f32)rand() * 4.656613e-10f);
+		}
+
+		if (shout)
+		{
+			f32 r = 0.0f + 1.0f * ((f32)rand() * 4.656613e-10f);
+			ai->PlayAiSound(r <= 0.5f ? (CHARACTER_SOUND)5 : (CHARACTER_SOUND)6);
+		}
+		break;
+	}
+
+	case 10:
+		/* END */
+		BreachSetValve(m_valve, 2);
+		m_setup = 0;
+		break;
+
+	case 11:
+		ai->Output("Aborting breach...\n");
+		ai->ConfirmAiState(this, false);
+		m_setup = 0;
+		break;
+
+	default:
+		break;
+	}
+
+	if ((u8)next != m_substate)
+	{
+		ai->Debug("BREACH -- substate = %s\n", GetStatus());
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("BREACH: %s: phase %u -> %u (time %.1f, %d on the way, valve %d)", ai->m_entity->m_node->m_name, (u32)(u8)m_substate, next,
+			(double)m_time, m_count != NULL ? (int)m_count->m_value : -1, m_valve != NULL ? (int)m_valve->m_value : -1);
+#endif
+	}
+
+	m_substate = (u8)next;
+	return m_setup;
 }
 
 /* @socom-skeleton stub OnSignal__13CAiSSuspendedFQ28CAiState6SIGNALP11CSealCtrlAi */

@@ -32,6 +32,7 @@
 #include "gamez/zMath/zmath.h"
 #include "gamez/zWeapon/zweapon.h"
 #include "zseal.h"
+#include <stdlib.h> /* rand (Rfloat draws) */
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
 /* port: STUN_TYPE is declared in gamez/zSeal/zseal.h */
@@ -40,44 +41,89 @@
 /* @socom-skeleton stub MultiplayerMsgStrings */
 static unsigned char MultiplayerMsgStrings[28];
 
+static f32 SquirmDraw(const Rfloat &r)
+{
+	/* Rfloat::operator float 0x25aba0 (inline here) */
+	return r.m_range == 0.0f ? r.m_min : r.m_min + r.m_range * ((f32)rand() * 4.656613e-10f);
+}
+
 /* @socom-skeleton stub __ct__15CSealCtrlSquirmFv */
 CSealCtrlSquirm::CSealCtrlSquirm()
 {
+	/* 0x2e2e00 */
+	m_unk_240 = 0;
+	m_on = 0;
+	m_wait.m_min = 0.1f;
+	m_wait.m_range = 0.4f;
+	m_hold.m_min = 0.5f;
+	m_hold.m_range = 0.7f;
+	m_timer = SquirmDraw(m_wait);
+	m_until = (f32)((double)SquirmDraw(m_hold) + (double)m_timer);
+	m_unk_260.m_min = 0.0f;
+	m_unk_260.m_range = 0.0f;
+	m_unk_268 = SquirmDraw(m_unk_260);
 }
 
 /* @socom-skeleton stub __dt__15CSealCtrlSquirmFv */
 CSealCtrlSquirm::~CSealCtrlSquirm()
 {
+	/* 0x2e2da0: CSealCtrl's destructor */
 }
 
 /* @socom-skeleton stub Initalize__15CSealCtrlSquirmFv */
 void CSealCtrlSquirm::Initalize()
 {
+	/* 0x2e2c50: on; the kit on its first item in fire mode 3; a 1 s wait and a 5 s hold
+	 * drawn. ELF quirk kept: the wait's range test compares zero with zero, so the wait is
+	 * always its minimum */
+	m_on = 1;
+	m_unk_260.m_min = 8.0f;
+	m_unk_260.m_range = 0.0f;
+	CZKit *kit = &static_cast<CZSealBody *>(m_entity)->m_kit;
+
+	if (kit != NULL)
+	{
+		kit->SetCurItemByIndex(0);
+		kit->SetCurFireMode((FIREMODE)3);
+	}
+
+	m_hold.m_min = 5.0f;
+	m_hold.m_range = 0.0f;
+	m_wait.m_min = 1.0f;
+	m_wait.m_range = 0.0f;
+	m_timer = m_wait.m_min;
+	f32 hold = m_hold.m_range == 0.0f ? m_hold.m_min : m_hold.m_min + m_hold.m_range * ((f32)rand() * 4.656613e-10f);
+	m_until = (f32)((double)m_timer + (double)hold);
 }
 
 /* @socom-skeleton stub OnWeaponHit__15CSealCtrlSquirmFPQ23zdb15IntersectStructP12CZProjectile */
 void CSealCtrlSquirm::OnWeaponHit(zdb::IntersectStruct *, CZProjectile *)
 {
+	/* 0x2e2c40: empty in the ELF */
 }
 
 /* @socom-skeleton stub OnStunDamage__15CSealCtrlSquirmF9STUN_TYPEfPC6CPnt3D */
 void CSealCtrlSquirm::OnStunDamage(STUN_TYPE, float, const CPnt3D *)
 {
+	/* 0x2e2c30: empty in the ELF */
 }
 
 /* @socom-skeleton stub OnSetHealth__15CSealCtrlSquirmFff */
 void CSealCtrlSquirm::OnSetHealth(float, float)
 {
+	/* 0x2e2c20: empty in the ELF */
 }
 
 /* @socom-skeleton stub OnDeath__15CSealCtrlSquirmFv */
 void CSealCtrlSquirm::OnDeath()
 {
+	/* 0x2e2c10: empty in the ELF */
 }
 
 /* @socom-skeleton stub ResetToInitialState__15CSealCtrlSquirmFv */
 void CSealCtrlSquirm::ResetToInitialState()
 {
+	/* 0x2e2c00: empty in the ELF */
 }
 
 /* @socom-skeleton stub PreTick__15CSealCtrlSquirmFf */
@@ -103,9 +149,11 @@ bool CSealCtrlSquirm::Tick(float)
 /* @socom-skeleton stub PostMortemPreTick__15CSealCtrlSquirmFf */
 void CSealCtrlSquirm::PostMortemPreTick(float)
 {
+	/* 0x2e24c0: returns 1, nothing else */
 }
 
 /* @socom-skeleton stub OnActionButton__15CSealCtrlSquirmFv */
 void CSealCtrlSquirm::OnActionButton()
 {
+	/* 0x2e24b0: empty in the ELF */
 }

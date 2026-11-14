@@ -168,3 +168,101 @@ Scratch `build/port/boot-mod-zseal2/` (untracked: NOTES.md, mine.txt, survey bef
   DEPLOY 0x281a80, CTFireWeapon Begin / Tick, the kit's deploy-state projectile (+0x54); then their gate entries.
 - The empty task bodies listed under "State"; items 2-5 of the plan as in part 1's list (throw arc, HandleSupport /
   ConfirmCommand, laser / flashlight, Hang_0, binoculars, the Parse functions, the network group).
+
+# Part 3 (2026-11-14, socom-port-mod-zseal3): breach, deploy, tasks, orders, kit, single-player leftovers
+
+Scratch `build/port/boot-mod-zseal3/` (untracked: NOTES.md, mine.txt, survey before / after, the scratch hook
+`hook_zseal3.cpp` (fire-team breach / deploy orders), `pad_fire.txt`).
+
+## State
+- Partly done again: items 1-4 of the plan are written except the pieces listed under "Not written / next"; item 5
+  (the task Parse functions) is started, item 6 (network) is not.
+- `survey.py gamez/zSeal`: stub fences 139 -> 61 (48,768 -> 26,076 B); written 508,036 -> 530,748 B. `port: not
+  written` placeholders 33 -> 30. The task bodies the survey counted as written while empty (CTFireWeapon, CTAction,
+  CTMap, CTPaint, CTSpecial) are written.
+
+## Written (ELF addresses)
+- Breach: `CAiSBreach` Tick 0x2d8000 / GetStatus 0x2d8b60 / OnSignal 0x2d8c20 (96-byte layout in zai.h),
+  `AddBreachMember` 0x2d3540, OnCommand's breach cases 0x282574, CSealUnit::IssueCommand's breach template
+  0x2d1a40 (the door under the source's reticle, its AI map action and cell, the target 9 over the cell centre).
+  Phases: stack places (m_locEx 0-2), the leader waits for all (10 s), the door is opened (STATE_ACTION) when shut,
+  the opener throws (STATE_DEPLOY: flashbang 123 / frag 121), all enter (m_locEx 3-5) shouting; breach valve 1 / 2 / 3.
+- Deploy: `CAiSDeploy` Tick 0x25d110, CanDeployItem 0x25e190 (bool), OnSignal 0x25e290 (100-byte layout),
+  `CZSealBody::GetPutativeFirePointW` 0x274800, OnCommand DEPLOY 0x281a80; CZKit::Fire / HandleRemotePlaceExplosive
+  keep the projectile in the deploy state (0x2adc9c / 0x2a734c).
+- IssueCommand's remaining cases: ACTION (first AI acts, the others follow it), FOLLOW for escortees (unit 17),
+  AMBUSH (ambush direction, hold / hold fire), COVERTARGET, LASETARGET / DEPLOY (first member or sub-unit allowed);
+  OnCommand ACTION 0x28240c, AWARE 0x2824b4, AWAKE 0x282588. CanPushAiState lets BREACH and DEPLOY through.
+- Tasks: `CTFireWeapon` Begin 0x2bcfa0 / Tick 0x2bcd70, `CTAction::Tick` 0x2be2f0, `CTMap::Tick` 0x2ba710,
+  `CTPaint::Tick` 0x2b9820, `CTSpecial` Begin 0x2b63d0 / Tick 0x2b6150 / End 0x2b62d0 (record layouts in
+  seal_tasks.cpp); Parse (written, untested): CTFireWeapon, CTAction, CTSpecial, CTPursue, CTHold, CTComm, CTDoor.
+- Orders and voice: `ConfirmCommand` 0x2d2030, `GetUnitLeaderHandle` 0x2d1f00, `HandleSupport` 0x2d2bd0,
+  `GetSoundNameStringFromCmd` 0x2d2730, `GetUnitNameStringFromUnitNum` 0x2d2b10, the speech-recognition name maps
+  0x2d22c0 / 0x2d24e0, `GetAwareCounter` 0x2cf180, `Update/ResetPointOutState` 0x2cf140 / 0x2cf110,
+  `CheckPathProximity` (seal 0x2cead0, unit 0x2ce8d0, `_check_proximity` 0x2cece0; CAiSFlee uses it).
+- Body / controller / kit: Raise/LowerBinoculars 0x273890 / 0x273800, Hang_0 0x275c40, Slide 0x29fea0,
+  CheckForRegionTrigger 0x291710, CacheReticuleSeal, Get{Head,Leg,Arm,Body}Damage, TeleportTo(CMatrix),
+  ResetAltitude, OnMissionEnd, ResetToInitialState, GetFP, compass anchors; CSealCtrl::OnWeaponEvent 0x288150
+  (bullet-pass AI event and sound), TickRumbler 0x284180, PlayAiSound 0x287bd0; CSealCtrlAi OnMissionEnd,
+  ResetToInitialState, PutAiLog, SetAiLogEnabled, SetAiAccuracyAngle; kit TickLaserDesignator 0x2a90a0,
+  FetchLaseTarget 0x2a9360, TickFlashlight 0x2aa4e0, HandlePlacingExlosive 0x2a94f0, FireGrenade, FireCur,
+  GetAmmoIndex (int), GetItemIndex(SEAL_ITEM), EmptyAmmoCountTotal, PendingPickupHandled; the squirm controller's
+  ctor / Initalize / empty handlers; CHandSignal ctor; CSealStats::GetPointsEarned.
+
+## Outside zSeal (small in-place edits, free at HEAD)
+- `zAI/zai.h`: CAiSBreach and CAiSDeploy members, `CAiMap::region::Contains` declaration.
+- `zAI/ai_mapdata.cpp`: `CAiMap::region::Contains` 0x19e020 (was missing; HandleSupport / AllowCommand EXTRACT).
+
+## Findings
+- The breach template must be Reset to STATE_BREACH once (the ELF's init block): without it the members' copied
+  state type is 0 and the leader's breach state is never found (abort).
+- Only actions whose AI map record has `m_locExValid` can be breached (AllowCommand); in m8 these are the depot,
+  tri, dredge, outbuilding and shack doors (not the outhouses). An enemy inside often opens the door first; the
+  OPEN phase then goes straight on.
+- The second member aborts once the leader's breach ends (its leader's state is gone): ELF behaviour.
+
+## ELF quirks kept
+- The breach Debug line names the previous phase; the throw point tables of GetPutativeFirePointW are zero CPnt3Ds
+  (a throw starts at the node's origin); the ACTION confirmation name is overwritten by the order's own; the leader
+  handle search never reaches the sub-units; TickLaserDesignator calls CSnd::PlayErrorSound when the finish sound
+  exists; CheckPathProximity starts every leg at the path's last point; Hang_0 from crouch / prone answers no blend.
+
+## Port deviations
+- NULL tests where the ELF writes through a state that may be another one (the BREACH / DEPLOY / ACTION / GOTO
+  pushes, the kit's deploy projectile) and on the breach leader and the reticle's door action.
+- GetSoundNameStringFromCmd's default passes the command name past "CMD_" where the ELF passes a char as `%s`.
+
+## Runs (tree = HEAD 0266b548 + mine.txt; screenshots under `build/port/screenshots/45-zseal/`)
+- zb1 (`hook_zseal3.cpp`, -DDEPLOY_AT): the fireteam is ordered DEPLOY 122 at a point 80 ahead of the player:
+  DiMone takes it ("I can see it from here", prefire, DEPLOY_FIRE), throws the smoke grenade, waits for its fuse,
+  DEPLOY_COMPLETE; the smoke cloud stands at the aim point (deploy-smoke screenshot).
+- zb5 (`hook_zseal3.cpp`, -DBREACH_AT, door_outbuild01, enemies asleep): BREACHBANGCLEAR: the template is set,
+  Bailey leads, DiMone opens; both route to their stack places (STACK), WAIT, OPEN (Shed2 inside had opened the door
+  already), DiMone throws the flashbang (STATE_DEPLOY 123), ENTER to the entry cells, CLEAR with shouts, Bailey END
+  (valve 2); the team HUD shows BREACHING / DEPLOYING (breach-stack screenshot). No STOP.
+- zst4 (part 1's `hook_zseal.cpp`, pad with R1 fire): m8 for 160 s, no STOP; firing with recoil 0.4-0.7; kills,
+  respawns (OutPatrol1 / 3) and recycling (OutPatrol2 / 4 / 5, Help1, Alarm1-3, LeaderBud1, Rush1); the team follows
+  (Hutchins 15, DiMone 32); heap use 22.69 -> 22.82 MB, flat (22.817 MB) over the last 90 s.
+- zw3 / zw4 (`port/test-hooks/win`, -DSOCOM_HOOK_WIN; zw4 on HEAD e06077e4): extract 0 -> 1, mission_complete 0 -> 1, "EXIT: debrief open
+  (objectives 3/7)", IsMissionSuccessful, X (StatsProgress 100), menu: the same objectives and lines as the zFTS
+  reference run zfw1 and zGrid's zg4 (3/7; "MISSION SUCCESSFUL" is debrief text, never a log line in any of them).
+  The debrief shows MISSION SUCCESSFUL with the per-seal counters (win-debrief screenshot).
+- zsr3 (`port/test-hooks/state`, 8 missions, tree on 0266b548): in use 17,836,340 B at return 1, then 17,836,436 B
+  at returns 2-8 (flat); no STOP.
+- z4def (default build on e06077e4, no hooks): boots to dlgMenu at 16.5 s; no STOP.
+
+## Not written / next
+- The throw arc of CSealCtrl::PostTick and the ai line drawing (DrawLine, LineTo; seal_ailines.cpp): they need
+  zRender's RenderLineWorld (not in the port; zRender is another worker's module).
+- FootInSpace (TurnSetup's foot IK; needs the `seal_foot_bone` static), sealSaveFireModes (CSavedFireModeInfo's
+  layout), CTPlay::Create, get_param / get_state_fixup / ftmask_create (Parse helpers), RemoveAmmo /
+  RemoveItemAndAmmo (network callers only), the IssueCommand unit-17 escortee hand-over, OnCommand LASETARGET
+  0x281148.
+- Task Parse functions still returning NULL (26): ai::WAIT, VALVE, TEAM, INREGION, INRANGE, STOPALL, STATE,
+  STANCE, SOUND, SIGNAL, SETANIMSET, SETMODE, SELECT, ANIMATE, PARAM, PAINT, MOVE, MAP, MACRO, LOOKAT, INVIEW,
+  INSTATE, GOTO, FIREMODE, EVENT, DEBUG (the m8 scripts are compiled: none runs offline).
+- The network group (item 6): ghosts, piggy-back, remote AI / respawn / seal creation (RemoteRespawn,
+  AcquireRemoteAi, SetAiNetState, NetworkPlayerCreate), the MP bomb (InitMPBomb, TickMPBomb, Drop / Pickup /
+  HandlePlace), net pickups (HandlePickupAck, CheckForAmmoPickups, CanPickupNetItem, CreateNet*Pickup,
+  FillNetworkAmmoPickupValues, RemotePickupItem), damage replication (Set*Damage, RemoteWeaponDamage*), MP stats,
+  UpdateMvpScore, CreateMultiPlayerUnits, Revive, PlayRemoteMsg, Destroy (remote seals), the squirm PreTick.

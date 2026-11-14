@@ -164,34 +164,34 @@ class CAiDecay;
 /* @socom-skeleton end forward */
 
 /* @socom-skeleton stub stand_throw */
-static const int stand_throw[3] = {0};
+static const float stand_throw[3] = {0}; /* ELF: a zero CPnt3D (never filled) */
 
 /* @socom-skeleton stub crouch_throw */
-static const int crouch_throw[3] = {0};
+static const float crouch_throw[3] = {0}; /* ELF: a zero CPnt3D (never filled) */
 
 /* @socom-skeleton stub prone_throw */
-static const int prone_throw[3] = {0};
+static const float prone_throw[3] = {0}; /* ELF: a zero CPnt3D (never filled) */
 
 /* @socom-skeleton stub stand_toss */
-static const int stand_toss[3] = {0};
+static const float stand_toss[3] = {0}; /* ELF: a zero CPnt3D (never filled) */
 
 /* @socom-skeleton stub crouch_toss */
-static const int crouch_toss[3] = {0};
+static const float crouch_toss[3] = {0}; /* ELF: a zero CPnt3D (never filled) */
 
 /* @socom-skeleton stub prone_toss */
-static const int prone_toss[3] = {0};
+static const float prone_toss[3] = {0}; /* ELF: a zero CPnt3D (never filled) */
 
 /* @socom-skeleton stub stand_peek_rtoss */
-static const int stand_peek_rtoss[3] = {0};
+static const float stand_peek_rtoss[3] = {0}; /* ELF: a zero CPnt3D (never filled) */
 
 /* @socom-skeleton stub stand_peek_ltoss */
-static const int stand_peek_ltoss[3] = {0};
+static const float stand_peek_ltoss[3] = {0}; /* ELF: a zero CPnt3D (never filled) */
 
 /* @socom-skeleton stub running_rifle_throw */
-static const int running_rifle_throw[3] = {0};
+static const float running_rifle_throw[3] = {0}; /* ELF: a zero CPnt3D (never filled) */
 
 /* @socom-skeleton stub running_pistol_throw */
-static const int running_pistol_throw[3] = {0};
+static const float running_pistol_throw[3] = {0}; /* ELF: a zero CPnt3D (never filled) */
 
 /* @socom-skeleton stub PRONE_THROW_FRAC */
 static float PRONE_THROW_FRAC = 0.6600000262260437f;
@@ -2584,8 +2584,31 @@ CZBodyAnimBlend * CZSealBody::SetStanceIdle(AnimType type)
 }
 
 /* @socom-skeleton stub Hang_0__10CZSealBodyFii */
-CZBodyAnimBlend * CZSealBody::Hang_0(int, int)
+CZBodyAnimBlend * CZSealBody::Hang_0(int from, int dir)
 {
+	/* 0x275c40 (SetStance's hang transitions): from standing, the grab (36) then the hang
+	 * climbing up (35, dir > 0) or the hang (39); its representative loses flag 0x40. From
+	 * crouched or prone: first to the hang from standing, then Stand_0 from the old state.
+	 * ELF quirk kept: those two answer no blend (the representative is then taken of NULL;
+	 * port: skipped) */
+	m_blends->Top(); /* ELF: called, the answer unused */
+	CZBodyAnimBlend *blend = NULL;
+
+	if (from == 0)
+	{
+		PushBlend((AnimType)36, 4, false);
+		blend = PushBlend((AnimType)(dir > 0 ? 35 : 39), 4, false);
+	}
+	else if (from == 1 || from == 2)
+	{
+		Hang_0(0, dir);
+		Stand_0(from, 0);
+	}
+
+	if (blend != NULL) /* port: NULL-tested */
+		blend->Representative()->m_flags &= 0xffbf;
+
+	return blend;
 }
 
 /* @socom-skeleton stub BlendedClimb__10CZSealBodyFf */
@@ -2874,8 +2897,74 @@ bool CZSealBody::GetThrowAnim(float power, AnimType &anim, float &frac, float &o
 }
 
 /* @socom-skeleton stub GetPutativeFirePointW__10CZSealBodyFbbR6CPnt3D */
-void CZSealBody::GetPutativeFirePointW(bool, bool, CPnt3D &)
+void CZSealBody::GetPutativeFirePointW(bool thrown, bool toss, CPnt3D &out)
 {
+	/* 0x274800 (CAiSDeploy::Tick's line-of-fire test): where a shot or a throw would start.
+	 * Thrown: the stance's throw (toss) point in the node's frame - the stance of the first
+	 * blend from the top that is not a peek (state 3); standing and peeking the lean toss to
+	 * the peek's side, running (over 20, mostly forwards) the running throw for the rifle or
+	 * the pistol. Otherwise the current fire point offset (zero without one) from the
+	 * position. ELF quirk kept: the throw point tables are zero CPnt3Ds nothing fills, so a
+	 * throw starts at the node's origin. */
+	if (thrown)
+	{
+		s32 stance = 0;
+
+		for (int i = m_blends->m_top; i >= 0; i--)
+		{
+			s32 s = (u8)m_blends->m_stack[i]->m_state;
+
+			if (s != 3)
+			{
+				stance = s;
+				break;
+			}
+		}
+
+		const float *at;
+
+		switch (stance)
+		{
+		case 0:
+			if ((s8)m_state == 3)
+			{
+				at = (s8)m_desiredPeek == -1 ? stand_peek_ltoss : stand_peek_rtoss;
+			}
+			else
+			{
+				f32 speed = sqrtf(m_velM.x * m_velM.x + m_velM.y * m_velM.y + m_velM.z * m_velM.z);
+
+				if (!(speed <= 20.0f) && m_velM.z != 0.0f && fabsf(m_velM.x / m_velM.z) < 0.5f)
+					at = (u8)m_item == 1 ? running_rifle_throw : running_pistol_throw;
+				else
+					at = toss ? stand_toss : stand_throw;
+			}
+			break;
+		case 1:
+			at = toss ? crouch_toss : crouch_throw;
+			break;
+		case 2:
+			at = toss ? prone_toss : prone_throw;
+			break;
+		default:
+			at = &CPnt3D::zero.x;
+			break;
+		}
+
+		const f32 (*m)[4] = m_node->m_matrix.m_matrix;
+		f32 x = at[0], y = at[1], z = at[2];
+		out.x = m[0][0] * x + m[1][0] * y + m[2][0] * z + m[3][0];
+		out.y = m[0][1] * x + m[1][1] * y + m[2][1] * z + m[3][1];
+		out.z = m[0][2] * x + m[1][2] * y + m[2][2] * z + m[3][2];
+		return;
+	}
+
+	if (m_curr_firept != NULL)
+		out = m_curr_firepos;
+	else
+		out = CPnt3D::zero;
+
+	out.Add(GetPosW(), &out);
 }
 
 /* @socom-skeleton stub ClimbLadder__10CZSealBodyFv */
@@ -3199,11 +3288,69 @@ CZBodyAnimBlend * CZSealBody::Jump()
 /* @socom-skeleton stub RaiseBinoculars__10CZSealBodyFv */
 CZBodyAnimBlend * CZSealBody::RaiseBinoculars()
 {
+	/* 0x273890: unless already up (anims 59-61 on top), the stance's binocular anim (59
+	 * standing, 60 crouched, 61 prone) is pushed twice (first with the flag, then without; the
+	 * top one is marked m_ctrl 2); the look-item sequence starts (0.01 s up, 200 s hold, 0.01 s
+	 * down) with the binoculars as its item, shown. Other states: none */
+	s16 top = (s16)m_blends->Top()->m_animType;
+
+	if (top == 59 || top == 60 || top == 61)
+		return NULL;
+
+	CZBodyAnimBlend *blend = NULL;
+
+	switch ((s8)m_state)
+	{
+	case 0:
+		PushBlend((AnimType)59, 0, true);
+		blend = PushBlend((AnimType)59, 0, false);
+		break;
+	case 1:
+		PushBlend((AnimType)60, 1, true);
+		blend = PushBlend((AnimType)60, 1, false);
+		break;
+	case 2:
+		PushBlend((AnimType)61, 2, true);
+		blend = PushBlend((AnimType)61, 2, false);
+		break;
+	default:
+		break;
+	}
+
+	if (blend == NULL)
+		return NULL;
+
+	blend->m_ctrl = 2;
+	m_lookitem->Start(0.01f, 200.0f, 0.01f);
+
+	if (m_lookitem->m_binocs != NULL)
+	{
+		m_lookitem->m_item = m_lookitem->m_binocs;
+		m_lookitem->m_item->m_node->SetActive(true);
+	}
+
+	return blend;
 }
 
 /* @socom-skeleton stub LowerBinoculars__10CZSealBodyFv */
 CZBodyAnimBlend * CZSealBody::LowerBinoculars()
 {
+	/* 0x273800: binoculars up (the top blend marked 2 with anim 59-61): it is popped (its mark
+	 * cleared) and the look-item sequence cleared; the popped blend, else NULL */
+	CZBodyAnimBlend *top = m_blends->Top();
+
+	if (top->m_ctrl != 2)
+		return NULL;
+
+	s16 anim = (s16)top->m_animType;
+
+	if (anim != 59 && anim != 60 && anim != 61)
+		return NULL;
+
+	CZBodyAnimBlend *blend = PopBlend();
+	blend->m_ctrl = 0;
+	m_lookitem->Clear();
+	return blend;
 }
 
 /* @socom-skeleton stub AbortPeek__10CZSealBodyFv */
