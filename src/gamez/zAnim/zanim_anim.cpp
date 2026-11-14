@@ -2683,6 +2683,30 @@ void CZAnim::Unload()
 	 * textures, particles and sounds, not modelled here */
 	Stop();
 
+	/* 0x1c8cd4: the nodes the anim made itself (created_here) go with their refs (the
+	 * light-map part of that loop, 0x1c8d00, is not written here); 0x1c8cbc: the health
+	 * record; 0x1c8eb4: the instance node (CreateInstanceNode's XRef / instance of the root
+	 * model). Were kept: after every mission ~45 XRef nodes, their names and ~30 health
+	 * records stayed between the freed mission memory (heap fragmentation, see
+	 * docs/port/notes/mod-state.md). */
+	for (u32 i = 0; m_node_ref_list != NULL && i < m_node_ref_count; i++)
+	{
+		if (m_node_ref_list[i].created_here && m_node_ref_list[i].node_ptr != NULL)
+			delete m_node_ref_list[i].node_ptr;
+
+		m_node_ref_list[i].node_ptr = NULL;
+	}
+
+	if (m_health != NULL)
+		operator delete(m_health);
+
+	m_health = NULL;
+
+	if (m_instance_node != NULL)
+		delete m_instance_node;
+
+	m_instance_node = NULL;
+
 	if (m_seq_data != NULL)
 		_free(m_seq_data, "zanim_anim.cpp", 0);
 

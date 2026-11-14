@@ -54,8 +54,15 @@
 #include "gamez/zVideo/zvid.h" /* zVid_Swap, zVid_Sync0 */
 #include <eekernel.h> /* InitThread */
 #include <libgraph.h> /* sceGsSyncPath */
+#include <stdio.h> /* sprintf */
+#include <stdlib.h> /* rand */
+#include <string.h> /* strncpy, strcmp */
+#include <strings.h> /* strcasecmp */
 
 int recoInit(); /* reco.cpp (0x336d90) */
+char* GetDatabase(); /* zanim_menu.cpp (0x1d6770) */
+char* GetCustomCharTypeName(int); /* fts_mission.cpp (0x1fa790) */
+bool DMEJoinGameServer(); /* fts_network_dme.cpp (0x201830) */
 zdb::CTexHandle * PrepTexture(const char *, zdb::CTextureRelocMgr *); /* zui.cpp (0x384560) */
 /* @socom-skeleton decl forward */
 namespace zdb {
@@ -166,14 +173,25 @@ CLoadState::CLoadState()
 /* @socom-skeleton stub __dt__10CLoadStateFv */
 CLoadState::~CLoadState()
 {
+	/* 0x37f7b0: the load menu (virtual deleting dtor) and the e3config table */
+	if (m_menu != NULL)
+		delete m_menu;
+
+	m_menu = NULL;
+
+	if (m_e3config != NULL)
+		delete m_e3config;
+
+	m_e3config = NULL;
 }
 
 /* @socom-skeleton body Init__10CLoadStateFv */
 bool CLoadState::Init()
 {
 	/* 0x37f550: hold the mission's loading-screen library, build the load screen
-	 * (dlgLoad.rdr with run/ldzanim.zar) and read e3config.rdr. Multiplayer resets the
-	 * net game here (port: not written - theNetwork.m_bNetwork is false offline). */
+	 * (dlgLoad.rdr with run/ldzanim.zar) and read e3config.rdr. A network game takes the
+	 * net error handler, drops the bomb and resets its round flags (not ready); a late
+	 * joining client goes to the game's loading state. */
 	m_abort = false;
 	theGame.m_maxtick = 0.0f;
 	const char* library = theMission.m_strLoadingScrLib.c_str();
@@ -197,12 +215,27 @@ bool CLoadState::Init()
 	m_voiceover_started = false;
 	m_waiting_for_x = true;
 
+	if (theNetwork.m_bNetwork)
+	{
+		CZNetGame *net = theMission.m_pNetGame;
+		theLobby.m_net_error_handler = CMission::RecoverFromNetError;
+		CZBombState::UninitBomb();
+		net->m_bdown = false;
+		net->m_was_late_joiner = false;
+		net->MyMinorGameState(CZNetGame::MP_MINOR_NOTREADY);
+		net->m_am_a_ghost = false;
+		net->m_ghost_ok = false;
+	}
+
 	if (CRdrFile* config = zrdr_read("e3config.rdr", NULL, 0))
 	{
 		m_e3config = new CE3Config();
 		m_e3config->Parse(config);
 		zrdr_free(config);
 	}
+
+	if (theNetwork.m_bNetwork && !theNetwork.m_bSessionMaster && theMission.m_pNetGame->m_late_joiner)
+		theMission.m_pNetGame->MPMajorGameState(CZNetGame::MP_MAJOR_LOADING);
 
 	if (!theNetwork.m_bNetwork)
 		recoInit();
@@ -211,14 +244,26 @@ bool CLoadState::Init()
 	return true;
 }
 
+/* port: file-local helper, not an ELF function - CLoadState::Tick enables or disables the
+ * five load-screen bitmaps one by one through their vtables (C2D::Enable, slot +0x14);
+ * bit i of the mask enables bitmap i */
+static void ShowLoadBitmaps(CLoadMenu *menu, u32 mask)
+{
+	for (s32 i = 0; i < 5; i++)
+		menu->m_bitmaps[i].Enable((mask >> i) & 1);
+}
+
 /* @socom-skeleton body Tick__10CLoadStateFf */
 bool CLoadState::Tick(float dT)
 {
-	/* 0x37e940 (single player): start CCoreState::Load (its thread) once, fade the load
-	 * screen in, and when the loader thread has finished fade it out over half a second
-	 * and switch to the core state. Each frame draws the load menu's 2D, then sleeps a
-	 * thirtieth of a second while loading so the loader runs. port: not written - the
-	 * multiplayer branches (client count, WAITING, the net game states). */
+	/* 0x37e940: start CCoreState::Load (its thread) once, fade the load screen in, and when
+	 * the loader thread has finished fade it out over half a second and switch to the core
+	 * state. Each frame draws the load menu's 2D, then sleeps a thirtieth of a second while
+	 * loading so the loader runs. A network game shows the client count; the host takes
+	 * the mission's game type, time and rounds from e3config.rdr and starts loading at
+	 * once, a client waits for the loading state; after the load the seals are made, the
+	 * start flag waits for every persona, and a late joiner joins (or becomes a ghost, or
+	 * goes back to the lobby / the net error dialog). The fade-out waits for m_bdown. */
 	CInput::Tick(dT);
 
 	if (m_abort && (!theGame.m_coreState.m_loadstarted || !theGame.m_coreState.m_loading))
@@ -227,7 +272,83 @@ bool CLoadState::Tick(float dT)
 		return false;
 	}
 
-	if (!m_fadedown && !theGame.m_coreState.m_loading && !m_waiting_for_x)
+	if (theNetwork.m_bNetwork)
+	{
+		CZNetGame *net = theMission.m_pNetGame;
+		char *database = GetDatabase();
+
+		if (theGame.m_coreState.m_loadstarted)
+		{
+			ShowLoadBitmaps(m_menu, 0x03);
+
+			if (!m_fadedown && !theGame.m_coreState.m_loading)
+			{
+				m_fadedown = true;
+				m_time_elapsed = 0.0f;
+			}
+		}
+		else
+		{
+			char text[64];
+			sprintf(text, "%d", theNetwork.zNetGetValidGameClientCount());
+			m_menu->m_text[0].SetString(text);
+			m_menu->m_text[0].Update();
+			m_menu->m_text[0].On();
+
+			if (theNetwork.m_bSessionMaster)
+			{
+				ShowLoadBitmaps(m_menu, 0x0c);
+				CSaferStr key;
+				key = database;
+				net->m_game_type = m_e3config->m_mission_players[key].m_game_type;
+				key = database;
+				s32 seconds = m_e3config->m_mission_players[key].m_game_time;
+
+				if (net->m_clock.m_max_game_time == 0)
+					net->m_clock.m_save_max_game_time = seconds * 1000;
+
+				net->m_clock.m_max_game_time = seconds * 1000;
+				key = database;
+				net->m_max_round_count = m_e3config->m_mission_players[key].m_round_count;
+				net->MPMajorGameState(CZNetGame::MP_MAJOR_LOADING);
+				net->ResetScores();
+				CZGameState::UpdateLocalGame(net);
+			}
+			else
+			{
+				ShowLoadBitmaps(m_menu, 0x10);
+
+				if (database == NULL || *database == '\0')
+				{
+					/* the ELF tests the first character of each literal before showing it */
+					m_menu->m_text[1].SetString("WAITING");
+					m_menu->m_text[1].Update();
+					m_menu->m_text[1].On();
+					m_menu->m_text[2].SetString("HOST SELECTING MISSION");
+					m_menu->m_text[2].Update();
+					m_menu->m_text[2].On();
+				}
+			}
+
+			if (net->m_mp_major_game_state == CZNetGame::MP_MAJOR_LOADING)
+			{
+				if (m_e3config != NULL)
+				{
+					CZNetGame *game = theMission.m_pNetGame;
+					game->OnSealTeam(); /* the ELF discards this first result */
+
+					if (strcmp(theNetwork.m_charType, "0") == 0)
+					{
+						strncpy(theNetwork.m_charType, GetCustomCharTypeName(game->OnSealTeam() ? 0 : 4), 31);
+						theNetwork.m_charType[30] = '\0';
+					}
+				}
+
+				theGame.m_coreState.Load(true);
+			}
+		}
+	}
+	else if (!m_fadedown && !theGame.m_coreState.m_loading && !m_waiting_for_x)
 	{
 		m_fadedown = true;
 		m_time_elapsed = 0.0f;
@@ -239,19 +360,11 @@ bool CLoadState::Tick(float dT)
 			m_voiceover_started = true;
 			CSnd::UnloadAllSounds();
 			m_waiting_for_x = false;
-			m_menu->m_bitmaps[0].Enable(true);
-			m_menu->m_bitmaps[1].Enable(true);
-			m_menu->m_bitmaps[2].Enable(false);
-			m_menu->m_bitmaps[3].Enable(false);
-			m_menu->m_bitmaps[4].Enable(false);
+			ShowLoadBitmaps(m_menu, 0x03);
 			theGame.m_coreState.Load(true);
 		}
 
-		m_menu->m_bitmaps[0].Enable(true);
-		m_menu->m_bitmaps[1].Enable(true);
-		m_menu->m_bitmaps[2].Enable(false);
-		m_menu->m_bitmaps[3].Enable(false);
-		m_menu->m_bitmaps[4].Enable(false);
+		ShowLoadBitmaps(m_menu, 0x03);
 	}
 
 	if (m_fadeup)
@@ -274,7 +387,112 @@ bool CLoadState::Tick(float dT)
 		m_menu->_bmpFade.SetTrans(128.0f * (1.0f - t));
 	}
 
-	if (m_fadedown)
+	if (m_fadedown && theNetwork.m_bNetwork)
+	{
+		/* 0x37f060: the network game after the load */
+		CZNetGame *net = theMission.m_pNetGame;
+
+		if (theNetwork.m_bSessionMaster)
+		{
+			ftsNetworkSealInit();
+			CZSealState::UnloadRemoteGuyList();
+
+			if (net->m_net_start_flag == MP_NET_READY::NET_READY_WAITING && CZPersonaState::AllReadyToPlay())
+			{
+				net->m_net_start_flag = MP_NET_READY::NET_READY_PLAY;
+				CZGameState::UpdateLocalGame(net);
+			}
+		}
+		else if (!net->m_late_joiner)
+		{
+			ftsNetworkSealInit();
+			CZSealState::UnloadRemoteGuyList();
+		}
+
+		if (net->m_mp_minor_game_state != CZNetGame::MP_MINOR_READY)
+		{
+			net->MyMajorGameState(CZNetGame::MP_MAJOR_LOADING);
+			net->MyMinorGameState(CZNetGame::MP_MINOR_READY);
+
+			if (net->m_late_joiner)
+			{
+				net->m_ready_to_play = true;
+				net->m_ghost_ok = true;
+				net->m_gate_clock = theNetwork.zNetGetLocalTime() + 3600000;
+			}
+			else
+			{
+				CZPersonaState::UpdateLocalPersona();
+			}
+		}
+
+		if (theMission.m_pNetGame->m_net_start_flag == MP_NET_READY::NET_READY_PLAY
+			|| (!net->m_late_joiner && net->m_mp_major_game_state == CZNetGame::MP_MAJOR_INPLAY))
+		{
+			net->m_bdown = true;
+
+			if (theMission.m_pNetGame->m_late_joiner)
+			{
+				net->LateJoiner(false);
+				net->m_was_late_joiner = true;
+
+				if (DMEJoinGameServer())
+					ftsNetworkGameInit();
+				else
+					AbortLoad("dlgNetError.rdr");
+			}
+		}
+		else if ((theMission.m_pNetGame->m_net_start_flag == MP_NET_READY::NET_READY_MENUS || theLobby.GetDMEJoinedCount() == 0)
+			&& net->m_late_joiner)
+		{
+			net->LateJoiner(false);
+
+			if (DMEJoinGameServer())
+			{
+				ftsNetworkGameInit();
+				AbortLoad("dlgGameLobby.rdr");
+			}
+			else
+			{
+				AbortLoad("dlgNetError.rdr");
+			}
+		}
+
+		if (net->m_late_joiner && net->m_gate_clock < theNetwork.zNetGetLocalTime()
+			&& net->m_mp_minor_game_state == CZNetGame::MP_MINOR_READY)
+			AbortLoad("dlgNetError.rdr");
+
+		if (gAllowGhosts && net->m_late_joiner && net->m_ghost_ok)
+		{
+			net->LateJoiner(false);
+			net->m_was_late_joiner = true;
+
+			if (DMEJoinGameServer())
+			{
+				ftsNetworkGameInit();
+				net->m_am_a_ghost = true;
+			}
+			else
+			{
+				AbortLoad("dlgNetError.rdr");
+			}
+		}
+
+		if (net->m_was_late_joiner)
+		{
+			if (net->m_game_object_index >= 0)
+			{
+				net->m_bdown = true;
+				net->m_was_late_joiner = false;
+			}
+			else
+			{
+				net->m_bdown = false;
+			}
+		}
+	}
+
+	if (m_fadedown && (!theNetwork.m_bNetwork || theMission.m_pNetGame->m_bdown))
 	{
 		m_time_elapsed += dT;
 
@@ -308,6 +526,8 @@ bool CLoadState::Tick(float dT)
 /* @socom-skeleton stub __dt__9CLoadMenuFv */
 CLoadMenu::~CLoadMenu()
 {
+	/* 0x37e6e0: nothing of its own; the three strings and the five bitmaps (each detaching
+	 * its UI variable) go in reverse order, then ~CGameMenu (all implicit) */
 }
 
 /* @socom-skeleton body UnInit__10CLoadStateFv */
@@ -336,16 +556,85 @@ void CLoadState::UnInit()
 }
 
 /* @socom-skeleton stub AbortLoad__10CLoadStateFPCc */
-void CLoadState::AbortLoad(const char *)
+void CLoadState::AbortLoad(const char *menu)
 {
+	/* 0x37e560 (UIAbortLoad, CMission::_RecoverFromNetError): the menus to come back to,
+	 * then Tick switches there once the loader is not running */
+	strncpy(theGame.m_menuState.m_DefaultMenu, menu, 64);
+	m_abort = true;
 }
 
 /* @socom-skeleton stub Parse__9CE3ConfigFP5_zrdr */
-void CE3Config::Parse(_zrdr *)
+void CE3Config::Parse(_zrdr *reader)
 {
+	/* 0x37e080: each entry of e3config.rdr is a mission name (its first element, a string)
+	 * and its players; a named one is parsed into a new record (game type deathmatch until
+	 * the reader says otherwise) and inserted by name (an existing name is kept) */
+	for (u32 i = 0; i < (reader->IsArray() ? (u32)reader->array->integer - 1 : 0); i++)
+	{
+		_zrdr *entry = reader->Get(i);
+		_zrdr *first = entry->Get(0);
+		const char *name = first != NULL && first->type == ZRDR_STRING ? first->string : NULL; /* port: NULL-tested (ELF reads the type of NULL for an entry that is no list) */
+		CSaferStr key;
+		key = name;
+
+		if (key.size() != 0)
+		{
+			CE3MissionPlayers players;
+			players.Parse(entry);
+			m_mission_players.insert(std::pair<CSaferStr, CE3MissionPlayers>(key, players));
+		}
+	}
 }
 
 /* @socom-skeleton stub Parse__17CE3MissionPlayersFP5_zrdr */
-void CE3MissionPlayers::Parse(_zrdr *)
+void CE3MissionPlayers::Parse(_zrdr *reader)
 {
+	/* 0x37dbf0: the game time and round count (0 when missing), the game type by name, and
+	 * the seals' (slots 0-7) and terrorists' (8-15) player types and names. ELF quirks kept:
+	 * "random" stores the low byte of rand() * 7 (not rand() % 7), an unknown type name keeps
+	 * the old type, and the player lists are not bounded by the 8 slots. */
+	m_round_count = 0;
+	m_game_time = 0;
+	zrdr_findint(reader, "game_time", &m_game_time, 1);
+	zrdr_findint(reader, "round_count", &m_round_count, 1);
+
+	if (const char *type = zrdr_findstring(reader, "mp_game_type"))
+	{
+		if (strcasecmp(type, "defuse") == 0)
+			m_game_type = MP_GAME_TYPE::MP_GAME_DEFUSE;
+		else if (strcasecmp(type, "demolition") == 0)
+			m_game_type = MP_GAME_TYPE::MP_GAME_DEMOLITION;
+		else if (strcasecmp(type, "escort") == 0)
+			m_game_type = MP_GAME_TYPE::MP_GAME_ESCORT;
+		else if (strcasecmp(type, "extract") == 0)
+			m_game_type = MP_GAME_TYPE::MP_GAME_EXTRACT;
+		else if (strcasecmp(type, "jailbreak") == 0)
+			m_game_type = MP_GAME_TYPE::MP_GAME_JAILBREAK;
+		else if (strcasecmp(type, "deathmatch") == 0)
+			m_game_type = MP_GAME_TYPE::MP_GAME_DEATHMATCH;
+		else if (strcasecmp(type, "footbomb") == 0)
+			m_game_type = MP_GAME_TYPE::MP_GAME_FOOTBOMB;
+		else if (strcasecmp(type, "random") == 0)
+			m_game_type = (MP_GAME_TYPE)(u8)(rand() * 7);
+	}
+
+	static const char *const teams[2] = { "seals", "terrorists" };
+
+	for (s32 team = 0; team < 2; team++)
+	{
+		_zrdr *side = zrdr_findtag(reader, teams[team]);
+		_zrdr *players = side != NULL ? zrdr_findtag(side, "players") : NULL;
+
+		if (players == NULL)
+			continue;
+
+		for (u32 i = 0; i < (players->IsArray() ? (u32)players->array->integer - 1 : 0); i++)
+		{
+			_zrdr *player = players->Get(i);
+			u32 slot = team * 8 + i;
+			m_type[slot] = zrdr_findstring(player, "type");
+			m_name[slot] = zrdr_findstring(player, "name");
+		}
+	}
 }

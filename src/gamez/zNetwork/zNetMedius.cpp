@@ -1685,7 +1685,8 @@ void CZOnlineLobby::SyncGameClock(int)
 /* @socom-skeleton stub GetDMEJoinedCount__13CZOnlineLobbyFv */
 int CZOnlineLobby::GetDMEJoinedCount()
 {
-	return 0; /* port: stub - not written */
+	/* 0x322470: the DME clients joined so far */
+	return dme_joined_count;
 }
 
 /* @socom-skeleton stub SendEndGameReport__13CZOnlineLobbyFv */

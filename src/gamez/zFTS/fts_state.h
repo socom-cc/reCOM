@@ -23,6 +23,7 @@ class CSnd;
 class CGameMenu;
 class CLoadMenu;
 class CExitMenu;
+class CMPExitMenu;
 class CE3Config;
 
 namespace zdb
@@ -240,7 +241,7 @@ private:
 	std::string m_libname;
 	std::string m_texname;
 	zdb::CAssetLib* m_plib;
-	void* m_menu;
+	CMPExitMenu* m_menu; /* DWARF CMPExitMenu* (was void*) */
 	/* @socom-skeleton decl 12CMPExitState */
 public:
 	virtual ~CMPExitState() {}

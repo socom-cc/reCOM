@@ -283,6 +283,8 @@ CCoreState::CCoreState()
 /* @socom-skeleton stub __dt__10CCoreStateFv */
 CCoreState::~CCoreState()
 {
+	/* 0x17d670: nothing of its own (the HUD is released by auxUnload); the ELF inlines
+	 * ~CGameState twice (the name freed and cleared both times), then the deleting part */
 }
 
 /* @socom-skeleton body Init__10CCoreStateFv */

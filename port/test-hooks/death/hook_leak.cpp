@@ -24,9 +24,15 @@ extern "C" void *__real__Z8_new_vecjPKci(size_t n, const char *f, int l);
 
 extern "C" int socom_hleak_armed;
 int socom_hleak_armed;
+#ifndef SOCOM_HLEAK_MIN
+#define SOCOM_HLEAK_MIN 256 /* smallest block tracked (-DSOCOM_HLEAK_MIN=1: all) */
+#endif
 
 struct Entry { uintptr_t p; uint32_t size; uintptr_t tag; uint32_t line; };
-#define SLOTS 65536
+#ifndef SOCOM_HLEAK_SLOTS
+#define SOCOM_HLEAK_SLOTS 65536 /* table size (power of two) */
+#endif
+#define SLOTS SOCOM_HLEAK_SLOTS
 static Entry g_tab[SLOTS];
 static int g_full;
 static const char *g_file;
@@ -42,12 +48,12 @@ static unsigned slot(uintptr_t p) { return (unsigned)((p >> 3) * 2654435761u) & 
 
 static void add(void *q, size_t n, uintptr_t tag, uint32_t line)
 {
-	if (!socom_hleak_armed || q == NULL || n < 256)
+	if (!socom_hleak_armed || q == NULL || n < SOCOM_HLEAK_MIN)
 		return;
 
 	uintptr_t p = (uintptr_t)q;
 
-	for (unsigned i = slot(p), k = 0; k < 256; i = (i + 1) & (SLOTS - 1), k++)
+	for (unsigned i = slot(p), k = 0; k < 4096; i = (i + 1) & (SLOTS - 1), k++)
 	{
 		if (g_tab[i].p == 0 || g_tab[i].p == p)
 		{
@@ -170,6 +176,26 @@ extern "C" void socom_hleak_dump(const char *when)
 
 	SOCOM_PORT_TRACE("HLEAK: %s: %u bytes in %u blocks alive since arming (%d groups, %u bytes ungrouped, %d untracked)", when, total, blocks, ng, lost, g_full);
 
+	/* where they are: blocks and bytes per MB of the heap */
+	static uint32_t mb_blocks[32], mb_bytes[32];
+
+	for (int m = 0; m < 32; m++) mb_blocks[m] = mb_bytes[m] = 0;
+
+	for (unsigned i = 0; i < SLOTS; i++)
+	{
+		if (g_tab[i].p != 0 && (g_tab[i].p >> 20) < 32)
+		{
+			mb_blocks[g_tab[i].p >> 20]++;
+			mb_bytes[g_tab[i].p >> 20] += g_tab[i].size;
+		}
+	}
+
+	for (int m = 0; m < 32; m++)
+	{
+		if (mb_blocks[m] != 0)
+			SOCOM_PORT_TRACE("HLEAK: MB 0x%02x: %u blocks %u bytes", m, mb_blocks[m], mb_bytes[m]);
+	}
+
 	for (int n = 0; n < 48 && n < ng; n++)
 	{
 		int best = n;
@@ -197,6 +223,23 @@ extern "C" int socom_hleak_has(void *q)
 	{
 		if (g_tab[i].p == p)
 			return (int)g_tab[i].size;
+	}
+
+	return 0;
+}
+/* the tag of a tracked block (file:line, or the caller with line 0); 0 when it is not tracked */
+extern "C" int socom_hleak_tag(void *q, uintptr_t *tag, uint32_t *line)
+{
+	uintptr_t p = (uintptr_t)q;
+
+	for (unsigned i = slot(p), k = 0; k < SLOTS && g_tab[i].p != 0; i = (i + 1) & (SLOTS - 1), k++)
+	{
+		if (g_tab[i].p == p)
+		{
+			*tag = g_tab[i].tag;
+			*line = g_tab[i].line;
+			return (int)g_tab[i].size;
+		}
 	}
 
 	return 0;

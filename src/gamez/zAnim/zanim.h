@@ -1602,6 +1602,17 @@ public:
 		m_callback.m_tfrac = 0.0f;
 		m_callback.m_userdata = NULL;
 	}
+	/* inline (RTArray<CZBodyAnimBlend> dtor 0x1e41c8): the REFPT_INFO and the anim list go
+	 * too (was missing: every blend of every body leaked both when its pool was deleted, ~370
+	 * small blocks per mission left between the freed mission memory, which fragmented the
+	 * heap until a menu's 2.6 MB archive buffer no longer fitted) */
+	~CZBodyAnimBlend()
+	{
+		delete m_refpt_info;
+		m_refpt_info = NULL;
+		delete m_anims;
+		m_anims = NULL;
+	}
 
 	void SetFractionalTime(f32 time);
 

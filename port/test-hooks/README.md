@@ -39,6 +39,7 @@ headers are in `port/tools/dev/` and on every hook's include path.
 | `shapes` | `hook_shapes.cpp` | `<build> [pad] [flags]` | character census, enemy (`-DSOCOM_HOOK_ENEMY`) / team-mate placed ahead |
 | `spawn` | `hook_spawn.cpp` | `<build> <pad> <x> <z> [flags]` | player moved to x/z at ground level; GS texture buffer dump |
 | `stance` | `hook_stance.cpp`, `hook_stance_s2.cpp` | `<build> [pad] [flags]` | enemy SetStance test (`CTStance::Begin`); `HOOK=stance_s2` variant |
+| `state` | `hook_state.cpp` | `<build> [pad] [flags]` | game-state round trips (menus, m8, pause ABORT / fatal fall, debrief) driven by top state and open dialog; heap per change (`-DSOCOM_HOOK_MALLOC`: failed / break-growing requests with file:line; `HLEAK=1` + `-DSOCOM_HOOK_LEAK`: survivors and a heap walk with the pins at the menus' world load) |
 | `states` | `hook_states.cpp` | `<build> [pad] [flags]` | AI door / corpse / stun state tests, test camera |
 | `tacmap` | `hook_tacmap.cpp` | `<build> [pad] [flags]` | tactical map runs: health kept full, position trace |
 | `teamhud` | `hook_th.cpp` | `<build> [pad] [flags]` | team HUD rows, state-driven pad |

@@ -966,6 +966,10 @@ public:
 	
 	CSealStats m_mp_stats;
 	CSealStats m_stats;
+	/* emitted in st_mpexit.cpp (the multiplayer debrief takes their addresses): the game's
+	 * stats m_mp_stats (0x3ddeb0) and the round's m_stats (0x3ddec0) */
+	CSealStats & GetGameStats();
+	CSealStats & GetRoundStats();
 	CAccuracy m_accuracy;
 	CZKit m_kit;
 	CSealEx m_sealEx;

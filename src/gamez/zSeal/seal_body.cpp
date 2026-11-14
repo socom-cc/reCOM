@@ -290,6 +290,14 @@ void CZSealBody::ConfigureAuxPartAnim(CZBodyAnim *anim)
 /* @socom-skeleton stub __dt__9CObjAnimsFv */
 CObjAnims::~CObjAnims()
 {
+	/* 0x27d560: every gear entry (AddItem's OBJ_ANIM) is deleted and the vector emptied
+	 * (swapped with an empty one). Was empty: each seal's entries leaked at the mission's end
+	 * (~120 small blocks a mission left between the freed mission memory, part of the heap
+	 * fragmentation that made a menu's 2.6 MB archive buffer fail after a few round trips). */
+	for (std::vector<OBJ_ANIM*>::iterator it = m_obj_anims.begin(); it != m_obj_anims.end(); ++it)
+		delete *it;
+
+	std::vector<OBJ_ANIM*>().swap(m_obj_anims);
 }
 
 /* @socom-skeleton stub GetObjAnim__9CObjAnimsFi */

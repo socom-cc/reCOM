@@ -42,6 +42,29 @@
 #include "gamez/zSeal/zseal.h"
 #include "gamez/zUtil/util_stable.h"
 /* @socom-skeleton end include */
+#include "state.h" /* CMPExitMenu, CEntityItr */
+#include "gamez/zAnim/zanim.h" /* ZAnim, CZAnimSet, GetMenuStack */
+#include "gamez/zCamera/zcam.h" /* appCamera */
+#include "gamez/zFTS/zfts.h" /* theMission, CZGameState, CZPersonaState */
+#include "gamez/zGame/zgame.h" /* theGame */
+#include "gamez/zInput/zinput.h" /* CInput::Tick */
+#include "gamez/zNetwork/znet.h" /* theNetwork, theLobby, theVoice, CZNetGame, CNetClock */
+#include "gamez/zNode/node_assetlib.h" /* zdb::EmptyAssetRecycleBin */
+#include "gamez/zNode/node_world.h" /* zdb::CWorld::RemoveDecals */
+#include "gamez/zReader/zrdr.h" /* CRdrArchive */
+#include "gamez/zReader/zrdr_local.h" /* CRdrEditor */
+#include "gamez/zSound/zsnd.h" /* CSndInstance */
+#include "gamez/zSystem/zsys.h" /* zSysFifoEnd */
+#include "gamez/zUI/zui.h" /* theUIVarManager */
+#include "gamez/zVideo/zvid.h" /* zVid_Swap, zVid_Sync0 */
+#include <libgraph.h> /* sceGsSyncPath */
+#include <algorithm> /* std::sort */
+#include <vector>
+#include <stdio.h> /* sprintf */
+#include <string.h> /* strcmp */
+
+char* GetDatabase(); /* zanim_menu.cpp (0x1d6770) */
+void sealSaveFireModes(); /* seal_kit.cpp (0x2afad0) */
 /* @socom-skeleton decl forward */
 class CZAnimZAR;
 /* @socom-skeleton end forward */
@@ -73,31 +96,199 @@ CZAnimZAR *animfile;
 /* @socom-skeleton stub MultiplayerMsgStrings */
 static CSTable MultiplayerMsgStrings;
 
+/* The small members emitted here (stage-4 owner st_mpexit.cpp; no skeleton fence) */
+int CSealStats::GetBasesDestroyed() const { return m_bases_blown; }      /* 0x3de0b0 */
+int CSealStats::GetRescues() const { return m_hostages_rescued; }        /* 0x3de0c0 */
+int CSealStats::GetHitPct() const { return (int)(100.0f * m_hit_percent + 0.5f); } /* 0x3de0d0 */
+CSealStats & CZSealBody::GetGameStats() { return m_mp_stats; }         /* 0x3ddeb0 */
+CSealStats & CZSealBody::GetRoundStats() { return m_stats; }           /* 0x3ddec0 */
+unsigned int CNetClock::GetTimeInGameSec() { return (unsigned int)(0.001f * (f32)m_total_time); }    /* 0x3dde10 */
+unsigned int CNetClock::GetTimeInRoundSec() { return (unsigned int)(0.001f * (f32)m_time_in_round); } /* 0x3dde60 */
+
+char * CMPExitMenu::GetReaderFileName()
+{
+	/* 0x3de100: the final screen after the last round, else the round's */
+	return const_cast<char *>(m_gameover ? "dlgMultiplayerFinal.rdr" : "dlgMultiplayerRound.rdr");
+}
+
+/* port: file-local helper, not an ELF function - SetMpStatUiVars fills a copy of "00:00:00"
+ * inline twice: hours (two digits), minutes, seconds of a whole-second count */
+static void FormatClock(char *text, s32 seconds)
+{
+	strcpy(text, "00:00:00");
+	text[0] = '0' + seconds / 36000;
+	text[1] = '0' + (seconds % 36000) / 3600;
+	text[3] = '0' + (seconds % 3600) / 600;
+	text[4] = '0' + (seconds % 600) / 60;
+	text[6] = '0' + (seconds % 60) / 10;
+	text[7] = '0' + seconds % 10;
+}
+
 /* @socom-skeleton stub CompareSeals__23@unnamed@st_mpexit_cpp@FP10CZSealBodyP10CZSealBody */
 namespace {
-bool CompareSeals(CZSealBody *, CZSealBody *)
+bool CompareSeals(CZSealBody *a, CZSealBody *b)
 {
+	/* 0x3de070 (std::sort in SetStatLbUiVar): by game MVP score, then by name */
+	if (a->m_mp_stats.m_sMvpScore != b->m_mp_stats.m_sMvpScore)
+		return a->m_mp_stats.m_sMvpScore < b->m_mp_stats.m_sMvpScore;
+
+	return strcmp(a->m_display_name, b->m_display_name) < 0;
 }
 }
 
 /* @socom-skeleton stub SetFinalTeamTotalsUiVar__23@unnamed@st_mpexit_cpp@FbPCc */
 namespace {
-void SetFinalTeamTotalsUiVar(bool, const char *)
+void SetFinalTeamTotalsUiVar(bool seals, const char *name)
 {
+	/* 0x3dded0: one row of the six game-stat totals (c_arrStatFuncs) of the seals (team bit
+	 * 0 set) or the terrorists, as strings */
+	CRdrEditor rdr;
+	char text[16];
+	rdr.push(NULL);
+	rdr.push(NULL);
+
+	for (u32 i = 0; i < 6; i++)
+	{
+		s32 total = 0;
+
+		for (CEntityItr it(CEntity::m_list.begin()); it._it != CEntity::m_list.end(); it.Advance())
+		{
+			CZSealBody *seal = it.GetSeal();
+
+			if (seal == NULL) /* port: NULL-tested (the ELF reads the team of a first entity that is no seal) */
+				continue;
+
+			if (seals == ((seal->m_team & 1) != 0))
+				total += (seal->m_mp_stats.*c_arrStatFuncs[i])();
+		}
+
+		sprintf(text, "%d", total);
+		rdr.addstringnode(text);
+	}
+
+	rdr.pop();
+	rdr.pop();
+	theUIVarManager.Add(name, NULL, UIVL_TEMPORARY)->Set(&rdr);
 }
+}
+
+namespace {
+void SetStatLbUiVar(bool seals, const char *name, CSealStats &(CZSealBody::*stats)()); /* below */
 }
 
 /* @socom-skeleton stub SetMpStatUiVars__23@unnamed@st_mpexit_cpp@Fv */
 namespace {
 void SetMpStatUiVars()
 {
+	/* 0x3dd820 (CMPExitState::Init): the round and game list boxes of both teams, the points
+	 * earned (kills of the player's team, team sizes; also sent to the ladder), the rounds
+	 * won, the round and game times, the team totals, then the ladder ranking request */
+	bool playerSeal = (ftsGetPlayer()->m_team & 1) != 0;
+	SetStatLbUiVar(true, "RoundStatLbContentsSeals", &CZSealBody::GetRoundStats);
+	SetStatLbUiVar(false, "RoundStatLbContentsTerrs", &CZSealBody::GetRoundStats);
+	SetStatLbUiVar(true, "GameStatLbContentsSeals", &CZSealBody::GetGameStats);
+	SetStatLbUiVar(false, "GameStatLbContentsTerrs", &CZSealBody::GetGameStats);
+
+	s32 friends = 0;
+	s32 enemies = 0;
+	s32 teamKills = 0;
+
+	for (CEntityItr it(CEntity::m_list.begin()); it._it != CEntity::m_list.end(); it.Advance())
+	{
+		bool mine = (ftsGetPlayer()->m_team & 1) != 0;
+		CZSealBody *seal = it.GetSeal();
+
+		if (seal == NULL) /* port: NULL-tested (as SetFinalTeamTotalsUiVar) */
+			continue;
+
+		if (((seal->m_team & 1) != 0) == mine)
+		{
+			friends++;
+			teamKills += seal->m_mp_stats.m_kills;
+		}
+		else
+		{
+			enemies++;
+		}
+	}
+
+	auto setInt = [](const char *var, s32 value)
+	{
+		CUIVariable *uivar = theUIVarManager.Add(var, NULL, UIVL_TEMPORARY);
+		uivar->DeleteChildren();
+		uivar->type = ZRDR_INTEGER;
+		uivar->integer = value;
+		uivar->UpdateDependents();
+	};
+
+	s32 points = ftsGetPlayer()->m_stats.GetPointsEarned(teamKills, friends, enemies, 0.5f);
+	setInt("PointsEarned", points);
+	theLobby.UpdateLadderRating(points);
+
+	CZNetGame *net = theMission.m_pNetGame;
+	s32 terrs = net->m_mpe3_score08;
+	s32 sealsWon = net->m_mpe3_score00;
+	setInt("RoundsWonSeals", sealsWon);
+	setInt("RoundsWonTerrs", terrs);
+	setInt("RoundsWon", playerSeal ? sealsWon : terrs);
+
+	char text[12];
+	unsigned int (CNetClock::*round)() = &CNetClock::GetTimeInRoundSec;
+	FormatClock(text, (s32)(theMission.m_pNetGame->m_clock.*round)());
+	*theUIVarManager.Add("TimeInRound", NULL, UIVL_TEMPORARY) = text;
+
+	unsigned int (CNetClock::*game)() = &CNetClock::GetTimeInGameSec;
+	FormatClock(text, (s32)(theMission.m_pNetGame->m_clock.*game)());
+	*theUIVarManager.Add("TimeInGame", NULL, UIVL_TEMPORARY) = text;
+
+	SetFinalTeamTotalsUiVar(true, "GameSealsTotLbContents");
+	SetFinalTeamTotalsUiVar(false, "GameTerrsTotLbContents");
+	theLobby.GetLadderRanking();
 }
 }
 
 /* @socom-skeleton stub SetStatLbUiVar__23@unnamed@st_mpexit_cpp@FbPCcM10CZSealBodyFPCvPv_R10CSealStats */
 namespace {
-void SetStatLbUiVar(bool, const char *, CSealStats &(CZSealBody::*)())
+void SetStatLbUiVar(bool seals, const char *name, CSealStats &(CZSealBody::*stats)())
 {
+	/* 0x3dd5a0: one team's list box: a row per seal, best MVP score first (sorted ascending
+	 * by CompareSeals, written from the end), each the name and the six c_arrStatFuncs of
+	 * the given stats (the round's or the game's) as strings */
+	CRdrEditor rdr;
+	char text[16];
+	std::vector<CZSealBody *> team;
+	rdr.push(NULL);
+
+	for (CEntityItr it(CEntity::m_list.begin()); it._it != CEntity::m_list.end(); it.Advance())
+	{
+		CZSealBody *seal = it.GetSeal();
+
+		if (seal == NULL) /* port: NULL-tested (as SetFinalTeamTotalsUiVar) */
+			continue;
+
+		if (seals == ((seal->m_team & 1) != 0))
+			team.insert(team.end(), 1, seal);
+	}
+
+	std::sort(team.begin(), team.end(), CompareSeals);
+
+	for (s32 i = (s32)team.size() - 1; i >= 0; i--)
+	{
+		rdr.push(NULL);
+		rdr.addstringnode(team[i]->m_display_name);
+		CSealStats &row = (team[i]->*stats)();
+
+		for (u32 j = 0; j < 6; j++)
+		{
+			sprintf(text, "%d", (row.*c_arrStatFuncs[j])());
+			rdr.addstringnode(text);
+		}
+
+		rdr.pop();
+	}
+
+	rdr.pop();
+	theUIVarManager.Add(name, NULL, UIVL_TEMPORARY)->Set(&rdr);
 }
 }
 
@@ -105,24 +296,275 @@ void SetStatLbUiVar(bool, const char *, CSealStats &(CZSealBody::*)())
 namespace {
 void TickMpStats()
 {
+	/* 0x3dd3c0 (CMPExitState::Tick, every frame): the game's MVP (highest MVP score, then the
+	 * name later in order) and their six game stats. ELF quirk kept: the first list entry is
+	 * the first candidate without a seal test (port: NULL-tested; nothing is shown without a
+	 * seal). */
+	CEntityItr it(CEntity::m_list.begin());
+	CZSealBody *mvp = it.GetSeal();
+
+	for (it.Advance(); it._it != CEntity::m_list.end(); it.Advance())
+	{
+		CZSealBody *seal = it.GetSeal();
+
+		if (mvp == NULL || CompareSeals(mvp, seal)) /* the ELF inlines the comparison */
+			mvp = seal;
+	}
+
+	if (mvp == NULL)
+		return;
+
+	*theUIVarManager.Add("MvpName", NULL, UIVL_TEMPORARY) = mvp->m_display_name;
+
+	CRdrEditor rdr;
+	char text[16];
+	rdr.push(NULL);
+	rdr.push(NULL);
+
+	for (u32 i = 0; i < 6; i++)
+	{
+		sprintf(text, "%d", (mvp->m_mp_stats.*c_arrStatFuncs[i])());
+		rdr.addstringnode(text);
+	}
+
+	rdr.pop();
+	rdr.pop();
+	theUIVarManager.Add("MvpLbContents", NULL, UIVL_TEMPORARY)->Set(&rdr);
 }
 }
 
 /* @socom-skeleton stub __ct__12CMPExitStateFv */
 CMPExitState::CMPExitState()
 {
+	/* 0x3dd2e0: named MPExitState; the splash library; no menu yet (m_plib is not set) */
+	SetName("MPExitState");
+	m_libname = "common/assetlib/splash";
+	m_menu = NULL;
 }
 
 /* @socom-skeleton body Init__12CMPExitStateFv */
-bool CMPExitState::Init() { return true; }
+bool CMPExitState::Init()
+{
+	/* 0x3dcee0 (pushed at a network round's end): fire modes saved, the anim packet buffer
+	 * freed, talk blocked; the player's round won (the winner's team bit) or tied (a winner
+	 * that is neither 0 nor 8) is counted, the round's stats are added to the game's (hit
+	 * share recomputed), the debrief variables set; decals and the three message queues
+	 * cleared; the round or final debrief (readerx.zar, run/mpzanim.zar) opens; every seal's
+	 * round stats are reset, its node hidden and its bomb gear removed. After the last round
+	 * the game clock is reset and the client is not ready again. ELF quirk kept: the net game
+	 * is NULL-tested for the winner only. */
+	sealSaveFireModes();
+	ZAnim.FreeNetworkPacketBuffer();
+	CZNetGame *net = theMission.m_pNetGame;
+	s32 winner = net != NULL ? net->m_mpe3_round_winner : 0;
+	theVoice.m_block_talk = true;
+	CZSealBody *player = ftsGetPlayer();
+
+	if (((1 << winner) & player->m_team) != 0)
+	{
+		player->m_stats.m_iRoundsWon++;
+		player->m_stats.UpdateMvpScore(*player);
+	}
+
+	if (winner != 0 && winner != 8)
+	{
+		player->m_stats.m_iRoundsTied++;
+		player->m_stats.UpdateMvpScore(*player);
+	}
+
+	CSealStats &game = player->m_mp_stats;
+	const CSealStats &round = player->m_stats;
+	game.m_headshots += round.m_headshots;
+	game.m_headhits += round.m_headhits;
+	game.m_hits += round.m_hits;
+	game.m_shots += round.m_shots;
+	game.m_kills += round.m_kills;
+	game.m_washit += round.m_washit;
+	game.m_deaths += round.m_deaths;
+	game.m_hostages += round.m_hostages;
+	game.m_num_times_seen += round.m_num_times_seen;
+	game.m_num_stealthkills += round.m_num_stealthkills;
+	game.m_num_restrained += round.m_num_restrained;
+	game.m_num_grenades_used += round.m_num_grenades_used;
+	game.m_num_cqb_used += round.m_num_cqb_used;
+	game.m_primary_rounds_fired += round.m_primary_rounds_fired;
+	game.m_secondary_rounds_fired += round.m_secondary_rounds_fired;
+	game.m_hostages_rescued += round.m_hostages_rescued;
+	game.m_bases_blown += round.m_bases_blown;
+	game.m_sMvpScore += round.m_sMvpScore;
+	game.m_iRoundsWon += round.m_iRoundsWon;
+	game.m_iRoundsTied += round.m_iRoundsTied;
+	game.m_hit_percent = (f32)game.m_hits / (f32)game.m_shots;
+	SetMpStatUiVars();
+
+	bool gameover = net->m_mp_major_game_state == CZNetGame::MP_MAJOR_GAMEOVER;
+	zdb::CWorld::m_world->RemoveDecals();
+	theMission.m_messenger.Clear_Messages();
+	theMission.m_ammoMessenger.Clear_Messages();
+	theMission.m_Subtitles.Clear_Messages();
+	CRdrArchive::AddArchive("readerx.zar", "run/ui");
+	CRdrArchive::OpenAll();
+
+	if (m_menu == NULL)
+		m_menu = new CMPExitMenu;
+
+	m_menu->m_gameover = gameover;
+	animfile = NULL;
+	animfile = ZAnim.OpenZAR("run/mpzanim.zar");
+	m_menu->Init(NULL, animfile);
+
+	for (CEntityItr it(CEntity::m_list.begin()); it._it != CEntity::m_list.end(); it.Advance())
+	{
+		CZSealBody *seal = it.GetSeal();
+
+		if (seal == NULL) /* port: NULL-tested (the ELF uses the first entity without a seal test) */
+			continue;
+
+		seal->m_stats.Reset();
+		seal->GetNode()->SetActive(false);
+		seal->EnableMPBombGear(false);
+	}
+
+	if (gameover)
+	{
+		CNetClock &clock = theMission.m_pNetGame->m_clock;
+		clock.m_max_game_time = 0;
+		clock.m_game_time = 0;
+		clock.m_time_in_round = 0;
+		clock.m_initial_read = 0;
+		clock.m_total_time = 0;
+		clock.m_initial_read_set = false;
+		clock.m_clock_running = true;
+		theMission.m_pNetGame->MyMinorGameState(CZNetGame::MP_MINOR_NOTREADY);
+		CZPersonaState::UpdateLocalPersona();
+	}
+
+	zVid_Sync0();
+	return true;
+}
 
 /* @socom-skeleton body Tick__12CMPExitStateFf */
-bool CMPExitState::Tick(float dT) {}
+bool CMPExitState::Tick(float dT)
+{
+	/* 0x3dcc60: sounds and input; the game's state decides: back in the menus (the debrief
+	 * pops and the menus come back), a new round or in play again (the host sends its game
+	 * state; every seal still in the game respawns, the mission restarts and the debrief
+	 * pops), game over (the host's state goes out once a mission is set); otherwise the MVP
+	 * stats, the debrief menu and the frame */
+	bool host = theNetwork.m_bSessionMaster;
+	CSndInstance::PostTick(dT, NULL);
+	CInput::Tick(dT);
+	CZNetGame *net = theMission.m_pNetGame;
+
+	switch (net->m_mp_major_game_state)
+	{
+	case CZNetGame::MP_MAJOR_MENUS:
+		theGame.Pop(0);
+		theGame.Switch(&theGame.m_menuState, 0);
+		return true;
+
+	case CZNetGame::MP_MAJOR_INPLAY:
+	case CZNetGame::MP_MAJOR_NEWROUND:
+		if (host)
+			CZGameState::UpdateLocalGame(net);
+
+		for (CEntityList::iterator it = CEntity::m_list.begin(); it != CEntity::m_list.end(); ++it)
+		{
+			CZSealBody *seal = SealOfEntity(*it);
+
+			if (seal != NULL && !seal->m_left_game)
+				seal->RemoteRespawn(false);
+		}
+
+		theMission.OnMissionStart();
+		theGame.Pop(0);
+		theUIVarManager.Reset();
+		return true;
+
+	case CZNetGame::MP_MAJOR_GAMEOVER:
+	{
+		char *database = GetDatabase();
+
+		if (database != NULL && *database != '\0')
+			CZGameState::UpdateLocalGame(net);
+
+		break;
+	}
+
+	default:
+		break;
+	}
+
+	TickMpStats();
+	m_menu->Tick(dT);
+	m_menu->Draw2dOnly();
+	zSysFifoEnd();
+	zVid_Swap(true);
+	return false;
+}
 
 /* @socom-skeleton body UnInit__12CMPExitStateFv */
-void CMPExitState::UnInit() {}
+void CMPExitState::UnInit()
+{
+	/* 0x3dca90: the frame finished, the menu (virtual deleting dtor) and the anims closed,
+	 * talk allowed again; a ghost player becomes a real one; the "common" and "mission" anim
+	 * sets stop, reset and start again; the death camera resets, the mission's delayed end is
+	 * cleared, the asset bin emptied, the UI variables reset, readerx.zar dropped and the menu
+	 * history flushed */
+	zSysFifoEnd();
+	sceGsSyncPath(0, 0);
+
+	if (m_menu != NULL)
+		delete m_menu;
+
+	if (animfile != NULL)
+	{
+		ZAnim.CloseZAR(animfile);
+		animfile = NULL;
+	}
+
+	m_menu = NULL;
+	theVoice.m_block_talk = false;
+	CZNetGame *net = theMission.m_pNetGame;
+
+	if (net->m_am_a_ghost)
+	{
+		net->m_am_a_ghost = false;
+		ftsGetPlayer()->UnMakeGhost();
+	}
+
+	CZAnimSet *common = ZAnim.GetAnimSet("common");
+
+	if (common != NULL)
+	{
+		common->Stop();
+		common->Reset();
+	}
+
+	CZAnimSet *mission = ZAnim.GetAnimSet("mission");
+
+	if (mission != NULL)
+	{
+		mission->Stop();
+		mission->Reset();
+	}
+
+	if (common != NULL)
+		common->Start();
+
+	if (mission != NULL)
+		mission->Start();
+
+	appCamera->ResetDeathCam();
+	theMission.m_DelayEndMission = false;
+	zdb::EmptyAssetRecycleBin();
+	theUIVarManager.Reset();
+	CRdrArchive::RemoveArchive("readerx.zar", "run/ui");
+	GetMenuStack()->FlushHistory(true);
+}
 
 /* @socom-skeleton stub LoadLibs__12CMPExitStateFv */
 void CMPExitState::LoadLibs()
 {
+	/* 0x3dca80 (the loader thread of a network game): nothing (jr ra) */
 }

@@ -173,11 +173,27 @@ void SetRoundStatUiVars(int primaryDone, int secondaryDone)
 /* @socom-skeleton stub Advance__10CEntityItrFv */
 void CEntityItr::Advance()
 {
+	/* 0x320a90: on to the next seal (entity type 2) that is not on team bit 0x20000, or to
+	 * the end; every place moved counts */
+	CZSealBody *seal;
+
+	do
+	{
+		++_it;
+		_iIdx++;
+
+		if (_it == CEntity::m_list.end())
+			return;
+
+		seal = SealOfEntity(*_it);
+	} while (seal == NULL || (seal->m_team & 0x20000) != 0);
 }
 
 /* @socom-skeleton stub GetSeal__10CEntityItrCFv */
 CZSealBody * CEntityItr::GetSeal() const
 {
+	/* 0x320a60: the entity here when it is a seal, else NULL (no end test) */
+	return SealOfEntity(*_it);
 }
 
 /* @socom-skeleton stub __ct__10CExitStateFv */

@@ -1154,8 +1154,14 @@ void CMission::ReOpen_Unload1()
 		m_anchor_extraction.pop_back();
 	}
 
-	/* port: not written - the objective anchor vector m_objanchor_vec (+0x98) is not
-	 * declared (CreateCompassNavPoints, which fills it, is unwritten) */
+	/* 0x1f7cac: the objective anchors (TickObjectives fills them; the cams they point at are
+	 * reloaded by the replay) */
+	while (!m_objanchor_vec.empty())
+	{
+		CZSealBody::m_compass.DeleteAnchor(m_objanchor_vec.back().m_anchor); /* port: DeleteAnchor is declared a member; the ELF one is static */
+		m_objanchor_vec.pop_back();
+	}
+
 	if (theHUD != NULL)
 		theHUD->m_newmap.m_objectivelist.m_cur_selected_objective = NULL;
 
@@ -1482,7 +1488,15 @@ void CMission::Close()
 		m_navpoints.pop_back();
 	}
 
-	/* port: not written - the ELF deletes m_objanchor_vec's (+0x98) anchors the same way */
+	/* 0x1f75e4: the objective anchors too (was not written: TickObjectives kept the last
+	 * mission's entries, whose objective cams are freed with the mission, and read them in
+	 * the next one: a TLB miss in IsComplete once a second from the third mission on) */
+	while (!m_objanchor_vec.empty())
+	{
+		CZSealBody::m_compass.DeleteAnchor(m_objanchor_vec.back().m_anchor); /* port: DeleteAnchor is declared a member; the ELF one is static */
+		m_objanchor_vec.pop_back();
+	}
+
 	CZSealBody::m_compass.Close();
 	std::vector<CObjAnchor*>().swap(m_anchor_extraction);
 	std::vector<CCompassAnchor*>().swap(m_navpoints);

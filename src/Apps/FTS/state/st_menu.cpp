@@ -289,8 +289,10 @@ bool CMenuState::Init()
 }
 
 /* @socom-skeleton stub SetSkipMenu__10CMenuStateFb */
-void CMenuState::SetSkipMenu(bool)
+void CMenuState::SetSkipMenu(bool skip)
 {
+	/* 0x3793d0 (process_arguments): the menus are skipped straight to the load state */
+	m_skip = skip;
 }
 
 /* @socom-skeleton body Tick__10CMenuStateFf */
@@ -365,11 +367,79 @@ bool CMenuState::Tick(f32 dT)
 /* @socom-skeleton stub OnPush__10CMenuStateFi */
 void CMenuState::OnPush(int)
 {
+	/* 0x379230 (a state goes on top of the menus): the menu's background movie halts (a
+	 * tail call) */
+	m_menu->HaltBackgroundMPEG();
+}
+
+/* ActionItem::GetEvent 0x378e70 (inline in the ActionItem header, emitted here; port: a
+ * file-local function, zui.h declares no GetEvent): an event name to its ActionItem::EVENT,
+ * in the ELF's compare order. ONSTART and an unknown name both give 0. */
+static u8 GetMenuEvent(const char *name)
+{
+	static const struct { const char *name; u8 event; } events[] =
+	{
+		{ "ONSTART", ActionItem::ONSTART },
+		{ "ONEXIT", ActionItem::ONEXIT },
+		{ "ONACTIVATE", ActionItem::ONACTIVATE },
+		{ "ONMPEGEND", ActionItem::ONMPEGEND },
+		{ "MP_JOIN_ROOM", ActionItem::MP_JOIN_ROOM },
+		{ "ON_SKB_APPLY", ActionItem::ON_SKB_APPLY },
+		{ "ON_STATE_POP", ActionItem::ON_STATE_POP },
+		{ "ON_SKB_CLOSE", ActionItem::ON_SKB_CLOSE },
+		{ "MP_PLAYER_NOT_FOUND", ActionItem::MP_PLAYER_NOT_FOUND },
+		{ "MP_SUCCESS", ActionItem::MP_SUCCESS },
+		{ "MP_CREATE_CLAN_SUCCESS", ActionItem::MP_CREATE_CLAN_SUCCESS },
+		{ "MP_CREATE_CLAN_FAILURE", ActionItem::MP_CREATE_CLAN_FAILURE },
+		{ "MP_DISBAND_CLAN_SUCCESS", ActionItem::MP_DISBAND_CLAN_SUCCESS },
+		{ "MP_DISBAND_CLAN_FAILURE", ActionItem::MP_DISBAND_CLAN_FAILURE },
+		{ "MP_MEDIUS_ERROR", ActionItem::MP_MEDIUS_ERROR },
+		{ "MP_MEDIUS_HAS_INVITES", ActionItem::MP_MEDIUS_HAS_INVITES },
+		{ "ON_LOAD_COMPLETE", ActionItem::ON_LOAD_COMPLETE },
+		{ "ON_CLIENT_CONNECT", ActionItem::ON_CLIENT_CONNECT },
+		{ "ON_FORCE_NEW_DB", ActionItem::ON_FORCE_NEW_DB },
+		{ "ON_LADDER_REFRESH", ActionItem::ON_LADDER_REFRESH },
+		{ "ON_TTY_DONE", ActionItem::ON_TTY_DONE },
+		{ "MP_MEDIUS_JOIN_GAME_FAILURE", ActionItem::MP_MEDIUS_JOIN_GAME_FAILURE },
+		{ "MP_MEDIUS_READY_TO_CONNECT", ActionItem::MP_MEDIUS_READY_TO_CONNECT },
+		{ "MP_PLAYER_ALREADY_MEMBER", ActionItem::MP_PLAYER_ALREADY_MEMBER },
+		{ "MP_VERSION_NUMBER_ERROR", ActionItem::MP_VERSION_NUMBER_ERROR },
+		{ "MP_LEADERSHIP_TRANSFER_SUCCESS", ActionItem::MP_LEADERSHIP_TRANSFER_SUCCESS },
+		{ "MEMCARD_ERROR", ActionItem::MEMCARD_ERROR },
+		{ "MP_MEDIUS_BECAME_LEADER", ActionItem::MP_MEDIUS_BECAME_LEADER },
+		{ "ON_SKB_CANCEL", ActionItem::ON_SKB_CANCEL },
+		{ "NETCNF_ERROR", ActionItem::NETCNF_ERROR },
+		{ "MP_MEDIUS_JOIN_ROOM_FAILURE", ActionItem::MP_MEDIUS_JOIN_ROOM_FAILURE },
+		{ "MP_PLAYER_IS_LEADER", ActionItem::MP_PLAYER_IS_LEADER },
+		{ "MP_CLAN_DISBANDED", ActionItem::MP_CLAN_DISBANDED },
+	};
+
+	for (u32 i = 0; i < sizeof(events) / sizeof(events[0]); i++)
+	{
+		if (strcmp(name, events[i].name) == 0)
+			return events[i].event;
+	}
+
+	return 0;
 }
 
 /* @socom-skeleton stub OnPop__10CMenuStateFi */
 void CMenuState::OnPop(int)
 {
+	/* 0x378e10 (the state above the menus popped): the background movie restarts (called
+	 * before the menu's NULL test, as the ELF does), the design's ON_STATE_POP anims run,
+	 * and two frames go without a swap */
+	m_menu->RestartBackgroundMPEG();
+
+	if (m_menu != NULL)
+	{
+		u8 event = GetMenuEvent("ON_STATE_POP");
+
+		if (event != 0)
+			m_menu->RunEventAnim((ActionItem::EVENT)event, NULL);
+	}
+
+	m_skip_swap = 2;
 }
 
 /* @socom-skeleton body UnInit__10CMenuStateFv */
@@ -415,8 +485,27 @@ void CMenuState::UnInit()
 }
 
 /* @socom-skeleton stub RunEventAnim__10CMenuStateFPCcPCc */
-unsigned char CMenuState::RunEventAnim(const char *, const char *)
+unsigned char CMenuState::RunEventAnim(const char *name, const char *argument)
 {
+	/* 0x3788c0 (CMemCard LoadConfig / SaveConfig): an event by name (GetEvent inlined) runs
+	 * the menu's anims for it. ONSTART, like an unknown name, runs nothing (ELF quirk: its
+	 * value is 0). The ELF returns CGameMenu::RunEventAnim's result (1 when an anim ran;
+	 * 0x382150); port: that function is declared void in zgame.h (zUI's), so a run event
+	 * returns 1 (port deviation; the memory-card callers ignore it). */
+	u8 result = 0;
+
+	if (m_menu != NULL)
+	{
+		u8 event = GetMenuEvent(name);
+
+		if (event != 0)
+		{
+			m_menu->RunEventAnim((ActionItem::EVENT)event, argument);
+			result = 1;
+		}
+	}
+
+	return result;
 }
 
 /* @socom-skeleton stub HaltBackgroundMPEG__10CMenuStateFv */

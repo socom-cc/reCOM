@@ -272,6 +272,10 @@ public:
 	 * stores exactly these members. */
 	CNetClock() : m_max_game_time(0), m_initial_read(0), m_time_in_round(0), m_game_time(0),
 		m_total_time(0), m_initial_read_set(false), m_clock_running(true) {}
+	/* emitted in st_mpexit.cpp (SetMpStatUiVars takes their addresses): the game's total time
+	 * (0x3dde10) and the round's time (0x3dde60) in whole seconds */
+	unsigned int GetTimeInGameSec();
+	unsigned int GetTimeInRoundSec();
 	/* @socom-skeleton decl 9CNetClock */
 public:
 	void SetInitialRead(unsigned int, bool);
@@ -403,6 +407,7 @@ class CZNetVoice
 {
 public:
 	friend class OrdersMenu; /* port: the orders menu sets m_isPushed (push-to-talk, 0x52cb50) */
+	friend class CMPExitState; /* port: the multiplayer debrief sets m_block_talk (Init 0x3dcf28, UnInit 0x3dcaf4) */
 	friend class CZPersonaState; /* port: UpdateLocalPersona 0x208b80 sends m_PortBuf / m_ServerPortBuf */
 	bool PreTick();
 	bool Tick(f32 dT);
@@ -535,7 +540,7 @@ public:
 	int MediusConnectionIndex(); /* 0x3226f0: myConnectionIndex in v0 */
 	void RecoverFromNetError(int);
 	void SyncGameClock(int);
-	int GetDMEJoinedCount(); /* UICheckJoinMP reads its v0 */
+	int GetDMEJoinedCount(); /* 0x322470 returns dme_joined_count (CLoadState::Tick tests it) */
 	void SendEndGameReport();
 	/* @socom-skeleton end 13CZOnlineLobby */
 };
