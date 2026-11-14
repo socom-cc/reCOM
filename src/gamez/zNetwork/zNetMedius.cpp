@@ -1112,8 +1112,9 @@ void cbGetMyClans(MediusErrorCode, MediusErrorCode, MediusErrorCode, MediusGetMy
 }
 
 /* @socom-skeleton stub GetClan__13CZOnlineLobbyFv */
-void CZOnlineLobby::GetClan()
+bool CZOnlineLobby::GetClan()
 {
+	return true; /* port: stub - not written (0x32afc0) */
 }
 
 /* @socom-skeleton stub cbRespondToClanInvitation__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP37MediusRespondToClanInvitationResponse */
@@ -1137,8 +1138,10 @@ void UpdateInvitations()
 }
 
 /* @socom-skeleton stub HasClanInvitations__13CZOnlineLobbyFv */
-void CZOnlineLobby::HasClanInvitations()
+bool CZOnlineLobby::HasClanInvitations()
 {
+	/* 0x32ad40: the invitations vector is not empty (its size word, +0x4) */
+	return InvitationVec[1] != 0;
 }
 
 /* @socom-skeleton stub cbCheckMyClanInvitations__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP36MediusCheckMyClanInvitationsResponse */
@@ -1167,8 +1170,9 @@ void cbFilterClanMessage(const char *, void *)
 }
 
 /* @socom-skeleton stub SendClanMessage__13CZOnlineLobbyFPCc */
-void CZOnlineLobby::SendClanMessage(const char *)
+bool CZOnlineLobby::SendClanMessage(const char *)
 {
+	return true; /* port: stub - not written */
 }
 
 /* @socom-skeleton stub cbTransferClanLeadership__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP36MediusTransferClanLeadershipResponse */
@@ -1347,8 +1351,9 @@ void CZOnlineLobby::UnInit()
 }
 
 /* @socom-skeleton stub Login__13CZOnlineLobbyFPCcPCc */
-void CZOnlineLobby::Login(const char *, const char *)
+bool CZOnlineLobby::Login(const char *, const char *)
 {
+	return true; /* port: stub - not written */
 }
 
 /* @socom-skeleton stub Logout__13CZOnlineLobbyFv */
@@ -1362,23 +1367,27 @@ void CZOnlineLobby::Bailout()
 }
 
 /* @socom-skeleton stub Register__13CZOnlineLobbyFPCcPCc */
-void CZOnlineLobby::Register(const char *, const char *)
+bool CZOnlineLobby::Register(const char *, const char *)
 {
+	return true; /* port: stub - not written */
 }
 
 /* @socom-skeleton stub RefreshGameList__13CZOnlineLobbyFP3C2D */
-void CZOnlineLobby::RefreshGameList(C2D *)
+bool CZOnlineLobby::RefreshGameList(C2D *)
 {
+	return true; /* port: stub - not written */
 }
 
 /* @socom-skeleton stub RefreshRoomList__13CZOnlineLobbyFP3C2D */
-void CZOnlineLobby::RefreshRoomList(C2D *)
+bool CZOnlineLobby::RefreshRoomList(C2D *)
 {
+	return true; /* port: stub - not written */
 }
 
 /* @socom-skeleton stub RefreshRoomPlayerList__13CZOnlineLobbyFP3C2D */
-void CZOnlineLobby::RefreshRoomPlayerList(C2D *)
+bool CZOnlineLobby::RefreshRoomPlayerList(C2D *)
 {
+	return true; /* port: stub - not written */
 }
 
 /* @socom-skeleton stub cbGameWorldPlayerListCallback__FiiiP33MediusGameWorldPlayerListResponse */
@@ -1387,13 +1396,15 @@ void cbGameWorldPlayerListCallback(int, int, int, MediusGameWorldPlayerListRespo
 }
 
 /* @socom-skeleton stub RefreshGamePlayerList__13CZOnlineLobbyFP3C2D */
-void CZOnlineLobby::RefreshGamePlayerList(C2D *)
+bool CZOnlineLobby::RefreshGamePlayerList(C2D *)
 {
+	return true; /* port: stub - not written */
 }
 
 /* @socom-skeleton stub CreateGame__13CZOnlineLobbyFv */
-void CZOnlineLobby::CreateGame()
+bool CZOnlineLobby::CreateGame()
 {
+	return true; /* port: stub - not written */
 }
 
 /* @socom-skeleton stub DoJoinRandomGame__Fv */
@@ -1422,28 +1433,34 @@ void cbClearGameListFilter(int, int, int, MediusClearGameListFilterResponse *)
 }
 
 /* @socom-skeleton stub GameIsPasswordProtected__13CZOnlineLobbyFPCc */
-void CZOnlineLobby::GameIsPasswordProtected(const char *)
+bool CZOnlineLobby::GameIsPasswordProtected(const char *)
 {
+	return true; /* port: stub - not written */
 }
 
 /* @socom-skeleton stub JoinGame__13CZOnlineLobbyFPCc */
-void CZOnlineLobby::JoinGame(const char *)
+bool CZOnlineLobby::JoinGame(const char *)
 {
+	return true; /* port: stub - not written */
 }
 
 /* @socom-skeleton stub IsTeamGame__13CZOnlineLobbyFv */
-void CZOnlineLobby::IsTeamGame()
+bool CZOnlineLobby::IsTeamGame()
 {
+	/* 0x3254e0 */
+	return g_iCreateGameClanAffiliation != 0;
 }
 
 /* @socom-skeleton stub OnCorrectClanTeam__13CZOnlineLobbyFv */
-void CZOnlineLobby::OnCorrectClanTeam()
+bool CZOnlineLobby::OnCorrectClanTeam()
 {
+	return true; /* port: stub - not written (0x325430: the game's clan affiliation against the player's clan and team) */
 }
 
 /* @socom-skeleton stub JoinRoom__13CZOnlineLobbyFPCc */
-void CZOnlineLobby::JoinRoom(const char *)
+bool CZOnlineLobby::JoinRoom(const char *)
 {
+	return true; /* port: stub - not written */
 }
 
 /* @socom-skeleton stub RejoinRoom__13CZOnlineLobbyFv */
@@ -1517,8 +1534,9 @@ void cbInvitePlayerToClanGetID(int, int, int, MediusAccountGetIDResponse *)
 }
 
 /* @socom-skeleton stub InvitePlayerToClan__13CZOnlineLobbyFPCc */
-void CZOnlineLobby::InvitePlayerToClan(const char *)
+bool CZOnlineLobby::InvitePlayerToClan(const char *)
 {
+	return true; /* port: stub - not written */
 }
 
 /* @socom-skeleton stub cbRemovePlayerFromClan__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP34MediusRemovePlayerFromClanResponse */
@@ -1537,13 +1555,16 @@ void cbRevokePlayerInvitation(MediusErrorCode, MediusErrorCode, MediusErrorCode,
 }
 
 /* @socom-skeleton stub RevokeInvite__13CZOnlineLobbyFPCc */
-void CZOnlineLobby::RevokeInvite(const char *)
+bool CZOnlineLobby::RevokeInvite(const char *)
 {
+	return true; /* port: stub - not written */
 }
 
 /* @socom-skeleton stub ClanHasInvitations__13CZOnlineLobbyFv */
-void CZOnlineLobby::ClanHasInvitations()
+bool CZOnlineLobby::ClanHasInvitations()
 {
+	/* 0x323ac0: the clan invitations vector is not empty (its size word, +0x4) */
+	return ClanInvitationVec[1] != 0;
 }
 
 /* @socom-skeleton stub cbAddPlayerToClan__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP29MediusAddPlayerToClanResponse */
@@ -1612,13 +1633,16 @@ void CZOnlineLobby::DisbandClan()
 }
 
 /* @socom-skeleton stub IsMemberOfClan__13CZOnlineLobbyFv */
-void CZOnlineLobby::IsMemberOfClan()
+bool CZOnlineLobby::IsMemberOfClan()
 {
+	/* 0x322ae0 */
+	return PlayerClanID != -1;
 }
 
 /* @socom-skeleton stub IsLeaderOfClan__13CZOnlineLobbyFPCc */
-void CZOnlineLobby::IsLeaderOfClan(const char *)
+bool CZOnlineLobby::IsLeaderOfClan(const char *)
 {
+	return false; /* port: stub - not written (0x3229e0) */
 }
 
 /* @socom-skeleton stub GetMissionSequence__13CZOnlineLobbyFPUcPUc */
@@ -1659,8 +1683,9 @@ void CZOnlineLobby::SyncGameClock(int)
 }
 
 /* @socom-skeleton stub GetDMEJoinedCount__13CZOnlineLobbyFv */
-void CZOnlineLobby::GetDMEJoinedCount()
+int CZOnlineLobby::GetDMEJoinedCount()
 {
+	return 0; /* port: stub - not written */
 }
 
 /* @socom-skeleton stub SendEndGameReport__13CZOnlineLobbyFv */

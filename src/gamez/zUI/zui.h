@@ -67,6 +67,7 @@ class CUIVariableSpec;
 class CUIVarManager;
 class CSnd;
 class UIVarMixin;
+class CValve;
 
 s32 ZuiInit();
 
@@ -685,20 +686,6 @@ public:
 	CHandlerButtonSpec(_zrdr *);
 };
 /* @socom-skeleton end 18CHandlerButtonSpec */
-/* @socom-skeleton decl 12CPopUpDialog */
-class CPopUpDialog : public CPlainBmp
-{
-public:
-	virtual ~CPopUpDialog();
-	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
-	virtual void Tick(float);
-	virtual bool HandlePad(const CPad *, int);
-	virtual C2DAnimCmdHdr * ParseZAnimCmd(_zrdr *);
-	virtual bool TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *);
-	virtual int GetZAnimCmdType(const char *);
-	void Load(zdb::CTextureRelocMgr *);
-};
-/* @socom-skeleton end 12CPopUpDialog */
 /* @socom-skeleton decl 11CRadioStrip */
 class CRadioStrip : public C2DButton
 {
@@ -741,6 +728,15 @@ public:
 class CWrappedText : public CRenderableString
 {
 public:
+	/* no DWARF; 184 bytes (CWrapSpec::CreateDisplayObj 0x3a06a8). The text is kept as one
+	 * CRenderableString per word (with its trailing spaces) in the object's own C2D list;
+	 * Draw lays the words out in lines of m_width. port: no out-of-line ctor - GetPopUp
+	 * (0x1d6100) and CreateDisplayObj (0x3a06d8) set only m_height = -1 inline; the port
+	 * also zeroes m_width and m_spacing. */
+	CWrappedText() : m_width(0.0f), m_spacing(0), m_height(-1) {}
+	f32 m_width;      /* +0xac spec WIDTH: line width (pixels) */
+	s32 m_spacing;    /* +0xb0 spec SPACING: line height (GetSpacing) */
+	s32 m_height;     /* +0xb4 spec HEIGHT (-1: none): above 0, a scissor box, and the last lines stay in it */
 	virtual ~CWrappedText();
 	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
 	virtual void SetString(const char *);
@@ -748,6 +744,55 @@ public:
 	void LoadSpec(const CWrapSpec &);
 };
 /* @socom-skeleton end 12CWrappedText */
+/* @socom-skeleton decl 12CPopUpDialog */
+/* no DWARF; 2544 bytes (new in CMenuStack::GetPopUp 0x1d6080). Layout from GetPopUp, Load
+ * (0x389770), Draw (0x3897f0), HandlePad (0x389b10), TickZAnimCmd (0x387020) and the dtor
+ * (0x1d4090); member names are the port's (from the command's reader keys). The menu shows
+ * it on its "POPUP" foreplane node; one command (CPopUpDialog::TickZAnimCmd) fills it. */
+class CPopUpDialog : public CPlainBmp
+{
+public:
+	/* port: no out-of-line ctor - GetPopUp constructs it inline (the text, the C2D at +0x170,
+	 * the buttons; m_child and m_valve cleared); the port also zeroes the members the ELF
+	 * leaves unset until Load / TickZAnimCmd */
+	CPopUpDialog() : m_reloc(NULL), m_font(NULL), m_xoffset(0), m_yoffset(0), m_width(0), m_height(0),
+		m_child(NULL), m_valve(NULL), m_selection(0), m_unused198(false), m_cancellable(false), m_protected(false)
+	{
+		m_yesPos.x = m_yesPos.y = 0;
+		m_yesTextOffset.x = m_yesTextOffset.y = 0;
+		m_noPos.x = m_noPos.y = 0;
+		m_noTextOffset.x = m_noTextOffset.y = 0;
+	}
+	zdb::CTextureRelocMgr* m_reloc;  /* +0xa0 Load: the menu's relocator (the textures' PrepTexture) */
+	CWrappedText m_text;             /* +0xa4 CAPTION */
+	C2DFont* m_font;                 /* +0x15c the menu's font (CGameMenu::LoadFromDesign) */
+	s32 m_xoffset;                   /* +0x160 XOFFSET: the text's position in the dialog */
+	s32 m_yoffset;                   /* +0x164 YOFFSET */
+	s32 m_width;                     /* +0x168 WIDTH: the background */
+	s32 m_height;                    /* +0x16c HEIGHT */
+	C2D m_c2d170;                    /* +0x170 port: unproven use - only constructed and destroyed */
+	C2D* m_child;                    /* +0x18c a dialog shown instead (Draw, Tick, HandlePad); deleted by the next command; nothing sets it */
+	CValve* m_valve;                 /* +0x190 YESNO VALVE: set to the chosen button (1 YES, 2 NO; 66 cancelled) */
+	s32 m_selection;                 /* +0x194 the active button: 1 YES, 2 NO */
+	bool m_unused198;                /* +0x198 port: unproven - not read */
+	bool m_cancellable;              /* +0x199 CANCELLABLE: TRIANGLE closes it (valve 66) */
+	C2DButton m_yes;                 /* +0x1a0 YES */
+	IPNT2D m_yesPos;                 /* +0x5b0 YES POS (in the dialog) */
+	IPNT2D m_yesTextOffset;          /* +0x5b8 YES TEXTOFFSET */
+	C2DButton m_no;                  /* +0x5c0 NO */
+	IPNT2D m_noPos;                  /* +0x9d0 NO POS */
+	IPNT2D m_noTextOffset;           /* +0x9d8 NO TEXTOFFSET */
+	bool m_protected;                /* +0x9e0 PROTECTED: CROSS does not close it (the anim's KillPopUp does) */
+	virtual ~CPopUpDialog();
+	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
+	virtual void Tick(float);
+	virtual bool HandlePad(const CPad *, int);
+	virtual C2DAnimCmdHdr * ParseZAnimCmd(_zrdr *);
+	virtual bool TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *);
+	virtual int GetZAnimCmdType(const char *);
+	void Load(zdb::CTextureRelocMgr *);
+};
+/* @socom-skeleton end 12CPopUpDialog */
 /* @socom-skeleton decl 11CScrollText */
 class CScrollText : public CWrappedText
 {

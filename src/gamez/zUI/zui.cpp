@@ -796,9 +796,14 @@ void CGameMenu::LoadFromDesign(const CGameDlgDesign &design, CZAnimZAR *animfile
 	m_pForeplaneNode->AddChild(g_pFaderNode);
 	PrepSkbsForDisplay(m_pForeplaneNode, m_Reloc, &_font);
 
-	/* port: not written - the pop-up dialog: GetMenuStack()->GetPopUp() gets the font and
-	 * CPopUpDialog::Load, then a hidden "POPUP" node in the foreplane (0x382a00-0x382b30);
-	 * CPopUpDialog has no port body, so there is no pop-up node */
+	/* 0x382a00: the pop-up dialog takes the menu's font and relocator and hangs, hidden, on a
+	 * "POPUP" node in the foreplane (Add2dNode inline) */
+	CPopUpDialog* popup = GetMenuStack()->GetPopUp();
+	popup->m_font = &_font;
+	popup->Load(m_Reloc);
+	m_popupnode = Add2dNode(popup, m_Reloc, m_pForeplaneNode);
+	m_popupnode->SetName("POPUP");
+	m_popupnode->SetActive(false);
 
 	if (!g_hasAnims)
 	{

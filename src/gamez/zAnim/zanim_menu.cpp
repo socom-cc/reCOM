@@ -272,6 +272,11 @@ extern float hackPitchFactor; /* seal_control.cpp (0x475000) */
 void SetRumbleOn(bool); /* seal_control.cpp (0x284360) */
 unsigned char IsRumbleOn(); /* seal_control.cpp (0x284350) */
 void SetPlayAutoMessages(bool); /* seal_unit.cpp (0x2cf720) */
+unsigned char GetPlayAutoMessages(); /* seal_unit.cpp (UIToggleAutoMessages) */
+void SendChatMsg(const char *); /* fts_remote.cpp (0x202e70; UISendChatText) */
+void NetSendRequestTeamSwitch(int); /* fts_remote.cpp (UISwitchSides) */
+bool DMEJoinGameServer(); /* fts_network_dme.cpp (0x201830; UIJoinGameServer) */
+bool DMEConnectToGameServer(); /* fts_network_dme.cpp (UIConnectToGameServer) */
 unsigned char UiGetTextFromUser(C2DAnimCmdHdr*, float*); /* zui_skb.cpp (0x3a71c0) */
 unsigned char UiSetSkbPurpose(C2DAnimCmdHdr*, float*); /* zui_skb.cpp (0x3a7150) */
 namespace {
@@ -293,6 +298,29 @@ char* UiArgument(C2DAnimCmdHdr* cmd)
 		name = ZAnim.m_CurAnim->m_arg_list->GetCharP(0);
 
 	return name;
+}
+
+/* port: no symbol - the list commands' inline object read (UIRefreshGameList 0x1d4e90 and its
+ * three twins): the 2D object of the command's node (the anim's nodes refreshed first), or
+ * NULL */
+static C2D* UiCommandObject(C2DAnimCmdHdr* cmd)
+{
+	if (cmd->node_ref_index == 0)
+		return NULL;
+
+	ZAnim.m_CurAnim->Refresh(false);
+	zdb::CNode* node = ZAnim.m_CurAnim->GetNode(cmd->node_ref_index, false);
+
+	if (node == NULL)
+		return NULL;
+
+	zdb::CVisual* visual = node->GetFirstVisual();
+
+	if (visual == NULL)
+		return NULL;
+
+	C2DVisual* visual2d = visual->Get2DVisual();
+	return visual2d != NULL ? visual2d->m_2d : NULL;
 }
 
 /* port: no symbol - the inline valve set the commands use: the value, and the callbacks with
@@ -804,26 +832,43 @@ void CMenuStack::AddToHistory(const char *name)
 }
 
 /* @socom-skeleton stub GetPopUp__10CMenuStackFv */
-C2D * CMenuStack::GetPopUp()
+CPopUpDialog * CMenuStack::GetPopUp()
 {
-	/* 0x1d6080: the pop-up dialog, made on first use (new 2544 bytes: a CPlainBmp with the
-	 * CPopUpDialog vtables, a CWrappedText at +0xa4 (its font from string 0x44bfc0), a C2D at
-	 * +0x170 (+0x18c/+0x190 cleared) and two C2DButtons at +0x1a0 / +0x5c0).
-	 * port: not written - needs zUI: CPopUpDialog (Load 0x389770, Draw 0x3897f0, Tick 0x389ae0,
-	 * HandlePad 0x389b10, TickZAnimCmd 0x387020, GetZAnimCmdType 0x386f80) and CWrappedText
-	 * (SetString 0x391630, Draw 0x391110, ~CWrappedText 0x391480, LoadSpec 0x3919a0); until
-	 * then no pop-up is made and the menus' PopUpDialog shows nothing */
+	/* 0x1d6080: the pop-up dialog, made on first use (its ctor inline: a CPlainBmp, the
+	 * CWrappedText at +0xa4 with no text yet (the empty string 0x44bfc0, which SetString
+	 * ignores), the C2D at +0x170, the two buttons) */
+	if (m_popup == NULL)
+	{
+		CPopUpDialog* popup = new CPopUpDialog();
+
+		if (popup != NULL)
+			popup->m_text.SetString("");
+
+		m_popup = popup;
+	}
+
 	return m_popup;
+}
+
+/* port: no skeleton fence - __dt__12CPopUpDialogFv 0x1d4090 is emitted in this unit */
+CPopUpDialog::~CPopUpDialog()
+{
+	/* 0x1d4090: the shown-instead dialog; the buttons, the C2D, the text and the bitmap
+	 * destroy themselves */
+	if (m_child != NULL)
+	{
+		delete m_child;
+		m_child = NULL;
+	}
 }
 
 /* @socom-skeleton stub PopUpDialog__10CMenuStackFPCc */
 void CMenuStack::PopUpDialog(const char *name)
 {
 	/* 0x1d5f20: queue menu command 3 with the dialog name (INPUT_STRING: the anim's first
-	 * argument; the ELF copies it through a std::string) and show the menu's POPUP node.
-	 * CGameMenu::Tick only pops command 3. The POPUP node comes from CGameMenu::LoadFromDesign
-	 * and the pop-up itself from GetPopUp - needs zUI: CPopUpDialog (see GetPopUp), so the
-	 * port's menus have no POPUP node and nothing is shown. */
+	 * argument; the ELF copies it through a std::string) and show the menu's POPUP node
+	 * (CGameMenu::LoadFromDesign makes it). CGameMenu::Tick only pops command 3; the anim's
+	 * next command, on the POPUP node, fills the dialog (CPopUpDialog::TickZAnimCmd). */
 	m_top++;
 
 	if (name != NULL && strcmp(name, "INPUT_STRING") == 0)
@@ -1076,26 +1121,74 @@ unsigned char UIUnInitNetwork(C2DAnimCmdHdr *, float *)
 /* @socom-skeleton stub UIConnectToGameServer__FP13C2DAnimCmdHdrPf */
 unsigned char UIConnectToGameServer(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d5490: a net game, then the game server; failing that, back to the room */
+	theMission.CreateNetGame();
+
+	if (DMEConnectToGameServer())
+		return true;
+
+	theLobby.RejoinRoom();
+	theMission.DestroyNetGame();
+	return false;
 }
 
 /* @socom-skeleton stub UIDisconnectFromGameServer__FP13C2DAnimCmdHdrPf */
 unsigned char UIDisconnectFromGameServer(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d5420: the last client (the session master) sends the end-game report; the network
+	 * game ends, the server is left, the lobby room joined again, the net game destroyed */
+	if (theNetwork.m_bSessionMaster && theNetwork.zNetGetValidGameClientCount() == 1)
+		theLobby.SendEndGameReport();
+
+	ftsNetworkGameUninit();
+	DMEDisconnectFromGameServer();
+	theLobby.RejoinRoom();
+	theMission.DestroyNetGame();
+	return true;
 }
 
 /* @socom-skeleton stub UIJoinGameServer__FP13C2DAnimCmdHdrPf */
 unsigned char UIJoinGameServer(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d53a0: a player who is not a late joiner joins the game server (failure: 0) and the
+	 * network game starts; in a network game the session master sends the game state */
+	if (!theMission.m_pNetGame->m_late_joiner)
+	{
+		if (!DMEJoinGameServer())
+			return false;
+
+		ftsNetworkGameInit();
+	}
+
+	if (theNetwork.m_bNetwork && theNetwork.m_bSessionMaster)
+		CZGameState::UpdateLocalGame(theMission.m_pNetGame);
+
+	return true;
 }
 
 /* @socom-skeleton stub UICheckJoinMP__FP13C2DAnimCmdHdrPf */
 unsigned char UICheckJoinMP(C2DAnimCmdHdr *, float *)
 {
+	/* 0x1d5310: the DME joined count is kept (from -1); none joined sets the game's join
+	 * valve to 10 */
 	/* @socom-skeleton stub b$2972 */
-	static int b;
+	static int b = -1; /* ELF: set on first use (init$2973) */
+	int count = theLobby.GetDMEJoinedCount();
+
+	if (count != b)
+		b = count;
+
+	if (count == 0)
+	{
+		CValve* valve = theMission.m_pNetGame->m_pJoinGameValve;
+		u32 change = valve->m_value != 10 ? 1 : 0;
+		valve->m_value = 10;
+
+		if (change != 0)
+			valve->MakeCallbacks((VALVE_STATE)change);
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub g_can_use_switch */
@@ -1158,13 +1251,31 @@ unsigned char UIGetNumSavedGames(C2DAnimCmdHdr *cmd, float *)
 /* @socom-skeleton stub UILobbyRegister__FP13C2DAnimCmdHdrPf */
 unsigned char UILobbyRegister(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d5090: as UILobbyLogin, registering */
+	CUIVariable* nameVar = theUIVarManager.Add("PLAYERNAMEVAR", NULL, UIVL_TEMPORARY);
+	CUIVariable* passwordVar = theUIVarManager.Add("PLAYERPASSWORD", NULL, UIVL_TEMPORARY);
+	const char* name = nameVar->type == ZRDR_STRING ? nameVar->string : NULL;
+	const char* password = passwordVar->type == ZRDR_STRING ? passwordVar->string : NULL;
+
+	if (name == NULL || *name == '\0' || password == NULL || *password == '\0')
+		return false;
+
+	return theLobby.Register(name, password);
 }
 
 /* @socom-skeleton stub UILobbyLogin__FP13C2DAnimCmdHdrPf */
 unsigned char UILobbyLogin(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d4fc0: log in with the PLAYERNAMEVAR / PLAYERPASSWORD strings, both non-empty */
+	CUIVariable* nameVar = theUIVarManager.Add("PLAYERNAMEVAR", NULL, UIVL_TEMPORARY);
+	CUIVariable* passwordVar = theUIVarManager.Add("PLAYERPASSWORD", NULL, UIVL_TEMPORARY);
+	const char* name = nameVar->type == ZRDR_STRING ? nameVar->string : NULL;
+	const char* password = passwordVar->type == ZRDR_STRING ? passwordVar->string : NULL;
+
+	if (name == NULL || *name == '\0' || password == NULL || *password == '\0')
+		return false;
+
+	return theLobby.Login(name, password);
 }
 
 /* @socom-skeleton stub UILobbyLogout__FP13C2DAnimCmdHdrPf */
@@ -1189,69 +1300,111 @@ unsigned char UIGetAcctInfo(C2DAnimCmdHdr *, float *)
 }
 
 /* @socom-skeleton stub UIRefreshGameList__FP13C2DAnimCmdHdrPf */
-unsigned char UIRefreshGameList(C2DAnimCmdHdr *, float *)
+unsigned char UIRefreshGameList(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d4e90 */
+	return theLobby.RefreshGameList(UiCommandObject(cmd));
 }
 
 /* @socom-skeleton stub UIRefreshRoomList__FP13C2DAnimCmdHdrPf */
-unsigned char UIRefreshRoomList(C2DAnimCmdHdr *, float *)
+unsigned char UIRefreshRoomList(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d4df0 */
+	return theLobby.RefreshRoomList(UiCommandObject(cmd));
 }
 
 /* @socom-skeleton stub UIRefreshRoomPlayerList__FP13C2DAnimCmdHdrPf */
-unsigned char UIRefreshRoomPlayerList(C2DAnimCmdHdr *, float *)
+unsigned char UIRefreshRoomPlayerList(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d4d50 */
+	return theLobby.RefreshRoomPlayerList(UiCommandObject(cmd));
 }
 
 /* @socom-skeleton stub UIRefreshGamePlayerList__FP13C2DAnimCmdHdrPf */
-unsigned char UIRefreshGamePlayerList(C2DAnimCmdHdr *, float *)
+unsigned char UIRefreshGamePlayerList(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d4cb0: the list box is the command node's 2D object */
+	return theLobby.RefreshGamePlayerList(UiCommandObject(cmd));
 }
 
 /* @socom-skeleton stub UICreateMPGame__FP13C2DAnimCmdHdrPf */
 unsigned char UICreateMPGame(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d4ca0 (tail call) */
+	return theLobby.CreateGame();
 }
 
 /* @socom-skeleton stub UIJoinMPGame__FP13C2DAnimCmdHdrPf */
-unsigned char UIJoinMPGame(C2DAnimCmdHdr *, float *)
+unsigned char UIJoinMPGame(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d4c20: ELF: strcmp of the name unchecked */
+	CZAnim* anim = ZAnim.m_CurAnim;
+	char* name = anim->GetName(cmd->m_argument_index);
+
+	if (strcmp(name, "INPUT_STRING") == 0)
+		name = anim->m_arg_list->GetCharP(0);
+
+	return theLobby.JoinGame(name);
 }
 
 /* @socom-skeleton stub UIGameHasPassword__FP13C2DAnimCmdHdrPf */
-unsigned char UIGameHasPassword(C2DAnimCmdHdr *, float *)
+unsigned char UIGameHasPassword(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d4b90 */
+	return theLobby.GameIsPasswordProtected(UiArgument(cmd));
 }
 
 /* @socom-skeleton stub UIStoreSOP__FP13C2DAnimCmdHdrPf */
 unsigned char UIStoreSOP(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d48d0: the five MPLOCALSOP string UI variables become the player's first five SOP
+	 * lines (a non-string variable clears its line). ELF quirk kept: the variables are not
+	 * checked for NULL. */
+	static const char* const names[5] = { "MPLOCALSOP1", "MPLOCALSOP2", "MPLOCALSOP3", "MPLOCALSOP4", "MPLOCALSOP5" };
+	CUIVariable* vars[5];
+
+	for (s32 i = 0; i < 5; i++)
+		vars[i] = theUIVarManager.Find(names[i]);
+
+	for (s32 i = 0; i < 5; i++)
+		ftsGetPlayer()->m_SOPList[i] = vars[i]->type == ZRDR_STRING ? vars[i]->string : NULL;
+
+	return true;
 }
 
 /* @socom-skeleton stub UIJoinMPRoom__FP13C2DAnimCmdHdrPf */
-unsigned char UIJoinMPRoom(C2DAnimCmdHdr *, float *)
+unsigned char UIJoinMPRoom(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d4830: the room named by the argument (INPUT_STRING: the anim's first argument; the
+	 * string 0x44c480 picks no room: NULL); the lobby's answer is the result. ELF: strcmp of
+	 * the name unchecked */
+	CZAnim* anim = ZAnim.m_CurAnim;
+	char* name = anim->GetName(cmd->m_argument_index);
+
+	if (strcmp(name, "INPUT_STRING") == 0)
+		name = anim->m_arg_list->GetCharP(0);
+	else if (strcmp(name, "RANDOM") == 0)
+		name = NULL;
+
+	return theLobby.JoinRoom(name);
 }
 
 /* @socom-skeleton stub UISendMediusChat__FP13C2DAnimCmdHdrPf */
-unsigned char UISendMediusChat(C2DAnimCmdHdr *, float *)
+unsigned char UISendMediusChat(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d47b0: the string UI variable named by the argument goes to the lobby chat (no
+	 * such string variable: NULL) */
+	CUIVariable* var = theUIVarManager.Find(ZAnim.m_CurAnim->GetName(cmd->m_argument_index));
+	theLobby.SendChat(var != NULL && var->type == ZRDR_STRING ? var->string : NULL);
+	return true;
 }
 
 /* @socom-skeleton stub UIGetMediusAnnouncements__FP13C2DAnimCmdHdrPf */
 unsigned char UIGetMediusAnnouncements(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d4780 */
+	theLobby.GetAnnouncements();
+	return true;
 }
 
 /* @socom-skeleton stub UIKillPopUp__FP13C2DAnimCmdHdrPf */
@@ -1272,43 +1425,127 @@ unsigned char UIKillPopUp(C2DAnimCmdHdr *, float *)
 /* @socom-skeleton stub UIIsTerrorist__FP13C2DAnimCmdHdrPf */
 unsigned char UIIsTerrorist(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d4700: the network team's low bit clear */
+	return (theMission.m_pNetGame->m_net_team & 1) == 0;
 }
 
 /* @socom-skeleton stub UISwitchSides__FP13C2DAnimCmdHdrPf */
 unsigned char UISwitchSides(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d46a0: at most every 5 s, ask for a team switch */
+	if ((u32)g_can_use_switch < (u32)theNetwork.zNetGetLocalTime())
+	{
+		NetSendRequestTeamSwitch(theMission.m_pNetGame->m_persona_object_index);
+		g_can_use_switch = theNetwork.zNetGetLocalTime() + 5000;
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub UIForceMPLaunch__FP13C2DAnimCmdHdrPf */
 unsigned char UIForceMPLaunch(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d4620: starts the ten-second launch, or stops it while more than 5 s are left;
+	 * either way the game state is sent */
+	CZNetGame* game = theMission.m_pNetGame;
+
+	if (!game->m_ten_second_launch)
+	{
+		game->TenSecondLaunch(true);
+		CZGameState::UpdateLocalGame(game);
+	}
+	else if ((u32)theNetwork.zNetGetTime() < game->m_clock.m_initial_read - 5000)
+	{
+		game->TenSecondLaunch(false);
+		CZGameState::UpdateLocalGame(game);
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub UICheckForcedLaunch__FP13C2DAnimCmdHdrPf */
 unsigned char UICheckForcedLaunch(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d43f0: the 45-second clock valve gets the seconds left of the countdown; during a
+	 * ten-second launch the X-second clock valve those of the launch, and the session master
+	 * sends its persona once it has run out */
+	CZNetGame* game = theMission.m_pNetGame;
+	s32 left = (s32)(game->m_countdown - theNetwork.zNetGetTime());
+	UiSetValve(game->m_p45SecondClockValve, left > 0 ? (u32)(0.001f * (f32)left) : 0);
+
+	if (game->m_ten_second_launch)
+	{
+		left = (s32)(game->m_clock.m_initial_read - theNetwork.zNetGetTime());
+		UiSetValve(game->m_pXSecondClockValve, left > 0 ? (u32)(0.001f * (f32)left) : 0);
+
+		if (theNetwork.m_bSessionMaster && left <= 0)
+			CZPersonaState::UpdateLocalPersona();
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub UISendChatText__FP13C2DAnimCmdHdrPf */
-unsigned char UISendChatText(C2DAnimCmdHdr *, float *)
+unsigned char UISendChatText(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d4370: the string UI variable named by the argument, when not empty, is sent as
+	 * chat. ELF quirk kept: a string variable with no text is strlen'd as NULL. */
+	CUIVariable* var = theUIVarManager.Find(ZAnim.m_CurAnim->GetName(cmd->m_argument_index));
+
+	if (var != NULL && var->type == ZRDR_STRING && strlen(var->string) != 0)
+		SendChatMsg(var->string);
+
+	return true;
 }
 
 /* @socom-skeleton stub UIReadyToLoad__FP13C2DAnimCmdHdrPf */
 unsigned char UIReadyToLoad(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d42f0: at most every 5 s: a late joiner goes loading (not ready), anyone else
+	 * toggles ready */
+	if ((u32)g_can_use_ready < (u32)theNetwork.zNetGetLocalTime())
+	{
+		CZNetGame* game = theMission.m_pNetGame;
+
+		if (game->m_late_joiner)
+		{
+			game->MyMajorGameState(CZNetGame::MP_MAJOR_LOADING);
+			game->MyMinorGameState(CZNetGame::MP_MINOR_NOTREADY);
+		}
+		else
+		{
+			CZPersonaState::ToggleReady();
+		}
+
+		g_can_use_ready = theNetwork.zNetGetLocalTime() + 5000;
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub UISetMenuState__FP13C2DAnimCmdHdrPf */
 unsigned char UISetMenuState(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d4230: back in the menus, not ready; the session master also sets the game's state,
+	 * sends it and signals each late joiner (signal 13); then the local persona is sent */
+	CZNetGame* game = theMission.m_pNetGame;
+	game->MyMajorGameState(CZNetGame::MP_MAJOR_MENUS);
+	game->MyMinorGameState(CZNetGame::MP_MINOR_NOTREADY);
+
+	if (theNetwork.m_bSessionMaster)
+	{
+		game->MPMajorGameState(CZNetGame::MP_MAJOR_MENUS);
+		CZGameState::UpdateLocalGame(game);
+
+		for (s32 i = 0; i < 16; i++)
+		{
+			if ((CZPersonaState::m_LJArray[i] >> 4) & 1)
+				SendGameSignalMessage(i, 13, 0, 0, 0, true);
+		}
+	}
+
+	CZPersonaState::UpdateLocalPersona();
+	return true;
 }
 
 /* @socom-skeleton stub UIFlushMenuHistory__FP13C2DAnimCmdHdrPf */
@@ -1338,13 +1575,55 @@ unsigned char UIClearGameState(C2DAnimCmdHdr *, float *)
 /* @socom-skeleton stub UIToggleAutoMessages__FP13C2DAnimCmdHdrPf */
 unsigned char UIToggleAutoMessages(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d3f40: the automatic radio messages flip; AUTOMESSAGES shows the new setting */
+	CUIVariable* var = theUIVarManager.Add("AUTOMESSAGES", NULL, UIVL_TEMPORARY);
+
+	if (GetPlayAutoMessages())
+	{
+		*var = "OFF";
+		SetPlayAutoMessages(false);
+	}
+	else
+	{
+		*var = "ON";
+		SetPlayAutoMessages(true);
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub UISetFilters__FP13C2DAnimCmdHdrPf */
-unsigned char UISetFilters(C2DAnimCmdHdr *, float *)
+unsigned char UISetFilters(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d3c70: the game-list filter named by the argument gets its display title */
+	char* name = ZAnim.m_CurAnim->GetName(cmd->m_argument_index);
+	CUIVariable* gameType = theUIVarManager.Add("FILTER_GAMETYPE", NULL, UIVL_TEMPORARY);
+	CUIVariable* rateCategory = theUIVarManager.Add("FILTER_RATECATEGORY", NULL, UIVL_TEMPORARY);
+	CUIVariable* map = theUIVarManager.Add("FILTER_MAP", NULL, UIVL_TEMPORARY);
+	CUIVariable* clanAffiliation = theUIVarManager.Add("FILTER_CLANAFFILIATION", NULL, UIVL_TEMPORARY);
+	CUIVariable* responseTime = theUIVarManager.Add("FILTER_RESPONSETIME", NULL, UIVL_TEMPORARY);
+	CUIVariable* buddies = theUIVarManager.Add("FILTER_BUDDIES", NULL, UIVL_TEMPORARY);
+	CUIVariable* clanOnly = theUIVarManager.Add("FILTER_CLANONLY", NULL, UIVL_TEMPORARY);
+	CUIVariable* rateRequirement = theUIVarManager.Add("FILTER_RATEREQUIREMENT", NULL, UIVL_TEMPORARY);
+
+	if (strcasecmp(name, "GameType") == 0)
+		*gameType = "Game Type";
+	else if (strcasecmp(name, "RateCategory") == 0)
+		*rateCategory = "Rate Category";
+	else if (strcasecmp(name, "Map") == 0)
+		*map = "Map";
+	else if (strcasecmp(name, "ClanAffiliation") == 0)
+		*clanAffiliation = "Clan Affiliation";
+	else if (strcasecmp(name, "ResponseTime") == 0)
+		*responseTime = "Response Time";
+	else if (strcasecmp(name, "BuddiesOnly") == 0)
+		*buddies = "Buddies Only";
+	else if (strcasecmp(name, "ClanOnly") == 0)
+		*clanOnly = "Clan Only";
+	else if (strcasecmp(name, "RateRequirement") == 0)
+		*rateRequirement = "Rate Requirement";
+
+	return true;
 }
 
 /* @socom-skeleton stub UIActivateButton__FP13C2DAnimCmdHdrPf */
@@ -1623,13 +1902,15 @@ unsigned char UISaveConfig(C2DAnimCmdHdr *cmd, float *)
 /* @socom-skeleton stub UICoopMissionExists__FP13C2DAnimCmdHdrPf */
 unsigned char UICoopMissionExists(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d2cf0 */
+	return false;
 }
 
 /* @socom-skeleton stub UIMediusEnabled__FP13C2DAnimCmdHdrPf */
 unsigned char UIMediusEnabled(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d2ce0 */
+	return theNetwork.m_bMediusEnabled;
 }
 
 /* @socom-skeleton stub UIPlayMPEG__FP13C2DAnimCmdHdrPf */
@@ -1660,49 +1941,76 @@ static int HCnf;
 /* @socom-skeleton stub UIGetClan__FP13C2DAnimCmdHdrPf */
 unsigned char UIGetClan(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d2c40 (tail call) */
+	return theLobby.GetClan();
 }
 
 /* @socom-skeleton stub UICreateClan__FP13C2DAnimCmdHdrPf */
-unsigned char UICreateClan(C2DAnimCmdHdr *, float *)
+unsigned char UICreateClan(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d2b90: the clan name from a string CLANNAMEVAR UI variable, else the command's
+	 * argument */
+	CZAnim* anim = ZAnim.m_CurAnim;
+	CUIVariable* var = theUIVarManager.Add("CLANNAMEVAR", NULL, UIVL_TEMPORARY);
+
+	if (var != NULL && var->type == ZRDR_STRING)
+		theLobby.CreateClan(var->string);
+	else
+		theLobby.CreateClan(anim->GetName(cmd->m_argument_index));
+
+	return true;
 }
 
 /* @socom-skeleton stub UIDisbandClan__FP13C2DAnimCmdHdrPf */
 unsigned char UIDisbandClan(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d2b60 */
+	theLobby.DisbandClan();
+	return true;
 }
 
 /* @socom-skeleton stub UIIsMemberOfClan__FP13C2DAnimCmdHdrPf */
 unsigned char UIIsMemberOfClan(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d2b50 (tail call) */
+	return theLobby.IsMemberOfClan();
 }
 
 /* @socom-skeleton stub UIIsLeaderOfClan__FP13C2DAnimCmdHdrPf */
-unsigned char UIIsLeaderOfClan(C2DAnimCmdHdr *, float *)
+unsigned char UIIsLeaderOfClan(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d2ac0 */
+	return theLobby.IsLeaderOfClan(UiArgument(cmd));
 }
 
 /* @socom-skeleton stub UIRemovePlayerFromClan__FP13C2DAnimCmdHdrPf */
 unsigned char UIRemovePlayerFromClan(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d2a70: the anim's first argument (no list: NULL) */
+	CZAnimArgList* args = ZAnim.m_CurAnim->m_arg_list;
+	theLobby.RemovePlayerFromClan(args != NULL ? args->GetCharP(0) : NULL);
+	return true;
 }
 
 /* @socom-skeleton stub UIInvitePlayerToClan__FP13C2DAnimCmdHdrPf */
 unsigned char UIInvitePlayerToClan(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d2980: a string PLAYER_INVITE_NAME UI variable is invited (through a std::string
+	 * copy); the lobby's answer is the result */
+	CUIVariable* var = theUIVarManager.Add("PLAYER_INVITE_NAME", NULL, UIVL_TEMPORARY);
+
+	if (var->type != ZRDR_STRING)
+		return true;
+
+	std::string name(var->string != NULL ? var->string : "");
+	return theLobby.InvitePlayerToClan(name.c_str());
 }
 
 /* @socom-skeleton stub UIInvitePlayerToClanWithArg__FP13C2DAnimCmdHdrPf */
-unsigned char UIInvitePlayerToClanWithArg(C2DAnimCmdHdr *, float *)
+unsigned char UIInvitePlayerToClanWithArg(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d28f0 */
+	return theLobby.InvitePlayerToClan(UiArgument(cmd));
 }
 
 /* @socom-skeleton stub UIVagStreaming__FP13C2DAnimCmdHdrPf */
@@ -1731,67 +2039,125 @@ unsigned char UIVagStreaming(C2DAnimCmdHdr *cmd, float *)
 /* @socom-skeleton stub UIGetInvitedPlayers__FP13C2DAnimCmdHdrPf */
 unsigned char UIGetInvitedPlayers(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d2800 */
+	theLobby.GetInvitedPlayers();
+	return true;
 }
 
 /* @socom-skeleton stub UICheckClanInvites__FP13C2DAnimCmdHdrPf */
 unsigned char UICheckClanInvites(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d27d0 */
+	theLobby.CheckClanInvitations();
+	return true;
 }
 
 /* @socom-skeleton stub UIGetClanRoster__FP13C2DAnimCmdHdrPf */
 unsigned char UIGetClanRoster(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d27a0 */
+	theLobby.GetClanRoster();
+	return true;
 }
 
 /* @socom-skeleton stub UIRevokeInvite__FP13C2DAnimCmdHdrPf */
-unsigned char UIRevokeInvite(C2DAnimCmdHdr *, float *)
+unsigned char UIRevokeInvite(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d2710 */
+	return theLobby.RevokeInvite(UiArgument(cmd));
 }
 
 /* @socom-skeleton stub UISendClanMessage__FP13C2DAnimCmdHdrPf */
 unsigned char UISendClanMessage(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d2620: a string SEND_CLAN_MESSAGE UI variable goes to the clan (through a
+	 * std::string copy); the lobby's answer is the result */
+	CUIVariable* var = theUIVarManager.Add("SEND_CLAN_MESSAGE", NULL, UIVL_TEMPORARY);
+
+	if (var->type != ZRDR_STRING)
+		return true;
+
+	std::string message(var->string != NULL ? var->string : "");
+	return theLobby.SendClanMessage(message.c_str());
 }
 
 /* @socom-skeleton stub UIChangeCharacterType__FP13C2DAnimCmdHdrPf */
-unsigned char UIChangeCharacterType(C2DAnimCmdHdr *, float *)
+unsigned char UIChangeCharacterType(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d2570: the argument (INPUT_STRING: the anim's first) is a 1-based custom character
+	 * type; its name becomes the network character type (30 characters) */
+	strncpy(theNetwork.m_charType, GetCustomCharTypeName(atoi(UiArgument(cmd)) - 1), 31);
+	theNetwork.m_charType[30] = '\0';
+	return true;
 }
 
 /* @socom-skeleton stub UIIsClanChallengeGame__FP13C2DAnimCmdHdrPf */
 unsigned char UIIsClanChallengeGame(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d2560 */
+	return false;
 }
 
 /* @socom-skeleton stub UIAdvanceMPMission__FP13C2DAnimCmdHdrPf */
 unsigned char UIAdvanceMPMission(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d2470: in a network game the countdown runs 30 s more (45 s once the game is over);
+	 * the session master advances the lobby's mission sequence ("mp<n>" becomes the database)
+	 * and sends the game state; then the mission (database) pre-opens */
+	CZNetGame* game = theMission.m_pNetGame;
+
+	if (game == NULL || !theNetwork.m_bNetwork)
+		return true;
+
+	u32 delay = game->m_pGameOverValve->m_value != 0 ? 45000 : 30000;
+	game->m_countdown = theNetwork.zNetGetTime() + delay;
+
+	if (theNetwork.m_bSessionMaster)
+	{
+		int mission = theLobby.AdvanceMissionSequence();
+
+		if (mission > 0)
+		{
+			char name[16];
+			sprintf(name, "mp%d", mission);
+			strcpy(database, name);
+		}
+
+		CZGameState::UpdateLocalGame(game);
+	}
+
+	theMission.PreOpen(database);
+	return true;
 }
 
 /* @socom-skeleton stub UISetMPMissionSeq__FP13C2DAnimCmdHdrPf */
 unsigned char UISetMPMissionSeq(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d23e0: the lobby's mission sequence from the three map valves (low bytes), from the
+	 * start */
+	unsigned char sequence[4];
+	sequence[0] = (unsigned char)CValve::Create("MapValve", VALVE_TYPE::VTYPE_PERM)->m_value;
+	sequence[1] = (unsigned char)CValve::Create("MapValve2", VALVE_TYPE::VTYPE_PERM)->m_value;
+	sequence[2] = (unsigned char)CValve::Create("MapValve3", VALVE_TYPE::VTYPE_PERM)->m_value;
+	sequence[3] = 0;
+	theLobby.SetMissionSequence(0, sequence);
+	theLobby.ResetMissionSequence();
+	return true;
 }
 
 /* @socom-skeleton stub UIHaveBeenBannedFromGame__FP13C2DAnimCmdHdrPf */
 unsigned char UIHaveBeenBannedFromGame(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d23d0 */
+	return CZPersonaState::m_VotedOff;
 }
 
 /* @socom-skeleton stub UIGameStatePopCommand__FP13C2DAnimCmdHdrPf */
 unsigned char UIGameStatePopCommand(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d23a0 */
+	theGame.Pop(0);
+	return true;
 }
 
 /* @socom-skeleton stub UISetDefaultMenuScreen__FP13C2DAnimCmdHdrPf */
@@ -1806,19 +2172,25 @@ unsigned char UISetDefaultMenuScreen(C2DAnimCmdHdr *cmd, float *)
 /* @socom-skeleton stub UIBanSelfFromGame__FP13C2DAnimCmdHdrPf */
 unsigned char UIBanSelfFromGame(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d22e0 */
+	theLobby.BanSelfFromGame();
+	return true;
 }
 
 /* @socom-skeleton stub UIQuitClan__FP13C2DAnimCmdHdrPf */
 unsigned char UIQuitClan(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d22b0 */
+	theLobby.QuitClan();
+	return true;
 }
 
 /* @socom-skeleton stub UIGetLadderInfo__FP13C2DAnimCmdHdrPf */
 unsigned char UIGetLadderInfo(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d2280 */
+	theLobby.GetLadderInfo();
+	return true;
 }
 
 /* @socom-skeleton stub UITestUIVar__FP13C2DAnimCmdHdrPf */
@@ -1966,7 +2338,8 @@ int pIFCInfo;
 /* @socom-skeleton stub UIClanHasInvitations__FP13C2DAnimCmdHdrPf */
 unsigned char UIClanHasInvitations(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d13f0 (tail call) */
+	return theLobby.ClanHasInvitations();
 }
 
 /* @socom-skeleton stub UINetUpdateIFCVars__FP13C2DAnimCmdHdrPf */
@@ -2004,7 +2377,8 @@ unsigned char UINetCnfDeleteAll(C2DAnimCmdHdr *, float *)
 /* @socom-skeleton stub UIHasClanInvitations__FP13C2DAnimCmdHdrPf */
 unsigned char UIHasClanInvitations(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d0e40 (tail call) */
+	return theLobby.HasClanInvitations();
 }
 
 /* @socom-skeleton stub UIStopAllSounds__FP13C2DAnimCmdHdrPf */
@@ -2134,7 +2508,8 @@ unsigned char UIUpdateClanStats(C2DAnimCmdHdr *, float *)
 /* @socom-skeleton stub UINotOnCorrectClanTeam__FP13C2DAnimCmdHdrPf */
 unsigned char UINotOnCorrectClanTeam(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d0ad0 */
+	return !theLobby.OnCorrectClanTeam();
 }
 
 /* @socom-skeleton stub UIAcceptInvitation__FP13C2DAnimCmdHdrPf */
@@ -2167,7 +2542,8 @@ unsigned char UITransferLeadership(C2DAnimCmdHdr *cmd, float *)
 /* @socom-skeleton stub UIIsTeamGame__FP13C2DAnimCmdHdrPf */
 unsigned char UIIsTeamGame(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d08f0 (tail call) */
+	return theLobby.IsTeamGame();
 }
 
 /* @socom-skeleton stub UIPasswordSecurity__FP13C2DAnimCmdHdrPf */

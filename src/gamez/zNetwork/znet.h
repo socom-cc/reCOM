@@ -478,12 +478,12 @@ public:
 	void BanSelfFromGame();
 	void QuitClan();
 	void ForceStatusReport();
-	void GetClan();
+	bool GetClan(); /* 0x32afc0: 0/1 in v0 (UIGetClan tail-calls it) */
 	void AcceptClanInvitation(int);
 	void DeclineClanInvitation(int);
-	void HasClanInvitations();
+	bool HasClanInvitations(); /* 0x32ad40: InvitationVec not empty (UIHasClanInvitations tail-calls it) */
 	void CheckClanInvitations();
-	void SendClanMessage(const char *);
+	bool SendClanMessage(const char *); /* 0x32a550: UISendClanMessage returns its low byte */
 	void TransferLeadership(const char *);
 	int GetCurrentLadderPosition();
 	int GetLowestLadderPosition();
@@ -499,35 +499,35 @@ public:
 	void Close();
 	void ReleaseUIResources();
 	void UnInit();
-	void Login(const char *, const char *);
+	bool Login(const char *, const char *); /* UILobbyLogin returns its v0 */
 	void Logout();
 	void Bailout();
-	void Register(const char *, const char *);
-	void RefreshGameList(C2D *);
-	void RefreshRoomList(C2D *);
-	void RefreshRoomPlayerList(C2D *);
-	void RefreshGamePlayerList(C2D *);
-	void CreateGame();
-	void GameIsPasswordProtected(const char *);
-	void JoinGame(const char *);
-	void IsTeamGame();
-	void OnCorrectClanTeam();
-	void JoinRoom(const char *);
+	bool Register(const char *, const char *); /* UILobbyRegister returns its v0 */
+	bool RefreshGameList(C2D *); /* UIRefreshGameList returns its v0 */
+	bool RefreshRoomList(C2D *); /* UIRefreshRoomList returns its v0 */
+	bool RefreshRoomPlayerList(C2D *); /* UIRefreshRoomPlayerList returns its v0 */
+	bool RefreshGamePlayerList(C2D *); /* UIRefreshGamePlayerList returns its v0 */
+	bool CreateGame(); /* 0x3268f0: UICreateMPGame tail-calls it */
+	bool GameIsPasswordProtected(const char *); /* 0x325b40: UIGameHasPassword returns its v0 */
+	bool JoinGame(const char *); /* 0x3254f0: UIJoinMPGame returns its low byte */
+	bool IsTeamGame(); /* 0x3254e0: g_iCreateGameClanAffiliation != 0 (UIIsTeamGame tail-calls it) */
+	bool OnCorrectClanTeam(); /* 0x325430: 0/1 in v0 (UINotOnCorrectClanTeam negates it) */
+	bool JoinRoom(const char *); /* 0x325240: UIJoinMPRoom returns its v0 */
 	void RejoinRoom();
 	void Censor(const char *, void (*)(const char *, void *), void *);
 	void SendChat(const char *);
 	void GetAnnouncements();
 	void UpdateClanStats();
 	void CreateClan(const char *);
-	void InvitePlayerToClan(const char *);
+	bool InvitePlayerToClan(const char *); /* 0x3241c0: UIInvitePlayerToClan returns its low byte */
 	void RemovePlayerFromClan(const char *);
-	void RevokeInvite(const char *);
-	void ClanHasInvitations();
+	bool RevokeInvite(const char *); /* 0x323ad0: UIRevokeInvite returns its v0 */
+	bool ClanHasInvitations(); /* 0x323ac0: ClanInvitationVec not empty (UIClanHasInvitations tail-calls it) */
 	void GetInvitedPlayers();
 	void GetClanRoster();
 	void DisbandClan();
-	void IsMemberOfClan();
-	void IsLeaderOfClan(const char *);
+	bool IsMemberOfClan(); /* 0x322ae0: PlayerClanID != -1 (UIIsMemberOfClan tail-calls it) */
+	bool IsLeaderOfClan(const char *); /* 0x3229e0: UIIsLeaderOfClan returns its v0 */
 	void GetMissionSequence(unsigned char *, unsigned char *);
 	void SetMissionSequence(unsigned char, unsigned char *);
 	void ResetMissionSequence();
@@ -535,7 +535,7 @@ public:
 	int MediusConnectionIndex(); /* 0x3226f0: myConnectionIndex in v0 */
 	void RecoverFromNetError(int);
 	void SyncGameClock(int);
-	void GetDMEJoinedCount();
+	int GetDMEJoinedCount(); /* UICheckJoinMP reads its v0 */
 	void SendEndGameReport();
 	/* @socom-skeleton end 13CZOnlineLobby */
 };

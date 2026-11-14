@@ -117,6 +117,7 @@
 #include "gamez/zMath/zmath.h"
 #include "gamez/zNode/znode.h"
 #include "gamez/zNode/node_world.h" /* zdb::CWorld::GetModel (GetNode) */
+#include "gamez/zNode/node_universe.h" /* zdb::NodeUniverse (the network packet arguments) */
 #include "gamez/zParticle/zparticle.h"
 #include "gamez/zReader/zrdr.h"
 #include "gamez/zTexture/ztex.h"
@@ -478,8 +479,34 @@ CZAnim * CZAnim::Activate(CZAnim *source)
 		}
 	}
 
-	/* port: not written - network anims send an activation packet (0x1cf340); offline */
-	(void)source;
+	/* 0x1cf390: an activated network anim sends its activation (the set and anim index of the
+	 * source, else this anim, then the copy's arguments) through the registered callback,
+	 * unless the activation came from the network (NetworkReceive blocks the echo) */
+	if (anim != NULL && m_network_anim)
+	{
+		if (source == NULL)
+			source = this;
+
+		if (ZAnim.m_network_activation_callback != NULL && !ZAnim.m_block_activation_callback)
+		{
+			int set;
+			int index;
+
+			if (ZAnim.GetAnimIndex(source, &set, &index))
+			{
+				ZAnimNetworkPacket* packet = ZAnim.GetNetworkPacket(8);
+				packet->packet_size = 8;
+				packet->anim_set_index = (u16)set;
+				packet->anim_index = (u16)index;
+
+				if (anim->m_arg_list != NULL && anim->m_arg_list->size() != 0)
+					packet = anim->m_arg_list->AddNetworkPacketArgs(anim, packet);
+
+				ZAnim.m_network_activation_callback(packet, packet->packet_size);
+			}
+		}
+	}
+
 	return anim;
 }
 
@@ -840,14 +867,124 @@ _zanim_cmd_hdr * CZAnimArgList::GetCmd(int index)
 	return NULL;
 }
 
-/* @socom-skeleton stub AddNetworkPacketArgs__13CZAnimArgListFP6CZAnimP18ZAnimNetworkPacket */
-ZAnimNetworkPacket * CZAnimArgList::AddNetworkPacketArgs(CZAnim *, ZAnimNetworkPacket *)
+/* port: no symbol - AddNetworkPacketArgs' inline append: the shared packet grows (it may
+ * move) and the bytes go on its end */
+static ZAnimNetworkPacket* AppendNetworkPacket(ZAnimNetworkPacket* packet, const void* data, s32 size)
 {
+	s32 total = packet->packet_size + size;
+	packet = ZAnim.GetNetworkPacket(total);
+	memcpy(reinterpret_cast<char*>(packet) + packet->packet_size, data, size);
+	packet->packet_size = total;
+	return packet;
+}
+
+/* @socom-skeleton stub AddNetworkPacketArgs__13CZAnimArgListFP6CZAnimP18ZAnimNetworkPacket */
+ZAnimNetworkPacket * CZAnimArgList::AddNetworkPacketArgs(CZAnim *anim, ZAnimNetworkPacket *packet)
+{
+	/* 0x1cdcf0: each argument as its type word, then nodes as their node-universe index
+	 * (-1: none), points as 3 floats; other types add only the type. Network play only
+	 * (written, untested). ELF quirk kept: a type-9 argument is taken as an argument list
+	 * itself (ActivateArgV never makes one: it expands lists) */
+	for (iterator it = begin(); it != end(); ++it)
+	{
+		CZAnimArg* arg = *it;
+		u32 type = arg->m_type;
+		packet = AppendNetworkPacket(packet, &type, 4);
+
+		switch (arg->m_type)
+		{
+		case CZAnimArg::ARG_LIST:
+			packet = reinterpret_cast<CZAnimArgList*>(arg)->AddNetworkPacketArgs(anim, packet);
+			break;
+		case CZAnimArg::ARG_ROOT_NODE:
+		case CZAnimArg::ARG_NODE:
+		{
+			zdb::CNode* node = static_cast<CZAnimArgNode*>(arg)->m_node;
+			s32 index = -1;
+
+			if (node != NULL && zdb::NodeUniverse != NULL)
+				index = zdb::NodeUniverse->GetIndex(node);
+
+			packet = AppendNetworkPacket(packet, &index, 4);
+			break;
+		}
+		case CZAnimArg::ARG_POSITION:
+		case CZAnimArg::ARG_VELOCITY:
+		case CZAnimArg::ARG_NORMAL:
+			packet = AppendNetworkPacket(packet, &static_cast<CZAnimArgPnt3D*>(arg)->m_pnt, 12);
+			break;
+		default:
+			break;
+		}
+	}
+
+	return packet;
 }
 
 /* @socom-skeleton stub ParseNetworkPacketArgs__13CZAnimArgListFP6CZAnimP18ZAnimNetworkPacket */
-void CZAnimArgList::ParseNetworkPacketArgs(CZAnim *, ZAnimNetworkPacket *)
+void CZAnimArgList::ParseNetworkPacketArgs(CZAnim *anim, ZAnimNetworkPacket *packet)
 {
+	/* 0x1cd960: the arguments after the 8-byte header back into the anim's list (made if
+	 * missing): node indices found in the node universe (a root node re-roots the anim as
+	 * ActivateArgV does), points; other types carry nothing. Network play only (written,
+	 * untested). */
+	const char* data = reinterpret_cast<const char*>(packet);
+	s32 offset = 8;
+
+	while (offset < packet->packet_size)
+	{
+		u8 type = *reinterpret_cast<const u8*>(data + offset);
+		offset += 4;
+
+		if (type >= 8)
+			continue;
+
+		switch (type)
+		{
+		case CZAnimArg::ARG_ROOT_NODE:
+		case CZAnimArg::ARG_NODE:
+		{
+			s32 index = *reinterpret_cast<const s32*>(data + offset);
+			offset += 4;
+
+			if (index < 0 || zdb::NodeUniverse == NULL)
+				break;
+
+			zdb::CNode* node = zdb::NodeUniverse->GetElement(index);
+
+			if (node == NULL)
+				break;
+
+			CZAnimArg* arg = new CZAnimArgNode((CZAnimArg::TYPE)type, node);
+
+			if (anim->m_arg_list == NULL)
+				anim->m_arg_list = new CZAnimArgList;
+
+			anim->m_arg_list->push_back(arg);
+
+			if (type == CZAnimArg::ARG_ROOT_NODE)
+				ReRootAnim(anim, node); /* inline in the ELF */
+
+			break;
+		}
+		case CZAnimArg::ARG_POSITION:
+		case CZAnimArg::ARG_VELOCITY:
+		case CZAnimArg::ARG_NORMAL:
+		{
+			const CPnt3D* point = reinterpret_cast<const CPnt3D*>(data + offset);
+			offset += 12;
+			CZAnimArg* arg = new CZAnimArgPnt3D((CZAnimArg::TYPE)type, point);
+
+			if (anim->m_arg_list == NULL)
+				anim->m_arg_list = new CZAnimArgList;
+
+			anim->m_arg_list->push_back(arg);
+			break;
+		}
+		default:
+			break;
+		}
+	}
 }
 
 /* @socom-skeleton stub __dt__13CZAnimArgListFv */

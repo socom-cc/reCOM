@@ -133,6 +133,7 @@ class CZAnimSetSave;
 class CZAnimArgList;
 class CZAnimSet;
 class C2D;
+class CPopUpDialog;
 
 class CSched_Manager;
 
@@ -2116,11 +2117,11 @@ public:
 	s32 m_count;                 /* +0x410: commands queued */
 	s32 m_top;                   /* +0x414: the current command (pushes pre-increment) */
 	CMenuHistory m_history;      /* +0x418 */
-	C2D* m_popup;                /* +0xa30: the CPopUpDialog, made by GetPopUp */
+	CPopUpDialog* m_popup;       /* +0xa30: made by GetPopUp */
 	~CMenuStack();
 	void HandleCommand(const char *);
 	void AddToHistory(const char *);
-	C2D * GetPopUp();
+	CPopUpDialog * GetPopUp(); /* the CPopUpDialog: CGameMenu::LoadFromDesign calls Load (0x382a40) on the result */
 	void PopUpDialog(const char *);
 	void CleanPopup();
 	void FlushHistory(bool);

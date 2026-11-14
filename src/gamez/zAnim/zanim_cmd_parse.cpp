@@ -230,9 +230,488 @@ _zanim_cmd_hdr * zAnimLoadDestructor(_zrdr *reader)
 	return &cmd->header;
 }
 
-/* @socom-skeleton stub zAnimLoadParticleSource__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadParticleSource(_zrdr *)
+/* port: no symbol - the particle parser's inline velocity tag (LOCAL_VELOCITY, then
+ * WORLD_VELOCITY): INPUT_NORMAL [speed] takes the normal argument; INPUT_VELOCITY [speed]
+ * (default 1; a list may add NORMALIZE, REFLECT) or REFLECTED_INPUT_VELOCITY [speed] (default 1;
+ * NORMALIZE) the velocity argument; else the tag's own three values */
+static void ParticleVelocity(_zanim_cmd_particle *cmd, _zrdr *reader, const char *name, f32 *velocity,
+	u32 normal, u32 input, u32 normalize, u32 reflect, u32 own)
 {
+	_zrdr *tag = zrdr_findtag(reader, name);
+
+	if (tag == NULL)
+		return;
+
+	if (zrdr_findreal(tag, "INPUT_NORMAL", velocity, 1))
+	{
+		cmd->flags2 |= normal;
+		return;
+	}
+
+	_zrdr *sub = zrdr_findtag(tag, "INPUT_VELOCITY");
+
+	if (sub != NULL)
+	{
+		velocity[0] = 1.0f;
+		cmd->flags2 |= input;
+		zrdr_findreal(tag, "INPUT_VELOCITY", velocity, 1);
+
+		if (sub->type == ZRDR_ARRAY)
+		{
+			if (zrdr_findtag(sub, "NORMALIZE"))
+				cmd->flags2 |= normalize;
+
+			if (zrdr_findtag(sub, "REFLECT"))
+				cmd->flags2 |= reflect;
+		}
+
+		return;
+	}
+
+	sub = zrdr_findtag(tag, "REFLECTED_INPUT_VELOCITY");
+
+	if (sub != NULL)
+	{
+		velocity[0] = 1.0f;
+		cmd->flags2 |= reflect;
+		zrdr_findreal(tag, "REFLECTED_INPUT_VELOCITY", velocity, 1);
+
+		if (sub->type == ZRDR_ARRAY && zrdr_findtag(sub, "NORMALIZE"))
+			cmd->flags2 |= normalize;
+
+		return;
+	}
+
+	if (zrdr_findreal(reader, name, velocity, 3))
+		cmd->flags |= own;
+}
+
+/* port: no symbol - the particle parser's inline ROTATE_RATE read: VELOCITY [min max] or [v]
+ * (both v), ACCELERATION the same; appended to the record as 4 floats. ELF quirk kept: a missing
+ * single ACCELERATION clears the velocity pair, not the acceleration (which stays as the stack
+ * had it; the port's buffer starts zeroed). */
+static _zanim_cmd_particle *ParticleRotateRate(_zanim_cmd_particle *cmd, _zrdr *reader)
+{
+	_zrdr *tag = zrdr_findtag(reader, "ROTATE_RATE");
+
+	if (tag == NULL)
+		return cmd;
+
+	f32 rate[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+
+	if (!zrdr_findreal(tag, "VELOCITY", &rate[0], 2))
+	{
+		if (zrdr_findreal(tag, "VELOCITY", &rate[0], 1))
+			rate[1] = rate[0];
+		else
+			rate[0] = rate[1] = 0.0f;
+	}
+
+	if (!zrdr_findreal(tag, "ACCELERATION", &rate[2], 2))
+	{
+		if (zrdr_findreal(tag, "ACCELERATION", &rate[2], 1))
+			rate[3] = rate[2];
+		else
+			rate[0] = rate[1] = 0.0f;
+	}
+
+	cmd->rotate = cmd->header.data_size;
+	return reinterpret_cast<_zanim_cmd_particle *>(zAnimCmdAddData(&cmd->header, rate, sizeof(rate))); /* inline in the ELF */
+}
+
+/* port: no symbol - the particle parser's inline table builder: one entry per element of the
+ * tag's list (at most 255), appended to the record; returns the count */
+static u32 ParticleTableCount(_zrdr *tag)
+{
+	u32 count = tag->type == ZRDR_ARRAY ? tag->array->integer - 1 : 0;
+	return (s32)count < 256 ? count : 255;
+}
+
+/* @socom-skeleton stub zAnimLoadParticleSource__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadParticleSource(_zrdr *reader)
+{
+	/* 0x1b5e30: PARTICLE_SOURCE: a timeless 220-byte record (_zanim_cmd_particle) plus the
+	 * tables it asks for. NAME (the source; default "Default_Particle"), ACTIVE_STATE [ACTIVE |
+	 * ...], DRAW_TYPE { XZ_PLANE | STREAK | ROTATED } (none: keep the source's), STREAK_LENGTH /
+	 * STREAK_OPACITY, ROTATE_RATE, TRANSLATION, INPUT_TRANSLATION, AT_NODE (+ OFFSET),
+	 * AT_NODE_POSITION, PERTURB_SOURCE_TRANSLATION { MIN MAX }, LOCAL_ / WORLD_VELOCITY,
+	 * INHERIT_VELOCITY [TRUE | FALSE], PERTURB_VELOCITY(_X/_Y/_Z), PERTURB_POSITION(_X/_Y/_Z),
+	 * DISTANCE_ / TIME_INTERVAL, NUM_PERIODS [n | INFINITY], NUMBER, WORLD_ACCELERATION,
+	 * FRICTION, WIND_FACTOR, RADIUS_ / START_AGE_ / LIFESPAN_ / FADE_NEAR_ / FADE_FAR_RANGE,
+	 * MAX_VIEW_DISTANCE, LANDMARK / LifetimeLOD / SpawnLOD (OFF), PRIORITY, BOUNDARY_BOX (GAS),
+	 * TEXTURES or TEXTURE_SEQUENCE, COLORS, SCALE_SEQUENCE, MODEL { NAME } with X_ / Y_ /
+	 * Z_ROTATION. Text path only (anims come compiled from the ZARs).
+	 * ELF quirks kept: NAME and ACTIVE_STATE read their first element unchecked; the
+	 * ROTATED draw's rotate rate is appended twice (the record points at the second copy);
+	 * a missing STREAK_LENGTH / STREAK_OPACITY appends whatever the stack held (the port:
+	 * 0); BOUNDARY_BOX takes a density only from a tag that is itself a real (never a list,
+	 * so 0.5); MODEL looks the model up and drops the result. */
+	CZAnim *anim = ZAnim.m_CurAnim;
+	_zanim_cmd_particle *cmd = static_cast<_zanim_cmd_particle *>(_calloc(1, 220, "zanim_cmd_parse.cpp", 311));
+	cmd->header.data_size = 220;
+	cmd->header.timeless = true;
+
+	char name[128];
+	_zrdr *tag = zrdr_findtag(reader, "NAME");
+
+	if (tag != NULL)
+	{
+		strcpy(name, tag->array[1].string);
+		cmd->particle = anim->AddName(name);
+	}
+	else
+	{
+		cmd->particle = anim->AddName("Default_Particle");
+	}
+
+	cmd->flags = 0;
+	cmd->flags2 = 0;
+	tag = zrdr_findtag(reader, "ACTIVE_STATE");
+
+	if (tag != NULL)
+	{
+		cmd->flags |= 0x1;
+
+		if (strcmp(tag->array[1].string, "ACTIVE") == 0)
+			cmd->flags |= 0x2;
+	}
+
+	cmd->types = (cmd->types & 0xf0) | 4;
+	tag = zrdr_findtag(reader, "DRAW_TYPE");
+
+	if (tag != NULL)
+	{
+		if (zrdr_findtag(tag, "XZ_PLANE"))
+			cmd->types = (cmd->types & 0xf0) | 2;
+		else if (zrdr_findtag(tag, "STREAK"))
+			cmd->types = (cmd->types & 0xf0) | 3;
+		else if (zrdr_findtag(tag, "ROTATED"))
+			cmd->types = (cmd->types & 0xf0) | 1;
+	}
+
+	if ((cmd->types & 0xf) == 3)
+	{
+		f32 streak[2] = { 0.0f, 0.0f };
+		zrdr_findreal(reader, "STREAK_LENGTH", &streak[0], 1);
+		zrdr_findreal(reader, "STREAK_OPACITY", &streak[1], 1);
+		cmd->streak = cmd->header.data_size;
+		cmd = reinterpret_cast<_zanim_cmd_particle *>(zAnimCmdAddData(&cmd->header, streak, sizeof(streak))); /* inline in the ELF */
+	}
+
+	if ((cmd->types & 0xf) == 1)
+		cmd = ParticleRotateRate(cmd, reader);
+
+	if ((cmd->types & 0xf) == 1)
+		cmd = ParticleRotateRate(cmd, reader);
+
+	if (zrdr_findreal(reader, "TRANSLATION", cmd->offset, 3))
+		cmd->flags |= 0x4;
+
+	if (zrdr_findtag(reader, "INPUT_TRANSLATION"))
+		cmd->flags |= 0x8;
+
+	cmd->node_ref = 0;
+	tag = zrdr_findtag(reader, "AT_NODE");
+
+	if (tag != NULL)
+	{
+		cmd->flags |= 0x10;
+		cmd->node_ref = ZAnim.m_CurAnim->LoadNodeNames(tag, NULL, 0, ZAnim.m_CurAnim->node_search_scope);
+
+		if (zrdr_findreal(tag, "OFFSET", cmd->offset, 3))
+			cmd->flags |= 0x4;
+	}
+
+	tag = zrdr_findtag(reader, "AT_NODE_POSITION");
+
+	if (tag != NULL)
+	{
+		cmd->flags |= 0x20;
+		cmd->node_ref = ZAnim.m_CurAnim->LoadNodeNames(tag, NULL, 0, ZAnim.m_CurAnim->node_search_scope);
+	}
+
+	tag = zrdr_findtag(reader, "PERTURB_SOURCE_TRANSLATION");
+
+	if (tag != NULL)
+	{
+		/* base xyz, then the range (MAX - MIN) */
+		f32 box[6] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+		bool found = zrdr_findreal(tag, "MIN", &box[0], 3) != 0;
+
+		if (!zrdr_findreal(tag, "MAX", &box[3], 3))
+			found = false;
+
+		if (found)
+		{
+			cmd->flags2 |= 0x8;
+			cmd->random_offset = cmd->header.data_size;
+			box[3] -= box[0];
+			box[4] -= box[1];
+			box[5] -= box[2];
+			cmd = reinterpret_cast<_zanim_cmd_particle *>(zAnimCmdAddData(&cmd->header, box, sizeof(box))); /* inline in the ELF */
+		}
+	}
+
+	ParticleVelocity(cmd, reader, "LOCAL_VELOCITY", cmd->local_velocity, 0x2, 0x40, 0x400, 0x100, 0x40);
+	ParticleVelocity(cmd, reader, "WORLD_VELOCITY", cmd->world_velocity, 0x4, 0x80, 0x800, 0x200, 0x80);
+
+	tag = zrdr_findtag(reader, "INHERIT_VELOCITY");
+
+	if (tag != NULL)
+	{
+		cmd->flags2 |= 0x10;
+
+		if (tag->type == ZRDR_ARRAY && tag->array->integer == 2 && tag->array[1].type == ZRDR_STRING)
+		{
+			if (strcmp(tag->array[1].string, "TRUE") == 0)
+				cmd->flags2 |= 0x20;
+			else
+				(void)strcmp(tag->array[1].string, "FALSE"); /* ELF: compared, no effect */
+		}
+	}
+
+	if (zrdr_findreal(reader, "PERTURB_VELOCITY_X", &cmd->perturb_velocity[0].m_min, 2))
+		cmd->flags |= 0x100;
+
+	if (zrdr_findreal(reader, "PERTURB_VELOCITY_Y", &cmd->perturb_velocity[1].m_min, 2))
+		cmd->flags |= 0x200;
+
+	if (zrdr_findreal(reader, "PERTURB_VELOCITY_Z", &cmd->perturb_velocity[2].m_min, 2))
+		cmd->flags |= 0x400;
+
+	if (zrdr_findreal(reader, "PERTURB_VELOCITY", &cmd->perturb_velocity[0].m_min, 2))
+	{
+		cmd->flags |= 0x100;
+		cmd->perturb_velocity[1] = cmd->perturb_velocity[0];
+		cmd->flags |= 0x200;
+		cmd->perturb_velocity[2] = cmd->perturb_velocity[0];
+		cmd->flags |= 0x400;
+	}
+
+	if (zrdr_findreal(reader, "PERTURB_POSITION_X", &cmd->perturb_position[0].m_min, 2))
+		cmd->flags |= 0x800;
+
+	if (zrdr_findreal(reader, "PERTURB_POSITION_Y", &cmd->perturb_position[1].m_min, 2))
+		cmd->flags |= 0x1000;
+
+	if (zrdr_findreal(reader, "PERTURB_POSITION_Z", &cmd->perturb_position[2].m_min, 2))
+		cmd->flags |= 0x2000;
+
+	if (zrdr_findreal(reader, "PERTURB_POSITION", &cmd->perturb_position[0].m_min, 2))
+	{
+		cmd->flags |= 0x800;
+		cmd->perturb_position[1] = cmd->perturb_position[0];
+		cmd->flags |= 0x1000;
+		cmd->perturb_position[2] = cmd->perturb_position[0];
+		cmd->flags |= 0x2000;
+	}
+
+	if (zrdr_findreal(reader, "DISTANCE_INTERVAL", &cmd->period, 1))
+		cmd->flags |= 0x4000;
+
+	if (zrdr_findreal(reader, "TIME_INTERVAL", &cmd->period, 1))
+		cmd->flags |= 0x8000;
+
+	tag = zrdr_findtag(reader, "NUM_PERIODS");
+
+	if (tag != NULL)
+	{
+		/* [n] sets the count; INFINITY (or anything else) leaves -1 */
+		cmd->flags2 |= 0x1;
+		cmd->periods = -1;
+
+		if (tag->type == ZRDR_ARRAY && tag->array->integer == 2)
+		{
+			_zrdr *value = &tag->array[1];
+
+			if (value->type == ZRDR_INTEGER) /* INFINITY (a string) is tested first in the ELF */
+				cmd->periods = (s16)value->integer;
+		}
+	}
+
+	s32 number;
+
+	if (zrdr_findint(reader, "NUMBER", &number, 1))
+	{
+		cmd->number = (u8)number;
+		cmd->flags |= 0x10000;
+	}
+
+	if (zrdr_findreal(reader, "WORLD_ACCELERATION", cmd->accel, 3))
+		cmd->flags |= 0x20000;
+
+	if (zrdr_findreal(reader, "FRICTION", &cmd->friction, 1))
+		cmd->flags |= 0x40000;
+
+	if (zrdr_findreal(reader, "WIND_FACTOR", &cmd->wind_factor, 1))
+		cmd->flags |= 0x80000;
+
+	if (zrdr_findreal(reader, "RADIUS_RANGE", &cmd->radius.m_min, 2))
+		cmd->flags |= 0x100000;
+
+	if (zrdr_findreal(reader, "START_AGE_RANGE", &cmd->age.m_min, 2))
+		cmd->flags |= 0x200000;
+
+	if (zrdr_findreal(reader, "LIFESPAN_RANGE", &cmd->lifespan.m_min, 2))
+		cmd->flags |= 0x400000;
+
+	if (zrdr_findreal(reader, "FADE_NEAR_RANGE", &cmd->near_fade.m_min, 2))
+		cmd->flags |= 0x800000;
+
+	if (zrdr_findreal(reader, "FADE_FAR_RANGE", &cmd->far_fade.m_min, 2))
+		cmd->flags |= 0x1000000;
+
+	if (zrdr_findreal(reader, "MAX_VIEW_DISTANCE", &cmd->distance, 1))
+		cmd->flags2 |= 0x1000;
+
+	tag = zrdr_findtag(reader, "LANDMARK");
+
+	if (tag != NULL)
+	{
+		cmd->flags2 |= 0x2000;
+
+		if (!zrdr_findtag(tag, "OFF"))
+			cmd->flags2 |= 0x4000;
+	}
+
+	tag = zrdr_findtag(reader, "LifetimeLOD");
+
+	if (tag != NULL)
+	{
+		cmd->flags2 |= 0x8000;
+
+		if (!zrdr_findtag(tag, "OFF"))
+			cmd->flags2 |= 0x10000;
+	}
+
+	tag = zrdr_findtag(reader, "SpawnLOD");
+
+	if (tag != NULL)
+	{
+		cmd->flags2 |= 0x20000;
+
+		if (!zrdr_findtag(tag, "OFF"))
+			cmd->flags2 |= 0x40000;
+	}
+
+	if (zrdr_findreal(reader, "PRIORITY", &cmd->priority, 1))
+		cmd->flags |= 0x2000000;
+
+	tag = zrdr_findtag(reader, "BOUNDARY_BOX");
+
+	if (tag != NULL)
+	{
+		cmd->flags |= 0x40000000;
+		cmd->density = 0.5f;
+
+		if (tag->type == ZRDR_REAL)
+			cmd->density = tag->GetReal();
+
+		/* cloud type: GAS 0, else 1 */
+		if (zrdr_findtag(tag, "GAS"))
+			cmd->types = cmd->types & 0x0f;
+		else
+			cmd->types = (cmd->types & 0x0f) | 0x10;
+	}
+
+	tag = zrdr_findtag(reader, "TEXTURES");
+
+	if (tag != NULL)
+	{
+		/* random textures: the names (s16 at +0 of 8-byte entries) */
+		cmd->flags |= 0x4000000;
+		u32 count = ParticleTableCount(tag);
+		char *table = static_cast<char *>(_calloc(8, count, "zanim_cmd_parse.cpp", 815));
+
+		for (u32 i = 0; i < count; i++)
+		{
+			_zrdr *item = tag->Get(i);
+			const char *texture = (item != NULL && item->type == ZRDR_STRING) ? item->string : NULL; /* ELF: reads through NULL */
+			*reinterpret_cast<s16 *>(table + i * 8) = anim->AddName(texture);
+		}
+
+		cmd->texture_count = count;
+		cmd->textures = cmd->header.data_size;
+		cmd = reinterpret_cast<_zanim_cmd_particle *>(zAnimCmdAddData(&cmd->header, table, count * 8)); /* inline in the ELF */
+		_free(table, "zanim_cmd_parse.cpp", 829);
+	}
+	else if ((tag = zrdr_findtag(reader, "TEXTURE_SEQUENCE")) != NULL)
+	{
+		/* [fraction name] pairs: s16 name index at +0, fraction at +4 */
+		cmd->flags |= 0x8000000;
+		u32 count = ParticleTableCount(tag);
+		char *table = static_cast<char *>(_calloc(8, count, "zanim_cmd_parse.cpp", 844));
+
+		for (u32 i = 0; i < count; i++)
+		{
+			_zrdr *item = tag->Get(i);
+			u32 length = item->type == ZRDR_ARRAY ? item->array->integer - 1 : 0;
+
+			if (length < 2)
+				continue;
+
+			*reinterpret_cast<f32 *>(table + i * 8 + 4) = item->Get(0)->GetReal();
+			_zrdr *texture = item->Get(1);
+			*reinterpret_cast<s16 *>(table + i * 8) = anim->AddName(texture->type == ZRDR_STRING ? texture->string : NULL);
+		}
+
+		cmd->texture_count = count;
+		cmd->textures = cmd->header.data_size;
+		cmd = reinterpret_cast<_zanim_cmd_particle *>(zAnimCmdAddData(&cmd->header, table, count * 8)); /* inline in the ELF */
+		_free(table, "zanim_cmd_parse.cpp", 864);
+	}
+
+	tag = zrdr_findtag(reader, "COLORS");
+
+	if (tag != NULL)
+	{
+		/* [fraction r g b a] entries */
+		cmd->flags |= 0x10000000;
+		u32 count = ParticleTableCount(tag);
+		f32 *table = static_cast<f32 *>(_calloc(20, count, "zanim_cmd_parse.cpp", 880));
+
+		for (u32 i = 0; i < count; i++)
+			zrdr_toREAL(tag->Get(i), table + i * 5, 5);
+
+		cmd->color_count = count;
+		cmd->colors = cmd->header.data_size;
+		cmd = reinterpret_cast<_zanim_cmd_particle *>(zAnimCmdAddData(&cmd->header, table, count * 20)); /* inline in the ELF */
+		_free(table, "zanim_cmd_parse.cpp", 895);
+	}
+
+	tag = zrdr_findtag(reader, "SCALE_SEQUENCE");
+
+	if (tag != NULL)
+	{
+		/* [fraction scale] entries */
+		cmd->flags |= 0x20000000;
+		u32 count = ParticleTableCount(tag);
+		f32 *table = static_cast<f32 *>(_calloc(8, count, "zanim_cmd_parse.cpp", 911));
+
+		for (u32 i = 0; i < count; i++)
+			zrdr_toREAL(tag->Get(i), table + i * 2, 2);
+
+		cmd->scale_count = count;
+		cmd->scales = cmd->header.data_size;
+		cmd = reinterpret_cast<_zanim_cmd_particle *>(zAnimCmdAddData(&cmd->header, table, count * 8)); /* inline in the ELF */
+		_free(table, "zanim_cmd_parse.cpp", 926);
+	}
+
+	tag = zrdr_findtag(reader, "MODEL");
+
+	if (tag != NULL)
+	{
+		const char *model = NULL;
+		cmd->flags |= 0x80000000;
+		zrdr_findSTRING(tag, "NAME", &model);
+		zdb::CWorld::GetModel(model); /* ELF: the result is not used */
+		cmd->model = anim->AddName(model);
+		zrdr_findreal(reader, "X_ROTATION", &cmd->rotation[0].m_min, 2);
+		zrdr_findreal(reader, "Y_ROTATION", &cmd->rotation[1].m_min, 2);
+		zrdr_findreal(reader, "Z_ROTATION", &cmd->rotation[2].m_min, 2);
+	}
+
+	return &cmd->header;
 }
 
 /* @socom-skeleton stub zAnimLoadCamera__FP5_zrdr */

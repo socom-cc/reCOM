@@ -213,3 +213,96 @@ hook_zanim2.cpp = the first part's m8 hook, asm dumps, tools/). Tree = HEAD 920f
   UINet* / UICheckJoinMP stubs; several need zNetwork return types first (IsTeamGame,
   OnCorrectClanTeam, HasClanInvitations and CNetCnf::Close / Uninit are void in znet.h).
 - Step 4 not done: FIRE_WEAPON, the SI scripts and ADD / DELETE_CHILD still ran in no traced run.
+
+# Part 3 (2026-11-13, socom-port-mod-zanim3): pop-ups, PARTICLE_SOURCE, network arguments, online commands
+
+Scratch: `build/port/boot-mod-zanim3/` (NOTES.md, mine.txt, shared.txt + edits/, hook_popup.cpp,
+pad_pop.txt, hook_m8.cpp = the second part's m8 hook, on2-on4.rep.txt, asm dumps, and two scratch\nscripts listing the pop-up records per anim and an anim's commands with their UI names).
+
+## Result
+- `survey.py gamez/zAnim`: 12 empty fences (10456 B) -> 8 (2540 B, all network-configuration
+  `UINet*`). Placeholder bodies (`return true; /* port: stub - not written */`): 67 -> 14.
+- Pop-ups on screen (run pop1: fake pad pad_pop.txt plus the scratch hook_popup.cpp, which raises
+  the options menu's MEMCARD_ERROR event and later runs its save_and_leave anim): "Error loading
+  data" (CROSS closes it); "Would you like to save to the memory card (PS2)?" with Yes / No
+  (RIGHT / LEFT move the active button, CROSS on Yes sets the AreYouSure valve to 1); the protected
+  "Saving preferences" one; "Can not save. No memory card (PS2) ..." with Continue; CROSS ->
+  PREVIOUS_SCREEN -> main menu. Then main menu -> OPTIONS -> audio, video, controller, presets and
+  back each time -> main menu -> attract; no STOP. The demo's own menu flow raises none of these by
+  itself (the disc's options screens leave through check_then_save_and_leave, which shows none; the
+  pop-ups sit in memory-card, video-mode (DTV) and online anims), hence the hook. m8 has no pop-up
+  record in its zanim data.
+- m8a (the second part's m8 hook, common/pad_start.txt; tree = HEAD 193e49fd + these files + the
+  zNetwork edit files): in the mission from 57 s to the end at 255 s, no STOP, heap 22.229-22.248 MB
+  from 93 s. x1 (port/test-hooks/win, -DSOCOM_HOOK_EXITPATHS): abort -> debrief -> X replay ->
+  mission 2 -> mission 3 -> abort -> debrief TRIANGLE -> main menu loaded at 158 s, no STOP
+  (PCSX2 itself closed at about 160 s, as in the first part's note). def1 (default.sh): boots to
+  the main menu.
+
+## Written (ELF addresses)
+- zUI (zui_2d.cpp): CWrappedText SetString 0x391630 (one CRenderableString per word in the object's
+  own C2D list), Draw 0x391110 (lines of m_width, m_spacing apart; a height scissors and scrolls),
+  ~CWrappedText 0x391480, GetSpacing 0x389380; CPopUpDialog Load 0x389770, Draw 0x3897f0, Tick
+  0x389ae0, HandlePad 0x389b10, TickZAnimCmd 0x387020, GetZAnimCmdType 0x386f80. Layouts in zui.h:
+  CWrappedText +0xac width / +0xb0 spacing / +0xb4 height; CPopUpDialog (2544 bytes, member names
+  from the command's reader keys): relocator +0xa0, text +0xa4, font +0x15c, offsets +0x160,
+  size +0x168, child +0x18c, valve +0x190, selection +0x194, YES / NO buttons +0x1a0 / +0x5c0 with
+  their positions and text offsets, PROTECTED +0x9e0. The compiled command (208 bytes) is the
+  port's `_zui_popup_cmd` (zui_2d.cpp, names from ParseZAnimCmd 0x387c00's keys).
+- zui.cpp: CGameMenu::LoadFromDesign's pop-up part 0x382a00 (font, Load, hidden POPUP foreplane
+  node). zanim_menu.cpp: CMenuStack::GetPopUp 0x1d6080 (typed CPopUpDialog*), ~CPopUpDialog 0x1d4090.
+- zanim_cmd_parse.cpp: zAnimLoadParticleSource 0x1b5e30 (text path; written, untested).
+- zanim_anim.cpp: CZAnimArgList::ParseNetworkPacketArgs 0x1cd960, AddNetworkPacketArgs 0x1cdcf0,
+  CZAnim::Activate's network part 0x1cf390 (network play only; written, untested).
+- Online UI commands (zanim_menu.cpp; written, untested, nothing online runs): UIIsTeamGame,
+  UINotOnCorrectClanTeam, UIHasClanInvitations, UIClanHasInvitations, UIGetLadderInfo ..
+  UICoopMissionExists (0x1d2280-0x1d2cf0), UISetFilters 0x1d3c70 .. UIIsTerrorist 0x1d4700,
+  UIGetMediusAnnouncements 0x1d4780 .. UILobbyRegister 0x1d5090, UICheckJoinMP 0x1d5310,
+  UIJoinGameServer 0x1d53a0, UIDisconnectFromGameServer 0x1d5420, UIConnectToGameServer 0x1d5490.
+
+## Shared edit files (not merged into the checkout: znet.h and zNetMedius.cpp were held by another worker)
+- `edits/znet_h.txt` (zNetwork/znet.h): CZOnlineLobby return types from the callers' use of v0:
+  bool HasClanInvitations, IsTeamGame, OnCorrectClanTeam, ClanHasInvitations, IsMemberOfClan,
+  GetClan, SendClanMessage, InvitePlayerToClan, RevokeInvite, IsLeaderOfClan, JoinRoom,
+  GameIsPasswordProtected, JoinGame, CreateGame, RefreshGameList / RoomList / RoomPlayerList /
+  GamePlayerList, Login, Register; int GetDMEJoinedCount.
+- `edits/znetmedius.txt` (zNetwork/zNetMedius.cpp): the matching definitions; the ELF bodies of
+  HasClanInvitations 0x32ad40, IsTeamGame 0x3254e0, ClanHasInvitations 0x323ac0, IsMemberOfClan
+  0x322ae0; the others stay stubs returning a constant.
+
+## ELF quirks kept
+- CWrappedText::Draw draws nothing on the first call after SetString (it only counts the lines)
+  and places each next word where the drawn one ended (MakePacket's end position).
+- CPopUpDialog: CROSS and TRIANGLE "clear" the text with an empty string, which SetString ignores;
+  TickZAnimCmd handles any command type, leaves the result untouched, drops (does not destroy) an
+  earlier valve; the button states get no glow or pulse although the parser reads them;
+  GetZAnimCmdType answers GetUICommandType(NULL) for any unknown name.
+- PARTICLE_SOURCE: NAME / ACTIVE_STATE read their first element unchecked; the ROTATED rotate rate
+  is appended twice; a missing single ACCELERATION clears the velocity pair; BOUNDARY_BOX takes a
+  density only from a tag that is itself a real; MODEL looks the model up and drops the result.
+- AddNetworkPacketArgs treats a type-9 argument as an argument list; UISendChatText strlens a
+  string variable without text; UIStoreSOP does not check the variables for NULL; UIJoinMPRoom /
+  UIJoinMPGame strcmp the name unchecked.
+
+## Port deviations
+- The CPopUpDialog and CWrappedText inline constructors zero the members the ELF leaves unset;
+  the CPopUpDialog declaration moved below CWrappedText in zui.h (it holds one by value).
+- The particle parser's streak and rotate buffers start zeroed (the ELF appends stack contents).
+- File-local helpers for code the ELF inlines: PopUpSetValve, PopUpSetButton (zui_2d.cpp),
+  ParticleVelocity / ParticleRotateRate / ParticleTableCount (zanim_cmd_parse.cpp),
+  AppendNetworkPacket (zanim_anim.cpp), UiCommandObject (zanim_menu.cpp).
+
+## Not written / next
+- The network-configuration commands: UINetCnf* (Init, Uninit, Open, Close, Count, CurrCombo,
+  SelectCombo, GetDispNames, DeleteAll), UINet* (GetIFCInfo, GetDevInfo, UpdateIFCVars, GetDevIndex,
+  SaveCombo, SaveIfc, SaveDev, AddCombo, AddIfc, AddDev, GetInterfaceList): they need CNetCnf's
+  declarations made static with their ELF return types (Close, NumCombos, NumIFC, GetIFC, GetDev,
+  GetDefaultCombo, SelectCombo, Uninit, DeleteAll(Tick), GetComboData, SaveCombo(Tick), ...) and the
+  file-local HCnf / pIFCInfo / pDevInfo typed (int placeholders now).
+- UILobbyLogout (reads CZOnlineLobby's private state byte +0x60) and UIInitNetwork (stores
+  UILobbyEventHandler(const char *, const char *) where znet.h declares m_event_handler as
+  (const char *, int)).
+- CWrappedText::LoadSpec 0x3919a0 / CWrapSpec::CreateDisplayObj: CWrapSpec is a CTextSpec in the
+  ELF (caption, scale, font, colour, then width / spacing / height at +0x24); the port's derives
+  from CDlgObjSpec. CPopUpDialog::ParseZAnimCmd 0x387c00 (text path).
+- Step 5 not done: FIRE_WEAPON, the SI scripts and ADD / DELETE_CHILD still ran in no traced run.

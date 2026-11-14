@@ -219,6 +219,7 @@
 #include "gamez/zGame/zgame.h" /* theGame (CTeleType::LoadSpec) */
 #include "gamez/zSound/zsnd.h" /* CSnd (CTeleType) */
 #include <new> /* port: placement new for C2DButton::m_commands */
+#include <libvu0.h> /* sceVu0UnitMatrix (CPopUpDialog::Draw) */
 void zVid_Scissor(int, int, int, int); /* zvid_init.cpp (0x308420); no header declares it */
 
 /* @socom-skeleton end include */
@@ -907,18 +908,132 @@ void CWrappedText::LoadSpec(const CWrapSpec &)
 }
 
 /* @socom-skeleton stub SetString__12CWrappedTextFPCc */
-void CWrappedText::SetString(const char *)
+void CWrappedText::SetString(const char *text)
 {
+	/* 0x391630: no text (NULL or empty) changes nothing. Otherwise the old words go, and each
+	 * word of the text, with the spaces after it, becomes a CRenderableString in this
+	 * object's list (the spaces before the first word are skipped). The line count is
+	 * unknown (-1) until the next Draw lays the words out. */
+	if (text == NULL || *text == '\0')
+		return;
+
+	s32 length = strlen(text);
+	s32 i = 0;
+
+	for (iterator it = begin(); it != end();)
+	{
+		C2D* word = *it;
+		it = erase(it);
+
+		if (word != NULL)
+			delete word;
+	}
+
+	while (i < length)
+	{
+		/* a zeroed 768-byte buffer (the template 0x53b2e0); the ELF appends each character
+		 * with sprintf("%s%c") */
+		char buffer[768];
+		memset(buffer, 0, sizeof(buffer));
+		s32 n = 0;
+
+		CRenderableString* word = new CRenderableString();
+		push_back(word);
+		word->SetFont(m_font);
+		word->m_scale = m_scale * (m_font != NULL ? m_font->m_scale_factor : 1.0f);
+		word->SetString(buffer);
+		word->Update();
+
+		while (text[i] == ' ' && i < length)
+			i++;
+
+		while (text[i] != ' ' && i < length)
+			buffer[n++] = text[i++];
+
+		while (text[i] == ' ' && i < length)
+			buffer[n++] = text[i++];
+
+		word->SetString(buffer);
+		word->Update();
+	}
+
+	m_numLines = -1;
 }
 
 /* @socom-skeleton stub __dt__12CWrappedTextFv */
 CWrappedText::~CWrappedText()
 {
+	/* 0x391480: the words (each leaves the list first); then ~CRenderableString */
+	for (iterator it = begin(); it != end();)
+	{
+		C2D* word = *it;
+		it = erase(it);
+
+		if (word != NULL)
+			delete word;
+	}
 }
 
 /* @socom-skeleton stub Draw__12CWrappedTextFRC7CMatrixPQ23zdb16CTextureRelocMgr */
-void CWrappedText::Draw(const CMatrix &, zdb::CTextureRelocMgr *)
+void CWrappedText::Draw(const CMatrix &transform, zdb::CTextureRelocMgr *reloc)
 {
+	/* 0x391110: the words from the node's origin (the zero point through the matrix, VU0 in
+	 * the ELF), left to right; a word that does not fit in m_width (and is narrower than it)
+	 * starts the next line, m_spacing lower, and so does a word holding a line feed. With a
+	 * height the text is scissored to the box and scrolled up so its last lines show.
+	 * ELF quirk kept: a word is drawn only when the line count is known (not on the first
+	 * Draw after SetString), and the next word starts where the drawn one ended (MakePacket's
+	 * end position); on the layout-only pass the advance is the word's width less the
+	 * origin x, so that pass's line count only matters for the scroll. */
+	f32 x = transform.m_matrix[3][0];
+	f32 y = transform.m_matrix[3][1];
+	f32 z = transform.m_matrix[3][2];
+	f32 advance = 0.0f;
+	s32 line = 0;
+
+	if (m_height > 0)
+	{
+		zVid_Scissor((s32)x, (s32)(y - (f32)m_spacing), (s32)(x + m_width), (s32)(y + (f32)m_height));
+
+		if (m_height < m_spacing * m_numLines)
+			y -= (f32)(m_spacing * m_numLines - m_height);
+	}
+
+	for (iterator it = begin(); it != end();)
+	{
+		CRenderableString* word = static_cast<CRenderableString*>(*it);
+		word->m_pos.y = (s32)(y + (f32)(line * m_spacing)) << 4;
+		word->m_pos.x = (s32)(x + advance) << 4;
+		word->SetFont(m_font);
+		word->m_scale = m_scale * (m_font != NULL ? m_font->m_scale_factor : 1.0f);
+		word->UpdatePos();
+
+		if (word->m_numLines > 0)
+		{
+			line++;
+			advance = 0.0f;
+			word->m_pos.y = (s32)(y + (f32)(line * m_spacing)) << 4;
+			word->m_pos.x = (s32)(x + advance) << 4;
+		}
+
+		if (advance + word->m_length <= m_width || !(word->m_length < m_width))
+		{
+			++it;
+
+			if (m_numLines != -1)
+				word->C2DString::Draw(reloc, NULL, z);
+
+			advance = (f32)word->m_shortLength - x;
+		}
+		else
+		{
+			line++;
+			advance = 0.0f;
+		}
+	}
+
+	m_numLines = line;
+	zVid_Scissor(0, 0, 640, 448);
 }
 
 /* @socom-skeleton stub LoadSpec__17CRenderableStringFRC9CTextSpec */
@@ -1902,24 +2017,140 @@ void CCycleButton::LoadSpec(const CCycleButtonSpec &, zdb::CTextureRelocMgr *)
 {
 }
 
-/* @socom-skeleton stub HandlePad__12CPopUpDialogFPC4CPadi */
-bool CPopUpDialog::HandlePad(const CPad *, int)
+/* port: no symbol - the inline valve set of HandlePad (value, then the callbacks with 1 for
+ * a new non-zero value, 2 for a new zero) */
+static void PopUpSetValve(CValve* valve, u32 value)
 {
+	u32 change = valve->m_value != value ? (value != 0 ? 1 : 2) : 0;
+	valve->m_value = value;
+
+	if (change != 0)
+		valve->MakeCallbacks((VALVE_STATE)change);
+}
+
+/* @socom-skeleton stub HandlePad__12CPopUpDialogFPC4CPadi */
+bool CPopUpDialog::HandlePad(const CPad *pad, int index)
+{
+	/* 0x389b10: the pop-up takes the whole pad. CROSS chooses the active button (the valve
+	 * gets 1 or 2) and, unless protected, closes it; a cancellable one closes on TRIANGLE
+	 * (valve 66); LEFT / RIGHT switch the active button. */
+	if (m_child != NULL)
+		return m_child->HandlePad(pad, index);
+
+	if (pad->m_state[(u8)PAD_BUTTON::PAD_CROSS] == KEY_FALLING)
+	{
+		if (m_valve != NULL)
+		{
+			PopUpSetValve(m_valve, m_selection);
+
+			if (m_selection == 1)
+				m_yes.SetPressed();
+			else
+				m_no.SetPressed();
+		}
+
+		if (!m_protected)
+		{
+			m_text.SetString(""); /* the empty string 0x461470: SetString ignores it */
+			GetMenuStack()->KillPopUp();
+		}
+	}
+
+	if (m_cancellable && pad->m_state[(u8)PAD_BUTTON::PAD_TRIANGLE] == KEY_FALLING)
+	{
+		if (m_valve != NULL)
+			PopUpSetValve(m_valve, 66);
+
+		if (!m_protected)
+		{
+			m_text.SetString("");
+			GetMenuStack()->KillPopUp();
+		}
+	}
+
+	if (pad->m_state[(u8)PAD_BUTTON::PAD_LEFT] == KEY_FALLING || pad->m_state[(u8)PAD_BUTTON::PAD_RIGHT] == KEY_FALLING)
+	{
+		if (m_selection == 1)
+		{
+			m_selection = 2;
+			m_yes.SetNormal();
+			m_no.SetActive();
+		}
+		else
+		{
+			m_selection = 1;
+			m_yes.SetActive();
+			m_no.SetNormal();
+		}
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub Tick__12CPopUpDialogFf */
-void CPopUpDialog::Tick(float)
+void CPopUpDialog::Tick(float dT)
 {
+	/* 0x389ae0 */
+	if (m_child != NULL)
+		m_child->Tick(dT);
 }
 
 /* @socom-skeleton stub Draw__12CPopUpDialogFRC7CMatrixPQ23zdb16CTextureRelocMgr */
-void CPopUpDialog::Draw(const CMatrix &, zdb::CTextureRelocMgr *)
+void CPopUpDialog::Draw(const CMatrix &transform, zdb::CTextureRelocMgr *reloc)
 {
+	/* 0x3897f0: the background (CPlainBmp::Draw inline: a string UI variable can name its
+	 * texture), the two buttons of a YESNO pop-up at their positions, then the text at its
+	 * offset - each with a unit matrix moved to the node's origin (the zero point through
+	 * the matrix, VU0 in the ELF) plus its offset */
+	f32 x = transform.m_matrix[3][0];
+	f32 y = transform.m_matrix[3][1];
+	f32 z = transform.m_matrix[3][2];
+
+	if (m_child != NULL)
+	{
+		m_child->Draw(transform, reloc);
+		return;
+	}
+
+	CPlainBmp::Draw(transform, reloc);
+
+	if (m_valve != NULL)
+	{
+		CMatrix place;
+		sceVu0UnitMatrix(place.m_matrix);
+		place.m_matrix[3][0] = x + (f32)m_yesPos.x;
+		place.m_matrix[3][1] = y + (f32)m_yesPos.y;
+		place.m_matrix[3][2] = z;
+		m_yes.Draw(place, reloc);
+
+		place.m_matrix[3][0] = x + (f32)m_noPos.x;
+		place.m_matrix[3][1] = y + (f32)m_noPos.y;
+		place.m_matrix[3][2] = z;
+		m_no.Draw(place, reloc);
+	}
+
+	CMatrix place;
+	sceVu0UnitMatrix(place.m_matrix);
+	place.m_matrix[3][0] = x + (f32)m_xoffset;
+	place.m_matrix[3][1] = y + (f32)m_yoffset;
+	place.m_matrix[3][2] = z;
+	m_text.Draw(place, reloc);
 }
 
 /* @socom-skeleton stub Load__12CPopUpDialogFPQ23zdb16CTextureRelocMgr */
-void CPopUpDialog::Load(zdb::CTextureRelocMgr *)
+void CPopUpDialog::Load(zdb::CTextureRelocMgr *reloc)
 {
+	/* 0x389770 (returns 0): the menu's relocator; the text and both captions in the menu's
+	 * font; text at scale 1, 100 wide, lines 20 apart (the command sets the scale and the
+	 * width again) */
+	m_reloc = reloc;
+	m_text.SetFont(m_font);
+	m_yes._strCaption.SetFont(m_font);
+	m_no._strCaption.SetFont(m_font);
+	m_text.m_scale = 1.0f;
+	m_text.m_width = 100.0f;
+	m_text.m_spacing = 20;
+	m_text.Update();
 }
 
 /* @socom-skeleton stub Draw__11CScrollTextFRC7CMatrixPQ23zdb16CTextureRelocMgr */
@@ -1933,9 +2164,10 @@ void CScrollText::LoadSpec(const CScrollSpec &)
 }
 
 /* @socom-skeleton stub GetSpacing__12CWrappedTextFv */
-float CWrappedText::GetSpacing() /* port: stub; 0x389380 returns (f32) of the s32 at +0xb0 */
+float CWrappedText::GetSpacing()
 {
-	return 0.0f;
+	/* 0x389380 */
+	return (f32)m_spacing;
 }
 
 /* @socom-skeleton stub Tick__11CScrollTextFf */
@@ -2010,14 +2242,168 @@ C2DAnimCmdHdr * CPopUpDialog::ParseZAnimCmd(_zrdr *)
 {
 }
 
-/* @socom-skeleton stub TickZAnimCmd__12CPopUpDialogFP14_zanim_cmd_hdrPfPb */
-bool CPopUpDialog::TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *)
+/* port: no DWARF - the compiled pop-up command (208 bytes; ParseZAnimCmd 0x387c00 callocs and
+ * fills it, TickZAnimCmd 0x387020 reads it). Names from the reader keys; name fields are the
+ * anim's local name indices (255: none). */
+struct _zui_popup_button
 {
+	u8 image[3];          /* +0x0 ACTIVE / NORMAL / PRESSED IMAGE */
+	s32 pos[2];           /* +0x4 POS (in the dialog) */
+	s32 size[2];          /* +0xc WIDTH, HEIGHT */
+	u8 caption;           /* +0x14 CAPTION */
+	s32 text_offset[2];   /* +0x18 TEXTOFFSET */
+	s32 text_color[3][3]; /* +0x20 ACTIVE / NORMAL / PRESSED TEXT_COLOR (the parser also reads
+	                       * PULSE, SCALE, TEXT_GLOW, RANGE, TIME, which the record does not keep) */
+};
+
+struct _zui_popup_cmd
+{
+	C2DAnimCmdHdr hdr;    /* +0x0 the POPUP node's command (type 0 in the data) */
+	u8 caption;           /* +0x8 CAPTION (INPUT_STRING: the anim's first argument) */
+	u8 background;        /* +0x9 BACKGROUND */
+	s32 position[2];      /* +0xc POSITION: the POPUP node */
+	s32 height;           /* +0x14 HEIGHT */
+	s32 width;            /* +0x18 WIDTH */
+	s32 yoffset;          /* +0x1c YOFFSET: the text */
+	s32 xoffset;          /* +0x20 XOFFSET */
+	f32 scale;            /* +0x24 SCALE: the text and the captions */
+	s32 color[3];         /* +0x28 COLOR: the text */
+	u8 unused34;          /* +0x34 cleared, then tested, by the parser */
+	u8 unused35[15];      /* +0x35 not written */
+	bool cancellable;     /* +0x44 CANCELLABLE */
+	bool protect;         /* +0x45 PROTECTED */
+	bool yesno;           /* +0x46 YESNO */
+	u8 valve;             /* +0x47 YESNO VALVE */
+	_zui_popup_button yes; /* +0x48 YESNO YES */
+	_zui_popup_button no;  /* +0x8c YESNO NO */
+};
+
+/* port: no symbol - TickZAnimCmd's button part, inline twice in the ELF (YES, then NO): the
+ * caption, size, scale, position and text offset, then the ACTIVE, NORMAL and PRESSED states
+ * (image, text colour, scale; no glow or pulse) */
+static void PopUpSetButton(C2DButton& button, IPNT2D& pos, IPNT2D& textOffset, const _zui_popup_button& rec,
+	f32 scale, CZAnim* anim, zdb::CTextureRelocMgr* reloc)
+{
+	char* caption = anim->GetName(rec.caption);
+	button._szCaption = caption;
+
+	if (caption != NULL)
+	{
+		button._strCaption.SetString(caption);
+		button._strCaption.UpdatePos();
+	}
+
+	button._fWidth = (f32)rec.size[0];
+	button._fHeight = (f32)rec.size[1];
+	button._strCaption.m_scale = scale;
+	pos.x = rec.pos[0];
+	pos.y = rec.pos[1];
+	textOffset.x = rec.text_offset[0];
+	textOffset.y = rec.text_offset[1];
+	button._iTextX = textOffset.x;
+	button._iTextY = textOffset.y;
+
+	C2DButton::ButtonState* states[3] = { &button._ActiveState, &button._NormalState, &button._PressedState };
+
+	for (s32 i = 0; i < 3; i++)
+	{
+		CSaferStr name;
+		name = anim->GetName(rec.image[i]);
+		C2DButton::ButtonState& state = *states[i];
+		state._Texture = PrepTexture(name.c_str(), reloc);
+		state._iGlowStart = 0.0f;
+		state._iGlowEnd = 0.0f;
+		state._bGlowy = false;
+		state._fPulseTime = 0.0f;
+		state._fGlowTime = 0.0f;
+		state._pntTextColor.x = (f32)rec.text_color[i][0];
+		state._pntTextColor.y = (f32)rec.text_color[i][1];
+		state._pntTextColor.z = (f32)rec.text_color[i][2];
+		state._TexName = name.c_str();
+		state._fScale = scale;
+	}
+}
+
+/* @socom-skeleton stub TickZAnimCmd__12CPopUpDialogFP14_zanim_cmd_hdrPfPb */
+bool CPopUpDialog::TickZAnimCmd(_zanim_cmd_hdr *header, float *, bool *)
+{
+	/* 0x387020: the pop-up's one command (any type) fills the dialog: the POPUP node moves to
+	 * POSITION; the background image at WIDTH x HEIGHT, the caption as wrapped text inside the
+	 * offsets; YESNO makes the valve and both buttons, YES active. Leaves the result as it is
+	 * and reports the command handled. */
+	const _zui_popup_cmd* cmd = reinterpret_cast<const _zui_popup_cmd*>(header);
+	CZAnim* anim = ZAnim.m_CurAnim;
+
+	if (cmd == NULL)
+		return true;
+
+	char* background = anim->GetName(cmd->background);
+	char* caption = anim->GetName(cmd->caption);
+
+	if (caption != NULL && strcmp(caption, "INPUT_STRING") == 0) /* port: the ELF strcmps NULL as is */
+		caption = anim->m_arg_list->GetCharP(0);
+
+	zdb::CNode* node = ZAnim.m_CurAnim->GetNode(cmd->hdr.node_ref_index, false);
+
+	if (node != NULL && strcmp("POPUP", node->m_name) == 0)
+		node->SetPosition((f32)cmd->position[0], (f32)cmd->position[1], 0.0f);
+
+	m_width = cmd->width;
+	m_height = cmd->height;
+	m_xoffset = cmd->xoffset;
+	m_yoffset = cmd->yoffset;
+	m_cancellable = cmd->cancellable != 0;
+	m_protected = cmd->protect != 0;
+
+	if (m_valve != NULL)
+		m_valve = NULL;
+
+	if (cmd->yesno)
+	{
+		m_valve = CValve::Create(anim->GetName(cmd->valve), VALVE_TYPE::VTYPE_TEMP);
+		m_selection = 1;
+		PopUpSetButton(m_yes, m_yesPos, m_yesTextOffset, cmd->yes, cmd->scale, anim, m_reloc);
+		PopUpSetButton(m_no, m_noPos, m_noTextOffset, cmd->no, cmd->scale, anim, m_reloc);
+		m_yes.SetActive();
+		m_no.SetNormal();
+	}
+
+	if (m_child != NULL)
+	{
+		delete m_child;
+		m_child = NULL;
+	}
+
+	m_text.SetString(caption);
+	m_text.m_scale = cmd->scale;
+	m_text.m_width = (f32)(m_width - 2 * m_xoffset);
+	m_text.Update();
+	m_text.m_color.x = (f32)cmd->color[0];
+	m_text.m_color.y = (f32)cmd->color[1];
+	m_text.m_color.z = (f32)cmd->color[2];
+	C2DBitmap::Load(0.0f, 0.0f, (f32)m_width, (f32)m_height, PrepTexture(background, m_reloc));
+	return true;
 }
 
 /* @socom-skeleton stub GetZAnimCmdType__12CPopUpDialogFPCc */
-int CPopUpDialog::GetZAnimCmdType(const char *)
+int CPopUpDialog::GetZAnimCmdType(const char *name)
 {
+	/* 0x386f80: past the UI commands, Caption is 1 and Background 2 (no name: 1; an empty
+	 * name: 0). ELF quirk kept: any other name gets GetUICommandType(NULL) (a0 is still the
+	 * zero of the last branch's delay slot), not that name's type. */
+	if (name == NULL)
+		return GetUICommandType(NULL) + 1;
+
+	if (*name == '\0')
+		return 0;
+
+	if (strcasecmp("Caption", name) == 0)
+		return GetUICommandType(NULL) + 1;
+
+	if (strcasecmp("Background", name) == 0)
+		return GetUICommandType(NULL) + 2;
+
+	return GetUICommandType(NULL);
 }
 
 /* @socom-skeleton stub Render__9C2DVisualFP7CMatrix */
