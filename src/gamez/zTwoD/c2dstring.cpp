@@ -300,8 +300,59 @@ void C2DString::Draw(zdb::CCamera* camera)
 }
 
 /* @socom-skeleton stub Format__9C2DStringFPCce */
-void C2DString::Format(const char *, ...)
+void C2DString::Format(const char *text, ...)
 {
+	/* 0x3025a0: not a printf (the arguments are not read): the raw text is kept in m_Ustring
+	 * (grown with _realloc), and the shown string is the text with its escapes: "$$" is a
+	 * '$', "$~" ends it, any other "$x" is dropped. ELF quirk kept: a NULL text is read. */
+	if (text != NULL)
+	{
+		m_numUChars = strlen(text);
+
+		if (m_Ustringlen_max < m_numUChars)
+		{
+			m_Ustring = static_cast<char*>(_realloc(m_Ustring, m_numUChars + 1, "c2dstring.cpp", 419));
+			m_Ustringlen_max = m_numUChars;
+		}
+
+		strcpy(m_Ustring, text);
+	}
+
+	char buffer[800];
+	char* out = buffer;
+	s32 i = 0;
+	bool done = false;
+
+	while (!done)
+	{
+		char c = text[i++];
+
+		if (c != '$')
+		{
+			*out++ = c;
+			done = c == '\0';
+			continue;
+		}
+
+		c = text[i++];
+
+		if (c == '~')
+		{
+			*out++ = '\0';
+			done = true;
+		}
+		else if (c == '$')
+		{
+			*out++ = '$';
+		}
+		else if (c == '\0')
+		{
+			*out++ = '\0';
+			done = true;
+		}
+	}
+
+	SetString(buffer);
 }
 
 /* @socom-skeleton body SetString__9C2DStringFPCc */

@@ -93,16 +93,21 @@ const char * CScrollSpec::GetType()
 /* @socom-skeleton stub __dt__11CScrollSpecFv */
 CScrollSpec::~CScrollSpec()
 {
+	/* 0x3a1a40: nothing of its own (the text spec part) */
 }
 
 /* @socom-skeleton stub GetChild__18CHandlerButtonSpecCFi */
-CDesignDlgObj * CHandlerButtonSpec::GetChild(int) const /* port: stub, returns a child design object in the ELF */
+CDesignDlgObj * CHandlerButtonSpec::GetChild(int) const
 {
+	/* 0x3a1a30: the subordinate, whatever the index */
+	return m_child;
 }
 
 /* @socom-skeleton stub NumChildren__18CHandlerButtonSpecCFv */
-int CHandlerButtonSpec::NumChildren() const /* port: stub, returns int in the ELF */
+int CHandlerButtonSpec::NumChildren() const
 {
+	/* 0x3a1a00 */
+	return HasChildren() ? 1 : 0;
 }
 
 /* @socom-skeleton stub GetType__18CHandlerButtonSpecFv */
@@ -122,6 +127,9 @@ const char * CUIListBoxSpec::GetType()
 /* @socom-skeleton stub __dt__14CUIListBoxSpecFv */
 CUIListBoxSpec::~CUIListBoxSpec()
 {
+	/* 0x3a1860: nothing of its own - the animations, the two pointer vectors (not their
+	 * columns and rows: the list box made from the spec owns them), the strings and the image
+	 * spec part are the member / base destructors */
 }
 
 /* @socom-skeleton stub GetType__14CSliderBarSpecFv */
@@ -167,6 +175,8 @@ const char * CCycleButtonSpec::GetType()
 /* @socom-skeleton stub __dt__16CCycleButtonSpecFv */
 CCycleButtonSpec::~CCycleButtonSpec()
 {
+	/* 0x3a11e0: nothing of its own - the option pointers' vector only (the button made from
+	 * the spec deletes the options) and the button spec part */
 }
 
 /* @socom-skeleton stub GetType__15CRadioStripSpecFv */
@@ -284,8 +294,13 @@ CDlgObjSpec * CWrapSpec::Copy()
 }
 
 /* @socom-skeleton stub CreateDisplayObj__9CWrapSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
-C2D * CWrapSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+C2D * CWrapSpec::CreateDisplayObj(C2DFont *font, zdb::CTextureRelocMgr *) const
 {
+	/* 0x3a0690: a CWrappedText (height -1) in the menu font, loaded from this spec */
+	CWrappedText* text = new CWrappedText();
+	text->SetFont(font);
+	text->LoadSpec(*this);
+	return text;
 }
 
 /* @socom-skeleton stub Copy__11CScrollSpecFv */
@@ -296,18 +311,29 @@ CDlgObjSpec * CScrollSpec::Copy()
 }
 
 /* @socom-skeleton stub CreateDisplayObj__11CScrollSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
-C2D * CScrollSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+C2D * CScrollSpec::CreateDisplayObj(C2DFont *font, zdb::CTextureRelocMgr *) const
 {
+	/* 0x3a03f0: a CScrollText in the menu font, loaded from this spec */
+	CScrollText* text = new CScrollText();
+	text->SetFont(font);
+	text->LoadSpec(*this);
+	return text;
 }
 
 /* @socom-skeleton stub HasChildren__18CHandlerButtonSpecCFv */
-bool CHandlerButtonSpec::HasChildren() const /* port: stub, returns bool in the ELF */
+bool CHandlerButtonSpec::HasChildren() const
 {
+	/* 0x3a03e0 */
+	return m_child != NULL;
 }
 
 /* @socom-skeleton stub __dt__18CHandlerButtonSpecFv */
 CHandlerButtonSpec::~CHandlerButtonSpec()
 {
+	/* 0x3a0270: the subordinate design object (its spec with it); the button spec part
+	 * follows */
+	if (HasChildren())
+		delete m_child;
 }
 
 /* @socom-skeleton stub Copy__18CHandlerButtonSpecFv */
@@ -318,14 +344,23 @@ CDlgObjSpec * CHandlerButtonSpec::Copy()
 }
 
 /* @socom-skeleton stub CreateDisplayObj__18CHandlerButtonSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
-C2D * CHandlerButtonSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+C2D * CHandlerButtonSpec::CreateDisplayObj(C2DFont *font, zdb::CTextureRelocMgr *reloc) const
 {
+	/* 0x3a0180: a CHandlerButton in the menu font, loaded from this spec, its state images
+	 * and caption set by InitializeButton (the menu appends the subordinate's control to
+	 * its C2D list) */
+	CHandlerButton* button = new CHandlerButton();
+	button->_strCaption.SetFont(font);
+	button->LoadSpec(*this);
+	InitializeButton(button, reloc);
+	return button;
 }
 
 /* @socom-skeleton stub Copy__14CUIListBoxSpecFv */
 CDlgObjSpec * CUIListBoxSpec::Copy()
 {
-	/* 0x39fdb0: new (216 bytes) + the memberwise copy */
+	/* 0x39fdb0: new (216 bytes) + the memberwise copy: the column and row pointers are shared
+	 * (ELF), then the arrows' texture names are assigned again from the source (redundant) */
 	return new CUIListBoxSpec(*this);
 }
 
@@ -358,8 +393,13 @@ CDlgObjSpec * CTickerSpec::Copy()
 }
 
 /* @socom-skeleton stub CreateDisplayObj__11CTickerSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
-C2D * CTickerSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+C2D * CTickerSpec::CreateDisplayObj(C2DFont *font, zdb::CTextureRelocMgr *) const
 {
+	/* 0x39fa30: a CTickerTapeText in the menu font, loaded from this spec */
+	CTickerTapeText* text = new CTickerTapeText();
+	text->SetFont(font);
+	text->LoadSpec(*this);
+	return text;
 }
 
 /* @socom-skeleton stub Copy__16CCycleButtonSpecFv */
@@ -370,8 +410,15 @@ CDlgObjSpec * CCycleButtonSpec::Copy()
 }
 
 /* @socom-skeleton stub CreateDisplayObj__16CCycleButtonSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
-C2D * CCycleButtonSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+C2D * CCycleButtonSpec::CreateDisplayObj(C2DFont *font, zdb::CTextureRelocMgr *reloc) const
 {
+	/* 0x39f8e0: a CCycleButton in the menu font, loaded from this spec (taking its
+	 * options), its state images and caption set by InitializeButton */
+	CCycleButton* button = new CCycleButton();
+	button->_strCaption.SetFont(font);
+	button->LoadSpec(*this, reloc);
+	InitializeButton(button, reloc);
+	return button;
 }
 
 /* @socom-skeleton stub Copy__15CRadioStripSpecFv */

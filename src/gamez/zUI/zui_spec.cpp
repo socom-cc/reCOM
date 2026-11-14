@@ -182,14 +182,22 @@ C2D * CImageSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *reloc) cons
 /* @socom-skeleton stub GetControlSpec__FP5_zrdrPCc */
 CDlgObjSpec * GetControlSpec(_zrdr *reader, const char *type)
 {
-	/* 0x39a210: the control types, else an object type (GetObjectSpec: IMAGE, TEXT...).
-	 * port: BUTTON, SLIDERBAR, CHECKBOX, RADIOSTRIP and MAPCONTROL are written;
-	 * SCROLLINGTEXT, HANDLERBUTTON, LISTBOX and CYCLEBUTTON are not (no control). */
+	/* 0x39a210: the control types (the SCROLLINGTEXT, SLIDERBAR specs inline), else an
+	 * object type (GetObjectSpec: IMAGE, TEXT...) */
 	if (type == NULL)
 		return NULL;
 
 	if (strcmp("BUTTON", type) == 0)
 		return new CButtonSpec(reader);
+
+	if (strcmp("SCROLLINGTEXT", type) == 0)
+		return new CScrollSpec(reader);
+
+	if (strcmp("HANDLERBUTTON", type) == 0)
+		return new CHandlerButtonSpec(reader);
+
+	if (strcmp("LISTBOX", type) == 0)
+		return new CUIListBoxSpec(reader);
 
 	if (strcmp("SLIDERBAR", type) == 0)
 		return new CSliderBarSpec(reader);
@@ -197,31 +205,17 @@ CDlgObjSpec * GetControlSpec(_zrdr *reader, const char *type)
 	if (strcmp("CHECKBOX", type) == 0)
 		return new CCheckBoxSpec(reader);
 
+	if (strcmp("CYCLEBUTTON", type) == 0)
+		return new CCycleButtonSpec(reader);
+
 	if (strcmp("RADIOSTRIP", type) == 0)
 		return new CRadioStripSpec(reader);
 
 	if (strcmp("MAPCONTROL", type) == 0)
 		return new CUIMapCtrlSpec(reader);
 
-	static const char* const unwritten[] =
-	{
-		"SCROLLINGTEXT", "HANDLERBUTTON", "LISTBOX", "CYCLEBUTTON",
-	};
-
-	for (u32 i = 0; i < sizeof(unwritten) / sizeof(unwritten[0]); i++)
-	{
-		if (strcmp(unwritten[i], type) == 0)
-		{
-#ifdef SOCOM_PORT
-			SOCOM_PORT_TRACE("UI: control spec %s not written", type);
-#endif
-			return NULL;
-		}
-	}
-
 	return GetObjectSpec(reader, type);
 }
-
 /* @socom-skeleton stub __ct__9CTextSpecFP5_zrdr */
 CTextSpec::CTextSpec(_zrdr* reader) : CDlgObjSpec(reader)
 {
@@ -262,8 +256,7 @@ CTextSpec::CTextSpec(_zrdr* reader) : CDlgObjSpec(reader)
 CDlgObjSpec * GetObjectSpec(_zrdr *reader, const char *type)
 {
 	/* 0x399670: TEXT, IMAGE, TELETYPE, WRAPPEDTEXT, TICKERTAPETEXT, PROGRESSBAR, COUNTER,
-	 * CLOCK. port: TEXT, IMAGE, TELETYPE, PROGRESSBAR and COUNTER are written; the other
-	 * types are skipped (NULL). */
+	 * CLOCK (the specs inline but TEXT's); any other type is skipped (NULL) */
 	if (type == NULL)
 		return NULL;
 
@@ -276,12 +269,20 @@ CDlgObjSpec * GetObjectSpec(_zrdr *reader, const char *type)
 	if (strcmp("TELETYPE", type) == 0)
 		return new CTtySpec(reader);
 
-	/* port: WRAPPEDTEXT and TICKERTAPETEXT are tested here in the ELF (not written) */
+	if (strcmp("WRAPPEDTEXT", type) == 0)
+		return new CWrapSpec(reader);
+
+	if (strcmp("TICKERTAPETEXT", type) == 0)
+		return new CTickerSpec(reader);
+
 	if (strcmp("PROGRESSBAR", type) == 0)
 		return new CHProgressBarSpec(reader);
 
 	if (strcmp("COUNTER", type) == 0)
 		return new CCounterSpec(reader);
+
+	if (strcmp("CLOCK", type) == 0)
+		return new CClockSpec(reader);
 
 #ifdef SOCOM_PORT
 	static int traced = 0;
@@ -586,18 +587,251 @@ C2D * CButtonSpec::CreateDisplayObj(C2DFont *font, zdb::CTextureRelocMgr *reloc)
 }
 
 /* @socom-skeleton stub __ct__18CHandlerButtonSpecFP5_zrdr */
-CHandlerButtonSpec::CHandlerButtonSpec(_zrdr *reader) : CButtonSpec(reader) /* port: base constructor needed to compile */
+CHandlerButtonSpec::CHandlerButtonSpec(_zrdr *reader) : CButtonSpec(reader), m_child(NULL)
 {
+	/* 0x397970: a button spec plus its SUBORDINATE: a control spec (GetControlSpec of its
+	 * TYPE and SPEC) as a design object of its own at XPOS / YPOS, named NAME ("unnamed").
+	 * port: XPOS / YPOS zeroed where the ELF leaves the locals as they were */
+	_zrdr* subordinate = zrdr_findtag(reader, "SUBORDINATE");
+
+	if (subordinate == NULL)
+		return;
+
+	char* name = zrdr_findstring(subordinate, "NAME");
+	char* type = zrdr_findstring(subordinate, "TYPE");
+	s32 x = 0;
+	s32 y = 0;
+	zrdr_findint(subordinate, "XPOS", &x, 1);
+	zrdr_findint(subordinate, "YPOS", &y, 1);
+	_zrdr* spec = zrdr_findtag(subordinate, "SPEC");
+
+	if (spec == NULL)
+		return;
+
+	CDlgObjSpec* control = GetControlSpec(spec, type);
+
+	if (control == NULL)
+		return;
+
+	m_child = new CDesignDlgObj();
+
+	if (m_child->m_spec != NULL)
+		delete m_child->m_spec;
+
+	m_child->m_spec = control;
+	m_child->m_x = x;
+	m_child->m_y = y;
+	m_child->m_name = name != NULL && *name != '\0' ? name : "unnamed";
 }
 
 /* @socom-skeleton stub __ct__14CUIListBoxSpecFP5_zrdr */
-CUIListBoxSpec::CUIListBoxSpec(_zrdr *reader) : CImageSpec(reader) /* port: base constructor needed to compile */
+CUIListBoxSpec::CUIListBoxSpec(_zrdr *reader) : CImageSpec(reader)
 {
+	/* 0x3966b0: an image spec (the window's background) plus the rows' layout, the highlight
+	 * bar's textures, the arrows, the colours, the COLUMNS, the fixed OPTIONS rows and the
+	 * ANIMATIONS. port: zeroed where the ELF leaves memory as it was (SPACING, SCALE, the
+	 * margins, the arrows' and the active background's offsets and sizes, RANGE and TIME
+	 * without ACTIVE_COLOR) */
+	m_spacing = 0;
+	m_scale = 0.0f;
+	m_leftMargin = 0;
+	m_topMargin = 0;
+	m_activeBgOffset.x = m_activeBgOffset.y = 0;
+	m_activeBgSize.x = m_activeBgSize.y = 0;
+	m_upOffset.x = m_upOffset.y = 0;
+	m_upSize.x = m_upSize.y = 0;
+	m_downOffset.x = m_downOffset.y = 0;
+	m_downSize.x = m_downSize.y = 0;
+	m_activeRange[0] = m_activeRange[1] = 0.0f;
+	m_activeTime = 0.0f;
+	m_seqDelay = 0.0f;
+	m_seqInterval = 0.0f;
+
+	zrdr_findint(reader, "SPACING", &m_spacing, 1);
+	zrdr_findreal(reader, "SCALE", &m_scale, 1);
+	zrdr_findint(reader, "TOP_MARGIN", &m_topMargin, 1);
+	zrdr_findint(reader, "LEFT_MARGIN", &m_leftMargin, 1);
+	m_noSelect = zrdr_findtag(reader, "NOSELECT") != NULL;
+	m_autoScroll = zrdr_findtag(reader, "AUTOSCROLL") != NULL;
+	m_padHog = zrdr_findtag(reader, "PADHOG") != NULL;
+
+	char* normal = zrdr_findstring(reader, "NORMAL");
+	char* pressed = zrdr_findstring(reader, "PRESSED");
+	char* active = zrdr_findstring(reader, "ACTIVE");
+	m_normal = normal ? normal : "";
+	m_pressed = pressed ? pressed : "";
+	m_active = active ? active : "";
+
+	if (_zrdr* arrow = zrdr_findtag(reader, "DOWN_ARROW"))
+	{
+		char* texture = zrdr_findstring(arrow, "TEXTURE");
+		m_downArrow = texture ? texture : "";
+		zrdr_findIPNT2D(arrow, "SIZE", &m_downSize);
+		zrdr_findIPNT2D(arrow, "OFFSET", &m_downOffset);
+	}
+
+	if (_zrdr* arrow = zrdr_findtag(reader, "UP_ARROW"))
+	{
+		char* texture = zrdr_findstring(arrow, "TEXTURE");
+		m_upArrow = texture ? texture : "";
+		zrdr_findIPNT2D(arrow, "SIZE", &m_upSize);
+		zrdr_findIPNT2D(arrow, "OFFSET", &m_upOffset);
+	}
+
+	if (_zrdr* background = zrdr_findtag(reader, "ACTIVE_BACKGROUND"))
+	{
+		m_activeBgSize.y = 0;
+		m_activeBgSize.x = 0;
+		m_activeBgOffset.y = 0;
+		m_activeBgOffset.x = 0;
+		zrdr_findIPNT2D(background, "OFFSET", &m_activeBgOffset);
+		zrdr_findIPNT2D(background, "SIZE", &m_activeBgSize);
+		char* image = zrdr_findstring(background, "IMAGE");
+		m_activeBg = image ? image : "";
+	}
+
+	if (zrdr_findtag(reader, "NORMAL_COLOR") != NULL)
+	{
+		zrdr_findPNT3D(reader, "NORMAL_COLOR", &m_normalColor);
+	}
+	else
+	{
+		m_normalColor.x = 128.0f;
+		m_normalColor.y = 128.0f;
+		m_normalColor.z = 128.0f;
+	}
+
+	if (_zrdr* color = zrdr_findtag(reader, "ACTIVE_COLOR"))
+	{
+		/* the RANGE default is a zero pair (bss 0x476910) */
+		f32 range[2] = { 0.0f, 0.0f };
+		zrdr_findPNT3D(reader, "ACTIVE_COLOR", &m_activeColor);
+		zrdr_findreal(color, "RANGE", range, 2);
+		m_activeRange[0] = range[0];
+		m_activeRange[1] = range[1];
+		m_activeTime = 0.0f;
+		zrdr_findreal(color, "TIME", &m_activeTime, 1);
+	}
+	else
+	{
+		m_activeColor.x = 128.0f;
+		m_activeColor.y = 128.0f;
+		m_activeColor.z = 128.0f;
+	}
+
+	if (zrdr_findtag(reader, "PRESSED_COLOR") != NULL)
+	{
+		zrdr_findPNT3D(reader, "PRESSED_COLOR", &m_pressedColor);
+	}
+	else
+	{
+		m_pressedColor.x = 128.0f;
+		m_pressedColor.y = 128.0f;
+		m_pressedColor.z = 128.0f;
+	}
+
+	_zrdr* columns = zrdr_findtag(reader, "COLUMNS");
+
+	if (columns != NULL)
+	{
+		/* ELF quirk kept: one local takes LENGTH then WIDTH (an absent WIDTH is the LENGTH),
+		 * and another POSITION then TOP_OFFSET (zeroed first; an absent POSITION is the
+		 * previous column's TOP_OFFSET) */
+		s32 size = 0;
+		s32 offset = 0;
+
+		for (u32 i = 0; columns->IsArray() && i < (u32)(columns->array->integer - 1); i++)
+		{
+			_zrdr* entry = columns->Get(i);
+			ColumnData* column = new ColumnData();
+
+			if (_zrdr* image = zrdr_findtag(entry, "IMAGE"))
+			{
+				column->m_type = 0;
+				zrdr_findint(image, "LENGTH", &size, 1);
+				column->m_length = size;
+				zrdr_findint(image, "WIDTH", &size, 1);
+				column->m_width = size;
+			}
+
+			if (zrdr_findtag(entry, "TIMED_TEXT") != NULL)
+				column->m_type = 2;
+
+			zrdr_findint(entry, "POSITION", &offset, 1);
+			column->m_position = offset;
+			offset = 0;
+			zrdr_findint(entry, "TOP_OFFSET", &offset, 1);
+			column->m_topOffset = offset;
+			m_columns.push_back(column);
+		}
+	}
+	else
+	{
+		m_columns.push_back(new ColumnData());
+	}
+
+	char* font = zrdr_findstring(reader, "FONT");
+
+	if (font != NULL)
+	{
+		m_hasFont = true;
+		m_font = font;
+	}
+	else
+	{
+		m_hasFont = false;
+	}
+
+	_zrdr* options = zrdr_findtag(reader, "OPTIONS");
+
+	for (u32 i = 0; options != NULL && options->IsArray() && i < (u32)(options->array->integer - 1); i++)
+	{
+		_zrdr* entry = options->Get(i);
+		ListItem* item = new ListItem(zrdr_findtag(entry, "CAPTION"), m_columns);
+		ParseButtonAnim(entry, &item->m_action);
+		char* focusAnim = zrdr_findstring(entry, "FOCUS_ANIM");
+		char* focusArg = zrdr_findstring(entry, "FOCUS_ARG");
+		char* userData = zrdr_findstring(entry, "USERDATA");
+
+		if (focusAnim != NULL)
+			item->m_focus.Animation = _strdup(focusAnim, "zui_spec.cpp", 747);
+
+		if (focusArg != NULL)
+			item->m_focus.Argument = _strdup(focusArg, "zui_spec.cpp", 749);
+
+		if (userData != NULL)
+			item->m_userData = _strdup(userData, "zui_spec.cpp", 751);
+
+		/* ELF quirk kept: the event is looked up by comparing the constant "ONACTIVATE" with
+		 * each event name, so it is always ONACTIVATE */
+		item->m_focus.Type = ActionItem::ACTION_TYPE_EVENT;
+		item->m_focus.Event = ActionItem::ONACTIVATE;
+		m_options.push_back(item);
+	}
+
+	_zrdr* anims = zrdr_findtag(reader, "ANIMATIONS");
+
+	for (u32 i = 0; anims != NULL && anims->IsArray() && i < (u32)(anims->array->integer - 1); i++)
+	{
+		m_animations.resize(m_animations.size() + 1);
+		ParseButtonAnim(anims->Get(i), &m_animations.back());
+	}
+
+	zrdr_findreal(reader, "SEQUENCE_DELAY", &m_seqDelay, 1);
+	zrdr_findreal(reader, "SEQUENCE_INTERVAL", &m_seqInterval, 1);
 }
 
 /* @socom-skeleton stub CreateDisplayObj__14CUIListBoxSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
-C2D * CUIListBoxSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+C2D * CUIListBoxSpec::CreateDisplayObj(C2DFont *font, zdb::CTextureRelocMgr *reloc) const
 {
+	/* 0x3964a0: a CUIListBox (constructed inline: zeroed, the highlight's alpha 50, input on)
+	 * in the menu font, over the spec's FILENAME image, loaded from this spec */
+	CUIListBox* list = new CUIListBox();
+	list->SetCanHandleInput(true);
+	zdb::CTexHandle* handle = PrepTexture(m_filename.c_str(), reloc);
+	list->m_font = font;
+	list->LoadSpec(*this, handle, reloc);
+	return list;
 }
 
 /* @socom-skeleton stub CreateDisplayObj__14CSliderBarSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
@@ -748,8 +982,27 @@ CRadioStripSpec::CRadioStripSpec(_zrdr *reader) : CButtonSpec(reader)
 }
 
 /* @socom-skeleton stub __ct__16CCycleButtonSpecFP5_zrdr */
-CCycleButtonSpec::CCycleButtonSpec(_zrdr *reader) : CButtonSpec(reader) /* port: base constructor needed to compile */
+CCycleButtonSpec::CCycleButtonSpec(_zrdr *reader) : CButtonSpec(reader)
 {
+	/* 0x3952e0: a button spec plus XMARGIN / YMARGIN (or MARGIN) and the OPTIONS: each a
+	 * CycleItem (its anim by ParseButtonAnim, its PICTURE). port: the margins zeroed where
+	 * the ELF leaves memory as it was */
+	m_margin.x = 0;
+	m_margin.y = 0;
+	_zrdr* options = zrdr_findtag(reader, "OPTIONS");
+	zrdr_findint(reader, "XMARGIN", &m_margin.x, 1);
+	zrdr_findint(reader, "YMARGIN", &m_margin.y, 1);
+	zrdr_findIPNT2D(reader, "MARGIN", &m_margin);
+
+	for (u32 i = 0; options != NULL && options->IsArray() && i < (u32)(options->array->integer - 1); i++)
+	{
+		_zrdr* entry = options->Get(i);
+		CycleItem* option = new CycleItem();
+		ParseButtonAnim(entry, &option->m_action);
+		char* picture = zrdr_findstring(entry, "PICTURE");
+		option->m_picture = picture != NULL ? picture : "";
+		m_options.push_back(option);
+	}
 }
 
 /* @socom-skeleton stub __dt__13CDesignDlgObjFv */
@@ -843,8 +1096,14 @@ CDlgObjSpec * CClockSpec::Copy()
 }
 
 /* @socom-skeleton stub CreateDisplayObj__10CClockSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
-C2D * CClockSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+C2D * CClockSpec::CreateDisplayObj(C2DFont *font, zdb::CTextureRelocMgr *) const
 {
+	/* 0x394bf0: a C2DClock (a CRenderableString) in the menu font, loaded from this text
+	 * spec */
+	C2DClock* clock = new C2DClock();
+	clock->SetFont(font);
+	clock->LoadSpec(*this);
+	return clock;
 }
 
 /* @socom-skeleton stub GetType__10CClockSpecFv */

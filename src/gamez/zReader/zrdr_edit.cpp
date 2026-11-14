@@ -39,74 +39,148 @@ class __sFILE;
 /* @socom-skeleton stub __ct__10CRdrEditorFv */
 CRdrEditor::CRdrEditor()
 {
+	/* 0x241100: an empty reader and an empty stack of open arrays */
 }
 
 /* @socom-skeleton stub __dt__10CRdrEditorFv */
 CRdrEditor::~CRdrEditor()
 {
+	/* 0x241070: the stack, then ~CRdrFile (the built arrays). port: the ELF keeps the open
+	 * arrays as new'd node vectors; the port's stack holds them by value */
+}
+
+namespace {
+/* port: no symbol - the inline node allocation of zrdr_local.h (_calloc 8, 1 at line 84) */
+_zrdr* NewNode(ZRDR_TYPE type)
+{
+	_zrdr* node = (_zrdr*)_calloc(8, 1, "zrdr_local.h", 84);
+	node->type = type;
+	return node;
+}
 }
 
 /* @socom-skeleton body push__10CRdrEditorFPCc */
 bool CRdrEditor::push(const char* tag)
 {
-    if (tag && *tag != 0)
-    {
-        _zrdr* node = zrdr_alloc(sizeof(_zrdr), 1);
-        node->type = ZRDR_STRING;
+	/* 0x240f90: a tag (a string node in the open array), then a new open array */
+	if (tag != NULL && *tag != '\0')
+	{
+		_zrdr* node = NewNode(ZRDR_STRING);
+		node->string = m_strings.CreateString(tag);
+		m_stack.top().push_back(node);
+	}
 
-        node->string = m_strings.CreateString(tag);
-
-        std::vector<_zrdr*> top = m_stack.top();
-        top.insert(top.end(), node);
-    }
-
-    std::vector<_zrdr*> array;
-    m_stack.push(array);
-    return false;
+	m_stack.push(std::vector<_zrdr*>());
+	return false;
 }
 
 /* @socom-skeleton body pop__10CRdrEditorFv */
 bool CRdrEditor::pop()
 {
-    return true;
+	/* 0x240c20: the open array closes into an array node (element 0 the count + 1, then
+	 * copies of its nodes, which are freed); it goes into the array below, or, when it was
+	 * the last, becomes this reader's own value */
+	std::vector<_zrdr*>& nodes = m_stack.top();
+	_zrdr* array = NewNode(ZRDR_ARRAY);
+	array->array = (_zrdr*)_calloc(8, nodes.size() + 1, "zrdr_local.h", 84);
+	array->array[0].type = ZRDR_INTEGER;
+	array->array[0].integer = nodes.size() + 1;
+
+	for (u32 i = 0; i < nodes.size(); i++)
+	{
+		array->array[i + 1] = *nodes[i];
+		_free(nodes[i], "zrdr_edit.cpp", 68);
+	}
+
+	m_stack.pop();
+
+	if (!m_stack.empty())
+	{
+		m_stack.top().push_back(array);
+		return true;
+	}
+
+	type = array->type;
+	isclone = array->isclone;
+	packed = array->packed;
+	unused = array->unused;
+	length = array->length;
+	this->array = array->array;
+	_free(array, "zrdr_edit.cpp", 82);
+	return true;
 }
 
 /* @socom-skeleton body addintnode__10CRdrEditorFi */
 bool CRdrEditor::addintnode(s32 value)
 {
-    return true;
+	/* 0x240b50 */
+	_zrdr* node = NewNode(ZRDR_INTEGER);
+	node->integer = value;
+	m_stack.top().push_back(node);
+	return true;
 }
 
 /* @socom-skeleton body addstringnode__10CRdrEditorFPCc */
-bool CRdrEditor::addstringnode(const char* node)
+bool CRdrEditor::addstringnode(const char* value)
 {
-    return true;
+	/* 0x240a70 */
+	_zrdr* node = NewNode(ZRDR_STRING);
+	node->string = m_strings.CreateString(value);
+	m_stack.top().push_back(node);
+	return true;
 }
 
 /* @socom-skeleton body addrdrnode__10CRdrEditorFP5_zrdr */
-bool CRdrEditor::addrdrnode(_zrdr* node)
+bool CRdrEditor::addrdrnode(_zrdr* value)
 {
-    return true;
+	/* 0x240980: a clone (its strings in this reader's table) */
+	_zrdr* node = (_zrdr*)_calloc(8, 1, "zrdr_edit.cpp", 134);
+	node->Clone(value, &m_strings);
+	m_stack.top().push_back(node);
+	return true;
 }
 
 /* @socom-skeleton body addint__10CRdrEditorFPCci */
 bool CRdrEditor::addint(const char* tag, s32 value)
 {
-    return true;
+	/* 0x240860: tag (value) */
+	push(tag);
+	_zrdr* node = NewNode(ZRDR_INTEGER);
+	node->integer = value;
+	m_stack.top().push_back(node);
+	pop();
+	return true;
 }
 
 /* @socom-skeleton body addPNT3D__10CRdrEditorFPCcRC5PNT3D */
 bool CRdrEditor::addPNT3D(const char* tag, const PNT3D& value)
 {
-    return true;
+	/* 0x240690: tag (x y z) */
+	push(tag);
+	const f32 xyz[3] = { value.x, value.y, value.z };
+
+	for (u32 i = 0; i < 3; i++)
+	{
+		_zrdr* node = NewNode(ZRDR_REAL);
+		node->real = xyz[i];
+		m_stack.top().push_back(node);
+	}
+
+	pop();
+	return true;
 }
 
 /* @socom-skeleton body addSTRING__10CRdrEditorFPCcPCc */
 bool CRdrEditor::addSTRING(const char* tag, const char* value)
 {
-    return true;
+	/* 0x240560: tag ("value") */
+	push(tag);
+	_zrdr* node = NewNode(ZRDR_STRING);
+	node->string = m_strings.CreateString(value);
+	m_stack.top().push_back(node);
+	pop();
+	return true;
 }
-
 /* @socom-skeleton stub zrdr_IsComplex__FP5_zrdr */
 bool zrdr_IsComplex(_zrdr *reader)
 {

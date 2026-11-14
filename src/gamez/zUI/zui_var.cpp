@@ -31,6 +31,8 @@
 #include <cstdio>
 #include <cstring>
 #include "posix/strcasecmp.h"
+#include "gamez/zReader/zrdr_local.h" /* CRdrEditor (Serialize) */
+#include "gamez/zValve/zvalve.h" /* CValve (Serialize) */
 
 /* @socom-skeleton stub Destroy__11CUIVariableFv */
 void CUIVariable::Destroy()
@@ -169,8 +171,34 @@ char * CUIVariable::Format(_zrdr *value, char *buffer, int size)
 }
 
 /* @socom-skeleton stub _Refresh__FP5_zrdrP7CSTable */
-void _Refresh(_zrdr *, CSTable *)
+void _Refresh(_zrdr *value, CSTable *table)
 {
+	/* 0x39e420 (CollectGarbage): every string of the value made again in the table: a
+	 * string itself, an array's strings, and the elements of an array's arrays through
+	 * _Refresh (integers and reals stay) */
+	if (value->type == ZRDR_STRING)
+	{
+		value->string = table->CreateString(value->string);
+		return;
+	}
+
+	if (value->type != ZRDR_ARRAY)
+		return;
+
+	for (u32 i = 0; i < (u32)(value->array->integer - 1); i++)
+	{
+		_zrdr* element = value->Get(i);
+
+		if (element->type == ZRDR_STRING)
+		{
+			element->string = table->CreateString(element->string);
+		}
+		else if (element->type == ZRDR_ARRAY)
+		{
+			for (u32 j = 0; j < (u32)(element->array->integer - 1); j++)
+				_Refresh(element->Get(j), table);
+		}
+	}
 }
 
 /* @socom-skeleton stub AttachUIVar__10UIVarMixinFP11CUIVariable */
@@ -329,9 +357,72 @@ CUIVariable* CUIVarManager::Add(const char* name, _zrdr* reader, UIVAR_LONGEVITY
 /* @socom-skeleton stub Serialize__13CUIVarManagerFi */
 void CUIVarManager::Serialize(int)
 {
+	/* 0x39d900 (the save manager, a save): every PERSISTENT variable with a name is saved
+	 * as a reader of its value under its name (CSaveModule::SaveRdr); PLAYERPASSWORD and
+	 * STORE_PASSWORD only while the permanent SecurePassword valve is set. The save itself
+	 * is the zSave layer's (a port stub: no memory card) */
+	bool noPasswords = (u16)CValve::Create("SecurePassword", (VALVE_TYPE)1)->m_value == 0;
+
+	for (iterator it = begin(); it != end(); ++it)
+	{
+		if (it->m_longevity != UIVL_PERSISTENT || it->m_varname == NULL)
+			continue;
+
+		if ((strcasecmp("PLAYERPASSWORD", it->m_varname) == 0 || strcasecmp("STORE_PASSWORD", it->m_varname) == 0) && noPasswords)
+			continue;
+
+		CRdrEditor rdr;
+		rdr.push(NULL);
+		rdr.addrdrnode(&*it);
+		rdr.pop();
+		SaveRdr(it->m_varname, &rdr);
+	}
 }
 
 /* @socom-skeleton stub UnSerialize__13CUIVarManagerFPCcP8CRdrFilei */
-void CUIVarManager::UnSerialize(const char *, CRdrFile *, int)
+void CUIVarManager::UnSerialize(const char *name, CRdrFile *reader, int)
 {
+	/* 0x39d730 (the save manager, a loaded save): the saved value (the reader's first
+	 * element) goes into the variable of that name, made PERSISTENT (a new one from a free
+	 * slot; a TEMPORARY one takes it through Set); then it is cloned in again into the
+	 * current string table (an array unpacked) and the attached objects update. ELF quirks
+	 * kept: the value is set twice for a TEMPORARY variable; a free slot that is not found
+	 * is used anyway (NULL). port: a save without a value is cloned from NULL in the ELF;
+	 * the port skips the second copy then */
+	_zrdr* value = NULL;
+
+	if (reader->IsArray() && reader->array->integer - 1 != 0)
+		value = &reader->array[1];
+
+	CUIVariable* var = Find(name);
+
+	if (var == NULL)
+		var = FindDormantVar(name, value, UIVL_PERSISTENT);
+	else if (value != NULL && var->m_longevity != UIVL_PERSISTENT && var->m_longevity != UIVL_PERMANENT)
+		var->Set(value);
+
+	if (var->m_longevity < UIVL_PERSISTENT)
+		var->m_longevity = UIVL_PERSISTENT;
+
+	if (!var->packed)
+		var->DeleteChildren();
+
+	if (value != NULL)
+	{
+		_zrdr* copy = new _zrdr(value, CurrentTable());
+		var->type = copy->type;
+		var->isclone = copy->isclone;
+		var->packed = copy->packed;
+		var->unused = copy->unused;
+		var->length = copy->length;
+		var->integer = copy->integer;
+
+		if (var->type == ZRDR_ARRAY)
+			var->packed = false;
+
+		delete copy; /* the node only: its children now belong to the variable */
+	}
+
+	for (std::vector<UIVarMixin*>::iterator it = var->m_attached_items.begin(); it != var->m_attached_items.end(); ++it)
+		(*it)->UpdateUIVar(var);
 }

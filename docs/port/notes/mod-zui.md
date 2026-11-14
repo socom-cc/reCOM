@@ -120,7 +120,7 @@ uses no object and the brightness tuner calls it with its own a0).
 - zmap1: the map opened; the first RIGHT pan STOPped in the `CNode::GetScale()` stub (written since). zmap2: map
   pan / zoom / back, no STOP. zm2: eight returns on the final tree. zdef1 / zdef2: default builds.
 
-## Not written / next
+## Not written / next (part 1; see part 2 below)
 - zui_2d.cpp: the list box family (`CUIListBox`, `ListItem`, the list item types: dlgDebriefing,
   dlgPBMenu, online screens); `CCycleButton`, `CHandlerButton`, `CScrollText`, `CTickerTapeText`, `C2DClock`,
   `CWrappedText::LoadSpec` / `CWrapSpec` (a CTextSpec in the ELF).
@@ -128,3 +128,112 @@ uses no object and the brightness tuner calls it with its own a0).
 - zui_var.cpp: `CUIVarManager::Serialize` / `UnSerialize`, `_Refresh` (memory card).
 - zui_spec.cpp: `CClockSpec::CreateDisplayObj`, `CUIListBoxSpec`, `CCycleButtonSpec`,
   `CHandlerButtonSpec` ctors; zui_cleanup.cpp: the remaining spec dtors / `CreateDisplayObj` of those types.
+
+# Part 2 (2026-11-14, socom-port-mod-zui2): list boxes, the other controls, variable save
+
+Scratch `build/port/boot-mod-zui2/` (untracked: NOTES.md, mine.txt, asm dumps, edit files, reader dumps under
+`disc/`). Changed files: `mine.txt` (zUI in place; outside zUI: `zReader/zrdr_edit.cpp`, `zTwoD/c2dstring.cpp`,
+both free at HEAD; the new test hook `port/test-hooks/zui/` and its README row).
+
+## Result
+- `survey.py gamez/zUI`: written 84,480 -> 121,904 B, stubs 59,064 B (132 fences) -> 21,640 B (30 fences, all
+  `zui_skb.cpp`, the soft keyboard). Every other zUI file has no stub left.
+- List boxes, run u2l7 (`port/test-hooks/zui/build.sh u2l1`): the SavedGames list on dlgDebriefing (12 rows: DOWN
+  scrolls the window, top row 4, scroll eased to -72; UP; TRIANGLE runs CancelLoadGame, which hides it) and on
+  dlgPBMenu (its no-memory-card pop-up closed first; 12 rows in a 200-pixel window, top row 2); then dlgNotEnoughSpace
+  (WRAPPEDTEXT); no STOP; in use back at the main menu 16,698,308 B after each test screen (the list boxes, rows and
+  columns freed).
+- Front end, run u2fe (fake pad `pad_fe.txt` of part 1): main menu -> OPTIONS -> audio, video, controller, presets ->
+  main menu -> attract, no STOP, no "not written" spec.
+- m8, run u2m8 (`port/test-hooks/state/build.sh ... -DSOCOM_HOOK_MISSIONS=1 -DSOCOM_HOOK_PLAY_AT=999999`: intro movie
+  skipped with CROSS, briefing cameras with X; tree HEAD fca019a3 + these files): in the mission from 72 s to the end
+  of the run at 261 s, no STOP, in use 22.05 MB at 80 s, 22.07 at 120 s, 22.09 MB from 160 s to 259 s.
+- Round trip (`port/test-hooks/state/build.sh u2rt pad_idle.txt -DSOCOM_HOOK_MALLOC -DSOCOM_HOOK_MISSIONS=8`), run
+  u2rt2: in use at returns 1-7 17,213,828 then 17,213,924 B six times (flat), largest free block 6.24 MB at every
+  return but the sixth (3.64 MB, the break left higher), no failed allocation but zsys_FullAllocAndFree's own probe,
+  no STOP; the emulator was closed from outside during the eighth mission (another worker's boot cleaned it up, as
+  it did run u2rt at 405 s). Tree HEAD fca019a3 + these files.
+- Round trip again on HEAD 68ae13c1 + these files, run u2rt3: in use 17,209,396 then 17,209,492 B at returns 2-6 (the
+  HEAD figure), largest free 6.24 MB but 3.64 MB at returns 3 and 6, no STOP; closed from outside again during the
+  seventh mission. The eighth return was not reached in any run for that reason.
+- Default build (`default.sh u2def`, HEAD fca019a3): main menu at 16.1 s, attract screen at 44.7 s.
+
+## Why the lists were empty first (outside zUI)
+- zReader: `CRdrEditor` (push / pop / add*) had placeholder bodies, so the game's own ListSavedGames (and every
+  other reader built in code: mission save, multiplayer persona lists) made an empty variable. Written from 0x240560
+  .. 0x241100: push opens an array (a tag first when given), pop closes it into an array node (element 0 the count +
+  1, the nodes copied and freed) that goes into the array below or becomes the reader's own value.
+- zTwoD: `C2DString::Format` 0x3025a0 was empty. It is not a printf (the arguments are not read): it keeps the raw
+  text in m_Ustring (grown with _realloc) and shows the text with its escapes ("$$" a '$', "$~" ends it, any other
+  "$x" dropped). The list rows set their text with it.
+
+## Written (zUI, ELF addresses)
+- List boxes (zui.h layouts from the code, no DWARF): `CUIListBoxSpec` ctor 0x3966b0 (COLUMNS as `ColumnData`,
+  OPTIONS as `ListItem`, the highlight textures, arrows, colours, ANIMATIONS, SEQUENCE_DELAY / INTERVAL),
+  `CreateDisplayObj` 0x3964a0, dtor 0x3a1860; `CUIListBox` (1536 bytes): LoadSpec 0x38e2e0, UpdateUIVar 0x38d8a0 (an
+  array variable becomes the rows), Draw 0x38c9a0 (window, active background, highlight bar, rows scissored, arrows),
+  HandlePad 0x38d010, Tick 0x38d5e0 (selection kept in the window, eased scroll), SetActive / SetNormal / SetPressed
+  0x393d60 / 0x393eb0 / 0x38d4e0, the Finish / Has_Items commands 0x38c590 / 0x38c690 / 0x38c8e0, dtor 0x38de90;
+  `ListItem` ctor 0x385720 / dtor 0x385670; the row types (anonymous in zui_2d.cpp): `CListItemStringTypeImpl`,
+  `CListItemTimedTextTypeImpl`, `CListItemImageTypeImpl`, `CListItemArrayTypeImpl` (a row of cells, one per column)
+  and their DrawPrep / PrepListItem / SetFont / SetPos / SetScale / SetColor / SetSequenceTime / Tick /
+  VisualGratification / Finish / GetString / dtors (0x385500 .. 0x394790); `GetControlSpec` makes LISTBOX.
+- Cycle button: `CycleItem` (an option: a CPlainBmp, its ActionItem and PICTURE; dtor 0x39aca0 emitted from zui.h),
+  `CCycleButtonSpec` ctor 0x3952e0 / CreateDisplayObj 0x39f8e0 / dtor 0x3a11e0, `CCycleButton` LoadSpec 0x389e50,
+  Draw 0x389f40, HandlePad 0x38a090, dtor 0x38a420.
+- Handler button: `CHandlerButtonSpec` ctor 0x397970 (SUBORDINATE control as a design object), CreateDisplayObj
+  0x3a0180, dtor 0x3a0270, HasChildren / NumChildren / GetChild 0x3a03e0 / 0x3a1a00 / 0x3a1a30; `CHandlerButton`
+  Tick 0x38e930, HandlePad 0x38eb90, LoadSpec 0x38ec90.
+- Text: `CWrapSpec` is a CTextSpec (inline ctor: WIDTH, SPACING 10, HEIGHT -1), CreateDisplayObj 0x3a0690,
+  `CWrappedText::LoadSpec` 0x3919a0; `CScrollSpec` (DISPLAYABLELINES) CreateDisplayObj 0x3a03f0, `CScrollText`
+  LoadSpec 0x389390, Draw 0x3893f0 (lines faded in / out at the window's edges), Tick 0x3892c0, HandlePad 0x389210;
+  `CTickerSpec` (SCROLLSPEED, WIDTH, BUFFER) CreateDisplayObj 0x39fa30, `CTickerTapeText` LoadSpec 0x388f40,
+  SetString 0x3890c0 (the text doubled), Tick 0x3891c0, Draw 0x3891b0 (empty in the ELF); `CClockSpec` (a TEXT spec)
+  CreateDisplayObj 0x394bf0, `C2DClock::UpdateUIVar` 0x3853f0 ("mm:ss"); `CRenderableString::SetMapOffset` 0x3853c0.
+  `GetControlSpec` / `GetObjectSpec` make every type now (SCROLLINGTEXT, HANDLERBUTTON, CYCLEBUTTON, WRAPPEDTEXT,
+  TICKERTAPETEXT, CLOCK).
+- Pop-up: `CPopUpDialog::ParseZAnimCmd` 0x387c00 (the text-path parser of the POPUP command; retail anims come
+  compiled, so it is written, untested).
+- Variables (zui_var.cpp): `CUIVarManager::UnSerialize` 0x39d730, `Serialize` 0x39d900 (each PERSISTENT variable
+  saved as a reader; the passwords only with the SecurePassword valve), `_Refresh` 0x39e420.
+- Dtors with nothing of their own: C2DVisual, CHProgressBar, CTeleType, CTickerTapeText, CScrollText,
+  CHandlerButton, C2DClock, the list row types.
+
+## ELF quirks kept
+- The list box spec's columns and OPTIONS rows are made by the spec and deleted by the list box made from it (the
+  spec's dtor and Copy leave the pointers); the list box's second UpdateUIVar in LoadSpec deletes the OPTIONS rows
+  when a UI variable is attached. Each design read makes its own specs, so one spec makes one list box.
+- `CUIListBox::GetZAnimCmdType` gives "Highlight_on" Finish's type and "Highlight_off" none, so the HIGHLIGHT
+  commands never reach their cases (HIGHLIGHT_ON falls into HIGHLIGHT_OFF there). HandlePad runs FOCUS_ANIM on UP only;
+  the row's own anim is looked up in the global anims only; SetPressed's state is never restored by Tick.
+- A list cell's text is set twice; DrawPrep reads the glow minimum without the selected-row test; the column parser
+  reuses one local for LENGTH / WIDTH and one for POSITION / TOP_OFFSET (an absent WIDTH is the LENGTH, an absent
+  POSITION the previous TOP_OFFSET); OPTIONS' FOCUS event is always ONACTIVATE (a constant compared with each name).
+- `CScrollText::HandlePad` limits DOWN by the word count, not the line count; ScrollText / TickerTape Tick do not run
+  the string's Tick; the ticker's Draw is empty.
+- `C2DString::Format` reads a NULL text; `CUIVarManager::UnSerialize` sets a TEMPORARY variable twice.
+
+## Port deviations
+- `CUIListBox` takes UIVarMixin as a second base (the ELF's is inside CPlainBmp at +0x80, which the port's CPlainBmp
+  does not model), so the variable's dependents reach UpdateUIVar.
+- `CUIListBox::UpdateUIVar` does not delete the spec FONT (the ELF deletes it and leaves m_font pointing at it); the
+  dtor does.
+- `CHandlerButtonSpec`'s copy (inline in Copy 0x3a0210) copies its SUBORDINATE (the ELF copies the pointer and the
+  original's dtor deletes it), as part 1 did for CRadioStripSpec.
+- `CUIVarManager` derives from CSaveModule with no save manager (the ELF registers it with the memory card's): the
+  port has no memory-card layer, so nothing calls Serialize / UnSerialize, and `CSaveModule::SaveRdr` is a zSave
+  stub. This is the memory-card boundary of the variable save.
+- Zeroed where the ELF leaves memory as it was: the list box spec's SPACING, SCALE, margins, arrow and background
+  offsets / sizes; the cycle button spec's margins; the handler button's XPOS / YPOS; the list box itself.
+- `achFallback$3573` (one static in the ELF, read by PrepListItem, HandlePad and the array row's GetString) stays in
+  PrepListItem; the other two use an empty literal. File-local helpers for inlined code: `ItemImpl` (a row without
+  an impl gets a string one), `PopUpParseState` / `PopUpParseButton`, `NewNode` (zrdr_edit.cpp).
+
+## Not written / next
+- zui_skb.cpp: the soft keyboard (30 fences, 21.6 KB: CreateSoftKeyboard 0x3a7940, HandleInput 0x3a5310,
+  HandleUsbKbd 0x3a4990, PrepForDisplay 0x3a3c00, ...). Every dialog that raises it is online (dlgNetPlayerName,
+  dlgCreateGame, lobbies, dlgSetTaunts...) except the developer screen dlg_fontTest (SQUARE on dlgPBMenu's NEW GAME
+  button); the hook would raise it there. Not started: too large for the rest of this session.
+- `CUIVarManager::CollectGarbage` 0x39ddf0 (needs CSTable::Clear and zrdr_pack, port stubs).
+- Not reached offline, written untested: cycle / handler buttons, scrolling / ticker text, the clock, the pop-up
+  text parser, the variable save.

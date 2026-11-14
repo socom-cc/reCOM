@@ -245,6 +245,8 @@ unsigned char UiGetDirStickMoved(); /* zui.cpp (0x384380) */
 void PlaySelectionSound(); /* zui.cpp (0x3845f0) */
 void PlayCountSound();              /* zui.cpp (0x384630; C2DCounter::Tick) */
 extern unsigned char g_hasAnims;    /* zui.cpp */
+bool DidStickMovePrev();            /* zui.cpp (0x384a40; CUIListBox::HandlePad) */
+bool DidStickMoveNext();            /* zui.cpp (0x384c20) */
 /* port: CListItemTypeImpl had no declaration. Slot order from __vt__17CListItemTypeImpl @0x473290 (13 slots,
  * zero = pure): ~ 0x385600, DrawPrep, Finish 0x385660 (empty), GetString, PrepListItem, SetFont, SetPos, SetScale,
  * SetColor, SetSequenceTime 0x385650 (returns f12), Tick 0x385500 (empty), VisualGratification, IsEnabled 0x385710
@@ -286,6 +288,10 @@ public:
 	virtual bool IsEnabled();
 	CListItemArrayTypeImpl(_zrdr *, const std::vector<ColumnData *, std::allocator<ColumnData *> > &);
 	CListItemArrayTypeImpl(_zrdr *, const std::vector<ColumnData *, std::allocator<ColumnData *> > &, C2DFont *, float);
+	/* no DWARF; 20 bytes (new in ListItem's ctor 0x385720 and CUIListBox::UpdateUIVar): a row
+	 * of cells, one ListItem per column */
+	std::vector<ListItem*> m_cells; /* +0x4 (owned) */
+	bool m_enabled;                 /* +0x10 false when a cell is DISABLED */
 };
 }
 /* @socom-skeleton end Q220@unnamed@zui_2d_cpp@22CListItemArrayTypeImpl */
@@ -303,6 +309,9 @@ public:
 	virtual void SetScale(float);
 	virtual void SetColor(int, int, int);
 	virtual void VisualGratification(zdb::CTextureRelocMgr *);
+	/* no DWARF; 176 bytes (new in CListItemArrayTypeImpl's ctor 0x392420 and PrepListItem
+	 * 0x391ef0, constructed inline) */
+	CPlainBmp m_bmp; /* +0x10 */
 };
 }
 /* @socom-skeleton end Q220@unnamed@zui_2d_cpp@22CListItemImageTypeImpl */
@@ -321,6 +330,11 @@ public:
 	virtual void SetColor(int, int, int);
 	virtual void Tick(float);
 	virtual void VisualGratification(zdb::CTextureRelocMgr *);
+	/* no DWARF; 180 bytes (constructed inline wherever a row needs one: string set, not
+	 * coloured) */
+	CListItemStringTypeImpl() : m_colorSet(false) {}
+	CRenderableString m_string; /* +0x4 */
+	bool m_colorSet;            /* +0xb0 SetColor: DrawPrep keeps this colour */
 };
 }
 /* @socom-skeleton end Q220@unnamed@zui_2d_cpp@23CListItemStringTypeImpl */
@@ -334,9 +348,26 @@ public:
 	virtual float SetSequenceTime(float, float);
 	virtual void Tick(float);
 	virtual void VisualGratification(zdb::CTextureRelocMgr *);
+	/* no DWARF; 188 bytes (constructed inline in CListItemArrayTypeImpl's ctor 0x392420): a
+	 * string shown (with the count sound) once the list's sequence reaches its start */
+	CListItemTimedTextTypeImpl() : m_start(0.0f), m_elapsed(0.0f) {}
+	f32 m_start;    /* +0xb4 SetSequenceTime; Finish shows it at once */
+	f32 m_elapsed;  /* +0xb8 */
 };
 }
 /* @socom-skeleton end Q220@unnamed@zui_2d_cpp@26CListItemTimedTextTypeImpl */
+zdb::CTexHandle * PrepTexture(const char *, zdb::CTextureRelocMgr *); /* zui.cpp (0x384560) */
+namespace {
+/* port: no symbol - the list code inlines this wherever a row is used: a row without one
+ * gets a string impl */
+CListItemTypeImpl* ItemImpl(ListItem* item)
+{
+	if (item->m_impl == NULL)
+		item->m_impl = new CListItemStringTypeImpl();
+
+	return item->m_impl;
+}
+}
 
 #ifndef SOCOM_PORT /* port: MSL <iostream> per-unit init objects; libstdc++ has no std::__msl_ios_base_* */
 /* @socom-skeleton stub __msl_ios_base_ninit__3std */
@@ -355,36 +386,65 @@ C2DCounter::~C2DCounter()
 
 /* @socom-skeleton stub VisualGratification__Q220@unnamed@zui_2d_cpp@22CListItemArrayTypeImplFPQ23zdb16CTextureRelocMgr */
 namespace {
-void CListItemArrayTypeImpl::VisualGratification(zdb::CTextureRelocMgr *)
+void CListItemArrayTypeImpl::VisualGratification(zdb::CTextureRelocMgr *reloc)
 {
+	/* 0x394790: each cell */
+	for (u32 i = 0; i < m_cells.size(); i++)
+	{
+		if (m_cells[i]->m_impl != NULL)
+			m_cells[i]->m_impl->VisualGratification(reloc);
+	}
 }
 }
 
 /* @socom-skeleton stub Tick__Q220@unnamed@zui_2d_cpp@22CListItemArrayTypeImplFf */
 namespace {
-void CListItemArrayTypeImpl::Tick(float)
+void CListItemArrayTypeImpl::Tick(float dT)
 {
+	/* 0x394700: each cell */
+	for (u32 i = 0; i < m_cells.size(); i++)
+	{
+		if (m_cells[i]->m_impl != NULL)
+			m_cells[i]->m_impl->Tick(dT);
+	}
 }
 }
 
 /* @socom-skeleton stub SetSequenceTime__Q220@unnamed@zui_2d_cpp@22CListItemArrayTypeImplFff */
 namespace {
-float CListItemArrayTypeImpl::SetSequenceTime(float, float)
+float CListItemArrayTypeImpl::SetSequenceTime(float time, float interval)
 {
+	/* 0x394670: each cell's start in turn; the time after the last */
+	for (u32 i = 0; i < m_cells.size(); i++)
+	{
+		if (m_cells[i]->m_impl != NULL)
+			time = m_cells[i]->m_impl->SetSequenceTime(time, interval);
+	}
+
+	return time;
 }
 }
 
 /* @socom-skeleton stub SetColor__Q220@unnamed@zui_2d_cpp@22CListItemArrayTypeImplFiii */
 namespace {
-void CListItemArrayTypeImpl::SetColor(int, int, int)
+void CListItemArrayTypeImpl::SetColor(int r, int g, int b)
 {
+	/* 0x3945c0: each cell */
+	for (u32 i = 0; i < m_cells.size(); i++)
+	{
+		if (m_cells[i]->m_impl != NULL)
+			m_cells[i]->m_impl->SetColor(r, g, b);
+	}
 }
 }
 
 /* @socom-skeleton stub SetScale__Q220@unnamed@zui_2d_cpp@22CListItemArrayTypeImplFf */
 namespace {
-void CListItemArrayTypeImpl::SetScale(float)
+void CListItemArrayTypeImpl::SetScale(float scale)
 {
+	/* 0x3944d0: each cell (a cell without an impl gets a string one) */
+	for (u32 i = 0; i < m_cells.size(); i++)
+		ItemImpl(m_cells[i])->SetScale(scale);
 }
 }
 
@@ -392,6 +452,7 @@ void CListItemArrayTypeImpl::SetScale(float)
 namespace {
 void CListItemArrayTypeImpl::SetPos(int, int, int, int)
 {
+	/* 0x3944c0: empty in the ELF (DrawPrep places the cells) */
 }
 }
 
@@ -399,13 +460,18 @@ void CListItemArrayTypeImpl::SetPos(int, int, int, int)
 namespace {
 bool CListItemArrayTypeImpl::IsEnabled()
 {
+	/* 0x3944b0 */
+	return m_enabled;
 }
 }
 
 /* @socom-skeleton stub SetFont__Q220@unnamed@zui_2d_cpp@22CListItemArrayTypeImplFP7C2DFont */
 namespace {
-void CListItemArrayTypeImpl::SetFont(C2DFont *)
+void CListItemArrayTypeImpl::SetFont(C2DFont *font)
 {
+	/* 0x3943c0: each cell (a cell without an impl gets a string one) */
+	for (u32 i = 0; i < m_cells.size(); i++)
+		ItemImpl(m_cells[i])->SetFont(font);
 }
 }
 
@@ -413,6 +479,12 @@ void CListItemArrayTypeImpl::SetFont(C2DFont *)
 namespace {
 const char * CListItemArrayTypeImpl::GetString()
 {
+	/* 0x394370: the first cell's text (ELF: no test for an empty row). port: the fallback
+	 * is the static of PrepListItem (achFallback$3573) in the ELF; an empty literal here */
+	if (m_cells[0]->m_impl != NULL)
+		return m_cells[0]->m_impl->GetString();
+
+	return "";
 }
 }
 
@@ -420,6 +492,12 @@ const char * CListItemArrayTypeImpl::GetString()
 namespace {
 void CListItemArrayTypeImpl::Finish()
 {
+	/* 0x3942f0: each cell */
+	for (u32 i = 0; i < m_cells.size(); i++)
+	{
+		if (m_cells[i]->m_impl != NULL)
+			m_cells[i]->m_impl->Finish();
+	}
 }
 }
 
@@ -427,26 +505,37 @@ void CListItemArrayTypeImpl::Finish()
 namespace {
 CListItemArrayTypeImpl::~CListItemArrayTypeImpl()
 {
+	/* 0x3941c0: the cells (ListItem's dtor inline); the vector is the member's */
+	for (u32 i = 0; i < m_cells.size(); i++)
+	{
+		if (m_cells[i] != NULL)
+			delete m_cells[i];
+	}
 }
 }
 
 /* @socom-skeleton stub VisualGratification__Q220@unnamed@zui_2d_cpp@23CListItemStringTypeImplFPQ23zdb16CTextureRelocMgr */
 namespace {
-void CListItemStringTypeImpl::VisualGratification(zdb::CTextureRelocMgr *)
+void CListItemStringTypeImpl::VisualGratification(zdb::CTextureRelocMgr *reloc)
 {
+	/* 0x3941a0 */
+	m_string.C2DString::Draw(reloc, NULL, 16777210.0f);
 }
 }
 
 /* @socom-skeleton stub Tick__Q220@unnamed@zui_2d_cpp@23CListItemStringTypeImplFf */
 namespace {
-void CListItemStringTypeImpl::Tick(float)
+void CListItemStringTypeImpl::Tick(float dT)
 {
+	/* 0x394180: the string's virtual Tick */
+	m_string.Tick(dT);
 }
 }
 
 /* @socom-skeleton stub __dt__9CTeleTypeFv */
 CTeleType::~CTeleType()
 {
+	/* 0x394040: nothing of its own (the cursor image and ~CRenderableString) */
 }
 
 /* @socom-skeleton stub Tick__13C3StateButtonFf */
@@ -458,16 +547,47 @@ void C3StateButton::Tick(float dT) /* 0x394020: virtual Tick on _strCaption (+0x
 /* @socom-skeleton stub __dt__14CHandlerButtonFv */
 CHandlerButton::~CHandlerButton()
 {
+	/* 0x393fc0: nothing of its own (~C2DButton) */
 }
 
 /* @socom-skeleton stub SetNormal__10CUIListBoxFv */
-void CUIListBox::SetNormal() /* port: stub */
+void CUIListBox::SetNormal()
 {
+	/* 0x393eb0: the selected row in the normal colour, no glow, the active background off,
+	 * the highlight bar's NORMAL image at alpha 50 (ELF quirk kept: the bar's SetTrans takes
+	 * the old alpha, then 100) */
+	m_color = m_normalColor;
+	m_activeBg.Off();
+	m_highlight.m_hasTexture = m_normalTex != NULL;
+	m_highlightTex = m_normalTex;
+	m_highlight.C2DBitmap::Load(0.0f, 0.0f, 10.0f, 10.0f, m_highlightTex);
+	m_highlight.SetColor(255.0f, 255.0f, 255.0f);
+	m_highlight.SetTrans((f32)m_highlightAlpha);
+	m_highlight.SetTrans(100.0f);
+	m_highlightAlpha = 50;
+	m_glowMin = 0.0f;
+	m_glowMax = 0.0f;
+	m_glowTime = 0.0f;
 }
 
 /* @socom-skeleton stub SetActive__10CUIListBoxFv */
-void CUIListBox::SetActive() /* port: stub */
+void CUIListBox::SetActive()
 {
+	/* 0x393d60: the selected row in the active colour, glowing (ACTIVE_COLOR RANGE / TIME),
+	 * the active background on, the highlight bar's ACTIVE image at alpha 100 */
+	m_color = m_activeColor;
+	m_activeBg.On();
+	m_activeBg.C2DBitmap::Load(0.0f, 0.0f, (f32)m_activeBgSize.x, (f32)m_activeBgSize.y, m_activeBgTex);
+	m_highlight.m_hasTexture = m_activeTex != NULL;
+	m_highlightTex = m_activeTex;
+	m_highlight.C2DBitmap::Load(0.0f, 0.0f, 10.0f, 10.0f, m_highlightTex);
+	m_highlight.SetColor(255.0f, 255.0f, 255.0f);
+	m_highlight.SetTrans((f32)m_highlightAlpha);
+	m_highlight.SetTrans(100.0f);
+	m_highlightAlpha = 100;
+	m_glowTime = m_activeTime;
+	m_glowMin = m_activeRange[0];
+	m_glowMax = m_activeRange[1];
 }
 
 /* @socom-skeleton stub __dt__10CSliderBarFv */
@@ -480,6 +600,7 @@ CSliderBar::~CSliderBar()
 /* @socom-skeleton stub __dt__13CHProgressBarFv */
 CHProgressBar::~CHProgressBar()
 {
+	/* 0x393ba0: nothing of its own (the leading-edge name and the image part) */
 }
 
 /* @socom-skeleton stub UpdateUIVar__9CCheckBoxFP11CUIVariable */
@@ -504,11 +625,13 @@ CRadioStrip::~CRadioStrip()
 /* @socom-skeleton stub __dt__11CScrollTextFv */
 CScrollText::~CScrollText()
 {
+	/* 0x393790: nothing of its own (~CWrappedText: the words) */
 }
 
 /* @socom-skeleton stub __dt__15CTickerTapeTextFv */
 CTickerTapeText::~CTickerTapeText()
 {
+	/* 0x3936a0: nothing of its own (~CRenderableString inline) */
 }
 
 /* @socom-skeleton stub Get2DVisual__9C2DVisualFv */
@@ -521,33 +644,46 @@ C2DVisual * C2DVisual::Get2DVisual()
 /* @socom-skeleton stub __dt__9C2DVisualFv */
 C2DVisual::~C2DVisual()
 {
+	/* 0x393630: nothing of its own (~zdb::CVisual) */
 }
 
 /* @socom-skeleton stub SetColor__Q220@unnamed@zui_2d_cpp@23CListItemStringTypeImplFiii */
 namespace {
-void CListItemStringTypeImpl::SetColor(int, int, int)
+void CListItemStringTypeImpl::SetColor(int r, int g, int b)
 {
+	/* 0x3935f0: a cell COLOR, kept by DrawPrep */
+	m_colorSet = true;
+	m_string.m_color.x = (f32)r;
+	m_string.m_color.y = (f32)g;
+	m_string.m_color.z = (f32)b;
 }
 }
 
 /* @socom-skeleton stub SetScale__Q220@unnamed@zui_2d_cpp@23CListItemStringTypeImplFf */
 namespace {
-void CListItemStringTypeImpl::SetScale(float)
+void CListItemStringTypeImpl::SetScale(float scale)
 {
+	/* 0x3935e0 */
+	m_string.m_scale = scale;
 }
 }
 
 /* @socom-skeleton stub SetPos__Q220@unnamed@zui_2d_cpp@23CListItemStringTypeImplFiiii */
 namespace {
-void CListItemStringTypeImpl::SetPos(int, int, int, int)
+void CListItemStringTypeImpl::SetPos(int x, int y, int, int)
 {
+	/* 0x3935c0: 1/16 pixels */
+	m_string.m_pos.x = x << 4;
+	m_string.m_pos.y = y << 4;
 }
 }
 
 /* @socom-skeleton stub SetFont__Q220@unnamed@zui_2d_cpp@23CListItemStringTypeImplFP7C2DFont */
 namespace {
-void CListItemStringTypeImpl::SetFont(C2DFont *)
+void CListItemStringTypeImpl::SetFont(C2DFont *font)
 {
+	/* 0x3935b0 */
+	m_string.SetFont(font);
 }
 }
 
@@ -555,6 +691,7 @@ void CListItemStringTypeImpl::SetFont(C2DFont *)
 namespace {
 void CListItemStringTypeImpl::PrepListItem(const std::vector<ColumnData *, std::allocator<ColumnData *> > &, C2DFont *, float, zdb::CTextureRelocMgr *)
 {
+	/* 0x3935a0: empty in the ELF */
 }
 }
 
@@ -562,27 +699,45 @@ void CListItemStringTypeImpl::PrepListItem(const std::vector<ColumnData *, std::
 namespace {
 const char * CListItemStringTypeImpl::GetString()
 {
+	/* 0x393570: the formatted text when there is one, else the string */
+	if (m_string.m_Ustring != NULL && m_string.m_Ustring[0] != '\0')
+		return m_string.m_Ustring;
+
+	return m_string.m_string;
 }
 }
 
 /* @socom-skeleton stub VisualGratification__Q220@unnamed@zui_2d_cpp@26CListItemTimedTextTypeImplFPQ23zdb16CTextureRelocMgr */
 namespace {
-void CListItemTimedTextTypeImpl::VisualGratification(zdb::CTextureRelocMgr *)
+void CListItemTimedTextTypeImpl::VisualGratification(zdb::CTextureRelocMgr *reloc)
 {
+	/* 0x393520: drawn from its start time on */
+	if (!(m_elapsed < m_start))
+		m_string.C2DString::Draw(reloc, NULL, 16777210.0f);
 }
 }
 
 /* @socom-skeleton stub Tick__Q220@unnamed@zui_2d_cpp@26CListItemTimedTextTypeImplFf */
 namespace {
-void CListItemTimedTextTypeImpl::Tick(float)
+void CListItemTimedTextTypeImpl::Tick(float dT)
 {
+	/* 0x3934b0: the count sound when its start time passes. ELF quirk kept: the string's
+	 * own Tick is not run */
+	bool started = !(m_elapsed <= m_start);
+	m_elapsed += dT;
+
+	if (!started && !(m_elapsed <= m_start))
+		PlayCountSound();
 }
 }
 
 /* @socom-skeleton stub SetSequenceTime__Q220@unnamed@zui_2d_cpp@26CListItemTimedTextTypeImplFff */
 namespace {
-float CListItemTimedTextTypeImpl::SetSequenceTime(float, float)
+float CListItemTimedTextTypeImpl::SetSequenceTime(float time, float interval)
 {
+	/* 0x3934a0: starts at time; the next one an interval later */
+	m_start = time;
+	return time + interval;
 }
 }
 
@@ -590,6 +745,8 @@ float CListItemTimedTextTypeImpl::SetSequenceTime(float, float)
 namespace {
 void CListItemTimedTextTypeImpl::Finish()
 {
+	/* 0x393490: shown at once */
+	m_start = 0.0f;
 }
 }
 
@@ -597,20 +754,25 @@ void CListItemTimedTextTypeImpl::Finish()
 namespace {
 CListItemTimedTextTypeImpl::~CListItemTimedTextTypeImpl()
 {
+	/* 0x393400: nothing of its own (~CRenderableString, the string impl's member) */
 }
 }
 
 /* @socom-skeleton stub VisualGratification__Q220@unnamed@zui_2d_cpp@22CListItemImageTypeImplFPQ23zdb16CTextureRelocMgr */
 namespace {
-void CListItemImageTypeImpl::VisualGratification(zdb::CTextureRelocMgr *)
+void CListItemImageTypeImpl::VisualGratification(zdb::CTextureRelocMgr *reloc)
 {
+	/* 0x3933e0: the image's virtual Draw at the identity matrix */
+	m_bmp.Draw(CMatrix::identity, reloc);
 }
 }
 
 /* @socom-skeleton stub SetColor__Q220@unnamed@zui_2d_cpp@22CListItemImageTypeImplFiii */
 namespace {
-void CListItemImageTypeImpl::SetColor(int, int, int)
+void CListItemImageTypeImpl::SetColor(int r, int g, int b)
 {
+	/* 0x3933b0 */
+	m_bmp.SetColor((f32)r, (f32)g, (f32)b);
 }
 }
 
@@ -618,13 +780,16 @@ void CListItemImageTypeImpl::SetColor(int, int, int)
 namespace {
 void CListItemImageTypeImpl::SetScale(float)
 {
+	/* 0x3933a0: empty in the ELF */
 }
 }
 
 /* @socom-skeleton stub SetPos__Q220@unnamed@zui_2d_cpp@22CListItemImageTypeImplFiiii */
 namespace {
-void CListItemImageTypeImpl::SetPos(int, int, int, int)
+void CListItemImageTypeImpl::SetPos(int x, int y, int right, int bottom)
 {
+	/* 0x393390 */
+	m_bmp.C2DBitmap::SetPos(x, y, right, bottom);
 }
 }
 
@@ -632,6 +797,7 @@ void CListItemImageTypeImpl::SetPos(int, int, int, int)
 namespace {
 void CListItemImageTypeImpl::SetFont(C2DFont *)
 {
+	/* 0x393380: empty in the ELF */
 }
 }
 
@@ -639,6 +805,7 @@ void CListItemImageTypeImpl::SetFont(C2DFont *)
 namespace {
 void CListItemImageTypeImpl::PrepListItem(const std::vector<ColumnData *, std::allocator<ColumnData *> > &, C2DFont *, float, zdb::CTextureRelocMgr *)
 {
+	/* 0x393370: empty in the ELF */
 }
 }
 
@@ -646,8 +813,10 @@ void CListItemImageTypeImpl::PrepListItem(const std::vector<ColumnData *, std::a
 namespace {
 const char * CListItemImageTypeImpl::GetString()
 {
+	/* 0x393360: an image has no text */
 	/* @socom-skeleton stub ach$1865 */
 	static unsigned char ach = 0;
+	return (const char*)&ach;
 }
 }
 
@@ -665,6 +834,7 @@ float g_fTtySpeedFactor = 1.0f;
 namespace {
 void CListItemImageTypeImpl::DrawPrep(const CUIListBox &, int, int, int)
 {
+	/* 0x393350: empty in the ELF (the array row's DrawPrep places its images) */
 }
 }
 
@@ -672,6 +842,7 @@ void CListItemImageTypeImpl::DrawPrep(const CUIListBox &, int, int, int)
 namespace {
 CListItemImageTypeImpl::~CListItemImageTypeImpl()
 {
+	/* 0x393280: nothing of its own (the image is the member's) */
 }
 }
 
@@ -830,38 +1001,207 @@ bool C2DCounter::TickZAnimCmd(_zanim_cmd_hdr *header, float *, bool *result)
 
 /* @socom-skeleton stub __ct__Q220@unnamed@zui_2d_cpp@22CListItemArrayTypeImplFP5_zrdrRCQ23std54vector<P10ColumnData,Q23std24allocator<P10ColumnData>> */
 namespace {
-CListItemArrayTypeImpl::CListItemArrayTypeImpl(_zrdr *, const std::vector<ColumnData *, std::allocator<ColumnData *> > &)
+CListItemArrayTypeImpl::CListItemArrayTypeImpl(_zrdr *row, const std::vector<ColumnData *, std::allocator<ColumnData *> > &columns)
 {
+	/* 0x3929b0 (an OPTIONS CAPTION): a string cell per string of the row, up to the column
+	 * count; other entries are skipped. ELF quirk kept: each text is set twice */
+	u32 count = row->IsArray() ? (u32)(row->array->integer - 1) : 0;
+	s32 n = count < columns.size() ? (s32)count : (s32)columns.size();
+	m_enabled = true;
+
+	for (s32 i = 0; i < n; i++)
+	{
+		_zrdr* cell = row->Get(i);
+
+		if (cell == NULL || cell->type != ZRDR_STRING)
+			continue;
+
+		ListItem* item = new ListItem();
+		CListItemStringTypeImpl* text = new CListItemStringTypeImpl();
+		text->m_string.Format(cell->string);
+		item->m_impl = text;
+
+		if (!item->m_enabled)
+			m_enabled = false;
+
+		static_cast<CListItemStringTypeImpl*>(ItemImpl(item))->m_string.Format(cell->string);
+		m_cells.push_back(item);
+	}
 }
 }
 
 /* @socom-skeleton stub __ct__Q220@unnamed@zui_2d_cpp@22CListItemArrayTypeImplFP5_zrdrRCQ23std54vector<P10ColumnData,Q23std24allocator<P10ColumnData>>P7C2DFontf */
 namespace {
-CListItemArrayTypeImpl::CListItemArrayTypeImpl(_zrdr *, const std::vector<ColumnData *, std::allocator<ColumnData *> > &, C2DFont *, float)
+CListItemArrayTypeImpl::CListItemArrayTypeImpl(_zrdr *row, const std::vector<ColumnData *, std::allocator<ColumnData *> > &columns, C2DFont *font, float scale)
 {
+	/* 0x392420 (a UI variable row): one cell per entry, up to the column count. An IMAGE
+	 * column gets an image cell (PrepListItem loads it); a TIMED_TEXT column a timed string;
+	 * an entry that is an array sets VALUE (the text), COLOR and DISABLED (the row is then
+	 * disabled), any other entry is formatted (CUIVariable::Format) as the text. A text is
+	 * set with the string's Format (its "$" escapes; the raw text kept for GetString). */
+	u32 count = row->IsArray() ? (u32)(row->array->integer - 1) : 0;
+	s32 n = count < columns.size() ? (s32)count : (s32)columns.size();
+	m_enabled = true;
+
+	for (s32 i = 0; i < n; i++)
+	{
+		_zrdr* cell = row->Get(i);
+		ListItem* item = new ListItem();
+		u8 type = columns[i]->m_type;
+
+		if (type == 0)
+		{
+			item->m_impl = new CListItemImageTypeImpl();
+			m_cells.push_back(item);
+			continue;
+		}
+
+		if (type == 2)
+			item->m_impl = new CListItemTimedTextTypeImpl();
+
+		if (cell->type == ZRDR_ARRAY)
+		{
+			if (char* value = zrdr_findstring(cell, "VALUE"))
+				static_cast<CListItemStringTypeImpl*>(ItemImpl(item))->m_string.Format(value);
+
+			if (zrdr_findtag(cell, "COLOR") != NULL)
+			{
+				PNT3D color;
+				zrdr_findPNT3D(cell, "COLOR", &color);
+
+				if (item->m_impl != NULL)
+					item->m_impl->SetColor((s32)color.x, (s32)color.y, (s32)color.z);
+			}
+
+			if (zrdr_findtag(cell, "DISABLED") != NULL)
+			{
+				item->m_enabled = false;
+				m_enabled = false;
+			}
+		}
+		else
+		{
+			char buffer[768];
+			char* text = CUIVariable::Format(cell, buffer, sizeof(buffer));
+			static_cast<CListItemStringTypeImpl*>(ItemImpl(item))->m_string.Format(text);
+		}
+
+		ItemImpl(item)->SetFont(font);
+		ItemImpl(item)->SetScale(scale);
+		m_cells.push_back(item);
+	}
 }
 }
 
 /* @socom-skeleton stub DrawPrep__Q220@unnamed@zui_2d_cpp@22CListItemArrayTypeImplFRC10CUIListBoxiii */
 namespace {
-void CListItemArrayTypeImpl::DrawPrep(const CUIListBox &, int, int, int)
+void CListItemArrayTypeImpl::DrawPrep(const CUIListBox &list, int x, int y, int row)
 {
+	/* 0x392180: each cell at its column's POSITION / TOP_OFFSET (an image cell sized by its
+	 * column); a string cell takes the row colour (the list's current one on the selected
+	 * row) unless it has its own, and glows on the selected row while the list does, else
+	 * its alpha is the highlight's there and 50 elsewhere */
+	for (u32 i = 0; i < m_cells.size(); i++)
+	{
+		ListItem* item = m_cells[i];
+		s32 left = x + list.m_columns[i]->m_position;
+		s32 top = y + list.m_columns[i]->m_topOffset;
+		ItemImpl(item)->SetPos(left, top, left + item->m_width, top + item->m_height);
+		const CPnt3D& color = list.m_selection == row ? list.m_color : list.m_normalColor;
+		CListItemStringTypeImpl* text = dynamic_cast<CListItemStringTypeImpl*>(item->m_impl);
+
+		if (text == NULL)
+			continue;
+
+		if (!text->m_colorSet)
+		{
+			text->m_string.m_color.x = color.x;
+			text->m_string.m_color.y = color.y;
+			text->m_string.m_color.z = color.z;
+			text->m_string.Update();
+		}
+
+		f32 glowTime = list.m_selection == row ? list.m_glowTime : 0.0f;
+
+		if (glowTime != 0.0f)
+		{
+			text->m_string.m_Type = STRING_GLOWY;
+			text->m_string.m_fadeTime = list.m_selection == row ? list.m_glowTime : 0.0f;
+			text->m_string.m_fadeMax = list.m_selection == row ? list.m_glowMax : 0.0f;
+			text->m_string.m_fadeMin = list.m_glowMin; /* ELF: read without the row test */
+		}
+		else
+		{
+			text->m_string.SetTrans((f32)(list.m_selection == row ? list.m_highlightAlpha : 50));
+			text->m_string.m_Type = STRING_PLAIN;
+		}
+	}
 }
 }
 
 /* @socom-skeleton stub PrepListItem__Q220@unnamed@zui_2d_cpp@22CListItemArrayTypeImplFRCQ23std54vector<P10ColumnData,Q23std24allocator<P10ColumnData>>P7C2DFontfPQ23zdb16CTextureRelocMgr */
 namespace {
-void CListItemArrayTypeImpl::PrepListItem(const std::vector<ColumnData *, std::allocator<ColumnData *> > &, C2DFont *, float, zdb::CTextureRelocMgr *)
+void CListItemArrayTypeImpl::PrepListItem(const std::vector<ColumnData *, std::allocator<ColumnData *> > &columns, C2DFont *font, float scale, zdb::CTextureRelocMgr *reloc)
 {
+	/* 0x391ef0: an IMAGE column's cell becomes an image of the texture its text names, sized
+	 * by the column; the other cells take the font and the scale */
 	/* @socom-skeleton stub achFallback$3573 */
 	static unsigned char achFallback = 0;
+
+	for (u32 i = 0; i < m_cells.size(); i++)
+	{
+		ListItem* item = m_cells[i];
+		ColumnData* column = columns[i];
+
+		if (item == NULL)
+			continue;
+
+		if (column->m_type == 0)
+		{
+			item->m_width = column->m_width;
+			item->m_height = column->m_length;
+			const char* name = item->m_impl != NULL ? item->m_impl->GetString() : (const char*)&achFallback;
+			zdb::CTexHandle* handle = PrepTexture(name, reloc);
+
+			if (item->m_impl != NULL)
+				delete item->m_impl;
+
+			CListItemImageTypeImpl* image = new CListItemImageTypeImpl();
+			image->m_bmp.C2DBitmap::Load(0.0f, 0.0f, (f32)column->m_length, (f32)column->m_width, handle);
+			item->m_impl = image;
+		}
+		else
+		{
+			ItemImpl(item)->SetFont(font);
+			ItemImpl(item)->SetScale(scale);
+		}
+	}
 }
 }
 
 /* @socom-skeleton stub DrawPrep__Q220@unnamed@zui_2d_cpp@23CListItemStringTypeImplFRC10CUIListBoxiii */
 namespace {
-void CListItemStringTypeImpl::DrawPrep(const CUIListBox &, int, int, int)
+void CListItemStringTypeImpl::DrawPrep(const CUIListBox &list, int x, int y, int row)
 {
+	/* 0x391de0: placed (1/16 pixels); the selected row glows while the list does, else its
+	 * alpha is the highlight's there and 50 elsewhere */
+	m_string.m_pos.x = x << 4;
+	m_string.m_pos.y = y << 4;
+	m_string.Update();
+	m_string.SetTrans((f32)(list.m_selection == row ? list.m_highlightAlpha : 50));
+	f32 glowTime = list.m_selection == row ? list.m_glowTime : 0.0f;
+
+	if (glowTime != 0.0f)
+	{
+		m_string.m_Type = STRING_GLOWY;
+		m_string.m_fadeTime = list.m_selection == row ? list.m_glowTime : 0.0f;
+		m_string.m_fadeMax = list.m_selection == row ? list.m_glowMax : 0.0f;
+		m_string.m_fadeMin = list.m_glowMin; /* ELF: read without the row test */
+	}
+	else
+	{
+		m_string.m_Type = STRING_PLAIN;
+	}
 }
 }
 
@@ -911,8 +1251,14 @@ void CRenderableString::Draw(const CMatrix &transform, zdb::CTextureRelocMgr *re
 }
 
 /* @socom-skeleton stub LoadSpec__12CWrappedTextFRC9CWrapSpec */
-void CWrappedText::LoadSpec(const CWrapSpec &)
+void CWrappedText::LoadSpec(const CWrapSpec &spec)
 {
+	/* 0x3919a0: the wrapping box (HEIGHT truncated), then the text spec
+	 * (CRenderableString::LoadSpec inline) */
+	m_width = spec.m_width;
+	m_spacing = spec.m_spacing;
+	m_height = (s32)spec.m_height;
+	CRenderableString::LoadSpec(spec);
 }
 
 /* @socom-skeleton stub SetString__12CWrappedTextFPCc */
@@ -1780,68 +2126,629 @@ void C2DButton::SetActive()
 }
 
 /* @socom-skeleton stub LoadSpec__14CHandlerButtonFRC18CHandlerButtonSpec */
-void CHandlerButton::LoadSpec(const CHandlerButtonSpec &)
+void CHandlerButton::LoadSpec(const CHandlerButtonSpec &spec)
 {
+	/* 0x38ec90: the button part (tail call) */
+	C2DButton::LoadSpec(spec);
 }
 
 /* @socom-skeleton stub HandlePad__14CHandlerButtonFPC4CPadi */
-bool CHandlerButton::HandlePad(const CPad *, int)
+bool CHandlerButton::HandlePad(const CPad *pad, int index)
 {
+	/* 0x38eb90: while CROSS is held (DOWN) the button shows PRESSED and its subordinate
+	 * controls take the pad (true even when none does); else nothing */
+	if (!CanHandleInput())
+		return false;
+
+	if (size() == 0)
+		return false;
+
+	if (pad->m_state[(u8)PAD_BUTTON::PAD_CROSS] != KEY_DOWN)
+		return false;
+
+	SetPressed();
+
+	for (C2Dlist::iterator it = begin(); it != end(); ++it)
+	{
+		if ((*it)->HandlePad(pad, index))
+			return true;
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub Tick__14CHandlerButtonFf */
-void CHandlerButton::Tick(float)
+void CHandlerButton::Tick(float dT)
 {
+	/* 0x38e930: C2DButton::Tick inline (caption, image, the pressed time back to ACTIVE or
+	 * DISABLED), then the subordinate controls */
+	C2DButton::Tick(dT);
+
+	for (C2Dlist::iterator it = begin(); it != end(); ++it)
+		(*it)->Tick(dT);
 }
 
 /* @socom-skeleton stub LoadSpec__10CUIListBoxFRC14CUIListBoxSpecPQ23zdb10CTexHandlePQ23zdb16CTextureRelocMgr */
-void CUIListBox::LoadSpec(const CUIListBoxSpec &, zdb::CTexHandle *, zdb::CTextureRelocMgr *)
+void CUIListBox::LoadSpec(const CUIListBoxSpec &spec, zdb::CTexHandle *handle, zdb::CTextureRelocMgr *reloc)
 {
+	/* 0x38e2e0: the background image and its pulse, the rows' layout, the spec FONT, the
+	 * columns and OPTIONS rows (taken over: deleted here), the UI variable attached (its rows
+	 * follow; ELF quirk kept: it is attached and read once before the columns exist and once
+	 * after, and the second read deletes the OPTIONS rows), the ANIMATIONS, the textures and
+	 * colours, shown normal */
+	m_pulsing = spec.m_pulse;
+	m_period = spec.m_period;
+
+	if (m_pulsing)
+		m_curtrans = 0.0f;
+
+	CUIVariable* var = NULL;
+
+	if (spec.m_uivar != NULL)
+		var = theUIVarManager.Add(spec.m_uivar->m_name, spec.m_uivar->m_array, (UIVAR_LONGEVITY)spec.m_uivar->m_type);
+
+	if (var != NULL)
+	{
+		AttachUIVar(var);
+		UpdateUIVar(var);
+	}
+
+	C2DBitmap::Load(0.0f, 0.0f, (f32)spec.m_xsize, (f32)spec.m_ysize, handle);
+	m_downTex = NULL;
+	m_upTex = NULL;
+	m_reloc = reloc;
+	m_leftMargin = spec.m_leftMargin;
+	m_topMargin = spec.m_topMargin;
+	m_spacing = spec.m_spacing;
+	m_scale = spec.m_scale;
+	m_noSelect = spec.m_noSelect;
+	m_autoScroll = spec.m_autoScroll;
+	m_padHog = spec.m_padHog;
+	m_seqDelay = spec.m_seqDelay;
+	m_seqInterval = spec.m_seqInterval;
+	m_activeRange[1] = spec.m_activeRange[1];
+	m_activeRange[0] = spec.m_activeRange[0];
+	m_activeTime = spec.m_activeTime;
+
+	if (spec.m_hasFont)
+	{
+		m_ownFont = new C2DFont();
+		m_ownFont->Load(FetchMissionFontsRdr(), spec.m_font.c_str());
+		m_font = m_ownFont;
+	}
+
+	for (u32 i = 0; i < spec.m_columns.size(); i++)
+		m_columns.push_back(spec.m_columns[i]);
+
+	for (u32 i = 0; i < spec.m_options.size(); i++)
+	{
+		ListItem* item = spec.m_options[i];
+
+		if (item->m_impl != NULL)
+			item->m_impl->PrepListItem(m_columns, m_font, m_scale, m_reloc);
+
+		ItemImpl(item)->SetFont(m_font);
+		ItemImpl(item)->SetScale(m_scale);
+		m_items.push_back(item);
+	}
+
+	var = NULL;
+
+	if (spec.m_uivar != NULL)
+		var = theUIVarManager.Add(spec.m_uivar->m_name, spec.m_uivar->m_array, (UIVAR_LONGEVITY)spec.m_uivar->m_type);
+
+	if (var != NULL)
+	{
+		AttachUIVar(var);
+		UpdateUIVar(var);
+	}
+
+	for (s32 i = 0; i < (s32)spec.m_animations.size(); i++)
+	{
+		g_hasAnims = 1;
+		m_commands[m_numCommands++] = spec.m_animations[i];
+	}
+
+	m_normalTex = PrepTexture(spec.m_normal.c_str(), reloc);
+	m_pressedTex = PrepTexture(spec.m_pressed.c_str(), reloc);
+	m_activeTex = PrepTexture(spec.m_active.c_str(), reloc);
+	m_activeBgTex = PrepTexture(spec.m_activeBg.c_str(), reloc);
+	m_activeBgOffset = spec.m_activeBgOffset;
+	m_activeBgSize = spec.m_activeBgSize;
+	m_activeBg.Off();
+	m_highlight.m_hasTexture = m_normalTex != NULL;
+	m_highlightTex = m_normalTex;
+	m_highlight.C2DBitmap::Load(0.0f, 0.0f, 10.0f, 10.0f, m_highlightTex);
+	m_highlight.SetColor(255.0f, 255.0f, 255.0f);
+	m_highlight.SetTrans((f32)m_highlightAlpha);
+	m_normalColor.x = spec.m_normalColor.x;
+	m_normalColor.y = spec.m_normalColor.y;
+	m_normalColor.z = spec.m_normalColor.z;
+	m_activeColor.x = spec.m_activeColor.x;
+	m_activeColor.y = spec.m_activeColor.y;
+	m_activeColor.z = spec.m_activeColor.z;
+	m_pressedColor.x = spec.m_pressedColor.x;
+	m_pressedColor.y = spec.m_pressedColor.y;
+	m_pressedColor.z = spec.m_pressedColor.z;
+	m_color = m_normalColor;
+	m_upTex = PrepTexture(spec.m_upArrow.c_str(), reloc);
+	m_downTex = PrepTexture(spec.m_downArrow.c_str(), reloc);
+	m_downOffset = spec.m_downOffset;
+	m_downSize = spec.m_downSize;
+	m_upOffset = spec.m_upOffset;
+	m_upSize = spec.m_upSize;
 }
 
 /* @socom-skeleton stub __dt__10CUIListBoxFv */
 CUIListBox::~CUIListBox()
 {
+	/* 0x38de90: the rows (ListItem's dtor inline), the columns (the spec's objects), the spec
+	 * FONT; the images, the anims, the mixin (DetachUIVar) and the image part are the member
+	 * / base destructors */
+	for (std::list<ListItem*>::iterator it = m_items.begin(); it != m_items.end();)
+	{
+		ListItem* item = *it;
+		it = m_items.erase(it);
+
+		if (item != NULL)
+			delete item;
+	}
+
+	while (!m_columns.empty())
+	{
+		ColumnData* column = m_columns.front();
+		m_columns.erase(m_columns.begin());
+		delete column;
+	}
+
+	if (m_ownFont != NULL)
+		delete m_ownFont;
 }
 
 /* @socom-skeleton stub UpdateUIVar__10CUIListBoxFP11CUIVariable */
-void CUIListBox::UpdateUIVar(CUIVariable *)
+void CUIListBox::UpdateUIVar(CUIVariable *var)
 {
+	/* 0x38d8a0: an array variable becomes the rows: a string entry a string row, an array
+	 * entry a row of cells (CListItemArrayTypeImpl, disabled with a DISABLED cell), each in
+	 * the list's font and scale. AUTOSCROLL selects the last row; the timed cells get their
+	 * start times (SEQUENCE_DELAY, then SEQUENCE_INTERVAL apart). Every old row goes first.
+	 * ELF quirk kept: a string row's text is set twice (the string's Format: $ escapes).
+	 * port deviation: the ELF also deletes the spec FONT here (m_ownFont, then NULL) while
+	 * m_font still points at it; the port keeps it until the dtor. */
+	if (var->type != ZRDR_ARRAY)
+		return;
+
+	for (std::list<ListItem*>::iterator it = m_items.begin(); it != m_items.end();)
+	{
+		ListItem* item = *it;
+		it = m_items.erase(it);
+		delete item;
+	}
+
+	for (u32 i = 0; i < (u32)(var->array->integer - 1); i++)
+	{
+		_zrdr* row = var->Get(i);
+		ListItem* item = new ListItem();
+		f32 scale = m_scale;
+		C2DFont* font = m_font;
+
+		if (row->type == ZRDR_STRING)
+		{
+			CListItemStringTypeImpl* text = new CListItemStringTypeImpl();
+			text->m_string.Format(row->string);
+			item->m_impl = text;
+		}
+		else if (row->IsArray() && row->array->integer - 1 != 0)
+		{
+			item->m_impl = new CListItemArrayTypeImpl(row, m_columns, font, scale);
+
+			if (!item->m_impl->IsEnabled())
+				item->m_enabled = false;
+		}
+
+		if (row != NULL && row->type == ZRDR_STRING)
+			static_cast<CListItemStringTypeImpl*>(ItemImpl(item))->m_string.Format(row->string);
+
+		ItemImpl(item)->SetFont(m_font);
+		ItemImpl(item)->SetScale(m_scale);
+		m_items.push_back(item);
+	}
+
+	if (m_autoScroll)
+	{
+		m_selection = (s32)m_items.size() - 1;
+		m_topRow = 0;
+		m_selOffset = m_selection * m_spacing;
+	}
+
+	f32 time = m_seqDelay;
+
+	for (std::list<ListItem*>::iterator it = m_items.begin(); it != m_items.end(); ++it)
+	{
+		if ((*it)->m_impl != NULL)
+			time = (*it)->m_impl->SetSequenceTime(time, m_seqInterval);
+	}
 }
 
 /* @socom-skeleton stub Tick__10CUIListBoxFf */
-void CUIListBox::Tick(float)
+void CUIListBox::Tick(float dT)
 {
+	/* 0x38d5e0: the background's pulse (CPlainBmp::Tick inline); the selection kept in the
+	 * window (rows scroll a row at a time), the rows eased there (at least 60 pixels a
+	 * second, twice the distance per second while far), the pressed time counted down while
+	 * moving; then each row's Tick */
+	if (m_pulsing)
+	{
+		const f32 TWO_PI = 6.2831855f;
+		m_curtrans += TWO_PI * (dT / m_period);
+
+		if (!(m_curtrans <= TWO_PI))
+			m_curtrans -= TWO_PI;
+
+		if (m_curtrans < 0.0f)
+			m_curtrans += TWO_PI;
+
+		SetTrans(64.0f + 64.0f * sinf(m_curtrans));
+	}
+
+	while (m_iHeight - 2 * m_spacing < m_selOffset)
+	{
+		m_selOffset -= m_spacing;
+		m_topRow++;
+	}
+
+	while (m_selOffset < 0)
+	{
+		m_selOffset += m_spacing;
+		m_topRow--;
+	}
+
+	f32 target = (f32)(-m_topRow * m_spacing);
+	f32 distance = target - m_scroll;
+	f32 speed = 2.0f * fabsf(distance);
+
+	if (speed < 60.0f)
+		speed = 60.0f;
+
+	speed *= dT;
+
+	if (speed <= fabsf(distance))
+	{
+		if (m_pressedTime > 0.0f)
+		{
+			if (m_pressedTime <= dT)
+				m_pressedTime = 0.0f;
+			else
+				m_pressedTime -= dT;
+		}
+
+		if (distance < 0.0f)
+			speed = -speed;
+
+		m_scroll += speed;
+	}
+	else
+	{
+		m_scroll = target;
+	}
+
+	for (std::list<ListItem*>::iterator it = m_items.begin(); it != m_items.end(); ++it)
+	{
+		if ((*it)->m_impl != NULL)
+			(*it)->m_impl->Tick(dT);
+	}
 }
 
 /* @socom-skeleton stub SetPressed__10CUIListBoxFv */
-void CUIListBox::SetPressed() /* port: stub */
+void CUIListBox::SetPressed()
 {
+	/* 0x38d4e0: the selected row in the pressed colour, the highlight bar's PRESSED image
+	 * at alpha 100 for 0.2 s (ELF quirk kept: the bar's SetTrans takes the old alpha, then
+	 * 100; nothing restores the state when the time runs out) */
+	m_color = m_pressedColor;
+	m_highlight.m_hasTexture = m_pressedTex != NULL;
+	m_highlightTex = m_pressedTex;
+	m_highlight.C2DBitmap::Load(0.0f, 0.0f, 10.0f, 10.0f, m_highlightTex);
+	m_highlight.SetColor(255.0f, 255.0f, 255.0f);
+	m_highlight.SetTrans((f32)m_highlightAlpha);
+	m_highlight.SetTrans(100.0f);
+	m_highlightAlpha = 100;
+	m_pressedTime = 0.2f;
 }
 
 /* @socom-skeleton stub HandlePad__10CUIListBoxFPC4CPadi */
-bool CUIListBox::HandlePad(const CPad *, int)
+bool CUIListBox::HandlePad(const CPad *pad, int)
 {
+	/* 0x38d010: the selected row's own button (FALLING, an enabled row) runs its anim with
+	 * its argument or USERDATA; else the first ANIMATIONS button (FALLING) runs its anim,
+	 * with its argument, else the row's USERDATA, else the row's text (none for a disabled
+	 * row); either shows PRESSED and takes the pad. UP / the stick selects the row above
+	 * (its FOCUS_ANIM runs), DOWN the row below, with the selection sound; PADHOG keeps the
+	 * directions at the ends. A list without input takes the pad; an empty one does not.
+	 * ELF quirks kept: DOWN runs no FOCUS_ANIM; ANIMATIONS for button 0 (START) are skipped;
+	 * the row's own anim is looked up in the global anims only. */
+	if (!CanHandleInput())
+		return true;
+
+	if (m_items.size() == 0)
+		return false;
+
+	if ((u32)m_selection >= m_items.size())
+		m_selection = (s32)m_items.size() - 1;
+
+	std::list<ListItem*>::iterator it = m_items.begin();
+
+	for (s32 i = 0; i < m_selection; i++)
+		++it;
+
+	ListItem* item = *it;
+
+	if (item->m_action.PadButton < 16 && pad->m_state[item->m_action.PadButton] == KEY_FALLING && item->m_enabled)
+	{
+		CZAnim* anim = ZAnim.GetAnim(item->m_action.Animation, NULL);
+
+		if (anim == NULL)
+			return false;
+
+		if (item->m_action.Argument != NULL)
+			anim->ActivateArg(1, 8, item->m_action.Argument, 0);
+		else if (item->m_userData != NULL)
+			anim->ActivateArg(1, 8, item->m_userData, 0);
+		else
+			anim->Activate(NULL);
+
+		SetPressed();
+		return true;
+	}
+
+	for (s32 i = 0; i < m_numCommands; i++)
+	{
+		ActionItem& command = m_commands[i];
+
+		if (command.PadButton == 0 || pad->m_state[command.PadButton] != KEY_FALLING)
+			continue;
+
+		CZAnim* anim = ZAnim.GetAnim(command.Animation, NULL);
+
+		if (anim == NULL)
+			return false;
+
+		if (command.Argument != NULL)
+		{
+			anim->ActivateArg(1, 8, command.Argument, 0);
+		}
+		else if (item->m_userData != NULL && item->m_enabled)
+		{
+			anim->ActivateArg(1, 8, item->m_userData, 0);
+		}
+		else if (item->m_enabled)
+		{
+			/* port: the ELF's fallback is achFallback$3573 (PrepListItem's static) */
+			const char* text = item->m_impl != NULL ? item->m_impl->GetString() : "";
+			anim->ActivateArg(1, 8, text, 0);
+		}
+
+		SetPressed();
+		return true;
+	}
+
+	if (pad->m_state[(u8)PAD_BUTTON::PAD_UP] == KEY_FALLING || DidStickMovePrev())
+	{
+		if (m_selection <= 0)
+			return m_padHog;
+
+		m_selection--;
+		m_selOffset -= m_spacing;
+		it = m_items.begin();
+
+		for (s32 i = 0; i < m_selection; i++)
+			++it;
+
+		item = *it;
+
+		if (item->m_focus.Animation != NULL)
+		{
+			CZAnim* anim = NULL;
+
+			if (GetLocalAnims() != NULL)
+				anim = GetLocalAnims()->Anim(item->m_focus.Animation);
+
+			if (anim == NULL)
+				anim = ZAnim.GetAnim(item->m_focus.Animation, NULL);
+
+			if (anim != NULL)
+			{
+				if (item->m_focus.Argument != NULL)
+					anim->ActivateArg(1, 8, item->m_focus.Argument, 0);
+				else
+					anim->Activate(NULL);
+			}
+		}
+
+		PlaySelectionSound();
+		return true;
+	}
+
+	if (pad->m_state[(u8)PAD_BUTTON::PAD_DOWN] == KEY_FALLING || DidStickMoveNext())
+	{
+		if (!(m_selection < (s32)m_items.size() - 1))
+			return m_padHog;
+
+		m_selection++;
+		m_selOffset += m_spacing;
+		PlaySelectionSound();
+		return true;
+	}
+
+	if (!m_padHog)
+		return false;
+
+	return pad->m_state[(u8)PAD_BUTTON::PAD_LEFT] == KEY_FALLING || pad->m_state[(u8)PAD_BUTTON::PAD_RIGHT] == KEY_FALLING ||
+		DidStickMoveNext() || DidStickMovePrev();
 }
 
 /* @socom-skeleton stub Draw__10CUIListBoxFRC7CMatrixPQ23zdb16CTextureRelocMgr */
-void CUIListBox::Draw(const CMatrix &, zdb::CTextureRelocMgr *)
+void CUIListBox::Draw(const CMatrix &transform, zdb::CTextureRelocMgr *reloc)
 {
+	/* 0x38c9a0: at the node's origin (the zero point through the matrix, VU0 in the ELF):
+	 * the active background, the window image (a string UI variable names its texture, as
+	 * CPlainBmp::Draw), the highlight bar on the selected row (none with NOSELECT), the rows
+	 * scissored to the window (from a row above its top), then the arrows: opaque while rows
+	 * are scrolled off above / left below, else clear */
+	f32 x = transform.m_matrix[3][0];
+	f32 y = transform.m_matrix[3][1];
+	f32 z = transform.m_matrix[3][2];
+	s32 barY = (s32)(y + (f32)m_topMargin + (f32)m_selOffset - 0.75f * (f32)m_spacing);
+	s32 barX = (s32)x;
+	s32 rowX = (s32)(x + (f32)m_leftMargin);
+	s32 rowY = (s32)(y + (f32)m_topMargin);
+	s32 bgX = (s32)(x + (f32)m_activeBgOffset.x);
+	s32 bgY = (s32)(y + (f32)m_activeBgOffset.y);
+	m_highlight.C2DBitmap::Load((f32)barX, (f32)barY, (f32)(barX + m_iWidth), (f32)(barY + m_spacing), m_highlightTex);
+	m_activeBg.C2DBitmap::Load((f32)bgX, (f32)bgY, (f32)(bgX + m_activeBgSize.x), (f32)(bgY + m_activeBgSize.y), m_activeBgTex);
+	CMatrix place;
+	sceVu0UnitMatrix(place.m_matrix);
+	place.m_matrix[3][0] = 0.0f;
+	place.m_matrix[3][1] = 0.0f;
+	place.m_matrix[3][2] = z;
+	m_activeBg.Draw(place, reloc);
+
+	if (CUIVariable* var = UIVarMixin::m_uivar)
+	{
+		if (var->type == ZRDR_STRING)
+		{
+			const char* name = var->string;
+			const char* current = m_pTexHandle ? m_pTexHandle->m_name : "";
+
+			if (strcasecmp(name, current) != 0)
+			{
+				zdb::CTexHandle* handle = PrepTexture(name, reloc);
+
+				if (handle != NULL)
+					C2DBitmap::Load((f32)m_x, (f32)m_y, (f32)(m_x + m_iWidth), (f32)(m_y + m_iHeight), handle);
+			}
+		}
+	}
+
+	C2DBitmap::Draw(transform, reloc);
+
+	if (!m_noSelect)
+		m_highlight.Draw(place, reloc);
+
+	zVid_Scissor(0, rowY - m_spacing, 640, (s32)(y + (f32)m_iHeight));
+	s32 row = 0;
+
+	for (std::list<ListItem*>::iterator it = m_items.begin(); it != m_items.end(); ++it, ++row)
+	{
+		ListItem* item = *it;
+		s32 top = (s32)((f32)rowY + m_scroll + (f32)(m_spacing * row));
+		ItemImpl(item)->DrawPrep(*this, rowX, top, row);
+
+		if (item->m_impl != NULL)
+			item->m_impl->VisualGratification(reloc);
+	}
+
+	zVid_Scissor(0, 0, 640, 448);
+
+	if (m_upTex != NULL)
+	{
+		f32 left = x + (f32)m_upOffset.x;
+		f32 top = y + (f32)m_upOffset.y;
+		m_upArrow.C2DBitmap::Load(left, top, (f32)m_upSize.x + left, (f32)m_upSize.y + top, m_upTex);
+		m_upArrow.SetTrans(m_scroll < 0.0f ? 128.0f : 0.0f);
+		m_upArrow.Draw(place, reloc);
+	}
+
+	if (m_downTex != NULL)
+	{
+		f32 left = x + (f32)m_downOffset.x;
+		f32 top = y + (f32)m_downOffset.y;
+		m_downArrow.C2DBitmap::Load(left, top, (f32)m_downSize.x + left, (f32)m_downSize.y + top, m_downTex);
+		s32 window = m_iHeight - 2 * m_spacing;
+		s32 last = (s32)(m_scroll + (f32)(u32)(m_spacing * ((s32)m_items.size() - 1)));
+		m_downArrow.SetTrans(window < last ? 128.0f : 0.0f);
+		m_downArrow.Draw(place, reloc);
+	}
 }
 
 /* @socom-skeleton stub GetZAnimCmdType__10CUIListBoxFPCc */
-int CUIListBox::GetZAnimCmdType(const char *)
+int CUIListBox::GetZAnimCmdType(const char *name)
 {
+	/* 0x38c8e0: Finish, Has_Items; NULL gives the next free type, an unknown name the UI
+	 * base. ELF quirk kept: "Highlight_on" gives Finish's type and "Highlight_off" none, so
+	 * the HIGHLIGHT commands never reach their cases in TickZAnimCmd */
+	if (name == NULL)
+		return GetUICommandType(NULL) + 5;
+
+	if (*name == '\0')
+		return 0;
+
+	if (strcasecmp("Finish", name) == 0)
+		return GetUICommandType(NULL) + 1;
+
+	if (strcasecmp("Highlight_on", name) == 0)
+		return GetUICommandType(NULL) + 1;
+
+	if (strcasecmp("Has_Items", name) == 0)
+		return GetUICommandType(NULL) + 4;
+
+	return GetUICommandType(NULL);
 }
 
 /* @socom-skeleton stub ParseZAnimCmd__10CUIListBoxFP5_zrdr */
-C2DAnimCmdHdr * CUIListBox::ParseZAnimCmd(_zrdr *)
+C2DAnimCmdHdr * CUIListBox::ParseZAnimCmd(_zrdr *reader)
 {
+	/* 0x38c690: FINISH, HIGHLIGHT_ON, HIGHLIGHT_OFF, HAS_ITEMS: 8-byte timeless commands of
+	 * the named type */
+	static const char* const names[] = { "FINISH", "HIGHLIGHT_ON", "HIGHLIGHT_OFF", "HAS_ITEMS" };
+	static const s32 lines[] = { 2198, 2206, 2214, 2222 };
+
+	for (u32 i = 0; i < 4; i++)
+	{
+		if (zrdr_findtag(reader, names[i]) == NULL)
+			continue;
+
+		C2DAnimCmdHdr* cmd = (C2DAnimCmdHdr*)_calloc(1, 8, "zui_2d.cpp", lines[i]);
+		cmd->header.timeless = 1;
+		cmd->header.data_size = 8;
+		cmd->m_command_type = GetZAnimCmdType(names[i]);
+		cmd->m_argument_index = 0;
+		return cmd;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub TickZAnimCmd__10CUIListBoxFP14_zanim_cmd_hdrPfPb */
-bool CUIListBox::TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *)
+bool CUIListBox::TickZAnimCmd(_zanim_cmd_hdr *header, float *, bool *result)
 {
+	/* 0x38c590: Finish shows every timed row at once (*result set); Has_Items is true with
+	 * rows. ELF quirks kept (dead, see GetZAnimCmdType): the HIGHLIGHT_ON case falls into
+	 * HIGHLIGHT_OFF's (both leave NOSELECT set) and both return whether there are rows. */
+	C2DAnimCmdHdr* cmd = reinterpret_cast<C2DAnimCmdHdr*>(header);
+
+	switch ((s32)cmd->m_command_type - GetUICommandType(NULL))
+	{
+	case 1:
+		for (std::list<ListItem*>::iterator it = m_items.begin(); it != m_items.end(); ++it)
+		{
+			if ((*it)->m_impl != NULL)
+				(*it)->m_impl->Finish();
+		}
+
+		*result = true;
+		return true;
+	case 2:
+		m_noSelect = false;
+		/* fall through (ELF) */
+	case 3:
+		m_noSelect = true;
+		/* fall through */
+	case 4:
+		return m_items.size() != 0;
+	default:
+		return false;
+	}
 }
 
 /* @socom-skeleton stub GetZAnimCmdType__10CSliderBarFPCc */
@@ -2432,21 +3339,139 @@ void CRadioStrip::Tick(float dT)
 /* @socom-skeleton stub __dt__12CCycleButtonFv */
 CCycleButton::~CCycleButton()
 {
+	/* 0x38a420: the options (each leaves the list first); then ~C2D (the list) and
+	 * ~C2DButton */
+	for (C2Dlist::iterator it = m_options.begin(); it != m_options.end();)
+	{
+		C2D* option = *it;
+		it = m_options.erase(it);
+
+		if (option != NULL)
+			delete option;
+	}
 }
 
 /* @socom-skeleton stub HandlePad__12CCycleButtonFPC4CPadi */
-bool CCycleButton::HandlePad(const CPad *, int)
+bool CCycleButton::HandlePad(const CPad *pad, int)
 {
+	/* 0x38a090: the shown option's BUTTON anim on its button (FALLING); LEFT / RIGHT
+	 * (FALLING) cycle the options (wrapping) and run the new one's ONACTIVATE anim */
+	if (!CanHandleInput())
+		return false;
+
+	C2Dlist::iterator it = m_options.begin();
+
+	for (s32 i = 0; i < m_selection; i++)
+		++it;
+
+	CycleItem* option = static_cast<CycleItem*>(*it);
+
+	if (option->m_action.Type == ActionItem::ACTION_TYPE_BUTTON && pad->m_state[option->m_action.PadButton] == KEY_FALLING)
+	{
+		CZAnim* anim = ZAnim.GetAnim(option->m_action.Animation, NULL);
+
+		if (anim == NULL)
+			return false;
+
+		if (option->m_action.Argument != NULL)
+			anim->ActivateArg(1, 8, option->m_action.Argument, 0);
+		else
+			anim->Activate(NULL);
+
+		return true;
+	}
+
+	if (pad->m_state[(u8)PAD_BUTTON::PAD_LEFT] == KEY_FALLING)
+	{
+		if (--m_selection < 0)
+			m_selection = (s32)m_options.size() - 1;
+	}
+	else if (pad->m_state[(u8)PAD_BUTTON::PAD_RIGHT] == KEY_FALLING)
+	{
+		if ((u32)++m_selection >= m_options.size())
+			m_selection = 0;
+	}
+	else
+	{
+		return false;
+	}
+
+	it = m_options.begin();
+
+	for (s32 i = 0; i < m_selection; i++)
+		++it;
+
+	option = static_cast<CycleItem*>(*it);
+
+	if (option == NULL)
+		return true;
+
+	if (option->m_action.Event == ActionItem::ONACTIVATE)
+	{
+		CZAnim* anim = NULL;
+
+		if (GetLocalAnims() != NULL)
+			anim = GetLocalAnims()->Anim(option->m_action.Animation);
+
+		if (anim == NULL)
+			anim = ZAnim.GetAnim(option->m_action.Animation, NULL);
+
+		if (anim != NULL)
+		{
+			if (option->m_action.Argument != NULL)
+				anim->ActivateArg(1, 8, option->m_action.Argument, 0);
+			else
+				anim->Activate(NULL);
+		}
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub Draw__12CCycleButtonFRC7CMatrixPQ23zdb16CTextureRelocMgr */
-void CCycleButton::Draw(const CMatrix &, zdb::CTextureRelocMgr *)
+void CCycleButton::Draw(const CMatrix &transform, zdb::CTextureRelocMgr *reloc)
 {
+	/* 0x389f40: the button (background, caption: C3StateButton::Draw inline), then the
+	 * selected option's picture */
+	if (IsOn())
+	{
+		DrawBackground(transform, reloc);
+
+		if (_szCaption != NULL)
+		{
+			_strCaption.m_pos.x = (s32)(transform.m_matrix[3][0] + (f32)_iTextX) << 4;
+			_strCaption.m_pos.y = (s32)(transform.m_matrix[3][1] + (f32)_iTextY) << 4;
+			_strCaption.Draw(reloc, NULL, transform.m_matrix[3][2]);
+		}
+	}
+
+	if (m_options.size() == 0)
+		return;
+
+	C2Dlist::iterator it = m_options.begin();
+
+	for (s32 i = 0; i < m_selection; i++)
+		++it;
+
+	if (*it != NULL)
+		(*it)->Draw(transform, reloc);
 }
 
 /* @socom-skeleton stub LoadSpec__12CCycleButtonFRC16CCycleButtonSpecPQ23zdb16CTextureRelocMgr */
-void CCycleButton::LoadSpec(const CCycleButtonSpec &, zdb::CTextureRelocMgr *)
+void CCycleButton::LoadSpec(const CCycleButtonSpec &spec, zdb::CTextureRelocMgr *reloc)
 {
+	/* 0x389e50: the button part, the margins, then each option's picture loaded inside the
+	 * margins and the option taken over (deleted by the dtor) */
+	C2DButton::LoadSpec(spec);
+	m_margin = spec.m_margin;
+
+	for (s32 i = 0; i < (s32)spec.m_options.size(); i++)
+	{
+		CycleItem* option = spec.m_options[i];
+		zdb::CTexHandle* handle = PrepTexture(option->m_picture.c_str(), reloc);
+		option->C2DBitmap::Load((f32)m_margin.x, (f32)m_margin.y, _fWidth - (f32)m_margin.x, _fHeight - (f32)m_margin.y, handle);
+		m_options.push_back(option);
+	}
 }
 
 /* port: no symbol - the inline valve set of HandlePad (value, then the callbacks with 1 for
@@ -2586,13 +3611,72 @@ void CPopUpDialog::Load(zdb::CTextureRelocMgr *reloc)
 }
 
 /* @socom-skeleton stub Draw__11CScrollTextFRC7CMatrixPQ23zdb16CTextureRelocMgr */
-void CScrollText::Draw(const CMatrix &, zdb::CTextureRelocMgr *)
+void CScrollText::Draw(const CMatrix &transform, zdb::CTextureRelocMgr *reloc)
 {
+	/* 0x3893f0: the words from the node's origin (the zero point through the matrix, VU0 in
+	 * the ELF) in lines of m_width, scrolled up by m_scroll; a word above the window's top
+	 * fades in over a line, one in the window's last line fades out, the others outside are
+	 * clear (SetTrans 0..100); drawn at depth 0. A word that would pass m_width starts the
+	 * next line. */
+	f32 x = transform.m_matrix[3][0];
+	f32 y = transform.m_matrix[3][1];
+	f32 bottom = y + (f32)m_displayableLines * GetSpacing();
+	f32 advance = 0.0f;
+	s32 line = 0;
+
+	for (iterator it = begin(); it != end();)
+	{
+		f32 spacing = GetSpacing();
+		CRenderableString* word = static_cast<CRenderableString*>(*it);
+		f32 top = (y + (f32)line * spacing) - m_scroll;
+		word->m_pos.x = (s32)(x + advance) << 4;
+		word->m_pos.y = (s32)top << 4;
+		word->C2DString::Update();
+
+		if (!(advance <= m_width))
+		{
+			advance = 0.0f;
+			line++;
+			continue;
+		}
+
+		++it;
+		advance += word->m_length;
+
+		if (top < y)
+		{
+			if (top < y - GetSpacing())
+				word->SetTrans(0.0f);
+			else
+				word->SetTrans(100.0f * ((top - (y - GetSpacing())) / GetSpacing()));
+		}
+		else if (top <= bottom - GetSpacing())
+		{
+			word->SetTrans(100.0f);
+		}
+		else if (top <= bottom)
+		{
+			word->SetTrans(100.0f * ((bottom - top) / GetSpacing()));
+		}
+		else
+		{
+			word->SetTrans(0.0f);
+		}
+
+		word->C2DString::Draw(reloc, NULL, 0.0f);
+	}
 }
 
 /* @socom-skeleton stub LoadSpec__11CScrollTextFRC11CScrollSpec */
-void CScrollText::LoadSpec(const CScrollSpec &)
+void CScrollText::LoadSpec(const CScrollSpec &spec)
 {
+	/* 0x389390: the window's lines, the wrapping box, then the text spec
+	 * (CRenderableString::LoadSpec) */
+	m_displayableLines = spec.m_displayableLines;
+	m_width = spec.m_width;
+	m_spacing = spec.m_spacing;
+	m_height = (s32)spec.m_height;
+	CRenderableString::LoadSpec(spec);
 }
 
 /* @socom-skeleton stub GetSpacing__12CWrappedTextFv */
@@ -2603,33 +3687,84 @@ float CWrappedText::GetSpacing()
 }
 
 /* @socom-skeleton stub Tick__11CScrollTextFf */
-void CScrollText::Tick(float)
+void CScrollText::Tick(float dT)
 {
+	/* 0x3892c0: the text eased to the top line at 30 pixels a second. ELF quirk kept: the
+	 * string's own Tick is not run */
+	f32 step = 30.0f * dT;
+	f32 target = (f32)m_topLine * GetSpacing();
+	f32 distance = target - m_scroll;
+
+	if (!(step <= fabsf(distance)))
+	{
+		m_scroll = target;
+		return;
+	}
+
+	if (distance < 0.0f)
+		step = -step;
+
+	m_scroll += step;
 }
 
 /* @socom-skeleton stub HandlePad__11CScrollTextFPC4CPadi */
-bool CScrollText::HandlePad(const CPad *, int)
+bool CScrollText::HandlePad(const CPad *pad, int)
 {
+	/* 0x389210: DOWN scrolls a line down, UP a line up (FALLING). ELF quirk kept: the
+	 * bottom limit counts words (the C2D list), not lines */
+	if (!CanHandleInput())
+		return false;
+
+	if (pad->m_state[(u8)PAD_BUTTON::PAD_DOWN] == KEY_FALLING && (u32)m_topLine < size() - m_displayableLines)
+	{
+		m_topLine++;
+		return true;
+	}
+
+	if (pad->m_state[(u8)PAD_BUTTON::PAD_UP] == KEY_FALLING && m_topLine > 0)
+	{
+		m_topLine--;
+		return true;
+	}
+
+	return false;
 }
 
 /* @socom-skeleton stub Tick__15CTickerTapeTextFf */
-void CTickerTapeText::Tick(float)
+void CTickerTapeText::Tick(float dT)
 {
+	/* 0x3891c0: the tape moves; past half its length (one copy of the text) it starts
+	 * over. ELF quirk kept: the string's own Tick is not run */
+	m_scroll += dT * m_scrollSpeed;
+
+	if (!(m_scroll <= m_length / 2.0f))
+		m_scroll = 0.0f;
 }
 
 /* @socom-skeleton stub Draw__15CTickerTapeTextFRC7CMatrixPQ23zdb16CTextureRelocMgr */
 void CTickerTapeText::Draw(const CMatrix &, zdb::CTextureRelocMgr *)
 {
+	/* 0x3891b0: empty in the ELF (a ticker tape draws nothing) */
 }
 
 /* @socom-skeleton stub SetString__15CTickerTapeTextFPCc */
-void CTickerTapeText::SetString(const char *)
+void CTickerTapeText::SetString(const char *text)
 {
+	/* 0x3890c0: the text twice, end to end (the tape wraps around) */
+	std::string tape(text);
+	tape = tape + tape;
+	C2DString::SetString(tape.c_str());
 }
 
 /* @socom-skeleton stub LoadSpec__15CTickerTapeTextFRC11CTickerSpec */
-void CTickerTapeText::LoadSpec(const CTickerSpec &)
+void CTickerTapeText::LoadSpec(const CTickerSpec &spec)
 {
+	/* 0x388f40: the scroll speed, width and buffer, then the text spec as
+	 * CRenderableString::LoadSpec (inline in the ELF; SetString is this class's) */
+	m_scrollSpeed = spec.m_scrollSpeed;
+	m_width = spec.m_width;
+	m_buffer = spec.m_buffer;
+	CRenderableString::LoadSpec(spec);
 }
 
 /* @socom-skeleton stub __ct__9C2DVisualFP3C2DPQ23zdb16CTextureRelocMgr */
@@ -2693,11 +3828,6 @@ int CRenderableString::GetZAnimCmdType(const char *name)
 	return GetUICommandType(NULL);
 }
 
-/* @socom-skeleton stub ParseZAnimCmd__12CPopUpDialogFP5_zrdr */
-C2DAnimCmdHdr * CPopUpDialog::ParseZAnimCmd(_zrdr *)
-{
-}
-
 /* port: no DWARF - the compiled pop-up command (208 bytes; ParseZAnimCmd 0x387c00 callocs and
  * fills it, TickZAnimCmd 0x387020 reads it). Names from the reader keys; name fields are the
  * anim's local name indices (255: none). */
@@ -2733,6 +3863,141 @@ struct _zui_popup_cmd
 	_zui_popup_button yes; /* +0x48 YESNO YES */
 	_zui_popup_button no;  /* +0x8c YESNO NO */
 };
+
+/* @socom-skeleton stub ParseZAnimCmd__12CPopUpDialogFP5_zrdr */
+namespace {
+/* port: no symbol - ParseZAnimCmd's state part, inline six times in the ELF (YES and NO:
+ * ACTIVE, NORMAL, PRESSED): the state's IMAGE (an anim name; 255 none) and TEXT_COLOR (128
+ * grey without one); PULSE, SCALE and TEXT_GLOW (RANGE, TIME) are read into a local
+ * ButtonState and dropped. A missing state is image 255, colour 255 255 255. */
+void PopUpParseState(_zrdr* button, const char* tag, u8& image, s32* color)
+{
+	_zrdr* state = zrdr_findtag(button, tag);
+
+	if (state == NULL)
+	{
+		image = 255;
+		color[0] = color[1] = color[2] = 255;
+		return;
+	}
+
+	C2DButton::ButtonState local;
+	char* name = zrdr_findstring(state, "IMAGE");
+	local._TexName = name != NULL ? name : "";
+	PNT3D text = { 128.0f, 128.0f, 128.0f };
+	zrdr_findPNT3D(state, "TEXT_COLOR", &text);
+	zrdr_findreal(state, "PULSE", &local._fPulseTime, 1);
+	zrdr_findreal(state, "SCALE", &local._fScale, 1);
+
+	if (_zrdr* glow = zrdr_findtag(state, "TEXT_GLOW"))
+	{
+		f32 range[2];
+		local._bGlowy = true;
+		zrdr_findreal(glow, "RANGE", range, 2);
+		local._iGlowStart = range[0];
+		local._iGlowEnd = range[1];
+		zrdr_findreal(glow, "TIME", &local._fGlowTime, 1);
+	}
+	else
+	{
+		local._bGlowy = false;
+	}
+
+	color[0] = (s32)text.x;
+	color[1] = (s32)text.y;
+	color[2] = (s32)text.z;
+	image = *local._TexName.c_str() != '\0' ? (u8)ZAnim.m_CurAnim->AddName(local._TexName.c_str()) : 255;
+}
+
+/* port: no symbol - the YES / NO part, inline twice */
+void PopUpParseButton(_zrdr* yesno, const char* tag, _zui_popup_button& rec)
+{
+	_zrdr* button = zrdr_findtag(yesno, tag);
+
+	if (button == NULL)
+	{
+		rec.image[2] = rec.image[1] = rec.image[0] = 255;
+		rec.caption = 255;
+		return;
+	}
+
+	PNT2D point = { 0.0f, 0.0f };
+	zrdr_findPNT2D(button, "POS", &point);
+	rec.pos[0] = (s32)point.x;
+	rec.pos[1] = (s32)point.y;
+	point.x = point.y = 0.0f;
+	zrdr_findPNT2D(button, "TEXTOFFSET", &point);
+	rec.text_offset[0] = (s32)point.x;
+	rec.text_offset[1] = (s32)point.y;
+	zrdr_findint(button, "WIDTH", &rec.size[0], 1);
+	zrdr_findint(button, "HEIGHT", &rec.size[1], 1);
+	char* caption = zrdr_findstring(button, "CAPTION");
+	rec.caption = caption != NULL ? (u8)ZAnim.m_CurAnim->AddName(caption) : 255;
+	PopUpParseState(button, "ACTIVE", rec.image[0], rec.text_color[0]);
+	PopUpParseState(button, "NORMAL", rec.image[1], rec.text_color[1]);
+	PopUpParseState(button, "PRESSED", rec.image[2], rec.text_color[2]);
+}
+}
+
+C2DAnimCmdHdr * CPopUpDialog::ParseZAnimCmd(_zrdr *reader)
+{
+	/* 0x387c00: the POPUP node's command (208 bytes, timeless): POSITION, the CAPTION and
+	 * BACKGROUND (anim names), HEIGHT, WIDTH, XOFFSET, YOFFSET, SCALE, COLOR (128 grey),
+	 * CANCELLABLE, PROTECTED, and YESNO: its VALVE (made a type-2 valve now) and the YES / NO
+	 * buttons. ELF quirks kept: the +0x34 byte is cleared and then tested (the YESNO part
+	 * always runs); a missing CAPTION / BACKGROUND is name 0 (the first), not 255 */
+	_zui_popup_cmd* cmd = (_zui_popup_cmd*)_calloc(1, sizeof(_zui_popup_cmd), "zui_2d.cpp", 3512);
+	cmd->hdr.header.timeless = 1;
+	cmd->hdr.header.data_size = sizeof(_zui_popup_cmd);
+	PNT2D point = { 0.0f, 0.0f };
+	zrdr_findPNT2D(reader, "POSITION", &point);
+	cmd->position[0] = (s32)point.x;
+	cmd->position[1] = (s32)point.y;
+
+	if (char* caption = zrdr_findstring(reader, "CAPTION"))
+		cmd->caption = (u8)ZAnim.m_CurAnim->AddName(caption);
+
+	if (char* background = zrdr_findstring(reader, "BACKGROUND"))
+		cmd->background = (u8)ZAnim.m_CurAnim->AddName(background);
+
+	zrdr_findint(reader, "HEIGHT", &cmd->height, 1);
+	zrdr_findint(reader, "WIDTH", &cmd->width, 1);
+	zrdr_findint(reader, "XOFFSET", &cmd->xoffset, 1);
+	zrdr_findint(reader, "YOFFSET", &cmd->yoffset, 1);
+	zrdr_findreal(reader, "SCALE", &cmd->scale, 1);
+	PNT3D color = { 128.0f, 128.0f, 128.0f };
+	zrdr_findPNT3D(reader, "COLOR", &color);
+	cmd->color[0] = (s32)color.x;
+	cmd->color[1] = (s32)color.y;
+	cmd->color[2] = (s32)color.z;
+	cmd->unused34 = 0;
+	cmd->cancellable = zrdr_findtag(reader, "CANCELLABLE") != NULL;
+	cmd->protect = zrdr_findtag(reader, "PROTECTED") != NULL;
+
+	if (cmd->unused34 != 0)
+	{
+		cmd->yesno = false;
+		return &cmd->hdr;
+	}
+
+	_zrdr* yesno = zrdr_findtag(reader, "YESNO");
+
+	if (yesno == NULL)
+		return &cmd->hdr;
+
+	cmd->yesno = true;
+
+	if (char* valve = zrdr_findstring(yesno, "VALVE"))
+	{
+		cmd->valve = (u8)ZAnim.m_CurAnim->AddName(valve);
+		CValve::Create(valve, 0, (VALVE_TYPE)2);
+	}
+
+	PopUpParseButton(yesno, "YES", cmd->yes);
+	PopUpParseButton(yesno, "NO", cmd->no);
+	return &cmd->hdr;
+}
+
 
 /* port: no symbol - TickZAnimCmd's button part, inline twice in the ELF (YES, then NO): the
  * caption, size, scale, position and text offset, then the ACTIVE, NORMAL and PRESSED states
@@ -3307,24 +4572,38 @@ int CUIMapCtrl::GetZAnimCmdType(const char *name)
 	return GetUICommandType(NULL);
 }
 /* @socom-skeleton stub __ct__8ListItemFP5_zrdrRCQ23std54vector<P10ColumnData,Q23std24allocator<P10ColumnData>> */
-ListItem::ListItem(_zrdr *, const std::vector<ColumnData *, std::allocator<ColumnData *> > &)
+ListItem::ListItem(_zrdr *caption, const std::vector<ColumnData *, std::allocator<ColumnData *> > &columns)
+	: m_userData(NULL), m_width(0), m_height(0), m_enabled(true), m_impl(NULL)
 {
+	/* 0x385720 (an OPTIONS entry): a CAPTION array becomes a row of string cells */
+	if (caption != NULL && caption->IsArray() && caption->array->integer - 1 != 0)
+		m_impl = new CListItemArrayTypeImpl(caption, columns);
 }
 
 /* @socom-skeleton stub IsEnabled__17CListItemTypeImplFv */
 bool CListItemTypeImpl::IsEnabled()
 {
+	/* 0x385710 */
 	return true;
 }
 
 /* @socom-skeleton stub __dt__8ListItemFv */
 ListItem::~ListItem()
 {
+	/* 0x385670: USERDATA and the impl; the two action items are the members' */
+	if (m_userData != NULL)
+		_free(m_userData, "zui_2d.cpp", 4524);
+
+	m_userData = NULL;
+
+	if (m_impl != NULL)
+		delete m_impl;
 }
 
 /* @socom-skeleton stub Finish__17CListItemTypeImplFv */
 void CListItemTypeImpl::Finish()
 {
+	/* 0x385660: empty in the ELF */
 }
 
 /* @socom-skeleton stub SetSequenceTime__17CListItemTypeImplFff */
@@ -3336,28 +4615,53 @@ float CListItemTypeImpl::SetSequenceTime(float time, float) /* 0x385650 returns 
 /* @socom-skeleton stub __dt__17CListItemTypeImplFv */
 CListItemTypeImpl::~CListItemTypeImpl()
 {
+	/* 0x385600: nothing of its own */
 }
 
 /* @socom-skeleton stub __dt__Q220@unnamed@zui_2d_cpp@23CListItemStringTypeImplFv */
 namespace {
 CListItemStringTypeImpl::~CListItemStringTypeImpl()
 {
+	/* 0x385510: nothing of its own (~CRenderableString inline: the string's own font, the
+	 * UIVarMixin part, ~C2DString) */
 }
 }
 
 /* @socom-skeleton stub Tick__17CListItemTypeImplFf */
 void CListItemTypeImpl::Tick(float)
 {
+	/* 0x385500: empty in the ELF */
 }
 
 /* @socom-skeleton stub UpdateUIVar__8C2DClockFP11CUIVariable */
-void C2DClock::UpdateUIVar(CUIVariable *)
+void C2DClock::UpdateUIVar(CUIVariable *var)
 {
+	/* 0x3853f0: the attached variable's seconds (REAL truncated, INTEGER; else 0) as
+	 * "mm:ss" */
+	if (UIVarMixin::m_uivar == NULL || UIVarMixin::m_uivar != var)
+		return;
+
+	char buffer[768];
+	buffer[0] = '\0';
+	s32 seconds = 0;
+
+	if (var->type == ZRDR_REAL)
+		seconds = (s32)var->real;
+	else if (var->type == ZRDR_INTEGER)
+		seconds = var->integer;
+
+	sprintf(buffer, "%02d:%02d", seconds / 60, seconds % 60);
+	SetString(buffer);
+	UpdatePos();
 }
 
 /* @socom-skeleton stub SetMapOffset__17CRenderableStringFii */
-void CRenderableString::SetMapOffset(int, int) /* port: stub; 0x3853c0 stores (f32)x, (f32)y at +0x94/+0x98 and 0 at +0x9c */
+void CRenderableString::SetMapOffset(int x, int y)
 {
+	/* 0x3853c0: the string's offset from its node */
+	m_offset.x = (f32)x;
+	m_offset.y = (f32)y;
+	m_offset.z = 0.0f;
 }
 
 /* @socom-skeleton stub Tick__17CRenderableStringFf */
@@ -3369,4 +4673,6 @@ void CRenderableString::Tick(float dT) /* 0x3853b0 tail-calls C2DString::Tick */
 /* @socom-skeleton stub __dt__8C2DClockFv */
 C2DClock::~C2DClock()
 {
+	/* 0x3852c0: nothing of its own (~CRenderableString inline: the spec font, the UI
+	 * variable, ~C2DString) */
 }

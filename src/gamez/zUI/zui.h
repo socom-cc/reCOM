@@ -46,6 +46,7 @@
 
 #include "gamez/zTwoD/ztwod.h"
 #include "gamez/zWeapon/zweapon.h"
+#include "gamez/zSave/zsave.h" /* CSaveModule (CUIVarManager's save part) */
 /* @socom-skeleton decl forward */
 class ActionItem;
 class C2DAnimCmdHdr;
@@ -137,13 +138,14 @@ public:
 /* DWARF (32868 bytes): the variables by value (+0x0), a CSaveModule part (+0xc), the
  * current string table (+0x28), two string tables (+0x2c) and two 16 KB pack buffers
  * (+0x64) that CollectGarbage alternates between. */
-class CUIVarManager : public std::vector<CUIVariable>
+class CUIVarManager : public std::vector<CUIVariable>, public CSaveModule
 {
 public:
 	/* inline in __sinit_fts_mission.cpp (0x46ab70): table 0 current, 256 dormant variables.
-	 * port: the CSaveModule part (CSaveModule("CUIVarManager", theMemCard's manager) and its
-	 * vtables) is not modelled - the save/load of variables is not written. */
-	CUIVarManager() : m_currtab(0)
+	 * port deviation: the CSaveModule part is made with no save manager (the ELF passes the
+	 * memory card's, which registers the module); the port has no memory-card layer, so
+	 * nothing calls Serialize / UnSerialize (CSaveModule::SaveRdr is a zSave stub). */
+	CUIVarManager() : CSaveModule("CUIVarManager", NULL), m_currtab(0)
 	{
 		resize(256);
 	}
@@ -338,12 +340,21 @@ public:
 	/* @socom-skeleton end 8CTtySpec */
 };
 
-class CWrapSpec : public CDlgObjSpec
+/* no DWARF; a TEXT spec (48 bytes; inlined in GetObjectSpec 0x399670 and GetControlSpec 0x39a210)
+ * plus the wrapping box */
+class CWrapSpec : public CTextSpec
 {
 public:
-	f32 m_width;
-	s32 m_spacing;
-	f32 m_height;
+	/* port: no out-of-line ctor (inline in GetObjectSpec and GetControlSpec's SCROLLINGTEXT) */
+	CWrapSpec(_zrdr* reader) : CTextSpec(reader), m_width(0.0f), m_spacing(10), m_height(-1.0f)
+	{
+		zrdr_findreal(reader, "WIDTH", &m_width, 1);
+		zrdr_findint(reader, "SPACING", &m_spacing, 1);
+		zrdr_findreal(reader, "HEIGHT", &m_height, 1);
+	}
+	f32 m_width;    /* +0x24 WIDTH: line width */
+	s32 m_spacing;  /* +0x28 SPACING (10): line height */
+	f32 m_height;   /* +0x2c HEIGHT (-1: none) */
 	/* @socom-skeleton decl 9CWrapSpec */
 public:
 	virtual ~CWrapSpec() {}
@@ -356,9 +367,16 @@ public:
 class CTickerSpec : public CTextSpec
 {
 public:
-	f32 m_scrollSpeed;
-	f32 m_width;
-	f32 m_buffer;
+	/* port: no out-of-line ctor (inline in GetObjectSpec 0x399670; 48 bytes) */
+	CTickerSpec(_zrdr* reader) : CTextSpec(reader), m_scrollSpeed(0.0f), m_width(0.0f), m_buffer(0.0f)
+	{
+		zrdr_findreal(reader, "SCROLLSPEED", &m_scrollSpeed, 1);
+		zrdr_findreal(reader, "WIDTH", &m_width, 1);
+		zrdr_findreal(reader, "BUFFER", &m_buffer, 1);
+	}
+	f32 m_scrollSpeed;  /* +0x24 SCROLLSPEED */
+	f32 m_width;        /* +0x28 WIDTH */
+	f32 m_buffer;       /* +0x2c BUFFER */
 	/* @socom-skeleton decl 11CTickerSpec */
 public:
 	virtual ~CTickerSpec() {}
@@ -424,6 +442,8 @@ public:
 class CClockSpec : public CTextSpec
 {
 public:
+	/* port: no out-of-line ctor (inline in GetObjectSpec 0x399670: a TEXT spec, 36 bytes) */
+	CClockSpec(_zrdr* reader) : CTextSpec(reader) {}
 
 	/* @socom-skeleton decl 10CClockSpec */
 public:
@@ -642,9 +662,30 @@ public:
 };
 /* @socom-skeleton end 13CCheckBoxSpec */
 /* @socom-skeleton decl 12CCycleButton */
+/* One OPTIONS entry of a cycle button. No DWARF; 192 bytes (new in CCycleButtonSpec's ctor
+ * 0x3952e0, its ctor inline); its own vtable (__vt__9CycleItem: only the dtor). The spec makes
+ * them; the button made from the spec shows one at a time and deletes them. */
+class CycleItem : public CPlainBmp
+{
+public:
+	ActionItem m_action;    /* +0xa0 the option's anim (ParseButtonAnim): a BUTTON item runs on
+	                         * its button, an ONACTIVATE one when LEFT / RIGHT reaches it */
+	std::string m_picture;  /* +0xb0 PICTURE: the option's image */
+	virtual ~CycleItem() {} /* 0x39aca0 (emitted in zui_spec.cpp's unit; no fence) */
+};
 class CCycleButton : public C2DButton
 {
 public:
+	/* no DWARF; 1088 bytes (CCycleButtonSpec::CreateDisplayObj 0x39f8e0 constructs it inline:
+	 * selection 0, margins 0). Layout from LoadSpec (0x389e50), Draw (0x389f40), HandlePad
+	 * (0x38a090) and the dtor (0x38a420). */
+	CCycleButton() : m_selection(0)
+	{
+		m_margin.x = m_margin.y = 0;
+	}
+	s32 m_selection;  /* +0x410 the option shown; LEFT / RIGHT cycle it (wrapping) */
+	C2D m_options;    /* +0x414 the spec's CycleItem objects (owned) */
+	IPNT2D m_margin;  /* +0x430 XMARGIN / YMARGIN: the pictures' inset in the button */
 	virtual ~CCycleButton();
 	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
 	virtual bool HandlePad(const CPad *, int);
@@ -655,6 +696,11 @@ public:
 class CCycleButtonSpec : public CButtonSpec
 {
 public:
+	/* no DWARF; 252 bytes (Copy 0x39f9b0): a button spec plus the options (the CycleItem
+	 * pointers are shared by Copy and left alone by the dtor, as the ELF: the button made
+	 * from the spec deletes them) */
+	IPNT2D m_margin;                     /* +0xe8 XMARGIN, YMARGIN, MARGIN */
+	std::vector<CycleItem*> m_options;   /* +0xf0 OPTIONS */
 	virtual ~CCycleButtonSpec();
 	virtual CDlgObjSpec * Copy();
 	virtual C2D * CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
@@ -707,6 +753,16 @@ public:
 class CHandlerButtonSpec : public CButtonSpec
 {
 public:
+	/* no DWARF; 236 bytes (Copy 0x3a0210): a button spec plus one SUBORDINATE control (a
+	 * design object of its own, deleted by the dtor 0x3a0270) */
+	CDesignDlgObj* m_child;  /* +0xe8 SUBORDINATE */
+	/* port: no out-of-line copy ctor (inline in Copy 0x3a0210). ELF quirk not kept: the ELF
+	 * copies the child pointer and the original's dtor deletes it (as CRadioStripSpec); the
+	 * port copies the child. */
+	CHandlerButtonSpec(CHandlerButtonSpec& other) : CButtonSpec(other)
+	{
+		m_child = other.m_child != NULL ? new CDesignDlgObj(*other.m_child) : NULL;
+	}
 	virtual ~CHandlerButtonSpec();
 	virtual CDlgObjSpec * Copy();
 	virtual C2D * CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
@@ -766,6 +822,13 @@ public:
 class CScrollSpec : public CWrapSpec
 {
 public:
+	/* port: no out-of-line ctor (inline in GetControlSpec 0x39a210: a wrapped-text spec, 52
+	 * bytes) */
+	CScrollSpec(_zrdr* reader) : CWrapSpec(reader), m_displayableLines(0)
+	{
+		zrdr_findint(reader, "DISPLAYABLELINES", &m_displayableLines, 1);
+	}
+	s32 m_displayableLines;  /* +0x30 DISPLAYABLELINES */
 	virtual ~CScrollSpec();
 	virtual CDlgObjSpec * Copy();
 	virtual C2D * CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
@@ -845,6 +908,13 @@ public:
 class CScrollText : public CWrappedText
 {
 public:
+	/* no DWARF; 204 bytes (CScrollSpec::CreateDisplayObj 0x3a03f0 constructs it inline);
+	 * layout from LoadSpec (0x389390), Tick (0x3892c0), HandlePad (0x389210), Draw (0x3893f0) */
+	CScrollText() : m_unusedBC(false), m_topLine(0), m_displayableLines(0), m_scroll(0.0f) {}
+	bool m_unusedBC;          /* +0xbc cleared by the ctor; no reader seen */
+	s32 m_topLine;            /* +0xc0 the line at the top: UP / DOWN move it */
+	s32 m_displayableLines;   /* +0xc4 DISPLAYABLELINES: the window's height in lines */
+	f32 m_scroll;             /* +0xc8 eased to m_topLine lines (30 pixels a second) */
 	virtual ~CScrollText();
 	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
 	virtual void Tick(float);
@@ -946,6 +1016,12 @@ public:
 class CTickerTapeText : public CRenderableString
 {
 public:
+	/* no DWARF; 188 bytes (CTickerSpec::CreateDisplayObj 0x39fa30 constructs it inline) */
+	CTickerTapeText() : m_scrollSpeed(0.0f), m_width(0.0f), m_scroll(0.0f), m_buffer(0.0f) {}
+	f32 m_scrollSpeed;  /* +0xac SCROLLSPEED */
+	f32 m_width;        /* +0xb0 WIDTH */
+	f32 m_scroll;       /* +0xb4 the text's offset, back to 0 past half its length (the text is doubled) */
+	f32 m_buffer;       /* +0xb8 BUFFER */
 	virtual ~CTickerTapeText();
 	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
 	virtual void Tick(float);
@@ -953,10 +1029,96 @@ public:
 	void LoadSpec(const CTickerSpec &);
 };
 /* @socom-skeleton end 15CTickerTapeText */
-/* @socom-skeleton decl 10CUIListBox */
-class CUIListBox : public CPlainBmp
+/* One COLUMNS entry of a list box spec. No DWARF; 20 bytes (new in CUIListBoxSpec's ctor
+ * 0x3966b0); names from the reader keys. */
+class ColumnData
 {
 public:
+	ColumnData() : m_type(1), m_position(0), m_length(0), m_width(0), m_topOffset(0) {} /* inline (0x396eec) */
+	u8 m_type;        /* +0x0 1 text (default), 0 IMAGE, 2 TIMED_TEXT */
+	s32 m_position;   /* +0x4 POSITION: x in the row */
+	s32 m_length;     /* +0x8 IMAGE LENGTH */
+	s32 m_width;      /* +0xc IMAGE WIDTH */
+	s32 m_topOffset;  /* +0x10 TOP_OFFSET: y in the row */
+};
+
+class CListItemTypeImpl; /* zui_2d.cpp: what a list item shows (a string, an image, columns) */
+class ListItem;
+
+/* @socom-skeleton decl 10CUIListBox */
+/* no DWARF; 1536 bytes (CUIListBoxSpec::CreateDisplayObj 0x3964a0 constructs it inline).
+ * Layout from LoadSpec (0x38e2e0), Draw (0x38c9a0), HandlePad (0x38d010), Tick (0x38d5e0),
+ * UpdateUIVar (0x38d8a0) and the dtor (0x38de90); names from the spec's reader keys.
+ * port: the ELF's UIVarMixin part is CPlainBmp's (+0x80, as ztwod.h notes); the port's
+ * CPlainBmp has none, so the list box takes UIVarMixin as a second base (the variable's
+ * UpdateDependents must reach UpdateUIVar). */
+class CUIListBox : public CPlainBmp, public UIVarMixin
+{
+public:
+	/* port: no out-of-line ctor (inline in CreateDisplayObj 0x3964a0): all zero, the
+	 * highlight's alpha 50; then SetCanHandleInput(true) there. port: the ELF leaves the
+	 * colours, margins, spacing and textures to LoadSpec; zeroed here too */
+	CUIListBox() : m_font(NULL), m_leftMargin(0), m_topMargin(0), m_spacing(0), m_selOffset(0),
+		m_scroll(0.0f), m_topRow(0), m_ownFont(NULL), m_scale(0.0f), m_pressedTime(0.0f),
+		m_highlightAlpha(50), m_reloc(NULL), m_noSelect(false), m_autoScroll(false), m_padHog(false),
+		m_normalTex(NULL), m_pressedTex(NULL), m_activeTex(NULL), m_highlightTex(NULL), m_activeBgTex(NULL),
+		m_seqDelay(0.0f), m_seqInterval(0.0f), m_activeTime(0.0f), m_glowMin(0.0f), m_glowMax(0.0f),
+		m_glowTime(0.0f), m_downTex(NULL), m_upTex(NULL), m_selection(0), m_numCommands(0)
+	{
+		m_activeRange[0] = m_activeRange[1] = 0.0f;
+		m_activeBgOffset.x = m_activeBgOffset.y = m_activeBgSize.x = m_activeBgSize.y = 0;
+		m_downOffset.x = m_downOffset.y = m_downSize.x = m_downSize.y = 0;
+		m_upOffset.x = m_upOffset.y = m_upSize.x = m_upSize.y = 0;
+		m_normalColor = m_activeColor = m_pressedColor = m_color = CPnt3D::zero;
+	}
+	C2DFont* m_font;                     /* +0xa0 the menu font, or the spec FONT */
+	s32 m_leftMargin;                    /* +0xa4 LEFT_MARGIN */
+	s32 m_topMargin;                     /* +0xa8 TOP_MARGIN */
+	s32 m_spacing;                       /* +0xac SPACING: row height */
+	s32 m_selOffset;                     /* +0xb0 the selected row's y in the window */
+	f32 m_scroll;                        /* +0xb4 the rows' y offset, eased to -m_topRow rows */
+	s32 m_topRow;                        /* +0xb8 rows scrolled off above the window */
+	C2DFont* m_ownFont;                  /* +0xbc the spec FONT (new; deleted here) */
+	std::list<ListItem*> m_items;        /* +0xc0 the rows: the spec OPTIONS, then the UI variable's */
+	f32 m_scale;                         /* +0xcc SCALE: the rows' text scale */
+	f32 m_pressedTime;                   /* +0xd0 0.2 s after SetPressed (counted down while scrolling) */
+	std::vector<ColumnData*> m_columns;  /* +0xd4 the spec COLUMNS (the same objects; deleted here) */
+	s32 m_highlightAlpha;                /* +0xe0 50 normal, 100 active / pressed: the selected row's alpha */
+	zdb::CTextureRelocMgr* m_reloc;      /* +0xe4 */
+	bool m_noSelect;                     /* +0xe8 NOSELECT: no highlight bar */
+	bool m_autoScroll;                   /* +0xe9 AUTOSCROLL: a new list selects its last row */
+	bool m_padHog;                       /* +0xea PADHOG: keeps UP / DOWN / LEFT / RIGHT at the ends */
+	zdb::CTexHandle* m_normalTex;        /* +0xec NORMAL: the highlight bar's image per state */
+	zdb::CTexHandle* m_pressedTex;       /* +0xf0 PRESSED */
+	zdb::CTexHandle* m_activeTex;        /* +0xf4 ACTIVE */
+	zdb::CTexHandle* m_highlightTex;     /* +0xf8 the bar's current image */
+	zdb::CTexHandle* m_activeBgTex;      /* +0xfc ACTIVE_BACKGROUND IMAGE */
+	IPNT2D m_activeBgOffset;             /* +0x100 ACTIVE_BACKGROUND OFFSET */
+	IPNT2D m_activeBgSize;               /* +0x108 ACTIVE_BACKGROUND SIZE */
+	IPNT2D m_downOffset;                 /* +0x110 DOWN_ARROW OFFSET */
+	IPNT2D m_downSize;                   /* +0x118 DOWN_ARROW SIZE */
+	IPNT2D m_upOffset;                   /* +0x120 UP_ARROW OFFSET */
+	IPNT2D m_upSize;                     /* +0x128 UP_ARROW SIZE */
+	CPnt3D m_normalColor;                /* +0x130 NORMAL_COLOR: the rows' colour */
+	CPnt3D m_activeColor;                /* +0x13c ACTIVE_COLOR: the selected row's while active */
+	CPnt3D m_pressedColor;               /* +0x148 PRESSED_COLOR */
+	CPnt3D m_color;                      /* +0x154 the selected row's colour now */
+	f32 m_seqDelay;                      /* +0x160 SEQUENCE_DELAY: the first timed row's start */
+	f32 m_seqInterval;                   /* +0x164 SEQUENCE_INTERVAL: between timed rows */
+	f32 m_activeRange[2];                /* +0x168 ACTIVE_COLOR RANGE: the selected row's glow */
+	f32 m_activeTime;                    /* +0x170 ACTIVE_COLOR TIME */
+	f32 m_glowMin;                       /* +0x174 the glow now (0: none) */
+	f32 m_glowMax;                       /* +0x178 */
+	f32 m_glowTime;                      /* +0x17c */
+	zdb::CTexHandle* m_downTex;          /* +0x180 DOWN_ARROW TEXTURE */
+	zdb::CTexHandle* m_upTex;            /* +0x184 UP_ARROW TEXTURE */
+	s32 m_selection;                     /* +0x188 the selected row */
+	CPlainBmp m_highlight;               /* +0x190 the highlight bar */
+	CPlainBmp m_activeBg;                /* +0x230 shown while the list is active */
+	CPlainBmp m_upArrow;                 /* +0x2d0 shown while rows are scrolled off above */
+	CPlainBmp m_downArrow;               /* +0x370 shown while rows are below the window */
+	ActionItem m_commands[30];           /* +0x410 ANIMATIONS */
+	s32 m_numCommands;                   /* +0x5f0 */
 	virtual ~CUIListBox();
 	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
 	virtual void Tick(float);
@@ -975,6 +1137,41 @@ public:
 class CUIListBoxSpec : public CImageSpec
 {
 public:
+	/* no DWARF; 216 bytes (Copy 0x39fdb0); layout from the ctor (0x3966b0), the dtor
+	 * (0x3a1860) and CUIListBox::LoadSpec; names from the reader keys. The columns and the
+	 * OPTIONS items are made here and owned by the list box made from the spec (its dtor
+	 * deletes them); this dtor and Copy leave the pointers alone, as the ELF. */
+	s32 m_spacing;                         /* +0x1c SPACING */
+	f32 m_scale;                           /* +0x20 SCALE */
+	s32 m_leftMargin;                      /* +0x24 LEFT_MARGIN */
+	s32 m_topMargin;                       /* +0x28 TOP_MARGIN */
+	bool m_hasFont;                        /* +0x2c FONT given */
+	bool m_autoScroll;                     /* +0x2d AUTOSCROLL */
+	bool m_noSelect;                       /* +0x2e NOSELECT */
+	bool m_padHog;                         /* +0x2f PADHOG */
+	std::string m_font;                    /* +0x30 FONT */
+	std::string m_active;                  /* +0x34 ACTIVE: the highlight bar's texture per state */
+	std::string m_normal;                  /* +0x38 NORMAL */
+	std::string m_pressed;                 /* +0x3c PRESSED */
+	std::string m_activeBg;                /* +0x40 ACTIVE_BACKGROUND IMAGE */
+	std::string m_upArrow;                 /* +0x44 UP_ARROW TEXTURE */
+	std::string m_downArrow;               /* +0x48 DOWN_ARROW TEXTURE */
+	IPNT2D m_activeBgOffset;               /* +0x4c ACTIVE_BACKGROUND OFFSET */
+	IPNT2D m_activeBgSize;                 /* +0x54 ACTIVE_BACKGROUND SIZE */
+	IPNT2D m_upOffset;                     /* +0x5c UP_ARROW OFFSET */
+	IPNT2D m_upSize;                       /* +0x64 UP_ARROW SIZE */
+	IPNT2D m_downOffset;                   /* +0x6c DOWN_ARROW OFFSET */
+	IPNT2D m_downSize;                     /* +0x74 DOWN_ARROW SIZE */
+	std::vector<ColumnData*> m_columns;    /* +0x7c COLUMNS (one default column without) */
+	PNT3D m_normalColor;                   /* +0x88 NORMAL_COLOR (128 grey) */
+	PNT3D m_activeColor;                   /* +0x94 ACTIVE_COLOR (128 grey) */
+	PNT3D m_pressedColor;                  /* +0xa0 PRESSED_COLOR (128 grey) */
+	std::vector<ListItem*> m_options;      /* +0xac OPTIONS: fixed rows */
+	std::vector<ActionItem> m_animations;  /* +0xb8 ANIMATIONS */
+	f32 m_seqDelay;                        /* +0xc4 SEQUENCE_DELAY (0) */
+	f32 m_seqInterval;                     /* +0xc8 SEQUENCE_INTERVAL (0) */
+	f32 m_activeRange[2];                  /* +0xcc ACTIVE_COLOR RANGE */
+	f32 m_activeTime;                      /* +0xd4 ACTIVE_COLOR TIME */
 	virtual ~CUIListBoxSpec();
 	virtual CDlgObjSpec * Copy();
 	virtual C2D * CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
@@ -1027,6 +1224,16 @@ public:
 class ListItem
 {
 public:
+	/* no DWARF; 52 bytes (new in CUIListBoxSpec's ctor, CUIListBox::UpdateUIVar and the array
+	 * item's ctors, each with this default part inline); names from the reader keys */
+	ListItem() : m_userData(NULL), m_width(0), m_height(0), m_enabled(true), m_impl(NULL) {}
+	ActionItem m_action;        /* +0x0 the row's own button anim (OPTIONS entry: ParseButtonAnim) */
+	ActionItem m_focus;         /* +0x10 FOCUS_ANIM / FOCUS_ARG: run when UP selects the row */
+	char* m_userData;           /* +0x20 USERDATA (_strdup): the argument of the list's anims */
+	s32 m_width;                /* +0x24 an image cell: its column's WIDTH */
+	s32 m_height;               /* +0x28 its column's LENGTH */
+	bool m_enabled;             /* +0x2c a DISABLED cell clears it: CROSS runs nothing */
+	CListItemTypeImpl* m_impl;  /* +0x30 what the row shows (owned) */
 	ListItem(_zrdr *, const std::vector<ColumnData *, std::allocator<ColumnData *> > &);
 	~ListItem();
 };
