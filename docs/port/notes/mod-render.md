@@ -67,7 +67,7 @@ Callers from `xref.py` (jal) and `addrref.py` (vtables, static destructors).
   NODE", six CDIPolys, a `CParticleEx` (defined in zparticle.h) pointing back) and the dtor's deletes.
 - zVisual: `VuShadowMap` 0x30b860, `VuLightMap` 0x30ba40, `GetTextureSelectBlock` 0x30da60, `Write` 0x30d100 /
   0x30ee30 / 0x30f0f0 (bool now), `UpdateCentroid` 0x30d270, `ComputeBBox` 0x30d280 (empty in the ELF).
-- zRender: `RenderNodeShadow` 0x242b70, `RenderMeshShadow` 0x242920, `RenderLineWorld` 0x245930, `Uninit`
+- zRender: `RenderNodeShadow` 0x242b70, `RenderMeshShadow` 0x242920, `RenderLineWorld` 0x245930 (declared in zrender.h), `Uninit`
   0x245fa0, `~CPipe` 0x2462e0.
 - zGraph: `CGRoute` ctor / dtor / Append / Clear / PostProcess (0x20f7d0-0x20f910; a node list), `CGraph::FindEdge`
   0x20e7c0, `DeleteNode` 0x20eb10, `~CGraph` 0x20ed10, `BuildRoute` 0x20fa60 (bool), `BuildTree` 0x210010 (Dijkstra

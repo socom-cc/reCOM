@@ -246,6 +246,10 @@ public:
 
 /* the 8 corners of a box (Build__6CBBox8FRC5CBBox 0x244220, zrndr_pipe.cpp; no DWARF): the
    corner order of the asm, the same one CPipe::RenderNode builds inline */
+/* zrndr_pipe.cpp 0x245930: a world line clipped to the world camera's planes, drawn with its
+   two colours (ai DrawLine / LineTo, the grenade throw arc) */
+void RenderLineWorld(CPnt4D p0, CPnt4D p1, CPnt4D c0, CPnt4D c1);
+
 class CBBox8
 {
 public:
