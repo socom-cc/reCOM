@@ -477,6 +477,88 @@ void CSealCtrl::SetMenuState(MENU_STATE state)
     }
 }
 
+/* CDynGrenade: no DWARF class; 28 bytes (the copy DrawFunc<CDynGrenade> 0x2889a0 takes by
+ * value): the release point, the velocity and the throw's reach. Its inline members are
+ * emitted out of line here (ComputeMaxVel 0x2879f0, ComputeElevOfs 0x287980,
+ * ComputeTimeToImpact 0x287930); CZKit::TickExplosives (seal_kit.cpp) inlines the same
+ * throw. Gravity is 98 (y = -49 t^2). port: declared here, names invented */
+class CDynGrenade
+{
+public:
+	CPnt3D m_pos;  /* +0x00 */
+	CPnt3D m_vel;  /* +0x0c */
+	f32 m_range;   /* +0x18 the horizontal reach (not read by DrawFunc) */
+
+	/* the point at flight time t (inline in DrawFunc) */
+	void PosAt(f32 t, CPnt3D *out) const
+	{
+		CPnt3D g(0.0f, -49.0f * (t * t), 0.0f);
+		CPnt3D v;
+		m_vel.Scale(t, &v);
+		CPnt3D p;
+		m_pos.Add(&v, &p);
+		p.Add(&g, out);
+	}
+
+	/* 0x2879f0: the speed that carries a 45 degree throw dist far from height; the time out */
+	static f32 ComputeMaxVel(f32 dist, f32 height, f32 *time)
+	{
+		static const f32 tan_45 = 1.0f;        /* tan_45$localstatic3 */
+		static const f32 cos_45 = 0.70710725f; /* cos_45$localstatic5 (0x3f3504f7) */
+		f32 t = sqrtf(2.0f * (height + tan_45 * dist) / 98.0f);
+		f32 speed = dist / (cos_45 * t);
+
+		if (time != NULL)
+			*time = t;
+
+		return speed;
+	}
+
+	/* 0x287980: 10 to 12 degrees more elevation with the power */
+	static f32 ComputeElevOfs(f32 power)
+	{
+		static const f32 elev_offset_min = 10.0f; /* elev_offset_min$localstatic3 */
+		static const f32 elev_offset_max = 12.0f; /* elev_offset_max$localstatic5 */
+		return 0.017453292f * (elev_offset_min * (1.0f - power) + elev_offset_max * power);
+	}
+
+	/* 0x287930: the later root of -49 t^2 + vy t + height, else 0 */
+	static f32 ComputeTimeToImpact(f32 vy, f32 height)
+	{
+		f32 r1;
+		f32 r2;
+		return ai::quadratic(-49.0f, vy, height, r1, r2) ? (r1 < r2 ? r2 : r1) : 0.0f;
+	}
+};
+
+/* ai::DrawFunc<CDynGrenade> 0x2889a0: the throw's path from t0 to t1 in steps lines, the
+ * opacity blended along it (SetLineFuncOpacity) and put back after. The type is not used. */
+template <class T>
+void ai::DrawFunc(ai::LINE_TYPE, f32 t0, f32 t1, u32 steps, T func)
+{
+	if (steps == 0 || t1 <= t0)
+		return;
+
+	f32 opacity = GetLineOpacity();
+	CPnt3D p;
+	func.PosAt(t0, &p);
+	SetLineFuncOpacity(0.0f);
+	MoveTo(p);
+	f32 dt = 1.0f / (f32)steps;
+
+	for (f32 u = dt; u < 1.0f; u += dt)
+	{
+		SetLineFuncOpacity(u);
+		func.PosAt(t0 * (1.0f - u) + t1 * u, &p);
+		LineTo(p);
+	}
+
+	SetLineFuncOpacity(1.0f);
+	func.PosAt(t1, &p);
+	LineTo(p);
+	SetLineOpacity(opacity);
+}
+
 /* @socom-skeleton stub PostTick__9CSealCtrlFf */
 void CSealCtrl::PostTick(float dT)
 {
@@ -496,13 +578,66 @@ void CSealCtrl::PostTick(float dT)
 	 * flight time to the ground (ai::quadratic, gravity -49, end_time_scale 2) and a yellow
 	 * (0.78, 0.78, 0) line of step_count steps fading 0.75 -> 0.1 (ai::DrawFunc<CDynGrenade>,
 	 * Push/PopLineColor, SetLineFuncOpacity). ELF: returns 1.
-	 * port: the arc is not written (CDynGrenade's inline helpers, ai::DrawFunc and the ai line
-	 * renderer, zRender RenderLineWorld and zTwoD's 3D line, are not written yet) */
+	 * The arc runs from t = -1 to twice the time to the ground (from the hand's body-space
+	 * height: ELF quirk kept, ComputeTimeToImpact gets the release point's local y); the
+	 * throw itself is computed as CZKit::TickExplosives throws it (the 45 degree speed for
+	 * the stance's reach, the aim's elevation 0..55 degrees + 10..12 by power, 30..100% of
+	 * the speed, do_adjust's re-aim at the reach). */
 	SensorTick(dT);
-	(void)step_count;
-	(void)start_opacity;
-	(void)end_opacity;
-	(void)end_time_scale;
+
+	if (step_count == 0 || !m_throwing || m_justthrew)
+		return;
+
+	CZSealBody *seal = static_cast<CZSealBody *>(m_entity);
+	f32 power = m_trigger_power;
+	const throw_params &params = seal->GetDynamics()->m_throw_params;
+	f32 reach = seal->m_state == 0 ? params.max_distance_stand : params.max_distance_crouch;
+	AnimType anim;
+	f32 a0;
+	f32 a1;
+	CPnt3D release;
+	seal->GetThrowAnim(power, anim, a0, a1, release);
+	f32 height = release.y;
+	zdb::CNode *node = seal->m_node;
+	f32 time = 0.0f;
+	f32 maxvel = CDynGrenade::ComputeMaxVel(reach, height, &time);
+	f32 elev = asinf(seal->m_aim_goal.y);
+	saturate<f32>(elev, 0.0f, 0.95993114f); /* min_elev / max_elev$...Initalize__11CDynGrenade (0 / 55 degrees) */
+	elev += CDynGrenade::ComputeElevOfs(power);
+	f32 s = sinf(elev);
+	f32 c = cosf(elev);
+	f32 speed = 0.3f * maxvel * (1.0f - power) + maxvel * power;
+	f32 r1;
+	f32 r2;
+	f32 t = ai::quadratic(-49.0f, speed * s, height, r1, r2) ? (r1 < r2 ? r2 : r1) : 0.0f;
+	CDynGrenade grenade;
+	f32 dist = speed * c * t;
+	grenade.m_range = dist;
+	CPnt3D dir;
+	/* do_adjust$localstatic5$Initalize__11CDynGrenade: set on first use, never cleared */
+	speed = sqrtf(release.x * release.x + release.z * release.z + dist * dist + 2.0f * dist * release.z);
+	saturate<f32>(speed, 0.0f, maxvel); /* @2301 (0) */
+	dir.x = -release.x;
+	dir.y = 0.0f;
+	dir.z = -(dist + release.z);
+	dir.Normalize();
+	ai::elevate(dir, s, c);
+	node->m_matrix.Rotate(&dir, &dir, 1);
+	CPnt3D from;
+	node->m_matrix.Transform(&release, &from, 1);
+	grenade.m_pos = from;
+	dir.Scale(speed, &grenade.m_vel);
+	f32 r3;
+	f32 r4;
+	f32 tland = ai::quadratic(-49.0f, grenade.m_vel.y, release.y, r3, r4) ? (r3 < r4 ? r4 : r3) : 0.0f;
+	f32 impact = CDynGrenade::ComputeTimeToImpact(grenade.m_vel.y, release.y);
+	CPnt3D land; /* ELF: computed and not used */
+	grenade.PosAt(impact, &land);
+	CPnt3D color(0.78f, 0.78f, 0.0f);
+	ai::PushLineColor(color);
+	ai::SetLineFuncOpacity(start_opacity, end_opacity);
+	ai::DrawFunc((ai::LINE_TYPE)0, -1.0f, tland * end_time_scale, (u32)step_count, grenade);
+	ai::PopLineColor();
 }
 
 /* @socom-skeleton stub Tick__9CSealCtrlFf */
@@ -1416,17 +1551,19 @@ void CSealCtrl::PerformCollisionActions()
 /* @socom-skeleton stub PerformReticleActions__9CSealCtrlFv */
 void CSealCtrl::PerformReticleActions()
 {
-	/* 0x2851f0 (SampleActionAvailable): the team orders FOLLOW (14) and HOLD POSITION (15)
-	 * when unit 17 allows them for the seal; v0 = any action, or a seal under the reticule
-	 * (single player). port: void (no caller reads v0); the unit orders are not offered:
-	 * CSealUnit::AllowCommand is declared void (the ELF tests v0) and no units exist in the
-	 * port (CSealUnit::Create / CreateSinglePlayerUnits are unwritten) */
+	/* 0x2851f0 (SampleActionAvailable): the escortee orders FOLLOW (14) and HOLD POSITION
+	 * (15) when unit 17 allows them for the seal; v0 = any action, or a seal under the
+	 * reticule (single player). port: void (no caller reads v0) */
 	CZSealBody *seal = static_cast<CZSealBody *>(m_entity);
 	CSealUnit *unit = CSealUnit::GetUnitByTeam(17);
 
 	if (unit != NULL)
 	{
-		/* port: not written (see above): AllowCommand(seal, 4 / 5, NULL) -> mask 14 / 15 */
+		if (unit->AllowCommand(seal, CMD_FOLLOW, NULL))
+			seal->ActionAvailableMask(14, true);
+
+		if (unit->AllowCommand(seal, CMD_HOLDPOS, NULL))
+			seal->ActionAvailableMask(15, true);
 	}
 
 	if (!theNetwork.m_bNetwork)
@@ -1720,11 +1857,21 @@ void CSealCtrl::OnActionButton()
 	{
 		seal->ExecuteAction_CQBAttack(m_victimbody);
 	}
-	else if (selected & 0xc000)
+	else if (selected & 0x4000)
 	{
-		/* port: not written: unit 17's AllowCommand(seal, 4 / 5, NULL) then
-		 * IssueCommand(ftsGetPlayer(), 4 / 5, NULL, false); AllowCommand is declared void
-		 * and PerformReticleActions never offers these */
+		/* 0x2849e4: the escortees (unit 17) follow the player */
+		CSealUnit *unit = CSealUnit::GetUnitByTeam(17);
+
+		if (unit->AllowCommand(seal, CMD_FOLLOW, NULL))
+			unit->IssueCommand(ftsGetPlayer(), CMD_FOLLOW, NULL, false);
+	}
+	else if (selected & 0x8000)
+	{
+		/* 0x284a50: the escortees hold their position */
+		CSealUnit *unit = CSealUnit::GetUnitByTeam(17);
+
+		if (unit->AllowCommand(seal, CMD_HOLDPOS, NULL))
+			unit->IssueCommand(ftsGetPlayer(), CMD_HOLDPOS, NULL, false);
 	}
 	else if (selected & 0x10000)
 	{

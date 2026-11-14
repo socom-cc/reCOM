@@ -207,8 +207,17 @@ CValve* CValve::Create(const char* name, VALVE_TYPE type)
 }
 
 /* @socom-skeleton stub Destroy__6CValveFP6CValve */
-void CValve::Destroy(CValve *)
+void CValve::Destroy(CValve *valve)
 {
+	/* 0x2f6860 (~CNodeAction): the valve becomes temporary (type 2: Reset / Close give it
+	   back to the pool) and loses its callbacks */
+	if (valve == NULL)
+		return;
+
+	if (valve->m_type != (u32)VALVE_TYPE::VTYPE_TEMP)
+		valve->m_type = (u32)VALVE_TYPE::VTYPE_TEMP;
+
+	valve->DeleteCallbacks();
 }
 
 /* @socom-skeleton body GetByName__6CValveFPCc */

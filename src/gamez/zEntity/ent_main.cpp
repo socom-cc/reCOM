@@ -438,6 +438,7 @@ void CEntity::SetDisplayName(const char* name)
 /* @socom-skeleton stub ResetToInitialState__7CEntityFv */
 void CEntity::ResetToInitialState()
 {
+	/* 0x1ee6e0: empty in the ELF (jr ra) */
 }
 
 /* @socom-skeleton body OnMissionStart__7CEntityFv */
@@ -490,13 +491,16 @@ CPnt3D * CEntity::GetTargetPosW(CPnt3D *pos)
 }
 
 /* @socom-skeleton stub UpdateAiMapLoc__7CEntityFRb */
-void CEntity::UpdateAiMapLoc(bool &)
+void CEntity::UpdateAiMapLoc(bool &changed)
 {
+	/* 0x1ee3e0: no AI map location for a plain entity: not changed */
+	changed = false;
 }
 
 /* @socom-skeleton stub OnRecycleEntity__7CEntityFP7CEntity */
 void CEntity::OnRecycleEntity(CEntity *)
 {
+	/* 0x1ee3d0: empty in the ELF (jr ra) */
 }
 
 /* @socom-skeleton body OnDeath__7CEntityFv */

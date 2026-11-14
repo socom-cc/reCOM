@@ -24,6 +24,10 @@
 
 /* @socom-skeleton decl include */
 #include "gamez/zReader/zrdr.h"
+#include <stdlib.h> /* atol (ParseValveName) */
+#include <string.h> /* strncmp */
+#include "gamez/zReader/zrdr_local.h" /* CRdrEditor (Serialize) */
+#include "gamez/zSystem/zsys.h" /* _free */
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
 struct _zanim_cmd_hdr;
@@ -32,6 +36,8 @@ struct _zanim_cmd_hdr;
 /* @socom-skeleton stub debugValve__FP6CValveb */
 void debugValve(CValve *, bool)
 {
+	/* 0x2f8730: walks the debug watch list (valveWatch$1141) comparing the valve's name with
+	   each entry and drops the results: no effect (the debug output is compiled out) */
 }
 
 /* @socom-skeleton body RegisterCommands__6CValveFv */
@@ -118,50 +124,23 @@ bool VALVE_CMD_DATA::Compare()
 /* @socom-skeleton body ParseOperator__6CValveFPCc */
 OP_TYPE CValve::ParseOperator(const char* op)
 {
-	s32 cmp = 0;
-	OP_TYPE operation = OP_NONE;
+	/* 0x2f8170 (static: no this): "==" 2, "!=" 1, ">=" 5, "<=" 6, ">" 3, "<" 4, "=" 7,
+	   "+=" 8, "-=" 9, "*=" 10; "MOD", "NCH", "SET", "CLR" and anything else 0. The
+	   numbers are the ELF's (the OP_TYPE names follow the port's enum, which puts
+	   OP_CMP_EQUAL at 1) */
+	static const char *const ops[10] = { "==", "!=", ">=", "<=", ">", "<", "=", "+=", "-=", "*=" };
+	static const u32 values[10] = { 2, 1, 5, 6, 3, 4, 7, 8, 9, 10 };
 
-	if (op != 0)
+	if (op == NULL)
+		return OP_NONE;
+
+	for (u32 i = 0; i < 10; i++)
 	{
-		if (strcmp(op, "==") == 0)
-		{
-			operation = OP_CMP_EQUAL;
-		}
-		else if (strcmp(op, "!="))
-		{
-			operation = OP_CMP_NOTEQUAL;
-		}
-		else if (strcmp(op, ">="))
-		{
-			operation = OP_CMP_GTHANEQ;
-		}
-		else if (strcmp(op, "<="))
-		{
-			operation = OP_CMP_LTHANEQ;
-		}
-		else if (strcmp(op, ">"))
-		{
-			operation = OP_CMP_GTHAN;
-		}
-		else if (strcmp(op, "<"))
-		{
-			operation = OP_CMP_LTHAN;
-		}
-		else if (strcmp(op, "="))
-		{
-			operation = OP_EQUAL;
-		}
-		else if (strcmp(op, "-="))
-		{
-			operation = OP_DECREMENT;
-		}
-		else if (strcmp(op, "+="))
-		{
-			operation = OP_INCREMENT;
-		}
+		if (strcmp(op, ops[i]) == 0)
+			return (OP_TYPE)values[i];
 	}
 
-	return operation;
+	return OP_NONE;
 }
 
 /* @socom-skeleton stub CmdTickCmp__6CValveFP14_zanim_cmd_hdrPf */
@@ -172,13 +151,99 @@ bool CValve::CmdTickCmp(_zanim_cmd_hdr *header, float *)
 }
 
 /* @socom-skeleton stub ParseValveName__14VALVE_CMD_DATAFPCcRi */
-void VALVE_CMD_DATA::ParseValveName(const char *, int &)
+CValve *VALVE_CMD_DATA::ParseValveName(const char *name, int &index)
 {
+	/* 0x2f8070: "INPUT_VALVE<n>" is the anim's input valve n (index; 0 without a number), no
+	   valve; any other name is the valve of that name (created, type 2). The ELF then walks
+	   its debug watch list (valveWatch$1141) comparing names and drops the results; port:
+	   left out (no effect) */
+	if (name != NULL && strncmp(name, "INPUT_VALVE", 11) == 0)
+	{
+		index = 0;
+
+		if (strlen(name) >= 12)
+			index = (int)atol(name + 11);
+
+		return NULL;
+	}
+
+	return CValve::Create(name, (VALVE_TYPE)2);
 }
 
 /* @socom-skeleton stub CmdParseCmp__6CValveFP5_zrdr */
-_zanim_cmd_hdr * CValve::CmdParseCmp(_zrdr *)
+_zanim_cmd_hdr * CValve::CmdParseCmp(_zrdr *reader)
 {
+	/* 0x2f7930 (written, untested: the m8 scripts are compiled): the VALVE command's values:
+	   the valve (a name: the anim's valve of that name, or "INPUT_VALVE<n>": the anim's input
+	   n), an operator (alone: that compare with 0; none: "!=" 0), the operand (a number, or a
+	   valve as above). Flags: 0x1 the valve is an input, 0x2 it is a name index; 0x4 / 0x8 /
+	   0x10 the same for the operand. ELF quirks kept: the record's command type is left to
+	   the loader; the operand's name parse keeps the valve's input index when the operand is
+	   not an input itself (ParseValveName inlined without resetting it) */
+	_zanim_cmd_hdr *header = (_zanim_cmd_hdr *)_calloc(16, 1, "valve_main.cpp", 328);
+	header->data_size = 16;
+	VALVE_CMD_DATA *cmd = reinterpret_cast<VALVE_CMD_DATA *>(header + 1);
+	int index = -1;
+
+	if (reader == NULL)
+		return header;
+
+	u32 count = reader->IsArray() ? reader->array->integer - 1 : 0;
+	_zrdr *v = reader->array;
+
+	if (count == 0)
+		return header;
+
+	/* the inlined ParseValveName: an input index (index), else the valve */
+	auto parse = [&index](const char *name) -> CValve *
+	{
+		if (name != NULL && strncmp(name, "INPUT_VALVE", 11) == 0)
+		{
+			index = 0;
+
+			if (strlen(name) >= 12)
+				index = (int)atol(name + 11);
+
+			return NULL;
+		}
+
+		CValve *valve = CValve::Create(name, (VALVE_TYPE)2);
+		debugValve(valve, false);
+		return valve;
+	};
+	auto valveRef = [&index](CValve *valve) -> u32
+	{
+		/* port: NULL-tested (the ELF reads the name through it) */
+		return index != -1 ? (u32)index : valve != NULL ? (u32)ZAnim.m_CurAnim->AddValve(valve->m_name) : 0;
+	};
+
+	CValve *valve = parse(v[1].type == ZRDR_STRING ? v[1].string : NULL);
+	cmd->m_op = count == 1 ? 1 : (u8)CValve::ParseOperator(v[2].type == ZRDR_STRING ? v[2].string : NULL);
+	cmd->m_flags = (u8)((cmd->m_flags & ~0x3) | (index != -1 ? 0x1 : 0) | 0x2);
+	cmd->m_valve = valveRef(valve);
+
+	if (count < 3)
+	{
+		cmd->m_value = 0;
+		cmd->m_flags &= (u8)~0x1c;
+		return header;
+	}
+
+	_zrdr *operand = &v[3];
+
+	if (operand->type == ZRDR_STRING)
+	{
+		CValve *other = parse(operand->string);
+		cmd->m_value = valveRef(other);
+		cmd->m_flags = (u8)((cmd->m_flags & ~0x1c) | (index != -1 ? 0x4 : 0) | 0x8 | 0x10);
+	}
+	else
+	{
+		cmd->m_value = operand->type == ZRDR_INTEGER ? (u32)operand->integer : operand->type == ZRDR_REAL ? (u32)(s32)operand->real : 0;
+		cmd->m_flags &= (u8)~0x1c;
+	}
+
+	return header;
 }
 
 /* @socom-skeleton body __ct__6CValveFPCcUi10VALVE_TYPE */
@@ -199,6 +264,18 @@ CValve::CValve(const char* name, u32 value, VALVE_TYPE type)
 /* @socom-skeleton stub __dt__6CValveFv */
 CValve::~CValve()
 {
+	/* 0x2f7690: a heap name is freed (a pooled one only dropped), the callback entries
+	   deleted; the list follows with the members */
+	if (!m_name_pooled && m_name != NULL)
+		_free(m_name, "valve_main.cpp", 448);
+
+	m_name = NULL;
+	m_name_pooled = 0;
+
+	for (std::list<CValveCB *>::iterator it = m_callbacks.m_list.begin(); it != m_callbacks.m_list.end(); ++it)
+		delete *it;
+
+	m_callbacks.m_list.clear();
 }
 
 /* @socom-skeleton body AssignName__6CValveFPc */
@@ -233,9 +310,41 @@ void CValve::FreeName()
 /* @socom-skeleton stub Serialize__17CValveSaveManagerFi */
 void CValveSaveManager::Serialize(int)
 {
+	/* 0x2f73a0: the persistent valves (type 3) as a list of { NAME, VAL } saved as
+	   "PersistentValves" */
+	CRdrEditor editor;
+	editor.push(NULL);
+
+	for (std::list<CValve*>::iterator it = CValve::m_list.begin(); it != CValve::m_list.end(); ++it)
+	{
+		CValve *valve = *it;
+
+		if (valve->m_type != (u32)VALVE_TYPE::VTYPE_PERSIST)
+			continue;
+
+		editor.push(NULL);
+		editor.addSTRING("NAME", valve->m_name);
+		editor.addint("VAL", (s32)valve->m_value);
+		editor.pop();
+	}
+
+	editor.pop();
+	SaveRdr("PersistentValves", &editor);
 }
 
 /* @socom-skeleton stub UnSerialize__17CValveSaveManagerFPCcP8CRdrFilei */
-void CValveSaveManager::UnSerialize(const char *, CRdrFile *, int)
+void CValveSaveManager::UnSerialize(const char *, CRdrFile *rdr, int)
 {
+	/* 0x2f72b0: every { NAME, VAL } entry becomes a persistent valve with that value. ELF:
+	   a missing VAL leaves the stack word; port: 0 */
+	u32 count = rdr->IsArray() ? rdr->array->integer - 1 : 0;
+
+	for (u32 i = 0; i < count; i++)
+	{
+		_zrdr *entry = rdr->Get(i);
+		char *name = zrdr_findstring(entry, "NAME");
+		s32 value = 0;
+		zrdr_findint(entry, "VAL", &value, 1);
+		CValve::Create(name, (unsigned int)value, VALVE_TYPE::VTYPE_PERSIST);
+	}
 }

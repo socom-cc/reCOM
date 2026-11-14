@@ -20,13 +20,21 @@
 static unsigned char MultiplayerMsgStrings[28];
 
 /* @socom-skeleton stub m_list__8CAiDodge */
-int CAiDodge::m_list[3];
+CAiDodge::CList CAiDodge::m_list;
 
 /* @socom-skeleton stub Destroy__8CAiDodgeFv */
 void CAiDodge::Destroy()
 {
 	/* 0x2df040 (CMission::Close, ReOpen_Unload1): every dodge leaves the list and is deleted
-	 * (returns 1, or 0 when the list was empty).
-	 * port: not written - m_list is an untyped placeholder (int[3]) and nothing in the port
-	 * creates a dodge, so the list is empty */
+	 * (returns 1, or 0 when the list was empty; void here: the caller drops it). Nothing in
+	 * the ELF creates a dodge, so the list is always empty. The ELF frees the dodge with
+	 * operator delete (no destructor). */
+	while (!m_list.empty())
+	{
+		CAiDodge *dodge = m_list.front();
+		m_list.pop_front();
+
+		if (dodge != NULL)
+			operator delete(dodge);
+	}
 }

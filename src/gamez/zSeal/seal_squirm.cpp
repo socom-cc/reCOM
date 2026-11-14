@@ -33,6 +33,10 @@
 #include "gamez/zWeapon/zweapon.h"
 #include "zseal.h"
 #include <stdlib.h> /* rand (Rfloat draws) */
+#include <math.h> /* sinf, cosf (PreTick) */
+#include "gamez/zInput/zinput.h" /* CInput::m_pads, CPad (PreTick) */
+#include "gamez/zFTS/zfts.h" /* CCtrlrConfigs::GetPitchStickPosDilated (PreTick) */
+#include "gamez/zAI/zai.h" /* CAiTimer::infinite (PreTick) */
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
 /* port: STUN_TYPE is declared in gamez/zSeal/zseal.h */
@@ -127,7 +131,7 @@ void CSealCtrlSquirm::ResetToInitialState()
 }
 
 /* @socom-skeleton stub PreTick__15CSealCtrlSquirmFf */
-bool CSealCtrlSquirm::PreTick(float)
+bool CSealCtrlSquirm::PreTick(float dT)
 {
 	/* @socom-skeleton stub _hackPitchFactor$2295 */
 	static float _hackPitchFactor;
@@ -135,7 +139,122 @@ bool CSealCtrlSquirm::PreTick(float)
 	static int item_index;
 	/* @socom-skeleton stub star_scale$2314 */
 	static float star_scale;
-	/* 0x2e24f0 (1800 B) returns 1; port: stub (squirm mode is not written) */
+	/* 0x2e24f0: the squirm test controller (a debug seal that fires bursts, changes stance
+	   at random and strafes / circles). Pad: CROSS cycles the move mode (0 still, 1
+	   strafe, 2 a circle), L1 held + TRIANGLE gives the seal a normal CSealCtrl; the right
+	   stick pitches the aim. Bursts: the trigger is held while m_until > m_timer (m_until
+	   counts down; at 0 a new wait and hold are drawn); a stance (rand % 3) every
+	   m_unk_260 s; an empty kit that cannot reload stops moving and selects its next item
+	   with 0.1 s waits and 0.2 s bursts. Always 1. ELF quirk kept: the first of the two
+	   wait draws after the item change compares zero with zero (always the minimum). */
+	CPad *pad = (u32)m_padid < 2 ? CInput::m_pads[m_padid] : NULL;
+	CZSealBody *seal = static_cast<CZSealBody *>(m_entity);
+
+	if (pad != NULL)
+	{
+		if (pad->m_state[(u8)PAD_BUTTON::PAD_CROSS] == KEY_FALLING)
+			m_on = (u8)((m_on + 1) % 3);
+
+		if (pad->m_state[(u8)PAD_BUTTON::PAD_TRIGGER_L1] == KEY_DOWN && pad->m_state[(u8)PAD_BUTTON::PAD_TRIANGLE] == KEY_FALLING)
+		{
+			CSealCtrl *ctrl = new CSealCtrl();
+			CEntity *entity = m_entity;
+			entity->SetController(ctrl);
+			ctrl->m_entity = entity;
+			return true;
+		}
+
+		static bool init_hack = false; /* init$2296 */
+		if (!init_hack)
+		{
+			_hackPitchFactor = 1.0f;
+			init_hack = true;
+		}
+
+		TickAimPitch(dT, _hackPitchFactor * CCtrlrConfigs::GetPitchStickPosDilated(*pad));
+	}
+
+	seal->SetAimDirR(&CPnt3D::unit_nz, false);
+	seal->SetWeaponState((WEAPON_STATE)1);
+	bool fire = !(m_until <= m_timer);
+	m_until -= dT;
+	SetTrigger(fire);
+
+	if (m_until <= 0.0f)
+	{
+		m_timer = SquirmDraw(m_wait);
+		f32 hold = SquirmDraw(m_hold);
+		m_until = (f32)((double)m_timer + (double)hold);
+	}
+
+	bool stance = false;
+	if (m_unk_268 != CAiTimer::infinite)
+	{
+		m_unk_268 -= dT;
+		stance = m_unk_268 != CAiTimer::infinite && m_unk_268 <= 0.0f;
+		if (stance)
+			m_unk_268 = SquirmDraw(m_unk_260);
+	}
+
+	if (stance)
+	{
+		s32 r = rand() % 3;
+		if (r == 2 || r == 1 || r == 0)
+			seal->SetStance((SEAL_STATE)r);
+	}
+
+	CZKit *kit = &seal->m_kit;
+	if (!kit->CurMagHasAmmo() && !kit->Reload())
+	{
+		m_on = 0;
+		static bool init_item = false; /* init$2312 */
+		if (!init_item)
+		{
+			item_index = 0;
+			init_item = true;
+		}
+		kit->SetCurItemByIndex(++item_index);
+		m_hold.m_min = 0.2f;
+		m_hold.m_range = 0.0f;
+		m_wait.m_min = 0.1f;
+		m_wait.m_range = 0.0f;
+		m_timer = m_wait.m_min;
+		f32 hold = SquirmDraw(m_hold);
+		m_until = (f32)((double)m_timer + (double)hold);
+		m_timer = SquirmDraw(m_wait);
+		hold = SquirmDraw(m_hold);
+		m_until = (f32)((double)m_timer + (double)hold);
+	}
+
+	m_unk_240 += dT;
+	static bool init_star = false; /* init$2315 */
+	if (!init_star)
+	{
+		star_scale = 0.5f;
+		init_star = true;
+	}
+
+	switch (m_on)
+	{
+	case 0:
+		SetThrottle(0, 0.0f);
+		SetThrottle(2, 0.0f);
+		SetThrottle(1, 0.0f);
+		break;
+	case 1:
+		SetThrottle(0, 0.2f);
+		SetThrottle(2, 0.2f);
+		SetThrottle(1, 0.0f);
+		break;
+	case 2:
+	{
+		f32 s = sinf(m_unk_240);
+		f32 c = cosf(m_unk_240);
+		SetThrottle(0, s * star_scale);
+		SetThrottle(2, c * star_scale);
+		break;
+	}
+	}
 	return true;
 }
 

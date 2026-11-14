@@ -138,6 +138,7 @@
 #include "gamez/zFTS/zfts.h" /* theMission, ftsGetPlayer */
 #include "gamez/zCamera/zcam.h"
 #include "gamez/zNode/node_world.h"
+#include "gamez/zParticle/zparticle.h" /* CParticleEx, Particle::Props (ComputeVisibility) */
 
 /* @socom-skeleton stub diPoolSize */
 static int diPoolSize = 6;
@@ -1581,9 +1582,22 @@ float CSealCtrl::ComputeVisibility(zdb::DiIntersect *di, zdb::CNode *)
 			if (v->m_mat->m_volumetric)
 				op *= depth;
 		}
-		/* port: not written - a particle system's volume (ELF: its node's bbox volume x the
-		 * CParticleEx emitter's Props::m_visualDensity x depth); CParticleEx is not
-		 * declared in the port, the material's opacity is used as it is */
+		else
+		{
+			/* 0x2b0204: a particle system (a smoke cloud's box DI node): the node's bbox
+			 * volume x its emitter's visual density x depth, in place of the material's
+			 * opacity; unchanged without a CParticleEx, emitter or props */
+			zdb::CNode *node = v->m_hit->m_node;
+			CBBox *box = node->GetBBox();
+			CPnt3D size;
+			box->m_max.Sub(&box->m_min, &size);
+			f32 vol = size.z * (size.x * size.y);
+			CParticleEx *ex = node != NULL ? dynamic_cast<CParticleEx *>(node->m_nodeEx) : NULL;
+			Particle::Props *props = ex != NULL && ex->m_emitter != NULL ? ex->m_emitter->m_props : NULL;
+
+			if (props != NULL)
+				op = depth * (props->m_visualDensity * vol);
+		}
 
 		saturate<f32>(op, 0.0f, 1.0f);
 		return op;

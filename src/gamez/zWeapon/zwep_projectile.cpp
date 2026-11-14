@@ -812,8 +812,44 @@ bool CZProjectile::HandleBounce(zdb::IntersectStruct *hit, float dT, CPnt3D *end
 }
 
 /* @socom-skeleton stub HandleShotgunImpact__12CZProjectileFPQ23zdb15IntersectStructffP6CPnt3D */
-bool CZProjectile::HandleShotgunImpact(zdb::IntersectStruct *, float, float, CPnt3D *)
+bool CZProjectile::HandleShotgunImpact(zdb::IntersectStruct *hit, float, float distsq, CPnt3D *)
 {
+	/* 0x3185d0: a shotgun pellet's hit within the current range (squared): the hit node's
+	   extension is told (its virtual +0x8 with the hit and the projectile), then a bullet
+	   impact AI event (type 10) where it hit, its radius the weapon's impact radius times
+	   the material's impact radius factor, when that is over 1; always 0 (the pellet goes on) */
+	if (!(distsq <= m_currange * m_currange))
+		return false;
+
+	u32 index = hit->GetMaterial();
+
+	if (!(index < CMaterialExArray::m_materialex_list.size()))
+		index = 0;
+
+	CMaterialEx *material = CMaterialExArray::m_materialex_list[index];
+	zdb::CNode *node = hit->m_node;
+
+	if (node != NULL && node->m_nodeEx != NULL)
+		node->m_nodeEx->OnWeaponHit(node, hit, this);
+
+	CPnt3D at = hit->m_pos;
+
+	if (m_weapon == NULL)
+		return false;
+
+	f32 radius = m_weapon->GetImpactRadius() * material->m_impact_radius_mod;
+
+	if (radius <= 1.0f)
+		return false;
+
+	CAiEvent *ev = CAiEvent::Acquire();
+	ev->m_pos = at;
+	ev->m_rangeSq = radius * radius;
+	ev->m_duration = 0.1f;
+	ev->m_type = CAiEvent::AIE_WEPHIT;
+	ev->m_owner = m_shooterID;
+	CAiEvent::Create(ev);
+	return false;
 }
 
 /* @socom-skeleton stub HandleImpact__12CZProjectileFPQ23zdb15IntersectStructffP6CPnt3D */
@@ -1284,11 +1320,46 @@ bool CZProjectile::IsInRange(const CPnt3D *pos, float range)
 /* @socom-skeleton stub ReportGrenadeStatus__12CZProjectileFv */
 void CZProjectile::ReportGrenadeStatus()
 {
+	/* 0x3174f0: the player's thrown grenade (not a bullet or a shotgun shot: shot type 1 / 2)
+	   is copied to its network object (CZGrenadeState::UpdateLocalGrenade; nothing offline) */
+	if (!m_isplayer || (u8)m_shottype == 1 || (u8)m_shottype == 2)
+		return;
+
+	CZGrenadeState::UpdateLocalGrenade(this);
 }
 
 /* @socom-skeleton stub UpdateGrenade__12CZProjectileFP6CPnt3DP6CPnt3D13GRENADE_STATE */
-void CZProjectile::UpdateGrenade(CPnt3D *, CPnt3D *, GRENADE_STATE)
+void CZProjectile::UpdateGrenade(CPnt3D *pos, CPnt3D *vel, GRENADE_STATE state)
 {
+	/* 0x3173b0 (a remote grenade's network update): the position and velocity are taken
+	   and the model put there; state 2 (exploding) moves a projectile not yet past its
+	   flight to state 3, and a claymore (172) or C4 (153) model is hidden. State 3: nothing.
+	   ELF: v0 1 for state 3, else 0 (no caller reads it) */
+	if ((u8)state == 3)
+		return;
+
+	m_framestartpos = *pos;
+	m_frameendpos = *pos;
+	m_vel = *vel;
+
+	if ((u8)m_shottype == 2 || (u8)m_shottype == 1)
+		SetModelOrientation(true, pos);
+	else
+		SetModelOrientation(false, pos);
+
+	if ((u8)state != 2)
+		return;
+
+	u8 s = (u8)m_state;
+
+	if (s == 3 || s == 4 || s == 5 || s == 6)
+		return;
+
+	m_state = (decltype(m_state))3;
+	u8 id = (u8)m_weapon->m_ID;
+
+	if (id == 172 || id == 153)
+		m_instance->SetActive(false);
 }
 
 /* @socom-skeleton stub SetProjectileState__12CZProjectileF16PROJECTILE_STATEb */

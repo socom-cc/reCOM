@@ -1693,8 +1693,149 @@ void OrdersMenu::LoadTextures(zdb::CWorld *, C2DFont *font)
 }
 
 /* @socom-skeleton stub HandleRecoCmd__10OrdersMenuFiiiiPc */
-void OrdersMenu::HandleRecoCmd(int, int, int, int, char *)
+void OrdersMenu::HandleRecoCmd(int, int subject, int verb, int object, char *text)
 {
+	/* 0x176e60 (voice recognition: Tick / HandlePad): the recognized words fill the menu's
+	   columns from the current one (column 1: the subject is the verb, ...). An unknown
+	   triple restarts the recognizer on the column's tuples. With the menu on screen each
+	   word scrolls its column forward when it fits; without it, "surrender" / "get down" to
+	   the subject column make an AI event (10 / 11) at the player (22500 range squared,
+	   0.5 s), else the selection follows the words and a complete order is confirmed and
+	   issued to its unit. The recognizer restarts unless something was taken. */
+	was_reco_command = 1;
+	s32 col = m_selected_col;
+	s32 a = subject;
+	s32 b = verb;
+	s32 c = object;
+
+	if (col > 0)
+	{
+		c = verb;
+		b = subject;
+		a = -1;
+
+		if (col == 2)
+		{
+			c = subject;
+			b = -1;
+		}
+	}
+
+	s32 i = 0;
+
+	while (i < num_tuples && !(tuples[i].subjectID == a && tuples[i].verbID == b && tuples[i].objectID == c))
+		i++;
+
+	if (i == num_tuples)
+	{
+		SetupTuples(col);
+		recoStartRecognizing();
+		return;
+	}
+
+	RecoTuple *tuple = &tuples[i];
+	u8 send = tuple->send_command;
+	s32 vnum = tuple->vnum;
+	s32 onum = tuple->onum;
+	bool taken = true;
+
+	if (!m_no_menu)
+	{
+		bool go = true;
+
+		if (a >= 0)
+		{
+			if (col != 0)
+			{
+				go = false;
+			}
+			else
+			{
+				m_selected_row = tuple->snum;
+				taken = ScrollForward() != 0;
+			}
+		}
+
+		if (b >= 0 && go)
+		{
+			if (m_selected_col == 1 && vnum < m_size[1])
+			{
+				m_selected_row = vnum;
+				taken = ScrollForward() != 0;
+			}
+			else
+			{
+				go = false;
+			}
+		}
+
+		if (c >= 0 && go && m_selected_col == 2 && onum < m_size[2])
+		{
+			m_selected_row = onum;
+			taken = ScrollForward() != 0;
+		}
+
+		if (!taken)
+			recoStartRecognizing();
+
+		return;
+	}
+
+	s32 eventType = 0;
+
+	if (col == 0 && recoSurrenderSubjectNum == tuple->snum)
+		eventType = 10;
+
+	if (col == 0 && recoGetDownSubjectNum == tuple->snum)
+		eventType = 11;
+
+	if (eventType != 0)
+	{
+		CAiEvent *ev = CAiEvent::Acquire();
+		ev->m_type = eventType;
+		ev->m_duration = 0.5f;
+		ev->m_rangeSq = 22500.0f;
+		ev->m_visible = 0;
+		CZSealBody *player = ftsGetPlayer();
+		ev->m_pos = *player->GetPosW();
+		ev->m_owner = ftsGetPlayer()->m_id;
+		CAiEvent::Create(ev);
+		return;
+	}
+
+	if (m_selected_col == 0)
+	{
+		m_selected_row = tuple->snum;
+		m_selection[0] = tuple->snum;
+		m_selected_col = 1;
+	}
+
+	if (m_selected_col == 1 && b != -1)
+	{
+		m_selected_row = vnum;
+		m_selection[1] = vnum;
+
+		if (!send)
+			m_selected_col = 2;
+	}
+
+	if (m_selected_col == 2 && c != -1)
+	{
+		m_selected_row = onum;
+		m_selection[2] = onum;
+	}
+
+	if (send)
+	{
+		CZSealBody *player = ftsGetPlayer();
+		CSealUnit *unit = static_cast<CSealUnit *>(tuple->unit);
+
+		if (unit != NULL)
+		{
+			unit->ConfirmCommand(player, tuple->command, text);
+			unit->IssueCommand(player, tuple->command, tuple->data, false);
+		}
+	}
 }
 
 /* @socom-skeleton stub DoOrdersMenuCalculations__10OrdersMenuFv */

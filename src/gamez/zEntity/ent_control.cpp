@@ -21,6 +21,7 @@ CEntityCtrl::CEntityCtrl(s32)
 /* @socom-skeleton stub __dt__11CEntityCtrlFv */
 CEntityCtrl::~CEntityCtrl()
 {
+	/* 0x1f2050: nothing to destroy (the vtable and the delete only) */
 }
 
 /* @socom-skeleton stub PreTick__11CEntityCtrlFf */

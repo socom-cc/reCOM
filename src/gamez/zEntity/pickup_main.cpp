@@ -132,6 +132,11 @@ void CPickup::Close(bool all)
 /* @socom-skeleton stub DebugPickups__7CPickupFv */
 void CPickup::DebugPickups()
 {
+	/* 0x24d420 (static: no this): walks the pickup list and prints nothing (the debug
+	   output is compiled out) */
+	for (std::list<CPickup *>::iterator it = m_list.begin(); it != m_list.end(); ++it)
+	{
+	}
 }
 
 /* @socom-skeleton stub NetworkCreate__7CPickupFUcQ27CPickup7PU_TYPEPQ23zdb5CNodePv */
@@ -291,8 +296,19 @@ void CPickup::Destroy(CPickup *pickup)
 }
 
 /* @socom-skeleton stub DestroyNetPickups__7CPickupFUc */
-void CPickup::DestroyNetPickups(unsigned char)
+void CPickup::DestroyNetPickups(unsigned char entity)
 {
+	/* 0x24cc00: every pickup a network entity made (the net id's high byte) is destroyed */
+	std::list<CPickup *>::iterator it = m_list.begin();
+
+	while (it != m_list.end())
+	{
+		CPickup *pickup = *it;
+		++it;
+
+		if ((u8)(pickup->m_netid >> 8) == entity)
+			Destroy(pickup);
+	}
 }
 
 /* @socom-skeleton stub GetFirst__7CPickupFv */
@@ -422,18 +438,38 @@ CPickup * CPickup::FindPickup(unsigned int id)
 }
 
 /* @socom-skeleton stub IsNetIdUsed__7CPickupFUcUc */
-void CPickup::IsNetIdUsed(unsigned char, unsigned char)
+bool CPickup::IsNetIdUsed(unsigned char entity, unsigned char index)
 {
+	/* 0x24c6c0 (static: no this): whether a pickup has that net id (entity, index) */
+	for (std::list<CPickup *>::iterator it = m_list.begin(); it != m_list.end(); ++it)
+	{
+		u16 id = (*it)->m_netid;
+
+		if ((u8)(id >> 8) == entity && (u8)id == index)
+			return true;
+	}
+
+	return false;
 }
 
 /* @socom-skeleton stub GetEntityIDFromNetID__7CPickupFUs */
-unsigned short CPickup::GetEntityIDFromNetID(unsigned short)
+unsigned short CPickup::GetEntityIDFromNetID(unsigned short id)
 {
+	/* 0x24c6b0: the net id's high byte */
+	return (u16)(id >> 8);
 }
 
 /* @socom-skeleton stub FindNetPickup__7CPickupFUi */
-CPickup * CPickup::FindNetPickup(unsigned int)
+CPickup * CPickup::FindNetPickup(unsigned int id)
 {
+	/* 0x24c610: the pickup with that net id, else NULL */
+	for (std::list<CPickup *>::iterator it = m_list.begin(); it != m_list.end(); ++it)
+	{
+		if ((*it)->m_netid == id)
+			return *it;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub CleanupAmmoPickup__7CPickupFP7CPickup */
@@ -500,4 +536,6 @@ CPnt3D * CPickup::GetPosW() const
 /* @socom-skeleton stub GetPickupNetEntityID__7CPickupFv */
 unsigned short CPickup::GetPickupNetEntityID()
 {
+	/* 0x24c3f0: the entity that made this pickup (the net id's high byte) */
+	return (u16)(m_netid >> 8);
 }

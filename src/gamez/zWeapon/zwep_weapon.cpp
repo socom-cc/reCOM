@@ -218,6 +218,50 @@ CZWeapon::CZWeapon()
 /* @socom-skeleton stub __dt__8CZWeaponFv */
 CZWeapon::~CZWeapon()
 {
+	/* 0x31f640: every allocated name and the hit anim tables are freed (zwep_weapon.cpp lines
+	   92-105); the legal ammo list is emptied with the members */
+	if (m_name != NULL)
+		_free(m_name, "zwep_weapon.cpp", 92);
+	m_name = NULL;
+	if (m_description != NULL)
+		_free(m_description, "zwep_weapon.cpp", 93);
+	m_description = NULL;
+	if (m_icontexname != NULL)
+		_free(m_icontexname, "zwep_weapon.cpp", 94);
+	m_icontexname = NULL;
+	if (m_texname != NULL)
+		_free(m_texname, "zwep_weapon.cpp", 95);
+	m_texname = NULL;
+	if (m_hitanimname != NULL)
+		_free(m_hitanimname, "zwep_weapon.cpp", 96);
+	m_hitanimname = NULL;
+	if (m_fireanimname != NULL)
+		_free(m_fireanimname, "zwep_weapon.cpp", 97);
+	m_fireanimname = NULL;
+	if (m_defaultspecialanimname != NULL)
+		_free(m_defaultspecialanimname, "zwep_weapon.cpp", 98);
+	m_defaultspecialanimname = NULL;
+	if (m_specialmaterialanimname != NULL)
+		_free(m_specialmaterialanimname, "zwep_weapon.cpp", 99);
+	m_specialmaterialanimname = NULL;
+	if (m_associatedgearname != NULL)
+		_free(m_associatedgearname, "zwep_weapon.cpp", 100);
+	m_associatedgearname = NULL;
+	if (m_modelname != NULL)
+		_free(m_modelname, "zwep_weapon.cpp", 101);
+	m_modelname = NULL;
+	if (m_hitanim != NULL)
+		_free(m_hitanim, "zwep_weapon.cpp", 102);
+	m_hitanim = NULL;
+	if (m_specialmaterialanim != NULL)
+		_free(m_specialmaterialanim, "zwep_weapon.cpp", 103);
+	m_specialmaterialanim = NULL;
+	if (m_decalsetname != NULL)
+		_free(m_decalsetname, "zwep_weapon.cpp", 104);
+	m_decalsetname = NULL;
+	if (m_reloadsoundname != NULL)
+		_free(m_reloadsoundname, "zwep_weapon.cpp", 105);
+	m_reloadsoundname = NULL;
 }
 
 /* @socom-skeleton stub CreateProjectileList__8CZWeaponFi */

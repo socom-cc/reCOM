@@ -172,6 +172,9 @@ class CSavedFireModeInfo
 {
 public:
 	CSavedFireModeInfo();
+	/* port: layout from sealSaveFireModes 0x2afad0 / CZKit::PreTick 0x2aa20c (8 bytes) */
+	s32 m_firemode; /* +0x0: the kit slot's fire mode */
+	u8 m_item;      /* +0x4: the slot's weapon id (EQUIP_ITEM; 255 = none, the ctor) */
 };
 }
 /* @socom-skeleton end Q222@unnamed@seal_kit_cpp@18CSavedFireModeInfo */
@@ -195,19 +198,36 @@ static unsigned char MultiplayerMsgStrings[28];
 
 /* @socom-skeleton stub g_arrSavedFireModeInfo__22@unnamed@seal_kit_cpp@ */
 namespace {
-unsigned char g_arrSavedFireModeInfo[240];
+CSavedFireModeInfo g_arrSavedFireModeInfo[30]; /* 240 bytes; __sinit_seal_kit.cpp constructs the 30 entries */
 }
 
 /* @socom-skeleton stub __ct__Q222@unnamed@seal_kit_cpp@18CSavedFireModeInfoFv */
 namespace {
 CSavedFireModeInfo::CSavedFireModeInfo()
 {
+	/* 0x2afba0 */
+	m_firemode = 0;
+	m_item = 255;
 }
 }
 
 /* @socom-skeleton stub sealSaveFireModes__Fv */
 void sealSaveFireModes()
 {
+	/* 0x2afad0: CMPExitState::Init keeps the player's fire mode per kit slot with the slot's
+	   weapon id; the next network game's first kit tick restores the modes whose weapon is
+	   the same (CZKit::PreTick). */
+	CZSealBody *player = ftsGetPlayer();
+	CZKit *kit = &player->m_kit;
+	g_iNumSavedFireModes = kit->m_num_items;
+	for (s32 i = 0; i < g_iNumSavedFireModes; i++)
+	{
+		CSavedFireModeInfo *info = &g_arrSavedFireModeInfo[i];
+		s32 idx = kit->unwrap(i, kit->m_num_items);
+		/* ELF reads the id through NULL when unwrap answers -1; port: 255 (none) */
+		info->m_item = idx != -1 ? (u8)kit->m_item[idx]->m_ID : 255;
+		info->m_firemode = kit->m_firemode[i];
+	}
 }
 
 /* @socom-skeleton stub SetCurItemState__5CZKitFUi */
@@ -2382,8 +2402,8 @@ void CZKit::PreTick(float)
 			{
 				CZFTSWeapon *weapon = m_item[i];
 
-				if (weapon != NULL && g_arrSavedFireModeInfo[i * 8 + 4] == (u8)weapon->m_ID)
-					m_firemode[i] = *(s32 *)&g_arrSavedFireModeInfo[i * 8];
+				if (weapon != NULL && g_arrSavedFireModeInfo[i].m_item == (u8)weapon->m_ID)
+					m_firemode[i] = g_arrSavedFireModeInfo[i].m_firemode;
 			}
 		}
 
@@ -3903,8 +3923,9 @@ void CZKit::PickupAmmo(CZFTSWeapon *weapon, CZAmmo *ammo, int *rounds)
 
 	if (ctrl != NULL && static_cast<CSealCtrl *>(ctrl)->IsPlayer())
 	{
-		/* port: not written: C2DMessage_Q::LastMessage / Add_Message (unwritten in
-		 * ztwod_messageq.cpp) would show the ammo's name unless it is the last message */
+		/* 0x2a64b4: the ammo's name in the ammo messenger, unless it is the newest line */
+		if (ammo != NULL && strcasecmp(theMission.m_ammoMessenger.LastMessage(), ammo->GetName()) != 0) /* port: NULL test */
+			theMission.m_ammoMessenger.Add_Message(ammo->GetName(), 0);
 	}
 }
 
@@ -4106,13 +4127,62 @@ void CZKit::FillAmmoPickupInstance(CZAmmoPickupInstance *box, int index)
 }
 
 /* @socom-skeleton stub RemoveAmmo__5CZKitFi */
-void CZKit::RemoveAmmo(int)
+void CZKit::RemoveAmmo(int index)
 {
+	/* 0x2a5a80 (network: a remote seal's pickups): the slot's magazines emptied and its ammo
+	   dropped. port: an index that wraps to -1 (no items) is skipped (the ELF writes the word
+	   before m_ammo) */
+	s32 slot = unwrap(index, m_num_items);
+	s32 mags = unwrap(slot, m_num_items);
+
+	if (slot < 0 || mags < 0)
+		return;
+
+	for (s32 i = 0; i < 10; i++)
+		m_reloads[mags][i] = 0;
+
+	m_ammo[slot] = NULL;
 }
 
 /* @socom-skeleton stub RemoveItemAndAmmo__5CZKitFi */
-void CZKit::RemoveItemAndAmmo(int)
+void CZKit::RemoveItemAndAmmo(int index)
 {
+	/* 0x2a5830 (RemoteDropMPBomb, network pickups): the slot's item, magazines and ammo go;
+	   the item count becomes the last used slot + 1 and a selection left on an empty or
+	   missing slot goes back to slot 0 (the HUD's weapon box redrawn). port: an index that
+	   wraps to -1 is skipped */
+	s32 slot = unwrap(index, m_num_items);
+
+	if (slot < 0)
+		return;
+
+	m_item[slot] = NULL;
+	s32 at = unwrap(slot, m_num_items);
+	s32 mags = unwrap(at, m_num_items);
+
+	if (at >= 0 && mags >= 0)
+	{
+		for (s32 i = 0; i < 10; i++)
+			m_reloads[mags][i] = 0;
+
+		m_ammo[at] = NULL;
+	}
+
+	s32 last = -1;
+
+	for (s32 i = 0; i < 30; i++)
+	{
+		if (m_item[i] != NULL)
+			last = i;
+	}
+
+	m_num_items = last + 1;
+
+	if (m_num_items < m_selected_item || m_item[m_selected_item] == NULL)
+	{
+		m_selected_item = 0;
+		m_weaponinfoChanged = 1;
+	}
 }
 
 /* @socom-skeleton stub UpdateNumItems__5CZKitFv */

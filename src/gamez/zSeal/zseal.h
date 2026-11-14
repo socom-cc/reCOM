@@ -83,7 +83,21 @@ enum CDIType { }; /* port: unproven: passed by value per the mangled name; kind 
 class CMaterialEx;
 class CTargetMods;
 class CZAmmoPickupInstance;
-class MPSealStats;
+/* MPSealStats: no DWARF members; 10 bytes (Get/SetMPStats 0x290fb0 / 0x290f10; the network
+ * round stats, CZSealState RoundStats): names after the CSealStats fields they carry */
+class MPSealStats
+{
+public:
+	s8 m_kills;
+	u8 m_headshots;
+	u8 m_washit;
+	u8 m_deaths;
+	u8 m_bases_blown;
+	u8 m_hit_percent;      /* m_hit_percent x 100 */
+	u8 m_hostages_rescued;
+	u8 m_pad;
+	s16 m_sMvpScore;
+};
 class PlacedExplosive;
 enum SEAL_HANDSIGNAL { }; /* port: unproven: passed by value per the mangled name; kind and enumerators not in DWARF */
 enum SEAL_TASK { }; /* port: unproven: passed by value per the mangled name; kind and enumerators not in DWARF */
@@ -1493,6 +1507,7 @@ public:
 	static CZSealBody* player_; /* the first seal, the template AnimSetup copies anims from */
 	static const float stoppedV;
 	static const float turnV; /* 0x450d20 (0.025): InStateStand's turn dead zone; port: no stage-4 owner, defined in seal.cpp beside stoppedV */
+	static const float seal_foot_bone; /* 0x450d30 (1.09): the toe along the foot part's x (FootInSpace); port: no stage-4 owner, defined in seal.cpp beside turnV */
 	/* @socom-skeleton end 10CZSealBody */
 };
 
@@ -2120,7 +2135,7 @@ class CSealCtrlSquirm : public CSealCtrl
 public:
 	/* port: no DWARF members; layout from the ctor 0x2e2e00 and Initalize 0x2e2c50 (after
 	 * CSealCtrl's 0x240 bytes); names invented */
-	u32 m_unk_240;       /* +0x240 */
+	f32 m_unk_240;       /* +0x240 the time PreTick adds up (the circle angle) */
 	u8 m_on;             /* +0x244 set by Initalize */
 	Rfloat m_wait;       /* +0x248 (0.1, 0.4); Initalize: (1, 0) */
 	Rfloat m_hold;       /* +0x250 (0.5, 0.7); Initalize: (5, 0) */
@@ -2283,7 +2298,7 @@ class CTPlay
 {
 public:
 	static void Begin(_zanim_cmd_hdr* header);
-	static void Create(int count, unsigned int*, f32, f32);
+	static _zanim_cmd_hdr* Create(int count, unsigned int*, f32, f32); /* 0x2b7dd0 answers the record */
 	static void End(_zanim_cmd_hdr* header);
 	static _zanim_cmd_hdr* Parse(_zrdr* reader);
 	static bool Tick(_zanim_cmd_hdr* header, f32* delta);
@@ -2415,7 +2430,10 @@ class CAiDodge
 {
 public:
 	static void Destroy(); /* static: CMission::Close 0x1f7468 passes no object */
-	static int m_list[3];
+	/* CAiDodge::CList (12 bytes, an MSL list of pointers: list_deleter<const void *>; its
+	 * dtor 0x2df0c0). No CAiDodge constructor is in the ELF: the list stays empty */
+	class CList : public std::list<CAiDodge *> { };
+	static CList m_list;
 };
 /* @socom-skeleton end 8CAiDodge */
 /* @socom-skeleton decl 10CAiSCorpse */
@@ -2544,16 +2562,24 @@ public:
 	static void plot_tick(float, bool);
 	static void PushLineColor(const CPnt3D &);
 	static void PopLineColor();
-	void SetLineOpacity(float);
+	static void SetLineOpacity(float); /* static: 0x2e3320 uses no this */
 	static float GetLineOpacity();
 	static void SetLineFuncOpacity(float, float);
 	static void SetLineFuncOpacity(float);
 	static void MoveTo(const CPnt3D &);
 	static void LineTo(const CPnt3D &);
 	static void DrawLine(ai::LINE_TYPE, const CPnt3D *, const CPnt3D *); /* static: CTurret::Tick 0x37b350 passes no object */
+	template <class T> static void DrawFunc(ai::LINE_TYPE, float, float, unsigned int, T); /* DrawFunc<CDynGrenade> 0x2889a0 (seal_control.cpp) */
 	static CPickup * find_closest_ammo(const CPnt3D *, CZKit *, CZWeapon *, float);
 	static CAiPath *_plan_path; /* _plan_path__2ai 0x475748: the path PathPlanBegin opened */
-	static int ai_line_color[3];
+	/* ai::color_stack (12 bytes: an MSL list of CPnt3D colours, list_deleter<CPnt3D>; dtor
+	 * 0x2e35e0): the lines' colour is the front one */
+	class color_stack : public std::list<CPnt3D>
+	{
+	public:
+		color_stack() { push_front(CPnt3D(127.0f, 0.0f, 0.0f)); } /* inline in __sinit_seal_ailines.cpp */
+	};
+	static color_stack ai_line_color;
 	static int ai_line_mask;
 	static float ai_line_opacity;
 	static float ai_line_opacity_end;

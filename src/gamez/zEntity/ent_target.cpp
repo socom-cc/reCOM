@@ -302,6 +302,23 @@ bool CEntity::OnUpdateTargetList(bool force, bool sort)
 /* @socom-skeleton stub RefreshAwareCounters__7CEntityFv */
 void CEntity::RefreshAwareCounters()
 {
+	/* 0x1f0220: every entity's aware counter is the number of live, target-listing
+	   entities (not of type 1) that see it. ELF quirk kept: a counter is cleared when its
+	   own entity's turn comes, so what the entities before it in the list added is lost */
+	for (CEntityList::iterator it = m_list.begin(); it != m_list.end(); ++it)
+	{
+		CEntity *e = *it;
+		e->m_aware_counter = 0;
+
+		if (e->m_type == 1 || !e->m_isAlive || !e->m_update_targetlist)
+			continue;
+
+		for (CTargetList::iterator t = e->m_targets.begin(); t != e->m_targets.end(); ++t)
+		{
+			if (t->m_visible)
+				t->m_ent->m_aware_counter++;
+		}
+	}
 }
 
 /* @socom-skeleton stub UpdateTargetList__7CEntityFb */

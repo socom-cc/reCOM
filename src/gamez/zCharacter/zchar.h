@@ -16,7 +16,16 @@
 #include "gamez/zRender/zrender.h"
 #include "gamez/zSystem/zsys.h"
 /* @socom-skeleton decl forward */
-class CCharacterWeapPacked;
+/* CCharacterWeapPacked: no DWARF members; 6 bytes per kit item (KorusGetPackedWeapons
+ * 0x24aea0 / UnPack 0x24ada0; a network seal's eight items): the item and ammo
+ * (CZWeapon::PackItemAndAmmoEnums), the ammo and magazine counts. Names invented */
+class CCharacterWeapPacked
+{
+public:
+	u16 m_packed;
+	s16 m_ammoCount;
+	s16 m_magCount;
+};
 enum CHARACTER_SOUND : signed char { }; /* not in DWARF; a signed byte: GetCharacterSoundType(String) 0x248110/0x248190 sign-extend it from 8 bits and use -1 for none; values 0-65 index the CHRSND_ names */
 /* @socom-skeleton end forward */
 
@@ -188,7 +197,7 @@ public:
 	/* @socom-skeleton decl 14CCharacterType */
 public:
 	static void KorusGetPackedWeapons(CCharacterWeapPacked *); /* static: 0x24aea0 a0 is the output (m_char_list) */
-	void UnPack(const CCharacterWeapPacked *, CCharacterType *);
+	static void UnPack(const CCharacterWeapPacked *, CCharacterType *); /* static: 0x24ada0 a0 is the packed items */
 	~CCharacterType();
 	bool Parse(_zrdr *); /* bool: 0x2489c0 returns 1 */
 	CCharacterType * Acquire() const;

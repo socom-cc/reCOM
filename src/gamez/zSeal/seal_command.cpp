@@ -531,9 +531,11 @@ void CSealCtrlAi::OnCommand(CZSealBody *source, FT_COMMAND cmd, void *buffer, bo
 		if (seal->m_team & 0x20000)
 			join = theNetwork.m_bNetwork ? m_unit != sourceUnit : m_unit->m_unit_num == 17;
 
+		if (join)
+			following = false; /* 0x28210c: cleared in the delay slot even without a source unit */
+
 		if (join && sourceUnit != NULL)
 		{
-			following = false;
 			sourceUnit->EscorteeJoinUnit(seal);
 			PlayAiSound((CHARACTER_SOUND)53);
 			/* ELF: a network game also sends the remote message 40 */
@@ -757,8 +759,93 @@ void CSealCtrlAi::OnCommand(CZSealBody *source, FT_COMMAND cmd, void *buffer, bo
 		SetSleeping(false);
 		break;
 
+	case CMD_LASETARGET:
+	{
+		/* 0x281148: the buffer is a packed map location; for every lase target (AiMaps names
+		 * of type 3) on that cell (x and y compared, not the map), STATE_DEPLOY with the laser
+		 * designator (item 11) aimed at the cell's centre, for 30 s, lasing from the first
+		 * walkable cell on the line from the target back towards this AI (steps of 10, at most
+		 * 100), else from where it stands. */
+		CAiMapLoc loc;
+		memcpy(&loc, CAiMapLoc::invalid, 4);
+
+		if (buffer == NULL)
+			break;
+
+		u32 p = (u32)(uintptr_t)buffer;
+		loc.m_mapid = (p >> 26) & 0x3f;
+		loc.x = (p >> 13) & 0x1fff;
+		loc.y = p & 0x1fff;
+
+		CAiMap::names &targets = AiMaps.m_names[3];
+
+		for (CAiMap::names::iterator t = targets.begin(); t != targets.end(); ++t)
+		{
+			u32 tx = t->m_loc.x;
+			u32 lx = loc.x;
+			s32 ty = (s32)t->m_loc.y;
+			s32 ly = (s32)loc.y;
+			u32 dx = lx < tx ? tx - lx : lx - tx;
+			s32 dy = ly < ty ? ty - ly : ly - ty;
+
+			if (dx + dy != 0 || !PushAiState(STATE_DEPLOY, true))
+				continue;
+
+			CAiState *state = GetAiState();
+			CAiSDeploy *deploy = state->m_state == STATE_DEPLOY ? static_cast<CAiSDeploy *>(state) : NULL;
+			CAiMap *map = AiMaps.GetMapByIndex(loc.m_mapid);
+
+			if (map == NULL || deploy == NULL) /* port: deploy NULL-tested (ELF writes through it) */
+				continue;
+
+			if (map->GetCellCenter(loc, &deploy->m_target) == NULL)
+				continue;
+
+			CPnt3D dir;
+			deploy->m_target.Sub(seal->GetPosW(), &dir);
+			deploy->m_offset = CPnt3D::zero;
+			deploy->m_item = 11;
+			f32 len = dir.Normalize();
+			memcpy(&deploy->m_unk_40, &len, 4); /* ELF: the distance stored as a float */
+			deploy->m_lase = loc;
+
+			bool found = false;
+			CPnt3D walk;
+			CAiMap *map2 = AiMaps.GetMapByIndex(loc.m_mapid);
+
+			if (map2 != NULL && map2->GetCellCenter(loc, &walk) != NULL)
+			{
+				CPnt3D step;
+				walk.Sub(seal->GetPosW(), &step);
+				step.Normalize();
+				step.Scale(10.0f, &step);
+
+				for (s32 i = 0; i < 100; i++)
+				{
+					CAiMapLoc cand;
+
+					if (AiMaps.GetLocation(&walk, cand) && CAiMap::IsWalkable(AiMaps.GetCell(cand)))
+					{
+						found = true;
+						deploy->m_dest = cand;
+						break;
+					}
+
+					walk.Sub(&step, &walk);
+				}
+			}
+
+			if (!found)
+				deploy->m_dest = seal->m_mapLocValid;
+
+			deploy->m_time = 30.0f;
+			deploy->m_setup = 1;
+		}
+		break;
+	}
+
 	default:
-		/* port: not written: LASETARGET 0x281148 (the others have no case in the ELF) */
+		/* the other orders have no case in the ELF */
 		break;
 	}
 }

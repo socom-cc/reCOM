@@ -257,6 +257,10 @@ const float CZSealBody::stoppedV = 0.029999999329447746f;
  * here beside stoppedV (0x450d28) */
 const float CZSealBody::turnV = 0.025f;
 
+/* port: seal_foot_bone__10CZSealBody (0x450d30, 4 bytes 0x3f8b851f) has no source owner yet
+ * either; kept beside turnV */
+const float CZSealBody::seal_foot_bone = 1.09f;
+
 /* @socom-skeleton stub m_renderShadow__10CZSealBody */
 unsigned char CZSealBody::m_renderShadow = 1;
 
@@ -3719,8 +3723,17 @@ void CSealStats::Shot(const CZSealBody &body)
 }
 
 /* @socom-skeleton stub UpdateMvpScore__10CSealStatsFRC10CZSealBody */
-void CSealStats::UpdateMvpScore(const CZSealBody &)
+void CSealStats::UpdateMvpScore(const CZSealBody &seal)
 {
+	/* 0x24e610: offline always, in a network game only for the player: the MVP score is
+	   (2 x rounds won + rounds tied + kills) x 256 + 256 x hits / shots (the halfwords of
+	   the counters, as the ELF reads them) */
+	if (theNetwork.m_bNetwork && &seal != ftsGetPlayer())
+		return;
+
+	s16 base = (s16)((s16)m_iRoundsTied + (s16)m_iRoundsWon * 2 + (s16)m_kills);
+	s32 accuracy = m_shots != 0 ? (m_hits << 8) / m_shots : 0;
+	m_sMvpScore = (s16)((base << 8) + accuracy);
 }
 
 /* @socom-skeleton stub WasHit__10CSealStatsFRC10CZSealBody */

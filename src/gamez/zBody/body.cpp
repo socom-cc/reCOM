@@ -1713,11 +1713,14 @@ void CBody::Destroy()
 /* @socom-skeleton stub __dt__10CZBodyAnimFv */
 CZBodyAnim::~CZBodyAnim()
 {
+	/* 0x1df5b0: nothing of its own (CZSIScript's destructor follows) */
 }
 
 /* @socom-skeleton stub __dt__22CZBodyAnimCallbackListFv */
 CZBodyAnimCallbackList::~CZBodyAnimCallbackList()
 {
+	/* 0x1df480: Clear inlined (the entries deleted, the global list's storage released) */
+	Clear();
 }
 
 /* @socom-skeleton stub Clear__22CZBodyAnimCallbackListFv */

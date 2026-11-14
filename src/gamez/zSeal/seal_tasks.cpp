@@ -122,6 +122,7 @@
 #include "gamez/zSound/zsnd.h" /* CSnd (CTSound) */
 #include "gamez/zValve/zvalve.h" /* VALVE_CMD_DATA (CTValve) */
 #include "gamez/zEntity/zentity.h" /* CEntity::m_list (CTLookAt) */
+#include "gamez/zFTS/zfts.h" /* ParseTeamBlock (CTInView) */
 /* @socom-skeleton decl forward */
 class TASK_SELECT;
 struct _zanim_cmd_hdr;
@@ -337,16 +338,6 @@ struct TASK_STATE : public TASK_HDR /* ai::STATE (Tick 0x2b5820) */
 	char m_names[4];  /* +0x24 the entity name */
 };
 
-struct TASK_SOUND : public TASK_HDR /* ai::SOUND (Tick 0x2b64b0) */
-{
-	u8 m_aware;                 /* +0x08 the most aware the seal may be; non-zero: attached;
-	                             * bit 0: wait for the sound (port: one byte, as the ELF reads) */
-	u8 m_pending : 1;           /* +0x09 set by Begin */
-	u8 m_unused : 7;
-	u16 m_count;                /* +0x0a the sound names */
-	CSndInstance *m_instance;   /* +0x0c */
-	char m_names[4];            /* +0x10 the entity's name, then the sound names */
-};
 
 /* inline in CTGoto::Begin: a task location word as a CAiMapLoc */
 static CAiMapLoc task_loc(u32 word)
@@ -397,6 +388,14 @@ static _zanim_cmd_hdr *task_alloc(u32 size, u16 type)
 	hdr->data_size = size;
 	hdr->data_type = type;
 	return hdr;
+}
+
+/* CAiMap::region::GetTypeName 0x2b9aa0 (this unit; jump table 0x4548d0): a region type's
+   name. port: file-local (zai.h declares no GetTypeName) */
+static const char *regionTypeName(u8 type)
+{
+	static const char *const names[7] = { "DEFAULT", "EXTRACT_ZONE", "SAFE_HOUSE", "WORM_HOLE", "ROUTER", "HUD_VISIBLE", "GUARD" };
+	return type < 7 ? names[type] : "UNKNOWN";
 }
 
 /* @socom-skeleton body RegisterCommands__11CSealCtrlAiFv */
@@ -594,7 +593,42 @@ issue:
 /* @socom-skeleton body Parse__7CTDebugFP5_zrdr */
 _zanim_cmd_hdr* CTDebug::Parse(_zrdr* reader)
 {
-	return NULL;
+	/* 0x2bdc90 (written, untested): the command's first value: a number turns the AI debug
+	 * output on / off ("Enabling DEBUG" / "Disabling DEBUG info" as the text), a string is a
+	 * text to print (m_enable -1); anything else: no record. ELF quirks kept: a list without
+	 * values is read through NULL in the ELF (port: no record); the record's command type is
+	 * not set (the loader's) */
+	_zrdr *value = reader->IsArray() && reader->array->integer - 1 != 0 ? &reader->array[1] : NULL;
+	s32 enable = -1;
+	const char *text = NULL;
+
+	if (value == NULL)
+		return NULL;
+
+	if (value->type == ZRDR_INTEGER)
+	{
+		enable = value->integer;
+		text = enable != 0 ? "Enabling DEBUG" : "Disabling DEBUG info";
+	}
+	else if (value->type == ZRDR_STRING)
+	{
+		text = value->string;
+	}
+
+	if (text == NULL)
+		return NULL;
+
+	u32 len = strlen(text);
+
+	if (len & 3)
+		len += 4 - (len & 3);
+
+	u32 size = len + 16;
+	TASK_DEBUG *task = (TASK_DEBUG *)_calloc(size, 1, "seal_tasks.cpp", 27);
+	task->m_cmd.data_size = size;
+	strcpy(task->m_text, text);
+	task->m_enable = enable;
+	return (_zanim_cmd_hdr *)task;
 }
 
 /* @socom-skeleton body Tick__7CTDebugFP14_zanim_cmd_hdrPf */
@@ -656,7 +690,32 @@ void CTDoor::End(_zanim_cmd_hdr* header)
 /* @socom-skeleton body Parse__7CTEventFP5_zrdr */
 _zanim_cmd_hdr* CTEvent::Parse(_zrdr* reader)
 {
-	return NULL;
+	/* 0x2bd860 (written, untested): "type" (CAiEvent::GetEventFromString, GENERIC (1) by
+	 * default), "pos", "node" (the anim's node argument: pos in its space), "range",
+	 * "duration", "vis" (its presence) */
+	TASK_EVENT *task = (TASK_EVENT *)task_alloc(36, *(u16 *)&ai_cmdid[0]);
+	task->m_pos = CPnt3D::zero;
+	task->m_type = 1;
+	task->m_type = (s8)CAiEvent::GetEventFromString(zrdr_findstring(reader, "type"), (CAiEvent::EVENT)1);
+	zrdr_findPNT3D(reader, "pos", &task->m_pos);
+	char *node = zrdr_findstring(reader, "node");
+
+	if (node != NULL)
+	{
+		task->m_node = ZAnim.m_CurAnim->LoadNodeNames(NULL, node, 0, 1);
+		task->m_has_node = 1;
+	}
+
+	if (zrdr_findreal(reader, "range", &task->m_range, 1))
+		task->m_has_range = 1;
+
+	if (zrdr_findreal(reader, "duration", &task->m_duration, 1))
+		task->m_has_duration = 1;
+
+	if (zrdr_findtag(reader, "vis") != NULL)
+		task->m_visible = 1;
+
+	return (_zanim_cmd_hdr *)task;
 }
 
 /* @socom-skeleton body Begin__7CTEventFP14_zanim_cmd_hdr */
@@ -721,7 +780,42 @@ bool CTEvent::Tick(_zanim_cmd_hdr* header, f32* dT)
 /* @socom-skeleton body Parse__10CTFireModeFP5_zrdr */
 _zanim_cmd_hdr* CTFireMode::Parse(_zrdr* reader)
 {
-	return NULL;
+	/* 0x2bd3a0 (written, untested): the weapon hint (quiet 0, again 2, auto 1, burst 1),
+	 * "weapon" (a kit index), "trigger" (down, up; 0.1 / 0.8 by default), "fullauto" or
+	 * "burst" (their presence: required) */
+	TASK_FIREMODE *task = (TASK_FIREMODE *)task_alloc(28, *(u16 *)&ai_cmdid[0]);
+	task->m_dn_time = 0.1f;
+	task->m_up_time = 0.8f;
+	task->m_hint.m_quiet = 0;
+	task->m_hint.m_quiet_again = 2;
+	task->m_hint.m_auto = 1;
+	task->m_hint.m_burst = 1;
+	task->m_hint.m_use_accuracy = 0;
+	task->m_hint.m_range = 0.0f;
+	task->m_hint.m_use_index = 0;
+	s32 weapon;
+
+	if (zrdr_findint(reader, "weapon", &weapon, 1))
+	{
+		task->m_hint.m_index = weapon & 0xf;
+		task->m_hint.m_use_index = 1;
+	}
+
+	PNT2D trigger;
+
+	if (zrdr_findPNT2D(reader, "trigger", &trigger))
+	{
+		task->m_trigger |= 1;
+		task->m_dn_time = trigger.x;
+		task->m_up_time = trigger.y;
+	}
+
+	if (zrdr_findtag(reader, "fullauto") != NULL)
+		task->m_hint.m_auto = 3;
+	else if (zrdr_findtag(reader, "burst") != NULL)
+		task->m_hint.m_burst = 3;
+
+	return (_zanim_cmd_hdr *)task;
 }
 
 /* @socom-skeleton body Begin__10CTFireModeFP14_zanim_cmd_hdr */
@@ -856,7 +950,78 @@ bool CTFireWeapon::Tick(_zanim_cmd_hdr* header, f32* dT)
 /* @socom-skeleton body Parse__6CTGotoFP5_zrdr */
 _zanim_cmd_hdr* CTGoto::Parse(_zrdr* reader)
 {
-	return NULL;
+	/* 0x2bc910 (written, untested): "speed" (1), "node" (a list of AI map location names),
+	 * else "region" (a list of region names: a random spot of each), "waypts" (its presence:
+	 * a route through all of them); no location: no record. The record waits for the arrival
+	 * and is armed. ELF quirk kept: "timer" is read and dropped */
+	f32 speed = 1.0f;
+	zrdr_findreal(reader, "speed", &speed, 1);
+	Rfloat timer;
+	timer.m_min = -1.0f;
+	timer.m_range = 0.0f;
+	zrdr_findRfloat(reader, "timer", &timer);
+	std::vector<CAiMapLoc> locs;
+	bool random = false;
+	_zrdr *nodes = zrdr_findtag(reader, "node");
+	s32 n = nodes != NULL && nodes->IsArray() ? nodes->array->integer - 1 : 0;
+
+	if (n > 0)
+	{
+		locs.reserve(n);
+
+		for (s32 i = 0; i < n; i++)
+		{
+			_zrdr *v = nodes->Get(i);
+			CAiMapLoc loc;
+
+			if (AiMaps.GetLocation(v->type == ZRDR_STRING ? v->string : NULL, loc))
+				locs.push_back(loc);
+		}
+	}
+	else
+	{
+		_zrdr *regions = zrdr_findtag(reader, "region");
+		s32 r = regions != NULL && regions->IsArray() ? regions->array->integer - 1 : 0;
+
+		if (r > 0)
+			locs.reserve(r);
+
+		for (s32 i = 0; i < r; i++)
+		{
+			_zrdr *v = regions->Get(i);
+			CAiMapLoc loc;
+
+			if (AiMaps.GetRegion(v->type == ZRDR_STRING ? v->string : NULL, loc) != NULL)
+			{
+				locs.push_back(loc);
+				random = true;
+			}
+		}
+	}
+
+	bool waypts = zrdr_findtag(reader, "waypts") != NULL;
+	u32 count = locs.size();
+
+	if (count == 0)
+		return NULL;
+
+	TASK_GOTO *task = (TASK_GOTO *)task_alloc((count - 1) * 4 + 20, *(u16 *)&ai_cmdid[0]);
+	task->m_wait = 1;
+	task->m_count = count;
+	task->m_armed = 1;
+	task->m_speed = speed;
+	task->m_unused = 0;
+	task->m_waypoints = 0;
+
+	for (u32 i = 0; i < count; i++)
+	{
+		const CAiMapLoc &loc = locs[i];
+		task->m_locs[i] = ((u32)loc.m_mapid << 26) | ((u32)loc.x << 13) | (u32)loc.y;
+	}
+
+	task->m_waypoints = waypts ? 1 : 0;
+	task->m_random = random ? 1 : 0;
+	return (_zanim_cmd_hdr *)task;
 }
 
 /* @socom-skeleton body Begin__6CTGotoFP14_zanim_cmd_hdr */
@@ -1071,14 +1236,30 @@ void CTHold::End(_zanim_cmd_hdr* header)
 }
 
 /* @socom-skeleton stub get_state_fixup__FPCc */
-void get_state_fixup(const char *)
+AI_STATE get_state_fixup(const char *name)
 {
-}
-
-/* @socom-skeleton body Parse__9CTInStateFP5_zrdr */
-_zanim_cmd_hdr* CTInState::Parse(_zrdr* reader)
-{
-	return NULL;
+	/* 0x2bbc70: the state by its name, else the scripts' older names. ELF quirk kept:
+	   "reloading" answers STATE_PATHRECO (20) like "path reco". */
+	AI_STATE state = sealai::get_state(name);
+	if (name == NULL || (u8)state != 0)
+		return state;
+	if (strcasecmp(name, "following") == 0)
+		return (AI_STATE)9;
+	if (strcasecmp(name, "avoiding") == 0)
+		return (AI_STATE)3;
+	if (strcasecmp(name, "breaching") == 0)
+		return (AI_STATE)10;
+	if (strcasecmp(name, "deploying") == 0)
+		return (AI_STATE)4;
+	if (strcasecmp(name, "holding") == 0)
+		return (AI_STATE)2;
+	if (strcasecmp(name, "path reco") == 0)
+		return (AI_STATE)20;
+	if (strcasecmp(name, "reloading") == 0)
+		return (AI_STATE)20;
+	if (strcasecmp(name, "rushing") == 0)
+		return (AI_STATE)29;
+	return state;
 }
 
 /* ai::INSTATE record (Tick 0x2bb9c0; Parse 0x2bbb00 stores get_state_fixup's state) */
@@ -1090,6 +1271,40 @@ struct TASK_INSTATE : public TASK_HDR
 	u8 m_anywhere : 1; /* bit 7: anywhere on the state stack, else the top state */
 	char m_entity[4]; /* +0x0c the seal entity to test instead of the select's ("" none) */
 };
+
+/* @socom-skeleton body Parse__9CTInStateFP5_zrdr */
+_zanim_cmd_hdr* CTInState::Parse(_zrdr* reader)
+{
+	/* 0x2bbb00 (written, untested): "entity", "state" (get_state_fixup; 0: no record),
+	 * "stack" (its presence: anywhere on the stack) */
+	char *name = zrdr_findstring(reader, "entity");
+	char *state = zrdr_findstring(reader, "state");
+	bool stack = zrdr_findtag(reader, "stack") != NULL;
+	AI_STATE st = get_state_fixup(state);
+
+	if ((u8)st == 0)
+		return NULL;
+
+	u32 len = name != NULL ? strlen(name) : 0;
+
+	if (len & 3)
+		len += 4 - (len & 3);
+
+	TASK_INSTATE *task = (TASK_INSTATE *)task_alloc(len + 16, *(u16 *)&ai_cmdid[0]);
+	task->m_state = (u8)st;
+	task->m_pad[0] = 0;
+	task->m_pad[1] = 0;
+	task->m_unused = 0;
+	task->m_anywhere = stack ? 1 : 0;
+
+	if (name != NULL)
+		strcpy(task->m_entity, name);
+	else
+		task->m_entity[0] = '\0';
+
+	return (_zanim_cmd_hdr *)task;
+}
+
 
 /* @socom-skeleton body Tick__9CTInStateFP14_zanim_cmd_hdrPf */
 bool CTInState::Tick(_zanim_cmd_hdr* header, f32* dT)
@@ -1117,12 +1332,6 @@ bool CTInState::Tick(_zanim_cmd_hdr* header, f32* dT)
 	return ai->AiStateIs((AI_STATE)task->m_state);
 }
 
-/* @socom-skeleton body Parse__8CTInViewFP5_zrdr */
-_zanim_cmd_hdr* CTInView::Parse(_zrdr* reader)
-{
-	return NULL;
-}
-
 /* ai::INVIEW record (Tick 0x2bb680; Parse 0x2bb800) */
 struct TASK_INVIEW : public TASK_HDR
 {
@@ -1130,6 +1339,46 @@ struct TASK_INVIEW : public TASK_HDR
 	u32 m_teams;      /* +0x0c a team mask: any visible target of those teams (0: the named target) */
 	char m_names[4];  /* +0x10 the viewer's name, then the target's */
 };
+
+/* @socom-skeleton body Parse__8CTInViewFP5_zrdr */
+_zanim_cmd_hdr* CTInView::Parse(_zrdr* reader)
+{
+	/* 0x2bb800 (written, untested): "viewer" (none: no record), "target" and / or "team" (a
+	 * team list, ParseTeamBlock; neither: no record), "equip" (the weapon the viewer must
+	 * use). The target's name follows the viewer's right after its terminator (ELF: the
+	 * record's size counts both names rounded up to 4) */
+	char *viewer = zrdr_findstring(reader, "viewer");
+	char *target = zrdr_findstring(reader, "target");
+	char *equip = zrdr_findstring(reader, "equip");
+	u32 teams = ParseTeamBlock(zrdr_findtag(reader, "team"));
+
+	if (viewer == NULL || (target == NULL && teams == 0))
+		return NULL;
+
+	u32 lv = strlen(viewer);
+
+	if (lv & 3)
+		lv += 4 - (lv & 3);
+
+	u32 lt = target != NULL ? strlen(target) : 0;
+
+	if (lt & 3)
+		lt += 4 - (lt & 3);
+
+	TASK_INVIEW *task = (TASK_INVIEW *)task_alloc(lv + 20 + lt, *(u16 *)&ai_cmdid[0]);
+	strcpy(task->m_names, viewer);
+	char *second = task->m_names + strlen(viewer) + 1;
+
+	if (target != NULL)
+		strcpy(second, target);
+	else
+		second[0] = '\0';
+
+	task->m_item = equip != NULL ? (u8)CZWeapon::GetWeaponId(equip) : 0;
+	task->m_teams = teams;
+	return (_zanim_cmd_hdr *)task;
+}
+
 
 /* @socom-skeleton body Tick__8CTInViewFP14_zanim_cmd_hdrPf */
 bool CTInView::Tick(_zanim_cmd_hdr* header, f32* dT)
@@ -1172,7 +1421,91 @@ bool CTInView::Tick(_zanim_cmd_hdr* header, f32* dT)
 /* @socom-skeleton body Parse__8CTLookAtFP5_zrdr */
 _zanim_cmd_hdr* CTLookAt::Parse(_zrdr* reader)
 {
-	return NULL;
+	/* 0x2bb1c0 (written, untested): what to look at: "entity" (mode 2, by name), "pos"
+	 * (mode 1), "region" (mode 1: its centre cell), "dbnode", "net" / "node" (mode 1: the
+	 * AI map location's cell), "dir" (mode 4: an AI map direction); "wait" (a range), "rate"
+	 * (0.85). ELF quirk kept: "dbnode" finds the world node and builds its matrix, then
+	 * drops it (the mode stays 0); port: the lookup is left out (no effect) */
+	char *name = zrdr_findstring(reader, "entity");
+	u32 len = name != NULL ? strlen(name) : 0;
+
+	if (len & 3)
+		len += 4 - (len & 3);
+
+	TASK_LOOKAT *task = (TASK_LOOKAT *)task_alloc(len + 48, *(u16 *)&ai_cmdid[0]);
+	task->m_mode = name != NULL ? 2 : 0;
+	task->m_entity = name != NULL ? -3 /* unknownId 0x44cd80 */ : CEntity::invalidId;
+	task->m_rate = 0.85f;
+	task->m_timer = 0.0f;
+	task->m_time.m_min = 0.0f;
+	task->m_time.m_range = 0.0f;
+
+	if (name != NULL)
+		strcpy(task->m_name, name);
+	else
+		task->m_name[0] = '\0';
+
+	if (name != NULL)
+	{
+		task->m_mode = 2;
+	}
+	else
+	{
+		CPnt3D pos;
+		char *str;
+		_zrdr *tag;
+
+		if (zrdr_findPNT3D(reader, "pos", &pos))
+		{
+			task->m_pos = pos;
+			task->m_mode = 1;
+		}
+		else if ((str = zrdr_findstring(reader, "region")) != NULL)
+		{
+			CAiMapLoc loc;
+			CAiMap::region *region = AiMaps.GetRegion(str, loc);
+
+			if (region != NULL)
+			{
+				CAiMapLoc center;
+				region->GetCenter(center);
+
+				if (AiMaps.GetCellCenter(center, &task->m_pos) != NULL)
+					task->m_mode = 1;
+			}
+		}
+		else if (zrdr_findstring(reader, "dbnode") != NULL)
+		{
+			/* see above */
+		}
+		else if ((tag = zrdr_findtag(reader, "net")) != NULL || (tag = zrdr_findtag(reader, "node")) != NULL)
+		{
+			_zrdr *v = tag->IsArray() && tag->array->integer - 1 != 0 ? &tag->array[1] : NULL;
+			CAiMapLoc loc;
+
+			if (AiMaps.GetLocation(v != NULL && v->type == ZRDR_STRING ? v->string : NULL, loc)
+				&& AiMaps.GetCellCenter(loc, &pos) != NULL)
+			{
+				task->m_pos = pos;
+				task->m_mode = 1;
+			}
+		}
+		else if ((str = zrdr_findstring(reader, "dir")) != NULL)
+		{
+			task->m_dir = (u8)CAiMap::GetDirByName(str);
+			task->m_mode = 4;
+		}
+	}
+
+	Rfloat wait;
+	wait.m_min = 0.0f;
+	wait.m_range = 0.0f;
+
+	if (zrdr_findRfloat(reader, "wait", &wait))
+		task->m_time = wait;
+
+	zrdr_findreal(reader, "rate", &task->m_rate, 1);
+	return (_zanim_cmd_hdr *)task;
 }
 
 /* @socom-skeleton body Begin__8CTLookAtFP14_zanim_cmd_hdr */
@@ -1287,7 +1620,23 @@ bool CTLookAt::Tick(_zanim_cmd_hdr* header, f32* dT)
 /* @socom-skeleton body Parse__7CTMacroFP5_zrdr */
 _zanim_cmd_hdr* CTMacro::Parse(_zrdr* reader)
 {
-	return NULL;
+	/* 0x2bacd0 (written, untested): "anim" (none: no record), "blocking" (its presence) */
+	char *name = zrdr_findstring(reader, "anim");
+	bool blocking = zrdr_findtag(reader, "blocking") != NULL;
+
+	if (name == NULL)
+		return NULL;
+
+	u32 len = strlen(name);
+
+	if (len & 3)
+		len += 4 - (len & 3);
+
+	TASK_MACRO *task = (TASK_MACRO *)task_alloc(len + 20, *(u16 *)&ai_cmdid[0]);
+	task->m_anim = NULL;
+	task->m_blocking = blocking ? 1 : 0;
+	strcpy(task->m_name, name);
+	return (_zanim_cmd_hdr *)task;
 }
 
 /* @socom-skeleton body Begin__7CTMacroFP14_zanim_cmd_hdr */
@@ -1347,7 +1696,47 @@ bool CTMacro::Tick(_zanim_cmd_hdr* header, f32* dT)
 /* @socom-skeleton body Parse__5CTMapFP5_zrdr */
 _zanim_cmd_hdr* CTMap::Parse(_zrdr* reader)
 {
-	return NULL;
+	/* 0x2ba8a0 (written, untested): "clear_action" (its presence: mode 1), else "region"
+	 * { "name" "set_type" }: mode 2 with the region's location and the type of that name
+	 * (1..6, else 0); a region not found or no type: no record */
+	bool flag;
+	TASK_MAP *task = NULL;
+
+	if (zrdr_findbool(reader, "clear_action", &flag))
+	{
+		task = (TASK_MAP *)task_alloc(20, *(u16 *)&ai_cmdid[0]);
+		task->m_mode = 1;
+		return (_zanim_cmd_hdr *)task;
+	}
+
+	_zrdr *region = zrdr_findtag(reader, "region");
+
+	if (region == NULL)
+		return NULL;
+
+	CAiMapLoc loc;
+
+	if (AiMaps.GetRegion(zrdr_findstring(region, "name"), loc) == NULL)
+		return NULL;
+
+	char *type = zrdr_findstring(region, "set_type");
+
+	if (type == NULL)
+		return NULL;
+
+	u32 t = 1;
+
+	while (t < 7 && strcasecmp(type, regionTypeName((u8)t)) != 0)
+		t++;
+
+	if (t >= 7)
+		t = 0;
+
+	task = (TASK_MAP *)task_alloc(20, *(u16 *)&ai_cmdid[0]);
+	task->m_mode = 2;
+	task->m_loc = loc;
+	task->m_type = (u8)t;
+	return (_zanim_cmd_hdr *)task;
 }
 
 /* @socom-skeleton body Tick__5CTMapFP14_zanim_cmd_hdrPf */
@@ -1390,7 +1779,51 @@ bool CTMap::Tick(_zanim_cmd_hdr* header, f32* dT)
 /* @socom-skeleton body Parse__6CTMoveFP5_zrdr */
 _zanim_cmd_hdr* CTMove::Parse(_zrdr* reader)
 {
-	return NULL;
+	/* 0x2ba460 (written, untested): the target: "node" (mode 1: the anim's node argument),
+	 * "relseal" (mode 3: a select index), "self" (mode 2); "pos" or "ofs", "offset" or
+	 * "dist", "dir" (with relseal: mode 4, a facing), "blocking" (bit 5), "ai" (the select
+	 * index) */
+	TASK_MOVE *task = (TASK_MOVE *)task_alloc(44, *(u16 *)&ai_cmdid[0]);
+	u8 *bits = reinterpret_cast<u8 *>(&task->m_target) + 4;
+	task->m_mode = 0;
+	task->m_pos = CPnt3D::zero;
+	task->m_dist = 0.0f;
+	task->m_dir = CPnt3D::unit_nz;
+	task->m_target = 0;
+	*bits &= (u8)~0x20;
+	char *node = zrdr_findstring(reader, "node");
+	_zrdr *tag;
+
+	if (node != NULL)
+	{
+		task->m_target = ZAnim.m_CurAnim->LoadNodeNames(NULL, node, 0, 1);
+		task->m_mode = 1;
+	}
+	else if ((tag = zrdr_findtag(reader, "relseal")) != NULL)
+	{
+		zrdr_toINT(tag, &task->m_target, 1);
+		task->m_mode = 3;
+	}
+	else if (zrdr_findtag(reader, "self") != NULL)
+	{
+		task->m_mode = 2;
+	}
+
+	if (!zrdr_findPNT3D(reader, "pos", &task->m_pos))
+		zrdr_findPNT3D(reader, "ofs", &task->m_pos);
+
+	if (!zrdr_findreal(reader, "offset", &task->m_dist, 1))
+		zrdr_findreal(reader, "dist", &task->m_dist, 1);
+
+	if (zrdr_findPNT3D(reader, "dir", &task->m_dir) && task->m_mode == 3)
+		task->m_mode = 4;
+
+	if (zrdr_findtag(reader, "blocking") != NULL)
+		*bits |= 0x20;
+
+	task->m_seal_index = 0;
+	zrdr_finduint(reader, "ai", &task->m_seal_index, 1);
+	return (_zanim_cmd_hdr *)task;
 }
 
 /* @socom-skeleton body Begin__6CTMoveFP14_zanim_cmd_hdr */
@@ -1571,7 +2004,50 @@ void CTMove::End(_zanim_cmd_hdr* header)
 /* @socom-skeleton body Parse__7CTPaintFP5_zrdr */
 _zanim_cmd_hdr* CTPaint::Parse(_zrdr* reader)
 {
-	return NULL;
+	/* 0x2b98d0 (written, untested): "region" (AiMaps' region; none: no record), then one of
+	 * "soil" (mode 1: the soil of that name, cell bit 4), "boundary" (0..2: mode 2, bit 8),
+	 * "reg_type" (mode 3: the region type 1..6 of that name, else 0; mask 0) */
+	char *name = zrdr_findstring(reader, "region");
+	CAiMapLoc loc;
+
+	if (name == NULL || AiMaps.GetRegion(name, loc) == NULL)
+		return NULL;
+
+	TASK_PAINT *task = (TASK_PAINT *)task_alloc(20, *(u16 *)&ai_cmdid[0]);
+	task->m_loc = loc;
+	task->m_value = 0;
+	task->m_mask = 1;
+	task->m_mode = 0;
+	task->m_unk_13 = 0;
+	char *soil = zrdr_findstring(reader, "soil");
+	char *type = zrdr_findstring(reader, "reg_type");
+	u32 boundary = 0;
+
+	if (soil != NULL)
+	{
+		task->m_mode = 1;
+		task->m_value = (u8)CAiMap::GetSoilByName(soil);
+		task->m_mask |= 4;
+	}
+	else if (zrdr_finduint(reader, "boundary", &boundary, 1) && boundary < 3)
+	{
+		task->m_mode = 2;
+		task->m_value = (u16)boundary;
+		task->m_mask |= 8;
+	}
+	else if (type != NULL)
+	{
+		task->m_mode = 3;
+		u32 t = 1;
+
+		while (t < 7 && strcasecmp(type, regionTypeName((u8)t)) != 0)
+			t++;
+
+		task->m_value = t < 7 ? (u8)t : 0;
+		task->m_mask = 0;
+	}
+
+	return (_zanim_cmd_hdr *)task;
 }
 
 /* @socom-skeleton body Tick__7CTPaintFP14_zanim_cmd_hdrPf */
@@ -1604,14 +2080,78 @@ bool CTPaint::Tick(_zanim_cmd_hdr* header, f32* dT)
 }
 
 /* @socom-skeleton stub get_param__FPCc */
-void get_param(const char *)
+int get_param(const char *name)
 {
+	/* 0x2b96a0: ai::PARAM's parameter number (TASK_PARAM::m_param); 0 for none. There is
+	   no name for 4 (accuracy). */
+	if (name == NULL)
+		return 0;
+	if (strcmp(name, "courage") == 0)
+		return 1;
+	if (strcmp(name, "health") == 0)
+		return 2;
+	if (strcmp(name, "speed") == 0)
+		return 3;
+	if (strcmp(name, "sleep") == 0)
+		return 5;
+	if (strcmp(name, "stance") == 0)
+		return 6;
+	if (strcmp(name, "aware_decay") == 0)
+		return 8;
+	if (strcmp(name, "aware") == 0)
+		return 7;
+	if (strcmp(name, "inside") == 0)
+		return 9;
+	if (strcmp(name, "outside") == 0)
+		return 10;
+	if (strcmp(name, "weapon_up") == 0)
+		return 11;
+	if (strcmp(name, "spray") == 0)
+		return 12;
+	return strcmp(name, "docorpse") == 0 ? 13 : 0;
 }
 
 /* @socom-skeleton body Parse__7CTParamFP5_zrdr */
 _zanim_cmd_hdr* CTParam::Parse(_zrdr* reader)
 {
-	return NULL;
+	/* 0x2b93d0 (written, untested): the command's values: the parameter (get_param), an
+	 * operator (CValve::ParseOperator), a number, and with four values the entity (with more,
+	 * "entity"); under three values: no record. "ai" the select index */
+	s32 count = reader->IsArray() ? reader->array->integer - 1 : 0;
+
+	if (count < 3)
+		return NULL;
+
+	_zrdr *v = reader->array;
+	const char *name = v[1].type == ZRDR_STRING ? v[1].string : NULL;
+	OP_TYPE op = CValve::ParseOperator(v[2].type == ZRDR_STRING ? v[2].string : NULL);
+	f32 value = v[3].type == ZRDR_REAL ? v[3].real : v[3].type == ZRDR_INTEGER ? (f32)v[3].integer : 0.0f;
+	char *entity = NULL;
+
+	if (count == 4)
+		entity = v[4].type == ZRDR_STRING ? v[4].string : NULL;
+	else if (count >= 5)
+		entity = zrdr_findstring(reader, "entity");
+
+	u8 param = (u8)get_param(name);
+	u32 len = entity != NULL ? strlen(entity) : 0;
+
+	if (len & 3)
+		len += 4 - (len & 3);
+
+	TASK_PARAM *task = (TASK_PARAM *)task_alloc(len + 20, *(u16 *)&ai_cmdid[0]);
+	task->m_param = param;
+	task->m_op = (u8)op;
+	task->m_value = value;
+
+	if (entity != NULL)
+		strcpy(task->m_entity, entity);
+	else
+		task->m_entity[0] = '\0';
+
+	task->m_seal_index = 0;
+	zrdr_finduint(reader, "ai", &task->m_seal_index, 1);
+	return (_zanim_cmd_hdr *)task;
 }
 
 /* @socom-skeleton body Tick__7CTParamFP14_zanim_cmd_hdrPf */
@@ -1811,15 +2351,55 @@ void CTPursue::End(_zanim_cmd_hdr* header)
 }
 
 /* @socom-skeleton body Create__6CTPlayFiPUiff */
-void CTPlay::Create(s32 count, u32* param_2, f32 param_3, f32 param_4)
+_zanim_cmd_hdr* CTPlay::Create(s32 count, u32* anims, f32 prewait, f32 postwait)
 {
+	/* 0x2b7dd0: an ai::ANIMATE record of count anim types (one is picked at random) with
+	   fixed waits before and after; the ELF answers the record in v0 (CTPlay::Parse) and
+	   marks it quad aligned */
+	u32 size = (count - 1) * 4 + 40;
+	TASK_PLAY *task = (TASK_PLAY *)task_alloc(size, *(u16 *)&ai_cmdid[0]);
+	task->m_cmd.quad_align = 1;
+	task->m_count = count;
 
+	if (anims != NULL)
+	{
+		for (s32 i = 0; i < count; i++)
+			task->m_anims[i] = anims[i];
+	}
+
+	task->m_unknown = 0;
+	task->m_prewait.m_min = prewait;
+	task->m_prewait.m_range = 0.0f;
+	task->m_postwait.m_min = postwait;
+	task->m_postwait.m_range = 0.0f;
+	return &task->m_cmd;
 }
 
 /* @socom-skeleton body Parse__6CTPlayFP5_zrdr */
 _zanim_cmd_hdr* CTPlay::Parse(_zrdr* reader)
 {
-	return NULL;
+	/* 0x2b7c40 (written, untested): "anim" (a list of anim type names; FindAnimType, -1
+	 * unknown; none: no record), "prewait", "postwait" (ranges), "ai" (the select index) */
+	_zrdr *anims = zrdr_findtag(reader, "anim");
+
+	if (anims == NULL)
+		return NULL;
+
+	s32 count = anims->IsArray() ? anims->array->integer - 1 : 0;
+	TASK_PLAY *task = (TASK_PLAY *)CTPlay::Create(count, NULL, 0.0f, 0.0f);
+
+	for (s32 i = 0; i < count; i++)
+	{
+		_zrdr *anim = anims->Get(i);
+		const char *str = anim != NULL && anim->type == ZRDR_STRING ? anim->string : NULL;
+		task->m_anims[i] = str != NULL ? (s16)FindAnimType(str) : -1;
+	}
+
+	zrdr_findRfloat(reader, "prewait", &task->m_prewait);
+	zrdr_findRfloat(reader, "postwait", &task->m_postwait);
+	task->m_seal_index = 0;
+	zrdr_finduint(reader, "ai", &task->m_seal_index, 1);
+	return (_zanim_cmd_hdr *)task;
 }
 
 /* @socom-skeleton body Begin__6CTPlayFP14_zanim_cmd_hdr */
@@ -1986,7 +2566,17 @@ TASK_SELECT * CTSelect::Create(CZSealBody *seal)
 /* @socom-skeleton body Parse__8CTSelectFP5_zrdr */
 _zanim_cmd_hdr* CTSelect::Parse(_zrdr* reader)
 {
-	return NULL;
+	/* 0x2b74b0 (written, untested): the command's first value names the seal (an entity of
+	 * type 2) and its AI controller; else both NULL. ELF: the value is read as a string
+	 * without a type test */
+	TASK_SELECT *task = (TASK_SELECT *)task_alloc(16, *(u16 *)&ai_cmdid[8]);
+	task->m_seal = NULL;
+	task->m_ai = NULL;
+	CEntity *e = CEntity::m_list.GetEntity(reader->array[1].string);
+	CZSealBody *seal = e != NULL && e->m_type == 2 ? static_cast<CZSealBody *>(e) : NULL;
+	task->m_seal = seal;
+	task->m_ai = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi() : NULL;
+	return (_zanim_cmd_hdr *)task;
 }
 
 /* @socom-skeleton body Tick__8CTSelectFP14_zanim_cmd_hdrPf */
@@ -1999,7 +2589,17 @@ bool CTSelect::Tick(_zanim_cmd_hdr* header, f32* dT)
 /* @socom-skeleton body Parse__9CTSetModeFP5_zrdr */
 _zanim_cmd_hdr* CTSetMode::Parse(_zrdr* reader)
 {
-	return NULL;
+	/* 0x2b73a0 (written, untested): the command's first value names the AI mode (get_mode;
+	 * 1 by default), "ai" the select index (+4). port: a list without values gives mode 0
+	 * (the ELF reads through NULL) */
+	TASK_SETMODE *task = (TASK_SETMODE *)task_alloc(12, *(u16 *)&ai_cmdid[0]);
+	task->m_mode = 1;
+	_zrdr *value = reader->IsArray() && reader->array->integer - 1 != 0 ? &reader->array[1] : NULL;
+	const char *name = value != NULL && value->type == ZRDR_STRING ? value->string : NULL;
+	task->m_mode = (u8)sealai::get_mode(name);
+	task->m_seal_index = 0;
+	zrdr_finduint(reader, "ai", &task->m_seal_index, 1);
+	return (_zanim_cmd_hdr *)task;
 }
 
 /* @socom-skeleton body Tick__9CTSetModeFP14_zanim_cmd_hdrPf */
@@ -2044,7 +2644,24 @@ bool CTSetMode::Tick(_zanim_cmd_hdr* header, f32* dT)
 /* @socom-skeleton body Parse__12CTSetAnimSetFP5_zrdr */
 _zanim_cmd_hdr* CTSetAnimSet::Parse(_zrdr* reader)
 {
-	return NULL;
+	/* 0x2b7130 (written, untested): "name" (none: no record), "default"; the name is kept in
+	 * the record (its size rounded up to 4) */
+	char *name = zrdr_findstring(reader, "name");
+	bool def = false;
+	zrdr_findbool(reader, "default", &def);
+
+	if (name == NULL)
+		return NULL;
+
+	u32 len = strlen(name);
+
+	if (len & 3)
+		len += 4 - (len & 3);
+
+	TASK_SETANIMSET *task = (TASK_SETANIMSET *)task_alloc(len + 16, *(u16 *)&ai_cmdid[0]);
+	task->m_default = def ? 1 : 0;
+	strcpy(task->m_name, name);
+	return (_zanim_cmd_hdr *)task;
 }
 
 /* @socom-skeleton body Tick__12CTSetAnimSetFP14_zanim_cmd_hdrPf */
@@ -2078,7 +2695,38 @@ AiSig CTSignal::GetSignalByName(const char* signal)
 /* @socom-skeleton body Parse__8CTSignalFP5_zrdr */
 _zanim_cmd_hdr* CTSignal::Parse(_zrdr* reader)
 {
-	return NULL;
+	/* 0x2b6d60 (written, untested): "signal" (GetSignalByName), "entity"; with neither, the
+	 * command's single string value is the signal; a bare command: AISIG_ANIMCOMPLETE.
+	 * ELF quirk kept: the record's command type is not set (the loader's) */
+	char *signal = zrdr_findstring(reader, "signal");
+	char *entity = zrdr_findstring(reader, "entity");
+	s32 count = reader->IsArray() ? reader->array->integer - 1 : 0;
+
+	if (signal == NULL && entity == NULL && count == 1 && reader->array[1].type == ZRDR_STRING)
+		signal = reader->array[1].string;
+
+	if (signal == NULL && count == 0)
+		signal = const_cast<char *>("AISIG_ANIMCOMPLETE");
+
+	if (signal == NULL)
+		return NULL;
+
+	u32 len = entity != NULL ? strlen(entity) : 0;
+
+	if (len & 3)
+		len += 4 - (len & 3);
+
+	u32 size = len + 16;
+	TASK_SIGNAL *task = (TASK_SIGNAL *)_calloc(size, 1, "seal_tasks.cpp", 27);
+	task->m_cmd.data_size = size;
+	*(u32 *)&task->m_signal = (u8)CTSignal::GetSignalByName(signal);
+
+	if (entity != NULL)
+		strcpy(task->m_entity, entity);
+	else
+		task->m_entity[0] = '\0';
+
+	return (_zanim_cmd_hdr *)task;
 }
 
 /* @socom-skeleton body Tick__8CTSignalFP14_zanim_cmd_hdrPf */
@@ -2109,10 +2757,100 @@ bool CTSignal::Tick(_zanim_cmd_hdr* header, f32* dT)
 	return true;
 }
 
+struct TASK_SOUND : public TASK_HDR /* ai::SOUND (Tick 0x2b64b0) */
+{
+	/* +0x08: one word of bits (Parse 0x2b6840, Tick 0x2b64b0) */
+	u32 m_wait : 1;             /* bit 0 "blocking": the task holds while the sound plays */
+	u32 m_sitrep : 1;           /* bit 1 "sitrep": the sound's +0x20 set to 2 */
+	u32 m_broadcast : 1;        /* bit 2 "broadcast": played on the seal (else at its position) */
+	u32 m_aware : 4;            /* bits 3-6: the most aware the seal may be (Parse leaves 0) */
+	u32 m_unused : 1;
+	u32 m_pending : 1;          /* bit 8: set by Begin */
+	u32 m_num_names : 8;        /* bits 9-16: the sound names */
+	u32 m_count : 8;            /* bits 17-24: the command's values (the pick's range) */
+	u32 m_unused2 : 7;
+	CSndInstance *m_instance;   /* +0x0c */
+	char m_names[4];            /* +0x10 the entity's name, then the sound names */
+};
+
 /* @socom-skeleton body Parse__7CTSoundFP5_zrdr */
 _zanim_cmd_hdr* CTSound::Parse(_zrdr* reader)
 {
-	return NULL;
+	/* 0x2b6840 (written, untested): "name" (or "NAME"): a list of sound names (none, or no
+	 * string in it: no record); "entity"; "blocking", "sitrep", "broadcast" (their presence).
+	 * The entity's name comes first in the record, then the sound names. ELF quirk kept: the
+	 * names are copied from the first m_names values only (a value that is not a string
+	 * there drops a later name) */
+	_zrdr *tag = zrdr_findtag(reader, "name");
+
+	if (tag == NULL)
+		tag = zrdr_findtag(reader, "NAME");
+
+	if (tag == NULL || !tag->IsArray())
+		return NULL;
+
+	s32 count = tag->array->integer - 1;
+	s32 names = 0;
+	u32 bytes = 0;
+
+	for (s32 i = 0; i < count; i++)
+	{
+		_zrdr *v = tag->Get(i);
+
+		if (v != NULL && v->type == ZRDR_STRING)
+		{
+			bytes += strlen(v->string) + 1;
+			names++;
+		}
+	}
+
+	if (names <= 0)
+		return NULL;
+
+	char *entity = zrdr_findstring(reader, "entity");
+	u32 len = (entity != NULL ? strlen(entity) : 0) + bytes;
+
+	if (len & 3)
+		len += 4 - (len & 3);
+
+	TASK_SOUND *task = (TASK_SOUND *)task_alloc(len + 20, *(u16 *)&ai_cmdid[0]);
+
+	if (entity != NULL)
+		strcpy(task->m_names, entity);
+	else
+		task->m_names[0] = '\0';
+
+	s32 copied = 1;
+
+	for (s32 i = 0; i < names; i++)
+	{
+		_zrdr *v = tag->Get(i);
+
+		if (v == NULL || v->type != ZRDR_STRING)
+			continue;
+
+		char *p = task->m_names;
+
+		for (s32 k = copied; k != 0; k--)
+			p += strlen(p) + 1;
+
+		strcpy(p, v->string);
+		copied++;
+	}
+
+	task->m_num_names = names;
+	task->m_count = count;
+
+	if (zrdr_findtag(reader, "blocking") != NULL)
+		task->m_wait = 1;
+
+	if (zrdr_findtag(reader, "sitrep") != NULL)
+		task->m_sitrep = 1;
+
+	if (zrdr_findtag(reader, "broadcast") != NULL)
+		task->m_broadcast = 1;
+
+	return (_zanim_cmd_hdr *)task;
 }
 
 /* @socom-skeleton body Begin__7CTSoundFP14_zanim_cmd_hdr */
@@ -2141,11 +2879,10 @@ bool CTSound::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
 	/* 0x2b64b0: once, one of the task's sounds (picked at random from the names after the
 	 * entity name; the entity, else the select's seal) is played by a seal whose AI is not
-	 * more aware than m_aware: attached to it (m_aware non-zero: the sound's +0x20 set to 2)
-	 * or at its position. The task then holds while the instance plays when m_aware's bit 0
-	 * is set (ELF: the answer is IsPlaying itself), else it is done.
-	 * port: +0x8's bits are not separated (no Parse read): m_aware is used whole as the ELF
-	 * does */
+	 * more aware than m_aware: on it (broadcast) or at its position (sitrep: the sound's
+	 * +0x20 set to 2). The task then holds while the instance plays when m_wait is set (ELF:
+	 * the answer is IsPlaying itself), else it is done. The bits at +0x8 as Parse 0x2b6840
+	 * writes them (part 4: before, the port read +0x8 as one byte and +0xa as the count) */
 	TASK_SOUND *task = reinterpret_cast<TASK_SOUND *>(header);
 	CZSealBody *seal = taskSeal(task->m_seal_index);
 	bool done = true;
@@ -2156,7 +2893,7 @@ bool CTSound::Tick(_zanim_cmd_hdr* header, f32* dT)
 		u32 pick = task->m_count - 1 != 0 ? (u32)(rand() % task->m_count) + 1 : 1;
 		const char *name = NULL;
 
-		if (!(*(u32 *)&task->m_aware < pick)) /* ELF quirk kept: the whole word against the pick */
+		if (!(task->m_num_names < pick)) /* ELF quirk kept: the pick ranges over all the values */
 		{
 			name = task->m_names;
 
@@ -2190,11 +2927,11 @@ bool CTSound::Tick(_zanim_cmd_hdr* header, f32* dT)
 
 				if (snd != NULL)
 				{
-					if (task->m_aware != 0)
-					{
+					if (task->m_sitrep)
 						*((u8 *)snd + 0x20) = 2; /* port: CSnd +0x20 unnamed */
+
+					if (task->m_broadcast)
 						task->m_instance = snd->PlaySound((CSndInstance *)NULL, seal->m_id);
-					}
 					else
 						task->m_instance = snd->PlaySound3D(seal->GetPosW(), 1.0f, 0, NULL, seal->m_id);
 				}
@@ -2204,7 +2941,7 @@ bool CTSound::Tick(_zanim_cmd_hdr* header, f32* dT)
 		task->m_pending = 0;
 	}
 
-	if (!task->m_pending && (task->m_aware & 1) && task->m_instance != NULL)
+	if (!task->m_pending && task->m_wait && task->m_instance != NULL)
 		done = task->m_instance->IsPlaying();
 
 	*dT = 0.0f;
@@ -2304,7 +3041,30 @@ bool CTSpecial::Tick(_zanim_cmd_hdr* header, f32* dT)
 /* @socom-skeleton body Parse__8CTStanceFP5_zrdr */
 _zanim_cmd_hdr* CTStance::Parse(_zrdr* reader)
 {
-	return NULL;
+	/* 0x2b6010 (written, untested): "stance" (get_stance), "peek" (left -1, right 1, up 0,
+	 * else 2), "delay" (0) */
+	char *stance = zrdr_findstring(reader, "stance");
+	char *peek = zrdr_findstring(reader, "peek");
+	f32 delay = 0.0f;
+	zrdr_findreal(reader, "delay", &delay, 1);
+	s32 st = (s8)sealai::get_stance(stance);
+	s32 pk = 2;
+
+	if (peek != NULL)
+	{
+		if (strcmp(peek, "left") == 0)
+			pk = -1;
+		else if (strcmp(peek, "right") == 0)
+			pk = 1;
+		else if (strcmp(peek, "up") == 0)
+			pk = 0;
+	}
+
+	TASK_STANCE *task = (TASK_STANCE *)task_alloc(24, *(u16 *)&ai_cmdid[0]);
+	task->m_delay = delay;
+	task->m_peek = (s8)pk;
+	task->m_stance = st;
+	return (_zanim_cmd_hdr *)task;
 }
 
 /* @socom-skeleton body Begin__8CTStanceFP14_zanim_cmd_hdr */
@@ -2359,7 +3119,58 @@ bool CTStance::Tick(_zanim_cmd_hdr* header, f32* dT)
 /* @socom-skeleton body Parse__7CTStateFP5_zrdr */
 _zanim_cmd_hdr* CTState::Parse(_zrdr* reader)
 {
-	return NULL;
+	/* 0x2b5bd0 (written, untested): "push" (the state, get_state; none / 0: no record);
+	 * RUSH (29): "entity", "timer", "range", "contact" (its presence: flag 4); FOLLOW (9):
+	 * "entity" (required) and "offset" ((0, 0, 20) by default) */
+	char *push = zrdr_findstring(reader, "push");
+
+	if (push == NULL)
+		return NULL;
+
+	AI_STATE st = sealai::get_state(push);
+	u8 state = (u8)st;
+
+	if (state == 0)
+		return NULL;
+
+	char *name = NULL;
+
+	if (state == 29 || state == 9)
+		name = zrdr_findstring(reader, "entity");
+
+	if (state == 9 && name == NULL)
+		return NULL;
+
+	u32 len = name != NULL ? strlen(name) : 0;
+
+	if (len & 3)
+		len += 4 - (len & 3);
+
+	TASK_STATE *task = (TASK_STATE *)task_alloc(len + 40, *(u16 *)&ai_cmdid[0]);
+	*(u32 *)&task->m_state = state;
+
+	if (name != NULL)
+		strcpy(task->m_names, name);
+	else
+		task->m_names[0] = '\0';
+
+	if (state == 29)
+	{
+		zrdr_findreal(reader, "timer", &task->m_time, 1);
+		zrdr_findreal(reader, "range", &task->m_offset.x, 1);
+
+		if (zrdr_findtag(reader, "contact") != NULL)
+			task->m_flags = 4;
+	}
+	else if (state == 9)
+	{
+		task->m_offset.x = 0.0f;
+		task->m_offset.y = 0.0f;
+		task->m_offset.z = 20.0f;
+		zrdr_findPNT3D(reader, "offset", &task->m_offset);
+	}
+
+	return (_zanim_cmd_hdr *)task;
 }
 
 /* @socom-skeleton body Tick__7CTStateFP14_zanim_cmd_hdrPf */
@@ -2444,7 +3255,16 @@ bool CTState::Tick(_zanim_cmd_hdr* header, f32* dT)
 /* @socom-skeleton body Parse__9CTStopAllFP5_zrdr */
 _zanim_cmd_hdr* CTStopAll::Parse(_zrdr* reader)
 {
-	return NULL;
+	/* 0x2b5750 (written, untested): the command's own true / false (default true: the AI
+	 * off), "inactive"; the flags byte Tick reads (bit 0 off, bit 1 inactive) */
+	bool off = true;
+	zrdr_tobool(reader, &off);
+	bool inactive = zrdr_findtag(reader, "inactive") != NULL;
+	_zanim_cmd_hdr *task = task_alloc(12, *(u16 *)&ai_cmdid[0]);
+	u8 *flags = reinterpret_cast<u8 *>(task) + 8;
+	*flags = (u8)((*flags & ~1) | (off ? 1 : 0));
+	*flags = (u8)((*flags & ~2) | (inactive ? 2 : 0));
+	return task;
 }
 
 /* @socom-skeleton body Tick__9CTStopAllFP14_zanim_cmd_hdrPf */
@@ -2457,12 +3277,6 @@ bool CTStopAll::Tick(_zanim_cmd_hdr* header, f32* dT)
 	return true;
 }
 
-/* @socom-skeleton body Parse__7CTRangeFP5_zrdr */
-_zanim_cmd_hdr* CTRange::Parse(_zrdr* reader)
-{
-	return NULL;
-}
-
 /* ai::INRANGE record (Tick 0x2b53f0) */
 struct TASK_RANGE : public TASK_HDR
 {
@@ -2470,6 +3284,32 @@ struct TASK_RANGE : public TASK_HDR
 	s32 m_entity;     /* +0x0c the entity's id: CEntity::invalidId none, -3 not looked up yet */
 	char m_name[4];   /* +0x10 the entity's name ("player": the first entity) */
 };
+
+/* @socom-skeleton body Parse__7CTRangeFP5_zrdr */
+_zanim_cmd_hdr* CTRange::Parse(_zrdr* reader)
+{
+	/* 0x2b55d0 (written, untested): "entity" (kept by name, looked up on the first tick),
+	 * "range" (1000 by default; kept squared) */
+	char *name = zrdr_findstring(reader, "entity");
+	f32 range = 1000.0f;
+	zrdr_findreal(reader, "range", &range, 1);
+	u32 len = name != NULL ? strlen(name) : 0;
+
+	if (len & 3)
+		len += 4 - (len & 3);
+
+	TASK_RANGE *task = (TASK_RANGE *)task_alloc(len + 20, *(u16 *)&ai_cmdid[0]);
+	task->m_range = range * range;
+	task->m_entity = name != NULL ? -3 /* unknownId 0x44cd80 */ : CEntity::invalidId;
+
+	if (name != NULL)
+		strcpy(task->m_name, name);
+	else
+		task->m_name[0] = '\0';
+
+	return (_zanim_cmd_hdr *)task;
+}
+
 
 /* the entity of a task's id / name (inline in CTRange::Tick and CTRegion::Tick): invalidId
  * none, -3 (unknownId 0x44cd80) looked up by name once ("player" is the first entity), else by
@@ -2517,12 +3357,6 @@ bool CTRange::Tick(_zanim_cmd_hdr* header, f32* dT)
 	return d.x * d.x + d.y * d.y + d.z * d.z <= task->m_range;
 }
 
-/* @socom-skeleton body Parse__8CTRegionFP5_zrdr */
-_zanim_cmd_hdr* CTRegion::Parse(_zrdr* reader)
-{
-	return NULL;
-}
-
 /* ai::INREGION record (Tick 0x2b4c50) */
 struct TASK_REGION : public TASK_HDR
 {
@@ -2534,6 +3368,46 @@ struct TASK_REGION : public TASK_HDR
 	s32 m_entity;              /* +0x14 the entity's id: invalidId: the select's seal, -3 by name */
 	char m_name[4];            /* +0x18 the entity's name ("player": the first entity) */
 };
+
+/* @socom-skeleton body Parse__8CTRegionFP5_zrdr */
+_zanim_cmd_hdr* CTRegion::Parse(_zrdr* reader)
+{
+	/* 0x2b5260 (written, untested): "entity" (by name, else the select's seal), "region"
+	 * (AiMaps' region of that name), "weapon" (the pickup mode: that weapon id), "team" (a
+	 * team bit number). port: the location starts invalid (the ELF keeps the stack's word
+	 * when the region is not found) */
+	char *name = zrdr_findstring(reader, "entity");
+	char *region = zrdr_findstring(reader, "region");
+	char *weapon = zrdr_findstring(reader, "weapon");
+	u32 team = 0;
+	zrdr_finduint(reader, "team", &team, 1);
+	CAiMapLoc loc;
+	memcpy(&loc, CAiMapLoc::invalid, 4);
+	AiMaps.GetRegion(region, loc);
+	u32 len = name != NULL ? strlen(name) : 0;
+
+	if (len & 3)
+		len += 4 - (len & 3);
+
+	TASK_REGION *task = (TASK_REGION *)task_alloc(len + 28, *(u16 *)&ai_cmdid[0]);
+	task->m_loc = loc;
+	task->m_region = NULL;
+	task->m_team = (u8)team;
+	task->m_pickup = 0;
+	task->m_entity = name != NULL ? -3 /* unknownId 0x44cd80 */ : CEntity::invalidId;
+	task->m_cookie = 0;
+
+	if (name != NULL)
+		strcpy(task->m_name, name);
+	else
+		task->m_name[0] = '\0';
+
+	if (weapon != NULL)
+		task->m_pickup = (u8)CZWeapon::GetWeaponId(weapon);
+
+	return (_zanim_cmd_hdr *)task;
+}
+
 
 /* inline in CTRegion::Tick: a location inside the region (same map, within its extent) */
 static bool regionHolds(const CAiMap::region *region, const CAiMapLoc &task, const CAiMapLoc &loc)
@@ -2553,9 +3427,10 @@ bool CTRegion::Tick(_zanim_cmd_hdr* header, f32* dT)
 	 * the select's seal (id invalidId), a named one, or any live member of a team (m_team: its
 	 * bit number) - stands in the AI map region (by its m_mapLoc). The region is looked up
 	 * again when AiMaps' cookie changed. A missing entity clears the name's first byte.
-	 * port: the pickup mode (m_pickup != 0: pickups of types 4-7 whose data's +0xc object has
-	 * that byte at +0x60, by CAiMaps::GetLocation of their positions) is not written - no
-	 * script of the m8 disc uses it. */
+	 * The pickup mode (m_pickup != 0, 0x2b4ccc): any pickup of types 4-7 whose data's +0xc
+	 * object has the id m_pickup at +0x60 (the place of CZFTSWeapon::m_ID), by
+	 * CAiMaps::GetLocation of its position (written, untested: no script of the m8 disc
+	 * uses it, and the port names no pickup types 4-7; their data layout is not known). */
 	TASK_REGION *task = reinterpret_cast<TASK_REGION *>(header);
 	CAiMap::region *region;
 
@@ -2574,7 +3449,31 @@ bool CTRegion::Tick(_zanim_cmd_hdr* header, f32* dT)
 		return false;
 
 	if (task->m_pickup != 0)
-		return false; /* port: not written (see above) */
+	{
+		std::list<CPickup *>::iterator it = CPickup::GetFirst();
+		bool in = false;
+
+		for (CPickup *pickup = CPickup::GetNext(it, CPickup::PU_NONE); !in && pickup != NULL; pickup = CPickup::GetNext(it, CPickup::PU_NONE))
+		{
+			u32 type = pickup->m_type;
+
+			if (type < 4 || type > 7 || pickup->m_data == NULL)
+				continue;
+
+			/* port: raw reads, the layout of these pickups' data is not known */
+			const u8 *object = *(const u8 *const *)((const u8 *)pickup->m_data + 0xc);
+
+			if (object == NULL || object[0x60] != task->m_pickup)
+				continue;
+
+			CAiMapLoc loc;
+
+			if (AiMaps.GetLocation(pickup->GetPosW(), loc))
+				in = regionHolds(region, task->m_loc, loc);
+		}
+
+		return in;
+	}
 
 	if (task->m_team == 0)
 	{
@@ -2607,18 +3506,44 @@ bool CTRegion::Tick(_zanim_cmd_hdr* header, f32* dT)
 	return false;
 }
 
-/* @socom-skeleton body Parse__6CTTeamFP5_zrdr */
-_zanim_cmd_hdr* CTTeam::Parse(_zrdr* reader)
-{
-	return NULL;
-}
-
 /* ai::TEAM record (Tick 0x2b49f0) */
 struct TASK_TEAM : public TASK_HDR
 {
 	u32 m_mask; /* +0x08 team bits */
 	s32 m_op;   /* +0x0c 0 add them, 1 remove them, 2 nothing */
 };
+
+/* @socom-skeleton body Parse__6CTTeamFP5_zrdr */
+_zanim_cmd_hdr* CTTeam::Parse(_zrdr* reader)
+{
+	/* 0x2b4b40 (written, untested): "join" / "leave" / "ismember" with a list of team
+	 * numbers (ftmask_create); none: no record */
+	u32 ftmask_create(_zrdr *); /* seal_env.cpp 0x2a4bf0; no header declares it */
+	s32 op = -1;
+	_zrdr *tag = zrdr_findtag(reader, "join");
+
+	if (tag != NULL)
+	{
+		op = 0;
+	}
+	else if ((tag = zrdr_findtag(reader, "leave")) != NULL)
+	{
+		op = 1;
+	}
+	else if ((tag = zrdr_findtag(reader, "ismember")) != NULL)
+	{
+		op = 2;
+	}
+
+	if (op == -1)
+		return NULL;
+
+	TASK_TEAM *task = (TASK_TEAM *)task_alloc(16, *(u16 *)&ai_cmdid[0]);
+	task->m_op = op;
+	task->m_mask = ftmask_create(tag);
+	return (_zanim_cmd_hdr *)task;
+}
+
 
 /* @socom-skeleton body Tick__6CTTeamFP14_zanim_cmd_hdrPf */
 bool CTTeam::Tick(_zanim_cmd_hdr* header, f32* dT)
@@ -2654,7 +3579,59 @@ bool CTTeam::Tick(_zanim_cmd_hdr* header, f32* dT)
 /* @socom-skeleton body Parse__7CTValveFP5_zrdr */
 _zanim_cmd_hdr* CTValve::Parse(_zrdr* reader)
 {
-	return NULL;
+	/* 0x2b4510 (written, untested): values: the AI's own valve (CSealCtrlAi::get_valve; 5
+	 * none: no record), then an operator (alone: that compare with 0; none: "!=" 0), then
+	 * the operand: a number, or a valve name (ParseValveName: an input valve's index, else
+	 * the anim's valve of that name; flags 0x8 | 0x10, 0x4 for an input valve) */
+	s32 count = reader != NULL && reader->IsArray() ? reader->array->integer - 1 : 0;
+
+	if (count == 0)
+		return NULL;
+
+	_zrdr *v = reader->array;
+	const char *name = v[1].type == ZRDR_STRING ? v[1].string : NULL;
+
+	if ((u8)CSealCtrlAi::get_valve(name) == 5)
+		return NULL;
+
+	TASK_VALVE *task = (TASK_VALVE *)task_alloc(24, *(u16 *)&ai_cmdid[0]);
+	*(u32 *)&task->m_which = (u8)CSealCtrlAi::get_valve(name);
+	VALVE_CMD_DATA &cmd = task->m_cmd;
+	cmd.m_valve = 0;
+	cmd.m_value = 0;
+	cmd.m_flags &= (u8)~0x1f;
+
+	if (count == 1)
+	{
+		cmd.m_op = 1;
+		return (_zanim_cmd_hdr *)task;
+	}
+
+	cmd.m_op = (u8)CValve::ParseOperator(v[2].type == ZRDR_STRING ? v[2].string : NULL);
+
+	if (count == 2)
+		return (_zanim_cmd_hdr *)task;
+
+	_zrdr *operand = &v[3];
+
+	if (operand->type == ZRDR_STRING)
+	{
+		int index = -1;
+		CValve *valve = VALVE_CMD_DATA::ParseValveName(operand->string, index);
+
+		if (index != -1)
+			cmd.m_value = (u32)index;
+		else
+			cmd.m_value = valve != NULL ? (u32)ZAnim.m_CurAnim->AddValve(valve->m_name) : 0; /* port: NULL test */
+
+		cmd.m_flags = (u8)((cmd.m_flags & ~0x1c) | (index != -1 ? 0x4 : 0) | 0x8 | 0x10);
+	}
+	else
+	{
+		cmd.m_value = operand->type == ZRDR_INTEGER ? (u32)operand->integer : operand->type == ZRDR_REAL ? (u32)(s32)operand->real : 0;
+	}
+
+	return (_zanim_cmd_hdr *)task;
 }
 
 /* @socom-skeleton body Tick__7CTValveFP14_zanim_cmd_hdrPf */
@@ -2679,7 +3656,27 @@ bool CTValve::Tick(_zanim_cmd_hdr* header, f32* dT)
 /* @socom-skeleton body Parse__6CTWaitFP5_zrdr */
 _zanim_cmd_hdr* CTWait::Parse(_zrdr* reader)
 {
-	return NULL;
+	/* 0x2b4300 (written, untested): "wait" (a time or a range); none: no record. ELF quirk
+	 * kept: the timer is drawn twice */
+	Rfloat wait;
+	wait.m_min = 0.0f;
+	wait.m_range = 0.0f;
+
+	if (!zrdr_findRfloat(reader, "wait", &wait))
+		return NULL;
+
+	TASK_WAIT *task = (TASK_WAIT *)task_alloc(20, *(u16 *)&ai_cmdid[0]);
+	task->m_wait = wait;
+
+	for (s32 i = 0; i < 2; i++)
+	{
+		if (task->m_wait.m_range == 0.0f)
+			task->m_timer = task->m_wait.m_min;
+		else
+			task->m_timer = task->m_wait.m_min + task->m_wait.m_range * ((f32)rand() * (1.0f / 2147483648.0f));
+	}
+
+	return (_zanim_cmd_hdr *)task;
 }
 
 /* @socom-skeleton body Begin__6CTWaitFP14_zanim_cmd_hdr */

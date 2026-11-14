@@ -90,6 +90,10 @@ CHARACTER_SOUND GetCharacterSoundType(const char *); /* below (0x248110) */
 #include "gamez/zMath/zmath.h"
 #include "gamez/zNode/znode.h"
 #include "gamez/zWeapon/zweapon.h"
+#include "gamez/zUtil/util_stable.h" /* CSTable (MultiplayerMsgStrings) */
+#include "gamez/zNetwork/znet.h" /* theNetwork (KorusGetPackedWeapons) */
+#include <stdio.h> /* sprintf */
+#include <stdint.h> /* uintptr_t */
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
 class CCharacterWeapPacked;
@@ -103,7 +107,7 @@ CRdrFile* CCharacterType::m_rdr_file;
 static int _angle_units;
 
 /* @socom-skeleton stub MultiplayerMsgStrings */
-static unsigned char MultiplayerMsgStrings[28];
+static CSTable MultiplayerMsgStrings(0, 1024); /* 0x506390: __sinit constructs CSTable(0, 1024) */
 
 /* @socom-skeleton stub m_char_list__14CCharacterType */
 std::vector<CCharacterType*> CCharacterType::m_char_list;
@@ -187,13 +191,57 @@ void CCharacterWeap::SetupCharacterWeapon(EQUIP_ITEM item)
 }
 
 /* @socom-skeleton stub KorusGetPackedWeapons__14CCharacterTypeFP20CCharacterWeapPacked */
-void CCharacterType::KorusGetPackedWeapons(CCharacterWeapPacked *)
+void CCharacterType::KorusGetPackedWeapons(CCharacterWeapPacked *out)
 {
+	/* 0x24aea0 (CZSealState::UpdateLocalSeal): the network character type's (theNetwork's
+	   character type name) first eight kit items, packed */
+	CCharacterType *type = NULL;
+
+	for (std::vector<CCharacterType*>::iterator it = m_char_list.begin(); it != m_char_list.end(); ++it)
+	{
+		if (strcmp((*it)->m_name, theNetwork.m_charType) == 0)
+		{
+			type = *it;
+			break;
+		}
+	}
+
+	if (type == NULL)
+		return;
+
+	s32 i = 0;
+
+	for (CCharacterWeapList::iterator w = type->m_weapons.begin(); i < 8 && w != type->m_weapons.end(); ++w, i++)
+	{
+		out[i].m_packed = CZWeapon::PackItemAndAmmoEnums(w->m_wepId, w->m_ammoId);
+		out[i].m_ammoCount = (s16)w->m_ammoCount;
+		out[i].m_magCount = (s16)w->m_magCount;
+	}
 }
 
 /* @socom-skeleton stub UnPack__14CCharacterTypeFPC20CCharacterWeapPackedP14CCharacterType */
-void CCharacterType::UnPack(const CCharacterWeapPacked *, CCharacterType *)
+void CCharacterType::UnPack(const CCharacterWeapPacked *packed, CCharacterType *type)
 {
+	/* 0x24ada0 (a remote seal's creation / respawn): the type's weapons become the eight
+	   packed items (an empty item is skipped) */
+	type->m_weapons.clear();
+
+	for (s32 i = 0; i < 8; i++)
+	{
+		EQUIP_ITEM item;
+		EQUIP_AMMO ammo;
+		CZWeapon::UnpackItemAndAmmoEnums(packed[i].m_packed, &item, &ammo);
+
+		if ((u8)item == 0)
+			continue;
+
+		CCharacterWeap w;
+		w.m_wepId = item;
+		w.m_ammoId = ammo;
+		w.m_ammoCount = (u16)packed[i].m_ammoCount;
+		w.m_magCount = (u16)packed[i].m_magCount;
+		type->m_weapons.push_back(w);
+	}
 }
 
 /* @socom-skeleton body Open__14CCharacterTypeFPCc */
@@ -1035,8 +1083,49 @@ void CCharacterType::AcquireSoundHandles()
 }
 
 /* @socom-skeleton stub InitMultiplayerMessages__14CCharacterTypeFP5_zrdr */
-void CCharacterType::InitMultiplayerMessages(_zrdr *)
+void CCharacterType::InitMultiplayerMessages(_zrdr *sounds)
 {
+	/* 0x247c30 (Parse): the "multiplayer" list's entries { command, ?, text, [text2] }: the
+	   command (CSealCtrl::GetCommandId), then three strings of the shared table (the third
+	   value, the second, and the fourth or else the third); kept when the first string exists.
+	   port: MultiplayerMsg's words are named by position only */
+	_zrdr *list = zrdr_findtag(sounds, "multiplayer");
+
+	if (list == NULL)
+		return;
+
+	u32 count = list->IsArray() ? list->array->integer - 1 : 0;
+	MultiplayerMessages.reserve(count);
+
+	for (u32 i = 0; i < count; i++)
+	{
+		_zrdr *entry = list->Get(i);
+		MultiplayerMsg *msg = new MultiplayerMsg;
+		msg->m_words[0] = 0;
+		msg->m_words[1] = 0;
+		msg->m_words[2] = 0;
+		msg->m_words[3] = 0;
+		msg->m_words[4] = 0;
+		u32 n = entry->IsArray() ? entry->array->integer - 1 : 0;
+		_zrdr *v = entry->array;
+		_zrdr *third = n >= 3 ? &v[3] : NULL;
+		char first[128];
+		char last[128];
+		/* ELF: the values are read without NULL tests; port: missing values give NULL / "" */
+		sprintf(first, "%s", third != NULL && third->type == ZRDR_STRING ? third->string : "");
+		const char *second = n >= 2 && v[2].type == ZRDR_STRING ? v[2].string : NULL;
+		_zrdr *fourth = n >= 4 ? &v[4] : third;
+		sprintf(last, "%s", fourth != NULL && fourth->type == ZRDR_STRING ? fourth->string : "");
+		const char *cmd = n >= 1 && v[1].type == ZRDR_STRING ? v[1].string : NULL;
+		msg->m_words[0] = (u8)CSealCtrl::GetCommandId(cmd);
+		msg->m_words[1] = (u32)(uintptr_t)MultiplayerMsgStrings.CreateString(first);
+		msg->m_words[2] = (u32)(uintptr_t)MultiplayerMsgStrings.CreateString(second);
+		msg->m_words[3] = (u32)(uintptr_t)MultiplayerMsgStrings.CreateString(last);
+		msg->m_words[4] = 0;
+
+		if (msg->m_words[1] != 0)
+			MultiplayerMessages.push_back(msg);
+	}
 }
 
 /* @socom-skeleton stub ClearMultiplayerMessageSounds__14CCharacterTypeFv */
@@ -1069,18 +1158,61 @@ void CCharacterType::PlayAt(CHARACTER_SOUND sound, unsigned int id, const CPnt3D
 }
 
 /* @socom-skeleton stub match_name_to_chartype__14CCharacterTypeFP8CRdrFilePCcPCc */
-char * CCharacterType::match_name_to_chartype(CRdrFile *, const char *, const char *)
+char * CCharacterType::match_name_to_chartype(CRdrFile *rdr, const char *group, const char *name)
 {
+	/* 0x247940: in chartype.rdr's group list, the "character" of the entry whose "name" is
+	   name (case ignored); NULL when there is none */
+	_zrdr *list = zrdr_findtag(rdr, group);
+
+	if (list == NULL || !list->IsArray())
+		return NULL;
+
+	u32 count = list->array->integer - 1;
+
+	for (u32 i = 0; i < count; i++)
+	{
+		_zrdr *entry = list->Get(i);
+		char *entryName = zrdr_findstring(entry, "name");
+
+		if (entryName != NULL && strcasecmp(entryName, name) == 0)
+			return zrdr_findstring(entry, "character");
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub RdrFetch_CharacterType__14CCharacterTypeFPCc */
-CCharacterType * CCharacterType::RdrFetch_CharacterType(const char *)
+CCharacterType * CCharacterType::RdrFetch_CharacterType(const char *name)
 {
+	/* 0x247880 (CreateCustomCharTypes): the character type chartype.rdr names for name in its
+	   navyseals, terrorists or escortees list (GetByNameMod); NULL without the file */
+	CRdrFile *rdr = CRdrArchive::FindRdr("chartype.rdr");
+
+	if (rdr == NULL)
+		return NULL;
+
+	char *type = match_name_to_chartype(rdr, "navyseals", name);
+
+	if (type == NULL)
+		type = match_name_to_chartype(rdr, "terrorists", name);
+
+	if (type == NULL)
+		type = match_name_to_chartype(rdr, "escortees", name);
+
+	CCharacterType *found = GetByNameMod(type);
+	zrdr_free(rdr);
+	return found;
 }
 
 /* @socom-skeleton stub GetBaseName__14CCharacterTypeFv */
 char * CCharacterType::GetBaseName()
 {
+	/* 0x2477e0: the name of the type this one derives from (m_parentID), else NULL */
+	if (!(m_parentID < m_char_list.size()))
+		return NULL;
+
+	CCharacterType *parent = m_char_list[m_parentID];
+	return parent != NULL ? parent->m_name : NULL;
 }
 
 /* @socom-skeleton stub GetWeaponByIndex__14CCharacterTypeCFUi */

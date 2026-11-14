@@ -232,6 +232,8 @@ void CSealCtrl::InitMPBomb()
 }
 
 /* @socom-skeleton stub MPBomb_TimerAvailable__9CSealCtrlFb */
-void CSealCtrl::MPBomb_TimerAvailable(bool)
+void CSealCtrl::MPBomb_TimerAvailable(bool available)
 {
+	/* 0x283730 */
+	m_mpbomb_bTimerAvailable = available ? 1 : 0;
 }

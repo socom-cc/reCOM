@@ -37,34 +37,71 @@ void CEntity::SetController(CEntityCtrl* controller)
 /* @socom-skeleton stub PreTick__7CEntityFf */
 void CEntity::PreTick(float)
 {
+	/* 0x1f1fc0: empty in the ELF (jr ra) */
 }
 
 /* @socom-skeleton stub Tick__7CEntityFf */
 void CEntity::Tick(float)
 {
+	/* 0x1f1fb0: empty in the ELF (jr ra) */
 }
 
 /* @socom-skeleton stub PostPreTick__7CEntityFf */
 void CEntity::PostPreTick(float)
 {
+	/* 0x1f1fa0: empty in the ELF (jr ra) */
 }
 
 /* @socom-skeleton stub PrePostTick__7CEntityFf */
 void CEntity::PrePostTick(float)
 {
+	/* 0x1f1f90: empty in the ELF (jr ra) */
 }
 
 /* @socom-skeleton stub PostTick__7CEntityFf */
 void CEntity::PostTick(float)
 {
+	/* 0x1f1f80: empty in the ELF (jr ra) */
 }
 
 /* @socom-skeleton stub ComputeNextPosition__7CEntityFf */
-void CEntity::ComputeNextPosition(float)
+void CEntity::ComputeNextPosition(float dT)
 {
+	/* 0x1f1e70: the next frame's orientation (the turn rate over half the time, through
+	   the quaternion exponent), velocity (the model-space velocity turned into the world)
+	   and matrix (the node's position moved by it). The vertical velocity is kept out of
+	   the computation and put back after */
+	f32 vy = m_velM.y;
+	m_velW.y = 0.0f;
+	m_velM.y = 0.0f;
+	m_next_quat = m_quat;
+	CPnt3D r;
+	m_velR.Scale(0.5f * dT, &r);
+	CQuat q;
+	q.Exp(&r);
+	CQuat turned;
+	q.Mul(&m_next_quat, &turned);
+	turned.Normalize(&m_next_quat);
+	m_next_quat.Apply(&m_velM, &m_next_velw, 1);
+	CPnt3D d;
+	m_next_velw.Scale(dT, &d);
+	CPnt3D p;
+	reinterpret_cast<const CPnt3D *>(m_node->m_matrix.m_matrix[3])->Add(&d, &p);
+	m_next_matrix.m_matrix[3][0] = p.x;
+	m_next_matrix.m_matrix[3][1] = p.y;
+	m_next_matrix.m_matrix[3][2] = p.z;
+	m_next_quat.ToMatrix(&m_next_matrix);
+	m_velW.y = vy;
+	m_velM.y = vy;
 }
 
 /* @socom-skeleton stub UpdateNextPosition__7CEntityFv */
 void CEntity::UpdateNextPosition()
 {
+	/* 0x1f1e20: the computed orientation, velocity and matrix become the entity's */
+	m_quat = m_next_quat;
+	m_velW.x = m_next_velw.x;
+	m_velW.y = m_next_velw.y;
+	m_velW.z = m_next_velw.z;
+	m_node->SetMatrix(&m_next_matrix);
 }

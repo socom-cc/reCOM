@@ -359,6 +359,7 @@ namespace sealai
 #include "gamez/zSeal/zseal.h"
 #include "gamez/zSound/zsnd.h"
 #include "gamez/zCamera/zcam.h" /* appCamera (PostMortemPreTick) */
+#include "Apps/FTS/hud/hud.h" /* CCompassAnchor (InitAiBrain's escortee anchor) */
 void CleanupDiPool(CZSealBody *); /* seal_sensors.cpp 0x2b3250 (OnDeath) */
 /* @socom-skeleton decl forward */
 class AI_FIREPARAMS;
@@ -1171,8 +1172,8 @@ void CSealCtrlAi::Initalize()
 			alive->MakeCallbacks((VALVE_STATE)1);
 	}
 
-	/* port: not written - m_mode (+0x30c, AI_MODE byte) = 1 (AIM_IDLE); CSealCtrlAi's
-	 * m_mode is not declared in the port */
+	/* 0x26af90: the mode byte is set directly (no SetAiMode) */
+	m_mode = AIM_IDLE;
 }
 
 /* @socom-skeleton stub OnMissionStart__11CSealCtrlAiFv */
@@ -1229,8 +1230,17 @@ void CSealCtrlAi::InitAiBrain()
 	ClearAiState(true);
 	SetAiState(STATE_UNKNOWN);
 	Debug("ClearRoute()...\n");
-	/* ELF: ClearRoute inlined - ai::AbortPathPlan(&m_path), m_path.Clear(), the default
-	 * path type with bias 1.0. port: not written (the path planner is not written) */
+	/* 0x26a964: ClearRoute inlined (its Debug line above) */
+	ai::AbortPathPlan(&m_path);
+
+	if (m_path.Clear())
+	{
+		if (m_path.SetPathType(CAiPath::PATH_DEFAULT))
+			m_path.m_type_bias = 1.0f;
+
+		m_path.m_search_limit = 0;
+	}
+
 	SetAiMode(AIM_IDLE);
 
 	if (seal->m_team & 2)
@@ -1293,14 +1303,50 @@ void CSealCtrlAi::InitAiBrain()
 	if (seal->m_team & 0x10000000)
 		seal->m_restrainable = 1;
 
-	/* ELF: team bit 0x20000 (hostages): restrained from the start in a network game
-	 * (STATE_RESTRAINED, unit 17), an "ESCORTEE" compass anchor. port: not written */
+	if (seal->m_team & 0x20000)
+	{
+		/* 0x26abdc: hostages. In a network game restrained from the start (STATE_RESTRAINED
+		 * set up) and in unit 17; offline restrainable when the team has bit 0x80000000.
+		 * Either way an "ESCORTEE" compass anchor (type 4), once. */
+		if (theNetwork.m_bNetwork)
+		{
+			seal->m_restrained = 1;
+
+			if (PushAiState(STATE_RESTRAINED, true))
+			{
+				CAiState *state = GetAiState();
+
+				if (state != NULL && state->m_state == STATE_RESTRAINED) /* port: NULL test (ELF writes through it) */
+					state->m_setup = 1;
+
+				seal->m_restrained = 1;
+			}
+
+			CSealUnit *unit17 = CSealUnit::GetUnitByTeam(17);
+			if (m_unit != unit17)
+				CSealUnit::GetUnitByTeam(17)->SealJoinUnit(seal);
+		}
+		else if (seal->m_team & 0x80000000)
+		{
+			seal->m_restrainable = 1;
+		}
+
+		if (seal->m_hostage_anchor == NULL)
+		{
+			CCompassAnchor *anchor = CCompass::CreateAnchor(*seal->GetPosW(), "ESCORTEE");
+			anchor->m_type = 4;
+			seal->CompassAnchor_Hostage(anchor);
+		}
+	}
 
 	if (m_has_respawned)
 	{
 		OnMissionStart();
-		/* ELF: a STATE_SCRIPT top state runs its "on_respawn" sequence. port: not written
-		 * (CAiSScript) */
+		/* 0x26ad40: a STATE_SCRIPT top state runs its "on_respawn" sequence */
+		CAiState *state = GetAiState();
+
+		if (state != NULL && state->m_state == STATE_SCRIPT) /* port: NULL test */
+			static_cast<CAiSScript *>(state)->ActivateSequence("on_respawn", 3);
 	}
 
 #ifdef SOCOM_PORT

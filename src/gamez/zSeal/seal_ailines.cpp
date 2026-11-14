@@ -42,7 +42,39 @@
 /* @socom-skeleton decl include */
 #include "gamez/zMath/zmath.h"
 #include "zseal.h"
+#include "gamez/zRender/zrender.h" /* RenderLineWorld, CStack */
 /* @socom-skeleton end include */
+
+/* _TransformPoint 0x29b630 (seal_env.cpp's unit; vf4-vf7 hold the matrix the caller loaded):
+   a point times the matrix stack's top, row vectors. port: file-local, written out */
+static void ai_line_transform(const CPnt4D *in, CPnt4D *out)
+{
+	const CMatrix *m = CStack::m_top;
+	f32 x = in->x;
+	f32 y = in->y;
+	f32 z = in->z;
+	f32 w = in->w;
+	out->x = m->m_matrix[0][0] * x + m->m_matrix[1][0] * y + m->m_matrix[2][0] * z + m->m_matrix[3][0] * w;
+	out->y = m->m_matrix[0][1] * x + m->m_matrix[1][1] * y + m->m_matrix[2][1] * z + m->m_matrix[3][1] * w;
+	out->z = m->m_matrix[0][2] * x + m->m_matrix[1][2] * y + m->m_matrix[2][2] * z + m->m_matrix[3][2] * w;
+	out->w = m->m_matrix[0][3] * x + m->m_matrix[1][3] * y + m->m_matrix[2][3] * z + m->m_matrix[3][3] * w;
+}
+
+/* the inline part DrawLine and LineTo share: both points (w 1) through the stack's top, both
+   ends in the colour stack's front colour with the line opacity */
+static void ai_line_render(const CPnt3D *from, const CPnt3D *to)
+{
+	CPnt4D p0(from->x, from->y, from->z, 1.0f);
+	CPnt4D p1(to->x, to->y, to->z, 1.0f);
+	const CPnt3D &color = ai::ai_line_color.front();
+	CPnt4D c0(color.x, color.y, color.z, ai::ai_line_opacity);
+	CPnt4D c1(color.x, color.y, color.z, ai::ai_line_opacity);
+	CPnt4D w0;
+	CPnt4D w1;
+	ai_line_transform(&p0, &w0);
+	ai_line_transform(&p1, &w1);
+	RenderLineWorld(w0, w1, c0, c1);
+}
 
 /* @socom-skeleton stub ai_line_opacity__2ai */
 float ai::ai_line_opacity = 1.0f;
@@ -62,7 +94,10 @@ std::__wInit std::__msl_ios_base_winit;
 #endif
 
 /* @socom-skeleton stub ai_line_stack__2ai */
-unsigned char ai::ai_line_stack;
+unsigned char ai::ai_line_stack; /* ELF: a CStack whose ctor (__sinit_seal_ailines.cpp) pushes
+                                    the identity on the matrix stack for the AI lines; port: not
+                                    pushed (the port's stack base, m_stack[0], is the identity
+                                    the lines use outside rendering) */
 
 /* @socom-skeleton stub ai_line_mask__2ai */
 int ai::ai_line_mask;
@@ -74,49 +109,79 @@ static unsigned char MultiplayerMsgStrings[28];
 float ai::ai_line_pos[3];
 
 /* @socom-skeleton stub ai_line_color__2ai */
-int ai::ai_line_color[3];
+ai::color_stack ai::ai_line_color; /* __sinit_seal_ailines.cpp: one colour, (127, 0, 0) */
 
 /* @socom-skeleton stub PushLineColor__2aiFRC6CPnt3D */
-void ai::PushLineColor(const CPnt3D &)
+void ai::PushLineColor(const CPnt3D &color)
 {
+	/* 0x2e3380: the colour goes on the front of the stack (ELF returns 1) */
+	ai_line_color.push_front(color);
 }
 
 /* @socom-skeleton stub PopLineColor__2aiFv */
 void ai::PopLineColor()
 {
+	/* 0x2e3340: the front colour is dropped (no empty test) */
+	ai_line_color.pop_front();
 }
 
 /* @socom-skeleton stub SetLineOpacity__2aiFf */
-void ai::SetLineOpacity(float)
+void ai::SetLineOpacity(float opacity)
 {
+	/* 0x2e3320 */
+	ai_line_opacity = opacity;
+	saturate<f32>(ai_line_opacity, 0.0f, 1.0f);
 }
 
 /* @socom-skeleton stub GetLineOpacity__2aiFv */
 float ai::GetLineOpacity()
 {
+	/* 0x2e3310 */
+	return ai_line_opacity;
 }
 
 /* @socom-skeleton stub SetLineFuncOpacity__2aiFff */
-void ai::SetLineFuncOpacity(float, float)
+void ai::SetLineFuncOpacity(float start, float end)
 {
+	/* 0x2e3300: the opacities SetLineFuncOpacity(t) blends between */
+	ai_line_opacity_start = start;
+	ai_line_opacity_end = end;
 }
 
 /* @socom-skeleton stub SetLineFuncOpacity__2aiFf */
-void ai::SetLineFuncOpacity(float)
+void ai::SetLineFuncOpacity(float t)
 {
+	/* 0x2e32d0: start (t 0) to end (t 1) */
+	ai_line_opacity = ai_line_opacity_start * (1.0f - t) + ai_line_opacity_end * t;
+	saturate<f32>(ai_line_opacity, 0.0f, 1.0f);
 }
 
 /* @socom-skeleton stub MoveTo__2aiFRC6CPnt3D */
-void ai::MoveTo(const CPnt3D &)
+void ai::MoveTo(const CPnt3D &pos)
 {
+	/* 0x2e32a0 */
+	ai_line_pos[0] = pos.x;
+	ai_line_pos[1] = pos.y;
+	ai_line_pos[2] = pos.z;
 }
 
 /* @socom-skeleton stub LineTo__2aiFRC6CPnt3D */
-void ai::LineTo(const CPnt3D &)
+void ai::LineTo(const CPnt3D &pos)
 {
+	/* 0x2e3110: a line from the pen to the point (no mask test); the pen moves there */
+	CPnt3D from(ai_line_pos[0], ai_line_pos[1], ai_line_pos[2]);
+	ai_line_render(&from, &pos);
+	ai_line_pos[0] = pos.x;
+	ai_line_pos[1] = pos.y;
+	ai_line_pos[2] = pos.z;
 }
 
 /* @socom-skeleton stub DrawLine__2aiFQ22ai9LINE_TYPEPC6CPnt3DPC6CPnt3D */
-void ai::DrawLine(ai::LINE_TYPE, const CPnt3D *, const CPnt3D *)
+void ai::DrawLine(ai::LINE_TYPE type, const CPnt3D *from, const CPnt3D *to)
 {
+	/* 0x2e2f90 (CTurret::Tick): a line of a type (0: always) the mask lets through */
+	if ((u32)type != 0 && (ai_line_mask & (s32)type) == 0)
+		return;
+
+	ai_line_render(from, to);
 }

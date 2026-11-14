@@ -18,8 +18,54 @@
 static unsigned char MultiplayerMsgStrings[28];
 
 /* @socom-skeleton stub FootInSpace__10CZSealBodyFP10CZBodyAnimP6CPnt3DP6CPnt3Dffb */
-void CZSealBody::FootInSpace(CZBodyAnim *, CPnt3D *, CPnt3D *, float, float, bool)
+void CZSealBody::FootInSpace(CZBodyAnim *, CPnt3D *footL, CPnt3D *footR, float rotA, float rotB, bool notMirrored)
 {
+	/* 0x2a4dd0: each foot part is pitched by -rot (rotA on the left foot of an unmirrored
+	   anim, else on the right; rotB on the other), then the toe (seal_foot_bone along x) of
+	   the left / right foot is placed in space. The anim is not read. */
+	CZBodyPart *a;
+	CZBodyPart *b;
+	if (notMirrored)
+	{
+		b = m_rfoot;
+		a = m_lfoot;
+	}
+	else
+	{
+		a = m_rfoot;
+		b = m_lfoot;
+	}
+
+	CQuat q;
+	CQuat r;
+	if (rotA != 0.0f)
+	{
+		q.MakeXRot(-rotA);
+		q.Mul(&a->m_rot, &r);
+		a->m_rot.vec = r.vec;
+		a->m_rot.w = r.w;
+	}
+	if (rotB != 0.0f)
+	{
+		q.MakeXRot(-rotB);
+		q.Mul(&b->m_rot, &r);
+		b->m_rot.vec = r.vec;
+		b->m_rot.w = r.w;
+	}
+
+	CPnt3D toe;
+	if (footL)
+	{
+		toe = CPnt3D::zero;
+		toe.x = seal_foot_bone;
+		PartInSpace(m_lfoot, &toe, footL, NULL);
+	}
+	if (footR)
+	{
+		toe = CPnt3D::zero;
+		toe.x = seal_foot_bone;
+		PartInSpace(m_rfoot, &toe, footR, NULL);
+	}
 }
 
 /* @socom-skeleton stub TurnSetup__10CZSealBodyFi */

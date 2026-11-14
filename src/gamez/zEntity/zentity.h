@@ -319,7 +319,7 @@ public:
 	enum PU_TYPE { PU_NONE = 0, PU_GRENADE = 1, PU_WEAPON = 8, PU_AMMO = 9, PU_DATA = 10, PU_MPBOMB = 11 };
 	static void Open(unsigned int);
 	static void Close(bool);
-	void DebugPickups();
+	static void DebugPickups(); /* static: 0x24d420 uses no this */
 	static CPickup * NetworkCreate(unsigned char, CPickup::PU_TYPE, zdb::CNode *, void *); /* static: DropItem calls it without a pickup and keeps v0 */
 	bool GetVisibleByUnit(unsigned int); /* 0x24d1e0: 0/1 */
 	void SetVisibleByUnit(unsigned int);
@@ -333,7 +333,7 @@ public:
 	static CPickup * GetNext(std::list<CPickup *>::iterator &, const CPnt3D *, float, CPickup::PU_TYPE);
 	static CPickup * GetClosest(const CPnt3D *, float, CPickup::PU_TYPE, CPickup **);
 	static CPickup * FindPickup(unsigned int);
-	void IsNetIdUsed(unsigned char, unsigned char);
+	static bool IsNetIdUsed(unsigned char, unsigned char); /* static: 0x24c6c0 uses no this; 0/1 */
 	static unsigned short GetEntityIDFromNetID(unsigned short);
 	static CPickup * FindNetPickup(unsigned int);
 	static void CleanupAmmoPickup(CPickup *);

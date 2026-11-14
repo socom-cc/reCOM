@@ -43,11 +43,13 @@ class PlacedExplosive;
 /* @socom-skeleton stub __ct__10ZWepReaderFv */
 ZWepReader::ZWepReader()
 {
+	/* 0x31c990: nothing to set */
 }
 
 /* @socom-skeleton stub __dt__10ZWepReaderFv */
 ZWepReader::~ZWepReader()
 {
+	/* 0x31c940: nothing to destroy */
 }
 
 /* @socom-skeleton body Read__10ZWepReaderFRQ23zar4CZARP12CZWeaponListP10CZAmmoList */
@@ -505,8 +507,56 @@ void CZProjectileList::Clear()
 }
 
 /* @socom-skeleton stub Clear__16CZProjectileListFi */
-void CZProjectileList::Clear(int)
+void CZProjectileList::Clear(int shooter)
 {
+	/* 0x31b110 (a network player leaving): Clear() for one shooter's placed explosives and
+	   live projectiles */
+	if (m_used == NULL || m_projectiles == NULL)
+		return;
+
+	for (std::vector<CZProjectile*>::iterator it = m_explosives.begin(); it != m_explosives.end();)
+	{
+		CZProjectile *explosive = *it;
+
+		if ((s32)explosive->m_shooterID == shooter)
+		{
+			explosive->m_grenadestate = GRENADE_STATE::REMOVE;
+			explosive->ReportGrenadeStatus();
+			CPickup::Destroy(explosive->m_pickup);
+			delete (PlacedExplosive *)explosive;
+			it = m_explosives.erase(it);
+		}
+		else
+		{
+			++it;
+		}
+	}
+
+	s32 last = m_lastused;
+
+	if (last == -1 || last < 0)
+		return;
+
+	for (s32 i = 0; i <= last; i++)
+	{
+		if (m_used[i] == 1 && (s32)m_projectiles[i].m_shooterID == shooter)
+		{
+			m_projectiles[i].m_grenadestate = GRENADE_STATE::REMOVE;
+			m_projectiles[i].ReportGrenadeStatus();
+
+			if (m_used != NULL)
+			{
+				m_projectiles[i].Cleanup();
+				m_used[i] = 0;
+
+				if (i < m_firstfree)
+					m_firstfree = i;
+
+				if (i == m_lastused)
+					FindLastUsed();
+			}
+		}
+	}
 }
 
 /* @socom-skeleton stub UnInit__16CZProjectileListFv */
@@ -668,8 +718,35 @@ void CZProjectileList::PostTick(float dT)
 }
 
 /* @socom-skeleton stub NetRemoveProjectile__16CZProjectileListFP12CZProjectile */
-void CZProjectileList::NetRemoveProjectile(CZProjectile *)
+void CZProjectileList::NetRemoveProjectile(CZProjectile *projectile)
 {
+	/* 0x31aae0 (a remote removal): a projectile in states 3-5 is removed as soon as it can
+	   be; otherwise its slot is cleaned and freed, and a placed explosive leaves the list.
+	   ELF: the state is read before the NULL test */
+	u8 state = (u8)projectile->m_state;
+
+	if (state == 3 || state == 4 || state == 5)
+	{
+		projectile->m_remove_ASAP = 1;
+		return;
+	}
+
+	if (projectile == NULL || m_used == NULL)
+		return;
+
+	for (s32 i = 0; i < m_size; i++)
+	{
+		if (m_used[i] != 0 && &m_projectiles[i] == projectile && m_used != NULL)
+		{
+			projectile->Cleanup();
+			FreeIdx(i);
+		}
+	}
+
+	PlacedExplosive *placed = dynamic_cast<PlacedExplosive *>(projectile);
+
+	if (placed != NULL)
+		RemoveExplosive(placed);
 }
 
 /* @socom-skeleton stub RemoveProjectile__16CZProjectileListFP12CZProjectile */

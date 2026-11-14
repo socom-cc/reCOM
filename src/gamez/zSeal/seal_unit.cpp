@@ -1351,10 +1351,24 @@ CZSealBody * CSealUnit::IssueCommand(CZSealBody *source, FT_COMMAND cmd, void *b
 	if (m_parent != NULL && !quiet)
 		m_parent->CommandNotifyFromChild(this, source, cmd, buffer);
 
-	if (m_unit_num == 17)
+	if (m_unit_num == 17 && source != NULL)
 	{
-		/* ELF: the escortee unit gives the order to the seal under the source's reticule when
-		 * it accepts it (FOLLOW with the default offset (15, 0, -15)). port: not written */
+		/* 0x2d0d28: the escortee unit gives the order to the seal under the source's reticule
+		 * when its controller accepts it (FOLLOW without an offset: (15, 0, -15)), quiet, and
+		 * answers that seal. port: source NULL-tested (the ELF calls through it) */
+		CZSealBody *target = source->GetReticuleSeal();
+
+		if (target != NULL && target->m_control != NULL
+			&& static_cast<CSealCtrl *>(target->m_control)->AllowCommand(source, cmd, buffer))
+		{
+			CPnt3D offset(15.0f, 0.0f, -15.0f);
+
+			if (cmd == CMD_FOLLOW && buffer == NULL)
+				buffer = &offset;
+
+			target->IssueCommand(source, cmd, buffer, true);
+			return target;
+		}
 	}
 
 	if (m_ambush)

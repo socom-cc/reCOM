@@ -445,8 +445,21 @@ static unsigned char di1[72];
 static CPnt3D projDirDown(0.0f, -1.0f, 0.0f); /* 0x508cd8 (12 bytes): (0, -1, 0), stored by __sinit_seal_env.cpp (0x46d1c0) */
 
 /* @socom-skeleton stub ftmask_create__FP5_zrdr */
-void ftmask_create(_zrdr *)
+u32 ftmask_create(_zrdr *reader)
 {
+	/* 0x2a4bf0: a fire-team mask from a list of member numbers (ai::TEAM's Parse): bit n
+	   for each integer (or real) n; 0 when the tag is not a list */
+	u32 mask = 0;
+	if (reader == NULL || !reader->IsArray())
+		return 0;
+
+	s32 count = reader->array->integer - 1;
+	for (s32 i = 0; i < count; i++)
+	{
+		_zrdr *entry = reader->Get(i);
+		mask |= 1u << entry->GetInt();
+	}
+	return mask;
 }
 
 /* @socom-skeleton stub UpdateAiMapLoc__10CZSealBodyFRb */
@@ -3422,6 +3435,19 @@ CNodeAction * CZSealBody::GetReticuleAction(bool in_range)
 /* @socom-skeleton stub GetProximityMPBomb__10CZSealBodyFv */
 CPickup * CZSealBody::GetProximityMPBomb()
 {
+	/* 0x29a450 (network only): the MP bomb pickup within 20 of the seal (GetClosest), when
+	   it is also within 20 in 3D (400 squared); else NULL */
+	if (!theNetwork.m_bNetwork)
+		return NULL;
+
+	CPickup *bomb = CPickup::GetClosest(GetPosW(), 20.0f, CPickup::PU_MPBOMB, NULL);
+
+	if (bomb == NULL)
+		return NULL;
+
+	CPnt3D d;
+	GetPosW()->Sub(bomb->GetPosW(), &d);
+	return d.x * d.x + d.y * d.y + d.z * d.z < 400.0f ? bomb : NULL;
 }
 
 /* @socom-skeleton stub GetProximityWeapon__10CZSealBodyFPP7CPickup */
@@ -5982,13 +6008,33 @@ void CZSealBody::ReportWeaponHitDamage(int shooter, int victim, DAMAGE_LOCATION 
 }
 
 /* @socom-skeleton stub GetMPStats__10CZSealBodyFP11MPSealStatsb */
-void CZSealBody::GetMPStats(MPSealStats *, bool)
+void CZSealBody::GetMPStats(MPSealStats *out, bool mp)
 {
+	/* 0x290fb0: the round (m_mp_stats) or mission stats packed for the network */
+	CSealStats &s = mp ? m_mp_stats : m_stats;
+	out->m_kills = (s8)s.m_kills;
+	out->m_headshots = (u8)s.m_headshots;
+	out->m_washit = (u8)s.m_washit;
+	out->m_deaths = (u8)s.m_deaths;
+	out->m_bases_blown = (u8)s.m_bases_blown;
+	out->m_hit_percent = (u8)(u32)(100.0f * s.m_hit_percent);
+	out->m_hostages_rescued = (u8)s.m_hostages_rescued;
+	out->m_sMvpScore = s.m_sMvpScore;
 }
 
 /* @socom-skeleton stub SetMPStats__10CZSealBodyFP11MPSealStatsb */
-void CZSealBody::SetMPStats(MPSealStats *, bool)
+void CZSealBody::SetMPStats(MPSealStats *in, bool mp)
 {
+	/* 0x290f10: the packed stats back into the round or mission stats */
+	CSealStats &s = mp ? m_mp_stats : m_stats;
+	s.m_kills = in->m_kills;
+	s.m_headshots = in->m_headshots;
+	s.m_washit = in->m_washit;
+	s.m_deaths = in->m_deaths;
+	s.m_bases_blown = in->m_bases_blown;
+	s.m_hit_percent = (f32)in->m_hit_percent / 100.0f;
+	s.m_hostages_rescued = in->m_hostages_rescued;
+	s.m_sMvpScore = in->m_sMvpScore;
 }
 
 /* @socom-skeleton stub RemoteWeaponDamageVictim__10CZSealBodyF15DAMAGE_LOCATIONffP10CZSealBodyP10CZSealBodyUcb */
@@ -5997,8 +6043,10 @@ void CZSealBody::RemoteWeaponDamageVictim(DAMAGE_LOCATION, float, float, CZSealB
 }
 
 /* @socom-skeleton stub RemoteWeaponDamageNonVictim__10CZSealBodyF15DAMAGE_LOCATIONP10CZSealBodyP10CZSealBodyUcb */
-void CZSealBody::RemoteWeaponDamageNonVictim(DAMAGE_LOCATION, CZSealBody *, CZSealBody *, unsigned char, bool)
+void CZSealBody::RemoteWeaponDamageNonVictim(DAMAGE_LOCATION location, CZSealBody *victim, CZSealBody *shooter, unsigned char weapon, bool headshot)
 {
+	/* 0x290a90: the victim path with no damage and no stun */
+	RemoteWeaponDamageVictim(location, 0.0f, 0.0f, victim, shooter, weapon, headshot);
 }
 
 /* @socom-skeleton stub SetBodyDamage__10CZSealBodyFi */
@@ -6998,16 +7046,45 @@ void CZSealBody::EnableMPBombGear(bool enable)
 /* @socom-skeleton stub HandlePickupMPBomb__10CZSealBodyFP7CPickup */
 void CZSealBody::HandlePickupMPBomb(CPickup *)
 {
+	/* 0x28c540: the bomb state asks for "carried" (2) by this seal */
+	CPnt3D zero(0.0f, 0.0f, 0.0f);
+	CZBombState::RequestNewBombState(m_id, (CZBombState::EnumBombState)2, &zero);
 }
 
 /* @socom-skeleton stub RemoteDropMPBomb__10CZSealBodyFv */
 void CZSealBody::RemoteDropMPBomb()
 {
+	/* 0x28c470: a remote seal drops the bomb: the item leaves its kit, a bomb pickup where
+	   it stands, its satchel model hidden, the place anim; the HUD's weapon box redrawn */
+	s32 index = m_kit.GetItemIndex((EQUIP_ITEM)154);
+
+	if (index != -1)
+		m_kit.RemoveItemAndAmmo(index);
+
+	CPnt3D at = *GetPosW();
+	CreateMPBombPickup(&at, false);
+	zdb::CNode *satchel = FindAuxNode("Satchel", false);
+
+	if (satchel != NULL)
+		satchel->SetActive(false);
+
+	PerformAction((AnimType)AnimTypes::PlaceClaymore, (SEAL_STATE)0);
+	static_cast<CSealCtrl *>(m_control)->m_HudUpdateWeapon = 1; /* bit 4 of the controller's +0x168 */
 }
 
 /* @socom-skeleton stub DropMPBomb__10CZSealBodyFv */
 void CZSealBody::DropMPBomb()
 {
+	/* 0x28c3e0: a seal carrying the bomb (item 154) asks the bomb state for "dropped" (1)
+	   where it stands and hides its satchel model */
+	if (!m_kit.HasItem((EQUIP_ITEM)154))
+		return;
+
+	CZBombState::RequestNewBombState(m_id, (CZBombState::EnumBombState)1, GetPosW());
+	zdb::CNode *satchel = FindAuxNode("Satchel", false);
+
+	if (satchel != NULL)
+		satchel->SetActive(false);
 }
 
 /* @socom-skeleton stub CreateMPBombPickup__10CZSealBodyFPC6CPnt3Db */

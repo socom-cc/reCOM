@@ -109,7 +109,7 @@ public:
 
 	bool Set(u32 value); /* ELF: Set__6CValveFUi */
 
-	OP_TYPE ParseOperator(const char* op);
+	static OP_TYPE ParseOperator(const char* op); /* static: 0x2f8170 uses no this */
 
 	char* m_name;
 	u32 m_value : 16;
@@ -168,7 +168,7 @@ public:
 	u8 m_flags;   /* +0x9 */
 	u16 GetValue();
 	bool Compare();
-	static void ParseValveName(const char *, int &);
+	static CValve *ParseValveName(const char *, int &); /* 0x2f8070 answers the valve (NULL for INPUT_VALVE<n>) */
 };
 /* @socom-skeleton end 14VALVE_CMD_DATA */
 #endif

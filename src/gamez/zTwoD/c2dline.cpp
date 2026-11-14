@@ -345,10 +345,14 @@ bool clip3DLine(CPnt4D *point, CPnt4D *normal, CPnt4D *p1, CPnt4D *p2)
 /* @socom-skeleton stub clip3DLine__FP6CPnt4DP6CPnt4DP6CPnt4D */
 bool clip3DLine(CPnt4D *planes, CPnt4D *p1, CPnt4D *p2)
 {
-	/* 0x2ffc20 (RenderLineWorld): against the six planes planes[1..6] through planes[0] */
+	/* 0x2ffc20 (RenderLineWorld): planes is a camera's ZCAM_CLIP_DATA: the near plane
+	   (normal planes[2] through planes[1]), then left, right, top and bottom (normals
+	   planes[3..6] through planes[0], the view point) */
 	if (planes == NULL)
 		return false;
-	for (int i = 1; i < 6; i++)
+	if (!clip3DLine(planes + 1, planes + 2, p1, p2))
+		return false;
+	for (int i = 3; i < 6; i++)
 		if (!clip3DLine(planes, planes + i, p1, p2))
 			return false;
 	return clip3DLine(planes, planes + 6, p1, p2);
