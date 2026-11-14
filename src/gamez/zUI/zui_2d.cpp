@@ -220,6 +220,7 @@
 #include "gamez/zSound/zsnd.h" /* CSnd (CTeleType) */
 #include <new> /* port: placement new for C2DButton::m_commands */
 #include <libvu0.h> /* sceVu0UnitMatrix (CPopUpDialog::Draw) */
+#include "gamez/zVideo/zvid.h" /* zVid.frameNumber (CUIMapCtrl::OnPan) */
 void zVid_Scissor(int, int, int, int); /* zvid_init.cpp (0x308420); no header declares it */
 
 /* @socom-skeleton end include */
@@ -241,6 +242,7 @@ struct _zanim_cmd_hdr;
 /* @socom-skeleton end forward */
 CZAnimSet * GetLocalAnims();        /* zui.cpp (0x384ee0) */
 unsigned char UiGetDirStickMoved(); /* zui.cpp (0x384380) */
+void PlaySelectionSound(); /* zui.cpp (0x3845f0) */
 void PlayCountSound();              /* zui.cpp (0x384630; C2DCounter::Tick) */
 extern unsigned char g_hasAnims;    /* zui.cpp */
 /* port: CListItemTypeImpl had no declaration. Slot order from __vt__17CListItemTypeImpl @0x473290 (13 slots,
@@ -471,6 +473,8 @@ void CUIListBox::SetActive() /* port: stub */
 /* @socom-skeleton stub __dt__10CSliderBarFv */
 CSliderBar::~CSliderBar()
 {
+	/* 0x393c70: nothing of its own - the knob, the mixin (DetachUIVar) and the button part are
+	 * the member / base destructors */
 }
 
 /* @socom-skeleton stub __dt__13CHProgressBarFv */
@@ -481,16 +485,20 @@ CHProgressBar::~CHProgressBar()
 /* @socom-skeleton stub UpdateUIVar__9CCheckBoxFP11CUIVariable */
 void CCheckBox::UpdateUIVar(CUIVariable *)
 {
+	/* 0x393b90: empty in the ELF (jr ra): the check does not follow its variable */
 }
 
 /* @socom-skeleton stub __dt__9CCheckBoxFv */
 CCheckBox::~CCheckBox()
 {
+	/* 0x393a90: nothing of its own - the check image, both items, the mixin (DetachUIVar)
+	 * and the button part are the member / base destructors */
 }
 
 /* @socom-skeleton stub __dt__11CRadioStripFv */
 CRadioStrip::~CRadioStrip()
 {
+	/* 0x393a30: nothing of its own (the options are the C2D list's, deleted by ~C2DButton) */
 }
 
 /* @socom-skeleton stub __dt__11CScrollTextFv */
@@ -1679,18 +1687,60 @@ void C2DButton::LoadSpec(const CButtonSpec &spec)
 }
 
 /* @socom-skeleton stub ParseZAnimCmd__9C2DButtonFP5_zrdr */
-C2DAnimCmdHdr * C2DButton::ParseZAnimCmd(_zrdr *)
+C2DAnimCmdHdr * C2DButton::ParseZAnimCmd(_zrdr *reader)
 {
+	/* 0x38efc0: CAPTION "<text>" as an 8-byte timeless command (the text in the current
+	 * anim's name table); nothing else */
+	char* caption = zrdr_findstring(reader, "CAPTION");
+
+	if (caption == NULL)
+		return NULL;
+
+	C2DAnimCmdHdr* cmd = (C2DAnimCmdHdr*)_calloc(1, 8, "zui_2d.cpp", 1562);
+	cmd->header.timeless = 1;
+	cmd->header.data_size = 8;
+	cmd->m_command_type = GetZAnimCmdType("CAPTION");
+	cmd->m_argument_index = ZAnim.m_CurAnim->AddName(caption);
+	return cmd;
 }
 
 /* @socom-skeleton stub TickZAnimCmd__9C2DButtonFP14_zanim_cmd_hdrPfPb */
-bool C2DButton::TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *)
+bool C2DButton::TickZAnimCmd(_zanim_cmd_hdr *header, float *, bool *)
 {
+	/* 0x38ef20: Caption sets the caption (the name, as the button's caption pointer, and
+	 * the string); returns 0 and leaves *result alone */
+	C2DAnimCmdHdr* cmd = reinterpret_cast<C2DAnimCmdHdr*>(header);
+	CZAnim* anim = ZAnim.m_CurAnim;
+
+	if ((s32)cmd->m_command_type - GetUICommandType(NULL) != 1)
+		return false;
+
+	char* name = anim->GetName(cmd->m_argument_index);
+	_szCaption = name;
+
+	if (name != NULL)
+	{
+		_strCaption.SetString(name);
+		_strCaption.UpdatePos();
+	}
+
+	return false;
 }
 
 /* @socom-skeleton stub GetZAnimCmdType__9C2DButtonFPCc */
-int C2DButton::GetZAnimCmdType(const char *)
+int C2DButton::GetZAnimCmdType(const char *name)
 {
+	/* 0x38eeb0: Caption; NULL gives the next free type, an unknown name the UI base */
+	if (name == NULL)
+		return GetUICommandType(NULL) + 2;
+
+	if (*name == '\0')
+		return 0;
+
+	if (strcasecmp("Caption", name) == 0)
+		return GetUICommandType(NULL) + 1;
+
+	return GetUICommandType(NULL);
 }
 
 /* @socom-skeleton stub SetActive__9C2DButtonFv */
@@ -1795,23 +1845,108 @@ bool CUIListBox::TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *)
 }
 
 /* @socom-skeleton stub GetZAnimCmdType__10CSliderBarFPCc */
-int CSliderBar::GetZAnimCmdType(const char *)
+int CSliderBar::GetZAnimCmdType(const char *name)
 {
+	/* 0x38c4c0: SetValue, then C2DButton's Caption inline (0x38eeb0); NULL gives the next
+	 * free type, an unknown name the UI base */
+	if (name == NULL)
+		return GetUICommandType(NULL) + 2 + 2;
+
+	if (*name == '\0')
+		return 0;
+
+	if (strcasecmp("SetValue", name) == 0)
+		return GetUICommandType(NULL) + 2 + 1;
+
+	if (strcasecmp("Caption", name) == 0)
+		return GetUICommandType(NULL) + 1;
+
+	return GetUICommandType(NULL);
 }
 
 /* @socom-skeleton stub ParseZAnimCmd__10CSliderBarFP5_zrdr */
-C2DAnimCmdHdr * CSliderBar::ParseZAnimCmd(_zrdr *)
+C2DAnimCmdHdr * CSliderBar::ParseZAnimCmd(_zrdr *reader)
 {
+	/* 0x38c340: SETVALUE <percent> (its low byte as the argument), else C2DButton's
+	 * CAPTION inline; 8-byte timeless commands */
+	if (zrdr_findtag(reader, "SETVALUE") != NULL)
+	{
+		s32 value = 0;
+		zrdr_findint(reader, "SETVALUE", &value, 1);
+		C2DAnimCmdHdr* cmd = (C2DAnimCmdHdr*)_calloc(1, 8, "zui_2d.cpp", 2294);
+		cmd->header.timeless = 1;
+		cmd->header.data_size = 8;
+		cmd->m_command_type = GetZAnimCmdType("SETVALUE");
+		cmd->m_argument_index = (s8)value;
+		return cmd;
+	}
+
+	return C2DButton::ParseZAnimCmd(reader);
 }
 
 /* @socom-skeleton stub TickZAnimCmd__10CSliderBarFP14_zanim_cmd_hdrPfPb */
-bool CSliderBar::TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *)
+bool CSliderBar::TickZAnimCmd(_zanim_cmd_hdr *header, float *delta, bool *result)
 {
+	/* 0x38c200: SetValue puts percent / 100 into the slider's UI variable (a REAL; its
+	 * dependents, this slider too, follow) and sets *result; else C2DButton's Caption */
+	C2DAnimCmdHdr* cmd = reinterpret_cast<C2DAnimCmdHdr*>(header);
+
+	if ((s32)cmd->m_command_type - (GetUICommandType(NULL) + 2) != 1)
+		return C2DButton::TickZAnimCmd(header, delta, result);
+
+	f32 value = (f32)(u8)cmd->m_argument_index / 100.0f;
+
+	if (CUIVariable* var = UIVarMixin::m_uivar)
+	{
+		var->DeleteChildren();
+		var->type = ZRDR_REAL;
+		var->real = value;
+		var->UpdateDependents();
+	}
+
+	*result = true;
+	return true;
 }
 
 /* @socom-skeleton stub LoadSpec__10CSliderBarFRC14CSliderBarSpecPQ23zdb10CTexHandle */
-void CSliderBar::LoadSpec(const CSliderBarSpec &, zdb::CTexHandle *)
+void CSliderBar::LoadSpec(const CSliderBarSpec &spec, zdb::CTexHandle *knob)
 {
+	/* 0x38c0a0: the knob (untextured without its texture; white, opaque), the interval
+	 * count, the spec's UI variable attached and the value taken from it (REAL), then the
+	 * button part */
+	if (knob == NULL)
+		m_knob.m_hasTexture = false;
+
+	m_knobTex = knob;
+	m_knobSize = spec.m_knobSize;
+	m_knob.C2DBitmap::Load(0.0f, 0.0f, (f32)m_knobSize.x, (f32)m_knobSize.y, knob);
+	m_knob.SetColor(255.0f, 255.0f, 255.0f);
+	m_knob.SetTrans(128.0f);
+	m_intervals = spec.m_intervals;
+
+	CUIVariable* var = NULL;
+
+	if (CUIVariableSpec* uivar = spec.m_uivar)
+		var = theUIVarManager.Add(uivar->m_name, uivar->m_array, (UIVAR_LONGEVITY)uivar->m_type);
+
+	if (var != NULL)
+	{
+		AttachUIVar(var);
+		UpdateUIVar(var);
+	}
+
+	/* 0x38c19c: the value again from the attached variable (REAL, INTEGER, else 0) */
+	if (CUIVariable* attached = UIVarMixin::m_uivar)
+	{
+		if (attached->type == ZRDR_REAL)
+			m_value = attached->real;
+		else if (attached->type == ZRDR_INTEGER)
+			m_value = (f32)attached->integer;
+		else
+			m_value = 0.0f;
+	}
+
+	C2DButton::LoadSpec(spec);
 }
 
 /* @socom-skeleton stub Tick__9C2DButtonFf */
@@ -1836,18 +1971,84 @@ void C2DButton::Tick(float dT)
 }
 
 /* @socom-skeleton stub Draw__10CSliderBarFRC7CMatrixPQ23zdb16CTextureRelocMgr */
-void CSliderBar::Draw(const CMatrix &, zdb::CTextureRelocMgr *)
+void CSliderBar::Draw(const CMatrix &transform, zdb::CTextureRelocMgr *reloc)
 {
+	/* 0x38bc50: the button (background, caption: C3StateButton::Draw inline), then the
+	 * knob at the node's origin moved m_value of the bar's width, drawn with a unit
+	 * matrix (its rectangle reloaded every frame) */
+	f32 x = transform.m_matrix[3][0];
+	f32 y = transform.m_matrix[3][1];
+	CMatrix unit;
+	sceVu0UnitMatrix(unit.m_matrix);
+
+	if (IsOn())
+	{
+		DrawBackground(transform, reloc);
+
+		if (_szCaption != NULL)
+		{
+			_strCaption.m_pos.x = (s32)(x + (f32)_iTextX) << 4;
+			_strCaption.m_pos.y = (s32)(y + (f32)_iTextY) << 4;
+			_strCaption.Draw(reloc, NULL, transform.m_matrix[3][2]);
+		}
+	}
+
+	s32 top = (s32)y;
+	s32 left = (s32)(x + m_value * _fWidth);
+	m_knob.C2DBitmap::Load((f32)left, (f32)top, (f32)(left + m_knobSize.x), (f32)(top + m_knobSize.y), m_knobTex);
+	m_knob.Draw(unit, reloc);
 }
 
 /* @socom-skeleton stub HandlePad__10CSliderBarFPC4CPadi */
-bool CSliderBar::HandlePad(const CPad *, int)
+bool CSliderBar::HandlePad(const CPad *pad, int)
 {
+	/* 0x38baf0: LEFT / RIGHT (FALLING) move the value by 1/100 of the interval count,
+	 * kept in 0..1, into the UI variable (REAL; dependents follow), with the selection
+	 * sound; true when taken */
+	if (!CanHandleInput())
+		return false;
+
+	CUIVariable* var = UIVarMixin::m_uivar;
+
+	if (pad->m_state[(u8)PAD_BUTTON::PAD_LEFT] == KEY_FALLING)
+	{
+		m_value -= 0.01f * (f32)m_intervals;
+
+		if (m_value < 0.0f)
+			m_value = 0.0f;
+	}
+	else if (pad->m_state[(u8)PAD_BUTTON::PAD_RIGHT] == KEY_FALLING)
+	{
+		m_value += 0.01f * (f32)m_intervals;
+
+		if (!(m_value <= 1.0f))
+			m_value = 1.0f;
+	}
+	else
+	{
+		return false;
+	}
+
+	if (var != NULL)
+	{
+		f32 value = m_value;
+		var->DeleteChildren();
+		var->type = ZRDR_REAL;
+		var->real = value;
+		var->UpdateDependents();
+	}
+
+	PlaySelectionSound();
+	return true;
 }
 
 /* @socom-skeleton stub UpdateUIVar__10CSliderBarFP11CUIVariable */
-void CSliderBar::UpdateUIVar(CUIVariable *)
+void CSliderBar::UpdateUIVar(CUIVariable *var)
 {
+	/* 0x38baa0: a REAL variable's value. ELF quirk kept: the INTEGER conversion after it
+	 * is dead code (only REAL gets past the first test) */
+	if (var->type == ZRDR_REAL)
+		m_value = var->real;
 }
 
 /* @socom-skeleton stub UpdateUIVar__13CHProgressBarFP11CUIVariable */
@@ -1948,53 +2149,284 @@ void CHProgressBar::Draw(const CMatrix &transform, zdb::CTextureRelocMgr *reloc)
 }
 
 /* @socom-skeleton stub HandlePad__9CCheckBoxFPC4CPadi */
-bool CCheckBox::HandlePad(const CPad *, int)
+bool CCheckBox::HandlePad(const CPad *pad, int)
 {
+	/* 0x38b4b0: CROSS (FALLING) toggles the check and runs ONUNCHECK / ONCHECK (with its
+	 * argument when it has one); true when CROSS was taken */
+	if (!CanHandleInput())
+		return false;
+
+	if (pad->m_state[(u8)PAD_BUTTON::PAD_CROSS] != KEY_FALLING)
+		return false;
+
+	ActionItem* item;
+
+	if (m_checked)
+	{
+		m_checked = false;
+		item = &m_onUncheck;
+	}
+	else
+	{
+		m_checked = true;
+		item = &m_onCheck;
+	}
+
+	if (CZAnim* anim = ZAnim.GetAnim(item->Animation, NULL))
+	{
+		if (item->Argument != NULL)
+			anim->ActivateArg(1, 8, item->Argument, 0);
+		else
+			anim->Activate(NULL);
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub LoadSpec__9CCheckBoxFRC13CCheckBoxSpecPQ23zdb10CTexHandle */
-void CCheckBox::LoadSpec(const CCheckBoxSpec &, zdb::CTexHandle *)
+void CCheckBox::LoadSpec(const CCheckBoxSpec &spec, zdb::CTexHandle *check)
 {
+	/* 0x38b380: the button part, the check image's place and size, copies of the two
+	 * items, the check image (white, 100 opaque) and the spec's UI variable attached
+	 * (UpdateUIVar is empty: the check does not follow it) */
+	C2DButton::LoadSpec(spec);
+	m_checkOffset = spec.m_checkOffset;
+	m_checkSize = spec.m_checkSize;
+	m_onCheck = *spec.m_onCheck;
+	m_onUncheck = *spec.m_onUncheck;
+	m_check.C2DBitmap::Load(0.0f, 0.0f, (f32)m_checkSize.x, (f32)m_checkSize.y, check);
+	m_check.SetColor(255.0f, 255.0f, 255.0f);
+	m_check.SetTrans(100.0f);
+
+	CUIVariable* var = NULL;
+
+	if (CUIVariableSpec* uivar = spec.m_uivar)
+		var = theUIVarManager.Add(uivar->m_name, uivar->m_array, (UIVAR_LONGEVITY)uivar->m_type);
+
+	if (var != NULL)
+	{
+		AttachUIVar(var);
+		UpdateUIVar(var);
+	}
 }
 
 /* @socom-skeleton stub Draw__9CCheckBoxFRC7CMatrixPQ23zdb16CTextureRelocMgr */
-void CCheckBox::Draw(const CMatrix &, zdb::CTextureRelocMgr *)
+void CCheckBox::Draw(const CMatrix &transform, zdb::CTextureRelocMgr *reloc)
 {
+	/* 0x38b150: the button (background, caption at the node's origin plus the text offset,
+	 * C3StateButton::Draw inline), then while checked the check image at the origin plus
+	 * its offset, drawn with a unit matrix */
+	if (IsOn())
+	{
+		DrawBackground(transform, reloc);
+
+		if (_szCaption != NULL)
+		{
+			f32 x = transform.m_matrix[3][0];
+			f32 y = transform.m_matrix[3][1];
+			f32 z = transform.m_matrix[3][2];
+			_strCaption.m_pos.x = (s32)(x + (f32)_iTextX) << 4;
+			_strCaption.m_pos.y = (s32)(y + (f32)_iTextY) << 4;
+			_strCaption.Draw(reloc, NULL, z);
+		}
+	}
+
+	if (!m_checked)
+		return;
+
+	CMatrix unit;
+	sceVu0UnitMatrix(unit.m_matrix);
+	f32 x = transform.m_matrix[3][0] + (f32)m_checkOffset.x;
+	f32 y = transform.m_matrix[3][1] + (f32)m_checkOffset.y;
+	m_check.SetPos((s32)x, (s32)y, (s32)(x + (f32)m_checkSize.x), (s32)(y + (f32)m_checkSize.y));
+	m_check.Draw(unit, reloc);
 }
 
 /* @socom-skeleton stub GetZAnimCmdType__11CRadioStripFPCc */
-int CRadioStrip::GetZAnimCmdType(const char *)
+int CRadioStrip::GetZAnimCmdType(const char *name)
 {
+	/* 0x38b080: Selection, then C2DButton's Caption inline; NULL gives the next free type,
+	 * an unknown name the UI base */
+	if (name == NULL)
+		return GetUICommandType(NULL) + 2 + 2;
+
+	if (*name == '\0')
+		return 0;
+
+	if (strcasecmp("Selection", name) == 0)
+		return GetUICommandType(NULL) + 2 + 1;
+
+	if (strcasecmp("Caption", name) == 0)
+		return GetUICommandType(NULL) + 1;
+
+	return GetUICommandType(NULL);
 }
 
 /* @socom-skeleton stub ParseZAnimCmd__11CRadioStripFP5_zrdr */
-C2DAnimCmdHdr * CRadioStrip::ParseZAnimCmd(_zrdr *)
+C2DAnimCmdHdr * CRadioStrip::ParseZAnimCmd(_zrdr *reader)
 {
+	/* 0x38af00: SELECTION (INDEX <n>: its low byte as the argument), else C2DButton's
+	 * CAPTION inline; 8-byte timeless commands */
+	if (_zrdr* selection = zrdr_findtag(reader, "SELECTION"))
+	{
+		s32 index = 0;
+		zrdr_findint(selection, "INDEX", &index, 1);
+		C2DAnimCmdHdr* cmd = (C2DAnimCmdHdr*)_calloc(1, 8, "zui_2d.cpp", 2658);
+		cmd->header.timeless = 1;
+		cmd->header.data_size = 8;
+		cmd->m_command_type = GetZAnimCmdType("SELECTION");
+		cmd->m_argument_index = (s8)index;
+		return cmd;
+	}
+
+	return C2DButton::ParseZAnimCmd(reader);
+}
+
+namespace {
+/* port: no symbol - the "selected option active, the others normal" loop the ELF inlines
+ * in CRadioStrip::Tick, HandlePad (three times) and TickZAnimCmd */
+void RadioShowSelection(CRadioStrip* strip)
+{
+	s32 i = 0;
+
+	for (C2Dlist::iterator it = strip->begin(); it != strip->end(); ++it, ++i)
+	{
+		if (*it == NULL)
+			continue;
+
+		if (i == strip->m_selection)
+			(*it)->SetActive();
+		else
+			(*it)->SetNormal();
+	}
+}
+
+/* port: no symbol - an option's ONCHECK / ONUNCHECK anim (with its argument), inline in
+ * CRadioStrip::PressActive and CCheckBox::HandlePad */
+void RunOptionAnim(const ActionItem& item)
+{
+	CZAnim* anim = ZAnim.GetAnim(item.Animation, NULL);
+
+	if (anim == NULL)
+		return;
+
+	if (item.Argument != NULL)
+		anim->ActivateArg(1, 8, item.Argument, 0);
+	else
+		anim->Activate(NULL);
+}
 }
 
 /* @socom-skeleton stub TickZAnimCmd__11CRadioStripFP14_zanim_cmd_hdrPfPb */
-bool CRadioStrip::TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *)
+bool CRadioStrip::TickZAnimCmd(_zanim_cmd_hdr *header, float *delta, bool *result)
 {
+	/* 0x38ad60: Selection selects that option (an index past the last is ignored) and
+	 * checks it; sets *result; else C2DButton's Caption */
+	C2DAnimCmdHdr* cmd = reinterpret_cast<C2DAnimCmdHdr*>(header);
+
+	if ((s32)cmd->m_command_type - (GetUICommandType(NULL) + 2) != 1)
+		return C2DButton::TickZAnimCmd(header, delta, result);
+
+	u32 index = (u8)cmd->m_argument_index;
+
+	if (!(size() - 1 < index))
+	{
+		m_selection = (s32)index;
+		RadioShowSelection(this);
+		PressActive();
+	}
+
+	*result = true;
+	return true;
 }
 
 /* @socom-skeleton stub LoadSpec__11CRadioStripFPC15CRadioStripSpecPQ23zdb10CTexHandle */
-void CRadioStrip::LoadSpec(const CRadioStripSpec *, zdb::CTexHandle *)
+void CRadioStrip::LoadSpec(const CRadioStripSpec *spec, zdb::CTexHandle *)
 {
+	/* 0x38ad50: the first Tick shows the selection; the button part */
+	m_init = true;
+	C2DButton::LoadSpec(*spec);
 }
 
 /* @socom-skeleton stub HandlePad__11CRadioStripFPC4CPadi */
-bool CRadioStrip::HandlePad(const CPad *, int)
+bool CRadioStrip::HandlePad(const CPad *pad, int)
 {
+	/* 0x38aa70: LEFT selects the previous option, RIGHT and CROSS the next (wrapping), each
+	 * (FALLING) then checks it, with the selection sound; true when taken */
+	if (!CanHandleInput())
+		return false;
+
+	if (pad->m_state[(u8)PAD_BUTTON::PAD_LEFT] == KEY_FALLING)
+	{
+		if (m_selection == 0)
+			m_selection = (s32)size() - 1;
+		else
+			m_selection--;
+	}
+	else if (pad->m_state[(u8)PAD_BUTTON::PAD_RIGHT] == KEY_FALLING || pad->m_state[(u8)PAD_BUTTON::PAD_CROSS] == KEY_FALLING)
+	{
+		if ((u32)m_selection < size() - 1)
+			m_selection++;
+		else
+			m_selection = 0;
+	}
+	else
+	{
+		return false;
+	}
+
+	RadioShowSelection(this);
+	PressActive();
+	PlaySelectionSound();
+	return true;
 }
 
 /* @socom-skeleton stub PressActive__11CRadioStripFv */
 void CRadioStrip::PressActive()
 {
+	/* 0x38a880: every checked option but the selected one is unchecked (its ONUNCHECK
+	 * runs), then the selected one is checked when it is not (its ONCHECK runs). The
+	 * options are CCheckBox controls (not type-tested in the ELF) */
+	s32 i = 0;
+
+	for (C2Dlist::iterator it = begin(); it != end(); ++it, ++i)
+	{
+		CCheckBox* option = static_cast<CCheckBox*>(*it);
+
+		if (option != NULL && option->m_checked && i != m_selection)
+		{
+			option->m_checked = false;
+			RunOptionAnim(option->m_onUncheck);
+		}
+	}
+
+	i = 0;
+
+	for (C2Dlist::iterator it = begin(); it != end(); ++it, ++i)
+	{
+		CCheckBox* option = static_cast<CCheckBox*>(*it);
+
+		if (option != NULL && !option->m_checked && i == m_selection)
+		{
+			option->m_checked = true;
+			RunOptionAnim(option->m_onCheck);
+		}
+	}
 }
 
 /* @socom-skeleton stub Tick__11CRadioStripFf */
-void CRadioStrip::Tick(float)
+void CRadioStrip::Tick(float dT)
 {
+	/* 0x38a560: the first tick shows and checks the selection; then C2DButton::Tick
+	 * (inline in the ELF: caption, image and the pressed time) */
+	if (m_init)
+	{
+		RadioShowSelection(this);
+		PressActive();
+		m_init = false;
+	}
+
+	C2DButton::Tick(dT);
 }
 
 /* @socom-skeleton stub __dt__12CCycleButtonFv */
@@ -2209,8 +2641,21 @@ C2DVisual::C2DVisual(C2D *object, zdb::CTextureRelocMgr *reloc)
 }
 
 /* @socom-skeleton stub ParseZAnimCmd__17CRenderableStringFP5_zrdr */
-C2DAnimCmdHdr * CRenderableString::ParseZAnimCmd(_zrdr *)
+C2DAnimCmdHdr * CRenderableString::ParseZAnimCmd(_zrdr *reader)
 {
+	/* 0x388e10: CAPTION "<text>" as an 8-byte timeless command (the text in the current anim's
+	 * name table); nothing else */
+	char* caption = zrdr_findstring(reader, "CAPTION");
+
+	if (caption == NULL)
+		return NULL;
+
+	C2DAnimCmdHdr* cmd = (C2DAnimCmdHdr*)_calloc(1, 8, "zui_2d.cpp", 3258);
+	cmd->header.timeless = 1;
+	cmd->header.data_size = 8;
+	cmd->m_command_type = GetZAnimCmdType("CAPTION");
+	cmd->m_argument_index = ZAnim.m_CurAnim->AddName(caption);
+	return cmd;
 }
 
 /* @socom-skeleton stub TickZAnimCmd__17CRenderableStringFP14_zanim_cmd_hdrPfPb */
@@ -2233,8 +2678,19 @@ bool CRenderableString::TickZAnimCmd(_zanim_cmd_hdr *header, float *, bool *resu
 }
 
 /* @socom-skeleton stub GetZAnimCmdType__17CRenderableStringFPCc */
-int CRenderableString::GetZAnimCmdType(const char *)
+int CRenderableString::GetZAnimCmdType(const char *name)
 {
+	/* 0x388cf0: Caption; NULL gives the next free type, an unknown name the UI base */
+	if (name == NULL)
+		return GetUICommandType(NULL) + 2;
+
+	if (*name == '\0')
+		return 0;
+
+	if (strcasecmp("Caption", name) == 0)
+		return GetUICommandType(NULL) + 1;
+
+	return GetUICommandType(NULL);
 }
 
 /* @socom-skeleton stub ParseZAnimCmd__12CPopUpDialogFP5_zrdr */
@@ -2424,67 +2880,432 @@ void C2DVisual::Render(CMatrix *transform)
 	m_2d->Draw(*transform, m_reloc);
 }
 
+/* port: no DWARF for these two (forward declared in zui.h). The Pan command (24 bytes, from
+ * ParseZAnimCmd 0x385eb0's keys) and the four window corners' "still covered" flags
+ * (CalcAlternateZoomedPos 0x386a50 packs them upper left, upper right, lower left, lower right) */
+
+class CUIMapCtrlAnimCmdHdr : public C2DAnimCmdHdr
+{
+public:
+	s32 m_direction;  /* +0x8 DIRECTION: UP 0, DOWN 1, LEFT 2, RIGHT 3 */
+	s32 m_speed;      /* +0xc SPEED: pixels a second */
+	s32 m_accel;      /* +0x10 ACCEL: more a second while it keeps being run */
+	s32 m_limit;      /* +0x14 LIMIT: at most this a second */
+};
+
+class CCorners
+{
+public:
+	bool m_upperLeft;
+	bool m_upperRight;
+	bool m_lowerLeft;
+	bool m_lowerRight;
+};
+
+bool IsStickNearCenter(float); /* zui.cpp (0x384670) */
+unsigned char GetStickDir(); /* zui.cpp (0x384820) */
+
 /* @socom-skeleton stub __ct__10CUIMapCtrlFv */
 CUIMapCtrl::CUIMapCtrl()
 {
+	/* 0x386da0: the C2D part, 30 reset items, no commands. port: the window is zeroed (the
+	 * ELF leaves it until LoadSpec) */
+	m_numCommands = 0;
+	m_upperLeft.x = m_upperLeft.y = 0;
+	m_lowerRight.x = m_lowerRight.y = 0;
 }
 
 /* @socom-skeleton stub __dt__10CUIMapCtrlFv */
 CUIMapCtrl::~CUIMapCtrl()
 {
+	/* 0x386c50: the elements leave the list from the front and are deleted; the items and
+	 * the C2D part follow */
+	while (!empty())
+	{
+		C2D* item = front();
+		erase(begin());
+
+		if (item != NULL)
+			delete item;
+	}
+
+	m_numCommands = 0;
 }
 
 /* @socom-skeleton stub CalcAlternateZoomedPos__10CUIMapCtrlCFP6CPnt3DRC8CCornersRC6CPnt3Df */
-void CUIMapCtrl::CalcAlternateZoomedPos(CPnt3D *, const CCorners &, const CPnt3D &, float) const
+void CUIMapCtrl::CalcAlternateZoomedPos(CPnt3D *out, const CCorners &corners, const CPnt3D &pos, float factor) const
 {
 	/* @socom-skeleton stub c_arrAnchors$3348 */
 	static const unsigned char c_arrAnchors[16] = {0, 1, 2, 5, 3, 6, 0, 1, 4, 0, 7, 2, 8, 3, 4, 0};
+
+	/* 0x386a50: the corners still covered after a zoom out pick the point to zoom about
+	 * (jump table 0x461310): 1 upper left, 2 upper right, 3 lower left, 4 lower right, 5 top
+	 * middle, 6 left middle, 7 right middle, 8 bottom middle; 0 leaves *out alone */
+	u32 index = (corners.m_upperLeft << 3) | (corners.m_upperRight << 2) | (corners.m_lowerLeft << 1) | corners.m_lowerRight;
+	f32 x;
+	f32 y;
+
+	switch (c_arrAnchors[index])
+	{
+	case 1: x = (f32)m_upperLeft.x; y = (f32)m_upperLeft.y; break;
+	case 2: x = (f32)m_lowerRight.x; y = (f32)m_upperLeft.y; break;
+	case 3: x = (f32)m_upperLeft.x; y = (f32)m_lowerRight.y; break;
+	case 4: x = (f32)m_lowerRight.x; y = (f32)m_lowerRight.y; break;
+	case 5: x = 0.5f * (f32)(m_upperLeft.x + m_lowerRight.x); y = (f32)m_upperLeft.y; break;
+	case 6: x = (f32)m_upperLeft.x; y = 0.5f * (f32)(m_upperLeft.y + m_lowerRight.y); break;
+	case 7: x = (f32)m_lowerRight.x; y = 0.5f * (f32)(m_upperLeft.y + m_lowerRight.y); break;
+	case 8: x = 0.5f * (f32)(m_upperLeft.x + m_lowerRight.x); y = (f32)m_lowerRight.y; break;
+	default: return;
+	}
+
+	out->x = x - factor * (x - pos.x);
+	out->y = y - factor * (y - pos.y);
+	out->z = pos.z;
 }
 
 /* @socom-skeleton stub HandlePad__10CUIMapCtrlFPC4CPadi */
-bool CUIMapCtrl::HandlePad(const CPad *, int)
+bool CUIMapCtrl::HandlePad(const CPad *pad, int)
 {
+	/* 0x386840: every ANIMATIONS item whose button is in its state runs (a DOWN item also
+	 * when the left stick is held off centre in its direction); items for button 0 (START)
+	 * are skipped. True when one ran */
+	if (!CanHandleInput())
+		return false;
+
+	bool ran = false;
+
+	for (s32 i = 0; i < m_numCommands; i++)
+	{
+		ActionItem& item = m_commands[i];
+
+		if (item.PadButton == 0)
+			continue;
+
+		if (item.State != pad->m_state[item.PadButton])
+		{
+			if (item.State != KEY_DOWN || IsStickNearCenter(0.6f))
+				continue;
+
+			u8 button = 16;
+
+			switch (GetStickDir())
+			{
+			case 4: button = (u8)PAD_BUTTON::PAD_DOWN; break;
+			case 2: button = (u8)PAD_BUTTON::PAD_RIGHT; break;
+			case 1: button = (u8)PAD_BUTTON::PAD_LEFT; break;
+			case 3: button = (u8)PAD_BUTTON::PAD_UP; break;
+			}
+
+			if (button != item.PadButton)
+				continue;
+		}
+
+		CZAnim* anim = NULL;
+
+		if (GetLocalAnims() != NULL)
+			anim = GetLocalAnims()->Anim(item.Animation);
+
+		if (anim == NULL)
+			anim = ZAnim.GetAnim(item.Animation, NULL);
+
+		if (anim == NULL)
+			continue;
+
+		if (item.Argument != NULL)
+			anim->ActivateArg(1, 8, item.Argument, 0);
+		else
+			anim->Activate(NULL);
+
+		ran = true;
+	}
+
+	return ran;
 }
 
 /* @socom-skeleton stub LoadSpec__10CUIMapCtrlFRC14CUIMapCtrlSpecP7C2DFontPQ23zdb9CAssetLibPQ23zdb16CTextureRelocMgr */
-void CUIMapCtrl::LoadSpec(const CUIMapCtrlSpec &, C2DFont *, zdb::CAssetLib *, zdb::CTextureRelocMgr *)
+void CUIMapCtrl::LoadSpec(const CUIMapCtrlSpec &spec, C2DFont *font, zdb::CAssetLib *, zdb::CTextureRelocMgr *reloc)
 {
+	/* 0x3866c0: the window, the items (the menu then has anims), then each element's display
+	 * object at its offset, appended to the list */
+	m_upperLeft = spec.m_upperLeft;
+	m_lowerRight = spec.m_lowerRight;
+
+	for (u32 i = 0; i < spec.m_animations.size(); i++)
+	{
+		g_hasAnims = true;
+		m_numCommands++;
+		m_commands[i] = spec.m_animations[i];
+	}
+
+	for (u32 i = 0; i < spec.m_elements.size(); i++)
+	{
+		const CDesignDlgObj& obj = spec.m_elements[i];
+		C2D* item = obj.m_spec->CreateDisplayObj(font, reloc);
+		item->SetMapOffset(obj.m_x, obj.m_y);
+		push_back(item);
+	}
 }
 
 /* @socom-skeleton stub Draw__10CUIMapCtrlFRC7CMatrixPQ23zdb16CTextureRelocMgr */
-void CUIMapCtrl::Draw(const CMatrix &, zdb::CTextureRelocMgr *)
+void CUIMapCtrl::Draw(const CMatrix &transform, zdb::CTextureRelocMgr *reloc)
 {
+	/* 0x3865c0: the elements, scissored to the window (the relocator flushed before and
+	 * after: PreGetSprPacket(NULL), vtable +0x10) */
+	if (!IsOn())
+		return;
+
+	reloc->PreGetSprPacket(NULL);
+	zVid_Scissor(m_upperLeft.x, m_upperLeft.y, m_lowerRight.x, m_lowerRight.y);
+
+	for (C2Dlist::iterator it = begin(); it != end(); ++it)
+		(*it)->Draw(transform, reloc);
+
+	reloc->PreGetSprPacket(NULL);
+	zVid_Scissor(0, 0, 640, 448);
 }
 
 /* @socom-skeleton stub IsCovered__10CUIMapCtrlCFffRC6CPnt3Df */
-void CUIMapCtrl::IsCovered(float, float, const CPnt3D &, float) const
+bool CUIMapCtrl::IsCovered(float x, float y, const CPnt3D &pos, float scale) const
 {
+	/* 0x386400: whether a map image (a CPlainBmp element), placed at pos and scaled, covers
+	 * the point */
+	for (C2Dlist::const_iterator it = begin(); it != end(); ++it)
+	{
+		const CPlainBmp* bmp = dynamic_cast<const CPlainBmp*>(*it);
+
+		if (bmp == NULL)
+			continue;
+
+		f32 left = pos.x + scale * (f32)bmp->m_x;
+		f32 top = pos.y + scale * (f32)bmp->m_y;
+		f32 right = left + scale * (f32)bmp->m_iWidth;
+		f32 bottom = top + scale * (f32)bmp->m_iHeight;
+
+		if (left <= x && x <= right && top <= y && y <= bottom)
+			return true;
+	}
+
+	return false;
+}
+
+namespace {
+/* port: no symbol - the "all four window corners still covered" test OnPan and
+ * TickZAnimCmd repeat inline */
+bool MapCovers(const CUIMapCtrl* map, const CPnt3D& pos, f32 scale)
+{
+	f32 left = (f32)map->m_upperLeft.x;
+	f32 right = (f32)map->m_lowerRight.x;
+	return map->IsCovered(left, (f32)map->m_upperLeft.y, pos, scale)
+		&& map->IsCovered(right, (f32)map->m_upperLeft.y, pos, scale)
+		&& map->IsCovered(left, (f32)map->m_lowerRight.y, pos, scale)
+		&& map->IsCovered(right, (f32)map->m_lowerRight.y, pos, scale);
+}
 }
 
 /* @socom-skeleton stub OnPan__10CUIMapCtrlCFRC20CUIMapCtrlAnimCmdHdrf */
-void CUIMapCtrl::OnPan(const CUIMapCtrlAnimCmdHdr &, float) const
+void CUIMapCtrl::OnPan(const CUIMapCtrlAnimCmdHdr &cmd, float dT) const
 {
 	/* @socom-skeleton stub prev_frame$3451 */
-	static int prev_frame;
+	static int prev_frame = -1;
 	/* @socom-skeleton stub accum_time$3454 */
-	static float accum_time;
+	static float accum_time = 0.0f;
+
+	/* 0x386170: the command's node moves SPEED + ACCEL x (time held) pixels a second (at
+	 * most LIMIT), held means run on consecutive frames; the move is kept only when the map
+	 * still covers the window. DIRECTION UP / DOWN / LEFT / RIGHT move it down / up / right
+	 * / left (the map, not the view) */
+	ZAnim.m_CurAnim->Refresh(false);
+	zdb::CNode* node = ZAnim.m_CurAnim->GetNode(cmd.node_ref_index, false);
+	CPnt3D pos;
+	pos.x = node->m_matrix.m_matrix[3][0];
+	pos.y = node->m_matrix.m_matrix[3][1];
+	pos.z = node->m_matrix.m_matrix[3][2];
+	s32 frame = (s32)zVid.frameNumber;
+
+	if (prev_frame + 1 < frame)
+		accum_time = 0.0f;
+	else
+		accum_time = accum_time + dT;
+
+	prev_frame = frame;
+	f32 move = (f32)cmd.m_speed * dT + (f32)cmd.m_accel * accum_time;
+	f32 limit = (f32)cmd.m_limit * dT;
+
+	if (!(move <= limit))
+		move = limit;
+
+	switch (cmd.m_direction)
+	{
+	case 0: pos.y += move; break;
+	case 1: pos.y -= move; break;
+	case 2: pos.x += move; break;
+	case 3: pos.x -= move; break;
+	}
+
+	if (MapCovers(this, pos, node->GetScale()))
+		node->SetPosition(pos.x, pos.y, pos.z);
 }
 
 /* @socom-skeleton stub ParseZAnimCmd__10CUIMapCtrlFP5_zrdr */
-C2DAnimCmdHdr * CUIMapCtrl::ParseZAnimCmd(_zrdr *)
+C2DAnimCmdHdr * CUIMapCtrl::ParseZAnimCmd(_zrdr *reader)
 {
+	/* 0x385eb0: PAN (DIRECTION, SPEED, ACCEL, LIMIT: a 24-byte command), else ZOOM_IN or
+	 * ZOOM_OUT (8 bytes); all timeless */
+	if (_zrdr* pan = zrdr_findtag(reader, "PAN"))
+	{
+		CUIMapCtrlAnimCmdHdr* cmd = (CUIMapCtrlAnimCmdHdr*)_calloc(1, 24, "zui_2d.cpp", 4316);
+		cmd->header.timeless = 1;
+		cmd->header.data_size = 24;
+		cmd->m_command_type = GetZAnimCmdType("PAN");
+		char* direction = zrdr_findstring(pan, "DIRECTION");
+		cmd->m_direction = 0;
+
+		/* ELF: the direction string is not NULL-tested */
+		if (direction != NULL)
+		{
+			if (strcmp(direction, "UP") == 0)
+				cmd->m_direction = 0;
+			else if (strcmp(direction, "DOWN") == 0)
+				cmd->m_direction = 1;
+			else if (strcmp(direction, "LEFT") == 0)
+				cmd->m_direction = 2;
+			else if (strcmp(direction, "RIGHT") == 0)
+				cmd->m_direction = 3;
+		}
+
+		cmd->m_speed = 0;
+		zrdr_findint(pan, "SPEED", &cmd->m_speed, 1);
+		cmd->m_accel = 0;
+		zrdr_findint(pan, "ACCEL", &cmd->m_accel, 1);
+		cmd->m_limit = 0;
+		zrdr_findint(pan, "LIMIT", &cmd->m_limit, 1);
+		return cmd;
+	}
+
+	const char* type;
+	s32 line;
+
+	if (zrdr_findtag(reader, "ZOOM_IN") != NULL)
+	{
+		type = "ZOOM_IN";
+		line = 4344;
+	}
+	else if (zrdr_findtag(reader, "ZOOM_OUT") != NULL)
+	{
+		type = "ZOOM_OUT";
+		line = 4351;
+	}
+	else
+	{
+		return NULL;
+	}
+
+	C2DAnimCmdHdr* cmd = (C2DAnimCmdHdr*)_calloc(1, 8, "zui_2d.cpp", line);
+	cmd->header.timeless = 1;
+	cmd->header.data_size = 8;
+	cmd->m_command_type = GetZAnimCmdType(type);
+	return cmd;
 }
 
 /* @socom-skeleton stub TickZAnimCmd__10CUIMapCtrlFP14_zanim_cmd_hdrPfPb */
-bool CUIMapCtrl::TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *)
+bool CUIMapCtrl::TickZAnimCmd(_zanim_cmd_hdr *header, float *delta, bool *result)
 {
+	/* 0x3858e0: Pan (OnPan); ZOOM_IN scales the node by 1 + dT / 2 about the window's
+	 * centre while the scale stays at most 2; ZOOM_OUT by 1 - dT / 3, kept only when the map
+	 * still covers the window, else zoomed about the anchor the covered corners give
+	 * (CalcAlternateZoomedPos) when that covers it. Each sets *result */
+	C2DAnimCmdHdr* cmd = reinterpret_cast<C2DAnimCmdHdr*>(header);
+	s32 sub = (s32)cmd->m_command_type - GetUICommandType(NULL);
+
+	if (sub == 1)
+	{
+		OnPan(*reinterpret_cast<CUIMapCtrlAnimCmdHdr*>(cmd), *delta);
+		*result = true;
+		return true;
+	}
+
+	if (sub != 2 && sub != 3)
+		return false;
+
+	ZAnim.m_CurAnim->Refresh(false);
+	zdb::CNode* node = ZAnim.m_CurAnim->GetNode(cmd->node_ref_index, false);
+	f32 cx = 0.5f * (f32)(m_upperLeft.x + m_lowerRight.x);
+	f32 cy = 0.5f * (f32)(m_upperLeft.y + m_lowerRight.y);
+	CPnt3D pos;
+	pos.x = node->m_matrix.m_matrix[3][0];
+	pos.y = node->m_matrix.m_matrix[3][1];
+	pos.z = node->m_matrix.m_matrix[3][2];
+
+	if (sub == 2)
+	{
+		f32 factor = 1.0f + 0.5f * *delta;
+
+		if (factor * node->GetScale() <= 2.0f)
+		{
+			node->SetPosition(cx - factor * (cx - pos.x), cy - factor * (cy - pos.y), pos.z);
+			node->SetScale(factor * node->GetScale());
+		}
+
+		*result = true;
+		return true;
+	}
+
+	f32 factor = 1.0f - 0.33333f * *delta;
+	CPnt3D zoomed;
+	zoomed.x = cx - factor * (cx - pos.x);
+	zoomed.y = cy - factor * (cy - pos.y);
+	zoomed.z = pos.z;
+	f32 scale = factor * node->GetScale();
+
+	if (MapCovers(this, zoomed, scale))
+	{
+		node->SetPosition(zoomed.x, zoomed.y, zoomed.z);
+		node->SetScale(scale);
+		*result = true;
+		return true;
+	}
+
+	CCorners corners;
+	f32 left = (f32)m_upperLeft.x;
+	f32 right = (f32)m_lowerRight.x;
+	corners.m_upperLeft = IsCovered(left, (f32)m_upperLeft.y, zoomed, scale);
+	corners.m_upperRight = IsCovered(right, (f32)m_upperLeft.y, zoomed, scale);
+	corners.m_lowerLeft = IsCovered(left, (f32)m_lowerRight.y, zoomed, scale);
+	corners.m_lowerRight = IsCovered(right, (f32)m_lowerRight.y, zoomed, scale);
+	CalcAlternateZoomedPos(&zoomed, corners, pos, factor);
+
+	if (MapCovers(this, zoomed, scale))
+	{
+		node->SetPosition(zoomed.x, zoomed.y, zoomed.z);
+		node->SetScale(scale);
+	}
+
+	*result = true;
+	return true;
 }
 
 /* @socom-skeleton stub GetZAnimCmdType__10CUIMapCtrlFPCc */
-int CUIMapCtrl::GetZAnimCmdType(const char *)
+int CUIMapCtrl::GetZAnimCmdType(const char *name)
 {
-}
+	/* 0x385820: Pan, ZOOM_IN, ZOOM_OUT; NULL gives the next free type, an unknown name the
+	 * UI base */
+	if (name == NULL)
+		return GetUICommandType(NULL) + 4;
 
+	if (*name == '\0')
+		return 0;
+
+	if (strcasecmp("Pan", name) == 0)
+		return GetUICommandType(NULL) + 1;
+
+	if (strcasecmp("ZOOM_IN", name) == 0)
+		return GetUICommandType(NULL) + 2;
+
+	if (strcasecmp("ZOOM_OUT", name) == 0)
+		return GetUICommandType(NULL) + 3;
+
+	return GetUICommandType(NULL);
+}
 /* @socom-skeleton stub __ct__8ListItemFP5_zrdrRCQ23std54vector<P10ColumnData,Q23std24allocator<P10ColumnData>> */
 ListItem::ListItem(_zrdr *, const std::vector<ColumnData *, std::allocator<ColumnData *> > &)
 {

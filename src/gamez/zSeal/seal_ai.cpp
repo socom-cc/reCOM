@@ -1088,6 +1088,17 @@ CSealCtrlAi::CSealCtrlAi()
 /* @socom-skeleton stub __dt__11CSealCtrlAiFv */
 CSealCtrlAi::~CSealCtrlAi()
 {
+	/* 0x26afc0: the stacked states are taken from the top and deleted (virtual dtor); the
+	 * members follow (event queue, m_event's bits, the path, the stack). Were kept: ~20
+	 * states a mission (docs/port/notes/mod-zui.md). */
+	while (!m_stateStack.empty())
+	{
+		CAiState* state = m_stateStack.front();
+		m_stateStack.pop_front();
+
+		if (state != NULL)
+			delete state;
+	}
 }
 
 /* @socom-skeleton stub Initalize__11CSealCtrlAiFv */

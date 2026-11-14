@@ -119,7 +119,7 @@ public:
 	static void RestoreImage(char *);
 	static void ReadGsMemory(unsigned int, unsigned __int128 *, unsigned int); /* static: 0x308ac0 uses no object */
 	static void WriteGsMemory(unsigned int, unsigned __int128 *, unsigned int); /* static: 0x308a00 uses no object */
-	void Brightness(float);
+	static void Brightness(float); /* static: 0x307790 uses no object (CBrightnessTuner calls it with its own a0) */
 	/* @socom-skeleton end 6CVideo */
 };
 #endif

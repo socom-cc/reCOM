@@ -270,23 +270,11 @@ bool zrdr_free(CRdrFile* file)
 	if (!file)
 		return false;
 
-	if (file->m_buffer == NULL)
-	{
-		zrdr_freearray(file);
-	}
-	else
-	{
-		zfree(file->m_buffer);
-		file->m_buffer = NULL;
-		file->m_size = 0;
-	}
-
-	// TODO: Implement a proper way to delete the string table
-	// delete &file->m_strings;
-
-	// TODO: Implement destructor for CRdrFile
-	// delete file;
-
+	/* 0x23cfb0: ~CRdrFile inline (the parsed arrays, or the packed buffer; then the string
+	 * table), then the file itself is deleted; returns 0. Was: the CRdrFile and its string
+	 * table were kept for every reader read (menus, missions), small blocks that split the
+	 * heap across mission -> menus round trips (docs/port/notes/mod-zui.md). */
+	delete file;
 	return false;
 }
 
@@ -300,6 +288,18 @@ CRdrFile::CRdrFile() : _zrdr()
 /* @socom-skeleton stub __dt__8CRdrFileFv */
 CRdrFile::~CRdrFile()
 {
+	/* 0x23ce90: a parsed file frees its arrays, a packed one its buffer ("zrdr_file.cpp" 48);
+	 * the string table and the _zrdr part follow (member / base destructors) */
+	if (m_buffer == NULL)
+	{
+		zrdr_freearray(this);
+	}
+	else
+	{
+		_free(m_buffer, "zrdr_file.cpp", 48);
+		m_buffer = NULL;
+		m_size = 0;
+	}
 }
 
 /* @socom-skeleton stub Pack__8CRdrFileFP5_zrdrP5_zrdri */

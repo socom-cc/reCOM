@@ -519,6 +519,23 @@ void CSealCtrlAi::OpenDiPool()
 /* @socom-skeleton stub CloseDiPool__11CSealCtrlAiFv */
 void CSealCtrlAi::CloseDiPool()
 {
+	/* 0x2b3060 (ReleaseDatabaseHandles: CMission::Close, ReOpen_Unload1): the queued requests
+	 * are reset (state 0, no node) and moved to the free list, then every free request is
+	 * deleted. Was a stub: ~5 requests a mission were kept (docs/port/notes/mod-zui.md). */
+	for (std::list<CDiPool::dir *>::iterator i = _diPool.m_active.begin(); i != _diPool.m_active.end(); ++i)
+	{
+		CDiPool::dir* d = *i;
+		d->m_state = 0;
+		d->m_node = NULL;
+		_diPool.m_free.push_back(d);
+	}
+
+	_diPool.m_active.clear();
+
+	for (std::list<CDiPool::dir *>::iterator i = _diPool.m_free.begin(); i != _diPool.m_free.end(); ++i)
+		delete *i;
+
+	_diPool.m_free.clear();
 }
 
 /* @socom-skeleton stub _GetTargetPerception__9CSealCtrlFR7CTarget */

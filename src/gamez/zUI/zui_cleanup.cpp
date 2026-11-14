@@ -84,8 +84,10 @@ class CTextureRelocMgr;
 /* @socom-skeleton end forward */
 
 /* @socom-skeleton stub GetType__11CScrollSpecFv */
-void CScrollSpec::GetType() /* port: stub, returns a type-name string in the ELF */
+const char * CScrollSpec::GetType()
 {
+	/* 0x3a1af0 */
+	return "SCROLLINGTEXT";
 }
 
 /* @socom-skeleton stub __dt__11CScrollSpecFv */
@@ -94,7 +96,7 @@ CScrollSpec::~CScrollSpec()
 }
 
 /* @socom-skeleton stub GetChild__18CHandlerButtonSpecCFi */
-CDlgObjSpec * CHandlerButtonSpec::GetChild(int) const /* port: stub, returns a child spec pointer in the ELF */
+CDesignDlgObj * CHandlerButtonSpec::GetChild(int) const /* port: stub, returns a child design object in the ELF */
 {
 }
 
@@ -104,13 +106,17 @@ int CHandlerButtonSpec::NumChildren() const /* port: stub, returns int in the EL
 }
 
 /* @socom-skeleton stub GetType__18CHandlerButtonSpecFv */
-void CHandlerButtonSpec::GetType() /* port: stub, returns a type-name string in the ELF */
+const char * CHandlerButtonSpec::GetType()
 {
+	/* 0x3a19f0 */
+	return "HANDLERBUTTON";
 }
 
 /* @socom-skeleton stub GetType__14CUIListBoxSpecFv */
-void CUIListBoxSpec::GetType() /* port: stub, returns a type-name string in the ELF */
+const char * CUIListBoxSpec::GetType()
 {
+	/* 0x3a19e0 */
+	return "LISTBOX";
 }
 
 /* @socom-skeleton stub __dt__14CUIListBoxSpecFv */
@@ -119,28 +125,43 @@ CUIListBoxSpec::~CUIListBoxSpec()
 }
 
 /* @socom-skeleton stub GetType__14CSliderBarSpecFv */
-void CSliderBarSpec::GetType() /* port: stub, returns a type-name string in the ELF */
+const char * CSliderBarSpec::GetType()
 {
+	/* 0x3a1850 */
+	return "SLIDERBAR";
 }
 
 /* @socom-skeleton stub __dt__14CSliderBarSpecFv */
 CSliderBarSpec::~CSliderBarSpec()
 {
+	/* 0x3a1700: nothing of its own - the knob texture name and the button spec part are the
+	 * member / base destructors */
 }
 
 /* @socom-skeleton stub GetType__13CCheckBoxSpecFv */
-void CCheckBoxSpec::GetType() /* port: stub, returns a type-name string in the ELF */
+const char * CCheckBoxSpec::GetType()
 {
+	/* 0x3a1630 */
+	return "CHECKBOX";
 }
 
 /* @socom-skeleton stub __dt__13CCheckBoxSpecFv */
 CCheckBoxSpec::~CCheckBoxSpec()
 {
+	/* 0x3a1420: both items deleted (~ActionItem inline: their strings); the texture name
+	 * and the button part follow */
+	if (m_onCheck != NULL)
+		delete m_onCheck;
+
+	if (m_onUncheck != NULL)
+		delete m_onUncheck;
 }
 
 /* @socom-skeleton stub GetType__16CCycleButtonSpecFv */
-void CCycleButtonSpec::GetType() /* port: stub, returns a type-name string in the ELF */
+const char * CCycleButtonSpec::GetType()
 {
+	/* 0x3a1340 */
+	return "CYCLEBUTTON";
 }
 
 /* @socom-skeleton stub __dt__16CCycleButtonSpecFv */
@@ -149,23 +170,31 @@ CCycleButtonSpec::~CCycleButtonSpec()
 }
 
 /* @socom-skeleton stub GetType__15CRadioStripSpecFv */
-void CRadioStripSpec::GetType() /* port: stub, returns a type-name string in the ELF */
+const char * CRadioStripSpec::GetType()
 {
+	/* 0x3a11d0 */
+	return "RADIOSTRIP";
 }
 
 /* @socom-skeleton stub GetChild__15CRadioStripSpecCFi */
-CDlgObjSpec * CRadioStripSpec::GetChild(int) const /* port: stub, returns a child spec pointer in the ELF */
+CDesignDlgObj * CRadioStripSpec::GetChild(int i) const
 {
+	/* 0x3a11b0: the i-th SUBORDINATES design object (not range-checked) */
+	return m_children[i];
 }
 
 /* @socom-skeleton stub NumChildren__15CRadioStripSpecCFv */
-int CRadioStripSpec::NumChildren() const /* port: stub, returns int in the ELF */
+int CRadioStripSpec::NumChildren() const
 {
+	/* 0x3a11a0 */
+	return (int)m_children.size();
 }
 
 /* @socom-skeleton stub HasChildren__15CRadioStripSpecCFv */
-bool CRadioStripSpec::HasChildren() const /* port: stub, returns bool in the ELF */
+bool CRadioStripSpec::HasChildren() const
 {
+	/* 0x3a1190 */
+	return m_children.size() != 0;
 }
 
 /* @socom-skeleton stub __dt__10ActionItemFv */
@@ -184,28 +213,40 @@ ActionItem::~ActionItem()
 }
 
 /* @socom-skeleton stub __ct__11CDlgObjSpecFR11CDlgObjSpec */
-CDlgObjSpec::CDlgObjSpec(CDlgObjSpec &)
+CDlgObjSpec::CDlgObjSpec(CDlgObjSpec &other) : m_uivar(NULL)
 {
+	/* 0x3a1010: a copy of the UI variable spec (CUIVariableSpec(CUIVariableSpec *) inline) */
+	if (other.m_uivar != NULL)
+		m_uivar = new CUIVariableSpec(other.m_uivar);
 }
 
 /* @socom-skeleton stub __dt__11CDlgObjSpecFv */
 CDlgObjSpec::~CDlgObjSpec()
 {
+	/* 0x3a0f40: deletes the UI variable spec (~CUIVariableSpec inline) */
+	if (m_uivar != NULL)
+		delete m_uivar;
 }
 
 /* @socom-skeleton stub Copy__11CButtonSpecFv */
-void CButtonSpec::Copy()
+CDlgObjSpec * CButtonSpec::Copy()
 {
+	/* 0x3a0c50: new (232 bytes) + the memberwise copy (CButtonSpec(CButtonSpec &) inline) */
+	return new CButtonSpec(*this);
 }
 
 /* @socom-skeleton stub Copy__10CImageSpecFv */
-void CImageSpec::Copy()
+CDlgObjSpec * CImageSpec::Copy()
 {
+	/* 0x3a0b80: new (28 bytes) + the memberwise copy */
+	return new CImageSpec(*this);
 }
 
 /* @socom-skeleton stub Copy__9CTextSpecFv */
-void CTextSpec::Copy()
+CDlgObjSpec * CTextSpec::Copy()
 {
+	/* 0x3a0a90: new (36 bytes) + the memberwise copy */
+	return new CTextSpec(*this);
 }
 
 /* @socom-skeleton stub CreateDisplayObj__9CTextSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
@@ -219,8 +260,10 @@ C2D * CTextSpec::CreateDisplayObj(C2DFont *font, zdb::CTextureRelocMgr *) const
 }
 
 /* @socom-skeleton stub Copy__8CTtySpecFv */
-void CTtySpec::Copy()
+CDlgObjSpec * CTtySpec::Copy()
 {
+	/* 0x3a08f0: new (60 bytes) + the memberwise copy */
+	return new CTtySpec(*this);
 }
 
 /* @socom-skeleton stub CreateDisplayObj__8CTtySpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
@@ -234,8 +277,10 @@ C2D * CTtySpec::CreateDisplayObj(C2DFont *font, zdb::CTextureRelocMgr *) const
 }
 
 /* @socom-skeleton stub Copy__9CWrapSpecFv */
-void CWrapSpec::Copy()
+CDlgObjSpec * CWrapSpec::Copy()
 {
+	/* 0x3a0720: new (48 bytes) + the memberwise copy (a CTextSpec part in the ELF) */
+	return new CWrapSpec(*this);
 }
 
 /* @socom-skeleton stub CreateDisplayObj__9CWrapSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
@@ -244,8 +289,10 @@ C2D * CWrapSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
 }
 
 /* @socom-skeleton stub Copy__11CScrollSpecFv */
-void CScrollSpec::Copy()
+CDlgObjSpec * CScrollSpec::Copy()
 {
+	/* 0x3a04a0: new (52 bytes) + the memberwise copy */
+	return new CScrollSpec(*this);
 }
 
 /* @socom-skeleton stub CreateDisplayObj__11CScrollSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
@@ -264,8 +311,10 @@ CHandlerButtonSpec::~CHandlerButtonSpec()
 }
 
 /* @socom-skeleton stub Copy__18CHandlerButtonSpecFv */
-void CHandlerButtonSpec::Copy()
+CDlgObjSpec * CHandlerButtonSpec::Copy()
 {
+	/* 0x3a0210: new (236 bytes) + CButtonSpec(CButtonSpec &) + the own members */
+	return new CHandlerButtonSpec(*this);
 }
 
 /* @socom-skeleton stub CreateDisplayObj__18CHandlerButtonSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
@@ -274,28 +323,38 @@ C2D * CHandlerButtonSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) c
 }
 
 /* @socom-skeleton stub Copy__14CUIListBoxSpecFv */
-void CUIListBoxSpec::Copy()
+CDlgObjSpec * CUIListBoxSpec::Copy()
 {
+	/* 0x39fdb0: new (216 bytes) + the memberwise copy */
+	return new CUIListBoxSpec(*this);
 }
 
 /* @socom-skeleton stub Copy__14CSliderBarSpecFv */
-void CSliderBarSpec::Copy()
+CDlgObjSpec * CSliderBarSpec::Copy()
 {
+	/* 0x39fd20: new (248 bytes) + CButtonSpec(CButtonSpec &) + the own members */
+	return new CSliderBarSpec(*this);
 }
 
 /* @socom-skeleton stub Copy__17CHProgressBarSpecFv */
-void CHProgressBarSpec::Copy()
+CDlgObjSpec * CHProgressBarSpec::Copy()
 {
+	/* 0x39fc20: new (36 bytes) + the memberwise copy */
+	return new CHProgressBarSpec(*this);
 }
 
 /* @socom-skeleton stub Copy__13CCheckBoxSpecFv */
-void CCheckBoxSpec::Copy()
+CDlgObjSpec * CCheckBoxSpec::Copy()
 {
+	/* 0x39fbe0: new (260 bytes) + CCheckBoxSpec(CCheckBoxSpec &) 0x395ba0 */
+	return new CCheckBoxSpec(*this);
 }
 
 /* @socom-skeleton stub Copy__11CTickerSpecFv */
-void CTickerSpec::Copy()
+CDlgObjSpec * CTickerSpec::Copy()
 {
+	/* 0x39fac0: new (48 bytes) + the memberwise copy */
+	return new CTickerSpec(*this);
 }
 
 /* @socom-skeleton stub CreateDisplayObj__11CTickerSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
@@ -304,8 +363,10 @@ C2D * CTickerSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
 }
 
 /* @socom-skeleton stub Copy__16CCycleButtonSpecFv */
-void CCycleButtonSpec::Copy()
+CDlgObjSpec * CCycleButtonSpec::Copy()
 {
+	/* 0x39f9b0: new (252 bytes) + CButtonSpec(CButtonSpec &) + the own members */
+	return new CCycleButtonSpec(*this);
 }
 
 /* @socom-skeleton stub CreateDisplayObj__16CCycleButtonSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
@@ -314,23 +375,42 @@ C2D * CCycleButtonSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) con
 }
 
 /* @socom-skeleton stub Copy__15CRadioStripSpecFv */
-void CRadioStripSpec::Copy()
+CDlgObjSpec * CRadioStripSpec::Copy()
 {
+	/* 0x39f500: new (244 bytes) + CButtonSpec(CButtonSpec &) + the own members */
+	return new CRadioStripSpec(*this);
 }
 
 /* @socom-skeleton stub CreateDisplayObj__15CRadioStripSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
-C2D * CRadioStripSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+C2D * CRadioStripSpec::CreateDisplayObj(C2DFont *font, zdb::CTextureRelocMgr *reloc) const
 {
+	/* 0x39f460: a CRadioStrip in the menu font, loaded from this spec (no texture), its
+	 * state images and caption set (InitializeButton); the menu adds the options */
+	CRadioStrip* strip = new CRadioStrip();
+	strip->_strCaption.SetFont(font);
+	strip->LoadSpec(this, NULL);
+	InitializeButton(strip, reloc);
+	return strip;
 }
 
 /* @socom-skeleton stub __dt__15CRadioStripSpecFv */
 CRadioStripSpec::~CRadioStripSpec()
 {
+	/* 0x39f2b0: each child design object leaves the vector and is deleted (its spec with
+	 * it); the button part follows */
+	while (!m_children.empty())
+	{
+		CDesignDlgObj* child = m_children.front();
+		m_children.erase(m_children.begin());
+		delete child;
+	}
 }
 
 /* @socom-skeleton stub Copy__14CUIMapCtrlSpecFv */
-void CUIMapCtrlSpec::Copy()
+CDlgObjSpec * CUIMapCtrlSpec::Copy()
 {
+	/* 0x39f100: new (48 bytes) + the memberwise copy */
+	return new CUIMapCtrlSpec(*this);
 }
 
 /* @socom-skeleton body __ct__15CUIVariableSpecFP5_zrdr */
@@ -389,11 +469,15 @@ CUIVariableSpec::~CUIVariableSpec()
 }
 
 /* @socom-skeleton stub GetType__14CUIMapCtrlSpecFv */
-void CUIMapCtrlSpec::GetType() /* port: stub, returns a type-name string in the ELF */
+const char * CUIMapCtrlSpec::GetType()
 {
+	/* 0x39ede0 */
+	return "MAPCONTROL";
 }
 
 /* @socom-skeleton stub __dt__14CUIMapCtrlSpecFv */
 CUIMapCtrlSpec::~CUIMapCtrlSpec()
 {
+	/* 0x39ed20: nothing of its own - the animations, the elements (their specs deleted by
+	 * ~CDesignDlgObj) and the CDlgObjSpec part are the member / base destructors */
 }

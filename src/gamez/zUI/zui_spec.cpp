@@ -87,11 +87,14 @@ class CTextureRelocMgr;
 zdb::CTexHandle * PrepTexture(const char *, zdb::CTextureRelocMgr *);
 void ParseButtonAnim(_zrdr *, ActionItem *);
 CDlgObjSpec * GetObjectSpec(_zrdr *, const char *); /* below (0x399670) */
+CDlgObjSpec * GetControlSpec(_zrdr *, const char *); /* below (0x39a210; CRadioStripSpec's children) */
 void InitButton(C2DButton *, zdb::CTexHandle *, zdb::CTexHandle *, zdb::CTexHandle *, zdb::CTexHandle *, const char *); /* zui.cpp (0x3846f0) */
 
 /* @socom-skeleton stub GetType__12CCounterSpecFv */
-void CCounterSpec::GetType() /* port: stub, returns a type-name string in the ELF */
+const char * CCounterSpec::GetType()
 {
+	/* 0x39ae30 */
+	return "COUNTER";
 }
 
 /* @socom-skeleton stub LoadDlgObjects__22@unnamed@zui_spec_cpp@FPQ23std58vector<13CDesignDlgObj,Q23std26allocator<13CDesignDlgObj>>P5_zrdrPCcPFP5_zrdrPCc_P11CDlgObjSpec */
@@ -180,18 +183,29 @@ C2D * CImageSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *reloc) cons
 CDlgObjSpec * GetControlSpec(_zrdr *reader, const char *type)
 {
 	/* 0x39a210: the control types, else an object type (GetObjectSpec: IMAGE, TEXT...).
-	 * port: BUTTON is written; SCROLLINGTEXT, HANDLERBUTTON, LISTBOX, SLIDERBAR,
-	 * CHECKBOX, CYCLEBUTTON, RADIOSTRIP and MAPCONTROL are not (no control). */
+	 * port: BUTTON, SLIDERBAR, CHECKBOX, RADIOSTRIP and MAPCONTROL are written;
+	 * SCROLLINGTEXT, HANDLERBUTTON, LISTBOX and CYCLEBUTTON are not (no control). */
 	if (type == NULL)
 		return NULL;
 
 	if (strcmp("BUTTON", type) == 0)
 		return new CButtonSpec(reader);
 
+	if (strcmp("SLIDERBAR", type) == 0)
+		return new CSliderBarSpec(reader);
+
+	if (strcmp("CHECKBOX", type) == 0)
+		return new CCheckBoxSpec(reader);
+
+	if (strcmp("RADIOSTRIP", type) == 0)
+		return new CRadioStripSpec(reader);
+
+	if (strcmp("MAPCONTROL", type) == 0)
+		return new CUIMapCtrlSpec(reader);
+
 	static const char* const unwritten[] =
 	{
-		"SCROLLINGTEXT", "HANDLERBUTTON", "LISTBOX", "SLIDERBAR", "CHECKBOX", "CYCLEBUTTON",
-		"RADIOSTRIP", "MAPCONTROL",
+		"SCROLLINGTEXT", "HANDLERBUTTON", "LISTBOX", "CYCLEBUTTON",
 	};
 
 	for (u32 i = 0; i < sizeof(unwritten) / sizeof(unwritten[0]); i++)
@@ -278,8 +292,10 @@ CDlgObjSpec * GetObjectSpec(_zrdr *reader, const char *type)
 }
 
 /* @socom-skeleton stub Copy__12CCounterSpecFv */
-void CCounterSpec::Copy()
+CDlgObjSpec * CCounterSpec::Copy()
 {
+	/* 0x399570: new (52 bytes) + the memberwise copy */
+	return new CCounterSpec(*this);
 }
 
 /* @socom-skeleton stub CreateDisplayObj__12CCounterSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
@@ -585,8 +601,23 @@ C2D * CUIListBoxSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
 }
 
 /* @socom-skeleton stub CreateDisplayObj__14CSliderBarSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
-C2D * CSliderBarSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+C2D * CSliderBarSpec::CreateDisplayObj(C2DFont *font, zdb::CTextureRelocMgr *reloc) const
 {
+	/* 0x3962f0: a CSliderBar in the menu font with its knob, loaded from this spec, the
+	 * four state images and caption set as InitializeButton does, shown NORMAL */
+	CSliderBar* bar = new CSliderBar();
+	zdb::CTexHandle* knob = PrepTexture(m_knobTexture.c_str(), reloc);
+	bar->_strCaption.SetFont(font);
+	bar->LoadSpec(*this, knob);
+
+	zdb::CTexHandle* normal = PrepTexture(m_normal._TexName.c_str(), reloc);
+	zdb::CTexHandle* active = PrepTexture(m_active._TexName.c_str(), reloc);
+	zdb::CTexHandle* pressed = PrepTexture(m_pressed._TexName.c_str(), reloc);
+	zdb::CTexHandle* disabled = PrepTexture(m_disabled._TexName.c_str(), reloc);
+
+	InitButton(bar, normal, active, pressed, disabled, m_caption.c_str());
+	bar->SetNormal();
+	return bar;
 }
 
 /* @socom-skeleton stub CreateDisplayObj__17CHProgressBarSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
@@ -608,23 +639,112 @@ C2D * CHProgressBarSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *relo
 }
 
 /* @socom-skeleton stub __ct__13CCheckBoxSpecFP5_zrdr */
-CCheckBoxSpec::CCheckBoxSpec(_zrdr *reader) : CButtonSpec(reader) /* port: base constructor needed to compile */
+CCheckBoxSpec::CCheckBoxSpec(_zrdr *reader) : CButtonSpec(reader)
 {
+	/* 0x395f50: a button spec plus the check image's offset, size and texture and the
+	 * ONCHECK / ONUNCHECK items (made reset, then parsed when present). port: the offset
+	 * and size start 0 (the ELF leaves them as new left them when a key is absent) */
+	m_checkOffset.x = m_checkOffset.y = 0;
+	m_checkSize.x = m_checkSize.y = 0;
+	zrdr_findint(reader, "CHECK_X", &m_checkOffset.x, 1);
+	zrdr_findint(reader, "CHECK_Y", &m_checkOffset.y, 1);
+	zrdr_findIPNT2D(reader, "CHECK_OFFSET", &m_checkOffset);
+	zrdr_findint(reader, "CHECKSIZE_X", &m_checkSize.x, 1);
+	zrdr_findint(reader, "CHECKSIZE_Y", &m_checkSize.y, 1);
+	zrdr_findIPNT2D(reader, "CHECK_SIZE", &m_checkSize);
+
+	if (char* texture = zrdr_findstring(reader, "CHECK_TEXTURE"))
+		m_checkTexture.assign(texture, strlen(texture));
+	else
+		m_checkTexture.clear();
+
+	m_onCheck = new ActionItem();
+	m_onUncheck = new ActionItem();
+
+	if (_zrdr* tag = zrdr_findtag(reader, "ONCHECK"))
+		ParseButtonAnim(tag, m_onCheck);
+
+	if (_zrdr* tag = zrdr_findtag(reader, "ONUNCHECK"))
+		ParseButtonAnim(tag, m_onUncheck);
 }
 
 /* @socom-skeleton stub __ct__13CCheckBoxSpecFR13CCheckBoxSpec */
-CCheckBoxSpec::CCheckBoxSpec(CCheckBoxSpec &other) : CButtonSpec(other) /* port: base constructor needed to compile */
+CCheckBoxSpec::CCheckBoxSpec(CCheckBoxSpec &other) : CButtonSpec(other)
 {
+	/* 0x395ba0: the button part, offset, size and texture copied, and copies of both items */
+	m_checkOffset = other.m_checkOffset;
+	m_checkSize = other.m_checkSize;
+	m_checkTexture.assign(other.m_checkTexture, 0, std::string::npos);
+	m_onCheck = new ActionItem();
+	*m_onCheck = *other.m_onCheck;
+	m_onUncheck = new ActionItem();
+	*m_onUncheck = *other.m_onUncheck;
 }
 
 /* @socom-skeleton stub CreateDisplayObj__13CCheckBoxSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
-C2D * CCheckBoxSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+C2D * CCheckBoxSpec::CreateDisplayObj(C2DFont *font, zdb::CTextureRelocMgr *reloc) const
 {
+	/* 0x3959b0: a CCheckBox in the menu font with its check image, loaded from this spec,
+	 * the four state images and caption set as InitializeButton does, shown NORMAL */
+	CCheckBox* box = new CCheckBox();
+	zdb::CTexHandle* check = PrepTexture(m_checkTexture.c_str(), reloc);
+	box->_strCaption.SetFont(font);
+	box->LoadSpec(*this, check);
+
+	zdb::CTexHandle* normal = PrepTexture(m_normal._TexName.c_str(), reloc);
+	zdb::CTexHandle* active = PrepTexture(m_active._TexName.c_str(), reloc);
+	zdb::CTexHandle* pressed = PrepTexture(m_pressed._TexName.c_str(), reloc);
+	zdb::CTexHandle* disabled = PrepTexture(m_disabled._TexName.c_str(), reloc);
+
+	InitButton(box, normal, active, pressed, disabled, m_caption.c_str());
+	box->SetNormal();
+	return box;
 }
 
 /* @socom-skeleton stub __ct__15CRadioStripSpecFP5_zrdr */
-CRadioStripSpec::CRadioStripSpec(_zrdr *reader) : CButtonSpec(reader) /* port: base constructor needed to compile */
+CRadioStripSpec::CRadioStripSpec(_zrdr *reader) : CButtonSpec(reader)
 {
+	/* 0x395680: a button spec, then each SUBORDINATES entry { NAME TYPE XPOS YPOS SPEC }
+	 * with a control spec (GetControlSpec) becomes a new design object; its parent is the
+	 * SPEC's CHILDOF. ELF quirk kept: the name falls back to "unnamed". port: XPOS / YPOS
+	 * start 0 (the ELF leaves its stack slots as they were when a key is absent) */
+	_zrdr* list = zrdr_findtag(reader, "SUBORDINATES");
+
+	if (list == NULL)
+		return;
+
+	for (u32 i = 0; i < (u32)(list->IsArray() ? list->array->integer - 1 : 0); i++)
+	{
+		_zrdr* entry = list->Get(i);
+		char* name = zrdr_findstring(entry, "NAME");
+		char* type = zrdr_findstring(entry, "TYPE");
+		s32 x = 0;
+		s32 y = 0;
+		zrdr_findint(entry, "XPOS", &x, 1);
+		zrdr_findint(entry, "YPOS", &y, 1);
+		_zrdr* spectag = zrdr_findtag(entry, "SPEC");
+
+		if (spectag == NULL)
+			continue;
+
+		CDlgObjSpec* spec = GetControlSpec(spectag, type);
+
+		if (spec == NULL)
+			continue;
+
+		CDesignDlgObj* obj = new CDesignDlgObj();
+
+		if (obj->m_spec != NULL)
+			delete obj->m_spec;
+
+		obj->m_spec = spec;
+		obj->m_x = x;
+		obj->m_y = y;
+		obj->m_name = (name != NULL && *name != '\0') ? name : "unnamed";
+		char* parent = zrdr_findstring(spectag, "CHILDOF");
+		obj->m_parent = parent != NULL ? parent : "";
+		m_children.push_back(obj);
+	}
 }
 
 /* @socom-skeleton stub __ct__16CCycleButtonSpecFP5_zrdr */
@@ -635,26 +755,91 @@ CCycleButtonSpec::CCycleButtonSpec(_zrdr *reader) : CButtonSpec(reader) /* port:
 /* @socom-skeleton stub __dt__13CDesignDlgObjFv */
 CDesignDlgObj::~CDesignDlgObj()
 {
+	/* 0x395250: deletes the spec (virtual dtor), then the two strings */
+	if (m_spec != NULL)
+		delete m_spec;
 }
 
 /* @socom-skeleton stub __as__13CDesignDlgObjFRC13CDesignDlgObj */
-void CDesignDlgObj::operator=(const CDesignDlgObj &)
+void CDesignDlgObj::operator=(const CDesignDlgObj &other)
 {
+	/* 0x3951b0: deletes the own spec and takes a copy of the other's (Copy, vtable +0xc).
+	 * ELF quirk kept: m_spec is not cleared between, so a self-assignment copies a deleted
+	 * spec (no caller does that). */
+	if (m_spec != NULL)
+		delete m_spec;
+
+	m_spec = other.m_spec != NULL ? other.m_spec->Copy() : NULL;
+	m_x = other.m_x;
+	m_y = other.m_y;
+	m_name.assign(other.m_name, 0, std::string::npos);
+	m_parent.assign(other.m_parent, 0, std::string::npos);
 }
 
 /* @socom-skeleton stub __ct__14CUIMapCtrlSpecFP5_zrdr */
-CUIMapCtrlSpec::CUIMapCtrlSpec(_zrdr *reader) : CDlgObjSpec(reader) /* port: base constructor needed to compile */
+CUIMapCtrlSpec::CUIMapCtrlSpec(_zrdr *reader) : CDlgObjSpec(reader)
 {
+	/* 0x394e50: the window corners, the ELEMENTS (object specs, GetObjectSpec, at XOFFSET /
+	 * YOFFSET) and the ANIMATIONS (button items). port: the offsets start 0 (the ELF leaves
+	 * its stack slots as they were when a key is absent); the window corners too */
+	m_upperLeft.x = m_upperLeft.y = 0;
+	m_lowerRight.x = m_lowerRight.y = 0;
+	zrdr_findIPNT2D(reader, "UPPERLEFT", &m_upperLeft);
+	zrdr_findIPNT2D(reader, "LOWERRIGHT", &m_lowerRight);
+	_zrdr* elements = zrdr_findtag(reader, "ELEMENTS");
+
+	for (s32 i = 0; elements != NULL && i < (s32)(elements->IsArray() ? elements->array->integer - 1 : 0); i++)
+	{
+		_zrdr* entry = elements->Get(i);
+		s32 x = 0;
+		s32 y = 0;
+		zrdr_findint(entry, "XOFFSET", &x, 1);
+		zrdr_findint(entry, "YOFFSET", &y, 1);
+		char* type = zrdr_findstring(entry, "TYPE");
+		_zrdr* spectag = zrdr_findtag(entry, "SPEC");
+
+		if (spectag == NULL)
+			continue;
+
+		CDlgObjSpec* spec = GetObjectSpec(spectag, type);
+
+		if (spec == NULL)
+			continue;
+
+		m_elements.resize(m_elements.size() + 1);
+		CDesignDlgObj& obj = m_elements.back();
+
+		if (obj.m_spec != NULL)
+			delete obj.m_spec;
+
+		obj.m_spec = spec;
+		obj.m_x = x;
+		obj.m_y = y;
+	}
+
+	_zrdr* anims = zrdr_findtag(reader, "ANIMATIONS");
+
+	for (s32 i = 0; anims != NULL && i < (s32)(anims->IsArray() ? anims->array->integer - 1 : 0); i++)
+	{
+		m_animations.resize(m_animations.size() + 1);
+		ParseButtonAnim(anims->Get(i), &m_animations.back());
+	}
 }
 
 /* @socom-skeleton stub CreateDisplayObj__14CUIMapCtrlSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
-C2D * CUIMapCtrlSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+C2D * CUIMapCtrlSpec::CreateDisplayObj(C2DFont *font, zdb::CTextureRelocMgr *reloc) const
 {
+	/* 0x394dd0: a CUIMapCtrl loaded from this spec (no asset library) */
+	CUIMapCtrl* map = new CUIMapCtrl();
+	map->LoadSpec(*this, font, NULL, reloc);
+	return map;
 }
 
 /* @socom-skeleton stub Copy__10CClockSpecFv */
-void CClockSpec::Copy()
+CDlgObjSpec * CClockSpec::Copy()
 {
+	/* 0x394c70: new (36 bytes) + the memberwise copy */
+	return new CClockSpec(*this);
 }
 
 /* @socom-skeleton stub CreateDisplayObj__10CClockSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
@@ -663,6 +848,8 @@ C2D * CClockSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
 }
 
 /* @socom-skeleton stub GetType__10CClockSpecFv */
-void CClockSpec::GetType() /* port: stub, returns a type-name string in the ELF */
+const char * CClockSpec::GetType()
 {
+	/* 0x394be0 */
+	return "CLOCK";
 }

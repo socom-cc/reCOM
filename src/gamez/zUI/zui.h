@@ -187,6 +187,11 @@ class CDesignDlgObj
 {
 public:
 	CDesignDlgObj() : m_spec(NULL), m_x(0), m_y(0) {} /* port: no out-of-line ctor in the ELF */
+	/* port: no out-of-line copy ctor; MSL's vector<CDesignDlgObj> (insert 0x39c3b0, resize
+	 * 0x39b180) builds each copy inline as this default ctor plus the operator= body (the
+	 * spec's Copy, vtable +0xc). Without it libstdc++'s implicit copy would share m_spec and
+	 * the dtor would free it twice. */
+	CDesignDlgObj(const CDesignDlgObj& other) : m_spec(NULL), m_x(0), m_y(0) { *this = other; }
 	CDlgObjSpec* m_spec; /* +0x0 SPEC */
 	s32 m_x;             /* +0x4 XPOS */
 	s32 m_y;             /* +0x8 YPOS */
@@ -216,7 +221,11 @@ public:
 	/* @socom-skeleton decl 11CDlgObjSpec */
 public:
 	virtual ~CDlgObjSpec();
-	virtual CDlgObjSpec * GetChild(int) const { return NULL; } /* 0x382d50 */
+	/* vtable +0xc: a new copy of the spec (pure in the base: 0 in __vt__11CDlgObjSpec); each
+	 * derived Copy is new + the memberwise copy constructor (port: the skeleton had void) */
+	virtual CDlgObjSpec * Copy() = 0;
+	virtual const char * GetType() = 0; /* vtable +0x14: the spec TYPE name (pure in the base) */
+	virtual CDesignDlgObj * GetChild(int) const { return NULL; } /* 0x382d50; port: the ELF children are design objects (CRadioStripSpec 0x3a11b0), the skeleton had CDlgObjSpec* */
 	virtual bool HasChildren() const { return false; } /* 0x382d60 */
 	virtual int NumChildren() const { return 0; } /* 0x382d30 */
 	/* vtable slot +0x10 (__vt__11CDlgObjSpec 0x474080: dtor, Copy, CreateDisplayObj, GetType, GetChild,
@@ -239,9 +248,9 @@ public:
 	/* @socom-skeleton decl 9CTextSpec */
 public:
 	virtual ~CTextSpec() {}
-	virtual void Copy();
+	virtual CDlgObjSpec * Copy();
 	virtual C2D * CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
-	virtual void GetType() {} /* port: stub, returns a type-name string in the ELF */
+	virtual const char * GetType() { return "TEXT"; } /* 0x3a1be0 (zui_cleanup.cpp) */
 	/* @socom-skeleton end 9CTextSpec */
 };
 
@@ -257,9 +266,9 @@ public:
 	/* @socom-skeleton decl 10CImageSpec */
 public:
 	virtual ~CImageSpec() {}
-	virtual void Copy();
+	virtual CDlgObjSpec * Copy();
 	virtual C2D * CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
-	virtual void GetType() {} /* port: stub, returns a type-name string in the ELF */
+	virtual const char * GetType() { return "IMAGE"; } /* 0x3a1bf0 (zui_cleanup.cpp) */
 	CImageSpec(_zrdr *);
 	/* @socom-skeleton end 10CImageSpec */
 };
@@ -286,9 +295,9 @@ public:
 	/* @socom-skeleton decl 11CButtonSpec */
 public:
 	virtual ~CButtonSpec() {}
-	virtual void Copy();
+	virtual CDlgObjSpec * Copy();
 	virtual C2D * CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
-	virtual void GetType() {} /* port: stub, returns a type-name string in the ELF */
+	virtual const char * GetType() { return "BUTTON"; } /* 0x3a1c00 (zui_cleanup.cpp) */
 	CButtonSpec(_zrdr *);
 	void InitializeButton(C2DButton *, zdb::CTextureRelocMgr *) const;
 	/* @socom-skeleton end 11CButtonSpec */
@@ -323,9 +332,9 @@ public:
 	/* @socom-skeleton decl 8CTtySpec */
 public:
 	virtual ~CTtySpec() {}
-	virtual void Copy();
+	virtual CDlgObjSpec * Copy();
 	virtual C2D * CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
-	virtual void GetType() {} /* port: stub, returns a type-name string in the ELF */
+	virtual const char * GetType() { return "TELETYPE"; } /* 0x3a1bd0 (zui_cleanup.cpp) */
 	/* @socom-skeleton end 8CTtySpec */
 };
 
@@ -338,9 +347,9 @@ public:
 	/* @socom-skeleton decl 9CWrapSpec */
 public:
 	virtual ~CWrapSpec() {}
-	virtual void Copy();
+	virtual CDlgObjSpec * Copy();
 	virtual C2D * CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
-	virtual void GetType() {} /* port: stub, returns a type-name string in the ELF */
+	virtual const char * GetType() { return "WRAPPEDTEXT"; } /* 0x3a1b00 (zui_cleanup.cpp) */
 	/* @socom-skeleton end 9CWrapSpec */
 };
 
@@ -353,9 +362,9 @@ public:
 	/* @socom-skeleton decl 11CTickerSpec */
 public:
 	virtual ~CTickerSpec() {}
-	virtual void Copy();
+	virtual CDlgObjSpec * Copy();
 	virtual C2D * CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
-	virtual void GetType() {} /* port: stub, returns a type-name string in the ELF */
+	virtual const char * GetType() { return "TICKERTAPETEXT"; } /* 0x3a1410 (zui_cleanup.cpp) */
 	/* @socom-skeleton end 11CTickerSpec */
 };
 
@@ -374,9 +383,9 @@ public:
 	/* @socom-skeleton decl 17CHProgressBarSpec */
 public:
 	virtual ~CHProgressBarSpec() {}
-	virtual void Copy();
+	virtual CDlgObjSpec * Copy();
 	virtual C2D * CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
-	virtual void GetType() {} /* port: stub, returns a type-name string in the ELF */
+	virtual const char * GetType() { return "PROGRESSBAR"; } /* 0x3a16f0 (zui_cleanup.cpp) */
 	/* @socom-skeleton end 17CHProgressBarSpec */
 };
 
@@ -406,9 +415,9 @@ public:
 	/* @socom-skeleton decl 12CCounterSpec */
 public:
 	virtual ~CCounterSpec() {}
-	virtual void Copy();
+	virtual CDlgObjSpec * Copy();
 	virtual C2D * CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
-	virtual void GetType();
+	virtual const char * GetType();
 	/* @socom-skeleton end 12CCounterSpec */
 };
 
@@ -419,9 +428,9 @@ public:
 	/* @socom-skeleton decl 10CClockSpec */
 public:
 	virtual ~CClockSpec() {}
-	virtual void Copy();
+	virtual CDlgObjSpec * Copy();
 	virtual C2D * CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
-	virtual void GetType();
+	virtual const char * GetType();
 	/* @socom-skeleton end 10CClockSpec */
 };
 
@@ -591,6 +600,21 @@ public:
 class CCheckBox : public C2DButton, public UIVarMixin
 {
 public:
+	/* no DWARF; 1264 bytes (CCheckBoxSpec::CreateDisplayObj 0x3959b0 constructs it inline:
+	 * unchecked, both items reset, the check image a CPlainBmp). Layout from LoadSpec
+	 * (0x38b380), Draw (0x38b150), HandlePad (0x38b4b0) and the dtor (0x393a90); names
+	 * from the spec's reader keys. */
+	CCheckBox() : m_checked(false)
+	{
+		m_checkOffset.x = m_checkOffset.y = 0;
+		m_checkSize.x = m_checkSize.y = 0;
+	}
+	bool m_checked;          /* +0x418: shown checked; CROSS toggles it */
+	IPNT2D m_checkOffset;    /* +0x41c CHECK_X / CHECK_Y: the check image in the control */
+	IPNT2D m_checkSize;      /* +0x424 CHECKSIZE_X / CHECKSIZE_Y */
+	ActionItem m_onCheck;    /* +0x42c ONCHECK: the anim run when it becomes checked */
+	ActionItem m_onUncheck;  /* +0x43c ONUNCHECK */
+	CPlainBmp m_check;       /* +0x450 CHECK_TEXTURE, drawn while checked */
 	virtual ~CCheckBox();
 	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
 	virtual bool HandlePad(const CPad *, int);
@@ -602,10 +626,17 @@ public:
 class CCheckBoxSpec : public CButtonSpec
 {
 public:
+	/* no DWARF; 260 bytes (Copy 0x39fbe0); layout from the ctors (0x395f50, 0x395ba0), the
+	 * dtor (0x3a1420) and CCheckBox::LoadSpec; names from the reader keys */
+	ActionItem* m_onCheck;       /* +0xe8 ONCHECK (new; ParseButtonAnim) */
+	ActionItem* m_onUncheck;     /* +0xec ONUNCHECK */
+	IPNT2D m_checkOffset;        /* +0xf0 CHECK_X, CHECK_Y, CHECK_OFFSET */
+	IPNT2D m_checkSize;          /* +0xf8 CHECKSIZE_X, CHECKSIZE_Y, CHECK_SIZE */
+	std::string m_checkTexture;  /* +0x100 CHECK_TEXTURE */
 	virtual ~CCheckBoxSpec();
-	virtual void Copy();
+	virtual CDlgObjSpec * Copy();
 	virtual C2D * CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
-	virtual void GetType();
+	virtual const char * GetType();
 	CCheckBoxSpec(_zrdr *);
 	CCheckBoxSpec(CCheckBoxSpec &);
 };
@@ -625,9 +656,9 @@ class CCycleButtonSpec : public CButtonSpec
 {
 public:
 	virtual ~CCycleButtonSpec();
-	virtual void Copy();
+	virtual CDlgObjSpec * Copy();
 	virtual C2D * CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
-	virtual void GetType();
+	virtual const char * GetType();
 	CCycleButtonSpec(_zrdr *);
 };
 /* @socom-skeleton end 16CCycleButtonSpec */
@@ -677,10 +708,10 @@ class CHandlerButtonSpec : public CButtonSpec
 {
 public:
 	virtual ~CHandlerButtonSpec();
-	virtual void Copy();
+	virtual CDlgObjSpec * Copy();
 	virtual C2D * CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
-	virtual void GetType();
-	virtual CDlgObjSpec * GetChild(int) const;
+	virtual const char * GetType();
+	virtual CDesignDlgObj * GetChild(int) const;
 	virtual bool HasChildren() const;
 	virtual int NumChildren() const;
 	CHandlerButtonSpec(_zrdr *);
@@ -690,6 +721,12 @@ public:
 class CRadioStrip : public C2DButton
 {
 public:
+	/* no DWARF; 1056 bytes (CRadioStripSpec::CreateDisplayObj 0x39f460 constructs it inline:
+	 * selection 0). Its options are the C2D list's children (CCheckBox controls, appended by
+	 * CGameMenu::LoadFromDesign); the selected one is checked, the others unchecked. */
+	CRadioStrip() : m_selection(0), m_init(false) {}
+	s32 m_selection;  /* +0x410: the selected child, LEFT / RIGHT / CROSS move it (wrapping) */
+	bool m_init;      /* +0x414: LoadSpec sets it; the first Tick shows the selection */
 	virtual ~CRadioStrip();
 	virtual void Tick(float);
 	virtual bool HandlePad(const CPad *, int);
@@ -704,11 +741,22 @@ public:
 class CRadioStripSpec : public CButtonSpec
 {
 public:
+	/* no DWARF; 244 bytes (Copy 0x39f500): a button spec plus its SUBORDINATES, each a
+	 * design object of its own (new; the dtor 0x39f2b0 deletes them) */
+	std::vector<CDesignDlgObj*> m_children;  /* +0xe8 SUBORDINATES */
+	/* port: no out-of-line copy ctor (inline in Copy 0x39f500). ELF quirk not kept: the
+	 * ELF copies the child pointers, and the original's dtor deletes them, so a copy made
+	 * when the design's vector grows points at freed objects; the port copies the children. */
+	CRadioStripSpec(CRadioStripSpec& other) : CButtonSpec(other)
+	{
+		for (u32 i = 0; i < other.m_children.size(); i++)
+			m_children.push_back(new CDesignDlgObj(*other.m_children[i]));
+	}
 	virtual ~CRadioStripSpec();
-	virtual void Copy();
+	virtual CDlgObjSpec * Copy();
 	virtual C2D * CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
-	virtual void GetType();
-	virtual CDlgObjSpec * GetChild(int) const;
+	virtual const char * GetType();
+	virtual CDesignDlgObj * GetChild(int) const;
 	virtual bool HasChildren() const;
 	virtual int NumChildren() const;
 	CRadioStripSpec(_zrdr *);
@@ -719,9 +767,9 @@ class CScrollSpec : public CWrapSpec
 {
 public:
 	virtual ~CScrollSpec();
-	virtual void Copy();
+	virtual CDlgObjSpec * Copy();
 	virtual C2D * CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
-	virtual void GetType();
+	virtual const char * GetType();
 };
 /* @socom-skeleton end 11CScrollSpec */
 /* @socom-skeleton decl 12CWrappedText */
@@ -808,6 +856,18 @@ public:
 class CSliderBar : public C2DButton, public UIVarMixin
 {
 public:
+	/* no DWARF; 1248 bytes (CSliderBarSpec::CreateDisplayObj 0x3962f0 constructs it inline:
+	 * value 0.5, no knob texture, 10 intervals). Layout from LoadSpec (0x38c0a0), Draw
+	 * (0x38bc50), HandlePad (0x38baf0) and the dtor (0x393c70); names from the spec keys. */
+	CSliderBar() : m_value(0.5f), m_knobTex(NULL), m_intervals(10)
+	{
+		m_knobSize.x = m_knobSize.y = 0;
+	}
+	f32 m_value;                  /* +0x418: 0..1, the knob along the bar (a REAL UI variable) */
+	zdb::CTexHandle* m_knobTex;   /* +0x41c KNOB_TEXTURE */
+	IPNT2D m_knobSize;            /* +0x420 KNOB_SIZE */
+	CPlainBmp m_knob;             /* +0x430 the knob image */
+	s32 m_intervals;              /* +0x4d0 NUM_INTERVALS: a LEFT / RIGHT step is 1/100 of this */
 	virtual ~CSliderBar();
 	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
 	virtual bool HandlePad(const CPad *, int);
@@ -822,10 +882,29 @@ public:
 class CSliderBarSpec : public CButtonSpec
 {
 public:
+	/* port: no out-of-line ctor; inlined in GetControlSpec (0x39a3e8, 248 bytes): a button
+	 * spec plus the knob. No DWARF: names from the reader keys. */
+	CSliderBarSpec(_zrdr* reader) : CButtonSpec(reader)
+	{
+		m_intervals = 10;
+		zrdr_findint(reader, "NUM_INTERVALS", &m_intervals, 1);
+
+		if (char* knob = zrdr_findstring(reader, "KNOB_TEXTURE"))
+			m_knobTexture.assign(knob, strlen(knob));
+		else
+			m_knobTexture.clear();
+
+		m_knobSize.x = 0;
+		m_knobSize.y = 0;
+		zrdr_findIPNT2D(reader, "KNOB_SIZE", &m_knobSize);
+	}
+	std::string m_knobTexture;  /* +0xe8 KNOB_TEXTURE */
+	IPNT2D m_knobSize;          /* +0xec KNOB_SIZE */
+	s32 m_intervals;            /* +0xf4 NUM_INTERVALS (10) */
 	virtual ~CSliderBarSpec();
-	virtual void Copy();
+	virtual CDlgObjSpec * Copy();
 	virtual C2D * CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
-	virtual void GetType();
+	virtual const char * GetType();
 };
 /* @socom-skeleton end 14CSliderBarSpec */
 /* @socom-skeleton decl 9CTeleType */
@@ -897,9 +976,9 @@ class CUIListBoxSpec : public CImageSpec
 {
 public:
 	virtual ~CUIListBoxSpec();
-	virtual void Copy();
+	virtual CDlgObjSpec * Copy();
 	virtual C2D * CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
-	virtual void GetType();
+	virtual const char * GetType();
 	CUIListBoxSpec(_zrdr *);
 };
 /* @socom-skeleton end 14CUIListBoxSpec */
@@ -907,6 +986,14 @@ public:
 class CUIMapCtrl : public C2D
 {
 public:
+	/* no DWARF; 528 bytes (CUIMapCtrlSpec::CreateDisplayObj 0x394dd0). Layout from the ctor (0x386da0),
+	 * LoadSpec (0x3866c0), Draw (0x3865c0) and HandlePad (0x386840); names from the spec keys. The map's
+	 * elements (images, texts) are the C2D list's children; the anim's node carrying the control is
+	 * panned and scaled by the Pan / ZOOM_IN / ZOOM_OUT commands, kept covering the window. */
+	ActionItem m_commands[30];  /* +0x1c ANIMATIONS (button items) */
+	s32 m_numCommands;          /* +0x1fc */
+	IPNT2D m_upperLeft;         /* +0x200 UPPERLEFT: the window (scissor) */
+	IPNT2D m_lowerRight;        /* +0x208 LOWERRIGHT */
 	virtual ~CUIMapCtrl();
 	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
 	virtual bool HandlePad(const CPad *, int);
@@ -916,7 +1003,7 @@ public:
 	CUIMapCtrl();
 	void CalcAlternateZoomedPos(CPnt3D *, const CCorners &, const CPnt3D &, float) const;
 	void LoadSpec(const CUIMapCtrlSpec &, C2DFont *, zdb::CAssetLib *, zdb::CTextureRelocMgr *);
-	void IsCovered(float, float, const CPnt3D &, float) const;
+	bool IsCovered(float, float, const CPnt3D &, float) const; /* port: bool (the skeleton had void; v0) */
 	void OnPan(const CUIMapCtrlAnimCmdHdr &, float) const;
 };
 /* @socom-skeleton end 10CUIMapCtrl */
@@ -924,10 +1011,15 @@ public:
 class CUIMapCtrlSpec : public CDlgObjSpec
 {
 public:
+	/* no DWARF; 48 bytes (Copy 0x39f100); layout from the ctor (0x394e50) and the dtor (0x39ed20) */
+	IPNT2D m_upperLeft;                   /* +0x8 UPPERLEFT */
+	IPNT2D m_lowerRight;                  /* +0x10 LOWERRIGHT */
+	std::vector<CDesignDlgObj> m_elements; /* +0x18 ELEMENTS: object specs at XOFFSET / YOFFSET */
+	std::vector<ActionItem> m_animations;  /* +0x24 ANIMATIONS */
 	virtual ~CUIMapCtrlSpec();
-	virtual void Copy();
+	virtual CDlgObjSpec * Copy();
 	virtual C2D * CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
-	virtual void GetType();
+	virtual const char * GetType();
 	CUIMapCtrlSpec(_zrdr *);
 };
 /* @socom-skeleton end 14CUIMapCtrlSpec */

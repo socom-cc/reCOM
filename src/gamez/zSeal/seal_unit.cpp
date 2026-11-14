@@ -578,7 +578,14 @@ void CSealUnit::UnInit()
 		it = m_list.erase(it);
 
 		if (unit != NULL)
+		{
+			/* 0x2d5604: the inlined dtor's anchor part (Bravo's "BRAVOTEAM"; was kept a mission) */
+			if (unit->m_compassanchor != NULL)
+				CZSealBody::m_compass.DeleteAnchor(unit->m_compassanchor); /* port: a member in the port, static in the ELF */
+
+			unit->m_compassanchor = NULL;
 			delete unit;
+		}
 	}
 
 	m_created_units_test = false;

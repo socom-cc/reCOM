@@ -187,14 +187,24 @@ zdb::CNode * Add2dNode(C2D *object, zdb::CTextureRelocMgr *reloc, zdb::CNode *pa
 	return node;
 }
 
+unsigned char UiGetDirStickMoved(); /* below (0x384380) */
+
 /* @socom-skeleton stub DidStickMoveNext__Fv */
-void DidStickMoveNext()
+bool DidStickMoveNext()
 {
+	/* 0x384c20: UiGetDirStickMoved inline; DOWN (2) or RIGHT (4). port: bool (the skeleton had
+	 * void; the ELF returns it in v0) */
+	unsigned char dir = UiGetDirStickMoved();
+	return dir == 2 || dir == 4;
 }
 
 /* @socom-skeleton stub DidStickMovePrev__Fv */
-void DidStickMovePrev()
+bool DidStickMovePrev()
 {
+	/* 0x384a40: UiGetDirStickMoved inline; UP (1) or LEFT (3). port: bool (the skeleton had
+	 * void; the ELF returns it in v0) */
+	unsigned char dir = UiGetDirStickMoved();
+	return dir == 1 || dir == 3;
 }
 
 /* @socom-skeleton stub GetButton__FPCc */
@@ -321,8 +331,10 @@ zdb::CTexHandle * PrepTexture(const char *name, zdb::CTextureRelocMgr *reloc)
 }
 
 /* @socom-skeleton stub SetFaderOpacity__Ff */
-void SetFaderOpacity(float)
+void SetFaderOpacity(float opacity)
 {
+	/* 0x384550: the menu fader node's opacity (+0x9c), not NULL-tested */
+	g_pFaderNode->m_Opacity = opacity;
 }
 
 /* @socom-skeleton stub UiGetCurMenu__Fv */
@@ -769,8 +781,28 @@ void CGameMenu::LoadFromDesign(const CGameDlgDesign &design, CZAnimZAR *animfile
 		node->SetPosition((f32)obj.m_x, (f32)obj.m_y, 0.0f);
 		node->SetName(obj.m_name.c_str());
 		m_ScreenControls.push_back(item);
-		/* port: not written - a spec with children (HasChildren/NumChildren/GetChild) adds
-		 * each child the same way, appended to the control's own list. */
+
+		/* 0x3826e8: a spec with children (a radio strip's SUBORDINATES) adds each child's
+		 * display object the same way, appended to the control's own C2D list */
+		CDlgObjSpec* spec = obj.m_spec;
+
+		if (!spec->HasChildren())
+			continue;
+
+		for (s32 c = 0; c < spec->NumChildren(); c++)
+		{
+			CDesignDlgObj* child = spec->GetChild(c);
+			C2D* childItem = child->m_spec->CreateDisplayObj(&_font, m_Reloc);
+			zdb::CNode* childParent = *child->m_parent.c_str() ? m_nodeTop.FindChild(child->m_parent.c_str(), true) : NULL;
+
+			if (childParent == NULL)
+				childParent = m_pBackplaneNode;
+
+			zdb::CNode* childNode = Add2dNode(childItem, m_Reloc, childParent);
+			childNode->SetPosition((f32)child->m_x, (f32)child->m_y, 0.0f);
+			childNode->SetName(child->m_name.c_str());
+			item->push_back(childItem);
+		}
 	}
 
 	for (u32 i = 0; i < design.m_objects.size(); i++)
@@ -1008,16 +1040,50 @@ void CGameMenu::MakeButtonActive(const char *name)
 /* @socom-skeleton stub HaltBackgroundMPEG__9CGameMenuFv */
 void CGameMenu::HaltBackgroundMPEG()
 {
+	/* 0x381790: a running background movie ends. port: void (the ELF returns whether it ran;
+	 * no caller reads it) */
+	if (m_has_mpeg_background && m_movieRunning)
+	{
+		CMPEG::End();
+		m_movieRunning = false;
+	}
 }
 
 /* @socom-skeleton stub RestartBackgroundMPEG__9CGameMenuFv */
 void CGameMenu::RestartBackgroundMPEG()
 {
+	/* 0x381710 (CMenuState::OnPop): a background movie that is not running starts again,
+	 * the FIFO ended and disabled around CMPEG::Run (looping). port: void (the ELF returns
+	 * whether it runs; no caller reads it). LoadFromDesign never starts one in the port (no
+	 * menu MPEG there), so m_movieRunning is false on such a menu and this starts it. */
+	if (!m_has_mpeg_background || m_movieRunning)
+		return;
+
+	zSysFifoEnd();
+	zSysFifoDisable();
+	m_movieRunning = CMPEG::Run(m_MPEGName.c_str(), true, false);
+	zSysFifoEnable(1);
 }
 
 /* @socom-skeleton stub TickMPEG__9CGameMenuFv */
 void CGameMenu::TickMPEG()
 {
+	/* 0x381680: a running background movie: at its end the ONMPEGEND anims run and it loops
+	 * (CMPEG::Loop says whether it goes on); then one tick with the FIFO ended and disabled
+	 * (the render buffer, zVid +0x34) */
+	if (!m_has_mpeg_background || !m_movieRunning)
+		return;
+
+	if (CMPEG::Done())
+	{
+		RunEventAnim(ActionItem::ONMPEGEND, NULL);
+		m_movieRunning = CMPEG::Loop();
+	}
+
+	zSysFifoEnd();
+	zSysFifoDisable();
+	CMPEG::Tick(zVid.renderBuf);
+	zSysFifoEnable(1);
 }
 
 /* @socom-skeleton stub PrepModels__9CGameMenuFRC14CGameDlgDesign */

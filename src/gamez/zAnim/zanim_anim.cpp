@@ -2678,58 +2678,129 @@ bool CZAnim::ExecuteSpecialSequence(int offset)
 /* @socom-skeleton stub Unload__6CZAnimFv */
 void CZAnim::Unload()
 {
-	/* 0x1c8b80: port: unproven - frees what Load and the runtime allocated (sequence
-	 * data, node, valve and call refs, names); the ELF also unloads arguments, health,
-	 * textures, particles and sounds, not modelled here */
-	Stop();
-
-	/* 0x1c8cd4: the nodes the anim made itself (created_here) go with their refs (the
-	 * light-map part of that loop, 0x1c8d00, is not written here); 0x1c8cbc: the health
-	 * record; 0x1c8eb4: the instance node (CreateInstanceNode's XRef / instance of the root
-	 * model). Were kept: after every mission ~45 XRef nodes, their names and ~30 health
-	 * records stayed between the freed mission memory (heap fragmentation, see
-	 * docs/port/notes/mod-state.md). */
-	for (u32 i = 0; m_node_ref_list != NULL && i < m_node_ref_count; i++)
+	/* 0x1c8b80: the auto copies first (each unloaded, then freed: Copy callocs them), a
+	 * running anim leaves its scheduler and goes to state 5 (no cleanup sequence, unlike
+	 * Stop), then everything Load and the run time allocated. Were kept by the port: the
+	 * copies (~13 a mission, each with its node refs and sequence data), the argument
+	 * lists, particle sources and the sound / texture / particle / user-command lists;
+	 * small blocks that stayed between the freed mission memory (heap fragmentation, see
+	 * docs/port/notes/mod-state.md and mod-zui.md). */
+	if (m_sibling_anim != NULL)
 	{
-		if (m_node_ref_list[i].created_here && m_node_ref_list[i].node_ptr != NULL)
-			delete m_node_ref_list[i].node_ptr;
-
-		m_node_ref_list[i].node_ptr = NULL;
+		m_sibling_anim->Unload();
+		_free(m_sibling_anim, "zanim_anim.cpp", 0xb20);
+		m_sibling_anim = NULL;
 	}
+
+	if (Running())
+	{
+		CZAnim* savedAnim = ZAnim.m_CurAnim;
+		_zsequence* savedSeq = ZAnim.m_CurSeq;
+		ZAnim.GetAnimSet(m_animset_index)->TaskScheduler()->RemoveTask(this, false);
+		ZAnim.m_CurAnim = this;
+		ZAnim.m_CurSeq = NULL;
+		State(5);
+		ZAnim.m_CurAnim = savedAnim;
+		ZAnim.m_CurSeq = savedSeq;
+	}
+
+	/* 0x1c8c4c: the particle sources (the list itself is freed below) */
+	for (u32 i = 0; i < m_particle_count; i++)
+	{
+		if (m_particle_list[i].particle != NULL)
+		{
+			delete m_particle_list[i].particle;
+			m_particle_list[i].particle = NULL;
+		}
+	}
+
+	/* ELF: the weapon-hit extension is only forgotten (the set's m_AnimExList owns it) */
+	m_animEx = NULL;
+
+	if (m_arg_list != NULL)
+		delete m_arg_list;
+
+	m_arg_list = NULL;
 
 	if (m_health != NULL)
 		operator delete(m_health);
 
 	m_health = NULL;
 
-	if (m_instance_node != NULL)
-		delete m_instance_node;
+	/* 0x1c8cd4: a light on the world's light-map list leaves it; the nodes the anim made
+	 * itself (created_here) are deleted */
+	if (m_node_ref_list != NULL)
+	{
+		for (u32 i = 0; i < m_node_ref_count; i++)
+		{
+			_zanim_node_ref* ref = &m_node_ref_list[i];
 
-	m_instance_node = NULL;
+			if (ref->node_ptr == NULL)
+				continue;
+
+			if (ref->is_light && ref->on_world_lightlist)
+				zdb::CWorld::m_world->DeleteLightMap(static_cast<zdb::CLightMap*>(ref->node_ptr));
+
+			if (ref->created_here && ref->node_ptr != NULL)
+				delete ref->node_ptr;
+		}
+
+		_free(m_node_ref_list, "zanim_anim.cpp", 0xb49);
+		m_node_ref_list = NULL;
+		m_node_ref_count = 0;
+	}
+
+	if (m_sound_ref_list != NULL)
+	{
+		_free(m_sound_ref_list, "zanim_anim.cpp", 0xb51);
+		m_sound_ref_list = NULL;
+		m_sound_ref_count = 0;
+	}
+
+	if (m_tex_ref_list != NULL)
+	{
+		_free(m_tex_ref_list, "zanim_anim.cpp", 0xb59);
+		m_tex_ref_list = NULL;
+		m_tex_ref_count = 0;
+	}
+
+	if (m_call_anim_ref_list != NULL)
+	{
+		_free(m_call_anim_ref_list, "zanim_anim.cpp", 0xb61);
+		m_call_anim_ref_list = NULL;
+		m_call_anim_ref_count = 0;
+	}
+
+	if (m_valve_ref_list != NULL)
+	{
+		_free(m_valve_ref_list, "zanim_anim.cpp", 0xb69);
+		m_valve_ref_list = NULL;
+		m_valve_ref_count = 0;
+	}
+
+	if (m_particle_list != NULL)
+	{
+		_free(m_particle_list, "zanim_anim.cpp", 0xb72);
+		m_particle_list = NULL;
+		m_particle_count = 0;
+	}
+
+	if (m_user_cmd != NULL)
+		_free(m_user_cmd, "zanim_anim.cpp", 0xb7b);
+
+	m_user_cmd = NULL;
 
 	if (m_seq_data != NULL)
-		_free(m_seq_data, "zanim_anim.cpp", 0);
+		_free(m_seq_data, "zanim_anim.cpp", 0xb82);
 
 	m_seq_data = NULL;
 	m_seq_data_size = 0;
 
-	if (m_node_ref_list != NULL)
-		_free(m_node_ref_list, "zanim_anim.cpp", 0);
+	/* 0x1c8eb4: the instance node (CreateInstanceNode's XRef / instance of the root model) */
+	if (m_instance_node != NULL)
+		delete m_instance_node;
 
-	m_node_ref_list = NULL;
-	m_node_ref_count = 0;
-
-	if (m_valve_ref_list != NULL)
-		_free(m_valve_ref_list, "zanim_anim.cpp", 0);
-
-	m_valve_ref_list = NULL;
-	m_valve_ref_count = 0;
-
-	if (m_call_anim_ref_list != NULL)
-		_free(m_call_anim_ref_list, "zanim_anim.cpp", 0);
-
-	m_call_anim_ref_list = NULL;
-	m_call_anim_ref_count = 0;
+	m_instance_node = NULL;
 	m_nameindex_table.Unload();
 }
 

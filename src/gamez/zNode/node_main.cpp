@@ -729,8 +729,17 @@ void zdb::CNode::SetRotation(const CPnt3D *rotation)
 }
 
 /* @socom-skeleton stub SetScale__Q23zdb5CNodeFf */
-void zdb::CNode::SetScale(float)
+void zdb::CNode::SetScale(float scale)
 {
+	/* 0x2270e0: a uniform scale on the matrix diagonal; the node is marked modified and its
+	 * extension told it moved (as SetScale(CPnt3D *) 0x227070) */
+	m_matrix.m_matrix[0][0] = scale;
+	m_matrix.m_matrix[1][1] = scale;
+	m_matrix.m_matrix[2][2] = scale;
+	m_modified = true;
+
+	if (m_nodeEx != NULL)
+		m_nodeEx->OnMove(this);
 }
 
 /* @socom-skeleton stub SetScale__Q23zdb5CNodeFP6CPnt3D */
@@ -749,6 +758,8 @@ void zdb::CNode::SetScale(CPnt3D *scale)
 /* @socom-skeleton stub GetScale__Q23zdb5CNodeFv */
 float zdb::CNode::GetScale()
 {
+	/* 0x227060: the matrix's first diagonal entry (the uniform scale) */
+	return m_matrix.m_matrix[0][0];
 }
 
 /* @socom-skeleton body GetScale__Q23zdb5CNodeFP6CPnt3D */

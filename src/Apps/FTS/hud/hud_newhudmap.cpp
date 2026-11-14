@@ -256,6 +256,26 @@ CZNewHudMap::CZNewHudMap()
 /* @socom-skeleton stub __dt__11CZNewHudMapFv */
 CZNewHudMap::~CZNewHudMap()
 {
+	/* 0x3c6490: the circle clipper deleted, the map items taken from the front and deleted
+	 * (virtual dtor), the objective list freed and the player items' statics released; the
+	 * members follow. Was empty: the clipper (20 bytes) was kept a mission. */
+	if (m_circleclipper != NULL)
+		delete m_circleclipper;
+
+	m_circleclipper = NULL;
+
+	while (!m_itemlist.empty())
+	{
+		CZMapItem* item = m_itemlist.front();
+
+		if (item != NULL)
+			delete item;
+
+		m_itemlist.erase(m_itemlist.begin());
+	}
+
+	m_objectivelist.FreeList(false);
+	CZPlayerMapItem::UnInitStaticItems();
 }
 
 /* @socom-skeleton stub GetZoomOut__11CZNewHudMapCFv */

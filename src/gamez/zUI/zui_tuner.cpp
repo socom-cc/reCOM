@@ -27,33 +27,211 @@
  * @socom-artifact defines main socom:data:0x476930
  * socom-owner-annotations end socom:work:source-segment-056 */
 
+#include "zui.h"
+#include "gamez/zSound/zsnd.h"
+#include "gamez/zVideo/zvid.h"
+#include "gamez/zInput/zinput.h"
+
+/* port: no header declares the tuners (zui_tuner.cpp's own classes; no DWARF). Each is a
+ * UIVarMixin (8 bytes: vptr, m_uivar) attached to a PERMANENT UI variable and applies it
+ * when it changes (UpdateUIVar, vtable +0xc). The dtors (0x3a1ea0..0x3a21a0, SystemTuner
+ * 0x3a2750) only detach (~UIVarMixin). */
+class SystemTuner : public UIVarMixin
+{
+public:
+	virtual ~SystemTuner() {}
+	virtual void UpdateUIVar(CUIVariable *) {} /* 0x3a2a10: empty */
+};
+
+namespace {
+/* port: no symbol - the REAL test every tuner inlines. ELF quirk kept by the callers: most
+ * return early unless the variable is REAL, so their INTEGER conversion is dead code */
+inline bool TunerReal(CUIVariable *var, f32 *value)
+{
+	if (var->type != ZRDR_REAL)
+		return false;
+
+	*value = var->real;
+	return true;
+}
+}
+
+class CSoundTuner : public SystemTuner
+{
+public:
+	virtual void UpdateUIVar(CUIVariable *var) /* 0x3a27c0: volume group 0 */
+	{
+		f32 value;
+
+		if (TunerReal(var, &value))
+			CSnd::SetGroupVol(0, value);
+	}
+};
+
+class CMusicTuner : public SystemTuner
+{
+public:
+	virtual void UpdateUIVar(CUIVariable *var) /* 0x3a2820: volume group 1 */
+	{
+		f32 value;
+
+		if (TunerReal(var, &value))
+			CSnd::SetGroupVol(1, value);
+	}
+};
+
+class CDialogTuner : public SystemTuner
+{
+public:
+	virtual void UpdateUIVar(CUIVariable *var) /* 0x3a2a20: volume group 2 */
+	{
+		f32 value;
+
+		if (TunerReal(var, &value))
+			CSnd::SetGroupVol(2, value);
+	}
+};
+
+class CBrightnessTuner : public SystemTuner
+{
+public:
+	virtual void UpdateUIVar(CUIVariable *var) /* 0x3a2880: REAL, INTEGER, else 0 */
+	{
+		f32 value = 0.0f;
+
+		if (var->type == ZRDR_REAL)
+			value = var->real;
+		else if (var->type == ZRDR_INTEGER)
+			value = (f32)var->integer;
+
+		CVideo::Brightness(value);
+	}
+};
+
+class CStickSensitivityTuner : public SystemTuner
+{
+public:
+	virtual void UpdateUIVar(CUIVariable *var) /* 0x3a28c0: pad 0, stick 1 */
+	{
+		f32 value;
+
+		if (TunerReal(var, &value) && CInput::m_pads[0] != NULL)
+			CInput::m_pads[0]->SetSensitivity(1, value);
+	}
+};
+
+class CStickAccelerationTuner : public SystemTuner
+{
+public:
+	virtual void UpdateUIVar(CUIVariable *var) /* 0x3a2920: pad 0, stick 1 */
+	{
+		f32 value;
+
+		if (TunerReal(var, &value) && CInput::m_pads[0] != NULL)
+			CInput::m_pads[0]->SetAcceleration(1, value);
+	}
+};
+
+class CStickDeadzoneTuner : public SystemTuner
+{
+public:
+	virtual void UpdateUIVar(CUIVariable *var) /* 0x3a2980: pad 0, stick 1; 0.02 more, at most 1 */
+	{
+		f32 value;
+
+		if (!TunerReal(var, &value))
+			return;
+
+		value = 0.02f + value;
+
+		if (!(value <= 1.0f))
+			value = 1.0f;
+
+		if (CInput::m_pads[0] != NULL)
+			CInput::m_pads[0]->SetDeadZone(1, value);
+	}
+};
+
 /* @socom-skeleton stub _pSoundTuner */
-int _pSoundTuner;
+SystemTuner* _pSoundTuner;
 
 /* @socom-skeleton stub _pMusicTuner */
-int _pMusicTuner;
+SystemTuner* _pMusicTuner;
 
 /* @socom-skeleton stub _pBrightnessTuner */
-int _pBrightnessTuner;
+SystemTuner* _pBrightnessTuner;
 
 /* @socom-skeleton stub _pStickSensitivityTuner */
-int _pStickSensitivityTuner;
+SystemTuner* _pStickSensitivityTuner;
 
 /* @socom-skeleton stub _pStickAccelerationTuner */
-int _pStickAccelerationTuner;
+SystemTuner* _pStickAccelerationTuner;
 
 /* @socom-skeleton stub _pStickDeadZoneTuner */
-int _pStickDeadZoneTuner;
+SystemTuner* _pStickDeadZoneTuner;
 
 /* @socom-skeleton stub _pDialogTuner */
-int _pDialogTuner;
+SystemTuner* _pDialogTuner;
+
+namespace {
+/* port: no symbol - the sequence InitSystemTuners repeats per tuner: the variable (made
+ * TEMPORARY, then marked PERMANENT), attached, the base (empty) UpdateUIVar run as in the
+ * ELF's construction; then, for the tuners with a default, the variable set to it (REAL),
+ * which the tuner applies through its dependents. port: the variable is NULL-tested
+ * before the PERMANENT store (the ELF stores it in the branch delay slot). */
+SystemTuner* MakeTuner(SystemTuner *tuner, const char *name, bool hasDefault, f32 value)
+{
+	CUIVariable* var = theUIVarManager.Add(name, NULL, UIVL_TEMPORARY);
+
+	if (var != NULL)
+	{
+		var->m_longevity = UIVL_PERMANENT;
+		tuner->AttachUIVar(var);
+		tuner->SystemTuner::UpdateUIVar(var);
+	}
+
+	if (hasDefault && tuner->m_uivar != NULL)
+	{
+		CUIVariable* own = tuner->m_uivar;
+		own->DeleteChildren();
+		own->type = ZRDR_REAL;
+		own->real = value;
+		own->UpdateDependents();
+	}
+
+	return tuner;
+}
+}
 
 /* @socom-skeleton stub InitSystemTuners__Fv */
 void InitSystemTuners()
 {
+	/* 0x3a2220 (main): the seven tuners; sound and dialog volume start at 1, music and
+	 * brightness at 0.5; the stick tuners keep their variables' values */
+	_pSoundTuner = MakeTuner(new CSoundTuner(), "SOUND_VOLUME", true, 1.0f);
+	_pMusicTuner = MakeTuner(new CMusicTuner(), "MUSIC_VOLUME", true, 0.5f);
+	_pBrightnessTuner = MakeTuner(new CBrightnessTuner(), "BRIGHTNESS", true, 0.5f);
+	_pStickSensitivityTuner = MakeTuner(new CStickSensitivityTuner(), "STICK_SENSITIVITY", false, 0.0f);
+	_pStickAccelerationTuner = MakeTuner(new CStickAccelerationTuner(), "STICK_ACCELERATION", false, 0.0f);
+	_pStickDeadZoneTuner = MakeTuner(new CStickDeadzoneTuner(), "STICK_DEADZONE", false, 0.0f);
+	_pDialogTuner = MakeTuner(new CDialogTuner(), "DIALOG_VOLUME", true, 1.0f);
 }
 
 /* @socom-skeleton stub UninitSystemTuners__Fv */
 void UninitSystemTuners()
 {
+	/* 0x3a1d80: each tuner deleted (virtual dtor: it detaches) and cleared */
+	SystemTuner** tuners[] =
+	{
+		&_pSoundTuner, &_pMusicTuner, &_pBrightnessTuner, &_pStickSensitivityTuner,
+		&_pStickAccelerationTuner, &_pStickDeadZoneTuner, &_pDialogTuner,
+	};
+
+	for (u32 i = 0; i < sizeof(tuners) / sizeof(tuners[0]); i++)
+	{
+		if (*tuners[i] != NULL)
+			delete *tuners[i];
+
+		*tuners[i] = NULL;
+	}
 }
