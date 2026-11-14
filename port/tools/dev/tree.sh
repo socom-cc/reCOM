@@ -45,4 +45,13 @@ list "$SF" | while read -r f e; do
   if ! cmp -s "$N/$f" "$TREE/$f"; then cp "$N/$f" "$TREE/$f"; echo "shared: $f"; fi
 done
 rm -rf "$N"
+# Check: every file of copy.txt / mine.txt that is not a shared-edit file must now be identical
+# to the checkout's. A tree without your files builds HEAD and tests nothing of yours.
+BAD=0
+for f in $(list "$CL"); do
+  case "$SH" in *" $f "*) continue;; esac
+  [ -e "$REPO/$f" ] || { echo "tree.sh: listed but not in the checkout: $f" >&2; continue; }
+  if ! cmp -s "$REPO/$f" "$TREE/$f"; then echo "tree.sh: NOT IN THE TREE: $f" >&2; BAD=1; fi
+done
+[ "$BAD" = 0 ] || { echo "tree.sh: the tree does not hold your files; run it again and do not build from this tree" >&2; exit 1; }
 exit 0
