@@ -61,106 +61,849 @@
 class CTurretDef;
 /* @socom-skeleton end forward */
 
+
+#include <math.h>
+#include <string.h>
+#include <stdlib.h>
+
+#include "gamez/zFTS/zfts.h"     /* ParseTeamBlock */
+#include "gamez/zMath/zmath_vu.h" /* Vu0MatrixInverseWithUniformScale */
+#include "gamez/zNode/node_world.h"
+#include "gamez/zValve/zvalve.h"
+#include "gamez/zWeapon/zweapon.h"
+
+/* port: file-local helpers for what the ELF inlines: Rfloat::operator float (0x25aba0; the
+ * ctors call it, the rest inline it) and the CAiTrigger re-arm (marker = an up time, timer =
+ * marker + a down time; MW adds the two in double) */
+static f32 turret_draw(const Rfloat &r)
+{
+	if (r.m_range == 0.0f)
+		return r.m_min;
+
+	return r.m_min + r.m_range * (4.656613e-10f * (f32)rand());
+}
+
+static void turret_rearm(CAiTrigger &trigger)
+{
+	trigger.m_marker = turret_draw(trigger.m_up_time);
+	f32 down = turret_draw(trigger.m_dn_time);
+	trigger.m_timer = (f32)((f64)trigger.m_marker + (f64)down);
+}
+
+/* port: the inline CAiTrigger default (both ctors): up 0.1 + 0..0.4 s, down 0.5 + 0..0.7 s */
+static void turret_trigger_init(CAiTrigger &trigger)
+{
+	trigger.m_up_time.m_min = 0.1f;
+	trigger.m_up_time.m_range = 0.4f;
+	trigger.m_dn_time.m_min = 0.5f;
+	trigger.m_dn_time.m_range = 0.70000005f; /* ELF 0x3f333334 */
+	turret_rearm(trigger);
+}
+
+/* port: the string copies Parse inlines (a strlen whose result is unused, then 31 bytes and
+ * a terminator; an empty string for NULL) */
+static void turret_copy(char *dest, const char *src)
+{
+	if (src == NULL)
+	{
+		dest[0] = '\0';
+		return;
+	}
+
+	strncpy(dest, src, 31);
+	dest[31] = '\0';
+}
+
+/* port: the first element of a tag's array as a string (NULL when missing or not a string) */
+static const char *turret_first_string(_zrdr *tag)
+{
+	_zrdr *item = tag->Get(0);
+
+	if (item == NULL)
+		return (const char *)-1; /* no element: nothing is written */
+
+	return item->type == ZRDR_STRING ? item->string : NULL;
+}
+
 /* @socom-skeleton stub turret_debug_mask */
 static int turret_debug_mask;
 
 /* @socom-skeleton stub m_turret_def__7CTurret */
-int CTurret::m_turret_def[3];
+CTurretDefVector CTurret::m_turret_def;
 
 /* @socom-skeleton stub __ct__10CTurretDefFv */
 CTurretDef::CTurretDef()
 {
+	/* 0x37ccf0: the inline CAiTrigger and AI_PARAMS defaults first, then the definition's own:
+	 * empty strings, up 1 + 0..1 s, down 2 + 0..2 s, yaw +-179.9, pitch +-89.9 degrees,
+	 * accuracy 0.6, visual range 1000 */
+	turret_trigger_init(m_trigger);
+	m_name[0] = '\0';
+	m_activate[0] = '\0';
+	m_destroy_anim[0] = '\0';
+	m_effect[0] = '\0';
+	m_weapon[0] = '\0';
+	m_ammo[0] = '\0';
+	m_parts[0][0] = '\0';
+	m_parts[1][0] = '\0';
+	m_parts[2][0] = '\0';
+	m_health = 0.0f;
+	m_effect_value = 0.0f;
+	m_team = 0;
+	m_trigger.m_dn_time.m_min = 2.0f;
+	m_trigger.m_dn_time.m_range = 2.0f;
+	m_trigger.m_up_time.m_min = 1.0f;
+	m_trigger.m_up_time.m_range = 1.0f;
+	turret_rearm(m_trigger);
+	m_yaw[0] = -3.1398473f;
+	m_yaw[1] = 3.1398473f;
+	m_pitch[0] = -1.569051f;
+	m_pitch[1] = 1.569051f;
+	m_aiParams.accuracy = 0.6f;
+	m_aiParams.visual_range = 1000.0f;
 }
 
 /* @socom-skeleton stub __dt__10CTurretDefFv */
 CTurretDef::~CTurretDef()
 {
+	/* 0x37cca0: nothing to release */
 }
 
 /* @socom-skeleton stub Parse__10CTurretDefFPCcP5_zrdr */
-void CTurretDef::Parse(const char *, _zrdr *)
+void CTurretDef::Parse(const char *name, _zrdr *reader)
 {
+	/* 0x37c550: one ai_turrets.rdr TURRET entry (name, block); limits are given in degrees */
+	turret_copy(m_name, name);
+
+	if (_zrdr *parts = zrdr_findtag(reader, "PARTS"))
+	{
+		u32 count = parts->IsArray() ? (u32)parts->array->integer - 1 : 0;
+
+		for (u32 i = 0; i < count && i < 3; i++)
+		{
+			_zrdr *item = parts->Get(i);
+
+			if (item != NULL)
+				turret_copy(m_parts[i], item->type == ZRDR_STRING ? item->string : NULL);
+		}
+	}
+
+	if (_zrdr *limits = zrdr_findtag(reader, "LIMITS"))
+	{
+		if (zrdr_findreal(limits, "YAW", m_yaw, 2))
+		{
+			m_yaw[0] = 0.017453292f * m_yaw[0];
+			m_yaw[1] = 0.017453292f * m_yaw[1];
+		}
+
+		if (zrdr_findreal(limits, "PITCH", m_pitch, 2))
+		{
+			m_pitch[0] = 0.017453292f * m_pitch[0];
+			m_pitch[1] = 0.017453292f * m_pitch[1];
+		}
+	}
+
+	if (_zrdr *activate = zrdr_findtag(reader, "ACTIVATE"))
+	{
+		const char *s = turret_first_string(activate);
+
+		if (s != (const char *)-1)
+			turret_copy(m_activate, s);
+	}
+
+	if (_zrdr *effect = zrdr_findtag(reader, "EFFECT"))
+	{
+		const char *s = turret_first_string(effect);
+
+		if (s != (const char *)-1)
+			turret_copy(m_effect, s);
+
+		if (_zrdr *value = effect->Get(1))
+			m_effect_value = value->GetReal();
+	}
+
+	_zrdr *team = zrdr_findtag(reader, "TEAM");
+
+	if (team != NULL && team->IsArray())
+		m_team = ParseTeamBlock(team);
+
+	if (_zrdr *trigger = zrdr_findtag(reader, "TRIGGER"))
+	{
+		Rfloat dn = { 0.0f, 0.0f };
+		Rfloat up = { 0.0f, 0.0f };
+		zrdr_findRfloat(trigger, "dn_time", &dn);
+		zrdr_findRfloat(trigger, "up_time", &up);
+		m_trigger.m_dn_time = dn;
+		m_trigger.m_up_time = up;
+		turret_rearm(m_trigger);
+	}
+
+	m_aiParams.Parse(zrdr_findtag(reader, "ai_params"));
+	f32 health = 0.0f;
+
+	if (zrdr_findreal(reader, "HEALTH", &health, 1))
+		m_health = health;
+
+	if (_zrdr *weapon = zrdr_findtag(reader, "WEAPON"))
+	{
+		if (_zrdr *wname = zrdr_findtag(weapon, "NAME"))
+		{
+			const char *s = turret_first_string(wname);
+
+			if (s != (const char *)-1)
+				turret_copy(m_weapon, s);
+		}
+
+		if (_zrdr *ammo = zrdr_findtag(weapon, "AMMO"))
+		{
+			const char *s = turret_first_string(ammo);
+
+			if (s != (const char *)-1)
+				turret_copy(m_ammo, s);
+		}
+	}
+
+	if (_zrdr *anim = zrdr_findtag(reader, "DESTROY_ANIM"))
+	{
+		const char *s = turret_first_string(anim);
+
+		if (s != (const char *)-1)
+			turret_copy(m_destroy_anim, s);
+	}
 }
 
 /* @socom-skeleton stub PrefixMatch__16CTurretDefVectorFPCc */
-void CTurretDefVector::PrefixMatch(const char *)
+CTurretDef * CTurretDefVector::PrefixMatch(const char *name)
 {
+	/* 0x37c480: the first definition whose (non-empty) name starts the node name */
+	if (name == NULL)
+		return NULL;
+
+	u32 count = size();
+
+	if (strlen(name) == 0 || count == 0)
+		return NULL;
+
+	for (u32 i = 0; i < count; i++)
+	{
+		CTurretDef *def = &data()[i];
+		size_t len = strlen(def->m_name);
+
+		if (len != 0 && strncmp(name, def->m_name, len) == 0)
+			return def;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub Init__7CTurretFPCcPCc */
-void CTurret::Init(const char *, const char *)
+void CTurret::Init(const char *name, const char *path)
 {
+	/* 0x37c2e0: TURRET (name block name block ...): one definition per pair */
+	CRdrFile *file = zrdr_read(name, path, 0);
+
+	if (file == NULL)
+		return;
+
+	_zrdr *list = zrdr_findtag(file, "TURRET");
+	u32 count = list != NULL && list->IsArray() ? (u32)list->array->integer - 1 : 0;
+	m_turret_def.resize(count / 2);
+	u32 i = 0;
+
+	for (CTurretDefVector::iterator def = m_turret_def.begin(); def != m_turret_def.end(); ++def, i += 2)
+	{
+		_zrdr *block = list->Get(i + 1);
+		_zrdr *item = list->Get(i); /* ELF: not NULL-tested */
+		def->Parse(item->type == ZRDR_STRING ? item->string : NULL, block);
+	}
+
+	zrdr_free(file);
 }
 
 /* @socom-skeleton stub LoadTurrets__7CTurretFv */
 void CTurret::LoadTurrets()
 {
+	/* 0x37c250: every landmark's tree, then the world's */
+	zdb::CWorld *world = zdb::CWorld::m_world;
+
+	for (zdb::CNodeVector::iterator i = world->m_landmarks.begin(); i != world->m_landmarks.end(); ++i)
+		ScanForTurretDefinitionHookups(*i, true);
+
+	ScanForTurretDefinitionHookups(world, true);
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("TURRET: %u definitions, %u entities after the scan", (u32)m_turret_def.size(), (u32)CEntity::m_list.size());
+#endif
 }
 
 /* @socom-skeleton stub __ct__7CTurretFPQ23zdb5CNodeRC10CTurretDef */
-CTurret::CTurret(zdb::CNode *, const CTurretDef &)
+CTurret::CTurret(zdb::CNode *node, const CTurretDef &def)
+	: CEntity(ENT_TYPE_TURRET, node)
 {
+	/* 0x37be30: the members' inline defaults (fire timer {0, 0}, trigger as CTurretDef's,
+	 * cone height/radius/1/height 1, 1, 0, 1, aim -z), then the definition, the hold-fire
+	 * valve and the world-level ancestor */
+	m_fire_timer.m_period.m_min = 0.0f;
+	m_fire_timer.m_period.m_range = 0.0f;
+	m_fire_timer.m_timer = turret_draw(m_fire_timer.m_period);
+	turret_trigger_init(m_trigger);
+	m_cone.m_height = 1.0f;
+	m_cone.m_radius = 1.0f;
+	m_cone.m_point_radius = 0.0f;
+	m_cone.m_inv_height = 1.0f;
+	m_ammo = NULL;
+	m_weapon = NULL;
+	m_shots = 0;
+	m_firepos = CPnt3D::zero;
+	m_aimdir = CPnt3D::unit_nz;
+	m_activate = NULL;
+	m_turret = NULL;
+	m_barrel = NULL;
+	m_firepoint = NULL;
+	m_root = NULL;
+	m_health = 1.0f;
+	m_inv_health = m_health != 0.0f ? 1.0f / m_health : 0.0f;
+	sceVu0UnitMatrix(m_mtw.m_matrix);
+	sceVu0UnitMatrix(m_wtm.m_matrix);
+	Init(node, def);
+	m_holdfire = CValve::Create("turret_holdfire", VALVE_TYPE::VTYPE_TEMP);
+	zdb::CNode *root = node->m_parent;
+
+	while (root != NULL && root != zdb::CWorld::m_world)
+		root = root->m_parent;
+
+	m_root = root;
+	m_enabled = m_holdfire != NULL ? m_holdfire->m_value == 0 : false;
+	m_triggered = 0;
+	/* ELF: m_active (bit 0) and m_aimdot are not set here; PreTick and Rotate set them
+	 * before Tick reads them */
 }
 
 /* @socom-skeleton stub Init__7CTurretFPQ23zdb5CNodeRC10CTurretDef */
-void CTurret::Init(zdb::CNode *, const CTurretDef &)
+void CTurret::Init(zdb::CNode *node, const CTurretDef &def)
 {
 	/* @socom-skeleton stub weapon_override$2011 */
 	static unsigned char weapon_override;
+	/* 0x37b9e0: the parts, health, trigger, AI parameters, weapon and team from the
+	 * definition; the limits as sines and cosines; the view cone's angle */
+	if (node == NULL)
+		return;
+
+	const char *activate = def.m_activate; /* ELF: the array's address is tested ("healthy" never used) */
+	m_activate = node->FindChild(activate != NULL ? activate : "healthy", true);
+	m_turret = node->FindChild(def.m_parts[0], true);
+	m_barrel = node->FindChild(def.m_parts[1], true);
+	m_firepoint = node->FindChild(def.m_parts[2], true);
+	m_health = def.m_health;
+	m_inv_health = def.m_health != 0.0f ? 1.0f / def.m_health : 0.0f;
+	m_trigger = def.m_trigger;
+	m_aiParams = def.m_aiParams;
+	m_max_target_range_sq = m_aiParams.visual_range * m_aiParams.visual_range;
+	const char *weapon = def.m_weapon;
+	const char *ammo = def.m_ammo;
+
+	if (weapon_override)
+	{
+		weapon = "AK47";
+		ammo = NULL;
+	}
+
+	m_ammo = ammo != NULL ? CZAmmo::m_ammolist.GetAmmo(ammo) : NULL;
+	m_weapon = CZWeapon::m_listWeapons.GetWeapon(weapon);
+
+	if (m_weapon != NULL)
+	{
+		m_fire_timer.m_period.m_min = m_weapon->m_firewait;
+		m_fire_timer.m_period.m_range = 0.0f;
+	}
+
+	SetTeamMask(def.m_team);
+	JoinTeam(27);
+	m_yaw_min_sin = sinf(def.m_yaw[0]);
+	m_yaw_min_cos = cosf(def.m_yaw[0]);
+	m_yaw_max_sin = sinf(def.m_yaw[1]);
+	m_yaw_max_cos = cosf(def.m_yaw[1]);
+	m_pitch_min_sin = sinf(def.m_pitch[0]);
+	m_pitch_min_cos = cosf(def.m_pitch[0]);
+	m_pitch_max_sin = sinf(def.m_pitch[1]);
+	m_pitch_max_cos = cosf(def.m_pitch[1]);
+	/* ai::_max (inline): the larger of the two */
+	f32 a = fabsf(def.m_yaw[0]);
+	f32 b = fabsf(def.m_yaw[1]);
+	f32 yaw = a > b ? a : b;
+	a = fabsf(def.m_pitch[0]);
+	b = fabsf(def.m_pitch[1]);
+	f32 pitch = a > b ? a : b;
+	f32 fov = yaw > pitch ? yaw : pitch;
+	m_aimdir = CPnt3D::unit_nz;
+	m_mtw.Transform(&m_aimdir, 1); /* ELF: m_mtw is still the unit matrix here */
+	m_aiParams.visual_fov = fov; /* ELF quirk kept: radians over the definition's degrees */
+	saturate<f32>(fov, 0.01f, 1.5707964f);
+	m_tan_half_fov = tanf(0.5f * fov);
 }
 
 /* @socom-skeleton stub ScanForTurretDefinitionHookups__7CTurretFPQ23zdb5CNodeb */
-void CTurret::ScanForTurretDefinitionHookups(zdb::CNode *, bool)
+int CTurret::ScanForTurretDefinitionHookups(zdb::CNode *node, bool recurse)
 {
+	/* 0x37b8c0: a turret on every node whose name starts with a definition's name (not
+	 * below it); type-10 nodes are skipped */
+	int count = 0;
+
+	if (node == NULL || m_turret_def.size() == 0)
+		return 0;
+
+	if ((u16)node->m_type == 10)
+		return 0;
+
+	if (node->m_name == NULL)
+		return 0;
+
+	CTurretDef *def = m_turret_def.PrefixMatch(node->m_name);
+
+	if (def != NULL)
+	{
+		CEntity::CreateEntity(new CTurret(node, *def), false);
+		count++;
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("TURRET: %s on node %s", def->m_name, node->m_name);
+#endif
+	}
+	else if (recurse)
+	{
+		for (zdb::CNodeVector::iterator i = node->m_child.begin(); i != node->m_child.end(); ++i)
+			count += ScanForTurretDefinitionHookups(*i, recurse);
+	}
+
+	return count;
+}
+
+/* @socom-skeleton body _is_active__FPQ23zdb5CNode */
+static bool _is_active(zdb::CNode *node)
+{
+	/* 0x37b7e0: active up to a type-6 node (the ELF inlines two levels, then recurses) */
+	if (node == NULL)
+		return false;
+
+	if ((u16)node->m_type == 6)
+		return true;
+
+	if (!node->m_active)
+		return false;
+
+	return node->m_parent != NULL ? _is_active(node->m_parent) : false;
 }
 
 /* @socom-skeleton stub PreTick__7CTurretFf */
-void CTurret::PreTick(float)
+void CTurret::PreTick(float dT)
 {
+	/* 0x37b5d0: follow the hold-fire valve (a change drops the target); alive and not held:
+	 * sample the motion, aim the view cone along the barrel and look for a target */
+	bool enabled = m_holdfire != NULL ? m_holdfire->m_value == 0 : false;
+
+	if (enabled != (bool)m_enabled)
+	{
+		m_enabled = enabled;
+		m_target.SetTarget(NULL, 0.0f);
+	}
+
+	bool alive = m_isAlive;
+
+	if (alive && enabled)
+	{
+		SampleDynamics(dT);
+		CPnt3D pos;
+		CPnt3D dir;
+		m_mtw.Transform((const CPnt3D *)&m_barrel->m_matrix.m_matrix[3][0], &pos, 1);
+		m_mtw.Rotate(&CPnt3D::unit_nz, &dir, 1);
+		f32 range = m_aiParams.visual_range;
+		m_cone.m_height = range;
+		m_cone.m_inv_height = 1.0f / range;
+		m_cone.m_radius = range * m_tan_half_fov;
+		m_cone.m_point_radius = 25.0f;
+		m_cone.m_cone_pos = pos;
+		m_cone.m_cone_dir = dir;
+		AcquireTarget();
+	}
+
+	bool active = false;
+
+	if (alive && enabled)
+	{
+		zdb::CNode *node = GetNode();
+		active = node != NULL && _is_active(node);
+	}
+
+	m_active = active;
 }
 
 /* @socom-skeleton stub Tick__7CTurretFf */
-void CTurret::Tick(float)
+void CTurret::Tick(float dT)
 {
 	/* @socom-skeleton stub aimDotThreshold$2078 */
-	static float aimDotThreshold;
+	static float aimDotThreshold = 0.95f;
+	/* 0x37b1f0: turn to the target, run the trigger (fire while it is up, the barrel is on
+	 * target, the fire timer has run out and the line of fire is clear) */
+	if (!m_active)
+		return;
+
+	Rotate();
+	m_target.Tick(this, dT);
+
+	if (m_trigger.m_timer <= 0.0f)
+		turret_rearm(m_trigger);
+
+	CEntity *ent = m_target.m_target.m_ent;
+
+	if (ent == NULL || !ent->m_isAlive)
+		return;
+
+	CPnt3D tpos;
+	ai::DrawLine((ai::LINE_TYPE)32, &m_firepos, ent->GetTargetPosW(&tpos));
+	bool aimed = !(m_aimdot <= aimDotThreshold);
+	bool ready = false;
+
+	if (m_fire_timer.m_timer != CAiTimer::infinite)
+	{
+		m_fire_timer.m_timer -= dT;
+		ready = m_fire_timer.m_timer != CAiTimer::infinite && m_fire_timer.m_timer <= 0.0f;
+	}
+
+	bool up;
+
+	if (!aimed)
+	{
+		turret_rearm(m_trigger);
+		up = false;
+	}
+	else
+	{
+		up = !(m_trigger.m_timer <= m_trigger.m_marker);
+		m_trigger.m_timer -= dT;
+	}
+
+	if (up && ready && ai::CheckLineOfFire(this, &m_target.m_target, 10.0f))
+		Fire();
+
+	bool triggered = !(m_trigger.m_timer <= m_trigger.m_marker);
+
+	if ((bool)m_triggered != triggered)
+		m_triggered = triggered;
 }
 
 /* @socom-skeleton stub PostTick__7CTurretFf */
 void CTurret::PostTick(float)
 {
+	/* 0x37b1e0: nothing (the turret does not move) */
 }
 
 /* @socom-skeleton stub ComputeNextPosition__7CTurretFf */
 void CTurret::ComputeNextPosition(float)
 {
+	/* 0x37b1d0: nothing */
 }
 
 /* @socom-skeleton stub SampleDynamics__7CTurretFf */
-void CTurret::SampleDynamics(float)
+void CTurret::SampleDynamics(float dT)
 {
+	/* 0x37b070: the yaw part's parent-to-world matrix and its inverse, the fire point in the
+	 * world and its velocity (m_velW) */
+	if (m_turret == NULL || m_firepoint == NULL)
+		return;
+
+	sceVu0UnitMatrix(m_mtw.m_matrix);
+	m_turret->m_parent->BuildMTW(m_mtw);
+	sceVu0UnitMatrix(m_wtm.m_matrix);
+	Vu0MatrixInverseWithUniformScale(&m_wtm, &m_mtw);
+	CMatrix mtw;
+	sceVu0UnitMatrix(mtw.m_matrix);
+	CPnt3D old = m_firepos;
+
+	if (m_firepoint != NULL)
+	{
+		m_firepoint->BuildMTW(mtw);
+		m_firepos.x = mtw.m_matrix[3][0];
+		m_firepos.y = mtw.m_matrix[3][1];
+		m_firepos.z = mtw.m_matrix[3][2];
+	}
+	else
+	{
+		m_firepos = CPnt3D::zero;
+	}
+
+	CPnt3D delta;
+	m_firepos.Sub(&old, &delta);
+	CPnt3D vel;
+	delta.Scale(1.0f / dT, &vel);
+	m_velW = vel;
 }
 
 /* @socom-skeleton stub Fire__7CTurretFv */
 void CTurret::Fire()
 {
 	/* @socom-skeleton stub use_vel$2120 */
-	static unsigned char use_vel;
+	static unsigned char use_vel = 1;
+	/* 0x37ae70: one round from the fire point along the aim (spread by the accuracy, up to
+	 * tan 20 degrees), the fire effect, and the next shot's wait */
+	bool enabled = m_holdfire != NULL ? m_holdfire->m_value == 0 : false;
+
+	if (!enabled)
+		return;
+
+	CZAmmo *ammo = m_ammo != NULL ? m_ammo : m_weapon->GetDefaultAmmo();
+	CZProjectile *projectile = CZWeapon::m_pProjectilelist->GetNextFreeProjectile(); /* ELF: not NULL-tested */
+	projectile->m_flyout_idx = 1;
+	m_shots++;
+	projectile->m_tracer_count = m_shots;
+	projectile->m_isplayer = 0;
+	CZAnim *anim = m_weapon->GetFireAnim(false);
+	const CPnt3D *vel = use_vel ? &m_velW : &CPnt3D::zero;
+
+	if (anim != NULL)
+		anim->ActivateArg(3, 3, m_firepoint, 5, &CPnt3D::zero, 6, vel, 0);
+
+	CPnt3D aim = m_aimdir;
+	m_target.ModifyAimDir(&aim, m_aiParams.accuracy, 0.36397f);
+	CZWeapon::Fire(m_node, m_weapon, ammo, &m_firepos, &aim, vel, NULL, projectile, m_id, 0.0f, 0.0f);
+	m_fire_timer.m_timer = turret_draw(m_fire_timer.m_period);
 }
 
 /* @socom-skeleton stub Rotate__7CTurretFv */
 void CTurret::Rotate()
 {
+	/* 0x37a9b0: turn the yaw part, then the barrel, toward the target (straight ahead with
+	 * none), each clamped to its limits by the sine; m_aimdot is 1 when both are inside the
+	 * limits, else the barrel's forward axis dotted with the wanted (unnormalized) aim */
+	CPnt3D barrel;
+	m_mtw.Transform((const CPnt3D *)&m_barrel->m_matrix.m_matrix[3][0], &barrel, 1);
+	CEntity *ent = m_target.m_target.m_ent;
+	CPnt3D local;
+
+	if (ent != NULL && ent->m_isAlive)
+	{
+		CPnt3D tpos;
+		ent->GetTargetPosW(&tpos);
+		CPnt3D delta;
+		tpos.Sub(&barrel, &delta); /* ELF: the buffer, not the returned pointer */
+		m_aimdir = delta;
+		m_wtm.Rotate(&m_aimdir, &local, 1);
+	}
+	else
+	{
+		m_aimdir = CPnt3D::unit_nz;
+		local = CPnt3D::unit_nz;
+	}
+
+	f32 flat = sqrtf(local.x * local.x + local.z * local.z);
+	f32 s;
+	f32 c;
+
+	if (flat == 0.0f)
+	{
+		s = 0.0f;
+		c = 1.0f;
+	}
+	else
+	{
+		c = -local.z / flat;
+		s = -local.x / flat;
+	}
+
+	CMatrix m;
+	sceVu0UnitMatrix(m.m_matrix);
+	bool yaw_ok = true;
+
+	if (s < m_yaw_min_sin)
+	{
+		c = m_yaw_min_cos;
+		yaw_ok = false;
+		s = m_yaw_min_sin;
+	}
+	else if (!(s <= m_yaw_max_sin))
+	{
+		c = m_yaw_max_cos;
+		yaw_ok = false;
+		s = m_yaw_max_sin;
+	}
+
+	CPnt3D r0 = { c, 0.0f, -s };
+	CPnt3D r1 = CPnt3D::unit_y;
+	CPnt3D r2 = { s, 0.0f, c };
+	m.SetRows(&r0, &r1, &r2, (const CPnt3D *)&m_turret->m_matrix.m_matrix[3][0]);
+	m_turret->SetMatrix(&m);
+	sceVu0UnitMatrix(m.m_matrix);
+	f32 inv = 1.0f / sqrtf(flat * flat + local.y * local.y);
+	f32 ps = local.y * inv;
+	f32 pc = flat * inv;
+	bool pitch_ok = true;
+
+	if (ps < m_pitch_min_sin)
+	{
+		pc = m_pitch_min_cos;
+		pitch_ok = false;
+		ps = m_pitch_min_sin;
+	}
+	else if (!(ps <= m_pitch_max_sin))
+	{
+		pc = m_pitch_max_cos;
+		pitch_ok = false;
+		ps = m_pitch_max_sin;
+	}
+
+	r0 = CPnt3D::unit_x;
+	r1.x = 0.0f;
+	r1.y = pc;
+	r1.z = ps;
+	r2.x = 0.0f;
+	r2.y = -ps;
+	r2.z = pc;
+	m.SetRows(&r0, &r1, &r2, (const CPnt3D *)&m_barrel->m_matrix.m_matrix[3][0]);
+	m_barrel->SetMatrix(&m);
+
+	if (yaw_ok && pitch_ok)
+	{
+		m_aimdot = 1.0f;
+		return;
+	}
+
+	CPnt3D want = m_aimdir;
+	CMatrix mtw;
+	sceVu0UnitMatrix(mtw.m_matrix);
+	m_barrel->BuildMTW(mtw);
+	m_aimdir.x = -mtw.m_matrix[2][0];
+	m_aimdir.y = -mtw.m_matrix[2][1];
+	m_aimdir.z = -mtw.m_matrix[2][2];
+	m_aimdot = m_aimdir.x * want.x + m_aimdir.y * want.y + m_aimdir.z * want.z;
+}
+
+/* port: the visibility test AcquireTarget inlines twice: the entity inside the view cone, on
+ * an AI map cell that is not inside; a chance of 1, a quarter in shadow (walkable soil) or on
+ * soils 2, 4, 5, 12, doubled while moving (is_moving inline: x/z speed squared over 900) */
+static bool turret_sees(CTurret *turret, CEntity *ent)
+{
+	static f32 _vel = 900.0f; /* ELF: _vel$localstatic3$is_moving__FPC7CEntity */
+	CPnt3D *pos = ent->GetPosW();
+
+	if (!turret->m_cone.ContainsPoint(&turret->m_cone.m_cone_pos, &turret->m_cone.m_cone_dir, pos))
+		return false;
+
+	CAiCell *cell = AiMaps.GetCell(ent->m_mapLocValid);
+
+	if (cell == NULL || cell->m_inside)
+		return false;
+
+	f32 chance = 1.0f;
+	u32 soil = cell->m_soil;
+
+	if ((cell->m_shadow != 0 && CAiMap::IsWalkable(cell)) || soil == 2 || soil == 4 || soil == 12 || soil == 5)
+		chance *= 0.25f;
+
+	if (!(ent->m_velM.x * ent->m_velM.x + ent->m_velM.z * ent->m_velM.z <= _vel))
+		chance *= 2.0f;
+
+	return 0.0f + 1.0f * (4.656613e-10f * (f32)rand()) <= chance;
 }
 
 /* @socom-skeleton stub AcquireTarget__7CTurretFv */
 void CTurret::AcquireTarget()
 {
 	/* @socom-skeleton stub target_delta$2174 */
-	static float target_delta;
+	static float target_delta = 3.5f;
+	/* 0x37a360: keep a fresh target in range; else the nearest hostile live entity in range
+	 * the turret sees (the target list is by distance); else the current one if still seen */
+	bool enabled = m_holdfire != NULL ? m_holdfire->m_value == 0 : false;
+
+	if (!enabled)
+		return;
+
+	f32 range = m_max_target_range_sq;
+	CEntity *current = NULL;
+	CEntity *ent = m_target.m_target.m_ent;
+
+	if (ent != NULL && ent->m_isAlive)
+	{
+		f32 distSq = m_target.m_target.m_distSq;
+
+		if (m_target.GetTimeAcquired() <= target_delta && distSq <= range)
+		{
+			CTarget *t = m_targets.FindTarget(ent);
+
+			if (t != NULL)
+				m_target.SetTarget(t, 1.0f);
+		}
+		else if (distSq <= range)
+		{
+			current = ent;
+		}
+		else
+		{
+			current = ent;
+			m_target.SetTarget(NULL, 0.0f);
+		}
+	}
+
+	bool found = false;
+
+	for (CTargetList::iterator t = m_targets.begin(); t != m_targets.end(); ++t)
+	{
+		CEntity *e = t->m_ent;
+
+		if (e == NULL || (m_team & e->m_team) != 0 || !e->m_isAlive || e == current)
+			continue;
+
+		if (!(t->m_distSq < range))
+			break;
+
+		if (!turret_sees(this, e))
+			continue;
+
+		found = true;
+		CTarget *target = &*t;
+
+		/* CTurret::SetTarget inline */
+		if (m_target.m_target.m_ent == target->m_ent)
+		{
+			m_target.UpdateTarget(target, 1.0f);
+		}
+		else
+		{
+			CEntity *old = m_target.m_target.m_ent;
+
+			if (old != NULL && old->m_isAlive)
+				m_targets.FindTarget(old); /* ELF: result unused */
+
+			m_target.SetTarget(target, 1.0f);
+		}
+
+		break;
+	}
+
+	if (found || current == NULL)
+		return;
+
+	if (turret_sees(this, current))
+	{
+		CTarget *t = m_targets.FindTarget(m_target.m_target.m_ent); /* ELF: the target's entity, not current */
+
+		if (t != NULL)
+			SetTarget(t);
+	}
 }
 
 /* @socom-skeleton stub SetTarget__7CTurretFP7CTarget */
-void CTurret::SetTarget(CTarget *)
+void CTurret::SetTarget(CTarget *target)
 {
+	/* 0x37a2a0: the same entity: refresh; else switch (the old entity is looked up in the
+	 * target list, the result is not used) */
+	if (target != NULL && m_target.m_target.m_ent == target->m_ent)
+	{
+		m_target.UpdateTarget(target, 1.0f);
+		return;
+	}
+
+	CEntity *old = m_target.m_target.m_ent;
+
+	if (old != NULL && old->m_isAlive)
+		m_targets.FindTarget(old);
+
+	m_target.SetTarget(target, 1.0f);
 }

@@ -345,8 +345,29 @@ bool zrdr_findint(const _zrdr *reader, const char *name, int *output, int count)
 }
 
 /* @socom-skeleton stub zrdr_findRfloat__FPC5_zrdrPCcP6Rfloat */
-void zrdr_findRfloat(const _zrdr *, const char *, Rfloat *)
+bool zrdr_findRfloat(const _zrdr *reader, const char *name, Rfloat *output)
 {
+	/* 0x23d6f0: one value -> {value, 0}; two or more -> {first, second - first}; the values
+	 * are reals or integers (anything else reads 0) */
+	_zrdr* tag = zrdr_findtag_startidx(reader, name, 1);
+
+	if (tag == NULL || !tag->IsArray() || tag->array->integer - 1 == 0)
+		return false;
+
+	if (tag->array->integer - 1 == 1)
+	{
+		output->m_min = tag->Get(0)->GetReal();
+		output->m_range = 0.0f;
+	}
+	else
+	{
+		f32 max = tag->Get(1)->GetReal();
+		f32 min = tag->Get(0)->GetReal();
+		output->m_min = min;
+		output->m_range = max - min;
+	}
+
+	return true;
 }
 
 /* @socom-skeleton body zrdr_finduint__FPC5_zrdrPCcPUii */

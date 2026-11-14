@@ -9,11 +9,19 @@
 
 #include "gamez/zAI/zai.h"
 #include "gamez/zEntity/zentity.h"
+#include "gamez/zSeal/zseal.h" /* CAiTarget (CTurret::m_target, by value) */
 /* @socom-skeleton decl forward */
 class CTurretDef;
 /* @socom-skeleton end forward */
 
+/* The character-controller roster. "Vehicle" is a leftover from earlier games on this engine,
+ * where the player-controlled vehicles were the character controllers: here each
+ * CVehicleRdrEntry is one character of the mission (vehicles.rdr: name, display name,
+ * character type, team, starts, flags, AI parameters). */
 class CVehicleRdrEntry;
+class CValve;
+class CZAmmo;
+class CZWeapon;
 
 class CVehicleRdr : public std::vector<CVehicleRdrEntry>
 {
@@ -58,12 +66,46 @@ public:
 };
 
 extern CVehicleRdrEntry* _dest;
+/* No DWARF for the turret family: the layouts are from the asm (CTurretDef 400 bytes:
+ * CTurret::Init 0x37c2e0 steps 400, the ctor 0x37ccf0, Parse 0x37c550; CTurret 784 bytes:
+ * ScanForTurretDefinitionHookups 0x37b8c0 allocates 784). Member names are invented. */
+/* @socom-skeleton decl 10CTurretDef */
+class CTurretDef
+{
+public:
+	CTurretDef();
+	~CTurretDef();
+	void Parse(const char *, _zrdr *);
+
+	char m_name[32];         /* +0x000 the node-name prefix the turret hooks to */
+	char m_activate[32];     /* +0x020 ACTIVATE: the node CTurret::Init looks up */
+	char m_parts[3][32];     /* +0x040 PARTS: yaw part, pitch part (barrel), fire point */
+	char m_destroy_anim[32]; /* +0x0a0 DESTROY_ANIM */
+	char m_effect[32];       /* +0x0c0 EFFECT name */
+	char m_weapon[32];       /* +0x0e0 WEAPON NAME */
+	char m_ammo[32];         /* +0x100 WEAPON AMMO */
+	f32 m_yaw[2];            /* +0x120 LIMITS YAW (min, max), radians */
+	f32 m_pitch[2];          /* +0x128 LIMITS PITCH (min, max), radians */
+	f32 m_health;            /* +0x130 HEALTH */
+	f32 m_effect_value;      /* +0x134 EFFECT's second value */
+	u32 m_team;              /* +0x138 TEAM (ParseTeamBlock mask) */
+	CAiTrigger m_trigger;    /* +0x13c TRIGGER up_time / dn_time */
+	AI_PARAMS m_aiParams;    /* +0x154 ai_params */
+};
+/* @socom-skeleton end 10CTurretDef */
+/* @socom-skeleton decl 16CTurretDefVector */
+class CTurretDefVector : public std::vector<CTurretDef>
+{
+public:
+	CTurretDef * PrefixMatch(const char *); /* 0x37c480 returns the matching element */
+};
+/* @socom-skeleton end 16CTurretDefVector */
 /* @socom-skeleton decl 7CTurret */
-class CTurret
+class CTurret : public CEntity
 {
 public:
 	virtual ~CTurret() {}
-	virtual void GetPosW() const {} /* port: stub; ELF 0x37cfc0 returns this + 0x290 (CPnt3D * member unproven) */
+	virtual CPnt3D * GetPosW() const { return (CPnt3D *)&m_mtw.m_matrix[3][0]; } /* ELF 0x37cfc0: addiu v0,a0,0x290 (m_mtw's translation) */
 	virtual void PreTick(float);
 	virtual void Tick(float);
 	virtual void PostTick(float);
@@ -72,29 +114,47 @@ public:
 	static void LoadTurrets();
 	CTurret(zdb::CNode *, const CTurretDef &);
 	void Init(zdb::CNode *, const CTurretDef &);
-	static void ScanForTurretDefinitionHookups(zdb::CNode *, bool);
+	static int ScanForTurretDefinitionHookups(zdb::CNode *, bool); /* 0x37b8c0 returns the turrets made */
 	void SampleDynamics(float);
 	void Fire();
 	void Rotate();
 	void AcquireTarget();
 	void SetTarget(CTarget *);
-	static int m_turret_def[3];
+	static CTurretDefVector m_turret_def; /* 0x53b1e8, 12 bytes */
+
+	zdb::CNode* m_activate;  /* +0x110 the ACTIVATE node ("healthy" when unnamed) */
+	zdb::CNode* m_turret;    /* +0x114 PARTS[0], turned in yaw */
+	zdb::CNode* m_barrel;    /* +0x118 PARTS[1], turned in pitch */
+	zdb::CNode* m_firepoint; /* +0x11c PARTS[2] */
+	zdb::CNode* m_root;      /* +0x120 the node's ancestor under the world (NULL: none) */
+	f32 m_health;            /* +0x124 */
+	f32 m_inv_health;        /* +0x128 1 / m_health (0 for 0) */
+	f32 m_yaw_min_sin;       /* +0x12c the limits' sines and cosines */
+	f32 m_yaw_min_cos;
+	f32 m_yaw_max_sin;
+	f32 m_yaw_max_cos;
+	f32 m_pitch_min_sin;     /* +0x13c */
+	f32 m_pitch_min_cos;
+	f32 m_pitch_max_sin;
+	f32 m_pitch_max_cos;
+	CAiTimer m_fire_timer;   /* +0x14c the weapon's m_firewait between shots */
+	CAiTrigger m_trigger;    /* +0x158 */
+	CAiTarget m_target;      /* +0x170 */
+	AI_PARAMS m_aiParams;    /* +0x1d4 the definition's */
+	CAiCone m_cone;          /* +0x210 the view cone from the barrel */
+	f32 m_tan_half_fov;      /* +0x248 */
+	CZAmmo* m_ammo;          /* +0x24c */
+	CZWeapon* m_weapon;      /* +0x250 */
+	s32 m_shots;             /* +0x254 */
+	CMatrix m_mtw;           /* +0x260 the yaw part's parent to world */
+	CMatrix m_wtm;           /* +0x2a0 its inverse */
+	CPnt3D m_firepos;        /* +0x2e0 the fire point, world */
+	CPnt3D m_aimdir;         /* +0x2ec */
+	f32 m_aimdot;            /* +0x2f8 how well the barrel points along m_aimdir (1: on target) */
+	CValve* m_holdfire;      /* +0x2fc the "turret_holdfire" valve */
+	u8 m_active : 1;         /* +0x300 bit 0: alive, not held, node active (Tick runs) */
+	u8 m_enabled : 1;        /* bit 1: the hold-fire valve is 0 */
+	u8 m_triggered : 1;      /* bit 2: the trigger's up phase */
 };
 /* @socom-skeleton end 7CTurret */
-/* @socom-skeleton decl 10CTurretDef */
-class CTurretDef
-{
-public:
-	CTurretDef();
-	~CTurretDef();
-	void Parse(const char *, _zrdr *);
-};
-/* @socom-skeleton end 10CTurretDef */
-/* @socom-skeleton decl 16CTurretDefVector */
-class CTurretDefVector
-{
-public:
-	void PrefixMatch(const char *);
-};
-/* @socom-skeleton end 16CTurretDefVector */
 #endif

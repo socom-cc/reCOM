@@ -45,6 +45,7 @@ headers are in `port/tools/dev/` and on every hook's include path.
 | `vehicles` | `hook_vehicles.c` | `<build> [pad]` | traces `CMission::LoadVehicles` |
 | `voicecams` | `hook_vc.cpp` | `<build> [pad] [flags]` | voice cameras, state-driven pad |
 | `wall` | `hook_wall.cpp` | `<build> <pad> <gap> <range> [<x> <z> [<name>]]` | player before the nearest wall (`HOOK_BACK=1`: facing away) |
+| `zvehicle` | `hook_zvehicle.cpp` | `<build> [pad] [flags]` | X skips the m8 mission cameras, player trace; `-DSOCOM_HOOK_TURRET` test turret on a world node (`_CAM`: camera on it); `pad_armory.txt` |
 | `win` | `hook_win.cpp` | `<build> [pad] [flags]` | scripted m8 playthrough to MISSION SUCCESS (`-DSOCOM_HOOK_WIN`, `-DSOCOM_HOOK_EXITPATHS`) |
 
 `[pad]` defaults to the feature's first pad; `[flags]` are passed to `hook.sh` after `--` (`-D...`

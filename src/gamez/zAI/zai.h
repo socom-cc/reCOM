@@ -369,6 +369,7 @@ enum GOAL_TYPE
 
 struct AI_PARAMS
 {
+	AI_PARAMS(); /* 0x1a5270 (vehicle_main.cpp): the defaults */
 	void Parse(_zrdr* node);
 
 	u32 mask;

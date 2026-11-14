@@ -158,6 +158,11 @@ bool zrdr_toREAL(const _zrdr* reader, f32* output, s32 size); /* zrdr_toREAL__FP
 /// @return Whether or not the cast/search was successful.
 bool zrdr_tobool(const _zrdr* reader, bool* output);
 
+struct Rfloat;
+/* 0x23d6f0: a {min, range} pair from a tag's one value (range 0) or two values (min, max);
+ * false when the tag is missing or empty */
+bool zrdr_findRfloat(const _zrdr* reader, const char* name, Rfloat* output);
+
 /// Goes to the next tag in a node list and returns it.
 /// @param reader A zReader array node.
 /// @param tag The name of the tag to find.

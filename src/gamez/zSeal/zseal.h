@@ -2525,7 +2525,7 @@ public:
 	static void SetLineFuncOpacity(float);
 	static void MoveTo(const CPnt3D &);
 	static void LineTo(const CPnt3D &);
-	void DrawLine(ai::LINE_TYPE, const CPnt3D *, const CPnt3D *);
+	static void DrawLine(ai::LINE_TYPE, const CPnt3D *, const CPnt3D *); /* static: CTurret::Tick 0x37b350 passes no object */
 	static CPickup * find_closest_ammo(const CPnt3D *, CZKit *, CZWeapon *, float);
 	static CAiPath *_plan_path; /* _plan_path__2ai 0x475748: the path PathPlanBegin opened */
 	static int ai_line_color[3];

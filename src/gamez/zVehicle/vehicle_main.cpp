@@ -117,7 +117,32 @@ void AI_PARAMS::Merge(const AI_PARAMS &a, const AI_PARAMS &b)
 
 /* @socom-skeleton stub __ct__11CVehicleRdrFv */
 CVehicleRdr::CVehicleRdr()
+	: std::vector<CVehicleRdrEntry>()
 {
+	/* 0x1a38e0: only the vector base (capacity 0, size 0, no storage) */
+}
+
+/* @socom-skeleton body __ct__9AI_PARAMSFv */
+AI_PARAMS::AI_PARAMS()
+{
+	/* 0x1a5270: no value set (mask 0) and the defaults Merge falls back to. The roster
+	 * vector's resize (0x1a3e60) builds each new CVehicleRdrEntry with it, so a value
+	 * neither the roster entry nor the character type sets keeps these */
+	mask = 0;
+	accuracy = 0.8f;
+	courage = 0.6f;
+	surrender = 0.2f;
+	stealth = 0.5f;
+	training = 0.5f;
+	visual_sens = 0.8f;
+	visual_range = 400.0f;
+	visual_fov = 60.0f;
+	aware_decay = -0.075f;
+	thip_range = 25.0f;
+	respawn = 0;
+	target_delay = 0.75f;
+	target_discipline = 0.5f;
+	m_veh = NULL;
 }
 
 /* @socom-skeleton body Close__11CVehicleRdrFv */
@@ -313,6 +338,17 @@ bool CVehicleRdr::Load(_zrdr* file)
 				starts->m_start[j].m_dir = dir;
 			}
 		}
+
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("VEH: %u %s '%s' char %s team 0x%x starts %u flags %s%s%s%s%s%s ai mask 0x%x acc %d cour %d surr %d sens %d range %d fov %d decay %d thip %d resp %u delay %d disc %d",
+			i, dest->m_name, dest->m_display_name, dest->m_character, (u32)dest->m_teamMask, dest->m_start.m_count,
+			dest->m_debug ? "D" : "-", dest->m_disabled ? "X" : "-", dest->m_nofade ? "F" : "-", dest->m_noshoot ? "S" : "-",
+			dest->m_recycle ? "R" : "-", dest->m_nosnooze ? "Z" : "-", dest->m_aiParams.mask,
+			(int)(dest->m_aiParams.accuracy * 100.0f), (int)(dest->m_aiParams.courage * 100.0f), (int)(dest->m_aiParams.surrender * 100.0f),
+			(int)(dest->m_aiParams.visual_sens * 100.0f), (int)dest->m_aiParams.visual_range, (int)dest->m_aiParams.visual_fov,
+			(int)(dest->m_aiParams.aware_decay * 1000.0f), (int)dest->m_aiParams.thip_range, dest->m_aiParams.respawn,
+			(int)(dest->m_aiParams.target_delay * 1000.0f), (int)(dest->m_aiParams.target_discipline * 100.0f));
+#endif
 	}
 
 	return true;
