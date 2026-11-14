@@ -217,9 +217,22 @@ bool zdb::CGrid::GetAltitude(zdb::DiIntersect *di)
 
 	for (CGridAtom* atom = StartTraversal(); atom != NULL; atom = GetNextAtom())
 	{
-		/* port: not written - a cell atom first walks its clutter (0x214484-0x214504:
-		   each CClutter's matrix pushed, NodeGetAltitude of the clutter's node); the port
-		   never fills CClutterList and CClutter::GetMatrix 0x218df0 is unwritten */
+		/* a cell atom first walks its clutter (0x214474-0x214504): each clutter's matrix
+		   pushed, NodeGetAltitude of the clutter's node */
+		CCell* cell = static_cast<CCell*>(atom->GetCell());
+
+		if (cell != NULL && cell->m_clutterList.size() != 0)
+		{
+			for (CClutterList::iterator it = cell->m_clutterList.begin(); it != cell->m_clutterList.end(); ++it)
+			{
+				stack.Multiply((*it)->GetMatrix(), true);
+				::m_node = (*it)->m_node;
+				NodeGetAltitude((*it)->m_node, di);
+				CStack::m_pointer--;
+				CStack::m_top--;
+			}
+		}
+
 		::m_node = atom->Ent;
 		NodeGetAltitude(atom->Ent, di);
 	}
@@ -250,9 +263,21 @@ bool zdb::CGrid::GetIntersect(zdb::DiIntersect *di)
 
 	for (; atom != NULL; atom = GetNextAtom())
 	{
-		/* port: not written - a cell atom first walks its clutter (0x2142a4-0x214334:
-		   each CClutter's matrix pushed, NodeGetIntersect of the clutter's node), as in
-		   GetAltitude: the port never fills CClutterList */
+		/* a cell atom first walks its clutter (0x2142a4-0x214334), as in GetAltitude */
+		CCell* cell = static_cast<CCell*>(atom->GetCell());
+
+		if (cell != NULL && cell->m_clutterList.size() != 0)
+		{
+			for (CClutterList::iterator it = cell->m_clutterList.begin(); it != cell->m_clutterList.end(); ++it)
+			{
+				stack.Multiply((*it)->GetMatrix(), true);
+				::m_node = (*it)->m_node;
+				NodeGetIntersect((*it)->m_node, di);
+				CStack::m_pointer--;
+				CStack::m_top--;
+			}
+		}
+
 		::m_node = atom->Ent;
 		NodeGetIntersect(atom->Ent, di);
 	}
@@ -424,9 +449,22 @@ bool zdb::CGrid::GetIntersectBatch(zdb::DiIntersect **dis, int count)
 					dis[i]->m_Type &= 0x7fff;
 				}
 
-				/* port: not written - a cell atom first walks its clutter (0x214078-0x214104,
-				   NodeGetIntersectBatch of each clutter node under its matrix): the port
-				   never fills CClutterList (see GetAltitude) */
+				/* a cell atom first walks its clutter (0x214078-0x21410c, as in
+				   GetAltitude) */
+				CCell* cell = static_cast<CCell*>(m_NextAtom->GetCell());
+
+				if (cell != NULL && cell->m_clutterList.size() != 0)
+				{
+					for (CClutterList::iterator it = cell->m_clutterList.begin(); it != cell->m_clutterList.end(); ++it)
+					{
+						stack.Multiply((*it)->GetMatrix(), true);
+						::m_node = (*it)->m_node;
+						NodeGetIntersectBatch((*it)->m_node, dis, count);
+						CStack::m_pointer--;
+						CStack::m_top--;
+					}
+				}
+
 				::m_node = m_NextAtom->Ent;
 				NodeGetIntersectBatch(m_NextAtom->Ent, dis, count);
 			}
@@ -746,9 +784,8 @@ void zdb::CGrid::InitDescendantsDI()
 	/* 0x212210 (CWorld::InitDescendantsDI, at the end of CMission::Open): every atom of the
 	 * whole grid (the extents as a two-point boundary) gets its m_hasDI set over its subtree
 	 * (CNode::SetDescendantDI), so the DI walks reach DI polys below nodes saved without the
-	 * flag (the doors' "doorhit" nodes). port: not written - a cell atom first does the same
-	 * for its clutter nodes (0x212270-0x2122c4): the port never fills CClutterList (see
-	 * GetAltitude) */
+	 * flag (the doors' "doorhit" nodes). A cell atom first does the same for its clutter
+	 * nodes (0x212270-0x2122c4). */
 	CPnt3D bounds[2];
 	bounds[0].x = m_extents.left;
 	bounds[1].x = m_extents.right;
@@ -757,14 +794,24 @@ void zdb::CGrid::InitDescendantsDI()
 	SetTraversalBoundary(bounds, 2, false);
 
 	for (CGridAtom* atom = StartTraversal(); atom != NULL; atom = GetNextAtom())
+	{
+		CCell* cell = static_cast<CCell*>(atom->GetCell());
+
+		if (cell != NULL && cell->m_clutterList.size() != 0)
+		{
+			for (CClutterList::iterator it = cell->m_clutterList.begin(); it != cell->m_clutterList.end(); ++it)
+				(*it)->m_node->SetDescendantDI(true);
+		}
+
 		atom->Ent->SetDescendantDI(true);
+	}
 }
 
 /* @socom-skeleton stub InitDescendantsVisuals__Q23zdb5CGridFv */
 void zdb::CGrid::InitDescendantsVisuals()
 {
-	/* 0x212110: as InitDescendantsDI, m_hasVisuals (CNode::SetDescendantVisuals). port: the
-	 * clutter nodes are left out the same way */
+	/* 0x212110: as InitDescendantsDI (clutter nodes too), m_hasVisuals
+	 * (CNode::SetDescendantVisuals) */
 	CPnt3D bounds[2];
 	bounds[0].x = m_extents.left;
 	bounds[1].x = m_extents.right;
@@ -773,7 +820,17 @@ void zdb::CGrid::InitDescendantsVisuals()
 	SetTraversalBoundary(bounds, 2, false);
 
 	for (CGridAtom* atom = StartTraversal(); atom != NULL; atom = GetNextAtom())
+	{
+		CCell* cell = static_cast<CCell*>(atom->GetCell());
+
+		if (cell != NULL && cell->m_clutterList.size() != 0)
+		{
+			for (CClutterList::iterator it = cell->m_clutterList.begin(); it != cell->m_clutterList.end(); ++it)
+				(*it)->m_node->SetDescendantVisuals(true);
+		}
+
 		atom->Ent->SetDescendantVisuals(true);
+	}
 }
 
 /* @socom-skeleton stub NodeGetIntersect__Q23zdb5CGridFPQ23zdb5CNodePQ23zdb11DiIntersect */

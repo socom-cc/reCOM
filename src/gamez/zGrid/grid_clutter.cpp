@@ -42,6 +42,15 @@
 #include "grid_clutter.h"
 #include "zgrid.h"
 /* @socom-skeleton end include */
+#include "gamez/zNode/node_world.h" /* CWorld::m_world, m_grid */
+#include "gamez/zRender/zrender.h" /* thePipe, CStack */
+#include "gamez/zCamera/zcam.h" /* CCamera::CanSeeRegion, m_RangeScale */
+#include "gamez/zVisual/zvis.h" /* CVisual statics, ColConvTo3D */
+#include "gamez/zSystem/zsys.h" /* zTaskScheduler */
+#include "gamez/zSystem/zsys_bench.h" /* CBench::countClutterNodes */
+#include "gamez/zVideo/zvid.h" /* zVid.frameTime */
+#include <libvu0.h> /* sceVu0UnitMatrix, sceVu0MulMatrix */
+#include <math.h> /* fabsf, sqrtf */
 
 #ifndef SOCOM_PORT /* port: MSL <iostream> per-unit init objects; libstdc++ has no std::__msl_ios_base_* */
 /* @socom-skeleton stub __msl_ios_base_ninit__3std */
@@ -55,13 +64,115 @@ std::__wInit std::__msl_ios_base_winit;
 static CStack stack; /* 1-byte LOCAL object: CStack has only static data */
 
 /* @socom-skeleton stub Add__Q23zdb12CClutterListFPQ23zdb8CClutter */
-void zdb::CClutterList::Add(zdb::CClutter *)
+void zdb::CClutterList::Add(zdb::CClutter *clutter)
 {
+	/* 0x219340: the list summary is reset when the list is empty; an animated clutter marks
+	   the list as holding repel clutter, a fading one raises m_max_farFadeSq. Appended (the ELF
+	   reserves 10 more when full); a non-fading one appended behind fading ones is swapped with
+	   the first fading one, so every non-fading clutter comes first (Render stops at the first
+	   fading one out of range). */
+	if (size() == 0)
+	{
+		m_ContainsRepelClutter = false;
+		m_max_farFadeSq = 0.0f;
+	}
+
+	if (clutter->m_animated)
+		m_ContainsRepelClutter = true;
+
+	if (clutter->m_farFade && !(clutter->m_farFadeEnd <= m_max_farFadeSq))
+		m_max_farFadeSq = clutter->m_farFadeEnd;
+
+	push_back(clutter);
+
+	if (!clutter->m_farFade && size() >= 2 && (*this)[size() - 2]->m_farFade)
+	{
+		u32 last = size() - 1;
+
+		for (u32 i = 0; i < last; i++)
+		{
+			if ((*this)[i]->m_farFade)
+			{
+				CClutter* first = (*this)[i];
+				(*this)[i] = (*this)[last];
+				(*this)[last] = first;
+				break;
+			}
+		}
+	}
 }
 
 /* @socom-skeleton stub Render__Q23zdb12CClutterListFPQ23zdb5CCell */
-void zdb::CClutterList::Render(zdb::CCell *)
+void zdb::CClutterList::Render(zdb::CCell *cell)
 {
+	/* 0x2190c0 (CCell::RenderClutter): every clutter of the cell, local lights off, from the
+	   camera's world position. With repel clutter the cell middle is tested against the
+	   effectors first (TestCellMid sets m_CellAnimate). At the first fading clutter the
+	   cell's x/z distance outside its middle half-cell (squared, camera range scale) must be
+	   within m_max_farFadeSq, else nothing more is drawn. Then the added colour is cleared and
+	   the local-lights flag restored. ELF quirk kept: the out-of-range return skips the
+	   restore (the flag stays off; CPipe::RenderWorld sets it again each frame). */
+	if (size() == 0)
+		return;
+
+	CPnt3D eye;
+	eye.x = 0.0f;
+	eye.y = 0.0f;
+	eye.z = 0.0f;
+	bool localLights = CVisual::m_applyLocalLights;
+	CVisual::m_applyLocalLights = false;
+	CCamera* camera = thePipe.m_camera;
+	camera->TransformToWorld(eye);
+
+	bool haveMid = false;
+	bool firstFade = true;
+	CPnt3D mid;
+
+	if (m_ContainsRepelClutter)
+	{
+		cell->GetMidPoint(&mid);
+		CWorld::m_world->m_grid->m_ClutterAnimManager->TestCellMid(&mid, &eye);
+		haveMid = true;
+	}
+
+	for (u32 i = 0; i < size(); i++)
+	{
+		CClutter* clutter = (*this)[i];
+
+		if (clutter->m_farFade && firstFade)
+		{
+			if (!haveMid)
+				cell->GetMidPoint(&mid);
+
+			mid.y = eye.y;
+			mid.Sub(&eye, &mid);
+			f32 half = 0.5f * CWorld::m_world->m_grid->m_CellDim;
+			mid.x = fabsf(mid.x);
+			mid.z = fabsf(mid.z);
+
+			if (mid.x <= half)
+				mid.x = 0.0f;
+			else
+				mid.x = mid.x - half;
+
+			if (mid.z <= half)
+				mid.z = 0.0f;
+			else
+				mid.z = mid.z - half;
+
+			if (!((mid.x * mid.x + mid.y * mid.y + mid.z * mid.z) * camera->m_RangeScale <= m_max_farFadeSq))
+				return;
+
+			firstFade = false;
+		}
+
+		clutter->Render(&eye);
+	}
+
+	CVisual::m_addColor[0] = 0.0f;
+	CVisual::m_addColor[1] = 0.0f;
+	CVisual::m_addColor[2] = 0.0f;
+	CVisual::m_applyLocalLights = localLights;
 }
 
 /* @socom-skeleton stub Free__Q23zdb12CClutterListFv */
@@ -76,86 +187,545 @@ void zdb::CClutterList::Free()
 }
 
 /* @socom-skeleton stub __ct__Q23zdb8CClutterFPQ23zdb5CNode */
-zdb::CClutter::CClutter(zdb::CNode *)
+zdb::CClutter::CClutter(zdb::CNode *node)
 {
+	/* 0x218f50: identity matrix (the CMatrix member), the flag bits but 6-11 cleared, no anim,
+	   colour word 0xffffffff; Read fills the rest */
+	m_nearFade = 0;
+	m_farFade = 0;
+	m_animated = 0;
+	m_flag3 = 0;
+	m_flag4 = 0;
+	m_flag12 = 0;
+	m_node = NULL;
+	m_anim = NULL;
+	m_color = 0xffffffff;
+	m_node = node;
 }
 
 /* @socom-skeleton stub Read__Q23zdb8CClutterFPQ23zar4CZAR */
-void zdb::CClutter::Read(zar::CZAR *)
+bool zdb::CClutter::Read(zar::CZAR *archive)
 {
+	/* 0x218ec0: the model is made dynamic (and its children), without multipass effects or
+	   decals; then the 96-byte "params" over +0x00 and "scale_inverse" */
+	if (m_node != NULL)
+	{
+		m_node->SetDynamic(true, true);
+		m_node->SetApplyMultipassEffects(false);
+		m_node->SetApplyDecals(false);
+	}
+
+	archive->Fetch("params", this, 96);
+	return archive->Fetch("scale_inverse", &m_lightScale, 4);
 }
 
 /* @socom-skeleton stub GetTranslate__Q23zdb8CClutterFv */
-void zdb::CClutter::GetTranslate()
+CPnt3D * zdb::CClutter::GetTranslate()
 {
+	/* 0x218ea0: +0x20 for an animated clutter, else the matrix translation row */
+	if (m_animated)
+		return reinterpret_cast<CPnt3D*>(&m_matrix.m_matrix[2][0]);
+
+	return reinterpret_cast<CPnt3D*>(&m_matrix.m_matrix[3][0]);
 }
 
 /* @socom-skeleton stub GetMatrix__Q23zdb8CClutterFv */
-void zdb::CClutter::GetMatrix()
+CMatrix * zdb::CClutter::GetMatrix()
 {
+	/* 0x218df0: a static clutter's own matrix; an animated one's is built in the clutter
+	   manager's m_matrix: (bend * rotation) as a matrix, scaled (scale * matrix), the position
+	   as its translation */
+	if (!m_animated)
+		return &m_matrix;
+
+	CMatrix* matrix = &CWorld::m_world->m_grid->m_ClutterAnimManager->m_matrix;
+	sceVu0UnitMatrix(matrix->m_matrix);
+	CQuat rotation;
+	AnimRotation()->Mul(Rotation(), &rotation);
+	rotation.ToMatrix(matrix);
+
+	CMatrix scale;
+	scale.m_matrix[0][0] = Scale();
+	scale.m_matrix[1][1] = Scale();
+	scale.m_matrix[2][2] = Scale();
+	sceVu0MulMatrix(matrix->m_matrix, scale.m_matrix, matrix->m_matrix);
+
+	matrix->m_matrix[3][0] = m_matrix.m_matrix[2][0];
+	matrix->m_matrix[3][1] = m_matrix.m_matrix[2][1];
+	matrix->m_matrix[3][2] = m_matrix.m_matrix[2][2];
+	return matrix;
 }
 
 /* @socom-skeleton stub Render__Q23zdb8CClutterFP6CPnt3D */
-void zdb::CClutter::Render(CPnt3D *)
+void zdb::CClutter::Render(CPnt3D *eye)
 {
+	/* 0x218a10: the model node (or the anim's, ClutterTick for an animated clutter), when its
+	   region is visible. Fading: the squared distance from the eye (camera range scale) is cut
+	   at m_farFadeEnd / m_nearFadeStart and scales the opacity in the fade bands (below 0.008
+	   nothing is drawn); the node's m_Opacity holds it while drawn. The matrix (GetMatrix,
+	   inline in the ELF) goes on the stack, the added colour and global light scale are set,
+	   a mesh node goes through RenderMesh, others through RenderNode; the light scale goes
+	   back to 1. */
+	CNode* node = m_node;
+
+	if (node == NULL)
+		return;
+
+	f32 opacity = 1.0f;
+	f32 saved = 0.0f;
+	CCamera* camera = thePipe.m_camera;
+
+	if (m_animated)
+		node = CWorld::m_world->m_grid->m_ClutterAnimManager->ClutterTick(this);
+
+	if (m_useRegion && !camera->CanSeeRegion(1 << m_region))
+		return;
+
+	if (m_farFade || m_nearFade)
+	{
+		CPnt3D delta = *eye;
+		delta.Sub(GetTranslate(), &delta);
+		f32 dist = (delta.x * delta.x + delta.y * delta.y + delta.z * delta.z) * camera->m_RangeScale;
+
+		if (m_farFade)
+		{
+			if (!(dist < m_farFadeEnd))
+				return;
+
+			if (!(dist <= m_farFadeStart))
+			{
+				opacity = m_farFadeScale * (m_farFadeEnd - dist);
+
+				if (opacity < 0.008f)
+					return;
+			}
+		}
+
+		if (m_nearFade)
+		{
+			if (dist <= m_nearFadeStart)
+				return;
+
+			if (dist < m_nearFadeEnd)
+			{
+				opacity = opacity * (1.0f - m_nearFadeScale * (m_nearFadeEnd - dist));
+
+				if (opacity < 0.008f)
+					return;
+			}
+		}
+	}
+
+	if (opacity < 1.0f)
+	{
+		saved = node->m_Opacity;
+		node->m_Opacity = opacity;
+	}
+
+	thePipe.m_node = node;
+	stack.Multiply(GetMatrix(), true);
+
+	CPnt3D color = ColConvTo3D(m_color);
+	CVisual::m_addColor[0] = color.x;
+	CVisual::m_addColor[1] = color.y;
+	CVisual::m_addColor[2] = color.z;
+	CVisual::m_GlobalLightScale = m_lightScale;
+
+	if (node->m_hasMesh)
+	{
+		thePipe.RenderMesh(node, NULL, NULL, (zdb::tag_ZVIS_FOV)0);
+	}
+	else
+	{
+		CBench::countClutterNodes++;
+		thePipe.RenderNode(node, (zdb::tag_ZVIS_FOV)0);
+	}
+
+	CVisual::m_GlobalLightScale = 1.0f;
+	CStack::m_pointer--;
+	CStack::m_top--;
+
+	if (opacity < 1.0f)
+		node->m_Opacity = saved;
 }
 
 /* @socom-skeleton stub __dt__Q23zdb12CClutterAnimFv */
 zdb::CClutterAnim::~CClutterAnim()
 {
+	/* 0x218980: the clutter's bend back to identity; the own node (never set) deleted */
+	if (m_clutter != NULL)
+		m_clutter->AnimRotation()->MakeYXZRot(0.0f, 0.0f, 0.0f);
+
+	if (m_node != NULL)
+		delete m_node;
+
+	m_node = NULL;
 }
 
 /* @socom-skeleton stub TickForce__Q23zdb12CClutterAnimFP6CPnt3DP6CPnt3Dff */
-void zdb::CClutterAnim::TickForce(CPnt3D *, CPnt3D *, float, float)
+zdb::CNode * zdb::CClutterAnim::TickForce(CPnt3D *vel, CPnt3D *delta, float dist, float radius)
 {
+	/* 0x218600 (ClutterTick, an effector over the clutter): vel is the effector's velocity,
+	   delta clutter - effector, dist |delta|. Moving faster than 0.01 (x/z): the push is
+	   (1 - dist / radius) * the clutter's max force; when it is at least the current force the
+	   direction turns towards delta + 2 * vel scaled to |delta.xz| (x/z unit, weighted
+	   1 - force / max) and the force takes the push; a weaker push lets the force decay
+	   (0.5 per second, not below 0). Then the bend: the clutter's bend quaternion slerps
+	   (5 per second, at most all the way) towards a rotation of (dir.z, -dir.x) * force
+	   (the wobble is the angle at force 0). Both pointed-to points are changed. */
+	f32 speed = sqrtf(vel->x * vel->x + vel->z * vel->z);
+
+	if (!(speed <= 0.01f))
+	{
+		f32 max = m_clutter->m_animated ? m_clutter->MaxForce() : 0.0f;
+		f32 force = (1.0f - dist / radius) * max;
+
+		if (!(force < m_force))
+		{
+			f32 len = sqrtf(delta->x * delta->x + delta->z * delta->z);
+			CPnt3D push;
+			vel->Scale(len / speed, &push);
+			CPnt3D push2 = push;
+			push2.Scale(2.0f, &push);
+			*vel = push;
+			delta->Add(vel, delta);
+
+			max = m_clutter->m_animated ? m_clutter->MaxForce() : 0.0f;
+			f32 weight = 1.0f - m_force / max;
+			len = sqrtf(delta->x * delta->x + delta->z * delta->z);
+
+			if (len != 0.0f)
+			{
+				f32 inv = 1.0f / len;
+				delta->x = delta->x * inv;
+				delta->z = delta->z * inv;
+			}
+
+			delta->Scale(weight, delta);
+			m_dir.Add(delta, &m_dir);
+			len = sqrtf(m_dir.x * m_dir.x + m_dir.z * m_dir.z);
+
+			if (len != 0.0f)
+			{
+				f32 inv = 1.0f / len;
+				m_dir.x = m_dir.x * inv;
+				m_dir.z = m_dir.z * inv;
+			}
+
+			m_force = force;
+		}
+		else
+		{
+			if (!(m_force <= 0.0f))
+				m_force = m_force - 0.5f * zVid.frameTime;
+
+			if (m_force < 0.0f)
+				m_force = 0.0f;
+		}
+	}
+
+	f32 angle;
+
+	if (m_force == 0.0f)
+		angle = m_wobble;
+	else
+		angle = m_force + m_force * m_wobble;
+
+	CQuat goal;
+	goal.MakeYXZRot(0.0f, m_dir.z * angle, -m_dir.x * angle);
+	f32 t = 5.0f * zVid.frameTime;
+
+	if (!(t <= 1.0f))
+		t = 1.0f;
+
+	CQuat* bend = m_clutter->AnimRotation();
+	CQuat out;
+	bend->SlerpFaster(&goal, t, &out);
+	*bend = out;
+	return m_node;
 }
 
 /* @socom-skeleton stub __ct__Q23zdb19CClutterAnimManagerFv */
 zdb::CClutterAnimManager::CClutterAnimManager()
 {
+	/* 0x218560: identity m_matrix, empty lists, the "CClutterAnimManager" task (0.95) */
+	sceVu0UnitMatrix(m_matrix.m_matrix);
+	zTaskScheduler.AddTask("CClutterAnimManager", Tick, 0.95f, NULL);
+	m_ClutterAnims.clear();
 }
 
 /* @socom-skeleton stub __dt__Q23zdb19CClutterAnimManagerFv */
 zdb::CClutterAnimManager::~CClutterAnimManager()
 {
+	/* 0x218300: the task removed, every anim and effector deleted */
+	zTaskScheduler.RemoveTask("CClutterAnimManager", false);
+
+	for (std::list<CClutterAnim*>::iterator it = m_ClutterAnims.begin(); it != m_ClutterAnims.end(); ++it)
+		delete *it;
+
+	m_ClutterAnims.clear();
+
+	for (std::list<tag_CLUTTER_EFFECTOR*>::iterator it = m_ClutterEffectors.begin(); it != m_ClutterEffectors.end(); ++it)
+		delete *it;
+
+	m_ClutterEffectors.clear();
 }
 
 /* @socom-skeleton stub ClearAnimations__Q23zdb19CClutterAnimManagerFb */
-void zdb::CClutterAnimManager::ClearAnimations(bool)
+void zdb::CClutterAnimManager::ClearAnimations(bool detach)
 {
+	/* 0x2181c0 (ReOpen_Unload1 with true): every anim deleted (inline dtor: the clutter's
+	   bend back to identity), with detach first unhooked from its clutter */
+	for (std::list<CClutterAnim*>::iterator it = m_ClutterAnims.begin(); it != m_ClutterAnims.end(); ++it)
+	{
+		if (detach && (*it)->m_clutter != NULL)
+			(*it)->m_clutter->m_anim = NULL;
+
+		if (*it != NULL)
+			delete *it;
+	}
+
+	m_ClutterAnims.clear();
 }
 
 /* @socom-skeleton stub ClearEffectors__Q23zdb19CClutterAnimManagerFv */
 void zdb::CClutterAnimManager::ClearEffectors()
 {
+	/* 0x218110 */
+	for (std::list<tag_CLUTTER_EFFECTOR*>::iterator it = m_ClutterEffectors.begin(); it != m_ClutterEffectors.end(); ++it)
+		delete *it;
+
+	m_ClutterEffectors.clear();
 }
 
 /* @socom-skeleton stub TestCellMid__Q23zdb19CClutterAnimManagerFP6CPnt3DP6CPnt3D */
-void zdb::CClutterAnimManager::TestCellMid(CPnt3D *, CPnt3D *)
+void zdb::CClutterAnimManager::TestCellMid(CPnt3D *mid, CPnt3D *eye)
 {
+	/* 0x217f50 (CClutterList::Render of a cell with repel clutter): m_CellAnimate is set when
+	   the cell middle is within 4 half-cells of the eye (x and z) and some effector within
+	   half a cell plus its radius of it */
+	m_CellAnimate = false;
+
+	if (m_ClutterEffectors.size() == 0)
+		return;
+
+	f32 half = 0.5f * CWorld::m_world->m_grid->m_CellDim;
+	CPnt3D delta = *eye;
+	delta.Sub(mid, &delta);
+	f32 range = 4.0f * half;
+
+	if (!(fabsf(delta.x) <= range) || !(fabsf(delta.z) <= range))
+		return;
+
+	for (std::list<tag_CLUTTER_EFFECTOR*>::iterator it = m_ClutterEffectors.begin(); it != m_ClutterEffectors.end(); ++it)
+	{
+		delta = *mid;
+		delta.Sub((*it)->m_pos, &delta);
+
+		if (fabsf(delta.x) <= half + (*it)->m_radius && fabsf(delta.z) <= half + (*it)->m_radius)
+		{
+			m_CellAnimate = true;
+			return;
+		}
+	}
 }
 
 /* @socom-skeleton stub ClutterTick__Q23zdb19CClutterAnimManagerFPQ23zdb8CClutter */
-void zdb::CClutterAnimManager::ClutterTick(zdb::CClutter *)
+zdb::CNode * zdb::CClutterAnimManager::ClutterTick(zdb::CClutter *clutter)
 {
+	/* 0x217ba0 (CClutter::Render of an animated clutter): in an animated cell, the first
+	   effector whose radius covers the clutter (x and z) pushes it: the clutter gets an anim
+	   if it has none (appended to m_ClutterAnims), its time goes back to 5.01 and TickForce
+	   runs with the effector's velocity (its own pointer, else the estimated one). Without
+	   one, a running anim's force decays (0.5 per second, not below 0) and the bend slerps (2
+	   per second) towards the force's rotation. Returns the anim's node, else the
+	   clutter's. */
+	CNode* node = NULL;
+	tag_CLUTTER_EFFECTOR* effector = NULL;
+	f32 radius = 0.0f;
+	CPnt3D delta;
+
+	if (m_CellAnimate)
+	{
+		for (std::list<tag_CLUTTER_EFFECTOR*>::iterator it = m_ClutterEffectors.begin(); it != m_ClutterEffectors.end(); ++it)
+		{
+			delta = *clutter->GetTranslate();
+			delta.Sub((*it)->m_pos, &delta);
+
+			if (fabsf(delta.x) <= (*it)->m_radius && fabsf(delta.z) <= (*it)->m_radius)
+			{
+				effector = *it;
+				radius = (*it)->m_radius;
+				break;
+			}
+		}
+	}
+
+	if (effector != NULL)
+	{
+		f32 dist = sqrtf(delta.x * delta.x + delta.y * delta.y + delta.z * delta.z);
+		CClutterAnim* anim = clutter->m_anim;
+
+		if (anim == NULL)
+		{
+			anim = new CClutterAnim;
+
+			if (anim != NULL)
+			{
+				anim->m_clutter = clutter;
+				anim->m_node = NULL;
+				anim->m_dir = CPnt3D::zero;
+				anim->m_force = 0.0f;
+				anim->m_wobbleTime = 0.0f;
+				anim->m_time = 5.01f;
+				anim->m_wobble = 0.0f;
+			}
+
+			m_ClutterAnims.push_back(anim);
+			clutter->m_anim = anim;
+		}
+
+		if (anim != NULL)
+		{
+			anim->m_time = 5.01f;
+			anim->m_wobble = 0.0f;
+			CPnt3D vel = effector->m_vel != NULL ? *effector->m_vel : effector->m_velocity;
+			node = anim->TickForce(&vel, &delta, dist, radius);
+		}
+	}
+	else
+	{
+		CClutterAnim* anim = clutter->m_anim;
+
+		if (anim != NULL)
+		{
+			if (!(anim->m_force <= 0.0f))
+				anim->m_force = anim->m_force - 0.5f * zVid.frameTime;
+
+			if (anim->m_force < 0.0f)
+				anim->m_force = 0.0f;
+
+			f32 angle;
+
+			if (anim->m_force == 0.0f)
+				angle = anim->m_wobble;
+			else
+				angle = anim->m_force + anim->m_force * anim->m_wobble;
+
+			CQuat goal;
+			goal.MakeYXZRot(0.0f, anim->m_dir.z * angle, -anim->m_dir.x * angle);
+			CQuat* bend = anim->m_clutter->AnimRotation();
+			CQuat out;
+			bend->SlerpFaster(&goal, 2.0f * zVid.frameTime, &out);
+			*bend = out;
+			node = anim->m_node;
+		}
+	}
+
+	if (node == NULL)
+		node = clutter->m_node;
+
+	return node;
 }
 
 /* @socom-skeleton stub l_Tick__Q23zdb19CClutterAnimManagerFfPv */
-void zdb::CClutterAnimManager::l_Tick(float, void *)
+void zdb::CClutterAnimManager::l_Tick(float dt, void *)
 {
+	/* 0x217840: every anim counts its time down and flips its wobble each 0.5 s; one whose
+	   force is spent (< 0.0001) damps its wobble (x 0.05) and, out of time with its bend back
+	   within 0.005 of identity (x, z, y), is unhooked, deleted and removed. Then the
+	   effectors without a velocity pointer estimate theirs from the moved position. */
+	for (std::list<CClutterAnim*>::iterator it = m_ClutterAnims.begin(); it != m_ClutterAnims.end();)
+	{
+		CClutterAnim* anim = *it;
+		anim->m_time = anim->m_time - dt;
+		anim->m_wobbleTime = anim->m_wobbleTime + dt;
+
+		if (!(anim->m_wobbleTime <= 0.5f))
+		{
+			anim->m_wobbleTime = 0.0f;
+			anim->m_wobble = -anim->m_wobble;
+		}
+
+		bool keep = true;
+
+		if (anim->m_force < 0.0001f)
+		{
+			anim->m_wobble = 0.05f * anim->m_wobble;
+
+			if (anim->m_time <= 0.0f)
+			{
+				CQuat* bend = anim->m_clutter->AnimRotation();
+
+				if (fabsf(bend->vec.x) < 0.005f && fabsf(bend->vec.z) < 0.005f && fabsf(bend->vec.y) < 0.005f)
+					keep = false;
+			}
+		}
+
+		if (keep)
+		{
+			++it;
+			continue;
+		}
+
+		anim->m_clutter->m_anim = NULL;
+		delete anim;
+		it = m_ClutterAnims.erase(it);
+	}
+
+	for (std::list<tag_CLUTTER_EFFECTOR*>::iterator it = m_ClutterEffectors.begin(); it != m_ClutterEffectors.end(); ++it)
+	{
+		tag_CLUTTER_EFFECTOR* effector = *it;
+
+		if (effector->m_vel != NULL)
+			continue;
+
+		CPnt3D moved;
+		effector->m_pos->Sub(&effector->m_lastPos, &moved);
+		effector->m_velocity = moved;
+		effector->m_velocity.Scale(1.0f / dt, &effector->m_velocity);
+		effector->m_lastPos = *effector->m_pos;
+	}
 }
 
 /* @socom-skeleton stub Tick__Q23zdb19CClutterAnimManagerFfPv */
-bool zdb::CClutterAnimManager::Tick(float, void *)
+bool zdb::CClutterAnimManager::Tick(float dt, void *data)
 {
+	/* 0x217810: the scheduler task; the world grid's manager, 0 */
+	CWorld::m_world->m_grid->m_ClutterAnimManager->l_Tick(dt, data);
+	return false;
 }
 
 /* @socom-skeleton stub RegisterEffector__Q23zdb19CClutterAnimManagerFPCvPC6CPnt3DfPC6CPnt3D */
-void zdb::CClutterAnimManager::RegisterEffector(const void *, const CPnt3D *, float, const CPnt3D *)
+void zdb::CClutterAnimManager::RegisterEffector(const void *owner, const CPnt3D *pos, float radius, const CPnt3D *vel)
 {
+	/* 0x217730 (PostCreateSeal): appended */
+	tag_CLUTTER_EFFECTOR* effector = new tag_CLUTTER_EFFECTOR;
+
+	if (effector != NULL)
+	{
+		effector->m_owner = owner;
+		effector->m_pos = pos;
+		effector->m_radius = radius;
+		effector->m_vel = vel;
+		effector->m_velocity = CPnt3D::zero;
+		effector->m_lastPos = CPnt3D::zero;
+	}
+
+	m_ClutterEffectors.push_back(effector);
 }
 
 /* @socom-skeleton stub UnRegisterEffector__Q23zdb19CClutterAnimManagerFPCv */
-void zdb::CClutterAnimManager::UnRegisterEffector(const void *)
+void zdb::CClutterAnimManager::UnRegisterEffector(const void *owner)
 {
+	/* 0x217680 (~CZSealBody): the owner's first effector deleted and removed */
+	for (std::list<tag_CLUTTER_EFFECTOR*>::iterator it = m_ClutterEffectors.begin(); it != m_ClutterEffectors.end(); ++it)
+	{
+		if ((*it)->m_owner == owner)
+		{
+			delete *it;
+			m_ClutterEffectors.erase(it);
+			return;
+		}
+	}
 }

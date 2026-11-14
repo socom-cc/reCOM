@@ -193,8 +193,27 @@ void CQuat::MakeYXRot(float yaw, float pitch)
 }
 
 /* @socom-skeleton stub MakeYXZRot__5CQuatFfff */
-void CQuat::MakeYXZRot(float, float, float)
+void CQuat::MakeYXZRot(float y, float x, float z)
 {
+	/* 0x2215b0: the rotation about y, then x, then z (half-angle sines and cosines; the
+	 * product qy * qx * qz written out) */
+	f32 hy = 0.5f * y;
+	f32 sy = sinf(hy);
+	f32 cy = cosf(hy);
+	f32 hx = 0.5f * x;
+	f32 sx = sinf(hx);
+	f32 cx = cosf(hx);
+	f32 cycx = cy * cx;
+	f32 cysx = cy * sx;
+	f32 sysx = sy * sx;
+	f32 sycx = sy * cx;
+	f32 hz = 0.5f * z;
+	f32 sz = sinf(hz);
+	f32 cz = cosf(hz);
+	w = cycx * cz + sysx * sz;
+	vec.x = cysx * cz + sycx * sz;
+	vec.y = sycx * cz - cysx * sz;
+	vec.z = -sysx * cz + cycx * sz;
 }
 
 /* @socom-skeleton body Normalize__5CQuatCFP5CQuat */
@@ -438,8 +457,53 @@ void CQuat::Slerp(const CQuat *other, float t, CQuat *out) const
 }
 
 /* @socom-skeleton stub SlerpFaster__5CQuatCFPC5CQuatfP5CQuat */
-void CQuat::SlerpFaster(const CQuat *, float, CQuat *) const
+void CQuat::SlerpFaster(const CQuat *other, float t, CQuat *out) const
 {
+	/* 0x220a20: this at t <= 0, other at t >= 1; with a cosine of at least 0.87 (either sign)
+	 * a plain lerp towards other (or -other), kept when its length squared is within 0.004
+	 * of 1; else (and for smaller cosines) Slerp. The ELF returns 1 for a kept lerp and the
+	 * end points, 0 after Slerp; no caller reads it (void here). */
+	if (t <= 0.0f)
+	{
+		*out = *this;
+		return;
+	}
+
+	if (!(t < 1.0f))
+	{
+		*out = *other;
+		return;
+	}
+
+	f32 cosom = (vec.x * other->vec.x + vec.y * other->vec.y + vec.z * other->vec.z) + other->w * w;
+
+	if (fabsf(cosom) < 0.87f)
+	{
+		Slerp(other, t, out);
+		return;
+	}
+
+	f32 s0 = 1.0f - t;
+
+	if (cosom < 0.0f)
+	{
+		out->vec.x = vec.x * s0 - other->vec.x * t;
+		out->vec.y = vec.y * s0 - other->vec.y * t;
+		out->vec.z = vec.z * s0 - other->vec.z * t;
+		out->w = w * s0 - other->w * t;
+	}
+	else
+	{
+		out->vec.x = vec.x * s0 + other->vec.x * t;
+		out->vec.y = vec.y * s0 + other->vec.y * t;
+		out->vec.z = vec.z * s0 + other->vec.z * t;
+		out->w = w * s0 + other->w * t;
+	}
+
+	f32 len2 = (out->vec.x * out->vec.x + out->vec.y * out->vec.y + out->vec.z * out->vec.z) + out->w * out->w;
+
+	if (!_close_enough(len2, 1.0f, 0.004f))
+		Slerp(other, t, out);
 }
 
 /* @socom-skeleton body Exp__5CQuatFPC6CPnt3D */

@@ -1053,8 +1053,7 @@ CZSealBody::~CZSealBody()
 
 	zdb::CWorld* world = zdb::CWorld::m_world;
 
-	if (world->m_grid->m_ClutterAnimManager != NULL) /* port: guard - the port never makes the clutter manager */
-		world->m_grid->m_ClutterAnimManager->UnRegisterEffector(this);
+	world->m_grid->m_ClutterAnimManager->UnRegisterEffector(this); /* the grid's manager (CGrid::ReadClutter) */
 
 	while (m_blends->m_top + 1 > 0)
 		PopBlend();

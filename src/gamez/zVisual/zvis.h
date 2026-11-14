@@ -60,6 +60,7 @@ namespace zdb
 void hookupMesh(zar::CZAR* archive, zdb::CModel* model);
 void hookupVisuals(zar::CZAR* archive, zdb::CModel* model);
 void hookupVisuals(zar::CZAR* archive, zar::CKey* key, zdb::CNode* node, zdb::CModel* model, CVisBase* vis);
+CPnt3D ColConvTo3D(u32 color); /* ColConvTo3D__FUi (vis_bands.cpp): CPnt3D returned through a0 */
 
 /* node_index (vis_main.cpp) and _vdataTex (zrndr_pipe.cpp) are file-local (LOCAL symbols) */
 

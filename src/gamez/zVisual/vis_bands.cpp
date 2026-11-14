@@ -314,8 +314,15 @@ CVisData* CVisData::NextVertex(u32 count)
 }
 
 /* @socom-skeleton stub ColConvTo3D__FUi */
-void ColConvTo3D(unsigned int)
+CPnt3D ColConvTo3D(unsigned int color)
 {
+	/* 0x310460 (CClutter::Render): 0x00RRGGBB as r, g, b in 0-1 (the scale 1/255 set once,
+	 * init$1286) */
 	/* @socom-skeleton stub scale$1285 */
-	static float scale;
+	static float scale = 1.0f / 255.0f;
+	CPnt3D out;
+	out.x = scale * (f32)((color & 0xff0000) >> 16);
+	out.y = scale * (f32)((color & 0xff00) >> 8);
+	out.z = scale * (f32)(color & 0xff);
+	return out;
 }

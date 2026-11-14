@@ -353,7 +353,11 @@ CWorld* CSaveLoad::Load(const char* name)
 		}
 		
 		m_world->Read(*this);
-			
+
+		/* 0x22a888: the mission's clutter (not for the front end's "ui" world) */
+		if (strcmp(m_world->m_name, "ui") != 0)
+			m_world->m_grid->ReadClutter(name, NULL);
+
 		m_zfile.Close();
 
 		return world;

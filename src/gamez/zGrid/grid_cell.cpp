@@ -43,6 +43,8 @@ zdb::CCell::CCell(const CPnt3D *origin, float offset)
 /* @socom-skeleton stub UpdateBBox__Q23zdb5CCellFb */
 CBBox * zdb::CCell::UpdateBBox(bool)
 {
+	/* 0x217300: nothing is recomputed: the cell's box (GetBBox, inline two parent levels) */
+	return GetBBox();
 }
 
 /* @socom-skeleton stub __dt__Q23zdb5CCellFv */
@@ -57,19 +59,33 @@ zdb::CCell::~CCell()
 /* @socom-skeleton stub DeleteClutter__Q23zdb5CCellFv */
 void zdb::CCell::DeleteClutter()
 {
+	/* 0x2170f0: tail call */
+	m_clutterList.Free();
 }
 
 /* @socom-skeleton stub AddClutter__Q23zdb5CCellFPQ23zdb8CClutter */
-void zdb::CCell::AddClutter(zdb::CClutter *)
+void zdb::CCell::AddClutter(zdb::CClutter *clutter)
 {
+	/* 0x2170e0: tail call */
+	m_clutterList.Add(clutter);
 }
 
 /* @socom-skeleton stub RenderClutter__Q23zdb5CCellFPQ23zdb5CCell */
-void zdb::CCell::RenderClutter(zdb::CCell *)
+void zdb::CCell::RenderClutter(zdb::CCell *cell)
 {
+	/* 0x2170d0: tail call (CPipe::RenderWorld passes the cell itself) */
+	m_clutterList.Render(cell);
 }
 
 /* @socom-skeleton stub GetMidPoint__Q23zdb5CCellFP6CPnt3D */
-void zdb::CCell::GetMidPoint(CPnt3D *)
+void zdb::CCell::GetMidPoint(CPnt3D *mid)
 {
+	/* 0x217010: the middle of the cell's box */
+	CPnt3D size;
+	m_bbox.m_max.Sub(&m_bbox.m_min, &size);
+	CPnt3D half;
+	size.Scale(0.5f, &half);
+	CPnt3D out;
+	m_bbox.m_min.Add(&half, &out);
+	*mid = out;
 }

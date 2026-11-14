@@ -43,6 +43,10 @@
 #include "gamez/zNode/znode.h"
 #include "gamez/zNode/node_world.h"
 #include "gamez/zNode/node_saveload.h"
+#include "gamez/zArchive/zar.h" /* CZAR (ReadClutter) */
+#include <math.h> /* sqrtf (AddClutter) */
+#include <stdio.h> /* sprintf (ReadClutter) */
+#include <string.h> /* strcmp, strncmp (ReadClutter) */
 
 namespace zdb
 {
@@ -107,14 +111,16 @@ CGrid::CGrid()
 /* @socom-skeleton stub __dt__Q23zdb5CGridFv */
 zdb::CGrid::~CGrid()
 {
-	/* 0x216ed0 */
-	Destroy();
-
+	/* 0x216ed0: Destroy, then the clutter manager. port: the manager goes first - its anims'
+	   destructors reset their clutter's bend, and in the ELF order Destroy has already deleted
+	   the cells and their clutter (a write into freed memory) */
 	if (m_ClutterAnimManager != NULL)
 	{
 		delete m_ClutterAnimManager;
 		m_ClutterAnimManager = NULL;
 	}
+
+	Destroy();
 }
 
 /* @socom-skeleton body gridGetAtomBasePtr__Q23zdb5CGridFii */
@@ -1102,13 +1108,81 @@ void zdb::CGrid::Destroy()
 }
 
 /* @socom-skeleton stub AddClutter__Q23zdb5CGridFPQ23zdb8CClutter */
-void zdb::CGrid::AddClutter(zdb::CClutter *)
+bool zdb::CGrid::AddClutter(zdb::CClutter *clutter)
 {
+	/* 0x214ed0 (ReadClutter): into the cell under the clutter's position (x/z cell index
+	   clamped to the grid, the ELF clamps twice); m_ClutterTol grows to the length of the
+	   model's box diagonal. 0 without a cell there or without a model. */
+	CPnt3D* pos = clutter->GetTranslate();
+	f32 z = pos->z;
+	s32 ix = (s32)(m_InvCellDim * ((pos->x - m_origin.x) + 0.0001f));
+
+	if (ix < 0)
+		ix = 0;
+
+	s32 maxX = m_CellCount.cx - 1;
+
+	if (maxX < ix)
+		ix = maxX;
+
+	s32 iz = (s32)(m_InvCellDim * ((z - m_origin.z) + 0.0001f));
+
+	if (iz < 0)
+		iz = 0;
+
+	s32 maxZ = m_CellCount.cy - 1;
+
+	if (maxZ < iz)
+		iz = maxZ;
+
+	CNode* cell = NULL;
+	CGridAtom** base = &m_Atoms[ix + iz * m_CellCount.cx];
+
+	if (base != NULL && *base != NULL)
+	{
+		cell = (*base)->Ent;
+
+		if (cell->m_type != (u32)CNode::TYPE::CELL)
+			cell = NULL;
+	}
+
+	if (cell == NULL)
+		return false;
+
+	CNode* node = clutter->m_node;
+
+	if (node == NULL)
+		return false;
+
+	CBBox* box = node->GetBBox();
+	CPnt3D size;
+	box->m_max.Sub(&box->m_min, &size);
+	f32 len = sqrtf(size.x * size.x + size.y * size.y + size.z * size.z);
+
+	if (!(len <= m_ClutterTol))
+		m_ClutterTol = len;
+
+	static_cast<CCell*>(cell)->AddClutter(clutter);
+	return true;
 }
 
 /* @socom-skeleton stub DeleteClutter__Q23zdb5CGridFv */
 void zdb::CGrid::DeleteClutter()
 {
+	/* 0x214e30 (ReadClutter when clutter was read before): every cell's clutter deleted.
+	   port: the ELF calls CCell::DeleteClutter on a slot's first atom without checking that it
+	   is a cell (it always is: the cells go in first); guarded here. */
+	s32 count = m_CellCount.cx * m_CellCount.cy;
+
+	for (s32 i = 0; i < count; i++)
+	{
+		CNode* cell = m_Atoms[i]->Ent;
+
+		if (cell->m_type == (u32)CNode::TYPE::CELL)
+			static_cast<CCell*>(cell)->DeleteClutter();
+	}
+
+	m_ClutterCreated = false;
 }
 
 /* @socom-skeleton body GetCell__Q23zdb9CGridAtomFv */
@@ -1144,6 +1218,102 @@ bool CGrid::Read(CSaveLoad& sload)
 }
 
 /* @socom-skeleton stub ReadClutter__Q23zdb5CGridFPCcPCc */
-void zdb::CGrid::ReadClutter(const char *, const char *)
+void zdb::CGrid::ReadClutter(const char *name, const char *root)
 {
+	/* 0x214940 (CSaveLoad::Load, root NULL): clutter read before is deleted and the clutter
+	   manager made. The mission's clutter.zar (run/mp/ for "mp...", run/sp/ for "m...", else
+	   run/, under root when given), version 4: under "Clutter" one key per model (by name,
+	   "NULL" for none; a model gets SetApplyClutterFlag), one key per clutter of it, each
+	   read (CClutter::Read) and put in its cell (AddClutter), else deleted. m_ClutterCreated
+	   once the archive opened (also with a wrong version or no "Clutter" key). */
+	if (m_ClutterCreated)
+		DeleteClutter();
+
+	m_ClutterCreated = false;
+
+	if (m_ClutterAnimManager == NULL)
+		m_ClutterAnimManager = new CClutterAnimManager();
+
+	char path[64];
+
+	if (strncmp(name, "mp", 2) == 0)
+	{
+		if (root != NULL)
+			sprintf(path, "%s/run/mp/%s/clutter.zar", root, name);
+		else
+			sprintf(path, "/run/mp/%s/clutter.zar", name);
+	}
+	else if (strncmp(name, "m", 1) == 0)
+	{
+		if (root != NULL)
+			sprintf(path, "%s/run/sp/%s/clutter.zar", root, name);
+		else
+			sprintf(path, "/run/sp/%s/clutter.zar", name);
+	}
+	else
+	{
+		if (root != NULL)
+			sprintf(path, "%s/run/%s/clutter.zar", root, name);
+		else
+			sprintf(path, "/run/%s/clutter.zar", name);
+	}
+
+	zar::CZAR archive(NULL, NULL);
+
+	if (archive.Open(path, 0, 1, 16))
+	{
+		s32 version;
+
+		if (archive.Fetch("Clutter_ZAR_Version", &version, 4) && version == 4)
+		{
+			zar::CKey* clutterKey = archive.OpenKey("Clutter");
+
+			if (clutterKey != NULL)
+			{
+				for (zar::CKey::iterator it = clutterKey->begin(); it != clutterKey->end(); ++it)
+				{
+					zar::CKey* modelKey = archive.OpenKey(*it);
+
+					if (modelKey == NULL)
+						continue;
+
+					CNode* model = NULL;
+
+					if (strcmp(modelKey->GetName(), "NULL") != 0)
+						model = CWorld::GetModel(modelKey->GetName());
+
+					if (model != NULL)
+						model->SetApplyClutterFlag(true);
+
+					for (zar::CKey::iterator sub = modelKey->begin(); sub != modelKey->end(); ++sub)
+					{
+						CClutter* clutter = new CClutter(model);
+						archive.OpenKey(*sub);
+
+						if (clutter->Read(&archive))
+						{
+							if (!AddClutter(clutter))
+								delete clutter;
+						}
+						else
+						{
+							delete clutter;
+						}
+
+						archive.CloseKey(*sub);
+					}
+
+					archive.CloseKey(*it);
+				}
+
+				archive.CloseKey(clutterKey);
+			}
+		}
+
+		archive.Close();
+		m_ClutterCreated = true;
+	}
+
+	if (m_ClutterCreated && m_ClutterAnimManager == NULL)
+		m_ClutterAnimManager = new CClutterAnimManager();
 }

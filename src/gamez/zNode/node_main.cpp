@@ -1200,13 +1200,50 @@ void zdb::CNode::SetApplyDecals(bool apply)
 }
 
 /* @socom-skeleton stub SetApplyMultipassEffects__Q23zdb5CNodeFb */
-void zdb::CNode::SetApplyMultipassEffects(bool)
+void zdb::CNode::SetApplyMultipassEffects(bool apply)
 {
+	/* 0x225850 (CClutter::Read with false): m_apply_multipass on every visual of the subtree
+	   (the children's visuals in line, then their children by recursion), as SetApplyDecals */
+	for (CVisualVector::iterator it = m_visual.begin(); it != m_visual.end(); ++it)
+		(*it)->m_apply_multipass = apply;
+
+	for (CNodeVector::iterator it = m_child.begin(); it != m_child.end(); ++it)
+	{
+		CNode* child = *it;
+
+		for (CVisualVector::iterator vis = child->m_visual.begin(); vis != child->m_visual.end(); ++vis)
+			(*vis)->m_apply_multipass = apply;
+
+		for (CNodeVector::iterator sub = child->m_child.begin(); sub != child->m_child.end(); ++sub)
+			(*sub)->SetApplyMultipassEffects(apply);
+	}
 }
 
 /* @socom-skeleton stub SetApplyClutterFlag__Q23zdb5CNodeFb */
-void zdb::CNode::SetApplyClutterFlag(bool)
+void zdb::CNode::SetApplyClutterFlag(bool clutter)
 {
+	/* 0x225690 (CGrid::ReadClutter with true): m_clutter and m_dynamic_light on this node;
+	   m_clutter and SetDynamicLight(clutter, false) on its children and grandchildren, the
+	   grandchildren's children by recursion (where each is "this": its flag bits set directly) */
+	m_clutter = clutter;
+	m_dynamic_light = clutter;
+
+	for (CNodeVector::iterator it = m_child.begin(); it != m_child.end(); ++it)
+	{
+		CNode* child = *it;
+		child->m_clutter = clutter;
+		child->SetDynamicLight(clutter, false);
+
+		for (CNodeVector::iterator sub = child->m_child.begin(); sub != child->m_child.end(); ++sub)
+		{
+			CNode* grandchild = *sub;
+			grandchild->m_clutter = clutter;
+			grandchild->SetDynamicLight(clutter, false);
+
+			for (CNodeVector::iterator next = grandchild->m_child.begin(); next != grandchild->m_child.end(); ++next)
+				(*next)->SetApplyClutterFlag(clutter);
+		}
+	}
 }
 
 /* @socom-skeleton body ReserveDI__Q23zdb5CNodeFi */

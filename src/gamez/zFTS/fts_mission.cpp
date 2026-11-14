@@ -1171,11 +1171,8 @@ void CMission::ReOpen_Unload1()
 	m_chars_loaded = false;
 	ai::FlushPlannerQueue();
 
-	if (world->m_grid->m_ClutterAnimManager != NULL) /* port: guard - the port never makes the clutter manager */
-	{
-		world->m_grid->m_ClutterAnimManager->ClearEffectors();
-		world->m_grid->m_ClutterAnimManager->ClearAnimations(true);
-	}
+	world->m_grid->m_ClutterAnimManager->ClearEffectors(); /* the grid's manager (CGrid::ReadClutter) */
+	world->m_grid->m_ClutterAnimManager->ClearAnimations(true);
 
 	CZSealBody::Uninit_ReInitDatabaseHandles();
 	CZAnimSet* set = ZAnim.GetAnimSet("common");

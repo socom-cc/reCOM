@@ -67,7 +67,7 @@ public:
 
 	class CClutterAnimManager;
 
-	class CGrid : tag_GRID_PARAMS
+	class CGrid : public tag_GRID_PARAMS /* public: the clutter code reads m_CellDim */
 	{
 	public:
 		CGrid();
@@ -155,9 +155,9 @@ public:
 		void gridGetGridXandZIndex(int *, int *, float, float);
 		void Remove(zdb::CNode *);
 		void Destroy();
-		void AddClutter(zdb::CClutter *);
+		bool AddClutter(zdb::CClutter *); /* 0x214ed0 returns 0 (no cell or node) or 1 */
 		void DeleteClutter();
-		void ReadClutter(const char *, const char *);
+		void ReadClutter(const char *, const char *); /* 0x214940 returns 1 (unused) */
 		static zdb::CNode* m_BBoxHitNodes[8]; /* 32 bytes: NodeGetIntersect stores node pointers (was uchar[32]) */
 		static int m_BBoxIntersectNodeCnt;
 		static unsigned char m_doAltitude;
@@ -169,25 +169,57 @@ public:
 
 /* @socom-skeleton decl Q23zdb12CClutterAnim */
 namespace zdb {
+/* the bend of one animated clutter (36 bytes, new 36 in ClutterTick; not in DWARF, names
+   invented) */
 class CClutterAnim
 {
 public:
+	CClutter* m_clutter; /* +0x00 */
+	CNode* m_node;       /* +0x04 drawn instead of the clutter's node when set; ClutterTick stores
+	                        NULL (after a dynamic_cast<CModel*> of the node it discards) */
+	CPnt3D m_dir;        /* +0x08 bend direction (x/z unit) */
+	f32 m_force;         /* +0x14 bend amount, decays 0.5 per second without an effector */
+	f32 m_time;          /* +0x18 5.01 at every push, counts down (l_Tick) */
+	f32 m_wobbleTime;    /* +0x1c 0 - 0.5 s */
+	f32 m_wobble;        /* +0x20 negated every 0.5 s; stored 0 at every push */
+
 	~CClutterAnim();
-	void TickForce(CPnt3D *, CPnt3D *, float, float);
+	CNode * TickForce(CPnt3D *, CPnt3D *, float, float); /* 0x218600 returns m_node */
 };
 }
 /* @socom-skeleton end Q23zdb12CClutterAnim */
+
+namespace zdb {
+/* something that bends clutter (a seal; 40 bytes, new 40 in RegisterEffector; not in DWARF,
+   names invented) */
+struct tag_CLUTTER_EFFECTOR
+{
+	const void* m_owner;      /* +0x00 */
+	const CPnt3D* m_pos;      /* +0x04 */
+	const CPnt3D* m_vel;      /* +0x08 NULL: m_velocity is estimated from m_pos (l_Tick) */
+	CPnt3D m_lastPos;         /* +0x0c */
+	CPnt3D m_velocity;        /* +0x18 */
+	f32 m_radius;             /* +0x24 */
+};
+}
+
 /* @socom-skeleton decl Q23zdb19CClutterAnimManager */
 namespace zdb {
+/* DWARF zdb::CClutterAnimManager (112 bytes); the ELF lists hold const void* */
 class CClutterAnimManager
 {
 public:
+	bool m_CellAnimate;                                 /* +0x00 an effector is near the cell (TestCellMid) */
+	CMatrix m_matrix;                                   /* +0x10 CClutter::GetMatrix result of an animated clutter */
+	std::list<CClutterAnim*> m_ClutterAnims;            /* +0x50 */
+	std::list<tag_CLUTTER_EFFECTOR*> m_ClutterEffectors; /* +0x5c */
+
 	CClutterAnimManager();
 	~CClutterAnimManager();
 	void ClearAnimations(bool);
 	void ClearEffectors();
 	void TestCellMid(CPnt3D *, CPnt3D *);
-	void ClutterTick(zdb::CClutter *);
+	CNode * ClutterTick(zdb::CClutter *); /* 0x217ba0 returns the node to draw */
 	void l_Tick(float, void *);
 	static bool Tick(float, void *);
 	void RegisterEffector(const void *, const CPnt3D *, float, const CPnt3D *);
