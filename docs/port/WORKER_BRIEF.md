@@ -14,6 +14,8 @@ You write game code in `src/` for the GCC/ps2sdk port so one system works in the
 - Keep each file's existing line endings (`port/tools/dev/fixnl.py`).
 
 ## What you must not do
+- Never launch sub-agents, helpers or workflows. You do the work yourself, sequentially. If the
+  task is too large for one session, stop at a clean point and report what is left.
 - No git commits, stashes, checkouts or resets. No tracker (`progress ...`) mutations. No Ghidra
   writes (read-only Ghidra use is fine but the ELF tools below are usually faster).
 - Never record user-local paths (emulator, disc image, BIOS) in tracked files.

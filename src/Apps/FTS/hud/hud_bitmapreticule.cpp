@@ -1074,7 +1074,9 @@ void BitmapReticule::SetGBarVal(float val)
 	 * gauge around its centre (w, h = the reticule texture's size): the reticule's left half;
 	 * two bar polys of the full-bar texture filling with the power (the first half of val on
 	 * one side, the second half on the other), the two back polys, the bar colour; the left
-	 * and right strips of the full bar / reticule textures cut at val; all at alpha 128. A
+	 * and right strips of the full bar / reticule textures cut at val; all at alpha 128. The
+	 * three C2DBitmaps (the left half and the two strips) are loaded but switched OFF: only the
+	 * four rotated polys are drawn (ChangeReticule also leaves them off for type 4). A
 	 * missing texture the first time sets m_error. ELF quirks kept: x extents use the height
 	 * and y extents the width (the textures are square); m_error is never read here and the
 	 * textures are used without a NULL test. */
@@ -1104,7 +1106,7 @@ void BitmapReticule::SetGBarVal(float val)
 	f32 hh = 0.5f * h;
 	m_bitmap.Load(m_posx - hh, m_posy - hw, m_posx, m_posy + hw, tex);
 	m_bitmap.SetUV(0.0f, 0.0f, 0.5f, 1.0f);
-	m_bitmap.On();
+	m_bitmap.Off(); /* 0x3cd5a8: vtable slot +24 = C2D::Off (0x300c50); the bitmap is set up but not shown */
 
 	f32 second = val - 0.5f;
 
@@ -1135,8 +1137,8 @@ void BitmapReticule::SetGBarVal(float val)
 	m_grenadeback[1].SetUV(1.0f, 0.02f, 0.02f, 0.02f, 0.02f, 0.95f, 1.0f, 0.95f);
 
 	UpdateGBarColor(val);
-	m_grenadebitmap.On();
-	m_grenadebitmap2.On();
+	m_grenadebitmap.Off();  /* 0x3cd7e4, 0x3cd7f4: slot +24 = C2D::Off on both strips */
+	m_grenadebitmap2.Off();
 
 	m_grenadebitmap.Load(m_posx, m_posy + hw - val * w, m_posx + hh, m_posy + hw, m_grenadebartex_full);
 	m_grenadebitmap.SetUV(0.5f, 0.97f - val, 1.0f, 1.0f);
