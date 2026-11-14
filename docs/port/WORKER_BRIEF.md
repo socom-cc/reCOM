@@ -36,6 +36,11 @@ You write game code in `src/` for the GCC/ps2sdk port so one system works in the
 - Build on the Linux side with the pinned toolchain, from an isolated tree
   (`tree.sh`: HEAD plus the files in your `mine.txt`, so other workers' uncommitted work stays
   out). From PowerShell, run Linux-side scripts through `port/tools/dev/wsl.ps1`.
+- Never pipe `wsl.ps1 ... tree.sh`, `default.sh` or a build script into
+  `Select-Object -First n`: PowerShell ends the pipeline after n lines and kills the script
+  midway, leaving a tree without your files (a build that tests nothing of yours). Use
+  `Select-Object -Last n` or redirect to a file. `tree.sh` ends with a check that your files are
+  in the tree and fails loudly when they are not: read its last lines.
 - `mine.txt`: repo-relative list of every tracked file you changed; keep it current.
 - Earlier work is described per feature in `docs/port/notes/`; read the notes for the systems
   you touch before you start.
