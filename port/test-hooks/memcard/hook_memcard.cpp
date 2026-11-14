@@ -32,6 +32,7 @@
 
 void socom_port_trace(const char *fmt, ...);
 extern "C" int __real_scePadRead(int port, int slot, unsigned char *rdata);
+extern "C" int socom_port_memcard;
 
 namespace
 {
@@ -65,6 +66,7 @@ void RunTest()
 {
 	theMemCard.m_card_port = 0;
 	theMemCard.m_card_slot = 0;
+	socom_port_memcard = 1; /* the card layer is off in every build unless a test turns it on (port/compat/libmc.c) */
 	theMemCard.Init();
 	{
 		int type = -1, free = -1, format = -1, cmd = 0, result = 0;

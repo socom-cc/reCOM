@@ -26,6 +26,17 @@ public static class PcsxWin {
   [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags);
   [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr hdc, uint flags);
   [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, IntPtr pid);
+  [DllImport("user32.dll", EntryPoint = "GetWindowThreadProcessId")] static extern uint GetWindowPid(IntPtr h, out uint pid);
+  public static uint OwnerPid(IntPtr h) { uint pid = 0; if (h != IntPtr.Zero) GetWindowPid(h, out pid); return pid; }
+  delegate bool EnumProc(IntPtr h, IntPtr l);
+  [DllImport("user32.dll")] static extern bool EnumWindows(EnumProc p, IntPtr l);
+  [DllImport("user32.dll")] static extern bool PostMessage(IntPtr h, uint msg, IntPtr w, IntPtr l);
+  // Close this process's windows with the given title (WM_CLOSE); returns how many.
+  public static int CloseTitled(uint pid, string title) {
+    int n = 0;
+    EnumWindows((h, l) => { if (OwnerPid(h) == pid && Title(h) == title) { PostMessage(h, 0x0010, IntPtr.Zero, IntPtr.Zero); n++; } return true; }, IntPtr.Zero);
+    return n;
+  }
   [DllImport("user32.dll")] public static extern bool AttachThreadInput(uint a, uint b, bool attach);
   [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
   [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int cmd);
@@ -81,11 +92,22 @@ if ($h -ne [IntPtr]::Zero) {
     $wasMin = [PcsxWin]::IsIconic($h)
     [PcsxWin]::ShowWindow($h, 4) | Out-Null
     [PcsxWin]::SetWindowPos($h, [IntPtr]::Zero, $area.X + 20, $area.Y + 20, 0, 0, $SWP_NOSIZE -bor $SWP_NOZORDER -bor $SWP_NOACTIVATE) | Out-Null
-    Start-Sleep -Milliseconds 500
-    if ([PcsxWin]::GetForegroundWindow() -ne $prev) { [PcsxWin]::GiveBack($prev) }
+    # PCSX2 sometimes activates itself later than its first window (when the game window opens),
+    # so watch for 8 s: whenever the foreground window belongs to this PCSX2, hand focus back.
+    # A window the user switched to themselves is left alone.
+    # When another PCSX2 is already running (several test runs at once) this one cannot open the
+    # memory-card file and shows a "Memory Card Read Failed" dialog on the desktop: close it.
+    $start = Get-Date
+    $closed = 0
+    for ($i = 0; $i -lt 80; $i++) {
+        Start-Sleep -Milliseconds 100
+        $closed += [PcsxWin]::CloseTitled([uint32]$p.Id, 'Memory Card Read Failed')
+        if ([PcsxWin]::OwnerPid([PcsxWin]::GetForegroundWindow()) -eq $p.Id) { [PcsxWin]::GiveBack($prev) }
+    }
+    if ($closed) { "closed $closed memory-card dialog(s) of this run (another emulator holds the card file)" }
     $r = New-Object PRECT; [PcsxWin]::GetWindowRect($h, [ref]$r) | Out-Null
     $fg = [PcsxWin]::GetForegroundWindow()
-    "window at ($($r.Left),$($r.Top)); started minimized: $wasMin; focus kept: $($fg -eq $prev) (before '$([PcsxWin]::Title($prev))', now '$([PcsxWin]::Title($fg))')"
+    "window at ($($r.Left),$($r.Top)); started minimized: $wasMin; focus kept: $([PcsxWin]::OwnerPid($fg) -ne $p.Id) (before '$([PcsxWin]::Title($prev))', now '$([PcsxWin]::Title($fg))')"
 } else { "no window handle" }
 
 function Save-Shot([IntPtr]$hwnd, [string]$file) {
@@ -110,7 +132,7 @@ function Save-Shot([IntPtr]$hwnd, [string]$file) {
 
 if ($ShotPrefix -eq "") { $ShotPrefix = [System.IO.Path]::ChangeExtension($Log, $null).TrimEnd('.') }
 $times = if ($Shots -ne "") { $Shots.Split(",") | ForEach-Object { [int]$_ } } else { @($Seconds) }
-$start = Get-Date
+if (-not $start) { $start = Get-Date }
 foreach ($t in $times) {
     $wait = $t - ((Get-Date) - $start).TotalSeconds
     if ($wait -gt 0) { Start-Sleep -Milliseconds ([int]($wait * 1000)) }

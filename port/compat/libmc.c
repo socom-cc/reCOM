@@ -21,12 +21,24 @@ void socom_port_trace(const char *fmt, ...);
 
 static int mc_type = -1;
 
+/* Off by default: the game then gets "no card" from every call below, as it did before this
+ * layer existed. In the emulator the card is the user's own memory-card file; this layer does
+ * not read it correctly yet (status note above); and only one emulator can open the file at a
+ * time, so with several test runs going the first would see a card and the others none, and
+ * their menus would differ. The memory-card test hook (port/test-hooks/memcard) sets this to 1
+ * before the game's card Init; nothing in a normal build does. */
+int socom_port_memcard = 0;
+
 int sceMcInit(void)
 {
     int r;
 
     if (mc_type >= 0)
         return 0;
+    if (!socom_port_memcard) {
+        socom_port_trace("MC: sceMcInit: card layer off (socom_port_memcard = 0): no card");
+        return -1;
+    }
     r = mcInit(MC_TYPE_XMC);
     if (r >= 0) {
         mc_type = MC_TYPE_XMC;
