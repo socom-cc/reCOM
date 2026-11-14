@@ -187,7 +187,7 @@ public:
 	std::vector<MultiplayerMsg*> MultiplayerMessages; /* DWARF CMultiplayerMsgVec */
 	/* @socom-skeleton decl 14CCharacterType */
 public:
-	void KorusGetPackedWeapons(CCharacterWeapPacked *);
+	static void KorusGetPackedWeapons(CCharacterWeapPacked *); /* static: 0x24aea0 a0 is the output (m_char_list) */
 	void UnPack(const CCharacterWeapPacked *, CCharacterType *);
 	~CCharacterType();
 	bool Parse(_zrdr *); /* bool: 0x2489c0 returns 1 */

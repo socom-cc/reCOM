@@ -7,27 +7,85 @@
  * @socom-artifact defines main socom:function:0x201fd0
  * socom-owner-annotations end socom:work:source-segment-024 */
 
+/* port: includes and declarations the skeleton lacks */
+#include "gamez/zAnim/zanim.h" /* ZAnim */
+#include "gamez/zFTS/zfts.h" /* the net state classes */
+#include "gamez/zNetwork/znet.h" /* theNetwork */
+void zRemoteClientConnectsCallback(int, int, const char *); /* fts_remote.cpp (0x2042d0) */
+void zRemoteClientDisconnectsCallback(int, int, const char *); /* fts_remote.cpp (0x204260) */
+void zRemoteClientJoinsCallback(int, int); /* fts_remote.cpp (0x2041c0) */
+void zRemoteClientLeavesCallback(int, int); /* fts_remote.cpp (0x204140) */
+void SendZAnimNetworkPacket(void *, int); /* fts_remote.cpp (0x203650) */
+
 /* @socom-skeleton stub DMEinit__Fv */
 void DMEinit()
 {
+	/* 0x201fd0: initialise the network once */
+	if (!theNetwork.m_network_init)
+		theNetwork.zNetInitEx();
 }
 
 /* @socom-skeleton stub DMERegister__Fv */
-void DMERegister()
+bool DMERegister()
 {
+	/* 0x201920: register the net object types and the application packets (once, while not
+	   connected); 1 in v0 either way (was void) */
+	if (theNetwork.m_bConnected)
+		return true;
+
+	CZSealState::zNetRegisterSeal();
+	CZPersonaState::zNetRegisterPersona();
+	CZGrenadeState::zNetRegisterGrenade();
+	CZGameState::zNetRegisterGame();
+	CZBombState::zNetRegisterBomb();
+
+	/* port: not written (DME SDK): each packet is NetRegisterMessageStart, one NetMessageField
+	   per field of a stack template, then NetRegisterApplicationMessage(&PacketTypeX, handler):
+	   Hit (6 x 1 byte) HitPacketHandler; ZAnim (4, 2, 2) ZAnimNetworkPacketHandler;
+	   PushBlendAnim (1, 2, 1, 1) PushBlendAnimPacketHandler; ActionAnim (4, 2, 2)
+	   ActionAnimPacketHandler; AiOrders AiOrdersPacketHandler; E3Index (4, 1)
+	   E3IndexPacketHandler; Ready (4) ReadyPacketHandler; Message MessagePacketHandler;
+	   ChatText (1, 1 x 32) ChatPacketHandler; WepPU (2, 2, 4, 4, 4, 4) WeaponPUPacketHandler;
+	   AmmoPU (1, 16 x 8, 16 x 8, 2, 4, 4, 4) AmmoPUPacketHandler; PUMayI (1, 2, 16 x 8, 1)
+	   PickupMayIPacketHandler; PUAck (1, 2, 1, 1) PickupAckPacketHandler; Voter (1, 1)
+	   VoterPacketHandler; TeamSwitch (4) TeamSwitchPacketHandler; NewBombState (4, 4, 4, 1, 1)
+	   BombStatePacketHandler; GameSignal (1, 1, 1, 1, 4, 1 x 5) GameSignalPacketHandler. */
+
+	/* stored between the Hit and ZAnim registrations (0x201a34) */
+	ZAnim.m_network_activation_callback = SendZAnimNetworkPacket;
+
+	return true;
 }
 
 /* @socom-skeleton stub DMEConnectToGameServer__Fv */
-void DMEConnectToGameServer()
+bool DMEConnectToGameServer()
 {
+	/* 0x2018e0: connect to the game server as a client; whether it worked (was void) */
+	theNetwork.m_bSessionMaster = false;
+	return theNetwork.zNetConnect(zRemoteClientConnectsCallback, zRemoteClientDisconnectsCallback) == 0;
 }
 
 /* @socom-skeleton stub DMEJoinGameServer__Fv */
-void DMEJoinGameServer()
+bool DMEJoinGameServer()
 {
+	/* 0x201830: join the game (once) and learn whether this client is the session master;
+	   false when the join fails (was void) */
+	if (theNetwork.m_bJoined)
+		return true;
+
+	if (theNetwork.zNetJoin(zRemoteClientJoinsCallback, zRemoteClientLeavesCallback) != 0)
+		return false;
+
+	theNetwork.m_bSessionMaster = theNetwork.zNetGetGameSessionMasterClientIndex() == theNetwork.zNetGetMyGameClientIndex();
+	theNetwork.m_sessionmaster_index = theNetwork.zNetGetGameSessionMasterClientIndex();
+	return true;
 }
 
 /* @socom-skeleton stub DMEDisconnectFromGameServer__Fv */
 void DMEDisconnectFromGameServer()
 {
+	/* 0x201800: leave and disconnect while connected (auxUnload calls it in single player too:
+	   offline m_bConnected is clear, so nothing happens) */
+	if (theNetwork.m_bConnected)
+		theNetwork.zNetLeaveAndDisconnect();
 }

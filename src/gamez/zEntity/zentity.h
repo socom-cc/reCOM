@@ -258,7 +258,7 @@ public:
 	u32 m_unused : 30;
 	/* @socom-skeleton decl 10CftsPlayer */
 public:
-	void IsInside();
+	bool IsInside(); /* 0x1fdf90: 0/1 in v0 */
 	static _zanim_cmd_hdr * CmdParseIndoorsTest(_zrdr *);
 	static bool CmdTickIndoorsTest(_zanim_cmd_hdr *, float *);
 	static _zanim_cmd_hdr * CmdParseControls(_zrdr *);

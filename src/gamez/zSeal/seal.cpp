@@ -981,8 +981,11 @@ void CZSealBody::OnMissionStart()
 void CZSealBody::OnMissionEnd() {}
 
 /* @socom-skeleton stub OnRecycleEntity__10CZSealBodyFP7CEntity */
-void CZSealBody::OnRecycleEntity(CEntity *)
+void CZSealBody::OnRecycleEntity(CEntity *entity)
 {
+	/* 0x257720: tail call to the controller's (CEntityCtrl slot 0x48; port: CEntityCtrl does
+	 * not declare it, the seal's controller is a CSealCtrl) */
+	static_cast<CSealCtrl *>(m_control)->OnRecycleEntity(entity);
 }
 
 /* @socom-skeleton stub GetRootPart__10CZSealBodyCFv */

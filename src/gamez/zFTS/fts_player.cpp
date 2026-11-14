@@ -106,7 +106,7 @@ public:
 static unsigned char MultiplayerMsgStrings[28];
 
 /* @socom-skeleton stub spawners */
-CSpawners spawners; /* 0x4c5610 (32 B in the ELF; CSpawners has no members yet; was int[8]) */
+CSpawners spawners; /* 0x4c5610 (32 B in the ELF) */
 
 /* @socom-skeleton body ftsSetSquirm__Fb */
 void ftsSetSquirm(bool squirm)
@@ -163,8 +163,12 @@ CZSealBody* ftsCreateSeal(const CCharacterType *type, const char *name, SEAL_CON
 }
 
 /* @socom-skeleton stub IsInside__10CftsPlayerFv */
-void CftsPlayer::IsInside()
+bool CftsPlayer::IsInside()
 {
+	/* 0x1fdf90 (CSnd::PostTick): the player's body is inside (m_inside). ELF: `this` is the
+	 * 8-byte ftsPlayer object, its first word the body. port: ftsPlayer is the body itself,
+	 * so the global is read (CSnd::PostTick inlines the same test) */
+	return ftsPlayer != NULL && ftsPlayer->m_inside != 0;
 }
 
 /* @socom-skeleton stub RegisterAnimCommands__10CftsPlayerFv */
@@ -177,8 +181,16 @@ void CftsPlayer::RegisterAnimCommands()
 }
 
 /* @socom-skeleton stub CmdParseIndoorsTest__10CftsPlayerFP5_zrdr */
-_zanim_cmd_hdr * CftsPlayer::CmdParseIndoorsTest(_zrdr *)
+_zanim_cmd_hdr * CftsPlayer::CmdParseIndoorsTest(_zrdr *reader)
 {
+	/* 0x1fde80: PLAYER_INDOORS, a bare 4-byte timeless header */
+	if (reader == NULL)
+		return NULL;
+
+	_zanim_cmd_hdr* cmd = (_zanim_cmd_hdr*)_calloc(1, 4, "fts_player.cpp", 140);
+	cmd->data_size = 4;
+	cmd->timeless = 1;
+	return cmd;
 }
 
 /* @socom-skeleton stub CmdTickIndoorsTest__10CftsPlayerFP14_zanim_cmd_hdrPf */
@@ -192,8 +204,23 @@ bool CftsPlayer::CmdTickIndoorsTest(_zanim_cmd_hdr *, float *)
 }
 
 /* @socom-skeleton stub CmdParseControls__10CftsPlayerFP5_zrdr */
-_zanim_cmd_hdr * CftsPlayer::CmdParseControls(_zrdr *)
+_zanim_cmd_hdr * CftsPlayer::CmdParseControls(_zrdr *reader)
 {
+	/* 0x1fdd80: PLAYER_CONTROLS ON (bit 1 of +0x4) or anything else = off (bit 0, which
+	 * CmdTickControls reads); 8 bytes, timeless */
+	if (reader == NULL)
+		return NULL;
+
+	u8* cmd = (u8*)_calloc(1, 8, "fts_player.cpp", 170);
+	((_zanim_cmd_hdr*)cmd)->data_size = 8;
+	((_zanim_cmd_hdr*)cmd)->timeless = 1;
+
+	if (zrdr_findtag(reader, "ON") != NULL)
+		cmd[4] = (cmd[4] & ~2) | 2;
+	else
+		cmd[4] = (cmd[4] & ~1) | 1;
+
+	return (_zanim_cmd_hdr*)cmd;
 }
 
 /* @socom-skeleton stub CmdTickControls__10CftsPlayerFP14_zanim_cmd_hdrPf */
@@ -214,8 +241,25 @@ bool CftsPlayer::CmdTickControls(_zanim_cmd_hdr *header, float *)
 }
 
 /* @socom-skeleton stub CmdParseIsPlayerNode__10CftsPlayerFP5_zrdr */
-_zanim_cmd_hdr * CftsPlayer::CmdParseIsPlayerNode(_zrdr *)
+_zanim_cmd_hdr * CftsPlayer::CmdParseIsPlayerNode(_zrdr *reader)
 {
+	/* 0x1fdc20: IS_PLAYER_NODE <node> [SEARCH_CHILDREN]: the node reference (+0x4, the
+	 * current anim's node names in its search scope) and the descendant bit (+0x5 bit 0);
+	 * 8 bytes, timeless */
+	CZAnim* anim = ZAnim.m_CurAnim;
+
+	if (reader == NULL)
+		return NULL;
+
+	u8* cmd = (u8*)_calloc(1, 8, "fts_player.cpp", 213);
+	((_zanim_cmd_hdr*)cmd)->data_size = 8;
+	((_zanim_cmd_hdr*)cmd)->timeless = 1;
+	cmd[4] = (u8)anim->LoadNodeNames(reader, NULL, 0, anim->node_search_scope);
+
+	if (zrdr_findtag(reader, "SEARCH_CHILDREN") != NULL)
+		cmd[5] = (cmd[5] & ~1) | 1;
+
+	return (_zanim_cmd_hdr*)cmd;
 }
 
 /* @socom-skeleton stub CmdTickIsPlayerNode__10CftsPlayerFP14_zanim_cmd_hdrPf */
@@ -325,8 +369,11 @@ bool CMission::LoadVehicles(unsigned int)
 
 		if (entry->m_recycle)
 		{
-			/* port: not written - the ELF adds { CEntity::CreateRecycler()->m_index,
-			 * entry } to the CSpawners list (spawners 0x4c5610, not declared) */
+			/* 0x1fd620: a spawner - its slot now, its character when a recycled one frees it */
+			CSpawners::spawn_map spawn;
+			spawn.m_index = CEntity::CreateRecycler()->m_index;
+			spawn.m_entry = &*entry;
+			spawners.m_spawn.insert(spawners.m_spawn.end(), spawn);
 			continue;
 		}
 
@@ -563,8 +610,25 @@ void CMission::RefreshTeamValves()
 		}
 	}
 
-	/* port: not written - the spawners' entities (CSpawners' spawn_map list at 0x4c561c,
-	 * +0xc of each entry) add their team bits the same way; CSpawners has no list modelled */
+	/* 0x1fcff0: each waiting recycle entry adds its team bits the same way */
+	for (std::list<CSpawners::spawn_map>::iterator it = spawners.m_spawn.begin(); it != spawners.m_spawn.end(); ++it)
+	{
+		u32 teams = (u32)it->m_entry->m_teamMask;
+
+		for (s32 bit = 0; bit < 32; bit++)
+		{
+			if (!((1 << bit) & teams))
+				continue;
+
+			CValve* valve = m_teamValve[bit];
+			u32 count = valve->m_value + 1;
+			u32 change = valve->m_value != count ? (count != 0 ? 1 : 2) : 0;
+			valve->m_value = count;
+
+			if (change)
+				valve->MakeCallbacks((VALVE_STATE)change);
+		}
+	}
 }
 
 /* @socom-skeleton stub DecrementTeamValves__8CMissionFP7CEntity */
@@ -598,19 +662,64 @@ void CMission::DecrementTeamValves(CEntity *entity)
 }
 
 /* @socom-skeleton stub RecycleEntity__8CMissionFP7CEntity */
-void CMission::RecycleEntity(CEntity *)
+void CMission::RecycleEntity(CEntity *entity)
 {
+	/* 0x1fcc60 (CSealCtrlAi::PostMortemPreTick): while recycle entries wait, a dead AI's
+	 * slot is recycled (CEntity::RecycleEntity) and one more spawn is due, 2 s from now */
+	if (spawners.m_spawn.empty())
+		return;
+
+	spawners.m_timer = 2.0f;
+	spawners.m_pending++;
+	CEntity::RecycleEntity(entity);
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("SPAWN: %s recycled (%d due, %u waiting)", entity->m_node != NULL ? entity->m_node->m_name : "-",
+		spawners.m_pending, (u32)spawners.m_spawn.size());
+#endif
 }
 
 /* @socom-skeleton stub Tick__9CSpawnersFf */
-void CSpawners::Tick(float)
+void CSpawners::Tick(float dT)
 {
+	/* 0x1fcb40 (CMission::Tick): for each recycled entity, 2 s later the first waiting
+	 * recycle entry is made (in its own m_list slot: OpenRecycler / RecycleEntity), joins its
+	 * unit and starts its mission; then it leaves the list. ELF quirk kept: the timer keeps
+	 * counting down only while a spawn is due, and an empty list still uses up the spawn. */
+	if (m_pending <= 0)
+		return;
+
+	m_timer -= dT;
+
+	if (!(m_timer <= 0.0f))
+		return;
+
+	if (!m_spawn.empty())
+	{
+		spawn_map& spawn = m_spawn.front();
+		CEntity::OpenRecycler(spawn.m_index);
+		CZSealBody* body = theMission.LoadVehicle(spawn.m_entry, false);
+
+		if (body != NULL)
+		{
+			CEntity::RecycleEntity(spawn.m_index, body, true);
+			CSealUnit::InitalizeSealUnit(body->m_type == CEntity::ENT_TYPE_SEAL ? body : NULL);
+			body->OnMissionStart();
+#ifdef SOCOM_PORT
+			SOCOM_PORT_TRACE("SPAWN: %s in slot %u", body->m_node != NULL ? body->m_node->m_name : "-", spawn.m_index);
+#endif
+		}
+
+		m_spawn.erase(m_spawn.begin());
+		m_timer = 2.0f;
+		CEntity::CloseRecycler();
+	}
+
+	m_pending--;
 }
 
 /* @socom-skeleton stub Clear__9CSpawnersFv */
 void CSpawners::Clear()
 {
-	/* 0x1fcb00 (CMission::Close, ReOpen_Unload1): erases the whole spawn_map list (+0xc).
-	 * port: not written - CSpawners has no members modelled and nothing in the port adds a
-	 * spawn entry (Tick and the spawn adders are unwritten), so the list is always empty */
+	/* 0x1fcb00 (CMission::Close, ReOpen_Unload1): erases the whole spawn_map list (+0xc) */
+	m_spawn.clear();
 }

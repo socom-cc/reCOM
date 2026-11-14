@@ -66,6 +66,139 @@
 union AckUnion; /* port: AckUnion is defined in gamez/zSeal/zseal.h */
 enum R_SEND_TO { }; /* port: unproven: passed by value per the mangled name; kind and enumerators not in DWARF */
 /* @socom-skeleton end forward */
+/* port: includes and declarations the skeleton lacks */
+#include <stdio.h>
+#include <string.h>
+#include "gamez/zAnim/zanim.h" /* ZAnim, CAnimAuxData */
+#include "gamez/zNode/node_action.h" /* CNodeAction */
+#include "gamez/zReader/zrdr_local.h" /* CRdrEditor */
+#include "gamez/zUI/zui.h" /* theUIVarManager, CUIVariable */
+#include "gamez/zValve/zvalve.h"
+char* GetDatabase(); /* zanim_menu.cpp (0x1d6770) */
+char* SetDatabase(const char*); /* zanim_menu.cpp */
+extern unsigned char gAllowGhosts; /* st_load.cpp (0x47547c) */
+bool DMEJoinGameServer(); /* fts_network_dme.cpp (0x201830); inlined in zRemoteDelayedAction */
+
+/* port: the application packet types (global, 0x47598c-0x4759cc, .sbss, zero): DMERegister hands
+ * each to the DME SDK's NetRegisterApplicationMessage, which assigns it. No owner annotation;
+ * defined here (their only readers; fts_remote.cpp's @2327 follows at 0x4759d0) - owner unproven. */
+int PacketTypeHit;
+int PacketTypeActionAnim;
+int PacketTypePushBlendAnim;
+int PacketTypeZAnim;
+int PacketTypeAiOrders;
+int PacketTypeE3Index;
+int PacketTypeMessage;
+int PacketTypeChatText;
+int PacketTypeWepPU;
+int PacketTypeAmmoPU;
+int PacketTypePUMayI;
+int PacketTypePUAck;
+int PacketTypeVoter;
+int PacketTypeTeamSwitch;
+int PacketTypeReady;
+int PacketTypeNewBombState;
+int PacketTypeGameSignal;
+
+/* port: packet layouts (no DWARF): offsets and sizes from the senders and handlers below; names
+ * are the port's. All are sent with zNetSendApplicationMessage(64, connection, client (-1 = all),
+ * type, size, data, reliable). */
+struct GameSignalPacket /* 16 */
+{
+	u8 signal;      /* +0x0: 12 clock, 13 new database, 14 ghosts ok, < 2 not late, else late join */
+	u8 team;        /* +0x1: 0 SEAL, else terrorist */
+	u8 e3_index;    /* +0x2 */
+	u8 game_type;   /* +0x3: CZNetGame::m_game_type */
+	s32 value;      /* +0x4: the game clock (SyncGameClock) */
+	char database[8]; /* +0x8: strcpy of GetDatabase() (ELF: unbounded) */
+};
+struct BombStatePacket /* 16 */
+{
+	PNT3D pos;      /* +0x0 */
+	u8 index;       /* +0xc */
+	u8 state;       /* +0xd */
+};
+struct VoterPacket /* 2 */
+{
+	u8 index;       /* +0x0: the voter's object index */
+	u8 vote;        /* +0x1 */
+};
+struct PickupAckPacket /* 6 */
+{
+	u8 host;        /* +0x0 */
+	u16 pickup;     /* +0x2 */
+	u8 seal;        /* +0x4: entity id of the seal */
+	AckUnion ack;   /* +0x5: one byte */
+};
+struct PickupMayIPacket /* 22 */
+{
+	u8 host;        /* +0x0: (a0 & 0xf) */
+	u16 pickup;     /* +0x2 */
+	u16 items[8];   /* +0x4 */
+	u8 type;        /* +0x14 */
+};
+struct AmmoPUPacket /* 48 */
+{
+	u8 host;        /* +0x0: (a0 & 0xf) */
+	u16 ammo[8];    /* +0x2 */
+	u16 rounds[8];  /* +0x12 */
+	u16 pickup;     /* +0x22 */
+	PNT3D pos;      /* +0x24 */
+};
+struct WeaponPUPacket /* 20 */
+{
+	u16 weapon;     /* +0x0 */
+	u16 pickup;     /* +0x2 */
+	PNT3D pos;      /* +0x4 */
+	u32 rot;        /* +0x10: Euler x, y, z as 10 bits each (bits 20, 10, 0), 0..1023 over -pi..pi */
+};
+struct ChatPacket /* 33 */
+{
+	u8 index;       /* +0x0: the sender's persona object index */
+	char text[32];  /* +0x1 */
+};
+struct MessagePacket /* 6 */
+{
+	u8 index;       /* +0x0: the sender's seal object index */
+	s16 to;         /* +0x2: R_SEND_TO (-1 all, -2 terrorists, -3 SEALs, else an entity id) */
+	s16 message;    /* +0x4 */
+};
+struct E3IndexPacket /* 8 */
+{
+	u32 team;       /* +0x0 */
+	u8 index;       /* +0x4 */
+};
+struct ActionAnimPacket /* 8 */
+{
+	s32 index;      /* +0x0: seal object index */
+	u16 action;     /* +0x4: CNodeAction id */
+	u16 arg;        /* +0x6 */
+};
+struct AiOrdersPacket /* 5 */
+{
+	u8 commander;   /* +0x0 */
+	u8 target;      /* +0x1 */
+	u8 command;     /* +0x2: FT_COMMAND */
+	s8 x;           /* +0x3: command 4 only: the point's x and z */
+	s8 z;           /* +0x4 */
+};
+struct PushBlendPacket /* 6 */
+{
+	u8 index;       /* +0x0 */
+	s16 anim;       /* +0x2: AnimType */
+	u8 arg;         /* +0x4 */
+	u8 flag;        /* +0x5 */
+};
+struct HitPacket /* 6 */
+{
+	u8 attacker;    /* +0x0 (names guessed: +1 is the one RemoteWeaponDamageVictim runs on) */
+	u8 victim;      /* +0x1 */
+	u8 weapon;      /* +0x2 */
+	u8 damage;      /* +0x3: 0..255 */
+	u8 force;       /* +0x4: 20 per unit, 0..255 */
+	u8 location : 4; /* +0x5 bits 0-3: DAMAGE_LOCATION 0..15 */
+	u8 flag : 1;     /* +0x5 bit 4 */
+};
 
 /* @socom-skeleton stub MultiplayerMsgStrings */
 static unsigned char MultiplayerMsgStrings[28];
@@ -89,206 +222,1000 @@ unsigned char CZNetObject::m_GrenadePosBroadcastSchedule[24];
 unsigned char CZNetObject::m_GrenadeVelBroadcastSchedule[24];
 
 /* @socom-skeleton stub zRemoteClientConnectsCallback__FiiPCc */
-void zRemoteClientConnectsCallback(int, int, const char *)
+void zRemoteClientConnectsCallback(int connection, int client, const char *)
 {
+	/* 0x2042d0 (zNetConnect callback): the lobby connection only raises ON_CLIENT_CONNECT;
+	   for another client the session master picks its team and slot, sends it the game
+	   signal and, once the game is loading or later, marks it a late joiner */
+	if (connection == theLobby.MediusConnectionIndex())
+	{
+		if (theLobby.m_event_handler != NULL)
+			theLobby.m_event_handler("ON_CLIENT_CONNECT", NULL);
+		return;
+	}
+
+	theNetwork.zNetGetClient(connection, client); /* ELF: result unused */
+
+	if (client == theNetwork.zNetGetMyGameClientIndex())
+		return;
+
+	CZNetGame *netGame = theMission.m_pNetGame;
+
+	if (netGame == NULL || !theNetwork.m_bSessionMaster)
+		return;
+
+	CZPersonaState::UpdateTeamNumsEx();
+
+	u8 terr;
+	u8 index;
+
+	if (CZPersonaState::m_NumTerr < CZPersonaState::m_NumSeal)
+	{
+		terr = 1;
+		index = (u8)CZPersonaState::FindNextTerrIndexEx();
+	}
+	else
+	{
+		terr = 0;
+		index = (u8)CZPersonaState::FindNextSealIndexEx();
+	}
+
+	u32 time;
+
+	if (netGame->m_clock.m_clock_running)
+		time = theMission.GetGameTime();
+	else
+		time = (u32)((f32)netGame->m_clock.m_max_game_time * 0.001f);
+
+	if (theNetwork.m_bSessionMaster) /* ELF: tested again */
+	{
+		GameSignalPacket packet = {0}; /* ELF: copied from the zero object @2666 */
+		packet.signal = netGame->m_my_major_game_state;
+		packet.team = terr;
+		packet.e3_index = index;
+		packet.value = time;
+		packet.game_type = (u8)theMission.m_pNetGame->m_game_type;
+		strcpy(packet.database, GetDatabase());
+		theNetwork.zNetSendApplicationMessage(64, theNetwork.m_GameConnectionIndex, client, PacketTypeGameSignal, 16, (unsigned char *)&packet, false);
+	}
+
+	if (netGame->m_mp_major_game_state >= 2)
+	{
+		/* port: the late-joiner entry is a 1-byte bit record without DWARF (built from the
+		   zero byte @2327): bits 0-2 the slot, bit 3 terrorist, bit 4 set */
+		CZPersonaState::m_LJArray[client] = (index & 7) | ((terr & 1) << 3) | 0x10;
+		CZGameState::UpdateLocalGame(netGame);
+	}
 }
 
 /* @socom-skeleton stub zRemoteClientDisconnectsCallback__FiiPCc */
-void zRemoteClientDisconnectsCallback(int, int, const char *)
+void zRemoteClientDisconnectsCallback(int connection, int client, const char *)
 {
+	/* 0x204260 (zNetConnect callback): forget a game client's late-joiner entry and, unless
+	   this client is a late joiner, republish the game */
+	if (connection == theLobby.MediusConnectionIndex())
+		return;
+
+	CZPersonaState::m_LJArray[client] = 0;
+
+	CZNetGame *netGame = theMission.m_pNetGame;
+
+	if (netGame != NULL && !netGame->m_late_joiner)
+		CZGameState::UpdateLocalGame(netGame);
 }
 
 /* @socom-skeleton stub zRemoteClientJoinsCallback__Fii */
-void zRemoteClientJoinsCallback(int, int)
+void zRemoteClientJoinsCallback(int connection, int client)
 {
+	/* 0x2041c0 (zNetJoin callback): a game client joined - the join count valve follows the
+	   valid client count */
+	if (connection == theLobby.MediusConnectionIndex())
+		return;
+
+	theNetwork.zNetGetClient(connection, client); /* ELF: result unused */
+	int count = theNetwork.zNetGetValidGameClientCount();
+
+	CValve *valve = theMission.m_pNetGame->m_pPlayerJoinCountValve;
+	u32 change = valve->m_value != (u32)count ? (count != 0 ? 1 : 2) : 0;
+	valve->m_value = count;
+
+	if (change)
+		valve->MakeCallbacks((VALVE_STATE)change);
 }
 
 /* @socom-skeleton stub zRemoteClientLeavesCallback__Fii */
-void zRemoteClientLeavesCallback(int, int)
+void zRemoteClientLeavesCallback(int connection, int client)
 {
+	/* 0x204140 (zNetJoin callback): a game client left - handled later from zNetUpdate
+	   (zRemoteDelayedAction, type 2) */
+	if (connection == theLobby.MediusConnectionIndex())
+		return;
+
+	CZNetwork::TypeRTimeFixStruct fix = {0}; /* ELF: copied from the zero object @2348 */
+	fix.m_type = 2;
+	fix.m_index = client;
+	theNetwork.AddToFixList(&fix);
 }
 
 /* @socom-skeleton stub zDoClientLeavesCallback__Fi */
 void zDoClientLeavesCallback(int)
 {
+	/* 0x203de0 (zRemoteDelayedAction type 2): when the session master left and this client is
+	   the new one, take over - the game and persona objects, the bomb in football, the remote
+	   AI seals, the units, the voice server; then the master re-drops a held bomb. The client
+	   argument is not read. */
+	theNetwork.zNetGetGameSessionMasterClientIndex(); /* ELF: both results unused */
+	theNetwork.zNetGetMyGameClientIndex();
+
+	CZNetGame *netGame = theMission.m_pNetGame;
+
+	if (!theNetwork.m_bSessionMaster && theNetwork.zNetGetGameSessionMasterClientIndex() == theNetwork.zNetGetMyGameClientIndex())
+	{
+		theNetwork.m_bSessionMaster = true;
+		ftsNetworkGameInit(); /* inlined in the ELF (0x203e60-0x203ea4) */
+
+		if (netGame->m_game_type == MP_GAME_TYPE::MP_GAME_FOOTBOMB)
+			CZBombState::CreateLocalBomb();
+
+		for (CEntityList::iterator it = CEntity::m_list.begin(); it != CEntity::m_list.end(); ++it)
+		{
+			CEntity *e = *it;
+			CZSealBody *seal = e != NULL && (u8)e->m_type == 2 ? static_cast<CZSealBody *>(e) : NULL;
+
+			if (seal == NULL)
+				continue;
+
+			bool remote = seal->m_control != NULL && static_cast<CSealCtrl *>(seal->m_control)->IsRemote();
+
+			if (remote && (seal->m_team & 0x20000))
+				CZSealBody::AcquireRemoteAi(seal);
+		}
+
+		for (std::list<CSealUnit *>::iterator it = CSealUnit::m_list.begin(); it != CSealUnit::m_list.end(); ++it)
+		{
+			if ((*it)->m_unit_num != 17)
+				(*it)->Notify(NULL, (UNIT_MESSAGE)2, NULL);
+		}
+
+		theVoice.IAmNewSessionMaster();
+		CZPersonaState::UpdateLocalPersona();
+	}
+
+	if (theNetwork.m_bSessionMaster && netGame->m_game_type == MP_GAME_TYPE::MP_GAME_FOOTBOMB && netGame->m_use_bomb_pos)
+		CZBombState::CreateBombHere(&netGame->m_new_bomb_pos);
+
+	netGame->m_use_bomb_pos = false;
+
+	if (theNetwork.m_sessionmaster_index != theNetwork.zNetGetGameSessionMasterClientIndex())
+		theNetwork.m_sessionmaster_index = theNetwork.zNetGetGameSessionMasterClientIndex();
 }
 
 /* @socom-skeleton stub zRemoteDelayedAction__FPQ29CZNetwork18TypeRTimeFixStruct */
-void zRemoteDelayedAction(CZNetwork::TypeRTimeFixStruct *)
+void zRemoteDelayedAction(CZNetwork::TypeRTimeFixStruct *fix)
 {
+	/* 0x203c90 (zNetUpdate, per fix-list entry): 2 a client left, 4 join (and end the late
+	   join), 5 game init */
+	switch (fix->m_type)
+	{
+	case 5:
+		ftsNetworkGameInit(); /* inlined in the ELF */
+		break;
+
+	case 4:
+		DMEJoinGameServer(); /* inlined in the ELF; result unused */
+
+		if (theMission.m_pNetGame->m_late_joiner)
+			theMission.m_pNetGame->LateJoiner(false);
+		break;
+
+	case 2:
+		zDoClientLeavesCallback(fix->m_index);
+		break;
+	}
 }
 
 /* @socom-skeleton stub SaveFireMessage__FP10CZSealBodyPC6CPnt3D */
-void SaveFireMessage(CZSealBody *, const CPnt3D *)
+void SaveFireMessage(CZSealBody *seal, const CPnt3D *target)
 {
+	/* 0x203c00 (CZKit::Fire): a local shooter's trigger count (0..200, wraps) and fire
+	   elevation for the next seal update */
+	bool remote = seal->m_control != NULL && static_cast<CSealCtrl *>(seal->m_control)->IsRemote();
+
+	if (!remote)
+	{
+		seal->m_TriggerCount++;
+
+		if (seal->m_TriggerCount >= 201)
+			seal->m_TriggerCount = 0;
+
+		seal->m_RemoteFireElevation = target->y;
+	}
 }
 
 /* @socom-skeleton stub SendHitMessage__FiiiffbUc */
-void SendHitMessage(int, int, int, float, float, bool, unsigned char)
+void SendHitMessage(int attacker, int victim, int location, float damage, float force, bool flag, unsigned char weapon)
 {
+	/* 0x203af0: broadcast a hit (6 bytes, unreliable) */
+	HitPacket packet; /* ELF: not cleared; only the bit fields below are merged into +0x5 */
+	packet.attacker = attacker;
+	packet.victim = victim;
+	packet.weapon = weapon;
+
+	int value = (int)damage;
+	if (255 < value) value = 255; else if (value < 0) value = 0; /* _saturate<int>(0 @2411, 255 @2412) */
+	packet.damage = value;
+
+	value = (int)(20.0f * force);
+	if (255 < value) value = 255; else if (value < 0) value = 0; /* _saturate<int>(0 @2413, 255 @2414) */
+	packet.force = value;
+
+	if (15 < location) location = 15; else if (location < 0) location = 0; /* _saturate<int>(0 @2415, 15 @2416) */
+	packet.location = location;
+	packet.flag = flag;
+
+	theNetwork.zNetSendApplicationMessage(64, theNetwork.m_GameConnectionIndex, -1, PacketTypeHit, 6, (unsigned char *)&packet, false);
 }
 
 /* @socom-skeleton stub HitPacketHandler__FiiiPv */
-void HitPacketHandler(int, int, int, void *)
+int HitPacketHandler(int, int, int, void *data)
 {
+	/* 0x203950: apply a hit while the game is in play - full damage on a local victim, the
+	   non-victim effects on a remote one; 6 bytes read (was void) */
+	CZNetGame *netGame = theMission.m_pNetGame;
+
+	if (netGame != NULL && netGame->m_mp_major_game_state == CZNetGame::MP_MAJOR_INPLAY)
+	{
+		HitPacket *packet = (HitPacket *)data;
+		CZSealBody *victim = CZSealState::GetBodyFromObjectIndex(packet->victim);
+		CZSealBody *attacker = CZSealState::GetBodyFromObjectIndex(packet->attacker);
+		f32 damage = (f32)(u32)packet->damage;
+		f32 force = 0.05f * (f32)(u32)packet->force;
+		DAMAGE_LOCATION location = (DAMAGE_LOCATION)packet->location;
+		bool flag = packet->flag;
+
+		if (victim != NULL && attacker != NULL)
+		{
+			bool remote = victim->m_control != NULL && static_cast<CSealCtrl *>(victim->m_control)->IsRemote();
+
+			if (!remote)
+				victim->RemoteWeaponDamageVictim(location, damage, force, victim, attacker, packet->weapon, flag);
+			else
+				victim->RemoteWeaponDamageNonVictim(location, victim, attacker, packet->weapon, flag);
+		}
+	}
+
+	return 6;
 }
 
 /* @socom-skeleton stub NetSendPushBlend__FUiiib */
-void NetSendPushBlend(unsigned int, int, int, bool)
+void NetSendPushBlend(unsigned int index, int anim, int arg, bool flag)
 {
+	/* 0x2038a0: broadcast a blend push for animations marked network_log */
+	if (theNetwork.m_bNetwork)
+	{
+		CAnimAuxData *aux = CAnimAuxData::Get(anim);
+
+		if (aux->m_network_log)
+		{
+			PushBlendPacket packet;
+			packet.index = index;
+			packet.anim = anim;
+			packet.arg = arg;
+			packet.flag = flag;
+			theNetwork.zNetSendApplicationMessage(64, theNetwork.m_GameConnectionIndex, -1, PacketTypePushBlendAnim, 6, (unsigned char *)&packet, false);
+		}
+	}
 }
 
 /* @socom-skeleton stub PushBlendAnimPacketHandler__FiiiPv */
-void PushBlendAnimPacketHandler(int, int, int, void *)
+int PushBlendAnimPacketHandler(int, int, int, void *data)
 {
+	/* 0x203830: push the blend on the seal while the game is in play; 6 bytes (was void) */
+	CZNetGame *netGame = theMission.m_pNetGame;
+
+	if (netGame != NULL && netGame->m_mp_major_game_state == CZNetGame::MP_MAJOR_INPLAY)
+	{
+		PushBlendPacket *packet = (PushBlendPacket *)data;
+		CZSealBody *seal = CZSealState::GetBodyFromObjectIndex(packet->index);
+
+		if (seal != NULL)
+			seal->PushBlend((AnimType)packet->anim, packet->arg, packet->flag);
+	}
+
+	return 6;
 }
 
 /* @socom-skeleton stub NetSendAiOrders__FUiUiUiPv */
-void NetSendAiOrders(unsigned int, unsigned int, unsigned int, void *)
+void NetSendAiOrders(unsigned int commander, unsigned int target, unsigned int command, void *point)
 {
+	/* 0x203780: send an AI order to the session master; command 4 carries a point's x and z
+	   as whole numbers */
+	if (theNetwork.m_bNetwork)
+	{
+		AiOrdersPacket packet; /* ELF: x / z stay unset unless command 4 has a point */
+		packet.commander = commander;
+		packet.target = target;
+		packet.command = command;
+
+		if ((u8)command == 4 && point != NULL)
+		{
+			packet.x = (s8)(int)((CPnt3D *)point)->x;
+			packet.z = (s8)(int)((CPnt3D *)point)->z;
+		}
+
+		int connection = theNetwork.m_GameConnectionIndex;
+		theNetwork.zNetSendApplicationMessage(64, connection, theNetwork.zNetGetGameSessionMasterClientIndex(), PacketTypeAiOrders, 5, (unsigned char *)&packet, false);
+	}
 }
 
 /* @socom-skeleton stub AiOrdersPacketHandler__FiiiPv */
-void AiOrdersPacketHandler(int, int, int, void *)
+int AiOrdersPacketHandler(int, int, int, void *data)
 {
+	/* 0x2036a0: issue the order while the game is in play; 5 bytes (was void) */
+	CZNetGame *netGame = theMission.m_pNetGame;
+
+	if (netGame != NULL && netGame->m_mp_major_game_state == CZNetGame::MP_MAJOR_INPLAY)
+	{
+		AiOrdersPacket *packet = (AiOrdersPacket *)data;
+		CZSealBody *commander = CZSealState::GetBodyFromObjectIndex(packet->commander);
+		CZSealBody *target = CZSealState::GetBodyFromObjectIndex(packet->target);
+
+		if (commander != NULL && target != NULL)
+		{
+			if (packet->command == 4)
+			{
+				CPnt3D point;
+				point.x = (f32)packet->x;
+				point.y = 0.0f;
+				point.z = (f32)packet->z;
+				target->IssueCommand(commander, (FT_COMMAND)packet->command, &point, false);
+			}
+			else
+			{
+				target->IssueCommand(commander, (FT_COMMAND)packet->command, NULL, false);
+			}
+		}
+	}
+
+	return 5;
 }
 
 /* @socom-skeleton stub SendZAnimNetworkPacket__FPvi */
-void SendZAnimNetworkPacket(void *, int)
+void SendZAnimNetworkPacket(void *data, int size)
 {
+	/* 0x203650 (ZAnim.m_network_activation_callback): broadcast a ZAnim packet */
+	if (theNetwork.m_bNetwork)
+		theNetwork.zNetSendApplicationMessage(64, theNetwork.m_GameConnectionIndex, -1, PacketTypeZAnim, size, (unsigned char *)data, false);
 }
 
 /* @socom-skeleton stub ZAnimNetworkPacketHandler__FiiiPv */
-int ZAnimNetworkPacketHandler(int, int, int, void *)
+int ZAnimNetworkPacketHandler(int, int, int, void *data)
 {
+	/* 0x2035e0: run a ZAnim packet while the game is in play; its size either way */
+	int size = ZAnim.NetworkPacketSize(data);
+	CZNetGame *netGame = theMission.m_pNetGame;
+
+	if (netGame != NULL && netGame->m_mp_major_game_state == CZNetGame::MP_MAJOR_INPLAY)
+		ZAnim.NetworkReceive(data);
+
+	return size;
 }
 
 /* @socom-skeleton stub NetSendActionAnim__FiUiUci */
-void NetSendActionAnim(int, unsigned int, unsigned char, int)
+void NetSendActionAnim(int index, unsigned int action, unsigned char arg, int client)
 {
+	/* 0x203580: send a node action to one client (unreliable) */
+	if (theNetwork.m_bNetwork)
+	{
+		ActionAnimPacket packet;
+		packet.index = index;
+		packet.action = action;
+		packet.arg = arg;
+		theNetwork.zNetSendApplicationMessage(64, theNetwork.m_GameConnectionIndex, client, PacketTypeActionAnim, 8, (unsigned char *)&packet, false);
+	}
 }
 
 /* @socom-skeleton stub ActionAnimPacketHandler__FiiiPv */
-void ActionAnimPacketHandler(int, int, int, void *)
+int ActionAnimPacketHandler(int, int, int, void *data)
 {
+	/* 0x203510: run the node action on the seal while the game is in play; 8 bytes (was
+	   void). ELF: neither the seal nor the action is tested for NULL. */
+	CZNetGame *netGame = theMission.m_pNetGame;
+
+	if (netGame != NULL && netGame->m_mp_major_game_state == CZNetGame::MP_MAJOR_INPLAY)
+	{
+		ActionAnimPacket *packet = (ActionAnimPacket *)data;
+		CZSealBody *seal = CZSealState::GetBodyFromObjectIndex(packet->index);
+		CNodeAction::GetActionById(packet->action)->ExecuteAction(seal, 0);
+	}
+
+	return 8;
 }
 
 /* @socom-skeleton stub E3IndexPacketHandler__FiiiPv */
-void E3IndexPacketHandler(int, int, int, void *)
+int E3IndexPacketHandler(int, int, int, void *data)
 {
+	/* 0x2034b0: take the team and slot the session master assigned; 8 bytes (was void) */
+	E3IndexPacket *packet = (E3IndexPacket *)data;
+	CZNetGame *netGame = theMission.m_pNetGame;
+	netGame->NetworkTeam(packet->team);
+	netGame->SetE3Index(packet->index);
+	CZPersonaState::UpdateLocalPersona();
+	return 8;
 }
 
 /* @socom-skeleton stub NetSendE3Index__FiUiib */
-void NetSendE3Index(int, unsigned int, int, bool)
+void NetSendE3Index(int client, unsigned int team, int index, bool reliable)
 {
+	/* 0x203400: assign a client its team and slot - applied directly when it is this one */
+	E3IndexPacket packet;
+	packet.team = team;
+	packet.index = index;
+
+	if (client == theNetwork.zNetGetMyGameClientIndex())
+	{
+		theNetwork.zNetGetMyGameClientIndex(); /* ELF: called again, result unused */
+		CZNetGame *netGame = theMission.m_pNetGame;
+		netGame->NetworkTeam(packet.team);
+		netGame->SetE3Index(packet.index);
+		CZPersonaState::UpdateLocalPersona();
+	}
+	else
+	{
+		theNetwork.zNetSendApplicationMessage(64, theNetwork.m_GameConnectionIndex, client, PacketTypeE3Index, 8, (unsigned char *)&packet, reliable);
+	}
 }
 
 /* @socom-skeleton stub TeamSwitchPacketHandler__FiiiPv */
-void TeamSwitchPacketHandler(int, int, int, void *)
+int TeamSwitchPacketHandler(int, int, int client, void *data)
 {
+	/* 0x2033c0: the session master handles a client's team switch request; 4 bytes (was void) */
+	if (theNetwork.m_bSessionMaster)
+		CZPersonaState::RequestTeamSwitch(client, *(int *)data);
+
+	return 4;
 }
 
 /* @socom-skeleton stub NetSendRequestTeamSwitch__Fi */
-void NetSendRequestTeamSwitch(int)
+void NetSendRequestTeamSwitch(int team)
 {
+	/* 0x203320: ask to switch team - handled directly on the session master, else sent to it */
+	if (theNetwork.m_bSessionMaster)
+	{
+		int me = theNetwork.zNetGetMyGameClientIndex();
+
+		if (theNetwork.m_bSessionMaster) /* ELF: tested again (an inlined handler) */
+			CZPersonaState::RequestTeamSwitch(me, team);
+	}
+	else
+	{
+		int connection = theNetwork.m_GameConnectionIndex;
+		theNetwork.zNetSendApplicationMessage(64, connection, theNetwork.zNetGetGameSessionMasterClientIndex(), PacketTypeTeamSwitch, 4, (unsigned char *)&team, true);
+	}
 }
 
 /* @socom-skeleton stub ReadyPacketHandler__FiiiPv */
-void ReadyPacketHandler(int, int, int, void *)
+int ReadyPacketHandler(int, int, int client, void *)
 {
+	/* 0x203260: a client is ready while the game is in play - with ghosts allowed the session
+	   master answers with game signal 14 (ghosts ok); 4 bytes (was void). ELF: the net game is
+	   not tested for NULL. */
+	CZNetGame *netGame = theMission.m_pNetGame;
+
+	if (gAllowGhosts && netGame->m_mp_major_game_state == CZNetGame::MP_MAJOR_INPLAY && theNetwork.m_bSessionMaster)
+	{
+		GameSignalPacket packet = {0}; /* ELF: copied from the zero object @2666 */
+		packet.signal = 14;
+		packet.team = 0;
+		packet.e3_index = 0;
+		packet.value = 0;
+		packet.game_type = (u8)netGame->m_game_type;
+		strcpy(packet.database, GetDatabase());
+		theNetwork.zNetSendApplicationMessage(64, theNetwork.m_GameConnectionIndex, client, PacketTypeGameSignal, 16, (unsigned char *)&packet, true);
+	}
+
+	return 4;
 }
 
 /* @socom-skeleton stub SendMessageMessage__Fi9R_SEND_TOi */
-void SendMessageMessage(int, R_SEND_TO, int)
+void SendMessageMessage(int index, R_SEND_TO to, int message)
 {
+	/* 0x203200: broadcast a radio message with its addressees (R_SEND_TO as a signed byte) */
+	MessagePacket packet;
+	packet.index = index;
+	packet.to = (s8)(int)to;
+	packet.message = message;
+	theNetwork.zNetSendApplicationMessage(64, theNetwork.m_GameConnectionIndex, -1, PacketTypeMessage, 6, (unsigned char *)&packet, false);
 }
 
 /* @socom-skeleton stub MessagePacketHandler__FiiiPv */
-void MessagePacketHandler(int, int, int, void *)
+int MessagePacketHandler(int, int, int, void *data)
 {
+	/* 0x203100: play a radio message from a seal when this player is addressed: -1 all,
+	   -2 terrorists (team 0x100), -3 SEALs, else the player's entity id; 6 bytes (was void).
+	   ELF: the switch reads the low byte of `to` (lb +0x2), the id test the halfword. */
+	MessagePacket *packet = (MessagePacket *)data;
+	CZSealBody *seal = CZSealState::GetBodyFromObjectIndex(packet->index);
+
+	if (seal != NULL)
+	{
+		switch (*(s8 *)&packet->to)
+		{
+		case -1:
+			PlayRemoteMsg(seal, packet->message);
+			break;
+
+		case -2:
+			if (ftsGetPlayer()->m_team & 0x100)
+				PlayRemoteMsg(seal, packet->message);
+			break;
+
+		case -3:
+			if (!(ftsGetPlayer()->m_team & 0x100))
+				PlayRemoteMsg(seal, packet->message);
+			break;
+
+		default:
+			if ((int)packet->to == (int)ftsGetPlayer()->m_id)
+				PlayRemoteMsg(seal, packet->message);
+			break;
+		}
+	}
+
+	return 6;
 }
 
 /* @socom-skeleton stub ChatPacketHandler__FiiiPv */
-void ChatPacketHandler(int, int, int, void *)
+int ChatPacketHandler(int, int, int, void *data)
 {
+	/* 0x202f10: append "<name>: <text>" to the chat list variable, keeping the last 20 lines,
+	   and echo the list to stdout; 33 bytes (was void) */
+	ChatPacket *packet = (ChatPacket *)data;
+	CZNetGame *netGame = theMission.m_pNetGame;
+
+	if (netGame == NULL)
+		return 33;
+
+	/* the sender's persona object: a DME object of type 'P' whose data (+0x1c) holds the
+	   name at +9 (port: raw offsets - the port declares no DME object or persona record) */
+	u8 *object = (u8 *)theNetwork.zNetGetObject(packet->index);
+
+	if (object == NULL || *(s8 *)(object + 0xc) != 'P')
+		return 33;
+
+	char *persona = *(char **)(object + 0x1c);
+
+	if (persona == NULL)
+		return 33;
+
+	CRdrEditor editor;
+	editor.push(NULL);
+
+	if (netGame->m_uiv_ChatList->type == ZRDR_ARRAY)
+	{
+		int count = netGame->m_uiv_ChatList->type == ZRDR_ARRAY ? netGame->m_uiv_ChatList->array->integer - 1 : 0;
+		int i = (netGame->m_uiv_ChatList->type == ZRDR_ARRAY ? netGame->m_uiv_ChatList->array->integer - 1 : 0) - 20;
+
+		for (; i < count; i++)
+		{
+			_zrdr *line = netGame->m_uiv_ChatList->Get(i); /* negative i: past the end (unsigned), NULL */
+
+			if (line != NULL && line->type == ZRDR_STRING)
+				editor.addstringnode(line->type == ZRDR_STRING ? line->string : NULL);
+		}
+	}
+
+	char text[64];
+	sprintf(text, "%s: %s", persona + 9, packet->text);
+	editor.addstringnode(text);
+	editor.pop();
+	editor.Write(stdout);
+	netGame->m_uiv_ChatList->Set(&editor);
+	return 33;
 }
 
 /* @socom-skeleton stub AuxSendChatMsg__FPCcPv */
-void AuxSendChatMsg(const char *, void *)
+void AuxSendChatMsg(const char *text, void *)
 {
+	/* 0x202e90 (Censor callback): broadcast the censored line and show it here too */
+	ChatPacket packet;
+	packet.index = (u8)theMission.m_pNetGame->m_persona_object_index;
+	strncpy(packet.text, text, 32);
+	packet.text[31] = 0; /* +0x20 */
+	theNetwork.zNetSendApplicationMessage(64, theNetwork.m_GameConnectionIndex, -1, PacketTypeChatText, 33, (unsigned char *)&packet, false);
+	ChatPacketHandler(0, 0, 0, &packet);
 }
 
 /* @socom-skeleton stub SendChatMsg__FPCc */
-void SendChatMsg(const char *)
+void SendChatMsg(const char *text)
 {
+	/* 0x202e70 (UISendChatText): censor the line, then AuxSendChatMsg sends it */
+	theLobby.Censor(text, AuxSendChatMsg, NULL);
 }
 
 /* @socom-skeleton stub SendWeaponPUMessage__FUsUsP6CPnt3DP5CQuat */
-void SendWeaponPUMessage(unsigned short, unsigned short, CPnt3D *, CQuat *)
+void SendWeaponPUMessage(unsigned short weapon, unsigned short pickup, CPnt3D *pos, CQuat *rot)
 {
+	/* 0x202c70: broadcast a dropped weapon pickup; the rotation goes as Euler angles packed to
+	   10 bits each (0..1023 over -pi..pi) */
+	WeaponPUPacket packet;
+	packet.weapon = weapon;
+	packet.pickup = pickup;
+	packet.pos.x = pos->x;
+	packet.pos.y = pos->y;
+	packet.pos.z = pos->z;
+
+	CPnt3D euler;
+	rot->ToEuler(&euler);
+
+	f32 t = (3.14159274f + euler.x) * 0.159154937f;
+	if (!(t <= 1.0f)) t = 1.0f; else if (t < 0.0f) t = 0.0f;
+	u32 x = (u32)((s32)(1023.0f * t) << 20);
+
+	t = (3.14159274f + euler.y) * 0.159154937f;
+	if (!(t <= 1.0f)) t = 1.0f; else if (t < 0.0f) t = 0.0f;
+	u32 y = (u32)((s32)(1023.0f * t) << 10);
+
+	t = (3.14159274f + euler.z) * 0.159154937f;
+	if (!(t <= 1.0f)) t = 1.0f; else if (t < 0.0f) t = 0.0f;
+	u32 z = (u32)(s32)(1023.0f * t);
+
+	packet.rot = z | (x | y);
+	theNetwork.zNetSendApplicationMessage(64, theNetwork.m_GameConnectionIndex, -1, PacketTypeWepPU, 20, (unsigned char *)&packet, false);
 }
 
 /* @socom-skeleton stub WeaponPUPacketHandler__FiiiPv */
-void WeaponPUPacketHandler(int, int, int, void *)
+int WeaponPUPacketHandler(int, int, int, void *data)
 {
+	/* 0x202ac0: make the dropped weapon pickup on its host seal; 20 bytes (was void) */
+	WeaponPUPacket *packet = (WeaponPUPacket *)data;
+	CPnt3D pos;
+	pos.x = packet->pos.x;
+	pos.y = packet->pos.y;
+	pos.z = packet->pos.z;
+
+	u32 bits = packet->rot;
+	f32 ax = 0.00614192151f * (f32)((bits >> 20) & 0x3ff) - 3.14159274f;
+	f32 ay = 0.00614192151f * (f32)((bits >> 10) & 0x3ff) - 3.14159274f;
+	f32 az = 0.00614192151f * (f32)(bits & 0x3ff) - 3.14159274f;
+
+	CQuat rot;
+	rot.MakeYXZRot(ay, ax, az); /* ELF: f12 bits 10-19, f13 bits 20-29, f14 bits 0-9 */
+
+	CEntity *e = CEntity::m_list.GetEntityById(CPickup::GetEntityIDFromNetID(packet->pickup));
+	CZSealBody *seal = e != NULL && (u8)e->m_type == 2 ? static_cast<CZSealBody *>(e) : NULL;
+
+	if (seal != NULL)
+		seal->CreateNetWeaponPickup(packet->weapon, packet->pickup, &pos, &rot);
+
+	return 20;
 }
 
 /* @socom-skeleton stub SendAmmoPUMessage__FiPUsPUsUsP6CPnt3D */
-void SendAmmoPUMessage(int, unsigned short *, unsigned short *, unsigned short, CPnt3D *)
+void SendAmmoPUMessage(int host, unsigned short *ammo, unsigned short *rounds, unsigned short pickup, CPnt3D *pos)
 {
+	/* 0x2029d0: broadcast a dropped ammo pickup */
+	AmmoPUPacket packet;
+	packet.host = host & 0xf;
+
+	for (int i = 0; i < 8; i++) /* ELF: unrolled */
+	{
+		packet.ammo[i] = ammo[i];
+		packet.rounds[i] = rounds[i];
+	}
+
+	packet.pickup = pickup;
+	packet.pos.x = pos->x;
+	packet.pos.y = pos->y;
+	packet.pos.z = pos->z;
+	theNetwork.zNetSendApplicationMessage(64, theNetwork.m_GameConnectionIndex, -1, PacketTypeAmmoPU, 48, (unsigned char *)&packet, false);
 }
 
 /* @socom-skeleton stub AmmoPUPacketHandler__FiiiPv */
-void AmmoPUPacketHandler(int, int, int, void *)
+int AmmoPUPacketHandler(int, int, int, void *data)
 {
+	/* 0x202920: make the dropped ammo pickup on its host seal; 48 bytes (was void) */
+	AmmoPUPacket *packet = (AmmoPUPacket *)data;
+	CPnt3D pos;
+	pos.x = packet->pos.x;
+	pos.y = packet->pos.y;
+	pos.z = packet->pos.z;
+
+	CEntity *e = CEntity::m_list.GetEntityById(CPickup::GetEntityIDFromNetID(packet->pickup));
+	CZSealBody *seal = e != NULL && (u8)e->m_type == 2 ? static_cast<CZSealBody *>(e) : NULL;
+
+	if (seal != NULL)
+		seal->CreateNetAmmoPickup(packet->host, packet->ammo, packet->rounds, packet->pickup, &pos);
+
+	return 48;
 }
 
 /* @socom-skeleton stub SendMayIPickupMessage__FiUsPUsUcUc */
-void SendMayIPickupMessage(int, unsigned short, unsigned short *, unsigned char, unsigned char)
+void SendMayIPickupMessage(int host, unsigned short pickup, unsigned short *items, unsigned char type, unsigned char seal_id)
 {
+	/* 0x202850: ask the client owning the seal whether the pickup may be taken */
+	PickupMayIPacket packet;
+	packet.host = host & 0xf;
+	packet.pickup = pickup;
+
+	for (int i = 0; i < 8; i++) /* ELF: unrolled */
+		packet.items[i] = items[i];
+
+	packet.type = type;
+
+	CEntity *e = CEntity::m_list.GetEntityById(seal_id);
+	CZSealBody *seal = e != NULL && (u8)e->m_type == 2 ? static_cast<CZSealBody *>(e) : NULL;
+
+	if (seal != NULL) /* ELF: the client is the low byte of m_ClientIndex (lbu +0xeb8) */
+		theNetwork.zNetSendApplicationMessage(64, theNetwork.m_GameConnectionIndex, (u8)seal->m_ClientIndex, PacketTypePUMayI, 22, (unsigned char *)&packet, false);
 }
 
 /* @socom-skeleton stub PickupMayIPacketHandler__FiiiPv */
-void PickupMayIPacketHandler(int, int, int, void *)
+int PickupMayIPacketHandler(int, int, int, void *data)
 {
+	/* 0x2027c0: answer a pickup request on the pickup's seal; 22 bytes (was void) */
+	PickupMayIPacket *packet = (PickupMayIPacket *)data;
+	CEntity *e = CEntity::m_list.GetEntityById(CPickup::GetEntityIDFromNetID(packet->pickup));
+	CZSealBody *seal = e != NULL && (u8)e->m_type == 2 ? static_cast<CZSealBody *>(e) : NULL;
+
+	if (seal != NULL)
+		seal->CanPickupNetItem(packet->host, packet->pickup, packet->items, packet->type);
+
+	return 22;
 }
 
 /* @socom-skeleton stub SendPickupAckMessage__FiUsUc8AckUnion */
-void SendPickupAckMessage(int, unsigned short, unsigned char, AckUnion)
+void SendPickupAckMessage(int host, unsigned short pickup, unsigned char seal_id, AckUnion ack)
 {
+	/* 0x202760: broadcast a pickup answer */
+	PickupAckPacket packet;
+	packet.host = host;
+	packet.pickup = pickup;
+	packet.seal = seal_id;
+	packet.ack = ack;
+	theNetwork.zNetSendApplicationMessage(64, theNetwork.m_GameConnectionIndex, -1, PacketTypePUAck, 6, (unsigned char *)&packet, false);
 }
 
 /* @socom-skeleton stub PickupAckPacketHandler__FiiiPv */
-void PickupAckPacketHandler(int, int, int, void *)
+int PickupAckPacketHandler(int, int, int, void *data)
 {
+	/* 0x2026d0: hand a pickup answer to its seal; 6 bytes, but 0 when the entity is no seal
+	   (ELF quirk, unlike the other handlers) (was void) */
+	PickupAckPacket *packet = (PickupAckPacket *)data;
+	CEntity *e = CEntity::m_list.GetEntityById(packet->seal);
+	CZSealBody *seal = e != NULL && (u8)e->m_type == 2 ? static_cast<CZSealBody *>(e) : NULL;
+
+	if (seal == NULL)
+		return 0;
+
+	seal->HandlePickupAck(packet->host, packet->pickup, &packet->ack);
+	return 6;
 }
 
 /* @socom-skeleton stub SendVoteMessage__Fiib */
-void SendVoteMessage(int, int, bool)
+void SendVoteMessage(int index, int target, bool vote)
 {
+	/* 0x202660: vote for or against a player and tell its client (reliable) */
+	VoterPacket packet;
+	packet.index = index;
+	packet.vote = vote ? 1 : 0;
+
+	CZSealBody *seal = CZSealState::GetBodyFromObjectIndex(target);
+
+	/* ELF quirk: the store sits in the delay slot of the NULL test, so it happens even for
+	   NULL (a write to 0xec2) */
+	seal->m_local_voted_against = vote;
+
+	if (seal != NULL)
+		theNetwork.zNetSendApplicationMessage(64, theNetwork.m_GameConnectionIndex, seal->m_ClientIndex, PacketTypeVoter, 2, (unsigned char *)&packet, true);
 }
 
 /* @socom-skeleton stub VoterPacketHandler__FiiiPv */
-void VoterPacketHandler(int, int, int, void *)
+int VoterPacketHandler(int, int, int, void *data)
 {
+	/* 0x202490: count a vote against this player and announce the tally; voted off at half
+	   the active players of its side; 2 bytes (was void) */
+	VoterPacket *packet = (VoterPacket *)data;
+	CZSealBody *voter = CZSealState::GetBodyFromObjectIndex(packet->index);
+	CZSealBody *player = ftsGetPlayer();
+
+	if (voter != NULL && voter->m_voted_against && !packet->vote)
+	{
+		voter->m_voted_against = false;
+		int tally = player->m_vote_tally - 1;
+		if (tally < 0) tally = 0;
+		player->m_vote_tally = tally;
+
+		char text[256];
+		sprintf(text, "Voting: You have %d votes against you.", player->m_vote_tally);
+		theMission.m_messenger.Add_Message(text, 0);
+	}
+	else if (voter != NULL && !voter->m_voted_against && packet->vote)
+	{
+		voter->m_voted_against = true;
+		int tally = player->m_vote_tally + 1;
+		if (tally < 0) tally = 0;
+		player->m_vote_tally = tally;
+
+		char text[256];
+		sprintf(text, "Voting: You have %d votes against you.", player->m_vote_tally);
+		theMission.m_messenger.Add_Message(text, 0);
+	}
+
+	if (player->m_team & 0x100)
+	{
+		if (!((f32)player->m_vote_tally < (f32)CZPersonaState::NumActiveTerrorists() / 2.0f))
+			CZPersonaState::m_VotedOff = 1;
+	}
+	else if (player->m_team & 1)
+	{
+		if (!((f32)player->m_vote_tally < (f32)CZPersonaState::NumActiveSeals() / 2.0f))
+			CZPersonaState::m_VotedOff = 1;
+	}
+	else
+	{
+		CZPersonaState::m_VotedOff = 0;
+	}
+
+	return 2;
 }
 
 /* @socom-skeleton stub BombStatePacketHandler__FiiiPv */
-void BombStatePacketHandler(int, int, int, void *)
+int BombStatePacketHandler(int, int, int, void *data)
 {
+	/* 0x202450: the session master handles a bomb state request; 16 bytes (was void) */
+	BombStatePacket *packet = (BombStatePacket *)data;
+	CPnt3D pos;
+	pos.x = packet->pos.x;
+	pos.y = packet->pos.y;
+	pos.z = packet->pos.z;
+	CZBombState::HandleBombStateRequest(packet->index, packet->state, &pos);
+	return 16;
 }
 
 /* @socom-skeleton stub SendBombStateRequest__FiUcPC6CPnt3D */
-void SendBombStateRequest(int, unsigned char, const CPnt3D *)
+void SendBombStateRequest(int index, unsigned char state, const CPnt3D *pos)
 {
+	/* 0x202370: a bomb state request - handled directly on the session master, else sent to
+	   it */
+	BombStatePacket packet = {{0}}; /* ELF: copied from the zero object @2657 */
+	packet.pos.x = pos->x;
+	packet.pos.y = pos->y;
+	packet.pos.z = pos->z;
+	packet.index = index;
+	packet.state = state;
+
+	if (theNetwork.m_bSessionMaster)
+	{
+		theNetwork.zNetGetMyGameClientIndex(); /* ELF: result unused (the request passes packet.index) */
+		CPnt3D where;
+		where.x = packet.pos.x;
+		where.y = packet.pos.y;
+		where.z = packet.pos.z;
+		CZBombState::HandleBombStateRequest(packet.index, packet.state, &where);
+	}
+	else
+	{
+		int connection = theNetwork.m_GameConnectionIndex;
+		theNetwork.zNetSendApplicationMessage(64, connection, theNetwork.zNetGetGameSessionMasterClientIndex(), PacketTypeNewBombState, 16, (unsigned char *)&packet, false);
+	}
 }
 
 /* @socom-skeleton stub SendGameSignalMessage__FiUcUcUcib */
-void SendGameSignalMessage(int, unsigned char, unsigned char, unsigned char, int, bool)
+void SendGameSignalMessage(int client, unsigned char signal, unsigned char team, unsigned char e3_index, int value, bool reliable)
 {
+	/* 0x2022c0 (MasterStartGame, UISetMenuState): the session master sends a game signal */
+	if (theNetwork.m_bSessionMaster)
+	{
+		GameSignalPacket packet = {0}; /* ELF: copied from the zero object @2666 */
+		packet.signal = signal;
+		packet.team = team;
+		packet.e3_index = e3_index;
+		packet.value = value;
+		packet.game_type = (u8)theMission.m_pNetGame->m_game_type;
+		strcpy(packet.database, GetDatabase());
+		theNetwork.zNetSendApplicationMessage(64, theNetwork.m_GameConnectionIndex, client, PacketTypeGameSignal, 16, (unsigned char *)&packet, reliable);
+	}
 }
 
 /* @socom-skeleton stub GameSignalPacketHandler__FiiiPv */
-void GameSignalPacketHandler(int, int, int, void *)
+int GameSignalPacketHandler(int, int, int, void *data)
 {
+	/* 0x202000: a game signal from the session master: 12 clock sync (late joiner), 13 new
+	   database (late joiner: rejoin through the fix list or back to the menus), 14 ghosts
+	   ok, < 2 not late, else a late join with team and slot; then the join valve goes to 10.
+	   16 bytes (was void). */
+	GameSignalPacket *packet = (GameSignalPacket *)data;
+	CZNetGame *netGame = theMission.m_pNetGame;
+
+	if (netGame == NULL)
+		return 16;
+
+	if (packet->signal == 12)
+	{
+		if (netGame->m_late_joiner)
+		{
+			if (netGame->m_ready_to_play)
+				netGame->m_net_start_flag = MP_NET_READY::NET_READY_PLAY;
+			else
+				theLobby.SyncGameClock(packet->value);
+		}
+	}
+	else if (packet->signal == 13)
+	{
+		if (netGame->m_late_joiner)
+		{
+			if (netGame->m_my_major_game_state == CZNetGame::MP_MAJOR_MENUS)
+			{
+				netGame->m_game_type = (MP_GAME_TYPE)packet->game_type;
+				SetDatabase(packet->database);
+
+				CZNetwork::TypeRTimeFixStruct fix = {0}; /* ELF: copied from the zero object @2686 */
+				fix.m_type = 4;
+				theNetwork.AddToFixList(&fix);
+				fix.m_type = 5;
+				theNetwork.AddToFixList(&fix);
+			}
+			else
+			{
+				SetDatabase(packet->database);
+				netGame->m_net_start_flag = MP_NET_READY::NET_READY_MENUS;
+			}
+
+			if (theLobby.m_event_handler != NULL)
+				theLobby.m_event_handler("ON_FORCE_NEW_DB", NULL);
+		}
+	}
+	else if (packet->signal == 14)
+	{
+		netGame->m_ghost_ok = true;
+	}
+	else if (packet->signal < 2)
+	{
+		netGame->LateJoiner(false);
+		SetDatabase(packet->database);
+	}
+	else
+	{
+		theLobby.SyncGameClock(packet->value);
+		netGame->LateJoiner(true);
+		netGame->m_game_type = (MP_GAME_TYPE)packet->game_type;
+		SetDatabase(packet->database);
+		netGame->MPMajorGameState(CZNetGame::MP_MAJOR_MENUS);
+		netGame->MyMajorGameState(CZNetGame::MP_MAJOR_MENUS);
+
+		CRdrEditor editor;
+		editor.push(NULL);
+
+		CUIVariable *name = theUIVarManager.Find("PLAYERNAMEVAR");
+
+		if (name != NULL)
+			editor.addrdrnode(name);
+		else
+			editor.addstringnode("Player");
+
+		editor.pop();
+
+		if (packet->team == 0)
+		{
+			netGame->NetworkTeam(0x40000001);
+			netGame->m_uiv_SealList->Set(&editor);
+		}
+		else
+		{
+			netGame->NetworkTeam(0x40000100);
+			netGame->m_uiv_TerrList->Set(&editor);
+		}
+
+		netGame->SetE3Index(packet->e3_index);
+	}
+
+	CValve *valve = theMission.m_pNetGame->m_pJoinGameValve;
+	bool changed = valve->m_value != 10;
+	valve->m_value = 10;
+
+	if (changed)
+		valve->MakeCallbacks((VALVE_STATE)1);
+
+	return 16;
 }

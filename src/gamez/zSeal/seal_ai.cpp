@@ -2003,8 +2003,17 @@ bool CSealCtrlAi::PreTick(float dT)
 }
 
 /* @socom-skeleton stub OnRecycleEntity__11CSealCtrlAiFP7CEntity */
-void CSealCtrlAi::OnRecycleEntity(CEntity *)
+void CSealCtrlAi::OnRecycleEntity(CEntity *entity)
 {
+	/* 0x267590 (CEntity::DoRecycleEntity): this AI's own body is recycled - it leaves its
+	 * unit, and the mission ends for it */
+	if (m_entity != entity)
+		return;
+
+	if (m_unit != NULL)
+		CSealUnit::SealLeaveUnit(static_cast<CZSealBody *>(m_entity));
+
+	OnMissionEnd();
 }
 
 /* @socom-skeleton stub ResetToInitialState__11CSealCtrlAiFv */

@@ -382,6 +382,25 @@ public:
 class CCounterSpec : public CTextSpec
 {
 public:
+	/* port: no out-of-line symbol; inlined in GetObjectSpec (0x399e4c, 52 bytes). No DWARF:
+	 * member names are the port's, from the reader keys. EndTime is read first; when it is
+	 * absent, Duration (same slot) is read and marks it a duration. */
+	CCounterSpec(_zrdr* reader) : CTextSpec(reader)
+	{
+		m_startTime = 0.0f;
+		zrdr_findreal(reader, "StartTime", &m_startTime, 1);
+		m_isDuration = false;
+		m_endTime = 0.0f;
+		char* var = zrdr_findstring(reader, "ValVar");
+		m_valVar = var ? var : "";
+
+		if (!zrdr_findreal(reader, "EndTime", &m_endTime, 1) && zrdr_findreal(reader, "Duration", &m_endTime, 1))
+			m_isDuration = true;
+	}
+	f32 m_startTime;       /* +0x24 StartTime */
+	bool m_isDuration;     /* +0x28 Duration given instead of EndTime */
+	f32 m_endTime;         /* +0x2c EndTime, or Duration */
+	std::string m_valVar;  /* +0x30 ValVar: the UI variable holding the value counted up to */
 
 	/* @socom-skeleton decl 12CCounterSpec */
 public:
@@ -537,6 +556,17 @@ public:
 class C2DCounter : public CRenderableString
 {
 public:
+	/* port: no out-of-line symbol; inlined in CCounterSpec::CreateDisplayObj (0x3994e0,
+	 * 196 bytes). No DWARF: member names are the port's. */
+	C2DCounter(f32 start, bool isDuration, f32 end, s32 target)
+		: m_startTime(start), m_isDuration(isDuration), m_endTime(end), m_target(target),
+		  m_elapsed(0.0f), m_shown(-1) {}
+	f32 m_startTime;   /* +0xac: counting starts at this time (a Start command moves it to now) */
+	bool m_isDuration; /* +0xb0: m_endTime is a duration from m_startTime */
+	f32 m_endTime;     /* +0xb4: the value is reached at this time (or after this duration) */
+	s32 m_target;      /* +0xb8: the ValVar value when the counter was made */
+	f32 m_elapsed;     /* +0xbc: time since the counter was made (x the counter speed factor) */
+	s32 m_shown;       /* +0xc0: the value on screen (-1: none yet) */
 	virtual ~C2DCounter();
 	virtual void Tick(float);
 	virtual C2DAnimCmdHdr * ParseZAnimCmd(_zrdr *);

@@ -71,7 +71,31 @@ static unsigned int recycler_index = 4294967295;
 int CEntity::nextEntityId;
 
 /* @socom-skeleton stub recycler */
-static int recycler[3];
+/* 0x4bc400 (12 bytes; no DWARF, names the port's): the placeholder entity (type
+ * ENT_TYPE_RECYCLE, node "recycler") that holds a free m_list slot - a spawner's slot until its
+ * character is made, or a recycled (dead) entity's slot - and how many slots hold it */
+static struct
+{
+	s32 m_count;         /* +0x0 */
+	CEntity* m_entity;   /* +0x4 */
+	zdb::CNode* m_node;  /* +0x8 */
+} recycler;
+
+/* port: no symbol - CreateRecycler 0x1ef430 and DoRecycleEntity 0x1ef240 inline the same code:
+ * the placeholder made on first use (not in the target lists), one more slot counted */
+static CEntity* AcquireRecycler()
+{
+	if (recycler.m_count == 0)
+	{
+		recycler.m_node = zdb::CNode::Create("recycler");
+		recycler.m_entity = new CEntity(CEntity::ENT_TYPE_RECYCLE, recycler.m_node);
+		recycler.m_entity->SetUpdateTargetList(false);
+		recycler.m_entity->SetIncludeInTargetList(false);
+	}
+
+	recycler.m_count++;
+	return recycler.m_entity;
+}
 
 /* @socom-skeleton stub m_list__7CEntity */
 CEntityList CEntity::m_list; /* every created entity; MSL list (+0 is its size) */
@@ -88,6 +112,8 @@ void CEntity::OpenRecycler(u32 index)
 /* @socom-skeleton stub CloseRecycler__7CEntityFv */
 void CEntity::CloseRecycler()
 {
+	/* 0x1ef7a0 */
+	recycler_index = (unsigned int)-1;
 }
 
 /* @socom-skeleton body EntityIsValid__7CEntityFP7CEntity */
@@ -126,23 +152,85 @@ void CEntity::CreateEntity(CEntity *entity, bool include)
 }
 
 /* @socom-skeleton stub RecycleEntity__7CEntityFP7CEntity */
-void CEntity::RecycleEntity(CEntity *)
+void CEntity::RecycleEntity(CEntity *entity)
 {
+	/* 0x1ef620 (CMission::RecycleEntity, a dead AI): queued for PreTickAll's DoRecycleEntity,
+	 * out of the target lists. ELF: returns 1 in v0 */
+	m_recycle.insert(m_recycle.end(), entity);
+	entity->SetIncludeInTargetList(false);
 }
 
 /* @socom-skeleton stub RecycleEntity__7CEntityFUiP7CEntityb */
-void CEntity::RecycleEntity(unsigned int, CEntity *, bool)
+void CEntity::RecycleEntity(unsigned int index, CEntity *entity, bool include)
 {
+	/* 0x1ef540 (CSpawners::Tick): the entity takes m_list slot `index` when the placeholder
+	 * holds it; the target lists are rebuilt. ELF: returns whether it did (v0); the slot past
+	 * the list's end is not tested beyond the size check */
+	if (index >= (u32)m_list.size())
+		return;
+
+	CEntityList::iterator it = m_list.begin();
+
+	for (u32 i = 0; i < index; i++)
+		++it;
+
+	CEntity* slot = *it;
+
+	if (slot == NULL || slot->m_type != ENT_TYPE_RECYCLE)
+		return;
+
+	*it = entity;
+	entity->SetIncludeInTargetList(include);
+	UpdateTargetList(true);
 }
 
 /* @socom-skeleton stub CreateRecycler__7CEntityFv */
 CEntity * CEntity::CreateRecycler()
 {
+	/* 0x1ef430 (CMission::LoadVehicles, a recycle entry): the placeholder in a new m_list
+	 * slot (its index there; inside an open recycler, the recycler's index) */
+	CEntity* entity = AcquireRecycler();
+
+	if (recycler_index != (unsigned int)-1)
+	{
+		entity->m_index = recycler_index;
+		return entity;
+	}
+
+	entity->m_index = (u32)m_list.size();
+	m_list.insert(m_list.end(), entity);
+	entity->SetIncludeInTargetList(false);
+	return entity;
 }
 
 /* @socom-skeleton stub DoRecycleEntity__7CEntityFP7CEntity */
-void CEntity::DoRecycleEntity(CEntity *)
+void CEntity::DoRecycleEntity(CEntity *entity)
 {
+	/* 0x1ef240 (PreTickAll, one per frame): out of the queue; every entity hears of it
+	 * (OnRecycleEntity); targets on it move to the placeholder, which takes its m_list slot;
+	 * the entity is deleted. Not in m_list: only the placeholder count grows. */
+	m_recycle.remove(entity);
+	CEntity* placeholder = AcquireRecycler();
+	CEntityList::iterator found = m_list.end();
+
+	for (CEntityList::iterator it = m_list.begin(); it != m_list.end(); ++it)
+	{
+		CEntity* other = *it;
+		other->OnRecycleEntity(entity);
+
+		if (other == entity)
+			found = it;
+	}
+
+	ReplaceTargetList(entity, placeholder);
+
+	if (found == m_list.end())
+		return;
+
+	*found = placeholder;
+
+	if (entity != NULL)
+		delete entity;
 }
 
 /* @socom-skeleton stub RemoveAll__7CEntityFv */
@@ -152,9 +240,7 @@ void CEntity::RemoveAll()
 	 * leaves m_list from the front and is deleted (virtual deleting dtor) - the recycler's
 	 * entity only when its count runs out (then its entity and node are deleted and the
 	 * recycler cleared) - the recycler is cleared again, entity ids restart at 0 and the
-	 * three target lists are emptied.
-	 * port: the recycler (file-local, an untyped placeholder) is never made (CreateRecycler
-	 * is unwritten), so its branches are not written */
+	 * three target lists are emptied. */
 	m_recycle.clear();
 
 	while (!m_list.empty())
@@ -162,10 +248,37 @@ void CEntity::RemoveAll()
 		CEntity* entity = m_list.front();
 		m_list.pop_front();
 
+		if (entity == recycler.m_entity)
+		{
+			if (--recycler.m_count == 0)
+			{
+				if (entity != NULL)
+					delete entity;
+
+				if (recycler.m_node != NULL)
+					delete recycler.m_node;
+
+				recycler.m_entity = NULL;
+				recycler.m_node = NULL;
+				recycler.m_count = 0;
+			}
+
+			continue;
+		}
+
 		if (entity != NULL)
 			delete entity;
 	}
 
+	if (recycler.m_entity != NULL)
+		delete recycler.m_entity;
+
+	if (recycler.m_node != NULL)
+		delete recycler.m_node;
+
+	recycler.m_entity = NULL;
+	recycler.m_node = NULL;
+	recycler.m_count = 0;
 	nextEntityId = 0;
 	m_target_inc.clear();
 	m_target_rem.clear();

@@ -43,7 +43,7 @@ void PTT_HeartbeatPrepare();
 
 /* port: the global MP_MINOR_GAME_STATE / MP_MAJOR_GAME_STATE duplicates were removed; the binary's types are CZNetGame::MP_*_GAME_STATE (Q29CZNetGame19MP_MAJOR_GAME_STATE) */
 
-enum class MP_GAME_TYPE
+enum class MP_GAME_TYPE : unsigned char /* DWARF byte_size 1 (CZNetGame::m_game_type +0xd9) */
 {
 	MP_GAME_UNKNOWN,
 	MP_GAME_DEFUSE,
@@ -55,7 +55,7 @@ enum class MP_GAME_TYPE
 	MP_GAME_FOOTBOMB
 };
 
-enum class MP_NET_READY
+enum class MP_NET_READY : unsigned char /* DWARF byte_size 1 (CZNetGame::m_net_start_flag +0xda) */
 {
 	NET_READY_UNKNOWN,
 	NET_READY_WAITING,
@@ -105,6 +105,24 @@ enum class LOBBY_STATE_FLAG
 	TICK,
 	EXIT,
 	UNREGISTER
+};
+
+/* port: no type info; the DME object record CZNetwork::zNetGetObject returns (NetGetObject's
+ * out pointer, 0x321820). Only the fields the zFTS net-state code reads (fts_net_*.cpp) */
+struct NetObjectRec
+{
+	unsigned char m_unk_00[4];
+	int m_owner;               /* +0x4: the owning client (CreateLocalSeal: m_ClientIndex) */
+	unsigned char m_unk_08[4];
+	char m_name[16];           /* +0xc: "SealObject", "PersonaObject"... (strcmp, m_name[0]) */
+	void* m_data;              /* +0x1c: the registered structure (TypeSealState, ...) */
+};
+/* port: no type info; the DME client record zNetGetGameClient returns (0x3217d0). Only the
+ * field RemoteSealCreationCallback uses */
+struct NetClientRec
+{
+	unsigned char m_unk_00[4];
+	unsigned short m_object_index; /* +0x4: 4096 until the client's seal object arrives (guess) */
 };
 
 class CZNetwork
@@ -208,21 +226,32 @@ public:
 	static void zNetTick();
 	void AddToFixList(CZNetwork::TypeRTimeFixStruct *);
 	void zNetClose();
-	void zNetCreateObject(int *, NetOwnershipStatus, NetObjectLifespan, unsigned int, int, unsigned int, int, void *, char *, int);
-	void zNetGetObject(int);
-	void zNetGetGameClient(int);
+	int zNetCreateObject(int *, NetOwnershipStatus, NetObjectLifespan, unsigned int, int, unsigned int, int, void *, char *, int); /* 0x321860: NetCreateObject's result, 0 = made */
+	NetObjectRec * zNetGetObject(int); /* 0x321820: NULL on error */
+	NetClientRec * zNetGetGameClient(int); /* 0x3217d0: NULL on error */
 	void zNetGetClient(int, int);
 	int zNetGetMyGameClientIndex();
 	int zNetGetGameSessionMasterClientIndex();
 	int zNetGetLocalTime();
 	int zNetGetValidGameClientCount();
-	void zNetConnect(void (*)(int, int, const char *), void (*)(int, int, const char *));
-	void zNetJoin(void (*)(int, int), void (*)(int, int));
+	int zNetConnect(void (*)(int, int, const char *), void (*)(int, int, const char *)); /* 0x321630: the NetConnect error code in v0 (0 = connected) */
+	int zNetJoin(void (*)(int, int), void (*)(int, int)); /* 0x3215b0: the NetJoin error code in v0 (0 = joined) */
 	void zNetLeaveAndDisconnect();
 	void zNetSendApplicationMessage(char, int, int, int, int, unsigned char *, bool);
 	void zNetRegisterRemoteObjectCallback(int, void (*)(int, int), void (*)(int, int, int), void (*)(int, int, int), void (*)(int, int));
 	void zNetRemoteObjectUpdateCallback(int, int, int);
 	/* @socom-skeleton end 9CZNetwork */
+};
+
+/* port: no DWARF; 28 bytes (AddToFixList 0x321940 copies 7 words into m_fix_list, zNetUpdate
+ * 0x321b64 hands each to zRemoteDelayedAction). m_type: 2 a client left (m_index = the client),
+ * 4 join the game, 5 game init. +0x8..+0x1b are not read by the code seen (names guessed). */
+class CZNetwork::TypeRTimeFixStruct
+{
+public:
+	u8 m_type;
+	s32 m_index;
+	u8 m_unknown_08[20];
 };
 
 class CNetClock
@@ -253,7 +282,7 @@ public:
 class CZNetGame
 {
 public:
-	enum MP_MAJOR_GAME_STATE
+	enum MP_MAJOR_GAME_STATE : unsigned char /* DWARF byte_size 1 (+0xdb, +0xdc) */
 	{
 		MP_MAJOR_UNKNOWN = 0,
 		MP_MAJOR_MENUS = 1,
@@ -266,7 +295,7 @@ public:
 		MP_MAJOR_GAMELOBBY = 13,
 		MP_MAJOR_GHOST = 14
 	};
-	enum MP_MINOR_GAME_STATE
+	enum MP_MINOR_GAME_STATE : unsigned char /* DWARF byte_size 1 (+0xdd) */
 	{
 		MP_MINOR_UNKNOWN = 0,
 		MP_MINOR_NOTREADY = 1,
@@ -317,7 +346,8 @@ public:
 	u32 m_countdown;
 	u32 m_net_team;
 
-	bool m_was_late_joiner;
+	bool m_late_joiner;     /* DWARF +0x94 (LateJoiner, UnInitialize, Initialize 0x1f42b8, CLoadState::Tick) */
+	bool m_was_late_joiner; /* DWARF +0x95 */
 	bool m_ready_to_play;
 	bool m_persona_created;
 	bool m_bdown;
@@ -362,10 +392,10 @@ public:
 	CZNetGame::MP_MINOR_GAME_STATE MyMinorGameState(CZNetGame::MP_MINOR_GAME_STATE);
 	bool LateJoiner(bool);
 	void ResetScores();
-	void TenSecondLaunch(bool);
+	bool TenSecondLaunch(bool); /* port: bool (0x1f3860 returns the argument) */
 	void SetE3Index(int);
-	void DecrementRoundClockSec(int);
-	void OnSealTeam();
+	unsigned int DecrementRoundClockSec(int); /* port: the seconds left in v0 (0x1f35d0; guess, no caller reads it) */
+	bool OnSealTeam(); /* port: bool (0x1f35b0: 0/1 in v0) */
 	/* @socom-skeleton end 9CZNetGame */
 };
 
@@ -373,6 +403,7 @@ class CZNetVoice
 {
 public:
 	friend class OrdersMenu; /* port: the orders menu sets m_isPushed (push-to-talk, 0x52cb50) */
+	friend class CZPersonaState; /* port: UpdateLocalPersona 0x208b80 sends m_PortBuf / m_ServerPortBuf */
 	bool PreTick();
 	bool Tick(f32 dT);
 private:
@@ -423,6 +454,12 @@ class CZOnlineLobby
 {
 public:
 	void Init();
+	/* DWARF +0x58 / +0x5c subroutine_type*: the event handler (CZGameState::
+	 * RemoteGameUpdateCallback 0x206458 calls it with an event name and 0; port: signature
+	 * from that call) and the net error handler (CLoadState::Init stores
+	 * CMission::RecoverFromNetError, _RecoverFromNetError clears it) */
+	void (*m_event_handler)(const char *, int);
+	unsigned char (*m_net_error_handler)(int);
 private:
 	bool started;
 	CValve* onlineStatusValve;
@@ -495,7 +532,7 @@ public:
 	void SetMissionSequence(unsigned char, unsigned char *);
 	void ResetMissionSequence();
 	unsigned char AdvanceMissionSequence();
-	void MediusConnectionIndex();
+	int MediusConnectionIndex(); /* 0x3226f0: myConnectionIndex in v0 */
 	void RecoverFromNetError(int);
 	void SyncGameClock(int);
 	void GetDMEJoinedCount();

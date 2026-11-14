@@ -26,6 +26,7 @@ class TypeBombStatus;
 /* @socom-skeleton end forward */
 
 class CMission;
+class CLadderList;
 class CMissionObjectiveCam;
 class CObjAnchor;
 class CObjAnchorVec;
@@ -88,6 +89,12 @@ void ftsNetworkGameInit();
 void ftsNetworkGameUninit();
 void ftsNetworkPlayerInit();
 void ftsNetworkSealInit();
+void DMEDisconnectFromGameServer(); /* fts_network_dme.cpp (0x201800) */
+void NetSendE3Index(int, unsigned int, int, bool); /* fts_remote.cpp (0x203400) */
+void SendBombStateRequest(int, unsigned char, const CPnt3D *); /* fts_remote.cpp (0x202370) */
+void SendGameSignalMessage(int, unsigned char, unsigned char, unsigned char, int, bool); /* fts_remote.cpp (0x2022c0) */
+char* GetDatabase(); /* zanim_menu.cpp (0x1d6770) */
+char* SetDatabase(const char*); /* zanim_menu.cpp (0x1d6780) */
 
 s32 FilterMissionFolder(const char* prefix, const char* infix, const char* postfix, char* output);
 
@@ -161,6 +168,14 @@ enum MISSION_STATE
 	MISSION_FAILURE,
 	MISSION_ABORTED,
 	MISSION_TIMEOUT
+};
+
+/* DWARF E3_TEAMS_ENUM (1 byte): the E3 show's fixed team (CMission::m_e3_team) */
+enum E3_TEAMS_ENUM
+{
+	E3_EITHER,
+	E3_SEAL,
+	E3_TERR
 };
 
 class CMission : CSaveModule
@@ -240,7 +255,7 @@ public:
 	C2DMessage_Q m_Subtitles;
 	C2DMessage_Q m_ammoMessenger;
 
-	// CLadderList* m_ladders;
+	CLadderList* m_ladders; /* DWARF +0x580: the world's ladder DIs (CreateLadderTable; Close deletes it) */
 
 	CZNetGame* m_pNetGame;
 
@@ -269,7 +284,7 @@ public:
 	zdb::CNode* m_sealbombshack;
 	zdb::CNode* m_terroristbombshack;
 
-	// E3_TEAMS_ENUM m_e3_team;
+	E3_TEAMS_ENUM m_e3_team; /* DWARF +0x660: CZNetGame::NetworkTeam, CZGameState version numbers */
 	/* @socom-skeleton decl 8CMission */
 public:
 	virtual ~CMission();
@@ -290,11 +305,11 @@ public:
 	static bool fadeToEndMissionTick(float, void *); /* static: the MissionFadeToEnd task function (AddTask a2 0x1f6090, the mission as registrar in a3) */
 	void FadeToEndMission(float, int);
 	void CreateLadderTable();
-	void GetGameTime();
+	int GetGameTime(); /* 0x1f37d0: seconds in v0 (CHUD::Tick tests it for < 0) */
 	void LoadMissionCams(CRdrFile *);
 	void LoadObjectiveCams(CRdrFile *);
 	CMissionCam * GetMissionCamByIdentifier(const char *);
-	void _RecoverFromNetError(int);
+	unsigned char _RecoverFromNetError(int); /* 0x1f2a20: 1 when it handled the error */
 	static unsigned char RecoverFromNetError(int);
 	void Sample_ExtractionLoc();
 	bool LoadVehicles(unsigned int); /* bool: 0x1fd570 returns 1 */
@@ -351,6 +366,16 @@ public:
 	static void CreateBombHere(CPnt3D *);
 	static void InitBomb();
 	static void UninitBomb();
+	/* port: no DWARF type; the 16-byte "BombState" network structure (zNetRegisterBomb
+	 * 0x207a30, UpdateLocalBomb 0x2074c0); names after the field ids */
+	struct TypeBombState
+	{
+		CPnt3D BombPosition;       /* +0x0 */
+		unsigned char BombState;   /* +0xc EnumBombState */
+		unsigned char BombHolder;  /* +0xd: the holder's seal object index */
+		unsigned char BombDefuser; /* +0xe: the defuser's seal object index */
+		unsigned char m_unk_0f;    /* +0xf: never written (UpdateLocalBomb sends stack garbage) */
+	};
 	static int m_BombDefuserFieldID;
 	static int m_BombHolderFieldID;
 	static int m_BombPositionFieldID;
@@ -375,12 +400,21 @@ public:
 	static void SetButtonState(CPad *, PadBtnFunc::_, KEY_STATE); /* 0x209a70: a0 = pad (no this) */
 };
 /* @socom-skeleton end 13CCtrlrConfigs */
+/* DWARF CLadderData (40 bytes): one ladder DI (application flags 2) of a world node, in
+ * world space (CMission::CreateLadderTable) */
+class CLadderData
+{
+public:
+	CPnt3D m_norm;      /* +0x0: the DI's normal, rotated to world space */
+	CBBox m_bbox;       /* +0xc: the node's bbox in world space (min / max sorted per axis) */
+	zdb::CNode* m_node; /* +0x24 */
+};
 /* @socom-skeleton decl 11CLadderList */
 class CLadderList : public std::vector<CLadderData>
 {
 public:
 	CLadderData * GetLadderByIndex(int);
-	void GetClosestLadder(const CPnt3D *, float);
+	int GetClosestLadder(const CPnt3D *, float); /* int: 0x1f5a90 returns the index | LADDER_MASK, or -1 */
 };
 /* @socom-skeleton end 11CLadderList */
 /* @socom-skeleton decl 20CMissionObjectiveCam */
@@ -423,6 +457,18 @@ public:
 class CSpawners
 {
 public:
+	/* no DWARF members; layout from Tick 0x1fcb40, CMission::RecycleEntity 0x1fcc60, LoadVehicles
+	 * 0x1fd634 and RefreshTeamValves (names the port's). spawn_map: a recycle entry of the
+	 * vehicle reader waiting for a free slot (its m_list slot from CreateRecycler) */
+	struct spawn_map
+	{
+		u32 m_index;               /* +0x0 the m_list slot (CEntity::CreateRecycler) */
+		CVehicleRdrEntry* m_entry; /* +0x4 */
+	};
+	std::list<u32> m_unused;              /* +0x0: constructed by __sinit, never used */
+	std::list<spawn_map> m_spawn;         /* +0xc */
+	s32 m_pending;                        /* +0x18: recycled entities not yet replaced */
+	f32 m_timer;                          /* +0x1c: 2 s between spawns */
 	void Tick(float);
 	void Clear();
 };
@@ -438,7 +484,36 @@ public:
 	static void RemoteGameCreationCallback(int, int);
 	static void RemoteGameDeletionCallback(int, int);
 	static int CreateLocalGame(CZNetGame *);
-	void UpdateLocalGame(CZNetGame *);
+	static void UpdateLocalGame(CZNetGame *); /* port: static (callers pass the net game in a0) */
+	/* port: no DWARF type; the 64-byte "GameState" network structure (zNetRegisterGame
+	 * 0x206770, UpdateLocalGame 0x205e70, RemoteGameUpdateCallback 0x206320); names after
+	 * the field ids, flag bits from the shifts */
+	struct TypeGameState
+	{
+		char WorldStr[5];              /* +0x0: the database's first 5 characters */
+		unsigned int MaxGameTime;      /* +0x8: the round time limit in s */
+		unsigned int InitialClock;     /* +0xc: the round start (network ms) */
+		unsigned int CurrentRTime;     /* +0x10 */
+		unsigned int VersionNo;        /* +0x14: 80, 2080 at the E3 show */
+		unsigned int TenSecondLaunch : 1; /* +0x18 bit 0 */
+		unsigned int NetStartFlag : 2;    /* bits 1-2 MP_NET_READY */
+		unsigned int MajorGameState : 4;  /* bits 3-6 */
+		unsigned int RoundCount : 4;      /* bits 7-10 */
+		unsigned int MaxRounds : 4;       /* bits 11-14 */
+		unsigned int GameType : 3;        /* bits 15-17 MP_GAME_TYPE */
+		unsigned int m_unused_18 : 2;     /* bits 18-19 */
+		unsigned int FriendlyFire : 1;    /* bit 20 (byte 0x1a bit 4) */
+		unsigned int LockedGame : 1;      /* bit 21 */
+		unsigned int Persistent : 1;      /* bit 22 */
+		unsigned int m_unused_23 : 9;
+		unsigned int m_flags_1c;       /* +0x1c: the Flags field is 8 bytes; never written */
+		unsigned char RoundWinner;     /* +0x20 */
+		unsigned char Score00;         /* +0x21 */
+		unsigned char Score08;         /* +0x22 */
+		unsigned char RoundIndex;      /* +0x23: CZOnlineLobby mission sequence */
+		unsigned char RoundBlock[12];  /* +0x24 */
+		unsigned char LJBlock[16];     /* +0x30: CZPersonaState::m_LJArray */
+	};
 	static int m_CurrentRTimeFieldID;
 	static int m_FlagsFieldID;
 	static int m_InitialClockFieldID;
@@ -465,6 +540,17 @@ public:
 	static void RemoteGrenadeDeletionCallback(int, int);
 	static int CreateLocalGrenade(CZProjectile *);
 	static void UpdateLocalGrenade(CZProjectile *);
+	/* port: no DWARF type; the 36-byte "GrenadeState" network structure (zNetRegisterGrenade
+	 * 0x206d20; the two pointers are local, not sent) */
+	struct TypeGrenadeState
+	{
+		CPnt3D GrenadePosition;            /* +0x0 */
+		CPnt3D GrenadeVelocity;            /* +0xc */
+		unsigned char GrenadeState;        /* +0x18 GRENADE_STATE */
+		unsigned char ThrowerObjectIndex;  /* +0x19: the thrower's seal object index */
+		CZProjectile* pProjectile;         /* +0x1c */
+		CZSealBody* pThrower;              /* +0x20 (RemoteGrenadeCreationCallback 0x206c80) */
+	};
 	static unsigned char m_GrenadePositionFieldID[4];
 	static unsigned char m_GrenadeStateFieldID[4];
 	static unsigned char m_GrenadeVelocityFieldID[4];
@@ -499,15 +585,15 @@ public:
 	static int NumActiveTerrorists();
 	static int NumActiveSeals();
 	static int FindNextSealIndex();
-	void FindNextSealIndexEx();
+	static int FindNextSealIndexEx(); /* port: static int (no this; v0 the slot) */
 	static int FindNextTerrIndex();
-	void FindNextTerrIndexEx();
+	static int FindNextTerrIndexEx(); /* port: static int (no this; v0 the slot) */
 	static void UpdateTeamNums();
 	static void UpdateTeamNumsEx();
 	static void RequestTeamSwitch(int, int);
-	void AllReadyToLoad();
-	void AllReadyToPlay();
-	void ToggleReady();
+	static bool AllReadyToLoad(); /* port: static bool (CheckStateSwitch passes no object, tests v0) */
+	static bool AllReadyToPlay(); /* port: static bool (CLoadState::Tick tests v0) */
+	static void ToggleReady(); /* port: static (no this) */
 	static void CheckStateSwitch();
 	static char * GetSOUPString(CZSealBody *, int);
 	static char * GetPersonaName(int);
@@ -520,7 +606,29 @@ public:
 	static int m_NumNone;
 	static int m_NumSeal;
 	static int m_NumTerr;
-	static int m_PersonaList[3];
+	static std::list<int> m_PersonaList; /* MSL list_deleter<i> (12 bytes): the persona object indices */
+	/* port: no DWARF type; the 724-byte "PersonaState" network structure (zNetRegisterPersona
+	 * 0x209500, UpdateLocalPersona 0x208b80); names after the field ids, the last four
+	 * (local, not sent) invented */
+	struct TypePersonaState
+	{
+		unsigned char MajorPersonaState;   /* +0x0 MP_MAJOR_GAME_STATE */
+		unsigned char MinorPersonaState;   /* +0x1 MP_MINOR_GAME_STATE */
+		unsigned int TeamBlock;            /* +0x4: the team mask sent */
+		signed char E3Index;               /* +0x8: the slot sent (-1 none) */
+		char PersonaName[32];              /* +0x9 */
+		char PersonaSoup1[128];            /* +0x29: MPLOCALSOP1 */
+		char PersonaSoup2[128];            /* +0xa9 */
+		char PersonaSoup3[128];            /* +0x129 */
+		char PersonaSoup4[128];            /* +0x1a9 */
+		char PersonaSoup5[128];            /* +0x229 */
+		unsigned int PersonaMyIP[4];       /* +0x2ac: theVoice.m_PortBuf */
+		unsigned int PersonaServerIP[4];   /* +0x2bc: theVoice.m_ServerPortBuf */
+		unsigned int Team;                 /* +0x2cc: the team mask in use */
+		unsigned char E3Slot;              /* +0x2d0: the slot in use */
+		unsigned char ClientIndex;         /* +0x2d1 */
+		unsigned char Flag2d2;             /* +0x2d2: only cleared (RemotePersonaCreationCallback) */
+	};
 	static int m_PersonaMyIPFieldID;
 	static unsigned char m_PersonaNameFieldID[4];
 	static int m_PersonaServerIPFieldID;
@@ -539,7 +647,50 @@ public:
 class CZSealState
 {
 public:
-	class TypeSealState;
+	/* port: no DWARF type; the 152-byte "SealState" network structure (zNetRegisterSeal
+	 * 0x205930, UpdateLocalSeal 0x204740); names after the field ids */
+	class TypeSealState
+	{
+	public:
+		float SealPosX;                    /* +0x0 */
+		float SealPosY;                    /* +0x4 */
+		float SealPosZ;                    /* +0x8 */
+		unsigned int TeamBlock;            /* +0xc */
+		unsigned int AIState;              /* +0x10: CSealCtrl::GetAiNetState */
+		char SealType[32];                 /* +0x14: character type name */
+		unsigned char SealWeapons[48];     /* +0x34: CCharacterWeapPacked */
+		short SealYaw;                     /* +0x64: 65536 / 2pi units */
+		unsigned short WeaponSelect;       /* +0x66: EQUIP_ITEM, 255 none */
+		signed char ThrottleFB;            /* +0x68: x127 */
+		signed char ThrottleLR;            /* +0x69 */
+		signed char ThrottleST;            /* +0x6a */
+		signed char AimElevation;          /* +0x6b: x128 */
+		unsigned char WeaponState;         /* +0x6c */
+		unsigned char StanceState;         /* +0x6d SEAL_STATE */
+		unsigned char PeekState;           /* +0x6e SEAL_PEEK */
+		unsigned char ActionState;         /* +0x6f */
+		unsigned char HeadHealth;          /* +0x70: damage levels */
+		unsigned char BodyHealth;          /* +0x71 */
+		unsigned char LLegHealth;          /* +0x72 */
+		unsigned char RLegHealth;          /* +0x73 */
+		unsigned char LArmHealth;          /* +0x74 */
+		unsigned char RArmHealth;          /* +0x75 */
+		unsigned char KillerIndex;         /* +0x76 */
+		unsigned char FireModeSelect;      /* +0x77 FIREMODE */
+		unsigned char UnitID;              /* +0x78 */
+		unsigned char FireTriggerCount;    /* +0x79 */
+		unsigned char VehicleIndex;        /* +0x7a */
+		unsigned char RoundStats[12];      /* +0x7b: MPSealStats (10 bytes used) */
+		unsigned char GameStats[12];       /* +0x87 */
+		CZSealBody* pBody;                 /* +0x94: local, not sent */
+	};
+	/* port: no type info; the 8-byte record RemoteSealCreationCallback news for a seal object
+	 * that arrives before the characters are loaded (names invented) */
+	struct TypeRemoteGuy
+	{
+		int ClientIndex; /* +0x0 */
+		int ObjectIndex; /* +0x4 */
+	};
 	static void zNetRegisterSeal();
 	static void RemoteSealCreationCallback(int, int);
 	static void RemoteSealDeletionCallback(int, int);
@@ -547,12 +698,12 @@ public:
 	static void RemoteSealUpdateCallback(int, int, int);
 	static void IncrementalUpdateRemoteSeal(int, int, int);
 	static void RemoteSealPostUpdateCallback(int, int, int);
-	void UpdateRollandsUnitStuff(CZSealBody *, CZSealState::TypeSealState *);
+	static void UpdateRollandsUnitStuff(CZSealBody *, CZSealState::TypeSealState *); /* port: static (a0 the seal) */
 	static int CreateLocalSeal(CZSealBody *, bool);
 	static void UpdateLocalSeal(CZSealBody *); /* port: static (CSealCtrl::Tick 0x28741c passes the body in a0) */
-	static void UnloadRemoteGuyList();
+	static bool UnloadRemoteGuyList(); /* port: bool (0x204660 returns 0 / 1) */
 	static CZSealBody * GetBodyFromObjectIndex(int);
-	void GetPackedWeaponData(CZSealBody *);
+	static CCharacterWeapPacked * GetPackedWeaponData(CZSealBody *); /* port: static, returns the pointer (a0 the seal) */
 	static void RemoveNetSeal(int, bool);
 	static int m_AIStateFieldID;
 	static int m_ActionStateFieldID;
@@ -569,7 +720,7 @@ public:
 	static int m_PeekStateFieldID;
 	static int m_RArmHealthFieldID;
 	static int m_RLegHealthFieldID;
-	static int m_RemoteGuyList[3];
+	static std::list<TypeRemoteGuy*> m_RemoteGuyList; /* MSL list_deleter<PCv> (12 bytes) */
 	static int m_RoundStatsFieldID;
 	static int m_SealPosXFieldID;
 	static int m_SealPosYFieldID;

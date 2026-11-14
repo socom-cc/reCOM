@@ -1264,7 +1264,7 @@ public:
 	CZAnim* m_UserActionAnim;
 
 	u8 m_Lod;
-	void(*m_network_activation_callback)();
+	void (*m_network_activation_callback)(void *, int); /* DMERegister 0x201a34 stores SendZAnimNetworkPacket(void *, int) */
 	bool m_block_activation_callback;
 
 	_zanim_cmd_hdr m_cmd_if;
@@ -1858,7 +1858,7 @@ public:
 class CAnimAuxData
 {
 public:
-	void Get(unsigned int);
+	static CAnimAuxData * Get(unsigned int); /* static: 0x2cc7c0 returns list[a0] (NetSendPushBlend 0x2038c0) */
 	static std::vector<CAnimAuxData*> list; /* one per AnimType (AnimSet::Load) */
 	CAnimAuxData() { m_network_log = false; } /* inline (AnimSet::Load 0x2cc3c0: new, then bit 0 cleared) */
 	u32 m_network_log : 1; /* port: name guessed from the animset.rdr tag 'network_log' that sets it (no DWARF) */

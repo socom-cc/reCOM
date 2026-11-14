@@ -291,6 +291,9 @@ bool IsStickNearCenter(float radius) /* port: bool (inlined as a 0/1 test in Han
 /* @socom-skeleton stub PlayCountSound__Fv */
 void PlayCountSound()
 {
+	/* 0x384630: the teletype sound (a counter's new number) */
+	if (g_pTtySound != NULL)
+		g_pTtySound->PlaySound(true, NULL, 255);
 }
 
 /* @socom-skeleton stub PlaySelectionSound__Fv */

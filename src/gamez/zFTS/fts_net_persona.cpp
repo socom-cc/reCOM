@@ -71,6 +71,10 @@
 #include "gamez/zSeal/zseal.h"
 #include "zfts.h"
 /* @socom-skeleton end include */
+#include "gamez/zNetwork/znet.h"
+#include "gamez/zReader/zrdr_local.h" /* CRdrEditor (UpdatePersonaLists) */
+#include <stdio.h>
+#include <string.h>
 
 /* @socom-skeleton stub m_LJArray__14CZPersonaState */
 unsigned char CZPersonaState::m_LJArray[16] = {0};
@@ -130,7 +134,7 @@ int CZPersonaState::m_NumNone;
 static unsigned char MultiplayerMsgStrings[28];
 
 /* @socom-skeleton stub m_PersonaList__14CZPersonaState */
-int CZPersonaState::m_PersonaList[3];
+std::list<int> CZPersonaState::m_PersonaList;
 
 /* @socom-skeleton stub m_savail_index__14CZPersonaState */
 int CZPersonaState::m_savail_index[8];
@@ -141,119 +145,770 @@ int CZPersonaState::m_tavail_index[8];
 /* @socom-skeleton stub zNetRegisterPersona__14CZPersonaStateFv */
 void CZPersonaState::zNetRegisterPersona()
 {
+	/* 0x209500 (ftsNetworkGameInit): the 724-byte "PersonaState" structure (flash schedule)
+	 * - MajorPersonaState +0x0, MinorPersonaState +0x1, TeamBlock +0x4, E3Index +0x8,
+	 * PersonaName +0x9 1x32, PersonaSoup1-5 +0x29/+0xa9/+0x129/+0x1a9/+0x229 1x128,
+	 * PersonaMyIP +0x2ac 4x4, PersonaServerIP +0x2bc 4x4 - then the remote callbacks.
+	 * port: not written (NetRegisterObjectStart, NetObjectField, NetRegisterStructure) */
+	theNetwork.zNetRegisterRemoteObjectCallback(m_NetStructIndexPersonaObject, RemotePersonaCreationCallback,
+		RemotePersonaUpdateCallback, RemotePersonaPostUpdateCallback, RemotePersonaDeletionCallback);
 }
 
 /* @socom-skeleton stub RemotePersonaCreationCallback__14CZPersonaStateFii */
-void CZPersonaState::RemotePersonaCreationCallback(int, int)
+void CZPersonaState::RemotePersonaCreationCallback(int client, int index)
 {
+	/* 0x209310 (a remote player's persona arrives): kept in the list (no team, slot 0) for
+	 * that client; the session master gives a late joiner his remembered team and slot
+	 * (m_LJArray: bit 4 set, bit 3 terrorist, bits 0-2 the slot; then cleared and the game
+	 * object updated), anyone else the smaller side's next free slot (sent to him). Voice:
+	 * the session master's persona brings the server address; a persona with an address is
+	 * permitted (and served, by the master) */
+	NetObjectRec* object = theNetwork.zNetGetObject(index);
+
+	if (object == NULL)
+		return;
+
+	TypePersonaState* persona = (TypePersonaState*)object->m_data;
+
+	if (persona == NULL)
+		return;
+
+	persona->Team = 0;
+	persona->E3Slot = 0;
+	persona->Flag2d2 = 0;
+	m_PersonaList.push_back(index);
+	UpdatePersonaLists();
+	persona->ClientIndex = (u8)client;
+
+	if (theNetwork.m_bSessionMaster)
+	{
+		unsigned char* joiner = &m_LJArray[client];
+
+		if ((*joiner & 0x10) != 0)
+		{
+			persona->E3Slot = *joiner & 7;
+			persona->Team = (*joiner & 8) != 0 ? 0x80000100 : 0x40000001;
+			*joiner = 0;
+			CZGameState::UpdateLocalGame(theMission.m_pNetGame);
+		}
+		else
+		{
+			UpdateTeamNums();
+			int slot;
+
+			if (m_NumTerr < m_NumSeal)
+			{
+				slot = FindNextTerrIndex();
+				persona->E3Slot = (u8)slot;
+				persona->Team = 0x80000100;
+				m_NumTerr++;
+			}
+			else
+			{
+				slot = FindNextSealIndex();
+				persona->E3Slot = (u8)slot;
+				persona->Team = 0x40000001;
+				m_NumSeal++;
+			}
+
+			NetSendE3Index(client, persona->Team, (u8)slot, false);
+		}
+	}
+
+	if (client == theNetwork.zNetGetGameSessionMasterClientIndex())
+		theVoice.Init(persona->PersonaServerIP);
+
+	if (persona->PersonaMyIP[0] != 0)
+	{
+		theVoice.Init(NULL);
+		theVoice.Permit(persona->PersonaMyIP);
+
+		if (theNetwork.m_bSessionMaster)
+			theVoice.ServerPermit(persona->PersonaMyIP);
+	}
 }
 
 /* @socom-skeleton stub RemotePersonaUpdateCallback__14CZPersonaStateFiii */
-void CZPersonaState::RemotePersonaUpdateCallback(int, int, int)
+void CZPersonaState::RemotePersonaUpdateCallback(int client, int index, int field)
 {
+	/* 0x209220: a sent team (not 0) and slot are taken over; a new address goes to the voice
+	 * code, the session master's server address too */
+	NetObjectRec* object = theNetwork.zNetGetObject(index);
+
+	if (object == NULL)
+		return;
+
+	TypePersonaState* persona = (TypePersonaState*)object->m_data;
+
+	if (persona == NULL)
+		return;
+
+	if ((field == m_TeamBlockFieldID || field == -1) && persona->TeamBlock != 0)
+		persona->Team = persona->TeamBlock;
+
+	if (field == m_E3IndexFieldID || field == -1)
+		persona->E3Slot = (u8)persona->E3Index;
+
+	if (field == m_PersonaMyIPFieldID || field == -1)
+		theVoice.HandleNewIPBuf(client, persona->PersonaMyIP);
+
+	if ((field == m_PersonaServerIPFieldID || field == -1)
+		&& client == theNetwork.zNetGetGameSessionMasterClientIndex())
+		theVoice.RemoteSMUpdateCallback(persona->PersonaServerIP);
 }
 
 /* @socom-skeleton stub RemotePersonaPostUpdateCallback__14CZPersonaStateFiii */
 void CZPersonaState::RemotePersonaPostUpdateCallback(int, int, int)
 {
+	/* 0x2091f0: the team lists, then the local persona */
+	UpdatePersonaLists();
+	UpdateLocalPersona();
 }
 
 /* @socom-skeleton stub RemotePersonaDeletionCallback__14CZPersonaStateFii */
-void CZPersonaState::RemotePersonaDeletionCallback(int, int)
+void CZPersonaState::RemotePersonaDeletionCallback(int, int index)
 {
+	/* 0x209120: a persona that goes leaves the list (its first entry), the lists and the
+	 * state switch follow */
+	if (theNetwork.zNetGetObject(index) == NULL)
+		return;
+
+	std::list<int>::iterator it = m_PersonaList.begin();
+
+	while (it != m_PersonaList.end() && *it != index)
+		++it;
+
+	if (it != m_PersonaList.end())
+		m_PersonaList.erase(it);
+
+	UpdatePersonaLists();
+	CheckStateSwitch();
 }
 
 /* @socom-skeleton stub CreateLocalPersona__14CZPersonaStateFv */
 int CZPersonaState::CreateLocalPersona()
 {
+	/* 0x208fe0 (ftsNetworkGameInit): this player's "PersonaObject" (ownership 1, lifespan
+	 * 2), zeroed with no slot (-1); the session master is the first SEAL (slot 0). Voice
+	 * starts; the client index is kept, the persona listed, not voted off. Its index, -1 when
+	 * it could not be made. ELF quirk kept: the object is not tested for NULL */
+	int index;
+
+	if (theNetwork.zNetCreateObject(&index, (NetOwnershipStatus)1, (NetObjectLifespan)2, 0, 0, 0, 1, NULL,
+			(char*)"PersonaObject", m_NetStructIndexPersonaObject) != 0)
+		return -1;
+
+	TypePersonaState* persona = (TypePersonaState*)theNetwork.zNetGetObject(index)->m_data;
+	memset(persona, 0, sizeof(TypePersonaState));
+	persona->E3Index = -1;
+	CZNetGame* game = theMission.m_pNetGame;
+
+	if (theNetwork.m_bSessionMaster)
+	{
+		m_NumSeal = 1;
+		game->NetworkTeam(0x40000001);
+		game->SetE3Index(0);
+		persona->E3Slot = 0;
+		persona->Team = 0x40000001;
+	}
+
+	theVoice.Init(NULL);
+	persona->ClientIndex = (u8)theNetwork.zNetGetMyGameClientIndex();
+	m_PersonaList.push_back(index);
+	m_VotedOff = 0;
+	return index;
 }
 
 /* @socom-skeleton stub UpdateLocalPersona__14CZPersonaStateFv */
 void CZPersonaState::UpdateLocalPersona()
 {
+	/* 0x208b80 (a network game): the state switch first; then this player's persona is
+	 * rebuilt - states, team, slot, name (the one sent, else PLAYERNAMEVAR, else PlayerN; 30
+	 * characters), the five MPLOCALSOPn strings (string variables only), the voice port
+	 * buffers - and the team lists. ELF quirk kept: two debug lines (the ServerIPBuf one
+	 * also prints the MyIP buffer) are formatted and never shown */
+	if (!theNetwork.m_bNetwork)
+		return;
+
+	CZNetGame* game = theMission.m_pNetGame;
+
+	if (game == NULL)
+		return;
+
+	NetObjectRec* object = theNetwork.zNetGetObject(game->m_persona_object_index);
+
+	if (object == NULL)
+		return;
+
+	TypePersonaState* current = (TypePersonaState*)object->m_data;
+
+	if (current == NULL)
+		return;
+
+	CheckStateSwitch();
+	TypePersonaState persona;
+	memset(&persona, 0, sizeof(persona)); /* port: the ELF copies a zero 724-byte image (0x4c5a00) */
+	char name[96];
+
+	if (strlen(current->PersonaName) == 0)
+	{
+		CUIVariable* variable = theUIVarManager.Find("PLAYERNAMEVAR");
+
+		if (variable != NULL)
+			sprintf(name, "%s", variable->type == ZRDR_STRING ? variable->string : NULL);
+		else
+			sprintf(name, "Player%d", theNetwork.zNetGetMyGameClientIndex());
+	}
+	else
+		sprintf(name, "%s", current->PersonaName);
+
+	persona.MajorPersonaState = (u8)game->m_my_major_game_state;
+	persona.MinorPersonaState = (u8)game->m_mp_minor_game_state;
+	persona.TeamBlock = game->m_net_team;
+	strncpy(persona.PersonaName, name, 31);
+	persona.PersonaName[30] = '\0';
+	persona.E3Index = (s8)game->m_e3_index;
+
+	CUIVariable* soups[5];
+	char* texts[5];
+	soups[0] = theUIVarManager.Find("MPLOCALSOP1");
+	texts[0] = persona.PersonaSoup1;
+	soups[1] = theUIVarManager.Find("MPLOCALSOP2");
+	texts[1] = persona.PersonaSoup2;
+	soups[2] = theUIVarManager.Find("MPLOCALSOP3");
+	texts[2] = persona.PersonaSoup3;
+	soups[3] = theUIVarManager.Find("MPLOCALSOP4");
+	texts[3] = persona.PersonaSoup4;
+	soups[4] = theUIVarManager.Find("MPLOCALSOP5");
+	texts[4] = persona.PersonaSoup5;
+
+	for (s32 i = 0; i < 5; i++)
+	{
+		CUIVariable* soup = soups[i];
+
+		if (soup != NULL && soup->type == ZRDR_STRING)
+			strncpy(texts[i], soup->type == ZRDR_STRING ? soup->string : NULL, 128);
+	}
+
+	for (s32 i = 0; i < 4; i++)
+	{
+		persona.PersonaMyIP[i] = theVoice.m_PortBuf[i];
+		persona.PersonaServerIP[i] = theVoice.m_ServerPortBuf[i];
+	}
+
+	unsigned int* ip = persona.PersonaMyIP;
+	char text[512];
+	sprintf(text, "CI %02d MyIPBuf (WAN %d.%d.%d.%d:%d/%d, LAN %d.%d.%d.%d:%d/%d)\n", current->ClientIndex,
+		(ip[0] >> 24) & 0xff, (ip[0] >> 16) & 0xff, (ip[0] >> 8) & 0xff, ip[0] & 0xff, ip[1] & 0xffff, ip[1] >> 16,
+		(ip[2] >> 24) & 0xff, (ip[2] >> 16) & 0xff, (ip[2] >> 8) & 0xff, ip[2] & 0xff, ip[3] & 0xffff, ip[3] >> 16);
+	sprintf(text, "      ServerIPBuf (WAN %d.%d.%d.%d:%d/%d, LAN %d.%d.%d.%d:%d/%d)\n",
+		(ip[0] >> 24) & 0xff, (ip[0] >> 16) & 0xff, (ip[0] >> 8) & 0xff, ip[0] & 0xff, ip[1] & 0xffff, ip[1] >> 16,
+		(ip[2] >> 24) & 0xff, (ip[2] >> 16) & 0xff, (ip[2] >> 8) & 0xff, ip[2] & 0xff, ip[3] & 0xffff, ip[3] >> 16);
+	persona.E3Slot = (u8)game->m_e3_index;
+	persona.Team = persona.TeamBlock;
+	persona.ClientIndex = current->ClientIndex;
+	memcpy(object->m_data, &persona, sizeof(persona));
+	UpdatePersonaLists();
 }
 
 /* @socom-skeleton stub UpdatePersonaLists__14CZPersonaStateFv */
 void CZPersonaState::UpdatePersonaLists()
 {
+	/* 0x208970: the BSEALLISTVAR / BTERRLISTVAR / BNONELISTVAR variables become lists of the
+	 * players' names by team ("<name> -- READY" when ready). ELF quirk kept: the three lists
+	 * are also written to stdout */
+	CZNetGame* game = theMission.m_pNetGame;
+
+	if (game == NULL)
+		return;
+
+	CRdrEditor seals;
+	CRdrEditor terrorists;
+	CRdrEditor nobody;
+	seals.push(NULL);
+	terrorists.push(NULL);
+	nobody.push(NULL);
+
+	for (std::list<int>::iterator it = m_PersonaList.begin(); it != m_PersonaList.end(); ++it)
+	{
+		NetObjectRec* object = theNetwork.zNetGetObject(*it);
+
+		if (object == NULL || object->m_name[0] != 'P')
+			continue;
+
+		TypePersonaState* persona = (TypePersonaState*)object->m_data;
+
+		if (persona == NULL)
+			continue;
+
+		char text[64];
+		sprintf(text, persona->MinorPersonaState == CZNetGame::MP_MINOR_READY ? "%s -- READY" : "%s", persona->PersonaName);
+
+		if ((persona->TeamBlock & 1) != 0)
+			seals.addstringnode(text);
+		else if ((persona->TeamBlock & 0x100) != 0)
+			terrorists.addstringnode(text);
+		else
+			nobody.addstringnode(text);
+	}
+
+	seals.pop();
+	terrorists.pop();
+	nobody.pop();
+	seals.Write(stdout);
+	terrorists.Write(stdout);
+	nobody.Write(stdout);
+	game->m_uiv_SealList->Set(&seals);
+	game->m_uiv_TerrList->Set(&terrorists);
+	game->m_uiv_NoneList->Set(&nobody);
 }
 
 /* @socom-skeleton stub NumActiveTerrorists__14CZPersonaStateFv */
 int CZPersonaState::NumActiveTerrorists()
 {
+	/* 0x2088c0: personas sending the terrorist team bit (0x100) */
+	int count = 0;
+
+	for (std::list<int>::iterator it = m_PersonaList.begin(); it != m_PersonaList.end(); ++it)
+	{
+		NetObjectRec* object = theNetwork.zNetGetObject(*it);
+
+		if (object == NULL || object->m_name[0] != 'P')
+			continue;
+
+		TypePersonaState* persona = (TypePersonaState*)object->m_data;
+
+		if (persona != NULL && (persona->TeamBlock & 0x100) != 0)
+			count++;
+	}
+
+	return count;
 }
 
 /* @socom-skeleton stub NumActiveSeals__14CZPersonaStateFv */
 int CZPersonaState::NumActiveSeals()
 {
+	/* 0x208810: personas sending the SEAL team bit (1) */
+	int count = 0;
+
+	for (std::list<int>::iterator it = m_PersonaList.begin(); it != m_PersonaList.end(); ++it)
+	{
+		NetObjectRec* object = theNetwork.zNetGetObject(*it);
+
+		if (object == NULL || object->m_name[0] != 'P')
+			continue;
+
+		TypePersonaState* persona = (TypePersonaState*)object->m_data;
+
+		if (persona != NULL && (persona->TeamBlock & 1) != 0)
+			count++;
+	}
+
+	return count;
 }
 
 /* @socom-skeleton stub FindNextSealIndex__14CZPersonaStateFv */
 int CZPersonaState::FindNextSealIndex()
 {
+	/* 0x2086c0: the first SEAL slot (0-7) no SEAL persona holds, -1 when all are taken */
+	for (s32 i = 0; i < 8; i++)
+		m_savail_index[i] = 0;
+
+	for (std::list<int>::iterator it = m_PersonaList.begin(); it != m_PersonaList.end(); ++it)
+	{
+		NetObjectRec* object = theNetwork.zNetGetObject(*it);
+
+		if (object == NULL || object->m_name[0] != 'P')
+			continue;
+
+		TypePersonaState* persona = (TypePersonaState*)object->m_data;
+
+		if (persona != NULL && (persona->Team & 1) != 0 && persona->E3Slot < 8)
+			m_savail_index[persona->E3Slot]++;
+	}
+
+	for (s32 i = 0; i < 8; i++)
+	{
+		if (m_savail_index[i] == 0)
+			return i;
+	}
+
+	return -1;
 }
 
 /* @socom-skeleton stub FindNextSealIndexEx__14CZPersonaStateFv */
-void CZPersonaState::FindNextSealIndexEx()
+int CZPersonaState::FindNextSealIndexEx()
 {
+	/* 0x2085f0: FindNextSealIndex (its result unused), then the SEAL late joiners' slots are
+	 * also taken; the first free one, -1 when all are taken. port: static int (was a void
+	 * member; no this, v0 the slot) */
+	FindNextSealIndex();
+
+	for (s32 i = 0; i < 16; i++)
+	{
+		u8 joiner = m_LJArray[i];
+
+		if ((joiner & 0x10) != 0 && (joiner & 8) == 0)
+			m_savail_index[joiner & 7]++;
+	}
+
+	for (s32 i = 0; i < 8; i++)
+	{
+		if (m_savail_index[i] == 0)
+			return i;
+	}
+
+	return -1;
 }
 
 /* @socom-skeleton stub FindNextTerrIndex__14CZPersonaStateFv */
 int CZPersonaState::FindNextTerrIndex()
 {
+	/* 0x2084a0: the first terrorist slot (0-7) no terrorist persona holds, -1 when all are
+	 * taken */
+	for (s32 i = 0; i < 8; i++)
+		m_tavail_index[i] = 0;
+
+	for (std::list<int>::iterator it = m_PersonaList.begin(); it != m_PersonaList.end(); ++it)
+	{
+		NetObjectRec* object = theNetwork.zNetGetObject(*it);
+
+		if (object == NULL || object->m_name[0] != 'P')
+			continue;
+
+		TypePersonaState* persona = (TypePersonaState*)object->m_data;
+
+		if (persona != NULL && (persona->Team & 0x100) != 0 && persona->E3Slot < 8)
+			m_tavail_index[persona->E3Slot]++;
+	}
+
+	for (s32 i = 0; i < 8; i++)
+	{
+		if (m_tavail_index[i] == 0)
+			return i;
+	}
+
+	return -1;
 }
 
 /* @socom-skeleton stub FindNextTerrIndexEx__14CZPersonaStateFv */
-void CZPersonaState::FindNextTerrIndexEx()
+int CZPersonaState::FindNextTerrIndexEx()
 {
+	/* 0x2083d0: FindNextTerrIndex (its result unused), then the terrorist late joiners'
+	 * slots are also taken; the first free one, -1 when all are taken. port: static int (was
+	 * a void member; no this, v0 the slot) */
+	FindNextTerrIndex();
+
+	for (s32 i = 0; i < 16; i++)
+	{
+		u8 joiner = m_LJArray[i];
+
+		if ((joiner & 0x10) != 0 && (joiner & 8) != 0)
+			m_tavail_index[joiner & 7]++;
+	}
+
+	for (s32 i = 0; i < 8; i++)
+	{
+		if (m_tavail_index[i] == 0)
+			return i;
+	}
+
+	return -1;
 }
 
 /* @socom-skeleton stub UpdateTeamNums__14CZPersonaStateFv */
 void CZPersonaState::UpdateTeamNums()
 {
+	/* 0x2082e0: the personas counted by their team (SEAL, terrorist, none) */
+	m_NumNone = 0;
+	m_NumTerr = 0;
+	m_NumSeal = 0;
+
+	for (std::list<int>::iterator it = m_PersonaList.begin(); it != m_PersonaList.end(); ++it)
+	{
+		NetObjectRec* object = theNetwork.zNetGetObject(*it);
+
+		if (object == NULL || object->m_name[0] != 'P')
+			continue;
+
+		TypePersonaState* persona = (TypePersonaState*)object->m_data;
+
+		if (persona == NULL)
+			continue;
+
+		if ((persona->Team & 1) != 0)
+			m_NumSeal++;
+		else if ((persona->Team & 0x100) != 0)
+			m_NumTerr++;
+		else
+			m_NumNone++;
+	}
 }
 
 /* @socom-skeleton stub UpdateTeamNumsEx__14CZPersonaStateFv */
 void CZPersonaState::UpdateTeamNumsEx()
 {
+	/* 0x208260: UpdateTeamNums plus the late joiners still away (m_LJArray bit 4; bit 3
+	 * terrorist) */
+	UpdateTeamNums();
+
+	for (s32 i = 0; i < 16; i++)
+	{
+		u8 joiner = m_LJArray[i];
+
+		if ((joiner & 0x10) == 0)
+			continue;
+
+		if ((joiner & 8) != 0)
+			m_NumTerr++;
+		else
+			m_NumSeal++;
+	}
 }
 
 /* @socom-skeleton stub RequestTeamSwitch__14CZPersonaStateFii */
-void CZPersonaState::RequestTeamSwitch(int, int)
+void CZPersonaState::RequestTeamSwitch(int client, int index)
 {
+	/* 0x208120 (the session master, a player's request): a SEAL goes to the terrorists, a
+	 * terrorist to the SEALs, when that side has fewer than 8; the new slot is sent to him.
+	 * ELF quirk kept: the SEAL slot is looked up twice, the second result is sent */
+	NetObjectRec* object = theNetwork.zNetGetObject(index);
+
+	if (object == NULL || object->m_name[0] != 'P')
+		return;
+
+	TypePersonaState* persona = (TypePersonaState*)object->m_data;
+
+	if (persona == NULL)
+		return;
+
+	UpdateTeamNums();
+	unsigned int team = persona->TeamBlock;
+
+	if ((team & 1) != 0 && m_NumTerr < 8)
+	{
+		int slot = FindNextTerrIndex();
+		persona->E3Slot = (u8)slot;
+		persona->Team = 0x80000100;
+		NetSendE3Index(client, 0x80000100, (u8)slot, false);
+		m_NumTerr++;
+		m_NumSeal--;
+		return;
+	}
+
+	if ((team & 0x100) != 0 && m_NumSeal < 8)
+	{
+		persona->E3Slot = (u8)FindNextSealIndex();
+		persona->Team = 0x40000001;
+		NetSendE3Index(client, 0x40000001, FindNextSealIndex(), false);
+		m_NumTerr--;
+		m_NumSeal++;
+	}
 }
 
 /* @socom-skeleton stub AllReadyToLoad__14CZPersonaStateFv */
-void CZPersonaState::AllReadyToLoad()
+bool CZPersonaState::AllReadyToLoad()
 {
+	/* 0x207fe0 (CheckStateSwitch in the menus): once a ten-second launch reaches its start
+	 * everyone is taken as ready; else whether every persona is ready (minor state 2).
+	 * player_ready_count = the ready ones. port: static bool (was a void member; no this,
+	 * v0 the result). ELF quirk kept: the net game is not tested for NULL */
+	CZNetGame* game = theMission.m_pNetGame;
+
+	if (game->m_ten_second_launch && !((u32)theNetwork.zNetGetTime() < game->m_clock.m_initial_read))
+		return true;
+
+	bool ready = true;
+	u32 count = 0;
+
+	for (std::list<int>::iterator it = m_PersonaList.begin(); it != m_PersonaList.end(); ++it)
+	{
+		NetObjectRec* object = theNetwork.zNetGetObject(*it);
+
+		if (object == NULL || object->m_name[0] != 'P')
+			continue;
+
+		TypePersonaState* persona = (TypePersonaState*)object->m_data;
+
+		if (persona == NULL)
+			continue;
+
+		if (persona->MinorPersonaState == CZNetGame::MP_MINOR_READY)
+			count++;
+		else
+			ready = false;
+	}
+
+	CValve* valve = game->m_pPlayerReadyCountValve;
+	u32 change = valve->m_value != count ? (count != 0 ? 1 : 2) : 0;
+	valve->m_value = count;
+
+	if (change)
+		valve->MakeCallbacks((VALVE_STATE)change);
+
+	return ready;
 }
 
 /* @socom-skeleton stub AllReadyToPlay__14CZPersonaStateFv */
-void CZPersonaState::AllReadyToPlay()
+bool CZPersonaState::AllReadyToPlay()
 {
+	/* 0x207f20 (CLoadState::Tick): no loading persona (major state 2) is still not ready.
+	 * port: static bool (was a void member; no this, v0 the result) */
+	for (std::list<int>::iterator it = m_PersonaList.begin(); it != m_PersonaList.end(); ++it)
+	{
+		NetObjectRec* object = theNetwork.zNetGetObject(*it);
+
+		if (object == NULL || object->m_name[0] != 'P')
+			continue;
+
+		TypePersonaState* persona = (TypePersonaState*)object->m_data;
+
+		if (persona == NULL)
+			continue;
+
+		if (persona->MajorPersonaState == CZNetGame::MP_MAJOR_LOADING
+			&& persona->MinorPersonaState != CZNetGame::MP_MINOR_READY)
+			return false;
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub ToggleReady__14CZPersonaStateFv */
 void CZPersonaState::ToggleReady()
 {
+	/* 0x207ec0: ready <-> not ready, then the local persona. port: static (was a member; no
+	 * this) */
+	CZNetGame* game = theMission.m_pNetGame;
+
+	if (game == NULL)
+		return;
+
+	if (game->m_mp_minor_game_state == CZNetGame::MP_MINOR_READY)
+		game->MyMinorGameState(CZNetGame::MP_MINOR_NOTREADY);
+	else
+		game->MyMinorGameState(CZNetGame::MP_MINOR_READY);
+
+	UpdateLocalPersona();
 }
 
 /* @socom-skeleton stub CheckStateSwitch__14CZPersonaStateFv */
 void CZPersonaState::CheckStateSwitch()
 {
+	/* 0x207d70: follows the game's major state. Menus: the session master sends his states
+	 * and, everyone being ready, starts loading (game and own state 2, game object updated).
+	 * Loading: from the menus, ready or in a ten-second launch, this player loads. In play:
+	 * a ready player still in the menus loads, not ready. Other states: this player takes
+	 * the game's state, not ready */
+	CZNetGame* game = theMission.m_pNetGame;
+
+	if (game == NULL)
+		return;
+
+	switch (game->m_mp_major_game_state)
+	{
+	case CZNetGame::MP_MAJOR_INPLAY:
+		if (game->m_my_major_game_state == CZNetGame::MP_MAJOR_MENUS
+			&& game->m_mp_minor_game_state == CZNetGame::MP_MINOR_READY)
+		{
+			game->MyMajorGameState(CZNetGame::MP_MAJOR_LOADING);
+			game->MyMinorGameState(CZNetGame::MP_MINOR_NOTREADY);
+		}
+		break;
+	case CZNetGame::MP_MAJOR_LOADING:
+		if (game->m_my_major_game_state == CZNetGame::MP_MAJOR_MENUS
+			&& (game->m_mp_minor_game_state == CZNetGame::MP_MINOR_READY || game->m_ten_second_launch))
+			game->MyMajorGameState(CZNetGame::MP_MAJOR_LOADING);
+		break;
+	case CZNetGame::MP_MAJOR_MENUS:
+		if (theNetwork.m_bSessionMaster)
+		{
+			TypePersonaState* persona = (TypePersonaState*)theNetwork.zNetGetObject(game->m_persona_object_index)->m_data;
+			persona->MajorPersonaState = (u8)game->m_my_major_game_state;
+			persona->MinorPersonaState = (u8)game->m_mp_minor_game_state;
+
+			if (AllReadyToLoad())
+			{
+				game->MPMajorGameState(CZNetGame::MP_MAJOR_LOADING);
+				game->MyMajorGameState(CZNetGame::MP_MAJOR_LOADING);
+				CZGameState::UpdateLocalGame(game);
+			}
+		}
+		break;
+	case CZNetGame::MP_MAJOR_UNKNOWN:
+		break;
+	default:
+		game->MyMajorGameState(game->m_mp_major_game_state);
+		game->MyMinorGameState(CZNetGame::MP_MINOR_NOTREADY);
+		break;
+	}
 }
 
 /* @socom-skeleton stub GetSOUPString__14CZPersonaStateFP10CZSealBodyi */
-char * CZPersonaState::GetSOUPString(CZSealBody *, int)
+char * CZPersonaState::GetSOUPString(CZSealBody *body, int index)
 {
+	/* 0x207c40: the seal's client's persona string 0-4 (PersonaSoup1-5); NULL without the
+	 * seal, the persona or for another index */
+	if (body == NULL)
+		return NULL;
+
+	s32 client = body->m_ClientIndex;
+
+	for (std::list<int>::iterator it = m_PersonaList.begin(); it != m_PersonaList.end(); ++it)
+	{
+		NetObjectRec* object = theNetwork.zNetGetObject(*it);
+
+		if (object == NULL || object->m_name[0] != 'P')
+			continue;
+
+		TypePersonaState* persona = (TypePersonaState*)object->m_data;
+
+		if (persona == NULL || persona->ClientIndex != client)
+			continue;
+
+		switch (index)
+		{
+		case 0:
+			return persona->PersonaSoup1;
+		case 1:
+			return persona->PersonaSoup2;
+		case 2:
+			return persona->PersonaSoup3;
+		case 3:
+			return persona->PersonaSoup4;
+		case 4:
+			return persona->PersonaSoup5;
+		}
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub GetPersonaName__14CZPersonaStateFi */
-char * CZPersonaState::GetPersonaName(int)
+char * CZPersonaState::GetPersonaName(int client)
 {
+	/* 0x207b80 (RemoteSealCreationCallback): the client's persona name, NULL without one.
+	 * ELF quirk kept: any object named "P..." passes */
+	for (std::list<int>::iterator it = m_PersonaList.begin(); it != m_PersonaList.end(); ++it)
+	{
+		NetObjectRec* object = theNetwork.zNetGetObject(*it);
+
+		if (object == NULL || object->m_name[0] != 'P')
+			continue;
+
+		TypePersonaState* persona = (TypePersonaState*)object->m_data;
+
+		if (persona != NULL && persona->ClientIndex == client)
+			return persona->PersonaName;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub ClearPersonaList__14CZPersonaStateFv */
 void CZPersonaState::ClearPersonaList()
 {
+	/* 0x207b30: the persona list emptied */
+	if (!m_PersonaList.empty())
+		m_PersonaList.erase(m_PersonaList.begin(), m_PersonaList.end());
 }

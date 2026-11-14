@@ -34,6 +34,8 @@
 /* @socom-skeleton decl include */
 #include "gamez/zMath/zmath.h"
 /* @socom-skeleton end include */
+#include "gamez/zNetwork/znet.h"
+#include <string.h>
 /* @socom-skeleton decl forward */
 class TypeBombStatus;
 /* @socom-skeleton end forward */
@@ -62,64 +64,416 @@ TypeBombStatus CZBombState::m_BombStatus;
 /* @socom-skeleton stub zNetRegisterBomb__11CZBombStateFv */
 void CZBombState::zNetRegisterBomb()
 {
+	/* 0x207a30 (ftsNetworkGameInit): the 16-byte "BombState" structure - BombPosition +0x0
+	 * 12 bytes (grenade position schedule), BombState +0xc, BombHolder +0xd, BombDefuser
+	 * +0xe (flash) - then the remote callbacks.
+	 * port: not written (NetRegisterObjectStart, NetObjectField, NetRegisterStructure) */
+	theNetwork.zNetRegisterRemoteObjectCallback(m_NetStructIndexBombObject, RemoteBombCreationCallback,
+		RemoteBombUpdateCallback, RemoteBombPostUpdateCallback, RemoteBombDeletionCallback);
 }
 
 /* @socom-skeleton stub RemoteBombCreationCallback__11CZBombStateFii */
-void CZBombState::RemoteBombCreationCallback(int, int)
+void CZBombState::RemoteBombCreationCallback(int client, int index)
 {
+	/* 0x2078e0 (the master's bomb object arrives, or an update before it): mp_bomb and
+	 * bomb_owner made and cleared, the status reset to this object with the explosion
+	 * animation, the bomb made; every field read and acted on */
+	NetObjectRec* object = theNetwork.zNetGetObject(index);
+
+	if (object == NULL || object->m_data == NULL)
+		return;
+
+	CZNetGame* game = theMission.m_pNetGame;
+
+	if (game == NULL)
+		return;
+
+	CValve* valve = game->m_pBombStatusValve = CValve::Create("mp_bomb", VALVE_TYPE::VTYPE_PERM);
+	u32 change = valve->m_value != 0 ? 2 : 0;
+	valve->m_value = 0;
+
+	if (change)
+		valve->MakeCallbacks((VALVE_STATE)change);
+
+	valve = game->m_pBombOwnerValve = CValve::Create("bomb_owner", VALVE_TYPE::VTYPE_PERM);
+	change = valve->m_value != 0 ? 2 : 0;
+	valve->m_value = 0;
+
+	if (change)
+		valve->MakeCallbacks((VALVE_STATE)change);
+
+	m_BombStatus.NewBombState = BOMB_UNKNOWN;
+	m_BombStatus.CurrentBombState = BOMB_UNKNOWN;
+	m_BombStatus.DefuserObjectIndex = 0;
+	m_BombStatus.HolderObjectIndex = 0;
+	m_BombStatus.BombObjectIndex = index;
+	m_BombStatus.pBombAnimation = ZAnim.GetAnim("base_explosion1", NULL);
+	game->m_bomb_created = true;
+	RemoteBombUpdateCallback(client, index, -1);
+	RemoteBombPostUpdateCallback(client, index, -1);
 }
 
 /* @socom-skeleton stub RemoteBombUpdateCallback__11CZBombStateFiii */
-void CZBombState::RemoteBombUpdateCallback(int, int, int)
+void CZBombState::RemoteBombUpdateCallback(int client, int index, int field)
 {
+	/* 0x2077d0 (a bomb game): the bomb's position, holder and defuser from the object; with
+	 * no bomb yet the creation callback runs instead */
+	CZNetGame* game = theMission.m_pNetGame;
+
+	if (game == NULL || game->m_game_type != MP_GAME_TYPE::MP_GAME_FOOTBOMB)
+		return;
+
+	if (!game->m_bomb_created)
+	{
+		RemoteBombCreationCallback(client, index);
+		return;
+	}
+
+	NetObjectRec* object = theNetwork.zNetGetObject(index);
+
+	if (object == NULL)
+		return;
+
+	TypeBombState* state = (TypeBombState*)object->m_data;
+
+	if (state == NULL)
+		return;
+
+	if (field == m_BombPositionFieldID || field == -1)
+		m_BombStatus.BombLocation = state->BombPosition;
+
+	if (field == m_BombHolderFieldID || field == -1)
+		m_BombStatus.HolderObjectIndex = state->BombHolder;
+
+	if (field == m_BombDefuserFieldID || field == -1)
+		m_BombStatus.DefuserObjectIndex = state->BombDefuser;
 }
 
 /* @socom-skeleton stub RemoteBombPostUpdateCallback__11CZBombStateFiii */
-void CZBombState::RemoteBombPostUpdateCallback(int, int, int)
+void CZBombState::RemoteBombPostUpdateCallback(int, int index, int)
 {
+	/* 0x207740 (a bomb game with the bomb made): a new sent bomb state is acted on */
+	CZNetGame* game = theMission.m_pNetGame;
+
+	if (game == NULL || game->m_game_type != MP_GAME_TYPE::MP_GAME_FOOTBOMB || !game->m_bomb_created)
+		return;
+
+	NetObjectRec* object = theNetwork.zNetGetObject(index);
+
+	if (object == NULL)
+		return;
+
+	TypeBombState* state = (TypeBombState*)object->m_data;
+
+	if (state == NULL || (u8)m_BombStatus.CurrentBombState == state->BombState)
+		return;
+
+	m_BombStatus.NewBombState = (EnumBombState)state->BombState;
+	ChangeBombState();
 }
 
 /* @socom-skeleton stub RemoteBombDeletionCallback__11CZBombStateFii */
 void CZBombState::RemoteBombDeletionCallback(int, int)
 {
+	/* 0x207730: nothing */
 }
 
 /* @socom-skeleton stub CreateLocalBomb__11CZBombStateFv */
 int CZBombState::CreateLocalBomb()
 {
+	/* 0x207660: a "BombObject" network object (ownership 1, lifespan 2) of the BombState
+	 * structure, zeroed; the status keeps it and the explosion animation. Its index, -1 when
+	 * it could not be made */
+	int index;
+
+	if (theNetwork.zNetCreateObject(&index, (NetOwnershipStatus)1, (NetObjectLifespan)2, 0, 0, 0, 0, NULL,
+			(char*)"BombObject", m_NetStructIndexBombObject) != 0)
+		return -1;
+
+	NetObjectRec* object = theNetwork.zNetGetObject(index);
+
+	if (object == NULL)
+		return -1;
+
+	memset(object->m_data, 0, sizeof(TypeBombState));
+	m_BombStatus.BombObjectIndex = index;
+	m_BombStatus.pBombAnimation = ZAnim.GetAnim("base_explosion1", NULL);
+	return index;
 }
 
 /* @socom-skeleton stub UpdateLocalBomb__11CZBombStateFv */
 void CZBombState::UpdateLocalBomb()
 {
+	/* 0x2074c0 (the session master, in play in a bomb game with the bomb made; CZWeapon::
+	 * PreTick): a placed bomb detonates when the round clock runs out; a new state is acted
+	 * on; a placed bomb starts a 30 s round clock once. The bomb object gets the state,
+	 * position, holder and defuser */
+	if (!theNetwork.m_bSessionMaster)
+		return;
+
+	CZNetGame* game = theMission.m_pNetGame;
+
+	if (game == NULL || game->m_game_type != MP_GAME_TYPE::MP_GAME_FOOTBOMB)
+		return;
+
+	if (game->m_mp_major_game_state != CZNetGame::MP_MAJOR_INPLAY || !game->m_bomb_created)
+		return;
+
+	NetObjectRec* object = theNetwork.zNetGetObject(m_BombStatus.BombObjectIndex);
+
+	if (object == NULL)
+		return;
+
+	if (m_BombStatus.CurrentBombState == BOMB_PLACED && game->m_clock.m_game_time == 0)
+		m_BombStatus.NewBombState = BOMB_DETONATED;
+
+	if (m_BombStatus.CurrentBombState != m_BombStatus.NewBombState)
+		ChangeBombState();
+
+	if (m_BombStatus.CurrentBombState == BOMB_PLACED && !game->m_bomb_clock_started)
+	{
+		if (game->m_clock.m_max_game_time == 0)
+			game->m_clock.m_save_max_game_time = 30000;
+
+		game->m_clock.m_max_game_time = 30000;
+		game->m_clock.SetInitialRead(theNetwork.zNetGetTime(), true);
+		game->m_bomb_clock_started = true;
+	}
+
+	TypeBombState state;
+	state.BombState = (u8)m_BombStatus.CurrentBombState;
+	state.BombPosition = m_BombStatus.BombLocation;
+	state.BombHolder = (u8)m_BombStatus.HolderObjectIndex;
+	state.BombDefuser = (u8)m_BombStatus.DefuserObjectIndex;
+	memcpy(object->m_data, &state, sizeof(state));
 }
 
 /* @socom-skeleton stub RequestNewBombState__11CZBombStateFiQ211CZBombState13EnumBombStatePC6CPnt3D */
-void CZBombState::RequestNewBombState(int, CZBombState::EnumBombState, const CPnt3D *)
+void CZBombState::RequestNewBombState(int object, CZBombState::EnumBombState state, const CPnt3D *position)
 {
+	/* 0x207490 (a seal grabs, drops, places or defuses the bomb): the request goes to the
+	 * session master (with a net game) */
+	if (theMission.m_pNetGame != NULL)
+		SendBombStateRequest(object, (u8)state, position);
 }
 
 /* @socom-skeleton stub HandleBombStateRequest__11CZBombStateFiUcP6CPnt3D */
-void CZBombState::HandleBombStateRequest(int, unsigned char, CPnt3D *)
+void CZBombState::HandleBombStateRequest(int object, unsigned char state, CPnt3D *position)
 {
+	/* 0x207320 (the session master, a seal object's request): a held bomb can be dropped
+	 * (where it is) or placed by its holder, a grounded one captured, a placed one defused
+	 * (the defuser kept); then the bomb object is updated */
+	if (!theNetwork.m_bSessionMaster)
+		return;
+
+	if (CZSealState::GetBodyFromObjectIndex(object) == NULL)
+		return;
+
+	switch (state)
+	{
+	case BOMB_GROUNDED:
+		if (m_BombStatus.CurrentBombState == BOMB_CAPTURED && m_BombStatus.HolderObjectIndex == object)
+		{
+			m_BombStatus.NewBombState = BOMB_GROUNDED;
+			m_BombStatus.BombLocation = *position;
+		}
+		break;
+	case BOMB_CAPTURED:
+		if (m_BombStatus.CurrentBombState == BOMB_GROUNDED)
+		{
+			m_BombStatus.NewBombState = BOMB_CAPTURED;
+			m_BombStatus.HolderObjectIndex = object;
+		}
+		break;
+	case BOMB_PLACED:
+		if (m_BombStatus.CurrentBombState == BOMB_CAPTURED && m_BombStatus.HolderObjectIndex == object)
+		{
+			m_BombStatus.NewBombState = BOMB_PLACED;
+			m_BombStatus.BombLocation = *position;
+		}
+		break;
+	case BOMB_DEFUSED:
+		if (m_BombStatus.CurrentBombState == BOMB_PLACED)
+		{
+			m_BombStatus.NewBombState = BOMB_DEFUSED;
+			m_BombStatus.DefuserObjectIndex = object;
+		}
+		break;
+	}
+
+	UpdateLocalBomb();
 }
 
 /* @socom-skeleton stub ChangeBombState__11CZBombStateFv */
 void CZBombState::ChangeBombState()
 {
+	/* 0x2070f0: the new bomb state is acted on - grounded: the holder drops it (no holder: a
+	 * bomb pickup at its position), captured: the holder picks it up, placed: the holder
+	 * places it there, defused: the defuser's defuse and the round clock stops, detonated:
+	 * the explosion plays at the bomb node. It becomes the current state: mp_bomb = the
+	 * state, bomb_owner = the holder's side (2 terrorist, 1 SEAL; 0 none) */
+	CZNetGame* game = theMission.m_pNetGame;
+	CZSealBody* body = NULL;
+
+	switch (m_BombStatus.NewBombState)
+	{
+	case BOMB_GROUNDED:
+	{
+		CZSealBody* holder = CZSealState::GetBodyFromObjectIndex(m_BombStatus.HolderObjectIndex);
+
+		if (holder != NULL)
+			holder->RemoteDropMPBomb();
+		else
+			CZSealBody::CreateMPBombPickup(&m_BombStatus.BombLocation, false);
+
+		body = NULL;
+		break;
+	}
+	case BOMB_CAPTURED:
+		body = CZSealState::GetBodyFromObjectIndex(m_BombStatus.HolderObjectIndex);
+
+		if (body != NULL)
+			body->m_kit.PickupMPBomb();
+		break;
+	case BOMB_PLACED:
+		body = CZSealState::GetBodyFromObjectIndex(m_BombStatus.HolderObjectIndex);
+
+		if (body != NULL)
+			body->m_kit.HandlePlaceMPBomb(&m_BombStatus.BombLocation);
+		break;
+	case BOMB_DEFUSED:
+		body = CZSealState::GetBodyFromObjectIndex(m_BombStatus.DefuserObjectIndex);
+
+		if (body != NULL)
+			body->HandleBombDefuse();
+
+		if (game != NULL)
+			game->m_clock.m_clock_running = false;
+		break;
+	case BOMB_DETONATED:
+		body = CZSealState::GetBodyFromObjectIndex(m_BombStatus.HolderObjectIndex);
+
+		if (m_BombStatus.pBombAnimation != NULL && CPickup::m_mpbombnode != NULL)
+			m_BombStatus.pBombAnimation->ActivateArg(1, 3, CPickup::m_mpbombnode, 0);
+		break;
+	default:
+		break;
+	}
+
+	m_BombStatus.CurrentBombState = m_BombStatus.NewBombState;
+
+	if (game == NULL)
+		return;
+
+	CValve* valve = game->m_pBombStatusValve;
+	u32 value = (u8)m_BombStatus.CurrentBombState;
+	u32 change = valve->m_value != value ? (value != 0 ? 1 : 2) : 0;
+	valve->m_value = value;
+
+	if (change)
+		valve->MakeCallbacks((VALVE_STATE)change);
+
+	valve = game->m_pBombOwnerValve;
+	value = body == NULL ? 0 : ((body->m_team & 0x100) != 0 ? 2 : 1);
+	change = valve->m_value != value ? (value != 0 ? 1 : 2) : 0;
+	valve->m_value = value;
+
+	if (change)
+		valve->MakeCallbacks((VALVE_STATE)change);
 }
 
 /* @socom-skeleton stub CreateBombHere__11CZBombStateFP6CPnt3D */
-void CZBombState::CreateBombHere(CPnt3D *)
+void CZBombState::CreateBombHere(CPnt3D *position)
 {
+	/* 0x2070b0: the bomb is grounded at the position with no holder (tail call) */
+	m_BombStatus.NewBombState = BOMB_GROUNDED;
+	m_BombStatus.BombLocation = *position;
+	m_BombStatus.HolderObjectIndex = 0;
+	UpdateLocalBomb();
 }
 
 /* @socom-skeleton stub InitBomb__11CZBombStateFv */
 void CZBombState::InitBomb()
 {
+	/* 0x206ec0 (MasterStartGame in a bomb game): the session master, once per game, makes
+	 * the bomb object at the AI map's StartBomb place (its cell centre), mp_bomb and
+	 * bomb_owner cleared, the bomb grounded there. ELF quirk kept: without a StartBomb place
+	 * the position is the uninitialised local */
+	CZNetGame* game = theMission.m_pNetGame;
+
+	if (game == NULL || !theNetwork.m_bSessionMaster || game->m_bomb_created)
+		return;
+
+	m_BombStatus.NewBombState = BOMB_UNKNOWN;
+	m_BombStatus.CurrentBombState = BOMB_UNKNOWN;
+	m_BombStatus.DefuserObjectIndex = 0;
+	m_BombStatus.HolderObjectIndex = 0;
+	m_BombStatus.BombObjectIndex = 0;
+
+	CAiMapLoc location;
+	CPnt3D position;
+
+	if (AiMaps.GetLocation("StartBomb", location))
+		AiMaps.GetCellCenter(location, &position);
+
+	int index;
+
+	if (theNetwork.zNetCreateObject(&index, (NetOwnershipStatus)1, (NetObjectLifespan)2, 0, 0, 0, 0, NULL,
+			(char*)"BombObject", m_NetStructIndexBombObject) == 0)
+	{
+		NetObjectRec* object = theNetwork.zNetGetObject(index);
+
+		if (object != NULL)
+		{
+			memset(object->m_data, 0, sizeof(TypeBombState));
+			m_BombStatus.BombObjectIndex = index;
+			m_BombStatus.pBombAnimation = ZAnim.GetAnim("base_explosion1", NULL);
+		}
+	}
+
+	game->m_bomb_created = true;
+	game->m_bomb_clock_started = false;
+
+	CValve* valve = game->m_pBombStatusValve = CValve::Create("mp_bomb", VALVE_TYPE::VTYPE_PERM);
+	u32 change = valve->m_value != 0 ? 2 : 0;
+	valve->m_value = 0;
+
+	if (change)
+		valve->MakeCallbacks((VALVE_STATE)change);
+
+	valve = game->m_pBombOwnerValve = CValve::Create("bomb_owner", VALVE_TYPE::VTYPE_PERM);
+	change = valve->m_value != 0 ? 2 : 0;
+	valve->m_value = 0;
+
+	if (change)
+		valve->MakeCallbacks((VALVE_STATE)change);
+
+	m_BombStatus.HolderObjectIndex = 0;
+	m_BombStatus.NewBombState = BOMB_GROUNDED;
+	m_BombStatus.BombLocation = position;
+	UpdateLocalBomb();
 }
 
 /* @socom-skeleton stub UninitBomb__11CZBombStateFv */
 void CZBombState::UninitBomb()
 {
+	/* 0x206e20 (CLoadState::Init in a network game): a bomb game's bomb goes - the session
+	 * master frees its object - and the status is cleared */
+	CZNetGame* game = theMission.m_pNetGame;
+
+	if (game == NULL || game->m_game_type != MP_GAME_TYPE::MP_GAME_FOOTBOMB || !game->m_bomb_created)
+		return;
+
+	if (theNetwork.m_bSessionMaster && m_BombStatus.BombObjectIndex != 0)
+	{
+		/* port: not written (NetFreeObject(m_BombStatus.BombObjectIndex)) */
+	}
+
+	game->m_bomb_created = false;
+	game->m_bomb_clock_started = false;
+	m_BombStatus.NewBombState = BOMB_UNKNOWN;
+	m_BombStatus.CurrentBombState = BOMB_UNKNOWN;
+	m_BombStatus.DefuserObjectIndex = 0;
+	m_BombStatus.HolderObjectIndex = 0;
+	m_BombStatus.BombObjectIndex = 0;
 }

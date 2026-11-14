@@ -1642,8 +1642,10 @@ unsigned char CZOnlineLobby::AdvanceMissionSequence()
 }
 
 /* @socom-skeleton stub MediusConnectionIndex__13CZOnlineLobbyFv */
-void CZOnlineLobby::MediusConnectionIndex()
+int CZOnlineLobby::MediusConnectionIndex()
 {
+	/* 0x3226f0: the lobby (Medius) connection's index */
+	return myConnectionIndex;
 }
 
 /* @socom-skeleton stub RecoverFromNetError__13CZOnlineLobbyFi */

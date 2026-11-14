@@ -14,34 +14,128 @@
 /* @socom-skeleton end include */
 #include "gamez/zFTS/zfts.h" /* port: theMission for ftsNetworkGameInit (moved from zfts_holding.cpp) */
 #include "gamez/zNetwork/znet.h" /* port: CZNetGame, theNetwork */
+#include "gamez/zAI/zai.h" /* port: AiMaps */
+
+/* port: m_oktocallinit__10CZSealBody (0x475d44, global, 1 byte) has no owner annotation; defined
+ * here next to its reader (NetworkPlayerCreate in seal.cpp sets it) - owner unproven. */
+bool CZSealBody::m_oktocallinit;
 
 /* @socom-skeleton stub findAlign__FP10CZSealBodyP6CPnt3DP7CMatrixi */
-void findAlign(CZSealBody *, CPnt3D *, CMatrix *, int)
+void findAlign(CZSealBody *seal, CPnt3D *pos, CMatrix *mat, int team)
 {
+	/* 0x2016f0: the seal's spore (spawn) point and facing; on success pos is lifted 1 up and
+	   mat gets the rows (up x dir, up, dir, pos). mat is left alone when there is no spore. */
+	CPnt3D up(0.0f, 1.0f, 0.0f);
+	CPnt3D dir;
+
+	if (AiMaps.GetSporeLocation(team, seal->m_ClientIndex, pos, &dir))
+	{
+		CPnt3D right;
+		pos->y += 1.0f;
+		up.Cross(&dir, &right, true); /* inline Cross (0x201650) */
+		mat->SetRows(&right, &up, &dir, pos);
+	}
 }
 
 /* @socom-skeleton stub ftsNetworkPlayerInit__Fv */
 void ftsNetworkPlayerInit()
 {
+	/* 0x2014d0: register the local player's seal with the network, place it on its spore
+	   point, ghost it when the game says so and set its voice channel */
+	if (theNetwork.m_bNetwork)
+	{
+		CZSealBody *player = ftsGetPlayer();
+
+		player->m_id = CZSealState::CreateLocalSeal(player, true);
+		player->m_kit.PostSetupItems();
+		/* port: not written (NetSetMyClientObject(player->m_id), DME SDK) */
+
+		CPnt3D pos = CPnt3D::zero;
+		CMatrix mat;
+		sceVu0UnitMatrix(mat.m_matrix); /* ELF: a second unit matrix after the constructor's */
+		CPnt3D up(0.0f, 1.0f, 0.0f);
+		CPnt3D dir;
+
+		if (AiMaps.GetSporeLocation((player->m_team & 0x100) ? 2 : 0, player->m_ClientIndex, &pos, &dir))
+		{
+			CPnt3D right;
+			pos.y += 1.0f;
+			up.Cross(&dir, &right, true);
+			mat.SetRows(&right, &up, &dir, &pos);
+		}
+
+		/* ELF: also copies pos to an unused stack temporary (0x2015c4) */
+		player->TeleportTo(&mat);
+
+		if (theMission.m_pNetGame->m_am_a_ghost)
+			player->MakeGhost();
+
+		theVoice.Channel(0, (player->m_team & 0x100) ? 8 : 0);
+		CZSealState::UpdateLocalSeal(player);
+	}
 }
 
 /* @socom-skeleton stub ftsNetworkSealInit__Fv */
 void ftsNetworkSealInit()
 {
+	/* 0x201330 (CLoadState::Tick, once per NetworkPlayerCreate): the player's network seal,
+	   then on the session master every AI seal's, then the team valves */
+	if (CZSealBody::m_oktocallinit)
+	{
+		CZSealBody::m_oktocallinit = false;
+		ftsNetworkPlayerInit();
+
+		for (CEntityList::iterator it = CEntity::m_list.begin(); it != CEntity::m_list.end(); ++it)
+		{
+			CEntity *e = *it;
+			CZSealBody *seal = e != NULL && (u8)e->m_type == 2 ? static_cast<CZSealBody *>(e) : NULL;
+
+			if (seal == NULL)
+				continue;
+
+			bool ai = seal->m_control != NULL && static_cast<CSealCtrl *>(seal->m_control)->IsAi();
+
+			if (ai && theNetwork.m_bNetwork && theNetwork.m_bSessionMaster)
+			{
+				seal->m_id = CZSealState::CreateLocalSeal(seal, false);
+				seal->m_kit.PostSetupItems();
+				CZSealState::UpdateLocalSeal(seal);
+			}
+		}
+
+		theMission.RefreshTeamValves();
+	}
 }
 
 /* @socom-skeleton body ftsNetworkGameInit__Fv */
 void ftsNetworkGameInit()
 {
-	CZNetGame* netGame = theMission.netGame;
+	/* 0x2012c0: the session master creates the game object; everyone creates their persona
+	   once. (Was a placeholder reading CMission::netGame; the ELF reads +0x584 m_pNetGame.) */
+	CZNetGame* netGame = theMission.m_pNetGame;
 
 	if (theNetwork.m_bSessionMaster)
 	{
+		netGame->m_game_object_index = CZGameState::CreateLocalGame(netGame);
+		netGame->m_clock.m_rtime_delta = 0;
+		CZGameState::UpdateLocalGame(netGame);
+	}
 
+	if (!netGame->m_persona_created)
+	{
+		netGame->m_persona_object_index = CZPersonaState::CreateLocalPersona();
+		netGame->m_persona_created = true;
+		CZPersonaState::UpdateLocalPersona();
 	}
 }
 
 /* @socom-skeleton stub ftsNetworkGameUninit__Fv */
 void ftsNetworkGameUninit()
 {
+	/* 0x201290: drop the persona list and shut the voice down. Also called by
+	   CCoreState::auxUnload in single player: offline both are harmless (ClearPersonaList
+	   0x207b30 erases only a non-empty list; CZNetVoice::UnInit 0x333710 returns at once
+	   while m_do_voice is clear). */
+	CZPersonaState::ClearPersonaList();
+	theVoice.UnInit();
 }

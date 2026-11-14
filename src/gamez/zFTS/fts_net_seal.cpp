@@ -60,6 +60,10 @@
 #include "gamez/zSeal/zseal.h"
 #include "zfts.h"
 /* @socom-skeleton end include */
+#include "gamez/zNetwork/znet.h"
+#include "gamez/zVehicle/zvehicle.h" /* CVehicleRdr (RemoteSealCreationCallback) */
+#include <math.h>
+#include <string.h>
 
 /* @socom-skeleton stub m_NetStructIndexSealObject__11CZSealState */
 int CZSealState::m_NetStructIndexSealObject;
@@ -158,74 +162,586 @@ int CZSealState::m_GameStatsFieldID;
 static unsigned char MultiplayerMsgStrings[28];
 
 /* @socom-skeleton stub m_RemoteGuyList__11CZSealState */
-int CZSealState::m_RemoteGuyList[3];
+std::list<CZSealState::TypeRemoteGuy*> CZSealState::m_RemoteGuyList;
 
 /* @socom-skeleton stub zNetRegisterSeal__11CZSealStateFv */
 void CZSealState::zNetRegisterSeal()
 {
+	/* 0x205930 (ftsNetworkGameInit): the 152-byte "SealState" structure - SealPosX/Y/Z
+	 * +0x0/+0x4/+0x8 (position schedule), SealYaw +0x64 2 bytes, ThrottleFB/LR/ST
+	 * +0x68-0x6a, WeaponState +0x6c, StanceState, PeekState, ActionState, the six healths
+	 * +0x70-0x75, KillerIndex +0x76, FireModeSelect +0x77, WeaponSelect +0x66 2 bytes,
+	 * TeamBlock +0xc, AIState +0x10, UnitID +0x78, VehicleIndex +0x7a, SealType +0x14 1x32
+	 * (flags schedule); AimElevation +0x6b, FireTriggerCount +0x79, SealWeapons +0x34 1x48,
+	 * RoundStats +0x7b 1x12, GameStats +0x87 1x12 (flash) - then the remote callbacks.
+	 * port: not written (NetRegisterObjectStart, NetObjectField, NetRegisterStructure) */
+	theNetwork.zNetRegisterRemoteObjectCallback(m_NetStructIndexSealObject, RemoteSealCreationCallback,
+		RemoteSealUpdateCallback, RemoteSealPostUpdateCallback, RemoteSealDeletionCallback);
 }
 
 /* @socom-skeleton stub RemoteSealCreationCallback__11CZSealStateFii */
-void CZSealState::RemoteSealCreationCallback(int, int)
+void CZSealState::RemoteSealCreationCallback(int client, int index)
 {
+	/* 0x205760 (a remote seal object; UnloadRemoteGuyList): before the characters are
+	 * loaded it waits in m_RemoteGuyList. Else a remote seal is made - named after the
+	 * vehicle reader entry (vehicle index) or the client's persona; neither: none - with the
+	 * sent type, unit and weapons, every field read, its unit joined, the team valves
+	 * refreshed, and the client's record takes this object when it has none (4096).
+	 * ELF quirks kept: the data is not tested for NULL; the persona name is looked up twice;
+	 * past the vehicle table the name is NULL + 0x50 */
+	NetObjectRec* object = theNetwork.zNetGetObject(index);
+
+	if (object == NULL)
+		return;
+
+	TypeSealState* state = (TypeSealState*)object->m_data;
+
+	if (!theMission.m_chars_loaded)
+	{
+		TypeRemoteGuy* guy = new TypeRemoteGuy;
+		guy->ClientIndex = client;
+		guy->ObjectIndex = index;
+		m_RemoteGuyList.push_back(guy);
+		state->pBody = NULL;
+		return;
+	}
+
+	const char* name = CZPersonaState::GetPersonaName(client);
+	u8 vehicle = state->VehicleIndex;
+
+	if (vehicle == 0 && name == NULL)
+	{
+		state->pBody = NULL;
+		return;
+	}
+
+	if (vehicle != 0)
+	{
+		CVehicleRdr* reader = theMission.m_vehicleRdr;
+		CVehicleRdrEntry* entry = vehicle < reader->size() ? &(*reader)[vehicle] : NULL;
+		name = entry->m_display_name;
+	}
+	else
+		name = CZPersonaState::GetPersonaName(client);
+
+	state->pBody = CZSealBody::CreateRemoteSeal(client, index, name, vehicle, state->SealType, state->UnitID,
+		state->SealWeapons);
+
+	if (state->pBody == NULL)
+		return;
+
+	state->pBody->m_new_stats = false;
+	IncrementalUpdateRemoteSeal(client, index, -1);
+	RemoteSealPostUpdateCallback(client, index, -1); /* inlined in the ELF */
+	theMission.RefreshTeamValves();
+	NetClientRec* record = theNetwork.zNetGetGameClient(client);
+
+	if (record != NULL && record->m_object_index == 4096)
+		record->m_object_index = (u16)index;
 }
 
 /* @socom-skeleton stub RemoteSealDeletionCallback__11CZSealStateFii */
-void CZSealState::RemoteSealDeletionCallback(int, int)
+void CZSealState::RemoteSealDeletionCallback(int client, int index)
 {
+	/* 0x205640: another client's seal ("S..." object) goes - in a bomb game its captured bomb
+	 * drops where it stood (m_new_bomb_pos); it has left the game and (client >= 0) is
+	 * destroyed. ELF quirk kept: the net game is not tested for NULL */
+	if (client == theNetwork.zNetGetMyGameClientIndex())
+		return;
+
+	NetObjectRec* object = theNetwork.zNetGetObject(index);
+
+	if (object == NULL || object->m_name[0] != 'S')
+		return;
+
+	TypeSealState* state = (TypeSealState*)object->m_data;
+
+	if (state == NULL)
+		return;
+
+	CZSealBody* body = state->pBody;
+
+	if (body == NULL)
+		return;
+
+	CZNetGame* game = theMission.m_pNetGame;
+
+	if (game->m_game_type == MP_GAME_TYPE::MP_GAME_FOOTBOMB
+		&& CZBombState::m_BombStatus.CurrentBombState == CZBombState::BOMB_CAPTURED
+		&& CZBombState::m_BombStatus.HolderObjectIndex == index)
+	{
+		CPnt3D* position = body->GetPosW();
+		game->m_new_bomb_pos.x = position->x;
+		game->m_new_bomb_pos.y = position->y;
+		game->m_new_bomb_pos.z = position->z;
+		game->m_use_bomb_pos = true;
+	}
+
+	body->m_left_game = true;
+
+	if (client >= 0)
+		CZSealBody::Destroy(body);
+
+	state->pBody = NULL;
 }
 
 /* @socom-skeleton stub SealDeleteCleanup__11CZSealStateFi */
-void CZSealState::SealDeleteCleanup(int)
+void CZSealState::SealDeleteCleanup(int index)
 {
+	/* 0x205600: the object forgets its seal */
+	NetObjectRec* object = theNetwork.zNetGetObject(index);
+
+	if (object != NULL && object->m_data != NULL)
+		((TypeSealState*)object->m_data)->pBody = NULL;
 }
 
 /* @socom-skeleton stub RemoteSealUpdateCallback__11CZSealStateFiii */
-void CZSealState::RemoteSealUpdateCallback(int, int, int)
+void CZSealState::RemoteSealUpdateCallback(int client, int index, int field)
 {
+	/* 0x2054c0: waiting seals are made first (UnloadRemoteGuyList, inlined in the ELF;
+	 * nothing while the characters are not loaded), then the changed field is applied */
+	if (!m_RemoteGuyList.empty() && !UnloadRemoteGuyList())
+		return;
+
+	IncrementalUpdateRemoteSeal(client, index, field);
 }
 
 /* @socom-skeleton stub IncrementalUpdateRemoteSeal__11CZSealStateFiii */
-void CZSealState::IncrementalUpdateRemoteSeal(int, int, int)
+void CZSealState::IncrementalUpdateRemoteSeal(int client, int index, int field)
 {
+	/* 0x204e10: the changed field (-1: all) is applied to the remote seal (none yet: it is
+	 * created): goal position and yaw (2pi / 65536 units), throttles (/127), weapon, stance,
+	 * peek, action, damages, killer, fire mode, the item in hand (added when missing), team,
+	 * AI net state (bit 30: a live seal dies, the session master syncs the actions), aim
+	 * elevation (/128, -1..1), stats, and the trigger count (rounds fired, 1..10).
+	 * ELF quirks kept: GameStats is filled from the RoundStats bytes, 10 of the 12 bytes */
+	NetObjectRec* object = theNetwork.zNetGetObject(index);
+
+	if (object == NULL)
+		return;
+
+	TypeSealState* state = (TypeSealState*)object->m_data;
+
+	if (state == NULL)
+		return;
+
+	CZSealBody* body = state->pBody;
+
+	if (body == NULL)
+	{
+		RemoteSealCreationCallback(client, index);
+		return;
+	}
+
+	CSealCtrl* control = (CSealCtrl*)body->m_control;
+
+	if (field == m_SealPosXFieldID || field == -1)
+		control->m_remote_goal_pos.x = state->SealPosX;
+
+	if (field == m_SealPosYFieldID || field == -1)
+		control->m_remote_goal_pos.y = state->SealPosY;
+
+	if (field == m_SealPosZFieldID || field == -1)
+		control->m_remote_goal_pos.z = state->SealPosZ;
+
+	if (field == m_SealYawFieldID || field == -1)
+	{
+		CQuat rotation;
+		rotation.MakeYRot(9.58767e-05f * (f32)state->SealYaw);
+		control->m_remote_goal_quat.vec = rotation.vec;
+		control->m_remote_goal_quat.w = rotation.w;
+	}
+
+	if (field == m_ThrottleFBFieldID || field == -1)
+		control->SetThrottle(0, 0.007874016f * (f32)state->ThrottleFB);
+
+	if (field == m_ThrottleLRFieldID || field == -1)
+		control->SetThrottle(2, 0.007874016f * (f32)state->ThrottleLR);
+
+	if (field == m_ThrottleSTFieldID || field == -1)
+		control->SetThrottle(1, 0.007874016f * (f32)state->ThrottleST);
+
+	if (field == m_WeaponStateFieldID || field == -1)
+		body->SetWeaponState((WEAPON_STATE)state->WeaponState);
+
+	if (field == m_StanceStateFieldID || field == -1)
+		body->m_desiredState = (SEAL_STATE)state->StanceState;
+
+	if (field == m_PeekStateFieldID || field == -1)
+		body->m_desiredPeek = (SEAL_PEEK)state->PeekState;
+
+	if (field == m_ActionStateFieldID || field == -1)
+		control->m_action = state->ActionState != 0;
+
+	if (field == m_HeadHealthFieldID || field == -1)
+		body->SetHeadDamage(state->HeadHealth);
+
+	if (field == m_BodyHealthFieldID || field == -1)
+		body->SetBodyDamage(state->BodyHealth);
+
+	if (field == m_LLegHealthFieldID || field == -1)
+		body->SetLLegDamage(state->LLegHealth);
+
+	if (field == m_RLegHealthFieldID || field == -1)
+		body->SetRLegDamage(state->RLegHealth);
+
+	if (field == m_LArmHealthFieldID || field == -1)
+		body->SetLArmDamage(state->LArmHealth);
+
+	if (field == m_RArmHealthFieldID || field == -1)
+		body->SetRArmDamage(state->RArmHealth);
+
+	if (field == m_KillerIndexFieldID || field == -1)
+	{
+		body->m_killer_index = state->KillerIndex;
+		body->HandleKiller((s32)state->KillerIndex);
+	}
+
+	if (field == m_FireModeSelectFieldID || field == -1)
+	{
+		u8 mode = state->FireModeSelect;
+
+		if (mode != (u8)body->m_kit.GetCurFireMode())
+			body->m_kit.SetCurFireMode((FIREMODE)mode);
+	}
+
+	if (field == m_WeaponSelectFieldID || field == -1)
+	{
+		u8 item = (u8)state->WeaponSelect;
+
+		if (item != (u8)body->m_kit.GetCurItemEnum() && !body->m_kit.SetCurItemEnum((EQUIP_ITEM)item))
+		{
+			body->m_kit.SetItem(body->m_kit.GetNumItems(), (EQUIP_ITEM)(u8)state->WeaponSelect);
+			body->m_kit.SetCurItemEnum((EQUIP_ITEM)(u8)state->WeaponSelect);
+		}
+	}
+
+	if (field == m_TeamBlockFieldID || field == -1)
+		body->SetTeamMask(state->TeamBlock);
+
+	if (field == m_AIStateFieldID || field == -1)
+	{
+		control->SetAiNetState(state->AIState);
+		unsigned int ai = control->GetAiNetState();
+
+		if ((ai & 0x40000000) != 0 && body->m_health > 0.0f)
+		{
+			body->SetHealth(0.0f, (SEAL_DEATH_TYPE)0);
+			body->BodySetState(8);
+
+			if (theNetwork.m_bSessionMaster)
+				CNodeAction::SyncActionsMP(client);
+		}
+	}
+
+	if (field == m_AimElevationFieldID || field == -1)
+	{
+		f32 elevation = 0.0078125f * (f32)state->AimElevation;
+
+		if (elevation < -1.0f) /* port: the ELF calls _saturate<f> (-1, 1) */
+			elevation = -1.0f;
+		else if (elevation > 1.0f)
+			elevation = 1.0f;
+
+		body->m_RemoteFireElevation = elevation;
+	}
+
+	if (field == m_RoundStatsFieldID || field == -1)
+	{
+		unsigned char stats[16];
+		memcpy(stats, state->RoundStats, 10);
+		body->SetMPStats((MPSealStats*)stats, false);
+	}
+
+	if (field == m_GameStatsFieldID || field == -1)
+	{
+		unsigned char stats[16];
+		memcpy(stats, state->RoundStats, 10);
+		body->SetMPStats((MPSealStats*)stats, true);
+	}
+
+	if ((field == m_FireTriggerCountFieldID || field == -1) && body->m_TriggerCount != state->FireTriggerCount)
+	{
+		body->m_RemoteRoundCount += (s32)state->FireTriggerCount - (s32)body->m_TriggerCount;
+
+		if (body->m_RemoteRoundCount > 10)
+			body->m_RemoteRoundCount = 10;
+		else if (body->m_RemoteRoundCount <= 0)
+			body->m_RemoteRoundCount = 1;
+
+		body->m_TriggerCount = state->FireTriggerCount;
+	}
 }
 
 /* @socom-skeleton stub RemoteSealPostUpdateCallback__11CZSealStateFiii */
-void CZSealState::RemoteSealPostUpdateCallback(int, int, int)
+void CZSealState::RemoteSealPostUpdateCallback(int, int index, int)
 {
+	/* 0x204dc0: the remote seal's unit follows the sent one */
+	NetObjectRec* object = theNetwork.zNetGetObject(index);
+
+	if (object == NULL)
+		return;
+
+	TypeSealState* state = (TypeSealState*)object->m_data;
+
+	if (state != NULL && state->pBody != NULL)
+		UpdateRollandsUnitStuff(state->pBody, state);
 }
 
 /* @socom-skeleton stub UpdateRollandsUnitStuff__11CZSealStateFP10CZSealBodyPQ211CZSealState13TypeSealState */
-void CZSealState::UpdateRollandsUnitStuff(CZSealBody *, CZSealState::TypeSealState *)
+void CZSealState::UpdateRollandsUnitStuff(CZSealBody *body, CZSealState::TypeSealState *state)
 {
+	/* 0x204c50: a remote seal joins the sent unit (made when missing; m_joined_unit set);
+	 * on the escort side (team bit 0x20000) unit 17 or its own number + 32 is the escort
+	 * unit 17 joined as a seal, the local player's number + 32 his unit 0 and any other unit
+	 * as an escortee. ELF quirk kept: unit 17 is not tested for NULL */
+	CSealCtrl* control = (CSealCtrl*)body->m_control;
+
+	if ((body->m_team & 0x20000) == 0)
+	{
+		CSealUnit* current = control->m_unit;
+		CSealUnit* unit = CSealUnit::GetUnitByTeam(state->UnitID);
+
+		if (unit == NULL)
+			unit = CSealUnit::Create(state->UnitID);
+
+		if (current != unit)
+		{
+			unit->SealJoinUnit(body);
+			body->m_joined_unit = 1;
+		}
+
+		return;
+	}
+
+	u32 number = state->UnitID;
+
+	if (number == 17 || number == body->m_id + 32)
+	{
+		CSealUnit* current = control->m_unit;
+		CSealUnit* unit = CSealUnit::GetUnitByTeam(17);
+
+		if (current != unit)
+			unit->SealJoinUnit(body);
+
+		return;
+	}
+
+	if (number == ftsGetPlayer()->m_id + 32)
+	{
+		CSealUnit* current = control->m_unit;
+		CSealUnit* unit = CSealUnit::GetUnitByTeam(0);
+
+		if (current != unit)
+			unit->EscorteeJoinUnit(body);
+
+		return;
+	}
+
+	CSealUnit* current = control->m_unit;
+	CSealUnit* unit = CSealUnit::GetUnitByTeam(number & 0xff);
+
+	if (unit == NULL)
+		unit = CSealUnit::Create(state->UnitID);
+
+	if (current != unit)
+		unit->EscorteeJoinUnit(body);
 }
 
 /* @socom-skeleton stub CreateLocalSeal__11CZSealStateFP10CZSealBodyb */
-int CZSealState::CreateLocalSeal(CZSealBody *, bool)
+int CZSealState::CreateLocalSeal(CZSealBody *body, bool lifespan)
 {
+	/* 0x204b80 (a local seal in a network game): a "SealObject" (ownership 1, lifespan 2
+	 * with the flag, else 3) of the SealState structure; the seal takes its client index and
+	 * a full update in 10 s; the data is zeroed but for the seal. Its index, -1 when it could
+	 * not be made. ELF quirk kept: the object is not tested for NULL */
+	int index;
+
+	if (theNetwork.zNetCreateObject(&index, (NetOwnershipStatus)1, (NetObjectLifespan)(lifespan ? 2 : 3), 0, 0,
+			0, 1, NULL, (char*)"SealObject", m_NetStructIndexSealObject) != 0)
+		return -1;
+
+	NetObjectRec* object = theNetwork.zNetGetObject(index);
+	body->m_ClientIndex = object->m_owner;
+	body->m_full_update_time = theNetwork.zNetGetLocalTime() + 10000;
+	memset(object->m_data, 0, sizeof(TypeSealState));
+	((TypeSealState*)object->m_data)->pBody = body;
+	return index;
 }
 
 /* @socom-skeleton stub UpdateLocalSeal__11CZSealStateFP10CZSealBody */
-void CZSealState::UpdateLocalSeal(CZSealBody *)
+void CZSealState::UpdateLocalSeal(CZSealBody *body)
 {
+	/* 0x204740 (CSealCtrl::Tick, a network game): the seal's object is rebuilt - type name
+	 * (the character's, its base name unless team 0x10000000 / 0x20000), team, AI net state,
+	 * unit (17; on the escort side the unit number, 0 being the player's number + 32; else
+	 * its own number + 32), position, yaw (atan2 of the forward x / z, 65536 / 2pi units),
+	 * throttles (x127), weapon, stance, peek, action, damages, killer, stats, vehicle, aim
+	 * elevation (x128; the aim goal's y when none came in, then cleared), trigger count,
+	 * the item in hand (255: none), fire mode, packed weapons and the seal.
+	 * ELF quirk kept: the game stats are taken as round stats (both GetMPStats pass false) */
+	if (!theNetwork.m_bNetwork)
+		return;
+
+	TypeSealState state;
+	memset(&state, 0, sizeof(state)); /* port: the ELF copies a zero 152-byte image (0x4c5820) */
+	const char* type = body->GetCharacter()->m_name;
+
+	if ((body->m_team & 0x10000000) == 0 && (body->m_team & 0x20000) == 0)
+		type = body->GetCharacter()->GetBaseName();
+
+	strcpy(state.SealType, type);
+	state.TeamBlock = body->m_team;
+	CSealCtrl* control = (CSealCtrl*)body->m_control;
+	state.AIState = control->GetAiNetState();
+
+	if (control->m_unit != NULL)
+	{
+		u32 unit = control->m_unit->m_unit_num;
+
+		if (unit == 17)
+			state.UnitID = 17;
+		else if ((body->m_team & 0x20000) != 0)
+		{
+			if (unit == 0)
+				unit = ftsGetPlayer()->m_id + 32;
+
+			state.UnitID = (u8)unit;
+		}
+		else
+			state.UnitID = (u8)(body->m_id + 32);
+	}
+
+	state.SealPosX = body->GetPosW()->x;
+	state.SealPosY = body->GetPosW()->y;
+	state.SealPosZ = body->GetPosW()->z;
+	CPnt3D forward;
+	forward.x = body->m_node->m_matrix.m_matrix[2][0];
+	forward.y = body->m_node->m_matrix.m_matrix[2][1];
+	forward.z = body->m_node->m_matrix.m_matrix[2][2];
+	state.SealYaw = (s16)(s32)(10430.06f * atan2f(forward.x, forward.z));
+
+	f32 throttle[3];
+	throttle[0] = control->m_throttle[0];
+	throttle[1] = control->m_throttle[2];
+	throttle[2] = control->m_throttle[1];
+
+	for (s32 i = 0; i < 3; i++) /* port: the ELF calls _saturate<f> (-1, 1) on each */
+	{
+		if (throttle[i] < -1.0f)
+			throttle[i] = -1.0f;
+		else if (throttle[i] > 1.0f)
+			throttle[i] = 1.0f;
+	}
+
+	state.ThrottleFB = (s8)(s32)(127.0f * throttle[0]);
+	state.ThrottleLR = (s8)(s32)(127.0f * throttle[1]);
+	state.ThrottleST = (s8)(s32)(127.0f * throttle[2]);
+	state.WeaponState = (u8)body->GetWeaponState();
+	state.StanceState = (u8)body->m_desiredState;
+	state.PeekState = (u8)body->m_desiredPeek;
+	state.ActionState = control->m_action != 0;
+	state.HeadHealth = (u8)body->GetHeadDamage(body->m_head_health, body->m_head_healthMax);
+	state.BodyHealth = (u8)body->GetBodyDamage(body->m_body_health, body->m_body_healthMax);
+	state.LLegHealth = (u8)body->GetLegDamage(body->m_lleg_health, body->m_lleg_healthMax);
+	state.RLegHealth = (u8)body->GetLegDamage(body->m_rleg_health, body->m_rleg_healthMax);
+	state.LArmHealth = (u8)body->GetArmDamage(body->m_larm_health, body->m_larm_healthMax);
+	state.RArmHealth = (u8)body->GetArmDamage(body->m_rarm_health, body->m_rarm_healthMax);
+	state.KillerIndex = (u8)body->m_killer_index;
+
+	unsigned char stats[12];
+	body->GetMPStats((MPSealStats*)stats, false);
+	memcpy(state.RoundStats, stats, 12);
+	body->GetMPStats((MPSealStats*)stats, false);
+	memcpy(state.GameStats, stats, 12);
+	state.VehicleIndex = (u8)body->m_vehicle_index;
+	CPnt3D aim = body->m_aim_goal;
+
+	if (body->m_RemoteFireElevation == 0.0f)
+		body->m_RemoteFireElevation = aim.y;
+
+	state.AimElevation = (s8)(s32)(128.0f * body->m_RemoteFireElevation);
+	body->m_RemoteFireElevation = 0.0f;
+	state.FireTriggerCount = body->m_TriggerCount;
+
+	if (body->m_kit.GetCurItem() != NULL)
+		state.WeaponSelect = (u8)body->m_kit.GetCurItemEnum();
+	else
+		state.WeaponSelect = 255;
+
+	state.FireModeSelect = (u8)body->m_kit.GetCurFireMode();
+	CCharacterType::KorusGetPackedWeapons((CCharacterWeapPacked*)state.SealWeapons);
+	state.pBody = body;
+	NetObjectRec* object = theNetwork.zNetGetObject(body->m_id);
+
+	if (object != NULL)
+		memcpy(object->m_data, &state, sizeof(state));
 }
 
 /* @socom-skeleton stub UnloadRemoteGuyList__11CZSealStateFv */
-void CZSealState::UnloadRemoteGuyList()
+bool CZSealState::UnloadRemoteGuyList()
 {
+	/* 0x204660 (CLoadState::Tick, RemoteSealUpdateCallback): with the characters loaded the
+	 * waiting remote seals are created and the list emptied; 0 while not loaded, else 1.
+	 * port: static bool (was void) */
+	if (!theMission.m_chars_loaded)
+		return false;
+
+	if (m_RemoteGuyList.empty())
+		return true;
+
+	for (std::list<TypeRemoteGuy*>::iterator it = m_RemoteGuyList.begin(); it != m_RemoteGuyList.end(); ++it)
+	{
+		TypeRemoteGuy* guy = *it;
+		RemoteSealCreationCallback(guy->ClientIndex, guy->ObjectIndex);
+		delete guy;
+	}
+
+	m_RemoteGuyList.erase(m_RemoteGuyList.begin(), m_RemoteGuyList.end());
+	return true;
 }
 
 /* @socom-skeleton stub GetBodyFromObjectIndex__11CZSealStateFi */
-CZSealBody * CZSealState::GetBodyFromObjectIndex(int)
+CZSealBody * CZSealState::GetBodyFromObjectIndex(int index)
 {
+	/* 0x2045e0: the seal of a "SealObject", else NULL. port: the ELF calls NetGetObject (DME,
+	 * no port declaration) itself; the CZNetwork::zNetGetObject wrapper makes the same call
+	 * (0x321820) */
+	NetObjectRec* object = theNetwork.zNetGetObject(index);
+
+	if (object == NULL || strcmp(object->m_name, "SealObject") != 0)
+		return NULL;
+
+	TypeSealState* state = (TypeSealState*)object->m_data;
+	return state != NULL ? state->pBody : NULL;
 }
 
 /* @socom-skeleton stub GetPackedWeaponData__11CZSealStateFP10CZSealBody */
-void CZSealState::GetPackedWeaponData(CZSealBody *)
+CCharacterWeapPacked * CZSealState::GetPackedWeaponData(CZSealBody *body)
 {
+	/* 0x204590: the packed weapons in the seal's object, NULL without one. port: static,
+	 * returns the pointer (was a void member; a0 is the seal); NetGetObject (DME) through
+	 * the CZNetwork::zNetGetObject wrapper, as in GetBodyFromObjectIndex */
+	NetObjectRec* object = theNetwork.zNetGetObject(body->m_id);
+
+	if (object == NULL)
+		return NULL;
+
+	return (CCharacterWeapPacked*)((TypeSealState*)object->m_data)->SealWeapons;
 }
 
 /* @socom-skeleton stub RemoveNetSeal__11CZSealStateFib */
-void CZSealState::RemoveNetSeal(int, bool)
+void CZSealState::RemoveNetSeal(int index, bool force)
 {
+	/* 0x204540: with a net game, forced or at game over, the seal's object is freed */
+	CZNetGame* game = theMission.m_pNetGame;
+
+	if (game == NULL)
+		return;
+
+	if (force || game->m_mp_major_game_state == CZNetGame::MP_MAJOR_GAMEOVER)
+	{
+		/* port: not written (NetFreeObject(index)) */
+		(void)index;
+	}
 }

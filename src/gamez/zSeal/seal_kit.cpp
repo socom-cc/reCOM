@@ -240,10 +240,11 @@ void CZKit::SetCurItemState(unsigned int state)
 }
 
 /* @socom-skeleton stub SetCurItemEnum__5CZKitF10EQUIP_ITEM */
-void CZKit::SetCurItemEnum(EQUIP_ITEM id)
+bool CZKit::SetCurItemEnum(EQUIP_ITEM id)
 {
 	/* 0x2af610 (DetonateRemoteExplosives, HandleRemotePlaceExplosive): select the first slot
-	 * holding the item (none: nothing; the ELF returns 0/1, no caller tests it). The HUD
+	 * holding the item (none: nothing, 0; else 1 - CZSealState::IncrementalUpdateRemoteSeal
+	 * tests it). The HUD
 	 * weapon box is refreshed; a lit flashlight goes out. Launcher grenades select the first
 	 * grenade launcher in that grenade's fire mode (slot + 3; no launcher: the old item stays).
 	 * A rifle / pistol requests the weapon change unless already in hand, other items use the
@@ -261,7 +262,7 @@ void CZKit::SetCurItemEnum(EQUIP_ITEM id)
 	}
 
 	if (slot == -1)
-		return;
+		return false;
 
 	s32 old = m_selected_item;
 	((CSealCtrl *)m_body->m_control)->m_HudUpdateWeapon = 1;
@@ -286,7 +287,7 @@ void CZKit::SetCurItemEnum(EQUIP_ITEM id)
 		if (m_selected_item == -1)
 		{
 			m_selected_item = old;
-			return;
+			return false;
 		}
 
 		CZFTSWeapon *launcher = m_item[m_selected_item];
@@ -340,12 +341,13 @@ void CZKit::SetCurItemEnum(EQUIP_ITEM id)
 			if (m_item[old]->m_type == SEAL_ITEM::itemThrowable)
 				m_body->WepWaitOff();
 			else
-				m_body->WepWaitOn();
+			m_body->WepWaitOn();
 		}
 	}
 
 	m_body->SetMoveWeaponEncumbMod();
 	m_weaponinfoChanged = 1;
+	return true;
 }
 
 /* @socom-skeleton stub GetCurItemEnum__5CZKitCFv */

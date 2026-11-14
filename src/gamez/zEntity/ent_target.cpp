@@ -136,8 +136,50 @@ void CEntity::SetIncludeInTargetList(bool include)
 }
 
 /* @socom-skeleton stub ReplaceTargetList__7CEntityFP7CEntityP7CEntity */
-void CEntity::ReplaceTargetList(CEntity *, CEntity *)
+void CEntity::ReplaceTargetList(CEntity *old_ent, CEntity *new_ent)
 {
+	/* 0x1f0930 (DoRecycleEntity): in every entity's target list (not the placeholder's, not
+	 * the old entity's own) a target on old_ent is aimed at new_ent: the vector to it (far
+	 * away, 1e6 in z, without one), its squared length, distance no longer computed; a new
+	 * entity starts unknown (aware 0, not known / visible / hostile / targeted, no DI). */
+	for (CEntityList::iterator it = m_list.begin(); it != m_list.end(); ++it)
+	{
+		CEntity* entity = *it;
+
+		if (entity->m_type == ENT_TYPE_RECYCLE || entity == old_ent)
+			continue;
+
+		for (CTargetList::iterator t = entity->m_targets.begin(); t != entity->m_targets.end(); ++t)
+		{
+			if (t->m_ent != old_ent)
+				continue;
+
+			if (new_ent != NULL)
+			{
+				new_ent->GetPosW()->Sub(entity->GetPosW(), &t->m_vec);
+			}
+			else
+			{
+				t->m_vec.x = 0.0f;
+				t->m_vec.y = 0.0f;
+				t->m_vec.z = 1000000.0f;
+			}
+
+			t->m_distSq = t->m_vec.x * t->m_vec.x + t->m_vec.y * t->m_vec.y + t->m_vec.z * t->m_vec.z;
+			t->m_d_computed = 0;
+
+			if (t->m_ent == new_ent)
+				continue;
+
+			t->m_ent = new_ent;
+			t->m_aware = 0.0f;
+			t->m_visible = 0;
+			t->m_known = 0;
+			t->m_hostile = 0;
+			t->m_targeted = 0;
+			t->m_diHandle = 0;
+		}
+	}
 }
 
 /* @socom-skeleton stub OnUpdateTargetList__7CEntityFbb */

@@ -240,6 +240,7 @@ struct _zanim_cmd_hdr;
 /* @socom-skeleton end forward */
 CZAnimSet * GetLocalAnims();        /* zui.cpp (0x384ee0) */
 unsigned char UiGetDirStickMoved(); /* zui.cpp (0x384380) */
+void PlayCountSound();              /* zui.cpp (0x384630; C2DCounter::Tick) */
 extern unsigned char g_hasAnims;    /* zui.cpp */
 /* port: CListItemTypeImpl had no declaration. Slot order from __vt__17CListItemTypeImpl @0x473290 (13 slots,
  * zero = pure): ~ 0x385600, DrawPrep, Finish 0x385660 (empty), GetString, PrepListItem, SetFont, SetPos, SetScale,
@@ -345,6 +346,8 @@ std::__wInit std::__msl_ios_base_winit;
 /* @socom-skeleton stub __dt__10C2DCounterFv */
 C2DCounter::~C2DCounter()
 {
+	/* 0x394820: nothing of its own (~CRenderableString inline: the spec font, the UI
+	 * variable, ~C2DString) */
 }
 
 /* @socom-skeleton stub VisualGratification__Q220@unnamed@zui_2d_cpp@22CListItemArrayTypeImplFPQ23zdb16CTextureRelocMgr */
@@ -664,8 +667,10 @@ CListItemImageTypeImpl::~CListItemImageTypeImpl()
 }
 
 /* @socom-skeleton stub UiSetCounterSpeedFactor__Ff */
-void UiSetCounterSpeedFactor(float)
+void UiSetCounterSpeedFactor(float factor)
 {
+	/* 0x393270 */
+	g_fCounterSpeedFactor = factor;
 }
 
 /* @socom-skeleton stub UiSetTtySpeedFactor__Ff */
@@ -676,23 +681,142 @@ void UiSetTtySpeedFactor(float factor)
 }
 
 /* @socom-skeleton stub GetZAnimCmdType__10C2DCounterFPCc */
-int C2DCounter::GetZAnimCmdType(const char *)
+int C2DCounter::GetZAnimCmdType(const char *name)
 {
+	/* 0x393160: Start, Finish, then CRenderableString's Caption inline (0x388cf0); NULL
+	 * gives the next free type */
+	if (name == NULL)
+		return GetUICommandType(NULL) + 2 + 3;
+
+	if (*name == '\0')
+		return 0;
+
+	if (strcasecmp("Start", name) == 0)
+		return GetUICommandType(NULL) + 2 + 1;
+
+	if (strcasecmp("Finish", name) == 0)
+		return GetUICommandType(NULL) + 2 + 2;
+
+	if (strcasecmp("Caption", name) == 0)
+		return GetUICommandType(NULL) + 1;
+
+	return GetUICommandType(name);
 }
 
 /* @socom-skeleton stub ParseZAnimCmd__10C2DCounterFP5_zrdr */
-C2DAnimCmdHdr * C2DCounter::ParseZAnimCmd(_zrdr *)
+C2DAnimCmdHdr * C2DCounter::ParseZAnimCmd(_zrdr *reader)
 {
+	/* 0x392f70: START, FINISH or CAPTION "<text>" as an 8-byte timeless command (the
+	 * caption's text in the current anim's name table) */
+	const char* type;
+	char* caption = NULL;
+	s32 line;
+
+	if (zrdr_findtag(reader, "START") != NULL)
+	{
+		type = "START";
+		line = 452;
+	}
+	else if (zrdr_findtag(reader, "FINISH") != NULL)
+	{
+		type = "FINISH";
+		line = 460;
+	}
+	else
+	{
+		caption = zrdr_findstring(reader, "CAPTION");
+
+		if (caption == NULL)
+			return NULL;
+
+		type = "CAPTION";
+		line = 3258;
+	}
+
+	C2DAnimCmdHdr* cmd = (C2DAnimCmdHdr*)_calloc(1, 8, "zui_2d.cpp", line);
+	cmd->header.timeless = 1;
+	cmd->header.data_size = 8;
+	cmd->m_command_type = GetZAnimCmdType(type);
+	cmd->m_argument_index = caption != NULL ? ZAnim.m_CurAnim->AddName(caption) : 0;
+	return cmd;
 }
 
 /* @socom-skeleton stub Tick__10C2DCounterFf */
-void C2DCounter::Tick(float)
+void C2DCounter::Tick(float dT)
 {
+	/* 0x392e40: from the start time the shown number runs up to the target, reaching it
+	 * at the end time; each new number plays the count sound. The clock stops once it is
+	 * past the end. */
+	f32 end = m_isDuration ? m_startTime + m_endTime : m_endTime;
+
+	if (!(m_elapsed <= end))
+		return;
+
+	m_elapsed += dT * g_fCounterSpeedFactor;
+
+	if (m_elapsed < m_startTime)
+		return;
+
+	s32 value;
+
+	if (m_elapsed < end)
+	{
+		f32 span = m_isDuration ? m_endTime : end - m_startTime;
+		value = (s32)((f32)m_target * ((m_elapsed - m_startTime) / span));
+	}
+	else
+	{
+		value = m_target;
+	}
+
+	if (m_shown == value)
+		return;
+
+	m_shown = value;
+	char text[16] = { 0 };
+	sprintf(text, "%d", value);
+	SetString(text);
+	Update();
+	PlayCountSound();
 }
 
 /* @socom-skeleton stub TickZAnimCmd__10C2DCounterFP14_zanim_cmd_hdrPfPb */
-bool C2DCounter::TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *)
+bool C2DCounter::TickZAnimCmd(_zanim_cmd_hdr *header, float *, bool *result)
 {
+	/* 0x392cf0: Start counts from now; Finish shows the target at once (and stops the
+	 * clock: the end becomes 0); else CRenderableString's Caption inline (0x388d60).
+	 * Start leaves *result alone. ELF: Start returns 2 in v0 (true). */
+	C2DAnimCmdHdr* cmd = reinterpret_cast<C2DAnimCmdHdr*>(header);
+	s32 sub = (s32)cmd->m_command_type - (GetUICommandType(NULL) + 2);
+
+	if (sub == 2)
+	{
+		m_isDuration = false;
+		m_endTime = 0.0f;
+		m_shown = m_target;
+		char text[16] = { 0 };
+		sprintf(text, "%d", m_target);
+		SetString(text);
+		Update();
+		*result = true;
+		return true;
+	}
+
+	if (sub == 1)
+	{
+		m_startTime = m_elapsed;
+		return true;
+	}
+
+	CZAnim* anim = ZAnim.m_CurAnim;
+
+	if ((s32)cmd->m_command_type - GetUICommandType(NULL) != 1)
+		return false;
+
+	SetString(anim->GetName(cmd->m_argument_index));
+	Update();
+	*result = true;
+	return true;
 }
 
 /* @socom-skeleton stub __ct__Q220@unnamed@zui_2d_cpp@22CListItemArrayTypeImplFP5_zrdrRCQ23std54vector<P10ColumnData,Q23std24allocator<P10ColumnData>> */

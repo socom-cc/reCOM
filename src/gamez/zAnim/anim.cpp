@@ -1150,8 +1150,10 @@ void AnimSet::Inherit(AnimSet *other)
 }
 
 /* @socom-skeleton stub Get__12CAnimAuxDataFUi */
-void CAnimAuxData::Get(unsigned int)
+CAnimAuxData * CAnimAuxData::Get(unsigned int index)
 {
+	/* 0x2cc7c0: the aux data of an AnimType */
+	return list[index];
 }
 
 /* @socom-skeleton stub Load__7AnimSetFv */

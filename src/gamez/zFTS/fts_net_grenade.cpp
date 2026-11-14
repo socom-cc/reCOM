@@ -22,6 +22,9 @@
 #include "gamez/zWeapon/zweapon.h"
 #include "zfts.h"
 /* @socom-skeleton end include */
+#include "gamez/zNetwork/znet.h"
+#include "gamez/zSeal/zseal.h" /* CZKit::FireGrenade */
+#include <string.h>
 
 /* @socom-skeleton stub m_GrenadePositionFieldID__14CZGrenadeState */
 unsigned char CZGrenadeState::m_GrenadePositionFieldID[4];
@@ -44,34 +47,138 @@ static unsigned char MultiplayerMsgStrings[28];
 /* @socom-skeleton stub zNetRegisterGrenade__14CZGrenadeStateFv */
 void CZGrenadeState::zNetRegisterGrenade()
 {
+	/* 0x206d20 (ftsNetworkGameInit): the 36-byte "GrenadeState" structure - GrenadePosition
+	 * +0x0 12 bytes (grenade position schedule), GrenadeVelocity +0xc (grenade velocity
+	 * schedule), GrenadeState +0x18 (flash), ThrowerObjectIndex +0x19 (flags) - then the
+	 * remote callbacks.
+	 * port: not written (NetRegisterObjectStart, NetObjectField, NetRegisterStructure) */
+	theNetwork.zNetRegisterRemoteObjectCallback(m_NetStructIndexGrenadeObject, RemoteGrenadeCreationCallback,
+		RemoteGrenadeUpdateCallback, RemoteGrenadePostUpdateCallback, RemoteGrenadeDeletionCallback);
 }
 
 /* @socom-skeleton stub RemoteGrenadeCreationCallback__14CZGrenadeStateFii */
-void CZGrenadeState::RemoteGrenadeCreationCallback(int, int)
+void CZGrenadeState::RemoteGrenadeCreationCallback(int, int index)
 {
+	/* 0x206c80 (a remote grenade object arrives): the thrower's seal (its object index)
+	 * throws a grenade from the sent position with the sent velocity; the object keeps the
+	 * thrower and the projectile */
+	NetObjectRec* object = theNetwork.zNetGetObject(index);
+
+	if (object == NULL)
+		return;
+
+	TypeGrenadeState* state = (TypeGrenadeState*)object->m_data;
+
+	if (state == NULL)
+		return;
+
+	state->pThrower = NULL;
+	state->pProjectile = NULL;
+	CZSealBody* thrower = CZSealState::GetBodyFromObjectIndex(state->ThrowerObjectIndex);
+
+	if (thrower == NULL)
+		return;
+
+	CPnt3D position = state->GrenadePosition;
+	CPnt3D velocity = state->GrenadeVelocity;
+	state->pThrower = thrower;
+	state->pProjectile = thrower->m_kit.FireGrenade(&position, &velocity);
 }
 
 /* @socom-skeleton stub RemoteGrenadeUpdateCallback__14CZGrenadeStateFiii */
-void CZGrenadeState::RemoteGrenadeUpdateCallback(int, int, int)
+void CZGrenadeState::RemoteGrenadeUpdateCallback(int, int index, int)
 {
+	/* 0x206be0: a thrown remote grenade follows the sent position, velocity and state */
+	NetObjectRec* object = theNetwork.zNetGetObject(index);
+
+	if (object == NULL)
+		return;
+
+	TypeGrenadeState* state = (TypeGrenadeState*)object->m_data;
+
+	if (state == NULL || state->pProjectile == NULL || state->pThrower == NULL)
+		return;
+
+	CPnt3D position = state->GrenadePosition;
+	CPnt3D velocity = state->GrenadeVelocity;
+	state->pProjectile->UpdateGrenade(&position, &velocity, (GRENADE_STATE)state->GrenadeState);
 }
 
 /* @socom-skeleton stub RemoteGrenadePostUpdateCallback__14CZGrenadeStateFiii */
-void CZGrenadeState::RemoteGrenadePostUpdateCallback(int, int, int)
+void CZGrenadeState::RemoteGrenadePostUpdateCallback(int, int index, int)
 {
+	/* 0x206bb0: the object is looked up (its data loaded), nothing done */
+	theNetwork.zNetGetObject(index);
 }
 
 /* @socom-skeleton stub RemoteGrenadeDeletionCallback__14CZGrenadeStateFii */
-void CZGrenadeState::RemoteGrenadeDeletionCallback(int, int)
+void CZGrenadeState::RemoteGrenadeDeletionCallback(int client, int index)
 {
+	/* 0x206b30: another client's grenade ("P..." object) goes - its projectile is removed
+	 * from the projectile list. ELF quirks kept: the object is not tested for NULL; any
+	 * object named "P..." passes (PersonaObject too) */
+	NetObjectRec* object = theNetwork.zNetGetObject(index);
+
+	if (object->m_name[0] != 'P')
+		return;
+
+	TypeGrenadeState* state = (TypeGrenadeState*)object->m_data;
+
+	if (state == NULL || client == theNetwork.zNetGetMyGameClientIndex())
+		return;
+
+	if (state->pProjectile != NULL && CZWeapon::m_pProjectilelist != NULL)
+		CZWeapon::m_pProjectilelist->NetRemoveProjectile(state->pProjectile);
 }
 
 /* @socom-skeleton stub CreateLocalGrenade__14CZGrenadeStateFP12CZProjectile */
-int CZGrenadeState::CreateLocalGrenade(CZProjectile *)
+int CZGrenadeState::CreateLocalGrenade(CZProjectile *projectile)
 {
+	/* 0x206a70 (a local grenade is thrown): a "ProjectileObject" network object (ownership
+	 * 1, lifespan 2) of the GrenadeState structure, zeroed, holding the projectile; its
+	 * index, -1 when it could not be made */
+	int index;
+
+	if (theNetwork.zNetCreateObject(&index, (NetOwnershipStatus)1, (NetObjectLifespan)2, 0, 0, 0, 0, NULL,
+			(char*)"ProjectileObject", m_NetStructIndexGrenadeObject) != 0)
+		return -1;
+
+	NetObjectRec* object = theNetwork.zNetGetObject(index);
+
+	if (object == NULL)
+		return -1;
+
+	memset(object->m_data, 0, sizeof(TypeGrenadeState));
+	((TypeGrenadeState*)object->m_data)->pProjectile = projectile;
+	return index;
 }
 
 /* @socom-skeleton stub UpdateLocalGrenade__14CZGrenadeStateFP12CZProjectile */
-void CZGrenadeState::UpdateLocalGrenade(CZProjectile *)
+void CZGrenadeState::UpdateLocalGrenade(CZProjectile *projectile)
 {
+	/* 0x206990 (a network game): the grenade's object gets its frame start position,
+	 * velocity, state (never lower than the sent one) and shooter; a grenade in state 3 frees
+	 * its object instead. ELF quirk kept: the object is not tested for NULL */
+	if (!theNetwork.m_bNetwork)
+		return;
+
+	s32 index = projectile->m_object_index;
+	NetObjectRec* object = theNetwork.zNetGetObject(index);
+	TypeGrenadeState* current = (TypeGrenadeState*)object->m_data;
+	TypeGrenadeState state;
+	state.GrenadePosition = projectile->m_framestartpos;
+	state.GrenadeVelocity = projectile->m_vel;
+	u8 grenade = (u8)projectile->m_grenadestate;
+	state.GrenadeState = (s32)current->GrenadeState < (s32)grenade ? grenade : current->GrenadeState;
+	state.ThrowerObjectIndex = (u8)projectile->m_shooterID;
+
+	if (grenade == 3)
+	{
+		/* port: not written (NetFreeObject(index)) */
+		return;
+	}
+
+	state.pProjectile = current->pProjectile;
+	state.pThrower = current->pThrower;
+	memcpy(current, &state, sizeof(state));
 }

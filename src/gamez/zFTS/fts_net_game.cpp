@@ -29,6 +29,8 @@
 #include "zfts.h"
 
 #include "gamez/zNetwork/znet.h"
+#include "gamez/zSeal/zseal.h" /* CZSealBody::m_allow_friendly_fire */
+#include <string.h>
 
 /* @socom-skeleton stub m_WorldStrFieldID__11CZGameState */
 int CZGameState::m_WorldStrFieldID;
@@ -75,34 +77,266 @@ static unsigned char MultiplayerMsgStrings[28];
 /* @socom-skeleton stub zNetRegisterGame__11CZGameStateFv */
 void CZGameState::zNetRegisterGame()
 {
+	/* 0x206770 (ftsNetworkGameInit): the 64-byte "GameState" structure is registered field
+	 * by field (NetObjectField: field id, offset, size, type, count, broadcast schedule) -
+	 * WorldStr +0x0 1x5 (flags schedule), MaxGameTime +0x8, InitialClock +0xc (flags),
+	 * CurrentRTime +0x10, VersionNo +0x14 (flash), Flags +0x18 8 bytes, RoundWinner +0x20,
+	 * Score00 +0x21, Score08 +0x22, RoundIndex +0x23, RoundBlock +0x24 1x12, LJBlock +0x30
+	 * 1x16 (flash) - then the remote callbacks.
+	 * port: not written (NetRegisterObjectStart, NetObjectField, NetRegisterStructure) */
+	theNetwork.zNetRegisterRemoteObjectCallback(m_NetStructIndexGameObject, RemoteGameCreationCallback,
+		RemoteGameUpdateCallback, RemoteGamePostUpdateCallback, RemoteGameDeletionCallback);
 }
 
 /* @socom-skeleton stub RemoteGameUpdateCallback__11CZGameStateFiii */
-void CZGameState::RemoteGameUpdateCallback(int, int, int)
+void CZGameState::RemoteGameUpdateCallback(int client, int index, int field)
 {
+	/* 0x206320 (a remote game object field changed, -1: all; -2: nothing): the world, the
+	 * round time limit (s -> ms; the saved limit while none is set), the start read, the
+	 * real time delta reset, a version mismatch reported to the lobby's event handler
+	 * (MP_VERSION_NUMBER_ERROR), the flag word (major state - the local persona follows a
+	 * change -, game type, max rounds, ten-second launch with its start read, friendly fire,
+	 * locked game, persistent, round count, start flag), winner, scores, the mission
+	 * sequence and the late joiners. ELF quirk kept: the object is not tested for NULL */
+	(void)client;
+
+	if (field == -2)
+		return;
+
+	NetObjectRec* object = theNetwork.zNetGetObject(index);
+	CZNetGame* game = theMission.m_pNetGame;
+
+	if (game == NULL)
+		return;
+
+	TypeGameState* state = (TypeGameState*)object->m_data;
+
+	if (field == m_WorldStrFieldID || field == -1)
+		SetDatabase(state->WorldStr);
+
+	if (field == m_MaxGameTimeFieldID || field == -1)
+	{
+		if (game->m_clock.m_max_game_time == 0)
+			game->m_clock.m_save_max_game_time = state->MaxGameTime * 1000;
+
+		game->m_clock.m_max_game_time = state->MaxGameTime * 1000;
+	}
+
+	if (field == m_InitialClockFieldID || field == -1)
+		game->m_clock.SetInitialRead(state->InitialClock, true);
+
+	if (field == m_CurrentRTimeFieldID || field == -1)
+		game->m_clock.m_rtime_delta = 0;
+
+	if (field == m_VersionNoFieldID || field == -1)
+	{
+		u32 version = (theMission.m_e3_team == E3_SEAL || theMission.m_e3_team == E3_TERR) ? 2080 : 80;
+
+		if (state->VersionNo != version && theLobby.m_event_handler != NULL)
+			theLobby.m_event_handler("MP_VERSION_NUMBER_ERROR", 0);
+	}
+
+	if (field == m_FlagsFieldID || field == -1)
+	{
+		CZNetGame::MP_MAJOR_GAME_STATE major = (CZNetGame::MP_MAJOR_GAME_STATE)state->MajorGameState;
+
+		if ((u8)major != (u8)game->m_mp_major_game_state)
+		{
+			game->MPMajorGameState(major);
+			CZPersonaState::UpdateLocalPersona();
+		}
+
+		game->m_game_type = (MP_GAME_TYPE)state->GameType;
+		game->m_max_round_count = state->MaxRounds;
+
+		if (state->TenSecondLaunch && !game->m_ten_second_launch)
+			game->m_clock.SetInitialRead(state->InitialClock, true);
+
+		game->TenSecondLaunch(state->TenSecondLaunch != 0);
+
+		CValve* valve = CValve::Create("mp_friendly_fire", VALVE_TYPE::VTYPE_PERM);
+		u32 value;
+		u32 change;
+
+		if (valve != NULL)
+		{
+			value = state->FriendlyFire;
+			change = valve->m_value != value ? (value != 0 ? 1 : 2) : 0;
+			valve->m_value = value;
+
+			if (change)
+				valve->MakeCallbacks((VALVE_STATE)change);
+
+			CZSealBody::m_allow_friendly_fire = state->FriendlyFire != 0;
+		}
+
+		valve = CValve::Create("mp_locked_game", 0, VALVE_TYPE::VTYPE_PERM);
+
+		if (valve != NULL)
+		{
+			value = state->LockedGame;
+			change = valve->m_value != value ? (value != 0 ? 1 : 2) : 0;
+			valve->m_value = value;
+
+			if (change)
+				valve->MakeCallbacks((VALVE_STATE)change);
+		}
+
+		valve = game->m_pMPPersistentValve;
+
+		if (valve != NULL)
+		{
+			value = state->Persistent;
+			change = valve->m_value != value ? (value != 0 ? 1 : 2) : 0;
+			valve->m_value = value;
+
+			if (change)
+				valve->MakeCallbacks((VALVE_STATE)change);
+		}
+
+		game->SetE3RoundCount(state->RoundCount);
+
+		if (state->NetStartFlag != (u32)game->m_net_start_flag)
+			game->m_net_start_flag = (MP_NET_READY)state->NetStartFlag;
+	}
+
+	if (field == m_RoundWinnerFieldID || field == -1)
+		game->m_mpe3_round_winner = state->RoundWinner;
+
+	if (field == m_Score00FieldID || field == -1)
+		game->m_mpe3_score00 = state->Score00;
+
+	if (field == m_Score08FieldID || field == -1)
+		game->m_mpe3_score08 = state->Score08;
+
+	if (field == m_RoundIndexFieldID || field == -1)
+		theLobby.SetMissionSequence(state->RoundIndex, state->RoundBlock);
+
+	if (field == m_RoundBlockFieldID || field == -1)
+		theLobby.SetMissionSequence(state->RoundIndex, state->RoundBlock);
+
+	if (field == m_LJBlockFieldID || field == -1)
+		memcpy(CZPersonaState::m_LJArray, state->LJBlock, 16);
 }
 
 /* @socom-skeleton stub RemoteGamePostUpdateCallback__11CZGameStateFiii */
 void CZGameState::RemoteGamePostUpdateCallback(int, int, int)
 {
+	/* 0x206310: nothing */
 }
 
 /* @socom-skeleton stub RemoteGameCreationCallback__11CZGameStateFii */
-void CZGameState::RemoteGameCreationCallback(int, int)
+void CZGameState::RemoteGameCreationCallback(int client, int index)
 {
+	/* 0x2062b0 (the session master's game object arrives): the major state unknown, the
+	 * object kept, every field read */
+	CZNetGame* game = theMission.m_pNetGame;
+
+	if (game == NULL)
+		return;
+
+	game->MPMajorGameState(CZNetGame::MP_MAJOR_UNKNOWN);
+	game->m_game_object_index = index;
+	RemoteGameUpdateCallback(client, index, -1);
 }
 
 /* @socom-skeleton stub RemoteGameDeletionCallback__11CZGameStateFii */
 void CZGameState::RemoteGameDeletionCallback(int, int)
 {
+	/* 0x2062a0: nothing */
 }
 
 /* @socom-skeleton stub CreateLocalGame__11CZGameStateFP9CZNetGame */
 int CZGameState::CreateLocalGame(CZNetGame *)
 {
+	/* 0x206200 (the session master, ftsNetworkGameInit): a "GameObject" network object
+	 * (ownership 1, lifespan 2) of the GameState structure, zeroed; its index, -1 when it
+	 * could not be made */
+	int index;
+
+	if (theNetwork.zNetCreateObject(&index, (NetOwnershipStatus)1, (NetObjectLifespan)2, 0, 0, 0, 0, NULL,
+			(char*)"GameObject", m_NetStructIndexGameObject) != 0)
+		return -1;
+
+	NetObjectRec* object = theNetwork.zNetGetObject(index);
+
+	if (object == NULL)
+		return -1;
+
+	memset(object->m_data, 0, sizeof(TypeGameState));
+	return index;
 }
 
 /* @socom-skeleton stub UpdateLocalGame__11CZGameStateFP9CZNetGame */
-void CZGameState::UpdateLocalGame(CZNetGame *)
+void CZGameState::UpdateLocalGame(CZNetGame *game)
 {
+	/* 0x205e70 (the session master: menus, loading, joins): a new penalty takes 60 s off
+	 * the round clock; the game object is rebuilt - the world (the database's first 5
+	 * characters), the limit in s, the start read, version 2080 at the E3 show (else 80),
+	 * the flag word, scores, winner, the lobby's mission sequence and the late joiners; the
+	 * current real time stays. mp_friendly_fire also sets CZSealBody::m_allow_friendly_fire.
+	 * ELF quirks kept: GetDatabase is called once for nothing; a ten-second launch stores
+	 * the start read a second time */
+	if (!theNetwork.m_bNetwork || !theNetwork.m_bSessionMaster)
+		return;
+
+	NetObjectRec* object = theNetwork.zNetGetObject(game->m_game_object_index);
+
+	if (object == NULL)
+		return;
+
+	TypeGameState* current = (TypeGameState*)object->m_data;
+
+	if (current == NULL)
+		return;
+
+	GetDatabase();
+
+	if ((u32)game->m_last_penalty < game->m_pPenaltyValve->m_value)
+		game->DecrementRoundClockSec(60);
+
+	game->m_last_penalty = game->m_pPenaltyValve->m_value;
+
+	TypeGameState state;
+	memset(&state, 0, sizeof(state));
+	strncpy(state.WorldStr, GetDatabase(), 5);
+	state.GameType = (u32)game->m_game_type & 7;
+	state.MaxGameTime = (u32)((f32)game->m_clock.m_max_game_time * 0.001f);
+	state.InitialClock = game->m_clock.m_initial_read;
+	state.VersionNo = (theMission.m_e3_team == E3_SEAL || theMission.m_e3_team == E3_TERR) ? 2080 : 80;
+	state.TenSecondLaunch = game->m_ten_second_launch ? 1 : 0;
+
+	if (state.TenSecondLaunch)
+		state.InitialClock = game->m_clock.m_initial_read;
+
+	state.NetStartFlag = (u32)game->m_net_start_flag & 3;
+	state.MajorGameState = (u32)game->m_mp_major_game_state & 0xf;
+	state.RoundCount = game->m_mpe3_round_count & 0xf;
+
+	CValve* valve = CValve::GetByName("mp_friendly_fire");
+
+	if (valve != NULL && valve->m_value != 0)
+	{
+		CZSealBody::m_allow_friendly_fire = 1;
+		state.FriendlyFire = 1;
+	}
+	else
+		CZSealBody::m_allow_friendly_fire = 0;
+
+	valve = CValve::GetByName("mp_locked_game");
+
+	if (valve != NULL && valve->m_value != 0)
+		state.LockedGame = 1;
+
+	if (game->m_pMPPersistentValve != NULL)
+		state.Persistent = game->m_pMPPersistentValve->m_value & 1;
+
+	state.Score00 = (u8)game->m_mpe3_score00;
+	state.Score08 = (u8)game->m_mpe3_score08;
+	state.RoundWinner = (u8)game->m_mpe3_round_winner;
+	state.MaxRounds = game->m_max_round_count & 0xf;
+	theLobby.GetMissionSequence(&state.RoundIndex, state.RoundBlock);
+	memcpy(state.LJBlock, CZPersonaState::m_LJArray, 16);
+	state.CurrentRTime = current->CurrentRTime;
+	memcpy(current, &state, sizeof(state));
 }

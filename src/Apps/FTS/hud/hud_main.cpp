@@ -682,11 +682,20 @@ void CHUD::Tick(float dT)
 		SetupFiremode(seal);
 	}
 
-	/* port: CMission::GetGameTime is declared void (zfts.h): the ELF prints the mission
-	 * clock "%02d:%02d" (minutes, seconds) into m_timertext when the second changes, and
-	 * clears it for a negative time in single player (where the timer text is off) */
-	(void)tempstr;
-	(void)seconds;
+	/* 0x3b9ba4: the mission clock "%02d:%02d" (minutes, seconds) into m_timertext when the
+	 * second changes; a negative time clears it in single player (where the timer text is
+	 * off). ELF: seconds is a guarded local static (init$3050, 0) */
+	s32 gametime = theMission.GetGameTime();
+
+	if (gametime % 60 != seconds)
+	{
+		seconds = gametime % 60;
+		sprintf((char*)tempstr, "%02d:%02d", gametime / 60, gametime % 60);
+		m_timertext.SetString((char*)tempstr);
+	}
+
+	if (gametime < 0 && !theNetwork.m_bNetwork)
+		m_timertext.SetString("");
 
 	DoRangeText(seal, menustate);
 

@@ -99,17 +99,17 @@ void CZNetwork::zNetClose()
 }
 
 /* @socom-skeleton stub zNetCreateObject__9CZNetworkFPi18NetOwnershipStatus17NetObjectLifespanUiiUiiPvPci */
-void CZNetwork::zNetCreateObject(int *, NetOwnershipStatus, NetObjectLifespan, unsigned int, int, unsigned int, int, void *, char *, int)
+int CZNetwork::zNetCreateObject(int *, NetOwnershipStatus, NetObjectLifespan, unsigned int, int, unsigned int, int, void *, char *, int)
 {
 }
 
 /* @socom-skeleton stub zNetGetObject__9CZNetworkFi */
-void CZNetwork::zNetGetObject(int)
+NetObjectRec * CZNetwork::zNetGetObject(int)
 {
 }
 
 /* @socom-skeleton stub zNetGetGameClient__9CZNetworkFi */
-void CZNetwork::zNetGetGameClient(int)
+NetClientRec * CZNetwork::zNetGetGameClient(int)
 {
 }
 
@@ -144,12 +144,12 @@ int CZNetwork::zNetGetValidGameClientCount()
 }
 
 /* @socom-skeleton stub zNetConnect__9CZNetworkFPFiiPCc_vPFiiPCc_v */
-void CZNetwork::zNetConnect(void (*)(int, int, const char *), void (*)(int, int, const char *))
+int CZNetwork::zNetConnect(void (*)(int, int, const char *), void (*)(int, int, const char *))
 {
 }
 
 /* @socom-skeleton stub zNetJoin__9CZNetworkFPFii_vPFii_v */
-void CZNetwork::zNetJoin(void (*)(int, int), void (*)(int, int))
+int CZNetwork::zNetJoin(void (*)(int, int), void (*)(int, int))
 {
 }
 

@@ -495,7 +495,7 @@ public:
 	/* @socom-skeleton decl 5CZKit */
 public:
 	void SetCurItemState(unsigned int);
-	void SetCurItemEnum(EQUIP_ITEM);
+	bool SetCurItemEnum(EQUIP_ITEM); /* bool: 0x2af610 returns 0/1; IncrementalUpdateRemoteSeal tests it */
 	EQUIP_ITEM GetCurItemEnum() const;
 	int GetItemIndex(EQUIP_ITEM) const;
 	void GetAmmoIndex(EQUIP_AMMO, int);
@@ -868,7 +868,7 @@ public:
 
 	SEAL_STANCE m_stance;
 
-	bool m_TriggerCount;
+	u8 m_TriggerCount; /* DWARF uchar: rounds fired (CZSealState sends / applies the count) */
 	s32 m_RemoteRoundCount;
 	f32 m_RemoteFireElevation;
 
@@ -1206,6 +1206,7 @@ public:
 	ZOOMSTATE IncrZoomState();
 	ZOOMSTATE DecrZoomState();
 	static void NetworkPlayerCreate();
+	static bool m_oktocallinit; /* 0x475d44 (1 byte, global): NetworkPlayerCreate 0x24db98 sets it, ftsNetworkSealInit clears it */
 	void MakeGhost();
 	void UnMakeGhost();
 	static void OpenHeartbeatSounds();

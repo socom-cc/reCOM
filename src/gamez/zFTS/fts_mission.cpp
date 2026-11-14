@@ -164,6 +164,7 @@
 #include "Apps/FTS/hud/hud.h" /* hudInit, theHUD */
 #include "gamez/zFTS/zfts.h"
 #include "gamez/zNetwork/znet.h"
+#include "gamez/zGame/zgame.h" /* theGame (CMission::_RecoverFromNetError) */
 #include "gamez/zNode/node_world.h"
 #include "gamez/zReader/zrdr_local.h" /* CRdrEditor */
 #include "gamez/zSeal/zseal.h"
@@ -182,9 +183,13 @@
 #include "gamez/zTexture/ztex.h" /* CTexManager::ClearPktBufs, CTextureFX::Clear */
 #include "gamez/zCamera/zcam.h" /* appCamera (ReOpen_Unload1) */
 #include "gamez/zGrid/zgrid.h" /* CGrid, CClutterAnimManager (ReOpen_Unload1) */
+#include "gamez/zNode/node_universe.h" /* NodeUniverse (CreateLadderTable) */
+#include <algorithm> /* std::min (aiMapPlaceItem) */
 void ClearBodyPartNames_Map(); /* seal_cfg.cpp (0x280e80) */
 
 char* GetDatabase(); /* zanim_menu.cpp (0x1d6770) */
+char* SetDatabase(const char*); /* zanim_menu.cpp (CMission::UnSerialize) */
+void hudStartDefuseTimer(float); /* hud_bitmapreticule.cpp (0x3d0aa0; HUDStartDefuseTimerTick) */
 void UpdateCharWeaponUiVars(int); /* below (0x1fa2b0) */
 void ftsFixupAiMap(CAiMap *); /* below (0x1f47d0) */
 extern CAiMaps AiMaps; /* ai_maps.cpp (0x49b190) */
@@ -300,8 +305,29 @@ void CreateCustomCharTypes(CVehicleRdr *vehicles, _zrdr *mission)
 
 /* @socom-skeleton stub CreateCustomCharTypes__25@unnamed@fts_mission_cpp@FP5_zrdr */
 namespace {
-void CreateCustomCharTypes(_zrdr *)
+void CreateCustomCharTypes(_zrdr *mission)
 {
+	/* 0x1fa8b0 (PreOpen in a network game, no vehicle reader): as the vehicle form, but each
+	 * UiVehicles entry's Name is a character type read from the character reader
+	 * (RdrFetch_CharacterType); its copy UiCharTypeN is made from it. Written, untested
+	 * (network only). */
+	static char *const c_arrCustomCharTypeNames[32] = {"UiCharType1", "UiCharType2", "UiCharType3", "UiCharType4", "UiCharType5", "UiCharType6", "UiCharType7", "UiCharType8", "UiCharType9", "UiCharType10", "UiCharType11", "UiCharType12", "UiCharType13", "UiCharType14", "UiCharType15", "UiCharType16", "UiCharType17", "UiCharType18", "UiCharType19", "UiCharType20", "UiCharType21", "UiCharType22", "UiCharType23", "UiCharType24", "UiCharType25", "UiCharType26", "UiCharType27", "UiCharType28", "UiCharType29", "UiCharType30", "UiCharType31", "UiCharType32"}; /* port: the ELF shares the other form's table (c_arrCustomCharTypeNames$2822) */
+	_zrdr* ui = zrdr_findtag(mission, "UiVehicles");
+	g_iNumUiVehicles = ui != NULL && ui->IsArray() ? ui->array->integer - 1 : 0;
+
+	for (s32 i = 0; i < g_iNumUiVehicles; i++)
+	{
+		char* name = i < 32 ? c_arrCustomCharTypeNames[i] : NULL;
+
+		if (name == NULL)
+			break;
+
+		char* base = CCharacterType::RdrFetch_CharacterType(zrdr_findstring(ui->Get((u32)i), "Name"))->m_name;
+		strcpy((char*)&g_arrDefCharTypeNames[i * 64], base);
+		CCharacterType* type = CCharacterType::Create(name, CCharacterType::GetByNameMod(base), false);
+		type->m_istemporary = true;
+		UpdateCharWeaponUiVars(i);
+	}
 }
 }
 
@@ -501,23 +527,73 @@ f32 MissionRealAt(_zrdr* array, u32 index)
 }
 
 /* @socom-skeleton stub StartImageRecorderParse__FP5_zrdr */
-_zanim_cmd_hdr * StartImageRecorderParse(_zrdr *)
+_zanim_cmd_hdr * StartImageRecorderParse(_zrdr *reader)
 {
+	/* 0x1f9e80: START_IMAGE_RECORDER (a development frame grabber; its tick does nothing in
+	 * the ELF): a 12-byte timeless record - +0x4 bits 0-7 FILENAME (the current anim's name
+	 * index), bit 8 TOP_LINE given, bit 9 BOTTOM_LINE given, bit 10 RATE given, bits 12-21
+	 * TOP_LINE (0), bits 22-31 BOTTOM_LINE (448); +0x8 RATE (29.97) */
+	if (reader == NULL)
+		return NULL;
+
+	CZAnim* anim = ZAnim.m_CurAnim;
+	u8* cmd = (u8*)_calloc(1, 12, "fts_mission.cpp", 714);
+	((_zanim_cmd_hdr*)cmd)->data_size = 12;
+	((_zanim_cmd_hdr*)cmd)->timeless = 1;
+	u32 bits = 0;
+
+	if (_zrdr* file = zrdr_findtag(reader, "FILENAME"))
+	{
+		char name[40];
+		strcpy(name, file->array[1].string); /* ELF: the tag's first value, unchecked */
+		bits |= (u8)anim->AddName(name);
+	}
+
+	s32 line;
+
+	if (zrdr_findint(reader, "TOP_LINE", &line, 1))
+		bits |= 0x100 | (((u32)line & 0x3ff) << 12);
+
+	bits |= 448u << 22;
+
+	if (zrdr_findint(reader, "BOTTOM_LINE", &line, 1))
+		bits = (bits & ~(0x3ffu << 22)) | 0x200 | (((u32)line & 0x3ff) << 22);
+
+	f32 rate = 29.97f;
+
+	if (zrdr_findreal(reader, "RATE", &rate, 1))
+		bits |= 0x400;
+
+	memcpy(cmd + 4, &bits, 4);
+	memcpy(cmd + 8, &rate, 4);
+	return (_zanim_cmd_hdr*)cmd;
 }
 
 /* @socom-skeleton stub StartImageRecorderTick__FP14_zanim_cmd_hdrPf */
 bool StartImageRecorderTick(_zanim_cmd_hdr *, float *)
 {
+	/* 0x1f9e70: nothing (the recorder is not in the release build) */
+	return true;
 }
 
 /* @socom-skeleton stub StopImageRecorderParse__FP5_zrdr */
-_zanim_cmd_hdr * StopImageRecorderParse(_zrdr *)
+_zanim_cmd_hdr * StopImageRecorderParse(_zrdr *reader)
 {
+	/* 0x1f9e00: STOP_IMAGE_RECORDER, a bare 4-byte timeless header */
+	if (reader == NULL)
+		return NULL;
+
+	_zanim_cmd_hdr* cmd = (_zanim_cmd_hdr*)_calloc(1, 4, "fts_mission.cpp", 795);
+	cmd->data_size = 4;
+	cmd->timeless = 1;
+	return cmd;
 }
 
 /* @socom-skeleton stub StopImageRecorderTick__FP14_zanim_cmd_hdrPf */
 bool StopImageRecorderTick(_zanim_cmd_hdr *, float *)
 {
+	/* 0x1f9df0: nothing */
+	return true;
 }
 
 /* @socom-skeleton body HUDCmdParseOn__FP5_zrdr */
@@ -609,13 +685,34 @@ bool HUDTriggerMissionCamTick(_zanim_cmd_hdr *, float *)
 }
 
 /* @socom-skeleton stub HUDStartDefuseTimerParse__FP5_zrdr */
-_zanim_cmd_hdr * HUDStartDefuseTimerParse(_zrdr *)
+_zanim_cmd_hdr * HUDStartDefuseTimerParse(_zrdr *reader)
 {
+	/* 0x1f9760: HUD_START_DEFUSE_TIMER (<seconds>): an 8-byte timeless record, the time at
+	 * +0x4 (a real, or an integer converted); NULL unless the first value is a number */
+	if (reader == NULL || !reader->IsArray())
+		return NULL;
+
+	_zrdr* value = reader->Get(0);
+
+	if (value == NULL || !(value->type == ZRDR_REAL || value->type == ZRDR_INTEGER))
+		return NULL;
+
+	u8* cmd = (u8*)_calloc(1, 8, "fts_mission.cpp", 1021);
+	((_zanim_cmd_hdr*)cmd)->data_size = 8;
+	((_zanim_cmd_hdr*)cmd)->timeless = 1;
+	f32 time = value->GetReal();
+	memcpy(cmd + 4, &time, 4);
+	return (_zanim_cmd_hdr*)cmd;
 }
 
 /* @socom-skeleton stub HUDStartDefuseTimerTick__FP14_zanim_cmd_hdrPf */
-bool HUDStartDefuseTimerTick(_zanim_cmd_hdr *, float *)
+bool HUDStartDefuseTimerTick(_zanim_cmd_hdr *header, float *)
 {
+	/* 0x1f9740: the HUD's bomb defuse countdown from the record's time */
+	f32 time;
+	memcpy(&time, (u8*)header + 4, 4);
+	hudStartDefuseTimer(time);
+	return true;
 }
 
 /* @socom-skeleton body __ct__8CMissionFv */
@@ -1339,8 +1436,13 @@ void CMission::Close()
 	CSealCtrlAi::ReleaseDatabaseHandles();
 	CZDecalSet::DestroyDecalSet();
 	Particle::Close();
-	/* port: not written - the ladder table m_ladders (+0x580) is not declared
-	 * (CreateLadderTable is unwritten); the ELF clears and deletes it */
+	if (m_ladders != NULL) /* 0x1f741c: the ladder table is cleared and deleted */
+	{
+		m_ladders->clear();
+		delete m_ladders;
+		m_ladders = NULL;
+	}
+
 	CZSealBody::DestroyAimAnims();
 	CAiDodge::Destroy();
 	spawners.Clear();
@@ -1647,11 +1749,17 @@ void CMission::TickObjectives(float dT)
 /* @socom-skeleton stub CreateNetGame__8CMissionFv */
 CZNetGame * CMission::CreateNetGame()
 {
+	/* 0x1f65e0 (UIConnectToGameServer, UIInitNetwork, CMenuState::Init): the mission's net
+	 * game (made by Init) initialised again and returned */
+	m_pNetGame->Initialize();
+	return m_pNetGame;
 }
 
 /* @socom-skeleton stub DestroyNetGame__8CMissionFv */
 void CMission::DestroyNetGame()
 {
+	/* 0x1f65d0 (UIDisconnectFromGameServer, UIConnectToGameServer): tail call */
+	m_pNetGame->UnInitialize();
 }
 
 /* @socom-skeleton body OnMissionComplete__8CMissionF13MISSION_STATE */
@@ -1821,23 +1929,169 @@ void CMission::FadeToEndMission(float delay, int flashes)
 /* @socom-skeleton stub CreateLadderTable__8CMissionFv */
 void CMission::CreateLadderTable()
 {
+	/* 0x1f5c40 (Open): every ladder DI (application flags 2) of every node in the universe
+	 * becomes a ladder: the node's bbox in world space (BuildMTW; min / max sorted per axis)
+	 * and the DI's normal rotated to world space. A node off the grid (BuildMTW NULL) adds
+	 * none of its ladders. The table is made once and kept. UNTESTED: the demo's m8 has no
+	 * flag-2 DI (boot-leftovers). ELF quirk kept: the unit matrix is set twice. */
+	if (zdb::NodeUniverse == NULL)
+		return;
+
+	if (m_ladders == NULL)
+		m_ladders = new CLadderList();
+
+	if (m_ladders == NULL)
+		return;
+
+	for (zdb::CNodeUniverse::iterator it = zdb::NodeUniverse->begin(); it != zdb::NodeUniverse->end(); ++it)
+	{
+		zdb::CNode* node = *it;
+
+		if (node == NULL)
+			continue;
+
+		for (zdb::CDIVector::iterator di = node->m_di.begin(); di != node->m_di.end(); ++di)
+		{
+			zdb::CDI* poly = *di;
+
+			if (poly->m_appflags != 2)
+				continue;
+
+			CMatrix mtw;
+			sceVu0UnitMatrix(mtw.m_matrix);
+			sceVu0UnitMatrix(mtw.m_matrix);
+
+			if (node->BuildMTW(mtw) == NULL)
+				break;
+
+			CPnt3D norm(poly->m_nrm.x, poly->m_nrm.y, poly->m_nrm.z);
+			CPnt3D box[2];
+			mtw.Transform(&node->GetBBox()->m_min, box, 2);
+
+			for (s32 axis = 0; axis < 3; axis++)
+			{
+				f32* lo = &box[0].x + axis;
+				f32* hi = &box[1].x + axis;
+
+				if (!(*lo <= *hi))
+				{
+					f32 t = *lo;
+					*lo = *hi;
+					*hi = t;
+				}
+			}
+
+			mtw.Rotate(&norm, &norm, 1);
+
+			CLadderData ladder;
+			ladder.m_norm = norm;
+			ladder.m_bbox.m_min = box[0];
+			ladder.m_bbox.m_max = box[1];
+			ladder.m_node = node;
+			m_ladders->insert(m_ladders->end(), ladder);
+			break; /* ELF: one ladder per node (the DI loop ends after the insert) */
+		}
+	}
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("MISSION: %u ladders", (u32)m_ladders->size());
+#endif
 }
 
 /* @socom-skeleton stub GetLadderByIndex__11CLadderListFi */
-CLadderData * CLadderList::GetLadderByIndex(int)
+CLadderData * CLadderList::GetLadderByIndex(int index)
 {
+	/* 0x1f5bf0: a ladder id (index | LADDER_MASK); NULL past the table. UNTESTED (no m8
+	 * ladders) */
+	index &= ~LADDER_MASK;
+
+	if (index < 0 || (u32)index >= size())
+		return NULL;
+
+	return &(*this)[index];
 }
 
 /* @socom-skeleton stub GetClosestLadder__11CLadderListFPC6CPnt3Df */
-void CLadderList::GetClosestLadder(const CPnt3D *, float)
+int CLadderList::GetClosestLadder(const CPnt3D *pos, float maxdist)
 {
+	/* 0x1f5a90 (ftsFixupAiMap's ladder actions): the ladder whose bottom or top is within
+	 * 10 of the point's height and whose middle is the closest in x/z, nearer than maxdist;
+	 * its index | LADDER_MASK, or -1. UNTESTED (no m8 ladders) */
 	/* @socom-skeleton stub yThreshold$3625 */
-	static int yThreshold;
+	static f32 yThreshold = 10.0f; /* ELF: a guarded local static (init$3626) */
+	s32 best = -1;
+	s32 index = 0;
+
+	for (iterator it = begin(); it != end(); ++it, index++)
+	{
+		const CBBox& box = it->m_bbox;
+
+		if (!_close_enough(pos->y, box.m_min.y, yThreshold) && !_close_enough(pos->y, box.m_max.y, yThreshold))
+			continue;
+
+		CPnt3D mid;
+		box.m_min.Interp(&box.m_max, 0.5f, &mid);
+		CPnt3D d;
+		pos->Sub(&mid, &d);
+		f32 dist = sqrtf(d.x * d.x + d.z * d.z);
+
+		if (dist < maxdist)
+		{
+			maxdist = dist;
+			best = index;
+		}
+	}
+
+	return best | LADDER_MASK;
 }
 
 /* @socom-skeleton stub aiMapPlaceItem__FPQ23zdb5CNodeRC6CPnt3DiPC6CPnt3DPC6CPnt3D */
-void aiMapPlaceItem(zdb::CNode *, const CPnt3D &, int, const CPnt3D *, const CPnt3D *)
+void aiMapPlaceItem(zdb::CNode *node, const CPnt3D &pos, int axis, const CPnt3D *offset, const CPnt3D *rot)
 {
+	/* 0x1f5730 (ftsFixupAiMap's pickups): the node at the ground under the point
+	 * (ftsGetAltitudeApprox 10 above it; the point's own height when nothing is found),
+	 * turned by rot (radians, SetRotate), raised so the lowest corner of its rotated bbox
+	 * along `axis` touches the ground, then moved by offset; a dynamic light node.
+	 * ELF quirks kept: the lowest corner is taken along `axis` but subtracted from y; the
+	 * unit matrix is set twice. */
+	CPnt3D p = pos;
+
+	if (zdb::IntersectStruct* hit = ftsGetAltitudeApprox(&p, 10.0f, false))
+		p.y = hit->m_pos.y;
+
+	CMatrix mat;
+	sceVu0UnitMatrix(mat.m_matrix);
+	sceVu0UnitMatrix(mat.m_matrix);
+
+	if (rot != NULL)
+		mat.SetRotate(rot);
+
+	const CBBox* box = node->GetBBox();
+	CPnt3D corners[8];
+
+	for (s32 i = 0; i < 8; i++)
+	{
+		corners[i].x = (i & 1) ? box->m_max.x : box->m_min.x;
+		corners[i].y = (i & 2) ? box->m_max.y : box->m_min.y;
+		corners[i].z = (i & 4) ? box->m_max.z : box->m_min.z;
+	}
+
+	mat.Transform(corners, 8);
+	f32 lowest = (&corners[0].x)[axis];
+
+	for (s32 i = 1; i < 8; i++)
+		lowest = std::min((&corners[i].x)[axis], lowest);
+
+	p.y -= lowest;
+
+	if (offset != NULL)
+		p.Add(offset, &p);
+
+	mat.m_matrix[3][0] = p.x;
+	mat.m_matrix[3][1] = p.y;
+	mat.m_matrix[3][2] = p.z;
+	node->SetMatrix(&mat);
+	node->SetDynamicLight(true, true);
 }
 
 /* @socom-skeleton stub ftsFixupAiMap__FP6CAiMap */
@@ -1849,12 +2103,108 @@ void ftsFixupAiMap(CAiMap *map)
 	 * cell's centre (quantized altitude, moved 0.75 along the action's offset direction) finds
 	 * a ladder (type 4: the closest within 25) or a node action (types 1, 2, 3, 5: the action
 	 * of the valve named after the cell, else the closest within 25), whose id the action
-	 * takes (PathFollowTick's doors, CAiSAction).
-	 * port: the pickup part (PICKUP / WEAPON / AMMO entries, 0x1f4838..0x1f5128: model
-	 * instances, aiMapPlaceItem, CPickup::Create) is not written. CLadderList::GetClosestLadder
-	 * is void in the port (unwritten): ladder actions keep their id. */
+	 * takes (PathFollowTick's doors, CAiSAction). */
 	if (map->m_mapex_bytes != 4)
 		map->FreeEx();
+
+	/* 0x1f481c: a reader with a PICKUP block places, at its cell: WEAPON "<name>" (rot, pos:
+	 * an instance of the weapon's model, a weapon pickup) and AMMO (( "<ammo>" count
+	 * ["<weapon>"] ) ...: a "fiftycal_box" turned 90 degrees, an ammo pickup with those
+	 * entries). Each lies on the ground under the cell (aiMapPlaceItem). Not in a network game. */
+	if (!theNetwork.m_bNetwork)
+	{
+		for (CAiMap::readers::iterator r = map->m_readerTable.begin(); r != map->m_readerTable.end(); ++r)
+		{
+			_zrdr* pickup = zrdr_findtag(r->m_reader, "PICKUP");
+
+			if (pickup == NULL)
+				continue;
+
+			CPnt3D pos = CPnt3D::zero; /* port: ELF leaves it unset for a cell off the map */
+			map->GetCellPos(r->m_loc, pos);
+
+			if (_zrdr* weapon_tag = zrdr_findtag(pickup, "WEAPON"))
+			{
+				CPnt3D rot = CPnt3D::zero;
+				CPnt3D offset = CPnt3D::zero;
+				_zrdr* first = weapon_tag->Get(0);
+				char* name = first != NULL && first->type == ZRDR_STRING ? first->string : NULL;
+				bool has_rot = zrdr_findPNT3D(weapon_tag, "rot", &rot);
+				zrdr_findPNT3D(weapon_tag, "pos", &offset);
+				rot.Scale(0.01745329f, &rot);
+				CZWeapon* weapon = CZWeapon::m_listWeapons.GetWeapon(CZWeapon::GetWeaponId(name));
+
+				if (weapon != NULL && zdb::CWorld::GetModel(weapon->GetModelName()) != NULL)
+				{
+					zdb::CNode* node = zdb::CNode::CreateInstance(weapon->GetModelName(), NULL, NULL);
+					aiMapPlaceItem(node, pos, 1, &offset, has_rot ? &rot : NULL);
+					node->m_character = 1;
+					zdb::CWorld::m_world->AddTextureAssetCharacter((zdb::_RenderPhase)2, node);
+					CPickup::Create(CPickup::PU_WEAPON, node, weapon);
+#ifdef SOCOM_PORT
+					SOCOM_PORT_TRACE("PICKUP: map %d places %s at %.1f %.1f %.1f", map->m_mapid, name, pos.x, pos.y, pos.z);
+#endif
+				}
+			}
+
+			_zrdr* ammo_tag = zrdr_findtag(pickup, "AMMO");
+
+			if (ammo_tag == NULL)
+				continue;
+
+			s32 count = ammo_tag->IsArray() ? ammo_tag->array->integer - 1 : 0;
+
+			if (count <= 0)
+				continue;
+
+			CPnt3D rot(90.0f, 0.0f, 0.0f);
+			rot.Scale(0.01745329f, &rot);
+			zdb::CNode* box_node = zdb::CNode::CreateInstance("fiftycal_box", NULL, NULL); /* ELF: an unset position (the matrix is set below) */
+
+			if (box_node == NULL)
+				continue;
+
+			aiMapPlaceItem(box_node, pos, 1, NULL, &rot);
+			zdb::CWorld::m_world->AddChild(box_node);
+			box_node->m_character = 1;
+			zdb::CWorld::m_world->AddTextureAssetCharacter((zdb::_RenderPhase)2, box_node);
+			CZAmmoPickupInstance* box = new CZAmmoPickupInstance;
+
+			for (s32 i = 0; i < count; i++)
+			{
+				_zrdr* entry = ammo_tag->Get(i);
+
+				if (entry == NULL || !entry->IsArray())
+					continue;
+
+				/* ELF: the first two fields are read without a length test */
+				_zrdr* ammo_name = entry->Get(0);
+				_zrdr* ammo_count = entry->Get(1);
+				_zrdr* weapon_name = entry->Get(2);
+
+				if (ammo_name == NULL || ammo_count == NULL)
+					continue;
+
+				char* aname = ammo_name->type == ZRDR_STRING ? ammo_name->string : NULL;
+				s32 rounds = ammo_count->GetInt();
+				char* wname = weapon_name != NULL && weapon_name->type == ZRDR_STRING ? weapon_name->string : NULL;
+				CZAmmo* ammo = aname != NULL ? CZAmmo::m_ammolist.GetAmmo(aname) : NULL;
+				CZWeapon* item = wname != NULL ? CZWeapon::m_listWeapons.GetWeapon(wname) : NULL;
+
+				if (ammo == NULL || rounds == 0)
+					continue;
+
+				box->m_weapons.push_back(dynamic_cast<CZFTSWeapon*>(item));
+				box->m_ammo.push_back(ammo);
+				box->m_counts.push_back(rounds);
+			}
+
+			CPickup::Create(CPickup::PU_AMMO, box_node, box);
+#ifdef SOCOM_PORT
+			SOCOM_PORT_TRACE("PICKUP: map %d places an ammo box (%u entries) at %.1f %.1f %.1f", map->m_mapid, (u32)box->m_ammo.size(), pos.x, pos.y, pos.z);
+#endif
+		}
+	}
 
 	for (CAiMap::actions::iterator a = map->m_actionTable.begin(); a != map->m_actionTable.end(); ++a)
 	{
@@ -1909,8 +2259,7 @@ void ftsFixupAiMap(CAiMap *map)
 			break;
 
 		case 4:
-			/* ELF: id = theMission.m_ladders->GetClosestLadder(&pos, 25.0f) (CMission +0x580).
-			 * port: CMission has no m_ladders and GetClosestLadder is void (unwritten): no id */
+			id = theMission.m_ladders->GetClosestLadder(&pos, 25.0f); /* ELF: m_ladders not NULL-tested */
 			break;
 
 		default:
@@ -2071,92 +2420,416 @@ bool CZNetGame::Initialize()
 /* @socom-skeleton stub UnInitialize__9CZNetGameFv */
 void CZNetGame::UnInitialize()
 {
+	/* 0x1f4000 (CMission::DestroyNetGame): back to no game - states, counters and flags
+	 * cleared, the start flag waiting (1), the valve and UI variable pointers dropped (the
+	 * valves and variables themselves stay) */
+	m_pTimerValve = NULL;
+	m_pTimerAnim = NULL;
+	m_mp_major_game_state = MP_MAJOR_UNKNOWN;
+	m_mp_minor_game_state = MP_MINOR_UNKNOWN;
+	m_my_major_game_state = MP_MAJOR_UNKNOWN;
+	m_mpe3_round_count = 0;
+	m_net_ready_count = 0;
+	m_countdown = 0;
+	m_net_team = 0;
+	m_last_penalty = 0;
+	m_net_start_flag = MP_NET_READY::NET_READY_WAITING;
+	m_bomb_clock_started = false;
+	m_persona_created = false;
+	m_bomb_created = false;
+	m_late_joiner = false;
+	m_ready_to_play = false;
+	m_ten_second_launch = false;
+	m_use_bomb_pos = false;
+	m_pBombStatusValve = NULL;
+	m_pGameOverValve = NULL;
+	m_pBombOwnerValve = NULL;
+	m_uiv_SealList = NULL;
+	m_uiv_TerrList = NULL;
+	m_uiv_NoneList = NULL;
+	m_uiv_ChatList = NULL;
+	m_pMajorGameStateValve = NULL;
+	m_pMinorGameStateValve = NULL;
+	m_pJoinGameValve = NULL;
+	m_pPlayerTeamValve = NULL;
+	m_pPenaltyValve = NULL;
+	m_pMPPersistentValve = NULL;
 }
 
 /* @socom-skeleton stub SetE3RoundCount__9CZNetGameFi */
-void CZNetGame::SetE3RoundCount(int)
+void CZNetGame::SetE3RoundCount(int count)
 {
+	/* 0x1f3fb0 (CZGameState::RemoteGameUpdateCallback): rounds played and mp_round_count */
+	m_mpe3_round_count = count;
+	CValve* valve = m_pRoundCountValve;
+	u32 change = valve->m_value != (u32)count ? (count != 0 ? 1 : 2) : 0;
+	valve->m_value = count;
+
+	if (change)
+		valve->MakeCallbacks((VALVE_STATE)change);
 }
 
 /* @socom-skeleton stub NetworkTeam__9CZNetGameFUi */
-unsigned int CZNetGame::NetworkTeam(unsigned int)
+unsigned int CZNetGame::NetworkTeam(unsigned int team)
 {
+	/* 0x1f3e90 (GameSignalPacketHandler, NetSendE3Index, E3IndexPacketHandler,
+	 * CreateLocalPersona): this player's team mask - the E3 show forces SEALs (0x40000001)
+	 * or terrorists (0x80000100). player_team = 8 for terrorists, else 0; the network
+	 * character type is custom type 5 (terrorists) or 1 (GetCustomCharTypeName, inlined in
+	 * the ELF), 30 characters at most. Returns the mask */
+	if (theMission.m_e3_team == E3_SEAL)
+		team = 0x40000001;
+	else if (theMission.m_e3_team == E3_TERR)
+		team = 0x80000100;
+
+	m_net_team = team;
+	CValve* valve = m_pPlayerTeamValve;
+	u32 value = team == 0x80000100 ? 8 : 0;
+	u32 change = valve->m_value != value ? (value != 0 ? 1 : 2) : 0;
+	valve->m_value = value;
+
+	if (change)
+		valve->MakeCallbacks((VALVE_STATE)change);
+
+	s32 type = team == 0x80000100 ? 5 : 1;
+	strncpy(theNetwork.m_charType, GetCustomCharTypeName(type - 1), 31);
+	theNetwork.m_charType[30] = '\0';
+	return team;
 }
 
 /* @socom-skeleton stub MPMajorGameState__9CZNetGameFQ29CZNetGame19MP_MAJOR_GAME_STATE */
-CZNetGame::MP_MAJOR_GAME_STATE CZNetGame::MPMajorGameState(CZNetGame::MP_MAJOR_GAME_STATE)
+CZNetGame::MP_MAJOR_GAME_STATE CZNetGame::MPMajorGameState(CZNetGame::MP_MAJOR_GAME_STATE state)
 {
+	/* 0x1f3e80 (also single player: CLoadState::Init, OnReplayMission, OnCloseAndSwitch): the
+	 * game's major state, nothing else; returns it */
+	m_mp_major_game_state = state;
+	return state;
 }
 
 /* @socom-skeleton stub MyMajorGameState__9CZNetGameFQ29CZNetGame19MP_MAJOR_GAME_STATE */
-CZNetGame::MP_MAJOR_GAME_STATE CZNetGame::MyMajorGameState(CZNetGame::MP_MAJOR_GAME_STATE)
+CZNetGame::MP_MAJOR_GAME_STATE CZNetGame::MyMajorGameState(CZNetGame::MP_MAJOR_GAME_STATE state)
 {
+	/* 0x1f3e20 (UISetMenuState, UIReadyToLoad, CheckStateSwitch, CLoadState::Tick): this
+	 * player's major state and the mp_major_game_state valve (made by Initialize, also
+	 * offline); returns the state */
+	m_my_major_game_state = state;
+	CValve* valve = m_pMajorGameStateValve;
+	u32 value = (u8)state;
+	u32 change = valve->m_value != value ? (value != 0 ? 1 : 2) : 0;
+	valve->m_value = value;
+
+	if (change)
+		valve->MakeCallbacks((VALVE_STATE)change);
+
+	return state;
 }
 
 /* @socom-skeleton stub MyMinorGameState__9CZNetGameFQ29CZNetGame19MP_MINOR_GAME_STATE */
-CZNetGame::MP_MINOR_GAME_STATE CZNetGame::MyMinorGameState(CZNetGame::MP_MINOR_GAME_STATE)
+CZNetGame::MP_MINOR_GAME_STATE CZNetGame::MyMinorGameState(CZNetGame::MP_MINOR_GAME_STATE state)
 {
+	/* 0x1f3dc0 (UISetMenuState, ToggleReady, CLoadState): this player's minor state and the
+	 * mp_minor_game_state valve; returns the state. UISetMenuState calls it offline too:
+	 * the valve must exist (CZNetGame::Initialize creates it in the ELF, 0x1f41ec) */
+	m_mp_minor_game_state = state;
+	CValve* valve = m_pMinorGameStateValve;
+	u32 value = (u8)state;
+	u32 change = valve->m_value != value ? (value != 0 ? 1 : 2) : 0;
+	valve->m_value = value;
+
+	if (change)
+		valve->MakeCallbacks((VALVE_STATE)change);
+
+	return state;
 }
 
 /* @socom-skeleton stub LateJoiner__9CZNetGameFb */
-bool CZNetGame::LateJoiner(bool)
+bool CZNetGame::LateJoiner(bool late)
 {
+	/* 0x1f3d50 (CLoadState::Tick, GameSignalPacketHandler, zRemoteDelayedAction): the late
+	 * joiner flag (DWARF +0x94) and the late_joiner valve (1 / 0); returns the flag */
+	m_late_joiner = late;
+	CValve* valve = m_pLateJoinerValve;
+	u32 value = late ? 1 : 0;
+	u32 change = valve->m_value != value ? (value != 0 ? 1 : 2) : 0;
+	valve->m_value = value;
+
+	if (change)
+		valve->MakeCallbacks((VALVE_STATE)change);
+
+	return late;
 }
 
 /* @socom-skeleton stub ResetScores__9CZNetGameFv */
 void CZNetGame::ResetScores()
 {
+	/* 0x1f3d30: no rounds, scores 0, winner 64 (none), not over */
+	m_mpe3_round_count = 0;
+	m_mpe3_score08 = 0;
+	m_mpe3_score00 = 0;
+	m_mpe3_round_winner = 64;
+	m_game_over = false;
 }
 
 /* @socom-skeleton body MasterStartGame__9CZNetGameFv */
 void CZNetGame::MasterStartGame()
 {
+	/* 0x1f3910: a round starts now (a running ten-second launch is dropped first): the clock
+	 * starts at the network time and runs with the saved limit; mp_timer, mp_game_over (0),
+	 * mp_max_rounds, mp_half_rounds (half rounded up), the hostage counters and the penalty
+	 * (0), mp_score00 / 08, mp_winner (64) and mp_game_type are set; in a bomb game the
+	 * master places the bomb; the bomb is nobody's. The session master tells every late
+	 * joiner (m_LJArray bit 4) the round time in s (game signal 12) */
+	if (m_ten_second_launch && theNetwork.m_bSessionMaster)
+	{
+		m_clock.m_initial_read = 0;
+		m_clock.m_initial_read_set = false;
+	}
 
+	m_ten_second_launch = false;
+	m_clock.m_initial_read = theNetwork.zNetGetTime();
+	m_clock.m_initial_read_set = true;
+	m_pTimerValve = CValve::Create("mp_timer", 1, VALVE_TYPE::VTYPE_PERM);
+
+	CValve* valve;
+	u32 value;
+	u32 change;
+
+	valve = m_pGameOverValve = CValve::Create("mp_game_over", 0, VALVE_TYPE::VTYPE_PERM);
+	change = valve->m_value != 0 ? 2 : 0;
+	valve->m_value = 0;
+
+	if (change)
+		valve->MakeCallbacks((VALVE_STATE)change);
+
+	valve = m_pMaxRoundCountValve = CValve::Create("mp_max_rounds", 0, VALVE_TYPE::VTYPE_PERM);
+	value = m_max_round_count;
+	change = valve->m_value != value ? (value != 0 ? 1 : 2) : 0;
+	valve->m_value = value;
+
+	if (change)
+		valve->MakeCallbacks((VALVE_STATE)change);
+
+	valve = m_pHalfRoundCountValve = CValve::Create("mp_half_rounds", 0, VALVE_TYPE::VTYPE_PERM);
+	value = m_max_round_count / 2 + m_max_round_count % 2;
+	change = valve->m_value != value ? (value != 0 ? 1 : 2) : 0;
+	valve->m_value = value;
+
+	if (change)
+		valve->MakeCallbacks((VALVE_STATE)change);
+
+	valve = m_HostagesKilledBySealsValve = CValve::Create("mp_hostages_by_seals", 0, VALVE_TYPE::VTYPE_PERM);
+	change = valve->m_value != 0 ? 2 : 0;
+	valve->m_value = 0;
+
+	if (change)
+		valve->MakeCallbacks((VALVE_STATE)change);
+
+	valve = m_HostagesKilledByTurdsValve = CValve::Create("mp_hostages_by_turds", 0, VALVE_TYPE::VTYPE_PERM);
+	change = valve->m_value != 0 ? 2 : 0;
+	valve->m_value = 0;
+
+	if (change)
+		valve->MakeCallbacks((VALVE_STATE)change);
+
+	valve = m_pPenaltyValve;
+	change = valve->m_value != 0 ? 2 : 0;
+	valve->m_value = 0;
+
+	if (change)
+		valve->MakeCallbacks((VALVE_STATE)change);
+
+	m_last_penalty = 0;
+	CValve* score00 = CValve::Create("mp_score00", VALVE_TYPE::VTYPE_PERM);
+	CValve* score08 = CValve::Create("mp_score08", VALVE_TYPE::VTYPE_PERM);
+	CValve* winner = CValve::Create("mp_winner", VALVE_TYPE::VTYPE_PERM);
+	CValve* type = CValve::Create("mp_game_type", VALVE_TYPE::VTYPE_PERM);
+
+	value = m_mpe3_score00;
+	change = score00->m_value != value ? (value != 0 ? 1 : 2) : 0;
+	score00->m_value = value;
+
+	if (change)
+		score00->MakeCallbacks((VALVE_STATE)change);
+
+	value = m_mpe3_score08;
+	change = score08->m_value != value ? (value != 0 ? 1 : 2) : 0;
+	score08->m_value = value;
+
+	if (change)
+		score08->MakeCallbacks((VALVE_STATE)change);
+
+	change = winner->m_value != 64 ? 1 : 0;
+	winner->m_value = 64;
+
+	if (change)
+		winner->MakeCallbacks((VALVE_STATE)change);
+
+	value = (u8)m_game_type;
+	change = type->m_value != value ? (value != 0 ? 1 : 2) : 0;
+	type->m_value = value;
+
+	if (change)
+		type->MakeCallbacks((VALVE_STATE)change);
+
+	m_clock.m_clock_running = true;
+	m_clock.m_max_game_time = m_clock.m_save_max_game_time;
+
+	if (m_game_type == MP_GAME_TYPE::MP_GAME_FOOTBOMB && theNetwork.m_bSessionMaster)
+		CZBombState::InitBomb();
+
+	m_bomb_owned = false;
+
+	if (!theNetwork.m_bSessionMaster)
+		return;
+
+	for (s32 i = 0; i < 16; i++)
+	{
+		if ((CZPersonaState::m_LJArray[i] & 0x10) != 0)
+			SendGameSignalMessage(i, 12, 0, 0, (u32)((f32)m_clock.m_max_game_time * 0.001f), true);
+	}
 }
 
 /* @socom-skeleton stub TenSecondLaunch__9CZNetGameFb */
-void CZNetGame::TenSecondLaunch(bool)
+bool CZNetGame::TenSecondLaunch(bool launch)
 {
+	/* 0x1f3860 (UIForceMPLaunch, CZGameState::RemoteGameUpdateCallback): the launch countdown.
+	 * Starting it, the session master puts the round start mp_x_sec_clock seconds ahead (not
+	 * set yet); stopping it, the master clears the start. The flag is returned (port: bool,
+	 * was void - v0 = the argument) */
+	if (launch && !m_ten_second_launch && theNetwork.m_bSessionMaster)
+	{
+		m_clock.m_initial_read = theNetwork.zNetGetTime() + m_pXSecondClockValve->m_value * 1000;
+		m_clock.m_initial_read_set = false;
+	}
+
+	if (!launch && m_ten_second_launch && theNetwork.m_bSessionMaster)
+	{
+		m_clock.m_initial_read = 0;
+		m_clock.m_initial_read_set = false;
+	}
+
+	m_ten_second_launch = launch;
+	return launch;
 }
 
 /* @socom-skeleton stub GetGameTime__8CMissionFv */
-void CMission::GetGameTime()
+int CMission::GetGameTime()
 {
+	/* 0x1f37d0 (CHUD::Tick's clock, zRemoteClientConnectsCallback): seconds - the network
+	 * game's clock (milliseconds) in a network game, else the win / loss timer truncated */
+	if (theNetwork.m_bNetwork && m_pNetGame != NULL)
+		return (int)(u32)((f32)m_pNetGame->m_clock.m_game_time * 0.001f);
+
+	return (int)m_winlosstimer;
 }
 
 /* @socom-skeleton stub SetE3Index__9CZNetGameFi */
-void CZNetGame::SetE3Index(int)
+void CZNetGame::SetE3Index(int index)
 {
+	/* 0x1f37c0: this player's slot on its team */
+	m_e3_index = index;
 }
 
 /* @socom-skeleton stub SetInitialRead__9CNetClockFUib */
-void CNetClock::SetInitialRead(unsigned int, bool)
+void CNetClock::SetInitialRead(unsigned int read, bool set)
 {
+	/* 0x1f37b0: the round's start (network ms) and whether it is set */
+	m_initial_read = read;
+	m_initial_read_set = set;
 }
 
 /* @socom-skeleton stub Tick__9CNetClockFv */
 void CNetClock::Tick()
 {
+	/* 0x1f3710: with the start read set and the clock running, the time in the round is the
+	 * network time (less m_rtime_delta) past the start, 1 ms before it; the game time counts
+	 * down from the limit to 0, or is the time in the round when there is no limit */
+	if (m_initial_read_set && m_clock_running)
+	{
+		u32 now = (u32)(theNetwork.zNetGetTime() - m_rtime_delta);
+		m_time_in_round = m_initial_read < now ? now - m_initial_read : 1;
+	}
+
+	if (m_max_game_time != 0)
+		m_game_time = m_time_in_round < m_max_game_time ? m_max_game_time - m_time_in_round : 0;
+	else
+		m_game_time = m_time_in_round;
 }
 
 /* @socom-skeleton stub DecrementRoundClockSec__9CZNetGameFi */
-void CZNetGame::DecrementRoundClockSec(int)
+unsigned int CZNetGame::DecrementRoundClockSec(int seconds)
 {
+	/* 0x1f35d0 (CZGameState::UpdateLocalGame: 60 s per penalty): the session master takes
+	 * seconds off the round's time limit (ms); a limit that would run out becomes 1 s. The
+	 * seconds left come back in v0 (port: unsigned int, was void; no caller reads it - guess
+	 * that it is the result). ELF quirk kept: the saved limit is only written while the
+	 * limit is 0 */
+	if (theNetwork.m_bSessionMaster)
+	{
+		u32 left = (u32)((f32)m_clock.m_max_game_time * 0.001f);
+
+		if (seconds < (s32)left)
+		{
+			if (m_clock.m_max_game_time == 0)
+				m_clock.m_save_max_game_time = (left - seconds) * 1000;
+
+			m_clock.m_max_game_time = (left - seconds) * 1000;
+		}
+		else if (left != 0)
+		{
+			if (m_clock.m_max_game_time == 0)
+				m_clock.m_save_max_game_time = 1000;
+
+			m_clock.m_max_game_time = 1000;
+		}
+	}
+
+	return (u32)((f32)m_clock.m_max_game_time * 0.001f);
 }
 
 /* @socom-skeleton stub OnSealTeam__9CZNetGameFv */
-void CZNetGame::OnSealTeam()
+bool CZNetGame::OnSealTeam()
 {
+	/* 0x1f35b0 (CLoadState::Tick): whether this player is on the SEAL side (a bit of
+	 * 0x40000001 in the team mask). port: bool (was void; sltu-style 0/1 in v0) */
+	return (m_net_team & 0x40000001) != 0;
 }
 
 /* @socom-skeleton stub Serialize__8CMissionFi */
 void CMission::Serialize(int)
 {
+	/* 0x1f3520 (the save manager, memory-card save): "MissionData" = (state, database).
+	 * port: the save path stays unused (no memory-card saving asked for); the provider call
+	 * CSaveModule::SaveRdr is kept as the ELF has it */
+	CRdrEditor rdr;
+	rdr.push(NULL);
+	rdr.addint("state", (u8)m_state);
+	rdr.addSTRING("database", GetDatabase());
+	rdr.pop();
+	SaveRdr("MissionData", &rdr);
 }
 
 /* @socom-skeleton stub UnSerialize__8CMissionFPCcP8CRdrFilei */
-void CMission::UnSerialize(const char *, CRdrFile *, int)
+void CMission::UnSerialize(const char *, CRdrFile *reader, int)
 {
+	/* 0x1f3460 (a loaded save): the state, and with a database the mission is set again -
+	 * CurrentMission (a permanent valve) = the number after its first character, PreOpen */
+	zrdr_findint(reader, "state", (s32*)&m_state, 1);
+	char* db = zrdr_findstring(reader, "database");
+
+	if (db == NULL)
+		return;
+
+	SetDatabase(db);
+	s32 number = atoi(db + 1);
+	CValve* valve = CValve::Create("CurrentMission", VALVE_TYPE::VTYPE_PERM);
+	u32 change = valve->m_value != (u32)number ? (number != 0 ? 1 : 2) : 0;
+	valve->m_value = number;
+
+	if (change)
+		valve->MakeCallbacks((VALVE_STATE)change);
+
+	PreOpen(db);
 }
 
 /* @socom-skeleton stub LoadMissionCams__8CMissionFP8CRdrFile */
@@ -2293,47 +2966,101 @@ void CMission::TickInFirefight(f32 dT)
 		aware_counter = ftsPlayer->m_aware_counter;
 	}
 
-	// Is the player seen by anyone else?
-	if (aware_counter < 1)
+	/* 0x1f2b30 (rewritten from the asm: the old body set the timer to -dT and told the jukebox
+	 * "no fight" every frame): the fight music starts when the timer is 0 and someone is aware
+	 * of the player (timer 4 s while aware); it ends once, when the timer runs out */
+	if ((s32)aware_counter > 0) /* ELF: blez (signed) */
 	{
-		// Decrease the fight timer
-		if (m_fighttimer > 0.0f)
-		{
-			m_fighttimer =- dT;
-		}
+		if (m_fighttimer == 0.0f)
+			CSndJukebox::IsInFight(true);
 
-		// We are no longer fighting enemies.
-		// Go back to using stealth music.
+		m_fighttimer = 4.0f;
+	}
+	else if (m_fighttimer != 0.0f)
+	{
+		m_fighttimer -= dT;
+
 		if (m_fighttimer <= 0.0f)
 		{
 			m_fighttimer = 0.0f;
 			CSndJukebox::IsInFight(false);
 		}
 	}
-	else
-	{
-		// Player is currently in a fight
-		// Let the jukebox know!
-		if (m_fighttimer <= 0.0f)
-		{
-			CSndJukebox::IsInFight(true);
-		}
-
-		m_fighttimer = 4.0f;
-	}
 }
 
 /* @socom-skeleton stub _RecoverFromNetError__8CMissionFi */
-void CMission::_RecoverFromNetError(int)
+unsigned char CMission::_RecoverFromNetError(int error)
 {
+	/* 0x1f2a20 (theLobby's net error handler, through RecoverFromNetError): only with an
+	 * error and a net game. In play the error dialog comes up (dlgNetError.rdr as the menu
+	 * state's default menu, then a switch to the menu state); after a round or the game the
+	 * network game is shut down and the server left and the stack popped first; while
+	 * loading the load is aborted with it. Each drops the handler and returns 1; menus, the
+	 * lobby or no state return 0. port: unsigned char (was void) */
+	if (error == 0 || m_pNetGame == NULL)
+		return 0;
+
+	switch (m_pNetGame->m_mp_major_game_state)
+	{
+	case CZNetGame::MP_MAJOR_LOADING:
+		theGame.m_loadState.AbortLoad("dlgNetError.rdr");
+		theLobby.m_net_error_handler = NULL;
+		return 1;
+	case CZNetGame::MP_MAJOR_ROUNDOVER:
+	case CZNetGame::MP_MAJOR_NEWROUND:
+	case CZNetGame::MP_MAJOR_GAMEOVER:
+		ftsNetworkGameUninit();
+		DMEDisconnectFromGameServer();
+		theGame.PopTo(NULL, 0);
+		/* fall through */
+	case CZNetGame::MP_MAJOR_INPLAY:
+		strncpy(theGame.m_menuState.m_DefaultMenu, "dlgNetError.rdr", 64);
+		theLobby.m_net_error_handler = NULL;
+		theGame.Switch(&theGame.m_menuState, 0);
+		return 1;
+	default:
+		return 0;
+	}
 }
 
 /* @socom-skeleton stub RecoverFromNetError__8CMissionFi */
-unsigned char CMission::RecoverFromNetError(int)
+unsigned char CMission::RecoverFromNetError(int error)
 {
+	/* 0x1f2a10 (stored as theLobby's net error handler by CLoadState::Init): tail call on
+	 * theMission */
+	return theMission._RecoverFromNetError(error);
 }
 
 /* @socom-skeleton stub Sample_ExtractionLoc__8CMissionFv */
 void CMission::Sample_ExtractionLoc()
 {
+	/* 0x1f25c0 (Open, ReOpen_Load): every extraction region (type 1) of AI map 0 gets an
+	 * "EXTRACTION LOC" compass anchor (type 5) at its centre cell's position (GetCellPos:
+	 * quantized altitude, an action cell's offset), kept in m_anchor_extraction. A centre
+	 * off the map is skipped. ELF: returns 0 in v0 (no caller reads it). */
+	CAiMap* map = AiMaps.GetMapByIndex(0);
+
+	if (map == NULL)
+		return;
+
+	for (CAiMap::regions::iterator it = map->m_regionTable.begin(); it != map->m_regionTable.end(); ++it)
+	{
+		if (it->m_type != 1)
+			continue;
+
+		CAiMapLoc center;
+		it->GetCenter(center);
+		CPnt3D pos;
+
+		if (!map->GetCellPos(center, pos))
+			continue;
+
+		CCompassAnchor* anchor = CCompass::CreateAnchor(pos, "EXTRACTION LOC");
+		anchor->m_type = 5;
+		m_anchor_extraction.push_back((CObjAnchor*)anchor);
+	}
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("MISSION: %u extraction anchors", (u32)m_anchor_extraction.size());
+#endif
 }

@@ -248,8 +248,8 @@ CTextSpec::CTextSpec(_zrdr* reader) : CDlgObjSpec(reader)
 CDlgObjSpec * GetObjectSpec(_zrdr *reader, const char *type)
 {
 	/* 0x399670: TEXT, IMAGE, TELETYPE, WRAPPEDTEXT, TICKERTAPETEXT, PROGRESSBAR, COUNTER,
-	 * CLOCK. port: TEXT, IMAGE, TELETYPE and PROGRESSBAR are written; the other types are
-	 * skipped (NULL). */
+	 * CLOCK. port: TEXT, IMAGE, TELETYPE, PROGRESSBAR and COUNTER are written; the other
+	 * types are skipped (NULL). */
 	if (type == NULL)
 		return NULL;
 
@@ -266,6 +266,9 @@ CDlgObjSpec * GetObjectSpec(_zrdr *reader, const char *type)
 	if (strcmp("PROGRESSBAR", type) == 0)
 		return new CHProgressBarSpec(reader);
 
+	if (strcmp("COUNTER", type) == 0)
+		return new CCounterSpec(reader);
+
 #ifdef SOCOM_PORT
 	static int traced = 0;
 	if (traced++ < 24)
@@ -280,8 +283,23 @@ void CCounterSpec::Copy()
 }
 
 /* @socom-skeleton stub CreateDisplayObj__12CCounterSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
-C2D * CCounterSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+C2D * CCounterSpec::CreateDisplayObj(C2DFont *font, zdb::CTextureRelocMgr *) const
 {
+	/* 0x399450: a C2DCounter counting up to the ValVar's value (an int variable, or a real
+	 * one truncated; 0 when missing or of another type), in the menu font, loaded from
+	 * this spec */
+	s32 target = 0;
+
+	if (CUIVariable* var = theUIVarManager.Find(m_valVar.c_str()))
+		target = var->GetInt(); /* inline _zrdr::GetInt */
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("UI: counter %s = %d (%.2f..%.2f%s)", m_valVar.c_str(), target, m_startTime, m_endTime, m_isDuration ? " duration" : "");
+#endif
+	C2DCounter* counter = new C2DCounter(m_startTime, m_isDuration, m_endTime, target);
+	counter->SetFont(font);
+	counter->LoadSpec(*this);
+	return counter;
 }
 
 /* @socom-skeleton body LoadFromRdr__14CGameDlgDesignFP5_zrdr */
