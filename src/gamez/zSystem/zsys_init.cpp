@@ -60,7 +60,7 @@ class CIOPManager;
 
 void zsys_MemoryReport(); /* zsys_MemoryReport__Fv (zsys_memory.cpp) */
 void recoGrabMemory(); /* recoGrabMemory__Fv (Apps/FTS/game/reco.cpp) */
-extern "C" void TRC_PreparePowerOff(unsigned char hddStatus); /* zsys_trc.cpp; 0x2f5204 passes 2 */
+extern "C" int TRC_PreparePowerOff(unsigned char hddStatus); /* zsys_trc.cpp; 0x2f5204 passes 2 */
 
 /* @socom-skeleton stub usbdargs */
 static unsigned char usbdargs[43] = {104, 117, 98, 61, 49, 0, 100, 101, 118, 61, 49, 49, 0, 101, 100, 61, 51, 50, 0, 103, 116, 100, 61, 54, 52, 0, 105, 116, 100, 61, 54, 52, 0, 105, 111, 114, 101, 113, 61, 49, 50, 56, 0};
@@ -272,13 +272,25 @@ void zSysPostInit()
 }
 
 /* @socom-skeleton stub zSysLoadIRX__FPciPcb */
-int zSysLoadIRX(char *, int, char *, bool)
+int zSysLoadIRX(char *name, int argLength, char *args, bool retry)
 {
+	/* 0x2f4d60: the module's PS2 path, loaded (again while it fails, when `retry`); the module id */
+	char path[256];
+	CFileIO::PS2FileName(name, path, false);
+	int id;
+	do {
+		id = sceSifLoadModule(path, argLength, args);
+	} while (id < 0 && retry);
+	return id;
 }
 
 /* @socom-skeleton stub zSysUnloadIRX__Fi */
-void zSysUnloadIRX(int)
+void zSysUnloadIRX(int id)
 {
+	/* 0x2f4d20 */
+	int result;
+	sceSifStopModule(id, 0, NULL, &result);
+	sceSifUnloadModule(id);
 }
 
 /* @socom-skeleton body zSysReset__Fv */

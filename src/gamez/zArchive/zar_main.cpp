@@ -320,10 +320,16 @@ bool CZAR::Open(const char* name, s32 version, u32 mode, size_t padded_size)
 namespace zar {
 CKey* CZAR::CreateKey(const char* name)
 	{
-		CKey* key = NULL;
+		/* 0x1d8f70: a new key (NewKey's storage rule, inline in the ELF) under the open key (or the
+		 * root), then opened itself; NULL without an open stream. The caller closes it. */
+		if (m_pFile == NULL || !m_pFile->IsOpen())
+			return NULL;
 
-		// TODO:
-		// Redo this function definition
+		CKey* key = NewKey(name);
+		(m_keys.empty() ? m_root : m_keys.front())->InsertKey(key);
+
+		if (key != NULL)
+			m_keys.push_front(key);
 
 		return key;
 	}

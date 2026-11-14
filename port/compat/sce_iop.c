@@ -243,3 +243,55 @@ int sceSifFreeIopHeap(void *addr)
     return SifFreeIopHeap(addr);
 }
 
+/* zSysUnloadIRX (0x2f4d20): ps2sdk loadfile has the same calls under Sif* names. An
+ * offline module's pseudo id (sceSifLoadModule above) was never loaded: nothing to stop. */
+int sceSifStopModule(int modid, int args, const char *argp, int *result)
+{
+    if ((modid & 0xff000000) == SOCOM_OFFLINE_MODULE_ID)
+        return 0;
+    return SifStopModule(modid, args, argp, result);
+}
+
+int sceSifUnloadModule(int modid)
+{
+    if ((modid & 0xff000000) == SOCOM_OFFLINE_MODULE_ID)
+        return 0;
+    return SifUnloadModule(modid);
+}
+
+/* TRC power-off (zsys_trc.cpp): the HDD / network adaptor shutdown requests after a power-off
+ * callback. The port has no pfs/hdd/dev9 modules and the power-off callback is never raised
+ * (see sceCdPOffCallback below), so nothing reaches this; it answers success so the game's
+ * retry loops end. */
+int sceDevctl(const char *name, int cmd, const void *arg, unsigned int arglen, void *bufp, unsigned int buflen)
+{
+    (void)arg;
+    (void)arglen;
+    (void)bufp;
+    (void)buflen;
+    socom_port_trace("M4: sceDevctl(%s, 0x%x): no such device in the port", name, cmd);
+    return 0;
+}
+
+/* TRC_PreparePowerOff (0x402ca0) registers the CD power-off (console power button) callback.
+ * ps2sdk declares sceCdPOffCallback (libcdvd-common.h) but its EE libcdvd does not implement
+ * it; the emulator's power button closes the emulator instead. Not registered: the game's
+ * power-off thread waits forever, as on a console nobody switches off. */
+void *sceCdPOffCallback(void (*func)(void *userdata), void *userdata)
+{
+    (void)func;
+    (void)userdata;
+    return NULL;
+}
+
+/* Port only (sifdev.h): whether a module is on the offline list above (the port never loads
+ * it, whether or not the game has asked for it yet). */
+int socom_port_module_offline(const char *base)
+{
+    unsigned int i;
+
+    for (i = 0; i < sizeof(offline_modules) / sizeof(offline_modules[0]); i++)
+        if (strcmp(base, offline_modules[i]) == 0)
+            return 1;
+    return 0;
+}

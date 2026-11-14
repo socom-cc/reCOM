@@ -110,9 +110,10 @@ class CVideo
 {
 public:
 	static void Clear(u8 r, u8 g, u8 b, u8 a);
-	static f32 MaxFrameRate(s32 fr);
+	static s32 MaxFrameRate(s32 fr); /* 0x308f20 returns the previous cap (int) */
 
 	static s32 m_defaultFrameRate;
+	static s32 m_maxFrameRate; /* .sdata 0x4753dc */
 	/* @socom-skeleton decl 6CVideo */
 public:
 	static void Fade(float, unsigned char, unsigned char, unsigned char); /* static: 0x308ed0 uses no object */

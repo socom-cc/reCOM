@@ -83,35 +83,18 @@ public:
 };
 /* @socom-skeleton end 11CIOPManager */
 extern CIOPManager theIOPManager; /* zsys_init.cpp (0x50ea60) */
-/* @socom-skeleton decl 8CMemCard */
-class CMemCard
-{
-public:
-	CMemCard();
-	~CMemCard();
-	void Init();
-	static void Uninit();
-	void SaveGame(const char *, char *);
-	void LoadGame(const char *);
-	void SaveConfig(const char *);
-	void LoadConfig(const char *);
-	void IsInserted();
-	void IsFormatted();
-	void Format();
-	void GetFreeSpace();
-	void CreateIconFiles();
-	void Exists(const char *);
-	void mkdir(const char *);
-	void chdir(const char *);
-	static int m_initcount;
-	static int m_mod_mcman;
-	static int m_mod_mcserv;
-};
-/* @socom-skeleton end 8CMemCard */
+class CSaveManager;
 /* @socom-skeleton decl 10CMemCardIO */
+/* A file on a memory card (sceMc*), the CIO a CSaveManager's archive reads and writes. No DWARF;
+ * 24 bytes, layout from Open 0x306ad0 and the ctor of CMemCard 0x307700. */
 class CMemCardIO : public CIO
 {
 public:
+	int m_fd;      /* +0x4: sceMc file descriptor, -1 = closed */
+	int m_port;    /* +0x8: the card the next Open uses (CMemCard copies its own in) */
+	int m_slot;    /* +0xc */
+	size_t m_size; /* +0x10: the open file's size (sceMcGetDir) */
+	/* +0x14: CIO::m_mode, the Open mode (GetMode) */
 	/* port: return types follow the CIO slots (__vt__10CMemCardIO 0x472e50) */
 	virtual unsigned char Open(const char *, unsigned int = 1);
 	virtual void Close();
@@ -126,4 +109,38 @@ public:
 	virtual void fflush();
 };
 /* @socom-skeleton end 10CMemCardIO */
+/* @socom-skeleton decl 8CMemCard */
+/* theMemCard (fts_mission.cpp, 40 bytes): the card I/O itself, the saved-game and the options
+ * (config) save managers, and the card it uses. Layout from the ctor 0x307700 and LoadConfig
+ * 0x307450. */
+class CMemCard : public CMemCardIO
+{
+public:
+	CMemCard();
+	~CMemCard();
+	void Init();
+	static void Uninit();
+	bool SaveGame(const char *, char *);
+	bool LoadGame(const char *);
+	bool SaveConfig(const char *);
+	bool LoadConfig(const char *);
+	bool IsInserted();
+	bool IsFormatted();
+	bool Format();
+	int GetFreeSpace();
+	bool CreateIconFiles();
+	bool Exists(const char *);
+	bool mkdir(const char *);
+	bool chdir(const char *);
+	static int m_initcount;
+	static int m_mod_mcman;
+	static int m_mod_mcserv;
+
+	CSaveManager *m_game;   /* +0x18: saved games (version 2) */
+	CSaveManager *m_config; /* +0x1c: the options (version 1; theUIVarManager's) */
+	int m_card_port;        /* +0x20: UIMC_ChPort */
+	int m_card_slot;        /* +0x24: UIMC_ChSlot */
+};
+/* @socom-skeleton end 8CMemCard */
+extern CMemCard theMemCard; /* fts_mission.cpp (0x4bc5c0) */
 #endif

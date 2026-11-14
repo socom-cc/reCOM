@@ -15,9 +15,14 @@ class CSaveModule;
 class CSaveManager : public std::list<CSaveModule*>
 {
 public:
+	/* "zSaveHeader" (268 bytes: Save 0x3f7710 fills it, GetHeader 0x3f71f0 fetches it) */
 	class CSaveHeader
 	{
-
+	public:
+		u32 m_size;              /* +0x0: 268 */
+		s32 m_version;           /* +0x4 */
+		s32 m_flags;             /* +0x8: the modules' TestFlags argument */
+		char m_description[256]; /* +0xc */
 	};
 
 	CSaveManager(CIO*);
@@ -51,8 +56,11 @@ public:
 	bool SaveRdr(const char*, CRdrFile*);
 	/* port: provisional non-const TestFlags(s32) removed; the ELF one is the const virtual below */
 
-	void UnSerialize(const char*, zar::CZAR*, s32);
-	void UnSerialize(const char*, CRdrFile*, s32);
+	/* __vt__11CSaveModule (0x4748d0): dtor, Serialize (pure), UnSerialize(rdr) +0x10,
+	   UnSerialize(zar) +0x14, TestFlags +0x18 */
+	virtual void Serialize(int) = 0;
+	virtual void UnSerialize(const char*, CRdrFile*, s32);
+	virtual void UnSerialize(const char*, zar::CZAR*, s32);
 
 	CSaveManager* m_Manager;
 	char* m_ModuleName;

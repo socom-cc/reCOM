@@ -26,12 +26,16 @@
 #include "gamez/zSystem/zsys.h"
 #include "zconsole.h"
 /* @socom-skeleton end include */
+#include <string.h>
+extern "C" {
+#include <deci2.h> /* sceDeci2ReqSend / sceDeci2Close (EE kernel DECI2; ps2sdk has the same calls, C names) */
+}
 /* @socom-skeleton decl forward */
 class CPacket;
 /* @socom-skeleton end forward */
 
 /* @socom-skeleton stub m_console__8CConsole */
-unsigned char CConsole::m_console[80];
+CConsole CConsole::m_console(std::string("default console")); /* __sinit_con_ps2.cpp 0x46a8b0 */
 
 /* @socom-skeleton stub _wbuf */
 static unsigned char _wbuf[65536];
@@ -39,49 +43,138 @@ static unsigned char _wbuf[65536];
 /* @socom-skeleton stub _rbuf */
 static unsigned char _rbuf[65536];
 
+/* port: file-local helper, not an ELF function - the uncached mirror (| 0x20000000) of a buffer
+ * the ELF stores in Initalize, Send and Tick */
+static unsigned char *Uncached(unsigned char *buf)
+{
+	return (unsigned char *)((unsigned int)buf | 0x20000000);
+}
+
 /* @socom-skeleton stub __dt__8CAckListFv */
 CAckList::~CAckList()
 {
+	/* 0x1edf80: every waiting packet deleted (its slot cleared), then the nodes erased */
+	for (iterator it = begin(); it != end(); ++it) {
+		if (*it != NULL)
+			delete *it;
+		*it = NULL;
+	}
+	clear();
 }
 
 /* @socom-skeleton stub FindPacket__8CAckListFP7CPacket */
-void CAckList::FindPacket(CPacket *)
+CPacket *CAckList::FindPacket(CPacket *packet)
 {
+	/* 0x1edec0: the first waiting packet CPacket::Compare finds equal */
+	for (iterator it = begin(); it != end(); ++it)
+		if (CPacket::Compare(*it, packet))
+			return *it;
+	return NULL;
 }
 
 /* @socom-skeleton stub CheckEvent__8CConsoleFv */
 void CConsole::CheckEvent()
 {
 	/* @socom-skeleton stub l$546 */
-	static int l;
+	static int l = 4;
+	/* 0x1eddc0: a new DECI2 event (set by the protocol handler) is printed once */
+	if (m_last_event == m_event)
+		return;
+	m_last_event = m_event;
+	switch (m_event) {
+	case 1: Debug(l, "DECI2_READ\n"); break;
+	case 2: Debug(l, "DECI2_READDONE\n"); break;
+	case 3: Debug(l, "DECI2_WRITE\n"); break;
+	case 4: Debug(l, "DECI2_WRITEDONE\n"); break;
+	case 5: Debug(l, "DECI2_CHSTATUS\n"); break;
+	case 6: Debug(l, "DECI2_ERROR\n"); break;
+	default: break;
+	}
 }
 
 /* @socom-skeleton stub Initalize__8CConsoleFv */
 void CConsole::Initalize()
 {
+	/* 0x1edd30: no socket; both buffers cleared and addressed through the uncached mirror */
+	m_socket = -1;
+	m_read_len = 0;
+	m_read_status = 0;
+	m_read_buf = Uncached(_rbuf);
+	m_write_status = 0;
+	m_write_len = 0;
+	m_write_buf = Uncached(_wbuf);
+	m_writing = 0;
+	m_unknown48 = 0;
+	memset(_rbuf, 0, sizeof(_rbuf));
+	memset(_wbuf, 0, sizeof(_wbuf));
+	m_last_event = 0;
+	m_event = 0;
 }
 
 /* @socom-skeleton stub Disconnect__8CConsoleFv */
-void CConsole::Disconnect()
+int CConsole::Disconnect()
 {
+	/* 0x1edcd0 */
+	if (m_socket >= 0) {
+		sceDeci2Close(m_socket);
+		m_socket = -1;
+	}
+	return 0;
 }
 
 /* @socom-skeleton stub OnDisconnect__8CConsoleFv */
 void CConsole::OnDisconnect()
 {
+	/* 0x1edcc0: empty in the ELF (vtable +0x10) */
 }
 
 /* @socom-skeleton stub OnDestroy__8CConsoleFv */
 void CConsole::OnDestroy()
 {
+	/* 0x1edcb0: empty in the ELF (vtable +0x14) */
 }
 
 /* @socom-skeleton stub Tick__8CConsoleFv */
-void CConsole::Tick()
+int CConsole::Tick()
 {
+	/* 0x1edbf0 (CGame::Tick, every frame): a packet the host wrote into the read buffer is parsed
+	 * and handled; the result is the byte count read. Without a socket (the shipped game never
+	 * opens one) only CheckEvent runs. */
+	CheckEvent();
+	int len = m_socket >= 0 ? m_read_len : 0;
+	if (len > 0) {
+		CPacket *packet = CPacket::OnRecvPacket(m_read_buf);
+		m_read_len = 0;
+		m_read_status = 0;
+		m_read_buf = Uncached(_rbuf);
+		if (RecvPacket(packet) && packet != NULL)
+			delete packet;
+	}
+	return len;
 }
 
 /* @socom-skeleton stub Send__8CConsoleFP7CPacket */
-void CConsole::Send(CPacket *)
+int CConsole::Send(CPacket *packet)
 {
+	/* 0x1edaf0: the packet copied into the write buffer and sent to the host ('H'); waits while
+	 * the protocol handler reports a write in progress */
+	int result = 0;
+	Debug(1, packet, "send");
+	m_write_len = packet->CopyTo(m_write_buf, 0x10000);
+	if (m_write_len != 0) {
+		result = sceDeci2ReqSend(m_socket, 'H');
+		if (result < 0) {
+			Debug(0, packet, "ERROR sending");
+		} else {
+			while (*(volatile int *)&m_writing == 1)
+				;
+			Debug(4, "write complete.\n");
+		}
+	} else {
+		Debug(0, packet, "ERROR write failed");
+	}
+	m_write_status = 0;
+	m_write_len = 0;
+	m_write_buf = Uncached(_wbuf);
+	return result;
 }

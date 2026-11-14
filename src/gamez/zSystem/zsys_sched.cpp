@@ -28,6 +28,10 @@ CSched_Manager zTaskScheduler;
 /* @socom-skeleton stub __ct__14CSched_ManagerFv */
 CSched_Manager::CSched_Manager()
 {
+	/* 0x2f4180: the task list, not ticking, priority 0, an empty free list */
+	m_inTick = false;
+	m_priority = 0.0f;
+	m_FreeList.clear();
 }
 
 /* @socom-skeleton body GetTask__14CSched_ManagerFUi */

@@ -50,6 +50,7 @@
 #include "zvid.h"
 /* @socom-skeleton end include */
 #include "gamez/zMPEG/zmpeg.h" /* CMPEG::IdleTick */
+#include "gamez/zParticle/zparticle.h" /* Particle::Instance::spawnFactor / ageFactor (SetDynamicLOD) */
 #include <eekernel.h> /* FlushCache */
 #include <eeregs.h> /* GS_PMODE, T0_COUNT ... */
 #include <libgraph.h>
@@ -86,13 +87,13 @@ unsigned char ztest_on_vif[80] __attribute__((aligned(16))) = {4, 128, 0, 0, 0, 
 static int frameRateLimits[5] = {40, 38, 36, 34, 32};
 
 /* @socom-skeleton stub lodLevelLimits */
-static unsigned char lodLevelLimits[20] = {1, 0, 0, 0, 25, 0, 0, 0, 50, 0, 0, 0, 75, 0, 0, 0, 100, 0, 0, 0};
+static u32 lodLevelLimits[5] = {1, 25, 50, 75, 100};
 
 /* @socom-skeleton stub spawnRateLimits */
-static unsigned char spawnRateLimits[20] = {1, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, 5, 0, 0, 0};
+static int spawnRateLimits[5] = {1, 1, 2, 3, 5};
 
 /* @socom-skeleton stub ageRateLimits */
-static unsigned char ageRateLimits[20] = {0, 0, 128, 63, 0, 0, 192, 63, 0, 0, 0, 64, 0, 0, 32, 64, 0, 0, 64, 64};
+static f32 ageRateLimits[5] = {1.0f, 1.5f, 2.0f, 2.5f, 3.0f};
 
 /* @socom-skeleton stub picframecode */
 s64 picframecode[86] __attribute__((aligned(16))) = {1152921504606879786, 14, 1, 26, 655360, 76, 0, 24, 288230376218820608, 64, 0, 71, 4575657221408423936, 1, 129, 0, 105906176, 4, 105916416, 4, 106954752, 4, 106964992, 4, 108003328, 4, 108013568, 4, 118489088, 4, 118499328, 4, 119537664, 4, 119547904, 4, 120586240, 4, 120596480, 4, 4575657221408423936, 1, 109051904, 4, 109062144, 4, 110100480, 4, 110110720, 4, 111149056, 4, 111159296, 4, 112197632, 4, 112207872, 4, 113246208, 4, 113256448, 4, 114294784, 4, 114305024, 4, 115343360, 4, 115353600, 4, 116391936, 4, 116402176, 4, 117440512, 4, 117450752, 4, 327693, 71, 125344325594112, 24, 125819314631540736, 64, 0, 0};
@@ -214,6 +215,10 @@ void zVid_Init(_zvid_mode mode)
 /* @socom-skeleton stub zVid_Uninit__Fv */
 void zVid_Uninit()
 {
+	/* 0x308660 (CGame::StopEngine) */
+	if (theTerminal != NULL)
+		delete theTerminal;
+	theTerminal = NULL;
 }
 
 /* @socom-skeleton body zVid_Open__Fv */
@@ -356,8 +361,30 @@ void zVid_Sync0()
 }
 
 /* @socom-skeleton stub SetDynamicLOD__Fi */
-void SetDynamicLOD(int)
+void SetDynamicLOD(int fps)
 {
+	/* 0x308070 (zVid_Swap, the frame's processing rate): below 40 / 38 / 36 / 34 fps the
+	 * lodLevel valve, the particle spawn factor and age factor step to the next limit */
+	int level;
+	if (fps >= frameRateLimits[0])
+		level = 0;
+	else if (fps >= frameRateLimits[1])
+		level = 1;
+	else if (fps >= frameRateLimits[2])
+		level = 2;
+	else if (fps >= frameRateLimits[3])
+		level = 3;
+	else
+		level = 4;
+	u32 lod = lodLevelLimits[level];
+	VALVE_STATE state = (VALVE_STATE)0;
+	if (lodLevel->m_value != lod)
+		state = lod != 0 ? VALVE_STATE::VSTATE_TEMPORARY : VALVE_STATE::VSTATE_PERMANENT;
+	lodLevel->m_value = lod;
+	if (state != (VALVE_STATE)0)
+		lodLevel->MakeCallbacks(state);
+	Particle::Instance::spawnFactor = spawnRateLimits[level];
+	Particle::Instance::ageFactor = ageRateLimits[level];
 }
 
 /* @socom-skeleton body zVid_Swap__Fb */
@@ -375,8 +402,10 @@ void zVid_Swap(bool doSwap)
 	zVid.procTime = procTime;
 
 	/* port: interim - the binary waits whole fields here while procTime + 1/60 is below
-	 * 1 / CVideo::m_maxFrameRate (unless it is -1); m_maxFrameRate__6CVideo (.sdata 0x4753dc,
-	 * initially 30) has no src definition yet (stage-4 deferred), so the limiter is left out. */
+	 * 1 / CVideo::m_maxFrameRate (unless it is -1; m_maxFrameRate__6CVideo, .sdata 0x4753dc,
+	 * initially 30, is defined in zvideo_holding.cpp). The limiter is still left out: with it
+	 * the mission runs at the ELF's 30 fps cap (CCoreState sets m_defaultFrameRate 30), which
+	 * halves the frame rate every port test and pad script is timed against. */
 	(void)procTime;
 
 	SetDynamicLOD((int)(1.0f / zVid.procTime));
@@ -466,13 +495,18 @@ void zVid_FrameRestore()
 /* @socom-skeleton body zVid_Assert__FbUiPci */
 void zVid_Assert(bool condition, unsigned int mask, char *file, int line)
 {
+	/* 0x307a40: a failed assertion ends the frame's FIFO, shows the message on terminal line 12
+	 * and returns (no stop). port: the ELF also sends picframecode (0x43b280, 43 qwords: the
+	 * frame filled in a colour built from `mask`) before the text; the port has no copy of that
+	 * GS packet, so the picture is left as it is. */
+	(void)mask;
 	if (!condition)
 	{
-		// zSysFifoEnd();
+		zSysFifoEnd();
 		char buffer[256];
 		snprintf(buffer, 256, "A S S E R T: %s : %d", file, line); /* port: was MSVC sprintf_s */
-		theTerminal->Print(buffer, 256);
+		theTerminal->m_on = true;
+		theTerminal->Print(buffer, 12);
 		theTerminal->Render();
-		// abort();
 	}
 }

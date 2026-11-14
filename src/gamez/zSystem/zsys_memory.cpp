@@ -170,4 +170,11 @@ char * _strdup(const char *str, const char *, int)
 /* @socom-skeleton stub zsys_MemoryReport__Fv */
 void zsys_MemoryReport()
 {
+	/* 0x2f4490 (RebootIOP): the heap is what lies between the end of the image and 0x1f7e000.
+	 * port: the ELF's _textStart / _dataStart / .vubss end are ps2sdk's _ftext / _fdata / _end */
+	extern char _ftext[], _fdata[], _end[];
+	__HeapSizePS2 = 0x1f7e000 - (int)_end;
+	printf("Code Start = %08d; %08d bytes\n", (int)_ftext, (int)(_fdata - _ftext));
+	printf("Data Start = %08d; %08d bytes\n", (int)_fdata, (int)(_end - _fdata));
+	printf("Heap Start = %08d; %08d bytes\n", (int)_end, __HeapSizePS2);
 }

@@ -30,6 +30,7 @@ class CBeachBall
 {
 public:
 	static void Uninit();
+	static bool m_init; /* m_init__10CBeachBall (.sbss 0x4765b0, 1 byte; nothing in the ELF sets it) */
 };
 /* @socom-skeleton end 10CBeachBall */
 /* DWARF CSubMenu (12 bytes, orders.cpp): one context (third column) entry of an order; the

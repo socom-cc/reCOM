@@ -301,19 +301,47 @@ void C2DPoly::GetAssetLibs(C2D::CLibList& libs)
 /* @socom-skeleton stub __ct__9C2DTriFanFv */
 C2DTriFan::C2DTriFan()
 {
+	/* 0x300fb0: the C2D defaults (inline in the ELF), room for five polygons. The texture word
+	 * (+0x28) is left as it is (port: zeroed) */
+	m_texture = NULL;
+	m_polys.reserve(5);
 }
 
 /* @socom-skeleton stub __dt__9C2DTriFanFv */
 C2DTriFan::~C2DTriFan()
 {
+	/* 0x300f20: the polygons cleared, then the vector's and C2D's own dtors */
+	m_polys.clear();
 }
 
 /* @socom-skeleton stub Draw__9C2DTriFanFPQ23zdb7CCamera */
-void C2DTriFan::Draw(zdb::CCamera *)
+void C2DTriFan::Draw(zdb::CCamera *camera)
 {
+	/* 0x300e90: each polygon (vtable Draw(CCamera *)); no children */
+	if (!IsOn())
+		return;
+	for (std::vector<C2DPoly>::iterator it = m_polys.begin(); it != m_polys.end(); ++it)
+		it->Draw(camera);
 }
 
 /* port: stub GetAssetLibs__9C2DTriFanFRQ23C2D8CLibList (no owner in the render) */
-void C2DTriFan::GetAssetLibs(C2D::CLibList &) /* port: stub */
+void C2DTriFan::GetAssetLibs(C2D::CLibList &libs)
 {
+	/* 0x300d90: the texture's asset library (ELF quirk: added only when the search result is a
+	 * NULL pointer, as C2DLine / C2DPoly::GetAssetLibs), then the children's */
+	if (m_texture != NULL && m_texture->m_AssetLib != NULL)
+	{
+		zdb::CAssetLib* lib = m_texture->m_AssetLib;
+		zdb::CAssetLib** i = libs.data();
+		zdb::CAssetLib** last = i + libs.size();
+
+		while (i != last && *i != lib)
+			i++;
+
+		if (i == NULL)
+			libs.insert(libs.end(), lib);
+	}
+
+	for (auto c = begin(); c != end(); ++c)
+		(*c)->GetAssetLibs(libs);
 }

@@ -436,6 +436,7 @@ void C2DString::Load(const char* message, C2DFont* font, s32 x, s32 y, s32 width
 /* @socom-skeleton stub Update__9C2DStringFv */
 void C2DString::Update()
 {
+	/* 0x3022d0: empty in the ELF */
 }
 
 /* @socom-skeleton body AddCharacter__9C2DStringFc */

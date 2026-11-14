@@ -43,6 +43,16 @@ int sceIoctl(int fd, int req, void *arg);
 void *sceSifAllocIopHeap(unsigned int size);
 int sceSifFreeIopHeap(void *addr);
 
+/* Module unload (zSysUnloadIRX 0x2f4d20) and device control (TRC power-off,
+ * zsys_trc.cpp): implemented in port/compat/sce_iop.c. */
+int sceSifStopModule(int modid, int args, const char *argp, int *result);
+int sceSifUnloadModule(int modid);
+int sceDevctl(const char *name, int cmd, const void *arg, unsigned int arglen, void *bufp, unsigned int buflen);
+
+/* Port only: 1 when the module (base name, "USBKB.IRX") is offline in the port (never loaded),
+ * so game code can skip binding an RPC server that will never appear. */
+int socom_port_module_offline(const char *base);
+
 #ifdef __cplusplus
 }
 #endif

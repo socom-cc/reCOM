@@ -242,23 +242,116 @@ void C2DLine::SetClipInfo(float (*pos)[4], float (*rgb)[4], float (*uv)[4], int)
 }
 
 /* @socom-skeleton stub Draw3DLine__FP6CPnt4DP6CPnt4DP6CPnt4DP6CPnt4D */
-void Draw3DLine(CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *)
+void Draw3DLine(CPnt4D *p0, CPnt4D *p1, CPnt4D *c0, CPnt4D *c1)
 {
+	/* 0x3001b0 (RenderLineWorld): a gouraud GS LINE between two world points, through the world
+	 * camera's world-to-screen matrix (sceVu0RotTransPers, mode 0: x, y, z and w all 12.4,
+	 * z then + zOffset); colours 0..1 (alpha 0..1 -> 0..128), alpha blending unless both ends
+	 * are opaque. The points' w is set to 1. port: the sceVu0 calls written out */
+	_word128 *packet = reinterpret_cast<_word128 *>(zSysSprGetPacket(NULL));
+	f32 (*m)[4] = zdb::CWorld::m_world->m_camera->m_mtxSet.m_vu->mtxWorldToScreen;
+	u64 prim = 9; /* LINE, IIP */
+	if (c0->w != 1.0f || c1->w != 1.0f)
+		prim |= 0x40; /* ABE */
+	packet[1].u64[0] = 0x2000400000008002ull | (prim << 47); /* NLOOP 2 EOP PRE NREG 2 */
+	packet[1].u64[1] = 0x41; /* RGBAQ, XYZ2 */
+	CPnt4D *pt[2] = { p0, p1 };
+	CPnt4D *col[2] = { c0, c1 };
+	for (int i = 0; i < 2; i++) {
+		_word128 *rgba = &packet[2 + i * 2];
+		rgba->u32[0] = (u32)(s32)(255.0f * col[i]->x);
+		rgba->u32[1] = (u32)(s32)(255.0f * col[i]->y);
+		rgba->u32[2] = (u32)(s32)(255.0f * col[i]->z);
+		rgba->u32[3] = (u32)(s32)(128.0f * col[i]->w);
+		pt[i]->w = 1.0f;
+		f32 v[4];
+		for (int r = 0; r < 4; r++)
+			v[r] = m[0][r] * pt[i]->x + m[1][r] * pt[i]->y + m[2][r] * pt[i]->z + m[3][r] * pt[i]->w;
+		f32 q = 1.0f / v[3];
+		_word128 *xyz = &packet[3 + i * 2];
+		xyz->u32[0] = (u32)(s32)(v[0] * q * 16.0f);
+		xyz->u32[1] = (u32)(s32)(v[1] * q * 16.0f);
+		xyz->u32[2] = (u32)(s32)(v[2] * q * 16.0f) + zOffset;
+		xyz->u32[3] = (u32)(s32)(v[3] * 16.0f);
+	}
+	u32 qwc = 6 - 1;
+	packet[0].u32[0] = qwc | 0x10000000; /* DMAtag CNT */
+	packet[0].u32[1] = 0;
+	packet[0].u32[2] = 0x11000000; /* VIF FLUSH */
+	packet[0].u32[3] = qwc | 0x50000000; /* VIF DIRECT */
+	zSysFifoKick(reinterpret_cast<unsigned __int128 *>(packet), 6);
 }
 
 /* @socom-skeleton stub Draw2DLine__FP6CPnt4DP6CPnt4DP6CPnt4DP6CPnt4D */
-void Draw2DLine(CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *)
+void Draw2DLine(CPnt4D *p0, CPnt4D *p1, CPnt4D *c0, CPnt4D *c1)
 {
+	/* 0x2fff40 (HUD dev lines, the auto-aim reticle): a gouraud GS LINE between two points in
+	 * GS window pixels; x and y are 12.4 less (2048 + 320, 2048 + 224) * 16, z 1000000000,
+	 * w 0 (ADC clear); colours as Draw3DLine. port: the sceVu0 calls written out */
+	_word128 *packet = reinterpret_cast<_word128 *>(zSysSprGetPacket(NULL));
+	s32 xy[2][2];
+	xy[0][0] = (s32)(p0->x * 16.0f) - 0x8000 - 0x1400;
+	xy[0][1] = (s32)(p0->y * 16.0f) - 0x8000 - 0xe00;
+	xy[1][0] = (s32)(p1->x * 16.0f) - 0x8000 - 0x1400;
+	xy[1][1] = (s32)(p1->y * 16.0f) - 0x8000 - 0xe00;
+	u64 prim = 9; /* LINE, IIP */
+	if (c0->w != 1.0f || c1->w != 1.0f)
+		prim |= 0x40; /* ABE */
+	packet[1].u64[0] = 0x2000400000008002ull | (prim << 47); /* NLOOP 2 EOP PRE NREG 2 */
+	packet[1].u64[1] = 0x41; /* RGBAQ, XYZ2 */
+	CPnt4D *col[2] = { c0, c1 };
+	for (int i = 0; i < 2; i++) {
+		_word128 *rgba = &packet[2 + i * 2];
+		rgba->u32[0] = (u32)(s32)(255.0f * col[i]->x);
+		rgba->u32[1] = (u32)(s32)(255.0f * col[i]->y);
+		rgba->u32[2] = (u32)(s32)(255.0f * col[i]->z);
+		rgba->u32[3] = (u32)(s32)(128.0f * col[i]->w);
+		_word128 *xyz = &packet[3 + i * 2];
+		xyz->u32[0] = (u32)xy[i][0];
+		xyz->u32[1] = (u32)xy[i][1];
+		xyz->u32[2] = 1000000000;
+		xyz->u32[3] = 0;
+	}
+	u32 qwc = 6 - 1;
+	packet[0].u32[0] = qwc | 0x10000000; /* DMAtag CNT */
+	packet[0].u32[1] = 0;
+	packet[0].u32[2] = 0x11000000; /* VIF FLUSH */
+	packet[0].u32[3] = qwc | 0x50000000; /* VIF DIRECT */
+	zSysFifoKick(reinterpret_cast<unsigned __int128 *>(packet), 6);
 }
 
 /* @socom-skeleton stub clip3DLine__FP6CPnt4DP6CPnt4DP6CPnt4DP6CPnt4D */
-void clip3DLine(CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *)
+bool clip3DLine(CPnt4D *point, CPnt4D *normal, CPnt4D *p1, CPnt4D *p2)
 {
+	/* 0x2ffd00: the segment p1-p2 against the plane through `point` with `normal` (xyz dot
+	 * products): false when both ends are behind it, else the end behind it is moved onto it
+	 * (all four components) */
+	f32 d1 = (p1->x - point->x) * normal->x + (p1->y - point->y) * normal->y + (p1->z - point->z) * normal->z;
+	f32 d2 = (p2->x - point->x) * normal->x + (p2->y - point->y) * normal->y + (p2->z - point->z) * normal->z;
+	if (d1 > 0.0f && d2 > 0.0f)
+		return true;
+	if (d1 <= 0.0f && d2 <= 0.0f)
+		return false;
+	f32 t = d1 / (d1 - d2);
+	CPnt4D at(p1->x + (p2->x - p1->x) * t, p1->y + (p2->y - p1->y) * t, p1->z + (p2->z - p1->z) * t,
+		p1->w + (p2->w - p1->w) * t);
+	if (d1 > 0.0f)
+		*p2 = at;
+	else
+		*p1 = at;
+	return true;
 }
 
 /* @socom-skeleton stub clip3DLine__FP6CPnt4DP6CPnt4DP6CPnt4D */
-void clip3DLine(CPnt4D *, CPnt4D *, CPnt4D *)
+bool clip3DLine(CPnt4D *planes, CPnt4D *p1, CPnt4D *p2)
 {
+	/* 0x2ffc20 (RenderLineWorld): against the six planes planes[1..6] through planes[0] */
+	if (planes == NULL)
+		return false;
+	for (int i = 1; i < 6; i++)
+		if (!clip3DLine(planes, planes + i, p1, p2))
+			return false;
+	return clip3DLine(planes, planes + 6, p1, p2);
 }
 
 /* port: GetAssetLibs__7C2DLineFRQ23C2D8CLibList 0x2ffb20 has no skeleton fence */

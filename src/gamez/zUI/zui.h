@@ -47,6 +47,7 @@
 #include "gamez/zTwoD/ztwod.h"
 #include "gamez/zWeapon/zweapon.h"
 #include "gamez/zSave/zsave.h" /* CSaveModule (CUIVarManager's save part) */
+#include "gamez/zUtil/zutil.h" /* theMemCard */
 /* @socom-skeleton decl forward */
 class ActionItem;
 class C2DAnimCmdHdr;
@@ -142,10 +143,10 @@ class CUIVarManager : public std::vector<CUIVariable>, public CSaveModule
 {
 public:
 	/* inline in __sinit_fts_mission.cpp (0x46ab70): table 0 current, 256 dormant variables.
-	 * port deviation: the CSaveModule part is made with no save manager (the ELF passes the
-	 * memory card's, which registers the module); the port has no memory-card layer, so
-	 * nothing calls Serialize / UnSerialize (CSaveModule::SaveRdr is a zSave stub). */
-	CUIVarManager() : CSaveModule("CUIVarManager", NULL), m_currtab(0)
+	 * the CSaveModule part registers with the memory card's options manager
+	 * (theMemCard.m_config, built just before in the same unit), whose Save / Load run
+	 * Serialize / UnSerialize. */
+	CUIVarManager() : CSaveModule("CUIVarManager", theMemCard.m_config), m_currtab(0)
 	{
 		resize(256);
 	}

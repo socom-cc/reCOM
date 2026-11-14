@@ -106,6 +106,8 @@ enum tag_string_type
 	STRING_NUM_TYPES
 };
 
+int GetUICommandType(const char *); /* zanim_menu.cpp (0x1d0710) */
+
 class C2Dlist : public std::list<C2D*> {};
 
 class C2D : public C2Dlist
@@ -166,7 +168,7 @@ public:
 	/* @socom-skeleton decl 3C2D */
 public:
 	virtual ~C2D();
-	virtual int GetZAnimCmdType(const char *) { return 0; } /* port: stub; 0x174b10 tail-calls GetUICommandType__FPCc with a0 = 0 */
+	virtual int GetZAnimCmdType(const char *) { return GetUICommandType(NULL); } /* 0x174b10: the first 2D-object command type (0x95), whatever the name */
 	/* @socom-skeleton end 3C2D */
 };
 
@@ -536,7 +538,7 @@ public:
 	f32 m_scale_factor;
 	/* @socom-skeleton decl 7C2DFont */
 public:
-	virtual void GetAssetLibs(C2D::CLibList &) {} /* port: stub; 0x2ff490 adds the font texture's asset lib if absent */
+	virtual void GetAssetLibs(C2D::CLibList &); /* 0x2ff490 (ztwod_font.cpp) */
 	void SetXSpacing(float);
 	/* @socom-skeleton end 7C2DFont */
 };
@@ -777,6 +779,10 @@ public:
 	virtual void Draw(zdb::CCamera *);
 	virtual void GetAssetLibs(C2D::CLibList &);
 	C2DTriFan();
+	/* 44 bytes in the ELF (hud.h: m_clippedblip[2] at +0x3f0, m_clippedcone at +0x448); layout
+	 * from the ctor 0x300fb0, Draw 0x300e90 and GetAssetLibs 0x300d90 */
+	std::vector<C2DPoly> m_polys; /* +0x1c: drawn in order */
+	zdb::CTexture *m_texture;     /* +0x28: its asset library is the fan's */
 };
 /* @socom-skeleton end 9C2DTriFan */
 /* @socom-skeleton decl 15C2DWidePolyline */

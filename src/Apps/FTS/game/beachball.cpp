@@ -10,4 +10,10 @@
 /* @socom-skeleton stub Uninit__10CBeachBallFv */
 void CBeachBall::Uninit()
 {
+	/* 0x305e40 (~CWorld) */
+	if (m_init)
+		m_init = false;
 }
+
+/* port: no stage-4 owner - m_init__10CBeachBall (.sbss 0x4765b0) */
+bool CBeachBall::m_init;

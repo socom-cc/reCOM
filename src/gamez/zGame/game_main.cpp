@@ -67,6 +67,7 @@ CGame::CGame()
 /* @socom-skeleton stub __dt__5CGameFv */
 CGame::~CGame()
 {
+	/* 0x20b550: only the state-change deque's own dtor (implicit here) */
 }
 
 void NetTickThreadEntry(void *); /* defined below (0x20b0d0) */
@@ -79,7 +80,7 @@ bool CGame::Tick(f32 dT)
 
 	theNetwork.zNetUpdate();
 	theVoice.PreTick();
-	((CConsole*)CConsole::m_console)->Tick(); /* m_console__8CConsole is the object (0x49c380) */
+	CConsole::m_console.Tick(); /* m_console__8CConsole (0x49c380) */
 
 	CGameState* state = m_CurrentState < 16 ? m_Stack[m_CurrentState] : NULL;
 
@@ -177,4 +178,17 @@ bool CGame::Tick(f32 dT)
 /* @socom-skeleton stub NetTickThreadEntry__FPv */
 void NetTickThreadEntry(void *)
 {
+	/* 0x20b0d0: the network ticks every 1/20 s while CGame::Tick changes state, until Tick clears
+	 * the run flag; the flag set again on exit tells Tick the thread is gone.
+	 * port: the ELF reloads the sleep time with a whole second's ticks when NetTick (DME,
+	 * offline) returns nonzero; the port's CZNetwork::zNetTick is void (znet.h), so it stays
+	 * at 1/20 s. */
+	NetTickThreadRunState = 1;
+	NetTickSleepTime = zSys.timerTicksPerSecond / 20;
+	while (*(volatile bool *)&NetTickThreadRunState) {
+		zSysSleep(NetTickSleepTime);
+		CZNetwork::zNetTick();
+	}
+	NetTickThreadRunState = 1;
+	ExitDeleteThread();
 }

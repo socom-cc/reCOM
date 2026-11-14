@@ -28,6 +28,9 @@ void zUtilInit(const char* log)
 /* @socom-skeleton stub zUtilUninit__Fv */
 void zUtilUninit()
 {
+	/* 0x3044e0 (CGame::StopEngine) */
+	delete debug;
+	debug = NULL;
 }
 
 /* @socom-skeleton stub RegisterRebootCallback__11CIOPManagerFPFQ211CIOPManager11RebootPhaseQ211CIOPManager10RebootModePv_bPv */
@@ -80,4 +83,8 @@ void COutput::DumpLog(const char* file)
 /* @socom-skeleton stub __dt__7COutputFv */
 COutput::~COutput()
 {
+	/* 0x304320: the log file closed (vtable +0xc) and deleted */
+	m_fileIO->Close();
+	m_doLog = false;
+	delete m_fileIO;
 }

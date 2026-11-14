@@ -228,6 +228,20 @@ void CSTable::Destroy()
 /* @socom-skeleton stub Clear__7CSTableFv */
 void CSTable::Clear()
 {
+	/* 0x3060f0 (CUIVarManager::CollectGarbage): a table on one buffer is zeroed and emptied;
+	 * otherwise every string is freed; no strings left either way */
+	if (m_buffer != NULL) {
+		memset(m_buffer, 0, m_reserve);
+		m_bytes = 0;
+	} else {
+		char **p = data();
+		char **end = data() + size();
+		for (char **s = data(); s != end; s++, p++) {
+			_free(*s, "util_stable.cpp", 37);
+			*p = NULL;
+		}
+	}
+	clear();
 }
 
 /* @socom-skeleton body FindString__7CSTableCFPCc */

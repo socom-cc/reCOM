@@ -24,6 +24,10 @@
 #include "gamez/zSystem/zsys.h"
 #include "zconsole.h"
 /* @socom-skeleton end include */
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 /* @socom-skeleton decl forward */
 class CPacket;
 /* @socom-skeleton end forward */
@@ -32,73 +36,219 @@ class CPacket;
 int CConsole::m_debug = 5;
 
 /* @socom-skeleton stub _on_status__FP7CPacketP8CConsolePv */
-void _on_status(CPacket *, CConsole *, void *)
+void _on_status(CPacket *packet, CConsole *, void *)
 {
+	/* 0x1ed270: tail-calls the packet's GetPacketMsg (vtable +0xc) and does nothing with it */
+	packet->GetPacketMsg();
 }
 
 /* @socom-skeleton stub _on_ping__FP7CPacketP8CConsolePv */
 void _on_ping(CPacket *, CConsole *, void *)
 {
+	/* 0x1ed260: empty in the ELF */
 }
 
 /* @socom-skeleton stub _on_error__FP7CPacketP8CConsolePv */
 void _on_error(CPacket *, CConsole *, void *)
 {
+	/* 0x1ed250: empty in the ELF */
 }
 
 /* @socom-skeleton stub __ct__8CConsoleFQ23std59basic_string<c,Q23std14char_traits<c>,Q23std12allocator<c>> */
-CConsole::CConsole(std::basic_string<char, std::char_traits<char>, std::allocator<char> >)
+CConsole::CConsole(std::basic_string<char, std::char_traits<char>, std::allocator<char> > name)
 {
+	/* 0x1ed170: both lists emptied, the 10.0 at +0x14, Initalize, then the name */
+	m_acks.clear();
+	m_handlers.clear();
+	m_timeout = 10.0f;
+	Initalize();
+	m_name = name;
 }
 
 /* @socom-skeleton stub __dt__8CConsoleFv */
 CConsole::~CConsole()
 {
+	/* 0x1ed060: the name cleared, the link closed, OnDestroy (vtable +0x14), the handlers deleted
+	 * front first; then the lists' and the name's own dtors */
+	m_name.erase();
+	Disconnect();
+	OnDestroy();
+	while (m_handlers.size() != 0) {
+		CHandler *h = m_handlers.front();
+		m_handlers.erase(m_handlers.begin());
+		delete h;
+	}
 }
 
 /* port: stub GetPacketMsg__7CPacketFv (no owner in the render) */
-void CPacket::GetPacketMsg() /* port: 0x1ed050 returns NULL; void is the skeleton placeholder */
+CPacketMsg *CPacket::GetPacketMsg()
 {
+	/* 0x1ed050 */
+	return NULL;
+}
+
+/* port: file-local helper, not an ELF function - the handler walks RecvPacket 0x1ecba0 and
+ * FindHandler 0x1ec7e0 repeat inline (first match in list order) */
+static CHandler *HandlerOfType(std::list<CHandler *> &handlers, unsigned int type)
+{
+	if (handlers.size() == 0)
+		return NULL;
+	for (std::list<CHandler *>::iterator it = handlers.begin(); it != handlers.end(); ++it)
+		if ((*it)->m_type == type)
+			return *it;
+	return NULL;
 }
 
 /* @socom-skeleton stub RecvPacket__8CConsoleFP7CPacket */
-void CConsole::RecvPacket(CPacket *)
+bool CConsole::RecvPacket(CPacket *packet)
 {
 	/* @socom-skeleton stub level$436 */
-	static int level;
+	static int level = 4; /* 0x1ecbb4: set once, never read */
+	(void)level;
+	/* 0x1ecba0: answer a FLAG_WANTACK packet with an ACK copy; an ACK retires the packet it
+	 * answers. Then the handler of the packet's type, else (a message) the handler named by its
+	 * first string, then the type-4 handler, each dispatched; when one has no callback and the
+	 * packet is not an error, an error packet (type 3, the first 24 bytes of the packet) is sent
+	 * back. */
+	bool handled = true;
+	unsigned int flags = packet->GetFlags();
+	if ((flags & CPacket::FLAG_WANTACK) && !(flags & CPacket::FLAG_ACK)) {
+		CPacket ack(packet, CPacket::FLAG_ACK, CPacket::FLAG_WANTACK);
+		Send(&ack);
+	} else if (packet->GetFlags() & CPacket::FLAG_ACK) {
+		CPacket *sent = m_acks.FindPacket(packet);
+		if (sent != NULL) {
+			m_acks.remove(sent);
+			if (sent != NULL)
+				delete sent;
+		}
+	}
+
+	unsigned int type = packet->GetPacketType();
+	CHandler *handler = HandlerOfType(m_handlers, type);
+	if (handler == NULL) {
+		CPacketMsg *msg = packet->GetPacketMsg();
+		if (msg != NULL && msg->GetArgCount() != 0) {
+			const char *name = msg->GetArg(0);
+			if (m_handlers.size() != 0) {
+				for (std::list<CHandler *>::iterator it = m_handlers.begin(); it != m_handlers.end(); ++it) {
+					CHandler *h = *it;
+					if (name != NULL && h->m_name != NULL && strcmp(name, h->m_name) == 0) {
+						handler = h;
+						break;
+					}
+				}
+			}
+		}
+	}
+	if (handler != NULL)
+		handled = handler->Dispatch(packet, this);
+
+	CHandler *any = HandlerOfType(m_handlers, 4);
+	if (any != NULL)
+		handled = any->Dispatch(packet, this);
+
+	if (!handled && packet->GetPacketType() != 3) {
+		CPacket *error = new CPacket(3, packet->m_data, 24, 0);
+		if (Send(error) > 0) {
+			unsigned int eflags = error->GetFlags();
+			if ((eflags & CPacket::FLAG_WANTACK) && !(eflags & CPacket::FLAG_ACK)) {
+				m_acks.push_back(error);
+			} else if (error != NULL) {
+				delete error;
+			}
+		}
+		/* ELF quirk kept: a failed send leaves the error packet allocated */
+	}
+	return handled;
 }
 
 /* @socom-skeleton stub Debug__8CConsoleFiPCce */
-void CConsole::Debug(int, const char *, ...)
+void CConsole::Debug(int level, const char *fmt, ...)
 {
+	/* 0x1ecb20: printed when level <= m_debug; the formatted text is printf's format (ELF) */
+	if (m_debug < level)
+		return;
+	char buffer[1024];
+	va_list args;
+	va_start(args, fmt);
+	vsprintf(buffer, fmt, args);
+	va_end(args);
+	printf(buffer);
 }
 
 /* @socom-skeleton stub Debug__8CConsoleFiP7CPacketPCc */
-void CConsole::Debug(int, CPacket *, const char *)
+void CConsole::Debug(int level, CPacket *packet, const char *what)
 {
+	/* 0x1eca50 */
+	if (m_debug < level)
+		return;
+	unsigned int flags = packet->GetFlags();
+	unsigned int type = packet->GetPacketType();
+	Debug(level, "%s: id=%d, cmd=%d, ", what, packet->GetPacketID(), type);
+	if (flags & CPacket::FLAG_WANTACK)
+		Debug(level, "FLAG_WANTACK ");
+	if (flags & CPacket::FLAG_ACK)
+		Debug(level, "FLAG_ACK ");
+	Debug(level, "\n");
+}
+
+/* port: file-local helper, not an ELF function - OnConnect 0x1ec8a0 repeats this per handler */
+static void SetHandler(CConsole *console, std::list<CHandler *> &handlers, const char *name, unsigned int type,
+	void (*func)(CPacket *, CConsole *, void *))
+{
+	CHandler *h = console->FindHandler(type);
+	if (h != NULL) {
+		h->m_func = func;
+		h->m_data = NULL;
+		return;
+	}
+	h = new CHandler(name, type, func, NULL);
+	handlers.push_back(h);
 }
 
 /* @socom-skeleton stub OnConnect__8CConsoleFv */
 void CConsole::OnConnect()
 {
+	/* 0x1ec8a0 (vtable +0xc; nothing in the ELF calls it): the three built-in handlers */
+	SetHandler(this, m_handlers, "msg", 2, _on_status);
+	SetHandler(this, m_handlers, "ping", 1, _on_ping);
+	SetHandler(this, m_handlers, "error", 3, _on_error);
 }
 
 /* @socom-skeleton stub FindHandler__8CConsoleFUi */
-void CConsole::FindHandler(unsigned int)
+CHandler *CConsole::FindHandler(unsigned int type)
 {
+	/* 0x1ec7e0 */
+	return HandlerOfType(m_handlers, type);
 }
 
 /* @socom-skeleton stub __ct__8CHandlerFPCcUiPFP7CPacketP8CConsolePv_vPv */
-CHandler::CHandler(const char *, unsigned int, void (*)(CPacket *, CConsole *, void *), void *)
+CHandler::CHandler(const char *name, unsigned int type, void (*func)(CPacket *, CConsole *, void *), void *data)
 {
+	/* 0x1ec790 */
+	m_name = NULL;
+	m_type = type;
+	m_func = func;
+	m_data = data;
+	m_name = name != NULL ? strdup(name) : NULL;
 }
 
 /* @socom-skeleton stub __dt__8CHandlerFv */
 CHandler::~CHandler()
 {
+	/* 0x1ec730 */
+	if (m_name != NULL)
+		free(m_name);
+	m_name = NULL;
 }
 
 /* @socom-skeleton stub Dispatch__8CHandlerFP7CPacketP8CConsole */
-void CHandler::Dispatch(CPacket *, CConsole *)
+bool CHandler::Dispatch(CPacket *packet, CConsole *console)
 {
+	/* 0x1ec6f0: false when the handler has no callback */
+	if (m_func == NULL)
+		return false;
+	m_func(packet, console, m_data);
+	return true;
 }

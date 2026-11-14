@@ -35,6 +35,7 @@ headers are in `port/tools/dev/` and on every hook's include path.
 | `jump` | `hook_jump.cpp` | `<build> <pad> [<flag> <pick> <gap> [climb]]` | DI app-flag census; player before a chosen poly; climb wraps |
 | `kit` | `hook_kit.cpp` | `<build> [pad] [flags]` | weapon kit step table: zoom, fire, scopes, binoculars |
 | `leftovers` | `hook_leftovers.cpp` | `<build> [pad] [flags]` | scePadRead-driven carry / CQB checks (`-DSOCOM_HOOK_CQB`) |
+| `memcard` | `hook_memcard.cpp` | `<build> [pad] [flags]` | memory-card path at the title screen (pad read `SOCOM_HOOK_MC_AT`): `CMemCard` init / inserted / formatted / free space, mkdir + chdir `SOCOM_HOOK_MC_DIR`, a PERSISTENT UI variable saved (`SaveConfig`) and restored (`LoadConfig`), header, icons; the test files deleted again (the emulator card is the user's) |
 | `orders` | `hook_orders.cpp` | `<build> [pad] [flags]` | OrdersMenu from the fake pad, team trace, test camera |
 | `pickups` | `hook_pickups.cpp`, `hook_pickstance.cpp` | `<build> [pad] [flags]` | dropped-weapon pickup (`-DSOCOM_HOOK_DROPCAM`); `HOOK=pickstance` variant |
 | `shapes` | `hook_shapes.cpp` | `<build> [pad] [flags]` | character census, enemy (`-DSOCOM_HOOK_ENEMY`) / team-mate placed ahead |

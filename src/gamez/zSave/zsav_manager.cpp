@@ -23,12 +23,17 @@
 #include "gamez/zArchive/zar.h"
 #include "gamez/zReader/zrdr.h"
 /* @socom-skeleton end include */
+#include <stdio.h>
+#include <string.h>
+#include <string>
+#include <vector>
+#include "gamez/zSystem/zsys.h" /* _free */
 /* @socom-skeleton decl forward */
 class CIO;
 /* @socom-skeleton end forward */
 
 /* @socom-skeleton stub g_KeyToilet */
-static int g_KeyToilet[3];
+static std::vector<zar::CKey *> g_KeyToilet; /* MSL vector<CKey *> (12 bytes) */
 
 /* @socom-skeleton body __ct__12CSaveManagerFP3CIO */
 CSaveManager::CSaveManager(CIO* io)
@@ -41,35 +46,197 @@ CSaveManager::CSaveManager(CIO* io)
 /* @socom-skeleton stub __dt__12CSaveManagerFv */
 CSaveManager::~CSaveManager()
 {
+	/* 0x3f7c20: the temporary buffer, then the module list (not the modules) */
+	if (m_TempBuffer != NULL)
+		delete m_TempBuffer;
+	m_TempBuffer = NULL;
+	clear();
 }
 
 /* @socom-skeleton body RegisterModule__12CSaveManagerFP11CSaveModule */
 void CSaveManager::RegisterModule(CSaveModule* module)
 {
-
+	/* 0x3f7b20: appended (and given this manager) unless a module of that name is listed */
+	for (iterator it = begin(); it != end(); ++it)
+		if (strcmp((*it)->m_ModuleName, module->m_ModuleName) == 0)
+			return;
+	push_back(module);
+	module->m_Manager = this;
 }
 
 /* @socom-skeleton stub Save__12CSaveManagerFPCciiPc */
-bool CSaveManager::Save(const char *, int, int, char *)
+bool CSaveManager::Save(const char *name, int version, int flags, char *description)
 {
+	/* 0x3f7710: a new archive `name` on the manager's file (secured): the header, then a
+	 * "CSaveModuleList" key with one key per module whose TestFlags(flags) holds (the list
+	 * sorted first), each filled by the module's Serialize. The keys made here are deleted
+	 * after the archive is closed (g_KeyToilet holds the modules' and their readers'). True when
+	 * the archive could be opened. */
+	bool saved = false;
+	zar::CZAR zar("root", m_pFile);
+	zar.m_bSecure = true;
+	m_pZar = &zar;
+	g_KeyToilet.clear();
+	zar::CKey *header = NULL;
+	zar::CKey *list = NULL;
+	if (zar.Open(name, version, 0x1a, 16)) {
+		m_AbortSave = false;
+		CSaveHeader hdr;
+		hdr.m_size = sizeof(CSaveHeader);
+		hdr.m_version = version;
+		sprintf(hdr.m_description, "%s", description != NULL ? description : "");
+		hdr.m_flags = flags;
+		header = zar.Insert("zSaveHeader", &hdr, sizeof(CSaveHeader));
+		list = zar.CreateKey("CSaveModuleList");
+		if (list != NULL) {
+			sort();
+			for (iterator it = begin(); it != end(); ++it) {
+				CSaveModule *module = *it;
+				if (module->TestFlags(flags)) {
+					module->m_pKey = zar.CreateKey(module->m_ModuleName);
+					if (module->m_pKey != NULL) {
+						g_KeyToilet.push_back(module->m_pKey);
+						module->Serialize(flags);
+						zar.CloseKey(module->m_pKey);
+						module->m_pKey = NULL;
+					}
+				}
+				if (m_AbortSave)
+					break;
+			}
+			zar.CloseKey(list);
+		}
+		saved = true;
+		void *buffer = zar.ReleaseDataBuffer();
+		if (buffer != NULL)
+			delete (char *)buffer;
+		zar.Close();
+	}
+	if (header != NULL)
+		delete header;
+	if (list != NULL)
+		delete list;
+	while (g_KeyToilet.size() != 0) {
+		zar::CKey *key = g_KeyToilet.back();
+		g_KeyToilet.pop_back();
+		if (key != NULL)
+			delete key;
+	}
+	std::vector<zar::CKey *>().swap(g_KeyToilet);
+	m_pZar = NULL; /* port: the ELF leaves m_pZar pointing at the dead stack archive */
+	return saved;
 }
 
 /* @socom-skeleton stub RemoveExtension__FPCc */
-void RemoveExtension(const char *)
+std::string RemoveExtension(const char *name)
 {
+	/* 0x3f7670: the name without its last four characters (".rdr") */
+	char buffer[512];
+	size_t len = strlen(name);
+	strncpy(buffer, name, len - 4);
+	buffer[strlen(name) - 4] = 0;
+	std::string base;
+	base.assign(buffer, strlen(buffer));
+	return base;
 }
 
 /* @socom-skeleton stub Load__12CSaveManagerFPCci */
-bool CSaveManager::Load(const char *, int)
+bool CSaveManager::Load(const char *name, int version)
 {
+	/* 0x3f72f0: the archive's header must have the asked version (-1: any); every key under
+	 * "CSaveModuleList" names a module, whose keys go to its UnSerialize: ".rdr" keys as
+	 * readers (the name without ".rdr"), others with the archive. True when the archive could
+	 * be opened. */
+	bool loaded = false;
+	zar::CZAR zar("root", m_pFile);
+	zar.m_bSecure = true;
+	CSaveHeader hdr;
+	m_Filename = (char *)name;
+	if (GetHeader(name, version, &hdr) && version != -1 && hdr.m_version != version) {
+		m_Filename = NULL; /* port: the ELF returns with m_Filename still set */
+		return false;
+	}
+	if (zar.Open(name, version, 1, 16)) {
+		m_AbortLoad = false;
+		zar::CKey *list = zar.OpenKey("CSaveModuleList");
+		if (list != NULL) {
+			for (zar::CKey::iterator it = list->begin(); it != list->end(); ++it) {
+				zar::CKey *moduleKey = *it;
+				const char *moduleName = moduleKey->GetName();
+				CSaveModule *module = NULL;
+				for (iterator m = begin(); m != end(); ++m) {
+					if (strcmp((*m)->m_ModuleName, moduleName) == 0) {
+						module = *m;
+						break;
+					}
+				}
+				if (module != NULL) {
+					for (zar::CKey::iterator k = moduleKey->begin(); k != moduleKey->end(); ++k) {
+						const char *keyName = (*k)->GetName();
+						if (strstr(keyName, ".rdr") != NULL) {
+							CRdrFile *rdr = CRdrFile::Load(&zar, *k);
+							if (rdr != NULL) {
+								std::string base = RemoveExtension(keyName);
+								module->UnSerialize(base.c_str(), rdr, hdr.m_flags);
+								zrdr_free(rdr);
+							}
+						} else {
+							module->UnSerialize(keyName, &zar, hdr.m_flags);
+						}
+						if (m_AbortLoad)
+							break;
+					}
+					if (m_AbortLoad)
+						break;
+				}
+			}
+			zar.CloseKey(list);
+		}
+		loaded = true;
+		void *buffer = zar.ReleaseDataBuffer();
+		if (buffer != NULL)
+			_free(buffer, "zsav_manager.cpp", 212);
+		zar.Close();
+	}
+	m_Filename = NULL;
+	return loaded;
 }
 
 /* @socom-skeleton stub GetHeader__12CSaveManagerFPCciPQ212CSaveManager11CSaveHeader */
-bool CSaveManager::GetHeader(const char *, int, CSaveManager::CSaveHeader *)
+bool CSaveManager::GetHeader(const char *name, int version, CSaveManager::CSaveHeader *hdr)
 {
+	/* 0x3f71f0: the archive's "zSaveHeader" */
+	bool ok = false;
+	zar::CZAR zar("root", m_pFile);
+	zar.m_bSecure = true;
+	if (zar.Open(name, version, 1, 16)) {
+		zar::CKey *key = zar.OpenKey("zSaveHeader");
+		if (key != NULL) {
+			ok = zar.Fetch(key, hdr, sizeof(CSaveHeader), 0);
+			zar.CloseKey(key);
+		}
+		void *buffer = zar.ReleaseDataBuffer();
+		if (buffer != NULL)
+			_free(buffer, "zsav_manager.cpp", 239);
+		zar.Close();
+	}
+	return ok;
 }
 
 /* @socom-skeleton stub SaveRdr__12CSaveManagerFPQ23zar4CKeyPCcP8CRdrFile */
-bool CSaveManager::SaveRdr(zar::CKey *, const char *, CRdrFile *)
+bool CSaveManager::SaveRdr(zar::CKey *parent, const char *name, CRdrFile *rdr)
 {
+	/* 0x3f7130: the reader packed into a "<name>.rdr" key of the open archive (Save's), the key
+	 * kept for deletion after the save. ELF quirk kept: false whatever happens. */
+	char keyName[64];
+	sprintf(keyName, "%s.rdr", name);
+	if (parent != NULL) {
+		zar::CKey *key = m_pZar->CreateKey(keyName);
+		if (key != NULL) {
+			rdr->Insert(m_pZar, key);
+			m_pZar->CloseKey(key);
+			g_KeyToilet.push_back(key);
+		}
+	}
+	return false;
 }

@@ -32,34 +32,66 @@
 #include "gamez/zSeal/zseal.h"
 #include "zinput.h"
 /* @socom-skeleton end include */
+#include "gamez/zFTS/zfts.h" /* theMission */
+
+void NetSendAiOrders(unsigned int, unsigned int, unsigned int, void *); /* fts_remote.cpp (0x203780) */
 
 /* @socom-skeleton stub MultiplayerMsgStrings */
 static unsigned char MultiplayerMsgStrings[28];
 
 /* @socom-skeleton stub GetRemoteAiState__11CRemoteCtrlFv */
-void CRemoteCtrl::GetRemoteAiState()
+u8 CRemoteCtrl::GetRemoteAiState()
 {
+	/* 0x2ce860: the low byte of the AI net state (vtable GetAiNetState) of a seal in a vehicle
+	 * slot, else 0 */
+	if (m_entity->m_vehicle_index == 0)
+		return 0;
+	u32 state = GetAiNetState();
+	return (u8)(state & 0xff);
 }
 
 /* @socom-skeleton stub GetRemoteAiFollowMaster__11CRemoteCtrlFv */
-void CRemoteCtrl::GetRemoteAiFollowMaster()
+CZSealBody *CRemoteCtrl::GetRemoteAiFollowMaster()
 {
+	/* 0x2ce790: in AI state 9 (following) the seal whose id is bits 8..23 of the net state */
+	u8 ai = 0;
+	if (m_entity->m_vehicle_index != 0)
+		ai = (u8)(GetAiNetState() & 0xff);
+	if (ai != 9)
+		return NULL;
+	u32 state = GetAiNetState();
+	CEntity *master = CEntity::m_list.GetEntityById((state >> 8) & 0xffff);
+	if (master != NULL && master->m_type == 2)
+		return (CZSealBody *)master;
+	return NULL;
 }
 
 /* @socom-skeleton stub OnCommand__11CRemoteCtrlFP10CZSealBody10FT_COMMANDPvb */
-void CRemoteCtrl::OnCommand(CZSealBody *, FT_COMMAND, void *, bool)
+void CRemoteCtrl::OnCommand(CZSealBody *commander, FT_COMMAND command, void *point, bool)
 {
+	/* 0x2ce740: HOLDPOS (5) and FOLLOW (4) go to the remote seal's owner over the network */
+	u8 cmd = (u8)command;
+	if (cmd == 5 || cmd == 4)
+		NetSendAiOrders(commander->m_id, m_entity->m_id, cmd, point);
 }
 
 /* @socom-skeleton stub AllowCommand__11CRemoteCtrlFP10CZSealBody10FT_COMMANDPv */
-bool CRemoteCtrl::AllowCommand(CZSealBody *, FT_COMMAND, void *)
+bool CRemoteCtrl::AllowCommand(CZSealBody *commander, FT_COMMAND command, void *)
 {
+	/* 0x2ce6e0: only HOLDPOS (5) and FOLLOW (4), as CSealCtrl decides them */
+	u8 cmd = (u8)command;
+	if (cmd == 5)
+		return AllowCommandHOLDPOS(commander) != 0;
+	if (cmd == 4)
+		return AllowCommandFOLLOW(commander) != 0;
+	return false;
 }
 
 /* @socom-skeleton stub Tick__11CRemoteCtrlFf */
 bool CRemoteCtrl::Tick(float)
 {
-	/* 0x2ce6c0 returns 1; port: stub (the remote seal's network state is not written) */
+	/* 0x2ce6c0: a remote seal has no goal of its own */
+	ClearGoal((GOAL_TYPE)0);
 	return true;
 }
 
@@ -77,9 +109,30 @@ bool CRemoteCtrl::PreTick(float)
 /* @socom-skeleton stub PostMortemPreTick__11CRemoteCtrlFf */
 void CRemoteCtrl::PostMortemPreTick(float)
 {
+	/* 0x2ce220 (returns 1 in the ELF): a dead remote seal (its id gone) fades out over 2 s from
+	 * its time of death and its node is switched off once nearly transparent */
+	CZSealBody *seal = (CZSealBody *)m_entity;
+	if (seal->m_id != (u32)CEntity::invalidId)
+		return;
+	zdb::CNode *node = seal->GetNode();
+	if (!node->m_active)
+		return;
+	m_fade_time = 2.0f;
+	m_fade_min = 0.001f;
+	f32 t = theMission.m_timer - seal->m_time_of_death;
+	if (t < 0.0f) /* _saturate<f>(&t, 0, m_fade_time) */
+		t = 0.0f;
+	else if (t > m_fade_time)
+		t = m_fade_time;
+	node->m_Opacity = 1.0f - t / m_fade_time;
+	if (node->m_Opacity <= m_fade_min) {
+		node->m_Opacity = 0.0f;
+		node->SetActive(false);
+	}
 }
 
 /* @socom-skeleton stub PostTick__11CRemoteCtrlFf */
 void CRemoteCtrl::PostTick(float)
 {
+	/* 0x2ce210: returns 1 and does nothing else */
 }

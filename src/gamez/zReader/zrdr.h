@@ -69,6 +69,12 @@ bool zrdr_free(CRdrFile* reader);
 /// @param array The array to free.
 void zrdr_freearray(_zrdr* array);
 
+/* The nodes of an array's sub-arrays, counted recursively (zrdr_file.cpp 0x23ca30) */
+u32 zrdr_countarray(_zrdr* array);
+/* A node and its arrays copied into one buffer (zrdr_local.cpp 0x241530 / 0x2416d0) */
+u32 zrdr_pack(_zrdr* src, void* buffer, unsigned int size);
+_zrdr* zrdr_relocate(_zrdr* node, _zrdr* dst);
+
 /// Finds a string.
 /// @param reader A zReader array node.
 /// @param tag The name of the tag to find.

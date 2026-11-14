@@ -34,6 +34,8 @@
 /* @socom-skeleton decl include */
 #include "zinput.h"
 /* @socom-skeleton end include */
+#include <sifrpc.h> /* sceSifInitRpc, sceSifBindRpc, sceSifCallRpc, sceSifCheckStatRpc */
+#include <sifdev.h> /* port: socom_port_module_offline */
 /* @socom-skeleton decl forward */
 class KeyInput;
 /* @socom-skeleton end forward */
@@ -60,10 +62,10 @@ static int key_appleOrStart;
 static int key_numLock;
 
 /* @socom-skeleton stub cdUsbKeybd */
-static int cdUsbKeybd[10];
+static sceSifClientData cdUsbKeybd; /* 40 bytes: the server pointer at +0x24 */
 
 /* @socom-skeleton stub sdata */
-static int sdata[8];
+static u32 sdata[8];
 
 /* @socom-skeleton stub info */
 static unsigned char info[128];
@@ -77,67 +79,207 @@ static unsigned char kdata[128];
 /* @socom-skeleton stub __ct__9CKeyboardFv */
 CKeyboard::CKeyboard()
 {
+	/* 0x21bf10 */
+	m_unknown0 = 0;
 }
 
 /* @socom-skeleton stub __dt__9CKeyboardFv */
 CKeyboard::~CKeyboard()
 {
+	/* 0x21bec0: nothing of its own */
 }
 
 /* @socom-skeleton stub Tick__9CKeyboardFf */
 void CKeyboard::Tick(float)
 {
+	/* 0x21beb0: empty in the ELF */
 }
 
-void sceUsbKeybdInit(); /* below (0x21ba10) */
+int sceUsbKeybdInit(); /* below (0x21ba10) */
+int sceUsbKeybdGetInfo(unsigned char *);
+int sceUsbKeybdRead(unsigned int, unsigned char *);
+int sceUsbKeybdGetLocation(int, unsigned char *);
+int sceUsbKeybdSync(int);
+unsigned char GetNewKeyPress(unsigned char *);
 
 /* @socom-skeleton stub InitKeyreadStuff__Fv */
 int InitKeyreadStuff()
 {
 	/* 0x21be90 */
-	sceUsbKeybdInit(); /* port: still a stub - the USB keyboard RPC bind (0x21ba10) is not written */
+	sceUsbKeybdInit();
 	return 0;
 }
 
 /* @socom-skeleton stub GetKeyReadThisFrame__FP8KeyInput */
-void GetKeyReadThisFrame(KeyInput *)
+u8 GetKeyReadThisFrame(KeyInput *in)
 {
 	/* @socom-skeleton stub oldKeyPress$595 */
-	static int oldKeyPress;
+	static int oldKeyPress = 0;
 	/* @socom-skeleton stub repeatTimer$598 */
-	static int repeatTimer;
+	static int repeatTimer = 0;
 	/* @socom-skeleton stub repeatTimeout$601 */
 	static int repeatTimeout;
+	/* 0x21bc20 (the soft keyboard): keyboard 0's state; the key is the newly pressed one, or the
+	 * held one again after 25 frames and then every 3 frames; 0 when there is no keyboard */
+	u8 key = 0;
+	if (sceUsbKeybdGetInfo(info) != 0)
+		return 0;
+	sceUsbKeybdSync(0);
+	if (info[0] == 0)
+		return 0;
+	if (info[2] == 0)
+		return 0;
+	if (sceUsbKeybdRead(0, kdata) != 0)
+		return 0;
+	sceUsbKeybdSync(0);
+	if (sceUsbKeybdGetLocation(0, location) != 0)
+		return 0;
+	sceUsbKeybdSync(0);
+	oldKeyPress = newKeyPress;
+	if (kdata[1] != 0) {
+		newKeyPress = GetNewKeyPress(kdata + 4);
+		u8 mod = kdata[2];
+		u8 led = kdata[0];
+		key_shift = (mod & 0x02) || (mod & 0x20);
+		key_capsLock = (led & 0x02) != 0;
+		key_numLock = (led & 0x01) != 0;
+		key_ctrl = (mod & 0x01) || (mod & 0x10);
+		key_alt = (mod & 0x04) || (mod & 0x40);
+		key_appleOrStart = (mod & 0x08) || (mod & 0x80);
+	}
+	in->m_shift = key_shift;
+	in->m_alt = key_alt;
+	in->m_ctrl = key_ctrl;
+	in->m_appleOrStart = key_appleOrStart;
+	in->m_capsLock = key_capsLock;
+	in->m_numLock = key_numLock;
+	in->m_key = 0;
+	in->m_anyDown = kdata[1] > 0 && kdata[4] != 0;
+	if (newKeyPress != 0) {
+		if (newKeyPress != oldKeyPress) {
+			key = (u8)newKeyPress;
+			repeatTimer = 0;
+			repeatTimeout = 25;
+		} else if (repeatTimeout < repeatTimer) {
+			key = (u8)newKeyPress;
+			repeatTimer = 0;
+			repeatTimeout = 2;
+		} else {
+			key = 0;
+			repeatTimer++;
+		}
+	}
+	in->m_key = key;
+	return key;
 }
 
 /* @socom-skeleton stub GetNewKeyPress__FPUc */
-unsigned char GetNewKeyPress(unsigned char *)
+unsigned char GetNewKeyPress(unsigned char *keys)
 {
 	/* @socom-skeleton stub lastKeys$643 */
 	static unsigned char lastKeys[7] = {0};
+	/* 0x21ba90: of the (up to six) USB key codes held, the last one when it is new or was also
+	 * the last one held before; 0 for none, roll-over (1), a full report, or a key that was
+	 * held already. The held codes are kept for the next call. */
+	if (keys[0] == 1 || keys[0] == 0)
+		return 0;
+	int n = 0;
+	while (keys[n] != 0 && n < 7)
+		n++;
+	int last = n - 1;
+	unsigned char result = 0;
+	if (last != 6) {
+		unsigned char key = keys[last];
+		int m = 0;
+		while (lastKeys[m] != 0 && m < 7)
+			m++;
+		/* port: the ELF compares with lastKeys[m - 1] also when lastKeys is empty (m = 0: the
+		 * byte before it in .sdata); the port treats that case as different */
+		if (m > 0 && key == lastKeys[m - 1]) {
+			result = key;
+		} else {
+			result = key;
+			for (int i = 0; i < 6; i++) {
+				if (key == lastKeys[i]) {
+					result = 0;
+					break;
+				}
+			}
+		}
+	}
+	for (int i = 0; i < 6; i++)
+		lastKeys[i] = keys[i];
+	return result;
 }
 
 /* @socom-skeleton stub sceUsbKeybdInit__Fv */
-void sceUsbKeybdInit()
+int sceUsbKeybdInit()
 {
+	/* 0x21ba10: binds the USB keyboard RPC server (0x80000211), retrying until it exists (a
+	 * failed bind hangs) */
+#ifdef SOCOM_PORT
+	/* port: USBKB.IRX is offline in the port (port/compat/sce_iop.c), so there is no server and
+	 * the ELF's retry loop would never end: the client stays unbound and every request fails */
+	if (socom_port_module_offline("USBKB.IRX"))
+		return 0;
+#endif
+	sceSifInitRpc(0);
+	for (;;) {
+		if (sceSifBindRpc(&cdUsbKeybd, 0x80000211, 0) < 0)
+			for (;;)
+				;
+		if (cdUsbKeybd.server != NULL)
+			break;
+		for (volatile int i = 0xffff; i != 0; i--)
+			;
+	}
+	return 0;
 }
 
 /* @socom-skeleton stub sceUsbKeybdGetInfo__FPUc */
-void sceUsbKeybdGetInfo(unsigned char *)
+int sceUsbKeybdGetInfo(unsigned char *buf)
 {
+	/* 0x21b9b0: RPC 1, no wait */
+#ifdef SOCOM_PORT
+	if (cdUsbKeybd.server == NULL)
+		return -1; /* port: unbound (USBKB offline): no keyboard */
+#endif
+	return sceSifCallRpc(&cdUsbKeybd, 1, 1, sdata, 32, buf, 32, NULL, NULL);
 }
 
 /* @socom-skeleton stub sceUsbKeybdRead__FUiPUc */
-void sceUsbKeybdRead(unsigned int, unsigned char *)
+int sceUsbKeybdRead(unsigned int n, unsigned char *buf)
 {
+	/* 0x21b950: RPC 2, no wait */
+#ifdef SOCOM_PORT
+	if (cdUsbKeybd.server == NULL)
+		return -1; /* port: unbound (USBKB offline) */
+#endif
+	sdata[0] = n;
+	return sceSifCallRpc(&cdUsbKeybd, 2, 1, sdata, 32, buf, 32, NULL, NULL);
 }
 
 /* @socom-skeleton stub sceUsbKeybdGetLocation__FiPUc */
-void sceUsbKeybdGetLocation(int, unsigned char *)
+int sceUsbKeybdGetLocation(int n, unsigned char *buf)
 {
+	/* 0x21b8f0: RPC 3, no wait */
+#ifdef SOCOM_PORT
+	if (cdUsbKeybd.server == NULL)
+		return -1; /* port: unbound (USBKB offline) */
+#endif
+	sdata[0] = n;
+	return sceSifCallRpc(&cdUsbKeybd, 3, 1, sdata, 32, buf, 32, NULL, NULL);
 }
 
 /* @socom-skeleton stub sceUsbKeybdSync__Fi */
-int sceUsbKeybdSync(int)
+int sceUsbKeybdSync(int mode)
 {
+	/* 0x21b870: mode 1 polls the last request, mode 0 waits for it */
+	if (mode == 1)
+		return sceSifCheckStatRpc(&cdUsbKeybd);
+	if (mode != 0)
+		return -1;
+	while (sceSifCheckStatRpc(&cdUsbKeybd) != 0)
+		;
+	return 0;
 }

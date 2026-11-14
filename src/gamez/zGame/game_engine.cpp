@@ -36,6 +36,9 @@
 #include "gamez/zFTS/fts_state.h" /* CGameStateChangeCmd */
 
 char* GetDatabase();
+void UninitSystemTuners(); /* zui_tuner.cpp (0x3a1d80) */
+void zUISchedulerClear(); /* zui.cpp (0x384eb0) */
+void zUtilUninit(); /* util_output.cpp (0x3044e0) */
 
 #ifndef SOCOM_PORT /* port: MSL <iostream> per-unit init objects; libstdc++ has no std::__msl_ios_base_* */
 /* @socom-skeleton stub __msl_ios_base_ninit__3std */
@@ -58,6 +61,8 @@ void CGame::StartPlay()
 /* @socom-skeleton stub StopPlay__5CGameFv */
 void CGame::StopPlay()
 {
+	/* 0x20e790: no caller in the ELF (vtable) */
+	m_Active = false;
 }
 
 /* @socom-skeleton body StartEngine__5CGameFv */
@@ -93,4 +98,29 @@ bool CGame::StartEngine()
 /* @socom-skeleton stub StopEngine__5CGameFv */
 void CGame::StopEngine()
 {
+	/* 0x20e5d0 (COurGame::StopEngine, game exit): StartEngine's systems shut down; ZAnim is
+	 * closed twice (ELF) */
+	zdb::CWorld::Uninit();
+	ZAnim.Close();
+	UninitSystemTuners();
+	zdb::CTextureFX::Uninit();
+	zdb::CRipple::Uninit();
+	thePipe.Uninit();
+	ZAnim.Close();
+	AnimSet::CloseAll();
+	delete CZSealBody::m_sealanim;
+	CZSealBody::m_sealanim = NULL;
+	CValve::Uninit();
+	CSnd::Uninit();
+	Headset::ftsDeleteHeadset();
+	zTaskScheduler.Clear();
+	zUISchedulerClear();
+	CRdrArchive::CloseAll();
+	CInput::Uninit();
+	CInput::DeletePad(0);
+	CInput::DeletePad(1);
+	zVid_Uninit();
+	zUtilUninit();
+	CGameStateChangeCmd::DestroyPool();
+	uninit_trig_table();
 }

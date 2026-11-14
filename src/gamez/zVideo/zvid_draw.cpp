@@ -22,33 +22,88 @@
 #include <libgraph.h>
 #include <libdma.h>
 #include <eeregs.h> /* D1_*, D_CTRL (ReadGsMemory) */
+#include <libdev.h> /* sceDevFont (CTTY::Render) */
 
 /* @socom-skeleton stub __ct__4CTTYFv */
 CTTY::CTTY()
 {
+	/* 0x309200: empty lines, on, the font packet allocated and cleared through the uncached
+	 * mirror */
+	for (u32 i = 0; i < 40; i++)
+		strcpy(m_lines[i], "");
+	m_top = 0;
+	m_next = 39;
+	m_on = true;
+	m_packet = (u8 *)((u32)_memalign(64, 0x27000, "zvid_draw.cpp", 79) | 0x20000000);
+	memset(m_packet, 0, 0x27000);
 }
 
 /* @socom-skeleton stub __dt__4CTTYFv */
 CTTY::~CTTY()
 {
+	/* 0x309180: the packet freed through its cached address */
+	u8 *packet = (u8 *)((u32)m_packet & 0xdfffffff);
+	if (packet != NULL)
+		_free(packet, "zvid_draw.cpp", 88);
+	m_packet = NULL;
 }
 
 /* @socom-skeleton body Print__4CTTYFPci */
-void CTTY::Print(char *string, int)
+void CTTY::Print(char *string, int line)
 {
-    Print(string, strlen(string));
+	/* 0x309030: one line (a trailing newline dropped, at most 77 characters) into line `line`,
+	 * or with a negative line into the next one of the ring (the oldest dropped when full) */
+	u32 len = strlen(string);
+	if (string[len - 1] == '\n')
+		len--;
+	if (len >= 78)
+		len = 77;
+	if (line >= 0) {
+		strncpy(m_lines[line], string, len);
+		m_lines[line][len] = 0;
+		return;
+	}
+	strncpy(m_lines[m_next], string, len);
+	m_lines[m_next][len] = 0;
+	m_next++;
+	if (m_next >= 40)
+		m_next = 0;
+	if (m_next == m_top)
+		m_top++;
+	if (m_top >= 40)
+		m_top = 0;
 }
 
 /* @socom-skeleton body Render__4CTTYFv */
 void CTTY::Render()
 {
-    
+	/* 0x308f40 (every zVid_Swap): the ring's non-empty lines from m_top up to m_next, 8 pixels
+	 * apart from y 10, each through sceDevFont and one GIF DMA send. port: sceDevFont is a
+	 * compatibility stand-in (port/compat/libdev.c: the text goes to the log, nothing is drawn) */
+	if (!m_on)
+		return;
+	u32 y = 10;
+	for (u32 i = m_top; i != m_next; ) {
+		char *text = m_lines[i];
+		if (strlen(text) != 0) {
+			sceDmaSync(zSys.DmaToGif, 0, 0);
+			sceDevFont(m_packet, 22688, (y + 1600) << 4, -1, text, 0);
+			sceDmaSend(zSys.DmaToGif, (void *)((u32)m_packet & 0x0fffffff));
+		}
+		i++;
+		y += 8;
+		if (i >= 40)
+			i = 0;
+	}
 }
 
 /* @socom-skeleton body MaxFrameRate__6CVideoFi */
-f32 CVideo::MaxFrameRate(s32 fr)
+s32 CVideo::MaxFrameRate(s32 fr)
 {
-	return 0.0f;
+	/* 0x308f20: sets the frame-rate cap (60 = none: -1) and returns the previous one */
+	s32 old = m_maxFrameRate;
+	m_maxFrameRate = fr == 60 ? -1 : fr;
+	return old;
 }
 
 /* @socom-skeleton stub Fade__6CVideoFfUcUcUc */

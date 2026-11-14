@@ -178,6 +178,7 @@ void _zrdr::DeleteChildren()
 /* @socom-skeleton stub __dt__5_zrdrFv */
 _zrdr::~_zrdr()
 {
+	/* 0x23df40: nothing of its own (the children are freed by zrdr_freearray / DeleteChildren) */
 }
 
 /* @socom-skeleton stub zrdr_flat_findtag_startidx__FPC5_zrdrPCci */
@@ -199,8 +200,23 @@ _zrdr * zrdr_flat_findtag_startidx(const _zrdr *reader, const char *name, int st
 }
 
 /* @socom-skeleton stub zrdr_flat_nexttag__FPC5_zrdrPCcP5_zrdr */
-_zrdr * zrdr_flat_nexttag(const _zrdr *, const char *, _zrdr *)
+_zrdr * zrdr_flat_nexttag(const _zrdr *reader, const char *name, _zrdr *after)
 {
+	/* 0x23dd80 (text anim lists): the first string element starting with `name` after the
+	 * element `after` (from the start when NULL) */
+	if (reader == NULL || reader->type != ZRDR_ARRAY)
+		return NULL;
+	size_t len = strlen(name);
+	for (s32 i = 1; i < reader->array->integer; i++) {
+		_zrdr *e = &reader->array[i];
+		if (e == after) {
+			after = NULL;
+			continue;
+		}
+		if (e->type == ZRDR_STRING && after == NULL && strncmp(e->string, name, len) == 0)
+			return e;
+	}
+	return NULL;
 }
 
 /* @socom-skeleton body zrdr_findtag_startidx__FPC5_zrdrPCci */

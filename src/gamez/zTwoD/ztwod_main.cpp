@@ -17,9 +17,9 @@
 /* @socom-skeleton end include */
 
 /* @socom-skeleton stub __dt__3C2DFv */
-/* port: stage-4 left 0x300d10 without an owner */
 C2D::~C2D()
 {
+	/* 0x300d10: only the child list's own dtor (implicit here) */
 }
 
 /* @socom-skeleton body Draw__3C2DFPQ23zdb7CCamera */

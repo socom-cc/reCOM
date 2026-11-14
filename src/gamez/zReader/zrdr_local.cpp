@@ -7,13 +7,58 @@
 /* @socom-skeleton decl include */
 #include "zrdr.h"
 /* @socom-skeleton end include */
+#include <string.h> /* memcpy */
 
 /* @socom-skeleton stub zrdr_relocate__FP5_zrdrP5_zrdr */
-_zrdr * zrdr_relocate(_zrdr *, _zrdr *)
+_zrdr * zrdr_relocate(_zrdr *node, _zrdr *dst)
 {
+	/* 0x2416d0: the array's nodes copied to dst and pointed at, each sub-array marked packed and
+	 * relocated after them (one recursion level unrolled in the ELF); the first free node */
+	u32 n = node->array->integer;
+	memcpy(dst, node->array, n * 8);
+	node->array = dst;
+	_zrdr *next = dst + n;
+	for (u32 i = 1; i < n; i++) {
+		_zrdr *e = &dst[i];
+		if (e->type == ZRDR_ARRAY) {
+			e->packed = 1;
+			next = zrdr_relocate(e, next);
+		}
+	}
+	return next;
 }
 
 /* @socom-skeleton stub zrdr_pack__FP5_zrdrPvUi */
-void zrdr_pack(_zrdr *, void *, unsigned int)
+u32 zrdr_pack(_zrdr *src, void *buffer, unsigned int size)
 {
+	/* 0x241530 (CUIVarManager::CollectGarbage): a copy of the node and all its arrays in one
+	 * buffer (strings stay where they are); its byte size, or 0 when it does not fit */
+	u32 count = 0;
+	if (src->type == ZRDR_ARRAY) {
+		count += src->array->integer;
+		for (s32 i = 1; i < src->array->integer; i++)
+			count += zrdr_countarray(&src->array[i]);
+	}
+	u32 need = (count + 1) * 8;
+	if (size < need)
+		return 0;
+	_zrdr *dst = (_zrdr *)buffer;
+	*(u32 *)dst = *(u32 *)src;
+	dst->real = src->real;
+	dst->packed = 1;
+	if (dst->type == ZRDR_ARRAY) {
+		_zrdr *base = dst + 1;
+		u32 n = dst->array->integer;
+		memcpy(base, dst->array, n * 8);
+		dst->array = base;
+		_zrdr *next = base + n;
+		for (u32 i = 1; i < n; i++) {
+			_zrdr *e = &base[i];
+			if (e->type == ZRDR_ARRAY) {
+				e->packed = 1;
+				next = zrdr_relocate(e, next);
+			}
+		}
+	}
+	return need;
 }

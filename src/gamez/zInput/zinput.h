@@ -16,6 +16,7 @@ class CZSealBody;
 class CInput;
 class CPad;
 class CKeyboard;
+class CValve;
 class CMouse;
 
 /* pad_dt is file-local in zin_main.cpp (LOCAL symbol) */
@@ -183,13 +184,26 @@ public:
 	/* @socom-skeleton end 4CPad */
 };
 /* @socom-skeleton decl 6CCheat */
+class CCheat;
+/* m_list__6CCheat (12 bytes, MSL vector<CCheat *>; __dt__10CCheatList 0x21b800) */
+class CCheatList : public std::vector<CCheat *> {};
+/* No DWARF and no constructor in the ELF (nothing makes a cheat); layout from Update 0x21b610.
+ * Names invented. */
 class CCheat
 {
 public:
 	static void TickAll(float, CPad *);
-	void Update(float, CPad *);
+	bool Update(float, CPad *); /* 0x21b610 returns 1 when the sequence completes */
 	static const float cheatTimer;
-	static int m_list[3];
+	static CCheatList m_list;
+
+	u32 m_unknown0;           /* +0x0: never read by Update */
+	u32 m_length;             /* +0x4: buttons in the sequence */
+	const u8 *m_sequence;     /* +0x8: PAD_BUTTON values */
+	u32 m_unknownc;           /* +0xc */
+	f32 m_timer;              /* +0x10: time left for the next button */
+	const u8 *m_cursor;       /* +0x14: the next button expected */
+	CValve *m_valve;          /* +0x18: pulsed on completion */
 };
 /* @socom-skeleton end 6CCheat */
 /* @socom-skeleton decl 9CKeyboard */
@@ -199,6 +213,20 @@ public:
 	CKeyboard();
 	~CKeyboard();
 	void Tick(float);
+	u8 m_unknown0; /* +0x0: cleared by the ctor 0x21bf10, never read */
+};
+/* GetKeyReadThisFrame's result (zin_keyboard.cpp 0x21bc20; the soft keyboard's). No DWARF;
+ * names from the statics it copies. */
+struct KeyInput
+{
+	u8 m_key;           /* +0x0: the key code to type this frame (USB usage id), or 0 */
+	int m_shift;        /* +0x4 */
+	int m_ctrl;         /* +0x8 */
+	int m_alt;          /* +0xc */
+	int m_appleOrStart; /* +0x10 */
+	int m_capsLock;     /* +0x14 */
+	int m_numLock;      /* +0x18 */
+	int m_anyDown;      /* +0x1c: any key held */
 };
 /* @socom-skeleton end 9CKeyboard */
 
@@ -222,8 +250,11 @@ public:
 	virtual void OnStunDamage(STUN_TYPE, float, const CPnt3D *);
 	virtual void SetAiNetState(unsigned int);
 	virtual void OnCommand(CZSealBody *, FT_COMMAND, void *, bool);
-	void GetRemoteAiState();
-	void GetRemoteAiFollowMaster();
+	u8 GetRemoteAiState();
+	CZSealBody *GetRemoteAiFollowMaster();
+	/* after CSealCtrl's 0x240 bytes (PostMortemPreTick 0x2ce220); names invented */
+	f32 m_fade_min;  /* +0x240: 0.001 */
+	f32 m_fade_time; /* +0x244: 2 s */
 };
 /* @socom-skeleton end 11CRemoteCtrl */
 #endif

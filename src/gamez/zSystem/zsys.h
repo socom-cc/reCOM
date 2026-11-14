@@ -284,13 +284,21 @@ public:
 	}
 };
 
+/* The developer text terminal (theTerminal): 40 lines of 78 characters drawn with the SDK's
+ * debug font. No DWARF; layout from the ctor 0x309200, Print 0x309030 and Render 0x308f40. */
 class CTTY
 {
 public:
 	/* Print: the binary has only Print__4CTTYFPci (char*, int), declared below */
 	void Render();
 private:
-	char m_buffer[1024];
+	friend void zVid_Assert(bool, unsigned int, char *, int); /* 0x307aec turns it on */
+	char m_lines[40][78];  /* +0x0 */
+	u32 m_top;             /* +0xc30: the oldest line drawn */
+	u32 m_next;            /* +0xc34: the line the next Print(..., -1) fills */
+	u32 m_unknownc38;      /* +0xc38: never touched in the ELF */
+	bool m_on;             /* +0xc3c: drawn by Render */
+	u8 *m_packet;          /* +0xc40: the font packet (uncached, 0x27000 bytes) */
 	/* @socom-skeleton decl 4CTTY */
 public:
 	CTTY();
@@ -299,10 +307,12 @@ public:
 	/* @socom-skeleton end 4CTTY */
 };
 
+#include "gamez/zConsole/zconsole.h" /* CAckList (a CConsole member), CHandler */
+/* The DECI2 host console (zConsole). No DWARF; 80 bytes in the ELF (m_console), layout from
+ * the ctor 0x1ed170, Initalize 0x1edd30, Send 0x1edaf0 and Tick 0x1edbf0. Names invented. */
 class CConsole
 {
 public:
-	void Tick(f32 dT);
 	/* @socom-skeleton decl 8CConsole */
 public:
 	virtual ~CConsole();
@@ -310,18 +320,34 @@ public:
 	virtual void OnDisconnect();
 	virtual void OnDestroy();
 	CConsole(std::basic_string<char, std::char_traits<char>, std::allocator<char> >);
-	void RecvPacket(CPacket *);
+	bool RecvPacket(CPacket *);
 	void Debug(int, const char *, ...);
 	void Debug(int, CPacket *, const char *);
-	void FindHandler(unsigned int);
+	CHandler *FindHandler(unsigned int);
 	void CheckEvent();
 	void Initalize();
-	void Disconnect();
-	void Tick();
-	void Send(CPacket *);
-	static unsigned char m_console[80];
+	int Disconnect();
+	int Tick();
+	int Send(CPacket *);
+	static CConsole m_console; /* 0x49c380: the "default console" */
 	static int m_debug;
 	/* @socom-skeleton end 8CConsole */
+private:
+	std::string m_name;                /* +0x4 */
+	CAckList m_acks;                   /* +0x8 */
+	f32 m_timeout;                     /* +0x14: 10.0 (ctor); never read. port: name unproven */
+	std::list<CHandler *> m_handlers;  /* +0x18 */
+	int m_socket;                      /* +0x24: DECI2 socket, -1 = none */
+	int m_event;                       /* +0x28: the last DECI2 event (1 READ .. 6 ERROR) */
+	int m_last_event;                  /* +0x2c: the event CheckEvent printed */
+	int m_write_len;                   /* +0x30 */
+	int m_read_status;                 /* +0x34: cleared with each read. port: name unproven */
+	unsigned char *m_write_buf;        /* +0x38: _wbuf (uncached) */
+	unsigned char *m_read_buf;         /* +0x3c: _rbuf (uncached) */
+	int m_read_len;                    /* +0x40: bytes the host wrote */
+	int m_write_status;                /* +0x44: cleared with each send. port: name unproven */
+	int m_unknown48;                   /* +0x48: cleared by Initalize only */
+	int m_writing;                     /* +0x4c: 1 while a send is in progress */
 };
 /* @socom-skeleton decl 3CVU */
 class CVU

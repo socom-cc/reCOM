@@ -19,74 +19,167 @@
 /* @socom-skeleton decl include */
 #include "zconsole.h"
 /* @socom-skeleton end include */
+#include <stdlib.h>
+#include <string.h>
 /* @socom-skeleton decl forward */
 class CPacket;
 /* @socom-skeleton end forward */
 
 /* @socom-skeleton stub _counter */
-static int _counter;
+static int _counter; /* the last packet id: sent ids count up from it, a received one resets it */
 
 /* @socom-skeleton stub OnRecvPacket__7CPacketFPCv */
-void CPacket::OnRecvPacket(const void *)
+CPacket *CPacket::OnRecvPacket(const void *buf)
 {
+	/* 0x1ed930: a received DECI2 packet (buf = the read buffer) copied into a new CPacket, or a
+	 * CPacketMsg when its header counts strings; the id counter follows the host's id */
+	const CPacketHeader *in = (const CPacketHeader *)buf;
+	if (in->m_argc != 0) {
+		CPacketMsg *msg = new CPacketMsg;
+		if (msg == NULL)
+			return NULL;
+		msg->m_size = in->m_len;
+		msg->m_data = (unsigned char *)calloc(msg->m_size + 1, 1);
+		memcpy(msg->m_data, buf, msg->m_size);
+		_counter = in->m_id;
+		msg->m_args = NULL;
+		CPacketHeader *h = msg->Header();
+		if (h->m_argc != 0) {
+			msg->m_args = (const char **)calloc(h->m_argc, 4);
+			msg->m_args[0] = (const char *)(msg->m_data + 24);
+			for (unsigned int i = 1; i < h->m_argc; i++)
+				msg->m_args[i] = msg->m_args[i - 1] + strlen(msg->m_args[i - 1]) + 1;
+		}
+		return msg;
+	}
+	CPacket *packet = new CPacket;
+	if (packet != NULL) {
+		packet->m_size = in->m_len;
+		packet->m_data = (unsigned char *)calloc(packet->m_size + 1, 1);
+		memcpy(packet->m_data, buf, packet->m_size);
+		_counter = in->m_id;
+	}
+	return packet;
 }
 
 /* @socom-skeleton stub __ct__7CPacketFP7CPacketUiUi */
-CPacket::CPacket(CPacket *, unsigned int, unsigned int)
+CPacket::CPacket(CPacket *other, unsigned int set, unsigned int clear)
 {
+	/* 0x1ed870: the answer to `other`: its bytes, flags | set & ~clear, source and destination
+	 * swapped */
+	m_data = NULL;
+	m_size = 0;
+	m_size = other->m_size;
+	m_data = (unsigned char *)calloc(m_size, 1);
+	memcpy(m_data, other->m_data, m_size);
+	CPacketHeader *h = Header();
+	h->m_flags |= set;
+	h->m_flags &= ~clear;
+	unsigned char src = h->m_src;
+	h->m_src = h->m_dst;
+	h->m_dst = src;
 }
 
 /* @socom-skeleton stub __ct__7CPacketFUiPCvUiUi */
-CPacket::CPacket(unsigned int, const void *, unsigned int, unsigned int)
+CPacket::CPacket(unsigned int type, const void *payload, unsigned int size, unsigned int flags)
 {
+	/* 0x1ed790: a new EE -> host packet with the next id */
+	m_data = NULL;
+	m_size = 0;
+	m_size = size + 24;
+	m_data = (unsigned char *)calloc(m_size, 1);
+	memcpy(m_data + 24, payload, size);
+	CPacketHeader *h = Header();
+	h->m_len = (unsigned short)m_size;
+	h->m_rsvd = 0;
+	h->m_proto = 0xe000;
+	h->m_src = 'E';
+	h->m_dst = 'H';
+	h->m_flags = flags;
+	h->m_type = type;
+	h->m_id = ++_counter;
 }
 
 /* @socom-skeleton stub __dt__7CPacketFv */
 CPacket::~CPacket()
 {
+	/* 0x1ed720 */
+	if (m_data != NULL)
+		free(m_data);
+	m_data = NULL;
+	m_size = 0;
 }
 
 /* @socom-skeleton stub CopyTo__7CPacketFPvi */
-void CPacket::CopyTo(void *, int)
+int CPacket::CopyTo(void *dst, int max)
 {
+	/* 0x1ed6d0: -1 when the packet does not fit (unsigned compare) */
+	if ((unsigned int)max < m_size)
+		return -1;
+	memcpy(dst, m_data, m_size);
+	return m_size;
 }
 
 /* @socom-skeleton stub GetPacketType__7CPacketCFv */
-void CPacket::GetPacketType() const
+unsigned int CPacket::GetPacketType() const
 {
+	/* 0x1ed6b0 */
+	return m_data != NULL ? Header()->m_type : 0;
 }
 
 /* @socom-skeleton stub GetFlags__7CPacketCFv */
-void CPacket::GetFlags() const
+unsigned int CPacket::GetFlags() const
 {
+	/* 0x1ed690 */
+	return m_data != NULL ? Header()->m_flags : 0;
 }
 
 /* @socom-skeleton stub GetPacketID__7CPacketCFv */
-void CPacket::GetPacketID() const
+unsigned int CPacket::GetPacketID() const
 {
+	/* 0x1ed670 */
+	return m_data != NULL ? Header()->m_id : 0;
 }
 
 /* @socom-skeleton stub Compare__7CPacketFP7CPacketP7CPacket */
-void CPacket::Compare(CPacket *, CPacket *)
+bool CPacket::Compare(CPacket *a, CPacket *b)
 {
+	/* 0x1ed610: the same id, type and size (the headers are read without a NULL test) */
+	CPacketHeader *ha = a->Header();
+	CPacketHeader *hb = b->Header();
+	return ha->m_id == hb->m_id && ha->m_type == hb->m_type && a->m_size == b->m_size;
 }
 
 /* @socom-skeleton stub __dt__10CPacketMsgFv */
 CPacketMsg::~CPacketMsg()
 {
+	/* 0x1ed570: the argument table, then ~CPacket */
+	if (m_args != NULL)
+		free(m_args);
+	m_args = NULL;
 }
 
 /* @socom-skeleton stub GetArgCount__10CPacketMsgCFv */
-void CPacketMsg::GetArgCount() const
+unsigned int CPacketMsg::GetArgCount() const
 {
+	/* 0x1ed550 */
+	return m_data != NULL ? Header()->m_argc : 0;
 }
 
 /* @socom-skeleton stub GetArg__10CPacketMsgCFUi */
-void CPacketMsg::GetArg(unsigned int) const
+const char *CPacketMsg::GetArg(unsigned int i) const
 {
+	/* 0x1ed500 */
+	if (m_data == NULL)
+		return NULL;
+	if (i < Header()->m_argc)
+		return m_args[i];
+	return NULL;
 }
 
 /* port: stub GetPacketMsg__10CPacketMsgFv (no owner in the render) */
-void CPacketMsg::GetPacketMsg() /* port: 0x1ed4f0 returns this; void is the skeleton placeholder */
+CPacketMsg *CPacketMsg::GetPacketMsg()
 {
+	/* 0x1ed4f0 */
+	return this;
 }

@@ -586,9 +586,8 @@ unsigned char OnListSavedGames(C2DAnimCmdHdr *, float *)
 {
 	/* 0x1d6d70: the SavedGames UI variable = a list of 7 slots (number, title, date, mission
 	 * prefix): a saved game's header gives "Saved Game", its date and database prefix, an
-	 * empty slot "Empty Slot", "--/--/----", "XXX".
-	 * needs zUtil: CMemCard::Exists (0x306cf0) and CSaveManager::GetHeader (0x3f71f0) - the
-	 * port has no memory-card layer, so every slot is listed empty. */
+	 * empty slot "Empty Slot", "--/--/----", "XXX". The header (theMemCard's saved-game
+	 * manager, version 2) is read without testing the result (ELF). */
 	CRdrEditor rdr;
 	char number[256];
 	rdr.push(NULL);
@@ -599,9 +598,27 @@ unsigned char OnListSavedGames(C2DAnimCmdHdr *, float *)
 		sprintf(number, "%d", i);
 		rdr.addstringnode(number);
 		sprintf((char*)filename, "SaveGame%d", i);
-		rdr.addstringnode("Empty Slot");
-		rdr.addstringnode("--/--/----");
-		rdr.addstringnode("XXX");
+
+		if (theMemCard.Exists((char*)filename))
+		{
+			CSaveManager::CSaveHeader header;
+			char prefix[4];
+			memset(&header, 0, sizeof(header)); /* port: the ELF leaves it as it was when the read fails */
+			sprintf((char*)filename, "SaveGame%d", i);
+			theMemCard.m_game->GetHeader((char*)filename, 2, &header);
+			rdr.addstringnode("Saved Game");
+			rdr.addstringnode(header.m_description + 3);
+			strncpy(prefix, header.m_description, 3);
+			prefix[3] = 0;
+			rdr.addstringnode(prefix);
+		}
+		else
+		{
+			rdr.addstringnode("Empty Slot");
+			rdr.addstringnode("--/--/----");
+			rdr.addstringnode("XXX");
+		}
+
 		rdr.pop();
 	}
 
@@ -706,11 +723,11 @@ unsigned char _LoadSavedGame(C2DAnimCmdHdr *cmd, float *)
 {
 	/* 0x1d68c0: the slot number argument (INPUT_STRING: the anim's first argument); the card's
 	 * "SaveGame<n>" is loaded, then the LoadingSavedGame valve (when there is one) is cleared.
-	 * needs zUtil: CMemCard::LoadGame (0x307500) - the port has no memory-card layer
-	 * (theMemCard is a placeholder); nothing is loaded. */
+	 * CMemCard::LoadGame (0x307500). */
 	s32 slot = atoi(UiArgument(cmd));
 	CValve* valve = CValve::GetByName("LoadingSavedGame");
 	sprintf((char*)filename, "SaveGame%d", slot);
+	theMemCard.LoadGame((char*)filename);
 
 	if (valve != NULL)
 		UiSetValve(valve, 0);
@@ -727,8 +744,7 @@ unsigned char _SaveSavedGame(C2DAnimCmdHdr *cmd, float *)
 	 * description is the database and the date ("%-3s%d/%d/%d": month, day, year as the
 	 * clock's BCD bytes - ELF quirk kept), the card's "SaveGame<n>" is written, then the
 	 * SavingSavedGame valve (when there is one) is cleared.
-	 * needs zUtil: CMemCard::SaveGame (0x307520) - the port has no memory-card layer
-	 * (theMemCard is a placeholder); nothing is saved. */
+	 * CMemCard::SaveGame (0x307520). */
 	s32 slot = atoi(UiArgument(cmd));
 	CValve* valve = CValve::GetByName("SavingSavedGame");
 	sceCdCLOCK clock;
@@ -736,6 +752,7 @@ unsigned char _SaveSavedGame(C2DAnimCmdHdr *cmd, float *)
 	sceCdReadClock(&clock);
 	sprintf(description, "%-3s%d/%d/%d", database, clock.month, clock.day, clock.year);
 	sprintf((char*)filename, "SaveGame%d", slot);
+	theMemCard.SaveGame((char*)filename, description);
 
 	if (valve != NULL)
 		UiSetValve(valve, 0);
@@ -1200,49 +1217,48 @@ static int g_can_use_ready;
 /* @socom-skeleton stub UIIsMemCardInserted__FP13C2DAnimCmdHdrPf */
 unsigned char UIIsMemCardInserted(C2DAnimCmdHdr *, float *)
 {
-	/* 0x1d5300: CMemCard::IsInserted on the current port/slot.
-	 * port: stub - the port has no memory-card layer; it reports no card */
-	return false;
+	/* 0x1d5300: CMemCard::IsInserted on the current port/slot */
+	return theMemCard.IsInserted();
 }
 
 /* @socom-skeleton stub UIIsMemCardFormatted__FP13C2DAnimCmdHdrPf */
 unsigned char UIIsMemCardFormatted(C2DAnimCmdHdr *, float *)
 {
-	/* 0x1d52f0: tail call to CMemCard::IsFormatted (0x307310).
-	 * needs zUtil: CMemCard - the port has no memory-card layer; it reports no card (as
-	 * UIIsMemCardInserted), so not formatted */
-	return false;
+	/* 0x1d52f0: tail call to CMemCard::IsFormatted (0x307310) */
+	return theMemCard.IsFormatted();
 }
 
 /* @socom-skeleton stub UIFormatMemCard__FP13C2DAnimCmdHdrPf */
 unsigned char UIFormatMemCard(C2DAnimCmdHdr *, float *)
 {
-	/* 0x1d52e0: tail call to CMemCard::Format (0x3072c0).
-	 * needs zUtil: CMemCard - no memory-card layer in the port: nothing formatted (false) */
-	return false;
+	/* 0x1d52e0: tail call to CMemCard::Format (0x3072c0) */
+	return theMemCard.Format();
 }
 
 /* @socom-skeleton stub UIDoesSlotHaveGame__FP13C2DAnimCmdHdrPf */
 unsigned char UIDoesSlotHaveGame(C2DAnimCmdHdr *cmd, float *)
 {
 	/* 0x1d5230: whether the card has "SaveGame<n>" for the slot argument (INPUT_STRING: the
-	 * anim's first argument). needs zUtil: CMemCard::Exists (0x306cf0) - no memory-card layer
-	 * in the port: no saved game */
+	 * anim's first argument): CMemCard::Exists (0x306cf0) */
 	sprintf((char*)filename, "SaveGame%d", atoi(UiArgument(cmd)));
-	return false;
+	return theMemCard.Exists((char*)filename);
 }
 
 /* @socom-skeleton stub UIGetNumSavedGames__FP13C2DAnimCmdHdrPf */
 unsigned char UIGetNumSavedGames(C2DAnimCmdHdr *cmd, float *)
 {
 	/* 0x1d5160: the argument names a temporary valve set to the number of "SaveGame0".."9" on
-	 * the card. needs zUtil: CMemCard::Exists (0x306cf0) - no memory-card layer in the port:
-	 * none counted */
+	 * the card (CMemCard::Exists 0x306cf0) */
 	CValve* valve = CValve::Create(ZAnim.m_CurAnim->GetName(cmd->m_argument_index), VALVE_TYPE::VTYPE_TEMP);
 	u32 count = 0;
 
 	for (s32 i = 0; i < 10; i++)
+	{
 		sprintf((char*)filename, "SaveGame%d", i);
+
+		if (theMemCard.Exists((char*)filename))
+			count++;
+	}
 
 	UiSetValve(valve, count);
 	return true;
@@ -1802,75 +1818,76 @@ unsigned char UIInitializeOptions(C2DAnimCmdHdr *, float *)
 /* @socom-skeleton stub UIIsSpaceForSaveGameFile__FP13C2DAnimCmdHdrPf */
 unsigned char UIIsSpaceForSaveGameFile(C2DAnimCmdHdr *, float *)
 {
-	/* 0x1d2fa0: CMemCard::GetFreeSpace (0x307260) above 300.
-	 * needs zUtil: CMemCard - no memory-card layer in the port: no card, no space */
-	return false;
+	/* 0x1d2fa0: CMemCard::GetFreeSpace (0x307260) above 300 */
+	return theMemCard.GetFreeSpace() > 300;
 }
 
 /* @socom-skeleton stub UIMC_Init__FP13C2DAnimCmdHdrPf */
 unsigned char UIMC_Init(C2DAnimCmdHdr *, float *)
 {
-	/* 0x1d2f80: CMemCard::Init. port: stub - no memory-card layer in the port */
+	/* 0x1d2f80: CMemCard::Init */
+	theMemCard.Init();
 	return true;
 }
 
 /* @socom-skeleton stub UIMC_Uninit__FP13C2DAnimCmdHdrPf */
 unsigned char UIMC_Uninit(C2DAnimCmdHdr *, float *)
 {
-	/* 0x1d2f60: CMemCard::Uninit. port: stub - no memory-card layer in the port */
+	/* 0x1d2f60: CMemCard::Uninit */
+	CMemCard::Uninit();
 	return true;
 }
 
 /* @socom-skeleton stub UIMC_ChDir__FP13C2DAnimCmdHdrPf */
 unsigned char UIMC_ChDir(C2DAnimCmdHdr *cmd, float *)
 {
-	/* 0x1d2f20: CMemCard::chdir (0x306c40) to the argument's directory, its result returned.
-	 * needs zUtil: CMemCard - no memory-card layer in the port: fails */
-	(void)ZAnim.m_CurAnim->GetName(cmd->m_argument_index);
-	return false;
+	/* 0x1d2f20: CMemCard::chdir (0x306c40) to the argument's directory, its result returned */
+	return theMemCard.chdir(ZAnim.m_CurAnim->GetName(cmd->m_argument_index));
 }
 
 /* @socom-skeleton stub UIMC_MkDir__FP13C2DAnimCmdHdrPf */
 unsigned char UIMC_MkDir(C2DAnimCmdHdr *cmd, float *)
 {
-	/* 0x1d2ee0: CMemCard::mkdir (0x306ca0) of the argument's directory, its result returned.
-	 * needs zUtil: CMemCard - no memory-card layer in the port: fails */
-	(void)ZAnim.m_CurAnim->GetName(cmd->m_argument_index);
-	return false;
+	/* 0x1d2ee0: CMemCard::mkdir (0x306ca0) of the argument's directory, its result returned */
+	return theMemCard.mkdir(ZAnim.m_CurAnim->GetName(cmd->m_argument_index));
 }
 
 /* @socom-skeleton stub UIMC_ChPort__FP13C2DAnimCmdHdrPf */
 unsigned char UIMC_ChPort(C2DAnimCmdHdr *cmd, float *)
 {
-	/* 0x1d2ea0: the memory-card port from the argument (stored at 0x4bc5e0 in the ELF).
-	 * port: stub - no memory-card layer; the number is parsed and dropped */
-	(void)atoi(ZAnim.m_CurAnim->GetName(cmd->m_argument_index));
+	/* 0x1d2ea0: a port number of 0 or more becomes the card port (theMemCard+0x20) */
+	int port = atoi(ZAnim.m_CurAnim->GetName(cmd->m_argument_index));
+
+	if (port >= 0)
+		theMemCard.m_card_port = port;
+
 	return true;
 }
 
 /* @socom-skeleton stub UIMC_ChSlot__FP13C2DAnimCmdHdrPf */
 unsigned char UIMC_ChSlot(C2DAnimCmdHdr *cmd, float *)
 {
-	/* 0x1d2e60: a slot number of 0 or more becomes the card slot (theMemCard+0x24).
-	 * needs zUtil: CMemCard - no memory-card layer in the port; the number is dropped */
-	(void)atoi(ZAnim.m_CurAnim->GetName(cmd->m_argument_index));
+	/* 0x1d2e60: a slot number of 0 or more becomes the card slot (theMemCard+0x24) */
+	int slot = atoi(ZAnim.m_CurAnim->GetName(cmd->m_argument_index));
+
+	if (slot >= 0)
+		theMemCard.m_card_slot = slot;
+
 	return true;
 }
 
 /* @socom-skeleton stub UIMC_Exists__FP13C2DAnimCmdHdrPf */
 unsigned char UIMC_Exists(C2DAnimCmdHdr *cmd, float *)
 {
-	/* 0x1d2e20: CMemCard::Exists (0x306cf0) of the argument's file.
-	 * needs zUtil: CMemCard - no memory-card layer in the port: no file */
-	(void)ZAnim.m_CurAnim->GetName(cmd->m_argument_index);
-	return false;
+	/* 0x1d2e20: CMemCard::Exists (0x306cf0) of the argument's file */
+	return theMemCard.Exists(ZAnim.m_CurAnim->GetName(cmd->m_argument_index));
 }
 
 /* @socom-skeleton stub UIMC_CreateIconFiles__FP13C2DAnimCmdHdrPf */
 unsigned char UIMC_CreateIconFiles(C2DAnimCmdHdr *, float *)
 {
-	/* 0x1d2df0: CMemCard::CreateIconFiles (0x306d60).
-	 * needs zUtil: CMemCard - no memory-card layer in the port: nothing written */
+	/* 0x1d2df0: CMemCard::CreateIconFiles (0x306d60); 1 whatever it returns */
+	theMemCard.CreateIconFiles();
 	return true;
 }
 
@@ -1879,9 +1896,8 @@ unsigned char UILoadConfig(C2DAnimCmdHdr *cmd, float *)
 {
 	/* 0x1d2d40: CMemCard::LoadConfig (0x307450) of the argument's file, then the AUTOMESSAGES
 	 * UI variable (a string) sets the automatic messages. ELF quirk kept: "ON" turns them
-	 * off, any other string on.
-	 * needs zUtil: CMemCard - no memory-card layer in the port: nothing loaded */
-	(void)ZAnim.m_CurAnim->GetName(cmd->m_argument_index);
+	 * off, any other string on. */
+	theMemCard.LoadConfig(ZAnim.m_CurAnim->GetName(cmd->m_argument_index));
 	CUIVariable* var = theUIVarManager.Add("AUTOMESSAGES", NULL, (UIVAR_LONGEVITY)1);
 
 	if (var->type == ZRDR_STRING)
@@ -1893,9 +1909,8 @@ unsigned char UILoadConfig(C2DAnimCmdHdr *cmd, float *)
 /* @socom-skeleton stub UISaveConfig__FP13C2DAnimCmdHdrPf */
 unsigned char UISaveConfig(C2DAnimCmdHdr *cmd, float *)
 {
-	/* 0x1d2d00: CMemCard::SaveConfig (0x3074a0) to the argument's file.
-	 * needs zUtil: CMemCard - no memory-card layer in the port: nothing saved */
-	(void)ZAnim.m_CurAnim->GetName(cmd->m_argument_index);
+	/* 0x1d2d00: CMemCard::SaveConfig (0x3074a0) to the argument's file */
+	theMemCard.SaveConfig(ZAnim.m_CurAnim->GetName(cmd->m_argument_index));
 	return true;
 }
 

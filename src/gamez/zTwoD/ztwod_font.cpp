@@ -186,3 +186,18 @@ void C2DFont::SetXSpacing(float spacing)
     for (u32 i = 0; i < m_charlist.size(); i++)
         m_charlist[i].m_xspacing = (s32)spacing << 4;
 }
+/* port: GetAssetLibs__7C2DFontFRQ23C2D8CLibList 0x2ff490 has no skeleton fence */
+void C2DFont::GetAssetLibs(C2D::CLibList &libs)
+{
+	/* 0x2ff490: the font texture's asset library (ELF quirk: added only when the search result
+	 * is a NULL pointer, as C2DLine::GetAssetLibs, so never) */
+	if (m_pTexHandle == NULL || m_pTexHandle->m_texture == NULL || m_pTexHandle->m_texture->m_AssetLib == NULL)
+		return;
+	zdb::CAssetLib* lib = m_pTexHandle->m_texture->m_AssetLib;
+	zdb::CAssetLib** i = libs.data();
+	zdb::CAssetLib** last = i + libs.size();
+	while (i != last && *i != lib)
+		i++;
+	if (i == NULL)
+		libs.insert(libs.end(), lib);
+}

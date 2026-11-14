@@ -302,19 +302,112 @@ CRdrFile::~CRdrFile()
 	}
 }
 
-/* @socom-skeleton stub Pack__8CRdrFileFP5_zrdrP5_zrdri */
-_zrdr * CRdrFile::Pack(_zrdr *, _zrdr *, int)
+/* port: zrdr_countarray__FP5_zrdr 0x23ca30 has no skeleton fence */
+u32 zrdr_countarray(_zrdr *node)
 {
+	/* 0x23ca30: an array's node count (its count slot included) plus its sub-arrays' (one
+	 * recursion level unrolled in the ELF); 0 for anything else */
+	u32 count = 0;
+	if (node->type != ZRDR_ARRAY)
+		return 0;
+	count += node->array->integer;
+	for (s32 i = 1; i < node->array->integer; i++)
+		count += zrdr_countarray(&node->array[i]);
+	return count;
+}
+
+/* @socom-skeleton stub Pack__8CRdrFileFP5_zrdrP5_zrdri */
+_zrdr * CRdrFile::Pack(_zrdr *node, _zrdr *dst, int delta)
+{
+	/* 0x23cce0: the array's nodes copied to dst (the node then points at the copy), strings moved
+	 * by delta (the string table's new place), sub-arrays packed after it in order; returns the
+	 * first free node (the ELF unrolls one level of the recursion) */
+	u32 n = node->array->integer;
+	memcpy(dst, node->array, n * 8);
+	node->array = dst;
+	dst += n;
+	for (u32 i = 1; i < n; i++) {
+		_zrdr *e = &node->array[i];
+		if (e->type == ZRDR_STRING)
+			e->string += delta;
+		else if (e->type == ZRDR_ARRAY)
+			dst = Pack(e, dst, delta);
+	}
+	return dst;
 }
 
 /* @socom-skeleton stub _fixup__FP7CSTablePv */
-void _fixup(CSTable *, void *)
+void _fixup(CSTable *table, void *data)
 {
+	/* 0x23cb50 (CSTable::Pack's callback): every string node's text pointed at the packed table's
+	 * copy (FindString), through two array levels per call */
+	_zrdr *node = (_zrdr *)data;
+	if (node->type == ZRDR_ARRAY) {
+		u32 n = node->array->integer - 1;
+		for (u32 i = 0; i < n; i++) {
+			_zrdr *e = node->Get(i);
+			if (e->type == ZRDR_ARRAY) {
+				u32 m = e->array->integer - 1;
+				for (u32 j = 0; j < m; j++)
+					_fixup(table, e->Get(j));
+			} else if (e->type == ZRDR_STRING) {
+				e->string = table->FindString(e->string);
+			}
+		}
+	} else if (node->type == ZRDR_STRING) {
+		node->string = table->FindString(node->string);
+	}
 }
 
 /* @socom-skeleton stub Pack__8CRdrFileFv */
 unsigned int CRdrFile::Pack()
 {
+	/* 0x23c7a0: the reader as one buffer: {string bytes, node offset}, the string table, then
+	 * (16-aligned) every node; the parsed arrays are freed. Returns the buffer size (at once
+	 * when already packed). */
+	if (m_buffer != NULL)
+		return m_size;
+	m_strings.Pack(_fixup, this);
+	u32 count = 0;
+	if (type == ZRDR_ARRAY) {
+		count += array->integer;
+		for (s32 i = 1; i < array->integer; i++)
+			count += zrdr_countarray(&array[i]);
+	}
+	u32 nodes = m_strings.m_bytes + 8;
+	if (nodes & 0xf)
+		nodes += 16 - (nodes & 0xf);
+	u32 total = nodes + count * 8;
+	u32 *buffer = (u32 *)_malloc(total, "zrdr_file.cpp", 125);
+	buffer[0] = m_strings.m_bytes;
+	buffer[1] = nodes;
+	int delta = m_strings.Relocate((void *)(buffer + 2));
+	_zrdr *parsed = type == ZRDR_ARRAY ? array : NULL;
+	_zrdr *dst = (_zrdr *)((char *)buffer + nodes);
+	u32 n = array->integer;
+	memcpy(dst, array, n * 8);
+	array = dst;
+	dst += n;
+	for (u32 i = 1; i < n; i++) {
+		_zrdr *e = &array[i];
+		if (e->type == ZRDR_STRING)
+			e->string += delta;
+		else if (e->type == ZRDR_ARRAY)
+			dst = Pack(e, dst, delta);
+	}
+	m_strings.ReleaseBuffer(true);
+	if (m_buffer != NULL)
+		_free(m_buffer, "zrdr_file.cpp", 144);
+	m_buffer = NULL;
+	m_buffer = (char *)buffer;
+	m_size = total;
+	_zrdr old;
+	old.type = ZRDR_ARRAY;
+	old.isclone = 0;
+	old.packed = 0;
+	old.array = parsed;
+	zrdr_freearray(&old);
+	return m_size;
 }
 
 /* @socom-skeleton body _resolveA__FP5_zrdrPC5_zrdrPCc */
@@ -471,8 +564,21 @@ CRdrFile* CRdrFile::Load(zar::CZAR* archive, zar::CKey* key)
 }
 
 /* @socom-skeleton stub Insert__8CRdrFileFPQ23zar4CZARPQ23zar4CKey */
-zar::CKey * CRdrFile::Insert(zar::CZAR *, zar::CKey *)
+zar::CKey * CRdrFile::Insert(zar::CZAR *archive, zar::CKey *key)
 {
+	/* 0x23c130: packed, its pointers made relative for the archive's copy, stored under the key,
+	 * made absolute again; the string table then reads the packed copy */
+	Pack();
+	char *start = m_buffer;
+	if (start != NULL)
+		_resolveA(this, reinterpret_cast<_zrdr *>(start + reinterpret_cast<u32 *>(start)[1]), start + 8);
+	archive->Insert(key, m_buffer, m_size);
+	start = m_buffer;
+	if (start != NULL) {
+		_resolveB(this, reinterpret_cast<_zrdr *>(start + reinterpret_cast<u32 *>(start)[1]), start + 8);
+		m_strings.LoadTable(start + 8, *reinterpret_cast<u32 *>(start), false);
+	}
+	return key;
 }
 
 /* @socom-skeleton body ReadPacked__8CRdrFileFR7CFileIOUi */

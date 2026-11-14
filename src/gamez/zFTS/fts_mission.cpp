@@ -243,7 +243,7 @@ static unsigned char MultiplayerMsgStrings[28];
 char CMission::m_weaponmodelpostfix[30];
 
 /* @socom-skeleton stub theMemCard */
-int theMemCard[10];
+CMemCard theMemCard; /* built before theMission and theUIVarManager (__sinit_fts_mission.cpp) */
 
 /* @socom-skeleton stub theMission */
 CMission theMission;

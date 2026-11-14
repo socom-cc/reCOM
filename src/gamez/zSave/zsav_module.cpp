@@ -29,19 +29,29 @@ CSaveModule::CSaveModule(const char* name, CSaveManager* manager)
 /* @socom-skeleton stub __dt__11CSaveModuleFv */
 CSaveModule::~CSaveModule()
 {
+	/* 0x3f7030: the name (not unregistered from its manager) */
+	if (m_ModuleName != NULL)
+		_free(m_ModuleName, "zsav_module.cpp", 41);
+	m_ModuleName = NULL;
 }
 
 /* @socom-skeleton stub SaveRdr__11CSaveModuleFPCcP8CRdrFile */
-bool CSaveModule::SaveRdr(const char *, CRdrFile *) /* port: MW bool (DWARF fund_type 3) */
+bool CSaveModule::SaveRdr(const char *name, CRdrFile *rdr) /* port: MW bool (DWARF fund_type 3) */
 {
+	/* 0x3f6ff0 (the modules' Serialize): a reader under the module's key */
+	if (m_Manager == NULL)
+		return false;
+	return m_Manager->SaveRdr(m_pKey, name, rdr);
 }
 
 /* @socom-skeleton stub UnSerialize__11CSaveModuleFPCcP8CRdrFilei */
 void CSaveModule::UnSerialize(const char *, CRdrFile *, int)
 {
+	/* 0x3f6fe0: empty in the ELF */
 }
 
 /* @socom-skeleton stub UnSerialize__11CSaveModuleFPCcPQ23zar4CZARi */
 void CSaveModule::UnSerialize(const char *, zar::CZAR *, int)
 {
+	/* 0x3f6fd0: empty in the ELF */
 }

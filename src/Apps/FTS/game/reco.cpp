@@ -70,6 +70,42 @@ class InternalAGCParams;
 class InternalRecoParams;
 class _GSAPI_RESULT;
 /* @socom-skeleton end forward */
+#include <stdio.h>
+#include <string.h>
+#include "gamez/zSystem/zsys.h" /* _malloc */
+#include "gamez/zUtil/util_systemio.h" /* CFileIO */
+#include "posix/strcasecmp.h"
+#include "Apps/FTS/hud/hud.h" /* OrdersMenu::OnRecoCmd */
+
+/* The gsapi speech provider's calls (not linked: port/compat/gsapi_offline.c answers each with an
+ * error, so recognition never starts). Prototypes follow the calls in this unit. */
+struct GSAPI_WORD_LIST /* passed by value in one register pair (recoEnableWord 0x3362e8) */
+{
+	int count;
+	int *ids;
+};
+/* a recognition result (cbrecoResult 0x335de0 reads the word ids at +0x8, from index 1) */
+class _GSAPI_RESULT
+{
+public:
+	u32 m_unknown0;
+	u32 m_unknown4;
+	int *ids;
+};
+extern "C" {
+int gsapi_GetResultString(void *engine, unsigned int id, char **text);
+const char *gsapi_ErrorGetString(int error);
+int gsapi_EngineEnableWords(void *engine, GSAPI_WORD_LIST words);
+int gsapi_EngineDisableAllWords(void *engine);
+int gsapi_EngineStop(void *engine);
+int gsapi_LanguageLoadBuffer(void *data, int flags);
+int gsapi_EngineOpen(int flags, void **engine);
+int gsapi_NotifySetCallback(void *callback);
+int gsapi_EngineSetMode(void *engine, int mode);
+}
+void cbrecoNotify(void *, _GSAPI_NOTIFY_TYPE, unsigned int, unsigned int); /* below */
+unsigned char recoGetNextWordID(int *); /* below */
+void recoGetFirstWordID(int *); /* below */
 
 /* @socom-skeleton stub recoParams */
 InternalRecoParams recoParams = {5000, 2400, 1};
@@ -168,11 +204,61 @@ int recoInit2()
 /* @socom-skeleton stub recoGrabMemory__Fv */
 void recoGrabMemory()
 {
+	/* 0x3369e0 (zSysInit): once, the recogniser's language (run/reco/enu2004b.lng) and the three
+	 * contexts' grammar and word files (RL<n>.ctx / RL<n>.wrd) read into memory (~470 KB) */
+	if (reco_got_memory)
+		return;
+	{
+		CFileIO file;
+		if (file.Open("run/reco/enu2004b.lng", 1)) {
+			RecoLngData = (unsigned int *)_malloc(file.m_filesize, "reco.cpp", 271);
+			file.fread(RecoLngData, file.m_filesize);
+			file.Close();
+		}
+	}
+	for (int i = 0; i < 3; i++) {
+		char name[64];
+		sprintf(name, "%s%d.ctx", "run/reco/RL", i);
+		{
+			CFileIO file;
+			if (file.Open(name, 1)) {
+				RecoCtxData[i] = (unsigned int *)_malloc(file.m_filesize, "reco.cpp", 271);
+				file.fread(RecoCtxData[i], file.m_filesize);
+				file.Close();
+			}
+		}
+		sprintf(name, "%s%d.wrd", "run/reco/RL", i);
+		{
+			CFileIO file;
+			if (file.Open(name, 1)) {
+				RecoWrdData[i] = (unsigned int *)_malloc(file.m_filesize, "reco.cpp", 271);
+				file.fread(RecoWrdData[i], file.m_filesize);
+				file.Close();
+			}
+		}
+	}
+	reco_got_memory = true;
 }
 
 /* @socom-skeleton stub recoSetupLanguage__Fv */
 int recoSetupLanguage()
 {
+	/* 0x336940 (recoInit2): the language buffer loaded into the gsapi provider, the engine opened,
+	 * the notify callback set and the engine's mode 1; the first error (printed) or the last
+	 * result. port: the provider is offline (port/compat/gsapi_offline.c answers an error) */
+	int r = gsapi_LanguageLoadBuffer(RecoLngData, 0);
+	if (r < 0) {
+		gsapi_ErrorGetString(r);
+		return r;
+	}
+	r = gsapi_EngineOpen(0, &g_hEngine);
+	if (r >= 0)
+		r = gsapi_NotifySetCallback((void *)cbrecoNotify);
+	if (r >= 0)
+		r = gsapi_EngineSetMode(g_hEngine, 1);
+	if (r < 0)
+		gsapi_ErrorGetString(r);
+	return r;
 }
 
 /* @socom-skeleton stub recoSetContextByCol__Fi */
@@ -268,21 +354,84 @@ static int ec;
 /* @socom-skeleton stub recoDisableAllWords__Fi */
 void recoDisableAllWords(int)
 {
+	/* 0x336360 (OrdersMenu::EnableTuples): the engine stopped, every word disabled */
+	if (!recoInited)
+		return;
+	gsapi_EngineStop(g_hEngine);
+	int r = gsapi_EngineDisableAllWords(g_hEngine);
+	if (r < 0)
+		gsapi_ErrorGetString(r);
 }
 
 /* @socom-skeleton stub recoEnableWord__Fii */
-void recoEnableWord(int, int)
+void recoEnableWord(int, int word)
 {
+	/* 0x3362d0 (EnableTuples): the word and every later result string spelled the same
+	 * (recoGetNextWordID) enabled one by one */
+	if (!recoInited)
+		return;
+	do {
+		GSAPI_WORD_LIST list;
+		list.count = 1;
+		list.ids = &word;
+		int r = gsapi_EngineEnableWords(g_hEngine, list);
+		if (r < 0)
+			gsapi_ErrorGetString(r);
+		if (RECO_DBG_PRINT) {
+			char *text;
+			r = gsapi_GetResultString(g_hEngine, word, &text);
+			if (r < 0)
+				gsapi_ErrorGetString(r);
+		}
+	} while (recoGetNextWordID(&word));
 }
 
 /* @socom-skeleton stub recoGetFirstWordID__FPi */
-void recoGetFirstWordID(int *)
+void recoGetFirstWordID(int *word)
 {
+	/* 0x336210 (cbrecoResult): the word id becomes the first id at or before it whose result
+	 * string is spelled the same (case-insensitive) */
+	if (!recoInited)
+		return;
+	char *text;
+	gsapi_GetResultString(g_hEngine, *word, &text);
+	if (text == NULL)
+		return;
+	char spelling[100];
+	sprintf(spelling, "%s", text);
+	int last = *word;
+	for (int i = 0; i <= last; i++) {
+		gsapi_GetResultString(g_hEngine, i, &text);
+		if (text != NULL && strcasecmp(text, spelling) == 0) {
+			*word = i;
+			return;
+		}
+	}
 }
 
 /* @socom-skeleton stub recoGetNextWordID__FPi */
-unsigned char recoGetNextWordID(int *)
+unsigned char recoGetNextWordID(int *word)
 {
+	/* 0x336120 (recoEnableWord): the next id after *word, in the active column's word count,
+	 * spelled as *word; 0 when there is none (or a string is missing) */
+	if (!recoInited)
+		return 0;
+	char *text;
+	gsapi_GetResultString(g_hEngine, *word, &text);
+	if (text == NULL)
+		return 0;
+	char spelling[100];
+	sprintf(spelling, "%s", text);
+	for (long i = *word + 1; i < recoNumWords[recoActiveColumn]; i++) {
+		gsapi_GetResultString(g_hEngine, i, &text);
+		if (text == NULL)
+			return 0;
+		if (strcasecmp(text, spelling) == 0) {
+			*word = i;
+			return 1;
+		}
+	}
+	return 0;
 }
 
 /* @socom-skeleton stub recoStopRecognizing__Fv */
@@ -299,27 +448,80 @@ int recoStopRecognizing()
 /* @socom-skeleton stub recoGetNumHeads__Fv */
 float recoGetNumHeads()
 {
+	/* 0x3360a0 (the HUD's voice meter) */
+	return recoNumHeads;
 }
 
 /* @socom-skeleton stub cbrecoNotify__FPv18_GSAPI_NOTIFY_TYPEUiUi */
-void cbrecoNotify(void *, _GSAPI_NOTIFY_TYPE, unsigned int, unsigned int)
+void cbrecoNotify(void *, _GSAPI_NOTIFY_TYPE type, unsigned int level, unsigned int)
 {
 	/* @socom-skeleton stub head2level$2881 */
-	static int head2level;
+	static int head2level = -3000;
 	/* @socom-skeleton stub head3level$2884 */
-	static int head3level;
+	static int head3level = -2000;
 	/* @socom-skeleton stub head4level$2887 */
-	static int head4level;
+	static int head4level = -750;
 	/* @socom-skeleton stub head5level$2890 */
-	static int head5level;
+	static int head5level = 500;
+	/* 0x335f60 (the provider's notify callback): the energy notification (jump-table case of
+	 * notification 0..8 that sets the levels; the other cases return) records the level in a
+	 * 10000-entry ring, keeps the maximum and sets the meter's 1..5 heads by level */
+	if ((u8)type != GSAPI_NOTIFY_ENERGYLEVEL)
+		return;
+	energy[ec] = (int)level;
+	ec++;
+	if (ec >= 10000)
+		ec = 0;
+	if (AGCParams.maxEnergyLevel < (int)level)
+		AGCParams.maxEnergyLevel = (int)level;
+	recoNumHeads = 1.0f;
+	if (head2level < (int)level)
+		recoNumHeads = 2.0f;
+	if (head3level < (int)level)
+		recoNumHeads = 3.0f;
+	if (head4level < (int)level)
+		recoNumHeads = 4.0f;
+	if (head5level < (int)level)
+		recoNumHeads = 5.0f;
 }
 
 /* @socom-skeleton stub once */
 static int once;
 
 /* @socom-skeleton stub cbrecoResult__FPvUiP13_GSAPI_RESULTUi */
-void cbrecoResult(void *, unsigned int, _GSAPI_RESULT *, unsigned int)
+void cbrecoResult(void *engine, unsigned int, _GSAPI_RESULT *result, unsigned int)
 {
+	/* 0x335de0 (the provider's result callback): the recognised words up to ".S" joined with
+	 * spaces, each word id reduced to its first spelling (recoGetFirstWordID); a phrase goes to
+	 * OrdersMenu::OnRecoCmd with its word count, the first three ids and its last word */
+	AGCParams.numRecognitions++;
+	int words[3] = { -1, -1, -1 };
+	char phrase[100];
+	char last[40];
+	int count = 0;
+	memset(phrase, 0, sizeof(phrase));
+	for (int k = 1;; k++) {
+		char *text;
+		int r = gsapi_GetResultString(engine, result->ids[k], &text);
+		if (r < 0) {
+			gsapi_ErrorGetString(r);
+			recoRecognizing = false;
+			return;
+		}
+		if (strcasecmp(text, ".S") == 0)
+			break;
+		strcat(phrase, text);
+		sprintf(last, "%s", text);
+		strcat(phrase, " ");
+		int id = result->ids[k];
+		recoGetFirstWordID(&id);
+		if (count < 3) /* port: the ELF writes past the three words of a longer phrase */
+			words[count] = id;
+		count++;
+	}
+	recoRecognizing = false;
+	if (phrase[0] != 0)
+		OrdersMenu::OnRecoCmd(count, words[0], words[1], words[2], last);
 }
 
 /* @socom-skeleton stub recoGetWordID__FPCc */

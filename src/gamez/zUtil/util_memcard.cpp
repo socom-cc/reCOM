@@ -43,6 +43,17 @@
 /* @socom-skeleton decl include */
 #include "zutil.h"
 /* @socom-skeleton end include */
+#include <stdio.h>
+#include <string.h>
+#include <libmc.h> /* sceMc* (port: port/compat/libmc.c on ps2sdk libmc) */
+#include <sifdev.h> /* sceOpen, sceRead, sceClose */
+#include "gamez/zSystem/zsys.h" /* zSys, zSysLoadIRX */
+#include "gamez/zSave/zsave.h"
+#include "gamez/zGame/zgame.h" /* theGame */
+#include "gamez/zFTS/fts_state.h" /* CMenuState::RunEventAnim */
+
+int zSysLoadIRX(char *, int, char *, bool); /* zsys_init.cpp (0x2f4d60) */
+void zSysUnloadIRX(int); /* zsys_init.cpp (0x2f4d20) */
 
 /* @socom-skeleton stub ascii_special */
 unsigned char ascii_special[132] = {64, 129, 32, 0, 73, 129, 33, 0, 104, 129, 34, 0, 148, 129, 35, 0, 144, 129, 36, 0, 147, 129, 37, 0, 149, 129, 38, 0, 102, 129, 39, 0, 105, 129, 40, 0, 106, 129, 41, 0, 150, 129, 42, 0, 123, 129, 43, 0, 67, 129, 44, 0, 124, 129, 45, 0, 68, 129, 46, 0, 94, 129, 47, 0, 70, 129, 58, 0, 71, 129, 59, 0, 113, 129, 60, 0, 129, 129, 61, 0, 114, 129, 62, 0, 72, 129, 63, 0, 151, 129, 64, 0, 109, 129, 91, 0, 143, 129, 92, 0, 110, 129, 93, 0, 79, 129, 94, 0, 81, 129, 95, 0, 101, 129, 96, 0, 111, 129, 123, 0, 98, 129, 124, 0, 112, 129, 125, 0, 80, 129, 126, 0};
@@ -62,70 +73,200 @@ int CMemCard::m_mod_mcserv;
 /* @socom-skeleton stub __ct__8CMemCardFv */
 CMemCard::CMemCard()
 {
+	/* 0x307700: a closed card file and the two save managers on it */
+	m_fd = -1;
+	m_port = 0;
+	m_slot = 0;
+	m_size = 0;
+	m_game = new CSaveManager(this);
+	m_config = new CSaveManager(this);
 }
 
 /* @socom-skeleton stub __dt__8CMemCardFv */
 CMemCard::~CMemCard()
 {
+	/* 0x307690 */
+	delete m_game;
+	delete m_config;
 }
 
 /* @socom-skeleton stub Init__8CMemCardFv */
 void CMemCard::Init()
 {
+	/* 0x3075c0 (UIMC_Init): the first Init loads the card modules (unless the IOP boot did)
+	 * and the library, then asks the card twice at most for its format. The card asked is
+	 * theMemCard's, whatever `this` is (ELF). */
+	if (m_initcount++ != 0)
+		return;
+	if (!zSys.memIrxLoaded) {
+		m_mod_mcman = zSysLoadIRX((char *)"RUN\\IRX\\MCMAN.IRX", 0, NULL, true);
+		m_mod_mcserv = zSysLoadIRX((char *)"RUN\\IRX\\MCSERV.IRX", 0, NULL, true);
+	}
+	sceMcInit();
+	for (int tries = 2; tries > 0; tries--) {
+		int format = 0;
+		int cmd, result;
+		if (sceMcGetInfo(theMemCard.m_card_port, theMemCard.m_card_slot, NULL, NULL, &format) < 0)
+			return;
+		sceMcSync(0, &cmd, &result);
+		if (format != 0)
+			break;
+	}
 }
 
 /* @socom-skeleton stub Uninit__8CMemCardFv */
 void CMemCard::Uninit()
 {
+	/* 0x307550 (UIMC_Uninit): the last Uninit unloads the modules Init loaded */
+	if (--m_initcount == 0) {
+		if (m_mod_mcserv != 0) {
+			zSysUnloadIRX(m_mod_mcserv);
+			m_mod_mcserv = 0;
+		}
+		if (m_mod_mcman != 0) {
+			zSysUnloadIRX(m_mod_mcman);
+			m_mod_mcman = 0;
+		}
+	}
+	if (m_initcount < 0)
+		m_initcount = 0;
 }
 
 /* @socom-skeleton stub SaveGame__8CMemCardFPCcPc */
-void CMemCard::SaveGame(const char *, char *)
+bool CMemCard::SaveGame(const char *name, char *description)
 {
+	/* 0x307520: the saved-game manager, version 2, on this card */
+	m_port = m_card_port;
+	m_slot = m_card_slot;
+	return m_game->Save(name, 2, 0, description);
 }
 
 /* @socom-skeleton stub LoadGame__8CMemCardFPCc */
-void CMemCard::LoadGame(const char *)
+bool CMemCard::LoadGame(const char *name)
 {
+	/* 0x307500 */
+	m_port = m_card_port;
+	m_slot = m_card_slot;
+	return m_game->Load(name, 2);
 }
 
 /* @socom-skeleton stub SaveConfig__8CMemCardFPCc */
-void CMemCard::SaveConfig(const char *)
+bool CMemCard::SaveConfig(const char *name)
 {
+	/* 0x3074a0: the options manager, version 1; a failure raises the menus' MEMCARD_ERROR
+	 * event. port: bool (the ELF returns RunEventAnim's or Save's v0; no caller reads it) */
+	m_port = m_card_port;
+	m_slot = m_card_slot;
+	bool ok = m_config->Save(name, 1, 0, NULL);
+	if (!ok)
+		theGame.m_menuState.RunEventAnim("MEMCARD_ERROR", NULL);
+	return ok;
 }
 
 /* @socom-skeleton stub LoadConfig__8CMemCardFPCc */
-void CMemCard::LoadConfig(const char *)
+bool CMemCard::LoadConfig(const char *name)
 {
+	/* 0x307450: as SaveConfig */
+	m_port = m_card_port;
+	m_slot = m_card_slot;
+	bool ok = m_config->Load(name, 1);
+	if (!ok)
+		theGame.m_menuState.RunEventAnim("MEMCARD_ERROR", NULL);
+	return ok;
 }
 
 /* @socom-skeleton stub IsInserted__8CMemCardFv */
-void CMemCard::IsInserted()
+bool CMemCard::IsInserted()
 {
+	/* 0x3073a0: a PS2 card answers (sync result -9 or more, type 2); asked twice at most */
+	bool inserted = false;
+	for (int tries = 2; tries > 0; tries--) {
+		int type, cmd, result;
+		if (sceMcGetInfo(m_card_port, m_card_slot, &type, NULL, NULL) < 0)
+			return inserted;
+		sceMcSync(0, &cmd, &result);
+		inserted = result >= -9 && type == 2;
+		if (inserted)
+			break;
+	}
+	return inserted;
 }
 
 /* @socom-skeleton stub IsFormatted__8CMemCardFv */
-void CMemCard::IsFormatted()
+bool CMemCard::IsFormatted()
 {
+	/* 0x307310: asked twice at most */
+	bool formatted = false;
+	for (int tries = 2; tries > 0; tries--) {
+		int format, cmd, result;
+		if (sceMcGetInfo(m_card_port, m_card_slot, NULL, NULL, &format) < 0)
+			return formatted;
+		sceMcSync(0, &cmd, &result);
+		formatted = format != 0;
+		if (formatted)
+			break;
+	}
+	return formatted;
 }
 
 /* @socom-skeleton stub Format__8CMemCardFv */
-void CMemCard::Format()
+bool CMemCard::Format()
 {
+	/* 0x3072c0 */
+	int cmd, result;
+	if (sceMcFormat(m_card_port, m_card_slot) < 0)
+		return false;
+	sceMcSync(0, &cmd, &result);
+	return result == 0;
 }
 
 /* @socom-skeleton stub GetFreeSpace__8CMemCardFv */
-void CMemCard::GetFreeSpace()
+int CMemCard::GetFreeSpace()
 {
+	/* 0x307260: free clusters (1 KB) */
+	int free = 0;
+	int cmd, result;
+	if (sceMcGetInfo(m_card_port, m_card_slot, NULL, &free, NULL) < 0)
+		return 0;
+	sceMcSync(0, &cmd, &result);
+	return free;
 }
 
 /* @socom-skeleton stub Ascii2Sjis__FUc */
-unsigned short Ascii2Sjis(unsigned char)
+unsigned short Ascii2Sjis(unsigned char c)
 {
+	/* 0x307100: the full-width Shift-JIS code of a printable ASCII character (icon.sys titles):
+	 * letters and digits by offset (ascii_table), punctuation by lookup (ascii_special) */
+	int special = 0;
+	int range = 0;
+	if (c >= 32 && c < 48)
+		special = 1;
+	else if (c >= 48 && c < 58)
+		range = 0;
+	else if (c >= 58 && c < 65)
+		special = 11;
+	else if (c >= 65 && c < 91)
+		range = 1;
+	else if (c >= 91 && c < 97)
+		special = 37;
+	else if (c >= 97 && c < 123)
+		range = 2;
+	else if (c >= 123 && c < 127)
+		special = 63;
+	else {
+		printf("bad ASCII code 0x%x\n", c);
+		return 0;
+	}
+	if (special != 0) {
+		const unsigned char *e = &ascii_special[((c - 32) - (special - 1)) * 4];
+		return (unsigned short)(e[0] | (e[1] << 8));
+	}
+	const unsigned char *t = &ascii_table[range * 4];
+	return (unsigned short)(c + (t[0] | (t[1] << 8)) - (t[2] | (t[3] << 8)));
 }
 
 /* @socom-skeleton stub CreateIconFiles__8CMemCardFv */
-void CMemCard::CreateIconFiles()
+bool CMemCard::CreateIconFiles()
 {
 	/* @socom-skeleton stub icon$1247 */
 	static unsigned char icon[964];
@@ -137,73 +278,234 @@ void CMemCard::CreateIconFiles()
 	static unsigned char lightcol[48] = {143, 194, 245, 62, 143, 194, 245, 62, 143, 194, 245, 60, 0, 0, 0, 0, 0, 0, 0, 63, 195, 245, 168, 62, 205, 204, 76, 62, 0, 0, 0, 0, 41, 92, 15, 62, 41, 92, 15, 62, 92, 143, 194, 62, 0, 0, 0, 0};
 	/* @socom-skeleton stub ambient$1251 */
 	static unsigned char ambient[16] = {0, 0, 0, 63, 0, 0, 0, 63, 0, 0, 0, 63, 0, 0, 0, 0};
+	/* 0x306d60 (UIMC_CreateIconFiles): icon.sys (title "SOCOM:2002 Public Beta" in full-width
+	 * Shift-JIS, the view / copy / delete icons LIST, COPYING, DELETING.ICO) in the current card
+	 * directory, then the three icons copied from the disc's RUN\ICONS. ELF quirk kept: it
+	 * returns false even when everything was written. */
+	static const char *const names[3] = { "LIST.ICO", "COPYING.ICO", "DELETING.ICO" }; /* @1255 0x43ab10 */
+	int fd = -1;
+	int cmd, result;
+	memset(icon, 0, sizeof(icon));
+	strcpy((char *)icon, "PS2D");
+	const char *title = "SOCOM:2002 Public Beta";
+	int len = strlen(title);
+	int i;
+	for (i = 0; i < len; i++) {
+		unsigned short sjis = Ascii2Sjis((unsigned char)title[i]);
+		/* stored high byte first */
+		*(unsigned short *)&icon[0xc0 + i * 2] = (unsigned short)(((sjis >> 8) & 0xff) | ((sjis & 0xff) << 8));
+	}
+	*(unsigned short *)&icon[0xc0 + i * 2] = 0;
+	*(unsigned short *)&icon[0x6] = 20; /* the title's second line starts at its 10th character */
+	*(unsigned int *)&icon[0xc] = 96;   /* background transparency */
+	memcpy(&icon[0x10], bgcolor, 64);
+	memcpy(&icon[0x50], lightdir, 48);
+	memcpy(&icon[0x80], lightcol, 48);
+	memcpy(&icon[0xb0], ambient, 16);
+	strcpy((char *)&icon[0x104], names[0]);
+	strcpy((char *)&icon[0x144], names[1]);
+	strcpy((char *)&icon[0x184], names[2]);
+	if (sceMcOpen(m_card_port, m_card_slot, "icon.sys", 0x202) < 0)
+		return false;
+	sceMcSync(0, &cmd, &fd);
+	if (fd < 0)
+		return false;
+	if (sceMcWrite(fd, icon, 964) < 0)
+		return false;
+	sceMcSync(0, &cmd, &result);
+	if (sceMcClose(fd) < 0)
+		return false;
+	sceMcSync(0, &cmd, &result);
+	for (int n = 0; n < 3; n++) {
+		char path[80];
+		char ps2path[80];
+		char dst[80];
+		unsigned char buffer[1024];
+		const char *name = names[n];
+		sprintf(path, "RUN\\ICONS\\%s", name);
+		CFileIO::PS2FileName(path, ps2path, false);
+		int src = sceOpen(ps2path, 1);
+		if (src < 0)
+			return false;
+		sprintf(dst, "%s", name);
+		if (sceMcOpen(m_card_port, m_card_slot, dst, 0x203) < 0)
+			return false;
+		sceMcSync(0, NULL, &fd);
+		if (fd < 0)
+			return false;
+		int got;
+		do {
+			got = sceRead(src, buffer, 1024);
+			if (sceMcWrite(fd, buffer, got) < 0)
+				return false;
+			sceMcSync(0, NULL, &result);
+		} while (result >= 0 && got == 1024);
+		if (result < 0)
+			return false;
+		sceClose(src);
+		if (sceMcClose(fd) < 0)
+			return false;
+		sceMcSync(0, NULL, &result);
+		if (result < 0)
+			return false;
+	}
+	return false;
 }
 
 /* @socom-skeleton stub Exists__8CMemCardFPCc */
-void CMemCard::Exists(const char *)
+bool CMemCard::Exists(const char *name)
 {
+	/* 0x306cf0: a directory entry matches */
+	sceMcTblGetDir table[2];
+	int cmd, result;
+	if (sceMcGetDir(m_card_port, m_card_slot, name, 0, 1, table) < 0)
+		return false;
+	sceMcSync(0, &cmd, &result);
+	return result > 0;
 }
 
 /* @socom-skeleton stub mkdir__8CMemCardFPCc */
-void CMemCard::mkdir(const char *)
+bool CMemCard::mkdir(const char *name)
 {
+	/* 0x306ca0 */
+	int cmd, result;
+	if (sceMcMkdir(m_card_port, m_card_slot, name) < 0)
+		return false;
+	sceMcSync(0, &cmd, &result);
+	return result == 0;
 }
 
 /* @socom-skeleton stub chdir__8CMemCardFPCc */
-void CMemCard::chdir(const char *)
+bool CMemCard::chdir(const char *name)
 {
+	/* 0x306c40 */
+	int cmd, result;
+	if (sceMcChdir(m_card_port, m_card_slot, name, NULL) < 0)
+		return false;
+	sceMcSync(0, &cmd, &result);
+	return result == 0;
 }
 
 /* @socom-skeleton stub Open__10CMemCardIOFPCcUi */
-unsigned char CMemCardIO::Open(const char *, unsigned int)
+unsigned char CMemCardIO::Open(const char *name, unsigned int mode)
 {
-	return 0; /* port: stub */
+	/* 0x306ad0: CIO mode bits (1 read, 2 write, 4 read-write, 8 create, 0x10 with 8: delete
+	 * first) as sceMc open flags; the size from the card's directory when reading */
+	int flags = 0;
+	int cmd, result;
+	if (mode & 1)
+		flags |= 1;
+	if (mode & 2)
+		flags |= 2;
+	if (mode & 4)
+		flags |= 3;
+	if (mode & 8)
+		flags |= 0x200;
+	if ((mode & 0x10) && (mode & 8)) {
+		sceMcDelete(m_port, m_slot, name);
+		sceMcSync(0, &cmd, &result);
+		m_size = 0;
+	}
+	m_mode = mode;
+	if (sceMcOpen(m_port, m_slot, name, flags) < 0)
+		return 0;
+	sceMcSync(0, &cmd, &m_fd);
+	if (IsOpen() && (mode & 5)) {
+		sceMcTblGetDir table[2];
+		if (sceMcGetDir(m_port, m_slot, name, 0, 1, table) < 0)
+			return 0;
+		sceMcSync(0, &cmd, &result);
+		if (result > 0)
+			m_size = table[0].FileSizeByte;
+	}
+	return IsOpen();
 }
 
 /* @socom-skeleton stub Close__10CMemCardIOFv */
 void CMemCardIO::Close()
 {
+	/* 0x306a70 */
+	int cmd, result;
+	if (!IsOpen())
+		return;
+	if (sceMcClose(m_fd) < 0)
+		return;
+	sceMcSync(0, &cmd, &result);
+	m_fd = -1;
 }
 
 /* @socom-skeleton stub IsOpen__10CMemCardIOCFv */
 bool CMemCardIO::IsOpen() const
 {
+	/* 0x306a60 */
+	return m_fd >= 0;
 }
 
 /* @socom-skeleton stub GetSize__10CMemCardIOCFv */
 size_t CMemCardIO::GetSize() const
 {
+	/* 0x306a50 */
+	return m_size;
 }
 
 /* @socom-skeleton stub ftell__10CMemCardIOCFv */
 int CMemCardIO::ftell() const
 {
-	return 0; /* port: stub */
+	/* 0x3069f0 */
+	int cmd, result;
+	if (sceMcSeek(m_fd, 0, 1) < 0)
+		return 0;
+	sceMcSync(0, &cmd, &result);
+	return result >= 0 ? result : 0;
 }
 
 /* @socom-skeleton stub fseek__10CMemCardIOFii */
-size_t CMemCardIO::fseek(int, int)
+size_t CMemCardIO::fseek(int offset, int origin)
 {
+	/* 0x306970: SEEK_CUR 1, SEEK_END 2, anything else from the start */
+	int whence = origin == 1 ? 1 : origin == 2 ? 2 : 0;
+	int cmd, result;
+	if (sceMcSeek(m_fd, offset, whence) < 0)
+		return 0;
+	sceMcSync(0, &cmd, &result);
+	return result >= 0 ? result : 0;
 }
 
 /* @socom-skeleton stub fread__10CMemCardIOFiPPv */
-size_t CMemCardIO::fread(int, void **)
+size_t CMemCardIO::fread(int, void **buf)
 {
+	/* 0x306960: no in-place reads from a card */
+	*buf = NULL;
+	return 0;
 }
 
 /* @socom-skeleton stub fread__10CMemCardIOFPvi */
-unsigned int CMemCardIO::fread(void *, int)
+unsigned int CMemCardIO::fread(void *buf, int size)
 {
-	return 0; /* port: stub */
+	/* 0x306900 */
+	int cmd, result;
+	if (sceMcRead(m_fd, buf, size) < 0)
+		return 0;
+	sceMcSync(0, &cmd, &result);
+	return result >= 0 ? result : 0;
 }
 
 /* @socom-skeleton stub fwrite__10CMemCardIOFPCvi */
-unsigned int CMemCardIO::fwrite(const void *, int)
+unsigned int CMemCardIO::fwrite(const void *buf, int size)
 {
-	return 0; /* port: stub */
+	/* 0x3068a0 */
+	int cmd, result;
+	if (sceMcWrite(m_fd, buf, size) < 0)
+		return 0;
+	sceMcSync(0, &cmd, &result);
+	return result >= 0 ? result : 0;
 }
 
 /* @socom-skeleton stub fflush__10CMemCardIOFv */
 void CMemCardIO::fflush()
 {
+	/* 0x306870 */
+	int cmd, result;
+	if (sceMcFlush(m_fd) >= 0)
+		sceMcSync(0, &cmd, &result);
 }

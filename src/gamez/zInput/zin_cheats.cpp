@@ -13,19 +13,64 @@
 /* @socom-skeleton decl include */
 #include "zinput.h"
 /* @socom-skeleton end include */
+#include "gamez/zValve/zvalve.h" /* CValve::MakeCallbacks */
 
 /* @socom-skeleton stub cheatTimer__6CCheat */
 const float CCheat::cheatTimer = 1.0f;
 
 /* @socom-skeleton stub m_list__6CCheat */
-int CCheat::m_list[3];
+CCheatList CCheat::m_list; /* __sinit_zin_cheats.cpp builds it empty */
 
 /* @socom-skeleton stub TickAll__6CCheatFfP4CPad */
-void CCheat::TickAll(float, CPad *)
+void CCheat::TickAll(float dT, CPad *pad)
 {
+	/* 0x21b780 (the pause screen): every cheat in the list. Nothing in the ELF adds one: the
+	 * list __sinit_zin_cheats.cpp builds stays empty */
+	for (CCheat **it = &m_list[0]; it != &m_list[0] + m_list.size(); it++)
+		(*it)->Update(dT, pad);
 }
 
 /* @socom-skeleton stub Update__6CCheatFfP4CPad */
-void CCheat::Update(float, CPad *)
+bool CCheat::Update(float dT, CPad *pad)
 {
+	/* 0x21b610: the next button of the sequence pressed (KEY_FALLING) moves on; the whole
+	 * sequence pulses the cheat's valve (1, then 0 with their callbacks) and starts over; a
+	 * pause longer than cheatTimer between presses starts over too. True when completed. */
+	if (m_length == 0)
+		return false;
+	bool done = false;
+	if (pad->m_state[*m_cursor] == KEY_FALLING) {
+		m_timer = 1.0f;
+		m_cursor++;
+		if (m_cursor != m_sequence + m_length)
+			return false;
+		CValve *valve = m_valve;
+		done = true;
+		if (valve != NULL) {
+			bool changed = valve->m_value != 1;
+			valve->m_value = 1;
+			if (changed)
+				valve->MakeCallbacks(VALVE_STATE::VSTATE_TEMPORARY);
+		}
+		m_cursor = m_sequence;
+		m_timer = cheatTimer;
+		/* ELF quirk kept: no NULL test of the valve here */
+		bool cleared = m_valve->m_value != 0;
+		m_valve->m_value = 0;
+		if (cleared)
+			m_valve->MakeCallbacks(VALVE_STATE::VSTATE_PERMANENT);
+		return done;
+	}
+	if (m_cursor == m_sequence)
+		return false;
+	m_timer -= dT;
+	if (m_timer <= 0.0f) {
+		m_cursor = m_sequence;
+		m_timer = cheatTimer;
+		bool cleared = m_valve->m_value != 0;
+		m_valve->m_value = 0;
+		if (cleared)
+			m_valve->MakeCallbacks(VALVE_STATE::VSTATE_PERMANENT);
+	}
+	return false;
 }

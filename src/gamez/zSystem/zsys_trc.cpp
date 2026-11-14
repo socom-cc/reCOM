@@ -13,6 +13,11 @@
 /* @socom-skeleton decl include */
 #include "gamez/zUtil/zutil.h"
 /* @socom-skeleton end include */
+#include <stdio.h>
+#include <string.h>
+#include <eekernel.h> /* CreateSema, CreateThread, WaitSema, iSignalSema, _gp */
+#include <libcdvd.h> /* sceCdPOffCallback, sceCdPowerOff */
+#include <sifdev.h> /* sceDevctl */
 
 /* @socom-skeleton stub m_hddStatus */
 static unsigned char m_hddStatus;
@@ -24,26 +29,87 @@ static int tid;
 static unsigned char g_stack[8192];
 
 /* @socom-skeleton stub TRC_PowerOffHandler__FPv */
-void TRC_PowerOffHandler(void *)
+void TRC_PowerOffHandler(void *sema)
 {
+	/* 0x402f50: the power-off callback (interrupt context) wakes the power-off thread */
+	iSignalSema((int)sema);
 }
 
 /* @socom-skeleton stub TRC_PowerOffThread_Aux__Fv */
 void TRC_PowerOffThread_Aux()
 {
+	/* 0x402e50: the file systems and the HDD (or the network adaptor) shut down, then the
+	 * console powers off */
+	u32 result = 0;
+	if (m_hddStatus & 1) {
+		printf("trc_hdd> closing all file systems\n");
+		sceDevctl("pfs:", 0x5003, NULL, 0, NULL, 0);
+		printf("trc_hdd> shutting down the HDD\n");
+		while (sceDevctl("hdd:", 0x4806, NULL, 0, NULL, 0) < 0)
+			;
+	} else {
+		printf("trc_hdd> shutting down the Network Adaptor\n");
+		while (sceDevctl("dev9x:", 0x4402, NULL, 0, NULL, 0) < 0)
+			;
+	}
+	printf("trc_hdd> good night\n");
+	while (!sceCdPowerOff(&result) || result != 0)
+		;
 }
 
 /* @socom-skeleton stub TRC_PowerOffThread__FPv */
-void TRC_PowerOffThread(void *)
+void TRC_PowerOffThread(void *sema)
 {
+	/* 0x402e10 */
+	for (;;) {
+		WaitSema((int)sema);
+		printf("trc_hdd> power off requested\n");
+		TRC_PowerOffThread_Aux();
+	}
 }
 
 /* @socom-skeleton stub _UnPreparePowerOff__FQ211CIOPManager11RebootPhaseQ211CIOPManager10RebootModePv */
-bool _UnPreparePowerOff(CIOPManager::RebootPhase, CIOPManager::RebootMode, void *)
+bool _UnPreparePowerOff(CIOPManager::RebootPhase phase, CIOPManager::RebootMode, void *sema)
 {
+	/* 0x402d90 (IOP reboot callback): before the reboot the thread and its semaphore go (kept
+	 * registered); after it the callback asks to be dropped (RebootIOP registers a new one) */
+	if (phase != CIOPManager::PreReboot)
+		return false;
+	if (tid != 0 && TerminateThread(tid) >= 0 && DeleteThread(tid) >= 0) {
+		tid = 0;
+		DeleteSema((int)sema);
+	}
+	return true;
 }
 
 /* @socom-skeleton stub TRC_PreparePowerOff */
-extern "C" void TRC_PreparePowerOff(unsigned char) /* port: 0x402ca0 takes the HDD status byte (RebootIOP passes 2) */
+extern "C" int TRC_PreparePowerOff(unsigned char hddStatus) /* port: 0x402ca0 takes the HDD status byte (RebootIOP passes 2) */
 {
+	/* 0x402ca0: once (until an IOP reboot) a power-off thread waiting on a semaphore the CD
+	 * power-off callback signals; returns the semaphore */
+	if (tid != 0)
+		return 0;
+	SemaParam sp;
+	sp.currentCount = 0; /* port: the ELF leaves currentCount, numWaitThreads and attr unset */
+	sp.maxCount = 1;
+	sp.initCount = 0;
+	sp.numWaitThreads = 0;
+	sp.attr = 0;
+	sp.option = 0;
+	int sema = CreateSema(&sp);
+	printf("trc_hdd> power off semaphore id %d\n", sema);
+	ThreadParam tp;
+	memset(&tp, 0, sizeof(tp)); /* port: the ELF fills only the fields below */
+	tp.entry = (void *)TRC_PowerOffThread;
+	tp.stack = g_stack;
+	tp.stackSize = 8192;
+	tp.gpReg = &_gp;
+	tp.initPriority = 3;
+	tid = CreateThread(&tp);
+	StartThread(tid, (void *)sema);
+	sceCdPOffCallback(TRC_PowerOffHandler, (void *)sema);
+	printf("TRC_PowerOffHandler == 0x%08X\n", (unsigned int)TRC_PowerOffHandler);
+	m_hddStatus = hddStatus;
+	theIOPManager.RegisterRebootCallback(_UnPreparePowerOff, (void *)sema);
+	return sema;
 }
