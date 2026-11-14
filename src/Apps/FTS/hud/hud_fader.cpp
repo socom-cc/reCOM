@@ -277,4 +277,5 @@ void CFlashFXVector::Reset()
 /* @socom-skeleton stub __dt__8CFlashFXFv */
 CFlashFX::~CFlashFX()
 {
+	/* 0x402f60: base destruction only */
 }

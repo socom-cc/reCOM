@@ -401,6 +401,10 @@ public:
 	unsigned int DecrementRoundClockSec(int); /* port: the seconds left in v0 (0x1f35d0; guess, no caller reads it) */
 	bool OnSealTeam(); /* port: bool (0x1f35b0: 0/1 in v0) */
 	/* @socom-skeleton end 9CZNetGame */
+	/* GetE3ScoreTeam00__9CZNetGameCFv 0x4220c0 / GetE3ScoreTeam08__9CZNetGameCFv 0x4220b0
+	 * (inline, emitted in hud_scorepopup.cpp's unit: the score popup's team score getters) */
+	int GetE3ScoreTeam00() const { return m_mpe3_score00; }
+	int GetE3ScoreTeam08() const { return m_mpe3_score08; }
 };
 
 class CZNetVoice
@@ -409,6 +413,8 @@ public:
 	friend class OrdersMenu; /* port: the orders menu sets m_isPushed (push-to-talk, 0x52cb50) */
 	friend class CMPExitState; /* port: the multiplayer debrief sets m_block_talk (Init 0x3dcf28, UnInit 0x3dcaf4) */
 	friend class CZPersonaState; /* port: UpdateLocalPersona 0x208b80 sends m_PortBuf / m_ServerPortBuf */
+	friend class CZStaticRadioBitmap; /* port: HudTick 0x3d55f0 reads m_isOn / m_channel */
+	friend class CZDynamicRadioBitmap; /* port: HudTick 0x3d5340 reads m_isTalking / m_isReceiving */
 	bool PreTick();
 	bool Tick(f32 dT);
 private:

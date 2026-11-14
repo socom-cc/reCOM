@@ -73,6 +73,9 @@
 #include "gamez/zFTS/zfts.h" /* ftsGetTacMapZoom* */
 #include "gamez/zSound/zsnd.h" /* CSnd */
 #include "gamez/zVideo/zvid.h" /* zVid_Scissor */
+#include "gamez/zEntity/zentity.h" /* CPickup::m_mpbombnode, CEntity::m_list */
+#include "gamez/zWeapon/zweapon.h" /* CZWeapon::m_pProjectilelist */
+#include "gamez/zWeapon/zwep_projectilelist.h"
 #include <math.h>
 /* @socom-skeleton end include */
 
@@ -166,6 +169,8 @@ C2DString g_strNorthIndN;
 namespace {
 COverlayLine::COverlayLine()
 {
+	/* 0x3c6d60: a C2DLine in the map overlay's light blue */
+	SetColor(64.0f, 192.0f, 255.0f);
 }
 }
 
@@ -173,6 +178,7 @@ COverlayLine::COverlayLine()
 namespace {
 COverlayLine::~COverlayLine()
 {
+	/* 0x3c6cf0: base destruction only */
 }
 }
 
@@ -1171,9 +1177,40 @@ void CZNewHudMap::TickFullScreenAnims(float dT) const
 /* @socom-skeleton stub UpdateExplosives__11CZNewHudMapFv */
 void CZNewHudMap::UpdateExplosives()
 {
-	/* port: not written (0x3c3580, 524 B): a CZClaymoreMapItem for every placed claymore of
-	 * CZWeapon::m_pProjectilelist not on the map yet (claymore items are not written; the
-	 * m8 single-player kit has none) */
+	/* 0x3c3580 (CHUD::Tick when the seal's HUD weapon changed): a CZClaymoreMapItem for
+	 * every placed explosive of CZWeapon::m_pProjectilelist not on the map yet (its owner
+	 * the shooter when that is a seal), then the multiplayer bomb's item once */
+	std::vector<CZProjectile*>& explosives = CZWeapon::m_pProjectilelist->m_explosives;
+
+	for (std::vector<CZProjectile*>::iterator pit = explosives.begin(); pit != explosives.end(); ++pit)
+	{
+		CZProjectile* projectile = *pit;
+		CZClaymoreMapItem* found = NULL;
+
+		for (std::list<CZMapItem*>::iterator it = m_itemlist.begin(); it != m_itemlist.end(); ++it)
+		{
+			CZClaymoreMapItem* item = dynamic_cast<CZClaymoreMapItem*>(*it);
+
+			if (item != NULL && item->m_projectile == projectile)
+			{
+				found = item;
+				break;
+			}
+		}
+
+		if (found != NULL)
+			continue;
+
+		CEntity* shooter = CEntity::m_list.GetEntityById(projectile->m_shooterID);
+		CZSealBody* owner = shooter != NULL && shooter->m_type == CEntity::ENT_TYPE_SEAL ? static_cast<CZSealBody*>(shooter) : NULL;
+		m_itemlist.push_back(new CZClaymoreMapItem(owner, projectile));
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("HUDMAP: claymore item for projectile %p (owner %p)", projectile, owner);
+#endif
+	}
+
+	if (CPickup::m_mpbombnode != NULL && FindMPBombItem() == NULL)
+		m_itemlist.push_back(new CZMPBombMapItem(CPickup::m_mpbombnode));
 }
 
 /* @socom-skeleton stub FindMPBombItem__11CZNewHudMapFv */

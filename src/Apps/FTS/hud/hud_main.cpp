@@ -247,6 +247,10 @@ unsigned char CHUD::ReleaseHUD(CHUD **hudp)
 /* @socom-skeleton stub __dt__4CHUDFv */
 CHUD::~CHUD()
 {
+	/* 0x3bb420 (ReleaseHUD): the action icons' machine text wiped and theHUD cleared; the
+	 * rest (2.9 KB in the ELF) is the members' destruction */
+	m_actionbitmap.UnInit();
+	theHUD = NULL;
 }
 
 /* @socom-skeleton stub DrawPhase__4CHUDFQ23zdb12_RenderPhasePQ23zdb7CCamera */
@@ -340,6 +344,22 @@ void CHUD::ReInit_Init()
 
 	m_newmap.m_viewer = ftsGetPlayer();
 	m_newmap.ReInit();
+}
+
+/* port: file-local helper, not an ELF function - Init (0x3bae94) and Tick (0x3b9c7c) both print
+   the valid game-client count ("%dm" for the session master, "%d" else) into tempstr$3060
+   (0x55c048; port: its size is a guess) and set it as m_num_connected's string */
+static void hud_num_connected_text(CHUD* hud)
+{
+	static char tempstr[32];
+	s32 count = theNetwork.zNetGetValidGameClientCount();
+
+	if (theNetwork.m_bSessionMaster)
+		sprintf(tempstr, "%dm", count);
+	else
+		sprintf(tempstr, "%d", count);
+
+	hud->m_num_connected.SetString(tempstr);
 }
 
 /* @socom-skeleton body Init__4CHUDFPQ23zdb6CWorld */
@@ -510,8 +530,12 @@ void CHUD::Init(zdb::CWorld* world)
 	}
 	else
 	{
-		/* port: multiplayer only, not written (0x3bae50: "00m" at 587,437 and the
-		 * connected-client count, "%dm" for the session master) */
+		/* 0x3bae38 (multiplayer, untested): the connected-client count at 587,437 ("%dm"
+		 * for the session master) */
+		m_num_connected.Load(0.8f, "00m", m_myfont, 587, 437);
+		m_num_connected.m_color = m_hud_textcolor;
+		hud_num_connected_text(this);
+		Add2D(&m_num_connected, -1, true);
 	}
 
 	m_bmpFade.FadeIn(0.5f);
@@ -573,8 +597,15 @@ void CHUD::Tick(float dT)
 	{
 		if (seal == player && !player->m_isAlive && menustate == stateNone && theNetwork.m_bNetwork)
 		{
-			/* port: multiplayer only, not written (0x3b95e0: the HUD back on, the
-			 * letterbox out, the piggy-back texts on, the messengers off) */
+			/* 0x3b9618 (multiplayer, untested): the dead player's own view: the HUD back on,
+			 * the letterbox out, "YOU HAVE DIED" and the two hints on, the messengers off */
+			theHUD->On();
+			theHUD->m_letterbox.RemoveLetterbox();
+			m_piggyback_text1.On();
+			m_piggyback_text2.On();
+			m_piggyback_text3.On();
+			theMission.m_messenger.Off();
+			theMission.m_ammoMessenger.Off();
 		}
 		else if (!player->m_isAlive && menustate == stateNone && !theNetwork.m_bNetwork)
 		{
@@ -602,7 +633,15 @@ void CHUD::Tick(float dT)
 	}
 	else
 	{
-		/* port: multiplayer only, not written (0x3b9578: spectating a teammate) */
+		/* 0x3b9578 (multiplayer, untested): the dead player watches a team mate: the first
+		 * two piggy-back texts on, the third off, the HUD off but the team-mate names on,
+		 * the letterbox in */
+		m_piggyback_text1.On();
+		m_piggyback_text2.On();
+		m_piggyback_text3.Off();
+		theHUD->Off();
+		m_teamMateNames.On();
+		theHUD->m_letterbox.AddLetterbox();
 	}
 
 	if (seal == NULL)
@@ -700,9 +739,7 @@ void CHUD::Tick(float dT)
 	DoRangeText(seal, menustate);
 
 	if (theNetwork.m_bNetwork)
-	{
-		/* port: multiplayer only, not written (0x3b9c90: the connected-client count) */
-	}
+		hud_num_connected_text(this); /* 0x3b9c7c (multiplayer, untested) */
 
 	m_letterbox.Tick(dT);
 	m_bmpFade.Tick(dT);

@@ -71,6 +71,7 @@
  * socom-owner-annotations end socom:work:source-segment-076 */
 
 #include "gamez/zNetwork/znet.h"
+#include "gamez/zFTS/zfts.h" /* theMission (the net game's radio locations) */
 #include "gamez/zNode/node_assetlib.h"
 #include "gamez/zEntity/zentity.h" /* CPickup::m_mpbombnode */
 #include "gamez/zNode/node_action.h"
@@ -877,8 +878,51 @@ void CZStaticRadioBitmap::HudTick(MENU_STATE)
 	if (!theNetwork.m_bNetwork || !theHUD->IsOn() || theHUD->m_newmap.m_isFullScreen)
 		return;
 
-	/* port: multiplayer only, not written (0x3d5640: the voice channel's icon at the net
-	 * game's static radio location, fading in) */
+	/* 0x3d5644 (multiplayer, untested): the voice channel's icon (radio off, team, defense,
+	 * offense) 32 x 32 at the net game's static radio location, fading in; off without a net
+	 * game or an icon. ELF quirk: the channel is masked with 3 and then compared with 4, so the
+	 * dead-zone icon is never chosen. */
+	zdb::CTexHandle *texture = NULL;
+
+	if (!theVoice.m_isOn)
+	{
+		texture = m_pRadioOffTexture;
+	}
+	else
+	{
+		s32 channel = theVoice.m_channel & 3;
+
+		if (channel == 0)
+			texture = m_pRadioChannelTeamTexture;
+		else if (channel == 1)
+			texture = m_pRadioChannelDefenseTexture;
+		else if (channel == 2)
+			texture = m_pRadioChannelOffenseTexture;
+		else if (channel == 4)
+			texture = m_pRadioChannelDeadTexture;
+	}
+
+	CZNetGame *game = theMission.m_pNetGame;
+
+	if (game == NULL || texture == NULL)
+	{
+		Off();
+		return;
+	}
+
+	TickFade();
+
+	if (texture != m_pTexHandle)
+	{
+		f32 x = game->m_static_radio_loc.x;
+		f32 y = game->m_static_radio_loc.y;
+		Load(x, y, 32.0f + x, 32.0f + y, texture);
+		On();
+	}
+	else if (!IsOn())
+	{
+		On();
+	}
 }
 
 /* @socom-skeleton stub Init__20CZDynamicRadioBitmapFP4CHUD */
@@ -906,7 +950,39 @@ void CZDynamicRadioBitmap::HudTick(MENU_STATE)
 	if (!theNetwork.m_bNetwork || !theHUD->IsOn() || theHUD->m_newmap.m_isFullScreen)
 		return;
 
-	/* port: multiplayer only, not written (0x3d5390: the talking / receiving icon at the
-	 * net game's dynamic radio location) */
-	(void)off_time;
+	/* 0x3d5394 (multiplayer, untested): talking shows the "ok to talk" icon, a voice being
+	 * received the "channel busy" icon (kept 1 s past the last frame received), 32 x 32 at
+	 * the net game's dynamic radio location; otherwise off. ELF: a std::string names the
+	 * choice ("none" / "talk texture" / "listen texture") and is never read. */
+	if (theVoice.m_isReceiving)
+		off_time = 1.0f + zVid.runTime;
+
+	zdb::CTexHandle *texture = NULL;
+
+	if (theVoice.m_isTalking)
+		texture = m_pRadioChannelCanTalkTexture;
+	else if (!(off_time < zVid.runTime))
+		texture = m_pRadioChannelInUseTexture;
+
+	CZNetGame *game = theMission.m_pNetGame;
+
+	if (game == NULL || texture == NULL)
+	{
+		Off();
+		return;
+	}
+
+	TickFade();
+
+	if (texture != m_pTexHandle)
+	{
+		f32 x = game->m_dynamic_radio_loc.x;
+		f32 y = game->m_dynamic_radio_loc.y;
+		Load(x, y, 32.0f + x, 32.0f + y, texture);
+		On();
+	}
+	else if (!IsOn())
+	{
+		On();
+	}
 }

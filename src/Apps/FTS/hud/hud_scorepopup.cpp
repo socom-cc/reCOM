@@ -50,6 +50,12 @@
 #include "gamez/zUtil/util_stable.h"
 #include "hud.h" /* C2DBitmap, CHudBrightText: zseal.h no longer includes hud.h */
 /* @socom-skeleton end include */
+#include "Apps/FTS/state/state.h" /* CEntityItr */
+#include "gamez/zEntity/zentity.h"
+#include "gamez/zFTS/zfts.h" /* theMission */
+#include "gamez/zNode/node_assetlib.h" /* zdb::CAssetMgr */
+#include <stdio.h>
+#include <string.h>
 /* @socom-skeleton decl forward */
 class CHudBrightText;
 namespace {
@@ -181,14 +187,42 @@ namespace {
 namespace {
 CScoreBmp::~CScoreBmp()
 {
+	/* 0x422330: base destruction only */
 }
 }
 
 /* @socom-skeleton stub GetTeamMembers__28@unnamed@hud_scorepopup_cpp@FPP10CZSealBodyPib */
 namespace {
-int GetTeamMembers(CZSealBody **, int *, bool)
+int GetTeamMembers(CZSealBody **seals, int *scores, bool team)
 {
+	/* 0x422140: up to 8 named seals of the team (team bit 0), with their score (the kills
+	 * of both stat blocks) */
+	s32 count = 0;
+
+	for (CEntityItr it(CEntity::m_list.begin()); it._it != CEntity::m_list.end(); it.Advance())
+	{
+		CZSealBody *seal = it.GetSeal();
+
+		if (((seal->m_team & 1) != 0) != team)
+			continue;
+
+		if (seal->m_display_name == NULL)
+			continue;
+
+		seals[count] = seal;
+		scores[count] = seal->m_mp_stats.m_kills + seal->m_stats.m_kills;
+		count++;
+
+		if (count >= 8)
+			return count;
+	}
+
+	return count;
 }
+}
+
+namespace {
+void SetupBackgroundBox(); /* port: forward declaration (defined below, called by hudTickScorePopup) */
 }
 
 /* @socom-skeleton stub hudGetScorePopupPtr__Fv */
@@ -209,9 +243,21 @@ void hudTickScorePopup(const CPad &pad)
 	{
 		if (theNetwork.m_bNetwork && pad.m_state[1] == KEY_FALLING)
 		{
-			/* port: multiplayer only, not written (0x421e10: the box from the messenger's
-			 * margins, SetupBackgroundBox, the SEALs and terrorists CTeamDisplay::SetupTeam
-			 * rows, the newweapnbkrnd.tif team divider) */
+			/* 0x421ee0 (multiplayer, untested): the box spans the mission messenger (its
+			 * left edge less the margin to its right end plus the margin), from just under
+			 * it to y 354; the SEALs above the divider (blue title), the terrorists under it
+			 * (red title) */
+			g_bOn = true;
+			g_iBoxLeftX = theMission.m_messenger.m_left - theMission.m_messenger.m_XMargin;
+			g_iBoxRightX = (s32)((f32)theMission.m_messenger.m_XMargin + ((f32)theMission.m_messenger.m_left + theMission.m_messenger.m_maxlength));
+			g_iBoxTopY = theMission.m_messenger.m_top + theMission.m_messenger.m_YMargin + 5;
+			SetupBackgroundBox();
+			g_oSeals2Ds.SetupTeam((f32)g_iBoxTopY, 32.0f, 32.0f, 64.0f, "SEALs", &CZNetGame::GetE3ScoreTeam00, true);
+			f32 middle = 0.5f * ((354.0f + (f32)g_iBoxTopY) - 3.0f);
+			g_bmpTeamDivider.Load(3.0f + (f32)g_iBoxLeftX, middle, (f32)g_iBoxRightX - 3.0f, 3.0f + middle,
+				zdb::CAssetMgr::m_assets.GetTexHandle(c_szCornerBoxesTx));
+			g_bmpTeamDivider.SetUV(0.5f, 0.0f, 0.5f, 0.0f);
+			g_oTerrs2Ds.SetupTeam(0.5f * ((354.0f + (f32)g_iBoxTopY) - 3.0f), 64.0f, 32.0f, 32.0f, "TERRORISTS", &CZNetGame::GetE3ScoreTeam08, false);
 		}
 	}
 	else if (pad.m_state[1] == KEY_RISING)
@@ -229,33 +275,197 @@ void hudTickScorePopup(const CPad &pad)
 /* @socom-skeleton stub hudTurnOffScorePopup__Fv */
 void hudTurnOffScorePopup()
 {
+	/* 0x421d40 (CHUD::ReInit_Uninit): the box off, the 2 x 27 score strings freed */
+	g_bOn = false;
+
+	for (u32 i = 0; i < 27; i++)
+		g_oSeals2Ds._arrStrs[i].ClearAndWipe();
+
+	for (u32 i = 0; i < 27; i++)
+		g_oTerrs2Ds._arrStrs[i].ClearAndWipe();
 }
 
 /* @socom-skeleton stub SetupBackgroundBox__28@unnamed@hud_scorepopup_cpp@Fv */
 namespace {
 void SetupBackgroundBox()
 {
+	/* 0x421920: the box as nine pieces of newweapnbkrnd.tif: 20 px corners (y 334..354 at
+	 * the bottom), stretched edges and centre */
+	f32 left = (f32)g_iBoxLeftX;
+	f32 top = (f32)g_iBoxTopY;
+	f32 right = (f32)g_iBoxRightX;
+
+	g_bmpUlCorner.Load(left, top, 20.0f + left, 20.0f + top, zdb::CAssetMgr::m_assets.GetTexHandle(c_szCornerBoxesTx));
+	g_bmpUlCorner.SetUV(1.0f, 0.0f, 0.8843931f, 0.2702703f);
+	g_bmpUrCorner.Load(right - 20.0f, top, right, 20.0f + top, zdb::CAssetMgr::m_assets.GetTexHandle(c_szCornerBoxesTx));
+	g_bmpUrCorner.SetUV(0.8843931f, 0.0f, 1.0f, 0.2702703f);
+	g_bmpLlCorner.Load(left, 334.0f, 20.0f + left, 354.0f, zdb::CAssetMgr::m_assets.GetTexHandle(c_szCornerBoxesTx));
+	g_bmpLlCorner.SetUV(1.0f, 0.7297298f, 0.8843931f, 1.0f);
+	g_bmpLrCorner.Load(right - 20.0f, 334.0f, right, 354.0f, zdb::CAssetMgr::m_assets.GetTexHandle(c_szCornerBoxesTx));
+	g_bmpLrCorner.SetUV(0.8843931f, 0.7297298f, 1.0f, 1.0f);
+
+	zdb::CTexHandle *texture = zdb::CAssetMgr::m_assets.GetTexHandle(c_szCornerBoxesTx);
+	f32 innerLeft = 20.0f + left;
+	f32 innerRight = right - 20.0f;
+	f32 innerTop = 20.0f + top;
+	g_bmpTopEdge.Load(innerLeft, top, innerRight, innerTop, texture);
+	g_bmpTopEdge.SetUV(0.5f, 0.0f, 0.5f, 0.2702703f);
+	g_bmpLeftEdge.Load(left, innerTop, innerLeft, 334.0f, texture);
+	g_bmpLeftEdge.SetUV(1.0f, 0.5f, 0.8843931f, 0.5f);
+	g_bmpRightEdge.Load(innerRight, innerTop, right, 334.0f, texture);
+	g_bmpRightEdge.SetUV(0.8843931f, 0.5f, 1.0f, 0.5f);
+	g_bmpBottomEdge.Load(innerLeft, 334.0f, innerRight, 354.0f, texture);
+	g_bmpBottomEdge.SetUV(0.5f, 0.7297298f, 0.5f, 1.0f);
+	g_bmpCenter.Load(innerLeft, innerTop, innerRight, 334.0f, texture);
+	g_bmpCenter.SetUV(0.5f, 0.5f, 0.5f, 0.5f);
 }
 }
 
 /* @socom-skeleton stub Draw__Q228@unnamed@hud_scorepopup_cpp@11CScorePopupFPQ23zdb7CCamera */
 namespace {
-void CScorePopup::Draw(zdb::CCamera *)
+void CScorePopup::Draw(zdb::CCamera *camera)
 {
+	/* 0x421760 (the HUD's phase 0): while on, the team titles, the box pieces, each team's
+	 * divider and its 27 strings */
+	if (!g_bOn)
+		return;
+
+	g_oSeals2Ds._bmpTitleBg.Draw(camera);
+	g_oTerrs2Ds._bmpTitleBg.Draw(camera);
+	g_bmpUlCorner.C2DBitmap::Draw(camera);
+	g_bmpUrCorner.C2DBitmap::Draw(camera);
+	g_bmpLlCorner.C2DBitmap::Draw(camera);
+	g_bmpLrCorner.C2DBitmap::Draw(camera);
+	g_bmpTopEdge.C2DBitmap::Draw(camera);
+	g_bmpLeftEdge.C2DBitmap::Draw(camera);
+	g_bmpRightEdge.C2DBitmap::Draw(camera);
+	g_bmpBottomEdge.C2DBitmap::Draw(camera);
+	g_bmpCenter.C2DBitmap::Draw(camera);
+	g_bmpTeamDivider.C2DBitmap::Draw(camera);
+	g_oSeals2Ds._bmpDivider.Draw(camera);
+
+	for (u32 i = 0; i < 27; i++)
+		g_oSeals2Ds._arrStrs[i].Draw(camera);
+
+	g_oTerrs2Ds._bmpDivider.Draw(camera);
+
+	for (u32 i = 0; i < 27; i++)
+		g_oTerrs2Ds._arrStrs[i].Draw(camera);
 }
 }
 
 /* @socom-skeleton stub AddRow__Q228@unnamed@hud_scorepopup_cpp@12CTeamDisplayFPCP10CZSealBodyPCiif */
 namespace {
-void CTeamDisplay::AddRow(CZSealBody *const *, const int *, int, float)
+void CTeamDisplay::AddRow(CZSealBody *const *seals, const int *scores, int row, float top)
 {
+	/* 0x421510: row `row` of a team (7 rows share the team half of the box): the name,
+	 * the score under FRAGS, the deaths (both stat blocks) under DEATHS; white for a living
+	 * seal, grey for a dead one */
+	CZSealBody *seal = seals[row];
+	C2DFont *font = theHUD->m_myfont;
+	f32 boxTop = (f32)g_iBoxTopY;
+	f32 spacing = ((0.5f * ((354.0f + boxTop) - 3.0f) - 2.0f) - (40.0f + boxTop)) / 7.0f;
+	f32 y = (40.0f + top) + spacing * (f32)row;
+	f32 color = seal->m_isAlive ? 255.0f : 128.0f;
+	s32 iy = (s32)y;
+	char buf[16];
+	char deaths[16];
+
+	C2DString *name = &_arrStrs[row + 3];
+	name->Load(0.72f, seal->m_display_name, font, g_iBoxLeftX + 20, iy);
+	name->m_color.x = color;
+	name->m_color.y = color;
+	name->m_color.z = color;
+
+	sprintf(buf, "%d", scores[row]);
+	C2DString *frags = &_arrStrs[row + 11];
+	frags->Load(0.72f, buf, font, g_iBoxRightX - 110, iy);
+	frags->m_color.x = color;
+	frags->m_color.y = color;
+	frags->m_color.z = color;
+
+	sprintf(deaths, "%d", seal->m_mp_stats.m_deaths + seal->m_stats.m_deaths);
+	C2DString *died = &_arrStrs[row + 19];
+	died->Load(0.72f, deaths, font, g_iBoxRightX - 55, iy);
+	died->m_color.x = color;
+	died->m_color.y = color;
+	died->m_color.z = color;
 }
 }
 
 /* @socom-skeleton stub SetupTeam__Q228@unnamed@hud_scorepopup_cpp@12CTeamDisplayFffffPCcM9CZNetGameFPCvPCv_ib */
 namespace {
-void CTeamDisplay::SetupTeam(float, float, float, float, const char *, int (CZNetGame::*)() const, bool)
+void CTeamDisplay::SetupTeam(float top, float red, float green, float blue, const char *title, int (CZNetGame::*score)() const, bool team)
 {
+	/* 0x421140: the team title bar (an untextured bar in the team colour) with
+	 * "<title>: <team score>", the FRAGS / DEATHS headings and a divider, then its members
+	 * sorted (each pick: the best of the rest) and a row each */
+	f32 left = 3.0f + (f32)g_iBoxLeftX;
+	f32 right = (f32)g_iBoxRightX - 3.0f;
+	_bmpTitleBg.m_hasTexture = false;
+	_bmpTitleBg.SetColor(red, green, blue);
+	f32 bottom = 25.0f + top;
+	_bmpTitleBg.Load(left, 3.0f + top, right, bottom, NULL);
+
+	C2DFont *font = theHUD->m_myfont;
+	char text[64];
+	char number[16];
+	strcpy(text, title);
+	strcat(text, ": ");
+	sprintf(number, "%d", (theMission.m_pNetGame->*score)());
+	strcat(text, number);
+	s32 y = (s32)(20.0f + top);
+	_arrStrs[0].Load(0.8f, text, font, g_iBoxLeftX + 20, y);
+	_arrStrs[1].Load(0.72f, "FRAGS", font, g_iBoxRightX - 110, y);
+	_arrStrs[2].Load(0.72f, "DEATHS", font, g_iBoxRightX - 55, y);
+	_bmpDivider.Load(3.0f + (f32)g_iBoxLeftX, bottom, (f32)g_iBoxRightX - 3.0f, 3.0f + bottom,
+		zdb::CAssetMgr::m_assets.GetTexHandle(c_szCornerBoxesTx));
+	_bmpDivider.SetUV(0.5f, 0.0f, 0.5f, 0.0f);
+
+	CZSealBody *members[8];
+	int scores[8];
+	CZSealBody *sorted[8];
+	int sortedScores[8];
+	s32 count = GetTeamMembers(members, scores, team);
+
+	for (s32 i = 0; i < count; i++)
+	{
+		s32 best = 0;
+
+		for (s32 j = 1; j < count; j++)
+		{
+			/* ELF quirk: an empty pick loses to anything; a living seal beats a dead one;
+			 * the scores decide only when the current best is alive and the other dead */
+			bool better = false;
+			CZSealBody *a = members[best];
+			CZSealBody *b = members[j];
+
+			if (a == NULL)
+			{
+				better = true;
+			}
+			else if (b != NULL)
+			{
+				bool aliveA = a->m_isAlive;
+				bool aliveB = b->m_isAlive;
+
+				if (aliveB && !aliveA)
+					better = true;
+				else if (!aliveA == aliveB)
+					better = scores[best] < scores[j];
+			}
+
+			if (better)
+				best = j;
+		}
+
+		sorted[i] = members[best];
+		sortedScores[i] = scores[best];
+		members[best] = NULL;
+	}
+
+	for (s32 i = 0; i < count; i++)
+		AddRow(sorted, sortedScores, i, top);
 }
 }
 
@@ -263,5 +473,6 @@ void CTeamDisplay::SetupTeam(float, float, float, float, const char *, int (CZNe
 namespace {
 CScorePopup::~CScorePopup()
 {
+	/* 0x4210e0: base destruction only */
 }
 }

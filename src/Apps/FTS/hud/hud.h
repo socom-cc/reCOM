@@ -504,13 +504,11 @@ public:
 class CInGameWeaponSel : public C2D
 {
 public:
-	void HudTick(f32 delta);
 	int GetPrevItem(s32 curitem); /* port: DWARF GetPrevItem__16CInGameWeaponSelFi returns int */
 	void Clear();
-	void Init(zdb::CWorld* world);
 	void SelectWeapon();
-	void SelectEquipment();
-	bool CanSelectWeapon(s32 index) const;
+	/* port: the stale HudTick(f32), Init(CWorld*), SelectEquipment() and const
+	 * CanSelectWeapon(s32) declarations were removed (never defined; the ELF ones are below) */
 public: /* port: public (DWARF has no access; CHUD and the HUD units set these) */
 	CHUD* m_parent;
 
@@ -1207,6 +1205,13 @@ public:
 	virtual bool Tick(CZNewHudMap *, float);
 	virtual void Draw(zdb::CCamera *);
 	CZClaymoreMapItem(CZSealBody *, CZProjectile *);
+	/* DWARF members (576 bytes) */
+	CZSealBody* m_owner;             /* +0x4 */
+	CZProjectile* m_projectile;      /* +0x8 */
+	C2DBitmapPoly m_graphic;         /* +0x10 */
+	C2DTriFan m_clippedgraphic;      /* +0x200 */
+	bool m_wasdetonated;             /* +0x22c */
+	f32 m_size;                      /* +0x230: the icon's half size on the map (grows after the blast) */
 	static float m_U0;
 	static float m_U1;
 	static float m_V0;
@@ -1266,6 +1271,12 @@ public:
 	virtual bool Tick(CZNewHudMap *, float);
 	virtual void Draw(zdb::CCamera *);
 	CZMPBombMapItem(zdb::CNode *);
+	/* DWARF members (576 bytes) */
+	C2DBitmapPoly m_graphic;         /* +0x10 */
+	C2DTriFan m_clippedgraphic;      /* +0x200 */
+	bool m_wasdetonated;             /* +0x22c */
+	f32 m_size;                      /* +0x230 */
+	zdb::CNode* m_node;              /* +0x234: the bomb pickup's node */
 	static float m_U0;
 	static float m_U1;
 	static float m_V0;

@@ -54,6 +54,7 @@ CZHudMissionCams::CZHudMissionCams()
 /* @socom-skeleton stub __dt__16CZHudMissionCamsFv */
 CZHudMissionCams::~CZHudMissionCams()
 {
+	/* 0x4042c0: member and base destruction only */
 }
 
 /* @socom-skeleton stub Init__16CZHudMissionCamsFv */

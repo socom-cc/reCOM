@@ -698,8 +698,16 @@ void zdb::CWorld::DeleteLandmark(zdb::CNode *)
 }
 
 /* @socom-skeleton stub FindLandmark__Q23zdb6CWorldFPCc */
-zdb::CNode * zdb::CWorld::FindLandmark(const char *)
+zdb::CNode * zdb::CWorld::FindLandmark(const char *name)
 {
+	/* 0x22ebf0: the first landmark of that name, else NULL */
+	for (CNodeVector::iterator it = m_landmarks.begin(); it != m_landmarks.end(); ++it)
+	{
+		if (strcmp((*it)->m_name, name) == 0)
+			return *it;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub GetIntersect__Q23zdb6CWorldFPC6CPnt3DPC6CPnt3D */

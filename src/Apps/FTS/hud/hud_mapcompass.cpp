@@ -184,6 +184,10 @@ MapCompass::MapCompass()
 /* @socom-skeleton stub __dt__10MapCompassFv */
 MapCompass::~MapCompass()
 {
+	/* 0x3cbd80: the nav packages' storage released (cleared, then swapped with an empty
+	 * vector); the members follow */
+	navpoint_vec.clear();
+	std::vector<nav_package>().swap(navpoint_vec);
 }
 
 /* @socom-skeleton stub SetScale__10MapCompassFf */

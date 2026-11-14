@@ -15,6 +15,11 @@
 #include "gamez/zUtil/util_stable.h"
 #include "hud.h"
 /* @socom-skeleton end include */
+#include "gamez/zCamera/zcam.h"
+#include "gamez/zEntity/zentity.h"
+#include "gamez/zFTS/zfts.h" /* ftsGetPlayer */
+#include "gamez/zNode/node_world.h"
+#include "gamez/zSeal/zseal.h"
 
 /* @socom-skeleton stub MultiplayerMsgStrings */
 static CSTable MultiplayerMsgStrings;
@@ -63,4 +68,97 @@ unsigned char WordIntersectionTest(int x1, int y1, int x2, int y2, C2DString *st
 /* @socom-skeleton stub Tick__14CTeamMateNamesFf */
 void CTeamMateNames::Tick(float)
 {
+	/* 0x3de6a0 (CHUD::Tick, network games only; untested offline): a floating name over
+	 * every rendered team mate (same team bit 0 as the player, not the player, dead for
+	 * less than 5 s), up to 15: the head point (3 units up) through the world-to-screen
+	 * matrix, the name centred on it and kept inside the screen (x < 600, between the
+	 * letterbox margins); a name overlapping an earlier one moves down 5 px until it is
+	 * clear; a dead mate's name fades (100 - 20 x seconds dead). Names left over hide.
+	 * ELF: team bit 0x20000 keeps the text that was there; a mate off screen gets an
+	 * empty text and no slot. */
+	s32 count = 0;
+
+	for (std::list<CEntity*>::iterator it = CEntity::m_list.begin(); it != CEntity::m_list.end() && count < 15; ++it)
+	{
+		CEntity *entity = *it;
+		CZSealBody *seal = entity != NULL && entity->m_type == CEntity::ENT_TYPE_SEAL ? static_cast<CZSealBody*>(entity) : NULL;
+
+		if (seal == NULL || seal->GetNode() == NULL)
+			continue;
+
+		if (!(seal->m_TimeSpentDead < 5.0f))
+			continue;
+
+		if (!seal->GetNode()->Rendered())
+			continue;
+
+		if (ftsGetPlayer() == seal)
+			continue;
+
+		if (((ftsGetPlayer()->m_team & 1) != 0) != ((seal->m_team & 1) != 0))
+			continue;
+
+		CPnt3D head;
+		CPnt3D dir;
+		seal->GetHeadParams(&head, &dir);
+
+		const f32 (&screen)[4][4] = zdb::CWorld::m_world->m_camera->m_mtxSet.m_vu->mtxWorldToScreen;
+		f32 point[4] = { head.x, head.y + 3.0f, head.z, 1.0f };
+		f32 s[4];
+
+		for (s32 k = 0; k < 4; k++)
+			s[k] = screen[0][k] * point[0] + screen[1][k] * point[1] + screen[2][k] * point[2] + screen[3][k] * point[3];
+
+		if (s[3] <= 0.0001f)
+			continue;
+
+		f32 inv = 1.0f / s[3];
+		C2DString *name = &m_teamMateNames[count];
+
+		if (!(seal->m_team & 0x20000))
+			name->SetString(seal->m_display_name);
+
+		name->UpdatePos();
+		f32 half = name->m_length / 2.0f;
+		f32 x = ((320.0f + s[0] * inv) - 2048.0f) - half;
+		f32 y = (224.0f + s[1] * inv) - 2048.0f;
+
+		if (!(x < 600.0f && y < 448.0f - xMargin && !(x <= 0.0f) && !(y <= xMargin)))
+		{
+			name->SetString("");
+			continue;
+		}
+
+		/* ELF: the right test adds the half length to the left edge */
+		if (!(x + half <= 600.0f))
+			x = 600.0f - half;
+
+		if (x - name->m_length / 2.0f < 0.0f)
+			x = name->m_length / 2.0f;
+
+		for (s32 j = 0; j < count; j++)
+		{
+			f32 length = name->m_length;
+			s32 height = name->m_font->m_displaybottom - name->m_font->m_displaytop;
+
+			if (WordIntersectionTest((s32)(x - 10.0f), (s32)(y - 10.0f), (s32)(10.0f + (x + length)), (s32)(10.0f + (y + (f32)height)), &m_teamMateNames[j]))
+			{
+				j = -1;
+				y += 5.0f;
+			}
+		}
+
+		if (!seal->m_isAlive)
+			name->SetTrans(100.0f - 20.0f * seal->m_TimeSpentDead);
+		else
+			name->SetTrans(100.0f);
+
+		name->m_pos.x = (s32)x << 4;
+		name->m_pos.y = (s32)y << 4;
+		name->On();
+		count++;
+	}
+
+	for (; count < 15; count++)
+		m_teamMateNames[count].Off();
 }

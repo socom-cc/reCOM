@@ -30,6 +30,8 @@
 #include "gamez/zUtil/util_stable.h"
 #include "hud.h"
 /* @socom-skeleton end include */
+#include "gamez/zFTS/zfts.h"
+#include "gamez/zNetwork/znet.h"
 
 /* @socom-skeleton stub m_U1__15CZMPBombMapItem */
 float CZMPBombMapItem::m_U1 = 1.0f;
@@ -65,21 +67,70 @@ float CZMPBombMapItem::m_explosionV1;
 static CSTable MultiplayerMsgStrings;
 
 /* @socom-skeleton stub __ct__15CZMPBombMapItemFPQ23zdb5CNode */
-CZMPBombMapItem::CZMPBombMapItem(zdb::CNode *)
+CZMPBombMapItem::CZMPBombMapItem(zdb::CNode *node)
 {
+	/* 0x3c7170 (CZNewHudMap::UpdateExplosives, multiplayer): the bomb pickup's map icon,
+	 * 3 units, red */
+	m_node = node;
+	m_wasdetonated = false;
+	m_size = 3.0f;
+	m_graphic.SetColor(255.0f, 0.0f, 0.0f);
 }
 
 /* @socom-skeleton stub __dt__15CZMPBombMapItemFv */
 CZMPBombMapItem::~CZMPBombMapItem()
 {
+	/* 0x3c6dc0: member and base destruction only */
+}
+
+/* port: file-local helper, not an ELF function - Tick's two inline placements (as
+ * hud_claymoremapitem.cpp's): a square of half size `size` about the node on the map */
+static void BombPlace(CZNewHudMap *map, C2DBitmapPoly *graphic, const zdb::CNode *node, f32 size, zdb::CTexture *texture)
+{
+	CPnt3D pos(node->m_matrix.m_matrix[3][0], node->m_matrix.m_matrix[3][1], node->m_matrix.m_matrix[3][2]);
+	map->m_matrix.Transform(&pos, 1);
+	f32 y0 = map->CalcDrawPos(pos.y - size);
+	f32 y1 = map->CalcDrawPos(pos.y + size);
+	f32 y2 = map->CalcDrawPos(pos.y + size);
+	f32 y3 = map->CalcDrawPos(pos.y - size);
+	graphic->Load(pos.x - size, y0, pos.x - size, y1, pos.x + size, y2, pos.x + size, y3, texture);
 }
 
 /* @socom-skeleton stub Tick__15CZMPBombMapItemFP11CZNewHudMapf */
-bool CZMPBombMapItem::Tick(CZNewHudMap *, float)
+bool CZMPBombMapItem::Tick(CZNewHudMap *map, float dT)
 {
+	/* 0x3c6e90 (multiplayer, untested): the bomb icon on; in a network demolition game
+	 * (game type 7) a detonated bomb starts the explosion, a captured one (carried) removes
+	 * the item; the explosion icon grows 10 units/s, removed past 154. ELF: m_node is
+	 * tested only for the demolition check, the placement reads it unchecked */
+	if (!m_wasdetonated)
+	{
+		if (!m_graphic.IsOn())
+			m_graphic.On();
+
+		if (m_node != NULL && !m_wasdetonated && theNetwork.m_bNetwork && theMission.m_pNetGame != NULL &&
+			theMission.m_pNetGame->m_game_type == MP_GAME_TYPE::MP_GAME_FOOTBOMB)
+		{
+			if (CZBombState::m_BombStatus.CurrentBombState == CZBombState::BOMB_DETONATED)
+				m_wasdetonated = true;
+			else if (CZBombState::m_BombStatus.CurrentBombState == CZBombState::BOMB_CAPTURED)
+				return true;
+		}
+
+		BombPlace(map, &m_graphic, m_node, m_size, m_mpbombtex);
+		m_graphic.SetUV(m_U0, m_V0, m_U1, m_V1);
+		return false;
+	}
+
+	m_size += 10.0f * dT;
+	BombPlace(map, &m_graphic, m_node, m_size, m_explosiontex);
+	m_graphic.SetUV(m_explosionU0, m_explosionV0, m_explosionU1, m_explosionV1);
+	return !(m_size <= 154.0f);
 }
 
 /* @socom-skeleton stub Draw__15CZMPBombMapItemFPQ23zdb7CCamera */
-void CZMPBombMapItem::Draw(zdb::CCamera *)
+void CZMPBombMapItem::Draw(zdb::CCamera *camera)
 {
+	/* 0x3c6e70: virtual tail call */
+	m_graphic.Draw(camera);
 }

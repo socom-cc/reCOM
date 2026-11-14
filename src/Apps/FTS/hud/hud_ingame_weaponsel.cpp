@@ -45,127 +45,1111 @@
 #include "hud.h"
 /* @socom-skeleton end include */
 
+#include "gamez/zFTS/zfts.h" /* CCtrlrConfigs, PadBtnFunc */
+#include "gamez/zGame/zgame.h" /* MENU_STATE */
+#include "gamez/zCharacter/zchar.h" /* CCharacterType, CCharacterWeapList */
+#include "gamez/zNode/node_assetlib.h" /* zdb::CAssetMgr */
+#include "gamez/zSeal/zseal.h" /* CZSealBody, CSealCtrl */
+#include "gamez/zSound/zsnd.h" /* CSnd */
+#include "gamez/zTexture/ztex.h" /* zdb::CTexture, zdb::CTexHandle */
+#include "gamez/zValve/zvalve.h" /* CValve */
+#include "gamez/zWeapon/zweapon.h" /* CZWeapon::m_listWeapons */
+#include <stdio.h>
+#include <string.h>
+
+/* The network game's respawn loadout menu (CHUD::Tick runs HudTick only in a network game
+ * while the player is dead; "Press the R2 button to select weapons for the next round").
+ * Unlike CWeaponSel it scrolls through the whole weapon list (CZWeapon::m_listWeapons, the
+ * mission's "Enable_*" valves deciding what can be picked), marks the chosen ones SELECTED
+ * and lists them ("Selected Weapons:"); closing writes them into the seal's character. Slot
+ * 1 is the current weapon, 0 the one before, 2 the one after, 3 the one scrolling in. All
+ * from the ELF (0x3f8000..0x3fd330); single player never opens it, so untested. */
+
 /* @socom-skeleton stub MultiplayerMsgStrings */
 static CSTable MultiplayerMsgStrings;
 
 /* @socom-skeleton stub __ct__16CInGameWeaponSelFv */
 CInGameWeaponSel::CInGameWeaponSel()
 {
+	/* 0x3fd030: the members, then closed, every slot at the origin, icons 4 px into their
+	 * slots, no weapon in a slot, a fully lit selection, the arrows at 50 rising */
+	m_cursound = -1;
+	m_openstate = 0;
+
+	for (s32 i = 0; i < 4; i++)
+	{
+		m_menuposx[i] = 0.0f;
+		m_menuposy[i] = 0.0f;
+	}
+
+	m_nameoffsetx = 0.0f;
+	m_nameoffsety = 0.0f;
+	m_iconoffsetx = 4.0f;
+	m_iconoffsety = 4.0f;
+	m_current_item = 0;
+	m_curheight = 0.0f;
+	m_goalheight = 0.0f;
+	m_incCurcolor = false;
+	m_curcolor = 1.0f;
+
+	for (s32 i = 3; i >= 0; i--)
+		m_selected[i] = 0;
+
+	for (s32 i = 3; i >= 0; i--)
+		m_icon_selected[i] = 0;
+
+	m_arrowcolor = 50.0f;
+	m_arrowincrement = true;
 }
 
 /* @socom-skeleton stub Init__16CInGameWeaponSelFPQ23zdb6CWorldP7C2DFont */
-void CInGameWeaponSel::Init(zdb::CWorld *, C2DFont *)
+void CInGameWeaponSel::Init(zdb::CWorld *world, C2DFont *font)
 {
+	/* 0x3fc5c0 (CHUD::Init, every mission): the textures (icon placeholders, the
+	 * weapon_selection.tif background, the slot highlight, the scroll arrow), the children
+	 * in draw order, everything hidden; the background column at x 29..200, y 99..355; the
+	 * texts loaded once with placeholders (grey, hidden); the sounds */
+	m_openstate = 0;
+
+	for (s32 i = 0; i < 4; i++)
+		m_weapontex[i] = zdb::CAssetMgr::m_assets.GetTexHandle("reticuletex.tif");
+
+	m_weaponselbkrndtex = zdb::CAssetMgr::m_assets.GetTexHandle("weapon_selection.tif");
+
+	for (s32 i = 0; i < 4; i++)
+		m_selectionbacktex[i] = zdb::CAssetMgr::m_assets.GetTexHandle("hud_weapon_selected_on.tif");
+
+	m_arrowtex = GetTextureByName(world, "hud_arrow_off.tif");
+	m_myfont = font;
+
+	push_back(&m_weaponselbkrnd);
+	push_back(&m_selectionback[0]);
+	push_back(&m_weaponicon[0]);
+	push_back(&m_selectedtext[0]);
+	push_back(&m_selectionback[3]);
+	push_back(&m_weaponicon[3]);
+	push_back(&m_selectionback[2]);
+	push_back(&m_weaponicon[2]);
+	push_back(&m_selectedtext[2]);
+	m_selectionback[2].SetUV(0.01f, 0.99f, 0.99f, 0.01f);
+	m_selectionback[0].SetUV(0.1f, 0.01f, 0.99f, 0.99f);
+	push_back(&m_selectionback[1]);
+	push_back(&m_weaponicon[1]);
+	push_back(&m_selectedtext[1]);
+
+	for (s32 i = 0; i < 6; i++)
+		push_back(&m_weaponselectedname[i]);
+
+	push_back(&m_weaponselectedtitle);
+
+	m_arrow[0].Off();
+	m_arrow[1].Off();
+	m_arrow[0].SetUV(0.0f, 0.05f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.05f);
+	m_arrow[0].SetTrans(70.0f);
+	m_arrow[1].SetTrans(70.0f);
+	m_arrow[0].SetColor(50.0f, 50.0f, 50.0f);
+	m_arrow[1].SetColor(50.0f, 50.0f, 50.0f);
+	m_arrowcolor = 50.0f;
+	m_arrowincrement = true;
+	push_back(&m_arrow[0]);
+	push_back(&m_arrow[1]);
+
+	C2DString *texts[5] = { &m_weaponname, &m_weapondescription, &m_ammotype, &m_ammocount, &m_magcount };
+
+	for (s32 i = 0; i < 5; i++)
+	{
+		texts[i]->m_color.x = 80.0f;
+		texts[i]->m_color.y = 80.0f;
+		texts[i]->m_color.z = 80.0f;
+		push_back(texts[i]);
+	}
+
+	m_weaponselbkrnd.Off();
+	m_weaponselbkrnd.SetTrans(100.0f);
+
+	for (s32 i = 0; i < 4; i++)
+	{
+		m_selectionback[i].Off();
+		m_weaponicon[i].Off();
+	}
+
+	for (s32 i = 0; i < 3; i++)
+		m_selectedtext[i].Off();
+
+	for (s32 i = 0; i < 6; i++)
+		m_weaponselectedname[i].Off();
+
+	m_weaponselectedtitle.Off();
+	m_weaponname.Off();
+	m_weapondescription.Off();
+	m_magcount.Off();
+	m_ammocount.Off();
+	m_ammotype.Off();
+
+	m_menuposx[1] = 30.0f;
+	m_menuposy[1] = 200.0f;
+	f32 top = (m_menuposy[1] - 1.0f) - 100.0f;
+	f32 left = m_menuposx[1] - 1.0f;
+	m_weaponselbkrnd.Load(left, top, left + 171.0f, top + 256.0f, m_weaponselbkrndtex);
+	m_selectionback[1].Load(m_menuposx[1] - 1.0f, m_menuposy[1] - 1.0f, (m_menuposx[1] + 128.0f) + 2.0f, (m_menuposy[1] + 32.0f) + 2.0f, m_selectionbacktex[1]);
+	m_selectionback[1].SetUV(0.01f, 0.01f, 0.99f, 0.99f);
+	m_weaponicon[1].Load(m_menuposx[1] + m_iconoffsetx, m_menuposy[1] + m_iconoffsety, m_weapontex[1]);
+
+	s32 x = (s32)(m_menuposx[1] + m_nameoffsetx);
+	m_weaponname.Load(1.0f, "3", m_myfont, x, (s32)(m_menuposy[1] + m_nameoffsety));
+	m_weapondescription.Load(1.0f, "3", m_myfont, (s32)(m_menuposx[1] + m_nameoffsetx), (s32)(m_menuposy[1] + m_nameoffsety));
+	m_ammotype.Load(1.0f, "2", m_myfont, (s32)(m_menuposx[1] + m_nameoffsetx), (s32)(12.0f + (m_menuposy[1] + m_nameoffsety)));
+	m_ammocount.Load(1.0f, "1", m_myfont, (s32)(m_menuposx[1] + m_nameoffsetx), (s32)(24.0f + (m_menuposy[1] + m_nameoffsety)));
+	m_magcount.Load(1.0f, "4testing", m_myfont, (s32)(m_menuposx[1] + m_nameoffsetx), (s32)(36.0f + (m_menuposy[1] + m_nameoffsety)));
+	m_weaponname.Off();
+	m_weapondescription.Off();
+	m_ammotype.Off();
+	m_ammocount.Off();
+	m_magcount.Off();
+
+	m_selectsound = CSnd::GetSoundByName("SND_THUNK");
+	m_scrollupsound = CSnd::GetSoundByName("SND_SLIDE");
+	m_scrolldownsound = CSnd::GetSoundByName("SND_SLIDE");
 }
 
 /* @socom-skeleton stub UnInit__16CInGameWeaponSelFv */
 void CInGameWeaponSel::UnInit()
 {
+	/* 0x3fc450 (CHUD::ReInit_Uninit): an open menu is closed at once (the close of
+	 * HandleOpenState and AfterCloseFirst, inlined, then AfterClose), then the texts'
+	 * buffers freed */
+	if (m_openstate != 0)
+	{
+		if (CHUD::GetHUDOwner() != NULL)
+		{
+			m_arrow[0].Off();
+			m_arrow[1].Off();
+			m_weaponselbkrnd.Off();
+			m_selectionback[0].On();
+			m_selectionback[1].On();
+			m_selectionback[2].On();
+			m_selectionback[3].On();
+			m_openstate = 6;
+			SwitchOffText();
+			UpdateCharacter();
+		}
+
+		AfterCloseFirst();
+		AfterClose();
+	}
+
+	Clear();
 }
 
 /* @socom-skeleton stub Clear__16CInGameWeaponSelFv */
 void CInGameWeaponSel::Clear()
 {
+	/* 0x3fc360: every text's string freed */
+	m_weaponname.ClearAndWipe();
+	m_weapondescription.ClearAndWipe();
+	m_ammotype.ClearAndWipe();
+	m_ammocount.ClearAndWipe();
+	m_magcount.ClearAndWipe();
+
+	for (s32 i = 0; i < 3; i++)
+		m_selectedtext[i].ClearAndWipe();
+
+	for (s32 i = 0; i < 6; i++)
+		m_weaponselectedname[i].ClearAndWipe();
+
+	m_weaponselectedtitle.ClearAndWipe();
 }
 
 /* @socom-skeleton stub OnOpen__16CInGameWeaponSelFv */
 void CInGameWeaponSel::OnOpen()
 {
+	/* 0x3fbcb0: the loadout starts from the seal's character (its first six weapons, the
+	 * rest empty); the menu opens on the first selectable weapon of the list, with the ones
+	 * before and after it (wrapping) in slots 0 and 2: slot 1 starts collapsed at the left
+	 * edge (state 1 slides it to x 10, y 219 and grows it to 35); the background stays off
+	 * until AfterOpenSecond. The seal's menu state becomes weapon selection. */
+	CZSealBody *owner = CHUD::GetHUDOwner();
+
+	if (owner == NULL)
+		return;
+
+	CCharacterType *character = owner->GetCharacter();
+	u32 count = character->m_weapons.size();
+
+	for (s32 i = 0; i < 6; i++)
+		m_selected_item_index[i] = EQUIP_ITEM::EQUIP_NONE;
+
+	for (u32 i = 0; i < 6 && i < count; i++)
+	{
+		/* ELF: a weapon id of 0 is read a second time (the same value) */
+		EQUIP_ITEM item = character->GetWeaponByIndex(i);
+
+		if ((u8)item == 0)
+			item = character->GetWeaponByIndex(i);
+
+		m_selected_item_index[i] = item;
+	}
+
+	m_curheight = 0.0f;
+	m_goalheight = ((m_menuposy[1] + 32.0f) + 2.0f) - (m_menuposy[1] - 1.0f);
+	m_menucentery = m_goalheight / 2.0f;
+	m_menugoaly = 219.0f;
+	m_menugoalx = 10.0f;
+	m_openstate = 1;
+
+	/* the first selectable weapon (GetNextItem(-1), inlined), then its neighbours (GetPrevItem
+	 * and GetNextItem, inlined) */
+	m_current_item = GetNextItem(-1);
+	s32 prev = GetPrevItem(m_current_item);
+	s32 next = GetNextItem(m_current_item);
+
+	CZWeapon *weapon = CZWeapon::m_listWeapons.GetWeaponByIndex(prev);
+	m_weapontex[0] = weapon != NULL ? weapon->m_icontex : NULL;
+	weapon = CZWeapon::m_listWeapons.GetWeaponByIndex(m_current_item);
+	m_weapontex[1] = weapon != NULL ? weapon->m_icontex : NULL;
+	weapon = CZWeapon::m_listWeapons.GetWeaponByIndex(next);
+	m_weapontex[2] = weapon != NULL ? weapon->m_icontex : NULL;
+	m_selected[0] = prev;
+	m_selected[1] = m_current_item;
+	m_selected[2] = next;
+	m_icon_selected[0] = IsSelected(prev);
+	m_icon_selected[1] = IsSelected(m_current_item);
+	m_icon_selected[2] = IsSelected(next);
+
+	m_menuposx[1] = 0.0f;
+	m_menuposy[1] = 200.0f;
+	m_menustartx = m_menuposx[1];
+	m_weaponselbkrnd.Off();
+
+	/* ELF quirk: this highlight's right edge is x + 171 (the other placements use x - 1) */
+	f32 top = ((m_menuposy[1] - 1.0f) + m_menucentery) - m_curheight;
+	m_selectionback[1].Load(m_menuposx[1] - 1.0f, top, m_menuposx[1] + 171.0f, top + 64.0f, m_selectionbacktex[1]);
+	m_selectionback[1].On();
+	m_weaponicon[1].Load(m_menuposx[1] + m_iconoffsetx, m_menuposy[1] + m_iconoffsety, m_weapontex[1]);
+
+	for (s32 i = 0; i < 3; i++)
+		m_selectedtext[i].Off();
+
+	for (s32 i = 0; i < 6; i++)
+		m_weaponselectedname[i].Off();
+
+	m_weaponselectedtitle.Off();
+
+	/* slot 1's icon clipped to the grown height (SetItemPos 1's icon part, inlined) */
+	m_curheight = m_goalheight * ((m_menuposx[1] - m_menustartx) / m_menugoalx - m_menustartx);
+	f32 centre = (m_menuposy[1] - 1.0f) + m_menucentery;
+	f32 iconTop = 1.0f + (centre - 0.5f * m_curheight);
+
+	if (!(iconTop <= centre))
+		iconTop = centre;
+
+	f32 iconBottom = (0.5f * m_curheight + centre) - 1.0f;
+
+	if (iconBottom < centre)
+		iconBottom = centre;
+
+	if (m_weapontex[1] != NULL)
+	{
+		zdb::CTexture *texture = m_weapontex[1]->m_texture;
+		f32 width = (f32)texture->m_width;
+		f32 height = (f32)texture->m_height;
+
+		if (!(iconBottom - iconTop <= height))
+			iconBottom = iconTop + height;
+
+		f32 x = m_menuposx[1] + m_iconoffsetx;
+		m_weaponicon[1].SetPos((s32)x, (s32)(iconTop + m_iconoffsety), (s32)(width + x), (s32)(iconBottom + m_iconoffsety));
+	}
+
+	m_weaponicon[1].On();
+	m_weaponname.Off();
+	m_weapondescription.Off();
+	m_ammotype.Off();
+	m_ammocount.Off();
+	m_magcount.Off();
+	m_incCurcolor = false;
+	m_curcolor = 1.0f;
+
+	for (s32 i = 0; i < 4; i++)
+	{
+		m_weaponicon[i].SetTrans(40.0f);
+		m_selectionback[i].SetTrans(40.0f);
+	}
+
+	m_weaponicon[1].SetTrans(128.0f);
+	m_selectionback[1].SetTrans(128.0f);
+	static_cast<CSealCtrl*>(owner->m_control)->SetMenuState(stateWeaponSel);
 }
 
 /* @socom-skeleton stub HandleOpenState__16CInGameWeaponSelFP4CPadf */
-void CInGameWeaponSel::HandleOpenState(CPad *, float)
+void CInGameWeaponSel::HandleOpenState(CPad *pad, float dT)
 {
+	/* 0x3fba70: the open menu. The current slot's highlight pulses between 0.1 and 0.7;
+	 * UP/DOWN scroll, Action selects (or unselects) the current weapon, Inventory closes
+	 * the menu (state 6) and writes the loadout into the character. The arrows pulse. */
+	if (CHUD::GetHUDOwner() == NULL)
+		return;
+
+	if (!m_incCurcolor)
+	{
+		m_curcolor = Increment(0.3f * dT, m_curcolor, 0.1f);
+
+		if (0.1f == m_curcolor)
+			m_incCurcolor = true;
+	}
+	else
+	{
+		m_curcolor = Increment(0.3f * dT, m_curcolor, 0.7f);
+
+		if (0.7f == m_curcolor)
+			m_incCurcolor = false;
+	}
+
+	f32 color = 0.5f * (255.0f * m_curcolor);
+	m_selectionback[1].SetColor(color, color, color);
+
+	if (pad->m_state[(u32)PAD_BUTTON::PAD_UP] == KEY_FALLING)
+	{
+		OnScrollUp();
+	}
+	else if (pad->m_state[(u32)PAD_BUTTON::PAD_DOWN] == KEY_FALLING)
+	{
+		OnScrollDown();
+	}
+	else if (CCtrlrConfigs::GetButtonState(PadBtnFunc::Action, *pad) == KEY_FALLING)
+	{
+		SelectWeapon();
+	}
+	else if (CCtrlrConfigs::GetButtonState(PadBtnFunc::Inventory, *pad) == KEY_FALLING && CHUD::GetHUDOwner() != NULL)
+	{
+		m_arrow[0].Off();
+		m_arrow[1].Off();
+		m_weaponselbkrnd.Off();
+		m_selectionback[0].On();
+		m_selectionback[1].On();
+		m_selectionback[2].On();
+		m_selectionback[3].On();
+		m_openstate = 6;
+		SwitchOffText();
+		UpdateCharacter();
+	}
+
+	PulseSelectionArrows(dT);
 }
 
 /* @socom-skeleton stub PulseSelectionArrows__16CInGameWeaponSelFf */
-void CInGameWeaponSel::PulseSelectionArrows(float)
+void CInGameWeaponSel::PulseSelectionArrows(float dT)
 {
+	/* 0x3fb7f0 (as CWeaponSel's 0x3d3770): after a scroll one arrow is brighter: it fades
+	 * down (500/s) to the other's colour, then its trans goes to 100 and the pulse resumes
+	 * from there; otherwise both pulse together between 60 and 120 (250/s) */
+	CPnt3D up;
+	CPnt3D down;
+	static_cast<PNT3D&>(up) = m_arrow[0].m_tris[0].GetColor();
+	static_cast<PNT3D&>(down) = m_arrow[1].m_tris[0].GetColor();
+
+	if (!(up.x <= down.x))
+	{
+		CPnt3D step;
+		step.x = 500.0f * dT;
+		step.y = step.x;
+		step.z = step.x;
+		up.Sub(&step, &up);
+
+		if (up.x < down.x)
+		{
+			up = down;
+			m_arrow[0].SetTrans(100.0f);
+			m_arrowincrement = true;
+			m_arrowcolor = up.x;
+		}
+
+		m_arrow[0].SetColor(up.x, up.y, up.z);
+	}
+	else if (!(down.x <= up.x))
+	{
+		CPnt3D step;
+		step.x = 500.0f * dT;
+		step.y = step.x;
+		step.z = step.x;
+		down.Sub(&step, &down);
+
+		if (down.x < up.x)
+		{
+			down = up;
+			m_arrow[1].SetTrans(100.0f);
+			m_arrowincrement = true;
+			m_arrowcolor = down.x;
+		}
+
+		m_arrow[1].SetColor(down.x, down.y, down.z);
+	}
+	else
+	{
+		if (m_arrowincrement)
+		{
+			m_arrowcolor += 250.0f * dT;
+
+			if (!(m_arrowcolor <= 120.0f))
+			{
+				m_arrowincrement = !m_arrowincrement;
+				m_arrowcolor = 120.0f;
+			}
+		}
+		else
+		{
+			m_arrowcolor -= 250.0f * dT;
+
+			if (m_arrowcolor < 60.0f)
+			{
+				m_arrowincrement = !m_arrowincrement;
+				m_arrowcolor = 60.0f;
+			}
+		}
+
+		m_arrow[0].SetColor(m_arrowcolor, m_arrowcolor, m_arrowcolor);
+		m_arrow[1].SetColor(m_arrowcolor, m_arrowcolor, m_arrowcolor);
+	}
 }
 
 /* @socom-skeleton stub HandleScrollUpState__16CInGameWeaponSelFf */
-void CInGameWeaponSel::HandleScrollUpState(float)
+void CInGameWeaponSel::HandleScrollUpState(float dT)
 {
+	/* 0x3fb470: slots 1 and 2 move up one slot (950/s); the current weapon fades to 40, the
+	 * incoming one to 128; at the goal the slots shift (AfterScrollUp). The ELF inlines
+	 * Increment. */
+	f32 step = 2.0f * (475.0f * dT);
+	m_menuposx[1] = Increment(step, m_menuposx[1], m_menuposx[3] - m_menugoalx);
+	m_menuposy[1] = Increment(step, m_menuposy[1], m_menuposy[3] - 2.0f * m_menugoaly);
+	m_menuposx[2] = Increment(step, m_menuposx[2], m_menuposx[3] - m_menugoalx);
+	m_menuposy[2] = Increment(step, m_menuposy[2], m_menuposy[3] - m_menugoaly);
+
+	f32 t = 1.0f + ((m_menuposy[3] - m_menugoaly) - m_menuposy[2]) / m_menugoaly;
+	m_curtrans[0] = 40.0f + 88.0f * (1.0f - t);
+	m_curtrans[1] = 40.0f + 88.0f * t;
+	m_weaponicon[2].SetTrans(m_curtrans[1]);
+	m_selectionback[2].SetTrans(m_curtrans[1]);
+	m_weaponicon[1].SetTrans(m_curtrans[0]);
+	m_selectionback[1].SetTrans(m_curtrans[0]);
+
+	if (m_menuposy[2] == m_menuposy[3] - m_menugoaly)
+		AfterScrollUp();
+
+	SetItemPos(4);
 }
 
 /* @socom-skeleton stub HandleScrollDownState__16CInGameWeaponSelFf */
-void CInGameWeaponSel::HandleScrollDownState(float)
+void CInGameWeaponSel::HandleScrollDownState(float dT)
 {
+	/* 0x3fb100: slots 0 and 1 move down one slot (950/s), the fades as for up; at the goal
+	 * AfterScrollDown. The ELF inlines Increment. */
+	f32 step = 2.0f * (475.0f * dT);
+	m_menuposx[0] = Increment(step, m_menuposx[0], m_menuposx[3] + m_menugoalx);
+	m_menuposy[0] = Increment(step, m_menuposy[0], m_menuposy[3] + m_menugoaly);
+	m_menuposx[1] = Increment(step, m_menuposx[1], m_menuposx[3] + 2.0f * m_menugoalx);
+	m_menuposy[1] = Increment(step, m_menuposy[1], m_menuposy[3] + 2.0f * m_menugoaly);
+
+	f32 t = ((m_menuposy[3] + m_menugoaly) - m_menuposy[0]) / m_menugoaly;
+	m_curtrans[0] = 40.0f + 88.0f * (1.0f - t);
+	m_curtrans[1] = 40.0f + 88.0f * t;
+	m_weaponicon[0].SetTrans(m_curtrans[0]);
+	m_selectionback[0].SetTrans(m_curtrans[0]);
+	m_weaponicon[1].SetTrans(m_curtrans[1]);
+	m_selectionback[1].SetTrans(m_curtrans[1]);
+
+	if (m_menuposy[0] == m_menuposy[3] + m_menugoaly)
+		AfterScrollDown();
+
+	SetItemPos(5);
 }
 
 /* @socom-skeleton stub AfterCloseFirst__16CInGameWeaponSelFv */
 void CInGameWeaponSel::AfterCloseFirst()
 {
+	/* 0x3fb040: slots 0 and 2 have merged into 1; slot 1 now shrinks back to the left edge
+	 * (state 7) */
+	m_goalheight = ((m_menuposy[1] + 32.0f) + 2.0f) - (m_menuposy[1] - 1.0f);
+	m_curheight = m_goalheight;
+	m_menucentery = m_goalheight / 2.0f;
+	m_menugoaly = m_menuposy[1];
+	m_menugoalx = m_menuposx[1];
+	m_menustartx = 0.0f;
+	m_openstate = 7;
+	m_weaponicon[0].Off();
+	m_selectionback[0].Off();
+	m_weaponicon[2].Off();
+	m_selectionback[2].Off();
+}
+
+/* port: file-local helper, not an ELF function - the slot highlight placement the ELF
+ * repeats inline: from one pixel above-left of the slot, 171 wide, 64 high */
+static void IgwsLoadHighlight(C2DBitmap &bitmap, f32 posx, f32 posy, zdb::CTexHandle *texture)
+{
+	f32 x = posx - 1.0f;
+	f32 y = posy - 1.0f;
+	bitmap.Load(x, y, x + 171.0f, y + 64.0f, texture);
 }
 
 /* @socom-skeleton stub OnScrollDown__16CInGameWeaponSelFv */
 void CInGameWeaponSel::OnScrollDown()
 {
+	/* 0x3fadc0: state 5; slot 3 takes slot 0's place and shows the selectable weapon before
+	 * slot 0's (wrapping); the lower arrow lights up, the texts hide until the scroll ends.
+	 * ELF quirks: the incoming icon is loaded but not switched on; slot 1's highlight is
+	 * reloaded with slot 0's texture. */
+	m_openstate = 5;
+	m_menuposx[3] = m_menuposx[0];
+	m_menuposy[3] = m_menuposy[0];
+	IgwsLoadHighlight(m_selectionback[3], m_menuposx[3], m_menuposy[3], m_selectionbacktex[3]);
+	m_selectionback[3].On();
+	m_menugoalx = 0.0f;
+	m_menugoaly = m_menuposy[2] - m_menuposy[1];
+
+	if (CHUD::GetHUDOwner() == NULL)
+		return;
+
+	s32 prev = GetPrevItem(m_selected[0]); /* ELF: inlined */
+	CZWeapon *weapon = CZWeapon::m_listWeapons.GetWeaponByIndex(prev);
+	m_weapontex[3] = weapon != NULL ? weapon->m_icontex : NULL;
+	m_selected[3] = prev;
+	m_icon_selected[3] = IsSelected(prev);
+	m_weaponicon[3].Load(m_menuposx[3] + m_iconoffsetx, m_menuposy[3] + m_iconoffsety, m_weapontex[3]);
+	IgwsLoadHighlight(m_selectionback[1], m_menuposx[1], m_menuposy[1], m_selectionbacktex[0]);
+	m_arrow[1].SetTrans(128.0f);
+	m_arrow[1].SetColor(100.0f, 100.0f, 100.0f);
+	m_arrow[0].SetColor(60.0f, 60.0f, 60.0f);
+	m_arrowcolor = 50.0f;
+	m_arrowincrement = true;
+	m_goaltrans[0] = 128.0f;
+	m_curtrans[0] = 40.0f;
+	m_goaltrans[1] = 40.0f;
+	m_curtrans[1] = 128.0f;
+
+	if (m_scrolldownsound != NULL)
+		m_scrolldownsound->PlaySoundVol(0.5f, NULL, 255);
+
+	SwitchOffText();
 }
 
 /* @socom-skeleton stub OnScrollUp__16CInGameWeaponSelFv */
 void CInGameWeaponSel::OnScrollUp()
 {
+	/* 0x3fab30: state 4; slot 3 takes slot 2's place and shows the selectable weapon after
+	 * slot 2's (wrapping); the upper arrow lights up, the texts hide until the scroll ends.
+	 * ELF quirk: slot 1's highlight is reloaded with slot 0's texture. */
+	m_openstate = 4;
+	m_menuposx[3] = m_menuposx[2];
+	m_menuposy[3] = m_menuposy[2];
+	IgwsLoadHighlight(m_selectionback[3], m_menuposx[3], m_menuposy[3], m_selectionbacktex[3]);
+	m_selectionback[3].On();
+	m_menugoalx = 0.0f;
+	m_menugoaly = m_menuposy[2] - m_menuposy[1];
+
+	if (CHUD::GetHUDOwner() == NULL)
+		return;
+
+	s32 next = GetNextItem(m_selected[2]); /* ELF: inlined */
+	m_selected[3] = next;
+	m_icon_selected[3] = IsSelected(next);
+	CZWeapon *weapon = CZWeapon::m_listWeapons.GetWeaponByIndex(next);
+	m_weapontex[3] = weapon != NULL ? weapon->m_icontex : NULL;
+	m_weaponicon[3].Load(m_menuposx[3] + m_iconoffsetx, m_menuposy[3] + m_iconoffsety, m_weapontex[3]);
+	m_weaponicon[3].On();
+	IgwsLoadHighlight(m_selectionback[1], m_menuposx[1], m_menuposy[1], m_selectionbacktex[0]);
+	m_arrow[0].SetTrans(128.0f);
+	m_arrow[0].SetColor(100.0f, 100.0f, 100.0f);
+	m_arrow[1].SetColor(60.0f, 60.0f, 60.0f);
+	m_arrowcolor = 50.0f;
+	m_arrowincrement = true;
+	m_goaltrans[0] = 40.0f;
+	m_curtrans[0] = 128.0f;
+	m_goaltrans[1] = 128.0f;
+	m_curtrans[1] = 40.0f;
+
+	if (m_scrollupsound != NULL)
+		m_scrollupsound->PlaySoundVol(0.5f, NULL, 255);
+
+	SwitchOffText();
 }
 
 /* @socom-skeleton stub SelectWeapon__16CInGameWeaponSelFv */
 void CInGameWeaponSel::SelectWeapon()
 {
+	/* 0x3fa8c0 (Action): a primary weapon goes in loadout slot 0, a sidearm in slot 1,
+	 * anything else is toggled in the four equipment slots (SelectEquipment); then the
+	 * select sound, the neighbours and SELECTED marks again, the texts, the character.
+	 * ELF: the current weapon is not NULL-tested for its id. */
+	if (CHUD::GetHUDOwner() == NULL)
+		return;
+
+	EQUIP_ITEM id = CZWeapon::m_listWeapons.GetWeaponByIndex(m_current_item)->m_ID;
+
+	if (CZWeapon::IsPrimary(id))
+	{
+		m_icon_selected[1] = 1;
+		CZWeapon *weapon = CZWeapon::m_listWeapons.GetWeaponByIndex(m_current_item);
+		m_selected_item_index[0] = weapon != NULL ? weapon->m_ID : EQUIP_ITEM::EQUIP_NONE;
+	}
+	else if (CZWeapon::IsSecondary(id))
+	{
+		m_icon_selected[1] = 1;
+		CZWeapon *weapon = CZWeapon::m_listWeapons.GetWeaponByIndex(m_current_item);
+		m_selected_item_index[1] = weapon != NULL ? weapon->m_ID : EQUIP_ITEM::EQUIP_NONE;
+	}
+	else
+	{
+		SelectEquipment(m_current_item);
+	}
+
+	if (m_selectsound != NULL)
+		m_selectsound->PlaySoundVol(0.5f, NULL, 255);
+
+	s32 prev = GetPrevItem(m_current_item); /* ELF: inlined */
+	s32 next = GetNextItem(m_current_item); /* ELF: inlined */
+	m_selected[0] = prev;
+	m_selected[1] = m_current_item;
+	m_selected[2] = next;
+	m_icon_selected[0] = IsSelected(prev);
+	m_icon_selected[1] = IsSelected(m_current_item);
+	m_icon_selected[2] = IsSelected(next);
+	PlaceWeaponText();
+	UpdateCharacter();
 }
 
 /* @socom-skeleton stub SelectEquipment__16CInGameWeaponSelFi */
-void CInGameWeaponSel::SelectEquipment(int)
+void CInGameWeaponSel::SelectEquipment(int index)
 {
+	/* 0x3fa7c0: a selected item is taken out of loadout slots 2..5 (the rest packed up),
+	 * an unselected one goes in the first free one; error sound when it is not found / no
+	 * slot is free */
+	if (IsSelected(index))
+	{
+		CZWeapon *weapon = CZWeapon::m_listWeapons.GetWeaponByIndex(index);
+
+		for (s32 i = 2; i < 6; i++)
+		{
+			if (weapon != NULL && m_selected_item_index[i] == weapon->m_ID)
+			{
+				m_selected_item_index[i] = EQUIP_ITEM::EQUIP_NONE;
+				m_icon_selected[1] = 0;
+				RePackEquipment();
+				return;
+			}
+		}
+
+		CSnd::PlayErrorSound();
+		return;
+	}
+
+	CZWeapon *weapon = CZWeapon::m_listWeapons.GetWeaponByIndex(index);
+
+	for (s32 i = 2; i < 6; i++)
+	{
+		if (m_selected_item_index[i] == EQUIP_ITEM::EQUIP_NONE)
+		{
+			m_selected_item_index[i] = weapon != NULL ? weapon->m_ID : EQUIP_ITEM::EQUIP_NONE;
+			m_icon_selected[1] = 1;
+			return;
+		}
+	}
+
+	CSnd::PlayErrorSound();
 }
 
 /* @socom-skeleton stub RePackEquipment__16CInGameWeaponSelFv */
 void CInGameWeaponSel::RePackEquipment()
 {
+	/* 0x3fa760: every empty equipment slot (2..5) closes up: the later ones move down one,
+	 * the last becomes empty */
+	for (s32 i = 2; i < 6; i++)
+	{
+		if (m_selected_item_index[i] == EQUIP_ITEM::EQUIP_NONE)
+		{
+			for (s32 j = i; j < 5; j++)
+				m_selected_item_index[j] = m_selected_item_index[j + 1];
+
+			m_selected_item_index[5] = EQUIP_ITEM::EQUIP_NONE;
+		}
+	}
 }
 
 /* @socom-skeleton stub AfterClose__16CInGameWeaponSelFv */
 void CInGameWeaponSel::AfterClose()
 {
+	/* 0x3fa610: closed: the seal's menu state ends, TRIANGLE is held down (so the close does
+	 * not act this frame), everything hides. ELF quirk: the pad (NULL for a pad id over 1)
+	 * is not tested. */
+	CZSealBody *owner = CHUD::GetHUDOwner();
+
+	if (owner == NULL)
+		return;
+
+	CSealCtrl *control = static_cast<CSealCtrl*>(owner->m_control);
+	control->SetMenuState(stateNone);
+	CPad *pad = control->m_padid < 2 ? CInput::m_pads[control->m_padid] : NULL;
+	pad->SetButtonState(PAD_BUTTON::PAD_TRIANGLE, KEY_DOWN);
+
+	for (s32 i = 0; i < 4; i++)
+		m_selectionback[i].Off();
+
+	for (s32 i = 0; i < 4; i++)
+		m_weaponicon[i].Off();
+
+	m_arrow[0].Off();
+	m_arrow[1].Off();
+	m_weaponname.Off();
+	m_weapondescription.Off();
+	m_ammotype.Off();
+	m_ammocount.Off();
+	m_magcount.Off();
+	m_openstate = 0;
 }
 
 /* @socom-skeleton stub AfterScrollDown__16CInGameWeaponSelFv */
 void CInGameWeaponSel::AfterScrollDown()
 {
+	/* 0x3fa310: the scroll down is done: slot 0's weapon is current; the slots shift down
+	 * (1 -> 2, 0 -> 1, 3 -> 0) with their SELECTED marks, slot 3 hides, fades and texts reset */
+	if (CHUD::GetHUDOwner() == NULL)
+		return;
+
+	m_openstate = 3;
+	m_current_item = m_selected[0];
+
+	m_menuposx[2] = m_menuposx[1];
+	m_menuposy[2] = m_menuposy[1];
+	m_weapontex[2] = m_weapontex[1];
+	m_weaponicon[2].Load(m_menuposx[2] + m_iconoffsetx, m_menuposy[2] + m_iconoffsety, m_weapontex[2]);
+	IgwsLoadHighlight(m_selectionback[2], m_menuposx[2], m_menuposy[2], m_selectionbacktex[2]);
+	m_selected[2] = m_selected[1];
+	m_icon_selected[2] = IsSelected(m_selected[2]);
+
+	m_menuposx[1] = m_menuposx[0];
+	m_menuposy[1] = m_menuposy[0];
+	m_weapontex[1] = m_weapontex[0];
+	m_weaponicon[1].Load(m_menuposx[1] + m_iconoffsetx, m_menuposy[1] + m_iconoffsety, m_weapontex[1]);
+	IgwsLoadHighlight(m_selectionback[1], m_menuposx[1], m_menuposy[1], m_selectionbacktex[1]);
+	m_selected[1] = m_selected[0];
+	m_icon_selected[1] = IsSelected(m_selected[1]);
+
+	m_menuposx[0] = m_menuposx[3];
+	m_menuposy[0] = m_menuposy[3];
+	m_weapontex[0] = m_weapontex[3];
+	m_weaponicon[0].Load(m_menuposx[0] + m_iconoffsetx, m_menuposy[0] + m_iconoffsety, m_weapontex[0]);
+	IgwsLoadHighlight(m_selectionback[0], m_menuposx[0], m_menuposy[0], m_selectionbacktex[0]);
+	m_selected[0] = m_selected[3];
+	m_icon_selected[0] = IsSelected(m_selected[0]);
+
+	m_weaponicon[3].Off();
+	m_selectionback[3].Off();
+	m_arrow[0].SetTrans(70.0f);
+	m_arrow[1].SetTrans(70.0f);
+	m_curcolor = 1.0f;
+	m_incCurcolor = false;
+
+	for (s32 i = 0; i < 4; i++)
+	{
+		m_weaponicon[i].SetTrans(40.0f);
+		m_selectionback[i].SetTrans(40.0f);
+	}
+
+	m_weaponicon[1].SetTrans(128.0f);
+	m_selectionback[1].SetTrans(128.0f);
+	PlaceWeaponText();
 }
 
 /* @socom-skeleton stub AfterScrollUp__16CInGameWeaponSelFv */
 void CInGameWeaponSel::AfterScrollUp()
 {
+	/* 0x3fa020: the scroll up is done: slot 2's weapon is current; the slots shift up
+	 * (1 -> 0, 2 -> 1, 3 -> 2) with their SELECTED marks, slot 3 hides, fades and texts reset */
+	if (CHUD::GetHUDOwner() == NULL)
+		return;
+
+	m_openstate = 3;
+	m_current_item = m_selected[2];
+
+	m_menuposx[0] = m_menuposx[1];
+	m_menuposy[0] = m_menuposy[1];
+	m_weapontex[0] = m_weapontex[1];
+	m_weaponicon[0].Load(m_menuposx[0] + m_iconoffsetx, m_menuposy[0] + m_iconoffsety, m_weapontex[0]);
+	IgwsLoadHighlight(m_selectionback[0], m_menuposx[0], m_menuposy[0], m_selectionbacktex[0]);
+	m_selected[0] = m_selected[1];
+	m_icon_selected[0] = IsSelected(m_selected[0]);
+
+	m_menuposx[1] = m_menuposx[2];
+	m_menuposy[1] = m_menuposy[2];
+	m_weapontex[1] = m_weapontex[2];
+	m_weaponicon[1].Load(m_menuposx[1] + m_iconoffsetx, m_menuposy[1] + m_iconoffsety, m_weapontex[1]);
+	IgwsLoadHighlight(m_selectionback[1], m_menuposx[1], m_menuposy[1], m_selectionbacktex[1]);
+	m_selected[1] = m_selected[2];
+	m_icon_selected[1] = IsSelected(m_selected[1]);
+
+	m_menuposx[2] = m_menuposx[3];
+	m_menuposy[2] = m_menuposy[3];
+	m_weapontex[2] = m_weapontex[3];
+	m_weaponicon[2].Load(m_menuposx[2] + m_iconoffsetx, m_menuposy[2] + m_iconoffsety, m_weapontex[2]);
+	IgwsLoadHighlight(m_selectionback[2], m_menuposx[2], m_menuposy[2], m_selectionbacktex[2]);
+	m_selected[2] = m_selected[3];
+	m_icon_selected[2] = IsSelected(m_selected[2]);
+
+	m_weaponicon[3].Off();
+	m_selectionback[3].Off();
+	m_arrow[0].SetTrans(70.0f);
+	m_arrow[1].SetTrans(70.0f);
+	m_curcolor = 1.0f;
+	m_incCurcolor = false;
+
+	for (s32 i = 0; i < 4; i++)
+	{
+		m_weaponicon[i].SetTrans(40.0f);
+		m_selectionback[i].SetTrans(40.0f);
+	}
+
+	m_weaponicon[1].SetTrans(128.0f);
+	m_selectionback[1].SetTrans(128.0f);
+	PlaceWeaponText();
 }
 
 /* @socom-skeleton stub AfterOpenSecond__16CInGameWeaponSelFv */
 void CInGameWeaponSel::AfterOpenSecond()
 {
+	/* 0x3f9e20: the menu is open (state 3): the background column behind the slots, the
+	 * scroll arrows centred above slot 0 and below slot 2 (the lower one flipped), the
+	 * slot highlights off (state 3 pulses slot 1's), the current weapon's texts */
+	f32 x = m_menuposx[1] - 1.0f;
+	f32 top = (((m_menuposy[1] - 1.0f) + m_menucentery) - 0.5f * m_curheight) - 96.0f;
+	m_weaponselbkrnd.Load(x, top, x + 171.0f, top + 256.0f, m_weaponselbkrndtex);
+	m_weaponselbkrnd.On();
+
+	if (m_arrowtex != NULL)
+	{
+		f32 height = (f32)m_arrowtex->m_height;
+		f32 width = (f32)m_arrowtex->m_width;
+		m_arrow[0].On();
+		f32 centre = x + 85.5f;
+		f32 right = centre + 0.5f * width;
+		f32 left = centre - 0.5f * width;
+		f32 upper = (m_menuposy[0] - 10.0f) + 10.0f;
+		m_arrow[0].Load(left, upper - height, left, upper, right, upper, right, upper - height, m_arrowtex);
+		m_arrow[1].On();
+		f32 lower = 10.0f + (m_menuposy[2] + 48.0f);
+		m_arrow[1].Load(right, lower + height, right, lower, left, lower, left, lower + height, m_arrowtex);
+	}
+
+	m_selectionback[0].Off();
+	m_selectionback[1].Off();
+	m_selectionback[2].Off();
+	m_selectionback[3].Off();
+	PlaceWeaponText();
+	m_openstate = 3;
 }
 
 /* @socom-skeleton stub AfterOpenFirst__16CInGameWeaponSelFv */
 void CInGameWeaponSel::AfterOpenFirst()
 {
+	/* 0x3f9cb0: slot 1 has slid in; slots 0 and 2 start on it and spread out one slot
+	 * height (64) up and down (state 2) */
+	m_weaponicon[0].On();
+	m_weaponicon[2].On();
+	m_openstate = 2;
+	m_menugoaly = 64.0f;
+	m_menugoalx = 0.0f;
+	m_menuposx[2] = m_menuposx[1];
+	m_menuposx[0] = m_menuposx[1];
+	m_menuposy[2] = m_menuposy[1];
+	m_menuposy[0] = m_menuposy[1];
+
+	m_weaponicon[0].Load(m_menuposx[0] + m_iconoffsetx, m_menuposy[0] + m_iconoffsety, m_weapontex[0]);
+	m_weaponicon[0].On();
+	IgwsLoadHighlight(m_selectionback[0], m_menuposx[0], m_menuposy[0], m_selectionbacktex[0]);
+	m_selectionback[0].On();
+
+	m_weaponicon[2].Load(m_menuposx[2] + m_iconoffsetx, m_menuposy[2] + m_iconoffsety, m_weapontex[2]);
+	m_weaponicon[2].On();
+	IgwsLoadHighlight(m_selectionback[2], m_menuposx[2], m_menuposy[2], m_selectionbacktex[2]);
+	m_selectionback[2].On();
 }
 
 /* @socom-skeleton stub HudTick__16CInGameWeaponSelFP4CPadf */
-void CInGameWeaponSel::HudTick(CPad *, float)
+void CInGameWeaponSel::HudTick(CPad *pad, float dT)
 {
+	/* 0x3f9930 (CHUD::Tick: network game, the player dead): closed (0): Inventory (R2)
+	 * opens it. 1: slot 1 slides in and grows; 2: slots 0 and 2 slide out (475 px/s);
+	 * 3: open; 4/5: scrolling; 6: slots 0 and 2 slide back into 1; 7: slot 1 shrinks back
+	 * to the edge. No background fade (unlike CWeaponSel). */
+	switch (m_openstate)
+	{
+	case 0:
+		if (CHUD::GetHUDOwner() != NULL && CCtrlrConfigs::GetButtonState(PadBtnFunc::Inventory, *pad) == KEY_FALLING)
+			OnOpen();
+
+		break;
+	case 1:
+	{
+		f32 step = 475.0f * dT;
+		m_curheight = m_goalheight * ((m_menuposx[1] - m_menustartx) / m_menugoalx - m_menustartx);
+		m_menuposx[1] = Increment(step, m_menuposx[1], m_menugoalx);
+		m_menuposy[1] = Increment(step, m_menuposy[1], m_menugoaly);
+		SetItemPos(1);
+
+		if (m_menuposx[1] == m_menugoalx && m_menuposy[1] == m_menugoaly)
+			AfterOpenFirst();
+
+		break;
+	}
+	case 2:
+	{
+		f32 step = 475.0f * dT;
+		m_menuposx[0] = Increment(step, m_menuposx[0], m_menuposx[1] - m_menugoalx);
+		m_menuposy[0] = Increment(step, m_menuposy[0], m_menuposy[1] - m_menugoaly);
+		m_menuposx[2] = Increment(step, m_menuposx[2], m_menuposx[1] + m_menugoalx);
+		m_menuposy[2] = Increment(step, m_menuposy[2], m_menuposy[1] + m_menugoaly);
+		SetItemPos(2);
+
+		if (m_menuposx[0] == m_menuposx[1] - m_menugoalx && m_menuposy[0] == m_menuposy[1] - m_menugoaly)
+			AfterOpenSecond();
+
+		break;
+	}
+	case 3:
+		HandleOpenState(pad, dT);
+		break;
+	case 4:
+		HandleScrollUpState(dT);
+		break;
+	case 5:
+		HandleScrollDownState(dT);
+		break;
+	case 6:
+	{
+		f32 step = 475.0f * dT;
+		m_menuposx[0] = Increment(step, m_menuposx[0], m_menuposx[1]);
+		m_menuposy[0] = Increment(step, m_menuposy[0], m_menuposy[1]);
+		m_menuposx[2] = Increment(step, m_menuposx[2], m_menuposx[1]);
+		m_menuposy[2] = Increment(step, m_menuposy[2], m_menuposy[1]);
+		SetItemPos(6);
+
+		if (m_menuposx[0] == m_menuposx[1] && m_menuposy[0] == m_menuposy[1])
+			AfterCloseFirst();
+
+		break;
+	}
+	case 7:
+		m_curheight = m_goalheight * ((m_menuposx[1] - m_menustartx) / m_menugoalx - m_menustartx);
+		m_menuposx[1] = Increment(475.0f * dT, m_menuposx[1], m_menustartx);
+		SetItemPos(7);
+
+		if (m_menuposx[1] == m_menustartx)
+			AfterClose();
+
+		break;
+	}
 }
 
 /* @socom-skeleton stub Increment__16CInGameWeaponSelFfff */
-float CInGameWeaponSel::Increment(float, float, float)
+float CInGameWeaponSel::Increment(float increment, float val, float goal)
 {
+	/* 0x3f98d0: val stepped toward goal, not past it */
+	if (val < goal)
+		return val + increment <= goal ? val + increment : goal;
+
+	if (!(val <= goal))
+	{
+		val -= increment;
+		return val < goal ? goal : val;
+	}
+
+	return val;
+}
+
+/* port: file-local helper, not an ELF function - SetItemPos repeats this for each slot it
+ * places: the icon at the slot plus the icon offset, the highlight from one pixel
+ * above-left of the slot, 171 x 64 */
+static void IgwsPlaceSlot(CInGameWeaponSel &sel, s32 i)
+{
+	sel.m_weaponicon[i].SetPos((s32)(sel.m_menuposx[i] + sel.m_iconoffsetx), (s32)(sel.m_menuposy[i] + sel.m_iconoffsety));
+	f32 x = sel.m_menuposx[i] - 1.0f;
+	f32 y = sel.m_menuposy[i] - 1.0f;
+	sel.m_selectionback[i].SetPos((s32)x, (s32)y, (s32)(171.0f + x), (s32)(64.0f + y));
 }
 
 /* @socom-skeleton stub SetItemPos__16CInGameWeaponSelFi */
-void CInGameWeaponSel::SetItemPos(int)
+void CInGameWeaponSel::SetItemPos(int state)
 {
+	/* 0x3f8fa0 (a jump table on the open state, 0x467e80): 1 and 7 place slot 1 growing
+	 * or shrinking (centred, the icon clipped to the height); 2 and 6 slots 0 and 2; 4
+	 * slots 1 and 2; 5 slots 0 and 1. The ELF repeats the per-slot placement inline. */
+	switch (state)
+	{
+	case 1:
+	case 7:
+	{
+		m_curheight = m_goalheight * ((m_menuposx[1] - m_menustartx) / m_menugoalx - m_menustartx);
+		f32 centre = (m_menuposy[1] - 1.0f) + m_menucentery;
+		f32 top = 1.0f + (centre - 0.5f * m_curheight);
+
+		if (!(top <= centre))
+			top = centre;
+
+		f32 bottom = (0.5f * m_curheight + centre) - 1.0f;
+
+		if (bottom < centre)
+			bottom = centre;
+
+		if (m_weapontex[1] != NULL)
+		{
+			zdb::CTexture *texture = m_weapontex[1]->m_texture;
+			f32 width = (f32)texture->m_width;
+			f32 height = (f32)texture->m_height;
+
+			if (!(bottom - top <= height))
+				bottom = top + height;
+
+			f32 x = m_menuposx[1] + m_iconoffsetx;
+			m_weaponicon[1].SetPos((s32)x, (s32)(top + m_iconoffsety), (s32)(width + x), (s32)(bottom + m_iconoffsety));
+		}
+
+		f32 x = m_menuposx[1] - 1.0f;
+		f32 y = ((m_menuposy[1] - 1.0f) + m_menucentery) - 0.5f * m_curheight;
+		m_selectionback[1].SetPos((s32)x, (s32)y, (s32)(171.0f + x), (s32)(64.0f + y));
+		break;
+	}
+	case 2:
+	case 6:
+		IgwsPlaceSlot(*this, 0);
+		IgwsPlaceSlot(*this, 2);
+		break;
+	case 4:
+		IgwsPlaceSlot(*this, 1);
+		IgwsPlaceSlot(*this, 2);
+		break;
+	case 5:
+		IgwsPlaceSlot(*this, 0);
+		IgwsPlaceSlot(*this, 1);
+		break;
+	default:
+		break;
+	}
 }
 
 /* @socom-skeleton stub SwitchOffText__16CInGameWeaponSelFv */
 void CInGameWeaponSel::SwitchOffText()
 {
+	/* 0x3f8eb0 */
+	m_weaponname.Off();
+	m_weapondescription.Off();
+	m_ammotype.Off();
+	m_ammocount.Off();
+	m_magcount.Off();
+
+	for (s32 i = 0; i < 3; i++)
+		m_selectedtext[i].Off();
+
+	for (s32 i = 0; i < 6; i++)
+		m_weaponselectedname[i].Off();
+
+	m_weaponselectedtitle.Off();
 }
 
 /* @socom-skeleton stub PlaceWeaponText__16CInGameWeaponSelFv */
@@ -173,29 +1157,245 @@ void CInGameWeaponSel::PlaceWeaponText()
 {
 	/* @socom-skeleton stub tempstr$2976 */
 	static char tempstr[80];
+
+	/* 0x3f8860: the current weapon's name (upper case) under slot 1, "capacity/capacity"
+	 * right-aligned beside it (none without a magazine, none for the designator), the spare
+	 * magazines under it; "SELECTED" beside each slot whose weapon is in the loadout; the
+	 * loadout listed at 300,200 under "Selected Weapons:". ELF quirk: a loadout id with no
+	 * weapon ends the whole function (the rest of the list stays as it was). */
+	f32 x = 4.0f + m_menuposx[1];
+	f32 y = 48.0f + m_menuposy[1];
+	m_weaponname.On();
+	m_weapondescription.Off();
+	m_ammotype.Off();
+	m_ammocount.On();
+	m_magcount.On();
+
+	if (CHUD::GetHUDOwner() == NULL)
+		return;
+
+	CZWeapon *weapon = CZWeapon::m_listWeapons.GetWeaponByIndex(m_current_item);
+
+	if (weapon->m_ID == EQUIP_ITEM::DESIGNATOR)
+		m_ammocount.Off();
+	else
+		m_ammocount.On();
+
+	s32 mags = weapon->GetNumMags();
+	s32 capacity = weapon->GetAmmoCapacity();
+	char *name = weapon->GetName();
+	strlen(name); /* ELF: the length is computed and dropped */
+	strncpy(tempstr, name, 80);
+	CHUD::HudText_to_upper(tempstr);
+	s32 ix = (s32)x;
+	s32 iy = (s32)y;
+	m_weaponname.Load(0.8f, tempstr, m_myfont, ix, iy);
+
+	if (capacity == 0)
+	{
+		m_ammocount.Off();
+	}
+	else
+	{
+		sprintf(tempstr, "%d/%d", capacity, capacity);
+		m_ammocount.Load(0.8f, tempstr, m_myfont, (s32)(80.0f + x), iy);
+		m_ammocount.UpdatePos();
+		s32 right = (s32)((171.0f + m_menuposx[1]) - (m_ammocount.m_length + 4.0f));
+		m_ammocount.m_pos.x = right << 4;
+		m_ammocount.m_pos.y = iy << 4;
+		m_ammocount.UpdatePos();
+	}
+
+	y += 14.0f;
+
+	if (mags != 0)
+		mags--;
+
+	if (mags == 0)
+	{
+		m_magcount.Off();
+	}
+	else
+	{
+		if (mags < 2)
+			sprintf(tempstr, "%d MAG", mags);
+		else
+			sprintf(tempstr, "%d MAGS", mags);
+
+		m_magcount.Load(0.8f, tempstr, m_myfont, ix, (s32)y);
+	}
+
+	for (s32 i = 0; i < 3; i++)
+		m_selectedtext[i].Load(1.0f, "SELECTED", m_myfont, (s32)(45.0f + (2.0f + (128.0f + m_menuposx[i]))), (s32)(36.0f + m_menuposy[i]));
+
+	for (s32 i = 0; i < 3; i++)
+	{
+		if (m_icon_selected[i] != 0)
+			m_selectedtext[i].On();
+		else
+			m_selectedtext[i].Off();
+	}
+
+	m_weaponselectedtitle.Load(1.0f, "Selected Weapons:", m_myfont, 300, 182);
+	m_weaponselectedtitle.On();
+
+	for (s32 i = 0; i < 6; i++)
+	{
+		if (m_selected_item_index[i] == EQUIP_ITEM::EQUIP_NONE)
+		{
+			m_weaponselectedname[i].Off();
+			continue;
+		}
+
+		CZWeapon *selected = CZWeapon::m_listWeapons.GetWeapon(m_selected_item_index[i]);
+
+		if (selected == NULL)
+		{
+			m_weaponselectedname[i].Off();
+			return;
+		}
+
+		m_weaponselectedname[i].Load(1.0f, selected->GetName(), m_myfont, 300, (s32)(200.0f + 18.0f * (f32)i));
+		m_weaponselectedname[i].On();
+	}
 }
 
 /* @socom-skeleton stub GetNextItem__16CInGameWeaponSelFi */
-int CInGameWeaponSel::GetNextItem(int)
+int CInGameWeaponSel::GetNextItem(int curitem)
 {
+	/* 0x3f8730: the next selectable weapon of the list after curitem (wrapping; recursive,
+	 * the ELF inlines one level). 0 without a HUD owner. ELF: the weapon's name is fetched
+	 * and dropped. */
+	if (CHUD::GetHUDOwner() == NULL)
+		return 0;
+
+	s32 item = curitem + 1;
+
+	if (item >= (s32)CZWeapon::m_listWeapons.size())
+		item = 0;
+
+	while (!CanSelectWeapon(item))
+		item = GetNextItem(item);
+
+	CZWeapon *weapon = CZWeapon::m_listWeapons.GetWeaponByIndex(item);
+
+	if (weapon != NULL)
+		weapon->GetName();
+
+	return item;
 }
 
 /* @socom-skeleton stub GetPrevItem__16CInGameWeaponSelFi */
-int CInGameWeaponSel::GetPrevItem(int)
+int CInGameWeaponSel::GetPrevItem(int curitem)
 {
+	/* 0x3f8620: the previous selectable weapon (wrapping; recursive, one level inlined).
+	 * 0 without a HUD owner. ELF: the weapon's name is fetched and dropped. */
+	if (CHUD::GetHUDOwner() == NULL)
+		return 0;
+
+	s32 item = curitem - 1;
+
+	if (item < 0)
+		item = (s32)CZWeapon::m_listWeapons.size() - 1;
+
+	if (!CanSelectWeapon(item))
+		item = GetPrevItem(item);
+
+	CZWeapon *weapon = CZWeapon::m_listWeapons.GetWeaponByIndex(item);
+
+	if (weapon != NULL)
+		weapon->GetName();
+
+	return item;
 }
 
 /* @socom-skeleton stub CanSelectWeapon__16CInGameWeaponSelFi */
-unsigned char CInGameWeaponSel::CanSelectWeapon(int)
+unsigned char CInGameWeaponSel::CanSelectWeapon(int index)
 {
+	/* 0x3f8170: a weapon can be picked when the mission's (or the game's) "Enable_<weapon>"
+	 * valve is non-zero; weapons without a valve never. ELF: the list entry is not
+	 * NULL-tested. */
+	const char *valve;
+
+	switch (CZWeapon::m_listWeapons.GetWeaponByIndex(index)->m_ID)
+	{
+	case EQUIP_ITEM::M16A2: valve = "Enable_M16"; break;
+	case EQUIP_ITEM::M4A1_CARBINE_M203: valve = "Enable_m4Acarbine_203"; break;
+	case EQUIP_ITEM::MP5SD: valve = "Enable_mp5sd"; break;
+	case EQUIP_ITEM::MP5: valve = "Enable_mp5"; break;
+	case EQUIP_ITEM::AK47: valve = "Enable_ak47"; break;
+	case EQUIP_ITEM::AKS74: valve = "Enable_aks74"; break;
+	case EQUIP_ITEM::JACKHAMMER: valve = "Enable_jackhammer"; break;
+	case EQUIP_ITEM::M14: valve = "Enable_m14_gun"; break;
+	case EQUIP_ITEM::SIG552_COMMANDO: valve = "Enablesig_commando"; break;
+	case EQUIP_ITEM::USI: valve = "Enable_uzi"; break;
+	case EQUIP_ITEM::REMMINGTON700: valve = "Enable_remington700"; break;
+	case EQUIP_ITEM::M60E: valve = "Enable_m60e"; break;
+	case EQUIP_ITEM::STONER_M63A: valve = "Enable_m63a"; break;
+	case EQUIP_ITEM::STONER_SR25: valve = "Enable_stoner_sr25"; break;
+	case EQUIP_ITEM::BARRETM82A1: valve = "Enable_barret_lightm82A1"; break;
+	case EQUIP_ITEM::REMINGTON870: valve = "Enable_remington870"; break;
+	case EQUIP_ITEM::MCMILLAN: valve = "Enable_EquipmcmillanM87"; break;
+	case EQUIP_ITEM::M4A1_CARBINE: valve = "Enable_m4Acarbine"; break;
+	case EQUIP_ITEM::M4A1_CARBINE_SILENCED: valve = "Enable_M4A1_SD"; break;
+	case EQUIP_ITEM::STONER_SR25_SILENCED: valve = "Enable_stoner_sr25_SD"; break;
+	case EQUIP_ITEM::MARK23: valve = "Enable_Mark23"; break;
+	case EQUIP_ITEM::MARK23SD: valve = "Enable_mark23sd"; break;
+	case EQUIP_ITEM::P226: valve = "Enable_Sig226"; break;
+	case EQUIP_ITEM::HKP9S: valve = "Enable_HkP9s"; break;
+	case EQUIP_ITEM::GLOCK18: valve = "Enable_glock18"; break;
+	case EQUIP_ITEM::FIVE_SEVEN: valve = "Enable_fiveseven"; break;
+	case EQUIP_ITEM::BERETTA: valve = "Enable_beretta_m9"; break;
+	case EQUIP_ITEM::DESERT_EAGLE: valve = "Enable_desert_eagle"; break;
+	case EQUIP_ITEM::DOUBLE_AMMO_LOAD: valve = "Enable_2xammo"; break;
+	case EQUIP_ITEM::GRENADE: valve = "Enable_frag"; break;
+	case EQUIP_ITEM::SMOKE_GRENADE: valve = "Enable_smoke"; break;
+	case EQUIP_ITEM::FLASHBANG: valve = "Enable_flash"; break;
+	case EQUIP_ITEM::PHOS_GRENADE: valve = "Enable_phos"; break;
+	case EQUIP_ITEM::SATCHEL_CHARGE: valve = "Enable_satchel"; break;
+	case EQUIP_ITEM::CLAYMORE: valve = "Enable_claymore"; break;
+	case EQUIP_ITEM::C4: valve = "Enable_c4"; break;
+	case EQUIP_ITEM::M203_HE: valve = "Enable_203HE"; break;
+	case EQUIP_ITEM::M203_SMOKE: valve = "Enable_203SMK"; break;
+	case EQUIP_ITEM::M203_IL: valve = "Enable_203ILL"; break;
+	case EQUIP_ITEM::HE_GRENADE: valve = "Enable_HEgren"; break;
+	default:
+		return false;
+	}
+
+	CValve *enable = CValve::GetByName(valve);
+	return (enable != NULL ? enable->m_value : 0) != 0;
 }
 
 /* @socom-skeleton stub IsSelected__16CInGameWeaponSelFi */
-unsigned char CInGameWeaponSel::IsSelected(int)
+unsigned char CInGameWeaponSel::IsSelected(int index)
 {
+	/* 0x3f80c0: the list's weapon at index is in the loadout */
+	for (s32 i = 0; i < 6; i++)
+	{
+		if (m_selected_item_index[i] == EQUIP_ITEM::EQUIP_NONE)
+			continue;
+
+		CZWeapon *weapon = CZWeapon::m_listWeapons.GetWeaponByIndex(index);
+
+		if (weapon != NULL && m_selected_item_index[i] == weapon->m_ID)
+			return true;
+	}
+
+	return false;
 }
 
 /* @socom-skeleton stub UpdateCharacter__16CInGameWeaponSelFv */
 void CInGameWeaponSel::UpdateCharacter()
 {
+	/* 0x3f8000: the loadout into the HUD owner's character: its existing weapon entries
+	 * are set up again, missing ones added (six in all). ELF: no NULL test of the owner. */
+	CCharacterWeapList *weapons = &CHUD::GetHUDOwner()->GetCharacter()->m_weapons;
+	s32 i = 0;
+
+	for (; (u32)i < weapons->size() && i < 6; i++)
+		(*weapons)[i].SetupCharacterWeapon(m_selected_item_index[i]);
+
+	for (; i < 6; i++)
+		weapons->AddWeapon(m_selected_item_index[i]);
 }

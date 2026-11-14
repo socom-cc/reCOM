@@ -147,6 +147,8 @@ CZObjectiveList::CZObjectiveList()
 /* @socom-skeleton stub __dt__15CZObjectiveListFv */
 CZObjectiveList::~CZObjectiveList()
 {
+	/* 0x3bf730: member and base destruction only (FreeList, from ~CZNewHudMap, frees the
+	 * objective texts) */
 }
 
 namespace {

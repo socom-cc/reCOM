@@ -136,11 +136,52 @@ static float keepTimeX[8];
 /* @socom-skeleton stub GetAssetReport__4CHUDFv */
 void CHUD::GetAssetReport()
 {
+	/* 0x3db860 (CCoreState::Tick with gopt's first flag): empty in the ELF */
 }
 
+void Draw2DLine(CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *); /* c2dline.cpp 0x2fff40; no header declares it */
+
 /* @socom-skeleton stub DrawTaskLine__FiPfff */
-void DrawTaskLine(int, float *, float, float)
+void DrawTaskLine(int line, float *cursor, float width, float mark)
 {
+	/* 0x3db5f0 (StatusLine's task report, debug only): on report line `line` (y = LineBaseY +
+	 * line x LineSpacing) a bar from the cursor `width` long (x scaled by LineWidX from
+	 * LineBaseX), a second from the cursor `mark` long, and a tick down at the bar's end, in
+	 * TaskLineColor[line % 3]; the cursor moves on by `width`. Line 1 first draws a full-height
+	 * divider at x LineBaseX + LineWidX in TaskLineColor[3]. Port deviation: the points' z / w
+	 * are 0 (the ELF leaves them as the stack had them). */
+	CPnt4D from;
+	CPnt4D to;
+	CPnt4D colorFrom;
+	CPnt4D colorTo;
+
+	if (line == 1)
+	{
+		colorFrom = TaskLineColor[3];
+		colorTo = colorFrom;
+		from.x = LineBaseX + LineWidX;
+		from.y = 0.0f;
+		to.x = from.x;
+		to.y = 448.0f;
+		Draw2DLine(&from, &to, &colorFrom, &colorTo);
+	}
+
+	f32 y = LineBaseY + (f32)line * LineSpacing;
+	CPnt4D markEnd;
+	from.x = LineBaseX + LineWidX * *cursor;
+	from.y = y;
+	markEnd.x = LineBaseX + LineWidX * (*cursor + mark);
+	markEnd.y = y;
+	*cursor += width;
+	to.x = LineBaseX + LineWidX * *cursor;
+	to.y = from.y;
+	colorFrom = TaskLineColor[line % 3];
+	colorTo = colorFrom;
+	Draw2DLine(&from, &to, &colorFrom, &colorTo);
+	Draw2DLine(&from, &markEnd, &colorFrom, &colorTo);
+	from = to;
+	to.y += LineSpacing;
+	Draw2DLine(&from, &to, &colorFrom, &colorTo);
 }
 
 /* @socom-skeleton stub StatusLine__4CHUDFv */

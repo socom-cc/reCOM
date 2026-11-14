@@ -15,6 +15,12 @@
 #include "gamez/zUtil/util_stable.h"
 #include "hud.h"
 /* @socom-skeleton end include */
+#include <math.h>
+#include <string.h>
+#include <libvu0.h> /* sceVu0MulMatrix, sceVu0CopyMatrix */
+#include "gamez/zCamera/zcam.h"
+#include "gamez/zNode/node_world.h"
+#include "gamez/zReader/zrdr.h"
 
 /* @socom-skeleton stub MultiplayerMsgStrings */
 static CSTable MultiplayerMsgStrings;
@@ -22,24 +28,360 @@ static CSTable MultiplayerMsgStrings;
 /* @socom-skeleton stub __ct__18CLensFlareSaturateFv */
 CLensFlareSaturate::CLensFlareSaturate()
 {
+	/* 0x3be4a0: the camera light DI with 8 hits (member ctor), everything off, then a
+	 * full-screen (640 x 448) untextured transparent bitmap at trans 128 */
+	m_Active = false;
+	m_On = false;
+	m_GlareActive = false;
+	m_LensFlareActive = false;
+	m_LensFlareNode = NULL;
+	m_LightNode = NULL;
+	m_hasTexture = false;
+	Load(0.0f, 0.0f, 640.0f, 448.0f, NULL);
+	SetTrans(128.0f);
+	m_isTrans = true;
+}
+
+/* port: file-local helper, not an ELF function - LoadRdr's inline "a tag's first value as
+ * a string" (Get(0) of an ARRAY, then the STRING test). ELF quirk avoided: the ELF reads
+ * the type of a NULL first value (a tag with no value); the port returns NULL */
+static const char *lf_tagstring(_zrdr *tag)
+{
+	_zrdr *value = tag->Get(0);
+
+	if (value == NULL || value->type != ZRDR_STRING)
+		return NULL;
+
+	return value->string;
 }
 
 /* @socom-skeleton stub LoadRdr__18CLensFlareSaturateFPCc */
-void CLensFlareSaturate::LoadRdr(const char *)
+void CLensFlareSaturate::LoadRdr(const char *name)
 {
+	/* 0x3bdcc0 (Init: "lensflare.rdr", read from the open archives): "active" on/off, the
+	 * cone ("max_angle" in degrees -> m_MinDot, m_DotScalar), the light source (a landmark
+	 * or world child "node", its world position, the node's "opacity" min/max), the glare
+	 * (this bitmap: "active", "color", "max_brightness") and the lens flare (a model or
+	 * world child "node" made dynamic and put in the world, "distance_from_camera",
+	 * "opacity" and "scale" min/max) */
+	CRdrFile *rdr = zrdr_read(name, NULL, 0);
+	const char *str;
+
+	/* port deviation: the ELF goes on to its lens_flare search with a NULL reader */
+	if (rdr == NULL)
+	{
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("LENSFLARE: no %s", name);
+#endif
+		return;
+	}
+
+	_zrdr *tag = zrdr_flat_findtag_startidx(rdr, "active", 0);
+
+	if (tag != NULL && (str = lf_tagstring(tag)) != NULL)
+		m_Active = strcmp(str, "on") == 0;
+
+	if (m_Active && zrdr_findreal(rdr, "max_angle", &m_MinDot, 1))
+	{
+		m_MinDot = 1.0f - m_MinDot / 90.0f;
+		m_DotScalar = 1.0f / (1.0f - m_MinDot);
+	}
+
+	_zrdr *light = zrdr_findtag(rdr, "light_source");
+
+	if (light != NULL)
+	{
+		_zrdr *node = zrdr_findtag(light, "node");
+
+		if (node != NULL && (str = lf_tagstring(node)) != NULL)
+		{
+			m_LightNode = zdb::CWorld::m_world->FindLandmark(str);
+
+			if (m_LightNode == NULL)
+			{
+				m_LightNode = zdb::CWorld::m_world->FindChild(str, true);
+
+				if (m_LightNode == NULL)
+					m_Active = false;
+			}
+
+			if (m_LightNode != NULL)
+			{
+				m_LightPos = CPnt3D::zero;
+				m_LightNode->TransformToWorld(m_LightPos);
+			}
+		}
+
+		f32 opacity[2];
+
+		if (zrdr_findreal(light, "opacity", opacity, 2))
+		{
+			m_MinLightNodeOpacity = opacity[0];
+			m_LightNodeOpacityRange = opacity[1] - opacity[0];
+		}
+	}
+
+	_zrdr *glare = zrdr_findtag(rdr, "light_glare");
+
+	if (glare != NULL)
+	{
+		tag = zrdr_findtag(glare, "active");
+
+		if (tag != NULL && (str = lf_tagstring(tag)) != NULL)
+			m_GlareActive = strcmp(str, "on") == 0;
+
+		f32 color[3];
+
+		if (zrdr_findreal(glare, "color", color, 3))
+			SetColor(color[0], color[1], color[2]);
+
+		zrdr_findreal(glare, "max_brightness", &m_MaxGlareBrightness, 1);
+	}
+
+	_zrdr *flare = zrdr_findtag(rdr, "lens_flare");
+
+	if (flare != NULL)
+	{
+		tag = zrdr_findtag(flare, "active");
+
+		if (tag != NULL && (str = lf_tagstring(tag)) != NULL)
+			m_LensFlareActive = strcmp(str, "on") == 0;
+
+		if (m_LensFlareActive)
+		{
+			_zrdr *node = zrdr_findtag(flare, "node");
+
+			if (node != NULL && (str = lf_tagstring(node)) != NULL)
+			{
+				m_LensFlareNode = zdb::CWorld::GetModel(str);
+
+				if (m_LensFlareNode == NULL)
+				{
+					m_LensFlareNode = zdb::CWorld::m_world->FindChild(str, true);
+
+					if (m_LensFlareNode == NULL)
+						m_LensFlareActive = false;
+				}
+
+				if (m_LensFlareNode != NULL)
+				{
+					/* the node and its children drawn as plain geometry (facade 0); the
+					 * ELF walks a copy of the child vector */
+					m_LensFlareNode->m_facade = 0;
+					zdb::CNodeVector children(m_LensFlareNode->m_child);
+
+					for (zdb::CNodeVector::iterator it = children.begin(); it != children.end(); ++it)
+						(*it)->m_facade = 0;
+
+					if (m_LensFlareNode->m_parent == NULL)
+						zdb::CWorld::m_world->AddChild(m_LensFlareNode);
+
+					m_LensFlareNode->SetDynamic(true, true);
+				}
+			}
+
+			zrdr_findreal(flare, "distance_from_camera", &m_LensFlareDistance, 1);
+
+			f32 range[2];
+
+			if (zrdr_findreal(flare, "opacity", range, 2))
+			{
+				m_MinLensFlareOpacity = range[0];
+				m_LensFlareOpacityRange = range[1] - range[0];
+			}
+
+			if (zrdr_findreal(flare, "scale", range, 2))
+			{
+				m_MinLensFlareScale = range[0];
+				m_LensFlareScaleRange = range[1] - range[0];
+			}
+		}
+	}
+
+	zrdr_free(rdr);
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("LENSFLARE: %s: active %d glare %d flare %d light node %p at %d %d %d flare node %p min dot %f",
+		name, (int)m_Active, (int)m_GlareActive, (int)m_LensFlareActive, m_LightNode,
+		(int)m_LightPos.x, (int)m_LightPos.y, (int)m_LightPos.z, m_LensFlareNode, (double)m_MinDot);
+#endif
 }
 
 /* @socom-skeleton stub Init__18CLensFlareSaturateFv */
 void CLensFlareSaturate::Init()
 {
+	/* 0x3bdba0 (CHUD::Init): defaults (min dot 0.75 = a 41.4 degree cone, the flare 15
+	 * units ahead, scale 0.001..0.01), the glare colour, off, then the mission's
+	 * lensflare.rdr; the glare bitmap joins the HUD only when both the effect and the
+	 * glare are on */
+	m_Active = false;
+	m_On = false;
+	m_CameraLightDIValid = false;
+	m_CameraLightDI.m_Type = 2;
+	m_CameraLightDI.m_Node = NULL;
+	m_GlareActive = false;
+	m_GlareBrightness = 0.0f;
+	m_GoalGlareBrightness = 0.0f;
+	m_MaxGlareBrightness = 0.5f;
+	m_MinDot = 0.75f;
+	m_DotScalar = 1.0f / (1.0f - m_MinDot);
+	m_LensFlareDistance = 15.0f;
+	m_LensFlareActive = false;
+	m_LensFlareNode = NULL;
+	m_MinLensFlareOpacity = 0.0f;
+	m_LensFlareOpacityRange = 1.0f;
+	m_MinLensFlareScale = 0.001f;
+	m_LensFlareScaleRange = 0.01f - m_MinLensFlareScale;
+	m_LightNode = NULL;
+	m_MinLightNodeOpacity = 0.0f;
+	m_LightNodeOpacityRange = 1.0f;
+	SetColor(225.0f, 224.0f, 133.0f);
+	Off();
+	LoadRdr("lensflare.rdr");
+
+	if (m_Active && m_GlareActive)
+		theHUD->Add2D(this, -1, false);
 }
 
 /* @socom-skeleton stub PreDITick__18CLensFlareSaturateFf */
 void CLensFlareSaturate::PreDITick(float)
 {
+	/* 0x3bdb50 (CHUD::PreDITick): while the light is in the view cone, the camera -> light
+	 * ray is queued with the world's delayed DI (its hit count is read in Tick) */
+	if (m_On)
+	{
+		m_CameraLightDIValid = true;
+		zdb::CWorld::m_world->RegIntersectDelayed(&m_CameraLightDI, &m_CameraPos, &m_LightPos);
+	}
+	else
+	{
+		m_CameraLightDIValid = false;
+	}
 }
 
 /* @socom-skeleton stub Tick__18CLensFlareSaturateFf */
-void CLensFlareSaturate::Tick(float)
+void CLensFlareSaturate::Tick(float dT)
 {
+	/* 0x3bd640 (CHUD::PostDITick, virtual): how straight the camera looks at the light
+	 * (0 at the cone's edge .. 1 dead on) sets the light node's opacity, the glare's
+	 * brightness (eased at 3/s towards value x max brightness, 0 when the DI ray is
+	 * blocked) and the lens flare model, placed m_LensFlareDistance from the camera
+	 * towards the light, facing back along the view, scaled and faded by the same value */
+	if (!m_Active)
+		return;
+
+	zdb::CCamera *camera = appCamera->m_camera;
+	m_CameraPos.x = camera->m_matrix.m_matrix[3][0];
+	m_CameraPos.y = camera->m_matrix.m_matrix[3][1];
+	m_CameraPos.z = camera->m_matrix.m_matrix[3][2];
+
+	CPnt3D view(-camera->m_matrix.m_matrix[2][0], -camera->m_matrix.m_matrix[2][1], -camera->m_matrix.m_matrix[2][2]);
+	CPnt3D dir(m_CameraPos.x - m_LightPos.x, m_CameraPos.y - m_LightPos.y, m_CameraPos.z - m_LightPos.z);
+	dir.Normalize();
+
+	f32 dot = view.x * dir.x + view.y * dir.y + view.z * dir.z;
+	f32 value = m_DotScalar * (-dot - m_MinDot);
+	m_On = !(value <= 0.001f);
+
+	/* blocked: no DI result yet, or the ray hit something */
+	bool blocked = true;
+
+	if (m_CameraLightDIValid && m_CameraLightDI.m_Cnt == 0)
+		blocked = false;
+
+	/* port deviation: NULL test (the ELF writes the opacity through m_LightNode unchecked;
+	 * "active" with no light_source node leaves it NULL) */
+	if (m_LightNode != NULL)
+		m_LightNode->m_Opacity = m_MinLightNodeOpacity + value * m_LightNodeOpacityRange;
+
+	if (m_GlareActive)
+	{
+		if (blocked)
+			m_GoalGlareBrightness = 0.0f;
+		else
+			m_GoalGlareBrightness = value * m_MaxGlareBrightness;
+
+		f32 diff = m_GoalGlareBrightness - m_GlareBrightness;
+		f32 step = fabsf(diff);
+		f32 limit = 3.0f * dT;
+
+		if (!(step <= limit))
+			step = limit;
+
+		if (diff < 0.0f)
+			step = -1.0f * step;
+
+		/* ELF quirk: the brightness is stored before the clamp (only the drawn value is
+		 * clamped to 0..1) */
+		f32 brightness = m_GlareBrightness + step;
+		m_GlareBrightness = brightness;
+
+		if (!(brightness <= 1.0f))
+			brightness = 1.0f;
+		else if (brightness < 0.0f)
+			brightness = 0.0f;
+
+		SetTrans(128.0f * brightness);
+
+		if (brightness < 0.025f)
+			Off();
+		else
+			On();
+	}
+
+	if (!m_LensFlareActive)
+		return;
+
+	if (m_On && !blocked)
+	{
+		CMatrix matrix;
+
+		/* the flare faces back along the view: a yaw from the view's horizontal part, then
+		 * a pitch from the view turned into that yaw */
+		CPnt3D back(-view.x, -view.y, -view.z);
+		back.Normalize();
+		CPnt3D flat = back;
+		flat.y = 0.0f;
+		flat.Normalize();
+
+		matrix.m_matrix[0][0] = flat.x;
+		matrix.m_matrix[2][2] = flat.x;
+		matrix.m_matrix[0][2] = -flat.z;
+		matrix.m_matrix[2][0] = flat.z;
+		CPnt3D turned;
+		matrix.Rotate(&back, &turned, 1);
+
+		matrix.m_matrix[0][0] = flat.z;
+		matrix.m_matrix[2][2] = flat.z;
+		matrix.m_matrix[0][2] = -flat.x;
+		matrix.m_matrix[2][0] = flat.x;
+
+		CMatrix pitch;
+		pitch.m_matrix[1][1] = turned.x;
+		pitch.m_matrix[2][2] = turned.x;
+		pitch.m_matrix[1][2] = -turned.y;
+		pitch.m_matrix[2][1] = turned.y;
+
+		CMatrix product;
+		sceVu0MulMatrix(product.m_matrix, matrix.m_matrix, pitch.m_matrix);
+		sceVu0CopyMatrix(matrix.m_matrix, product.m_matrix);
+
+		f32 scale = m_MinLensFlareScale + value * m_LensFlareScaleRange;
+
+		for (s32 i = 0; i < 3; i++)
+		{
+			for (s32 j = 0; j < 3; j++)
+				matrix.m_matrix[i][j] *= scale;
+		}
+
+		matrix.m_matrix[3][0] = m_CameraPos.x - dir.x * m_LensFlareDistance;
+		matrix.m_matrix[3][1] = m_CameraPos.y - dir.y * m_LensFlareDistance;
+		matrix.m_matrix[3][2] = m_CameraPos.z - dir.z * m_LensFlareDistance;
+		m_LensFlareNode->SetMatrix(&matrix);
+		m_LensFlareNode->m_Opacity = m_MinLensFlareOpacity + value * m_LensFlareOpacityRange;
+		m_LensFlareNode->SetActive(true);
+	}
+	else
+	{
+		m_LensFlareNode->SetActive(false);
+	}
 }

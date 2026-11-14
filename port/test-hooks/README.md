@@ -31,6 +31,7 @@ headers are in `port/tools/dev/` and on every hook's include path.
 | `exit` | `hook_exit.cpp` | `<build> [pad] [flags]` | mission exit round trip driven from the game's top state |
 | `fireteam` | `hook_fireteam.cpp` | `<build> [pad] [flags]` | fire-team orders on the mission clock, team trace |
 | `hud` | `hook_hud.cpp` | `<build> <pad> [extra sources]` | stand-ins for unwritten non-void stubs the HUD tick reaches |
+| `hudmp` | `hook_hudmp.cpp` + `../state/hook_state.cpp` | `<build> [pad] [flags]` | network-only HUD elements in single-player m8: floating team-mate names, the respawn loadout menu driven by a test pad (`-DSOCOM_HOOK_LENSCAM`: test camera on the lens-flare light); the state hook drives menus, movie, cameras, heap |
 | `jump` | `hook_jump.cpp` | `<build> <pad> [<flag> <pick> <gap> [climb]]` | DI app-flag census; player before a chosen poly; climb wraps |
 | `kit` | `hook_kit.cpp` | `<build> [pad] [flags]` | weapon kit step table: zoom, fire, scopes, binoculars |
 | `leftovers` | `hook_leftovers.cpp` | `<build> [pad] [flags]` | scePadRead-driven carry / CQB checks (`-DSOCOM_HOOK_CQB`) |

@@ -71,21 +71,79 @@ float CZClaymoreMapItem::m_explosionV1;
 static CSTable MultiplayerMsgStrings;
 
 /* @socom-skeleton stub __ct__17CZClaymoreMapItemFP10CZSealBodyP12CZProjectile */
-CZClaymoreMapItem::CZClaymoreMapItem(CZSealBody *, CZProjectile *)
+CZClaymoreMapItem::CZClaymoreMapItem(CZSealBody *owner, CZProjectile *projectile)
 {
+	/* 0x3c33c0 (CZNewHudMap::UpdateExplosives): a placed claymore's map icon, 3 units */
+	m_owner = owner;
+	m_projectile = projectile;
+	m_wasdetonated = false;
+	m_size = 3.0f;
 }
 
 /* @socom-skeleton stub __dt__17CZClaymoreMapItemFv */
 CZClaymoreMapItem::~CZClaymoreMapItem()
 {
+	/* 0x3c2fd0: member and base destruction only */
+}
+
+/* port: file-local helper, not an ELF function - Tick's two inline placements: the icon a
+ * square of half size `size` about the map point (y through CalcDrawPos) */
+static void ClaymorePlace(CZNewHudMap *map, C2DBitmapPoly *graphic, const CPnt3D &world, f32 size, zdb::CTexture *texture)
+{
+	CPnt3D pos = world;
+	map->m_matrix.Transform(&pos, 1);
+	f32 y0 = map->CalcDrawPos(pos.y - size);
+	f32 y1 = map->CalcDrawPos(pos.y + size);
+	f32 y2 = map->CalcDrawPos(pos.y + size);
+	f32 y3 = map->CalcDrawPos(pos.y - size);
+	graphic->Load(pos.x - size, y0, pos.x - size, y1, pos.x + size, y2, pos.x + size, y3, texture);
 }
 
 /* @socom-skeleton stub Tick__17CZClaymoreMapItemFP11CZNewHudMapf */
-bool CZClaymoreMapItem::Tick(CZNewHudMap *, float)
+bool CZClaymoreMapItem::Tick(CZNewHudMap *map, float dT)
 {
+	/* 0x3c30c0: hidden without a viewer or when the owner is not on the viewer's team; a
+	 * live claymore shows its icon at the projectile; once detonated the explosion icon
+	 * grows 10 units/s and the item asks to be removed past 30. ELF quirk: the projectile
+	 * is NULL-tested for WasDetonated only, its position is read unchecked */
+	if (map->m_viewer == NULL)
+	{
+		if (m_graphic.IsOn())
+			m_graphic.Off();
+
+		return false;
+	}
+
+	if ((m_owner->m_team & map->m_viewer->m_team) == 0)
+	{
+		if (m_graphic.IsOn())
+			m_graphic.Off();
+
+		return false;
+	}
+
+	if (!m_wasdetonated)
+	{
+		if (!m_graphic.IsOn())
+			m_graphic.On();
+
+		if (m_projectile != NULL && m_projectile->WasDetonated())
+			m_wasdetonated = true;
+
+		ClaymorePlace(map, &m_graphic, m_projectile->m_framestartpos, m_size, m_claymoretex);
+		m_graphic.SetUV(m_U0, m_V0, m_U1, m_V1);
+		return false;
+	}
+
+	m_size += 10.0f * dT;
+	ClaymorePlace(map, &m_graphic, m_projectile->m_framestartpos, m_size, m_explosiontex);
+	m_graphic.SetUV(m_explosionU0, m_explosionV0, m_explosionU1, m_explosionV1);
+	return !(m_size <= 30.0f);
 }
 
 /* @socom-skeleton stub Draw__17CZClaymoreMapItemFPQ23zdb7CCamera */
-void CZClaymoreMapItem::Draw(zdb::CCamera *)
+void CZClaymoreMapItem::Draw(zdb::CCamera *camera)
 {
+	/* 0x3c30a0: virtual tail call */
+	m_graphic.Draw(camera);
 }
