@@ -379,14 +379,18 @@ void CVehicleRdrEntry::Randomize(bool first)
 }
 
 /* @socom-skeleton stub GetStart__16CVehicleRdrEntryCFUiRPCcRi */
-void CVehicleRdrEntry::GetStart(unsigned int index, const char *&name, int &dir) const
+bool CVehicleRdrEntry::GetStart(unsigned int index, const char *&name, int &dir) const
 {
-	/* 0x1a2d90: start index's name and direction; nothing is written past the count */
+	/* 0x1a2d90: start index's name and direction; nothing is written past the count. Returns
+	 * whether the index is one (CZSealBody::DoRespawn tests it) */
 	if (index < m_start.m_count)
 	{
 		name = m_start.m_start[index].m_name;
 		dir = m_start.m_start[index].m_dir;
+		return true;
 	}
+
+	return false;
 }
 
 /* @socom-skeleton stub GetStartPos__16CVehicleRdrEntryCFv */

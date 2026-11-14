@@ -420,23 +420,167 @@ bool CAiSReload::Tick(float dT, CSealCtrlAi *ctrl)
 }
 
 /* @socom-skeleton stub find_closest_ammo__2aiFPC6CPnt3DP5CZKitP8CZWeaponf */
-CPickup * ai::find_closest_ammo(const CPnt3D *, CZKit *, CZWeapon *, float)
+CPickup * ai::find_closest_ammo(const CPnt3D *pos, CZKit *kit, CZWeapon *weapon, float range)
 {
+	/* 0x2e7e30 (CAiSNoAmmo): the nearest ammo box (PU_AMMO) within range holding rounds the
+	 * weapon takes that the kit has room for (CanAddAmmo of the weapon's item). ELF quirk kept:
+	 * a box qualifies by its last matching entry */
+	if (kit == NULL || weapon == NULL)
+		return NULL;
+
+	std::list<CPickup *>::iterator it = CPickup::GetFirst();
+	CPickup *best = NULL;
+	f32 bestsq = range * range;
+	int index = kit->GetItemIndex(weapon->m_ID);
+
+	for (CPickup *pickup = CPickup::GetNext(it, CPickup::PU_AMMO); pickup != NULL; pickup = CPickup::GetNext(it, CPickup::PU_AMMO))
+	{
+		CZAmmoPickupInstance *box = static_cast<CZAmmoPickupInstance *>(pickup->m_data);
+		bool ok = false;
+		s32 n = (s32)box->m_weapons.size();
+
+		for (s32 j = 0; j < n; j++)
+		{
+			CZAmmo *ammo = box->m_ammo[j];
+			s32 count = box->m_counts[j];
+
+			if (weapon->IsLegalAmmo(ammo) && kit->CanAddAmmo(index, count))
+				ok = count > 0;
+		}
+
+		if (!ok)
+			continue;
+
+		CPnt3D d;
+		pos->Sub(pickup->GetPosW(), &d);
+		f32 dsq = d.x * d.x + d.y * d.y + d.z * d.z;
+
+		if (dsq < bestsq)
+		{
+			bestsq = dsq;
+			best = pickup;
+		}
+	}
+
+	return best;
 }
 
 /* @socom-skeleton stub OnSignal__10CAiSNoAmmoFQ28CAiState6SIGNALP11CSealCtrlAi */
-void CAiSNoAmmo::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+void CAiSNoAmmo::OnSignal(CAiState::SIGNAL signal, CSealCtrlAi *)
 {
+	/* 0x2e7de0: signal 4 forgets the ammo box */
+	if ((u8)signal == 4)
+		m_pickup = NULL;
 }
 
 /* @socom-skeleton stub FindTraversableNeighbor__FPC6CPnt3DR9CAiMapLoc */
-void FindTraversableNeighbor(const CPnt3D *, CAiMapLoc &)
+bool FindTraversableNeighbor(const CPnt3D *pos, CAiMapLoc &loc)
 {
+	/* 0x2e7a30 (CAiSNoAmmo): the AI map cell under pos when it can be walked, else the first
+	 * walkable one of its eight neighbours (loc becomes it); false off the maps or with none */
+	if (!AiMaps.GetLocation(pos, loc))
+		return false;
+
+	CAiMap *map = AiMaps.GetMapByIndex(loc.m_mapid);
+	CAiCell *cell = map->GetCell(loc);
+
+	if (cell != NULL && CAiMap::IsWalkable(cell))
+		return true;
+
+	for (s32 dir = 0; dir < 8; dir++)
+	{
+		CAiMapLoc next;
+		CAiCell *ncell = NULL;
+
+		if (map->GetNeighbor(loc, (CAiMap::DIR)dir, next, ncell, true))
+		{
+			loc = next;
+			return true;
+		}
+	}
+
+	return false;
 }
 
 /* @socom-skeleton stub Tick__10CAiSNoAmmoFfP11CSealCtrlAi */
-bool CAiSNoAmmo::Tick(float, CSealCtrlAi *)
+bool CAiSNoAmmo::Tick(float, CSealCtrlAi *ai)
 {
+	/* 0x2e77f0 (an AI out of ammo): 0: crouch, weapon away, full speed; the nearest ammo box
+	 * for the first weapon within 5000 (find_closest_ammo) with a walkable cell beside it
+	 * becomes the route (standing, phase 1); without one a non-SEAL asks for a reaction
+	 * (none 25, rush 40, flee 25, surrender 10) and the state ends. 1: on arrival the box is
+	 * picked up (phase 2). 2: the state ends. Returns whether it runs on. */
+	if (!m_setup)
+		return false;
+
+	CZSealBody *body = static_cast<CZSealBody *>(ai->m_entity);
+	u32 phase = m_substate;
+	CZFTSWeapon *weapon = NULL;
+	CZAmmo *ammo = NULL;
+	body->m_kit.GetWeapon(0, &weapon, &ammo);
+
+	switch (phase)
+	{
+	case 0:
+	{
+		bool routed = false;
+		ai->m_speed = 1.0f; /* _saturate 0..1 */
+		ai->SetStance((SEAL_STANCE)1);
+		body->SetWeaponState((WEAPON_STATE)2);
+		m_pickup = ai::find_closest_ammo(body->GetPosW(), &body->m_kit, weapon, 5000.0f);
+
+		if (m_pickup != NULL)
+		{
+			m_loc = body->m_mapLocValid;
+			CAiMapLoc dest;
+
+			if (FindTraversableNeighbor(m_pickup->GetPosW(), dest) && ai->SetRoute(dest))
+			{
+				ai->SetStance((SEAL_STANCE)0);
+				phase = 1;
+				ai->m_speed = 1.0f;
+				routed = true;
+			}
+		}
+
+		if (!routed && !ai->m_navyseal)
+		{
+			AI_REACTION reaction;
+			reaction.m_none = 25.0f;
+			reaction.m_rush = 40.0f;
+			reaction.m_flee = 25.0f;
+			reaction.m_surrender = 10.0f;
+			ai->SetDoReaction(true, reaction, false);
+			m_setup = 0;
+		}
+
+		break;
+	}
+
+	case 1:
+		if (ai->GetRouteComplete())
+		{
+			if (m_pickup != NULL)
+			{
+				body->PickupObject(m_pickup);
+				m_pickup = NULL;
+			}
+
+			phase = 2;
+		}
+
+		break;
+
+	case 2:
+		m_setup = 0;
+		break;
+
+	default:
+		break;
+	}
+
+	m_substate = phase;
+	return m_setup != 0;
 }
 
 /* @socom-skeleton stub delayed_dropitems__FPvPv */

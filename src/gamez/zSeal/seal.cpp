@@ -2173,8 +2173,105 @@ bool CZSealBody::CollidePlayers(CPnt3D &dpos)
 }
 
 /* @socom-skeleton stub HandleSliding__10CZSealBodyFf */
-void CZSealBody::HandleSliding(float)
+void CZSealBody::HandleSliding(float dT)
 {
+	/* 0x254130 (ComputeNextPosition): on ground steeper than the slope limit
+	 * (m_groundNormal.y < m_maxSlopeCos) the body slides: the uphill parts of the frame's
+	 * motion and of the in-air velocity are taken out, the slide speed grows with gravity and
+	 * the steepness, and the motion becomes the downhill step (normal x / z scaled); the new
+	 * ground is searched along the step (1, 1.1, ... < 10 steps) and becomes the altitude;
+	 * fast enough (over a quarter of gravity) the Slide anim plays. On walkable ground (or in
+	 * the air) the Slide anim ends and a fast slide lands (HandleLanding). */
+	bool snapshot;
+
+	if (m_airborne)
+	{
+		if (IsCurrentBlend((AnimType)AnimTypes::Slide))
+		{
+			snapshot = m_take_snapshot;
+			m_take_snapshot = true;
+			PopBlend();
+			BodySetState(m_blends->Top()->m_state);
+			m_take_snapshot = snapshot;
+			m_slide_descent = 0.0f;
+		}
+
+		return;
+	}
+
+	if (!(m_groundNormal.y < theCharacterDynamics.m_maxSlopeCos))
+	{
+		if (IsCurrentBlend((AnimType)AnimTypes::Slide))
+		{
+			snapshot = m_take_snapshot;
+			m_take_snapshot = true;
+			PopBlend();
+			BodySetState(m_blends->Top()->m_state);
+			m_take_snapshot = snapshot;
+		}
+
+		if (!(m_slide_descent <= theCharacterDynamics.m_landFallRate) && m_state != 9 && m_state != 10)
+			HandleLanding(m_slide_descent);
+
+		m_slide_descent = 0.0f;
+		return;
+	}
+
+	f32 gravity = theCharacterDynamics.m_gravity;
+	CPnt3D down(m_groundNormal.x, 0.0f, m_groundNormal.z);
+	down.Normalize();
+	CPnt3D part;
+	f32 d = dpos.x * down.x + dpos.y * down.y + dpos.z * down.z;
+
+	if (d < 0.0f)
+	{
+		down.Scale(d, &part);
+		dpos.Sub(&part, &dpos);
+	}
+
+	d = m_inAirHorizVel.x * down.x + m_inAirHorizVel.y * down.y + m_inAirHorizVel.z * down.z;
+
+	if (d < 0.0f)
+	{
+		down.Scale(d, &part);
+		m_inAirHorizVel.Sub(&part, &m_inAirHorizVel);
+	}
+
+	m_slide_descent += (1.0f - m_groundNormal.y) * (gravity * dT);
+	f32 step = m_slide_descent * dT;
+	f32 along = step * m_groundNormal.y;
+	dpos.x = along * m_groundNormal.x;
+	dpos.z = along * m_groundNormal.z;
+	CPnt3D pos = *GetPosW();
+	CPnt3D at;
+	pos.Add(&dpos, &at);
+	zdb::IntersectStruct *hit = NULL;
+
+	for (f32 scale = 1.0f; hit == NULL && scale < 10.0f; scale += 0.1f)
+	{
+		dpos.Scale(scale, &part);
+		pos.Add(&part, &at);
+		hit = SealGetAltitude(&at, step);
+	}
+
+	if (hit != NULL)
+	{
+		dpos.y = hit->m_pos.y - pos.y;
+
+		if (fabsf(dpos.y) <= step || !(hit->m_pos.y <= at.y))
+		{
+			m_alt = hit->m_pos.y;
+			m_get_new_altitude = 1;
+		}
+	}
+
+	if (!(m_slide_descent <= 0.25f * gravity) && !IsCurrentBlend((AnimType)AnimTypes::Slide) && m_state != 10 && m_state != 9)
+	{
+		snapshot = m_take_snapshot;
+		m_take_snapshot = true;
+		PushBlend((AnimType)AnimTypes::Slide, 6, false);
+		m_take_snapshot = snapshot;
+	}
 }
 
 /* @socom-skeleton stub ComputeNextPosition__10CZSealBodyFf */
@@ -3506,8 +3603,10 @@ void CSealStats::Reset()
 }
 
 /* @socom-skeleton stub IncrTimesSeen__10CSealStatsFi */
-void CSealStats::IncrTimesSeen(int)
+void CSealStats::IncrTimesSeen(int count)
 {
+	/* 0x24e890 (CSealCtrlAi::OnSetTargetVisible: an enemy saw the seal) */
+	m_num_times_seen += count;
 }
 
 /* @socom-skeleton stub IncrGrenadesUsed__10CSealStatsFi */

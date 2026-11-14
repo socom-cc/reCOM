@@ -1514,6 +1514,7 @@ void CMission::Read(_zrdr* reader)
 	m_ai_params.recycle_range = 10000.0f;
 	m_ai_params.respawn_time = 5.0f;
 	m_ai_params.respawn_fade = 0.75f;
+	m_ai_params.respawn_range = 2500.0f; /* 0x1f6fc0: 50 squared */
 
 	auto aiParams = zrdr_findtag(reader, "ai_params");
 	if (aiParams != NULL)
@@ -1521,6 +1522,10 @@ void CMission::Read(_zrdr* reader)
 		zrdr_findreal(aiParams, "weather_factor", &m_ai_params.weather_factor, 1);
 		zrdr_findreal(aiParams, "respawn_time", &m_ai_params.respawn_time, 1);
 		zrdr_findreal(aiParams, "respawn_fade", &m_ai_params.respawn_fade, 1);
+
+		if (zrdr_findreal(aiParams, "respawn_range", &m_ai_params.respawn_range, 1))
+			m_ai_params.respawn_range *= m_ai_params.respawn_range;
+
 		zrdr_findreal(aiParams, "recycle_time", &m_ai_params.recycle_time, 1);
 		bool success = zrdr_findreal(aiParams, "recycle_range", &m_ai_params.recycle_range, 1);
 
@@ -1528,7 +1533,25 @@ void CMission::Read(_zrdr* reader)
 		{
 			m_ai_params.recycle_range *= m_ai_params.recycle_range;
 		}
+
+		/* 0x1f70e4: the fireteam's first order (default FOLLOW) */
+		const char *command = zrdr_findstring(aiParams, "fireteam_command");
+
+		if (command != NULL)
+		{
+			FT_COMMAND id = CSealCtrl::GetCommandId(command);
+
+			if ((u8)id != 0)
+				m_ai_params.fireteam_command = id;
+		}
 	}
+
+	/* 0x1f7110: the satchel charge's fuse (default 10 s) and the see-farther factors of the
+	 * binoculars and the weapon zoom (no default: kept when the reader lacks them) */
+	m_satcheltimer = 10.0f;
+	zrdr_findreal(reader, "SATCHEL_TIMER", &m_satcheltimer, 1);
+	zrdr_findreal(reader, "SEEFARTHER_BINOCS", &m_seefarther_binocs, 1);
+	zrdr_findreal(reader, "SEEFARTHER_WEAPZOOM", &m_seefarther_weapzoom, 1);
 }
 
 /* @socom-skeleton stub tick__8CMissionFfPv */

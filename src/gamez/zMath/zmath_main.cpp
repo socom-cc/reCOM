@@ -529,8 +529,26 @@ void CQuat::Exp(const CPnt3D *point)
 }
 
 /* @socom-skeleton stub Exp__5CQuatFPC6CPnt3Df */
-void CQuat::Exp(const CPnt3D *, float)
+void CQuat::Exp(const CPnt3D *point, float t)
 {
+	/* 0x220860 (CZSealBody::Recoil): the rotation of angle t |p| about p (cos, p sin / |p|);
+	 * identity for a zero p */
+	f32 len2 = point->x * point->x + point->y * point->y + point->z * point->z;
+
+	if (len2 == 0.0f)
+	{
+		w = 1.0f;
+		vec.x = CPnt3D::zero.x;
+		vec.y = CPnt3D::zero.y;
+		vec.z = CPnt3D::zero.z;
+		return;
+	}
+
+	f32 len = sqrtf(len2);
+	f32 angle = t * len;
+	f32 s = sinf(angle);
+	w = cosf(angle);
+	point->Scale(s / len, &vec);
 }
 
 /* @socom-skeleton stub Ln__5CQuatFP6CPnt3D */

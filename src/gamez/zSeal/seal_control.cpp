@@ -450,16 +450,31 @@ void CSealCtrl::SetMenuState(MENU_STATE state)
 }
 
 /* @socom-skeleton stub PostTick__9CSealCtrlFf */
-void CSealCtrl::PostTick(float)
+void CSealCtrl::PostTick(float dT)
 {
 	/* @socom-skeleton stub step_count$2779 */
-	static int step_count;
+	static int step_count = 100;
 	/* @socom-skeleton stub start_opacity$2787 */
-	static float start_opacity;
+	static float start_opacity = 0.75f;
 	/* @socom-skeleton stub end_opacity$2790 */
-	static float end_opacity;
+	static float end_opacity = 0.1f;
 	/* @socom-skeleton stub end_time_scale$2793 */
-	static float end_time_scale;
+	static float end_time_scale = 2.0f;
+
+	/* 0x287450 (the player's controller; CSealCtrlAi has its own): the sensors (target list,
+	 * visibility) first. Then, while a throw is being aimed (m_throwing, not m_justthrew), the
+	 * throw's arc is drawn: the throw anim's release point and speed (GetThrowAnim,
+	 * CDynGrenade::ComputeMaxVel / ComputeElevOfs from the aim pitch m_aimPitch +0x10b0), the
+	 * flight time to the ground (ai::quadratic, gravity -49, end_time_scale 2) and a yellow
+	 * (0.78, 0.78, 0) line of step_count steps fading 0.75 -> 0.1 (ai::DrawFunc<CDynGrenade>,
+	 * Push/PopLineColor, SetLineFuncOpacity). ELF: returns 1.
+	 * port: the arc is not written (CDynGrenade's inline helpers, ai::DrawFunc and the ai line
+	 * renderer, zRender RenderLineWorld and zTwoD's 3D line, are not written yet) */
+	SensorTick(dT);
+	(void)step_count;
+	(void)start_opacity;
+	(void)end_opacity;
+	(void)end_time_scale;
 }
 
 /* @socom-skeleton stub Tick__9CSealCtrlFf */

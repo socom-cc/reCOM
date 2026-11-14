@@ -852,8 +852,8 @@ void CSealCtrlAi::FollowTick(float dT)
 		if (PushAiState(STATE_AVOID, true))
 		{
 			CAiState* state = GetAiState();
-			CAiState* avoid = state->m_state == STATE_AVOID ? state : NULL;
-			*(CZSealBody **)((u8 *)avoid + 0x28) = m_master; /* port: CAiSAvoid's +0x28 (undeclared) */
+			CAiSAvoid* avoid = state->m_state == STATE_AVOID ? static_cast<CAiSAvoid *>(state) : NULL;
+			avoid->m_avoid = m_master; /* ELF: written through NULL when the push did not land on top */
 			avoid->m_setup = 1;
 		}
 

@@ -58,7 +58,7 @@ public:
     /* @socom-skeleton decl 16CVehicleRdrEntry */
 public:
     void Randomize(bool);
-    void GetStart(unsigned int, const char *&, int &) const;
+    bool GetStart(unsigned int, const char *&, int &) const; /* bool: 0x1a2d90 returns index < count */
     char * GetStartPos() const;
     int GetStartDir() const;
     unsigned char GetStartMatrix(CMatrix &, unsigned int);

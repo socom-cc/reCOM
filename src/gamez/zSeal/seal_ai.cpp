@@ -358,6 +358,8 @@ namespace sealai
 #include "gamez/zNetwork/znet.h" /* theNetwork */
 #include "gamez/zSeal/zseal.h"
 #include "gamez/zSound/zsnd.h"
+#include "gamez/zCamera/zcam.h" /* appCamera (PostMortemPreTick) */
+void CleanupDiPool(CZSealBody *); /* seal_sensors.cpp 0x2b3250 (OnDeath) */
 /* @socom-skeleton decl forward */
 class AI_FIREPARAMS;
 class AI_REACTION;
@@ -416,10 +418,10 @@ float CSealCtrlAi::aiAccuracyAngle = 0.2617993950843811f;
 unsigned char CSealCtrlAi::aiEnabled = 1;
 
 /* @socom-skeleton stub aiSoundHandle__11CSealCtrlAi */
-int CSealCtrlAi::aiSoundHandle[2] = {0};
+CSnd* CSealCtrlAi::aiSoundHandle[2] = {NULL, NULL};
 
 /* @socom-skeleton stub aiSoundInstance__11CSealCtrlAi */
-unsigned char CSealCtrlAi::aiSoundInstance[8] = {0};
+CSndInstance* CSealCtrlAi::aiSoundInstance[2] = {NULL, NULL};
 
 /* @socom-skeleton stub aiLogEnabled__11CSealCtrlAi */
 unsigned char CSealCtrlAi::aiLogEnabled;
@@ -733,6 +735,13 @@ SEAL_STANCE get_stance(const char* name)
 /* @socom-skeleton stub AcquireDatabaseHandles__11CSealCtrlAiFv */
 void CSealCtrlAi::AcquireDatabaseHandles()
 {
+	/* 0x26c070 (CMission::Open, ReOpen_Load): the two mission-boundary warning sounds, the DI
+	 * pool, and the snooze LOD restarted (no snoozers, the next check 3 s away) */
+	aiSoundHandle[0] = CSnd::GetSoundByName("SND_STREAM_ABORT");
+	aiSoundHandle[1] = CSnd::GetSoundByName("STREAMING_BOUNDRY_WARNING");
+	OpenDiPool();
+	ai::snooze_count = 0;
+	ai::snooze_time = -3.0f;
 }
 
 /* @socom-skeleton stub ReleaseDatabaseHandles__11CSealCtrlAiFv */
@@ -751,13 +760,28 @@ void CSealCtrlAi::SetAiAccuracyAngle(float)
 }
 
 /* @socom-skeleton stub PlayAiSound__11CSealCtrlAiF8AI_SOUND */
-void CSealCtrlAi::PlayAiSound(AI_SOUND)
+void CSealCtrlAi::PlayAiSound(AI_SOUND sound)
 {
+	/* 0x26bfa0 (UpdateAiMapLoc: the player near / past the mission boundary): the warning
+	 * plays unless it already does (CSnd vtable +0xc, PlaySound(NULL, 255)) */
+	s32 i = (s8)sound;
+
+	if (aiSoundInstance[i] != NULL || aiSoundHandle[i] == NULL)
+		return;
+
+	aiSoundInstance[i] = aiSoundHandle[i]->PlaySound((CSndInstance *)NULL, 255u);
 }
 
 /* @socom-skeleton stub StopAiSound__11CSealCtrlAiF8AI_SOUND */
-void CSealCtrlAi::StopAiSound(AI_SOUND)
+void CSealCtrlAi::StopAiSound(AI_SOUND sound)
 {
+	/* 0x26bf50: a playing warning stops */
+	s32 i = (s8)sound;
+
+	if (aiSoundInstance[i] != NULL)
+		aiSoundInstance[i]->Stop();
+
+	aiSoundInstance[i] = NULL;
 }
 
 /* @socom-skeleton stub GetAiLog__11CSealCtrlAiFv */
@@ -1529,7 +1553,7 @@ void CSealCtrlAi::OnDeath()
 	 * 58), the unit is told (message 1), the AI states cleared, awareness 0, the hostage
 	 * compass anchor removed, no longer restrained; a respawning AI leaves the target lists;
 	 * its event queue is emptied, it stops updating its target list and colliding with the
-	 * AI map. port: CleanupDiPool (0x2b3250, empty in the port) is not called. */
+	 * AI map; its sight lines are dropped (CleanupDiPool). */
 	CZSealBody *seal = static_cast<CZSealBody *>(m_entity);
 	CSealUnit *unit = m_unit;
 	CValve *alive = m_valve[2];
@@ -1587,6 +1611,7 @@ void CSealCtrlAi::OnDeath()
 		seal->SetIncludeInTargetList(false);
 
 	m_eventQueue.clear();
+	CleanupDiPool(seal);
 	seal->SetUpdateTargetList(false);
 	m_do_aimap_collide = 0;
 #ifdef SOCOM_PORT
@@ -1900,8 +1925,102 @@ void CZSealBody::AcquireRemoteAi(CZSealBody *)
 }
 
 /* @socom-skeleton stub PostMortemPreTick__11CSealCtrlAiFf */
-void CSealCtrlAi::PostMortemPreTick(float)
+void CSealCtrlAi::PostMortemPreTick(float dT)
 {
+	/* 0x267b30 (CZSealBody::PreTick while dead): a dead AI's body goes away. Never with
+	 * m_nofade. Without respawns left: once its node is active and it has stayed out of the
+	 * camera entity's view cone and farther than the mission's recycle range for
+	 * recycle_time seconds (the timer counts down while it is seen or near), the node is
+	 * hidden, its AI event loses its type and the mission recycles the entity (CMission::
+	 * RecycleEntity: a waiting recycle entry spawns in its slot). With respawns left: after
+	 * respawn_time the body fades out (0.75 a second); a hidden one asks for a respawn
+	 * (CZSealBody::DoRespawn) and uses one up. ELF: returns 1 (port: void, as the base). */
+	CEntity *body = m_entity;
+	zdb::CNode *node = body->GetNode();
+	bool active = node->m_active != 0;
+
+	if (m_nofade)
+		return;
+
+	if (m_aiParams.respawn != 0)
+	{
+		m_recycleTimer += dT;
+
+		if (!active)
+		{
+			static_cast<CZSealBody *>(body)->m_needs_respawn = true;
+			m_aiParams.respawn--;
+			return;
+		}
+
+		if (m_recycleTimer < theMission.m_ai_params.respawn_time)
+			return;
+
+		f32 opacity = node->m_Opacity;
+
+		if (opacity != 0.0f)
+		{
+			f32 step = 0.75f * dT;
+
+			/* _saturate<f>: 0..1 when fading out, 0..0 for a negative opacity */
+			if (0.0f <= opacity)
+			{
+				opacity -= step;
+				opacity = opacity < 0.0f ? 0.0f : (opacity > 1.0f ? 1.0f : opacity);
+			}
+			else
+			{
+				opacity += step;
+				opacity = opacity < 0.0f ? 0.0f : (opacity > 0.0f ? 0.0f : opacity);
+			}
+
+			node->m_Opacity = opacity;
+		}
+
+		node->SetActive(opacity != 0.0f);
+		return;
+	}
+
+	if (!active)
+		return;
+
+	bool recycle = true;
+	CEntity *viewer = appCamera->m_entity;
+
+	if (viewer != NULL)
+	{
+		CPnt3D pos;
+		body->GetTargetPosW(&pos);
+		CAiCone *cone = &static_cast<CSealCtrl *>(viewer->m_control)->m_view_cone;
+		bool seen = cone->ContainsPoint(&cone->m_cone_pos, &cone->m_cone_dir, &pos);
+
+		if (!seen)
+		{
+			CPnt3D d;
+			body->GetPosW()->Sub(viewer->GetPosW(), &d);
+
+			if (d.x * d.x + d.y * d.y + d.z * d.z < theMission.m_ai_params.recycle_range)
+				seen = true;
+		}
+
+		if (!seen)
+			m_recycleTimer += dT;
+		else if (!(m_recycleTimer <= dT))
+			m_recycleTimer -= dT;
+
+		recycle = !(m_recycleTimer < theMission.m_ai_params.recycle_time);
+	}
+
+	if (!recycle)
+		return;
+
+	node->SetActive(false);
+	CAiEvent *event = static_cast<CZSealBody *>(body)->m_aiEvent;
+
+	if (event != NULL)
+		event->m_type = 0;
+
+	theMission.RecycleEntity(body);
 }
 
 /* @socom-skeleton stub PreTick__11CSealCtrlAiFf */
@@ -2140,8 +2259,38 @@ float CSealCtrl::SetGoalDir(GOAL_TYPE type, const CPnt3D *dir, bool unit)
 }
 
 /* @socom-skeleton stub SetSnoozing__11CSealCtrlAiFb */
-void CSealCtrlAi::SetSnoozing(bool)
+void CSealCtrlAi::SetSnoozing(bool on)
 {
+	/* 0x2670a0 (the snooze LOD in PreTick(f, void *), SetSleeping): a change of the snooze
+	 * state, not while asleep or for a nosnooze AI: snoozing pushes STATE_SUSPENDED (options 3,
+	 * set up) and counts the AI in ai::snooze_count; waking pops it */
+	if ((m_snoozing != 0) == on)
+		return;
+
+	if (m_sleeping || m_nosnooze)
+		return;
+
+	if (on)
+	{
+		if (PushAiState(STATE_SUSPENDED, false))
+		{
+			CAiState *state = GetAiState();
+
+			if (state != NULL && state->m_state == STATE_SUSPENDED) /* port: NULL-tested (ELF writes through it) */
+			{
+				state->m_option_flags |= 3;
+				state->m_setup = 1;
+			}
+		}
+
+		ai::snooze_count++;
+		m_snoozing = 1;
+		return;
+	}
+
+	PopAiState(STATE_SUSPENDED);
+	m_snoozing = 0;
+	ai::snooze_count--;
 }
 
 /* @socom-skeleton stub SetSleeping__11CSealCtrlAiFb */
@@ -3992,8 +4141,65 @@ unsigned char CSealCtrlAi::SetHoldFire(bool hold)
 }
 
 /* @socom-skeleton stub AnimSignal__11CSealCtrlAiFP6CZAnim9AI_SIGNAL */
-void CSealCtrlAi::AnimSignal(CZAnim *, AI_SIGNAL)
+void CSealCtrlAi::AnimSignal(CZAnim *anim, AI_SIGNAL signal)
 {
+	/* 0x2609a0 (ai::SIGNAL, CTSignal::Tick): a script anim's signal to its AI.
+	 * 1: every stacked script state running this anim forgets it (the anim ended);
+	 * 2 / 3: those states enter / leave a critical section (no aware switching; Debug lines
+	 *   "AISIG_BEGINCRITCAL" / "AISIG_ENDCRITCAL"); the stack flags are marked dirty (bit 0);
+	 * 4: STATE_SUSPENDED is pushed (its setup bit set: ELF writes it through NULL when the
+	 *   push did not land on top); 5: it is popped.
+	 * Then the stack flags are updated. The ELF walks the stack from the bottom up. */
+	switch ((u8)signal)
+	{
+	case 1:
+		for (CAiStateStack::iterator i = m_stateStack.begin(); i != m_stateStack.end(); ++i)
+		{
+			CAiSScript *script = (*i)->m_state == STATE_SCRIPT ? static_cast<CAiSScript *>(*i) : NULL;
+
+			if (script != NULL && script->m_anim == anim)
+				script->m_anim = NULL;
+		}
+
+		break;
+
+	case 2:
+	case 3:
+		for (CAiStateStack::iterator i = m_stateStack.begin(); i != m_stateStack.end(); ++i)
+		{
+			CAiSScript *script = (*i)->m_state == STATE_SCRIPT ? static_cast<CAiSScript *>(*i) : NULL;
+
+			if (script == NULL || script->m_anim != anim)
+				continue;
+
+			bool begin = (u8)signal == 2;
+			Debug(begin ? "AISIG_BEGINCRITCAL section [%s]\n" : "AISIG_ENDCRITCAL section [%s]\n", anim->GetName());
+			script->m_critical = begin ? 1 : 0;
+			m_stateFlags |= 1;
+		}
+
+		break;
+
+	case 4:
+		if (PushAiState(STATE_SUSPENDED, false))
+		{
+			CAiState *state = GetAiState();
+
+			if (state != NULL && state->m_state == STATE_SUSPENDED) /* port: NULL-tested (see above) */
+				state->m_setup = 1;
+		}
+
+		break;
+
+	case 5:
+		PopAiState(STATE_SUSPENDED);
+		break;
+
+	default:
+		break;
+	}
+
+	UpdateStackFlags(true);
 }
 
 /* @socom-skeleton stub ActivateEx__11CSealCtrlAiF9SEAL_TASKbe */
@@ -4161,10 +4367,67 @@ void CSealCtrlAi::SetAiAware(AI_AWARE aware, const CPnt3D *pos)
 }
 
 /* @socom-skeleton stub AcquireAiAware__11CSealCtrlAiFP11CSealCtrlAi */
-void CSealCtrlAi::AcquireAiAware(CSealCtrlAi *)
+void CSealCtrlAi::AcquireAiAware(CSealCtrlAi *other)
 {
 	/* @socom-skeleton stub aware_scale$4166 */
-	static float aware_scale;
+	static float aware_scale = 0.95f;
+
+	/* 0x260050 (SensorPreTick: a living buddy close by): the buddy's awareness, 0.95 of it,
+	 * spreads when it is higher than ours and at least level 2 (awareRangeMax): ours becomes
+	 * it. At level 3 an event (type 2, 3 s) at the buddy's live target; at level 4 the
+	 * buddy's live target becomes ours too unless we have a live target that is visible or
+	 * was seen in the last 2.5 s. */
+	if (!other->m_entity->m_isAlive)
+		return;
+
+	f32 aware = aware_scale * other->m_aware.m_value;
+	u8 level = 4;
+
+	for (s32 i = 0; i < 5; i++)
+	{
+		if (aware < awareRangeMax[i])
+		{
+			level = (u8)i;
+			break;
+		}
+	}
+
+	if (aware <= m_aware.m_value || level < 2)
+		return;
+
+	m_aware.m_value = aware < 0.0f ? 0.0f : (aware > 1.0f ? 1.0f : aware); /* _saturate<f> 0..1 */
+
+	if (level == 3)
+	{
+		CEntity *target = other->m_target.m_target.m_ent;
+
+		if (target != NULL && target->m_isAlive)
+			SetAiEvent((CAiEvent::EVENT)2, 3.0f, target->GetPosW());
+
+		return;
+	}
+
+	if (level != 4)
+		return;
+
+	CEntity *own = m_target.m_target.m_ent;
+	bool take = true;
+
+	if (own != NULL && own->m_isAlive)
+		take = !m_target.m_target.m_visible && !(m_target.GetTimeSinceLastSighting() <= 2.5f);
+
+	if (!take)
+		return;
+
+	CEntity *target = other->m_target.m_target.m_ent;
+
+	if (target == NULL || !target->m_isAlive)
+		return;
+
+	CTarget *t = static_cast<CZSealBody *>(m_entity)->m_targets.FindTarget(target);
+
+	if (t != NULL)
+		SetTarget(t);
 }
 
 /* @socom-skeleton stub GetAiAware__11CSealCtrlAiFf */

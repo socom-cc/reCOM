@@ -127,6 +127,7 @@ class CAiAStar;
 class CAiPlanner;
 class CAiPathStats;
 class CAiMapLoc;
+class CPickup; /* CAiSNoAmmo::m_pickup */
 class CAiEventHandle; /* port: unproven: only std::list<CAiEventHandle> instances in DWARF */
 class CAiEvent;
 /* CAiEvent::m_callbacks' element (no DWARF record; names invented): CAiEvent::Create 0x17f8f0
@@ -1105,6 +1106,8 @@ public:
 
 class CAiSAvoid : public CAiState
 {
+public:
+	CEntity* m_avoid; /* +0x28 the entity to keep clear of (FollowTick's AVOID: the master); no DWARF */
 
 	/* @socom-skeleton decl 9CAiSAvoid */
 public:
@@ -1373,6 +1376,10 @@ public:
 
 class CAiSNoAmmo : public CAiState
 {
+public:
+	/* port: no DWARF record; from Tick 0x2e77f0 / OnSignal 0x2e7de0, names invented */
+	CPickup* m_pickup; /* +0x28 the ammo box walked to */
+	CAiMapLoc m_loc;   /* +0x2c the AI's cell when it set out */
 
 	/* @socom-skeleton decl 10CAiSNoAmmo */
 public:

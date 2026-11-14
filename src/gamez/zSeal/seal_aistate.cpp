@@ -409,13 +409,14 @@ bool CSealCtrlAi::CanPushAiState(AI_STATE state)
 #ifdef SOCOM_PORT
 	/* port: only the states whose behaviour is written may be pushed (UNKNOWN, SCRIPT,
 	 * TARGETING, PURSUE, EVENT, RESTRAINED, FOLLOW, HOLD, ACTION, CORPSE, STUNNED, GOTO, SHOTAT, FLEE,
-	 * RUSH, SURRENDER, RELOAD, RESCUED); the other states' Tick functions are not written
+	 * RUSH, SURRENDER, RELOAD, RESCUED, SUSPENDED, AVOID, NOAMMO); the other states' Tick functions are not written
 	 * yet, so their pushes (shot-at, reload, avoid ...) are refused here, a path every caller
 	 * handles */
 	if (s != STATE_UNKNOWN && s != STATE_SCRIPT && s != STATE_TARGETING && s != STATE_PURSUE && s != STATE_EVENT && s != STATE_RESTRAINED
 		&& s != STATE_FOLLOW && s != STATE_HOLD && s != STATE_ACTION && s != STATE_CORPSE && s != STATE_STUNNED
 		&& s != STATE_GOTO && s != STATE_SHOTAT && s != STATE_FLEE && s != STATE_RUSH
-		&& s != STATE_SURRENDER && s != STATE_RELOAD && s != STATE_RESCUED)
+		&& s != STATE_SURRENDER && s != STATE_RELOAD && s != STATE_RESCUED && s != STATE_SUSPENDED
+		&& s != STATE_AVOID && s != STATE_NOAMMO)
 		return false;
 #endif
 
@@ -646,15 +647,81 @@ bool CAiSPickup::Tick(float, CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub OnSignal__9CAiSAvoidFQ28CAiState6SIGNALP11CSealCtrlAi */
-void CAiSAvoid::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+void CAiSAvoid::OnSignal(CAiState::SIGNAL signal, CSealCtrlAi *ai)
 {
+	/* 0x2da6c0: entering (0) gets a prone AI up to a crouch; 3 does too and restarts the
+	 * state's phase */
+	switch ((u8)signal)
+	{
+	case 0:
+		if (ai->m_stance == 2)
+			ai->SetStance((SEAL_STANCE)1);
+
+		break;
+
+	case 3:
+		if (ai->m_stance == 2)
+			ai->SetStance((SEAL_STANCE)1);
+
+		m_substate = 0;
+		break;
+
+	default:
+		break;
+	}
 }
 
 /* @socom-skeleton stub Tick__9CAiSAvoidFfP11CSealCtrlAi */
-bool CAiSAvoid::Tick(float, CSealCtrlAi *)
+bool CAiSAvoid::Tick(float, CSealCtrlAi *ai)
 {
 	/* @socom-skeleton stub AVOID_BUFFER$2632 */
-	static float AVOID_BUFFER;
+	static float AVOID_BUFFER = 10.0f;
+
+	/* 0x2da4a0 (follow mode 9: a follower in its master's way): in phase 0 or 1 the AI steps
+	 * AVOID_BUFFER aside - across the other entity's motion (to the side the AI already is on),
+	 * or straight away from it when it hardly moves - as a level-5 goal at half speed, mode 4.
+	 * Returns whether the state runs on. */
+	if (!m_setup)
+		return false;
+
+	u8 phase = (u8)m_substate;
+
+	if (phase != 0 && phase != 1)
+	{
+		m_substate = phase;
+		return m_setup != 0;
+	}
+
+	CEntity *body = ai->m_entity;
+	CEntity *other = m_avoid;
+	CPnt3D away;
+	body->GetPosW()->SubXZ(other->GetPosW(), &away);
+	CPnt3D step;
+
+	if (CAi::GetToRightXZ(&other->m_velW, &step, true) <= 0.05f)
+	{
+		static_cast<const CPnt3D &>(away).Normalize(&step); /* Normalize__6CPnt3DCFP6CPnt3D */
+		step.Scale(AVOID_BUFFER, &step);
+	}
+	else
+	{
+		f32 dot = step.x * away.x + step.y * away.y + step.z * away.z;
+		step.Scale(AVOID_BUFFER, &step);
+
+		if (dot < 0.0f)
+		{
+			step.x = -step.x;
+			step.y = -step.y;
+			step.z = -step.z;
+		}
+	}
+
+	CPnt3D goal;
+	body->GetPosW()->Add(&step, &goal);
+	ai->SetGoalPos((GOAL_TYPE)5, &goal, 0.5f);
+	ai->SetAiMode((AI_MODE)4);
+	m_substate = phase;
+	return m_setup != 0;
 }
 
 /* @socom-skeleton stub OnSignal__11CAiSHostageFQ28CAiState6SIGNALP11CSealCtrlAi */

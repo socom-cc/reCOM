@@ -548,18 +548,146 @@ CZSealBody * CSealUnit::GetSealByIndex(unsigned int index)
 }
 
 /* @socom-skeleton stub PrivateNotify__9CSealUnitFP10CZSealBody12UNIT_MESSAGEPv */
-void CSealUnit::PrivateNotify(CZSealBody *, UNIT_MESSAGE, void *)
+void CSealUnit::PrivateNotify(CZSealBody *sender, UNIT_MESSAGE message, void *data)
 {
+	/* 0x2d5c90: the unit's own handling of a message.
+	 * 0 (a member called out an enemy, data = the entity: CSealCtrlAi::EnemyCallout): every AI
+	 *   member that knows the entity marks it known and, without a live target of its own,
+	 *   takes it as its target; when the caller is the member itself and holds fire (valve 0
+	 *   set), the unit points it out: the leader's point data for the first member, the
+	 *   follower's for the others (start anim, start turn, in point, 10 s), 2 point ticks.
+	 *   ELF quirk kept: the point direction is the pointer difference of the two positions
+	 *   (in CPnt3D units) in all three axes, normalised.
+	 * 1 (a member died): m_member_died. 2: m_issue_unit_follow (re-issue FOLLOW).
+	 * 3 (the player fired: CZKit::Fire): an ambush is called off with FIREATWILL, then every
+	 *   sub-unit is notified. */
+	switch ((u8)message)
+	{
+	case 0:
+	{
+		CEntity *ent = static_cast<CEntity *>(data);
+		s32 index = 0;
+
+		for (std::list<CZSealBody*>::iterator i = m_seals.begin(); i != m_seals.end(); ++i, index++)
+		{
+			CZSealBody *seal = *i;
+			CSealCtrl *ctrl = static_cast<CSealCtrl *>(seal->m_control);
+
+			if (ctrl == NULL || !ctrl->IsAi())
+				continue;
+
+			CTarget *target = seal->m_targets.FindTarget(ent);
+
+			if (target != NULL)
+			{
+				target->m_known = 1;
+				CSealCtrlAi *ai = ctrl->GetSealCtrlAi();
+
+				if (ai != NULL)
+				{
+					CEntity *own = ai->m_target.m_target.m_ent;
+
+					if (!(own != NULL && own->m_isAlive))
+						ai->SetTarget(target);
+				}
+			}
+
+			if (seal != sender)
+				continue;
+
+			CSealCtrlAi *ai = ctrl->GetSealCtrlAi();
+
+			if (ai == NULL)
+				continue;
+
+			CValve *holdfire = ai->GetValve((SEAL_VALVE)0);
+
+			if (holdfire == NULL || holdfire->m_value == 0)
+				continue;
+
+			UnitPointData *point = index == 0 ? &m_leader_point_data : &m_follower_point_data;
+			point->start_anim = 1;
+			point->start_turn = 1;
+			point->in_point = 1;
+			point->timer = 10.0f;
+			f32 d = (f32)(s32)(seal->GetPosW() - ent->GetPosW()); /* ELF quirk: pointer difference */
+			point->dirW.x = d;
+			point->dirW.y = d;
+			point->dirW.z = d;
+			point->dirW.Normalize();
+			m_point_ticks = 2;
+		}
+
+		break;
+	}
+
+	case 1:
+		m_member_died = 1;
+		break;
+
+	case 2:
+		m_issue_unit_follow = 1;
+		break;
+
+	case 3:
+		if (m_ambush)
+		{
+			m_ambush = 0;
+			IssueCommand(NULL, CMD_FIREATWILL, NULL, false);
+		}
+
+		for (std::list<CSealUnit*>::iterator i = m_sub_units.begin(); i != m_sub_units.end(); ++i)
+			(*i)->Notify(sender, message, data);
+
+		break;
+	}
 }
 
 /* @socom-skeleton stub DistributeNotify__9CSealUnitFP10CZSealBody12UNIT_MESSAGEPv */
-void CSealUnit::DistributeNotify(CZSealBody *, UNIT_MESSAGE, void *)
+void CSealUnit::DistributeNotify(CZSealBody *sender, UNIT_MESSAGE message, void *data)
 {
+	/* 0x2d5b40: down the unit tree - each sub-unit's sub-units, then each sub-unit itself,
+	 * then this unit */
+	for (std::list<CSealUnit*>::iterator i = m_sub_units.begin(); i != m_sub_units.end(); ++i)
+	{
+		CSealUnit *sub = *i;
+
+		for (std::list<CSealUnit*>::iterator j = sub->m_sub_units.begin(); j != sub->m_sub_units.end(); ++j)
+			(*j)->DistributeNotify(sender, message, data);
+
+		sub->PrivateNotify(sender, message, data);
+	}
+
+	PrivateNotify(sender, message, data);
 }
 
 /* @socom-skeleton stub Notify__9CSealUnitFP10CZSealBody12UNIT_MESSAGEPv */
-void CSealUnit::Notify(CZSealBody *, UNIT_MESSAGE, void *)
+void CSealUnit::Notify(CZSealBody *sender, UNIT_MESSAGE message, void *data)
 {
+	/* 0x2d57f0: messages 1 and 2 stay in this unit; 0 and 3 go to the whole tree when this
+	 * unit's grandparent (or itself, without a parent) is the first unit of the list (the
+	 * fireteam), else to this unit's sub-units and itself (DistributeNotify for each
+	 * sub-unit, then PrivateNotify). ELF quirk kept: the grandparent, not the parent, is
+	 * tested, so a sub-unit of the fireteam keeps 0 and 3 to itself. */
+	u8 m = (u8)message;
+
+	if (m == 1 || m == 2)
+	{
+		PrivateNotify(sender, message, data);
+		return;
+	}
+
+	if (m != 0 && m != 3)
+		return;
+
+	CSealUnit *top = m_parent != NULL ? m_parent->m_parent : this;
+	CSealUnit *front = m_list.empty() ? NULL : m_list.front();
+	CSealUnit *unit = top == front ? top : this;
+
+	for (std::list<CSealUnit*>::iterator i = unit->m_sub_units.begin(); i != unit->m_sub_units.end(); ++i)
+		(*i)->DistributeNotify(sender, message, data);
+
+	unit->PrivateNotify(sender, message, data);
 }
 
 /* @socom-skeleton stub UnInit__9CSealUnitFv */

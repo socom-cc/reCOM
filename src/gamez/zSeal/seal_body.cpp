@@ -3209,6 +3209,12 @@ CZBodyAnimBlend * CZSealBody::LowerBinoculars()
 /* @socom-skeleton stub AbortPeek__10CZSealBodyFv */
 void CZSealBody::AbortPeek()
 {
+	/* 0x2736c0 (CSealCtrl::PreTick): a peeking seal goes back to its stance base (ClearToBase
+	 * inlined: blends popped down to the stand / crouch / prone base, the top's control
+	 * cleared, no desired peek). port: void (the ELF returns the top blend; no caller reads
+	 * it) */
+	if (m_state == 3)
+		ClearToBase(false);
 }
 
 /* @socom-skeleton stub PeekBaseState__10CZSealBodyFv */
@@ -3270,6 +3276,79 @@ CZBodyAnimBlend * CZSealBody::ClearToBase(bool all)
 /* @socom-skeleton stub UpdatePeek__10CZSealBodyFv */
 void CZSealBody::UpdatePeek()
 {
+	/* 0x273020 (PreTick): follows m_desiredPeek. Not peeking: a desired peek (left / up /
+	 * right) pushes the peek anim of the stance - stand PeekL / Stand2PeekU / PeekR, crouch
+	 * CrouchPeekL / Crouch2PeekU / CrouchPeekR, prone PronePeekLeft / PronePeekRight (prone
+	 * has no up peek: Stand2PeekU) - once in the stance's own state and once as the peek
+	 * state, whose control is set; the body enters statePeek. Peeking, once the peek blend is
+	 * in (flag 0x10) and not leaving (0x20): a peek that no longer matches the desired one
+	 * (or none desired) pops the peek blend (any of the six peek types or a prone peek) and
+	 * clears its control; any other top just loses its control. */
+	CZBodyAnimBlend *top = m_blends->Top();
+	AnimType type = top->m_animType;
+	s8 peek = (s8)m_desiredPeek;
+	s16 ppl = AnimTypes::PronePeekLeft;
+	s16 ppr = AnimTypes::PronePeekRight;
+
+	if (m_state == 3)
+	{
+		if (!(top->m_flags & 0x10) || (top->m_flags & 0x20))
+			return;
+
+		s16 t = (s16)type;
+		bool keep = false;
+
+		if (peek == -1)
+			keep = t == 31 || t == 29 || t == ppl;
+		else if (peek == 0)
+			keep = t == 34 || t == 33;
+		else if (peek == 1)
+			keep = t == 32 || t == 30 || t == ppr;
+
+		if (keep)
+			return;
+
+		if ((t >= 29 && t <= 34) || t == ppl || t == ppr)
+		{
+			CZBodyAnimBlend *popped = PopBlend();
+			BodySetState(3); /* ELF quirk kept: the state stays statePeek */
+			popped->m_ctrl = 0;
+			return;
+		}
+
+		top->m_ctrl = 0;
+		return;
+	}
+
+	if (peek == 2)
+		return;
+
+	m_last_foot = 2;
+	s8 stance = m_state;
+	s16 anim;
+
+	switch (peek)
+	{
+	case -1:
+		anim = stance == 1 ? 31 : (stance == 2 ? ppl : 29);
+		break;
+	case 0:
+		anim = stance == 1 ? 34 : 33;
+		break;
+	case 1:
+		anim = stance == 1 ? 32 : (stance == 2 ? ppr : 30);
+		break;
+	default:
+		BodySetState(3);
+		return;
+	}
+
+	/* the first push is in the stance's state: crouch 1, prone 2 (left / right), else stand 0 */
+	PushBlend((AnimType)anim, stance == 1 ? 1 : (stance == 2 && peek != 0 ? 2 : 0), true);
+	CZBodyAnimBlend *blend = PushBlend((AnimType)anim, 3, false);
+	BodySetState(3);
+	blend->m_ctrl = 1;
+	BodySetState(3); /* ELF: the state is set a second time */
 }
 
 /* @socom-skeleton stub RePose__10CZSealBodyF9SEAL_ITEM */
@@ -3324,9 +3403,244 @@ CZBodyAnimBlend * CZSealBody::PerformAction(AnimType type, SEAL_STATE state)
 	return PushBlend(type, (s32)state, false);
 }
 
+/* Recoil (0x270d10) per stance and item: each body part's rotation kick (CQuat::Exp of the
+ * axis by the recoil amount t; exp 0 = none) and position kick (the offset times t), from the
+ * six straight-line branches of the ELF (generated from its constants, in its part order:
+ * build/port/boot-mod-zseal/recoil_gen.py) */
+struct RECOIL_PART
+{
+	u8 exp;
+	f32 axis[3];
+	f32 ofs[3];
+};
+
+static CZBodyPart *CZSealBody::* const recoil_parts[22] = {
+	&CZSealBody::m_root, &CZSealBody::m_hips, &CZSealBody::m_spinelo, &CZSealBody::m_spinehi, &CZSealBody::m_lbicep, &CZSealBody::m_lforearm, &CZSealBody::m_lhand, &CZSealBody::m_rbicep,
+	&CZSealBody::m_rforearm, &CZSealBody::m_rhand, &CZSealBody::m_pistol, &CZSealBody::m_lshoulder_wgt, &CZSealBody::m_rshoulder_wgt, &CZSealBody::m_rscap, &CZSealBody::m_neck, &CZSealBody::m_head,
+	&CZSealBody::m_lthigh, &CZSealBody::m_lcalf, &CZSealBody::m_lfoot, &CZSealBody::m_rthigh, &CZSealBody::m_rcalf, &CZSealBody::m_rfoot
+};
+static const RECOIL_PART recoil_table[6][22] = {
+	{ /* stand0 */
+		{ 0, { 0.0f, 0.0f, 0.0f }, { 0.00537500018f, 0.0592329986f, 0.075168997f } }, /* m_root */
+		{ 0, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } }, /* m_hips */
+		{ 1, { -0.000163000004f, -6.60000005e-05f, -0.000184999997f }, { 0.0f, 0.0f, 0.0f } }, /* m_spinelo */
+		{ 1, { 3.89999987e-05f, -7.89999976e-05f, 0.000142000004f }, { 0.0f, 0.0f, 0.0f } }, /* m_spinehi */
+		{ 1, { 0.00849299971f, 0.0404140018f, -0.0454070009f }, { 0.0f, 0.0f, 0.0f } }, /* m_lbicep */
+		{ 1, { -1.99999999e-06f, 0.0f, -0.0140869999f }, { 0.0f, 0.0f, 0.0f } }, /* m_lforearm */
+		{ 1, { 0.00787200034f, -0.00851800013f, -0.0159329996f }, { 0.0f, 0.0f, 0.0f } }, /* m_lhand */
+		{ 1, { -0.00170599995f, 0.0159549993f, -0.0450300016f }, { -0.0335430019f, -0.0950540006f, -0.0533530004f } }, /* m_rbicep */
+		{ 1, { 0.0f, 0.0f, -0.00152100006f }, { 0.0f, 0.0f, 0.0f } }, /* m_rforearm */
+		{ 1, { -0.001086f, 0.0436679982f, -0.0049709999f }, { 0.0f, 0.0f, 0.0f } }, /* m_rhand */
+		{ 0, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } }, /* m_pistol */
+		{ 1, { 0.0106100002f, 0.0746669993f, -0.0231149998f }, { 0.0f, 0.0f, 0.0f } }, /* m_lshoulder_wgt */
+		{ 1, { -0.00662899995f, -0.0191500001f, -0.0625109971f }, { -0.0335430019f, -0.0950540006f, -0.0533530004f } }, /* m_rshoulder_wgt */
+		{ 1, { -0.0300299991f, 0.00885100011f, 0.00310999993f }, { 0.0f, 0.0f, 0.0f } }, /* m_rscap */
+		{ 0, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } }, /* m_neck */
+		{ 0, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } }, /* m_head */
+		{ 1, { -0.00739300018f, 0.00107400003f, -0.000452000007f }, { 0.0f, 0.0f, 0.0f } }, /* m_lthigh */
+		{ 1, { 0.0f, 0.0f, -0.0202229992f }, { 0.0f, 0.0f, 0.0f } }, /* m_lcalf */
+		{ 1, { 0.000167999999f, 0.00164200005f, 0.0129230004f }, { 0.0f, 0.0f, 0.0f } }, /* m_lfoot */
+		{ 1, { -0.00280699995f, -0.00201900001f, -0.00467200018f }, { 0.0f, 0.0f, 0.0f } }, /* m_rthigh */
+		{ 1, { 0.0f, 0.0f, -0.0132290004f }, { 0.0f, 0.0f, 0.0f } }, /* m_rcalf */
+		{ 1, { 0.000326000008f, 0.00417499989f, 0.00919899996f }, { 0.0f, 0.0f, 0.0f } }, /* m_rfoot */
+	},
+	{ /* stand1 */
+		{ 0, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } }, /* m_root */
+		{ 0, { 0.0f, 0.0f, 0.0f }, { 0.0114890002f, 0.0f, 0.0753239989f } }, /* m_hips */
+		{ 1, { 0.00538699981f, -0.0128739998f, 0.00635700021f }, { 0.0f, 0.0f, 0.0f } }, /* m_spinelo */
+		{ 1, { -0.00511799986f, -0.000445999991f, 2.99999992e-05f }, { 0.0f, 0.0f, 0.0f } }, /* m_spinehi */
+		{ 1, { 0.00789400004f, -0.00413900008f, 0.00175599998f }, { 0.0f, 0.0f, 0.0f } }, /* m_lbicep */
+		{ 1, { 0.0f, 0.0f, -0.0182939991f }, { 0.0f, 0.0f, 0.0f } }, /* m_lforearm */
+		{ 1, { 0.00294300006f, 0.00985900033f, 0.0222420003f }, { 0.0f, 0.0f, 0.0f } }, /* m_lhand */
+		{ 1, { 0.00120099995f, 0.00985599961f, -0.0152120003f }, { -0.102812998f, -0.130555004f, -0.0397650003f } }, /* m_rbicep */
+		{ 1, { 0.0f, 0.0f, 0.0200980008f }, { 0.0f, 0.0f, 0.0f } }, /* m_rforearm */
+		{ 1, { 0.0292499997f, -0.00634799991f, -0.021838f }, { 0.0f, 0.0f, 0.0f } }, /* m_rhand */
+		{ 1, { 0.00784699991f, 0.00151600002f, -0.00275800005f }, { -0.00933399983f, 0.00696999999f, -0.0227240007f } }, /* m_pistol */
+		{ 1, { 0.00785300042f, -0.00376500003f, 0.00216599996f }, { 0.0f, 0.0f, 0.0f } }, /* m_lshoulder_wgt */
+		{ 1, { 0.000556999992f, 0.0319649987f, -0.0167389996f }, { -0.102812998f, -0.130555004f, -0.0397659987f } }, /* m_rshoulder_wgt */
+		{ 1, { -0.0348999985f, 0.0290600006f, -0.0051719998f }, { 0.0f, 0.0f, 0.0f } }, /* m_rscap */
+		{ 0, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } }, /* m_neck */
+		{ 0, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } }, /* m_head */
+		{ 1, { -0.00148199999f, -0.000474f, -0.00330700004f }, { 0.0f, 0.0f, 0.0f } }, /* m_lthigh */
+		{ 1, { 0.0f, 0.0f, -0.00557099981f }, { 0.0f, 0.0f, 0.0f } }, /* m_lcalf */
+		{ 1, { 0.000292000012f, 0.00364200003f, 0.00550699979f }, { 0.0f, 0.0f, 0.0f } }, /* m_lfoot */
+		{ 1, { 0.00784699991f, 0.00151600002f, -0.00275800005f }, { 0.0f, 0.0f, 0.0f } }, /* m_rthigh */
+		{ 1, { 0.0f, 0.0f, 0.0122739999f }, { 0.0f, 0.0f, 0.0f } }, /* m_rcalf */
+		{ 1, { -0.000167999999f, 0.00404600007f, -0.00485200016f }, { 0.0f, 0.0f, 0.0f } }, /* m_rfoot */
+	},
+	{ /* crouch0 */
+		{ 0, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } }, /* m_root */
+		{ 0, { 0.0f, 0.0f, 0.0f }, { 0.0f, -9.99999997e-07f, 0.131876007f } }, /* m_hips */
+		{ 1, { 0.00702500017f, -0.00207699998f, 0.000190000006f }, { 0.0f, 0.0f, 0.0f } }, /* m_spinelo */
+		{ 1, { -0.00520200003f, -0.000630999974f, 0.000199000002f }, { 0.0f, 0.0f, 0.0f } }, /* m_spinehi */
+		{ 1, { 0.0168249998f, 0.0240599997f, -0.0197620001f }, { 0.0f, 0.0f, 0.0f } }, /* m_lbicep */
+		{ 1, { 9.99999997e-07f, 0.0f, -0.0123229995f }, { 0.0f, 0.0f, 0.0f } }, /* m_lforearm */
+		{ 1, { 0.0500530005f, -0.0388870016f, -0.0229899995f }, { 0.0f, 0.0f, 0.0f } }, /* m_lhand */
+		{ 1, { -0.00980299991f, 0.0115f, -0.0103639998f }, { 0.0f, 0.0f, 0.0f } }, /* m_rbicep */
+		{ 1, { -1.99999999e-06f, 0.0f, -0.0352209993f }, { 0.0f, 0.0f, 0.0f } }, /* m_rforearm */
+		{ 1, { -0.0189599991f, 0.0757360011f, -0.0196269993f }, { 0.0f, 0.0f, 0.0f } }, /* m_rhand */
+		{ 0, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } }, /* m_pistol */
+		{ 1, { 0.0142050004f, 0.0118159996f, -0.0326780006f }, { 0.0f, 0.0f, 0.0f } }, /* m_lshoulder_wgt */
+		{ 1, { -0.0108019998f, 0.00969500002f, -0.011523f }, { 0.0f, 0.0f, 0.0f } }, /* m_rshoulder_wgt */
+		{ 0, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } }, /* m_rscap */
+		{ 0, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } }, /* m_neck */
+		{ 0, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } }, /* m_head */
+		{ 1, { 0.00468799984f, -0.000414999988f, -0.00145400001f }, { 0.0f, 0.0f, 0.0f } }, /* m_lthigh */
+		{ 1, { -9.99999997e-07f, -9.99999997e-07f, -0.0106880004f }, { 0.0f, 0.0f, 0.0f } }, /* m_lcalf */
+		{ 1, { -0.000517999986f, -0.000632999989f, 0.0155459996f }, { 0.0f, 0.0f, 0.0f } }, /* m_lfoot */
+		{ 1, { 0.0126069998f, 0.00614000019f, -0.00723499991f }, { 0.0f, 0.0f, 0.0f } }, /* m_rthigh */
+		{ 1, { 0.0f, 0.0f, 0.0146209998f }, { 0.0f, 0.0f, 0.0f } }, /* m_rcalf */
+		{ 1, { 0.00168099999f, 0.00170599995f, 0.000975999981f }, { 0.0f, 0.0f, 0.0f } }, /* m_rfoot */
+	},
+	{ /* crouch1 */
+		{ 0, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } }, /* m_root */
+		{ 0, { 0.0f, 0.0f, 0.0f }, { -0.000467000005f, 0.0f, 0.0946149975f } }, /* m_hips */
+		{ 1, { 0.0260719992f, 0.000631999981f, -0.005229f }, { 0.0f, 0.0f, 0.0f } }, /* m_spinelo */
+		{ 1, { -0.00657299999f, -0.00930299982f, 0.0154799996f }, { 0.0f, 0.0f, 0.0f } }, /* m_spinehi */
+		{ 1, { 0.00743199978f, -0.00706599979f, 0.00869600009f }, { 0.0f, 0.0f, 0.0f } }, /* m_lbicep */
+		{ 1, { 0.0f, 0.0f, -0.0371210016f }, { 0.0f, 0.0f, 0.0f } }, /* m_lforearm */
+		{ 1, { 0.00295099989f, -0.00290199998f, 0.0225549992f }, { 0.0f, 0.0f, 0.0f } }, /* m_lhand */
+		{ 1, { -0.00326299993f, 0.000731999986f, -0.000108f }, { -0.0827429965f, -0.0712630004f, -0.0253720004f } }, /* m_rbicep */
+		{ 1, { 0.0f, 0.0f, -0.004036f }, { 0.0f, 0.0f, 0.0f } }, /* m_rforearm */
+		{ 0, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } }, /* m_rhand */
+		{ 1, { 0.00980299991f, 0.00659999996f, -0.00767099997f }, { -0.036603f, 0.00815299992f, -0.0397639982f } }, /* m_pistol */
+		{ 1, { 0.00618400006f, -0.0104090003f, 0.00670500007f }, { 0.0f, 0.0f, 0.0f } }, /* m_lshoulder_wgt */
+		{ 1, { -0.00544899981f, 0.035174001f, -0.00750199985f }, { -0.0827440023f, -0.0712630004f, -0.0253720004f } }, /* m_rshoulder_wgt */
+		{ 1, { -0.0176929999f, 0.0220679995f, -0.00427799998f }, { 0.0f, 0.0f, 0.0f } }, /* m_rscap */
+		{ 0, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } }, /* m_neck */
+		{ 0, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } }, /* m_head */
+		{ 1, { 0.00343700009f, 0.000612000003f, -0.002599f }, { 0.0f, 0.0f, 0.0f } }, /* m_lthigh */
+		{ 1, { 0.0f, 9.99999997e-07f, -0.00774799986f }, { 0.0f, 0.0f, 0.0f } }, /* m_lcalf */
+		{ 1, { 0.00059499999f, 0.000743000011f, 0.0119949998f }, { 0.0f, 0.0f, 0.0f } }, /* m_lfoot */
+		{ 1, { 0.00980299991f, 0.00659999996f, -0.00767099997f }, { 0.0f, 0.0f, 0.0f } }, /* m_rthigh */
+		{ 1, { 0.0f, 0.0f, 0.00980100036f }, { 0.0f, 0.0f, 0.0f } }, /* m_rcalf */
+		{ 1, { 0.000157999995f, 0.000110000001f, 0.00428699981f }, { 0.0f, 0.0f, 0.0f } }, /* m_rfoot */
+	},
+	{ /* prone0 */
+		{ 0, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } }, /* m_root */
+		{ 0, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0364429988f } }, /* m_hips */
+		{ 0, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } }, /* m_spinelo */
+		{ 0, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } }, /* m_spinehi */
+		{ 1, { 0.00449799979f, -0.00556199998f, -0.00812700018f }, { 0.0f, 0.0f, 0.0f } }, /* m_lbicep */
+		{ 1, { 0.0f, 0.0f, -0.0181200001f }, { 0.0f, 0.0f, 0.0f } }, /* m_lforearm */
+		{ 1, { 0.0604400001f, -0.0318370014f, -0.0253599994f }, { 0.0f, 0.0f, 0.0f } }, /* m_lhand */
+		{ 1, { 0.00270000007f, -0.00174600002f, 0.000973000017f }, { -0.0415990017f, 0.00093899999f, -0.0234830007f } }, /* m_rbicep */
+		{ 1, { -9.99999997e-07f, 0.0f, -0.0122429999f }, { 0.0f, 0.0f, 0.0f } }, /* m_rforearm */
+		{ 1, { -0.0334869996f, 0.0193649996f, -0.0687989965f }, { 0.0f, 0.0f, 0.0f } }, /* m_rhand */
+		{ 0, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } }, /* m_pistol */
+		{ 1, { 0.00614099996f, -0.00395999989f, -0.00743700005f }, { 0.0f, 0.0f, 0.0f } }, /* m_lshoulder_wgt */
+		{ 1, { 0.005535f, 0.00126499997f, 0.00105700002f }, { -0.0415990017f, 0.00093899999f, -0.0234830007f } }, /* m_rshoulder_wgt */
+		{ 1, { -0.00187799998f, 0.0110419998f, 0.00376900006f }, { 0.0f, 0.0f, 0.0f } }, /* m_rscap */
+		{ 0, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } }, /* m_neck */
+		{ 0, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } }, /* m_head */
+		{ 1, { 0.00731500005f, -0.00597399985f, -0.00402700016f }, { 0.0f, 0.0f, 0.0f } }, /* m_lthigh */
+		{ 1, { 0.0f, -9.99999997e-07f, 0.0200689994f }, { 0.0f, 0.0f, 0.0f } }, /* m_lcalf */
+		{ 1, { 6.80000012e-05f, 0.00058599998f, -0.00982000027f }, { 0.0f, 0.0f, 0.0f } }, /* m_lfoot */
+		{ 1, { 0.00347799994f, 0.000376000011f, 0.00251900009f }, { 0.0f, 0.0f, 0.0f } }, /* m_rthigh */
+		{ 1, { 0.0f, 0.0f, 0.00408599991f }, { 0.0f, 0.0f, 0.0f } }, /* m_rcalf */
+		{ 1, { -0.000323999993f, -0.000279f, 0.000203000003f }, { 0.0f, 0.0f, 0.0f } }, /* m_rfoot */
+	},
+	{ /* prone1 */
+		{ 0, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } }, /* m_root */
+		{ 0, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0311290007f } }, /* m_hips */
+		{ 0, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } }, /* m_spinelo */
+		{ 0, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } }, /* m_spinehi */
+		{ 1, { 0.00783499982f, -0.00786199979f, -0.00784500036f }, { 0.0f, 0.0f, 0.0f } }, /* m_lbicep */
+		{ 1, { 0.0f, 0.0f, -0.0423489995f }, { 0.0f, 0.0f, 0.0f } }, /* m_lforearm */
+		{ 1, { 0.0077010002f, -0.00259199995f, 0.0319540016f }, { 0.0f, 0.0f, 0.0f } }, /* m_lhand */
+		{ 1, { -0.000230000005f, -0.000163999997f, -0.00917300023f }, { -0.0327380002f, -0.00247900002f, -0.0167330001f } }, /* m_rbicep */
+		{ 1, { 0.0f, 0.0f, -0.0150640002f }, { 0.0f, 0.0f, 0.0f } }, /* m_rforearm */
+		{ 0, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } }, /* m_rhand */
+		{ 1, { 0.00297000003f, 0.000322000007f, 0.00215100008f }, { -0.00161499996f, 0.0147949997f, 2.20000002e-05f } }, /* m_pistol */
+		{ 1, { 0.0165090002f, 0.003302f, -0.00267000007f }, { 0.0f, 0.0f, 0.0f } }, /* m_lshoulder_wgt */
+		{ 1, { 5.50000004e-05f, 0.00100499997f, -0.00937199965f }, { -0.0327370018f, -0.00247900002f, -0.0167330001f } }, /* m_rshoulder_wgt */
+		{ 1, { -0.00212799991f, 0.00838600006f, 0.0029219999f }, { 0.0f, 0.0f, 0.0f } }, /* m_rscap */
+		{ 1, { 0.00231899996f, -0.000691999972f, -0.00197999994f }, { 0.0f, 0.0f, 0.0f } }, /* m_neck */
+		{ 1, { 0.0038970001f, 0.00109399995f, -0.0104409996f }, { 0.0f, 0.0f, 0.0f } }, /* m_head */
+		{ 1, { 0.00629799999f, -0.00513899978f, -0.00346400007f }, { 0.0f, 0.0f, 0.0f } }, /* m_lthigh */
+		{ 1, { 0.0f, 0.0f, 0.0172690004f }, { 0.0f, 0.0f, 0.0f } }, /* m_lcalf */
+		{ 1, { 5.70000011e-05f, 0.000500999973f, -0.00844699983f }, { 0.0f, 0.0f, 0.0f } }, /* m_lfoot */
+		{ 1, { 0.00297000003f, 0.000321f, 0.00215100008f }, { 0.0f, 0.0f, 0.0f } }, /* m_rthigh */
+		{ 1, { 0.0f, 0.0f, 0.00349100004f }, { 0.0f, 0.0f, 0.0f } }, /* m_rcalf */
+		{ 1, { -0.000277000014f, -0.000237999993f, 0.000171000007f }, { 0.0f, 0.0f, 0.0f } }, /* m_rfoot */
+	},
+};
+
 /* @socom-skeleton stub Recoil__10CZSealBodyFv */
 void CZSealBody::Recoil()
 {
+	/* 0x270d10 (Tick_0): the weapon kick on the skeleton after a shot. m_recoilParam (set by
+	 * the shot) runs down by the frame time; with weapon recoil on and t = recoilParam^2 at
+	 * least 0.01, t is scaled by the current weapon's movement dilation (its sqrt, when the
+	 * stance's target mods dilate) and halved; the table of the body's stance (its state, or
+	 * the desired state when it is neither standing, crouching nor prone) and item (1 = the
+	 * pistol, else the rifle) gives each of 22 parts a rotation (rot = Normalize(kick * rot))
+	 * and a position offset. ELF: without a stance table the kicks are left unset on the stack;
+	 * port: identity and no offset. */
+	m_recoilParam -= m_dT;
+
+	if (m_recoilParam < 0.0f)
+		m_recoilParam = 0.0f;
+
+	if (!m_do_weapon_recoil)
+		return;
+
+	f32 t = m_recoilParam * m_recoilParam;
+
+	if (fabsf(t) < 0.01f)
+		return;
+
+	CZFTSWeapon *weapon = NULL;
+	m_kit.GetCurWeapon(&weapon, NULL);
+
+	if (weapon != NULL)
+	{
+		CTargetMods *mods = weapon->TargetMods((u8)GetStance(false));
+
+		if (mods->GetTarget_DilateUponMovement() > 0.0f)
+			t *= mods->GetTarget_DilateUponMovementSqrt();
+	}
+
+	t *= 0.5f;
+	s8 state = m_state;
+	s32 stance = state == 0 ? 0 : state == 1 ? 1 : state == 2 ? 2 : -1;
+
+	if (stance < 0)
+	{
+		u8 desired = (u8)m_desiredState;
+		stance = desired == 0 ? 0 : desired == 1 ? 1 : desired == 2 ? 2 : -1;
+	}
+
+	const RECOIL_PART *table = stance >= 0 ? recoil_table[stance * 2 + ((u8)m_item == 1 ? 1 : 0)] : NULL;
+
+	for (s32 i = 0; i < 22; i++)
+	{
+		CZBodyPart *part = this->*recoil_parts[i];
+
+		if (part == NULL)
+			continue;
+
+		CQuat kick = CQuat::identity;
+		CPnt3D ofs = CPnt3D::zero;
+
+		if (table != NULL)
+		{
+			if (table[i].exp)
+			{
+				CPnt3D axis(table[i].axis[0], table[i].axis[1], table[i].axis[2]);
+				kick.Exp(&axis, t);
+			}
+
+			ofs.x = t * table[i].ofs[0];
+			ofs.y = t * table[i].ofs[1];
+			ofs.z = t * table[i].ofs[2];
+		}
+
+		CQuat rot;
+		kick.Mul(&part->m_rot, &rot);
+		rot.Normalize(&part->m_rot);
+		part->m_pos.Add(&ofs, &part->m_pos);
+	}
 }
 
 /* @socom-skeleton stub UseVelY__10CZSealBodyFv */

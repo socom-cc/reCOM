@@ -27,6 +27,10 @@
 #include "gamez/zNode/node_world.h" /* zdb::CWorld (PreCreateSeal) */
 #include "gamez/zGrid/zgrid.h" /* CGrid::m_ClutterAnimManager (PostCreateSeal) */
 #include "zseal.h"
+#include "gamez/zFTS/zfts.h" /* theMission, ftsGetPlayer (DoRespawn) */
+#include "gamez/zVehicle/zvehicle.h" /* CVehicleRdrEntry::GetStart (DoRespawn) */
+#include "gamez/zCamera/zcam.h" /* appCamera (ReCreate) */
+#include <new> /* placement new (ReCreate) */
 
 /* @socom-skeleton decl include */
 #include "gamez/zCharacter/zchar.h"
@@ -228,8 +232,56 @@ void CZSealBody::PostCreateSeal(CZSealBody *seal, CSealCtrl *controller)
 }
 
 /* @socom-skeleton stub ReCreate__10CZSealBodyFP10CZSealBodyPC14CCharacterType */
-bool CZSealBody::ReCreate(CZSealBody *, const CCharacterType *)
+bool CZSealBody::ReCreate(CZSealBody *seal, const CCharacterType *type)
 {
+	/* 0x289b10 (DoRespawn, RemoteRespawn): the seal is rebuilt in place, keeping its entity
+	 * slot, id, team, vehicle index, display name, controller and matrix. Marked respawning
+	 * (so the destructor keeps the controller), the HUD redraws the weapon, the kit's weapon
+	 * info changes; then the body is destroyed and constructed again on a new node of the
+	 * same (or the given) character type, back in the target lists, the gear and controller
+	 * attached again (PostCreateSeal), the team valves refreshed and the old matrix taken; the
+	 * player's camera attaches to it again. */
+	seal->m_respawning = 1;
+	CSealCtrl *ctrl = static_cast<CSealCtrl *>(seal->m_control);
+	ctrl->m_HudUpdateWeapon = 1; /* ELF: not NULL-tested */
+	seal->m_kit.SetWeaponInfoChanged();
+	CMatrix matrix;
+	sceVu0CopyMatrix(matrix.m_matrix, seal->m_node->m_matrix.m_matrix);
+	u32 id = seal->m_id;
+	u32 team = seal->m_team;
+	u32 vehicle = seal->m_vehicle_index;
+
+	if (type == NULL)
+		type = seal->m_charType;
+
+	CCharacterType *held = type->Acquire();
+	char *name = _strdup(seal->m_node->m_name, "seal_create.cpp", 307);
+	char *display = seal->m_display_name != NULL ? _strdup(seal->m_display_name, "seal_create.cpp", 308) : NULL;
+	seal->~CZSealBody(); /* ELF: the virtual dtor with -1 (no delete) */
+	zdb::CNode *node = NULL;
+	CCharacterType *acquired = PreCreateSeal(type, name, &node);
+	new (seal) CZSealBody(node, acquired);
+	seal->SetTeamMask(team);
+	seal->m_id = id;
+	seal->m_get_new_altitude = 1;
+	seal->SetIncludeInTargetList(true);
+	seal->m_vehicle_index = vehicle;
+	seal->SetDisplayName(display);
+	seal->m_left_game = false;
+	PostCreateSeal(seal, ctrl);
+	theMission.RefreshTeamValves();
+	seal->TeleportTo(&matrix);
+
+	if (seal->m_control != NULL && static_cast<CSealCtrl *>(seal->m_control)->IsPlayer())
+	{
+		appCamera->AttachTo(seal);
+		seal->m_camera = appCamera;
+	}
+
+	held->Release();
+	_free(name, "seal_create.cpp", 347);
+	_free(display, "seal_create.cpp", 348);
+	return true;
 }
 
 /* @socom-skeleton stub Create__10CZSealBodyFPC14CCharacterTypePCcP9CSealCtrl */
@@ -302,6 +354,73 @@ CZSealBody * CZSealBody::CreateRemoteSeal(int, int, const char *, int, char *, u
 /* @socom-skeleton stub DoRespawn__10CZSealBodyFv */
 void CZSealBody::DoRespawn()
 {
+	/* 0x289260 (PostMortemPreTick, single player, after CSealCtrlAi::PostMortemPreTick asked
+	 * for it): an AI comes back at the first of its other vehicle starts (1..) that is farther
+	 * from the player than the mission's respawn range and outside the player's view cone,
+	 * facing the start's direction, with a fresh brain (m_has_respawned: InitAiBrain starts
+	 * its mission scripts again). Without such a start its respawns are used up. A body
+	 * without an AI is only re-created. */
+	CSealCtrl *ctrl = static_cast<CSealCtrl *>(m_control);
+
+	if (ctrl == NULL || !ctrl->IsAi())
+	{
+		ReCreate(this, NULL);
+		m_needs_respawn = false;
+		return;
+	}
+
+	CSealCtrlAi *ai = ctrl->GetSealCtrlAi();
+	const CVehicleRdrEntry *veh = ai->m_aiParams.m_veh;
+	u32 count = veh->m_start.m_count;
+	bool found = false;
+	CZSealBody *player = ftsGetPlayer();
+	f32 range = theMission.m_ai_params.respawn_range;
+	int dir = 0;
+	CPnt3D pos;
+
+	for (u32 i = 1; !found && i < count; i++)
+	{
+		const char *name = NULL;
+		CAiMapLoc loc;
+
+		if (!veh->GetStart(i, name, dir))
+			continue;
+
+		if (!AiMaps.GetLocation(name, loc))
+			continue;
+
+		AiMaps.GetCellCenter(loc, &pos);
+
+		if (player == NULL)
+			continue;
+
+		CPnt3D d;
+		player->GetPosW()->Sub(&pos, &d);
+
+		if (d.x * d.x + d.y * d.y + d.z * d.z <= range)
+			continue;
+
+		CAiCone *cone = &static_cast<CSealCtrl *>(player->m_control)->m_view_cone;
+		found = !cone->ContainsPoint(&cone->m_cone_pos, &cone->m_cone_dir, &pos);
+	}
+
+	if (!found)
+	{
+		ai->m_aiParams.respawn = 0;
+		m_needs_respawn = false;
+		return;
+	}
+
+	CQuat quat;
+	CAiMap::GetDirQuat((CAiMap::DIR)(u8)dir, quat, true);
+	ReCreate(this, NULL);
+	TeleportTo(&pos, &quat);
+	ai->m_has_respawned = 1;
+	ai->InitAiBrain();
+	m_needs_respawn = false;
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("SPAWN: %s respawned (%u left)", m_node != NULL ? m_node->m_name : "-", ai->m_aiParams.respawn);
+#endif
 }
 
 /* @socom-skeleton stub RemoteRespawn__10CZSealBodyFb */

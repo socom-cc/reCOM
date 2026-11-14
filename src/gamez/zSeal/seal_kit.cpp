@@ -713,6 +713,18 @@ void CZKit::Setup2XAmmo()
 /* @socom-skeleton stub SetupBinocular__5CZKitFv */
 void CZKit::SetupBinocular()
 {
+	/* 0x2ae4f0 (InitAiBrain for enemies): binoculars are added to a kit without them while it
+	 * has room (30 items) */
+	for (s32 i = 0; i < m_num_items; i++)
+	{
+		if (m_item[i] != NULL && (u8)m_item[i]->m_ID == (u8)EQUIP_ITEM::BINOCULARS)
+			return;
+	}
+
+	CZWeapon *binocs = CZWeapon::m_listWeapons.GetWeapon(EQUIP_ITEM::BINOCULARS);
+
+	if (binocs != NULL && (u32)m_num_items < 30)
+		SetItemByIndex(m_num_items, binocs);
 }
 
 /* @socom-skeleton stub InitItemModel__5CZKitFPCcPCc */
@@ -1575,8 +1587,45 @@ int CZKit::GetCurAmmoCount()
 }
 
 /* @socom-skeleton stub SetCurFireMode__5CZKitF8FIREMODE */
-void CZKit::SetCurFireMode(FIREMODE)
+void CZKit::SetCurFireMode(FIREMODE mode)
 {
+	/* 0x2abd80 (the AI's fire choice: AttackTick, SelectFireParams, ai::FIREMODE, CAiSDeploy):
+	 * the selected weapon's fire mode, when the weapon has it (a launcher's modes 4+ always)
+	 * and the item - or, for a launched-grenade mode of an M203 / launcher, its grenade slot
+	 * (mode - 3) - has ammo; the weapon info is redrawn either way. port: void (the ELF returns
+	 * 0 without a weapon, else 1; no port caller reads it) */
+	CZFTSWeapon *weapon = m_item[m_selected_item];
+
+	if (weapon == NULL)
+		return;
+
+	s32 m = (u8)mode;
+	bool set = false;
+
+	if (m >= 4 && weapon->IsGrenadeLauncherWeapon())
+	{
+		set = true;
+	}
+	else if (!((s32)(u8)weapon->m_maxfiremode < m))
+	{
+		s32 sel = m_selected_item;
+
+		if (sel < m_num_items)
+		{
+			s32 slot = unwrap(sel, m_num_items);
+			CZFTSWeapon *item = slot != -1 ? m_item[slot] : NULL;
+
+			if (item != NULL && (item->IsM203Weapon() || item->IsGrenadeLauncherWeapon()) && m >= 4)
+				set = ItemHasAmmo(m - 3);
+			else
+				set = ItemHasAmmo(sel);
+		}
+	}
+
+	if (set)
+		m_firemode[m_selected_item] = m;
+
+	m_weaponinfoChanged = 1;
 }
 
 /* @socom-skeleton stub GetCurFireMode__5CZKitFv */
@@ -3609,8 +3658,54 @@ void CZKit::PickupAmmo(CZFTSWeapon *weapon, CZAmmo *ammo, int *rounds)
 }
 
 /* @socom-skeleton stub CanAddAmmo__5CZKitFii */
-void CZKit::CanAddAmmo(int, int)
+bool CZKit::CanAddAmmo(int index, int)
 {
+	/* 0x2a6160 (find_closest_ammo, PickupAmmo): whether the item's magazines have room: none
+	 * for an index past the ten ammo slots, always for one past the kit's items; else any of
+	 * its magazines (twice as many for a gun type with the double ammo load in the kit, at most
+	 * ten) holding less than the weapon's capacity. The count argument is unused. */
+	if (index >= 10)
+		return false;
+
+	if (!(index < m_num_items))
+		return true;
+
+	CZFTSWeapon *weapon = m_item[index];
+	s32 mags = weapon->GetNumMags(); /* ELF: not NULL-tested */
+	s32 capacity = weapon->GetAmmoCapacity();
+
+	if (weapon != NULL)
+	{
+		bool doubled = false;
+
+		for (s32 i = 0; i < m_num_items; i++)
+		{
+			if (m_item[i] != NULL && (u8)m_item[i]->m_ID == (u8)EQUIP_ITEM::DOUBLE_AMMO_LOAD)
+			{
+				doubled = true;
+				break;
+			}
+		}
+
+		if (doubled)
+		{
+			u8 type = (u8)weapon->GetIDType();
+
+			if (type == 0 || type == 30 || type == 50 || type == 80 || type == 90 || type == 100)
+				mags *= 2;
+		}
+	}
+
+	if (mags >= 11)
+		mags = 10;
+
+	for (s32 i = 0; i < 10 && i < mags; i++)
+	{
+		if (capacity - m_reloads[index][i] > 0)
+			return true;
+	}
+
+	return false;
 }
 
 /* @socom-skeleton stub AddAmmo__5CZKitFii */

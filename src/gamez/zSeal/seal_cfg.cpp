@@ -918,8 +918,36 @@ void CZSealBody::GetMaxZMotion(f32& min, f32& max)
 }
 
 /* @socom-skeleton stub GetMaxXMotion__10CZSealBodyFRfRf */
-void CZSealBody::GetMaxXMotion(float &, float &)
+void CZSealBody::GetMaxXMotion(float &left, float &right)
 {
+	/* 0x27ded0 (GetSpeedFromThrottle / GetThrottleFromSpeed, strafe): the anim set's largest
+	 * sideways speeds in the body's state (stand, crouch, prone; the ladder's up/down speed
+	 * both ways); 0 in any other state */
+	AnimSet *set = m_animset;
+
+	switch (m_state)
+	{
+	case 0:
+		left = set->m_aparams.m_stand_max_left;
+		right = set->m_aparams.m_stand_max_rt;
+		break;
+	case 1:
+		left = set->m_aparams.m_crouch_max_left;
+		right = set->m_aparams.m_crouch_max_rt;
+		break;
+	case 2:
+		left = set->m_aparams.m_prone_max_left;
+		right = set->m_aparams.m_prone_max_rt;
+		break;
+	case 5:
+		left = set->m_aparams.m_ladder_updn;
+		right = set->m_aparams.m_ladder_updn;
+		break;
+	default:
+		left = 0.0f;
+		right = 0.0f;
+		break;
+	}
 }
 
 /* @socom-skeleton stub AnimsScaleTS__10CZSealBodyFP15CActiveAnimListP10CBlendablef */

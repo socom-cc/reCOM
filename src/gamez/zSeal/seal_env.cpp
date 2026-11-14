@@ -279,6 +279,7 @@
 #include "gamez/zNetwork/znet.h" /* theNetwork (CheckDIShoot) */
 #include "gamez/zCamera/zcam.h" /* the world-to-screen matrix (auto aim) */
 #include "gamez/zFTS/zfts.h" /* theMission (HandleLanding) */
+#include "gamez/zParticle/zparticle.h" /* Particle::Source (HandleSmokeAndGas) */
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
 /* port: AckUnion is declared in gamez/zSeal/zseal.h */
@@ -411,28 +412,28 @@ std::vector<CZDecalDef> CZSealBody::m_blooddriptexhandles; /* 12 bytes (MSL vect
 float BuddyPickupRefpoint[3] = { 5.26f, -4.22f, -3.26f }; /* __sinit_seal_env.cpp 0x46d010 (0x40a851ec, 0xc0870a3d, 0xc050a3d7) */
 
 /* @socom-skeleton stub dQlookhead */
-static unsigned char dQlookhead[192];
+static CQuat dQlookhead[12]; /* 192 bytes: InitLookAnims' turn quaternions */
 
 /* @socom-skeleton stub dQlookneck */
-static unsigned char dQlookneck[192];
+static CQuat dQlookneck[12]; /* 192 bytes: InitLookAnims' turn quaternions */
 
 /* @socom-skeleton stub dQlookspinehi */
-static unsigned char dQlookspinehi[192];
+static CQuat dQlookspinehi[12]; /* 192 bytes: InitLookAnims' turn quaternions */
 
 /* @socom-skeleton stub dQlookspinelo */
-static unsigned char dQlookspinelo[192];
+static CQuat dQlookspinelo[12]; /* 192 bytes: InitLookAnims' turn quaternions */
 
 /* @socom-skeleton stub Rlookhead */
-static unsigned char Rlookhead[144];
+static CPnt3D Rlookhead[12]; /* 144 bytes: InitLookAnims' turn axes (GetLookQuat) */
 
 /* @socom-skeleton stub Rlookneck */
-static unsigned char Rlookneck[144];
+static CPnt3D Rlookneck[12]; /* 144 bytes: InitLookAnims' turn axes (GetLookQuat) */
 
 /* @socom-skeleton stub Rlookspinehi */
-static unsigned char Rlookspinehi[144];
+static CPnt3D Rlookspinehi[12]; /* 144 bytes: InitLookAnims' turn axes (GetLookQuat) */
 
 /* @socom-skeleton stub Rlookspinelo */
-static unsigned char Rlookspinelo[144];
+static CPnt3D Rlookspinelo[12]; /* 144 bytes: InitLookAnims' turn axes (GetLookQuat) */
 
 /* @socom-skeleton stub di0 */
 static unsigned char di0[72];
@@ -722,13 +723,189 @@ float CZSealBody::GetTerrainMotionFactor()
 }
 
 /* @socom-skeleton stub HandleWater__10CZSealBodyFPQ23zdb15IntersectStructPC11CMaterialExPC6CPnt3D */
-void CZSealBody::HandleWater(zdb::IntersectStruct *, const CMaterialEx *, const CPnt3D *)
+void CZSealBody::HandleWater(zdb::IntersectStruct *hit, const CMaterialEx *, const CPnt3D *)
 {
+	/* 0x2a2700 (SealProcessAltitude, a liquid surface): the body's vertical extent (its node's
+	 * bbox, or the first ancestor's of up to three that do not use the parent's) against the
+	 * water surface. m_waterdepth = surface - the body's bottom; the ripple node goes to the
+	 * hit point. Surface between bottom and top: in water, the big ripple anim of the speed
+	 * state runs (the below-water one stops). Surface above the top by less than 10: in water,
+	 * the small ripple anim runs instead. Higher: in water, no anim change. Lower than the
+	 * bottom (or at the top): out of water. A dead body stops both anims. */
+	zdb::CNode *node = GetNode();
+	CBBox *bbox = &node->m_bbox;
+
+	if (node->m_use_parent_bbox)
+	{
+		zdb::CNode *owner = node->m_parent;
+		bbox = &owner->m_bbox;
+
+		if (owner->m_use_parent_bbox)
+		{
+			owner = owner->m_parent;
+			bbox = &owner->m_bbox;
+
+			if (owner->m_use_parent_bbox)
+				bbox = owner->m_parent->GetBBox();
+		}
+	}
+
+	const CPnt3D *posW = GetPosW();
+	f32 top = bbox->m_max.y + posW->y;
+	f32 bottom = bbox->m_min.y + posW->y;
+	f32 surface = hit->m_pos.y;
+	u8 speed = (u8)GetSpeedState();
+	m_waterdepth = surface - bottom;
+
+	if (top < bottom)
+	{
+		f32 t = top;
+		top = bottom;
+		bottom = t;
+	}
+
+	if (hit != NULL) /* ELF: tested after its y was read */
+		m_wateranimnode.SetPosition(hit->m_pos.x, hit->m_pos.y, hit->m_pos.z);
+
+	/* port: the speed state can be 3; the ELF then reads the word after each 3-entry array
+	 * (0 past m_bigrippleanim); here no anim */
+	CZAnim *big = speed < 3 ? m_bigrippleanim[speed] : NULL;
+	CZAnim *small = speed < 3 ? m_smallrippleanim[speed] : NULL;
+
+	if (!(surface <= bottom) && surface < top)
+	{
+		if (m_belowwateranim != NULL && m_belowwateranim->Running())
+		{
+			m_belowwateranim->Stop();
+			m_belowwateranim = NULL;
+		}
+
+		if (big != NULL && (m_inwateranim == NULL || !m_inwateranim->Running()) && m_isAlive)
+			m_inwateranim = big->ActivateArg(1, 3, &m_wateranimnode, 0);
+
+		m_inwater = 1;
+	}
+	else if (!(surface <= top) && surface < top + 10.0f)
+	{
+		if (m_inwateranim != NULL && m_inwateranim->Running())
+		{
+			m_inwateranim->Stop();
+			m_inwateranim = NULL;
+		}
+
+		if (small != NULL && (m_belowwateranim == NULL || !m_belowwateranim->Running()) && m_isAlive)
+			m_belowwateranim = small->ActivateArg(1, 3, &m_wateranimnode, 0);
+
+		m_inwater = 1;
+	}
+	else
+	{
+		m_inwater = !(surface <= top) ? 1 : 0;
+	}
+
+	if (m_isAlive)
+		return;
+
+	if (m_belowwateranim != NULL && m_belowwateranim->Running())
+	{
+		m_belowwateranim->Stop();
+		m_belowwateranim = NULL;
+	}
+
+	if (m_inwateranim != NULL && m_inwateranim->Running())
+	{
+		m_inwateranim->Stop();
+		m_inwateranim = NULL;
+	}
 }
 
 /* @socom-skeleton stub HandleSmokeAndGas__10CZSealBodyFPQ23zdb15IntersectStructPC11CMaterialExPC6CPnt3D */
-void CZSealBody::HandleSmokeAndGas(zdb::IntersectStruct *, const CMaterialEx *, const CPnt3D *)
+void CZSealBody::HandleSmokeAndGas(zdb::IntersectStruct *hit, const CMaterialEx *mat, const CPnt3D *pos)
 {
+	/* 0x2a2370 (SealProcessAltitude, a volumetric surface): a particle system's cloud (material
+	 * flag particle_system) whose box - the hit node's bbox (or the first ancestor's not using
+	 * the parent's, as HandleWater), through the node's matrix and sorted per axis - holds pos:
+	 * a gas cloud (cloud type 0) stuns as a tear-gas grenade and sets m_isingas, a smoke cloud
+	 * (1) stuns as a smoke grenade and sets m_isinsmoke.
+	 * port: the cloud's source is found through Particle::Source::list (the source whose box DI
+	 * node was hit); the ELF dynamic_casts the node's CNodeEx to CParticleEx and reads its
+	 * emitter (no CParticleEx in the port). The port builds no box DI node yet (zParticle), so
+	 * this is not reached. */
+	if (!mat->m_particle_system)
+		return;
+
+	zdb::CNode *node = hit->m_node;
+	CBBox *bbox = &node->m_bbox;
+
+	if (node->m_use_parent_bbox)
+	{
+		zdb::CNode *owner = node->m_parent;
+		bbox = &owner->m_bbox;
+
+		if (owner->m_use_parent_bbox)
+		{
+			owner = owner->m_parent;
+			bbox = &owner->m_bbox;
+
+			if (owner->m_use_parent_bbox)
+				bbox = owner->m_parent->GetBBox();
+		}
+	}
+
+	CPnt3D box[2];
+	node->m_matrix.Transform(&bbox->m_min, box, 2);
+
+	if (!(box[0].x <= box[1].x))
+	{
+		f32 t = box[0].x;
+		box[0].x = box[1].x;
+		box[1].x = t;
+	}
+
+	if (!(box[0].y <= box[1].y))
+	{
+		f32 t = box[0].y;
+		box[0].y = box[1].y;
+		box[1].y = t;
+	}
+
+	if (!(box[0].z <= box[1].z))
+	{
+		f32 t = box[0].z;
+		box[0].z = box[1].z;
+		box[1].z = t;
+	}
+
+	Particle::Source *source = NULL;
+
+	for (Particle::Source::List::iterator i = Particle::Source::list.begin(); i != Particle::Source::list.end(); ++i)
+	{
+		if ((*i)->m_diNode == node)
+		{
+			source = *i;
+			break;
+		}
+	}
+
+	if (source == NULL)
+		return;
+
+	bool inside = !(pos->x < box[0].x) && pos->x <= box[1].x && !(pos->y < box[0].y) && pos->y <= box[1].y
+		&& !(pos->z < box[0].z) && pos->z <= box[1].z;
+
+	if (!inside)
+		return;
+
+	if (source->m_cloudtype == 0)
+	{
+		HandleStunFromHit(EQUIP_ITEM::TEARGAS_GRENADE, NULL);
+		m_isingas = 1;
+	}
+	else if (source->m_cloudtype == 1)
+	{
+		HandleStunFromHit(EQUIP_ITEM::SMOKE_GRENADE, NULL);
+		m_isinsmoke = 1;
+	}
 }
 
 /* @socom-skeleton stub SealGetAltitude__10CZSealBodyFP6CPnt3Df */
@@ -1878,19 +2055,78 @@ void CZSealBody::RotateHead(float pitch, float)
 }
 
 /* @socom-skeleton stub ComputeDeltaLookQuat__FR6CPnt3DR6CPnt3DP5CQuatP6CPnt3D */
-void ComputeDeltaLookQuat(CPnt3D &, CPnt3D &, CQuat *, CPnt3D *)
+void ComputeDeltaLookQuat(CPnt3D &from, CPnt3D &to, CQuat *dq, CPnt3D *axis)
 {
+	/* 0x29e6a0 (InitLookAnims): the turn from one look pose to another: the two rotation
+	 * vectors as quaternions, dq = conj(from) * to, and the axis = -z x (dq applied to -z)
+	 * (sceVu0OuterProduct) */
+	CQuat qa, qb;
+	QFromRot(&qa, &from);
+	QFromRot(&qb, &to);
+	qa.vec.x = -qa.vec.x;
+	qa.vec.y = -qa.vec.y;
+	qa.vec.z = -qa.vec.z;
+	qa.Mul(&qb, dq);
+	CPnt3D nz = CPnt3D::unit_nz;
+	CPnt3D r;
+	dq->Apply(&nz, &r, 1);
+	f32 v[4] = { nz.x, nz.y, nz.z, 1.0f };
+	f32 w[4] = { r.x, r.y, r.z, 1.0f };
+	f32 c[4];
+	sceVu0OuterProduct(c, v, w);
+	axis->x = c[0];
+	axis->y = c[1];
+	axis->z = c[2];
 }
 
 /* @socom-skeleton stub GetLookQuat__FP6CPnt3DffP5CQuat */
-void GetLookQuat(CPnt3D *, float, float, CQuat *)
+void GetLookQuat(CPnt3D *table, float yaw, float pitch, CQuat *out)
 {
+	/* 0x29e450 (ApplyLookAnim): a bone's share of a head look: the yaw turn about the table's
+	 * axis 2 (right) or 6 (left) by |yaw| / 2, times the pitch turn about axis 3 (up) or 9
+	 * (down) by |pitch| / 2 - only the yaw turn while the pitch is within 0.01 of 0 */
+	static const f32 zero = 0.0f;  /* @3114 */
+	static const f32 eps = 0.01f;  /* @3115 */
+	f32 ay = fabsf(yaw);
+	f32 ap = fabsf(pitch);
+	bool flat = _close_enough(pitch, zero, eps);
+	CPnt3D v;
+	CQuat qy, qp;
+	table[yaw < 0.0f ? 6 : 2].Scale(0.5f * ay, &v);
+	qy.Exp(&v);
+
+	if (flat)
+	{
+		*out = qy;
+		return;
+	}
+
+	table[pitch < 0.0f ? 9 : 3].Scale(0.5f * ap, &v);
+	qp.Exp(&v);
+	qy.Mul(&qp, out);
 }
 
 /* @socom-skeleton body InitLookAnims__10CZSealBodyFv */
 void CZSealBody::InitLookAnims()
 {
-    
+	/* 0x29dd90 (SealInitCharacterDynamics): for the head, neck, upper and lower spine, the
+	 * twelve turns between the nine look poses of the bone's table (a 3 x 3 grid of rotation
+	 * vectors; 4 is the centre): turn quaternions dQlook* and axes Rlook* (GetLookQuat uses
+	 * 2 / 6 yaw and 3 / 9 pitch) */
+	static const u8 pairs[12][2] = { { 1, 2 }, { 5, 2 }, { 4, 5 }, { 4, 1 }, { 1, 0 }, { 3, 0 }, { 4, 3 }, { 7, 8 }, { 5, 8 },
+		{ 4, 7 }, { 7, 6 }, { 3, 6 } };
+	const unsigned char *poses[4] = { qlookhead, qlookneck, qlookspinehi, qlookspinelo };
+	CQuat *dq[4] = { dQlookhead, dQlookneck, dQlookspinehi, dQlookspinelo };
+	CPnt3D *axes[4] = { Rlookhead, Rlookneck, Rlookspinehi, Rlookspinelo };
+
+	for (s32 t = 0; t < 4; t++)
+	{
+		CPnt3D pose[9];
+		memcpy(pose, poses[t], sizeof(pose)); /* the tables are kept as their ELF bytes */
+
+		for (s32 k = 0; k < 12; k++)
+			ComputeDeltaLookQuat(pose[pairs[k][0]], pose[pairs[k][1]], &dq[t][k], &axes[t][k]);
+	}
 }
 
 /* @socom-skeleton stub SetLookDir__10CZSealBodyFPC6CPnt3Df */
@@ -2124,23 +2360,120 @@ void CLook::SetDir(const CPnt3D *goal, const CPnt3D *curr, float rate)
 }
 
 /* @socom-skeleton stub LookTick__5CLookFf */
-void CLook::LookTick(float)
+void CLook::LookTick(float dT)
 {
+	/* 0x29d140: a running turn moves on (done at fraction 1): the current direction is -z
+	 * turned by quat0 then by the eased (quadW) share of the turn about m_cross */
+	if (m_done)
+		return;
+
+	m_fracT += dT / m_deltaT;
+
+	if (!(m_fracT < 1.0f))
+	{
+		m_fracT = 1.0f;
+		m_done = true;
+	}
+
+	CPnt3D v;
+	m_cross.Scale(0.5f * quadW(m_fracT), &v);
+	CQuat q, r;
+	q.Exp(&v);
+	m_quat0.Mul(&q, &r);
+	r.Apply(&CPnt3D::unit_nz, &m_curr_dir, 1);
 }
 
 /* @socom-skeleton stub Blink__6CBlinkFi */
-void CBlink::Blink(int)
+void CBlink::Blink(int dir)
 {
+	/* 0x29d080 (Tick_0 when the blink timer runs out): when no blink runs, 1 closes the lids
+	 * (34 degrees down from -z at 1.5 turns a second), anything else opens them */
+	if (!m_done || m_org != 0)
+		return;
+
+	if (dir == 1)
+	{
+		m_org = 1;
+		CQuat q;
+		q.MakeXRot(-0.593412f);
+		CPnt3D down;
+		q.Apply(&CPnt3D::unit_nz, &down, 1);
+		SetDir(&down, &CPnt3D::unit_nz, 1.5f);
+		return;
+	}
+
+	m_org = -1;
+	SetDir(&CPnt3D::unit_nz, &m_curr_dir, 1.5f);
 }
 
 /* @socom-skeleton stub BlinkTick__6CBlinkFf */
-void CBlink::BlinkTick(float)
+void CBlink::BlinkTick(float dT)
 {
+	/* 0x29cf30: between blinks the timer to the next one runs down (to 0); during one the lid
+	 * turn moves on (LookTick inlined); a finished close opens the lids again, a finished open
+	 * ends the blink */
+	if (m_done)
+	{
+		m_nextT -= dT;
+
+		if (m_nextT < 0.0f)
+			m_nextT = 0.0f;
+
+		return;
+	}
+
+	m_fracT += dT / m_deltaT;
+
+	if (!(m_fracT < 1.0f))
+	{
+		m_fracT = 1.0f;
+		m_done = true;
+	}
+
+	CPnt3D v;
+	m_cross.Scale(0.5f * quadW(m_fracT), &v);
+	CQuat q, r;
+	q.Exp(&v);
+	m_quat0.Mul(&q, &r);
+	r.Apply(&CPnt3D::unit_nz, &m_curr_dir, 1);
+
+	if (!m_done)
+		return;
+
+	if (m_org == 1)
+	{
+		m_org = 0;
+
+		if (m_done && m_org == 0)
+		{
+			m_org = -1;
+			SetDir(&CPnt3D::unit_nz, &m_curr_dir, 1.5f);
+		}
+
+		m_done = false;
+		return;
+	}
+
+	m_org = 0;
 }
 
 /* @socom-skeleton stub ApplyLookAnim__10CZSealBodyFff */
-void CZSealBody::ApplyLookAnim(float, float)
+void CZSealBody::ApplyLookAnim(float yaw, float pitch)
 {
+	/* 0x29cdf0 (Tick_0 while the head looks): the head, then its parent bones (neck, upper and
+	 * lower spine; not NULL-tested), each turned by its table's share of the look
+	 * (rot = rot * GetLookQuat) */
+	static CPnt3D *const tables[4] = { Rlookhead, Rlookneck, Rlookspinehi, Rlookspinelo };
+	CZBodyPart *part = m_head;
+
+	for (s32 i = 0; i < 4; i++)
+	{
+		CQuat q, r;
+		GetLookQuat(tables[i], yaw, pitch, &q);
+		part->m_rot.Mul(&q, &r);
+		part->m_rot = r;
+		part = part->m_parent;
+	}
 }
 
 /* @socom-skeleton stub GetLookDir__10CZSealBodyCFv */
@@ -2153,11 +2486,33 @@ CPnt3D * CZSealBody::GetLookDir() const
 /* @socom-skeleton stub ApplyEyeLookAnim__10CZSealBodyFv */
 void CZSealBody::ApplyEyeLookAnim()
 {
+	/* 0x29cd20 (Tick_0): both eyeballs turn from -z to the eye look's direction (their parts
+	 * and nodes) */
+	if (m_reyeball == NULL || m_leyeball == NULL)
+		return;
+
+	CQuat q;
+	q.Align(CPnt3D::unit_nz, m_eyelook->m_curr_dir);
+	m_reyeball->m_rot = q;
+	m_leyeball->m_rot = q;
+	m_reyeball->m_node->SetRotation(m_reyeball->m_rot);
+	m_leyeball->m_node->SetRotation(m_leyeball->m_rot);
 }
 
 /* @socom-skeleton stub ApplyBlinkAnim__10CZSealBodyFv */
 void CZSealBody::ApplyBlinkAnim()
 {
+	/* 0x29cc60 (Tick_0): both eyelids turn from -z to the blink's direction (their parts and
+	 * nodes) */
+	if (m_reyelid == NULL || m_leyelid == NULL)
+		return;
+
+	CQuat q;
+	q.Align(CPnt3D::unit_nz, m_blink->m_curr_dir);
+	m_reyelid->m_rot = q;
+	m_leyelid->m_rot = q;
+	m_reyelid->m_node->SetRotation(m_reyelid->m_rot);
+	m_leyelid->m_node->SetRotation(m_leyelid->m_rot);
 }
 
 /* @socom-skeleton stub DestroyAimAnims__10CZSealBodyFv */

@@ -506,8 +506,39 @@ bool CSealCtrlAi::PostTick(float, void *)
 }
 
 /* @socom-skeleton stub CleanupDiPool__FP10CZSealBody */
-void CleanupDiPool(CZSealBody *)
+void CleanupDiPool(CZSealBody *seal)
 {
+	/* 0x2b3250 (CSealCtrlAi::OnDeath): the dead seal's queued sight lines end (state 1, no
+	 * intersect), and every seal it has in its target list drops its own line to it */
+	for (std::list<CDiPool::dir *>::iterator i = _diPool.m_active.begin(); i != _diPool.m_active.end(); ++i)
+	{
+		CDiPool::dir *d = *i;
+
+		if (d->m_owner == seal && d->m_state != 0)
+		{
+			d->m_state = 1;
+			d->m_index = -1;
+		}
+	}
+
+	for (CTarget *t = seal->m_targets.data(); t != seal->m_targets.data() + seal->m_targets.size(); t++)
+	{
+		CEntity *other = t->m_ent;
+		CTarget *back = other != NULL ? other->m_targets.FindTarget(seal) : NULL;
+
+		if (back == NULL)
+			continue;
+
+		CDiPool::dir *d = (CDiPool::dir *)back->m_diHandle;
+
+		if (d != NULL)
+		{
+			d->m_state = 1;
+			d->m_index = -1;
+		}
+
+		back->m_diHandle = 0;
+	}
 }
 
 /* @socom-skeleton stub OpenDiPool__11CSealCtrlAiFv */
@@ -708,8 +739,15 @@ void CSealCtrlAi::SensorPreTick(float dT)
 
 				if (PushAiState(STATE_AVOID, true))
 				{
-					/* port: unreachable while STATE_AVOID is not written (the ELF stores the
-					 * entity at +0x28 of the state and sets m_setup) */
+					/* the entity to keep clear of (+0x28 of the state), then set up */
+					CAiState *state = GetAiState();
+					CAiSAvoid *avoid = state->m_state == STATE_AVOID ? static_cast<CAiSAvoid *>(state) : NULL;
+
+					if (avoid != NULL) /* port: NULL-tested (ELF writes through it) */
+					{
+						avoid->m_avoid = e;
+						avoid->m_setup = 1;
+					}
 				}
 			}
 		}

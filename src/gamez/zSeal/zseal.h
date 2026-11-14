@@ -584,7 +584,7 @@ public:
 	void PickupMPBomb();
 	void PickupAmmo(CPickup *);
 	void PickupAmmo(CZFTSWeapon *, CZAmmo *, int *);
-	void CanAddAmmo(int, int);
+	bool CanAddAmmo(int, int); /* bool: 0x2a6160 returns 0/1 (find_closest_ammo, PickupAmmo test it) */
 	int AddAmmo(int, int);
 	void FillAmmoPickupInstance(CZAmmoPickupInstance *, int);
 	void RemoveAmmo(int);
@@ -2107,8 +2107,8 @@ public:
 	static unsigned char aiLogEnabled;
 	static int aiLogFile;
 	static unsigned char aiLogFlag;
-	static int aiSoundHandle[2];
-	static unsigned char aiSoundInstance[8];
+	static CSnd* aiSoundHandle[2]; /* 0x474f68: SND_STREAM_ABORT, STREAMING_BOUNDRY_WARNING (AcquireDatabaseHandles) */
+	static CSndInstance* aiSoundInstance[2]; /* 0x474f70: their playing instances */
 	/* @socom-skeleton end 11CSealCtrlAi */
 };
 
