@@ -47,102 +47,664 @@
 /* @socom-skeleton decl include */
 #include "zai.h"
 /* @socom-skeleton end include */
+#include <math.h> /* sqrtf */
+#include <string.h> /* memset */
+#include <algorithm>
 /* @socom-skeleton decl forward */
 class CAiVisMap;
 class MAP_LINEWALK_STRUCT;
 /* @socom-skeleton end forward */
 
+bool visCallback(const MAP_LINEWALK_STRUCT &, void *); /* 0x1a0460, below */
+
 /* @socom-skeleton stub null_vismap */
-static int null_vismap;
+static CAiVisMap *null_vismap; /* 0x475768: the removed entries of globalVisMap */
 
 /* @socom-skeleton stub globalVisMap */
-static int globalVisMap[3];
+static std::list<CAiVisMap *> globalVisMap; /* 0x49b280: timed vis maps (nothing in this build adds one) */
 
 /* @socom-skeleton stub dynamicVisMap */
-static int dynamicVisMap[3];
+static std::list<CAiVisMap *> dynamicVisMap; /* 0x49b2a0: the seals' vis maps (RegisterDynamicVisMap) */
+
+/* port: inline in the ELF (UpdateDynamicVisMap, visCallback): a cell's quantized altitude */
+static f32 vis_altitude(const CAiMap *map, const CAiCell *cell)
+{
+	return map->m_bbox.m_min.y + (map->m_bbox.m_max.y - map->m_bbox.m_min.y) * 0.000976563f * (f32)cell->m_altitude;
+}
+
+/* port: inline in visCallback: the cell's 2-bit mark (index (x - box x) + (y - box y) * box
+ * width, 16 cells per word).
+ * port: a cell outside the box is skipped. The ELF writes it unchecked, and its CenterRegion
+ * (below) compares against the cell size, so on the m8 maps (10-unit cells) every box sits at
+ * (0, 0) and the eye cell's line walk writes past the bits */
+static void vis_set_mark(CAiVisMap *vm, const CAiMapLoc &loc, u32 mark)
+{
+	const CAiMap::region &r = vm->m_region;
+	s32 ox = (s32)loc.x - (s32)r.m_loc.x;
+	s32 oy = (s32)loc.y - (s32)r.m_loc.y;
+
+	if (ox < 0 || ox >= (s32)r.m_dx || oy < 0 || oy >= (s32)r.m_dy)
+		return;
+
+	u32 index = (u32)(ox + oy * (s32)r.m_dx);
+
+	if ((index >> 4) >= vm->m_bytes / 4 || vm->m_bits == NULL)
+		return;
+
+	u32 shift = (index & 15) * 2;
+	u32 &word = vm->m_bits[index >> 4];
+	word = (word & ~(3u << shift)) | (mark << shift);
+}
+
+/* port: fptoui (0x16d7a0, the float to unsigned helper): negative values give 0 */
+static u32 vis_fptoui(f32 v)
+{
+	if (v < 0.0f)
+		return 0;
+
+	return (u32)v;
+}
+
+void CAiVisMap::reset_line()
+{
+	/* reset_line__9CAiVisMapFv (inline): MINIMUM_SLOPE (0xd8635fa9, about -1e15) */
+	static union { u32 u; f32 f; } const minimum_slope = { 0xd8635fa9u };
+	m_rise = minimum_slope.f;
+	m_run = 1.0f;
+	m_slope = m_rise / m_run;
+	m_top = minimum_slope.f;
+}
 
 /* @socom-skeleton stub TickVisMaps__9CAiVisMapFf */
-void CAiVisMap::TickVisMaps(float)
+void CAiVisMap::TickVisMaps(float dT)
 {
 	/* @socom-skeleton stub max_lines$909 */
-	static int max_lines;
+	static int max_lines = 8;
+
+	/* 0x1a2790 (CAiEvent::Tick): the timed vis maps count down (-1 kept) and are deleted at 0
+	 * (their entries replaced by null_vismap, then removed); then up to max_lines lines are
+	 * walked over the seals' vis maps that are not current, in list order */
+	int removed = 0;
+
+	for (std::list<CAiVisMap *>::iterator i = globalVisMap.begin(); i != globalVisMap.end(); ++i)
+	{
+		CAiVisMap *vm = *i;
+
+		if (vm->m_lifetime == -1.0f)
+			continue;
+
+		vm->m_lifetime -= dT;
+
+		if (vm->m_lifetime < 0.0f)
+		{
+			vm->m_id = -1;
+			delete vm;
+			*i = null_vismap;
+			removed++;
+		}
+	}
+
+	if (removed != 0)
+		globalVisMap.erase(std::remove(globalVisMap.begin(), globalVisMap.end(), null_vismap), globalVisMap.end());
+
+	int lines = max_lines;
+
+	for (std::list<CAiVisMap *>::iterator i = dynamicVisMap.begin(); lines > 0 && i != dynamicVisMap.end(); ++i)
+	{
+		CAiVisMap *vm = *i;
+
+		if (vm->m_state != 1 && vm->m_map != NULL)
+			vm->m_map->UpdateVisibilityMap(*vm, lines);
+	}
 }
 
 /* @socom-skeleton stub RegisterDynamicVisMap__9CAiVisMapFP9CAiVisMapRC9CAiMapLoci */
-void CAiVisMap::RegisterDynamicVisMap(CAiVisMap *, const CAiMapLoc &, int)
+bool CAiVisMap::RegisterDynamicVisMap(CAiVisMap *vm, const CAiMapLoc &loc, int radius)
 {
 	/* @socom-skeleton stub nosee_byte$1028 */
-	static unsigned char nosee_byte;
+	static unsigned char nosee_byte = 0;
+
+	/* 0x1a2500 (CSealCtrl::Initalize, radius 50): a box of 2 * radius cells a side, 2 bits a
+	 * cell (under 16000 bytes; the bits are only reallocated to grow), all unseen; the vis map
+	 * joins the list and is centred on the location. 1 when already registered, 0 when the
+	 * bits do not fit */
+	for (std::list<CAiVisMap *>::iterator i = dynamicVisMap.begin(); i != dynamicVisMap.end(); ++i)
+	{
+		if (*i == vm)
+			return true;
+	}
+
+	s32 size = radius * 2;
+	u32 cells = (u32)(size * size);
+	u32 words = (cells >> 4) + ((cells & 15) != 0 ? 1 : 0);
+	u32 bytes = words * 4;
+
+	if (!(bytes < 16000))
+		return false;
+
+	vm->m_cells = cells;
+
+	if (vm->m_bytes < bytes)
+	{
+		vm->m_bytes = 0;
+		vm->m_map = NULL;
+		delete[] vm->m_bits;
+		vm->m_bits = NULL;
+		vm->m_bits = new u32[words];
+		vm->m_width = size;
+		vm->m_height = size;
+	}
+
+	vm->m_bytes = bytes;
+
+	if (vm->m_bits != NULL)
+		memset(vm->m_bits, nosee_byte, vm->m_bytes);
+
+	dynamicVisMap.push_back(vm);
+	vm->m_region.m_loc = CAiMapLoc(0, 0, 0);
+	vm->m_region.m_dx = size;
+	vm->m_region.m_dy = size;
+	vm->m_state = 1;
+	UpdateDynamicVisMap(vm, loc);
+	return true;
 }
 
 /* @socom-skeleton stub CenterRegion__6CAiMapCFRC9CAiMapLocRQ26CAiMap6region */
-void CAiMap::CenterRegion(const CAiMapLoc &, CAiMap::region &) const
+bool CAiMap::CenterRegion(const CAiMapLoc &loc, CAiMap::region &region) const
 {
+	/* 0x1a2300 (UpdateDynamicVisMap): the region's corner set so the location is its centre,
+	 * moved back where the far edge would pass the map (to 0 at the top). ELF quirk kept: the
+	 * far edges are compared with m_dx / m_dy, the cell size (a float), not the grid size, so
+	 * on m8 (10-unit cells) the corner is always (0, 0) (fptoui of a negative size: 0) */
+	u32 x = loc.x;
+	u32 hw = (u32)region.m_dx >> 1;
+	u32 hh = (u32)region.m_dy >> 1;
+
+	if ((f32)(u32)(x + hw) <= m_dx)
+		region.m_loc.x = x - hw;
+	else
+		region.m_loc.x = vis_fptoui(m_dx - (f32)(u32)region.m_dx);
+
+	s32 y = loc.y;
+
+	if (y - (s32)hh < 0)
+		region.m_loc.y = 0;
+	else if ((f32)(s32)(y + (s32)hh) <= m_dy)
+		region.m_loc.y = y - (s32)hh;
+	else
+		region.m_loc.y = vis_fptoui(m_dy - (f32)(u32)region.m_dy);
+
+	return true;
 }
 
 /* @socom-skeleton stub UpdateDynamicVisMap__9CAiVisMapFP9CAiVisMapRC9CAiMapLoc */
-void CAiVisMap::UpdateDynamicVisMap(CAiVisMap *, const CAiMapLoc &)
+bool CAiVisMap::UpdateDynamicVisMap(CAiVisMap *vm, const CAiMapLoc &loc)
 {
+	/* 0x1a1f10 (CSealCtrl::UpdateAiVisMap: the seal moved to a new cell): the box is centred
+	 * on the location (CenterRegion), the eye altitude taken from its cell, and a current vis
+	 * map starts walking its lines again. A move to another map first clears the marks. 0
+	 * when the location is off the map set */
+	const CAiMapLoc &invalid = reinterpret_cast<const CAiMapLoc &>(CAiMapLoc::invalid);
+	bool unset = vm->m_loc.x == invalid.x && vm->m_loc.y == invalid.y;
+
+	if (!unset && loc.m_mapid != vm->m_loc.m_mapid)
+	{
+		vm->m_loc = invalid;
+
+		if (vm->m_bits != NULL)
+			memset(vm->m_bits, 0, vm->m_bytes); /* nosee_byte */
+
+		if (vm->m_state == 1)
+		{
+			vm->m_state = 2;
+			vm->m_line = 0;
+		}
+
+		return UpdateDynamicVisMap(vm, loc);
+	}
+
+	vm->m_loc = loc;
+	CAiMap *map = AiMaps.GetMapByIndex(loc.m_mapid);
+
+	if (map == NULL)
+		return false;
+
+	CAiMap::region box;
+	box.m_loc = CAiMapLoc(0, 0, 0);
+	box.m_dx = (u16)vm->m_width;
+	box.m_dy = (u16)vm->m_height;
+	box.m_type = 0;
+	box.m_nodisplay = 0;
+	box.m_flags = 0;
+	box.m_unused = 0;
+	memset(box.m_name, 0, sizeof(box.m_name)); /* port: the ELF copies an unset stack name */
+	vm->m_region = box;
+	map->CenterRegion(loc, vm->m_region);
+	vm->m_loc = loc;
+	CAiCell *cell = map->GetCell(loc);
+
+	if (cell != NULL)
+		vm->m_altitude = vis_altitude(map, cell); /* port: else kept (the ELF stores an unset FPU register) */
+
+	vm->m_map = map;
+
+	if (vm->m_state == 1)
+	{
+		vm->m_state = 2;
+		vm->m_line = 0;
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub ReleaseDynamicVisMap__9CAiVisMapFP9CAiVisMap */
-void CAiVisMap::ReleaseDynamicVisMap(CAiVisMap *)
+void CAiVisMap::ReleaseDynamicVisMap(CAiVisMap *vm)
 {
+	/* 0x1a1ed0 (~CSealCtrl): out of the list */
+	dynamicVisMap.remove(vm);
 }
 
 /* @socom-skeleton stub CloseAll__9CAiVisMapFv */
 void CAiVisMap::CloseAll()
 {
-	/* 0x1a1dd0 (CAiEvent::Close): every vis map of globalVisMap gets id -1, its counts
-	 * cleared, its cell array (+0x50, new[]) and itself deleted; then globalVisMap and
-	 * dynamicVisMap are emptied.
-	 * port: not written - both lists are untyped placeholders (int[3]) and nothing in the
-	 * port creates a vis map (RegisterDynamicVisMap and the ctor are unwritten) */
+	/* 0x1a1dd0 (CAiEvent::Close): every timed vis map gets id -1 and is deleted; then both
+	 * lists are emptied (the seals' vis maps belong to their controllers).
+	 * port: a NULL entry is skipped (the ELF writes its id through NULL) */
+	for (std::list<CAiVisMap *>::iterator i = globalVisMap.begin(); i != globalVisMap.end(); ++i)
+	{
+		CAiVisMap *vm = *i;
+
+		if (vm != NULL)
+		{
+			vm->m_id = -1;
+			delete vm;
+		}
+	}
+
+	globalVisMap.clear();
+	dynamicVisMap.clear();
 }
 
 /* @socom-skeleton stub __ct__9CAiVisMapFv */
 CAiVisMap::CAiVisMap()
 {
+	/* 0x1a1c40: no map, no eye cell, an empty box (its corner left unset), no bits, id -1,
+	 * kept (-1) */
+	m_map = NULL;
+	m_loc = reinterpret_cast<const CAiMapLoc &>(CAiMapLoc::invalid);
+	m_region.m_dx = 0;
+	m_region.m_dy = 0;
+	m_region.m_type = 0;
+	m_region.m_nodisplay = 0;
+	m_region.m_flags = 0;
+	m_region.m_unused = 0;
+	m_region.m_name[0] = '\0';
+	m_state = 0;
+	m_line = 0;
+	m_cells = 0;
+	m_bytes = 0;
+	m_bits = NULL;
+	m_id = -1;
+	m_lifetime = -1.0f;
 }
 
 /* @socom-skeleton stub __dt__9CAiVisMapFv */
 CAiVisMap::~CAiVisMap()
 {
+	/* 0x1a1be0 */
+	m_bytes = 0;
+	m_map = NULL;
+	delete[] m_bits;
+	m_bits = NULL;
 }
 
 /* @socom-skeleton stub GetMark__9CAiVisMapCFRC9CAiMapLoc */
-void CAiVisMap::GetMark(const CAiMapLoc &) const
+int CAiVisMap::GetMark(const CAiMapLoc &loc) const
 {
+	/* 0x1a1b10: the cell's 2-bit mark; 0 (unseen) outside the box */
+	s32 ox = (s32)loc.x - (s32)m_region.m_loc.x;
+	s32 oy = (s32)loc.y - (s32)m_region.m_loc.y;
+
+	if (ox < 0 || !((u32)ox < m_region.m_dx))
+		return 0;
+
+	if (oy < 0 || !(oy < (s32)m_region.m_dy))
+		return 0;
+
+	u32 index = (u32)(ox + oy * (s32)m_region.m_dx);
+	u32 shift = (index & 15) * 2;
+	return (m_bits[index >> 4] & (3u << shift)) >> shift;
+}
+
+/* port: inline in CheckBoxEdges: the cell distance |dx| + |dy| */
+static s32 vis_cells(const CAiMapLoc &a, const CAiMapLoc &b)
+{
+	s32 dx = (s32)a.x - (s32)b.x;
+	s32 dy = (s32)a.y - (s32)b.y;
+	return (dx < 0 ? -dx : dx) + (dy < 0 ? -dy : dy);
 }
 
 /* @socom-skeleton stub CheckBoxEdges__9CAiVisMapFRC9CAiMapLociR9CAiMapLocQ29CAiVisMap8VIS_TYPEbb */
-void CAiVisMap::CheckBoxEdges(const CAiMapLoc &, int, CAiMapLoc &, CAiVisMap::VIS_TYPE, bool, bool)
+bool CAiVisMap::CheckBoxEdges(const CAiMapLoc &loc, int radius, CAiMapLoc &out, CAiVisMap::VIS_TYPE type, bool closest, bool travel)
 {
+	/* 0x1a0fc0 (FindEvadeLocation): the first cell on the square ring of that radius around the
+	 * location (top and bottom rows in full, then the side columns between them; rows and
+	 * columns past the box's far edge + 1 skipped) that has the mark and is walkable, or (travel)
+	 * can be walked to in a line from the location. `closest` keeps to cells no further (|dx| +
+	 * |dy|) than the box corner nearest to the location. out takes the box's map id.
+	 * port: the ring cell's map id is the box's (the ELF leaves that stack word unset, which
+	 * CAiMaps::CanTravelLine compares) */
+	CAiMap *map = m_map;
+	const CAiMap::region &r = m_region;
+	u32 x0 = r.m_loc.x;
+	s32 y0 = r.m_loc.y;
+	u32 x1 = x0 + r.m_dx;
+	s32 y1 = y0 + (s32)r.m_dy;
+	u32 mapid = r.m_loc.m_mapid;
+
+	/* ELF quirk kept: the box "centre" is its corner less half its size (used only with
+	 * `closest`, which replaces it) */
+	CAiMapLoc target = r.m_loc;
+	target.x = x0 - ((u32)r.m_dx >> 1);
+	target.y = (u32)y0 - ((u32)r.m_dy >> 1);
+	s32 best = vis_cells(loc, target);
+
+	if (closest)
+	{
+		CAiMapLoc corner[4];
+
+		for (int i = 0; i < 4; i++)
+			corner[i] = r.m_loc;
+
+		corner[1].x = corner[1].x + r.m_dx;
+		corner[2].y = corner[2].y + r.m_dy;
+		corner[3].x = corner[3].x + r.m_dx;
+		corner[3].y = corner[3].y + r.m_dy;
+		best = vis_cells(loc, corner[0]);
+		int which = 0;
+
+		for (int i = 1; i < 4; i++)
+		{
+			s32 d = vis_cells(loc, corner[i]);
+
+			if (d < best)
+			{
+				best = d;
+				which = i;
+			}
+		}
+
+		target = corner[which];
+	}
+
+	CAiMapLoc cell;
+	cell.m_mapid = mapid;
+
+	for (int pass = 0; pass < 2; pass++)
+	{
+		cell.y = (s32)loc.y + (pass == 0 ? -radius : radius);
+		s32 y = cell.y;
+
+		if (y < y0 || y1 < y || radius < -radius)
+			continue;
+
+		for (int s = -radius; s <= radius; s++)
+		{
+			cell.x = (s32)loc.x + s;
+
+			if (!travel && GetMark(cell) == (int)(u8)type && !(closest && best < vis_cells(cell, target)))
+			{
+				CAiCell *c = map->GetCell(cell);
+
+				if (c != NULL && CAiMap::IsWalkable(c))
+				{
+					out = cell;
+					out.m_mapid = mapid;
+					return true;
+				}
+			}
+
+			if (travel && !(closest && best < vis_cells(cell, target)) && AiMaps.CanTravelLine(loc, cell, NULL))
+			{
+				out = cell;
+				out.m_mapid = mapid;
+				return true;
+			}
+		}
+	}
+
+	for (int pass = 0; pass < 2; pass++)
+	{
+		cell.x = (s32)loc.x + (pass == 0 ? -radius : radius);
+		u32 x = cell.x;
+
+		if (x < x0 || x1 < x || !(1 - radius < radius))
+			continue;
+
+		for (int s = 1 - radius; s < radius; s++)
+		{
+			cell.y = (s32)loc.y + s;
+
+			if (!travel && GetMark(cell) == (int)(u8)type && !(closest && best < vis_cells(cell, target)))
+			{
+				CAiCell *c = map->GetCell(cell);
+
+				if (c != NULL && CAiMap::IsWalkable(c))
+				{
+					out = cell;
+					out.m_mapid = mapid;
+					return true;
+				}
+			}
+
+			if (travel && !(closest && best < vis_cells(cell, target)) && AiMaps.CanTravelLine(loc, cell, NULL))
+			{
+				out = cell;
+				out.m_mapid = mapid;
+				return true;
+			}
+		}
+	}
+
+	return false;
 }
 
 /* @socom-skeleton stub FindEvadeLocation__9CAiVisMapFRC9CAiMapLocR9CAiMapLoc */
-void CAiVisMap::FindEvadeLocation(const CAiMapLoc &, CAiMapLoc &)
+bool CAiVisMap::FindEvadeLocation(const CAiMapLoc &loc, CAiMapLoc &out)
 {
 	/* @socom-skeleton stub max_spiral$1114 */
-	static int max_spiral;
+	static int max_spiral = 20;
 	/* @socom-skeleton stub min_spiral$1117 */
-	static int min_spiral;
+	static int min_spiral = 2;
+
+	/* 0x1a0ea0 (CAiSReload::Tick, on the target's vis map): the nearest walkable cell this
+	 * vis map has not seen, on the rings of radius 2..19 around the location; 0 when none or
+	 * when it is off the map */
+	if (m_map == NULL)
+		return false;
+
+	bool found = false;
+
+	for (int s = min_spiral; s < max_spiral; s++)
+	{
+		found = CheckBoxEdges(loc, s, out, VIS_UNSEEN, false, false);
+
+		if (found)
+			break;
+	}
+
+	if (!found)
+		return false;
+
+	return (u32)(u16)out.y < m_map->m_ny && out.x < m_map->m_nx;
 }
 
 /* @socom-skeleton stub UpdateVisibilityMap__6CAiMapFR9CAiVisMapRi */
-void CAiMap::UpdateVisibilityMap(CAiVisMap &, int &)
+bool CAiMap::UpdateVisibilityMap(CAiVisMap &vm, int &budget)
 {
+	/* 0x1a0950 (TickVisMaps): walks lines (visCallback) from the eye cell to the box's edge
+	 * cells, one budget unit each: the top row (state 2), the bottom row (3), the left (4) and
+	 * right (5) columns between them; then current (1). ELF quirk kept: a budget that runs out
+	 * moves the state on anyway, so the update ends with the lines walked so far. 0 for an
+	 * unregistered vis map.
+	 * port: the edge cell takes the eye cell's map id (the ELF leaves that stack word unset) */
+	if (vm.m_state == 0)
+		return false;
+
+	if (vm.m_state == 1)
+		return true;
+
+	const CAiMap::region &r = vm.m_region;
+	CAiMapLoc end;
+	end.m_mapid = vm.m_loc.m_mapid;
+	end.x = 0;
+	end.y = 0;
+
+	if (vm.m_state == 2)
+	{
+		end.y = r.m_loc.y;
+
+		for (u32 x = vm.m_line + r.m_loc.x; budget > 0 && !((u32)r.m_loc.x + r.m_dx - 1 < x); x++)
+		{
+			end.x = x;
+			vm.reset_line();
+			WalkLine(vm.m_loc, end, visCallback, &vm);
+			vm.m_line++;
+			budget--;
+		}
+
+		vm.m_state = 3;
+		vm.m_line = 0;
+	}
+
+	if (vm.m_state == 3)
+	{
+		end.y = (u32)r.m_loc.y + r.m_dy - 1;
+
+		for (u32 x = vm.m_line + r.m_loc.x; budget > 0 && !((u32)r.m_loc.x + r.m_dx - 1 < x); x++)
+		{
+			end.x = x;
+			vm.reset_line();
+			WalkLine(vm.m_loc, end, visCallback, &vm);
+			vm.m_line++;
+			budget--;
+		}
+
+		vm.m_state = 4;
+		vm.m_line = 0;
+	}
+
+	if (vm.m_state == 4)
+	{
+		end.x = r.m_loc.x;
+
+		for (u32 y = vm.m_line + r.m_loc.y + 1; budget > 0 && y < (u32)r.m_loc.y + r.m_dy - 1; y++)
+		{
+			end.y = y;
+			vm.reset_line();
+			WalkLine(vm.m_loc, end, visCallback, &vm);
+			vm.m_line++;
+			budget--;
+		}
+
+		vm.m_state = 5;
+		vm.m_line = 0;
+	}
+
+	if (vm.m_state == 5)
+	{
+		end.x = (u32)r.m_loc.x + r.m_dx - 1;
+
+		for (u32 y = vm.m_line + r.m_loc.y + 1; budget > 0 && y < (u32)r.m_loc.y + r.m_dy - 1; y++)
+		{
+			end.y = y;
+			vm.reset_line();
+			WalkLine(vm.m_loc, end, visCallback, &vm);
+			vm.m_line++;
+			budget--;
+		}
+
+		vm.m_state = 1;
+		vm.m_line = 0;
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub visCallback__FRC19MAP_LINEWALK_STRUCTPv */
-void visCallback(const MAP_LINEWALK_STRUCT &, void *)
+bool visCallback(const MAP_LINEWALK_STRUCT &walk, void *data)
 {
 	/* @socom-skeleton stub prone_height$1272 */
-	static int prone_height;
+	static float prone_height = 4.5f;
 	/* @socom-skeleton stub crouch_height$1275 */
-	static int crouch_height;
+	static float crouch_height = 9.0f;
 	/* @socom-skeleton stub stand_height$1278 */
-	static float stand_height;
+	static float stand_height = 18.0f;
 	/* @socom-skeleton stub use_taxi_cab$1281 */
-	static unsigned char use_taxi_cab;
+	static unsigned char use_taxi_cab = 1;
+
+	/* 0x1a0460 (UpdateVisibilityMap's line walk): a blocking cell (soil 0, 8, 10) is unseen
+	 * and ends the line. Otherwise the cell's ground, relative to a standing eye over the eye
+	 * cell, against the run (10 x the walked distance; taxi cab on, the straight cell distance
+	 * otherwise): ground above the highest so far raises the horizon to its slope; the cell is
+	 * seen when a standing figure's head on it (ground + 18) is above the horizon. The eye cell
+	 * itself (run 0) is seen. Prone and crouch heights are not used. */
+	(void)prone_height;
+	(void)crouch_height;
+	CAiVisMap *vm = static_cast<CAiVisMap *>(data);
+	CAiMapLoc loc = walk.m_loc;
+	CAiCell *cell = walk.m_cell;
+	u32 soil = cell->m_soil;
+	f32 eye = stand_height;
+
+	if (soil == 0 || soil == 8 || soil == 10)
+	{
+		vis_set_mark(vm, loc, CAiVisMap::VIS_UNSEEN);
+		return false;
+	}
+
+	f32 ground = vis_altitude(walk.m_map, cell);
+	f32 rise = ground - (vm->m_altitude + eye);
+	f32 dist;
+
+	if (use_taxi_cab)
+	{
+		dist = walk.m_dist;
+	}
+	else
+	{
+		s32 dx = (s32)vm->m_loc.x - (s32)loc.x;
+		s32 dy = (s32)vm->m_loc.y - (s32)loc.y;
+		dist = sqrtf((f32)(dx * dx + dy * dy));
+	}
+
+	f32 run = 10.0f * dist;
+
+	if (0.0f == run)
+	{
+		vis_set_mark(vm, loc, CAiVisMap::VIS_SEEN);
+		return true;
+	}
+
+	f32 inv = 1.0f / run;
+
+	if (!(ground <= vm->m_top))
+	{
+		f32 slope = rise * inv;
+
+		if (!(slope <= vm->m_slope))
+		{
+			vm->m_slope = slope;
+			vm->m_top = ground;
+			vm->m_run = run;
+			vm->m_rise = rise;
+		}
+	}
+
+	if ((rise + eye) * inv <= vm->m_slope)
+		vis_set_mark(vm, loc, CAiVisMap::VIS_UNSEEN);
+	else
+		vis_set_mark(vm, loc, CAiVisMap::VIS_SEEN);
+
+	return true;
 }

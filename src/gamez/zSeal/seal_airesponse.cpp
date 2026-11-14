@@ -314,8 +314,9 @@ bool CAiSReload::Tick(float dT, CSealCtrlAi *ctrl)
 	 * 1 the call (character sound 61) once; while evading: standing, until the route is done;
 	 *   then a standing AI crouches (or goes prone), the kit reloads, 0.5 s -> 2;
 	 * 2 the state ends after the 0.5 s.
-	 * port: the seals' vis maps (CSealCtrl::m_vismap, ai_vismap.cpp) are not written, so
-	 * m_vismap is NULL and the evade move is never taken (as in the ELF without a vis map) */
+	 * Only CSealCtrl::Initalize makes a vis map (the player's; CSealCtrlAi has its own
+	 * Initalize), so the evade move is taken against the player only. ELF: the answer of
+	 * FindEvadeLocation is not tested (spot is used as left) */
 	/* @socom-skeleton stub maxReloadRange$2324 */
 	static u32 maxReloadRange = 10;
 	CZSealBody *body = static_cast<CZSealBody *>(ctrl->m_entity);

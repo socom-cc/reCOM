@@ -133,9 +133,7 @@ void CAiSFollow::OnSignal(CAiState::SIGNAL signal, CSealCtrlAi *ai)
 	/* 0x2e1f20: on entry (0) and resume (3) the AI goes to follow mode with its path
 	 * marked as a follow path (app flag 1) on the master's trail; leaving (1) aborts the
 	 * plan and drops the trail; covered (2) clears the follow mark. The AI-map collision
-	 * (m_do_aimap_collide) is off while following.
-	 * port: the collision is never turned on (CAiMap::GetCellRepelParams is unwritten, see
-	 * InitAiBrain) */
+	 * (m_do_aimap_collide) is off while following. */
 	CAiPath* path = ai != NULL ? &ai->m_path : NULL;
 	CAiPath* snake = ai != NULL && ai->m_master != NULL ? &ai->m_master->m_snakePath : NULL;
 
@@ -156,9 +154,7 @@ void CAiSFollow::OnSignal(CAiState::SIGNAL signal, CSealCtrlAi *ai)
 		path->m_app_flags &= ~1u;
 		path->SetTemplatePath(NULL);
 		path->m_flags &= ~8u;
-#ifndef SOCOM_PORT
 		ai->m_do_aimap_collide = 1;
-#endif
 		break;
 
 	case 2:
@@ -170,9 +166,7 @@ void CAiSFollow::OnSignal(CAiState::SIGNAL signal, CSealCtrlAi *ai)
 		ai->SetAiMode(AIM_FOLLOW);
 		path->m_app_flags |= 1;
 		m_substate = 0;
-#ifndef SOCOM_PORT
 		ai->m_do_aimap_collide = 1;
-#endif
 		break;
 
 	default:

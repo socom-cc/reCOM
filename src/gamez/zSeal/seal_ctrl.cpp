@@ -136,8 +136,15 @@ void CSealCtrl::PostMortemPreTick(float dT)
 }
 
 /* @socom-skeleton stub UpdateAiVisMap__9CSealCtrlFv */
-void CSealCtrl::UpdateAiVisMap()
+bool CSealCtrl::UpdateAiVisMap()
 {
+	/* 0x283e60 (CZSealBody::UpdateAiMapLoc on a new cell): the vis map follows the body's
+	 * valid AI map location; 0 without a vis map */
+	if (m_vismap == NULL)
+		return false;
+
+	CAiMapLoc loc = static_cast<CZSealBody *>(m_entity)->m_mapLocValid;
+	return CAiVisMap::UpdateDynamicVisMap(m_vismap, loc);
 }
 
 /* @socom-skeleton stub SetViewRange__9CSealCtrlFf */

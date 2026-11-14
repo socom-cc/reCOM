@@ -153,22 +153,80 @@ float CAiPlanner::fcost(CAiMap &map, const CAiMapLoc &from, CAiMap::DIR dir, con
 	return (dir & 1) ? 1.3f : 1.0f;
 }
 
-/* 0x183450. port: not written (1216 bytes); the default cost is used */
+/* 0x183450: the base step cost (inline, as CAiPlanner::fcost), plus 0.8 for a step onto any
+ * soil but road (3), doubled when it leaves a road. ELF: the cells' soils are read without a
+ * NULL test (port: off-map cells count as not road) */
 float CBasicTravel::fcost(CAiMap &map, const CAiMapLoc &from, CAiMap::DIR dir, const CAiMapLoc &to)
 {
-	return CAiPlanner::fcost(map, from, dir, to);
+	/* non_path$localstatic3 (0x475700) */
+	static float non_path = 0.8f;
+	CAiCell *a = map.GetCell(from);
+	CAiCell *b = map.GetCell(to);
+	u32 sa = a != NULL ? a->m_soil : 0;
+	u32 sb = b != NULL ? b->m_soil : 0;
+	f32 cost = CAiPlanner::fcost(map, from, dir, to);
+
+	if (sb != 3)
+		cost += non_path * (f32)(sa == 3 ? 2 : 1);
+
+	return cost;
 }
 
-/* 0x182ed0. port: not written (1396 bytes); the default cost is used */
+/* 0x182ed0: the base step cost (inline), scaled for stealth: a step onto an open cell (no
+ * shadow, not water 2, brush 4 or forest 5) costs (1 + bias) times; a step from cover into
+ * cover costs less by (bias + shadow_bias[the cell's shadow]) of itself, not below 0; a step
+ * from the open into cover the base cost */
 float CStealthTravel::fcost(CAiMap &map, const CAiMapLoc &from, CAiMap::DIR dir, const CAiMapLoc &to)
 {
-	return CAiPlanner::fcost(map, from, dir, to);
+	/* shadow_bias$localstatic3 (0x4390a0) */
+	static const float shadow_bias[4] = {0.0f, 0.04f, 0.12f, 0.22f};
+	CAiCell *a = map.GetCell(from);
+	CAiCell *b = map.GetCell(to);
+	f32 cost = CAiPlanner::fcost(map, from, dir, to);
+
+	if (a == NULL || b == NULL) /* port: the ELF reads them unchecked */
+		return cost + bias * cost;
+
+	u32 sa = a->m_soil;
+	u32 sb = b->m_soil;
+	u32 shadow = b->m_shadow;
+
+	if (!(shadow != 0 || sb == 2 || sb == 4 || sb == 5))
+		return cost + bias * cost;
+
+	if (!(a->m_shadow != 0 || sa == 2 || sa == 4 || sa == 5))
+		return cost;
+
+	cost -= cost * (bias + shadow_bias[shadow]);
+
+	if (cost < 0.0f)
+		cost = 0.0f;
+
+	return cost;
 }
 
-/* 0x182db0. port: not written (260 bytes); the default test is used */
-bool CRestrainedTravel::is_traversable(CAiMap *map, CAiPath *path, const CAiMapLoc &from, CAiMap::DIR dir, CAiMapLoc &to, CAiCell *&cell)
+/* 0x182db0: the search limit is held to 5000 cells; a cell is passable when walkable, not
+ * climb soil (6), and not a shut door (an action cell of valid type 1 in state 0) */
+bool CRestrainedTravel::is_traversable(CAiMap *map, CAiPath *path, const CAiMapLoc &, CAiMap::DIR, CAiMapLoc &to, CAiCell *&cell)
 {
-	return CAiPlanner::is_traversable(map, path, from, dir, to, cell);
+	if (path->m_search_limit > 5000)
+		path->m_search_limit = 5000;
+
+	CAiCell *c = cell;
+
+	if (!CAiMap::IsWalkable(c) || c->m_soil == 6)
+		return false;
+
+	if (c->m_action)
+	{
+		CAiMap::action *a = map->GetCellAction(to);
+		u32 type = a->m_type_invalid ? 0 : a->m_type; /* ELF: the action is not NULL-tested */
+
+		if (type == 1 && a->m_state == 0)
+			return false;
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub __dt__7CAiStarFv */

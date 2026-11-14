@@ -10,4 +10,22 @@
 /* @socom-skeleton stub __ct__7CAiCellFv */
 CAiCell::CAiCell()
 {
+	/* 0x185200: default soil (1), every flag clear, altitude 0, no search state (direction 8,
+	 * costs -1). ELF: m_mes is left as it was. (The map cells are read raw: nothing in the
+	 * ELF calls this ctor by jal.) */
+	m_soil = 1;
+	m_occupied = 0;
+	m_name = 0;
+	m_action = 0;
+	m_link = 0;
+	m_boundary = 0;
+	m_altitude = 0;
+	m_shadow = 0;
+	m_inside = 0;
+	m_badalt = 0;
+	m_rtflag = 0;
+	m_bilinear = 0;
+	m_astar_dir = 8;
+	m_astar_f = -1;
+	m_astar_g = -1;
 }

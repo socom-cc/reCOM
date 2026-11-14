@@ -259,6 +259,10 @@ CSealCtrl::CSealCtrl() : CEntityCtrl(3)
 /* @socom-skeleton stub __dt__9CSealCtrlFv */
 CSealCtrl::~CSealCtrl()
 {
+	/* 0x2882b0: the vis map leaves the list and is deleted */
+	CAiVisMap::ReleaseDynamicVisMap(m_vismap);
+	delete m_vismap;
+	m_vismap = NULL;
 }
 
 /* @socom-skeleton stub OnWeaponEvent__9CSealCtrlFP12CZProjectileUiPv */
@@ -284,6 +288,18 @@ void CSealCtrl::OnMissionEnd()
 /* @socom-skeleton stub Initalize__9CSealCtrlFv */
 void CSealCtrl::Initalize()
 {
+	/* 0x288050 (CreateSeal: the controller's virtual Initalize; CSealCtrlAi has its own): a vis
+	 * map of radius 50 registered at (0, 0) of map 0 (it follows the body from its first new
+	 * cell), the aim pitch from the character dynamics, the snake trail on (75 points) */
+	if (m_vismap == NULL)
+	{
+		m_vismap = new CAiVisMap();
+		CAiMapLoc origin(0, 0, 0);
+		CAiVisMap::RegisterDynamicVisMap(m_vismap, origin, 50);
+	}
+
+	m_aimPitch = theCharacterDynamics.m_initAimPitch;
+	static_cast<CZSealBody *>(m_entity)->SetSnakePathUpdate(true, 75);
 }
 
 /* @socom-skeleton stub OnWeaponHit__9CSealCtrlFPQ23zdb15IntersectStructP12CZProjectile */

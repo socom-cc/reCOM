@@ -62,13 +62,59 @@ void CAi::Extrapolate(const CPnt3D *pos, const CPnt3D *vel, float time, CPnt3D *
 }
 
 /* @socom-skeleton stub AlignToPoint__3CAiFPC7CMatrixPC6CPnt3DP7CMatrixf */
-void CAi::AlignToPoint(const CMatrix *, const CPnt3D *, CMatrix *, float)
+void CAi::AlignToPoint(const CMatrix *mat, const CPnt3D *point, CMatrix *out, float dist)
 {
+	/* 0x17ed10 (CZSealBody::PickupObject): a frame facing the point in x/z (row 2), `dist`
+	 * short of it (row 3); row 1 is the matrix's, row 0 their cross product (normalized) */
+	const CPnt3D *pos = reinterpret_cast<const CPnt3D *>(mat->m_matrix[3]);
+	const CPnt3D *up = reinterpret_cast<const CPnt3D *>(mat->m_matrix[1]);
+	CPnt3D dir;
+	dir.x = 0.0f;
+	dir.y = 0.0f;
+	dir.z = 0.0f;
+	point->SubXZ(pos, &dir);
+	f32 len = dir.Normalize();
+	CPnt3D step;
+	dir.Scale(len - dist, &step);
+	CPnt3D at;
+	pos->Add(&step, &at);
+	CPnt3D side;
+	dir.Cross(up, &side, true);
+	out->SetRows(&side, up, &dir, &at);
 }
 
 /* @socom-skeleton stub GetToRightXZ__3CAiFPC6CPnt3DP6CPnt3Db */
-float CAi::GetToRightXZ(const CPnt3D *, CPnt3D *, bool)
+float CAi::GetToRightXZ(const CPnt3D *in, CPnt3D *out, bool normalize)
 {
+	/* 0x17ec40 (CAiSAvoid::Tick): the x/z vector turned to the right, (-z, 0, x); normalized in
+	 * x/z first when asked. Returns the x/z length (0 when not normalizing). ELF quirk kept: a
+	 * zero length leaves out as it was before the turn */
+	f32 len = 0.0f;
+
+	if (normalize)
+	{
+		len = sqrtf(in->x * in->x + in->z * in->z);
+
+		if (!(0.0f == len))
+		{
+			f32 inv = 1.0f / len;
+			out->x = in->x * inv;
+			out->y = in->y;
+			out->z = in->z * inv;
+		}
+	}
+	else
+	{
+		out->x = in->x;
+		out->y = in->y;
+		out->z = in->z;
+	}
+
+	out->y = out->x;
+	out->x = -out->z;
+	out->z = out->y;
+	out->y = 0.0f;
+	return len;
 }
 
 /* @socom-skeleton stub is_moving__2aiFPC6CPnt3Df */

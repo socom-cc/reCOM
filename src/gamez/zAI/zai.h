@@ -112,6 +112,7 @@ class AnimSet;
 #include "gamez/zMath/zmath.h"
 #include "gamez/zSystem/zsys.h"
 #include "gamez/zReader/zrdr.h"
+#include "gamez/zUtil/util_systemio.h" /* CFileIO (CAiLog) */
 /* @socom-skeleton decl forward */
 class CAiCell;
 class CAiStar;
@@ -675,7 +676,7 @@ public:
 	void ResetCells();
 	void GetMapRegion(CAiMap::region &) const;
 	unsigned char TransformTo(const CAiMapLoc &, CAiMap *, CAiMapLoc &);
-	void GetCellRepelParams(const CAiMapLoc &, const CPnt3D *, float, CPnt3D &, float &);
+	unsigned char GetCellRepelParams(const CAiMapLoc &, const CPnt3D *, float, CPnt3D &, float &); /* 0x1853a0: 1 when a blocked neighbour pushes */
 	char * AllocEx(unsigned int);
 	void FreeEx();
 	char * GetMapEx(const CAiMapLoc &); /* 0x19f270 returns the cell's extra bytes (NULL without; ftsGetAltitudeApprox tests it) */
@@ -687,8 +688,8 @@ public:
 	CAiMap::link * GetCellLink(const CAiMapLoc &);
 	CAiMap::region * GetRegion(const CAiMapLoc &);
 	CAiMap::region * GetRegion(const char *, CAiMapLoc &);
-	void GetRegionContaining(const CAiMapLoc &, CAiMap::region::TYPE, bool);
-	void ReRoute(CAiMap::route *);
+	CAiMap::region * GetRegionContaining(const CAiMapLoc &, CAiMap::region::TYPE, bool); /* 0x19e970: NULL for none */
+	bool ReRoute(CAiMap::route *); /* 0x19e320: whether the route is valid */
 	void ValidateRoutes(bool);
 	void CreateGraph(bool);
 	void DestroyGraph();
@@ -710,8 +711,9 @@ public:
 	void CountMapTravelDir(const CAiMapLoc &, int *, CAiMapLoc *, int);
 	bool FindCoverLoc(const CAiMapLoc &, const CPnt3D *, CAiMapLoc &, CAiMap::DIR &, int); /* 0x1a9970 */
 	bool FindLookLoc(const CAiMapLoc &, const CPnt3D *, CAiMapLoc &, CAiMap::DIR &, int); /* 0x1a9590 */
-	void CenterRegion(const CAiMapLoc &, CAiMap::region &) const;
-	void UpdateVisibilityMap(CAiVisMap &, int &);
+	bool CenterRegion(const CAiMapLoc &, CAiMap::region &) const; /* 0x1a2300 returns 1 */
+	bool GetInterpolationCells(const CAiMapLoc &, const CPnt3D *, IPNT2D *, PNT2D *) const; /* 0x19ba90 (ai_maps.cpp): false off the map */
+	bool UpdateVisibilityMap(CAiVisMap &, int &); /* 0x1a0950: 0 for an unregistered vis map */
 	static const int version;
 	/* @socom-skeleton end 6CAiMap */
 	/* port: inline in the ELF (ValidateCells, SetCellLink, GetCellCenter, CAiMaps::GetCell): the
@@ -987,7 +989,7 @@ public:
 	void SetSnakeLength(unsigned int);
 	void AddSnakePoint(const CAiMapLoc &);
 	bool SetPathType(CAiPath::PATH_TYPE); /* 0x1938f0: whether the path has that type now */
-	void PassesThrough(const CAiMapLoc &, CAiMap::DIR, int);
+	bool PassesThrough(const CAiMapLoc &, CAiMap::DIR, int); /* 0x1937f0 */
 	void PrintPath() const;
 	bool PointInPath(const CAiMapLoc &, unsigned int *) const; /* 0x193540 */
 	/* @socom-skeleton end 7CAiPath */
@@ -1632,14 +1634,23 @@ public:
 };
 /* @socom-skeleton end 9CAiEventQ */
 /* @socom-skeleton decl 6CAiLog */
+/* port: no DWARF record; layout from the ctor 0x1a94f0, Write 0x1a9190 and the dtor 0x1a93d0.
+ * Member names invented. Records are a 12-byte header (type, a word, the data size) and the
+ * data, gathered in an 8 KB buffer flushed to the file. */
 class CAiLog
 {
 public:
 	CAiLog(bool);
 	~CAiLog();
-	void Create(const char *, bool);
-	void Write(unsigned int, unsigned int, unsigned int, const void *);
-	static int m_log;
+	bool Create(const char *, bool); /* 0x1a92f0: whether the file is open */
+	bool Write(unsigned int, unsigned int, unsigned int, const void *); /* 0x1a9190: 0 for a masked type */
+	static CAiLog *m_log; /* the global log (a ctor given true) */
+	std::vector<u32> m_unused; /* +0x00 constructed and destroyed, never used */
+	u8 *m_buffer;              /* +0x0c 8192 bytes */
+	u32 m_used;                /* +0x10 */
+	u32 m_mode;                /* +0x14 the file's open mode (bit 1: written) */
+	u32 m_mask;                /* +0x18 the record types (< 32) written: 1 << type */
+	CFileIO m_file;            /* +0x1c */
 };
 /* @socom-skeleton end 6CAiLog */
 struct AIMAPS_PARAMS /* DWARF: byte_size 36 */
@@ -1656,7 +1667,7 @@ public:
 	CAiMapLocVec m_regions[7];
 	CGraph *m_graph;
 	unsigned char m_cookie;
-	unsigned char GetCellRepelParams(const CAiMapLoc &, const CPnt3D *, float, CPnt3D &, float &);
+	unsigned char GetCellRepelParams(const CAiMapLoc &, const CPnt3D *, float, CPnt3D &, float &); /* 0x185ab0 */
 	~CAiMaps();
 	void FreeTables();
 	void Close();
@@ -1683,17 +1694,17 @@ public:
 	bool ExtendPath(CAiPath &, const CAiMapLoc &); /* 0x199220: true when extended */
 	void UpdateActionTables();
 	void UpdateNameTables();
-	void GetSporeLocation(unsigned int, unsigned int, CPnt3D *, CPnt3D *);
+	bool GetSporeLocation(unsigned int, unsigned int, CPnt3D *, CPnt3D *); /* 0x198a00: 0 for no spore of the id */
 	bool ReadMapSet(const char *, const char *); /* 0x198680: true when the file opened */
 	void ValidateLinks();
 	void CreateGraph(bool);
 	CAiMap::name * GetCellName(const CAiMapLoc &) const;
 	char * GetCellNameString(const CAiMapLoc &) const;
-	void Tile(const CAiMap::region *, unsigned int, unsigned int);
+	unsigned char Tile(const CAiMap::region *, unsigned int, unsigned int); /* 0x197f70: 1 when a cell changed */
 	CAiMap::region * GetClosestRegion(const CAiMapLoc &, CAiMap::region::TYPE, bool); /* 0x1978a0: NULL for none */
 	CAiMap::region * GetRegionTypeContainer(CAiMap::region::TYPE, const CAiMapLoc &);
 	bool GetRandomLoc(const CAiMap::region *, CAiMapLoc &); /* 0x197340: 0 when none found */
-	void SetRegionType(const CAiMap::region *, CAiMap::region::TYPE);
+	bool SetRegionType(const CAiMap::region *, CAiMap::region::TYPE); /* 0x1971c0: 1 when it already had the type */
 	void SetOccupied(const CAiMapLoc &, const CAiMapLoc &, unsigned int);
 	static const char *default_mapset;
 };
@@ -1721,20 +1732,47 @@ public:
 };
 /* @socom-skeleton end 7CAiStar */
 /* @socom-skeleton decl 9CAiVisMap */
+/* port: no DWARF record; 92 bytes (CSealCtrl::Initalize 0x288050 news 92). Layout from the ctor
+ * 0x1a1c40, RegisterDynamicVisMap 0x1a2500, UpdateDynamicVisMap 0x1a1f10, UpdateVisibilityMap
+ * 0x1a0950 and visCallback 0x1a0460; member names invented. A seal's view of the cells of a
+ * box around it: 2 bits per cell (1 seen), the lines from the eye cell to the box's edge cells
+ * walked a few per frame (TickVisMaps). */
 class CAiVisMap
 {
 public:
-	enum VIS_TYPE { }; /* port: unproven: passed by value per the mangled name; kind and enumerators not in DWARF */
+	/* the cell marks (port: enumerator names invented; only 0 and 1 are written) */
+	enum VIS_TYPE { VIS_UNSEEN = 0, VIS_SEEN = 1 };
 	static void TickVisMaps(float);
-	static void RegisterDynamicVisMap(CAiVisMap *, const CAiMapLoc &, int);
-	void UpdateDynamicVisMap(CAiVisMap *, const CAiMapLoc &);
+	static bool RegisterDynamicVisMap(CAiVisMap *, const CAiMapLoc &, int); /* 0x1a2500: 0 when the bits do not fit */
+	static bool UpdateDynamicVisMap(CAiVisMap *, const CAiMapLoc &); /* 0x1a1f10 (no `this`): 0 off the map set */
 	static void ReleaseDynamicVisMap(CAiVisMap *);
 	static void CloseAll();
 	CAiVisMap();
 	~CAiVisMap();
-	void GetMark(const CAiMapLoc &) const;
-	void CheckBoxEdges(const CAiMapLoc &, int, CAiMapLoc &, CAiVisMap::VIS_TYPE, bool, bool);
-	void FindEvadeLocation(const CAiMapLoc &, CAiMapLoc &);
+	int GetMark(const CAiMapLoc &) const; /* 0x1a1b10: 0 outside the box */
+	bool CheckBoxEdges(const CAiMapLoc &, int, CAiMapLoc &, CAiVisMap::VIS_TYPE, bool, bool); /* 0x1a0fc0 */
+	bool FindEvadeLocation(const CAiMapLoc &, CAiMapLoc &); /* 0x1a0ea0 */
+	/* reset_line__9CAiVisMapFv (inline in UpdateVisibilityMap): the line's horizon starts flat
+	 * at MINIMUM_SLOPE */
+	void reset_line();
+
+	CAiMap *m_map;            /* +0x00 */
+	CAiMapLoc m_loc;          /* +0x04 the eye cell (invalid: none yet) */
+	f32 m_altitude;           /* +0x08 the eye cell's ground altitude */
+	f32 m_slope;              /* +0x0c the line's horizon: rise / run */
+	f32 m_run;                /* +0x10 */
+	f32 m_rise;               /* +0x14 */
+	f32 m_top;                /* +0x18 the highest ground on the line so far */
+	CAiMap::region m_region;  /* +0x1c the box (m_dx = m_dy = 2 * radius) */
+	s32 m_width;              /* +0x38 the box size the bits were sized for */
+	s32 m_height;             /* +0x3c */
+	u8 m_state;               /* +0x40 0 unregistered, 1 current, 2-5 walking the top, bottom, left, right edge */
+	s32 m_line;               /* +0x44 the next line of the edge */
+	u32 m_cells;              /* +0x48 */
+	u32 m_bytes;              /* +0x4c */
+	u32 *m_bits;              /* +0x50 new[] */
+	s32 m_id;                 /* +0x54 -1 */
+	f32 m_lifetime;           /* +0x58 -1: kept (globalVisMap's maps count down) */
 };
 /* @socom-skeleton end 9CAiVisMap */
 

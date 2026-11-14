@@ -109,6 +109,11 @@ CAiMaps AiMaps;
 /* @socom-skeleton stub __dt__7CAiMapsFv */
 CAiMaps::~CAiMaps()
 {
+	/* 0x19d790 (static destructor): the set's graph is destroyed; the region (7), name (6)
+	 * and spore tables and the map list go with their member destructors (the maps
+	 * themselves are deleted by Close, not here) */
+	CGraph::Destroy(m_graph);
+	m_graph = NULL;
 }
 
 /* @socom-skeleton stub FreeTables__7CAiMapsFv */
@@ -149,6 +154,10 @@ void CAiMaps::Close()
 /* @socom-skeleton stub Reset__7CAiMapsFv */
 void CAiMaps::Reset()
 {
+	/* 0x19d460 (CMission::ReOpen_Load: a mission replay): every map's cells reset (action
+	 * states, occupied marks) */
+	for (iterator i = begin(); i != end(); ++i)
+		((CAiMap *)*i)->ResetCells();
 }
 
 /* @socom-skeleton body GetMapByIndex__7CAiMapsCFUi */
@@ -316,8 +325,28 @@ bool CAiMaps::GetActionById(unsigned int id, CAiMapLoc &loc, CAiMap::action **ou
 }
 
 /* @socom-skeleton stub GetRegion__7CAiMapsFPCcR9CAiMapLoc */
-CAiMap::region * CAiMaps::GetRegion(const char *, CAiMapLoc &)
+CAiMap::region * CAiMaps::GetRegion(const char *name, CAiMapLoc &loc)
 {
+	/* 0x19c720 (the task Parse functions): the first map with a region of that name; loc takes
+	 * its corner with the map's index as the map id. NULL and loc invalid for none */
+	if (name != NULL)
+	{
+		u32 index = 0;
+
+		for (iterator i = begin(); i != end(); ++i, index++)
+		{
+			CAiMap::region *r = ((CAiMap *)*i)->GetRegion(name, loc);
+
+			if (r != NULL)
+			{
+				loc.m_mapid = index;
+				return r;
+			}
+		}
+	}
+
+	loc = reinterpret_cast<const CAiMapLoc &>(CAiMapLoc::invalid);
+	return NULL;
 }
 
 /* @socom-skeleton stub GetRegion__7CAiMapsFRC9CAiMapLoc */
@@ -338,8 +367,45 @@ CAiMap::action * CAiMaps::GetCellAction(const CAiMapLoc &loc)
 }
 
 /* @socom-skeleton stub GetBoundary__7CAiMapsFRC9CAiMapLoc */
-unsigned int CAiMaps::GetBoundary(const CAiMapLoc &)
+unsigned int CAiMaps::GetBoundary(const CAiMapLoc &loc)
 {
+	/* 0x19c120 (CZSealBody::UpdateAiMapLoc: the player's mission boundary warnings): the cell's
+	 * boundary bits (0 none); boundaries live on map 0, so a location on another map is moved
+	 * onto the set's first map (TransformTo, again when that does not land on map 0). 0 off the
+	 * set or the map */
+	if (loc.m_mapid == 0)
+	{
+		CAiMap *map = GetMapByIndex(0);
+		CAiCell *cell = map != NULL ? map->GetCell(loc) : NULL;
+		return cell != NULL ? cell->m_boundary : 0;
+	}
+
+	CAiMap *first = size() != 0 ? (CAiMap *)front() : NULL;
+	CAiMap *map = GetMapByIndex(loc.m_mapid);
+
+	if (map == NULL || first == NULL)
+		return 0;
+
+	CAiMapLoc moved;
+
+	if (!map->TransformTo(loc, first, moved))
+		return 0;
+
+	if (moved.m_mapid == 0)
+	{
+		CAiMap *map0 = GetMapByIndex(0);
+		CAiCell *cell = map0 != NULL ? map0->GetCell(moved) : NULL;
+		return cell != NULL ? cell->m_boundary : 0;
+	}
+
+	first = size() != 0 ? (CAiMap *)front() : NULL;
+	CAiMap *other = GetMapByIndex(moved.m_mapid);
+	CAiMapLoc again;
+
+	if (other != NULL && first != NULL && other->TransformTo(moved, first, again))
+		return GetBoundary(again);
+
+	return 0;
 }
 
 /* @socom-skeleton body GetCell__7CAiMapsFRC9CAiMapLoc */
@@ -390,12 +456,99 @@ CPnt3D * CAiMaps::GetCellCenter(const CAiMapLoc &loc, CPnt3D *out)
 }
 
 /* @socom-skeleton stub GetInterpolatedShadow__7CAiMapsFRC9CAiMapLocPC6CPnt3Db */
-float CAiMaps::GetInterpolatedShadow(const CAiMapLoc &, const CPnt3D *, bool)
+float CAiMaps::GetInterpolatedShadow(const CAiMapLoc &loc, const CPnt3D *pos, bool inside)
 {
-	/* 0x19b290 (2020 B): the AI map cells' shadow at a point, interpolated. port: stub - not
-	 * written: no shadow (0), so characters stay fully lit (CZSealBody::PostCheckDIDown sets
-	 * the node light from it). */
-	return 0.0f;
+	/* 0x19b290 (CZSealBody::PostCheckDIDown: the node light): the shadow (0..3) at a point,
+	 * blended bilinearly from the location's cell and its three neighbours towards the point
+	 * (GetInterpolationCells: the step to each neighbour and the own cell's weights); a
+	 * neighbour off its row's span is left out and the sum renormalized (below a weight of
+	 * 0.98). `inside` counts inside cells as full shadow (3). Returns the shadow / 3: 1 off
+	 * the set, 0 off the map */
+	CAiMap *map = GetMapByIndex(loc.m_mapid);
+
+	if (map == NULL)
+		return 1.0f;
+
+	IPNT2D step;
+	PNT2D w;
+
+	if (!map->GetInterpolationCells(loc, pos, &step, &w))
+		return 0.0f;
+
+	f32 total = 0.0f;
+	f32 sum = 0.0f;
+	CAiMapLoc at;
+	at.m_mapid = loc.m_mapid;
+
+	for (int i = 0; i < 4; i++)
+	{
+		/* the own cell, x neighbour, y neighbour, diagonal */
+		at.x = (s32)loc.x + ((i & 1) ? step.x : 0);
+		at.y = (s32)loc.y + ((i & 2) ? step.y : 0);
+		f32 wx = (i & 1) ? 1.0f - w.x : w.x;
+		f32 wy = (i & 2) ? 1.0f - w.y : w.y;
+
+		if (i != 0)
+		{
+			s32 y = (u16)at.y;
+
+			if (!(y >= 0 && (u32)y < map->m_ny))
+				continue;
+
+			const CAiMap::scanline &row = map->m_scanlines[y];
+
+			if (!(at.x >= row.m_start && at.x < row.m_end))
+				continue;
+		}
+
+		CAiCell *cell = map->GetCell(at);
+		u32 shade = inside && cell->m_inside ? 3 : cell->m_shadow;
+		f32 weight = wx * wy;
+		total += weight;
+		sum += (f32)(s32)shade * weight;
+	}
+
+	if (total < 0.98f)
+		sum /= total;
+
+	return 0.3333333f * sum;
+}
+
+/* GetInterpolationCells__6CAiMapCFRC9CAiMapLocPC6CPnt3DP6IPNT2DP5PNT2D 0x19ba90 (this file's
+ * artifact; no skeleton fence was generated): the point's place in the location's cell (0..1
+ * from its corner, x and z): towards the nearer neighbour on each axis (-1 at or below half,
+ * else +1) and the own cell's weight (0.5 + f, or 1.5 - f). False off the map */
+bool CAiMap::GetInterpolationCells(const CAiMapLoc &loc, const CPnt3D *pos, IPNT2D *step, PNT2D *w) const
+{
+	if (!((u32)(u16)loc.y < m_ny && loc.x < m_nx))
+		return false;
+
+	f32 fx = m_idx * (pos->x - (m_bbox.m_min.x + (f32)loc.x * m_dx));
+	f32 fy = m_idy * (pos->z - (m_bbox.m_min.z + (f32)loc.y * m_dy));
+
+	if (fx <= 0.5f)
+	{
+		step->x = -1;
+		w->x = 0.5f + fx;
+	}
+	else
+	{
+		step->x = 1;
+		w->x = 1.5f - fx;
+	}
+
+	if (fy <= 0.5f)
+	{
+		step->y = -1;
+		w->y = 0.5f + fy;
+	}
+	else
+	{
+		step->y = 1;
+		w->y = 1.5f - fy;
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub GetAltitude__7CAiMapsFRC9CAiMapLoc */
@@ -548,9 +701,10 @@ bool CAiMaps::RegisterPathPlan(const CAiMapLoc &start, const CAiMapLoc &goal, CA
 /* @socom-skeleton stub GetLocationDelta__7CAiMapsFRC9CAiMapLocRC9CAiMapLoc */
 unsigned int CAiMaps::GetLocationDelta(const CAiMapLoc &a, const CAiMapLoc &b)
 {
-	/* 0x199610: the cells between two locations (|dx| + |dy|); across maps b is moved onto a's
-	 * map (CAiMap::TransformTo), else the larger map's cell count.
-	 * port: TransformTo 0x185b50 is unwritten, so across maps the cell count is returned */
+	/* 0x199610: the cells between two locations (|dx| + |dy|); across maps a is moved onto b's
+	 * map (CAiMap::TransformTo) and measured there, else the larger map's cell count.
+	 * port: a map off the set counts 0 cells and transforms nothing (the ELF calls through
+	 * NULL) */
 	if (a.m_mapid == b.m_mapid)
 	{
 		int dx = (int)b.x - (int)a.x;
@@ -560,6 +714,15 @@ unsigned int CAiMaps::GetLocationDelta(const CAiMapLoc &a, const CAiMapLoc &b)
 
 	CAiMap *ma = GetMapByIndex(a.m_mapid);
 	CAiMap *mb = GetMapByIndex(b.m_mapid);
+	CAiMapLoc moved;
+
+	if (ma != NULL && ma->TransformTo(a, mb, moved))
+	{
+		int dx = (int)b.x - (int)moved.x;
+		int dy = (int)b.y - (int)moved.y;
+		return (u32)((dx < 0 ? -dx : dx) + (dy < 0 ? -dy : dy));
+	}
+
 	u32 ca = ma != NULL ? ma->m_cellcount : 0;
 	u32 cb = mb != NULL ? mb->m_cellcount : 0;
 	return ca > cb ? ca : cb;
@@ -715,8 +878,58 @@ void CAiMaps::UpdateNameTables()
 }
 
 /* @socom-skeleton stub GetSporeLocation__7CAiMapsFUiUiP6CPnt3DP6CPnt3D */
-void CAiMaps::GetSporeLocation(unsigned int, unsigned int, CPnt3D *, CPnt3D *)
+bool CAiMaps::GetSporeLocation(unsigned int id, unsigned int n, CPnt3D *pos, CPnt3D *dir)
 {
+	/* 0x198a00 (ftsNetworkPlayerInit, findAlign: spawn spots): the spores of that id are a run
+	 * of the table (sorted by id); the n-th of them (n wraps by the run's length) gives the
+	 * cell centre and the reverse of its direction. 0 for no spore of the id or a spore off
+	 * the set */
+	s32 count = (s32)m_spores.size();
+	s32 first = -1;
+	s32 last = -1;
+
+	for (s32 i = 0; i < count; i++)
+	{
+		u32 sid = m_spores[i].m_id;
+
+		if (sid < id)
+			continue;
+
+		if (first == -1)
+			first = i;
+
+		if (id < sid)
+		{
+			last = i - 1;
+			break;
+		}
+	}
+
+	if (last == -1)
+		last = count - 1;
+
+	if (first == -1)
+		return false;
+
+	s32 run = last - first + 1;
+
+	if (run <= 0)
+		return false;
+
+	if (!(n < (u32)run))
+		n %= (u32)run;
+
+	const CAiMap::spore &spore = m_spores[n + first];
+	CAiMap *map = GetMapByIndex(spore.m_loc.m_mapid);
+
+	if (map == NULL || map->GetCellCenter(spore.m_loc, pos) == NULL)
+		return false;
+
+	CAiMap::GetDirVec((CAiMap::DIR)spore.m_dir, *dir); /* inline in the ELF */
+	dir->x = -dir->x;
+	dir->y = -dir->y;
+	dir->z = -dir->z;
+	return true;
 }
 
 /* @socom-skeleton body _fixupNode__FP6CGraphP6CGNodebRUiPv */
@@ -853,18 +1066,39 @@ void CAiMaps::CreateGraph(bool rebuild)
 }
 
 /* @socom-skeleton stub GetCellName__7CAiMapsCFRC9CAiMapLoc */
-CAiMap::name * CAiMaps::GetCellName(const CAiMapLoc &) const
+CAiMap::name * CAiMaps::GetCellName(const CAiMapLoc &loc) const
 {
+	/* 0x1980c0 (CAiPath::PrintPath): the name record of the location's cell; NULL off the set */
+	CAiMap *map = GetMapByIndex(loc.m_mapid);
+	return map != NULL ? map->GetCellName(loc) : NULL;
 }
 
 /* @socom-skeleton stub GetCellNameString__7CAiMapsCFRC9CAiMapLoc */
-char * CAiMaps::GetCellNameString(const CAiMapLoc &) const
+char * CAiMaps::GetCellNameString(const CAiMapLoc &loc) const
 {
+	/* 0x198060 (SetRoute, CAiSBreach::Tick): the cell's name, "" (0x4494b0) for none */
+	CAiMap *map = GetMapByIndex(loc.m_mapid);
+	CAiMap::name *name = map != NULL ? map->GetCellName(loc) : NULL;
+	static char none[1] = "";
+	return name != NULL ? name->m_name : none;
 }
 
 /* @socom-skeleton stub Tile__7CAiMapsFPCQ26CAiMap6regionUiUi */
-void CAiMaps::Tile(const CAiMap::region *, unsigned int, unsigned int)
+unsigned char CAiMaps::Tile(const CAiMap::region *region, unsigned int value, unsigned int flags)
 {
+	/* 0x197f70 (CTPaint::Tick): the region's map tiles it (CAiMap::Tile); the planner's paths
+	 * are then restarted (ai::ResetPathPlan). 0 for no region or a region off the set */
+	if (region == NULL)
+		return 0;
+
+	CAiMap *map = GetMapByIndex(region->m_loc.m_mapid);
+
+	if (map == NULL)
+		return 0;
+
+	unsigned char changed = map->Tile(region, value, flags);
+	ai::ResetPathPlan();
+	return changed;
 }
 
 /* @socom-skeleton stub GetClosestRegion__7CAiMapsFRC9CAiMapLocQ36CAiMap6region4TYPEb */
@@ -974,11 +1208,49 @@ bool CAiMaps::GetRandomLoc(const CAiMap::region *region, CAiMapLoc &loc)
 }
 
 /* @socom-skeleton stub SetRegionType__7CAiMapsFPCQ26CAiMap6regionQ36CAiMap6region4TYPE */
-void CAiMaps::SetRegionType(const CAiMap::region *, CAiMap::region::TYPE)
+bool CAiMaps::SetRegionType(const CAiMap::region *region, CAiMap::region::TYPE type)
 {
+	/* 0x1971c0 (CTPaint::Tick, CTMap::Tick): the region takes the type and its corner moves
+	 * from the old type's list to the new one's (appended). 1 when it had the type already.
+	 * ELF: the region record is written through the const pointer; an old type past the
+	 * seven lists is not bounded (port: as the ELF) */
+	u32 t = (u8)type;
+	u32 old = region->m_type;
+
+	if (t == old)
+		return true;
+
+	CAiMap::region *r = const_cast<CAiMap::region *>(region);
+	r->m_type = t;
+	CAiMapLocVec &from = m_regions[old];
+	CAiMapLocVec::iterator out = from.begin();
+	u32 key = *reinterpret_cast<const u32 *>(&r->m_loc);
+
+	for (CAiMapLocVec::iterator i = from.begin(); i != from.end(); ++i)
+	{
+		if (*reinterpret_cast<const u32 *>(&*i) != key)
+			*out++ = *i;
+	}
+
+	from.erase(out, from.end());
+	m_regions[t].push_back(r->m_loc);
+	return false;
 }
 
 /* @socom-skeleton stub SetOccupied__7CAiMapsFRC9CAiMapLocRC9CAiMapLocUi */
-void CAiMaps::SetOccupied(const CAiMapLoc &, const CAiMapLoc &, unsigned int)
+void CAiMaps::SetOccupied(const CAiMapLoc &from, const CAiMapLoc &to, unsigned int)
 {
+	/* 0x196e60 (UpdateAiMapLoc, CZSealBody::OnDeath): the occupied mark moves from one cell to
+	 * the other (either may be off the set: skipped); the id is not used */
+	CAiMap *map = GetMapByIndex(from.m_mapid);
+	CAiCell *cell = map != NULL ? map->GetCell(from) : NULL;
+
+	if (cell != NULL)
+		cell->m_occupied = 0;
+
+	map = GetMapByIndex(to.m_mapid);
+	cell = map != NULL ? map->GetCell(to) : NULL;
+
+	if (cell != NULL)
+		cell->m_occupied = 1;
 }

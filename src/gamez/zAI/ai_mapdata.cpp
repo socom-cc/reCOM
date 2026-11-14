@@ -54,6 +54,8 @@
 #include "gamez/zReader/zrdr.h"
 #include "zai.h"
 /* @socom-skeleton end include */
+#include "gamez/zSeal/zseal.h" /* the planner (ai::PathPlan*, ReRoute) */
+#include <strings.h> /* strcasecmp */
 
 /* @socom-skeleton stub offset_length__Q26CAiMap6action */
 const float CAiMap::action::offset_length = 0.75f;
@@ -305,13 +307,48 @@ CAiMap::region * CAiMap::GetRegion(const CAiMapLoc &loc)
 }
 
 /* @socom-skeleton stub GetRegion__6CAiMapFPCcR9CAiMapLoc */
-CAiMap::region * CAiMap::GetRegion(const char *, CAiMapLoc &)
+CAiMap::region * CAiMap::GetRegion(const char *name, CAiMapLoc &loc)
 {
+	/* 0x19ea90 (CAiMaps::GetRegion(name)): the first region of that name (any case); loc takes
+	 * its corner. NULL (loc untouched) for none or no name */
+	if (name == NULL)
+		return NULL;
+
+	for (regions::iterator r = m_regionTable.begin(); r != m_regionTable.end(); ++r)
+	{
+		if (strcasecmp(r->m_name, name) == 0)
+		{
+			loc = r->m_loc;
+			return &*r;
+		}
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub GetRegionContaining__6CAiMapFRC9CAiMapLocQ36CAiMap6region4TYPEb */
-void CAiMap::GetRegionContaining(const CAiMapLoc &, CAiMap::region::TYPE, bool)
+CAiMap::region * CAiMap::GetRegionContaining(const CAiMapLoc &loc, CAiMap::region::TYPE type, bool displayed)
 {
+	/* 0x19e970 (CAiPath::plan_addleg): the first region holding the location (x/y box; the map
+	 * id is not compared) of that type (7: any), only displayed ones when asked */
+	u32 t = (u8)type;
+
+	for (regions::iterator r = m_regionTable.begin(); r != m_regionTable.end(); ++r)
+	{
+		if (displayed && r->m_nodisplay)
+			continue;
+
+		if (t != 7 && t != r->m_type)
+			continue;
+
+		int dx = (int)loc.x - (int)r->m_loc.x;
+		int dy = (int)loc.y - (int)r->m_loc.y;
+
+		if (dx >= 0 && dx < (int)r->m_dx && dy >= 0 && dy < (int)r->m_dy)
+			return &*r;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub InflateRegion__Q26CAiMap6regionFiiiiPC6CAiMap */
@@ -427,9 +464,60 @@ void CAiMap::reader::SetReader(CRdrFile *rdr)
 }
 
 /* @socom-skeleton stub ReRoute__6CAiMapFPQ26CAiMap5route */
-void CAiMap::ReRoute(CAiMap::route *)
+bool CAiMap::ReRoute(CAiMap::route *route)
 {
-	/* port: not written (0x19e320, 532 B: path planning); only ValidateRoutes(true) calls it */
+	/* 0x19e320 (ValidateRoutes(true)): the route is marked invalid, then - when both its end
+	 * regions exist and it has two or more waypoints - planned at once leg by leg (a local
+	 * CAiPath, the planner ticked at 1/30 s until it is no longer queued, planning or
+	 * aborting); a complete non-empty path becomes the route's cell path (start first) and the
+	 * route valid again. Returns whether it is valid */
+	s32 count = (s32)route->m_waypts.size();
+	route->m_flags |= 1;
+
+	if (FindByLocation<regions, region>(m_regionTable, route->m_region[0]) == NULL || FindByLocation<regions, region>(m_regionTable, route->m_region[1]) == NULL)
+		return false;
+
+	if (count >= 2)
+	{
+		CAiPath path;
+
+		if (ai::PathPlanBegin(&path))
+		{
+			s32 legs = count - 1;
+			s32 i = 0;
+
+			for (; i < legs; i++)
+			{
+				if (!ai::PathPlanAddLeg(this, route->m_waypts[i], route->m_waypts[i + 1]))
+					break;
+			}
+
+			if (i != legs)
+			{
+				ai::PathPlanAbort();
+			}
+			else
+			{
+				ai::PathPlanExecute();
+
+				while (path.m_state == ::PATH_STATE::PLANNING || path.m_state == ::PATH_STATE::INQUEUE || path.m_state == ::PATH_STATE::ABORT)
+					ai::TickPathPlanner(0.03333334f, NULL);
+
+				if (path.m_points.size() != 0 && path.m_state == ::PATH_STATE::COMPLETE)
+				{
+					route->m_flags &= ~1u;
+					route->m_path.clear();
+					u32 n = path.m_points.size();
+					route->m_path.resize(n);
+
+					for (u32 j = 0; j < n; j++)
+						route->m_path[j] = path.m_points[n - j - 1].m_loc;
+				}
+			}
+		}
+	}
+
+	return !(route->m_flags & 1);
 }
 
 /* @socom-skeleton body _invalid_route__FRQ26CAiMap5route */

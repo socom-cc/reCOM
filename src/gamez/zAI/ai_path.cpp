@@ -712,8 +712,39 @@ void CAiPath::UpdatePointFlags()
 }
 
 /* @socom-skeleton stub UpdatePathWidth__7CAiPathFUi */
-void CAiPath::UpdatePathWidth(unsigned int)
+void CAiPath::UpdatePathWidth(unsigned int max)
 {
+	/* 0x193e80 (PostProcess, plan_complete with flag 4): every point, walked from the next one
+	 * (the back) to the goal, gets its cell's free width on its leg's map (GetLocationWidth, up
+	 * to max); reaching a leg's goal moves on to the next leg's map and goal (GetLegMap /
+	 * GetLegPoints inline; -1 would be the current leg).
+	 * port: a point past the last leg (no map) is skipped; the ELF calls through NULL */
+	u32 leg = 0;
+	CAiMap *map = m_legcount != 0 ? m_maps[0] : NULL;
+	CAiMapLoc goal;
+
+	if (m_legcount != 0)
+		goal = m_waypts[1];
+	else
+		goal = reinterpret_cast<const CAiMapLoc &>(CAiMapLoc::invalid); /* port: the ELF leaves it unset */
+
+	for (points::iterator p = m_points.end(); p != m_points.begin();)
+	{
+		--p;
+
+		if (map != NULL)
+			p->m_width = map->GetLocationWidth(p->m_loc, max);
+
+		if (p->m_loc.x == goal.x && p->m_loc.y == goal.y)
+		{
+			leg++;
+			u32 index = leg == (u32)-1 ? m_curleg : leg;
+			map = index < m_legcount ? m_maps[index] : NULL;
+
+			if (index < m_legcount)
+				goal = m_waypts[index * 2 + 1];
+		}
+	}
 }
 
 /* @socom-skeleton stub SetSnakeLength__7CAiPathFUi */
@@ -806,8 +837,28 @@ bool CAiPath::SetPathType(CAiPath::PATH_TYPE type)
 }
 
 /* @socom-skeleton stub PassesThrough__7CAiPathFRC9CAiMapLocQ26CAiMap3DIRi */
-void CAiPath::PassesThrough(const CAiMapLoc &, CAiMap::DIR, int)
+bool CAiPath::PassesThrough(const CAiMapLoc &loc, CAiMap::DIR dir, int)
 {
+	/* 0x1937f0 (CSealCtrlAi::LadderClimbTick): whether the path steps from the location (x, y)
+	 * on towards the start in that direction: the point after it (stored goal first) must
+	 * exist; a point on another map counts as passing. The int is not used */
+	for (points::iterator p = m_points.begin(); p != m_points.end(); ++p)
+	{
+		if (p->m_loc.x != loc.x || p->m_loc.y != loc.y)
+			continue;
+
+		points::iterator next = p + 1;
+
+		if (next == m_points.end())
+			return false;
+
+		if (next->m_loc.m_mapid != p->m_loc.m_mapid)
+			return true;
+
+		return (u8)CAiMap::GetClosestDir(p->m_loc, next->m_loc) == (u8)dir;
+	}
+
+	return false;
 }
 
 /* @socom-skeleton stub PrintPath__7CAiPathCFv */

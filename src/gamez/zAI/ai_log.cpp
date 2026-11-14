@@ -11,26 +11,101 @@
 /* @socom-skeleton decl include */
 #include "zai.h"
 /* @socom-skeleton end include */
+#include <string.h>
 
 /* @socom-skeleton stub m_log__6CAiLog */
-int CAiLog::m_log;
+CAiLog *CAiLog::m_log;
 
 /* @socom-skeleton stub __ct__6CAiLogFb */
-CAiLog::CAiLog(bool)
+CAiLog::CAiLog(bool global)
 {
+	/* 0x1a94f0: an empty 8 KB buffer; the global log when asked; only record type 7 passes the
+	 * mask. ELF: m_mode is left unset until Create */
+	m_buffer = NULL;
+	m_used = 0;
+	m_mask = 0;
+	m_buffer = (u8 *)_malloc(8192, "ai_log.cpp", 22);
+
+	if (global)
+		m_log = this;
+
+	m_mask |= 0x80;
 }
 
 /* @socom-skeleton stub __dt__6CAiLogFv */
 CAiLog::~CAiLog()
 {
+	/* 0x1a93d0: a written file gets what is left in the buffer; the file closes, the buffer is
+	 * freed and the global log cleared when it was this one */
+	if (m_mode & 2)
+	{
+		if (m_used != 0 && m_file.IsOpen())
+			m_file.fwrite(m_buffer, m_used);
+
+		m_used = 0;
+	}
+
+	m_file.Close();
+	_free(m_buffer, "ai_log.cpp", 33);
+	m_buffer = NULL;
+
+	if (m_log == this)
+		m_log = NULL;
 }
 
 /* @socom-skeleton stub Create__6CAiLogFPCcb */
-void CAiLog::Create(const char *, bool)
+bool CAiLog::Create(const char *name, bool append)
 {
+	/* 0x1a92f0: opens the file (not when one is open: 0) - append: mode 26; else mode 10 and
+	 * a seek to its end (ELF: as written, the seek is on the non-append open) */
+	if (m_file.IsOpen())
+		return false;
+
+	if (append)
+	{
+		m_mode = 26;
+		m_file.Open(name, m_mode);
+	}
+	else
+	{
+		m_mode = 10;
+
+		if (m_file.Open(name, 10))
+			m_file.fseek(0, 2);
+	}
+
+	return m_file.IsOpen();
 }
 
 /* @socom-skeleton stub Write__6CAiLogFUiUiUiPCv */
-void CAiLog::Write(unsigned int, unsigned int, unsigned int, const void *)
+bool CAiLog::Write(unsigned int type, unsigned int word, unsigned int size, const void *data)
 {
+	/* 0x1a9190: a record of a type the mask passes (types 32 and up always pass): a full
+	 * buffer is flushed to a written file first, then the 12-byte header and the data are
+	 * appended. ELF quirk kept: a buffer that is not flushed (no write mode) is not emptied */
+	if (type < 32 && !(m_mask & (1u << type)))
+		return false;
+
+	if (!(size + 12 < 8192 - m_used) && (m_mode & 2))
+	{
+		if (m_used != 0 && m_file.IsOpen())
+			m_file.fwrite(m_buffer, m_used);
+
+		m_used = 0;
+	}
+
+	u32 header[3];
+	header[0] = type;
+	header[1] = word;
+	header[2] = size;
+	memcpy(m_buffer + m_used, header, 12);
+	m_used += 12;
+
+	if (size != 0)
+	{
+		memcpy(m_buffer + m_used, data, size);
+		m_used += size;
+	}
+
+	return true;
 }

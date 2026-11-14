@@ -1789,7 +1789,7 @@ public:
 	void TickRumbler(float);
 	float GetThrottleFromSpeed(float, int);
 	float GetSpeedFromThrottle(float, int);
-	void UpdateAiVisMap();
+	bool UpdateAiVisMap(); /* 0x283e60: UpdateDynamicVisMap's answer, 0 without a vis map */
 	void SetViewRange(float);
 	void TickMPBomb(float);
 	void InitMPBomb();
@@ -1993,8 +1993,8 @@ public:
 	static void AcquireDatabaseHandles();
 	static void ReleaseDatabaseHandles();
 	static void SetAiAccuracyAngle(float);
-	void PlayAiSound(AI_SOUND);
-	void StopAiSound(AI_SOUND);
+	static void PlayAiSound(AI_SOUND); /* static: no `this` (UpdateAiMapLoc 0x2a4b44 passes the sound in a0) */
+	static void StopAiSound(AI_SOUND);
 	CAiLog * GetAiLog(); /* 0x26be30 returns the log (NULL when logging is off) */
 	static void SetAiLogEnabled(bool, bool);
 	static void SetAiEnabled(bool, bool);

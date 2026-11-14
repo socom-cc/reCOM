@@ -476,10 +476,7 @@ void CZSealBody::UpdateAiMapLoc(bool &changed)
 					m_snakePath.AddSnakePoint(loc);
 
 				if (changed)
-				{
-					/* ELF: changed = CSealCtrl::UpdateAiVisMap(m_control).
-					 * port: UpdateAiVisMap 0x283e60 is unwritten; changed is left set */
-				}
+					changed = static_cast<CSealCtrl *>(m_control)->UpdateAiVisMap();
 
 				if (m_isAlive)
 					AiMaps.SetOccupied(old, loc, m_id);
@@ -491,9 +488,51 @@ void CZSealBody::UpdateAiMapLoc(bool &changed)
 
 	if (found && m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsPlayer())
 	{
-		/* ELF (not on the network): leaving / entering the mission boundary plays the AI
-		 * warning sounds and sets the mission's boundary valve.
-		 * port: not written (CAiMaps::GetBoundary 0x19c120 is unwritten) */
+		/* ELF (not on the network): the boundary bits of the old and the new cell (0 inside,
+		 * 1 the warning band, 2 outside); on a change: 0 stops both AI warning sounds, 1 stops
+		 * sound 0 and plays 1, 2 stops 1, plays 0 and sets the mission's abort valve to 1
+		 * (CValve set inline: the callbacks run when it changes) */
+		if (!theNetwork.m_bNetwork)
+		{
+			u32 was = (u8)AiMaps.GetBoundary(old);
+			u32 now = (u8)AiMaps.GetBoundary(loc);
+			bool differ = was != now;
+
+			if (now == 0)
+			{
+				if (differ)
+				{
+					CSealCtrlAi::StopAiSound((AI_SOUND)0);
+					CSealCtrlAi::StopAiSound((AI_SOUND)1);
+				}
+			}
+			else if (now == 1)
+			{
+				if (differ)
+				{
+					CSealCtrlAi::StopAiSound((AI_SOUND)0);
+					CSealCtrlAi::PlayAiSound((AI_SOUND)1);
+				}
+			}
+			else if (now == 2)
+			{
+				if (differ)
+				{
+					CSealCtrlAi::StopAiSound((AI_SOUND)1);
+					CSealCtrlAi::PlayAiSound((AI_SOUND)0);
+					CValve *valve = theMission.m_valve_abort;
+
+					if (valve != NULL) /* port: NULL-tested (the ELF writes it unchecked) */
+					{
+						bool set = valve->m_value != 1;
+						valve->m_value = 1;
+
+						if (set)
+							valve->MakeCallbacks((VALVE_STATE)1);
+					}
+				}
+			}
+		}
 	}
 }
 

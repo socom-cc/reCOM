@@ -76,6 +76,7 @@
 #include "gamez/zUtil/util_systemio.h"
 #include "zai.h"
 /* @socom-skeleton end include */
+#include <strings.h> /* strcasecmp */
 /* @socom-skeleton decl forward */
 class CAiCell;
 class MAP_FOREACH_STRUCT;
@@ -204,8 +205,22 @@ CQuat * CAiMap::GetDirQuat(CAiMap::DIR dir, CQuat &quat, bool flip)
 }
 
 /* @socom-skeleton stub GetDirByName__6CAiMapFPCc */
-CAiMap::DIR CAiMap::GetDirByName(const char *)
+CAiMap::DIR CAiMap::GetDirByName(const char *name)
 {
+	/* 0x187ab0 (CTLookAt::Parse): the direction named N, NE, E, SE, S, SW, W or NW (any case;
+	 * jump table 0x449270); N for none or no name */
+	static const char *const names[8] = {"N", "NE", "E", "SE", "S", "SW", "W", "NW"};
+
+	if (name == NULL)
+		return N;
+
+	for (u32 i = 0; i < 8; i++)
+	{
+		if (strcasecmp(name, names[i]) == 0)
+			return (CAiMap::DIR)i;
+	}
+
+	return N;
 }
 
 /* @socom-skeleton stub GetDirDelta__6CAiMapFQ26CAiMap3DIRQ26CAiMap3DIR */
@@ -262,8 +277,22 @@ CAiMap::DIR CAiMap::GetClosestDir(const CPnt3D *vec)
 }
 
 /* @socom-skeleton stub GetClosestDir__6CAiMapFRC9CAiMapLocRC9CAiMapLoc */
-CAiMap::DIR CAiMap::GetClosestDir(const CAiMapLoc &, const CAiMapLoc &)
+CAiMap::DIR CAiMap::GetClosestDir(const CAiMapLoc &from, const CAiMapLoc &to)
 {
+	/* 0x187790 (CAiPath::PassesThrough): the direction of the cell step from one location to
+	 * the other (x, y as x, z), as GetClosestDir(vec) */
+	CPnt3D d;
+	d.x = (f32)((s32)to.x - (s32)from.x);
+	d.y = 0.0f;
+	d.z = (f32)((s32)to.y - (s32)from.y);
+	d.Normalize();
+	CPnt3D n;
+	GetDirVec(N, n);
+
+	if (d.x * n.x + d.y * n.y + d.z * n.z < 0.0f)
+		return ::GetClosestDir(2, 6, &d);
+
+	return ::GetClosestDir(6, 10, &d);
 }
 
 /* @socom-skeleton stub GetClosestDir__6CAiMapFRC9CAiMapLocPC6CPnt3D */
@@ -290,8 +319,22 @@ CAiMap::DIR CAiMap::GetClosestDir(const CAiMapLoc &loc, const CPnt3D *pos)
 }
 
 /* @socom-skeleton stub GetSoilByName__6CAiMapFPCc */
-unsigned char CAiMap::GetSoilByName(const char *)
+unsigned char CAiMap::GetSoilByName(const char *name)
 {
+	/* 0x1871d0 (CTPaint::Parse): the soil named (any case; jump table 0x4491f0; index 12 is
+	 * compared with "default" again); default (1) for none or no name */
+	static const char *const names[13] = {"nogo", "default", "water", "road", "brush", "forest", "climb", "stairs", "clutter", "trans", "noalt", "steep", "default"};
+
+	if (name == NULL)
+		return 1;
+
+	for (u32 i = 0; i < 13; i++)
+	{
+		if (strcasecmp(name, names[i]) == 0)
+			return (u8)i;
+	}
+
+	return 1;
 }
 
 /* @socom-skeleton body __ct__6CAiMapFv */
@@ -485,11 +528,72 @@ unsigned int CAiMap::ValidateCells()
 /* @socom-skeleton stub ResetCells__6CAiMapFv */
 void CAiMap::ResetCells()
 {
+	/* 0x186080 (CAiMaps::Reset: a mission replay): over the whole map (the ForEach of the map
+	 * region inlined, as ValidateCells) every action cell's action gets state 0 and a valid
+	 * type again, and every cell's occupied mark is cleared */
+	region whole;
+	whole.m_dx = 0;
+	whole.m_dy = 0;
+	whole.m_type = 0;
+	whole.m_nodisplay = 0;
+	whole.m_flags = 0;
+	whole.m_unused = 0;
+	whole.m_name[0] = '\0';
+	whole.m_loc = CAiMapLoc(0, 0, 0);
+	whole.m_dx = m_nx;
+	whole.m_dy = m_ny;
+
+	MAP_FOREACH_STRUCT fe;
+	fe.m_map = this;
+	fe.m_region = &whole;
+	fe.m_loc.m_mapid = m_mapid;
+
+	int y0 = whole.m_loc.y;
+	int y1 = whole.m_loc.y + whole.m_dy;
+	int rows0 = (int)m_scanlines.size();
+	_saturate(&y0, _saturate_zero_y0, rows0);
+	int rows1 = (int)m_scanlines.size();
+	_saturate(&y1, _saturate_zero_y1, rows1);
+
+	for (int y = y0; y < y1; y++)
+	{
+		fe.m_loc.y = y;
+		const scanline &row = m_scanlines[y];
+		u16 left = whole.m_loc.x;
+		u16 right = whole.m_loc.x + whole.m_dx;
+		int x0 = ai::_max(row.m_start, left);
+		int x1 = ai::_min(row.m_end, right);
+
+		for (int x = x0; x < x1; x++)
+		{
+			fe.m_loc.x = x;
+			CAiCell *cell = &row.m_cell[x - row.m_start];
+			fe.m_cell = cell;
+
+			if (cell->m_action)
+			{
+				CAiMap::action *a = GetCellAction(fe.m_loc);
+
+				if (a != NULL)
+				{
+					a->m_type_invalid = 0;
+					a->m_state = 0;
+				}
+			}
+
+			cell->m_occupied = 0;
+		}
+	}
 }
 
 /* @socom-skeleton stub GetMapRegion__6CAiMapCFRQ26CAiMap6region */
-void CAiMap::GetMapRegion(CAiMap::region &) const
+void CAiMap::GetMapRegion(CAiMap::region &out) const
 {
+	/* 0x185ff0 (CAiMap::Tile without a region): the whole grid from (0, 0) on map id 0; the
+	 * other fields are left as they were */
+	out.m_loc = CAiMapLoc(0, 0, 0);
+	out.m_dx = m_nx;
+	out.m_dy = m_ny;
 }
 
 /* @socom-skeleton stub TransformTo__6CAiMapFRC9CAiMapLocP6CAiMapR9CAiMapLoc */
@@ -515,11 +619,87 @@ unsigned char CAiMap::TransformTo(const CAiMapLoc &loc, CAiMap *other, CAiMapLoc
 }
 
 /* @socom-skeleton stub GetCellRepelParams__7CAiMapsFRC9CAiMapLocPC6CPnt3DfR6CPnt3DRf */
-unsigned char CAiMaps::GetCellRepelParams(const CAiMapLoc &, const CPnt3D *, float, CPnt3D &, float &)
+unsigned char CAiMaps::GetCellRepelParams(const CAiMapLoc &loc, const CPnt3D *pos, float radius, CPnt3D &repel, float &depth)
 {
+	/* 0x185ab0 (CZSealBody::PostComputeNextPosition): on the location's map; 0 off the set */
+	CAiMap *map = GetMapByIndex(loc.m_mapid);
+
+	if (map == NULL)
+		return 0;
+
+	return map->GetCellRepelParams(loc, pos, radius, repel, depth);
 }
 
 /* @socom-skeleton stub GetCellRepelParams__6CAiMapFRC9CAiMapLocPC6CPnt3DfR6CPnt3DRf */
-void CAiMap::GetCellRepelParams(const CAiMapLoc &, const CPnt3D *, float, CPnt3D &, float &)
+unsigned char CAiMap::GetCellRepelParams(const CAiMapLoc &loc, const CPnt3D *pos, float radius, CPnt3D &repel, float &depth)
 {
+	/* 0x1853a0: the push a character of that radius at pos gets from the cell's blocked
+	 * neighbours (soil 0, 8, 9, 10, off the row: the dummy cell). Of the two directions facing
+	 * pos's quadrant around the cell centre (x > 0: N/E when z < 0, else E/S; x <= 0: S/W when
+	 * z >= 0, else W/N), a blocked neighbour the character reaches into (its offset along the
+	 * direction plus the radius past half a cell) adds the overlap times the direction to
+	 * repel (accumulated). No push on a link cell or off the map. depth is set to 1. Returns
+	 * whether a neighbour pushed. */
+	CAiCell *cell = GetCell(loc);
+
+	if (cell == NULL)
+		return 0;
+
+	if (cell->m_link)
+		return 0;
+
+	CPnt3D centre;
+	GetCellPos(loc, centre); /* inline in the ELF (the action is not NULL-tested) */
+	CPnt3D d;
+	pos->Sub(&centre, &d);
+	u32 first;
+
+	if (!(d.x <= 0.0f))
+		first = d.z < 0.0f ? 0 : 2;
+	else
+		first = d.z < 0.0f ? 6 : 4;
+
+	f32 half = 0.5f * m_dx;
+	unsigned char pushed = 0;
+
+	for (u32 i = 0; i < 3; i += 2)
+	{
+		CPnt3D v = CPnt3D::zero;
+		int dir = (int)(u8)first + (int)i + 8;
+		dir %= 8;
+		CAiMapLoc next;
+		CAiCell *ncell;
+		int nx = (int)loc.x + neighbor[dir][0];
+		int ny = (int)loc.y + neighbor[dir][1];
+
+		if (nx < 0 || (u32)nx >= m_nx || ny < 0 || (u32)ny >= m_ny)
+			continue;
+
+		next.m_mapid = m_mapid;
+		next.x = nx;
+		next.y = ny;
+		ncell = GetCell(next);
+
+		if (ncell == NULL || IsWalkable(ncell))
+			continue;
+
+		GetDirVec((CAiMap::DIR)dir, v);
+		f32 along = v.x * d.x + v.y * d.y + v.z * d.z;
+
+		if (along <= 0.0f)
+			continue;
+
+		f32 overlap = half - (along + radius);
+
+		if (overlap < 0.0f)
+		{
+			CPnt3D push;
+			v.Scale(overlap, &push);
+			repel.Add(&push, &repel);
+			pushed = 1;
+		}
+	}
+
+	depth = 1.0f;
+	return pushed;
 }

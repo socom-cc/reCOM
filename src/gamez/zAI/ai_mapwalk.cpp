@@ -49,6 +49,15 @@ class MAP_FOREACH_STRUCT;
 class MAP_LINEWALK_STRUCT;
 /* @socom-skeleton end forward */
 
+/* port: no DWARF record: the 12-byte record CAiMap::Tile 0x1a59a0 passes its callbacks (a
+ * zeroed template @971 0x49b2b0, then the value and flags); names invented */
+struct MAP_TILE_STRUCT
+{
+	u32 m_value;  /* +0x0 the soil / boundary / shadow value */
+	u32 m_flags;  /* +0x4 4 soil (1 every cell, 2 steep cells too), 8 boundary, 0x10 shadow */
+	u8 m_changed; /* +0x8 */
+};
+
 /* port: inline in GetLocationWidth (four times): a walkable cell at (x, y) of this map */
 static bool walkable_at(CAiMap *map, int x, int y)
 {
@@ -495,18 +504,159 @@ bool CAiMap::FloodFill(const CAiMapLoc &start, CAiMap::DIR dir, int depth, bool 
 }
 
 /* @socom-skeleton stub _tile_soil__FRC18MAP_FOREACH_STRUCTPv */
-void _tile_soil(const MAP_FOREACH_STRUCT &, void *)
+bool _tile_soil(const MAP_FOREACH_STRUCT &fe, void *data)
 {
+	/* 0x1a6150: the cell takes the soil (a byte of the record) when it is default (1), when
+	 * asked for every cell (flag 1), or steep (11) when flag 2 asks; the record notes a change.
+	 * Always goes on */
+	MAP_TILE_STRUCT *tile = static_cast<MAP_TILE_STRUCT *>(data);
+	CAiCell *cell = fe.m_cell;
+	u32 soil = cell->m_soil;
+	u32 value = (u8)tile->m_value;
+
+	if (soil == value)
+		return true;
+
+	if ((tile->m_flags & 1) || soil == 1 || ((tile->m_flags & 2) && soil == 11))
+	{
+		cell->m_soil = value;
+		tile->m_changed = 1;
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub _tile_boundary__FRC18MAP_FOREACH_STRUCTPv */
-void _tile_boundary(const MAP_FOREACH_STRUCT &, void *)
+bool _tile_boundary(const MAP_FOREACH_STRUCT &fe, void *data)
 {
+	/* 0x1a6100: the cell takes the boundary bits (a byte of the record, & 3); a change is
+	 * noted. Always goes on */
+	MAP_TILE_STRUCT *tile = static_cast<MAP_TILE_STRUCT *>(data);
+	CAiCell *cell = fe.m_cell;
+	u32 value = (u8)tile->m_value;
+
+	if (cell->m_boundary != value)
+	{
+		cell->m_boundary = value & 3;
+		tile->m_changed = 1;
+	}
+
+	return true;
+}
+
+/* port: the ForEach Tile inlines three times (as ValidateCells): the region's rows clamped to
+ * the scanlines, its columns to each row's span; stops when the callback answers 0 */
+static void tile_foreach(CAiMap *map, const CAiMap::region *region, bool (*callback)(const MAP_FOREACH_STRUCT &, void *), void *data)
+{
+	MAP_FOREACH_STRUCT fe;
+	fe.m_map = map;
+	fe.m_region = region;
+	fe.m_loc.m_mapid = map->m_mapid;
+	int rows = (int)map->m_scanlines.size();
+	int y0 = region->m_loc.y;
+	int y1 = (int)region->m_loc.y + (int)region->m_dy;
+
+	if (y0 > rows)
+		y0 = rows;
+	else if (y0 < 0)
+		y0 = 0;
+
+	if (y1 > rows)
+		y1 = rows;
+	else if (y1 < 0)
+		y1 = 0;
+
+	for (int y = y0; y < y1; y++)
+	{
+		fe.m_loc.y = y;
+		const CAiMap::scanline &row = map->m_scanlines[y];
+		u16 left = region->m_loc.x;
+		u16 right = region->m_loc.x + region->m_dx;
+		int x0 = row.m_start < left ? left : row.m_start;
+		int x1 = right < row.m_end ? right : row.m_end;
+
+		for (int x = x0; x < x1; x++)
+		{
+			fe.m_loc.x = x;
+			fe.m_cell = &row.m_cell[x - row.m_start];
+
+			if (!callback(fe, data))
+				return;
+		}
+	}
 }
 
 /* @socom-skeleton stub Tile__6CAiMapFPCQ26CAiMap6regionUiUi */
-unsigned char CAiMap::Tile(const CAiMap::region *, unsigned int, unsigned int)
+unsigned char CAiMap::Tile(const CAiMap::region *region, unsigned int value, unsigned int flags)
 {
+	/* 0x1a59a0 (CAiMaps::Tile, CTPaint): paints the region (the whole map for none): flag 4
+	 * the soil (_tile_soil), else 8 the boundary bits (_tile_boundary), else 0x10 the shadow
+	 * (value & 3). Returns whether a cell changed */
+	MAP_TILE_STRUCT tile;
+	tile.m_value = value;
+	tile.m_flags = flags;
+	tile.m_changed = 0;
+	CAiMap::region whole;
+	whole.m_dx = 0;
+	whole.m_dy = 0;
+	whole.m_type = 0;
+	whole.m_nodisplay = 0;
+	whole.m_flags = 0;
+	whole.m_unused = 0;
+	whole.m_name[0] = '\0';
+
+	if (region == NULL)
+	{
+		GetMapRegion(whole);
+		region = &whole;
+	}
+
+	if (flags & 4)
+	{
+		tile_foreach(this, region, _tile_soil, &tile);
+	}
+	else if (flags & 8)
+	{
+		tile_foreach(this, region, _tile_boundary, &tile);
+	}
+	else if (flags & 0x10)
+	{
+		int rows = (int)m_scanlines.size();
+		int y0 = region->m_loc.y;
+		int y1 = (int)region->m_loc.y + (int)region->m_dy;
+
+		if (y0 > rows)
+			y0 = rows;
+		else if (y0 < 0)
+			y0 = 0;
+
+		if (y1 > rows)
+			y1 = rows;
+		else if (y1 < 0)
+			y1 = 0;
+
+		for (int y = y0; y < y1; y++)
+		{
+			const scanline &row = m_scanlines[y];
+			u16 left = region->m_loc.x;
+			u16 right = region->m_loc.x + region->m_dx;
+			int x0 = row.m_start < left ? left : row.m_start;
+			int x1 = right < row.m_end ? right : row.m_end;
+
+			for (int x = x0; x < x1; x++)
+			{
+				CAiCell *cell = &row.m_cell[x - row.m_start];
+
+				if (value != cell->m_shadow)
+				{
+					cell->m_shadow = value & 3;
+					tile.m_changed = 1;
+				}
+			}
+		}
+	}
+
+	return tile.m_changed;
 }
 
 /* @socom-skeleton stub CountMapVisDir__6CAiMapFRC9CAiMapLocPiP9CAiMapLoci */

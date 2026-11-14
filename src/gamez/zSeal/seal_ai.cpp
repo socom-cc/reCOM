@@ -1210,10 +1210,9 @@ void CSealCtrlAi::InitAiBrain()
 		m_debug = 0;
 	}
 
-	/* ELF: m_do_aimap_collide = 1 here (the body is then kept on the AI map's cells:
-	 * CZSealBody::PostComputeNextPosition -> CAiMaps::GetCellRepelParams). port: left
-	 * clear until CAiMap::GetCellRepelParams (0x1853a0, 1796 B) is written - an AI that
-	 * does not follow paths yet has nothing to be kept on */
+	/* the body is kept on the AI map's cells (CZSealBody::PostComputeNextPosition ->
+	 * CAiMaps::GetCellRepelParams) */
+	m_do_aimap_collide = 1;
 	UpdateEventMask();
 	CCharacterType* type = seal->GetCharacter();
 
