@@ -103,7 +103,10 @@ CValve* CValvePool::Acquire(const char* name, VALVE_TYPE type)
 /* @socom-skeleton stub Release__10CValvePoolFP6CValve */
 void CValvePool::Release(CValve *valve)
 {
-	/* 0x2f6c10: a pooled valve goes back to the pool's end, any other is deleted */
+	/* 0x2f6c10: a pooled valve goes back to the pool's end, any other is deleted. port: its
+	 * callbacks are dropped here (the ELF keeps them on a pooled valve, so a reused temporary
+	 * valve runs the callbacks of the object it served before: _rethrow_grenade's pickup) */
+	valve->DeleteCallbacks();
 	valve->FreeName();
 
 	if (valve->m_pooled)
@@ -166,13 +169,10 @@ CValve* CValve::Create(const char* name, VALVE_TYPE type)
 {
 	CValve* valve = NULL;
 
-	if (name == NULL)
-	{
-		return NULL;
-	}
-
-	/* 0x2f68a0: the first valve of that name; a new one goes at the list's end */
-	for (auto it = m_list.begin(); it != m_list.end(); ++it)
+	/* 0x2f68a0: the first valve of that name; a new one goes at the list's end. A NULL name
+	 * skips the search and acquires a nameless valve (PickupObject's rethrow valve; the port
+	 * returned NULL) */
+	for (auto it = m_list.begin(); name != NULL && it != m_list.end(); ++it)
 	{
 		CValve* curValve = *it;
 		const char* valveName = curValve->m_name;
@@ -221,7 +221,7 @@ CValve* CValve::GetByName(const char* name)
 		{
 			CValve* current = *it;
 
-			if (strcmp(current->m_name, name) == 0)
+			if (current->m_name != NULL && strcmp(current->m_name, name) == 0) /* port: a nameless valve is skipped */
 			{
 				return current;
 			}
@@ -403,20 +403,46 @@ bool CValve::Parse(CRdrFile *reader, VALVE_TYPE type)
 }
 
 /* @socom-skeleton body MakeCallbacks__6CValveF11VALVE_STATE */
-void CValve::MakeCallbacks(VALVE_STATE state) {}
+void CValve::MakeCallbacks(VALVE_STATE state)
+{
+	/* 0x2f60b0: every callback whose mask has the change's bit runs with its data. port: the
+	 * debugValve(this, 1) trace is left out */
+	for (std::list<CValveCB *>::iterator it = m_callbacks.m_list.begin(); it != m_callbacks.m_list.end(); ++it)
+	{
+		CValveCB *cb = *it;
+
+		if (((u32)state & 0xff) & cb->m_mask)
+			cb->m_func(this, cb->m_data);
+	}
+}
 
 /* @socom-skeleton body AddCallback__6CValveFUiPFP6CValvePv_vPv */
 void* CValve::AddCallback(size_t size, void(*callback)(CValve*, void*), void* buffer)
 {
-	m_callbacks.m_list.insert(m_callbacks.m_list.begin(), callback);
-	return reinterpret_cast<void *>(callback); /* port: GCC has no implicit function-pointer to void * conversion */
+	/* 0x2f6020: a 12-byte entry (mask = the first argument, the function, its data) at the
+	 * list's end; returns the entry */
+	CValveCB *cb = new CValveCB;
+
+	if (cb != NULL)
+	{
+		cb->m_mask = (u32)size;
+		cb->m_func = callback;
+		cb->m_data = buffer;
+	}
+
+	m_callbacks.m_list.insert(m_callbacks.m_list.end(), cb);
+	return cb;
 }
 
 /* @socom-skeleton body DeleteCallbacks__6CValveFv */
 void CValve::DeleteCallbacks()
 {
-	for (auto it = m_callbacks.m_list.begin(); it != m_callbacks.m_list.end(); it++)
+	/* 0x2f5f50: every entry deleted, then the list emptied */
+	for (std::list<CValveCB *>::iterator it = m_callbacks.m_list.begin(); it != m_callbacks.m_list.end(); ++it)
 	{
-		m_callbacks.m_list.erase(m_callbacks.m_list.begin());
+		delete *it;
+		*it = NULL;
 	}
+
+	m_callbacks.m_list.clear();
 }

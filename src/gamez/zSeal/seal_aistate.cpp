@@ -227,8 +227,7 @@ CAiState* CAiState::Create(AI_STATE state)
 		aiState = new CAiSNoAmmo();
 		break;
 	case STATE_PICKUP:
-		// aiState = new CAiSPickup();
-
+		aiState = new CAiSPickup(); /* 0x2dc6a0: 52 bytes */
 		break;
 	case STATE_HOSTAGE:
 		aiState = new CAiSHostage();
@@ -409,14 +408,16 @@ bool CSealCtrlAi::CanPushAiState(AI_STATE state)
 #ifdef SOCOM_PORT
 	/* port: only the states whose behaviour is written may be pushed (UNKNOWN, SCRIPT,
 	 * TARGETING, PURSUE, EVENT, RESTRAINED, FOLLOW, HOLD, ACTION, CORPSE, STUNNED, GOTO, SHOTAT, FLEE,
-	 * RUSH, SURRENDER, RELOAD, RESCUED, SUSPENDED, AVOID, NOAMMO); the other states' Tick functions are not written
+	 * RUSH, SURRENDER, RELOAD, RESCUED, SUSPENDED, AVOID, NOAMMO, ANIMATE, CQB, PATHRECO, PICKUP, HOSTAGE,
+	 * GRENADE); the other states' Tick functions are not written
 	 * yet, so their pushes (shot-at, reload, avoid ...) are refused here, a path every caller
 	 * handles */
 	if (s != STATE_UNKNOWN && s != STATE_SCRIPT && s != STATE_TARGETING && s != STATE_PURSUE && s != STATE_EVENT && s != STATE_RESTRAINED
 		&& s != STATE_FOLLOW && s != STATE_HOLD && s != STATE_ACTION && s != STATE_CORPSE && s != STATE_STUNNED
 		&& s != STATE_GOTO && s != STATE_SHOTAT && s != STATE_FLEE && s != STATE_RUSH
 		&& s != STATE_SURRENDER && s != STATE_RELOAD && s != STATE_RESCUED && s != STATE_SUSPENDED
-		&& s != STATE_AVOID && s != STATE_NOAMMO)
+		&& s != STATE_AVOID && s != STATE_NOAMMO && s != STATE_ANIMATE && s != STATE_CQB && s != STATE_PATHRECO
+		&& s != STATE_PICKUP && s != STATE_HOSTAGE && s != STATE_GRENADE)
 		return false;
 #endif
 
@@ -637,13 +638,88 @@ void CSealCtrlAi::StateTick(float dT)
 }
 
 /* @socom-skeleton stub OnSignal__10CAiSPickupFQ28CAiState6SIGNALP11CSealCtrlAi */
-void CAiSPickup::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+void CAiSPickup::OnSignal(CAiState::SIGNAL signal, CSealCtrlAi *)
 {
+	/* 0x2da910: reset (4) */
+	if ((s32)signal == 4)
+	{
+		m_pickup = NULL;
+		m_take = 0;
+		m_pickup_id = 0;
+	}
 }
 
 /* @socom-skeleton stub Tick__10CAiSPickupFfP11CSealCtrlAi */
-bool CAiSPickup::Tick(float, CSealCtrlAi *)
+bool CAiSPickup::Tick(float, CSealCtrlAi *ctrl)
 {
+	/* 0x2da750: walk to the pickup's cell, creep the last part, take it (m_take) and wait 3 s.
+	 * A pickup gone or reused (its id changed) ends the state. ELF quirk kept: PickupObject
+	 * answers non-zero only for a live grenade, so a weapon or ammo pickup taken in phase 3 is
+	 * taken again on every tick until the pickup goes away. */
+	if (!m_setup)
+		return false;
+
+	CZSealBody* body = static_cast<CZSealBody *>(ctrl->m_entity);
+	u8 phase = (u8)m_substate;
+
+	if (m_pickup == NULL || m_pickup->m_id != (m_pickup_id & 0xffff))
+		return false;
+
+	switch (phase)
+	{
+	case 0:
+	{
+		CAiMapLoc loc;
+
+		if (!AiMaps.GetLocation(m_pickup->GetPosW(), loc) || !ctrl->SetRoute(loc))
+		{
+			phase = 5;
+			break;
+		}
+
+		ctrl->SetAiMode(AIM_PATH);
+		phase = 1;
+		break;
+	}
+
+	case 1:
+		if (ctrl->GetRouteComplete())
+		{
+			ctrl->SetAiMode(AIM_CREEP);
+			phase = 2;
+		}
+		break;
+
+	case 2:
+		phase = 3;
+		break;
+
+	case 3:
+		if (m_take)
+		{
+			if (!body->PickupObject(m_pickup))
+				break;
+		}
+
+		m_time = ctrl->m_stateTimer + 3.0f;
+		phase = 4;
+		break;
+
+	case 4:
+		if (!(ctrl->m_stateTimer < m_time))
+			phase = 5;
+		break;
+
+	case 5:
+		m_setup = 0;
+		break;
+
+	default:
+		break;
+	}
+
+	m_substate = phase;
+	return m_setup;
 }
 
 /* @socom-skeleton stub OnSignal__9CAiSAvoidFQ28CAiState6SIGNALP11CSealCtrlAi */
@@ -725,13 +801,63 @@ bool CAiSAvoid::Tick(float, CSealCtrlAi *ai)
 }
 
 /* @socom-skeleton stub OnSignal__11CAiSHostageFQ28CAiState6SIGNALP11CSealCtrlAi */
-void CAiSHostage::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+void CAiSHostage::OnSignal(CAiState::SIGNAL signal, CSealCtrlAi *)
 {
+	/* 0x2da450: reset (4) clears the commander */
+	if ((s32)signal == 4)
+		m_commander = NULL;
 }
 
 /* @socom-skeleton stub Tick__11CAiSHostageFfP11CSealCtrlAi */
-bool CAiSHostage::Tick(float, CSealCtrlAi *)
+bool CAiSHostage::Tick(float, CSealCtrlAi *ctrl)
 {
+	/* 0x2da2d0: ordered down (GETDOWN pushes it in phase 1): at m_time the AI stops where it
+	 * is and takes STANCE_STAND for 8-15 s; then the stance is released (STANCE_NONE). The
+	 * state never ends by itself. ELF quirks kept: phase 0 only re-arms its 0-1.5 s timer and
+	 * never moves on, and phase 2 releases the stance on every tick, not only when it ends. */
+	if (!m_setup)
+		return false;
+
+	u8 phase = (u8)m_substate;
+	const f32 inv = 4.656613e-10f; /* 1 / 2^31: rand() as a fraction */
+
+	switch (phase)
+	{
+	case 0:
+		m_time = ctrl->m_stateTimer + (0.0f + 1.5f * ((f32)rand() * inv));
+		break;
+
+	case 1:
+		if (ctrl->m_stateTimer < m_time)
+			break;
+
+		ctrl->ClearRoute();
+		ctrl->AllStop(true);
+		ctrl->SetStance((SEAL_STANCE)1);
+		phase = 2;
+		m_time = ctrl->m_stateTimer + (8.0f + 7.0f * ((f32)rand() * inv));
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("AI: %s hostage: down", static_cast<CZSealBody *>(ctrl->m_entity)->m_node->m_name);
+#endif
+		break;
+
+	case 2:
+		if (!(ctrl->m_stateTimer < m_time))
+			phase = 3;
+
+		ctrl->SetStance((SEAL_STANCE)0);
+		break;
+
+	case 3:
+		ctrl->SetStance((SEAL_STANCE)0);
+		break;
+
+	default:
+		break;
+	}
+
+	m_substate = phase;
+	return m_setup;
 }
 
 /* @socom-skeleton stub OnSignal__8CAiSGotoFQ28CAiState6SIGNALP11CSealCtrlAi */
@@ -1410,11 +1536,65 @@ bool CAiSUnknown::Tick(float, CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub OnSignal__13CAiSCQBAttackFQ28CAiState6SIGNALP11CSealCtrlAi */
-void CAiSCQBAttack::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+void CAiSCQBAttack::OnSignal(CAiState::SIGNAL signal, CSealCtrlAi *ctrl)
 {
+	/* 0x2d7bc0: reset (4) clears the victim and the delay; pushed (0): an enemy waits 0.75 s
+	 * before the blow, a navy seal (a team mate) strikes at once */
+	if ((s32)signal == 4)
+	{
+		m_victim = NULL;
+		m_delay = 0.0f;
+	}
+	else if ((s32)signal == 0)
+		m_delay = ctrl->m_navyseal ? 0.0f : 0.75f;
 }
 
 /* @socom-skeleton stub Tick__13CAiSCQBAttackFfP11CSealCtrlAi */
-bool CAiSCQBAttack::Tick(float, CSealCtrlAi *)
+bool CAiSCQBAttack::Tick(float dT, CSealCtrlAi *ctrl)
 {
+	/* 0x2d7a70: wait out the delay; stand up and strike if the victim still qualifies
+	 * (CanUseCQB), then hold the state 2.5 s after a blow (1 s without one) */
+	if (!m_setup || m_victim == NULL)
+		return false;
+
+	u32 phase = m_substate;
+	CZSealBody* body = static_cast<CZSealBody *>(ctrl->m_entity);
+
+	switch (phase)
+	{
+	case 0:
+		m_delay -= dT;
+
+		if (m_delay <= 0.0f)
+			phase = 1;
+		break;
+
+	case 1:
+		ctrl->SetStance((SEAL_STANCE)0);
+
+		if (body->CanUseCQB(m_victim))
+		{
+			body->ExecuteAction_CQBAttack(m_victim);
+			m_time = ctrl->m_stateTimer + 2.5f;
+#ifdef SOCOM_PORT
+			SOCOM_PORT_TRACE("AI: %s CQB attack on %s", body->m_node->m_name, m_victim->m_node->m_name);
+#endif
+		}
+		else
+			m_time = ctrl->m_stateTimer + 1.0f;
+
+		phase = 2;
+		break;
+
+	case 2:
+		if (!(ctrl->m_stateTimer < m_time))
+			m_setup = 0;
+		break;
+
+	default:
+		break;
+	}
+
+	m_substate = phase;
+	return m_setup;
 }

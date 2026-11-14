@@ -1599,18 +1599,122 @@ bool CAiSFlee::Tick(float dT, CSealCtrlAi *ctrl)
 }
 
 /* @socom-skeleton stub OnSignal__15CAiSPathRecoverFQ28CAiState6SIGNALP11CSealCtrlAi */
-void CAiSPathRecover::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+void CAiSPathRecover::OnSignal(CAiState::SIGNAL signal, CSealCtrlAi *ctrl)
 {
+	/* 0x2e57d0: pushed (0): creep mode; uncovered (3): the recovery is given up */
+	if ((s32)signal == 0)
+		ctrl->SetAiMode(AIM_CREEP);
+	else if ((s32)signal == 3)
+		m_setup = 0;
 }
 
 /* @socom-skeleton stub GetStatus__15CAiSPathRecoverCFv */
 const char * CAiSPathRecover::GetStatus() const
 {
+	/* 0x2e5750 */
+	switch (m_substate)
+	{
+	case 0: return "INIT";
+	case 1: return "CREEP";
+	case 2: return "REGISTER";
+	case 3: return "REPLAN";
+	case 4: return "COMPLETE";
+	default: return "";
+	}
+}
+
+/* same cell, whatever the map index (the ELF compares the x and y fields only) */
+static inline bool same_cell(const CAiMapLoc &a, const CAiMapLoc &b)
+{
+	return a.x == b.x && a.y == b.y;
 }
 
 /* @socom-skeleton stub Tick__15CAiSPathRecoverFfP11CSealCtrlAi */
-bool CAiSPathRecover::Tick(float, CSealCtrlAi *)
+bool CAiSPathRecover::Tick(float, CSealCtrlAi *ctrl)
 {
+	/* 0x2e5290: an AI stuck on its route (PathFollowTick) creeps back to its last valid
+	 * position, plans a route from its cell to the path point it was stuck short of and puts
+	 * that route in front of its own path. */
+	if (!m_setup)
+		return false;
+
+	CZSealBody* body = static_cast<CZSealBody *>(ctrl->m_entity);
+	u32 phase = m_substate;
+	CAiMapLoc valid = body->m_mapLocValid;
+	CAiMapLoc cur = body->m_mapLoc;
+	CPnt3D center;
+	AiMaps.GetCellCenter(valid, &center); /* ELF quirk kept: the centre is not used */
+
+	switch (phase)
+	{
+	case 0:
+		ctrl->Debug("RECOVER_INIT\n");
+
+		if (same_cell(valid, cur))
+			phase = 2;
+		else if (ctrl->SetGoalPos(GOAL_RECOVER, &body->m_last_valid_CPnt, 3.0f))
+		{
+			ctrl->SetAiMode(AIM_CREEP);
+			phase = 1;
+		}
+		else
+			m_setup = 0;
+		break;
+
+	case 1:
+		ctrl->Debug("RECOVER_CREEP\n");
+
+		if (same_cell(valid, cur))
+			phase = 2;
+		else if (!ctrl->m_goal_dir_valid && !ctrl->m_goal_pos_valid)
+			phase = 4; /* the goal was reached or dropped without getting back */
+		break;
+
+	case 2:
+		ctrl->Debug("RECOVER_REGISTER\n");
+		phase = 4;
+
+		if (ctrl->m_path.m_points.size() != 0 && ctrl->m_path.m_state == PATH_STATE::COMPLETE)
+		{
+			if (same_cell(valid, m_dest))
+				m_setup = 0;
+			else if (AiMaps.RegisterPathPlan(valid, m_dest, &m_path))
+				phase = 3;
+		}
+		break;
+
+	case 3:
+	{
+		ctrl->Debug("RECOVER_PLAN\n");
+		PATH_STATE st = m_path.m_state;
+
+		if (st == PATH_STATE::PLANNING || st == PATH_STATE::INQUEUE || st == PATH_STATE::ABORT)
+			break;
+
+		u32 n = m_path.m_points.size();
+		phase = 4;
+
+		if (n != 0 && st == PATH_STATE::COMPLETE)
+		{
+			/* every point but the last (the AI's own cell) goes in front of the AI's path */
+			for (u32 i = 0; (s32)i < (s32)n - 1; i++)
+				ctrl->m_path.InsertPathLoc(m_path.m_points[i].m_loc, NULL);
+		}
+		break;
+	}
+
+	default:
+		break;
+	}
+
+	if (phase == 4)
+	{
+		ctrl->Debug("RECOVER_COMPLETE\n");
+		m_setup = 0;
+	}
+
+	m_substate = phase;
+	return m_setup;
 }
 
 /* @socom-skeleton stub OnSignal__8CAiSRushFQ28CAiState6SIGNALP11CSealCtrlAi */

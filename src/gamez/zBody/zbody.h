@@ -26,6 +26,7 @@ class CBody
 	friend class CSealCtrlAi; /* port: FollowTick 0x2df1c0 reads the master's m_state */
 	friend class CAiSHold; /* port: CAiSHold::Tick 0x2e6ef0 plays its anim in the seal's m_state */
 	friend class CAiSSurrender; /* port: CAiSSurrender::Tick 0x2e7340 sets the top blend's callback */
+	friend class CAiSAnimate; /* port: CAiSAnimate::Tick 0x25ad00 reads the seal's top blend */
 	friend class CTPlay; /* port: CTPlay::Tick 0x2b7640 (ai::ANIMATE) reads the seal's top blend */
 	friend class CZKit; /* port: CZKit::TickExplosives 0x2aae34 reads the seal's m_state (the throw reach) */
 	friend void ParentPistolToRHandCallback(void *, void *); /* port: seal_env.cpp 0x2987b0 sets the pistol's body part */
@@ -149,6 +150,7 @@ class CZBodyPart
 	friend class CSealAnim; /* port: AnimPush 0x26deb0 / AnimPop 0x26ddc0 read and write the pose */
 	friend class CObjAnims; /* port: GetObjAnim 0x27d510 reads m_id */
 	friend class CZKit; /* port: InitItemModel 0x2ae340 sets the grenade part's node */
+	friend class CAiSGrenade; /* port: CAiSGrenade::Tick 0x25c5e8 parents the grenade to the right hand's node */
 	friend class CZBodyAnimBlend; /* port: CallbackTick 0x1e08d0 reads the root part's node */
 	friend void ParentPistolToRHandCallback(void *, void *); /* port: seal_env.cpp 0x2987b0 moves the pistol part */
 	friend void ParentPistolToRThighAsGearCallback(void *, void *); /* port: seal_env.cpp 0x2986e0 */

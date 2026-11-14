@@ -1565,7 +1565,13 @@ bool CTPursue::Tick(_zanim_cmd_hdr* header, f32* dT)
 /* @socom-skeleton body End__8CTPursueFP14_zanim_cmd_hdr */
 void CTPursue::End(_zanim_cmd_hdr* header)
 {
+	/* 0x2b7f80: the seal's AI controller is looked up and nothing is done with it (ELF: the
+	 * result is dropped) */
+	TASK_PURSUE *task = reinterpret_cast<TASK_PURSUE *>(header);
+	CZSealBody *seal = taskSeal(task->m_seal_index);
 
+	if (seal != NULL)
+		(void)static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi();
 }
 
 /* @socom-skeleton body Create__6CTPlayFiPUiff */

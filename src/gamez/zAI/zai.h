@@ -1260,6 +1260,12 @@ public:
 
 class CAiSAnimate : public CAiState
 {
+public:
+	/* port: no DWARF record; layout from Tick 0x25ad00 / OnSignal 0x25aee0 and CAiSGrenade's
+	 * push (0x25c4e4); names invented. m_substate: 0 / 1 start, 2 playing, 3 done */
+	u8 m_mode;    /* +0x28: the end test - 0 the anim reaches m_until, 1 m_time runs out, 2 either */
+	s32 m_anim;   /* +0x2c: the AnimType pushed (read as a half word; -1: nothing to play) */
+	f32 m_until;  /* +0x30: the anim fraction that ends it (OnSignal 4: 1.0) */
 
 	/* @socom-skeleton decl 11CAiSAnimate */
 public:
@@ -1271,6 +1277,12 @@ public:
 
 class CAiSCQBAttack : public CAiState
 {
+public:
+	/* port: no DWARF record; 48 bytes (Create 0x2dc3a8); layout from Tick 0x2d7a70, OnSignal
+	 * 0x2d7bc0 and SensorPreTick's push (0x2b24a0); names invented. m_substate: 0 delay,
+	 * 1 attack, 2 recover until m_time (the state clock) */
+	CZSealBody *m_victim; /* +0x28 */
+	f32 m_delay;          /* +0x2c: 0.75 s (none for a navy seal) */
 
 	/* @socom-skeleton decl 13CAiSCQBAttack */
 public:
@@ -1305,6 +1317,12 @@ public:
 
 class CAiSPathRecover : public CAiState
 {
+public:
+	/* port: no DWARF record; 200 bytes (Create 0x2dc644 constructs the path); layout from Tick
+	 * 0x2e5290 and PathFollowTick's push (0x265814); names invented. m_substate: 0 init,
+	 * 1 creep back, 2 register a plan, 3 replan, 4 complete (GetStatus 0x2e5750) */
+	CAiPath m_path;   /* +0x28: the route from where the AI got to back to m_dest */
+	CAiMapLoc m_dest; /* +0xc4: the path point the AI was stuck short of */
 
 	/* @socom-skeleton decl 15CAiSPathRecover */
 public:
@@ -1392,6 +1410,11 @@ public:
 
 class CAiSHostage : public CAiState
 {
+public:
+	/* port: no DWARF record; 44 bytes (Create 0x2dc5cc); layout from Tick 0x2da2d0 and
+	 * OnCommand's GETDOWN (0x281f10); names invented. m_substate: 0 wait (never left: ELF),
+	 * 1 down at m_time, 2 / 3 up */
+	CZSealBody *m_commander; /* +0x28: the seal who gave the order */
 
 	/* @socom-skeleton decl 11CAiSHostage */
 public:
@@ -1451,6 +1474,18 @@ public:
 
 class CAiSGrenade : public CAiState
 {
+public:
+	/* port: no DWARF record; 68 bytes (Create 0x2dc554); layout from Tick 0x25af40, OnSignal
+	 * 0x25d0c0 and SensorPreTick's push (0x2b2a40); names invented. m_substate (jump table
+	 * 0x451530): 0 wait for the grenade to stop, 2 travel, 3 flee, 4 kick, 5 kicked, 6 / 7 / 8
+	 * pick up and throw back, 9 choose a stance, 10 crouch, 11 stand, 12 done */
+	CPickup *m_pickup;  /* +0x28: the live grenade's pickup */
+	u8 m_gone;          /* +0x2c: the grenade went away (exploded): the state ends at m_time */
+	u32 m_pickup_id;    /* +0x30: the pickup's m_id when pushed */
+	u32 m_unk_34;
+	CAiMapLoc m_dest;   /* +0x38: the grenade's cell */
+	u32 m_unk_3c;
+	u8 m_next;          /* +0x40: the phase once the route ends (4 kick, 6 throw back, 9 hide) */
 
 	/* @socom-skeleton decl 11CAiSGrenade */
 public:

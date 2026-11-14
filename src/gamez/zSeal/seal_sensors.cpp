@@ -722,10 +722,27 @@ void CSealCtrlAi::SensorPreTick(float dT)
 		{
 			if (t->m_visible && !t->m_dirty_di && distSq < CQB_THRESHOLD && (m_stateFlags & 2) && !AiStateIs(STATE_CQB))
 			{
-				/* ELF: "[%s] within CQB Range!"; me->CanUseCQB(seal) (0x2999f0) decides: yes
-				 * pushes STATE_CQB with the victim (+0x28 of the state, m_setup; this also
-				 * keeps STATE_AVOID), no logs "CanUseCQB( %s) failed!". port: not written
-				 * (CanUseCQB and the CQB state are not written) */
+				/* 0x2b2460: me->CanUseCQB(seal) decides: yes pushes STATE_CQB with the
+				 * victim (+0x28 of the state, m_setup), no logs the failure. ELF: the state
+				 * is not NULL-tested */
+				Debug("[%s] within CQB Range!\n", seal->m_node->m_name);
+
+				if (me->CanUseCQB(seal))
+				{
+					if (PushAiState(STATE_CQB, true))
+					{
+						CAiState *state = GetAiState();
+						CAiSCQBAttack *cqb = state->m_state == STATE_CQB ? static_cast<CAiSCQBAttack *>(state) : NULL;
+
+						if (cqb != NULL)
+						{
+							cqb->m_victim = seal;
+							cqb->m_setup = 1;
+						}
+					}
+				}
+				else
+					Debug("CanUseCQB( %s) failed!\n", seal->m_node->m_name);
 			}
 		}
 		else
@@ -776,9 +793,133 @@ void CSealCtrlAi::SensorPreTick(float dT)
 	if (!avoiding)
 		PopAiState(STATE_AVOID);
 
-	/* ELF: then the pickups within pickupSearchRadius are walked: a live grenade nearby
-	 * pushes STATE_GRENADE (and STATE_EVENT toward it), a dropped item seen by the unit is
-	 * called out. port: not written (CPickup iteration, the grenade and event states) */
+	/* 0x2b26b8: the pickups within pickupSearchRadius: a live grenade (pickup types 1, 2, 4,
+	 * 5) with under 16 s on its clock, in blast range, pushes STATE_GRENADE. The first time
+	 * this seal sees one it reacts only if it saw it thrown (by itself, or by a target it can
+	 * see: the unit is told and the seal shouts) or a team mate (the player or a navy seal)
+	 * threw it; later, a grenade the unit has not called out also pushes STATE_EVENT with a
+	 * flinch after a skill-dependent delay. */
+	CSealUnit *unit = m_unit;
+	std::list<CPickup *>::iterator it = CPickup::GetFirst();
+
+	for (CPickup *p = CPickup::GetNext(it, me->GetPosW(), pickupSearchRadius, (CPickup::PU_TYPE)0); p != NULL;
+		p = CPickup::GetNext(it, me->GetPosW(), pickupSearchRadius, (CPickup::PU_TYPE)0))
+	{
+		u32 type = p->m_type;
+		CZProjectile *proj = static_cast<CZProjectile *>(p->m_data);
+
+		if (proj == NULL || !(proj->m_time <= 16.0f))
+			continue;
+
+		bool grenade = type == 1 || type == 2 || type == 5 || type == 4;
+		bool first = true;
+		bool event = false;
+		u32 idx = me->m_index;
+
+		if (p->m_bits.m_vec == NULL || unit == NULL) /* port: NULL-tested (ELF uses both unchecked) */
+			continue;
+
+		u32 &word = p->m_bits.m_vec[idx >> 5];
+		u32 bit = 1u << (idx & 31);
+
+		if (word & bit)
+		{
+			first = false;
+
+			if (!grenade || FindAiState(STATE_GRENADE) != NULL)
+				continue;
+
+			if (!p->GetVisibleByUnit(unit->m_unit_num))
+				event = true;
+		}
+		else
+			word |= bit;
+
+		if (!grenade)
+			continue;
+
+		if (first)
+		{
+			CEntity *thrower = CEntity::m_list.GetEntityById(proj->m_shooterID);
+
+			if (thrower == NULL)
+				continue;
+
+			CTarget *tgt = me->m_targets.FindTarget(thrower);
+			bool mine = thrower == me;
+
+			if (!mine && tgt == NULL)
+				continue;
+
+			CSealCtrlAi *ai = dynamic_cast<CSealCtrlAi *>(thrower->m_control);
+			bool ally = ai != NULL ? (bool)ai->m_navyseal : thrower == ftsGetPlayer();
+			bool called = false;
+
+			if (mine || tgt->m_visible)
+			{
+				p->SetVisibleByUnit(unit->m_unit_num);
+				called = true;
+				PlayAiSound((CHARACTER_SOUND)49);
+			}
+
+			if (!called && ((thrower->m_team & me->m_team) == 0 || !ally))
+				continue;
+		}
+
+		if (FindAiState(STATE_GRENADE) != NULL)
+			continue;
+
+		f32 r = proj->m_ammo->GetExplosionRadius();
+		r *= r;
+		CPnt3D mypos = *me->GetPosW();
+		CPnt3D d;
+		mypos.Sub(p->GetPosW(), &d);
+		f32 d2 = d.x * d.x + d.y * d.y + d.z * d.z;
+
+		if (r <= d2)
+			continue;
+
+		if (PushAiState(STATE_GRENADE, true))
+		{
+			CAiState *state = GetAiState();
+			CAiSGrenade *g = state->m_state == STATE_GRENADE ? static_cast<CAiSGrenade *>(state) : NULL;
+
+			if (g != NULL) /* port: NULL-tested (ELF writes through it) */
+			{
+				g->m_pickup = p;
+				g->m_pickup_id = p->m_id;
+				g->m_setup = 1;
+			}
+#ifdef SOCOM_PORT
+			SOCOM_PORT_TRACE("AI: %s sees a live grenade (type %d, %d away): STATE_GRENADE", me->m_node->m_name, (int)type,
+				(int)sqrtf(d2));
+#endif
+		}
+
+		if (event && PushAiState(STATE_EVENT, true))
+		{
+			f32 delay = m_navyseal ? 0.2f : 1.5f * (1.2f - m_aiParams.training);
+			f32 frac = d2 / r;
+			CAiState *state = GetAiState();
+			CAiSEvent *ev = state->m_state == STATE_EVENT ? static_cast<CAiSEvent *>(state) : NULL;
+
+			if (ev != NULL) /* port: NULL-tested (ELF writes through it) */
+			{
+				ev->m_type = 1;
+				ev->m_pos = *p->GetPosW();
+				ev->m_vec = CPnt3D::zero;
+				ev->m_option_flags |= 4;
+				delay *= frac;
+				f32 range = 2.0f * delay - delay;
+
+				if (range != 0.0f)
+					delay += range * ((f32)rand() * 4.656613e-10f);
+
+				ev->m_time = delay < 0.5f ? 0.5f : delay;
+				ev->m_setup = 1;
+			}
+		}
+	}
 }
 
 /* @socom-skeleton stub SensorPreTick__9CSealCtrlFf */

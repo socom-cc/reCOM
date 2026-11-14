@@ -1183,7 +1183,7 @@ public:
 	void PostComputeNextPosition(float);
 	void NormalizeToTerrain();
 	float SetHealth(float, SEAL_DEATH_TYPE);
-	void PickupObject(CPickup *);
+	bool PickupObject(CPickup *); /* 0x24f330: the grenade anim's activation (type 1), else 0 */
 	void AdvancePiggyBack();
 	void RetreatPiggyBack();
 	void ResetAltitude(float);
@@ -2422,6 +2422,12 @@ public:
 class CAiSPickup : public CAiState
 {
 public:
+	/* port: no DWARF record; 52 bytes (Create 0x2dc6a0); layout from Tick 0x2da750 / OnSignal
+	 * 0x2da910; names invented. m_substate (jump table 0x457660): 0 route, 1 travel, 2 arrived,
+	 * 3 take, 4 wait until m_time, 5 done */
+	CPickup *m_pickup; /* +0x28 */
+	u32 m_pickup_id;   /* +0x2c: the pickup's m_id when chosen (a reused pickup ends the state) */
+	u8 m_take : 1;     /* +0x30 bit 0: pick it up (else only walk there) */
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
 	virtual bool Tick(float, CSealCtrlAi *); /* port: an override returns its base's type */
 	virtual ~CAiSPickup() {}

@@ -321,7 +321,7 @@ public:
 	static void Close(bool);
 	void DebugPickups();
 	static CPickup * NetworkCreate(unsigned char, CPickup::PU_TYPE, zdb::CNode *, void *); /* static: DropItem calls it without a pickup and keeps v0 */
-	void GetVisibleByUnit(unsigned int);
+	bool GetVisibleByUnit(unsigned int); /* 0x24d1e0: 0/1 */
 	void SetVisibleByUnit(unsigned int);
 	static CPickup * Create(CPickup::PU_TYPE, zdb::CNode *, void *); /* 0x24cfe0: static, v0 = the pickup */
 	static void Destroy(CPickup *);

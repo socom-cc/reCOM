@@ -616,8 +616,48 @@ void CSealCtrlAi::OnCommand(CZSealBody *source, FT_COMMAND cmd, void *buffer, bo
 		break;
 	}
 
+	case CMD_GETDOWN:
+	{
+		/* 0x281f10: a hostage (or anybody told) gets down: from a player, only when he aims at
+		 * this AI or at somebody within HOSTAGE_ORDER_RANGE of himself. The hostage state starts
+		 * in phase 1 with the commander; an AI already in it starts over. */
+		bool obey = true;
+
+		if (source != NULL && source->m_control != NULL && static_cast<CSealCtrl *>(source->m_control)->IsPlayer())
+		{
+			CZSealBody *aimed = source->GetReticuleSeal();
+			obey = aimed == seal;
+
+			if (!obey && aimed != NULL)
+			{
+				HOSTAGE_ORDER_RANGE_SQUARED = 10000.0f;
+				CPnt3D d;
+				aimed->GetPosW()->Sub(source->GetPosW(), &d);
+				obey = d.x * d.x + d.y * d.y + d.z * d.z < HOSTAGE_ORDER_RANGE_SQUARED;
+			}
+		}
+
+		if (!obey)
+			break;
+
+		if (!AiStateIs(STATE_HOSTAGE) && !PushAiState(STATE_HOSTAGE, true))
+			break;
+
+		PlayAiSound((CHARACTER_SOUND)53);
+		CAiState *state = GetAiState();
+		CAiSHostage *hostage = state->m_state == STATE_HOSTAGE ? static_cast<CAiSHostage *>(state) : NULL;
+
+		if (hostage != NULL) /* port: NULL-tested (ELF writes through it) */
+		{
+			hostage->m_substate = 1;
+			hostage->m_commander = source;
+			hostage->m_setup = 1;
+		}
+		break;
+	}
+
 	default:
-		/* port: not written: ACTION 0x28240c, DEPLOY 0x281a80, GETDOWN 0x281f10, the breaches 0x282574, LASETARGET 0x281148, AWARE 0x2824b4,
+		/* port: not written: ACTION 0x28240c, DEPLOY 0x281a80, the breaches 0x282574, LASETARGET 0x281148, AWARE 0x2824b4,
 		 * AWAKE 0x282588 (the others have no case in the ELF) */
 		break;
 	}

@@ -57,10 +57,18 @@ enum class VALVE_STATE
 
 /* port: valvePool is file-local (static) data in valve_list.cpp (ELF local symbol) */
 
+/* one valve callback: 12 bytes newed by AddCallback 0x2f6020 (no DWARF record; names invented) */
+struct CValveCB
+{
+	u32 m_mask; /* the VALVE_STATE changes it runs for (MakeCallbacks: state & mask) */
+	void (*m_func)(CValve *, void *);
+	void *m_data; /* the callback's second argument */
+};
+
 class CValveCBList
 {
 public:
-	std::list<void(*)(CValve*, void*)> m_list;
+	std::list<CValveCB *> m_list;
 };
 
 /// <summary>

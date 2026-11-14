@@ -143,13 +143,21 @@ CPickup * CPickup::NetworkCreate(unsigned char, CPickup::PU_TYPE, zdb::CNode *, 
 }
 
 /* @socom-skeleton stub GetVisibleByUnit__7CPickupFUi */
-void CPickup::GetVisibleByUnit(unsigned int)
+bool CPickup::GetVisibleByUnit(unsigned int unit)
 {
+	/* 0x24d1e0 (SensorPreTick): a seal of that unit has called the pickup out */
+	return (m_visible_by_units & unit) != 0;
 }
 
 /* @socom-skeleton stub SetVisibleByUnit__7CPickupFUi */
-void CPickup::SetVisibleByUnit(unsigned int)
+void CPickup::SetVisibleByUnit(unsigned int unit)
 {
+	/* 0x24d180: units 2, 4 and 8 mark bits 1 and 2 (port guess: the fire teams' parents);
+	 * any other unit marks its own bits */
+	if (unit == 2 || unit == 4 || unit == 8)
+		m_visible_by_units |= 3;
+	else
+		m_visible_by_units |= unit;
 }
 
 /* @socom-skeleton stub Create__7CPickupFQ27CPickup7PU_TYPEPQ23zdb5CNodePv */

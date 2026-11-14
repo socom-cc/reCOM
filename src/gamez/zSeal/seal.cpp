@@ -3321,31 +3321,44 @@ void CZSealBody::ResetToInitialState()
 }
 
 /* @socom-skeleton stub _rethrow_grenade__FP6CValvePv */
-void _rethrow_grenade(CValve *, void *)
+void _rethrow_grenade(CValve *, void *data)
 {
+	/* 0x24f4c0 (the rethrow valve of PickupObject's grenade anim): the picked-up grenade
+	 * flies off along its node's z axis, 150 across and 80 up */
 	/* @socom-skeleton stub vScale$3575 */
-	static float vScale;
+	static float vScale = 80.0f;
 	/* @socom-skeleton stub hScale$3578 */
-	static float hScale;
+	static float hScale = 150.0f;
+	CPickup *pickup = static_cast<CPickup *>(data);
+
+	if (pickup == NULL || pickup->m_node == NULL)
+		return;
+
+	const f32 *z = pickup->m_node->m_matrix.m_matrix[2];
+	CPnt3D vel;
+	vel.x = z[0] * hScale;
+	vel.y = vScale;
+	vel.z = z[2] * hScale;
+	static_cast<CZProjectile *>(pickup->m_data)->SetVelW(&vel);
 }
 
 /* @socom-skeleton stub PickupObject__10CZSealBodyFP7CPickup */
-void CZSealBody::PickupObject(CPickup *pickup)
+bool CZSealBody::PickupObject(CPickup *pickup)
 {
 	/* 0x24f330 (OnActionButton, TickPickups, CAiSPickup / CAiSNoAmmo): a living seal takes the
 	 * pickup by type: a weapon (8) HandlePickupEquip, an ammo box (9) HandlePickupAmmoInstance,
-	 * the MP bomb (11) HandlePickupMPBomb; data (10) nothing. port: void (v0 = the grenade
-	 * anim's activation for type 1, else 0; no port caller reads it). Type 1 (an AI picking up
-	 * a live grenade: "ai_pickup_grenade" anim, a valve with the _rethrow_grenade callback, the
-	 * projectile stopped and turned to the seal) is not written: AI only, CValve::AddCallback
-	 * and _rethrow_grenade are unwritten. */
+	 * the MP bomb (11) HandlePickupMPBomb; data (10) nothing; a live grenade (1, an AI): the
+	 * projectile stops, the grenade is turned to face away from the seal and the
+	 * "ai_pickup_grenade" anim runs with a temporary valve whose callback (_rethrow_grenade)
+	 * throws it back. Returns the anim's activation for a grenade, else 0 (ELF: the handlers'
+	 * answers are not kept). */
 	if (!m_isAlive || pickup == NULL)
-		return;
+		return false;
 
 	u32 type = pickup->m_type;
 
 	if (type == CPickup::PU_DATA)
-		return;
+		return false;
 
 	if (type == CPickup::PU_MPBOMB)
 		HandlePickupMPBomb(pickup);
@@ -3353,6 +3366,27 @@ void CZSealBody::PickupObject(CPickup *pickup)
 		HandlePickupAmmoInstance(pickup);
 	else if (type == CPickup::PU_WEAPON)
 		HandlePickupEquip(pickup);
+	else if (type == CPickup::PU_GRENADE)
+	{
+		CZAnim *anim = ZAnim.GetAnim("ai_pickup_grenade", NULL);
+
+		if (anim == NULL)
+			return false;
+
+		CValve *valve = CValve::Create(NULL, VALVE_TYPE::VTYPE_TEMP);
+		valve->AddCallback(1, _rethrow_grenade, pickup);
+		static_cast<CZProjectile *>(pickup->m_data)->SetVelW(NULL);
+		CMatrix mat;
+		sceVu0UnitMatrix(mat.m_matrix);
+		CAi::AlignToPoint(&m_node->m_matrix, pickup->GetPosW(), &mat, 0.0f);
+		pickup->m_node->SetMatrix(&mat);
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("AI: %s picks up a live grenade", m_node->m_name);
+#endif
+		return anim->ActivateArg(1, 3, pickup->m_node, 1, m_select, 4, valve, 0) != NULL;
+	}
+
+	return false;
 }
 
 /* @socom-skeleton stub PostMortemPreTick__10CZSealBodyFf */

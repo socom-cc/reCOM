@@ -2717,8 +2717,19 @@ void CSealCtrlAi::PathFollowTick(float dT)
 
 		if (PushAiState(STATE_PATHRECO, true))
 		{
-			/* ELF: the path recovery state gets the point (+0xc4) and its flag bit 0.
-			 * port: not reached - STATE_PATHRECO's Tick is unwritten and the push refused */
+			/* 0x265814: the path recovery state gets the point (+0xc4) and is set up. ELF:
+			 * the state is not NULL-tested */
+			CAiState *state = GetAiState();
+			CAiSPathRecover *reco = state->m_state == STATE_PATHRECO ? static_cast<CAiSPathRecover *>(state) : NULL;
+
+			if (reco != NULL)
+			{
+				reco->m_dest = target->m_loc;
+				reco->m_setup = 1;
+			}
+#ifdef SOCOM_PORT
+			SOCOM_PORT_TRACE("AI: %s stuck on its route: STATE_PATHRECO", seal->m_node->m_name);
+#endif
 			return;
 		}
 	}
@@ -5002,51 +5013,675 @@ bool CAiSDeploy::Tick(float, CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub OnSignal__11CAiSGrenadeFQ28CAiState6SIGNALP11CSealCtrlAi */
-void CAiSGrenade::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+void CAiSGrenade::OnSignal(CAiState::SIGNAL signal, CSealCtrlAi *)
 {
+	/* 0x25d0c0: pushed (0): the grenade is there */
+	if ((s32)signal == 0)
+		m_gone = 0;
 }
 
 /* @socom-skeleton stub is_throwtype__F10EQUIP_ITEM */
-void is_throwtype(EQUIP_ITEM)
+bool is_throwtype(EQUIP_ITEM item)
 {
+	/* 0x25d080: the hand-thrown items, 120..125 */
+	u32 v = (u8)item;
+	return v - 120 < 6;
 }
 
 /* @socom-skeleton stub SetReturnVelocity__11CSealCtrlAiFP12CZProjectileP6CPnt3Db */
-void CSealCtrlAi::SetReturnVelocity(CZProjectile *, CPnt3D *, bool)
+void CSealCtrlAi::SetReturnVelocity(CZProjectile *proj, CPnt3D *dir, bool full)
 {
+	/* 0x25c860 (CAiSGrenade kick / throw back): a navy seal sends the grenade back at its
+	 * thrower (its own grenade: at the spot it meant to hit) with the fire solution of a throw
+	 * or a launch, else half the distance's speed along the line; anybody else (and a seal
+	 * whose thrower is gone) kicks it off along a free look direction with some scatter. A
+	 * kick (not `full`) is weaker (x0.8, or past 100 for a seal). The grenade restarts 10 up
+	 * from where it lies, owned by the kicker; `dir` gets the reverse of the direction. ELF
+	 * quirk kept: the seal's line fallback adds the direction's x to its y. */
 	/* @socom-skeleton stub vScale$4631 */
-	static float vScale;
+	static float vScale = 80.0f;
 	/* @socom-skeleton stub hScale$4634 */
-	static float hScale;
+	static float hScale = 150.0f;
+	CEntity *thrower = proj != NULL ? CEntity::m_list.GetEntityById(proj->m_shooterID) : NULL;
+	CZSealBody *body = static_cast<CZSealBody *>(m_entity);
+	f32 speed = 100.0f;
+	CPnt3D vel;
+
+	if (m_navyseal && thrower != NULL)
+	{
+		bool own = proj->m_shooterID == (s32)body->m_id;
+		AI_FIREPARAMS fp;
+		fp.reset();
+		const CPnt3D *target = own ? &m_lastDeployPosW : thrower->GetPosW();
+		CZWeapon *weapon = proj->m_weapon;
+
+		if (!(fp.m_flags & 0x2000000))
+		{
+			fp.reset();
+			fp.m_ammo = NULL;
+			fp.m_weapon = (CZFTSWeapon *)weapon;
+			fp.m_targetPos = *target;
+			fp.m_targetVel = CPnt3D::zero;
+			fp.m_flags = 0x10000;
+
+			if (is_throwtype((EQUIP_ITEM)(s8)weapon->m_ID))
+				fp.m_flags |= 0x60000;
+		}
+
+		if (!(fp.m_flags & 0x2000000))
+		{
+			bool ok;
+
+			if (fp.m_flags & 0x40000)
+			{
+				ok = ComputeThrowFireParams(fp);
+				SetTrigger(false);
+				SetTrigger(false);
+			}
+			else
+				ok = ComputeProjectileFireParams(fp);
+
+			if (ok)
+			{
+				fp.m_flags |= 0x100000;
+				fp.m_timeout = 0.0f;
+			}
+		}
+
+		if (fp.m_flags & 0x100000)
+		{
+			vel = fp.m_aimDirM;
+			*dir = vel;
+			f32 r = (f32)rand() * 4.656613e-10f;
+			speed = (1.0f - 0.25f * (r - 0.5f)) * weapon->GetMuzzleVelocity();
+		}
+		else
+		{
+			CPnt3D d;
+
+			if (own)
+				m_lastDeployPosW.Sub(body->GetPosW(), &d);
+			else
+				thrower->GetPosW()->Sub(body->GetPosW(), &d);
+
+			vel = d;
+			speed = 0.5f * sqrtf(vel.x * vel.x + vel.y * vel.y + vel.z * vel.z);
+			vel.Normalize();
+			*dir = vel;
+			vel.y = vel.x + vel.y;
+		}
+
+		if (!full)
+		{
+			CPnt3D d;
+
+			if (own)
+				m_lastDeployPosW.Sub(body->GetPosW(), &d);
+			else
+				thrower->GetPosW()->Sub(body->GetPosW(), &d);
+
+			if (!(d.x * d.x + d.y * d.y + d.z * d.z <= 10000.0f))
+				speed *= 0.8f;
+		}
+	}
+	else
+	{
+		const f32 *z = body->m_node->m_matrix.m_matrix[2];
+		vel.x = -z[0];
+		vel.y = -z[1];
+		vel.z = -z[2];
+		CAiMap::DIR look = ChooseLookDir(body->m_mapLocValid, &vel, false, NULL, 0, NULL);
+		CAiMap::GetDirVec(look, vel);
+		vel.x += -0.2f + 0.4f * ((f32)rand() * 4.656613e-10f);
+		vel.y += 0.4f + 0.4f * ((f32)rand() * 4.656613e-10f);
+		vel.z += -0.2f + 0.4f * ((f32)rand() * 4.656613e-10f);
+		vel.Normalize();
+		*dir = vel;
+
+		if (!full)
+			vel.Scale(0.8f, &vel);
+	}
+
+	vel.y *= m_navyseal ? speed : vScale;
+	vel.x *= m_navyseal ? speed : hScale;
+	vel.z *= m_navyseal ? speed : hScale;
+	proj->GetInstance()->SetRotation(CQuat::identity);
+	proj->SetVelW(&vel);
+	dir->x = -dir->x;
+	dir->y = -dir->y;
+	dir->z = -dir->z;
+	CPnt3D start = proj->m_framestartpos;
+	start.y += 10.0f;
+	proj->m_framestartpos = start;
+	proj->m_frameendpos = start;
+	proj->m_startpos = start;
+
+	if (!theNetwork.m_bNetwork)
+		proj->m_owner = body->GetNode();
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("AI: %s sends the grenade back (%s, vel %d %d %d)", body->m_node->m_name, full ? "throw" : "kick",
+		(int)vel.x, (int)vel.y, (int)vel.z);
+#endif
 }
 
 /* @socom-skeleton stub Tick__11CAiSGrenadeFfP11CSealCtrlAi */
-bool CAiSGrenade::Tick(float, CSealCtrlAi *)
+bool CAiSGrenade::Tick(float dT, CSealCtrlAi *ctrl)
 {
+	/* 0x25af40 (SensorPreTick pushes it for a live grenade in blast range): once the grenade
+	 * lies still the AI grows alert, then runs: to a look cell away from the blast within the
+	 * flood-fill range, else to a cover cell (FindCoverLoc), else stays; it ends by taking a
+	 * stance (crouch inside 1.5 x the blast distance, else stand) until the grenade is gone,
+	 * plus a random 2.1-3.4 s. The kick and throw-back branches (phases 4-8) need
+	 * allowThrowbacks, which the ELF initialises to 0 and never sets: they are never taken. A
+	 * navy seal's fuse is stretched while it goes for the grenade. */
 	/* @socom-skeleton stub tb_timeToParent$4684 */
-	static float tb_timeToParent;
+	static float tb_timeToParent = 0.21f;
 	/* @socom-skeleton stub tb_timeToThrow$4687 */
-	static float tb_timeToThrow;
+	static float tb_timeToThrow = 0.56f;
 	/* @socom-skeleton stub minTimeForSafeSealReturn$4690 */
-	static float minTimeForSafeSealReturn;
+	static float minTimeForSafeSealReturn = 1.3f + tb_timeToThrow;
 	/* @socom-skeleton stub defaultTimeToPickup$4693 */
-	static float defaultTimeToPickup;
+	static float defaultTimeToPickup = 3.3f;
 	/* @socom-skeleton stub AcceptableRangeErrorSQ$4704 */
-	static float AcceptableRangeErrorSQ;
+	static float AcceptableRangeErrorSQ = 2500.0f;
 	/* @socom-skeleton stub allowThrowbacks$4712 */
-	static unsigned char allowThrowbacks;
+	static unsigned char allowThrowbacks = 0;
 	/* @socom-skeleton stub floodFillDistanceSQ$4746 */
-	static float floodFillDistanceSQ;
+	static float floodFillDistanceSQ = 22500.0f;
+	const f32 inv = 4.656613e-10f; /* 1 / 2^31: rand() as a fraction */
+
+	if (!m_setup)
+		return false;
+
+	CZSealBody *body = static_cast<CZSealBody *>(ctrl->m_entity);
+	CPickup *pickup = m_pickup;
+	u8 phase = (u8)m_substate;
+	CZProjectile *proj = pickup != NULL ? static_cast<CZProjectile *>(pickup->m_data) : NULL;
+	CEntity *thrower = proj != NULL ? CEntity::m_list.GetEntityById(proj->m_shooterID) : NULL;
+
+	if (pickup == NULL || m_pickup_id != pickup->m_id || proj == NULL || thrower == NULL)
+	{
+		/* the grenade is gone: the state ends after 1-1.8 s (standing, phase 11) or 2.1-2.9 s,
+		 * longer for a green AI */
+		if (m_gone)
+		{
+			m_time -= dT;
+
+			if (m_time < 0.0f)
+			{
+				m_setup = 0;
+				return false;
+			}
+
+			return true;
+		}
+
+		m_gone = 1;
+		f32 skill = ctrl->m_navyseal ? 0.0f : 2.0f * (1.0f - ctrl->m_aiParams.training);
+
+		if (phase == 11)
+		{
+			f32 range = 1.8f + skill - 1.0f;
+			m_time = range == 0.0f ? 1.0f : 1.0f + range * ((f32)rand() * inv);
+		}
+		else
+		{
+			f32 range = (2.9f + 1.5f * skill) - 2.1f;
+			m_time = range == 0.0f ? 2.1f : 2.1f + range * ((f32)rand() * inv);
+		}
+
+		return true;
+	}
+
+	CAiMapLoc myloc = body->m_mapLocValid;
+	f32 left = proj->m_time - 1.2f;
+	f32 margin = ctrl->m_navyseal ? 0.0f : 2.0f * (1.0f - ctrl->m_aiParams.training);
+
+	if (body->m_team & 0x20000)
+		margin = 0.0f;
+
+	/* this seal has seen the grenade */
+	u32 idx = body->m_index;
+
+	if (pickup->m_bits.m_vec != NULL) /* port: NULL-tested */
+		pickup->m_bits.m_vec[idx >> 5] |= 1u << (idx & 31);
+
+	switch (phase)
+	{
+	case 0:
+	{
+		CPnt3D gpos;
+		bool still = false;
+
+		m_time = proj->m_time;
+
+		if (!ai::is_moving(&proj->m_vel, 625.0f))
+		{
+			gpos = proj->m_framestartpos;
+			still = true;
+		}
+
+		if (!still)
+		{
+			ctrl->SetStanceDelayed((SEAL_STANCE)0, 0.0f);
+			break;
+		}
+
+		f32 alert = awareRangeMax[3] - 0.001f;
+
+		if (ctrl->m_aware.m_goal < awareRangeMax[2])
+			ctrl->m_aware.m_goal = awareRangeMin[2];
+
+		if ((s32)CSealCtrlAi::GetAiAware(ctrl->m_aware.m_value) < 4)
+			ctrl->SetAiEvent((CAiEvent::EVENT)2, 1.5f, &gpos);
+
+		if (!(alert <= ctrl->m_aware.m_value))
+			ctrl->SetAiAware(alert, 1);
+
+		f32 fuse = m_time;
+		CPnt3D d;
+		gpos.SubXZ(body->GetPosW(), &d);
+		f32 dist = sqrtf(d.x * d.x + d.z * d.z);
+		bool locked = pickup->m_locked;
+		bool friendly = (thrower->m_team & body->m_team) != 0;
+		bool hand = is_throwtype((EQUIP_ITEM)proj->m_weapon->GetIDType());
+		ctrl->SetStanceDelayed((SEAL_STANCE)0, 0.0f);
+		bool astray = proj->m_shooterID == (s32)body->m_id;
+
+		if (astray)
+		{
+			/* the AI's own grenade: astray when it lies more than 50 from the aim point */
+			CPnt3D e;
+			gpos.Sub(&ctrl->m_lastDeployPosW, &e);
+
+			if (e.x * e.x + e.y * e.y + e.z * e.z <= AcceptableRangeErrorSQ)
+				astray = false;
+		}
+
+		u8 next = 9;
+
+		if (!AiMaps.GetLocation(&gpos, m_dest))
+		{
+			phase = 3;
+		}
+		else
+		{
+			f32 runtime = dist / ctrl->GetSpeedFromThrottle(0.8f, 0);
+
+			if (allowThrowbacks && hand && !locked && (!friendly || astray) && !(fuse - runtime <= left + margin)
+				&& AiMaps.CanTravelLine(myloc, m_dest, NULL) && !(body->m_team & 0x20000)
+				&& !(body->m_team & 0x10000000) && !theNetwork.m_bNetwork)
+			{
+				ctrl->m_speed = 1.0f;
+				saturate<f32>(ctrl->m_speed, 0.0f, 1.0f);
+				bool half = 0.0f + 1.0f * ((f32)rand() * inv) <= 0.5f;
+
+				if (ctrl->m_navyseal)
+					next = dist <= 120.0f ? 6 : 4;
+				else
+					next = half ? 4 : 6;
+
+				pickup->m_locked = 1;
+				ctrl->PlayAiSound((CHARACTER_SOUND)50);
+				ctrl->Debug("ClearRoute()...\n");
+
+				if (ctrl->ClearRoute() && ctrl->m_path.InsertPathLoc(m_dest, NULL))
+				{
+					ctrl->SetAiMode(AIM_PATH);
+					phase = 2;
+				}
+				else
+				{
+					pickup->m_locked = 0;
+					phase = 3;
+					next = 9;
+				}
+			}
+			else
+			{
+				phase = 3;
+
+				if (ctrl->m_navyseal && locked)
+					phase = 9;
+			}
+		}
+
+		m_next = next;
+
+		if (phase != 3)
+			break;
+	}
+		/* fall through: phase 3 runs at once */
+
+	case 3:
+	{
+		ctrl->m_speed = 1.0f;
+		saturate<f32>(ctrl->m_speed, 0.0f, 1.0f);
+		ctrl->SetStanceDelayed((SEAL_STANCE)0, 0.0f);
+		bool routed = false;
+		phase = 9;
+		CPnt3D away;
+		body->GetPosW()->Sub(&proj->m_framestartpos, &away);
+		f32 d2 = away.x * away.x + away.y * away.y + away.z * away.z;
+
+		if (d2 < floodFillDistanceSQ)
+		{
+			/* a look cell away from the grenade, far enough out of the blast */
+			s32 steps = 0;
+			f32 radius = proj->m_ammo != NULL ? proj->m_ammo->GetExplosionRadius() : 200.0f;
+			f32 reach = radius * ctrl->m_aiParams.training;
+			CAiMapLoc look;
+			CSealCtrlAi::ChooseLookDir(myloc, &away, true, &look, (int)(0.1f * reach), &steps);
+			f32 out = 10.0f * (f32)steps;
+
+			if (!(d2 + out * out <= reach * reach))
+			{
+				CAiMap *map = AiMaps.GetMapByIndex(look.m_mapid);
+				CAiCell *cell = map != NULL ? map->GetCell(look) : NULL;
+
+				if (cell == NULL || !CAiMap::IsWalkable(cell))
+				{
+					/* a blocked cell: aim 10 short of its centre (toward the AI) */
+					CPnt3D mypos = *body->GetPosW();
+					CAiMap *lmap = AiMaps.GetMapByIndex(look.m_mapid);
+					CPnt3D pos;
+
+					if (lmap != NULL && lmap->GetCellPos(look, pos))
+					{
+						CPnt3D v;
+						pos.Sub(&mypos, &v);
+						v.Normalize();
+						v.Scale(10.0f, &v);
+						pos.Sub(&v, &pos);
+						AiMaps.GetLocation(&pos, look);
+					}
+				}
+
+				if (ctrl->SetRoute(look))
+				{
+					ctrl->Output("GRENADE LOOK FLEE: will run to to %d,%d,%d from %d,%d,%d\n", (int)look.m_mapid, (int)look.x,
+						(int)look.y, (int)myloc.m_mapid, (int)myloc.x, (int)myloc.y);
+					phase = 2;
+					routed = true;
+				}
+				else
+					ctrl->Output("GRENADE LOOK FLEE: want to to %d,%d,%d from %d,%d,%d but I can't!\n", (int)look.m_mapid,
+						(int)look.x, (int)look.y, (int)myloc.m_mapid, (int)myloc.x, (int)myloc.y);
+			}
+		}
+
+		if (!routed)
+		{
+			/* a cover cell from the grenade (the flood fill) */
+			CAiMapLoc from = body->m_mapLocValid;
+			CAiMapLoc hide = from;
+			CAiMap *map = AiMaps.GetMapByIndex(from.m_mapid);
+			CAiMap::DIR cdir = (CAiMap::DIR)8;
+			bool found = map != NULL && map->FindCoverLoc(from, &proj->m_framestartpos, hide, cdir, 30);
+
+			if (found)
+				FindPeekDir(map, hide, cdir); /* ELF: the answer is not used */
+
+			const char *name = body->m_node->m_name;
+
+			if (found)
+			{
+				if (ctrl->SetRoute(hide))
+				{
+					ctrl->Output("GRENADE FLOOD FLEE: %s says: will run to %d,%d,%d from %d,%d,%d\n", name, (int)hide.m_mapid,
+						(int)hide.x, (int)hide.y, (int)myloc.m_mapid, (int)myloc.x, (int)myloc.y);
+					phase = 2;
+					routed = true;
+				}
+				else
+					ctrl->Output(" FLOOD FLEE: I want run to %d,%d,%d from %d,%d,%d but I can't!\n", (int)hide.m_mapid,
+						(int)hide.x, (int)hide.y, (int)myloc.m_mapid, (int)myloc.x, (int)myloc.y);
+			}
+			else
+				ctrl->Output("GRENADE FLOOD FLEE: %s says: no hideLoc at %d,%d,%d from threatPos %.1f, %.1f, %.1f!\n", name,
+					(int)myloc.m_mapid, (int)myloc.x, (int)myloc.y, (double)proj->m_framestartpos.x,
+					(double)proj->m_framestartpos.y, (double)proj->m_framestartpos.z);
+		}
+
+		if (!routed)
+		{
+			ctrl->PlayAiSound((CHARACTER_SOUND)51);
+			phase = 9;
+		}
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("AI: %s grenade! %s", body->m_node->m_name, routed ? "runs" : "takes cover where it is");
+#endif
+		break;
+	}
+
+	case 2:
+	{
+		ctrl->m_speed = 1.0f;
+		saturate<f32>(ctrl->m_speed, 0.0f, 1.0f);
+		PATH_STATE st = ctrl->m_path.m_state;
+		bool active = !ctrl->m_path.m_points.empty() && st == PATH_STATE::COMPLETE;
+		bool planning = st == PATH_STATE::PLANNING || st == PATH_STATE::INQUEUE || st == PATH_STATE::ABORT;
+
+		if (!active && !planning)
+		{
+			/* arrived: a navy seal going for the grenade looks away from its thrower */
+			if (ctrl->m_navyseal && (m_next == 4 || m_next == 6))
+			{
+				CPnt3D look;
+				thrower->GetPosW()->Sub(body->GetPosW(), &look);
+				look.x = -look.x;
+				look.y = -look.y;
+				look.z = -look.z;
+
+				if (ctrl->SetLookDirW((AI_LOOK)5, &look, true))
+				{
+					ctrl->ModifyLookFlags(1, 0);
+					ctrl->SetLookTimer(3.0f);
+				}
+			}
+
+			ctrl->Debug("GRENADE_GOTO Arrived!\n");
+			phase = (u8)(s8)m_next;
+			break;
+		}
+
+		if (planning)
+		{
+			if (ctrl->m_navyseal && !(defaultTimeToPickup + tb_timeToThrow <= proj->m_time) && !theNetwork.m_bNetwork)
+				proj->m_time = defaultTimeToPickup + tb_timeToThrow;
+		}
+		else if ((m_next == 4 || m_next == 6) && ctrl->m_navyseal && proj->m_time < minTimeForSafeSealReturn
+			&& !theNetwork.m_bNetwork)
+			proj->m_time = minTimeForSafeSealReturn;
+
+		if (!ctrl->m_navyseal || margin <= 0.2f)
+			margin = 0.2f;
+
+		if (!(ctrl->m_stateTimer <= defaultTimeToPickup + margin) || (ctrl->m_navyseal && proj->m_time < 0.3f))
+		{
+			if (m_next == 9)
+				phase = 9;
+		}
+		break;
+	}
+
+	case 4:
+	{
+		/* kick it away */
+		phase = 5;
+
+		if (ctrl->PushAiState(STATE_ANIMATE, true))
+		{
+			CAiState *state = ctrl->GetAiState();
+			CAiSAnimate *anim = state->m_state == STATE_ANIMATE ? static_cast<CAiSAnimate *>(state) : NULL;
+
+			if (anim != NULL) /* port: NULL-tested (ELF writes through it) */
+			{
+				anim->m_anim = AnimTypes::KickGrenade;
+				anim->m_time = 1.0f;
+				anim->m_until = 1.0f;
+				anim->m_mode = 0;
+				anim->m_setup = 1;
+			}
+		}
+
+		CPnt3D back;
+		ctrl->SetReturnVelocity(proj, &back, false);
+		break;
+	}
+
+	case 5:
+		phase = 12;
+		break;
+
+	case 6:
+	{
+		/* pick it up */
+		phase = 7;
+
+		if (!ctrl->PushAiState(STATE_ANIMATE, true))
+			break;
+
+		CAiState *state = ctrl->GetAiState();
+		CAiSAnimate *anim = state->m_state == STATE_ANIMATE ? static_cast<CAiSAnimate *>(state) : NULL;
+
+		if (anim != NULL) /* port: NULL-tested (ELF writes through it) */
+		{
+			anim->m_anim = (s16)FindAnimType("Return throw grenade");
+			anim->m_time = tb_timeToParent;
+			anim->m_until = 0.0f;
+			anim->m_mode = 0;
+			anim->m_setup = 1;
+		}
+		break;
+	}
+
+	case 7:
+		/* in the right hand */
+		body->m_rhand->m_node->AddChild(proj->GetInstance());
+		proj->GetInstance()->SetPosition(CPnt3D::zero.x, CPnt3D::zero.y, CPnt3D::zero.z);
+		phase = 8;
+		m_time = tb_timeToThrow - tb_timeToParent;
+		break;
+
+	case 8:
+		m_time -= dT;
+
+		if (m_time <= 0.0f)
+		{
+			CPnt3D back;
+			ctrl->SetReturnVelocity(proj, &back, true);
+			phase = 12;
+		}
+		break;
+
+	case 9:
+	{
+		f32 r = proj->m_ammo->GetExplosionRadius();
+		r *= r;
+		CPnt3D d;
+		body->GetPosW()->Sub(pickup->GetPosW(), &d);
+		phase = r < 1.5f * (d.x * d.x + d.y * d.y + d.z * d.z) ? 11 : 10;
+		break;
+	}
+
+	case 10:
+		if (ctrl->m_stance_goal != 2)
+			ctrl->SetStanceDelayed((SEAL_STANCE)2, 0.15f + 0.6f * ((f32)rand() * inv));
+		break;
+
+	case 11:
+		if (ctrl->m_stance_goal != 1)
+			ctrl->SetStanceDelayed((SEAL_STANCE)1, 0.15f + 0.6f * ((f32)rand() * inv));
+		break;
+
+	case 12:
+		m_setup = 0;
+		break;
+
+	default:
+		break;
+	}
+
+	m_substate = phase;
+	return m_setup;
 }
 
 /* @socom-skeleton stub OnSignal__11CAiSAnimateFQ28CAiState6SIGNALP11CSealCtrlAi */
-void CAiSAnimate::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+void CAiSAnimate::OnSignal(CAiState::SIGNAL signal, CSealCtrlAi *)
 {
+	/* 0x25aee0: reset (4) - no time limit, the whole anim, end mode 0 */
+	if ((s32)signal == 4)
+	{
+		m_time = 0.0f;
+		m_until = 1.0f;
+		m_mode = 0;
+	}
 }
 
 /* @socom-skeleton stub Tick__11CAiSAnimateFfP11CSealCtrlAi */
-bool CAiSAnimate::Tick(float, CSealCtrlAi *)
+bool CAiSAnimate::Tick(float dT, CSealCtrlAi *ctrl)
 {
+	/* 0x25ad00: push the anim once (an anim already on top counts as done), then wait for the
+	 * end test of m_mode; the state ends (m_setup cleared, Tick false) in phase 3. No anim
+	 * (-1) goes straight to the wait. */
+	s16 anim = (s16)m_anim;
+	CZSealBody* body = static_cast<CZSealBody *>(ctrl->m_entity);
+	u8 phase = (u8)m_substate;
+
+	if (anim == -1)
+		phase = 2;
+
+	CZBodyAnimBlend* top = body->m_blends->Top();
+
+	switch (phase)
+	{
+	case 0:
+	case 1:
+		if (top != NULL && (s16)top->m_animType == anim)
+		{
+			phase = 3; /* ELF quirk kept: an anim already playing ends the state at once */
+			break;
+		}
+
+		body->PushBlend((AnimType)anim, 0, false);
+		phase = 2;
+		break;
+
+	case 2:
+		m_time -= dT;
+
+		switch (m_mode)
+		{
+		case 0:
+			if (top == NULL || (s16)top->m_animType != anim || !(top->m_tfrac < m_until))
+				phase = 3;
+			break;
+
+		case 1:
+			if (m_time <= 0.0f)
+				phase = 3;
+			break;
+
+		case 2:
+			if (m_time <= 0.0f || top == NULL || (s16)top->m_animType != anim || !(top->m_tfrac < m_until))
+				phase = 3;
+			break;
+
+		default:
+			break;
+		}
+		break;
+
+	default:
+		break;
+	}
+
+	if (phase == 3)
+		m_setup = 0;
+
+	m_substate = phase;
+	return m_setup != 0;
 }
 
 /* @socom-skeleton stub OnSignal__10CAiSPursueFQ28CAiState6SIGNALP11CSealCtrlAi */

@@ -84,3 +84,87 @@ place, and the small in-place edits in other modules listed below, all free at H
   the squirm controller; seal_tasks.cpp's Parse functions (not reached offline).
 - Network only (untouched): ghosts, piggy-back camera, remote AI / respawn / seal creation, MP bomb, net pickups,
   damage replication, MP stats, CreateMultiPlayerUnits, Revive, PlayRemoteMsg.
+
+# Part 2 (2026-11-14, socom-port-mod-zseal2): the remaining AI states
+
+Scratch `build/port/boot-mod-zseal2/` (untracked: NOTES.md, mine.txt, survey before / after, the scratch hook
+`hook_zseal2.cpp`, the diag spec `diag_tasks.txt`).
+
+## State
+- Partly done again: item 1 of the plan is written except CAiSBreach and CAiSDeploy; items 2-5 are not started.
+- `survey.py gamez/zSeal`: stub fences 154 -> 139 (61,012 -> 48,768 B); written 495,792 -> 508,036 B;
+  `port: not written` placeholders in zSeal 35 -> 33.
+- Bodies the survey counts as written but which are empty (a `return false` or nothing) while the ELF's are not:
+  `CTFireWeapon::Begin` 0x2bcfa0 / `Tick` 0x2bcd70 (pushes STATE_DEPLOY), `CTAction::Tick` 0x2be2f0, `CTMap::Tick`
+  0x2ba710, `CTPaint::Tick` 0x2b9820, `CTSpecial::Begin` / `Tick` / `End` 0x2b63d0 / 0x2b6150 / 0x2b62d0. A diag
+  run in m8 reached none of them (it reached `CTEvent::Tick`, written, and `CTPursue::End`, written now).
+
+## Written (ELF addresses)
+- `CAiSAnimate` Tick 0x25ad00 / OnSignal 0x25aee0 (push an anim, end on its fraction, a time or either).
+- `CAiSPathRecover` Tick 0x2e5290 / OnSignal 0x2e57d0 / GetStatus 0x2e5750 (creep back to the last valid cell, plan a
+  route to the point the AI was stuck short of and put it in front of its path), and PathFollowTick's push.
+- `CAiSCQBAttack` Tick 0x2d7a70 / OnSignal 0x2d7bc0 and SensorPreTick's push (CanUseCQB was written already).
+- `CAiSHostage` Tick 0x2da2d0 / OnSignal 0x2da450 and OnCommand's GETDOWN case 0x281f10.
+- `CAiSPickup` Tick 0x2da750 / OnSignal 0x2da910 (CAiState::Create now builds it).
+- `CAiSGrenade` Tick 0x25af40 / OnSignal 0x25d0c0, `is_throwtype` 0x25d080 (bool), `CSealCtrlAi::SetReturnVelocity`
+  0x25c860; SensorPreTick's pickup walk 0x2b26b8 (STATE_GRENADE for a live grenade in blast range, STATE_EVENT for one
+  the unit has not called out); `PickupObject` 0x24f330 returns bool and has the grenade branch, `_rethrow_grenade`
+  0x24f4c0; `CTPursue::End` 0x2b7f80.
+- CanPushAiState's port gate lets ANIMATE, CQB, PATHRECO, PICKUP, HOSTAGE and GRENADE through (BREACH, DEPLOY,
+  LASING stay refused).
+
+## Outside zSeal (small in-place edits, free at HEAD)
+- `zAI/zai.h`: members of CAiSAnimate, CAiSPathRecover, CAiSCQBAttack, CAiSHostage, CAiSGrenade.
+- `zValve/zvalve.h`, `zValve/valve_list.cpp`: valve callbacks as the ELF has them (a 12-byte entry with a state mask
+  and data: AddCallback 0x2f6020 appends, MakeCallbacks 0x2f60b0 runs the entries whose mask has the change,
+  DeleteCallbacks 0x2f5f50); before, the entries kept no data and MakeCallbacks was empty, so no valve callback ever
+  ran (the only other user, CNodeAction's `_actionValveCallback`, is still an empty stub). `Create(name, type)` with a
+  NULL name acquires a nameless valve (ELF 0x2f68a0; the port returned NULL) and GetByName skips nameless valves.
+- `zEntity/pickup_main.cpp`, `zentity.h`: `CPickup::GetVisibleByUnit` 0x24d1e0 (bool) / `SetVisibleByUnit` 0x24d180.
+- `zBody/zbody.h`: friends CAiSAnimate (top blend) and CAiSGrenade (the right hand's node).
+
+## Findings
+- `allowThrowbacks` in CAiSGrenade::Tick is a static initialised to 0 that nothing sets: the kick and throw-back
+  phases (4-8, SetReturnVelocity's callers) are never taken; enemies always run or take cover.
+- A grenade is taken seriously the first time only if the seal saw it thrown (by itself or by a target it sees: the
+  unit is told and the seal shouts) or a team mate threw it; from the next frame on any seal that has seen it and
+  whose unit has not called it out also gets STATE_EVENT (flinch) after a skill-dependent delay.
+- m8 has no escortee (every unit reports 0 escortees), and AllowCommand refuses GETDOWN to an enemy; an enemy in
+  STATE_RUSH also refuses the HOSTAGE push (mask 0x100de9da): CAiSHostage is not reached in m8.
+- STATE_PICKUP has no direct pusher in the ELF (only scripts through ai::STATE / ai::MACRO with a state number).
+- Breach orders reach AddBreachMember only from OnCommand's breach cases with a template state the unit builds in
+  CSealUnit::IssueCommand (its breach part, 0x2d0fcc.., is not written): breach is fire-team-order-only.
+
+## ELF quirks kept
+- CAiSAnimate ends at once when its anim is already the top blend; CAiSHostage's phase 0 never moves on and phase 2
+  releases the stance every tick; CAiSPickup takes a weapon / ammo pickup again every tick (PickupObject answers 0
+  for them); PathRecover computes a cell centre it does not use; SetReturnVelocity's seal fallback adds the
+  direction's x to its y; FindPeekDir's answer is dropped in the grenade flood flee.
+
+## Port deviations
+- NULL tests where the ELF writes through a state that may be another one (the CQB, PATHRECO, GRENADE, EVENT,
+  HOSTAGE and ANIMATE pushes) and on the pickup's seen-bits buffer and the seal's unit.
+- `CValvePool::Release` drops the valve's callbacks (the ELF keeps them on a pooled valve, so a reused temporary
+  valve would run the callbacks of the object it served before).
+
+## Runs (tree = HEAD + mine.txt; screenshots under `build/port/screenshots/45-zseal/`)
+- zq1 / zq2 (`hook_zseal2.cpp`): a frag grenade dropped beside OutPatrol4 -> "sees a live grenade (type 1, 42
+  away): STATE_GRENADE", "GRENADE LOOK FLEE: will run to ...", route, "GRENADE_GOTO Arrived!", phase 11 (stand),
+  stunned by the blast, the state ends; the player put 15 in front of OutPatrol3 -> "[player] within CQB Range!",
+  STATE_CQB, 0.75 s, "CQB attack on player" (anim 201), recovery; STATE_PICKUP walks OutPatrol1 to the nearest ammo
+  box (not reached inside the run); STATE_ANIMATE plays KickGrenade (anim 259). No STOP; heap 22.1-22.3 MB.
+- zst / zst2 (part 1's `hook_zseal.cpp` on f0fbe925 and 2c3f092f, 200 s): no STOP; heap 22.06-22.18 / 22.15 MB at the
+  end; the killed enemies recycle and OutPatrol3 respawns, firing, the team follows (Hutchins 16, DiMone 34 from the
+  player).
+- zw (`port/test-hooks/win`): extract valve, mission_complete 0 -> 1, debrief, dlgHype; no STOP.
+- zsr (`port/test-hooks/state`, 8 missions): in use 17,209,428 B at return 1, then 17,209,524 B at returns 2-8;
+  no STOP.
+- z2def (default build, no hooks): boots to dlgMenu (then the attract dlgHype); no STOP.
+
+## Not written / next
+- CAiSBreach (Tick 0x2d8000, GetStatus, OnSignal), AddBreachMember 0x2d3540, OnCommand's breach cases and
+  CSealUnit::IssueCommand's breach part.
+- CAiSDeploy (Tick 0x25d110, CanDeployItem 0x25e190, OnSignal 0x25e290), GetPutativeFirePointW 0x274800, OnCommand
+  DEPLOY 0x281a80, CTFireWeapon Begin / Tick, the kit's deploy-state projectile (+0x54); then their gate entries.
+- The empty task bodies listed under "State"; items 2-5 of the plan as in part 1's list (throw arc, HandleSupport /
+  ConfirmCommand, laser / flashlight, Hang_0, binoculars, the Parse functions, the network group).
