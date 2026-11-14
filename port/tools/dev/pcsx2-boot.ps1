@@ -49,9 +49,11 @@ $area = $screen.WorkingArea
 
 # Close test runs left behind by an earlier call that was cut off before its kill step:
 # only PCSX2 started in batch mode (test runs; the user's own play sessions don't use -batch)
-# and older than 5 minutes.
+# and older than 30 minutes. Each run's own watchdog (below) already ends it at -Seconds + 30, so
+# this is only for a watchdog that died; the limit must stay longer than the longest test run
+# (the 12-minute round trip), or one worker's boot closes another worker's run.
 Get-CimInstance Win32_Process -Filter "Name = 'pcsx2-qt.exe'" -ErrorAction SilentlyContinue |
-    Where-Object { $_.CommandLine -like '*-batch*' -and ((Get-Date) - $_.CreationDate).TotalMinutes -gt 5 } |
+    Where-Object { $_.CommandLine -like '*-batch*' -and ((Get-Date) - $_.CreationDate).TotalMinutes -gt 30 } |
     ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue; "closed stale test run $($_.ProcessId)" }
 
 $prev = [PcsxWin]::GetForegroundWindow()
