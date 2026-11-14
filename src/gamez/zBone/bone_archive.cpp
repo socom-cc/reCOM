@@ -13,6 +13,12 @@
 /* @socom-skeleton stub __dt__14CScriptArchiveFv */
 CScriptArchive::~CScriptArchive()
 {
+	/* 0x1dd420 (static destructor of boneArchive): frees the word after the archive (+0xb0,
+	   bone_archive.cpp line 73; port: not modelled - nothing in the port sets it), empties the
+	   script list, then zBoneUnloadAll. ELF quirk kept: the list is emptied first, so
+	   zBoneUnloadAll deletes none of the scripts. */
+	m_scripts.clear();
+	zBoneUnloadAll();
 }
 
 /* @socom-skeleton stub Fetch__14CScriptArchiveFPCcP10CZSIScriptb */

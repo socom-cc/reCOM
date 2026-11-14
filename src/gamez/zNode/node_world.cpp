@@ -237,11 +237,18 @@ CWorld::CWorld(const char* name)
 		m_lensfx_starlightscope.y = 0.5f;
 		m_lensfx_starlightscope.z = 0.95f;
 
-		/* port: not written - the four 256x256 shadow textures "ShadowX_%d" (new CTexture,
-		   CTexture::LoadGS at zVid+0x48 | 0x80000000, 0x2303c8-0x230448); the shadow maps
-		   (CRenderMap) are unwritten and LoadGS 0x2f9510 is a stub */
+		/* 0x2303c8: the four 256 x 256 render-map textures "ShadowX_<i>" (PSMCT16), one after
+		   the other from the start of the texture area (LoadGS with bit 31: no image, its own
+		   select block) */
+		u32 gsaddr = zVid.textureBaseAddr;
+
 		for (s32 i = 0; i < 4; i++)
-			m_shadowTex[i] = NULL;
+		{
+			char name[32];
+			sprintf(name, "ShadowX_%d", i);
+			m_shadowTex[i] = new CTexture(name);
+			gsaddr += m_shadowTex[i]->LoadGS(gsaddr | 0x80000000, name, NULL, 256, 256, 2);
+		}
 
 		m_shadowTexH = NULL;
 		m_shadow_vector.x = 1.0f;
@@ -277,8 +284,8 @@ zdb::CWorld::~CWorld()
 	delete m_diInt;
 	m_diInt = NULL;
 
-	/* port: guard - the port's constructor does not create the shadow textures or their
-	   handle (see the constructor); the ELF calls SetTexture/Destroy on the handle as is */
+	/* port: guard - a world that was never initialised (Initalize) has no handle; the ELF
+	   calls SetTexture/Destroy on it as is */
 	if (m_shadowTexH != NULL)
 	{
 		m_shadowTexH->SetTexture(NULL);
@@ -344,10 +351,12 @@ bool CWorld::Initalize()
 		m_world->m_gLightColUpdate = true;
 		m_world->m_gLightDirUpdate = true;
 
-		// CTexHandle* handle = CTexHandle::Create(m_shadowTex[0]);
-		// m_shadowTexH = handle;
-
-		// CTexManager::m_texmanager->front()->Add(handle, true);
+		/* 0x22fc48: a handle on the first render-map texture joins the shadow texture buffer
+		   (render phase 15, "TexShadow:A"), whose upload chain is cleared */
+		m_shadowTexH = CTexHandle::Create(m_shadowTex[0]);
+		CGSTexBuffer* buffer = reinterpret_cast<CGSTexBuffer*>(CTexManager::m_texmanager[CTexManager::TexPhase[15][0]]); /* port: see doAddBuffer */
+		buffer->m_dyntex_list.Add(m_shadowTexH, true);
+		buffer->m_chainp = NULL;
 
 		return true;
 	}
@@ -362,8 +371,17 @@ CModel* CWorld::GetModel(const char* name)
 }
 
 /* @socom-skeleton stub AddLightMap__Q23zdb6CWorldFPQ23zdb9CLightMap */
-void zdb::CWorld::AddLightMap(zdb::CLightMap *)
+void zdb::CWorld::AddLightMap(zdb::CLightMap *map)
 {
+	/* 0x22fb20 (render maps, the LIGHT command, the flashlight): a plain light map without a
+	   texture takes the world's light-map texture; appended to the light maps */
+	if (map->m_pTex == NULL && !map->m_isShadow && !map->m_isReflection)
+	{
+		/* port: guard - the ELF reads m_lightMapTexture's texture as is (NULL outside a mission) */
+		map->SetTexture(CVisual::m_lightMapTexture != NULL ? CVisual::m_lightMapTexture->m_texture : NULL);
+	}
+
+	m_lightMaps.insert(m_lightMaps.end(), 1, map);
 }
 
 /* @socom-skeleton stub DeleteLightMap__Q23zdb6CWorldFPQ23zdb9CLightMap */
@@ -374,8 +392,14 @@ void zdb::CWorld::DeleteLightMap(zdb::CLightMap *map)
 }
 
 /* @socom-skeleton stub AddShadow__Q23zdb6CWorldFPQ23zdb5CNode */
-void zdb::CWorld::AddShadow(zdb::CNode *)
+void zdb::CWorld::AddShadow(zdb::CNode *node)
 {
+	/* 0x22f9f0 (CZSealBody::PostCreateSeal): a shadow render map of the node into the next
+	   render-map texture. ELF quirk kept: no bound on the four textures (the callers limit
+	   the shadows) */
+	CTexture* texture = m_shadowTex[m_shadows.size()];
+	CRenderMap* map = new CRenderMap(node, (_tag_render_map_type)0, texture);
+	m_shadows.insert(m_shadows.end(), 1, map);
 }
 
 /* @socom-skeleton body GarbageCollect__Q23zdb6CWorldFv */
@@ -428,10 +452,19 @@ void CWorld::AddChild(CNode* child)
 
 		if (mapped != NULL)
 		{
-			/* port: not written - the render maps (0x22f7c8-0x22f894): m_shadow -> new
-			   CRenderMap(node, shadow, m_shadowTex[m_shadows.size()]), m_reflective -> a
-			   reflection map, each appended to m_shadows. CRenderMap's constructor is a
-			   stub and the shadow textures are not created. */
+			/* 0x22f7c8: a shadow caster gets a shadow render map, a reflective node a
+			   reflection one (type 1), each into the next render-map texture */
+			if (mapped->m_shadow)
+			{
+				CRenderMap* map = new CRenderMap(mapped, (_tag_render_map_type)0, m_shadowTex[m_shadows.size()]);
+				m_shadows.insert(m_shadows.end(), 1, map);
+			}
+
+			if (mapped->m_reflective)
+			{
+				CRenderMap* map = new CRenderMap(mapped, (_tag_render_map_type)1, m_shadowTex[m_shadows.size()]);
+				m_shadows.insert(m_shadows.end(), 1, map);
+			}
 		}
 
 		if (child->m_char_common)

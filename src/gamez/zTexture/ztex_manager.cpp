@@ -683,6 +683,21 @@ void zdb::CTexManager::doDelBuffer(zdb::CGSTexBuffer *buffer)
 /* @socom-skeleton stub WipePktBuf__Q23zdb11CTexManagerFv */
 void zdb::CTexManager::WipePktBuf()
 {
+	/* 0x2fafa0 (CGameMenu::SwitchMenu): every buffer's upload packet released and its
+	   chain pointer cleared (ClearPktBufs for all buffers, NULL entries skipped) */
+	CTexManager& manager = m_texmanager;
+
+	for (u32 i = 0; i < manager.size(); i++)
+	{
+		CGSTexBuffer* buffer = reinterpret_cast<CGSTexBuffer*>(manager[i]); /* port: see doAddBuffer */
+
+		if (buffer != NULL)
+		{
+			buffer->m_pktbuf.clear();
+			std::vector<_word128>().swap(buffer->m_pktbuf);
+			buffer->m_chainp = NULL;
+		}
+	}
 }
 
 /* @socom-skeleton stub doSetupBuffers__Q23zdb11CTexManagerFPCc */

@@ -42,6 +42,8 @@
 #include "graph_route.h"
 #include "graph_tree.h"
 /* @socom-skeleton end include */
+#include <math.h> /* fabs */
+#include <stdlib.h> /* rand */
 
 /* @socom-skeleton stub m_treeEdge__6CGraph */
 int CGraph::m_treeEdge;
@@ -59,41 +61,354 @@ static float _noise;
 static unsigned char _pool[12];
 
 /* @socom-skeleton stub _release_tree__FP6CGTree */
-void _release_tree(CGTree *)
+CGTree * _release_tree(CGTree *tree)
 {
+	/* 0x210b90 (Destroy, through std::transform over a child's children): the subtree freed;
+	   returns NULL (the transform stores it over the entry) */
+	for (std::list<CGTree*>::iterator i = tree->m_children.begin(); i != tree->m_children.end(); ++i)
+	{
+		CGTree::Destroy(*i);
+		*i = NULL;
+	}
+
+	tree->m_children.clear();
+
+	if (tree != NULL)
+		delete tree;
+
+	return NULL;
 }
 
 /* @socom-skeleton stub Destroy__6CGTreeFP6CGTree */
-void CGTree::Destroy(CGTree *)
+void CGTree::Destroy(CGTree *tree)
 {
+	/* 0x210950: each child's children are released (_release_tree), the child deleted and its
+	   entry cleared; then the tree is freed */
+	for (std::list<CGTree*>::iterator i = tree->m_children.begin(); i != tree->m_children.end(); ++i)
+	{
+		CGTree* child = *i;
+
+		for (std::list<CGTree*>::iterator j = child->m_children.begin(); j != child->m_children.end(); ++j)
+			*j = _release_tree(*j);
+
+		child->m_children.clear();
+		delete child;
+		*i = NULL;
+	}
+
+	tree->m_children.clear();
+
+	if (tree != NULL)
+		delete tree;
 }
 
 /* @socom-skeleton stub __dt__6CGTreeFv */
 CGTree::~CGTree()
 {
+	/* 0x2108b0: the child list only (the children are freed by Destroy / _release_tree) */
+	m_children.clear();
 }
 
 /* @socom-skeleton stub RemoveChild__6CGTreeFP6CGTree */
-void CGTree::RemoveChild(CGTree *)
+void CGTree::RemoveChild(CGTree *child)
 {
+	/* 0x210860 */
+	if (child->m_parent != this)
+		return;
+
+	m_children.remove(child);
+	child->m_parent = NULL;
 }
 
 /* @socom-skeleton stub FindNode__6CGTreeFP6CGNode */
-CGNode * CGTree::FindNode(CGNode *)
+CGTree * CGTree::FindNode(CGNode *node)
 {
+	/* 0x210720: the tree entry of the node: this, a child, or (recursively) one under a
+	   child's children */
+	if (m_node == node)
+		return this;
+
+	CGTree* found = NULL;
+
+	for (std::list<CGTree*>::iterator i = m_children.begin(); found == NULL && i != m_children.end(); ++i)
+	{
+		CGTree* child = *i;
+
+		if (child->m_node == node)
+		{
+			found = child;
+			break;
+		}
+
+		CGTree* below = NULL;
+
+		for (std::list<CGTree*>::iterator j = child->m_children.begin(); below == NULL && j != child->m_children.end(); ++j)
+			below = (*j)->FindNode(node);
+
+		found = below;
+	}
+
+	return found;
+}
+
+/* port: no DWARF record for the queue atom: {node, cost} (8 bytes; CGQueueAtom's copy
+   constructor 0x210670); equal atoms are atoms of the same node (remove_if 0x210ca0) */
+namespace {
+struct CGQueueAtom
+{
+	CGNode* m_node;
+	f32 m_cost;
+};
 }
 
 /* @socom-skeleton stub BuildTree__6CGraphFP6CGNodef */
-void CGraph::BuildTree(CGNode *, float)
+CGTree * CGraph::BuildTree(CGNode *start, float)
 {
+	/* 0x210010 (BuildRoute): Dijkstra from start over the edge length times weight (times a
+	 * random factor when _noise is set; it is reset at the end, nothing sets it), on a list
+	 * kept sorted by cost (CGQueue::find 0x2105e0 finds a node's atom). Each node keeps its
+	 * predecessor and its cost (negative while tentative; -1e7 unreached). Then the shortest-
+	 * path tree is built from the predecessors (PopulateTree); it stops at m_treeNode, whose
+	 * entry becomes m_leafTree. The float argument is not read. NULL for no start. ELF quirk
+	 * kept: the edge flag nibble (+0x18 top bits) is cleared and never read. */
+	if (start == NULL)
+		return NULL;
+
+	for (std::list<CGNode*>::iterator i = m_nodes.begin(); i != m_nodes.end(); ++i)
+	{
+		(*i)->m_prev = NULL;
+		(*i)->m_cost = -1e7f;
+	}
+
+	for (std::list<CGEdge*>::iterator i = m_edges.begin(); i != m_edges.end(); ++i)
+		(*i)->m_unk_18 &= 0x0fffffff;
+
+	std::list<CGQueueAtom> queue;
+	CGQueueAtom first = { start, 0.0f };
+	queue.push_back(first);
+
+	while (queue.size() != 0)
+	{
+		std::list<CGQueueAtom>::iterator best = queue.begin();
+
+		for (std::list<CGQueueAtom>::iterator i = best; ++i != queue.end();)
+		{
+			if (i->m_cost < best->m_cost)
+				best = i;
+		}
+
+		CGNode* node = best->m_node;
+		std::list<CGQueueAtom>::iterator i = queue.begin();
+
+		while (i != queue.end())
+		{
+			if (i->m_node == node)
+				i = queue.erase(i);
+			else
+				++i;
+		}
+
+		node->m_cost = -node->m_cost;
+
+		if (1e7f == node->m_cost)
+			node->m_cost = 0.0f;
+
+		for (std::list<CGEdge*>::iterator e = node->m_edges.begin(); e != node->m_edges.end(); ++e)
+		{
+			CGEdge* edge = *e;
+			CGNode* other = edge->m_first == node ? edge->m_second : (edge->m_second == node ? edge->m_first : NULL);
+			f32 cost = (f32)fabs((double)node->m_cost) + edge->m_length * edge->m_weight;
+
+			if (_noise != 0.0f)
+				cost *= _noise * (4.656613e-10f * (f32)rand());
+
+			if (!(other->m_cost < 0.0f))
+				continue;
+
+			bool better = true;
+			std::list<CGQueueAtom>::iterator at = queue.begin();
+
+			while (at != queue.end() && at->m_node != other)
+				++at;
+
+			if (at != queue.end())
+			{
+				better = cost < at->m_cost;
+
+				if (better)
+					at->m_cost = cost;
+			}
+			else
+			{
+				CGQueueAtom atom = { other, cost };
+				std::list<CGQueueAtom>::iterator pos = queue.begin();
+
+				while (pos != queue.end() && !(cost <= pos->m_cost))
+					++pos;
+
+				queue.insert(pos, atom);
+			}
+
+			if (better)
+			{
+				other->m_prev = node;
+				other->m_cost = -cost;
+			}
+		}
+	}
+
+	queue.clear();
+	_noise = 0.0f;
+
+	CGTree* root = new CGTree();
+	root->m_node = start;
+
+	for (std::list<CGNode*>::iterator i = m_nodes.begin(); i != m_nodes.end(); ++i)
+	{
+		CGNode* node = *i;
+
+		if (node->m_prev != root->m_node)
+			continue;
+
+		node->m_prev = NULL;
+		CGTree* tree = new CGTree();
+		tree->m_node = node;
+
+		if (tree->m_parent != NULL)
+			root->m_parent->RemoveChild(tree);
+
+		root->m_children.push_back(tree);
+		tree->m_parent = root;
+
+		if (node == reinterpret_cast<CGNode*>(m_treeNode))
+		{
+			m_leafTree = reinterpret_cast<int>(tree);
+			break;
+		}
+
+		PopulateTree(tree);
+	}
+
+	return root;
 }
 
 /* @socom-skeleton stub PopulateTree__6CGraphFP6CGTree */
-void CGraph::PopulateTree(CGTree *)
+void CGraph::PopulateTree(CGTree *tree)
 {
+	/* 0x20fdb0: the nodes whose predecessor is the tree's node become its children (their
+	 * predecessor cleared), and theirs in turn (one level written out, then recursion); the
+	 * walk ends at m_treeNode (m_leafTree = its entry) */
+	for (std::list<CGNode*>::iterator i = m_nodes.begin(); i != m_nodes.end(); ++i)
+	{
+		CGNode* node = *i;
+
+		if (node->m_prev != tree->m_node)
+			continue;
+
+		node->m_prev = NULL;
+		CGTree* child = new CGTree();
+		child->m_node = node;
+
+		if (child->m_parent != NULL && child->m_parent == tree->m_parent)
+		{
+			tree->m_parent->m_children.remove(child);
+			child->m_parent = NULL;
+		}
+
+		tree->m_children.push_back(child);
+		child->m_parent = tree;
+
+		if (node == reinterpret_cast<CGNode*>(m_treeNode))
+		{
+			m_leafTree = reinterpret_cast<int>(child);
+			return;
+		}
+
+		for (std::list<CGNode*>::iterator j = m_nodes.begin(); j != m_nodes.end(); ++j)
+		{
+			CGNode* sub = *j;
+
+			if (sub->m_prev != child->m_node)
+				continue;
+
+			sub->m_prev = NULL;
+			CGTree* grand = new CGTree();
+			grand->m_node = sub;
+
+			if (grand->m_parent != NULL)
+				child->m_parent->RemoveChild(grand);
+
+			child->m_children.push_back(grand);
+			grand->m_parent = child;
+
+			if (sub == reinterpret_cast<CGNode*>(m_treeNode))
+			{
+				m_leafTree = reinterpret_cast<int>(grand);
+				break;
+			}
+
+			PopulateTree(grand);
+		}
+	}
 }
 
 /* @socom-skeleton stub BuildRoute__6CGraphFP6CGNodeP6CGNodeP7CGRoute */
-void CGraph::BuildRoute(CGNode *, CGNode *, CGRoute *)
+bool CGraph::BuildRoute(CGNode *from, CGNode *to, CGRoute *route)
 {
+	/* 0x20fa60 (CAiMaps::RegisterPathPlan, CAiPath::plan_addleg): the shortest route from
+	 * from to to (BuildTree with to as m_treeNode), start first, into route; the tree is freed.
+	 * false for a missing argument or no tree. ELF quirk kept: a goal the tree does not reach
+	 * gives true with an empty route. */
+	m_treeNode = 0;
+	m_treeEdge = 0;
+	m_leafTree = 0;
+
+	if (from == NULL || to == NULL || route == NULL)
+		return false;
+
+	route->Clear();
+	bool ok = true;
+
+	if (from == to)
+		route->Append(to);
+	else
+	{
+		m_treeNode = reinterpret_cast<int>(to);
+		CGTree* tree = BuildTree(from, 0.0f);
+
+		if (tree == NULL)
+			return false;
+
+		CGTree* leaf = reinterpret_cast<CGTree*>(m_leafTree);
+
+		if (leaf == NULL)
+		{
+			if (tree->m_node == to)
+				leaf = tree;
+			else
+			{
+				for (std::list<CGTree*>::iterator i = tree->m_children.begin(); leaf == NULL && i != tree->m_children.end(); ++i)
+					leaf = (*i)->FindNode(to);
+			}
+		}
+
+		std::list<CGNode*>::iterator pos = route->m_nodes.end();
+
+		for (CGTree* t = leaf; t != NULL; t = t->m_parent)
+			pos = route->m_nodes.insert(pos, t->m_node);
+
+		for (std::list<CGTree*>::iterator i = tree->m_children.begin(); i != tree->m_children.end(); ++i)
+		{
+			CGTree::Destroy(*i);
+			*i = NULL;
+		}
+
+		tree->m_children.clear();
+		delete tree;
+	}
+
+	if (ok)
+		route->PostProcess();
+
+	return ok;
 }

@@ -212,4 +212,41 @@ void CCamera::Update(tag_ZCAM_TYPE type)
 /* @socom-skeleton stub UpdateDirectionalFog__Q23zdb7CCameraFv */
 void zdb::CCamera::UpdateDirectionalFog()
 {
+	/* 0x1e7e60 (Update, directional fog on): the fog colour blended from the +/-x and +/-z
+	   colours by the camera's forward (matrix row 2) x and z, weights normalised to sum 1 */
+	f32 fz = m_matrix.m_matrix[2][2];
+	f32 fx = m_matrix.m_matrix[2][0];
+	const CPnt3D* zcol;
+	const CPnt3D* xcol;
+
+	if (fz < 0.0f)
+	{
+		fz = -fz;
+		zcol = &m_nz_fog_color;
+	}
+	else
+		zcol = &m_pz_fog_color;
+
+	f32 sum = fz;
+
+	if (fx < 0.0f)
+	{
+		sum -= fx;
+		xcol = &m_nx_fog_color;
+		fx = -fx;
+	}
+	else
+	{
+		sum += fx;
+		xcol = &m_px_fog_color;
+	}
+
+	if (sum != 0.0f)
+		sum = 1.0f / sum;
+
+	fx *= sum;
+	fz *= sum;
+	m_fog_color.x = fx * xcol->x + fz * zcol->x;
+	m_fog_color.y = fx * xcol->y + fz * zcol->y;
+	m_fog_color.z = fx * xcol->z + fz * zcol->z;
 }

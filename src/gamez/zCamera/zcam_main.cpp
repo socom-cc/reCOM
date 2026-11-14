@@ -211,6 +211,8 @@ CCamera::CCamera() : CNode()
 /* @socom-skeleton stub __dt__Q23zdb7CCameraFv */
 zdb::CCamera::~CCamera()
 {
+	/* 0x1e76e0: nothing of its own - the two vectors (+0x294 m_lensflare_vec, +0x1e0
+	   m_LensFlareList) and the CNode base are destroyed by the compiler */
 }
 
 /* @socom-skeleton body RegisterAnimCommands__Q23zdb7CCameraFv */

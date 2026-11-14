@@ -95,4 +95,22 @@ bool zBoneLoadAll()
 /* @socom-skeleton stub zBoneUnloadAll__Fv */
 void zBoneUnloadAll()
 {
+	/* 0x1dd520 (~CScriptArchive): the motion data buffer, then every script kept by the
+	   archive (virtual deleting destructor) and the list */
+	if (pBuffer_MotionRdr != NULL)
+	{
+		_free(pBuffer_MotionRdr, "bone_init.cpp", 88);
+		pBuffer_MotionRdr = NULL;
+	}
+
+	if (!boneArchive.m_scripts.empty())
+	{
+		for (std::list<CZSIScript*>::iterator it = boneArchive.m_scripts.begin(); it != boneArchive.m_scripts.end(); ++it)
+		{
+			if (*it != NULL)
+				delete *it;
+		}
+
+		boneArchive.m_scripts.clear();
+	}
 }

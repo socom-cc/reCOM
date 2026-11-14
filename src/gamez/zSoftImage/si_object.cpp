@@ -110,6 +110,8 @@ bool CZSIObject::Read(CZSIScript *script, zar::CZAR &archive)
 /* @socom-skeleton stub __dt__10CZSIObjectFv */
 CZSIObject::~CZSIObject()
 {
+	/* 0x1dddd0 */
+	numSiObject--;
 }
 
 /* @socom-skeleton stub GetVelRaw__10CZSIObjectFP10CZSIScriptiiP6CPnt3D */

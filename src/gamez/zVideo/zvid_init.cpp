@@ -55,6 +55,7 @@
 #include <eeregs.h> /* GS_PMODE, T0_COUNT ... */
 #include <libgraph.h>
 #include <libdma.h>
+#include "gamez/zSystem/zsys_spr.h" /* zSysSprGetPacket, zSysFifoKick (zVid_FrameRestore) */
 
 /* @socom-skeleton stub initcode */
 unsigned char initcode[256] __attribute__((aligned(16))) = {15, 128, 0, 0, 0, 0, 0, 16, 14, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 26, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 70, 0, 0, 0, 0, 0, 0, 0, 100, 100, 100, 0, 0, 0, 0, 0, 61, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 69, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 73, 0, 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 0, 0, 0, 0, 59, 0, 0, 0, 0, 0, 0, 0, 96, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 68, 0, 0, 0, 0, 0, 0, 0, 66, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 74, 0, 0, 0, 0, 0, 0, 0, 13, 0, 5, 0, 0, 0, 0, 0, 71, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 24, 1, 0, 58, 0, 0, 0, 0, 78, 0, 0, 0, 0, 0, 0, 0, 0, 0, 127, 2, 0, 0, 191, 1, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 76, 0, 0, 0, 0, 0, 0, 0, 0, 108, 0, 0, 0, 114, 0, 0, 24, 0, 0, 0, 0, 0, 0, 0};
@@ -489,7 +490,15 @@ void zVid_Swap(bool doSwap)
 /* @socom-skeleton body zVid_FrameRestore__Fv */
 void zVid_FrameRestore()
 {
-
+	/* 0x307b60 (CPipe::RenderWorld after the render maps): the frame setup packet (framecode,
+	   12 qwords: frame buffer, offset, scissor, test) sent again through the FIFO, so drawing
+	   returns to the frame buffer */
+	_word128* p = reinterpret_cast<_word128*>(zSysSprGetPacket(NULL));
+	p[0].u32[0] = 0x3000000c; /* REF 12 */
+	p[0].u32[1] = (u32)framecode;
+	p[0].u32[2] = 0x11000000; /* VIF FLUSH */
+	p[0].u32[3] = 0x5000000c; /* VIF DIRECT 12 */
+	zSysFifoKick(reinterpret_cast<unsigned __int128*>(p), 1);
 }
 
 /* @socom-skeleton body zVid_Assert__FbUiPci */

@@ -19,6 +19,13 @@
 #include "node_shadow.h"
 #include "znode.h"
 /* @socom-skeleton end include */
+#include "node_world.h" /* CWorld::m_world */
+#include "gamez/zSystem/zsys.h" /* _malloc, _free */
+#include "gamez/zSystem/zsys_spr.h" /* zSysSprGetPacket, zSysFifoKick */
+#include <libvu0.h>
+#include <math.h>
+#include <stdio.h>
+#include <string.h>
 /* @socom-skeleton decl forward */
 /* zdb::_tag_render_map_type: an enum declared in node_shadow.h */
 /* @socom-skeleton end forward */
@@ -27,19 +34,259 @@
 static unsigned char shadowTemplate[208] = {12, 128, 0, 0, 0, 0, 0, 16, 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 76, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 71, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 0, 0, 0, 0, 0, 0, 0, 36, 53, 96, 113, 53, 36, 113, 96, 68, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 69, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0};
 
 /* @socom-skeleton stub boxAdjust */
-static float boxAdjust[3];
+static float boxAdjust[3]; /* zero (__sinit_node_shadow.cpp 0x46b5b4 stores zeros) */
 
 /* @socom-skeleton stub __ct__Q23zdb10CRenderMapFPQ23zdb5CNodeQ23zdb20_tag_render_map_typePCQ23zdb8CTexture */
-zdb::CRenderMap::CRenderMap(zdb::CNode *, zdb::_tag_render_map_type, const zdb::CTexture *)
+zdb::CRenderMap::CRenderMap(zdb::CNode *node, zdb::_tag_render_map_type type, const zdb::CTexture *texture)
 {
 	/* @socom-skeleton stub mapNum$1137 */
-	static int mapNum;
+	static int mapNum = 0; /* guarded init (init$1138) */
+	/* 0x22bc30 (CWorld::AddShadow / AddChild): a render map of a node into a GS texture: its
+	 * light map (itself: a shadow map, range 1..30 until Update, off, named render_map_<n>,
+	 * the node as instance) joins the world's light maps; the GS packet that points the frame
+	 * at the texture and clears it (a black sprite over w x w, then the drawing offset centred
+	 * on 2048 and a scissor one pixel in) is copied from shadowTemplate and filled in; the VU
+	 * tags upload the render matrix (VU 4-7) and, for a shadow, the shadow GIF tag (VU 26:
+	 * triangles, Gouraud, alpha blend; ST RGBAQ XYZF2). ELF quirks kept: every map is a shadow
+	 * map (m_isShadow is set again after the type test); the texture is taken as square. */
+	sceVu0UnitMatrix(m_worldToView.m_matrix);
+	sceVu0UnitMatrix(m_viewToScreen.m_matrix);
+	sceVu0UnitMatrix(m_viewToUV.m_matrix);
+	CWorld* world = CWorld::m_world;
+	m_type = (u8)type;
+	m_node = node->m_type == 2 ? node : NULL;
+	m_gsPacket = static_cast<_word128*>(_malloc(208, "node_shadow.cpp", 96));
+	m_texture = texture;
+
+	if (m_type == 0)
+		m_isShadow = 1;
+
+	char name[64];
+	sprintf(name, "render_map_%d", mapNum++);
+	m_lightmap = this;
+	CLightMap* lm = m_lightmap;
+	lm->m_minRange = 1.0f;
+	lm->m_maxRange = 30.0f;
+	lm->m_maxRangeSq = 900.0f;
+	lm->m_invMaxRange = 1.0f / lm->m_maxRange;
+	lm->m_invDeltaRange = 1.0f / (lm->m_maxRange - lm->m_minRange);
+	lm->SetActive(false);
+	m_lightmap->SetTexture(const_cast<CTexture*>(m_texture));
+	m_lightmap->SetName(name);
+	m_lightmap->m_isShadow = 1;
+	m_lightmap->m_instance = node;
+	world->AddLightMap(m_lightmap);
+
+	f32 width = (f32)m_texture->m_width;
+	u32 w = (u32)width;
+	m_screenScale = width - 2.0f;
+	m_uvScale = 1.0f - 1.0f / m_screenScale;
+
+	/* the up vector: the shadow vector crossed with the axis it is least along */
+	sceVu0FVECTOR dir __attribute__((aligned(16)));
+	sceVu0FVECTOR axis __attribute__((aligned(16)));
+	sceVu0FVECTOR other __attribute__((aligned(16)));
+	dir[0] = world->m_shadow_vector.x;
+	dir[1] = world->m_shadow_vector.y;
+	dir[2] = world->m_shadow_vector.z;
+	dir[3] = 0.0f;
+	axis[0] = 0.0f; /* port: zeroed (not seen set in the ELF's stack frame) */
+	axis[1] = 0.0f;
+	axis[2] = 0.0f;
+	axis[3] = 0.0f;
+	s32 least = 0;
+	f32 m = (f32)fabs((double)dir[0]);
+
+	if (fabs((double)dir[1]) < (double)m)
+	{
+		least = 1;
+		m = (f32)fabs((double)dir[1]);
+	}
+
+	if (fabs((double)dir[2]) < (double)m)
+		least = 2;
+
+	axis[least] = 1.0f;
+	f32* up = reinterpret_cast<f32*>(&m_up);
+	sceVu0OuterProduct(up, dir, axis);
+	sceVu0Normalize(up, up);
+	sceVu0OuterProduct(other, up, dir); /* unused */
+
+	m_gsRef.u32[0] = 0x3000000d; /* REF 13 */
+	m_gsRef.u32[1] = (u32)m_gsPacket;
+	m_gsRef.u32[2] = 0x11000000; /* VIF FLUSH */
+	m_gsRef.u32[3] = 0x5000000d; /* VIF DIRECT 13 */
+	memcpy(m_gsPacket, shadowTemplate, 208);
+
+	_word128* gs = m_gsPacket;
+	gs[1].u64[0] = ((u64)m_texture->m_format << 24) | ((u64)(w >> 6) << 16) | (u64)(((u32)m_texture->m_gsaddr << 6) >> 11); /* FRAME_1 */
+	gs[6].u64[0] = ((u64)(w - 1) << 16) | ((u64)(w - 1) << 48); /* SCISSOR_1 0..w-1 */
+	gs[9].u64[0] = 0;                                              /* XYZF2 (0, 0) */
+	gs[10].u64[0] = (u64)(w << 4) | ((u64)(w << 4) << 16);         /* XYZF2 (w, w) */
+	u64 offset = (u64)((2048 - (w >> 1)) << 4);
+	gs[11].u64[0] = offset | (offset << 32);                       /* XYOFFSET_1 */
+	gs[12].u64[0] = 1 | ((u64)1 << 32) | ((u64)(w - 2) << 16) | ((u64)(w - 2) << 48); /* SCISSOR_1 1..w-2 */
+
+	m_viewToScreen.m_matrix[3][0] = 2048.0f;
+	m_viewToScreen.m_matrix[3][1] = 2048.0f;
+	m_viewToScreen.m_matrix[3][2] = 0.0f;
+	m_viewToScreen.m_matrix[3][3] = 1.0f;
+	m_viewToUV.m_matrix[3][0] = 0.5f;
+	m_viewToUV.m_matrix[3][1] = 0.5f;
+	m_viewToUV.m_matrix[3][2] = 0.0f;
+	m_viewToUV.m_matrix[3][3] = 1.0f;
+
+	m_mtxTag.u32[0] = 0x10000004;
+	m_mtxTag.u32[1] = 0;
+	m_mtxTag.u32[2] = 0x01000101;
+	m_mtxTag.u32[3] = 0x6c040004;
+	m_gifTagTag.u32[0] = 0x10000001;
+	m_gifTagTag.u32[1] = 0;
+	m_gifTagTag.u32[2] = 0x01000101;
+	m_gifTagTag.u32[3] = 0x6c01001a;
+
+	if (m_isShadow)
+		m_gifTag.u64[0] = 0x3025c00000008000ull;
+
+	m_gifTag.u64[1] = 0x412;
 }
 
 /* @socom-skeleton stub __dt__Q23zdb10CRenderMapFv */
 zdb::CRenderMap::~CRenderMap()
 {
+	/* 0x22bba0: the light map leaves the world's list, the GS packet is freed */
+	CWorld::m_world->DeleteLightMap(m_lightmap);
+
+	if (m_gsPacket != NULL)
+		_free(m_gsPacket, "node_shadow.cpp", 248);
+
+	m_gsPacket = NULL;
 }
 
 /* @socom-skeleton body Update__Q23zdb10CRenderMapFv */
-void zdb::CRenderMap::Update() {}
+void zdb::CRenderMap::Update()
+{
+	/* 0x22b310 (CPipe::RenderWorld, each frame before the caster is drawn): the caster's
+	 * box (its own or its parents', widened by boxAdjust) sets the light map: range twice the
+	 * box's largest side, position the box centre in world space, direction the world's
+	 * shadow vector. The camera sits at the centre looking along the shadow vector; the box
+	 * corners in its view space give the scale that fits the caster into the texture
+	 * (m_viewToScreen) and into UV 0..1 (m_viewToUV -> the light map's world-to-UV). Then the
+	 * GS packet (frame = the texture, cleared), the render matrix to VU 4 and the shadow GIF
+	 * tag to VU 26 are kicked. ELF quirks kept: min.y is not widened; the view box starts at
+	 * the origin (zero min / max before the corners); the light map's world-to-UV row 3 is
+	 * written with -centre and then overwritten. port: the corners go to a local array (the
+	 * ELF uses the scratchpad's first 128 bytes). */
+	CNode* node = m_node;
+	const CBBox* box;
+
+	if (!node->m_use_parent_bbox)
+		box = &node->m_bbox;
+	else
+	{
+		CNode* parent = node->m_parent;
+		box = parent->m_use_parent_bbox ? parent->m_parent->GetBBox() : &parent->m_bbox;
+	}
+
+	CPnt3D lo(box->m_min.x - boxAdjust[0], box->m_min.y, box->m_min.z - boxAdjust[2]);
+	CPnt3D hi(box->m_max.x + boxAdjust[0], box->m_max.y + boxAdjust[1], box->m_max.z + boxAdjust[2]);
+	CPnt3D size;
+	hi.Sub(&lo, &size);
+	CPnt3D half;
+	size.Scale(0.5f, &half);
+	CPnt3D centre;
+	lo.Add(&half, &centre);
+
+	f32 at[4] __attribute__((aligned(16))) = { centre.x, centre.y, centre.z, 1.0f };
+	f32 cw[4] __attribute__((aligned(16)));
+	sceVu0ApplyMatrix(cw, node->m_matrix.m_matrix, at);
+
+	f32 big = size.x;
+
+	if (big <= size.y)
+		big = size.y;
+
+	if (!(size.z <= big))
+		big = size.z;
+
+	CLightMap* lm = m_lightmap;
+	lm->m_maxRange = 2.0f * big;
+	lm->m_maxRangeSq = lm->m_maxRange * lm->m_maxRange;
+	lm->m_invMaxRange = 1.0f / lm->m_maxRange;
+	lm->m_invDeltaRange = 1.0f / (lm->m_maxRange - lm->m_minRange);
+	lm->SetActive(false);
+
+	CPnt3D& sv = CWorld::m_world->m_shadow_vector;
+	sceVu0FVECTOR dir __attribute__((aligned(16))) = { sv.x, sv.y, sv.z, 0.0f };
+	lm->m_worldToUV.m_matrix[3][0] = -cw[0];
+	lm->m_worldToUV.m_matrix[3][1] = -cw[1];
+	lm->m_worldToUV.m_matrix[3][2] = -cw[2];
+	lm->SetPosition(cw[0], cw[1], cw[2]);
+	lm->m_dir.x = dir[0];
+	lm->m_dir.y = dir[1];
+	lm->m_dir.z = dir[2];
+	lm->m_dir.w = dir[3];
+
+	sceVu0FVECTOR pos __attribute__((aligned(16))) = { cw[0], cw[1], cw[2], 0.0f };
+	sceVu0CameraMatrix(m_worldToView.m_matrix, pos, dir, reinterpret_cast<f32*>(&m_up));
+
+	CMatrix modelToView;
+	sceVu0MulMatrix(modelToView.m_matrix, m_worldToView.m_matrix, node->m_matrix.m_matrix);
+
+	f32 corner[8][4] __attribute__((aligned(16))) = {
+		{ lo.x, lo.y, hi.z, 1.0f }, { lo.x, lo.y, lo.z, 1.0f }, { hi.x, lo.y, lo.z, 1.0f }, { hi.x, lo.y, hi.z, 1.0f },
+		{ lo.x, hi.y, hi.z, 1.0f }, { lo.x, hi.y, lo.z, 1.0f }, { hi.x, hi.y, lo.z, 1.0f }, { hi.x, hi.y, hi.z, 1.0f },
+	};
+	CPnt3D vmin = CPnt3D::zero;
+	CPnt3D vmax = CPnt3D::zero;
+
+	for (s32 i = 0; i < 8; i++)
+	{
+		f32 v[4] __attribute__((aligned(16)));
+		sceVu0ApplyMatrix(v, modelToView.m_matrix, corner[i]);
+		vmin.x = v[0] <= vmin.x ? v[0] : vmin.x;
+		vmin.y = v[1] <= vmin.y ? v[1] : vmin.y;
+		vmin.z = v[2] <= vmin.z ? v[2] : vmin.z;
+		vmax.x = v[0] < vmax.x ? vmax.x : v[0];
+		vmax.y = v[1] < vmax.y ? vmax.y : v[1];
+		vmax.z = v[2] < vmax.z ? vmax.z : v[2];
+	}
+
+	CPnt3D ext;
+	vmax.Sub(&vmin, &ext);
+	static bool method1 = false; /* guarded init (init$1162); never set */
+	f32 sx, sy;
+
+	if (method1)
+	{
+		sx = 1.0f / size.y;
+		sy = 1.0f / size.z;
+	}
+	else
+	{
+		f32 e = ext.x;
+
+		if (e <= ext.y)
+			e = ext.y;
+
+		if (!(ext.z <= e))
+			e = ext.z;
+
+		sx = 1.0f / e;
+		sy = sx;
+	}
+
+	m_viewToScreen.m_matrix[0][0] = m_screenScale * sx;
+	m_viewToScreen.m_matrix[1][1] = m_screenScale * sy;
+	m_viewToUV.m_matrix[0][0] = m_uvScale * sx;
+	m_viewToUV.m_matrix[1][1] = m_uvScale * sy;
+	sceVu0MulMatrix(m_lightmap->m_worldToUV.m_matrix, m_viewToUV.m_matrix, m_worldToView.m_matrix);
+
+	_word128* p = reinterpret_cast<_word128*>(zSysSprGetPacket(NULL));
+	p[0] = m_gsRef;
+	p[1] = m_mtxTag;
+	sceVu0MulMatrix(reinterpret_cast<sceVu0FVECTOR*>(p[2].f32), m_viewToScreen.m_matrix, m_worldToView.m_matrix);
+	p[6] = m_gifTagTag;
+	p[7] = m_gifTag;
+	zSysFifoKick(reinterpret_cast<unsigned __int128*>(p), 8);
+}

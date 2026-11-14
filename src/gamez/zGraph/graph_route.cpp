@@ -15,24 +15,32 @@
 /* @socom-skeleton stub __ct__7CGRouteFv */
 CGRoute::CGRoute()
 {
+	/* 0x20f910: the list only */
 }
 
 /* @socom-skeleton stub __dt__7CGRouteFv */
 CGRoute::~CGRoute()
 {
+	/* 0x20f870 */
+	m_nodes.clear();
 }
 
 /* @socom-skeleton stub Append__7CGRouteFP6CGNode */
-void CGRoute::Append(CGNode *)
+void CGRoute::Append(CGNode *node)
 {
+	/* 0x20f820 */
+	m_nodes.push_back(node);
 }
 
 /* @socom-skeleton stub Clear__7CGRouteFv */
 void CGRoute::Clear()
 {
+	/* 0x20f7e0 */
+	m_nodes.clear();
 }
 
 /* @socom-skeleton stub PostProcess__7CGRouteFv */
 void CGRoute::PostProcess()
 {
+	/* 0x20f7d0: empty in the ELF */
 }

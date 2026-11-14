@@ -22,7 +22,7 @@ public:
 	void PopulateTree(CGTree* tree);
 
 	CGEdge* CreateEdge(CGNode* first, CGNode* second);
-	CGEdge* FindEdge(CGNode* first, CGNode* second);
+	CGEdge* FindEdge(CGNode* first, CGNode* second); /* either direction */
 
 	CGNode* CreateNode(const char* name);
 	CGNode* GetNodeByIndex(u32 index);
@@ -33,8 +33,8 @@ public:
 	static void Destroy(CGraph *);
 	void DeleteNode(CGNode *);
 	CGNode * GetNodeByNodeEx(const void *); /* 0x20e8b0 */
-	void BuildTree(CGNode *, float);
-	void BuildRoute(CGNode *, CGNode *, CGRoute *);
+	CGTree * BuildTree(CGNode *, float); /* returns the tree (0x210594) */
+	bool BuildRoute(CGNode *, CGNode *, CGRoute *); /* bool: 0x20fcf0 */
 	static int m_leafTree;
 	static int m_treeEdge;
 	static int m_treeNode;

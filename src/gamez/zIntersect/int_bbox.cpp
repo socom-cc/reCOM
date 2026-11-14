@@ -31,11 +31,12 @@
 unsigned char initCDIBBoxOnce;
 
 /* @socom-skeleton stub bbox_poly */
-int bbox_poly[6];
+zdb::CDIPoly* bbox_poly[6]; /* SetCDIBBox's six unit-cube faces (nothing reads them) */
 
 /* @socom-skeleton stub __ct__Q23zdb7CDIPolyFv */
 zdb::CDIPoly::CDIPoly()
 {
+	/* 0x21e490: the CDI base and the vtable only */
 }
 
 /* @socom-skeleton stub __dt__Q23zdb7CDIPolyFv */
@@ -334,6 +335,23 @@ bool zdb::CDIPoly::GetIntersect(zdb::DiIntersect *di)
 /* @socom-skeleton stub SetEdgeVecsAndNorm__Q23zdb3CDIFv */
 void zdb::CDI::SetEdgeVecsAndNorm()
 {
+	/* 0x21d840 (Particle::Source::GetBBox): the plane normal of the first three points,
+	   (p1 - p0) x (p2 - p0) normalised (VU0 library, w 1 inputs), w 0 */
+	CPnt3D e1, e2;
+	reinterpret_cast<const CPnt3D*>(&m_pts[1])->Sub(reinterpret_cast<const CPnt3D*>(&m_pts[0]), &e1);
+	reinterpret_cast<const CPnt3D*>(&m_pts[2])->Sub(reinterpret_cast<const CPnt3D*>(&m_pts[0]), &e2);
+
+	sceVu0FVECTOR a __attribute__((aligned(16)));
+	sceVu0FVECTOR b __attribute__((aligned(16)));
+	sceVu0FVECTOR n __attribute__((aligned(16)));
+	a[0] = e1.x; a[1] = e1.y; a[2] = e1.z; a[3] = 1.0f;
+	b[0] = e2.x; b[1] = e2.y; b[2] = e2.z; b[3] = 1.0f;
+	sceVu0OuterProduct(n, a, b);
+	sceVu0Normalize(n, n);
+	m_nrm.x = n[0];
+	m_nrm.y = n[1];
+	m_nrm.z = n[2];
+	m_nrm.w = 0.0f;
 }
 
 /* @socom-skeleton stub GetAltitude__Q23zdb7CDIBBoxFPQ23zdb11DiIntersect */
@@ -413,4 +431,36 @@ bool zdb::CDIBBox::GetIntersect(zdb::DiIntersect *di)
 /* @socom-skeleton stub SetCDIBBox__Q23zdb7CDIBBoxFv */
 void zdb::CDIBBox::SetCDIBBox()
 {
+	/* 0x21c7f0 (CMission::Init, CZSealBody ctor), once: six CDIPolys, the faces of the unit
+	   cube about the origin (4 points each, ditype 2), with their plane normals
+	   (CPnt3D::Cross of p1 - p0 and p2 - p0, normalised; w 0). The ELF unrolls every face. */
+	if (initCDIBBoxOnce)
+		return;
+
+	initCDIBBoxOnce = 1;
+
+	static const f32 corner[8][3] = {
+		{ -0.5f, -0.5f, 0.5f }, { -0.5f, -0.5f, -0.5f }, { 0.5f, -0.5f, -0.5f }, { 0.5f, -0.5f, 0.5f },
+		{ -0.5f, 0.5f, 0.5f }, { -0.5f, 0.5f, -0.5f }, { 0.5f, 0.5f, -0.5f }, { 0.5f, 0.5f, 0.5f },
+	};
+	static const u8 face[6][4] = {
+		{ 7, 6, 5, 4 }, { 0, 3, 7, 4 }, { 2, 6, 7, 3 }, { 5, 6, 2, 1 }, { 4, 5, 1, 0 }, { 0, 1, 2, 3 },
+	};
+
+	for (int f = 0; f < 6; f++)
+	{
+		CDIPoly* poly = new CDIPoly();
+		bbox_poly[f] = poly;
+		poly->Allocate(4);
+		poly->m_ditype = 2;
+
+		for (int p = 0; p < 4; p++)
+			memcpy(&poly->m_pts[p], corner[face[f][p]], 12);
+
+		CPnt3D e1, e2, n;
+		reinterpret_cast<const CPnt3D*>(&poly->m_pts[1])->Sub(reinterpret_cast<const CPnt3D*>(&poly->m_pts[0]), &e1);
+		reinterpret_cast<const CPnt3D*>(&poly->m_pts[2])->Sub(reinterpret_cast<const CPnt3D*>(&poly->m_pts[0]), &e2);
+		e1.Cross(&e2, &n, true);
+		poly->m_nrm = CPnt4D(n.x, n.y, n.z, 0.0f);
+	}
 }

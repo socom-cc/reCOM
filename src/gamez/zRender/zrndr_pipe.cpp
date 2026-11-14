@@ -181,6 +181,19 @@ CPipe::CPipe()
 /* @socom-skeleton stub __dt__5CPipeFv */
 CPipe::~CPipe()
 {
+	/* 0x2462e0 (thePipe's static destructor; never runs on the PS2): the opacity stack and,
+	   for the alpha pass (CAlpha's destructor, inlined), the cursor back to the first record,
+	   the draw list and texture lists emptied and the 2000 records freed; the vectors and
+	   lists themselves are destroyed by the compiler */
+	if (m_opacity_stack != NULL)
+		_free(m_opacity_stack, "zrndr_pipe.cpp", 128);
+
+	m_DelayedNodes.clear();
+	m_alpha.m_next = m_alpha.m_visualList;
+	m_alpha.m_drawList.clear();
+	m_alpha.m_dyntexlist.m_tex_list.clear();
+	m_alpha.m_dyntexlist.m_pal_list.clear();
+	_free(m_alpha.m_visualList, "zrndr_pipe.cpp", 2276);
 }
 
 /* @socom-skeleton stub InterruptFromVIF1__Fi */
@@ -291,6 +304,9 @@ void CPipe::Init()
 /* @socom-skeleton stub Uninit__5CPipeFv */
 void CPipe::Uninit()
 {
+	/* 0x245fa0 (CGame::StopEngine): the VIF1 interrupt handler CPipe::Init installed */
+	DisableIntc(5);
+	RemoveIntcHandler(5, VifHandlerID);
 }
 
 /* @socom-skeleton body Flush__5CPipeFv */
@@ -359,8 +375,16 @@ void CPipe::Flush()
 }
 
 /* @socom-skeleton stub RenderLineWorld__F6CPnt4D6CPnt4D6CPnt4D6CPnt4D */
-void RenderLineWorld(CPnt4D, CPnt4D, CPnt4D, CPnt4D)
+/* zTwoD/c2dline.cpp (no header declares them) */
+bool clip3DLine(CPnt4D *planes, CPnt4D *p1, CPnt4D *p2);
+void Draw3DLine(CPnt4D *p0, CPnt4D *p1, CPnt4D *c0, CPnt4D *c1);
+
+void RenderLineWorld(CPnt4D p0, CPnt4D p1, CPnt4D c0, CPnt4D c1)
 {
+	/* 0x245930 (ai DrawLine / LineTo, debug lines): a world line clipped to the world
+	   camera's clip planes, then drawn with its two colours */
+	if (clip3DLine(&zdb::CWorld::m_world->m_camera->m_ClipSet.ViewPlanePoint, &p0, &p1))
+		Draw3DLine(&p0, &p1, &c0, &c1);
 }
 
 /* @socom-skeleton body RenderAtom__5CPipeFPQ23zdb5CNode */
@@ -1348,15 +1372,112 @@ void CPipe::RenderDelayedNodes()
 }
 
 /* @socom-skeleton stub RenderNodeShadow__5CPipeFPQ23zdb5CNode */
-void CPipe::RenderNodeShadow(zdb::CNode *)
+void CPipe::RenderNodeShadow(zdb::CNode *node)
 {
+	/* 0x242b70 (RenderWorld, a render map's caster without a mesh): an active node with
+	   visuals is drawn into the render map (the pass state set by RenderWorld: m_renderMap,
+	   no lighting or fog) with its stack matrix - each visual outside its LOD band skipped -
+	   then its children. ELF quirk kept: a node without visuals ends the walk (children
+	   included). */
+	if (!node->m_active || !node->m_hasVisuals)
+		return;
+
+	CMatrix* matrix = stack.Multiply(&node->m_matrix, true);
+
+	if (node->GetFirstVisual() != NULL)
+	{
+		zdb::CVisual::NodeSetup(m_node, node, matrix, 1);
+
+		for (u32 i = 0; i < node->m_visual.size(); i++)
+		{
+			zdb::CVisual* visual = node->m_visual[i];
+			u32 band = visual->m_lod_band;
+
+			if (band != 0)
+			{
+				zdb::CLOD_band* lod = NULL;
+
+				if (band <= m_world->m_LOD_Object.size())
+					lod = &m_world->m_LOD_Object[band - 1];
+
+				if (lod != NULL)
+				{
+					f32 opacity;
+					f32 range = m_camera->GetScaledRangeSquared(reinterpret_cast<CPnt3D*>(matrix->m_matrix[3]));
+
+					if (!visual->DrawLOD(lod, range, &opacity))
+						continue;
+				}
+			}
+
+			visual->Render(matrix);
+		}
+	}
+
+	for (u32 i = 0; i < node->m_child.size(); i++)
+		RenderNodeShadow(node->m_child[i]);
+
+	CStack::m_pointer--; /* the ELF tests node != NULL here */
+	CStack::m_top--;
 }
 
 /* @socom-skeleton stub RenderMeshShadow__5CPipeFPQ23zdb5CNodePQ23zdb5CMeshP7CMatrix */
-void CPipe::RenderMeshShadow(zdb::CNode *, zdb::CMesh *, CMatrix *)
+void CPipe::RenderMeshShadow(zdb::CNode *node, zdb::CMesh *mesh, CMatrix *mvp)
 {
 	/* @socom-skeleton stub shadowLOD$2090 */
-	static int shadowLOD;
+	static int shadowLOD = 1; /* guarded init (init$2091) */
+	/* 0x242920 (RenderWorld, a render map's caster with a mesh): as RenderMesh without the
+	   FOV, region and opacity work: sub-mesh nodes write their stack matrices (uncached)
+	   into the mesh's matrix palette and recurse, other children are drawn by
+	   RenderNodeShadow with mvp * the stack top; the mesh itself last, at LOD shadowLOD (1),
+	   with its node's matrix (an identity is pushed around it, unused). */
+	zdb::CMesh* own = node->GetMesh();
+	node->GetFirstVisual(); /* result unused in the ELF */
+	zdb::CSubMesh* sub = node->GetSubMesh();
+	CMatrix* matrix = stack.Multiply(&node->m_matrix, true);
+
+	if (own != NULL)
+	{
+		CStack::m_top++;
+		CStack::m_pointer++;
+		sceVu0CopyMatrix(CStack::m_top->m_matrix, const_cast<f32(*)[4]>(CMatrix::identity.m_matrix));
+		mesh = own;
+		mvp = matrix;
+	}
+
+	if (sub != NULL)
+		sceVu0CopyMatrix(reinterpret_cast<f32(*)[4]>(reinterpret_cast<u32>(mesh->m_matrices[sub->m_matrix_id]) | 0x20000000), matrix->m_matrix);
+
+	for (u32 i = 0; i < node->m_child.size(); i++)
+	{
+		zdb::CNode* child = node->m_child[i];
+
+		if (child->GetSubMesh() != NULL)
+			RenderMeshShadow(child, mesh, mvp);
+		else
+		{
+			CMatrix m;
+			sceVu0MulMatrix(m.m_matrix, mvp->m_matrix, CStack::m_top->m_matrix);
+			CStack::m_top++;
+			CStack::m_pointer++;
+			sceVu0CopyMatrix(CStack::m_top->m_matrix, m.m_matrix);
+			RenderNodeShadow(child);
+			CStack::m_pointer--;
+			CStack::m_top--;
+		}
+	}
+
+	if (own != NULL)
+	{
+		zdb::CVisual::NodeSetup(m_node, node, matrix, 1);
+		own->SetLOD(0, (unsigned int)shadowLOD);
+		own->Render(matrix);
+		CStack::m_pointer--;
+		CStack::m_top--;
+	}
+
+	CStack::m_pointer--; /* the ELF tests node != NULL here */
+	CStack::m_top--;
 }
 
 /* @socom-skeleton body RenderVisual__5CPipeFPQ23zdb5CNodeQ23zdb12tag_ZVIS_FOV */

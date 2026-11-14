@@ -721,8 +721,33 @@ void zdb::CVisual::Flush()
 }
 
 /* @socom-skeleton stub GetTextureSelectBlock__Q23zdb7CVisualFUiPP8_word128P8_word128P8_word128 */
-_word128 * zdb::CVisual::GetTextureSelectBlock(unsigned int, _word128 **, _word128 *, _word128 *)
+_word128 * zdb::CVisual::GetTextureSelectBlock(unsigned int qwc, _word128 **select, _word128 *dmaRef, _word128 *dmaRefVu)
 {
+	/* 0x30da60 (CTexture::SetupSpecialTextures): GetTextureSelectBlock_ver2 on a block of its
+	 * own - a zeroed header qword, the qwc-qword select block (*select) and the MSCALF qword
+	 * after it, allocated here (calloc, freed by the texture) */
+	_word128* header = static_cast<_word128*>(_calloc(1, (qwc + 2) * 16, "vis_main.cpp", 519));
+
+	*select = header + 1;
+	header->u8[12] = (header->u8[12] & ~2) | 2;
+
+	_word128* after = *select + qwc;
+	after->u32[0] = 0x15000000;
+	after->u32[1] = 0;
+	after->u32[2] = 0;
+	after->u32[3] = 0;
+
+	dmaRef->u32[0] = qwc | 0x30000000;
+	dmaRef->u32[1] = (u32)*select;
+	dmaRef->u32[2] = 0x11000000;
+	dmaRef->u32[3] = qwc | 0x50000000;
+
+	dmaRefVu->u32[0] = (qwc + 2) | 0x30000000;
+	dmaRefVu->u32[1] = (u32)header;
+	dmaRefVu->u32[2] = 0x01000101;
+	dmaRefVu->u32[3] = ((qwc + 1) << 16) | 0x6c008000;
+
+	return header;
 }
 
 /* @socom-skeleton stub GetTextureSelectBlock_ver2__Q23zdb7CVisualFUiPP8_word128P8_word128P8_word128 */
@@ -1018,11 +1043,16 @@ u32 CVisual::Release()
 /* @socom-skeleton stub ComputeBBox__Q23zdb7CVisualFP5CBBox */
 void zdb::CVisual::ComputeBBox(CBBox *)
 {
+	/* 0x30d280: empty in the ELF (CMesh has its own) */
 }
 
 /* @socom-skeleton stub UpdateCentroid__Q23zdb7CVisualFv */
 void zdb::CVisual::UpdateCentroid()
 {
+	/* 0x30d270 */
+	m_centroid.x = 0.0f;
+	m_centroid.y = 0.0f;
+	m_centroid.z = 0.0f;
 }
 
 /* @socom-skeleton body Read__Q23zdb7CVisualFRQ23zar4CZAR */
@@ -1068,8 +1098,11 @@ bool CVisual::Read(zar::CZAR& archive)
 }
 
 /* @socom-skeleton stub Write__Q23zdb7CVisualFRQ23zar4CZAR */
-void zdb::CVisual::Write(zar::CZAR &)
+bool zdb::CVisual::Write(zar::CZAR &archive)
 {
+	/* 0x30d100: the 24-byte "vparams" record (no caller writes visuals in the game) */
+	archive.Insert("vparams", static_cast<tag_VIS_PARAMS*>(this), sizeof(tag_VIS_PARAMS));
+	return true;
 }
 
 /* @socom-skeleton body DrawLOD__Q23zdb7CVisualFPQ23zdb9CLOD_bandfPf */
@@ -1686,13 +1719,91 @@ _word128 * zdb::CVisual::VuDetailMap(_word128 *p, zdb::tag_DETAIL_PARAMS *detail
 }
 
 /* @socom-skeleton stub VuLightMap__Q23zdb7CVisualFP8_word128 */
-_word128 * zdb::CVisual::VuLightMap(_word128 *)
+_word128 * zdb::CVisual::VuLightMap(_word128 *p)
 {
+	/* 0x30ba40 (multipass entries, VU1 MP_LIGHT_MAP0/1): the first light map's texture select
+	 * (its qword 1 low word becomes the light map's ALPHA_1 value; SaveTextureSelect queues
+	 * the select for the object packet), 6 qwords; then per light map (the first included)
+	 * 3 qwords: its position in model space (w 1), {-, 1 / max range, max range,
+	 * 1 / delta range}, {diffuse rgb, opacity}. Stops short of m_sprEndOfMP (9 qwords for
+	 * the first, 3 for each). */
+	if (m_sprEndOfMP < p + 9)
+		return p;
+
+	CLightMapVector::iterator it = m_lightMapList.begin();
+	CLightMap* first = *it;
+	first->m_pTex->CopyTextureSelect(p);
+	p[1].u64[0] = first->m_blendmode.m_alphaWORD;
+	/* port: the ELF queues the select for the object packet here (SaveTextureSelect: the
+	   texture's current TEX0 and the ALPHA qword, unpacked over this copy by VuExecuteState0).
+	   With it the first light map (a muzzle flash) intermittently jams the GIF path in PCSX2
+	   (VU1 kicks an oversized GS packet: runs rn5 / rn7, HEAD 0266b548; cause not found); the
+	   copy above, already carrying the blend mode, is used as is. */
+	p += 6;
+
+	for (; it != m_lightMapList.end(); ++it)
+	{
+		if (m_sprEndOfMP < p + 3)
+			break;
+
+		CLightMap* lm = *it;
+		f32 pos[4] __attribute__((aligned(16)));
+		pos[0] = lm->m_matrix.m_matrix[3][0];
+		pos[1] = lm->m_matrix.m_matrix[3][1];
+		pos[2] = lm->m_matrix.m_matrix[3][2];
+		pos[3] = 1.0f;
+		sceVu0ApplyMatrix(p[0].f32, m_WorldToModel.m_matrix, pos);
+		p[1].f32[1] = lm->m_invMaxRange;
+		p[1].f32[2] = lm->m_maxRange;
+		p[1].f32[3] = lm->m_invDeltaRange;
+		p[2].f32[0] = lm->m_diffuse.x;
+		p[2].f32[1] = lm->m_diffuse.y;
+		p[2].f32[2] = lm->m_diffuse.z;
+		p[2].f32[3] = lm->m_opacity;
+		p += 3;
+	}
+
+	return p;
 }
 
 /* @socom-skeleton stub VuShadowMap__Q23zdb7CVisualFP8_word128 */
-_word128 * zdb::CVisual::VuShadowMap(_word128 *)
+_word128 * zdb::CVisual::VuShadowMap(_word128 *p)
 {
+	/* 0x30b860 (multipass entries, VU1 MP_SHADOW_MAP0/1): 14 qwords per shadow map: its
+	 * texture's select block (6 qwords: a CTexture::SetupSpecialTextures block), the world-to-UV
+	 * matrix times ModelToWorld (qwords 6-9), its position (w 1) and direction in model space
+	 * (10, 11), {-, -, max range, 1 / delta range}, {diffuse rgb, opacity}. Stops short of
+	 * m_sprEndOfMP. */
+	for (CLightMapVector::iterator it = m_shadowMapList.begin(); it != m_shadowMapList.end(); ++it)
+	{
+		if (m_sprEndOfMP < p + 14)
+			break;
+
+		CLightMap* sm = *it;
+		sm->m_pTex->CopyTextureSelect(p);
+		f32 pos[4] __attribute__((aligned(16)));
+		pos[0] = sm->m_matrix.m_matrix[3][0];
+		pos[1] = sm->m_matrix.m_matrix[3][1];
+		pos[2] = sm->m_matrix.m_matrix[3][2];
+		pos[3] = 1.0f;
+		sceVu0ApplyMatrix(p[10].f32, m_WorldToModel.m_matrix, pos);
+		f32 dir[4] __attribute__((aligned(16)));
+		dir[0] = sm->m_dir.x;
+		dir[1] = sm->m_dir.y;
+		dir[2] = sm->m_dir.z;
+		dir[3] = sm->m_dir.w;
+		sceVu0ApplyMatrix(p[11].f32, m_WorldToModel.m_matrix, dir);
+		sceVu0MulMatrix(reinterpret_cast<sceVu0FVECTOR*>(p[6].f32), sm->m_worldToUV.m_matrix, m_ModelToWorld->m_matrix);
+		p[12].f32[2] = sm->m_maxRange;
+		p[12].f32[3] = sm->m_invDeltaRange;
+		p[13].f32[0] = sm->m_diffuse.x;
+		p[13].f32[1] = sm->m_diffuse.y;
+		p[13].f32[2] = sm->m_diffuse.z;
+		p[13].f32[3] = sm->m_opacity;
+		p += 14;
+	}
+
+	return p;
 }
 
 /* @socom-skeleton stub VuExecuteState0__Q23zdb7CVisualFP8_word128P8_word128 */

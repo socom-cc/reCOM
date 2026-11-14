@@ -116,8 +116,13 @@ CTexture::~CTexture()
 }
 
 /* @socom-skeleton stub SetName__Q23zdb8CTextureFPCc */
-void zdb::CTexture::SetName(const char *)
+void zdb::CTexture::SetName(const char *name)
 {
+	/* 0x2f8d30 */
+	if (m_name != NULL && m_name != UNNAMED_TEX)
+		_free(m_name, "ztex_main.cpp", 305);
+
+	m_name = name ? _strdup(name, "ztex_main.cpp", 306) : (char*)UNNAMED_TEX;
 }
 
 /* @socom-skeleton stub Compute64WordMemoryUsage__Q23zdb8CTextureFv */

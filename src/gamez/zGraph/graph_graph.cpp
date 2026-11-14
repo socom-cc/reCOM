@@ -137,7 +137,7 @@ void CGraph::Destroy(CGraph *graph)
 
 	graph->m_nodes.clear();
 	graph->m_edges.clear();
-	delete graph; /* port: ~CGraph (stub) frees nothing more; the ELF destroys the lists inline */
+	delete graph; /* the ELF destroys the lists inline; ~CGraph finds them empty */
 }
 
 /* @socom-skeleton body __ct__6CGraphFPCc */
@@ -155,6 +155,31 @@ CGraph::CGraph(const char *name)
 /* @socom-skeleton stub __dt__6CGraphFv */
 CGraph::~CGraph()
 {
+	/* 0x20ed10 (Create when Read fails; Destroy): the name, every node and edge (virtual
+	   destructors), then both lists */
+	if (m_name != NULL)
+		_free(m_name, "graph_graph.cpp", 52);
+
+	m_name = NULL;
+
+	for (std::list<CGNode*>::iterator i = m_nodes.begin(); i != m_nodes.end(); ++i)
+	{
+		if (*i != NULL)
+			delete *i;
+
+		*i = NULL;
+	}
+
+	for (std::list<CGEdge*>::iterator i = m_edges.begin(); i != m_edges.end(); ++i)
+	{
+		if (*i != NULL)
+			delete *i;
+
+		*i = NULL;
+	}
+
+	m_nodes.clear();
+	m_edges.clear();
 }
 
 /* @socom-skeleton body CreateNode__6CGraphFPCc */
@@ -167,8 +192,31 @@ CGNode * CGraph::CreateNode(const char *name)
 }
 
 /* @socom-skeleton stub DeleteNode__6CGraphFP6CGNode */
-void CGraph::DeleteNode(CGNode *)
+void CGraph::DeleteNode(CGNode *node)
 {
+	/* 0x20eb10 (CAiMaps::RegisterPathPlan's temporary nodes): each of its edges leaves the
+	   other end's list and the graph's and is deleted; then the node leaves the graph and is
+	   deleted (virtual). ELF quirk kept: the other end is not NULL-tested. */
+	if (node != NULL)
+	{
+		for (std::list<CGEdge*>::iterator i = node->m_edges.begin(); i != node->m_edges.end(); ++i)
+		{
+			CGEdge* edge = *i;
+			CGNode* other = edge->m_first == node ? edge->m_second : (edge->m_second == node ? edge->m_first : NULL);
+			other->m_edges.remove(edge);
+			edge->m_first = NULL;
+			edge->m_second = NULL;
+			m_edges.remove(edge);
+			CGEdge::Delete(edge);
+		}
+
+		node->m_edges.clear();
+	}
+
+	m_nodes.remove(node);
+
+	if (node != NULL)
+		delete node;
 }
 
 /* @socom-skeleton body CreateEdge__6CGraphFP6CGNodeP6CGNode */
@@ -218,6 +266,17 @@ CGNode * CGraph::GetNodeByNodeEx(const void *nodeEx)
 }
 
 /* @socom-skeleton stub FindEdge__6CGraphFP6CGNodeP6CGNode */
-CGEdge * CGraph::FindEdge(CGNode *, CGNode *)
+CGEdge * CGraph::FindEdge(CGNode *first, CGNode *second)
 {
+	/* 0x20e7c0 (CAiPath::plan_addleg): the graph's edge joining the two nodes, either way */
+	for (std::list<CGEdge*>::iterator i = m_edges.begin(); i != m_edges.end(); ++i)
+	{
+		CGEdge* edge = *i;
+		CGNode* other = edge->m_first == first ? edge->m_second : (edge->m_second == first ? edge->m_first : NULL);
+
+		if (other == second)
+			return edge;
+	}
+
+	return NULL;
 }

@@ -18,18 +18,123 @@ int CTexture::m_freeAfterLoad;
 }
 
 /* @socom-skeleton stub po2__FUi */
-unsigned int po2(unsigned int)
+unsigned int po2(unsigned int n)
 {
+	/* 0x2f9600: the TEX0 TW / TH exponent of a size: the smallest e (1..9) with n <= 2^e,
+	   else 10 */
+	if (n < 3)
+		return 1;
+	if (n < 5)
+		return 2;
+	if (n < 9)
+		return 3;
+	if (n < 17)
+		return 4;
+	if (n < 33)
+		return 5;
+	if (n < 65)
+		return 6;
+	if (n < 129)
+		return 7;
+	if (n < 257)
+		return 8;
+	if (n < 513)
+		return 9;
+	return 10;
 }
 
 /* @socom-skeleton stub LoadGS__Q23zdb8CTextureFUiPcPvUiUiUi */
-void zdb::CTexture::LoadGS(unsigned int, char *, void *, unsigned int, unsigned int, unsigned int)
+unsigned int zdb::CTexture::LoadGS(unsigned int gsaddr, char *name, void *buffer, unsigned int width, unsigned int height, unsigned int format)
 {
+	/* 0x2f9510 (CWorld ctor: the render-map textures "ShadowX_%d" / "ReflectionX_%d"): a
+	   texture made in GS memory at gsaddr (block address, low 14 bits); its select block is
+	   built for an address with bit 31 set or below the texture area (SetupSpecialTextures).
+	   Returns its size in 64-word blocks. */
+	m_buffer = buffer;
+	SetName(name);
+	m_format = (u16)format;
+	m_width = (u16)width;
+	m_height = (u16)height;
+	m_gsaddr = gsaddr & 0x3fff;
+	unsigned int blocks = Compute64WordMemoryUsage();
+
+	if ((gsaddr & 0x80000000) != 0 || gsaddr < m_baseAddress)
+		SetupSpecialTextures();
+
+	if (m_buffer != NULL && m_freeAfterLoad)
+	{
+		sceDmaSync(zSys.DmaToGif, 0, 0);
+
+		if (m_buffer != NULL)
+			_free(m_buffer, "ztex_read.cpp", 140);
+
+		m_buffer = NULL;
+	}
+
+	return blocks;
 }
 
 /* @socom-skeleton stub SetupSpecialTextures__Q23zdb8CTextureFv */
 void zdb::CTexture::SetupSpecialTextures()
 {
+	/* 0x2f92a0 (LoadGS): a "ShadowX_" or "ReflectionX_" render-map texture gets its own
+	   6-qword GIF select block (GetTextureSelectBlock): GIFtag NLOOP 5 EOP, A+D; TEX0_1 (this
+	   texture, TCC 1), TEX1_1 0x61 (bilinear), TEXA (TA1 0x80), CLAMP_1 5 (clamp both),
+	   ALPHA_1: shadow (0 - Cd) * As + Cd, reflection (Cs - Cd) * FIX 20 + Cd, else
+	   (Cs - Cd) * As + Cd. The ELF returns 0. */
+	bool shadow = false;
+	bool reflection = false;
+
+	if (strstr(m_name, "ShadowX_") != NULL)
+		shadow = true;
+	else if (strstr(m_name, "ReflectionX_") != NULL)
+		reflection = true;
+
+	if (!shadow && !reflection)
+		return;
+
+	u64 tbw = 1;
+
+	if (!(m_width < 65))
+		tbw = m_width >> 6;
+
+	m_selectQwc = 6;
+
+	if (m_vuSelect != NULL)
+		_free(m_vuSelect, "ztex_read.cpp", 163);
+
+	m_vuSelect = NULL;
+	m_vuSelect = CVisual::GetTextureSelectBlock(m_selectQwc, &m_gifSelect, &m_dmaRef, &m_dmaRefVu);
+	m_loadimage = reinterpret_cast<CLoadImage*>(m_vuSelect); /* +0x68: the destructor frees the block through it */
+
+	_word128* gif = m_gifSelect;
+	gif->u64[0] = 0;
+	gif->u64[1] = 0;
+	gif->u16[0] = (gif->u16[0] & 0x8000) | ((m_selectQwc - 1) & 0x7fff); /* NLOOP */
+	gif->u8[1] = (gif->u8[1] & ~0x80) | 0x80;                           /* EOP */
+	gif->u8[7] = (gif->u8[7] & ~0xf0) | 0x10;                           /* NREG 1 */
+	gif->u8[8] = (gif->u8[8] & ~0x0f) | 0x0e;                           /* A+D */
+
+	gif[1].u64[1] = 6; /* TEX0_1 */
+	gif[1].u64[0] = ((u64)m_format << 20) | (m_gsaddr | (tbw << 14))
+	              | ((u64)po2(m_width) << 26) | ((u64)po2(m_height) << 30) | ((u64)4 << 32);
+	gif[2].u64[0] = 0x61;
+	gif[2].u64[1] = 0x14; /* TEX1_1 */
+	gif[3].u64[0] = (u64)128 << 32;
+	gif[3].u64[1] = 0x3b; /* TEXA */
+	gif[4].u64[0] = 5;
+	gif[4].u64[1] = 8; /* CLAMP_1 */
+
+	if (shadow)
+		gif[5].u64[0] = 70;
+	else if (reflection)
+		gif[5].u64[0] = 100 | ((u64)20 << 32);
+	else
+		gif[5].u64[0] = 68;
+
+	gif[5].u64[1] = 0x42; /* ALPHA_1 */
+	m_gifSelect->u32[3] = (u32)this;
+	SetGifPtrs();
 }
 
 /* @socom-skeleton body Read__Q23zdb8CTextureFRQ23zdb9CSaveLoad */

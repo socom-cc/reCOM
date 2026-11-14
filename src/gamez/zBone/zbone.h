@@ -10,6 +10,7 @@ bool zBoneInit();
 bool zBoneOpen();
 bool zBoneLoadAll();
 bool zBoneClose();
+void zBoneUnloadAll();
 
 class CScriptArchive : public zar::CZAR
 {

@@ -399,4 +399,12 @@ inline void Particle::Instance::Tick(float dT)
 		m_node->SetMatrix(&matrix);
 	}
 }
+
+/* DWARF (st_core.cpp, 8 bytes): the box DI node's extension, pointing back at its source
+   (vtable __vt__11CParticleEx 0x4720d0: CNodeEx's methods only); built by the Source ctor */
+class CParticleEx : public zdb::CNodeEx
+{
+public:
+	Particle::Source* m_emitter;
+};
 #endif

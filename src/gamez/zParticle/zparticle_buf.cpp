@@ -256,23 +256,252 @@ float Particle::DrawPrep()
 	return CursorRange();
 }
 
-/* @socom-skeleton stub DrawStreaked__Q28Particle13BufferElementFRA4_A4_f */
-void Particle::BufferElement::DrawStreaked(float (&)[4][4])
+/* port: file-local helpers, not ELF functions - DrawRotated, DrawXZ and DrawStreaked write
+   this inline: the texture's DMA REF when it changes, then (CNT tag / VIF FLUSH + DIRECT) a
+   GIF tag NLOOP 6, EOP, PRE, PRIM TRIANGLE | TME | ABE, PACKED ST RGBAQ XYZ2, and six
+   vertices (two triangles 0-2-3 and 0-1-2 of a quad), ST (0 or q, 0 or q, q) with
+   q = 1 / z; kicked with CSPR::Kick. */
+static _word128* QuadPacketStart(zdb::CTexture* texture)
 {
+	_word128* cnt = reinterpret_cast<_word128*>(Particle::BufferElement::m_spr);
+
+	if (reinterpret_cast<s32>(texture) != Particle::m_lastTexture)
+	{
+		Particle::m_lastTexture = reinterpret_cast<s32>(texture);
+		*cnt = texture->m_dmaRef;
+		cnt++;
+	}
+
+	_word128* p = cnt + 1;
+	p->u64[0] = 0x3029c00000008006ull;
+	p->u64[1] = 0x512;
+	Particle::BufferElement::m_spr = reinterpret_cast<s32>(p + 1);
+	return cnt;
+}
+
+static void QuadPacketVertex(f32 s, f32 t, f32 q, const CPnt4D* colour, s32 x, s32 y, s32 z)
+{
+	_word128* p = reinterpret_cast<_word128*>(Particle::BufferElement::m_spr);
+	p[0].f32[0] = s;
+	p[0].f32[1] = t;
+	p[0].f32[2] = q;
+	p[0].u32[3] = 0;
+	sceVu0FTOI0Vector(reinterpret_cast<s32*>(p[1].u32), reinterpret_cast<f32*>(const_cast<CPnt4D*>(colour)));
+	p[2].u32[0] = x;
+	p[2].u32[1] = y;
+	p[2].u32[2] = z;
+	p[2].u32[3] = 0;
+	Particle::BufferElement::m_spr = reinterpret_cast<s32>(p + 3);
+}
+
+static void QuadPacketEnd(_word128* cnt)
+{
+	_word128* p = reinterpret_cast<_word128*>(Particle::BufferElement::m_spr);
+	u32 qwc = (u32)(p - cnt) - 1;
+	cnt->u32[0] = qwc | 0x10000000; /* DMAtag CNT */
+	cnt->u32[1] = 0;
+	cnt->u32[2] = 0x11000000;       /* VIF FLUSH */
+	cnt->u32[3] = qwc | 0x50000000; /* VIF DIRECT */
+	CSPR::Kick(p, false);
+}
+
+/* @socom-skeleton stub DrawStreaked__Q28Particle13BufferElementFRA4_A4_f */
+void Particle::BufferElement::DrawStreaked(float (&matrix)[4][4])
+{
+	/* 0x235780: a quad from the instance's last position (tail: the colour with alpha times
+	 * the source's streak fade) to its position (head), half width the projected size
+	 * (256 m_size / w, w of the head, times the view-to-screen x scale), across the screen
+	 * direction; the head goes out by that size along it, the tail back by streak length
+	 * times it. Not drawn for an unmoved instance, nearer than z 500, reaching the screen
+	 * edge (0 .. 0x10000), or untextured. ELF quirks kept: both ends take the tail's z and the
+	 * XYZ z written is 1.5 times it (q = 1 / that); a zero screen direction is (dx, -1); the
+	 * edge tests use the signed offsets. */
+	_word128* start = reinterpret_cast<_word128*>(zSysSprGetPacket(reinterpret_cast<unsigned __int128**>(&CSPR::m_sprPacketEnd)));
+	CSPR::m_sprPacket = start;
+	m_spr = reinterpret_cast<s32>(start);
+	Instance* inst = m_instance;
+
+	if (inst->m_pos.x == inst->m_prev.x && inst->m_pos.y == inst->m_prev.y && inst->m_pos.z == inst->m_prev.z)
+		return;
+
+	CPnt4D tail = m_color;
+	tail.w *= inst->m_source->m_streakFade;
+
+	f32 at[4] = { inst->m_pos.x, inst->m_pos.y, inst->m_pos.z, 1.0f };
+	s32 head[4];
+	sceVu0RotTransPers(head, matrix, at, 0);
+	head[2] >>= 4;
+	at[0] = inst->m_prev.x;
+	at[1] = inst->m_prev.y;
+	at[2] = inst->m_prev.z;
+	s32 back[4];
+	sceVu0RotTransPers(back, matrix, at, 0);
+	back[2] >>= 4;
+
+	f32 size = ((256.0f * m_size) / (f32)head[3]) * thePipe.m_camera->m_mtxSet.mtxViewToScreen[0][0];
+	f32 dx = (f32)(head[0] - back[0]);
+	f32 dy = (f32)(head[1] - back[1]);
+	f32 len2 = dx * dx + dy * dy;
+
+	if (len2 < 1e-05f)
+		dy = -1.0f;
+	else
+	{
+		f32 inv = 1.0f / sqrtf(len2);
+		dx *= inv;
+		dy *= inv;
+	}
+
+	f32 streak = inst->m_source->m_streakLen;
+	head[0] = (s32)((f32)head[0] + dx * size);
+	head[1] = (s32)((f32)head[1] + dy * size);
+	streak *= size;
+	back[0] = (s32)((f32)back[0] - dx * streak);
+	back[1] = (s32)((f32)back[1] - dy * streak);
+	s32 ox = (s32)(size * dy);
+	s32 oy = (s32)(-size * dx);
+	s32 zb = back[2];
+	head[2] = zb;
+	s32 z = (s32)((f32)zb + 0.5f * (f32)zb);
+
+	if (zb < 500 || head[2] < 500)
+		return;
+
+	if (back[0] < head[0])
+	{
+		if (back[0] - ox <= 0 || !(head[0] + ox < 0x10000))
+			return;
+	}
+	else if (head[0] - ox <= 0 || !(back[0] + ox < 0x10000))
+		return;
+
+	if (back[1] < head[1])
+	{
+		if (back[1] - oy <= 0 || !(head[1] + oy < 0x10000))
+			return;
+	}
+	else if (head[1] - oy <= 0 || !(back[1] + oy < 0x10000))
+		return;
+
+	if (m_texture == NULL)
+		return;
+
+	_word128* cnt = QuadPacketStart(m_texture);
+	f32 q = 1.0f / (f32)z;
+	QuadPacketVertex(0.0f, 0.0f, q, &tail, back[0] - ox, back[1] - oy, z);
+	QuadPacketVertex(q, q, q, &m_color, head[0] + ox, head[1] + oy, z);
+	QuadPacketVertex(q, 0.0f, q, &tail, back[0] + ox, back[1] + oy, z);
+	QuadPacketVertex(0.0f, 0.0f, q, &tail, back[0] - ox, back[1] - oy, z);
+	QuadPacketVertex(0.0f, q, q, &m_color, head[0] - ox, head[1] - oy, z);
+	QuadPacketVertex(q, q, q, &m_color, head[0] + ox, head[1] + oy, z);
+	QuadPacketEnd(cnt);
 }
 
 /* @socom-skeleton stub DrawXZ__Q28Particle13BufferElementFRA4_A4_f */
-void Particle::BufferElement::DrawXZ(float (&)[4][4])
+void Particle::BufferElement::DrawXZ(float (&matrix)[4][4])
 {
+	/* 0x235260: a quad lying in the world's xz plane: the corners are the projected centre
+	 * plus and minus the projected size (256 m_size / w times the view-to-screen x scale)
+	 * along the world-to-view matrix's x and z rows (x, y components). Not drawn nearer than
+	 * z 10, with the centre off 0 .. 0x10000, or untextured. */
+	_word128* start = reinterpret_cast<_word128*>(zSysSprGetPacket(reinterpret_cast<unsigned __int128**>(&CSPR::m_sprPacketEnd)));
+	CSPR::m_sprPacket = start;
+	m_spr = reinterpret_cast<s32>(start);
+	f32 at[4] = { m_instance->m_pos.x, m_instance->m_pos.y, m_instance->m_pos.z, 1.0f };
+	s32 screen[4];
+	sceVu0RotTransPers(screen, matrix, at, 0);
+	screen[2] >>= 4;
+	zdb::tag_ZCAM_MTX_SET* set = &thePipe.m_camera->m_mtxSet;
+	f32 f = ((256.0f * m_size) / (f32)screen[3]) * set->mtxViewToScreen[0][0];
+	f32 ax = set->mtxWorldToView[0][0] * f;
+	f32 ay = set->mtxWorldToView[0][1] * f;
+	f32 bx = set->mtxWorldToView[2][0] * f;
+	f32 by = set->mtxWorldToView[2][1] * f;
+	s32 x = screen[0];
+	s32 y = screen[1];
+	s32 z = screen[2];
+	f32 x0 = (f32)x - ax;
+	f32 y0 = (f32)y - ay;
+	f32 x1 = (f32)x + ax;
+	f32 y1 = (f32)y + ay;
+	s32 c[4][2];
+	c[0][0] = (s32)(x0 - bx);
+	c[0][1] = (s32)(y0 - by);
+	c[1][0] = (s32)(x1 - bx);
+	c[1][1] = (s32)(y1 - by);
+	c[2][0] = (s32)(bx + x1);
+	c[2][1] = (s32)(by + y1);
+	c[3][0] = (s32)(bx + x0);
+	c[3][1] = (s32)(by + y0);
+
+	if (z < 10 || x < 0 || !(x < 0x10001) || y < 0 || !(y < 0x10001) || m_texture == NULL)
+		return;
+
+	_word128* cnt = QuadPacketStart(m_texture);
+	f32 q = 1.0f / (f32)z;
+	QuadPacketVertex(0.0f, 0.0f, q, &m_color, c[0][0], c[0][1], z);
+	QuadPacketVertex(q, q, q, &m_color, c[2][0], c[2][1], z);
+	QuadPacketVertex(q, 0.0f, q, &m_color, c[3][0], c[3][1], z);
+	QuadPacketVertex(0.0f, 0.0f, q, &m_color, c[0][0], c[0][1], z);
+	QuadPacketVertex(0.0f, q, q, &m_color, c[1][0], c[1][1], z);
+	QuadPacketVertex(q, q, q, &m_color, c[2][0], c[2][1], z);
+	QuadPacketEnd(cnt);
 }
 
 /* @socom-skeleton stub DrawRotated__Q28Particle13BufferElementFRA4_A4_f */
-void Particle::BufferElement::DrawRotated(float (&)[4][4])
+void Particle::BufferElement::DrawRotated(float (&matrix)[4][4])
 {
 	/* @socom-skeleton stub XRate$1514 */
-	static int XRate;
+	static int XRate = 0;
 	/* @socom-skeleton stub YRate$1517 */
-	static int YRate;
+	static f32 YRate = 2.2f;
+	/* 0x234c90: a screen quad turned by the instance's angle (m_prev.x): half extents
+	 * a = size cos, b = size sin (size = 256 m_size / w times the view-to-screen x scale),
+	 * corners (x + a, y + b), (x - b, y + a), (x - a, y - b), (x + b, y - a). Not drawn in
+	 * front of maxZ, reaching 0 or clipLimScreen by max(a, b) (signed: ELF quirk kept), or
+	 * untextured. XRate / YRate are set once and never read. */
+	(void)XRate;
+	(void)YRate;
+	_word128* start = reinterpret_cast<_word128*>(zSysSprGetPacket(reinterpret_cast<unsigned __int128**>(&CSPR::m_sprPacketEnd)));
+	CSPR::m_sprPacket = start;
+	m_spr = reinterpret_cast<s32>(start);
+	f32 at[4] = { m_instance->m_pos.x, m_instance->m_pos.y, m_instance->m_pos.z, 1.0f };
+	s32 screen[4];
+	sceVu0RotTransPers(screen, matrix, at, 0);
+	screen[2] >>= 4;
+	f32 size = ((256.0f * m_size) / (f32)screen[3]) * thePipe.m_camera->m_mtxSet.mtxViewToScreen[0][0];
+	f32 angle = m_instance->m_prev.x;
+	f32 c = cosf(angle);
+	f32 s = sinf(angle);
+	s32 a = (s32)(size * c);
+	s32 b = (s32)(size * s);
+	s32 ext = (b < a) ? a : b;
+	s32 x = screen[0];
+	s32 y = screen[1];
+	s32 z = screen[2];
+
+	if (z < maxZ || x - ext <= 0 || !(x + ext < clipLimScreen) || y - ext <= 0 || !(y + ext < clipLimScreen))
+		return;
+
+	f32 fa = (f32)a * 1.0f;
+	f32 fb = (f32)b * 1.0f;
+	s32 c0x = (s32)((f32)x + fa), c0y = (s32)((f32)y + fb);
+	s32 c1x = (s32)((f32)x - fb), c1y = (s32)((f32)y + fa);
+	s32 c2x = (s32)((f32)x - fa), c2y = (s32)((f32)y - fb);
+	s32 c3x = (s32)((f32)x + fb), c3y = (s32)((f32)y - fa);
+
+	if (m_texture == NULL)
+		return;
+
+	_word128* cnt = QuadPacketStart(m_texture);
+	f32 q = 1.0f / (f32)z;
+	QuadPacketVertex(0.0f, 0.0f, q, &m_color, c0x, c0y, z);
+	QuadPacketVertex(q, q, q, &m_color, c2x, c2y, z);
+	QuadPacketVertex(q, 0.0f, q, &m_color, c3x, c3y, z);
+	QuadPacketVertex(0.0f, 0.0f, q, &m_color, c0x, c0y, z);
+	QuadPacketVertex(0.0f, q, q, &m_color, c1x, c1y, z);
+	QuadPacketVertex(q, q, q, &m_color, c2x, c2y, z);
+	QuadPacketEnd(cnt);
 }
 
 /* @socom-skeleton stub Draw__Q28Particle13BufferElementFRA4_A4_f */

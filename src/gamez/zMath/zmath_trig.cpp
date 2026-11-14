@@ -43,9 +43,9 @@ void init_trig_table()
 			*(sintbl + j) = calc;
 			calc = cosf(x);
 			*(costbl + j) = calc;
-			i++;
-			calc = expf(i * 10.0f) / 256.0f;
+			calc = (f32)exp((double)i * 10.0 / 256.0); /* 0x2230f0: double, before the step */
 			*(exptbl + j) = calc;
+			i++;
 			j += 1; /* port: was `j += 4`, a byte offset; the tables are now f32 arrays */
 		} while (i < 257);
 		tableInit = true;
@@ -62,6 +62,16 @@ void uninit_trig_table()
 }
 
 /* @socom-skeleton stub exp_tl__Ff */
-float exp_tl(float)
+float exp_tl(float x)
 {
+	/* 0x222f90: exp(x) for x clamped to [0, 10], interpolated in the 257-entry table */
+	if (!(x <= 10.0f))
+		x = 10.0f;
+	else if (x < 0.0f)
+		x = 0.0f;
+
+	f32 f = x * m_exp_scl;
+	s32 i = (s32)f;
+	f32 lo = exptbl[i];
+	return lo + (f - (f32)i) * (exptbl[i + 1] - lo);
 }

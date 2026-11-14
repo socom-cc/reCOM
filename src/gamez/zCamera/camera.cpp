@@ -984,7 +984,27 @@ void CAppCamera::WiggleEcho(bool echo)
 /* @socom-skeleton body APLookAt__10CAppCameraFfP7CEntityR7CMatrix */
 void CAppCamera::APLookAt(f32 dT, CEntity* entity, CMatrix& matrix)
 {
-	
+	/* 0x1ea200 (Tick, look-at mode): the seal's aim pitch is levelled; the camera looks from
+	   the tie point (m_cameraTie in the entity's space) out along m_rPos by m_goal_t_len, at
+	   the aim point (m_cameraAim in the entity's space), the chord clipped against the world.
+	   ELF quirk kept: the tracked entity argument is not read (m_entity is used). */
+	(void)entity;
+	CSealCtrl* control = static_cast<CSealCtrl*>(m_entity->m_control);
+
+	if (control != NULL && control->m_aimPitch != 0.0f)
+		control->m_aimPitch = 0.0f;
+
+	CPnt3D aim = m_cameraAim;
+	m_entity->m_node->m_matrix.Transform(&aim, 1);
+	CPnt3D tie = m_cameraTie;
+	m_entity->m_node->m_matrix.Transform(&tie, 1);
+	CPnt3D dir(m_rPos.x, m_rPos.y, m_rPos.z);
+	dir.Normalize();
+	dir.Scale(m_goal_t_len, &dir);
+	CPnt3D eye = tie;
+	tie.Add(&dir, &eye);
+	ClipCameraChord(dT, &aim, &eye, &eye);
+	LookAt(&eye, &aim, matrix);
 }
 
 /* @socom-skeleton body ResetDeathCam__10CAppCameraFv */

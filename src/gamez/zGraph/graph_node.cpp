@@ -19,8 +19,8 @@ CGNode::CGNode(const char *)
 	m_name = NULL;
 	m_unk_08 = 0;
 	m_nodeEx = NULL;
-	m_unk_1c = 0;
-	m_unk_20 = 0;
+	m_prev = NULL;
+	m_cost = 0.0f;
 }
 
 /* @socom-skeleton body __dt__6CGNodeFv */

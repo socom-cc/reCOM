@@ -296,8 +296,13 @@ void CQuat::Mul(const CQuat *other, CQuat *out) const
 }
 
 /* @socom-skeleton stub ToEuler__5CQuatCFP6CPnt3D */
-void CQuat::ToEuler(CPnt3D *) const
+void CQuat::ToEuler(CPnt3D *euler) const
 {
+	/* 0x2212f0: through a rotation matrix (unit matrix first, so the translation row is
+	   clear) and CMatrix::ToEuler */
+	CMatrix m;
+	ToMatrix(&m);
+	m.ToEuler(euler);
 }
 
 /* @socom-skeleton body Apply__5CQuatCFPC6CPnt3DP6CPnt3Di */
@@ -387,8 +392,14 @@ void CQuat::Align(const CPnt3D &from, const CPnt3D &to)
 }
 
 /* @socom-skeleton stub Div__5CQuatCFPC5CQuatP5CQuat */
-void CQuat::Div(const CQuat *, CQuat *) const
+void CQuat::Div(const CQuat *other, CQuat *out) const
 {
+	/* 0x220eb0: this times the conjugate of other. The ELF writes w first and reads this
+	   again for x, y and z (out may be this: kept). */
+	out->w = w * other->w + vec.y * other->vec.y + vec.x * other->vec.x + vec.z * other->vec.z;
+	out->vec.x = vec.x * other->w - w * other->vec.x - vec.y * other->vec.z + vec.z * other->vec.y;
+	out->vec.y = vec.y * other->w - w * other->vec.y - vec.z * other->vec.x + vec.x * other->vec.z;
+	out->vec.z = vec.z * other->w - w * other->vec.z - vec.x * other->vec.y + vec.y * other->vec.x;
 }
 
 /* @socom-skeleton stub Slerp__5CQuatCFPC5CQuatfP5CQuat */
@@ -552,8 +563,33 @@ void CQuat::Exp(const CPnt3D *point, float t)
 }
 
 /* @socom-skeleton stub Ln__5CQuatFP6CPnt3D */
-void CQuat::Ln(CPnt3D *)
+void CQuat::Ln(CPnt3D *out)
 {
+	/* 0x220750: the rotation vector (axis times angle, the short way round); zero for a
+	   zero vector part */
+	f32 len2 = vec.x * vec.x + vec.y * vec.y + vec.z * vec.z;
+
+	if (len2 == 0.0f)
+	{
+		out->x = 0.0f;
+		out->y = 0.0f;
+		out->z = 0.0f;
+		return;
+	}
+
+	f32 len = sqrtf(len2);
+	f32 angle;
+
+	if (w < 0.0f)
+		angle = -atan2f(len, -w);
+	else
+		angle = atan2f(len, w);
+
+	CPnt3D v;
+	vec.Scale(angle / len, &v);
+	out->x = v.x;
+	out->y = v.y;
+	out->z = v.z;
 }
 
 /* @socom-skeleton stub Pow__5CQuatFfP5CQuat */
@@ -600,6 +636,11 @@ void zMath_Init()
 /* @socom-skeleton stub __ct__6CFRectFv */
 CFRect::CFRect()
 {
+	/* 0x220590 */
+	top = 0.0f;
+	bottom = 0.0f;
+	left = 0.0f;
+	right = 0.0f;
 }
 
 /* @socom-skeleton stub CircleSegmentClip__Q23zdb11CCircleClipFP6CPnt4DP6CPnt4DP6CPnt4DP6CPnt4DP6CPnt4DP6CPnt4DP6CPnt4DP6CPnt4DP6CPnt4DP6CPnt4DP6CPnt4DP6CPnt4D */

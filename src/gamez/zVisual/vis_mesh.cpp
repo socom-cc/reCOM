@@ -238,8 +238,11 @@ bool zdb::CMesh::Read(zar::CZAR &archive)
 }
 
 /* @socom-skeleton stub Write__Q23zdb5CMeshFRQ23zar4CZAR */
-void zdb::CMesh::Write(zar::CZAR &)
+bool zdb::CMesh::Write(zar::CZAR &archive)
 {
+	/* 0x30f0f0: "vtype" 1, then the visual's record */
+	archive.Insert("vtype", (s32)1);
+	return CVisual::Write(archive);
 }
 
 /* @socom-skeleton stub SetMeshBuffer__Q23zdb5CMeshFP8_word128P8_word128P8_word128 */
@@ -325,8 +328,12 @@ bool zdb::CSubMesh::Read(zar::CZAR &archive)
 }
 
 /* @socom-skeleton stub Write__Q23zdb8CSubMeshFRQ23zar4CZAR */
-void zdb::CSubMesh::Write(zar::CZAR &)
+bool zdb::CSubMesh::Write(zar::CZAR &archive)
 {
+	/* 0x30ee30: "vtype" 2, "matrix_id", then the visual's record */
+	archive.Insert("vtype", (s32)2);
+	archive.Insert("matrix_id", (u32)m_matrix_id);
+	return CVisual::Write(archive);
 }
 
 /* @socom-skeleton stub RemoveMeshDecal__Q23zdb5CMeshFPQ23zdb10CMeshDecal */

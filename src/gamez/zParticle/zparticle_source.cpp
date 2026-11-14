@@ -116,7 +116,7 @@ void Particle::Source::Default()
 	{
 		m_active = false;
 
-		if (m_hasbbox && m_diNode != NULL) /* port: m_diNode NULL (no box node, see the constructor) */
+		if (m_hasbbox)
 			m_diNode->SetActive(false);
 
 		m_goodPos = false;
@@ -249,20 +249,38 @@ void Particle::Source::ScaleSequenceAdd(float fraction, float scale)
 /* @socom-skeleton stub __ct__Q28Particle6SourceFv */
 Particle::Source::Source()
 {
-	/* 0x23a0d0: the ELF also builds the source's box DI node here: six CDIPolys (4 vertices
-	 * each, material bits) in a "PARTICLE DI NODE" node added to the world, with a CParticleEx
-	 * (vtable 0x4720d0) pointing back at the source; it is active only for sources with a box
-	 * (smoke clouds, flag 0x40000000 of the PARTICLE_SOURCE command).
-	 * port: not written - no box DI node (CDIPoly's constructor is a stub and nothing reads
-	 * the box polys yet); m_diNode, m_diPolies and m_particleEx stay NULL and the users test
-	 * m_diNode */
-	m_diNode = NULL;
+	/* 0x23a0d0: the source's box DI node: six CDIPolys (4 points each, material 1, camera
+	 * type 2, ditype 3 for the first and last face, 2 for the others) in a "PARTICLE DI NODE"
+	 * node added to the world (has-DI, back faces returned), with a CParticleEx pointing back
+	 * at the source. Its points follow the source's box in GetBBox (every frame, from
+	 * RenderBBox); SetActive switches it with the source when the source has a box (smoke and
+	 * gas clouds, flag 0x40000000 of the PARTICLE_SOURCE command). */
+	for (s32 i = 0; i < 6; i++)
+		m_diPolies[i] = new zdb::CDIPoly();
 
 	for (s32 i = 0; i < 6; i++)
-		m_diPolies[i] = NULL;
+		m_diPolies[i]->Allocate(4);
 
-	m_particleEx = NULL;
+	for (s32 i = 0; i < 6; i++)
+	{
+		m_diPolies[i]->m_material = 1;
+		m_diPolies[i]->m_cameratype = 2;
+		m_diPolies[i]->m_ditype = (i == 0 || i == 5) ? 3 : 2;
+	}
+
+	m_diNode = new zdb::CNode();
+
+	for (s32 i = 0; i < 6; i++)
+		m_diNode->AddDI(m_diPolies[i]);
+
+	m_diNode->SetName("PARTICLE DI NODE");
+	zdb::CWorld::m_world->AddChild(m_diNode);
+	m_particleEx = new CParticleEx();
+	m_particleEx->m_emitter = this;
+	m_diNode->SetNodeEx(m_particleEx, false);
+	m_diNode->m_hasDI = true;
 	m_hasbbox = false;
+	m_diNode->m_di.m_bReturnBackFaceIntersections = 1;
 	m_active = false; /* port: the ELF's operator new leaves it to Default's test (0 from its heap) */
 	Default();
 }
@@ -301,11 +319,12 @@ Particle::Source::~Source()
 	if (m_props != NULL)
 		m_props->DecRefCount(1);
 
-	if (m_diNode != NULL) /* port: always NULL (see the constructor) */
-	{
-		zdb::CWorld::m_world->DeleteChild(m_diNode);
+	zdb::CWorld::m_world->DeleteChild(m_diNode);
+
+	if (m_diNode != NULL)
 		delete m_diNode;
-	}
+
+	::operator delete(m_particleEx); /* the ELF frees it without a destructor call */
 }
 
 /* @socom-skeleton stub Tick__Q28Particle6SourceFf */
@@ -538,7 +557,7 @@ void Particle::Source::SetActive(bool active)
 
 	m_active = active;
 
-	if (m_hasbbox && m_diNode != NULL) /* port: m_diNode NULL (see the constructor) */
+	if (m_hasbbox)
 		m_diNode->SetActive(active);
 
 	if (active)
@@ -584,8 +603,50 @@ void Particle::Source::CheckExtents(CPnt4D pos, float size)
 }
 
 /* @socom-skeleton stub GetBBox__Q28Particle6SourceFP5CBBox */
-void Particle::Source::GetBBox(CBBox *)
+void Particle::Source::GetBBox(CBBox *box)
 {
+	/* 0x238af0 (RenderBBox, every frame): a source with a box gives it relative to its last
+	   position; the box DI node takes that box and position, and its six faces the box's
+	   corners (as CDIBBox::SetCDIBBox's cube, the last face wound the other way), with their
+	   plane normals */
+	if (!m_hasbbox)
+		return;
+
+	CPnt3D pos(m_oldPosW.x, m_oldPosW.y, m_oldPosW.z);
+	CPnt3D d;
+	m_bbox.m_max.Sub(&pos, &d);
+	box->m_max = d;
+	m_bbox.m_min.Sub(&pos, &d);
+	box->m_min = d;
+	m_diNode->m_bbox.m_min = box->m_min;
+	m_diNode->m_bbox.m_max = box->m_max;
+	m_diNode->SetPosition(pos.x, pos.y, pos.z);
+
+	const CPnt3D& lo = box->m_min;
+	const CPnt3D& hi = box->m_max;
+	CPnt3D corner[8];
+	corner[0] = CPnt3D(lo.x, lo.y, hi.z);
+	corner[1] = lo;
+	corner[2] = CPnt3D(hi.x, lo.y, lo.z);
+	corner[3] = CPnt3D(hi.x, lo.y, hi.z);
+	corner[4] = CPnt3D(lo.x, hi.y, hi.z);
+	corner[5] = CPnt3D(lo.x, hi.y, lo.z);
+	corner[6] = CPnt3D(hi.x, hi.y, lo.z);
+	corner[7] = hi;
+
+	static const u8 face[6][4] = {
+		{ 7, 6, 5, 4 }, { 0, 3, 7, 4 }, { 2, 6, 7, 3 }, { 5, 6, 2, 1 }, { 4, 5, 1, 0 }, { 0, 3, 2, 1 },
+	};
+
+	for (s32 f = 0; f < 6; f++)
+	{
+		CPnt4D* pts = m_diPolies[f]->m_pts;
+
+		for (s32 p = 0; p < 4; p++)
+			memcpy(&pts[p], &corner[face[f][p]], 12);
+
+		m_diPolies[f]->SetEdgeVecsAndNorm();
+	}
 }
 
 /* @socom-skeleton stub RenderBBox__Q28Particle6SourceFv */

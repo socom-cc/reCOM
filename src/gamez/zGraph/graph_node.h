@@ -20,8 +20,8 @@ public:
 	u32 m_unk_08; /* +0x8: zeroed by the ctor; port: unproven (tree/route use not mapped) */
 	const void* m_nodeEx; /* +0xc: the owner's record (CGraph::GetNodeByNodeEx 0x20e8b0; a CAiMap::link or region) */
 	std::list<CGEdge*> m_edges; /* +0x10 (FindEdge 0x20f550, CreateEdge 0x20ea10) */
-	u32 m_unk_1c; /* +0x1c: zeroed by the ctor; port: unproven */
-	u32 m_unk_20; /* +0x20: zeroed by the ctor; port: unproven */
+	CGNode* m_prev; /* +0x1c: zeroed by the ctor; CGraph::BuildTree's shortest-path predecessor (name: port's) */
+	f32 m_cost;     /* +0x20: zeroed by the ctor; BuildTree's path cost, negative while tentative (name: port's) */
 };
 
 class CGNodeEx : CGNode {};

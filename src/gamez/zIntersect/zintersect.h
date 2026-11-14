@@ -123,6 +123,7 @@ public:
         static u32 m_backface_mask; /* 0x474e68 (.sdata, 32); CGrid::GetAltitude sets 32 */
         friend class ::Particle; /* port: access - Create3Sided 0x232a50 reads the points (MW has no access checks in the ELF) */
         friend class CNode; /* port: access - CNode::UpdateBBoxFromDI 0x229870 reads the points */
+        friend class CDIBBox; /* port: access - CDIBBox::SetCDIBBox 0x21c7f0 fills its polys' points */
     protected: /* CDIPoly::GetAltitude 0x21e23c reads the points */
         CPnt4D* m_pts;
         /* @socom-skeleton decl Q23zdb3CDI */

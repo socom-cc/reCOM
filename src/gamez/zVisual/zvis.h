@@ -365,7 +365,7 @@ public:
 		virtual ~CVisual();
 		virtual void ComputeBBox(CBBox *);
 		virtual void UpdateCentroid();
-		virtual void Write(zar::CZAR &);
+		virtual bool Write(zar::CZAR &); /* bool: 0x30d100 returns 1 */
 		virtual ::C2DVisual * Get2DVisual() { return NULL; } /* Get2DVisual__Q23zdb7CVisualFv (inline, 0x1d0320): 0 */
 		static void Flush();
 		static _word128 * GetTextureSelectBlock(unsigned int, _word128 **, _word128 *, _word128 *);
@@ -441,7 +441,7 @@ public:
 		virtual void ComputeBBox(CBBox *);
 		virtual void UpdateCentroid();
 		virtual bool Read(zar::CZAR &); /* 0x30f140: tail-calls CVisual::Read */
-		virtual void Write(zar::CZAR &);
+		virtual bool Write(zar::CZAR &); /* bool: 0x30d100 returns 1 */
 		virtual void InitMatrices();
 		static void Init();
 		void AddLOD(zdb::CMesh *, float);
@@ -469,7 +469,7 @@ public:
 public:
 		virtual ~CSubMesh();
 		virtual bool Read(zar::CZAR &); /* 0x30ee90: "matrix_id", then CVisual::Read */
-		virtual void Write(zar::CZAR &);
+		virtual bool Write(zar::CZAR &); /* bool: 0x30d100 returns 1 */
 		/* @socom-skeleton end Q23zdb8CSubMesh */
 	};
 

@@ -142,7 +142,7 @@ public:
 		_word128 * CopyTextureSelect(_word128 *);
 		void SetGifPtrs();
 		void MIPUpdateTextureSelects(unsigned int, unsigned int);
-		void LoadGS(unsigned int, char *, void *, unsigned int, unsigned int, unsigned int);
+		unsigned int LoadGS(unsigned int, char *, void *, unsigned int, unsigned int, unsigned int); /* returns the 64-word block count (0x2f95d4) */
 		void SetupSpecialTextures();
 		static int m_freeAfterLoad;
 		static int m_reflectionMapSize;
