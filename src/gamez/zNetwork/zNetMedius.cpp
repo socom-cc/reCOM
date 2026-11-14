@@ -412,14 +412,373 @@ class NetConnectionInfo;
 class RoomGame;
 /* @socom-skeleton end forward */
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <string>
+#include <eekernel.h> /* CreateThread, StartThread, ExitDeleteThread (AuxInitNetwork's thread) */
+#include "gamez/zReader/zrdr_local.h" /* CRdrEditor (the list displays) */
+#include "gamez/zVideo/zvid.h" /* zVid.frameTime (the game clock) */
+#include "gamez/zFTS/zfts.h" /* theMission (OnCorrectClanTeam) */
+
+/* ---- port: the lobby's own types (no DWARF; members from the code, names the port's) ---- */
+
+/* a game of a room (528 bytes in the ELF: the game list record, a vptr at +0x70, then the rest
+ * zeroed by the constructor inline in BriefingRoomDB::Parse 0x328490) */
+class RoomGame
+{
+public:
+	RoomGame() : m_unknown_200(-1)
+	{
+		m_info.MediusWorldID = -1;
+		memset(m_unknown_74, 0, sizeof(m_unknown_74));
+		m_maxPlayers = 0;
+		memset(m_unknown_9c, 0, sizeof(m_unknown_9c));
+		UpdateInfo(NULL);
+	}
+	virtual bool IsPersistent(); /* 0x325a70: false */
+	void UpdateInfo(MediusGameListResponse *); /* 0x326160 */
+
+	MediusGameListResponse m_info;     /* +0x0 (GameName "<game>$~<room>" for a persistent game) */
+	unsigned char m_unknown_74[0x24];  /* +0x74 */
+	int m_maxPlayers;                  /* +0x98 MAXPLAYERS */
+	unsigned char m_unknown_9c[0x164]; /* +0x9c */
+	int m_unknown_200;                 /* +0x200 -1 */
+};
+
+/* a game of mp_rooms.rdr: its mission sequence */
+class PersistentGame : public RoomGame
+{
+public:
+	PersistentGame() { memset(m_missionSequence, 0, sizeof(m_missionSequence)); }
+	virtual bool IsPersistent(); /* 0x32fe50: true */
+	virtual bool IsAClone(); /* 0x32feb0: false */
+	bool Parse(_zrdr *, const char *); /* 0x328830 */
+
+	unsigned char m_missionSequence[12]; /* +0x204 MISSION_SEQUENCE */
+};
+
+/* the rooms of mp_rooms.rdr (BriefingRoomVec; the ELF's vector_pod of pointers) */
+class BriefingRoomDB
+{
+public:
+	~BriefingRoomDB(); /* 0x332df0 */
+	void Parse(char *); /* 0x328490 */
+	BriefingRoom * FindRoom(const char *); /* 0x325070 */
+
+	std::vector<BriefingRoom *> m_rooms;
+};
+
+/* a ladder row: two strings (dtor 0x3279d0; the rest is the ladder callbacks', not written) */
+class LadderItem
+{
+public:
+	std::string m_name;        /* +0x0 port: names guessed */
+	std::string m_description; /* +0x4 */
+};
+
+/* the ladder lists (20 bytes: the items, then two words; ReleaseUIResources clears +0xc) */
+class LadderRankingDB
+{
+public:
+	LadderRankingDB() : m_currentPosition(0), m_lowestPosition(0) {}
+	~LadderRankingDB(); /* 0x332d20 */
+
+	std::vector<LadderItem *> m_items; /* +0x0 */
+	int m_currentPosition;             /* +0xc GetCurrentLadderPosition (port: __sinit stores a value not traced here) */
+	int m_lowestPosition;              /* +0x10 GetLowestLadderPosition */
+};
+
+/* a clan member row: two strings (dtor 0x322d00) */
+class ClanMemberItem
+{
+public:
+	std::string m_name;        /* +0x0 port: names guessed */
+	std::string m_description; /* +0x4 */
+	int m_accountID;           /* +0x8 (IsLeaderOfClan) */
+};
+
+/* the invitation rows (built from the Medius responses by 0x32acb0 / 0x323890; port: members not
+ * written yet - only freed here) */
+class InvitationItem
+{
+};
+class ClanInvitationItem
+{
+};
+
+class InvitationsDB
+{
+public:
+	~InvitationsDB(); /* 0x332c50 */
+	std::vector<InvitationItem *> m_items;
+};
+class ClanInvitationsDB
+{
+public:
+	~ClanInvitationsDB(); /* 0x332b80 */
+	std::vector<ClanInvitationItem *> m_items;
+};
+class ClanMemberDB
+{
+public:
+	~ClanMemberDB(); /* 0x332ab0 */
+	std::vector<ClanMemberItem *> m_items;
+};
+
+/* the account the lobby logs in with (68 bytes) */
+struct LobbyAccountInfo
+{
+	int m_id;            /* +0x0 -1 */
+	char m_name[32];     /* +0x4 */
+	char m_password[32]; /* +0x24 */
+};
+
+bool DMERegister(); /* fts_network_dme.cpp (AuxInitNetwork) */
+
+/* a reader array's elements (the ELF's inline accessor: element 0 holds the count) */
+static unsigned int RdrCount(const _zrdr *a)
+{
+	return (a != NULL && a->type == ZRDR_ARRAY) ? (unsigned int)(a->array[0].integer - 1) : 0;
+}
+static _zrdr *RdrElement(_zrdr *a, unsigned int i)
+{
+	return (i < RdrCount(a)) ? &a->array[i + 1] : NULL;
+}
+
+/* ---- the room and list types (no fences: the owner plan gives these functions to this unit) ---- */
+
+bool RoomGame::IsPersistent()
+{
+	return false;
+}
+
+void RoomGame::UpdateInfo(MediusGameListResponse *info)
+{
+	/* 0x326160: the game list record, or no world */
+	if (info != NULL)
+		m_info = *info;
+	else
+		m_info.MediusWorldID = -1;
+}
+
+bool PersistentGame::IsPersistent()
+{
+	return true;
+}
+
+bool PersistentGame::IsAClone()
+{
+	return false;
+}
+
+bool PersistentGame::Parse(_zrdr *reader, const char *room)
+{
+	/* 0x328830: GAMENAME (shown as "<game>$~<room>"), MAXPLAYERS, MISSION_SEQUENCE */
+	const char *name = zrdr_findstring(reader, "GAMENAME");
+	if (name != NULL)
+		sprintf(m_info.GameName, "%s$~%s", name, room);
+	m_info.MediusWorldID = -1;
+	zrdr_findint(reader, "MAXPLAYERS", &m_maxPlayers, 1);
+
+	_zrdr *seq = zrdr_findtag(reader, "MISSION_SEQUENCE");
+	if (seq != NULL && seq->type == ZRDR_ARRAY)
+	{
+		/* ELF quirk kept: no limit to the 12 entries */
+		for (unsigned int i = 0; i < RdrCount(seq); i++)
+			m_missionSequence[i] = (unsigned char)RdrElement(seq, i)->GetInt();
+	}
+	return true;
+}
+
+BriefingRoom::BriefingRoom()
+{
+	/* inline in BriefingRoomDB::Parse (0x328554) */
+	memset(&m_channel, 0, sizeof(m_channel));
+	m_limit = 16;
+	m_playerCount = 0;
+	m_unknown_98 = 0;
+	m_password = NULL;
+	m_clone = NULL;
+}
+
+BriefingRoom::BriefingRoom(MediusChannelListResponse *channel)
+{
+	/* 0x327190: a room of the server's channel list */
+	m_limit = 16;
+	m_playerCount = 0;
+	m_unknown_98 = 0;
+	m_password = NULL;
+	m_clone = NULL;
+	if (channel != NULL)
+		m_channel = *channel;
+	else
+		memset(&m_channel, 0, sizeof(m_channel)); /* port: the ELF leaves it unset */
+}
+
+BriefingRoom::~BriefingRoom()
+{
+	/* 0x327af0: the games (plain delete), the password */
+	for (std::vector<RoomGame *>::iterator it = m_games.begin(); it != m_games.end(); ++it)
+	{
+		delete *it;
+		*it = NULL;
+	}
+	m_games.clear();
+	if (m_password != NULL)
+		_free(m_password, "zNetMedius.cpp", 146);
+	m_password = NULL;
+}
+
+BriefingRoomDB::~BriefingRoomDB()
+{
+	/* 0x332df0 */
+	for (std::vector<BriefingRoom *>::iterator it = m_rooms.begin(); it != m_rooms.end(); ++it)
+	{
+		delete *it;
+		*it = NULL;
+	}
+	m_rooms.clear();
+}
+
+void BriefingRoomDB::Parse(char *file)
+{
+	/* 0x328490: every ROOM of the file's list (ROOMNAME, LIMIT, GAMELIST of persistent games). ELF
+	 * quirks kept: the old rooms are dropped from the list without being deleted; a room without a
+	 * ROOMNAME is still added */
+	CRdrFile *rdr = zrdr_read(file, NULL, 0);
+	if (rdr == NULL)
+		return;
+
+	_zrdr *rooms = RdrElement(rdr, 0);
+	m_rooms.clear();
+	for (unsigned int i = 0; i < RdrCount(rooms); i++)
+	{
+		_zrdr *entry = RdrElement(rooms, i);
+		BriefingRoom *room = new BriefingRoom();
+		const char *name = zrdr_findstring(entry, "ROOMNAME");
+		if (name != NULL)
+		{
+			room->m_channel.MediusWorldID = -1;
+			/* port: the ELF copies 64 bytes from the name (past its end); the name is copied and
+			 * the rest zeroed */
+			strncpy(room->m_channel.LobbyName, name, sizeof(room->m_channel.LobbyName));
+			zrdr_findint(entry, "LIMIT", &room->m_limit, 1);
+			_zrdr *games = zrdr_findtag(entry, "GAMELIST");
+			for (unsigned int j = 0; games != NULL && j < RdrCount(games); j++)
+			{
+				PersistentGame *game = new PersistentGame();
+				if (game->Parse(RdrElement(games, j), room->m_channel.LobbyName))
+					room->m_games.push_back(game);
+			}
+		}
+		m_rooms.push_back(room);
+	}
+	zrdr_free(rdr);
+}
+
+BriefingRoom * BriefingRoomDB::FindRoom(const char *name)
+{
+	/* 0x325070: the room of that name, else NULL */
+	if (name == NULL)
+		return NULL;
+	for (std::vector<BriefingRoom *>::iterator it = m_rooms.begin(); it != m_rooms.end(); ++it)
+	{
+		if (strcmp((*it)->m_channel.LobbyName, name) == 0)
+			return *it;
+	}
+	return NULL;
+}
+
+LadderRankingDB::~LadderRankingDB()
+{
+	/* 0x332d20 */
+	for (std::vector<LadderItem *>::iterator it = m_items.begin(); it != m_items.end(); ++it)
+	{
+		delete *it;
+		*it = NULL;
+	}
+	m_items.clear();
+}
+
+InvitationsDB::~InvitationsDB()
+{
+	/* 0x332c50 */
+	for (std::vector<InvitationItem *>::iterator it = m_items.begin(); it != m_items.end(); ++it)
+	{
+		delete *it;
+		*it = NULL;
+	}
+	m_items.clear();
+}
+
+ClanInvitationsDB::~ClanInvitationsDB()
+{
+	/* 0x332b80 */
+	for (std::vector<ClanInvitationItem *>::iterator it = m_items.begin(); it != m_items.end(); ++it)
+	{
+		delete *it;
+		*it = NULL;
+	}
+	m_items.clear();
+}
+
+ClanMemberDB::~ClanMemberDB()
+{
+	/* 0x332ab0 */
+	for (std::vector<ClanMemberItem *>::iterator it = m_items.begin(); it != m_items.end(); ++it)
+	{
+		delete *it;
+		*it = NULL;
+	}
+	m_items.clear();
+}
+
+/* the items of a pointer list deleted, the list emptied and its storage given back (inline in
+ * ReleaseUIResources 0x327340: delete loop, clear, swap with an empty vector) */
+template <class T> static void LobbyReleaseList(std::vector<T *> &list)
+{
+	for (typename std::vector<T *>::iterator it = list.begin(); it != list.end(); ++it)
+	{
+		delete *it;
+		*it = NULL;
+	}
+	list.clear();
+	std::vector<T *>().swap(list);
+}
+
+/* a state handler registered (inline in Open 0x327e00: the old one unregistered, the new one
+ * registered) */
+static void LobbySetStateHandler(CZOnlineLobby *lobby, CZOnlineLobby::LOBBY_STATE state, CZOnlineLobby::StateHandler handler)
+{
+	if (lobby->m_state_handler[state] != NULL)
+		lobby->m_state_handler[state](CZOnlineLobby::UNREGISTER);
+	lobby->m_state_handler[state] = handler;
+	if (lobby->m_state_handler[state] != NULL)
+		lobby->m_state_handler[state](CZOnlineLobby::REGISTER);
+}
+
+/* the valve the menus read the lobby state from (CValve::Set inline in Tick 0x327d08) */
+static void LobbySetStateValve(CValve *valve, unsigned int state)
+{
+	if (valve == NULL)
+		return;
+	unsigned int change = 0;
+	if (valve->m_value != state)
+		change = state ? 1 : 2;
+	valve->m_value = state;
+	if (change)
+		valve->MakeCallbacks((VALVE_STATE)change);
+}
+
 /* @socom-skeleton stub GameListPage__24@unnamed@zNetMedius_cpp@ */
 namespace {
-unsigned char GameListPage[4] = {1, 0, 0, 0};
+int GameListPage = 1;
 }
 
 /* @socom-skeleton stub RoomListPage__24@unnamed@zNetMedius_cpp@ */
 namespace {
-unsigned char RoomListPage[4] = {1, 0, 0, 0};
+int RoomListPage = 1;
 }
 
 /* @socom-skeleton stub PlayerClanID__24@unnamed@zNetMedius_cpp@ */
@@ -547,77 +906,77 @@ int accum_dme_joined_count;
 
 /* @socom-skeleton stub uiv_GameList__24@unnamed@zNetMedius_cpp@ */
 namespace {
-int uiv_GameList;
+CUIVariable *uiv_GameList; /* GAMELISTVAR */
 }
 
 /* @socom-skeleton stub uiv_RoomList__24@unnamed@zNetMedius_cpp@ */
 namespace {
-int uiv_RoomList;
+CUIVariable *uiv_RoomList; /* ROOMLISTVAR */
 }
 
 /* @socom-skeleton stub uiv_RoomPlayerList__24@unnamed@zNetMedius_cpp@ */
 namespace {
-int uiv_RoomPlayerList;
+CUIVariable *uiv_RoomPlayerList; /* ROOMPLAYERLISTVAR */
 }
 
 /* @socom-skeleton stub uiv_MediusChatRecvVar__24@unnamed@zNetMedius_cpp@ */
 namespace {
-int uiv_MediusChatRecvVar;
+CUIVariable *uiv_MediusChatRecvVar; /* MEDIUS_CHAT_RECV_VAR */
 }
 
 /* @socom-skeleton stub uiv_LobbyWorldNameVar__24@unnamed@zNetMedius_cpp@ */
 namespace {
-int uiv_LobbyWorldNameVar;
+CUIVariable *uiv_LobbyWorldNameVar; /* MEDIUS_LOBBY_NAME */
 }
 
 /* @socom-skeleton stub uiv_GameNameVar__24@unnamed@zNetMedius_cpp@ */
 namespace {
-int uiv_GameNameVar;
+CUIVariable *uiv_GameNameVar; /* GAMENAMEVAR */
 }
 
 /* @socom-skeleton stub uiv_MediusMOTD__24@unnamed@zNetMedius_cpp@ */
 namespace {
-int uiv_MediusMOTD;
+CUIVariable *uiv_MediusMOTD; /* MEDIUS_MOTD */
 }
 
 /* @socom-skeleton stub uiv_MediusMyInvites__24@unnamed@zNetMedius_cpp@ */
 namespace {
-int uiv_MediusMyInvites;
+CUIVariable *uiv_MediusMyInvites; /* MY_CLAN_INVITES */
 }
 
 /* @socom-skeleton stub uiv_ClanInvitations__24@unnamed@zNetMedius_cpp@ */
 namespace {
-int uiv_ClanInvitations;
+CUIVariable *uiv_ClanInvitations; /* INVITED_PLAYERS */
 }
 
 /* @socom-skeleton stub uiv_ClanRoster__24@unnamed@zNetMedius_cpp@ */
 namespace {
-int uiv_ClanRoster;
+CUIVariable *uiv_ClanRoster; /* CLAN_ROSTER */
 }
 
 /* @socom-skeleton stub uiv_MediusLadderTop10__24@unnamed@zNetMedius_cpp@ */
 namespace {
-int uiv_MediusLadderTop10;
+CUIVariable *uiv_MediusLadderTop10; /* LADDER_TOP_10 */
 }
 
 /* @socom-skeleton stub uiv_MediusLadderRanking__24@unnamed@zNetMedius_cpp@ */
 namespace {
-int uiv_MediusLadderRanking;
+CUIVariable *uiv_MediusLadderRanking; /* LADDER_RANKING */
 }
 
 /* @socom-skeleton stub uiv_GameClock__24@unnamed@zNetMedius_cpp@ */
 namespace {
-int uiv_GameClock;
+CUIVariable *uiv_GameClock; /* the game clock (Tick counts it down) */
 }
 
 /* @socom-skeleton stub uiv_ClanNameVar__24@unnamed@zNetMedius_cpp@ */
 namespace {
-int uiv_ClanNameVar;
+CUIVariable *uiv_ClanNameVar; /* CLANNAMEVAR */
 }
 
 /* @socom-skeleton stub uiv_ClanDescription__24@unnamed@zNetMedius_cpp@ */
 namespace {
-int uiv_ClanDescription;
+CUIVariable *uiv_ClanDescription; /* Clan_Description */
 }
 
 /* @socom-skeleton stub ForceReport__24@unnamed@zNetMedius_cpp@ */
@@ -646,37 +1005,37 @@ signed char SessionKey[17];
 
 /* @socom-skeleton stub BriefingRoomVec__24@unnamed@zNetMedius_cpp@ */
 namespace {
-int BriefingRoomVec[3];
+BriefingRoomDB BriefingRoomVec; /* the rooms of mp_rooms.rdr */
 }
 
 /* @socom-skeleton stub RandomGameVec__24@unnamed@zNetMedius_cpp@ */
 namespace {
-int RandomGameVec[41];
+BriefingRoom RandomGameVec; /* the random-game candidates (its games) */
 }
 
 /* @socom-skeleton stub LadderRankingVec__24@unnamed@zNetMedius_cpp@ */
 namespace {
-int LadderRankingVec[5];
+LadderRankingDB LadderRankingVec;
 }
 
 /* @socom-skeleton stub LadderRankingTop10Vec__24@unnamed@zNetMedius_cpp@ */
 namespace {
-int LadderRankingTop10Vec[5];
+LadderRankingDB LadderRankingTop10Vec;
 }
 
 /* @socom-skeleton stub InvitationVec__24@unnamed@zNetMedius_cpp@ */
 namespace {
-int InvitationVec[3];
+InvitationsDB InvitationVec;
 }
 
 /* @socom-skeleton stub ClanInvitationVec__24@unnamed@zNetMedius_cpp@ */
 namespace {
-int ClanInvitationVec[3];
+ClanInvitationsDB ClanInvitationVec;
 }
 
 /* @socom-skeleton stub ClanMemberVec__24@unnamed@zNetMedius_cpp@ */
 namespace {
-int ClanMemberVec[3];
+ClanMemberDB ClanMemberVec;
 }
 
 /* @socom-skeleton stub AccessKey__24@unnamed@zNetMedius_cpp@ */
@@ -696,7 +1055,7 @@ unsigned char PlayerDescription[128];
 
 /* @socom-skeleton stub AccountInfo__24@unnamed@zNetMedius_cpp@ */
 namespace {
-int AccountInfo[17];
+LobbyAccountInfo AccountInfo;
 }
 
 /* @socom-skeleton stub PlayerInfo__24@unnamed@zNetMedius_cpp@ */
@@ -706,17 +1065,17 @@ signed char PlayerInfo[328];
 
 /* @socom-skeleton stub gNetLoginConnectionInfo__24@unnamed@zNetMedius_cpp@ */
 namespace {
-int gNetLoginConnectionInfo[39];
+NetConnectionInfo gNetLoginConnectionInfo;
 }
 
 /* @socom-skeleton stub gNetConnectionInfo__24@unnamed@zNetMedius_cpp@ */
 namespace {
-int gNetConnectionInfo[39];
+NetConnectionInfo gNetConnectionInfo;
 }
 
 /* @socom-skeleton stub gGameNetConnectionInfo__24@unnamed@zNetMedius_cpp@ */
 namespace {
-int gGameNetConnectionInfo[39];
+NetConnectionInfo gGameNetConnectionInfo;
 }
 
 /* @socom-skeleton stub StoredClanInfo__24@unnamed@zNetMedius_cpp@ */
@@ -738,13 +1097,20 @@ unsigned char rsaKeyPair[128];
 unsigned char net_init_thread_stack[102404];
 
 /* port: stub IsAClone__12BriefingRoomFv (no owner in the render) */
-void BriefingRoom::IsAClone() /* port: 0x32fea0 returns false */
+BriefingRoom * BriefingRoom::IsAClone()
 {
+	/* 0x32fea0 */
+	return NULL;
 }
 
 /* @socom-skeleton stub LastClone__12BriefingRoomFv */
-void BriefingRoom::LastClone()
+BriefingRoom * BriefingRoom::LastClone()
 {
+	/* 0x32fdd0: the end of the clone chain (+0xa0) */
+	BriefingRoom *room = this;
+	while (room->m_clone != NULL)
+		room = room->m_clone;
+	return room;
 }
 
 /* @socom-skeleton stub LookupMediusCallbackStatus__F20MediusCallbackStatus */
@@ -765,6 +1131,22 @@ void MapToGameLevel(const char *)
 /* @socom-skeleton stub __dt__13CZOnlineLobbyFv */
 CZOnlineLobby::~CZOnlineLobby()
 {
+	/* 0x32f8c0: Close and UnInit inline */
+	if (m_isopen)
+	{
+		m_isopen = false;
+		ReleaseUIResources();
+	}
+	if (m_isinit)
+	{
+		if (m_isopen)
+		{
+			m_isopen = false;
+			ReleaseUIResources();
+		}
+		m_isinit = false;
+		g_bJoiningRandomGame = false;
+	}
 }
 
 /* @socom-skeleton stub GamePassesTypeFilter__Fi */
@@ -805,6 +1187,33 @@ void GetGameList(int)
 /* @socom-skeleton stub UpdateRoomListDisplay__Fv */
 void UpdateRoomListDisplay()
 {
+	/* 0x32e920: ROOMLISTVAR = a list of (name, players) of the rooms, without "Medius..." rooms
+	 * and without the "+Clan - " rooms of other clans */
+	char clanRoom[1024];
+	CRdrEditor editor;
+	editor.push(NULL);
+	for (std::vector<BriefingRoom *>::iterator it = BriefingRoomVec.m_rooms.begin(); it != BriefingRoomVec.m_rooms.end(); ++it)
+	{
+		const char *name = (*it)->m_channel.LobbyName;
+		if (name[0] == '\0')
+			continue;
+		if (name[0] == '+' && strncmp(name, "+Clan - ", 8) == 0)
+		{
+			if (PlayerClanID == -1)
+				continue;
+			sprintf(clanRoom, "+Clan - %s", (char *)StoredClanInfo + 0x24);
+			if (strcmp(name, clanRoom) != 0)
+				continue;
+		}
+		if (strncmp(name, "Medius", 6) == 0)
+			continue;
+		editor.push(NULL);
+		editor.addstringnode(name);
+		editor.addintnode((*it)->m_playerCount);
+		editor.pop();
+	}
+	editor.pop();
+	uiv_RoomList->Set(&editor);
 }
 
 /* @socom-skeleton stub cbChannelInfo__FiiiP25MediusChannelInfoResponse */
@@ -813,13 +1222,17 @@ void cbChannelInfo(int, int, int, MediusChannelInfoResponse *)
 }
 
 /* port: stub BaseSrc__12BriefingRoomFv (no owner in the render) */
-void BriefingRoom::BaseSrc() /* port: 0x32e4b0 returns this; void is the skeleton placeholder */
+BriefingRoom * BriefingRoom::BaseSrc()
 {
+	/* 0x32e4b0 */
+	return this;
 }
 
 /* port: stub CloneIndex__12BriefingRoomFv (no owner in the render) */
-void BriefingRoom::CloneIndex() /* port: 0x32e800 returns 0 */
+int BriefingRoom::CloneIndex()
 {
+	/* 0x32e800 */
+	return 0;
 }
 
 /* @socom-skeleton stub cbRoomList__FiiiP25MediusChannelListResponse */
@@ -828,8 +1241,22 @@ void cbRoomList(int, int, int, MediusChannelListResponse *)
 }
 
 /* @socom-skeleton stub GetRoomList__Fi */
-void GetRoomList(int)
+void GetRoomList(int page)
 {
+	/* 0x32dfa0: the room list shown again, and asked for (page `page`, 999 rooms) while the
+	 * lobby is active */
+	UpdateRoomListDisplay();
+	if (theLobby.m_isopen && theLobby.m_current_state == CZOnlineLobby::LOBBY_ACTIVE)
+	{
+		MediusChannelListRequest request;
+		memset(&request, 0, sizeof(request));
+		RoomListPage = page;
+		memcpy(request.SessionKey, SessionKey, sizeof(request.SessionKey));
+		MediusCreateMessageID((const char *)SessionKey, 27, &request);
+		request.PageSize = 999;
+		request.PageID = (short)page;
+		MediusGetChannels(&request, cbRoomList);
+	}
 }
 
 /* @socom-skeleton stub _roomplayer_sort_aux__FR34MediusLobbyWorldPlayerListResponseR34MediusLobbyWorldPlayerListResponse */
@@ -925,6 +1352,8 @@ void cbDMENetPingCallback(NetErrorCode, char *, unsigned int)
 /* @socom-skeleton stub ForceStatusReport__13CZOnlineLobbyFv */
 void CZOnlineLobby::ForceStatusReport()
 {
+	/* 0x32d3e0 */
+	ForceReport = 1;
 }
 
 /* @socom-skeleton stub cbRefreshDMEJoinedCount__FiiiP33MediusGameWorldPlayerListResponse */
@@ -1141,7 +1570,7 @@ void UpdateInvitations()
 bool CZOnlineLobby::HasClanInvitations()
 {
 	/* 0x32ad40: the invitations vector is not empty (its size word, +0x4) */
-	return InvitationVec[1] != 0;
+	return !InvitationVec.m_items.empty();
 }
 
 /* @socom-skeleton stub cbCheckMyClanInvitations__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP36MediusCheckMyClanInvitationsResponse */
@@ -1198,16 +1627,22 @@ void UpdateLadderTop10()
 /* @socom-skeleton stub GetCurrentLadderPosition__13CZOnlineLobbyFv */
 int CZOnlineLobby::GetCurrentLadderPosition()
 {
+	/* 0x32a030 */
+	return LadderRankingVec.m_currentPosition;
 }
 
 /* @socom-skeleton stub GetLowestLadderPosition__13CZOnlineLobbyFv */
 int CZOnlineLobby::GetLowestLadderPosition()
 {
+	/* 0x32a020 */
+	return LadderRankingVec.m_lowestPosition;
 }
 
 /* @socom-skeleton stub SetConnectionInfo__13CZOnlineLobbyFP17NetConnectionInfo */
-void CZOnlineLobby::SetConnectionInfo(NetConnectionInfo *)
+void CZOnlineLobby::SetConnectionInfo(NetConnectionInfo *info)
 {
+	/* 0x329f00: the game server's connection (zNetConnect) */
+	*info = gGameNetConnectionInfo;
 }
 
 /* @socom-skeleton stub cbGetLadderTop10Descriptions__FiiiP24MediusPlayerInfoResponse */
@@ -1276,118 +1711,415 @@ void cbBuddyGetPermission(int, int, int, MediusAddToBuddyListFwdConfirmationRequ
 }
 
 /* @socom-skeleton stub cbErrorMessage__FiiiP18MediusErrorMessage */
-void cbErrorMessage(int, int, int, MediusErrorMessage *)
+void cbErrorMessage(int, int, int, MediusErrorMessage *message)
 {
+	/* 0x328e60: the server's error text (+0x4) to the menu's MP_MEDIUS_ERROR event */
+	if (theLobby.m_event_handler != NULL)
+		theLobby.m_event_handler("MP_MEDIUS_ERROR", (const char *)message + 4);
 }
 
 /* @socom-skeleton stub cbConnect__Fi */
-void cbConnect(int)
+void cbConnect(int connection)
 {
+	/* 0x328e00: MediusConnect's answer */
+	if (connection != -1)
+	{
+		myConnectionIndex = connection;
+		theLobby.m_state_change_fifo.push(CZOnlineLobby::CONNECT_SUCCESS);
+	}
+	else
+	{
+		theLobby.m_state_change_fifo.push(CZOnlineLobby::CONNECT_ERROR);
+	}
 }
 
 /* @socom-skeleton stub AuxInitNetwork__Fv */
 void AuxInitNetwork()
 {
+	/* 0x328b90 (the connect thread): DME up first when it is not, then the Medius client and
+	 * its connection to the lobby server (theNetwork's Medius address and port); networked when
+	 * MediusConnect is under way, else CONNECT_ERROR queued and the lobby ticked from here */
+	if (!theNetwork.m_network_init)
+	{
+		theNetwork.zNetInitEx();
+		DMERegister();
+	}
+
+	MediusInitializeBareParams init;
+	int initResult;
+	init.ChatCallback = cbChatMessage;
+	init.BuddyPermissionCallback = cbBuddyGetPermission;
+	init.ErrorCallback = cbErrorMessage;
+	init.Unused = 0; /* port: unset in the ELF */
+	init.TimeoutMs = 30000;
+	MediusInitializeBare(&init, &initResult);
+
+	char version[64];
+	char stamp[64];
+	MediusVersionClient(version);
+	MediusGetBuildTimeStamp(stamp);
+	MediusSetDefaultConnectInfo(&gNetConnectionInfo, 0, (const char *)theNetwork.m_MediusIP,
+		atoi((const char *)theNetwork.m_MediusPort), 1);
+	memset(gNetConnectionInfo.ServerKey, 0, sizeof(gNetConnectionInfo.ServerKey));
+
+	MediusConnectRequest request;
+	int result;
+	request.ConnectInfo = gNetConnectionInfo;
+	request.Callback = cbConnect;
+	request.Unknown_a0 = 0;
+	request.Unknown_a4 = 0;
+	if (MediusConnect(&request, &result) == 0)
+	{
+		theNetwork.m_bNetwork = true;
+		return;
+	}
+
+	theLobby.m_state_change_fifo.push(CZOnlineLobby::CONNECT_ERROR);
+	theLobby.Tick();
 }
 
 /* @socom-skeleton stub NetInitThreadEntry__FPv */
 void NetInitThreadEntry(void *)
 {
+	/* 0x328b60 */
+	AuxInitNetwork();
+	ThreadId = 0;
+	ExitDeleteThread();
 }
 
 /* @socom-skeleton stub GetKeyPair__13CZOnlineLobbyFv */
-void CZOnlineLobby::GetKeyPair()
+unsigned char * CZOnlineLobby::GetKeyPair()
 {
+	/* 0x328b50 */
+	return rsaKeyPair;
 }
 
 /* @socom-skeleton body Init__13CZOnlineLobbyFv */
 void CZOnlineLobby::Init()
 {
-	if (!started)
+	/* 0x3289f0: once: no lobby connection yet, the lobby's UI variables, no clan, the
+	 * socom_online_state valve; the state queue is primed (a state pushed and popped) */
+	if (!m_isinit)
 	{
-		started = true;
-		myConnectionIndex = 0xffffffff;
+		m_isinit = true;
+		myConnectionIndex = -1;
 		g_bJoiningRandomGame = false;
-
-		// uiv_LobbyWorldNameVar = theUIVarManager.Add("MEDIUS_LOBBY_NAME", NULL, UIVAR_LONGEVITY::UIVL_PERMANENT);
-		// uiv_GameNameVar = theUIVarManager.Add("GAMENAMEVAR", NULL, UIVAR_LONGEVITY::UIVL_PERMANENT);
-		// uiv_ClanNameVar = theUIVarManager.Add("CLANNAMEVAR", NULL, UIVAR_LONGEVITY::UIVL_PERMANENT);
-		// uiv_ClanDescription = theUIVarManager.Add("Clan_Description", NULL, UIVAR_LONGEVITY::UIVL_PERMANENT);
-
+		uiv_LobbyWorldNameVar = theUIVarManager.Add("MEDIUS_LOBBY_NAME", NULL, UIVL_PERMANENT);
+		uiv_GameNameVar = theUIVarManager.Add("GAMENAMEVAR", NULL, UIVL_PERMANENT);
+		uiv_ClanNameVar = theUIVarManager.Add("CLANNAMEVAR", NULL, UIVL_PERMANENT);
+		uiv_ClanDescription = theUIVarManager.Add("Clan_Description", NULL, UIVL_PERMANENT);
+		StoredClanInfo[7] = -1;  /* +0x1c the clan id (port: no type for the stored clan record) */
 		dme_joined_count = 0;
 		accum_dme_joined_count = 0;
-
-		onlineStatusValve = CValve::Create("socom_online_state", VALVE_TYPE::VTYPE_PERM);
-		ForceReport = false;
-
-		// TODO:
-		// Implement std::deque as per the decomp
+		ThreadId = 0;
+		g_iCreateGameClanAffiliation = 0;
+		PlayerClanID = -1;
+		StoredClanInfo[17] = -1; /* +0x44 */
+		/* the clan name (+0x24) from an empty string: nothing is copied */
+		const char *clan = "";
+		if (strlen(clan) != 0)
+			memcpy((char *)StoredClanInfo + 0x24, clan, strlen(clan));
+		socom_online_state = CValve::Create("socom_online_state", VALVE_TYPE::VTYPE_PERM);
+		ForceReport = 0;
+		m_state_change_fifo.push(ROOT_LOBBY_STATE);
+		m_state_change_fifo.pop();
 	}
 }
 
 /* @socom-skeleton stub Open__13CZOnlineLobbyFv */
 bool CZOnlineLobby::Open()
 {
+	/* 0x327e00: the lobby's session data reset, every state's handler registered, the rooms
+	 * read from mp_rooms.rdr, the list variables made, and the connection started on its own
+	 * thread (NetInitThreadEntry -> AuxInitNetwork); false when already open */
+	if (m_isopen)
+		return false;
+
+	m_isopen = true;
+	Ladder_Rating = 99;
+	SessionKey[0] = 0;
+	UniversalGamePerformanceMetric = 65000;
+	AccessKey[0] = 0;
+	Team = 'S';
+	GameListPage = 1;
+	RoomListPage = 1;
+	MediusWorldID = -1;
+	LobbyWorldID = -1;
+	AcctLoggedIn = 0;
+	UserLoggedIn = 0;
+	ScreenNameLoggedIn = 0;
+	LobbyServerIP[0] = 0;
+	LobbyServerPort[0] = 0;
+	g_iCreateGameClanAffiliation = 0;
+	sprintf((char *)PlayerDescription, "Description Not Set");
+	HaveStoredScreenNames = 0;
+	AccountInfo.m_id = -1;
+	/* port: the ELF copies 32 bytes from each 8-byte literal (past its end); copied and zeroed */
+	strncpy(AccountInfo.m_name, "zname_a", sizeof(AccountInfo.m_name));
+	strncpy(AccountInfo.m_password, "zpass_a", sizeof(AccountInfo.m_password));
+
+	m_current_state = ROOT_LOBBY_STATE;
+	for (int i = 0; i < MAX_LOBBY_STATES; i++)
+		m_state_handler[i] = NULL;
+	while (!m_state_change_fifo.empty())
+		m_state_change_fifo.pop();
+
+	LobbySetStateHandler(this, CONNECT_SUCCESS, ConnectSuccessStateHandler);
+	LobbySetStateHandler(this, CONNECT_ERROR, ConnectErrorStateHandler);
+	LobbySetStateHandler(this, SESSION_BEGIN, SessionBeginStateHandler);
+	LobbySetStateHandler(this, ACCOUNT_REGISTRATION, AccountRegistrationStateHandler);
+	LobbySetStateHandler(this, REGISTRATION_FAILURE, RegistrationFailureStateHandler);
+	LobbySetStateHandler(this, ACCOUNT_LOGIN, AccountLoginStateHandler);
+	LobbySetStateHandler(this, LOGIN_FAILURE, LoginFailureStateHandler);
+	LobbySetStateHandler(this, LOBBY_ACTIVE, LobbyActiveStateHandler);
+	LobbySetStateHandler(this, CREATE_NEW_GAME, CreateNewGameStateHandler);
+	LobbySetStateHandler(this, CREATE_FAILURE, CreateFailureStateHandler);
+	LobbySetStateHandler(this, JOIN_GAME, JoinGameStateHandler);
+	LobbySetStateHandler(this, LOBBY_SERVER_CONNECT, LobbyServerConnectStateHandler);
+	LobbySetStateHandler(this, READY_TO_CONNECT, LobbyReadyToConnectStateHandler);
+	LobbySetStateHandler(this, END_SESSION, EndSessionStateHandler);
+	LobbySetStateHandler(this, JOIN_ROOM, JoinRoomStateHandler);
+	LobbySetStateHandler(this, CREATE_ROOM, CreateRoomStateHandler);
+
+	BriefingRoomVec.Parse((char *)"mp_rooms.rdr");
+	uiv_GameList = theUIVarManager.Add("GAMELISTVAR", NULL, UIVL_TEMPORARY);
+	uiv_RoomList = theUIVarManager.Add("ROOMLISTVAR", NULL, UIVL_TEMPORARY);
+	uiv_RoomPlayerList = theUIVarManager.Add("ROOMPLAYERLISTVAR", NULL, UIVL_TEMPORARY);
+	uiv_MediusChatRecvVar = theUIVarManager.Add("MEDIUS_CHAT_RECV_VAR", NULL, UIVL_TEMPORARY);
+	uiv_MediusMOTD = theUIVarManager.Add("MEDIUS_MOTD", NULL, UIVL_TEMPORARY);
+	uiv_ClanInvitations = theUIVarManager.Add("INVITED_PLAYERS", NULL, UIVL_TEMPORARY);
+	uiv_ClanRoster = theUIVarManager.Add("CLAN_ROSTER", NULL, UIVL_TEMPORARY);
+	uiv_MediusMyInvites = theUIVarManager.Add("MY_CLAN_INVITES", NULL, UIVL_TEMPORARY);
+	uiv_MediusLadderTop10 = theUIVarManager.Add("LADDER_TOP_10", NULL, UIVL_TEMPORARY);
+	uiv_MediusLadderRanking = theUIVarManager.Add("LADDER_RANKING", NULL, UIVL_TEMPORARY);
+	uiv_GameClock = NULL;
+	GetRoomList(1);
+
+	/* the thread's stack: 0x19000 bytes and a guard word after it */
+	*(unsigned int *)(net_init_thread_stack + 0x19000) = 0xfeedfade;
+	ThreadParam param;
+	param.entry = (void *)NetInitThreadEntry;
+	param.stack = net_init_thread_stack;
+	param.stackSize = 0x19000;
+	param.gpReg = &_gp;
+	param.initPriority = 0;
+	param.option = 0;
+	ThreadId = CreateThread(&param);
+	if (ThreadId != 0)
+		StartThread(ThreadId, NULL);
+	return true;
 }
 
 /* @socom-skeleton stub Tick__13CZOnlineLobbyFv */
 void CZOnlineLobby::Tick()
 {
+	/* 0x327c50: a queued state replaces the current one (EXIT, then ENTRY, and the
+	 * socom_online_state valve follows it); else the current state ticks. Then the game clock
+	 * variable counts down by the frame time while it is not negative */
+	if (!m_isopen)
+		return;
+
+	if (!m_state_change_fifo.empty())
+	{
+		if (m_state_handler[m_current_state] != NULL)
+			m_state_handler[m_current_state](EXIT);
+		m_current_state = m_state_change_fifo.front();
+		m_state_change_fifo.pop();
+		if (m_state_handler[m_current_state] != NULL)
+			m_state_handler[m_current_state](ENTRY);
+		LobbySetStateValve(socom_online_state, m_current_state);
+	}
+	else if (m_state_handler[m_current_state] != NULL)
+	{
+		m_state_handler[m_current_state](TICK);
+	}
+
+	CUIVariable *clock = uiv_GameClock;
+	if (clock == NULL)
+		return;
+	float t = clock->GetReal();
+	if (t < 0.0f)
+		return;
+	t -= zVid.frameTime;
+	clock->DeleteChildren();
+	clock->type = ZRDR_REAL;
+	clock->real = t;
+	clock->UpdateDependents();
 }
 
 /* @socom-skeleton stub Close__13CZOnlineLobbyFv */
 void CZOnlineLobby::Close()
 {
+	/* 0x327c40 (tail call) */
+	m_isopen = false;
+	ReleaseUIResources();
 }
 
 /* @socom-skeleton stub ReleaseUIResources__13CZOnlineLobbyFv */
 void CZOnlineLobby::ReleaseUIResources()
 {
+	/* 0x327340: every list the lobby built is freed (rooms, ladders, invitations, clan members,
+	 * the random-game candidates) and the list variables forgotten (not removed) */
+	LobbyReleaseList(BriefingRoomVec.m_rooms);
+	LadderRankingVec.m_currentPosition = 0;
+	LobbyReleaseList(LadderRankingVec.m_items);
+	LadderRankingTop10Vec.m_currentPosition = 0;
+	LobbyReleaseList(LadderRankingTop10Vec.m_items);
+	LobbyReleaseList(InvitationVec.m_items);
+	LobbyReleaseList(ClanInvitationVec.m_items);
+	LobbyReleaseList(ClanMemberVec.m_items);
+	LobbyReleaseList(RandomGameVec.m_games);
+	ClanCallbackExecuted = 0;
+	uiv_GameList = NULL;
+	uiv_RoomList = NULL;
+	uiv_RoomPlayerList = NULL;
+	uiv_MediusChatRecvVar = NULL;
+	uiv_MediusMOTD = NULL;
+	uiv_MediusMyInvites = NULL;
+	uiv_ClanInvitations = NULL;
+	uiv_ClanRoster = NULL;
+	uiv_MediusLadderTop10 = NULL;
+	uiv_MediusLadderRanking = NULL;
+	g_bJoiningRandomGame = false;
 }
 
 /* @socom-skeleton stub UnInit__13CZOnlineLobbyFv */
 void CZOnlineLobby::UnInit()
 {
+	/* 0x3270c0 */
+	if (m_isopen)
+	{
+		m_isopen = false;
+		ReleaseUIResources();
+	}
+	m_isinit = false;
+	g_bJoiningRandomGame = false;
 }
 
 /* @socom-skeleton stub Login__13CZOnlineLobbyFPCcPCc */
-bool CZOnlineLobby::Login(const char *, const char *)
+bool CZOnlineLobby::Login(const char *name, const char *password)
 {
-	return true; /* port: stub - not written */
+	/* 0x326ff0: the account to log in with, then SESSION_BEGIN (DoLogin set). ELF quirk kept: the
+	 * stats blob is 256 bytes copied from a shorter literal (port: copied and zero-padded) */
+	if (!m_isopen)
+		return false;
+	AccountInfo.m_id = -1;
+	if (name != NULL)
+		memcpy(AccountInfo.m_name, name, sizeof(AccountInfo.m_name));
+	if (password != NULL)
+		memcpy(AccountInfo.m_password, password, sizeof(AccountInfo.m_password));
+	strncpy((char *)PlayerInfo + 0x48, "N0000000000The Rest Of This Message Is Garbage", 256);
+	DoLogin = true;
+	m_state_change_fifo.push(SESSION_BEGIN);
+	return true;
 }
 
 /* @socom-skeleton stub Logout__13CZOnlineLobbyFv */
 void CZOnlineLobby::Logout()
 {
+	/* 0x326fb0: END_SESSION (returns 1 in the ELF when open, 0 else; no caller reads it) */
+	if (!m_isopen)
+		return;
+	m_state_change_fifo.push(END_SESSION);
 }
 
 /* @socom-skeleton stub Bailout__13CZOnlineLobbyFv */
 void CZOnlineLobby::Bailout()
 {
+	/* 0x326f00: waits for the connect thread (a second at a time), disconnects from Medius, closes
+	 * DME, and closes the lobby (returns 1 in the ELF when open; no caller reads it) */
+	if (!m_isopen)
+		return;
+	while (ThreadId != 0)
+		zSysSleep(zSys.timerTicksPerSecond);
+	if (theNetwork.m_bNetwork)
+	{
+		MediusDisconnect();
+		MediusCloseBare();
+	}
+	if (theNetwork.m_network_init)
+	{
+		theNetwork.zNetClose();
+		theNetwork.m_bNetwork = false;
+	}
+	m_isopen = false;
+	ReleaseUIResources();
 }
 
 /* @socom-skeleton stub Register__13CZOnlineLobbyFPCcPCc */
-bool CZOnlineLobby::Register(const char *, const char *)
+bool CZOnlineLobby::Register(const char *name, const char *password)
 {
-	return true; /* port: stub - not written */
+	/* 0x326e40: as Login, without DoLogin */
+	if (!m_isopen)
+		return false;
+	AccountInfo.m_id = -1;
+	if (name != NULL)
+		memcpy(AccountInfo.m_name, name, sizeof(AccountInfo.m_name));
+	if (password != NULL)
+		memcpy(AccountInfo.m_password, password, sizeof(AccountInfo.m_password));
+	strncpy((char *)PlayerInfo + 0x48, "N0000000000The Rest Of This Message Is Garbage", 256);
+	DoLogin = false;
+	m_state_change_fifo.push(SESSION_BEGIN);
+	return true;
 }
 
 /* @socom-skeleton stub RefreshGameList__13CZOnlineLobbyFP3C2D */
 bool CZOnlineLobby::RefreshGameList(C2D *)
 {
-	return true; /* port: stub - not written */
+	/* 0x326e00: the first page of the game list asked for while open */
+	if (!m_isopen)
+		return false;
+	GetGameList(1);
+	return true;
 }
 
 /* @socom-skeleton stub RefreshRoomList__13CZOnlineLobbyFP3C2D */
 bool CZOnlineLobby::RefreshRoomList(C2D *)
 {
-	return true; /* port: stub - not written */
+	/* 0x326d20: while open and active, the room list shown again and asked for (page 1, 999
+	 * rooms; GetRoomList inline) */
+	if (!m_isopen)
+		return false;
+	if (m_current_state != LOBBY_ACTIVE)
+		return false;
+	UpdateRoomListDisplay();
+	if (theLobby.m_isopen && theLobby.m_current_state == LOBBY_ACTIVE)
+	{
+		MediusChannelListRequest request;
+		RoomListPage = 1;
+		memset(&request, 0, sizeof(request));
+		memcpy(request.SessionKey, SessionKey, sizeof(request.SessionKey));
+		MediusCreateMessageID((const char *)SessionKey, 27, &request);
+		request.PageSize = 999;
+		request.PageID = (short)RoomListPage;
+		MediusGetChannels(&request, cbRoomList);
+	}
+	return true;
 }
 
 /* @socom-skeleton stub RefreshRoomPlayerList__13CZOnlineLobbyFP3C2D */
 bool CZOnlineLobby::RefreshRoomPlayerList(C2D *)
 {
-	return true; /* port: stub - not written */
+	/* 0x326c40: while open and no request is pending, the current room's players asked for (the
+	 * room found by the MEDIUS_LOBBY_NAME variable; its list emptied first) */
+	if (!m_isopen)
+		return false;
+	if (PlayerListRequestPending)
+		return true;
+	const char *name = (uiv_LobbyWorldNameVar->type == ZRDR_STRING) ? uiv_LobbyWorldNameVar->string : NULL;
+	BriefingRoom *room = BriefingRoomVec.FindRoom(name);
+	if (room != NULL)
+	{
+		MediusLobbyWorldPlayerListRequest request;
+		memset(&request, 0, sizeof(request));
+		memcpy(request.SessionKey, SessionKey, sizeof(request.SessionKey));
+		MediusCreateMessageID((const char *)SessionKey, 33, &request);
+		PlayerListRequestPending = true;
+		request.MediusWorldID = LobbyWorldID;
+		room->m_players.clear();
+		MediusGetLobbyPlayers(&request, cbRoomPlayerList);
+	}
+	return true;
 }
 
 /* @socom-skeleton stub cbGameWorldPlayerListCallback__FiiiP33MediusGameWorldPlayerListResponse */
@@ -1454,7 +2186,21 @@ bool CZOnlineLobby::IsTeamGame()
 /* @socom-skeleton stub OnCorrectClanTeam__13CZOnlineLobbyFv */
 bool CZOnlineLobby::OnCorrectClanTeam()
 {
-	return true; /* port: stub - not written (0x325430: the game's clan affiliation against the player's clan and team) */
+	/* 0x325430: a clan game (affiliation +clan: SEALs, -clan: terrorists) wants the player's clan
+	 * on its side and no one else's there: false when the clan matches but the side does not, or
+	 * the side matches but the clan does not */
+	int affiliation = g_iCreateGameClanAffiliation;
+	int clan = StoredClanInfo[7]; /* +0x1c the clan id */
+	if (affiliation == 0)
+		return true;
+	bool sealsAffiliated = affiliation >= 0;
+	bool clanMatches = affiliation == clan || affiliation == -clan;
+	bool onSealTeam = (theMission.m_pNetGame->m_net_team & 1) != 0;
+	if (clanMatches && sealsAffiliated != onSealTeam)
+		return false;
+	if (!clanMatches && sealsAffiliated == onSealTeam)
+		return false;
+	return true;
 }
 
 /* @socom-skeleton stub JoinRoom__13CZOnlineLobbyFPCc */
@@ -1564,7 +2310,7 @@ bool CZOnlineLobby::RevokeInvite(const char *)
 bool CZOnlineLobby::ClanHasInvitations()
 {
 	/* 0x323ac0: the clan invitations vector is not empty (its size word, +0x4) */
-	return ClanInvitationVec[1] != 0;
+	return !ClanInvitationVec.m_items.empty();
 }
 
 /* @socom-skeleton stub cbAddPlayerToClan__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP29MediusAddPlayerToClanResponse */
@@ -1640,29 +2386,74 @@ bool CZOnlineLobby::IsMemberOfClan()
 }
 
 /* @socom-skeleton stub IsLeaderOfClan__13CZOnlineLobbyFPCc */
-bool CZOnlineLobby::IsLeaderOfClan(const char *)
+bool CZOnlineLobby::IsLeaderOfClan(const char *name)
 {
-	return false; /* port: stub - not written (0x3229e0) */
+	/* 0x3229e0: the named clan member's account (else this player's) is the clan's leader
+	 * (+0x44 of the stored clan record) */
+	ClanMemberItem *member = NULL;
+	if (name != NULL)
+	{
+		for (std::vector<ClanMemberItem *>::iterator it = ClanMemberVec.m_items.begin(); it != ClanMemberVec.m_items.end(); ++it)
+		{
+			if (strcmp((*it)->m_name.c_str(), name) == 0)
+			{
+				member = *it;
+				break;
+			}
+		}
+	}
+	if (member != NULL)
+		return member->m_accountID == StoredClanInfo[17];
+	return AccountInfo.m_id == StoredClanInfo[17];
 }
 
 /* @socom-skeleton stub GetMissionSequence__13CZOnlineLobbyFPUcPUc */
-void CZOnlineLobby::GetMissionSequence(unsigned char *, unsigned char *)
+void CZOnlineLobby::GetMissionSequence(unsigned char *index, unsigned char *seq)
 {
+	/* 0x322940 */
+	*index = (unsigned char)m_curr_seq_idx;
+	memcpy(seq, m_MissionSequence, sizeof(m_MissionSequence));
 }
 
 /* @socom-skeleton stub SetMissionSequence__13CZOnlineLobbyFUcPUc */
-void CZOnlineLobby::SetMissionSequence(unsigned char, unsigned char *)
+void CZOnlineLobby::SetMissionSequence(unsigned char index, unsigned char *seq)
 {
+	/* 0x3228a0 */
+	memcpy(m_MissionSequence, seq, sizeof(m_MissionSequence));
+	m_curr_seq_idx = index;
 }
 
 /* @socom-skeleton stub ResetMissionSequence__13CZOnlineLobbyFv */
 void CZOnlineLobby::ResetMissionSequence()
 {
+	/* 0x322860: the position on the sequence's last mission (so Advance starts at the first);
+	 * unchanged when all twelve are set */
+	for (int i = 0; i < 11; i++)
+	{
+		if (m_MissionSequence[i + 1] == 0)
+		{
+			m_curr_seq_idx = i;
+			return;
+		}
+	}
 }
 
 /* @socom-skeleton stub AdvanceMissionSequence__13CZOnlineLobbyFv */
 unsigned char CZOnlineLobby::AdvanceMissionSequence()
 {
+	/* 0x322700: the next mission of the sequence (back to the first after the last); the
+	 * position moves only when there is one. Returns that entry (0: none) */
+	unsigned char seq[12];
+	memcpy(seq, m_MissionSequence, sizeof(seq));
+	unsigned char next = (unsigned char)(m_curr_seq_idx + 1);
+	if (seq[next] == 0)
+		next = 0;
+	if (seq[next] != 0)
+	{
+		memcpy(m_MissionSequence, seq, sizeof(seq));
+		m_curr_seq_idx = next;
+	}
+	return seq[next];
 }
 
 /* @socom-skeleton stub MediusConnectionIndex__13CZOnlineLobbyFv */
@@ -1673,13 +2464,50 @@ int CZOnlineLobby::MediusConnectionIndex()
 }
 
 /* @socom-skeleton stub RecoverFromNetError__13CZOnlineLobbyFi */
-void CZOnlineLobby::RecoverFromNetError(int)
+void CZOnlineLobby::RecoverFromNetError(int error)
 {
+	/* 0x322510: a network error not taken by the error handler: while connecting to a game only
+	 * the menu is told; otherwise the lobby bails out (as Bailout, on theLobby) first. ELF quirk
+	 * kept: the LOBBY_ACTIVE and the other branch are the same */
+	if (error == 0)
+		return;
+	if (m_net_error_handler != NULL && m_net_error_handler(error))
+		return;
+
+	if (m_current_state != READY_TO_CONNECT && theLobby.m_isopen)
+	{
+		while (ThreadId != 0)
+			zSysSleep(zSys.timerTicksPerSecond);
+		if (theNetwork.m_bNetwork)
+		{
+			MediusDisconnect();
+			MediusCloseBare();
+		}
+		if (theNetwork.m_network_init)
+		{
+			theNetwork.zNetClose();
+			theNetwork.m_bNetwork = false;
+		}
+		theLobby.m_isopen = false;
+		theLobby.ReleaseUIResources();
+	}
+
+	if (theLobby.m_event_handler != NULL)
+		theLobby.m_event_handler("MP_MEDIUS_ERROR", "Disconnected from Network");
 }
 
 /* @socom-skeleton stub SyncGameClock__13CZOnlineLobbyFi */
-void CZOnlineLobby::SyncGameClock(int)
+void CZOnlineLobby::SyncGameClock(int seconds)
 {
+	/* 0x322480: the GameClock variable (made once) set to the seconds left plus 10; Tick counts
+	 * it down */
+	if (uiv_GameClock == NULL)
+		uiv_GameClock = theUIVarManager.Add("GameClock", NULL, UIVL_PERMANENT);
+	CUIVariable *clock = uiv_GameClock;
+	clock->DeleteChildren();
+	clock->type = ZRDR_REAL;
+	clock->real = 10.0f + (float)seconds;
+	clock->UpdateDependents();
 }
 
 /* @socom-skeleton stub GetDMEJoinedCount__13CZOnlineLobbyFv */
@@ -1692,4 +2520,12 @@ int CZOnlineLobby::GetDMEJoinedCount()
 /* @socom-skeleton stub SendEndGameReport__13CZOnlineLobbyFv */
 void CZOnlineLobby::SendEndGameReport()
 {
+	/* 0x322420: the game world's end-of-game report, with the session key and empty texts */
+	MediusEndGameReport report;
+	memcpy(report.SessionKey, SessionKey, sizeof(report.SessionKey));
+	report.MediusWorldID = MediusWorldID;
+	report.Unknown_18[0] = 0;
+	report.Unknown_58[0] = 0;
+	report.Unknown_78 = 0;
+	MediusSendEndGameReport(&report);
 }

@@ -117,6 +117,974 @@
 /* @socom-skeleton decl forward */
 class sceNetcnfifData;
 /* @socom-skeleton end forward */
+#include <queue>
+#include <stdio.h>
+#include <string.h>
+#include <libnet.h> /* libnet / msifrpc / inet (provider; port/compat/libnet_offline.c) */
+#include <eznetctl.h> /* ezNetCtl (provider; port/compat/libnet_offline.c) */
+#include "gamez/zSystem/zsys.h" /* zSys, _memalign / _strdup / _free */
+#include "gamez/zUtil/zutil.h" /* theIOPManager */
+#include "gamez/zValve/zvalve.h" /* CValve (SignalNetCnfError) */
+#include "gamez/zGame/zgame.h" /* theGame */
+#include "gamez/zFTS/fts_state.h" /* CMenuState::RunEventAnim */
+#include "gamez/zSound/zsnd.h" /* CSnd::Close (Init) */
+
+int zSysLoadIRX(char *, int, char *, bool); /* zsys_init.cpp (0x2f4d60) */
+void zSysUnloadIRX(int); /* zsys_init.cpp (0x2f4d20) */
+
+/* The network configuration ("Your Network Configuration" files on the memory card, read and
+ * written through the SDK's libnetcnfif) is a set of small state machines, one per job, held in
+ * one object (theNetCnf, a CHNetCnf; its address is the handle the CNetCnf calls take). No DWARF
+ * for any of these types: class and member-function names are the ELF's symbols, members are
+ * named from their use (port names; the ELF offsets are given). Each state is a member function
+ * called with ENTER when it becomes current, TICK on every tick while it is, and EXIT when the next
+ * queued state replaces it; a state queues the next one when its IOP request is answered, and
+ * IdleState marks the machine done. */
+class CCnfStateMachine
+{
+public:
+	/* the state argument (each state tests it as a byte). port: enumerator names invented */
+	enum STATE_FLAG
+	{
+		ENTER = 0,
+		TICK = 1,
+		EXIT = 2
+	};
+	typedef void (CCnfStateMachine::*State)(STATE_FLAG);
+
+	CCnfStateMachine(); /* 0x4020e0 */
+	virtual void Cleanup(); /* 0x3ff030 (vtable slot 0x8) */
+	void StartState(STATE_FLAG); /* 0x401480 */
+	void IdleState(STATE_FLAG); /* 0x401490 */
+
+	/* port: inline in every Tick function of CNetCnf (0x3fd330, 0x3fe320, ...) */
+	void Tick()
+	{
+		if (!m_states.empty())
+		{
+			(this->*m_state)(EXIT);
+			m_state = m_states.front();
+			m_states.pop();
+			(this->*m_state)(ENTER);
+		}
+		else
+		{
+			(this->*m_state)(TICK);
+		}
+	}
+
+	/* port: inline wherever a job starts (Open 0x3ff8a0, AddCombo 0x3fdac0, ...): back to
+	 * StartState, not done, then the job's first state */
+	void Begin(State first)
+	{
+		m_states.push(&CCnfStateMachine::StartState);
+		m_done = false;
+		m_states.push(first);
+	}
+
+	/* +0x0 vptr */
+	State m_state;              /* +0x4 (a 12-byte member pointer in the ELF) */
+	std::queue<State> m_states; /* +0x10 */
+	bool m_done;                /* +0x2c */
+};
+
+#define CNF_STATE(f) static_cast<CCnfStateMachine::State>(&f)
+
+/* reads the lists and every combination's settings (Open) */
+class CSMOpen : public CCnfStateMachine
+{
+public:
+	CSMOpen(); /* 0x4021d0 */
+	~CSMOpen() { Cleanup(); }
+	virtual void Cleanup(); /* 0x3ff080 */
+	void GetComboCount(STATE_FLAG); /* 0x400820 */
+	void GetComboList(STATE_FLAG); /* 0x400900 */
+	void GetIfcCount(STATE_FLAG); /* 0x400b60 */
+	void GetIfcList(STATE_FLAG); /* 0x400c40 */
+	void GetDevCount(STATE_FLAG); /* 0x400db0 */
+	void GetDevList(STATE_FLAG); /* 0x400e90 */
+	void AllocMem(STATE_FLAG); /* 0x401000 */
+	void GetEntry(STATE_FLAG); /* 0x4010d0 */
+
+	int m_numCombos;                 /* +0x30 */
+	int m_defaultCombo;              /* +0x34 the newest combination (first in the list) */
+	int m_numIFC;                    /* +0x38 */
+	int m_numDevs;                   /* +0x3c */
+	sceNetcnfifList m_comboList[6];  /* +0x40 (576-byte entries in the ELF) */
+	sceNetcnfifData m_combos[6];     /* +0xdc0 (4928 bytes each) */
+	sceNetcnfifList *m_ifcList;      /* +0x8140 */
+	sceNetcnfifList *m_devList;      /* +0x8144 */
+};
+
+/* the network interfaces present (ReadInterfaceList) */
+class CSMInterface : public CCnfStateMachine
+{
+public:
+	CSMInterface() : m_count(0), m_list(NULL) {}
+	~CSMInterface() { Cleanup(); }
+	virtual void Cleanup(); /* 0x3ff040 */
+	bool Start(int, sceNetcnfifData *); /* 0x3fe900 */
+
+	int m_count;              /* +0x30 */
+	CNetCnfInterface *m_list; /* +0x34 */
+};
+
+/* a new device's settings from an interface (AddDev) */
+class CSMAddDev : public CCnfStateMachine
+{
+public:
+	CSMAddDev() : m_entry(NULL), m_macValid(false) {}
+	void GetHWAddr(STATE_FLAG); /* 0x3fff80 */
+
+	CNetCnfInterface *m_entry; /* +0x30 */
+	sceNetcnfifData m_data;    /* +0x40 */
+	bool m_macValid;           /* +0x1380 */
+	unsigned char m_mac[16];   /* +0x1381 */
+};
+
+/* writes the device file (SaveDev) */
+class CSMSaveDev : public CCnfStateMachine
+{
+public:
+	CSMSaveDev() : m_iopAddr(0), m_dmaId(0), m_entry(NULL), m_data(NULL) {}
+	void AllocMem(STATE_FLAG); /* 0x3ffc60 */
+	void GetAddr(STATE_FLAG); /* 0x3ffd30 */
+	void SendData(STATE_FLAG); /* 0x3ffe10 */
+	void AddEntry(STATE_FLAG); /* 0x3ffea0 */
+
+	unsigned int m_iopAddr;    /* +0x30 the IOP work area */
+	int m_dmaId;               /* +0x34 */
+	CNetCnfInterface *m_entry; /* +0x38 */
+	sceNetcnfifData *m_data;   /* +0x3c */
+};
+
+/* a new interface's settings (AddIFC; GetEnvData) */
+class CSMAddIFC : public CCnfStateMachine
+{
+public:
+	sceNetcnfifData m_data; /* +0x40 */
+};
+
+/* writes an interface file (SaveIFC) */
+class CSMSaveIFC : public CCnfStateMachine
+{
+public:
+	CSMSaveIFC() : m_iopAddr(0), m_dmaId(0), m_data(NULL), m_name(NULL) {}
+	~CSMSaveIFC() { Cleanup(); }
+	virtual void Cleanup(); /* 0x3feff0 */
+	void AllocMem(STATE_FLAG); /* 0x400510 */
+	void GetAddr(STATE_FLAG); /* 0x4005e0 */
+	void SendData(STATE_FLAG); /* 0x4006c0 */
+	void AddEntry(STATE_FLAG); /* 0x400750 */
+
+	unsigned int m_iopAddr;  /* +0x30 */
+	int m_dmaId;             /* +0x34 */
+	sceNetcnfifData *m_data; /* +0x38 */
+	char *m_name;            /* +0x3c */
+};
+
+/* a new combination's settings (AddCombo; GetComboData) */
+class CSMAddCombo : public CCnfStateMachine
+{
+public:
+	sceNetcnfifData m_data; /* +0x40 */
+};
+
+/* writes a combination file (SaveCombo) */
+class CSMSaveCombo : public CCnfStateMachine
+{
+public:
+	CSMSaveCombo() : m_iopAddr(0), m_dmaId(0), m_data(NULL), m_name(NULL) {}
+	~CSMSaveCombo() { Cleanup(); }
+	virtual void Cleanup(); /* 0x3fefb0 */
+	void AllocMem(STATE_FLAG); /* 0x4001f0 */
+	void GetAddr(STATE_FLAG); /* 0x4002d0 */
+	void SendToIOP(STATE_FLAG); /* 0x4003c0 */
+	void AddEntry(STATE_FLAG); /* 0x400450 */
+
+	unsigned int m_iopAddr;  /* +0x30 */
+	int m_dmaId;             /* +0x34 */
+	sceNetcnfifData *m_data; /* +0x38 */
+	char *m_name;            /* +0x3c */
+};
+
+/* the selected combination brought up (SelectCombo copies it here; InitFromCombo) */
+class CSMSetInit : public CCnfStateMachine
+{
+public:
+	sceNetcnfifData m_data; /* +0x40 */
+};
+
+/* deletes every configuration (DeleteAll) */
+class CSMDeleteAll : public CCnfStateMachine
+{
+public:
+	void DeleteAll(STATE_FLAG); /* 0x400140 */
+};
+
+class CHNetCnf
+{
+public:
+	/* inline in __sinit_zNetCnf.cpp (0x470a90) */
+	CHNetCnf() : m_device(NULL) { m_name = (char *)_strdup("", "zNetCnf.cpp", 1298); }
+	~CHNetCnf(); /* 0x401c50 */
+	bool LibNETSetup(); /* 0x3ff0f0 */
+	static bool IOPRebootHandler(CIOPManager::RebootPhase, CIOPManager::RebootMode, void *); /* 0x3ff1b0 */
+
+	CSMOpen m_open;             /* +0x0 */
+	CSMInterface m_interface;   /* +0x8180 */
+	CSMAddDev m_addDev;         /* +0x81c0 */
+	CSMSaveDev m_saveDev;       /* +0x9580 */
+	CSMAddIFC m_addIFC;         /* +0x95c0 */
+	CSMSaveIFC m_saveIFC;       /* +0xa940 */
+	CSMAddCombo m_addCombo;     /* +0xa980 */
+	CSMSaveCombo m_saveCombo;   /* +0xbd00 */
+	CSMSetInit m_setInit;       /* +0xbd40 */
+	CSMDeleteAll m_deleteAll;   /* +0xd0c0 */
+	char *m_name;               /* +0xd0f0 an empty string; only the dtor uses it */
+	CNetCnfInterface *m_device; /* +0xd0f4 the interface AddDev chose (SaveDev, GetDevIndex) */
+};
+
+/* the configuration files' place on the memory card (every request) */
+static const char s_cnfFile[] = "mc0:/BWNETCNF/BWNETCNF";
+
+void SignalNetCnfError(int);
+
+/* ---- the state machines (no fences: the owner plan gives these functions to this unit) ---- */
+
+CCnfStateMachine::CCnfStateMachine()
+{
+	/* 0x4020e0: done, at StartState; sixteen states are queued and dropped again (the queue's
+	 * storage is made here) */
+	m_done = true;
+	m_state = &CCnfStateMachine::StartState;
+	for (unsigned int i = 0; i < 16; i++)
+		m_states.push(&CCnfStateMachine::StartState);
+	while (!m_states.empty())
+		m_states.pop();
+}
+
+void CCnfStateMachine::Cleanup()
+{
+}
+
+void CCnfStateMachine::StartState(STATE_FLAG)
+{
+}
+
+void CCnfStateMachine::IdleState(STATE_FLAG flag)
+{
+	if (flag == ENTER || flag == TICK)
+		m_done = true;
+}
+
+/* the common shape of a state that waits for its IOP request: the request's result, or nothing
+ * while it runs (port helper; inline in each state) */
+static bool CnfResult(sceNetcnfifArg *result)
+{
+	if (sceNetcnfifCheck() != 0)
+		return false;
+	sceNetcnfifGetResult(result);
+	return true;
+}
+
+/* a combination's place in the list from its display name "Combination<n>" (inline in
+ * GetComboList 0x400900): the digit at [11], or 10 for a longer name, less one. ELF quirk kept: a
+ * name shorter than 12 characters gives a digit from past its end */
+static int CnfComboIndex(const char *name)
+{
+	int n = (strlen(name) < 13) ? name[11] - '0' : 10;
+	return n - 1;
+}
+
+CSMOpen::CSMOpen()
+{
+	/* 0x4021d0 */
+	m_numCombos = 0;
+	m_defaultCombo = 0;
+	m_numIFC = 0;
+	m_numDevs = 0;
+	memset(m_comboList, 0, sizeof(m_comboList));
+	for (int i = 0; i < 6; i++)
+		sceNetcnfifDataInit(&m_combos[i]);
+	m_ifcList = NULL;
+	m_devList = NULL;
+}
+
+void CSMOpen::Cleanup()
+{
+	/* 0x3ff080 */
+	_free(m_ifcList, "zNetCnf.cpp", 259);
+	m_ifcList = NULL;
+	_free(m_devList, "zNetCnf.cpp", 261);
+	m_devList = NULL;
+}
+
+void CSMOpen::GetComboCount(STATE_FLAG flag)
+{
+	/* 0x400820 */
+	sceNetcnfifArg result;
+
+	if (flag == ENTER)
+	{
+		sceNetcnfifGetCount(s_cnfFile, 0);
+	}
+	else if (flag == TICK && CnfResult(&result))
+	{
+		if (result.data < 0)
+		{
+			SignalNetCnfError(result.data);
+			m_states.push(&CCnfStateMachine::IdleState);
+		}
+		else
+		{
+			m_numCombos = result.data;
+			m_states.push(CNF_STATE(CSMOpen::GetComboList));
+		}
+	}
+}
+
+void CSMOpen::GetComboList(STATE_FLAG flag)
+{
+	/* 0x400900: the combination list into a work list, each entry then copied to its place
+	 * (CnfComboIndex) until the first that is not a combination */
+	static sceNetcnfifList *tlist = NULL;
+	sceNetcnfifArg result;
+
+	if (flag == ENTER)
+	{
+		tlist = NULL;
+		if (m_numCombos > 0)
+		{
+			tlist = (sceNetcnfifList *)_memalign(64, m_numCombos * sizeof(sceNetcnfifList), "zNetCnf.cpp", 353);
+			sceNetcnfifGetList(s_cnfFile, 0, tlist, m_numCombos);
+		}
+		else
+		{
+			m_states.push(CNF_STATE(CSMOpen::GetIfcCount));
+		}
+	}
+	else if (flag == TICK)
+	{
+		if (!CnfResult(&result))
+			return;
+
+		if (result.data < 0)
+		{
+			SignalNetCnfError(result.data);
+			m_states.push(&CCnfStateMachine::IdleState);
+			return;
+		}
+
+		m_numCombos = result.data;
+		if (m_numCombos > 0)
+		{
+			m_defaultCombo = CnfComboIndex(tlist[0].usr_name);
+			for (int i = 0; i < m_numCombos; i++)
+			{
+				if (tlist[i].type != 0)
+					break;
+				/* ELF quirk kept: the index is not range-checked */
+				memcpy(&m_comboList[CnfComboIndex(tlist[i].usr_name)], &tlist[i], sizeof(sceNetcnfifList));
+			}
+		}
+		m_states.push(CNF_STATE(CSMOpen::GetIfcCount));
+	}
+	else if (flag == EXIT)
+	{
+		_free(tlist, "zNetCnf.cpp", 385);
+	}
+}
+
+void CSMOpen::GetIfcCount(STATE_FLAG flag)
+{
+	/* 0x400b60 */
+	sceNetcnfifArg result;
+
+	if (flag == ENTER)
+	{
+		sceNetcnfifGetCount(s_cnfFile, 1);
+	}
+	else if (flag == TICK && CnfResult(&result))
+	{
+		if (result.data < 0)
+		{
+			SignalNetCnfError(result.data);
+			m_states.push(&CCnfStateMachine::IdleState);
+		}
+		else
+		{
+			m_numIFC = result.data;
+			m_states.push(CNF_STATE(CSMOpen::GetIfcList));
+		}
+	}
+}
+
+void CSMOpen::GetIfcList(STATE_FLAG flag)
+{
+	/* 0x400c40 */
+	sceNetcnfifArg result;
+
+	if (flag == ENTER)
+	{
+		if (m_numIFC > 0)
+		{
+			if (m_ifcList != NULL)
+				_free(m_ifcList, "zNetCnf.cpp", 421);
+			m_ifcList = (sceNetcnfifList *)_memalign(64, m_numIFC * sizeof(sceNetcnfifList), "zNetCnf.cpp", 422);
+			sceNetcnfifGetList(s_cnfFile, 1, m_ifcList, m_numIFC);
+		}
+		else
+		{
+			m_states.push(CNF_STATE(CSMOpen::GetDevCount));
+		}
+	}
+	else if (flag == TICK && CnfResult(&result))
+	{
+		if (result.data < 0)
+		{
+			SignalNetCnfError(result.data);
+			m_states.push(&CCnfStateMachine::IdleState);
+		}
+		else
+		{
+			m_numIFC = result.data;
+			m_states.push(CNF_STATE(CSMOpen::GetDevCount));
+		}
+	}
+}
+
+void CSMOpen::GetDevCount(STATE_FLAG flag)
+{
+	/* 0x400db0 */
+	sceNetcnfifArg result;
+
+	if (flag == ENTER)
+	{
+		sceNetcnfifGetCount(s_cnfFile, 2);
+	}
+	else if (flag == TICK && CnfResult(&result))
+	{
+		if (result.data < 0)
+		{
+			SignalNetCnfError(result.data);
+			m_states.push(&CCnfStateMachine::IdleState);
+		}
+		else
+		{
+			m_numDevs = result.data;
+			m_states.push(CNF_STATE(CSMOpen::GetDevList));
+		}
+	}
+}
+
+void CSMOpen::GetDevList(STATE_FLAG flag)
+{
+	/* 0x400e90. ELF quirk kept: with no device the work area is never allocated, but GetEntry's
+	 * EXIT frees it */
+	sceNetcnfifArg result;
+
+	if (flag == ENTER)
+	{
+		if (m_numDevs > 0)
+		{
+			if (m_devList != NULL)
+				_free(m_devList, "zNetCnf.cpp", 479);
+			m_devList = (sceNetcnfifList *)_memalign(64, m_numDevs * sizeof(sceNetcnfifList), "zNetCnf.cpp", 480);
+			sceNetcnfifGetList(s_cnfFile, 2, m_devList, m_numDevs);
+		}
+		else
+		{
+			m_states.push(CNF_STATE(CSMOpen::GetEntry));
+		}
+	}
+	else if (flag == TICK && CnfResult(&result))
+	{
+		if (result.data < 0)
+		{
+			SignalNetCnfError(result.data);
+			m_states.push(&CCnfStateMachine::IdleState);
+		}
+		else
+		{
+			m_numDevs = result.data;
+			m_states.push(CNF_STATE(CSMOpen::AllocMem));
+		}
+	}
+}
+
+void CSMOpen::AllocMem(STATE_FLAG flag)
+{
+	/* 0x401000 */
+	sceNetcnfifArg result;
+
+	if (flag == ENTER)
+	{
+		sceNetcnfifAllocWorkarea(sizeof(sceNetcnfifData));
+	}
+	else if (flag == TICK && CnfResult(&result))
+	{
+		if (result.data < 0)
+		{
+			SignalNetCnfError(result.data);
+			m_states.push(&CCnfStateMachine::IdleState);
+		}
+		else
+		{
+			m_states.push(CNF_STATE(CSMOpen::GetEntry));
+		}
+	}
+}
+
+void CSMOpen::GetEntry(STATE_FLAG flag)
+{
+	/* 0x4010d0: every combination's settings, one request each */
+	static int idx = 0;
+	sceNetcnfifArg result;
+
+	if (flag == ENTER)
+	{
+		if (m_numCombos > 0)
+		{
+			idx = 0;
+			sceNetcnfifLoadEntry(s_cnfFile, 0, m_comboList[0].usr_name, &m_combos[0]);
+		}
+		else
+		{
+			m_states.push(&CCnfStateMachine::IdleState);
+		}
+	}
+	else if (flag == TICK)
+	{
+		if (!CnfResult(&result))
+			return;
+
+		if (result.data < 0)
+		{
+			SignalNetCnfError(result.data);
+			m_states.push(&CCnfStateMachine::IdleState);
+		}
+		else if (++idx < m_numCombos)
+		{
+			sceNetcnfifLoadEntry(s_cnfFile, 0, m_comboList[idx].usr_name, &m_combos[idx]);
+		}
+		else
+		{
+			m_states.push(&CCnfStateMachine::IdleState);
+		}
+	}
+	else if (flag == EXIT)
+	{
+		sceNetcnfifFreeWorkarea();
+	}
+}
+
+void CSMInterface::Cleanup()
+{
+	/* 0x3ff040 */
+	_free(m_list, "zNetCnf.cpp", 1230);
+	m_list = NULL;
+}
+
+bool CSMInterface::Start(int numCombos, sceNetcnfifData *combos)
+{
+	/* 0x3fe900: the interfaces libinet reports, each with its flags, vendor and product, and
+	 * whether one of the combinations uses it (installed); then idle */
+	int ids[256];
+
+	m_states.push(&CCnfStateMachine::StartState);
+	m_done = false;
+	if (m_list != NULL)
+		_free(m_list, "zNetCnf.cpp", 1240);
+
+	m_count = sceInetGetInterfaceList(CNetCnf::libnetCd, CNetCnf::libnetBuffer, ids, 256);
+	if (m_count > 0)
+	{
+		m_list = (CNetCnfInterface *)_memalign(64, m_count * sizeof(CNetCnfInterface), "zNetCnf.cpp", 1243);
+		for (int i = 0; i < m_count; i++)
+		{
+			CNetCnfInterface *entry = &m_list[i];
+			memset(entry, 0, sizeof(CNetCnfInterface));
+			entry->m_type = ids[i];
+			entry->m_installed = 0;
+			sceInetInterfaceControl(CNetCnf::libnetCd, CNetCnf::libnetBuffer, entry->m_type, 8, &entry->m_flags, 4);
+			sceInetInterfaceControl(CNetCnf::libnetCd, CNetCnf::libnetBuffer, entry->m_type, 2, entry->m_vendor, 256);
+			sceInetInterfaceControl(CNetCnf::libnetCd, CNetCnf::libnetBuffer, entry->m_type, 3, entry->m_product, 256);
+			for (int j = 0; j < numCombos; j++)
+			{
+				if (strcmp(entry->m_vendor, combos[j].vendor) == 0 && strcmp(entry->m_product, combos[j].product) == 0)
+				{
+					entry->m_installed = 1;
+					break;
+				}
+			}
+		}
+	}
+
+	m_states.push(&CCnfStateMachine::IdleState);
+	return true;
+}
+
+void CSMAddDev::GetHWAddr(STATE_FLAG flag)
+{
+	/* 0x3fff80: the new device's settings from the chosen interface (type 1 Ethernet, 3 Ethernet
+	 * with PPPoE, 2 modem) and, for Ethernet, its MAC address */
+	if (flag != ENTER)
+		return;
+
+	memset(&m_data, 0, sizeof(sceNetcnfifData));
+	int flags = m_entry->m_flags;
+	if (flags & 0x10)
+		m_data.dev_type = (flags & 0x80) ? 3 : 1;
+	else
+		m_data.dev_type = 2;
+	strcpy(m_data.vendor, m_entry->m_vendor);
+	strcpy(m_data.product, m_entry->m_product);
+
+	switch (m_data.dev_type)
+	{
+	case 1:
+		m_data.phy_config = 1;
+		m_data.dialing_type = -1;
+		m_data.dev_idle_timeout = -1;
+		strcpy(m_data.chat_additional, "");
+		break;
+	case 2:
+		m_data.dialing_type = 0;
+		m_data.dev_idle_timeout = 10;
+		strcpy(m_data.chat_additional, "");
+		m_data.phy_config = -1;
+		break;
+	case 3:
+		m_data.phy_config = 1;
+		m_data.dialing_type = -1;
+		m_data.dev_idle_timeout = -1;
+		strcpy(m_data.chat_additional, "");
+		break;
+	}
+
+	if (m_data.dev_type != 2)
+	{
+		if (sceInetInterfaceControl(CNetCnf::libnetCd, CNetCnf::libnetBuffer, m_entry->m_type, 13, m_mac, 16) < 0)
+			m_macValid = false;
+		else
+			m_macValid = true;
+	}
+
+	m_states.push(&CCnfStateMachine::IdleState);
+}
+
+void CSMSaveDev::AllocMem(STATE_FLAG flag)
+{
+	/* 0x3ffc60 */
+	sceNetcnfifArg result;
+
+	if (flag == ENTER)
+	{
+		sceNetcnfifAllocWorkarea(sizeof(sceNetcnfifData));
+	}
+	else if (flag == TICK && CnfResult(&result))
+	{
+		if (result.data < 0)
+		{
+			SignalNetCnfError(result.data);
+			m_states.push(&CCnfStateMachine::IdleState);
+		}
+		else
+		{
+			m_states.push(CNF_STATE(CSMSaveDev::GetAddr));
+		}
+	}
+}
+
+void CSMSaveDev::GetAddr(STATE_FLAG flag)
+{
+	/* 0x3ffd30 */
+	sceNetcnfifArg result;
+
+	if (flag == ENTER)
+	{
+		sceNetcnfifGetAddr();
+	}
+	else if (flag == TICK && CnfResult(&result))
+	{
+		if (result.data < 0)
+		{
+			SignalNetCnfError(result.data);
+			m_states.push(&CCnfStateMachine::IdleState);
+		}
+		else
+		{
+			m_iopAddr = result.addr;
+			m_states.push(CNF_STATE(CSMSaveDev::SendData));
+		}
+	}
+}
+
+void CSMSaveDev::SendData(STATE_FLAG flag)
+{
+	/* 0x3ffe10 */
+	if (flag == ENTER)
+		m_dmaId = sceNetcnfifSendIOP((unsigned int)m_data, m_iopAddr, sizeof(sceNetcnfifData));
+	else if (flag == TICK && sceNetcnfifDmaCheck(m_dmaId) == 0)
+		m_states.push(CNF_STATE(CSMSaveDev::AddEntry));
+}
+
+void CSMSaveDev::AddEntry(STATE_FLAG flag)
+{
+	/* 0x3ffea0: the device file is named "<vendor>/<product>" */
+	char name[256];
+	sceNetcnfifArg result;
+
+	if (flag == ENTER)
+	{
+		sprintf(name, "%s/%s", m_entry->m_vendor, m_entry->m_product);
+		sceNetcnfifAddEntry(s_cnfFile, 2, name);
+	}
+	else if (flag == TICK && CnfResult(&result))
+	{
+		if (result.data < 0)
+			SignalNetCnfError(result.data);
+		m_states.push(&CCnfStateMachine::IdleState);
+	}
+	else if (flag == EXIT)
+	{
+		sceNetcnfifFreeWorkarea();
+	}
+}
+
+void CSMSaveIFC::Cleanup()
+{
+	/* 0x3feff0 */
+	_free(m_name, "zNetCnf.cpp", 640);
+	m_name = NULL;
+}
+
+void CSMSaveIFC::AllocMem(STATE_FLAG flag)
+{
+	/* 0x400510 */
+	sceNetcnfifArg result;
+
+	if (flag == ENTER)
+	{
+		sceNetcnfifAllocWorkarea(sizeof(sceNetcnfifData));
+	}
+	else if (flag == TICK && CnfResult(&result))
+	{
+		if (result.data < 0)
+		{
+			SignalNetCnfError(result.data);
+			m_states.push(&CCnfStateMachine::IdleState);
+		}
+		else
+		{
+			m_states.push(CNF_STATE(CSMSaveIFC::GetAddr));
+		}
+	}
+}
+
+void CSMSaveIFC::GetAddr(STATE_FLAG flag)
+{
+	/* 0x4005e0 */
+	sceNetcnfifArg result;
+
+	if (flag == ENTER)
+	{
+		sceNetcnfifGetAddr();
+	}
+	else if (flag == TICK && CnfResult(&result))
+	{
+		if (result.data < 0)
+		{
+			SignalNetCnfError(result.data);
+			m_states.push(&CCnfStateMachine::IdleState);
+		}
+		else
+		{
+			m_iopAddr = result.addr;
+			m_states.push(CNF_STATE(CSMSaveIFC::SendData));
+		}
+	}
+}
+
+void CSMSaveIFC::SendData(STATE_FLAG flag)
+{
+	/* 0x4006c0 */
+	if (flag == ENTER)
+		m_dmaId = sceNetcnfifSendIOP((unsigned int)m_data, m_iopAddr, sizeof(sceNetcnfifData));
+	else if (flag == TICK && sceNetcnfifDmaCheck(m_dmaId) == 0)
+		m_states.push(CNF_STATE(CSMSaveIFC::AddEntry));
+}
+
+void CSMSaveIFC::AddEntry(STATE_FLAG flag)
+{
+	/* 0x400750 */
+	sceNetcnfifArg result;
+
+	if (flag == ENTER)
+	{
+		sceNetcnfifAddEntry(s_cnfFile, 1, m_name);
+	}
+	else if (flag == TICK && CnfResult(&result))
+	{
+		if (result.data < 0)
+			SignalNetCnfError(result.data);
+		m_states.push(&CCnfStateMachine::IdleState);
+	}
+	else if (flag == EXIT)
+	{
+		sceNetcnfifFreeWorkarea();
+	}
+}
+
+void CSMSaveCombo::Cleanup()
+{
+	/* 0x3fefb0 */
+	_free(m_name, "zNetCnf.cpp", 795);
+	m_name = NULL;
+}
+
+void CSMSaveCombo::AllocMem(STATE_FLAG flag)
+{
+	/* 0x4001f0: unlike SaveDev / SaveIFC, a failed request frees the work area */
+	sceNetcnfifArg result;
+
+	if (flag == ENTER)
+	{
+		sceNetcnfifAllocWorkarea(sizeof(sceNetcnfifData));
+	}
+	else if (flag == TICK && CnfResult(&result))
+	{
+		if (result.data < 0)
+		{
+			SignalNetCnfError(result.data);
+			sceNetcnfifFreeWorkarea();
+			m_states.push(&CCnfStateMachine::IdleState);
+		}
+		else
+		{
+			m_states.push(CNF_STATE(CSMSaveCombo::GetAddr));
+		}
+	}
+}
+
+void CSMSaveCombo::GetAddr(STATE_FLAG flag)
+{
+	/* 0x4002d0 */
+	sceNetcnfifArg result;
+
+	if (flag == ENTER)
+	{
+		sceNetcnfifGetAddr();
+	}
+	else if (flag == TICK && CnfResult(&result))
+	{
+		if (result.data < 0)
+		{
+			SignalNetCnfError(result.data);
+			sceNetcnfifFreeWorkarea();
+			m_states.push(&CCnfStateMachine::IdleState);
+		}
+		else
+		{
+			m_iopAddr = result.addr;
+			m_states.push(CNF_STATE(CSMSaveCombo::SendToIOP));
+		}
+	}
+}
+
+void CSMSaveCombo::SendToIOP(STATE_FLAG flag)
+{
+	/* 0x4003c0 */
+	if (flag == ENTER)
+		m_dmaId = sceNetcnfifSendIOP((unsigned int)m_data, m_iopAddr, sizeof(sceNetcnfifData));
+	else if (flag == TICK && sceNetcnfifDmaCheck(m_dmaId) == 0)
+		m_states.push(CNF_STATE(CSMSaveCombo::AddEntry));
+}
+
+void CSMSaveCombo::AddEntry(STATE_FLAG flag)
+{
+	/* 0x400450: the work area is freed when the request is answered (not on EXIT) */
+	sceNetcnfifArg result;
+
+	if (flag == ENTER)
+	{
+		sceNetcnfifAddEntry(s_cnfFile, 0, m_name);
+	}
+	else if (flag == TICK && CnfResult(&result))
+	{
+		if (result.data < 0)
+			SignalNetCnfError(result.data);
+		sceNetcnfifFreeWorkarea();
+		m_states.push(&CCnfStateMachine::IdleState);
+	}
+}
+
+void CSMDeleteAll::DeleteAll(STATE_FLAG flag)
+{
+	/* 0x400140 */
+	sceNetcnfifArg result;
+
+	if (flag == ENTER)
+	{
+		sceNetcnfifDeleteAll(s_cnfFile);
+	}
+	else if (flag == TICK && CnfResult(&result))
+	{
+		if (result.data < 0)
+			SignalNetCnfError(result.data);
+		m_states.push(&CCnfStateMachine::IdleState);
+	}
+}
+
+CHNetCnf::~CHNetCnf()
+{
+	/* 0x401c50: then the members in reverse (CSMSaveCombo, CSMSaveIFC, CSMInterface and CSMOpen
+	 * run their Cleanup) */
+	_free(m_name, "zNetCnf.cpp", 1305);
+}
+
+bool CHNetCnf::LibNETSetup()
+{
+	/* 0x3ff0f0: the libnet client over msifrpc (as at the end of CNetCnf::Init) */
+	if (zSysLoadIRX((char *)"run/irx/msifrpc.irx", 0, NULL, true) < 0)
+		return false;
+	if (zSysLoadIRX((char *)"run/irx/libnetb.irx", 8, (char *)"-decode", true) < 0)
+		return false;
+	sceSifMInitRpc(0);
+	libnet_init(CNetCnf::libnetCd, 2048, 8192, 32);
+	if (reg_handler(CNetCnf::libnetCd, CNetCnf::libnetBuffer) < 0)
+		return false;
+	theIOPManager.RegisterRebootCallback(CHNetCnf::IOPRebootHandler, NULL);
+	return true;
+}
+
+bool CHNetCnf::IOPRebootHandler(CIOPManager::RebootPhase, CIOPManager::RebootMode, void *)
+{
+	/* 0x3ff1b0: the libnet client goes before an IOP reboot */
+	unreg_handler(CNetCnf::libnetCd, CNetCnf::libnetBuffer);
+	libnet_term(CNetCnf::libnetCd);
+	sceSifMExitRpc();
+	return false;
+}
+
+/* a job's tick that reads the lists again when it is done (inline in SaveDevTick, SaveIFCTick,
+ * SaveComboTick and DeleteAllTick): false while the job runs, then the reload's done flag */
+static bool CnfTickThenReload(CHNetCnf *h, CCnfStateMachine *job)
+{
+	if (!job->m_done)
+	{
+		job->Tick();
+		return false;
+	}
+	if (h->m_open.m_done)
+	{
+		h->m_open.Begin(CNF_STATE(CSMOpen::GetComboCount));
+		return false;
+	}
+	h->m_open.Tick();
+	return h->m_open.m_done;
+}
 
 /* @socom-skeleton stub m_selected_combo__7CNetCnf */
 int CNetCnf::m_selected_combo = -1;
@@ -125,7 +1093,7 @@ int CNetCnf::m_selected_combo = -1;
 unsigned char CNetCnf::m_isinit;
 
 /* @socom-skeleton stub m_open_handle__7CNetCnf */
-int CNetCnf::m_open_handle;
+void *CNetCnf::m_open_handle;
 
 /* @socom-skeleton stub modid_NETCNFIF */
 static int modid_NETCNFIF;
@@ -137,203 +1105,538 @@ unsigned char CNetCnf::libnetBuffer[5184];
 unsigned char CNetCnf::libnetCd[60];
 
 /* @socom-skeleton stub theNetCnf */
-static unsigned char theNetCnf[53504];
+static CHNetCnf theNetCnf; /* 53504 bytes in the ELF; registered for destruction by __sinit */
 
 /* @socom-skeleton stub SignalNetCnfError__Fi */
-void SignalNetCnfError(int)
+void SignalNetCnfError(int error)
 {
+	/* 0x401270: the error number (negated) into the NETCNF_ERRNO valve, its message to the menu's
+	 * NETCNF_ERROR event */
+	const char *msg;
+
+	switch (error)
+	{
+	case -1: msg = "no good"; break;
+	case -2: msg = "no space for memory"; break;
+	case -3: msg = "file open error"; break;
+	case -4: msg = "file read error"; break;
+	case -5: msg = "file write error"; break;
+	case -6: msg = "file seek error"; break;
+	case -7: msg = "file remove error"; break;
+	case -8: msg = "entry not found"; break;
+	case -9: msg = "invalid fname"; break;
+	case -10: msg = "invalid type"; break;
+	case -11: msg = "invalid usr_name"; break;
+	case -12: msg = "too many entries"; break;
+	case -13: msg = "can't get individual ID"; break;
+	case -14: msg = "syntax error"; break;
+	case -15: msg = "magic error"; break;
+	case -16: msg = "capacity error"; break;
+	case -17: msg = "unknown device"; break;
+	case -18: msg = "I/O error"; break;
+	case -19: msg = "Sting too long"; break; /* sic */
+	case -100: msg = "No data"; break;
+	default: msg = "Unknown NetCnf Error"; break;
+	}
+
+	CValve::Create("NETCNF_ERRNO", (unsigned int)-error, VALVE_TYPE::VTYPE_TEMP);
+	theGame.m_menuState.RunEventAnim("NETCNF_ERROR", msg);
 }
 
 /* @socom-skeleton stub Init__7CNetCnfFb */
-bool CNetCnf::Init(bool)
+bool CNetCnf::Init(bool noIfc)
 {
 	/* @socom-skeleton stub netcnf_arg_cd$1690 */
 	static unsigned char netcnf_arg_cd[86] = {105, 99, 111, 110, 61, 99, 100, 114, 111, 109, 58, 92, 82, 85, 78, 92, 73, 67, 79, 78, 83, 92, 78, 69, 84, 67, 78, 70, 92, 83, 89, 83, 95, 78, 69, 84, 46, 73, 67, 79, 59, 49, 0, 105, 99, 111, 110, 115, 121, 115, 61, 99, 100, 114, 111, 109, 58, 92, 82, 85, 78, 92, 73, 67, 79, 78, 83, 92, 78, 69, 84, 67, 78, 70, 92, 73, 67, 79, 78, 46, 83, 89, 83, 59, 49, 0};
 	/* @socom-skeleton stub netcnf_arg_ho$1694 */
 	static unsigned char netcnf_arg_ho[84] = {105, 99, 111, 110, 61, 104, 111, 115, 116, 48, 58, 46, 47, 82, 85, 78, 47, 73, 67, 79, 78, 83, 47, 78, 69, 84, 67, 78, 70, 47, 83, 89, 83, 95, 78, 69, 84, 46, 73, 67, 79, 0, 105, 99, 111, 110, 115, 121, 115, 61, 104, 111, 115, 116, 48, 58, 46, 47, 82, 85, 78, 47, 73, 67, 79, 78, 83, 47, 78, 69, 84, 67, 78, 70, 47, 73, 67, 79, 78, 46, 83, 89, 83, 0};
+
+	/* 0x3ffa40: the sound system is closed (IOP memory), then the network modules are loaded;
+	 * without `noIfc` also the adaptor drivers and the configuration interface, then libnet.
+	 * Once set up (or when libnet fails) it stays initialised and answers true */
+	if (m_isinit)
+		return true;
+
+	CSnd::Close();
+	if (zSys.isCdBoot)
+	{
+		if (zSysLoadIRX((char *)"run/irx/netcnf.irx", 86, (char *)netcnf_arg_cd, true) < 0)
+			return false;
+	}
+	else if (zSysLoadIRX((char *)"run/irx/netcnf.irx", 84, (char *)netcnf_arg_ho, true) < 0)
+	{
+		return false;
+	}
+	if (zSysLoadIRX((char *)"run/irx/inet.irx", 0, NULL, true) < 0)
+		return false;
+	char noAuto[9];
+	memcpy(noAuto, "-no_auto", sizeof(noAuto));
+	if (zSysLoadIRX((char *)"run/irx/inetctl.irx", 9, noAuto, true) < 0)
+		return false;
+
+	if (!noIfc)
+	{
+		if (zSysLoadIRX((char *)"run/irx/an986.irx", 0, NULL, true) < 0)
+			return false;
+		modid_NETCNFIF = zSysLoadIRX((char *)"run/irx/netcnfif.irx", 0, NULL, true);
+		if (modid_NETCNFIF < 0)
+			return false;
+		zSysLoadIRX((char *)"run/irx/smap.irx", 0, NULL, false);
+		sceNetcnfifInit();
+		sceNetcnfifSetup();
+		if (zSysLoadIRX((char *)"run/irx/msifrpc.irx", 0, NULL, true) >= 0
+			&& zSysLoadIRX((char *)"run/irx/libnetb.irx", 8, (char *)"-decode", true) >= 0)
+		{
+			sceSifMInitRpc(0);
+			libnet_init(libnetCd, 2048, 8192, 32);
+			if (reg_handler(libnetCd, libnetBuffer) >= 0)
+				theIOPManager.RegisterRebootCallback(CHNetCnf::IOPRebootHandler, NULL);
+		}
+	}
+
+	m_isinit = true;
+	return true;
 }
 
 /* @socom-skeleton stub Uninit__7CNetCnfFv */
 bool CNetCnf::Uninit()
 {
+	/* 0x3ff9f0: only the configuration interface module is unloaded */
+	if (m_open_handle != NULL)
+		m_open_handle = NULL;
+	if (modid_NETCNFIF > 0)
+	{
+		zSysUnloadIRX(modid_NETCNFIF);
+		modid_NETCNFIF = 0;
+	}
+	m_isinit = false;
+	return true;
 }
 
 /* @socom-skeleton stub OpenTick__7CNetCnfFPv */
-bool CNetCnf::OpenTick(void *)
+bool CNetCnf::OpenTick(void *handle)
 {
+	/* 0x3ff920 */
+	CHNetCnf *h = (CHNetCnf *)handle;
+	h->m_open.Tick();
+	return h->m_open.m_done;
 }
 
 /* @socom-skeleton stub Open__7CNetCnfFPCc */
 void * CNetCnf::Open(const char *)
 {
+	/* 0x3ff8a0: the one configuration object; the name is not used */
+	m_open_handle = &theNetCnf;
+	theNetCnf.m_open.Begin(CNF_STATE(CSMOpen::GetComboCount));
+	return m_open_handle;
 }
 
 /* @socom-skeleton stub Close__7CNetCnfFPv */
 void CNetCnf::Close(void *)
 {
+	/* 0x3ff890 (returns 1 in the ELF; the caller does not read it) */
+	m_open_handle = NULL;
 }
 
 /* @socom-skeleton stub NumCombos__7CNetCnfFPv */
-int CNetCnf::NumCombos(void *)
+int CNetCnf::NumCombos(void *handle)
 {
+	/* 0x3ff880 */
+	return ((CHNetCnf *)handle)->m_open.m_numCombos;
 }
 
 /* @socom-skeleton stub NumIFC__7CNetCnfFPv */
-int CNetCnf::NumIFC(void *)
+int CNetCnf::NumIFC(void *handle)
 {
+	/* 0x3ff870 */
+	return ((CHNetCnf *)handle)->m_open.m_numIFC;
 }
 
 /* @socom-skeleton stub NumDevs__7CNetCnfFPv */
-int CNetCnf::NumDevs(void *)
+int CNetCnf::NumDevs(void *handle)
 {
+	/* 0x3ff860 */
+	return ((CHNetCnf *)handle)->m_open.m_numDevs;
 }
 
 /* @socom-skeleton stub GetIFC__7CNetCnfFPvi */
-sceNetcnfifList * CNetCnf::GetIFC(void *, int)
+sceNetcnfifList * CNetCnf::GetIFC(void *handle, int i)
 {
+	/* 0x3ff840 */
+	return &((CHNetCnf *)handle)->m_open.m_ifcList[i];
 }
 
 /* @socom-skeleton stub GetDev__7CNetCnfFPvi */
-sceNetcnfifList * CNetCnf::GetDev(void *, int)
+sceNetcnfifList * CNetCnf::GetDev(void *handle, int i)
 {
+	/* 0x3ff820 */
+	return &((CHNetCnf *)handle)->m_open.m_devList[i];
 }
 
 /* @socom-skeleton stub GetDefaultCombo__7CNetCnfFPv */
-int CNetCnf::GetDefaultCombo(void *)
+int CNetCnf::GetDefaultCombo(void *handle)
 {
+	/* 0x3ff810 */
+	return ((CHNetCnf *)handle)->m_open.m_defaultCombo;
 }
 
 /* @socom-skeleton stub SelectCombo__7CNetCnfFPvi */
-void CNetCnf::SelectCombo(void *, int)
+void CNetCnf::SelectCombo(void *handle, int combo)
 {
+	/* 0x3ff390: the combination's settings become the ones InitFromCombo brings up (a struct
+	 * copy, sceNetcnfifData's assignment 0x3ff3f0) */
+	CHNetCnf *h = (CHNetCnf *)handle;
+	sceNetcnfifData *data = &h->m_open.m_combos[combo];
+	sceNetcnfifDataDump(data);
+	h->m_setInit.m_data = *data;
+	m_selected_combo = combo;
 }
 
 /* @socom-skeleton stub GetNetDisplayName__7CNetCnfFPvi */
-char * CNetCnf::GetNetDisplayName(void *, int)
+char * CNetCnf::GetNetDisplayName(void *handle, int combo)
 {
+	/* 0x3ff370 */
+	return ((CHNetCnf *)handle)->m_open.m_comboList[combo].usr_name;
 }
 
 /* @socom-skeleton stub GetDevDisplayName__7CNetCnfFPvi */
-char * CNetCnf::GetDevDisplayName(void *, int)
+char * CNetCnf::GetDevDisplayName(void *handle, int combo)
 {
+	/* 0x3ff2b0: the display name of the device file the combination uses, else "" */
+	CHNetCnf *h = (CHNetCnf *)handle;
+	for (int i = 0; i < h->m_open.m_numDevs; i++)
+	{
+		if (strcmp(h->m_open.m_combos[combo].attach_dev, h->m_open.m_devList[i].sys_name) == 0)
+			return h->m_open.m_devList[i].usr_name;
+	}
+	return (char *)"";
 }
 
 /* @socom-skeleton stub GetIfcDisplayName__7CNetCnfFPvi */
-char * CNetCnf::GetIfcDisplayName(void *, int)
+char * CNetCnf::GetIfcDisplayName(void *handle, int combo)
 {
+	/* 0x3ff1f0: the display name of the interface file the combination uses, else "". ELF quirk
+	 * kept: the search runs over the device count, not the interface count */
+	CHNetCnf *h = (CHNetCnf *)handle;
+	for (int i = 0; i < h->m_open.m_numDevs; i++)
+	{
+		if (strcmp(h->m_open.m_combos[combo].attach_ifc, h->m_open.m_ifcList[i].sys_name) == 0)
+			return h->m_open.m_ifcList[i].usr_name;
+	}
+	return (char *)"";
 }
 
 /* @socom-skeleton stub InitFromCombo__7CNetCnfFPci */
-void CNetCnf::InitFromCombo(char *, int)
+bool CNetCnf::InitFromCombo(char *, int combo)
 {
+	/* 0x3feb80 (CZNetwork::zNetLoadIRX): the modules for the combination (index, else the selected
+	 * one, else the default), the adaptor driver (smap for a Sony adaptor, else an986), libnet, and
+	 * the interface brought up with ezNetCtl from the SetInit settings (SelectCombo's copy); every
+	 * machine's Cleanup at the end. A modem combination (type 2) without PPPoE is refused.
+	 * ELF quirk kept: if eznetctl.irx cannot be loaded the SetInit machine never finishes (the
+	 * loop below only ends when an IdleState has run) */
+	bool ok = false;
+	sceNetcnfifData *data;
+
+	Init(true);
+	if (combo < 0)
+		combo = m_selected_combo;
+	if (combo < 0)
+		combo = theNetCnf.m_open.m_defaultCombo;
+	data = &theNetCnf.m_open.m_combos[combo];
+
+	sceNetcnfifDataDump(data);
+	if (data->ifc_type == -1)
+		goto done;
+	if (data->ifc_type == 2 && data->pppoe != 1)
+		goto done;
+	if (data->pppoe != 0)
+	{
+		if (zSysLoadIRX((char *)"run/irx/ppp.irx", 0, NULL, true) < 0)
+			goto done;
+		if (zSysLoadIRX((char *)"run/irx/pppoe.irx", 0, NULL, true) < 0)
+			goto done;
+	}
+	if (strncmp(data->vendor, "SCE", 3) == 0)
+	{
+		if (zSysLoadIRX((char *)"run/irx/smap.irx", 0, NULL, true) < 0)
+			goto done;
+	}
+	else if (zSysLoadIRX((char *)"run/irx/an986.irx", 0, NULL, true) < 0)
+	{
+		goto done;
+	}
+	if (!theNetCnf.LibNETSetup())
+		goto done;
+
+	theNetCnf.m_setInit.m_states.push(&CCnfStateMachine::StartState);
+	theNetCnf.m_setInit.m_done = false;
+	if (zSysLoadIRX((char *)"run/irx/eznetctl.irx", 0, NULL, true) >= 0)
+	{
+		initEzNetCtl();
+		ezNetCtlSetProperties(&theNetCnf.m_setInit.m_data);
+		theNetCnf.m_setInit.m_states.push(&CCnfStateMachine::IdleState);
+	}
+	while (!theNetCnf.m_setInit.m_done)
+		theNetCnf.m_setInit.Tick();
+	ezNetCtlUpInterface(0);
+	ok = true;
+
+done:
+	theNetCnf.m_open.Cleanup();
+	theNetCnf.m_interface.Cleanup();
+	theNetCnf.m_addDev.Cleanup();
+	theNetCnf.m_saveDev.Cleanup();
+	theNetCnf.m_addIFC.Cleanup();
+	theNetCnf.m_saveIFC.Cleanup();
+	theNetCnf.m_addCombo.Cleanup();
+	theNetCnf.m_saveCombo.Cleanup();
+	theNetCnf.m_setInit.Cleanup();
+	theNetCnf.m_deleteAll.Cleanup();
+	return ok;
 }
 
 /* @socom-skeleton stub ReadInterfaceList__7CNetCnfFPv */
-bool CNetCnf::ReadInterfaceList(void *)
+bool CNetCnf::ReadInterfaceList(void *handle)
 {
+	/* 0x3fe8d0 */
+	CHNetCnf *h = (CHNetCnf *)handle;
+	h->m_interface.Start(6, h->m_open.m_combos);
+	return true;
 }
 
 /* @socom-skeleton stub ReadInterfaceListTick__7CNetCnfFPv */
-bool CNetCnf::ReadInterfaceListTick(void *)
+bool CNetCnf::ReadInterfaceListTick(void *handle)
 {
+	/* 0x3fe7a0 */
+	CHNetCnf *h = (CHNetCnf *)handle;
+	h->m_interface.Tick();
+	return h->m_interface.m_done;
 }
 
 /* @socom-skeleton stub InterfaceCount__7CNetCnfFPv */
-int CNetCnf::InterfaceCount(void *)
+int CNetCnf::InterfaceCount(void *handle)
 {
+	/* 0x3fe790 */
+	return ((CHNetCnf *)handle)->m_interface.m_count;
 }
 
 /* @socom-skeleton stub GetInterfaceEntry__7CNetCnfFPvi */
-CNetCnfInterface * CNetCnf::GetInterfaceEntry(void *, int)
+CNetCnfInterface * CNetCnf::GetInterfaceEntry(void *handle, int i)
 {
+	/* 0x3fe760 */
+	return &((CHNetCnf *)handle)->m_interface.m_list[i];
 }
 
 /* @socom-skeleton stub AddDev__7CNetCnfFPvPCc */
-bool CNetCnf::AddDev(void *, const char *)
+bool CNetCnf::AddDev(void *handle, const char *name)
 {
+	/* 0x3fe610: the interface named "<vendor>/<product>" becomes the device to add; false when
+	 * there is none */
+	CHNetCnf *h = (CHNetCnf *)handle;
+	char buf[128];
+
+	h->m_device = NULL;
+	for (int i = 0; i < h->m_interface.m_count; i++)
+	{
+		CNetCnfInterface *entry = &h->m_interface.m_list[i];
+		sprintf(buf, "%s/%s", entry->m_vendor, entry->m_product);
+		if (strcmp(name, buf) == 0)
+		{
+			h->m_device = entry;
+			break;
+		}
+	}
+
+	if (h->m_device != NULL)
+	{
+		h->m_addDev.m_states.push(&CCnfStateMachine::StartState);
+		h->m_addDev.m_done = false;
+		h->m_addDev.m_entry = h->m_device;
+		h->m_addDev.m_states.push(CNF_STATE(CSMAddDev::GetHWAddr));
+	}
+	return h->m_device != NULL;
 }
 
 /* @socom-skeleton stub AddDevTick__7CNetCnfFPv */
-bool CNetCnf::AddDevTick(void *)
+bool CNetCnf::AddDevTick(void *handle)
 {
+	/* 0x3fe4e0 */
+	CHNetCnf *h = (CHNetCnf *)handle;
+	h->m_addDev.Tick();
+	return h->m_addDev.m_done;
 }
 
 /* @socom-skeleton stub AddIFC__7CNetCnfFPv */
-bool CNetCnf::AddIFC(void *)
+bool CNetCnf::AddIFC(void *handle)
 {
+	/* 0x3fe450: empty interface settings */
+	CHNetCnf *h = (CHNetCnf *)handle;
+	h->m_addIFC.m_states.push(&CCnfStateMachine::StartState);
+	h->m_addIFC.m_done = false;
+	sceNetcnfifDataInit(&h->m_addIFC.m_data);
+	h->m_addIFC.m_states.push(&CCnfStateMachine::IdleState);
+	return true;
 }
 
 /* @socom-skeleton stub AddIFCTick__7CNetCnfFPv */
-bool CNetCnf::AddIFCTick(void *)
+bool CNetCnf::AddIFCTick(void *handle)
 {
+	/* 0x3fe320 */
+	CHNetCnf *h = (CHNetCnf *)handle;
+	h->m_addIFC.Tick();
+	return h->m_addIFC.m_done;
 }
 
 /* @socom-skeleton stub GetEnvData__7CNetCnfFPv */
-sceNetcnfifData * CNetCnf::GetEnvData(void *)
+sceNetcnfifData * CNetCnf::GetEnvData(void *handle)
 {
+	/* 0x3fe310 */
+	return &((CHNetCnf *)handle)->m_addIFC.m_data;
 }
 
 /* @socom-skeleton stub GetMACAddr__7CNetCnfFPvPci */
-char * CNetCnf::GetMACAddr(void *, char *, int)
+char * CNetCnf::GetMACAddr(void *handle, char *buf, int)
 {
+	/* 0x3fe270: the added device's MAC address as text, else ""; the size is not used */
+	CHNetCnf *h = (CHNetCnf *)handle;
+	if (h->m_addDev.m_macValid)
+	{
+		unsigned char *mac = h->m_addDev.m_mac;
+		sprintf(buf, "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+	}
+	else
+	{
+		buf[0] = '\0';
+	}
+	return buf;
 }
 
 /* @socom-skeleton stub GetDevIndex__7CNetCnfFPv */
-int CNetCnf::GetDevIndex(void *)
+int CNetCnf::GetDevIndex(void *handle)
 {
+	/* 0x3fe1c0: the device list's index of the chosen interface ("<vendor>/<product>"), else -1 */
+	CHNetCnf *h = (CHNetCnf *)handle;
+	char name[128];
+
+	sprintf(name, "%s/%s", h->m_device->m_vendor, h->m_device->m_product);
+	for (int i = 0; i < h->m_open.m_numDevs; i++)
+	{
+		if (strcmp(h->m_open.m_devList[i].usr_name, name) == 0)
+			return i;
+	}
+	return -1;
 }
 
 /* @socom-skeleton stub SaveDev__7CNetCnfFPv */
-bool CNetCnf::SaveDev(void *)
+bool CNetCnf::SaveDev(void *handle)
 {
+	/* 0x3fe100: writes the chosen interface's device file from AddDev's settings */
+	CHNetCnf *h = (CHNetCnf *)handle;
+	CNetCnfInterface *device = h->m_device;
+	h->m_saveDev.m_states.push(&CCnfStateMachine::StartState);
+	h->m_saveDev.m_done = false;
+	h->m_saveDev.m_entry = device;
+	h->m_saveDev.m_data = &h->m_addDev.m_data;
+	h->m_saveDev.m_states.push(CNF_STATE(CSMSaveDev::AllocMem));
+	return true;
 }
 
 /* @socom-skeleton stub SaveDevTick__7CNetCnfFPv */
-bool CNetCnf::SaveDevTick(void *)
+bool CNetCnf::SaveDevTick(void *handle)
 {
+	/* 0x3fdea0 */
+	CHNetCnf *h = (CHNetCnf *)handle;
+	return CnfTickThenReload(h, &h->m_saveDev);
 }
 
 /* @socom-skeleton stub SaveIFC__7CNetCnfFPvP15sceNetcnfifDataPCc */
-bool CNetCnf::SaveIFC(void *, sceNetcnfifData *, const char *)
+bool CNetCnf::SaveIFC(void *handle, sceNetcnfifData *data, const char *name)
 {
+	/* 0x3fddb0 */
+	CHNetCnf *h = (CHNetCnf *)handle;
+	h->m_saveIFC.m_states.push(&CCnfStateMachine::StartState);
+	h->m_saveIFC.m_done = false;
+	h->m_saveIFC.m_data = data;
+	if (h->m_saveIFC.m_name != NULL)
+		_free(h->m_saveIFC.m_name, "zNetCnf.cpp", 650);
+	h->m_saveIFC.m_name = _strdup(name, "zNetCnf.cpp", 651);
+	h->m_saveIFC.m_states.push(CNF_STATE(CSMSaveIFC::AllocMem));
+	return true;
 }
 
 /* @socom-skeleton stub SaveIFCTick__7CNetCnfFPv */
-bool CNetCnf::SaveIFCTick(void *)
+bool CNetCnf::SaveIFCTick(void *handle)
 {
+	/* 0x3fdb50 */
+	CHNetCnf *h = (CHNetCnf *)handle;
+	return CnfTickThenReload(h, &h->m_saveIFC);
 }
 
 /* @socom-skeleton stub AddCombo__7CNetCnfFPv */
-bool CNetCnf::AddCombo(void *)
+bool CNetCnf::AddCombo(void *handle)
 {
+	/* 0x3fdac0: empty combination settings */
+	CHNetCnf *h = (CHNetCnf *)handle;
+	h->m_addCombo.m_states.push(&CCnfStateMachine::StartState);
+	h->m_addCombo.m_done = false;
+	sceNetcnfifDataInit(&h->m_addCombo.m_data);
+	h->m_addCombo.m_states.push(&CCnfStateMachine::IdleState);
+	return true;
 }
 
 /* @socom-skeleton stub AddComboTick__7CNetCnfFPv */
-bool CNetCnf::AddComboTick(void *)
+bool CNetCnf::AddComboTick(void *handle)
 {
+	/* 0x3fd990 */
+	CHNetCnf *h = (CHNetCnf *)handle;
+	h->m_addCombo.Tick();
+	return h->m_addCombo.m_done;
 }
 
 /* @socom-skeleton stub SaveCombo__7CNetCnfFPvP15sceNetcnfifDataPCc */
-bool CNetCnf::SaveCombo(void *, sceNetcnfifData *, const char *)
+bool CNetCnf::SaveCombo(void *handle, sceNetcnfifData *data, const char *name)
 {
+	/* 0x3fd8a0 */
+	CHNetCnf *h = (CHNetCnf *)handle;
+	h->m_saveCombo.m_states.push(&CCnfStateMachine::StartState);
+	h->m_saveCombo.m_done = false;
+	h->m_saveCombo.m_data = data;
+	if (h->m_saveCombo.m_name != NULL)
+		_free(h->m_saveCombo.m_name, "zNetCnf.cpp", 805);
+	h->m_saveCombo.m_name = _strdup(name, "zNetCnf.cpp", 806);
+	h->m_saveCombo.m_states.push(CNF_STATE(CSMSaveCombo::AllocMem));
+	return true;
 }
 
 /* @socom-skeleton stub SaveComboTick__7CNetCnfFPv */
-bool CNetCnf::SaveComboTick(void *)
+bool CNetCnf::SaveComboTick(void *handle)
 {
+	/* 0x3fd640 */
+	CHNetCnf *h = (CHNetCnf *)handle;
+	return CnfTickThenReload(h, &h->m_saveCombo);
 }
 
 /* @socom-skeleton stub GetComboData__7CNetCnfFPv */
-sceNetcnfifData * CNetCnf::GetComboData(void *)
+sceNetcnfifData * CNetCnf::GetComboData(void *handle)
 {
+	/* 0x3fd630 */
+	return &((CHNetCnf *)handle)->m_addCombo.m_data;
 }
 
 /* @socom-skeleton stub DeleteAll__7CNetCnfFPv */
-bool CNetCnf::DeleteAll(void *)
+bool CNetCnf::DeleteAll(void *handle)
 {
+	/* 0x3fd5b0 */
+	CHNetCnf *h = (CHNetCnf *)handle;
+	h->m_deleteAll.Begin(CNF_STATE(CSMDeleteAll::DeleteAll));
+	return true;
 }
 
 /* @socom-skeleton stub DeleteAllTick__7CNetCnfFPv */
-bool CNetCnf::DeleteAllTick(void *)
+bool CNetCnf::DeleteAllTick(void *handle)
 {
+	/* 0x3fd330 */
+	CHNetCnf *h = (CHNetCnf *)handle;
+	return CnfTickThenReload(h, &h->m_deleteAll);
 }

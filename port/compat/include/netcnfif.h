@@ -60,4 +60,46 @@ typedef struct sceNetcnfifData
     int p4[5];
 } sceNetcnfifData;
 
+/* The result of a request (sceNetcnfifGetResult): CNetCnf's states read `data` (the count, the
+ * entry or a negative netcnf error, SignalNetCnfError 0x401270) and `addr` (the IOP work area,
+ * sceNetcnfifGetAddr; the GetAddr states read +0xc). The 784-byte stack copies in the ELF fit the
+ * SDK's member list; only `data` and `addr` are relied on. */
+typedef struct sceNetcnfifArg
+{
+    int data;                 /* +0x0 */
+    int f_no_decode;          /* +0x4 */
+    int type;                 /* +0x8 */
+    int addr;                 /* +0xc */
+    char fname[256];          /* +0x10 */
+    char usr_name[256];       /* +0x110 */
+    char new_usr_name[256];   /* +0x210 */
+} sceNetcnfifArg;
+
+/* libnetcnfif's EE calls (ELF 0x425280..0x425e78, provider code; the port's offline stand-ins are
+ * in port/compat/netcnfif_offline.c). Requests start an IOP call; sceNetcnfifCheck answers nonzero
+ * while it runs, then sceNetcnfifGetResult gives its result. Prototypes from the CNetCnf call
+ * sites (zNetCnf.cpp) and the SDK's names. */
+#ifdef __cplusplus
+extern "C" {
+#endif
+void sceNetcnfifInit(void);
+void sceNetcnfifSetup(void);
+int sceNetcnfifCheck(void);
+void sceNetcnfifGetResult(sceNetcnfifArg *result);
+void sceNetcnfifGetCount(const char *fname, int type);
+void sceNetcnfifGetList(const char *fname, int type, sceNetcnfifList *list, int count);
+void sceNetcnfifLoadEntry(const char *fname, int type, const char *usr_name, sceNetcnfifData *data);
+void sceNetcnfifAddEntry(const char *fname, int type, const char *usr_name);
+void sceNetcnfifDeleteAll(const char *fname);
+void sceNetcnfifAllocWorkarea(int size);
+void sceNetcnfifFreeWorkarea(void);
+void sceNetcnfifGetAddr(void);
+int sceNetcnfifSendIOP(unsigned int data, unsigned int addr, unsigned int size);
+int sceNetcnfifDmaCheck(int id);
+void sceNetcnfifDataInit(sceNetcnfifData *data);
+void sceNetcnfifDataDump(sceNetcnfifData *data);
+#ifdef __cplusplus
+}
+#endif
+
 #endif

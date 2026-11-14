@@ -179,15 +179,14 @@ bool CGame::Tick(f32 dT)
 void NetTickThreadEntry(void *)
 {
 	/* 0x20b0d0: the network ticks every 1/20 s while CGame::Tick changes state, until Tick clears
-	 * the run flag; the flag set again on exit tells Tick the thread is gone.
-	 * port: the ELF reloads the sleep time with a whole second's ticks when NetTick (DME,
-	 * offline) returns nonzero; the port's CZNetwork::zNetTick is void (znet.h), so it stays
-	 * at 1/20 s. */
+	 * the run flag; the flag set again on exit tells Tick the thread is gone. When NetTick
+	 * answers nonzero the sleep becomes a whole second */
 	NetTickThreadRunState = 1;
 	NetTickSleepTime = zSys.timerTicksPerSecond / 20;
 	while (*(volatile bool *)&NetTickThreadRunState) {
 		zSysSleep(NetTickSleepTime);
-		CZNetwork::zNetTick();
+		if (theNetwork.zNetTick())
+			NetTickSleepTime = zSys.timerTicksPerSecond;
 	}
 	NetTickThreadRunState = 1;
 	ExitDeleteThread();

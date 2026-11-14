@@ -40,6 +40,28 @@
 /* @socom-skeleton decl forward */
 /* port: NetObjectLifespan, NetOwnershipStatus, NetThresholdMethod are DME enums from <dme.h> (via znet.h) */
 /* @socom-skeleton end forward */
+#include <stdio.h>
+#include <string.h>
+#include <libnet.h> /* libnet / msifrpc / inet (provider; port/compat/libnet_offline.c) */
+#include <medius.h> /* MediusUpdate (provider; port/compat/medius_offline.cpp) */
+#include "gamez/zReader/zrdr.h"
+#include "gamez/zSound/zsnd.h" /* CSnd (zNetLoadIRX) */
+#include "gamez/zUtil/util_systemio.h" /* CFileIO::PS2FileName */
+
+int zSysLoadIRX(char *, int, char *, bool); /* zsys_init.cpp (0x2f4d60) */
+void zRemoteDelayedAction(CZNetwork::TypeRTimeFixStruct *); /* fts_remote.cpp (zNetUpdate) */
+
+/* a queued application message (zNetSendApplicationMessage 0x321440: a _malloc of the length + 23;
+ * port: no type in the ELF, names from the arguments) */
+struct ZNetQueuedMessage
+{
+	char m_class;            /* +0x0 */
+	int m_connection;        /* +0x4 */
+	int m_client;            /* +0x8 */
+	int m_type;              /* +0xc */
+	int m_length;            /* +0x10 */
+	unsigned char m_data[4]; /* +0x14 the copied message */
+};
 
 /* @socom-skeleton stub gIRXLoaded */
 static bool gIRXLoaded;
@@ -48,127 +70,460 @@ static bool gIRXLoaded;
 CZNetwork theNetwork;
 
 /* @socom-skeleton stub __ct__19CZBroadcastScheduleFUi18NetThresholdMethodd */
-CZBroadcastSchedule::CZBroadcastSchedule(unsigned int, NetThresholdMethod, double)
+CZBroadcastSchedule::CZBroadcastSchedule(unsigned int interval, NetThresholdMethod method, double threshold)
 {
+	/* 0x322300 */
+	m_interval = interval;
+	m_method = method;
+	m_threshold = threshold;
+	m_sent = false;
 }
 
 /* @socom-skeleton stub zNetInit__9CZNetworkFv */
 void CZNetwork::zNetInit()
 {
+	/* 0x322190: network.rdr: the Medius address and port (Medius on) or the game server's and the
+	 * player's id 0..31 (else 1); then the connection type (default 1, USB Ethernet). ELF quirk
+	 * kept: without Medius a missing server_ip / server_port is copied unchecked */
+	CRdrFile *rdr = zrdr_read("network.rdr", NULL, 0);
+	if (m_bMediusEnabled)
+	{
+		char *s = zrdr_findstring(rdr, "medius_ip");
+		if (s != NULL)
+			strcpy((char *)m_MediusIP, s);
+		s = zrdr_findstring(rdr, "medius_port");
+		if (s != NULL)
+			strcpy((char *)m_MediusPort, s);
+	}
+	else
+	{
+		char *ip = zrdr_findstring(rdr, "server_ip");
+		char *port = zrdr_findstring(rdr, "server_port");
+		strcpy((char *)m_ServerIP, ip);
+		strcpy((char *)m_ServerPort, port);
+		int id;
+		if (zrdr_findint(rdr, "personal_id", &id, 1))
+			m_WorldID = (id >= 0 && id < 32) ? id : 1;
+		else
+			m_WorldID = 1;
+	}
+	int connection = 1;
+	zrdr_findint(rdr, "connection_id", &connection, 1);
+	zrdr_free(rdr);
+	m_connection_type = (MP_CONNECTION)connection;
 }
 
 /* @socom-skeleton stub IOPRebootHandler__FQ211CIOPManager11RebootPhaseQ211CIOPManager10RebootModePv */
 static bool IOPRebootHandler(CIOPManager::RebootPhase, CIOPManager::RebootMode, void *)
 {
+	/* 0x322150: the libnet client goes before an IOP reboot */
+	unreg_handler(CNetCnf::libnetCd, CNetCnf::libnetBuffer);
+	libnet_term(CNetCnf::libnetCd);
+	sceSifMExitRpc();
+	return false;
 }
 
 /* @socom-skeleton stub zNetLoadIRX__9CZNetworkFv */
 bool CZNetwork::zNetLoadIRX()
 {
+	/* 0x321e20 (once): with sound closed, the network modules - from the memory card's network
+	 * configuration (CNetCnf::InitFromCombo) when one is required, else by the connection type
+	 * (inetctl with a configuration file of the disc, ppp for a modem, an986 for USB Ethernet,
+	 * smap for the network adaptor) and libnet - then the voice-chat modules; sound reopened.
+	 * True when the network modules are up */
+	if (gIRXLoaded)
+		return true;
+
+	CSnd::WaitForCDRead();
+	CSnd::Close();
+	if (m_bNetCnfRequired)
+	{
+		gIRXLoaded = CNetCnf::InitFromCombo((char *)"mc0:", -1);
+	}
+	else
+	{
+		static char s_inetctlArgs[256]; /* port: the ELF copies a zeroed 256-byte block (@1430) */
+		char args[256];
+		char path[256];
+		const char *opts;
+		const char *file;
+		int optsLength;
+
+		memcpy(args, s_inetctlArgs, sizeof(args));
+		if (zSysLoadIRX((char *)"run/irx/inet.irx", 0, NULL, true) < 0)
+			return false;
+
+		if (m_connection_type == MP_CONNECTION::USB_MODEM || m_connection_type == MP_CONNECTION::NA_MODEM)
+		{
+			opts = "-verbose\0-no_decode"; /* 20 bytes: two arguments */
+			file = "net_ex.cnf";
+			optsLength = 20;
+		}
+		else if (m_connection_type == MP_CONNECTION::USB_ETHERNET)
+		{
+			opts = "-no_decode";
+			file = "net003.cnf";
+			optsLength = 11;
+		}
+		else if (m_connection_type == MP_CONNECTION::NA_ETHERNET)
+		{
+			opts = "-no_decode";
+			file = "net005.cnf";
+			optsLength = 11;
+		}
+		else
+		{
+			/* ELF quirk kept: another type copies nothing and names no file (both unset) */
+			opts = "";
+			file = "";
+			optsLength = 0;
+		}
+		memcpy(args, opts, optsLength);
+		CFileIO::PS2FileName(file, path, false);
+		strcpy(args + optsLength, path);
+		if (zSysLoadIRX((char *)"run/irx/inetctl.irx", optsLength + strlen(path) + 1, args, true) < 0)
+			return false;
+
+		if (m_connection_type == MP_CONNECTION::USB_MODEM || m_connection_type == MP_CONNECTION::NA_MODEM)
+		{
+			if (zSysLoadIRX((char *)"run/irx/ppp.irx", 0, NULL, true) < 0)
+				return false;
+		}
+		if (m_connection_type == MP_CONNECTION::USB_ETHERNET)
+		{
+			if (zSysLoadIRX((char *)"run/irx/an986.irx", 0, NULL, true) < 0)
+				return false;
+		}
+		else if (m_connection_type == MP_CONNECTION::NA_ETHERNET || m_connection_type == MP_CONNECTION::NA_MODEM)
+		{
+			if (zSysLoadIRX((char *)"run/irx/smap.irx", 0, NULL, true) < 0)
+				return false;
+			theIOPManager.RegisterRebootCallback(IOPRebootHandler, NULL);
+		}
+		if (zSysLoadIRX((char *)"run/irx/msifrpc.irx", 0, NULL, true) < 0)
+			return false;
+		if (zSysLoadIRX((char *)"run/irx/libnetb.irx", 0, NULL, true) < 0)
+			return false;
+		sceSifMInitRpc(0);
+		libnet_init(CNetCnf::libnetCd, 2048, 8192, 32);
+		reg_handler(CNetCnf::libnetCd, CNetCnf::libnetBuffer);
+		gIRXLoaded = true;
+	}
+
+	zSysLoadIRX((char *)"run/irx/pttclnt.irx", 0, NULL, true);
+	zSysLoadIRX((char *)"run/irx/pttsrvr.irx", 0, NULL, true);
+	CSnd::UIOpen();
+	return gIRXLoaded;
 }
 
 /* @socom-skeleton stub zNetInitEx__9CZNetworkFv */
-void CZNetwork::zNetInitEx()
+int CZNetwork::zNetInitEx()
 {
+	/* 0x321d60: the settings, the modules, DME up; the Medius address resolved to a dotted
+	 * address when libinet can */
+	int result = 0;
+	zNetInit();
+	if (zNetLoadIRX())
+	{
+		result = zNetInitialize();
+		char name[64];
+		unsigned char address[16];
+		char text[256];
+		strncpy(name, (const char *)m_MediusIP, sizeof(name));
+		if (sceInetName2Address(CNetCnf::libnetCd, CNetCnf::libnetBuffer, 0, address, name, 6000, 4) == 0
+			&& sceInetAddress2String(CNetCnf::libnetCd, CNetCnf::libnetBuffer, text, 64, address) == 0)
+			strcpy((char *)m_MediusIP, text);
+	}
+	return result;
 }
 
 /* @socom-skeleton stub zNetInitialize__9CZNetworkFv */
-void CZNetwork::zNetInitialize()
+int CZNetwork::zNetInitialize()
 {
+	/* 0x321ca0: DME up (256 and 10020 in its parameters, the lobby's key pair); this machine's
+	 * address; no object field changed yet */
+	NetInitializeParams params;
+	NetOutParams out;
+	NetSetDefaultInitializeParams(&params);
+	params.Unknown_08 = 10020;
+	params.Unknown_04 = 256;
+	params.KeyPair = theLobby.GetKeyPair();
+	NetInitialize(&params, &out);
+	if (out.ErrorCode == 0)
+		theNetwork.m_network_init = true;
+	m_MyInternalIP[0] = 0;
+	NetGetMyIpAddress((char *)m_MyInternalIP);
+	memset(m_ObjectFieldUpdate, 0, sizeof(m_ObjectFieldUpdate));
+	return out.ErrorCode;
 }
 
 /* @socom-skeleton body zNetUpdate__9CZNetworkFv */
-bool CZNetwork::zNetUpdate()
+int CZNetwork::zNetUpdate()
 {
-	return false;
+	/* 0x3219f0 (every frame): while networked, the queued application messages are sent, the
+	 * lobby (Medius) or DME updated, the delayed fixes run, every object with a changed field gets
+	 * its post-update callback, and the times are read */
+	int result = 0;
+	if (!m_bNetwork)
+		return 0;
+
+	if (!m_message_list.empty())
+	{
+		for (std::list<void *>::iterator it = m_message_list.begin(); it != m_message_list.end(); ++it)
+		{
+			ZNetQueuedMessage *msg = (ZNetQueuedMessage *)*it;
+			zNetSendApplicationMessage(msg->m_class, msg->m_connection, msg->m_client, msg->m_type, msg->m_length, msg->m_data, true);
+			_free(msg, "zNetDme.cpp", 497);
+		}
+		m_message_list.clear();
+	}
+
+	if (m_bMediusEnabled)
+	{
+		if (MediusUpdate() < 0)
+		{
+			result = MediusGetLastNetUpdateError();
+			theLobby.RecoverFromNetError(result);
+		}
+		theLobby.Tick();
+	}
+	else
+	{
+		result = NetUpdate();
+	}
+
+	if (!m_fix_list.empty())
+	{
+		for (std::list<void *>::iterator it = m_fix_list.begin(); it != m_fix_list.end(); ++it)
+		{
+			zRemoteDelayedAction((CZNetwork::TypeRTimeFixStruct *)*it);
+			delete (CZNetwork::TypeRTimeFixStruct *)*it; /* port: the ELF frees the new'd fix with _free */
+		}
+		m_fix_list.clear();
+	}
+
+	for (int i = 0; i < 4096; i++)
+	{
+		if (m_ObjectFieldUpdate[i])
+		{
+			void *object = NULL;
+			NetGetObject(&object, i);
+			NetObjectRec *rec = (NetObjectRec *)object;
+			if (rec != NULL && m_ObjectPostUpdateCallbackList[rec->m_unk_00[0]] != NULL)
+				m_ObjectPostUpdateCallbackList[rec->m_unk_00[0]](rec->m_owner, i, -1);
+			m_ObjectFieldUpdate[i] = 0;
+		}
+	}
+
+	int time = 0;
+	if (NetGetLocalTime(&time) == 0)
+		m_local_time = time;
+	time = 0;
+	if (NetGetTime(&time) == 0)
+		m_net_time = time;
+	return result;
 }
 
 /* @socom-skeleton stub zNetTick__9CZNetworkFv */
-void CZNetwork::zNetTick()
+int CZNetwork::zNetTick()
 {
+	/* 0x3219e0 */
+	return NetTick();
 }
 
 /* @socom-skeleton stub AddToFixList__9CZNetworkFPQ29CZNetwork18TypeRTimeFixStruct */
-void CZNetwork::AddToFixList(CZNetwork::TypeRTimeFixStruct *)
+void CZNetwork::AddToFixList(CZNetwork::TypeRTimeFixStruct *fix)
 {
+	/* 0x321940: a copy at the end of the list (zNetUpdate runs it) */
+	m_fix_list.push_back(new CZNetwork::TypeRTimeFixStruct(*fix));
 }
 
 /* @socom-skeleton stub zNetClose__9CZNetworkFv */
 void CZNetwork::zNetClose()
 {
+	/* 0x321900 */
+	if (m_bNetwork)
+	{
+		NetClose();
+		m_network_init = false;
+		m_bConnected = false;
+	}
 }
 
 /* @socom-skeleton stub zNetCreateObject__9CZNetworkFPi18NetOwnershipStatus17NetObjectLifespanUiiUiiPvPci */
-int CZNetwork::zNetCreateObject(int *, NetOwnershipStatus, NetObjectLifespan, unsigned int, int, unsigned int, int, void *, char *, int)
+int CZNetwork::zNetCreateObject(int *index, NetOwnershipStatus ownership, NetObjectLifespan lifespan, unsigned int a, int b, unsigned int c, int d, void *data, char *name, int e)
 {
+	/* 0x321860: a DME object; a failure or an index of 256 and more is a network error (333).
+	 * ELF quirk kept: this client's index is read and not used */
+	int error = NetCreateObject(index, ownership, lifespan, a, b, c, d, data, name, e);
+	int me = -1;
+	NetGetMyClientIndex(&me, m_GameConnectionIndex);
+	if (error != 0 || *index >= 256)
+		theLobby.RecoverFromNetError(333);
+	return error;
 }
 
 /* @socom-skeleton stub zNetGetObject__9CZNetworkFi */
-NetObjectRec * CZNetwork::zNetGetObject(int)
+NetObjectRec * CZNetwork::zNetGetObject(int index)
 {
+	/* 0x321820 */
+	void *object = NULL;
+	if (NetGetObject(&object, index) != 0)
+		return NULL;
+	return (NetObjectRec *)object;
 }
 
 /* @socom-skeleton stub zNetGetGameClient__9CZNetworkFi */
-NetClientRec * CZNetwork::zNetGetGameClient(int)
+NetClientRec * CZNetwork::zNetGetGameClient(int client)
 {
+	/* 0x3217d0: a client of the game connection */
+	void *rec = NULL;
+	if (NetGetClient(&rec, theNetwork.m_GameConnectionIndex, client) != 0)
+		return NULL;
+	return (NetClientRec *)rec;
 }
 
 /* @socom-skeleton stub zNetGetClient__9CZNetworkFii */
-void CZNetwork::zNetGetClient(int, int)
+NetClientRec * CZNetwork::zNetGetClient(int connection, int client)
 {
+	/* 0x321790 */
+	void *rec = NULL;
+	if (NetGetClient(&rec, connection, client) != 0)
+		return NULL;
+	return (NetClientRec *)rec;
 }
 
 /* @socom-skeleton stub zNetGetMyGameClientIndex__9CZNetworkFv */
 int CZNetwork::zNetGetMyGameClientIndex()
 {
+	/* 0x321750 */
+	int index = -1;
+	if (NetGetMyClientIndex(&index, theNetwork.m_GameConnectionIndex) != 0)
+		return -1;
+	return index;
 }
 
 /* @socom-skeleton stub zNetGetGameSessionMasterClientIndex__9CZNetworkFv */
 int CZNetwork::zNetGetGameSessionMasterClientIndex()
 {
+	/* 0x321710 */
+	int index = -1;
+	if (NetGetSessionMasterClientIndex(&index, theNetwork.m_GameConnectionIndex) != 0)
+		return -1;
+	return index;
 }
 
 /* @socom-skeleton stub zNetGetTime__9CZNetworkFv */
 int CZNetwork::zNetGetTime()
 {
+	/* 0x321700 */
+	return m_net_time;
 }
 
 /* @socom-skeleton stub zNetGetLocalTime__9CZNetworkFv */
 int CZNetwork::zNetGetLocalTime()
 {
+	/* 0x3216f0 */
+	return m_local_time;
 }
 
 /* @socom-skeleton stub zNetGetValidGameClientCount__9CZNetworkFv */
 int CZNetwork::zNetGetValidGameClientCount()
 {
+	/* 0x3216c0 (the error code is not read) */
+	int count = 0;
+	NetGetValidClientCount(&count, m_GameConnectionIndex);
+	return count;
 }
 
 /* @socom-skeleton stub zNetConnect__9CZNetworkFPFiiPCc_vPFiiPCc_v */
-int CZNetwork::zNetConnect(void (*)(int, int, const char *), void (*)(int, int, const char *))
+int CZNetwork::zNetConnect(void (*connectCallback)(int, int, const char *), void (*disconnectCallback)(int, int, const char *))
 {
+	/* 0x321630: the game server (the lobby's game connection); connected when NetConnect
+	 * answers 0, not joined yet */
+	NetConnectParams params;
+	NetOutParams out;
+	NetSetDefaultConnectParams(&params);
+	theLobby.SetConnectionInfo(&params.ConnectInfo);
+	params.ConnectCallback = connectCallback;
+	params.DisconnectCallback = disconnectCallback;
+	params.Unknown_b8 = 0;
+	params.Unknown_bc = 0;
+	NetConnect(&params, &out);
+	m_GameConnectionIndex = out.ConnectionIndex;
+	if (out.ErrorCode == 0)
+		m_bConnected = true;
+	m_bJoined = false;
+	return out.ErrorCode;
 }
 
 /* @socom-skeleton stub zNetJoin__9CZNetworkFPFii_vPFii_v */
-int CZNetwork::zNetJoin(void (*)(int, int), void (*)(int, int))
+int CZNetwork::zNetJoin(void (*joinCallback)(int, int), void (*leaveCallback)(int, int))
 {
+	/* 0x3215b0: the game session (the default join block, the object and stream counts) */
+	static NetJoinParams s_joinParams; /* port: the ELF copies a zeroed 50-byte block (@1635) */
+	NetJoinParams params = s_joinParams;
+	int error = NetJoin(m_GameConnectionIndex, &params, m_NetObjectCount, m_DataStreamCount, 2, 0, joinCallback, leaveCallback);
+	if (error == 0)
+		m_bJoined = true;
+	return error;
 }
 
 /* @socom-skeleton stub zNetLeaveAndDisconnect__9CZNetworkFv */
 void CZNetwork::zNetLeaveAndDisconnect()
 {
+	/* 0x321550: the session left (disconnected when that worked), the defaults back */
+	m_bJoined = false;
+	if (NetLeave(m_GameConnectionIndex) == 0)
+	{
+		NetDisconnect(m_GameConnectionIndex);
+		m_bConnected = false;
+	}
+	m_NetObjectCount = 12;
+	m_DataStreamCount = 2;
+	m_bSessionMaster = false;
+	m_SealIndex = 0;
+	m_TerrIndex = 0;
+	m_monitor_ok = false;
 }
 
 /* @socom-skeleton stub zNetSendApplicationMessage__9CZNetworkFciiiiPUcb */
-void CZNetwork::zNetSendApplicationMessage(char, int, int, int, int, unsigned char *, bool)
+void CZNetwork::zNetSendApplicationMessage(char messageClass, int connection, int client, int type, int length, unsigned char *data, bool now)
 {
+	/* 0x321440: sent at once, or queued (a copy) for the next zNetUpdate */
+	if (now)
+	{
+		NetSendApplicationMessage(messageClass, connection, client, type, length, data);
+		return;
+	}
+	ZNetQueuedMessage *msg = (ZNetQueuedMessage *)_malloc(length + 23, "zNetDme.cpp", 856);
+	msg->m_class = messageClass;
+	msg->m_connection = connection;
+	msg->m_client = client;
+	msg->m_type = type;
+	msg->m_length = length;
+	memcpy(msg->m_data, data, length);
+	m_message_list.push_back(msg);
 }
 
 /* @socom-skeleton stub zNetRegisterRemoteObjectCallback__9CZNetworkFiPFii_vPFiii_vPFiii_vPFii_v */
-void CZNetwork::zNetRegisterRemoteObjectCallback(int, void (*)(int, int), void (*)(int, int, int), void (*)(int, int, int), void (*)(int, int))
+void CZNetwork::zNetRegisterRemoteObjectCallback(int type, void (*createCallback)(int, int), void (*updateCallback)(int, int, int), void (*postCallback)(int, int, int), void (*destroyCallback)(int, int))
 {
+	/* 0x3213d0: DME calls zNetRemoteObjectUpdateCallback, which calls the type's update callback */
+	NetRegisterRemoteObjectCallback(type, createCallback, zNetRemoteObjectUpdateCallback, destroyCallback);
+	m_ObjectUpdateCallbackList[type] = updateCallback;
+	m_ObjectPostUpdateCallbackList[type] = postCallback;
 }
 
 /* @socom-skeleton stub zNetRemoteObjectUpdateCallback__9CZNetworkFiii */
-void CZNetwork::zNetRemoteObjectUpdateCallback(int, int, int)
+void CZNetwork::zNetRemoteObjectUpdateCallback(int, int index, int fields)
 {
+	/* 0x321340: a remote object changed: its type's update callback, and the object is marked
+	 * for zNetUpdate's post-update callback */
+	void *object = NULL;
+	NetGetObject(&object, index);
+	NetObjectRec *rec = (NetObjectRec *)object;
+	if (rec != NULL && theNetwork.m_ObjectUpdateCallbackList[rec->m_unk_00[0]] != NULL)
+		theNetwork.m_ObjectUpdateCallbackList[rec->m_unk_00[0]](rec->m_owner, index, fields);
+	theNetwork.m_ObjectFieldUpdate[index] = 1;
 }

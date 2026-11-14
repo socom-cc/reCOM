@@ -10,10 +10,15 @@
 class C2D;
 class C2DAnimCmdHdr;
 #include <list>
+#include <queue>
+#include <vector>
 
 #include <rsa/rsadef.h>
 #include <dme.h> /* port: NetOwnershipStatus, NetObjectLifespan, NetThresholdMethod (Medius DME; header name unproven) */
+#include <medius.h> /* port: MediusChannelListResponse (BriefingRoom), the Medius lobby records (header name unproven) */
 #include <netcnfif.h> /* sceNetcnfifList, sceNetcnfifData (the SDK's libnetcnfif; CNetCnf, the UINet* UI commands) */
+
+#include <string.h>
 
 #include "gamez/zMath/zmath.h"
 #include "gamez/zSystem/zsys.h"
@@ -65,7 +70,7 @@ enum class MP_NET_READY : unsigned char /* DWARF byte_size 1 (CZNetGame::m_net_s
 	NET_READY_MENUS
 };
 
-enum class MP_CONNECTION
+enum class MP_CONNECTION : unsigned char /* DWARF CZNetwork::m_connection_type +0x1168, 1 byte (m_charName +0x1169) */
 {
 	USB_MODEM,
 	USB_ETHERNET,
@@ -73,41 +78,8 @@ enum class MP_CONNECTION
 	NA_ETHERNET
 };
 
-enum class LOBBY_STATE
-{
-	ROOT_LOBBY_STATE,
-	CONNECT_SUCCESS,
-	CONNECT_ERROR,
-	ACCOUNT_REGISTRATION,
-	USER_REGISTRATION,
-	SCREENNAME_REGISTRATION,
-	REGISTRATION_FAILURE,
-	ACCOUNT_LOGIN,
-	USER_LOGIN,
-	SCREENNAME_LOGIN,
-	LOGIN_FAILURE,
-	LOBBY_ACTIVE,
-	SESSION_BEGIN,
-	CREATE_NEW_GAME,
-	CREATE_FAILURE,
-	JOIN_GAME,
-	LOBBY_SERVER_CONNECT,
-	READY_TO_CONNECT,
-	END_SESSION,
-	JOIN_ROOM,
-	CREATE_ROOM,
-	RETRIEVE_CLAN_INFO,
-	MAX_LOBBY_STATES
-};
-
-enum class LOBBY_STATE_FLAG
-{
-	REGISTER,
-	ENTRY,
-	TICK,
-	EXIT,
-	UNREGISTER
-};
+/* port: the global LOBBY_STATE / LOBBY_STATE_FLAG duplicates were removed; the binary's types are
+ * CZOnlineLobby::LOBBY_STATE / CZOnlineLobby::LOBBY_STATE_FLAG (DWARF, 1 byte each) */
 
 /* port: no type info; the DME object record CZNetwork::zNetGetObject returns (NetGetObject's
  * out pointer, 0x321820). Only the fields the zFTS net-state code reads (fts_net_*.cpp) */
@@ -167,8 +139,17 @@ public:
 		MP_CLAN_DISBANDED
 	};
 public:
+	/* inline in __sinit_zNetDme.cpp (0x46e860): the members it sets (the rest is zero) */
+	CZNetwork() : m_SealIndex(0), m_TerrIndex(0), m_bSessionMaster(false), m_bNetwork(false), m_bConnected(false),
+		m_bJoined(false), m_network_init(false), m_monitor_ok(false), m_WorldID(10), m_ClientIndex(256),
+		m_NetObjectCount(12), m_DataStreamCount(2), m_bMediusEnabled(false), m_bNetCnfRequired(true)
+	{
+		m_charName[0] = '\0';
+		strncpy(m_charType, "0", 31);
+		m_charType[30] = '\0';
+	}
 	int zNetGetTime(); /* port: 0x321700 returns lw 0xdc(a0) in v0, not $f0 */
-	bool zNetUpdate();
+	int zNetUpdate(); /* 0x3219f0: NetUpdate's error code in v0 (0 without a network or with Medius) */
 	void zNetRequestObjectPrivateOwnership();
 public:
 	s32 m_SealIndex;
@@ -202,8 +183,10 @@ public:
 	bool m_bNetCnfRequired;
 
 	s8 m_ObjectFieldUpdate[4096];
-	void* m_ObjectUpdateCallbackList[16];
-	void* m_ObjectPostUpdateCallbackList[16];
+	/* DWARF subroutine pointers; port: the signatures from their calls (zNetRemoteObjectUpdateCallback
+	 * 0x321340: owner, object, fields; zNetUpdate 0x321c24: owner, object, -1) */
+	void (*m_ObjectUpdateCallbackList[16])(int, int, int);
+	void (*m_ObjectPostUpdateCallbackList[16])(int, int, int);
 
 	MP_CONNECTION m_connection_type;
 
@@ -216,22 +199,25 @@ public:
 	s8 m_AccessKey[17];
 	RSA_KEY m_PubKey;
 
-	std::list<s8> m_message_list;
-	std::list<s8> m_fix_list;
+	/* port: element types from their use (DWARF names only the list type): the queued application
+	 * messages (zNetSendApplicationMessage 0x321440, sent by zNetUpdate) and the delayed fixes
+	 * (TypeRTimeFixStruct*, AddToFixList 0x321940) */
+	std::list<void *> m_message_list;
+	std::list<void *> m_fix_list;
 	/* @socom-skeleton decl 9CZNetwork */
 public:
 	class TypeRTimeFixStruct;
 	void zNetInit();
 	bool zNetLoadIRX();
-	void zNetInitEx();
-	void zNetInitialize();
-	static void zNetTick();
+	int zNetInitEx(); /* 0x321d60: zNetInitialize's error code, 0 when the modules did not load */
+	int zNetInitialize(); /* 0x321ca0: NetInitialize's error code (0 = DME up) */
+	int zNetTick(); /* 0x3219e0: tail call of NetTick (NetTickThreadEntry reads v0) */
 	void AddToFixList(CZNetwork::TypeRTimeFixStruct *);
 	void zNetClose();
 	int zNetCreateObject(int *, NetOwnershipStatus, NetObjectLifespan, unsigned int, int, unsigned int, int, void *, char *, int); /* 0x321860: NetCreateObject's result, 0 = made */
 	NetObjectRec * zNetGetObject(int); /* 0x321820: NULL on error */
 	NetClientRec * zNetGetGameClient(int); /* 0x3217d0: NULL on error */
-	void zNetGetClient(int, int);
+	NetClientRec * zNetGetClient(int, int); /* 0x321790: NetGetClient's record, NULL on error */
 	int zNetGetMyGameClientIndex();
 	int zNetGetGameSessionMasterClientIndex();
 	int zNetGetLocalTime();
@@ -241,7 +227,7 @@ public:
 	void zNetLeaveAndDisconnect();
 	void zNetSendApplicationMessage(char, int, int, int, int, unsigned char *, bool);
 	void zNetRegisterRemoteObjectCallback(int, void (*)(int, int), void (*)(int, int, int), void (*)(int, int, int), void (*)(int, int));
-	void zNetRemoteObjectUpdateCallback(int, int, int);
+	static void zNetRemoteObjectUpdateCallback(int, int, int); /* static: the DME callback 0x321340 uses theNetwork, not a0 */
 	/* @socom-skeleton end 9CZNetwork */
 };
 
@@ -417,6 +403,7 @@ public:
 	friend class CZPersonaState; /* port: UpdateLocalPersona 0x208b80 sends m_PortBuf / m_ServerPortBuf */
 	friend class CZStaticRadioBitmap; /* port: HudTick 0x3d55f0 reads m_isOn / m_channel */
 	friend class CZDynamicRadioBitmap; /* port: HudTick 0x3d5340 reads m_isTalking / m_isReceiving */
+	friend void VoiceStartWorker(CZNetVoice *); /* port: zNetVoice.cpp, the worker start inline in Init 0x3337a0 */
 	friend class CHUD; /* port: StatusLine 0x3d9bb8 reads m_timeTaken (push-to-talk time) */
 	bool PreTick();
 	bool Tick(f32 dT);
@@ -467,17 +454,40 @@ public:
 class CZOnlineLobby
 {
 public:
+	/* DWARF CZOnlineLobby::LOBBY_STATE (1 byte) */
+	enum LOBBY_STATE : unsigned char
+	{
+		ROOT_LOBBY_STATE = 0,
+		CONNECT_SUCCESS = 1,
+		CONNECT_ERROR = 2,
+		ACCOUNT_REGISTRATION = 3,
+		USER_REGISTRATION = 4,
+		SCREENNAME_REGISTRATION = 5,
+		REGISTRATION_FAILURE = 6,
+		ACCOUNT_LOGIN = 7,
+		USER_LOGIN = 8,
+		SCREENNAME_LOGIN = 9,
+		LOGIN_FAILURE = 10,
+		LOBBY_ACTIVE = 11,
+		SESSION_BEGIN = 12,
+		CREATE_NEW_GAME = 13,
+		CREATE_FAILURE = 14,
+		JOIN_GAME = 15,
+		LOBBY_SERVER_CONNECT = 16,
+		READY_TO_CONNECT = 17,
+		END_SESSION = 18,
+		JOIN_ROOM = 19,
+		CREATE_ROOM = 20,
+		RETRIEVE_CLAN_INFO = 21,
+		MAX_LOBBY_STATES = 22
+	};
+	/* inline in __sinit_zNetMedius.cpp (0x46e960): the members it sets */
+	CZOnlineLobby() : m_event_handler(NULL), m_net_error_handler(NULL), m_isinit(false), m_isopen(false), m_curr_seq_idx(-1)
+	{
+		for (int i = 0; i < 12; i++)
+			m_MissionSequence[i] = 0;
+	}
 	void Init();
-	/* DWARF +0x58 / +0x5c subroutine_type*: the event handler (CZGameState::
-	 * RemoteGameUpdateCallback 0x206458 calls it with an event name and 0; port: signature
-	 * from that call) and the net error handler (CLoadState::Init stores
-	 * CMission::RecoverFromNetError, _RecoverFromNetError clears it) */
-	unsigned char (*m_event_handler)(const char *, const char *); /* port: UIInitNetwork (0x1d5530) stores UILobbyEventHandler(const char *, const char *) here; the callers pass 0 / NULL as the argument */
-	unsigned char (*m_net_error_handler)(int);
-private:
-	bool started; /* UILobbyLogout (0x1d4f70) reads the byte as a state: 0, 18, other */
-	CValve* onlineStatusValve;
-	friend unsigned char UILobbyLogout(C2DAnimCmdHdr *, float *); /* port: reads started */
 	/* @socom-skeleton decl 13CZOnlineLobby */
 public:
 	enum LOBBY_STATE_FLAG
@@ -508,7 +518,7 @@ public:
 	void GetLadderRanking();
 	void UpdateLadderRating(int);
 	void SetPlayerDescription(const char *);
-	void GetKeyPair();
+	unsigned char * GetKeyPair(); /* 0x328b50: the 128-byte RSA key pair (zNetInitialize) */
 	bool Open(); /* UIInitNetwork returns its v0 */
 	void Tick();
 	void Close();
@@ -553,15 +563,52 @@ public:
 	int GetDMEJoinedCount(); /* 0x322470 returns dme_joined_count (CLoadState::Tick tests it) */
 	void SendEndGameReport();
 	/* @socom-skeleton end 13CZOnlineLobby */
+
+	/* the layout (DWARF, 152 bytes) */
+	typedef void (*StateHandler)(LOBBY_STATE_FLAG);
+	StateHandler m_state_handler[MAX_LOBBY_STATES]; /* +0x0 one per state (Open registers them) */
+	/* +0x58 / +0x5c subroutine_type*: the event handler (CZGameState::RemoteGameUpdateCallback
+	 * 0x206458 calls it with an event name and 0; UIInitNetwork 0x1d5530 stores
+	 * UILobbyEventHandler(const char *, const char *); port: signature from those) and the net
+	 * error handler (CLoadState::Init stores CMission::RecoverFromNetError) */
+	unsigned char (*m_event_handler)(const char *, const char *);
+	unsigned char (*m_net_error_handler)(int);
+	LOBBY_STATE m_current_state;                    /* +0x60 (UILobbyLogout 0x1d4f70 reads it) */
+	std::queue<LOBBY_STATE> m_state_change_fifo;    /* +0x64 the states Tick enters next */
+	bool m_isinit;                                  /* +0x80 */
+	bool m_isopen;                                  /* +0x81 */
+	CValve *socom_online_state;                     /* +0x84 the valve the menus read the state from */
+	unsigned char m_MissionSequence[12];            /* +0x88 */
+	int m_curr_seq_idx;                             /* +0x94 */
 };
+class RoomGame;
+struct MediusLobbyWorldPlayerListResponse;
+struct MediusChatFwdMessage;
 /* @socom-skeleton decl 12BriefingRoom */
+/* a lobby room (164 bytes in the ELF; no DWARF: members from the constructor 0x327190, the
+ * mp_rooms.rdr reader BriefingRoomDB::Parse 0x328490 and the destructor 0x327af0; port names) */
 class BriefingRoom
 {
 public:
-	virtual void CloneIndex();
-	virtual void IsAClone();
-	virtual void BaseSrc();
-	void LastClone();
+	BriefingRoom(); /* inline in BriefingRoomDB::Parse */
+	BriefingRoom(MediusChannelListResponse *); /* 0x327190 */
+	~BriefingRoom(); /* 0x327af0 (not virtual: not in the ELF's vtable) */
+	virtual int CloneIndex(); /* 0x32e800: 0 */
+	virtual BriefingRoom * IsAClone(); /* 0x32fea0: NULL (a clone answers its source room; port: type from BriefingRoomClone 0x32fe70) */
+	virtual BriefingRoom * BaseSrc(); /* 0x32e4b0: this */
+	BriefingRoom * LastClone();
+	RoomGame * FindGame(const char *); /* 0x325a80 */
+	void deltrans(RoomGame *); /* 0x32ecb0 */
+
+	std::vector<RoomGame *> m_games;                               /* +0x0 (vptr +0xc in the ELF) */
+	std::vector<MediusLobbyWorldPlayerListResponse> m_players;     /* +0x10 */
+	std::vector<MediusChatFwdMessage> m_chat;                      /* +0x1c */
+	MediusChannelListResponse m_channel;                           /* +0x28 (LobbyName = the room's name) */
+	int m_limit;                                                   /* +0x90 LIMIT (16) */
+	int m_playerCount;                                             /* +0x94 (shown in the room list) */
+	int m_unknown_98;                                              /* +0x98 */
+	char *m_password;                                              /* +0x9c (freed by the dtor; port: name guessed) */
+	BriefingRoom *m_clone;                                         /* +0xa0 the next clone (LastClone 0x32fdd0 follows them) */
 };
 /* @socom-skeleton end 12BriefingRoom */
 /* @socom-skeleton decl 7CNetCnf */
@@ -596,7 +643,7 @@ public:
 	static char * GetNetDisplayName(void *, int);
 	static char * GetDevDisplayName(void *, int);
 	static char * GetIfcDisplayName(void *, int);
-	static void InitFromCombo(char *, int);
+	static bool InitFromCombo(char *, int); /* 0x3feb80: 1 when the interface is up (zNetLoadIRX) */
 	static bool ReadInterfaceList(void *);
 	static bool ReadInterfaceListTick(void *);
 	static int InterfaceCount(void *);
@@ -622,7 +669,7 @@ public:
 	static unsigned char libnetBuffer[5184];
 	static unsigned char libnetCd[60];
 	static unsigned char m_isinit;
-	static int m_open_handle;
+	static void * m_open_handle; /* the open handle (&theNetCnf; Open 0x3ff8a0) */
 	static int m_selected_combo;
 };
 /* @socom-skeleton end 7CNetCnf */
@@ -631,6 +678,11 @@ class CZBroadcastSchedule
 {
 public:
 	CZBroadcastSchedule(unsigned int, NetThresholdMethod, double);
+	/* port: members from the constructor 0x322300 (no DWARF; names guessed) */
+	unsigned int m_interval;     /* +0x0 */
+	NetThresholdMethod m_method; /* +0x4 */
+	double m_threshold;          /* +0x8 */
+	bool m_sent;                 /* +0x10 */
 };
 /* @socom-skeleton end 19CZBroadcastSchedule */
 #endif

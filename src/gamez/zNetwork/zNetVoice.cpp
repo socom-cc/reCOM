@@ -22,6 +22,35 @@
  * socom-owner-annotations end socom:work:source-segment-047 */
 
 #include "znet.h"
+#include <stdio.h>
+#include <string.h>
+#include <eekernel.h> /* CreateThread, StartThread, RotateThreadReadyQueue, ExitDeleteThread */
+#include <ptt.h> /* libptt (provider; port/compat/ptt_offline.cpp) */
+#include "gamez/zSound/zsnd.h" /* CSnd::WaitForCDRead */
+
+/* port: the worker thread's entry: the ELF passes CZNetVoice::WorkerThread itself (its `this` is
+ * the thread argument, 0; the function only uses theVoice and statics), which C++ cannot name as a
+ * thread entry */
+static void VoiceWorkerEntry(void *)
+{
+	theVoice.WorkerThread();
+}
+
+/* the worker thread started (inline twice in Init 0x3337a0): priority 5, a 128000-byte stack told
+ * as 8000 bytes (ELF quirk kept; never freed) */
+void VoiceStartWorker(CZNetVoice *voice) /* port: a friend of CZNetVoice (znet.h) */
+{
+	ThreadParam param;
+	memset(&param, 0, sizeof(param));
+	param.entry = (void *)VoiceWorkerEntry;
+	param.stack = new unsigned char[0x1f400];
+	param.stackSize = 8000;
+	param.gpReg = &_gp;
+	param.initPriority = 5;
+	StartThread(CreateThread(&param), NULL);
+	voice->m_isOn = true;
+	voice->m_thread_going = true;
+}
 
 /* @socom-skeleton stub m_lastChannel__10CZNetVoice */
 int CZNetVoice::m_lastChannel = -1;
@@ -39,83 +68,288 @@ unsigned char CZNetVoice::m_done_with_thread;
 CZNetVoice theVoice;
 
 /* @socom-skeleton stub Init__10CZNetVoiceFPUi */
-void CZNetVoice::Init(unsigned int *)
+void CZNetVoice::Init(unsigned int *sessionMaster)
 {
+	/* 0x3337a0 (voice on): the session master runs the voice server; libptt is set up once (its
+	 * failure turns voice off), the WAN addresses are queried and the worker thread started.
+	 * ELF quirk kept: the thread gets a 128000-byte stack but is told 8000 bytes (and it is not
+	 * freed); returns 1 on a failure, 0 else (port: void, no caller reads it) */
+	if (!m_do_voice)
+		return;
+
+	CSnd::WaitForCDRead();
+	m_isServer = theNetwork.zNetGetGameSessionMasterClientIndex() == theNetwork.zNetGetMyGameClientIndex();
+	if (!m_ptt_inited)
+	{
+		m_isOn = false;
+		m_server_started = false;
+		m_thread_going = false;
+		if (PTT_Init("natservice.pdonline.scea.com", 10070) != 0)
+		{
+			m_do_voice = false;
+			return;
+		}
+		if (PTT_DebugForceVolume(80, 80) < 0)
+			return;
+		if (PTT_Sync(NULL, 0, 1) != 0)
+			return;
+		m_ptt_inited = true;
+		PTTServer_Init();
+		if (m_isServer)
+		{
+			if (PTTServer_Start("natservice.pdonline.scea.com", 10070) < 0)
+				return;
+			if (PTTServer_Sync(NULL, 0, 1) != 0)
+				return;
+			if (PTTServer_QueryWANAddress() < 0)
+				return;
+			if (PTTServer_Sync(m_ServerPortBuf, 16, 1) != 0)
+				return;
+			m_SMIPExt = m_ServerPortBuf[0];
+			m_SMIPInt = m_ServerPortBuf[2];
+			m_SMPortExt = (u16)m_ServerPortBuf[1];
+			m_SMPortInt = (u16)m_ServerPortBuf[3];
+			if (m_do_voice && PTT_QueryWANAddress() >= 0)
+				PTT_Sync(m_PortBuf, 16, 1);
+			if (!m_thread_going)
+				VoiceStartWorker(this);
+		}
+	}
+
+	if (!m_isServer && sessionMaster != NULL)
+	{
+		m_SMIPExt = sessionMaster[0];
+		m_SMIPInt = sessionMaster[2];
+		m_SMPortExt = (u16)sessionMaster[1];
+		m_SMPortInt = (u16)sessionMaster[3];
+		if (m_do_voice && PTT_QueryWANAddress() >= 0)
+			PTT_Sync(m_PortBuf, 16, 1);
+		if (!m_thread_going)
+			VoiceStartWorker(this);
+	}
+	m_uninited = 0;
 }
 
 /* @socom-skeleton stub UnInit__10CZNetVoiceFv */
 void CZNetVoice::UnInit()
 {
+	/* 0x333710 (voice on, once): the worker thread is told to stop and waited for, libptt shut
+	 * down (returns 1 / 0 in the ELF; no caller reads it) */
+	if (!m_do_voice)
+		return;
+	if (m_uninited)
+		return;
+	m_done_with_thread = 1;
+	while (m_done_with_thread)
+		RotateThreadReadyQueue(5);
+	PTTServer_Shutdown();
+	PTT_Destroy();
+	m_ptt_inited = false;
+	m_uninited = 1;
 }
 
 /* @socom-skeleton body PreTick__10CZNetVoiceFv */
 bool CZNetVoice::PreTick()
 {
+	/* 0x3336d0 */
 	if (theNetwork.m_bNetwork && m_isOn)
-	{
 		PTT_HeartbeatPrepare();
-	}
-
 	return false;
 }
 
 /* @socom-skeleton body Tick__10CZNetVoiceFf */
-bool CZNetVoice::Tick(f32 dT)
+bool CZNetVoice::Tick(f32)
 {
-	bool status = false;
-
-	if (theNetwork.m_bNetwork && m_isOn)
-	{
-		// RotateReadyThreadQueue(5);
-
-		if (g_status[0] != false) /* port: lb/sb g_status+0 at 0x333698/0x3336a4 */
-		{
-			g_status[0] = false;
-		}
-
-		// s32 heartbeat = PTT_Heartbeat(1000000);
-		// m_timeTaken = heartbeat;
-		status = false;
-	}
-	else
-	{
-		status = true;
-	}
-
-	return status;
+	/* 0x333660: networked with voice on, the worker gets a turn and libptt its heartbeat (its
+	 * time kept, the HUD status line shows it); true when there is nothing to do */
+	if (!theNetwork.m_bNetwork || !m_isOn)
+		return true;
+	RotateThreadReadyQueue(5);
+	if (g_status[0] != 0) /* port: lb/sb g_status+0 at 0x333698/0x3336a4 */
+		g_status[0] = 0;
+	m_timeTaken = PTT_Heartbeat(1000000);
+	return false;
 }
 
 /* @socom-skeleton stub WorkerThread__10CZNetVoiceFv */
 void CZNetVoice::WorkerThread()
 {
+	/* 0x3332f0 (its own thread): while voice is on, join the session master's voice game, then
+	 * follow the radio channel, push-to-talk (unless talking is blocked) and libptt's status (net
+	 * down, talking / receiving and who) 30 times a second; on the stop request the server is
+	 * stopped and the game left. ELF quirks kept: a failed join is retried at once, and the outer
+	 * loop spins while voice is off */
+	char text[256];
+	bool talking = false;
+	unsigned int addresses[2];
+	unsigned int ports[2];
+	int status[9];
+	int joined;
+
+	m_done_with_thread = 0;
+	while (!m_done_with_thread)
+	{
+		if (!theVoice.m_isOn || m_done_with_thread)
+			continue;
+
+		sprintf(text, " %x:%d on channel %d", theVoice.m_SMIPInt, theVoice.m_SMPortInt, theVoice.m_channel);
+		joined = -1;
+		addresses[0] = theVoice.m_SMIPExt;
+		addresses[1] = theVoice.m_SMIPInt;
+		ports[0] = theVoice.m_SMPortExt;
+		ports[1] = theVoice.m_SMPortInt;
+		theVoice.m_isNetDown = true;
+		if (PTT_JoinGame(addresses, ports, (unsigned short)theVoice.m_channel) != 1 || PTT_Sync(&joined, 4, 1) != 0)
+			continue;
+
+		theVoice.m_isNetDown = false;
+		m_lastChannel = theVoice.m_channel;
+		while (theVoice.m_isOn && !m_done_with_thread)
+		{
+			if (theVoice.m_channel != m_lastChannel)
+			{
+				sprintf(text, "changing to RADIO channel %d...\n", theVoice.m_channel);
+				if (PTT_SetChannel(theVoice.m_channel) == 1)
+					PTT_Sync(NULL, 0, 1);
+				m_lastChannel = theVoice.m_channel;
+			}
+
+			if (theVoice.m_isPushed && !theVoice.m_block_talk && !talking)
+			{
+				if (PTT_PushToTalk(theVoice.m_channel) == 1)
+					PTT_Sync(NULL, 0, 1);
+				talking = true;
+			}
+			else if (talking && (!theVoice.m_isPushed || theVoice.m_block_talk))
+			{
+				if (PTT_ReleaseTalk() == 1)
+					PTT_Sync(NULL, 0, 1);
+				talking = false;
+			}
+
+			if (PTT_Status() >= 0 && PTT_Sync(status, 36, 1) == 0)
+			{
+				theVoice.m_isNetDown = status[0] == 0;
+				theVoice.m_isTalking = false;
+				theVoice.m_isReceiving = false;
+				theVoice.m_whosTalking = -1;
+				if (status[7] == 1)
+				{
+					theVoice.m_isReceiving = true;
+				}
+				else if (status[7] == 2)
+				{
+					theVoice.m_isTalking = true;
+					theVoice.m_whosTalking = (u16)status[8];
+				}
+			}
+			zSysSleep(zSys.timerTicksPerSecond / 30);
+		}
+	}
+
+	if (theVoice.m_isServer && PTTServer_Stop() != -1)
+		PTTServer_Sync(NULL, 0, 1);
+	if (PTT_LeaveGame() != -1)
+		PTT_Sync(NULL, 0, 1);
+	m_done_with_thread = 0;
+	ExitDeleteThread();
 }
 
 /* @socom-skeleton stub RemoteSMUpdateCallback__10CZNetVoiceFPUi */
-void CZNetVoice::RemoteSMUpdateCallback(unsigned int *)
+void CZNetVoice::RemoteSMUpdateCallback(unsigned int *buf)
 {
+	/* 0x333190 (voice on): a new session master address: the voice game is left and joined again
+	 * there, on the current channel */
+	char text[256];
+	unsigned int addresses[2];
+	unsigned int ports[2];
+
+	if (!m_do_voice)
+		return;
+	if (m_SMIPExt == buf[0] && m_SMIPInt == buf[2] && m_SMPortExt == buf[1] && m_SMPortInt == buf[3])
+		return;
+
+	m_SMIPExt = buf[0];
+	m_SMIPInt = buf[2];
+	m_SMPortExt = (u16)buf[1];
+	m_SMPortInt = (u16)buf[3];
+	addresses[0] = m_SMIPExt;
+	addresses[1] = m_SMIPInt;
+	ports[0] = m_SMPortExt;
+	ports[1] = m_SMPortInt;
+	sprintf(text, "Connecting to new session master at %d.%d.%d.%d:%d\n", m_SMIPExt >> 24, (m_SMIPExt >> 16) & 0xff,
+		(m_SMIPExt >> 8) & 0xff, m_SMIPExt & 0xff, m_SMPortExt);
+	if (PTT_LeaveGame() != -1)
+		PTT_Sync(NULL, 0, 1);
+	if (PTT_JoinGame(addresses, ports, (unsigned short)m_channel) >= 0)
+	{
+		PTT_Sync(NULL, 0, 1);
+		if (PTT_SetChannel(m_channel) != -1)
+			PTT_Sync(NULL, 0, 1);
+	}
 }
 
 /* @socom-skeleton stub IAmNewSessionMaster__10CZNetVoiceFv */
 void CZNetVoice::IAmNewSessionMaster()
 {
+	/* 0x3330d0 (voice on): this client took over: the voice server starts here and the clients
+	 * (this one too) join it */
+	char text[512];
+	if (!m_do_voice)
+		return;
+	if (PTTServer_Start("natservice.pdonline.scea.com", 10070) != -1)
+		PTTServer_Sync(NULL, 0, 1);
+	if (PTTServer_QueryWANAddress() < 0)
+		return;
+	if (PTTServer_Sync(m_ServerPortBuf, 16, 1) != 0)
+		return;
+	int ip = (int)m_ServerPortBuf[0];
+	sprintf(text, " and we are the new session master at %d.%d.%d.%d:%d\n", (ip >> 24) & 0xff, (ip >> 16) & 0xff,
+		(ip >> 8) & 0xff, ip & 0xff, (u16)m_ServerPortBuf[1]);
+	RemoteSMUpdateCallback(m_ServerPortBuf);
 }
 
 /* @socom-skeleton stub Channel__10CZNetVoiceFiUi */
-int CZNetVoice::Channel(int, unsigned int)
+int CZNetVoice::Channel(int channel, unsigned int flags)
 {
+	/* 0x333090: -1 without voice; the flags are added unless debugging */
+	if (!m_do_voice)
+		return -1;
+	if (!m_isDebug)
+		channel |= flags;
+	m_channel = channel;
+	return channel;
 }
 
 /* @socom-skeleton stub Permit__10CZNetVoiceFPUi */
-void CZNetVoice::Permit(unsigned int *)
+void CZNetVoice::Permit(unsigned int *buf)
 {
+	/* 0x333050 */
+	if (m_do_voice && PTT_PermitWANAddress(buf[0], buf[1]) >= 0)
+		PTT_Sync(NULL, 0, 1);
 }
 
 /* @socom-skeleton stub ServerPermit__10CZNetVoiceFPUi */
-void CZNetVoice::ServerPermit(unsigned int *)
+void CZNetVoice::ServerPermit(unsigned int *buf)
 {
+	/* 0x333010 */
+	if (m_do_voice && PTTServer_PermitWANAddress(buf[0], buf[1]) >= 0)
+		PTTServer_Sync(NULL, 0, 1);
 }
 
 /* @socom-skeleton stub HandleNewIPBuf__10CZNetVoiceFiPUi */
-void CZNetVoice::HandleNewIPBuf(int, unsigned int *)
+void CZNetVoice::HandleNewIPBuf(int client, unsigned int *buf)
 {
+	/* 0x332ee0: a client's addresses: permitted by this client's voice, and by the voice server
+	 * when this is the session master (theVoice's flag, not this one's) */
+	char text[512];
+	sprintf(text, "RCI %02d MyIPBuf (WAN %d.%d.%d.%d:%d/%d, LAN %d.%d.%d.%d:%d/%d)\n", client,
+		buf[0] >> 24, (buf[0] >> 16) & 0xff, (buf[0] >> 8) & 0xff, buf[0] & 0xff, buf[1] & 0xffff, buf[1] >> 16,
+		buf[2] >> 24, (buf[2] >> 16) & 0xff, (buf[2] >> 8) & 0xff, buf[2] & 0xff, buf[3] & 0xffff, buf[3] >> 16);
+	if (buf[0] == 0)
+		return;
+	if (theVoice.m_do_voice && PTT_PermitWANAddress(buf[0], buf[1]) >= 0)
+		PTT_Sync(NULL, 0, 1);
+	if (theNetwork.m_bSessionMaster && theVoice.m_do_voice && PTTServer_PermitWANAddress(buf[0], buf[1]) >= 0)
+		PTTServer_Sync(NULL, 0, 1);
 }

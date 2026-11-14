@@ -147,8 +147,17 @@ int sceSifLoadModule(const char *filename, int args, const char *argp)
 {
     char base[64];
     unsigned int i;
-    int id = SifLoadModule(filename, args, argp);
+    int id;
 
+    module_base(filename, base, sizeof(base));
+    for (i = 0; i < sizeof(offline_modules) / sizeof(offline_modules[0]); i++) {
+        if (strcmp(base, offline_modules[i]) == 0) {
+            socom_port_trace("M4: module %s: offline in the port, not loaded", filename);
+            return SOCOM_OFFLINE_MODULE_ID + (int)i;
+        }
+    }
+
+    id = SifLoadModule(filename, args, argp);
     if (id >= 0) {
         socom_port_trace("M4: load module %s -> %d", filename, id);
         return id;

@@ -1340,9 +1340,9 @@ unsigned char UILobbyLogin(C2DAnimCmdHdr *, float *)
 /* @socom-skeleton stub UILobbyLogout__FP13C2DAnimCmdHdrPf */
 unsigned char UILobbyLogout(C2DAnimCmdHdr *, float *)
 {
-	/* 0x1d4f70: a lobby that never started is done at once (1); else it logs out (0), unless
-	 * its state byte (+0x60, DWARF 'started') is 18. Written, untested (online only) */
-	unsigned char state = *reinterpret_cast<unsigned char*>(&theLobby.started);
+	/* 0x1d4f70: a lobby in no state yet is done at once (1); else it logs out (0), unless
+	 * its state (+0x60, DWARF m_current_state) is END_SESSION (18). Written, untested (online only) */
+	unsigned char state = theLobby.m_current_state;
 
 	if (state == 0)
 		return true;

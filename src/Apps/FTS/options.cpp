@@ -17,6 +17,7 @@
 #include "gamez/zGame/zgame.h"
 #include "gamez/zUtil/util_stable.h"
 /* @socom-skeleton end include */
+#include "gamez/zNetwork/znet.h" /* theNetwork (process_arguments) */
 
 /* @socom-skeleton stub gopt */
 _options gopt = {1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -29,6 +30,7 @@ void process_arguments(int argc, char** argv)
 {
 	zSys.cdSounds = false;
 	CZAnimMain::m_LoadFromZAR = true;
+	theNetwork.m_bMediusEnabled = true; /* 0x1740bc: Medius on (then --medius / --nomedius, not parsed in the port) */
 
 	
 }
