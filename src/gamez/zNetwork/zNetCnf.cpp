@@ -145,7 +145,7 @@ void SignalNetCnfError(int)
 }
 
 /* @socom-skeleton stub Init__7CNetCnfFb */
-void CNetCnf::Init(bool)
+bool CNetCnf::Init(bool)
 {
 	/* @socom-skeleton stub netcnf_arg_cd$1690 */
 	static unsigned char netcnf_arg_cd[86] = {105, 99, 111, 110, 61, 99, 100, 114, 111, 109, 58, 92, 82, 85, 78, 92, 73, 67, 79, 78, 83, 92, 78, 69, 84, 67, 78, 70, 92, 83, 89, 83, 95, 78, 69, 84, 46, 73, 67, 79, 59, 49, 0, 105, 99, 111, 110, 115, 121, 115, 61, 99, 100, 114, 111, 109, 58, 92, 82, 85, 78, 92, 73, 67, 79, 78, 83, 92, 78, 69, 84, 67, 78, 70, 92, 73, 67, 79, 78, 46, 83, 89, 83, 59, 49, 0};
@@ -154,12 +154,12 @@ void CNetCnf::Init(bool)
 }
 
 /* @socom-skeleton stub Uninit__7CNetCnfFv */
-void CNetCnf::Uninit()
+bool CNetCnf::Uninit()
 {
 }
 
 /* @socom-skeleton stub OpenTick__7CNetCnfFPv */
-void CNetCnf::OpenTick(void *)
+bool CNetCnf::OpenTick(void *)
 {
 }
 
@@ -174,12 +174,12 @@ void CNetCnf::Close(void *)
 }
 
 /* @socom-skeleton stub NumCombos__7CNetCnfFPv */
-void CNetCnf::NumCombos(void *)
+int CNetCnf::NumCombos(void *)
 {
 }
 
 /* @socom-skeleton stub NumIFC__7CNetCnfFPv */
-void CNetCnf::NumIFC(void *)
+int CNetCnf::NumIFC(void *)
 {
 }
 
@@ -189,17 +189,17 @@ int CNetCnf::NumDevs(void *)
 }
 
 /* @socom-skeleton stub GetIFC__7CNetCnfFPvi */
-void CNetCnf::GetIFC(void *, int)
+sceNetcnfifList * CNetCnf::GetIFC(void *, int)
 {
 }
 
 /* @socom-skeleton stub GetDev__7CNetCnfFPvi */
-void CNetCnf::GetDev(void *, int)
+sceNetcnfifList * CNetCnf::GetDev(void *, int)
 {
 }
 
 /* @socom-skeleton stub GetDefaultCombo__7CNetCnfFPv */
-void CNetCnf::GetDefaultCombo(void *)
+int CNetCnf::GetDefaultCombo(void *)
 {
 }
 
@@ -229,12 +229,12 @@ void CNetCnf::InitFromCombo(char *, int)
 }
 
 /* @socom-skeleton stub ReadInterfaceList__7CNetCnfFPv */
-void CNetCnf::ReadInterfaceList(void *)
+bool CNetCnf::ReadInterfaceList(void *)
 {
 }
 
 /* @socom-skeleton stub ReadInterfaceListTick__7CNetCnfFPv */
-void CNetCnf::ReadInterfaceListTick(void *)
+bool CNetCnf::ReadInterfaceListTick(void *)
 {
 }
 
@@ -244,32 +244,32 @@ int CNetCnf::InterfaceCount(void *)
 }
 
 /* @socom-skeleton stub GetInterfaceEntry__7CNetCnfFPvi */
-void CNetCnf::GetInterfaceEntry(void *, int)
+CNetCnfInterface * CNetCnf::GetInterfaceEntry(void *, int)
 {
 }
 
 /* @socom-skeleton stub AddDev__7CNetCnfFPvPCc */
-void CNetCnf::AddDev(void *, const char *)
+bool CNetCnf::AddDev(void *, const char *)
 {
 }
 
 /* @socom-skeleton stub AddDevTick__7CNetCnfFPv */
-void CNetCnf::AddDevTick(void *)
+bool CNetCnf::AddDevTick(void *)
 {
 }
 
 /* @socom-skeleton stub AddIFC__7CNetCnfFPv */
-void CNetCnf::AddIFC(void *)
+bool CNetCnf::AddIFC(void *)
 {
 }
 
 /* @socom-skeleton stub AddIFCTick__7CNetCnfFPv */
-void CNetCnf::AddIFCTick(void *)
+bool CNetCnf::AddIFCTick(void *)
 {
 }
 
 /* @socom-skeleton stub GetEnvData__7CNetCnfFPv */
-void CNetCnf::GetEnvData(void *)
+sceNetcnfifData * CNetCnf::GetEnvData(void *)
 {
 }
 
@@ -284,56 +284,56 @@ int CNetCnf::GetDevIndex(void *)
 }
 
 /* @socom-skeleton stub SaveDev__7CNetCnfFPv */
-void CNetCnf::SaveDev(void *)
+bool CNetCnf::SaveDev(void *)
 {
 }
 
 /* @socom-skeleton stub SaveDevTick__7CNetCnfFPv */
-void CNetCnf::SaveDevTick(void *)
+bool CNetCnf::SaveDevTick(void *)
 {
 }
 
 /* @socom-skeleton stub SaveIFC__7CNetCnfFPvP15sceNetcnfifDataPCc */
-void CNetCnf::SaveIFC(void *, sceNetcnfifData *, const char *)
+bool CNetCnf::SaveIFC(void *, sceNetcnfifData *, const char *)
 {
 }
 
 /* @socom-skeleton stub SaveIFCTick__7CNetCnfFPv */
-void CNetCnf::SaveIFCTick(void *)
+bool CNetCnf::SaveIFCTick(void *)
 {
 }
 
 /* @socom-skeleton stub AddCombo__7CNetCnfFPv */
-void CNetCnf::AddCombo(void *)
+bool CNetCnf::AddCombo(void *)
 {
 }
 
 /* @socom-skeleton stub AddComboTick__7CNetCnfFPv */
-void CNetCnf::AddComboTick(void *)
+bool CNetCnf::AddComboTick(void *)
 {
 }
 
 /* @socom-skeleton stub SaveCombo__7CNetCnfFPvP15sceNetcnfifDataPCc */
-void CNetCnf::SaveCombo(void *, sceNetcnfifData *, const char *)
+bool CNetCnf::SaveCombo(void *, sceNetcnfifData *, const char *)
 {
 }
 
 /* @socom-skeleton stub SaveComboTick__7CNetCnfFPv */
-void CNetCnf::SaveComboTick(void *)
+bool CNetCnf::SaveComboTick(void *)
 {
 }
 
 /* @socom-skeleton stub GetComboData__7CNetCnfFPv */
-void CNetCnf::GetComboData(void *)
+sceNetcnfifData * CNetCnf::GetComboData(void *)
 {
 }
 
 /* @socom-skeleton stub DeleteAll__7CNetCnfFPv */
-void CNetCnf::DeleteAll(void *)
+bool CNetCnf::DeleteAll(void *)
 {
 }
 
 /* @socom-skeleton stub DeleteAllTick__7CNetCnfFPv */
-void CNetCnf::DeleteAllTick(void *)
+bool CNetCnf::DeleteAllTick(void *)
 {
 }

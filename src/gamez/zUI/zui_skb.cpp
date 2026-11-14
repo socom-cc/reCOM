@@ -152,11 +152,13 @@
 #include "gamez/zReader/zrdr.h"
 #include "gamez/zTwoD/ztwod.h"
 /* @socom-skeleton end include */
-#include "gamez/zUI/zui.h" /* CSaferStr */
+#include "gamez/zUI/zui.h" /* CSaferStr, CButtonSpec, CRenderableString, theUIVarManager */
 #include "gamez/zAnim/zanim.h" /* ZAnim, C2DAnimCmdHdr (UiGetTextFromUser, UiSetSkbPurpose) */
-#include "gamez/zValve/zvalve.h" /* CValve (skb_done) */
-#include "gamez/zSound/zsnd.h" /* CSnd (the scale-up sound) */
+#include "gamez/zValve/zvalve.h" /* CValve (skb_done, SkbMaxChars, ChatRecipient) */
+#include "gamez/zSound/zsnd.h" /* CSnd (the keyboard sounds) */
+#include <ctype.h>
 #include <string.h>
+#include <map>
 #include <vector>
 /* @socom-skeleton decl forward */
 class C2DAnimCmdHdr;
@@ -168,12 +170,67 @@ namespace zdb {
 class CTextureRelocMgr;
 }
 /* @socom-skeleton end forward */
+
+/* The on-screen keyboard (UiParams.rdr: SoftKeyboards, CommonSoftKeyboardProps). No DWARF for any
+ * of these types; layouts from CreateSoftKeyboard (0x3a7940), PrepForDisplay (0x3a3c00) and
+ * InvalidateDisplay (0x3a4820), member names from the reader keys. */
+
+CRdrFile * FetchMissionFontsRdr(); /* zanim_menu.cpp (0x1d5e40) */
+zdb::CTexHandle * PrepTexture(const char *, zdb::CTextureRelocMgr *); /* zui.cpp (0x384560) */
+zdb::CNode * Add2dNode(C2D *, zdb::CTextureRelocMgr *, zdb::CNode *); /* zui.cpp (0x384e00) */
+void SetFaderOpacity(float); /* zui.cpp (0x384550) */
+unsigned char UiGetDirStickMoved(); /* zui.cpp (0x384380): 1 left, 2 right, 3 up, 4 down, 5 back to the centre */
+u8 GetKeyReadThisFrame(KeyInput *); /* zin_keyboard.cpp (0x21bc20) */
+
+namespace {
+/* CInit<T, V> (0x3a8db0 ctor, 0x3a7140 / 0x3a8e20 / 0x3a8e30 copies, 0x3a8d00 operator=, 0x3a3aa0
+ * operator T): a value that starts as V. Template instances only (no fences). */
+template <class T, T V>
+class CInit
+{
+public:
+	CInit() : m_val(V) {}
+	CInit(const CInit &other) : m_val(other.m_val) {}
+	CInit &operator=(T value) { m_val = value; return *this; }
+	operator T() const { return m_val; }
+	T m_val;
+};
+
+/* the special keys (StrToSkbKey's c_arrEnumNames$2086, in order) */
+enum SKB_SPECIAL_KEY
+{
+	SKB_CAPSLOCK,
+	SKB_RECIP,
+	SKB_BACKSPACE,
+	SKB_CLEAR,
+	SKB_ENTER,
+	SKB_EXIT,
+	SKB_APPLY,
+	SKB_ALT,
+	SKB_SHIFT,
+	SKB_LEGEND,
+	SKB_NUM_SPECIAL_KEYS
+};
+
+/* g_eSkbScalingState: 0 still, 1 scaling up (shown), 2 scaling down (closing) */
+enum { SKB_SCALE_NONE, SKB_SCALE_UP, SKB_SCALE_DOWN };
+
+/* a rectangle of the reader's Pos / Size pairs (16 bytes; no symbol, port name) */
+struct CSkbRect
+{
+	CInit<int, 0> m_x;
+	CInit<int, 0> m_y;
+	CInit<int, 0> m_width;
+	CInit<int, 0> m_height;
+};
+}
 /* port: TwoDAxis::_ from MoveToNextPos__Q221@unnamed@zui_skb_cpp@8CSkbGridCFPiPiQ321@unnamed@zui_skb_cpp@8TwoDAxis1_PFi_i;
- * 0x3a6bb0 takes it as one byte and tests it against zero. Struct-vs-namespace and enumerators unproven. */
+ * 0x3a6bb0 takes it as one byte and tests it against zero: 0 moves the column, else the row.
+ * Struct-vs-namespace and the enumerator names are unproven. */
 namespace {
 struct TwoDAxis
 {
-	enum _ {};
+	enum _ { HORIZONTAL, VERTICAL };
 };
 }
 /* @socom-skeleton decl Q221@unnamed@zui_skb_cpp@12CBmpWithNode */
@@ -181,6 +238,10 @@ namespace {
 class CBmpWithNode : public CPlainBmp
 {
 public:
+	/* 176 bytes in the ELF: a CPlainBmp and the node it is drawn by (+0xa0), set by PrepForDisplay */
+	CBmpWithNode() : m_node(NULL) {} /* inline in CreateSoftKeyboard (0x3a7b10) */
+	zdb::CNode* m_node;
+	zdb::CTexHandle* TexHandle() const { return m_pTexHandle; } /* port: the ELF reads +0x70 directly */
 	virtual ~CBmpWithNode();
 };
 }
@@ -190,36 +251,53 @@ namespace {
 class CIntPair
 {
 public:
-	void Get1st() const;
-	void Get2nd() const;
+	CInit<int, 0> m_first;  /* +0x0 */
+	CInit<int, 0> m_second; /* +0x4 */
+	int Get1st() const;
+	int Get2nd() const;
 };
 }
 /* @socom-skeleton end Q221@unnamed@zui_skb_cpp@8CIntPair */
-/* @socom-skeleton decl Q221@unnamed@zui_skb_cpp@8CSkbGrid */
-namespace {
-class CSkbGrid
-{
-public:
-	void MoveToNextPos(int *, int *, TwoDAxis::_, int (*)(int)) const;
-	void GetSkbKey(int, int) const;
-};
-}
-/* @socom-skeleton end Q221@unnamed@zui_skb_cpp@8CSkbGrid */
 /* @socom-skeleton decl Q221@unnamed@zui_skb_cpp@7CSkbKey */
 namespace {
 class CSkbKey
 {
 public:
+	/* 2 bytes: a character (m_special false) or an SKB_SPECIAL_KEY; {0, 0} is no key */
+	CInit<bool, false> m_special;      /* +0x0 */
+	CInit<unsigned char, 0> m_value;   /* +0x1 */
+	bool IsKey() const { return m_special || m_value != 0; } /* port: inline tests in the ELF */
 	void DoIt(CSoftKeyboard *, const CPad &, CGameMenu *) const;
-	void operator<(const CSkbKey &) const;
+	bool operator<(const CSkbKey &) const;
 };
 }
 /* @socom-skeleton end Q221@unnamed@zui_skb_cpp@7CSkbKey */
+/* @socom-skeleton decl Q221@unnamed@zui_skb_cpp@8CSkbGrid */
+namespace {
+class CSkbGrid : public std::vector<std::vector<CSkbKey> >
+{
+public:
+	/* the reader's Grid: rows (y) of keys (x) */
+	void MoveToNextPos(int *, int *, TwoDAxis::_, int (*)(int)) const;
+	const CSkbKey &GetSkbKey(int, int) const;
+};
+}
+/* @socom-skeleton end Q221@unnamed@zui_skb_cpp@8CSkbGrid */
 /* @socom-skeleton decl Q221@unnamed@zui_skb_cpp@12CSkbKeyProps */
 namespace {
 class CSkbKeyProps
 {
 public:
+	/* 28 bytes (new + zeroed in CreateSoftKeyboard): KeyProps Pos / Size, its ButtonSpec, and the
+	 * button and node PrepForDisplay makes from it */
+	CInit<int, 0> m_x;       /* +0x0 Pos */
+	CInit<int, 0> m_y;       /* +0x4 */
+	CInit<int, 0> m_width;   /* +0x8 Size */
+	CInit<int, 0> m_height;  /* +0xc */
+	CButtonSpec* m_spec;     /* +0x10 ButtonSpec */
+	C2DButton* m_button;     /* +0x14 */
+	zdb::CNode* m_node;      /* +0x18 */
+	CSkbKeyProps() : m_spec(NULL), m_button(NULL), m_node(NULL) {}
 	void SetButtonState(void (C2DButton::*)());
 };
 }
@@ -229,12 +307,71 @@ namespace {
 class CSoftKeyboard
 {
 public:
-	/* no DWARF; from UiGetTextFromUser (0x3a71c0) */
-	CSaferStr m_name; /* +0x0: the keyboard's name, matched against the asking node's name */
+	/* 2224 bytes (new in CreateSoftKeyboard; never deleted: the keyboards live as long as the game) */
+	CSaferStr m_name;            /* +0x0 Name, matched against the asking node's name */
+	CSaferStr m_background;      /* +0x4 Background texture */
+	CSkbGrid m_grid;             /* +0x8 Grid */
+	s32 m_startGridX;            /* +0x14 StartGridPos (1-based) */
+	s32 m_startGridY;            /* +0x18 */
+	s32 m_skbX;                  /* +0x1c SkbPos */
+	s32 m_skbY;                  /* +0x20 */
+	s32 m_skbHeight;             /* +0x24 SkbHeight */
+	s32 m_skbWidth;              /* +0x28 SkbWidth (640) */
+	std::map<CSkbKey, CSkbKeyProps*> m_keyProps; /* +0x2c KeyProps */
+	CSkbRect m_capsLockOn;       /* +0x3c CapsLockOn */
+	CSkbRect m_altOn;            /* +0x4c AltOn */
+	CSkbRect m_shiftOn;          /* +0x5c ShiftOn */
+	CSkbRect m_legendOn;         /* +0x6c LegendOn */
+	CSaferStr m_altSkb;          /* +0x7c AltSkb: the keyboard Alt switches to */
+	s32 m_userX;                 /* +0x80 UserStringProps POSITION */
+	s32 m_userY;                 /* +0x84 */
+	s32 m_purposeX;              /* +0x88 PurposeStringProps POSITION */
+	s32 m_purposeY;              /* +0x8c */
+	s32 m_userStringWidth;       /* +0x90 UserStringWidth */
+	s32 m_cursorY;               /* +0x94 CursorY */
+	s32 m_cursorWidth;           /* +0x98 CursorSize */
+	s32 m_cursorHeight;          /* +0x9c */
+	f32 m_scaleUpSec;            /* +0xa0 ScaleUpSec (0.25) */
+	f32 m_scaleDownSec;          /* +0xa4 ScaleDownSec (0.25) */
+	zdb::CNode* m_root;          /* +0xa8 the keyboard's node, named after it */
+	zdb::CNode* m_purposeNode;   /* +0xac */
+	zdb::CNode* m_userNode;      /* +0xb0 */
+	CBmpWithNode m_bmpBackground; /* +0xc0 */
+	CBmpWithNode m_bmpCapsLock;  /* +0x170 */
+	CBmpWithNode m_bmpAlt;       /* +0x220 */
+	CBmpWithNode m_bmpShift;     /* +0x2d0 */
+	CBmpWithNode m_bmpLegendOn;  /* +0x380 */
+	CBmpWithNode m_bmpCursor;    /* +0x430 */
+	CBmpWithNode m_bmpHighlight; /* +0x4e0 */
+	CBmpWithNode m_bmpRecip0;    /* +0x590 SkbRecipState0.tif */
+	CBmpWithNode m_bmpRecip1;    /* +0x640 SkbRecipState1.tif */
+	CRenderableString m_userStr; /* +0x6f0 the text typed */
+	CRenderableString m_purposeStr; /* +0x79c what it is for */
+	CSaferStr m_userFontName;    /* +0x848 UserStringProps FONT */
+	CSaferStr m_purposeFontName; /* +0x84c PurposeStringProps FONT */
+	C2DFont m_userFont;          /* +0x850 */
+	C2DFont m_purposeFont;       /* +0x880 */
+
+	/* port: no symbol - the constructor is inline in CreateSoftKeyboard (0x3a7958..0x3a7c54) */
+	CSoftKeyboard()
+		: m_startGridX(0), m_startGridY(0), m_skbX(0), m_skbY(0), m_skbHeight(0), m_skbWidth(0),
+		  m_userX(0), m_userY(0), m_purposeX(0), m_purposeY(0), m_userStringWidth(0), m_cursorY(0),
+		  m_cursorWidth(0), m_cursorHeight(0), m_scaleUpSec(0.0f), m_scaleDownSec(0.0f),
+		  m_root(NULL), m_purposeNode(NULL), m_userNode(NULL)
+	{
+		InvalidateDisplay();
+	}
+
+	/* port: no symbols - code the ELF inlines in several places */
+	const char *Text() { const char *text = m_userStr.GetString(); return text != NULL ? text : ""; }
+	void Accept(CGameMenu *);
+	void BackSpace();
+	void MoveHighlight(TwoDAxis::_, int (*)(int));
+
 	void AddCasedChar(char);
-	void FindKeyProps(const CSkbKey &);
-	void GetCurKey() const;
-	void GetKeyAtGridPos(int, int) const;
+	CSkbKeyProps * FindKeyProps(const CSkbKey &);
+	const CSkbKey & GetCurKey() const;
+	const CSkbKey & GetKeyAtGridPos(int, int) const;
 	void HandleInput(const CPad &, CGameMenu *);
 	void HandleUsbKbd(CGameMenu *);
 	void InvalidateDisplay();
@@ -263,12 +400,12 @@ float g_fLegendSlideCurSec = -1.0f;
 
 /* @socom-skeleton stub g_eSkbRepeatDir__21@unnamed@zui_skb_cpp@ */
 namespace {
-unsigned char g_eSkbRepeatDir;
+unsigned char g_eSkbRepeatDir; /* 0 none, 1 left, 2 right, 3 up, 4 down (the held direction) */
 }
 
 /* @socom-skeleton stub g_eSkbScalingState__21@unnamed@zui_skb_cpp@ */
 namespace {
-unsigned char g_eSkbScalingState;
+unsigned char g_eSkbScalingState; /* SKB_SCALE_NONE / UP / DOWN */
 }
 
 /* @socom-skeleton stub g_fSkbCursorFlashTime__21@unnamed@zui_skb_cpp@ */
@@ -343,42 +480,42 @@ int g_iSkbInsertPt;
 
 /* @socom-skeleton stub g_pActiveSkb__21@unnamed@zui_skb_cpp@ */
 namespace {
-int g_pActiveSkb;
+CSoftKeyboard* g_pActiveSkb; /* the keyboard shown, which takes the pad */
 }
 
 /* @socom-skeleton stub g_pAltRetSkb__21@unnamed@zui_skb_cpp@ */
 namespace {
-int g_pAltRetSkb;
+CSoftKeyboard* g_pAltRetSkb; /* while the Alt keyboard is shown: the one to go back to */
 }
 
 /* @socom-skeleton stub g_pMaxCharsValve__21@unnamed@zui_skb_cpp@ */
 namespace {
-int g_pMaxCharsValve;
+CValve* g_pMaxCharsValve; /* SkbMaxChars (1000, made by PrepSkbsForDisplay) */
 }
 
 /* @socom-skeleton stub g_pSkbEnterSound__21@unnamed@zui_skb_cpp@ */
 namespace {
-int g_pSkbEnterSound;
+CSnd* g_pSkbEnterSound;
 }
 
 /* @socom-skeleton stub g_pSkbKeyPressSound__21@unnamed@zui_skb_cpp@ */
 namespace {
-int g_pSkbKeyPressSound;
+CSnd* g_pSkbKeyPressSound;
 }
 
 /* @socom-skeleton stub g_pSkbNavigationSound__21@unnamed@zui_skb_cpp@ */
 namespace {
-int g_pSkbNavigationSound;
+CSnd* g_pSkbNavigationSound;
 }
 
 /* @socom-skeleton stub g_pSkbNegativeSound__21@unnamed@zui_skb_cpp@ */
 namespace {
-int g_pSkbNegativeSound;
+CSnd* g_pSkbNegativeSound;
 }
 
 /* @socom-skeleton stub g_pSkbScaleDownSound__21@unnamed@zui_skb_cpp@ */
 namespace {
-int g_pSkbScaleDownSound;
+CSnd* g_pSkbScaleDownSound;
 }
 
 /* @socom-skeleton stub g_pSkbScaleUpSound__21@unnamed@zui_skb_cpp@ */
@@ -388,37 +525,37 @@ CSnd* g_pSkbScaleUpSound; /* 0x476998 (UiGetTextFromUser plays it) */
 
 /* @socom-skeleton stub g_strLegendTxtr__21@unnamed@zui_skb_cpp@ */
 namespace {
-int g_strLegendTxtr;
+CSaferStr g_strLegendTxtr;
 }
 
 /* @socom-skeleton stub g_strSkbEnterSound__21@unnamed@zui_skb_cpp@ */
 namespace {
-int g_strSkbEnterSound;
+CSaferStr g_strSkbEnterSound;
 }
 
 /* @socom-skeleton stub g_strSkbKeyPressSound__21@unnamed@zui_skb_cpp@ */
 namespace {
-int g_strSkbKeyPressSound;
+CSaferStr g_strSkbKeyPressSound;
 }
 
 /* @socom-skeleton stub g_strSkbNavigationSound__21@unnamed@zui_skb_cpp@ */
 namespace {
-int g_strSkbNavigationSound;
+CSaferStr g_strSkbNavigationSound;
 }
 
 /* @socom-skeleton stub g_strSkbNegativeSound__21@unnamed@zui_skb_cpp@ */
 namespace {
-int g_strSkbNegativeSound;
+CSaferStr g_strSkbNegativeSound;
 }
 
 /* @socom-skeleton stub g_strSkbScaleDownSound__21@unnamed@zui_skb_cpp@ */
 namespace {
-int g_strSkbScaleDownSound;
+CSaferStr g_strSkbScaleDownSound;
 }
 
 /* @socom-skeleton stub g_strSkbScaleUpSound__21@unnamed@zui_skb_cpp@ */
 namespace {
-int g_strSkbScaleUpSound;
+CSaferStr g_strSkbScaleUpSound;
 }
 
 /* @socom-skeleton stub g_strSkbPurpose__21@unnamed@zui_skb_cpp@ */
@@ -438,87 +575,363 @@ std::vector<CSoftKeyboard*> g_arrSkbs; /* 0x53b9f0 (12 bytes): the menu's soft k
 
 /* @socom-skeleton stub g_bmpLegend__21@unnamed@zui_skb_cpp@ */
 namespace {
-int g_bmpLegend[44];
+CBmpWithNode g_bmpLegend; /* the key legend beside the keyboard (Legend Texture) */
 }
 
 /* @socom-skeleton stub g_rectLegend__21@unnamed@zui_skb_cpp@ */
 namespace {
-float g_rectLegend[4];
+CSkbRect g_rectLegend; /* Legend Pos / Size */
+}
+
+namespace {
+extern const char *const c_szRecipValve; /* below (its fence) */
+
+/* port: no symbol - the ELF inlines the NULL test and the virtual PlaySound(1, 0, 255) */
+void PlaySkbSound(CSnd *sound)
+{
+	if (sound != NULL)
+		sound->PlaySound(true, (CSndInstance*)NULL, 255);
+}
+
+/* port: the ELF passes Tick's Local$2354::Incr / Decr (0x3a3340 / 0x3a3330) from HandleInput as
+ * well; a local class of Tick cannot be named there, so HandleInput uses these copies */
+int SkbIncr(int i) { return i + 1; }
+int SkbDecr(int i) { return i - 1; }
+
+/* port: no symbol - DoIt's inline test of a capital letter (Latin-1: not 0xd7) */
+bool IsSkbUpper(unsigned char c)
+{
+	return (c >= 'A' && c <= 'Z') || (c >= 192 && c < 223 && c != 215);
+}
+
+/* port: no symbol - the C2DFont reset InvalidateDisplay inlines (as CGameMenu::Clear's) */
+void ResetSkbFont(C2DFont &font)
+{
+	font.m_charlist.clear();
+	std::vector<C2DFontEntry>().swap(font.m_charlist);
+	font.m_pTexHandle = NULL;
+	font.m_displaytop = 0;
+	font.m_displaybottom = 0;
+	font.XPadding = 0;
+	font.m_avgWidth = 0.0f;
+}
+
+/* port: no symbol - the element-i int read CreateSoftKeyboard inlines (Get, then GetInt) */
+int RdrElementInt(_zrdr *array, u32 i)
+{
+	_zrdr *element = array != NULL ? array->Get(i) : NULL;
+	return element != NULL ? element->GetInt() : 0;
+}
+
+/* port: no symbol - SCALE / COLOR / FONT / POSITION of a string's props (inline twice) */
+void ReadSkbStringProps(_zrdr *props, CRenderableString &str, CSaferStr &font, s32 &x, s32 &y);
 }
 
 /* @socom-skeleton stub __dt__Q221@unnamed@zui_skb_cpp@12CBmpWithNodeFv */
 namespace {
 CBmpWithNode::~CBmpWithNode()
 {
+	/* 0x3a8e60: nothing of its own (the CPlainBmp, UIVarMixin and C2DBitmap parts follow) */
 }
 }
 
 /* @socom-skeleton stub Get1st__Q221@unnamed@zui_skb_cpp@8CIntPairCFv */
 namespace {
-void CIntPair::Get1st() const
+int CIntPair::Get1st() const
 {
+	/* 0x3a8e10 */
+	return m_first;
 }
 }
 
 /* @socom-skeleton stub Get2nd__Q221@unnamed@zui_skb_cpp@8CIntPairCFv */
 namespace {
-void CIntPair::Get2nd() const
+int CIntPair::Get2nd() const
 {
+	/* 0x3a8e00 */
+	return m_second;
 }
 }
 
 /* @socom-skeleton stub GetRdrArrayInt__21@unnamed@zui_skb_cpp@FP5_zrdri */
 namespace {
-int GetRdrArrayInt(_zrdr *, int)
+int GetRdrArrayInt(_zrdr *array, int i)
 {
+	/* 0x3a8d10: element i of an array as an int (a real truncated), 0 when absent */
+	if (array == NULL)
+		return 0;
+
+	return RdrElementInt(array, (u32)i);
+}
+}
+
+namespace {
+CSkbKey StrToSkbKey(const char *);
+CIntPair ReadIntPair(_zrdr *, const char *);
+
+void ReadSkbStringProps(_zrdr *props, CRenderableString &str, CSaferStr &font, s32 &x, s32 &y)
+{
+	f32 scale = 1.0f;
+	zrdr_findreal(props, "SCALE", &scale, 1);
+	str.m_scale = scale;
+
+	_zrdr* color = zrdr_findtag(props, "COLOR");
+	int r = RdrElementInt(color, 0);
+	int g = RdrElementInt(color, 1);
+	int b = RdrElementInt(color, 2);
+	str.m_color.x = (f32)r;
+	str.m_color.y = (f32)g;
+	str.m_color.z = (f32)b;
+
+	font = zrdr_findstring(props, "FONT");
+
+	_zrdr* pos = zrdr_findtag(props, "POSITION");
+	CInit<int, 0> px;
+	CInit<int, 0> py;
+	px = GetRdrArrayInt(pos, 0);
+	py = GetRdrArrayInt(pos, 1);
+	x = px;
+	y = py;
+}
+
+/* port: no symbol - the Pos / Size rectangle read four times inline */
+CSkbRect ReadSkbRect(_zrdr *tag)
+{
+	CIntPair size = ReadIntPair(tag, "Size");
+	CIntPair pos = ReadIntPair(tag, "Pos");
+	CSkbRect rect;
+	rect.m_x = pos.m_first;
+	rect.m_y = pos.m_second;
+	rect.m_width = size.m_first;
+	rect.m_height = size.m_second;
+	return rect;
 }
 }
 
 /* @socom-skeleton stub CreateSoftKeyboard__21@unnamed@zui_skb_cpp@FP5_zrdr */
 namespace {
-void CreateSoftKeyboard(_zrdr *)
+void CreateSoftKeyboard(_zrdr *rdr)
 {
+	/* 0x3a7940: one SoftKeyboards entry becomes a keyboard in g_arrSkbs */
+	CSoftKeyboard* skb = new CSoftKeyboard;
+	g_arrSkbs.push_back(skb);
+	skb->m_name = zrdr_findstring(rdr, "Name");
+	skb->m_background = zrdr_findstring(rdr, "Background");
+
+	/* KeyProps: each key's place, size and button (a later entry for the same key replaces
+	 * the button spec) */
+	_zrdr* keyProps = zrdr_findtag(rdr, "KeyProps");
+
+	for (s32 i = 0; keyProps != NULL && i < (s32)(keyProps->IsArray() ? keyProps->array->integer - 1 : 0); i++)
+	{
+		_zrdr* entry = keyProps->Get((u32)i);
+		CSkbKey key = StrToSkbKey(zrdr_findstring(entry, "Key"));
+		CIntPair size = ReadIntPair(entry, "Size");
+		CIntPair pos = ReadIntPair(entry, "Pos");
+		std::map<CSkbKey, CSkbKeyProps*>::iterator it = skb->m_keyProps.find(key);
+		CSkbKeyProps* props = it != skb->m_keyProps.end() ? it->second : NULL;
+
+		if (props == NULL)
+		{
+			props = new CSkbKeyProps;
+			skb->m_keyProps.insert(std::pair<const CSkbKey, CSkbKeyProps*>(key, props));
+		}
+
+		props->m_x = pos.Get1st();
+		props->m_y = pos.Get2nd();
+		props->m_width = size.Get1st();
+		props->m_height = size.Get2nd();
+
+		_zrdr* spec = zrdr_findtag(entry, "ButtonSpec");
+
+		if (props->m_spec != NULL)
+			delete props->m_spec;
+
+		props->m_spec = spec != NULL ? new CButtonSpec(spec) : NULL;
+	}
+
+	/* Grid: rows of key names */
+	_zrdr* grid = zrdr_findtag(rdr, "Grid");
+
+	for (s32 y = 0; grid != NULL && y < (s32)(grid->IsArray() ? grid->array->integer - 1 : 0); y++)
+	{
+		_zrdr* row = grid->Get((u32)y); /* ELF: not NULL-tested */
+
+		for (u32 x = 0; x < (u32)(row->IsArray() ? row->array->integer - 1 : 0); x++)
+		{
+			_zrdr* name = row->Get(x);
+			CSkbKey key = StrToSkbKey(name->type == ZRDR_STRING ? name->string : NULL);
+
+			if (skb->m_grid.size() <= (u32)y)
+				skb->m_grid.resize(y + 1);
+
+			if (skb->m_grid[y].size() <= x)
+				skb->m_grid[y].resize(x + 1);
+
+			skb->m_grid[y][x] = key;
+		}
+	}
+
+	_zrdr* tag = zrdr_findtag(rdr, "StartGridPos");
+	skb->m_startGridX = RdrElementInt(tag, 0);
+	skb->m_startGridY = RdrElementInt(tag, 1);
+	tag = zrdr_findtag(rdr, "SkbPos");
+	skb->m_skbX = RdrElementInt(tag, 0);
+	skb->m_skbY = RdrElementInt(tag, 1);
+
+	s32 value = 0;
+	zrdr_findint(rdr, "SkbHeight", &value, 1);
+	skb->m_skbHeight = value;
+	value = 640;
+	zrdr_findint(rdr, "SkbWidth", &value, 1);
+	skb->m_skbWidth = value;
+	value = 0;
+	zrdr_findint(rdr, "UserStringWidth", &value, 1);
+	skb->m_userStringWidth = value;
+
+	ReadSkbStringProps(zrdr_findtag(rdr, "UserStringProps"), skb->m_userStr, skb->m_userFontName,
+		skb->m_userX, skb->m_userY);
+
+	value = 0;
+	zrdr_findint(rdr, "CursorY", &value, 1);
+	skb->m_cursorY = value;
+	tag = zrdr_findtag(rdr, "CursorSize");
+	skb->m_cursorWidth = RdrElementInt(tag, 0);
+	skb->m_cursorHeight = RdrElementInt(tag, 1);
+
+	ReadSkbStringProps(zrdr_findtag(rdr, "PurposeStringProps"), skb->m_purposeStr, skb->m_purposeFontName,
+		skb->m_purposeX, skb->m_purposeY);
+
+	skb->m_capsLockOn = ReadSkbRect(zrdr_findtag(rdr, "CapsLockOn"));
+	skb->m_altOn = ReadSkbRect(zrdr_findtag(rdr, "AltOn"));
+	skb->m_shiftOn = ReadSkbRect(zrdr_findtag(rdr, "ShiftOn"));
+	skb->m_legendOn = ReadSkbRect(zrdr_findtag(rdr, "LegendOn"));
+
+	f32 sec = 0.25f;
+	zrdr_findreal(rdr, "ScaleUpSec", &sec, 1);
+	skb->m_scaleUpSec = sec;
+	sec = 0.25f;
+	zrdr_findreal(rdr, "ScaleDownSec", &sec, 1);
+	skb->m_scaleDownSec = sec;
+	skb->m_altSkb = zrdr_findstring(rdr, "AltSkb");
 }
 }
 
 /* @socom-skeleton stub InvalidateSkbsDisplay__Fv */
 void InvalidateSkbsDisplay()
 {
+	/* 0x3a78c0 (CGameMenu::Clear): every keyboard forgets its menu display; the sounds are
+	 * looked up again by the next PrepSkbsForDisplay */
+	for (u32 i = 0; i < g_arrSkbs.size(); i++)
+		g_arrSkbs[i]->InvalidateDisplay();
+
+	g_pSkbEnterSound = NULL;
+	g_bmpLegend.m_node = NULL;
+	g_pSkbKeyPressSound = NULL;
+	g_pSkbNavigationSound = NULL;
+	g_pSkbNegativeSound = NULL;
+	g_pSkbScaleDownSound = NULL;
+	g_pSkbScaleUpSound = NULL;
 }
 
 /* @socom-skeleton stub PrepSkbsForDisplay__FPQ23zdb5CNodePQ23zdb16CTextureRelocMgrP7C2DFont */
-void PrepSkbsForDisplay(zdb::CNode *, zdb::CTextureRelocMgr *, C2DFont *)
+void PrepSkbsForDisplay(zdb::CNode *parent, zdb::CTextureRelocMgr *reloc, C2DFont *font)
 {
+	/* 0x3a7720 (CGameMenu::LoadFromDesign): the legend and every keyboard get their (hidden)
+	 * nodes in the menu's foreplane; no keyboard is shown */
+	g_pActiveSkb = NULL;
+	g_bmpLegend.C2DBitmap::Load(0.0f, 0.0f, (f32)(int)g_rectLegend.m_width, (f32)(int)g_rectLegend.m_height,
+		PrepTexture(g_strLegendTxtr.c_str(), reloc));
+	g_bmpLegend.m_node = Add2dNode(&g_bmpLegend, reloc, parent);
+	g_bmpLegend.m_node->SetActive(false);
+
+	for (u32 i = 0; i < g_arrSkbs.size(); i++)
+		g_arrSkbs[i]->PrepForDisplay(parent, reloc, font);
+
+	g_pSkbKeyPressSound = CSnd::GetSoundByName(g_strSkbKeyPressSound.c_str());
+	g_pSkbNavigationSound = CSnd::GetSoundByName(g_strSkbNavigationSound.c_str());
+	g_pSkbNegativeSound = CSnd::GetSoundByName(g_strSkbNegativeSound.c_str());
+	g_pSkbScaleDownSound = CSnd::GetSoundByName(g_strSkbScaleDownSound.c_str());
+	g_pSkbScaleUpSound = CSnd::GetSoundByName(g_strSkbScaleUpSound.c_str());
+	g_pSkbEnterSound = CSnd::GetSoundByName(g_strSkbEnterSound.c_str());
+	g_pMaxCharsValve = CValve::Create("SkbMaxChars", 1000, VALVE_TYPE::VTYPE_TEMP);
 }
 
 /* @socom-skeleton stub ReadIntPair__21@unnamed@zui_skb_cpp@FP5_zrdrPCc */
 namespace {
-void ReadIntPair(_zrdr *, const char *)
+CIntPair ReadIntPair(_zrdr *rdr, const char *name)
 {
+	/* 0x3a75f0: the first two elements of a tag as ints (0 when absent); returned through a0 */
+	_zrdr* tag = zrdr_findtag(rdr, name);
+	CIntPair pair;
+	pair.m_first = RdrElementInt(tag, 0);
+	pair.m_second = RdrElementInt(tag, 1);
+	return pair;
 }
 }
 
 /* @socom-skeleton stub SkbHandleInput__FRC4CPadP9CGameMenu */
-bool SkbHandleInput(const CPad &, CGameMenu *)
+bool SkbHandleInput(const CPad &pad, CGameMenu *menu)
 {
-	/* 0x3a7510: an active soft keyboard takes the pad (CSoftKeyboard::HandleInput
-	 * 0x3a5310) and the menu sees none of it. port: no soft keyboard is ever made active
-	 * (g_pActiveSkb is never set), so the pad goes on to the menu. */
-	return g_pActiveSkb != 0;
+	/* 0x3a7510: a shown soft keyboard takes the pad and the menu sees none of it */
+	if (g_pActiveSkb != NULL)
+		g_pActiveSkb->HandleInput(pad, menu);
+
+	return g_pActiveSkb != NULL;
 }
 
 /* @socom-skeleton stub StrToSkbKey__21@unnamed@zui_skb_cpp@FPCc */
 namespace {
-void StrToSkbKey(const char *)
+CSkbKey StrToSkbKey(const char *name)
 {
+	/* 0x3a73d0: a one-character name is that character; ParenL, ParenR, Quote1, Quote2 and Space
+	 * name the characters that cannot be written in a reader; the special keys by name; else no
+	 * key. Returned through a0. */
 	/* @socom-skeleton stub c_szCharKeys$2103 */
-	static const int c_szCharKeys = 0;
+	static const char *const c_szCharKeys = "'\"() ";
+	static const char *const c_arrCharKeyNames[5] = { "Quote1", "Quote2", "ParenL", "ParenR", "Space" }; /* 0x463150 */
+	static const char *const c_arrEnumNames[SKB_NUM_SPECIAL_KEYS] = /* 0x463100 */
+		{ "CapsLock", "Recip", "BackSpace", "Clear", "Enter", "Exit", "Apply", "Alt", "Shift", "Legend" };
+	CSkbKey key;
+
+	if (name == NULL)
+		return key;
+
+	if (strlen(name) == 1)
+	{
+		key.m_value = (unsigned char)name[0];
+		return key;
+	}
+
+	for (s32 i = 0; i < 5; i++)
+	{
+		if (strcasecmp(name, c_arrCharKeyNames[i]) == 0)
+		{
+			key.m_value = (unsigned char)c_szCharKeys[i];
+			return key;
+		}
+	}
+
+	for (s32 i = 0; i < SKB_NUM_SPECIAL_KEYS; i++)
+	{
+		if (strcasecmp(name, c_arrEnumNames[i]) == 0)
+		{
+			key.m_special = true;
+			key.m_value = (unsigned char)i;
+			return key;
+		}
+	}
+
+	return key;
 }
 }
 
 /* @socom-skeleton stub TickSkb__Ff */
-void TickSkb(float)
+void TickSkb(float dT)
 {
+	/* 0x3a73a0 (CGameMenu::Tick) */
+	if (g_pActiveSkb != NULL)
+		g_pActiveSkb->Tick(dT);
 }
 
 /* @socom-skeleton stub UiGetTextFromUser__FP13C2DAnimCmdHdrPf */
@@ -526,10 +939,8 @@ unsigned char UiGetTextFromUser(C2DAnimCmdHdr *cmd, float *)
 {
 	/* 0x3a71c0 (GetTextInput): the argument ($1: the anim's first argument) names the UI
 	 * variable the text goes to; the soft keyboard named as the command's node (else
-	 * "KEYBOARD") is shown, skb_done is set when there is none, and the scale-up sound plays.
-	 * The keyboards come from CreateSoftKeyboard - needs zUI: CreateSoftKeyboard (0x3a7940),
-	 * PrepSkbsForDisplay (0x3a7720) and CSoftKeyboard::ShowSkb (0x3a36f0); the port makes no
-	 * keyboard, so none is found and skb_done is set at once. */
+	 * "KEYBOARD") is shown, skb_done is set when there is none (else cleared: the keyboard
+	 * sets it when it has closed), and the scale-up sound plays. */
 	CZAnim* anim = ZAnim.m_CurAnim;
 	const char* name = anim->GetName(cmd->m_argument_index);
 
@@ -588,45 +999,280 @@ unsigned char UiSetSkbPurpose(C2DAnimCmdHdr *cmd, float *)
 /* @socom-skeleton body ZuiInit__Fv */
 s32 ZuiInit()
 {
-    CRdrFile* params = zrdr_read("UiParams.rdr", "data/common");
+	/* 0x3a6c70 (CMission::Init): UiParams.rdr makes the soft keyboards and reads their common
+	 * settings (key repeat, sound names, the legend) */
+	CRdrFile* params = zrdr_read("UiParams.rdr", "data/common");
+	_zrdr* skbs = zrdr_findtag(params, "SoftKeyboards");
 
-    return zrdr_free(params);
+	for (s32 i = 0; skbs != NULL && i < (s32)(skbs->IsArray() ? skbs->array->integer - 1 : 0); i++)
+		CreateSoftKeyboard(skbs->Get((u32)i));
+
+	_zrdr* common = zrdr_findtag(params, "CommonSoftKeyboardProps");
+	f32 value = 0.0f;
+	zrdr_findreal(common, "RepeatDelay", &value, 1);
+	g_fSkbRepeatDelay = value;
+	value = 0.0f;
+	zrdr_findreal(common, "RepeatSpeedStart", &value, 1);
+	g_fSkbRepeatSpeedStart = value;
+	value = 0.0f;
+	zrdr_findreal(common, "RepeatAccelTime", &value, 1);
+	g_fSkbRepeatAccelTime = value;
+	value = 0.0f;
+	zrdr_findreal(common, "RepeatSpeedEnd", &value, 1);
+	g_fSkbRepeatSpeedEnd = value;
+	g_strSkbScaleUpSound = zrdr_findstring(common, "ScaleUpSound");
+	g_strSkbScaleDownSound = zrdr_findstring(common, "ScaleDownSound");
+	g_strSkbKeyPressSound = zrdr_findstring(common, "KeyPressSound");
+	g_strSkbEnterSound = zrdr_findstring(common, "KeyPressEnterSound");
+	g_strSkbNavigationSound = zrdr_findstring(common, "NavigationSound");
+	g_strSkbNegativeSound = zrdr_findstring(common, "NegativeSound");
+
+	_zrdr* legend = zrdr_findtag(common, "Legend");
+	g_strLegendTxtr = zrdr_findstring(legend, "Texture");
+	g_rectLegend = ReadSkbRect(legend);
+	value = 0.0f;
+	zrdr_findreal(legend, "SlideInSec", &value, 1);
+	g_fLegendEnterSec = value;
+	value = 0.0f;
+	zrdr_findreal(legend, "SlideOutSec", &value, 1);
+	g_fLegendExitSec = value;
+	g_strSkbUiVar.reserve(768);
+	g_strSkbPurpose.reserve(768);
+
+	return zrdr_free(params);
+}
+
+/* port: no symbols - code the ELF inlines in several places */
+namespace {
+void CSoftKeyboard::Accept(CGameMenu *menu)
+{
+	/* the text becomes the UI variable (a TEMPORARY one when new) and ON_SKB_APPLY runs (DoIt's
+	 * Apply / Enter, CIRCLE, a USB Enter) */
+	CUIVariable* var = theUIVarManager.Add(g_strSkbUiVar.c_str(), NULL, UIVL_TEMPORARY);
+	*var = m_userStr.GetString();
+	menu->RunEventAnim(ActionItem::ON_SKB_APPLY, NULL);
+}
+
+void CSoftKeyboard::BackSpace()
+{
+	/* the character before the insertion point goes (DoIt's BackSpace, SQUARE, a USB Backspace);
+	 * at the start the cursor shows at once */
+	if (g_iSkbInsertPt > 0)
+	{
+		std::string text(Text());
+		text.erase(g_iSkbInsertPt - 1, 1);
+		m_userStr.SetString(text.c_str());
+		m_userStr.UpdatePos();
+		SetInsertPt(g_iSkbInsertPt - 1);
+	}
+	else
+	{
+		g_fSkbCursorFlashTime = 0.0f;
+	}
+
+	PlaySkbSound(g_pSkbKeyPressSound);
+}
+
+void CSoftKeyboard::MoveHighlight(TwoDAxis::_ axis, int (*step)(int))
+{
+	/* the highlight leaves the current key and moves (wrapping) until it is on another key
+	 * (HandleInput's directions, Tick's repeats) */
+	CSkbKeyProps* props = FindKeyProps(GetCurKey());
+
+	if (props != NULL)
+		props->SetButtonState(&C2DButton::SetNormal);
+
+	const CSkbKey& start = m_grid.GetSkbKey(g_iSkbGridPosX, g_iSkbGridPosY);
+	const CSkbKey* key;
+
+	do
+	{
+		m_grid.MoveToNextPos(&g_iSkbGridPosX, &g_iSkbGridPosY, axis, step);
+		key = &m_grid.GetSkbKey(g_iSkbGridPosX, g_iSkbGridPosY);
+	} while (!(*key < start || start < *key) || !key->IsKey());
+
+	SyncHighlightToGridPos();
+	PlaySkbSound(g_pSkbNavigationSound);
+}
 }
 
 /* @socom-skeleton stub MoveToNextPos__Q221@unnamed@zui_skb_cpp@8CSkbGridCFPiPiQ321@unnamed@zui_skb_cpp@8TwoDAxis1_PFi_i */
 namespace {
-void CSkbGrid::MoveToNextPos(int *, int *, TwoDAxis::_, int (*)(int)) const
+void CSkbGrid::MoveToNextPos(int *x, int *y, TwoDAxis::_ axis, int (*step)(int)) const
 {
+	/* 0x3a6bb0: one step along the axis, wrapping at the row's (or the grid's) ends; a column
+	 * step on a row outside the grid does not wrap */
+	int* pos = axis != TwoDAxis::HORIZONTAL ? y : x;
+	*pos = step(*pos);
+	int count;
+
+	if (axis == TwoDAxis::HORIZONTAL)
+	{
+		if ((u32)*y >= size())
+			return;
+
+		count = (int)(*this)[*y].size();
+	}
+	else
+	{
+		count = (int)size();
+	}
+
+	if (*pos < 0)
+		*pos = count - 1;
+	else if (*pos >= count)
+		*pos = 0;
 }
 }
 
 /* @socom-skeleton stub DoIt__Q221@unnamed@zui_skb_cpp@7CSkbKeyCFPQ221@unnamed@zui_skb_cpp@13CSoftKeyboardRC4CPadP9CGameMenu */
 namespace {
-void CSkbKey::DoIt(CSoftKeyboard *, const CPad &, CGameMenu *) const
+void CSkbKey::DoIt(CSoftKeyboard *skb, const CPad &pad, CGameMenu *menu) const
 {
+	/* 0x3a65a0: CROSS on a key. A letter types lower case unless L1 (held), Caps Lock or Shift
+	 * says otherwise (an odd number of them); Shift lasts one key. */
+	if (!m_special)
+	{
+		unsigned char c = m_value;
+
+		if (IsSkbUpper(c))
+			c = (unsigned char)(c + c_iLowerCaseOffset);
+
+		bool upper = (pad.m_state[(int)PAD_BUTTON::PAD_TRIGGER_L1] == KEY_DOWN);
+		upper = upper != (bool)skb->m_bmpCapsLock.m_node->m_active;
+		upper = upper != (bool)skb->m_bmpShift.m_node->m_active;
+
+		if (upper && IsSkbUpper((unsigned char)(c - c_iLowerCaseOffset)))
+			c = (unsigned char)(c - c_iLowerCaseOffset);
+
+		skb->AddCasedChar((char)c);
+	}
+	else
+	{
+		switch (m_value)
+		{
+		case SKB_CAPSLOCK:
+			skb->m_bmpCapsLock.m_node->SetActive(!skb->m_bmpCapsLock.m_node->m_active);
+			PlaySkbSound(g_pSkbKeyPressSound);
+			break;
+		case SKB_RECIP:
+			/* chat: the recipient image flips and ChatRecipient follows it */
+			if (skb->m_bmpRecip0.m_node != NULL && skb->m_bmpRecip1.m_node != NULL)
+			{
+				skb->m_bmpRecip0.m_node->SetActive(!skb->m_bmpRecip0.m_node->m_active);
+				skb->m_bmpRecip1.m_node->SetActive(!skb->m_bmpRecip1.m_node->m_active);
+				CValve::Create(c_szRecipValve, skb->m_bmpRecip0.m_node->m_active ? 0 : 1, VALVE_TYPE::VTYPE_PERM);
+				PlaySkbSound(g_pSkbKeyPressSound);
+			}
+			break;
+		case SKB_BACKSPACE:
+			skb->BackSpace();
+			break;
+		case SKB_CLEAR:
+			skb->m_userStr.SetString("");
+			skb->m_userStr.UpdatePos();
+			skb->SetInsertPt(0);
+			PlaySkbSound(g_pSkbKeyPressSound);
+			break;
+		case SKB_ENTER:
+			skb->Accept(menu);
+			skb->ShutdownBegin(menu);
+			PlaySkbSound(g_pSkbEnterSound);
+			break;
+		case SKB_EXIT:
+			skb->ShutdownBegin(menu);
+			menu->RunEventAnim(ActionItem::ON_SKB_CANCEL, NULL);
+			PlaySkbSound(g_pSkbKeyPressSound);
+			break;
+		case SKB_APPLY:
+			skb->Accept(menu);
+			PlaySkbSound(g_pSkbKeyPressSound);
+			break;
+		case SKB_ALT:
+			skb->OnAltKey();
+			break;
+		case SKB_SHIFT:
+			break;
+		case SKB_LEGEND:
+			/* the legend slides out (or back) beside the keyboard */
+			skb->m_bmpLegendOn.m_node->SetActive(!skb->m_bmpLegendOn.m_node->m_active);
+
+			if (skb->m_bmpLegendOn.m_node->m_active)
+				g_bmpLegend.m_node->SetActive(true);
+
+			g_fLegendSlideCurSec = 0.0f;
+			PlaySkbSound(g_pSkbKeyPressSound);
+			break;
+		}
+	}
+
+	if (m_special && m_value == SKB_SHIFT)
+		skb->m_bmpShift.m_node->SetActive(!skb->m_bmpShift.m_node->m_active);
+	else
+		skb->m_bmpShift.m_node->SetActive(false);
 }
 }
 
 /* @socom-skeleton stub AddCasedChar__Q221@unnamed@zui_skb_cpp@13CSoftKeyboardFc */
 namespace {
-void CSoftKeyboard::AddCasedChar(char)
+void CSoftKeyboard::AddCasedChar(char c)
 {
+	/* 0x3a62d0: the character goes in at the insertion point while the text is shorter than
+	 * SkbMaxChars and still fits UserStringWidth; else the negative sound */
+	std::string text(Text());
+	bool added = text.size() < g_pMaxCharsValve->m_value;
+
+	if (added)
+	{
+		std::string longer(text);
+		longer.replace(g_iSkbInsertPt, 0, 1, c);
+		m_userStr.SetString(longer.c_str());
+		m_userStr.UpdatePos();
+
+		if (m_userStr.m_length <= (f32)m_userStringWidth)
+		{
+			SetInsertPt(g_iSkbInsertPt + 1);
+			PlaySkbSound(g_pSkbKeyPressSound);
+		}
+		else
+		{
+			m_userStr.SetString(text.c_str());
+			m_userStr.UpdatePos();
+			added = false;
+		}
+	}
+
+	if (!added)
+	{
+		g_fSkbCursorFlashTime = 0.0f;
+		PlaySkbSound(g_pSkbNegativeSound);
+	}
 }
 }
 
 /* @socom-skeleton stub FindKeyProps__Q221@unnamed@zui_skb_cpp@13CSoftKeyboardFRCQ221@unnamed@zui_skb_cpp@7CSkbKey */
 namespace {
-void CSoftKeyboard::FindKeyProps(const CSkbKey &)
+CSkbKeyProps * CSoftKeyboard::FindKeyProps(const CSkbKey &key)
 {
+	/* 0x3a6280 */
+	std::map<CSkbKey, CSkbKeyProps*>::iterator it = m_keyProps.find(key);
+	return it != m_keyProps.end() ? it->second : NULL;
 }
 }
 
 /* @socom-skeleton stub GetCurKey__Q221@unnamed@zui_skb_cpp@13CSoftKeyboardCFv */
 namespace {
-void CSoftKeyboard::GetCurKey() const
+const CSkbKey & CSoftKeyboard::GetCurKey() const
 {
+	/* 0x3a6150: the key under the highlight (CSkbGrid::GetSkbKey inline) */
 	/* @socom-skeleton stub keyDefault$1791 */
-	static const unsigned char keyDefault[2] = {0};
+	static const CSkbKey keyDefault; /* no key; port: GetSkbKey keeps its own copy (one static in the ELF) */
+
+	if (g_iSkbGridPosY >= 0 && (u32)g_iSkbGridPosY < m_grid.size() && g_iSkbGridPosX >= 0
+		&& (u32)g_iSkbGridPosX < m_grid[g_iSkbGridPosY].size())
+		return m_grid[g_iSkbGridPosY][g_iSkbGridPosX];
+
+	return keyDefault;
 }
 }
 
@@ -637,22 +1283,121 @@ const char *const c_szRecipValve = "ChatRecipient";
 
 /* @socom-skeleton stub GetKeyAtGridPos__Q221@unnamed@zui_skb_cpp@13CSoftKeyboardCFii */
 namespace {
-void CSoftKeyboard::GetKeyAtGridPos(int, int) const
+const CSkbKey & CSoftKeyboard::GetKeyAtGridPos(int x, int y) const
 {
+	/* 0x3a60a0: CSkbGrid::GetSkbKey inline */
+	return m_grid.GetSkbKey(x, y);
 }
 }
 
 /* @socom-skeleton stub HandleInput__Q221@unnamed@zui_skb_cpp@13CSoftKeyboardFRC4CPadP9CGameMenu */
 namespace {
-void CSoftKeyboard::HandleInput(const CPad &, CGameMenu *)
+void CSoftKeyboard::HandleInput(const CPad &pad, CGameMenu *menu)
 {
+	/* 0x3a5310: the pad (and the stick) while the keyboard is shown: directions move the
+	 * highlight (held: Tick repeats them), L1 with LEFT / RIGHT moves the insertion point, CROSS
+	 * presses the key, R1 Caps Lock, SQUARE backspace, TRIANGLE cancels, CIRCLE accepts; then
+	 * the USB keyboard */
+	const KEY_STATE* state = pad.m_state;
+	unsigned char dir = UiGetDirStickMoved();
+	bool l1 = state[(int)PAD_BUTTON::PAD_TRIGGER_L1] == KEY_DOWN;
+
+	if (state[(int)PAD_BUTTON::PAD_LEFT] == KEY_FALLING || dir == 1)
+	{
+		if (l1)
+		{
+			if (g_iSkbInsertPt > 0)
+				SetInsertPt(g_iSkbInsertPt - 1);
+		}
+		else
+		{
+			MoveHighlight(TwoDAxis::HORIZONTAL, SkbDecr);
+			g_fSkbRepeatTime = 0.0f;
+			g_eSkbRepeatDir = 1;
+		}
+	}
+	else if (state[(int)PAD_BUTTON::PAD_RIGHT] == KEY_FALLING || dir == 2)
+	{
+		if (l1)
+		{
+			if ((u32)g_iSkbInsertPt < strlen(Text()))
+				SetInsertPt(g_iSkbInsertPt + 1);
+		}
+		else
+		{
+			MoveHighlight(TwoDAxis::HORIZONTAL, SkbIncr);
+			g_fSkbRepeatTime = 0.0f;
+			g_eSkbRepeatDir = 2;
+		}
+	}
+	else if (state[(int)PAD_BUTTON::PAD_UP] == KEY_FALLING || dir == 3)
+	{
+		MoveHighlight(TwoDAxis::VERTICAL, SkbDecr);
+		g_fSkbRepeatTime = 0.0f;
+		g_eSkbRepeatDir = 3;
+	}
+	else if (state[(int)PAD_BUTTON::PAD_DOWN] == KEY_FALLING || dir == 4)
+	{
+		MoveHighlight(TwoDAxis::VERTICAL, SkbIncr);
+		g_fSkbRepeatTime = 0.0f;
+		g_eSkbRepeatDir = 4;
+	}
+	else if (state[(int)PAD_BUTTON::PAD_LEFT] == KEY_RISING || state[(int)PAD_BUTTON::PAD_UP] == KEY_RISING
+		|| state[(int)PAD_BUTTON::PAD_RIGHT] == KEY_RISING || state[(int)PAD_BUTTON::PAD_DOWN] == KEY_RISING
+		|| dir == 5)
+	{
+		g_eSkbRepeatDir = 0;
+	}
+	else if (state[(int)PAD_BUTTON::PAD_CROSS] == KEY_FALLING)
+	{
+		CSkbKeyProps* props = FindKeyProps(GetCurKey());
+
+		if (props != NULL)
+			props->SetButtonState(&C2DButton::SetPressed);
+
+		m_grid.GetSkbKey(g_iSkbGridPosX, g_iSkbGridPosY).DoIt(this, pad, menu);
+	}
+	else if (state[(int)PAD_BUTTON::PAD_CROSS] == KEY_RISING)
+	{
+		if (g_eSkbScalingState != SKB_SCALE_DOWN)
+		{
+			CSkbKeyProps* props = FindKeyProps(GetKeyAtGridPos(g_iSkbGridPosX, g_iSkbGridPosY));
+
+			if (props != NULL)
+				props->SetButtonState(&C2DButton::SetActive);
+		}
+	}
+	else if (state[(int)PAD_BUTTON::PAD_TRIGGER_R1] == KEY_FALLING)
+	{
+		m_bmpCapsLock.m_node->SetActive(!m_bmpCapsLock.m_node->m_active);
+	}
+	else if (state[(int)PAD_BUTTON::PAD_SQUARE] == KEY_FALLING)
+	{
+		BackSpace();
+	}
+	else if (state[(int)PAD_BUTTON::PAD_TRIANGLE] == KEY_FALLING)
+	{
+		/* ShutdownBegin inline, after the cancel event */
+		menu->RunEventAnim(ActionItem::ON_SKB_CANCEL, NULL);
+		ShutdownBegin(menu);
+	}
+	else if (state[(int)PAD_BUTTON::PAD_CIRCLE] == KEY_FALLING)
+	{
+		Accept(menu);
+		ShutdownBegin(menu);
+		PlaySkbSound(g_pSkbEnterSound);
+	}
+
+	HandleUsbKbd(menu);
 }
 }
 
 /* @socom-skeleton stub HandleUsbKbd__Q221@unnamed@zui_skb_cpp@13CSoftKeyboardFP9CGameMenu */
 namespace {
-void CSoftKeyboard::HandleUsbKbd(CGameMenu *)
+void CSoftKeyboard::HandleUsbKbd(CGameMenu *menu)
 {
+	/* 0x3a4990: every key the USB keyboard typed this frame (USB usage ids). port: USBKB.IRX is
+	 * offline, so GetKeyReadThisFrame reads nothing. */
 	/* @socom-skeleton stub c_arrNumKeysUpper$2294 */
 	static const unsigned char c_arrNumKeysUpper[11] = {33, 64, 35, 36, 37, 94, 38, 42, 40, 41, 0};
 	/* @socom-skeleton stub c_arrNumKeysLower$2295 */
@@ -661,6 +1406,89 @@ void CSoftKeyboard::HandleUsbKbd(CGameMenu *)
 	static const unsigned char c_arrUsb44Upper[14] = {32, 95, 43, 123, 125, 124, 88, 88, 34, 126, 60, 62, 63, 0};
 	/* @socom-skeleton stub c_arrUsb44Lower$2297 */
 	static const unsigned char c_arrUsb44Lower[14] = {32, 45, 61, 91, 93, 92, 88, 88, 39, 96, 44, 46, 47, 0};
+	KeyInput in;
+
+	while (GetKeyReadThisFrame(&in))
+	{
+		int key = in.m_key;
+
+		if (key >= 4 && key < 30)
+		{
+			/* a..z; Shift or Caps Lock (not both) for capitals */
+			char c = (char)(key + 93);
+
+			if ((in.m_shift != 0) != (in.m_capsLock != 0))
+				c = (char)toupper(c);
+
+			AddCasedChar(c);
+		}
+		else if (key >= 30 && key < 40)
+		{
+			AddCasedChar((char)(in.m_shift != 0 ? c_arrNumKeysUpper : c_arrNumKeysLower)[key - 30]);
+		}
+		else if (key >= 44 && key < 50)
+		{
+			AddCasedChar((char)(in.m_shift != 0 ? c_arrUsb44Upper : c_arrUsb44Lower)[key - 44]);
+		}
+		else if (key >= 52 && key < 57)
+		{
+			AddCasedChar((char)(in.m_shift != 0 ? c_arrUsb44Upper : c_arrUsb44Lower)[key - 44]);
+		}
+		else if (key >= 89 && key < 100)
+		{
+			/* the keypad's digits and point, with Num Lock */
+			if (in.m_numLock != 0)
+				AddCasedChar((char)c_arrNumKeysLower[key - 89]);
+		}
+		else
+		{
+			switch (key)
+			{
+			case 40: /* Enter */
+			case 88: /* keypad Enter */
+				Accept(menu);
+				ShutdownBegin(menu);
+				PlaySkbSound(g_pSkbEnterSound);
+				break;
+			case 41: /* Escape: ShutdownBegin inline (from the current key), then the cancel event */
+				ShutdownBegin(menu);
+				menu->RunEventAnim(ActionItem::ON_SKB_CANCEL, NULL);
+				break;
+			case 42: /* Backspace */
+				BackSpace();
+				break;
+			case 43: /* Tab: the chat recipient */
+				if (m_bmpRecip0.m_node != NULL && m_bmpRecip1.m_node != NULL)
+				{
+					m_bmpRecip0.m_node->SetActive(!m_bmpRecip0.m_node->m_active);
+					m_bmpRecip1.m_node->SetActive(!m_bmpRecip1.m_node->m_active);
+					CValve::Create(c_szRecipValve, m_bmpRecip0.m_node->m_active ? 0 : 1, VALVE_TYPE::VTYPE_PERM);
+					PlaySkbSound(g_pSkbKeyPressSound);
+				}
+				break;
+			case 79: /* Right arrow */
+				if ((u32)g_iSkbInsertPt < strlen(Text()))
+					SetInsertPt(g_iSkbInsertPt + 1);
+				break;
+			case 80: /* Left arrow */
+				if (g_iSkbInsertPt > 0)
+					SetInsertPt(g_iSkbInsertPt - 1);
+				break;
+			case 84:
+				AddCasedChar('/');
+				break;
+			case 85:
+				AddCasedChar('*');
+				break;
+			case 86:
+				AddCasedChar('-');
+				break;
+			case 87:
+				AddCasedChar('+');
+				break;
+			}
+		}
+	}
 }
 }
 
@@ -668,6 +1496,35 @@ void CSoftKeyboard::HandleUsbKbd(CGameMenu *)
 namespace {
 void CSoftKeyboard::InvalidateDisplay()
 {
+	/* 0x3a4820: the menu's nodes are going (CGameMenu::Clear deletes the foreplane): forget
+	 * them, the fonts and the texts, and delete the key buttons */
+	m_root = NULL;
+	m_bmpBackground.m_node = NULL;
+	m_bmpCapsLock.m_node = NULL;
+	m_bmpAlt.m_node = NULL;
+	m_bmpShift.m_node = NULL;
+	m_bmpLegendOn.m_node = NULL;
+	m_bmpCursor.m_node = NULL;
+	m_bmpHighlight.m_node = NULL;
+	m_bmpRecip0.m_node = NULL;
+	m_bmpRecip1.m_node = NULL;
+	m_purposeNode = NULL;
+	m_userNode = NULL;
+	ResetSkbFont(m_userFont);
+	ResetSkbFont(m_purposeFont);
+	m_userStr.SetString(NULL);
+	m_purposeStr.SetString(NULL);
+
+	for (std::map<CSkbKey, CSkbKeyProps*>::iterator it = m_keyProps.begin(); it != m_keyProps.end(); ++it)
+	{
+		CSkbKeyProps* props = it->second;
+		props->m_node = NULL;
+
+		if (props->m_button != NULL)
+			delete props->m_button;
+
+		props->m_button = NULL;
+	}
 }
 }
 
@@ -675,27 +1532,217 @@ void CSoftKeyboard::InvalidateDisplay()
 namespace {
 void CSoftKeyboard::OnAltKey()
 {
+	/* 0x3a4310: Alt swaps to the AltSkb keyboard (in place, at once) and back; the text, Caps
+	 * Lock and the legend go along */
+	CSoftKeyboard* other = g_pAltRetSkb;
+
+	if (other == NULL)
+	{
+		for (u32 i = 0; i < g_arrSkbs.size(); i++)
+		{
+			if (strcasecmp(g_arrSkbs[i]->m_name.c_str(), m_altSkb.c_str()) == 0)
+			{
+				other = g_arrSkbs[i];
+				break;
+			}
+		}
+	}
+
+	if (other == NULL)
+		return;
+
+	CSkbKeyProps* props = FindKeyProps(GetKeyAtGridPos(g_iSkbGridPosX, g_iSkbGridPosY));
+
+	if (props != NULL)
+		props->SetButtonState(&C2DButton::SetNormal);
+
+	other->m_bmpCapsLock.m_node->SetActive(m_bmpCapsLock.m_node->m_active);
+	other->m_bmpLegendOn.m_node->SetActive(m_bmpLegendOn.m_node->m_active);
+	other->m_userStr.SetString(m_userStr.GetString());
+	other->m_userStr.UpdatePos();
+	other->SetInsertPt(g_iSkbInsertPt); /* inline: the cursor at the same insertion point */
+	m_root->SetActive(false);
+	other->m_root->SetActive(true);
+	g_pActiveSkb = other;
+
+	if (g_pAltRetSkb == NULL)
+	{
+		/* to the Alt keyboard: its own start key, full size at once where this one is, Alt lit */
+		other->m_purposeStr.SetString(g_strSkbPurpose.c_str());
+		g_iAltRetGridPosX = g_iSkbGridPosX;
+		g_iAltRetGridPosY = g_iSkbGridPosY;
+		g_iSkbGridPosY = other->m_startGridY - 1;
+		g_iSkbGridPosX = other->m_startGridX - 1;
+		other->SyncHighlightToGridPos();
+		g_eSkbScalingState = SKB_SCALE_UP;
+		other->TickScaling(1000.0f);
+		other->m_root->SetPosition((f32)m_skbX, (f32)m_skbY, 0.0f);
+		other->m_bmpAlt.m_node->SetActive(true);
+		g_pAltRetSkb = this;
+	}
+	else
+	{
+		/* back: the key it left from, highlighted */
+		g_iSkbGridPosX = g_iAltRetGridPosX;
+		g_iSkbGridPosY = g_iAltRetGridPosY;
+		CSkbKeyProps* back = other->FindKeyProps(other->GetKeyAtGridPos(g_iSkbGridPosX, g_iSkbGridPosY));
+
+		if (back != NULL)
+		{
+			other->m_bmpHighlight.C2DBitmap::Load(0.0f, 0.0f, (f32)(int)back->m_width, (f32)(int)back->m_height,
+				other->m_bmpHighlight.TexHandle());
+			other->m_bmpHighlight.m_node->SetPosition((f32)(int)back->m_x, (f32)(int)back->m_y, 0.0f);
+			back->SetButtonState(&C2DButton::SetActive);
+		}
+
+		g_pAltRetSkb = NULL;
+	}
 }
 }
 
 /* @socom-skeleton stub PrepForDisplay__Q221@unnamed@zui_skb_cpp@13CSoftKeyboardFPQ23zdb5CNodePQ23zdb16CTextureRelocMgrP7C2DFont */
 namespace {
-void CSoftKeyboard::PrepForDisplay(zdb::CNode *, zdb::CTextureRelocMgr *, C2DFont *)
+void CSoftKeyboard::PrepForDisplay(zdb::CNode *parent, zdb::CTextureRelocMgr *reloc, C2DFont *font)
 {
+	/* 0x3a3c00: the keyboard's (hidden) node at SkbPos under the menu's foreplane, with its
+	 * highlight, background, texts, cursor, the Caps Lock / Alt / Shift / Legend lights, the chat
+	 * recipient images (when it has a Recip key) and a button per key */
+	m_root = zdb::CNode::Create(m_name.c_str());
+	parent->AddChild(m_root);
+	m_root->SetPosition((f32)m_skbX, (f32)m_skbY, 0.0f);
+	m_root->SetActive(false);
+
+	m_bmpHighlight.C2DBitmap::Load(0.0f, 0.0f, 0.0f, 0.0f, PrepTexture("SkbHighlight.tif", reloc));
+	m_bmpHighlight.m_node = Add2dNode(&m_bmpHighlight, reloc, m_root);
+	m_bmpBackground.C2DBitmap::Load(0.0f, 0.0f, (f32)m_skbWidth, (f32)m_skbHeight,
+		PrepTexture(m_background.c_str(), reloc));
+	m_bmpBackground.m_node = Add2dNode(&m_bmpBackground, reloc, m_root);
+
+	C2DFont* userFont = font;
+
+	if (!m_userFontName.empty())
+	{
+		userFont = &m_userFont;
+		m_userFont.Load(FetchMissionFontsRdr(), m_userFontName.c_str());
+	}
+
+	m_userStr.SetFont(userFont);
+	m_userNode = Add2dNode(&m_userStr, reloc, m_root);
+	m_userNode->SetPosition((f32)m_userX, (f32)m_userY, 0.0f);
+
+	/* the cursor: an untextured white box */
+	m_bmpCursor.m_hasTexture = false;
+	m_bmpCursor.C2DBitmap::Load(0.0f, 0.0f, (f32)m_cursorWidth, (f32)m_cursorHeight, NULL);
+	m_bmpCursor.SetColor(255.0f, 255.0f, 255.0f);
+	m_bmpCursor.m_node = Add2dNode(&m_bmpCursor, reloc, m_root);
+
+	C2DFont* purposeFont = font;
+
+	if (!m_purposeFontName.empty())
+	{
+		purposeFont = &m_purposeFont;
+		m_purposeFont.Load(FetchMissionFontsRdr(), m_purposeFontName.c_str());
+	}
+
+	m_purposeStr.SetFont(purposeFont);
+	m_purposeNode = Add2dNode(&m_purposeStr, reloc, m_root);
+	m_purposeNode->SetPosition((f32)m_purposeX, (f32)m_purposeY, 0.0f);
+
+	CBmpWithNode* lights[4] = { &m_bmpCapsLock, &m_bmpAlt, &m_bmpShift, &m_bmpLegendOn };
+	const CSkbRect* rects[4] = { &m_capsLockOn, &m_altOn, &m_shiftOn, &m_legendOn };
+
+	for (s32 i = 0; i < 4; i++)
+	{
+		lights[i]->C2DBitmap::Load(0.0f, 0.0f, (f32)(int)rects[i]->m_width, (f32)(int)rects[i]->m_height,
+			PrepTexture("SkbHighlight.tif", reloc));
+		zdb::CNode* node = Add2dNode(lights[i], reloc, m_root);
+		node->SetPosition((f32)(int)rects[i]->m_x, (f32)(int)rects[i]->m_y, 0.0f);
+		node->SetActive(false);
+		lights[i]->m_node = node;
+	}
+
+	CSkbKey recip;
+	recip.m_special = true;
+	recip.m_value = SKB_RECIP;
+
+	if (FindKeyProps(recip) != NULL)
+	{
+		CSkbKeyProps* props = FindKeyProps(recip);
+		m_bmpRecip0.C2DBitmap::Load(0.0f, 0.0f, (f32)(int)props->m_width, (f32)(int)props->m_height,
+			PrepTexture("SkbRecipState0.tif", reloc));
+		m_bmpRecip0.m_node = Add2dNode(&m_bmpRecip0, reloc, m_root);
+		m_bmpRecip0.m_node->SetPosition((f32)(int)props->m_x, (f32)(int)props->m_y, 0.0f);
+		m_bmpRecip1.C2DBitmap::Load(0.0f, 0.0f, (f32)(int)props->m_width, (f32)(int)props->m_height,
+			PrepTexture("SkbRecipState1.tif", reloc));
+		m_bmpRecip1.m_node = Add2dNode(&m_bmpRecip1, reloc, m_root);
+		m_bmpRecip1.m_node->SetPosition((f32)(int)props->m_x, (f32)(int)props->m_y, 0.0f);
+	}
+
+	for (std::map<CSkbKey, CSkbKeyProps*>::iterator it = m_keyProps.begin(); it != m_keyProps.end(); ++it)
+	{
+		CSkbKeyProps* props = it->second;
+
+		if (props->m_spec == NULL)
+			continue;
+
+		props->m_button = static_cast<C2DButton*>(props->m_spec->CreateDisplayObj(font, reloc));
+		props->m_node = Add2dNode(props->m_button, reloc, m_root);
+		props->m_node->SetPosition((f32)(int)props->m_x, (f32)(int)props->m_y, 0.0f);
+	}
 }
 }
 
 /* @socom-skeleton stub SetInsertPt__Q221@unnamed@zui_skb_cpp@13CSoftKeyboardFi */
 namespace {
-void CSoftKeyboard::SetInsertPt(int)
+void CSoftKeyboard::SetInsertPt(int pt)
 {
+	/* 0x3a3ac0: the cursor goes after the first pt characters (their drawn length, measured by
+	 * drawing just them for a moment) */
+	g_iSkbInsertPt = pt;
+	std::string text(Text());
+	std::string head(text);
+	head.resize(g_iSkbInsertPt, '\0');
+	m_userStr.SetString(head.c_str());
+	m_userStr.UpdatePos();
+	f32 x = (f32)m_userX + m_userStr.m_length;
+	m_userStr.SetString(text.c_str());
+	m_userStr.UpdatePos();
+	m_bmpCursor.m_node->SetPosition(x, (f32)m_cursorY, 0.0f);
 }
 }
 
 /* @socom-skeleton stub ShowNonScalingElements__Q221@unnamed@zui_skb_cpp@13CSoftKeyboardFb */
 namespace {
-void CSoftKeyboard::ShowNonScalingElements(bool)
+void CSoftKeyboard::ShowNonScalingElements(bool show)
 {
+	/* 0x3a3940: everything but the background, which TickScaling grows and shrinks */
+	m_bmpCursor.m_node->SetActive(show);
+	m_bmpHighlight.m_node->SetActive(show);
+	m_userNode->SetActive(show);
+	m_purposeNode->SetActive(show);
+
+	if (m_bmpRecip0.m_node != NULL)
+	{
+		if (show)
+		{
+			/* ELF quirk: a set ChatRecipient shows state 0, though the Recip key sets it when
+			 * state 0 goes off */
+			CValve* valve = CValve::GetByName(c_szRecipValve);
+			u32 recipient = valve != NULL ? valve->m_value : 0;
+			(recipient != 0 ? m_bmpRecip0 : m_bmpRecip1).m_node->SetActive(true);
+		}
+		else
+		{
+			m_bmpRecip0.m_node->SetActive(false);
+			m_bmpRecip1.m_node->SetActive(false);
+		}
+	}
+
+	for (std::map<CSkbKey, CSkbKeyProps*>::iterator it = m_keyProps.begin(); it != m_keyProps.end(); ++it)
+	{
+		if (it->second->m_node != NULL)
+			it->second->m_node->SetActive(show);
+	}
 }
 }
 
@@ -703,13 +1750,56 @@ void CSoftKeyboard::ShowNonScalingElements(bool)
 namespace {
 void CSoftKeyboard::ShowSkb()
 {
+	/* 0x3a36f0 (UiGetTextFromUser): an empty text, the purpose, the start key, the legend
+	 * hidden behind the right edge; the background starts to scale up and the menu dims. Keys
+	 * the USB keyboard typed before are dropped. */
+	g_pAltRetSkb = NULL;
+	m_userStr.SetString("");
+	m_userStr.UpdatePos();
+	SetInsertPt(0); /* inline */
+	m_purposeStr.SetString(g_strSkbPurpose.c_str());
+	g_iSkbGridPosY = m_startGridY - 1;
+	g_iSkbGridPosX = m_startGridX - 1;
+	SyncHighlightToGridPos();
+	g_bmpLegend.m_node->SetPosition((f32)(m_skbX + m_skbWidth - (int)g_rectLegend.m_width), (f32)m_skbY, 0.0f);
+	m_bmpCapsLock.m_node->SetActive(false);
+	m_bmpLegendOn.m_node->SetActive(false);
+	m_root->SetActive(true);
+	g_eSkbScalingState = SKB_SCALE_UP;
+	g_pActiveSkb = this;
+	g_fSkbScalingTime = 0.0f;
+	ShowNonScalingElements(false);
+	SetFaderOpacity(0.5f);
+
+	KeyInput in;
+
+	while (GetKeyReadThisFrame(&in))
+		;
 }
 }
 
 /* @socom-skeleton stub ShutdownBegin__Q221@unnamed@zui_skb_cpp@13CSoftKeyboardFP9CGameMenu */
 namespace {
-void CSoftKeyboard::ShutdownBegin(CGameMenu *)
+void CSoftKeyboard::ShutdownBegin(CGameMenu *menu)
 {
+	/* 0x3a3470: the keyboard starts to close (TickScaling finishes it): the key, the lights and
+	 * the legend go off, ON_SKB_CLOSE runs, the purpose is forgotten */
+	CSkbKeyProps* props = FindKeyProps(GetKeyAtGridPos(g_iSkbGridPosX, g_iSkbGridPosY));
+
+	if (props != NULL)
+		props->SetButtonState(&C2DButton::SetNormal);
+
+	g_eSkbScalingState = SKB_SCALE_DOWN;
+	g_fSkbScalingTime = 0.0f;
+	ShowNonScalingElements(false);
+	m_bmpCapsLock.m_node->SetActive(false);
+	m_bmpAlt.m_node->SetActive(false);
+	m_bmpShift.m_node->SetActive(false);
+	m_bmpLegendOn.m_node->SetActive(false);
+	g_bmpLegend.m_node->SetActive(false);
+	menu->RunEventAnim(ActionItem::ON_SKB_CLOSE, NULL);
+	g_strSkbPurpose.replace(0, CSaferStr::npos, "", 0);
+	PlaySkbSound(g_pSkbScaleDownSound);
 }
 }
 
@@ -717,51 +1807,196 @@ void CSoftKeyboard::ShutdownBegin(CGameMenu *)
 namespace {
 void CSoftKeyboard::SyncHighlightToGridPos()
 {
+	/* 0x3a3350: the highlight takes the key's place and size and the key's button lights */
+	CSkbKeyProps* props = FindKeyProps(m_grid.GetSkbKey(g_iSkbGridPosX, g_iSkbGridPosY));
+
+	if (props == NULL)
+		return;
+
+	m_bmpHighlight.C2DBitmap::Load(0.0f, 0.0f, (f32)(int)props->m_width, (f32)(int)props->m_height,
+		m_bmpHighlight.TexHandle());
+	m_bmpHighlight.m_node->SetPosition((f32)(int)props->m_x, (f32)(int)props->m_y, 0.0f);
+	props->SetButtonState(&C2DButton::SetActive);
 }
 }
 
 /* @socom-skeleton stub SetButtonState__Q221@unnamed@zui_skb_cpp@12CSkbKeyPropsFM9C2DButtonFPCvPv_v */
 namespace {
-void CSkbKeyProps::SetButtonState(void (C2DButton::*)())
+void CSkbKeyProps::SetButtonState(void (C2DButton::*state)())
 {
+	/* 0x3a32e0: SetNormal / SetActive / SetPressed on the key's button, when it has one */
+	if (m_button != NULL)
+		(m_button->*state)();
 }
 }
 
 /* @socom-skeleton stub GetSkbKey__Q221@unnamed@zui_skb_cpp@8CSkbGridCFii */
 namespace {
-void CSkbGrid::GetSkbKey(int, int) const
+const CSkbKey & CSkbGrid::GetSkbKey(int x, int y) const
 {
+	/* 0x3a3230: the key at column x of row y; no key outside the grid */
+	static const CSkbKey keyDefault; /* port: the ELF's keyDefault$1791 (see GetCurKey) */
+
+	if (y >= 0 && (u32)y < size() && x >= 0 && (u32)x < (*this)[y].size())
+		return (*this)[y][x];
+
+	return keyDefault;
 }
 }
 
 /* @socom-skeleton stub __lt__Q221@unnamed@zui_skb_cpp@7CSkbKeyCFRCQ221@unnamed@zui_skb_cpp@7CSkbKey */
 namespace {
-void CSkbKey::operator<(const CSkbKey &) const
+bool CSkbKey::operator<(const CSkbKey &other) const
 {
+	/* 0x3a3200: by kind, then value (the KeyProps map order) */
+	if ((unsigned char)(bool)m_special != (unsigned char)(bool)other.m_special)
+		return (unsigned char)(bool)m_special < (unsigned char)(bool)other.m_special;
+
+	return (unsigned char)m_value < (unsigned char)other.m_value;
 }
 }
 
 /* @socom-skeleton stub Tick__Q221@unnamed@zui_skb_cpp@13CSoftKeyboardFf */
 namespace {
-void CSoftKeyboard::Tick(float)
+void CSoftKeyboard::Tick(float dT)
 {
+	/* 0x3a2c90: the cursor flashes (half of each second) once the keyboard is still; a held
+	 * direction repeats after RepeatDelay, from RepeatSpeedStart to RepeatSpeedEnd keys a second
+	 * over RepeatAccelTime; the legend slides */
 	struct Local
 	{
 		/* @socom-skeleton stub Incr__Q321@unnamed@zui_skb_cpp@13CSoftKeyboard21Local$2354zui_skb_cppFi */
-		static int Incr(int)
+		static int Incr(int i)
 		{
+			/* 0x3a3340 */
+			return i + 1;
 		}
 		/* @socom-skeleton stub Decr__Q321@unnamed@zui_skb_cpp@13CSoftKeyboard21Local$2354zui_skb_cppFi */
-		static int Decr(int)
+		static int Decr(int i)
 		{
+			/* 0x3a3330 */
+			return i - 1;
+		}
+		/* port: no symbol - the repeat count after t seconds, inline twice */
+		static int Repeats(float t)
+		{
+			float held = t - g_fSkbRepeatDelay;
+			bool repeating = held > 0.0f;
+			float ramp = repeating ? held : 0.0f;
+			bool ramped = !(ramp < g_fSkbRepeatAccelTime);
+
+			if (ramped)
+				ramp = g_fSkbRepeatAccelTime;
+
+			float frac = ramp / g_fSkbRepeatAccelTime;
+
+			if (ramped)
+				frac = 1.0f;
+
+			float after = held - g_fSkbRepeatAccelTime;
+
+			if (after < 0.0f)
+				after = 0.0f;
+
+			float count = ramp * (g_fSkbRepeatSpeedStart + 0.5f * (g_fSkbRepeatSpeedEnd - g_fSkbRepeatSpeedStart) * frac)
+				+ g_fSkbRepeatSpeedEnd * after;
+			return repeating ? (int)count + 1 : 0;
 		}
 	};
+
+	g_fSkbCursorFlashTime += dT;
+
+	if (!(g_fSkbCursorFlashTime <= 1.0f))
+		g_fSkbCursorFlashTime -= 1.0f;
+
+	if (g_eSkbScalingState == SKB_SCALE_NONE)
+		m_bmpCursor.m_node->SetActive(g_fSkbCursorFlashTime < 0.5f);
+	else
+		TickScaling(dT);
+
+	if (g_eSkbRepeatDir != 0)
+	{
+		int before = Local::Repeats(g_fSkbRepeatTime);
+		g_fSkbRepeatTime += dT;
+		int after = Local::Repeats(g_fSkbRepeatTime);
+		TwoDAxis::_ axis = (g_eSkbRepeatDir == 1 || g_eSkbRepeatDir == 2) ? TwoDAxis::HORIZONTAL : TwoDAxis::VERTICAL;
+		int (*step)(int) = (g_eSkbRepeatDir == 2 || g_eSkbRepeatDir == 4) ? Local::Incr : Local::Decr;
+
+		for (int i = 0; i < after - before; i++)
+			MoveHighlight(axis, step);
+	}
+
+	if (!(g_fLegendSlideCurSec < 0.0f))
+	{
+		g_fLegendSlideCurSec += dT;
+		bool entering = m_bmpLegendOn.m_node->m_active;
+		float frac = g_fLegendSlideCurSec / (entering ? g_fLegendEnterSec : g_fLegendExitSec);
+
+		if (!(frac <= 1.0f))
+		{
+			frac = 1.0f;
+			g_fLegendSlideCurSec = -1.0f;
+
+			if (!entering)
+				g_bmpLegend.m_node->SetActive(false);
+		}
+
+		int right = m_skbX + m_skbWidth;
+
+		if (entering)
+			frac = 1.0f - frac;
+
+		g_bmpLegend.m_node->SetPosition((f32)right - frac * (f32)(int)g_rectLegend.m_width, (f32)m_skbY, 0.0f);
+	}
 }
 }
 
 /* @socom-skeleton stub TickScaling__Q221@unnamed@zui_skb_cpp@13CSoftKeyboardFf */
 namespace {
-void CSoftKeyboard::TickScaling(float)
+void CSoftKeyboard::TickScaling(float dT)
 {
+	/* 0x3a2a80: the background grows from (or shrinks to) the bottom-left corner of the screen
+	 * over ScaleUpSec / ScaleDownSec. Grown: the rest shows. Shrunk: the keyboard hides, lets go
+	 * of the pad, sets skb_done and the menu brightens. */
+	g_fSkbScalingTime += dT;
+	bool up = g_eSkbScalingState == SKB_SCALE_UP;
+	/* ELF: the division is done in double precision */
+	f32 frac = (f32)((f64)g_fSkbScalingTime / (f64)(up ? m_scaleUpSec : m_scaleDownSec));
+	f32 scale = up ? frac : 1.0f - frac;
+
+	if (!(scale <= 1.0f))
+		scale = 1.0f;
+
+	m_bmpBackground.m_node->SetPosition((1.0f - scale) * (f32)(-m_skbX), (1.0f - scale) * (f32)(448 - m_skbY), 0.0f);
+	m_bmpBackground.C2DBitmap::Load(0.0f, 0.0f, (f32)(int)(scale * (f32)m_skbWidth), (f32)(int)(scale * (f32)m_skbHeight),
+		m_bmpBackground.TexHandle());
+
+	if (frac < 1.0f)
+		return;
+
+	if (up)
+	{
+		ShowNonScalingElements(true);
+		g_fSkbCursorFlashTime = 0.0f;
+	}
+	else
+	{
+		m_root->SetActive(false);
+		g_pActiveSkb = NULL;
+		CValve* done = CValve::GetByName("skb_done");
+
+		if (done != NULL)
+		{
+			bool change = done->m_value != 1;
+			done->m_value = 1;
+
+			if (change)
+				done->MakeCallbacks((VALVE_STATE)1);
+		}
+
+		SetFaderOpacity(0.0f);
+	}
+
+	g_eSkbScalingState = SKB_SCALE_NONE;
 }
 }

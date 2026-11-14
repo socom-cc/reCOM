@@ -8,10 +8,12 @@
 
 /* port: forward declarations for names this header uses */
 class C2D;
+class C2DAnimCmdHdr;
 #include <list>
 
 #include <rsa/rsadef.h>
 #include <dme.h> /* port: NetOwnershipStatus, NetObjectLifespan, NetThresholdMethod (Medius DME; header name unproven) */
+#include <netcnfif.h> /* sceNetcnfifList, sceNetcnfifData (the SDK's libnetcnfif; CNetCnf, the UINet* UI commands) */
 
 #include "gamez/zMath/zmath.h"
 #include "gamez/zSystem/zsys.h"
@@ -469,11 +471,12 @@ public:
 	 * RemoteGameUpdateCallback 0x206458 calls it with an event name and 0; port: signature
 	 * from that call) and the net error handler (CLoadState::Init stores
 	 * CMission::RecoverFromNetError, _RecoverFromNetError clears it) */
-	void (*m_event_handler)(const char *, int);
+	unsigned char (*m_event_handler)(const char *, const char *); /* port: UIInitNetwork (0x1d5530) stores UILobbyEventHandler(const char *, const char *) here; the callers pass 0 / NULL as the argument */
 	unsigned char (*m_net_error_handler)(int);
 private:
-	bool started;
+	bool started; /* UILobbyLogout (0x1d4f70) reads the byte as a state: 0, 18, other */
 	CValve* onlineStatusValve;
+	friend unsigned char UILobbyLogout(C2DAnimCmdHdr *, float *); /* port: reads started */
 	/* @socom-skeleton decl 13CZOnlineLobby */
 public:
 	enum LOBBY_STATE_FLAG
@@ -505,7 +508,7 @@ public:
 	void UpdateLadderRating(int);
 	void SetPlayerDescription(const char *);
 	void GetKeyPair();
-	void Open();
+	bool Open(); /* UIInitNetwork returns its v0 */
 	void Tick();
 	void Close();
 	void ReleaseUIResources();
@@ -561,47 +564,60 @@ public:
 };
 /* @socom-skeleton end 12BriefingRoom */
 /* @socom-skeleton decl 7CNetCnf */
+/* one entry of the interface list (no DWARF; 524 bytes: GetInterfaceEntry 0x3fe760's stride; names
+ * from UINetGetInterfaceList / UINetSaveIfc / UINetUpdateIFCVars) */
+struct CNetCnfInterface
+{
+	int m_type;          /* +0x0 */
+	int m_flags;         /* +0x4: 0x10 (with 0x80: PPPoE) an Ethernet interface, else a modem */
+	int m_installed;     /* +0x8 */
+	char m_vendor[256];  /* +0xc */
+	char m_product[256]; /* +0x10c */
+};
+
 class CNetCnf
 {
 public:
-	static void Init(bool);
-	static void Uninit();
-	static void OpenTick(void *);
+	/* port: static, with the return types the UINet* commands (zanim_menu.cpp 0x1d0e50..0x1d20c0)
+	 * read from v0; the skeleton had void members. Calls pass the handle in a0 (no this). */
+	static bool Init(bool);
+	static bool Uninit();
+	static bool OpenTick(void *);
 	static void * Open(const char *);
-	void Close(void *);
-	void NumCombos(void *);
-	void NumIFC(void *);
+	static void Close(void *);
+	static int NumCombos(void *);
+	static int NumIFC(void *);
 	static int NumDevs(void *);
-	void GetIFC(void *, int);
-	void GetDev(void *, int);
-	void GetDefaultCombo(void *);
-	void SelectCombo(void *, int);
+	static sceNetcnfifList * GetIFC(void *, int);
+	static sceNetcnfifList * GetDev(void *, int);
+	static int GetDefaultCombo(void *);
+	static void SelectCombo(void *, int);
 	static char * GetNetDisplayName(void *, int);
 	static char * GetDevDisplayName(void *, int);
 	static char * GetIfcDisplayName(void *, int);
 	static void InitFromCombo(char *, int);
-	static void ReadInterfaceList(void *);
-	static void ReadInterfaceListTick(void *);
+	static bool ReadInterfaceList(void *);
+	static bool ReadInterfaceListTick(void *);
 	static int InterfaceCount(void *);
-	void GetInterfaceEntry(void *, int);
-	static void AddDev(void *, const char *);
-	static void AddDevTick(void *);
-	static void AddIFC(void *);
-	void AddIFCTick(void *);
-	void GetEnvData(void *);
+	static CNetCnfInterface * GetInterfaceEntry(void *, int);
+	static bool AddDev(void *, const char *);
+	static bool AddDevTick(void *);
+	static bool AddIFC(void *);
+	static bool AddIFCTick(void *);
+	static sceNetcnfifData * GetEnvData(void *);
 	static char * GetMACAddr(void *, char *, int);
 	static int GetDevIndex(void *);
-	static void SaveDev(void *);
-	static void SaveDevTick(void *);
-	void SaveIFC(void *, sceNetcnfifData *, const char *);
-	static void SaveIFCTick(void *);
-	static void AddCombo(void *);
-	void AddComboTick(void *);
-	void SaveCombo(void *, sceNetcnfifData *, const char *);
-	static void SaveComboTick(void *);
-	void GetComboData(void *);
-	static void DeleteAll(void *);
-	static void DeleteAllTick(void *);
+	static bool SaveDev(void *);
+	static bool SaveDevTick(void *);
+	static bool SaveIFC(void *, sceNetcnfifData *, const char *);
+	static bool SaveIFCTick(void *);
+	static bool AddCombo(void *);
+	static bool AddComboTick(void *);
+	static bool SaveCombo(void *, sceNetcnfifData *, const char *);
+	static bool SaveComboTick(void *);
+	static sceNetcnfifData * GetComboData(void *);
+	static bool DeleteAll(void *);
+	static bool DeleteAllTick(void *);
 	static unsigned char libnetBuffer[5184];
 	static unsigned char libnetCd[60];
 	static unsigned char m_isinit;

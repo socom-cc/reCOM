@@ -1326,7 +1326,7 @@ void CZOnlineLobby::Init()
 }
 
 /* @socom-skeleton stub Open__13CZOnlineLobbyFv */
-void CZOnlineLobby::Open()
+bool CZOnlineLobby::Open()
 {
 }
 

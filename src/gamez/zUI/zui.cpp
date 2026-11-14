@@ -384,6 +384,7 @@ void Unload_MissionReader(); /* zanim_menu.cpp */
 void TickSkb(float); /* zui_skb.cpp */
 bool SkbHandleInput(const CPad &, CGameMenu *); /* zui_skb.cpp (0x3a7510) */
 void PrepSkbsForDisplay(zdb::CNode *, zdb::CTextureRelocMgr *, C2DFont *); /* zui_skb.cpp */
+void InvalidateSkbsDisplay(); /* zui_skb.cpp (0x3a78c0) */
 void UiSetCounterSpeedFactor(float); /* zui_2d.cpp */
 void UiSetTtySpeedFactor(float); /* zui_2d.cpp */
 
@@ -459,7 +460,7 @@ void CGameMenu::Clear()
 	m_pBackplaneNode = NULL;
 	m_nodeTop.DeleteChild(m_pForeplaneNode);
 	g_pFaderNode = NULL;
-	/* port: not written - InvalidateSkbsDisplay() (0x383700) */
+	InvalidateSkbsDisplay(); /* 0x383700: the keyboards forget the foreplane's nodes, delete their key buttons */
 
 	if (m_pForeplaneNode != NULL)
 		delete m_pForeplaneNode;
@@ -473,10 +474,14 @@ void CGameMenu::Clear()
 
 	/* texture buffer 0 forgets its textures and chain */
 	zdb::CGSTexBuffer* buffer = reinterpret_cast<zdb::CGSTexBuffer*>(zdb::CTexManager::m_texmanager[0]); /* port: see doAddBuffer */
+	buffer->m_chainp = NULL;
 	buffer->m_dyntex_list.m_tex_list.clear();
 	buffer->m_dyntex_list.m_pal_list.clear();
+	/* 0x383728: the packet buffer (+0x1c) is emptied and its storage freed (clear, then a swap
+	 * with an empty vector, as the ELF does with the two lists too) */
+	buffer->m_pktbuf.clear();
+	std::vector<_word128>().swap(buffer->m_pktbuf);
 	buffer->m_chainp = NULL;
-	/* port: not written - the buffer's +0x1c vector is emptied too (0x383728) */
 
 	_font.m_charlist.clear();
 	_font.m_pTexHandle = NULL;
@@ -549,7 +554,7 @@ void CGameMenu::Clear()
 	_vecModelInstances.clear();
 	g_pTtySound = NULL;
 	zUIScheduler.ClearFreeList(true);
-	/* port: not written - theUIVarManager.CollectGarbage() (0x383ac0) */
+	theUIVarManager.CollectGarbage(); /* 0x383a90 */
 	m_has_mpeg_background = false;
 }
 

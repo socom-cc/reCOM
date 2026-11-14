@@ -1674,11 +1674,30 @@ void CTeleType::SetString(const char *string)
 }
 
 /* @socom-skeleton stub ParseZAnimCmd__9CTeleTypeFP5_zrdr */
-C2DAnimCmdHdr * CTeleType::ParseZAnimCmd(_zrdr *)
+C2DAnimCmdHdr * CTeleType::ParseZAnimCmd(_zrdr *reader)
 {
-	/* port: not written - 0x3904e0 builds CONTINUE / CAPTION command headers; the port
-	 * loads compiled scripts, so their headers come from the ZAR */
-	return NULL;
+	/* 0x3904e0 (text path; retail anims come compiled): CONTINUE (a tag) or CAPTION "<text>"
+	 * (the text in the current anim's name table) as an 8-byte timeless command */
+	if (zrdr_findtag(reader, "CONTINUE") != NULL)
+	{
+		C2DAnimCmdHdr* cmd = (C2DAnimCmdHdr*)_calloc(1, 8, "zui_2d.cpp", 1179);
+		cmd->header.timeless = 1;
+		cmd->header.data_size = 8;
+		cmd->m_command_type = GetZAnimCmdType("CONTINUE");
+		return cmd;
+	}
+
+	char* caption = zrdr_findstring(reader, "CAPTION");
+
+	if (caption == NULL)
+		return NULL;
+
+	C2DAnimCmdHdr* cmd = (C2DAnimCmdHdr*)_calloc(1, 8, "zui_2d.cpp", 3258);
+	cmd->header.timeless = 1;
+	cmd->header.data_size = 8;
+	cmd->m_command_type = GetZAnimCmdType("CAPTION");
+	cmd->m_argument_index = ZAnim.m_CurAnim->AddName(caption);
+	return cmd;
 }
 
 /* @socom-skeleton stub TickZAnimCmd__9CTeleTypeFP14_zanim_cmd_hdrPfPb */

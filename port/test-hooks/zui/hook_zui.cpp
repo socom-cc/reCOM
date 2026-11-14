@@ -13,8 +13,15 @@
  *    MemCheckSave), then DOWN x (rows + 1), UP x 4, TRIANGLE (CancelLoadGame hides it); dlgPBMenu's
  *    no-memory-card pop-up is closed with CROSS first; then
  *    back to dlgMenu, then dlgNotEnoughSpace (WRAPPEDTEXT) for 150 reads and back.
- *  - SOCOM_HOOK_SKB: after the lists, the soft keyboard is raised on dlgMenu (UiGetTextFromUser's
- *    path is the anims'; here the hook calls the keyboard entry the UI command uses).
+ *  - SOCOM_HOOK_SKB (socom-port-mod-skb; instead of the lists): the soft keyboard, raised by the
+ *    game's own anims: dlgMenu -> dlgNetPlayerName (an online screen whose player-name button runs
+ *    SetSkbPurpose + GetTextInput on the MPPLAYERNAME keyboard; nothing online runs before its
+ *    connect button), CROSS on the name button; on the keyboard R1 (Caps Lock), RIGHT, CROSS ("S"),
+ *    R1, LEFT, CROSS ("a"), RIGHT x2, CROSS ("d"), SQUARE (backspace), CROSS ("d"), CIRCLE (accept:
+ *    PLAYERNAMEVAR = "Sad", ON_SKB_APPLY); later CROSS on the active button (the keyboard again),
+ *    CROSS ("a"), TRIANGLE (cancel: the variable keeps its text); TRIANGLE back to dlgMenu.
+ *    Traced every 10 reads on that screen: the keyboard node, skb_done, the text on the keyboard,
+ *    PLAYERNAMEVAR / PLAYERPASSWORD.
  * Each step is traced (HOOK:) with the heap. */
 #include <string>
 #define protected public
@@ -23,6 +30,7 @@
 #include "gamez/zUI/zui.h"
 #include "gamez/zAnim/zanim.h"
 #include "gamez/zReader/zrdr_local.h"
+#include "gamez/zValve/zvalve.h"
 #include <string.h>
 #include <stdio.h>
 #include <malloc.h>
@@ -37,7 +45,8 @@ extern "C" int __real_scePadRead(int port, int slot, unsigned char *rdata);
 
 namespace
 {
-enum { B_UP = 0x1000, B_DOWN = 0x4000, B_CROSS = 0x0040, B_TRIANGLE = 0x0010 };
+enum { B_UP = 0x1000, B_DOWN = 0x4000, B_CROSS = 0x0040, B_TRIANGLE = 0x0010, B_RIGHT = 0x2000, B_LEFT = 0x8000,
+    B_R1 = 0x0008, B_CIRCLE = 0x0020, B_SQUARE = 0x0080 };
 
 struct Press
 {
@@ -157,8 +166,72 @@ void trace_list(CGameMenu *menu)
         mine ? (int)mine->type : -1, mine ? (unsigned)mine->m_attached_items.size() : 0, var, var ? (int)var->type : -1,
         var ? (unsigned)var->m_attached_items.size() : 0);
 }
+#ifdef SOCOM_HOOK_SKB
+const char *var_text(const char *name)
+{
+    CUIVariable *var = theUIVarManager.Find(name);
+
+    if (var == NULL)
+        return "(none)";
+
+    return var->type == ZRDR_STRING && var->string != NULL ? var->string : "(not a string)";
+}
+
+/* the keyboard's node (named after it, under the foreplane) and the text it shows (its first
+ * CRenderableString child is the typed text, the second the purpose) */
+void trace_skb(CGameMenu *menu)
+{
+    zdb::CNode *node = menu->m_nodeTop.FindChild("MPPLAYERNAME", true);
+    const char *texts[2] = { "-", "-" };
+    int n = 0;
+
+    for (unsigned i = 0; node != NULL && i < node->m_child.size() && n < 2; i++)
+    {
+        zdb::CVisual *visual = node->m_child[i]->GetFirstVisual();
+        C2DVisual *visual2d = visual != NULL ? visual->Get2DVisual() : NULL;
+        CRenderableString *str = visual2d != NULL ? dynamic_cast<CRenderableString *>(visual2d->m_2d) : NULL;
+
+        if (str != NULL)
+        {
+            texts[n] = str->GetString() != NULL ? str->GetString() : "(null)";
+            n++;
+        }
+    }
+
+    CValve *done = CValve::GetByName("skb_done");
+    SOCOM_PORT_TRACE("HOOK: read %u skb node %p active %d children %u, skb_done %d, text \"%s\" purpose \"%s\", "
+        "PLAYERNAMEVAR \"%s\" PLAYERPASSWORD \"%s\"", g_reads, node, node != NULL ? (int)node->m_active : -1,
+        node != NULL ? (unsigned)node->m_child.size() : 0, done != NULL ? (int)done->m_value : -1, texts[0], texts[1],
+        var_text("PLAYERNAMEVAR"), var_text("PLAYERPASSWORD"));
+}
+
+/* dlgNetPlayerName: K = the name button's CROSS; the keyboard opens with the highlight on A */
+void skb_test()
+{
+    unsigned int k = g_reads;
+    queue(k, B_CROSS);
+    queue(k + 40, B_R1);
+    queue(k + 50, B_RIGHT);
+    queue(k + 60, B_CROSS);   /* S (Caps Lock) */
+    queue(k + 70, B_R1);
+    queue(k + 80, B_LEFT);
+    queue(k + 90, B_CROSS);   /* a */
+    queue(k + 100, B_RIGHT);
+    queue(k + 110, B_RIGHT);
+    queue(k + 120, B_CROSS);  /* d */
+    queue(k + 130, B_SQUARE); /* backspace */
+    queue(k + 140, B_CROSS);  /* d */
+    queue(k + 260, B_CIRCLE); /* accept */
+    queue(k + 360, B_CROSS);  /* the active button: the keyboard again */
+    queue(k + 400, B_CROSS);  /* a */
+    queue(k + 440, B_TRIANGLE); /* cancel */
+    queue(k + 540, B_TRIANGLE); /* back */
+}
+#endif
+
 /* step 0 dlgMenu -> 1 dlgDebriefing list -> 2 -> 3 dlgPBMenu list -> 4 -> 5 dlgMenu -> 6 dlgNotEnoughSpace
- * (wrapped text) -> 7 dlgMenu -> 8 done */
+ * (wrapped text) -> 7 dlgMenu -> 8 done; SOCOM_HOOK_SKB: 0 dlgMenu -> 20 dlgNetPlayerName -> 21 keyboard
+ * test -> 22 dlgMenu (done) */
 void watch()
 {
     CGameMenu *menu = UiGetCurMenu();
@@ -180,6 +253,35 @@ void watch()
 
     if ((g_step == 2 || g_step == 4) && t % 10 == 5)
         trace_list(menu);
+
+#ifdef SOCOM_HOOK_SKB
+    if (g_step == 21 && t % 10 == 5)
+        trace_skb(menu);
+
+    if (g_step == 0 && name == "dlgMenu.rdr" && t == 60)
+    {
+        menu_command(5, "dlgNetPlayerName.rdr");
+        g_step = 20;
+    }
+    else if (g_step == 20 && name == "dlgNetPlayerName.rdr" && t == 60)
+    {
+        heap("before the keyboard");
+        skb_test();
+        g_step = 21;
+    }
+    else if (g_step == 21 && name == "dlgNetPlayerName.rdr" && (t == 400 || t == 600))
+    {
+        heap("keyboard");
+    }
+    else if (g_step == 21 && name == "dlgMenu.rdr" && t == 60)
+    {
+        SOCOM_PORT_TRACE("HOOK: read %u keyboard done", g_reads);
+        heap("keyboard done");
+        g_step = 22;
+    }
+
+    return;
+#endif
 
     if (g_step == 0 && name == "dlgMenu.rdr" && t == 60)
     {

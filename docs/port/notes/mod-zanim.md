@@ -306,3 +306,50 @@ pad_pop.txt, hook_m8.cpp = the second part's m8 hook, on2-on4.rep.txt, asm dumps
   ELF (caption, scale, font, colour, then width / spacing / height at +0x24); the port's derives
   from CDlgObjSpec. CPopUpDialog::ParseZAnimCmd 0x387c00 (text path).
 - Step 5 not done: FIRE_WEAPON, the SI scripts and ADD / DELETE_CHILD still ran in no traced run.
+
+# Part 4 (2026-11-14, socom-port-mod-skb): network configuration, lobby logout, network init
+
+Scratch `build/port/boot-mod-skb/` (NOTES.md, asm dump `asm_net.txt`). Changed files: `zAnim/zanim_menu.cpp`; in
+zNetwork (clean at HEAD 0266b548, declarations and signatures only, no bodies): `znet.h`, `zNetCnf.cpp`,
+`zNetMedius.cpp`; new `port/compat/include/netcnfif.h`.
+
+## Result
+- `survey.py gamez/zAnim`: 8 empty fences (2,540 B, the UINet* commands) -> 0; placeholder bodies (`return true;
+  /* port: stub - not written */`) 14 -> 0; total stub 0. All of it is online only: written, untested.
+- The m8, front-end, round-trip and default runs of the zUI part 3 note (same tree) cover this file too.
+
+## Written (ELF addresses)
+- Network configuration (the online setup screens): UINetCnfInit 0x1d20c0, UINetCnfUninit 0x1d20a0, UINetCnfOpen
+  0x1d2050 (one handle, HCnf, opened then ticked), UINetCnfClose 0x1d2020, UINetCnfCount 0x1d1fa0,
+  UINetCnfCurrCombo 0x1d1f20, UINetCnfSelectCombo 0x1d1ed0, UINetCnfGetDispNames 0x1d1d50 (NetDispName,
+  DevDispName, NetDevDispName, IfcDispName), UINetGetInterfaceList 0x1d1b10 (UNINSTALLED_ / INSTALLED_ /
+  NETDEVICE_LIST of "<vendor>/<product>"), UINetAddDev 0x1d1a10 (then MACAddr), UINetAddIfc 0x1d19a0,
+  UINetAddCombo 0x1d1930, UINetSaveDev 0x1d18c0, UINetGetDevIndex 0x1d1840, UINetSaveIfc 0x1d1400 (DHCP / PPPoE /
+  static by IP_ADDRESSING_TYPE into the SDK's sceNetcnfifData), UINetUpdateIFCVars 0x1d1170, UINetGetDevInfo
+  0x1d1080 / UINetGetIFCInfo 0x1d0f90 (pDevInfo / pIFCInfo, DEV_ / IFC_COUNT and _NAME), UINetSaveCombo 0x1d0ec0
+  ("Combination<n + 1>"), UINetCnfDeleteAll 0x1d0e50. The start / tick commands keep their `ticking` statics: the
+  first call starts (0), later calls tick until done (1).
+- UILobbyLogout 0x1d4f70, UIInitNetwork 0x1d5530 (Medius: the lobby opens and takes UILobbyEventHandler; else a
+  direct DME game: net game, DME init, connect, join, network game init).
+- OnCloseAndSwitch 0x1d70a0 / OnReplayMission 0x1d6ba0 network parts: the session master goes to the menus (game
+  over) or starts the next round (major state NEWROUND) and sends the game state (UpdateLocalGame).
+
+## Declarations corrected (from the ELF callers' use of a0 / v0)
+- `CNetCnf`: every member static (the commands pass the handle in a0, no this); return types bool (Init, Uninit,
+  OpenTick, ReadInterfaceList(Tick), AddDev / AddIFC / AddCombo (Tick), SaveDev / SaveIFC / SaveCombo (Tick),
+  DeleteAll(Tick)), int (NumCombos, NumIFC, GetDefaultCombo), sceNetcnfifList* (GetIFC, GetDev), sceNetcnfifData*
+  (GetEnvData, GetComboData), CNetCnfInterface* (GetInterfaceEntry; a new 524-byte struct from its stride: flags
+  +0x4, installed +0x8, vendor +0xc, product +0x10c). The zNetCnf.cpp bodies stay empty stubs.
+- `CZOnlineLobby::Open` returns bool; `m_event_handler` is `unsigned char (*)(const char *, const char *)` (the
+  handler UIInitNetwork stores; the other callers pass 0 / NULL); UILobbyLogout is a friend (reads `started`).
+- `port/compat/include/netcnfif.h`: sceNetcnfifList (520 bytes) and sceNetcnfifData (the SDK's libnetcnfif types;
+  ps2sdk has none), with the member offsets the commands use.
+
+## ELF quirks kept
+- UINetUpdateIFCVars compares its argument with "WRITE" and does nothing; UINetSaveIfc copies variables unchecked
+  (strcpy from NULL when one is not a string); UINetCnfGetDispNames sets DevDispName to "" when the net name is
+  empty; UILobbyLogout reads the bool `started` as a state byte (0: done, 18: nothing, else Logout); UIInitNetwork's
+  DME connect / join results are not read.
+
+## Not written / next
+- Everything in CNetCnf and CZOnlineLobby these commands call (zNetwork's worker).

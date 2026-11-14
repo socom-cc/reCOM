@@ -288,10 +288,42 @@ void CUIVarManager::Reset()
 /* @socom-skeleton stub CollectGarbage__13CUIVarManagerFv */
 void CUIVarManager::CollectGarbage()
 {
-	/* port: not written - 0x39ddf0 switches m_currtab, re-creates every name and value
-	 * string in the new table (_Refresh), clears the old one (CSTable::Clear, a port stub)
-	 * and packs the array values into m_packbuf (zrdr_pack, a port stub). Without it the
-	 * strings stay in the current table. */
+	/* 0x39ddf0 (CGameMenu::Clear, Reset): the other string table becomes current; every name
+	 * and value string is made again in it (_Refresh) and the old table is cleared; then each
+	 * array value is packed into the current table's 16 KB buffer (its heap nodes freed, unless
+	 * it was packed already) and marked packed. ELF quirk kept: a value that does not fit
+	 * (zrdr_pack gives 0) takes the node at the buffer's next place as it is. */
+	s32 old = m_currtab;
+	m_currtab = old == 0 ? 1 : 0;
+
+	for (iterator it = begin(); it != end(); ++it)
+	{
+		it->m_varname = m_stab[m_currtab].CreateString(it->m_varname);
+		_Refresh(&*it, &m_stab[m_currtab]);
+	}
+
+	m_stab[old].Clear();
+	char* buffer = m_packbuf[m_currtab];
+	u32 left = sizeof(m_packbuf[0]);
+
+	for (iterator it = begin(); it != end(); ++it)
+	{
+		if (it->type != ZRDR_ARRAY)
+			continue;
+
+		u32 used = zrdr_pack(&*it, buffer, left);
+
+		if (!it->packed)
+			it->DeleteChildren();
+
+		left -= used;
+		_zrdr* packed = reinterpret_cast<_zrdr*>(buffer);
+		it->type = packed->type;
+		it->length = packed->length;
+		it->integer = packed->integer;
+		buffer += used;
+		it->packed = true;
+	}
 }
 
 /* @socom-skeleton stub FindDormantVar__13CUIVarManagerFPCcP5_zrdr15UIVAR_LONGEVITY */

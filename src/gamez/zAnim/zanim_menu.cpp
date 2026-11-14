@@ -277,6 +277,7 @@ void SendChatMsg(const char *); /* fts_remote.cpp (0x202e70; UISendChatText) */
 void NetSendRequestTeamSwitch(int); /* fts_remote.cpp (UISwitchSides) */
 bool DMEJoinGameServer(); /* fts_network_dme.cpp (0x201830; UIJoinGameServer) */
 bool DMEConnectToGameServer(); /* fts_network_dme.cpp (UIConnectToGameServer) */
+void DMEinit(); /* fts_network_dme.cpp (UIInitNetwork) */
 unsigned char UiGetTextFromUser(C2DAnimCmdHdr*, float*); /* zui_skb.cpp (0x3a71c0) */
 unsigned char UiSetSkbPurpose(C2DAnimCmdHdr*, float*); /* zui_skb.cpp (0x3a7150) */
 namespace {
@@ -517,8 +518,9 @@ unsigned char OnCloseAndSwitch(C2DAnimCmdHdr *cmd, float *)
 	/* 0x1d70a0 (the debrief's TRIANGLE / X): the named design (INPUT_STRING: the anim's
 	 * first argument) becomes the front end's default menu (theGame.m_menuState
 	 * m_DefaultMenu, 64 chars), the exit state pops (index 0) and the game switches to the
-	 * menu state. Network: the session master's game ended flag picks the same or major
-	 * state 5 with UpdateLocalGame (port: not written - no network play). */
+	 * menu state. Network: only the session master acts - a game that is over goes to the
+	 * menus the same way, else the next round starts (major state NEWROUND); either way the
+	 * game state is sent (UpdateLocalGame). The network part is written, untested. */
 	const char* name = ZAnim.m_CurAnim->GetName(cmd->m_argument_index);
 
 	if (name != NULL && strcmp(name, "INPUT_STRING") == 0)
@@ -530,6 +532,22 @@ unsigned char OnCloseAndSwitch(C2DAnimCmdHdr *cmd, float *)
 	{
 		theGame.Pop(0);
 		theGame.Switch(&theGame.m_menuState, 0);
+	}
+	else if (theNetwork.m_bSessionMaster)
+	{
+		CZNetGame* game = theMission.m_pNetGame;
+
+		if (game->m_game_over)
+		{
+			theGame.Pop(0);
+			theGame.Switch(&theGame.m_menuState, 0);
+		}
+		else
+		{
+			game->MPMajorGameState(CZNetGame::MP_MAJOR_NEWROUND);
+		}
+
+		CZGameState::UpdateLocalGame(game);
 	}
 
 	return true;
@@ -657,10 +675,18 @@ namespace {
 unsigned char OnReplayMission(C2DAnimCmdHdr *, float *)
 {
 	/* 0x1d6ba0 (the failed debrief's X): single player pops the exit state (index 1: the
-	 * core state's OnPop reloads the mission). Network: the session master moves the game
-	 * to major state 5 (port: not written - no network play). */
+	 * core state's OnPop reloads the mission). Network: the session master starts a new round
+	 * (major state NEWROUND) and sends the game state (written, untested). */
 	if (!theNetwork.m_bNetwork)
+	{
 		theGame.Pop(1);
+	}
+	else if (theNetwork.m_bSessionMaster)
+	{
+		CZNetGame* game = theMission.m_pNetGame;
+		game->MPMajorGameState(CZNetGame::MP_MAJOR_NEWROUND);
+		CZGameState::UpdateLocalGame(game);
+	}
 
 	return true;
 }
@@ -1117,7 +1143,24 @@ unsigned char UILobbyEventHandler(const char *anim, const char *arg)
 /* @socom-skeleton stub UIInitNetwork__FP13C2DAnimCmdHdrPf */
 unsigned char UIInitNetwork(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d5530: with Medius on, the lobby opens and takes UILobbyEventHandler (the result is
+	 * the lobby's); else a direct (DME) network game: networked, the net game, DME up, the game
+	 * server connected and joined (results unused), the network game started. Written,
+	 * untested (online only) */
+	if (theNetwork.m_bMediusEnabled)
+	{
+		bool opened = theLobby.Open();
+		theLobby.m_event_handler = UILobbyEventHandler;
+		return opened;
+	}
+
+	theNetwork.m_bNetwork = true;
+	theMission.CreateNetGame();
+	DMEinit();
+	DMEConnectToGameServer();
+	DMEJoinGameServer();
+	ftsNetworkGameInit();
+	return true;
 }
 
 /* @socom-skeleton stub UIUnInitNetwork__FP13C2DAnimCmdHdrPf */
@@ -1297,7 +1340,17 @@ unsigned char UILobbyLogin(C2DAnimCmdHdr *, float *)
 /* @socom-skeleton stub UILobbyLogout__FP13C2DAnimCmdHdrPf */
 unsigned char UILobbyLogout(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d4f70: a lobby that never started is done at once (1); else it logs out (0), unless
+	 * its state byte (+0x60, DWARF 'started') is 18. Written, untested (online only) */
+	unsigned char state = *reinterpret_cast<unsigned char*>(&theLobby.started);
+
+	if (state == 0)
+		return true;
+
+	if (state != 18)
+		theLobby.Logout();
+
+	return false;
 }
 
 /* @socom-skeleton stub UILobbyBailout__FP13C2DAnimCmdHdrPf */
@@ -1951,7 +2004,7 @@ unsigned char UIPlayMPEG(C2DAnimCmdHdr *cmd, float *)
 }
 
 /* @socom-skeleton stub HCnf */
-static int HCnf;
+static void* HCnf; /* the open network-configuration handle (UINetCnfOpen / Close) */
 
 /* @socom-skeleton stub UIGetClan__FP13C2DAnimCmdHdrPf */
 unsigned char UIGetClan(C2DAnimCmdHdr *, float *)
@@ -2251,104 +2304,332 @@ unsigned char UIAbortLoad(C2DAnimCmdHdr *cmd, float *)
 /* @socom-skeleton stub UINetCnfInit__FP13C2DAnimCmdHdrPf */
 unsigned char UINetCnfInit(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d20c0. The network-configuration commands (to 0x1d0e50) are written, untested: only
+	 * the online setup screens run them, and CNetCnf (zNetwork) is not written. */
+	return CNetCnf::Init(false);
 }
 
 /* @socom-skeleton stub UINetCnfUninit__FP13C2DAnimCmdHdrPf */
 unsigned char UINetCnfUninit(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d20a0 */
+	return CNetCnf::Uninit();
 }
 
 /* @socom-skeleton stub UINetCnfOpen__FP13C2DAnimCmdHdrPf */
-unsigned char UINetCnfOpen(C2DAnimCmdHdr *, float *)
+unsigned char UINetCnfOpen(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d2050: the configuration file named by the argument is opened (one handle, HCnf),
+	 * then ticked until it is read */
+	if (HCnf == NULL)
+	{
+		HCnf = CNetCnf::Open(ZAnim.m_CurAnim->GetName(cmd->m_argument_index));
+		return false;
+	}
+
+	return CNetCnf::OpenTick(HCnf);
 }
 
 /* @socom-skeleton stub UINetCnfClose__FP13C2DAnimCmdHdrPf */
 unsigned char UINetCnfClose(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d2020 */
+	CNetCnf::Close(HCnf);
+	HCnf = NULL;
+	return true;
 }
 
 /* @socom-skeleton stub UINetCnfCount__FP13C2DAnimCmdHdrPf */
-unsigned char UINetCnfCount(C2DAnimCmdHdr *, float *)
+unsigned char UINetCnfCount(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d1fa0: the valve named by the argument (TEMPORARY) takes the number of combinations */
+	CValve* valve = CValve::Create(ZAnim.m_CurAnim->GetName(cmd->m_argument_index), VALVE_TYPE::VTYPE_TEMP);
+
+	if (valve != NULL)
+		UiSetValve(valve, (u32)CNetCnf::NumCombos(HCnf));
+
+	return true;
 }
 
 /* @socom-skeleton stub UINetCnfCurrCombo__FP13C2DAnimCmdHdrPf */
-unsigned char UINetCnfCurrCombo(C2DAnimCmdHdr *, float *)
+unsigned char UINetCnfCurrCombo(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d1f20: the valve takes the default combination, 1-based */
+	CValve* valve = CValve::Create(ZAnim.m_CurAnim->GetName(cmd->m_argument_index), VALVE_TYPE::VTYPE_TEMP);
+
+	if (valve != NULL)
+		UiSetValve(valve, (u32)(CNetCnf::GetDefaultCombo(HCnf) + 1));
+
+	return true;
 }
 
 /* @socom-skeleton stub UINetCnfSelectCombo__FP13C2DAnimCmdHdrPf */
-unsigned char UINetCnfSelectCombo(C2DAnimCmdHdr *, float *)
+unsigned char UINetCnfSelectCombo(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d1ed0: the combination the valve names (1-based) is selected */
+	CValve* valve = CValve::Create(ZAnim.m_CurAnim->GetName(cmd->m_argument_index), VALVE_TYPE::VTYPE_TEMP);
+
+	if (valve != NULL)
+		CNetCnf::SelectCombo(HCnf, (s32)(u16)valve->m_value - 1);
+
+	return true;
 }
 
 /* @socom-skeleton stub UINetCnfGetDispNames__FP13C2DAnimCmdHdrPf */
-unsigned char UINetCnfGetDispNames(C2DAnimCmdHdr *, float *)
+unsigned char UINetCnfGetDispNames(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d1d50: the display names of the combination the valve names (1-based): NetDispName,
+	 * DevDispName, IfcDispName and NetDevDispName ("<net>/<dev>"; ELF quirk: when the net name
+	 * is empty, DevDispName is set to "" instead) */
+	CValve* valve = CValve::Create(ZAnim.m_CurAnim->GetName(cmd->m_argument_index), VALVE_TYPE::VTYPE_TEMP);
+	s32 combo = (s32)(u16)valve->m_value - 1;
+	char both[80];
+	char* net = CNetCnf::GetNetDisplayName(HCnf, combo);
+	*theUIVarManager.Add("NetDispName", NULL, UIVL_TEMPORARY) = net;
+	strncpy(both, net, sizeof(both));
+	char* dev = CNetCnf::GetDevDisplayName(HCnf, combo);
+	CUIVariable* devVar = theUIVarManager.Add("DevDispName", NULL, UIVL_TEMPORARY);
+	*devVar = dev;
+
+	if (both[0] != '\0')
+	{
+		strcat(both, "/");
+		strcat(both, dev);
+		*theUIVarManager.Add("NetDevDispName", NULL, UIVL_TEMPORARY) = both;
+	}
+	else
+	{
+		*devVar = "";
+	}
+
+	*theUIVarManager.Add("IfcDispName", NULL, UIVL_TEMPORARY) = CNetCnf::GetIfcDisplayName(HCnf, combo);
+	return true;
 }
 
 /* @socom-skeleton stub UINetGetInterfaceList__FP13C2DAnimCmdHdrPf */
 unsigned char UINetGetInterfaceList(C2DAnimCmdHdr *, float *)
 {
+	/* 0x1d1b10: the interface list is read (ticked until done), then the UI lists are made of
+	 * "<vendor>/<product>": UNINSTALLED_NETDEVICE_LIST / INSTALLED_NETDEVICE_LIST by the
+	 * entry's installed word, and NETDEVICE_LIST all of them */
 	/* @socom-skeleton stub ticking$3513 */
 	static unsigned char ticking;
+
+	if (!ticking)
+	{
+		ticking = CNetCnf::ReadInterfaceList(HCnf);
+		return false;
+	}
+
+	if (!CNetCnf::ReadInterfaceListTick(HCnf))
+		return false;
+
+	CUIVariable* uninstalled = theUIVarManager.Add("UNINSTALLED_NETDEVICE_LIST", NULL, UIVL_TEMPORARY);
+	CUIVariable* installed = theUIVarManager.Add("INSTALLED_NETDEVICE_LIST", NULL, UIVL_TEMPORARY);
+	CUIVariable* all = theUIVarManager.Add("NETDEVICE_LIST", NULL, UIVL_TEMPORARY);
+	s32 count = CNetCnf::InterfaceCount(HCnf);
+	CRdrEditor uninstalledRdr;
+	CRdrEditor installedRdr;
+	CRdrEditor allRdr;
+	uninstalledRdr.push(NULL);
+	installedRdr.push(NULL);
+	allRdr.push(NULL);
+
+	for (s32 i = 0; i < count; i++)
+	{
+		CNetCnfInterface* entry = CNetCnf::GetInterfaceEntry(HCnf, i);
+		char name[128];
+		sprintf(name, "%s/%s", entry->m_vendor, entry->m_product);
+
+		if (entry->m_installed == 0)
+			uninstalledRdr.addstringnode(name);
+		else
+			installedRdr.addstringnode(name);
+
+		allRdr.addstringnode(name);
+	}
+
+	uninstalledRdr.pop();
+	installedRdr.pop();
+	allRdr.pop();
+	uninstalled->Set(&uninstalledRdr);
+	installed->Set(&installedRdr);
+	all->Set(&allRdr);
+	ticking = false;
+	return true;
 }
 
 /* @socom-skeleton stub UINetAddDev__FP13C2DAnimCmdHdrPf */
-unsigned char UINetAddDev(C2DAnimCmdHdr *, float *)
+unsigned char UINetAddDev(C2DAnimCmdHdr *cmd, float *)
 {
+	/* 0x1d1a10: a device configuration for the argument's interface (INPUT_STRING: the anim's
+	 * first argument) is added, ticked until done; then MACAddr shows its MAC address */
 	/* @socom-skeleton stub ticking$3532 */
 	static unsigned char ticking;
+
+	if (!ticking)
+	{
+		ticking = CNetCnf::AddDev(HCnf, UiArgument(cmd));
+		return false;
+	}
+
+	if (!CNetCnf::AddDevTick(HCnf))
+		return false;
+
+	char mac[128];
+	*theUIVarManager.Add("MACAddr", NULL, UIVL_TEMPORARY) = CNetCnf::GetMACAddr(HCnf, mac, sizeof(mac));
+	ticking = false;
+	return true;
 }
 
 /* @socom-skeleton stub UINetAddIfc__FP13C2DAnimCmdHdrPf */
 unsigned char UINetAddIfc(C2DAnimCmdHdr *, float *)
 {
+	/* 0x1d19a0: start, then tick until done */
 	/* @socom-skeleton stub ticking$3546 */
 	static unsigned char ticking;
+
+	if (!ticking)
+	{
+		ticking = CNetCnf::AddIFC(HCnf);
+		return false;
+	}
+
+	if (!CNetCnf::AddIFCTick(HCnf))
+		return false;
+
+	ticking = false;
+	return true;
 }
 
 /* @socom-skeleton stub UINetAddCombo__FP13C2DAnimCmdHdrPf */
 unsigned char UINetAddCombo(C2DAnimCmdHdr *, float *)
 {
+	/* 0x1d1930: start, then tick until done */
 	/* @socom-skeleton stub ticking$3557 */
 	static unsigned char ticking;
+
+	if (!ticking)
+	{
+		ticking = CNetCnf::AddCombo(HCnf);
+		return false;
+	}
+
+	if (!CNetCnf::AddComboTick(HCnf))
+		return false;
+
+	ticking = false;
+	return true;
 }
 
 /* @socom-skeleton stub UINetSaveDev__FP13C2DAnimCmdHdrPf */
 unsigned char UINetSaveDev(C2DAnimCmdHdr *, float *)
 {
+	/* 0x1d18c0: start, then tick until done */
 	/* @socom-skeleton stub ticking$3568 */
 	static unsigned char ticking;
+
+	if (!ticking)
+	{
+		ticking = CNetCnf::SaveDev(HCnf);
+		return false;
+	}
+
+	if (!CNetCnf::SaveDevTick(HCnf))
+		return false;
+
+	ticking = false;
+	return true;
 }
 
 /* @socom-skeleton stub UINetGetDevIndex__FP13C2DAnimCmdHdrPf */
-unsigned char UINetGetDevIndex(C2DAnimCmdHdr *, float *)
+unsigned char UINetGetDevIndex(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d1840: the valve named by the argument takes the device index */
+	CValve* valve = CValve::Create(ZAnim.m_CurAnim->GetName(cmd->m_argument_index), VALVE_TYPE::VTYPE_TEMP);
+	UiSetValve(valve, (u32)CNetCnf::GetDevIndex(HCnf));
+	return true;
+}
+
+/* port: no symbol - the UI variable's text, NULL when it is not a string (the commands' inline read) */
+static const char* UiVarString(const char* name)
+{
+	CUIVariable* var = theUIVarManager.Add(name, NULL, UIVL_TEMPORARY);
+	return var->type == ZRDR_STRING ? var->string : NULL;
 }
 
 /* @socom-skeleton stub UINetSaveIfc__FP13C2DAnimCmdHdrPf */
 unsigned char UINetSaveIfc(C2DAnimCmdHdr *, float *)
 {
+	/* 0x1d1400: the interface settings (from the selected interface entry, IP_ADDRESSING_TYPE:
+	 * 0 DHCP with DHCP_HOSTNAME, 1 PPPoE with PPPOE_USERNAME / PASSWORD and the DNS servers, 2
+	 * static IP_ADDRESS / NETMASK / DEFAULT_GATEWAY and DNS) are saved under IFC_NAME, ticked
+	 * until done. ELF quirk kept: the strings are copied unchecked (strcpy from NULL when a
+	 * variable is not a string) */
 	/* @socom-skeleton stub ticking$3582 */
 	static unsigned char ticking;
+
+	if (ticking)
+	{
+		if (!CNetCnf::SaveIFCTick(HCnf))
+			return false;
+
+		ticking = false;
+		return true;
+	}
+
+	sceNetcnfifData* data = CNetCnf::GetEnvData(HCnf);
+	CValve* addressing = CValve::Create("IP_ADDRESSING_TYPE", VALVE_TYPE::VTYPE_TEMP);
+	CUIVariable* ifcName = theUIVarManager.Add("IFC_NAME", NULL, UIVL_TEMPORARY);
+	CValve* index = CValve::Create("INTERFACE_INDEX", VALVE_TYPE::VTYPE_TEMP);
+	CNetCnfInterface* entry = CNetCnf::GetInterfaceEntry(HCnf, (u16)index->m_value);
+	data->dialing_type = 3;
+
+	if (entry->m_flags & 0x10)
+		data->ifc_type = (entry->m_flags & 0x80) ? 3 : 1;
+	else
+		data->ifc_type = 2;
+
+	data->ifc_idle_timeout = 1;
+	data->phy_config = 1;
+	strcpy(data->vendor, entry->m_vendor);
+	strcpy(data->product, entry->m_product);
+
+	switch ((u16)addressing->m_value)
+	{
+	case 0: /* DHCP */
+		strcpy(data->dhcp_host_name, UiVarString("DHCP_HOSTNAME"));
+		data->dhcp = 1;
+		data->pppoe = 0;
+		break;
+	case 1: /* PPPoE */
+		strcpy(data->auth_name, UiVarString("PPPOE_USERNAME"));
+		strcpy(data->auth_key, UiVarString("PPPOE_PASSWORD"));
+		strcpy(data->dns1_address, UiVarString("PRIMARY_DNS"));
+		strcpy(data->dns2_address, UiVarString("SECONDARY_DNS"));
+		data->dhcp = 0;
+		data->pppoe = 1;
+		break;
+	case 2: /* static */
+		strcpy(data->address, UiVarString("IP_ADDRESS"));
+		strcpy(data->netmask, UiVarString("NETMASK"));
+		strcpy(data->dns1_address, UiVarString("PRIMARY_DNS"));
+		strcpy(data->dns2_address, UiVarString("SECONDARY_DNS"));
+		strcpy(data->gateway, UiVarString("DEFAULT_GATEWAY"));
+		data->dhcp = 0;
+		data->pppoe = 0;
+		break;
+	}
+
+	ticking = CNetCnf::SaveIFC(HCnf, data, ifcName->type == ZRDR_STRING ? ifcName->string : NULL);
+	return false;
 }
 
 /* @socom-skeleton stub pDevInfo */
-int pDevInfo;
+sceNetcnfifList* pDevInfo; /* the device chosen by UINetGetDevInfo */
 
 /* @socom-skeleton stub pIFCInfo */
-int pIFCInfo;
+sceNetcnfifList* pIFCInfo; /* the interface chosen by UINetGetIFCInfo */
 
 /* @socom-skeleton stub UIClanHasInvitations__FP13C2DAnimCmdHdrPf */
 unsigned char UIClanHasInvitations(C2DAnimCmdHdr *, float *)
@@ -2358,35 +2639,130 @@ unsigned char UIClanHasInvitations(C2DAnimCmdHdr *, float *)
 }
 
 /* @socom-skeleton stub UINetUpdateIFCVars__FP13C2DAnimCmdHdrPf */
-unsigned char UINetUpdateIFCVars(C2DAnimCmdHdr *, float *)
+unsigned char UINetUpdateIFCVars(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d1170: READ fills the interface variables for the entry INTERFACE_INDEX names
+	 * (IFC_NAME "Settings for <vendor>/<product>", the addresses 0.0.0.0, the PPPoE and DHCP
+	 * names empty). ELF quirk kept: WRITE is compared and does nothing */
+	const char* name = ZAnim.m_CurAnim->GetName(cmd->m_argument_index);
+	CUIVariable* ifcName = theUIVarManager.Add("IFC_NAME", NULL, UIVL_TEMPORARY);
+	CUIVariable* address = theUIVarManager.Add("IP_ADDRESS", NULL, UIVL_TEMPORARY);
+	CUIVariable* netmask = theUIVarManager.Add("NETMASK", NULL, UIVL_TEMPORARY);
+	CUIVariable* dns1 = theUIVarManager.Add("PRIMARY_DNS", NULL, UIVL_TEMPORARY);
+	CUIVariable* dns2 = theUIVarManager.Add("SECONDARY_DNS", NULL, UIVL_TEMPORARY);
+	CUIVariable* gateway = theUIVarManager.Add("DEFAULT_GATEWAY", NULL, UIVL_TEMPORARY);
+	CUIVariable* user = theUIVarManager.Add("PPPOE_USERNAME", NULL, UIVL_TEMPORARY);
+	CUIVariable* password = theUIVarManager.Add("PPPOE_PASSWORD", NULL, UIVL_TEMPORARY);
+	CUIVariable* host = theUIVarManager.Add("DHCP_HOSTNAME", NULL, UIVL_TEMPORARY);
+
+	if (strcasecmp(name, "READ") == 0)
+	{
+		CValve* index = CValve::Create("INTERFACE_INDEX", VALVE_TYPE::VTYPE_TEMP);
+		CNetCnfInterface* entry = CNetCnf::GetInterfaceEntry(HCnf, (u16)index->m_value);
+		char text[128];
+		sprintf(text, "Settings for %s/%s", entry->m_vendor, entry->m_product);
+		*ifcName = text;
+		*address = "0.0.0.0";
+		*netmask = "0.0.0.0";
+		*dns1 = "0.0.0.0";
+		*dns2 = "0.0.0.0";
+		*gateway = "0.0.0.0";
+		*user = "";
+		*password = "";
+		*host = "";
+	}
+	else
+	{
+		strcasecmp(name, "WRITE");
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub UINetGetDevInfo__FP13C2DAnimCmdHdrPf */
-unsigned char UINetGetDevInfo(C2DAnimCmdHdr *, float *)
+unsigned char UINetGetDevInfo(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d1080: DEV_COUNT takes the number of device files; the device the argument's valve
+	 * names becomes pDevInfo and DEV_NAME its display name */
+	s32 which = (u16)CValve::Create(ZAnim.m_CurAnim->GetName(cmd->m_argument_index), VALVE_TYPE::VTYPE_TEMP)->m_value;
+	CUIVariable* devName = theUIVarManager.Add("DEV_NAME", NULL, UIVL_TEMPORARY);
+	CValve* count = CValve::Create("DEV_COUNT", VALVE_TYPE::VTYPE_TEMP);
+	UiSetValve(count, (u32)CNetCnf::NumDevs(HCnf));
+
+	if (which >= 0)
+	{
+		pDevInfo = CNetCnf::GetDev(HCnf, which);
+		*devName = pDevInfo->usr_name;
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub UINetGetIFCInfo__FP13C2DAnimCmdHdrPf */
-unsigned char UINetGetIFCInfo(C2DAnimCmdHdr *, float *)
+unsigned char UINetGetIFCInfo(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d0f90: IFC_COUNT takes the number of interface files; the one the argument's valve
+	 * names becomes pIFCInfo and IFC_NAME its display name */
+	s32 which = (u16)CValve::Create(ZAnim.m_CurAnim->GetName(cmd->m_argument_index), VALVE_TYPE::VTYPE_TEMP)->m_value;
+	CUIVariable* ifcName = theUIVarManager.Add("IFC_NAME", NULL, UIVL_TEMPORARY);
+	CValve* count = CValve::Create("IFC_COUNT", VALVE_TYPE::VTYPE_TEMP);
+	UiSetValve(count, (u32)CNetCnf::NumIFC(HCnf));
+
+	if (which >= 0)
+	{
+		pIFCInfo = CNetCnf::GetIFC(HCnf, which);
+		*ifcName = pIFCInfo->usr_name;
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub UINetSaveCombo__FP13C2DAnimCmdHdrPf */
 unsigned char UINetSaveCombo(C2DAnimCmdHdr *, float *)
 {
+	/* 0x1d0ec0: a new combination "Combination<n + 1>" of pIFCInfo and pDevInfo (idle
+	 * timeouts 10) is saved, ticked until done */
 	/* @socom-skeleton stub ticking$3624 */
 	static unsigned char ticking;
+
+	if (ticking)
+	{
+		if (!CNetCnf::SaveComboTick(HCnf))
+			return false;
+
+		ticking = false;
+		return true;
+	}
+
+	char name[80];
+	sprintf(name, "Combination%d", CNetCnf::NumCombos(HCnf) + 1);
+	sceNetcnfifData* data = CNetCnf::GetComboData(HCnf);
+	strcpy(data->attach_ifc, pIFCInfo->sys_name);
+	strcpy(data->attach_dev, pDevInfo->sys_name);
+	data->ifc_idle_timeout = 10;
+	data->dev_idle_timeout = 10;
+	ticking = CNetCnf::SaveCombo(HCnf, data, name);
+	return false;
 }
 
 /* @socom-skeleton stub UINetCnfDeleteAll__FP13C2DAnimCmdHdrPf */
 unsigned char UINetCnfDeleteAll(C2DAnimCmdHdr *, float *)
 {
+	/* 0x1d0e50: start, then tick until done */
 	/* @socom-skeleton stub ticking$3635 */
 	static unsigned char ticking;
+
+	if (!ticking)
+	{
+		ticking = CNetCnf::DeleteAll(HCnf);
+		return false;
+	}
+
+	if (!CNetCnf::DeleteAllTick(HCnf))
+		return false;
+
+	ticking = false;
+	return true;
 }
 
 /* @socom-skeleton stub UIHasClanInvitations__FP13C2DAnimCmdHdrPf */

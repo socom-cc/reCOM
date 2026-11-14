@@ -237,3 +237,92 @@ both free at HEAD; the new test hook `port/test-hooks/zui/` and its README row).
 - `CUIVarManager::CollectGarbage` 0x39ddf0 (needs CSTable::Clear and zrdr_pack, port stubs).
 - Not reached offline, written untested: cycle / handler buttons, scrolling / ticker text, the clock, the pop-up
   text parser, the variable save.
+
+# Part 3 (2026-11-14, socom-port-mod-skb): the soft keyboard, CollectGarbage, the last placeholders
+
+Scratch `build/port/boot-mod-skb/` (untracked: NOTES.md, mine.txt, asm dumps, the UiParams.rdr / dlgNetPlayerName
+dumps under `disc/`, the README edit file under `edits/`). Changed files: `mine.txt` (zUI in place; zAnim; in
+zNetwork, clean at HEAD 0266b548: `znet.h`, `zNetCnf.cpp`, `zNetMedius.cpp` declarations and signatures only; the new
+`port/compat/include/netcnfif.h`; the `port/test-hooks/zui/` hook).
+
+## Result
+- `survey.py gamez/zUI`: stubs 21,640 B (30 fences, all `zui_skb.cpp`) -> 0; written 143,544 B. The zUI placeholders
+  are written too (below); left: `CGameMenu`'s MPEG background (the earlier port decision: no MPEG playback).
+- The keyboard on screen (`port/test-hooks/zui/build.sh <build> port/test-hooks/state/pad_idle.txt -DSOCOM_HOOK_SKB`,
+  runs skb1 / skb2): the hook opens dlgNetPlayerName (an online screen; nothing online runs before its connect
+  button) and presses CROSS on its name button, whose own anims run SetSkbPurpose ("Enter Player Name") and
+  GetTextInput on the MPPLAYERNAME keyboard (the anim's node is the keyboard's root node, named after it). The
+  keyboard scales up from the bottom-left corner, the menu dims; the hook's pad typed R1 (Caps Lock) + CROSS "S",
+  R1, LEFT + CROSS "a", RIGHT x2 + CROSS "d", SQUARE (backspace: "Sa"), CROSS "Sad"; CIRCLE accepted: PLAYERNAMEVAR
+  "Sad", ON_SKB_APPLY ran, the keyboard scaled down, skb_done 1. Opened again (CROSS), typed "a", TRIANGLE
+  cancelled: hidden, PLAYERNAMEVAR still "Sad". No STOP; in use 16,441,604 B before, 16,441,764 / 16,441,780 B
+  after (the variable's text).
+- dlg_fontTest (SQUARE on dlgPBMenu) does not raise the keyboard: it only shows a picture of one (skbQ.tif); the
+  part-2 note was wrong there. Every screen that raises it is online (dlgNetPlayerName, lobbies, chat).
+
+## The keyboard (zui_skb.cpp, whole file; no DWARF for any of its types)
+- `ZuiInit` 0x3a6c70 (CMission::Init) reads UiParams.rdr: four keyboards (`CreateSoftKeyboard` 0x3a7940: KEYBOARD,
+  ChatSkb, MPPLAYERNAME, AlternateKeyboard) and CommonSoftKeyboardProps (key repeat, the six sound names, the
+  legend). The keyboards live as long as the game (no dtor in the ELF; `g_arrSkbs`).
+- Per menu: `PrepSkbsForDisplay` 0x3a7720 (LoadFromDesign) gives the legend and every keyboard hidden nodes in the
+  foreplane (`PrepForDisplay` 0x3a3c00: root node named after the keyboard at SkbPos, highlight, background, typed
+  text and purpose strings with their own fonts, the cursor box, the Caps Lock / Alt / Shift / Legend lights, the
+  chat recipient images, a C2DButton per KeyProps entry from its ButtonSpec) and looks the sounds up;
+  `InvalidateSkbsDisplay` 0x3a78c0 (CGameMenu::Clear, before the foreplane is deleted) forgets the nodes, resets
+  the fonts and deletes the key buttons (`InvalidateDisplay` 0x3a4820).
+- Shown by `UiGetTextFromUser` (GetTextInput) through `ShowSkb` 0x3a36f0; `TickSkb` / `SkbHandleInput` pass the
+  menu's tick and pad to the shown keyboard (`Tick` 0x3a2c90: cursor flash, held-direction repeat after
+  RepeatDelay accelerating from RepeatSpeedStart to RepeatSpeedEnd keys a second, legend slide; `TickScaling`
+  0x3a2a80; `HandleInput` 0x3a5310: directions / stick move the highlight to the next different key with
+  wrapping (`CSkbGrid::MoveToNextPos` 0x3a6bb0), L1 + LEFT / RIGHT the insertion point, CROSS the key
+  (`CSkbKey::DoIt` 0x3a65a0), R1 Caps Lock, SQUARE backspace, TRIANGLE cancel, CIRCLE accept; then
+  `HandleUsbKbd` 0x3a4990). Letters type lower case unless an odd number of L1 (held), Caps Lock and Shift say
+  otherwise; Shift lasts one key. Special keys: CapsLock, Recip, BackSpace, Clear, Enter, Exit, Apply, Alt (swaps to
+  AltSkb in place, `OnAltKey` 0x3a4310), Shift, Legend. `AddCasedChar` 0x3a62d0 refuses past SkbMaxChars (a valve,
+  1000; dlgNetPlayerName sets 12) or past UserStringWidth (negative sound). Accept: the text into the UI variable
+  GetTextInput named (a TEMPORARY one when new), ON_SKB_APPLY; `ShutdownBegin` 0x3a3470: ON_SKB_CLOSE, scale down;
+  scaled down, the keyboard hides and sets skb_done.
+
+## Other zUI
+- `CUIVarManager::CollectGarbage` 0x39ddf0 (CGameMenu::Clear and Reset): the other string table becomes current,
+  every name and value string is made again in it (`_Refresh`), the old table is cleared, every array value is
+  packed into the table's 16 KB buffer (`zrdr_pack`) and its heap nodes freed.
+- `CGameMenu::Clear`: the keyboards' `InvalidateSkbsDisplay`, CollectGarbage, and texture buffer 0's packet
+  vector (+0x1c) emptied with its storage (0x383728). `CTeleType::ParseZAnimCmd` 0x3904e0 (CONTINUE / CAPTION, text
+  path).
+
+## ELF quirks kept
+- The recipient image shown when the keyboard re-shows is image 0 when ChatRecipient is set, but the Recip key
+  sets the valve when image 0 goes off (the image flips on each show; chat only).
+- KeyProps entries have no `Size` in the retail data, so the highlight bitmap is loaded 0 x 0; the key button's
+  ACTIVE state (SkbHighlight.tif) is what shows. `TickScaling` divides in double precision. A USB Escape and the
+  Exit key run ShutdownBegin before ON_SKB_CANCEL, TRIANGLE after.
+- CollectGarbage: a value that does not fit the pack buffer (zrdr_pack 0) takes the buffer's next node as it is.
+
+## Port deviations
+- `keyDefault$1791` (one static in the ELF, used by three inline copies) is one in GetCurKey (its fence) and one
+  in CSkbGrid::GetSkbKey; HandleInput uses file-local SkbIncr / SkbDecr (the ELF passes Tick's local class's
+  Incr / Decr, which C++ cannot name outside Tick).
+- File-local helpers for inlined code: PlaySkbSound, IsSkbUpper, ResetSkbFont, RdrElementInt, ReadSkbStringProps,
+  ReadSkbRect; members Accept, BackSpace, MoveHighlight, Text (the typed text, "" for NULL: the ELF strlen's
+  GetString() unchecked), CBmpWithNode::TexHandle; the CSoftKeyboard constructor (inline in CreateSoftKeyboard).
+- Names of every keyboard type and member are the port's (from the reader keys).
+
+## Runs (tree = HEAD 0266b548 + mine.txt)- skb1 / skb2 (HEAD 0266b548) and skb3 (HEAD b9c34624): the keyboard test above; skb3's screen at 45 s shows the
+  dialog's PLAYER NAME field reading "Sad" after the accept, the keyboard scaling on the bottom left. No STOP.
+- Front end, run skbfe2 (fake pad `pad_fe.txt` of part 1): main menu -> OPTIONS -> audio, video, controller,
+  presets and back each time -> main menu -> attract and back twice; no STOP, no "not written" spec.
+- m8, run skbm83 (`port/test-hooks/state/build.sh <build> port/test-hooks/state/pad_idle.txt -DSOCOM_HOOK_MISSIONS=1
+  -DSOCOM_HOOK_PLAY_AT=999999`: intro movie skipped with CROSS, briefing cameras with X): in the mission from 65 s to
+  the end of the run at 260 s, no STOP, in use 22.86 MB at 80 s, 22.91 MB from 120 s to the end.
+- Round trip, run skbrt4 (`... -DSOCOM_HOOK_MALLOC -DSOCOM_HOOK_MISSIONS=8`, 745 s): eight missions and eight
+  returns, no STOP, no failed allocation but zsys_FullAllocAndFree's own probe; in use 18,564,276 then 18,564,372 B
+  at returns 2-8 (flat). That is about 726 KB above HEAD's 17,838,4xx B: the keyboards (made once at CMission::Init,
+  ~130 KB) and their display in each menu (~570 KB: one C2DButton and node per key of four keyboards, freed by
+  CGameMenu::Clear; a traced run measured 568 KB made by PrepSkbsForDisplay and given back by Clear). Largest free
+  block 2.54 MB at every return (HEAD 6.24 / 3.64 MB); the menus' 2.58 MB reader archive is still allocated at every
+  return.
+- Default build (`default.sh`): main menu at 17.2 s, attract screen at 45.3 s, no STOP.
+- Test-harness caution: piping `wsl.ps1 tree.sh` into `Select-Object -First n` stops tree.sh after n lines, so the
+  worker's files are not all copied; a tree built that way (only the keyboard file) grew the heap at each menu
+  and failed the reader archive at the first return.
