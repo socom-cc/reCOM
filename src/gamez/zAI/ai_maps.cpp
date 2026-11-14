@@ -79,6 +79,7 @@
 #include "gamez/zGraph/graph_edge.h"
 #include "gamez/zGraph/graph_graph.h"
 #include "gamez/zGraph/graph_node.h"
+#include "gamez/zGraph/graph_route.h" /* RegisterPathPlan's route across maps */
 #include "gamez/zMath/zmath.h"
 #include "zai.h"
 #include "gamez/zSeal/zseal.h" /* ai::FlushPlannerQueue (Close) */
@@ -669,13 +670,74 @@ bool CAiMaps::RegisterPathPlan(const CAiMapLoc &start, const CAiMapLoc *goals, i
 		}
 		else
 		{
-			/* ELF: temporary "start" and "end" nodes are linked (CreateEdge, length the cell
-			 * delta) to the graph nodes on the two maps, CGraph::BuildRoute runs between them
-			 * and a leg is added for each route node on the map walked on, then the two nodes
-			 * are deleted.
-			 * port: not written (CGraph::BuildRoute 0x20fa60, DeleteNode, CGRoute are
-			 * unwritten): a goal on another map fails the plan */
-			ok = false;
+			/* the map set's graph: temporary "start" and "end" nodes are linked to every
+			 * graph node on the start's / the goal's map (edge length the cell delta), the
+			 * shortest route runs between them, and each pair of route points on one map is
+			 * a leg (a node without a location stands for the goal); then the two nodes go */
+			CGraph *graph = m_graph;
+			ok = graph != NULL;
+
+			if (ok)
+			{
+				CGNode *startNode = graph->CreateNode("start");
+				CGNode *endNode = graph->CreateNode("end");
+
+				for (std::list<CGNode *>::iterator n = graph->m_nodes.begin(); n != graph->m_nodes.end(); ++n)
+				{
+					const CAiMapLoc *loc = static_cast<const CAiMapLoc *>((*n)->m_nodeEx);
+
+					if (loc == NULL)
+						continue;
+
+					if (loc->m_mapid == from.m_mapid)
+					{
+						/* ELF quirk kept: the edge is not NULL-tested */
+						CGEdge *edge = graph->CreateEdge(startNode, *n);
+						u32 dx = from.x < loc->x ? loc->x - from.x : from.x - loc->x;
+						s32 dy = (s32)from.y < (s32)loc->y ? (s32)loc->y - (s32)from.y : (s32)from.y - (s32)loc->y;
+						edge->m_length = (f32)(s32)(dx + dy);
+					}
+
+					if (loc->m_mapid == goal.m_mapid)
+					{
+						CGEdge *edge = graph->CreateEdge(endNode, *n);
+						u32 dx = goal.x < loc->x ? loc->x - goal.x : goal.x - loc->x;
+						s32 dy = (s32)goal.y < (s32)loc->y ? (s32)loc->y - (s32)goal.y : (s32)goal.y - (s32)loc->y;
+						edge->m_length = (f32)(s32)(dx + dy);
+					}
+				}
+
+				CGRoute route;
+
+				if (graph->BuildRoute(startNode, endNode, &route) && !route.m_nodes.empty())
+				{
+					/* ELF quirk kept: the start node has no location either, so it stands for
+					 * the goal too; the first point off the start's map then begins the chain
+					 * and no leg runs from the start to the first link */
+					CAiMapLoc prev = from;
+
+					for (std::list<CGNode *>::iterator n = route.m_nodes.begin(); n != route.m_nodes.end(); ++n)
+					{
+						const CAiMapLoc *loc = static_cast<const CAiMapLoc *>((*n)->m_nodeEx);
+						CAiMapLoc cur = loc != NULL ? *loc : goal;
+
+						if (prev.m_mapid == cur.m_mapid)
+						{
+							/* ELF: the map is not NULL-tested and the answer not used */
+							ai::PathPlanAddLeg(GetMapByIndex(prev.m_mapid), prev, cur);
+						}
+
+						prev = cur;
+					}
+				}
+				else
+				{
+					ok = false;
+				}
+
+				graph->DeleteNode(startNode);
+				graph->DeleteNode(endNode);
+			}
 		}
 
 		from = goal;

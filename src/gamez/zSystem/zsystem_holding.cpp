@@ -46,6 +46,13 @@ f32 CBench::drawTime;
 f32 CBench::twoDTime;
 f32 CBench::dmaTime;
 
+/* port: no stage-4 owner - the particle counters 0x47650c-0x476518 (CHUD::StatusLine's render
+   report prints them; nothing in the port counts them yet, so they stay 0) */
+u32 CBench::countParticleSources;
+u32 CBench::countParticleSourcesProcessed;
+u32 CBench::countParticlesProcessed;
+u32 CBench::countParticlesDrawn;
+
 /* @socom-skeleton body zSys */
 /* held from src/gamez/zSystem/zsys_main.cpp:3 */
 _zsys_public zSys;

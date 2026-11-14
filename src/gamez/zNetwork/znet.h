@@ -417,6 +417,7 @@ public:
 	friend class CZPersonaState; /* port: UpdateLocalPersona 0x208b80 sends m_PortBuf / m_ServerPortBuf */
 	friend class CZStaticRadioBitmap; /* port: HudTick 0x3d55f0 reads m_isOn / m_channel */
 	friend class CZDynamicRadioBitmap; /* port: HudTick 0x3d5340 reads m_isTalking / m_isReceiving */
+	friend class CHUD; /* port: StatusLine 0x3d9bb8 reads m_timeTaken (push-to-talk time) */
 	bool PreTick();
 	bool Tick(f32 dT);
 private:

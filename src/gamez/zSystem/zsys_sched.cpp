@@ -21,6 +21,7 @@
 
 #include "gamez/zSystem/zsys.h"
 #include <algorithm> /* std::remove_if (ClearFreeList) */
+#include <eeregs.h> /* T0_COUNT (Tick's task stamps) */
 
 /* @socom-skeleton stub zTaskScheduler */
 CSched_Manager zTaskScheduler;
@@ -196,8 +197,8 @@ void CSched_Manager::ClearFreeList(bool emptyList)
 bool CSched_Manager::Tick(f32 dT)
 {
 	/* 0x2f3840: run each task in order; a removed task, or one whose function returns
-	 * true (done), leaves the list for the free list. The ELF also stamps RCNT0 into the
-	 * task before and after its call (start/stop time; not modelled in the port). */
+	 * true (done), leaves the list for the free list. RCNT0 is stamped into the task
+	 * before its call and after (the stop stamp follows the free-list move). */
 	m_inTick = true;
 	bool any = !empty();
 
@@ -219,6 +220,7 @@ bool CSched_Manager::Tick(f32 dT)
 					SOCOM_PORT_TRACE("TASK: frame %u %s", socom_port_core_frame, task->m_name ? task->m_name : "?");
 #endif
 				m_priority = task->m_priority;
+				task->m_startTime = *T0_COUNT;
 				done = task->m_func ? task->m_func(dT, task->m_registrar) : true;
 			}
 
@@ -231,6 +233,8 @@ bool CSched_Manager::Tick(f32 dT)
 			{
 				++it;
 			}
+
+			task->m_stopTime = *T0_COUNT;
 		}
 	}
 

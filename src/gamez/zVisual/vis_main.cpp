@@ -419,8 +419,12 @@ static unsigned char _TextureChange;
 
 /* @socom-skeleton stub m_savedTS */
 /* DMA tags (REF/CNT + STCYCL + UNPACK) of saved texture selects; qword-typed because
-   CSPR::Copy DMAs it to the scratchpad (port: the ELF's element type is not recorded) */
-_word128 m_savedTS[32];
+   CSPR::Copy DMAs it to the scratchpad (port: the ELF's element type is not recorded).
+   port: quadword aligned, as the ELF places it (0x511340): the toSPR DMA ignores the low four
+   address bits, so at the 8-byte alignment GCC gave it the selects reached the packet half a
+   qword late and VU1 kicked the light map's select from a broken GIF tag (the muzzle-flash
+   GIF stall) */
+_word128 m_savedTS[32] __attribute__((aligned(16)));
 
 /* @socom-skeleton stub _StartingMatrix */
 static unsigned char _StartingMatrix[64];
@@ -1734,11 +1738,7 @@ _word128 * zdb::CVisual::VuLightMap(_word128 *p)
 	CLightMap* first = *it;
 	first->m_pTex->CopyTextureSelect(p);
 	p[1].u64[0] = first->m_blendmode.m_alphaWORD;
-	/* port: the ELF queues the select for the object packet here (SaveTextureSelect: the
-	   texture's current TEX0 and the ALPHA qword, unpacked over this copy by VuExecuteState0).
-	   With it the first light map (a muzzle flash) intermittently jams the GIF path in PCSX2
-	   (VU1 kicks an oversized GS packet: runs rn5 / rn7, HEAD 0266b548; cause not found); the
-	   copy above, already carrying the blend mode, is used as is. */
+	SaveTextureSelect(p, first->m_pTex, first->m_blendmode.m_alphaWORD);
 	p += 6;
 
 	for (; it != m_lightMapList.end(); ++it)

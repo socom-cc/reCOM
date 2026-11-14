@@ -9,7 +9,8 @@
  *    DOWN x5 to the deploy button, CROSS. After SOCOM_HOOK_MISSIONS missions the hook stops
  *    pressing and the menus idle (the attract screen comes after ~10 s at dlgMenu).
  *  - cinematic on top: CROSS after 40 reads (the intro movie);
- *  - mission n: the briefing cameras are skipped with X (CROSS every 60 reads while one plays);
+ *  - mission n: the briefing cameras are skipped with X (CROSS every 60 reads while one plays;
+ *    -DSOCOM_HOOK_CAMS_PLAY: they play in full);
  *    SOCOM_HOOK_PLAY_AT reads after the last camera: odd n pause START, row 1 (ABORT), CROSS;
  *    even n the player's real fatal fall (HandleFallingDamage 300, as port/test-hooks/death);
  *  - debrief (exit state on top): TRIANGLE (back to the briefing) after 300 reads, again every 150.
@@ -212,6 +213,14 @@ void watch()
     {
         if (camera_playing())
         {
+#ifdef SOCOM_HOOK_CAMS_PLAY
+            /* the cameras play in full: no X, the play time counts from the last camera frame */
+            if (g_last_cam == 0)
+                SOCOM_PORT_TRACE("HOOK: read %u mission camera %s plays (SOCOM_HOOK_CAMS_PLAY)", g_reads,
+                    theHUD->m_missioncams.m_currentcam != NULL ? theHUD->m_missioncams.m_currentcam->m_identifier : "-");
+
+            g_last_cam = g_reads;
+#else
             if (g_last_cam == 0 || g_reads >= g_last_cam + 60)
             {
                 SOCOM_PORT_TRACE("HOOK: read %u X skips mission camera %s", g_reads,
@@ -219,6 +228,7 @@ void watch()
                 queue(g_reads + 1, B_CROSS);
                 g_last_cam = g_reads;
             }
+#endif
         }
         else if (g_reads >= (g_last_cam != 0 ? g_last_cam : g_mission_since + 400) + SOCOM_HOOK_PLAY_AT)
         {

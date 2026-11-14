@@ -26,6 +26,10 @@ public:
 	static u32 countClutterNodes;
 	static u32 countVisuals;
 	static u32 countAlphaVisuals;
+	static u32 countParticleSources;          /* 0x47650c: read by CHUD::StatusLine's render report */
+	static u32 countParticleSourcesProcessed; /* 0x476510 */
+	static u32 countParticlesProcessed;       /* 0x476514 */
+	static u32 countParticlesDrawn;           /* 0x476518 */
 	static f32 drawTimeX[10]; /* DWARF array_type float[0..9] (hud_devtext.cpp); CPipe::RenderWorld fills [0..8] */
 };
 #endif

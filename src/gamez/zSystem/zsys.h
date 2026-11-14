@@ -229,12 +229,16 @@ class CSched_Task
 {
 	friend class CSched_Manager;
 	friend bool _task_cleanup(CSched_Task *); /* port: unproven access - it reads m_removed (0x2f3b1c) */
+	friend class CHUD; /* port: StatusLine's task report (0x3da77c) reads m_name / m_priority */
 private:
 	char* m_name;
 	bool m_removed;
 	f32 m_priority;
 	bool(*m_func)(float, void*);
 	void* m_registrar;
+public: /* port: CHUD::StatusLine's task report (0x3da8d0) reads the stamps */
+	u32 m_startTime; /* +0x14: RCNT0 before the task ran (CSched_Manager::Tick) */
+	u32 m_stopTime;  /* +0x18: RCNT0 after it */
 	/* @socom-skeleton decl 11CSched_Task */
 public:
 	~CSched_Task();

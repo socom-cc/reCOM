@@ -61,6 +61,8 @@
 #include <math.h> /* sqrtf, acosf */
 #include <algorithm> /* remove_if */
 #include <string.h> /* memcpy */
+#include "gamez/zGraph/graph_graph.h" /* plan_addleg's route between regions */
+#include "gamez/zGraph/graph_route.h"
 /* @socom-skeleton decl forward */
 class MAP_LINEWALK_STRUCT;
 /* @socom-skeleton end forward */
@@ -275,15 +277,104 @@ bool CAiPath::plan_addleg(CAiMap *map, const CAiMapLoc &start, const CAiMapLoc &
 	if (cell == NULL || !CAiMap::IsWalkable(cell))
 		return false;
 
+	bool split = false;
+	bool failed = false;
+
 	if (m_flags & 0x20)
 	{
-		/* ELF: with flag 0x20 (cleared while it runs) a leg between two regions of type 4
-		 * (CAiMap::GetRegionContaining) is split along the map graph's route between them
-		 * (CGraph::GetNodeByNodeEx / BuildRoute / FindEdge), one plan_addleg per edge point,
-		 * and the leg itself is then not added.
-		 * port: not written (GetRegionContaining 0x19e970, CGraph::BuildRoute 0x20fa60 and
-		 * CGRoute are unwritten): the leg is planned direct */
+		/* flag 0x20 (cleared while it runs, so the legs below are not split again): a leg
+		 * between two type-4 regions of the map follows the map graph's route between them:
+		 * through each route edge's cell path (CAiMap::route, walked from the end that lies in
+		 * the region left), then on to the goal; the leg itself is then not added */
+		m_flags &= ~0x20u;
+		CGraph *graph = map->m_graph;
+
+		if (graph != NULL)
+		{
+			CAiMap::region *from = map->GetRegionContaining(start, (CAiMap::region::TYPE)4, false);
+			CAiMap::region *to = map->GetRegionContaining(goal, (CAiMap::region::TYPE)4, false);
+
+			if (from != NULL && to != NULL && from != to)
+			{
+				CGNode *fromNode = graph->GetNodeByNodeEx(from);
+				CGNode *toNode = graph->GetNodeByNodeEx(to);
+				CGRoute route;
+
+				if (graph->BuildRoute(fromNode, toNode, &route) && !route.m_nodes.empty())
+				{
+					std::list<CGNode *>::iterator n = route.m_nodes.begin();
+					CGNode *node = *n;
+					CAiMapLoc prev = start;
+					CAiMapLoc cur = start; /* ELF: unset until the first point (always set: two route nodes at least) */
+
+					for (++n; n != route.m_nodes.end(); ++n)
+					{
+						CGNode *next = *n;
+						CGEdge *edge = graph->FindEdge(node, next);
+
+						if (edge == NULL)
+						{
+							failed = true;
+							break;
+						}
+
+						const CAiMap::region *left = static_cast<const CAiMap::region *>(node->m_nodeEx);
+
+						if (left == NULL)
+						{
+							failed = true;
+							break;
+						}
+
+						const CAiMap::route *path = static_cast<const CAiMap::route *>(edge->m_edgeEx);
+
+						if (path == NULL)
+						{
+							failed = true;
+							break;
+						}
+
+						s32 count = (s32)path->m_path.size();
+
+						for (s32 i = 0; i < count; i++)
+						{
+							/* the region's corner against the route's first region: x and y only */
+							bool forward = left->m_loc.x == path->m_region[0].x && left->m_loc.y == path->m_region[0].y;
+							cur = forward ? path->m_path[i] : path->m_path[count - i - 1];
+
+							if (!plan_addleg(map, prev, cur))
+							{
+								failed = true;
+								break;
+							}
+
+							prev = cur;
+						}
+
+						if (failed)
+							break;
+
+						prev = cur;
+						node = next;
+					}
+
+					if (!failed)
+					{
+						plan_addleg(map, cur, goal); /* ELF: the answer is not used */
+						split = true;
+					}
+				}
+			}
+		}
+
+		m_flags |= 0x20;
 	}
+
+	if (split)
+		return true;
+
+	if (failed)
+		return false;
 
 	m_waypts.push_back(start);
 	m_waypts.push_back(goal);

@@ -70,6 +70,17 @@
  * socom-owner-annotations end socom:work:source-segment-076 */
 
 #include "gamez/zVideo/zvid.h"
+#include "gamez/zSystem/zsys_bench.h" /* CBench (StatusLine) */
+#include "gamez/zGame/zgame.h" /* gopt, theGame */
+#include "gamez/zSeal/zseal.h" /* CSealCtrlAi counts, ai::visinfo / plot_tick */
+#include "gamez/zEntity/zentity.h"
+#include "gamez/zAI/zai.h" /* AiMaps */
+#include "gamez/zCamera/zcam.h" /* appCamera */
+#include "gamez/zInput/zinput.h" /* CInput::m_pads */
+#include "gamez/zNetwork/znet.h" /* theNetwork, theVoice */
+#include "gamez/zRender/zrender.h" /* numCharactersRendered */
+#include <math.h>
+#include <string.h>
 
 /* @socom-skeleton decl include */
 #include "gamez/zMath/zmath.h"
@@ -184,6 +195,37 @@ void DrawTaskLine(int line, float *cursor, float width, float mark)
 	Draw2DLine(&from, &to, &colorFrom, &colorTo);
 }
 
+/* port: inline in the ELF (StatusLine's timing readouts): a CBench interval in hundredths of a
+   frame (3000 x the stamp difference, rounded by +0.5 and truncated) */
+static s32 BenchInterval(f32 from, f32 to)
+{
+	return (s32)(0.5f + 3000.0f * (to - from));
+}
+
+/* port: inline in the ELF (each task-report bar): the bar's peak `max` follows a larger value
+   at once and holds a smaller one for stayTime seconds of decTime steps */
+static void TaskPeak(f32 value, f32 *keep, f32 *max)
+{
+	if (!(*keep <= stayTime))
+		*keep = stayTime;
+
+	if (!(value < *max))
+	{
+		*max = value;
+		*keep = stayTime;
+	}
+	else if (*keep <= 0.0f)
+	{
+		*max = value;
+	}
+	else
+	{
+		*keep -= decTime;
+	}
+}
+
+extern "C" void NetGetBandwidthInfo(NetBandwidthInfo *); /* SCE-RT network library 0x418e80 (port/compat) */
+
 /* @socom-skeleton stub StatusLine__4CHUDFv */
 void CHUD::StatusLine()
 {
@@ -194,7 +236,7 @@ void CHUD::StatusLine()
 	/* @socom-skeleton stub showTimers$2640 */
 	static unsigned char showTimers;
 	/* @socom-skeleton stub printTime$2650 */
-	static float printTime;
+	static float printTime = 1.0f; /* 0x3d9b28: initialised to 1 on the first call */
 	/* @socom-skeleton stub accumRate$2653 */
 	static float accumRate;
 	/* @socom-skeleton stub avgRate$2656 */
@@ -212,7 +254,7 @@ void CHUD::StatusLine()
 	/* @socom-skeleton stub fpsMax$2681 */
 	static int fpsMax;
 	/* @socom-skeleton stub fpsMin$2684 */
-	static int fpsMin;
+	static int fpsMin = 120; /* 0x3d9e70 */
 	/* @socom-skeleton stub fpsCount$2687 */
 	static int fpsCount;
 	/* @socom-skeleton stub fpsSum$2690 */
@@ -237,8 +279,13 @@ void CHUD::StatusLine()
 	static int miscTime;
 
 	/* 0x3d9820: the debug readouts. Every perf line goes off; then, by the gopt flags
-	 * (all off in the ELF's defaults), up to 30 lines are printed at x 10 every 13 px
-	 * from y 20 and turned on. */
+	 * (all off in the ELF's defaults), one report of up to 30 lines is printed at x 10 every
+	 * 13 px from y 20 and turned on: the status line (doStatusLine: position, frame rate,
+	 * push-to-talk, network bandwidth, frame timing), the small status (doStatusLineSmall:
+	 * fps, AI and entity counts, the player's target, awareness, position, velocity and map
+	 * cell, with ai::visinfo the AIs that see him), the asset report, the scheduler-task
+	 * report with timing bars (doTaskReport), the render report (doRenderReport) or the
+	 * frame rate alone (doFPS). */
 	char lines[30][128];
 	u32 count = 0;
 
@@ -247,16 +294,307 @@ void CHUD::StatusLine()
 
 	f32 rate = 1.0f / zVid.procTime;
 
-	if (gopt.doStatusLine || gopt.doStatusLineSmall || gopt.doAssetReport || gopt.doTaskReport || gopt.doRenderReport)
+	/* the frame's intervals from the CBench stamps (CCoreState::Tick), in 1/100 frame */
+	s32 preTime = BenchInterval(CBench::twoDTime, CBench::preTask);
+	s32 dyTime = BenchInterval(CBench::twoDTime, CBench::inputTime);
+	s32 taskTime = BenchInterval(CBench::postTask, CBench::postAppCamTick);
+	s32 camTime = BenchInterval(CBench::postAppCamTick, CBench::postCamUpdate);
+	s32 postDITime = BenchInterval(CBench::postCamUpdate, CBench::inputTime);
+	s32 drawTime = BenchInterval(CBench::swapTime, CBench::drawTime);
+	s32 hudTime = BenchInterval(CBench::drawTime, CBench::postHUDTick);
+	s32 mapTime = BenchInterval(CBench::postHUDTick, CBench::postCompassTick);
+	s32 compassTime = BenchInterval(CBench::postCompassTick, CBench::twoDTime);
+	s32 swapTime = 100 - (hudTime + (mapTime + (compassTime + (dyTime + drawTime))));
+
+	if (gopt.doStatusLine)
 	{
-		/* port: not written (0x3d98a8 on): the timing, small status (fps, AI counts,
-		 * position, map cell), asset, scheduler-task and render reports with their
-		 * SELECT+SQUARE / SELECT+TRIANGLE toggles */
+		CPad *pad = CInput::m_pads[0];
+
+		if (pad->GetTwoButtons(PAD_BUTTON::PAD_SELECT, PAD_BUTTON::PAD_SQUARE))
+			showTimers = !showTimers;
+
+		if (pad->GetTwoButtons(PAD_BUTTON::PAD_SELECT, PAD_BUTTON::PAD_TRIANGLE))
+		{
+			showTriCnt = !showTriCnt; /* ELF: nothing is printed this frame */
+		}
+		else
+		{
+			if (appCamera->m_entity == NULL)
+				return; /* ELF: before any line is loaded */
+
+			CPnt3D *pos = appCamera->m_entity->GetPosW();
+
+			numSamples++;
+			accumRate += rate;
+			accumPTTTime += (f32)theVoice.m_timeTaken;
+			f32 now = zVid.runTime;
+
+			if (!(now < printTime))
+			{
+				avgRate = accumRate / (f32)numSamples;
+				avgPTTTime = (s32)(accumPTTTime / (f32)numSamples);
+				numSamples = 0;
+				accumRate = 0.0f;
+				accumPTTTime = 0.0f;
+				printTime = 0.5f + now;
+				numSecs++;
+
+				if (theNetwork.m_bNetwork)
+					NetGetBandwidthInfo(&nbi);
+			}
+
+			/* ELF quirk kept: the frame number is passed as a 64-bit value to the last %d
+			   (port: its low word) */
+			sprintf(lines[count++], "%d %d %d  %4.1f/%02d  PTT: %d FR:%d", (s32)pos->x, (s32)pos->y, (s32)pos->z, (double)avgRate,
+				zVid.frameRate, avgPTTTime, (s32)zVid.frameNumber);
+
+			if (theNetwork.m_bNetwork)
+			{
+				sprintf(lines[count++], "Sec: %d (%5.1f) S: %6.1f (%6.1f) SB: %6.1f (%6.1f)", numSecs, (double)zVid.runTime,
+					(double)nbi.Sends.AverageRate, (double)nbi.Sends.MaxAverageRate, (double)nbi.SendBytes.AverageRate,
+					(double)nbi.SendBytes.MaxAverageRate);
+				sprintf(lines[count++], "R: %6.1f (%6.1f) RB: %6.1f (%6.1f)", (double)nbi.Recvs.AverageRate,
+					(double)nbi.Recvs.MaxAverageRate, (double)nbi.RecvBytes.AverageRate, (double)nbi.RecvBytes.MaxAverageRate);
+			}
+
+			sprintf(lines[count++], "DY%02d 3D%02d 2D%02d SW%02d  MaxTick:%5.2f", dyTime, drawTime, hudTime + (mapTime + compassTime),
+				swapTime, (double)theGame.m_maxtick);
+			sprintf(lines[count++], "Node%04d/%04d Alpha%03d", CBench::countNodes, CBench::countRenderNodes, CBench::countAlphaNodes);
+		}
+	}
+	else if (gopt.doStatusLineSmall)
+	{
+		s32 fps = (s32)rate;
+		s32 avg = 0;
+
+		if (CSealCtrlAi::aiActiveCount > 0)
+		{
+			if (fpsMax < fps)
+				fpsMax = fps;
+			else if (fps < fpsMin)
+				fpsMin = fps;
+
+			fpsSum += fps;
+			fpsCount++;
+			avg = (s32)((f32)fpsSum / (f32)fpsCount);
+		}
+
+		sprintf(lines[count++], "");
+
+		/* port: the ELF reads the camera's entity unchecked (NULL outside a mission) */
+		CZSealBody *seal = appCamera->m_entity;
+
+		if (seal != NULL)
+		{
+			CPnt3D *pos = seal->GetPosW();
+			CAiMapLoc here = seal->m_mapLocValid;
+
+			sprintf(lines[count++], "fps:%d %d %d %d ent=%d %d %d/%d", fpsMin, fps, fpsMax, avg, CSealCtrlAi::aiActiveCount,
+				CSealCtrlAi::aiSnoozingCount, CSealCtrlAi::aiSleepingCount, (s32)CEntity::m_list.size());
+
+			/* the range to the first hostile seal on the target list */
+			s32 range = 0;
+
+			for (CTargetList::iterator t = seal->m_targets.begin(); t != seal->m_targets.end(); ++t)
+			{
+				CEntity *ent = t->m_ent;
+
+				if (ent != NULL && (s32)ent->m_type == 2 && !(seal->m_team & ent->m_team))
+				{
+					range = (s32)t->GetRange();
+					break;
+				}
+			}
+
+			CSealUnit *unit = static_cast<CSealCtrl *>(seal->m_control)->m_unit;
+			s32 event = (s32)sqrtf(seal->m_aiEvent->m_rangeSq); /* ELF: no NULL tests */
+			sprintf(lines[count++], "e=%d t=%d a=%d u=%d", event, range, seal->m_aware_counter, unit->GetAwareCounter());
+			sprintf(lines[count++], "pos=%d %d %d", (s32)pos->x, (s32)pos->y, (s32)pos->z);
+			sprintf(lines[count++], "vel=%d %d %d", (s32)seal->m_velW.x, (s32)seal->m_velW.y, (s32)seal->m_velW.z);
+			sprintf(lines[count++], "%d:%2d,%2d @ %.1f", here.m_mapid, here.x, here.y, (double)AiMaps.GetAltitude(here));
+
+			/* the cell the seal is really in when it differs from the last valid one (x and y
+			   compared, not the map) */
+			if (seal->m_mapLocValid.x != seal->m_mapLoc.x || seal->m_mapLocValid.y != seal->m_mapLoc.y)
+			{
+				char text[64];
+				CAiMapLoc real = seal->m_mapLoc;
+				sprintf(text, "true=%d:%2d,%2d @ %.1f", real.m_mapid, real.x, real.y, (double)AiMaps.GetAltitude(real));
+				strcat(lines[count - 1], text);
+			}
+
+			if (ai::visinfo)
+			{
+				/* the awake hostile AIs that hold the seal on their target list: a bar of their
+				   visibility of it (green when visible, as TaskLineColor) and a line each */
+				for (CTargetList::iterator t = seal->m_targets.begin(); t != seal->m_targets.end(); ++t)
+				{
+					CEntity *ent = t->m_ent;
+
+					if (ent == NULL || (s32)ent->m_type != 2)
+						continue;
+
+					if (ent->m_control == NULL || !static_cast<CSealCtrl *>(ent->m_control)->IsAi())
+						continue;
+
+					CTarget *seen = ent->m_targets.FindTarget(seal);
+					CSealCtrlAi *ai = static_cast<CSealCtrl *>(ent->m_control)->GetSealCtrlAi();
+
+					if (ai->m_sleeping || (ent->m_team & seal->m_team) || seen == NULL)
+						continue;
+
+					s32 colour = seen->m_visible ? 1 : 0;
+					CPnt4D from;
+					CPnt4D to;
+					CPnt4D colorFrom;
+					CPnt4D colorTo;
+					from.x = LineBaseX;
+					from.y = LineBaseY + (f32)count * LineSpacing;
+					from.z = 0.0f; /* port: the ELF leaves z / w as the stack had them */
+					from.w = 0.0f;
+					to.x = LineBaseX + LineWidX * seen->m_visibility;
+					to.y = from.y;
+					to.z = 0.0f;
+					to.w = 0.0f;
+					colorFrom = TaskLineColor[colour];
+					colorTo = colorFrom;
+					Draw2DLine(&from, &to, &colorFrom, &colorTo);
+					from = to;
+					to.y -= LineSpacing;
+					Draw2DLine(&from, &to, &colorFrom, &colorTo);
+
+					sprintf(lines[count++], "%-15s %c %6.1f %6.2f", ent->m_node->m_name, ai->m_snoozing ? 'Z' : 'A',
+						(double)(0.1f * seen->GetRange()), (double)seen->m_visibility);
+				}
+			}
+		}
+
+		ai::plot_tick(rate, !m_pausetest.m_on);
+	}
+	else if (gopt.doAssetReport)
+	{
+		for (u32 i = 0; i < _assetNum; i++)
+			strcpy(lines[count++], _assetStrings[i]); /* ELF: not bounded by the 30 lines */
+
+		sprintf(lines[count++], "Total %d", _assetTotal);
+	}
+	else if (gopt.doTaskReport)
+	{
+		/* the scheduler's tasks grouped by priority: per group a bar of its run time (1/100
+		   frame, from the RCNT0 stamps) with its peak and a line; then the core tick's own
+		   intervals. ELF quirk kept: the walk goes 0, 2, 3, ... (task 1 is never reported). */
+		f32 cursor = 0.0f;
+		zTaskScheduler.GetTask(0);
+		CSched_Task *task = zTaskScheduler.GetTask(0);
+		f32 groupTime = 0.0f;
+		s32 groupCount = 0;
+		f32 priority = task->m_priority; /* ELF: GetTask(0) not NULL-tested */
+		char names[64];
+		strcpy(names, "");
+		sprintf(lines[count++], "          :%2d  %2d%s", preTime, 0, "/PreTasks/Reco/HUDDI");
+		u32 index = 1;
+		u32 peak = count;
+
+		while (task != NULL && count < 30)
+		{
+			if (strcmp(task->m_name, "NA") != 0)
+			{
+				if (priority != task->m_priority)
+				{
+					groupTime = 30.0f * groupTime;
+					s32 pct = (s32)(0.5f + 100.0f * groupTime);
+					TaskPeak(groupTime, &keepTime[peak], &maxTime[peak]);
+					DrawTaskLine(count, &cursor, groupTime, maxTime[peak]);
+					sprintf(lines[count++], "Pri %5.1f:%2d  %2d%s", (double)priority, pct, groupCount, names);
+					peak++;
+					priority = task->m_priority;
+					groupTime = 0.0f;
+					strcpy(names, "");
+					groupCount = 0;
+				}
+
+				groupTime += zSys.timerScale * (f32)(u32)(task->m_stopTime - task->m_startTime);
+				groupCount++;
+
+				if (strlen(names) < 40)
+				{
+					strcat(names, "/");
+					strncat(names, task->m_name, 12);
+				}
+			}
+
+			task = zTaskScheduler.GetTask(++index);
+		}
+
+		groupTime = 30.0f * groupTime;
+		s32 pct = (s32)(0.5f + 100.0f * groupTime);
+		TaskPeak(groupTime, &keepTimeX[0], &maxTimeX[0]);
+		DrawTaskLine(count, &cursor, groupTime, maxTimeX[0]);
+		sprintf(lines[count++], "Pri %5.1f:%2d  %2d%s", (double)priority, pct, groupCount, names);
+
+		static const char *const rows[3] = { "AppCamTick", "RndrCamUpdate", "hudPostDITick" };
+		const s32 rowTime[3] = { taskTime, camTime, postDITime };
+
+		for (u32 i = 0; i < 3; i++)
+		{
+			f32 value = 0.01f * (f32)rowTime[i];
+			TaskPeak(value, &keepTimeX[i + 1], &maxTimeX[i + 1]);
+			DrawTaskLine(count, &cursor, value, maxTimeX[i + 1]);
+			sprintf(lines[count++], "           :%2d  %2d%s", rowTime[i], 0, rows[i]);
+		}
+
+		static const char *const formats[4] = { "3D            %2d", "HUD Tick      %2d", "Map Tick      %2d", "Compass Tick  %2d" };
+		const s32 tickTime[4] = { drawTime, hudTime, mapTime, compassTime };
+
+		for (u32 i = 0; i < 4; i++)
+		{
+			f32 value = 0.01f * (f32)tickTime[i];
+			TaskPeak(value, &keepTimeX[i + 4], &maxTimeX[i + 4]);
+			DrawTaskLine(count, &cursor, value, maxTimeX[i + 4]);
+			sprintf(lines[count++], formats[i], tickTime[i]);
+		}
+
+		sprintf(lines[count++], "SWAP - %03d/%02d", (s32)rate, zVid.frameRate);
+	}
+	else if (gopt.doRenderReport)
+	{
+		/* CPipe::RenderWorld's stamps (CBench::drawTimeX), refreshed once a second */
+		if (!(zVid.runTime <= reportTime))
+		{
+			reportTime = 1.0f + zVid.runTime;
+			shadowTime = BenchInterval(CBench::drawTimeX[0], CBench::drawTimeX[1]);
+			shadowRingTime = BenchInterval(CBench::drawTimeX[1], CBench::drawTimeX[2]);
+			shadowNoRingTime = BenchInterval(CBench::drawTimeX[2], CBench::drawTimeX[3]);
+			landmarkTime = BenchInterval(CBench::drawTimeX[3], CBench::drawTimeX[4]);
+			particleTime = BenchInterval(CBench::drawTimeX[4], CBench::drawTimeX[5]);
+			characterTime = BenchInterval(CBench::drawTimeX[5], CBench::drawTimeX[6]);
+			charCommonTime = BenchInterval(CBench::drawTimeX[6], CBench::drawTimeX[7]);
+			alphaTime = BenchInterval(CBench::drawTimeX[7], CBench::drawTimeX[8]);
+			miscTime = drawTime - (alphaTime + (charCommonTime + (characterTime + (particleTime + (landmarkTime +
+				(shadowNoRingTime + (shadowTime + shadowRingTime))))))); /* ELF: the frame's 3D time */
+		}
+
+		sprintf(lines[count++], "%04d Nodes", CBench::countNodes);
+		sprintf(lines[count++], "%04d ..w/visuals", CBench::countRenderNodes);
+		sprintf(lines[count++], "%04d ..w/clutter", CBench::countClutterNodes);
+		sprintf(lines[count++], "%04d ..w/alpha", CBench::countAlphaNodes);
+		sprintf(lines[count++], "%04d Visuals", CBench::countVisuals);
+		sprintf(lines[count++], "%04d Alpha Visuals", CBench::countAlphaVisuals);
+		sprintf(lines[count++], "%02d Render Time - %02d FPS", drawTime, (s32)rate);
+		sprintf(lines[count++], "%02d ..Setup, shadow render", shadowTime);
+		sprintf(lines[count++], "%02d ..Rings w/shadows", shadowRingTime);
+		sprintf(lines[count++], "%02d ..Rings wo/shadows", shadowNoRingTime);
+		sprintf(lines[count++], "%02d ..Landmarks", landmarkTime);
+		sprintf(lines[count++], "%02d ..Particles(%d/%d %d/%d)", particleTime, CBench::countParticleSources,
+			CBench::countParticleSourcesProcessed, CBench::countParticlesProcessed, CBench::countParticlesDrawn);
+		sprintf(lines[count++], "%02d ..Characters(%d)", characterTime, numCharactersRendered);
+		sprintf(lines[count++], "%02d ..Char Common", charCommonTime);
+		sprintf(lines[count++], "%02d ..Alpha", alphaTime);
+		sprintf(lines[count++], "%02d ..Misc", miscTime);
 	}
 	else if (gopt.doFPS)
 	{
-		count = 1;
-		sprintf(lines[0], "%d", (s32)rate);
+		sprintf(lines[count++], "%d", (s32)rate);
 	}
 
 	for (u32 i = 0; i < count && i < 30; i++)
@@ -265,9 +603,5 @@ void CHUD::StatusLine()
 		m_perfstats[i].On();
 	}
 
-	(void)reportTime; (void)showTriCnt; (void)showTimers; (void)printTime; (void)accumRate;
-	(void)avgRate; (void)numSamples; (void)numSecs; (void)accumPTTTime; (void)avgPTTTime;
-	(void)fpsMax; (void)fpsMin; (void)fpsCount; (void)fpsSum; (void)shadowTime;
-	(void)shadowRingTime; (void)shadowNoRingTime; (void)landmarkTime; (void)particleTime;
-	(void)characterTime; (void)charCommonTime; (void)alphaTime; (void)miscTime;
+	(void)showTriCnt;
 }
