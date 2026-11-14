@@ -152,6 +152,12 @@
 #include "gamez/zReader/zrdr.h"
 #include "gamez/zTwoD/ztwod.h"
 /* @socom-skeleton end include */
+#include "gamez/zUI/zui.h" /* CSaferStr */
+#include "gamez/zAnim/zanim.h" /* ZAnim, C2DAnimCmdHdr (UiGetTextFromUser, UiSetSkbPurpose) */
+#include "gamez/zValve/zvalve.h" /* CValve (skb_done) */
+#include "gamez/zSound/zsnd.h" /* CSnd (the scale-up sound) */
+#include <string.h>
+#include <vector>
 /* @socom-skeleton decl forward */
 class C2DAnimCmdHdr;
 namespace {
@@ -223,6 +229,8 @@ namespace {
 class CSoftKeyboard
 {
 public:
+	/* no DWARF; from UiGetTextFromUser (0x3a71c0) */
+	CSaferStr m_name; /* +0x0: the keyboard's name, matched against the asking node's name */
 	void AddCasedChar(char);
 	void FindKeyProps(const CSkbKey &);
 	void GetCurKey() const;
@@ -375,7 +383,7 @@ int g_pSkbScaleDownSound;
 
 /* @socom-skeleton stub g_pSkbScaleUpSound__21@unnamed@zui_skb_cpp@ */
 namespace {
-int g_pSkbScaleUpSound;
+CSnd* g_pSkbScaleUpSound; /* 0x476998 (UiGetTextFromUser plays it) */
 }
 
 /* @socom-skeleton stub g_strLegendTxtr__21@unnamed@zui_skb_cpp@ */
@@ -415,17 +423,17 @@ int g_strSkbScaleUpSound;
 
 /* @socom-skeleton stub g_strSkbPurpose__21@unnamed@zui_skb_cpp@ */
 namespace {
-int g_strSkbPurpose;
+CSaferStr g_strSkbPurpose; /* 0x4769b8: what the text is for (UiSetSkbPurpose) */
 }
 
 /* @socom-skeleton stub g_strSkbUiVar__21@unnamed@zui_skb_cpp@ */
 namespace {
-int g_strSkbUiVar;
+CSaferStr g_strSkbUiVar; /* 0x4769bc: the UI variable the text goes to (UiGetTextFromUser) */
 }
 
 /* @socom-skeleton stub g_arrSkbs__21@unnamed@zui_skb_cpp@ */
 namespace {
-int g_arrSkbs[3];
+std::vector<CSoftKeyboard*> g_arrSkbs; /* 0x53b9f0 (12 bytes): the menu's soft keyboards */
 }
 
 /* @socom-skeleton stub g_bmpLegend__21@unnamed@zui_skb_cpp@ */
@@ -514,13 +522,67 @@ void TickSkb(float)
 }
 
 /* @socom-skeleton stub UiGetTextFromUser__FP13C2DAnimCmdHdrPf */
-unsigned char UiGetTextFromUser(C2DAnimCmdHdr *, float *)
+unsigned char UiGetTextFromUser(C2DAnimCmdHdr *cmd, float *)
 {
+	/* 0x3a71c0 (GetTextInput): the argument ($1: the anim's first argument) names the UI
+	 * variable the text goes to; the soft keyboard named as the command's node (else
+	 * "KEYBOARD") is shown, skb_done is set when there is none, and the scale-up sound plays.
+	 * The keyboards come from CreateSoftKeyboard - needs zUI: CreateSoftKeyboard (0x3a7940),
+	 * PrepSkbsForDisplay (0x3a7720) and CSoftKeyboard::ShowSkb (0x3a36f0); the port makes no
+	 * keyboard, so none is found and skb_done is set at once. */
+	CZAnim* anim = ZAnim.m_CurAnim;
+	const char* name = anim->GetName(cmd->m_argument_index);
+
+	if (name != NULL && strcasecmp("$1", name) == 0)
+		name = anim->m_arg_list->GetCharP(0);
+
+	if (name != NULL)
+		g_strSkbUiVar.assign(name, strlen(name));
+	else
+		g_strSkbUiVar.replace(0, CSaferStr::npos, "", 0);
+
+	zdb::CNode* node = anim->GetNode(cmd->node_ref_index, false);
+	const char* skbname = node != NULL ? node->m_name : "KEYBOARD";
+	CSoftKeyboard* skb = NULL;
+
+	for (u32 i = 0; i < g_arrSkbs.size(); i++)
+	{
+		if (strcasecmp(g_arrSkbs[i]->m_name.c_str(), skbname) == 0)
+		{
+			skb = g_arrSkbs[i];
+			break;
+		}
+	}
+
+	if (skb != NULL)
+		skb->ShowSkb();
+
+	CValve* done = CValve::Create("skb_done", VALVE_TYPE::VTYPE_PERM);
+	u32 value = skb == NULL ? 1 : 0;
+	u32 change = done->m_value != value ? (value != 0 ? 1 : 2) : 0;
+	done->m_value = value;
+
+	if (change != 0)
+		done->MakeCallbacks((VALVE_STATE)change);
+
+	if (g_pSkbScaleUpSound != NULL)
+		g_pSkbScaleUpSound->PlaySound(true, (CSndInstance*)NULL, 255);
+
+	return true;
 }
 
 /* @socom-skeleton stub UiSetSkbPurpose__FP13C2DAnimCmdHdrPf */
-unsigned char UiSetSkbPurpose(C2DAnimCmdHdr *, float *)
+unsigned char UiSetSkbPurpose(C2DAnimCmdHdr *cmd, float *)
 {
+	/* 0x3a7150 (SetSkbPurpose): the argument names what the text is for (none: empty) */
+	const char* name = ZAnim.m_CurAnim->GetName(cmd->m_argument_index);
+
+	if (name != NULL)
+		g_strSkbPurpose.assign(name, strlen(name));
+	else
+		g_strSkbPurpose.replace(0, CSaferStr::npos, "", 0);
+
+	return true;
 }
 
 /* @socom-skeleton body ZuiInit__Fv */

@@ -1777,13 +1777,17 @@ float CSealCtrl::GetZoomIncrement()
 }
 
 /* @socom-skeleton stub SetRumbleOn__Fb */
-void SetRumbleOn(bool)
+void SetRumbleOn(bool on)
 {
+	/* 0x284360 (the options' VIBRATION_CONTROLLER, UIStoreOptions) */
+	RumbleIsOn = on;
 }
 
 /* @socom-skeleton stub IsRumbleOn__Fv */
 unsigned char IsRumbleOn()
 {
+	/* 0x284350 */
+	return RumbleIsOn;
 }
 
 /* @socom-skeleton stub SetHighRumbleTime__9CSealCtrlFf */

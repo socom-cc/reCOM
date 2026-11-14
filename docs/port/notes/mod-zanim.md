@@ -118,3 +118,98 @@ OBJECT_BLENDMODE, TIMER, RESUME_ANIMATION, UI_APP_COMMAND.
 - Untested in the demo data: FIRE_WEAPON, SI scripts, ADD/DELETE_CHILD and INVALIDATE ran in no
   traced run (their anims are triggered later in m8 than the passive runs got); every text-path
   function; the network functions.
+
+# Part 2 (2026-11-13, socom-port-mod-zanim2): front-end UI commands, SI-script loaders, parsers, online commands
+
+Scratch: `build/port/boot-mod-zanim2/` (NOTES.md, mine.txt, edits/trace400.txt, pad_fe1/pad_fe2.txt,
+hook_zanim2.cpp = the first part's m8 hook, asm dumps, tools/). Tree = HEAD 920f54c4 + mine.txt.
+
+## Result
+- `survey.py gamez/zAnim`: 24 empty fences (23104 B) -> 14 (11436 B). Placeholder bodies
+  (`return true; /* port: stub - not written */`): 114 (15224 B) -> 67 (9000 B), all online
+  (network / lobby / clan / network configuration); partial bodies 5 -> 4.
+- Runs: fe3 (fake pad pad_fe2.txt, HEAD 8f2e84ef + these files): main menu -> OPTIONS -> audio,
+  video (CheckVideoMode), controller, presets (CROSS: SetControllerConfig "Default") and back each
+  time -> main menu (StoreOptions again) -> attract, no STOP. m2 (first part's m8 hook, the intro
+  movie skipped with CROSS, cameras with SELECT; HEAD 920f54c4): in the mission 72..257 s, no STOP,
+  heap 22.20 MB flat from 160 s; a 600-command UI trace shows no online or memory-card command on
+  the m8 path. x3 (port/test-hooks/win, -DSOCOM_HOOK_EXITPATHS): abort -> debrief -> replay,
+  replay, abort -> debrief -> menus at 158 s and the menu / attract cycle after, no STOP and no
+  menu hang. def2 (default.sh, HEAD 8f2e84ef): boots to the main menu.
+
+## Written (ELF addresses)
+- Front end (zanim_menu.cpp): PopUpDialog 0x1d5f20 / UIPopUpDialog 0x1d5a20, UIKillPopUp 0x1d4720,
+  UISetControllerConfig 0x1d69c0, UISetStickPreset 0x1d3310, UIStoreOptions 0x1d3470,
+  UIInitializeOptions 0x1d2fd0, UICheckVideoMode 0x1d38a0, UISwitchProgressiveVideo 0x1d37c0,
+  UISetDefaultMenuScreen 0x1d2310, UITestUIVar 0x1d2120, OnGetTextFromUser 0x1d7090,
+  OnSetSkbPurpose 0x1d6af0, UISwitchMenu's PREVIOUS_SCREEN back sound 0x1d57b0, the
+  UI_COMMAND / UI_APP_COMMAND parsers 0x1d04b0 / 0x1d0330 (text path); the memory-card commands
+  (_LoadSavedGame 0x1d68c0, _SaveSavedGame 0x1d6790, OnListSavedGames 0x1d6d70,
+  UIIsMemCardFormatted, UIFormatMemCard, UIDoesSlotHaveGame, UIGetNumSavedGames,
+  UIIsSpaceForSaveGameFile, UIMC_ChDir / MkDir / ChSlot / Exists / CreateIconFiles, UILoadConfig,
+  UISaveConfig) with their argument, valve and UI-variable parts; each CMemCard call answers as
+  with no card (needs zUtil: CMemCard - util_memcard.cpp is stubs and theMemCard a placeholder;
+  the first part's UIIsMemCardInserted already reports no card).
+- zUI (zui_skb.cpp): UiGetTextFromUser 0x3a71c0, UiSetSkbPurpose 0x3a7150 (g_strSkbPurpose,
+  g_strSkbUiVar, g_arrSkbs, g_pSkbScaleUpSound typed; CSoftKeyboard::m_name +0x0).
+- SI scripts (zanim_set.cpp, text path): CZAnimSet::SIScript(name, ...) 0x1c6720, load_si_script
+  0x1c6900 (frames, spline coefficients, constant-block removal), _store_frame_data 0x1c78f0;
+  parsers OBJECT_MOTION_SI_SCRIPT 0x1abcf0 and ...ForObject 0x1ac460 (returns the record);
+  DEBUG 0x1aaef0 (record _zanim_cmd_debug). _zanim_object_motion_script: +0x20 rotate_offset,
+  +0x2c scale_offset.
+- Online UI commands (written, untested: nothing online runs): UISysLoadIRX, UIPasswordSecurity,
+  UITransferLeadership, UIDeclineInvitation, UIAcceptInvitation, UIUpdateClanStats,
+  UICanLadderPressDown / Up, UILadderDown / Up, UISetPlayerDescription, UIForceMediusStatusReport,
+  UINetCensorText + AuxNetCensorText, UIRebootIOP, UIIsNetwork, UIIsSessionMaster, UIAbortLoad,
+  UIClearGameState, UILobbyBailout, UIUnInitNetwork, UIGetAcctInfo, UILobbyEventHandler. The m8
+  path (trace of 600 UI commands) and the options screens run none of the online or
+  memory-card commands.
+
+## Outside the module (small in-place edits)
+- zSeal/seal_control.cpp: SetRumbleOn 0x284360 / IsRumbleOn 0x284350 (UIStoreOptions /
+  UIInitializeOptions).
+- port/compat/libvu0.c + include/libvu0.h: sceVu0RotMatrixX 0x152688 / sceVu0RotMatrixZ 0x1525e0
+  (load_si_script; the X/Z twins of the existing RotMatrixY).
+
+## ELF quirks kept
+- UIStoreOptions / UIInitializeOptions disagree: INVERT_PITCH_CONTROLLER set gives hackPitchFactor
+  -1 but is set back from a factor of 1; STEREO_CONTROLLER set gives playback mode 0 but is set
+  back from a mode other than 0. UILoadConfig: AUTOMESSAGES "ON" turns the messages off.
+- UISwitchProgressiveVideo (and UIStoreOptions' video_mode) test the current mode for NTSC and
+  the requested one for DTV; _SaveSavedGame prints the clock's BCD bytes as decimals;
+  UISysLoadIRX copies its argument and loads nothing; UIStoreOptions makes STICK_SWAP_CONTROLLER
+  and never reads it.
+- load_si_script: the curve's multiply-by-zero terms (t0 = 0); a frame header whose blocks are
+  all removed stays; an "Object" entry missing a value reads tokens to the end of the file;
+  CZAnimMain::OpenFile is empty in the ELF, so no SI script or OBJECT_MOTION_SI_SCRIPT ALL_NAMES
+  file is ever read. OMSI's NAMES branch takes SCRIPT_OBJECT_NAME from the NAMES list, not the
+  item; OMSI makes an unused CFileIO (port: not made).
+
+## Port deviations
+- zAnimUIMenuTick tests the command id against the table size before UICommandTable[id] (the ELF
+  reads past the table for the 2D objects' own command types, 0x95 on, when the node has no 2D
+  object - the options screens do this).
+- filename$2674 is at file scope (every memory-card command writes it; the ELF's static of
+  OnListSavedGames); the commands' INPUT_STRING read, the inline valve set and UI-variable set
+  are file-local helpers (UiArgument, UiSetValve, UiSetRealVar, UiApplyStickPreset); DEBUG's
+  string add and OMSI's object add are file-local helpers; load_si_script and
+  _store_frame_data stay void (no caller reads the ELF's return); load_si_script zeroes the
+  values the ELF leaves unset.
+
+## Not written / next
+- needs zUI: CPopUpDialog (Load 0x389770, Draw 0x3897f0, Tick 0x389ae0, HandlePad 0x389b10,
+  TickZAnimCmd 0x387020, GetZAnimCmdType 0x386f80) and CWrappedText (SetString 0x391630, Draw
+  0x391110, dtor 0x391480, LoadSpec 0x3919a0): CMenuStack::GetPopUp makes no pop-up, so the
+  menus have no POPUP node and PopUpDialog / KillPopUp show and hide nothing. needs zUI: the soft
+  keyboard (CreateSoftKeyboard 0x3a7940, PrepSkbsForDisplay 0x3a7720, ShowSkb 0x3a36f0):
+  GetTextInput finds no keyboard and sets skb_done at once.
+- needs zUtil: CMemCard (all of util_memcard.cpp) for the memory-card commands; CRdrEditor's
+  port body (zReader) is a non-working placeholder, so OnListSavedGames' list stays empty.
+- needs zMath: CQuat::Div 0x220eb0 / Ln 0x220750 (stubs) for _store_frame_data's rotations.
+- zAnimLoadParticleSource 0x1b5e30 (6424 B, text path; the scratch asm_particle.txt has it).
+- CZAnimArgList::ParseNetworkPacketArgs 0x1cd960 / AddNetworkPacketArgs 0x1cdcf0 and
+  CZAnim::Activate's network part; OnCloseAndSwitch / OnReplayMission's network parts.
+- 67 online UI commands from UINetGetIFCInfo 0x1d0f90 upward (address order), and the empty
+  UINet* / UICheckJoinMP stubs; several need zNetwork return types first (IsTeamGame,
+  OnCorrectClanTeam, HasClanInvitations and CNetCnf::Close / Uninit are void in znet.h).
+- Step 4 not done: FIRE_WEAPON, the SI scripts and ADD / DELETE_CHILD still ran in no traced run.

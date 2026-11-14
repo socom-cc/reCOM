@@ -48,6 +48,9 @@ void sceVu0LightColorMatrix(sceVu0FMATRIX m, sceVu0FVECTOR c0, sceVu0FVECTOR c1,
 /* m0 = m1 turned about y by ry: each row r of m1 -> r.x*(c,0,-s,0) + r.y*(0,1,0,0) + r.z*(s,0,c,0) + r.w*(0,0,0,1)
  * (0x152730; GetDeadCamPoints 0x1e8fc0; m0 may alias m1) */
 void sceVu0RotMatrixY(sceVu0FMATRIX m0, sceVu0FMATRIX m1, float ry);
+/* the same about x (0x152688) and z (0x1525e0); load_si_script 0x1c6900 */
+void sceVu0RotMatrixX(sceVu0FMATRIX m0, sceVu0FMATRIX m1, float rx);
+void sceVu0RotMatrixZ(sceVu0FMATRIX m0, sceVu0FMATRIX m1, float rz);
 
 /* v0 = ftoi4 of (m0 * v1 with x, y, z divided by its w; w kept), z and w as ftoi0 when mode
  * is nonzero (0x152d18; Particle::BufferElement::Draw 0x2348c4) */

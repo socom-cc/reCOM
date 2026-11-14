@@ -747,15 +747,17 @@ class _zanim_object_motion_script /* one object of OBJECT_MOTION_SI_SCRIPT (zAni
 {
 public:
 	_zanim_cmd_hdr header;
-	u8 flags;                 /* +0x4: 1 add the offset to the positions */
+	u8 flags;                 /* +0x4: 1 add the offset to the positions (TRANSLATE_OFFSET), 2
+	                           * ROTATE_OFFSET, 4 SCALE_OFFSET given (zAnimLoadObjectMotionSIScriptForObject) */
 	u8 node_ref;              /* +0x5: 0 none */
 	u8 unknown_6;             /* +0x6: not read by the ticks */
 	u8 script;                /* +0x7: the anim set's SI script index */
 	u32 unknown_8;            /* +0x8: not read by the ticks */
 	f32 frame_time;           /* +0xc: time into the current frame */
 	s32 data_offset;          /* +0x10: the current frame's offset in the script data */
-	CPnt3D offset;            /* +0x14 */
-	u8 unknown_20[0x18];      /* +0x20..+0x37: not read by the ticks */
+	CPnt3D offset;            /* +0x14: TRANSLATE_OFFSET */
+	CPnt3D rotate_offset;     /* +0x20: ROTATE_OFFSET in radians (read in degrees); not read by the ticks */
+	CPnt3D scale_offset;      /* +0x2c: SCALE_OFFSET; not read by the ticks */
 	s32 frame_count;          /* +0x38: frames passed */
 };
 
@@ -765,6 +767,23 @@ struct _zanim_cmd_si_script   /* OBJECT_MOTION_SI_SCRIPT (zAnimMultiObjectMotion
 	u16 count;                /* +0x4 */
 	u16 pad;
 	/* +0x8: _zanim_object_motion_script[count] */
+};
+
+struct _zanim_cmd_debug       /* DEBUG (zAnimLoadDebug 0x1aaef0; the tick 0x1b7c80 is empty); 20 bytes, then
+                               * the strings (each 4-byte aligned) */
+{
+	_zanim_cmd_hdr header;
+	u32 flags;                /* +0x4: 1 MASTER, 2 ANIM, 4 ANIM_NAME, 8 SEQ_NAME, 0x10 PREFIX_STRING,
+	                           * 0x20 STRING, 0x40 NODE POS, 0x80 NODE WORLD_POS, 0x100 TIMESTAMP given */
+	u32 master_on : 1;        /* +0x8 bit 0: MASTER ON */
+	u32 anim_on : 1;          /* bit 1: ANIM ON */
+	u32 node_ref : 8;         /* bits 2-9: NODE NAME */
+	u32 anim_name : 16;       /* bits 10-25: ANIM_NAME's string offset in the record (0 none) */
+	u32 unused : 6;
+	u16 seq_name;             /* +0xc: SEQ_NAME's string offset */
+	u16 prefix;               /* +0xe: PREFIX_STRING's */
+	u16 string;               /* +0x10: STRING's */
+	u16 timestamp;            /* +0x12: TIMESTAMP's */
 };
 
 struct _zanim_cmd_timer       /* TIMER (zAnimTimerTick 0x1bfd70); 8 bytes */
@@ -1801,7 +1820,7 @@ _zanim_cmd_hdr* zAnimLoadObjectDeleteChild(_zrdr*);
 _zanim_cmd_hdr* zAnimLoadObjectMotion(_zrdr*);
 _zanim_cmd_hdr* zAnimLoadObjectMotionFromTo(_zrdr*);
 _zanim_cmd_hdr* zAnimLoadObjectMotionSIScript(_zrdr*);
-_zanim_cmd_hdr* zAnimLoadObjectMotionSIScriptForObject(_zrdr*);
+_zanim_object_motion_script* zAnimLoadObjectMotionSIScriptForObject(_zrdr*, int, const char*); /* 0x1ac460 */
 _zanim_cmd_hdr* zAnimLoadObjectTranslateState(_zrdr*);
 _zanim_cmd_hdr* zAnimLoadObjectRotateState(_zrdr*);
 _zanim_cmd_hdr* zAnimLoadObjectActiveState(_zrdr*);

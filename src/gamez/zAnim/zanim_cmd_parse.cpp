@@ -2794,13 +2794,286 @@ _zanim_cmd_hdr * zAnimLoadObjectMotion(_zrdr *reader)
 }
 
 /* @socom-skeleton stub zAnimLoadObjectMotionSIScriptForObject__FP5_zrdriPCc */
-void zAnimLoadObjectMotionSIScriptForObject(_zrdr *, int, const char *)
+_zanim_object_motion_script * zAnimLoadObjectMotionSIScriptForObject(_zrdr *reader, int node_ref, const char *object)
 {
+	/* 0x1ac460 (text path): one object of OBJECT_MOTION_SI_SCRIPT, a 60-byte record: the node
+	 * (node_ref > 0, else NAME: a NAME naming no node gives NULL), SPLINE_INTERP,
+	 * IGNORE_TRANSLATE / _ROTATE / _SCALE, TRANSLATE_ / ROTATE_ (degrees) / SCALE_OFFSET,
+	 * SCRIPT_FRAME_RATE (frames a second, default 30) and SCRIPT_FILENAME, whose script for the
+	 * object (the argument, else SCRIPT_OBJECT_NAME, else the node's name) the anim set loads
+	 * (CZAnimSet::SIScript). Port: returns the record (skeleton: void; the ELF returns it).
+	 * Written, untested (no retail data takes the text path). */
+	bool spline = false;
+	bool ignore_translate = false;
+	bool ignore_rotate = false;
+	bool ignore_scale = false;
+
+	if (reader == NULL)
+		return NULL;
+
+	_zanim_object_motion_script* cmd = static_cast<_zanim_object_motion_script*>(_calloc(1, 60, "zanim_cmd_parse.cpp", 4082));
+	cmd->header.data_size = 60;
+	f32 rate = 1.0f / 30.0f;
+
+	if (node_ref > 0)
+	{
+		cmd->node_ref = node_ref;
+	}
+	else
+	{
+		_zrdr* tag = zrdr_findtag(reader, "NAME");
+
+		if (tag != NULL)
+		{
+			cmd->node_ref = ZAnim.m_CurAnim->LoadNodeNames(tag, NULL, 0, ZAnim.m_CurAnim->node_search_scope);
+
+			if (cmd->node_ref == 0)
+			{
+				_free(cmd, "zanim_cmd_parse.cpp", 4185);
+				return NULL;
+			}
+		}
+	}
+
+	if (zrdr_findtag(reader, "SPLINE_INTERP") != NULL)
+		spline = true;
+
+	if (zrdr_findtag(reader, "IGNORE_TRANSLATE") != NULL)
+		ignore_translate = true;
+
+	if (zrdr_findtag(reader, "IGNORE_ROTATE") != NULL)
+		ignore_rotate = true;
+
+	if (zrdr_findtag(reader, "IGNORE_SCALE") != NULL)
+		ignore_scale = true;
+
+	if (zrdr_findPNT3D(reader, "TRANSLATE_OFFSET", reinterpret_cast<PNT3D*>(&cmd->offset)))
+		cmd->flags |= 1;
+
+	if (zrdr_findPNT3D(reader, "ROTATE_OFFSET", reinterpret_cast<PNT3D*>(&cmd->rotate_offset)))
+	{
+		cmd->flags |= 2;
+		cmd->rotate_offset.x = 0.017453292f * cmd->rotate_offset.x;
+		cmd->rotate_offset.y = 0.017453292f * cmd->rotate_offset.y;
+		cmd->rotate_offset.z = 0.017453292f * cmd->rotate_offset.z;
+	}
+
+	if (zrdr_findPNT3D(reader, "SCALE_OFFSET", reinterpret_cast<PNT3D*>(&cmd->scale_offset)))
+		cmd->flags |= 4;
+
+	if (zrdr_findreal(reader, "SCRIPT_FRAME_RATE", &rate, 1))
+		rate = 1.0f / rate;
+	else
+		rate = 1.0f / 30.0f;
+
+	_zrdr* tag = zrdr_findtag(reader, "SCRIPT_FILENAME");
+
+	if (tag != NULL)
+	{
+		char* name = _strdup(tag->array[1].string, "zanim_cmd_parse.cpp", 4141);
+		ZAnimWildcardApply(name);
+
+		if (object == NULL)
+		{
+			_zrdr* objtag = zrdr_findtag(reader, "SCRIPT_OBJECT_NAME");
+
+			if (objtag != NULL)
+			{
+				object = objtag->array[1].string;
+				ZAnimWildcardApply(object);
+			}
+			else
+			{
+				object = ZAnim.m_CurAnim->GetNodeRefName(cmd->node_ref);
+			}
+		}
+
+		cmd->script = ZAnim.m_CurAnimSet->SIScript(name, object, spline, rate, ignore_translate, ignore_rotate, ignore_scale);
+
+		if (name != NULL)
+			_free(name, "zanim_cmd_parse.cpp", 4175);
+	}
+
+	return cmd;
+}
+
+/* port: no symbol - the parser's inline "add an object": the record grows to hold count + 1
+ * objects (made on the first), the object is copied in and freed */
+static _zanim_cmd_si_script* zAnimSIScriptAddObject(_zanim_cmd_si_script* cmd, _zanim_object_motion_script* object)
+{
+	if (cmd == NULL)
+		cmd = static_cast<_zanim_cmd_si_script*>(_calloc(68, 1, "zanim_cmd_parse.cpp", 4198));
+
+	u32 size = cmd->count * 60 + 68;
+	cmd = static_cast<_zanim_cmd_si_script*>(_realloc(cmd, size, "zanim_cmd_parse.cpp", 4204));
+	cmd->header.data_size = size;
+	memcpy(reinterpret_cast<char*>(cmd) + 8 + cmd->count * 60, object, 60);
+	_free(object, "zanim_cmd_parse.cpp", 4210);
+	cmd->count++;
+	return cmd;
 }
 
 /* @socom-skeleton stub zAnimLoadObjectMotionSIScript__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadObjectMotionSIScript(_zrdr *)
+_zanim_cmd_hdr * zAnimLoadObjectMotionSIScript(_zrdr *reader)
 {
+	/* 0x1abcf0 (text path): OBJECT_MOTION_SI_SCRIPT - ROOT, then the objects: ALL_NAMES
+	 * (scope GLOBAL / LOCAL / WORLD / MODEL; every "Object" of the SCRIPT_FILENAME script), else
+	 * NAMES (a node and its SCRIPT_OBJECT_NAME each), else the reader itself is the one object.
+	 * ELF quirk kept: a CFileIO is made on the stack and destroyed unused (port: not made).
+	 * Written, untested (no retail data takes the text path). */
+	_zanim_cmd_si_script* cmd = NULL;
+	s32 root = 0;
+
+	if (reader == NULL)
+		return NULL;
+
+	_zrdr* tag = zrdr_findtag(reader, "ROOT");
+
+	if (tag != NULL)
+		root = ZAnim.m_CurAnim->LoadNodeNames(tag, NULL, 0, ZAnim.m_CurAnim->node_search_scope);
+
+	_zrdr* all = zrdr_findtag(reader, "ALL_NAMES");
+
+	if (all != NULL)
+	{
+		char** names = NULL;
+		s32 count = 0;
+		s32 scope = ZAnim.m_CurAnim->node_search_scope;
+
+		if (zrdr_findtag(all, "GLOBAL") != NULL)
+			scope = 0;
+
+		if (zrdr_findtag(all, "LOCAL") != NULL)
+			scope = 1;
+
+		if (zrdr_findtag(all, "WORLD") != NULL)
+			scope = 3;
+
+		if (zrdr_findtag(all, "MODEL") != NULL)
+			scope = 2;
+
+		tag = zrdr_findtag(reader, "SCRIPT_FILENAME");
+
+		if (tag != NULL)
+		{
+			char token[256];
+			char* name = _strdup(tag->array[1].string, "zanim_cmd_parse.cpp", 4267);
+			ZAnimWildcardApply(name);
+			__sFILE* file = ZAnim.OpenFile(name, "r");
+
+			if (file == NULL)
+			{
+				if (name != NULL)
+					_free(name, "zanim_cmd_parse.cpp", 4276);
+
+				return NULL;
+			}
+
+			/* every object name of the script, once */
+			s32 result;
+
+			do
+			{
+				token[0] = '\0';
+				result = fscanf(file, "%s", token);
+
+				if (result != -1 && strncmp(token, "Object", 6) == 0)
+				{
+					fscanf(file, "%s", token);
+					s32 i;
+
+					for (i = 0; i < count; i++)
+					{
+						if (strcmp(names[i], token) == 0)
+							break;
+					}
+
+					if (i == count)
+					{
+						names = static_cast<char**>(_realloc(names, (count + 1) * sizeof(char*), "zanim_cmd_parse.cpp", 4301));
+						names[count] = static_cast<char*>(_calloc(1, strlen(token) + 1, "zanim_cmd_parse.cpp", 4302));
+						strcpy(names[count], token);
+						count++;
+					}
+				}
+			} while (result != -1);
+
+			if (name != NULL)
+				_free(name, "zanim_cmd_parse.cpp", 4312);
+
+			fclose(file);
+		}
+
+		if (count <= 0)
+			return NULL;
+
+		for (s32 i = 0; i < count; i++)
+		{
+			ZAnimWildcardApply(names[i]);
+			s32 node = ZAnim.m_CurAnim->LoadNodeNames(NULL, names[i], root, scope);
+
+			if (node == 0)
+				continue;
+
+			_zanim_object_motion_script* object = zAnimLoadObjectMotionSIScriptForObject(reader, node, names[i]);
+
+			if (object != NULL)
+				cmd = zAnimSIScriptAddObject(cmd, object);
+		}
+
+		for (s32 i = 0; i < count; i++)
+			_free(names[i], "zanim_cmd_parse.cpp", 4340);
+
+		_free(names, "zanim_cmd_parse.cpp", 4342);
+		return cmd != NULL ? &cmd->header : NULL;
+	}
+
+	_zrdr* list = zrdr_findtag(reader, "NAMES");
+
+	if (list != NULL)
+	{
+		/* each element: a node (NAME) and its script object */
+		for (s32 i = 1; i < list->array->integer; i++)
+		{
+			_zrdr* item = &list->array[i];
+			s32 node = -1;
+			tag = zrdr_findtag(item, "NAME");
+
+			if (tag != NULL)
+				node = ZAnim.m_CurAnim->LoadNodeNames(tag, NULL, root, ZAnim.m_CurAnim->node_search_scope);
+
+			if (node == 0)
+				continue;
+
+			const char* object;
+			tag = zrdr_findtag(list, "SCRIPT_OBJECT_NAME");
+
+			if (tag != NULL)
+			{
+				object = tag->array[1].string;
+				ZAnimWildcardApply(object);
+			}
+			else
+			{
+				object = ZAnim.m_CurAnim->GetNodeRefName(node);
+			}
+
+			_zanim_object_motion_script* motion = zAnimLoadObjectMotionSIScriptForObject(reader, node, object);
+
+			if (motion != NULL)
+				cmd = zAnimSIScriptAddObject(cmd, motion);
+		}
+
+		return cmd != NULL ? &cmd->header : NULL;
+	}
+
+	_zanim_object_motion_script* motion = zAnimLoadObjectMotionSIScriptForObject(reader, 0, NULL);
+
+	if (motion == NULL)
+		return NULL;
+
+	cmd = zAnimSIScriptAddObject(NULL, motion);
+	return &cmd->header;
 }
 
 /* @socom-skeleton stub zAnimLoadObjectAddChild__FP5_zrdr */
@@ -2903,8 +3176,121 @@ _zanim_cmd_hdr * zAnimLoadObjectDeleteChild(_zrdr *reader)
 }
 
 /* @socom-skeleton stub zAnimLoadDebug__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadDebug(_zrdr *)
+/* port: no symbol - DEBUG's inline string add (5 times): the tag's first element, when it is
+ * a string, is appended to the record 4-byte aligned through a malloc'd copy
+ * (zAnimCmdAddData inlined); its offset in the record, else 0 */
+static u32 zAnimDebugAddString(_zanim_cmd_debug** cmd, _zrdr* tag)
 {
+	_zrdr* first = tag->Get(0);
+
+	if (first == NULL || first->type != ZRDR_STRING)
+		return 0;
+
+	const char* string = first->string;
+	s32 size = (s32)strlen(string) + 1;
+
+	if (size % 4 != 0)
+		size += 4 - size % 4;
+
+	char* copy = static_cast<char*>(_malloc(size, "zanim_cmd_parse.cpp", 4523));
+	strcpy(copy, string);
+	u32 offset = (*cmd)->header.data_size;
+	*cmd = reinterpret_cast<_zanim_cmd_debug*>(zAnimCmdAddData(&(*cmd)->header, copy, size));
+	_free(copy, "zanim_cmd_parse.cpp", 4527);
+	return offset;
+}
+
+_zanim_cmd_hdr * zAnimLoadDebug(_zrdr *reader)
+{
+	/* 0x1aaef0 (text path): DEBUG - MASTER [ON], ANIM [ON], ANIM_NAME, SEQ_NAME,
+	 * PREFIX_STRING, STRING, NODE { NAME, POS, WORLD_POS }, TIMESTAMP; each given part sets its
+	 * flag, the strings follow the 20-byte record. Written, untested (no retail data takes the
+	 * text path; the DEBUG tick is empty in the ELF). */
+	CZAnim* anim = ZAnim.m_CurAnim;
+
+	if (reader == NULL)
+		return NULL;
+
+	_zanim_cmd_debug* cmd = static_cast<_zanim_cmd_debug*>(_calloc(1, 20, "zanim_cmd_parse.cpp", 4549));
+	cmd->header.data_size = 20;
+	_zrdr* tag = zrdr_findtag(reader, "MASTER");
+
+	if (tag != NULL)
+	{
+		cmd->flags |= 1;
+		cmd->master_on = zrdr_findtag(tag, "ON") != NULL;
+	}
+
+	tag = zrdr_findtag(reader, "ANIM");
+
+	if (tag != NULL)
+	{
+		cmd->flags |= 2;
+		cmd->anim_on = zrdr_findtag(tag, "ON") != NULL;
+	}
+
+	tag = zrdr_findtag(reader, "ANIM_NAME");
+
+	if (tag != NULL)
+	{
+		cmd->flags |= 4;
+		u32 offset = zAnimDebugAddString(&cmd, tag);
+		cmd->anim_name = offset & 0xffff;
+	}
+
+	tag = zrdr_findtag(reader, "SEQ_NAME");
+
+	if (tag != NULL)
+	{
+		cmd->flags |= 8;
+		u32 offset = zAnimDebugAddString(&cmd, tag);
+		cmd->seq_name = offset;
+	}
+
+	tag = zrdr_findtag(reader, "PREFIX_STRING");
+
+	if (tag != NULL)
+	{
+		cmd->flags |= 0x10;
+		u32 offset = zAnimDebugAddString(&cmd, tag);
+		cmd->prefix = offset;
+	}
+
+	tag = zrdr_findtag(reader, "STRING");
+
+	if (tag != NULL)
+	{
+		cmd->flags |= 0x20;
+		u32 offset = zAnimDebugAddString(&cmd, tag);
+		cmd->string = offset;
+	}
+
+	tag = zrdr_findtag(reader, "NODE");
+
+	if (tag != NULL)
+	{
+		_zrdr* name = zrdr_findtag(tag, "NAME");
+
+		if (name != NULL)
+			cmd->node_ref = anim->LoadNodeNames(name, NULL, 0, ZAnim.m_CurAnim->node_search_scope) & 0xff;
+
+		if (zrdr_findtag(tag, "POS") != NULL)
+			cmd->flags |= 0x40;
+
+		if (zrdr_findtag(tag, "WORLD_POS") != NULL)
+			cmd->flags |= 0x80;
+	}
+
+	tag = zrdr_findtag(reader, "TIMESTAMP");
+
+	if (tag != NULL)
+	{
+		cmd->flags |= 0x100;
+		u32 offset = zAnimDebugAddString(&cmd, tag);
+		cmd->timestamp = offset;
+	}
+
+	return &cmd->header;
 }
 
 /* @socom-skeleton stub zAnimLoadTimer__FP5_zrdr */

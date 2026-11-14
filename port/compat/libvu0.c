@@ -253,6 +253,34 @@ void sceVu0RotMatrixY(sceVu0FMATRIX m0, sceVu0FMATRIX m1, float ry)
     }
 }
 
+/* 0x152688: about x - each row r -> r.x*(1,0,0,0) + r.y*(0,c,s,0) + r.z*(0,-s,c,0) + r.w*(0,0,0,1) */
+void sceVu0RotMatrixX(sceVu0FMATRIX m0, sceVu0FMATRIX m1, float rx)
+{
+    const float c = cosf(rx), s = sinf(rx);
+    int i;
+    for (i = 0; i < 4; i++) {
+        const float x = m1[i][0], y = m1[i][1], z = m1[i][2], w = m1[i][3];
+        m0[i][0] = x;
+        m0[i][1] = y * c - z * s;
+        m0[i][2] = y * s + z * c;
+        m0[i][3] = w;
+    }
+}
+
+/* 0x1525e0: about z - each row r -> r.x*(c,s,0,0) + r.y*(-s,c,0,0) + r.z*(0,0,1,0) + r.w*(0,0,0,1) */
+void sceVu0RotMatrixZ(sceVu0FMATRIX m0, sceVu0FMATRIX m1, float rz)
+{
+    const float c = cosf(rz), s = sinf(rz);
+    int i;
+    for (i = 0; i < 4; i++) {
+        const float x = m1[i][0], y = m1[i][1], z = m1[i][2], w = m1[i][3];
+        m0[i][0] = x * c - y * s;
+        m0[i][1] = x * s + y * c;
+        m0[i][2] = z;
+        m0[i][3] = w;
+    }
+}
+
 /* 0x152d18: rows of m0 weighted by v1.xyzw (vmulax/vmadday/vmaddaz/vmaddw), x, y, z times
  * 1 / w (vdiv, vmulq.xyz), all four converted by vftoi4 (x16, truncated), then z and w by
  * vftoi0 when mode is nonzero. */

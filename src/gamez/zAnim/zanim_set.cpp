@@ -177,18 +177,428 @@ _zanim_si_script * CZAnimSet::SIScript(int index)
 }
 
 /* @socom-skeleton stub _store_frame_data__FP16_zanim_si_scriptP25zanim_script_frame_headerP6CPnt3DP6CPnt3Difffb */
-void _store_frame_data(_zanim_si_script *, zanim_script_frame_header *, CPnt3D *, CPnt3D *, int, float, float, float, bool)
+void _store_frame_data(_zanim_si_script *script, zanim_script_frame_header *header, CPnt3D *from, CPnt3D *to, int type, float start, float end, float rate, bool force)
 {
+	/* 0x1c78f0 (text path, load_si_script): one 80-byte block of the frame for type 1
+	 * (position), 2 (rotation, the values Euler angles) or 4 (scaling): the start value (a
+	 * quaternion for rotations) and the change per second (to - from, or the log of the
+	 * rotation between them, times rate). A change of at most 1e-5 on every axis is skipped
+	 * unless forced or the script is a spline one. The frame's 16-byte header is counted
+	 * with its first block. The ELF returns whether a block was stored (no caller reads it;
+	 * port: void). Written, untested (no retail data takes the text path); the rotation case
+	 * needs zMath: CQuat::Div (0x220eb0) and CQuat::Ln (0x220750), stubs in the port. */
+	CQuat qfrom;
+	CPnt3D delta;
+
+	if (type == 2)
+	{
+		CQuat qto;
+		CQuat qdiv;
+		qfrom.MakeYXZRot(from->y, from->x, from->z);
+		qto.MakeYXZRot(to->y, to->x, to->z);
+		qto.Div(&qfrom, &qdiv);
+		qdiv.Ln(&delta);
+	}
+	else
+	{
+		to->Sub(from, &delta);
+	}
+
+	if (!(fabs(delta.x) > 1e-5) && !(fabs(delta.y) > 1e-5) && !(fabs(delta.z) > 1e-5) && !force && !script->spline_interp)
+		return;
+
+	if (header->flags == 0)
+	{
+		script->script_data_size += 16;
+		script->total_frame_count++;
+		header->start = start;
+		header->end = end;
+	}
+
+	header->flags |= type;
+	f32* block = reinterpret_cast<f32*>(script->script_data + script->script_data_size);
+	script->script_data_size += 80;
+
+	if (type == 2)
+	{
+		block[0] = qfrom.vec.x;
+		block[1] = qfrom.vec.y;
+		block[2] = qfrom.vec.z;
+		block[3] = qfrom.w;
+	}
+	else
+	{
+		block[0] = from->x;
+		block[1] = from->y;
+		block[2] = from->z;
+	}
+
+	CPnt3D velocity;
+	delta.Scale(rate, &velocity);
+	block[4] = velocity.x;
+	block[5] = velocity.y;
+	block[6] = velocity.z;
 }
 
 /* @socom-skeleton stub load_si_script__FP16_zanim_si_scriptfbbb */
-void load_si_script(_zanim_si_script *, float, bool, bool, bool)
+void load_si_script(_zanim_si_script *script, float rate, bool no_translation, bool no_rotation, bool no_scaling)
 {
+	/* 0x1c6900 (text path, CZAnimSet::SIScript): a SoftImage script file of "Frame <n>"
+	 * blocks with "Object <name>" entries of Scaling / Rotation / Translation x y z. The
+	 * frames of the script's object become frame headers and 80-byte blocks
+	 * (_store_frame_data); frame times are (frame - first frame) * rate. A spline script then
+	 * gets cubic coefficients per axis (Hermite, the velocities at the ends the mean of the
+	 * neighbouring frames', rotations from a zero base), and blocks that hold a constant
+	 * value equal to the previous one of their kind are removed.
+	 * ELF: returns -1 without a file, else 0 (port: void, no caller reads it). OpenFile is
+	 * empty in the ELF (returns no file), so this never loads. ELF quirks kept: the multiply-
+	 * by-zero terms of a curve shifted by t0 = 0; a header whose blocks are all removed stays;
+	 * an "Object" entry missing one of the three values reads tokens up to the end of file.
+	 * port: the values and the last-kept values start zeroed (unset in the ELF).
+	 * Written, untested (no retail data takes the text path). */
+	CZAnimSet* set = ZAnim.m_CurAnimSet;
+	__sFILE* file = ZAnim.OpenFile(set->m_name_table.GetName(script->script_pathname_index), "r");
+
+	if (file == NULL)
+		return;
+
+	char token[256];
+	s32 frame = 0;
+	s32 first_frame = 0;
+	s32 frame_count = 0;
+	bool force = true;
+
+	/* pass 1: the frames and the last frame number */
+	for (;;)
+	{
+		token[0] = '\0';
+
+		if (fscanf(file, "%s", token) == -1)
+			break;
+
+		if (strncmp(token, "Frame", 5) == 0)
+		{
+			fscanf(file, "%d", &frame);
+			frame_count++;
+		}
+	}
+
+	rewind(file);
+	s32 last_frame = frame;
+	s32 frames = 0;
+	s32 prev_frame = 0;
+	frame = 0;
+	CPnt3D translation[2] = { CPnt3D::zero, CPnt3D::zero }; /* [0] previous, [1] current */
+	CPnt3D scaling[2] = { CPnt3D::zero, CPnt3D::zero };
+	CPnt3D rotation[2] = { CPnt3D::zero, CPnt3D::zero };
+
+	for (;;)
+	{
+		token[0] = '\0';
+
+		if (fscanf(file, "%s", token) == -1)
+			break;
+
+		if (strncmp(token, "Frame", 5) == 0)
+		{
+			prev_frame = frame;
+
+			if (prev_frame == last_frame && frames >= 2)
+				break;
+
+			fscanf(file, "%d", &frame);
+			frames++;
+
+			if (frames == 1)
+				first_frame = frame;
+
+			continue;
+		}
+
+		if (strncmp(token, "Object", 6) != 0)
+			continue;
+
+		fscanf(file, "%s", token);
+
+		if (strcmp(set->m_name_table.GetName(script->script_object_name_index), token) != 0)
+			continue;
+
+		bool need_scaling = true;
+		bool need_translation = true;
+		bool need_rotation = true;
+
+		do
+		{
+			fscanf(file, "%s", token);
+
+			if (strncmp(token, "Scaling", 7) == 0)
+			{
+				scaling[0] = scaling[1];
+				fscanf(file, "%f%f%f", &scaling[1].x, &scaling[1].y, &scaling[1].z);
+
+				if (frames == 1)
+					scaling[0] = scaling[1];
+
+				need_scaling = false;
+			}
+			else if (strncmp(token, "Rotation", 8) == 0)
+			{
+				/* the angles re-expressed through a rotation matrix (x, then y, then z) */
+				CMatrix matrix;
+				rotation[0] = rotation[1];
+				fscanf(file, "%f%f%f", &rotation[1].x, &rotation[1].y, &rotation[1].z);
+				sceVu0UnitMatrix(matrix.m_matrix);
+				sceVu0UnitMatrix(matrix.m_matrix);
+				sceVu0RotMatrixX(matrix.m_matrix, matrix.m_matrix, rotation[1].x);
+				sceVu0RotMatrixY(matrix.m_matrix, matrix.m_matrix, rotation[1].y);
+				sceVu0RotMatrixZ(matrix.m_matrix, matrix.m_matrix, rotation[1].z);
+				matrix.ToEuler(&rotation[1]);
+
+				if (frames == 1)
+					rotation[0] = rotation[1];
+
+				need_rotation = false;
+			}
+			else if (strncmp(token, "Translation", 11) == 0)
+			{
+				translation[0] = translation[1];
+				fscanf(file, "%f%f%f", &translation[1].x, &translation[1].y, &translation[1].z);
+
+				if (frames == 1)
+					translation[0] = translation[1];
+
+				need_translation = false;
+			}
+		} while (need_scaling || need_translation || need_rotation);
+
+		if (frames == 1)
+			force = true;
+
+		/* the first frame is only a start, unless it is the only one */
+		if (frames < 2 && frames != frame_count)
+			continue;
+
+		script->script_data = static_cast<char*>(_realloc(script->script_data, script->script_data_size + 256, "zanim_set.cpp", 569));
+		zanim_script_frame_header* header = reinterpret_cast<zanim_script_frame_header*>(script->script_data + script->script_data_size);
+		memset(header, 0, 256);
+		f32 start = (f32)(prev_frame - first_frame) * rate;
+		f32 end = (f32)(frame - first_frame) * rate;
+
+		if (start < 0.0f)
+			start = 0.0f;
+
+		f32 inverse = start == end ? 0.0f : 1.0f / (end - start);
+
+		if (frame == last_frame)
+			force = true;
+
+		if (!no_translation)
+			_store_frame_data(script, header, &translation[0], &translation[1], 1, start, end, inverse, force);
+
+		if (!no_rotation)
+			_store_frame_data(script, header, &rotation[0], &rotation[1], 2, start, end, inverse, force);
+
+		if (!no_scaling)
+			_store_frame_data(script, header, &scaling[0], &scaling[1], 4, start, end, inverse, force);
+
+		force = false;
+	}
+
+	if (script->spline_interp)
+	{
+		/* cubic coefficients c0..c3 per axis at block +0x20 (x), +0x30 (y), +0x40 (z) */
+		const f32 t0 = 0.0f;
+		zanim_script_frame_header* prev = NULL;
+		char* cur = script->script_data;
+
+		for (s32 i = 0; i < script->total_frame_count; i++)
+		{
+			zanim_script_frame_header* header = reinterpret_cast<zanim_script_frame_header*>(cur);
+			zanim_script_frame_header* next = NULL;
+
+			if (i < script->total_frame_count - 1)
+			{
+				u32 blocks = ((header->flags & 1) ? 1 : 0) + ((header->flags & 2) ? 1 : 0) + ((header->flags & 4) ? 1 : 0);
+				next = reinterpret_cast<zanim_script_frame_header*>(cur + 16 + blocks * 80);
+			}
+
+			f32* block = reinterpret_cast<f32*>(cur + 16);
+			f32* prev_block = prev != NULL ? reinterpret_cast<f32*>(reinterpret_cast<char*>(prev) + 16) : NULL;
+			f32* next_block = next != NULL ? reinterpret_cast<f32*>(reinterpret_cast<char*>(next) + 16) : NULL;
+
+			for (s32 k = 0; k < 3; k++)
+			{
+				u32 bit = k == 0 ? 1 : k == 1 ? 2 : 4;
+				bool not_rotation = bit != 2;
+
+				if (!(header->flags & bit))
+					continue;
+
+				CPnt3D vin = CPnt3D::zero;
+				CPnt3D vout = CPnt3D::zero;
+
+				if (prev != NULL && (prev->flags & bit))
+				{
+					CPnt3D sum;
+					reinterpret_cast<CPnt3D*>(prev_block + 4)->Add(reinterpret_cast<CPnt3D*>(block + 4), &sum);
+					sum.Scale(0.5f, &vin);
+					prev_block += 20;
+				}
+
+				if (next != NULL && (next->flags & bit))
+				{
+					CPnt3D sum;
+					reinterpret_cast<CPnt3D*>(block + 4)->Add(reinterpret_cast<CPnt3D*>(next_block + 4), &sum);
+					sum.Scale(0.5f, &vout);
+					next_block += 20;
+				}
+
+				f32 duration = header->end - header->start;
+				f32 base[3];
+				f32 in[3] = { vin.x, vin.y, vin.z };
+				f32 out[3] = { vout.x, vout.y, vout.z };
+
+				for (s32 a = 0; a < 3; a++)
+					base[a] = not_rotation ? block[a] : 0.0f;
+
+				for (s32 a = 0; a < 3; a++)
+				{
+					f32 inverse = 0.0f;
+
+					if (!(duration - t0 <= 0.0f))
+						inverse = 1.0f / (duration - t0);
+
+					f32 delta = (base[a] + duration * block[4 + a]) - base[a];
+					f32* c = block + 8 + a * 4;
+					c[3] = inverse * (inverse * ((out[a] + in[a]) - 2.0f * (inverse * delta)));
+					c[2] = inverse * ((3.0f * (inverse * delta) - out[a]) - 2.0f * in[a]) - 3.0f * (c[3] * t0);
+					c[1] = in[a] - t0 * (3.0f * (c[3] * t0) + 2.0f * c[2]);
+					c[0] = base[a] - t0 * (c[1] + t0 * (c[3] * t0 + c[2]));
+				}
+
+				block += 20;
+			}
+
+			prev = header;
+			cur = reinterpret_cast<char*>(next);
+		}
+
+		/* blocks that stay at the previous value of their kind (no c1..c3) are removed */
+		s32 old_size = script->script_data_size;
+		char* p = script->script_data;
+		bool first = true;
+		f32 last_position[3] = { 0.0f, 0.0f, 0.0f };
+		f32 last_rotation[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+		f32 last_scaling[3] = { 0.0f, 0.0f, 0.0f };
+
+		while (p < script->script_data + script->script_data_size)
+		{
+			zanim_script_frame_header* header = reinterpret_cast<zanim_script_frame_header*>(p);
+			p += 16;
+
+			for (s32 k = 0; k < 3; k++)
+			{
+				u32 bit = k == 0 ? 1 : k == 1 ? 2 : 4;
+
+				if (!(header->flags & bit))
+					continue;
+
+				f32* b = reinterpret_cast<f32*>(p);
+				bool keep = true;
+
+				if (!first && b[9] == 0.0f && b[13] == 0.0f && b[17] == 0.0f && b[10] == 0.0f && b[14] == 0.0f
+					&& b[18] == 0.0f && b[11] == 0.0f && b[15] == 0.0f && b[19] == 0.0f)
+				{
+					if (k == 0)
+						keep = !(b[8] == last_position[0] && b[12] == last_position[1] && b[16] == last_position[2]);
+					else if (k == 1)
+						keep = !(b[3] == last_rotation[3] && b[0] == last_rotation[0] && b[1] == last_rotation[1] && b[2] == last_rotation[2]);
+					else
+						keep = !(b[8] == last_scaling[0] && b[12] == last_scaling[1] && b[16] == last_scaling[2]);
+				}
+
+				if (k == 0)
+				{
+					last_position[0] = b[8];
+					last_position[1] = b[12];
+					last_position[2] = b[16];
+				}
+				else if (k == 1)
+				{
+					last_rotation[0] = b[0];
+					last_rotation[1] = b[1];
+					last_rotation[2] = b[2];
+					last_rotation[3] = b[3];
+				}
+				else
+				{
+					last_scaling[0] = b[8];
+					last_scaling[1] = b[12];
+					last_scaling[2] = b[16];
+				}
+
+				if (keep)
+				{
+					p += 80;
+					continue;
+				}
+
+				u32 rest = (u32)(script->script_data + script->script_data_size - (p + 80));
+
+				if (rest != 0)
+					memmove(p, p + 80, rest);
+
+				script->script_data_size -= 80;
+				header->flags &= ~bit;
+			}
+
+			first = false;
+		}
+
+		if (script->script_data_size != old_size)
+			script->script_data = static_cast<char*>(_realloc(script->script_data, script->script_data_size, "zanim_set.cpp", 844));
+	}
+
+	fclose(file);
 }
 
 /* @socom-skeleton stub SIScript__9CZAnimSetFPCcPCcbfbbb */
-int CZAnimSet::SIScript(const char *, const char *, bool, float, bool, bool, bool)
+int CZAnimSet::SIScript(const char *path, const char *object, bool spline, float rate, bool no_translation, bool no_rotation, bool no_scaling)
 {
+	/* 0x1c6720 (text path, OBJECT_MOTION_SI_SCRIPT): the set's script for this file, object
+	 * and interpolation, else a new entry (names added to the set's table) loaded by
+	 * load_si_script; -1 without a path or memory. Written, untested (no retail data takes the
+	 * text path). The bool names follow load_si_script's use of them. */
+	if (path == NULL)
+		return -1;
+
+	_zanim_si_script* script = m_si_script;
+
+	for (s32 i = 0; i < m_si_script_count; i++, script++)
+	{
+		if (script->spline_interp != spline)
+			continue;
+
+		if (strcmp(object, m_name_table.GetName(script->script_object_name_index)) != 0)
+			continue;
+
+		if (strcmp(path, m_name_table.GetName(script->script_pathname_index)) == 0)
+			return i;
+	}
+
+	m_si_script = (_zanim_si_script*)_realloc(m_si_script, (m_si_script_count + 1) * sizeof(_zanim_si_script), "zanim_set.cpp", 892);
+
+	if (m_si_script == NULL)
+		return -1;
+
+	s32 index = m_si_script_count++;
+	script = &m_si_script[index];
+	memset(script, 0, sizeof(_zanim_si_script));
+	script->script_pathname_index = m_name_table.AddName(path);
+	script->script_object_name_index = m_name_table.AddName(object);
+	script->spline_interp = spline;
+	load_si_script(script, rate, no_translation, no_rotation, no_scaling);
+	return index;
 }
 
 /* @socom-skeleton body Init__9CZAnimSetFv */

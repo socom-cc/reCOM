@@ -262,6 +262,18 @@ void UiSetCounterSpeedFactor(float); /* zui_2d.cpp (0x393270; OnSetCounterSpeedF
 char* GetCustomCharTypeName(int); /* fts_mission.cpp (0x1fa790) */
 char* GetDefCharTypeName(int); /* fts_mission.cpp (0x1fa770) */
 void UpdateCharWeaponUiVars(int); /* fts_mission.cpp (0x1fa2b0) */
+#include "gamez/zInput/zinput.h" /* CInput, CPad (stick presets) */
+#include "gamez/zSeal/zseal.h" /* CSealCtrl, CSealUnit (options) */
+#include "gamez/zVideo/zvid.h" /* zVid (video mode commands) */
+#include "gamez/zReader/zrdr_local.h" /* CRdrEditor (OnListSavedGames) */
+#include <989snd.h> /* snd_SetPlaybackMode / snd_GetPlaybackMode (options) */
+#include <libcdvd.h> /* sceCdReadClock (_SaveSavedGame) */
+extern float hackPitchFactor; /* seal_control.cpp (0x475000) */
+void SetRumbleOn(bool); /* seal_control.cpp (0x284360) */
+unsigned char IsRumbleOn(); /* seal_control.cpp (0x284350) */
+void SetPlayAutoMessages(bool); /* seal_unit.cpp (0x2cf720) */
+unsigned char UiGetTextFromUser(C2DAnimCmdHdr*, float*); /* zui_skb.cpp (0x3a71c0) */
+unsigned char UiSetSkbPurpose(C2DAnimCmdHdr*, float*); /* zui_skb.cpp (0x3a7150) */
 namespace {
 /* port: no symbol - each equipment command reads the UiCharSet valve inline (the selected
  * UI characters, one bit each; 0 when the valve is missing) */
@@ -269,6 +281,60 @@ u32 UiCharSetMask()
 {
 	CValve* valve = CValve::GetByName("UiCharSet");
 	return valve != NULL ? valve->m_value : 0;
+}
+
+/* port: no symbol - the commands' inline argument read: the anim's name of the command's
+ * argument, and for INPUT_STRING the anim's first argument instead */
+char* UiArgument(C2DAnimCmdHdr* cmd)
+{
+	char* name = ZAnim.m_CurAnim->GetName(cmd->m_argument_index);
+
+	if (name != NULL && strcmp(name, "INPUT_STRING") == 0)
+		name = ZAnim.m_CurAnim->m_arg_list->GetCharP(0);
+
+	return name;
+}
+
+/* port: no symbol - the inline valve set the commands use: the value, and the callbacks with
+ * 1 (now set) or 2 (now clear) when it changed */
+void UiSetValve(CValve* valve, u32 value)
+{
+	u32 change = valve->m_value != value ? (value != 0 ? 1 : 2) : 0;
+	valve->m_value = value;
+
+	if (change != 0)
+		valve->MakeCallbacks((VALVE_STATE)change);
+}
+
+/* port: no symbol - the inline real UI variable set (DeleteChildren, type REAL, value,
+ * UpdateDependents) */
+void UiSetRealVar(const char* name, f32 value)
+{
+	CUIVariable* var = theUIVarManager.Add(name, NULL, (UIVAR_LONGEVITY)1);
+	var->DeleteChildren();
+	var->type = ZRDR_REAL;
+	var->real = value;
+	var->UpdateDependents();
+}
+
+/* the stick preset's values for the options screens (UISetStickPreset, UIStoreOptions):
+ * the "stick_preset" valve (0-2) picks pad 0's right stick preset, and its sensitivity,
+ * acceleration and dead zone (less 0.02) go to the STICK_* UI variables */
+void UiApplyStickPreset(CPad* pad)
+{
+	CValve* preset = CValve::Create("stick_preset", VALVE_TYPE::VTYPE_TEMP);
+
+	if (preset->m_value >= 3)
+		return;
+
+	pad->SetPreset(1, preset->m_value);
+	/* the ELF adds the three variables first, then sets them */
+	theUIVarManager.Add("STICK_SENSITIVITY", NULL, (UIVAR_LONGEVITY)1);
+	theUIVarManager.Add("STICK_ACCELERATION", NULL, (UIVAR_LONGEVITY)1);
+	theUIVarManager.Add("STICK_DEADZONE", NULL, (UIVAR_LONGEVITY)1);
+	UiSetRealVar("STICK_SENSITIVITY", pad->GetSensitivity(1));
+	UiSetRealVar("STICK_ACCELERATION", pad->GetAcceleration(1));
+	UiSetRealVar("STICK_DEADZONE", pad->GetDeadZone(1) - 0.02f);
 }
 }
 /* @socom-skeleton decl forward */
@@ -444,9 +510,10 @@ unsigned char OnCloseAndSwitch(C2DAnimCmdHdr *cmd, float *)
 
 /* @socom-skeleton stub OnGetTextFromUser__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf */
 namespace {
-unsigned char OnGetTextFromUser(C2DAnimCmdHdr *, float *)
+unsigned char OnGetTextFromUser(C2DAnimCmdHdr *cmd, float *dT)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d7090: tail call */
+	return UiGetTextFromUser(cmd, dT);
 }
 }
 
@@ -482,10 +549,37 @@ unsigned char OnIsMissionSuccessful(C2DAnimCmdHdr *, float *)
 
 /* @socom-skeleton stub OnListSavedGames__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf */
 namespace {
+/* @socom-skeleton stub filename$2674 */
+/* 0x49b580: the card file name ("SaveGame<n>"). port: at file scope - every memory-card
+ * command writes this one buffer (the ELF's local static of OnListSavedGames) */
+unsigned char filename[64];
+
 unsigned char OnListSavedGames(C2DAnimCmdHdr *, float *)
 {
-	/* @socom-skeleton stub filename$2674 */
-	static unsigned char filename[64];
+	/* 0x1d6d70: the SavedGames UI variable = a list of 7 slots (number, title, date, mission
+	 * prefix): a saved game's header gives "Saved Game", its date and database prefix, an
+	 * empty slot "Empty Slot", "--/--/----", "XXX".
+	 * needs zUtil: CMemCard::Exists (0x306cf0) and CSaveManager::GetHeader (0x3f71f0) - the
+	 * port has no memory-card layer, so every slot is listed empty. */
+	CRdrEditor rdr;
+	char number[256];
+	rdr.push(NULL);
+
+	for (s32 i = 0; i < 7; i++)
+	{
+		rdr.push(NULL);
+		sprintf(number, "%d", i);
+		rdr.addstringnode(number);
+		sprintf((char*)filename, "SaveGame%d", i);
+		rdr.addstringnode("Empty Slot");
+		rdr.addstringnode("--/--/----");
+		rdr.addstringnode("XXX");
+		rdr.pop();
+	}
+
+	rdr.pop();
+	theUIVarManager.Add("SavedGames", NULL, (UIVAR_LONGEVITY)1)->Set(&rdr);
+	return true;
 }
 }
 
@@ -545,9 +639,10 @@ unsigned char OnSetCounterSpeedFactor(C2DAnimCmdHdr *cmd, float *)
 
 /* @socom-skeleton stub OnSetSkbPurpose__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf */
 namespace {
-unsigned char OnSetSkbPurpose(C2DAnimCmdHdr *, float *)
+unsigned char OnSetSkbPurpose(C2DAnimCmdHdr *cmd, float *dT)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d6af0: tail call */
+	return UiSetSkbPurpose(cmd, dT);
 }
 }
 
@@ -569,25 +664,55 @@ unsigned char OnSetTtySpeedFactor(C2DAnimCmdHdr *cmd, float *)
 
 /* @socom-skeleton stub UISetControllerConfig__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf */
 namespace {
-unsigned char UISetControllerConfig(C2DAnimCmdHdr *, float *)
+unsigned char UISetControllerConfig(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d69c0: the named button configuration (INPUT_STRING: the anim's first argument) */
+	CCtrlrConfigs::SelectConfig(UiArgument(cmd));
+	return true;
 }
 }
 
 /* @socom-skeleton stub _LoadSavedGame__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf */
 namespace {
-unsigned char _LoadSavedGame(C2DAnimCmdHdr *, float *)
+unsigned char _LoadSavedGame(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d68c0: the slot number argument (INPUT_STRING: the anim's first argument); the card's
+	 * "SaveGame<n>" is loaded, then the LoadingSavedGame valve (when there is one) is cleared.
+	 * needs zUtil: CMemCard::LoadGame (0x307500) - the port has no memory-card layer
+	 * (theMemCard is a placeholder); nothing is loaded. */
+	s32 slot = atoi(UiArgument(cmd));
+	CValve* valve = CValve::GetByName("LoadingSavedGame");
+	sprintf((char*)filename, "SaveGame%d", slot);
+
+	if (valve != NULL)
+		UiSetValve(valve, 0);
+
+	return true;
 }
 }
 
 /* @socom-skeleton stub _SaveSavedGame__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf */
 namespace {
-unsigned char _SaveSavedGame(C2DAnimCmdHdr *, float *)
+unsigned char _SaveSavedGame(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d6790: the slot number argument (INPUT_STRING: the anim's first argument); the save's
+	 * description is the database and the date ("%-3s%d/%d/%d": month, day, year as the
+	 * clock's BCD bytes - ELF quirk kept), the card's "SaveGame<n>" is written, then the
+	 * SavingSavedGame valve (when there is one) is cleared.
+	 * needs zUtil: CMemCard::SaveGame (0x307520) - the port has no memory-card layer
+	 * (theMemCard is a placeholder); nothing is saved. */
+	s32 slot = atoi(UiArgument(cmd));
+	CValve* valve = CValve::GetByName("SavingSavedGame");
+	sceCdCLOCK clock;
+	char description[264];
+	sceCdReadClock(&clock);
+	sprintf(description, "%-3s%d/%d/%d", database, clock.month, clock.day, clock.year);
+	sprintf((char*)filename, "SaveGame%d", slot);
+
+	if (valve != NULL)
+		UiSetValve(valve, 0);
+
+	return true;
 }
 }
 
@@ -681,15 +806,37 @@ void CMenuStack::AddToHistory(const char *name)
 /* @socom-skeleton stub GetPopUp__10CMenuStackFv */
 C2D * CMenuStack::GetPopUp()
 {
-	/* 0x1d6080: the pop-up dialog, made on first use (a CPopUpDialog: a CPlainBmp with a
-	 * wrapped-text string and two buttons).
-	 * port: not written - CPopUpDialog has no port body yet; no pop-up is made */
+	/* 0x1d6080: the pop-up dialog, made on first use (new 2544 bytes: a CPlainBmp with the
+	 * CPopUpDialog vtables, a CWrappedText at +0xa4 (its font from string 0x44bfc0), a C2D at
+	 * +0x170 (+0x18c/+0x190 cleared) and two C2DButtons at +0x1a0 / +0x5c0).
+	 * port: not written - needs zUI: CPopUpDialog (Load 0x389770, Draw 0x3897f0, Tick 0x389ae0,
+	 * HandlePad 0x389b10, TickZAnimCmd 0x387020, GetZAnimCmdType 0x386f80) and CWrappedText
+	 * (SetString 0x391630, Draw 0x391110, ~CWrappedText 0x391480, LoadSpec 0x3919a0); until
+	 * then no pop-up is made and the menus' PopUpDialog shows nothing */
 	return m_popup;
 }
 
 /* @socom-skeleton stub PopUpDialog__10CMenuStackFPCc */
-void CMenuStack::PopUpDialog(const char *)
+void CMenuStack::PopUpDialog(const char *name)
 {
+	/* 0x1d5f20: queue menu command 3 with the dialog name (INPUT_STRING: the anim's first
+	 * argument; the ELF copies it through a std::string) and show the menu's POPUP node.
+	 * CGameMenu::Tick only pops command 3. The POPUP node comes from CGameMenu::LoadFromDesign
+	 * and the pop-up itself from GetPopUp - needs zUI: CPopUpDialog (see GetPopUp), so the
+	 * port's menus have no POPUP node and nothing is shown. */
+	m_top++;
+
+	if (name != NULL && strcmp(name, "INPUT_STRING") == 0)
+		name = ZAnim.m_CurAnim->m_arg_list->GetCharP(0);
+
+	m_cmds[m_top].type = 3;
+	strcpy(m_cmds[m_top].arg, name != NULL ? name : ""); /* port: the ELF strlens NULL as is */
+	m_count++;
+
+	zdb::CNode* node = g_menuRootNode->FindChild("POPUP", true); /* virtual slot 0x24 */
+
+	if (node != NULL)
+		node->SetActive(true); /* virtual slot 0x34 */
 }
 
 /* @socom-skeleton stub Unload_MissionReader__Fv */
@@ -800,9 +947,11 @@ unsigned char UISetMission(C2DAnimCmdHdr *cmd, float *)
 }
 
 /* @socom-skeleton stub UIPopUpDialog__FP13C2DAnimCmdHdrPf */
-unsigned char UIPopUpDialog(C2DAnimCmdHdr *, float *)
+unsigned char UIPopUpDialog(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d5a20 */
+	g_MenuStack.PopUpDialog(ZAnim.m_CurAnim->GetName(cmd->m_argument_index));
+	return true;
 }
 
 /* @socom-skeleton stub UISwitchMenu__FP13C2DAnimCmdHdrPf */
@@ -826,7 +975,8 @@ unsigned char UISwitchMenu(C2DAnimCmdHdr *cmd, float *)
 		return true;
 	}
 
-	bool back = strcmp(name, "PREVIOUS_SCREEN") == 0;
+	bool previous = strcmp(name, "PREVIOUS_SCREEN") == 0;
+	bool back = previous;
 
 	if (!back && strcmp(name, "MENU_SCREEN") == 0)
 	{
@@ -850,8 +1000,21 @@ unsigned char UISwitchMenu(C2DAnimCmdHdr *cmd, float *)
 			strcpy(buffer, MENUHISTORY_STRPOOL);
 			stack->m_count++;
 		}
+		else if (!previous)
+		{
+			return true;
+		}
 
-		/* port: not written - PREVIOUS_SCREEN plays the menu's back sound (offline) */
+		/* 0x1d57b0: PREVIOUS_SCREEN plays the menu state's BACK sound (also with an empty
+		 * history); going back by the newest history name does not */
+		if (previous)
+		{
+			CSnd* sound = CSnd::GetSoundByName(theGame.m_menuState.BackSoundString.c_str());
+
+			if (sound != NULL)
+				sound->PlaySound((CSndInstance*)NULL, 255);
+		}
+
 		return true;
 	}
 
@@ -867,18 +1030,26 @@ unsigned char UISwitchMenu(C2DAnimCmdHdr *cmd, float *)
 /* @socom-skeleton stub UIIsSessionMaster__FP13C2DAnimCmdHdrPf */
 unsigned char UIIsSessionMaster(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d55e0: the network session's master */
+	if (!theNetwork.m_bNetwork)
+		return false;
+
+	return theNetwork.m_bSessionMaster ? true : false;
 }
 
 /* @socom-skeleton stub UIIsNetwork__FP13C2DAnimCmdHdrPf */
 unsigned char UIIsNetwork(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d55d0 */
+	return theNetwork.m_bNetwork;
 }
 
 /* @socom-skeleton stub UILobbyEventHandler__FPCcPCc */
-unsigned char UILobbyEventHandler(const char *, const char *)
+unsigned char UILobbyEventHandler(const char *anim, const char *arg)
 {
+	/* 0x1d55b0: tail call - the lobby's events run the front end's event anims. Written,
+	 * untested (online only; UIInitNetwork installs it) */
+	return theGame.m_menuState.RunEventAnim(anim, arg);
 }
 
 /* @socom-skeleton stub UIInitNetwork__FP13C2DAnimCmdHdrPf */
@@ -890,7 +1061,16 @@ unsigned char UIInitNetwork(C2DAnimCmdHdr *, float *)
 /* @socom-skeleton stub UIUnInitNetwork__FP13C2DAnimCmdHdrPf */
 unsigned char UIUnInitNetwork(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d54e0: with Medius on, the lobby loses its event handler and closes; the game is no
+	 * longer networked. Written, untested (online only) */
+	if (theNetwork.m_bMediusEnabled)
+	{
+		theLobby.m_event_handler = NULL;
+		theLobby.Close();
+	}
+
+	theNetwork.m_bNetwork = false;
+	return true;
 }
 
 /* @socom-skeleton stub UIConnectToGameServer__FP13C2DAnimCmdHdrPf */
@@ -935,25 +1115,44 @@ unsigned char UIIsMemCardInserted(C2DAnimCmdHdr *, float *)
 /* @socom-skeleton stub UIIsMemCardFormatted__FP13C2DAnimCmdHdrPf */
 unsigned char UIIsMemCardFormatted(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d52f0: tail call to CMemCard::IsFormatted (0x307310).
+	 * needs zUtil: CMemCard - the port has no memory-card layer; it reports no card (as
+	 * UIIsMemCardInserted), so not formatted */
+	return false;
 }
 
 /* @socom-skeleton stub UIFormatMemCard__FP13C2DAnimCmdHdrPf */
 unsigned char UIFormatMemCard(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d52e0: tail call to CMemCard::Format (0x3072c0).
+	 * needs zUtil: CMemCard - no memory-card layer in the port: nothing formatted (false) */
+	return false;
 }
 
 /* @socom-skeleton stub UIDoesSlotHaveGame__FP13C2DAnimCmdHdrPf */
-unsigned char UIDoesSlotHaveGame(C2DAnimCmdHdr *, float *)
+unsigned char UIDoesSlotHaveGame(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d5230: whether the card has "SaveGame<n>" for the slot argument (INPUT_STRING: the
+	 * anim's first argument). needs zUtil: CMemCard::Exists (0x306cf0) - no memory-card layer
+	 * in the port: no saved game */
+	sprintf((char*)filename, "SaveGame%d", atoi(UiArgument(cmd)));
+	return false;
 }
 
 /* @socom-skeleton stub UIGetNumSavedGames__FP13C2DAnimCmdHdrPf */
-unsigned char UIGetNumSavedGames(C2DAnimCmdHdr *, float *)
+unsigned char UIGetNumSavedGames(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d5160: the argument names a temporary valve set to the number of "SaveGame0".."9" on
+	 * the card. needs zUtil: CMemCard::Exists (0x306cf0) - no memory-card layer in the port:
+	 * none counted */
+	CValve* valve = CValve::Create(ZAnim.m_CurAnim->GetName(cmd->m_argument_index), VALVE_TYPE::VTYPE_TEMP);
+	u32 count = 0;
+
+	for (s32 i = 0; i < 10; i++)
+		sprintf((char*)filename, "SaveGame%d", i);
+
+	UiSetValve(valve, count);
+	return true;
 }
 
 /* @socom-skeleton stub UILobbyRegister__FP13C2DAnimCmdHdrPf */
@@ -977,13 +1176,16 @@ unsigned char UILobbyLogout(C2DAnimCmdHdr *, float *)
 /* @socom-skeleton stub UILobbyBailout__FP13C2DAnimCmdHdrPf */
 unsigned char UILobbyBailout(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d4f40. Written, untested (online only) */
+	theLobby.Bailout();
+	return true;
 }
 
 /* @socom-skeleton stub UIGetAcctInfo__FP13C2DAnimCmdHdrPf */
 unsigned char UIGetAcctInfo(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d4f30: returns false (empty in the ELF) */
+	return false;
 }
 
 /* @socom-skeleton stub UIRefreshGameList__FP13C2DAnimCmdHdrPf */
@@ -1055,7 +1257,16 @@ unsigned char UIGetMediusAnnouncements(C2DAnimCmdHdr *, float *)
 /* @socom-skeleton stub UIKillPopUp__FP13C2DAnimCmdHdrPf */
 unsigned char UIKillPopUp(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d4720: CMenuStack::KillPopUp inline - with a pop-up made, the POPUP node goes off */
+	if (g_MenuStack.m_popup != NULL)
+	{
+		zdb::CNode* node = g_menuRootNode->FindChild("POPUP", true); /* virtual slot 0x24 */
+
+		if (node != NULL)
+			node->SetActive(false); /* virtual slot 0x34 */
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub UIIsTerrorist__FP13C2DAnimCmdHdrPf */
@@ -1120,7 +1331,8 @@ unsigned char UIFlushMenuHistory(C2DAnimCmdHdr *, float *)
 /* @socom-skeleton stub UIClearGameState__FP13C2DAnimCmdHdrPf */
 unsigned char UIClearGameState(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d3fc0: empty in the ELF */
+	return true;
 }
 
 /* @socom-skeleton stub UIToggleAutoMessages__FP13C2DAnimCmdHdrPf */
@@ -1184,39 +1396,136 @@ unsigned char UIDisableButton(C2DAnimCmdHdr *cmd, float *)
 }
 
 /* @socom-skeleton stub UICheckVideoMode__FP13C2DAnimCmdHdrPf */
-unsigned char UICheckVideoMode(C2DAnimCmdHdr *, float *)
+unsigned char UICheckVideoMode(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d38a0: NTSC / DTV (case-insensitive; INPUT_STRING: the anim's first argument): whether
+	 * zVid.vidMode (+0x51, the current mode) is that one; no or another name gives true */
+	const char* name = UiArgument(cmd);
+
+	if (name == NULL || *name == '\0')
+		return true;
+
+	if (strcasecmp(name, "NTSC") == 0)
+		return zVid.vidMode == ZVID_MODE_NTSC;
+
+	if (strcasecmp(name, "DTV") == 0)
+		return zVid.vidMode == ZVID_MODE_DTV480P;
+
+	return true;
 }
 
 /* @socom-skeleton stub UISwitchProgressiveVideo__FP13C2DAnimCmdHdrPf */
-unsigned char UISwitchProgressiveVideo(C2DAnimCmdHdr *, float *)
+unsigned char UISwitchProgressiveVideo(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d37c0: NTSC / DTV (case-insensitive; INPUT_STRING: the anim's first argument) asks
+	 * for that mode in zVid.videoMode (+0x50). ELF quirk kept: NTSC tests the current mode
+	 * (vidMode, +0x51), DTV the requested one (videoMode). */
+	const char* name = UiArgument(cmd);
+
+	if (name == NULL || *name == '\0')
+		return true;
+
+	if (strcasecmp(name, "NTSC") == 0)
+	{
+		if (zVid.vidMode != ZVID_MODE_NTSC)
+			zVid.videoMode = ZVID_MODE_NTSC;
+	}
+	else if (strcasecmp(name, "DTV") == 0)
+	{
+		if (zVid.videoMode != ZVID_MODE_DTV480P)
+			zVid.videoMode = ZVID_MODE_DTV480P;
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub UIStoreOptions__FP13C2DAnimCmdHdrPf */
 unsigned char UIStoreOptions(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d3470 (the main menu's start, the options screens): the options valves (all
+	 * temporary) become the game's settings, then the stick preset's UI variables.
+	 * ELF quirks kept: INVERT_PITCH_CONTROLLER set gives hackPitchFactor -1 while
+	 * UIInitializeOptions sets it from a factor of 1; STEREO_CONTROLLER set gives playback
+	 * mode 0 while UIInitializeOptions sets it from a mode other than 0; video_mode 0 tests
+	 * the current mode (vidMode), 1 the requested one (as UISwitchProgressiveVideo);
+	 * STICK_SWAP_CONTROLLER is made and not read. */
+	CValve* stereo = CValve::Create("STEREO_CONTROLLER", VALVE_TYPE::VTYPE_TEMP);
+	CValve* invert = CValve::Create("INVERT_PITCH_CONTROLLER", VALVE_TYPE::VTYPE_TEMP);
+	CValve* vibration = CValve::Create("VIBRATION_CONTROLLER", VALVE_TYPE::VTYPE_TEMP);
+	CValve* subtitle = CValve::Create("SUBTITLE_CONTROLLER", VALVE_TYPE::VTYPE_TEMP);
+	CValve* dialog = CValve::Create("DIALOG_CONTROLLER", VALVE_TYPE::VTYPE_TEMP);
+	CValve* order = CValve::Create("ORDER_RESPONSE_CONTROLLER", VALVE_TYPE::VTYPE_TEMP);
+	CValve* bobbing = CValve::Create("BOBBING_1ST_PERSON", VALVE_TYPE::VTYPE_TEMP);
+	CValve::Create("STICK_SWAP_CONTROLLER", VALVE_TYPE::VTYPE_TEMP);
+	CValve* video = CValve::Create("video_mode", VALVE_TYPE::VTYPE_TEMP);
+	CPad* pad = CInput::m_pads[0];
+
+	if (video->m_value == 0)
+	{
+		if (zVid.vidMode != ZVID_MODE_NTSC)
+			zVid.videoMode = ZVID_MODE_NTSC;
+	}
+	else if (video->m_value == 1)
+	{
+		if (zVid.vidMode != ZVID_MODE_DTV480P)
+			zVid.videoMode = ZVID_MODE_DTV480P;
+	}
+
+	CSealCtrl::m_bobbing1stperson_enabled = bobbing->m_value != 0;
+	snd_SetPlaybackMode(stereo->m_value != 0 ? 0 : 1);
+	hackPitchFactor = invert->m_value != 0 ? -1.0f : 1.0f;
+	SetRumbleOn(vibration->m_value != 0);
+	CSnd::SetSubtitles(subtitle->m_value != 0);
+	bDialogIsOn = dialog->m_value != 0;
+	CSealUnit::SetConfirmVoiceCommands(order->m_value != 0);
+
+	if (pad != NULL)
+		UiApplyStickPreset(pad);
+
+	return true;
 }
 
 /* @socom-skeleton stub UISetStickPreset__FP13C2DAnimCmdHdrPf */
 unsigned char UISetStickPreset(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d3310: pad 0's right stick takes the "stick_preset" valve's preset (0-2) and the
+	 * STICK_* UI variables show its values */
+	CPad* pad = CInput::m_pads[0];
+
+	if (pad != NULL)
+		UiApplyStickPreset(pad);
+
+	return true;
 }
 
 /* @socom-skeleton stub UIInitializeOptions__FP13C2DAnimCmdHdrPf */
 unsigned char UIInitializeOptions(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d2fd0: the options valves (temporary) from the game's settings, each with its
+	 * callbacks when it changes. ELF quirks kept (see UIStoreOptions): INVERT_PITCH_CONTROLLER
+	 * is set when hackPitchFactor is 1, STEREO_CONTROLLER when the playback mode is not 0. */
+	CValve* stereo = CValve::Create("STEREO_CONTROLLER", VALVE_TYPE::VTYPE_TEMP);
+	CValve* invert = CValve::Create("INVERT_PITCH_CONTROLLER", VALVE_TYPE::VTYPE_TEMP);
+	CValve* vibration = CValve::Create("VIBRATION_CONTROLLER", VALVE_TYPE::VTYPE_TEMP);
+	CValve* subtitle = CValve::Create("SUBTITLE_CONTROLLER", VALVE_TYPE::VTYPE_TEMP);
+	CValve* dialog = CValve::Create("DIALOG_CONTROLLER", VALVE_TYPE::VTYPE_TEMP);
+	CValve* order = CValve::Create("ORDER_RESPONSE_CONTROLLER", VALVE_TYPE::VTYPE_TEMP);
+
+	UiSetValve(subtitle, CSnd::GetSubtitles() ? 1 : 0);
+	UiSetValve(invert, hackPitchFactor == 1.0f ? 1 : 0);
+	UiSetValve(vibration, IsRumbleOn() ? 1 : 0);
+	UiSetValve(order, CSealUnit::GetConfirmVoiceCommands() ? 1 : 0);
+	UiSetValve(dialog, bDialogIsOn ? 1 : 0);
+	UiSetValve(stereo, snd_GetPlaybackMode() != 0 ? 1 : 0);
+	return true;
 }
 
 /* @socom-skeleton stub UIIsSpaceForSaveGameFile__FP13C2DAnimCmdHdrPf */
 unsigned char UIIsSpaceForSaveGameFile(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d2fa0: CMemCard::GetFreeSpace (0x307260) above 300.
+	 * needs zUtil: CMemCard - no memory-card layer in the port: no card, no space */
+	return false;
 }
 
 /* @socom-skeleton stub UIMC_Init__FP13C2DAnimCmdHdrPf */
@@ -1234,15 +1543,21 @@ unsigned char UIMC_Uninit(C2DAnimCmdHdr *, float *)
 }
 
 /* @socom-skeleton stub UIMC_ChDir__FP13C2DAnimCmdHdrPf */
-unsigned char UIMC_ChDir(C2DAnimCmdHdr *, float *)
+unsigned char UIMC_ChDir(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d2f20: CMemCard::chdir (0x306c40) to the argument's directory, its result returned.
+	 * needs zUtil: CMemCard - no memory-card layer in the port: fails */
+	(void)ZAnim.m_CurAnim->GetName(cmd->m_argument_index);
+	return false;
 }
 
 /* @socom-skeleton stub UIMC_MkDir__FP13C2DAnimCmdHdrPf */
-unsigned char UIMC_MkDir(C2DAnimCmdHdr *, float *)
+unsigned char UIMC_MkDir(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d2ee0: CMemCard::mkdir (0x306ca0) of the argument's directory, its result returned.
+	 * needs zUtil: CMemCard - no memory-card layer in the port: fails */
+	(void)ZAnim.m_CurAnim->GetName(cmd->m_argument_index);
+	return false;
 }
 
 /* @socom-skeleton stub UIMC_ChPort__FP13C2DAnimCmdHdrPf */
@@ -1255,33 +1570,54 @@ unsigned char UIMC_ChPort(C2DAnimCmdHdr *cmd, float *)
 }
 
 /* @socom-skeleton stub UIMC_ChSlot__FP13C2DAnimCmdHdrPf */
-unsigned char UIMC_ChSlot(C2DAnimCmdHdr *, float *)
+unsigned char UIMC_ChSlot(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d2e60: a slot number of 0 or more becomes the card slot (theMemCard+0x24).
+	 * needs zUtil: CMemCard - no memory-card layer in the port; the number is dropped */
+	(void)atoi(ZAnim.m_CurAnim->GetName(cmd->m_argument_index));
+	return true;
 }
 
 /* @socom-skeleton stub UIMC_Exists__FP13C2DAnimCmdHdrPf */
-unsigned char UIMC_Exists(C2DAnimCmdHdr *, float *)
+unsigned char UIMC_Exists(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d2e20: CMemCard::Exists (0x306cf0) of the argument's file.
+	 * needs zUtil: CMemCard - no memory-card layer in the port: no file */
+	(void)ZAnim.m_CurAnim->GetName(cmd->m_argument_index);
+	return false;
 }
 
 /* @socom-skeleton stub UIMC_CreateIconFiles__FP13C2DAnimCmdHdrPf */
 unsigned char UIMC_CreateIconFiles(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d2df0: CMemCard::CreateIconFiles (0x306d60).
+	 * needs zUtil: CMemCard - no memory-card layer in the port: nothing written */
+	return true;
 }
 
 /* @socom-skeleton stub UILoadConfig__FP13C2DAnimCmdHdrPf */
-unsigned char UILoadConfig(C2DAnimCmdHdr *, float *)
+unsigned char UILoadConfig(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d2d40: CMemCard::LoadConfig (0x307450) of the argument's file, then the AUTOMESSAGES
+	 * UI variable (a string) sets the automatic messages. ELF quirk kept: "ON" turns them
+	 * off, any other string on.
+	 * needs zUtil: CMemCard - no memory-card layer in the port: nothing loaded */
+	(void)ZAnim.m_CurAnim->GetName(cmd->m_argument_index);
+	CUIVariable* var = theUIVarManager.Add("AUTOMESSAGES", NULL, (UIVAR_LONGEVITY)1);
+
+	if (var->type == ZRDR_STRING)
+		SetPlayAutoMessages(strcasecmp(var->string, "ON") != 0);
+
+	return true;
 }
 
 /* @socom-skeleton stub UISaveConfig__FP13C2DAnimCmdHdrPf */
-unsigned char UISaveConfig(C2DAnimCmdHdr *, float *)
+unsigned char UISaveConfig(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d2d00: CMemCard::SaveConfig (0x3074a0) to the argument's file.
+	 * needs zUtil: CMemCard - no memory-card layer in the port: nothing saved */
+	(void)ZAnim.m_CurAnim->GetName(cmd->m_argument_index);
+	return true;
 }
 
 /* @socom-skeleton stub UICoopMissionExists__FP13C2DAnimCmdHdrPf */
@@ -1459,9 +1795,12 @@ unsigned char UIGameStatePopCommand(C2DAnimCmdHdr *, float *)
 }
 
 /* @socom-skeleton stub UISetDefaultMenuScreen__FP13C2DAnimCmdHdrPf */
-unsigned char UISetDefaultMenuScreen(C2DAnimCmdHdr *, float *)
+unsigned char UISetDefaultMenuScreen(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d2310: the named design (INPUT_STRING: the anim's first argument) becomes the front
+	 * end's default menu (64 chars) */
+	strncpy(theGame.m_menuState.m_DefaultMenu, UiArgument(cmd), 64);
+	return true;
 }
 
 /* @socom-skeleton stub UIBanSelfFromGame__FP13C2DAnimCmdHdrPf */
@@ -1483,15 +1822,43 @@ unsigned char UIGetLadderInfo(C2DAnimCmdHdr *, float *)
 }
 
 /* @socom-skeleton stub UITestUIVar__FP13C2DAnimCmdHdrPf */
-unsigned char UITestUIVar(C2DAnimCmdHdr *, float *)
+unsigned char UITestUIVar(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d2120: whether the named UI variable is "set": a non-zero integer or real, a
+	 * non-empty string, a non-empty list; a missing variable is not */
+	const char* name = ZAnim.m_CurAnim->GetName(cmd->m_argument_index);
+
+	if (name == NULL)
+		return false;
+
+	CUIVariable* var = theUIVarManager.Find(name);
+
+	if (var == NULL)
+		return false;
+
+	switch (var->type)
+	{
+	case ZRDR_INTEGER:
+		return var->integer != 0;
+	case ZRDR_REAL:
+		return var->real != 0.0f;
+	case ZRDR_STRING:
+		return var->string != NULL && *var->string != '\0';
+	case ZRDR_ARRAY:
+		return var->array->integer - 1 != 0;
+	default:
+		return false;
+	}
 }
 
 /* @socom-skeleton stub UIAbortLoad__FP13C2DAnimCmdHdrPf */
-unsigned char UIAbortLoad(C2DAnimCmdHdr *, float *)
+unsigned char UIAbortLoad(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d20e0: the load state is aborted to the named design; returns false (the command
+	 * waits). needs zFTS state: CLoadState::AbortLoad (0x37e560, a stub). Written, untested
+	 * (the demo's loading screen does not run it) */
+	theGame.m_loadState.AbortLoad(ZAnim.m_CurAnim->GetName(cmd->m_argument_index));
+	return false;
 }
 
 /* @socom-skeleton stub UINetCnfInit__FP13C2DAnimCmdHdrPf */
@@ -1651,60 +2018,117 @@ unsigned char UIStopAllSounds(C2DAnimCmdHdr *, float *)
 /* @socom-skeleton stub UIRebootIOP__FP13C2DAnimCmdHdrPf */
 unsigned char UIRebootIOP(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d0df0: reboot the IOP (mode 2) - the missions' briefing anims and the online screens
+	 * ask for it; the m8 path traced here does not reach it */
+	theIOPManager.RebootIOP((CIOPManager::RebootMode)2);
+	return true;
 }
 
 /* @socom-skeleton stub AuxNetCensorText__FPCcPv */
-void AuxNetCensorText(const char *, void *)
+void AuxNetCensorText(const char *text, void *user)
 {
+	/* 0x1d0dc0: the lobby's censor callback - the censored text into the UI variable passed
+	 * as user data (UINetCensorText). Written, untested (online only) */
+	if (user != NULL)
+		*static_cast<CUIVariable*>(user) = text;
 }
 
 /* @socom-skeleton stub UINetCensorText__FP13C2DAnimCmdHdrPf */
-unsigned char UINetCensorText(C2DAnimCmdHdr *, float *)
+unsigned char UINetCensorText(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d0ce0: on the network, the named UI variable's text ($1: the anim's first argument)
+	 * goes to the lobby's censor (AuxNetCensorText writes the answer back) and shows a
+	 * "checking" text meanwhile. Written, untested (online only) */
+	if (!theNetwork.m_bNetwork)
+		return true;
+
+	CZAnim* anim = ZAnim.m_CurAnim;
+	const char* name = anim->GetName(cmd->m_argument_index);
+
+	if (name != NULL && strcasecmp("$1", name) == 0)
+		name = anim->m_arg_list->GetCharP(0);
+
+	CUIVariable* var = theUIVarManager.Find(name);
+
+	if (var == NULL || var->type != ZRDR_STRING)
+		return true;
+
+	theLobby.Censor(var->string, AuxNetCensorText, var);
+	*var = "CHECKING FOR APPROPRIATE LANGUAGE...";
+	return true;
 }
 
 /* @socom-skeleton stub UIForceMediusStatusReport__FP13C2DAnimCmdHdrPf */
 unsigned char UIForceMediusStatusReport(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d0cb0. Written, untested (online only; the dlgLoad / lobby anims) */
+	theLobby.ForceStatusReport();
+	return true;
 }
 
 /* @socom-skeleton stub UISetPlayerDescription__FP13C2DAnimCmdHdrPf */
 unsigned char UISetPlayerDescription(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d0c40: the PlayerDescription UI variable (a string) goes to the lobby. Written,
+	 * untested (online only) */
+	CUIVariable* var = theUIVarManager.Add("PlayerDescription", NULL, (UIVAR_LONGEVITY)1);
+
+	if (var != NULL && var->type == ZRDR_STRING)
+		theLobby.SetPlayerDescription(var->string);
+
+	return true;
 }
 
 /* @socom-skeleton stub UILadderUp__FP13C2DAnimCmdHdrPf */
 unsigned char UILadderUp(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d0bf0: the ladder 4 places further up (not above the top). Written, untested (online
+	 * only) */
+	s32 position = theLobby.GetCurrentLadderPosition();
+
+	if (position > 0)
+	{
+		position -= 4;
+
+		if (position < 0)
+			position = 0;
+
+		theLobby.GetSurroundingLadderPosition(position, 4, false);
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub UILadderDown__FP13C2DAnimCmdHdrPf */
 unsigned char UILadderDown(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d0bb0: the ladder 4 places further down. Written, untested (online only) */
+	theLobby.GetSurroundingLadderPosition(theLobby.GetCurrentLadderPosition() + 4, 4, false);
+	return true;
 }
 
 /* @socom-skeleton stub UICanLadderPressUp__FP13C2DAnimCmdHdrPf */
 unsigned char UICanLadderPressUp(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d0b80: not at the top of the ladder. Written, untested (online only) */
+	return theLobby.GetCurrentLadderPosition() >= 1;
 }
 
 /* @socom-skeleton stub UICanLadderPressDown__FP13C2DAnimCmdHdrPf */
 unsigned char UICanLadderPressDown(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d0b30: a lower page of the ladder exists (lowest position >= current + 10). Written,
+	 * untested (online only) */
+	s32 current = theLobby.GetCurrentLadderPosition();
+	return theLobby.GetLowestLadderPosition() >= current + 10;
 }
 
 /* @socom-skeleton stub UIUpdateClanStats__FP13C2DAnimCmdHdrPf */
 unsigned char UIUpdateClanStats(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d0b00. Written, untested (online only) */
+	theLobby.UpdateClanStats();
+	return true;
 }
 
 /* @socom-skeleton stub UINotOnCorrectClanTeam__FP13C2DAnimCmdHdrPf */
@@ -1714,21 +2138,30 @@ unsigned char UINotOnCorrectClanTeam(C2DAnimCmdHdr *, float *)
 }
 
 /* @socom-skeleton stub UIAcceptInvitation__FP13C2DAnimCmdHdrPf */
-unsigned char UIAcceptInvitation(C2DAnimCmdHdr *, float *)
+unsigned char UIAcceptInvitation(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d0a30: the numbered clan invitation (INPUT_STRING: the anim's first argument) is
+	 * accepted. Written, untested (online only) */
+	theLobby.AcceptClanInvitation(atoi(UiArgument(cmd)));
+	return true;
 }
 
 /* @socom-skeleton stub UIDeclineInvitation__FP13C2DAnimCmdHdrPf */
-unsigned char UIDeclineInvitation(C2DAnimCmdHdr *, float *)
+unsigned char UIDeclineInvitation(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d0990: the numbered clan invitation (INPUT_STRING: the anim's first argument) is
+	 * declined. Written, untested (online only) */
+	theLobby.DeclineClanInvitation(atoi(UiArgument(cmd)));
+	return true;
 }
 
 /* @socom-skeleton stub UITransferLeadership__FP13C2DAnimCmdHdrPf */
-unsigned char UITransferLeadership(C2DAnimCmdHdr *, float *)
+unsigned char UITransferLeadership(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d0900: the clan leadership goes to the named player (INPUT_STRING: the anim's first
+	 * argument). Written, untested (online only) */
+	theLobby.TransferLeadership(UiArgument(cmd));
+	return true;
 }
 
 /* @socom-skeleton stub UIIsTeamGame__FP13C2DAnimCmdHdrPf */
@@ -1740,7 +2173,9 @@ unsigned char UIIsTeamGame(C2DAnimCmdHdr *, float *)
 /* @socom-skeleton stub UIPasswordSecurity__FP13C2DAnimCmdHdrPf */
 unsigned char UIPasswordSecurity(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d08d0. Written, untested (online only; zNetwork's lobby is not written) */
+	CZOnlineLobby::PasswordSecurity();
+	return true;
 }
 
 /* @socom-skeleton stub UISysPostInit__FP13C2DAnimCmdHdrPf */
@@ -1768,9 +2203,13 @@ unsigned char UISysPostInit(C2DAnimCmdHdr *, float *)
 }
 
 /* @socom-skeleton stub UISysLoadIRX__FP13C2DAnimCmdHdrPf */
-unsigned char UISysLoadIRX(C2DAnimCmdHdr *, float *)
+unsigned char UISysLoadIRX(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d07e0: the module name argument (INPUT_STRING: the anim's first argument) is copied
+	 * into a 256-byte local and not used further (ELF quirk kept: nothing is loaded) */
+	char name[256];
+	strncpy(name, UiArgument(cmd), 256);
+	return true;
 }
 
 /* @socom-skeleton stub GetMenuStack__Fv */
@@ -1961,13 +2400,87 @@ int GetUICommandType(const char *name)
 }
 
 /* @socom-skeleton stub zAnimLoadUIMenu__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadUIMenu(_zrdr *)
+_zanim_cmd_hdr * zAnimLoadUIMenu(_zrdr *reader)
 {
+	/* 0x1d04b0 (text path): UI_COMMAND - NODE: a node whose 2D object parses its own command
+	 * (C2D::ParseZAnimCmd, the record then names the node); otherwise an 8-byte timeless record
+	 * of the node, the TYPE's UICommandTable id (GetUICommandType inline) and the ARGUMENT's
+	 * name index. Written, untested (no retail data takes the text path). */
+	CZAnim* anim = ZAnim.m_CurAnim;
+	u16 node_ref = 0;
+	C2DAnimCmdHdr* cmd = NULL;
+	_zrdr* tag = zrdr_findtag(reader, "NODE");
+
+	if (tag != NULL)
+	{
+		node_ref = anim->LoadNodeNames(tag, NULL, 0, anim->node_search_scope) & 0xffff;
+		C2D* object = NULL;
+
+		if (node_ref != 0)
+		{
+			anim->Refresh(false);
+			zdb::CNode* node = anim->GetNode(node_ref, false);
+
+			if (node != NULL)
+			{
+				zdb::CVisual* visual = node->GetFirstVisual();
+				C2DVisual* visual2d = visual ? visual->Get2DVisual() : NULL;
+
+				if (visual2d != NULL)
+					object = visual2d->m_2d;
+			}
+		}
+
+		if (object != NULL)
+		{
+			cmd = object->ParseZAnimCmd(reader);
+
+			if (cmd != NULL)
+				cmd->node_ref_index = node_ref;
+		}
+	}
+
+	if (cmd != NULL)
+		return &cmd->header;
+
+	cmd = static_cast<C2DAnimCmdHdr*>(_calloc(1, 8, "zanim_menu.cpp", 4287));
+	cmd->header.timeless = true;
+	cmd->header.data_size = 8;
+	cmd->node_ref_index = node_ref;
+	cmd->m_command_type = GetUICommandType(zrdr_findstring(reader, "TYPE"));
+	char* argument = zrdr_findstring(reader, "ARGUMENT");
+
+	if (argument != NULL && *argument != '\0')
+	{
+		char name[128];
+		strcpy(name, argument);
+		cmd->m_argument_index = anim->AddName(name);
+	}
+
+	return &cmd->header;
 }
 
 /* @socom-skeleton stub zAnimLoadUIAppMenu__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadUIAppMenu(_zrdr *)
+_zanim_cmd_hdr * zAnimLoadUIAppMenu(_zrdr *reader)
 {
+	/* 0x1d0330 (text path): UI_APP_COMMAND - an 8-byte timeless record: +0x4 the TYPE's
+	 * UICommandTable id, +0x5 the ARGUMENT's name index (no node). Its tick does nothing
+	 * (0x1d0130). Written, untested (no retail data takes the text path). */
+	_zanim_cmd_hdr* cmd = static_cast<_zanim_cmd_hdr*>(_calloc(1, 8, "zanim_menu.cpp", 4317));
+	u8* bytes = reinterpret_cast<u8*>(cmd);
+	cmd->timeless = true;
+	cmd->data_size = 8;
+	bytes[4] = GetUICommandType(zrdr_findstring(reader, "TYPE"));
+	char* argument = zrdr_findstring(reader, "ARGUMENT");
+
+	if (argument != NULL && *argument != '\0')
+	{
+		char name[128];
+		strcpy(name, argument);
+		bytes[5] = ZAnim.m_CurAnim->AddName(name);
+	}
+
+	return cmd;
 }
 
 /* @socom-skeleton stub zAnimUIMenuTick__FP14_zanim_cmd_hdrPf */
@@ -2024,7 +2537,9 @@ bool zAnimUIMenuTick(_zanim_cmd_hdr *header, float *dT)
 	}
 #endif
 
-	if (UICommandTable[id].id == id)
+	/* port: the ELF reads UICommandTable[id] past the table's end for the objects' own command
+	 * types (0x95 on, a command whose node has no 2D object); the port tests the index first */
+	if (id < sizeof(UICommandTable) / sizeof(UICommandTable[0]) && UICommandTable[id].id == id)
 	{
 		if (UICommandTable[id].func != NULL)
 			return UICommandTable[id].func(cmd, dT);
