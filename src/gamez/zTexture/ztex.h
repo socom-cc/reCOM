@@ -25,6 +25,7 @@ void HookupLib(zdb::CAssetLib *); /* zui.cpp (0x384750) */
 namespace zdb { class CNode; }
 namespace zdb { class CVisual; }
 #include <vector>
+#include <list> /* RTPool, CTextureFX / CRipple pools */
 
 #include "gamez/zSystem/zsys.h"
 
@@ -302,6 +303,62 @@ public:
 		/* @socom-skeleton end Q23zdb15CBatchRelocator */
 	};
 	
+	/* RTPool<T>: a free list of pooled objects, an MSL list of T* (no DWARF; from
+	 * RTPool<CTextureFX> GetNext 0x228e30 / Clear 0x314330 / dtor 0x3143f0 / ctor 0x314540
+	 * and RTPool<CRipple> dtor 0x2320c0 / ctor 0x232170 / Clear 0x232400). The objects are
+	 * plain records: operator new / delete without constructors. */
+	template <class T>
+	class RTPool : public std::list<T*>
+	{
+	public:
+		/* count objects, made up front */
+		RTPool(u32 count) : std::list<T*>(count, (T*)NULL)
+		{
+			for (typename std::list<T*>::iterator it = this->begin(); it != this->end(); ++it)
+				*it = new T;
+		}
+
+		~RTPool()
+		{
+			Clear();
+		}
+
+		/* every pooled object deleted, the list emptied */
+		void Clear()
+		{
+			for (typename std::list<T*>::iterator it = this->begin(); it != this->end(); ++it)
+			{
+				if (*it != NULL)
+					delete *it;
+			}
+
+			this->clear();
+		}
+
+		/* the first pooled object, taken off the list; with the pool empty a new one when
+		 * `create`, else NULL */
+		T* GetNext(bool create)
+		{
+			T* object = NULL;
+
+			if (this->size() != 0)
+				object = this->front();
+
+			if (object != NULL)
+			{
+				this->remove(object);
+				return object;
+			}
+
+			if (create)
+				object = new T;
+
+			return object;
+		}
+	};
+
+	/* A texture effect (16 bytes, no DWARF; layout from InitScrollTexture 0x3142f0 and
+	 * ScrollTexture 0x313bc0, member names invented): UV speeds of one visual's instance. */
 	class CTextureFX
 	{
 	public:
@@ -311,14 +368,23 @@ public:
 		void InitScrollTexture(float, float, bool, zdb::CVisual *, zdb::CNode *);
 		static void Uninit();
 		static void Clear(bool);
-		static void InTexfxpool(zdb::CVisual *);
+		static bool InTexfxpool(zdb::CVisual *); /* bool: 0x3140c0 returns 1 / 0 */
 		static void Tick(float); /* static: 0x314010 walks m_texfxpool */
 		void ScrollTexture(float);
-		static int m_texfxfreepool;
-		static int m_texfxpool[3];
+		static RTPool<CTextureFX> *m_texfxfreepool; /* Init 0x3142b0: new RTPool(20) */
+		static std::list<CTextureFX *> m_texfxpool;  /* the running effects (MSL list, 12 bytes) */
 		/* @socom-skeleton end Q23zdb10CTextureFX */
+
+		f32 m_du;            /* +0x0: u per second */
+		f32 m_dv;            /* +0x4: v per second */
+		CVisual* m_visual;   /* +0x8 */
+		u16 m_vid;           /* +0xc: the node's instance (m_vid), 0 without a node */
+		u8 m_type;           /* +0xe: 1 scrolls (InitScrollTexture's flag set), 2 is kept still */
+		u8 m_frame;          /* +0xf: low byte of the frame number of the last scroll */
 	};
 
+	/* A ripple (56 bytes, no DWARF; the fields Tick 0x231dd0 reads, names invented). Nothing
+	 * in the ELF adds one to m_ripplepool. */
 	class CRipple
 	{
 	public:
@@ -327,9 +393,19 @@ public:
 public:
 		static void Uninit();
 		static void Tick(float);
-		static int m_ripplefreepool;
-		static unsigned char m_ripplepool[12];
+		static RTPool<CRipple> *m_ripplefreepool; /* Init 0x232080: new RTPool(16) */
+		static std::list<CRipple *> m_ripplepool;
 		/* @socom-skeleton end Q23zdb7CRipple */
+
+		u8 m_unk0[12];       /* +0x00: not read by Tick */
+		f32 m_age;           /* +0x0c */
+		u8 m_unk10[12];
+		f32 m_life;          /* +0x1c: the ripple ends when m_age reaches it */
+		u8 m_unk20[12];
+		bool m_active;       /* +0x2c: cleared when it ends */
+		u8 m_unk2d[3];
+		CVisual* m_visual;   /* +0x30 */
+		CNode* m_node;       /* +0x34: its m_vid selects the instance */
 	};
 }
 #endif

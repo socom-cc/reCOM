@@ -524,8 +524,11 @@ void CNode::AddChild(CNode* node)
 		if (node == NULL || node->m_parent == this)
 			return;
 
-		/* port: not written - a type-7 child of a type-3 parent copies its
-		 * m_char_common flag first (0x227740) */
+		/* 0x227740: a type-3 parent takes a model child's (type 7) m_char_common flag (the
+		 * low halves of the type words are compared) */
+		if ((u16)node->m_type == (u16)TYPE::MODEL && (u16)m_type == (u16)TYPE::CHILD)
+			m_char_common = node->m_char_common;
+
 		CNode* child = node;
 
 		if (m_type != (u32)TYPE::CHILD)
@@ -870,8 +873,51 @@ zdb::CNode * zdb::CLight::_Copy(zdb::CNode *other) const
 }
 
 /* @socom-skeleton stub _Copy__Q23zdb9CLightMapCFPQ23zdb5CNode */
-zdb::CNode * zdb::CLightMap::_Copy(zdb::CNode *) const
+zdb::CNode * zdb::CLightMap::_Copy(zdb::CNode *other) const
 {
+	/* 0x226ba0: into `other` (a new light map without one: the CLight constructor and the
+	   light-map defaults inlined, then SetDynamic(true, false)): the node copy, the light's
+	   ranges, colour and opacity (not yet applied to a node), the texture (SetTexture
+	   rebuilds the world-to-UV matrix), then the matrix, direction, shadow / reflection
+	   flags, blend mode and specular fade as they are here */
+	CLightMap* map;
+
+	if (other == NULL)
+	{
+		map = new CLightMap();
+		map->SetDynamic(true, false);
+		other = map;
+	}
+	else
+	{
+		map = dynamic_cast<CLightMap*>(other);
+	}
+
+	CLight* light = dynamic_cast<CLight*>(other);
+	CNode::_Copy(other);
+
+	light->m_minRange = m_minRange;
+	light->m_maxRange = m_maxRange;
+	light->m_maxRangeSq = m_maxRangeSq;
+	light->m_invMaxRange = m_invMaxRange;
+	light->m_invDeltaRange = m_invDeltaRange;
+	light->m_diffuse.x = m_diffuse.x;
+	light->m_diffuse.y = m_diffuse.y;
+	light->m_diffuse.z = m_diffuse.z;
+	light->m_opacity = m_opacity;
+	light->m_appliedToNode = 0;
+
+	map->SetTexture(m_pTex);
+	sceVu0CopyMatrix(map->m_worldToUV.m_matrix, const_cast<f32 (*)[4]>(m_worldToUV.m_matrix));
+	map->m_dir.x = m_dir.x;
+	map->m_dir.y = m_dir.y;
+	map->m_dir.z = m_dir.z;
+	map->m_dir.w = m_dir.w;
+	map->m_isShadow = m_isShadow;
+	map->m_isReflection = m_isReflection;
+	map->m_blendmode = m_blendmode;
+	map->m_SpecularFade = m_SpecularFade;
+	return other;
 }
 
 /* @socom-skeleton body __ct__Q23zdb6CLightFv */
@@ -894,6 +940,7 @@ CLight::CLight()
 /* @socom-skeleton stub __dt__Q23zdb6CLightFv */
 zdb::CLight::~CLight()
 {
+	/* 0x226ae0: nothing of its own (the CNode destructor follows) */
 }
 
 /* @socom-skeleton stub UpdateBBox__Q23zdb6CLightFb */
@@ -930,19 +977,90 @@ CBBox * zdb::CLight::UpdateBBox(bool)
 	return parent->m_parent->GetBBox();
 }
 
+/* port: file-local helper, not an ELF function - the light-map part of the constructor,
+   inlined again in CLightMap::_Copy (0x226c0c): identity world-to-UV, blend mode 0x44,
+   neither shadow nor reflection, direction (1, 1, 1, 1), specular fade 1, the world's
+   light-map texture (CVisual::m_lightMapTexture's) */
+static void InitLightMap(zdb::CLightMap* map)
+{
+	sceVu0UnitMatrix(map->m_worldToUV.m_matrix);
+	map->m_blendmode.m_alphaWORD = 68;
+	map->m_isShadow = 0;
+	map->m_isReflection = 0;
+	map->m_dir.w = 1.0f;
+	map->m_dir.z = 1.0f;
+	map->m_dir.y = 1.0f;
+	map->m_dir.x = 1.0f;
+	map->m_SpecularFade = 1.0f;
+	/* port: guard - the ELF reads m_lightMapTexture's texture as is; outside a mission
+	   (CDataBase sets it from the mission's light map) it is NULL */
+	map->m_pTex = zdb::CVisual::m_lightMapTexture != NULL ? zdb::CVisual::m_lightMapTexture->m_texture : NULL;
+}
+
 /* @socom-skeleton stub __ct__Q23zdb9CLightMapFv */
 zdb::CLightMap::CLightMap()
 {
+	/* 0x2268e0 (the CLight constructor inlined first): the light-map defaults, and the map
+	   moves and is lit dynamically */
+	InitLightMap(this);
+	m_dynamic_motion = true;
+	m_dynamic_light = true;
 }
 
 /* @socom-skeleton stub __dt__Q23zdb9CLightMapFv */
 zdb::CLightMap::~CLightMap()
 {
+	/* 0x226870: nothing of its own (the CLight and CNode destructors follow) */
 }
 
 /* @socom-skeleton stub SetTexture__Q23zdb9CLightMapFPQ23zdb8CTexture */
-void zdb::CLightMap::SetTexture(zdb::CTexture *)
+void zdb::CLightMap::SetTexture(zdb::CTexture *texture)
 {
+	/* 0x226750: the texture, and the world-to-UV matrix: a camera looking down -y from the
+	   origin (sceVu0CameraMatrix with a zero up vector, an all-zero bss qword in the ELF),
+	   then x / y scaled by (1 - 1 / width) / sqrt 2 / (2 * m_maxRange) and offset by 0.5.
+	   ELF quirk kept: the zero up vector (the camera matrix is degenerate). */
+	static const sceVu0FVECTOR position = { 0.0f, 0.0f, -1.0f, 1.0f }; /* 0x43a120 */
+	static const sceVu0FVECTOR direction = { 0.0f, -1.0f, 0.0f, 1.0f }; /* 0x43a130 */
+	static const sceVu0FVECTOR up = { 0.0f, 0.0f, 0.0f, 0.0f };        /* 0x4d95b0 (bss) */
+
+	m_pTex = texture;
+
+	sceVu0FMATRIX camera;
+	sceVu0UnitMatrix(camera);
+	sceVu0FVECTOR p, z, y;
+
+	for (int i = 0; i < 4; i++)
+	{
+		p[i] = position[i];
+		z[i] = direction[i];
+		y[i] = up[i];
+	}
+
+	sceVu0CameraMatrix(camera, p, z, y);
+
+	sceVu0FMATRIX scale;
+	sceVu0UnitMatrix(scale);
+	f32 s = ((1.0f - 1.0f / (f32)m_pTex->m_width) / 1.414f) / (2.0f * m_maxRange);
+
+	scale[0][0] = s;
+	scale[0][1] = 0.0f;
+	scale[0][2] = 0.0f;
+	scale[0][3] = 0.0f;
+	scale[1][0] = 0.0f;
+	scale[1][1] = s;
+	scale[1][2] = 0.0f;
+	scale[1][3] = 0.0f;
+	scale[2][0] = 0.0f;
+	scale[2][1] = 0.0f;
+	scale[2][2] = 1.0f;
+	scale[2][3] = 0.0f;
+	scale[3][0] = 0.5f;
+	scale[3][1] = 0.5f;
+	scale[3][2] = 0.0f;
+	scale[3][3] = 1.0f;
+
+	sceVu0MulMatrix(m_worldToUV.m_matrix, scale, camera);
 }
 
 /* @socom-skeleton body SetName__Q23zdb5CNodeFPCc */
@@ -1154,8 +1272,23 @@ void zdb::CNode::SetDynamic(bool dynamic, bool children)
 }
 
 /* @socom-skeleton stub SetDynamicMotion__Q23zdb5CNodeFbb */
-void zdb::CNode::SetDynamicMotion(bool, bool)
+void zdb::CNode::SetDynamicMotion(bool dynamic, bool children)
 {
+	/* 0x225e80: m_dynamic_motion on the node and, with `children`, on its children; their
+	   children recurse (the ELF unrolls one level) */
+	m_dynamic_motion = dynamic;
+
+	if (!children)
+		return;
+
+	for (CNodeVector::iterator it = m_child.begin(); it != m_child.end(); ++it)
+	{
+		CNode* child = *it;
+		child->m_dynamic_motion = dynamic;
+
+		for (CNodeVector::iterator gc = child->m_child.begin(); gc != child->m_child.end(); ++gc)
+			(*gc)->SetDynamicMotion(dynamic, children);
+	}
 }
 
 /* @socom-skeleton body SetDynamicLight__Q23zdb5CNodeFbb */
@@ -1371,8 +1504,32 @@ void zdb::CNode::RemoveDecals()
 }
 
 /* @socom-skeleton stub ScrollTexture__Q23zdb5CNodeFPQ23zdb5CNodeffb */
-void zdb::CNode::ScrollTexture(zdb::CNode *, float, float, bool)
+void zdb::CNode::ScrollTexture(zdb::CNode *instance, float du, float dv, bool scroll)
 {
+	/* 0x225080 (CSaveLoad::Load): each visual of the node not yet in a texture effect gets
+	   one from the free pool (InitScrollTexture with the instance node, appended to the
+	   running list), then the children do the same. ELF quirk kept: a mesh visual (vtype 1)
+	   ends the whole call at once, children included. */
+	for (CVisualVector::iterator it = m_visual.begin(); it != m_visual.end(); ++it)
+	{
+		CVisual* visual = *it;
+
+		if (visual->m_vtype == 1)
+			return;
+
+		if (CTextureFX::InTexfxpool(visual))
+			continue;
+
+		CTextureFX* fx = CTextureFX::m_texfxfreepool->GetNext(true);
+		fx->InitScrollTexture(du, dv, scroll, visual, instance);
+		CTextureFX::m_texfxpool.push_back(fx);
+	}
+
+	if (m_child.size() == 0)
+		return;
+
+	for (CNodeVector::iterator it = m_child.begin(); it != m_child.end(); ++it)
+		(*it)->ScrollTexture(instance, du, dv, scroll);
 }
 
 /* @socom-skeleton stub SetDescendantDI__Q23zdb5CNodeFb */
@@ -1492,8 +1649,28 @@ bool zdb::CLight::SetActive(bool active)
 }
 
 /* @socom-skeleton stub SetBlendMode__Q23zdb5CNodeFRCQ23zdb9BLENDMODEbbb */
-void zdb::CNode::SetBlendMode(const zdb::BLENDMODE &, bool, bool, bool)
+void zdb::CNode::SetBlendMode(const zdb::BLENDMODE &mode, bool unused, bool visuals, bool children)
 {
+	/* 0x224910 (zAnimObjectBlendModeTick): with `visuals`, the ALPHA register word of each
+	   block the node's visuals copied out of the model buffer (m_alloc_blocks: each starts
+	   with it) becomes the mode; with `children`, the subtree does the same. The second
+	   argument is not read. */
+	if (visuals)
+	{
+		for (CVisualVector::iterator it = m_visual.begin(); it != m_visual.end(); ++it)
+		{
+			std::vector<_word128*>& blocks = (*it)->m_alloc_blocks;
+
+			for (u32 i = 0; i < blocks.size(); i++)
+				*reinterpret_cast<u64*>(blocks[i]) = mode.m_alphaWORD;
+		}
+	}
+
+	if (!children || m_child.size() == 0)
+		return;
+
+	for (CNodeVector::iterator it = m_child.begin(); it != m_child.end(); ++it)
+		(*it)->SetBlendMode(mode, unused, visuals, children);
 }
 
 /* @socom-skeleton body SetModelname__Q23zdb5CNodeFPCc */

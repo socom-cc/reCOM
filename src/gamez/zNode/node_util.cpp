@@ -10,12 +10,59 @@
 /* @socom-skeleton decl include */
 #include "gamez/zMath/zmath.h"
 #include "znode.h"
+#include <libvu0.h> /* sceVu0UnitMatrix (GetClosestNode) */
+#include <math.h>
 /* @socom-skeleton end include */
 
 /* @socom-skeleton stub DEFAULT_CLOSESTNODE_DOT */
-static const float DEFAULT_CLOSESTNODE_DOT = 0;
+static const float DEFAULT_CLOSESTNODE_DOT = cosf(1.134464f); /* __sinit_node_util.cpp 0x46b5e0: cos 65 degrees */
 
 /* @socom-skeleton stub GetClosestNode__Q23zdb5CNodeFPC6CPnt3DPC6CPnt3Dffff */
-float zdb::CNode::GetClosestNode(const CPnt3D *, const CPnt3D *, float, float, float, float)
+float zdb::CNode::GetClosestNode(const CPnt3D *pos, const CPnt3D *dir, float maxDistSq, float maxHeight, float, float best)
 {
+	/* 0x22c1a0 (CSealCtrl::TickPickups, TickMPBomb): the node's world position (BuildMTW;
+	   off the grid: `best` back) against pos. It is closer when |dy| < maxHeight (-1: any
+	   height), its x / z distance squared is below `best` (-1: no best yet) and below
+	   maxDistSq, and it lies within 65 degrees of dir in the x / z plane (in front, then the
+	   normalised dot above DEFAULT_CLOSESTNODE_DOT); then that distance squared is
+	   returned, else `best`. The fifth argument is not read; the height test is done in
+	   double as the ELF does. */
+	CMatrix mtw;
+	sceVu0UnitMatrix(mtw.m_matrix);
+	sceVu0UnitMatrix(mtw.m_matrix);
+
+	if (BuildMTW(mtw) == NULL)
+		return best;
+
+	CPnt3D d;
+	d.x = mtw.m_matrix[3][0] - pos->x;
+	d.y = mtw.m_matrix[3][1] - pos->y;
+	d.z = mtw.m_matrix[3][2] - pos->z;
+
+	if (maxHeight != -1.0f && !(fabs((double)d.y) < (double)maxHeight))
+		return best;
+
+	f32 distSq = d.x * d.x + d.z * d.z;
+
+	if (best != -1.0f && !(distSq < best))
+		return best;
+
+	if (!(distSq < maxDistSq))
+		return best;
+
+	CPnt3D a = *dir;
+	CPnt3D b = d;
+	a.y = 0.0f;
+	b.y = 0.0f;
+
+	if (a.x * b.x + a.y * b.y + a.z * b.z <= 0.0f)
+		return best;
+
+	a.Normalize();
+	b.Normalize();
+
+	if (a.x * b.x + a.y * b.y + a.z * b.z <= DEFAULT_CLOSESTNODE_DOT)
+		return best;
+
+	return distSq;
 }

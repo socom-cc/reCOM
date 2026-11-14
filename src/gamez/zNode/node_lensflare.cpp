@@ -11,4 +11,6 @@
 /* @socom-skeleton stub __ct__Q23zdb10CLensFlareFv */
 zdb::CLensFlare::CLensFlare()
 {
+	/* 0x231ca0 (CNode::Read, type 9): a node of type 9 (LENSFLARE) with an empty list */
+	m_type = (u32)TYPE::LENSFLARE;
 }

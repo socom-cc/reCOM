@@ -571,7 +571,33 @@ void zdb::CWorld::Update()
 namespace zdb {
 void CWorld::LandmarkList_Search(CNode* node, CStack& matstack, CNodeVector& landmarks)
 	{
-		
+		/* 0x22f1a0: the subtree with its matrices stacked; a node with visuals is a
+		   landmark (it takes its world matrix and is listed) or, without m_apply_clip, one
+		   more node the far plane must not clip (m_numNoFarClipNodes); every child is
+		   searched, landmarks' included */
+		if (node == NULL)
+			return;
+
+		matstack.Multiply(&node->m_matrix, true);
+
+		if (node->m_hasVisuals)
+		{
+			if (node->m_landmark)
+			{
+				node->SetMatrix(CStack::m_top);
+				landmarks.push_back(node);
+			}
+			else if (!node->m_apply_clip)
+			{
+				m_numNoFarClipNodes++;
+			}
+		}
+
+		for (CNodeVector::iterator it = node->m_child.begin(); it != node->m_child.end(); ++it)
+			LandmarkList_Search(*it, matstack, landmarks);
+
+		CStack::m_pointer--;
+		CStack::m_top--;
 	}
 }
 
@@ -579,25 +605,30 @@ void CWorld::LandmarkList_Search(CNode* node, CStack& matstack, CNodeVector& lan
 namespace zdb {
 s32 CWorld::GenerateLandmarkList()
 	{
+		/* 0x22f090 (LoadWorld): the landmarks found under the world (on an identity matrix
+		   pushed for the search) leave their parents for the landmark list (virtual
+		   AddLandmark), the list emptied first; returns how many were found. Was: an empty
+		   search, the result re-added as children. */
 		CNodeVector landmarks;
 		CStack stack;
-		
+
 		CStack::m_pointer++;
 		CStack::m_top++;
-
-		// *CStack::m_top = CMatrix::identity;
+		sceVu0CopyMatrix(CStack::m_top->m_matrix, const_cast<f32 (*)[4]>(CMatrix::identity.m_matrix));
 
 		m_numNoFarClipNodes = 0;
 		LandmarkList_Search(this, stack, landmarks);
 
-		auto it = landmarks.begin();
-		while (it != landmarks.end())
-		{
-			AddChild(*it);
-			++it;
-		}
-		
-		return 1;
+		s32 count = landmarks.size();
+		m_landmarks.clear();
+
+		for (CNodeVector::iterator it = landmarks.begin(); it != landmarks.end(); ++it)
+			AddLandmark(*it);
+
+		landmarks.clear();
+		CStack::m_pointer--;
+		CStack::m_top--;
+		return count;
 	}
 }
 
@@ -614,14 +645,21 @@ void zdb::CWorld::ReleaseLandmarkList()
 /* @socom-skeleton body LightList_Search__FPQ23zdb5CNodeRQ23zdb10CLightList */
 void LightList_Search(zdb::CNode* node, zdb::CLightList& lightList)
 {
+    /* 0x22ef50: every light of the subtree, put in front; grid cells are not entered
+       (was: only cells were entered, so no light was ever found) */
     if (!node)
         return;
 
-    if (node->m_type != (u32)zdb::CNode::TYPE::CELL)
+    if ((u16)node->m_type == (u16)zdb::CNode::TYPE::CELL)
         return;
 
-    if (node->m_type == (u32)zdb::CNode::TYPE::LIGHT)
-        lightList.insert(lightList.begin(), dynamic_cast<zdb::CLight*>(node));
+    if ((u16)node->m_type == (u16)zdb::CNode::TYPE::LIGHT)
+    {
+        zdb::CLight* light = dynamic_cast<zdb::CLight*>(node);
+
+        if (light != NULL)
+            lightList.push_front(light);
+    }
 
     for (auto i = node->m_child.begin(); i != node->m_child.end(); ++i)
         LightList_Search(*i, lightList);
@@ -631,40 +669,43 @@ void LightList_Search(zdb::CNode* node, zdb::CLightList& lightList)
 namespace zdb {
 CLightList& CWorld::GenerateLightList()
 	{
+		/* 0x22ed80 (LoadWorld): the world's lights collected afresh; each takes its world
+		   position (m_WorldPosition) and joins the light list of every grid cell its range
+		   square (x / z) touches. Was: the position written over the matrix, the range read
+		   from the matrix, and the light added to the cells' children. ELF: returns the
+		   list's first word; the port returns the list. */
+		m_lights.clear();
 		LightList_Search(this, m_lights);
 
-		for (auto i = m_lights.begin(); i != m_lights.end(); ++i)
+		for (CLightList::iterator i = m_lights.begin(); i != m_lights.end(); ++i)
 		{
-			CNode* light = *i;
+			CLight* light = *i;
+			CPnt3D world;
+			world.x = 0.0f;
+			world.y = 0.0f;
+			world.z = 0.0f;
+			light->TransformToWorld(world);
 
-			CPnt3D worldPos;
-			CPnt3D localPos;
-			CPnt3D gridPos;
+			light->m_WorldPosition.x = world.x;
+			light->m_WorldPosition.y = world.y;
+			light->m_WorldPosition.z = world.z;
 
-			light->TransformToWorld(worldPos);
+			CPnt3D box[2];
+			box[0].x = world.x - light->m_maxRange;
+			box[0].y = 0.0f;
+			box[0].z = world.z - light->m_maxRange;
+			box[1].x = world.x + light->m_maxRange;
+			box[1].y = 0.0f;
+			box[1].z = world.z + light->m_maxRange;
 
-			light->m_matrix.m_matrix[2][3] = worldPos.x;
-			light->m_matrix.m_matrix[3][0] = worldPos.y;
-			light->m_matrix.m_matrix[3][1] = worldPos.z;
-
-			localPos.y = 0.0f;
-			localPos.x = worldPos.x - light->m_matrix.m_matrix[0][2];
-			localPos.z = worldPos.z - light->m_matrix.m_matrix[0][2];
-
-			gridPos.x = worldPos.x + light->m_matrix.m_matrix[0][2];
-			gridPos.y = 0.0f;
-			gridPos.z = worldPos.z + light->m_matrix.m_matrix[0][2];
-
-			m_grid->SetTraversalBoundary(&localPos, 2, false);
+			m_grid->SetTraversalBoundary(box, 2, false);
 
 			for (CGridAtom* atom = m_grid->StartTraversal(); atom != NULL; atom = m_grid->GetNextAtom())
 			{
-				CNode* cell = atom->GetCell();
+				CCell* cell = static_cast<CCell*>(atom->GetCell());
 
-				if (!cell)
-					continue;
-
-				cell->m_child.insert(cell->m_child.begin(), light);
+				if (cell != NULL)
+					cell->m_lightList.push_back(light);
 			}
 		}
 
@@ -683,18 +724,26 @@ void zdb::CWorld::ReleaseLightList()
 namespace zdb {
 void CWorld::AddLandmark(CNode* landmark)
 	{
-		if (landmark->m_landmark)
-		{
+		/* 0x22ecd0 (virtual): a landmark node leaves its parent (the world: and its grid)
+		   and joins the landmark list, drawn after the grid without far clipping */
+		if (!landmark->m_landmark)
+			return;
 
-		}
-
-		// landmark->RemoveFromParent();
+		landmark->RemoveFromParent();
+		m_landmarks.push_back(landmark);
 	}
 }
 
 /* @socom-skeleton stub DeleteLandmark__Q23zdb6CWorldFPQ23zdb5CNode */
-void zdb::CWorld::DeleteLandmark(zdb::CNode *)
+void zdb::CWorld::DeleteLandmark(zdb::CNode *node)
 {
+	/* 0x22ec80 (virtual; no direct caller): a landmark node stops being one and leaves the
+	   landmark list (the node is not deleted) */
+	if (!node->m_landmark)
+		return;
+
+	node->m_landmark = 0;
+	m_landmarks.Remove(node);
 }
 
 /* @socom-skeleton stub FindLandmark__Q23zdb6CWorldFPCc */
@@ -1261,29 +1310,362 @@ void CWind::RegisterAnimCommands()
 	ZAnim.AddCmd("WIND", CmdParseWind, NULL, CmdTickWind, NULL);
 }
 
-/* @socom-skeleton stub CmdParseWind__5CWindFP5_zrdr */
-_zanim_cmd_hdr * CWind::CmdParseWind(_zrdr *)
+/* The WIND command record (68 bytes, CmdParseWind 0x22cd40 / CmdTickWind 0x22cb30; no
+   DWARF, names are the port's): which parts are set, then the values. */
+struct _zanim_cmd_wind
 {
+	_zanim_cmd_hdr header;
+	u16 flags;              /* +0x04: 1 azimuth, 2 zenith, 4 speed, 8 azimuth offset range,
+	                           0x10 its velocity, 0x20 / 0x40 zenith offset, 0x80 / 0x100 speed offset */
+	u16 pad;
+	f32 azimuth;            /* +0x08: radians (the script gives degrees) */
+	f32 azimuth_time;       /* +0x0c: seconds to reach it (<= 0.01: at once) */
+	f32 zenith;             /* +0x10: radians */
+	f32 zenith_time;
+	f32 speed;              /* +0x18 */
+	f32 speed_time;
+	f32 min_azimuth_offset; /* +0x20 */
+	f32 max_azimuth_offset;
+	f32 azimuth_offset_velocity;
+	f32 min_zenith_offset;  /* +0x2c */
+	f32 max_zenith_offset;
+	f32 zenith_offset_velocity;
+	f32 min_speed_offset;   /* +0x38 */
+	f32 max_speed_offset;
+	f32 speed_offset_velocity; /* +0x40 */
+};
+
+/* port: file-local helper, not an ELF function - the reader access CmdParseWind repeats
+   inline: the array's element `index` as a real (an integer converted, else 0) */
+static f32 WindArg(_zrdr *tag, u32 index)
+{
+	return tag->Get(index)->GetReal();
+}
+
+/* port: file-local helper - the element count of an array tag, as CmdParseWind computes it */
+static u32 WindArgCount(_zrdr *tag)
+{
+	return tag->IsArray() ? tag->array->integer - 1 : 0;
+}
+
+/* @socom-skeleton stub CmdParseWind__5CWindFP5_zrdr */
+_zanim_cmd_hdr * CWind::CmdParseWind(_zrdr *reader)
+{
+	/* 0x22cd40 (zAnim "WIND"): AZIMUTH (degrees [, seconds]), ZENITH (degrees [, seconds]),
+	   SPEED (value [, seconds]), AZIMUTH_OFFSET / ZENITH_OFFSET / SPEED_OFFSET (min, max
+	   [, velocity]; the offsets and velocities as given). A timeless command. ELF quirks
+	   kept: an AZIMUTH / ZENITH / SPEED tag that is an empty array reads element 0 anyway,
+	   and SPEED is not converted from degrees while the angles are. */
+	if (reader == NULL)
+		return NULL;
+
+	_zanim_cmd_wind *cmd = (_zanim_cmd_wind *)_calloc(1, sizeof(_zanim_cmd_wind), "node_world.cpp", 2850);
+	cmd->header.data_size = sizeof(_zanim_cmd_wind);
+	cmd->header.timeless = 1;
+
+	_zrdr *tag = zrdr_findtag(reader, "AZIMUTH");
+
+	if (tag != NULL && tag->IsArray())
+	{
+		cmd->flags |= 1;
+		cmd->azimuth = WindArg(tag, 0);
+		cmd->azimuth = 0.017453292f * cmd->azimuth;
+		cmd->azimuth_time = WindArgCount(tag) < 2 ? 0.0f : WindArg(tag, 1);
+	}
+
+	tag = zrdr_findtag(reader, "ZENITH");
+
+	if (tag != NULL && tag->IsArray())
+	{
+		cmd->flags |= 2;
+		cmd->zenith = WindArg(tag, 0);
+		cmd->zenith = 0.017453292f * cmd->zenith;
+		cmd->zenith_time = WindArgCount(tag) < 2 ? 0.0f : WindArg(tag, 1);
+	}
+
+	tag = zrdr_findtag(reader, "SPEED");
+
+	if (tag != NULL && tag->IsArray())
+	{
+		cmd->flags |= 4;
+		cmd->speed = WindArg(tag, 0);
+		cmd->speed_time = WindArgCount(tag) < 2 ? 0.0f : WindArg(tag, 1);
+	}
+
+	tag = zrdr_findtag(reader, "AZIMUTH_OFFSET");
+
+	if (tag != NULL && tag->IsArray())
+	{
+		if (WindArgCount(tag) >= 2)
+		{
+			cmd->flags |= 8;
+			cmd->min_azimuth_offset = WindArg(tag, 0);
+			cmd->max_azimuth_offset = WindArg(tag, 1);
+		}
+
+		if (WindArgCount(tag) >= 3)
+		{
+			cmd->flags |= 0x10;
+			cmd->azimuth_offset_velocity = WindArg(tag, 2);
+		}
+	}
+
+	tag = zrdr_findtag(reader, "ZENITH_OFFSET");
+
+	if (tag != NULL && tag->IsArray())
+	{
+		if (WindArgCount(tag) >= 2)
+		{
+			cmd->flags |= 0x20;
+			cmd->min_zenith_offset = WindArg(tag, 0);
+			cmd->max_zenith_offset = WindArg(tag, 1);
+		}
+
+		if (WindArgCount(tag) >= 3)
+		{
+			cmd->flags |= 0x40;
+			cmd->zenith_offset_velocity = WindArg(tag, 2);
+		}
+	}
+
+	tag = zrdr_findtag(reader, "SPEED_OFFSET");
+
+	if (tag != NULL && tag->IsArray())
+	{
+		if (WindArgCount(tag) >= 2)
+		{
+			cmd->flags |= 0x80;
+			cmd->min_speed_offset = WindArg(tag, 0);
+			cmd->max_speed_offset = WindArg(tag, 1);
+		}
+
+		if (WindArgCount(tag) >= 3)
+		{
+			cmd->flags |= 0x100;
+			cmd->speed_offset_velocity = WindArg(tag, 2);
+		}
+	}
+
+	return &cmd->header;
 }
 
 /* @socom-skeleton stub CmdTickWind__5CWindFP14_zanim_cmd_hdrPf */
-bool CWind::CmdTickWind(_zanim_cmd_hdr *, float *)
+bool CWind::CmdTickWind(_zanim_cmd_hdr *hdr, float *)
 {
+	/* 0x22cb30: the world's wind takes the command's parts: a goal with a time sets the
+	   goal's rate and starts TickGoal (at most 0.01 s: the value at once); the offset ranges
+	   and velocities are copied. Done at once (returns 1). */
+	_zanim_cmd_wind *cmd = (_zanim_cmd_wind *)hdr;
+	CWind &wind = zdb::CWorld::m_world->m_Wind;
+
+	if (cmd->flags & 1)
+	{
+		wind.m_AzimuthGoal = cmd->azimuth;
+
+		if (cmd->azimuth_time <= 0.01f)
+			wind.m_Azimuth = wind.m_AzimuthGoal;
+		else
+		{
+			wind.m_AzimuthGoalDelta = (wind.m_AzimuthGoal - wind.m_Azimuth) / cmd->azimuth_time;
+			wind.m_TickGoal = true;
+			wind.m_TickAzimuth = true;
+		}
+	}
+
+	if (cmd->flags & 2)
+	{
+		wind.m_ZenithGoal = cmd->zenith;
+
+		if (cmd->zenith_time <= 0.01f)
+			wind.m_Zenith = wind.m_ZenithGoal;
+		else
+		{
+			wind.m_ZenithGoalDelta = (wind.m_ZenithGoal - wind.m_Zenith) / cmd->zenith_time;
+			wind.m_TickGoal = true;
+			wind.m_TickZenith = true;
+		}
+	}
+
+	if (cmd->flags & 4)
+	{
+		wind.m_SpeedGoal = cmd->speed;
+
+		if (cmd->speed_time <= 0.01f)
+			wind.m_Speed = wind.m_SpeedGoal;
+		else
+		{
+			wind.m_SpeedGoalDelta = (wind.m_SpeedGoal - wind.m_Speed) / cmd->speed_time;
+			wind.m_TickGoal = true;
+			wind.m_TickSpeed = true;
+		}
+	}
+
+	if (cmd->flags & 8)
+	{
+		wind.m_MinAzimuthOffset = cmd->min_azimuth_offset;
+		wind.m_MaxAzimuthOffset = cmd->max_azimuth_offset;
+	}
+
+	if (cmd->flags & 0x10)
+		wind.m_AzimuthOffsetVelocity = cmd->azimuth_offset_velocity;
+
+	if (cmd->flags & 0x20)
+	{
+		wind.m_MinZenithOffset = cmd->min_zenith_offset;
+		wind.m_MaxZenithOffset = cmd->max_zenith_offset;
+	}
+
+	if (cmd->flags & 0x40)
+		wind.m_ZenithOffsetVelocity = cmd->zenith_offset_velocity;
+
+	if (cmd->flags & 0x80)
+	{
+		wind.m_MinSpeedOffset = cmd->min_speed_offset;
+		wind.m_MaxSpeedOffset = cmd->max_speed_offset;
+	}
+
+	if (cmd->flags & 0x100)
+		wind.m_SpeedOffsetVelocity = cmd->speed_offset_velocity;
+
+	return true;
+}
+
+/* port: file-local helper, not an ELF function - the random walk Tick repeats inline for
+   the three offsets: a step of velocity * dT * [-1, 1) (rand / 2^31), then clamped */
+static void WindWalk(f32 &offset, f32 velocity, f32 minimum, f32 maximum, f32 dT)
+{
+	f32 r = 2.0f * (4.656613e-10f * (f32)rand()) - 1.0f;
+	offset = offset + dT * (velocity * r);
+
+	if (!(offset < maximum))
+		offset = maximum;
+
+	if (offset <= minimum)
+		offset = minimum;
 }
 
 /* @socom-skeleton stub Tick__5CWindFf */
-void CWind::Tick(float)
+void CWind::Tick(float dT)
 {
+	/* 0x22c720 (CWorld::Update, every frame): the goals move on (TickGoal), the azimuth,
+	   zenith and speed offsets take a random step each, and the wind vector is rebuilt from
+	   the sums: a negative speed turns the azimuth round; direction -(sin az, -, cos az)
+	   flattened by 1 - |zenith / 90|, y = zenith / 90, all (w too) times the speed. ELF
+	   quirks kept: the zenith sum is clamped to +-90 though the rest of the wind is in
+	   radians (so the y share is tiny), and w is scaled as it is (never set). */
+	if (m_TickGoal)
+		TickGoal(dT);
+
+	WindWalk(m_AzimuthOffset, m_AzimuthOffsetVelocity, m_MinAzimuthOffset, m_MaxAzimuthOffset, dT);
+	WindWalk(m_ZenithOffset, m_ZenithOffsetVelocity, m_MinZenithOffset, m_MaxZenithOffset, dT);
+	WindWalk(m_SpeedOffset, m_SpeedOffsetVelocity, m_MinSpeedOffset, m_MaxSpeedOffset, dT);
+
+	f32 speed = m_Speed + m_SpeedOffset;
+	f32 azimuth = m_Azimuth + m_AzimuthOffset;
+	f32 zenith = m_Zenith + m_ZenithOffset;
+
+	if (speed < 0.0f)
+	{
+		speed = -speed;
+		azimuth += 3.1415927f;
+	}
+
+	if (!(zenith < 90.0f))
+		zenith = 90.0f;
+
+	if (zenith <= -90.0f)
+		zenith = -90.0f;
+
+	if (azimuth < 0.0f)
+	{
+		while (azimuth < 0.0f)
+			azimuth += 6.2831855f;
+	}
+	else if (!(azimuth < 6.2831855f))
+	{
+		while (!(azimuth < 6.2831855f))
+			azimuth -= 6.2831855f;
+	}
+
+	m_Wind.x = sinf(azimuth);
+	m_Wind.z = cosf(azimuth);
+
+	f32 rise = 0.011111111f * zenith;
+	m_Wind.x = -m_Wind.x;
+	m_Wind.y = rise;
+	m_Wind.z = -m_Wind.z;
+
+	f32 flat = rise < 0.0f ? 1.0f + rise : 1.0f - rise;
+	m_Wind.x = m_Wind.x * flat;
+	m_Wind.z = m_Wind.z * flat;
+
+	m_Wind.x *= speed;
+	m_Wind.y *= speed;
+	m_Wind.z *= speed;
+	m_Wind.w *= speed;
+}
+
+/* port: file-local helper - TickGoal's step, inline three times in the ELF: towards the
+   goal by delta * dT, stopping (and clearing the flag) once there */
+static void WindGoalStep(bool &ticking, f32 &value, f32 goal, f32 delta, f32 dT)
+{
+	if (!ticking)
+		return;
+
+	value = value + delta * dT;
+
+	if (delta <= 0.0f)
+	{
+		if (value <= goal)
+		{
+			value = goal;
+			ticking = false;
+		}
+	}
+	else if (!(value < goal))
+	{
+		value = goal;
+		ticking = false;
+	}
 }
 
 /* @socom-skeleton stub TickGoal__5CWindFf */
-void CWind::TickGoal(float)
+void CWind::TickGoal(float dT)
 {
+	/* 0x22c570: azimuth, zenith and speed towards their goals; m_TickGoal stays set while
+	   any still moves */
+	WindGoalStep(m_TickAzimuth, m_Azimuth, m_AzimuthGoal, m_AzimuthGoalDelta, dT);
+	WindGoalStep(m_TickZenith, m_Zenith, m_ZenithGoal, m_ZenithGoalDelta, dT);
+	WindGoalStep(m_TickSpeed, m_Speed, m_SpeedGoal, m_SpeedGoalDelta, dT);
+	m_TickGoal = m_TickAzimuth || m_TickZenith || m_TickSpeed;
 }
 
 /* @socom-skeleton stub Reset__5CWindFv */
 void CWind::Reset()
 {
+	/* 0x22c4f0 (CWorld ctor): still air at speed 8 towards azimuth 0, offsets free within
+	   +-45 degrees (azimuth, zenith) and -7.5..9 (speed), walking at 15 / 5 degrees and 3 a
+	   second; the speed offset starts at 3. The goal rates, the tick flags (but m_TickGoal)
+	   and the vector are left. */
+	m_ZenithGoal = 0.0f;
+	m_AzimuthGoal = 0.0f;
+	m_SpeedGoal = 8.0f;
+	m_TickGoal = false;
+	m_Zenith = 0.0f;
+	m_Azimuth = 0.0f;
+	m_Speed = 8.0f;
+	m_AzimuthOffset = 0.0f;
+	m_MinAzimuthOffset = -0.78539819f;
+	m_MaxAzimuthOffset = 0.78539819f;
+	m_ZenithOffset = 0.0f;
+	m_MinZenithOffset = -0.78539819f;
+	m_MaxZenithOffset = 0.78539819f;
+	m_AzimuthOffsetVelocity = 0.2617994f;
+	m_ZenithOffsetVelocity = 0.08726646f;
+	m_SpeedOffset = 3.0f;
+	m_MinSpeedOffset = -7.5f;
+	m_MaxSpeedOffset = 9.0f;
+	m_SpeedOffsetVelocity = 3.0f;
 }
 
 /* @socom-skeleton stub SetDIBBox__FPQ23zdb5CNodePC5CBBoxb */

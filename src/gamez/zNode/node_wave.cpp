@@ -22,29 +22,84 @@
 
 /* @socom-skeleton decl include */
 #include "gamez/zTexture/ztex.h"
+#include "znode.h" /* CNode::m_vid, CVisData (Tick) */
 /* @socom-skeleton end include */
 
 /* @socom-skeleton stub m_ripplefreepool__Q23zdb7CRipple */
 namespace zdb {
-int CRipple::m_ripplefreepool;
+RTPool<CRipple> *CRipple::m_ripplefreepool;
 }
 
 /* @socom-skeleton stub m_ripplepool__Q23zdb7CRipple */
 namespace zdb {
-unsigned char CRipple::m_ripplepool[12];
+std::list<CRipple *> CRipple::m_ripplepool;
 }
 
 /* @socom-skeleton stub Init__Q23zdb7CRippleFv */
 void zdb::CRipple::Init()
 {
+	/* 0x232080 (CGame::StartEngine): a free pool of 16 ripples */
+	m_ripplefreepool = new RTPool<CRipple>(16);
 }
 
 /* @socom-skeleton stub Uninit__Q23zdb7CRippleFv */
 void zdb::CRipple::Uninit()
 {
+	/* 0x232050 (CGame::StopEngine) */
+	delete m_ripplefreepool;
+	m_ripplefreepool = NULL;
 }
 
 /* @socom-skeleton stub Tick__Q23zdb7CRippleFf */
-void zdb::CRipple::Tick(float)
+void zdb::CRipple::Tick(float dT)
 {
+	/* 0x231dd0 (CNode::VisualEffectsTick): each running ripple ages by dT; one whose age
+	 * reaches its life leaves the running list for the free pool and, when no other running
+	 * ripple has its visual, every vertex of the visual's instance is reset (record +6 and
+	 * +14 to 0, +12 to 32768 as s16) and the ripple marked inactive. Nothing in the ELF
+	 * starts a ripple, so the list stays empty. */
+	std::list<CRipple *>::iterator it = m_ripplepool.begin();
+
+	while (it != m_ripplepool.end())
+	{
+		CRipple *ripple = *it;
+		ripple->m_age += dT;
+
+		if (ripple->m_age < ripple->m_life)
+		{
+			++it;
+			continue;
+		}
+
+		it = m_ripplepool.erase(it);
+		m_ripplefreepool->push_back(ripple);
+
+		CVisual *visual = ripple->m_visual;
+		bool last = true;
+
+		for (std::list<CRipple *>::iterator other = m_ripplepool.begin(); other != m_ripplepool.end(); ++other)
+		{
+			if ((*other)->m_visual == visual)
+			{
+				last = false;
+				break;
+			}
+		}
+
+		if (!last)
+			continue;
+
+		u32 vid = ripple->m_node != NULL ? ripple->m_node->m_vid : 0;
+		CVisData data;
+		data.Clear();
+
+		for (CVisData *vertex = data.SelectVertex(ripple->m_visual, vid, 0); vertex != NULL; vertex = vertex->NextVertex(1))
+		{
+			vertex->m_vertex[3] = (s16)(s32)0.0f;
+			vertex->m_vertex[6] = (s16)(s32)32768.0f;
+			vertex->m_vertex[7] = (s16)(s32)0.0f;
+		}
+
+		ripple->m_active = false;
+	}
 }

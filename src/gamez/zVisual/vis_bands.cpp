@@ -59,69 +59,127 @@
 #include "zvis.h"
 /* @socom-skeleton end include */
 
+/* port: file-local helper, not an ELF function - the band objects' Read bodies (0x310fa0,
+   0x310d50, 0x310a80) are one pattern: the key's records copied in as they are, the vector
+   sized to the key (size / record size). Without the key the ELF calls GetOpenKey and drops
+   the result. */
+template <class BandObject>
+static void ReadBands(BandObject *bands, zar::CZAR *zfile, const char *name)
+{
+	zar::CKey *key = zfile->OpenKey(name);
+
+	if (key == NULL)
+	{
+		zfile->GetOpenKey();
+		return;
+	}
+
+	bands->resize((u32)key->GetSize() / sizeof(typename BandObject::value_type));
+	zfile->Fetch(key, bands->data(), key->GetSize(), 0);
+	zfile->CloseKey(key);
+}
+
 /* @socom-skeleton stub __ct__Q23zdb11CLOD_ObjectFv */
 zdb::CLOD_Object::CLOD_Object()
 {
+	/* 0x3110b0 (the band objects' constructors are alike: an empty vector, m_bandMax 256) */
+	m_bandMax = 256;
 }
 
 /* @socom-skeleton stub __dt__Q23zdb11CLOD_ObjectFv */
 zdb::CLOD_Object::~CLOD_Object()
 {
+	/* 0x311040 (alike for every band object): the vector's storage freed (its own dtor) */
+	std::vector<CLOD_band>().swap(*this);
 }
 
 /* @socom-skeleton stub Read__Q23zdb11CLOD_ObjectFPQ23zdb9CSaveLoad */
-void zdb::CLOD_Object::Read(zdb::CSaveLoad *)
+void zdb::CLOD_Object::Read(zdb::CSaveLoad *sload)
 {
+	/* 0x310fa0 (CSaveLoad::Load): the "LOD_Object" records (32 bytes: near / far range
+	 * squares of the fade-in and fade-out bands, the fade flags); a visual's m_lod_band
+	 * (1-based) picks one in CPipe::RenderVisual. ELF quirk kept: unlike the other two reads
+	 * this one does not test sload for NULL. */
+	ReadBands(this, &sload->m_zfile, "LOD_Object");
 }
 
 /* @socom-skeleton stub __ct__Q23zdb15CSubSurf_ObjectFv */
 zdb::CSubSurf_Object::CSubSurf_Object()
 {
+	/* 0x310f50 */
+	m_bandMax = 256;
 }
 
 /* @socom-skeleton stub __dt__Q23zdb15CSubSurf_ObjectFv */
 zdb::CSubSurf_Object::~CSubSurf_Object()
 {
+	/* 0x310ee0 */
+	std::vector<CSubSurf_band>().swap(*this);
 }
 
 /* @socom-skeleton stub __ct__Q23zdb16CMaterial_ObjectFv */
 zdb::CMaterial_Object::CMaterial_Object()
 {
+	/* 0x310e90 */
+	m_bandMax = 256;
 }
 
 /* @socom-skeleton stub __dt__Q23zdb16CMaterial_ObjectFv */
 zdb::CMaterial_Object::~CMaterial_Object()
 {
+	/* 0x310e20 */
+	std::vector<CMaterial_band>().swap(*this);
 }
 
 /* @socom-skeleton stub Read__Q23zdb16CMaterial_ObjectFPQ23zdb9CSaveLoad */
-void zdb::CMaterial_Object::Read(zdb::CSaveLoad *)
+void zdb::CMaterial_Object::Read(zdb::CSaveLoad *sload)
 {
+	/* 0x310d50 (CSaveLoad::Load): the "Material_Object" records (28 bytes: colour,
+	 * opacity, intensity, material id and a blend-mode pointer, stored as the exporter left
+	 * it). Nothing else in the ELF reads the world's material object. */
+	if (sload == NULL)
+		return;
+
+	ReadBands(this, &sload->m_zfile, "Material_Object");
 }
 
 /* @socom-skeleton stub __ct__Q23zdb16CPreLight_ObjectFv */
 zdb::CPreLight_Object::CPreLight_Object()
 {
+	/* 0x310d00 */
+	m_bandMax = 256;
 }
 
 /* @socom-skeleton stub __dt__Q23zdb16CPreLight_ObjectFv */
 zdb::CPreLight_Object::~CPreLight_Object()
 {
+	/* 0x310c90 */
+	std::vector<CPreLight_band>().swap(*this);
 }
 
 /* @socom-skeleton stub __ct__Q23zdb24CScrollingTexture_ObjectFv */
 zdb::CScrollingTexture_Object::CScrollingTexture_Object()
 {
+	/* 0x310bb0 */
+	m_bandMax = 256;
 }
 
 /* @socom-skeleton stub __dt__Q23zdb24CScrollingTexture_ObjectFv */
 zdb::CScrollingTexture_Object::~CScrollingTexture_Object()
 {
+	/* 0x310b40 */
+	std::vector<CScrollingTexture_band>().swap(*this);
 }
 
 /* @socom-skeleton stub Read__Q23zdb24CScrollingTexture_ObjectFPQ23zdb9CSaveLoad */
-void zdb::CScrollingTexture_Object::Read(zdb::CSaveLoad *)
+void zdb::CScrollingTexture_Object::Read(zdb::CSaveLoad *sload)
 {
+	/* 0x310a80 (CSaveLoad::Load): the "TextureScroll_Object" records (520 bytes: model
+	 * name, node name, u / v speed); Load starts a texture effect for each */
+	if (sload == NULL)
+		return;
+
+	ReadBands(this, &sload->m_zfile, "TextureScroll_Object");
 }
 
 /* @socom-skeleton stub Clear__Q23zdb8CVisDataFv */

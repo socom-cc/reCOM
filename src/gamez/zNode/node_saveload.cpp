@@ -20,6 +20,7 @@
 
 #include "gamez/zNode/node_world.h"
 #include "gamez/zNode/node_assetlib.h"
+#include "gamez/zNode/node_model.h" /* CModel::m_list (Load's scrolling textures) */
 
 #include "gamez/zGrid/zgrid.h"
 #include "gamez/zSave/zsave.h"
@@ -80,8 +81,26 @@ s32 FilterMissionFolder(const char* prefix, const char* infix, const char* postf
 }
 
 /* @socom-skeleton stub find_node__FPQ23zdb5CNodePCc */
-zdb::CNode * find_node(zdb::CNode *, const char *)
+zdb::CNode * find_node(zdb::CNode *node, const char *name)
 {
+	/* 0x22af80 (CSaveLoad::Load's scrolling textures): the node or the first of its
+	   descendants, depth first, whose name matches (case ignored); NULL without a node or
+	   name. The ELF inlines one level of the recursion. */
+	if (node == NULL || name == NULL)
+		return NULL;
+
+	if (strcasecmp(node->m_name, name) == 0)
+		return node;
+
+	for (zdb::CNodeVector::iterator it = node->m_child.begin(); it != node->m_child.end(); ++it)
+	{
+		zdb::CNode *found = find_node(*it, name);
+
+		if (found != NULL)
+			return found;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton body LoadAssetLib_PS2__Q23zdb9CSaveLoadFPQ23zdb6CWorldPQ23zdb9CAssetLibi */
@@ -353,6 +372,39 @@ CWorld* CSaveLoad::Load(const char* name)
 		}
 		
 		m_world->Read(*this);
+
+		/* 0x22a618: the level-of-detail bands, the material bands and the scrolling
+		   textures. Each scrolling texture names a model and a node in it: the node found
+		   in that model scrolls once for each instance of the model (ELF quirk kept: the
+		   same node every time - InTexfxpool makes the repeats no-ops); a node not found
+		   there is looked for in "worldmodel" and scrolls once. */
+		m_world->m_LOD_Object.Read(this);
+		m_world->m_Material_Object.Read(this);
+		m_world->m_ScrollingTexture_Object.Read(this);
+
+		CScrollingTexture_Object& scrolls = m_world->m_ScrollingTexture_Object;
+		s32 count = scrolls.size();
+
+		for (s32 i = 0; i < count; i++)
+		{
+			CScrollingTexture_band* band = &scrolls[i];
+			CModel* model = CWorld::GetModel(band->m_modelname);
+			CModel* worldmodel = CWorld::GetModel("worldmodel");
+			CNode* node = find_node(model, band->m_nodename);
+
+			if (node == NULL && worldmodel != NULL)
+			{
+				CNode* worldnode = find_node(worldmodel, band->m_nodename);
+
+				if (worldnode != NULL)
+					worldnode->ScrollTexture(NULL, band->m_du, band->m_dv, true);
+			}
+			else if (model != NULL && model->m_list.size() != 0 && node != NULL)
+			{
+				for (CRefList::iterator it = model->m_list.begin(); it != model->m_list.end(); ++it)
+					node->ScrollTexture(NULL, band->m_du, band->m_dv, true);
+			}
+		}
 
 		/* 0x22a888: the mission's clutter (not for the front end's "ui" world) */
 		if (strcmp(m_world->m_name, "ui") != 0)

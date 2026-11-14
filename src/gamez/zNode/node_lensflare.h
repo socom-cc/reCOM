@@ -17,6 +17,12 @@ public:
 	virtual ~CLensFlare() {} /* __dt__Q23zdb10CLensFlareFv (inline, 0x231d00): member and base destruction only */
 	CLensFlare();
 	/* @socom-skeleton end Q23zdb10CLensFlare */
+
+	/* members (224 bytes, no DWARF; CNode::Read news 224, the ctor 0x231ca0 builds only the
+	   vector at +0xcc). Names invented; the element type is MSL's pointer storage. */
+	u8 m_unkc0[12];                   /* +0xc0: not set by the ctor */
+	std::vector<unsigned int> m_list; /* +0xcc */
+	u8 m_unkd8[8];                    /* +0xd8 */
 	};
 }
 

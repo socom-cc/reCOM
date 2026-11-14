@@ -11,9 +11,13 @@
 /* @socom-skeleton stub __ct__Q23zdb20CProjectedMap_ObjectFv */
 zdb::CProjectedMap_Object::CProjectedMap_Object()
 {
+	/* 0x22b2d0 (CWorld ctor): an empty vector, m_bandMax 256 (as the other band objects) */
+	m_bandMax = 256;
 }
 
 /* @socom-skeleton stub __dt__Q23zdb20CProjectedMap_ObjectFv */
 zdb::CProjectedMap_Object::~CProjectedMap_Object()
 {
+	/* 0x22b260: the vector's storage freed */
+	std::vector<unsigned int>().swap(*this);
 }

@@ -41,6 +41,8 @@ namespace zdb
 /* @socom-skeleton stub _Write__Q23zdb6CLightFRQ23zdb9CSaveLoad */
 bool zdb::CLight::_Write(zdb::CSaveLoad &)
 {
+	/* 0x224210: lights are not written (returns 0) */
+	return false;
 }
 
 /* @socom-skeleton body Create__Q23zdb6CModelFRQ23zdb9CSaveLoadPQ23zdb9CAssetLib */
@@ -419,6 +421,32 @@ CNode* CNode::CreateInstance(CSaveLoad& sload)
 namespace zdb {
 bool CLight::Read(CSaveLoad& sload)
     {
+        /* 0x223390 (CNode::Read, type 8): the node data (visuals, DI), then "diffuse",
+           "min_range" and "max_range_sq" with the derived reciprocals, the bounding box
+           updated (virtual UpdateBBox) after each range. ELF quirks kept: the first
+           m_invDeltaRange uses the m_maxRange the light had before the read; a missing key
+           leaves the value before it (diffuse: the stack as it was, port: 0; min_range: 0;
+           max_range_sq: the min_range value). */
+        ReadDataBegin(sload);
+
+        f32 diffuse[3] = { 0.0f, 0.0f, 0.0f };
+        f32 value = 0.0f;
+        sload.m_zfile.Fetch("diffuse", diffuse, sizeof(diffuse));
+        m_diffuse.x = diffuse[0];
+        m_diffuse.y = diffuse[1];
+        m_diffuse.z = diffuse[2];
+
+        sload.m_zfile.Fetch("min_range", &value);
+        m_minRange = value;
+        m_invDeltaRange = 1.0f / (m_maxRange - m_minRange);
+        UpdateBBox(false);
+
+        sload.m_zfile.Fetch("max_range_sq", &value);
+        m_maxRange = sqrtf(value);
+        m_maxRangeSq = value;
+        m_invMaxRange = 1.0f / m_maxRange;
+        m_invDeltaRange = 1.0f / (m_maxRange - m_minRange);
+        UpdateBBox(false);
         return true;
     }
 }

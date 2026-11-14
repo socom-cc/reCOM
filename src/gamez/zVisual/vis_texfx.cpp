@@ -25,6 +25,7 @@
 #include "gamez/zNode/znode.h"
 #include "gamez/zTexture/ztex.h"
 #include "zvis.h"
+#include "gamez/zVideo/zvid.h" /* zVid.frameNumber (ScrollTexture) */
 /* @socom-skeleton end include */
 
 /* @socom-skeleton stub uvlimit__3zdb */
@@ -34,60 +35,157 @@ short uvlimit = 20480;
 
 /* @socom-skeleton stub m_texfxfreepool__Q23zdb10CTextureFX */
 namespace zdb {
-int CTextureFX::m_texfxfreepool;
+RTPool<CTextureFX> *CTextureFX::m_texfxfreepool;
 }
 
 /* @socom-skeleton stub m_texfxpool__Q23zdb10CTextureFX */
 namespace zdb {
-int CTextureFX::m_texfxpool[3];
+std::list<CTextureFX *> CTextureFX::m_texfxpool;
 }
 
 /* @socom-skeleton stub vdata__3zdb */
 namespace zdb {
-static unsigned char vdata[96];
+static CVisData vdata; /* 96 bytes in the ELF (0x511c50): the vertex walker of ScrollTexture */
 }
 
 /* @socom-skeleton stub InitScrollTexture__Q23zdb10CTextureFXFffbPQ23zdb7CVisualPQ23zdb5CNode */
-void zdb::CTextureFX::InitScrollTexture(float, float, bool, zdb::CVisual *, zdb::CNode *)
+void zdb::CTextureFX::InitScrollTexture(float du, float dv, bool scroll, zdb::CVisual *visual, zdb::CNode *node)
 {
+	/* 0x3142f0: the speeds, the visual, the node's instance (0 without a node) and the type
+	 * (1 scrolling, 2 still); m_frame is left as it was */
+	m_du = du;
+	m_dv = dv;
+	m_visual = visual;
+	m_vid = node != NULL ? node->m_vid : 0;
+	m_type = scroll ? 1 : 2;
 }
 
 /* @socom-skeleton stub Init__Q23zdb10CTextureFXFv */
 void zdb::CTextureFX::Init()
 {
+	/* 0x3142b0 (CGame::StartEngine): a free pool of 20 effects */
+	m_texfxfreepool = new RTPool<CTextureFX>(20);
 }
 
 /* @socom-skeleton stub Uninit__Q23zdb10CTextureFXFv */
 void zdb::CTextureFX::Uninit()
 {
+	/* 0x314280: the free pool and its effects deleted */
+	delete m_texfxfreepool;
+	m_texfxfreepool = NULL;
 }
 
 /* @socom-skeleton stub Clear__Q23zdb10CTextureFXFb */
-void zdb::CTextureFX::Clear(bool)
+void zdb::CTextureFX::Clear(bool deletePool)
 {
-	/* 0x314170 (CMission::Close): every active texture effect of m_texfxpool goes back to the
-	 * free pool, the active list is emptied, and with the argument the free pool's entries
-	 * are deleted (RTPool<CTextureFX>::Clear 0x314330).
-	 * port: not written - both pools are untyped placeholders and nothing in the port makes a
-	 * texture effect (Init / InitScrollTexture are unwritten), so they are empty */
+	/* 0x314170 (CMission::Close): every running effect goes back to the free pool (appended)
+	 * and the running list is emptied; with the argument the free pool's effects are deleted
+	 * as well (RTPool::Clear 0x314330) */
+	for (std::list<CTextureFX *>::iterator it = m_texfxpool.begin(); it != m_texfxpool.end(); ++it)
+		m_texfxfreepool->push_back(*it);
+
+	m_texfxpool.clear();
+
+	if (deletePool)
+		m_texfxfreepool->Clear();
 }
 
 /* @socom-skeleton stub InTexfxpool__Q23zdb10CTextureFXFPQ23zdb7CVisual */
-void zdb::CTextureFX::InTexfxpool(zdb::CVisual *)
+bool zdb::CTextureFX::InTexfxpool(zdb::CVisual *visual)
 {
+	/* 0x3140c0: whether a running effect has this visual */
+	for (std::list<CTextureFX *>::iterator it = m_texfxpool.begin(); it != m_texfxpool.end(); ++it)
+	{
+		if ((*it)->m_visual == visual)
+			return true;
+	}
+
+	return false;
 }
 
 /* @socom-skeleton stub Tick__Q23zdb10CTextureFXFf */
-void zdb::CTextureFX::Tick(float)
+void zdb::CTextureFX::Tick(float dT)
 {
+	/* 0x314010 (CNode::VisualEffectsTick): every running effect of type 1 scrolls */
+	for (std::list<CTextureFX *>::iterator it = m_texfxpool.begin(); it != m_texfxpool.end(); ++it)
+	{
+		if ((*it)->m_type == 1)
+			(*it)->ScrollTexture(dT);
+	}
 }
 
 /* @socom-skeleton stub LimitUVs__3zdbFPsPsPs */
-void zdb::LimitUVs(short *, short *, short *)
+void zdb::LimitUVs(short *uv0, short *uv1, short *uv2)
 {
+	/* 0x313d30: a triangle's three UVs (s16 u, v; 4096 = one texture repeat) are kept near 0:
+	 * each of the six coordinates in turn (u0, v0, u1, v1, u2, v2), at or past +uvlimit all
+	 * three of that axis go down by uvlimit, at or below -uvlimit they go up by it. The test
+	 * reads the coordinate after the earlier steps moved it; uvlimit is re-read each time. */
+	short *uv[3] = { uv0, uv1, uv2 };
+
+	for (int i = 0; i < 3; i++)
+	{
+		for (int axis = 0; axis < 2; axis++)
+		{
+			short value = uv[i][axis];
+
+			if (!(value < uvlimit))
+			{
+				uv0[axis] -= uvlimit;
+				uv1[axis] -= uvlimit;
+				uv2[axis] -= uvlimit;
+			}
+			else if (!(-uvlimit < value))
+			{
+				uv0[axis] += uvlimit;
+				uv1[axis] += uvlimit;
+				uv2[axis] += uvlimit;
+			}
+		}
+	}
 }
 
 /* @socom-skeleton stub ScrollTexture__Q23zdb10CTextureFXFf */
-void zdb::CTextureFX::ScrollTexture(float)
+void zdb::CTextureFX::ScrollTexture(float dT)
 {
+	/* 0x313bc0: once a frame (m_frame against the frame number's low byte), every vertex of
+	 * the visual's instance chain moves by the speeds times dT (4096 a repeat, s16 UV at
+	 * record +8 / +10), and each triangle's UVs are brought back near 0 (LimitUVs) after its
+	 * third vertex. ELF quirk kept: the walk is by index entry, so a vertex shared by several
+	 * triangles moves once for each. */
+	u8 frame = (u8)zVid.frameNumber;
+
+	if (m_frame == frame)
+		return;
+
+	m_frame = frame;
+
+	s16 du = (s16)(s32)(4096.0f * (m_du * dT));
+	s16 dv = (s16)(s32)(4096.0f * (m_dv * dT));
+	CVisData *data = vdata.SelectVertex(m_visual, m_vid, 0);
+
+	while (data != NULL)
+	{
+		s16 *uv0 = data->m_vertex + 4;
+		uv0[0] += du;
+		uv0[1] += dv;
+		data = data->NextVertex(1);
+
+		if (data == NULL)
+			return;
+
+		s16 *uv1 = data->m_vertex + 4;
+		uv1[0] += du;
+		uv1[1] += dv;
+		data = data->NextVertex(1);
+
+		if (data == NULL)
+			return;
+
+		s16 *uv2 = data->m_vertex + 4;
+		uv2[0] += du;
+		uv2[1] += dv;
+		LimitUVs(uv0, uv1, uv2);
+		data = data->NextVertex(1);
+	}
 }

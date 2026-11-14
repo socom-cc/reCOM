@@ -102,9 +102,83 @@ void zdb::CModel::Release(zdb::CNode *node)
 		m_parent = NULL;
 }
 
-/* @socom-skeleton stub UpdateBBoxFromDI__Q23zdb5CNodeFb */
-CBBox * zdb::CNode::UpdateBBoxFromDI(bool)
+/* port: file-local helper for CBBox::Normalize (0x229cf0, an inline emitted in this unit;
+   the port's CBBox has no such method): each axis whose min is above its max is swapped */
+static void NormalizeBox(CBBox& box)
 {
+	if (!(box.m_min.x <= box.m_max.x)) { f32 t = box.m_min.x; box.m_min.x = box.m_max.x; box.m_max.x = t; }
+	if (!(box.m_min.y <= box.m_max.y)) { f32 t = box.m_min.y; box.m_min.y = box.m_max.y; box.m_max.y = t; }
+	if (!(box.m_min.z <= box.m_max.z)) { f32 t = box.m_min.z; box.m_min.z = box.m_max.z; box.m_max.z = t; }
+}
+
+/* @socom-skeleton stub UpdateBBoxFromDI__Q23zdb5CNodeFb */
+CBBox * zdb::CNode::UpdateBBoxFromDI(bool children)
+{
+	/* 0x229870 (virtual; no direct caller): the node's box rebuilt from zero around the
+	   points of its DIs and, with `children`, each child's own UpdateBBox(true) box through
+	   the child's matrix (CBBox::Normalize after); returns the box the node uses (GetBBox).
+	   ELF quirks kept: each DI's point 0 is skipped (the loop starts at 1), and the box starts
+	   as zero (not empty) but the first point or child box replaces it. */
+	m_bbox.m_max = CPnt3D::zero;
+	m_bbox.m_min = m_bbox.m_max;
+	bool first = true;
+
+	for (CDIVector::iterator it = m_di.begin(); it != m_di.end(); ++it)
+	{
+		CDI* di = *it;
+
+		for (u32 i = 1; i < di->m_ptcount; i++)
+		{
+			const CPnt4D& p = di->m_pts[i];
+
+			if (first)
+			{
+				first = false;
+				m_bbox.m_min.x = p.x;
+				m_bbox.m_min.y = p.y;
+				m_bbox.m_min.z = p.z;
+				m_bbox.m_max.x = p.x;
+				m_bbox.m_max.y = p.y;
+				m_bbox.m_max.z = p.z;
+				continue;
+			}
+
+			if (p.x <= m_bbox.m_min.x) m_bbox.m_min.x = p.x;
+			if (p.y <= m_bbox.m_min.y) m_bbox.m_min.y = p.y;
+			if (p.z <= m_bbox.m_min.z) m_bbox.m_min.z = p.z;
+			if (!(p.x < m_bbox.m_max.x)) m_bbox.m_max.x = p.x;
+			if (!(p.y < m_bbox.m_max.y)) m_bbox.m_max.y = p.y;
+			if (!(p.z < m_bbox.m_max.z)) m_bbox.m_max.z = p.z;
+		}
+	}
+
+	if (children)
+	{
+		for (CNodeVector::iterator it = m_child.begin(); it != m_child.end(); ++it)
+		{
+			CNode* child = *it;
+			CBBox box = *child->UpdateBBox(true);
+			child->m_matrix.Transform(reinterpret_cast<CPnt3D*>(&box), reinterpret_cast<CPnt3D*>(&box), 2);
+			NormalizeBox(box);
+
+			if (first)
+			{
+				first = false;
+				m_bbox.m_min = box.m_min;
+				m_bbox.m_max = box.m_max;
+				continue;
+			}
+
+			if (box.m_min.x <= m_bbox.m_min.x) m_bbox.m_min.x = box.m_min.x;
+			if (box.m_min.y <= m_bbox.m_min.y) m_bbox.m_min.y = box.m_min.y;
+			if (box.m_min.z <= m_bbox.m_min.z) m_bbox.m_min.z = box.m_min.z;
+			if (!(box.m_max.x < m_bbox.m_max.x)) m_bbox.m_max.x = box.m_max.x;
+			if (!(box.m_max.y < m_bbox.m_max.y)) m_bbox.m_max.y = box.m_max.y;
+			if (!(box.m_max.z < m_bbox.m_max.z)) m_bbox.m_max.z = box.m_max.z;
+		}
+	}
+
+	return GetBBox();
 }
 
 /* @socom-skeleton stub UpdateBBox__Q23zdb5CNodeFb */
@@ -119,7 +193,77 @@ CBBox * zdb::CNode::UpdateBBox(bool)
 namespace zdb {
 void CNode::ComputeFacadeMatrix(const CMatrix* matrix, CMatrix* model)
 	{
+		/* 0x229580 (CPipe::RenderNode for a facade node): the model matrix's rotation rows
+		   are replaced so the node faces the camera (`matrix` is the camera's): facade 1
+		   turns about y towards the camera; facade 2 also tilts about x by the camera's
+		   height (the direction taken through the y turn, then that turn times the tilt).
+		   The translation row is kept; other facade values change nothing. ELF quirk kept:
+		   the y turn used to bring the direction round has its sine and cosine swapped. */
+		sceVu0FMATRIX turn;
+		sceVu0UnitMatrix(turn);
 
+		CPnt3D d;
+		d.x = model->m_matrix[3][0] - matrix->m_matrix[3][0];
+		d.y = model->m_matrix[3][1] - matrix->m_matrix[3][1];
+		d.z = model->m_matrix[3][2] - matrix->m_matrix[3][2];
+
+		u32 facade = m_facade;
+
+		if (facade == 1)
+		{
+			d.y = 0.0f;
+			d.Normalize();
+			turn[0][0] = d.z;
+			turn[2][2] = d.z;
+			turn[0][2] = -d.x;
+			turn[2][0] = d.x;
+		}
+		else if (facade == 2)
+		{
+			d.Normalize();
+			CPnt3D flat = d;
+			flat.y = 0.0f;
+			flat.Normalize();
+
+			turn[0][0] = flat.x;
+			turn[2][2] = flat.x;
+			turn[0][2] = -flat.z;
+			turn[2][0] = flat.z;
+
+			/* the direction through that (swapped) turn, VU0 row-vector style, w = 0 */
+			f32 v[4] = { d.x, d.y, d.z, 0.0f };
+			f32 w[4];
+
+			for (int c = 0; c < 4; c++)
+				w[c] = v[0] * turn[0][c] + v[1] * turn[1][c] + v[2] * turn[2][c] + v[3] * turn[3][c];
+
+			turn[0][0] = flat.z;
+			turn[2][2] = flat.z;
+			turn[0][2] = -flat.x;
+			turn[2][0] = flat.x;
+
+			sceVu0FMATRIX tilt;
+			sceVu0UnitMatrix(tilt);
+			tilt[1][1] = w[0];
+			tilt[2][2] = w[0];
+			tilt[1][2] = -w[1];
+			tilt[2][1] = w[1];
+
+			sceVu0FMATRIX both;
+			sceVu0UnitMatrix(both);
+			sceVu0MulMatrix(both, turn, tilt);
+			sceVu0CopyMatrix(turn, both);
+		}
+		else
+		{
+			return;
+		}
+
+		for (int r = 0; r < 3; r++)
+		{
+			for (int c = 0; c < 4; c++)
+				model->m_matrix[r][c] = turn[r][c];
+		}
 	}
 }
 
