@@ -816,6 +816,54 @@ void CZProjectileList::ReleaseIndirectFireDI(zdb::DiIntersect **, int *handle)
 }
 
 /* @socom-skeleton stub AcquireProjectile__16CZProjectileListFR8CZWeaponR6CZAmmo */
-CZProjectile * CZProjectileList::AcquireProjectile(CZWeapon &, CZAmmo &)
+CZProjectile * CZProjectileList::AcquireProjectile(CZWeapon &weapon, CZAmmo &ammo)
 {
+	/* 0x31a4e0: takes the first free projectile (NULL when none or past the end), marks it
+	 * used, moves the first-free index on to the next unused slot (-1 when none), shows its
+	 * instance and sets its weapon (range, direct-fire shot type) and ammo */
+	s32 index = m_firstfree;
+	CZProjectile* projectile;
+
+	if (index == -1)
+	{
+		projectile = NULL;
+	}
+	else if (!(index < m_size))
+	{
+		projectile = NULL;
+	}
+	else
+	{
+		if (m_lastused < index)
+			m_lastused = index;
+
+		m_used[index] = 1;
+		s32 next;
+
+		for (next = m_firstfree + 1; next < m_size; next++)
+		{
+			if (m_used[next] == 0)
+				break;
+		}
+
+		m_firstfree = next < m_size ? next : -1;
+		m_projectiles[index].GetInstance()->SetActive(true); /* virtual slot 0x34 in the ELF */
+		projectile = &m_projectiles[index];
+	}
+
+	if (projectile == NULL)
+		return projectile;
+
+	projectile->m_weapon = &weapon;
+
+	if (projectile->m_weapon != NULL)
+	{
+		projectile->m_currange = projectile->m_weapon->GetMaxRange();
+
+		if (projectile->m_weapon->IsDirectFire())
+			projectile->m_shottype = static_cast<PROJECTILE_TYPE>(1);
+	}
+
+	projectile->m_ammo = &ammo;
+	return projectile;
 }

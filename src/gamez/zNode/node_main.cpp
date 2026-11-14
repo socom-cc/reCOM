@@ -888,6 +888,35 @@ zdb::CLight::~CLight()
 /* @socom-skeleton stub UpdateBBox__Q23zdb6CLightFb */
 CBBox * zdb::CLight::UpdateBBox(bool)
 {
+	/* 0x226a20: the light's box is the cube of its larger range around it; returns the box the
+	 * node uses (its own, or up to two parents' when they share their parent's box, then the
+	 * third parent's GetBBox) */
+	f32 range = m_maxRange;
+
+	if (range <= m_minRange)
+		range = m_minRange;
+
+	m_bbox.m_max.x = range;
+	m_bbox.m_max.y = range;
+	m_bbox.m_max.z = range;
+	m_bbox.m_min.x = -range;
+	m_bbox.m_min.y = -range;
+	m_bbox.m_min.z = -range;
+
+	if (!m_use_parent_bbox)
+		return &m_bbox;
+
+	CNode* parent = m_parent;
+
+	if (!parent->m_use_parent_bbox)
+		return &parent->m_bbox;
+
+	parent = parent->m_parent;
+
+	if (!parent->m_use_parent_bbox)
+		return &parent->m_bbox;
+
+	return parent->m_parent->GetBBox();
 }
 
 /* @socom-skeleton stub __ct__Q23zdb9CLightMapFv */
@@ -1406,8 +1435,12 @@ CNode* CNode::Create(const char* name)
 }
 
 /* @socom-skeleton stub SetActive__Q23zdb6CLightFb */
-bool zdb::CLight::SetActive(bool)
+bool zdb::CLight::SetActive(bool active)
 {
+	/* 0x224b00: sets m_active; returns the old value */
+	bool was = m_active != 0;
+	m_active = active ? 1 : 0;
+	return was;
 }
 
 /* @socom-skeleton stub SetBlendMode__Q23zdb5CNodeFRCQ23zdb9BLENDMODEbbb */

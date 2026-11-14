@@ -167,6 +167,7 @@ bool zrdr_tobool(const _zrdr* reader, bool* output);
 _zrdr* _zrdr_nexttag(const _zrdr* reader, const char* tag, s32 size, _zrdr* other); /* _zrdr_nexttag__FPC5_zrdrPCciP5_zrdr */
 _zrdr* zrdr_nexttag(const _zrdr* reader, const char* tag, _zrdr* other); /* zrdr_nexttag__FPC5_zrdrPCcP5_zrdr */
 _zrdr* zrdr_flat_findtag_startidx(const _zrdr* reader, const char* tag, int startidx); /* zrdr_flat_findtag_startidx__FPC5_zrdrPCci */
+_zrdr* zrdr_flat_nexttag(const _zrdr* reader, const char* tag, _zrdr* other); /* zrdr_flat_nexttag__FPC5_zrdrPCcP5_zrdr (zrdr_main.cpp 0x23dd80; CZAnimMain::AnimLoadAnimList) */
 
 struct _zrdr
 {

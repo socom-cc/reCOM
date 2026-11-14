@@ -53,8 +53,55 @@ float quadW(float w)
 }
 
 /* @socom-skeleton stub GetFractionalRotations__FPC6CPnt3DPfPf */
-void GetFractionalRotations(const CPnt3D *, float *, float *)
+void GetFractionalRotations(const CPnt3D *dir, float *yaw, float *pitch)
 {
+	/* 0x1dcde0: a direction as fractions of the look range: yaw = angle from -z over 90
+	 * degrees (negative when x < 0), pitch = angle from the horizontal over 80 degrees
+	 * (negative when y < 0), each at most 1. Near vertical (y > 0.99) the yaw is 0. */
+	f32 yaw_angle;
+	f32 pitch_angle = 0.0f;
+
+	if (dir->y == 0.0f)
+	{
+		yaw_angle = acosf(-dir->z);
+	}
+	else
+	{
+		f32 flat = sqrtf(dir->x * dir->x + dir->z * dir->z);
+
+		if (flat < 0.01f)
+			pitch_angle = 1.5707964f;
+		else
+			pitch_angle = acosf(flat);
+
+		u32 vertical = 1;
+
+		if (dir->x * CPnt3D::unit_y.x + dir->y * CPnt3D::unit_y.y + dir->z * CPnt3D::unit_y.z <= 0.99f)
+			vertical = 0;
+
+		if (fabsf((f32)vertical) == 0.0f)
+			yaw_angle = acosf(-dir->z / flat);
+		else
+			yaw_angle = 0.0f;
+	}
+
+	f32 yaw_fraction = yaw_angle / 1.5707964f;
+	f32 pitch_fraction = pitch_angle / 1.3962634f;
+
+	if (!(yaw_fraction <= 1.0f))
+		yaw_fraction = 1.0f;
+
+	if (!(pitch_fraction <= 1.0f))
+		pitch_fraction = 1.0f;
+
+	if (dir->x < 0.0f)
+		yaw_fraction = -yaw_fraction;
+
+	if (dir->y < 0.0f)
+		pitch_fraction = -pitch_fraction;
+
+	*yaw = yaw_fraction;
+	*pitch = pitch_fraction;
 }
 
 /* @socom-skeleton stub ClipToBox__FRC6CPnt3DRC6CPnt3DR6CPnt3Dffff */

@@ -26,40 +26,38 @@
 /* @socom-skeleton body Unload__10CZAnimMainFv */
 bool CZAnimMain::Unload()
 {
-	// CZAnimNameTable::Unload();
+	/* 0x1c23c0: the name table, every anim set (unloaded and freed), every command set */
+	m_name_table.Unload();
 
-	if (m_animset_list)
+	if (m_animset_list != NULL)
 	{
-		for (u32 i = 0; i < m_animset_count; i++)
+		for (s32 i = 0; i < m_animset_count; i++)
 		{
-			// CZAnimSet::Unload();
+			if (i >= 0 && i < m_animset_count) /* inline GetAnimSet */
+				m_animset_list[i].Unload();
 		}
 
-		zfree(m_animset_list);
+		_free(m_animset_list, "zanim_load.cpp", 46);
 		m_animset_list = NULL;
 	}
 
 	m_animset_count = 0;
 	m_CurAnimSet = NULL;
 
-	if (m_cmdset_list)
+	if (m_cmdset_list != NULL)
 	{
-		for (u32 i = 0; i < m_cmdset_count; i++)
-		{
-			// UnloadCmdSet(i);
-		}
+		for (s32 i = 0; i < m_cmdset_count; i++)
+			UnloadCmdSet(i);
 
-		zfree(m_cmdset_list);
+		_free(m_cmdset_list, "zanim_load.cpp", 99);
 		m_cmdset_list = NULL;
 	}
 
 	m_cmdset_count = 0;
 	m_CurAnim = NULL;
 	m_CurSeq = NULL;
-
 	return true;
 }
-
 /* @socom-skeleton stub UnloadSIScript__10CZAnimMainFP16_zanim_si_script */
 void CZAnimMain::UnloadSIScript(_zanim_si_script *script)
 {
@@ -71,8 +69,34 @@ void CZAnimMain::UnloadSIScript(_zanim_si_script *script)
 }
 
 /* @socom-skeleton stub UnloadCmdSet__10CZAnimMainFi */
-void CZAnimMain::UnloadCmdSet(int)
+void CZAnimMain::UnloadCmdSet(int index)
 {
+	/* 0x1c2270: free a command set's command names, its command list and its name (the
+	 * ELF returns 1, 0 for a bad index; port: void as declared, Unload ignores it) */
+	if (index < 0 || index >= m_cmdset_count)
+		return;
+
+	_zanim_cmd_set* set = &m_cmdset_list[index];
+
+	if (set->cmd_list != NULL)
+	{
+		for (s32 i = 0; i < set->count; i++)
+		{
+			if (set->cmd_list[i].name != NULL)
+				_free(const_cast<char*>(set->cmd_list[i].name), "zanim_load.cpp", 136);
+
+			set->cmd_list[i].name = NULL;
+		}
+
+		_free(set->cmd_list, "zanim_load.cpp", 121);
+		set->cmd_list = NULL;
+		set->count = 0;
+	}
+
+	if (set->name != NULL)
+		_free(set->name, "zanim_load.cpp", 127);
+
+	set->name = NULL;
 }
 
 /* @socom-skeleton stub Load__10CZAnimMainFPCcPCc */
@@ -95,38 +119,629 @@ bool CZAnimMain::Load(const char *path, const char *setname)
 }
 
 /* @socom-skeleton stub AnimLoadZRDFile__10CZAnimMainFPCcPCc */
-void CZAnimMain::AnimLoadZRDFile(const char *, const char *)
+void CZAnimMain::AnimLoadZRDFile(const char *path, const char *file)
 {
+	/* 0x1c1f30: an anim definition file (.rdr): its ANIMATION_DEFINITIONS - anim lists,
+	 * GRAVITY and USER_ACTION_ANIMATION. The ELF returns 0, or -1 (port: void as declared,
+	 * no caller reads it). */
+	const char* found = zrdr_findfile(file, path);
+
+	if (found == NULL)
+		return;
+
+	CRdrFile* reader = zrdr_read(found, NULL, 0);
+
+	if (reader == NULL)
+		return;
+
+	_zrdr* defs = zrdr_findtag(reader, "ANIMATION_DEFINITIONS");
+
+	if (defs == NULL)
+		return; /* ELF quirk kept: the reader is not freed */
+
+	s32 count = defs->array->integer - 1;
+
+	for (s32 i = 1; i < count; i += 2)
+	{
+		_zrdr* key = &defs->array[i];
+
+		if (key->type != ZRDR_STRING)
+			return; /* ELF quirk kept: the reader is not freed */
+
+		if (strcmp(key->string, "ANIMATION_LIST") == 0)
+		{
+			AnimLoadAnimList(path, &defs->array[i + 1]);
+		}
+		else if (strcmp(key->string, "GRAVITY") == 0)
+		{
+			_zrdr* value = &defs->array[i + 1];
+			u32 n = value->IsArray() ? value->array->integer - 1 : 0;
+
+			if (n != 0)
+				ZAnim.m_gravity = value->Get(0)->GetReal(); /* ELF: the global, not this */
+		}
+		else if (strcmp(key->string, "USER_ACTION_ANIMATION") == 0)
+		{
+			_zrdr* value = &defs->array[i + 1];
+			u32 n = value->IsArray() ? value->array->integer - 1 : 0;
+
+			if (n != 0)
+			{
+				_zrdr* item = value->Get(0);
+				m_UserActionAnimIndex = m_name_table.AddName(item->type == ZRDR_STRING ? item->string : NULL);
+			}
+		}
+	}
+
+	if (reader != NULL)
+		zrdr_free(reader);
 }
 
 /* @socom-skeleton stub AnimLoadAnimList__10CZAnimMainFPCcP5_zrdr */
-void CZAnimMain::AnimLoadAnimList(const char *, _zrdr *)
+void CZAnimMain::AnimLoadAnimList(const char *path, _zrdr *list)
 {
+	/* 0x1c1dd0: an ANIMATION_LIST: definitions (under their NAME list) and definition files
+	 * (relative to path). The ELF returns 0, or -1 at a non-string key (port: void as
+	 * declared, no caller reads it). */
+	s32 count = list->array->integer - 1; /* ELF: the list's type is not checked */
+
+	for (s32 i = 1; i < count; i += 2)
+	{
+		_zrdr* key = &list->array[i];
+
+		if (key->type != ZRDR_STRING)
+			return;
+
+		if (strcmp(key->string, "ANIMATION_DEFINITION") == 0)
+		{
+			_zrdr* def = &list->array[i + 1];
+			_zrdr* names = zrdr_flat_nexttag(def, "NAME", NULL);
+
+			if (names != NULL)
+				names++;
+
+			AnimLoadNameZRDR(def, names);
+		}
+		else if (strcmp(key->string, "ANIMATION_DEFINITION_FILE") == 0)
+		{
+			AnimLoadZRDFile(path, key[1].array[1].string);
+		}
+		else if (strcmp(key->string, "ANIMATION_PATH") == 0)
+		{
+			/* ELF: nothing (the comparison's result is unused) */
+		}
+	}
 }
 
 /* @socom-skeleton stub AnimLoadNameZRDR__10CZAnimMainFP5_zrdrP5_zrdr */
-void CZAnimMain::AnimLoadNameZRDR(_zrdr *, _zrdr *)
+void CZAnimMain::AnimLoadNameZRDR(_zrdr *def, _zrdr *names)
 {
+	/* 0x1c1a70: load a definition under its NAME list. A list whose last name has '*'
+	 * wildcards loads one anim per existing node the digits name (scope from the list's
+	 * first entry); otherwise the first name after an optional scope keyword is loaded
+	 * (the ELF stops after one); without a list, an unnamed anim. (The ELF returns 0;
+	 * port: void as declared, no caller reads it.) */
+	char* wildcard = NULL;
+	int scope = 0;
+	ZAnimWildcardInit(NULL);
+
+	if (names != NULL && names->IsArray() && names->Get(0)->type == ZRDR_STRING)
+	{
+		_zrdr* first = names->Get(0);
+		GetNodeSearchScope(first->type == ZRDR_STRING ? first->string : NULL, &scope);
+		u32 count = names->IsArray() ? names->array->integer - 1 : 0;
+		_zrdr* last = names->Get(count - 1);
+		wildcard = _strdup(last->type == ZRDR_STRING ? last->string : NULL, "zanim_load.cpp", 498);
+	}
+
+	char* nodename;
+
+	if (wildcard != NULL && (nodename = ZAnimWildcardInit(wildcard)) != NULL)
+	{
+		/* each digit combination that names a database node */
+		do
+		{
+			if (GetDatabaseNode(nodename, scope) != NULL)
+			{
+				char* animname = NULL;
+				int animscope = scope;
+
+				if (def != NULL)
+				{
+					if (nodename != NULL)
+						animname = _strdup(nodename, "zanim_load.cpp", 583);
+
+					AnimLoadAnim(def, animname, animscope);
+				}
+
+				if (animname != NULL)
+					_free(animname, "zanim_load.cpp", 625);
+			}
+
+			nodename = ZAnimWildcardNext();
+		}
+		while (nodename != NULL);
+	}
+	else if (names != NULL && names->type == ZRDR_ARRAY)
+	{
+		s32 i = 1;
+
+		if (ZAnim.GetNodeSearchScope(names->array[1].string, &scope)) /* ELF: on ZAnim; read as a string unchecked */
+			i = 2;
+
+		for (; i < names->array->integer; i++)
+		{
+			_zrdr* item = &names->array[i];
+			int animscope = scope;
+			char* animname = NULL;
+			bool loaded = false;
+
+			if (def != NULL)
+			{
+				if (item->string != NULL) /* ELF: read as a string unchecked */
+					animname = _strdup(item->string, "zanim_load.cpp", 583);
+
+				AnimLoadAnim(def, animname, animscope);
+				loaded = true;
+			}
+
+			if (animname != NULL)
+				_free(animname, "zanim_load.cpp", 625);
+
+			if (loaded)
+				break; /* ELF quirk kept: only the first name is loaded */
+		}
+	}
+	else if (def != NULL)
+	{
+		AnimLoadAnim(def, NULL, scope);
+	}
+
+	if (wildcard != NULL)
+		_free(wildcard, "zanim_load.cpp", 548);
 }
 
 /* @socom-skeleton stub AnimLoadAnim__10CZAnimMainFP5_zrdrPci */
-void CZAnimMain::AnimLoadAnim(_zrdr *, char *, int)
+void CZAnimMain::AnimLoadAnim(_zrdr *def, char *name, int scope)
 {
+	/* 0x1c0930: an ANIMATION_DEFINITION: the current anim (a new one when there is none),
+	 * its root node and name, then the key / value pairs; the test, damage and cleanup
+	 * sequences are loaded last (as ON_CALL sequences), then the node-state list. The ELF
+	 * returns 0, or -1 on a failure (port: void as declared; AnimLoadNameZRDR ignores it). */
+	_zrdr* damage_seq = NULL;
+	_zrdr* activation_test = NULL;
+	_zrdr* execution_test = NULL;
+	_zrdr* save_node_states = NULL;
+	_zrdr* cleanup_seq = NULL;
+
+	if (def == NULL)
+		return;
+
+	if (m_CurAnim == NULL)
+	{
+		NewAnim(name, NULL);
+
+		if (m_CurAnim == NULL)
+			return;
+	}
+
+	if (name != NULL)
+	{
+		m_CurAnim->m_root_node_index = m_CurAnim->LoadNodeNames(NULL, name, 0, scope);
+		m_CurAnim->Name(name);
+	}
+
+	s32 count = def->array->integer - 1; /* ELF: the list's type is not checked */
+
+	for (s32 i = 1; i < count; i += 2)
+	{
+		_zrdr* key = &def->array[i];
+
+		if (key->type != ZRDR_STRING)
+			continue;
+
+		char* keyname = key->string;
+		_zrdr* value = key + 1;
+
+		switch (keyname[0])
+		{
+		case 'A':
+			if (strcmp(keyname, "ANIMATION_NAME") == 0)
+			{
+				if (value->array[1].type == ZRDR_STRING)
+					m_CurAnim->Name(ZAnimWildcardApply(value->array[1].string));
+			}
+			else if (strcmp(keyname, "ANIMATION_ROOT_NAME") == 0)
+			{
+				CZAnim* anim = m_CurAnim;
+				anim->m_root_node_index = anim->LoadNodeNames(value, NULL, 0, scope);
+			}
+			else if (strcmp(keyname, "ACTIVATION") == 0)
+			{
+				if (value->array[1].type != ZRDR_STRING)
+					break;
+
+				if (strcmp(value->array[1].string, "ON_CALL") == 0)
+					m_CurAnim->m_activation = 2;
+				else if (strcmp(value->array[1].string, "ON_STARTUP") == 0)
+					m_CurAnim->m_activation = 1;
+				else if (strcmp(value->array[1].string, "WEAPON_HIT") == 0)
+					m_CurAnim->m_activation = 3;
+			}
+			else if (strcmp(keyname, "ACTIVATION_TEST") == 0)
+			{
+				activation_test = value;
+			}
+			else if (strcmp(keyname, "ARMOR") == 0)
+			{
+				m_CurAnim->HealthInit();
+				_zrdr* item = value->Get(0); /* ELF: not NULL-checked */
+
+				if (item->type == ZRDR_REAL || item->type == ZRDR_INTEGER)
+					m_CurAnim->m_health->max_armor = value->Get(0)->GetReal();
+				else
+					m_CurAnim->m_health->max_armor = 0.0f;
+
+				m_CurAnim->m_health->armor = m_CurAnim->m_health->max_armor;
+			}
+			else if (strcmp(keyname, "AUTO_ADD_TO_WORLD") == 0)
+			{
+				u32 n = value->IsArray() ? value->array->integer - 1 : 0;
+
+				if (n == 0)
+				{
+					m_CurAnim->m_auto_add_to_world = 1;
+					break;
+				}
+
+				_zrdr* item = value->Get(0);
+				bool off = item->type == ZRDR_STRING ? strcmp("OFF", item->string) == 0 : false;
+
+				if (off)
+				{
+					m_CurAnim->m_auto_add_to_world = 0;
+					break;
+				}
+
+				item = value->Get(0);
+				bool on = item->type == ZRDR_STRING ? strcmp("ON", item->string) == 0 : false;
+
+				if (on)
+					m_CurAnim->m_auto_add_to_world = 1;
+			}
+			else if (strcmp(keyname, "AUTO_COPY_ANIMATION") == 0)
+			{
+				s32 copies = 0;
+				zrdr_findint(value, "MAX_COPIES", &copies, 1);
+
+				if (copies < 0 || copies >= 64)
+					copies = 63;
+
+				m_CurAnim->m_max_anim_copies = copies;
+				m_CurAnim->m_auto_copy_anim = 1;
+			}
+			else if (strcmp(keyname, "AUTO_INSTANCE") == 0)
+			{
+				m_CurAnim->m_create_instance = 1;
+			}
+			else if (strcmp(keyname, "AUTO_INSTANCE_ROOT") == 0)
+			{
+				m_CurAnim->m_create_instance = 1;
+
+				if (zrdr_findtag(value, "COPY") != NULL)
+					m_CurAnim->m_copy_instance = 1;
+			}
+			else if (strcmp(keyname, "AUTO_CREATE_ROOT") == 0)
+			{
+				m_CurAnim->m_create_root = 1;
+			}
+			break;
+
+		case 'C':
+			if (strcmp(keyname, "CLEANUP_SEQUENCE") == 0)
+				cleanup_seq = value;
+			else if (strcmp(keyname, "CREATE_CLONES") == 0)
+				m_CurAnim->m_clone_anim = 1;
+			break;
+
+		case 'D':
+			if (strcmp(keyname, "DAMAGE_SEQUENCE") == 0)
+				damage_seq = value;
+			break;
+
+		case 'E':
+			if (strcmp(keyname, "EXECUTION_PRIORITY") == 0)
+			{
+				_zrdr* item = value->Get(0); /* ELF: not NULL-checked */
+
+				if (item->type == ZRDR_REAL || item->type == ZRDR_INTEGER)
+				{
+					m_CurAnim->m_priority = value->Get(0)->GetReal();
+				}
+				else if (value->Get(0)->type == ZRDR_STRING)
+				{
+					item = value->Get(0);
+
+					if (strcmp(item->type == ZRDR_STRING ? item->string : NULL, "LAST") == 0)
+						m_CurAnim->m_priority = 15.0f;
+				}
+			}
+			else if (strcmp(keyname, "EXECUTION_TEST") == 0)
+			{
+				execution_test = value;
+			}
+			break;
+
+		case 'H':
+			if (strcmp(keyname, "HEALTH") == 0)
+			{
+				m_CurAnim->HealthInit();
+				_zrdr* item = value->Get(0); /* ELF: not NULL-checked */
+
+				if (item->type == ZRDR_REAL || item->type == ZRDR_INTEGER)
+					m_CurAnim->m_health->max_health = value->Get(0)->GetReal();
+				else
+					m_CurAnim->m_health->max_health = 0.0f;
+
+				m_CurAnim->m_health->health = m_CurAnim->m_health->max_health;
+			}
+			else if (strcmp(keyname, "HEALTH_ROOT_NAME") == 0)
+			{
+				m_CurAnim->HealthInit();
+				u8 index = m_CurAnim->LoadNodeNames(value, NULL, 0, 1);
+				m_CurAnim->m_health->m_health_node_index = index;
+			}
+			break;
+
+		case 'L':
+			if (strcmp(keyname, "LOCAL_NODES_ONLY") == 0)
+			{
+				m_CurAnim->node_search_scope = 1;
+
+				if (value->type != ZRDR_ARRAY || value->array->integer - 1 == 0 || value->array[1].type != ZRDR_STRING)
+					break;
+
+				_zrdr* item = value->Get(0);
+				bool on = item->type == ZRDR_STRING ? strcmp("ON", item->string) == 0 : false;
+
+				if (on)
+				{
+					m_CurAnim->node_search_scope = 1;
+					break;
+				}
+
+				item = value->Get(0);
+				bool off = item->type == ZRDR_STRING ? strcmp("OFF", item->string) == 0 : false;
+
+				if (off)
+					m_CurAnim->node_search_scope = scope;
+			}
+			break;
+
+		case 'N':
+			if (strcmp(keyname, "NAME") == 0)
+				break; /* the name list (AnimLoadNameZRDR) */
+
+			if (strcmp(keyname, "NETWORK_LOG") == 0)
+				m_CurAnim->m_network_anim = 1;
+			break;
+
+		case 'S':
+			if (strcmp(keyname, "SAVE_NODE_STATES") == 0)
+			{
+				save_node_states = value;
+			}
+			else if (strcmp(keyname, "SEQUENCE_DEFINITION") == 0)
+			{
+				if (AnimLoadSeq(value) != 0)
+					return;
+			}
+			else if (strcmp(keyname, "SHIELD") == 0)
+			{
+				m_CurAnim->HealthInit();
+				_zrdr* item = value->Get(0); /* ELF: not NULL-checked */
+
+				if (item->type == ZRDR_REAL || item->type == ZRDR_INTEGER)
+					m_CurAnim->m_health->shield = value->Get(0)->GetReal();
+				else
+					m_CurAnim->m_health->shield = 0.0f;
+			}
+			break;
+		}
+	}
+
+	/* a network anim may not be a clone unless it is a weapon-hit anim */
+	CZAnim* anim = m_CurAnim;
+
+	if (anim->m_network_anim && anim->m_clone_anim && anim->m_activation != 3)
+		anim->m_network_anim = 0;
+
+	/* the test, damage and cleanup sequences: each an ON_CALL sequence at the end of the
+	 * sequence data, its offset kept (the ELF inlines one loader four times) */
+	if (activation_test != NULL)
+	{
+		s32 offset = m_CurAnim->m_seq_data_size;
+
+		if (AnimLoadSeq(activation_test) != 0)
+			offset = -1;
+		else
+			reinterpret_cast<_zsequence*>(m_CurAnim->m_seq_data + offset)->activation = 2;
+
+		if (offset < 0)
+			return;
+
+		m_CurAnim->m_activation_seq_offset = offset;
+	}
+
+	if (execution_test != NULL)
+	{
+		s32 offset = m_CurAnim->m_seq_data_size;
+
+		if (AnimLoadSeq(execution_test) != 0)
+			offset = -1;
+		else
+			reinterpret_cast<_zsequence*>(m_CurAnim->m_seq_data + offset)->activation = 2;
+
+		if (offset < 0)
+			return;
+
+		m_CurAnim->m_execution_seq_offset = offset;
+	}
+
+	if (damage_seq != NULL)
+	{
+		s32 offset = m_CurAnim->m_seq_data_size;
+
+		if (AnimLoadSeq(damage_seq) != 0)
+			offset = -1;
+		else
+			reinterpret_cast<_zsequence*>(m_CurAnim->m_seq_data + offset)->activation = 2;
+
+		if (offset < 0)
+			return;
+
+		m_CurAnim->m_damage_seq_offset = offset;
+	}
+
+	if (cleanup_seq != NULL)
+	{
+		s32 offset = m_CurAnim->m_seq_data_size;
+
+		if (AnimLoadSeq(cleanup_seq) != 0)
+			offset = -1;
+		else
+			reinterpret_cast<_zsequence*>(m_CurAnim->m_seq_data + offset)->activation = 2;
+
+		if (offset < 0)
+			return;
+
+		m_CurAnim->m_cleanup_seq_offset = offset;
+	}
+
+	if (save_node_states != NULL)
+		m_CurAnim->LoadSaveNodeStates(save_node_states);
+
+	/* an on-startup anim is never a network anim */
+	anim = m_CurAnim;
+
+	if (anim->m_activation == 1 && anim->m_network_anim == 1)
+		anim->m_network_anim = 0;
+
+	m_CurAnim = NULL;
 }
 
 /* @socom-skeleton stub AnimLoadSeq__10CZAnimMainFP5_zrdr */
-void CZAnimMain::AnimLoadSeq(_zrdr *)
+int CZAnimMain::AnimLoadSeq(_zrdr *reader)
 {
+	/* 0x1c06b0: a sequence definition: a new sequence in the current anim, then its
+	 * key / value pairs - NAME, ACTIVATION (ON_CALL), else a command parsed and appended
+	 * (only whole-word sizes). An empty sequence, or one left with an open WHILE, is
+	 * disabled (state 0). 0, or -1 without an anim, a definition or a new sequence. */
+	if (m_CurAnim == NULL || reader == NULL)
+		return -1;
+
+	NewSeq(NULL);
+
+	if (m_CurSeq == NULL)
+		return -1;
+
+	s32 count = reader->array->integer - 1; /* ELF: the list's type is not checked */
+
+	for (s32 i = 1; i < count; i += 2)
+	{
+		_zrdr* key = &reader->array[i];
+
+		if (key->type != ZRDR_STRING)
+			continue;
+
+		char* keyname = key->string;
+		_zrdr* value = &reader->array[i + 1];
+		bool handled = false;
+
+		if (keyname[0] == 'N')
+		{
+			if (strcmp(keyname, "NAME") == 0)
+			{
+				handled = true;
+				SeqSetName(value->array[1].string);
+			}
+		}
+		else if (keyname[0] == 'A')
+		{
+			if (strcmp(keyname, "ACTIVATION") == 0)
+			{
+				handled = true;
+
+				if (strcmp(value->array[1].string, "ON_CALL") == 0)
+					m_CurSeq->activation = 2;
+			}
+		}
+
+		if (handled)
+			continue;
+
+		_zanim_cmd_hdr* cmd = AnimParseCmd(keyname, value); /* inlined in the ELF */
+
+		if (cmd != NULL)
+		{
+			if (cmd->data_size % 4 == 0)
+				SeqAppendCmd(cmd);
+
+			_free(cmd, "zanim_load.cpp", 2116);
+		}
+	}
+
+	if (m_CurSeq->seq_data_size == sizeof(_zsequence))
+		m_CurSeq->state = 0;
+
+	if (zAnim_GetSequenceOffsetStackSize() > 0)
+	{
+		zAnim_ResetSequenceOffsetStackSize();
+		m_CurSeq->state = 0;
+	}
+
+	m_CurSeq = NULL;
+	return 0;
 }
 
 /* @socom-skeleton stub AnimLoadQuadAlignCmd__10CZAnimMainFPCci */
-void CZAnimMain::AnimLoadQuadAlignCmd(const char *, int)
+void CZAnimMain::AnimLoadQuadAlignCmd(const char *name, int size)
 {
+	/* 0x1c05f0: append a pad command of that size (QUAD_ALIGN: a header, then zeros) to
+	 * the current sequence (the ELF returns 0; port: void as declared, no caller reads it) */
+	zanim_cmd* entry = GetCmdEntry(name, false);
+
+	if (entry == NULL)
+		return;
+
+	_zanim_cmd_hdr* cmd = static_cast<_zanim_cmd_hdr*>(_calloc(1, size, "zanim_load.cpp", 2071));
+
+	if (cmd == NULL)
+		return;
+
+	cmd->data_size = size;
+	cmd->data_type = entry->cmd_val.val;
+	SeqAppendCmd(cmd);
+	_free(cmd, "zanim_load.cpp", 2077);
 }
 
 /* @socom-skeleton stub AnimParseCmd__10CZAnimMainFPCcP5_zrdr */
-_zanim_cmd_hdr * CZAnimMain::AnimParseCmd(const char *, _zrdr *)
+_zanim_cmd_hdr * CZAnimMain::AnimParseCmd(const char *name, _zrdr *reader)
 {
+	/* 0x1c0570: parse one command with its registered parser (NULL without one); the record
+	 * gets the command's data type (set << 8 | index) */
+	_zanim_cmd_hdr* cmd = NULL;
+	zanim_cmd* entry = GetCmdEntry(name, false);
+
+	if (entry != NULL && entry->parser != NULL)
+	{
+		cmd = reinterpret_cast<_zanim_cmd_hdr*(*)(_zrdr*)>(entry->parser)(reader);
+
+		if (cmd != NULL)
+			cmd->data_type = entry->cmd_val.val;
+	}
+
+	return cmd;
 }
 
 /* @socom-skeleton stub LoadZAR__10CZAnimMainFP9CZAnimZARPCc */

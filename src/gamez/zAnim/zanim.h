@@ -394,7 +394,7 @@ struct zanim_cmd_index
 	u8 set;
 };
 
-struct zanim_cmd_val
+union zanim_cmd_val /* DWARF: a 2-byte union - the data type read whole (val = set << 8 | cmd) */
 {
 	zanim_cmd_index index;
 	u16 val;
@@ -672,10 +672,192 @@ struct _zanim_cmd_sound       /* SOUND (zAnimLoadSound 0x1b4920, zAnimSoundTick 
 	u8 node_ref;              /* +0x7: flag 0x1's node */
 	f32 volume;               /* +0x8 */
 	s16 pan;                  /* +0xc: degrees 0..359 */
-	s16 pitch;                /* +0xe: PITCH * 65535 - 32767 */
+	s16 pitch;                /* +0xe: PITCH * 65534 - 32767 (zAnimLoadSound) */
 	u8 at_node;               /* +0x10: AT_NODE node reference */
 	u8 pad[3];
 	f32 translation[3];       /* +0x14 */
+};
+
+class _zanim_blend_fix        /* blend-value sequence entry (GetBlendSequenceValue 0x1b3fd0); 8 bytes */
+{
+public:
+	f32 time;                 /* +0x0: sequence time of the key */
+	f32 value;                /* +0x4: alpha FIX / 128 at that time */
+};
+
+struct _zanim_cmd_blendmode   /* OBJECT_BLENDMODE (zAnimObjectBlendModeTick 0x1bd590); 20 bytes + the sequence */
+{
+	_zanim_cmd_hdr header;
+	u16 flags;                /* +0x4: 1/2/4 SetBlendMode's three switches, 8 FIX from the sequence */
+	u8 node_ref;              /* +0x6 */
+	u8 abcd;                  /* +0x7: sceGsAlpha A (bits 0-1), B (2-3), C (4-5), D (6-7) */
+	f32 fix;                  /* +0x8: FIX / 128 */
+	s16 seq_count;            /* +0xc */
+	s16 seq_offset;           /* +0xe: _zanim_blend_fix[seq_count], from the command start */
+	f32 duration;             /* +0x10: <= 0: one tick */
+};
+
+struct _zanim_light_range     /* LIGHT range-sequence entry (zAnimLightTick 0x1bd7c0); 12 bytes */
+{
+	f32 time;
+	f32 min_range;
+	f32 max_range;
+};
+
+struct _zanim_cmd_light       /* LIGHT (zAnimLightTick 0x1bd7c0); 0x40 bytes + the sequences */
+{
+	_zanim_cmd_hdr header;
+	u16 flags;                /* +0x4: 1 texture (light map), 2 at the AT_NODE node, 4 offset, 8 the
+	                           * position argument, 0x10 range, 0x20 range sequence, 0x40 colour,
+	                           * 0x80 opacity (light map), 0x100 blend mode (light map), 0x200 blend
+	                           * sequence (light map), 0x400 switch on, 0x800 switch off at the end */
+	u8 node_ref;              /* +0x6: the light (local light) or light map node ref */
+	u8 texture;               /* +0x7: the anim's texture index */
+	u8 at_node;               /* +0x8 */
+	u8 abcd;                  /* +0x9: sceGsAlpha A, B, C, D (2 bits each) */
+	u8 pad[2];
+	f32 min_range;            /* +0xc */
+	f32 max_range;            /* +0x10 */
+	CPnt3D offset;            /* +0x14 */
+	f32 color[3];             /* +0x20 */
+	f32 opacity;              /* +0x2c */
+	f32 fix;                  /* +0x30: FIX / 128 */
+	s16 range_count;          /* +0x34 */
+	s16 range_offset;         /* +0x36: _zanim_light_range[range_count], from the command start */
+	s16 blend_count;          /* +0x38 */
+	s16 blend_offset;         /* +0x3a: _zanim_blend_fix[blend_count], from the command start */
+	f32 duration;             /* +0x3c: <= 0: one tick */
+};
+
+class zanim_script_frame_header /* one frame of a SoftImage script's data (apply_script_frame 0x1b9d90); 16 bytes,
+                               * then an 80-byte block per flag bit 1 (position), 2 (rotation), 4 */
+{
+public:
+	u32 flags;                /* +0x0 */
+	f32 start;                /* +0x4: script time the frame starts */
+	f32 end;                  /* +0x8: script time it ends */
+	u32 pad;                  /* +0xc */
+	/* position block (+0x10): CPnt3D base (+0x0), CPnt3D velocity (+0x10), then cubic
+	 * coefficients c0..c3 for x (+0x20), y (+0x30), z (+0x40) for spline scripts;
+	 * rotation block: CQuat base (+0x0), CPnt3D angular velocity (+0x10), cubic coefficients
+	 * of the exponent for x (+0x20), y (+0x30), z (+0x40) */
+};
+
+class _zanim_object_motion_script /* one object of OBJECT_MOTION_SI_SCRIPT (zAnimObjectMotionScriptTick 0x1b9b80); 60 bytes */
+{
+public:
+	_zanim_cmd_hdr header;
+	u8 flags;                 /* +0x4: 1 add the offset to the positions */
+	u8 node_ref;              /* +0x5: 0 none */
+	u8 unknown_6;             /* +0x6: not read by the ticks */
+	u8 script;                /* +0x7: the anim set's SI script index */
+	u32 unknown_8;            /* +0x8: not read by the ticks */
+	f32 frame_time;           /* +0xc: time into the current frame */
+	s32 data_offset;          /* +0x10: the current frame's offset in the script data */
+	CPnt3D offset;            /* +0x14 */
+	u8 unknown_20[0x18];      /* +0x20..+0x37: not read by the ticks */
+	s32 frame_count;          /* +0x38: frames passed */
+};
+
+struct _zanim_cmd_si_script   /* OBJECT_MOTION_SI_SCRIPT (zAnimMultiObjectMotionScriptBegin 0x1b9b10 / Tick 0x1b9a30) */
+{
+	_zanim_cmd_hdr header;
+	u16 count;                /* +0x4 */
+	u16 pad;
+	/* +0x8: _zanim_object_motion_script[count] */
+};
+
+struct _zanim_cmd_timer       /* TIMER (zAnimTimerTick 0x1bfd70); 8 bytes */
+{
+	_zanim_cmd_hdr header;
+	s32 seconds;              /* +0x4: becomes theMission.m_winlosstimer */
+};
+
+struct _zanim_cmd_fire_weapon /* FIRE_WEAPON (zAnimFireWeaponTick 0x1b7c90); 0x2c bytes */
+{
+	_zanim_cmd_hdr header;
+	u8 flags;                 /* +0x4: 1 offset, 2 the anim's position argument */
+	u8 ammo;                  /* +0x5: the anim's name index of the ammo */
+	u8 weapon;                /* +0x6: ... of the weapon */
+	u8 model;                 /* +0x7: ... of the projectile model (0 none) */
+	u8 at_node;               /* +0x8: the start point is taken through this node (0 none) */
+	u8 dir_node;              /* +0x9: the direction is relative to this node (0 none) */
+	u8 pad[2];
+	f32 time;                 /* +0xc: the projectile's m_time */
+	f32 removal_time;         /* +0x10: its m_removaltime */
+	CPnt3D offset;            /* +0x14 */
+	CPnt3D direction;         /* +0x20: scaled by 1 + the muzzle velocity */
+};
+struct _zanim_cmd_child       /* OBJECT_ADD_CHILD, OBJECT_DELETE_CHILD (0x1b98b0, 0x1b9830); 8 bytes */
+{
+	_zanim_cmd_hdr header;
+	u16 flags;                /* +0x4: ADD_CHILD 1 keeps the child's world position */
+	u8 parent_ref;            /* +0x6 */
+	u8 child_ref;             /* +0x7 */
+};
+
+struct _zanim_camera_param    /* CAMERA: one parameter's from / to / change per second */
+{
+	f32 from;
+	f32 to;
+	f32 rate;
+};
+
+struct _zanim_cmd_camera      /* CAMERA (zAnimCameraBegin 0x1be9b0, zAnimCameraTick 0x1be5e0); 0x84 bytes */
+{
+	_zanim_cmd_hdr header;
+	u32 flags : 24;           /* +0x4: per parameter a pair: 2/8/0x20/0x80/0x200/0x800/0x2000/0x8000 change
+	                           * hfov / vfov / near / mid / far / fog near / fog far / fog colour, the bit
+	                           * below each (1/4/0x10/...) sets "from" at once (else from = the camera's
+	                           * value and the rate is (to - from) / duration); 0x10000 fog on, 0x20000 off */
+	u32 node_ref : 8;         /* +0x7: the camera node */
+	_zanim_camera_param hfov; /* +0x8 */
+	_zanim_camera_param vfov; /* +0x14 */
+	_zanim_camera_param near_clip; /* +0x20 */
+	_zanim_camera_param mid_clip; /* +0x2c */
+	_zanim_camera_param far_clip; /* +0x38 */
+	_zanim_camera_param fog_near; /* +0x44 */
+	_zanim_camera_param fog_far; /* +0x50 */
+	_zanim_camera_param fog_color[3]; /* +0x5c: r, g, b */
+	f32 duration;             /* +0x80 */
+};
+
+struct _zanim_cmd_message     /* MESSAGE (zAnimLoadMessage 0x1aacb0, zAnimMessageTick 0x1bfce0); 8 bytes */
+{
+	_zanim_cmd_hdr header;
+	u8 m_text;                /* +0x4: the anim's name index of the text */
+	u8 m_red;                 /* +0x5: RED, GREEN, BLUE (all 0: the queue's colour) */
+	u8 m_green;               /* +0x6 */
+	u8 m_blue;                /* +0x7 */
+};
+
+struct _zanim_cmd_destructor  /* DESTRUCTION_SOURCE (zAnimLoadDestructor 0x1b7750, zAnimDestructorTick 0x1bfd90); 80 bytes */
+{
+	_zanim_cmd_hdr header;
+	u8 node_ref;              /* +0x4: NODE, the node that breaks */
+	u8 texture;               /* +0x5: TEXTURE, the anim's name index */
+	u8 strips;                /* +0x6: STRIPS 1, SHARDS 0 */
+	u8 pad;
+	f32 color[4];             /* +0x8: COLOR RED GREEN BLUE ALPHA (read as a CPnt4D) */
+	f32 size;                 /* +0x18: MAXSIZE (0: 10) */
+	f32 velocity_x[2];        /* +0x1c: VELOCITY_X min max */
+	f32 velocity_y[2];        /* +0x24 */
+	f32 velocity_z[2];        /* +0x2c */
+	f32 lifespan[2];          /* +0x34: LIFESPAN_RANGE (both 0: 4, 4) */
+	f32 friction;             /* +0x3c: FRICTION (the tick passes it as the life point's z) */
+	f32 accel[3];             /* +0x40: WORLD_ACCELERATION (default 0 -98 0) */
+	f32 opacity;              /* +0x4c: OPACITY (looked up in the COLOR tag; default 1) */
+};
+
+struct _zanim_cmd_loop        /* LOOP (zAnimLoadLoop 0x1b18d0, zAnimLoopTick 0x1b9750); 12 bytes */
+{
+	_zanim_cmd_hdr header;
+	u32 flags;                /* +0x4: 1 counted, 2 timed */
+	union
+	{
+		s32 count;            /* +0x8: LOOP_COUNT, -1 forever */
+		f32 time;             /* +0x8: LOOP_TIME, -1 forever */
+	};
 };
 
 class C2DAnimCmdHdr           /* DWARF (8 bytes): UI_COMMAND / UI_APP_COMMAND, and the 2D objects' own commands */
@@ -721,8 +903,8 @@ struct _zanim_anim_params
 	u32 m_copy_instance : 1;
 	u32 m_clone_anim : 1;
 	u32 m_create_root : 1;
-	s32 m_max_anim_copies : 6;
-	s32 m_unused : 15;
+	u32 m_max_anim_copies : 6; /* DWARF: uint (AUTO_COPY_ANIMATION stores 0..63) */
+	u32 m_unused : 15;
 
 	f32 m_timer;
 	f32 m_priority;
@@ -1207,11 +1389,27 @@ public:
 	/* @socom-skeleton end 9CZAnimSet */
 };
 
-class CZAnimSetSave : public std::vector<CZAnimSet*>
+struct _zanim_node_save      /* one saved node (CZAnimSetSave::Add 0x1c5730 news 12 bytes); names the port's */
+{
+	zdb::CNode* node;         /* +0x0 */
+	u32 active : 1;           /* +0x4 bit 0: the node's m_active when saved */
+	u32 save_active : 1;      /* bit 1 */
+	u32 save_parent : 1;      /* bit 2 */
+	u32 save_translation : 1; /* bit 3 */
+	u32 save_rotation : 1;    /* bit 4 */
+	u32 parent_index : 14;    /* bits 5-18: into m_parentList */
+	u32 unused : 13;
+	u32 translation_index : 14; /* +0x8 bits 0-13: into m_translationList */
+	u32 rotation_index : 14;  /* bits 14-27: into m_rotationList */
+	u32 unused2 : 4;
+};
+
+class CZAnimSetSave : public std::vector<_zanim_node_save*> /* DWARF: 48 bytes, base vector + three */
 {
 public:
-	std::vector<CQuat> m_rotationList;
-	std::vector<CZAnimSet*> m_parentList;
+	std::vector<CPnt3D> m_translationList; /* DWARF +0xc */
+	std::vector<CPnt3D*> m_rotationList;   /* DWARF +0x18: each three matrix rows (36 bytes) */
+	std::vector<zdb::CNode*> m_parentList; /* DWARF +0x24 */
 	/* @socom-skeleton decl 13CZAnimSetSave */
 public:
 	void Add(_zanim_node_ref *);
@@ -1300,7 +1498,7 @@ public:
 	void NewAnim(const char *, const char *);
 	CZAnim * GetAnim(int, int);
 	CZAnim * GetAnim(const char *, const char *);
-	void GetAnimIndex(CZAnim *, int *, int *);
+	bool GetAnimIndex(CZAnim *, int *, int *); /* 0x1c42b0: true when found */
 	CZAnimSet * GetAnimSet(int);
 	CZAnimSet * GetAnimSet(const char *);
 	_zsequence * NewSeq(const char *);
@@ -1319,7 +1517,7 @@ public:
 	void ResumeSequence(const char *);
 	unsigned char SequenceExists(const char *); /* 0x1c3600 returns 0/1 */
 	unsigned char SequenceRunning(const char *); /* 0x1c34f0 returns 0/1 */
-	void GetNodeSearchScope(const char *, int *);
+	bool GetNodeSearchScope(const char *, int *); /* 0x1c3410: true for a scope keyword (LoadNodeNames tests it) */
 	zdb::CNode * GetDatabaseNode(const char *, int);
 	static void GetDirectionRelativeToNode(CPnt3D *, zdb::CNode *);
 	static bool AnimSchedulerTick(float, void *);
@@ -1332,7 +1530,7 @@ public:
 	void AnimLoadAnimList(const char *, _zrdr *);
 	void AnimLoadNameZRDR(_zrdr *, _zrdr *);
 	void AnimLoadAnim(_zrdr *, char *, int);
-	void AnimLoadSeq(_zrdr *);
+	int AnimLoadSeq(_zrdr *); /* 0x1c06b0: 0, or -1 (AnimLoadAnim tests it) */
 	void AnimLoadQuadAlignCmd(const char *, int);
 	_zanim_cmd_hdr * AnimParseCmd(const char *, _zrdr *);
 	bool LoadZAR(CZAnimZAR *, const char *);
@@ -1590,6 +1788,13 @@ _zanim_cmd_hdr* zAnimLoadEndWhile(_zrdr*);
 _zanim_cmd_hdr* zAnimLoadBreak(_zrdr*);
 _zanim_cmd_hdr* zAnimLoadWait(_zrdr*);
 _zanim_cmd_hdr* zAnimLoadLoop(_zrdr*);
+
+_zanim_cmd_hdr* zAnimCmdAddData(_zanim_cmd_hdr*, void*, int); /* zanim_cmd_parse.cpp 0x1b7af0 (zdb::CCamera::CmdParseParams too) */
+int zAnim_GetSequenceOffsetStackSize();   /* zanim_cmd_parse.cpp 0x1b7c70 */
+void zAnim_ResetSequenceOffsetStackSize(); /* zanim_cmd_parse.cpp 0x1b7c60 */
+char* ZAnimWildcardInit(char*);           /* anim_main.cpp 0x1c2700 */
+char* ZAnimWildcardNext();                /* anim_main.cpp 0x1c2600 */
+char* ZAnimWildcardApply(const char*);    /* anim_main.cpp 0x1c24c0 */
 
 _zanim_cmd_hdr* zAnimLoadObjectAddChild(_zrdr*);
 _zanim_cmd_hdr* zAnimLoadObjectDeleteChild(_zrdr*);
@@ -1858,7 +2063,7 @@ public:
 class CAnimAuxData
 {
 public:
-	static CAnimAuxData * Get(unsigned int); /* static: 0x2cc7c0 returns list[a0] (NetSendPushBlend 0x2038c0) */
+	static CAnimAuxData * Get(unsigned int); /* static: a0 is the AnimType */
 	static std::vector<CAnimAuxData*> list; /* one per AnimType (AnimSet::Load) */
 	CAnimAuxData() { m_network_log = false; } /* inline (AnimSet::Load 0x2cc3c0: new, then bit 0 cleared) */
 	u32 m_network_log : 1; /* port: name guessed from the animset.rdr tag 'network_log' that sets it (no DWARF) */
@@ -1984,25 +2189,41 @@ public:
 class CZAnimBlendMode
 {
 public:
-	void GetBlendMode(const _zrdr *);
-	void GetBlendModes(const _zrdr *, int *, int *, int *, int *, float *);
+	static int GetBlendMode(const _zrdr *); /* static: a0 is the reader; 0 SRC, 1 FB, 2 zero / FIX */
+	static bool GetBlendModes(const _zrdr *, int *, int *, int *, int *, float *); /* static: a0 is the reader */
 	static _zanim_cmd_hdr * GetBlendValueSequence(_zanim_cmd_hdr *, _zrdr *, float *, int *);
-	void GetBlendSequenceValue(zdb::BLENDMODE *, _zanim_blend_fix *, int, float);
+	static void GetBlendSequenceValue(zdb::BLENDMODE *, _zanim_blend_fix *, int, float); /* static: a0 is the blend mode */
 };
 /* @socom-skeleton end 15CZAnimBlendMode */
 /* @socom-skeleton decl 15CZAnimFromToAcc */
-class CZAnimFromToAcc
+class CZAnimFromToAcc         /* 56 bytes after an accelerated OBJECT_MOTION_FROM_TO record (+0x80); no DWARF,
+                               * layout from Tick 0x1baf10 / ComputeRunTime 0x1bb100 / the begin 0x1ba630 */
 {
 public:
-	void ComputeRunTime(CPnt3D *, CPnt3D *);
+	f32 ComputeRunTime(CPnt3D *, CPnt3D *); /* the run time (f0; the begin stores it as the duration) */
 	void Tick(float, CPnt3D *);
+
+	f32 m_start_speed;        /* +0x0 */
+	f32 m_max_speed;          /* +0x4: the cruise speed */
+	f32 m_end_speed;          /* +0x8 */
+	f32 m_accel;              /* +0xc */
+	f32 m_decel;              /* +0x10 */
+	f32 m_accel_time;         /* +0x14 */
+	f32 m_cruise_time;        /* +0x18 */
+	f32 m_decel_time;         /* +0x1c */
+	f32 m_timer;              /* +0x20: time in the phase */
+	f32 m_speed;              /* +0x24 */
+	CPnt3D m_direction;       /* +0x28: unit (to - from) */
+	u8 m_phase;               /* +0x34: 1 accelerate, 2 cruise, 3 decelerate */
+	u8 m_pad[3];
 };
 /* @socom-skeleton end 15CZAnimFromToAcc */
 /* @socom-skeleton decl 18CZAnimObjectMotion */
 class CZAnimObjectMotion
 {
 public:
-	void GetTranslation(_zrdr *, float *, float *, float *, float *);
+	/* 0x1aea20 returns 1 (v0); this is the OBJECT_MOTION record (zAnimLoadObjectMotion passes it in a0), unused */
+	bool GetTranslation(_zrdr *, float *, float *, float *, float *);
 };
 /* @socom-skeleton end 18CZAnimObjectMotion */
 #endif

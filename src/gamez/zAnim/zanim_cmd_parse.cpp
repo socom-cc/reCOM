@@ -96,11 +96,15 @@ static unsigned int seq_offset_stack_size;
 /* @socom-skeleton stub zAnim_GetSequenceOffsetStackSize__Fv */
 int zAnim_GetSequenceOffsetStackSize()
 {
+	/* 0x1b7c70: the WHILE offsets not yet closed by END_WHILE */
+	return seq_offset_stack_size;
 }
 
 /* @socom-skeleton stub zAnim_ResetSequenceOffsetStackSize__Fv */
 void zAnim_ResetSequenceOffsetStackSize()
 {
+	/* 0x1b7c60 (the stack itself is kept) */
+	seq_offset_stack_size = 0;
 }
 
 /* @socom-skeleton stub zAnimGetDirectionFromAzimuthZenith__FffP6CPnt3D */
@@ -121,13 +125,109 @@ void zAnimGetDirectionFromAzimuthZenith(float azimuth, float zenith, CPnt3D *dir
 }
 
 /* @socom-skeleton stub zAnimCmdAddData__FP14_zanim_cmd_hdrPvi */
-_zanim_cmd_hdr * zAnimCmdAddData(_zanim_cmd_hdr *, void *, int)
+_zanim_cmd_hdr * zAnimCmdAddData(_zanim_cmd_hdr *cmd, void *data, int size)
 {
+	/* 0x1b7af0: grow a command record by size bytes, copy data onto its end; returns the
+	 * moved record (ELF: no NULL checks) */
+	u32 total = cmd->data_size + size;
+	cmd = static_cast<_zanim_cmd_hdr*>(_realloc(cmd, total, "zanim_cmd_parse.cpp", 194));
+	memcpy(reinterpret_cast<char*>(cmd) + cmd->data_size, data, size);
+	cmd->data_size = total;
+	return cmd;
 }
 
 /* @socom-skeleton stub zAnimLoadDestructor__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadDestructor(_zrdr *)
+_zanim_cmd_hdr * zAnimLoadDestructor(_zrdr *reader)
 {
+	/* 0x1b7750: DESTRUCTION_SOURCE: NODE (required), TEXTURE, COLOR { RED GREEN BLUE ALPHA },
+	 * MAXSIZE (0: 10), VELOCITY_X / _Y / _Z and LIFESPAN_RANGE [min max] (both 0: 4..4),
+	 * FRICTION, STRIPS / SHARDS, WORLD_ACCELERATION (default 0 -98 0), OPACITY (default 1);
+	 * a timeless 80-byte record */
+	f32 values[3] = { 0.0f, 0.0f, 0.0f }; /* ELF: copied from a zero 12-byte initializer (0x49b2f0) */
+	CZAnim *anim = ZAnim.m_CurAnim;
+	_zanim_cmd_destructor *cmd = (_zanim_cmd_destructor *)zcalloc(1, sizeof(_zanim_cmd_destructor));
+	cmd->header.data_size = sizeof(_zanim_cmd_destructor);
+	cmd->header.timeless = true;
+
+	char name[48];
+	_zrdr *tag = zrdr_findtag(reader, "NODE");
+
+	if (!tag)
+		return NULL; /* ELF quirk kept: the record is not freed */
+
+	strcpy(name, tag->array[1].string); /* ELF: copied and not used */
+	cmd->node_ref = ZAnim.m_CurAnim->LoadNodeNames(tag, NULL, 0, ZAnim.m_CurAnim->node_search_scope);
+
+	tag = zrdr_findtag(reader, "TEXTURE");
+
+	if (tag)
+	{
+		strcpy(name, tag->array[1].string); /* ELF: the first element, unchecked */
+		cmd->texture = anim->AddName(name);
+	}
+
+	_zrdr *color = zrdr_findtag(reader, "COLOR");
+
+	if (color)
+	{
+		zrdr_findreal(color, "RED", &cmd->color[0], 1);
+		zrdr_findreal(color, "GREEN", &cmd->color[1], 1);
+		zrdr_findreal(color, "BLUE", &cmd->color[2], 1);
+		zrdr_findreal(color, "ALPHA", &cmd->color[3], 1);
+	}
+
+	zrdr_findreal(reader, "MAXSIZE", &cmd->size, 1);
+
+	/* ELF: the pair buffer is not reset between the reads, so a missing tag repeats the last pair */
+	zrdr_findreal(reader, "VELOCITY_X", values, 2);
+	cmd->velocity_x[0] = values[0];
+	cmd->velocity_x[1] = values[1];
+	zrdr_findreal(reader, "VELOCITY_Y", values, 2);
+	cmd->velocity_y[0] = values[0];
+	cmd->velocity_y[1] = values[1];
+	zrdr_findreal(reader, "VELOCITY_Z", values, 2);
+	cmd->velocity_z[0] = values[0];
+	cmd->velocity_z[1] = values[1];
+	zrdr_findreal(reader, "LIFESPAN_RANGE", values, 2);
+	cmd->lifespan[0] = values[0];
+	cmd->lifespan[1] = values[1];
+
+	if (0.0f == values[0] && 0.0f == values[1])
+	{
+		cmd->lifespan[0] = 4.0f;
+		cmd->lifespan[1] = 4.0f;
+	}
+
+	zrdr_findreal(reader, "FRICTION", &cmd->friction, 1);
+	cmd->strips = 0;
+
+	if (zrdr_findtag(reader, "STRIPS"))
+		cmd->strips = 1;
+
+	if (zrdr_findtag(reader, "SHARDS"))
+		cmd->strips = 0;
+
+	if (zrdr_findreal(reader, "WORLD_ACCELERATION", values, 3))
+	{
+		cmd->accel[0] = values[0];
+		cmd->accel[1] = values[1];
+		cmd->accel[2] = values[2];
+	}
+	else
+	{
+		cmd->accel[2] = 0.0f;
+		cmd->accel[0] = 0.0f;
+		cmd->accel[1] = -98.0f;
+	}
+
+	/* ELF quirk kept: OPACITY is looked up in the COLOR tag (NULL without one: the default) */
+	if (!zrdr_findreal(color, "OPACITY", &cmd->opacity, 1))
+		cmd->opacity = 1.0f;
+
+	if (0.0f == cmd->size)
+		cmd->size = 10.0f;
+
+	return &cmd->header;
 }
 
 /* @socom-skeleton stub zAnimLoadParticleSource__FP5_zrdr */
@@ -136,404 +236,2561 @@ _zanim_cmd_hdr * zAnimLoadParticleSource(_zrdr *)
 }
 
 /* @socom-skeleton stub zAnimLoadCamera__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadCamera(_zrdr *)
+_zanim_cmd_hdr * zAnimLoadCamera(_zrdr *reader)
 {
+	/* 0x1b4ca0: CAMERA: NAME (the camera node), RUN_TIME (missing: 1e-5, <= 0: 0.001) and per
+	 * parameter [from to] (from set at once, rate = (to - from) / RUN_TIME) or [to] (from = the
+	 * camera's value at the begin): H_FOV / V_FOV (full angles in degrees, kept as half angles
+	 * in radians), NEAR_CLIP, MID_CLIP, FAR_CLIP, FOG_NEAR, FOG_FAR, FOG_COLOR [r g b (r g b)];
+	 * FOG_ON / FOG_OFF. A 132-byte record, not timeless. ELF quirk kept: a parameter array with
+	 * no value reads through a NULL element. */
+	if (reader == NULL)
+		return NULL;
+
+	_zanim_cmd_camera *cmd = (_zanim_cmd_camera *)zcalloc(1, sizeof(_zanim_cmd_camera));
+	cmd->header.data_size = sizeof(_zanim_cmd_camera);
+
+	_zrdr *tag = zrdr_findtag(reader, "NAME");
+
+	if (tag)
+		cmd->node_ref = ZAnim.m_CurAnim->LoadNodeNames(tag, NULL, 0, ZAnim.m_CurAnim->node_search_scope);
+
+	if (zrdr_findreal(reader, "RUN_TIME", &cmd->duration, 1))
+	{
+		if (cmd->duration <= 0.0f)
+			cmd->duration = 0.001f;
+	}
+	else
+	{
+		cmd->duration = 1e-05f;
+	}
+
+	f32 inv = 1.0f / cmd->duration;
+	u32 i;
+
+	tag = zrdr_findtag(reader, "H_FOV");
+
+	if (tag && tag->type == ZRDR_ARRAY)
+	{
+		i = 0;
+
+		if ((u32)(tag->array->integer - 1) >= 2)
+		{
+			cmd->flags |= 0x1;
+			cmd->hfov.from = 0.017453292f * (0.5f * tag->Get(i++)->GetReal());
+		}
+
+		cmd->flags |= 0x2;
+		cmd->hfov.to = 0.017453292f * (0.5f * tag->Get(i)->GetReal());
+
+		if (cmd->flags & 0x1)
+			cmd->hfov.rate = inv * (cmd->hfov.to - cmd->hfov.from);
+	}
+
+	tag = zrdr_findtag(reader, "V_FOV");
+
+	if (tag && tag->type == ZRDR_ARRAY)
+	{
+		i = 0;
+
+		if ((u32)(tag->array->integer - 1) >= 2)
+		{
+			cmd->flags |= 0x4;
+			cmd->vfov.from = 0.017453292f * (0.5f * tag->Get(i++)->GetReal());
+		}
+
+		cmd->flags |= 0x8;
+		cmd->vfov.to = 0.017453292f * (0.5f * tag->Get(i)->GetReal());
+
+		if (cmd->flags & 0x4)
+			cmd->vfov.rate = inv * (cmd->vfov.to - cmd->vfov.from);
+	}
+
+	tag = zrdr_findtag(reader, "NEAR_CLIP");
+
+	if (tag && tag->type == ZRDR_ARRAY)
+	{
+		i = 0;
+
+		if ((u32)(tag->array->integer - 1) >= 2)
+		{
+			cmd->flags |= 0x10;
+			cmd->near_clip.from = tag->Get(i++)->GetReal();
+		}
+
+		cmd->flags |= 0x20;
+		cmd->near_clip.to = tag->Get(i)->GetReal();
+
+		if (cmd->flags & 0x10)
+			cmd->near_clip.rate = inv * (cmd->near_clip.to - cmd->near_clip.from);
+	}
+
+	tag = zrdr_findtag(reader, "MID_CLIP");
+
+	if (tag && tag->type == ZRDR_ARRAY)
+	{
+		i = 0;
+
+		if ((u32)(tag->array->integer - 1) >= 2)
+		{
+			cmd->flags |= 0x40;
+			cmd->mid_clip.from = tag->Get(i++)->GetReal();
+		}
+
+		cmd->flags |= 0x80;
+		cmd->mid_clip.to = tag->Get(i)->GetReal();
+
+		if (cmd->flags & 0x40)
+			cmd->mid_clip.rate = inv * (cmd->mid_clip.to - cmd->mid_clip.from);
+	}
+
+	tag = zrdr_findtag(reader, "FAR_CLIP");
+
+	if (tag && tag->type == ZRDR_ARRAY)
+	{
+		i = 0;
+
+		if ((u32)(tag->array->integer - 1) >= 2)
+		{
+			cmd->flags |= 0x100;
+			cmd->far_clip.from = tag->Get(i++)->GetReal();
+		}
+
+		cmd->flags |= 0x200;
+		cmd->far_clip.to = tag->Get(i)->GetReal();
+
+		if (cmd->flags & 0x100)
+			cmd->far_clip.rate = inv * (cmd->far_clip.to - cmd->far_clip.from);
+	}
+
+	tag = zrdr_findtag(reader, "FOG_NEAR");
+
+	if (tag && tag->type == ZRDR_ARRAY)
+	{
+		i = 0;
+
+		if ((u32)(tag->array->integer - 1) >= 2)
+		{
+			cmd->flags |= 0x400;
+			cmd->fog_near.from = tag->Get(i++)->GetReal();
+		}
+
+		cmd->flags |= 0x800;
+		cmd->fog_near.to = tag->Get(i)->GetReal();
+
+		if (cmd->flags & 0x400)
+			cmd->fog_near.rate = inv * (cmd->fog_near.to - cmd->fog_near.from);
+	}
+
+	tag = zrdr_findtag(reader, "FOG_FAR");
+
+	if (tag && tag->type == ZRDR_ARRAY)
+	{
+		i = 0;
+
+		if ((u32)(tag->array->integer - 1) >= 2)
+		{
+			cmd->flags |= 0x1000;
+			cmd->fog_far.from = tag->Get(i++)->GetReal();
+		}
+
+		cmd->flags |= 0x2000;
+		cmd->fog_far.to = tag->Get(i)->GetReal();
+
+		if (cmd->flags & 0x1000)
+			cmd->fog_far.rate = inv * (cmd->fog_far.to - cmd->fog_far.from);
+	}
+
+	tag = zrdr_findtag(reader, "FOG_COLOR");
+
+	if (tag && tag->type == ZRDR_ARRAY)
+	{
+		i = 0;
+
+		if ((u32)(tag->array->integer - 1) >= 4)
+		{
+			cmd->flags |= 0x4000;
+			i = 3;
+			cmd->fog_color[0].from = tag->Get(0)->GetReal();
+			cmd->fog_color[1].from = tag->Get(1)->GetReal();
+			cmd->fog_color[2].from = tag->Get(2)->GetReal();
+		}
+
+		cmd->flags |= 0x8000;
+		cmd->fog_color[0].to = tag->Get(i)->GetReal();
+		cmd->fog_color[1].to = tag->Get(i + 1)->GetReal();
+		cmd->fog_color[2].to = tag->Get(i + 2)->GetReal();
+
+		if (cmd->flags & 0x4000)
+		{
+			cmd->fog_color[0].rate = inv * (cmd->fog_color[0].to - cmd->fog_color[0].from);
+			cmd->fog_color[1].rate = inv * (cmd->fog_color[1].to - cmd->fog_color[1].from);
+			cmd->fog_color[2].rate = inv * (cmd->fog_color[2].to - cmd->fog_color[2].from);
+		}
+	}
+
+	if (zrdr_findtag(reader, "FOG_ON"))
+		cmd->flags |= 0x10000;
+
+	if (zrdr_findtag(reader, "FOG_OFF"))
+		cmd->flags |= 0x20000;
+
+	return &cmd->header;
 }
 
 /* @socom-skeleton stub zAnimLoadSound__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadSound(_zrdr *)
+_zanim_cmd_hdr * zAnimLoadSound(_zrdr *reader)
 {
+	/* 0x1b4920: SOUND: NAME (required; added to the anim's names), AT_NODE, TRANSLATION,
+	 * INPUT_TRANSLATION, VOLUME, PAN (degrees wrapped into 0..360, then at most 359),
+	 * PITCH (0..1 -> -32767..32767), MUSIC_LOCAL, MUSIC_EVENT, START, STOP, STOP_ON_EXIT;
+	 * a timeless 32-byte record; NULL (record freed) without NAME */
+	_zanim_cmd_sound *cmd = (_zanim_cmd_sound *)zcalloc(1, sizeof(_zanim_cmd_sound));
+	cmd->header.data_size = sizeof(_zanim_cmd_sound);
+	cmd->header.timeless = true;
+
+	CZAnim *anim = ZAnim.m_CurAnim;
+	_zrdr *tag = zrdr_findtag(reader, "NAME");
+
+	if (!tag)
+	{
+		if (cmd)
+			zfree(cmd);
+
+		return NULL;
+	}
+
+	char name[44];
+	strcpy(name, tag->array[1].string); /* ELF: the first element, unchecked */
+	cmd->sound_ref = anim->AddName(name);
+	cmd->flags = 0;
+	cmd->node_ref = 0;
+	cmd->at_node = 0;
+
+	tag = zrdr_findtag(reader, "AT_NODE");
+
+	if (tag)
+	{
+		cmd->flags |= 2;
+		cmd->at_node = ZAnim.m_CurAnim->LoadNodeNames(tag, NULL, 0, ZAnim.m_CurAnim->node_search_scope);
+	}
+
+	if (zrdr_findreal(reader, "TRANSLATION", cmd->translation, 3))
+		cmd->flags |= 4;
+
+	if (zrdr_findtag(reader, "INPUT_TRANSLATION"))
+		cmd->flags |= 8;
+
+	f32 value;
+
+	if (zrdr_findreal(reader, "VOLUME", &value, 1))
+	{
+		cmd->flags |= 0x10;
+		cmd->volume = value;
+	}
+
+	if (zrdr_findreal(reader, "PAN", &value, 1))
+	{
+		cmd->flags |= 0x20;
+
+		while (!(value <= 360.0f))
+			value -= 360.0f;
+
+		while (value < 0.0f)
+			value += 360.0f;
+
+		if (!(value <= 359.0f))
+			value = 359.0f;
+
+		cmd->pan = (s32)value;
+	}
+
+	if (zrdr_findreal(reader, "PITCH", &value, 1))
+	{
+		cmd->flags |= 0x40;
+		cmd->pitch = (s32)(-32767.0f + 65534.0f * value);
+	}
+
+	if (zrdr_findtag(reader, "MUSIC_LOCAL"))
+		cmd->flags |= 0x400;
+
+	if (zrdr_findtag(reader, "MUSIC_EVENT"))
+		cmd->flags |= 0x800;
+
+	if (zrdr_findtag(reader, "START"))
+		cmd->flags |= 0x80;
+
+	if (zrdr_findtag(reader, "STOP"))
+		cmd->flags |= 0x100;
+
+	if (zrdr_findtag(reader, "STOP_ON_EXIT"))
+		cmd->flags |= 0x200;
+
+	return &cmd->header;
 }
 
 /* @socom-skeleton stub GetBlendMode__15CZAnimBlendModeFPC5_zrdr */
-void CZAnimBlendMode::GetBlendMode(const _zrdr *)
+int CZAnimBlendMode::GetBlendMode(const _zrdr *reader)
 {
+	/* 0x1b47b0: a GS alpha A/B/C/D selector from a name: SRC 0, FB 1, "0" / ZERO / VALUE 2.
+	 * ELF quirk kept: every other name, an integer of any value and any other type also give 2. */
+	if (reader->type == ZRDR_STRING)
+	{
+		if (strcmp(reader->type == ZRDR_STRING ? reader->string : NULL, "SRC") == 0)
+			return 0;
+
+		if (strcmp(reader->type == ZRDR_STRING ? reader->string : NULL, "FB") == 0)
+			return 1;
+
+		if (strcmp(reader->type == ZRDR_STRING ? reader->string : NULL, "0") == 0)
+			return 2;
+
+		if (strcmp(reader->type == ZRDR_STRING ? reader->string : NULL, "ZERO") == 0)
+			return 2;
+
+		if (strcmp(reader->type == ZRDR_STRING ? reader->string : NULL, "VALUE") == 0)
+			return 2;
+	}
+	else if (reader->type == ZRDR_INTEGER)
+	{
+		if (reader->GetInt() == 0)
+			return 2;
+	}
+
+	return 2;
 }
 
 /* @socom-skeleton stub GetBlendModes__15CZAnimBlendModeFPC5_zrdrPiPiPiPiPf */
-void CZAnimBlendMode::GetBlendModes(const _zrdr *, int *, int *, int *, int *, float *)
+bool CZAnimBlendMode::GetBlendModes(const _zrdr *reader, int *a, int *b, int *c, int *d, float *fix)
 {
+	/* 0x1b43c0: [A B C D FIX]: each of the first four that is a name sets its selector
+	 * (GetBlendMode), a number fifth sets FIX / 128; false when the tag is no array */
+	if (reader->type != ZRDR_ARRAY)
+		return false;
+
+	_zrdr *rdr = const_cast<_zrdr *>(reader);
+	u32 len = reader->array->integer - 1;
+
+	if (len != 0 && rdr->Get(0)->type == ZRDR_STRING)
+		*a = GetBlendMode(rdr->Get(0));
+
+	if (len > 1 && rdr->Get(1)->type == ZRDR_STRING)
+		*b = GetBlendMode(rdr->Get(1));
+
+	if (len > 2 && rdr->Get(2)->type == ZRDR_STRING)
+		*c = GetBlendMode(rdr->Get(2));
+
+	if (len > 3 && rdr->Get(3)->type == ZRDR_STRING)
+		*d = GetBlendMode(rdr->Get(3));
+
+	if (len > 4 && (rdr->Get(4)->type == ZRDR_REAL || rdr->Get(4)->type == ZRDR_INTEGER))
+		*fix = rdr->Get(4)->GetReal();
+
+	return true;
 }
 
 /* @socom-skeleton stub GetBlendValueSequence__15CZAnimBlendModeFP14_zanim_cmd_hdrP5_zrdrPfPi */
-_zanim_cmd_hdr * CZAnimBlendMode::GetBlendValueSequence(_zanim_cmd_hdr *, _zrdr *, float *, int *)
+_zanim_cmd_hdr * CZAnimBlendMode::GetBlendValueSequence(_zanim_cmd_hdr *cmd, _zrdr *reader, float *end_time, int *count)
 {
+	/* 0x1b40d0: [[time value] ...] -> _zanim_blend_fix[count] appended to the command
+	 * (zAnimCmdAddData, inlined in the ELF); *end_time = the largest key time (from 0).
+	 * Entries with fewer than two elements stay zero. */
+	*end_time = 0.0f;
+
+	if (reader->type != ZRDR_ARRAY)
+	{
+		*count = 0;
+		return cmd;
+	}
+
+	_zanim_blend_fix *seq = (_zanim_blend_fix *)zcalloc(sizeof(_zanim_blend_fix), reader->array->integer - 1);
+
+	for (u32 i = 0; i < (u32)(reader->array->integer - 1); i++)
+	{
+		_zrdr *entry = reader->Get(i);
+		u32 len = entry->type == ZRDR_ARRAY ? entry->array->integer - 1 : 0;
+
+		if (len < 2)
+			continue;
+
+		f32 time = entry->Get(0)->GetReal();
+		seq[i].time = time;
+
+		if (!(time <= *end_time))
+			*end_time = time;
+
+		seq[i].value = entry->Get(1)->GetReal();
+	}
+
+	*count = reader->array->integer - 1;
+	cmd = zAnimCmdAddData(cmd, seq, *count * sizeof(_zanim_blend_fix));
+	zfree(seq);
+	return cmd;
 }
 
 /* @socom-skeleton stub GetBlendSequenceValue__15CZAnimBlendModeFPQ23zdb9BLENDMODEP16_zanim_blend_fixif */
-void CZAnimBlendMode::GetBlendSequenceValue(zdb::BLENDMODE *, _zanim_blend_fix *, int, float)
+void CZAnimBlendMode::GetBlendSequenceValue(zdb::BLENDMODE *mode, _zanim_blend_fix *seq, int count, float time)
 {
+	/* 0x1b3fd0: the alpha FIX at a sequence time: linear between the keys around it, the last
+	 * key's value after the end, unchanged before the first key; FIX = 128 * value, 0..255 */
+	if (time <= seq[0].time)
+		return;
+
+	bool found = false;
+	f32 value;
+
+	for (s32 i = 0; i < count - 1; i++)
+	{
+		if (time <= seq[i + 1].time)
+		{
+			found = true;
+			value = seq[i].value + (time - seq[i].time) / (seq[i + 1].time - seq[i].time) * (seq[i + 1].value - seq[i].value);
+			break;
+		}
+	}
+
+	if (!found)
+		value = seq[count - 1].value;
+
+	s32 fix = (s32)(128.0f * value);
+
+	if (fix < 0)
+		fix = 0;
+
+	if (fix >= 256)
+		fix = 255;
+
+	mode->m_alpha.FIX = fix;
 }
 
 /* @socom-skeleton stub zAnimLoadLight__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadLight(_zrdr *)
+_zanim_cmd_hdr * zAnimLoadLight(_zrdr *reader)
 {
+	/* 0x1b37f0: LIGHT: NAME (required; marks its node ref a light), LOCAL_LIGHT, TEXTURE, AT_NODE,
+	 * RANGE [min max], TRANSLATION, INPUT_TRANSLATION, DIFFUSE (0..1, stored * 255), OPACITY
+	 * (stored * 64), BLENDMODE, START, STOP, STOP_ON_EXIT, RANGE_SEQUENCE [[time min max] ...],
+	 * BLEND_VALUE_SEQUENCE; a timeless 0x40-byte record + the sequences; duration = the last key */
+	_zanim_cmd_light *cmd = (_zanim_cmd_light *)zcalloc(1, sizeof(_zanim_cmd_light));
+	cmd->header.data_size = sizeof(_zanim_cmd_light);
+	cmd->header.timeless = true;
+
+	CZAnim *anim = ZAnim.m_CurAnim;
+	_zrdr *tag = zrdr_findtag(reader, "NAME");
+
+	if (!tag)
+	{
+		if (cmd)
+			zfree(cmd);
+
+		return NULL;
+	}
+
+	cmd->node_ref = ZAnim.m_CurAnim->LoadNodeNames(tag, NULL, 0, ZAnim.m_CurAnim->node_search_scope);
+	_zanim_node_ref *ref = ZAnim.m_CurAnim->GetNodeRef(cmd->node_ref);
+
+	if (ref)
+		ref->is_light = true;
+
+	cmd->flags = 0;
+	cmd->duration = 0.0f;
+
+	if (zrdr_findtag(reader, "LOCAL_LIGHT"))
+		ref->is_local_light = true; /* ELF quirk kept: no NULL test of the node ref here */
+
+	tag = zrdr_findtag(reader, "TEXTURE");
+
+	if (tag)
+	{
+		cmd->flags |= 1;
+		cmd->texture = anim->AddName(tag->array[1].string); /* ELF: the first element, unchecked */
+	}
+
+	tag = zrdr_findtag(reader, "AT_NODE");
+
+	if (tag)
+	{
+		cmd->flags |= 2;
+		cmd->at_node = anim->LoadNodeNames(tag, NULL, 0, anim->node_search_scope);
+	}
+
+	if (zrdr_findreal(reader, "RANGE", &cmd->min_range, 2))
+		cmd->flags |= 0x10;
+
+	if (zrdr_findreal(reader, "TRANSLATION", &cmd->offset.x, 3))
+		cmd->flags |= 4;
+
+	if (zrdr_findtag(reader, "INPUT_TRANSLATION"))
+		cmd->flags |= 8;
+
+	if (zrdr_findreal(reader, "DIFFUSE", cmd->color, 3))
+	{
+		((CPnt3D *)cmd->color)->Scale(255.0f, (CPnt3D *)cmd->color);
+		cmd->flags |= 0x40;
+	}
+
+	if (zrdr_findreal(reader, "OPACITY", &cmd->opacity, 1))
+	{
+		cmd->opacity *= 64.0f;
+		cmd->flags |= 0x80;
+	}
+
+	tag = zrdr_findtag(reader, "BLENDMODE");
+
+	if (tag)
+	{
+		int a = 0, b = 0, c = 0, d = 0; /* port: zeroed; the ELF leaves them unset (garbage when a selector is no name) */
+		f32 fix = 1.0f;
+
+		if (CZAnimBlendMode::GetBlendModes(tag, &a, &b, &c, &d, &fix))
+		{
+			cmd->flags |= 0x100;
+			cmd->abcd = (cmd->abcd & ~0x03) | (a & 3);
+			cmd->abcd = (cmd->abcd & ~0x0c) | ((b & 3) << 2);
+			cmd->abcd = (cmd->abcd & ~0x30) | ((c & 3) << 4);
+			cmd->abcd = (cmd->abcd & ~0xc0) | ((d & 3) << 6);
+			cmd->fix = fix;
+		}
+	}
+
+	if (zrdr_findtag(reader, "START"))
+		cmd->flags |= 0x400;
+
+	if (zrdr_findtag(reader, "STOP"))
+		cmd->flags |= 0x800;
+
+	if (zrdr_findtag(reader, "STOP_ON_EXIT") && ref)
+		ref->stop_on_exit = true;
+
+	tag = zrdr_findtag(reader, "RANGE_SEQUENCE");
+
+	if (tag)
+	{
+		cmd->flags |= 0x20;
+
+		_zanim_light_range *seq = (_zanim_light_range *)zcalloc(sizeof(_zanim_light_range), tag->type == ZRDR_ARRAY ? tag->array->integer - 1 : 0);
+
+		for (u32 i = 0; i < (u32)(tag->type == ZRDR_ARRAY ? tag->array->integer - 1 : 0); i++)
+		{
+			_zrdr *entry = tag->Get(i);
+			u32 len = entry->type == ZRDR_ARRAY ? entry->array->integer - 1 : 0;
+
+			if (len < 3)
+				continue;
+
+			f32 time = entry->Get(0)->GetReal();
+			seq[i].time = time;
+
+			if (!(time <= cmd->duration))
+				cmd->duration = time;
+
+			seq[i].min_range = entry->Get(1)->GetReal();
+			seq[i].max_range = entry->Get(2)->GetReal();
+		}
+
+		s32 count = tag->type == ZRDR_ARRAY ? tag->array->integer - 1 : 0;
+		cmd->range_count = count;
+		cmd->range_offset = cmd->header.data_size;
+		cmd = (_zanim_cmd_light *)zAnimCmdAddData(&cmd->header, seq, count * sizeof(_zanim_light_range)); /* inlined in the ELF */
+		zfree(seq);
+	}
+
+	tag = zrdr_findtag(reader, "BLEND_VALUE_SEQUENCE");
+
+	if (tag)
+	{
+		f32 end_time;
+		int count;
+
+		cmd->blend_offset = cmd->header.data_size;
+		cmd = (_zanim_cmd_light *)CZAnimBlendMode::GetBlendValueSequence(&cmd->header, tag, &end_time, &count);
+
+		if (count > 0)
+			cmd->flags |= 0x200;
+
+		cmd->blend_count = count;
+
+		if (!(end_time <= cmd->duration))
+			cmd->duration = end_time;
+	}
+
+	return &cmd->header;
 }
 
 /* @socom-skeleton stub zAnimLoadObjectBlendMode__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadObjectBlendMode(_zrdr *)
+_zanim_cmd_hdr * zAnimLoadObjectBlendMode(_zrdr *reader)
 {
+	/* 0x1b3560: OBJECT_BLENDMODE: NAME (required), RECURSIVE / PRIMARY_FACE / SUB_FACE switches,
+	 * BLENDMODE [A B C D FIX] (required), optional BLEND_VALUE_SEQUENCE [[time value] ...];
+	 * a timeless 20-byte record (+ the sequence); NULL (record freed) on a missing tag */
+	_zanim_cmd_blendmode *cmd = (_zanim_cmd_blendmode *)zcalloc(1, sizeof(_zanim_cmd_blendmode));
+	cmd->header.data_size = sizeof(_zanim_cmd_blendmode);
+	cmd->header.timeless = true;
+
+	_zrdr *tag = zrdr_findtag(reader, "NAME");
+
+	if (tag)
+	{
+		cmd->node_ref = ZAnim.m_CurAnim->LoadNodeNames(tag, NULL, 0, ZAnim.m_CurAnim->node_search_scope);
+		cmd->flags = 0;
+		cmd->duration = 0.0f;
+
+		if (zrdr_findtag(reader, "RECURSIVE"))
+			cmd->flags |= 4;
+
+		if (zrdr_findtag(reader, "PRIMARY_FACE"))
+			cmd->flags |= 1;
+
+		if (zrdr_findtag(reader, "SUB_FACE"))
+			cmd->flags |= 2;
+
+		tag = zrdr_findtag(reader, "BLENDMODE");
+
+		if (tag)
+		{
+			int a = 0, b = 0, c = 0, d = 0; /* port: zeroed; the ELF leaves them unset (garbage when a selector is no name) */
+			f32 fix = 1.0f;
+
+			if (CZAnimBlendMode::GetBlendModes(tag, &a, &b, &c, &d, &fix))
+			{
+				cmd->abcd = (cmd->abcd & ~0x03) | (a & 3);
+				cmd->abcd = (cmd->abcd & ~0x0c) | ((b & 3) << 2);
+				cmd->abcd = (cmd->abcd & ~0x30) | ((c & 3) << 4);
+				cmd->abcd = (cmd->abcd & ~0xc0) | ((d & 3) << 6);
+				cmd->fix = fix;
+
+				tag = zrdr_findtag(reader, "BLEND_VALUE_SEQUENCE");
+
+				if (tag)
+				{
+					f32 end_time;
+					int count;
+
+					cmd->seq_offset = cmd->header.data_size;
+					cmd = (_zanim_cmd_blendmode *)CZAnimBlendMode::GetBlendValueSequence(&cmd->header, tag, &end_time, &count);
+
+					if (count > 0)
+						cmd->flags |= 8;
+
+					cmd->seq_count = count;
+
+					if (!(end_time <= cmd->duration))
+						cmd->duration = end_time;
+				}
+
+				return &cmd->header;
+			}
+		}
+	}
+
+	if (cmd)
+		zfree(cmd);
+
+	return NULL;
 }
 
 /* @socom-skeleton stub zAnimLoadObjectActiveState__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadObjectActiveState(_zrdr *)
+_zanim_cmd_hdr * zAnimLoadObjectActiveState(_zrdr *reader)
 {
+	/* 0x1b3420: OBJECT_ACTIVE_STATE: a timeless 8-byte record: NAME (required) and STATE
+	 * ACTIVE (1) or INACTIVE (0), required; otherwise the record is freed, NULL. ELF quirk
+	 * kept: STATE's first element is read as a string without a type check. */
+	_zanim_cmd_node_test *cmd = static_cast<_zanim_cmd_node_test *>(_calloc(1, 8, "zanim_cmd_parse.cpp", 1732));
+	cmd->header.data_size = 8;
+	cmd->header.timeless = 1;
+
+	_zrdr *tag = zrdr_findtag(reader, "NAME");
+
+	if (tag)
+	{
+		cmd->node_ref = ZAnim.m_CurAnim->LoadNodeNames(tag, NULL, 0, ZAnim.m_CurAnim->node_search_scope);
+		tag = zrdr_findtag(reader, "STATE");
+
+		if (tag)
+		{
+			if (strcmp(tag->array[1].string, "ACTIVE") == 0)
+			{
+				cmd->arg = 1;
+				return &cmd->header;
+			}
+
+			if (strcmp(tag->array[1].string, "INACTIVE") == 0)
+			{
+				cmd->arg = 0;
+				return &cmd->header;
+			}
+		}
+	}
+
+	if (cmd)
+		_free(cmd, "zanim_cmd_parse.cpp", 1780);
+
+	return NULL;
 }
 
 /* @socom-skeleton stub zAnimLoadObjectTranslateState__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadObjectTranslateState(_zrdr *)
+_zanim_cmd_hdr * zAnimLoadObjectTranslateState(_zrdr *reader)
 {
+	/* 0x1b31c0: OBJECT_TRANSLATE_STATE: a timeless 20-byte record: NAME (required), AT_NODE,
+	 * TRANSLATION (1) / INPUT_TRANSLATION (2) / RELATIVE (4) into the offset, UPDATE (X, Y, Z:
+	 * the axes missing from it are kept: 8 / 0x10 / 0x20) */
+	_zanim_cmd_translate_state *cmd = static_cast<_zanim_cmd_translate_state *>(_calloc(1, 20, "zanim_cmd_parse.cpp", 1798));
+	bool x = true;
+	bool y = true;
+	bool z = true;
+	cmd->header.data_size = 20;
+	cmd->header.timeless = 1;
+
+	_zrdr *tag = zrdr_findtag(reader, "NAME");
+
+	if (tag == NULL)
+	{
+		if (cmd)
+			_free(cmd, "zanim_cmd_parse.cpp", 1867);
+
+		return NULL;
+	}
+
+	CZAnim *anim = ZAnim.m_CurAnim;
+	cmd->node_ref = anim->LoadNodeNames(tag, NULL, 0, anim->node_search_scope);
+	cmd->at_node_ref = 0;
+	tag = zrdr_findtag(reader, "AT_NODE");
+
+	if (tag)
+	{
+		anim = ZAnim.m_CurAnim;
+		cmd->at_node_ref = anim->LoadNodeNames(tag, NULL, 0, anim->node_search_scope);
+	}
+
+	if (zrdr_findreal(reader, "TRANSLATION", cmd->offset, 3))
+		cmd->flags |= 0x1;
+
+	if (zrdr_findtag(reader, "INPUT_TRANSLATION"))
+		cmd->flags |= 0x2;
+
+	if (zrdr_findreal(reader, "RELATIVE", cmd->offset, 3))
+		cmd->flags |= 0x4;
+
+	tag = zrdr_findtag(reader, "UPDATE");
+
+	if (tag)
+	{
+		if (zrdr_findtag(tag, "X") == NULL)
+			x = false;
+
+		if (zrdr_findtag(tag, "Y") == NULL)
+			y = false;
+
+		if (zrdr_findtag(tag, "Z") == NULL)
+			z = false;
+	}
+
+	if (!x)
+		cmd->flags |= 0x8;
+
+	if (!y)
+		cmd->flags |= 0x10;
+
+	if (!z)
+		cmd->flags |= 0x20;
+
+	return &cmd->header;
 }
 
 /* @socom-skeleton stub zAnimLoadObjectRotateState__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadObjectRotateState(_zrdr *)
+_zanim_cmd_hdr * zAnimLoadObjectRotateState(_zrdr *reader)
 {
+	/* 0x1b2fb0: OBJECT_ROTATE_STATE: a timeless 20-byte record (the translate-state layout:
+	 * the second node is LIKE_NODE): NAME (required), ROTATION (1) or RELATIVE (2) in degrees,
+	 * stored in radians */
+	_zanim_cmd_translate_state *cmd = static_cast<_zanim_cmd_translate_state *>(_calloc(1, 20, "zanim_cmd_parse.cpp", 1885));
+	cmd->header.data_size = 20;
+	cmd->header.timeless = 1;
+
+	_zrdr *tag = zrdr_findtag(reader, "NAME");
+
+	if (tag == NULL)
+	{
+		if (cmd)
+			_free(cmd, "zanim_cmd_parse.cpp", 1939);
+
+		return NULL;
+	}
+
+	CZAnim *anim = ZAnim.m_CurAnim;
+	cmd->node_ref = anim->LoadNodeNames(tag, NULL, 0, anim->node_search_scope);
+	cmd->at_node_ref = 0;
+	tag = zrdr_findtag(reader, "LIKE_NODE");
+
+	if (tag)
+	{
+		anim = ZAnim.m_CurAnim;
+		cmd->at_node_ref = anim->LoadNodeNames(tag, NULL, 0, anim->node_search_scope);
+	}
+
+	if (zrdr_findtag(reader, "ROTATION") && zrdr_findreal(reader, "ROTATION", cmd->offset, 3))
+	{
+		cmd->flags |= 0x1;
+		cmd->offset[0] = 0.017453292f * cmd->offset[0];
+		cmd->offset[1] = 0.017453292f * cmd->offset[1];
+		cmd->offset[2] = 0.017453292f * cmd->offset[2];
+	}
+
+	if (zrdr_findtag(reader, "RELATIVE") && zrdr_findreal(reader, "RELATIVE", cmd->offset, 3))
+	{
+		cmd->flags |= 0x2;
+		cmd->offset[0] = 0.017453292f * cmd->offset[0];
+		cmd->offset[1] = 0.017453292f * cmd->offset[1];
+		cmd->offset[2] = 0.017453292f * cmd->offset[2];
+	}
+
+	return &cmd->header;
 }
 
 /* @socom-skeleton stub zAnimLoadObjectMotionFromTo__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadObjectMotionFromTo(_zrdr *)
+_zanim_cmd_hdr * zAnimLoadObjectMotionFromTo(_zrdr *reader)
 {
+	/* 0x1b1b90: OBJECT_MOTION_FROM_TO: NAME; RUN_TIME (missing: 1) or RUN_TIME (TRANSLATE_VELOCITY v)
+	 * (SPEED, run time from the begin); ACCELERATE [start max accel] / DECELERATE [(max) end decel]
+	 * append a CZAnimFromToAcc (run time = ComputeRunTime); RELATIVE (to is an offset), else
+	 * TRANSLATE_FROM [x y z] (AT_NODE, INPUT_TRANSLATION); TRANSLATE_TO [x y z] (AT_NODE,
+	 * INPUT_TRANSLATION) or TRANSLATE_TO (VALVES [x y z]); ROTATE_FROM / ROTATE_TO (degrees) and
+	 * SCALE_FROM / SCALE_TO ([x y z], [s] or no value = 1), the FROMs not with RELATIVE.
+	 * A 128-byte record (+ 56), not timeless; the rates are (to - from) / run time. */
+	CZAnim *anim = ZAnim.m_CurAnim;
+	CZAnimFromToAcc acc;
+	acc.m_start_speed = 0.0f;
+	acc.m_max_speed = 0.0f;
+	acc.m_end_speed = 0.0f;
+	acc.m_accel = 0.0f;
+	acc.m_decel = 0.0f;
+	acc.m_accel_time = 0.0f;
+	acc.m_cruise_time = 0.0f;
+	acc.m_decel_time = 0.0f;
+	acc.m_timer = 0.0f;
+	acc.m_phase = 0;
+
+	if (reader == NULL)
+		return NULL;
+
+	_zanim_cmd_motion_from_to *cmd = (_zanim_cmd_motion_from_to *)zcalloc(1, sizeof(_zanim_cmd_motion_from_to));
+	cmd->header.data_size = sizeof(_zanim_cmd_motion_from_to);
+
+	_zrdr *tag = zrdr_findtag(reader, "NAME");
+
+	if (tag)
+		cmd->node_ref = ZAnim.m_CurAnim->LoadNodeNames(tag, NULL, 0, ZAnim.m_CurAnim->node_search_scope);
+
+	tag = zrdr_findtag(reader, "RUN_TIME");
+
+	if (tag)
+	{
+		if (zrdr_findreal(tag, "TRANSLATE_VELOCITY", &cmd->speed, 1))
+		{
+			cmd->flags |= 0x80;
+			cmd->duration = 0.001f;
+		}
+		else if (zrdr_findreal(reader, "RUN_TIME", &cmd->duration, 1))
+		{
+			if (cmd->duration <= 0.0f)
+				cmd->duration = 0.001f;
+		}
+		else
+		{
+			cmd->duration = 1.0f;
+		}
+	}
+	else
+	{
+		cmd->duration = 1.0f;
+	}
+
+	f32 inv = 1.0f / cmd->duration;
+	_zrdr *item;
+	u32 len;
+
+	tag = zrdr_findtag(reader, "ACCELERATE");
+
+	if (tag && tag->type == ZRDR_ARRAY && (u32)(tag->array->integer - 1) >= 3)
+	{
+		cmd->flags |= 0x2000;
+
+		item = tag->Get(0);
+
+		if (item->type == ZRDR_REAL || item->type == ZRDR_INTEGER)
+			acc.m_start_speed = item->GetReal();
+
+		item = tag->Get(1);
+
+		if (item->type == ZRDR_REAL || item->type == ZRDR_INTEGER)
+			acc.m_max_speed = item->GetReal();
+
+		item = tag->Get(2);
+
+		if (item->type == ZRDR_REAL || item->type == ZRDR_INTEGER)
+			acc.m_accel = item->GetReal();
+	}
+
+	tag = zrdr_findtag(reader, "DECELERATE");
+
+	if (tag && tag->type == ZRDR_ARRAY)
+	{
+		cmd->flags |= 0x4000;
+		len = tag->array->integer - 1;
+		u32 n = 0;
+
+		if (len >= 3)
+		{
+			item = tag->Get(0);
+
+			if (item->type == ZRDR_REAL || item->type == ZRDR_INTEGER)
+				acc.m_max_speed = item->GetReal();
+
+			n++;
+		}
+
+		if (n < len)
+		{
+			item = tag->Get(n);
+
+			if (item->type == ZRDR_REAL || item->type == ZRDR_INTEGER)
+				acc.m_end_speed = item->GetReal();
+		}
+
+		n++;
+
+		if (n < len)
+		{
+			item = tag->Get(n);
+
+			if (item->type == ZRDR_REAL || item->type == ZRDR_INTEGER)
+				acc.m_decel = item->GetReal();
+		}
+	}
+
+	if (zrdr_findtag(reader, "RELATIVE"))
+	{
+		cmd->flags |= 0x1;
+	}
+	else
+	{
+		tag = zrdr_findtag(reader, "TRANSLATE_FROM");
+
+		if (tag)
+		{
+			cmd->from_node_ref = 0;
+			item = zrdr_findtag(tag, "AT_NODE");
+
+			if (item)
+			{
+				cmd->flags |= 0x4;
+				cmd->from_node_ref = anim->LoadNodeNames(item, NULL, 0, anim->node_search_scope);
+			}
+
+			if (zrdr_findtag(tag, "INPUT_TRANSLATION"))
+				cmd->flags |= 0x8;
+
+			if (tag->type == ZRDR_ARRAY)
+			{
+				item = tag->Get(0);
+
+				if (item->type == ZRDR_REAL || item->type == ZRDR_INTEGER)
+				{
+					if (zrdr_findreal(reader, "TRANSLATE_FROM", cmd->from, 3))
+						cmd->flags |= 0x2;
+				}
+			}
+		}
+	}
+
+	tag = zrdr_findtag(reader, "TRANSLATE_TO");
+
+	if (tag)
+	{
+		cmd->to_node_ref = 0;
+		item = zrdr_findtag(tag, "AT_NODE");
+
+		if (item)
+		{
+			cmd->flags |= 0x20;
+			cmd->to_node_ref = anim->LoadNodeNames(item, NULL, 0, anim->node_search_scope);
+		}
+
+		if (zrdr_findtag(tag, "INPUT_TRANSLATION"))
+			cmd->flags |= 0x40;
+
+		if (tag->type == ZRDR_ARRAY && (tag->Get(0)->type == ZRDR_REAL || tag->Get(0)->type == ZRDR_INTEGER))
+		{
+			if (zrdr_findreal(reader, "TRANSLATE_TO", cmd->to, 3))
+				cmd->flags |= 0x10;
+		}
+		else
+		{
+			_zrdr *valves = zrdr_findtag(tag, "VALVES");
+
+			if (valves && (valves->type == ZRDR_ARRAY ? valves->array->integer - 1 : 0) == 3)
+			{
+				item = valves->Get(0);
+				cmd->to_valve[0] = anim->AddName(item->type == ZRDR_STRING ? item->string : NULL);
+				item = valves->Get(1);
+				cmd->to_valve[1] = anim->AddName(item->type == ZRDR_STRING ? item->string : NULL);
+				item = valves->Get(2);
+				cmd->to_valve[2] = anim->AddName(item->type == ZRDR_STRING ? item->string : NULL);
+				cmd->flags |= 0x1000;
+			}
+		}
+	}
+
+	CPnt3D diff;
+	CPnt3D rate;
+
+	if (cmd->flags & 0x12)
+	{
+		reinterpret_cast<CPnt3D *>(cmd->to)->Sub(reinterpret_cast<CPnt3D *>(cmd->from), &diff);
+		diff.Scale(inv, &rate);
+		cmd->velocity[0] = rate.x;
+		cmd->velocity[1] = rate.y;
+		cmd->velocity[2] = rate.z;
+	}
+
+	if ((cmd->flags & 0x2000) || (cmd->flags & 0x4000))
+	{
+		cmd->duration = acc.ComputeRunTime(reinterpret_cast<CPnt3D *>(cmd->from), reinterpret_cast<CPnt3D *>(cmd->to));
+		cmd = (_zanim_cmd_motion_from_to *)zAnimCmdAddData(&cmd->header, &acc, sizeof(CZAnimFromToAcc));
+	}
+
+	f32 rot[3];
+
+	if (!(cmd->flags & 0x1) && zrdr_findreal(reader, "ROTATE_FROM", rot, 3))
+	{
+		cmd->flags |= 0x100;
+		rot[0] = 0.017453292f * rot[0];
+		rot[1] = 0.017453292f * rot[1];
+		rot[2] = 0.017453292f * rot[2];
+		cmd->rot_from[0] = rot[0];
+		cmd->rot_from[1] = rot[1];
+		cmd->rot_from[2] = rot[2];
+	}
+
+	if (zrdr_findreal(reader, "ROTATE_TO", rot, 3))
+	{
+		cmd->flags |= 0x200;
+		rot[0] = 0.017453292f * rot[0];
+		rot[1] = 0.017453292f * rot[1];
+		rot[2] = 0.017453292f * rot[2];
+		cmd->rot_to[0] = rot[0];
+		cmd->rot_to[1] = rot[1];
+		cmd->rot_to[2] = rot[2];
+
+		if (cmd->flags & 0x100)
+		{
+			reinterpret_cast<CPnt3D *>(cmd->rot_to)->Sub(reinterpret_cast<CPnt3D *>(cmd->rot_from), &diff);
+			diff.Scale(inv, &rate);
+			cmd->rot_rate[0] = rate.x;
+			cmd->rot_rate[1] = rate.y;
+			cmd->rot_rate[2] = rate.z;
+		}
+	}
+
+	if (!(cmd->flags & 0x1))
+	{
+		tag = zrdr_findtag(reader, "SCALE_FROM");
+
+		if (tag)
+		{
+			cmd->flags |= 0x400;
+
+			if (tag->type != ZRDR_ARRAY)
+			{
+				cmd->scale_from[0] = 1.0f;
+				cmd->scale_from[1] = 1.0f;
+				cmd->scale_from[2] = 1.0f;
+			}
+			else
+			{
+				len = tag->array->integer - 1;
+
+				if (len >= 3)
+				{
+					cmd->scale_from[0] = tag->Get(0)->GetReal();
+					cmd->scale_from[1] = tag->Get(1)->GetReal();
+					cmd->scale_from[2] = tag->Get(2)->GetReal();
+				}
+				else if (len != 0)
+				{
+					cmd->scale_from[0] = tag->Get(0)->GetReal();
+					cmd->scale_from[1] = tag->Get(0)->GetReal();
+					cmd->scale_from[2] = tag->Get(0)->GetReal();
+				}
+			}
+		}
+	}
+
+	tag = zrdr_findtag(reader, "SCALE_TO");
+
+	if (tag)
+	{
+		cmd->flags |= 0x800;
+
+		if (tag->type != ZRDR_ARRAY)
+		{
+			cmd->scale_to[0] = 1.0f;
+			cmd->scale_to[1] = 1.0f;
+			cmd->scale_to[2] = 1.0f;
+		}
+		else
+		{
+			len = tag->array->integer - 1;
+
+			if (len >= 3)
+			{
+				cmd->scale_to[0] = tag->Get(0)->GetReal();
+				cmd->scale_to[1] = tag->Get(1)->GetReal();
+				cmd->scale_to[2] = tag->Get(2)->GetReal();
+			}
+			else if (len != 0)
+			{
+				cmd->scale_to[0] = tag->Get(0)->GetReal();
+				cmd->scale_to[1] = tag->Get(0)->GetReal();
+				cmd->scale_to[2] = tag->Get(0)->GetReal();
+			}
+		}
+	}
+
+	if (cmd->flags & 0xc00)
+	{
+		reinterpret_cast<CPnt3D *>(cmd->scale_to)->Sub(reinterpret_cast<CPnt3D *>(cmd->scale_from), &diff);
+		diff.Scale(inv, &rate);
+		cmd->scale_rate[0] = rate.x;
+		cmd->scale_rate[1] = rate.y;
+		cmd->scale_rate[2] = rate.z;
+	}
+
+	return &cmd->header;
 }
 
 /* @socom-skeleton stub zAnimLoadObjectOpacityFromTo__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadObjectOpacityFromTo(_zrdr *)
+_zanim_cmd_hdr * zAnimLoadObjectOpacityFromTo(_zrdr *reader)
 {
+	/* 0x1b1a20: OBJECT_OPACITY_FROM_TO: a 24-byte record (not timeless): NAME, RUN_TIME
+	 * (missing: 1, <= 0: 0.001), OPACITY_FROM, OPACITY_TO (each missing: 0), rate =
+	 * (to - from) / RUN_TIME */
+	if (reader == NULL)
+		return NULL;
+
+	_zanim_cmd_opacity *cmd = static_cast<_zanim_cmd_opacity *>(_calloc(1, 24, "zanim_cmd_parse.cpp", 2282));
+	cmd->header.data_size = 24;
+
+	_zrdr *tag = zrdr_findtag(reader, "NAME");
+
+	if (tag)
+		cmd->node_ref = ZAnim.m_CurAnim->LoadNodeNames(tag, NULL, 0, ZAnim.m_CurAnim->node_search_scope);
+
+	if (zrdr_findreal(reader, "RUN_TIME", &cmd->duration, 1))
+	{
+		if (cmd->duration <= 0.0f)
+			cmd->duration = 0.001f;
+	}
+	else
+	{
+		cmd->duration = 1.0f;
+	}
+
+	f32 inv = 1.0f / cmd->duration;
+	zrdr_findreal(reader, "OPACITY_FROM", &cmd->from, 1);
+	zrdr_findreal(reader, "OPACITY_TO", &cmd->to, 1);
+	cmd->rate = inv * (cmd->to - cmd->from);
+	return &cmd->header;
 }
 
 /* @socom-skeleton stub zAnimLoadLoop__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadLoop(_zrdr *)
+_zanim_cmd_hdr * zAnimLoadLoop(_zrdr *reader)
 {
+	/* 0x1b18d0: LOOP: a timeless 12-byte record: LOOP_COUNT [n] (flag 1, count; -1 forever) or
+	 * LOOP_TIME [t] (flag 2, time; -1 forever). Neither, a LOOP_COUNT list of other than one
+	 * element or a LOOP_TIME without a number: the record is freed, NULL. ELF quirk kept:
+	 * LOOP_COUNT tests the type of the list's count element, not of its value. */
+	_zanim_cmd_loop *cmd = NULL;
+
+	if (reader != NULL)
+	{
+		cmd = static_cast<_zanim_cmd_loop *>(_calloc(1, 12, "zanim_cmd_parse.cpp", 2338));
+		cmd->header.data_size = 12;
+		cmd->header.timeless = 1;
+
+		_zrdr *tag = zrdr_findtag(reader, "LOOP_COUNT");
+
+		if (tag)
+		{
+			cmd->flags |= 0x1;
+			cmd->count = -1;
+
+			if (tag->array[0].integer == 2 && tag->array[0].type == ZRDR_INTEGER)
+			{
+				cmd->count = tag->array[1].integer;
+				return &cmd->header;
+			}
+		}
+		else if (zrdr_findtag(reader, "LOOP_TIME"))
+		{
+			cmd->flags |= 0x2;
+			cmd->time = -1.0f;
+
+			if (zrdr_findreal(reader, "LOOP_TIME", &cmd->time, 1))
+				return &cmd->header;
+		}
+	}
+
+	if (cmd)
+		_free(cmd, "zanim_cmd_parse.cpp", 2389);
+
+	return NULL;
 }
 
 /* @socom-skeleton stub zAnimLoadWait__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadWait(_zrdr *)
+_zanim_cmd_hdr * zAnimLoadWait(_zrdr *reader)
 {
+	/* 0x1b1230: WAIT: a 12-byte record from a list of words and numbers: ANIMATION_OFFSET (4),
+	 * SEQUENCE_OFFSET (2), EVENT_OFFSET (1; also a bare time) set the timed bit 8 and expect
+	 * times, FRAME_COUNT (0x10) expects a count. One time goes to value[0]; a count to
+	 * value[0] or appended; a second time makes a random wait (0x20, base and range appended).
+	 * A third time frees the record, NULL. */
+	bool times_next = true;
+	s32 time_count = 0;
+	f32 times[2];
+	s32 count = 0;
+
+	if (reader == NULL)
+		return NULL;
+
+	_zanim_cmd_wait *cmd = static_cast<_zanim_cmd_wait *>(_calloc(1, 12, "zanim_cmd_parse.cpp", 2416));
+	cmd->header.data_size = 12;
+
+	for (u32 i = 0; i < (reader->type == ZRDR_ARRAY ? (u32)(reader->array->integer - 1) : 0u); i++)
+	{
+		_zrdr *element = reader->Get(i);
+
+		if (element->type == ZRDR_STRING)
+		{
+			const char *word = element->string;
+
+			if (strcmp(word, "ANIMATION_OFFSET") == 0)
+			{
+				times_next = true;
+				cmd->flags |= 0x8;
+				cmd->flags |= 0x4;
+			}
+			else if (strcmp(word, "SEQUENCE_OFFSET") == 0)
+			{
+				times_next = true;
+				cmd->flags |= 0x8;
+				cmd->flags |= 0x2;
+			}
+			else if (strcmp(word, "EVENT_OFFSET") == 0)
+			{
+				times_next = true;
+				cmd->flags |= 0x8;
+				cmd->flags |= 0x1;
+			}
+			else if (strcmp(word, "FRAME_COUNT") == 0)
+			{
+				times_next = false;
+				cmd->flags |= 0x10;
+			}
+		}
+		else if (element->type == ZRDR_REAL || element->type == ZRDR_INTEGER)
+		{
+			if (times_next)
+			{
+				if (time_count >= 2)
+				{
+					if (cmd)
+						_free(cmd, "zanim_cmd_parse.cpp", 2520);
+
+					return NULL;
+				}
+
+				f32 value;
+
+				if (element->type == ZRDR_REAL)
+					value = element->real;
+				else if (element->type == ZRDR_INTEGER)
+					value = (f32)element->integer;
+				else
+					value = 0.0f;
+
+				times[time_count++] = value;
+
+				if (!(cmd->flags & 0x8))
+				{
+					cmd->flags |= 0x8;
+					cmd->flags |= 0x1;
+				}
+			}
+			else
+			{
+				if (element->type == ZRDR_INTEGER)
+					count = element->integer;
+				else if (element->type == ZRDR_REAL)
+					count = (s32)element->real;
+				else
+					count = 0;
+			}
+		}
+	}
+
+	s32 used = 0;
+
+	if (cmd->flags & 0x8)
+	{
+		cmd->value[0] = times[0];
+		used++;
+	}
+
+	if (cmd->flags & 0x10)
+	{
+		if (used == 0)
+			memcpy(&cmd->value[used], &count, 4); /* the count's bits in the f32 slot */
+		else
+			cmd = reinterpret_cast<_zanim_cmd_wait *>(zAnimCmdAddData(&cmd->header, &count, 4)); /* inline in the ELF */
+	}
+
+	if (time_count == 2)
+	{
+		cmd->flags |= 0x20;
+		times[1] = times[1] - times[0];
+		cmd = reinterpret_cast<_zanim_cmd_wait *>(zAnimCmdAddData(&cmd->header, times, 8)); /* inline in the ELF */
+	}
+
+	return &cmd->header;
 }
 
 /* @socom-skeleton body AnimParseExpression__10CZAnimMainFP14_zanim_cmd_hdrP5_zrdr */
 _zanim_cmd_hdr* CZAnimMain::AnimParseExpression(_zanim_cmd_hdr* header, _zrdr* reader)
 {
-    if (!reader || reader->type != ZRDR_ARRAY)
-    {
-        header = NULL;
-        return NULL;
-    }
+	/* 0x1b0db0: append a condition's commands to a record: an operator ("!", "&&", "||",
+	 * "(", ")") as an EXPRESSION command, a command name with its parameter list through
+	 * its parser, a nested list between "(" and ")" commands. Returns the grown record
+	 * (NULL without a list). */
+	_zanim_cmd_hdr* cmd = NULL;
 
-    u32 i = 0;
-    
-    while (true)
-    {
-        _zrdr* node = NULL;
-        u32 reader_length = 0;
-        char* string = NULL;
-        
-        if (reader->type == ZRDR_ARRAY)
-        {
-            reader_length = reader->array->length - 1;
-        }
+	if (reader == NULL || reader->type != ZRDR_ARRAY)
+		return NULL;
 
-        if (reader_length <= i)
-        {
-            break;
-        }
+	u32 i = 0;
 
-        reader_length = 0;
+	while (i < (u32)(reader->IsArray() ? reader->array->integer - 1 : 0))
+	{
+		_zrdr* item = reader->Get(i);
 
-        if (reader->type == ZRDR_ARRAY)
-        {
-            reader_length = reader->array->length - 1;
-        }
+		if (item->type == ZRDR_STRING)
+		{
+			if (CZAnimExpression::IsOperator(item->string))
+			{
+				cmd = CZAnimExpression::NewCmd(item->string);
+				i += 1;
+			}
+			else
+			{
+				cmd = AnimParseCmd(item->string, reader->Get(i + 1));
+				i += 2;
+			}
+		}
+		else if (item->type == ZRDR_ARRAY)
+		{
+			_zanim_cmd_hdr* open = CZAnimExpression::NewCmd("(");
+			header = zAnimCmdAddData(header, open, open->data_size); /* inlined in the ELF */
+			_free(open, "zanim_cmd_parse.cpp", 2590);
+			header = AnimParseExpression(header, item);
+			cmd = CZAnimExpression::NewCmd(")");
+			i += 1;
+		}
+		/* ELF quirk kept: any other element is not stepped over (the loop does not end) */
 
-        if (i < reader_length)
-        {
-            node = &reader->array[i] + 1;
-        }
-        else
-        {
-            node = NULL;
-        }
+		if (cmd != NULL)
+		{
+			header = zAnimCmdAddData(header, cmd, cmd->data_size); /* inlined in the ELF */
+			_free(cmd, "zanim_cmd_parse.cpp", 2609);
+			cmd = NULL;
+		}
+	}
 
-        if (node->type == ZRDR_STRING)
-        {
-            reader_length = 0;
-
-            if (reader->type == ZRDR_ARRAY)
-            {
-                reader_length = reader->array->length - 1;
-            }
-
-            if (i < reader_length)
-            {
-                node = &reader->array[i] + 1;
-            }
-            else
-            {
-                node = NULL;
-            }
-
-            if (node->type == ZRDR_STRING)
-            {
-                string = node->string;
-            }
-            else
-            {
-                string = NULL;
-            }
-
-            if (CZAnimExpression::IsOperator(string))
-            {
-                reader_length = 0;
-
-                if (reader->type == ZRDR_ARRAY)
-                {
-                    reader_length = reader->array->length - 1;
-                }
-
-                if (i + 1 < reader_length)
-                {
-                    node = &reader->array[i] + 2;
-                }
-                else
-                {
-                    node = NULL;
-                }
-
-                reader_length = 0;
-
-                if (reader->type == ZRDR_ARRAY)
-                {
-                    reader_length = reader->array->length - 1;
-                }
-
-                if (i < reader_length)
-                {
-                    node = &reader->array[i] + 1;
-                }
-                else
-                {
-                    node = NULL;
-                }
-
-                string = NULL;
-                if (node->type == ZRDR_STRING)
-                {
-                    string = node->string;
-                }
-
-                // AnimParseCmd()
-                i++;
-            }
-        }
-    }
+	return header;
 }
 
 /* @socom-skeleton body zAnimLoadWhile__FP5_zrdr */
 _zanim_cmd_hdr* zAnimLoadWhile(_zrdr* tag)
 {
-    _zanim_cmd_hdr* cmd = NULL;
-    
-    if (tag)
-    {
-        cmd = (_zanim_cmd_hdr*)zcalloc(1, 8);
-        cmd->data_type &= DATATYPE_WHILE;
+	/* 0x1b0c10: WHILE: a timeless 8-byte record; WHILE (TRUE) skips the test, otherwise the
+	 * condition's commands follow it. Its offset in the sequence is pushed for END_WHILE. */
+	if (tag == NULL)
+		return NULL;
 
-        if (tag->type == ZRDR_ARRAY && tag->array->integer == DATATYPE_IF)
-        {
-            _zrdr* evaluation = NULL;
+	_zanim_cmd_while* cmd = static_cast<_zanim_cmd_while*>(_calloc(1, 8, "zanim_cmd_parse.cpp", 2633));
+	cmd->header.data_size = 8;
+	cmd->header.timeless = 1;
+	_zanim_cmd_hdr* result = &cmd->header;
+	bool always = false;
 
-            if (tag->array->integer != 1)
-            {
-                evaluation = &tag->array[1];
-            }
+	if (tag->IsArray() && tag->array->integer - 1 == 1)
+	{
+		_zrdr* item = tag->Get(0);
+		always = item->type == ZRDR_STRING ? strcmp("TRUE", item->string) == 0 : false;
+	}
 
-            bool isTrue = false;
-            if (evaluation->type == ZRDR_STRING)
-            {
-                isTrue = strcmp(evaluation->string, "true") == 0;
-            }
+	if (always)
+		cmd->skip_test = 1;
+	else
+		result = ZAnim.AnimParseExpression(result, tag);
 
-            if (isTrue)
-            {
-                cmd->timeless = true;
-                seq_offset_stack = (u32*)zrealloc(seq_offset_stack, (seq_offset_stack_size + 1) * sizeof(u32));
-
-                if (ZAnim.m_CurSeq)
-                {
-                    seq_offset_stack[seq_offset_stack_size] = ZAnim.m_CurSeq->seq_data_size;
-                }
-
-                seq_offset_stack_size++;
-                return cmd;
-            }
-        }
-
-        cmd = ZAnim.AnimParseExpression(cmd, tag);
-        
-        seq_offset_stack = (u32*)zrealloc(seq_offset_stack, (seq_offset_stack_size + 1) * sizeof(u32));
-
-        if (ZAnim.m_CurSeq)
-        {
-            seq_offset_stack[seq_offset_stack_size] = ZAnim.m_CurSeq->seq_data_size;
-        }
-
-        seq_offset_stack_size++;
-        return cmd;
-    }
+	seq_offset_stack = static_cast<unsigned int*>(_realloc(seq_offset_stack, (seq_offset_stack_size + 1) * sizeof(unsigned int), "zanim_cmd_parse.cpp", 84));
+	seq_offset_stack[seq_offset_stack_size] = ZAnim.m_CurSeq != NULL ? ZAnim.m_CurSeq->seq_data_size : 0;
+	seq_offset_stack_size++;
+	return result;
 }
 
 /* @socom-skeleton stub zAnimLoadEndWhile__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadEndWhile(_zrdr *)
+_zanim_cmd_hdr * zAnimLoadEndWhile(_zrdr *reader)
 {
+	/* 0x1b0b00: END_WHILE: a timeless 8-byte record; pops the open WHILE's offset (the stack is
+	 * freed when it empties), keeps it as its jump and gives that WHILE (in the current
+	 * sequence, which the commands follow) this command's offset. No open WHILE (offset 0):
+	 * the record is freed, NULL. ELF quirk kept: a NULL current sequence writes at the offset. */
+	_zanim_cmd_while *cmd = NULL;
+
+	if (reader != NULL)
+	{
+		cmd = static_cast<_zanim_cmd_while *>(_calloc(1, 8, "zanim_cmd_parse.cpp", 2693));
+		cmd->header.data_size = 8;
+		cmd->header.timeless = 1;
+
+		u32 offset = 0;
+
+		if ((s32)seq_offset_stack_size > 0)
+		{
+			offset = seq_offset_stack[seq_offset_stack_size - 1];
+			seq_offset_stack_size--;
+
+			if (seq_offset_stack_size == 0)
+			{
+				_free(seq_offset_stack, "zanim_cmd_parse.cpp", 113);
+				seq_offset_stack = NULL;
+			}
+		}
+
+		if (offset != 0)
+		{
+			cmd->jump = offset;
+			reinterpret_cast<_zanim_cmd_while *>(reinterpret_cast<char *>(ZAnim.m_CurSeq) + offset)->jump = ZAnim.m_CurSeq != NULL ? ZAnim.m_CurSeq->seq_data_size : 0;
+			return &cmd->header;
+		}
+	}
+
+	if (cmd)
+		_free(cmd, "zanim_cmd_parse.cpp", 2718);
+
+	return NULL;
 }
 
 /* @socom-skeleton stub zAnimLoadBreak__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadBreak(_zrdr *)
+_zanim_cmd_hdr * zAnimLoadBreak(_zrdr *reader)
 {
+	/* 0x1b0a90: BREAK: a timeless 4-byte record */
+	if (reader == NULL)
+		return NULL;
+
+	_zanim_cmd_hdr *cmd = static_cast<_zanim_cmd_hdr *>(_calloc(1, 4, "zanim_cmd_parse.cpp", 2737));
+	cmd->data_size = 4;
+	cmd->timeless = 1;
+	return cmd;
 }
 
 /* @socom-skeleton body zAnimLoad_If__FP5_zrdr */
 _zanim_cmd_hdr* zAnimLoad_If(_zrdr* tag)
 {
-    _zanim_cmd_hdr* cmd = NULL;
+	/* 0x1b09e0: IF: a timeless 8-byte record and its condition's commands; one IF level
+	 * deeper, the record keeps the level */
+	_zanim_cmd_hdr* result = NULL;
 
-    if (tag)
-    {
-        cmd = (_zanim_cmd_hdr*)zcalloc(1, 8);
-        cmd->data_type &= DATATYPE_IF;
-        cmd = ZAnim.AnimParseExpression(cmd, tag);
-    }
+	if (tag != NULL)
+	{
+		_zanim_cmd_if* cmd = static_cast<_zanim_cmd_if*>(_calloc(1, 8, "zanim_cmd_parse.cpp", 2764));
+		cmd->header.data_size = 8;
+		cmd->header.timeless = 1;
+		result = ZAnim.AnimParseExpression(&cmd->header, tag);
+	}
 
-    ZAnim.m_CurSeq->m_IF_NestLevel++;
-    cmd->data_size = ZAnim.m_CurSeq->m_IF_NestLevel;
-    return cmd;
+	ZAnim.m_CurSeq->m_IF_NestLevel++;
+	reinterpret_cast<_zanim_cmd_if*>(result)->nest_level = ZAnim.m_CurSeq->m_IF_NestLevel; /* ELF quirk kept: not NULL-checked */
+	return result;
 }
 
 /* @socom-skeleton body zAnimLoad_ElseIf__FP5_zrdr */
 _zanim_cmd_hdr* zAnimLoad_ElseIf(_zrdr* tag)
 {
-    _zanim_cmd_hdr* cmd = NULL;
+	/* 0x1b0940: ELSEIF: like IF at the current level (not deeper) */
+	_zanim_cmd_hdr* result = NULL;
 
-    if (tag)
-    {
-        cmd = (_zanim_cmd_hdr*)zcalloc(1, 8);
-        cmd->data_type &= DATATYPE_IF;
-        cmd = ZAnim.AnimParseExpression(cmd, tag);
-    }
+	if (tag != NULL)
+	{
+		_zanim_cmd_if* cmd = static_cast<_zanim_cmd_if*>(_calloc(1, 8, "zanim_cmd_parse.cpp", 2764));
+		cmd->header.data_size = 8;
+		cmd->header.timeless = 1;
+		result = ZAnim.AnimParseExpression(&cmd->header, tag);
+	}
 
-    cmd->data_size = ZAnim.m_CurSeq->m_IF_NestLevel;
-    return cmd;
+	reinterpret_cast<_zanim_cmd_if*>(result)->nest_level = ZAnim.m_CurSeq->m_IF_NestLevel; /* ELF quirk kept: not NULL-checked */
+	return result;
 }
 
 /* @socom-skeleton body zAnimLoad_Else__FP5_zrdr */
 _zanim_cmd_hdr* zAnimLoad_Else(_zrdr* tag)
 {
-    _zanim_cmd_hdr* cmd = NULL;
-    
-    if (tag)
-    {
-        cmd = (_zanim_cmd_hdr*)zcalloc(1, 8);
-        cmd->data_type &= DATATYPE_IF;
-    }
+	/* 0x1b08c0: ELSE: a timeless 8-byte record of the current IF level */
+	_zanim_cmd_if* cmd = NULL;
 
-    cmd->data_size = ZAnim.m_CurSeq->m_IF_NestLevel;
-    return cmd;
+	if (tag != NULL)
+	{
+		cmd = static_cast<_zanim_cmd_if*>(_calloc(1, 8, "zanim_cmd_parse.cpp", 2836));
+		cmd->header.data_size = 8;
+		cmd->header.timeless = 1;
+	}
+
+	cmd->nest_level = ZAnim.m_CurSeq->m_IF_NestLevel; /* ELF quirk kept: not NULL-checked */
+	return &cmd->header;
 }
 
 /* @socom-skeleton body zAnimLoad_EndIf__FP5_zrdr */
 _zanim_cmd_hdr* zAnimLoad_EndIf(_zrdr* tag)
 {
-    _zanim_cmd_hdr* cmd = NULL;
+	/* 0x1b0830: ENDIF: a timeless 8-byte record of the current IF level, which it closes */
+	_zanim_cmd_if* cmd = NULL;
 
-    if (tag)
-    {
-        cmd = (_zanim_cmd_hdr*)zcalloc(1, 8);
-        cmd->data_type &= DATATYPE_END_IF;
-    }
+	if (tag != NULL)
+	{
+		cmd = static_cast<_zanim_cmd_if*>(_calloc(1, 8, "zanim_cmd_parse.cpp", 2836));
+		cmd->header.data_size = 8;
+		cmd->header.timeless = 1;
+	}
 
-    cmd->data_size = ZAnim.m_CurSeq->m_IF_NestLevel;
-    ZAnim.m_CurSeq->m_IF_NestLevel--;
-
-    return cmd;
+	cmd->nest_level = ZAnim.m_CurSeq->m_IF_NestLevel; /* ELF quirk kept: not NULL-checked */
+	ZAnim.m_CurSeq->m_IF_NestLevel--;
+	return &cmd->header;
 }
 
 /* @socom-skeleton stub zAnimLoadNodeActive__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadNodeActive(_zrdr *)
+_zanim_cmd_hdr * zAnimLoadNodeActive(_zrdr *reader)
 {
+	/* 0x1b06e0: NODE_ACTIVE: a timeless 8-byte record: NAME (required) and STATE ACTIVE 1
+	 * (also without STATE) or INACTIVE 2; a missing NAME or another state frees the record,
+	 * NULL. ELF quirk kept: STATE's first element is read as a string without a type check.
+	 * The reader is not NULL-checked. */
+	_zanim_cmd_node_test *cmd = static_cast<_zanim_cmd_node_test *>(_calloc(1, 8, "zanim_cmd_parse.cpp", 2882));
+	cmd->header.data_size = 8;
+	cmd->header.timeless = 1;
+
+	_zrdr *tag = zrdr_findtag(reader, "NAME");
+
+	if (tag)
+	{
+		cmd->node_ref = ZAnim.m_CurAnim->LoadNodeNames(tag, NULL, 0, ZAnim.m_CurAnim->node_search_scope);
+		tag = zrdr_findtag(reader, "STATE");
+
+		if (tag == NULL)
+		{
+			cmd->arg = 1;
+			return &cmd->header;
+		}
+
+		if (strcmp(tag->array[1].string, "ACTIVE") == 0)
+		{
+			cmd->arg = 1;
+			return &cmd->header;
+		}
+
+		if (strcmp(tag->array[1].string, "INACTIVE") == 0)
+		{
+			cmd->arg = 2;
+			return &cmd->header;
+		}
+	}
+
+	if (cmd)
+		_free(cmd, "zanim_cmd_parse.cpp", 2930);
+
+	return NULL;
 }
 
 /* @socom-skeleton stub zAnimLoadNodeRendered__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadNodeRendered(_zrdr *)
+_zanim_cmd_hdr * zAnimLoadNodeRendered(_zrdr *reader)
 {
+	/* 0x1b0620: NODE_RENDERED: a timeless 8-byte record holding the node ref of NAME (or of the
+	 * list itself without one). The reader is not NULL-checked. */
+	_zanim_cmd_node_test *cmd = static_cast<_zanim_cmd_node_test *>(_calloc(1, 8, "zanim_cmd_parse.cpp", 2947));
+	cmd->header.data_size = 8;
+	cmd->header.timeless = 1;
+
+	_zrdr *tag = zrdr_findtag(reader, "NAME");
+
+	if (tag == NULL)
+		tag = reader;
+
+	cmd->arg = ZAnim.m_CurAnim->LoadNodeNames(tag, NULL, 0, ZAnim.m_CurAnim->node_search_scope);
+	return &cmd->header;
 }
 
 /* @socom-skeleton stub zAnimLoadRangeTest__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadRangeTest(_zrdr *)
+_zanim_cmd_hdr * zAnimLoadRangeTest(_zrdr *reader)
 {
+	/* 0x1b00c0: RANGE_TEST: a timeless 40-byte record: P1 / P2 (NODE, TRANSLATION,
+	 * INPUT_TRANSLATION), TEST (one of < <= > >= == !=, as a one-string list) and RANGE
+	 * (required; stored squared). A bad TEST or no RANGE frees the record, NULL. */
+	_zanim_cmd_range_test *cmd = static_cast<_zanim_cmd_range_test *>(_calloc(1, 40, "zanim_cmd_parse.cpp", 2979));
+	cmd->header.data_size = 40;
+	cmd->header.timeless = 1;
+
+	_zrdr *point = zrdr_findtag(reader, "P1");
+
+	if (point)
+	{
+		_zrdr *node = zrdr_findtag(point, "NODE");
+
+		if (node)
+		{
+			cmd->flags |= 0x1;
+			CZAnim *anim = ZAnim.m_CurAnim;
+			cmd->node_a = anim->LoadNodeNames(node, NULL, 0, anim->node_search_scope);
+		}
+
+		if (zrdr_findreal(point, "TRANSLATION", cmd->offset_a, 3))
+			cmd->flags |= 0x2;
+
+		if (zrdr_findtag(point, "INPUT_TRANSLATION"))
+			cmd->flags |= 0x4;
+	}
+
+	point = zrdr_findtag(reader, "P2");
+
+	if (point)
+	{
+		_zrdr *node = zrdr_findtag(point, "NODE");
+
+		if (node)
+		{
+			cmd->flags |= 0x8;
+			CZAnim *anim = ZAnim.m_CurAnim;
+			cmd->node_b = anim->LoadNodeNames(node, NULL, 0, anim->node_search_scope);
+		}
+
+		if (zrdr_findreal(point, "TRANSLATION", cmd->offset_b, 3))
+			cmd->flags |= 0x10;
+
+		if (zrdr_findtag(point, "INPUT_TRANSLATION"))
+			cmd->flags |= 0x20;
+	}
+
+	_zrdr *test = zrdr_findtag(reader, "TEST");
+	bool ok = true;
+
+	if (test)
+	{
+		ok = false;
+
+		if (test->type == ZRDR_ARRAY && test->array->integer - 1 == 1 && test->Get(0)->type == ZRDR_STRING)
+		{
+			_zrdr *value = test->Get(0);
+			const char *op = value->type == ZRDR_STRING ? value->string : NULL;
+			ok = true;
+
+			if (strcmp(op, "<") == 0)
+				cmd->flags |= 0x40;
+			else if (strcmp(op, "<=") == 0)
+				cmd->flags |= 0x80;
+			else if (strcmp(op, ">") == 0)
+				cmd->flags |= 0x100;
+			else if (strcmp(op, ">=") == 0)
+				cmd->flags |= 0x200;
+			else if (strcmp(op, "==") == 0)
+				cmd->flags |= 0x400;
+			else if (strcmp(op, "!=") == 0)
+				cmd->flags |= 0x800;
+			else
+				ok = false;
+		}
+	}
+
+	if (ok && zrdr_findreal(reader, "RANGE", &cmd->value, 1))
+	{
+		cmd->value = cmd->value * cmd->value;
+		return &cmd->header;
+	}
+
+	if (cmd)
+		_free(cmd, "zanim_cmd_parse.cpp", 3076);
+
+	return NULL;
 }
 
 /* @socom-skeleton stub zAnimLoadRandomWeight__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadRandomWeight(_zrdr *)
+_zanim_cmd_hdr * zAnimLoadRandomWeight(_zrdr *reader)
 {
+	/* 0x1aff50: RANDOM_WEIGHT [weight]: a timeless 8-byte record; the weight is the first
+	 * element when it is a number, else 0.5. The reader is not NULL-checked. */
+	_zanim_cmd_weight *cmd = static_cast<_zanim_cmd_weight *>(_calloc(1, 8, "zanim_cmd_parse.cpp", 3094));
+	cmd->header.data_size = 8;
+	cmd->header.timeless = 1;
+
+	if (reader->type == ZRDR_ARRAY && (reader->IsArray() ? reader->array->integer - 1 : 0) != 0)
+	{
+		_zrdr *item = reader->Get(0);
+
+		if (item->type == ZRDR_REAL || item->type == ZRDR_INTEGER)
+		{
+			cmd->weight = reader->Get(0)->GetReal();
+			return &cmd->header;
+		}
+	}
+
+	cmd->weight = 0.5f;
+	return &cmd->header;
 }
 
 /* @socom-skeleton stub zAnimLoadFail__FP5_zrdr */
 _zanim_cmd_hdr * zAnimLoadFail(_zrdr *)
 {
+	/* 0x1afef0: FAIL: a timeless 4-byte record (the reader is not used, not NULL-checked) */
+	_zanim_cmd_hdr *cmd = static_cast<_zanim_cmd_hdr *>(_calloc(1, 4, "zanim_cmd_parse.cpp", 3125));
+	cmd->data_size = 4;
+	cmd->timeless = 1;
+	return cmd;
 }
 
 /* @socom-skeleton stub zAnimLoadAnimHealthTest__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadAnimHealthTest(_zrdr *)
+_zanim_cmd_hdr * zAnimLoadAnimHealthTest(_zrdr *reader)
 {
+	/* 0x1afbd0: ANIM_HEALTH [min (max)]: a 12-byte record (not timeless) holding min; a numeric
+	 * second element sets flag 1 (a range) and appends max (16 bytes). An empty list or no list:
+	 * the record is freed, NULL. A non-numeric min stays 0. */
+	if (reader == NULL)
+		return NULL;
+
+	_zanim_cmd_health_test *cmd = static_cast<_zanim_cmd_health_test *>(_calloc(1, 12, "zanim_cmd_parse.cpp", 3148));
+	cmd->header.data_size = 12;
+
+	if (reader->type == ZRDR_ARRAY && (reader->IsArray() ? reader->array->integer - 1 : 0) != 0)
+	{
+		_zrdr *item = reader->Get(0);
+
+		if (item->type == ZRDR_REAL || item->type == ZRDR_INTEGER)
+			cmd->min = reader->Get(0)->GetReal();
+
+		if ((u32)(reader->IsArray() ? reader->array->integer - 1 : 0) < 2)
+			return &cmd->header;
+
+		item = reader->Get(1);
+
+		if (!(item->type == ZRDR_REAL || item->type == ZRDR_INTEGER))
+			return &cmd->header;
+
+		cmd->flags |= 0x1;
+		f32 max = reader->Get(1)->GetReal();
+		return zAnimCmdAddData(&cmd->header, &max, sizeof(max)); /* inlined in the ELF */
+	}
+
+	if (cmd)
+		_free(cmd, "zanim_cmd_parse.cpp", 3178);
+
+	return NULL;
 }
 
 /* @socom-skeleton stub zAnimLoadAnimLODTest__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadAnimLODTest(_zrdr *)
+_zanim_cmd_hdr * zAnimLoadAnimLODTest(_zrdr *reader)
 {
+	/* 0x1af650: ANIM_LOD [op level]: an 8-byte record (not timeless); each element is an
+	 * operator ("==" 1, "<" 2, "<=" 4, ">" 8, ">=" 0x10, the default) or a level (LOW 0,
+	 * MEDIUM 1, HIGH 2); NULL without a list. ELF quirks kept: ">=" is tested twice; a
+	 * non-string element passes NULL to strcmp. */
+	if (reader == NULL || reader->type != ZRDR_ARRAY)
+		return NULL;
+
+	_zanim_cmd_lod_test *cmd = static_cast<_zanim_cmd_lod_test *>(_calloc(1, 8, "zanim_cmd_parse.cpp", 3202));
+	cmd->header.data_size = 8;
+	cmd->flags = 0x10;
+
+	for (u32 i = 0; i < (u32)(reader->IsArray() ? reader->array->integer - 1 : 0); i++)
+	{
+		_zrdr *item;
+
+		item = reader->Get(i);
+
+		if (strcmp(item->type == ZRDR_STRING ? item->string : NULL, "==") == 0)
+		{
+			cmd->flags = 0x1;
+			continue;
+		}
+
+		item = reader->Get(i);
+
+		if (strcmp(item->type == ZRDR_STRING ? item->string : NULL, "<") == 0)
+		{
+			cmd->flags = 0x2;
+			continue;
+		}
+
+		item = reader->Get(i);
+
+		if (strcmp(item->type == ZRDR_STRING ? item->string : NULL, "<=") == 0)
+		{
+			cmd->flags = 0x4;
+			continue;
+		}
+
+		item = reader->Get(i);
+
+		if (strcmp(item->type == ZRDR_STRING ? item->string : NULL, ">") == 0)
+		{
+			cmd->flags = 0x8;
+			continue;
+		}
+
+		item = reader->Get(i);
+
+		if (strcmp(item->type == ZRDR_STRING ? item->string : NULL, ">=") == 0)
+		{
+			cmd->flags = 0x10;
+			continue;
+		}
+
+		item = reader->Get(i);
+
+		if (strcmp(item->type == ZRDR_STRING ? item->string : NULL, ">=") == 0) /* ELF quirk kept: tested twice */
+		{
+			cmd->flags = 0x10;
+			continue;
+		}
+
+		item = reader->Get(i);
+
+		if (strcmp(item->type == ZRDR_STRING ? item->string : NULL, "LOW") == 0)
+		{
+			cmd->lod = 0;
+			continue;
+		}
+
+		item = reader->Get(i);
+
+		if (strcmp(item->type == ZRDR_STRING ? item->string : NULL, "MEDIUM") == 0)
+		{
+			cmd->lod = 1;
+			continue;
+		}
+
+		item = reader->Get(i);
+
+		if (strcmp(item->type == ZRDR_STRING ? item->string : NULL, "HIGH") == 0)
+			cmd->lod = 2;
+	}
+
+	return &cmd->header;
 }
 
 /* @socom-skeleton stub zAnimLoadCallAnim__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadCallAnim(_zrdr *)
+_zanim_cmd_hdr * zAnimLoadCallAnim(_zrdr *reader)
 {
+	/* 0x1af2f0: CALL_ANIMATION: a timeless 24-byte record: NAME (wildcards applied; required,
+	 * else the record is freed and NULL), LOCAL_NAME, STOP_ON_EXIT 0x40, WITH_INPUT_ARGS 1,
+	 * OPERAND_NODE 2 (node[0]), WITH_NODE 4 (node[1]), WITH_TRANSLATION (AT_NODE 8 (node[2])
+	 * with OFFSET [x y z] 0x10; XYZ [x y z] 0x20), WAIT_FOR_COMPLETION 0x80. The reader is not
+	 * NULL-checked. */
+	CZAnim *anim = ZAnim.m_CurAnim;
+	_zanim_cmd_call_anim *cmd = static_cast<_zanim_cmd_call_anim *>(_calloc(1, 24, "zanim_cmd_parse.cpp", 3252));
+	cmd->header.data_size = 24;
+	cmd->header.timeless = 1;
+
+	_zrdr *tag = zrdr_findtag(reader, "NAME");
+
+	if (tag == NULL)
+	{
+		if (cmd)
+			_free(cmd, "zanim_cmd_parse.cpp", 3322);
+
+		return NULL;
+	}
+
+	_zrdr *item = tag->Get(0);
+	const char *name = item->type == ZRDR_STRING ? item->string : NULL; /* ELF quirk kept: an empty list reads through NULL */
+	cmd->name_index = anim->AddName(ZAnimWildcardApply(name));
+
+	tag = zrdr_findtag(reader, "LOCAL_NAME");
+
+	if (tag)
+	{
+		item = tag->Get(0);
+		cmd->local_name_index = anim->AddName(item->type == ZRDR_STRING ? item->string : NULL);
+	}
+	else
+	{
+		cmd->local_name_index = 0;
+	}
+
+	if (zrdr_findtag(reader, "STOP_ON_EXIT"))
+		cmd->flags |= 0x40;
+
+	if (zrdr_findtag(reader, "WITH_INPUT_ARGS"))
+		cmd->flags |= 0x1;
+
+	tag = zrdr_findtag(reader, "OPERAND_NODE");
+
+	if (tag)
+	{
+		cmd->flags |= 0x2;
+		cmd->node[0] = ZAnim.m_CurAnim->LoadNodeNames(tag, NULL, 0, ZAnim.m_CurAnim->node_search_scope);
+	}
+
+	tag = zrdr_findtag(reader, "WITH_NODE");
+
+	if (tag)
+	{
+		cmd->flags |= 0x4;
+		cmd->node[1] = ZAnim.m_CurAnim->LoadNodeNames(tag, NULL, 0, ZAnim.m_CurAnim->node_search_scope);
+	}
+
+	_zrdr *translation = zrdr_findtag(reader, "WITH_TRANSLATION");
+
+	if (translation)
+	{
+		tag = zrdr_findtag(translation, "AT_NODE");
+
+		if (tag)
+		{
+			cmd->flags |= 0x8;
+			cmd->node[2] = ZAnim.m_CurAnim->LoadNodeNames(tag, NULL, 0, ZAnim.m_CurAnim->node_search_scope);
+
+			if (zrdr_findreal(tag, "OFFSET", cmd->position, 3))
+				cmd->flags |= 0x10;
+		}
+
+		if (zrdr_findreal(translation, "XYZ", cmd->position, 3))
+			cmd->flags |= 0x20;
+	}
+
+	if (zrdr_findtag(reader, "WAIT_FOR_COMPLETION"))
+		cmd->flags |= 0x80;
+
+	return &cmd->header;
 }
 
 /* @socom-skeleton stub zAnimLoadStopAnim__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadStopAnim(_zrdr *)
+_zanim_cmd_hdr * zAnimLoadStopAnim(_zrdr *reader)
 {
+	/* 0x1af1d0: STOP_ANIMATION: a timeless 8-byte record holding NAME, the anim's name (wildcards applied) as a local name index;
+	 * no NAME: the record is freed, NULL. The reader is not NULL-checked. */
+	CZAnim *anim = ZAnim.m_CurAnim;
+	_zanim_cmd_index8 *cmd = static_cast<_zanim_cmd_index8 *>(_calloc(1, 8, "zanim_cmd_parse.cpp", 3340));
+	cmd->header.data_size = 8;
+	cmd->header.timeless = 1;
+
+	_zrdr *tag = zrdr_findtag(reader, "NAME");
+
+	if (tag == NULL)
+	{
+		_free(cmd, "zanim_cmd_parse.cpp", 3352);
+		return NULL;
+	}
+
+	_zrdr *item = tag->Get(0);
+	const char *name = item->type == ZRDR_STRING ? item->string : NULL; /* ELF quirk kept: an empty list reads through NULL */
+	cmd->name_index = anim->AddName(ZAnimWildcardApply(name));
+
+	return &cmd->header;
 }
 
 /* @socom-skeleton stub zAnimLoadPauseAnim__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadPauseAnim(_zrdr *)
+_zanim_cmd_hdr * zAnimLoadPauseAnim(_zrdr *reader)
 {
+	/* 0x1af0d0: PAUSE_ANIMATION: a timeless 8-byte record holding NAME, the anim's name (wildcards applied) as a local name index;
+	 * ELF quirk kept: no NAME keeps the record with index 0. The reader is not NULL-checked. */
+	CZAnim *anim = ZAnim.m_CurAnim;
+	_zanim_cmd_index8 *cmd = static_cast<_zanim_cmd_index8 *>(_calloc(1, 8, "zanim_cmd_parse.cpp", 3370));
+	cmd->header.data_size = 8;
+	cmd->header.timeless = 1;
+
+	_zrdr *tag = zrdr_findtag(reader, "NAME");
+
+	if (tag)
+	{
+		_zrdr *item = tag->Get(0);
+		const char *name = item->type == ZRDR_STRING ? item->string : NULL; /* ELF quirk kept: an empty list reads through NULL */
+		cmd->name_index = anim->AddName(ZAnimWildcardApply(name));
+	}
+
+	return &cmd->header;
 }
 
 /* @socom-skeleton stub zAnimLoadResumeAnim__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadResumeAnim(_zrdr *)
+_zanim_cmd_hdr * zAnimLoadResumeAnim(_zrdr *reader)
 {
+	/* 0x1aefb0: RESUME_ANIMATION: a timeless 8-byte record holding NAME, the anim's name (wildcards applied) as a local name index;
+	 * no NAME: the record is freed, NULL. The reader is not NULL-checked. */
+	CZAnim *anim = ZAnim.m_CurAnim;
+	_zanim_cmd_index8 *cmd = static_cast<_zanim_cmd_index8 *>(_calloc(1, 8, "zanim_cmd_parse.cpp", 3397));
+	cmd->header.data_size = 8;
+	cmd->header.timeless = 1;
+
+	_zrdr *tag = zrdr_findtag(reader, "NAME");
+
+	if (tag == NULL)
+	{
+		_free(cmd, "zanim_cmd_parse.cpp", 3409);
+		return NULL;
+	}
+
+	_zrdr *item = tag->Get(0);
+	const char *name = item->type == ZRDR_STRING ? item->string : NULL; /* ELF quirk kept: an empty list reads through NULL */
+	cmd->name_index = anim->AddName(ZAnimWildcardApply(name));
+
+	return &cmd->header;
 }
 
 /* @socom-skeleton stub zAnimLoadInvalidateAnim__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadInvalidateAnim(_zrdr *)
+_zanim_cmd_hdr * zAnimLoadInvalidateAnim(_zrdr *reader)
 {
+	/* 0x1aee90: INVALIDATE_ANIMATION: a timeless 8-byte record holding NAME, the anim's name (wildcards applied) as a local name index;
+	 * no NAME: the record is freed, NULL. The reader is not NULL-checked. */
+	CZAnim *anim = ZAnim.m_CurAnim;
+	_zanim_cmd_index8 *cmd = static_cast<_zanim_cmd_index8 *>(_calloc(1, 8, "zanim_cmd_parse.cpp", 3427));
+	cmd->header.data_size = 8;
+	cmd->header.timeless = 1;
+
+	_zrdr *tag = zrdr_findtag(reader, "NAME");
+
+	if (tag == NULL)
+	{
+		cmd->name_index = 0;
+		_free(cmd, "zanim_cmd_parse.cpp", 3444);
+		return NULL;
+	}
+
+	_zrdr *item = tag->Get(0);
+	const char *name = item->type == ZRDR_STRING ? item->string : NULL; /* ELF quirk kept: an empty list reads through NULL */
+	cmd->name_index = anim->AddName(ZAnimWildcardApply(name));
+
+	return &cmd->header;
 }
 
 /* @socom-skeleton stub zAnimLoadCallSequence__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadCallSequence(_zrdr *)
+_zanim_cmd_hdr * zAnimLoadCallSequence(_zrdr *reader)
 {
+	/* 0x1aed80: CALL_SEQUENCE: a timeless 8-byte record holding NAME, the sequence's name as a local name index;
+	 * no NAME: the record is freed, NULL. The reader is not NULL-checked. */
+	CZAnim *anim = ZAnim.m_CurAnim;
+	_zanim_cmd_index8 *cmd = static_cast<_zanim_cmd_index8 *>(_calloc(1, 8, "zanim_cmd_parse.cpp", 3462));
+	cmd->header.data_size = 8;
+	cmd->header.timeless = 1;
+
+	_zrdr *tag = zrdr_findtag(reader, "NAME");
+
+	if (tag == NULL)
+	{
+		_free(cmd, "zanim_cmd_parse.cpp", 3474);
+		return NULL;
+	}
+
+	_zrdr *item = tag->Get(0);
+	const char *name = item->type == ZRDR_STRING ? item->string : NULL; /* ELF quirk kept: an empty list reads through NULL */
+	cmd->name_index = anim->AddName(name);
+
+	return &cmd->header;
 }
 
 /* @socom-skeleton stub zAnimLoadStopSequence__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadStopSequence(_zrdr *)
+_zanim_cmd_hdr * zAnimLoadStopSequence(_zrdr *reader)
 {
+	/* 0x1aec70: STOP_SEQUENCE: a timeless 8-byte record holding NAME, the sequence's name as a local name index;
+	 * no NAME: the record is freed, NULL. The reader is not NULL-checked. */
+	CZAnim *anim = ZAnim.m_CurAnim;
+	_zanim_cmd_index8 *cmd = static_cast<_zanim_cmd_index8 *>(_calloc(1, 8, "zanim_cmd_parse.cpp", 3492));
+	cmd->header.data_size = 8;
+	cmd->header.timeless = 1;
+
+	_zrdr *tag = zrdr_findtag(reader, "NAME");
+
+	if (tag == NULL)
+	{
+		_free(cmd, "zanim_cmd_parse.cpp", 3504);
+		return NULL;
+	}
+
+	_zrdr *item = tag->Get(0);
+	const char *name = item->type == ZRDR_STRING ? item->string : NULL; /* ELF quirk kept: an empty list reads through NULL */
+	cmd->name_index = anim->AddName(name);
+
+	return &cmd->header;
 }
 
 /* @socom-skeleton stub GetTranslation__18CZAnimObjectMotionFP5_zrdrPfPfPfPf */
-void CZAnimObjectMotion::GetTranslation(_zrdr *, float *, float *, float *, float *)
+bool CZAnimObjectMotion::GetTranslation(_zrdr *reader, float *azimuth, float *zenith, float *speed, float *accel)
 {
+	/* 0x1aea20: [azimuth zenith speed acceleration]: each missing number is 0; always true.
+	 * this (the OBJECT_MOTION record, as zAnimLoadObjectMotion passes it) is not used. */
+	u32 len = reader->type == ZRDR_ARRAY ? reader->array->integer - 1 : 0;
+	*azimuth = len != 0 ? reader->Get(0)->GetReal() : 0.0f;
+
+	len = reader->type == ZRDR_ARRAY ? reader->array->integer - 1 : 0;
+	*zenith = len >= 2 ? reader->Get(1)->GetReal() : 0.0f;
+
+	len = reader->type == ZRDR_ARRAY ? reader->array->integer - 1 : 0;
+	*speed = len >= 3 ? reader->Get(2)->GetReal() : 0.0f;
+
+	len = reader->type == ZRDR_ARRAY ? reader->array->integer - 1 : 0;
+	*accel = len >= 4 ? reader->Get(3)->GetReal() : 0.0f;
+
+	return true;
 }
 
 /* @socom-skeleton stub zAnimLoadObjectMotion__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadObjectMotion(_zrdr *)
+_zanim_cmd_hdr * zAnimLoadObjectMotion(_zrdr *reader)
 {
+	/* 0x1ac7d0: OBJECT_MOTION (ballistic motion with contacts): NAME, RELATIVE_NODE, RUN_TIME;
+	 * TRANSLATION [azimuth zenith speed accel] (or (INPUT_NORMAL [speed accel]),
+	 * (INPUT_VELOCITY [speed accel] NORMALIZE REFLECT ROTATE), (REFLECTED_INPUT_VELOCITY [speed
+	 * accel] NORMALIZE)), else TRANSLATION_RANGE_MIN / _MAX (random, range = max - min);
+	 * INPUT_VELOCITY (SCALE, ROTATE); PERTURB_TRANSLATION (MIN, MAX); GRAVITY (MULTIPLIER,
+	 * TERMINAL_VELOCITY); DO_ALTITUDES, DO_INTERSECTIONS; BOUNCE_ELASTICITY (0.3); BOUNCE_SOUND
+	 * (NAME, FULL_VOLUME_VELOCITY); BOUNCE_SEQUENCE; BOUNCE_MATERIAL (NAME, SOUND, ELASTICITY,
+	 * FULL_VOLUME_VELOCITY, SEQUENCE) repeated; XYZ_ROTATION (degrees); FORWARD_ROTATION
+	 * (DISTANCE | TIME, degrees); SCALE. A 124-byte record + sub-records, not timeless.
+	 * ELF quirks kept: PERTURB_TRANSLATION stores MAX as given (the begin uses it as a range);
+	 * an unknown FORWARD_ROTATION kind drops the whole command (NULL); DO_INTERSECTIONS
+	 * implies DO_ALTITUDES. */
+	CZAnim *anim = ZAnim.m_CurAnim;
+
+	if (reader == NULL)
+		return NULL;
+
+	_zanim_cmd_motion *cmd = (_zanim_cmd_motion *)zcalloc(1, sizeof(_zanim_cmd_motion));
+	cmd->header.data_size = sizeof(_zanim_cmd_motion);
+
+	_zrdr *tag = zrdr_findtag(reader, "NAME");
+
+	if (tag)
+		cmd->node_ref = ZAnim.m_CurAnim->LoadNodeNames(tag, NULL, 0, ZAnim.m_CurAnim->node_search_scope);
+
+	tag = zrdr_findtag(reader, "RELATIVE_NODE");
+
+	if (tag)
+		cmd->rel_node_ref = ZAnim.m_CurAnim->LoadNodeNames(tag, NULL, 0, ZAnim.m_CurAnim->node_search_scope);
+	else
+		cmd->rel_node_ref = 0;
+
+	if (zrdr_findreal(reader, "RUN_TIME", &cmd->duration, 1))
+	{
+		cmd->flags |= 0x1;
+
+		if (cmd->duration <= 0.0f)
+			cmd->duration = 0.001f;
+	}
+	else
+	{
+		cmd->duration = 1.0f;
+	}
+
+	_zrdr *sub;
+	_zrdr *item;
+	u32 len;
+
+	tag = zrdr_findtag(reader, "TRANSLATION");
+
+	if (tag)
+	{
+		/* azimuth, zenith (degrees), speed, acceleration */
+		f32 base[4] = { 0.0f, 0.0f, 0.0f, 0.0f }; /* port: zeroed - the ELF stores stack garbage in the slots a form leaves unset */
+		cmd->flags |= 0x8;
+
+		if ((sub = zrdr_findtag(tag, "INPUT_NORMAL")) != NULL)
+		{
+			cmd->flags |= 0x1000;
+			len = sub->type == ZRDR_ARRAY ? sub->array->integer - 1 : 0;
+			base[2] = len != 0 ? sub->Get(0)->GetReal() : 0.0f;
+			len = sub->type == ZRDR_ARRAY ? sub->array->integer - 1 : 0;
+			base[3] = len >= 2 ? sub->Get(1)->GetReal() : 0.0f;
+		}
+		else if ((sub = zrdr_findtag(tag, "INPUT_VELOCITY")) != NULL)
+		{
+			cmd->flags |= 0x2000;
+			len = sub->type == ZRDR_ARRAY ? sub->array->integer - 1 : 0;
+			base[2] = len != 0 ? sub->Get(0)->GetReal() : 0.0f;
+			len = sub->type == ZRDR_ARRAY ? sub->array->integer - 1 : 0;
+			base[3] = len >= 2 ? sub->Get(1)->GetReal() : 0.0f;
+
+			if (zrdr_findtag(sub, "NORMALIZE"))
+				cmd->flags |= 0x8000;
+
+			if (zrdr_findtag(sub, "REFLECT"))
+				cmd->flags |= 0x4000;
+
+			if (zrdr_findtag(sub, "ROTATE"))
+				cmd->flags |= 0x20000;
+		}
+		else if ((sub = zrdr_findtag(tag, "REFLECTED_INPUT_VELOCITY")) != NULL)
+		{
+			cmd->flags |= 0x4000;
+			len = sub->type == ZRDR_ARRAY ? sub->array->integer - 1 : 0;
+			base[2] = len != 0 ? sub->Get(0)->GetReal() : 0.0f;
+			len = sub->type == ZRDR_ARRAY ? sub->array->integer - 1 : 0;
+			base[3] = len >= 2 ? sub->Get(1)->GetReal() : 0.0f;
+
+			if (zrdr_findtag(sub, "NORMALIZE"))
+				cmd->flags |= 0x8000;
+		}
+		else
+		{
+			reinterpret_cast<CZAnimObjectMotion *>(cmd)->GetTranslation(tag, &base[0], &base[1], &base[2], &base[3]);
+
+			/* the direction from the azimuth and zenith, written out here (as
+			 * zAnimGetDirectionFromAzimuthZenith 0x1b7b90 computes it), then the initial
+			 * velocity and acceleration along it */
+			f32 azimuth = base[0];
+			f32 zenith = base[1];
+			cmd->direction[0] = sinf(0.017453292f * azimuth);
+			cmd->direction[2] = cosf(0.017453292f * azimuth);
+			f32 y = 0.011111111f * zenith;
+			cmd->direction[0] = -cmd->direction[0];
+			cmd->direction[1] = 0.0f;
+			cmd->direction[2] = -cmd->direction[2];
+			cmd->direction[1] = y;
+			f32 flat = y < 0.0f ? 1.0f + y : 1.0f - y;
+			cmd->direction[0] *= flat;
+			cmd->direction[2] *= flat;
+
+			CPnt3D v;
+			reinterpret_cast<CPnt3D *>(cmd->direction)->Scale(base[2], &v);
+			cmd->velocity0[0] = v.x;
+			cmd->velocity0[1] = v.y;
+			cmd->velocity0[2] = v.z;
+			reinterpret_cast<CPnt3D *>(cmd->direction)->Scale(base[3], &v);
+			cmd->accel0[0] = v.x;
+			cmd->accel0[1] = v.y;
+			cmd->accel0[2] = v.z;
+		}
+
+		cmd->base_offset = cmd->header.data_size;
+		cmd = (_zanim_cmd_motion *)zAnimCmdAddData(&cmd->header, base, sizeof(base));
+	}
+	else
+	{
+		f32 min[4] = { 0.0f, 0.0f, 0.0f, 0.0f }; /* port: zeroed (unset in the ELF without a MIN) */
+		f32 range[4];
+
+		tag = zrdr_findtag(reader, "TRANSLATION_RANGE_MIN");
+
+		if (tag)
+		{
+			cmd->flags |= 0x10;
+			reinterpret_cast<CZAnimObjectMotion *>(cmd)->GetTranslation(tag, &min[0], &min[1], &min[2], &min[3]);
+			cmd->base_offset = cmd->header.data_size;
+			cmd = (_zanim_cmd_motion *)zAnimCmdAddData(&cmd->header, min, sizeof(min));
+		}
+
+		tag = zrdr_findtag(reader, "TRANSLATION_RANGE_MAX");
+
+		if (tag)
+		{
+			cmd->flags |= 0x10;
+			reinterpret_cast<CZAnimObjectMotion *>(cmd)->GetTranslation(tag, &range[0], &range[1], &range[2], &range[3]);
+			range[0] = range[0] - min[0];
+			range[1] = range[1] - min[1];
+			range[2] = range[2] - min[2];
+			range[3] = range[3] - min[3];
+			cmd->range_offset = cmd->header.data_size;
+			cmd = (_zanim_cmd_motion *)zAnimCmdAddData(&cmd->header, range, sizeof(range));
+		}
+	}
+
+	tag = zrdr_flat_findtag_startidx(reader, "INPUT_VELOCITY", 0);
+
+	if (tag)
+	{
+		if (!(cmd->flags & 0x8) && !(cmd->flags & 0x10))
+			cmd->flags |= 0x8;
+
+		cmd->flags |= 0x800;
+
+		if (!zrdr_findreal(tag, "SCALE", &cmd->input_scale, 1))
+			cmd->input_scale = 1.0f;
+
+		if (zrdr_findtag(tag, "ROTATE"))
+			cmd->flags |= 0x20000;
+	}
+
+	tag = zrdr_findtag(reader, "PERTURB_TRANSLATION");
+
+	if (tag)
+	{
+		f32 perturb[8] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }; /* MIN, MAX */
+		bool both = true;
+
+		sub = zrdr_findtag(tag, "MIN");
+
+		if (sub)
+			reinterpret_cast<CZAnimObjectMotion *>(cmd)->GetTranslation(sub, &perturb[0], &perturb[1], &perturb[2], &perturb[3]);
+		else
+			both = false;
+
+		sub = zrdr_findtag(tag, "MAX");
+
+		if (sub)
+			reinterpret_cast<CZAnimObjectMotion *>(cmd)->GetTranslation(sub, &perturb[4], &perturb[5], &perturb[6], &perturb[7]);
+		else
+			both = false;
+
+		if (both)
+		{
+			cmd->offset_offset = cmd->header.data_size;
+			cmd = (_zanim_cmd_motion *)zAnimCmdAddData(&cmd->header, perturb, sizeof(perturb));
+		}
+	}
+
+	tag = zrdr_findtag(reader, "GRAVITY");
+
+	if (tag)
+	{
+		cmd->flags |= 0x2;
+		cmd->gravity_scale = 1.0f;
+		len = tag->type == ZRDR_ARRAY ? tag->array->integer - 1 : 0;
+
+		if (len != 0)
+		{
+			f32 multiplier;
+
+			if (zrdr_findreal(tag, "MULTIPLIER", &multiplier, 1))
+				cmd->gravity_scale = multiplier;
+		}
+
+		if (zrdr_findreal(tag, "TERMINAL_VELOCITY", &cmd->drag, 1))
+			cmd->drag = -(1.0f / cmd->drag);
+		else
+			cmd->drag = 1.0f / (10.0f * (cmd->gravity_scale * ZAnim.m_gravity));
+	}
+
+	if (zrdr_findtag(reader, "DO_ALTITUDES"))
+		cmd->flags |= 0x40;
+
+	if (zrdr_findtag(reader, "DO_INTERSECTIONS"))
+		cmd->flags |= 0x80;
+
+	if (!zrdr_findreal(reader, "BOUNCE_ELASTICITY", &cmd->elasticity, 1))
+		cmd->elasticity = 0.3f;
+
+	tag = zrdr_findtag(reader, "BOUNCE_SOUND");
+
+	if (tag)
+	{
+		cmd->flags |= 0x20;
+		sub = zrdr_flat_findtag_startidx(tag, "NAME", 0);
+
+		if (sub)
+		{
+			if (sub->type == ZRDR_ARRAY && sub->array->integer - 1 != 0)
+			{
+				item = sub->Get(0);
+				cmd->impact_sound = anim->AddName(item->type == ZRDR_STRING ? item->string : NULL);
+			}
+		}
+		else if (tag->type == ZRDR_ARRAY)
+		{
+			/* (BOUNCE_SOUND name ...): the first value, unless it is the FULL_VOLUME_VELOCITY tag */
+			item = tag->Get(0);
+
+			if (item->type == ZRDR_STRING && strcmp(item->string, "FULL_VOLUME_VELOCITY") != 0)
+				cmd->impact_sound = anim->AddName(item->string);
+		}
+
+		sub = zrdr_flat_findtag_startidx(tag, "FULL_VOLUME_VELOCITY", 0);
+
+		if (sub)
+			cmd->sound_speed = sub->Get(0)->GetReal();
+		else
+			cmd->sound_speed = -1.0f;
+	}
+
+	tag = zrdr_findtag(reader, "BOUNCE_SEQUENCE");
+
+	if (tag)
+	{
+		item = tag->Get(0);
+		cmd->impact_sequence = anim->AddName(item->type == ZRDR_STRING ? item->string : NULL);
+	}
+	else
+	{
+		cmd->impact_sequence = 0;
+	}
+
+	for (tag = zrdr_findtag(reader, "BOUNCE_MATERIAL"); tag != NULL; tag = zrdr_nexttag(reader, "BOUNCE_MATERIAL", tag))
+	{
+		_zanim_motion_material entry;
+		memset(&entry, 0, sizeof(entry));
+
+		sub = zrdr_findtag(tag, "NAME");
+
+		if (sub && sub->type == ZRDR_ARRAY && sub->array->integer - 1 != 0 && sub->Get(0)->type == ZRDR_STRING)
+			entry.material = CMaterialExArray::ResolveMaterialIndex(sub->Get(0)->string);
+
+		entry.sound = 0;
+		sub = zrdr_findtag(tag, "SOUND");
+
+		if (sub && sub->type == ZRDR_ARRAY && sub->array->integer - 1 != 0 && sub->Get(0)->type == ZRDR_STRING)
+		{
+			cmd->flags |= 0x20;
+			entry.sound = anim->AddName(sub->Get(0)->string);
+		}
+
+		if (zrdr_findreal(tag, "ELASTICITY", &entry.elasticity, 1))
+			entry.has_elasticity = 1;
+
+		if (zrdr_findreal(tag, "FULL_VOLUME_VELOCITY", &entry.sound_speed, 1))
+			entry.has_sound_speed = 1;
+
+		entry.sequence = 0;
+		sub = zrdr_findtag(tag, "SEQUENCE");
+
+		if (sub && sub->type == ZRDR_ARRAY && sub->array->integer - 1 != 0 && sub->Get(0)->type == ZRDR_STRING)
+			entry.sequence = anim->AddName(sub->Get(0)->string);
+
+		if (cmd->material_count == 0)
+			cmd->material_offset = cmd->header.data_size;
+
+		cmd = (_zanim_cmd_motion *)zAnimCmdAddData(&cmd->header, &entry, sizeof(entry));
+		cmd->material_count++;
+	}
+
+	tag = zrdr_findtag(reader, "XYZ_ROTATION");
+
+	if (tag && (tag->type == ZRDR_ARRAY ? tag->array->integer - 1 : 0) >= 3)
+	{
+		/* initial (x y z), change (x y z), current - the begin sets the last three */
+		f32 spin[9] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }; /* port: zeroed (the ELF copies [6..8] from the stack) */
+		cmd->flags |= 0x100;
+		len = tag->array->integer - 1;
+		spin[0] = tag->Get(0)->GetReal();
+		spin[1] = tag->Get(1)->GetReal();
+		spin[2] = tag->Get(2)->GetReal();
+		spin[0] = 0.017453292f * spin[0];
+		spin[1] = 0.017453292f * spin[1];
+		spin[2] = 0.017453292f * spin[2];
+
+		if (len >= 6)
+		{
+			spin[3] = tag->Get(3)->GetReal();
+			spin[4] = tag->Get(4)->GetReal();
+			spin[5] = tag->Get(5)->GetReal();
+			spin[3] = 0.017453292f * spin[3];
+			spin[4] = 0.017453292f * spin[4];
+			spin[5] = 0.017453292f * spin[5];
+		}
+		else
+		{
+			spin[5] = 0.0f;
+			spin[4] = 0.0f;
+			spin[3] = 0.0f;
+		}
+
+		cmd->spin_offset = cmd->header.data_size;
+		cmd = (_zanim_cmd_motion *)zAnimCmdAddData(&cmd->header, spin, sizeof(spin));
+	}
+
+	tag = zrdr_findtag(reader, "FORWARD_ROTATION");
+
+	if (tag && (tag->type == ZRDR_ARRAY ? tag->array->integer - 1 : 0) != 0 && tag->Get(0)->type == ZRDR_STRING)
+	{
+		if (strcmp(tag->Get(0)->string, "DISTANCE") == 0)
+		{
+			cmd->flags |= 0x200;
+		}
+		else if (strcmp(tag->Get(0)->string, "TIME") == 0)
+		{
+			cmd->flags |= 0x400;
+		}
+		else
+		{
+			zfree(cmd);
+			return NULL;
+		}
+
+		/* initial roll, rate, current - the begin sets the last */
+		f32 roll[3] = { 0.0f, 0.0f, 0.0f }; /* port: zeroed (the ELF copies [2] from the stack) */
+		len = tag->array->integer - 1;
+		item = len >= 2 ? tag->Get(1) : NULL;
+
+		if (item && (item->type == ZRDR_REAL || item->type == ZRDR_INTEGER))
+			roll[0] = 0.017453292f * item->GetReal();
+		else
+			roll[0] = 0.0f;
+
+		item = len >= 3 ? tag->Get(2) : NULL;
+
+		if (item && (item->type == ZRDR_REAL || item->type == ZRDR_INTEGER))
+			roll[1] = 0.017453292f * item->GetReal();
+		else
+			roll[1] = 0.0f;
+
+		cmd->roll_offset = cmd->header.data_size;
+		cmd = (_zanim_cmd_motion *)zAnimCmdAddData(&cmd->header, roll, sizeof(roll));
+	}
+
+	tag = zrdr_flat_findtag_startidx(reader, "SCALE", 0);
+
+	if (tag)
+	{
+		/* initial (x y z), change (x y z), current: [s], [s ds], [x y z] or [x y z dx dy dz] */
+		f32 scale[9] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+		cmd->flags |= 0x10000;
+		len = tag->type == ZRDR_ARRAY ? tag->array->integer - 1 : 0;
+
+		if (len == 1)
+		{
+			f32 s = tag->Get(0)->GetReal();
+			scale[2] = s;
+			scale[1] = s;
+			scale[0] = s;
+		}
+		else if (len == 2)
+		{
+			f32 s = tag->Get(0)->GetReal();
+			scale[2] = s;
+			scale[1] = s;
+			scale[0] = s;
+			s = tag->Get(1)->GetReal();
+			scale[5] = s;
+			scale[4] = s;
+			scale[3] = s;
+		}
+		else if (len == 3)
+		{
+			scale[0] = tag->Get(0)->GetReal();
+			scale[1] = tag->Get(1)->GetReal();
+			scale[2] = tag->Get(2)->GetReal();
+		}
+		else if (len >= 6)
+		{
+			scale[0] = tag->Get(0)->GetReal();
+			scale[1] = tag->Get(1)->GetReal();
+			scale[2] = tag->Get(2)->GetReal();
+			scale[3] = tag->Get(3)->GetReal();
+			scale[4] = tag->Get(4)->GetReal();
+			scale[5] = tag->Get(5)->GetReal();
+		}
+
+		cmd->scale_offset = cmd->header.data_size;
+		cmd = (_zanim_cmd_motion *)zAnimCmdAddData(&cmd->header, scale, sizeof(scale));
+	}
+
+	if (cmd->flags & 0x80)
+	{
+		if (!(cmd->flags & 0x40))
+			cmd->flags |= 0x40;
+	}
+
+	return &cmd->header;
 }
 
 /* @socom-skeleton stub zAnimLoadObjectMotionSIScriptForObject__FP5_zrdriPCc */
@@ -547,13 +2804,102 @@ _zanim_cmd_hdr * zAnimLoadObjectMotionSIScript(_zrdr *)
 }
 
 /* @socom-skeleton stub zAnimLoadObjectAddChild__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadObjectAddChild(_zrdr *)
+_zanim_cmd_hdr * zAnimLoadObjectAddChild(_zrdr *reader)
 {
+	/* 0x1abb80: OBJECT_ADD_CHILD: PARENT and CHILD (each a node list, or a list holding a NAME),
+	 * RETAIN_WORLD_LOCATION (flag 1); an 8-byte record, a missing node is ref 0 */
+	CZAnim *anim = ZAnim.m_CurAnim;
+
+	if (reader == NULL)
+		return NULL;
+
+	_zanim_cmd_child *cmd = static_cast<_zanim_cmd_child *>(_calloc(1, 8, "zanim_cmd_parse.cpp", 4409));
+	cmd->header.data_size = 8;
+
+	_zrdr *tag = zrdr_findtag(reader, "PARENT");
+
+	if (tag)
+	{
+		_zrdr *name = zrdr_findtag(tag, "NAME");
+
+		if (name == NULL)
+			name = tag;
+
+		cmd->parent_ref = anim->LoadNodeNames(name, NULL, 0, anim->node_search_scope);
+	}
+	else
+	{
+		cmd->parent_ref = 0;
+	}
+
+	tag = zrdr_findtag(reader, "CHILD");
+
+	if (tag)
+	{
+		_zrdr *name = zrdr_findtag(tag, "NAME");
+
+		if (name == NULL)
+			name = tag;
+
+		cmd->child_ref = anim->LoadNodeNames(name, NULL, 0, anim->node_search_scope);
+	}
+	else
+	{
+		cmd->child_ref = 0;
+	}
+
+	if (zrdr_findtag(reader, "RETAIN_WORLD_LOCATION"))
+		cmd->flags |= 1;
+
+	return &cmd->header;
 }
 
 /* @socom-skeleton stub zAnimLoadObjectDeleteChild__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadObjectDeleteChild(_zrdr *)
+_zanim_cmd_hdr * zAnimLoadObjectDeleteChild(_zrdr *reader)
 {
+	/* 0x1aba30: OBJECT_DELETE_CHILD: PARENT and CHILD (each a node list, or a list holding a
+	 * NAME); an 8-byte record, a missing node is ref 0 */
+	CZAnim *anim = ZAnim.m_CurAnim;
+
+	if (reader == NULL)
+		return NULL;
+
+	_zanim_cmd_child *cmd = static_cast<_zanim_cmd_child *>(_calloc(1, 8, "zanim_cmd_parse.cpp", 4465));
+	cmd->header.data_size = 8;
+
+	_zrdr *tag = zrdr_findtag(reader, "PARENT");
+
+	if (tag)
+	{
+		_zrdr *name = zrdr_findtag(tag, "NAME");
+
+		if (name == NULL)
+			name = tag;
+
+		cmd->parent_ref = anim->LoadNodeNames(name, NULL, 0, anim->node_search_scope);
+	}
+	else
+	{
+		cmd->parent_ref = 0;
+	}
+
+	tag = zrdr_findtag(reader, "CHILD");
+
+	if (tag)
+	{
+		_zrdr *name = zrdr_findtag(tag, "NAME");
+
+		if (name == NULL)
+			name = tag;
+
+		cmd->child_ref = anim->LoadNodeNames(name, NULL, 0, anim->node_search_scope);
+	}
+	else
+	{
+		cmd->child_ref = 0;
+	}
+
+	return &cmd->header;
 }
 
 /* @socom-skeleton stub zAnimLoadDebug__FP5_zrdr */
@@ -562,18 +2908,161 @@ _zanim_cmd_hdr * zAnimLoadDebug(_zrdr *)
 }
 
 /* @socom-skeleton stub zAnimLoadTimer__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadTimer(_zrdr *)
+_zanim_cmd_hdr * zAnimLoadTimer(_zrdr *reader)
 {
+	/* 0x1aae30: TIMER: HIDE (the win/loss timer off: -1) or TIME seconds (default 0);
+	 * a timeless 8-byte record */
+	_zanim_cmd_timer *cmd = (_zanim_cmd_timer *)zcalloc(1, sizeof(_zanim_cmd_timer));
+	cmd->header.data_size = sizeof(_zanim_cmd_timer);
+	cmd->header.timeless = true;
+
+	if (zrdr_findtag(reader, "HIDE"))
+	{
+		cmd->seconds = -1;
+	}
+	else
+	{
+		cmd->seconds = 0;
+		zrdr_findint(reader, "TIME", &cmd->seconds, 1);
+	}
+
+	return &cmd->header;
 }
 
 /* @socom-skeleton stub zAnimLoadMessage__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadMessage(_zrdr *)
+_zanim_cmd_hdr * zAnimLoadMessage(_zrdr *reader)
 {
+	/* 0x1aacb0: MESSAGE "text" (a non-empty string, added to the anim's names), RED / GREEN /
+	 * BLUE integers (low byte kept, default 0), or COLOR [r g b] reals (truncated to bytes,
+	 * replacing them); a timeless 8-byte record */
+	_zanim_cmd_message *cmd = (_zanim_cmd_message *)zcalloc(1, sizeof(_zanim_cmd_message));
+	cmd->header.data_size = sizeof(_zanim_cmd_message);
+	cmd->header.timeless = true;
+
+	char *text = zrdr_findstring(reader, "MESSAGE");
+
+	if (text && *text)
+	{
+		char name[128];
+		strcpy(name, text);
+		cmd->m_text = ZAnim.m_CurAnim->AddName(name);
+	}
+
+	s32 value = 0;
+	zrdr_findint(reader, "RED", &value, 1);
+	cmd->m_red = value;
+	value = 0;
+	zrdr_findint(reader, "GREEN", &value, 1);
+	cmd->m_green = value;
+	value = 0;
+	zrdr_findint(reader, "BLUE", &value, 1);
+	cmd->m_blue = value;
+
+	if (zrdr_findtag(reader, "COLOR"))
+	{
+		PNT3D color;
+		zrdr_findPNT3D(reader, "COLOR", &color); /* ELF: the result is not tested */
+		cmd->m_red = (u32)color.x;
+		cmd->m_green = (u32)color.y;
+		cmd->m_blue = (u32)color.z;
+	}
+
+	return &cmd->header;
 }
 
 /* @socom-skeleton stub zAnimLoadFireWeapon__FP5_zrdr */
-_zanim_cmd_hdr * zAnimLoadFireWeapon(_zrdr *)
+_zanim_cmd_hdr * zAnimLoadFireWeapon(_zrdr *reader)
 {
+	/* 0x1aa840: FIRE_WEAPON: AMMO / WEAPON / MODEL (each a NAME sub-tag or the tag's own first
+	 * string, added to the anim's names), AT_NODE, TRANSLATION, INPUT_TRANSLATION, DIRECTION
+	 * (with RELATIVE_NODE and AZ [azimuth zenith] read from the command), DETONATE_TIMER
+	 * (default 0.01), EXPIRATION_TIMER (default the detonate time + 0.01); a timed 0x2c-byte
+	 * record; NULL for no reader */
+	CZAnim *anim = ZAnim.m_CurAnim;
+
+	if (!reader)
+		return NULL;
+
+	_zanim_cmd_fire_weapon *cmd = (_zanim_cmd_fire_weapon *)zcalloc(1, sizeof(_zanim_cmd_fire_weapon));
+	cmd->header.data_size = sizeof(_zanim_cmd_fire_weapon);
+
+	_zrdr *tag = zrdr_findtag(reader, "AMMO");
+
+	if (tag)
+	{
+		_zrdr *name = zrdr_findtag(tag, "NAME");
+
+		if (!name)
+			name = tag;
+
+		_zrdr *value = name->Get(0); /* ELF quirk kept: no NULL test (an empty tag reads address 0) */
+		cmd->ammo = anim->AddName(value->type == ZRDR_STRING ? value->string : NULL);
+	}
+
+	tag = zrdr_findtag(reader, "WEAPON");
+
+	if (tag)
+	{
+		_zrdr *name = zrdr_findtag(tag, "NAME");
+
+		if (!name)
+			name = tag;
+
+		_zrdr *value = name->Get(0); /* ELF quirk kept: no NULL test */
+		cmd->weapon = anim->AddName(value->type == ZRDR_STRING ? value->string : NULL);
+	}
+
+	tag = zrdr_findtag(reader, "MODEL");
+
+	if (tag)
+	{
+		_zrdr *name = zrdr_findtag(tag, "NAME");
+
+		if (!name)
+			name = tag;
+
+		_zrdr *value = name->Get(0); /* ELF quirk kept: no NULL test */
+		cmd->model = anim->AddName(value->type == ZRDR_STRING ? value->string : NULL);
+	}
+
+	cmd->at_node = 0;
+	tag = zrdr_findtag(reader, "AT_NODE");
+
+	if (tag)
+		cmd->at_node = anim->LoadNodeNames(tag, NULL, 0, anim->node_search_scope);
+
+	if (zrdr_findreal(reader, "TRANSLATION", &cmd->offset.x, 3))
+		cmd->flags |= 1;
+
+	if (zrdr_findtag(reader, "INPUT_TRANSLATION"))
+		cmd->flags |= 2;
+
+	cmd->direction.x = CPnt3D::zero.x;
+	cmd->direction.y = CPnt3D::zero.y;
+	cmd->direction.z = CPnt3D::zero.z;
+	cmd->dir_node = 0;
+
+	if (zrdr_findtag(reader, "DIRECTION"))
+	{
+		/* ELF: RELATIVE_NODE and AZ are read from the command, not from the DIRECTION tag */
+		tag = zrdr_findtag(reader, "RELATIVE_NODE");
+
+		if (tag)
+			cmd->dir_node = anim->LoadNodeNames(tag, NULL, 0, anim->node_search_scope);
+
+		f32 az[2];
+
+		if (zrdr_findreal(reader, "AZ", az, 2))
+			zAnimGetDirectionFromAzimuthZenith(az[0], az[1], &cmd->direction); /* inlined in the ELF */
+	}
+
+	if (!zrdr_findreal(reader, "DETONATE_TIMER", &cmd->time, 1))
+		cmd->time = 0.01f;
+
+	if (!zrdr_findreal(reader, "EXPIRATION_TIMER", &cmd->removal_time, 1))
+		cmd->removal_time = 0.01f + cmd->time;
+
+	return &cmd->header;
 }
 
 /* @socom-skeleton body InitCommands__10CZAnimMainFv */

@@ -627,6 +627,15 @@ zdb::CNode * GetMenuNode()
 /* @socom-skeleton stub __dt__10CMenuStackFv */
 CMenuStack::~CMenuStack()
 {
+	/* 0x1d65d0: FlushHistory(true) inlined (arguments reset, history names back to the pool,
+	 * the pop-up deleted), the pop-up test repeated; the vectors go with the members */
+	FlushHistory(true);
+
+	if (m_popup != NULL)
+	{
+		delete m_popup;
+		m_popup = NULL;
+	}
 }
 
 /* @socom-skeleton stub HandleCommand__10CMenuStackFPCc */
@@ -686,6 +695,22 @@ void CMenuStack::PopUpDialog(const char *)
 /* @socom-skeleton stub Unload_MissionReader__Fv */
 void Unload_MissionReader()
 {
+	/* 0x1d5e50: drops the mission's readerm.zar. ELF quirk kept: the "run/{mp,sp}/<mission>"
+	 * path is built (from a 1024-byte "run/" copy) but RemoveArchive gets the mission name */
+	const char* mission = theMission.m_database;
+
+	if (mission == NULL)
+		return;
+
+	char path[1024] = "run/";
+
+	if (strncmp(mission, "mp", 2) == 0)
+		strcat(path, "mp/");
+	else if (strncmp(mission, "m", 1) == 0)
+		strcat(path, "sp/");
+
+	strcat(path, mission);
+	CRdrArchive::RemoveArchive("readerm.zar", mission);
 }
 
 /* @socom-skeleton stub FetchMissionFontsRdr__Fv */
@@ -733,6 +758,14 @@ void CMenuStack::FlushHistory(bool deletePopup)
 /* @socom-skeleton stub KillPopUp__10CMenuStackFv */
 void CMenuStack::KillPopUp()
 {
+	/* 0x1d5c80: with a pop-up made, the menu's POPUP node is switched off */
+	if (m_popup == NULL)
+		return;
+
+	zdb::CNode* node = g_menuRootNode->FindChild("POPUP", true); /* virtual slot 0x24 */
+
+	if (node != NULL)
+		node->SetActive(false); /* virtual slot 0x34 */
 }
 
 /* @socom-skeleton stub __ct__12CMenuHistoryFv */

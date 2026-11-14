@@ -186,23 +186,42 @@ float CZAnimMain::InvExp(float x)
 }
 
 /* @socom-skeleton stub GetNetworkPacket__10CZAnimMainFi */
-ZAnimNetworkPacket * CZAnimMain::GetNetworkPacket(int)
+ZAnimNetworkPacket * CZAnimMain::GetNetworkPacket(int size)
 {
+	/* 0x1c5280: the network packet buffer, grown to at least size bytes */
+	if (m_NetworkPacketMaxSize < size)
+	{
+		m_NetworkPacket = static_cast<ZAnimNetworkPacket*>(_realloc(m_NetworkPacket, size, "anim_main.cpp", 149));
+		m_NetworkPacketMaxSize = size;
+	}
+
+	return m_NetworkPacket;
 }
 
 /* @socom-skeleton stub FreeNetworkPacketBuffer__10CZAnimMainFv */
 void CZAnimMain::FreeNetworkPacketBuffer()
 {
+	/* 0x1c5240: the network packet buffer (GetNetworkPacket) */
+	if (m_NetworkPacket != NULL)
+	{
+		_free(m_NetworkPacket, "anim_main.cpp", 159);
+		m_NetworkPacket = NULL;
+	}
+
+	m_NetworkPacketMaxSize = 0;
 }
 
 /* @socom-skeleton stub AddPath__10CZAnimMainFPCc */
 void CZAnimMain::AddPath(const char *)
 {
+	/* 0x1c5230: empty in the ELF */
 }
 
 /* @socom-skeleton stub OpenFile__10CZAnimMainFPCcPCc */
 __sFILE * CZAnimMain::OpenFile(const char *, const char *)
 {
+	/* 0x1c5220: empty in the ELF */
+	return NULL;
 }
 
 /* @socom-skeleton stub ActivateBegin__10CZAnimMainFP6CZAnim */
@@ -510,13 +529,55 @@ bool CZAnimMain::NewAnimSet(int index)
 }
 
 /* @socom-skeleton stub NewAnim__10CZAnimMainFPCcPCc */
-void CZAnimMain::NewAnim(const char *, const char *)
+void CZAnimMain::NewAnim(const char *name, const char *setname)
 {
+	/* 0x1c4510: a new current anim in the named set ("set::anim", else the current set,
+	 * else set 0), the set taken (not available). The ELF returns CZAnimSet::NewAnim's anim
+	 * (port: void as declared; AnimLoadAnim reads m_CurAnim). */
+	int set;
+	char* animname;
+
+	if (setname != NULL)
+	{
+		set = GetAnimSetIndex(setname, true);
+		animname = const_cast<char*>(name);
+	}
+	else
+	{
+		char* split = SplitName(name, &animname);
+
+		if (split != NULL)
+		{
+			set = GetAnimSetIndex(split, true);
+			_free(split, "anim_main.cpp", 785);
+		}
+		else
+		{
+			set = 0;
+
+			if (m_CurAnimSet != NULL)
+				set = m_CurAnimSet - m_animset_list;
+		}
+	}
+
+	NewAnimSet(set);
+	m_CurAnimSet = &m_animset_list[set];
+	m_CurAnimSet->m_IsAvailable = false;
+	m_CurAnim = NULL;
+	m_CurSeq = NULL;
+	m_CurAnimSet->NewAnim(animname);
 }
 
 /* @socom-skeleton stub GetAnim__10CZAnimMainFii */
-CZAnim * CZAnimMain::GetAnim(int, int)
+CZAnim * CZAnimMain::GetAnim(int set_index, int anim_index)
 {
+	/* 0x1c44d0: anim anim_index of anim set set_index (the set is not range-checked) */
+	CZAnimSet* set = &m_animset_list[set_index];
+
+	if (set == NULL)
+		return NULL;
+
+	return set->Anim(anim_index);
 }
 
 /* @socom-skeleton stub GetAnim__10CZAnimMainFPCcPCc */
@@ -570,8 +631,20 @@ CZAnim * CZAnimMain::GetAnim(const char *name, const char *setname)
 }
 
 /* @socom-skeleton stub GetAnimIndex__10CZAnimMainFP6CZAnimPiPi */
-void CZAnimMain::GetAnimIndex(CZAnim *, int *, int *)
+bool CZAnimMain::GetAnimIndex(CZAnim *anim, int *set_index, int *anim_index)
 {
+	/* 0x1c42b0: the anim's set and index in it; true when found. ELF quirk kept: a set index
+	 * out of range asks a NULL set (port: unreachable, the anim's own set index) */
+	*set_index = anim->m_animset_index;
+	CZAnimSet* set;
+
+	if (*set_index < 0 || !(*set_index < m_animset_count))
+		set = NULL;
+	else
+		set = &m_animset_list[*set_index];
+
+	*anim_index = set->GetAnimIndex(anim);
+	return *anim_index >= 0;
 }
 
 /* @socom-skeleton body GetAnimSet__10CZAnimMainFi */
@@ -597,13 +670,28 @@ CZAnimSet * CZAnimMain::GetAnimSet(const char *name)
 }
 
 /* @socom-skeleton stub NewSeq__10CZAnimMainFPCc */
-_zsequence * CZAnimMain::NewSeq(const char *)
+_zsequence * CZAnimMain::NewSeq(const char *name)
 {
+	/* 0x1c4130: append an empty sequence (its 28-byte header) to the current anim's
+	 * sequence data and make it current: named, waiting (state 1), activation 1 */
+	m_CurAnim->m_seq_data = static_cast<char*>(_realloc(m_CurAnim->m_seq_data, m_CurAnim->m_seq_data_size + sizeof(_zsequence), "anim_main.cpp", 904));
+	_zsequence* seq = reinterpret_cast<_zsequence*>(m_CurAnim->m_seq_data + m_CurAnim->m_seq_data_size);
+	m_CurSeq = seq;
+	m_CurAnim->m_seq_data_size += sizeof(_zsequence);
+	memset(seq, 0, sizeof(_zsequence));
+	m_CurSeq->name_index = m_CurAnim->AddName(name);
+	m_CurSeq->state = 1;
+	m_CurSeq->activation = 1;
+	m_CurSeq->seq_data_size += sizeof(_zsequence);
+	return seq;
 }
 
 /* @socom-skeleton stub SeqSetName__10CZAnimMainFPCc */
-void CZAnimMain::SeqSetName(const char *)
+void CZAnimMain::SeqSetName(const char *name)
 {
+	/* 0x1c4100 */
+	u16 index = m_CurAnim->AddName(name);
+	m_CurSeq->name_index = index;
 }
 
 /* @socom-skeleton stub SeqSetState__10CZAnimMainFi */
@@ -620,8 +708,25 @@ void CZAnimMain::SeqSetState(int state)
 }
 
 /* @socom-skeleton stub SeqAppendCmd__10CZAnimMainFP14_zanim_cmd_hdr */
-void CZAnimMain::SeqAppendCmd(_zanim_cmd_hdr *)
+void CZAnimMain::SeqAppendCmd(_zanim_cmd_hdr *cmd)
 {
+	/* 0x1c3f20: copy a parsed command onto the end of the current anim's sequence data (a
+	 * quad-aligned one gets a QUAD_ALIGN pad first, up to the next 16 bytes of the data);
+	 * the current sequence grows by its size */
+	if (cmd->quad_align)
+	{
+		s32 rem = m_CurAnim->m_seq_data_size % 16;
+
+		if (rem > 0)
+			AnimLoadQuadAlignCmd("QUAD_ALIGN", 16 - rem);
+	}
+
+	s32 offset = reinterpret_cast<char*>(m_CurSeq) - m_CurAnim->m_seq_data;
+	m_CurAnim->m_seq_data = static_cast<char*>(_realloc(m_CurAnim->m_seq_data, m_CurAnim->m_seq_data_size + cmd->data_size, "anim_main.cpp", 985));
+	m_CurSeq = reinterpret_cast<_zsequence*>(m_CurAnim->m_seq_data + offset);
+	memcpy(m_CurAnim->m_seq_data + m_CurAnim->m_seq_data_size, cmd, cmd->data_size);
+	m_CurAnim->m_seq_data_size += cmd->data_size;
+	m_CurSeq->seq_data_size += cmd->data_size;
 }
 
 /* @socom-skeleton stub SeqTick__10CZAnimMainFf */
@@ -886,8 +991,41 @@ unsigned char CZAnimMain::SequenceRunning(const char *name)
 }
 
 /* @socom-skeleton stub GetNodeSearchScope__10CZAnimMainFPCcPi */
-void CZAnimMain::GetNodeSearchScope(const char *, int *)
+bool CZAnimMain::GetNodeSearchScope(const char *name, int *scope)
 {
+	/* 0x1c3410: a scope keyword -> GLOBAL 0, LOCAL 1, MODEL 2, WORLD 3, MENU 4; false
+	 * (scope unchanged) for any other name */
+	if (strcmp(name, "GLOBAL") == 0)
+	{
+		*scope = 0;
+		return true;
+	}
+
+	if (strcmp(name, "LOCAL") == 0)
+	{
+		*scope = 1;
+		return true;
+	}
+
+	if (strcmp(name, "MODEL") == 0)
+	{
+		*scope = 2;
+		return true;
+	}
+
+	if (strcmp(name, "WORLD") == 0)
+	{
+		*scope = 3;
+		return true;
+	}
+
+	if (strcmp(name, "MENU") == 0)
+	{
+		*scope = 4;
+		return true;
+	}
+
+	return false;
 }
 
 /* @socom-skeleton stub GetDatabaseNode__10CZAnimMainFPCci */
@@ -1137,16 +1275,125 @@ bool CZAnimMain::AnimSchedulerTick(float dT, void *anim)
 }
 
 /* @socom-skeleton stub ZAnimWildcardInit__FPc */
-char * ZAnimWildcardInit(char *)
+char * ZAnimWildcardInit(char *str)
 {
+	/* 0x1c2700: up to five '*'s of the string (from its end) become digits at 0 and the
+	 * string is rewritten in place; returns it, or NULL without a string or a '*' (NULL
+	 * resets the digits) */
+	_digit_count = 0;
+
+	if (str == NULL)
+		return NULL;
+
+	_input_str_ptr = str;
+
+	for (s32 i = 0; i < 5; i++) /* unrolled in the ELF */
+	{
+		_digit_ptr[i] = 0;
+		_digit_val[i] = 0;
+	}
+
+	for (s32 i = strlen(str) - 1; i >= 0; i--)
+	{
+		if (_input_str_ptr[i] == '*')
+		{
+			_digit_ptr[_digit_count] = reinterpret_cast<int>(&_input_str_ptr[i]); /* port: 32-bit pointers */
+			_digit_count++;
+
+			if (_digit_count == 5)
+				i = -1;
+		}
+	}
+
+	if (_digit_count == 0)
+		return NULL;
+
+	for (s32 i = (s32)_digit_count - 1; i >= 0; i--)
+	{
+		char text[4];
+		sprintf(text, "%d", _digit_val[i]);
+		*reinterpret_cast<char*>(_digit_ptr[i]) = text[0];
+	}
+
+	return _input_str_ptr;
 }
 
 /* @socom-skeleton stub ZAnimWildcardNext__Fv */
 char * ZAnimWildcardNext()
 {
+	/* 0x1c2600: count the digits on (the first one fastest, 0..9 each) and rewrite the
+	 * string; NULL once every combination is done. Without digits the string is returned. */
+	bool carry = false;
+
+	for (u32 i = 0; i < _digit_count; i++)
+	{
+		if (_digit_val[i] < 9)
+		{
+			carry = false;
+			_digit_val[i]++;
+			break;
+		}
+
+		_digit_val[i] = 0;
+		carry = true;
+	}
+
+	if (carry)
+		return NULL;
+
+	for (s32 i = (s32)_digit_count - 1; i >= 0; i--)
+	{
+		char text[4];
+		sprintf(text, "%d", _digit_val[i]);
+		*reinterpret_cast<char*>(_digit_ptr[i]) = text[0]; /* port: _digit_ptr holds 32-bit pointers */
+	}
+
+	return _input_str_ptr;
 }
 
 /* @socom-skeleton stub ZAnimWildcardApply__FPCc */
-char * ZAnimWildcardApply(const char *)
+char * ZAnimWildcardApply(const char *str)
 {
+	/* 0x1c24c0: with wildcard digits running, a copy of the string (kept in
+	 * _local_wildcard_str) with its '*'s, from the end, replaced by the digits; else the
+	 * string itself */
+	bool found = false;
+	u32 digit = 0;
+	char* out = const_cast<char*>(str);
+
+	if ((s32)_digit_count <= 0)
+		return out;
+
+	s32 length = strlen(str);
+
+	for (s32 i = length - 1; i >= 0; i--)
+	{
+		if (str[i] == '*')
+		{
+			found = true;
+			break;
+		}
+	}
+
+	if (!found)
+		return out;
+
+	_local_wildcard_str = static_cast<char*>(_realloc(_local_wildcard_str, length + 1, "anim_main.cpp", 1867));
+	strcpy(_local_wildcard_str, str);
+	out = _local_wildcard_str;
+
+	for (s32 i = length - 1; i >= 0; i--)
+	{
+		if (out[i] != '*')
+			continue;
+
+		char text[4];
+		sprintf(text, "%d", _digit_val[digit]); /* ELF quirk kept: past the last digit the index stops at _digit_count (an unused, or for five digits an out-of-range, entry) */
+		out[i] = text[0];
+
+		if (digit < _digit_count)
+			digit++;
+	}
+
+	return out;
 }

@@ -91,8 +91,15 @@ CZAnim * CZAnimSet::NewAnim(const char *name)
 }
 
 /* @socom-skeleton stub GetAnimIndex__9CZAnimSetFP6CZAnim */
-int CZAnimSet::GetAnimIndex(CZAnim *)
+int CZAnimSet::GetAnimIndex(CZAnim *anim)
 {
+	/* 0x1c7db0: the anim's index in this set's list (CZAnim is 0x60 bytes), -1 when outside */
+	int index = anim - m_anim_list;
+
+	if (index < m_anim_count)
+		return index;
+
+	return -1;
 }
 
 /* @socom-skeleton body Name__9CZAnimSetFPCc */
@@ -157,8 +164,16 @@ void CZAnimSet::AddAnimEx(CZAnimEx *ex)
 }
 
 /* @socom-skeleton stub SIScript__9CZAnimSetFi */
-_zanim_si_script * CZAnimSet::SIScript(int)
+_zanim_si_script * CZAnimSet::SIScript(int index)
 {
+	/* 0x1c7ba0: the anim set's SI script, NULL out of range */
+	if (index < 0)
+		return NULL;
+
+	if (index < m_si_script_count)
+		return &m_si_script[index];
+
+	return NULL;
 }
 
 /* @socom-skeleton stub _store_frame_data__FP16_zanim_si_scriptP25zanim_script_frame_headerP6CPnt3DP6CPnt3Difffb */
@@ -238,6 +253,18 @@ bool CZAnimSet::Start()
 /* @socom-skeleton stub Reset__9CZAnimSetFv */
 void CZAnimSet::Reset()
 {
+	/* 0x1c6480: saved node states back, weapon-hit extensions reset, every anim reset */
+	if (m_node_states != NULL)
+		m_node_states->Reset();
+
+	if (m_AnimExList != NULL)
+		m_AnimExList->Reset();
+
+	for (s32 i = 0; i < m_anim_count; i++)
+	{
+		CZAnim* anim = (i >= 0 && i < m_anim_count) ? &m_anim_list[i] : NULL; /* inline Anim(int) */
+		anim->Reset();
+	}
 }
 
 /* @socom-skeleton stub SaveNodeStates__9CZAnimSetFv */
@@ -259,8 +286,14 @@ void CZAnimSet::SaveNodeStates()
 }
 
 /* @socom-skeleton stub SaveNodeStates__9CZAnimSetFP15_zanim_node_ref */
-void CZAnimSet::SaveNodeStates(_zanim_node_ref *)
+void CZAnimSet::SaveNodeStates(_zanim_node_ref *ref)
 {
+	/* 0x1c6300: the set's node-state store (made on first use) saves the reference's node */
+	if (m_node_states == NULL)
+		m_node_states = new CZAnimSetSave;
+
+	if (m_node_states != NULL)
+		m_node_states->Add(ref);
 }
 
 /* @socom-skeleton stub Stop__9CZAnimSetFv */
@@ -296,8 +329,16 @@ void CZAnimSet::Unload()
 		m_si_script_count = 0;
 	}
 
-	/* port: not written - the CZAnimEx list (0x1c5f6c) and the saved node states
-	 * (0x1c6008); the UI sets have neither */
+	if (m_AnimExList != NULL)
+	{
+		/* 0x1c5f60: the weapon-hit extensions */
+		m_AnimExList->Free();
+
+		if (m_AnimExList != NULL)
+			delete m_AnimExList;
+
+		m_AnimExList = NULL;
+	}
 
 	if (m_anim_list != NULL)
 	{
@@ -308,6 +349,29 @@ void CZAnimSet::Unload()
 		m_anim_list = NULL;
 		m_anim_count = 0;
 		m_anim_max = 0;
+	}
+
+	if (m_node_states != NULL)
+	{
+		/* 0x1c5ff8: the saved node states, their rotation rows and entries */
+		CZAnimSetSave* states = m_node_states;
+		states->m_translationList.clear();
+		states->m_parentList.clear();
+
+		for (std::vector<CPnt3D*>::iterator it = states->m_rotationList.begin(); it != states->m_rotationList.end(); ++it)
+			operator delete(*it);
+
+		states->m_rotationList.clear();
+
+		for (std::vector<_zanim_node_save*>::iterator it = states->begin(); it != states->end(); ++it)
+			delete *it;
+
+		states->clear();
+
+		if (m_node_states != NULL)
+			delete m_node_states;
+
+		m_node_states = NULL;
 	}
 
 	if (m_name != NULL)
@@ -322,6 +386,12 @@ void CZAnimSet::Unload()
 /* @socom-skeleton stub GarbageCollect__9CZAnimSetFv */
 void CZAnimSet::GarbageCollect()
 {
+	/* 0x1c5e70: every anim's run-time allocations (the ELF returns 1; no caller reads it) */
+	if (m_anim_list == NULL)
+		return;
+
+	for (s32 i = 0; i < m_anim_count; i++)
+		m_anim_list[i].GarbageCollect();
 }
 
 /* @socom-skeleton stub Load__9CZAnimSetFRQ23zar4CZAR */
@@ -391,11 +461,129 @@ bool CZAnimSet::LoadSIScript(zar::CZAR &archive)
 }
 
 /* @socom-skeleton stub Add__13CZAnimSetSaveFP15_zanim_node_ref */
-void CZAnimSetSave::Add(_zanim_node_ref *)
+void CZAnimSetSave::Add(_zanim_node_ref *ref)
 {
+	/* 0x1c5730: saves the parts of a node reference's node the reference asks for (active
+	 * flag, parent, translation, rotation rows); set_inactive switches the node off first */
+	if (ref == NULL)
+		return;
+
+	_zanim_node_save* save = new _zanim_node_save;
+	save->node = ref->node_ptr;
+
+	if (ref->set_inactive)
+		ref->node_ptr->SetActive(false); /* virtual slot 0x34 in the ELF */
+
+	if (ref->save_active)
+	{
+		save->active = ref->node_ptr->m_active;
+		save->save_active = 1;
+	}
+	else
+	{
+		save->save_active = 0;
+	}
+
+	if (ref->save_parent)
+	{
+		save->parent_index = m_parentList.size();
+
+		if (m_parentList.size() == m_parentList.capacity())
+			m_parentList.reserve(m_parentList.size() + 5);
+
+		zdb::CNode* parent = ref->node_ptr->m_parent;
+		m_parentList.insert(m_parentList.begin() + m_parentList.size(), 1, parent);
+		save->save_parent = 1;
+	}
+	else
+	{
+		save->save_parent = 0;
+	}
+
+	if (ref->save_translation)
+	{
+		save->translation_index = m_translationList.size();
+
+		if (m_translationList.size() == m_translationList.capacity())
+			m_translationList.reserve(m_translationList.size() + 5);
+
+		m_translationList.insert(m_translationList.begin() + m_translationList.size(), 1,
+			*reinterpret_cast<const CPnt3D*>(ref->node_ptr->m_matrix.m_matrix[3]));
+		save->save_translation = 1;
+	}
+	else
+	{
+		save->save_translation = 0;
+	}
+
+	if (ref->save_rotation)
+	{
+		CPnt3D* rows = static_cast<CPnt3D*>(operator new(36));
+
+		for (s32 i = 0; i < 3; i++)
+		{
+			rows[i].x = ref->node_ptr->m_matrix.m_matrix[i][0];
+			rows[i].y = ref->node_ptr->m_matrix.m_matrix[i][1];
+			rows[i].z = ref->node_ptr->m_matrix.m_matrix[i][2];
+		}
+
+		save->rotation_index = m_rotationList.size();
+
+		if (m_rotationList.size() == m_rotationList.capacity())
+			m_rotationList.reserve(m_rotationList.size() + 5);
+
+		m_rotationList.insert(m_rotationList.begin() + m_rotationList.size(), 1, rows);
+		save->save_rotation = 1;
+	}
+	else
+	{
+		save->save_rotation = 0;
+	}
+
+	if (size() == capacity())
+		reserve(size() + 5);
+
+	insert(begin() + size(), 1, save);
 }
 
 /* @socom-skeleton stub Reset__13CZAnimSetSaveFv */
 void CZAnimSetSave::Reset()
 {
+	/* 0x1c5580: puts every saved node back: active flag, parent (taken off the current one,
+	 * added to the saved one; ELF quirk kept: the current parent is not NULL-checked),
+	 * translation, rotation (the saved rows with the current translation). The saved states
+	 * stay (a second Reset restores them again). */
+	for (std::vector<_zanim_node_save*>::iterator it = begin(); it != end(); ++it)
+	{
+		_zanim_node_save* save = *it;
+
+		if (save->save_active)
+			save->node->SetActive(save->active != 0); /* virtual slot 0x34 in the ELF */
+
+		if (save->save_parent)
+		{
+			zdb::CNode* parent = m_parentList.at(save->parent_index);
+
+			if (save->node->m_parent != parent)
+			{
+				save->node->m_parent->DeleteChild(save->node);
+				parent->AddChild(save->node);
+			}
+		}
+
+		if (save->save_translation)
+		{
+			CPnt3D pos = m_translationList.at(save->translation_index);
+			save->node->SetPosition(pos.x, pos.y, pos.z);
+		}
+
+		if (save->save_rotation)
+		{
+			CPnt3D* rows = m_rotationList.at(save->rotation_index);
+			zdb::CNode* node = save->node;
+			CMatrix matrix;
+			matrix.SetRows(&rows[0], &rows[1], &rows[2], reinterpret_cast<const CPnt3D*>(node->m_matrix.m_matrix[3]));
+			save->node->SetMatrix(&matrix);
+		}
+	}
 }

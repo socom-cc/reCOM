@@ -83,6 +83,10 @@
 #include "gamez/zMath/zmath_vu.h" /* Vu0MatrixInverseWithUniformScale */
 #include "gamez/zParticle/zparticle.h" /* Particle::DestructionManager (DESTRUCTION_SOURCE) */
 #include <stdio.h> /* sprintf (DESTRUCTION_SOURCE) */
+#include "gamez/zCamera/zcam.h" /* zdb::CCamera (CAMERA) */
+#include "gamez/zWeapon/zweapon.h" /* FIRE_WEAPON */
+#include "gamez/zWeapon/zwep_projectilelist.h" /* FIRE_WEAPON */
+#include "gamez/zNetwork/znet.h" /* theNetwork (FIRE_WEAPON) */
 /* @socom-skeleton decl forward */
 class _zanim_object_motion_script;
 class zanim_script_frame_header;
@@ -124,20 +128,13 @@ bool zAnimDestructorTick(_zanim_cmd_hdr *header, float *)
 }
 
 /* @socom-skeleton stub zAnimTimerTick__FP14_zanim_cmd_hdrPf */
-bool zAnimTimerTick(_zanim_cmd_hdr *, float *)
+bool zAnimTimerTick(_zanim_cmd_hdr *header, float *)
 {
-	return true; /* port: stub - not written (command tick) */
+	/* 0x1bfd70: sets the mission's win/loss timer */
+	theMission.m_winlosstimer = (f32)reinterpret_cast<_zanim_cmd_timer*>(header)->seconds;
+	return true;
 }
 
-/* MESSAGE record (zAnimLoadMessage 0x1aacb0; no DWARF, names the port's) */
-struct _zanim_cmd_message
-{
-	_zanim_cmd_hdr header;
-	u8 m_text;  /* +4 the anim's name index of the text */
-	u8 m_red;   /* +5 RED, GREEN, BLUE (all 0: the queue's colour) */
-	u8 m_green; /* +6 */
-	u8 m_blue;  /* +7 */
-};
 
 /* @socom-skeleton stub zAnimMessageTick__FP14_zanim_cmd_hdrPf */
 bool zAnimMessageTick(_zanim_cmd_hdr *header, float *)
@@ -564,14 +561,223 @@ bool zAnimParticleSourceTick(_zanim_cmd_hdr *header, float *)
 }
 
 /* @socom-skeleton stub zAnimCameraBegin__FP14_zanim_cmd_hdr */
-void zAnimCameraBegin(_zanim_cmd_hdr *)
+void zAnimCameraBegin(_zanim_cmd_hdr *header)
 {
+	/* 0x1be9b0: for each changed parameter either set the given "from" at once or take the
+	 * camera's current value as "from" and work out the rate to reach "to" in the duration;
+	 * then the fog switch */
+	_zanim_cmd_camera* cmd = reinterpret_cast<_zanim_cmd_camera*>(header);
+	zdb::CCamera* camera = static_cast<zdb::CCamera*>(ZAnim.m_CurAnim->GetNode(cmd->node_ref, false));
+
+	if (camera == NULL)
+		return;
+
+	if (cmd->flags & 0x2)
+	{
+		if (cmd->flags & 0x1)
+			camera->SetHalfHorizontalFOVRadians(cmd->hfov.from);
+		else
+			cmd->hfov.from = camera->m_hfov;
+
+		if (!(cmd->flags & 0x1))
+			cmd->hfov.rate = (1.0f / cmd->duration) * (cmd->hfov.to - cmd->hfov.from);
+	}
+
+	if (cmd->flags & 0x8)
+	{
+		if (cmd->flags & 0x4)
+			camera->SetHalfVerticalFOVRadians(cmd->vfov.from);
+		else
+			cmd->vfov.from = camera->m_vfov;
+
+		if (!(cmd->flags & 0x4))
+			cmd->vfov.rate = (1.0f / cmd->duration) * (cmd->vfov.to - cmd->vfov.from);
+	}
+
+	if (cmd->flags & 0x20)
+	{
+		if (cmd->flags & 0x10)
+			camera->SetNearClip(cmd->near_clip.from);
+		else
+			cmd->near_clip.from = camera->m_near_plane;
+
+		if (!(cmd->flags & 0x10))
+			cmd->near_clip.rate = (1.0f / cmd->duration) * (cmd->near_clip.to - cmd->near_clip.from);
+	}
+
+	if (cmd->flags & 0x80)
+	{
+		if (cmd->flags & 0x40)
+			camera->SetMidClip(cmd->mid_clip.from);
+		else
+			cmd->mid_clip.from = camera->m_mid_plane;
+
+		if (!(cmd->flags & 0x40))
+			cmd->mid_clip.rate = (1.0f / cmd->duration) * (cmd->mid_clip.to - cmd->mid_clip.from);
+	}
+
+	if (cmd->flags & 0x200)
+	{
+		if (cmd->flags & 0x100)
+			camera->SetFarClip(cmd->far_clip.from);
+		else
+			cmd->far_clip.from = camera->m_far_plane;
+
+		if (!(cmd->flags & 0x100))
+			cmd->far_clip.rate = (1.0f / cmd->duration) * (cmd->far_clip.to - cmd->far_clip.from);
+	}
+
+	if (cmd->flags & 0x800)
+	{
+		if (cmd->flags & 0x400)
+			camera->m_fog_near = cmd->fog_near.from;
+		else
+			cmd->fog_near.from = camera->m_fog_near;
+
+		if (!(cmd->flags & 0x400))
+			cmd->fog_near.rate = (1.0f / cmd->duration) * (cmd->fog_near.to - cmd->fog_near.from);
+	}
+
+	if (cmd->flags & 0x2000)
+	{
+		if (cmd->flags & 0x1000)
+			camera->m_fog_far = cmd->fog_far.from;
+		else
+			cmd->fog_far.from = camera->m_fog_far;
+
+		if (!(cmd->flags & 0x1000))
+			cmd->fog_far.rate = (1.0f / cmd->duration) * (cmd->fog_far.to - cmd->fog_far.from);
+	}
+
+	if (cmd->flags & 0x8000)
+	{
+		if (cmd->flags & 0x4000)
+		{
+			camera->m_fog_color.x = cmd->fog_color[0].from;
+			camera->m_fog_color.y = cmd->fog_color[1].from;
+			camera->m_fog_color.z = cmd->fog_color[2].from;
+			camera->m_fog_color.w = 0.0f;
+		}
+		else
+		{
+			CPnt4D color = camera->m_fog_color;
+			cmd->fog_color[0].from = color.x;
+			cmd->fog_color[1].from = color.y;
+			cmd->fog_color[2].from = color.z;
+		}
+
+		if (!(cmd->flags & 0x4000))
+		{
+			f32 inv = 1.0f / cmd->duration;
+			cmd->fog_color[0].rate = inv * (cmd->fog_color[0].to - cmd->fog_color[0].from);
+			cmd->fog_color[1].rate = inv * (cmd->fog_color[1].to - cmd->fog_color[1].from);
+			cmd->fog_color[2].rate = inv * (cmd->fog_color[2].to - cmd->fog_color[2].from);
+		}
+	}
+
+	if (cmd->flags & 0x10000)
+		camera->m_fog_enabled = 1;
+
+	if (cmd->flags & 0x20000)
+		camera->m_fog_enabled = 0;
 }
 
 /* @socom-skeleton stub zAnimCameraTick__FP14_zanim_cmd_hdrPf */
-bool zAnimCameraTick(_zanim_cmd_hdr *, float *)
+bool zAnimCameraTick(_zanim_cmd_hdr *header, float *dt)
 {
-	return true; /* port: stub - not written (command tick) */
+	/* 0x1be5e0: until the duration is used up, each changed parameter moves by rate * dt
+	 * (the time is consumed); in the last step the parameters take their "to" values and the
+	 * time left over goes back to the sequence. No camera node: done. */
+	_zanim_cmd_camera* cmd = reinterpret_cast<_zanim_cmd_camera*>(header);
+	zdb::CCamera* camera = static_cast<zdb::CCamera*>(ZAnim.m_CurAnim->GetNode(cmd->node_ref, false));
+
+	if (camera == NULL)
+		return true;
+
+	f32 step = *dt;
+	f32 elapsed = ZAnim.m_CurSeq->cmd_timer;
+	bool done;
+
+	if (step + elapsed <= cmd->duration)
+	{
+		*dt = 0.0f;
+		done = false;
+	}
+	else
+	{
+		done = true;
+		step = cmd->duration - elapsed;
+		*dt = *dt - step;
+	}
+
+	if (done)
+	{
+		if (cmd->flags & 0x2)
+			camera->SetHalfHorizontalFOVRadians(cmd->hfov.to);
+
+		if (cmd->flags & 0x8)
+			camera->SetHalfVerticalFOVRadians(cmd->vfov.to);
+
+		if (cmd->flags & 0x20)
+			camera->SetNearClip(cmd->near_clip.to);
+
+		if (cmd->flags & 0x80)
+			camera->SetMidClip(cmd->mid_clip.to);
+
+		if (cmd->flags & 0x200)
+			camera->SetFarClip(cmd->far_clip.to);
+
+		if (cmd->flags & 0x800)
+			camera->m_fog_near = cmd->fog_near.to;
+
+		if (cmd->flags & 0x2000)
+			camera->m_fog_far = cmd->fog_far.to;
+
+		if (cmd->flags & 0x8000)
+		{
+			camera->m_fog_color.x = cmd->fog_color[0].to;
+			camera->m_fog_color.y = cmd->fog_color[1].to;
+			camera->m_fog_color.z = cmd->fog_color[2].to;
+			camera->m_fog_color.w = 0.0f;
+		}
+
+		return done;
+	}
+
+	if (cmd->flags & 0x2)
+		camera->SetHalfHorizontalFOVRadians(camera->m_hfov + cmd->hfov.rate * step);
+
+	if (cmd->flags & 0x8)
+		camera->SetHalfVerticalFOVRadians(camera->m_vfov + cmd->vfov.rate * step);
+
+	if (cmd->flags & 0x20)
+		camera->SetNearClip(camera->m_near_plane + cmd->near_clip.rate * step);
+
+	if (cmd->flags & 0x80)
+		camera->SetMidClip(camera->m_mid_plane + cmd->mid_clip.rate * step);
+
+	if (cmd->flags & 0x200)
+		camera->SetFarClip(camera->m_far_plane + cmd->far_clip.rate * step);
+
+	if (cmd->flags & 0x800)
+		camera->m_fog_near = camera->m_fog_near + cmd->fog_near.rate * step;
+
+	if (cmd->flags & 0x2000)
+		camera->m_fog_far = camera->m_fog_far + cmd->fog_far.rate * step;
+
+	if (cmd->flags & 0x8000)
+	{
+		CPnt4D color = camera->m_fog_color;
+		color.x = color.x + cmd->fog_color[0].rate * step;
+		color.y = color.y + cmd->fog_color[1].rate * step;
+		color.z = color.z + cmd->fog_color[2].rate * step;
+		camera->m_fog_color.x = color.x;
+		camera->m_fog_color.y = color.y;
+		camera->m_fog_color.z = color.z;
+		camera->m_fog_color.w = 0.0f;
+	}
+
+	return done;
 }
 
 /* @socom-skeleton stub zAnimSoundTick__FP14_zanim_cmd_hdrPf */
@@ -748,15 +954,303 @@ bool zAnimSoundTick(_zanim_cmd_hdr *header, float *)
 }
 
 /* @socom-skeleton stub zAnimLightTick__FP14_zanim_cmd_hdrPf */
-bool zAnimLightTick(_zanim_cmd_hdr *, float *)
+bool zAnimLightTick(_zanim_cmd_hdr *header, float *dt)
 {
-	return true; /* port: stub - not written (command tick) */
+	/* 0x1bd7c0: drives an anim light: a local light (zdb::CLight node) or a light map (made
+	 * here and put on the world's light-map list when switched on): position (argument, offset,
+	 * AT_NODE), range or range sequence, colour, and for light maps texture, opacity and blend
+	 * mode (or blend sequence); switched off at the end of the duration */
+	_zanim_cmd_light* cmd = reinterpret_cast<_zanim_cmd_light*>(header);
+	CZAnim* anim = ZAnim.m_CurAnim;
+	zdb::BLENDMODE blend;
+	blend.m_alphaWORD = 0x44;
+	bool done = true;
+	zdb::CLightMap* lightmap = NULL;
+	zdb::CLight* light = NULL;
+	_zanim_node_ref* ref = anim->GetNodeRef(cmd->node_ref);
+
+	if (ref != NULL && ref->is_light)
+	{
+		if (ref->is_local_light)
+			light = static_cast<zdb::CLight*>(anim->GetNode(cmd->node_ref, false));
+		else
+			lightmap = static_cast<zdb::CLightMap*>(anim->GetNode(cmd->node_ref, false));
+	}
+
+	if (ref == NULL && light == NULL && lightmap == NULL)
+		return true;
+
+	if ((cmd->flags & 0x400) && ref != NULL)
+	{
+		if (ref->is_local_light && light != NULL)
+		{
+			light->SetActive(true);
+		}
+		else if (!ref->on_world_lightlist)
+		{
+			if (lightmap == NULL)
+			{
+				lightmap = new zdb::CLightMap();
+
+				if (lightmap != NULL)
+				{
+					lightmap->SetName(anim->GetName(ref->name_index));
+					ref->node_ptr = lightmap;
+					ref->created_here = 1;
+				}
+			}
+
+			if (lightmap != NULL)
+			{
+				ref->on_world_lightlist = 1;
+				zdb::CWorld::m_world->AddLightMap(lightmap);
+			}
+		}
+	}
+
+	if (light == NULL && lightmap == NULL)
+		return true;
+
+	if ((cmd->flags & 0x1) && lightmap != NULL)
+	{
+		zdb::CTexHandle* tex = anim->GetTexture(cmd->texture);
+
+		if (tex != NULL)
+			lightmap->SetTexture(tex->m_texture);
+	}
+
+	CPnt3D pos;
+	pos.x = 0.0f;
+	pos.y = 0.0f;
+	pos.z = 0.0f;
+	bool moved = false;
+
+	if (cmd->flags & 0x8)
+	{
+		const CPnt3D* arg = anim->m_arg_list != NULL ? anim->m_arg_list->GetPnt3D(static_cast<CZAnimArg::TYPE>(5)) : NULL;
+
+		if (arg != NULL)
+		{
+			CPnt3D sum;
+			moved = true;
+			pos.Add(arg, &sum);
+			pos = sum;
+		}
+	}
+
+	if (cmd->flags & 0x4)
+	{
+		CPnt3D sum;
+		moved = true;
+		pos.Add(&cmd->offset, &sum);
+		pos = sum;
+	}
+
+	if (cmd->flags & 0x2)
+	{
+		zdb::CNode* at = anim->GetNode(cmd->at_node, false);
+
+		if (at != NULL)
+		{
+			at->TransformToWorld(pos);
+			moved = true;
+		}
+	}
+
+	if (moved)
+	{
+		if (light != NULL)
+		{
+			light->SetPosition(pos.x, pos.y, pos.z);
+		}
+		else if (lightmap != NULL)
+		{
+			lightmap->m_worldToUV.m_matrix[3][0] = -pos.x;
+			lightmap->m_worldToUV.m_matrix[3][1] = -pos.y;
+			lightmap->m_worldToUV.m_matrix[3][2] = -pos.z;
+			lightmap->SetPosition(pos.x, pos.y, pos.z);
+		}
+	}
+
+	zdb::CLight* target = light != NULL ? light : lightmap;
+
+	if ((cmd->flags & 0x10) && target != NULL)
+	{
+		target->m_minRange = cmd->min_range;
+		target->m_maxRange = cmd->max_range;
+		target->m_maxRangeSq = cmd->max_range * cmd->max_range;
+		target->m_invMaxRange = 1.0f / target->m_maxRange;
+		target->m_invDeltaRange = 1.0f / (target->m_maxRange - target->m_minRange);
+		target->UpdateBBox(false);
+	}
+
+	if ((cmd->flags & 0x40) && target != NULL)
+	{
+		target->m_diffuse.x = cmd->color[0];
+		target->m_diffuse.y = cmd->color[1];
+		target->m_diffuse.z = cmd->color[2];
+	}
+
+	if ((cmd->flags & 0x80) && lightmap != NULL)
+		lightmap->m_opacity = cmd->opacity;
+
+	if ((cmd->flags & 0x100) && lightmap != NULL)
+	{
+		s32 fix = (s32)(128.0f * cmd->fix);
+
+		if (fix < 0)
+			fix = 0;
+
+		if (fix >= 256)
+			fix = 255;
+
+		blend.m_alpha.FIX = fix;
+		blend.m_alpha.A = cmd->abcd & 3;
+		blend.m_alpha.B = (cmd->abcd >> 2) & 3;
+		blend.m_alpha.C = (cmd->abcd >> 4) & 3;
+		blend.m_alpha.D = (cmd->abcd >> 6) & 3;
+		lightmap->m_blendmode = blend;
+	}
+
+	if (cmd->flags & 0x20)
+	{
+		_zanim_light_range* seq = reinterpret_cast<_zanim_light_range*>(reinterpret_cast<char*>(cmd) + cmd->range_offset);
+		f32 time = *dt + ZAnim.m_CurSeq->cmd_timer;
+
+		if (!(time <= seq[0].time))
+		{
+			bool found = false;
+			f32 min_range;
+			f32 max_range;
+
+			for (s32 i = 0; i < cmd->range_count - 1; i++)
+			{
+				if (time <= seq[i + 1].time)
+				{
+					f32 t = (time - seq[i].time) / (seq[i + 1].time - seq[i].time);
+					found = true;
+					min_range = seq[i].min_range + t * (seq[i + 1].min_range - seq[i].min_range);
+					max_range = seq[i].max_range + t * (seq[i + 1].max_range - seq[i].max_range);
+					break;
+				}
+			}
+
+			if (!found)
+			{
+				min_range = seq[cmd->range_count - 1].min_range;
+				max_range = seq[cmd->range_count - 1].max_range;
+			}
+
+			if (target != NULL)
+			{
+				target->m_minRange = min_range;
+				target->m_maxRange = max_range;
+				target->m_maxRangeSq = max_range * max_range;
+				target->m_invMaxRange = 1.0f / target->m_maxRange;
+				target->m_invDeltaRange = 1.0f / (target->m_maxRange - target->m_minRange);
+				target->UpdateBBox(false);
+			}
+		}
+	}
+
+	if ((cmd->flags & 0x200) && lightmap != NULL)
+	{
+		CZAnimBlendMode::GetBlendSequenceValue(&blend,
+			reinterpret_cast<_zanim_blend_fix*>(reinterpret_cast<char*>(cmd) + cmd->blend_offset),
+			cmd->blend_count, *dt + ZAnim.m_CurSeq->cmd_timer);
+		lightmap->m_blendmode = blend;
+	}
+
+	if (cmd->duration > 0.0f)
+	{
+		f32 elapsed = ZAnim.m_CurSeq->cmd_timer;
+
+		if (*dt + elapsed <= cmd->duration)
+		{
+			*dt = 0.0f;
+			done = false;
+		}
+		else
+		{
+			done = true;
+			*dt = *dt - (cmd->duration - elapsed);
+		}
+	}
+
+	if (!done)
+		return done;
+
+	if ((cmd->flags & 0x800) && ref != NULL)
+	{
+		if (ref->is_local_light && light != NULL)
+		{
+			light->SetActive(false);
+		}
+		else if (lightmap != NULL && ref->on_world_lightlist)
+		{
+			ref->on_world_lightlist = 0;
+			zdb::CWorld::m_world->DeleteLightMap(lightmap);
+		}
+	}
+
+	return done;
 }
 
 /* @socom-skeleton stub zAnimObjectBlendModeTick__FP14_zanim_cmd_hdrPf */
-bool zAnimObjectBlendModeTick(_zanim_cmd_hdr *, float *)
+bool zAnimObjectBlendModeTick(_zanim_cmd_hdr *header, float *dt)
 {
-	return true; /* port: stub - not written (command tick) */
+	/* 0x1bd590: sets a node's blend mode (A, B, C, D, FIX or the FIX sequence) each tick until
+	 * the duration is used up (one tick without a duration) */
+	_zanim_cmd_blendmode* cmd = reinterpret_cast<_zanim_cmd_blendmode*>(header);
+	zdb::BLENDMODE blend;
+	blend.m_alphaWORD = 0x44;
+	bool done = true;
+	zdb::CNode* node = ZAnim.m_CurAnim->GetNode(cmd->node_ref, false);
+	f32 step = *dt;
+
+	if (node == NULL)
+		return true;
+
+	if (cmd->duration > 0.0f)
+	{
+		f32 elapsed = ZAnim.m_CurSeq->cmd_timer;
+
+		if (step + elapsed <= cmd->duration)
+		{
+			*dt = 0.0f;
+			done = false;
+		}
+		else
+		{
+			step = cmd->duration - elapsed;
+			*dt = *dt - step;
+		}
+	}
+
+	bool b1 = (cmd->flags & 0x1) != 0;
+	bool b2 = (cmd->flags & 0x2) != 0;
+	bool b4 = (cmd->flags & 0x4) != 0;
+	s32 fix = (s32)(128.0f * cmd->fix);
+
+	if (fix < 0)
+		fix = 0;
+
+	if (fix >= 256)
+		fix = 255;
+
+	blend.m_alpha.FIX = fix;
+	blend.m_alpha.A = cmd->abcd & 3;
+	blend.m_alpha.B = (cmd->abcd >> 2) & 3;
+	blend.m_alpha.C = (cmd->abcd >> 4) & 3;
+	blend.m_alpha.D = (cmd->abcd >> 6) & 3;
+
+	if (cmd->flags & 0x8)
+		CZAnimBlendMode::GetBlendSequenceValue(&blend,
+			reinterpret_cast<_zanim_blend_fix*>(reinterpret_cast<char*>(cmd) + cmd->seq_offset),
+			cmd->seq_count, step + ZAnim.m_CurSeq->cmd_timer);
+
+	node->SetBlendMode(blend, b1, b2, b4);
+	return done;
 }
 
 /* @socom-skeleton stub zAnimObjectActiveStateTick__FP14_zanim_cmd_hdrPf */
@@ -1460,13 +1954,117 @@ bool zAnimObjectMotionTick(_zanim_cmd_hdr *header, float *dT)
 }
 
 /* @socom-skeleton stub ComputeRunTime__15CZAnimFromToAccFP6CPnt3DP6CPnt3D */
-void CZAnimFromToAcc::ComputeRunTime(CPnt3D *, CPnt3D *)
+f32 CZAnimFromToAcc::ComputeRunTime(CPnt3D *from, CPnt3D *to)
 {
+	/* 0x1bb100: accelerate from the start speed to the cruise speed, cruise, decelerate to the
+	 * end speed. When the distance is too short to reach the cruise speed, the peak speed is
+	 * searched by halving (to 0.0001 of the distance) and the cruise time is 0. Returns the
+	 * whole run time. */
+	CPnt3D delta;
+	from->Sub(to, &delta);
+	f32 distance = sqrtf(delta.x * delta.x + delta.y * delta.y + delta.z * delta.z);
+	f32 low = 0.0f;
+	f32 high;
+
+	m_accel_time = (m_max_speed - m_start_speed) / m_accel;
+	m_decel_time = (m_end_speed - m_max_speed) / m_decel;
+	f32 run = (m_start_speed * m_accel_time + m_accel_time * (0.5f * m_accel * m_accel_time))
+		+ (m_max_speed * m_decel_time + m_decel_time * (0.5f * m_decel * m_decel_time));
+
+	if (distance - run < 0.0f)
+	{
+		high = m_max_speed;
+
+		while (!(fabsf(distance - run) <= 0.0001f))
+		{
+			f32 peak = 0.5f * (high + low);
+			m_accel_time = (peak - m_start_speed) / m_accel;
+			m_decel_time = (m_end_speed - peak) / m_decel;
+			run = (m_start_speed * m_accel_time + m_accel_time * (0.5f * m_accel * m_accel_time))
+				+ (peak * m_decel_time + m_decel_time * (0.5f * m_decel * m_decel_time));
+
+			if (distance - run < 0.0f)
+				high = peak;
+			else if (!(distance - run <= 0.0f))
+				low = peak;
+		}
+	}
+
+	f32 time = m_accel_time + m_decel_time;
+	f32 left = distance - run;
+
+	if (left <= 0.0f)
+	{
+		m_cruise_time = 0.0f;
+		return time;
+	}
+
+	m_cruise_time = left / m_max_speed;
+	return time + m_cruise_time;
 }
 
 /* @socom-skeleton stub Tick__15CZAnimFromToAccFfP6CPnt3D */
-void CZAnimFromToAcc::Tick(float, CPnt3D *)
+void CZAnimFromToAcc::Tick(float dt, CPnt3D *pos)
 {
+	/* 0x1baf10: moves pos along the direction through the phases (accelerate, cruise,
+	 * decelerate) for dt seconds; a phase's left-over time carries into the next */
+	while (!(dt <= 0.0f))
+	{
+		f32 step = dt;
+
+		switch (m_phase)
+		{
+		case 1:
+			if (m_timer + dt <= m_accel_time)
+			{
+				dt = 0.0f;
+				m_timer = m_timer + step;
+			}
+			else
+			{
+				step = m_accel_time - m_timer;
+				m_timer = 0.0f;
+				dt = dt - step;
+				m_phase = m_cruise_time <= 0.0f ? 3 : 2;
+			}
+
+			m_speed = m_speed + m_accel * step;
+			break;
+
+		case 2:
+			m_speed = m_max_speed;
+
+			if (m_timer + dt <= m_cruise_time)
+			{
+				dt = 0.0f;
+				m_timer = m_timer + step;
+			}
+			else
+			{
+				step = m_cruise_time - m_timer;
+				m_timer = 0.0f;
+				m_phase = 3;
+				dt = dt - step;
+			}
+			break;
+
+		case 3:
+			m_speed = m_speed + m_decel * dt;
+			m_timer = m_timer + dt;
+			dt = 0.0f;
+			break;
+
+		default:
+			dt = 0.0f;
+			break;
+		}
+
+		CPnt3D velocity;
+		m_direction.Scale(m_speed, &velocity);
+		CPnt3D move;
+		velocity.Scale(step, &move);
+		pos->Add(&move, pos);
+	}
 }
 
 /* @socom-skeleton stub zAnimObjectMotionFromToBegin__FP14_zanim_cmd_hdr */
@@ -1486,9 +2084,12 @@ void zAnimObjectMotionFromToBegin(_zanim_cmd_hdr *header)
 		return;
 
 	u16 flags = cmd->flags;
+	CZAnimFromToAcc* acc = (flags & 0x2000) || (flags & 0x4000) ? reinterpret_cast<CZAnimFromToAcc*>(cmd + 1) : NULL;
 
 	if (flags & 0x1070)
 	{
+		bool changed = false; /* s3: a point was taken from a node / the argument / the node */
+
 		if (flags & 0x4)
 		{
 			if (zdb::CNode* from = anim->GetNode(cmd->from_node_ref, false))
@@ -1498,6 +2099,7 @@ void zAnimObjectMotionFromToBegin(_zanim_cmd_hdr *header)
 				cmd->from[0] = p.x;
 				cmd->from[1] = p.y;
 				cmd->from[2] = p.z;
+				changed = true;
 			}
 		}
 		else if (flags & 0x8)
@@ -1507,6 +2109,7 @@ void zAnimObjectMotionFromToBegin(_zanim_cmd_hdr *header)
 
 			if (input != NULL)
 			{
+				changed = true;
 				cmd->from[0] = input->x;
 				cmd->from[1] = input->y;
 				cmd->from[2] = input->z;
@@ -1515,6 +2118,7 @@ void zAnimObjectMotionFromToBegin(_zanim_cmd_hdr *header)
 		else if (!(flags & 0x2))
 		{
 			const f32* pos = node->m_matrix.m_matrix[3];
+			changed = true;
 			cmd->from[0] = pos[0];
 			cmd->from[1] = pos[1];
 			cmd->from[2] = pos[2];
@@ -1532,12 +2136,14 @@ void zAnimObjectMotionFromToBegin(_zanim_cmd_hdr *header)
 				cmd->to[0] = p.x;
 				cmd->to[1] = p.y;
 				cmd->to[2] = p.z;
+				changed = true;
 			}
 		}
 		else if (flags & 0x40)
 		{
 			/* the anim's position argument (0x1ba7f4), as for "from" */
 			const CPnt3D* input = anim->m_arg_list != NULL ? anim->m_arg_list->GetPnt3D(CZAnimArg::ARG_POSITION) : NULL;
+			changed = true; /* set in a delay slot: also without an argument */
 
 			if (input != NULL)
 			{
@@ -1574,8 +2180,41 @@ void zAnimObjectMotionFromToBegin(_zanim_cmd_hdr *header)
 				cmd->velocity[i] = (to[i] - cmd->from[i]) * inverse;
 		}
 
-		/* port: not written - accelerated moves (0x2000/0x4000): the duration from
-		 * CZAnimFromToAcc::ComputeRunTime (0x1bb100) and the accelerator's set-up (+0x80) */
+		/* accelerated (0x1babdc): a point found here gives the run time. ELF quirk kept: the
+		 * stored "to" is passed, without the relative (0x1) "from" offset */
+		if (acc != NULL && changed)
+		{
+			cmd->duration = acc->ComputeRunTime(reinterpret_cast<CPnt3D*>(cmd->from), reinterpret_cast<CPnt3D*>(cmd->to));
+		}
+	}
+
+	flags = cmd->flags;
+
+	if ((flags & 0x2000) || (flags & 0x4000))
+	{
+		/* 0x1babfc: the accelerator starts in its first phase that has time, along to - from */
+		CPnt3D dir;
+		reinterpret_cast<CPnt3D*>(cmd->to)->Sub(reinterpret_cast<CPnt3D*>(cmd->from), &dir);
+		acc->m_timer = 0.0f;
+
+		if (!(acc->m_accel_time <= 0.0f))
+		{
+			acc->m_phase = 1;
+			acc->m_speed = acc->m_start_speed;
+		}
+		else if (!(acc->m_cruise_time <= 0.0f))
+		{
+			acc->m_phase = 2;
+			acc->m_speed = acc->m_max_speed;
+		}
+		else if (!(acc->m_decel_time <= 0.0f))
+		{
+			acc->m_phase = 3;
+			acc->m_speed = acc->m_max_speed;
+		}
+
+		acc->m_direction = dir;
+		acc->m_direction.Normalize();
 	}
 
 	flags = cmd->flags;
@@ -1795,37 +2434,300 @@ bool zAnimObjectOpacityFromToTick(_zanim_cmd_hdr *header, float *dT)
 }
 
 /* @socom-skeleton stub apply_script_frame__FP27_zanim_object_motion_scriptP16_zanim_si_scriptPQ23zdb5CNodeP25zanim_script_frame_headerfPf */
-void apply_script_frame(_zanim_object_motion_script *, _zanim_si_script *, zdb::CNode *, zanim_script_frame_header *, float, float *)
+f32 apply_script_frame(_zanim_object_motion_script *entry, _zanim_si_script *script, zdb::CNode *node, zanim_script_frame_header *frame, float time, float *dt)
 {
+	/* 0x1b9d90: plays one script frame on the node for up to *dt seconds (from the script
+	 * time `time`): waits for the frame's start, then moves the frame time on and sets the
+	 * position (base + velocity * t, or a cubic for spline scripts, plus the entry's offset)
+	 * and the rotation (base * Exp(angular velocity * t), or of a cubic exponent). The time
+	 * used is returned and taken off *dt (f0; the port declared it void). */
+	f32 left = *dt;
+	f32 used = 0.0f;
+
+	if (time + left < frame->start)
+	{
+		*dt = used;
+		return left;
+	}
+
+	if (time < frame->start)
+	{
+		used = frame->start - time;
+		*dt = left - used;
+		time = frame->start;
+	}
+
+	f32 step = *dt;
+
+	if (!(time + step <= frame->end))
+	{
+		/* past the frame's end: when the next frame (same blocks) starts before the time
+		 * left runs out, stop at this frame's end and let the caller move on */
+		f32 saved_time = entry->frame_time;
+		s32 saved_offset = entry->data_offset;
+		entry->frame_count++;
+		entry->data_offset += 16;
+
+		if (frame->flags & 0x1)
+			entry->data_offset += 80;
+
+		if (frame->flags & 0x2)
+			entry->data_offset += 80;
+
+		if (frame->flags & 0x4)
+			entry->data_offset += 80;
+
+		entry->frame_time = 0.0f;
+
+		if (entry->data_offset < script->script_data_size)
+		{
+			zanim_script_frame_header* next = reinterpret_cast<zanim_script_frame_header*>(script->script_data + (entry->data_offset & ~3));
+
+			if (next->flags == frame->flags && !(time + *dt <= next->start))
+			{
+				f32 rest = frame->end - time;
+				*dt = *dt - rest;
+				used += rest;
+				entry->frame_time = frame->end;
+				entry->data_offset = saved_offset; /* ELF quirk kept: frame_count stays counted */
+				return used;
+			}
+		}
+
+		entry->data_offset = saved_offset;
+		entry->frame_time = saved_time;
+		entry->frame_count--;
+		step = frame->end - time;
+	}
+
+	entry->frame_time += step;
+	const f32* block = reinterpret_cast<const f32*>(frame + 1);
+
+	if (frame->flags & 0x1)
+	{
+		f32 t = entry->frame_time;
+		f32 x, y, z;
+
+		if (script->spline_interp)
+		{
+			x = block[8] + t * (block[9] + t * (block[10] + t * block[11]));
+			y = block[12] + t * (block[13] + t * (block[14] + t * block[15]));
+			z = block[16] + t * (block[17] + t * (block[18] + t * block[19]));
+		}
+		else
+		{
+			x = block[0] + block[4] * t;
+			y = block[1] + block[5] * t;
+			z = block[2] + block[6] * t;
+		}
+
+		if (entry->flags & 0x1)
+		{
+			x += entry->offset.x;
+			y += entry->offset.y;
+			z += entry->offset.z;
+		}
+
+		node->SetPosition(x, y, z);
+		block += 20;
+	}
+
+	if (frame->flags & 0x2)
+	{
+		CPnt3D exponent;
+
+		if (script->spline_interp)
+		{
+			f32 t = entry->frame_time;
+			exponent.x = block[8] + t * (block[9] + t * (block[10] + t * block[11]));
+			t = entry->frame_time;
+			exponent.y = block[12] + t * (block[13] + t * (block[14] + t * block[15]));
+			t = entry->frame_time;
+			exponent.z = block[16] + t * (block[17] + t * (block[18] + t * block[19]));
+		}
+		else
+		{
+			CPnt3D scaled;
+			reinterpret_cast<const CPnt3D*>(block + 4)->Scale(entry->frame_time, &scaled);
+			exponent = scaled;
+		}
+
+		CQuat spin;
+		spin.Exp(&exponent);
+		CQuat rotation;
+		spin.Mul(reinterpret_cast<const CQuat*>(block), &rotation);
+		rotation.Normalize();
+		node->SetRotation(rotation);
+	}
+
+	used += step;
+	*dt = *dt - step;
+	return used;
 }
 
 /* @socom-skeleton stub zAnimObjectMotionScriptTick__FP14_zanim_cmd_hdrPf */
-bool zAnimObjectMotionScriptTick(_zanim_cmd_hdr *, float *)
+bool zAnimObjectMotionScriptTick(_zanim_cmd_hdr *header, float *dt)
 {
-	return true; /* port: stub - not written (command tick) */
+	/* 0x1b9b80: one object of an SI script command: plays frames from its data offset while
+	 * time is left; done once the offset reaches the end of the script data (also without a
+	 * node or script) */
+	_zanim_object_motion_script* entry = reinterpret_cast<_zanim_object_motion_script*>(header);
+	CZAnim* anim = ZAnim.m_CurAnim;
+	bool done = false;
+
+	if (entry == NULL || entry->node_ref == 0)
+		return true;
+
+	zdb::CNode* node = anim->GetNode(entry->node_ref, false);
+
+	if (node == NULL)
+		return true;
+
+	u8 index = entry->script;
+	CZAnimSet* set = ZAnim.GetAnimSet(anim->m_animset_index);
+	_zanim_si_script* script = set != NULL ? set->SIScript(index) : NULL;
+
+	if (script == NULL)
+		return true;
+
+	f32 time = ZAnim.m_CurSeq->cmd_timer;
+
+	if (!(entry->data_offset < script->script_data_size))
+		return true;
+
+	do
+	{
+		zanim_script_frame_header* frame = reinterpret_cast<zanim_script_frame_header*>(script->script_data + entry->data_offset);
+		time += apply_script_frame(entry, script, node, frame, time, dt);
+
+		if (!(*dt <= 0.0f))
+		{
+			entry->frame_count++;
+			entry->data_offset += 16;
+
+			if (frame->flags & 0x1)
+				entry->data_offset += 80;
+
+			if (frame->flags & 0x2)
+				entry->data_offset += 80;
+
+			if (frame->flags & 0x4)
+				entry->data_offset += 80;
+
+			entry->frame_time = 0.0f;
+
+			if (!(entry->data_offset < script->script_data_size))
+				done = true;
+		}
+	} while (!(*dt <= 0.0f) && !done);
+
+	return done;
 }
 
 /* @socom-skeleton stub zAnimMultiObjectMotionScriptBegin__FP14_zanim_cmd_hdr */
-void zAnimMultiObjectMotionScriptBegin(_zanim_cmd_hdr *)
+void zAnimMultiObjectMotionScriptBegin(_zanim_cmd_hdr *header)
 {
+	/* 0x1b9b10: every object starts at the script's first frame */
+	_zanim_cmd_si_script* cmd = reinterpret_cast<_zanim_cmd_si_script*>(header);
+
+	if (cmd == NULL || cmd->count == 0)
+		return;
+
+	for (s32 i = 0; i < cmd->count; i++)
+	{
+		_zanim_object_motion_script* entry = reinterpret_cast<_zanim_object_motion_script*>(reinterpret_cast<char*>(cmd) + 8) + i;
+
+		if (entry != NULL)
+		{
+			entry->data_offset = 0;
+			entry->frame_time = 0.0f;
+			entry->frame_count = 0;
+		}
+	}
 }
 
 /* @socom-skeleton stub zAnimMultiObjectMotionScriptTick__FP14_zanim_cmd_hdrPf */
-bool zAnimMultiObjectMotionScriptTick(_zanim_cmd_hdr *, float *)
+bool zAnimMultiObjectMotionScriptTick(_zanim_cmd_hdr *header, float *dt)
 {
-	return true; /* port: stub - not written (command tick) */
+	/* 0x1b9a30: ticks every object with the same time; done when all are, and the time left
+	 * over is the smallest any of them left */
+	_zanim_cmd_si_script* cmd = reinterpret_cast<_zanim_cmd_si_script*>(header);
+
+	if (cmd == NULL || cmd->count == 0)
+		return true;
+
+	f32 step = *dt;
+	f32 least = step;
+	bool done = true;
+
+	for (s32 i = 0; i < cmd->count; i++)
+	{
+		_zanim_object_motion_script* entry = reinterpret_cast<_zanim_object_motion_script*>(reinterpret_cast<char*>(cmd) + 8) + i;
+		*dt = step;
+
+		if (!zAnimObjectMotionScriptTick(&entry->header, dt))
+			done = false;
+
+		if (*dt < least)
+			least = *dt;
+	}
+
+	*dt = least;
+	return done;
 }
 
 /* @socom-skeleton stub zAnimObjectAddChildTick__FP14_zanim_cmd_hdrPf */
-bool zAnimObjectAddChildTick(_zanim_cmd_hdr *, float *)
+bool zAnimObjectAddChildTick(_zanim_cmd_hdr *header, float *)
 {
-	return true; /* port: stub - not written (command tick) */
+	/* 0x1b98b0: makes child a child of parent; flag 1 keeps its world position (the old world
+	 * point through the inverse of the parent's new world matrix) */
+	_zanim_cmd_child* cmd = reinterpret_cast<_zanim_cmd_child*>(header);
+	zdb::CNode* parent = ZAnim.m_CurAnim->GetNode(cmd->parent_ref, false);
+	zdb::CNode* child = ZAnim.m_CurAnim->GetNode(cmd->child_ref, false);
+
+	if (parent == NULL || child == NULL)
+		return true;
+
+	CPnt3D pos;
+	pos.x = 0.0f;
+	pos.y = 0.0f;
+	pos.z = 0.0f;
+
+	if (cmd->flags & 0x1)
+		child->TransformToWorld(pos);
+
+	parent->AddChild(child);
+
+	if (cmd->flags & 0x1)
+	{
+		CMatrix mtw;
+		parent->BuildMTW(mtw);
+		Vu0MatrixInverseWithUniformScale(&mtw, &mtw);
+		const f32 (*m)[4] = mtw.m_matrix;
+		f32 x = pos.x;
+		f32 y = pos.y;
+		f32 z = pos.z;
+		pos.x = m[0][0] * x + m[1][0] * y + m[2][0] * z + m[3][0];
+		pos.y = m[0][1] * x + m[1][1] * y + m[2][1] * z + m[3][1];
+		pos.z = m[0][2] * x + m[1][2] * y + m[2][2] * z + m[3][2];
+		child->SetPosition(pos.x, pos.y, pos.z);
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub zAnimObjectDeleteChildTick__FP14_zanim_cmd_hdrPf */
-bool zAnimObjectDeleteChildTick(_zanim_cmd_hdr *, float *)
+bool zAnimObjectDeleteChildTick(_zanim_cmd_hdr *header, float *)
 {
-	return true; /* port: stub - not written (command tick) */
+	/* 0x1b9830: takes child off parent's children */
+	_zanim_cmd_child* cmd = reinterpret_cast<_zanim_cmd_child*>(header);
+	zdb::CNode* parent = ZAnim.m_CurAnim->GetNode(cmd->parent_ref, false);
+	zdb::CNode* child = ZAnim.m_CurAnim->GetNode(cmd->child_ref, false);
+
+	if (parent != NULL && child != NULL)
+		parent->DeleteChild(child);
+
+	return true;
 }
 
 /* @socom-skeleton body zAnimLoopTick__FP14_zanim_cmd_hdrPf */
@@ -2052,12 +2954,36 @@ bool CZAnimExpression::ProcExpr(f32* dT)
 /* @socom-skeleton body NewCmd__16CZAnimExpressionFPCc */
 _zanim_cmd_hdr* CZAnimExpression::NewCmd(const char* operation)
 {
-    if (operation)
-    {
-        
-    }
+	/* 0x1b90e0: a timeless 8-byte EXPRESSION command for an operator: "!" 1, "&&" 2, "||" 3,
+	 * "(" 4, ")" 5, any other name 0. ELF quirk kept: the EXPRESSION entry is not NULL-checked. */
+	_zanim_cmd_expression* cmd = NULL;
 
-    return NULL;
+	if (operation != NULL)
+	{
+		zanim_cmd* entry = ZAnim.GetCmdEntry("EXPRESSION", false);
+		cmd = static_cast<_zanim_cmd_expression*>(_calloc(1, 8, "zanim_cmd_tick.cpp", 4153));
+		s8 op;
+
+		if (strcmp(operation, "!") == 0)
+			op = 1;
+		else if (strcmp(operation, "&&") == 0)
+			op = 2;
+		else if (strcmp(operation, "||") == 0)
+			op = 3;
+		else if (strcmp(operation, "(") == 0)
+			op = 4;
+		else if (strcmp(operation, ")") == 0)
+			op = 5;
+		else
+			op = 0;
+
+		cmd->op = op;
+		cmd->header.data_type = entry->cmd_val.val;
+		cmd->header.data_size = 8;
+		cmd->header.timeless = 1;
+	}
+
+	return &cmd->header;
 }
 
 /* @socom-skeleton body zAnimIfTick__FP14_zanim_cmd_hdrPf */
@@ -2488,21 +3414,79 @@ bool zAnimStopAnimTick(_zanim_cmd_hdr *header, float *)
 }
 
 /* @socom-skeleton stub zAnimPauseAnimTick__FP14_zanim_cmd_hdrPf */
-bool zAnimPauseAnimTick(_zanim_cmd_hdr *, float *)
+bool zAnimPauseAnimTick(_zanim_cmd_hdr *header, float *)
 {
-	return true; /* port: stub - not written (command tick) */
+	/* 0x1b81d0: pauses this anim (index 0) or a called anim (its running copy, else its
+	 * base) when it runs */
+	_zanim_cmd_index8* cmd = reinterpret_cast<_zanim_cmd_index8*>(header);
+	CZAnim* anim = ZAnim.m_CurAnim;
+
+	if (cmd->name_index == 0)
+	{
+		anim->Pause();
+		return true;
+	}
+
+	_zanim_call_anim_ref* ref = anim->GetCallAnimRef(cmd->name_index);
+
+	if (ref == NULL)
+		return true;
+
+	if (ref->executing_anim != NULL)
+	{
+		if (ref->executing_anim->Running())
+			ref->executing_anim->Pause();
+	}
+	else if (ref->base_anim != NULL && ref->base_anim->Running())
+	{
+		ref->base_anim->Pause();
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub zAnimResumeAnimTick__FP14_zanim_cmd_hdrPf */
-bool zAnimResumeAnimTick(_zanim_cmd_hdr *, float *)
+bool zAnimResumeAnimTick(_zanim_cmd_hdr *header, float *)
 {
-	return true; /* port: stub - not written (command tick) */
+	/* 0x1b8140: resumes a called anim (its running copy, else its base) when it runs */
+	_zanim_cmd_index8* cmd = reinterpret_cast<_zanim_cmd_index8*>(header);
+	_zanim_call_anim_ref* ref = ZAnim.m_CurAnim->GetCallAnimRef(cmd->name_index);
+
+	if (ref == NULL)
+		return true;
+
+	if (ref->executing_anim != NULL)
+	{
+		if (ref->executing_anim->Running())
+			ref->executing_anim->Resume();
+	}
+	else if (ref->base_anim != NULL && ref->base_anim->Running())
+	{
+		ref->base_anim->Resume();
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub zAnimInvalidateAnimTick__FP14_zanim_cmd_hdrPf */
-bool zAnimInvalidateAnimTick(_zanim_cmd_hdr *, float *)
+bool zAnimInvalidateAnimTick(_zanim_cmd_hdr *header, float *)
 {
-	return true; /* port: stub - not written (command tick) */
+	/* 0x1b80c0: marks this anim (index 0) or a called anim's base invalid */
+	_zanim_cmd_index8* cmd = reinterpret_cast<_zanim_cmd_index8*>(header);
+	CZAnim* anim = ZAnim.m_CurAnim;
+
+	if (cmd->name_index == 0)
+	{
+		anim->m_invalid = 1;
+		return true;
+	}
+
+	_zanim_call_anim_ref* ref = anim->GetCallAnimRef(cmd->name_index);
+
+	if (ref != NULL && ref->base_anim != NULL)
+		ref->base_anim->m_invalid = 1;
+
+	return true;
 }
 
 /* @socom-skeleton stub zAnimCallSequenceTick__FP14_zanim_cmd_hdrPf */
@@ -2522,13 +3506,124 @@ bool zAnimStopSequenceTick(_zanim_cmd_hdr *header, float *)
 }
 
 /* @socom-skeleton stub zAnimFireWeaponTick__FP14_zanim_cmd_hdrPf */
-bool zAnimFireWeaponTick(_zanim_cmd_hdr *, float *)
+bool zAnimFireWeaponTick(_zanim_cmd_hdr *header, float *)
 {
-	return true; /* port: stub - not written (command tick) */
+	/* 0x1b7c90: fires a projectile of the named weapon and ammo from the offset / argument /
+	 * AT_NODE point, with the given model and times, along the direction (relative to a node
+	 * when given) at 1 + the weapon's muzzle velocity */
+	_zanim_cmd_fire_weapon* cmd = reinterpret_cast<_zanim_cmd_fire_weapon*>(header);
+	CZAnim* anim = ZAnim.m_CurAnim;
+	CZWeaponList* weapons = &CZWeapon::m_listWeapons;
+	CZAmmoList* ammos = &CZAmmo::m_ammolist;
+	CZProjectileList* projectiles = CZWeapon::m_pProjectilelist;
+	CZWeapon* weapon = NULL;
+	CZAmmo* ammo = NULL;
+	CZProjectile* projectile = NULL;
+	bool moved = false;
+	CPnt3D pos;
+	pos.x = 0.0f;
+	pos.y = 0.0f;
+	pos.z = 0.0f;
+
+	if (weapons != NULL)
+		weapon = weapons->GetWeapon(anim->GetName(cmd->weapon));
+
+	if (ammos != NULL)
+		ammo = ammos->GetAmmo(anim->GetName(cmd->ammo));
+
+	if (projectiles != NULL && weapon != NULL && ammo != NULL)
+		projectile = projectiles->AcquireProjectile(*weapon, *ammo);
+
+	if (projectile == NULL)
+		return true;
+
+	projectile->Reset();
+	projectile->m_weapon = weapon;
+
+	if (projectile->m_weapon != NULL)
+	{
+		projectile->m_currange = projectile->m_weapon->GetMaxRange();
+
+		if (projectile->m_weapon->IsDirectFire())
+			projectile->m_shottype = static_cast<PROJECTILE_TYPE>(1);
+	}
+
+	projectile->m_ammo = ammo;
+
+	if (cmd->flags & 0x1)
+	{
+		moved = true;
+		pos.Add(&cmd->offset, &pos);
+	}
+
+	if (cmd->flags & 0x2)
+	{
+		const CPnt3D* arg = anim->m_arg_list != NULL ? anim->m_arg_list->GetPnt3D(static_cast<CZAnimArg::TYPE>(5)) : NULL;
+
+		if (arg != NULL)
+		{
+			CPnt3D sum;
+			moved = true;
+			pos.Add(arg, &sum);
+			pos = sum;
+		}
+	}
+
+	if (cmd->at_node != 0)
+	{
+		zdb::CNode* at = anim->GetNode(cmd->at_node, false);
+
+		if (at != NULL)
+		{
+			moved = true;
+			at->TransformToWorld(pos);
+		}
+	}
+
+	if (moved)
+	{
+		projectile->m_framestartpos = pos;
+		projectile->m_frameendpos = pos;
+		projectile->m_startpos = pos;
+	}
+
+	zdb::CModel* model = cmd->model != 0 ? zdb::CWorld::GetModel(anim->GetName(cmd->model)) : NULL;
+	projectile->m_instance->SetModel(model);
+	projectile->m_time = cmd->time;
+	projectile->m_removaltime = cmd->removal_time;
+
+	if (cmd->dir_node != 0)
+	{
+		zdb::CNode* node = anim->GetNode(cmd->dir_node, false);
+
+		if (node != NULL)
+		{
+			CPnt3D dir = cmd->direction;
+			CZAnimMain::GetDirectionRelativeToNode(&dir, node);
+
+			if (projectile->m_weapon != NULL)
+				dir.Scale(1.0f + projectile->m_weapon->GetMuzzleVelocity(), &projectile->m_vel);
+		}
+	}
+	else if (projectile->m_weapon != NULL)
+	{
+		cmd->direction.Scale(1.0f + projectile->m_weapon->GetMuzzleVelocity(), &projectile->m_vel);
+	}
+
+	projectile->m_owner = NULL;
+	projectile->m_shooterID = 0;
+
+	if (theNetwork.m_bNetwork)
+		projectile->m_isplayer = 1;
+
+	projectile->m_state = static_cast<PROJECTILE_STATE>(1);
+	CZWeapon::Fire(*projectile);
+	return true;
 }
 
 /* @socom-skeleton stub zAnimDebugTick__FP14_zanim_cmd_hdrPf */
 bool zAnimDebugTick(_zanim_cmd_hdr *, float *)
 {
-	return true; /* port: stub - not written (command tick) */
+	/* 0x1b7c80: nothing in the release build */
+	return true;
 }

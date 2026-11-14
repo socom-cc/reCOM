@@ -965,11 +965,28 @@ bool CBlendable::Contains(AnimType type)
 /* @socom-skeleton stub CloseAll__7AnimSetFv */
 void AnimSet::CloseAll()
 {
+	/* 0x2cd580: every anim set's tables */
+	for (std::vector<AnimSet*>::iterator it = list.begin(); it != list.end(); ++it)
+		(*it)->Close();
 }
 
 /* @socom-skeleton stub Close__7AnimSetFv */
 void AnimSet::Close()
 {
+	/* 0x2cd2d0: the eight blendable move tables cleared (inline Clear) and deleted */
+	CBlendable** tables[8] = { &m_move_anims, &m_moveback_anims, &m_strafeL_anims, &m_strafeR_anims,
+		&m_crouchmove_anims, &m_crouchmoveback_anims, &m_crouchstrafeL_anims, &m_crouchstrafeR_anims };
+
+	for (s32 i = 0; i < 8; i++)
+	{
+		if (*tables[i] != NULL)
+		{
+			(*tables[i])->Clear();
+			delete *tables[i];
+		}
+
+		*tables[i] = NULL;
+	}
 }
 
 /* @socom-skeleton stub GetAnimTypeMax__Fv */
@@ -1150,10 +1167,10 @@ void AnimSet::Inherit(AnimSet *other)
 }
 
 /* @socom-skeleton stub Get__12CAnimAuxDataFUi */
-CAnimAuxData * CAnimAuxData::Get(unsigned int index)
+CAnimAuxData * CAnimAuxData::Get(unsigned int anim)
 {
-	/* 0x2cc7c0: the aux data of an AnimType */
-	return list[index];
+	/* 0x2cc7c0: the aux data of an AnimType (not range-checked) */
+	return list[anim];
 }
 
 /* @socom-skeleton stub Load__7AnimSetFv */
