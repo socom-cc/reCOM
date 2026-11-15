@@ -32,8 +32,14 @@ void socom_port_trace(const char *fmt, ...)
 __attribute__((constructor(101))) static void socom_port_ctors_begin(void)
 {
     extern char _end[];
+    char warm[64];
     socom_port_trace("M1: global constructors start (end %p, brk %p, heap end %p)", (void *)_end, sbrk(0), EndOfHeap());
     setvbuf(stdout, NULL, _IONBF, 0);
+    /* newlib's float formatting (dtoa, _Balloc) makes its big-number blocks once and keeps them on
+     * a free list for ever. Made here, they sit with the boot blocks; made by the first trace that
+     * prints a float (during the first mission load), they stayed as small pins in the middle of
+     * the mission memory and split it after every mission (docs/port/notes/menu-heap.md). */
+    snprintf(warm, sizeof(warm), "%f %e %g %.2f", 3.14159265358979, 1.0e-7, 12345.678, 0.5);
 }
 
 /* src/ is compiled with -fsanitize=return: a non-void function that falls off its

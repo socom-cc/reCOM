@@ -34,6 +34,11 @@ set(SOCOM_PORT_FLAGS
   # (0x2f4df0) sets zSys.isT10K. Calling them as plain functions keeps the probe.
   -fno-builtin-malloc
   -fno-builtin-free
+  # Metrowerks guards function-local statics with a plain flag, no lock. GCC's thread-safe
+  # statics take libstdc++'s guard mutex, which the threads layer makes (a heap block) the
+  # first time it is locked: during the first mission load, so the block stayed in the middle
+  # of the freed mission memory at every return to the menus (docs/port/notes/menu-heap.md).
+  -fno-threadsafe-statics
   -include "${CMAKE_CURRENT_SOURCE_DIR}/include/socom_port_prefix.h")
 
 # VU microcode (src/**/*.vsm, e.g. zRender/zrndr_vu1.vsm): assembled with the ps2dev dvp-as and

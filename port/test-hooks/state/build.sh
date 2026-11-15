@@ -8,5 +8,6 @@ D=$(cd "$(dirname "$(readlink -f "$0")")" && pwd)
 HOOKSH=$D/../../tools/dev/hook.sh
 # build.sh <build> [pad] [flags]
 # HLEAK=1 adds the leak tracker ../death/hook_leak.cpp (with -DSOCOM_HOOK_LEAK, not -DSOCOM_HOOK_MALLOC)
-S=("$D/hook_state.cpp"); [ -n "${HLEAK:-}" ] && S+=("$D/../death/hook_leak.cpp")
+# HMAP=1 adds the heap mapper hook_heapmap.cpp (with -DSOCOM_HOOK_HEAPMAP, not -DSOCOM_HOOK_MALLOC / HLEAK)
+S=("$D/hook_state.cpp"); [ -n "${HLEAK:-}" ] && S+=("$D/../death/hook_leak.cpp"); [ -n "${HMAP:-}" ] && S+=("$D/hook_heapmap.cpp")
 exec bash "$HOOKSH" "$1" "${2:-$D/pad_idle.txt}" "${S[@]}" -- "${@:3}"

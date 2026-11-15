@@ -252,7 +252,14 @@ CMission theMission;
 CUIVarManager theUIVarManager;
 
 /* @socom-skeleton stub theValveSaveManager */
-int theValveSaveManager[6];
+/* 24 bytes (0x4c4d00): built after theUIVarManager in __sinit_fts_mission.cpp (0x46ac0c), registered with
+ * the memory card's options manager, so the options save and load carry the persistent valves too */
+CValveSaveManager theValveSaveManager("CValveSaveManager", theMemCard.m_config);
+
+/* 0x1fbdc0: the compiler-style destructor (vtable, then ~CSaveModule; deleting when asked) */
+CValveSaveManager::~CValveSaveManager()
+{
+}
 
 /* @socom-skeleton stub g_arrDefCharTypeNames__25@unnamed@fts_mission_cpp@ */
 namespace {
@@ -1506,6 +1513,10 @@ void CMission::Close()
 	CZSealBody::m_compass.Close();
 	std::vector<CObjAnchor*>().swap(m_anchor_extraction);
 	std::vector<CCompassAnchor*>().swap(m_navpoints);
+	/* 0x1f7670: the objective anchors' vector too (clear, then swapped with an empty temporary
+	 * that is destroyed): its buffer (Open's reserve(16)) goes back to the heap */
+	m_objanchor_vec.clear();
+	std::vector<SObjectiveCam_Anchor>().swap(m_objanchor_vec);
 #ifdef SOCOM_PORT
 	SOCOM_PORT_TRACE("MISSION: Close done");
 #endif

@@ -153,6 +153,9 @@ public:
 class CValveSaveManager : public CSaveModule
 {
 public:
+	/* inline in __sinit_fts_mission.cpp (0x46ac0c): CSaveModule("CValveSaveManager",
+	 * theMemCard.m_config), then the vtable */
+	CValveSaveManager(const char *name, CSaveManager *manager) : CSaveModule(name, manager) {}
 	virtual ~CValveSaveManager();
 	virtual void Serialize(int);
 	virtual void UnSerialize(const char *, CRdrFile *, int);

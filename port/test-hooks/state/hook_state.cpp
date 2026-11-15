@@ -44,6 +44,18 @@
 extern COurGame theGame;
 void hook_state_heap_extra(const char *what);
 void hook_state_arm();
+#ifdef SOCOM_HOOK_HEAPMAP
+/* with hook_heapmap.cpp (build.sh HMAP=1): full heap maps at the first main menu, at the first two mission
+ * starts and returns, and before every allocation of 2 MB or more */
+extern "C" void socom_hmap_dump(const char *label);
+extern "C" void socom_hmap_summary(const char *label);
+extern "C" void socom_hmap_phase(unsigned phase);
+#define HMAP_DUMP(label) socom_hmap_dump(label)
+#define HMAP_PHASE(n) socom_hmap_phase(n)
+#else
+#define HMAP_DUMP(label) ((void)0)
+#define HMAP_PHASE(n) ((void)0)
+#endif
 extern "C" int __real_scePadRead(int port, int slot, unsigned char *rdata);
 
 namespace
@@ -61,7 +73,18 @@ int g_nqueue;
 unsigned int g_reads;
 const void *g_top;
 unsigned int g_top_since;
-std::string g_dialog;
+/* the open dialog's name in a fixed buffer: the hook makes no heap blocks of its own (the heap layout
+ * stays the game's, see hook_heapmap.cpp) */
+struct DialogName
+{
+    char buf[64];
+    void clear() { buf[0] = '\0'; }
+    const char *c_str() const { return buf; }
+    bool operator==(const char *s) const { return strcmp(buf, s) == 0; }
+    bool operator!=(const char *s) const { return strcmp(buf, s) != 0; }
+    DialogName &operator=(const char *s) { snprintf(buf, sizeof(buf), "%s", s); return *this; }
+};
+DialogName g_dialog;
 int g_mission;
 bool g_new_mission;
 unsigned int g_last_cam;       /* read of the last frame a mission camera played */
@@ -117,7 +140,7 @@ bool camera_playing()
     return theHUD != NULL && theHUD->m_missioncams.IsPlaying() != 0;
 }
 
-void on_dialog(const std::string &name)
+void on_dialog(const DialogName &name)
 {
     if (g_mission >= SOCOM_HOOK_MISSIONS)
     {
@@ -158,8 +181,10 @@ void watch()
 
     if (top != g_top)
     {
-        SOCOM_PORT_TRACE("HOOK: read %u state %s -> %s (index %u, mission %d)", g_reads, name_of(g_top), name_of(top),
-            (unsigned)theGame.m_CurrentState, g_mission);
+        static unsigned changes;
+        HMAP_PHASE(++changes); /* blocks made from now on carry this state change's number (p<n> in the maps) */
+        SOCOM_PORT_TRACE("HOOK: read %u state %s -> %s (index %u, mission %d, phase %u)", g_reads, name_of(g_top), name_of(top),
+            (unsigned)theGame.m_CurrentState, g_mission, changes);
 
         if (top == &theGame.m_menuState && g_mission > 0)
         {
@@ -167,6 +192,9 @@ void watch()
             char what[48];
             snprintf(what, sizeof(what), "return %d to the menus", g_returns);
             heap(what);
+
+            if (g_returns <= 2)
+                HMAP_DUMP(what);
         }
 
         g_top = top;
@@ -187,6 +215,14 @@ void watch()
         {
             g_dialog = name;
             heap(name);
+
+            static bool first_menu = true;
+
+            if (first_menu && g_dialog == "dlgMenu.rdr")
+            {
+                first_menu = false;
+                HMAP_DUMP("first main menu");
+            }
             on_dialog(g_dialog);
         }
     }
@@ -207,6 +243,9 @@ void watch()
         g_acted = false;
         SOCOM_PORT_TRACE("HOOK: read %u mission %d starts (player %p)", g_reads, g_mission, (void *)ftsGetPlayer());
         heap("mission start");
+
+        if (g_mission <= 2)
+            HMAP_DUMP(g_mission == 1 ? "mission 1 start" : "mission 2 start");
     }
 
     if (top == &theGame.m_coreState && g_mission > 0 && !g_acted)
@@ -319,7 +358,10 @@ extern "C" int __wrap_scePadRead(int port, int slot, unsigned char *rdata)
     return r;
 }
 
-#ifdef SOCOM_HOOK_MALLOC
+#if defined(SOCOM_HOOK_HEAPMAP)
+/* the heap figures from hook_heapmap.cpp's walk (no test allocations: the layout stays the game's) */
+void hook_state_heap_extra(const char *what) { socom_hmap_summary(what); }
+#elif defined(SOCOM_HOOK_MALLOC)
 /* Every request that fails or moves the program break by 32 KB or more is traced with its tag: the
  * game's _malloc / _calloc / _memalign / _strdup / _new / _new_vec file:line when it came through
  * those, else the caller's address. The guard keeps the trace's own allocations out. */
@@ -413,6 +455,9 @@ void hook_state_heap_extra(const char *what)
 }
 #else
 void hook_state_heap_extra(const char *) {}
+#endif
+#if defined(SOCOM_HOOK_HEAPMAP) && defined(SOCOM_HOOK_LEAK)
+#error "SOCOM_HOOK_HEAPMAP (HMAP=1) and SOCOM_HOOK_LEAK (HLEAK=1) wrap the same allocator functions: use one"
 #endif
 #ifdef SOCOM_HOOK_LEAK
 /* with port/test-hooks/death/hook_leak.cpp (build.sh: HLEAK=1, without -DSOCOM_HOOK_MALLOC): armed when the

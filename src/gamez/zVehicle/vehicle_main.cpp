@@ -148,7 +148,11 @@ AI_PARAMS::AI_PARAMS()
 /* @socom-skeleton body Close__11CVehicleRdrFv */
 void CVehicleRdr::Close()
 {
+	/* 0x1a3810: the entries cleared, then the vector swapped with an empty temporary that is
+	 * destroyed, so the buffer goes back to the heap (a clear() alone kept it: 41 entries, an
+	 * 11 KB block left in the middle of the freed mission memory at every return to the menus) */
 	clear();
+	std::vector<CVehicleRdrEntry>().swap(*this);
 }
 
 /* @socom-skeleton body Open__11CVehicleRdrFPCc */
