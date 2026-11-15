@@ -96,6 +96,13 @@ public:
 };
 }
 /* @socom-skeleton end Q227@unnamed@hud_newhudmap_cpp@12COverlayLine */
+/* DWARF class_type SealDir (hud_newhudmap.cpp, byte_size 12, file scope): a CPnt3D and nothing
+   of its own; the type of SetupNorthIndicator's dir, CalcNewMatrix's direction and
+   GetScrollPermissions' / HandleScrolling's ptDir, each the seal's facing (minus the node
+   matrix's z row). DWARF names no member function: the users fill it. */
+class SealDir : public CPnt3D
+{
+};
 
 /* @socom-skeleton stub g_fShowTime__27@unnamed@hud_newhudmap_cpp@ */
 namespace {
@@ -189,7 +196,7 @@ void SetupNorthIndicator(CZSealBody *seal)
 	/* 0x3c6a50: the full-screen north arrow at 600,100 turned by the seal's heading (shaft
 	 * ends 10 and 30 out, the barb from 20 out), and the "N" */
 	const float* forward = seal->m_node->m_matrix.m_matrix[2];
-	CPnt3D dir;
+	SealDir dir;
 	dir.x = -forward[0];
 	dir.y = -forward[1];
 	dir.z = -forward[2];
@@ -546,7 +553,7 @@ void CZNewHudMap::CalcNewMatrix()
 
 	CPnt3D* pos = m_viewer->GetPosW();
 	const float* forward = m_viewer->m_node->m_matrix.m_matrix[2];
-	CPnt3D dir;
+	SealDir dir;
 	dir.x = -forward[0];
 	dir.y = -forward[1];
 	dir.z = -forward[2];
@@ -601,7 +608,7 @@ CScrollBools CZNewHudMap::GetScrollPermissions() const
 	static CBBox boxFallback;
 
 	const float* forward = m_viewer->m_node->m_matrix.m_matrix[2];
-	CPnt3D ptDir;
+	SealDir ptDir;
 	ptDir.x = -forward[0];
 	ptDir.y = -forward[1];
 	ptDir.z = -forward[2];
@@ -797,7 +804,7 @@ void CZNewHudMap::HandleScrolling(float fStickX, float fStickY)
 		return;
 
 	const float* forward = m_viewer->m_node->m_matrix.m_matrix[2];
-	CPnt3D ptDir;
+	SealDir ptDir;
 	ptDir.x = -forward[0];
 	ptDir.y = -forward[1];
 	ptDir.z = -forward[2];

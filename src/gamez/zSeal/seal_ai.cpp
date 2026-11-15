@@ -1146,7 +1146,7 @@ CSealCtrlAi::CSealCtrlAi()
 	m_followMode = 0;
 	m_padid = 1;
 	m_recycleTimer = 0.0f;
-	m_ladder_state = 0;
+	m_ladder_state = AIL_SETUP;
 	m_scan_limits = 1.0471976f;
 	m_holdCover = false;
 	memset(m_valve, 0, sizeof(m_valve));
@@ -2613,7 +2613,7 @@ void CSealCtrlAi::SetAiMode(AI_MODE mode)
 			return;
 	}
 
-	m_ladder_state = 0;
+	m_ladder_state = AIL_SETUP;
 
 	switch (mode)
 	{
@@ -2721,7 +2721,7 @@ bool CSealCtrlAi::LadderClimbTick(float dT)
 
 	if (count == 0)
 	{
-		m_ladder_state = 0;
+		m_ladder_state = AIL_SETUP;
 		return false;
 	}
 
@@ -2737,12 +2737,12 @@ bool CSealCtrlAi::LadderClimbTick(float dT)
 
 	switch (m_ladder_state)
 	{
-	case 0:
+	case AIL_SETUP:
 		if (climbing)
 		{
 			CPnt3D c;
 			AiMaps.GetCellCenter(after, &c);
-			m_ladder_state = static_cast<CEntity *>(m_entity)->GetPosW()->y < c.y ? 2 : 3;
+			m_ladder_state = static_cast<CEntity *>(m_entity)->GetPosW()->y < c.y ? AIL_CLIMBUP : AIL_CLIMBDN;
 			break;
 		}
 
@@ -2797,11 +2797,11 @@ bool CSealCtrlAi::LadderClimbTick(float dT)
 				m_goal_type = (GOAL_TYPE)3;
 			}
 
-			m_ladder_state = 1;
+			m_ladder_state = AIL_MOVETO;
 		}
 		break;
 
-	case 1:
+	case AIL_MOVETO:
 		m_speed = mmt_move;
 		saturate<f32>(m_speed, 0.0f, 1.0f); /* _saturate<f> */
 		CreepTick(dT);
@@ -2823,12 +2823,12 @@ bool CSealCtrlAi::LadderClimbTick(float dT)
 			}
 
 			m_pathGoalDot = 0.0f;
-			m_ladder_state = static_cast<CEntity *>(m_entity)->GetPosW()->y < c1.y ? 2 : 3;
+			m_ladder_state = static_cast<CEntity *>(m_entity)->GetPosW()->y < c1.y ? AIL_CLIMBUP : AIL_CLIMBDN;
 		}
 		break;
 
-	case 2:
-	case 3:
+	case AIL_CLIMBUP:
+	case AIL_CLIMBDN:
 		if (!climbing)
 		{
 			if ((u8)m_goal_type == 3) /* the old ClearGoal(3), inlined */
@@ -2851,11 +2851,11 @@ bool CSealCtrlAi::LadderClimbTick(float dT)
 
 			m_pathGoalDot = 0.0f;
 			result = false;
-			m_ladder_state = 0;
+			m_ladder_state = AIL_SETUP;
 			break;
 		}
 
-		SetThrottle(0, m_ladder_state == 2 ? 1.0f : -1.0f);
+		SetThrottle(0, m_ladder_state == AIL_CLIMBUP ? 1.0f : -1.0f);
 		SetThrottle(1, 0.0f);
 		SetThrottle(2, 0.0f);
 		break;

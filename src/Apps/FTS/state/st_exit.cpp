@@ -86,13 +86,19 @@ void SetRoundStatUiVars(int primaryDone, int secondaryDone)
 	 * is used without the seal test (NULL + 0x4c0 when it is no seal); a mission without
 	 * objectives divides 0 by 0 (port: always - CMission::LoadObjectiveCams is
 	 * unwritten, so the list is empty and the percentage is a NaN conversion). */
-	struct StatRow
+	/* DWARF class_type StatInfo (st_exit.cpp, byte_size 36), the type of arrStatInfo (11 of them
+	 * at frame +176, copied from 0x43b600) and of the loops' info references. Port: arrUiVars
+	 * is DWARF char *[5], const here for the string-literal initialisers; pGetter is DWARF
+	 * fund type void (the MW 12-byte member pointer: +0x18..+0x24), a GCC member pointer is 8
+	 * bytes (port sizeof 32; the record never leaves this function) */
+	class StatInfo
 	{
-		const char *names[5]; /* seal 1-4, total */
-		s32 total;
-		int (CSealStats::*get)() const;
+	public:
+		const char *arrUiVars[5]; /* +0x0: seal 1-4, total */
+		s32 iTotal; /* +0x14 */
+		int (CSealStats::*pGetter)() const; /* +0x18 */
 	};
-	StatRow rows[11] = {
+	StatInfo arrStatInfo[11] = {
 		{ { "StatKillsSeal1", "StatKillsSeal2", "StatKillsSeal3", "StatKillsSeal4", "StatKillsTot" }, 0, &CSealStats::GetKills },
 		{ { "StatHeadShotsSeal1", "StatHeadShotsSeal2", "StatHeadShotsSeal3", "StatHeadShotsSeal4", "StatHeadShotsTot" }, 0, &CSealStats::GetHeadShots },
 		{ { "StatStealthSeal1", "StatStealthSeal2", "StatStealthSeal3", "StatStealthSeal4", "StatStealthTot" }, 0, &CSealStats::NumStealthKills },
@@ -116,10 +122,11 @@ void SetRoundStatUiVars(int primaryDone, int secondaryDone)
 
 		for (u32 i = 0; i < 11; i++)
 		{
-			s32 value = (stats->*rows[i].get)();
+			StatInfo &info = arrStatInfo[i];
+			s32 value = (stats->*info.pGetter)();
 			sprintf(text, "#P100000000 %d", value);
-			*theUIVarManager.Add(rows[i].names[index], NULL, (UIVAR_LONGEVITY)1) = text;
-			rows[i].total += value;
+			*theUIVarManager.Add(info.arrUiVars[index], NULL, (UIVAR_LONGEVITY)1) = text;
+			info.iTotal += value;
 		}
 
 		do
@@ -144,7 +151,10 @@ void SetRoundStatUiVars(int primaryDone, int secondaryDone)
 	};
 
 	for (u32 i = 0; i < 11; i++)
-		setInt(rows[i].names[4], rows[i].total);
+	{
+		const StatInfo &info = arrStatInfo[i];
+		setInt(info.arrUiVars[4], info.iTotal);
+	}
 
 	s32 primaryTotal = 0;
 	s32 secondaryTotal = 0;

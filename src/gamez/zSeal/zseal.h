@@ -1552,6 +1552,18 @@ struct UnitPointData
 	f32 timer; /* DWARF ft14 */
 };
 
+/* DWARF class_type slist and clist (file scope, byte_size 12; orders.cpp, st_core.cpp,
+ * hud_teamnames.cpp, hud_devtext.cpp): MSL lists (list base, nothing of their own), the types of
+ * CSealUnit's m_seals / m_escortees / m_dead_guys and m_commands. DWARF's list base does not
+ * name the element: CZSealBody * and FT_COMMAND are the port's, from the code that fills them. */
+class slist : public std::list<CZSealBody*>
+{
+};
+
+class clist : public std::list<FT_COMMAND>
+{
+};
+
 class CSealUnit
 {
 public:
@@ -1566,11 +1578,16 @@ public:
 	u8 m_hold_up; /* +0x34 */
 	u32 m_unit_num; /* +0x38 (GetUnitByTeam 0x2d7590) */
 	CSealUnit* m_parent; /* +0x3c */
-	std::list<CZSealBody*> m_seals; /* +0x40 */
-	std::list<CZSealBody*> m_escortees; /* +0x4c */
-	std::list<CSealUnit*> m_sub_units; /* +0x58 */
-	std::list<CZSealBody*> m_dead_guys; /* +0x64 */
-	std::list<FT_COMMAND> m_commands; /* +0x70: the unit's orders, the latest at the front */
+	/* DWARF class_type CSealUnit::ulist (byte_size 12): an MSL list (list base, nothing of its
+	 * own) of the sub-units */
+	class ulist : public std::list<CSealUnit*>
+	{
+	};
+	slist m_seals; /* +0x40 */
+	slist m_escortees; /* +0x4c */
+	ulist m_sub_units; /* +0x58 */
+	slist m_dead_guys; /* +0x64 */
+	clist m_commands; /* +0x70: the unit's orders, the latest at the front */
 	u8 m_issue_unit_follow; /* +0x7c: Tick re-issues FOLLOW from m_follow_source */
 	u8 m_issue_sub_unit_follow; /* +0x7d */
 	u8 m_member_died; /* +0x7e */
@@ -1910,6 +1927,16 @@ public:
 };
 /* @socom-skeleton end 9CAiTarget */
 
+/* DWARF enumeration_type AI_LADDER_STATE (byte_size 1; the CUs that carry CSealCtrlAi): the
+ * type of CSealCtrlAi::m_ladder_state (+0x338), the ladder climb's step (TickLadder) */
+enum AI_LADDER_STATE : unsigned char
+{
+	AIL_SETUP = 0,
+	AIL_MOVETO = 1,
+	AIL_CLIMBUP = 2,
+	AIL_CLIMBDN = 3
+};
+
 class CSealCtrlAi : public CSealCtrl
 {
 public:
@@ -1957,7 +1984,7 @@ public:
 	CAiStateStack m_stateStack; /* +0x324 */
 	f32 m_stateTimer;
 	u32 m_stateFlags;
-	u8 m_ladder_state; /* +0x338 AI_LADDER_STATE */
+	AI_LADDER_STATE m_ladder_state; /* +0x338 */
 	CZAnim* m_task_anim[6]; /* +0x33c; port: element type unproven (24 bytes cleared by the ctor) */
 	CZAnim* m_task_handle[6]; /* +0x354; port: element type unproven */
 	CAiPath m_path; /* +0x36c */

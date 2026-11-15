@@ -72,6 +72,76 @@ namespace zdb
 struct _zanim_cmd_hdr;
 /* @socom-skeleton end forward */
 
+/* The camera commands' records: DWARF class types of this unit (zcam_main.cpp), members,
+   order, offsets and bitfields as DWARF has them (bit numbers from bit 0 of the word, as the
+   handlers' masks show). CAMERA_PARAMS is a timeless 36-byte record with six key tracks
+   appended after it: each track is an offset into the record (0: none) and a key count; a key
+   is its time followed by its values (_camera_param_<n>d_data, the DWARF types of
+   CmdParseParams' and CmdTickParams' fov / clip / clip_all / fog / lod locals). */
+class _camera_params_cmd /* DWARF byte_size 36 (CmdParseParams 0x1e6300, CmdBeginParams 0x1e61c0, CmdTickParams 0x1e5570) */
+{
+public:
+	_zanim_cmd_hdr hdr;
+	u32 save_params : 1;              /* +0x4 SAVE_PARAMS */
+	u32 restore_params : 1;           /* RESTORE_PARAMS */
+	u32 fog_enabled_set : 1;          /* FOG_ON / FOG_OFF given */
+	u32 fog_enabled : 1;              /* FOG_ON */
+	u32 fog_altitude_enabled_set : 1; /* FOG_ALTITUDE_ON / _OFF given */
+	u32 fog_altitude_enabled : 1;     /* FOG_ALTITUDE_ON */
+	f32 run_time;                     /* +0x8: the latest key time */
+	u32 fov_offset : 16;              /* +0xc FOV: time, horizontal and vertical field of view in degrees */
+	u32 fov_count : 16;
+	u32 clip_offset : 16;             /* +0x10 CLIP: time, near, mid plane */
+	u32 clip_count : 16;
+	u32 clip_all_offset : 16;         /* +0x14 CLIP_ALL: time, near, mid, far plane */
+	u32 clip_all_count : 16;
+	u32 fog_range_offset : 16;        /* +0x18 FOG_RANGE: time, fog near, fog far */
+	u32 fog_range_count : 16;
+	u32 fog_altitude_offset : 16;     /* +0x1c FOG_ALTITUDE: time, fog bottom, fog top */
+	u32 fog_altitude_count : 16;
+	u32 lod_multiplier_offset : 16;   /* +0x20 LOD_MULTIPLIER: time, range scale */
+	u32 lod_multiplier_count : 16;
+};
+
+class _camera_param_1d_data /* DWARF byte_size 8: a LOD_MULTIPLIER key */
+{
+public:
+	f32 time;
+	f32 a;
+};
+
+class _camera_param_2d_data /* DWARF byte_size 12: a FOV, CLIP, FOG_RANGE or FOG_ALTITUDE key */
+{
+public:
+	f32 time;
+	f32 a;
+	f32 b;
+};
+
+class _camera_param_3d_data /* DWARF byte_size 16: a CLIP_ALL key */
+{
+public:
+	f32 time;
+	f32 a;
+	f32 b;
+	f32 c;
+};
+
+class _camera_control_cmd /* DWARF byte_size 8: DYNAMICS_RELEASE_CAMERA / DYNAMICS_ACQUIRE_CAMERA (CmdTickControlSwitch 0x1e7470) */
+{
+public:
+	_zanim_cmd_hdr hdr;
+	s32 release : 1; /* +0x4 */
+	s32 acquire : 1;
+};
+
+class _camera_set_regions_cmd /* DWARF byte_size 8: SET_CAMERA_REGION_TEST (CmdTickSetRegions 0x1e72f0) */
+{
+public:
+	_zanim_cmd_hdr hdr;
+	s32 set_on : 1; /* +0x4: ON */
+};
+
 /* @socom-skeleton stub m_dynamics_controlled__Q23zdb7CCamera */
 namespace zdb {
 bool CCamera::m_dynamics_controlled = 1;
@@ -249,14 +319,14 @@ _zanim_cmd_hdr* CCamera::CmdParseAcquire(_zrdr* reader)
 namespace zdb {
 bool CCamera::CmdTickControlSwitch(_zanim_cmd_hdr* header, f32* dT)
 	{
-		/* 0x1e7470: DYNAMICS_RELEASE_CAMERA (flag bit 0 of the byte at +4) hands the camera
-		   to the animation, DYNAMICS_ACQUIRE_CAMERA (bit 1) gives it back to the camera
+		/* 0x1e7470: DYNAMICS_RELEASE_CAMERA (release, bit 0 at +4) hands the camera to the
+		   animation, DYNAMICS_ACQUIRE_CAMERA (acquire, bit 1) gives it back to the camera
 		   dynamics (CAppCamera::Tick) */
-		u8 flags = reinterpret_cast<u8*>(header)[4];
+		const _camera_control_cmd* cmd = reinterpret_cast<const _camera_control_cmd*>(header);
 
-		if (flags & 1)
+		if (cmd->release)
 			m_dynamics_controlled = false;
-		else if (flags & 2)
+		else if (cmd->acquire)
 			m_dynamics_controlled = true;
 
 		return true;
@@ -295,8 +365,8 @@ _zanim_cmd_hdr* CCamera::CmdParseSetRegions(_zrdr* reader)
 namespace zdb {
 bool CCamera::CmdTickSetRegions(_zanim_cmd_hdr* header, f32* dT)
 	{
-		/* 0x1e72f0: SET_CAMERA_REGION_TEST ON (bit 0 of the byte at +4) / OFF */
-		m_do_region_test = (reinterpret_cast<u8*>(header)[4] & 1) != 0;
+		/* 0x1e72f0: SET_CAMERA_REGION_TEST ON (set_on, bit 0 at +4) / OFF */
+		m_do_region_test = reinterpret_cast<const _camera_set_regions_cmd*>(header)->set_on != 0;
 		return true;
 	}
 }
@@ -320,67 +390,43 @@ bool CCamera::CmdTickGetRegions(_zanim_cmd_hdr* header, f32* dT)
 }
 
 /* @socom-skeleton body CmdParseParams__Q23zdb7CCameraFP5_zrdr */
-/* CAMERA_PARAMS record (no DWARF; the layout comes from CmdParseParams 0x1e6300 and
-   CmdTickParams 0x1e5570, the names are the port's): a timeless 36-byte record with six key
-   tracks appended after it. Each track is an offset into the record (0: none) and a key count;
-   a key is its time followed by its values. */
-enum
-{
-	ZCAM_PARAMS_FOV,       /* +0xc FOV: time, horizontal and vertical field of view in degrees */
-	ZCAM_PARAMS_CLIP,      /* +0x10 CLIP: time, near, mid plane */
-	ZCAM_PARAMS_CLIP_ALL,  /* +0x14 CLIP_ALL: time, near, mid, far plane */
-	ZCAM_PARAMS_FOG_RANGE, /* +0x18 FOG_RANGE: time, fog near, fog far */
-	ZCAM_PARAMS_FOG_ALT,   /* +0x1c FOG_ALTITUDE: time, fog bottom, fog top */
-	ZCAM_PARAMS_LOD,       /* +0x20 LOD_MULTIPLIER: time, range scale */
-	ZCAM_PARAMS_TRACKS
-};
-
-struct _zcam_params_track
-{
-	u16 offset;
-	u16 count;
-};
-
-struct _zcam_cmd_params
-{
-	_zanim_cmd_hdr header;
-	u8 flags;      /* +0x4: 1 SAVE_PARAMS, 2 RESTORE_PARAMS, 4 set the fog (8: FOG_ON),
-	                  0x10 set the altitude fog (0x20: FOG_ALTITUDE_ON) */
-	f32 duration;  /* +0x8: the latest key time */
-	_zcam_params_track track[ZCAM_PARAMS_TRACKS];
-};
-
 /* element count of a reader array (the inline _zrdr::Get's bound) */
 static u32 ParamsLength(_zrdr* tag)
 {
 	return tag->IsArray() ? static_cast<u32>(tag->array->integer - 1) : 0;
 }
 
-/* one key track: groups of width reals; the record grows by each key (zAnimCmdAddData) */
-static _zcam_cmd_params* ParamsParseTrack(_zcam_cmd_params* cmd, _zrdr* tag, int which, int width)
+/* one key track of K keys (time, then the values: as many reals as K holds); the record grows
+   by each key (zAnimCmdAddData). offset and count get the track's offset (the record size at
+   its first key) and key count; the caller stores them in the record. */
+template <class K>
+static _camera_params_cmd* ParamsParseTrack(_camera_params_cmd* cmd, _zrdr* tag, u32& offset, u32& count)
 {
 	if (tag == NULL)
 		return cmd;
 
+	const int width = sizeof(K) / sizeof(f32);
+
 	for (u32 i = 0; i < ParamsLength(tag); i += width)
 	{
-		f32 key[4];
+		K key;
+		f32* field = reinterpret_cast<f32*>(&key); /* time, a[, b[, c]] */
 
 		for (int k = 0; k < width; k++)
 		{
 			/* port: the ELF reads the element of a short last group through NULL */
 			_zrdr* value = tag->Get(i + k);
-			key[k] = value != NULL ? value->GetReal() : 0.0f;
+			field[k] = value != NULL ? value->GetReal() : 0.0f;
 		}
 
-		if (!(key[0] <= cmd->duration))
-			cmd->duration = key[0];
+		if (!(key.time <= cmd->run_time))
+			cmd->run_time = key.time;
 
 		if (i == 0)
-			cmd->track[which].offset = cmd->header.data_size;
+			offset = cmd->hdr.data_size;
 
-		cmd->track[which].count++;
-		cmd = reinterpret_cast<_zcam_cmd_params*>(zAnimCmdAddData(&cmd->header, key, width * sizeof(f32)));
+		count++;
+		cmd = reinterpret_cast<_camera_params_cmd*>(zAnimCmdAddData(&cmd->hdr, &key, sizeof(K)));
 	}
 
 	return cmd;
@@ -394,35 +440,71 @@ _zanim_cmd_hdr* CCamera::CmdParseParams(_zrdr* reader)
 		if (reader == NULL)
 			return NULL;
 
-		_zcam_cmd_params* cmd = static_cast<_zcam_cmd_params*>(_calloc(1, sizeof(_zcam_cmd_params), "zcam_main.cpp", 334));
-		cmd->header.data_size = sizeof(_zcam_cmd_params);
-		cmd->header.timeless = true;
-		cmd->duration = 0.0f;
+		_camera_params_cmd* cmd = static_cast<_camera_params_cmd*>(_calloc(1, sizeof(_camera_params_cmd), "zcam_main.cpp", 334));
+		cmd->hdr.data_size = sizeof(_camera_params_cmd);
+		cmd->hdr.timeless = true;
+		cmd->run_time = 0.0f;
 
 		if (zrdr_findtag(reader, "SAVE_PARAMS"))
-			cmd->flags |= 1;
+			cmd->save_params = 1;
 
 		if (zrdr_findtag(reader, "RESTORE_PARAMS"))
-			cmd->flags |= 2;
+			cmd->restore_params = 1;
 
 		if (zrdr_findtag(reader, "FOG_ON"))
-			cmd->flags |= 4 | 8;
+		{
+			cmd->fog_enabled_set = 1;
+			cmd->fog_enabled = 1;
+		}
 		else if (zrdr_findtag(reader, "FOG_OFF"))
-			cmd->flags = (cmd->flags | 4) & ~8;
+		{
+			cmd->fog_enabled_set = 1;
+			cmd->fog_enabled = 0;
+		}
 
 		if (zrdr_findtag(reader, "FOG_ALTITUDE_ON"))
-			cmd->flags |= 0x10 | 0x20;
+		{
+			cmd->fog_altitude_enabled_set = 1;
+			cmd->fog_altitude_enabled = 1;
+		}
 		else if (zrdr_findtag(reader, "FOG_ALTITUDE_OFF"))
-			cmd->flags = (cmd->flags | 0x10) & ~0x20;
+		{
+			cmd->fog_altitude_enabled_set = 1;
+			cmd->fog_altitude_enabled = 0;
+		}
 
-		cmd = ParamsParseTrack(cmd, zrdr_findtag(reader, "FOV"), ZCAM_PARAMS_FOV, 3);
-		cmd = ParamsParseTrack(cmd, zrdr_findtag(reader, "CLIP"), ZCAM_PARAMS_CLIP, 3);
-		cmd = ParamsParseTrack(cmd, zrdr_findtag(reader, "CLIP_ALL"), ZCAM_PARAMS_CLIP_ALL, 4);
-		cmd = ParamsParseTrack(cmd, zrdr_findtag(reader, "FOG_RANGE"), ZCAM_PARAMS_FOG_RANGE, 3);
-		cmd = ParamsParseTrack(cmd, zrdr_findtag(reader, "FOG_ALTITUDE"), ZCAM_PARAMS_FOG_ALT, 3);
-		cmd = ParamsParseTrack(cmd, zrdr_findtag(reader, "LOD_MULTIPLIER"), ZCAM_PARAMS_LOD, 2);
+		u32 offset = 0;
+		u32 count = 0;
+		cmd = ParamsParseTrack<_camera_param_2d_data>(cmd, zrdr_findtag(reader, "FOV"), offset, count);
+		cmd->fov_offset = offset;
+		cmd->fov_count = count;
 
-		return &cmd->header;
+		offset = count = 0;
+		cmd = ParamsParseTrack<_camera_param_2d_data>(cmd, zrdr_findtag(reader, "CLIP"), offset, count);
+		cmd->clip_offset = offset;
+		cmd->clip_count = count;
+
+		offset = count = 0;
+		cmd = ParamsParseTrack<_camera_param_3d_data>(cmd, zrdr_findtag(reader, "CLIP_ALL"), offset, count);
+		cmd->clip_all_offset = offset;
+		cmd->clip_all_count = count;
+
+		offset = count = 0;
+		cmd = ParamsParseTrack<_camera_param_2d_data>(cmd, zrdr_findtag(reader, "FOG_RANGE"), offset, count);
+		cmd->fog_range_offset = offset;
+		cmd->fog_range_count = count;
+
+		offset = count = 0;
+		cmd = ParamsParseTrack<_camera_param_2d_data>(cmd, zrdr_findtag(reader, "FOG_ALTITUDE"), offset, count);
+		cmd->fog_altitude_offset = offset;
+		cmd->fog_altitude_count = count;
+
+		offset = count = 0;
+		cmd = ParamsParseTrack<_camera_param_1d_data>(cmd, zrdr_findtag(reader, "LOD_MULTIPLIER"), offset, count);
+		cmd->lod_multiplier_offset = offset;
+		cmd->lod_multiplier_count = count;
+
+		return &cmd->hdr;
 	}
 }
 
@@ -437,10 +519,10 @@ void CCamera::CmdBeginParams(_zanim_cmd_hdr* header)
 		if (camera == NULL)
 			return;
 
-		u8 flags = reinterpret_cast<_zcam_cmd_params*>(header)->flags;
+		const _camera_params_cmd* cmd_ptr = reinterpret_cast<const _camera_params_cmd*>(header);
 		tag_CAMERA_PARAMS& save = camera->m_saveParams.m_CameraParams;
 
-		if (flags & 1)
+		if (cmd_ptr->save_params)
 		{
 			save.m_fog_enabled = camera->m_fog_enabled;
 			save.m_fog_alt_enabled = camera->m_fog_alt_enabled;
@@ -457,48 +539,51 @@ void CCamera::CmdBeginParams(_zanim_cmd_hdr* header)
 			camera->m_saveParams.m_RangeScale = camera->m_RangeScale;
 		}
 
-		if (flags & 4)
-			camera->m_fog_enabled = (flags & 8) != 0;
+		if (cmd_ptr->fog_enabled_set)
+			camera->m_fog_enabled = cmd_ptr->fog_enabled != 0;
 
-		if (flags & 0x10)
-			camera->m_fog_alt_enabled = (flags & 0x20) != 0;
+		if (cmd_ptr->fog_altitude_enabled_set)
+			camera->m_fog_alt_enabled = cmd_ptr->fog_altitude_enabled != 0;
 	}
 }
 
 /* @socom-skeleton body CmdTickParams__Q23zdb7CCameraFP14_zanim_cmd_hdrPf */
-/* one track at the command time: false without keys or before the first; else the values
-   (width - 1 of them) between the two keys around the time, or the last key's */
-static bool ParamsSample(const _zcam_cmd_params* cmd, int which, int width, f32 time, f32* out)
+/* one track (its offset and key count in the record) of K keys at the command time: false
+   without keys or before the first; else the key values (a[, b[, c]]) between the two keys
+   around the time, or the last key's */
+template <class K>
+static bool ParamsSample(const _camera_params_cmd* cmd, u32 offset, u32 track_count, f32 time, f32* out)
 {
-	u16 offset = cmd->track[which].offset;
-
 	if (offset == 0)
 		return false;
 
-	const f32* keys = reinterpret_cast<const f32*>(reinterpret_cast<const char*>(cmd) + offset);
+	const K* keys = reinterpret_cast<const K*>(reinterpret_cast<const char*>(cmd) + offset);
 
-	if (time < keys[0])
+	if (time < keys[0].time)
 		return false;
 
-	int count = cmd->track[which].count;
+	const int width = sizeof(K) / sizeof(f32); /* time and the values */
+	int count = track_count;
 
 	for (int i = 0; i < count - 1; i++)
 	{
-		const f32* from = keys + i * width;
-		const f32* to = from + width;
+		const K& from = keys[i];
+		const K& to = keys[i + 1];
 
-		if (time <= to[0])
+		if (time <= to.time)
 		{
-			f32 t = (time - from[0]) / (to[0] - from[0]);
+			f32 t = (time - from.time) / (to.time - from.time);
+			const f32* a = reinterpret_cast<const f32*>(&from);
+			const f32* b = reinterpret_cast<const f32*>(&to);
 
 			for (int k = 1; k < width; k++)
-				out[k - 1] = from[k] + t * (to[k] - from[k]);
+				out[k - 1] = a[k] + t * (b[k] - a[k]);
 
 			return true;
 		}
 	}
 
-	const f32* last = keys + (count - 1) * width;
+	const f32* last = reinterpret_cast<const f32*>(&keys[count - 1]);
 
 	for (int k = 1; k < width; k++)
 		out[k - 1] = last[k];
@@ -539,22 +624,22 @@ bool CCamera::CmdTickParams(_zanim_cmd_hdr* header, f32* dT)
 		if (camera == NULL)
 			return true;
 
-		_zcam_cmd_params* cmd = reinterpret_cast<_zcam_cmd_params*>(header);
+		const _camera_params_cmd* cmd = reinterpret_cast<const _camera_params_cmd*>(header);
 		f32 time = *dT;
 		bool done = true;
 
-		if (!(cmd->duration <= 0.0f))
+		if (!(cmd->run_time <= 0.0f))
 		{
 			f32 timer = ZAnim.m_CurSeq->cmd_timer;
 
-			if (time + timer <= cmd->duration)
+			if (time + timer <= cmd->run_time)
 			{
 				*dT = 0.0f;
 				done = false;
 			}
 			else
 			{
-				time = cmd->duration - timer;
+				time = cmd->run_time - timer;
 				*dT -= time;
 			}
 
@@ -563,7 +648,7 @@ bool CCamera::CmdTickParams(_zanim_cmd_hdr* header, f32* dT)
 
 		f32 v[3];
 
-		if (ParamsSample(cmd, ZCAM_PARAMS_FOV, 3, time, v))
+		if (ParamsSample<_camera_param_2d_data>(cmd, cmd->fov_offset, cmd->fov_count, time, v))
 		{
 			camera->SetHalfHorizontalFOVRadians(0.017453292f * (0.5f * v[0]));
 			/* ELF: stores the vertical half angle, then SetHalfVerticalFOVRadians' inline body
@@ -572,35 +657,35 @@ bool CCamera::CmdTickParams(_zanim_cmd_hdr* header, f32* dT)
 			camera->SetHalfVerticalFOVRadians(camera->m_vfov);
 		}
 
-		if (ParamsSample(cmd, ZCAM_PARAMS_CLIP_ALL, 4, time, v))
+		if (ParamsSample<_camera_param_3d_data>(cmd, cmd->clip_all_offset, cmd->clip_all_count, time, v))
 		{
 			camera->SetNearClip(v[0]);
 			camera->SetMidClip(v[1]);
 			camera->SetFarClip(v[2]);
 		}
 
-		if (ParamsSample(cmd, ZCAM_PARAMS_CLIP, 3, time, v))
+		if (ParamsSample<_camera_param_2d_data>(cmd, cmd->clip_offset, cmd->clip_count, time, v))
 		{
 			camera->SetNearClip(v[0]);
 			camera->SetMidClip(v[1]);
 		}
 
-		if (ParamsSample(cmd, ZCAM_PARAMS_FOG_RANGE, 3, time, v))
+		if (ParamsSample<_camera_param_2d_data>(cmd, cmd->fog_range_offset, cmd->fog_range_count, time, v))
 		{
 			camera->m_fog_near = v[0];
 			camera->m_fog_far = v[1];
 		}
 
-		if (ParamsSample(cmd, ZCAM_PARAMS_FOG_ALT, 3, time, v))
+		if (ParamsSample<_camera_param_2d_data>(cmd, cmd->fog_altitude_offset, cmd->fog_altitude_count, time, v))
 		{
 			ParamsSetFogBottom(camera, v[0]);
 			ParamsSetFogTop(camera, v[1]);
 		}
 
-		if (ParamsSample(cmd, ZCAM_PARAMS_LOD, 2, time, v))
+		if (ParamsSample<_camera_param_1d_data>(cmd, cmd->lod_multiplier_offset, cmd->lod_multiplier_count, time, v))
 			camera->m_RangeScale = v[0];
 
-		if (done && (cmd->flags & 2))
+		if (done && cmd->restore_params)
 		{
 			tag_CAMERA_PARAMS& save = camera->m_saveParams.m_CameraParams;
 

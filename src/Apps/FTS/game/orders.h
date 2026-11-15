@@ -95,6 +95,25 @@ public:
 	unsigned int gender;
 };
 /* @socom-skeleton end 18InternalRecoParams */
+/* DWARF enumeration_type RecoGender and class_type RecoParams (reco.cpp, byte_size 1 and 8).
+   No function, variable or other member of the unit uses RecoParams (recoParams is an
+   InternalRecoParams, whose gender is a plain uint); it sits among the gsapi provider records
+   of the unit and may be the provider's (unconfirmed). */
+enum RecoGender : unsigned char
+{
+	MALE = 0,
+	FEMALE = 1,
+	CHILD = 2,
+	BOY = 3,
+	GIRL = 4,
+	UNKNOWN = 5
+};
+class RecoParams
+{
+public:
+	int threshold;     /* +0x0 */
+	RecoGender gender; /* +0x4 */
+};
 /* @socom-skeleton decl 9RecoTuple */
 class RecoTuple
 {

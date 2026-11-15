@@ -64,6 +64,14 @@ class CScorePopup;
 class CTeamDisplay;
 }
 /* @socom-skeleton end forward */
+/* DWARF class_type CIntStr (hud_scorepopup.cpp, byte_size 16, file scope): the type of
+   SetupTeam's strWins (frame +160) and AddRow's strFragsVal / strDeathsVal (+160 / +176), each
+   a number printed "%d". DWARF names no member function: the printing stays at the users. */
+class CIntStr
+{
+public:
+	char _ach[16]; /* +0x0 */
+};
 /* @socom-skeleton decl Q228@unnamed@hud_scorepopup_cpp@9CScoreBmp */
 namespace {
 class CScoreBmp : public C2DBitmap
@@ -368,8 +376,8 @@ void CTeamDisplay::AddRow(CZSealBody *const *seals, const int *scores, int row, 
 	f32 y = (40.0f + top) + spacing * (f32)row;
 	f32 color = seal->m_isAlive ? 255.0f : 128.0f;
 	s32 iy = (s32)y;
-	char buf[16];
-	char deaths[16];
+	CIntStr strFragsVal;
+	CIntStr strDeathsVal;
 
 	C2DString *name = &_arrStrs[row + 3];
 	name->Load(0.72f, seal->m_display_name, font, g_iBoxLeftX + 20, iy);
@@ -377,16 +385,16 @@ void CTeamDisplay::AddRow(CZSealBody *const *seals, const int *scores, int row, 
 	name->m_color.y = color;
 	name->m_color.z = color;
 
-	sprintf(buf, "%d", scores[row]);
+	sprintf(strFragsVal._ach, "%d", scores[row]);
 	C2DString *frags = &_arrStrs[row + 11];
-	frags->Load(0.72f, buf, font, g_iBoxRightX - 110, iy);
+	frags->Load(0.72f, strFragsVal._ach, font, g_iBoxRightX - 110, iy);
 	frags->m_color.x = color;
 	frags->m_color.y = color;
 	frags->m_color.z = color;
 
-	sprintf(deaths, "%d", seal->m_mp_stats.m_deaths + seal->m_stats.m_deaths);
+	sprintf(strDeathsVal._ach, "%d", seal->m_mp_stats.m_deaths + seal->m_stats.m_deaths);
 	C2DString *died = &_arrStrs[row + 19];
-	died->Load(0.72f, deaths, font, g_iBoxRightX - 55, iy);
+	died->Load(0.72f, strDeathsVal._ach, font, g_iBoxRightX - 55, iy);
 	died->m_color.x = color;
 	died->m_color.y = color;
 	died->m_color.z = color;
@@ -409,11 +417,11 @@ void CTeamDisplay::SetupTeam(float top, float red, float green, float blue, cons
 
 	C2DFont *font = theHUD->m_myfont;
 	char text[64];
-	char number[16];
+	CIntStr strWins;
 	strcpy(text, title);
 	strcat(text, ": ");
-	sprintf(number, "%d", (theMission.m_pNetGame->*score)());
-	strcat(text, number);
+	sprintf(strWins._ach, "%d", (theMission.m_pNetGame->*score)());
+	strcat(text, strWins._ach);
 	s32 y = (s32)(20.0f + top);
 	_arrStrs[0].Load(0.8f, text, font, g_iBoxLeftX + 20, y);
 	_arrStrs[1].Load(0.72f, "FRAGS", font, g_iBoxRightX - 110, y);

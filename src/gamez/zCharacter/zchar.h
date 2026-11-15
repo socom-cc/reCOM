@@ -151,6 +151,13 @@ struct MultiplayerMsg
 	u32 m_words[5];
 };
 
+/* DWARF class_type CMultiplayerMsgVec (byte_size 12; every CU that carries CCharacterType): an
+ * MSL vector (vector base, nothing of its own), the type of CCharacterType::MultiplayerMessages.
+ * The element type is from the code that fills it (InitMultiplayerMessages). */
+class CMultiplayerMsgVec : public std::vector<MultiplayerMsg*>
+{
+};
+
 class CCharacterType
 {
 public:
@@ -196,7 +203,7 @@ public:
 
 	AI_PARAMS m_aiParams;
 	HEALTH_PARAMS m_healthParams;
-	std::vector<MultiplayerMsg*> MultiplayerMessages; /* DWARF CMultiplayerMsgVec */
+	CMultiplayerMsgVec MultiplayerMessages;
 	/* @socom-skeleton decl 14CCharacterType */
 public:
 	static void KorusGetPackedWeapons(CCharacterWeapPacked *); /* static: 0x24aea0 a0 is the output (m_char_list) */

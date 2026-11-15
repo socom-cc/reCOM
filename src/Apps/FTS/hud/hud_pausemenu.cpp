@@ -178,21 +178,21 @@ void CZPauseTest::HandleSelectionInput(const CPad &pad)
 	 * replay, auto aim, or none) and whether the menu closes */
 	/* @socom-skeleton stub c_arrInputsToActions$2591 */
 	static const Action c_arrInputsToActions[5][3] = {{{(Selection)5, 1}, {(Selection)5, 1}, {(Selection)5, 0}}, {{(Selection)1, 1}, {(Selection)5, 1}, {(Selection)5, 0}}, {{(Selection)2, 0}, {(Selection)5, 1}, {(Selection)2, 0}}, {{(Selection)3, 1}, {(Selection)5, 1}, {(Selection)5, 0}}, {{(Selection)4, 0}, {(Selection)5, 1}, {(Selection)4, 0}}};
-	s32 input;
+	Input input;
 
 	if (pad.m_state[9] == KEY_RISING)
-		input = 0;
+		input = c_eActionInput;
 	else if (pad.m_state[0] == KEY_FALLING)
-		input = 1;
+		input = c_eStart;
 	else if (pad.m_state[3] == KEY_FALLING || pad.m_state[2] == KEY_FALLING)
-		input = 2;
+		input = c_eHorPad;
 	else
-		input = 3;
+		input = c_eNumInputs;
 
-	if (input != 3 && m_selectsound != NULL)
+	if (input != c_eNumInputs && m_selectsound != NULL)
 		m_selectsound->PlaySound(NULL, 0xff);
 
-	if (input == 3)
+	if (input == c_eNumInputs)
 		return;
 
 	const Action& action = c_arrInputsToActions[m_curselection][input];

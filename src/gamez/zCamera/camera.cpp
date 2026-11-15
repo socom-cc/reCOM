@@ -85,6 +85,17 @@
 struct _zanim_cmd_hdr;
 /* @socom-skeleton end forward */
 
+/* DWARF class_type RequireCameraCollideFlag (camera.cpp, byte_size 1, no members): the type of
+   ClipCameraChord's local temp (frame +748). The ELF has no symbol for its ctor / dtor: the
+   two bodies are inferred from ClipCameraChord 0x1ebd0c / 0x1ebd14, where the scoped temp's
+   construction and destruction are SetCameraCollideFlagRequired(true) and (false). */
+class RequireCameraCollideFlag
+{
+public:
+	RequireCameraCollideFlag() { zdb::SetCameraCollideFlagRequired(true); }
+	~RequireCameraCollideFlag() { zdb::SetCameraCollideFlagRequired(false); }
+};
+
 /* @socom-skeleton stub save_short_tether_length */
 static float save_short_tether_length = 10000.0f;
 
@@ -185,7 +196,8 @@ void CAppCamera::ClipCameraChord(float dT, CPnt3D *start, CPnt3D *end, CPnt3D *o
 	   between two opposite hits it is centred, else moved back by the probe's overshoot.
 	   Any clip restarts the 1.5 s timer. Finally the eye is kept 3 from start.
 	   ELF quirk kept: SetCameraCollideFlagRequired(true) and (false) back to back when the peek
-	   is 0, so the chord never asks for camera-collide surfaces. */
+	   is 0 (a RequireCameraCollideFlag temp scoped to the test), so the chord never asks for
+	   camera-collide surfaces. */
 	CPnt3D dir;
 	start->Sub(end, &dir);
 	f32 len = dir.Normalize() + 3.0f;
@@ -200,8 +212,7 @@ void CAppCamera::ClipCameraChord(float dT, CPnt3D *start, CPnt3D *end, CPnt3D *o
 
 	if (peekCur == 0.0f)
 	{
-		zdb::SetCameraCollideFlagRequired(true);
-		zdb::SetCameraCollideFlagRequired(false);
+		RequireCameraCollideFlag temp;
 	}
 
 	CZSealBody* carry = m_entity->m_carry;

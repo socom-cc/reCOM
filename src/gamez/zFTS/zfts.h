@@ -40,9 +40,23 @@ struct SObjectiveCam_Anchor
 	CCompassAnchor* m_anchor;          /* +0x4 */
 };
 
+/* DWARF class_type CObjAnchorVec (byte_size 12; every CU that carries CMission): an MSL vector
+ * (vector base, nothing of its own), the type of CMission::m_objanchor_vec. The element type
+ * is from the code that fills it (TickObjectives). */
+class CObjAnchorVec : public std::vector<SObjectiveCam_Anchor>
+{
+};
+
 class CVehicleRdr;
 class CVehicleRdrEntry;
 class CMissionCam;
+
+/* DWARF class_type CMissionCamList (byte_size 12; every CU that carries CMission): an MSL list
+ * (list base, nothing of its own), the type of CMission::m_missioncams. The element type is
+ * from the code that fills it (LoadMissionCams). */
+class CMissionCamList : public std::list<CMissionCam*>
+{
+};
 class CSnd;
 class CSndInstance;
 
@@ -234,7 +248,7 @@ public:
 
 	std::vector<CObjAnchor*> m_anchor_extraction;
 	std::vector<CCompassAnchor*> m_navpoints; /* DWARF +0x8c (MSL pointer vector): the compass anchors of the AI maps' named places (CreateCompassNavPoints) */
-	std::vector<SObjectiveCam_Anchor> m_objanchor_vec; /* DWARF +0x98 CObjAnchorVec: compass anchors of the current objectives (TickObjectives) */
+	CObjAnchorVec m_objanchor_vec; /* DWARF +0x98: compass anchors of the current objectives (TickObjectives) */
 	CMissionObjectiveCam* m_prev_selected_objcam;
 	f32 m_objectives_timer;
 	bool m_ignore_objectives;
@@ -272,7 +286,7 @@ public:
 	CRdrFile* m_smallmessagesRdr;
 
 	CSaferStr m_strLoadingScrLib;
-	std::list<CMissionCam*> m_missioncams; /* +0x5b4 DWARF CMissionCamList (an MSL list of CMissionCam*): LoadMissionCams fills it */
+	CMissionCamList m_missioncams; /* +0x5b4: LoadMissionCams fills it */
 	std::list<void const*> m_objectivecams; /* +0x5c0 DWARF CMissionObjectiveCamList (declared later in this header: its list base here; CExitState::Init, SetRoundStatUiVars) */
 
 	f32 m_fighttimer;

@@ -416,6 +416,17 @@ public:
 	}
 };
 
+/* DWARF enumeration_type WeaponTextLoc (hud_weaponsel.cpp and hud_ingame_weaponsel.cpp,
+   byte_size 1, signed: TEXT_LOC_ERROR is -1). No DWARF member, parameter, local or variable
+   of the two units has the type, and no code of theirs is known to use it. */
+enum WeaponTextLoc : signed char
+{
+	TEXT_LOC_ERROR = -1,
+	RIFLE_WIDTH = 0,
+	PISTOL_WIDTH = 1,
+	ITEM_WIDTH = 2
+};
+
 class CWeaponSel : public C2D
 {
 public: /* port: public (DWARF has no access; CHUD and the HUD units set these) */
@@ -1132,6 +1143,15 @@ enum Selection
 	SEL_REPLAY = 3,
 	SEL_AUTOAIM = 4,
 	SEL_NUM_SELECTIONS = 5
+};
+/* DWARF enumeration_type Input (hud_pausemenu.cpp, byte_size 1): the pause menu's input, the
+   type of CZPauseTest::HandleSelectionInput's local input (c_arrInputsToActions' column) */
+enum Input : unsigned char
+{
+	c_eActionInput = 0,
+	c_eStart = 1,
+	c_eHorPad = 2,
+	c_eNumInputs = 3
 };
 
 /* @socom-skeleton decl 6Action */
