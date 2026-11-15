@@ -58,6 +58,30 @@ void CValvePool::FlushNames(bool force)
 		m_pool_name = m_pool_base;
 }
 
+/* __dt__10CValvePoolFv 0x2f7120 (valvePool's, registered by __sinit_valve_list.cpp: at exit
+ * only). Once Open has made the pool: the names flushed (forced), the pooled valves deleted, the
+ * name buffer deleted and its words cleared; then the vector. audit-unmarked-a2: was implicit
+ * (only the vector's buffer freed), so FlushNames had no caller. ELF quirk kept: the pooled valves
+ * go only when the name buffer exists. Port deviation: delete[] for the buffer Open makes with
+ * new[] (the ELF pairs __nwa with __dl, the same free for a char buffer) */
+CValvePool::~CValvePool()
+{
+	if (m_has_name)
+	{
+		m_has_name = false;
+		FlushNames(true);
+
+		for (iterator it = begin(); it != end(); ++it)
+			delete *it;
+
+		clear();
+		delete[] m_pool_base;
+		m_pool_base = NULL;
+		m_pool_name = NULL;
+		m_pool_length = 0;
+	}
+}
+
 /* @socom-skeleton body Acquire__10CValvePoolFPCc10VALVE_TYPE */
 CValve* CValvePool::Acquire(const char* name, VALVE_TYPE type)
 {

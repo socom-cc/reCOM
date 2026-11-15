@@ -32,11 +32,48 @@
 /* @socom-skeleton stub MultiplayerMsgStrings */
 static unsigned char MultiplayerMsgStrings[28];
 
+/* CDIDummy (no DWARF record; file-local to this unit: vtable 0x471bb0, RTTI 0x44ce88): the DI
+ * of the AI-map hits, a CDI whose tests never hit. Its vtable keeps CDI's Allocate, Free and
+ * Read and adds LoadTipAndTail at +0x20 (no caller: the vtable is reached only through `di`).
+ * audit-unmarked-a2: the port had no such class (`di` was a CDIPoly, whose GetIntersect /
+ * GetAltitude would run polygon tests on no points) */
+class CDIDummy : public zdb::CDI
+{
+public:
+	virtual ~CDIDummy();
+	virtual bool GetIntersect(zdb::DiIntersect *);
+	virtual bool GetAltitude(zdb::DiIntersect *);
+	virtual void LoadTipAndTail(zdb::DiIntersect *);
+};
+
+/* GetIntersect__8CDIDummyFPQ23zdb11DiIntersect 0x1f24f0: no hit */
+bool CDIDummy::GetIntersect(zdb::DiIntersect *)
+{
+	return false;
+}
+
+/* GetAltitude__8CDIDummyFPQ23zdb11DiIntersect 0x1f2500: no hit */
+bool CDIDummy::GetAltitude(zdb::DiIntersect *)
+{
+	return false;
+}
+
+/* LoadTipAndTail__8CDIDummyFPQ23zdb11DiIntersect 0x1f2510: empty */
+void CDIDummy::LoadTipAndTail(zdb::DiIntersect *)
+{
+}
+
+/* __dt__8CDIDummyFv 0x1f2520 (registered by __sinit for `di`, so at exit only): its vtable,
+ * ~CDI, delete when asked */
+CDIDummy::~CDIDummy()
+{
+}
+
 /* @socom-skeleton stub di */
 /* 36 bytes: the DI record of ftsGetAltitudeApprox's AI-map hits (only its material bits are
- * written). port: a CDIPoly object so GCC's CDI layout carries the material (the ELF uses the
- * raw .bss record, never constructed) */
-static zdb::CDIPoly di;
+ * written). __sinit_fts_main.cpp 0x46aa50 constructs it: CDI(), then CDIDummy's vtable (was a
+ * CDIPoly, with a comment that the ELF never constructs it) */
+static CDIDummy di;
 
 /* @socom-skeleton stub hit */
 static zdb::IntersectStruct hit; /* 32 bytes: ftsGetAltitudeApprox's AI-map hit */

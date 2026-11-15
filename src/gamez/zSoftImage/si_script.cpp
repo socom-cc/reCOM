@@ -50,7 +50,27 @@ int numSiScript;
 int numSiCommon;
 
 /* @socom-skeleton stub list__16CZSIScriptCommon */
-std::vector<CZSIScriptCommon*> CZSIScriptCommon::list;
+CZSIScriptCommon::List CZSIScriptCommon::list;
+
+/* __dt__Q216CZSIScriptCommon4ListFv 0x1df000 (at exit): every listed common goes as
+ * ~CZSIScript's last reference does (the inline ~CZSIScriptCommon: no object pointer, one
+ * common fewer, its body-object vector), then the list is emptied and its buffer freed */
+CZSIScriptCommon::List::~List()
+{
+	for (iterator it = begin(); it != end(); ++it)
+	{
+		CZSIScriptCommon *common = *it;
+
+		if (common != NULL)
+		{
+			common->m_pObjects = NULL;
+			numSiCommon--;
+			delete common;
+		}
+	}
+
+	clear();
+}
 
 /* @socom-skeleton stub __ct__16CZSIScriptCommonFv */
 CZSIScriptCommon::CZSIScriptCommon()

@@ -144,6 +144,7 @@ public:
 	char* m_pool_name;   /* +0x18 the next free byte */
 	/* @socom-skeleton decl 10CValvePool */
 public:
+	~CValvePool(); /* 0x2f7120 (valvePool, at exit) */
 	void FlushNames(bool);
 	void Release(CValve *);
 	/* @socom-skeleton end 10CValvePool */

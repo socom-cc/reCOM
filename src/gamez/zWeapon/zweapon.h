@@ -468,7 +468,7 @@ public:
 	};
 
 	CZWeapon();
-	~CZWeapon();
+	virtual ~CZWeapon(); /* virtual: __vt__8CZWeapon / __vt__11CZFTSWeapon slot +8 (~CZWeaponList deletes through it) */
 
 	/* port: declarations follow the ELF symbols (static where the ELF passes no this); the
 	 * provisional const getters and one-argument anim setters that the ELF does not define
@@ -663,7 +663,9 @@ class CZFTSWeapon : public CZWeapon
 {
 public:
 	CZFTSWeapon();
-	~CZFTSWeapon();
+	/* ~CZFTSWeapon 0x28d880 is compiler-generated (emitted in seal_env.cpp's unit; vtable slot +8):
+	 * its vtable, m_zoommode, ~CZWeapon, delete when asked. audit-unmarked-a2: was declared and
+	 * never defined, and with ~CZWeapon not virtual ~CZWeaponList's delete ran only ~CZWeapon */
 
 	/* DWARF CZFTSWeapon (460 bytes); the provisional zoom-level / slot-cost members were not
 	 * the ELF's */

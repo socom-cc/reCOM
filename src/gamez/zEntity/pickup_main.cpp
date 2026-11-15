@@ -108,14 +108,13 @@ void CPickup::Close(bool all)
 		/* the ELF runs the CBits dtor (__dt__5CBitsFv 0x17f440: the bit words freed,
 		 * "zmath_bits.h" 38) and deletes each pooled pickup. port: CBits has no dtor (no
 		 * fence), so its body is written here (the words were kept: ~11 a mission,
-		 * docs/port/notes/mod-zui.md) */
+		 * docs/port/notes/mod-zui.md). The words are freed without a NULL test, as the ELF
+		 * (audit-unmarked-a2: the port's test was removed; free(NULL) does nothing) */
 		for (std::list<CPickup *>::iterator it = m_pool.begin(); it != m_pool.end(); ++it)
 		{
 			if (*it != NULL)
 			{
-				if ((*it)->m_bits.m_vec != NULL)
-					_free((*it)->m_bits.m_vec, "zmath_bits.h", 38);
-
+				_free((*it)->m_bits.m_vec, "zmath_bits.h", 38);
 				(*it)->m_bits.m_vec = NULL;
 				delete *it;
 			}

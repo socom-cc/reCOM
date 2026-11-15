@@ -1742,7 +1742,15 @@ public: /* port: public (read by CZSIScript, CBody, CZSealBody in the ELF) */
 	/* @socom-skeleton decl 16CZSIScriptCommon */
 public:
 	CZSIScriptCommon();
-	static std::vector<CZSIScriptCommon*> list; /* every script common, by name */
+	/* CZSIScriptCommon::List (an MSL vector_pod of the pointers): its dtor 0x1df000 (si_script.cpp;
+	 * registered by __sinit_si_script.cpp, so at exit only) deletes every common still listed.
+	 * audit-unmarked-a2: was a plain std::vector (only its buffer freed) */
+	class List : public std::vector<CZSIScriptCommon*>
+	{
+	public:
+		~List();
+	};
+	static List list; /* every script common, by name */
 	/* @socom-skeleton end 16CZSIScriptCommon */
 };
 
