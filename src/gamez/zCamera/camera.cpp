@@ -1086,8 +1086,8 @@ void CAppCamera::UpdateDeathCamState(float dT)
 		m_rumble_timer = -1.0f;
 		m_next_rumble_time = -1.0f;
 		m_next_rumble_time_scaler = 1.15f;
-		m_rumble_time = 0.2f;
-		m_rumble_time_scaler = 1.075f;
+		m_rumble_time = 0.200000003f /* 0x3e4ccccd */;
+		m_rumble_time_scaler = 1.07500005f /* 0x3f89999a */;
 		m_rumble_power = 180.0f;
 		m_rumble_power_scaler = 0.9f;
 		m_allow_player_death_cam_control = true;
@@ -1141,10 +1141,10 @@ void CAppCamera::UpdateDeathCamState(float dT)
 				else if (m_flashcounter == 0)
 				{
 					m_flashcounter++;
-					m_death_fade_out_time = 0.2f;
-					m_death_faded_time = 0.2f;
-					m_death_fade_in_time = 0.2f;
-					m_death_state_timer = m_death_fade_out_time + 0.5f * m_death_faded_time;
+					m_death_fade_out_time = 0.200000003f /* 0x3e4ccccd */;
+					m_death_faded_time = 0.200000003f /* 0x3e4ccccd */;
+					m_death_fade_in_time = 0.200000003f /* 0x3e4ccccd */;
+					m_death_state_timer = 0.300000012f; /* 0x3e99999a: the ELF stores Metrowerks' fold of fade_out + 0.5 * faded (0.2f + 0.1f, nearest); GCC r5900 folds it toward zero (0x3e999999) */
 					theHUD->Flash(0.0f, black, m_death_fade_out_time, m_death_faded_time, m_death_fade_in_time);
 					m_rumble_timer = 0.5f * m_death_fade_out_time;
 				}
@@ -1161,9 +1161,9 @@ void CAppCamera::UpdateDeathCamState(float dT)
 				else if (m_flashcounter == 0)
 				{
 					m_flashcounter++;
-					m_death_fade_out_time = 0.3f;
-					m_death_faded_time = 0.2f;
-					m_death_fade_in_time = 0.2f;
+					m_death_fade_out_time = 0.300000012f /* 0x3e99999a */;
+					m_death_faded_time = 0.200000003f /* 0x3e4ccccd */;
+					m_death_fade_in_time = 0.200000003f /* 0x3e4ccccd */;
 					m_death_state_timer = m_death_fade_out_time + 0.5f * m_death_faded_time;
 					theHUD->Flash(0.0f, black, m_death_fade_out_time, m_death_faded_time, m_death_fade_in_time);
 					m_rumble_timer = 0.5f * m_death_fade_out_time;
@@ -1179,7 +1179,7 @@ void CAppCamera::UpdateDeathCamState(float dT)
 				case 0:
 					m_flashcounter++;
 					m_death_fade_out_time = 0.9f;
-					m_death_faded_time = 0.1f;
+					m_death_faded_time = 0.100000002f /* 0x3dcccccd */;
 					m_death_fade_in_time = 0.5f;
 					m_death_state_timer = m_death_fade_out_time + 0.5f * m_death_faded_time;
 					theHUD->Flash(0.0f, black, m_death_fade_out_time, m_death_faded_time, m_death_fade_in_time);
@@ -1189,13 +1189,13 @@ void CAppCamera::UpdateDeathCamState(float dT)
 				case 1:
 					m_flashcounter++;
 					m_death_state_timer = 3.0f + (0.5f * m_death_faded_time + m_death_fade_in_time);
-					theHUD->Flash(0.8f, black, 0.01f, 0.2f, -0.1f);
+					theHUD->Flash(0.800000012f /* 0x3f4ccccd */, black, 0.01f, 0.200000003f /* 0x3e4ccccd */, -0.100000002f /* 0x3dcccccd */);
 					break;
 
 				case 2:
 					m_flashcounter++;
-					m_death_fade_out_time = 1.1f;
-					m_death_faded_time = 0.2f;
+					m_death_fade_out_time = 1.10000003f /* 0x3f8ccccd */;
+					m_death_faded_time = 0.200000003f /* 0x3e4ccccd */;
 					m_death_fade_in_time = 0.5f;
 					m_death_state_timer = m_death_fade_out_time + 0.5f * m_death_faded_time;
 					theHUD->Flash(0.0f, black, m_death_fade_out_time, m_death_faded_time, m_death_fade_in_time);
@@ -1205,7 +1205,7 @@ void CAppCamera::UpdateDeathCamState(float dT)
 				case 3:
 					m_flashcounter++;
 					m_death_state_timer = 3.0f + (0.5f * m_death_faded_time + m_death_fade_in_time);
-					theHUD->Flash(0.4f, black, 0.01f, 0.2f, -0.1f);
+					theHUD->Flash(0.400000006f /* 0x3ecccccd */, black, 0.01f, 0.200000003f /* 0x3e4ccccd */, -0.100000002f /* 0x3dcccccd */);
 					m_rumble_timer = m_death_state_timer;
 					break;
 
@@ -1247,7 +1247,7 @@ void CAppCamera::UpdateDeathCamState(float dT)
 			CPad *pad = control->m_padid < 2 ? CInput::m_pads[control->m_padid] : NULL;
 
 			if (pad != NULL && CCtrlrConfigs::GetButtonState(PadBtnFunc::Action, *pad) == KEY_FALLING)
-				theMission.FadeToEndMission(0.2f, 0);
+				theMission.FadeToEndMission(0.200000003f /* 0x3e4ccccd */, 0);
 		}
 	}
 
@@ -1277,9 +1277,9 @@ void CAppCamera::UpdateDeathCamState(float dT)
 	{
 		f32 look = m_killed->m_fwdlook.vec.x;
 
-		if (!(look <= -0.2f))
+		if (!(look <= -0.200000003f /* 0x3e4ccccd */))
 			control->TickAimPitch(dT, -0.5f);
-		else if (look < -0.3f)
+		else if (look < -0.300000012f /* 0x3e99999a */)
 			control->TickAimPitch(dT, 0.5f);
 	}
 
@@ -1376,7 +1376,7 @@ unsigned char CAppCamera::GetDeadCamPoints(CPnt3D *eye, CPnt3D *tie, CMatrix *mt
 		if (left)
 			angle = -angle;
 
-		if (fabsf(angle) < 0.8725f)
+		if (fabsf(angle) < 0.872500003f /* 0x3f5f5c29 */)
 		{
 			if (fabsf(angle) <= 0.01f)
 				angle = 0.0f;
@@ -1392,15 +1392,15 @@ unsigned char CAppCamera::GetDeadCamPoints(CPnt3D *eye, CPnt3D *tie, CMatrix *mt
 			angle = 1.0f;
 		}
 
-		limit = 0.8725f * limit;
+		limit = 0.872500003f /* 0x3f5f5c29 */ * limit;
 		*tie = killer;
 		placed = true;
 		f32 current = fabsf(DeltaRot);
 
-		if (!(fabsf(angle) <= 0.99f) && current < limit)
+		if (!(fabsf(angle) <= 0.99000001f /* 0x3f7d70a4 */) && current < limit)
 		{
-			if (current < 0.1f)
-				DeltaRot = 0.1f * angle;
+			if (current < 0.100000002f /* 0x3dcccccd */)
+				DeltaRot = 0.100000002f /* 0x3dcccccd */ * angle;
 			else
 				DeltaRot = DeltaRot * 1.5f;
 		}
@@ -1412,11 +1412,11 @@ unsigned char CAppCamera::GetDeadCamPoints(CPnt3D *eye, CPnt3D *tie, CMatrix *mt
 	}
 
 	case CAM_DEATH_STATE::auto_rotate_body:
-		DeltaRot = DeltaRot + 0.8725f * dT;
+		DeltaRot = DeltaRot + 0.872500003f /* 0x3f5f5c29 */ * dT;
 		break;
 
 	case CAM_DEATH_STATE::user_rotate_body:
-		DeltaRot = DeltaRot + 6.2925f * rotate * dT;
+		DeltaRot = DeltaRot + 6.29250002f /* 0x40c95c29 */ * rotate * dT;
 		break;
 
 	default:
@@ -1425,10 +1425,10 @@ unsigned char CAppCamera::GetDeadCamPoints(CPnt3D *eye, CPnt3D *tie, CMatrix *mt
 
 	f32 r = DeltaRot;
 
-	while (r < -3.1415927f)
+	while (r < -3.14159275f /* 0x40490fdb */)
 		r += 6.2831855f;
 
-	while (!(r <= 3.1415927f))
+	while (!(r <= 3.14159275f /* 0x40490fdb */))
 		r -= 6.2831855f;
 
 	DeltaRot = r;

@@ -332,9 +332,9 @@ void CSealAnim::CombineRotations(int a, int b)
 
 		if (pb->m_id == -1)
 			pa->m_rot = pb->m_rot;
-		else if (w <= 0.001f)
+		else if (w <= 0.00100000005f /* 0x3a83126f */)
 			continue;
-		else if (!(w < 0.999f))
+		else if (!(w < 0.999000013f /* 0x3f7fbe77 */))
 			pa->m_rot = pb->m_rot;
 		else
 			pa->m_rot.Slerp(&pb->m_rot, w, &pa->m_rot);
@@ -401,11 +401,11 @@ int CSealAnim::AnimOverlay(float wt)
 		if (tp->m_id < 0)
 			continue;
 
-		if (bp->m_id == -1 || !(f < 0.999f))
+		if (bp->m_id == -1 || !(f < 0.999000013f /* 0x3f7fbe77 */))
 		{
 			bp->m_rot = tp->m_rot;
 		}
-		else if (f > 0.001f)
+		else if (f > 0.00100000005f /* 0x3a83126f */)
 		{
 			CQuat q;
 			bp->m_rot.Slerp(&tp->m_rot, clamped, &q);
@@ -497,7 +497,7 @@ float CZSealBody::SetVertical()
 		return y;
 	}
 
-	if ((IsCurrentBlend(AnimType::animTypeHangJumpDown) && m_blends->Top()->m_tfrac > 0.2f)
+	if ((IsCurrentBlend(AnimType::animTypeHangJumpDown) && m_blends->Top()->m_tfrac > 0.200000003f /* 0x3e4ccccd */)
 		|| (IsCurrentBlend(AnimType::animTypeStand2Ladder) && (m_blends->Top()->m_flags & 0x20) != 0))
 	{
 		m_used_vel_y = 0;

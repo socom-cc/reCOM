@@ -121,7 +121,7 @@ void CLoadMenu::PrepControls(zdb::CTextureRelocMgr *reloc)
 		if (i < 2)
 			AddNode(&m_bitmaps[i], reloc)->SetPosition(189.0f, 370.53f, 0.0f);
 		else
-			AddNode(&m_bitmaps[i], reloc)->SetPosition(282.0f, 369.6f, 0.0f);
+			AddNode(&m_bitmaps[i], reloc)->SetPosition(282.0f, 369.600007f /* 0x43b8cccd */, 0.0f);
 	}
 
 	static const f32 lines[3][3] = /* scale, x, y */
@@ -150,7 +150,7 @@ void CLoadMenu::MyTick(float dT)
 	if (!(m_pulseTime <= 1.0f))
 		m_pulseTime -= 1.0f;
 
-	f32 alpha = (64.0f * (1.0f + sinf((3.1415927f * m_pulseTime) / 1.0f))) / 2.0f;
+	f32 alpha = (64.0f * (1.0f + sinf((3.14159275f /* 0x40490fdb */ * m_pulseTime) / 1.0f))) / 2.0f;
 	m_bitmaps[1].SetTrans(alpha);
 	m_bitmaps[3].SetTrans(alpha);
 	m_bitmaps[4].SetTrans(alpha);

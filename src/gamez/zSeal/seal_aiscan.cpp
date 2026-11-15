@@ -93,7 +93,7 @@ void CSealCtrl::SetScanRate(float period)
 void CSealCtrl::SetDefaultLookParams(AI_LOOK look)
 {
 	/* @socom-skeleton stub look_rate$2015 */
-	static float look_rate[2] = {0.1f, 0.3f};
+	static float look_rate[2] = {0.100000002f /* 0x3dcccccd */, 0.300000012f /* 0x3e99999a */};
 
 	/* 0x2e4660: a look's defaults: turn rate 0.1..0.4, a 1..3 s timer, flags 0x20, no bias;
 	 * NORMAL scans the whole scan range every 1..3 s and lasts (flags 6), EVENT half the
@@ -122,7 +122,7 @@ void CSealCtrl::SetDefaultLookParams(AI_LOOK look)
 		m_scan_timer.m_period.m_min = 0.5f;
 		m_scan_timer.m_period.m_range = 2.0f;
 		m_scan_timer.m_timer = m_scan_timer.m_period.m_min + m_scan_timer.m_period.m_range * ((f32)rand() * (1.0f / 2147483648.0f));
-		m_look_rate.m_min = 0.8f;
+		m_look_rate.m_min = 0.800000012f /* 0x3f4ccccd */;
 		m_look_rate.m_range = 0.0f;
 		break;
 
@@ -134,9 +134,9 @@ void CSealCtrl::SetDefaultLookParams(AI_LOOK look)
 		m_scan_angle.m_min = -m_scan_limits;
 		m_scan_angle.m_range = m_scan_limits - m_scan_angle.m_min;
 		m_scan_timer.m_period.m_min = 0.5f;
-		m_scan_timer.m_period.m_range = 0.7f;
+		m_scan_timer.m_period.m_range = 0.700000048f /* 0x3f333334 */;
 		m_scan_timer.m_timer = m_scan_timer.m_period.m_min + m_scan_timer.m_period.m_range * ((f32)rand() * (1.0f / 2147483648.0f));
-		m_look_rate.m_min = 0.8f;
+		m_look_rate.m_min = 0.800000012f /* 0x3f4ccccd */;
 		m_look_rate.m_range = 0.0f;
 		m_look_flags |= 0xa;
 		break;
@@ -187,7 +187,7 @@ bool CSealCtrl::SetLookDirW(AI_LOOK look, const CPnt3D *dir, bool normalized)
 	{
 		CPnt3D old = m_look_data;
 
-		if (dir->Normalize(&m_look_data) <= 0.1f)
+		if (dir->Normalize(&m_look_data) <= 0.100000002f /* 0x3dcccccd */)
 		{
 			m_look_data = old;
 			return false;
@@ -228,7 +228,7 @@ bool CSealCtrl::SetLookDirR(AI_LOOK look, const CPnt3D *dir, bool normalized)
 	{
 		CPnt3D old = m_look_data;
 
-		if (dir->Normalize(&m_look_data) <= 0.1f)
+		if (dir->Normalize(&m_look_data) <= 0.100000002f /* 0x3dcccccd */)
 		{
 			m_look_data = old;
 			return false;
@@ -279,13 +279,13 @@ void CSealCtrl::ScanTick(float dT)
 	/* @socom-skeleton stub minRange$2078 */
 	static float minRange = 10.0f;
 	/* @socom-skeleton stub _look_threshold$2085 */
-	static float _look_threshold = 0.97f;
+	static float _look_threshold = 0.970000029f /* 0x3f7851ec */;
 	/* @socom-skeleton stub r_min$2093 */
 	static float r_min = 0.25f;
 	/* @socom-skeleton stub r_max$2096 */
 	static float r_max = 1.0f;
 	/* @socom-skeleton stub yDir$2115 */
-	static float yDir = 0.2f; /* port: float, as the ELF's word (0x3e4ccccd); unused */
+	static float yDir = 0.200000003f /* 0x3e4ccccd */; /* port: float, as the ELF's word (0x3e4ccccd); unused */
 	(void)yDir;
 	CZSealBody *body = static_cast<CZSealBody *>(m_entity);
 	bool have = false;

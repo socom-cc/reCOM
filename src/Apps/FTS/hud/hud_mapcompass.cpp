@@ -273,7 +273,7 @@ void MapCompass::Tick(CZSealBody *seal)
 	/* @socom-skeleton stub anchor_dist_scalar_arrow$2645 */
 	static float anchor_dist_scalar_arrow = 50.0f;
 	/* @socom-skeleton stub base_trans$2650 */
-	static float base_trans = 0.4f;
+	static float base_trans = 0.400000006f /* 0x3ecccccd */;
 
 	if (seal == NULL)
 		return;
@@ -406,10 +406,10 @@ void MapCompass::Tick(CZSealBody *seal)
 
 		if (near < 1.0f)
 		{
-			scalar_def = 0.8f;
+			scalar_def = 0.800000012f /* 0x3f4ccccd */;
 			p.y = p.y - cosine * anchor_dist_scalar_inside * near;
 			p.x = p.x + sine * anchor_dist_scalar_inside * near;
-			icon->SetCenterPos(p, w * 0.8f, h * 0.8f);
+			icon->SetCenterPos(p, w * 0.800000012f /* 0x3f4ccccd */, h * 0.800000012f /* 0x3f4ccccd */);
 			icon->SetTrans(icon->GetTrans() * ((1.0f - near) + base_trans));
 			arrow->Off();
 
@@ -424,8 +424,8 @@ void MapCompass::Tick(CZSealBody *seal)
 			{
 				p.y = centre.y - anchor_dist_scalar_arrow * cosine;
 				p.x = centre.x + anchor_dist_scalar_arrow * sine;
-				scalar_def = 0.6f;
-				arrow->SetCenterPos(p, w * 0.6f, h * 0.6f);
+				scalar_def = 0.600000024f /* 0x3f19999a */;
+				arrow->SetCenterPos(p, w * 0.600000024f /* 0x3f19999a */, h * 0.600000024f /* 0x3f19999a */);
 				arrow->Rotate_Zaxis(sine, cosine);
 				arrow->On();
 

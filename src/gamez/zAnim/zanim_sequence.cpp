@@ -76,7 +76,7 @@ void GetFractionalRotations(const CPnt3D *dir, float *yaw, float *pitch)
 
 		u32 vertical = 1;
 
-		if (dir->x * CPnt3D::unit_y.x + dir->y * CPnt3D::unit_y.y + dir->z * CPnt3D::unit_y.z <= 0.99f)
+		if (dir->x * CPnt3D::unit_y.x + dir->y * CPnt3D::unit_y.y + dir->z * CPnt3D::unit_y.z <= 0.99000001f /* 0x3f7d70a4 */)
 			vertical = 0;
 
 		if (fabsf((f32)vertical) == 0.0f)
@@ -86,7 +86,7 @@ void GetFractionalRotations(const CPnt3D *dir, float *yaw, float *pitch)
 	}
 
 	f32 yaw_fraction = yaw_angle / 1.5707964f;
-	f32 pitch_fraction = pitch_angle / 1.3962634f;
+	f32 pitch_fraction = pitch_angle / 1.39626349f /* 0x3fb2b8c3 */;
 
 	if (!(yaw_fraction <= 1.0f))
 		yaw_fraction = 1.0f;

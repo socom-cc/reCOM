@@ -30,7 +30,7 @@ zdb::CCell::CCell(const CPnt3D *origin, float offset)
         m_bbox.m_max = *origin;
         m_bbox.m_min = m_bbox.m_max;
 
-        boxextents.x = offset - 0.001f;
+        boxextents.x = offset - 0.00100000005f /* 0x3a83126f */;
         boxextents.y = 0.0f;
         boxextents.z = boxextents.x;
         m_bbox.m_max.Add(&boxextents, &m_bbox.m_max);

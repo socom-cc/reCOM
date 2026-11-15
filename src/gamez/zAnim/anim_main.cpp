@@ -113,7 +113,7 @@ void CZAnimMain::Open()
 		Close(); /* the ELF inlines Unload and the rest of Close */
 
 	m_version = 0x1e;
-	m_gravity = -9.8f;
+	m_gravity = -9.8000002f /* 0x411ccccd */;
 	m_Lod = 2; /* HIGH */
 	m_search_external_nodes = false;
 	m_animset_count = 0;

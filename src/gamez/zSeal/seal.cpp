@@ -253,15 +253,15 @@ static u32 MaxRegionShift(u32 regions)
 CSnd *CZSealBody::m_heartbeat_sound[3] = {NULL, NULL, NULL};
 
 /* @socom-skeleton stub stoppedV__10CZSealBody */
-const float CZSealBody::stoppedV = 0.029999999329447746f;
+const float CZSealBody::stoppedV = 0.0299999994f /* 0x3cf5c28f */;
 
 /* port: turnV__10CZSealBody (0x450d20, 4 bytes 0x3ccccccd) has no source owner yet; kept
  * here beside stoppedV (0x450d28) */
-const float CZSealBody::turnV = 0.025f;
+const float CZSealBody::turnV = 0.0250000004f /* 0x3ccccccd */;
 
 /* port: seal_foot_bone__10CZSealBody (0x450d30, 4 bytes 0x3f8b851f) has no source owner yet
  * either; kept beside turnV */
-const float CZSealBody::seal_foot_bone = 1.09f;
+const float CZSealBody::seal_foot_bone = 1.09000004f /* 0x3f8b851f */;
 
 /* @socom-skeleton stub m_renderShadow__10CZSealBody */
 unsigned char CZSealBody::m_renderShadow = 1;
@@ -608,7 +608,7 @@ CZSealBody::CZSealBody(zdb::CNode* node, CCharacterType* chartype) : CEntity(ENT
 	m_charType = chartype;
 	m_mp_stats.Reset();
 	m_stats.Reset();
-	m_accuracy.Factor = tanf(0.0f) * 0.707f;
+	m_accuracy.Factor = tanf(0.0f) * 0.707000018f /* 0x3f34fdf4 */;
 	m_accuracy.FactorX = 0.0f;
 	m_accuracy.FactorY = 0.0f;
 	m_sealEx.m_seal = this;
@@ -921,7 +921,7 @@ CZSealBody::CZSealBody(zdb::CNode* node, CCharacterType* chartype) : CEntity(ENT
 	m_waterdepth = 0.0f;
 	RotateHead(0.0f, 0.0f);
 	m_zoomval = 500.0f;
-	CPnt3D toe(1.09f, 0.0f, 0.0f);
+	CPnt3D toe(1.09000004f /* 0x3f8b851f */, 0.0f, 0.0f);
 	PartInSpace(m_lfoot, &toe, &m_footL, NULL);
 	PartInSpace(m_rfoot, &toe, &m_footR, NULL);
 	m_last_foot = 2;
@@ -1507,7 +1507,7 @@ void CZSealBody::Tick(float dT)
 	/* @socom-skeleton stub g_memmarker_delay$2691 */
 	static float g_memmarker_delay = 10.0f; /* init$2692 */
 	/* @socom-skeleton stub adren_incr2$2814 */
-	static float adren_incr2 = 0.1f; /* init$2815 */
+	static float adren_incr2 = 0.100000002f /* 0x3dcccccd */; /* init$2815 */
 	/* 0x255870: after the controller's tick: the forward wall check (with the action button,
 	 * or on a cycling blend unless the wall stops the body; hanging / ladder / idle states
 	 * have their own), the ground (PostCheckDIDown) and the terrain slowdown; then the
@@ -1603,7 +1603,7 @@ void CZSealBody::Tick(float dT)
 	PostCheckDIDown(pre_thr_fb, pre_thr_strafe, pre_thr_lr);
 	f32 terrain = GetTerrainMotionFactor();
 
-	if (terrain < 0.99f)
+	if (terrain < 0.99000001f /* 0x3f7d70a4 */)
 	{
 		pre_thr_fb *= terrain;
 		pre_thr_strafe *= terrain;
@@ -1625,7 +1625,7 @@ void CZSealBody::Tick(float dT)
 
 			if ((CanInterrupt() && bstate != 8) || prev == (s16)AnimType::animTypeRifle2Pistol)
 			{
-				go = fabsf(pre_thr_fb) > 0.1f || fabsf(pre_thr_strafe) > 0.1f || fabsf(pre_thr_lr) > 0.1f;
+				go = fabsf(pre_thr_fb) > 0.100000002f /* 0x3dcccccd */ || fabsf(pre_thr_strafe) > 0.100000002f /* 0x3dcccccd */ || fabsf(pre_thr_lr) > 0.100000002f /* 0x3dcccccd */;
 
 				if (go)
 				{
@@ -1840,13 +1840,13 @@ void CZSealBody::UpdateAiEvent()
 	/* @socom-skeleton stub _speed_scale$2843 */
 	static float _speed_scale = 1.8f;
 	/* @socom-skeleton stub _crouch_scale$2846 */
-	static float _crouch_scale = 0.67f;
+	static float _crouch_scale = 0.670000017f /* 0x3f2b851f */;
 	/* @socom-skeleton stub _prone_scale$2849 */
-	static float _prone_scale = 0.33f;
+	static float _prone_scale = 0.330000014f /* 0x3ea8f5c3 */;
 	/* @socom-skeleton stub _default_scale$2852 */
 	static float _default_scale = 1.0f;
 	/* @socom-skeleton stub _throttle_threshold$2855 */
-	static float _throttle_threshold = 0.15f;
+	static float _throttle_threshold = 0.150000006f /* 0x3e19999a */;
 
 	if (m_aiEvent == NULL)
 		return;
@@ -2089,7 +2089,7 @@ bool CZSealBody::CollidePlayers(CPnt3D &dpos)
 	f32 pz = self.m_matrix[3][2];
 	s8 state = m_state;
 	f32 radius = state == 2 ? 8.0f : (state == 1 ? 5.5f : 3.5f);
-	f32 height = state == 2 ? 6.0f : (state == 1 ? 15.0f : 19.1f);
+	f32 height = state == 2 ? 6.0f : (state == 1 ? 15.0f : 19.1000004f /* 0x4198cccd */);
 	f32 reach = 0.0f;
 
 	if (m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsPlayer())
@@ -2178,7 +2178,7 @@ bool CZSealBody::CollidePlayers(CPnt3D &dpos)
 			continue;
 
 		s8 ostate = seal->m_state;
-		f32 oheight = ostate == 2 ? 6.0f : (ostate == 1 ? 15.0f : 19.1f);
+		f32 oheight = ostate == 2 ? 6.0f : (ostate == 1 ? 15.0f : 19.1000004f /* 0x4198cccd */);
 		CPnt3D contact;
 		CPnt3D normal;
 
@@ -2284,7 +2284,7 @@ void CZSealBody::HandleSliding(float dT)
 	pos.Add(&dpos, &at);
 	zdb::IntersectStruct *hit = NULL;
 
-	for (f32 scale = 1.0f; hit == NULL && scale < 10.0f; scale += 0.1f)
+	for (f32 scale = 1.0f; hit == NULL && scale < 10.0f; scale += 0.100000002f /* 0x3dcccccd */)
 	{
 		dpos.Scale(scale, &part);
 		pos.Add(&part, &at);
@@ -2424,7 +2424,7 @@ void CZSealBody::ComputeNextPosition(float dT)
 
 	CollidePlayers(dpos);
 	numChords = 0;
-	bool still = fabsf(dpos.x) < 0.0005f && fabsf(dpos.y) < 0.0005f && fabsf(dpos.z) < 0.0005f;
+	bool still = fabsf(dpos.x) < 0.000500000024f /* 0x3a03126f */ && fabsf(dpos.y) < 0.000500000024f /* 0x3a03126f */ && fabsf(dpos.z) < 0.000500000024f /* 0x3a03126f */;
 	f32 turn = fabsf(pre_thr_lr);
 	bool player_no_map = m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsPlayer() && !ai::do_aimap_collide;
 	bool move = true;
@@ -2433,7 +2433,7 @@ void CZSealBody::ComputeNextPosition(float dT)
 		move = false;
 	else if (player_no_map)
 	{
-		if (still && turn <= 0.001f && m_fire->Weight() == 0.0f)
+		if (still && turn <= 0.00100000005f /* 0x3a83126f */ && m_fire->Weight() == 0.0f)
 			move = false;
 	}
 	else if (still && m_fire->Weight() == 0.0f)
@@ -2463,7 +2463,7 @@ void CZSealBody::ComputeNextPosition(float dT)
 			|| IsCurrentBlend(AnimType::animTypeProneTurn) || prone_strafe;
 		SEAL_STATE stance = GetStance(true);
 		f32 radius = 3.5f;
-		f32 height = 19.1f;
+		f32 height = 19.1000004f /* 0x4198cccd */;
 
 		if (stance == SEAL_STATE::stateProne)
 		{
@@ -2519,13 +2519,13 @@ void CZSealBody::ComputeNextPosition(float dT)
 		if (prone_strafe)
 		{
 			dir.Scale(0.5f, &dir);
-			side.Scale(9.55f, &side);
+			side.Scale(9.5500002f /* 0x4118cccd */, &side);
 		}
 		else
 		{
 			side.Scale(radius, &side);
-			side.Scale(0.3f, &side_in);
-			side.Scale(1.2f, &side_out);
+			side.Scale(0.300000012f /* 0x3e99999a */, &side_in);
+			side.Scale(1.20000005f /* 0x3f99999a */, &side_out);
 		}
 
 		if (prone)
@@ -2606,8 +2606,8 @@ void CZSealBody::ComputeNextPosition(float dT)
 					{ m_head, 2.25f, 4.0f, true },
 					{ m_lhand, 2.0f, 0.0f, false },
 					{ m_rhand, 2.0f, 0.0f, false },
-					{ m_lfoot, 1.1f, 0.0f, false },
-					{ m_rfoot, 1.1f, 0.0f, false },
+					{ m_lfoot, 1.10000003f /* 0x3f8ccccd */, 0.0f, false },
+					{ m_rfoot, 1.10000003f /* 0x3f8ccccd */, 0.0f, false },
 				};
 
 				for (const auto &end : ends)
@@ -2640,7 +2640,7 @@ void CZSealBody::ComputeNextPosition(float dT)
 			}
 
 			CPnt3D ahead;
-			dir.Scale(1.1f, &ahead);
+			dir.Scale(1.10000003f /* 0x3f8ccccd */, &ahead);
 
 			if ((m_state == 1 || m_state == 0) && m_velM.z > 0.0f)
 				ahead.Scale(MoveAwayFromWallFactor, &ahead);
@@ -2675,12 +2675,12 @@ void CZSealBody::ComputeNextPosition(float dT)
 				facing.x = m_node->m_matrix.m_matrix[2][0];
 				facing.y = m_node->m_matrix.m_matrix[2][1];
 				facing.z = m_node->m_matrix.m_matrix[2][2];
-				f32 limit = prone_strafe ? -0.2f : 0.0f;
+				f32 limit = prone_strafe ? -0.200000003f /* 0x3e4ccccd */ : 0.0f;
 
 				if (facing.z * unit_dir.z + facing.x * unit_dir.x + facing.y * unit_dir.y < limit || still)
 				{
 					CPnt3D reach;
-					firepos.Scale(1.1f, &reach);
+					firepos.Scale(1.10000003f /* 0x3f8ccccd */, &reach);
 					CZBodyAnimBlend *current = m_blends->Top();
 
 					if (((current->m_flags & 0x40) == 0 || m_fire->LinearWeight() <= 0.0f || m_state == 5) && m_state != 2
@@ -2726,7 +2726,7 @@ void CZSealBody::ComputeNextPosition(float dT)
 
 			/* 4, 5: the sides at step height (a prone strafe: from ahead to the far sides) */
 			CPnt3D ahead_low;
-			dir.Scale(0.6f, &ahead_low);
+			dir.Scale(0.600000024f /* 0x3f19999a */, &ahead_low);
 
 			for (int right = 0; right < 2; right++)
 			{
@@ -2818,7 +2818,7 @@ bool CZSealBody::HandleWeaponIntersect()
 	CPnt3D d;
 	m_curr_firepos.Add(GetPosW(), &fire);
 	m_curr_aimpos.Add(GetPosW(), &aim);
-	PointAlongLine(aim, fire, 1.1f, tip);
+	PointAlongLine(aim, fire, 1.10000003f /* 0x3f8ccccd */, tip);
 	tip.Sub(&m_aim_point, &d);
 
 	if (!(m_aim_norm.z * d.z + m_aim_norm.x * d.x + m_aim_norm.y * d.y < 0.0f))
@@ -2874,7 +2874,7 @@ bool CZSealBody::HandleWeaponIntersect()
 			push = -((t - 1.0f) * (barrel.z * dir.z + barrel.x * dir.x + barrel.y * dir.y));
 		}
 
-		if (m_aim_norm.z * dir.z + m_aim_norm.x * dir.x + m_aim_norm.y * dir.y > 0.2f && push < 0.0f)
+		if (m_aim_norm.z * dir.z + m_aim_norm.x * dir.x + m_aim_norm.y * dir.y > 0.200000003f /* 0x3e4ccccd */ && push < 0.0f)
 		{
 			CPnt3D back;
 			dir.Scale(push, &back);
@@ -3017,7 +3017,7 @@ void CZSealBody::PostComputeNextPosition(float)
 				f32 reach = 1.0f;
 				CPnt3D probe;
 
-				if (turn <= 0.001f || moved)
+				if (turn <= 0.00100000005f /* 0x3a83126f */ || moved)
 				{
 					probe.x = m_node->m_matrix.m_matrix[3][0];
 					probe.y = m_node->m_matrix.m_matrix[3][1];
@@ -3048,7 +3048,7 @@ void CZSealBody::PostComputeNextPosition(float)
 
 				if (wall != NULL && !floorlike(wall))
 				{
-					if ((!prone && m_state != 1) || turn <= 0.001f)
+					if ((!prone && m_state != 1) || turn <= 0.00100000005f /* 0x3a83126f */)
 					{
 						CPnt3D normal = wall->m_norm;
 
@@ -3176,8 +3176,8 @@ void CZSealBody::NormalizeToTerrain()
 		if (top->m_state != 8)
 			return;
 
-		a = 0.8f;
-		b = 0.99f;
+		a = 0.800000012f /* 0x3f4ccccd */;
+		b = 0.99000001f /* 0x3f7d70a4 */;
 	}
 	else
 	{
@@ -3264,7 +3264,7 @@ void CZSealBody::OnDeath()
 		if (control != NULL)
 		{
 			control->StopRumbler();
-			control->SetLowRumbleTime(0.18f, 175.0f);
+			control->SetLowRumbleTime(0.180000008f /* 0x3e3851ec */, 175.0f);
 			control->SetHighRumbleTime(0.04f);
 		}
 	}
@@ -3324,7 +3324,7 @@ float CZSealBody::SetHealth(float health, SEAL_DEATH_TYPE death)
 		return old;
 
 	if (health <= 0.0f && m_invincible)
-		health = 0.1f;
+		health = 0.100000002f /* 0x3dcccccd */;
 
 	bool alive = m_isAlive;
 	m_health = health;
@@ -3610,7 +3610,7 @@ bool CZSealBody::ExecuteAction_CQBAttack(CZSealBody *victim)
 		event->m_owner = m_id;
 		event->m_pos = *victim->GetPosW();
 		event->m_rangeSq = 4.0f;
-		event->m_duration = 0.1f;
+		event->m_duration = 0.100000002f /* 0x3dcccccd */;
 		event->m_type = CAiEvent::AIE_WEPHIT;
 		CAiEvent::Create(event);
 	}
@@ -4329,9 +4329,9 @@ void CZSealBody::TickHeartbeat()
 	f32 value = adrenaline != NULL ? adrenaline->m_value : 1.0f;
 	s32 index;
 
-	if (value < 0.33f)
+	if (value < 0.330000014f /* 0x3ea8f5c3 */)
 		index = 0;
-	else if (value < 0.66f)
+	else if (value < 0.660000027f /* 0x3f28f5c3 */)
 		index = 1;
 	else
 		index = 2;

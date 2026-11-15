@@ -56,7 +56,7 @@ float zdb::CCamera::GetFogVisibility(const CPnt3D *from, const CPnt3D *to) const
 		fog *= alt;
 	}
 
-	return (1.0f / 255.0f) * fog;
+	return 0.00392156886f /* 0x3b808081: the ELF's folded 1.0f / 255.0f (GCC r5900 folds toward zero: 0x3b808080) */ * fog;
 }
 
 /* @socom-skeleton body Update__Q23zdb7CCameraFQ23zdb13tag_ZCAM_TYPE */
@@ -156,7 +156,7 @@ void CCamera::Update(tag_ZCAM_TYPE type)
 		m_ClipSet.RightPlaneNormal.z = m_ClipSet.LeftPlaneNormal.z;
 		m_ClipSet.RightPlaneNormal.w = m_ClipSet.LeftPlaneNormal.w;
 
-		static f32 verticalFov = 0.785f; /* verticalFov$1114, guarded init (init$1115) */
+		static f32 verticalFov = 0.785000027f /* 0x3f48f5c3 */; /* verticalFov$1114, guarded init (init$1115) */
 		m_ClipSet.TopPlaneNormal.Rotate_AxisX(angle * verticalFov);
 		m_ClipSet.BottomPlaneNormal.x = m_ClipSet.TopPlaneNormal.x;
 		m_ClipSet.BottomPlaneNormal.y = -m_ClipSet.TopPlaneNormal.y;
@@ -178,7 +178,7 @@ void CCamera::Update(tag_ZCAM_TYPE type)
 		sceVu0FVECTOR pushed;
 		sceVu0FVECTOR nearPoint;
 		sceVu0ScaleVector(nearOffset, (f32*)&m_ClipSet.NearPlaneNormal, m_near_plane);
-		sceVu0ScaleVector(pushed, nearOffset, 1.0001f);
+		sceVu0ScaleVector(pushed, nearOffset, 1.00010002f /* 0x3f800347 */);
 		sceVu0AddVector(nearPoint, (f32*)&m_ClipSet.ViewPlanePoint, pushed);
 		m_ClipSet.NearPlanePoint.x = nearPoint[0];
 		m_ClipSet.NearPlanePoint.y = nearPoint[1];

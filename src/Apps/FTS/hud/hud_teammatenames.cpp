@@ -35,7 +35,7 @@ void CTeamMateNames::Init(C2DFont *font)
 	{
 		C2DString *name = &m_teamMateNames[i];
 		name->SetFont(font);
-		name->m_scale = 0.8f;
+		name->m_scale = 0.800000012f /* 0x3f4ccccd */;
 		push_back(name);
 	}
 }

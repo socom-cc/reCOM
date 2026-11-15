@@ -238,8 +238,8 @@ static void c2dbitmappoly_rotate(C2DPoly* tris)
 void C2DBitmapPoly::Rotate_Zaxis(float degrees)
 {
 	/* 0x2fdd30: rotate about the quad's centre by degrees (r keeps the matrix) */
-	f32 s = sinf(degrees * 0.017453292f);
-	f32 c = cosf(degrees * 0.017453292f);
+	f32 s = sinf(degrees * 0.0174532924f /* 0x3c8efa35 */);
+	f32 c = cosf(degrees * 0.0174532924f /* 0x3c8efa35 */);
 
 	r[2] = s;
 	r[1] = -s;

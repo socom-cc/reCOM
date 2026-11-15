@@ -784,8 +784,8 @@ _zanim_cmd_hdr* CTFireMode::Parse(_zrdr* reader)
 	 * "weapon" (a kit index), "trigger" (down, up; 0.1 / 0.8 by default), "fullauto" or
 	 * "burst" (their presence: required) */
 	TASK_FIREMODE *task = (TASK_FIREMODE *)task_alloc(28, *(u16 *)&ai_cmdid[0]);
-	task->m_dn_time = 0.1f;
-	task->m_up_time = 0.8f;
+	task->m_dn_time = 0.100000002f /* 0x3dcccccd */;
+	task->m_up_time = 0.800000012f /* 0x3f4ccccd */;
 	task->m_hint.m_quiet = 0;
 	task->m_hint.m_quiet_again = 2;
 	task->m_hint.m_auto = 1;
@@ -1435,7 +1435,7 @@ _zanim_cmd_hdr* CTLookAt::Parse(_zrdr* reader)
 	TASK_LOOKAT *task = (TASK_LOOKAT *)task_alloc(len + 48, *(u16 *)&ai_cmdid[0]);
 	task->m_mode = name != NULL ? 2 : 0;
 	task->m_entity = name != NULL ? -3 /* unknownId 0x44cd80 */ : CEntity::invalidId;
-	task->m_rate = 0.85f;
+	task->m_rate = 0.850000024f /* 0x3f59999a */;
 	task->m_timer = 0.0f;
 	task->m_time.m_min = 0.0f;
 	task->m_time.m_range = 0.0f;
@@ -1972,7 +1972,7 @@ void CTMove::Begin(_zanim_cmd_hdr* header)
 	CSealCtrlAi *ai = ctrl->GetSealCtrlAi();
 	ctrl->SetGoalPos(GOAL_MOVE, (goal & 1) ? &pos : NULL, 3.0f);
 	ctrl->SetGoalDir(GOAL_MOVE, (goal & 2) ? &dir : NULL, false);
-	static f32 goalTimer = 0.4f; /* goalTimer$2994 (0x4761cc), init$2995 */
+	static f32 goalTimer = 0.400000006f /* 0x3ecccccd */; /* goalTimer$2994 (0x4761cc), init$2995 */
 	ctrl->m_goal_timer.m_timer = goalTimer;
 	ctrl->m_goal_timer.m_period.m_min = goalTimer;
 	ctrl->m_goal_timer.m_period.m_range = 0.0f;

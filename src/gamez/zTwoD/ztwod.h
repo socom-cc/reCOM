@@ -733,7 +733,7 @@ public:
 		if (!CanHandleInput())
 			return;
 
-		_fPressedTime = 0.2f;
+		_fPressedTime = 0.200000003f; /* 0x3e4ccccd */
 		ShowState(_PressedState);
 	}
 	virtual void DrawBackground(const CMatrix &transform, zdb::CTextureRelocMgr *reloc) /* 0x393940 */

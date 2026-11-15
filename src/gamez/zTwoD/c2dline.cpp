@@ -35,7 +35,7 @@ C2DLine::C2DLine()
 	 * texture, UVs from @1340 (0x43a870: (0, 1, 1, 0) and (1, 0, 1, 0)), then grey 128 and
 	 * (virtual) SetTrans 127 */
 	m_vertex[0][0] = -6.3e-05f;
-	m_vertex[0][1] = -4.6e-05f;
+	m_vertex[0][1] = -4.60000011e-5f /* 0x3840f020 */;
 	m_vertex[0][2] = 0.0001f;
 	m_vertex[0][3] = 1.0f;
 	m_vertex[1][0] = -3e-05f;

@@ -142,7 +142,7 @@ void C2DString::Tick(float dT)
 	if (m_fadeTime < t)
 		m_elapsedTime = t - m_fadeTime;
 
-	f32 s = sinf((m_elapsedTime / m_fadeTime) * 3.14f);
+	f32 s = sinf((m_elapsedTime / m_fadeTime) * 3.14000011f /* 0x4048f5c3 */);
 	SetTrans((m_fadeMin + s * (m_fadeMax - m_fadeMin)) * 128.0f);
 }
 

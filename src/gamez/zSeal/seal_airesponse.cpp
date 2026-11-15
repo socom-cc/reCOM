@@ -114,7 +114,7 @@ void CAiSShotAt::OnSignal(CAiState::SIGNAL signal, CSealCtrlAi *ctrl)
 	{
 	case 0:
 		m_old_stance = ctrl->m_stance;
-		m_time = 0.05f + 0.2f * ((f32)rand() * 4.656613e-10f);
+		m_time = 0.0500000008f /* 0x3d4ccccd */ + 0.200000003f /* 0x3e4ccccd */ * ((f32)rand() * 4.656613e-10f);
 		break;
 
 	case 1:
@@ -169,7 +169,7 @@ bool CAiSShotAt::Tick(float dT, CSealCtrlAi *ctrl)
 		{
 			f32 chance = 0.25f;
 			SEAL_STANCE stance = 0.0f + 1.0f * ((f32)rand() * 4.656613e-10f) <= chance ? (SEAL_STANCE)2 : (SEAL_STANCE)1;
-			ctrl->SetStanceDelayed(stance, 0.2f + 0.5f * ((f32)rand() * 4.656613e-10f));
+			ctrl->SetStanceDelayed(stance, 0.200000003f /* 0x3e4ccccd */ + 0.5f * ((f32)rand() * 4.656613e-10f));
 		}
 
 		ctrl->SetAiAware(AIA_DIRECTION, &m_pos);
@@ -335,7 +335,7 @@ bool CAiSReload::Tick(float dT, CSealCtrlAi *ctrl)
 		ctrl->m_noturn_travel = 1;
 		body->SetWeaponState((WEAPON_STATE)2);
 		m_old_stance = ctrl->m_stance;
-		f32 cry = 0.07f;
+		f32 cry = 0.0700000003f /* 0x3d8f5c29 */;
 		m_cry = 0.0f + 1.0f * ((f32)rand() * 4.656613e-10f) <= cry;
 		f32 prone = 0.25f;
 		m_prone = 0.0f + 1.0f * ((f32)rand() * 4.656613e-10f) <= prone;
@@ -1285,7 +1285,7 @@ bool CAiSEvent::Tick(float dT, CSealCtrlAi *ctrl)
 		if (ctrl->SetLookPosW(AIL_EVENT, &m_pos))
 		{
 			ctrl->SetLookTimer(rfloat_draw(m_look_time));
-			ctrl->SetScanAngle(0.3490658f);
+			ctrl->SetScanAngle(0.349065841f /* 0x3eb2b8c2 */);
 		}
 
 		ComputeNextState(state, rfloat_draw(m_look_time));
@@ -1297,7 +1297,7 @@ bool CAiSEvent::Tick(float dT, CSealCtrlAi *ctrl)
 		{
 			ctrl->ModifyLookFlags(1, 0);
 			ctrl->SetLookTimer(rfloat_draw(m_look_time));
-			ctrl->SetScanAngle(0.3490658f);
+			ctrl->SetScanAngle(0.349065841f /* 0x3eb2b8c2 */);
 		}
 
 		ComputeNextState(state, rfloat_draw(m_look_time));

@@ -1958,13 +1958,13 @@ void CZKit::TickReticule(float dT)
 	}
 
 	CZSealBody *body = m_body;
-	f32 goal = (body->m_velM.z * body->m_velM.z + body->m_velM.x * body->m_velM.x + body->m_velM.y * body->m_velM.y) * 0.015384615f
+	f32 goal = (body->m_velM.z * body->m_velM.z + body->m_velM.x * body->m_velM.x + body->m_velM.y * body->m_velM.y) * 0.0153846154f /* 0x3c7c0fc1 */
 		+ (body->m_velR.z * body->m_velR.z + body->m_velR.x * body->m_velR.x + body->m_velR.y * body->m_velR.y) * 5.29f * 30.0f;
 
 	if (body->m_airborne)
 	{
 		goal += (body->m_inAirHorizVel.z * body->m_inAirHorizVel.z + body->m_inAirHorizVel.x * body->m_inAirHorizVel.x
-			+ body->m_inAirHorizVel.y * body->m_inAirHorizVel.y) * 0.015384615f;
+			+ body->m_inAirHorizVel.y * body->m_inAirHorizVel.y) * 0.0153846154f /* 0x3c7c0fc1 */;
 	}
 
 	if (goal < m_retmin)
@@ -2023,7 +2023,7 @@ inline const f32 &throw_max(const f32 &a, const f32 &b)
 f32 DynGrenadeComputeMaxVel(f32 dist, f32 height, f32 *time)
 {
 	static const f32 tan_45 = 1.0f;       /* tan_45$localstatic3 */
-	static const f32 cos_45 = 0.707107f; /* cos_45$localstatic5 (0x3f3504f7; was 0.70710725f = 0x3f3504fb) */
+	static const f32 cos_45 = 0.707107008f; /* cos_45$localstatic5 (0x3f3504f7; was 0.70710725f = 0x3f3504fb) */
 	f32 t = sqrtf(2.0f * (height + tan_45 * dist) / 98.0f);
 	f32 speed = dist / (cos_45 * t);
 
@@ -2038,13 +2038,13 @@ f32 DynGrenadeComputeElevOfs(f32 power)
 {
 	static const f32 elev_offset_min = 10.0f; /* elev_offset_min$localstatic3 */
 	static const f32 elev_offset_max = 12.0f; /* elev_offset_max$localstatic5 */
-	return 0.017453292f * (elev_offset_min * (1.0f - power) + elev_offset_max * power);
+	return 0.0174532924f /* 0x3c8efa35 */ * (elev_offset_min * (1.0f - power) + elev_offset_max * power);
 }
 
 /* CDynGrenade::Initalize's elevation limits (min_elev 0x452ff8, max_elev 0x453000) and
  * do_adjust (true) */
 const f32 throw_min_elev = 0.0f;
-const f32 throw_max_elev = 0.95993114f; /* 0x3f75be0b: 55 degrees */
+const f32 throw_max_elev = 0.959931076f; /* 0x3f75be0b: 55 degrees */
 const f32 throw_min_speed = 0.0f;       /* @2331 0x475034 */
 }
 
@@ -2141,7 +2141,7 @@ bool CZKit::TickExplosives(float dT)
 		else
 		{
 			/* claymore, satchel, MP bomb: on the ground within 14.3 below the hand */
-			spot = zdb::CWorld::m_world->GetAltitude(&from, 14.3f);
+			spot = zdb::CWorld::m_world->GetAltitude(&from, 14.3000002f /* 0x4164cccd */);
 
 			if (spot == NULL)
 				return false;
@@ -2216,7 +2216,7 @@ bool CZKit::TickExplosives(float dT)
 				elev += DynGrenadeComputeElevOfs(power);
 				f32 s = sinf(elev);
 				f32 c = cosf(elev);
-				f32 speed = 0.3f * maxvel * (1.0f - power) + maxvel * power;
+				f32 speed = 0.300000012f /* 0x3e99999a */ * maxvel * (1.0f - power) + maxvel * power;
 				f32 r1;
 				f32 r2;
 				f32 t = ai::quadratic(0.5f * -98.0f, speed * s, height, r1, r2) ? throw_max(r1, r2) : 0.0f;
@@ -2637,7 +2637,7 @@ float CZKit::GetFireDelay()
 {
 	/* 0x2a97d0: the weapon's fire wait (0.1 without one); safety 1 s, burst and auto 0.8x,
 	 * launcher modes 0.2x */
-	f32 wait = m_item[m_selected_item] != NULL ? m_item[m_selected_item]->m_firewait : 0.1f;
+	f32 wait = m_item[m_selected_item] != NULL ? m_item[m_selected_item]->m_firewait : 0.100000002f /* 0x3dcccccd */;
 	s32 mode = m_firemode[m_selected_item];
 
 	if (mode == 0)
@@ -2647,9 +2647,9 @@ float CZKit::GetFireDelay()
 		return wait;
 
 	if (mode == 2 || mode == 3)
-		return wait * 0.8f;
+		return wait * 0.800000012f /* 0x3f4ccccd */;
 
-	return wait * 0.2f;
+	return wait * 0.200000003f /* 0x3e4ccccd */;
 }
 
 /* @socom-skeleton stub DetonateRemoteExplosives__5CZKitFv */
@@ -2992,7 +2992,7 @@ void CZKit::HandleFireWeapon(int index, float power, float delay)
 
 			if (ctrl != NULL && ((CSealCtrl *)ctrl)->IsPlayer())
 			{
-				dir.y += 0.15f;
+				dir.y += 0.150000006f /* 0x3e19999a */;
 				dir.Normalize();
 			}
 		}
@@ -3543,7 +3543,7 @@ void CZKit::SetCurAccuracy()
 	CZSealBody *body = m_body;
 	body->m_accuracy.FactorX = offx * depth * (tanf(fovx * 0.5f) / 320.0f);
 	body->m_accuracy.FactorY = offy * depth * (tanf(fovy * 0.5f) / 224.0f);
-	m_body->m_accuracy.Factor = size * (tanf(fovy * 0.5f) / 224.0f) * 0.707f;
+	m_body->m_accuracy.Factor = size * (tanf(fovy * 0.5f) / 224.0f) * 0.707000018f /* 0x3f34fdf4 */;
 }
 
 /* @socom-skeleton stub GetTotalEnc__5CZKitFv */
@@ -4425,24 +4425,24 @@ void CZKit::SniperTick(float dT, CTargetMods &mods)
 	}
 #endif
 
-	if (!(a <= 0.2f) && m_body->m_zoomstate != ZOOMSTATE::ZOOMSTATE_BINOCS)
+	if (!(a <= 0.200000003f /* 0x3e4ccccd */) && m_body->m_zoomstate != ZOOMSTATE::ZOOMSTATE_BINOCS)
 	{
 		m_heartbeat_accum += dT;
 
 		if (m_heartbeat_state == 0)
 		{
-			if (!(m_heartbeat_accum <= 0.3f + 0.24f * calm))
+			if (!(m_heartbeat_accum <= 0.300000012f /* 0x3e99999a */ + 0.24000001f /* 0x3e75c290 */ * calm))
 			{
 				f32 strength = 20.0f + 100.0f * a;
 
 				if (!(strength <= 0.0f))
-					static_cast<CSealCtrl *>(m_body->m_control)->SetLowRumbleTime(0.1f, strength);
+					static_cast<CSealCtrl *>(m_body->m_control)->SetLowRumbleTime(0.100000002f /* 0x3dcccccd */, strength);
 
 				m_heartbeat_accum = 0.0f;
 				m_heartbeat_state = 1;
 			}
 		}
-		else if (!(m_heartbeat_accum <= 0.8f + 0.64f * calm))
+		else if (!(m_heartbeat_accum <= 0.800000012f /* 0x3f4ccccd */ + 0.640000046f /* 0x3f23d70b */ * calm))
 		{
 			f32 strength = 20.0f + 100.0f * a;
 
@@ -4499,9 +4499,9 @@ void CZKit::SniperTick(float dT, CTargetMods &mods)
 	}
 
 	f32 limit = mods.GetSniper_DistLimit_PosX();
-	limit = 0.8f * limit * a + 0.2f * limit;
+	limit = 0.800000012f /* 0x3f4ccccd */ * limit * a + 0.200000003f /* 0x3e4ccccd */ * limit;
 
-	if (a <= 0.2f)
+	if (a <= 0.200000003f /* 0x3e4ccccd */)
 		return;
 
 	f32 ratio = m_sniper_posx / limit;
@@ -4524,9 +4524,9 @@ void CZKit::SniperTick(float dT, CTargetMods &mods)
 	}
 
 	limit = mods.GetSniper_DistLimit_PosY();
-	limit = 0.2f * limit + 0.8f * limit * a;
+	limit = 0.200000003f /* 0x3e4ccccd */ * limit + 0.800000012f /* 0x3f4ccccd */ * limit * a;
 
-	if (a < 0.1f)
+	if (a < 0.100000002f /* 0x3dcccccd */)
 		limit = 0.0f;
 
 	ratio = m_sniper_posy / limit;

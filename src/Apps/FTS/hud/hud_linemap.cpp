@@ -690,7 +690,7 @@ static void LoadMapString(C2DString *str, const char *text, const CPnt3D &draw)
 	str->m_color.x = 30.0f;
 	str->m_color.y = 100.0f;
 	str->m_color.z = 30.0f;
-	str->Load(0.8f, text, theHUD->m_myfont, (s32)draw.x, (s32)draw.y);
+	str->Load(0.800000012f /* 0x3f4ccccd */, text, theHUD->m_myfont, (s32)draw.x, (s32)draw.y);
 	str->UpdatePos();
 }
 

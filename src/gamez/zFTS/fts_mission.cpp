@@ -928,8 +928,8 @@ void CMission::PreOpen(const char* db)
 	_zrdr* zoom = zrdr_findtag(mission, "TacMapZoom");
 	s32 count = zoom != NULL && zoom->IsArray() ? zoom->array->integer - 1 : 0;
 	g_fTacMapZoomInit = count >= 1 ? MissionRealAt(zoom, 0) : 1.0f;
-	g_fTacMapZoomNear = count >= 2 ? MissionRealAt(zoom, 1) : 2.2f;
-	g_fTacMapZoomFar = count >= 3 ? MissionRealAt(zoom, 2) : 0.55f;
+	g_fTacMapZoomNear = count >= 2 ? MissionRealAt(zoom, 1) : 2.20000005f /* 0x400ccccd */;
+	g_fTacMapZoomFar = count >= 3 ? MissionRealAt(zoom, 2) : 0.550000012f /* 0x3f0ccccd */;
 
 	_zrdr* reverb = zrdr_findtag(mission, "Reverb");
 	f32 depth = 0.0f;
@@ -1027,7 +1027,7 @@ void CMission::Open(const char *db, int ai)
 	m_chars_loaded = false;
 	m_load_ai = ai;
 	zTaskScheduler.AddTask("diTick", zdb::CWorld::diTick, 5.0f, NULL);
-	zTaskScheduler.AddTask("Mission", tick, 0.98f, this);
+	zTaskScheduler.AddTask("Mission", tick, 0.98000002f /* 0x3f7ae148 */, this);
 	zTaskScheduler.AddTask("Update visual effects", zdb::CNode::VisualEffectsTick, 0.5f, NULL);
 
 	CSnd::Close();
@@ -1649,7 +1649,7 @@ void CMission::Tick(f32 dT)
 		game->m_clock.Tick();
 		CValve *timer = game->m_pTimerValve;
 
-		if (timer != NULL && (u32)(0.001f * (f32)game->m_clock.m_game_time) == 0 && timer->m_value != 0)
+		if (timer != NULL && (u32)(0.00100000005f /* 0x3a83126f */ * (f32)game->m_clock.m_game_time) == 0 && timer->m_value != 0)
 		{
 			timer->m_value = 0; /* inline set: a change to 0 (VALVE_STATE 2) */
 			timer->MakeCallbacks((VALVE_STATE)2);
@@ -1965,7 +1965,7 @@ void CMission::OnMissionComplete(MISSION_STATE state)
 			theMission.m_DelayEndMission = true;
 			m_fade_counter = 0;
 			m_next_fade_time = 1.0f;
-			zTaskScheduler.AddTask("MissionFadeToEnd", fadeToEndMissionTick, 0.98f, this);
+			zTaskScheduler.AddTask("MissionFadeToEnd", fadeToEndMissionTick, 0.98000002f /* 0x3f7ae148 */, this);
 		}
 		else
 		{
@@ -2005,8 +2005,8 @@ bool CMission::FadeToEndMissionTick(float dT)
 			}
 			else if (m_fade_counter == 0)
 			{
-				theHUD->Flash(0.0f, black, 0.8f, 5.0f, 0.8f);
-				m_next_fade_time = 1.1f;
+				theHUD->Flash(0.0f, black, 0.800000012f /* 0x3f4ccccd */, 5.0f, 0.800000012f /* 0x3f4ccccd */);
+				m_next_fade_time = 1.10000003f /* 0x3f8ccccd */;
 			}
 			else
 			{
@@ -2058,7 +2058,7 @@ void CMission::FadeToEndMission(float delay, int flashes)
 		theMission.m_DelayEndMission = true;
 		m_fade_counter = flashes;
 		m_next_fade_time = delay;
-		zTaskScheduler.AddTask("MissionFadeToEnd", fadeToEndMissionTick, 0.98f, this);
+		zTaskScheduler.AddTask("MissionFadeToEnd", fadeToEndMissionTick, 0.98000002f /* 0x3f7ae148 */, this);
 #ifdef SOCOM_PORT
 		SOCOM_PORT_TRACE("MISSION: fade to the end in %.2f s (%d flashes)", delay, flashes);
 #endif
@@ -2278,7 +2278,7 @@ void ftsFixupAiMap(CAiMap *map)
 				char* name = first != NULL && first->type == ZRDR_STRING ? first->string : NULL;
 				bool has_rot = zrdr_findPNT3D(weapon_tag, "rot", &rot);
 				zrdr_findPNT3D(weapon_tag, "pos", &offset);
-				rot.Scale(0.01745329f, &rot);
+				rot.Scale(0.0174532924f /* 0x3c8efa35 */, &rot);
 				CZWeapon* weapon = CZWeapon::m_listWeapons.GetWeapon(CZWeapon::GetWeaponId(name));
 
 				if (weapon != NULL && zdb::CWorld::GetModel(weapon->GetModelName()) != NULL)
@@ -2305,7 +2305,7 @@ void ftsFixupAiMap(CAiMap *map)
 				continue;
 
 			CPnt3D rot(90.0f, 0.0f, 0.0f);
-			rot.Scale(0.01745329f, &rot);
+			rot.Scale(0.0174532924f /* 0x3c8efa35 */, &rot);
 			zdb::CNode* box_node = zdb::CNode::CreateInstance("fiftycal_box", NULL, NULL); /* ELF: an unset position (the matrix is set below) */
 
 			if (box_node == NULL)
@@ -2832,7 +2832,7 @@ void CZNetGame::MasterStartGame()
 	for (s32 i = 0; i < 16; i++)
 	{
 		if ((CZPersonaState::m_LJArray[i] & 0x10) != 0)
-			SendGameSignalMessage(i, 12, 0, 0, (u32)((f32)m_clock.m_max_game_time * 0.001f), true);
+			SendGameSignalMessage(i, 12, 0, 0, (u32)((f32)m_clock.m_max_game_time * 0.00100000005f /* 0x3a83126f */), true);
 	}
 }
 
@@ -2865,7 +2865,7 @@ int CMission::GetGameTime()
 	/* 0x1f37d0 (CHUD::Tick's clock, zRemoteClientConnectsCallback): seconds - the network
 	 * game's clock (milliseconds) in a network game, else the win / loss timer truncated */
 	if (theNetwork.m_bNetwork && m_pNetGame != NULL)
-		return (int)(u32)((f32)m_pNetGame->m_clock.m_game_time * 0.001f);
+		return (int)(u32)((f32)m_pNetGame->m_clock.m_game_time * 0.00100000005f /* 0x3a83126f */);
 
 	return (int)m_winlosstimer;
 }
@@ -2913,7 +2913,7 @@ unsigned int CZNetGame::DecrementRoundClockSec(int seconds)
 	 * limit is 0 */
 	if (theNetwork.m_bSessionMaster)
 	{
-		u32 left = (u32)((f32)m_clock.m_max_game_time * 0.001f);
+		u32 left = (u32)((f32)m_clock.m_max_game_time * 0.00100000005f /* 0x3a83126f */);
 
 		if (seconds < (s32)left)
 		{
@@ -2931,7 +2931,7 @@ unsigned int CZNetGame::DecrementRoundClockSec(int seconds)
 		}
 	}
 
-	return (u32)((f32)m_clock.m_max_game_time * 0.001f);
+	return (u32)((f32)m_clock.m_max_game_time * 0.00100000005f /* 0x3a83126f */);
 }
 
 /* @socom-skeleton stub OnSealTeam__9CZNetGameFv */

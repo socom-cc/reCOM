@@ -227,7 +227,7 @@ CSealCtrl::CSealCtrl() : CEntityCtrl(3)
 	m_zoomout = false;
 	m_hotswapL1 = 0.0f;
 	m_hotswapL2 = 1.0f;
-	m_scan_limits = 0.34906584f;
+	m_scan_limits = 0.349065841f /* 0x3eb2b8c2 */;
 	ClearGoal(GOAL_NONE);
 	ClearLook((AI_LOOK)-1); /* 0x2887e0: li a1,-1 (all) */
 	m_victimbody = NULL;
@@ -331,7 +331,7 @@ void CSealCtrl::Initalize()
 void CSealCtrl::OnWeaponHit(zdb::IntersectStruct *, CZProjectile *)
 {
 	/* 0x288010: a short high rumble (0.05, SetHighRumbleTime inline) */
-	SetHighRumbleTime(0.05f);
+	SetHighRumbleTime(0.0500000008f /* 0x3d4ccccd */);
 }
 
 /* @socom-skeleton stub OnStunDamage__9CSealCtrlF9STUN_TYPEfPC6CPnt3D */
@@ -371,7 +371,7 @@ void CSealCtrl::OnStunDamage(STUN_TYPE type, float, const CPnt3D *position)
 #ifdef SOCOM_PORT
 	SOCOM_PORT_TRACE("STUN: flashbang facing %.2f distance %.1f: HUD flash %.2f", facing, sqrtf(dsq), 1.0f - facing * falloff);
 #endif
-	theHUD->Flash(1.0f - facing * falloff, color, 1.2f, 2.0f, 4.0f);
+	theHUD->Flash(1.0f - facing * falloff, color, 1.20000005f /* 0x3f99999a */, 2.0f, 4.0f);
 }
 
 /* @socom-skeleton stub OnSetHealth__9CSealCtrlFff */
@@ -384,7 +384,7 @@ void CSealCtrl::OnSetHealth(float, float)
 
 	if (!IsRemote())
 	{
-		SetLowRumbleTime(0.18f, 175.0f);
+		SetLowRumbleTime(0.180000008f /* 0x3e3851ec */, 175.0f);
 		SetHighRumbleTime(0.04f);
 	}
 }
@@ -505,7 +505,7 @@ public:
 	static f32 ComputeMaxVel(f32 dist, f32 height, f32 *time)
 	{
 		static const f32 tan_45 = 1.0f;        /* tan_45$localstatic3 */
-		static const f32 cos_45 = 0.707107f; /* cos_45$localstatic5 (0x3f3504f7; was 0.70710725f = 0x3f3504fb) */
+		static const f32 cos_45 = 0.707107008f; /* cos_45$localstatic5 (0x3f3504f7; was 0.70710725f = 0x3f3504fb) */
 		f32 t = sqrtf(2.0f * (height + tan_45 * dist) / 98.0f);
 		f32 speed = dist / (cos_45 * t);
 
@@ -520,7 +520,7 @@ public:
 	{
 		static const f32 elev_offset_min = 10.0f; /* elev_offset_min$localstatic3 */
 		static const f32 elev_offset_max = 12.0f; /* elev_offset_max$localstatic5 */
-		return 0.017453292f * (elev_offset_min * (1.0f - power) + elev_offset_max * power);
+		return 0.0174532924f /* 0x3c8efa35 */ * (elev_offset_min * (1.0f - power) + elev_offset_max * power);
 	}
 
 	/* 0x287930: the later root of -49 t^2 + vy t + height, else 0 */
@@ -568,7 +568,7 @@ void CSealCtrl::PostTick(float dT)
 	/* @socom-skeleton stub start_opacity$2787 */
 	static float start_opacity = 0.75f;
 	/* @socom-skeleton stub end_opacity$2790 */
-	static float end_opacity = 0.1f;
+	static float end_opacity = 0.100000002f /* 0x3dcccccd */;
 	/* @socom-skeleton stub end_time_scale$2793 */
 	static float end_time_scale = 2.0f;
 
@@ -603,11 +603,11 @@ void CSealCtrl::PostTick(float dT)
 	f32 time = 0.0f;
 	f32 maxvel = CDynGrenade::ComputeMaxVel(reach, height, &time);
 	f32 elev = asinf(seal->m_aim_goal.y);
-	saturate<f32>(elev, 0.0f, 0.95993114f); /* min_elev / max_elev$...Initalize__11CDynGrenade (0 / 55 degrees) */
+	saturate<f32>(elev, 0.0f, 0.959931076f /* 0x3f75be0b */); /* min_elev / max_elev$...Initalize__11CDynGrenade (0 / 55 degrees) */
 	elev += CDynGrenade::ComputeElevOfs(power);
 	f32 s = sinf(elev);
 	f32 c = cosf(elev);
-	f32 speed = 0.3f * maxvel * (1.0f - power) + maxvel * power;
+	f32 speed = 0.300000012f /* 0x3e99999a */ * maxvel * (1.0f - power) + maxvel * power;
 	f32 r1;
 	f32 r2;
 	f32 t = ai::quadratic(-49.0f, speed * s, height, r1, r2) ? (r1 < r2 ? r2 : r1) : 0.0f;
@@ -652,7 +652,7 @@ bool CSealCtrl::Tick(float dT)
 	CZSealBody *body = static_cast<CZSealBody *>(m_entity);
 	f32 turn = m_throttle[2];
 	static const f32 zero = 0.0f;   /* @2801 */
-	static const f32 epsilon = 0.001f; /* @2802; port: guess (the constant is read from .sdata, value not checked) */
+	static const f32 epsilon = 0.0500000008f; /* @2802 (0x475008): 0x3d4ccccd (was a guessed 0.001f) */
 	bool still = fabsf(turn - zero) <= epsilon;
 	WEAPON_STATE wep = body->GetWeaponState();
 	bool upright = body->m_state == 0 || body->m_state == 1;
@@ -888,8 +888,8 @@ bool CSealCtrl::ThrottlesPreTick(CPad *pad, float dT)
 
 			if (kit->IsUsingScope() || kit->IsUsingBinocs())
 			{
-				fwd *= 0.2f;
-				strafe *= 0.2f;
+				fwd *= 0.200000003f /* 0x3e4ccccd */;
+				strafe *= 0.200000003f /* 0x3e4ccccd */;
 			}
 
 			if (m_bobbing1stperson_enabled)
@@ -1883,7 +1883,7 @@ void CSealCtrl::OnActionButton()
 				&& valve != NULL && valve->m_value == 0)
 			{
 				action->ExecuteAction(placer, 0);
-				placer->m_kit.HandlePlacingExlosive((EQUIP_ITEM)152, 1.0f, 0.2f);
+				placer->m_kit.HandlePlacingExlosive((EQUIP_ITEM)152, 1.0f, 0.200000003f /* 0x3e4ccccd */);
 				valve->Set(1); /* inline */
 			}
 		}

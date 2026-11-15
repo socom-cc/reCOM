@@ -509,10 +509,10 @@ float CAiMaps::GetInterpolatedShadow(const CAiMapLoc &loc, const CPnt3D *pos, bo
 		sum += (f32)(s32)shade * weight;
 	}
 
-	if (total < 0.98f)
+	if (total < 0.98000002f /* 0x3f7ae148 */)
 		sum /= total;
 
-	return 0.33333334f * sum; /* 0x3eaaaaab (the ELF's word; 0.3333333f is 0x3eaaaaaa) */
+	return 0.333333344f /* 0x3eaaaaab */ * sum; /* 0x3eaaaaab (the ELF's word; 0.3333333f is 0x3eaaaaaa) */
 }
 
 /* GetInterpolationCells__6CAiMapCFRC9CAiMapLocPC6CPnt3DP6IPNT2DP5PNT2D 0x19ba90 (this file's
@@ -589,7 +589,7 @@ bool CAiMap::GetBilinearAltitude(const CAiMapLoc &loc, const CPnt3D *pos, float 
 		found = true;
 	}
 
-	if (found && sum < 0.98f)
+	if (found && sum < 0.98000002f /* 0x3f7ae148 */)
 		*out = *out / sum;
 
 	return found;

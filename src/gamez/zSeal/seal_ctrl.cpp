@@ -280,7 +280,7 @@ void CSealCtrl::TickMPBomb(float dT)
 		if ((u8)CZBombState::m_BombStatus.CurrentBombState != 3)
 		{
 			action->ExecuteAction(seal, 0);
-			seal->m_kit.HandlePlacingExlosive((EQUIP_ITEM)154, 1.0f, 0.2f);
+			seal->m_kit.HandlePlacingExlosive((EQUIP_ITEM)154, 1.0f, 0.200000003f /* 0x3e4ccccd */);
 		}
 
 		m_mpbomb_bTimerEngaged = 0;

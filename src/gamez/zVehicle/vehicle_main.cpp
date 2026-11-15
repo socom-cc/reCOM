@@ -129,15 +129,15 @@ AI_PARAMS::AI_PARAMS()
 	 * vector's resize (0x1a3e60) builds each new CVehicleRdrEntry with it, so a value
 	 * neither the roster entry nor the character type sets keeps these */
 	mask = 0;
-	accuracy = 0.8f;
-	courage = 0.6f;
-	surrender = 0.2f;
+	accuracy = 0.800000012f /* 0x3f4ccccd */;
+	courage = 0.600000024f /* 0x3f19999a */;
+	surrender = 0.200000003f /* 0x3e4ccccd */;
 	stealth = 0.5f;
 	training = 0.5f;
-	visual_sens = 0.8f;
+	visual_sens = 0.800000012f /* 0x3f4ccccd */;
 	visual_range = 400.0f;
 	visual_fov = 60.0f;
-	aware_decay = -0.075f;
+	aware_decay = -0.075000003f /* 0x3d99999a */;
 	thip_range = 25.0f;
 	respawn = 0;
 	target_delay = 0.75f;

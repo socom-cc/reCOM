@@ -159,7 +159,7 @@ float CAiPlanner::fcost(CAiMap &map, const CAiMapLoc &from, CAiMap::DIR dir, con
 float CBasicTravel::fcost(CAiMap &map, const CAiMapLoc &from, CAiMap::DIR dir, const CAiMapLoc &to)
 {
 	/* non_path$localstatic3 (0x475700) */
-	static float non_path = 0.8f;
+	static float non_path = 0.800000012f; /* 0x3f4ccccd */
 	CAiCell *a = map.GetCell(from);
 	CAiCell *b = map.GetCell(to);
 	u32 sa = a != NULL ? a->m_soil : 0;

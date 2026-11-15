@@ -323,7 +323,7 @@ void BitmapReticule::Init(zdb::CWorld *world, C2DFont *font)
 
 	zdb::CTexture* scope = m_reticuleTex[5] != NULL ? m_reticuleTex[5]->m_texture : NULL;
 	m_scopepoly[0].Load(0.0f, -96.0f, 0.0f, 224.0f, 320.0f, 224.0f, 320.0f, -96.0f, scope);
-	m_scopepoly[0].SetUV(0.01f, 0.01f, 0.01f, 0.99f, 0.99f, 0.99f, 0.99f, 0.01f);
+	m_scopepoly[0].SetUV(0.01f, 0.01f, 0.01f, 0.99000001f /* 0x3f7d70a4 */, 0.99000001f /* 0x3f7d70a4 */, 0.99000001f /* 0x3f7d70a4 */, 0.99000001f /* 0x3f7d70a4 */, 0.01f);
 	m_scopepoly[0].SetTrans(128.0f);
 	m_scopepoly[1].Load(320.0f, -96.0f, 320.0f, 224.0f, 640.0f, 224.0f, 640.0f, -96.0f, scope);
 	m_scopepoly[1].SetTrans(128.0f);
@@ -331,10 +331,10 @@ void BitmapReticule::Init(zdb::CWorld *world, C2DFont *font)
 	m_scopepoly[2].SetTrans(128.0f);
 	m_scopepoly[3].SetTrans(128.0f);
 	m_scopepoly[3].Load(320.0f, 224.0f, 320.0f, 544.0f, 640.0f, 544.0f, 640.0f, 224.0f, scope);
-	m_scopepoly[0].SetUV(0.01f, 0.01f, 0.01f, 0.99f, 0.99f, 0.99f, 0.99f, 0.01f);
-	m_scopepoly[1].SetUV(0.99f, 0.01f, 0.99f, 0.99f, 0.01f, 0.99f, 0.01f, 0.01f);
-	m_scopepoly[2].SetUV(0.01f, 0.99f, 0.01f, 0.01f, 0.99f, 0.01f, 0.99f, 0.99f);
-	m_scopepoly[3].SetUV(0.99f, 0.99f, 0.99f, 0.01f, 0.01f, 0.01f, 0.01f, 0.99f);
+	m_scopepoly[0].SetUV(0.01f, 0.01f, 0.01f, 0.99000001f /* 0x3f7d70a4 */, 0.99000001f /* 0x3f7d70a4 */, 0.99000001f /* 0x3f7d70a4 */, 0.99000001f /* 0x3f7d70a4 */, 0.01f);
+	m_scopepoly[1].SetUV(0.99000001f /* 0x3f7d70a4 */, 0.01f, 0.99000001f /* 0x3f7d70a4 */, 0.99000001f /* 0x3f7d70a4 */, 0.01f, 0.99000001f /* 0x3f7d70a4 */, 0.01f, 0.01f);
+	m_scopepoly[2].SetUV(0.01f, 0.99000001f /* 0x3f7d70a4 */, 0.01f, 0.01f, 0.99000001f /* 0x3f7d70a4 */, 0.01f, 0.99000001f /* 0x3f7d70a4 */, 0.99000001f /* 0x3f7d70a4 */);
+	m_scopepoly[3].SetUV(0.99000001f /* 0x3f7d70a4 */, 0.99000001f /* 0x3f7d70a4 */, 0.99000001f /* 0x3f7d70a4 */, 0.01f, 0.01f, 0.01f, 0.01f, 0.99000001f /* 0x3f7d70a4 */);
 
 	push_back(&m_bitmap);
 	push_back(&m_grenadebitmap);
@@ -387,10 +387,10 @@ void BitmapReticule::Init(zdb::CWorld *world, C2DFont *font)
 	m_nvglens[1].Load(320.0f, 0.0f, 320.0f, 224.0f, 640.0f, 224.0f, 640.0f, 0.0f, nvg);
 	m_nvglens[2].Load(0.0f, 224.0f, 0.0f, 448.0f, 320.0f, 448.0f, 320.0f, 224.0f, nvg);
 	m_nvglens[3].Load(320.0f, 224.0f, 320.0f, 448.0f, 640.0f, 448.0f, 640.0f, 224.0f, nvg);
-	m_nvglens[0].SetUV(0.01f, 0.01f, 0.01f, 0.995f, 0.995f, 0.995f, 0.995f, 0.01f);
-	m_nvglens[1].SetUV(0.995f, 0.01f, 0.995f, 0.995f, 0.01f, 0.995f, 0.01f, 0.01f);
-	m_nvglens[2].SetUV(0.01f, 0.995f, 0.01f, 0.01f, 0.995f, 0.01f, 0.995f, 0.995f);
-	m_nvglens[3].SetUV(0.995f, 0.995f, 0.995f, 0.01f, 0.01f, 0.01f, 0.01f, 0.995f);
+	m_nvglens[0].SetUV(0.01f, 0.01f, 0.01f, 0.995000005f /* 0x3f7eb852 */, 0.995000005f /* 0x3f7eb852 */, 0.995000005f /* 0x3f7eb852 */, 0.995000005f /* 0x3f7eb852 */, 0.01f);
+	m_nvglens[1].SetUV(0.995000005f /* 0x3f7eb852 */, 0.01f, 0.995000005f /* 0x3f7eb852 */, 0.995000005f /* 0x3f7eb852 */, 0.01f, 0.995000005f /* 0x3f7eb852 */, 0.01f, 0.01f);
+	m_nvglens[2].SetUV(0.01f, 0.995000005f /* 0x3f7eb852 */, 0.01f, 0.01f, 0.995000005f /* 0x3f7eb852 */, 0.01f, 0.995000005f /* 0x3f7eb852 */, 0.995000005f /* 0x3f7eb852 */);
+	m_nvglens[3].SetUV(0.995000005f /* 0x3f7eb852 */, 0.995000005f /* 0x3f7eb852 */, 0.995000005f /* 0x3f7eb852 */, 0.01f, 0.01f, 0.01f, 0.01f, 0.995000005f /* 0x3f7eb852 */);
 
 	ChangeReticule(0);
 	m_posx = 320.0f;
@@ -639,8 +639,8 @@ void BitmapReticule::UpdateColor()
 		{
 			if (friendly)
 			{
-				r = 0.1f;
-				b = 0.1f; /* ELF: green stays TRUE_GRN */
+				r = 0.100000002f /* 0x3dcccccd */;
+				b = 0.100000002f /* 0x3dcccccd */; /* ELF: green stays TRUE_GRN */
 
 				if (!theNetwork.m_bNetwork)
 					name = target->m_display_name;
@@ -648,8 +648,8 @@ void BitmapReticule::UpdateColor()
 			else
 			{
 				name = target->m_display_name;
-				g = 0.1f;
-				b = 0.1f;
+				g = 0.100000002f /* 0x3dcccccd */;
+				b = 0.100000002f /* 0x3dcccccd */;
 			}
 		}
 		else
@@ -710,7 +710,7 @@ void BitmapReticule::UpdateAccuracy()
 	/* @socom-skeleton stub ne_x$2891 */
 	static float ne_x = 0.9f;
 	/* @socom-skeleton stub ne_y$2894 */
-	static float ne_y = 0.6f;
+	static float ne_y = 0.600000024f /* 0x3f19999a */;
 	/* @socom-skeleton stub se_x$2899 */
 	static float se_x = 0.65f;
 	/* @socom-skeleton stub se_y$2902 */
@@ -718,7 +718,7 @@ void BitmapReticule::UpdateAccuracy()
 	/* @socom-skeleton stub nw_x$2907 */
 	static float nw_x = 0.9f;
 	/* @socom-skeleton stub nw_y$2910 */
-	static float nw_y = 0.6f;
+	static float nw_y = 0.600000024f /* 0x3f19999a */;
 	/* @socom-skeleton stub sw_x$2915 */
 	static float sw_x = 0.65f;
 	/* @socom-skeleton stub sw_y$2918 */
@@ -1040,10 +1040,10 @@ void BitmapReticule::ChangeReticule(int type)
 		m_scopepoly[1].Load(320.0f, -96.0f, 320.0f, 224.0f, 640.0f, 224.0f, 640.0f, -96.0f, scope);
 		m_scopepoly[2].Load(0.0f, 224.0f, 0.0f, 544.0f, 320.0f, 544.0f, 320.0f, 224.0f, scope);
 		m_scopepoly[3].Load(320.0f, 224.0f, 320.0f, 544.0f, 640.0f, 544.0f, 640.0f, 224.0f, scope);
-		m_scopepoly[0].SetUV(0.01f, 0.01f, 0.01f, 0.99f, 0.99f, 0.99f, 0.99f, 0.01f);
-		m_scopepoly[1].SetUV(0.99f, 0.01f, 0.99f, 0.99f, 0.01f, 0.99f, 0.01f, 0.01f);
-		m_scopepoly[2].SetUV(0.01f, 0.99f, 0.01f, 0.01f, 0.99f, 0.01f, 0.99f, 0.99f);
-		m_scopepoly[3].SetUV(0.99f, 0.99f, 0.99f, 0.01f, 0.01f, 0.01f, 0.01f, 0.99f);
+		m_scopepoly[0].SetUV(0.01f, 0.01f, 0.01f, 0.99000001f /* 0x3f7d70a4 */, 0.99000001f /* 0x3f7d70a4 */, 0.99000001f /* 0x3f7d70a4 */, 0.99000001f /* 0x3f7d70a4 */, 0.01f);
+		m_scopepoly[1].SetUV(0.99000001f /* 0x3f7d70a4 */, 0.01f, 0.99000001f /* 0x3f7d70a4 */, 0.99000001f /* 0x3f7d70a4 */, 0.01f, 0.99000001f /* 0x3f7d70a4 */, 0.01f, 0.01f);
+		m_scopepoly[2].SetUV(0.01f, 0.99000001f /* 0x3f7d70a4 */, 0.01f, 0.01f, 0.99000001f /* 0x3f7d70a4 */, 0.01f, 0.99000001f /* 0x3f7d70a4 */, 0.99000001f /* 0x3f7d70a4 */);
+		m_scopepoly[3].SetUV(0.99000001f /* 0x3f7d70a4 */, 0.99000001f /* 0x3f7d70a4 */, 0.99000001f /* 0x3f7d70a4 */, 0.01f, 0.01f, 0.01f, 0.01f, 0.99000001f /* 0x3f7d70a4 */);
 	}
 	else if (type == 6)
 	{
@@ -1062,8 +1062,8 @@ void BitmapReticule::ChangeReticule(int type)
 		m_scopepoly[1].Load(0.0f, 0.0f, 0.0f, 448.0f, 320.0f, 448.0f, 320.0f, 0.0f, binocs);
 		m_scopepoly[2].Load(319.0f, 0.0f, 320.0f, 448.0f, 640.0f, 448.0f, 640.0f, 0.0f, binocs);
 		m_scopepoly[3].Off();
-		m_scopepoly[1].SetUV(0.01f, 0.01f, 0.01f, 0.99f, 0.97f, 0.99f, 0.97f, 0.01f);
-		m_scopepoly[2].SetUV(0.97f, 0.01f, 0.97f, 0.99f, 0.01f, 0.99f, 0.01f, 0.01f);
+		m_scopepoly[1].SetUV(0.01f, 0.01f, 0.01f, 0.99000001f /* 0x3f7d70a4 */, 0.970000029f /* 0x3f7851ec */, 0.99000001f /* 0x3f7d70a4 */, 0.970000029f /* 0x3f7851ec */, 0.01f);
+		m_scopepoly[2].SetUV(0.970000029f /* 0x3f7851ec */, 0.01f, 0.970000029f /* 0x3f7851ec */, 0.99000001f /* 0x3f7d70a4 */, 0.01f, 0.99000001f /* 0x3f7d70a4 */, 0.01f, 0.01f);
 	}
 }
 
@@ -1141,7 +1141,7 @@ void BitmapReticule::SetGBarVal(float val)
 	m_grenadebitmap2.Off();
 
 	m_grenadebitmap.Load(m_posx, m_posy + hw - val * w, m_posx + hh, m_posy + hw, m_grenadebartex_full);
-	m_grenadebitmap.SetUV(0.5f, 0.97f - val, 1.0f, 1.0f);
+	m_grenadebitmap.SetUV(0.5f, 0.970000029f /* 0x3f7851ec */ - val, 1.0f, 1.0f);
 	f32 rest = 1.0f - val;
 	m_grenadebitmap2.Load(m_posx, m_posy - hw, m_posx + hh, m_posy - hw + rest * w, m_reticuleTex[m_rettype]);
 	m_grenadebitmap2.SetUV(0.5f, 0.0f, 1.0f, rest);
@@ -1165,7 +1165,7 @@ void BitmapReticule::UpdateGBarColor(float val)
 	bool toss = power < params.toss_power_threshold && aim < params.toss_aim_threshold;
 	f32 r, g, b;
 
-	if (val <= 0.15f)
+	if (val <= 0.150000006f /* 0x3e19999a */)
 	{
 		r = g = b = 150.0f;
 	}
@@ -1221,7 +1221,7 @@ void BitmapReticule::TimerProgressTick(float, CZSealBody *seal)
 		value = 1.0f - value;
 
 	m_timer_BKGRD.On();
-	m_timer_BKGRD.SetTrans(38.4f);
+	m_timer_BKGRD.SetTrans(38.4000016f /* 0x4219999a */);
 	m_timer_IMAGE.On();
 	m_timer_IMAGE.SetTrans(100.0f);
 	m_timer_IMAGE.SetPos((s32)TIMER_IMAGE_POSX1, (s32)TIMER_IMAGE_POSY1, (s32)(TIMER_IMAGE_POSX1 + TIMER_IMAGE_WIDTH * value), (s32)TIMER_IMAGE_POSY2);

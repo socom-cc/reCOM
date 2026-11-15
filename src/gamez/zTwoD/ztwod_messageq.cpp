@@ -158,12 +158,12 @@ void C2DMessage_Q::Init(C2DFont* font, CRdrFile* reader)
             else
             {
                 m_background1.Load(0.0f, 0.0f, 0.0f, 0.0f, handle);
-                m_background1.SetUV(1.0f, 1.0f, 0.05f, 0.0f);
+                m_background1.SetUV(1.0f, 1.0f, 0.0500000008f /* 0x3d4ccccd */, 0.0f);
                 m_background1.TickFade();
                 m_background1.SetTrans(64);
 
                 m_background2.Load(0.0f, 0.0f, 0.0f, 0.0f, handle);
-                m_background2.SetUV(0.05f, 0.0f, 1.0f, 1.0f);
+                m_background2.SetUV(0.0500000008f /* 0x3d4ccccd */, 0.0f, 1.0f, 1.0f);
                 m_background2.TickFade();
                 m_background2.SetTrans(64);
             }

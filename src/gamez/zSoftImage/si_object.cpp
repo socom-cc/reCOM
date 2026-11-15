@@ -174,7 +174,7 @@ CQuat * CZSIObject::GetRotRaw(int a, int b, float t, CQuat *out)
 		b = 0;
 	}
 
-	if (t < 0.01f || !(t <= 0.99f))
+	if (t < 0.01f || !(t <= 0.99000001f /* 0x3f7d70a4 */))
 	{
 		*out = m_rotations[t < 0.5f ? a : b];
 		return out;

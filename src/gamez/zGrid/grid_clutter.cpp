@@ -296,7 +296,7 @@ void zdb::CClutter::Render(CPnt3D *eye)
 			{
 				opacity = m_farFadeScale * (m_farFadeEnd - dist);
 
-				if (opacity < 0.008f)
+				if (opacity < 0.00800000038f /* 0x3c03126f */)
 					return;
 			}
 		}
@@ -310,7 +310,7 @@ void zdb::CClutter::Render(CPnt3D *eye)
 			{
 				opacity = opacity * (1.0f - m_nearFadeScale * (m_nearFadeEnd - dist));
 
-				if (opacity < 0.008f)
+				if (opacity < 0.00800000038f /* 0x3c03126f */)
 					return;
 			}
 		}
@@ -577,7 +577,7 @@ zdb::CNode * zdb::CClutterAnimManager::ClutterTick(zdb::CClutter *clutter)
 				anim->m_dir = CPnt3D::zero;
 				anim->m_force = 0.0f;
 				anim->m_wobbleTime = 0.0f;
-				anim->m_time = 5.01f;
+				anim->m_time = 5.01000023f /* 0x40a051ec */;
 				anim->m_wobble = 0.0f;
 			}
 
@@ -587,7 +587,7 @@ zdb::CNode * zdb::CClutterAnimManager::ClutterTick(zdb::CClutter *clutter)
 
 		if (anim != NULL)
 		{
-			anim->m_time = 5.01f;
+			anim->m_time = 5.01000023f /* 0x40a051ec */;
 			anim->m_wobble = 0.0f;
 			CPnt3D vel = effector->m_vel != NULL ? *effector->m_vel : effector->m_velocity;
 			node = anim->TickForce(&vel, &delta, dist, radius);
@@ -651,7 +651,7 @@ void zdb::CClutterAnimManager::l_Tick(float dt, void *)
 
 		if (anim->m_force < 0.0001f)
 		{
-			anim->m_wobble = 0.05f * anim->m_wobble;
+			anim->m_wobble = 0.0500000008f /* 0x3d4ccccd */ * anim->m_wobble;
 
 			if (anim->m_time <= 0.0f)
 			{

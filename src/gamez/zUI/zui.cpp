@@ -350,9 +350,9 @@ unsigned char UiGetDirStickMoved() /* port: returns the direction (0x384380 retu
 	/* 0x384380: 5 when the stick has just come back to the centre, the direction
 	 * (GetStickDir) when it has just left the centre, else 0 */
 	if (!g_bCenterSinceEdge)
-		return IsStickNearCenter(0.2f) ? 5 : 0;
+		return IsStickNearCenter(0.200000003f /* 0x3e4ccccd */) ? 5 : 0;
 
-	if (IsStickNearCenter(0.6f))
+	if (IsStickNearCenter(0.600000024f /* 0x3f19999a */))
 		return 0;
 
 	return GetStickDir();
@@ -587,7 +587,7 @@ void CGameMenu::HandlePad(const CPad *pad)
 	 * the pad: a shown pop-up, the soft keyboard, the active control, the design's
 	 * BUTTON anims; else DOWN/RIGHT (or the stick) move to the next control and UP/LEFT
 	 * to the previous one */
-	g_bCenterSinceEdge = IsStickNearCenter(g_bCenterSinceEdge ? 0.6f : 0.2f);
+	g_bCenterSinceEdge = IsStickNearCenter(g_bCenterSinceEdge ? 0.600000024f /* 0x3f19999a */ : 0.200000003f /* 0x3e4ccccd */);
 	g_fStickX = pad->m_LeftStickDilated[0];
 	g_fStickY = pad->m_LeftStickDilated[1];
 
@@ -1293,8 +1293,8 @@ void CGameMenu::Tick(float dT)
 	 * commands, then the pop-up, objects and controls, the soft keyboards, MyTick */
 	HandlePad(CInput::m_pads[0]);
 
-	if (dT > 0.05f)
-		dT = 0.05f;
+	if (dT > 0.0500000008f /* 0x3d4ccccd */)
+		dT = 0.0500000008f /* 0x3d4ccccd */;
 
 	if (g_hasAnims)
 		zUIScheduler.Tick(dT);

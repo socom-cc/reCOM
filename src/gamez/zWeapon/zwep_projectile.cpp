@@ -274,7 +274,7 @@ void CZProjectile::SetModelOrientation(bool oneframe, const CPnt3D *)
 
 	if (oneframe)
 	{
-		len *= 0.1f;
+		len *= 0.100000002f /* 0x3dcccccd */;
 		sceVu0UnitMatrix(scaled.m_matrix);
 		sceVu0CopyMatrix(stretched.m_matrix, scaled.m_matrix);
 		stretched.m_matrix[0][0] = len;
@@ -321,8 +321,8 @@ void CZProjectile::SetModelOrientation(bool oneframe, const CPnt3D *)
 
 		box.m_min = bbox->m_min;
 		box.m_max.x = len;
-		box.m_max.y = 0.1f;
-		box.m_max.z = 0.1f;
+		box.m_max.y = 0.100000002f /* 0x3dcccccd */;
+		box.m_max.z = 0.100000002f /* 0x3dcccccd */;
 	}
 
 	if (oneframe && m_useflyout)
@@ -371,7 +371,7 @@ bool CZProjectile::PreTick(float dT)
 		CPnt3D gravity;
 		gravity.x = 0.0f;
 		gravity.z = 0.0f;
-		gravity.y = -(zdb::CWorld::m_scale * 9.8f);
+		gravity.y = -(zdb::CWorld::m_scale * 9.8000002f /* 0x411ccccd */);
 		CPnt3D step;
 		gravity.Scale(dT, &step);
 		m_vel.Add(&step, &m_vel);
@@ -382,7 +382,7 @@ bool CZProjectile::PreTick(float dT)
 	{
 		m_vel.Normalize();
 		CPnt3D reach;
-		m_vel.Scale(m_weapon->GetMaxRange() * 1.1f, &reach);
+		m_vel.Scale(m_weapon->GetMaxRange() * 1.10000003f /* 0x3f8ccccd */, &reach);
 		m_framestartpos.Add(&reach, &m_frameendpos);
 		m_vel.Scale(300.0f, &m_vel);
 	}
@@ -740,7 +740,7 @@ bool CZProjectile::HandleBounce(zdb::IntersectStruct *hit, float dT, CPnt3D *end
 	u32 slot = index < CMaterialExArray::m_materialex_list.size() ? index : 0;
 	CMaterialEx *material = CMaterialExArray::m_materialex_list[slot];
 
-	if (material != NULL && (material->m_liquid || !(material->m_penetration < 0.99f)))
+	if (material != NULL && (material->m_liquid || !(material->m_penetration < 0.99000001f /* 0x3f7d70a4 */)))
 	{
 		CZAnim *anim = m_weapon->GetHitAnim(index);
 
@@ -752,7 +752,7 @@ bool CZProjectile::HandleBounce(zdb::IntersectStruct *hit, float dT, CPnt3D *end
 
 		m_vel.Scale(material->m_elasticity_coeff, &m_vel);
 		CPnt3D step;
-		m_vel.Scale(0.1f, &step);
+		m_vel.Scale(0.100000002f /* 0x3dcccccd */, &step);
 		hit->m_pos.Add(&step, end);
 		zdb::CNode *node = hit->m_node;
 
@@ -802,7 +802,7 @@ bool CZProjectile::HandleBounce(zdb::IntersectStruct *hit, float dT, CPnt3D *end
 	CPnt3D normal = hit->m_norm;
 	normal.Normalize();
 	CPnt3D off;
-	normal.Scale(0.4f, &off);
+	normal.Scale(0.400000006f /* 0x3ecccccd */, &off);
 	CPnt3D travel;
 	m_vel.Scale(dT, &travel);
 	CPnt3D at;
@@ -845,7 +845,7 @@ bool CZProjectile::HandleShotgunImpact(zdb::IntersectStruct *hit, float, float d
 	CAiEvent *ev = CAiEvent::Acquire();
 	ev->m_pos = at;
 	ev->m_rangeSq = radius * radius;
-	ev->m_duration = 0.1f;
+	ev->m_duration = 0.100000002f /* 0x3dcccccd */;
 	ev->m_type = CAiEvent::AIE_WEPHIT;
 	ev->m_owner = m_shooterID;
 	CAiEvent::Create(ev);
@@ -895,7 +895,7 @@ bool CZProjectile::HandleImpact(zdb::IntersectStruct *hit, float, float dist, CP
 			ev->m_pos.y = pos[1];
 			ev->m_pos.z = pos[2];
 			ev->m_rangeSq = radius * radius;
-			ev->m_duration = 0.1f;
+			ev->m_duration = 0.100000002f /* 0x3dcccccd */;
 			ev->m_type = CAiEvent::AIE_WEPHIT;
 			ev->m_owner = m_shooterID;
 			CAiEvent::Create(ev);
@@ -932,7 +932,7 @@ bool CZProjectile::HandleImpact(zdb::IntersectStruct *hit, float, float dist, CP
 		anim->ActivateArg(1, 5, pos, 0);
 
 	f32 range = m_currange;
-	f32 reach = (range + range * m_ammo->GetArmorPierce() * 0.1f) * penetration;
+	f32 reach = (range + range * m_ammo->GetArmorPierce() * 0.100000002f /* 0x3dcccccd */) * penetration;
 
 	if (reach < range)
 		m_currange = reach;

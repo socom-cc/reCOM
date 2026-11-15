@@ -154,11 +154,11 @@ bool _VisLineCallback(const MAP_LINEWALK_STRUCT &walk, void *data)
 	 * walk goes on while the cover is below 1. data: the visibility walk record (no DWARF;
 	 * cover, first shadow (-1: none yet), last shadow). */
 	/* @socom-skeleton stub grass_density$789 */
-	static float grass_density = 0.1f;
+	static float grass_density = 0.100000002f /* 0x3dcccccd */;
 	/* @socom-skeleton stub brush_density$792 */
 	static float brush_density = 0.22f;
 	/* @socom-skeleton stub forest_density$795 */
-	static float forest_density = 0.4f;
+	static float forest_density = 0.400000006f /* 0x3ecccccd */;
 	struct Vis
 	{
 		f32 m_cover;
@@ -214,7 +214,7 @@ float CAiMap::ComputeLineVisibility(const CAiMapLoc &from, const CAiMapLoc &to)
 	 * step from the first to the last cell (a darker end: 0.9, 0.5, 0.33). ELF quirk kept:
 	 * the step is not bounded (the table has four entries). */
 	/* @socom-skeleton stub shadow_scale$821 */
-	static const f32 shadow_scale[4] = {1.0f, 0.9f, 0.5f, 0.33f};
+	static const f32 shadow_scale[4] = {1.0f, 0.9f, 0.5f, 0.330000014f /* 0x3ea8f5c3 */};
 	struct Vis
 	{
 		f32 m_cover;
@@ -278,7 +278,7 @@ static bool walk_line(CAiMap *map, MAP_LINEWALK_STRUCT &walk, const CPnt3D &p0, 
 	CPnt3D d;
 	p1.Sub(&p0, &d);
 	f32 length = sqrtf(d.x * d.x + d.z * d.z);
-	f32 step = 1.0f / (length / (0.2f * map->m_dx));
+	f32 step = 1.0f / (length / (0.200000003f /* 0x3e4ccccd */ * map->m_dx));
 	bool ok = true;
 	f32 t = 0.0f;
 	CAiMapLoc loc;

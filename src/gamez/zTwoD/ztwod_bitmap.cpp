@@ -38,8 +38,8 @@ C2DBitmap::C2DBitmap()
 	m_NewUV[0][1] = -0.01f;
 	m_NewUV[0][2] = 0.0f;
 	m_NewUV[0][3] = 0.0f;
-	m_NewUV[1][0] = 0.99f;
-	m_NewUV[1][1] = -0.99f;
+	m_NewUV[1][0] = 0.99000001f /* 0x3f7d70a4 */;
+	m_NewUV[1][1] = -0.99000001f /* 0x3f7d70a4 */;
 	m_NewUV[1][2] = 1.0f;
 	m_NewUV[1][3] = 0.0f;
 

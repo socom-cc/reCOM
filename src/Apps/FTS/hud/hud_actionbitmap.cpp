@@ -302,7 +302,7 @@ void CActionTxtrMachine::SpecializeActionString()
 				left = 0.0f;
 
 			m_timer_BKGRD.On();
-			m_timer_BKGRD.SetTrans(38.4f);
+			m_timer_BKGRD.SetTrans(38.4000016f /* 0x4219999a */);
 			m_timer_IMAGE.On();
 			m_timer_IMAGE.SetTrans(100.0f);
 			m_timer_IMAGE.SetPos((s32)BOMBTIMER_IMAGE_POSX1, (s32)BOMBTIMER_IMAGE_POSY1,
@@ -683,7 +683,7 @@ void CZActionBitmap::Init(CHUD *hud, C2DFont *font)
 
 	if (font != NULL)
 	{
-		machine.m_action_string.Load(0.8f, "ACTION ICON", font, 306, 358);
+		machine.m_action_string.Load(0.800000012f /* 0x3f4ccccd */, "ACTION ICON", font, 306, 358);
 		machine.m_action_string.Off();
 		machine.m_action_string.m_color.x = CHUD::m_hud_textcolor.x;
 		machine.m_action_string.m_color.y = CHUD::m_hud_textcolor.y;
@@ -712,7 +712,7 @@ void CZActionBitmap::Init(CHUD *hud, C2DFont *font)
 		meterback->m_hasTexture = false;
 		meterback->SetColor(0.0f, 0.0f, 0.0f);
 		meterback->SetPos(70, 10, 120, 50);
-		meterback->SetTrans(38.4f);
+		meterback->SetTrans(38.4000016f /* 0x4219999a */);
 		push_back(meterback);
 
 		C2DBitmap *meter = &machine.m_reco_speechmeter[i];

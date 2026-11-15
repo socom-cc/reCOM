@@ -57,10 +57,10 @@ CSealCtrlSquirm::CSealCtrlSquirm()
 	/* 0x2e2e00 */
 	m_unk_240 = 0;
 	m_on = 0;
-	m_wait.m_min = 0.1f;
-	m_wait.m_range = 0.4f;
+	m_wait.m_min = 0.100000002f /* 0x3dcccccd */;
+	m_wait.m_range = 0.400000006f /* 0x3ecccccd */;
 	m_hold.m_min = 0.5f;
-	m_hold.m_range = 0.7f;
+	m_hold.m_range = 0.700000048f /* 0x3f333334 */;
 	m_timer = SquirmDraw(m_wait);
 	m_until = (f32)((double)SquirmDraw(m_hold) + (double)m_timer);
 	m_unk_260.m_min = 0.0f;
@@ -214,9 +214,9 @@ bool CSealCtrlSquirm::PreTick(float dT)
 			init_item = true;
 		}
 		kit->SetCurItemByIndex(++item_index);
-		m_hold.m_min = 0.2f;
+		m_hold.m_min = 0.200000003f /* 0x3e4ccccd */;
 		m_hold.m_range = 0.0f;
-		m_wait.m_min = 0.1f;
+		m_wait.m_min = 0.100000002f /* 0x3dcccccd */;
 		m_wait.m_range = 0.0f;
 		m_timer = m_wait.m_min;
 		f32 hold = SquirmDraw(m_hold);
@@ -242,8 +242,8 @@ bool CSealCtrlSquirm::PreTick(float dT)
 		SetThrottle(1, 0.0f);
 		break;
 	case 1:
-		SetThrottle(0, 0.2f);
-		SetThrottle(2, 0.2f);
+		SetThrottle(0, 0.200000003f /* 0x3e4ccccd */);
+		SetThrottle(2, 0.200000003f /* 0x3e4ccccd */);
 		SetThrottle(1, 0.0f);
 		break;
 	case 2:

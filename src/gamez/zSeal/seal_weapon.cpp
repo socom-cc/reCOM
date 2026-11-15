@@ -65,10 +65,10 @@ void CZSealBody::WepWaitOff()
 void CZSealBody::WepWaitOn()
 {
 	/* 0x2c0620: the weapon raise/wait/lower timing (the wait practically forever) */
-	m_wep_upT = 0.1f;
+	m_wep_upT = 0.100000002f /* 0x3dcccccd */;
 	m_wep_waitT = 100000.0f;
 	m_wep_downT = 0.5f;
-	m_wep_sumT = 100000.6f;
+	m_wep_sumT = 100000.602f /* 0x47c3504d */;
 }
 
 /* @socom-skeleton stub SetWeaponState__10CZSealBodyF12WEAPON_STATE */
@@ -91,7 +91,7 @@ void CZSealBody::SetWeaponState(WEAPON_STATE state)
 
 	if (s == 2)
 	{
-		f32 w = m_fire->LinearWeight() > 0.99f ? 0.99f : m_fire->LinearWeight();
+		f32 w = m_fire->LinearWeight() > 0.99000001f /* 0x3f7d70a4 */ ? 0.99000001f /* 0x3f7d70a4 */ : m_fire->LinearWeight();
 		m_fire->m_currT = w * m_wep_downT;
 		m_weapon_state = 0x12;
 	}
@@ -514,7 +514,7 @@ unsigned char CZSealBody::UpdateAimDir(bool)
 			look.z = camera->m_matrix.m_matrix[2][2];
 			look.Scale(-1.0f, &look);
 			f32 d = look.z * m_groundNormal.z + look.x * m_groundNormal.x + look.y * m_groundNormal.y;
-			level = !(d < -0.642f) && !(0.642f < d);
+			level = !(d < -0.64200002f /* 0x3f245a1d */) && !(0.64200002f /* 0x3f245a1d */ < d);
 		}
 
 		if (!level)
@@ -558,10 +558,10 @@ bool CZSealBody::CanProneAim()
 	view.Scale(-1.0f, &view);
 	f32 dot = view.x * m_groundNormal.x + view.y * m_groundNormal.y + view.z * m_groundNormal.z;
 
-	if (dot < -0.642f)
+	if (dot < -0.64200002f /* 0x3f245a1d */)
 		return false;
 
-	return dot <= 0.642f;
+	return dot <= 0.64200002f /* 0x3f245a1d */;
 }
 
 /* @socom-skeleton stub GetAimDot__10CZSealBodyFv */
@@ -606,7 +606,7 @@ bool CZSealBody::CanAttainAim(CPnt3D &dir)
 	m_curr_firepos.Sub(&m_curr_aimpos, &d);
 	f32 len = sqrtf(d.z * d.z + d.x * d.x + d.y * d.y);
 	CPnt3D out;
-	PointAlongLine(base, tip, len * 1.1f, out);
+	PointAlongLine(base, tip, len * 1.10000003f /* 0x3f8ccccd */, out);
 	out.Sub(&m_aim_point, &d);
 	return m_aim_norm.z * d.z + m_aim_norm.x * d.x + m_aim_norm.y * d.y > 0.0f;
 }

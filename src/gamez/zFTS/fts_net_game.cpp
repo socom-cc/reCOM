@@ -314,7 +314,7 @@ void CZGameState::UpdateLocalGame(CZNetGame *game)
 	memset(&state, 0, sizeof(state));
 	strncpy(state.WorldStr, GetDatabase(), 5);
 	state.GameType = (u32)game->m_game_type & 7;
-	state.MaxGameTime = (u32)((f32)game->m_clock.m_max_game_time * 0.001f);
+	state.MaxGameTime = (u32)((f32)game->m_clock.m_max_game_time * 0.00100000005f /* 0x3a83126f */);
 	state.InitialClock = game->m_clock.m_initial_read;
 	state.VersionNo = (theMission.m_e3_team == E3_SEAL || theMission.m_e3_team == E3_TERR) ? 2080 : 80;
 	state.TenSecondLaunch = game->m_ten_second_launch ? 1 : 0;

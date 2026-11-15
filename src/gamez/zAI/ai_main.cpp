@@ -221,25 +221,25 @@ int ai::get_clock_direction(const CPnt3D *dir)
 
 	if (z < 0.0f)
 	{
-		if (ax <= 0.2833f)
+		if (ax <= 0.283300013f /* 0x3e910cb3 */)
 			return 12;
 
-		if (ax <= 0.708f)
+		if (ax <= 0.708000005f /* 0x3f353f7d */)
 			return dir->x <= 0.0f ? 11 : 1;
 
-		if (z <= -0.2833f)
+		if (z <= -0.283300013f /* 0x3e910cb3 */)
 			return dir->x <= 0.0f ? 9 : 3;
 
 		return dir->x <= 0.0f ? 10 : 2;
 	}
 
-	if (ax <= 0.2833f)
+	if (ax <= 0.283300013f /* 0x3e910cb3 */)
 		return 6;
 
-	if (ax <= 0.708f)
+	if (ax <= 0.708000005f /* 0x3f353f7d */)
 		return dir->x <= 0.0f ? 7 : 5;
 
-	if (z <= -0.2833f)
+	if (z <= -0.283300013f /* 0x3e910cb3 */)
 		return dir->x <= 0.0f ? 9 : 3;
 
 	return dir->x <= 0.0f ? 8 : 4;

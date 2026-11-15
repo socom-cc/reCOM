@@ -194,10 +194,10 @@ static const float running_rifle_throw[3] = {0}; /* ELF: a zero CPnt3D (never fi
 static const float running_pistol_throw[3] = {0}; /* ELF: a zero CPnt3D (never filled) */
 
 /* @socom-skeleton stub PRONE_THROW_FRAC */
-static float PRONE_THROW_FRAC = 0.6600000262260437f;
+static float PRONE_THROW_FRAC = 0.660000027f /* 0x3f28f5c3 */;
 
 /* @socom-skeleton stub CROUCH_THROW_FRAC */
-static float CROUCH_THROW_FRAC = 0.699999988079071f;
+static float CROUCH_THROW_FRAC = 0.699999989f /* 0x3f333333 */;
 
 /* @socom-skeleton stub STAND_THROW_FRAC */
 static float STAND_THROW_FRAC = 0.46000000834465027f;
@@ -206,7 +206,7 @@ static float STAND_THROW_FRAC = 0.46000000834465027f;
 static float PRONE_TOSS_FRAC = 0.5600000023841858f;
 
 /* @socom-skeleton stub STAND_TOSS_FRAC */
-static float STAND_TOSS_FRAC = 0.6899999976158142f;
+static float STAND_TOSS_FRAC = 0.689999998f /* 0x3f30a3d7 */;
 
 /* @socom-skeleton stub RIGHT_LEAN_FRAC */
 static float RIGHT_LEAN_FRAC = 0.550000011920929f;
@@ -605,9 +605,9 @@ CZBodyAnimBlend * CZSealBody::PushBlend(AnimType type, int state, bool reverse)
 			ACTIVE_ANIM *active = blend->m_anims->Begin();
 			f32 speed = sqrtf(m_velM.x * m_velM.x + m_velM.z * m_velM.z);
 			active->m_playback = (representative->m_pCommon->m_distance / speed) / representative->m_tf;
-			m_jumpTimer = 0.1f;
-			m_nextJumpTimer = 0.4f;
-			m_jumpImpulse = theCharacterDynamics.m_jumpFactor * (-0.4f * theCharacterDynamics.m_gravity);
+			m_jumpTimer = 0.100000002f /* 0x3dcccccd */;
+			m_nextJumpTimer = 0.400000006f /* 0x3ecccccd */;
+			m_jumpImpulse = theCharacterDynamics.m_jumpFactor * (-0.400000006f /* 0x3ecccccd */ * theCharacterDynamics.m_gravity);
 			m_inAirHorizVel = m_velW;
 		}
 		else
@@ -615,11 +615,11 @@ CZBodyAnimBlend * CZSealBody::PushBlend(AnimType type, int state, bool reverse)
 			f32 tfrac = -1.0f;
 
 			if (m_CurrentBlendAnimType == m_animset->BaseAnim(AnimType::animTypeRifle2Pistol))
-				tfrac = 0.72f;
+				tfrac = 0.720000029f /* 0x3f3851ec */;
 			else if (m_CurrentBlendAnimType == m_animset->BaseAnim(AnimType::animTypeCrouchRifle2Pistol))
 				tfrac = 0.82f;
 			else if (m_CurrentBlendAnimType == m_animset->BaseAnim(AnimType::animTypeProneRifle2Pistol))
-				tfrac = 0.62f;
+				tfrac = 0.620000005f /* 0x3f1eb852 */;
 
 			if (tfrac >= 0.0f)
 			{
@@ -963,7 +963,7 @@ bool CZSealBody::IsStopped(float z, float x, float turn)
 			return true;
 	}
 
-	if (!(z < stoppedV + turn * turn * (0.3f - stoppedV)))
+	if (!(z < stoppedV + turn * turn * (0.300000012f /* 0x3e99999a */ - stoppedV)))
 		return false;
 
 	return !(z <= -(stoppedV * 1.5f + turn * turn * (0.5f - stoppedV * 1.5f)));
@@ -1035,7 +1035,7 @@ CZBodyAnimBlend * CZSealBody::InStateStand(float fb, float lr, float strafe)
 	if (m_is_moving)
 		move = !stillX || !stillZ;
 	else if (m_is_turning)
-		move = !stillX || !(z < stoppedV + turn * (turn * (0.3f - stoppedV)))
+		move = !stillX || !(z < stoppedV + turn * (turn * (0.300000012f /* 0x3e99999a */ - stoppedV)))
 			|| z <= -(1.5f * stoppedV + turn * (turn * (0.5f - 1.5f * stoppedV))); /* the ELF's product order (0x27adec) */
 	else
 		move = !stillX || !stillZ;
@@ -1107,9 +1107,9 @@ CZBodyAnimBlend * CZSealBody::StandStill(float, float strafe, float)
 
 		m_desiredPeek = SEAL_PEEK::PEEK_NONE;
 
-		if (0.6f < side)
+		if (0.600000024f /* 0x3f19999a */ < side)
 			m_last_foot = 2;
-		else if (side < -0.6f)
+		else if (side < -0.600000024f /* 0x3f19999a */)
 			m_last_foot = 0x20;
 		else if (m_is_turning)
 			m_last_foot = last;
@@ -1160,7 +1160,7 @@ CZBodyAnimBlend * CZSealBody::StandTurning(float fb, float, float turn)
 			top->m_tfrac = 0.5f;
 
 		TurnSetup(foot);
-		m_turnip->Start(0.8f, 3000.0f, 0.4f);
+		m_turnip->Start(0.800000012f /* 0x3f4ccccd */, 3000.0f, 0.400000006f /* 0x3ecccccd */);
 		m_turnip->m_currT = m_turnip->m_holdT + m_turnip->m_downT;
 	}
 
@@ -1243,16 +1243,16 @@ void CZSealBody::UpdateQuadrant(float &x, float &z, bool snap)
 	switch (m_throttleQuadrant)
 	{
 	case 3:
-		r[0] = -2.8274333f;
-		r[1] = -0.31415927f;
+		r[0] = -2.82743335f /* 0x4034f4ab */;
+		r[1] = -0.314159275f /* 0x3ea0d97c */;
 		break;
 	case 2:
 		r[3] = 1.8849558f;
 		r[0] = -1.8849558f;
 		break;
 	case 1:
-		r[2] = 0.31415927f;
-		r[3] = 2.8274333f;
+		r[2] = 0.314159275f /* 0x3ea0d97c */;
+		r[3] = 2.82743335f /* 0x4034f4ab */;
 		break;
 	case 0:
 		r[1] = -1.2566371f;
@@ -1410,9 +1410,9 @@ CZBodyAnimBlend * CZSealBody::InStateCrouch(float fb, float lr, float strafe)
 				s16 last = (m_blends->Top()->Representative()->m_flags & 0x40) == 0 ? 2 : 0x20;
 				Local::ToTwo(this);
 
-				if (0.6f < side)
+				if (0.600000024f /* 0x3f19999a */ < side)
 					m_last_foot = 2;
-				else if (side < -0.6f)
+				else if (side < -0.600000024f /* 0x3f19999a */)
 					m_last_foot = 0x20;
 				else if (m_is_turning)
 					m_last_foot = last;
@@ -1454,7 +1454,7 @@ CZBodyAnimBlend * CZSealBody::InStateCrouch(float fb, float lr, float strafe)
 				top->m_tfrac = 0.5f;
 
 			TurnSetup(foot);
-			m_turnip->Start(0.8f, 3000.0f, 0.4f);
+			m_turnip->Start(0.800000012f /* 0x3f4ccccd */, 3000.0f, 0.400000006f /* 0x3ecccccd */);
 			m_turnip->m_currT = m_turnip->m_holdT + m_turnip->m_downT;
 		}
 
@@ -1465,7 +1465,7 @@ CZBodyAnimBlend * CZSealBody::InStateCrouch(float fb, float lr, float strafe)
 		return top;
 	}
 
-	if (!(14.8f * (14.8f * (rawstrafe * rawstrafe + rawfb * rawfb)) < 107.3296f) && OKToStand(this))
+	if (!(14.8000002f /* 0x416ccccd */ * (14.8000002f /* 0x416ccccd */ * (rawstrafe * rawstrafe + rawfb * rawfb)) < 107.329613f /* 0x42d6a8c3 */) && OKToStand(this))
 	{
 		f32 x = rawstrafe;
 		f32 z = rawfb;
@@ -1803,10 +1803,10 @@ CZBodyAnimBlend * CZSealBody::TurnControl(float, float turn)
 
 	if (state == 10 || state == 9)
 	{
-		rate *= 0.6f;
+		rate *= 0.600000024f /* 0x3f19999a */;
 
-		if (0.6f < rate)
-			rate = 0.6f;
+		if (0.600000024f /* 0x3f19999a */ < rate)
+			rate = 0.600000024f /* 0x3f19999a */;
 	}
 	else if (state == 2)
 	{
@@ -1817,17 +1817,17 @@ CZBodyAnimBlend * CZSealBody::TurnControl(float, float turn)
 	}
 	else if (state == 1)
 	{
-		rate *= 0.3f;
+		rate *= 0.300000012f /* 0x3e99999a */;
 
-		if (0.3f < rate)
-			rate = 0.3f;
+		if (0.300000012f /* 0x3e99999a */ < rate)
+			rate = 0.300000012f /* 0x3e99999a */;
 	}
 	else if (state == 0)
 	{
-		f32 r = rate * 0.6f;
-		rate = 0.6f;
+		f32 r = rate * 0.600000024f /* 0x3f19999a */;
+		rate = 0.600000024f /* 0x3f19999a */;
 
-		if (r <= 0.6f)
+		if (r <= 0.600000024f /* 0x3f19999a */)
 			rate = r;
 	}
 
@@ -2818,19 +2818,19 @@ bool CZSealBody::GetThrowAnim(float power, AnimType &anim, float &frac, float &o
 	 * the anim come its release fraction and the release point offset (hand space). False in
 	 * other states (and peeking without a peek anim). The offset out is always 0. */
 	/* @socom-skeleton stub stand_throw_offset$3258 */
-	static float stand_throw_offset[3] = { 4.03f, 21.13f, 4.41f };
+	static float stand_throw_offset[3] = { 4.03000021f /* 0x4080f5c3 */, 21.13f, 4.41f };
 	/* @socom-skeleton stub stand_toss_offset$3261 */
-	static float stand_toss_offset[3] = { 3.13f, 13.8f, -10.5f };
+	static float stand_toss_offset[3] = { 3.13000012f /* 0x404851ec */, 13.8000002f /* 0x415ccccd */, -10.5f };
 	/* @socom-skeleton stub crouch_throw_offset$3264 */
-	static float crouch_throw_offset[3] = { 6.05f, 15.59f, 1.96f };
+	static float crouch_throw_offset[3] = { 6.0500002f /* 0x40c1999a */, 15.5900002f /* 0x417970a4 */, 1.96000004f /* 0x3ffae148 */ };
 	/* @socom-skeleton stub prone_throw_offset$3267 */
-	static float prone_throw_offset[3] = { 6.29f, 15.05f, -0.97f };
+	static float prone_throw_offset[3] = { 6.29f, 15.0500002f /* 0x4170cccd */, -0.970000029f /* 0x3f7851ec */ };
 	/* @socom-skeleton stub prone_toss_offset$3270 */
-	static float prone_toss_offset[3] = { 2.39f, 7.87f, -8.53f };
+	static float prone_toss_offset[3] = { 2.39000011f /* 0x4018f5c3 */, 7.87f, -8.53f };
 	/* @socom-skeleton stub peek_right_offset$3273 */
-	static float peek_right_offset[3] = { 7.8f, 10.13f, -5.31f };
+	static float peek_right_offset[3] = { 7.8000002f /* 0x40f9999a */, 10.1300002f /* 0x4122147b */, -5.31f };
 	/* @socom-skeleton stub peek_left_offset$3276 */
-	static float peek_left_offset[3] = { -8.83f, 11.47f, -6.48f };
+	static float peek_left_offset[3] = { -8.83f, 11.4700003f /* 0x4137851f */, -6.48000002f /* 0x40cf5c29 */ };
 	/* @socom-skeleton stub moving_threshold_sq$3279 */
 	static float moving_threshold_sq = 225.0f;
 	/* (the ELF fills the statics on first use: 0x274b64..0x274d34) */
@@ -3206,7 +3206,7 @@ CZBodyAnimBlend * CZSealBody::FlingBody(const CPnt3D *from, float damage, float 
 	else
 		blend = PushBlend((AnimType)AnimTypes::FallForward01, stance, false);
 
-	f32 push = theCharacterDynamics.m_gravity / 98.100006f * (damage * theCharacterDynamics.m_DamageToNewtons) * falloff / m_mass;
+	f32 push = theCharacterDynamics.m_gravity / 98.1000062f /* 0x42c43334 */ * (damage * theCharacterDynamics.m_DamageToNewtons) * falloff / m_mass;
 
 	if (!(push <= 150.0f))
 		push = 150.0f;
@@ -4075,7 +4075,7 @@ void CZSealBody::Tick_0(float turn)
 		{
 			CQuat lean;
 			CQuat q;
-			lean.MakeZRot(yaw * fwd * -0.000375f);
+			lean.MakeZRot(yaw * fwd * -0.000375000004f /* 0x39c49ba6 */);
 			lean.Mul(&m_spinelo->m_rot, &q);
 			q.Normalize(&m_spinelo->m_rot);
 		}
@@ -4106,7 +4106,7 @@ bool CZSealBody::BlendOverlayPreTick(float from, float to)
 		RePose(SEAL_ITEM::itemPistol);
 		ovl->Trigger(this, false);
 		ovl->m_callback.m_func = (void (*)())ParentPistolToRHandCallback;
-		ovl->m_callback.m_tfrac = 0.79f;
+		ovl->m_callback.m_tfrac = 0.790000022f /* 0x3f4a3d71 */;
 		ovl->m_callback.m_userdata = NULL;
 		return true;
 	}
@@ -4116,7 +4116,7 @@ bool CZSealBody::BlendOverlayPreTick(float from, float to)
 		ChangeToPistolMode(false);
 		ovl->Trigger(this, true);
 		ovl->m_callback.m_func = (void (*)())ParentPistolToRThighAsGearCallback;
-		ovl->m_callback.m_tfrac = 0.79f;
+		ovl->m_callback.m_tfrac = 0.790000022f /* 0x3f4a3d71 */;
 		ovl->m_callback.m_userdata = NULL;
 		return false;
 	}
@@ -4193,10 +4193,10 @@ CZBodyAnimBlend * CZSealBody::CrouchToPickupBuddy(CZSealBody *buddy)
 	if (m_CurrentBlendAnimType == m_animset->BaseAnim(AnimType::animTypeCrouch))
 	{
 		const CMatrix &m = m_node->m_matrix;
-		f32 delay = 0.8f * (1.0f - (dir.x * m.m_matrix[2][0] + dir.y * m.m_matrix[2][1] + dir.z * m.m_matrix[2][2]));
+		f32 delay = 0.800000012f /* 0x3f4ccccd */ * (1.0f - (dir.x * m.m_matrix[2][0] + dir.y * m.m_matrix[2][1] + dir.z * m.m_matrix[2][2]));
 
-		if (delay < 0.2f)
-			delay = 0.2f;
+		if (delay < 0.200000003f /* 0x3e4ccccd */)
+			delay = 0.200000003f /* 0x3e4ccccd */;
 
 		f32 t = blend->m_tfrac;
 		CPnt3D d;
@@ -4231,7 +4231,7 @@ CZBodyAnimBlend * CZSealBody::CrouchToPickupBuddy(CZSealBody *buddy)
 		else
 			blend->m_callback.m_func = (void (*)())PickupBuddyCallback;
 
-		blend->m_callback.m_tfrac = 0.99f;
+		blend->m_callback.m_tfrac = 0.99000001f /* 0x3f7d70a4 */;
 		blend->m_callback.m_userdata = buddy;
 		blend->Representative()->m_flags &= 0xfffb;
 	}
@@ -4271,7 +4271,7 @@ CZBodyAnimBlend * CZSealBody::CrouchToPickupBuddy(CZSealBody *buddy)
 			return m_blends->Top();
 
 		blend->m_callback.m_func = (void (*)())PickupBuddyCallback;
-		blend->m_callback.m_tfrac = 0.99f;
+		blend->m_callback.m_tfrac = 0.99000001f /* 0x3f7d70a4 */;
 		blend->m_callback.m_userdata = buddy;
 		blend->Representative()->m_flags &= 0xfffb;
 	}
@@ -4468,7 +4468,7 @@ CZBodyAnimBlend * CZSealBody::StabBuddy(CZSealBody *victim)
 	if (top != NULL)
 	{
 		top->m_callback.m_func = (void (*)())RestoreCameraPosition;
-		top->m_callback.m_tfrac = 0.99f;
+		top->m_callback.m_tfrac = 0.99000001f /* 0x3f7d70a4 */;
 		top->m_callback.m_userdata = NULL;
 	}
 

@@ -960,7 +960,7 @@ CSndInstance * CSnd::PlaySound3D(const CPnt3D *pos, float volume, int pitch, CSn
 			CPnt3D local;
 			m_listenermatrix.Transform(pos, &local, 1);
 			vol = CalcVol(sqrtf(local.x * local.x + local.y * local.y + local.z * local.z), scaled);
-			pan = (int)(57.29578f * atan2f(local.x, local.z * -1.0f));
+			pan = (int)(57.2957802f /* 0x42652ee1 */ * atan2f(local.x, local.z * -1.0f));
 
 			if (pan < 0)
 				pan += 360;
@@ -1096,7 +1096,7 @@ void CSnd::CalcVolPan(const CPnt3D *pos, float volume, int *vol, int *pan)
 		att = 0.0f;
 
 	*vol = (int)(volume * (1024.0f * att * CSndInstance::m_mastervol));
-	int angle = (int)(57.29578f * atan2f(local.x, local.z * -1.0f));
+	int angle = (int)(57.2957802f /* 0x42652ee1 */ * atan2f(local.x, local.z * -1.0f));
 
 	if (angle < 0)
 		angle += 360;

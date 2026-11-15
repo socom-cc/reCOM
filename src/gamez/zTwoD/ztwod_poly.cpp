@@ -40,7 +40,7 @@ C2DPoly::C2DPoly()
 	/* 0x3016d0: the C2D defaults, placeholder vertices (w 1), UVs (Q 1), white at alpha
 	 * 100, then grey 128 and (virtual) SetTrans 128 */
 	m_vertex[0][0] = -6.3e-05f;
-	m_vertex[0][1] = -4.6e-05f;
+	m_vertex[0][1] = -4.60000011e-5f /* 0x3840f020 */;
 	m_vertex[0][2] = 0.0001f;
 	m_vertex[0][3] = 1.0f;
 	m_vertex[1][0] = -3e-05f;

@@ -375,7 +375,7 @@ class MAP_LINEWALK_STRUCT;
 /* @socom-skeleton end forward */
 
 /* @socom-skeleton stub accelRate */
-static float accelRate[3] = {0.44999998807907104f, 0.25f, 0.5f};
+static float accelRate[3] = {0.449999989f /* 0x3ee66666 */, 0.25f, 0.5f};
 
 /* @socom-skeleton stub decelRate */
 static float decelRate[3] = {1.25f, 1.0f, 10.0f};
@@ -390,7 +390,7 @@ float ai::rateRotateMax = 1.0f;
 float ai::rateStrafeMax = 0.5f;
 
 /* @socom-skeleton stub minTurnAngle__2ai */
-float ai::minTurnAngle = 0.5235987901687622f;
+float ai::minTurnAngle = 0.523598791f /* 0x3f060a92 */;
 
 /* @socom-skeleton stub eventNoise__2ai */
 unsigned char ai::eventNoise[8] = {0, 0, 160, 64, 0, 0, 240, 65};
@@ -414,7 +414,7 @@ float ai::underfire_return = 0.75f;
 static const float throttleEps = 0.01f; /* 0x474f54: 0x3c23d70a (was the four bytes) */
 
 /* @socom-skeleton stub aiAccuracyAngle__11CSealCtrlAi */
-float CSealCtrlAi::aiAccuracyAngle = 0.2617993950843811f;
+float CSealCtrlAi::aiAccuracyAngle = 0.261799396f /* 0x3e860a92 */;
 
 /* @socom-skeleton stub aiEnabled__11CSealCtrlAi */
 unsigned char CSealCtrlAi::aiEnabled = 1;
@@ -1070,15 +1070,15 @@ CSealCtrlAi::CSealCtrlAi()
 	m_reaction.m_flee = 0.0f;
 	m_reaction.m_surrender = 0.0f;
 	m_aiParams.mask = 0;
-	m_aiParams.accuracy = 0.8f;
-	m_aiParams.courage = 0.6f;
-	m_aiParams.surrender = 0.2f;
+	m_aiParams.accuracy = 0.800000012f /* 0x3f4ccccd */;
+	m_aiParams.courage = 0.600000024f /* 0x3f19999a */;
+	m_aiParams.surrender = 0.200000003f /* 0x3e4ccccd */;
 	m_aiParams.stealth = 0.5f;
 	m_aiParams.training = 0.5f;
-	m_aiParams.visual_sens = 0.8f;
+	m_aiParams.visual_sens = 0.800000012f /* 0x3f4ccccd */;
 	m_aiParams.visual_range = 400.0f;
 	m_aiParams.visual_fov = 60.0f;
-	m_aiParams.aware_decay = -0.075f;
+	m_aiParams.aware_decay = -0.075000003f /* 0x3d99999a */;
 	m_aiParams.thip_range = 25.0f;
 	m_aiParams.respawn = 0;
 	m_aiParams.target_delay = 0.75f;
@@ -1097,9 +1097,9 @@ CSealCtrlAi::CSealCtrlAi()
 	m_underfire.m_goal = 0.0f;
 	m_underfire.m_type = TYPE::LINEAR;
 	m_ai_trigger.m_dn_time.m_min = 0.5f;
-	m_ai_trigger.m_dn_time.m_range = 0.7f;
-	m_ai_trigger.m_up_time.m_min = 0.1f;
-	m_ai_trigger.m_up_time.m_range = 0.4f;
+	m_ai_trigger.m_dn_time.m_range = 0.700000048f /* 0x3f333334 */;
+	m_ai_trigger.m_up_time.m_min = 0.100000002f /* 0x3dcccccd */;
+	m_ai_trigger.m_up_time.m_range = 0.400000006f /* 0x3ecccccd */;
 	m_ai_trigger.m_marker = RandomIn(m_ai_trigger.m_up_time);
 	m_ai_trigger.m_timer = (f32)((double)RandomIn(m_ai_trigger.m_dn_time) + (double)m_ai_trigger.m_marker);
 	/* ELF: m_navyseal, m_evasive_travel and m_creeping are not set here (InitAiBrain sets
@@ -1338,7 +1338,7 @@ void CSealCtrlAi::InitAiBrain()
 		m_courage.m_goal = m_aiParams.courage;
 		m_dicipline.m_value = m_aiParams.target_discipline;
 		m_dicipline.m_goal = m_aiParams.target_discipline;
-		SetViewFOV(0.01745329f * m_aiParams.visual_fov);
+		SetViewFOV(0.0174532924f /* 0x3c8efa35 */ * m_aiParams.visual_fov);
 		SetViewRange(m_aiParams.visual_range);
 		m_vissens.m_value = m_aiParams.visual_sens;
 		m_vissens.m_goal = m_aiParams.visual_sens;
@@ -1579,8 +1579,8 @@ void CSealCtrlAi::OnStunDamage(STUN_TYPE type, float amount, const CPnt3D *from)
 		switch (t)
 		{
 		case 0:
-			m_visrange.m_value *= 0.1f;
-			m_dicipline.m_value *= 0.6f;
+			m_visrange.m_value *= 0.100000002f /* 0x3dcccccd */;
+			m_dicipline.m_value *= 0.600000024f /* 0x3f19999a */;
 			m_audiofactor.m_value = 0.0f;
 			m_courage.m_value *= 0.5f;
 
@@ -1599,20 +1599,20 @@ void CSealCtrlAi::OnStunDamage(STUN_TYPE type, float amount, const CPnt3D *from)
 			break;
 
 		case 1:
-			m_visrange.m_value *= 0.1f;
-			m_dicipline.m_value *= 0.6f;
+			m_visrange.m_value *= 0.100000002f /* 0x3dcccccd */;
+			m_dicipline.m_value *= 0.600000024f /* 0x3f19999a */;
 			anim = (s16)FindAnimType("Cough_stagger");
 			sound = CSnd::GetSoundByName("SND_COUGH");
 			break;
 
 		case 3:
-			m_dicipline.m_value *= 0.6f;
+			m_dicipline.m_value *= 0.600000024f /* 0x3f19999a */;
 			anim = (s16)FindAnimType("Cough");
 			sound = CSnd::GetSoundByName("SND_COUGH");
 			break;
 
 		case 4:
-			m_audiofactor.m_value *= 0.1f;
+			m_audiofactor.m_value *= 0.100000002f /* 0x3dcccccd */;
 			break;
 
 		default:
@@ -1633,7 +1633,7 @@ void CSealCtrlAi::OnStunDamage(STUN_TYPE type, float amount, const CPnt3D *from)
 			st->m_time = amount;
 			st->m_type = t;
 			st->m_anim = anim;
-			st->m_cough_period.m_min = 0.15f;
+			st->m_cough_period.m_min = 0.150000006f /* 0x3e19999a */;
 			st->m_cough_period.m_range = 0.25f;
 			st->m_sound = sound;
 			st->m_setup = 1;
@@ -1837,11 +1837,11 @@ bool CSealCtrlAi::Tick(float dT)
 	/* @socom-skeleton stub courage_rate$2960 */
 	static float courage_rate = -0.125f;
 	/* @socom-skeleton stub visual_rate$2963 */
-	static float visual_rate = -0.15f;
+	static float visual_rate = -0.150000006f /* 0x3e19999a */;
 	/* @socom-skeleton stub audio_rate$2966 */
-	static float audio_rate = -0.15f;
+	static float audio_rate = -0.150000006f /* 0x3e19999a */;
 	/* @socom-skeleton stub underfire_rate$2969 */
-	static float underfire_rate = -0.1f;
+	static float underfire_rate = -0.100000002f /* 0x3dcccccd */;
 	f32 aware_decay = m_aiParams.aware_decay;
 
 	if (GetAiState()->CanScan())
@@ -1974,7 +1974,7 @@ void CSealCtrlAi::PostTick(float dT)
 		m_lastPos.Sub(seal->GetPosW(), &moved);
 		f32 expect = speed * dT;
 
-		if (moved.x * moved.x + moved.y * moved.y + moved.z * moved.z < 0.6f * (expect * expect))
+		if (moved.x * moved.x + moved.y * moved.y + moved.z * moved.z < 0.600000024f /* 0x3f19999a */ * (expect * expect))
 			m_stuckTimer += dT;
 		else
 			m_stuckTimer = 0.0f;
@@ -2705,7 +2705,7 @@ bool CSealCtrlAi::LadderClimbTick(float dT)
 	if (!mmt_init)
 	{
 		mmt_init = true;
-		mmt_move = 0.2f;
+		mmt_move = 0.200000003f /* 0x3e4ccccd */;
 	}
 
 	static bool look_init = false; /* init$3311 */
@@ -2871,10 +2871,10 @@ bool CSealCtrlAi::LadderClimbTick(float dT)
 }
 
 /* @socom-skeleton stub awareRangeMin */
-static const float awareRangeMin[5] = {0.0f, 0.05000000074505806f, 0.4000000059604645f, 0.6000000238418579f, 0.800000011920929f};
+static const float awareRangeMin[5] = {0.0f, 0.05000000074505806f, 0.4000000059604645f, 0.600000024f /* 0x3f19999a */, 0.800000011920929f};
 
 /* @socom-skeleton stub awareRangeMax */
-static const float awareRangeMax[5] = {0.05000000074505806f, 0.4000000059604645f, 0.6000000238418579f, 0.800000011920929f, 1.0f};
+static const float awareRangeMax[5] = {0.05000000074505806f, 0.4000000059604645f, 0.600000024f /* 0x3f19999a */, 0.800000011920929f, 1.0f};
 
 /* PathFollowTick's look-ahead record (the ELF's stack struct passed to _look_ahead as data;
  * names invented) */
@@ -2948,7 +2948,7 @@ void CSealCtrlAi::PathFollowTick(float dT)
 	/* @socom-skeleton stub tscale_min$3469 */
 	static float tscale_min = 1.0f;
 	/* @socom-skeleton stub tscale_max$3472 */
-	static float tscale_max = 0.15f;
+	static float tscale_max = 0.150000006f /* 0x3e19999a */;
 	/* @socom-skeleton stub strafeFactor$3478 */
 	static float strafeFactor = 0.5f;
 
@@ -3083,7 +3083,7 @@ void CSealCtrlAi::PathFollowTick(float dT)
 	else if (target->m_flags & 1)
 		speed = 0.0f;
 	else if (target->m_flags & 2)
-		speed = 0.2f;
+		speed = 0.200000003f /* 0x3e4ccccd */;
 	else if (here.m_mapid != target->m_loc.m_mapid)
 		speed = 0.25f;
 	else
@@ -3200,7 +3200,7 @@ void CSealCtrlAi::PathFollowTick(float dT)
 		inside = at.DistToVector(&prev, &to, &onLine, &off);
 	}
 
-	if (inside && (f32)target->m_width > 0.1f * dist && off <= edge_tolerance)
+	if (inside && (f32)target->m_width > 0.100000002f /* 0x3dcccccd */ * dist && off <= edge_tolerance)
 	{
 		next_path_point(this);
 		PathFollowTick(dT);
@@ -3484,7 +3484,7 @@ void CSealCtrl::CreepTick(float dT)
 		f32 dot = 0.0f;
 		throttle[2] = ComputeTurnThrottle(&fwd, &m_goal_dir, &dot);
 
-		if (_close_enough<f32>(throttle[2], 0.0f, 0.1f))
+		if (_close_enough<f32>(throttle[2], 0.0f, 0.100000002f /* 0x3dcccccd */))
 			m_goal_dir_valid = 0;
 	}
 
@@ -3731,17 +3731,17 @@ void CSealCtrlAi::SelectFireParams()
 
 	if ((s32)(u8)item->m_maxfiremode < 2)
 	{
-		m_ai_trigger.m_dn_time.m_min = 0.15f;
+		m_ai_trigger.m_dn_time.m_min = 0.150000006f /* 0x3e19999a */;
 		m_ai_trigger.m_dn_time.m_range = 0.35f;
-		m_ai_trigger.m_up_time.m_min = 0.15f;
+		m_ai_trigger.m_up_time.m_min = 0.150000006f /* 0x3e19999a */;
 		m_ai_trigger.m_up_time.m_range = 1.15f;
 		mode = (FIREMODE)1;
 	}
-	else if (!(m_target.m_target.GetRange() <= 1.2f * CAiWepHint::GetWeaponEffectiveRange(item)))
+	else if (!(m_target.m_target.GetRange() <= 1.20000005f /* 0x3f99999a */ * CAiWepHint::GetWeaponEffectiveRange(item)))
 	{
-		m_ai_trigger.m_dn_time.m_min = 0.15f;
-		m_ai_trigger.m_dn_time.m_range = 0.099999994f; /* 0x3dcccccc (the ELF's word; 0.09999999f is 0x3dcccccb) */
-		m_ai_trigger.m_up_time.m_min = 0.15f;
+		m_ai_trigger.m_dn_time.m_min = 0.150000006f /* 0x3e19999a */;
+		m_ai_trigger.m_dn_time.m_range = 0.0999999941f /* 0x3dcccccc */; /* 0x3dcccccc (the ELF's word; 0.09999999f is 0x3dcccccb) */
+		m_ai_trigger.m_up_time.m_min = 0.150000006f /* 0x3e19999a */;
 		m_ai_trigger.m_up_time.m_range = 1.15f;
 		mode = (FIREMODE)1;
 	}
@@ -3801,7 +3801,7 @@ unsigned char CSealCtrlAi::AttackTick(float dT, bool allowFire)
 	 *   the first part the fire parameters are computed and FireWhenReady decides each
 	 *   frame; when the count ends SelectFireParams draws the next burst. */
 	/* @socom-skeleton stub max_dot$3740 */
-	static float max_dot = 0.999848f;
+	static float max_dot = 0.999848009f /* 0x3f7ff60a */;
 	/* @socom-skeleton stub min_dot$3743 */
 	static float min_dot = 0.866025f;
 	CZSealBody* seal = static_cast<CZSealBody *>(m_entity);
@@ -3880,7 +3880,7 @@ unsigned char CSealCtrlAi::AttackTick(float dT, bool allowFire)
 	f32 range = m_target.m_target.GetRange();
 	hint.m_range = range;
 
-	if (!kit->CurItemHasAmmo() || CAiWepHint::GetWeaponAccuracy(item, range, false) < 0.6f)
+	if (!kit->CurItemHasAmmo() || CAiWepHint::GetWeaponAccuracy(item, range, false) < 0.600000024f /* 0x3f19999a */)
 		ChooseWeapon(hint);
 
 	if (!kit->CurMagHasAmmo())
@@ -4055,7 +4055,7 @@ unsigned char CSealCtrlAi::FireWhenReady(AI_FIREPARAMS &fp, float dT)
 	 * dropped), and with 0x800000 the weapon raised (state 1) and the aim within 0.98 of
 	 * its goal. */
 	/* @socom-skeleton stub look_dot_threshold$3770 */
-	static float look_dot_threshold = 0.98f;
+	static float look_dot_threshold = 0.98000002f /* 0x3f7ae148 */;
 	CZSealBody* seal = static_cast<CZSealBody *>(m_entity);
 
 	fp.m_timeout += dT;
@@ -4101,7 +4101,7 @@ unsigned char CSealCtrlAi::FireWhenReady(AI_FIREPARAMS &fp, float dT)
 
 	seal->SetWeaponState((WEAPON_STATE)1);
 
-	if (seal->GetAimDot() <= 0.98f)
+	if (seal->GetAimDot() <= 0.98000002f /* 0x3f7ae148 */)
 		return false;
 
 	return seal->m_weapon_state == 1;
@@ -4153,7 +4153,7 @@ void CSealCtrlAi::ChooseWeapon(CAiWepHint &hint)
 			bool quiet = item->m_soundradius < 100.0f;
 
 			if (hint.m_quiet == 1)
-				score -= quiet ? 0.0f : 0.2f;
+				score -= quiet ? 0.0f : 0.200000003f /* 0x3e4ccccd */;
 			else if (hint.m_quiet == 2)
 				score -= quiet ? 1.0f : 0.0f;
 			else
@@ -4165,7 +4165,7 @@ void CSealCtrlAi::ChooseWeapon(CAiWepHint &hint)
 			bool has = (s32)(u8)item->m_maxfiremode >= 3;
 
 			if (hint.m_auto == 1)
-				score -= has ? 0.0f : 0.2f;
+				score -= has ? 0.0f : 0.200000003f /* 0x3e4ccccd */;
 			else if (hint.m_auto == 2)
 				score -= has ? 1.0f : 0.0f;
 			else
@@ -4177,7 +4177,7 @@ void CSealCtrlAi::ChooseWeapon(CAiWepHint &hint)
 			bool has = (s32)(u8)item->m_maxfiremode >= 2;
 
 			if (hint.m_burst == 1)
-				score -= has ? 0.0f : 0.2f;
+				score -= has ? 0.0f : 0.200000003f /* 0x3e4ccccd */;
 			else if (hint.m_burst == 2)
 				score -= has ? 1.0f : 0.0f;
 			else
@@ -4188,7 +4188,7 @@ void CSealCtrlAi::ChooseWeapon(CAiWepHint &hint)
 		if (!(score <= 0.0f) && hint.m_quiet_again != 0)
 		{
 			if (hint.m_quiet == 1)
-				score -= 0.2f;
+				score -= 0.200000003f /* 0x3e4ccccd */;
 			else if (hint.m_quiet == 3)
 				score -= 1.0f;
 		}
@@ -4276,7 +4276,7 @@ unsigned char CSealCtrlAi::SetStanceDelayed(SEAL_STANCE stance, float delay)
 		return true;
 
 	if (delay == -1.0f)
-		delay = 0.15f + 0.6f * ((f32)rand() * (1.0f / 2147483648.0f));
+		delay = 0.150000006f /* 0x3e19999a */ + 0.600000024f /* 0x3f19999a */ * ((f32)rand() * (1.0f / 2147483648.0f));
 
 	m_stance_goal = (s8)stance;
 	m_stance_delay = delay;
@@ -4324,7 +4324,7 @@ unsigned char CSealCtrlAi::DoSetStance(SEAL_STANCE stance)
 			{
 				f32 y = m_target.m_target.m_vec.y;
 
-				if (!(y * y / m_target.m_target.m_distSq <= 0.07f))
+				if (!(y * y / m_target.m_target.m_distSq <= 0.0700000003f /* 0x3d8f5c29 */))
 					deny = true;
 
 				if (m_target.m_target.m_distSq < 62500.0f)
@@ -4810,7 +4810,7 @@ void CSealCtrlAi::SetAiAware(AI_AWARE aware, const CPnt3D *pos)
 	/* 0x2602d0: raise the awareness to (just under the top of) a level; it never lowers
 	 * it. From AIA_GENERAL up the decay goal is held at that level's floor. AIA_DIRECTION
 	 * with a position, below AIA_SPECIFIC, also raises a generic event there. */
-	f32 value = awareRangeMax[aware] - 0.001f;
+	f32 value = awareRangeMax[aware] - 0.00100000005f /* 0x3a83126f */;
 
 	if (aware >= AIA_GENERAL && m_aware.m_goal < awareRangeMax[AIA_GENERAL])
 		m_aware.m_goal = awareRangeMin[AIA_GENERAL];
@@ -5299,7 +5299,7 @@ bool CSealCtrlAi::ComputeProjectileFireParams(AI_FIREPARAMS &fp)
 	/* @socom-skeleton stub g$4392 */
 	static int g = 0x42c40000; /* ELF: the float 98.0 stored in an int-typed static */
 	/* @socom-skeleton stub max_y$4397 */
-	static float max_y = sinf(0.8726646f);
+	static float max_y = sinf(0.872664631f /* 0x3f5f66f3 */);
 	CZSealBody* seal = static_cast<CZSealBody *>(m_entity);
 	CPnt3D* pos = seal->GetPosW();
 	CPnt3D point;
@@ -5329,7 +5329,7 @@ bool CSealCtrlAi::ComputeProjectileFireParams(AI_FIREPARAMS &fp)
 			return false;
 
 		f32 r = dist / reach;
-		f32 y = 0.0f * (1.0f - r) + 0.707f * r + dir.y;
+		f32 y = 0.0f * (1.0f - r) + 0.707000018f /* 0x3f34fdf4 */ * r + dir.y;
 		saturate<f32>(y, 0.0f, max_y);
 		fp.m_aimDirM.x = 0.0f;
 		fp.m_aimDirM.y = y;
@@ -5693,7 +5693,7 @@ bool CAiSDeploy::Tick(float dT, CSealCtrlAi *ai)
 				ai->Debug("DEPLOY: target length SQ = %.1f, see length SQ = %.1f\n", (double)targetSq, (double)seeSq);
 				ai->Debug("        weapon range SQ = %.1f, distance to target SQ = %.1f.\n", (double)rangeSq, (double)distSq);
 
-				if (targetSq / seeSq < 1.11f)
+				if (targetSq / seeSq < 1.11000002f /* 0x3f8e147b */)
 					see = true;
 			}
 			else
@@ -6027,7 +6027,7 @@ void CSealCtrlAi::SetReturnVelocity(CZProjectile *proj, CPnt3D *dir, bool full)
 				thrower->GetPosW()->Sub(body->GetPosW(), &d);
 
 			if (!(d.x * d.x + d.y * d.y + d.z * d.z <= 10000.0f))
-				speed *= 0.8f;
+				speed *= 0.800000012f /* 0x3f4ccccd */;
 		}
 	}
 	else
@@ -6038,14 +6038,14 @@ void CSealCtrlAi::SetReturnVelocity(CZProjectile *proj, CPnt3D *dir, bool full)
 		vel.z = -z[2];
 		CAiMap::DIR look = ChooseLookDir(body->m_mapLocValid, &vel, false, NULL, 0, NULL);
 		CAiMap::GetDirVec(look, vel);
-		vel.x += -0.2f + 0.4f * ((f32)rand() * 4.656613e-10f);
-		vel.y += 0.4f + 0.4f * ((f32)rand() * 4.656613e-10f);
-		vel.z += -0.2f + 0.4f * ((f32)rand() * 4.656613e-10f);
+		vel.x += -0.200000003f /* 0x3e4ccccd */ + 0.400000006f /* 0x3ecccccd */ * ((f32)rand() * 4.656613e-10f);
+		vel.y += 0.400000006f /* 0x3ecccccd */ + 0.400000006f /* 0x3ecccccd */ * ((f32)rand() * 4.656613e-10f);
+		vel.z += -0.200000003f /* 0x3e4ccccd */ + 0.400000006f /* 0x3ecccccd */ * ((f32)rand() * 4.656613e-10f);
 		vel.Normalize();
 		*dir = vel;
 
 		if (!full)
-			vel.Scale(0.8f, &vel);
+			vel.Scale(0.800000012f /* 0x3f4ccccd */, &vel);
 	}
 
 	vel.y *= m_navyseal ? speed : vScale;
@@ -6083,7 +6083,7 @@ bool CAiSGrenade::Tick(float dT, CSealCtrlAi *ctrl)
 	/* @socom-skeleton stub tb_timeToParent$4684 */
 	static float tb_timeToParent = 0.21f;
 	/* @socom-skeleton stub tb_timeToThrow$4687 */
-	static float tb_timeToThrow = 0.56f;
+	static float tb_timeToThrow = 0.560000003f /* 0x3f0f5c29 */;
 	/* @socom-skeleton stub minTimeForSafeSealReturn$4690 */
 	static float minTimeForSafeSealReturn = 1.3f + tb_timeToThrow;
 	/* @socom-skeleton stub defaultTimeToPickup$4693 */
@@ -6132,7 +6132,7 @@ bool CAiSGrenade::Tick(float dT, CSealCtrlAi *ctrl)
 		}
 		else
 		{
-			f32 range = (2.9f + 1.5f * skill) - 2.1f;
+			f32 range = (2.9000001f /* 0x4039999a */ + 1.5f * skill) - 2.1f;
 			m_time = range == 0.0f ? 2.1f : 2.1f + range * ((f32)rand() * inv);
 		}
 
@@ -6140,7 +6140,7 @@ bool CAiSGrenade::Tick(float dT, CSealCtrlAi *ctrl)
 	}
 
 	CAiMapLoc myloc = body->m_mapLocValid;
-	f32 left = proj->m_time - 1.2f;
+	f32 left = proj->m_time - 1.20000005f /* 0x3f99999a */;
 	f32 margin = ctrl->m_navyseal ? 0.0f : 2.0f * (1.0f - ctrl->m_aiParams.training);
 
 	if (body->m_team & 0x20000)
@@ -6173,7 +6173,7 @@ bool CAiSGrenade::Tick(float dT, CSealCtrlAi *ctrl)
 			break;
 		}
 
-		f32 alert = awareRangeMax[3] - 0.001f;
+		f32 alert = awareRangeMax[3] - 0.00100000005f /* 0x3a83126f */;
 
 		if (ctrl->m_aware.m_goal < awareRangeMax[2])
 			ctrl->m_aware.m_goal = awareRangeMin[2];
@@ -6212,7 +6212,7 @@ bool CAiSGrenade::Tick(float dT, CSealCtrlAi *ctrl)
 		}
 		else
 		{
-			f32 runtime = dist / ctrl->GetSpeedFromThrottle(0.8f, 0);
+			f32 runtime = dist / ctrl->GetSpeedFromThrottle(0.800000012f /* 0x3f4ccccd */, 0);
 
 			if (allowThrowbacks && hand && !locked && (!friendly || astray) && !(fuse - runtime <= left + margin)
 				&& AiMaps.CanTravelLine(myloc, m_dest, NULL) && !(body->m_team & 0x20000)
@@ -6277,7 +6277,7 @@ bool CAiSGrenade::Tick(float dT, CSealCtrlAi *ctrl)
 			f32 radius = proj->m_ammo != NULL ? proj->m_ammo->GetExplosionRadius() : 200.0f;
 			f32 reach = radius * ctrl->m_aiParams.training;
 			CAiMapLoc look;
-			CSealCtrlAi::ChooseLookDir(myloc, &away, true, &look, (int)(0.1f * reach), &steps);
+			CSealCtrlAi::ChooseLookDir(myloc, &away, true, &look, (int)(0.100000002f /* 0x3dcccccd */ * reach), &steps);
 			f32 out = 10.0f * (f32)steps;
 
 			if (!(d2 + out * out <= reach * reach))
@@ -6400,10 +6400,10 @@ bool CAiSGrenade::Tick(float dT, CSealCtrlAi *ctrl)
 			&& !theNetwork.m_bNetwork)
 			proj->m_time = minTimeForSafeSealReturn;
 
-		if (!ctrl->m_navyseal || margin <= 0.2f)
-			margin = 0.2f;
+		if (!ctrl->m_navyseal || margin <= 0.200000003f /* 0x3e4ccccd */)
+			margin = 0.200000003f /* 0x3e4ccccd */;
 
-		if (!(ctrl->m_stateTimer <= defaultTimeToPickup + margin) || (ctrl->m_navyseal && proj->m_time < 0.3f))
+		if (!(ctrl->m_stateTimer <= defaultTimeToPickup + margin) || (ctrl->m_navyseal && proj->m_time < 0.300000012f /* 0x3e99999a */))
 		{
 			if (m_next == 9)
 				phase = 9;
@@ -6493,12 +6493,12 @@ bool CAiSGrenade::Tick(float dT, CSealCtrlAi *ctrl)
 
 	case 10:
 		if (ctrl->m_stance_goal != 2)
-			ctrl->SetStanceDelayed((SEAL_STANCE)2, 0.15f + 0.6f * ((f32)rand() * inv));
+			ctrl->SetStanceDelayed((SEAL_STANCE)2, 0.150000006f /* 0x3e19999a */ + 0.600000024f /* 0x3f19999a */ * ((f32)rand() * inv));
 		break;
 
 	case 11:
 		if (ctrl->m_stance_goal != 1)
-			ctrl->SetStanceDelayed((SEAL_STANCE)1, 0.15f + 0.6f * ((f32)rand() * inv));
+			ctrl->SetStanceDelayed((SEAL_STANCE)1, 0.150000006f /* 0x3e19999a */ + 0.600000024f /* 0x3f19999a */ * ((f32)rand() * inv));
 		break;
 
 	case 12:
@@ -6704,7 +6704,7 @@ bool CAiSPursue::Tick(float dT, CSealCtrlAi *ctrl)
 
 	if (!seen && ctrl->m_look_mode != AIL_TASK && ctrl->SetLookDirR(AIL_TASK, &CPnt3D::unit_nz, true))
 	{
-		ctrl->SetScanAngle(1.047198f);
+		ctrl->SetScanAngle(1.04719759f /* 0x3f860a92 */);
 		ctrl->ModifyLookFlags(4, 0);
 		ctrl->SetLookTimer(5.0f);
 	}
@@ -6973,7 +6973,7 @@ bool CAiSPursue::Tick(float dT, CSealCtrlAi *ctrl)
 
 			if (ctrl->SetLookPosW((AI_LOOK)pursueSearchLook, &ctrl->m_target.m_last_pos))
 			{
-				ctrl->SetScanAngle(1.48353f);
+				ctrl->SetScanAngle(1.48352981f /* 0x3fbde44e */);
 				ctrl->SetScanRate(0.25f + 0.75f * ((f32)rand() * 4.656613e-10f));
 				ctrl->SetLookFlags(5);
 			}
@@ -6986,7 +6986,7 @@ bool CAiSPursue::Tick(float dT, CSealCtrlAi *ctrl)
 		if (ctrl->m_look_mode != AIL_FRANTIC && ctrl->SetLookDirR(AIL_FRANTIC, &CPnt3D::unit_nz, true))
 		{
 			ctrl->ModifyLookFlags(1, 0);
-			ctrl->SetScanAngle(1.570796f);
+			ctrl->SetScanAngle(1.57079638f /* 0x3fc90fdb */);
 			ctrl->SetLookTimer(2.5f);
 		}
 

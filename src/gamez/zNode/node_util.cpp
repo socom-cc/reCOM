@@ -15,7 +15,7 @@
 /* @socom-skeleton end include */
 
 /* @socom-skeleton stub DEFAULT_CLOSESTNODE_DOT */
-static const float DEFAULT_CLOSESTNODE_DOT = cosf(1.134464f); /* __sinit_node_util.cpp 0x46b5e0: cos 65 degrees */
+static const float DEFAULT_CLOSESTNODE_DOT = cosf(1.13446403f /* 0x3f91361e */); /* __sinit_node_util.cpp 0x46b5e0: cos 65 degrees */
 
 /* @socom-skeleton stub GetClosestNode__Q23zdb5CNodeFPC6CPnt3DPC6CPnt3Dffff */
 float zdb::CNode::GetClosestNode(const CPnt3D *pos, const CPnt3D *dir, float maxDistSq, float maxHeight, float, float best)

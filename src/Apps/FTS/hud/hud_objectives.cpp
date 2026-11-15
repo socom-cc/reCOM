@@ -218,7 +218,7 @@ unsigned char CZObjectiveList::AddObjective(const CMissionObjectiveCam &objectiv
 	m_objectivenames.push_back(string);
 
 	bool secondary = objective.m_isSecondary;
-	string->Load(0.68f, objective.m_name, theHUD->m_myfont, (int)(10.0f + (float)(secondary ? 45 : 30)), (int)ypos);
+	string->Load(0.680000008f /* 0x3f2e147b */, objective.m_name, theHUD->m_myfont, (int)(10.0f + (float)(secondary ? 45 : 30)), (int)ypos);
 
 	bool bComplete = objective.IsComplete();
 	bool bValid = !objective.IsInvalid();
@@ -398,41 +398,41 @@ void CZObjectiveList::RefreshStatics()
 	g_bmpMapTitleBg.SetUV(0.5f, 0.5f, 0.5f, 0.5f);
 	push_back(&g_bmpMapTitleBg);
 	m_mapbackground.Load(230.0f, 60.0f, 640.0f, 365.0f, m_background_tex);
-	m_mapbackground.SetUV(0.2f, 0.5f, 0.2f, 0.5f);
+	m_mapbackground.SetUV(0.200000003f /* 0x3e4ccccd */, 0.5f, 0.200000003f /* 0x3e4ccccd */, 0.5f);
 	push_back(&m_mapbackground);
 	g_bmpLegendBg.Load(230.0f, 365.0f, 640.0f, 448.0f, m_background_tex);
 	g_bmpLegendBg.SetUV(0.5f, 0.5f, 0.5f, 0.5f);
 	push_back(&g_bmpLegendBg);
 	m_backgrounddivider.Load(225.0f, 0.0f, 230.0f, 365.0f, m_background_tex);
-	m_backgrounddivider.SetUV(0.8f, 0.5f, 0.8f, 0.5f);
+	m_backgrounddivider.SetUV(0.800000012f /* 0x3f4ccccd */, 0.5f, 0.800000012f /* 0x3f4ccccd */, 0.5f);
 	push_back(&m_backgrounddivider);
 	g_bmpTitlesDiv.Load(0.0f, 57.0f, 640.0f, 60.0f, m_background_tex);
-	g_bmpTitlesDiv.SetUV(0.8f, 0.5f, 0.8f, 0.5f);
+	g_bmpTitlesDiv.SetUV(0.800000012f /* 0x3f4ccccd */, 0.5f, 0.800000012f /* 0x3f4ccccd */, 0.5f);
 	push_back(&g_bmpTitlesDiv);
 	g_bmpLegendDiv.Load(0.0f, 365.0f, 640.0f, 368.0f, m_background_tex);
-	g_bmpLegendDiv.SetUV(0.8f, 0.5f, 0.8f, 0.5f);
+	g_bmpLegendDiv.SetUV(0.800000012f /* 0x3f4ccccd */, 0.5f, 0.800000012f /* 0x3f4ccccd */, 0.5f);
 	push_back(&g_bmpLegendDiv);
 
-	AddLabel(this, &m_heading, 1.2f, "OBJECTIVES", 50, 30);
-	AddLabel(this, &m_strMapHeading, 1.2f, "TACTICAL MAP", 370, 30);
+	AddLabel(this, &m_heading, 1.20000005f /* 0x3f99999a */, "OBJECTIVES", 50, 30);
+	AddLabel(this, &m_strMapHeading, 1.20000005f /* 0x3f99999a */, "TACTICAL MAP", 370, 30);
 	int x = (int)320.0f;
-	AddLabel(this, &m_strAnalogL, 0.8f, c_szAnalogL, x, 390);
-	AddLabel(this, &m_strAnalogR, 0.8f, c_szAnalogR, x, 415);
+	AddLabel(this, &m_strAnalogL, 0.800000012f /* 0x3f4ccccd */, c_szAnalogL, x, 390);
+	AddLabel(this, &m_strAnalogR, 0.800000012f /* 0x3f4ccccd */, c_szAnalogR, x, 415);
 
-	g_bmpXBtn.Load(46.0f, 32.0f, 66.0f, 50.666664f, zdb::CAssetMgr::m_assets.GetTexHandle("action_x.tif"));
+	g_bmpXBtn.Load(46.0f, 32.0f, 66.0f, 50.6666642f /* 0x424aaaaa */, zdb::CAssetMgr::m_assets.GetTexHandle("action_x.tif"));
 	push_back(&g_bmpXBtn);
 	g_bmpCircleBtn.Load(20.0f, 400.0f, 40.0f, 418.66666f, zdb::CAssetMgr::m_assets.GetTexHandle("action_circle.tif"));
 	push_back(&g_bmpCircleBtn);
-	g_bmpTriBtn.Load(375.0f, 32.0f, 395.0f, 50.666664f, zdb::CAssetMgr::m_assets.GetTexHandle("action_triangle.tif"));
+	g_bmpTriBtn.Load(375.0f, 32.0f, 395.0f, 50.6666642f /* 0x424aaaaa */, zdb::CAssetMgr::m_assets.GetTexHandle("action_triangle.tif"));
 	push_back(&g_bmpTriBtn);
 	g_bmpSquareBtn.Load(20.0f, 375.0f, 40.0f, 393.66666f, zdb::CAssetMgr::m_assets.GetTexHandle("action_square.tif"));
 	push_back(&g_bmpSquareBtn);
 
-	AddLabel(this, &m_strXLabel, 0.8f, "PLAY MOVIE", 76, 47);
+	AddLabel(this, &m_strXLabel, 0.800000012f /* 0x3f4ccccd */, "PLAY MOVIE", 76, 47);
 	m_strXLabel.SetTrans(0.0f);
-	AddLabel(this, &m_strCircleLabel, 0.8f, c_szCircleLabel, 50, 415);
-	AddLabel(this, &m_strSquareLabel, 0.8f, "CENTER PLAYER", 50, 390);
-	AddLabel(this, &m_strTriLabel, 0.8f, "RESUME GAME", 405, 47);
+	AddLabel(this, &m_strCircleLabel, 0.800000012f /* 0x3f4ccccd */, c_szCircleLabel, 50, 415);
+	AddLabel(this, &m_strSquareLabel, 0.800000012f /* 0x3f4ccccd */, "CENTER PLAYER", 50, 390);
+	AddLabel(this, &m_strTriLabel, 0.800000012f /* 0x3f4ccccd */, "RESUME GAME", 405, 47);
 
 	/* the map legend: the compass anchor icons, left of their labels */
 	MapCompass& compass = theHUD->m_mapcompass;
@@ -453,16 +453,16 @@ void CZObjectiveList::RefreshStatics()
 		push_back(&g_arrAnchorIconBitmaps[i]);
 	}
 
-	AddLabel(this, &m_arrAnchorStrings[6], 0.64f, "EXTRACTION POINT", 62, 360);
-	AddLabel(this, &m_arrAnchorStrings[5], 0.64f, "BRAVO's POSITION", 62, 342);
-	AddLabel(this, &m_arrAnchorStrings[4], 0.64f, "HOSTAGE/POW/TRAITOR", 62, 324);
-	AddLabel(this, &m_arrAnchorStrings[2], 0.64f, "NAV POINTS", 62, 306);
-	AddLabel(this, &m_arrAnchorStrings[3], 0.64f, "-", 38, 306);
-	AddLabel(this, &m_arrAnchorStrings[1], 0.64f, "SECONDARY OBJECTIVE", 62, 288);
-	AddLabel(this, &m_arrAnchorStrings[0], 0.64f, "PRIMARY OBJECTIVE", 62, 270);
+	AddLabel(this, &m_arrAnchorStrings[6], 0.640000046f /* 0x3f23d70b */, "EXTRACTION POINT", 62, 360);
+	AddLabel(this, &m_arrAnchorStrings[5], 0.640000046f /* 0x3f23d70b */, "BRAVO's POSITION", 62, 342);
+	AddLabel(this, &m_arrAnchorStrings[4], 0.640000046f /* 0x3f23d70b */, "HOSTAGE/POW/TRAITOR", 62, 324);
+	AddLabel(this, &m_arrAnchorStrings[2], 0.640000046f /* 0x3f23d70b */, "NAV POINTS", 62, 306);
+	AddLabel(this, &m_arrAnchorStrings[3], 0.640000046f /* 0x3f23d70b */, "-", 38, 306);
+	AddLabel(this, &m_arrAnchorStrings[1], 0.640000046f /* 0x3f23d70b */, "SECONDARY OBJECTIVE", 62, 288);
+	AddLabel(this, &m_arrAnchorStrings[0], 0.640000046f /* 0x3f23d70b */, "PRIMARY OBJECTIVE", 62, 270);
 
 	g_bmpAnchorsDiv.Load(0.0f, 253.0f, 225.0f, 250.0f, m_background_tex);
-	g_bmpAnchorsDiv.SetUV(0.8f, 0.5f, 0.8f, 0.5f);
+	g_bmpAnchorsDiv.SetUV(0.800000012f /* 0x3f4ccccd */, 0.5f, 0.800000012f /* 0x3f4ccccd */, 0.5f);
 	push_back(&g_bmpAnchorsDiv);
 }
 

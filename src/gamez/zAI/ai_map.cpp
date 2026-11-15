@@ -158,13 +158,13 @@ CPnt3D * CAiMap::GetDirVec(CAiMap::DIR dir, CPnt3D &vec)
 	switch ((u8)dir)
 	{
 	case N: vec.x = 0.0f; vec.y = 0.0f; vec.z = -1.0f; break;
-	case NE: vec.x = 0.707f; vec.y = 0.0f; vec.z = -0.707f; break;
+	case NE: vec.x = 0.707000018f /* 0x3f34fdf4 */; vec.y = 0.0f; vec.z = -0.707000018f /* 0x3f34fdf4 */; break;
 	case E: vec.x = 1.0f; vec.y = 0.0f; vec.z = 0.0f; break;
-	case SE: vec.x = 0.707f; vec.y = 0.0f; vec.z = 0.707f; break;
+	case SE: vec.x = 0.707000018f /* 0x3f34fdf4 */; vec.y = 0.0f; vec.z = 0.707000018f /* 0x3f34fdf4 */; break;
 	case S: vec.x = 0.0f; vec.y = 0.0f; vec.z = 1.0f; break;
-	case SW: vec.x = -0.707f; vec.y = 0.0f; vec.z = 0.707f; break;
+	case SW: vec.x = -0.707000018f /* 0x3f34fdf4 */; vec.y = 0.0f; vec.z = 0.707000018f /* 0x3f34fdf4 */; break;
 	case W: vec.x = -1.0f; vec.y = 0.0f; vec.z = 0.0f; break;
-	case NW: vec.x = -0.707f; vec.y = 0.0f; vec.z = -0.707f; break;
+	case NW: vec.x = -0.707000018f /* 0x3f34fdf4 */; vec.y = 0.0f; vec.z = -0.707000018f /* 0x3f34fdf4 */; break;
 	default: vec.x = 0.0f; vec.y = 0.0f; vec.z = -1.0f; break;
 	}
 
@@ -178,7 +178,7 @@ CQuat * CAiMap::GetDirQuat(CAiMap::DIR dir, CQuat &quat, bool flip)
 	 * (quat * yrot(pi), normalized) */
 	switch ((u8)dir)
 	{
-	case N: quat.MakeYRot(3.1415927f); break;
+	case N: quat.MakeYRot(3.14159275f /* 0x40490fdb */); break;
 	case NE: quat.MakeYRot(2.3561945f); break;
 	case E: quat.MakeYRot(1.5707964f); break;
 	case SE: quat.MakeYRot(0.7853982f); break;
@@ -186,7 +186,7 @@ CQuat * CAiMap::GetDirQuat(CAiMap::DIR dir, CQuat &quat, bool flip)
 	case SW: quat.MakeYRot(5.4977875f); break;
 	case W: quat.MakeYRot(4.712389f); break;
 	case NW: quat.MakeYRot(3.926991f); break;
-	default: quat.MakeYRot(3.1415927f); break;
+	default: quat.MakeYRot(3.14159275f /* 0x40490fdb */); break;
 	}
 
 	if (!flip)
@@ -194,7 +194,7 @@ CQuat * CAiMap::GetDirQuat(CAiMap::DIR dir, CQuat &quat, bool flip)
 
 	CQuat turn;
 	CQuat out;
-	turn.MakeYRot(3.1415927f);
+	turn.MakeYRot(3.14159275f /* 0x40490fdb */);
 	quat.Mul(&turn, &out);
 	quat.vec.x = out.vec.x;
 	quat.vec.y = out.vec.y;

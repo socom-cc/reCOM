@@ -279,7 +279,7 @@ bool CCharacterType::Open(const char* path)
 			if (zrdr_findreal(ai, "accuracy_angle", &angle, 1))
 			{
 				if (_angle_units == 1)
-					angle *= 0.017453292f;
+					angle *= 0.0174532924f /* 0x3c8efa35 */;
 
 				CSealCtrlAi::SetAiAccuracyAngle(angle);
 			}
@@ -338,9 +338,9 @@ bool CCharacterType::Open(const char* path)
 
 				if (_angle_units == 1)
 				{
-					rotation[0] *= 0.017453292f;
-					rotation[1] *= 0.017453292f;
-					rotation[2] *= 0.017453292f;
+					rotation[0] *= 0.0174532924f /* 0x3c8efa35 */;
+					rotation[1] *= 0.0174532924f /* 0x3c8efa35 */;
+					rotation[2] *= 0.0174532924f /* 0x3c8efa35 */;
 				}
 
 				item->m_rotation.x = rotation[0];
@@ -535,15 +535,15 @@ CCharacterType::CCharacterType(const char* name, const CCharacterType* other)
 	m_weapons.reserve(8);
 	m_controller_id = 0;
 	m_aiParams.mask = 0;
-	m_aiParams.accuracy = 0.8f;
-	m_aiParams.courage = 0.6f;
-	m_aiParams.surrender = 0.2f;
+	m_aiParams.accuracy = 0.800000012f /* 0x3f4ccccd */;
+	m_aiParams.courage = 0.600000024f /* 0x3f19999a */;
+	m_aiParams.surrender = 0.200000003f /* 0x3e4ccccd */;
 	m_aiParams.stealth = 0.5f;
 	m_aiParams.training = 0.5f;
-	m_aiParams.visual_sens = 0.8f;
+	m_aiParams.visual_sens = 0.800000012f /* 0x3f4ccccd */;
 	m_aiParams.visual_range = 400.0f;
 	m_aiParams.visual_fov = 60.0f;
-	m_aiParams.aware_decay = -0.075f;
+	m_aiParams.aware_decay = -0.075000003f /* 0x3d99999a */;
 	m_aiParams.thip_range = 25.0f;
 	m_aiParams.respawn = 0;
 	m_aiParams.target_delay = 0.75f;

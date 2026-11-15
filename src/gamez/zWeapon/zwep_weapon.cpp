@@ -199,7 +199,7 @@ CZWeapon::CZWeapon()
 	m_zoomedfireanim = NULL;
 	m_fireanim = NULL;
 	m_texture = NULL;
-	m_firewait = 0.1f;
+	m_firewait = 0.100000002f /* 0x3dcccccd */;
 	m_decalsetname = NULL;
 	m_decalset = NULL;
 	m_muzzlevel = 0.0f;
@@ -343,7 +343,7 @@ void CZWeapon::Fire(zdb::CNode *owner, CZAmmo *ammo, const CPnt3D *from, const C
 		CAiEvent *ev = CAiEvent::Acquire();
 		ev->m_pos = *from;
 		ev->m_rangeSq = m_soundradius * m_soundradius;
-		ev->m_duration = 0.1f;
+		ev->m_duration = 0.100000002f /* 0x3dcccccd */;
 		ev->m_type = CAiEvent::AIE_WEPFIRE;
 		ev->m_owner = id;
 		CAiEvent::Create(ev);
@@ -380,7 +380,7 @@ void CZWeapon::Fire(zdb::CNode *owner, CZWeapon *weapon, CZAmmo *ammo, const CPn
 		CAiEvent *ev = CAiEvent::Acquire();
 		ev->m_pos = *from;
 		ev->m_rangeSq = weapon->m_soundradius * weapon->m_soundradius;
-		ev->m_duration = 0.1f;
+		ev->m_duration = 0.100000002f /* 0x3dcccccd */;
 		ev->m_type = CAiEvent::AIE_WEPFIRE;
 		ev->m_owner = id;
 		CAiEvent::Create(ev);
@@ -413,7 +413,7 @@ void CZWeapon::Fire(CZProjectile& projectile)
 		CAiEvent *ev = CAiEvent::Acquire();
 		ev->m_pos = projectile.m_framestartpos;
 		ev->m_rangeSq = radius * radius;
-		ev->m_duration = 0.1f;
+		ev->m_duration = 0.100000002f /* 0x3dcccccd */;
 		ev->m_type = CAiEvent::AIE_WEPFIRE;
 		ev->m_owner = projectile.m_shooterID;
 		CAiEvent::Create(ev);
@@ -1113,7 +1113,7 @@ bool CZMarkList::ReadDecalNames(char *)
 		for (s32 i = 0; i < m_decal_list_size; i++)
 		{
 			m_decalTexture[i] = NULL;
-			m_decalminsize[i] = 0.3f;
+			m_decalminsize[i] = 0.300000012f /* 0x3e99999a */;
 			m_decalmaxsize[i] = 1.8f;
 		}
 	}
@@ -1180,7 +1180,7 @@ void CZMarkList::ReadWeaponDecals(_zrdr *rdr)
 		if (!zrdr_findSTRING(entry, "MATERIALNAME", &matname))
 			continue;
 
-		f32 minsize = 0.3f;
+		f32 minsize = 0.300000012f /* 0x3e99999a */;
 		f32 maxsize = 1.8f;
 
 		if (!zrdr_findSTRING(entry, "TEXTURENAME", &texname))

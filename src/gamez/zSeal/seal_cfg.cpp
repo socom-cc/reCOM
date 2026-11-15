@@ -391,7 +391,7 @@ bool CZSealBody::ReadMotionRdr()
 			anim->m_pCommon->m_fire_val = MotionTagReal(zrdr_findtag(entry, "NoFire"), 0.0f, 1.0f);
 			anim->m_flags |= 0x4;
 			anim->m_pCommon->m_interrupt_val = MotionTagReal(zrdr_findtag(entry, "NoInterrupt"), 0.0f, 1.0f);
-			anim->m_pCommon->m_blendtime = MotionTagReal(zrdr_findtag(entry, "BlendTime"), 0.4f, 0.4f);
+			anim->m_pCommon->m_blendtime = MotionTagReal(zrdr_findtag(entry, "BlendTime"), 0.400000006f /* 0x3ecccccd */, 0.400000006f /* 0x3ecccccd */);
 
 			_zrdr *normalize = zrdr_findtag(entry, "Normalize");
 

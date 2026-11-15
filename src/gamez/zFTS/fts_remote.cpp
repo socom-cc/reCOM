@@ -265,7 +265,7 @@ void zRemoteClientConnectsCallback(int connection, int client, const char *)
 	if (netGame->m_clock.m_clock_running)
 		time = theMission.GetGameTime();
 	else
-		time = (u32)((f32)netGame->m_clock.m_max_game_time * 0.001f);
+		time = (u32)((f32)netGame->m_clock.m_max_game_time * 0.00100000005f /* 0x3a83126f */);
 
 	if (theNetwork.m_bSessionMaster) /* ELF: tested again */
 	{
@@ -469,7 +469,7 @@ int HitPacketHandler(int, int, int, void *data)
 		CZSealBody *victim = CZSealState::GetBodyFromObjectIndex(packet->victim);
 		CZSealBody *attacker = CZSealState::GetBodyFromObjectIndex(packet->attacker);
 		f32 damage = (f32)(u32)packet->damage;
-		f32 force = 0.05f * (f32)(u32)packet->force;
+		f32 force = 0.0500000008f /* 0x3d4ccccd */ * (f32)(u32)packet->force;
 		DAMAGE_LOCATION location = (DAMAGE_LOCATION)packet->location;
 		bool flag = packet->flag;
 
@@ -848,15 +848,15 @@ void SendWeaponPUMessage(unsigned short weapon, unsigned short pickup, CPnt3D *p
 	CPnt3D euler;
 	rot->ToEuler(&euler);
 
-	f32 t = (3.14159274f + euler.x) * 0.159154937f;
+	f32 t = (3.14159275f /* 0x40490fdb */ + euler.x) * 0.159154937f;
 	if (!(t <= 1.0f)) t = 1.0f; else if (t < 0.0f) t = 0.0f;
 	u32 x = (u32)((s32)(1023.0f * t) << 20);
 
-	t = (3.14159274f + euler.y) * 0.159154937f;
+	t = (3.14159275f /* 0x40490fdb */ + euler.y) * 0.159154937f;
 	if (!(t <= 1.0f)) t = 1.0f; else if (t < 0.0f) t = 0.0f;
 	u32 y = (u32)((s32)(1023.0f * t) << 10);
 
-	t = (3.14159274f + euler.z) * 0.159154937f;
+	t = (3.14159275f /* 0x40490fdb */ + euler.z) * 0.159154937f;
 	if (!(t <= 1.0f)) t = 1.0f; else if (t < 0.0f) t = 0.0f;
 	u32 z = (u32)(s32)(1023.0f * t);
 
@@ -875,9 +875,9 @@ int WeaponPUPacketHandler(int, int, int, void *data)
 	pos.z = packet->pos.z;
 
 	u32 bits = packet->rot;
-	f32 ax = 0.00614192151f * (f32)((bits >> 20) & 0x3ff) - 3.14159274f;
-	f32 ay = 0.00614192151f * (f32)((bits >> 10) & 0x3ff) - 3.14159274f;
-	f32 az = 0.00614192151f * (f32)(bits & 0x3ff) - 3.14159274f;
+	f32 ax = 0.00614192151f * (f32)((bits >> 20) & 0x3ff) - 3.14159275f /* 0x40490fdb */;
+	f32 ay = 0.00614192151f * (f32)((bits >> 10) & 0x3ff) - 3.14159275f /* 0x40490fdb */;
+	f32 az = 0.00614192151f * (f32)(bits & 0x3ff) - 3.14159275f /* 0x40490fdb */;
 
 	CQuat rot;
 	rot.MakeYXZRot(ay, ax, az); /* ELF: f12 bits 10-19, f13 bits 20-29, f14 bits 0-9 */

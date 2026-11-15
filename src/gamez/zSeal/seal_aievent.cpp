@@ -250,7 +250,7 @@ bool CSealCtrlAi::HandleEvent(const CAiEvent *ev)
 	/* @socom-skeleton stub event_autosee$2130 */
 	static float event_autosee = 10000.0f;
 	/* @socom-skeleton stub awareDecrementUnit$2247 */
-	static float awareDecrementUnit = 0.2f;
+	static float awareDecrementUnit = 0.200000003f /* 0x3e4ccccd */;
 	/* @socom-skeleton stub hearReductionHit$2255 */
 	static float hearReductionHit = 0.5f;
 	/* @socom-skeleton stub maxHelpTargetRange$2270 */
@@ -510,14 +510,14 @@ bool CSealCtrlAi::HandleEvent(const CAiEvent *ev)
 			{
 				SetAiAware((AI_AWARE)3, NULL);
 				const CPnt3D *p = aim->GetPosW();
-				ev_take(this, ev, 0.3f + 0.2f * ev_rand01(), p);
+				ev_take(this, ev, 0.300000012f /* 0x3e99999a */ + 0.2f * ev_rand01(), p);
 			}
 			else
 			{
 				SetAiAware((AI_AWARE)3, NULL);
 
 				if (seal != NULL)
-					ev_take(this, ev, 0.3f + 0.2f * ev_rand01(), &seal->m_aim_point);
+					ev_take(this, ev, 0.300000012f /* 0x3e99999a */ + 0.2f * ev_rand01(), &seal->m_aim_point);
 			}
 		}
 

@@ -309,13 +309,13 @@ static unsigned char qlookhead[108] = {20, 121, 38, 63, 138, 62, 127, 62, 125, 2
 static const float FLASHBANG_DOT = 0;
 
 /* @socom-skeleton stub RESTRAINT_DOT */
-static const float RESTRAINT_DOT = cosf(1.48353f); /* __sinit_seal_env.cpp 0x46cee0: cos(85 deg) */
+static const float RESTRAINT_DOT = cosf(1.48352981f /* 0x3fbde44e */); /* __sinit_seal_env.cpp 0x46cee0: cos(85 deg) */
 
 /* @socom-skeleton stub KNIFE_DOT */
 static const float KNIFE_DOT = cosf(0.4363323f); /* cos(25 deg) */
 
 /* @socom-skeleton stub CQB_DOT */
-static const float CQB_DOT = cosf(1.134464f); /* cos(65 deg) */
+static const float CQB_DOT = cosf(1.13446403f /* 0x3f91361e */); /* cos(65 deg) */
 
 /* port: the facing tests the CanUse* functions repeat inline in the ELF, factored out:
  * the dot of the seal's level forward (node -z) with the level unit direction to the other
@@ -410,7 +410,7 @@ CZAnim* CZSealBody::m_smallrippleanim[3];
 std::vector<CZDecalDef> CZSealBody::m_blooddriptexhandles; /* 12 bytes (MSL vector<CZDecalDef>): BLOOD_DRIP_DECALS */
 
 /* @socom-skeleton stub BuddyPickupRefpoint */
-float BuddyPickupRefpoint[3] = { 5.26f, -4.22f, -3.26f }; /* __sinit_seal_env.cpp 0x46d010 (0x40a851ec, 0xc0870a3d, 0xc050a3d7) */
+float BuddyPickupRefpoint[3] = { 5.26000023f, -4.22f, -3.26f }; /* __sinit_seal_env.cpp 0x46d010 (0x40a851ec, 0xc0870a3d, 0xc050a3d7) */
 
 /* @socom-skeleton stub dQlookhead */
 static CQuat dQlookhead[12]; /* 192 bytes: InitLookAnims' turn quaternions */
@@ -581,7 +581,7 @@ zdb::IntersectStruct * CZSealBody::SealGetIntersect(const CPnt3D *from, const CP
 		}
 
 		bool shootable = ex != NULL && hit != NULL && !(hit->m_poly != NULL && hit->m_poly->m_cameratype == 1)
-			&& !ex->m_volumetric && !ex->m_liquid && (ex->m_penetration < 0.99f || ex->m_pickup);
+			&& !ex->m_volumetric && !ex->m_liquid && (ex->m_penetration < 0.99000001f /* 0x3f7d70a4 */ || ex->m_pickup);
 
 		if (!shootable)
 			continue;
@@ -1000,7 +1000,7 @@ bool CZSealBody::CheckDIFwd1(float &fb, float &strafe, float &)
 		move = CPnt3D::unit_nz;
 	}
 
-	along = dist * 1.2f * along;
+	along = dist * 1.20000005f /* 0x3f99999a */ * along;
 
 	if (along < 8.0f)
 		along = 8.0f;
@@ -1284,21 +1284,21 @@ void CZSealBody::HomingTick()
 		motion.y = 0.0f;
 
 	CPnt3D vel(motion.x / m_dT, motion.y / m_dT, motion.z / m_dT);
-	f32 limit = 0.8f / m_dT;
+	f32 limit = 0.800000012f /* 0x3f4ccccd */ / m_dT;
 
 	if (!(vel.x <= limit))
 		vel.x = limit;
 	else if (vel.x < -limit)
 		vel.x = -limit;
 
-	limit = 0.8f / m_dT;
+	limit = 0.800000012f /* 0x3f4ccccd */ / m_dT;
 
 	if (!(vel.y <= limit))
 		vel.y = limit;
 	else if (vel.y < -limit)
 		vel.y = -limit;
 
-	limit = 0.8f / m_dT;
+	limit = 0.800000012f /* 0x3f4ccccd */ / m_dT;
 
 	if (!(vel.z <= limit))
 		vel.z = limit;
@@ -1467,7 +1467,7 @@ void CZSealBody::AlignForClimb(bool down, CPnt3D &at, CPnt3D &top, CPnt3D *norm)
 	if (IsCurrentBlend(AnimType::animTypeStand2Hang))
 	{
 		target.y = 11.78f;
-		target.z = -2.42f;
+		target.z = -2.42000008f /* 0x401ae148 */;
 	}
 	else if (IsCurrentBlend((AnimType)AnimTypes::ClimbMedium))
 	{
@@ -1480,7 +1480,7 @@ void CZSealBody::AlignForClimb(bool down, CPnt3D &at, CPnt3D &top, CPnt3D *norm)
 	else if (IsCurrentBlend((AnimType)AnimTypes::ClimbOver))
 	{
 		target.y = -0.29f;
-		target.z = -2.42f;
+		target.z = -2.42000008f /* 0x401ae148 */;
 	}
 	else if (IsCurrentBlend(AnimType::animTypeClimbCrate))
 	{
@@ -1491,8 +1491,8 @@ void CZSealBody::AlignForClimb(bool down, CPnt3D &at, CPnt3D &top, CPnt3D *norm)
 	}
 	else if (IsCurrentBlend(AnimType::animTypeStand2Ladder))
 	{
-		ref.y = 15.6f;
-		at.y = GetPosW()->y + 15.6f;
+		ref.y = 15.6000004f /* 0x4179999a */;
+		at.y = GetPosW()->y + 15.6000004f /* 0x4179999a */;
 		ref.z += 0.5f;
 	}
 	else
@@ -1555,7 +1555,7 @@ CZBodyAnimBlend * CZSealBody::PreClimbLadderDown()
 	m_blends->Top()->Representative();
 	info->m_goal_norm.Scale(-1.0f, &info->m_goal_norm);
 	top->m_homing.m_blend = top;
-	top->m_homing.m_refpt_m = CPnt3D(0.347f, -1.412f - 11.487f, 3.2f);
+	top->m_homing.m_refpt_m = CPnt3D(0.347000003f /* 0x3eb1a9fc */, -1.412f - 11.487f, 3.20000005f /* 0x404ccccd */);
 	top->m_homing.m_norm_w = info->m_goal_norm;
 	top->m_homing.m_int_w = goal;
 	top->m_homing.m_refvec_m = CPnt3D::unit_z;
@@ -1870,7 +1870,7 @@ bool CZSealBody::PostCheckDIDown(float &fb, float &strafe, float &lr)
 				}
 				else
 				{
-					m_nextJumpTimer = 0.4f;
+					m_nextJumpTimer = 0.400000006f /* 0x3ecccccd */;
 
 					if (m_state != 8 && m_blends->Top()->m_state != 8)
 					{
@@ -2193,7 +2193,7 @@ bool CZSealBody::SetEyeLookDir(float pitch, float yaw, const CPnt3D *, float rat
 	if (pitch >= 0.0f)
 		qx.MakeXRot(pitch * 0.13962634f);
 	else
-		qx.MakeXRot(pitch * -0.24434611f);
+		qx.MakeXRot(pitch * -0.244346113f /* 0x3e7a35de */);
 
 	if (yaw >= 0.0f)
 		qy.MakeYRot(yaw * -0.296706f);
@@ -2203,7 +2203,7 @@ bool CZSealBody::SetEyeLookDir(float pitch, float yaw, const CPnt3D *, float rat
 	qx.Mul(&qy, &q);
 	CPnt3D dir, goal;
 	q.Apply(&CPnt3D::unit_nz, &dir, 1);
-	CalcGoalDir(curr, &dir, &goal, 0.13962634f, -0.24434611f, -0.296706f, 0.296706f);
+	CalcGoalDir(curr, &dir, &goal, 0.13962634f, -0.244346113f /* 0x3e7a35de */, -0.296706f, 0.296706f);
 	m_eyelook->SetDir(&goal, curr, rate * 1.5f);
 	return true;
 }
@@ -2252,7 +2252,7 @@ bool CZSealBody::CalcGoalDir(const CPnt3D *curr, const CPnt3D *dir, CPnt3D *out,
 	if (dir->y < 0.0f)
 		angles.y = -angles.y;
 
-	if (dir->x * CPnt3D::unit_z.x + dir->y * CPnt3D::unit_z.y + dir->z * CPnt3D::unit_z.z > 0.8f)
+	if (dir->x * CPnt3D::unit_z.x + dir->y * CPnt3D::unit_z.y + dir->z * CPnt3D::unit_z.z > 0.800000012f /* 0x3f4ccccd */)
 	{
 		if (curr->x > 0.0f && angles.x < 0.0f)
 			angles.x += 6.2831855f;
@@ -2646,7 +2646,7 @@ void CZSealBody::PitchAnim(CPnt3D *, CPnt3D *aim_goal)
 		axis.x = cross[0];
 		axis.y = cross[1];
 		axis.z = cross[2];
-		axis.Scale(weight * 0.1f, &scaled);
+		axis.Scale(weight * 0.100000002f /* 0x3dcccccd */, &scaled);
 		turn.Exp(&scaled);
 		lo_rot.Mul(&turn, &result);
 		m_spinelo->m_rot = result;
@@ -2664,7 +2664,7 @@ void CZSealBody::PitchAnim(CPnt3D *, CPnt3D *aim_goal)
 		axis.x = cross[0];
 		axis.y = cross[1];
 		axis.z = cross[2];
-		axis.Scale(weight * 0.4f, &scaled);
+		axis.Scale(weight * 0.400000006f /* 0x3ecccccd */, &scaled);
 		turn.Exp(&scaled);
 		hi_rot.Mul(&turn, &result);
 		m_spinehi->m_rot = result;
@@ -2691,7 +2691,7 @@ void CZSealBody::PitchAnim(CPnt3D *, CPnt3D *aim_goal)
 		inverse.Apply(&fire, &fire, 1);
 		fire.Normalize();
 
-		if (fire.z * aim_goal->z + fire.x * aim_goal->x + fire.y * aim_goal->y > 0.999f)
+		if (fire.z * aim_goal->z + fire.x * aim_goal->x + fire.y * aim_goal->y > 0.999000013f /* 0x3f7fbe77 */)
 			return;
 
 		goal = dir;
@@ -2728,7 +2728,7 @@ void CZSealBody::OnWeaponHit(zdb::IntersectStruct* intersection, CZProjectile* p
 		if (m_control != NULL) /* port: guard (the ELF calls through the controller unchecked) */
 			static_cast<CSealCtrl *>(m_control)->OnWeaponHit(intersection, projectile);
 
-		AdrenalineIncr(0.99f);
+		AdrenalineIncr(0.99000001f /* 0x3f7d70a4 */);
 
 		if (intersection == NULL)
 		{
@@ -2828,7 +2828,7 @@ int CZSealBody::HandleFallingDamage(float impact)
 	}
 	else if (damage == 1)
 	{
-		AdrenalineIncr(0.33f);
+		AdrenalineIncr(0.330000014f /* 0x3ea8f5c3 */);
 
 		if (sound != NULL)
 			sound->PlaySound3D(GetPosW(), true, 1.0f, 0, NULL, 255);
@@ -3057,7 +3057,7 @@ void DrawAutoReticle(CPnt3D *point)
 	inner.x = 1.0f;
 	inner.y = 0.0f;
 	inner.z = 0.0f;
-	inner.w = 0.2f;
+	inner.w = 0.200000003f /* 0x3e4ccccd */;
 	CPnt4D outer;
 	outer.x = 1.0f;
 	outer.y = 0.0f;
@@ -3218,7 +3218,7 @@ void CZSealBody::CheckDIShoot(CPnt3D *eye, CMatrix *mat)
 		if (hit->m_poly != NULL && hit->m_poly->m_cameratype == 1)
 			return false;
 
-		return !ex->m_volumetric && !ex->m_liquid && (ex->m_penetration < 0.99f || ex->m_pickup);
+		return !ex->m_volumetric && !ex->m_liquid && (ex->m_penetration < 0.99000001f /* 0x3f7d70a4 */ || ex->m_pickup);
 	};
 
 	s32 count = hits->m_Cnt;
@@ -3348,8 +3348,8 @@ void CZSealBody::CheckDIShoot(CPnt3D *eye, CMatrix *mat)
 	if (!autoaim && blocked != NULL && weapon != NULL && weapon->m_ID != EQUIP_ITEM::BINOCULARS
 		&& ((int)GetWeaponState() == 1 || m_weapon_state == 0x12))
 	{
-		bool same = aimed && !(0.008f < fabsf(blocked->m_pos.x - aimed_at.x))
-			&& !(0.008f < fabsf(blocked->m_pos.y - aimed_at.y)) && !(0.008f < fabsf(blocked->m_pos.z - aimed_at.z));
+		bool same = aimed && !(0.00800000038f /* 0x3c03126f */ < fabsf(blocked->m_pos.x - aimed_at.x))
+			&& !(0.00800000038f /* 0x3c03126f */ < fabsf(blocked->m_pos.y - aimed_at.y)) && !(0.00800000038f /* 0x3c03126f */ < fabsf(blocked->m_pos.z - aimed_at.z));
 
 		if (!same)
 		{
@@ -4493,7 +4493,7 @@ bool CZSealBody::DamageRArm(float damage, float pierce)
 	f32 health = m_rarm_health;
 	s32 level;
 
-	if (health <= max * 0.3f)
+	if (health <= max * 0.300000012f /* 0x3e99999a */)
 		level = 3;
 	else if (!(max * 0.7f < health))
 		level = 2;
@@ -4605,7 +4605,7 @@ bool CZSealBody::DamageLArm(float damage, float pierce)
 	f32 health = m_larm_health;
 	s32 level;
 
-	if (health <= max * 0.3f)
+	if (health <= max * 0.300000012f /* 0x3e99999a */)
 		level = 3;
 	else if (!(max * 0.7f < health))
 		level = 2;
@@ -4645,7 +4645,7 @@ bool CZSealBody::DamageHead(CZProjectile *projectile)
 			level = 3;
 		else if (health <= m_head_healthMax * 0.5f)
 			level = 2;
-		else if (health <= m_head_healthMax * 0.99f)
+		else if (health <= m_head_healthMax * 0.99000001f /* 0x3f7d70a4 */)
 			level = 1;
 		else
 			level = 0;
@@ -4818,7 +4818,7 @@ bool CZSealBody::DamageLLeg(float damage, float pierce)
 	f32 health = m_lleg_health;
 	s32 level;
 
-	if (health <= max * 0.3f)
+	if (health <= max * 0.300000012f /* 0x3e99999a */)
 		level = 3;
 	else if (!(max * 0.7f < health))
 		level = 2;
@@ -4930,7 +4930,7 @@ bool CZSealBody::DamageRLeg(float damage, float pierce)
 	f32 health = m_rleg_health;
 	s32 level;
 
-	if (health <= max * 0.3f)
+	if (health <= max * 0.300000012f /* 0x3e99999a */)
 		level = 3;
 	else if (!(max * 0.7f < health))
 		level = 2;
@@ -5038,9 +5038,9 @@ bool CZSealBody::DamageBody(f32 damage, f32 pierce)
 	f32 health = m_body_health;
 	s32 level;
 
-	if (health <= max * 0.1f)
+	if (health <= max * 0.100000002f /* 0x3dcccccd */)
 		level = 4;
-	else if (health <= max * 0.3f)
+	else if (health <= max * 0.300000012f /* 0x3e99999a */)
 		level = 3;
 	else if (health <= max * 0.7f)
 		level = 2;
@@ -5066,7 +5066,7 @@ int CZSealBody::GetHeadDamage(float health, float max)
 		return 3;
 	if (health <= 0.5f * max)
 		return 2;
-	if (health <= 0.99f * max)
+	if (health <= 0.99000001f /* 0x3f7d70a4 */ * max)
 		return 1;
 	return 0;
 }
@@ -5075,7 +5075,7 @@ int CZSealBody::GetHeadDamage(float health, float max)
 int CZSealBody::GetLegDamage(float health, float max)
 {
 	/* 0x294a70: 3 at 0.3 of max, 2 at 0.7, 1 at 0.9, else 0 */
-	if (health <= 0.3f * max)
+	if (health <= 0.300000012f /* 0x3e99999a */ * max)
 		return 3;
 	if (health <= 0.7f * max)
 		return 2;
@@ -5088,7 +5088,7 @@ int CZSealBody::GetLegDamage(float health, float max)
 int CZSealBody::GetArmDamage(float health, float max)
 {
 	/* 0x2949f0: as the legs (0.3, 0.7, 0.9) */
-	if (health <= 0.3f * max)
+	if (health <= 0.300000012f /* 0x3e99999a */ * max)
 		return 3;
 	if (health <= 0.7f * max)
 		return 2;
@@ -5101,9 +5101,9 @@ int CZSealBody::GetArmDamage(float health, float max)
 int CZSealBody::GetBodyDamage(float health, float max)
 {
 	/* 0x294940: 4 at 0.1 of max, 3 at 0.3, 2 at 0.7, 1 at 0.9, else 0 */
-	if (health <= 0.1f * max)
+	if (health <= 0.100000002f /* 0x3dcccccd */ * max)
 		return 4;
-	if (health <= 0.3f * max)
+	if (health <= 0.300000012f /* 0x3e99999a */ * max)
 		return 3;
 	if (health <= 0.7f * max)
 		return 2;
@@ -5128,12 +5128,12 @@ void CZSealBody::UpdateHealth(DAMAGE_LOCATION location, SEAL_DEATH_TYPE death)
 	f32 max = m_body_healthMax;
 	f32 body;
 
-	if (h <= max * 0.1f)
+	if (h <= max * 0.100000002f /* 0x3dcccccd */)
 	{
 		dead = true;
 		body = 0.0f;
 	}
-	else if (h <= max * 0.3f)
+	else if (h <= max * 0.300000012f /* 0x3e99999a */)
 	{
 		body = 0.25f;
 	}
@@ -5160,9 +5160,9 @@ void CZSealBody::UpdateHealth(DAMAGE_LOCATION location, SEAL_DEATH_TYPE death)
 	}
 	else if (h <= m_head_healthMax * 0.5f)
 	{
-		head = 0.1f;
+		head = 0.100000002f /* 0x3dcccccd */;
 	}
-	else if (h <= m_head_healthMax * 0.99f)
+	else if (h <= m_head_healthMax * 0.99000001f /* 0x3f7d70a4 */)
 	{
 		head = 0.5f;
 	}
@@ -5173,7 +5173,7 @@ void CZSealBody::UpdateHealth(DAMAGE_LOCATION location, SEAL_DEATH_TYPE death)
 
 	auto limb = [](f32 health, f32 limit)
 	{
-		if (health <= limit * 0.3f)
+		if (health <= limit * 0.300000012f /* 0x3e99999a */)
 			return 0.25f;
 
 		if (!(limit * 0.7f < health))
@@ -5912,7 +5912,7 @@ void CZSealBody::WeaponHitAnim(AnimType anim, SEAL_STATE state, bool mirror)
 
 		f32 t = top->m_tfrac;
 
-		if (!(t <= 0.5f) || t < 0.05f || !(m_numDeathAnimsPlayed < 2))
+		if (!(t <= 0.5f) || t < 0.0500000008f /* 0x3d4ccccd */ || !(m_numDeathAnimsPlayed < 2))
 			return;
 
 		AnimType death = FindRandomDeathAnim((DAMAGE_LOCATION)3, &mirror);
@@ -6158,8 +6158,8 @@ void CZSealBody::SetBodyDamage(int level)
 	f32 f = 1.0f;
 	switch (level)
 	{
-	case 4: f = 0.1f; break;
-	case 3: f = 0.3f; break;
+	case 4: f = 0.100000002f /* 0x3dcccccd */; break;
+	case 3: f = 0.300000012f /* 0x3e99999a */; break;
 	case 2: f = 0.7f; break;
 	case 1: f = 0.9f; break;
 	}
@@ -6181,7 +6181,7 @@ void CZSealBody::SetHeadDamage(int level)
 	case 4: f = 0.7f; break;
 	case 3: f = 0.0f; break;
 	case 2: f = 0.5f; break;
-	case 1: f = 0.99f; break;
+	case 1: f = 0.99000001f /* 0x3f7d70a4 */; break;
 	}
 	m_head_health = f * m_head_healthMax - 0.01f;
 	UpdateHealth((DAMAGE_LOCATION)0, (SEAL_DEATH_TYPE)3);
@@ -6197,8 +6197,8 @@ void CZSealBody::SetLArmDamage(int level)
 	f32 f = 1.0f;
 	switch (level)
 	{
-	case 4: f = 0.3f; break;
-	case 3: f = 0.3f; break;
+	case 4: f = 0.300000012f /* 0x3e99999a */; break;
+	case 3: f = 0.300000012f /* 0x3e99999a */; break;
 	case 2: f = 0.7f; break;
 	case 1: f = 0.9f; break;
 	}
@@ -6215,8 +6215,8 @@ void CZSealBody::SetRArmDamage(int level)
 	f32 f = 1.0f;
 	switch (level)
 	{
-	case 4: f = 0.3f; break;
-	case 3: f = 0.3f; break;
+	case 4: f = 0.300000012f /* 0x3e99999a */; break;
+	case 3: f = 0.300000012f /* 0x3e99999a */; break;
 	case 2: f = 0.7f; break;
 	case 1: f = 0.9f; break;
 	}
@@ -6233,8 +6233,8 @@ void CZSealBody::SetLLegDamage(int level)
 	f32 f = 1.0f;
 	switch (level)
 	{
-	case 4: f = 0.3f; break;
-	case 3: f = 0.3f; break;
+	case 4: f = 0.300000012f /* 0x3e99999a */; break;
+	case 3: f = 0.300000012f /* 0x3e99999a */; break;
 	case 2: f = 0.7f; break;
 	case 1: f = 0.9f; break;
 	}
@@ -6251,8 +6251,8 @@ void CZSealBody::SetRLegDamage(int level)
 	f32 f = 1.0f;
 	switch (level)
 	{
-	case 4: f = 0.3f; break;
-	case 3: f = 0.3f; break;
+	case 4: f = 0.300000012f /* 0x3e99999a */; break;
+	case 3: f = 0.300000012f /* 0x3e99999a */; break;
 	case 2: f = 0.7f; break;
 	case 1: f = 0.9f; break;
 	}
@@ -6308,13 +6308,13 @@ int CZSealBody::GetNumExplosiveHits(CZProjectile *projectile)
 	s32 hits = dsq < 400.0f ? 3 : 0;
 	f32 r = (f32)rand() * 4.656613e-10f;
 
-	if (r < 0.05f)
+	if (r < 0.0500000008f /* 0x3d4ccccd */)
 		hits += 1;
-	else if (r < 0.15f)
+	else if (r < 0.150000006f /* 0x3e19999a */)
 		hits += 2;
 	else if (r < 0.5f)
 		hits += 3;
-	else if (r < 0.85f)
+	else if (r < 0.850000024f /* 0x3f59999a */)
 		hits += 4;
 	else if (r < 0.95f)
 		hits += 5;
@@ -6564,7 +6564,7 @@ DAMAGE_LOCATION CZSealBody::DamageRandomLocation(CZProjectile *projectile)
 	bool body = false;
 	s32 location = 0;
 
-	if (r < 0.1f)
+	if (r < 0.100000002f /* 0x3dcccccd */)
 	{
 		if (!(m_head_health <= 0.0f) && damage != 0.0f)
 		{
@@ -6577,7 +6577,7 @@ DAMAGE_LOCATION CZSealBody::DamageRandomLocation(CZProjectile *projectile)
 				level = 3;
 			else if (health <= 0.5f * max)
 				level = 2;
-			else if (health <= 0.99f * max)
+			else if (health <= 0.99000001f /* 0x3f7d70a4 */ * max)
 				level = 1;
 			else
 				level = 0;
@@ -6592,12 +6592,12 @@ DAMAGE_LOCATION CZSealBody::DamageRandomLocation(CZProjectile *projectile)
 
 		location = 0;
 	}
-	else if (r < 0.4f)
+	else if (r < 0.400000006f /* 0x3ecccccd */)
 	{
 		DamageBody(damage, pierce);
 		location = 3;
 	}
-	else if (r < 0.55f)
+	else if (r < 0.550000012f /* 0x3f0ccccd */)
 	{
 		if (m_larm_health <= 0.0f)
 			body = true;
@@ -6615,7 +6615,7 @@ DAMAGE_LOCATION CZSealBody::DamageRandomLocation(CZProjectile *projectile)
 
 		location = 1;
 	}
-	else if (r < 0.8f)
+	else if (r < 0.800000012f /* 0x3f4ccccd */)
 	{
 		if (m_lleg_health <= 0.0f)
 			body = true;

@@ -167,11 +167,11 @@ CCamera::CCamera() : CNode()
 
 		m_fog_enabled = 1;
 		/* the binary reads m_far_plane here, before it is set below */
-		m_fog_near = m_far_plane * 0.4f;
+		m_fog_near = m_far_plane * 0.400000006f /* 0x3ecccccd */;
 		m_fog_far = m_far_plane * 0.9f;
 		m_fog_mid = m_fog_far;
 		m_fog_density = 1.0f;
-		m_fog_color.x = 0.4f;
+		m_fog_color.x = 0.400000006f /* 0x3ecccccd */;
 		m_fog_color.y = 0.0f;
 		m_fog_color.z = 0.0f;
 		m_fog_color.w = 1.0f;
@@ -650,10 +650,10 @@ bool CCamera::CmdTickParams(_zanim_cmd_hdr* header, f32* dT)
 
 		if (ParamsSample<_camera_param_2d_data>(cmd, cmd->fov_offset, cmd->fov_count, time, v))
 		{
-			camera->SetHalfHorizontalFOVRadians(0.017453292f * (0.5f * v[0]));
+			camera->SetHalfHorizontalFOVRadians(0.0174532924f /* 0x3c8efa35 */ * (0.5f * v[0]));
 			/* ELF: stores the vertical half angle, then SetHalfVerticalFOVRadians' inline body
 			   replaces it with the horizontal one scaled to the screen */
-			camera->m_vfov = 0.017453292f * (0.5f * v[1]);
+			camera->m_vfov = 0.0174532924f /* 0x3c8efa35 */ * (0.5f * v[1]);
 			camera->SetHalfVerticalFOVRadians(camera->m_vfov);
 		}
 

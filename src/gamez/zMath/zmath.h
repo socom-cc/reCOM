@@ -52,8 +52,8 @@ void zMath_Init();
 
 /* tableInit, sintbl, costbl, exptbl are file-local in zmath_trig.cpp (LOCAL symbols) */
 
-const f32 PI = 3.141593f;
-const f32 RAD_TO_DEG = 0.01745329f;
+const f32 PI = 3.141593f; /* port: GCC r5900 rounds toward zero -> 0x40490fdb, the ELF's word (TickCameraWiggle 0x1ea710) */
+const f32 RAD_TO_DEG = 0.0174532924f; /* 0x3c8efa35: the ELF's word at all 23 uses (CharacterDynamics::Load 0x28a560) */
 
 
 void init_trig_table();

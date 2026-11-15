@@ -584,9 +584,9 @@ void CSealCtrlAi::FollowTick(float dT)
 	/* @socom-skeleton stub waitUpResetTime$2356 */
 	static float waitUpResetTime = 10.0f;
 	/* @socom-skeleton stub a_followMultiplier$2441 */
-	static float a_followMultiplier = 0.2f; /* ELF: unused */
+	static float a_followMultiplier = 0.200000003f /* 0x3e4ccccd */; /* ELF: unused */
 	/* @socom-skeleton stub a_pathMultiplier$2444 */
-	static float a_pathMultiplier = 0.1f;
+	static float a_pathMultiplier = 0.100000002f /* 0x3dcccccd */;
 	/* @socom-skeleton stub b_acceptablePathSlop$2449 */
 	static int b_acceptablePathSlop = 3;
 	/* @socom-skeleton stub acceptablePathDelta$2455 */
@@ -653,7 +653,7 @@ void CSealCtrlAi::FollowTick(float dT)
 			vel.Normalize();
 			f32 dot = vel.x * away.x + vel.y * away.y + vel.z * away.z;
 
-			if (!(dot <= 0.3f))
+			if (!(dot <= 0.300000012f /* 0x3e99999a */))
 				masterComing = true;
 			/* ELF: else away.x += dot (dead) */
 		}
@@ -680,9 +680,9 @@ void CSealCtrlAi::FollowTick(float dT)
 	CAiMapLoc myLoc = seal->m_mapLocValid;
 	CAiMapLoc goalLoc;
 	CPnt3D goal;
-	f32 z = 0.1f * m_followOfs.z;
+	f32 z = 0.100000002f /* 0x3dcccccd */ * m_followOfs.z;
 	s32 back = m_followOfs.z < 0.0f ? (s32)(-floorf(z)) : (s32)(-ceilf(z));
-	f32 x = 0.1f * m_followOfs.x;
+	f32 x = 0.100000002f /* 0x3dcccccd */ * m_followOfs.x;
 	s32 across = m_followOfs.x < 0.0f ? (s32)(-floorf(x)) : (s32)(-ceilf(x));
 
 	if (snake != NULL)
@@ -967,7 +967,7 @@ void CSealCtrlAi::FollowTick(float dT)
 		if (SetLookDirW(AIL_TASK, look))
 		{
 			ModifyLookFlags(5, 0);
-			SetScanAngle(0.3490658f);
+			SetScanAngle(0.349065841f /* 0x3eb2b8c2 */);
 			SetLookTimer(10.0f);
 		}
 

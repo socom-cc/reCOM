@@ -172,13 +172,13 @@ bool CCinematicState::Tick(float dT)
 	CInput::Tick(dT);
 
 	if (CInput::m_pads[0] != NULL && CInput::m_pads[0]->m_state[(int)PAD_BUTTON::PAD_CROSS] == KEY_FALLING && m_fadeTime < 0.0f)
-		m_fadeTime = 1.1f;
+		m_fadeTime = 1.10000003f /* 0x3f8ccccd */;
 
 	if (!(m_fadeTime <= 0.0f))
 	{
 		m_fadeTime -= dT;
 
-		if (m_fadeTime < 0.1f)
+		if (m_fadeTime < 0.100000002f /* 0x3dcccccd */)
 		{
 			CVideo::Fade(0.0f, 0, 0, 0);
 
@@ -190,7 +190,7 @@ bool CCinematicState::Tick(float dT)
 		}
 		else
 		{
-			CVideo::Fade(m_fadeTime - 0.1f, 0, 0, 0);
+			CVideo::Fade(m_fadeTime - 0.100000002f /* 0x3dcccccd */, 0, 0, 0);
 		}
 	}
 
@@ -312,7 +312,7 @@ bool CCoreState::Init()
 	CRdrArchive::CloseAll();
 	CRdrArchive::RemoveArchive("readerm.zar", GetDatabase());
 
-	zTaskScheduler.AddTask("UnitTick", CSealUnit::TickAll, 0.8f, NULL);
+	zTaskScheduler.AddTask("UnitTick", CSealUnit::TickAll, 0.800000012f /* 0x3f4ccccd */, NULL);
 	zTaskScheduler.AddTask("ai_pre_tick", CSealCtrlAi::PreTick, 0.9f, NULL);
 	zTaskScheduler.AddTask("entity_pre_tick", CEntity::PreTickAll, 1.0f, NULL);
 	zTaskScheduler.AddTask("weapon_pre_tick", CZWeapon::PreTick, 3.0f, NULL);
@@ -322,7 +322,7 @@ bool CCoreState::Init()
 	zTaskScheduler.AddTask("entity_post_tick", CEntity::PostTickAll, 6.0f, NULL);
 	zTaskScheduler.AddTask("weapon_post_tick", CZWeapon::PostTick, 8.0f, NULL);
 	zTaskScheduler.AddTask("ai_route_planner", ai::TickPathPlanner, 10.5f, NULL);
-	zTaskScheduler.AddTask("ai_post_tick", CSealCtrlAi::PostTick, 10.6f, NULL);
+	zTaskScheduler.AddTask("ai_post_tick", CSealCtrlAi::PostTick, 10.6000004f /* 0x4129999a */, NULL);
 	zTaskScheduler.AddTask("sound_post_tick", CSnd::PostTick, 11.0f, NULL);
 
 	appCamera->m_camera->GetLandmarkFarPlane(m_world);

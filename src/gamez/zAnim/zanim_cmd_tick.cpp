@@ -1704,7 +1704,7 @@ bool zAnimObjectMotionTick(_zanim_cmd_hdr *header, float *dT)
 				/* the ray is skipped for a slow, nearly vertical fall */
 				if (cmd->flags & 0x80)
 				{
-					if (!(step.y < 0.0f) || !(flat <= step.y * step.y) || !(flat <= 0.1f))
+					if (!(step.y < 0.0f) || !(flat <= step.y * step.y) || !(flat <= 0.100000002f /* 0x3dcccccd */))
 						ray = true;
 				}
 
@@ -1827,7 +1827,7 @@ bool zAnimObjectMotionTick(_zanim_cmd_hdr *header, float *dT)
 						f32 accel_len = sqrtf(accel->x * accel->x + accel->y * accel->y + accel->z * accel->z);
 						f32 speed = sqrtf(velocity->x * velocity->x + velocity->y * velocity->y + velocity->z * velocity->z);
 
-						if (isect->m_norm.y > 0.3f && fall <= 0.0f && speed < 0.08f * accel_len)
+						if (isect->m_norm.y > 0.300000012f /* 0x3e99999a */ && fall <= 0.0f && speed < 0.08f * accel_len)
 						{
 							done = true;
 							step = CPnt3D::zero;
@@ -1836,7 +1836,7 @@ bool zAnimObjectMotionTick(_zanim_cmd_hdr *header, float *dT)
 						{
 							velocity->Scale(remaining, &step);
 
-							if (isect->m_norm.y > 0.3f)
+							if (isect->m_norm.y > 0.300000012f /* 0x3e99999a */)
 							{
 								accel_dt = remaining;
 								cmd->accel[1] = cmd->gravity_scale * ZAnim.m_gravity;

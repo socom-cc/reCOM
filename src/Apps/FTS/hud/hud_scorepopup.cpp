@@ -304,9 +304,9 @@ void SetupBackgroundBox()
 	f32 right = (f32)g_iBoxRightX;
 
 	g_bmpUlCorner.Load(left, top, 20.0f + left, 20.0f + top, zdb::CAssetMgr::m_assets.GetTexHandle(c_szCornerBoxesTx));
-	g_bmpUlCorner.SetUV(1.0f, 0.0f, 0.8843931f, 0.2702703f);
+	g_bmpUlCorner.SetUV(1.0f, 0.0f, 0.8843931f, 0.270270259f /* 0x3e8a60dd */);
 	g_bmpUrCorner.Load(right - 20.0f, top, right, 20.0f + top, zdb::CAssetMgr::m_assets.GetTexHandle(c_szCornerBoxesTx));
-	g_bmpUrCorner.SetUV(0.8843931f, 0.0f, 1.0f, 0.2702703f);
+	g_bmpUrCorner.SetUV(0.8843931f, 0.0f, 1.0f, 0.270270259f /* 0x3e8a60dd */);
 	g_bmpLlCorner.Load(left, 334.0f, 20.0f + left, 354.0f, zdb::CAssetMgr::m_assets.GetTexHandle(c_szCornerBoxesTx));
 	g_bmpLlCorner.SetUV(1.0f, 0.7297298f, 0.8843931f, 1.0f);
 	g_bmpLrCorner.Load(right - 20.0f, 334.0f, right, 354.0f, zdb::CAssetMgr::m_assets.GetTexHandle(c_szCornerBoxesTx));
@@ -317,7 +317,7 @@ void SetupBackgroundBox()
 	f32 innerRight = right - 20.0f;
 	f32 innerTop = 20.0f + top;
 	g_bmpTopEdge.Load(innerLeft, top, innerRight, innerTop, texture);
-	g_bmpTopEdge.SetUV(0.5f, 0.0f, 0.5f, 0.2702703f);
+	g_bmpTopEdge.SetUV(0.5f, 0.0f, 0.5f, 0.270270259f /* 0x3e8a60dd */);
 	g_bmpLeftEdge.Load(left, innerTop, innerLeft, 334.0f, texture);
 	g_bmpLeftEdge.SetUV(1.0f, 0.5f, 0.8843931f, 0.5f);
 	g_bmpRightEdge.Load(innerRight, innerTop, right, 334.0f, texture);
@@ -423,7 +423,7 @@ void CTeamDisplay::SetupTeam(float top, float red, float green, float blue, cons
 	sprintf(strWins._ach, "%d", (theMission.m_pNetGame->*score)());
 	strcat(text, strWins._ach);
 	s32 y = (s32)(20.0f + top);
-	_arrStrs[0].Load(0.8f, text, font, g_iBoxLeftX + 20, y);
+	_arrStrs[0].Load(0.800000012f /* 0x3f4ccccd */, text, font, g_iBoxLeftX + 20, y);
 	_arrStrs[1].Load(0.72f, "FRAGS", font, g_iBoxRightX - 110, y);
 	_arrStrs[2].Load(0.72f, "DEATHS", font, g_iBoxRightX - 55, y);
 	_bmpDivider.Load(3.0f + (f32)g_iBoxLeftX, bottom, (f32)g_iBoxRightX - 3.0f, 3.0f + bottom,

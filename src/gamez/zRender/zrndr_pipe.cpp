@@ -1099,7 +1099,7 @@ void CPipe::RenderNode(zdb::CNode* node, zdb::tag_ZVIS_FOV fov)
 	f32 nodeOpacity = node->m_Opacity;
 	bool doAlpha = false;
 
-	if (nodeOpacity < 0.99f)
+	if (nodeOpacity < 0.99000001f /* 0x3f7d70a4 */)
 	{
 		m_opacity_stack_index++;
 
@@ -1226,7 +1226,7 @@ void CPipe::RenderMesh(zdb::CNode *node, zdb::CMesh *mesh, CMatrix *mvp, zdb::ta
 	f32 nodeOpacity = node->m_Opacity;
 	bool doAlpha = false;
 
-	if (nodeOpacity < 0.99f)
+	if (nodeOpacity < 0.99000001f /* 0x3f7d70a4 */)
 	{
 		m_opacity_stack_index++;
 
@@ -1297,7 +1297,7 @@ void CPipe::SaveDelayedNode(CMatrix *mvp, zdb::CNode *node, zdb::tag_ZVIS_FOV fo
 	entry->m_globalLightScale = zdb::CVisual::m_GlobalLightScale;
 	entry->m_fog = m_doFog;
 
-	if (!(entry->m_opacity < 0.99f))
+	if (!(entry->m_opacity < 0.99000001f /* 0x3f7d70a4 */))
 		return;
 
 	for (u32 i = 0; i < node->m_visual.size(); i++)
@@ -1731,7 +1731,7 @@ void CPipe::RenderUiNodeRecursive(zdb::CNode* node)
 	zdb::CVisual::m_stack_vid.push_back(node->m_vid);
 	stack.Multiply(&node->m_matrix, true);
 
-	if (node->m_Opacity < 0.99f)
+	if (node->m_Opacity < 0.99000001f /* 0x3f7d70a4 */)
 	{
 		m_opacity_stack_index++;
 		if (m_opacity_stack_index == m_opacity_stack_size)

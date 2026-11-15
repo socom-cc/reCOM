@@ -124,7 +124,7 @@ void Particle::Source::Default()
 
 	m_drawType = PARTICLE_STANDARD;
 	m_streakLen = 1.0f;
-	m_streakFade = 0.3f;
+	m_streakFade = 0.300000012f /* 0x3e99999a */;
 	m_shuttingoff = false;
 	m_goodPos = false;
 	m_distInterval = false;

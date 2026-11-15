@@ -464,7 +464,7 @@ void CHUD::StatusLine()
 					Draw2DLine(&from, &to, &colorFrom, &colorTo);
 
 					sprintf(lines[count++], "%-15s %c %6.1f %6.2f", ent->m_node->m_name, ai->m_snoozing ? 'Z' : 'A',
-						(double)(0.1f * seen->GetRange()), (double)seen->m_visibility);
+						(double)(0.100000002f /* 0x3dcccccd */ * seen->GetRange()), (double)seen->m_visibility);
 				}
 			}
 		}

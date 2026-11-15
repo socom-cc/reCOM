@@ -295,7 +295,7 @@ CZNewHudMap::~CZNewHudMap()
 float CZNewHudMap::GetZoomOut() const
 {
 	/* 0x3c6470: the shown world width over 2200 (4.5455e-4) */
-	return 4.5454545e-4f * m_width;
+	return 0.000454545458f /* 0x39ee500f */ * m_width;
 }
 
 /* @socom-skeleton stub ReInit__11CZNewHudMapFv */
@@ -577,7 +577,7 @@ void CZNewHudMap::CalcNewMatrix()
 
 	float angle = 1.5707964f + heading;
 
-	if (!(angle < 3.1415927f))
+	if (!(angle < 3.14159275f /* 0x40490fdb */))
 		angle -= 6.2831855f;
 
 	sceVu0RotMatrixY(reinterpret_cast<sceVu0FVECTOR*>(m_matrix.m_matrix), reinterpret_cast<sceVu0FVECTOR*>(m_matrix.m_matrix), angle);
@@ -1120,7 +1120,7 @@ void CZNewHudMap::TickFullScreenAnims(float dT) const
 
 	for (u32 i = 0; i < 7; i++)
 	{
-		float start = 0.1f * (float)(s32)i;
+		float start = 0.100000002f /* 0x3dcccccd */ * (float)(s32)i;
 		float f;
 
 		if (g_fShowTime <= start)
@@ -1143,7 +1143,7 @@ void CZNewHudMap::TickFullScreenAnims(float dT) const
 
 	for (u32 i = 0; i < 9; i++)
 	{
-		float start = 0.1f * (float)(s32)i;
+		float start = 0.100000002f /* 0x3dcccccd */ * (float)(s32)i;
 		float f;
 
 		if (g_fShowTime <= start)

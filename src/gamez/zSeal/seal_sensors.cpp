@@ -153,7 +153,7 @@ static int diMaxSpecial = 1;
 static float vis_rate_min = -0.15000000596046448f;
 
 /* @socom-skeleton stub vis_rate_max */
-static float vis_rate_max = 1.149999976158142f;
+static float vis_rate_max = 1.14999998f /* 0x3f933333 */;
 
 /* @socom-skeleton stub vis_rate_see */
 static float vis_rate_see = 1.0f;
@@ -920,7 +920,7 @@ void CSealCtrlAi::SensorPreTick(float dT)
 
 		if (event && PushAiState(STATE_EVENT, true))
 		{
-			f32 delay = m_navyseal ? 0.2f : 1.5f * (1.2f - m_aiParams.training);
+			f32 delay = m_navyseal ? 0.200000003f /* 0x3e4ccccd */ : 1.5f * (1.20000005f /* 0x3f99999a */ - m_aiParams.training);
 			f32 frac = d2 / r;
 			CAiState *state = GetAiState();
 			CAiSEvent *ev = state->m_state == STATE_EVENT ? static_cast<CAiSEvent *>(state) : NULL;
@@ -1000,7 +1000,7 @@ void CSealCtrlAi::OnSetTargetVisible(CTarget &target, bool visible, zdb::DiInter
 	static float threatRangeThreshold = 1000000.0f;
 	static float threatRangeFactor = 1e-6f;
 	static float threatWEPFactor = 0.35f;
-	static float threatHostileFactor = 0.3f;
+	static float threatHostileFactor = 0.300000012f /* 0x3e99999a */;
 	static float threatFacingFactor = 0.35f;
 	static float threatBuddyBonus = -1.5f;
 	static float threatVerticalThreshold = -20.0f;
@@ -1168,7 +1168,7 @@ void CSealCtrl::SensorTick(float)
 	static float threatRangeThreshold = 1000000.0f;
 	static float threatRangeFactor = 1e-6f; /* 0x358637bd */
 	static float threatWEPFactor = 0.35f;
-	static float threatHostileFactor = 0.3f;
+	static float threatHostileFactor = 0.300000012f /* 0x3e99999a */;
 	static float threatFacingFactor = 0.35f;
 	static float threatBuddyBonus = -1.5f;
 	static float threatVerticalThreshold = -20.0f;
@@ -1347,7 +1347,7 @@ void CSealCtrlAi::EnemyCallout(const CTarget *target, CEntity *listener)
 	/* @socom-skeleton stub MoveSqThresh$2902 */
 	static float MoveSqThresh = 800.0f; /* ELF: set on the first use (guard init$2903) */
 	/* @socom-skeleton stub HighHeight$2905 */
-	static float HighHeight = 0.15f; /* ELF: set on the first use (guard init$2906) */
+	static float HighHeight = 0.150000006f /* 0x3e19999a */; /* ELF: set on the first use (guard init$2906) */
 	CEntity* ent = target != NULL ? target->m_ent : NULL;
 
 	if (ent == NULL)
@@ -1834,7 +1834,7 @@ void CSealCtrlAi::PerturbAimVector(CPnt3D *dir)
 	f32 accuracy = weapon * own;
 
 	if (m_navyseal)
-		accuracy *= 1.2f;
+		accuracy *= 1.20000005f /* 0x3f99999a */;
 
 	saturate<f32>(accuracy, 0.0f, 1.0f);
 	m_target.ModifyAimDir(dir, accuracy, aiAccuracyAngle);

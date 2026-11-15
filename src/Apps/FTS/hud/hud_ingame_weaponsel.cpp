@@ -131,8 +131,8 @@ void CInGameWeaponSel::Init(zdb::CWorld *world, C2DFont *font)
 	push_back(&m_selectionback[2]);
 	push_back(&m_weaponicon[2]);
 	push_back(&m_selectedtext[2]);
-	m_selectionback[2].SetUV(0.01f, 0.99f, 0.99f, 0.01f);
-	m_selectionback[0].SetUV(0.1f, 0.01f, 0.99f, 0.99f);
+	m_selectionback[2].SetUV(0.01f, 0.99000001f /* 0x3f7d70a4 */, 0.99000001f /* 0x3f7d70a4 */, 0.01f);
+	m_selectionback[0].SetUV(0.100000002f /* 0x3dcccccd */, 0.01f, 0.99000001f /* 0x3f7d70a4 */, 0.99000001f /* 0x3f7d70a4 */);
 	push_back(&m_selectionback[1]);
 	push_back(&m_weaponicon[1]);
 	push_back(&m_selectedtext[1]);
@@ -144,7 +144,7 @@ void CInGameWeaponSel::Init(zdb::CWorld *world, C2DFont *font)
 
 	m_arrow[0].Off();
 	m_arrow[1].Off();
-	m_arrow[0].SetUV(0.0f, 0.05f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.05f);
+	m_arrow[0].SetUV(0.0f, 0.0500000008f /* 0x3d4ccccd */, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0500000008f /* 0x3d4ccccd */);
 	m_arrow[0].SetTrans(70.0f);
 	m_arrow[1].SetTrans(70.0f);
 	m_arrow[0].SetColor(50.0f, 50.0f, 50.0f);
@@ -192,7 +192,7 @@ void CInGameWeaponSel::Init(zdb::CWorld *world, C2DFont *font)
 	f32 left = m_menuposx[1] - 1.0f;
 	m_weaponselbkrnd.Load(left, top, left + 171.0f, top + 256.0f, m_weaponselbkrndtex);
 	m_selectionback[1].Load(m_menuposx[1] - 1.0f, m_menuposy[1] - 1.0f, (m_menuposx[1] + 128.0f) + 2.0f, (m_menuposy[1] + 32.0f) + 2.0f, m_selectionbacktex[1]);
-	m_selectionback[1].SetUV(0.01f, 0.01f, 0.99f, 0.99f);
+	m_selectionback[1].SetUV(0.01f, 0.01f, 0.99000001f /* 0x3f7d70a4 */, 0.99000001f /* 0x3f7d70a4 */);
 	m_weaponicon[1].Load(m_menuposx[1] + m_iconoffsetx, m_menuposy[1] + m_iconoffsety, m_weapontex[1]);
 
 	s32 x = (s32)(m_menuposx[1] + m_nameoffsetx);
@@ -392,14 +392,14 @@ void CInGameWeaponSel::HandleOpenState(CPad *pad, float dT)
 
 	if (!m_incCurcolor)
 	{
-		m_curcolor = Increment(0.3f * dT, m_curcolor, 0.1f);
+		m_curcolor = Increment(0.300000012f /* 0x3e99999a */ * dT, m_curcolor, 0.100000002f /* 0x3dcccccd */);
 
-		if (0.1f == m_curcolor)
+		if (0.100000002f /* 0x3dcccccd */ == m_curcolor)
 			m_incCurcolor = true;
 	}
 	else
 	{
-		m_curcolor = Increment(0.3f * dT, m_curcolor, 0.7f);
+		m_curcolor = Increment(0.300000012f /* 0x3e99999a */ * dT, m_curcolor, 0.7f);
 
 		if (0.7f == m_curcolor)
 			m_incCurcolor = false;
@@ -1189,7 +1189,7 @@ void CInGameWeaponSel::PlaceWeaponText()
 	CHUD::HudText_to_upper(tempstr);
 	s32 ix = (s32)x;
 	s32 iy = (s32)y;
-	m_weaponname.Load(0.8f, tempstr, m_myfont, ix, iy);
+	m_weaponname.Load(0.800000012f /* 0x3f4ccccd */, tempstr, m_myfont, ix, iy);
 
 	if (capacity == 0)
 	{
@@ -1198,7 +1198,7 @@ void CInGameWeaponSel::PlaceWeaponText()
 	else
 	{
 		sprintf(tempstr, "%d/%d", capacity, capacity);
-		m_ammocount.Load(0.8f, tempstr, m_myfont, (s32)(80.0f + x), iy);
+		m_ammocount.Load(0.800000012f /* 0x3f4ccccd */, tempstr, m_myfont, (s32)(80.0f + x), iy);
 		m_ammocount.UpdatePos();
 		s32 right = (s32)((171.0f + m_menuposx[1]) - (m_ammocount.m_length + 4.0f));
 		m_ammocount.m_pos.x = right << 4;
@@ -1222,7 +1222,7 @@ void CInGameWeaponSel::PlaceWeaponText()
 		else
 			sprintf(tempstr, "%d MAGS", mags);
 
-		m_magcount.Load(0.8f, tempstr, m_myfont, ix, (s32)y);
+		m_magcount.Load(0.800000012f /* 0x3f4ccccd */, tempstr, m_myfont, ix, (s32)y);
 	}
 
 	for (s32 i = 0; i < 3; i++)

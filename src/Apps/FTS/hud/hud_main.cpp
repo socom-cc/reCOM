@@ -399,9 +399,9 @@ void CHUD::Init(zdb::CWorld* world)
 	Add2D(&m_bitmapReticule, 0, true);
 	Add2D(&m_letterbox, 2, true);
 
-	m_piggyback_text1.Load(0.8f, "YOU HAVE DIED", m_myfont, 52, 25);
-	m_piggyback_text2.Load(0.8f, "Use the directional buttons to cycle through teammates", m_myfont, 52, 45);
-	m_piggyback_text3.Load(0.8f, "Press the R2 button to select weapons for the next round", m_myfont, 52, 65);
+	m_piggyback_text1.Load(0.800000012f /* 0x3f4ccccd */, "YOU HAVE DIED", m_myfont, 52, 25);
+	m_piggyback_text2.Load(0.800000012f /* 0x3f4ccccd */, "Use the directional buttons to cycle through teammates", m_myfont, 52, 45);
+	m_piggyback_text3.Load(0.800000012f /* 0x3f4ccccd */, "Press the R2 button to select weapons for the next round", m_myfont, 52, 65);
 	m_piggyback_text1.Off();
 	m_piggyback_text2.Off();
 	m_piggyback_text3.Off();
@@ -421,7 +421,7 @@ void CHUD::Init(zdb::CWorld* world)
 
 	for (int i = 0; i < 5; i++)
 	{
-		texts[i]->Load(0.8f, "00", m_myfont, 150, 150);
+		texts[i]->Load(0.800000012f /* 0x3f4ccccd */, "00", m_myfont, 150, 150);
 		texts[i]->m_color = m_hud_textcolor;
 		texts[i]->Off();
 		Add2D(texts[i], -1, true);
@@ -450,7 +450,7 @@ void CHUD::Init(zdb::CWorld* world)
 	m_mapcompass.SetTexture(handle != NULL ? handle->m_texture : NULL);
 	m_mapcompass.InitHUD_Compass(world);
 	m_mapcompass.SetPos(486.0f, 2.0f, 614.0f, 130.0f);
-	m_mapcompass.SetTrans(76.8f);
+	m_mapcompass.SetTrans(76.8000031f /* 0x4299999a */);
 	m_mapcompass.SetScale(1.0f);
 
 	m_newmap.InitMap(world);
@@ -476,9 +476,9 @@ void CHUD::Init(zdb::CWorld* world)
 	}
 
 	if (!theNetwork.m_bNetwork)
-		m_timertext.Load(0.8f, "", m_myfont, 530, 337);
+		m_timertext.Load(0.800000012f /* 0x3f4ccccd */, "", m_myfont, 530, 337);
 	else
-		m_timertext.Load(0.8f, "00:00", m_myfont, 530, 437);
+		m_timertext.Load(0.800000012f /* 0x3f4ccccd */, "00:00", m_myfont, 530, 437);
 
 	m_timertext.m_color = m_hud_textcolor;
 	Add2D(&m_timertext, -1, true);
@@ -486,7 +486,7 @@ void CHUD::Init(zdb::CWorld* world)
 	if (!theNetwork.m_bNetwork)
 		m_timertext.Off();
 
-	m_rangetext.Load(0.8f, "0000", m_myfont, 475, 425);
+	m_rangetext.Load(0.800000012f /* 0x3f4ccccd */, "0000", m_myfont, 475, 425);
 	m_rangetext.m_color.x = 80.0f;
 	m_rangetext.m_color.y = 80.0f;
 	m_rangetext.m_color.z = 80.0f;
@@ -532,7 +532,7 @@ void CHUD::Init(zdb::CWorld* world)
 	{
 		/* 0x3bae38 (multiplayer, untested): the connected-client count at 587,437 ("%dm"
 		 * for the session master) */
-		m_num_connected.Load(0.8f, "00m", m_myfont, 587, 437);
+		m_num_connected.Load(0.800000012f /* 0x3f4ccccd */, "00m", m_myfont, 587, 437);
 		m_num_connected.m_color = m_hud_textcolor;
 		hud_num_connected_text(this);
 		Add2D(&m_num_connected, -1, true);
@@ -621,9 +621,9 @@ void CHUD::Tick(float dT)
 				CEntity* sealkiller = killer->m_type == CEntity::ENT_TYPE_SEAL ? killer : NULL;
 
 				m_piggyback_text1.On();
-				m_piggyback_text1.Load(0.8f, "KILLED BY:", m_myfont, 302, 25);
+				m_piggyback_text1.Load(0.800000012f /* 0x3f4ccccd */, "KILLED BY:", m_myfont, 302, 25);
 				m_piggyback_text2.On();
-				m_piggyback_text2.Load(0.8f, sealkiller->m_display_name, m_myfont, 302, 45); /* ELF: no NULL test */
+				m_piggyback_text2.Load(0.800000012f /* 0x3f4ccccd */, sealkiller->m_display_name, m_myfont, 302, 45); /* ELF: no NULL test */
 			}
 
 			m_piggyback_text3.Off();
@@ -780,7 +780,7 @@ void CHUD::Tick(float dT)
 		else if (g_fElemsFadeInTime < 1.5f)
 		{
 			f32 opacity = (g_fElemsFadeInTime - 1.0f) * 2.0f;
-			hud->m_WeaponBackground.SetTrans(opacity * 76.8f);
+			hud->m_WeaponBackground.SetTrans(opacity * 76.8000031f /* 0x4299999a */);
 			hud->m_firemode.SetTrans(opacity * 128.0f);
 			hud->m_weaponname.SetTrans(opacity * 128.0f);
 			hud->m_ammocount.SetTrans(opacity * 128.0f);
@@ -789,7 +789,7 @@ void CHUD::Tick(float dT)
 		}
 		else
 		{
-			hud->m_WeaponBackground.SetTrans(76.8f);
+			hud->m_WeaponBackground.SetTrans(76.8000031f /* 0x4299999a */);
 			hud->m_firemode.SetTrans(128.0f);
 			hud->m_weaponname.SetTrans(128.0f);
 			hud->m_ammocount.SetTrans(128.0f);
@@ -932,7 +932,7 @@ static void hud_zoomtext(CHUD* hud, char* zoomtext)
 	{
 		sprintf(zoomtext, "ZOOM: %0.1fX", (double)zoom);
 		hud->m_zoomleveltext.On();
-		hud->m_zoomleveltext.Load(0.8f, zoomtext, hud->m_myfont, 512, 430);
+		hud->m_zoomleveltext.Load(0.800000012f /* 0x3f4ccccd */, zoomtext, hud->m_myfont, 512, 430);
 	}
 }
 
@@ -1203,39 +1203,39 @@ void CHUD::SetupFiremode(CZSealBody *seal)
 		{
 			m_firemode.SetUV(0.0f, 0.0f, 0.0f, 0.0f);
 			m_firemode.Load(0.0f, 0.0f, 0.0f, 0.0f, m_firemodetex);
-			m_firemodename.Load(0.8f, "NONE", m_myfont, (s32)textx, (s32)texty);
+			m_firemodename.Load(0.800000012f /* 0x3f4ccccd */, "NONE", m_myfont, (s32)textx, (s32)texty);
 			m_firemodename.On();
 		}
 		else if (mode == FIREMODE::SINGLE)
 		{
 			m_firemode.SetUV(0.0f, 0.75f, 1.0f, 1.0f);
 			m_firemode.Load(left, top + 24.0f, right, top + 32.0f, m_firemodetex);
-			m_firemodename.Load(0.8f, "SINGLE", m_myfont, (s32)textx, (s32)texty);
+			m_firemodename.Load(0.800000012f /* 0x3f4ccccd */, "SINGLE", m_myfont, (s32)textx, (s32)texty);
 			m_firemodename.On();
 		}
 		else if (mode == FIREMODE::BURST)
 		{
 			m_firemode.SetUV(0.0f, 0.25f, 1.0f, 1.0f);
 			m_firemode.Load(left, top + 8.0f, right, top + 32.0f, m_firemodetex);
-			m_firemodename.Load(0.8f, "BURST", m_myfont, (s32)textx, (s32)texty);
+			m_firemodename.Load(0.800000012f /* 0x3f4ccccd */, "BURST", m_myfont, (s32)textx, (s32)texty);
 			m_firemodename.On();
 		}
 		else if (mode == FIREMODE::AUTOFIRE)
 		{
 			m_firemode.SetUV(0.0f, 0.0f, 1.0f, 1.0f);
 			m_firemode.Load(left, top, right, top + 32.0f, m_firemodetex);
-			m_firemodename.Load(0.8f, "AUTO", m_myfont, (s32)textx, (s32)texty);
+			m_firemodename.Load(0.800000012f /* 0x3f4ccccd */, "AUTO", m_myfont, (s32)textx, (s32)texty);
 			m_firemodename.On();
 		}
 		else if (mode > FIREMODE::AUTOFIRE)
 		{
 			zdb::CTexHandle *icon = kit->GetFiremodeGraphic((int)mode - 3);
-			m_firemode.SetUV(0.05f, 0.0f, 1.0f, 1.0f);
+			m_firemode.SetUV(0.0500000008f /* 0x3d4ccccd */, 0.0f, 1.0f, 1.0f);
 			m_firemode.Load(left, top + 16.0f, icon);
 			const char *name = kit->GetFiremodeName((int)mode - 3);
 
 			if (name != NULL)
-				m_firemodename.Load(0.8f, name, m_myfont, (s32)(textx + 0.5f), (s32)texty);
+				m_firemodename.Load(0.800000012f /* 0x3f4ccccd */, name, m_myfont, (s32)(textx + 0.5f), (s32)texty);
 		}
 	}
 
@@ -1265,7 +1265,7 @@ void CHUD::SetupAmmoCount(CZSealBody *seal)
 	s32 capacity = kit->GetCurMaxAmmoCount();
 	strcpy(newstr, kit->GetItemName(seal->m_kit.m_selected_item));
 	s32 textx = (s32)(x + 60.0f);
-	m_weaponname.Load(0.8f, newstr, m_myfont, textx, (s32)(y - 3.0f));
+	m_weaponname.Load(0.800000012f /* 0x3f4ccccd */, newstr, m_myfont, textx, (s32)(y - 3.0f));
 	m_ammotype.Off();
 	y += 18.0f;
 
@@ -1278,7 +1278,7 @@ void CHUD::SetupAmmoCount(CZSealBody *seal)
 	{
 		m_ammocount.On();
 		sprintf(newstr, "%d/%d", rounds, capacity);
-		m_ammocount.Load(0.8f, newstr, m_myfont, textx, (s32)y);
+		m_ammocount.Load(0.800000012f /* 0x3f4ccccd */, newstr, m_myfont, textx, (s32)y);
 		s32 mags = kit->GetCurNumMags();
 
 		if (rounds != 0 && mags != 0)
@@ -1292,7 +1292,7 @@ void CHUD::SetupAmmoCount(CZSealBody *seal)
 		{
 			m_magscount.On();
 			sprintf(newstr, "%d MAGS", mags);
-			m_magscount.Load(0.8f, newstr, m_myfont, textx, (s32)(y + 21.0f));
+			m_magscount.Load(0.800000012f /* 0x3f4ccccd */, newstr, m_myfont, textx, (s32)(y + 21.0f));
 		}
 	}
 
@@ -1330,8 +1330,8 @@ void CHUD::DoRangeText(CZSealBody *seal, MENU_STATE menustate)
 		{
 			CPnt3D d;
 			di->m_pos.Sub(seal->GetPosW(), &d);
-			sprintf(tempstr, "%5.1fM", (double)(sqrtf(d.z * d.z + d.x * d.x + d.y * d.y) * 0.1f));
-			m_rangetext.Load(0.8f, tempstr, m_myfont, 523, 429);
+			sprintf(tempstr, "%5.1fM", (double)(sqrtf(d.z * d.z + d.x * d.x + d.y * d.y) * 0.100000002f /* 0x3dcccccd */));
+			m_rangetext.Load(0.800000012f /* 0x3f4ccccd */, tempstr, m_myfont, 523, 429);
 			m_rangetext.m_color.x = 25.0f;
 			m_rangetext.m_color.y = 127.0f;
 			m_rangetext.m_color.z = 25.0f;

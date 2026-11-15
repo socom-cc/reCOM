@@ -1540,12 +1540,12 @@ unsigned char UICheckForcedLaunch(C2DAnimCmdHdr *, float *)
 	 * sends its persona once it has run out */
 	CZNetGame* game = theMission.m_pNetGame;
 	s32 left = (s32)(game->m_countdown - theNetwork.zNetGetTime());
-	UiSetValve(game->m_p45SecondClockValve, left > 0 ? (u32)(0.001f * (f32)left) : 0);
+	UiSetValve(game->m_p45SecondClockValve, left > 0 ? (u32)(0.00100000005f /* 0x3a83126f */ * (f32)left) : 0);
 
 	if (game->m_ten_second_launch)
 	{
 		left = (s32)(game->m_clock.m_initial_read - theNetwork.zNetGetTime());
-		UiSetValve(game->m_pXSecondClockValve, left > 0 ? (u32)(0.001f * (f32)left) : 0);
+		UiSetValve(game->m_pXSecondClockValve, left > 0 ? (u32)(0.00100000005f /* 0x3a83126f */ * (f32)left) : 0);
 
 		if (theNetwork.m_bSessionMaster && left <= 0)
 			CZPersonaState::UpdateLocalPersona();

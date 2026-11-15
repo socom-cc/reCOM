@@ -215,7 +215,7 @@ void CRemoteCtrl::PostMortemPreTick(float)
 	if (!node->m_active)
 		return;
 	m_fade_time = 2.0f;
-	m_fade_min = 0.001f;
+	m_fade_min = 0.00100000005f /* 0x3a83126f */;
 	f32 t = theMission.m_timer - seal->m_time_of_death;
 	if (t < 0.0f) /* _saturate<f>(&t, 0, m_fade_time) */
 		t = 0.0f;

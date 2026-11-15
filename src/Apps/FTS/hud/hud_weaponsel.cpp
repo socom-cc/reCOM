@@ -143,14 +143,14 @@ void CWeaponSel::Init(zdb::CWorld *, C2DFont *font)
 	push_back(&m_weaponicon[3]);
 	push_back(&m_selectionback[2]);
 	push_back(&m_weaponicon[2]);
-	m_selectionback[2].SetUV(0.01f, 0.99f, 0.99f, 0.01f);
-	m_selectionback[0].SetUV(0.1f, 0.01f, 0.99f, 0.99f);
+	m_selectionback[2].SetUV(0.01f, 0.99000001f /* 0x3f7d70a4 */, 0.99000001f /* 0x3f7d70a4 */, 0.01f);
+	m_selectionback[0].SetUV(0.100000002f /* 0x3dcccccd */, 0.01f, 0.99000001f /* 0x3f7d70a4 */, 0.99000001f /* 0x3f7d70a4 */);
 	push_back(&m_selectionback[1]);
 	push_back(&m_weaponicon[1]);
 
 	m_arrow[0].Off();
 	m_arrow[1].Off();
-	m_arrow[0].SetUV(0.0f, 0.05f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.05f);
+	m_arrow[0].SetUV(0.0f, 0.0500000008f /* 0x3d4ccccd */, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0500000008f /* 0x3d4ccccd */);
 	m_arrow[0].SetTrans(70.0f);
 	m_arrow[1].SetTrans(70.0f);
 	m_arrow[0].SetColor(50.0f, 50.0f, 50.0f);
@@ -195,7 +195,7 @@ void CWeaponSel::Init(zdb::CWorld *, C2DFont *font)
 	m_menuposy[1] = 240.0f;
 	m_weaponselbkrnd.Load(0.0f, 173.0f, (f32)g_iBgRightX, 359.0f, m_weaponselbkrndtex);
 	m_selectionback[1].Load(m_menuposx[1] - 1.0f, m_menuposy[1] - 1.0f, m_menuposx[1] + 128.0f + 2.0f, m_menuposy[1] + 32.0f + 2.0f, m_selectionbacktex[1]);
-	m_selectionback[1].SetUV(0.01f, 0.01f, 0.99f, 0.99f);
+	m_selectionback[1].SetUV(0.01f, 0.01f, 0.99000001f /* 0x3f7d70a4 */, 0.99000001f /* 0x3f7d70a4 */);
 	m_weaponicon[1].Load(m_menuposx[1] + m_iconoffsetx, m_menuposy[1] + m_iconoffsety, m_weapontex[1]);
 
 	m_weaponname.Load(1.0f, "3", m_myfont, (s32)(m_menuposx[1] + m_nameoffsetx), (s32)(m_menuposy[1] + m_nameoffsety));
@@ -400,14 +400,14 @@ void CWeaponSel::HandleOpenState(CPad *pad, float dT)
 
 	if (!m_incCurcolor)
 	{
-		m_curcolor = Increment(dT * 0.3f, m_curcolor, 0.1f);
+		m_curcolor = Increment(dT * 0.300000012f /* 0x3e99999a */, m_curcolor, 0.100000002f /* 0x3dcccccd */);
 
-		if (m_curcolor == 0.1f)
+		if (m_curcolor == 0.100000002f /* 0x3dcccccd */)
 			m_incCurcolor = true;
 	}
 	else
 	{
-		m_curcolor = Increment(dT * 0.3f, m_curcolor, 0.7f);
+		m_curcolor = Increment(dT * 0.300000012f /* 0x3e99999a */, m_curcolor, 0.7f);
 
 		if (m_curcolor == 0.7f)
 			m_incCurcolor = false;
@@ -1096,7 +1096,7 @@ void CWeaponSel::HudTick(CPad *pad, float dT)
 	{
 		g_fFadeInTime += dT;
 		f32 fade = g_fFadeInTime < 0.5f ? g_fFadeInTime * 2.0f : 1.0f;
-		m_weaponselbkrnd.SetTrans(fade * 76.8f);
+		m_weaponselbkrnd.SetTrans(fade * 76.8000031f /* 0x4299999a */);
 
 		if (0.5f <= g_fFadeInTime)
 			g_fFadeInTime = -1.0f;
@@ -1197,7 +1197,7 @@ void CWeaponSel::PlaceHotSwapLabels()
 
 	if (m_weaponnum[1] == l1)
 	{
-		m_hotswapL1text.Load(0.8f, "BUTTON:L1", m_myfont, (s32)(m_menuposx[1] + 80.0f), (s32)(m_menuposy[1] + 62.0f));
+		m_hotswapL1text.Load(0.800000012f /* 0x3f4ccccd */, "BUTTON:L1", m_myfont, (s32)(m_menuposx[1] + 80.0f), (s32)(m_menuposy[1] + 62.0f));
 		m_hotswapL1text.UpdatePos();
 		f32 length = m_hotswapL1text.m_length;
 		s32 y = (s32)(m_menuposy[1] + 62.0f);
@@ -1213,7 +1213,7 @@ void CWeaponSel::PlaceHotSwapLabels()
 
 	if (m_weaponnum[1] == l2)
 	{
-		m_hotswapL2text.Load(0.8f, "BUTTON:L2", m_myfont, (s32)(m_menuposx[1] + 80.0f), (s32)(m_menuposy[1] + 62.0f));
+		m_hotswapL2text.Load(0.800000012f /* 0x3f4ccccd */, "BUTTON:L2", m_myfont, (s32)(m_menuposx[1] + 80.0f), (s32)(m_menuposy[1] + 62.0f));
 		m_hotswapL2text.UpdatePos();
 		f32 length = m_hotswapL2text.m_length;
 		s32 y = (s32)(m_menuposy[1] + 62.0f);
@@ -1260,7 +1260,7 @@ void CWeaponSel::PlaceWeaponText()
 	CHUD::HudText_to_upper(tempstr);
 	s32 ix = (s32)x;
 	s32 iy = (s32)y;
-	m_weaponname.Load(0.8f, tempstr, m_myfont, ix, iy);
+	m_weaponname.Load(0.800000012f /* 0x3f4ccccd */, tempstr, m_myfont, ix, iy);
 
 	if (max == 0)
 	{
@@ -1269,7 +1269,7 @@ void CWeaponSel::PlaceWeaponText()
 	else
 	{
 		sprintf(tempstr, "%d/%d", ammo, max);
-		m_ammocount.Load(0.8f, tempstr, m_myfont, (s32)(x + 80.0f), iy);
+		m_ammocount.Load(0.800000012f /* 0x3f4ccccd */, tempstr, m_myfont, (s32)(x + 80.0f), iy);
 		m_ammocount.UpdatePos();
 		s32 right = (s32)((m_menuposx[1] + (f32)(g_iBgRightX - 29)) - (m_ammocount.m_length + 4.0f));
 		m_ammocount.m_pos.x = right << 4;
@@ -1291,7 +1291,7 @@ void CWeaponSel::PlaceWeaponText()
 		else
 			sprintf(tempstr, "%d MAGS", mags);
 
-		m_magcount.Load(0.8f, tempstr, m_myfont, ix, (s32)(y + 14.0f));
+		m_magcount.Load(0.800000012f /* 0x3f4ccccd */, tempstr, m_myfont, ix, (s32)(y + 14.0f));
 	}
 
 	CZFTSWeapon* weapon = kit->GetItemByIndex(m_current_item);

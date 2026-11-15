@@ -829,7 +829,7 @@ void CZBodyAnim::SetMultiplier(bool apply)
 	{
 		f32 distance = m_pCommon->m_distance;
 
-		if (distance > 0.2f)
+		if (distance > 0.200000003f /* 0x3e4ccccd */)
 		{
 			multiplier = (m_flags & 0x200) == 0 ? m_tf * 100.0f : m_tf;
 			multiplier = multiplier / distance;

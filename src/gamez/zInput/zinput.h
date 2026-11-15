@@ -239,7 +239,7 @@ class CRemoteCtrl : public CSealCtrl
 public:
 	/* no ctor symbol: CreateRemoteSeal 0x289480 inlines it (CSealCtrl's ctor, the vtable, the
 	 * fade values) */
-	CRemoteCtrl() { m_fade_min = 0.001f; m_fade_time = 2.0f; }
+	CRemoteCtrl() { m_fade_min = 0.00100000005f /* 0x3a83126f */; m_fade_time = 2.0f; }
 	virtual ~CRemoteCtrl(); /* 0x2ce160 (remote_control.cpp) */
 	virtual bool PreTick(float);
 	virtual bool Tick(float);

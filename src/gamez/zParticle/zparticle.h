@@ -391,7 +391,7 @@ inline void Particle::Instance::Tick(float dT)
 		for (; 0.5f < x; x *= 0.5f)
 			halvings++;
 
-		x = x * (x * (x * (x * ((x + 0.166666f) * x + 0.2f) + 0.25f) + 0.333333f) + 0.5f) + 1.0f;
+		x = x * (x * (x * (x * ((x + 0.166666002f /* 0x3e2aaa7e */) * x + 0.200000003f /* 0x3e4ccccd */) + 0.25f) + 0.333333f) + 0.5f) + 1.0f;
 
 		for (; halvings != 0; halvings--)
 			x *= x;

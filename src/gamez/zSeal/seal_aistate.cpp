@@ -774,7 +774,7 @@ bool CAiSAvoid::Tick(float, CSealCtrlAi *ai)
 	body->GetPosW()->SubXZ(other->GetPosW(), &away);
 	CPnt3D step;
 
-	if (CAi::GetToRightXZ(&other->m_velW, &step, true) <= 0.05f)
+	if (CAi::GetToRightXZ(&other->m_velW, &step, true) <= 0.0500000008f /* 0x3d4ccccd */)
 	{
 		static_cast<const CPnt3D &>(away).Normalize(&step); /* Normalize__6CPnt3DCFP6CPnt3D */
 		step.Scale(AVOID_BUFFER, &step);
@@ -899,7 +899,7 @@ bool CAiSGoto::Tick(float, CSealCtrlAi *ai)
 	/* @socom-skeleton stub hacknumPercent$2724 */
 	static double hacknumPercent = 0.65f;
 	/* @socom-skeleton stub hacknumMin$2727 */
-	static double hacknumMin = 0.3f;
+	static double hacknumMin = 0.300000012f; /* 0x3fd3333340000000: (double)0x3e99999a */
 	/* @socom-skeleton stub warnedWait$2730 */
 	static unsigned char warnedWait = 0;
 	/* @socom-skeleton stub warnedAbort$2733 */

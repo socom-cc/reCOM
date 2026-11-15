@@ -79,7 +79,7 @@ void Particle::Open()
 	Instance::ageFactor = 1.0f;
 	Source::distanceFactor = 1.0f;
 	Source::frequencyFactor = 1.0f;
-	zTaskScheduler.AddTask("ParticleTick", Particle::Tick, 0.2f, NULL);
+	zTaskScheduler.AddTask("ParticleTick", Particle::Tick, 0.200000003f /* 0x3e4ccccd */, NULL);
 	particle_node_count = 0;
 
 	for (s32 i = 0; i < 160; i++)
@@ -244,7 +244,7 @@ zdb::CVisual * Particle::CreateVisuals(CPnt3D *p0, CPnt3D *p1, CPnt3D *p2, CPnt3
 
 	if (!(sqrtf(sum.x * sum.x + sum.y * sum.y + sum.z * sum.z) <= size))
 	{
-		f32 t = 0.4f + 0.2f * ((f32)rand() * 4.656613e-10f);
+		f32 t = 0.400000006f /* 0x3ecccccd */ + 0.200000003f /* 0x3e4ccccd */ * ((f32)rand() * 4.656613e-10f);
 		CPnt3D m01(p1->x + t * (p0->x - p1->x), p1->y + t * (p0->y - p1->y), p1->z + t * (p0->z - p1->z));
 		CPnt3D t01(uv1.x + t * (uv0.x - uv1.x), uv1.y + t * (uv0.y - uv1.y), 0.0f);
 		CPnt3D m12(p2->x + t * (p1->x - p2->x), p2->y + t * (p1->y - p2->y), p2->z + t * (p1->z - p2->z));
@@ -265,7 +265,7 @@ zdb::CVisual * Particle::CreateVisuals(CPnt3D *p0, CPnt3D *p1, CPnt3D *p2, CPnt3
 	CPnt3D centre;
 	p0->Add(p1, &centre);
 	centre.Add(p2, &centre);
-	centre.Scale(0.33333334f, &centre);
+	centre.Scale(0.333333344f /* 0x3eaaaaab */, &centre);
 
 	CPnt3D d[3];
 	p0->Sub(&centre, &d[0]);

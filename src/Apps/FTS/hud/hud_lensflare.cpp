@@ -229,7 +229,7 @@ void CLensFlareSaturate::Init()
 	m_LensFlareNode = NULL;
 	m_MinLensFlareOpacity = 0.0f;
 	m_LensFlareOpacityRange = 1.0f;
-	m_MinLensFlareScale = 0.001f;
+	m_MinLensFlareScale = 0.00100000005f /* 0x3a83126f */;
 	m_LensFlareScaleRange = 0.01f - m_MinLensFlareScale;
 	m_LightNode = NULL;
 	m_MinLightNodeOpacity = 0.0f;
@@ -280,7 +280,7 @@ void CLensFlareSaturate::Tick(float dT)
 
 	f32 dot = view.x * dir.x + view.y * dir.y + view.z * dir.z;
 	f32 value = m_DotScalar * (-dot - m_MinDot);
-	m_On = !(value <= 0.001f);
+	m_On = !(value <= 0.00100000005f /* 0x3a83126f */);
 
 	/* blocked: no DI result yet, or the ray hit something */
 	bool blocked = true;
@@ -322,7 +322,7 @@ void CLensFlareSaturate::Tick(float dT)
 
 		SetTrans(128.0f * brightness);
 
-		if (brightness < 0.025f)
+		if (brightness < 0.0250000004f /* 0x3ccccccd */)
 			Off();
 		else
 			On();

@@ -174,7 +174,7 @@ void SetRoundStatUiVars(int primaryDone, int secondaryDone)
 
 	f32 primary = (f32)primaryDone / (f32)primaryTotal;
 	f32 secondary = (f32)secondaryDone / (f32)secondaryTotal;
-	s32 pct = (s32)(100.0f * (0.6f * primary + 0.4f * secondary));
+	s32 pct = (s32)(100.0f * (0.600000024f /* 0x3f19999a */ * primary + 0.400000006f /* 0x3ecccccd */ * secondary));
 	setInt("StatObjectivesPct", pct);
 	CValve::Create("StatObjectivesPct", (u32)pct, (VALVE_TYPE)1);
 }

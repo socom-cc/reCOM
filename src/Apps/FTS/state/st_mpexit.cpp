@@ -102,8 +102,8 @@ int CSealStats::GetRescues() const { return m_hostages_rescued; }        /* 0x3d
 int CSealStats::GetHitPct() const { return (int)(100.0f * m_hit_percent + 0.5f); } /* 0x3de0d0 */
 CSealStats & CZSealBody::GetGameStats() { return m_mp_stats; }         /* 0x3ddeb0 */
 CSealStats & CZSealBody::GetRoundStats() { return m_stats; }           /* 0x3ddec0 */
-unsigned int CNetClock::GetTimeInGameSec() { return (unsigned int)(0.001f * (f32)m_total_time); }    /* 0x3dde10 */
-unsigned int CNetClock::GetTimeInRoundSec() { return (unsigned int)(0.001f * (f32)m_time_in_round); } /* 0x3dde60 */
+unsigned int CNetClock::GetTimeInGameSec() { return (unsigned int)(0.00100000005f /* 0x3a83126f */ * (f32)m_total_time); }    /* 0x3dde10 */
+unsigned int CNetClock::GetTimeInRoundSec() { return (unsigned int)(0.00100000005f /* 0x3a83126f */ * (f32)m_time_in_round); } /* 0x3dde60 */
 
 char * CMPExitMenu::GetReaderFileName()
 {

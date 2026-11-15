@@ -1041,7 +1041,7 @@ void zdb::CLightMap::SetTexture(zdb::CTexture *texture)
 
 	sceVu0FMATRIX scale;
 	sceVu0UnitMatrix(scale);
-	f32 s = ((1.0f - 1.0f / (f32)m_pTex->m_width) / 1.414f) / (2.0f * m_maxRange);
+	f32 s = ((1.0f - 1.0f / (f32)m_pTex->m_width) / 1.41400004f /* 0x3fb4fdf4 */) / (2.0f * m_maxRange);
 
 	scale[0][0] = s;
 	scale[0][1] = 0.0f;

@@ -112,10 +112,10 @@ void zAnimGetDirectionFromAzimuthZenith(float azimuth, float zenith, CPnt3D *dir
 {
 	/* 0x1b7b90: azimuth in degrees around y (0 = -z), zenith in degrees as a linear height:
 	 * y = zenith / 90 and the horizontal part shrinks by 1 - |y| (not a unit vector off the axes) */
-	f32 angle = azimuth * 0.017453292f;
+	f32 angle = azimuth * 0.0174532924f /* 0x3c8efa35 */;
 	dir->x = sinf(angle);
 	dir->z = cosf(angle);
-	f32 y = zenith * 0.011111111f;
+	f32 y = zenith * 0.0111111114f /* 0x3c360b61 */;
 	dir->x = -dir->x;
 	dir->z = -dir->z;
 	dir->y = y;
@@ -737,7 +737,7 @@ _zanim_cmd_hdr * zAnimLoadCamera(_zrdr *reader)
 	if (zrdr_findreal(reader, "RUN_TIME", &cmd->duration, 1))
 	{
 		if (cmd->duration <= 0.0f)
-			cmd->duration = 0.001f;
+			cmd->duration = 0.00100000005f /* 0x3a83126f */;
 	}
 	else
 	{
@@ -756,11 +756,11 @@ _zanim_cmd_hdr * zAnimLoadCamera(_zrdr *reader)
 		if ((u32)(tag->array->integer - 1) >= 2)
 		{
 			cmd->flags |= 0x1;
-			cmd->hfov.from = 0.017453292f * (0.5f * tag->Get(i++)->GetReal());
+			cmd->hfov.from = 0.0174532924f /* 0x3c8efa35 */ * (0.5f * tag->Get(i++)->GetReal());
 		}
 
 		cmd->flags |= 0x2;
-		cmd->hfov.to = 0.017453292f * (0.5f * tag->Get(i)->GetReal());
+		cmd->hfov.to = 0.0174532924f /* 0x3c8efa35 */ * (0.5f * tag->Get(i)->GetReal());
 
 		if (cmd->flags & 0x1)
 			cmd->hfov.rate = inv * (cmd->hfov.to - cmd->hfov.from);
@@ -775,11 +775,11 @@ _zanim_cmd_hdr * zAnimLoadCamera(_zrdr *reader)
 		if ((u32)(tag->array->integer - 1) >= 2)
 		{
 			cmd->flags |= 0x4;
-			cmd->vfov.from = 0.017453292f * (0.5f * tag->Get(i++)->GetReal());
+			cmd->vfov.from = 0.0174532924f /* 0x3c8efa35 */ * (0.5f * tag->Get(i++)->GetReal());
 		}
 
 		cmd->flags |= 0x8;
-		cmd->vfov.to = 0.017453292f * (0.5f * tag->Get(i)->GetReal());
+		cmd->vfov.to = 0.0174532924f /* 0x3c8efa35 */ * (0.5f * tag->Get(i)->GetReal());
 
 		if (cmd->flags & 0x4)
 			cmd->vfov.rate = inv * (cmd->vfov.to - cmd->vfov.from);
@@ -1509,17 +1509,17 @@ _zanim_cmd_hdr * zAnimLoadObjectRotateState(_zrdr *reader)
 	if (zrdr_findtag(reader, "ROTATION") && zrdr_findreal(reader, "ROTATION", cmd->offset, 3))
 	{
 		cmd->flags |= 0x1;
-		cmd->offset[0] = 0.017453292f * cmd->offset[0];
-		cmd->offset[1] = 0.017453292f * cmd->offset[1];
-		cmd->offset[2] = 0.017453292f * cmd->offset[2];
+		cmd->offset[0] = 0.0174532924f /* 0x3c8efa35 */ * cmd->offset[0];
+		cmd->offset[1] = 0.0174532924f /* 0x3c8efa35 */ * cmd->offset[1];
+		cmd->offset[2] = 0.0174532924f /* 0x3c8efa35 */ * cmd->offset[2];
 	}
 
 	if (zrdr_findtag(reader, "RELATIVE") && zrdr_findreal(reader, "RELATIVE", cmd->offset, 3))
 	{
 		cmd->flags |= 0x2;
-		cmd->offset[0] = 0.017453292f * cmd->offset[0];
-		cmd->offset[1] = 0.017453292f * cmd->offset[1];
-		cmd->offset[2] = 0.017453292f * cmd->offset[2];
+		cmd->offset[0] = 0.0174532924f /* 0x3c8efa35 */ * cmd->offset[0];
+		cmd->offset[1] = 0.0174532924f /* 0x3c8efa35 */ * cmd->offset[1];
+		cmd->offset[2] = 0.0174532924f /* 0x3c8efa35 */ * cmd->offset[2];
 	}
 
 	return &cmd->header;
@@ -1566,12 +1566,12 @@ _zanim_cmd_hdr * zAnimLoadObjectMotionFromTo(_zrdr *reader)
 		if (zrdr_findreal(tag, "TRANSLATE_VELOCITY", &cmd->speed, 1))
 		{
 			cmd->flags |= 0x80;
-			cmd->duration = 0.001f;
+			cmd->duration = 0.00100000005f /* 0x3a83126f */;
 		}
 		else if (zrdr_findreal(reader, "RUN_TIME", &cmd->duration, 1))
 		{
 			if (cmd->duration <= 0.0f)
-				cmd->duration = 0.001f;
+				cmd->duration = 0.00100000005f /* 0x3a83126f */;
 		}
 		else
 		{
@@ -1742,9 +1742,9 @@ _zanim_cmd_hdr * zAnimLoadObjectMotionFromTo(_zrdr *reader)
 	if (!(cmd->flags & 0x1) && zrdr_findreal(reader, "ROTATE_FROM", rot, 3))
 	{
 		cmd->flags |= 0x100;
-		rot[0] = 0.017453292f * rot[0];
-		rot[1] = 0.017453292f * rot[1];
-		rot[2] = 0.017453292f * rot[2];
+		rot[0] = 0.0174532924f /* 0x3c8efa35 */ * rot[0];
+		rot[1] = 0.0174532924f /* 0x3c8efa35 */ * rot[1];
+		rot[2] = 0.0174532924f /* 0x3c8efa35 */ * rot[2];
 		cmd->rot_from[0] = rot[0];
 		cmd->rot_from[1] = rot[1];
 		cmd->rot_from[2] = rot[2];
@@ -1753,9 +1753,9 @@ _zanim_cmd_hdr * zAnimLoadObjectMotionFromTo(_zrdr *reader)
 	if (zrdr_findreal(reader, "ROTATE_TO", rot, 3))
 	{
 		cmd->flags |= 0x200;
-		rot[0] = 0.017453292f * rot[0];
-		rot[1] = 0.017453292f * rot[1];
-		rot[2] = 0.017453292f * rot[2];
+		rot[0] = 0.0174532924f /* 0x3c8efa35 */ * rot[0];
+		rot[1] = 0.0174532924f /* 0x3c8efa35 */ * rot[1];
+		rot[2] = 0.0174532924f /* 0x3c8efa35 */ * rot[2];
 		cmd->rot_to[0] = rot[0];
 		cmd->rot_to[1] = rot[1];
 		cmd->rot_to[2] = rot[2];
@@ -1867,7 +1867,7 @@ _zanim_cmd_hdr * zAnimLoadObjectOpacityFromTo(_zrdr *reader)
 	if (zrdr_findreal(reader, "RUN_TIME", &cmd->duration, 1))
 	{
 		if (cmd->duration <= 0.0f)
-			cmd->duration = 0.001f;
+			cmd->duration = 0.00100000005f /* 0x3a83126f */;
 	}
 	else
 	{
@@ -2866,7 +2866,7 @@ _zanim_cmd_hdr * zAnimLoadObjectMotion(_zrdr *reader)
 		cmd->flags |= 0x1;
 
 		if (cmd->duration <= 0.0f)
-			cmd->duration = 0.001f;
+			cmd->duration = 0.00100000005f /* 0x3a83126f */;
 	}
 	else
 	{
@@ -2930,9 +2930,9 @@ _zanim_cmd_hdr * zAnimLoadObjectMotion(_zrdr *reader)
 			 * velocity and acceleration along it */
 			f32 azimuth = base[0];
 			f32 zenith = base[1];
-			cmd->direction[0] = sinf(0.017453292f * azimuth);
-			cmd->direction[2] = cosf(0.017453292f * azimuth);
-			f32 y = 0.011111111f * zenith;
+			cmd->direction[0] = sinf(0.0174532924f /* 0x3c8efa35 */ * azimuth);
+			cmd->direction[2] = cosf(0.0174532924f /* 0x3c8efa35 */ * azimuth);
+			f32 y = 0.0111111114f /* 0x3c360b61 */ * zenith;
 			cmd->direction[0] = -cmd->direction[0];
 			cmd->direction[1] = 0.0f;
 			cmd->direction[2] = -cmd->direction[2];
@@ -3058,7 +3058,7 @@ _zanim_cmd_hdr * zAnimLoadObjectMotion(_zrdr *reader)
 		cmd->flags |= 0x80;
 
 	if (!zrdr_findreal(reader, "BOUNCE_ELASTICITY", &cmd->elasticity, 1))
-		cmd->elasticity = 0.3f;
+		cmd->elasticity = 0.300000012f /* 0x3e99999a */;
 
 	tag = zrdr_findtag(reader, "BOUNCE_SOUND");
 
@@ -3153,18 +3153,18 @@ _zanim_cmd_hdr * zAnimLoadObjectMotion(_zrdr *reader)
 		spin[0] = tag->Get(0)->GetReal();
 		spin[1] = tag->Get(1)->GetReal();
 		spin[2] = tag->Get(2)->GetReal();
-		spin[0] = 0.017453292f * spin[0];
-		spin[1] = 0.017453292f * spin[1];
-		spin[2] = 0.017453292f * spin[2];
+		spin[0] = 0.0174532924f /* 0x3c8efa35 */ * spin[0];
+		spin[1] = 0.0174532924f /* 0x3c8efa35 */ * spin[1];
+		spin[2] = 0.0174532924f /* 0x3c8efa35 */ * spin[2];
 
 		if (len >= 6)
 		{
 			spin[3] = tag->Get(3)->GetReal();
 			spin[4] = tag->Get(4)->GetReal();
 			spin[5] = tag->Get(5)->GetReal();
-			spin[3] = 0.017453292f * spin[3];
-			spin[4] = 0.017453292f * spin[4];
-			spin[5] = 0.017453292f * spin[5];
+			spin[3] = 0.0174532924f /* 0x3c8efa35 */ * spin[3];
+			spin[4] = 0.0174532924f /* 0x3c8efa35 */ * spin[4];
+			spin[5] = 0.0174532924f /* 0x3c8efa35 */ * spin[5];
 		}
 		else
 		{
@@ -3201,14 +3201,14 @@ _zanim_cmd_hdr * zAnimLoadObjectMotion(_zrdr *reader)
 		item = len >= 2 ? tag->Get(1) : NULL;
 
 		if (item && (item->type == ZRDR_REAL || item->type == ZRDR_INTEGER))
-			roll[0] = 0.017453292f * item->GetReal();
+			roll[0] = 0.0174532924f /* 0x3c8efa35 */ * item->GetReal();
 		else
 			roll[0] = 0.0f;
 
 		item = len >= 3 ? tag->Get(2) : NULL;
 
 		if (item && (item->type == ZRDR_REAL || item->type == ZRDR_INTEGER))
-			roll[1] = 0.017453292f * item->GetReal();
+			roll[1] = 0.0174532924f /* 0x3c8efa35 */ * item->GetReal();
 		else
 			roll[1] = 0.0f;
 
@@ -3292,7 +3292,7 @@ _zanim_object_motion_script * zAnimLoadObjectMotionSIScriptForObject(_zrdr *read
 
 	_zanim_object_motion_script* cmd = static_cast<_zanim_object_motion_script*>(_calloc(1, 60, "zanim_cmd_parse.cpp", 4082));
 	cmd->header.data_size = 60;
-	f32 rate = 1.0f / 30.0f;
+	f32 rate = 0.0333333351f /* 0x3d088889: the ELF's folded 1.0f / 30.0f (GCC r5900 folds toward zero: 0x3d088888) */;
 
 	if (node_ref > 0)
 	{
@@ -3332,9 +3332,9 @@ _zanim_object_motion_script * zAnimLoadObjectMotionSIScriptForObject(_zrdr *read
 	if (zrdr_findPNT3D(reader, "ROTATE_OFFSET", reinterpret_cast<PNT3D*>(&cmd->rotate_offset)))
 	{
 		cmd->flags |= 2;
-		cmd->rotate_offset.x = 0.017453292f * cmd->rotate_offset.x;
-		cmd->rotate_offset.y = 0.017453292f * cmd->rotate_offset.y;
-		cmd->rotate_offset.z = 0.017453292f * cmd->rotate_offset.z;
+		cmd->rotate_offset.x = 0.0174532924f /* 0x3c8efa35 */ * cmd->rotate_offset.x;
+		cmd->rotate_offset.y = 0.0174532924f /* 0x3c8efa35 */ * cmd->rotate_offset.y;
+		cmd->rotate_offset.z = 0.0174532924f /* 0x3c8efa35 */ * cmd->rotate_offset.z;
 	}
 
 	if (zrdr_findPNT3D(reader, "SCALE_OFFSET", reinterpret_cast<PNT3D*>(&cmd->scale_offset)))
@@ -3343,7 +3343,7 @@ _zanim_object_motion_script * zAnimLoadObjectMotionSIScriptForObject(_zrdr *read
 	if (zrdr_findreal(reader, "SCRIPT_FRAME_RATE", &rate, 1))
 		rate = 1.0f / rate;
 	else
-		rate = 1.0f / 30.0f;
+		rate = 0.0333333351f /* 0x3d088889 = 1.0f / 30.0f */;
 
 	_zrdr* tag = zrdr_findtag(reader, "SCRIPT_FILENAME");
 

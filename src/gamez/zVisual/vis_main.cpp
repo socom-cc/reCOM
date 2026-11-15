@@ -1476,15 +1476,15 @@ _word128 * zdb::CVisual::VuObjectSetup(_word128 *p, tag_ObjectHeader *header)
 	{
 		if (notMesh)
 		{
-			p[16].f32[0] = m_scaleColor[0] * 0.33f;
-			p[16].f32[1] = m_scaleColor[1] * 0.33f;
-			p[16].f32[2] = m_scaleColor[2] * 0.33f;
+			p[16].f32[0] = m_scaleColor[0] * 0.330000014f /* 0x3ea8f5c3 */;
+			p[16].f32[1] = m_scaleColor[1] * 0.330000014f /* 0x3ea8f5c3 */;
+			p[16].f32[2] = m_scaleColor[2] * 0.330000014f /* 0x3ea8f5c3 */;
 		}
 		else
 		{
-			p[16].f32[0] = (m_scaleColor[0] * 1.4f) * 0.33f;
-			p[16].f32[1] = (m_scaleColor[1] * 1.4f) * 0.33f;
-			p[16].f32[2] = (m_scaleColor[2] * 1.4f) * 0.33f;
+			p[16].f32[0] = (m_scaleColor[0] * 1.4f) * 0.330000014f /* 0x3ea8f5c3 */;
+			p[16].f32[1] = (m_scaleColor[1] * 1.4f) * 0.330000014f /* 0x3ea8f5c3 */;
+			p[16].f32[2] = (m_scaleColor[2] * 1.4f) * 0.330000014f /* 0x3ea8f5c3 */;
 		}
 
 		p[16].u32[3] = 0x42b5d174; /* 90.909 */

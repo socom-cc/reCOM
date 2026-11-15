@@ -49,7 +49,7 @@ void PoseBitmap::Init(zdb::CWorld *world)
 	m_posetex[2] = GetTextureByName(world, "stance_prone.tif");
 	m_posx = 535.0f;
 	m_posy = 382.0f;
-	m_text.Load(0.68f, "stand", m_myfont, (s32)m_textposx, (s32)m_textposy);
+	m_text.Load(0.680000008f /* 0x3f2e147b */, "stand", m_myfont, (s32)m_textposx, (s32)m_textposy);
 	m_text.m_color = CHUD::m_hud_textcolor;
 	push_back(&m_text);
 	m_trans = 127.0f;

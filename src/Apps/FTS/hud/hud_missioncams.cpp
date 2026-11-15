@@ -285,7 +285,7 @@ void CZHudMissionCams::PlayCamera(CMissionCam *cam, bool lens)
 	CZWeapon::m_weaponTickDisabled = true;
 	CSealCtrlAi::SetAiEnabled(false, true);
 
-	m_letterboxobjectivename.Load(0.8f, cam->m_name, theHUD->m_myfont, 20, 20);
+	m_letterboxobjectivename.Load(0.800000012f /* 0x3f4ccccd */, cam->m_name, theHUD->m_myfont, 20, 20);
 	m_letterboxobjectivename.UpdatePos();
 	m_letterboxobjectivename.m_pos.x = (s32)(320.0f - m_letterboxobjectivename.m_length / 2.0f) << 4;
 	m_letterboxobjectivename.m_pos.y = 320; /* ELF: 320 = 20 << 4 */
@@ -300,9 +300,9 @@ void CZHudMissionCams::PlayCamera(CMissionCam *cam, bool lens)
 		C2DString* line = &m_letterboxobjectivedescription[i];
 
 		if (cam->m_description[i] != NULL)
-			line->Load(0.8f, cam->m_description[i], theHUD->m_myfont, 20, 400 + 15 * i);
+			line->Load(0.800000012f /* 0x3f4ccccd */, cam->m_description[i], theHUD->m_myfont, 20, 400 + 15 * i);
 		else
-			line->Load(0.8f, "", theHUD->m_myfont, 20, 400 + 15 * i);
+			line->Load(0.800000012f /* 0x3f4ccccd */, "", theHUD->m_myfont, 20, 400 + 15 * i);
 
 		line->Off();
 		line->m_color.x = 80.0f;
@@ -310,7 +310,7 @@ void CZHudMissionCams::PlayCamera(CMissionCam *cam, bool lens)
 		line->m_color.z = 80.0f;
 	}
 
-	m_crosstext.Load(0.8f, "TO ABORT", theHUD->m_myfont, 290, 56);
+	m_crosstext.Load(0.800000012f /* 0x3f4ccccd */, "TO ABORT", theHUD->m_myfont, 290, 56);
 	m_crosstext.Off();
 	m_crosstext.m_color.x = 80.0f;
 	m_crosstext.m_color.y = 80.0f;

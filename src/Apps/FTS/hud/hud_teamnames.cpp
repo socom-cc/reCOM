@@ -72,8 +72,8 @@ void CTeamNames::SetOpacity(float opacity)
 	/* 0x3d9020: the box and divider at 0.6 of opacity, names and dots fully, the order
 	 * texts get the raw opacity (ELF: SetTrans(opacity), not * 128), the brackets 0.3 */
 	/* @socom-skeleton stub c_fBracketTrans$2557 */
-	static const float c_fBracketTrans = 76.8f;
-	f32 box = opacity * 76.8f;
+	static const float c_fBracketTrans = 76.8000031f /* 0x4299999a */;
+	f32 box = opacity * 76.8000031f /* 0x4299999a */;
 
 	m_background.SetTrans(box);
 	g_lnDivider.C2DBitmap::SetTrans(box);
@@ -86,7 +86,7 @@ void CTeamNames::SetOpacity(float opacity)
 		m_healthdot[i].SetTrans(opacity * 128.0f);
 	}
 
-	g_strAlphaBracket.m_color.w = opacity * 0.3f * c_fBracketTrans;
+	g_strAlphaBracket.m_color.w = opacity * 0.300000012f /* 0x3e99999a */ * c_fBracketTrans;
 	g_strBravoBracket.m_color.w = g_strAlphaBracket.m_color.w;
 }
 
@@ -172,8 +172,8 @@ void CTeamNames::Init()
 		SetupTeamNameEntry(3, unit->GetSealByIndex(1));
 	}
 
-	g_strAlphaBracket.Load(1.2f, "[", m_myfont, 435, (s32)392.0f);
-	g_strBravoBracket.Load(1.2f, "[", m_myfont, 435, (s32)427.0f);
+	g_strAlphaBracket.Load(1.20000005f /* 0x3f99999a */, "[", m_myfont, 435, (s32)392.0f);
+	g_strBravoBracket.Load(1.20000005f /* 0x3f99999a */, "[", m_myfont, 435, (s32)427.0f);
 	g_strAlphaBracket.m_color = CHUD::m_hud_textcolor;
 	g_strBravoBracket.m_color = CHUD::m_hud_textcolor;
 }

@@ -261,15 +261,15 @@ void CZPauseTest::ReInit()
 	 * (off) and the select/scroll sounds */
 	bool network = theNetwork.m_bNetwork;
 
-	m_selections[0].Load(1.2f, "RESUME", m_font, 240, 200);
+	m_selections[0].Load(1.20000005f /* 0x3f99999a */, "RESUME", m_font, 240, 200);
 	m_selections[0].m_color.x = 86.0f;
 	m_selections[0].m_color.y = 63.0f;
 	m_selections[0].m_color.z = 27.0f;
-	m_selections[1].Load(1.2f, "ABORT", m_font, 240, 232);
+	m_selections[1].Load(1.20000005f /* 0x3f99999a */, "ABORT", m_font, 240, 232);
 	m_selections[1].m_color.x = 86.0f;
 	m_selections[1].m_color.y = 63.0f;
 	m_selections[1].m_color.z = 27.0f;
-	m_selections[2].Load(1.2f, "", m_font, 240, 264);
+	m_selections[2].Load(1.20000005f /* 0x3f99999a */, "", m_font, 240, 264);
 	m_selections[2].SetString(hackPitchFactor < 0.0f ? "INVERT PITCH: ON" : "INVERT PITCH: OFF");
 	m_selections[2].m_color.x = 86.0f;
 	m_selections[2].m_color.y = 63.0f;
@@ -277,12 +277,12 @@ void CZPauseTest::ReInit()
 
 	if (!network)
 	{
-		m_selections[4].Load(1.2f, "", m_font, 240, 328);
+		m_selections[4].Load(1.20000005f /* 0x3f99999a */, "", m_font, 240, 328);
 		m_selections[4].SetString(_AutoAim ? "AUTO AIM: ON" : "AUTO AIM: OFF");
 		m_selections[4].m_color.x = 86.0f;
 		m_selections[4].m_color.y = 63.0f;
 		m_selections[4].m_color.z = 27.0f;
-		m_selections[3].Load(1.2f, "REPLAY", m_font, 240, 296);
+		m_selections[3].Load(1.20000005f /* 0x3f99999a */, "REPLAY", m_font, 240, 296);
 		m_selections[3].m_color.x = 86.0f;
 		m_selections[3].m_color.y = 63.0f;
 		m_selections[3].m_color.z = 27.0f;
@@ -365,10 +365,10 @@ void CZPauseTest::HudTick(CPad *pad, float dT)
 			m_selections[i].m_color.z = 27.0f;
 		}
 
-		m_selections[m_curselection].m_color.x = 17.2f;
-		m_selections[m_curselection].m_color.y = 12.6f;
-		m_selections[m_curselection].m_color.z = 5.4f;
-		m_curcolor = 0.2f;
+		m_selections[m_curselection].m_color.x = 17.2000008f /* 0x4189999a */;
+		m_selections[m_curselection].m_color.y = 12.6000004f /* 0x4149999a */;
+		m_selections[m_curselection].m_color.z = 5.4000001f /* 0x40accccd */;
+		m_curcolor = 0.200000003f /* 0x3e4ccccd */;
 		m_inc = -0.7f;
 	}
 
@@ -390,15 +390,15 @@ void CZPauseTest::HudTick(CPad *pad, float dT)
 	selected.m_color.z = m_curcolor * 27.0f;
 	m_curcolor = m_curcolor + m_inc * dT;
 
-	if (m_curcolor >= 0.8f)
+	if (m_curcolor >= 0.800000012f /* 0x3f4ccccd */)
 	{
-		m_curcolor = 0.8f;
+		m_curcolor = 0.800000012f /* 0x3f4ccccd */;
 		m_inc = -0.7f;
 	}
 
-	if (m_curcolor <= 0.2f)
+	if (m_curcolor <= 0.200000003f /* 0x3e4ccccd */)
 	{
-		m_curcolor = 0.2f;
+		m_curcolor = 0.200000003f /* 0x3e4ccccd */;
 		m_inc = 0.7f;
 	}
 }

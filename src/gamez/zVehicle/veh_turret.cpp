@@ -93,8 +93,8 @@ static void turret_rearm(CAiTrigger &trigger)
 /* port: the inline CAiTrigger default (both ctors): up 0.1 + 0..0.4 s, down 0.5 + 0..0.7 s */
 static void turret_trigger_init(CAiTrigger &trigger)
 {
-	trigger.m_up_time.m_min = 0.1f;
-	trigger.m_up_time.m_range = 0.4f;
+	trigger.m_up_time.m_min = 0.100000002f /* 0x3dcccccd */;
+	trigger.m_up_time.m_range = 0.400000006f /* 0x3ecccccd */;
 	trigger.m_dn_time.m_min = 0.5f;
 	trigger.m_dn_time.m_range = 0.70000005f; /* ELF 0x3f333334 */
 	turret_rearm(trigger);
@@ -157,9 +157,9 @@ CTurretDef::CTurretDef()
 	turret_rearm(m_trigger);
 	m_yaw[0] = -3.1398473f;
 	m_yaw[1] = 3.1398473f;
-	m_pitch[0] = -1.569051f;
-	m_pitch[1] = 1.569051f;
-	m_aiParams.accuracy = 0.6f;
+	m_pitch[0] = -1.56905103f /* 0x3fc8d6aa */;
+	m_pitch[1] = 1.56905103f /* 0x3fc8d6aa */;
+	m_aiParams.accuracy = 0.600000024f /* 0x3f19999a */;
 	m_aiParams.visual_range = 1000.0f;
 }
 
@@ -192,14 +192,14 @@ void CTurretDef::Parse(const char *name, _zrdr *reader)
 	{
 		if (zrdr_findreal(limits, "YAW", m_yaw, 2))
 		{
-			m_yaw[0] = 0.017453292f * m_yaw[0];
-			m_yaw[1] = 0.017453292f * m_yaw[1];
+			m_yaw[0] = 0.0174532924f /* 0x3c8efa35 */ * m_yaw[0];
+			m_yaw[1] = 0.0174532924f /* 0x3c8efa35 */ * m_yaw[1];
 		}
 
 		if (zrdr_findreal(limits, "PITCH", m_pitch, 2))
 		{
-			m_pitch[0] = 0.017453292f * m_pitch[0];
-			m_pitch[1] = 0.017453292f * m_pitch[1];
+			m_pitch[0] = 0.0174532924f /* 0x3c8efa35 */ * m_pitch[0];
+			m_pitch[1] = 0.0174532924f /* 0x3c8efa35 */ * m_pitch[1];
 		}
 	}
 
@@ -662,7 +662,7 @@ void CTurret::Fire()
 		anim->ActivateArg(3, 3, m_firepoint, 5, &CPnt3D::zero, 6, vel, 0);
 
 	CPnt3D aim = m_aimdir;
-	m_target.ModifyAimDir(&aim, m_aiParams.accuracy, 0.36397f);
+	m_target.ModifyAimDir(&aim, m_aiParams.accuracy, 0.363970012f /* 0x3eba5a47 */);
 	CZWeapon::Fire(m_node, m_weapon, ammo, &m_firepos, &aim, vel, NULL, projectile, m_id, 0.0f, 0.0f);
 	m_fire_timer.m_timer = turret_draw(m_fire_timer.m_period);
 }

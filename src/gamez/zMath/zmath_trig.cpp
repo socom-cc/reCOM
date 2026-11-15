@@ -38,7 +38,7 @@ void init_trig_table()
 		s32 j = 0;
 		do
 		{
-			f32 x = i * 0.024543693f; /* 0x3cc90fdb (lui/ori 0x223080; 0.02454369f was 0x3cc90fd9) */
+			f32 x = i * 0.0245436933f; /* 0x3cc90fdb (lui/ori 0x223080; 0.02454369f was 0x3cc90fd9) */
 			f32 calc = sinf(x);
 			*(sintbl + j) = calc;
 			calc = cosf(x);

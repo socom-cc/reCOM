@@ -128,8 +128,8 @@ CPad::CPad(int port, int slot)
 		m_lastStickVal[i] = 0.0f;
 		m_lastStickRaw[i] = 0;
 		m_deadTime[i] = 0.0f;
-		m_maxStick[i] = 1.5626f;
-		m_minStick[i] = -1.5626f;
+		m_maxStick[i] = 1.56260002f /* 0x3fc80347 */;
+		m_minStick[i] = -1.56260002f /* 0x3fc80347 */;
 	}
 
 	for (int i = 0; i < 2; i++)
@@ -167,7 +167,7 @@ void CPad::Flush()
 	m_Data = 0;
 	memset(m_InData, 0, sizeof(m_InData));
 	memset(m_state, 0, sizeof(m_state));
-	Tick(1.0f / 30.0f);
+	Tick(0.0333333351f /* 0x3d088889: the ELF's folded 1.0f / 30.0f (GCC r5900 folds toward zero: 0x3d088888) */);
 
 	for (int i = 0; i < 16; i++)
 	{
@@ -201,7 +201,7 @@ float CPad::GetSensitivity(int stick)
 void CPad::SetAcceleration(int stick, float acceleration)
 {
 	/* 0x21b0f0: the response curve's power */
-	if (!(acceleration < 0.85f))
+	if (!(acceleration < 0.850000024f /* 0x3f59999a */))
 		m_stickType[stick].m_valueForN = 5.0f;
 	else if (!(acceleration < 0.75f))
 		m_stickType[stick].m_valueForN = 4.0f;
@@ -220,7 +220,7 @@ float CPad::GetAcceleration(int stick)
 	f32 n = m_stickType[stick].m_valueForN;
 
 	if (n == 5.0f)
-		return 0.99f;
+		return 0.99000001f /* 0x3f7d70a4 */;
 
 	if (n == 4.0f)
 		return 0.76f;
@@ -254,21 +254,21 @@ void CPad::SetPreset(int stick, int preset)
 	/* 0x21af40 */
 	if (preset == 0)
 	{
-		m_stickType[stick].m_valueForConstant = 0.6f;
+		m_stickType[stick].m_valueForConstant = 0.600000024f /* 0x3f19999a */;
 		m_stickType[stick].m_valueForN = 1.0f;
-		m_stickType[stick].m_absoluteDeadZone = 0.33f;
+		m_stickType[stick].m_absoluteDeadZone = 0.330000014f /* 0x3ea8f5c3 */;
 	}
 	else if (preset == 1)
 	{
 		m_stickType[stick].m_valueForConstant = 1.0f;
 		m_stickType[stick].m_valueForN = 1.0f;
-		m_stickType[stick].m_absoluteDeadZone = 0.33f;
+		m_stickType[stick].m_absoluteDeadZone = 0.330000014f /* 0x3ea8f5c3 */;
 	}
 	else if (preset == 2)
 	{
 		m_stickType[stick].m_valueForConstant = 1.0f;
 		m_stickType[stick].m_valueForN = 2.0f;
-		m_stickType[stick].m_absoluteDeadZone = 0.33f;
+		m_stickType[stick].m_absoluteDeadZone = 0.330000014f /* 0x3ea8f5c3 */;
 	}
 }
 
@@ -278,7 +278,7 @@ void CStickType::ReadControlFile(int stick)
 	/* 0x21ae80: built-in defaults (no file is read); only stick 1 differs */
 	m_minStickVelocity = 0.01640625f;
 	m_velocityDeadZone = 0.01f;
-	m_absoluteDeadZone = 0.33f;
+	m_absoluteDeadZone = 0.330000014f /* 0x3ea8f5c3 */;
 	m_valueForConstant = 1.0f;
 	m_valueForN = 2.0f;
 
@@ -286,13 +286,13 @@ void CStickType::ReadControlFile(int stick)
 	{
 		m_velocitySeparate = true;
 		m_deadZoneSeparate = true;
-		m_minZeroVelocityTime = 0.2f;
+		m_minZeroVelocityTime = 0.200000003f /* 0x3e4ccccd */;
 	}
 	else
 	{
 		m_velocitySeparate = false;
 		m_deadZoneSeparate = true;
-		m_minZeroVelocityTime = 0.4f;
+		m_minZeroVelocityTime = 0.400000006f /* 0x3ecccccd */;
 	}
 
 	m_normalize = true;
@@ -374,7 +374,7 @@ void CPad::Dilate(float &x, float &y, int stick)
 	if (which_dilation == 0)
 	{
 		f32 s = sinf(2.0f * atan2f(y, x));
-		scale = 1.0f / (1.0f + 0.28f * s * s);
+		scale = 1.0f / (1.0f + 0.280000002f /* 0x3e8f5c29 */ * s * s);
 	}
 	else if (which_dilation == 1)
 	{
@@ -567,10 +567,10 @@ void CPad::Tick(f32 delta)
 	m_lastStickRaw[3] = m_InData[7];
 
 	/* raw 0..255 (128 centred) -> about +1..-1: right and down are negative */
-	m_LeftStick[0] = (127.0f - (f32)m_InData[6]) * (1.0f / 127.5f);
-	m_LeftStick[1] = (127.0f - (f32)m_InData[7]) * (1.0f / 127.5f);
-	m_RightStick[0] = (127.0f - (f32)m_InData[4]) * (1.0f / 127.5f);
-	m_RightStick[1] = (127.0f - (f32)m_InData[5]) * (1.0f / 127.5f);
+	m_LeftStick[0] = (127.0f - (f32)m_InData[6]) * 0.00784313772f /* 0x3c008081 = 1.0f / 127.5f */;
+	m_LeftStick[1] = (127.0f - (f32)m_InData[7]) * 0.00784313772f /* 0x3c008081 = 1.0f / 127.5f */;
+	m_RightStick[0] = (127.0f - (f32)m_InData[4]) * 0.00784313772f /* 0x3c008081 = 1.0f / 127.5f */;
+	m_RightStick[1] = (127.0f - (f32)m_InData[5]) * 0.00784313772f /* 0x3c008081 = 1.0f / 127.5f */;
 
 	CheckStickVelocity(m_LeftStick[0], m_LeftStick[1], 0);
 	CheckStickVelocity(m_RightStick[0], m_RightStick[1], 1);

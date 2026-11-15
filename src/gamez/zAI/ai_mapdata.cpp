@@ -510,7 +510,7 @@ bool CAiMap::ReRoute(CAiMap::route *route)
 				ai::PathPlanExecute();
 
 				while (path.m_state == ::PATH_STATE::PLANNING || path.m_state == ::PATH_STATE::INQUEUE || path.m_state == ::PATH_STATE::ABORT)
-					ai::TickPathPlanner(0.03333334f, NULL);
+					ai::TickPathPlanner(0.0333333351f /* 0x3d088889 */, NULL);
 
 				if (path.m_points.size() != 0 && path.m_state == ::PATH_STATE::COMPLETE)
 				{

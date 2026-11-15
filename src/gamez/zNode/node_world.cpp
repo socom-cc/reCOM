@@ -183,14 +183,14 @@ CWorld::CWorld(const char* name)
 		SetName(name);
 
 		m_scale = 10.0f;
-		m_invscale = 0.1f;
+		m_invscale = 0.100000002f /* 0x3dcccccd */;
 		m_world = this;
 		m_type = 6;
 
 		m_diInt = new DiIntersect(256);
 		m_diIntDelayCnt = 0;
 
-		sceVu0FVECTOR sun = { 0.5f, -0.8f, 0.5f, 1.0f };
+		sceVu0FVECTOR sun = { 0.5f, -0.800000012f /* 0x3f4ccccd */, 0.5f, 1.0f };
 		sceVu0Normalize(sun, sun);
 		m_gLight.dir[0].x = sun[0];
 		m_gLight.dir[0].y = sun[1];
@@ -208,9 +208,9 @@ CWorld::CWorld(const char* name)
 		m_gLight.dir[2].w = 0.0f;
 		m_gLightDirUpdate = true;
 
-		m_gLight.col[0].x = 0.8f;
-		m_gLight.col[0].y = 0.8f;
-		m_gLight.col[0].z = 0.8f;
+		m_gLight.col[0].x = 0.800000012f /* 0x3f4ccccd */;
+		m_gLight.col[0].y = 0.800000012f /* 0x3f4ccccd */;
+		m_gLight.col[0].z = 0.800000012f /* 0x3f4ccccd */;
 		m_gLight.col[0].w = 1.0f;
 		m_gLightColUpdate = true;
 		m_gLight.col[1].x = 0.0f;
@@ -223,17 +223,17 @@ CWorld::CWorld(const char* name)
 		m_gLight.col[2].z = 0.0f;
 		m_gLight.col[2].w = 1.0f;
 		m_gLightColUpdate = true;
-		m_gLight.ambient.x = 0.2f;
-		m_gLight.ambient.y = 0.2f;
-		m_gLight.ambient.z = 0.2f;
+		m_gLight.ambient.x = 0.200000003f /* 0x3e4ccccd */;
+		m_gLight.ambient.y = 0.200000003f /* 0x3e4ccccd */;
+		m_gLight.ambient.z = 0.200000003f /* 0x3e4ccccd */;
 		m_gLight.ambient.w = 1.0f;
 		m_gLightColUpdate = true;
 
 		m_night_mission = false;
-		m_lensfx_nvg.x = 0.2f;
+		m_lensfx_nvg.x = 0.200000003f /* 0x3e4ccccd */;
 		m_lensfx_nvg.y = 0.9f;
-		m_lensfx_nvg.z = 0.2f;
-		m_lensfx_starlightscope.x = 0.3f;
+		m_lensfx_nvg.z = 0.200000003f /* 0x3e4ccccd */;
+		m_lensfx_starlightscope.x = 0.300000012f /* 0x3e99999a */;
 		m_lensfx_starlightscope.y = 0.5f;
 		m_lensfx_starlightscope.z = 0.95f;
 
@@ -1402,7 +1402,7 @@ _zanim_cmd_hdr * CWind::CmdParseWind(_zrdr *reader)
 	{
 		cmd->flags |= 1;
 		cmd->azimuth = WindArg(tag, 0);
-		cmd->azimuth = 0.017453292f * cmd->azimuth;
+		cmd->azimuth = 0.0174532924f /* 0x3c8efa35 */ * cmd->azimuth;
 		cmd->azimuth_time = WindArgCount(tag) < 2 ? 0.0f : WindArg(tag, 1);
 	}
 
@@ -1412,7 +1412,7 @@ _zanim_cmd_hdr * CWind::CmdParseWind(_zrdr *reader)
 	{
 		cmd->flags |= 2;
 		cmd->zenith = WindArg(tag, 0);
-		cmd->zenith = 0.017453292f * cmd->zenith;
+		cmd->zenith = 0.0174532924f /* 0x3c8efa35 */ * cmd->zenith;
 		cmd->zenith_time = WindArgCount(tag) < 2 ? 0.0f : WindArg(tag, 1);
 	}
 
@@ -1600,7 +1600,7 @@ void CWind::Tick(float dT)
 	if (speed < 0.0f)
 	{
 		speed = -speed;
-		azimuth += 3.1415927f;
+		azimuth += 3.14159275f /* 0x40490fdb */;
 	}
 
 	if (!(zenith < 90.0f))
@@ -1623,7 +1623,7 @@ void CWind::Tick(float dT)
 	m_Wind.x = sinf(azimuth);
 	m_Wind.z = cosf(azimuth);
 
-	f32 rise = 0.011111111f * zenith;
+	f32 rise = 0.0111111114f /* 0x3c360b61 */ * zenith;
 	m_Wind.x = -m_Wind.x;
 	m_Wind.y = rise;
 	m_Wind.z = -m_Wind.z;
@@ -1694,7 +1694,7 @@ void CWind::Reset()
 	m_MinZenithOffset = -0.78539819f;
 	m_MaxZenithOffset = 0.78539819f;
 	m_AzimuthOffsetVelocity = 0.2617994f;
-	m_ZenithOffsetVelocity = 0.08726646f;
+	m_ZenithOffsetVelocity = 0.0872664601f /* 0x3db2b8c2 */;
 	m_SpeedOffset = 3.0f;
 	m_MinSpeedOffset = -7.5f;
 	m_MaxSpeedOffset = 9.0f;

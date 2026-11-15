@@ -759,9 +759,9 @@ void zdb::CTexManager::doSetupBuffers(const char *)
 	TexPhase[11][0] = SetupBuffer(m_texmanager, "TexAlpha:B1", TexBufParams[0], TexBufParams[1]);
 	TexPhase[11][1] = SetupBuffer(m_texmanager, "TexAlpha:B2", TexBufParams[1], 1.0f);
 	TexPhase[0][0] = SetupBuffer(m_texmanager, "TexWorld:B", TexBufParams[0], 1.0f);
-	TexPhase[16][0] = SetupBuffer(m_texmanager, "TexCustomCS:0", 0.0f, 0.001f);
-	TexPhase[16][1] = SetupBuffer(m_texmanager, "TexCustomCS:1", 0.0f, 0.001f);
-	TexPhase[16][2] = SetupBuffer(m_texmanager, "TexCustomCS:2", 0.0f, 0.001f);
+	TexPhase[16][0] = SetupBuffer(m_texmanager, "TexCustomCS:0", 0.0f, 0.00100000005f /* 0x3a83126f */);
+	TexPhase[16][1] = SetupBuffer(m_texmanager, "TexCustomCS:1", 0.0f, 0.00100000005f /* 0x3a83126f */);
+	TexPhase[16][2] = SetupBuffer(m_texmanager, "TexCustomCS:2", 0.0f, 0.00100000005f /* 0x3a83126f */);
 }
 
 /* @socom-skeleton stub DestroyBuffers__Q23zdb11CTexManagerFRQ23zdb11CTexManagerb */

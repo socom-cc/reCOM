@@ -2471,7 +2471,7 @@ void CUIListBox::SetPressed()
 	m_highlight.SetTrans((f32)m_highlightAlpha);
 	m_highlight.SetTrans(100.0f);
 	m_highlightAlpha = 100;
-	m_pressedTime = 0.2f;
+	m_pressedTime = 0.200000003f /* 0x3e4ccccd */;
 }
 
 /* @socom-skeleton stub HandlePad__10CUIListBoxFPC4CPadi */
@@ -4154,7 +4154,7 @@ void C2DVisual::Render(CMatrix *transform)
 
 	if (opacity < 1.0f)
 	{
-		if (opacity == 0.99f)
+		if (opacity == 0.99000001f /* 0x3f7d70a4 */)
 			opacity = 1.0f;
 
 		m_2d->SetTrans(128.0f * opacity);
@@ -4266,7 +4266,7 @@ bool CUIMapCtrl::HandlePad(const CPad *pad, int)
 
 		if (item.State != pad->m_state[item.PadButton])
 		{
-			if (item.State != KEY_DOWN || IsStickNearCenter(0.6f))
+			if (item.State != KEY_DOWN || IsStickNearCenter(0.600000024f /* 0x3f19999a */))
 				continue;
 
 			u8 button = 16;
@@ -4533,7 +4533,7 @@ bool CUIMapCtrl::TickZAnimCmd(_zanim_cmd_hdr *header, float *delta, bool *result
 		return true;
 	}
 
-	f32 factor = 1.0f - 0.33333f * *delta;
+	f32 factor = 1.0f - 0.333330006f /* 0x3eaaaa3b */ * *delta;
 	CPnt3D zoomed;
 	zoomed.x = cx - factor * (cx - pos.x);
 	zoomed.y = cy - factor * (cy - pos.y);

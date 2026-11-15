@@ -454,7 +454,7 @@ void Particle::BufferElement::DrawRotated(float (&matrix)[4][4])
 	/* @socom-skeleton stub XRate$1514 */
 	static int XRate = 0;
 	/* @socom-skeleton stub YRate$1517 */
-	static f32 YRate = 2.2f;
+	static f32 YRate = 2.20000005f /* 0x400ccccd */;
 	/* 0x234c90: a screen quad turned by the instance's angle (m_prev.x): half extents
 	 * a = size cos, b = size sin (size = 256 m_size / w times the view-to-screen x scale),
 	 * corners (x + a, y + b), (x - b, y + a), (x - a, y - b), (x + b, y - a). Not drawn in

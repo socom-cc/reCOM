@@ -191,7 +191,7 @@ void CMaterialExArray::CreateDefaultMaterials()
 	mat->m_opacity = 1.0f;
 	mat->m_penetration = 0.0f;
 	mat->m_ricochet = 0.0f;
-	mat->m_elasticity_coeff = 0.3f;
+	mat->m_elasticity_coeff = 0.300000012f /* 0x3e99999a */;
 	mat->m_volumetric = false;
 	mat->m_liquid = false;
 	mat->m_pickup = false;

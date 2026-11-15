@@ -488,7 +488,7 @@ void CQuat::SlerpFaster(const CQuat *other, float t, CQuat *out) const
 
 	f32 cosom = (vec.x * other->vec.x + vec.y * other->vec.y + vec.z * other->vec.z) + other->w * w;
 
-	if (fabsf(cosom) < 0.87f)
+	if (fabsf(cosom) < 0.870000005f /* 0x3f5eb852 */)
 	{
 		Slerp(other, t, out);
 		return;
@@ -513,7 +513,7 @@ void CQuat::SlerpFaster(const CQuat *other, float t, CQuat *out) const
 
 	f32 len2 = (out->vec.x * out->vec.x + out->vec.y * out->vec.y + out->vec.z * out->vec.z) + out->w * out->w;
 
-	if (!_close_enough(len2, 1.0f, 0.004f))
+	if (!_close_enough(len2, 1.0f, 0.00400000019f /* 0x3b83126f */))
 		Slerp(other, t, out);
 }
 

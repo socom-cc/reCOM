@@ -373,7 +373,7 @@ void C2DOrderItem::Draw(zdb::CCamera *camera)
 		f32 y = (f32)m_y;
 		m_glowing_background.Load(x - 10.0f, y - 10.0f, 10.0f + (x + m_width), 10.0f + (y + m_height), m_active_tex);
 		m_glowing_background.SetTrans(GetTrans());
-		m_glowing_background.SetUV(0.01f, 0.01f, 0.99f, 0.99f);
+		m_glowing_background.SetUV(0.01f, 0.01f, 0.99000001f /* 0x3f7d70a4 */, 0.99000001f /* 0x3f7d70a4 */);
 	}
 
 	if (m_bArrow)
@@ -1232,7 +1232,7 @@ void OrdersMenu::SetupTeamDisplay()
 			item->m_inactive_tex = m_team_inactive_tex;
 			item->m_arrow_tex = m_arrow_tex;
 			item->SetTrans(75.0f);
-			item->SetUV(0.01f, 0.01f, 0.99f, 0.99f);
+			item->SetUV(0.01f, 0.01f, 0.99000001f /* 0x3f7d70a4 */, 0.99000001f /* 0x3f7d70a4 */);
 			orders_text_color(item);
 
 			if (first)
@@ -1328,7 +1328,7 @@ void OrdersMenu::SetupCommandDisplay()
 		item->m_active_tex = m_cmd_active_tex;
 		item->m_inactive_tex = m_cmd_inactive_tex;
 		item->m_arrow_tex = m_arrow_tex;
-		item->SetUV(0.01f, 0.01f, 0.99f, 0.99f);
+		item->SetUV(0.01f, 0.01f, 0.99000001f /* 0x3f7d70a4 */, 0.99000001f /* 0x3f7d70a4 */);
 		orders_item_target(item, (int)(30.0f + m_item_width), y);
 		item->m_glow = false;
 		int x;
@@ -1407,7 +1407,7 @@ unsigned char OrdersMenu::SetupContextDisplay(bool show)
 			item->m_inactive_tex = m_aux_inactive_tex;
 			item->m_arrow_tex = m_arrow_tex;
 			item->m_glow = false;
-			item->SetUV(0.01f, 0.01f, 0.99f, 0.99f);
+			item->SetUV(0.01f, 0.01f, 0.99000001f /* 0x3f7d70a4 */, 0.99000001f /* 0x3f7d70a4 */);
 			orders_item_target(item, x, y);
 			orders_text_color(item);
 			const char *display = sub->m_display != NULL ? sub->m_display : "";
@@ -1744,10 +1744,10 @@ void OrdersMenu::LoadTextures(zdb::CWorld *, C2DFont *font)
 	m_ExplanationBackgroundCenterLeft.SetPos(135, 20, 245, 45);
 	m_ExplanationBackgroundCenterRight.SetPos(245, 20, 355, 45);
 	m_ExplanationBackgroundRight.SetPos(355, 20, 465, 45);
-	m_ExplanationBackgroundLeft.SetUV(0.0f, 0.0f, 0.8f, 1.0f);
-	m_ExplanationBackgroundCenterLeft.SetUV(0.1f, 0.0f, 0.8f, 1.0f);
-	m_ExplanationBackgroundCenterRight.SetUV(0.1f, 0.0f, 0.8f, 1.0f);
-	m_ExplanationBackgroundRight.SetUV(0.1f, 0.0f, 1.0f, 1.0f);
+	m_ExplanationBackgroundLeft.SetUV(0.0f, 0.0f, 0.800000012f /* 0x3f4ccccd */, 1.0f);
+	m_ExplanationBackgroundCenterLeft.SetUV(0.100000002f /* 0x3dcccccd */, 0.0f, 0.800000012f /* 0x3f4ccccd */, 1.0f);
+	m_ExplanationBackgroundCenterRight.SetUV(0.100000002f /* 0x3dcccccd */, 0.0f, 0.800000012f /* 0x3f4ccccd */, 1.0f);
+	m_ExplanationBackgroundRight.SetUV(0.100000002f /* 0x3dcccccd */, 0.0f, 1.0f, 1.0f);
 	m_list.push_back(&m_ExplanationBackgroundLeft);
 	m_list.push_back(&m_ExplanationBackgroundCenterLeft);
 	m_list.push_back(&m_ExplanationBackgroundCenterRight);

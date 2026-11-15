@@ -50,8 +50,8 @@ void CFader::Tick(float dT)
 	/* 0x4035d0: while the fade runs the bitmap is on and the brightness moves by the rate
 	 * (up fading in, down otherwise); a finished fade-in turns it off, a finished fade out
 	 * keeps darkening to the minimum. dT is capped at 0.1 s. */
-	if (dT >= 0.1f)
-		dT = 0.1f;
+	if (dT >= 0.100000002f /* 0x3dcccccd */)
+		dT = 0.100000002f /* 0x3dcccccd */;
 
 	if (m_fadetime > 0.0f)
 	{
@@ -157,14 +157,14 @@ void CFlashFX::Tick(float dT)
 	 * at 0.1 s; inline here), then the flash phases on m_timer: fading out -> hold (if it
 	 * has a duration) -> fading in (if it has a fade-in time; the fader restarts from the
 	 * minimum brightness). A finished fade-in turns the bitmap off. */
-	f32 step = 0.1f;
+	f32 step = 0.100000002f /* 0x3dcccccd */;
 
-	if (dT < 0.1f)
+	if (dT < 0.100000002f /* 0x3dcccccd */)
 		step = dT;
 
-	f32 fade = 0.1f;
+	f32 fade = 0.100000002f /* 0x3dcccccd */;
 
-	if (step < 0.1f)
+	if (step < 0.100000002f /* 0x3dcccccd */)
 		fade = step;
 
 	if (!(m_fadetime <= 0.0f))

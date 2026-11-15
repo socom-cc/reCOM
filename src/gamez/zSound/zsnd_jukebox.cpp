@@ -317,7 +317,7 @@ void CSndJukebox::PlayRandom(MUSIC_MODE mode)
 		if (sum <= r)
 			continue;
 
-		weights[i] = weights[i] * 0.1f;
+		weights[i] = weights[i] * 0.100000002f /* 0x3dcccccd */;
 		NormalizeWeights(mode);
 
 		if (i >= m_playlist[(signed char)mode].size())

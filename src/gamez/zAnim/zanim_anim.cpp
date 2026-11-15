@@ -336,7 +336,7 @@ void CZAnimEx::OnWeaponHit(zdb::CNode *node, zdb::IntersectStruct *, CZProjectil
 
 	CPnt3D vel = projectile->m_vel;
 
-	if (vel.x * vel.x + vel.y * vel.y + vel.z * vel.z < 1.0f && !(projectile->m_ammo->GetExplosionRadius() <= 0.001f))
+	if (vel.x * vel.x + vel.y * vel.y + vel.z * vel.z < 1.0f && !(projectile->m_ammo->GetExplosionRadius() <= 0.00100000005f /* 0x3a83126f */))
 	{
 		CPnt3D center = projectile->m_framestartpos;
 		CPnt3D dir;
@@ -348,8 +348,8 @@ void CZAnimEx::OnWeaponHit(zdb::CNode *node, zdb::IntersectStruct *, CZProjectil
 			/* a blast level with the node pushes up and out at 45 degrees */
 			center.y -= dist;
 			p.Sub(&center, &dir);
-			dir.Scale(0.707f, &dir);
-			dist *= 0.707f;
+			dir.Scale(0.707000018f /* 0x3f34fdf4 */, &dir);
+			dist *= 0.707000018f /* 0x3f34fdf4 */;
 		}
 
 		float fraction = dist / projectile->m_ammo->GetExplosionRadius();

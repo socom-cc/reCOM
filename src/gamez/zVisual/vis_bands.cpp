@@ -377,7 +377,7 @@ CPnt3D ColConvTo3D(unsigned int color)
 	/* 0x310460 (CClutter::Render): 0x00RRGGBB as r, g, b in 0-1 (the scale 1/255 set once,
 	 * init$1286) */
 	/* @socom-skeleton stub scale$1285 */
-	static float scale = 1.0f / 255.0f;
+	static float scale = 0.00392156886f /* 0x3b808081: the ELF's folded 1.0f / 255.0f (GCC r5900 folds toward zero: 0x3b808080) */;
 	CPnt3D out;
 	out.x = scale * (f32)((color & 0xff0000) >> 16);
 	out.y = scale * (f32)((color & 0xff00) >> 8);
