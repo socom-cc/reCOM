@@ -3740,7 +3740,7 @@ void CSealCtrlAi::SelectFireParams()
 	else if (!(m_target.m_target.GetRange() <= 1.2f * CAiWepHint::GetWeaponEffectiveRange(item)))
 	{
 		m_ai_trigger.m_dn_time.m_min = 0.15f;
-		m_ai_trigger.m_dn_time.m_range = 0.09999999f;
+		m_ai_trigger.m_dn_time.m_range = 0.099999994f; /* 0x3dcccccc (the ELF's word; 0.09999999f is 0x3dcccccb) */
 		m_ai_trigger.m_up_time.m_min = 0.15f;
 		m_ai_trigger.m_up_time.m_range = 1.15f;
 		mode = (FIREMODE)1;

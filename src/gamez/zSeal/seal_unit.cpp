@@ -2401,7 +2401,7 @@ bool CSealUnit::GetMyPointOutAnimStart(CZSealBody *seal)
 	/* @socom-skeleton stub startAnimLengthSqThreshold$3822 */
 	static float startAnimLengthSqThreshold = 40000.0f;
 	/* @socom-skeleton stub startAnimDotThreshold$3827 */
-	static double startAnimDotThreshold = -0.8; /* ELF: the double 0xbfe99999a0000000 */
+	static double startAnimDotThreshold = (double)-0.8f; /* ELF: the double 0xbfe99999a0000000 (-0.8f widened, 0x2cef7c) */
 
 	/* 0x2ced80: the pointing member (as above) starts its point-out hand signal when within
 	 * 200 of the player and in front of him (dot < -0.8 between the direction to the player

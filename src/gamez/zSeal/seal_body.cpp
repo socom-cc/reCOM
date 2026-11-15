@@ -1035,8 +1035,8 @@ CZBodyAnimBlend * CZSealBody::InStateStand(float fb, float lr, float strafe)
 	if (m_is_moving)
 		move = !stillX || !stillZ;
 	else if (m_is_turning)
-		move = !stillX || !(z < stoppedV + turn * turn * (0.3f - stoppedV))
-			|| z <= -(stoppedV * 1.5f + turn * turn * (0.5f - stoppedV * 1.5f));
+		move = !stillX || !(z < stoppedV + turn * (turn * (0.3f - stoppedV)))
+			|| z <= -(1.5f * stoppedV + turn * (turn * (0.5f - 1.5f * stoppedV))); /* the ELF's product order (0x27adec) */
 	else
 		move = !stillX || !stillZ;
 

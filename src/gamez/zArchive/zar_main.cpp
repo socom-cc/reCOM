@@ -607,11 +607,15 @@ bool CZAR::WriteDirectory()
 		if (!m_pFile->IsOpen())
 			return false;
 
+		/* 0x1d81a0: one seek to the end; when it fails the archive is still marked unmodified */
 		u32 pos = m_pFile->fseek(0, SEEK_END);
-		success = pos != -1;
+		success = pos != (u32)-1;
 
-		if (m_pFile->fseek(0, SEEK_END) == -1)
+		if (!success)
+		{
+			m_modified = false;
 			return false;
+		}
 
 		m_tail.version = ZAR_VERSION_1;
 		m_tail.offset = m_pFile->ftell();

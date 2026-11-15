@@ -277,11 +277,18 @@ void CAiState::Signal(CAiState::SIGNAL signal, CSealCtrlAi *ctrl)
 	 * (2: the controller's travel flag, stance, mode, speed and map location are saved in the
 	 * state) or uncovered (3: they come back); the goal is cleared and the trigger released
 	 * before the state's own OnSignal. A pushed state is reset (OnSignal 4) and starts in mode
-	 * 1 at full speed. port: the AI log record (PutAiLog 5) is left out (no AI log) */
+	 * 1 at full speed. With a controller an AI log record (type 5, 8 bytes: the controller's AI
+	 * state, the signal) is written first (0x2dbe3c; PutAiLog writes only while logging). */
 	CZSealBody* body = ctrl != NULL ? static_cast<CZSealBody *>(ctrl->m_entity) : NULL;
 
 	if (ctrl != NULL)
+	{
 		ctrl->ClearGoal((GOAL_TYPE)0);
+		u32 rec[2];
+		rec[0] = (u8)ctrl->GetAiStateEnum();
+		rec[1] = (u8)signal;
+		ctrl->PutAiLog(5, 8, rec);
+	}
 
 	switch ((s32)signal)
 	{

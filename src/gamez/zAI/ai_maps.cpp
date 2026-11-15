@@ -512,7 +512,7 @@ float CAiMaps::GetInterpolatedShadow(const CAiMapLoc &loc, const CPnt3D *pos, bo
 	if (total < 0.98f)
 		sum /= total;
 
-	return 0.3333333f * sum;
+	return 0.33333334f * sum; /* 0x3eaaaaab (the ELF's word; 0.3333333f is 0x3eaaaaaa) */
 }
 
 /* GetInterpolationCells__6CAiMapCFRC9CAiMapLocPC6CPnt3DP6IPNT2DP5PNT2D 0x19ba90 (this file's
@@ -1370,11 +1370,11 @@ bool CAiMaps::SetRegionType(const CAiMap::region *region, CAiMap::region::TYPE t
 	r->m_type = t;
 	CAiMapLocVec &from = m_regions[old];
 	CAiMapLocVec::iterator out = from.begin();
-	u32 key = *reinterpret_cast<const u32 *>(&r->m_loc);
 
+	/* std::find + remove_copy (0x1972d0): CAiMapLoc's == compares x and y only, not the map id */
 	for (CAiMapLocVec::iterator i = from.begin(); i != from.end(); ++i)
 	{
-		if (*reinterpret_cast<const u32 *>(&*i) != key)
+		if (i->x != r->m_loc.x || i->y != r->m_loc.y)
 			*out++ = *i;
 	}
 
