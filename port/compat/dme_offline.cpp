@@ -197,4 +197,41 @@ int NetPing(int connection, int unknown, void (*callback)(enum NetErrorCode, cha
     return NET_OFFLINE_ERROR;
 }
 
+/* ---- socom-port-mod-final (2026-11-14): the net object structures (CZ*State::zNetRegister*: a
+ * structure started, one field per member - its id word, offset, size, type, count, broadcast schedule
+ * - then registered by name and size; nothing to register with: 0, the ids 0), an object freed and an
+ * object's full update sent (no objects: not available) */
+int NetRegisterObjectStart(void)
+{
+    return 0;
+}
+
+int NetObjectField(int *fieldId, int offset, int size, int type, int count, void *schedule)
+{
+    (void)offset; (void)size; (void)type; (void)count; (void)schedule;
+    if (fieldId != NULL)
+        *fieldId = 0;
+    return 0;
+}
+
+int NetRegisterStructure(int *index, const char *name, int size)
+{
+    (void)name; (void)size;
+    if (index != NULL)
+        *index = 0;
+    return 0;
+}
+
+int NetFreeObject(int index)
+{
+    (void)index;
+    return NET_OFFLINE_ERROR;
+}
+
+int NetSendObjectFullUpdate(int client, int index)
+{
+    (void)client; (void)index;
+    return NET_OFFLINE_ERROR;
+}
+
 }

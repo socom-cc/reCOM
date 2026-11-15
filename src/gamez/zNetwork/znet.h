@@ -407,6 +407,7 @@ public:
 	friend class CHUD; /* port: StatusLine 0x3d9bb8 reads m_timeTaken (push-to-talk time) */
 	friend class CSealCtrl; /* port: PostMortemPreTick 0x283fd0 sets m_block_talk (a dead player cannot talk) */
 	friend class CSealUnit; /* port: IssueCommand 0x2d0b44 toggles m_isOn / m_isOn_save (CMD 32, unit 24) */
+	friend void process_arguments(int, char **); /* port: 0x173e80 / 0x174638 / 0x174660 set m_do_voice, m_isDebug */
 	bool PreTick();
 	bool Tick(f32 dT);
 private:

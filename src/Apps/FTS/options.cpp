@@ -17,7 +17,27 @@
 #include "gamez/zGame/zgame.h"
 #include "gamez/zUtil/util_stable.h"
 /* @socom-skeleton end include */
-#include "gamez/zNetwork/znet.h" /* theNetwork (process_arguments) */
+#include "gamez/zNetwork/znet.h" /* theNetwork, theVoice (process_arguments) */
+#include "gamez/zAnim/zanim.h" /* CZAnimMain::m_LoadFromZAR */
+#include "gamez/zSystem/zsys.h" /* zSys */
+#include "gamez/zSound/zsnd.h" /* CSnd's debug switches */
+#include "gamez/zSeal/zseal.h" /* CZSealBody, CSealCtrlAi, ai::isolate_character */
+#include "gamez/zWeapon/zweapon.h" /* CZWeapon's switches */
+#include "gamez/zUtil/util_systemio.h" /* CFileIO::SetRootPath */
+#include "gamez/zVideo/zvid.h" /* CVideo::m_defaultFrameRate */
+#include "gamez/zFTS/zfts.h" /* theMission, ftsSetSquirm, SetDatabase */
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* getopt.cpp (0x173ab0) */
+int getopt(int, char *const *, const char *);
+extern char *goptarg;
+
+extern float hackPitchFactor; /* seal_control.cpp (0x475000) */
+extern unsigned char gAllowGhosts; /* st_load.cpp (0x47547c) */
+extern unsigned char LoadDialogsFromReader; /* zui.cpp (0x4768d8) */
+void ftsSetPlayerCount(int count); /* fts_player.cpp (0x1fdb50) */
 
 /* @socom-skeleton stub gopt */
 _options gopt = {1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -28,9 +48,248 @@ static CSTable MultiplayerMsgStrings;
 /* @socom-skeleton body process_arguments__FiPPc */
 void process_arguments(int argc, char** argv)
 {
+	/* 0x173e30: the defaults, the short options through getopt, then every word against the long
+	 * options. The ELF's option string is a guarded function-local static (opt_string$2589
+	 * 0x47569c, init$2590 0x4756a0).
+	 * ELF quirks kept: "m:" takes an argument and has no case; -V falls through into -z (it
+	 * always clears m_LoadFromZAR and gopt.LoadZAnimFromZAR, a valid rate or not); --isolate
+	 * copies the next word (argv[argc] when it is the last) and the long options after it test
+	 * that next word; --nodi / --noalt / --noint latch, so their message and gopt clear repeat for
+	 * every later word; --player_grid with no number gives 16.
+	 * Port: the PCSX2 boot passes argc 1 (argv[0] the ELF), so no option applies and the game
+	 * runs with the defaults set here. */
+	static const char *opt_string = "d:p:m:V:hfFaAszZR";
+	int opt;
+
 	zSys.cdSounds = false;
 	CZAnimMain::m_LoadFromZAR = true;
-	theNetwork.m_bMediusEnabled = true; /* 0x1740bc: Medius on (then --medius / --nomedius, not parsed in the port) */
+	gopt.LoadZAnimFromZAR = true;
+	theVoice.m_do_voice = true; /* offline: CZNetVoice::Init is never reached; UnInit returns (m_uninited) */
 
-	
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("M1: process_arguments argc %d argv[0] %s", argc, argc > 0 && argv[0] != NULL ? argv[0] : "(none)");
+#endif
+
+	while ((opt = getopt(argc, argv, opt_string)) != -1)
+	{
+		switch (opt)
+		{
+		case 'a':
+			gopt.enableAi = !gopt.enableAi;
+			break;
+		case 'A':
+			gopt.loadAi = !gopt.loadAi;
+			break;
+		case 'd':
+			SetDatabase(goptarg);
+			break;
+		case 'f':
+			gopt.doStatusLine = !gopt.doStatusLine;
+			break;
+		case 'F':
+			gopt.doStatusLineSmall = !gopt.doStatusLineSmall;
+			break;
+		case 'R':
+			gopt.doFPS = !gopt.doFPS;
+			break;
+		case 'h':
+			gopt.doHud = !gopt.doHud;
+			break;
+		case 'p':
+			CFileIO::SetRootPath(goptarg);
+			break;
+		case 's':
+			gopt.doShadow = !gopt.doShadow;
+			CZSealBody::m_renderShadow = gopt.doShadow;
+			break;
+		case 'V':
+		{
+			int rate = atoi(goptarg);
+
+			if (rate == 60 || rate == 30 || rate == 20 || rate == 15)
+				CVideo::m_defaultFrameRate = rate;
+			else
+				printf("\nInvalid video rate (-V switch)\n");
+		}
+			/* fall through (ELF: no break) */
+		case 'z':
+			CZAnimMain::m_LoadFromZAR = false;
+			gopt.LoadZAnimFromZAR = false;
+			break;
+		case 'Z':
+			CZAnimMain::m_LoadFromZAR = true;
+			gopt.LoadZAnimFromZAR = true;
+			break;
+		default:
+			break;
+		}
+	}
+
+	CSealCtrlAi::SetAiEnabled(gopt.enableAi, true);
+	theNetwork.m_bMediusEnabled = true;
+
+	bool noAlt = false;
+	bool noInt = false;
+
+	for (int i = 0; i < argc; i++)
+	{
+		if (strcmp(argv[i], "--AP") == 0)
+			OurGameName.m_game_name = nameAP;
+
+		if (strcmp(argv[i], "--ammo") == 0)
+			gopt.infiniteAmmo = true;
+
+		if (strcmp(argv[i], "--cdsounds") == 0)
+			zSys.cdSounds = true;
+
+		if (strcmp(argv[i], "--nosounds") == 0)
+			CSnd::m_isDisabled = true;
+
+		if (strcmp(argv[i], "--displaysounds") == 0)
+			CSnd::m_DisplaySounds = 1;
+
+		if (strcmp(argv[i], "--debugmusic") == 0)
+			CSnd::m_debugMusic = 1;
+
+		if (strcmp(argv[i], "--ffire") == 0)
+			CZSealBody::m_allow_friendly_fire = 1;
+
+		if (strcmp(argv[i], "--nofireanim") == 0)
+			CZWeapon::m_allowFireAnimations = false;
+
+		if (strcmp(argv[i], "--noimpactanim") == 0)
+			CZWeapon::m_allowImpactAnimations = false;
+
+		if (strcmp(argv[i], "--nowepintersection") == 0)
+			CZWeapon::m_allowWeaponIntersection = false;
+
+		if (strcmp(argv[i], "--ailog") == 0)
+			CSealCtrlAi::SetAiLogEnabled(true, true);
+
+		if (strcmp(argv[i], "--noenemy") == 0)
+			gopt.noEnemy = true;
+
+		if (strcmp(argv[i], "--noalpha") == 0)
+			gopt.noAlpha = true;
+
+		if (strcmp(argv[i], "--nobravo") == 0)
+			gopt.noBravo = true;
+
+		if (strcmp(argv[i], "--aid") == 0)
+			CSealCtrlAi::aiDebugEnabled = 1;
+
+		if (strcmp(argv[i], "--isolate") == 0)
+		{
+			i++;
+			strcpy(ai::isolate_character, argv[i]);
+		}
+
+		if (strcmp(argv[i], "--noaifilter") == 0)
+			CSealCtrlAi::aiCameraRangeFilter = 0;
+
+		if (strncmp(argv[i], "--player_grid", 13) == 0)
+		{
+			if (argv[i][13] == '\0')
+				theMission.m_ai_params.player_grid_count = 16;
+			else
+				theMission.m_ai_params.player_grid_count = (s32)atol(argv[i] + 13);
+		}
+
+		if (strcmp(argv[i], "--noobj") == 0)
+			gopt.noObjectives = true;
+
+		if (strcmp(argv[i], "--nodie") == 0)
+			gopt.noDie = true;
+
+		if (strcmp(argv[i], "--nosee") == 0)
+			gopt.noSee = true;
+
+		if (strcmp(argv[i], "--log") == 0)
+			gopt.doLog = true;
+
+		if (strcmp(argv[i], "--dumplog") == 0)
+			gopt.dumpLog = true;
+
+		if (strcmp(argv[i], "--nomenu") == 0)
+			theGame.m_menuState.SetSkipMenu(true);
+		else if (strcmp(argv[i], "--menu") == 0)
+			theGame.m_menuState.SetSkipMenu(false);
+
+		if (strcmp(argv[i], "--invert_pitch") == 0)
+			hackPitchFactor = -1.0f;
+
+		if (strcmp(argv[i], "--pad2") == 0)
+			theGame.m_pad = 1;
+
+		if (strcmp(argv[i], "--squirm") == 0)
+			ftsSetSquirm(true);
+
+		if (strcmp(argv[i], "--two_player") == 0)
+			ftsSetPlayerCount(2);
+
+		if (strcmp(argv[i], "--no_radar") == 0)
+			gopt.doRadar = false;
+
+		if (strcmp(argv[i], "--radar") == 0)
+			gopt.doRadar = true;
+
+		if (strcmp(argv[i], "--multi") == 0)
+			theNetwork.m_bNetwork = true;
+
+		if (strcmp(argv[i], "--medius") == 0)
+			theNetwork.m_bMediusEnabled = true;
+
+		if (strcmp(argv[i], "--nomedius") == 0)
+			theNetwork.m_bMediusEnabled = false;
+
+		if (strcmp(argv[i], "--nomemcard") == 0)
+			theNetwork.m_bNetCnfRequired = false;
+
+		if (strcmp(argv[i], "--voice") == 0)
+			theVoice.m_do_voice = true;
+
+		if (strcmp(argv[i], "--voiced") == 0)
+		{
+			theVoice.m_do_voice = true;
+			theVoice.m_isDebug = true;
+		}
+
+		if (strcmp(argv[i], "--noghost") == 0)
+			gAllowGhosts = 0;
+
+		if (strcmp(argv[i], "--e3seal") == 0)
+			theMission.m_e3_team = E3_SEAL;
+
+		if (strcmp(argv[i], "--e3terr") == 0)
+			theMission.m_e3_team = E3_TERR;
+
+		if (strcmp(argv[i], "--dlgrdr") == 0)
+			LoadDialogsFromReader = 1;
+
+		if (strcmp(argv[i], "--nodi") == 0)
+		{
+			noAlt = true;
+			noInt = true;
+		}
+		else
+		{
+			if (strcmp(argv[i], "--noalt") == 0)
+				noAlt = true;
+
+			if (strcmp(argv[i], "--noint") == 0)
+				noInt = true;
+		}
+
+		if (noInt)
+		{
+			puts("\n*** DI INTERSECTION TEST TURNED OFF ***\n");
+			gopt.doIntersections = false;
+		}
+
+		if (noAlt)
+		{
+			puts("\n*** DI ALTITUDE TESTS TURNED OFF    ***\n");
+			gopt.doAltitudes = false;
+		}
+	}
 }

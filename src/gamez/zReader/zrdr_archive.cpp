@@ -113,7 +113,7 @@ zar::CZAR* CRdrArchive::AddArchive(const char* name, const char* path)
 	return output;
 }
 
-/* port: stub __dt__11CRdrArchiveFv (no owner in the render) */
+/* port: no skeleton fence for __dt__11CRdrArchiveFv (no owner in the render) */
 CRdrArchive::~CRdrArchive()
 {
 	/* 0x23be10: only the CZAR destructor runs. */

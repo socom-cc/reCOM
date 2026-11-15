@@ -287,7 +287,7 @@ CDlgObjSpec * GetObjectSpec(_zrdr *reader, const char *type)
 #ifdef SOCOM_PORT
 	static int traced = 0;
 	if (traced++ < 24)
-		SOCOM_PORT_TRACE("UI: object spec %s not written", type);
+		SOCOM_PORT_TRACE("UI: object spec %s unknown (no such type in the ELF: NULL)", type);
 #endif
 	return NULL;
 }

@@ -2305,7 +2305,8 @@ unsigned char UIAbortLoad(C2DAnimCmdHdr *cmd, float *)
 unsigned char UINetCnfInit(C2DAnimCmdHdr *, float *)
 {
 	/* 0x1d20c0. The network-configuration commands (to 0x1d0e50) are written, untested: only
-	 * the online setup screens run them, and CNetCnf (zNetwork) is not written. */
+	 * the online setup screens run them (CNetCnf's provider, netcnfif, is offline:
+	 * port/compat/netcnfif_offline.c). */
 	return CNetCnf::Init(false);
 }
 
@@ -2940,7 +2941,7 @@ unsigned char UIIsTeamGame(C2DAnimCmdHdr *, float *)
 /* @socom-skeleton stub UIPasswordSecurity__FP13C2DAnimCmdHdrPf */
 unsigned char UIPasswordSecurity(C2DAnimCmdHdr *, float *)
 {
-	/* 0x1d08d0. Written, untested (online only; zNetwork's lobby is not written) */
+	/* 0x1d08d0. Written, untested (online only: the lobby needs a network) */
 	CZOnlineLobby::PasswordSecurity();
 	return true;
 }

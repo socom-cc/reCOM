@@ -324,7 +324,7 @@ void C2DTriFan::Draw(zdb::CCamera *camera)
 		it->Draw(camera);
 }
 
-/* port: stub GetAssetLibs__9C2DTriFanFRQ23C2D8CLibList (no owner in the render) */
+/* port: no skeleton fence for GetAssetLibs__9C2DTriFanFRQ23C2D8CLibList (no owner in the render) */
 void C2DTriFan::GetAssetLibs(C2D::CLibList &libs)
 {
 	/* 0x300d90: the texture's asset library (ELF quirk: added only when the search result is a

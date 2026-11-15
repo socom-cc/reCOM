@@ -129,7 +129,7 @@ void C2DString::Load(f32 scale, const char* message, C2DTTFFont* font, s32 x, s3
     Load(message, font, x, y);
 }
 
-/* port: stub __dt__7C2DLineFv (no owner in the render) */
+/* port: no skeleton fence for __dt__7C2DLineFv (no owner in the render) */
 /* port: stage-4 left 0x2fe8e0 without an owner */
 C2DLine::~C2DLine()
 {

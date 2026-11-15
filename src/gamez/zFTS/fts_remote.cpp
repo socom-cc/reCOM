@@ -1002,12 +1002,13 @@ void SendVoteMessage(int index, int target, bool vote)
 
 	CZSealBody *seal = CZSealState::GetBodyFromObjectIndex(target);
 
-	/* ELF quirk: the store sits in the delay slot of the NULL test, so it happens even for
-	   NULL (a write to 0xec2) */
-	seal->m_local_voted_against = vote;
-
+	/* 0x202690: the store follows the NULL test's delay slot (a nop), so only a found seal
+	   is marked (an earlier note had it in the delay slot, written through NULL) */
 	if (seal != NULL)
+	{
+		seal->m_local_voted_against = vote;
 		theNetwork.zNetSendApplicationMessage(64, theNetwork.m_GameConnectionIndex, seal->m_ClientIndex, PacketTypeVoter, 2, (unsigned char *)&packet, true);
+	}
 }
 
 /* @socom-skeleton stub VoterPacketHandler__FiiiPv */

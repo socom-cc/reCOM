@@ -797,9 +797,51 @@ void OrdersMenu::RefreshContext(CMD_TABLE *cmd)
 
 	case CMD_VOTE_ON:
 	case CMD_VOTE_OFF:
-		/* port: multiplayer only, not written (0x17b8b4: the other live players of the
-		 * player's team, "Cast vote on this player", their entity ids) */
+	{
+		/* 0x17b8b4 (multiplayer, untested): an entry per other entity sharing a team bit
+		 * with the player and without team bit 0x20000 (the dead), its display name, its
+		 * node's name as the data (ScrollForward looks the entity up by it), "Cast vote on
+		 * this player". ELF quirk kept: the entity is read as a seal without a NULL test */
+		CZSealBody *me = ftsGetPlayer();
+		int count = 0;
+
+		for (std::list<CEntity *>::iterator it = CEntity::m_list.begin(); it != CEntity::m_list.end(); ++it)
+		{
+			CEntity *e = *it;
+
+			if (e != ftsGetPlayer() && (e->m_team & me->m_team) != 0 && (e->m_team & 0x20000) == 0)
+				count++;
+		}
+
+		cmd->submenu_items = 0;
+		delete[] cmd->submenu;
+		cmd->submenu = NULL;
+
+		if (count != 0)
+		{
+			cmd->submenu_items = count;
+			cmd->submenu = new CSubMenu[count];
+		}
+
+		int n = 0;
+
+		for (std::list<CEntity *>::iterator it = CEntity::m_list.begin(); it != CEntity::m_list.end(); ++it)
+		{
+			CEntity *e = *it;
+
+			if (e == ftsGetPlayer() || (e->m_team & ftsGetPlayer()->m_team) == 0 || (e->m_team & 0x20000) != 0)
+				continue;
+
+			CZSealBody *seal = (u8)e->m_type == CEntity::ENT_TYPE_SEAL ? static_cast<CZSealBody *>(e) : NULL;
+			CSubMenu *sub = &cmd->submenu[n++];
+			char *node = seal->m_node->m_name;
+			sub->m_display = _strdup(seal->m_display_name, "orders.cpp", 182);
+			sub->m_data = node;
+			sub->m_explanation = _strdup("Cast vote on this player", "orders.cpp", 182);
+		}
+
 		break;
+	}
 
 	default:
 		break;
@@ -1404,8 +1446,8 @@ OrdersMenu::OrdersMenu()
 {
 	/* 0x1780c0: the layout and sounds from orders.rdr (theMission.m_ordersRdr), the team
 	 * table's names and the command table (cmdtable: name, voice word, order, teams,
-	 * explanation, MP_ONLY), then an item per team, order and context entry. Port: the
-	 * multiplayer renaming of the SOP orders from the player's character is not written */
+	 * explanation, MP_ONLY; in a network game the player's character may rename an order),
+	 * then an item per team, order and context entry */
 	recoInit2();
 	m_item_height = 30.0f;
 	m_item_width = 135.0f;
@@ -1465,6 +1507,27 @@ OrdersMenu::OrdersMenu()
 			sprintf(cmd->explanation, "%s", orders_rdr_string(count > 4 ? row->Get(4) : NULL));
 			CHUD::HudText_to_upper(cmd->explanation);
 			cmd->isMultiOnly = zrdr_findtag(row, "MP_ONLY") != NULL;
+
+			/* 0x178a38 (multiplayer, untested): an order the player's character has a
+			 * multiplayer message for (its first word the command) is shown by that message's
+			 * text (the fourth word). ELF quirk kept: the text is then run through sprintf as its
+			 * own format */
+			if (theNetwork.m_bNetwork)
+			{
+				CCharacterType *type = static_cast<CZSealBody *>(ftsGetPlayer()->m_control->m_entity)->GetCharacter();
+
+				for (std::vector<MultiplayerMsg *>::iterator p = type->MultiplayerMessages.begin(); p != type->MultiplayerMessages.end(); ++p)
+				{
+					MultiplayerMsg *msg = *p;
+
+					if (msg->m_words[0] == (u32)(u8)cmd->command)
+					{
+						sprintf(cmd->display, "%s", (const char *)(uintptr_t)msg->m_words[3]);
+						sprintf(cmd->display, cmd->display, "");
+						break;
+					}
+				}
+			}
 		}
 
 		SOCOM_PORT_TRACE("ORDERS: menu: %d teams, %d orders (orders.rdr %p)", n_teams, n_cmds, (void *)rdr);
@@ -2237,7 +2300,7 @@ unsigned char OrdersMenu::ScrollForward()
 	 * one not sent last) gives the order: the confirmation, the unit's IssueCommand with the
 	 * context entry's data, the menu folds with the chosen rows blinking. Otherwise the next
 	 * column opens (the orders of the chosen team). 1 when the order was given.
-	 * Port: the votes (multiplayer) are not written. ELF: the team lookups read
+	 * A vote (multiplayer) goes to the chosen player instead. ELF: the team lookups read
 	 * team_table[-1] when the row matches no team (port: none) */
 	m_selection[m_selected_col] = m_selected_row;
 	bool issue = false;
@@ -2312,8 +2375,23 @@ unsigned char OrdersMenu::ScrollForward()
 
 			if (m_command->command == CMD_VOTE_ON || m_command->command == CMD_VOTE_OFF)
 			{
-				/* port: multiplayer only, not written (0x175714: SendVoteMessage for the
-				 * chosen player's entity) */
+				/* 0x175714 / 0x175794 (multiplayer, untested): the vote against the chosen
+				 * player (the context entry's data is its entity name) goes to its client.
+				 * ELF quirks kept: VOTE_OFF sends a vote of 1 too; the named entity is not
+				 * tested for being a seal before its id is read */
+				CZSealBody *me = ftsGetPlayer();
+				const char *name = m_submenu != NULL ? (const char *)m_submenu->m_data : NULL;
+
+				if (name != NULL)
+				{
+					CEntity *e = CEntity::m_list.GetEntity(name);
+
+					if (e != NULL)
+					{
+						CZSealBody *voted = (u8)e->m_type == CEntity::ENT_TYPE_SEAL ? static_cast<CZSealBody *>(e) : NULL;
+						SendVoteMessage((int)me->m_id, (int)voted->m_id, true);
+					}
+				}
 			}
 			else
 			{

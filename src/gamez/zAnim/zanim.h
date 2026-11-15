@@ -2192,7 +2192,7 @@ class CZAnimArgNode : public CZAnimArg
 {
 public:
 	zdb::CNode* m_node; /* +0xc */
-	virtual ~CZAnimArgNode() {} /* port: stub (inline __dt__13CZAnimArgNodeFv) */
+	virtual ~CZAnimArgNode() {} /* inline __dt__13CZAnimArgNodeFv 0x1d0030: base destruction only */
 	virtual CZAnimArg* Copy();
 	CZAnimArgNode(CZAnimArg::TYPE, zdb::CNode *);
 };
@@ -2202,7 +2202,7 @@ class CZAnimArgPnt3D : public CZAnimArg
 {
 public:
 	CPnt3D m_pnt; /* +0xc (24-byte object) */
-	virtual ~CZAnimArgPnt3D() {} /* port: stub (inline __dt__14CZAnimArgPnt3DFv) */
+	virtual ~CZAnimArgPnt3D() {} /* inline __dt__14CZAnimArgPnt3DFv 0x1cff10: base destruction only */
 	virtual CZAnimArg* Copy();
 	CZAnimArgPnt3D(CZAnimArg::TYPE, const CPnt3D *);
 };

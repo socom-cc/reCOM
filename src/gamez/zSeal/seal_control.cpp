@@ -115,6 +115,7 @@
 #include "gamez/zWeapon/zweapon.h"
 #include "gamez/zFTS/zfts.h" /* CCtrlrConfigs, PadBtnFunc, CZSealState (PreTick, Tick) */
 #include "gamez/zNode/node_world.h" /* zdb::CWorld::m_world (PreTick) */
+#include "gamez/zGrid/zgrid.h" /* zdb::SetCameraCollideFlagRequired (OKToPeek) */
 #include "gamez/zNetwork/znet.h" /* theNetwork (OnDeath) */
 /* @socom-skeleton end include */
 #include "Apps/FTS/hud/hud.h" /* theHUD (OnStunDamage) */
@@ -685,11 +686,63 @@ bool CSealCtrl::Tick(float dT)
 }
 
 /* @socom-skeleton stub OKToPeek__FP9CSealCtrlf9SEAL_PEEK */
-bool OKToPeek(CSealCtrl *, float, SEAL_PEEK)
+bool OKToPeek(CSealCtrl *ctrl, float dist, SEAL_PEEK peek)
 {
-	/* 0x286f70 (868 B: the peek ray test through CWorld::GetIntersect); port: stub (peeking is
-	 * not written: never OK, so the caller aborts the peek) */
-	return false;
+	/* 0x286f70 (PreTick's L / R lean, 12 units): a seal standing, crouching or prone (states
+	 * 0-3) with a blend on its stack, interruptible (always while state 3), not airborne, not
+	 * throwing, its top blend not in blend state 4, 5 or 7, may peek when a ray at its head's
+	 * model height plus 1 (on the node's axis), from the centre `dist` units to the peek side
+	 * (model x: left -, right +; up: no sideways step), through the node to the world, hits
+	 * nothing or only a camera-type-1 poly. The ray runs as OKToJump's (the seal's node
+	 * inactive, the camera collide flag set and cleared again). ELF quirks kept: the hit's poly
+	 * is not NULL-tested; the camera flag stays clear on the early returns. */
+	CZSealBody *body = static_cast<CZSealBody *>(ctrl->m_entity);
+	s8 state = (s8)body->m_state;
+
+	if (state != 3 && state != 2 && state != 1 && state != 0)
+		return false;
+
+	CZBodyAnimBlend *top = body->m_blends->Top();
+
+	if (top == NULL)
+		return false;
+
+	if ((s8)body->m_state != 3 && !body->CanInterrupt())
+		return false;
+
+	if (body->m_airborne)
+		return false;
+
+	if (body->IsThrowing(true))
+		return false;
+
+	s8 blend = top->m_state;
+
+	if (blend == 4 || blend == 5 || blend == 7)
+		return false;
+
+	CPnt3D head;
+	body->PartInSpace(body->m_head, NULL, &head, NULL);
+	head.y += 1.0f;
+	CPnt3D local(0.0f, head.y, 0.0f);
+	CPnt3D side = local;
+
+	if (peek == SEAL_PEEK::PEEK_LEFT)
+		side.x -= dist;
+	else if (peek == SEAL_PEEK::PEEK_RIGHT)
+		side.x += dist;
+
+	CPnt3D from;
+	CPnt3D to;
+	body->m_node->m_matrix.Transform(&local, &from, 1);
+	body->m_node->m_matrix.Transform(&side, &to, 1);
+	bool active = body->GetNode()->SetActive(false);
+	zdb::SetCameraCollideFlagRequired(true);
+	zdb::IntersectStruct *hit = zdb::CWorld::m_world->GetIntersect(&from, &to);
+	body->GetNode()->SetActive(active);
+	bool ok = hit == NULL || hit->m_poly->m_cameratype == 1;
+	zdb::SetCameraCollideFlagRequired(false);
+	return ok;
 }
 
 /* port: helpers for code the ELF repeats inline in PreTick 0x285af0 / ThrottlesPreTick 0x286950 */

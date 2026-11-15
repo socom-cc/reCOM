@@ -80,7 +80,7 @@ CConsole::~CConsole()
 	}
 }
 
-/* port: stub GetPacketMsg__7CPacketFv (no owner in the render) */
+/* port: no skeleton fence for GetPacketMsg__7CPacketFv (no owner in the render) */
 CPacketMsg *CPacket::GetPacketMsg()
 {
 	/* 0x1ed050 */

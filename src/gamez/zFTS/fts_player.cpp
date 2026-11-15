@@ -389,9 +389,9 @@ bool CMission::LoadVehicles(unsigned int)
 		{
 			CZSealBody* copy = LoadVehicle(&*entry, first);
 			CZSealBody* seal = copy != NULL && copy->m_type == CEntity::ENT_TYPE_SEAL ? copy : NULL;
-			/* port: not written - the ELF stores i at +232 of the copy's controller
-			 * (unnamed in DWARF terms here); ftsPlayerCount is 0 without arguments */
-			(void)seal;
+			/* 0x1fd708: the copy's controller reads pad i (ELF: seal not tested for NULL);
+			 * ftsPlayerCount is 0 unless --two_player was given */
+			static_cast<CSealCtrl*>(seal->m_control)->m_padid = (u32)i;
 		}
 
 		s32 count = m_ai_params.player_grid_count;
@@ -473,9 +473,10 @@ CZSealBody * CMission::LoadVehicle(CVehicleRdrEntry *entry, bool first)
 			load = (teams & 4) == 0;
 	}
 
-	/* port: not written - the ELF then drops every non-first character not named
-	 * ai::isolate_character (0x43a370: 32 bytes, zero in the ELF, no source owner yet);
-	 * it is empty, so the test never applies */
+	/* 0x1fd248: with --isolate <name> (ai::isolate_character, empty by default) only the
+	 * character whose entry has that name (case ignored) is loaded besides the player */
+	if (!first && ai::isolate_character[0] != '\0' && strcasecmp(ai::isolate_character, entry->m_name) != 0)
+		load = false;
 
 	if (!load)
 		return NULL;

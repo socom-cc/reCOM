@@ -3109,8 +3109,7 @@ void CZSealBody::DropBody()
 	/* 0x274030 (WeaponHitAnim: a carrier killed): while carrying (state 9) the carried body
 	 * is let go - detached, its blends popped down to the base (the last one, or the top,
 	 * loses its control), no peek, falling dead forward (FallForward01) with its own world
-	 * velocity as its in-air velocity; the carry ends. port: DetachBody is not written yet
-	 * (carrying needs the unwritten action menu). */
+	 * velocity as its in-air velocity; the carry ends. */
 	if (m_state != 9)
 		return;
 

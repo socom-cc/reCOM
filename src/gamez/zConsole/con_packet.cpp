@@ -177,7 +177,7 @@ const char *CPacketMsg::GetArg(unsigned int i) const
 	return NULL;
 }
 
-/* port: stub GetPacketMsg__10CPacketMsgFv (no owner in the render) */
+/* port: no skeleton fence for GetPacketMsg__10CPacketMsgFv (no owner in the render) */
 CPacketMsg *CPacketMsg::GetPacketMsg()
 {
 	/* 0x1ed4f0 */

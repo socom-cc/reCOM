@@ -13,6 +13,8 @@ class CBlendOverlay;
 void ParentPistolToRHandCallback(void *, void *);
 void ParentPistolToRThighAsGearCallback(void *, void *);
 class CZBodyAnim;
+class CSealCtrl; /* OKToPeek (friend) */
+enum class SEAL_PEEK; /* zseal.h */
 
 class CBody
 {
@@ -21,6 +23,7 @@ class CBody
 	friend class CSealAnim; /* port: AnimPop 0x26ddc0 writes the parts' poses */
 	friend class CAppCamera; /* port: CAppCamera::Tick 0x1ea4c4 reads the seal's m_state */
 	friend class CSealCtrl; /* port: CSealCtrl::PreTick 0x285af0 / Tick 0x2872e0 read the seal's m_state */
+	friend bool OKToPeek(CSealCtrl *, float, SEAL_PEEK); /* port: OKToPeek 0x286f70 reads the seal's m_state and top blend */
 	friend class CBlendOverlay; /* port: CBlendOverlay::Tick 0x1e1210 / Trigger 0x1e1700 set the blend interpolation */
 	friend class CWeaponSel; /* port: CWeaponSel::OnOpen 0x3d3de0 reads the seal's m_state */
 	friend class CSealCtrlAi; /* port: FollowTick 0x2df1c0 reads the master's m_state */

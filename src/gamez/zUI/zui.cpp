@@ -888,9 +888,11 @@ void CGameMenu::LoadFromDesign(const CGameDlgDesign &design, CZAnimZAR *animfile
 	{
 		m_MPEGName = background ? background : "";
 		m_has_mpeg_background = true;
-		/* port: stub - no MPEG playback in the port: the ELF ends the FIFO, runs
-		 * CMPEG::Run(background, true, false) and re-enables the FIFO (0x382c84); here the
-		 * movie does not run, as when Run fails */
+		/* port: kept out (a recorded port decision; docs/port/notes/mpeg.md lists the menus'
+		 * looping movie backgrounds as left): the ELF ends the FIFO, runs
+		 * CMPEG::Run(background, true, false) and re-enables the FIFO (0x382c84); here the movie
+		 * does not run, as when Run fails. Needed to play it: that call through the port's
+		 * CMPEG (the mission movies already play) and the FIFO handling around it */
 		m_movieRunning = false;
 	}
 

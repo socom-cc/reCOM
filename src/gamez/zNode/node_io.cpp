@@ -41,7 +41,7 @@ namespace zdb
 /* @socom-skeleton stub _Write__Q23zdb6CLightFRQ23zdb9CSaveLoad */
 bool zdb::CLight::_Write(zdb::CSaveLoad &)
 {
-	/* 0x224210: lights are not written (returns 0) */
+	/* 0x224210: lights are never saved (the ELF answers 0) */
 	return false;
 }
 

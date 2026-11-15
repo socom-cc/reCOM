@@ -14,7 +14,9 @@
 /* @socom-skeleton stub visinfo__2ai */
 unsigned char ai::visinfo;
 
-/* @socom-skeleton stub plot_tick__2aiFfb */
+/* @socom-skeleton body plot_tick__2aiFfb */
 void ai::plot_tick(float, bool)
 {
+	/* 0x17de80 (8 bytes): a bare return in the ELF (jr ra; nop): the AI plot is compiled out.
+	 * CDevText (hud_devtext.cpp) still calls it with the frame rate and !pause. */
 }

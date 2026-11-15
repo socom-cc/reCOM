@@ -248,6 +248,27 @@ public:
 			new (&m_di[i]) zdb::DiIntersect(32);
 	}
 
+	~CDiPool() /* 0x2b3e40 (at exit; the game never returns from main, so it does not run) */
+	{
+		/* the DiIntersects are destroyed and freed; m_active is emptied without deleting its
+		 * requests (ELF quirk kept: they leak), m_free's requests are deleted */
+		if (m_di != NULL)
+		{
+			for (s32 i = 0; i < m_size; i++)
+				m_di[i].~DiIntersect();
+
+			zfree(m_di);
+			m_di = NULL;
+		}
+
+		m_active.clear();
+
+		for (std::list<dir *>::iterator it = m_free.begin(); it != m_free.end(); ++it)
+			delete *it;
+
+		m_free.clear();
+	}
+
 	/* port: file-local helper for the inlined "take a request from m_free or make one" */
 	dir* Acquire()
 	{
@@ -271,7 +292,7 @@ public:
 };
 
 /* @socom-skeleton stub _diPool */
-static CDiPool _diPool; /* 0x509030 (40 bytes); port: the ELF's destructor (0x2b3e40, at exit) is not written */
+static CDiPool _diPool; /* 0x509030 (40 bytes); destructor 0x2b3e40 registered at exit */
 
 /* @socom-skeleton stub PreTick__11CSealCtrlAiFfPv */
 bool CSealCtrlAi::PreTick(float dT, void *)

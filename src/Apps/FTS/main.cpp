@@ -215,17 +215,25 @@ bool COurGame::StartEngine()
 	return true;
 }
 
-/* @socom-skeleton stub StopEngine__8COurGameFv */
+/* @socom-skeleton body StopEngine__8COurGameFv */
 void COurGame::StopEngine()
 {
+	/* 0x140520: the engine, then the online lobby (no caller in the ELF: vtable only) */
+	CGame::StopEngine();
+	theLobby.UnInit();
 }
 
-/* @socom-skeleton stub StartPlay__8COurGameFv */
+/* @socom-skeleton body StartPlay__8COurGameFv */
 void COurGame::StartPlay()
 {
+	/* 0x140510 (8 bytes): not a bare return - a tail jump to CGame::StartPlay (vtable only;
+	 * main calls CGame::StartPlay directly) */
+	CGame::StartPlay();
 }
 
-/* @socom-skeleton stub StopPlay__8COurGameFv */
+/* @socom-skeleton body StopPlay__8COurGameFv */
 void COurGame::StopPlay()
 {
+	/* 0x140500 (8 bytes): not a bare return - a tail jump to CGame::StopPlay (vtable only) */
+	CGame::StopPlay();
 }

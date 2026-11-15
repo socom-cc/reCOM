@@ -124,4 +124,19 @@ int NetSetMyClientObject(int object);
 }
 #endif
 
+/* ---- socom-port-mod-final (2026-11-14): the net object structures (CZ*State::zNetRegister*: a structure
+ * started, one field per member - its id word, offset, size, type, count, broadcast schedule - registered
+ * by name and size), an object freed (NetFreeObject 0x41a370) and its full update sent (0x41d4b0) */
+#ifdef __cplusplus
+extern "C" {
+#endif
+int NetRegisterObjectStart(void);
+int NetObjectField(int *fieldId, int offset, int size, int type, int count, void *schedule);
+int NetRegisterStructure(int *index, const char *name, int size);
+int NetFreeObject(int index);
+int NetSendObjectFullUpdate(int client, int index);
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* SOCOM_COMPAT_DME_H */

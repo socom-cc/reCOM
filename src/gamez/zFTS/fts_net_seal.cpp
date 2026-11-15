@@ -173,8 +173,42 @@ void CZSealState::zNetRegisterSeal()
 	 * +0x70-0x75, KillerIndex +0x76, FireModeSelect +0x77, WeaponSelect +0x66 2 bytes,
 	 * TeamBlock +0xc, AIState +0x10, UnitID +0x78, VehicleIndex +0x7a, SealType +0x14 1x32
 	 * (flags schedule); AimElevation +0x6b, FireTriggerCount +0x79, SealWeapons +0x34 1x48,
-	 * RoundStats +0x7b 1x12, GameStats +0x87 1x12 (flash) - then the remote callbacks.
-	 * port: not written (NetRegisterObjectStart, NetObjectField, NetRegisterStructure) */
+	 * RoundStats +0x7b 1x12, GameStats +0x87 1x12 (flash) - then the remote callbacks (type 6:
+	 * a float, 5: a word, 3 / 2: 16-bit, 1: a byte, 0: a signed byte). The offsets are the
+	 * ELF's (it takes them from a stack template's member addresses; the structure has no port
+	 * type). port: the id words are passed by address as the ELF does */
+	NetRegisterObjectStart();
+	NetObjectField(reinterpret_cast<int *>(&m_SealPosXFieldID), 0x0, 4, 6, 1, CZNetObject::m_PositionBroadcastSchedule);
+	NetObjectField(reinterpret_cast<int *>(&m_SealPosYFieldID), 0x4, 4, 6, 1, CZNetObject::m_PositionBroadcastSchedule);
+	NetObjectField(reinterpret_cast<int *>(&m_SealPosZFieldID), 0x8, 4, 6, 1, CZNetObject::m_PositionBroadcastSchedule);
+	NetObjectField(reinterpret_cast<int *>(&m_SealYawFieldID), 0x64, 2, 2, 1, CZNetObject::m_FlagsBroadcastSchedule);
+	NetObjectField(reinterpret_cast<int *>(&m_ThrottleFBFieldID), 0x68, 1, 0, 1, CZNetObject::m_FlagsBroadcastSchedule);
+	NetObjectField(reinterpret_cast<int *>(&m_ThrottleLRFieldID), 0x69, 1, 0, 1, CZNetObject::m_FlagsBroadcastSchedule);
+	NetObjectField(reinterpret_cast<int *>(&m_ThrottleSTFieldID), 0x6a, 1, 0, 1, CZNetObject::m_FlagsBroadcastSchedule);
+	NetObjectField(reinterpret_cast<int *>(&m_WeaponStateFieldID), 0x6c, 1, 1, 1, CZNetObject::m_FlagsBroadcastSchedule);
+	NetObjectField(reinterpret_cast<int *>(&m_StanceStateFieldID), 0x6d, 1, 1, 1, CZNetObject::m_FlagsBroadcastSchedule);
+	NetObjectField(reinterpret_cast<int *>(&m_PeekStateFieldID), 0x6e, 1, 1, 1, CZNetObject::m_FlagsBroadcastSchedule);
+	NetObjectField(reinterpret_cast<int *>(&m_ActionStateFieldID), 0x6f, 1, 1, 1, CZNetObject::m_FlagsBroadcastSchedule);
+	NetObjectField(reinterpret_cast<int *>(&m_HeadHealthFieldID), 0x70, 1, 1, 1, CZNetObject::m_FlagsBroadcastSchedule);
+	NetObjectField(reinterpret_cast<int *>(&m_BodyHealthFieldID), 0x71, 1, 1, 1, CZNetObject::m_FlagsBroadcastSchedule);
+	NetObjectField(reinterpret_cast<int *>(&m_LLegHealthFieldID), 0x72, 1, 1, 1, CZNetObject::m_FlagsBroadcastSchedule);
+	NetObjectField(reinterpret_cast<int *>(&m_RLegHealthFieldID), 0x73, 1, 1, 1, CZNetObject::m_FlagsBroadcastSchedule);
+	NetObjectField(reinterpret_cast<int *>(&m_LArmHealthFieldID), 0x74, 1, 1, 1, CZNetObject::m_FlagsBroadcastSchedule);
+	NetObjectField(reinterpret_cast<int *>(&m_RArmHealthFieldID), 0x75, 1, 1, 1, CZNetObject::m_FlagsBroadcastSchedule);
+	NetObjectField(reinterpret_cast<int *>(&m_KillerIndexFieldID), 0x76, 1, 1, 1, CZNetObject::m_FlagsBroadcastSchedule);
+	NetObjectField(reinterpret_cast<int *>(&m_FireModeSelectFieldID), 0x77, 1, 1, 1, CZNetObject::m_FlagsBroadcastSchedule);
+	NetObjectField(reinterpret_cast<int *>(&m_WeaponSelectFieldID), 0x66, 2, 3, 1, CZNetObject::m_FlagsBroadcastSchedule);
+	NetObjectField(reinterpret_cast<int *>(&m_TeamBlockFieldID), 0xc, 4, 5, 1, CZNetObject::m_FlagsBroadcastSchedule);
+	NetObjectField(reinterpret_cast<int *>(&m_AIStateFieldID), 0x10, 4, 5, 1, CZNetObject::m_FlagsBroadcastSchedule);
+	NetObjectField(reinterpret_cast<int *>(&m_UnitIDFieldID), 0x78, 1, 1, 1, CZNetObject::m_FlagsBroadcastSchedule);
+	NetObjectField(reinterpret_cast<int *>(&m_AimElevationFieldID), 0x6b, 1, 0, 1, CZNetObject::m_FlashBroadcastSchedule);
+	NetObjectField(reinterpret_cast<int *>(&m_FireTriggerCountFieldID), 0x79, 1, 1, 1, CZNetObject::m_FlashBroadcastSchedule);
+	NetObjectField(reinterpret_cast<int *>(&m_VehicleIndexFieldID), 0x7a, 1, 1, 1, CZNetObject::m_FlagsBroadcastSchedule);
+	NetObjectField(reinterpret_cast<int *>(&m_SealTypeFieldID), 0x14, 1, 1, 32, CZNetObject::m_FlagsBroadcastSchedule);
+	NetObjectField(reinterpret_cast<int *>(&m_SealWeaponsFieldID), 0x34, 1, 1, 48, CZNetObject::m_FlashBroadcastSchedule);
+	NetObjectField(reinterpret_cast<int *>(&m_RoundStatsFieldID), 0x7b, 1, 0, 12, CZNetObject::m_FlashBroadcastSchedule);
+	NetObjectField(reinterpret_cast<int *>(&m_GameStatsFieldID), 0x87, 1, 0, 12, CZNetObject::m_FlashBroadcastSchedule);
+	NetRegisterStructure(&m_NetStructIndexSealObject, "SealState", 152);
 	theNetwork.zNetRegisterRemoteObjectCallback(m_NetStructIndexSealObject, RemoteSealCreationCallback,
 		RemoteSealUpdateCallback, RemoteSealPostUpdateCallback, RemoteSealDeletionCallback);
 }
@@ -741,7 +775,6 @@ void CZSealState::RemoveNetSeal(int index, bool force)
 
 	if (force || game->m_mp_major_game_state == CZNetGame::MP_MAJOR_GAMEOVER)
 	{
-		/* port: not written (NetFreeObject(index)) */
-		(void)index;
+		NetFreeObject(index); /* 0x204570 */
 	}
 }

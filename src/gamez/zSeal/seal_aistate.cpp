@@ -169,6 +169,10 @@ CAiState* CAiState::Create(AI_STATE state)
 		aiState->Reset(STATE_DEPLOY);
 		break;
 	case STATE_LASING:
+		/* 0x2dc240's table (0x457810) sends LASING to the plain CAiState too (0x2dc9d0):
+		 * no class of its own (the designator's lasing is CAiSDeploy's substate 9) */
+		aiState = new CAiState();
+		aiState->Reset(state);
 		break;
 	case STATE_SURRENDER:
 		aiState = new CAiSSurrender();
@@ -408,22 +412,8 @@ bool CSealCtrlAi::CanPushAiState(AI_STATE state)
 	if (!(mask & (1u << s)))
 		return false;
 
-#ifdef SOCOM_PORT
-	/* port: only the states whose behaviour is written may be pushed (UNKNOWN, SCRIPT,
-	 * TARGETING, PURSUE, EVENT, RESTRAINED, FOLLOW, HOLD, ACTION, CORPSE, STUNNED, GOTO, SHOTAT, FLEE,
-	 * RUSH, SURRENDER, RELOAD, RESCUED, SUSPENDED, AVOID, NOAMMO, ANIMATE, CQB, PATHRECO, PICKUP, HOSTAGE,
-	 * GRENADE, BREACH, DEPLOY); the other states' Tick functions are not written
-	 * yet, so their pushes (shot-at, reload, avoid ...) are refused here, a path every caller
-	 * handles */
-	if (s != STATE_UNKNOWN && s != STATE_SCRIPT && s != STATE_TARGETING && s != STATE_PURSUE && s != STATE_EVENT && s != STATE_RESTRAINED
-		&& s != STATE_FOLLOW && s != STATE_HOLD && s != STATE_ACTION && s != STATE_CORPSE && s != STATE_STUNNED
-		&& s != STATE_GOTO && s != STATE_SHOTAT && s != STATE_FLEE && s != STATE_RUSH
-		&& s != STATE_SURRENDER && s != STATE_RELOAD && s != STATE_RESCUED && s != STATE_SUSPENDED
-		&& s != STATE_AVOID && s != STATE_NOAMMO && s != STATE_ANIMATE && s != STATE_CQB && s != STATE_PATHRECO
-		&& s != STATE_PICKUP && s != STATE_HOSTAGE && s != STATE_GRENADE && s != STATE_BREACH && s != STATE_DEPLOY)
-		return false;
-#endif
-
+	/* (the port's own gate that refused unwritten states is gone: it passed every state but
+	 * LASING, which is now created as the ELF does; this is the ELF's gate) */
 	if (s == STATE_SUSPENDED)
 		return true;
 

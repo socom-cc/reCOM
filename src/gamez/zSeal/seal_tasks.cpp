@@ -1095,9 +1095,9 @@ void CTGoto::Begin(_zanim_cmd_hdr* header)
 		ok = ai->SetRoute(goals.data(), goals.size());
 	}
 
-	if (ok && ai->m_debug)
+	if (ok && ai->m_debug && CSealCtrlAi::aiDebugEnabled)
 	{
-		/* ELF: also when aiDebugEnabled__11CSealCtrlAi (0x475d64) */
+		/* 0x2bc870: the seal's debug bit and --aid (aiDebugEnabled__11CSealCtrlAi 0x475d64) */
 		ai->Debug("CTGoto -- SetRoute() OK!\n");
 		ai->m_path.PrintPath();
 	}
@@ -2183,8 +2183,8 @@ bool CTParam::Tick(_zanim_cmd_hdr* header, f32* dT)
 	/* 0x2b8230: on the select's seal (or the named seal entity): op 7 sets a parameter
 	 * (courage goal, health, speed, accuracy, sleeping, awareness, weapon ready, spray time,
 	 * corpse), the other ops compare one and the task is done when the compare holds. The
-	 * frame's time is used up (not when there is no seal). port: the inside / outside tests
-	 * (9, 10: the flags of the seal's AI map cell) are not written: they hold. */
+	 * frame's time is used up (not when there is no seal). 9 / 10 test whether the seal's AI
+	 * map cell is inside / outside. */
 	TASK_PARAM *task = reinterpret_cast<TASK_PARAM *>(header);
 	CZSealBody *seal = NULL;
 
@@ -2288,8 +2288,20 @@ bool CTParam::Tick(_zanim_cmd_hdr* header, f32* dT)
 	case 13:
 		done = ai != NULL && taskParamCompare(op, ai->m_do_corpse ? 1.0f : 0.0f, v);
 		break;
+	case 9:
+	case 10:
+	{
+		/* 0x2b8d1c / 0x2b8f54: the m_inside flag of the seal's AI map cell (its last valid
+		 * location; no cell counts as outside): 9 compares inside as 1, 10 outside as 1 */
+		CAiMapLoc loc = seal->m_mapLocValid;
+		CAiMap *map = AiMaps.GetMapByIndex(loc.m_mapid);
+		CAiCell *cell = map != NULL ? map->GetCell(loc) : NULL;
+		bool inside = cell != NULL && cell->m_inside;
+		done = taskParamCompare(op, (task->m_param == 9 ? inside : !inside) ? 1.0f : 0.0f, v);
+		break;
+	}
 	default:
-		/* 0, 7 (no compare) and the unwritten 9, 10 */
+		/* 0 and 7 (no compare) */
 		done = true;
 		break;
 	}

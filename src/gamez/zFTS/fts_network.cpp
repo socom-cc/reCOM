@@ -134,8 +134,8 @@ void ftsNetworkGameUninit()
 {
 	/* 0x201290: drop the persona list and shut the voice down. Also called by
 	   CCoreState::auxUnload in single player: offline both are harmless (ClearPersonaList
-	   0x207b30 erases only a non-empty list; CZNetVoice::UnInit 0x333710 returns at once
-	   while m_do_voice is clear). */
+	   0x207b30 erases only a non-empty list; CZNetVoice::UnInit 0x333710 returns at once:
+	   process_arguments sets m_do_voice, but m_uninited stays 1 until CZNetVoice::Init). */
 	CZPersonaState::ClearPersonaList();
 	theVoice.UnInit();
 }

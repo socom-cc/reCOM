@@ -2360,7 +2360,7 @@ bool zAnimObjectMotionFromToTick(_zanim_cmd_hdr *header, float *dT)
 
 		if ((cmd->flags & 0x2000) || (cmd->flags & 0x4000))
 		{
-			reinterpret_cast<CZAnimFromToAcc*>(cmd + 1)->Tick(step, &p); /* port: CZAnimFromToAcc::Tick is a stub */
+			reinterpret_cast<CZAnimFromToAcc*>(cmd + 1)->Tick(step, &p);
 		}
 		else
 		{

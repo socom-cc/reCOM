@@ -148,8 +148,25 @@ void CZPersonaState::zNetRegisterPersona()
 	/* 0x209500 (ftsNetworkGameInit): the 724-byte "PersonaState" structure (flash schedule)
 	 * - MajorPersonaState +0x0, MinorPersonaState +0x1, TeamBlock +0x4, E3Index +0x8,
 	 * PersonaName +0x9 1x32, PersonaSoup1-5 +0x29/+0xa9/+0x129/+0x1a9/+0x229 1x128,
-	 * PersonaMyIP +0x2ac 4x4, PersonaServerIP +0x2bc 4x4 - then the remote callbacks.
-	 * port: not written (NetRegisterObjectStart, NetObjectField, NetRegisterStructure) */
+	 * PersonaMyIP +0x2ac 4x4, PersonaServerIP +0x2bc 4x4 - then the remote callbacks (type 5:
+	 * words, 1: bytes, 0: E3Index's signed byte). port: the byte-placeholder id words are passed
+	 * by address as the ELF does */
+	typedef TypePersonaState P;
+	const unsigned char *flash = CZNetObject::m_FlashBroadcastSchedule;
+	NetRegisterObjectStart();
+	NetObjectField(reinterpret_cast<int *>(m_MajorPersonaStateFieldID), offsetof(P, MajorPersonaState), 1, 1, 1, (void *)flash);
+	NetObjectField(reinterpret_cast<int *>(m_MinorPersonaStateFieldID), offsetof(P, MinorPersonaState), 1, 1, 1, (void *)flash);
+	NetObjectField(&m_TeamBlockFieldID, offsetof(P, TeamBlock), 4, 5, 1, (void *)flash);
+	NetObjectField(&m_E3IndexFieldID, offsetof(P, E3Index), 1, 0, 1, (void *)flash);
+	NetObjectField(reinterpret_cast<int *>(m_PersonaNameFieldID), offsetof(P, PersonaName), 1, 1, 32, (void *)flash);
+	NetObjectField(reinterpret_cast<int *>(m_PersonaSoup1FieldID), offsetof(P, PersonaSoup1), 1, 1, 128, (void *)flash);
+	NetObjectField(reinterpret_cast<int *>(m_PersonaSoup2FieldID), offsetof(P, PersonaSoup2), 1, 1, 128, (void *)flash);
+	NetObjectField(reinterpret_cast<int *>(m_PersonaSoup3FieldID), offsetof(P, PersonaSoup3), 1, 1, 128, (void *)flash);
+	NetObjectField(reinterpret_cast<int *>(m_PersonaSoup4FieldID), offsetof(P, PersonaSoup4), 1, 1, 128, (void *)flash);
+	NetObjectField(reinterpret_cast<int *>(m_PersonaSoup5FieldID), offsetof(P, PersonaSoup5), 1, 1, 128, (void *)flash);
+	NetObjectField(&m_PersonaMyIPFieldID, offsetof(P, PersonaMyIP), 4, 5, 4, (void *)flash);
+	NetObjectField(&m_PersonaServerIPFieldID, offsetof(P, PersonaServerIP), 4, 5, 4, (void *)flash);
+	NetRegisterStructure(&m_NetStructIndexPersonaObject, "PersonaState", 724);
 	theNetwork.zNetRegisterRemoteObjectCallback(m_NetStructIndexPersonaObject, RemotePersonaCreationCallback,
 		RemotePersonaUpdateCallback, RemotePersonaPostUpdateCallback, RemotePersonaDeletionCallback);
 }

@@ -194,8 +194,8 @@ bool CAiMap::Read(CFileIO &io)
 {
 	/* 0x189390: a version word, then a version-specific layout (jump table 0x449380, versions
 	 * 0-19; 0, 1 and 20 on fail). The disc's map sets are all version 19 (checked on the m8
-	 * set); versions 17-19 are written, 2-16 (52/84/88-byte headers, converted cell, action and
-	 * region records) are not. After the layout: version fixups (< 12 links, < 15 scanlines,
+	 * set; RUN/UI/AIMAPS.MPS holds no maps); version 19 is read, 2-18 (52/84/88-byte headers,
+	 * converted cell, action and region records) are left out on purpose (no data). After the layout: version fixups (< 12 links, < 15 scanlines,
 	 * < 17 action offsets), then ValidateCells, ValidateRoutes and the map's own graph. */
 	u32 ver;
 	bool ok;
@@ -208,9 +208,11 @@ bool CAiMap::Read(CFileIO &io)
 	case 17:
 	case 18:
 #ifdef SOCOM_PORT
-		/* port: not written - versions 17 and 18 read their actions through
-		 * ReadCellTableCvt<actions_v18> (0x18ad00), 17 has no routes */
-		SOCOM_PORT_TRACE("AIMAP: map version %u not written (converted actions)", ver);
+		/* port: left out on purpose - no map of this version exists on the disc (the two
+		 * sets: RUN/SP/M8/AIMAPS.MPS, all version 19; RUN/UI/AIMAPS.MPS, no maps). Needed
+		 * for one: versions 17 / 18 read their actions through ReadCellTableCvt<actions_v18>
+		 * (0x18ad00, 496 B), 17 has no routes (Read 0x189390's case) */
+		SOCOM_PORT_TRACE("AIMAP: map version %u left out (converted actions; none on the disc)", ver);
 #endif
 		ok = false;
 		break;
@@ -240,7 +242,7 @@ bool CAiMap::Read(CFileIO &io)
 	default:
 #ifdef SOCOM_PORT
 		if (ver >= 2 && ver < 17)
-			SOCOM_PORT_TRACE("AIMAP: map version %u not written (old layout)", ver); /* port: not written */
+			SOCOM_PORT_TRACE("AIMAP: map version %u left out (old layout; none on the disc)", ver); /* port: left out on purpose, as 17 / 18 above: versions 2-16 need Read 0x189390's 52/84/88-byte header cases and ReadCellTableCvt<actions_v15> 0x18a940 / <regions_v4> 0x18ab70 */
 #endif
 		ok = false;
 		break;
@@ -310,8 +312,10 @@ bool CAiMap::read_cells(CFileIO &io)
 	else
 	{
 #ifdef SOCOM_PORT
-		/* port: not written - the 12-byte (versions 2-?) and 8-byte older cell conversions */
-		SOCOM_PORT_TRACE("AIMAP: cell format of version %u not written", m_version);
+		/* port: left out on purpose (no map before version 17 on the disc, see Read): the 12-
+		 * and 8-byte older cell records converted through read_cells 0x188f60's jump table
+		 * 0x449330 */
+		SOCOM_PORT_TRACE("AIMAP: cell format of version %u left out (none on the disc)", m_version);
 #endif
 	}
 

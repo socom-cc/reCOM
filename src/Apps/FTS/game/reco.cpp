@@ -164,8 +164,10 @@ static int energy[10000];
 /* @socom-skeleton stub recoUnInit__Fv */
 int recoUnInit()
 {
-	/* 0x336dc0: 1 when recognition never started; otherwise the gsapi engine is released
-	 * (port: not written - the provider is offline and recoInited stays 0) */
+	/* 0x336dc0: 1 when recognition never started; otherwise the gsapi engine is released.
+	 * Recognition never starts in the ELF either (recoInit2), so recoInited stays 0 and only
+	 * the first answer is reached: the release after it (from 0x336de8) is unreachable and
+	 * left out. Needed for it: a caller that sets recoShouldInit, which the ELF has not */
 	if (!recoInited)
 		return 1;
 
@@ -190,8 +192,12 @@ int recoInit()
 /* @socom-skeleton stub recoInit2__Fv */
 int recoInit2()
 {
-	/* 0x336be0: 0 unless recoInit asked for it, 1 when already running; then the gsapi engine
-	 * set-up (port: not written - the provider is offline and recoInited stays 0) */
+	/* 0x336be0: 0 unless recoShouldInit, 1 when already running; then the gsapi engine set-up.
+	 * recoShouldInit (0x476844) starts 0 and its only writer, recoInit, stores 0, so the ELF
+	 * always answers 0 here and voice recognition never starts. The set-up after it
+	 * (0x336c18-0x336d6c: recoInited set, gsapi_Init, the language and contexts, the engine
+	 * parameters, gsapi_ExecServer, the word counts) is unreachable and left out; the gsapi
+	 * provider is offline in the port anyway (port/compat/gsapi_offline.c) */
 	if (!recoShouldInit)
 		return 0;
 

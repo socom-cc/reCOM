@@ -217,7 +217,7 @@ int InterruptFromVIF1(int cause)
 				/* port: Load returns early for an empty buffer, leaving m_chainp NULL (from
 				   SetDynTexList) but the last chain's m_pktbuf: the ELF would start the
 				   GIF channel at address 0 (path 3 then waits forever). It never happens
-				   there because the decal textures (CZMarkList, not written) keep the alpha
+				   there because the decal textures (CZMarkList's marks) keep the alpha
 				   buffer from emptying; in the port it did once the player's hidden body
 				   textures left it (zoom back to third person). */
 				&& cmd->pTexAsset->m_chainp != NULL

@@ -716,6 +716,7 @@ public:
 	bool FindLookLoc(const CAiMapLoc &, const CPnt3D *, CAiMapLoc &, CAiMap::DIR &, int); /* 0x1a9590 */
 	bool CenterRegion(const CAiMapLoc &, CAiMap::region &) const; /* 0x1a2300 returns 1 */
 	bool GetInterpolationCells(const CAiMapLoc &, const CPnt3D *, IPNT2D *, PNT2D *) const; /* 0x19ba90 (ai_maps.cpp): false off the map */
+	bool GetBilinearAltitude(const CAiMapLoc &, const CPnt3D *, float *) const; /* 0x19a820 (ai_maps.cpp): false off the map or with no usable cell */
 	bool UpdateVisibilityMap(CAiVisMap &, int &); /* 0x1a0950: 0 for an unregistered vis map */
 	static const int version;
 	/* @socom-skeleton end 6CAiMap */

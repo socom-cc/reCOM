@@ -981,8 +981,7 @@ void CMission::Open(const char *db, int ai)
 	 * tasks, sounds, materials, valves, AI maps, compass, particles, zAnim scripts,
 	 * objective and mission cameras, node actions, ladders, decals, vehicles (the
 	 * characters, the player among them), handles, AI events, pickups, units, then the
-	 * world's DI and visuals. Most of these subsystems are not written yet (see their
-	 * stubs). */
+	 * world's DI and visuals. */
 	zdb::CWorld* world = zdb::CWorld::m_world;
 	m_wait_before_falling = 10.0f;
 	char path[1024] = "run/";
@@ -1383,7 +1382,9 @@ void CMission::Close()
 	 * valves, light maps and shadows, the mission's scheduler tasks, the headset, the bomb
 	 * shacks, the compass anchors and the compass. */
 	m_state = MISSION_UNLOADED;
-	/* port: not written - a network game also clears theLobby +0x5c (0x1f71a4) */
+	if (theNetwork.m_bNetwork)
+		theLobby.m_net_error_handler = NULL; /* 0x1f71a4 */
+
 	CSndInstance::StopAllSounds();
 	zdb::CWorld* world = zdb::CWorld::m_world;
 
@@ -1470,8 +1471,13 @@ void CMission::Close()
 	zTaskScheduler.RemoveTask("Update visual effects", false);
 	zTaskScheduler.RemoveTask("diTick", false);
 	zTaskScheduler.ClearFreeList(true);
-	/* port: not written - a network game also resets theNetwork +0x1188 (strncpy, 31) and
-	 * +0x11a6 (0x1f7554) */
+	if (theNetwork.m_bNetwork)
+	{
+		/* 0x1f7554: the network character type back to "0" */
+		strncpy(theNetwork.m_charType, "0", 31);
+		theNetwork.m_charType[30] = '\0';
+	}
+
 	Headset::ftsDeleteHeadset();
 	m_sealbombshack = NULL;
 	m_terroristbombshack = NULL;
@@ -1488,7 +1494,7 @@ void CMission::Close()
 		m_navpoints.pop_back();
 	}
 
-	/* 0x1f75e4: the objective anchors too (was not written: TickObjectives kept the last
+	/* 0x1f75e4: the objective anchors too (once missing in the port: TickObjectives kept the last
 	 * mission's entries, whose objective cams are freed with the mission, and read them in
 	 * the next one: a TLB miss in IsComplete once a second from the third mission on) */
 	while (!m_objanchor_vec.empty())
@@ -1624,9 +1630,37 @@ void CMission::Tick(f32 dT)
 
 	if (theNetwork.m_bNetwork && m_pNetGame != NULL)
 	{
-		/* port: not written - the network game (0x1f6bb8-0x1f6cd4: CNetClock::Tick, the
-		   game timer valve, CZGameState::UpdateLocalGame, the client's game-over push of
-		   theGame+0x1d8); the port has no network play */
+		/* 0x1f6bb8 (network, untested): the round clock ticks; the game timer valve goes off
+		 * once less than a second of game time is left; the local game object is updated and
+		 * marked waiting; a client whose game is at the round's or the game's end ends the
+		 * mission (its round time added to the total) and pushes the multiplayer debrief */
+		CZNetGame *game = m_pNetGame;
+		game->m_clock.Tick();
+		CValve *timer = game->m_pTimerValve;
+
+		if (timer != NULL && (u32)(0.001f * (f32)game->m_clock.m_game_time) == 0 && timer->m_value != 0)
+		{
+			timer->m_value = 0; /* inline set: a change to 0 (VALVE_STATE 2) */
+			timer->MakeCallbacks((VALVE_STATE)2);
+		}
+
+		CZGameState::UpdateLocalGame(m_pNetGame);
+
+		if (m_pNetGame->m_net_start_flag != MP_NET_READY::NET_READY_WAITING)
+			m_pNetGame->m_net_start_flag = MP_NET_READY::NET_READY_WAITING;
+
+		if (!theNetwork.m_bSessionMaster)
+		{
+			u8 major = (u8)m_pNetGame->m_mp_major_game_state;
+
+			if (major == CZNetGame::MP_MAJOR_ROUNDOVER || major == CZNetGame::MP_MAJOR_GAMEOVER)
+			{
+				OnMissionComplete((MISSION_STATE)(s8)m_state);
+				_OnMissionComplete();
+				m_pNetGame->m_clock.m_total_time += m_pNetGame->m_clock.m_time_in_round;
+				theGame.Push(&theGame.m_MPexitState, 0);
+			}
+		}
 	}
 	else
 	{
@@ -1815,11 +1849,79 @@ void CMission::OnMissionComplete(MISSION_STATE state)
 
 	if (theNetwork.m_bNetwork)
 	{
-		/* port: not written - the network round's end (0x1f6240-0x1f6450: CZBombState::
-		   UninitBomb, the abort dialog dlgNetAbort.rdr after a 3 s delay, the mp_score00/08
-		   and mp_winner valves, the round counter valve, CZGameState::UpdateLocalGame,
-		   NetSendObjectFullUpdate, _OnMissionComplete, theGame.Push(&m_MPexitState)); the
-		   port has no network play */
+		/* 0x1f6240 (network, untested): the round's end. The bomb goes; an abort waits 3 s
+		 * (m_delay against m_timer) and then returns to the menus on dlgNetAbort.rdr (the
+		 * lobby's error handler cleared); otherwise the session master, after the same 3 s,
+		 * keeps the scores and winner of the mp_score00 / mp_score08 / mp_winner valves,
+		 * whether the game is over (the game-over valve), counts the round (the round valve
+		 * set to it), sets the round- or game-over state, sends the game object, ends the
+		 * mission (the round time added to the total) and pushes the multiplayer debrief */
+		CZNetGame *game = m_pNetGame;
+
+		if (game == NULL)
+			return;
+
+		CZBombState::UninitBomb();
+
+		if (static_cast<u8>(state) == MISSION_ABORTED)
+		{
+			if (m_delay == -1.0f)
+			{
+				m_delay = m_timer + 3.0f;
+				return;
+			}
+
+			if (m_timer <= m_delay)
+				return;
+
+			theLobby.m_net_error_handler = NULL;
+			strncpy(theGame.m_menuState.m_DefaultMenu, "dlgNetAbort.rdr", 64);
+			theGame.Switch(&theGame.m_menuState, 0);
+			return;
+		}
+
+		if (!theNetwork.m_bSessionMaster)
+			return;
+
+		if (m_delay == -1.0f)
+		{
+			m_delay = m_timer + 3.0f;
+			return;
+		}
+
+		if (m_timer <= m_delay)
+			return;
+
+		bool over = game->m_pGameOverValve->m_value != 0;
+		CValve *score00 = CValve::GetByName("mp_score00");
+		CValve *score08 = CValve::GetByName("mp_score08");
+		CValve *winner = CValve::GetByName("mp_winner");
+
+		if (score00 != NULL)
+			game->m_mpe3_score00 = score00->m_value;
+
+		if (score08 != NULL)
+			game->m_mpe3_score08 = score08->m_value;
+
+		if (winner != NULL)
+			game->m_mpe3_round_winner = winner->m_value;
+
+		game->m_game_over = over;
+		game->m_mpe3_round_count++;
+		CValve *rounds = game->m_pRoundCountValve;
+		u32 count = (u32)game->m_mpe3_round_count;
+		u16 old_count = rounds->m_value;
+		rounds->m_value = (u16)count; /* inline set (ELF: the 16-bit value) */
+
+		if ((u32)old_count != count) /* ELF: the old 16-bit value against the 32-bit count */
+			rounds->MakeCallbacks((VALVE_STATE)(count != 0 ? 1 : 2));
+
+		game->m_mp_major_game_state = over ? CZNetGame::MP_MAJOR_GAMEOVER : CZNetGame::MP_MAJOR_ROUNDOVER;
+		CZGameState::UpdateLocalGame(game);
+		NetSendObjectFullUpdate(-1, game->m_game_object_index);
+		_OnMissionComplete();
+		game->m_clock.m_total_time += game->m_clock.m_time_in_round;
+		theGame.Push(&theGame.m_MPexitState, 0);
 		return;
 	}
 

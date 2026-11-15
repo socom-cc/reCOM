@@ -13,6 +13,8 @@
 
 #include "gamez/zAnim/zanim.h"
 #include "gamez/zGame/zgame.h"
+#include <stdio.h> /* fprintf, stderr (_impure_ptr->_stderr in the ELF) */
+#include <string.h> /* strchr */
 
 /* @socom-skeleton stub goptind */
 int goptind = 1;
@@ -26,11 +28,120 @@ char *goptarg;
 /* @socom-skeleton stub goptopt */
 int goptopt;
 
-/* @socom-skeleton stub getopt__FiPCPcPCc */
-int getopt(int, char *const *, const char *)
+/* @socom-skeleton body getopt__FiPCPcPCc */
+int getopt(int argc, char *const *argv, const char *optstring)
 {
+	/* 0x173ab0: the classic public-domain getopt with g-prefixed globals. dash is set while a
+	 * "-xyz" word is being walked, optchr is the character in it. The ELF initialises both
+	 * statics behind first-call guards (init$21 0x475690, init$24 0x475698). Answers -1 at the
+	 * end of the options ("--" is skipped), '?' for ':' as an option, an unknown option or a
+	 * missing argument (goptopt = the character, a message on stderr while gopterr), else the
+	 * option character; an option followed by ':' takes the next word as goptarg.
+	 * ELF quirk kept: the "--" test runs mid-word too (argv[goptind] is the word being walked) */
 	/* @socom-skeleton stub optchr$20 */
-	static int optchr;
+	static int optchr = 0;
 	/* @socom-skeleton stub dash$23 */
-	static int dash;
+	static int dash = 0;
+
+	if (goptind >= argc)
+		return -1;
+
+	if (!dash && argv[goptind][0] != '-')
+		return -1;
+
+	if (!dash && argv[goptind][0] == '-' && argv[goptind][1] == '\0')
+		return -1;
+
+	if (argv[goptind][0] == '-' && argv[goptind][1] == '-')
+	{
+		goptind++;
+		return -1;
+	}
+
+	if (!dash)
+	{
+		dash = 1;
+		optchr = 1;
+	}
+
+	/* a "-:" style flag */
+	if (argv[goptind][optchr] == ':')
+	{
+		int chr = optchr;
+		dash = 0;
+		goptind++;
+		int ind = goptind - 1;
+
+		if (gopterr)
+		{
+			fprintf(stderr, "Error in argument %d, char %d: ", ind, chr + 1);
+			fprintf(stderr, ": in flags\n");
+		}
+
+		goptopt = argv[ind][chr];
+		return '?';
+	}
+
+	const char *cp = strchr(optstring, argv[goptind][optchr]);
+
+	if (cp == NULL)
+	{
+		int ind = goptind;
+		int chr = optchr;
+
+		if (argv[ind][chr + 1] == '\0')
+		{
+			dash = 0;
+			goptind = ind + 1;
+		}
+		else
+		{
+			optchr = chr + 1;
+		}
+
+		if (gopterr)
+		{
+			fprintf(stderr, "Error in argument %d, char %d: ", ind, chr + 1);
+			fprintf(stderr, "option not found %c\n", argv[ind][chr]);
+		}
+
+		goptopt = argv[ind][chr];
+		return '?';
+	}
+
+	if (cp[1] == ':')
+	{
+		goptind++;
+		dash = 0;
+
+		if (goptind == argc)
+		{
+			int ind = goptind - 1;
+			int chr = optchr;
+
+			if (gopterr)
+			{
+				fprintf(stderr, "Error in argument %d, char %d: ", ind, chr + 1);
+				fprintf(stderr, "no argument for option %c\n", argv[ind][chr]);
+			}
+
+			goptopt = argv[ind][chr];
+			return '?';
+		}
+
+		goptarg = argv[goptind++];
+		return *cp;
+	}
+
+	if (argv[goptind][optchr + 1] == '\0')
+	{
+		dash = 0;
+		goptind++;
+	}
+	else
+	{
+		optchr++;
+	}
+
+	return *cp;
 }

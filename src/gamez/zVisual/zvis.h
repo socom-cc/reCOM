@@ -78,7 +78,7 @@ struct tag_ObjectHeader
 	                           GetTextureSelectBlock_ver2); name from the microcode */
 	u32 m_unused : 30;
 	u32 m_local_light_qwc;  /* hdr[1].x: 2 qwords per local light (VuUpdate) */
-	u32 m_unk14[3];         /* hdr[1].yzw: not written by the EE */
+	u32 m_unk14[3];         /* hdr[1].yzw: never stored by the EE */
 };
 
 /* The VU1 command codes of a VuBatchProgram entry {x code, y list index, z count}: the
@@ -481,7 +481,7 @@ public:
 	public:
 		CPnt3D m_uv;       /* +0: the vertex through the world-to-UV matrix: u, v, depth */
 		s16 m_index;       /* +12: vertex number in its batch */
-		s16 m_unk0e;       /* +14: not written */
+		s16 m_unk0e;       /* +14: never stored */
 		CPnt3D m_pos;      /* +16: model-space position */
 		u32* m_color;      /* +28: the vertex's rgba in the instance colour buffer */
 		f32 m_nx;          /* +32: the vertex record's normal (s16 / 32768) */

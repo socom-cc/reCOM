@@ -514,7 +514,7 @@ static inline _word128* VuNewPacket()
 	return packet;
 }
 
-/* one VU1 command entry {x code, y index, z count}; w is not written */
+/* one VU1 command entry {x code, y index, z count}; w is left as it is (the ELF never stores it) */
 static inline _word128* VuCommand(_word128* p, u32 code, u32 index, u32 count)
 {
 	p->u32[0] = code;

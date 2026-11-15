@@ -50,8 +50,14 @@ void CZGrenadeState::zNetRegisterGrenade()
 	/* 0x206d20 (ftsNetworkGameInit): the 36-byte "GrenadeState" structure - GrenadePosition
 	 * +0x0 12 bytes (grenade position schedule), GrenadeVelocity +0xc (grenade velocity
 	 * schedule), GrenadeState +0x18 (flash), ThrowerObjectIndex +0x19 (flags) - then the
-	 * remote callbacks.
-	 * port: not written (NetRegisterObjectStart, NetObjectField, NetRegisterStructure) */
+	 * remote callbacks (type 13: a vector, 1: a byte). port: the id words and schedules are
+	 * untyped placeholders, passed by address as the ELF does */
+	NetRegisterObjectStart();
+	NetObjectField(reinterpret_cast<int *>(m_GrenadePositionFieldID), offsetof(TypeGrenadeState, GrenadePosition), 12, 13, 1, CZNetObject::m_GrenadePosBroadcastSchedule);
+	NetObjectField(reinterpret_cast<int *>(m_GrenadeVelocityFieldID), offsetof(TypeGrenadeState, GrenadeVelocity), 12, 13, 1, CZNetObject::m_GrenadeVelBroadcastSchedule);
+	NetObjectField(reinterpret_cast<int *>(m_GrenadeStateFieldID), offsetof(TypeGrenadeState, GrenadeState), 1, 1, 1, CZNetObject::m_FlashBroadcastSchedule);
+	NetObjectField(reinterpret_cast<int *>(m_ThrowerObjectIndexFieldID), offsetof(TypeGrenadeState, ThrowerObjectIndex), 1, 1, 1, CZNetObject::m_FlagsBroadcastSchedule);
+	NetRegisterStructure(&m_NetStructIndexGrenadeObject, "GrenadeState", 36);
 	theNetwork.zNetRegisterRemoteObjectCallback(m_NetStructIndexGrenadeObject, RemoteGrenadeCreationCallback,
 		RemoteGrenadeUpdateCallback, RemoteGrenadePostUpdateCallback, RemoteGrenadeDeletionCallback);
 }
@@ -174,7 +180,7 @@ void CZGrenadeState::UpdateLocalGrenade(CZProjectile *projectile)
 
 	if (grenade == 3)
 	{
-		/* port: not written (NetFreeObject(index)) */
+		NetFreeObject(index); /* 0x206a24: the grenade is over */
 		return;
 	}
 

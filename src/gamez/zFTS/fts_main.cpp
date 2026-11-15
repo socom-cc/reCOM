@@ -80,8 +80,8 @@ zdb::IntersectStruct * ftsGetAltitudeApprox(const CPnt3D *position, float offset
 
 					if (under != NULL && under->m_bilinear)
 					{
-						/* port: not written - CAiMap::GetBilinearAltitude 0x19a820 (2244 bytes, zAI);
-						 * bilinear cells take the world's altitude below */
+						/* 0x1f2360: blended from the cell and its neighbours */
+						have = map->GetBilinearAltitude(local, position, &altitude);
 					}
 					else if (under != NULL)
 					{

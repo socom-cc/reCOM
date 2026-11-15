@@ -110,13 +110,21 @@ const char * CNodeAction::GetActionType(CNodeAction::ACTION_TYPE type)
 }
 
 /* @socom-skeleton stub _actionValveCallback__FP6CValvePv */
-void _actionValveCallback(CValve *, void *)
+void _actionValveCallback(CValve *valve, void *data)
 {
-	/* 0x1ff7d0 (Open registers it on each action's valve, state mask 3): with an action,
-	 * CAiMaps::GetActionById(m_id, loc, &act) and, when found, act->byte 6 bits 4..6 = the
-	 * valve's value & 7 (the AI map's door state). port: not written: CAiMaps::GetActionById
-	 * (ai_maps.cpp) is an unwritten void stub, and CValve::MakeCallbacks is empty in the port,
-	 * so the callback never runs. */
+	/* 0x1ff7d0 (Open registers it on each action's valve, state mask 3): the AI map's record
+	 * of the action (CAiMaps::GetActionById by its id) takes the valve's value & 7 as its state
+	 * (the door state the AI paths read) */
+	CNodeAction *action = static_cast<CNodeAction *>(data);
+
+	if (action == NULL)
+		return;
+
+	CAiMap::action *act = NULL;
+	CAiMapLoc loc;
+
+	if (AiMaps.GetActionById(action->m_id, loc, &act))
+		act->m_state = valve->m_value & 7;
 }
 
 /* @socom-skeleton stub Close__11CNodeActionFv */

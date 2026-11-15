@@ -250,7 +250,7 @@ bool DidStickMoveNext();            /* zui.cpp (0x384c20) */
 /* port: CListItemTypeImpl had no declaration. Slot order from __vt__17CListItemTypeImpl @0x473290 (13 slots,
  * zero = pure): ~ 0x385600, DrawPrep, Finish 0x385660 (empty), GetString, PrepListItem, SetFont, SetPos, SetScale,
  * SetColor, SetSequenceTime 0x385650 (returns f12), Tick 0x385500 (empty), VisualGratification, IsEnabled 0x385710
- * (returns 1). Out-of-line definitions (annotated here) are not written in P1. */
+ * (returns 1). */
 class CListItemTypeImpl
 {
 public:
@@ -3874,7 +3874,7 @@ struct _zui_popup_cmd
 	f32 scale;            /* +0x24 SCALE: the text and the captions */
 	s32 color[3];         /* +0x28 COLOR: the text */
 	u8 unused34;          /* +0x34 cleared, then tested, by the parser */
-	u8 unused35[15];      /* +0x35 not written */
+	u8 unused35[15];      /* +0x35 never stored by the parser */
 	bool cancellable;     /* +0x44 CANCELLABLE */
 	bool protect;         /* +0x45 PROTECTED */
 	bool yesno;           /* +0x46 YESNO */

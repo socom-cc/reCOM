@@ -82,8 +82,21 @@ void CZGameState::zNetRegisterGame()
 	 * WorldStr +0x0 1x5 (flags schedule), MaxGameTime +0x8, InitialClock +0xc (flags),
 	 * CurrentRTime +0x10, VersionNo +0x14 (flash), Flags +0x18 8 bytes, RoundWinner +0x20,
 	 * Score00 +0x21, Score08 +0x22, RoundIndex +0x23, RoundBlock +0x24 1x12, LJBlock +0x30
-	 * 1x16 (flash) - then the remote callbacks.
-	 * port: not written (NetRegisterObjectStart, NetObjectField, NetRegisterStructure) */
+	 * 1x16 (flash) - then the remote callbacks (type 5: a word / bytes as a block, 1: a byte) */
+	NetRegisterObjectStart();
+	NetObjectField(&m_WorldStrFieldID, offsetof(TypeGameState, WorldStr), 1, 1, 5, CZNetObject::m_FlagsBroadcastSchedule);
+	NetObjectField(&m_MaxGameTimeFieldID, offsetof(TypeGameState, MaxGameTime), 4, 5, 1, CZNetObject::m_FlagsBroadcastSchedule);
+	NetObjectField(&m_InitialClockFieldID, offsetof(TypeGameState, InitialClock), 4, 5, 1, CZNetObject::m_FlagsBroadcastSchedule);
+	NetObjectField(&m_CurrentRTimeFieldID, offsetof(TypeGameState, CurrentRTime), 4, 5, 1, CZNetObject::m_FlashBroadcastSchedule);
+	NetObjectField(&m_VersionNoFieldID, offsetof(TypeGameState, VersionNo), 4, 5, 1, CZNetObject::m_FlashBroadcastSchedule);
+	NetObjectField(&m_FlagsFieldID, 0x18 /* the flag word (bitfields) */, 8, 5, 1, CZNetObject::m_FlashBroadcastSchedule);
+	NetObjectField(&m_RoundWinnerFieldID, offsetof(TypeGameState, RoundWinner), 1, 1, 1, CZNetObject::m_FlashBroadcastSchedule);
+	NetObjectField(&m_Score00FieldID, offsetof(TypeGameState, Score00), 1, 1, 1, CZNetObject::m_FlashBroadcastSchedule);
+	NetObjectField(&m_Score08FieldID, offsetof(TypeGameState, Score08), 1, 1, 1, CZNetObject::m_FlashBroadcastSchedule);
+	NetObjectField(&m_RoundIndexFieldID, offsetof(TypeGameState, RoundIndex), 1, 1, 1, CZNetObject::m_FlashBroadcastSchedule);
+	NetObjectField(&m_RoundBlockFieldID, offsetof(TypeGameState, RoundBlock), 1, 1, 12, CZNetObject::m_FlashBroadcastSchedule);
+	NetObjectField(&m_LJBlockFieldID, offsetof(TypeGameState, LJBlock), 1, 1, 16, CZNetObject::m_FlashBroadcastSchedule);
+	NetRegisterStructure(&m_NetStructIndexGameObject, "GameState", 64);
 	theNetwork.zNetRegisterRemoteObjectCallback(m_NetStructIndexGameObject, RemoteGameCreationCallback,
 		RemoteGameUpdateCallback, RemoteGamePostUpdateCallback, RemoteGameDeletionCallback);
 }

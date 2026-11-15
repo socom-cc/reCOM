@@ -447,8 +447,16 @@ int CSealCtrlAi::aiActiveCount;
 int CSealCtrlAi::aiSleepingCount;
 int CSealCtrlAi::aiSnoozingCount;
 int CSealCtrlAi::diCount;
+unsigned char CSealCtrlAi::aiDebugEnabled; /* 0x475d64 (next to diCount) */
 float ai::snooze_time;
 int ai::snooze_count;
+
+/* port: two more statics with no owner annotation, placed with this unit's data: the 1-byte
+ * aiCameraRangeFilter__11CSealCtrlAi 0x474f60 (.sdata, 1, next to throttleEps 0x474f54) and
+ * isolate_character__2ai 0x43a370 (.data, 32 zero bytes, just before this unit's 0x43a390);
+ * process_arguments (options.cpp) sets them */
+unsigned char CSealCtrlAi::aiCameraRangeFilter = 1;
+char ai::isolate_character[32];
 
 /* port: file-local helpers for code the ELF inlines at every use (no symbols) */
 
@@ -2677,7 +2685,7 @@ bool CSealCtrlAi::LadderClimbTick(float dT)
 	/* @socom-skeleton stub mmt_move$3307 */
 	static float mmt_move;
 	/* @socom-skeleton stub _look$3310 */
-	static const unsigned char _look[12] = {0};
+	static CPnt3D _look; /* 0x451150 */
 
 	/* 0x266320 (PathFollowTick; written, untested: m8 has no ladders): an AI whose path's next
 	 * point is a ladder action climbs it; v0 = 1 while the ladder is being handled (the caller
@@ -2691,7 +2699,7 @@ bool CSealCtrlAi::LadderClimbTick(float dT)
 	 * the path point is passed, state 0 and v0 = 0. A state change is logged (Output). ELF
 	 * quirks kept: the ladder's negated normal is overwritten by the action's direction vector
 	 * and neither is used; the GetCell answer is dropped; _look takes CPnt3D::unit_z at the
-	 * first call and is not read (port: a const placeholder, not written). */
+	 * first call (its own guard init$3311) and is not read. */
 	static bool mmt_init = false; /* init$3308 */
 
 	if (!mmt_init)
@@ -2700,7 +2708,14 @@ bool CSealCtrlAi::LadderClimbTick(float dT)
 		mmt_move = 0.2f;
 	}
 
-	(void)_look;
+	static bool look_init = false; /* init$3311 */
+
+	if (!look_init)
+	{
+		look_init = true;
+		_look = CPnt3D::unit_z;
+	}
+
 	CZSealBody *seal = static_cast<CZSealBody *>(m_entity);
 	u32 count = m_path.m_points.size();
 
@@ -3326,18 +3341,30 @@ void CSealCtrlAi::AllStop(bool slew)
 /* @socom-skeleton stub IdleTick__11CSealCtrlAiFf */
 void CSealCtrlAi::IdleTick(float dT)
 {
-	/* 0x264c20: idle mode creeps to any goal. ELF: every idle_limit (4 s) without a look
-	 * above AIL_NORMAL a new look direction is chosen from the AI map (ChooseLookDir,
-	 * SetLookDirW(AIL_NORMAL, dir), look flag 1 cleared, "IdleTimer Expired!  New Look
-	 * Direction %d"). port: that part is not written (ChooseLookDir 0x2597a0 and the look
-	 * code in seal_aiscan.cpp are not written); the timer runs. */
+	/* 0x264c20: idle mode creeps to any goal. Every idle_limit (4 s), while no look above
+	 * AIL_NORMAL is active, a new look direction is chosen from the AI map around the seal's
+	 * cell (ChooseLookDir, 20 cells deep, starting toward the node's -z, i.e. ahead) and set
+	 * as the normal look (look flag 1 cleared). */
 	/* @socom-skeleton stub idle_limit$3507 */
 	static float idle_limit = 4.0f;
 
+	CZSealBody *body = static_cast<CZSealBody *>(m_entity);
 	m_idleTimer += dT;
 
 	if (!(m_idleTimer < idle_limit))
+	{
 		m_idleTimer = 0.0f;
+
+		if ((s8)m_look_mode <= 0)
+		{
+			const CMatrix &m = body->m_node->m_matrix;
+			CPnt3D ahead(-m.m_matrix[2][0], -m.m_matrix[2][1], -m.m_matrix[2][2]);
+			CAiMap::DIR dir = ChooseLookDir(body->m_mapLocValid, &ahead, false, NULL, 20, NULL);
+			SetLookDirW(AIL_NORMAL, dir);
+			ModifyLookFlags(1, 0);
+			Output("IdleTimer Expired!  New Look Direction %d\n", (int)(u8)dir);
+		}
+	}
 
 	CreepTick(dT);
 }
@@ -5120,14 +5147,8 @@ bool CAiSAction::Tick(float dT, CSealCtrlAi *ctrl)
 	{
 		CAiMapLoc loc;
 
-		/* port: GetActionById (CAiMaps, 0x19c800) is still a stub: the loc stays invalid and
-		 * SetRoute fails (the PathFollowTick pushes carry 0x10 and skip this phase) */
-		loc.m_mapid = 0;
-		loc.x = 0;
-		loc.y = 0;
-		AiMaps.GetActionById(m_action->m_id, loc, NULL);
-
-		if (loc.x != 0 || loc.y != 0 || loc.m_mapid != 0)
+		/* 0x25f06c: a route to the action's cell when the AI map has the action */
+		if (AiMaps.GetActionById(m_action->m_id, loc, NULL))
 		{
 			if (ctrl->SetRoute(loc))
 			{

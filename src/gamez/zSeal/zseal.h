@@ -347,6 +347,7 @@ void ParentPistolToRHandCallback(void *, void *); /* seal_env.cpp 0x2987b0 */
 void ParentPistolToRThighAsGearCallback(void *, void *); /* seal_env.cpp 0x2986e0 */
 void NetSendPushBlend(unsigned int, int, int, bool); /* fts_remote.cpp 0x2038a0 */
 void SendHitMessage(int, int, int, float, float, bool, unsigned char); /* fts_remote.cpp 0x203af0 */
+void SendVoteMessage(int, int, bool); /* fts_remote.cpp 0x202660 (the orders menu's votes) */
 /* fts_remote.cpp, the network pickups (the first int is the item count) */
 void SendWeaponPUMessage(unsigned short, unsigned short, CPnt3D *, CQuat *);
 void SendAmmoPUMessage(int, unsigned short *, unsigned short *, unsigned short, CPnt3D *);
@@ -2142,6 +2143,8 @@ public:
 	static int aiSleepingCount; /* 0x475d58 */
 	static int aiSnoozingCount; /* 0x475d5c */
 	static int diCount; /* diCount__11CSealCtrlAi 0x475d60: sight lines queued this frame */
+	static unsigned char aiDebugEnabled; /* aiDebugEnabled__11CSealCtrlAi 0x475d64 (1 byte): --aid (CTGoto::Begin reads it) */
+	static unsigned char aiCameraRangeFilter; /* aiCameraRangeFilter__11CSealCtrlAi 0x474f60 (1 byte, 1): --noaifilter clears it; nothing reads it */
 	static const EQUIP_ITEM aiDeployList[11];
 	static unsigned char aiEnabled;
 	static unsigned char aiLogEnabled;
@@ -2628,6 +2631,7 @@ public:
 	static float underfire_thip_delta;
 	static float underfire_threshold;
 	static unsigned char visinfo;
+	static char isolate_character[32]; /* isolate_character__2ai 0x43a370 (32 bytes, zero): --isolate <name>; CMission::LoadVehicle loads only that character besides the player */
 };
 /* @socom-skeleton end 2ai */
 #endif

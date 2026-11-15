@@ -291,7 +291,7 @@ bool CAiMaps::GetLocation(const CPnt3D *pos, CAiMapLoc &out)
 bool CAiMaps::GetLocation(const char *name, CAiMapLoc &loc)
 {
 	/* 0x19c8e0: the first map that knows the location name; loc's map id is that map's
-	 * position in the list. False with no maps (ReadMapSet not written yet). */
+	 * position in the list. False with no maps. */
 	u8 index = 0;
 
 	for (iterator i = begin(); i != end(); ++i, index++)
@@ -550,6 +550,49 @@ bool CAiMap::GetInterpolationCells(const CAiMapLoc &loc, const CPnt3D *pos, IPNT
 	}
 
 	return true;
+}
+
+/* port: no skeleton fence for GetBilinearAltitude__6CAiMapCFRC9CAiMapLocPC6CPnt3DPf (annotated
+ * as defined in this unit) */
+bool CAiMap::GetBilinearAltitude(const CAiMapLoc &loc, const CPnt3D *pos, float *out) const
+{
+	/* 0x19a820 (ftsGetAltitudeApprox, on a bilinear cell): the altitude under pos blended from
+	 * the cell and its three neighbours toward pos (GetInterpolationCells inlined: the cell's
+	 * weight 0.5..1 per axis), skipping cells with a bad altitude (and those off the map); the
+	 * weights are renormalised when those found sum under 0.98. False off the map or with no
+	 * usable cell (*out is then 0 once the location is on the map). */
+	IPNT2D step;
+	PNT2D w;
+
+	if (!GetInterpolationCells(loc, pos, &step, &w))
+		return false;
+
+	*out = 0.0f;
+	f32 sum = 0.0f;
+	bool found = false;
+	CAiMapLoc at = loc;
+
+	for (int i = 0; i < 4; i++)
+	{
+		/* the cell, then x + step, then y + step, then both */
+		at.x = (i & 1) ? loc.x + step.x : loc.x;
+		at.y = (i & 2) ? loc.y + step.y : loc.y;
+		f32 weight = ((i & 1) ? 1.0f - w.x : w.x) * ((i & 2) ? 1.0f - w.y : w.y);
+		CAiCell *cell = GetCell(at);
+
+		if (cell == NULL || cell->m_badalt)
+			continue;
+
+		sum += weight;
+		f32 altitude = m_bbox.m_min.y + 0.00097656297f * (m_bbox.m_max.y - m_bbox.m_min.y) * (f32)cell->m_altitude;
+		*out = *out + weight * altitude;
+		found = true;
+	}
+
+	if (found && sum < 0.98f)
+		*out = *out / sum;
+
+	return found;
 }
 
 /* @socom-skeleton stub GetAltitude__7CAiMapsFRC9CAiMapLoc */
@@ -1116,15 +1159,56 @@ void CAiMaps::ValidateLinks()
 /* @socom-skeleton body CreateGraph__7CAiMapsFb */
 void CAiMaps::CreateGraph(bool rebuild)
 {
-	/* 0x1981a0: keeps the graph read with the set unless asked to rebuild */
+	/* 0x1981a0: keeps the graph read with the set unless asked to rebuild (ReadMapSet passes
+	 * false after reading the set's graph, so this builds only for a set without one; the disc's
+	 * sets carry theirs). Built: a node per map link (its record as the node's owner), each new
+	 * one with a node for the link's other end (GetCellLink on the map the link points to) and a
+	 * zero-length edge to it; then, per map, an edge between every two of its links that
+	 * PathPlanImmediate connects, its length the path's. ELF quirk kept: a link to a map past
+	 * the set's end asks a NULL map for its cell link. port: written, untested */
 	if (!rebuild && m_graph != NULL)
 		return;
 
-#ifdef SOCOM_PORT
-	/* port: not written - building the set graph from the links needs ai::PathPlanImmediate
-	 * (0x180ae0) and CAiPath; the disc's map sets carry their graph */
-	SOCOM_PORT_TRACE("AIMAP: CAiMaps::CreateGraph(%d) rebuild not written", rebuild);
-#endif
+	CGraph *graph = CGraph::Create("AiMap Graph");
+
+	for (iterator i = begin(); i != end(); ++i)
+	{
+		CAiMap *map = (CAiMap *)*i;
+		CAiMap::links &links = map->m_linksTable;
+
+		for (CAiMap::links::iterator l = links.begin(); l != links.end(); ++l)
+		{
+			CGNode *node = graph->GetNodeByNodeEx(&*l);
+
+			if (node == NULL)
+			{
+				node = graph->CreateNode(NULL);
+				node->m_nodeEx = &*l;
+				CAiMap *other = GetMapByIndex(l->m_link.m_mapid);
+				CAiMap::link *peer = other->GetCellLink(l->m_link);
+				CGNode *end_node = graph->CreateNode(NULL);
+				end_node->m_nodeEx = peer;
+				CGEdge *edge = graph->CreateEdge(node, end_node);
+				edge->m_length = 0.0f;
+			}
+
+			for (CAiMap::links::iterator o = links.begin(); o != l; ++o)
+			{
+				CGNode *peer_node = graph->GetNodeByNodeEx(&*o);
+				ai::FlushPlannerQueue();
+				CAiPath path;
+				path.m_flags = 0;
+
+				if (ai::PathPlanImmediate(map, l->m_loc, o->m_loc, &path))
+				{
+					CGEdge *edge = graph->CreateEdge(node, peer_node);
+					edge->m_length = path.GetLength(false);
+				}
+			}
+		}
+	}
+
+	m_graph = graph;
 }
 
 /* @socom-skeleton stub GetCellName__7CAiMapsCFRC9CAiMapLoc */

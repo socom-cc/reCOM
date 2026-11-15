@@ -183,7 +183,7 @@ namespace {
 ::CTeamDisplay g_oTerrs2Ds;
 }
 
-/* port: stub __dt__Q228@unnamed@hud_scorepopup_cpp@9CScoreBmpFv (no owner in the render) */
+/* port: no skeleton fence for __dt__Q228@unnamed@hud_scorepopup_cpp@9CScoreBmpFv (no owner in the render) */
 namespace {
 CScoreBmp::~CScoreBmp()
 {
@@ -469,7 +469,7 @@ void CTeamDisplay::SetupTeam(float top, float red, float green, float blue, cons
 }
 }
 
-/* port: stub __dt__Q228@unnamed@hud_scorepopup_cpp@11CScorePopupFv (no owner in the render) */
+/* port: no skeleton fence for __dt__Q228@unnamed@hud_scorepopup_cpp@11CScorePopupFv (no owner in the render) */
 namespace {
 CScorePopup::~CScorePopup()
 {

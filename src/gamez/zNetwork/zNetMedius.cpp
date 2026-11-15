@@ -495,7 +495,7 @@ public:
 	std::vector<BriefingRoom *> m_rooms;
 };
 
-/* a ladder row: two strings (dtor 0x3279d0; the rest is the ladder callbacks', not written) */
+/* a ladder row: two strings (dtor 0x3279d0); the rest is filled by the ladder callbacks (cbGetLadderInfo 0x3299e4) */
 class LadderItem
 {
 public:
@@ -1511,7 +1511,7 @@ static const char *LobbyResponseStatusName(int status)
 	}
 }
 
-/* port: stub IsAClone__12BriefingRoomFv (no owner in the render) */
+/* port: no skeleton fence for IsAClone__12BriefingRoomFv (no owner in the render) */
 BriefingRoom * BriefingRoom::IsAClone()
 {
 	/* 0x32fea0 */
@@ -1840,14 +1840,14 @@ void cbChannelInfo(int, int, int, MediusChannelInfoResponse *response)
 		UpdateRoomListDisplay();
 }
 
-/* port: stub BaseSrc__12BriefingRoomFv (no owner in the render) */
+/* port: no skeleton fence for BaseSrc__12BriefingRoomFv (no owner in the render) */
 BriefingRoom * BriefingRoom::BaseSrc()
 {
 	/* 0x32e4b0 */
 	return this;
 }
 
-/* port: stub CloneIndex__12BriefingRoomFv (no owner in the render) */
+/* port: no skeleton fence for CloneIndex__12BriefingRoomFv (no owner in the render) */
 int BriefingRoom::CloneIndex()
 {
 	/* 0x32e800 */

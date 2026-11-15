@@ -2545,10 +2545,24 @@ void CZSealBody::ApplyBlinkAnim()
 bool CZSealBody::DestroyAimAnims()
 {
 	/* 0x29cbf0 (CMission::Close, ReOpen_Unload1): the shared aim anims are deleted from the
-	 * back; 0 when there were none, else 1.
-	 * port: not written - m_aim_anims is an untyped placeholder (int[3], zseal.h) and the aim
-	 * anims are never made in the port (CreateAimAnims is unwritten), so there are none */
-	return false;
+	 * back (the list's +4 is its size, +8 its entries; plain operator delete, no destructor);
+	 * 0 when there were none, else 1. Nothing in the ELF adds to the list (there is no
+	 * CreateAimAnims), so this answers 0 in the ELF as here. port: m_aim_anims keeps its
+	 * untyped 12-byte placeholder (no DWARF element type); the words are read as the ELF does */
+	struct aim_list { u32 m_unk0; u32 m_size; void **m_data; };
+	aim_list *list = reinterpret_cast<aim_list *>(m_aim_anims);
+
+	if (list->m_size == 0)
+		return false;
+
+	while (list->m_size != 0)
+	{
+		void *anim = list->m_data[list->m_size - 1];
+		list->m_size--;
+		operator delete(anim);
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub PitchAnim__10CZSealBodyFP6CPnt3DP6CPnt3D */

@@ -66,8 +66,15 @@ void CZBombState::zNetRegisterBomb()
 {
 	/* 0x207a30 (ftsNetworkGameInit): the 16-byte "BombState" structure - BombPosition +0x0
 	 * 12 bytes (grenade position schedule), BombState +0xc, BombHolder +0xd, BombDefuser
-	 * +0xe (flash) - then the remote callbacks.
-	 * port: not written (NetRegisterObjectStart, NetObjectField, NetRegisterStructure) */
+	 * +0xe (flash) - then the remote callbacks (type 13: a vector, 1: a byte). port: the
+	 * state's id word and the schedules are untyped placeholders, passed by address as the ELF
+	 * does */
+	NetRegisterObjectStart();
+	NetObjectField(&m_BombPositionFieldID, offsetof(TypeBombState, BombPosition), 12, 13, 1, CZNetObject::m_GrenadePosBroadcastSchedule);
+	NetObjectField(reinterpret_cast<int *>(m_BombStateFieldID), offsetof(TypeBombState, BombState), 1, 1, 1, CZNetObject::m_FlashBroadcastSchedule);
+	NetObjectField(&m_BombHolderFieldID, offsetof(TypeBombState, BombHolder), 1, 1, 1, CZNetObject::m_FlashBroadcastSchedule);
+	NetObjectField(&m_BombDefuserFieldID, offsetof(TypeBombState, BombDefuser), 1, 1, 1, CZNetObject::m_FlashBroadcastSchedule);
+	NetRegisterStructure(&m_NetStructIndexBombObject, "BombState", 16);
 	theNetwork.zNetRegisterRemoteObjectCallback(m_NetStructIndexBombObject, RemoteBombCreationCallback,
 		RemoteBombUpdateCallback, RemoteBombPostUpdateCallback, RemoteBombDeletionCallback);
 }
@@ -466,7 +473,7 @@ void CZBombState::UninitBomb()
 
 	if (theNetwork.m_bSessionMaster && m_BombStatus.BombObjectIndex != 0)
 	{
-		/* port: not written (NetFreeObject(m_BombStatus.BombObjectIndex)) */
+		NetFreeObject(m_BombStatus.BombObjectIndex); /* 0x206e74 */
 	}
 
 	game->m_bomb_created = false;
