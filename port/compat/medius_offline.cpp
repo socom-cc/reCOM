@@ -106,4 +106,284 @@ int MediusGetChannels(struct MediusChannelListRequest *request, void (*callback)
     return MEDIUS_OFFLINE_ERROR;
 }
 
+
+/* ---- socom-port-mod-znet2 (2026-11-14): the rest of the lobby's calls (the state handlers, clans,
+ * ladders, chat, game and room lists). The lobby only reaches them once connected, which offline never
+ * happens; each answers an error and calls no callback (the lobby then waits in its current state). */
+int MediusSessionBegin(struct MediusSessionBeginRequest *request, void (*callback)(int, int, int, struct MediusSessionBeginResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusSessionEnd(struct MediusSessionEndRequest *request, void (*callback)(int, int, int, struct MediusSessionEndResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusVersionServer(struct MediusVersionServerRequest *request, void (*callback)(int, int, int, struct MediusVersionServerResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusTextFilter(struct MediusTextFilterRequest *request, void (*callback)(int, int, int, struct MediusTextFilterResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusAccountRegistration(struct MediusAccountRegistrationRequest *request, void (*callback)(int, int, int, struct MediusAccountRegistrationResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusAccountLogin(struct MediusAccountLoginRequest *request, void (*callback)(int, int, int, struct MediusAccountLoginResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusCreateChannel(struct MediusCreateChannelRequest *request, void (*callback)(int, int, int, struct MediusCreateChannelResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusFindWorldByName(struct MediusFindWorldByNameRequest *request, void (*callback)(int, int, int, struct MediusFindWorldByNameResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusJoinChannel(struct MediusJoinChannelRequest *request, void (*callback)(int, int, int, struct MediusJoinChannelResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusJoinGame(struct MediusJoinGameRequest *request, void (*callback)(int, int, int, struct MediusJoinGameResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusCreateGame(struct MediusCreateGameRequest *request, void (*callback)(int, int, int, struct MediusCreateGameResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusGetPlayerInfo(struct MediusPlayerInfoRequest *request, void (*callback)(int, int, int, struct MediusPlayerInfoResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusGetPolicy(struct MediusGetPolicyRequest *request, void (*callback)(int, int, int, struct MediusGetPolicyResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusChatToggleFilter(struct MediusChatToggleRequest *request, void (*callback)(int, int, int, struct MediusChatToggleResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusUpdateClientState(struct MediusUpdateClientStateRequest *request)
+{
+    (void)request;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusSendPlayerReport(struct MediusPlayerReport *report)
+{
+    (void)report;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusSendWorldReport(struct MediusWorldReport *report)
+{
+    (void)report;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusSetGameListFilter(struct MediusSetGameListFilterRequest *request, void (*callback)(int, int, int, struct MediusSetGameListFilterResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusAccountUpdateStats(struct MediusAccountUpdateStatsRequest *request, void (*callback)(int, int, int, struct MediusStatusResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusGetGamePlayers(struct MediusGameWorldPlayerListRequest *request, void (*callback)(int, int, int, struct MediusGameWorldPlayerListResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusRemovePlayerFromClan(struct MediusRemovePlayerFromClanRequest *request, void (*callback)(enum MediusErrorCode, enum MediusErrorCode, enum MediusErrorCode, struct MediusRemovePlayerFromClanResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusDisbandClan(struct MediusClanRequest *request, void (*callback)(enum MediusErrorCode, enum MediusErrorCode, enum MediusErrorCode, struct MediusDisbandClanResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusGetClanMemberList(struct MediusClanRequest *request, void (*callback)(enum MediusErrorCode, enum MediusErrorCode, enum MediusErrorCode, struct MediusGetClanMemberListResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusLadderPosition(struct MediusLadderPositionRequest *request, void (*callback)(int, int, int, struct MediusLadderPositionResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusGetClanInvitationsSent(struct MediusPageRequest *request, void (*callback)(enum MediusErrorCode, enum MediusErrorCode, enum MediusErrorCode, struct MediusGetClanInvitationsSentResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusAddPlayerToClan(struct MediusAddPlayerToClanRequest *request, void (*callback)(enum MediusErrorCode, enum MediusErrorCode, enum MediusErrorCode, struct MediusAddPlayerToClanResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusRevokeClanInvitation(struct MediusRevokeClanInvitationRequest *request, void (*callback)(enum MediusErrorCode, enum MediusErrorCode, enum MediusErrorCode, struct MediusRevokeClanInvitationResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusAccountGetID(struct MediusAccountGetIDRequest *request, void (*callback)(int, int, int, struct MediusAccountGetIDResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusInvitePlayerToClan(struct MediusInvitePlayerToClanRequest *request, void (*callback)(enum MediusErrorCode, enum MediusErrorCode, enum MediusErrorCode, struct MediusInvitePlayerToClanResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusCreateClan(struct MediusCreateClanRequest *request, void (*callback)(enum MediusErrorCode, enum MediusErrorCode, enum MediusErrorCode, struct MediusCreateClanResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusUpdateClanStats(struct MediusUpdateClanStatsRequest *request, void (*callback)(enum MediusErrorCode, enum MediusErrorCode, enum MediusErrorCode, struct MediusUpdateClanStatsResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusTransferClanLeadership(struct MediusTransferClanLeadershipRequest *request, void (*callback)(enum MediusErrorCode, enum MediusErrorCode, enum MediusErrorCode, struct MediusTransferClanLeadershipResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusSendClanMessage(struct MediusSendClanMessageRequest *request, void (*callback)(enum MediusErrorCode, enum MediusErrorCode, enum MediusErrorCode, struct MediusSendClanMessageResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusCheckMyClanInvitations(struct MediusPageRequest *request, void (*callback)(enum MediusErrorCode, enum MediusErrorCode, enum MediusErrorCode, struct MediusCheckMyClanInvitationsResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusRespondToClanInvitation(struct MediusRespondToClanInvitationRequest *request, void (*callback)(enum MediusErrorCode, enum MediusErrorCode, enum MediusErrorCode, struct MediusRespondToClanInvitationResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusGetMyClans(struct MediusPageRequest *request, void (*callback)(enum MediusErrorCode, enum MediusErrorCode, enum MediusErrorCode, struct MediusGetMyClansResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusGetAnnouncements(struct MediusGetAnnouncementsRequest *request, void (*callback)(int, int, int, struct MediusGetAnnouncementsResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusGetMyClanMessages(struct MediusGetMyClanMessagesRequest *request, void (*callback)(enum MediusErrorCode, enum MediusErrorCode, enum MediusErrorCode, struct MediusGetMyClanMessagesResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusSendChatMessage(struct MediusChatMessageRequest *request)
+{
+    (void)request;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusBanPlayer(struct MediusBanPlayerRequest *request, void (*callback)(int, int, int, struct MediusBanPlayerResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusClearGameListFilter(struct MediusClearGameListFilterRequest *request, void (*callback)(int, int, int, struct MediusClearGameListFilterResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusGetGames(struct MediusGameListRequest *request, void (*callback)(int, int, int, struct MediusGameListResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusGetGameInfo(struct MediusGameInfoRequest *request, void (*callback)(int, int, int, struct MediusGameInfoResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusGetWorldSecurityLevel(struct MediusGetWorldSecurityLevelRequest *request, void (*callback)(int, int, int, struct MediusGetWorldSecurityLevelResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusGetChannelInfo(struct MediusChannelInfoRequest *request, void (*callback)(int, int, int, struct MediusChannelInfoResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
+int MediusLadderList(struct MediusLadderListRequest *request, void (*callback)(int, int, int, struct MediusLadderListResponse *))
+{
+    (void)request; (void)callback;
+    return MEDIUS_OFFLINE_ERROR;
+}
+
 }

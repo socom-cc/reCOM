@@ -16,6 +16,42 @@ void zRemoteClientDisconnectsCallback(int, int, const char *); /* fts_remote.cpp
 void zRemoteClientJoinsCallback(int, int); /* fts_remote.cpp (0x2041c0) */
 void zRemoteClientLeavesCallback(int, int); /* fts_remote.cpp (0x204140) */
 void SendZAnimNetworkPacket(void *, int); /* fts_remote.cpp (0x203650) */
+#include <dme.h> /* port: the DME packet registrations (provider; compat header) */
+/* the packet handlers (fts_remote.cpp) and their packet-type words */
+int HitPacketHandler(int, int, int, void *);
+int ZAnimNetworkPacketHandler(int, int, int, void *);
+int PushBlendAnimPacketHandler(int, int, int, void *);
+int ActionAnimPacketHandler(int, int, int, void *);
+int AiOrdersPacketHandler(int, int, int, void *);
+int E3IndexPacketHandler(int, int, int, void *);
+int ReadyPacketHandler(int, int, int, void *);
+int MessagePacketHandler(int, int, int, void *);
+int ChatPacketHandler(int, int, int, void *);
+int WeaponPUPacketHandler(int, int, int, void *);
+int AmmoPUPacketHandler(int, int, int, void *);
+int PickupMayIPacketHandler(int, int, int, void *);
+int PickupAckPacketHandler(int, int, int, void *);
+int VoterPacketHandler(int, int, int, void *);
+int TeamSwitchPacketHandler(int, int, int, void *);
+int BombStatePacketHandler(int, int, int, void *);
+int GameSignalPacketHandler(int, int, int, void *);
+extern int PacketTypeHit;
+extern int PacketTypeZAnim;
+extern int PacketTypePushBlendAnim;
+extern int PacketTypeActionAnim;
+extern int PacketTypeAiOrders;
+extern int PacketTypeE3Index;
+extern int PacketTypeReady;
+extern int PacketTypeMessage;
+extern int PacketTypeChatText;
+extern int PacketTypeWepPU;
+extern int PacketTypeAmmoPU;
+extern int PacketTypePUMayI;
+extern int PacketTypePUAck;
+extern int PacketTypeVoter;
+extern int PacketTypeTeamSwitch;
+extern int PacketTypeNewBombState;
+extern int PacketTypeGameSignal;
 
 /* @socom-skeleton stub DMEinit__Fv */
 void DMEinit()
@@ -39,20 +75,125 @@ bool DMERegister()
 	CZGameState::zNetRegisterGame();
 	CZBombState::zNetRegisterBomb();
 
-	/* port: not written (DME SDK): each packet is NetRegisterMessageStart, one NetMessageField
-	   per field of a stack template, then NetRegisterApplicationMessage(&PacketTypeX, handler):
-	   Hit (6 x 1 byte) HitPacketHandler; ZAnim (4, 2, 2) ZAnimNetworkPacketHandler;
-	   PushBlendAnim (1, 2, 1, 1) PushBlendAnimPacketHandler; ActionAnim (4, 2, 2)
-	   ActionAnimPacketHandler; AiOrders AiOrdersPacketHandler; E3Index (4, 1)
-	   E3IndexPacketHandler; Ready (4) ReadyPacketHandler; Message MessagePacketHandler;
-	   ChatText (1, 1 x 32) ChatPacketHandler; WepPU (2, 2, 4, 4, 4, 4) WeaponPUPacketHandler;
-	   AmmoPU (1, 16 x 8, 16 x 8, 2, 4, 4, 4) AmmoPUPacketHandler; PUMayI (1, 2, 16 x 8, 1)
-	   PickupMayIPacketHandler; PUAck (1, 2, 1, 1) PickupAckPacketHandler; Voter (1, 1)
-	   VoterPacketHandler; TeamSwitch (4) TeamSwitchPacketHandler; NewBombState (4, 4, 4, 1, 1)
-	   BombStatePacketHandler; GameSignal (1, 1, 1, 1, 4, 1 x 5) GameSignalPacketHandler. */
+	/* each application packet: NetRegisterMessageStart, one NetMessageField per field of a stack
+	   template (the field's offset in the template, size, count; the template's bytes are never
+	   set), then NetRegisterApplicationMessage with the packet-type word and the handler
+	   (socom-port-mod-znet2, from 0x201960..0x201fb4) */
+	unsigned char hit[8], zanim[8], blend[8], action[8], orders[4], e3[8], ready[4], message[8], chat[36], weapon[20], ammo[48], mayi[24], ack[8], voter[4], team[4], bomb[16], signal[16];
+
+	NetRegisterMessageStart();
+	NetMessageField(hit, hit, 1, 1);
+	NetMessageField(hit, hit + 1, 1, 1);
+	NetMessageField(hit, hit + 2, 1, 1);
+	NetMessageField(hit, hit + 3, 1, 1);
+	NetMessageField(hit, hit + 4, 1, 1);
+	NetMessageField(hit, hit + 5, 1, 1);
+	NetRegisterApplicationMessage(&PacketTypeHit, HitPacketHandler);
 
 	/* stored between the Hit and ZAnim registrations (0x201a34) */
 	ZAnim.m_network_activation_callback = SendZAnimNetworkPacket;
+
+	NetRegisterMessageStart();
+	NetMessageField(zanim, zanim, 4, 1);
+	NetMessageField(zanim, zanim + 4, 2, 1);
+	NetMessageField(zanim, zanim + 6, 2, 1);
+	NetRegisterApplicationMessage(&PacketTypeZAnim, ZAnimNetworkPacketHandler);
+
+	NetRegisterMessageStart();
+	NetMessageField(blend, blend, 1, 1);
+	NetMessageField(blend, blend + 2, 2, 1);
+	NetMessageField(blend, blend + 4, 1, 1);
+	NetMessageField(blend, blend + 5, 1, 1);
+	NetRegisterApplicationMessage(&PacketTypePushBlendAnim, PushBlendAnimPacketHandler);
+
+	NetRegisterMessageStart();
+	NetMessageField(action, action, 4, 1);
+	NetMessageField(action, action + 4, 2, 1);
+	NetMessageField(action, action + 6, 2, 1);
+	NetRegisterApplicationMessage(&PacketTypeActionAnim, ActionAnimPacketHandler);
+
+	NetRegisterMessageStart();
+	NetMessageField(orders, orders, 1, 1);
+	NetMessageField(orders, orders + 2, 1, 1);
+	NetRegisterApplicationMessage(&PacketTypeAiOrders, AiOrdersPacketHandler);
+
+	NetRegisterMessageStart();
+	NetMessageField(e3, e3, 4, 1);
+	NetMessageField(e3, e3 + 4, 1, 1);
+	NetRegisterApplicationMessage(&PacketTypeE3Index, E3IndexPacketHandler);
+
+	NetRegisterMessageStart();
+	NetMessageField(ready, ready, 4, 1);
+	NetRegisterApplicationMessage(&PacketTypeReady, ReadyPacketHandler);
+
+	NetRegisterMessageStart();
+	NetMessageField(message, message, 1, 1);
+	NetMessageField(message, message + 4, 2, 1);
+	NetRegisterApplicationMessage(&PacketTypeMessage, MessagePacketHandler);
+
+	NetRegisterMessageStart();
+	NetMessageField(chat, chat, 1, 1);
+	NetMessageField(chat, chat + 1, 1, 32);
+	NetRegisterApplicationMessage(&PacketTypeChatText, ChatPacketHandler);
+
+	NetRegisterMessageStart();
+	NetMessageField(weapon, weapon, 2, 1);
+	NetMessageField(weapon, weapon + 2, 2, 1);
+	NetMessageField(weapon, weapon + 4, 4, 1);
+	NetMessageField(weapon, weapon + 8, 4, 1);
+	NetMessageField(weapon, weapon + 12, 4, 1);
+	NetMessageField(weapon, weapon + 16, 4, 1);
+	NetRegisterApplicationMessage(&PacketTypeWepPU, WeaponPUPacketHandler);
+
+	NetRegisterMessageStart();
+	NetMessageField(ammo, ammo, 1, 1);
+	NetMessageField(ammo, ammo + 2, 16, 8);
+	NetMessageField(ammo, ammo + 18, 16, 8);
+	NetMessageField(ammo, ammo + 34, 2, 1);
+	NetMessageField(ammo, ammo + 36, 4, 1);
+	NetMessageField(ammo, ammo + 40, 4, 1);
+	NetMessageField(ammo, ammo + 44, 4, 1);
+	NetRegisterApplicationMessage(&PacketTypeAmmoPU, AmmoPUPacketHandler);
+
+	NetRegisterMessageStart();
+	NetMessageField(mayi, mayi, 1, 1);
+	NetMessageField(mayi, mayi + 2, 2, 1);
+	NetMessageField(mayi, mayi + 4, 16, 8);
+	NetMessageField(mayi, mayi + 20, 1, 1);
+	NetRegisterApplicationMessage(&PacketTypePUMayI, PickupMayIPacketHandler);
+
+	NetRegisterMessageStart();
+	NetMessageField(ack, ack, 1, 1);
+	NetMessageField(ack, ack + 2, 2, 1);
+	NetMessageField(ack, ack + 4, 1, 1);
+	NetMessageField(ack, ack + 5, 1, 1);
+	NetRegisterApplicationMessage(&PacketTypePUAck, PickupAckPacketHandler);
+
+	NetRegisterMessageStart();
+	NetMessageField(voter, voter, 1, 1);
+	NetMessageField(voter, voter + 1, 1, 1);
+	NetRegisterApplicationMessage(&PacketTypeVoter, VoterPacketHandler);
+
+	NetRegisterMessageStart();
+	NetMessageField(team, team, 4, 1);
+	NetRegisterApplicationMessage(&PacketTypeTeamSwitch, TeamSwitchPacketHandler);
+
+	NetRegisterMessageStart();
+	NetMessageField(bomb, bomb, 4, 1);
+	NetMessageField(bomb, bomb + 4, 4, 1);
+	NetMessageField(bomb, bomb + 8, 4, 1);
+	NetMessageField(bomb, bomb + 12, 1, 1);
+	NetMessageField(bomb, bomb + 13, 1, 1);
+	NetRegisterApplicationMessage(&PacketTypeNewBombState, BombStatePacketHandler);
+
+	NetRegisterMessageStart();
+	NetMessageField(signal, signal, 1, 1);
+	NetMessageField(signal, signal + 1, 1, 1);
+	NetMessageField(signal, signal + 2, 1, 1);
+	NetMessageField(signal, signal + 3, 1, 1);
+	NetMessageField(signal, signal + 4, 4, 1);
+	NetMessageField(signal, signal + 8, 1, 5);
+	NetRegisterApplicationMessage(&PacketTypeGameSignal, GameSignalPacketHandler);
 
 	return true;
 }

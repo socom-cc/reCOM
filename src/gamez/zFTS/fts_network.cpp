@@ -48,7 +48,7 @@ void ftsNetworkPlayerInit()
 
 		player->m_id = CZSealState::CreateLocalSeal(player, true);
 		player->m_kit.PostSetupItems();
-		/* port: not written (NetSetMyClientObject(player->m_id), DME SDK) */
+		NetSetMyClientObject(player->m_id); /* DME (provider; port/compat/include/dme.h) */
 
 		CPnt3D pos = CPnt3D::zero;
 		CMatrix mat;

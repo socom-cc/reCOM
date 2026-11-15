@@ -46,7 +46,7 @@ extern CZNetwork theNetwork;
 extern CZNetVoice theVoice;
 extern CZOnlineLobby theLobby;
 
-void PTT_HeartbeatPrepare();
+int PTT_HeartbeatPrepare(); /* 0x3f02c0: 1 sent, -1 not (libptt; held in znetwork_holding.cpp) */
 
 /* port: the global MP_MINOR_GAME_STATE / MP_MAJOR_GAME_STATE duplicates were removed; the binary's types are CZNetGame::MP_*_GAME_STATE (Q29CZNetGame19MP_MAJOR_GAME_STATE) */
 
@@ -598,7 +598,7 @@ public:
 	virtual BriefingRoom * BaseSrc(); /* 0x32e4b0: this */
 	BriefingRoom * LastClone();
 	RoomGame * FindGame(const char *); /* 0x325a80 */
-	void deltrans(RoomGame *); /* 0x32ecb0 */
+	static bool deltrans(RoomGame *); /* 0x32ecb0: not persistent (GetGameList's remove_if) */
 
 	std::vector<RoomGame *> m_games;                               /* +0x0 (vptr +0xc in the ELF) */
 	std::vector<MediusLobbyWorldPlayerListResponse> m_players;     /* +0x10 */
@@ -606,7 +606,7 @@ public:
 	MediusChannelListResponse m_channel;                           /* +0x28 (LobbyName = the room's name) */
 	int m_limit;                                                   /* +0x90 LIMIT (16) */
 	int m_playerCount;                                             /* +0x94 (shown in the room list) */
-	int m_unknown_98;                                              /* +0x98 */
+	int m_lastInfoTime;                                            /* +0x98 when its channel info was last asked for (cbRoomList) */
 	char *m_password;                                              /* +0x9c (freed by the dtor; port: name guessed) */
 	BriefingRoom *m_clone;                                         /* +0xa0 the next clone (LastClone 0x32fdd0 follows them) */
 };

@@ -105,4 +105,23 @@ int NetRegisterRemoteObjectCallback(int type, void (*createCallback)(int, int), 
 }
 #endif
 
+/* ---- socom-port-mod-znet2 (2026-11-14): the lobby's ping of its connection
+ * (LobbyReadyToConnectStateHandler 0x32ccc0: the lobby connection, 0xffff, cbDMENetPingCallback, which
+ * gets the error, a text and the time) */
+#ifdef __cplusplus
+extern "C" {
+#endif
+int NetPing(int connection, int unknown, void (*callback)(enum NetErrorCode, char *, unsigned int));
+/* the application packets (DMERegister 0x201920, src/gamez/zFTS/fts_network_dme.cpp): a message
+ * started, one field per member of a template (the field's address in the template, its size, its
+ * count), then registered with its packet-type word and handler; and the client's own net object
+ * (ftsNetworkPlayerInit 0x2014d0) */
+int NetRegisterMessageStart(void);
+int NetMessageField(void *message, void *field, int size, int count);
+int NetRegisterApplicationMessage(int *packetType, int (*handler)(int, int, int, void *));
+int NetSetMyClientObject(int object);
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* SOCOM_COMPAT_DME_H */

@@ -165,4 +165,36 @@ int NetRegisterRemoteObjectCallback(int type, void (*createCallback)(int, int), 
     return 0;
 }
 
+
+/* ---- socom-port-mod-znet2 (2026-11-14): the packet registrations (nothing to register with: 0, as the
+ * other registrations), the client's own object and the ping (not available; no callback) */
+int NetRegisterMessageStart(void)
+{
+    return 0;
+}
+
+int NetMessageField(void *message, void *field, int size, int count)
+{
+    (void)message; (void)field; (void)size; (void)count;
+    return 0;
+}
+
+int NetRegisterApplicationMessage(int *packetType, int (*handler)(int, int, int, void *))
+{
+    (void)packetType; (void)handler;
+    return 0;
+}
+
+int NetSetMyClientObject(int object)
+{
+    (void)object;
+    return NET_OFFLINE_ERROR;
+}
+
+int NetPing(int connection, int unknown, void (*callback)(enum NetErrorCode, char *, unsigned int))
+{
+    (void)connection; (void)unknown; (void)callback;
+    return NET_OFFLINE_ERROR;
+}
+
 }

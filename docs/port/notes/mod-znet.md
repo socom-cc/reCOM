@@ -130,3 +130,117 @@ Scratch `build/port/boot-mod-znet/` (untracked: NOTES.md, mine.txt, asm dumps `a
   append-only) and a stand-in.
 - InvitationItem / ClanInvitationItem members (their ctors 0x32acb0 / 0x323890); BriefingRoom::FindGame / deltrans and BriefingRoomClone are declared or missing.
 - process_arguments (options.cpp) is still mostly a placeholder.
+
+# Part 2 (2026-11-14, socom-port-mod-znet2): the rest of the Medius lobby
+
+Scratch `build/port/boot-mod-znet2/` (untracked: NOTES.md, mine.txt, the rep.py blocks per group
+`med2_states` / `med2_clan` / `med2_chat` / `med2_games` / `med2_misc` / `med2_fix1`, `fwd.py` (the
+forward-declaration block), `dmereg_edit.py`, the DMERegister and PTT asm dumps, run logs). Asm read from part
+1's `asm_med.txt` (`a.sh <from> <to>`).
+
+## Result
+- `survey.py gamez/zNetwork`: written 27,596 B -> 64,736 B; stub fences 122 / 37,140 B -> 0 / 0 B. zNetMedius.cpp:
+  172 fences, all written. Placeholders returning a constant: 9 -> 0 (GetClan, SendClanMessage,
+  RefreshGamePlayerList, CreateGame, GameIsPasswordProtected, JoinGame, JoinRoom, InvitePlayerToClan, RevokeInvite).
+  Fifteen of the written fences are empty in the ELF too (`jr ra`: the five failure / success state handlers,
+  cbChatToggle, cbVersionServer, cbSetGameListFilter, cbUpdateAccountStats, cbQuitClan, cbBanSelfFromGame,
+  cbClanInviteRevokeHack, cbAddPlayerToClan, cbUpdateClanStats, cbBuddyGetPermission); their comments say so.
+- Also written: PTT_HeartbeatPrepare 0x3f02c0 (`znetwork_holding.cpp`, libptt), the DME packet registrations of
+  DMERegister 0x201920 (`fts_network_dme.cpp`) and NetSetMyClientObject in ftsNetworkPlayerInit 0x2014d0
+  (`fts_network.cpp`).
+- All of it is network-only: written, untested (no server). The offline path is unchanged (runs below).
+
+## Written (ELF addresses)
+- State handlers and their callbacks (0x32b300..0x32dbb0): CreateRoom (cbCreateRoom, cbFindRoomByName), JoinRoom
+  (cbJoinRoom), JoinGame (cbJoinGame), CreateNewGame (cbCreateGame, cbFindGameByName), LobbyActive (player stats and
+  usage policy: cbGetPlayerStats, cbGetPolicyRequest), EndSession (cbSessionEnd), SessionBegin (cbSessionBegin),
+  AccountRegistration (cbFilterAcctName, cbAccountRegistration, cbAccountLoginAfterRegister), AccountLogin
+  (cbAccountLogin), LobbyReadyToConnect 0x32ccc0 (its two static locals; the player and world reports every 25 s,
+  NetPing), LobbyServerConnect (cbLobbyServerConnect, cbClientConnect / Disconnect), RefreshDMEJoinedCount and its
+  callback, cbDMENetPingCallback.
+- Clans: DisbandClan, GetClanRoster, cbGetClanMemberList, GetClanMemberRanking, cbGetClanMemberLadderPosition,
+  cbGetClanMemberDescriptions, UpdateClanMemberList, GetInvitedPlayers, cbGetClanInvitationsSent,
+  ClanUpdateInvitations, RevokeInvite, cbRevokePlayerInvitation, RemovePlayerFromClan, cbRemovePlayerFromClan,
+  InvitePlayerToClan (two-step status) and its two callbacks, CreateClan, cbFilterClanName, cbCreateClan,
+  UpdateClanStats, TransferLeadership, SendClanMessage, cbFilterClanMessage, cbSendClanMessage, cbGetMyClanMessages,
+  CheckClanInvitations, cbCheckMyClanInvitations, UpdateInvitations, Accept / DeclineClanInvitation, GetClan 0x32afc0
+  (the ClanCallbackExecuted poll), cbGetMyClans, QuitClan. Members of InvitationItem (ctor 0x32acb0, 248 B) and
+  ClanInvitationItem (ctor 0x323890, 240 B); ClanMemberItem +0xc (ladder position); LadderItem +0x8 / +0xc.
+- Chat and text: GetAnnouncements, cbGetAnnouncements, SendChat, cbFilterChat, Censor, cbCensor, cbChatMessage,
+  SetPlayerDescription, cbFilterPlayerDescription, RejoinRoom, JoinRoom ("RANDOM", "NONE").
+- Ladders: UpdateLadderRating, GetLadderRanking, GetLadderInfo, cbGetLadderRanking / Position,
+  GetSurroundingLadderPosition 0x3295e0, cbGetLadderInfo, cbGetLadderTop10, cbGetLadderTop10Descriptions,
+  UpdateLadderTop10, UpdateLadderRanking (this player's row in COLOR 255 104 51).
+- Game and room lists: GetGameList, cbGameList, cbGameInfo, cbGameSecurityCheck, UpdateGameListDisplay,
+  GamePassesFilters, GamePassesTypeFilter, cbRoomList 0x32e050 (room clones), cbChannelInfo, cbRoomPlayerList,
+  UpdateRoomPlayerListDisplay, _roomplayer_sort_aux, RefreshGamePlayerList and its callback (BSEALLISTVAR /
+  BTERRLISTVAR), BanSelfFromGame; the random game: JoinGame "RANDOM", cbClearGameListFilter, cbGetRandomGameList,
+  cbRandomGameInfo, cbRandomGameSecurity, DoJoinRandomGame; CreateGame, GameIsPasswordProtected.
+- Unfenced (the owner plan gives them to this unit): BriefingRoom::FindGame 0x325a80, deltrans 0x32ecb0,
+  BriefingRoomClone (ctor 0x32e4c0; CloneIndex / IsAClone / BaseSrc 0x32fe60..0x32fe80), PersistentGameClone::IsAClone
+  0x32fe40, TransientGame (vtable 0x473020).
+- MapToGameLevel 0x32f980 ("mp1".."mp10"), LookupMediusCallbackStatus 0x32fb20 (the status names), PasswordSecurity
+  0x32fac0.
+
+## Types and declarations
+- RoomGame (516 B): the game list record (+0), the vptr (+0x70), the game's details (+0x74, a MediusGameInfoResponse
+  of 396 B that cbGameInfo copies whole) and the security level (+0x200, -1 unknown). PersistentGame's MAXPLAYERS is
+  that record's MaxPlayers (+0x98). The game uses the details' generic fields: GameLevel = friendly fire, RulesSet =
+  the mission number (the map filter), GenericField1 / 2 / 3 = the room's world, the performance metric (ping), the
+  clan side; the same order in MediusCreateGameRequest and MediusWorldReport.
+- StoredClanInfo is the player's MediusGetMyClansResponse (368 B); part 1's `int[92]` offsets became members.
+- `znet.h`: BriefingRoom::deltrans static bool, m_unknown_98 named m_lastInfoTime (cbRoomList), PTT_HeartbeatPrepare
+  returns int.
+- Signatures from v0: LookupMediusCallbackStatus const char *, MapToGameLevel int, GamePassesFilters /
+  GamePassesTypeFilter / _roomplayer_sort_aux bool. Functions that return 0/1 in the ELF that no caller reads
+  (GetClanRoster, GetInvitedPlayers, RemovePlayerFromClan, SendChat, RejoinRoom) stay void.
+- The unit's free functions are forward-declared in one port block after the globals (the definitions run from
+  the highest address down); the inline request preamble (memset, session key, message id) is LobbyPrepareRequest.
+
+## Providers (offline stand-ins)
+- `medius.h`: section "socom-port-mod-znet2" with every request and response the lobby builds (offsets from the
+  stack frames and memset sizes) and 46 prototypes; `medius_offline.cpp`: each answers -1 and calls no callback
+  (the lobby is never connected offline, so none is reached; a caller waiting on a callback stays in its state).
+  Part 1's MediusConnectRequest +0xa0 / +0xa4 are typed as the client connect / disconnect callbacks, and its
+  guessed MediusGameListResponse names +0x60..+0x68 are corrected to WorldStatus / GameHostType / PlayerCount.
+- `dme.h` / `dme_offline.cpp`: NetPing (error), NetRegisterMessageStart / NetMessageField /
+  NetRegisterApplicationMessage (0, as the other registrations: DMERegister runs offline from AuxInitNetwork),
+  NetSetMyClientObject (error).
+- `ptt.h` / `ptt_offline.cpp`: libptt's heartbeat state (g_isInitialized false offline, the semaphore, the 32 KB RPC
+  buffer and client record, _PTT_HeartbeatCallback); PTT_HeartbeatPrepare answers -1 before using any of it.
+
+## ELF quirks kept
+- GetClanMemberRanking asks every unranked member's position with this player's own account id, and the last one
+  asked ends in g_iLastMemberRanked. UpdateClanMemberList sorts the ladder list, not the members.
+- cbRoomList asks a room's channel info whenever its last ask is under 30 s in the future (always); a clone is made
+  when a room is one short of its limit. GetGameList drops the server games without deleting them.
+- GamePassesFilters with LockedFilter 0 passes no game; DoJoinRandomGame ranks by MaxPlayers - MinPlayers.
+- cbSendClanMessage formats a failure text and shows nothing; cbRoomPlayerList clears the pending flag only when
+  the room is found; cbSessionEnd's two branches push the same state; JoinRoom / JoinGame compare the name unchecked.
+- cbGameWorldPlayerListCallback leaves this player off both lists while his team is 0.
+
+## Port deviations
+- Copies past a literal's end (memcpy of 21 / 32 / 64 / 256 bytes from shorter literals) are strncpy (zero
+  padded); cbFilterChat's forwarded line is zeroed first (the ELF leaves its message id unset); UpdateClanStats
+  prints a non-string description as "" (the ELF passes NULL to %s).
+- UpdateRoomPlayerListDisplay sorts with strcmp < 0 (std::sort needs a strict order; the ELF's comparator answers
+  <= 0 and is kept as _roomplayer_sort_aux).
+- LobbyVarString also answers NULL for a NULL variable (the ELF reads most of them unchecked).
+- The DME packet templates are byte arrays with the ELF's field offsets (the ELF's are uninitialised stack blocks).
+
+## Runs (tree = HEAD 487df66c + mine.txt)
+- zn2a (`tb.sh -d diag1.txt -k znet zn2a -`, part 1's trace spec): dlgNetConnect: Open (8 rooms) -> the connect
+  thread -> DMERegister (the new packet registrations, offline 0) -> MediusConnect -1 -> "STATE: Connect Failure",
+  "STATE: Uninit Network", back to dlgMenu; dlgNetConfig: NETCNF_ERRNO 3, "(not set)"; no STOP. dlgMenu in use
+  18,156,820 B after both screens, 48 B over the first dlgMenu read as in part 1.
+- zn2m8 (state hook, `-DSOCOM_HOOK_MISSIONS=1 -DSOCOM_HOOK_PLAY_AT=20000`, intro CROSS, cameras X, 240 s): in the
+  mission from 75 s to 241 s, no STOP, in use 23.01 -> 23.06 MB by 135 s (the AI waking), then flat.
+- zn2rt (state hook, `-DSOCOM_HOOK_MALLOC -DSOCOM_HOOK_MISSIONS=4`, 430 s): four missions and four returns, no STOP,
+  no failed allocation but zsys_FullAllocAndFree's probes; in use at the briefing after each return 18,666,708 /
+  18,666,804 / 18,666,804 / 18,666,804 B (flat after the first, the same +96 B as part 1).
+- zn2def (`default.sh`, no hooks): main menu at 19.3 s, no STOP.
+
+## Not written / next
+- Nothing is left empty in zNetwork. The lobby's online paths (every Medius request and callback, the DME packet
+  handlers' registration, PTT_HeartbeatPrepare's RPC) have no server to run against: written, untested.
+- process_arguments (options.cpp) is still mostly a placeholder (not zNetwork).

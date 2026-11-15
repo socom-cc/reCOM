@@ -28,3 +28,13 @@ int PTTServer_QueryWANAddress() { return -1; }
 int PTTServer_PermitWANAddress(unsigned int address, unsigned int port) { (void)address; (void)port; return -1; }
 int PTTServer_Stop() { return -1; }
 int PTTServer_Shutdown() { return -1; }
+
+/* socom-port-mod-znet2 (2026-11-14): libptt's heartbeat state (ptt.h). PTT_Init never succeeds
+ * offline, so the library stays uninitialised and PTT_HeartbeatPrepare answers -1 before using any
+ * of the rest */
+bool g_isInitialized = false;
+int g_heartbeatSemaphore = -1;
+bool g_wasPrepared = false;
+unsigned int g_buffer_hb[0x8000 / 4] __attribute__((aligned(64)));
+SifRpcClientData_t g_cd_hb;
+void _PTT_HeartbeatCallback(void *) {} /* never reached offline (no RPC is sent) */
