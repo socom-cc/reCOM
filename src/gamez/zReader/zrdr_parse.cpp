@@ -54,34 +54,61 @@ static int cur_zrdr_flags;
 static char cur_zrdr_path[768]; /* path string buffer (MAX_ZRDR_PATH_LEN + 1) */
 
 /* @socom-skeleton stub fstack */
-CFileStack fstack; /* 12-byte GLOBAL object declared in util_stack.h */
+CFileStack fstack; /* 0x505ac0, 12 bytes: the open text files, front = the one being read (util_stack.h) */
 
 /* @socom-skeleton stub zrdr_symbols */
-std::list<char *, std::allocator<char *> > zrdr_symbols;
+std::list<zrdr_sym, std::allocator<zrdr_sym> > zrdr_symbols; /* 0x505ae0: never filled in the ELF */
+
+/* port: no skeleton fence for __dt__8zrdr_symFv (0x23f260) */
+zrdr_sym::~zrdr_sym()
+{
+	/* 0x23f260: both strings freed. Reached only from the list's erase, and nothing in the ELF
+	 * adds a symbol, so it never runs. */
+	if (name != NULL)
+		_free(name, "zrdr_parse.cpp", 240);
+
+	if (value != NULL)
+		_free(value, "zrdr_parse.cpp", 242);
+}
+
+/* port: inline in the ELF (no symbol; the same block in ReadToken, _preproc_filter,
+ * _eval_defined, _get_pptoken and ValidateFormat): one character from the front file. At the
+ * end of a file that another one included, that file is closed and popped and the read goes on
+ * in the including file; false at the end of the last one. */
+static inline bool _zrdr_readc(char* c)
+{
+	while (!fstack.front().fread(c, 1))
+	{
+		if (fstack.size() < 2)
+			return false;
+
+		fstack.pop(true);
+	}
+
+	return true;
+}
 
 /* @socom-skeleton body pop__10CFileStackFb */
 void CFileStack::pop(bool close)
 {
-    if (!empty())
-    {
-        CBufferIO* top = front();
+	/* 0x23f6e0: the front file is closed (or only released: its buffer and handle forgotten)
+	 * and its element erased (~CBufferIO, ~CFileIO); the files below it stay open. */
+	if (size() != 0)
+	{
+		if (close)
+			front().Close();
+		else
+			front().Release();
 
-        if (close)
-        {
-            top->Close();
-        }
-        else
-        {
-            top->Release();
-        }
-    }
-
-    erase(begin(), end());
+		erase(begin());
+	}
 }
 
 /* @socom-skeleton body MakeUnion__8CRdrFileFPCcb */
 _zrdr* CRdrFile::MakeUnion(const char* name, bool isstr)
 {
+	/* 0x23f5e0: a word that reads whole as a decimal integer, else whole as a real (strtod,
+	 * stored as a float), else a string in the file's table; a quoted word is always a string. */
 	char* end;
 	_zrdr* zunion = zrdr_alloc(sizeof(_zrdr), 1);
 	zunion->type = ZRDR_NULL;
@@ -90,18 +117,18 @@ _zrdr* CRdrFile::MakeUnion(const char* name, bool isstr)
 
 	if (!isstr && size > 0)
 	{
-		s64 inum = strtol(name, &end, 10);
+		s32 inum = strtol(name, &end, 10);
 
-		if (size == end - name)
+		if (size == (size_t)(end - name))
 		{
 			zunion->type = ZRDR_INTEGER;
 			zunion->integer = inum;
 			return zunion;
 		}
 
-		double dnum = strtod(name, &end);
+		f32 dnum = (f32)strtod(name, &end);
 
-		if (size == end - name)
+		if (size == (size_t)(end - name))
 		{
 			zunion->type = ZRDR_REAL;
 			zunion->real = dnum;
@@ -110,594 +137,407 @@ _zrdr* CRdrFile::MakeUnion(const char* name, bool isstr)
 	}
 
 	zunion->type = ZRDR_STRING;
-	char* str = m_strings.CreateString(name);
-	zunion->string = str;
+	zunion->string = m_strings.CreateString(name);
 	return zunion;
 }
 
 /* @socom-skeleton body ValidateFormat__8CRdrFileFv */
 bool CRdrFile::ValidateFormat()
 {
-	CBufferIO* file = NULL;
-	char symbol = '\0';
-	bool validated = false;
-	bool endline = false;
+	/* 0x23f440: the parentheses must balance, outside quotes and ';' comments (a comment ends
+	 * at a new line; a quote inside a comment does not count). The whole file is read, then the
+	 * file that was the front at the start is wound back to its beginning. */
+	CBufferIO& file = fstack.front();
+	bool quote = false;
 	bool comment = false;
-	s32 index = 0;
-	
-	do
+	s32 depth = 0;
+	char c;
+
+	while (_zrdr_readc(&c))
 	{
-		while (true)
+		switch (c)
 		{
-			file = fstack.front();
-
-			// Reached end of file?
-			if (!file->fread(&symbol, 1))
-				break;
-
-			validated = true;
-			
-			if (!validated)
-			{
-				file->fseek(0, SEEK_SET);
-				return index == 0;
-			}
-
-			// Tag begin
-			if (symbol == '(')
-				if (!endline && !comment) index++;
-
-			// Tag end
-			if (symbol == ')')
-				if (!endline && !comment) index--;
-
-			// New-line
-			if (symbol == '\n')
-				if (!endline) comment = false;
-
-			// Carriage return
-			if (symbol == '\r')
-				if (!endline) comment = false;
-
-			// Comment
-			if (symbol == ';')
-				if (!endline) comment = true;
-
-			// Include path
-			if (symbol == '\"' && !comment)
-				endline = (bool)(endline ^ 1);
+		case ')':
+			if (!quote && !comment)
+				depth--;
+			break;
+		case '(':
+			if (!quote && !comment)
+				depth++;
+			break;
+		case '\n':
+		case '\r':
+			if (!quote)
+				comment = false;
+			break;
+		case ';':
+			if (!quote)
+				comment = true;
+			break;
+		case '"':
+			if (!comment)
+				quote = !quote;
+			break;
 		}
+	}
 
-		if (fstack.size() == 1)
-		{
-			validated = false;
-			file->fseek(0, SEEK_SET);
-			return index == 0;
-		}
-
-		fstack.pop(true);
-	} while (true);
+	file.fseek(0, SEEK_SET);
+	return depth == 0;
 }
 
 /* @socom-skeleton body _get_pptoken__FPc */
 int _get_pptoken(char* token)
 {
-	s32 tokenidx = 0;
-	char preprocbuf[MAX_ZRDR_PATH_LEN + 1];
-	
-	do
+	/* 0x23f2e0: the directive after a '#': characters up to the first white space (left in
+	 * *token), then ifdef / else / endif / include; anything else (#define, #if, #ifndef ...), a
+	 * word of 768 characters or the end of the files is pptoken_undef. ELF quirk kept: the word
+	 * buffer is not cleared, so white space right after the '#' compares what the stack holds.
+	 * Port: one byte more than the ELF's 768 (its terminator after the 768th character is
+	 * written past the buffer, into the caller's frame). */
+	char word[768 + 1];
+	s32 len = 0;
+
+	while (_zrdr_readc(token))
 	{
-		bool valid = true;
-
-		while (true)
+		if (isspace(*token))
 		{
-			CBufferIO* file = fstack.front();
-			bool readtoken = file->fread(token, 1);
+			if (strcmp(word, "ifdef") == 0)
+				return pptoken_ifdef;
 
-			// Reached the end of the line?
-			if (!readtoken)
-			{
-				break;
-			}
-			
-			if (!valid)
-			{
-				return pptoken_undef;
-			}
+			if (strcmp(word, "else") == 0)
+				return pptoken_else;
 
-			if (isalpha(*token) != 0)
-			{
-				// #ifdef SYMBOL
-				if (strcmp(preprocbuf, "ifdef") == 0)
-				{
-					return pptoken_ifdef;
-				}
+			if (strcmp(word, "endif") == 0)
+				return pptoken_endif;
 
-				// #else
-				if (strcmp(preprocbuf, "else") == 0)
-				{
-					return pptoken_else;
-				}
-
-				// #endif
-				if (strcmp(preprocbuf, "endif") == 0)
-				{
-					return pptoken_endif;
-				}
-
-				// #include "path/to/rdr"
-				if (strcmp(preprocbuf, "include") == 0)
-				{
-					return pptoken_include;
-				}
-			}
-
-			if (tokenidx > MAX_ZRDR_PATH_LEN)
-			{
-				return pptoken_undef;
-			}
-
-			preprocbuf[tokenidx] = *token;
-			preprocbuf[tokenidx + 1] = '\0';
-			tokenidx++;
+			return strcmp(word, "include") == 0 ? pptoken_include : pptoken_undef;
 		}
 
-		if (fstack.size() < 2)
-		{
-			valid = false;
-			return pptoken_undef;
-		}
-		
-		fstack.pop(true);
-	} while (true);
+		if (len >= 768)
+			break;
+
+		word[len] = *token;
+		len++;
+		word[len] = '\0';
+	}
+
+	return pptoken_undef;
 }
 
 /* @socom-skeleton body _eval_defined__FPc */
 bool _eval_defined(char* token)
 {
-	s32 symidx = 0;
-	char symbolbuf[MAX_ZRDR_PATH_LEN + 1];
-	
-	while (fstack.size() > 2);
+	/* 0x23f0d0: the #ifdef symbol (characters up to the first white space) looked up by name
+	 * in zrdr_symbols: true when found. Nothing in the ELF adds a symbol, so it is always false.
+	 * Port: one byte more than the ELF's 768-byte buffer (as _get_pptoken). */
+	char name[768 + 1];
+	s32 len = 0;
+	bool defined = false;
+
+	while (_zrdr_readc(token))
 	{
-		while (!fstack.front()->fread(token, 1))
+		if (isspace(*token))
 		{
-			if (symidx > MAX_ZRDR_PATH_LEN)
-				return false;
+			std::list<zrdr_sym>::iterator it;
 
-			if (isalpha(*token))
+			for (it = zrdr_symbols.begin(); it != zrdr_symbols.end(); ++it)
 			{
-				symbolbuf[symidx] = *token;
-				symbolbuf[symidx + 1] = '\0';
-				symidx++;
-
-				for (auto i = zrdr_symbols.begin(); i != zrdr_symbols.end(); ++i)
-					if (strcmp(symbolbuf, *i) == 0)
-						return *i != zrdr_symbols.front();
-					
+				if (strcmp(name, it->name) == 0)
+					break;
 			}
+
+			if (it != zrdr_symbols.end())
+				defined = true;
+
+			return defined;
 		}
 
-		fstack.pop(true);
-	}
-	
+		if (len >= 768)
+			return defined;
 
-	return true;
+		name[len] = *token;
+		len++;
+		name[len] = '\0';
+	}
+
+	return defined;
 }
 
 /* @socom-skeleton body _preproc_filter__FPcb */
-bool _preproc_filter(char* token, bool param_2)
+bool _preproc_filter(char* token, bool skipping)
 {
-	static s32 defcount; /* local static defcount$840 */
-	static bool init; /* local static init$841 */
-	bool done = false;
-	s32 defidx = defcount;
-	char pathbuf[MAX_ZRDR_PATH_LEN + 1];
-	
+	/* 0x23ec80: a '#' directive, read with the files' own stack. defcount counts the open
+	 * #ifdef blocks; level is its value on entry.
+	 *  - #include <path>: the characters up to the next white space (quotes are kept as part of
+	 *    the name) joined to the current reader path; a file that opens is pushed on the front and
+	 *    read next, one that does not is ignored. Returns true.
+	 *  - #ifdef <symbol>: a defined symbol (never, see _eval_defined) reads on. Otherwise the
+	 *    text is skipped from '#' to '#', each directive handled with skipping set, until the
+	 *    block's #endif (false) or an #else (true: the caller reads the #else part).
+	 *  - #else met while reading (skipping false): the text up to the block's #endif is skipped.
+	 *    With skipping set it only returns true.
+	 *  - #endif: the block is closed.
+	 * ELF quirks kept: an #else of an inner block met while skipping an outer one ends the outer
+	 * skip too; a missing #endif skips (or loops) at the end of the files for ever. */
+	static s32 defcount; /* local static defcount$840 (0x475c60) */
+	static bool init; /* local static init$841 (0x475c64) */
+
 	if (!init)
 	{
 		defcount = 0;
 		init = true;
 	}
 
+	s32 level = defcount;
 	u8 pptoken = _get_pptoken(token) & 255;
 
-	if (pptoken != pptoken_undef)
+	switch (pptoken)
 	{
-		if (pptoken == pptoken_include)
+	case pptoken_undef:
+		return false;
+
+	case pptoken_include:
+	{
+		char path[768 + 1]; /* port: one byte more than the ELF's 768 (as _get_pptoken) */
+		s32 len = 0;
+
+		while (_zrdr_readc(token))
 		{
-			defidx = 0;
-			
-			do
+			if (isspace(*token))
 			{
-				CBufferIO* file = fstack.front();
-				bool readtoken = file->fread(token, 1);
+				const char* name = zrdr_findfile(path, cur_zrdr_path);
+				CBufferIO file;
 
-				// Reached the end of the line?
-				if (!readtoken)
+				if (file.Open(name))
 				{
-					if (fstack.size() > 1)
-					{
-						fstack.pop(true);
-						continue;
-					}
-				}
-				else
-				{
-					
+					fstack.insert(fstack.begin(), file);
+					file.Release();
 				}
 
-				if (isalpha(*token) != 0)
-				{
-					// concatenate paths for zrdr includes
-					const char* fpath = zrdr_findfile(pathbuf, cur_zrdr_path);
-					CBufferIO file;
-
-					if (!file.Open(fpath))
-					{
-						file.Close();
-					}
-					else
-					{
-						fstack.insert(fstack.begin(), &file);
-						file.Release();
-						file.Close();
-					}
-
-					return true;
-				}
-
-				if (defcount > MAX_ZRDR_PATH_LEN)
-				{
-					return true;
-				}
-
-				pathbuf[defidx] = *token;
-				pathbuf[defidx + 1] = '\0';
-				defidx++;
-			} while (true);
-		}
-
-		if (pptoken == pptoken_endif)
-		{
-			defcount--;
-		}
-		else if (pptoken == pptoken_else)
-		{
-			if (param_2)
-			{
-				
+				return true;
 			}
-			else
-			{
-				// TODO:
-				// why the FUCK ARE THERE
-				// SO MANY GOD DAMN NESTED LOOPS JESUS CHRIST
-				while (defidx <= defcount)
-				{
-					do
-					{
-						if (*token == '#')
-						{
-							break;
-						}
 
-						while (true)
-						{
-							CBufferIO* buf = fstack.front();
+			if (len >= 768)
+				return true;
 
-							if (buf->fread(token, 1))
-							{
-								break;
-							}
-
-							if (fstack.size() > 2)
-							{
-								done = false;
-								continue;
-							}
-
-							fstack.pop(true);
-						}
-
-						done = true;
-					} while (done);
-
-					_preproc_filter(token, false);
-				}
-			}
+			path[len] = *token;
+			len++;
+			path[len] = '\0';
 		}
-		else if (pptoken == pptoken_ifdef)
-		{
-			defcount++;
 
-			if (!_eval_defined(token))
-			{
-				do
-				{
-					if (defcount <= defidx)
-					{
-						return false;
-					}
-
-					do
-					{
-						if (*token == '#')
-						{
-							break;
-						}
-
-						while (true)
-						{
-							CBufferIO* file = fstack.front();
-							if (!file->fread(token, 1))
-							{
-								break;
-							}
-
-							if (fstack.size() > 2)
-							{
-								break;
-							}
-
-							fstack.pop(true);
-						}
-						
-					} while (true);
-				}
-				while (!_preproc_filter(token, true));
-			}
-		}
-		else
-		{
-			return false;
-		}
+		return true;
 	}
 
-	return false;
+	case pptoken_endif:
+		defcount--;
+		return false;
+
+	case pptoken_else:
+		if (skipping)
+			return true;
+
+		while (level <= defcount)
+		{
+			while (*token != '#' && _zrdr_readc(token))
+				;
+
+			_preproc_filter(token, false);
+		}
+
+		return false;
+
+	case pptoken_ifdef:
+		defcount++;
+
+		if (_eval_defined(token))
+			return false;
+
+		while (level < defcount)
+		{
+			while (*token != '#' && _zrdr_readc(token))
+				;
+
+			if (_preproc_filter(token, true))
+				return true;
+		}
+
+		return false;
+
+	default:
+		return false;
+	}
 }
 
 /* @socom-skeleton body ReadToken__8CRdrFileFPP5_zrdr */
-char CRdrFile::ReadToken(_zrdr** array)
+char CRdrFile::ReadToken(_zrdr** node)
 {
-	CBufferIO* file = NULL;
-	char pathbuf[783];
-	u32 pathidx = 0;
-	bool valid = false;
-	char token = 0;
-	bool nonum = false;
-	
-	do
+	/* 0x23e960: the next word: ';' comments skipped to the end of the line, a '#' at the start
+	 * of a word goes to the preprocessor (the character it leaves is taken next), a quoted part
+	 * is copied as it is and makes the word a string. A word ends at '(' / ')' / white space,
+	 * which is returned with the word's node (NULL for no word); 0 at the end of the files or
+	 * at a word of 768 characters (node NULL). ELF quirks kept: the quoted part is not bounded
+	 * and an unclosed quote at the end of the files never ends. */
+	char c;
+	char buf[783];
+	bool isstr = false;
+	s32 len = 0;
+
+	while (_zrdr_readc(&c))
 	{
-		file = fstack.front();
-
-		if (!file->fread(&token, 1))
+		if (c == ';')
 		{
-			return 0;
-		}
-
-		valid = true;
-
-		if (token == ';')
-		{
-			do
-			{
-				if (token == '\n')
-				{
-					break;
-				}
-				
-				if (!file->fread(&token, 1))
-				{
-					break;
-				}
-
-				valid = true;
-			} while (valid);
-		}
-		else
-		{
-			if (pathidx == 0 && token == '#')
-			{
-				_preproc_filter(&token, false);
-			}
-
-			// TODO:
-			// Better character sanitization
-			// You'll never know what kind of crazy characters can be made
-			if (token == '(' || token == ')' || isspace(token))
-			{
-				if (pathidx == 0)
-				{
-					*array = NULL;
-					return token;
-				}
-
-				_zrdr* zunion = MakeUnion(pathbuf, nonum);
-				*array = zunion;
-				return token;
-			}
-
-			if (pathidx > MAX_ZRDR_PATH_LEN)
-			{
-				*array = NULL;
-				return 0;
-			}
-
-			if (token == '\"')
-			{
-				nonum = true;
-
-				while (true)
-				{
-					file = fstack.front();
-
-					if (file->fread(&token, 1) || fstack.size() < 2)
-					{
-						break;
-					}
-
-					fstack.pop(true);
-				}
-
-				while (token != '\"')
-				{
-					pathbuf[pathidx] = token;
-					pathidx++;
-
-					while (true)
-					{
-						file = fstack.front();
-
-						if (file->fread(&token, 1) || fstack.size() < 2)
-						{
-							break;
-						}
-
-						fstack.pop(true);
-					}
-				}
-
-				pathbuf[pathidx] = '\0';
-				pathidx++;
-			}
-			else
-			{
-				pathbuf[pathidx] = token;
-				pathbuf[pathidx + 1] = '\0';
-				pathidx++;
-			}
+			while (c != '\n' && _zrdr_readc(&c))
+				;
 
 			continue;
 		}
-	}
-	while (true);
 
-	if (fstack.size() < 2)
-	{
-		valid = false;
-		return 0;
+		if (len == 0 && c == '#')
+			_preproc_filter(&c, false);
+
+		if (c == '(' || c == ')' || isspace(c))
+		{
+			*node = len != 0 ? MakeUnion(buf, isstr) : NULL;
+			return c;
+		}
+
+		if (len >= 768)
+		{
+			*node = NULL;
+			return 0;
+		}
+
+		if (c == '"')
+		{
+			isstr = true;
+			_zrdr_readc(&c);
+
+			while (c != '"')
+			{
+				buf[len] = c;
+				len++;
+				_zrdr_readc(&c);
+			}
+
+			buf[len] = '\0';
+			len++;
+		}
+		else
+		{
+			buf[len] = c;
+			len++;
+			buf[len] = '\0';
+		}
 	}
-		
-	fstack.pop(true);
+
+	return 0;
 }
 
 /* @socom-skeleton body ReadArray__8CRdrFileFv */
 _zrdr* CRdrFile::ReadArray()
 {
-	std::list<_zrdr*> arrays;
-	_zrdr* array = NULL;
-	char token = 1;
-	bool endtag = false;
-	
-	while (!endtag && token != 0)
-	{
-		token = ReadToken(&array);
-		
-		if (array)
-		{
-			arrays.insert(arrays.end(), array);
-		}
+	/* 0x23e790: the words up to the closing ')' (or the end of the files) as an array; a '('
+	 * reads a sub-array. Element 0 is the count (elements + 1), the words' nodes are copied in
+	 * and freed. */
+	std::list<_zrdr*> nodes;
+	_zrdr* node = NULL;
+	char c = 1;
+	bool end = false;
 
-		// Is the token the start of a new tag?
-		if (token == '(')
+	while (!end && c != 0)
+	{
+		c = ReadToken(&node);
+
+		if (c == 0)
+			continue;
+
+		if (node != NULL)
+			nodes.insert(nodes.end(), node);
+
+		if (c == '(')
 		{
-			arrays.insert(arrays.end(), ReadArray());
+			node = ReadArray();
+			nodes.insert(nodes.end(), node);
 		}
-		// Is the token the end of the tag we're in?
-		else if (token == ')')
+		else if (c == ')')
 		{
-			endtag = true;
+			end = true;
 		}
 	}
 
-	// Allocate a parent and child node
 	_zrdr* parent = zrdr_alloc(sizeof(_zrdr), 1);
 	parent->type = ZRDR_ARRAY;
-	
-	_zrdr* child = zrdr_alloc(sizeof(_zrdr), arrays.size() + 1);
-	child->type = ZRDR_INTEGER;
-
-	// Set parent node equal to child, and append the size of
-	// the child node to the first array element
-	parent->array = child;
+	parent->array = zrdr_alloc(sizeof(_zrdr), nodes.size() + 1);
 	parent->array->type = ZRDR_INTEGER;
+	parent->array->integer = nodes.size() + 1;
 
-	parent->array->integer = arrays.size() + 1;
-
-	// When working with readers of version 2,
-	// The first index (0) is ALWAYS used to store the length.
-	// This means that zReader arrays start at index 1.
-	// In future zReader versions this was put into the
-	// "length" bitfield.
-	// When iterating through them, target the second index to access
-	// the arrays.
-	for (u32 i = 1; i < parent->array->integer; i++)
+	for (u32 i = 1; nodes.size() != 0; i++)
 	{
-		// The arrangement of each zReader node should go as follows:
-		// Length, name, array
-		array = arrays.front();
-		arrays.erase(arrays.begin());
-
-		parent->array[i] = *array;
-
-		zfree(array);
+		node = nodes.front();
+		nodes.erase(nodes.begin());
+		parent->array[i] = *node;
+		_free(node, "zrdr_parse.cpp", 472);
 	}
-	
+
 	return parent;
 }
 
 /* @socom-skeleton body zrdr_read__FPCcPCci */
 CRdrFile* zrdr_read(const char* name, const char* path, s32 flags)
 {
-	if (path && strlen(path) < MAX_ZRDR_PATH_LEN)
+	/* 0x23e540: a path shorter than 767 characters becomes the reader path (for #include).
+	 * Without ZRDR_FLAG_RAW a compiled reader of that name in the open archives is returned;
+	 * when there is none (or with the flag) the text file path/name is read: pushed on the file
+	 * stack, checked, parsed. A file that does not balance gives NULL. Only the front file is
+	 * closed and erased at the end. */
+	if (path != NULL && strlen(path) < MAX_ZRDR_PATH_LEN)
 		strcpy(cur_zrdr_path, path);
 
 	cur_zrdr_flags = flags;
 
-	CRdrFile* rdrfile = CRdrArchive::FindRdr(name);
-
-	// Is the reader file compiled?
-	if ((flags & ZRDR_FLAG_RAW) == 0 || rdrfile)
-		return rdrfile;
-
-	CBufferIO* io = new CBufferIO();
-
-	// Search for it in the game disc directory
-	if (!io->Open(zrdr_findfile(name, path)))
+	if ((flags & ZRDR_FLAG_RAW) == 0)
 	{
-		// Search wasn't successful.
-		io->Close();
-		return NULL;
+		CRdrFile* found = CRdrArchive::FindRdr(name);
+
+		if (found != NULL)
+			return found;
 	}
 
-	fstack.insert(fstack.begin(), io);
+	CBufferIO file;
 
-	rdrfile = new CRdrFile();
+	if (!file.Open(zrdr_findfile(name, path)))
+		return NULL;
 
-	// Check for any syntax errors
+	fstack.insert(fstack.begin(), file);
+	file.Release();
+
+	CRdrFile* rdrfile = new CRdrFile();
+	bool parsed;
+
 	if (rdrfile->ValidateFormat())
 	{
-		// Begin tokenization and create tag structure
 		_zrdr* array = rdrfile->ReadArray();
 		rdrfile->type = array->type;
 		rdrfile->array = array->array;
-		rdrfile->length = 1;
-
-		// Why is this here?
-		zfree(array);
+		_free(array, "zrdr_parse.cpp", 488);
+		parsed = true;
 	}
-	// Syntax error check failed
 	else
 	{
-		// delete array;
+		parsed = false;
+	}
+
+	if (!parsed)
+	{
+		delete rdrfile;
 		rdrfile = NULL;
 	}
 
-	if (!fstack.empty())
-		fstack.erase(fstack.begin(), fstack.end());
+	if (fstack.size() != 0)
+	{
+		fstack.front().Close();
+		fstack.erase(fstack.begin());
+	}
 
-	io->Close();
-	
 	return rdrfile;
 }

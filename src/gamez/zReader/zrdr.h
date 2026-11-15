@@ -17,11 +17,12 @@
 
 #define MAX_ZRDR_PATH_LEN 767
 
-#define pptoken_ifdef 1 << 0
-#define pptoken_else  1 << 1
-#define pptoken_endif 1 << 2
-#define pptoken_include 1 << 3
-#define pptoken_undef 1 << 4
+/* _get_pptoken's results (0x23f2e0) */
+#define pptoken_ifdef   0
+#define pptoken_else    1
+#define pptoken_endif   2
+#define pptoken_include 3
+#define pptoken_undef   4
 
 #define ZRDR_FLAG_RAW   0x1
 #define ZRDR_FLAG_ALLOC 0x4
@@ -39,7 +40,17 @@ enum ZRDR_TYPE
 };
 
 /* cur_zrdr_flags, cur_zrdr_path (768 bytes) are file-local in zrdr_parse.cpp (LOCAL symbols) */
-extern std::list<char*> zrdr_symbols;
+/* A preprocessor symbol (no DWARF; layout from ~zrdr_sym 0x23f260, which frees +0 and +4, and
+ * _eval_defined 0x23f0d0, which compares +0 by name). zrdr_symbols (0x505ae0) is a list of them
+ * by value; nothing in the ELF adds one. Port: the member names are invented. */
+struct zrdr_sym
+{
+	char* name; /* +0 */
+	char* value; /* +4 */
+	~zrdr_sym();
+};
+
+extern std::list<zrdr_sym> zrdr_symbols;
 
 void _resolveA(_zrdr* self, const _zrdr* root, const char* tag); /* _resolveA__FP5_zrdrPC5_zrdrPCc */
 void _resolveB(_zrdr* self, const _zrdr* root, const char* tag); /* _resolveB__FP5_zrdrPC5_zrdrPCc */

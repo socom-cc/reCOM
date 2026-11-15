@@ -53,33 +53,23 @@ const char* zrdr_findfile(const char* name, const char* dir)
 /* @socom-skeleton body zrdr_freearray__FP5_zrdr */
 void zrdr_freearray(_zrdr* reader)
 {
-	_zrdr* node = NULL;
-
-	if (!reader)
-		return;
-
+	/* 0x23e3c0: a parsed (not packed) node's arrays freed, its count element included in the
+	 * walk; a string is only forgotten (the file's string table owns it). The ELF unrolls one
+	 * recursion level; written recursive (same result). Was: the walk read one element past the
+	 * end of each array (i <= count), which freed whatever lay there (crash on e3config.rdr). */
 	if (reader->type == ZRDR_STRING)
-		reader->string = NULL;
-
-	if (reader->type != ZRDR_ARRAY)
-		return;
-
-	for (u32 i = 0; node = &reader->array[i], i <= reader->array->integer; i++)
 	{
-		if (node->type == ZRDR_STRING)
-			node->string = NULL;
-
-		if (node->type == ZRDR_ARRAY && node->integer != 0)
-		{
-			for (u32 j = 0; j < node->array->integer; j++)
-				zrdr_freearray(&node->array[j]);
-
-			zfree(node->array);
-			node->array = NULL;
-		}
+		reader->string = NULL;
+		return;
 	}
 
-	zfree(reader->array);
+	if (reader->type != ZRDR_ARRAY || reader->array == NULL)
+		return;
+
+	for (s32 i = 0; i < reader->array->integer; i++)
+		zrdr_freearray(&reader->array[i]);
+
+	_free(reader->array, "zrdr_main.cpp", 151);
 	reader->array = NULL;
 }
 

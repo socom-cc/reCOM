@@ -11,7 +11,12 @@ class CFileStack;
 
 extern CFileStack fstack;
 
-class CFileStack : public std::list<CBufferIO*>
+/* The text reader's open files (zrdr_parse.cpp), front = the file being read. The ELF's list holds
+ * the CBufferIO objects themselves (40-byte nodes: links, then the 32-byte CBufferIO; insert
+ * 0x23f830 copy-constructs, erase 0x23f760 runs ~CBufferIO and ~CFileIO, both closing).
+ * ~CFileStack (0x23fa70, registered by __sinit_zrdr_parse.cpp) is erase(begin(), end()): the
+ * implicit destructor of this class. */
+class CFileStack : public std::list<CBufferIO>
 {
 public:
     void pop(bool close);

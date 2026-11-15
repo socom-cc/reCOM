@@ -53,5 +53,6 @@ Scratch for the mission loading screen (functional port). Nothing here is tracke
 - CPlainBmp has no UIVarMixin base (the port model is m_mixin_uivar), so variable changes
   don't reach CPlainBmp or CHProgressBar through UpdateDependents. Draw still re-reads string
   variables every frame.
+  - Closed in commit b13e0497: CPlainBmp now has the UIVarMixin base as the ELF has it (`audit-unmarked-b2.md`).
 - The PrepControls bitmaps Menu220/210 (enabled by Tick) show nothing on screen. Whether
   their textures are in the loaded libraries is unverified.
