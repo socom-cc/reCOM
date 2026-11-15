@@ -17,8 +17,23 @@ H=$SCRATCH
 G=(git -C "$REPO" -c safe.directory="$REPO" -c core.autocrlf=false)
 list() { [ -f "$1" ] && grep -v '^\s*#' "$1" | tr -d '\r' | awk 'NF'; }
 if [ "${1:-}" = "--fresh" ] || [ ! -d "$TREE/src" ]; then
-  rm -rf "$TREE"; mkdir -p "$TREE/support"
-  "${G[@]}" archive HEAD src port | tar -x -C "$TREE" || { echo "tree.sh: git archive failed in $REPO" >&2; exit 1; }
+  # HEAD's src/ and port/ go to a staging copy first and are then synced into the tree by
+  # content (rsync -c, no -t): a file whose bytes did not change keeps its time stamp, so a
+  # build dir that already built this tree recompiles only what really changed since. (A plain
+  # re-extraction gave every file the new commit's time and every build started from scratch.)
+  # --delete also removes anything an earlier mine.txt / base / shared edit left behind.
+  S=$TREE.head.tmp
+  rm -rf "$S"; mkdir -p "$S" "$TREE/support"
+  "${G[@]}" archive HEAD src port | tar -x -m -C "$S" || { echo "tree.sh: git archive failed in $REPO" >&2; rm -rf "$S"; exit 1; }
+  if command -v rsync >/dev/null 2>&1; then
+    for d in src port; do
+      mkdir -p "$TREE/$d"
+      rsync -rc --delete "$S/$d/" "$TREE/$d/" || { echo "tree.sh: rsync failed" >&2; rm -rf "$S"; exit 1; }
+    done
+  else
+    rm -rf "$TREE/src" "$TREE/port"; mv "$S/src" "$S/port" "$TREE/"
+  fi
+  rm -rf "$S"
   echo "tree: $TREE = HEAD $("${G[@]}" rev-parse --short HEAD)"
 fi
 SF=${SHARED:-$H/shared.txt}

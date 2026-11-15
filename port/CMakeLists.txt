@@ -14,6 +14,22 @@ project(socom_port C CXX)
 set(SOCOM_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/..")
 get_filename_component(SOCOM_ROOT "${SOCOM_ROOT}" ABSOLUTE)
 
+# Optional compiler cache: when ccache is installed, a new build dir of a tree that was built
+# before takes its objects from the cache instead of compiling all of src/ again (test builds
+# make a build dir per test). CCACHE_BASEDIR makes the paths under the tree relative and
+# CCACHE_NOHASHDIR leaves the build dir out of the hash, so build dirs next to each other share
+# entries. Nothing changes without ccache; -DSOCOM_PORT_CCACHE=OFF turns it off.
+option(SOCOM_PORT_CCACHE "use ccache when it is installed" ON)
+if(SOCOM_PORT_CCACHE AND NOT CMAKE_C_COMPILER_LAUNCHER AND NOT CMAKE_CXX_COMPILER_LAUNCHER)
+  find_program(SOCOM_CCACHE_EXE ccache NO_CMAKE_FIND_ROOT_PATH)
+  if(SOCOM_CCACHE_EXE)
+    set(_socom_ccache "${CMAKE_COMMAND}" -E env "CCACHE_BASEDIR=${SOCOM_ROOT}" CCACHE_NOHASHDIR=1 "${SOCOM_CCACHE_EXE}")
+    set(CMAKE_C_COMPILER_LAUNCHER ${_socom_ccache})
+    set(CMAKE_CXX_COMPILER_LAUNCHER ${_socom_ccache})
+    message(STATUS "socom port: compiler cache ${SOCOM_CCACHE_EXE}")
+  endif()
+endif()
+
 file(GLOB_RECURSE SOCOM_GAME_SOURCES CONFIGURE_DEPENDS
   "${SOCOM_ROOT}/src/*.cpp" "${SOCOM_ROOT}/src/*.c")
 # *_holding.cpp files are built too: they hold the only provisional code for functions

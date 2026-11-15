@@ -117,6 +117,7 @@ Edits (on your own files or the isolated tree; keep each file's line endings):
 Isolated tree and builds (Linux side; `env.sh` holds the shared settings):
 
 - `tree.sh [--fresh]` - isolated tree = HEAD + `copy.txt` files + `shared.txt` edits (+ `base.txt`).
+- `gate.ps1 [-Only default,frontend,win,roundtrip] [-Missions n] [-BuildOnly | -SkipBuild]` - the full behaviour check of the tree in one command: four test builds from one build dir, booted side by side (default boot, options screens with `port/test-hooks/common/pad_fe.txt`, the scripted winning playthrough, the menus round trip), a PASS / FAIL table from the logs. The coordinator runs it on each merged commit.
 - `fake.sh <build> <pad|->` - configure and link a fake-pad (or plain) build of the tree.
 - `hook.sh <build> <pad> <source>... [-- flags]` - fake-pad build plus test-hook sources with `--wrap`.
 - `tb.sh [-d spec] [-s] [-k feature|source] <build> <pad> [edits] [-- flags]` - the whole test-build pipeline.

@@ -3,6 +3,7 @@
 #   Get-SocomScratch           $env:SOCOM_SCRATCH (absolute or repo-relative), default build\port\dev
 #   Get-SocomPcsx2             $env:SOCOM_PCSX2: the PCSX2 executable or the folder holding pcsx2-qt.exe
 #   Get-SocomDisc              $env:SOCOM_DISC_IMAGE: the game disc image (user-local)
+#   $env:SOCOM_PCSX2_PORTABLE  1 = pcsx2-boot.ps1 starts PCSX2 with -portable (its own settings profile)
 #   Get-SocomWslArgs           wsl.exe arguments selecting $env:SOCOM_WSL_DISTRO (default distribution)
 #   ConvertTo-SocomWslPath     a Windows path in its Linux (WSL) form, via wslpath
 #   Invoke-SocomWsl <script> [args]  run a bash script in WSL, passing the SOCOM_* variables below

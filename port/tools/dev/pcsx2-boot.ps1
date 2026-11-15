@@ -3,7 +3,11 @@ param(
     [Parameter(Mandatory = $true)][string]$Log,       # PCSX2 log file
     [int]$Seconds = 40,                               # kill PCSX2 after this many seconds
     [string]$Shots = "",                              # screenshot times in seconds, e.g. "20,35"; empty = one at -Seconds
-    [string]$ShotPrefix = ""                          # screenshot path without extension; empty = next to the log
+    [string]$ShotPrefix = "",                         # screenshot path without extension; empty = next to the log
+    [switch]$CloseCardDialog,                         # close PCSX2's "Memory Card Read Failed" dialog (default: leave it open)
+    [string]$DonePattern = "",                        # regex: end the run early once the log has it -DoneCount times
+    [int]$DoneCount = 1,
+    [int]$DoneExtra = 5                               # seconds to keep running after that
 )
 # Shared PCSX2 boot helper for port test runs. The emulator and the disc image come from
 # $env:SOCOM_PCSX2 (pcsx2-qt.exe or its folder) and $env:SOCOM_DISC_IMAGE; both are user-local.
@@ -69,7 +73,14 @@ Get-CimInstance Win32_Process -Filter "Name = 'pcsx2-qt.exe'" -ErrorAction Silen
 
 $prev = [PcsxWin]::GetForegroundWindow()
 if (Test-Path $Log) { Remove-Item $Log }
-$p = Start-Process $pcsx2 -PassThru -WindowStyle Minimized -ArgumentList '-nogui', '-batch', '-fastboot', '-earlyconsolelog', '-logfile', "`"$Log`"", '-elf', "`"$Elf`"", '--', "`"$disc`""
+# $env:SOCOM_PCSX2_PORTABLE = 1 (user-local, like the paths): test runs use PCSX2's portable
+# profile (-portable: settings, memory cards and so on in the emulator's own folder) instead of
+# the user's own profile. The portable profile is set up once by the user; with empty memory-card
+# slots there, test runs never touch or lock the user's cards.
+$pargs = @('-nogui', '-batch', '-fastboot', '-earlyconsolelog')
+if ($env:SOCOM_PCSX2_PORTABLE -and $env:SOCOM_PCSX2_PORTABLE -ne '0') { $pargs = @('-portable') + $pargs }
+$pargs += @('-logfile', "`"$Log`"", '-elf', "`"$Elf`"", '--', "`"$disc`"")
+$p = Start-Process $pcsx2 -PassThru -WindowStyle Minimized -ArgumentList $pargs
 
 # Silent test runs: set this PCSX2's slider in the Windows volume mixer to 0 as soon as it opens
 # its audio (PCSX2's own settings are untouched; set-appvolume.ps1 next to this script, skipped
@@ -97,12 +108,14 @@ if ($h -ne [IntPtr]::Zero) {
     # so watch for 8 s: whenever the foreground window belongs to this PCSX2, hand focus back.
     # A window the user switched to themselves is left alone.
     # When another PCSX2 is already running (several test runs at once) this one cannot open the
-    # memory-card file and shows a "Memory Card Read Failed" dialog on the desktop: close it.
+    # memory-card file and shows a "Memory Card Read Failed" dialog. The dialog is LEFT OPEN on
+    # purpose (the user wants to see the error; -CloseCardDialog closes it as before): only the
+    # focus is handed back, so it never keeps the keyboard.
     $start = Get-Date
     $closed = 0
     for ($i = 0; $i -lt 80; $i++) {
         Start-Sleep -Milliseconds 100
-        $closed += [PcsxWin]::CloseTitled([uint32]$p.Id, 'Memory Card Read Failed')
+        if ($CloseCardDialog) { $closed += [PcsxWin]::CloseTitled([uint32]$p.Id, 'Memory Card Read Failed') }
         if ([PcsxWin]::OwnerPid([PcsxWin]::GetForegroundWindow()) -eq $p.Id) { [PcsxWin]::GiveBack($prev) }
     }
     if ($closed) { "closed $closed memory-card dialog(s) of this run (another emulator holds the card file)" }
@@ -112,6 +125,9 @@ if ($h -ne [IntPtr]::Zero) {
 } else { "no window handle" }
 
 function Save-Shot([IntPtr]$hwnd, [string]$file) {
+    # A minimized window has no picture to copy (the screenshot came out blank or 160 x 28):
+    # restore it first, without activating it (SW_SHOWNOACTIVATE = 4), and let it draw a frame.
+    if ([PcsxWin]::IsIconic($hwnd)) { [PcsxWin]::ShowWindow($hwnd, 4) | Out-Null; Start-Sleep -Milliseconds 700 }
     $r = New-Object PRECT
     [PcsxWin]::GetWindowRect($hwnd, [ref]$r) | Out-Null
     $w = $r.Right - $r.Left; $hh = $r.Bottom - $r.Top
@@ -134,16 +150,34 @@ function Save-Shot([IntPtr]$hwnd, [string]$file) {
 if ($ShotPrefix -eq "") { $ShotPrefix = [System.IO.Path]::ChangeExtension($Log, $null).TrimEnd('.') }
 $times = if ($Shots -ne "") { $Shots.Split(",") | ForEach-Object { [int]$_ } } else { @($Seconds) }
 if (-not $start) { $start = Get-Date }
+# Wait-Run <t>: wait until <t> seconds into the run, in steps. Returns $true when the run should
+# end now: PCSX2 exited, or -DonePattern has been seen -DoneCount times in the log and
+# -DoneExtra seconds have passed since (so a run ends when its evidence is in the log instead of
+# at a fixed time; -Seconds is then only the time limit).
+$script:doneAt = $null
+function Wait-Run([double]$until) {
+    while ($true) {
+        $p.Refresh()
+        if ($p.HasExited) { return $true }
+        $now = ((Get-Date) - $start).TotalSeconds
+        if ($DonePattern -ne "") {
+            if ($null -eq $script:doneAt) {
+                $n = @(Select-String -Path $Log -Pattern $DonePattern -ErrorAction SilentlyContinue).Count
+                if ($n -ge $DoneCount) { $script:doneAt = $now; "done: '$DonePattern' x$n at $([int]$now) s" }
+            }
+            if ($null -ne $script:doneAt -and $now -ge $script:doneAt + $DoneExtra) { return $true }
+        }
+        if ($now -ge $until) { return $false }
+        Start-Sleep -Milliseconds ([int]([Math]::Min(2.0, [Math]::Max(0.1, $until - $now)) * 1000))
+    }
+}
+$ended = $false
 foreach ($t in $times) {
-    $wait = $t - ((Get-Date) - $start).TotalSeconds
-    if ($wait -gt 0) { Start-Sleep -Milliseconds ([int]($wait * 1000)) }
-    $p.Refresh()
-    if ($p.HasExited) { "PCSX2 exited before $t s"; break }
+    if (Wait-Run $t) { $ended = $true; if ($p.HasExited) { "PCSX2 exited before $t s" }; break }
     $file = if ($times.Count -gt 1) { "$ShotPrefix-$t.png" } else { "$ShotPrefix.png" }
     Save-Shot $p.MainWindowHandle $file
 }
-$wait = $Seconds - ((Get-Date) - $start).TotalSeconds
-if ($wait -gt 0 -and -not $p.HasExited) { Start-Sleep -Milliseconds ([int]($wait * 1000)) }
+if (-not $ended) { Wait-Run $Seconds | Out-Null }
 if (-not $p.HasExited) {
     # Put the mixer level back before closing, so the user's own PCSX2 is not left silent.
     if (Test-Path $vol) { & powershell -NoProfile -ExecutionPolicy Bypass -File $vol -ProcessId $p.Id -Level 1 -WaitSeconds 2 | Out-Null }

@@ -70,9 +70,26 @@ You write game code in `src/` for the GCC/ps2sdk port so one system works in the
   section at the top: what is written, what the last run showed, what you were about to do. A
   fresh worker must be able to continue from NOTES.md, mine.txt and edits/ alone.
 
+## Testing: in proportion to the change
+- Emulator time is the slowest part of the work. Test what your change can affect, not
+  everything: a targeted run that shows the changed code doing its job (a trace line is enough),
+  and one smoke run at the end. The full behaviour check (default boot, options screens, the
+  scripted winning playthrough, the menus round trip) is run ONCE by the coordinator on the merged
+  commit with `port/tools/dev/gate.ps1`; do not run those four yourself unless your brief asks
+  for one of them or your change is exactly what one of them tests.
+- Smoke run by kind of change:
+  - headers, declarations, comments, notes, test hooks only: the default build links; no boot.
+  - bodies that only run in a mission: one fake-pad m8 run of about 90 s after the cameras.
+  - menus, loading, memory lifetime (constructors, destructors, anything allocated per mission
+    or per menu): `gate.ps1 -Only roundtrip` on your tree (it reads your `mine.txt`).
+  - anything else: the default build boots to the main menu.
+- One boot should answer several questions: put your checks in one hook run instead of one run
+  per check, and read results from the log, not from screenshots.
+- Build dirs are cheap now: with ccache a new build dir of a tree that was built before links in
+  seconds, and `tree.sh --fresh` keeps unchanged files' time stamps, so builds stay incremental.
+
 ## Before you finish
-- A default build (your tree, no hooks, no fake pad) links and boots to the main menu, and a
-  fake-pad run shows the system working in mission m8.
+- The smoke run above passes on your final tree.
 - Copy the two or three screenshots that best show the result to a milestone folder under your
   scratch area, named `<yyyy-MM-dd_HHmmss>_<label>.png`. Screenshots show game content and stay
   untracked.
