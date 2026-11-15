@@ -2560,7 +2560,8 @@ void CZSealBody::ComputeNextPosition(float dT)
 			CPnt3D d;
 			tip.Sub(&tail, &d);
 			CPnt3D v;
-			move_dir.Scale(sqrtf(d.z * d.z + d.x * d.x + d.y * d.y), &v);
+			/* (x x + y y) + z z, the ELF's order (0x2531fc) */
+			move_dir.Scale(sqrtf(d.x * d.x + d.y * d.y + d.z * d.z), &v);
 			root.Rotate(&v, &v, 1);
 			return v.y;
 		};
@@ -2677,7 +2678,8 @@ void CZSealBody::ComputeNextPosition(float dT)
 				facing.z = m_node->m_matrix.m_matrix[2][2];
 				f32 limit = prone_strafe ? -0.200000003f /* 0x3e4ccccd */ : 0.0f;
 
-				if (facing.z * unit_dir.z + facing.x * unit_dir.x + facing.y * unit_dir.y < limit || still)
+				/* (x x + y y) + z z, the ELF's order (0x253408) */
+				if (facing.x * unit_dir.x + facing.y * unit_dir.y + facing.z * unit_dir.z < limit || still)
 				{
 					CPnt3D reach;
 					firepos.Scale(1.10000003f /* 0x3f8ccccd */, &reach);
@@ -2691,7 +2693,7 @@ void CZSealBody::ComputeNextPosition(float dT)
 					}
 					else
 					{
-						facing.Scale(facing.z * reach.z + facing.x * reach.x + facing.y * reach.y, &facing);
+						facing.Scale(facing.x * reach.x + facing.y * reach.y + facing.z * reach.z, &facing);
 						tail.Add(&facing, &tip);
 					}
 				}
@@ -2904,7 +2906,8 @@ void CZSealBody::PostComputeNextPosition(float)
 	 * (with the AI map's cell repel when enabled), its height (SetVertical), the terrain
 	 * tilt, and the node's matrix from the next rotation; the rotation and world velocity
 	 * become current. ELF quirk kept: the 64-hit limit of l_int is tested per chord, so a
-	 * chord with many hits can run past it. */
+	 * chord with many hits can run past it. Dot products and lengths are summed in the ELF's
+	 * order, (x x + y y) + z z. */
 	CZBodyAnimBlend *top = m_blends->Top();
 
 	if (numChords != 0)
@@ -2944,7 +2947,7 @@ void CZSealBody::PostComputeNextPosition(float)
 			}
 		}
 
-		bool moved = 0.0002f < dpos.z * dpos.z + dpos.x * dpos.x + dpos.y * dpos.y;
+		bool moved = 0.0002f < dpos.x * dpos.x + dpos.y * dpos.y + dpos.z * dpos.z;
 		f32 turn = fabsf(pre_thr_lr);
 		f32 move_x = dpos.x;
 		f32 move_z = dpos.z;
@@ -2974,7 +2977,7 @@ void CZSealBody::PostComputeNextPosition(float)
 				normal.Normalize();
 				CPnt3D d;
 				dilr[l_int[i].chord]->m_Tip.Sub(&l_int[i].hit->m_pos, &d);
-				f32 depth = normal.z * d.z + normal.x * d.x + normal.y * d.y;
+				f32 depth = normal.x * d.x + normal.y * d.y + normal.z * d.z;
 
 				if (depth < 0.0f)
 				{
@@ -2991,7 +2994,7 @@ void CZSealBody::PostComputeNextPosition(float)
 						push.z = out.z;
 				}
 
-				f32 into = m_inAirHorizVel.z * normal.z + m_inAirHorizVel.x * normal.x + m_inAirHorizVel.y * normal.y;
+				f32 into = m_inAirHorizVel.x * normal.x + m_inAirHorizVel.y * normal.y + m_inAirHorizVel.z * normal.z;
 
 				if (into < 0.0f)
 				{
@@ -3004,7 +3007,7 @@ void CZSealBody::PostComputeNextPosition(float)
 			dpos.Add(&push, &dpos);
 			CPnt3D ahead = dpos;
 
-			if (0.01f < ahead.z * ahead.z + ahead.x * ahead.x + ahead.y * ahead.y)
+			if (0.01f < ahead.x * ahead.x + ahead.y * ahead.y + ahead.z * ahead.z)
 			{
 				CPnt3D side(-move_z, 0.0f, move_x);
 				side.Normalize();
@@ -3031,7 +3034,7 @@ void CZSealBody::PostComputeNextPosition(float)
 					probe.y = m_node->m_matrix.m_matrix[3][1];
 				}
 
-				if (0.0f < side.z * ahead.z + side.x * ahead.x + side.y * ahead.y)
+				if (0.0f < side.x * ahead.x + side.y * ahead.y + side.z * ahead.z)
 					probe.Add(&side, &probe);
 				else
 					probe.Sub(&side, &probe);
@@ -3058,7 +3061,7 @@ void CZSealBody::PostComputeNextPosition(float)
 						normal.Normalize();
 						CPnt3D d;
 						end.Sub(&wall->m_pos, &d);
-						f32 depth = normal.z * d.z + normal.x * d.x + normal.y * d.y;
+						f32 depth = normal.x * d.x + normal.y * d.y + normal.z * d.z;
 
 						if (depth < 0.0f)
 						{
@@ -3090,7 +3093,7 @@ void CZSealBody::PostComputeNextPosition(float)
 				{
 					CPnt3D d;
 					l_int[i].hit->m_pos.Sub(&dilr[c]->m_Tail, &d);
-					f32 dist = d.z * d.z + d.x * d.x + d.y * d.y;
+					f32 dist = d.x * d.x + d.y * d.y + d.z * d.z;
 
 					if (nearest < 0 || dist < best)
 					{

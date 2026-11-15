@@ -449,6 +449,9 @@ void CAiStar::find_path(CAiPath *path)
 	CAiMapLoc loc = cur.m_loc;
 	CAiCell *cell = m_map->GetCell(loc);
 	u32 prev = 8;
+	/* 0x182200: the next location is built only for a neighbour on the map; off the map
+	 * the walk goes on from the one built before (ELF; the parents never point off it) */
+	CAiMapLoc next = loc;
 
 	while (!(loc.x == m_start.x && loc.y == m_start.y))
 	{
@@ -460,6 +463,7 @@ void CAiStar::find_path(CAiPath *path)
 		prev = dir;
 		CAiPath::point p;
 		p.m_loc = loc;
+		p.m_loc.m_mapid = m_map->m_mapid; /* 0x182060: the point takes the map's id */
 		p.m_width = 0;
 		p.m_flags = 0;
 		p.m_unused = 0;
@@ -468,13 +472,13 @@ void CAiStar::find_path(CAiPath *path)
 
 		int x = (int)loc.x + CAiMap::neighbor[dir][0];
 		int y = (int)loc.y + CAiMap::neighbor[dir][1];
-		CAiMapLoc next;
-		next.m_mapid = m_map->m_mapid;
-		next.x = x;
-		next.y = y;
-
 		if (x >= 0 && (u32)x < m_map->m_nx && y >= 0 && (u32)y < m_map->m_ny)
+		{
+			next.x = x;
+			next.y = y;
+			next.m_mapid = m_map->m_mapid;
 			cell = m_map->GetCell(next);
+		}
 
 		loc = next;
 		m_stats->path_length++;

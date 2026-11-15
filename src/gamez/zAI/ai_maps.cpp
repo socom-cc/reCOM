@@ -214,8 +214,8 @@ bool CAiMaps::GetLocation(const CPnt3D *pos, CAiMapLoc &out)
 
 	/* 0x19c9b0: the cell under a position: the first map (in set order) whose bounds hold it
 	 * in x/z with a cell there that is not soil 10. A height within half a unit of that cell's
-	 * altitude settles it; else, when the set's first map has the cell's third byte set (port:
-	 * the field is not named; the ELF reads the byte), the later maps are tried too and the
+	 * altitude settles it; else, when the set's first map has the cell's m_mes bit set, the
+	 * later maps are tried too and the
 	 * one whose cell lies closest below (no more than 10 above) the position wins. */
 	if (size() == 0)
 		return false;
@@ -237,7 +237,7 @@ bool CAiMaps::GetLocation(const CPnt3D *pos, CAiMapLoc &out)
 			continue;
 
 		if (index == 0)
-			more = ((const u8 *)cell)[2] != 0;
+			more = cell->m_mes != 0; /* 0x19ccb4: bit 5 of the third byte (m_mes), not the byte */
 
 		if (cell->m_soil == 10)
 			continue;

@@ -551,7 +551,9 @@ void CSealCtrlAi::OnCommand(CZSealBody *source, FT_COMMAND cmd, void *buffer, bo
 		{
 			sourceUnit->EscorteeJoinUnit(seal);
 			PlayAiSound((CHARACTER_SOUND)53);
-			/* ELF: a network game also sends the remote message 40 */
+
+			if (theNetwork.m_bNetwork) /* 0x282140: the remote message 40 */
+				PlayRemoteMsg(source, 40);
 		}
 
 		CPnt3D offset(15.0f, 0.0f, -15.0f);
@@ -662,12 +664,9 @@ void CSealCtrlAi::OnCommand(CZSealBody *source, FT_COMMAND cmd, void *buffer, bo
 		CAiState *state = GetAiState();
 		CAiSHostage *hostage = state->m_state == STATE_HOSTAGE ? static_cast<CAiSHostage *>(state) : NULL;
 
-		if (hostage != NULL) /* port: NULL-tested (ELF writes through it) */
-		{
-			hostage->m_substate = 1;
-			hostage->m_commander = source;
-			hostage->m_setup = 1;
-		}
+		hostage->m_substate = 1; /* ELF: not NULL-tested (0x282080) */
+		hostage->m_commander = source;
+		hostage->m_setup = 1;
 		break;
 	}
 
@@ -683,12 +682,9 @@ void CSealCtrlAi::OnCommand(CZSealBody *source, FT_COMMAND cmd, void *buffer, bo
 		CAiState *state = GetAiState();
 		CAiSAction *act = state->m_state == STATE_ACTION ? static_cast<CAiSAction *>(state) : NULL;
 
-		if (act != NULL) /* port: NULL-tested (ELF writes through it) */
-		{
-			act->m_action = action;
-			act->m_value = valve != NULL ? (valve->m_value == 0) : 1;
-			act->m_setup = 1;
-		}
+		act->m_action = action; /* ELF: not NULL-tested (0x282474) */
+		act->m_value = valve != NULL ? (valve->m_value == 0) : 1;
+		act->m_setup = 1;
 		break;
 	}
 
@@ -702,11 +698,7 @@ void CSealCtrlAi::OnCommand(CZSealBody *source, FT_COMMAND cmd, void *buffer, bo
 
 		CAiState *state = GetAiState();
 		CAiSDeploy *deploy = state->m_state == STATE_DEPLOY ? static_cast<CAiSDeploy *>(state) : NULL;
-
-		if (deploy == NULL) /* port: NULL-tested (ELF writes through it) */
-			break;
-
-		deploy->m_target = source->m_aim_point;
+		deploy->m_target = source->m_aim_point; /* ELF: not NULL-tested (0x281ab8) */
 		int packed;
 
 		if (ftsGetPlayer()->FindValidReticleGotoLoc(&packed))
@@ -808,7 +800,7 @@ void CSealCtrlAi::OnCommand(CZSealBody *source, FT_COMMAND cmd, void *buffer, bo
 			CAiSDeploy *deploy = state->m_state == STATE_DEPLOY ? static_cast<CAiSDeploy *>(state) : NULL;
 			CAiMap *map = AiMaps.GetMapByIndex(loc.m_mapid);
 
-			if (map == NULL || deploy == NULL) /* port: deploy NULL-tested (ELF writes through it) */
+			if (map == NULL) /* deploy: not NULL-tested (0x2812e4) */
 				continue;
 
 			if (map->GetCellCenter(loc, &deploy->m_target) == NULL)

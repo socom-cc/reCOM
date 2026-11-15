@@ -1409,11 +1409,15 @@ public:
 	virtual ~CAiSSuspended() {}
 	/* @socom-skeleton end 13CAiSSuspended */
 
-	/* port: no DWARF type; from Tick 0x2d7c60 / OnSignal 0x2d7e10 */
+	/* port: no DWARF type; from Tick 0x2d7c60 / OnSignal 0x2d7e10. 128 bytes (CAiState::Create
+	 * 0x2dc938 new(128)): the matrix is quadword-aligned in the ELF; the pads keep the ELF's
+	 * offsets and size (the port's CMatrix is not 16-aligned) */
+	u8 m_pad_28[8];           /* +0x28: alignment */
 	CMatrix m_matrix;         /* +0x30: the node's world matrix when suspended (put back on exit) */
 	u8 m_was_active : 1;      /* +0x70 bit 0: the node was active */
 	u8 m_was_updating : 1;    /* bit 1: the entity updated its target list */
 	u8 m_was_targetable : 1;  /* bit 2: the entity was in target lists */
+	u8 m_pad_71[15];          /* +0x71: alignment to 128 */
 };
 
 class CAiSShotAt : public CAiState

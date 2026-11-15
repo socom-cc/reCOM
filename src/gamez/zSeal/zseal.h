@@ -2528,6 +2528,7 @@ public:
 	u8 m_prone : 1; /* bit 1: a standing AI goes prone rather than crouching (25%) */
 	u8 m_evade : 1; /* bit 2: moving to an evade spot first */
 	u8 m_unused : 5;
+	u32 m_unk_2c; /* +0x2c: guess - Create (0x2dc718) allocates 48 bytes; not read by the port */
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
 	virtual bool Tick(float, CSealCtrlAi *); /* port: an override returns its base's type */
 	virtual bool CanAttack() const { return false; } /* ELF: move v0,zero */

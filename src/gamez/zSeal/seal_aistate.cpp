@@ -1512,12 +1512,10 @@ bool CAiSBreach::Tick(float dT, CSealCtrlAi *ai)
 	{
 		ai->Debug("Breach leader is dead -- ABORT BREACH\n");
 
-		if (m_valve != NULL) /* port: NULL-tested */
-			BreachSetValve(m_valve, 3);
-
+		BreachSetValve(m_valve, 3); /* ELF: the valve is not NULL-tested (0x2d80ec) */
 		next = 11;
 	}
-	else if (m_valve != NULL && m_valve->m_value == 3) /* port: NULL-tested */
+	else if (m_valve->m_value == 3) /* ELF: not NULL-tested (0x2d8120) */
 	{
 		next = 11;
 	}
@@ -1529,15 +1527,13 @@ bool CAiSBreach::Tick(float dT, CSealCtrlAi *ai)
 	bool isLeader = leader == ai;
 	CAiSBreach *lead = NULL;
 
-	if (leader != NULL) /* port: NULL-tested (ELF: the leader's stack is read through NULL) */
+	/* ELF: the leader is not NULL-tested here (0x2d8160) */
+	for (std::list<CAiState *>::const_iterator it = leader->m_stateStack.begin(); it != leader->m_stateStack.end(); ++it)
 	{
-		for (std::list<CAiState *>::const_iterator it = leader->m_stateStack.begin(); it != leader->m_stateStack.end(); ++it)
+		if ((*it)->m_state == STATE_BREACH)
 		{
-			if ((*it)->m_state == STATE_BREACH)
-			{
-				lead = static_cast<CAiSBreach *>(*it);
-				break;
-			}
+			lead = static_cast<CAiSBreach *>(*it);
+			break;
 		}
 	}
 
@@ -1624,14 +1620,11 @@ bool CAiSBreach::Tick(float dT, CSealCtrlAi *ai)
 					CAiState *top = ai->GetAiState();
 					CAiSAction *open = top->m_state == STATE_ACTION ? static_cast<CAiSAction *>(top) : NULL;
 
-					if (open != NULL) /* port: NULL-tested (ELF writes through it) */
-					{
-						open->m_action = action;
-						open->m_value = 1;
-						open->m_option_flags = 0x10;
-						open->m_substate = 6;
-						open->m_setup = 1;
-					}
+					open->m_action = action; /* ELF: not NULL-tested (0x2d8468) */
+					open->m_value = 1;
+					open->m_option_flags = 0x10;
+					open->m_substate = 6;
+					open->m_setup = 1;
 				}
 				else if (door != 1)
 				{
@@ -1671,18 +1664,15 @@ bool CAiSBreach::Tick(float dT, CSealCtrlAi *ai)
 			CAiState *top = ai->GetAiState();
 			CAiSDeploy *deploy = top->m_state == STATE_DEPLOY ? static_cast<CAiSDeploy *>(top) : NULL;
 
-			if (deploy != NULL) /* port: NULL-tested (ELF writes through it) */
-			{
-				deploy->m_target = m_target;
-				deploy->m_offset.x = 0.0f;
-				deploy->m_offset.y = 0.0f;
-				deploy->m_offset.z = 100.0f;
-				deploy->m_item = (u8)item;
-				deploy->m_option_flags = 0x34;
-				deploy->m_fuse = fuse;
-				deploy->m_substate = 4;
-				deploy->m_setup = 1;
-			}
+			deploy->m_target = m_target; /* ELF: not NULL-tested (0x2d8550) */
+			deploy->m_offset.x = 0.0f;
+			deploy->m_offset.y = 0.0f;
+			deploy->m_offset.z = 100.0f;
+			deploy->m_item = (u8)item;
+			deploy->m_option_flags = 0x34;
+			deploy->m_fuse = fuse;
+			deploy->m_substate = 4;
+			deploy->m_setup = 1;
 		}
 
 		next = 6;
