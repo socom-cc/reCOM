@@ -294,17 +294,21 @@ public:
 	/* @socom-skeleton end 13C2DBitmapPoly */
 };
 
+/* port: UIVarMixin is declared in zui.h, which includes this header; only its UIVarMixin
+ * section is read here (see zui.h) */
+#define SOCOM_ZUI_MIXIN_ONLY
+#include "gamez/zUI/zui.h"
+#undef SOCOM_ZUI_MIXIN_ONLY
+
 /* DWARF: bases C2DBitmap @0 and UIVarMixin @0x80, then m_pulsing @0x88, m_period @0x8c,
- * m_curtrans @0x90 (160 bytes).
- * port: unproven model - UIVarMixin is declared in zui.h after this header, so its
- * part (vptr, m_uivar @0x84) is not a base here; m_mixin_uivar stands for its m_uivar. */
-class CPlainBmp : public C2DBitmap
+ * m_curtrans @0x90 (160 bytes). RTTI (0x461150) gives the same two bases. The mixin's
+ * m_uivar (+0x84) is the attached UI variable; C2D::m_uivar (+0x10) is another member. */
+class CPlainBmp : public C2DBitmap, public UIVarMixin
 {
 public:
 	CPlainBmp()
 	{
-		/* 0x1d6300 */
-		m_mixin_uivar = NULL;
+		/* 0x1d6300: the mixin part (vptr, m_uivar 0) first, then */
 		SetColor(128.0f, 128.0f, 128.0f);
 		SetTrans(128.0f);
 		m_isTrans = true;
@@ -313,13 +317,12 @@ public:
 		m_period = 1.0f;
 	}
 
-	CUIVariable* m_mixin_uivar;
 	bool m_pulsing;
 	f32 m_period;
 	f32 m_curtrans;
 	/* @socom-skeleton decl 9CPlainBmp */
 public:
-	virtual ~CPlainBmp() {}
+	virtual ~CPlainBmp() {} /* 0x1d6260: ~UIVarMixin (DetachUIVar(NULL)), then the C2DBitmap part */
 	virtual void Draw(zdb::CCamera *camera) { C2DBitmap::Draw(camera); } /* 0x393820 tail-calls C2DBitmap::Draw */
 	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
 	virtual void Tick(float);

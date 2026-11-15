@@ -111,6 +111,9 @@ public:
 	EQUIP_AMMO m_ammoId;
 	s32 m_ammoCount;
 	s32 m_magCount;
+	~CCharacterWeap() { m_ammoId = (EQUIP_AMMO)0xff; } /* 0x1d76b0 (no fence; the vectors' reserve 0x24ba30
+	                                                    * and assign 0x1d78f4 call it): AMMO_NONE (zweapon.h,
+	                                                    * only declared here) */
 
 	/* @socom-skeleton decl 14CCharacterWeap */
 public:

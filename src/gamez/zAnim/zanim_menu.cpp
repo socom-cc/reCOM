@@ -896,8 +896,8 @@ CPopUpDialog * CMenuStack::GetPopUp()
 /* port: no skeleton fence - __dt__12CPopUpDialogFv 0x1d4090 is emitted in this unit */
 CPopUpDialog::~CPopUpDialog()
 {
-	/* 0x1d4090: the shown-instead dialog; the buttons, the C2D, the text and the bitmap
-	 * destroy themselves */
+	/* 0x1d4090: the shown-instead dialog; the buttons, the C2D, the text and the CPlainBmp
+	 * part (its UIVarMixin's DetachUIVar(NULL) at 0x1d4150, then ~C2D) destroy themselves */
 	if (m_child != NULL)
 	{
 		delete m_child;

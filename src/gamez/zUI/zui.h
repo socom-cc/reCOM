@@ -40,6 +40,11 @@
  * @socom-artifact emits main socom:function:0x3a1c00
  * socom-owner-annotations end socom:work:source-segment-056 */
 
+/* port: CPlainBmp (ztwod.h, included below) has UIVarMixin as its second base (DWARF), so
+ * ztwod.h reads only this header's UIVarMixin section, with SOCOM_ZUI_MIXIN_ONLY defined.
+ * Any other include reads the header once: part A (to ActionItem), the UIVarMixin section
+ * (its own guard), part B (ZUI_H_PART_A .. ZUI_H_PART_B). */
+#ifndef SOCOM_ZUI_MIXIN_ONLY
 #ifndef ZUI_H
 #define ZUI_H
 #include <list>
@@ -97,8 +102,21 @@ public:
 	~CUIVariable() { Destroy(); } /* 0x1fbc60 (inline; emitted in fts_mission.cpp) */
 
 	void Set(_zrdr* reader);
+	/* 0x39e3a0 (no fence): whether the object is in m_attached_items. Its one ELF call
+	 * (AttachUIVar 0x39e334) is in AttachUIVar's inline repeat, which is unreachable
+	 * (m_uivar is already the variable there); the port's AttachUIVar ends before it. */
+	bool IsAttached(UIVarMixin* item)
+	{
+		for (std::vector<UIVarMixin*>::iterator it = m_attached_items.begin(); it != m_attached_items.end(); ++it)
+		{
+			if (*it == item)
+				return true;
+		}
 
-	char* m_varname;                           /* +0x8: in the manager's current string table */
+		return false;
+	}
+
+	char* m_varname;                          /* +0x8: in the manager's current string table */
 	std::vector<UIVarMixin*> m_attached_items; /* +0xc: the objects showing this variable */
 	UIVAR_LONGEVITY m_longevity;               /* +0x18: one byte in the ELF; DORMANT is a free slot */
 	/* @socom-skeleton decl 11CUIVariable */
@@ -541,6 +559,13 @@ public:
 #endif
 };
 /* @socom-skeleton end 10ActionItem */
+#define ZUI_H_PART_A
+#endif /* ZUI_H */
+#endif /* SOCOM_ZUI_MIXIN_ONLY */
+#ifndef ZUI_UIVARMIXIN_H
+#define ZUI_UIVARMIXIN_H
+#include <cstddef> /* NULL */
+class CUIVariable;
 /* @socom-skeleton decl 10UIVarMixin */
 class UIVarMixin
 {
@@ -554,6 +579,9 @@ public:
 	CUIVariable* m_uivar; /* DWARF +0x4 */
 };
 /* @socom-skeleton end 10UIVarMixin */
+#endif /* ZUI_UIVARMIXIN_H */
+#if defined(ZUI_H_PART_A) && !defined(ZUI_H_PART_B) && !defined(SOCOM_ZUI_MIXIN_ONLY)
+#define ZUI_H_PART_B
 /* @socom-skeleton decl 17CRenderableString */
 class CRenderableString : public C2DString, public UIVarMixin
 {
@@ -672,7 +700,8 @@ public:
 	ActionItem m_action;    /* +0xa0 the option's anim (ParseButtonAnim): a BUTTON item runs on
 	                         * its button, an ONACTIVATE one when LEFT / RIGHT reaches it */
 	std::string m_picture;  /* +0xb0 PICTURE: the option's image */
-	virtual ~CycleItem() {} /* 0x39aca0 (emitted in zui_spec.cpp's unit; no fence) */
+	virtual ~CycleItem() {} /* 0x39aca0 (emitted in zui_spec.cpp's unit; no fence): m_picture,
+	                         * m_action, then the CPlainBmp part (DetachUIVar(NULL) 0x39ad24) */
 };
 class CCycleButton : public C2DButton
 {
@@ -1050,10 +1079,9 @@ class ListItem;
 /* no DWARF; 1536 bytes (CUIListBoxSpec::CreateDisplayObj 0x3964a0 constructs it inline).
  * Layout from LoadSpec (0x38e2e0), Draw (0x38c9a0), HandlePad (0x38d010), Tick (0x38d5e0),
  * UpdateUIVar (0x38d8a0) and the dtor (0x38de90); names from the spec's reader keys.
- * port: the ELF's UIVarMixin part is CPlainBmp's (+0x80, as ztwod.h notes); the port's
- * CPlainBmp has none, so the list box takes UIVarMixin as a second base (the variable's
- * UpdateDependents must reach UpdateUIVar). */
-class CUIListBox : public CPlainBmp, public UIVarMixin
+ * RTTI (0x461a80): CPlainBmp is the only base; its UIVarMixin part (+0x80) is the one
+ * LoadSpec attaches (0x38e360 / 0x38e65c) and the variable's dependents reach. */
+class CUIListBox : public CPlainBmp
 {
 public:
 	/* port: no out-of-line ctor (inline in CreateDisplayObj 0x3964a0): all zero, the

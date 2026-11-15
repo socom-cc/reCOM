@@ -170,6 +170,14 @@ static unsigned char bFadeColor;
 /* @socom-skeleton stub MultiplayerMsgStrings */
 static CSTable MultiplayerMsgStrings;
 
+/* 0x3d8380 (no fence; __sinit_hud_actionbitmap.cpp constructs ActionTxtrPool with it): the
+ * bitmap, then no texture, action 0, the name DEFAULT_ACTION_NAME, inactive */
+CActionTxtr::CActionTxtr() : m_texhandle(NULL), m_action_id(0)
+{
+	strcpy(m_name, DEFAULT_ACTION_NAME);
+	m_active = 0;
+}
+
 /* @socom-skeleton stub ActionTxtrPool */
 static CActionTxtr ActionTxtrPool[18];
 

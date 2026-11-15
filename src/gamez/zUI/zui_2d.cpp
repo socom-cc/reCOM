@@ -1448,7 +1448,7 @@ void CPlainBmp::Draw(const CMatrix &transform, zdb::CTextureRelocMgr *reloc)
 {
 	/* 0x390e10: a string UI variable names the texture to show; a new name reloads it
 	 * over the same rectangle. */
-	CUIVariable* var = m_mixin_uivar;
+	CUIVariable* var = UIVarMixin::m_uivar; /* the mixin's (+0x84) */
 
 	if (var != NULL && var->type == ZRDR_STRING)
 	{
@@ -1484,9 +1484,8 @@ void CPlainBmp::LoadSpec(const CImageSpec &spec, zdb::CTexHandle *handle)
 
 	if (var != NULL)
 	{
-		/* port: unproven - the ELF attaches through the UIVarMixin part (AttachUIVar, then
-		 * UpdateUIVar through its vtable +0xc); the port's CPlainBmp has no such base. */
-		m_mixin_uivar = var;
+		/* the mixin part (+0x80) joins the variable, then UpdateUIVar through its vtable (+0xc) */
+		AttachUIVar(var);
 		UpdateUIVar(var);
 	}
 
@@ -3002,9 +3001,9 @@ void CHProgressBar::LoadSpec(const CHProgressBarSpec &spec, zdb::CTexHandle *han
 
 	if (var != NULL)
 	{
-		/* port: unproven model - as CPlainBmp::LoadSpec, m_mixin_uivar stands for the
-		 * UIVarMixin part the ELF attaches through */
-		m_mixin_uivar = var;
+		/* as in CPlainBmp::LoadSpec: AttachUIVar (already attached: it returns at once), then
+		 * UpdateUIVar through the mixin's vtable */
+		AttachUIVar(var);
 		UpdateUIVar(var);
 	}
 
@@ -3049,7 +3048,7 @@ void CHProgressBar::Draw(const CMatrix &transform, zdb::CTextureRelocMgr *reloc)
 
 	reloc->PreGetSprPacket(NULL);
 	zVid_Scissor((s32)corner[0].x, (s32)corner[0].y, (s32)corner[1].x, (s32)corner[1].y);
-	CUIVariable* var = m_mixin_uivar;
+	CUIVariable* var = UIVarMixin::m_uivar; /* the mixin's (+0x84, lw a0,0x84(s2)) */
 
 	if (var != NULL && var->type == ZRDR_STRING)
 	{

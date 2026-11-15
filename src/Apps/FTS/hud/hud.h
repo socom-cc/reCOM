@@ -1159,6 +1159,7 @@ public:
 	C2DBitmap m_2DBitmap;
 	char m_name[64];
 	unsigned char m_active;
+	CActionTxtr(); /* 0x3d8380, defined in hud_actionbitmap.cpp (it reads DEFAULT_ACTION_NAME) */
 };
 /* @socom-skeleton end 11CActionTxtr */
 /* @socom-skeleton decl 18CActionTxtrMachine */
