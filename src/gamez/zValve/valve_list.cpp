@@ -140,10 +140,11 @@ CValve* CValvePool::Acquire(const char* name, VALVE_TYPE type)
 /* @socom-skeleton stub Release__10CValvePoolFP6CValve */
 void CValvePool::Release(CValve *valve)
 {
-	/* 0x2f6c10: a pooled valve goes back to the pool's end, any other is deleted. port: its
-	 * callbacks are dropped here (the ELF keeps them on a pooled valve, so a reused temporary
-	 * valve runs the callbacks of the object it served before: _rethrow_grenade's pickup) */
-	valve->DeleteCallbacks();
+	/* 0x2f6c10: FreeName (0x2f6c1c), then a pooled valve goes back to the pool's end and any
+	 * other is deleted. ELF quirk, kept: a pooled valve keeps its callbacks, so a reused
+	 * temporary valve runs the callbacks of the object it served before (_rethrow_grenade's
+	 * pickup, which may be gone by then). The port dropped them here until the user chose the
+	 * original's behaviour (2026-11-15). */
 	valve->FreeName();
 
 	if (valve->m_pooled)
