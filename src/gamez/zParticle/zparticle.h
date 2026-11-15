@@ -167,6 +167,21 @@ public:
 		class List : public std::list<Particle::Source*>
 		{
 		public:
+			/* __dt__Q38Particle6Source4ListFv 0x23b8b0 (Source::list, registered by
+			 * __sinit_zparticle_source.cpp: static destruction only): every source deleted
+			 * (plain delete of the Source), then the nodes erased. ELF quirk: it takes the next
+			 * link from the node ~Source has just unlisted and freed; the port takes it first,
+			 * as Uninit */
+			~List()
+			{
+				for (iterator it = begin(); it != end();)
+				{
+					Source* source = *it;
+					++it;
+					delete source;
+				}
+				clear();
+			}
 			void Uninit();
 		};
 		void TexturesClear();
@@ -217,6 +232,15 @@ public:
 		class List : public std::list<Particle::Instance*>
 		{
 		public:
+			/* __dt__Q38Particle8Instance4ListFv 0x2377f0 (Instance::list, registered by
+			 * __sinit_zparticle_instance.cpp: static destruction only): every live instance
+			 * deleted (~Instance, non-virtual, then operator delete), then the nodes erased */
+			~List()
+			{
+				for (iterator it = begin(); it != end(); ++it)
+					delete *it;
+				clear();
+			}
 			void Uninit();
 			void Tick(float);
 		};

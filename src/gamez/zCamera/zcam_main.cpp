@@ -202,9 +202,8 @@ CCamera::CCamera() : CNode()
 
 		m_mtxSet.m_vu = (tag_FrameSetup*)0x70003e60;
 		m_fovMask = 0x3f3f;
-
-		m_yaw = 0.0f;
-		m_pitch = 0.0f;
+		/* socom-port-audit-c2: the port-only m_yaw / m_pitch (zeroed here, never read; not in
+		 * the DWARF record, which ends with m_fovMask +0x514) are removed */
 	}
 }
 

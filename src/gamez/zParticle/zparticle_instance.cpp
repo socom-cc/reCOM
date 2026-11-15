@@ -667,9 +667,13 @@ void Particle::Destruction_Instance::Tick(float dT)
 		if (negative)
 			x = 1.0f / x;
 
-		m_vel.x = target.x + (m_vel.x - target.x) * x;
-		m_vel.y = target.y + (m_vel.y - target.y) * x;
-		m_vel.z = target.z + (m_vel.z - target.z) * x;
-		m_vel.w = target.w + (m_vel.w - target.w) * x;
+		/* 0x236650: m_vel.Sub(&target) (CPnt4D::Sub 0x236720), sceVu0ScaleVector by x,
+		 * sceVu0AddVector with the target: all four components */
+		CPnt4D diff;
+		m_vel.Sub(&target, &diff);
+		m_vel.x = target.x + diff.x * x;
+		m_vel.y = target.y + diff.y * x;
+		m_vel.z = target.z + diff.z * x;
+		m_vel.w = target.w + diff.w * x;
 	}
 }

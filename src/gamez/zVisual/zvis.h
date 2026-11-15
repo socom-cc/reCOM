@@ -194,6 +194,17 @@ namespace zdb
 		CPnt3D m_centroid;
 	};
 
+	/* CVisual::m_customGlobalLight's element (128 bytes: __construct_array of 4 at 0x511580 in
+	 * __sinit_vis_main.cpp). No DWARF and no reader in the ELF: only the constructor
+	 * __ct__Q23zdb15tag_GlobalLightFv 0x30e8a0, two sceVu0UnitMatrix calls (+0x0 and +0x40):
+	 * the implicit constructor of two CMatrix members (CMatrix() is sceVu0UnitMatrix(this)).
+	 * socom-port-audit-c2; member names invented */
+	struct tag_GlobalLight
+	{
+		CMatrix m_matrix0; /* +0x00 */
+		CMatrix m_matrix1; /* +0x40 */
+	};
+
 	/* one entry of a visual's 16-byte detail records ("detail_buff", CVisual::Read 0x30d130,
 	 * which points each m_tex at its share of the 12-byte entries after the records) */
 	struct tag_DETAIL_TEX
@@ -390,7 +401,7 @@ public:
 		static CMatrix *m_ModelToWorld;
 		static bool m_applyScaleColor;
 		static int m_customGlobalLightIdx;
-		static unsigned char m_customGlobalLight[512];
+		static tag_GlobalLight m_customGlobalLight[4]; /* 512 bytes (was unsigned char[512]) */
 		static _word128 *m_dmaSubfaceChain;
 		static int m_dmaSubfaceQwc;
 		static zdb::CTexHandle *m_envBackMapTexture;
@@ -479,9 +490,29 @@ public:
 	class AddonPoint
 	{
 	public:
+		/* __ct__Q23zdb10AddonPointFv 0x30e750 (decaldata's six, __construct_array in
+		 * __sinit_vis_main.cpp; socom-port-audit-c2): m_uv copied from CPnt3D::zero, m_index 0,
+		 * m_unk0e -1, the position and normal words 0, then m_color and m_tri_normal NULL */
+		AddonPoint()
+		{
+			m_uv.x = CPnt3D::zero.x;
+			m_uv.y = CPnt3D::zero.y;
+			m_uv.z = CPnt3D::zero.z;
+			m_index = 0;
+			m_unk0e = -1;
+			m_pos.x = 0.0f;
+			m_pos.y = 0.0f;
+			m_pos.z = 0.0f;
+			m_nx = 0.0f;
+			m_ny = 0.0f;
+			m_nz = 0.0f;
+			m_color = NULL;
+			m_tri_normal = NULL;
+		}
+
 		CPnt3D m_uv;       /* +0: the vertex through the world-to-UV matrix: u, v, depth */
 		s16 m_index;       /* +12: vertex number in its batch */
-		s16 m_unk0e;       /* +14: never stored */
+		s16 m_unk0e;       /* +14: -1 from the constructor; nothing else stores or reads it */
 		CPnt3D m_pos;      /* +16: model-space position */
 		u32* m_color;      /* +28: the vertex's rgba in the instance colour buffer */
 		f32 m_nx;          /* +32: the vertex record's normal (s16 / 32768) */

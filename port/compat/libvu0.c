@@ -115,6 +115,14 @@ void sceVu0AddVector(sceVu0FVECTOR v0, sceVu0FVECTOR v1, sceVu0FVECTOR v2)
         v0[k] = v1[k] + v2[k];
 }
 
+/* 0x152450: vsub.xyzw (socom-port-audit-c2: CPnt4D::Sub 0x236720 tail-calls it) */
+void sceVu0SubVector(sceVu0FVECTOR v0, sceVu0FVECTOR v1, sceVu0FVECTOR v2)
+{
+    int k;
+    for (k = 0; k < 4; k++)
+        v0[k] = v1[k] - v2[k];
+}
+
 /* 0x152480 */
 void sceVu0ScaleVector(sceVu0FVECTOR v0, sceVu0FVECTOR v1, float t)
 {

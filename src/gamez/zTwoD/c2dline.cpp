@@ -333,8 +333,11 @@ bool clip3DLine(CPnt4D *point, CPnt4D *normal, CPnt4D *p1, CPnt4D *p2)
 	if (d1 <= 0.0f && d2 <= 0.0f)
 		return false;
 	f32 t = d1 / (d1 - d2);
-	CPnt4D at(p1->x + (p2->x - p1->x) * t, p1->y + (p2->y - p1->y) * t, p1->z + (p2->z - p1->z) * t,
-		p1->w + (p2->w - p1->w) * t);
+	/* 0x2ffe14 / 0x2ffe98 (socom-port-audit-c2): p2->Sub(p1) (CPnt4D::Sub 0x236720), then
+	 * sceVu0ScaleVector by t and sceVu0AddVector with p1, all four components */
+	CPnt4D diff;
+	p2->Sub(p1, &diff);
+	CPnt4D at(p1->x + diff.x * t, p1->y + diff.y * t, p1->z + diff.z * t, p1->w + diff.w * t);
 	if (d1 > 0.0f)
 		*p2 = at;
 	else

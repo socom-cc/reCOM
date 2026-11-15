@@ -267,7 +267,15 @@ public:
 
 		return *this;
 	}
-	
+
+	/* Sub__6CPnt4DCFPC6CPnt4DP6CPnt4D (inline, emitted at 0x236720): tail call
+	 * sceVu0SubVector(out, this, other), out = this - other in all four components
+	 * (Destruction_Instance::Tick 0x236660, clip3DLine 0x2ffe24 / 0x2ffea8) */
+	void Sub(const CPnt4D* other, CPnt4D* out) const
+	{
+		sceVu0SubVector(&out->x, const_cast<f32*>(&x), const_cast<f32*>(&other->x));
+	}
+
 	static const CPnt4D zero;
 	/* @socom-skeleton decl 6CPnt4D */
 public:

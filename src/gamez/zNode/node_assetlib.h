@@ -71,6 +71,12 @@ public:
 		CAssetLib* FindLib(const char* name);
 		CModel* GetModel(const char* name);
 
+		/* __dt__Q23zdb10CAssetListFv 0x231b20 (registered by __sinit_node_assetlib.cpp for
+		 * g_assetsRecycle and CAssetMgr::m_assets: runs at static destruction only): Clear()
+		 * inline - each library deleted, its slot NULLed, the nodes erased, m_cache_model NULL -
+		 * then the list's own destructor */
+		~CAssetList() { Clear(); }
+
 		CModel* m_cache_model;
 		/* @socom-skeleton decl Q23zdb10CAssetList */
 public:

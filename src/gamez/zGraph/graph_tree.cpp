@@ -58,7 +58,14 @@ int CGraph::m_leafTree;
 static float _noise;
 
 /* @socom-skeleton stub _pool */
-static unsigned char _pool[12];
+/* socom-port-audit-c2: the ELF's _pool (0x4d6df0, 12 bytes) is a CGTreePool, a list of MSL pointer
+ * storage built and registered for destruction by __sinit_graph_tree.cpp (0x46b1a0) and used by
+ * nothing else; its destructor 0x210fd0 is the list's (the nodes erased, no element deleted).
+ * No DWARF: the element type is unproven (was a 12-byte placeholder) */
+class CGTreePool : public std::list<const void*>
+{
+};
+static CGTreePool _pool;
 
 /* @socom-skeleton stub _release_tree__FP6CGTree */
 CGTree * _release_tree(CGTree *tree)

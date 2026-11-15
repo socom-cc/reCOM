@@ -32,6 +32,8 @@ void sceVu0TransMatrix(sceVu0FMATRIX m0, sceVu0FMATRIX m1, sceVu0FVECTOR tv);
 void sceVu0CameraMatrix(sceVu0FMATRIX m, sceVu0FVECTOR p, sceVu0FVECTOR zd, sceVu0FVECTOR yd);
 /* v0 = v1 + v2 (0x152438) */
 void sceVu0AddVector(sceVu0FVECTOR v0, sceVu0FVECTOR v1, sceVu0FVECTOR v2);
+/* v0 = v1 - v2, all four components (0x152450; CPnt4D::Sub 0x236720) */
+void sceVu0SubVector(sceVu0FVECTOR v0, sceVu0FVECTOR v1, sceVu0FVECTOR v2);
 /* v0 = v1 * t (0x152480) */
 void sceVu0ScaleVector(sceVu0FVECTOR v0, sceVu0FVECTOR v1, float t);
 /* v0 = v1, one 128-bit copy (0x1524c8) */

@@ -238,10 +238,8 @@ namespace zdb
 
 		tag_ZCAM_TYPE m_type;
 
-		u32 m_fovMask;
-
-		f32 m_yaw;
-		f32 m_pitch;
+		u32 m_fovMask; /* DWARF +0x514, the record's last member (size 0x520); the port-only m_yaw /
+		                  m_pitch that followed (never read) are removed (socom-port-audit-c2) */
 		/* @socom-skeleton decl Q23zdb7CCamera */
 public:
 		virtual ~CCamera();

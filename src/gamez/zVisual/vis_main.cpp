@@ -431,7 +431,7 @@ static unsigned char _StartingMatrix[64];
 
 /* @socom-skeleton stub m_customGlobalLight__Q23zdb7CVisual */
 namespace zdb {
-unsigned char CVisual::m_customGlobalLight[512];
+tag_GlobalLight CVisual::m_customGlobalLight[4]; /* __sinit_vis_main.cpp: four tag_GlobalLight() */
 }
 
 /* @socom-skeleton stub m_stack_vid__Q23zdb7CVisual */
