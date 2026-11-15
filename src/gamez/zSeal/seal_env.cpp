@@ -606,8 +606,9 @@ zdb::IntersectStruct * CZSealBody::SealProcessAltitude(zdb::DiIntersect *di, con
 	/* 0x2a2c70: of the altitude hits, volumetric materials (smoke/gas) and liquids are
 	 * handled apart; of the rest (no standing seal) the highest at most `above` over pos,
 	 * else the lowest; dropped when more than 20 above the current altitude. The player's
-	 * camera learns the ground region (and its region trigger runs). ELF quirk kept: the
-	 * water anims stop only when m_inwater is both set and clear (never). */
+	 * camera learns the ground region (and its region trigger runs). The water anims stop
+	 * when the body was in water before this query and is not after it (0x2a2d18 keeps the
+	 * old m_inwater at sp+0xb0, tested at 0x2a2ef8). */
 	m_volumetricAltitudes.clear();
 
 	if (m_isingas)
@@ -621,6 +622,7 @@ zdb::IntersectStruct * CZSealBody::SealProcessAltitude(zdb::DiIntersect *di, con
 	if (di == NULL)
 		return NULL;
 
+	bool was_inwater = m_inwater;
 	m_inwater = 0;
 	m_waterdepth = 0.0f;
 	zdb::IntersectStruct *lowest = NULL;
@@ -667,7 +669,7 @@ zdb::IntersectStruct * CZSealBody::SealProcessAltitude(zdb::DiIntersect *di, con
 		}
 	}
 
-	if (m_inwater && !m_inwater)
+	if (was_inwater && !m_inwater)
 	{
 		if (m_belowwateranim != NULL && m_belowwateranim->Running())
 		{
@@ -982,7 +984,7 @@ bool CZSealBody::CheckDIFwd1(float &fb, float &strafe, float &)
 	hit = m_fwdhit->m_node != NULL ? m_fwdhit : NULL;
 	CPnt3D d = hit->m_pos;
 	d.Sub(&rootw, &d);
-	f32 dist = sqrtf(d.z * d.z + d.x * d.x + d.y * d.y);
+	f32 dist = sqrtf(d.x * d.x + d.y * d.y + d.z * d.z); /* the ELF's order (0x2a1d90: adda / madd) */
 	CPnt3D move;
 	move.x = strafe;
 	move.y = 0.0f;
@@ -1029,7 +1031,7 @@ bool CZSealBody::CheckDIFwd1(float &fb, float &strafe, float &)
 	m_node->m_matrix.Rotate(&CPnt3D::unit_z, &bodyz, 1);
 
 	if ((away.z * hit->m_norm.z + away.x * hit->m_norm.x + away.y * hit->m_norm.y) / len < 0.65f
-		|| bodyz.z * hit->m_norm.z + bodyz.x * hit->m_norm.x + bodyz.y * hit->m_norm.y < 0.65f)
+		|| bodyz.x * hit->m_norm.x + bodyz.y * hit->m_norm.y + bodyz.z * hit->m_norm.z < 0.65f) /* the ELF's order (0x2a20b8) */
 	{
 		top->m_ctrl = 3;
 		return true;
@@ -1231,7 +1233,8 @@ void CZSealBody::HomingTick()
 	CQuat half = CQuat::identity;
 	CPnt3D turn;
 	turn.x = 0.0f;
-	turn.y = acosf(norm.z * homing->m_refvec_m.z + norm.x * homing->m_refvec_m.x + norm.y * homing->m_refvec_m.y) / m_dT;
+	/* (x x + y y) + z z, the ELF's order (0x2a10cc: adda / madd) */
+	turn.y = acosf(norm.x * homing->m_refvec_m.x + norm.y * homing->m_refvec_m.y + norm.z * homing->m_refvec_m.z) / m_dT;
 
 	if (!(turn.y <= 6.2831855f))
 		turn.y = 6.2831855f;
@@ -1878,7 +1881,8 @@ bool CZSealBody::PostCheckDIDown(float &fb, float &strafe, float &lr)
 
 						if (m_carry == NULL)
 						{
-							if (m_velW.z * m_velW.z + m_velW.x * m_velW.x + m_velW.y * m_velW.y < 400.0f)
+							/* (x x + y y) + z z, the ELF's order (0x29f504: adda / madd) */
+							if (m_velW.x * m_velW.x + m_velW.y * m_velW.y + m_velW.z * m_velW.z < 400.0f)
 							{
 								ClearStack(1, true);
 							}
@@ -2618,7 +2622,7 @@ void CZSealBody::PitchAnim(CPnt3D *, CPnt3D *aim_goal)
 			CPnt3D offset;
 			m_curr_aimpos.Add(GetPosW(), &aimpos);
 			reticle.Sub(&aimpos, &offset);
-			near = offset.z * offset.z + offset.x * offset.x + offset.y * offset.y < 900.0f;
+			near = offset.x * offset.x + offset.y * offset.y + offset.z * offset.z < 900.0f; /* the ELF's order (0x29c88c: adda / madd) */
 		}
 	}
 
@@ -2691,7 +2695,7 @@ void CZSealBody::PitchAnim(CPnt3D *, CPnt3D *aim_goal)
 		inverse.Apply(&fire, &fire, 1);
 		fire.Normalize();
 
-		if (fire.z * aim_goal->z + fire.x * aim_goal->x + fire.y * aim_goal->y > 0.999000013f /* 0x3f7fbe77 */)
+		if (fire.x * aim_goal->x + fire.y * aim_goal->y + fire.z * aim_goal->z > 0.999000013f /* 0x3f7fbe77; the ELF's order, 0x29cb78 */)
 			return;
 
 		goal = dir;
@@ -3335,7 +3339,7 @@ void CZSealBody::CheckDIShoot(CPnt3D *eye, CMatrix *mat)
 	{
 		CPnt3D d;
 		aim.Sub(&ap, &d);
-		f32 len = sqrtf(d.z * d.z + d.x * d.x + d.y * d.y);
+		f32 len = sqrtf(d.x * d.x + d.y * d.y + d.z * d.z); /* the ELF's order (0x29b004: adda / madd) */
 		CPnt3D lifted;
 		PointAlongLine(ap, aim, -10.0f / len, lifted);
 		ap = lifted;
@@ -4238,7 +4242,8 @@ bool CZSealBody::ChangeWeapon(SEAL_ITEM from, SEAL_ITEM to)
 	if (top->m_animType == (AnimType)AnimTypes::CQB || top->m_animType == (AnimType)AnimTypes::PistolCQB)
 		return false;
 
-	bool still = m_velM.z * m_velM.z + m_velM.x * m_velM.x + m_velM.y * m_velM.y <= 400.0f;
+	/* (x x + y y) + z z, the ELF's order (0x2971bc: adda / madd) */
+	bool still = m_velM.x * m_velM.x + m_velM.y * m_velM.y + m_velM.z * m_velM.z <= 400.0f;
 
 	if (to == SEAL_ITEM::itemPistol)
 	{
@@ -5697,7 +5702,7 @@ void CZSealBody::HandleSealStep()
 
 	if (m_state == 0 && 1 < GetSpeedState())
 		moving = true;
-	else if ((m_state == 1 || m_state == 2) && 0.5f < sqrtf(m_velM.z * m_velM.z + m_velM.x * m_velM.x + m_velM.y * m_velM.y))
+	else if ((m_state == 1 || m_state == 2) && 0.5f < sqrtf(m_velM.x * m_velM.x + m_velM.y * m_velM.y + m_velM.z * m_velM.z)) /* the ELF's order (0x291be4 / 0x291c30: adda / madd) */
 		moving = true;
 
 	if (!moving || (m_blends->Top()->m_flags & 0x40) == 0)
@@ -7007,7 +7012,9 @@ CPickup * CZSealBody::DropItem(int index, bool noanim)
 		pos.x, pos.y, pos.z);
 #endif
 
-	if (m_dropanim != NULL && !noanim && pickup != NULL)
+	/* the pickup is not NULL-tested here (0x28e778 reads its node); Create returns NULL only
+	 * while the pickups are closed */
+	if (m_dropanim != NULL && !noanim)
 		m_dropanim->ActivateArg(1, 3, pickup->m_node, 0);
 
 	return pickup;

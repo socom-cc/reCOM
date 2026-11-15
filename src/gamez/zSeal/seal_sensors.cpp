@@ -756,6 +756,10 @@ void CSealCtrlAi::SensorPreTick(float dT)
 						CAiState *state = GetAiState();
 						CAiSCQBAttack *cqb = state->m_state == STATE_CQB ? static_cast<CAiSCQBAttack *>(state) : NULL;
 
+						/* 0x2b24e4: the flag that keeps STATE_AVOID from being popped below is
+						 * set here too (it is the 1 the setup bit is or'ed with) */
+						avoiding = true;
+
 						if (cqb != NULL)
 						{
 							cqb->m_victim = seal;

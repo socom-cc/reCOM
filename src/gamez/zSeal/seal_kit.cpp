@@ -974,7 +974,7 @@ CZProjectile * CZKit::Fire(int index, const CPnt3D *from, const CPnt3D *dir, con
 		const CPnt3D *at = (const CPnt3D *)&seal->m_node->m_matrix.m_matrix[3][0];
 		CPnt3D d;
 		from->Sub(at, &d);
-		f32 sq = d.z * d.z + d.x * d.x + d.y * d.y;
+		f32 sq = d.x * d.x + d.y * d.y + d.z * d.z; /* the ELF's order (0x2aceac: adda / madd) */
 
 		if (sq < 302500.0f)
 		{
@@ -1260,9 +1260,12 @@ CZProjectile * CZKit::Fire(int index, const CPnt3D *from, const CPnt3D *dir, con
 			fire->ActivateArg(3, 3, part, 5, &point->m_matrix.m_matrix[3][0], 6, vel, 0);
 	}
 
+	/* The model argument of both weapon Fire calls is NULL in the ELF (0x2adc90 / 0x2add64:
+	 * sd zero to the stack slot): the instance already has its model from above, so
+	 * SetProjectile does not set it a second time. */
 	if (time == 0.0f)
 	{
-		weapon->Fire(m_body->GetNode(), ammo, from, dir, vel, projectile, m_body->m_id, model, 9999999.0f, 9999999.0f);
+		weapon->Fire(m_body->GetNode(), ammo, from, dir, vel, projectile, m_body->m_id, NULL, 9999999.0f, 9999999.0f);
 
 		if (weapon->IsDirectFire())
 			m_body->m_stats.Shot(*m_body);
@@ -1272,7 +1275,7 @@ CZProjectile * CZKit::Fire(int index, const CPnt3D *from, const CPnt3D *dir, con
 	}
 	else
 	{
-		weapon->Fire(m_body->GetNode(), ammo, from, dir, vel, projectile, m_body->m_id, model, time, removal);
+		weapon->Fire(m_body->GetNode(), ammo, from, dir, vel, projectile, m_body->m_id, NULL, time, removal);
 
 		/* 0x2adc9c: an AI deploying (STATE_DEPLOY) keeps the projectile in its deploy state
 		 * (CAiSDeploy::Tick waits for its fuse) */
