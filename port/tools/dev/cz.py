@@ -96,7 +96,9 @@ SAVE = re.compile(r'^(sq|lq|sd|ld|swc1|lwc1)\s+(s[0-7]|ra|fp|\$f2[0-9]|\$f3[01])
 def fl(v):
     f = struct.unpack('<f', struct.pack('<I', v))[0]
     if v == 0: return None
-    if 1e-6 < abs(f) < 1e9: return '%.7g' % f
+    # nine significant digits: the fewest that always parse back to the same 32-bit float
+    # (seven did not: constants copied from this output came out one or more ulps off)
+    if 1e-6 < abs(f) < 1e9: return '%.9g' % f
     return None
 hi = {}
 prevbr = False
