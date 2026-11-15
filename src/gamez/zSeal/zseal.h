@@ -75,7 +75,23 @@ class AI_FIREPARAMS;
 class AI_REACTION;
 enum AI_SIGNAL { }; /* port: unproven: passed by value per the mangled name; kind and enumerators not in DWARF */
 enum AI_SOUND { }; /* port: unproven: passed by value per the mangled name; kind and enumerators not in DWARF */
-union AckUnion { }; /* port: unproven: passed by value per the mangled name; kind and enumerators not in DWARF */
+/* port: no DWARF members. One byte by value (SendPickupAckMessage's a3 is lb of it): CheckForAmmoPickups
+ * 0x28cdb0 sets bit i for each ammo box entry i the asker may take, CanPickupNetItem 0x28d0a0 bit 0 for a
+ * weapon pickup; HandlePickupAck 0x28c5c0 reads them. The member name is invented. */
+union AckUnion { u8 m_bits; };
+/* The AI net state word (CSealCtrl::m_ai_net_state, Get/SetAiNetState; CZSealState AIState). No DWARF
+ * record: the ELF builds it as a 4-byte local copied with memcpy (CSealCtrlAi::GetAiNetState 0x2682e0,
+ * CRemoteCtrl::SetAiNetState 0x2680d0 / PreTick 0x2ce310, MakeGhost 0x24da30). port: names invented. */
+struct SealAiNetState
+{
+	u32 m_ai_state : 8;       /* the top AI state (AI_STATE) */
+	u32 m_master : 16;        /* FOLLOW: the follow master's id; RESCUED: the state's master */
+	u32 m_transparency : 4;   /* 15 x (1 - node opacity); 15 = node off or transparent */
+	u32 m_restrained : 1;     /* the seal's m_restrained */
+	u32 m_hostage_anchor : 1; /* the seal has its ESCORTEE compass anchor */
+	u32 m_ghost : 1;          /* MakeGhost */
+	u32 m_unused : 1;
+};
 class CAiWepHint;
 class CCompass;
 enum CDIType { }; /* port: unproven: passed by value per the mangled name; kind and enumerators not in DWARF */
@@ -331,6 +347,12 @@ void ParentPistolToRHandCallback(void *, void *); /* seal_env.cpp 0x2987b0 */
 void ParentPistolToRThighAsGearCallback(void *, void *); /* seal_env.cpp 0x2986e0 */
 void NetSendPushBlend(unsigned int, int, int, bool); /* fts_remote.cpp 0x2038a0 */
 void SendHitMessage(int, int, int, float, float, bool, unsigned char); /* fts_remote.cpp 0x203af0 */
+/* fts_remote.cpp, the network pickups (the first int is the item count) */
+void SendWeaponPUMessage(unsigned short, unsigned short, CPnt3D *, CQuat *);
+void SendAmmoPUMessage(int, unsigned short *, unsigned short *, unsigned short, CPnt3D *);
+void SendMayIPickupMessage(int, unsigned short, unsigned short *, unsigned char, unsigned char);
+void SendPickupAckMessage(int, unsigned short, unsigned char, AckUnion);
+void SaveFireMessage(CZSealBody *, const CPnt3D *); /* fts_remote.cpp (CZKit::Fire, network) */
 void PlayRemoteMsg(CEntity *, int); /* seal_unit.cpp 0x2cf330 */
 class CAiSBreach;
 class CSealCtrlAi;
@@ -1484,7 +1506,7 @@ public:
 	unsigned char SetAimPointW(const CPnt3D *, const CPnt3D *, bool); /* 0x2bfa80 returns UpdateAimDir's result (0 without a point) */
 	void UpdateAimParams();
 	bool GetAP(CPnt3D &); /* 0x2bf8a0 returns 0/1 */
-	void GetFP(CPnt3D &);
+	bool GetFP(CPnt3D &); /* 0x2bf820: 1, or GetFirepointPos's answer (CRemoteCtrl::PreTick tests it) */
 	unsigned char UpdateAimDir(bool);
 	bool CanProneAim(); /* 0x2bf240 returns 0/1 (Prone / InStateProne test v0) */
 	float GetAimDot();

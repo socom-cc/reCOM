@@ -31,6 +31,11 @@
 #include "gamez/zVehicle/zvehicle.h" /* CVehicleRdrEntry::GetStart (DoRespawn) */
 #include "gamez/zCamera/zcam.h" /* appCamera (ReCreate) */
 #include <new> /* placement new (ReCreate) */
+#include "gamez/zInput/zinput.h" /* CRemoteCtrl (CreateRemoteSeal) */
+#include "gamez/zNetwork/znet.h" /* theNetwork (RemoteRespawn, Destroy) */
+#include "gamez/zWeapon/zweapon.h" /* CZWeapon::m_pProjectilelist (Destroy) */
+
+void findAlign(CZSealBody *, CPnt3D *, CMatrix *, int); /* fts_network.cpp 0x2016f0 (RemoteRespawn) */
 
 /* @socom-skeleton decl include */
 #include "gamez/zCharacter/zchar.h"
@@ -320,8 +325,42 @@ CZSealBody * CZSealBody::Create(const CCharacterType *type, const char *name, CS
 }
 
 /* @socom-skeleton stub Destroy__10CZSealBodyFP10CZSealBody */
-void CZSealBody::Destroy(CZSealBody *)
+void CZSealBody::Destroy(CZSealBody *seal)
 {
+	/* 0x2898b0 (CZSealState, a remote seal that left the game): only a remote seal with a
+	 * valid id: its projectiles go, its network state is cleaned up; it dies (death type 0)
+	 * now, leaves every team, loses its id and is put in body state 8; the team valves are
+	 * refreshed; the session master tells its unit (message 1, member died). The body stays
+	 * (PostMortemPreTick fades it out). */
+	if (seal == NULL)
+		return;
+
+	u32 id = seal->m_id;
+
+	if (!(seal->m_control != NULL && static_cast<CSealCtrl *>(seal->m_control)->IsRemote()))
+		return;
+
+	if (id == (u32)CEntity::invalidId)
+		return;
+
+	if (CZWeapon::m_pProjectilelist != NULL)
+		CZWeapon::m_pProjectilelist->Clear((int)id);
+
+	CZSealState::SealDeleteCleanup((int)id);
+	seal->SetHealth(0.0f, (SEAL_DEATH_TYPE)0);
+	seal->m_time_of_death = theMission.m_timer;
+	seal->SetTeamMask(0);
+	seal->m_id = CEntity::invalidId;
+	seal->BodySetState(8);
+	theMission.RefreshTeamValves();
+
+	if (theNetwork.m_bSessionMaster)
+	{
+		CSealUnit *unit = static_cast<CSealCtrl *>(seal->m_control)->m_unit;
+
+		if (unit != NULL)
+			unit->Notify(seal, (UNIT_MESSAGE)1, NULL);
+	}
 }
 
 /* @socom-skeleton stub DeleteCameraEffectsNode__10CZSealBodyFv */
@@ -347,8 +386,67 @@ CCharacterType * CZSealBody::GetCharacter()
 }
 
 /* @socom-skeleton stub CreateRemoteSeal__10CZSealBodyFiiPCciPcUcPUc */
-CZSealBody * CZSealBody::CreateRemoteSeal(int, int, const char *, int, char *, unsigned char, unsigned char *)
+CZSealBody * CZSealBody::CreateRemoteSeal(int client, int id, const char *name, int vehicle, char *type_name, unsigned char unit, unsigned char *packed)
 {
+	/* 0x289480 (CZSealState, network: another machine's seal): a remote controller (CRemoteCtrl,
+	 * its ctor inlined) and the character type by name. For units 17 and 28 the type is used as
+	 * it is; any other seal gets a temporary copy named "netchar<client>" with the sent weapons
+	 * (UnPack). Then node, body, entity and PostCreateSeal as Create (a player's camera_effects
+	 * node: never, a remote controller is no player); the seal takes the id, client index,
+	 * vehicle index and display name, the kit's items are set up, m_joined_unit (bit 6 of
+	 * +0xf59) cleared. v0 = the seal (0 without a type or a node). ELF quirk kept: the
+	 * controller leaks when no seal is made. */
+	CRemoteCtrl *ctrl = new CRemoteCtrl;
+	CCharacterType *type = CCharacterType::GetByNameMod(type_name);
+
+	if ((u8)unit != 17 && (u8)unit != 28)
+	{
+		char netname[24];
+		sprintf(netname, "netchar%d", client);
+		type = CCharacterType::Create(netname, type, true);
+		type->m_istemporary = 1; /* ELF: not NULL-tested */
+		CCharacterType::UnPack((const CCharacterWeapPacked *)packed, type);
+	}
+
+	CZSealBody *seal = NULL;
+
+	if (type != NULL)
+	{
+		zdb::CNode *node = NULL;
+		CCharacterType *acquired = PreCreateSeal(type, name, &node);
+
+		if (acquired != NULL)
+		{
+			seal = new CZSealBody(node, acquired);
+			CEntity::CreateEntity(seal, true);
+			PostCreateSeal(seal, ctrl);
+			bool player = seal->m_control != NULL && static_cast<CSealCtrl *>(seal->m_control)->IsPlayer();
+
+			if (player)
+			{
+				zdb::CNode *effects = new zdb::CNode();
+
+				if (effects != NULL)
+				{
+					effects->SetName("camera_effects");
+					effects->m_hasDI = false;
+					effects->m_hasVisuals = false;
+					seal->GetNode()->AddChild(effects);
+				}
+			}
+		}
+	}
+
+	if (seal == NULL)
+		return NULL;
+
+	seal->m_id = id;
+	seal->m_ClientIndex = client;
+	seal->m_kit.PostSetupItems();
+	seal->m_joined_unit = 0;
+	seal->m_vehicle_index = vehicle;
+	seal->SetDisplayName(name);
+	return seal;
 }
 
 /* @socom-skeleton stub DoRespawn__10CZSealBodyFv */
@@ -424,6 +522,88 @@ void CZSealBody::DoRespawn()
 }
 
 /* @socom-skeleton stub RemoteRespawn__10CZSealBodyFb */
-void CZSealBody::RemoteRespawn(bool)
+void CZSealBody::RemoteRespawn(bool round)
 {
+	/* 0x288cb0 (network: PostMortemPreTick's respawn, CMPExitState's new round with false). A
+	 * remote seal that is no hostage (0x20000) or 0x10000000 member takes its packed weapons
+	 * into its (temporary) character type. The seal is re-created in place keeping both stats
+	 * blocks; the spawn group is the side (team 0x100: 3 for a respawn, 2 for a round, else 1 /
+	 * 0); the kit's items are set up. The player is placed by findAlign at a spawn of its group
+	 * and replicated (UpdateLocalSeal); an AI at its vehicle's start with a fresh brain and
+	 * replicated; a remote seal with a vehicle index at its start. The unit revives it, the
+	 * team valves are refreshed, the respawn request ends. ELF: a missing vehicle entry keeps
+	 * the old matrix. */
+	if (!theNetwork.m_bNetwork)
+		return;
+
+	if ((m_team & 0x10000000) == 0 && (m_team & 0x20000) == 0
+		&& !(m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsPlayer()))
+	{
+		CCharacterType *type = m_charType;
+		CCharacterType::UnPack(CZSealState::GetPackedWeaponData(this), type);
+		type->m_istemporary = 1;
+	}
+
+	CPnt3D pos = *GetPosW();
+	CMatrix matrix;
+	sceVu0CopyMatrix(matrix.m_matrix, m_node->m_matrix.m_matrix);
+	CSealStats stats = m_stats;
+	CSealStats mp_stats = m_mp_stats;
+	ReCreate(this, NULL);
+	m_stats = stats;
+	m_mp_stats = mp_stats;
+	int group;
+
+	if (round)
+		group = (m_team & 0x100) != 0 ? 3 : 1;
+	else
+		group = (m_team & 0x100) != 0 ? 2 : 0;
+
+	m_kit.PostSetupItems();
+	CSealCtrl *ctrl = static_cast<CSealCtrl *>(m_control);
+	CVehicleRdr *vehicles = theMission.m_vehicleRdr;
+
+	if (ctrl != NULL && ctrl->IsPlayer())
+	{
+		findAlign(this, &pos, &matrix, group);
+		matrix.m_matrix[3][0] = pos.x;
+		matrix.m_matrix[3][1] = pos.y;
+		matrix.m_matrix[3][2] = pos.z;
+		TeleportTo(&matrix);
+		CZSealState::UpdateLocalSeal(this);
+	}
+	else if (ctrl != NULL && ctrl->IsAi())
+	{
+		CVehicleRdrEntry *entry = NULL;
+
+		if (vehicles != NULL && m_vehicle_index < vehicles->size())
+			entry = &(*vehicles)[m_vehicle_index];
+
+		if (entry != NULL)
+			entry->GetStartMatrix(matrix, (unsigned int)-1);
+
+		TeleportTo(&matrix);
+		ctrl->GetSealCtrlAi()->InitAiBrain();
+		CZSealState::UpdateLocalSeal(this);
+	}
+	else if (ctrl != NULL && ctrl->IsRemote() && m_vehicle_index != 0 && vehicles != NULL)
+	{
+		CVehicleRdrEntry *entry = NULL;
+
+		if (m_vehicle_index < vehicles->size())
+			entry = &(*vehicles)[m_vehicle_index];
+
+		if (entry != NULL)
+			entry->GetStartMatrix(matrix, (unsigned int)-1);
+
+		TeleportTo(&matrix);
+	}
+
+	CSealUnit *unit = static_cast<CSealCtrl *>(m_control)->m_unit;
+
+	if (unit != NULL)
+		unit->Revive(this);
+
+	theMission.RefreshTeamValves();
+	m_needs_respawn = false;
 }

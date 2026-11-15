@@ -411,8 +411,8 @@ void CSealCtrl::OnDeath()
 
 	if (theNetwork.m_bNetwork)
 	{
-		/* port: not written - CSealUnit::GetUnitByTeam(24)'s virtual message 31 for the
-		   body (0x287cf8); the port has no network play */
+		/* 0x287cf8: the voice unit (24) is ordered 31 by the body: its side's radio channel 3 */
+		CSealUnit::GetUnitByTeam(24)->IssueCommand(static_cast<CZSealBody *>(m_entity), (FT_COMMAND)31, NULL, false);
 	}
 }
 
@@ -1452,7 +1452,7 @@ void CSealCtrl::TickPickups(float dT)
 	 * is in range); the weapon under the reticule (else the closest within 20) and the closest
 	 * pistol become the offered pickups (m_curpickup_ID / secondary) unless the pickup timer
 	 * still runs (it counts down) or the kit already holds that item id. Network games also
-	 * find the dropped MP bomb (port: not written, see below). ELF quirk kept: lastpickup holds
+	 * find the dropped MP bomb (see below). ELF quirk kept: lastpickup holds
 	 * a pointer in an int. */
 	CZSealBody *seal = static_cast<CZSealBody *>(m_entity);
 
@@ -1537,8 +1537,54 @@ void CSealCtrl::TickPickups(float dT)
 
 	if (theNetwork.m_bNetwork)
 	{
-		/* port: not written (no network game): the bomb pickup timer, the dropped MP bomb's
-		 * defusal node (zdb::CNode::GetClosestNode on the camera ray) and GetProximityMPBomb */
+		/* 0x2854cc: while the bomb pickup timer runs it counts down (no bomb offered); else the
+		 * dropped MP bomb's node within 20 in front of the body is the defusal node, and the MP
+		 * bomb close by is taken at once (PickupObject; the timer 4 s) unless one is offered
+		 * already or the kit holds the bomb */
+		if (!(m_bombpickuptimer <= 0.0f))
+		{
+			m_bombpickuptimer -= dT;
+			m_curMPBOMBpickup_ID = -1;
+			return;
+		}
+
+		zdb::CNode *bomb_node = CPickup::m_mpbombnode;
+
+		if (bomb_node != NULL)
+		{
+			const f32 (*m)[4] = seal->m_node->m_matrix.m_matrix;
+			CPnt3D dir;
+			dir.x = -m[2][0];
+			dir.y = -m[2][1];
+			dir.z = -m[2][2];
+			f32 d = bomb_node->GetClosestNode((const CPnt3D *)&m[3][0], &dir, 1024.0f, 20.0f, 0.0f, -1.0f);
+			m_bomb_defusal_node = d == -1.0f ? NULL : bomb_node;
+		}
+		else
+		{
+			m_bomb_defusal_node = NULL;
+		}
+
+		CPickup *bomb = seal->GetProximityMPBomb();
+
+		if (bomb == NULL)
+		{
+			m_curMPBOMBpickup_ID = -1;
+			return;
+		}
+
+		if (bomb->m_type == CPickup::PU_MPBOMB && m_curMPBOMBpickup_ID == -1)
+		{
+			if (seal->m_kit.HasItem((EQUIP_ITEM)154))
+			{
+				m_curMPBOMBpickup_ID = -1;
+			}
+			else
+			{
+				seal->PickupObject(bomb);
+				m_bombpickuptimer = 4.0f;
+			}
+		}
 	}
 }
 

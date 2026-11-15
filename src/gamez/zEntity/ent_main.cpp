@@ -64,6 +64,9 @@ class CEntityList;
 /* @socom-skeleton stub invalidId__7CEntity */
 const int CEntity::invalidId = -1;
 
+/* port: deletedId__7CEntity 0x44cd78 (4 bytes, -2; no owner annotation; read by ~CZSealBody) */
+const int CEntity::deletedId = -2;
+
 /* @socom-skeleton stub recycler_index */
 static unsigned int recycler_index = 4294967295;
 

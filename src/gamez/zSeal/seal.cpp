@@ -219,6 +219,8 @@
 #include "Apps/FTS/hud/hud.h" /* CCompassAnchor (PostTick) */
 #include "gamez/zFTS/zfts.h" /* ftsGetPlayer, theMission (fire path) */
 #include "gamez/zNetwork/znet.h" /* theNetwork (CSealStats::Shot) */
+#include "gamez/zUI/zui.h" /* theUIVarManager (NetworkPlayerCreate) */
+#include "gamez/zCamera/zcam.h" /* appCamera (the piggy-back camera) */
 /* port: zanim_sequence.cpp (no header declares them) */
 void PointAlongLine(const CPnt3D &, const CPnt3D &, float, CPnt3D &);
 float PlaneConstant(const CPnt3D &, const CPnt3D &);
@@ -1057,8 +1059,25 @@ CZSealBody::~CZSealBody()
 
 	if (!m_respawning)
 	{
-		/* port: not written - the network branch (RemoveNetSeal / SealDeleteCleanup by
-		 * IsRemote, 0x2570f8-0x257168); the port has no network play */
+		/* 0x2570f8-0x257168: in a network game a local seal leaves the network state
+		 * (RemoveNetSeal with its player flag) and its id becomes CEntity::deletedId; a remote
+		 * seal's state is cleaned up */
+		if (theNetwork.m_bNetwork)
+		{
+			bool remote = m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsRemote();
+
+			if (!remote)
+			{
+				bool player = m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsPlayer();
+				CZSealState::RemoveNetSeal((int)m_id, player);
+				m_id = CEntity::deletedId;
+			}
+			else
+			{
+				CZSealState::SealDeleteCleanup((int)m_id);
+			}
+		}
+
 		if (m_control != NULL)
 			delete m_control;
 	}
@@ -3213,8 +3232,8 @@ void CZSealBody::OnDeath()
 	/* 0x24f6d0 (SetHealth at 0 health): the entity dies (CEntity::OnDeath: not alive, the
 	 * controller told), its AI map cell is freed, the time noted. The local player's view
 	 * loses its lens effects, night vision and binoculars, goes back to third person, the
-	 * listener dies and the pad rumbles. Single player: the team valves count it down
-	 * (port: not written yet). Network: a "fragged" message for a seal killer, the remote
+	 * listener dies and the pad rumbles. Single player: the team valves count it down.
+	 * Network: a "fragged" message for a seal killer, the remote
 	 * voice messages (a hostage's own), and the team valves are recounted. */
 	CEntity::OnDeath();
 	AiMaps.SetOccupied(m_mapLocValid, reinterpret_cast<const CAiMapLoc &>(CAiMapLoc::invalid), m_id);
@@ -3433,11 +3452,68 @@ void CZSealBody::PostMortemPreTick(float)
 /* @socom-skeleton stub AdvancePiggyBack__10CZSealBodyFv */
 void CZSealBody::AdvancePiggyBack()
 {
+	/* 0x24f180 (a dead network player's spectator camera, forward): from the entity the camera
+	 * follows, the next seal in the entity list (wrapping to the first past the end) that is alive
+	 * or the player and shares a team bit with this seal; the camera attaches to it. Back at the
+	 * start nothing changes. */
+	int start = CEntity::GetEntityIndex(appCamera->m_entity);
+	CZSealBody *player = ftsPlayer;
+	CZSealBody *seal = player;
+	int i = start + 1;
+
+	while (i != start)
+	{
+		seal = SealOfEntity(CEntity::m_list.GetEntityByIndex(i));
+
+		if (seal == NULL)
+		{
+			seal = ftsPlayer;
+			i = 0;
+			continue;
+		}
+
+		if ((seal->m_isAlive || seal == player) && (m_team & seal->m_team) != 0)
+			break;
+
+		i++;
+	}
+
+	if (i != start)
+		appCamera->AttachTo(seal);
 }
 
 /* @socom-skeleton stub RetreatPiggyBack__10CZSealBodyFv */
 void CZSealBody::RetreatPiggyBack()
 {
+	/* 0x24f050: as AdvancePiggyBack, backward: below the first entity it wraps to the last; an
+	 * entity that is no seal is skipped */
+	int start = CEntity::GetEntityIndex(appCamera->m_entity);
+	CZSealBody *player = ftsPlayer;
+	CZSealBody *seal = player;
+	int i = start - 1;
+
+	while (i != start)
+	{
+		if (i < 0)
+			i = (int)CEntity::m_list.size() - 1;
+
+		seal = SealOfEntity(CEntity::m_list.GetEntityByIndex(i));
+
+		if (seal == NULL)
+		{
+			seal = ftsPlayer;
+			i--;
+			continue;
+		}
+
+		if ((seal->m_isAlive || seal == player) && (m_team & seal->m_team) != 0)
+			break;
+
+		i--;
+	}
+
+	if (i != start)
+		appCamera->AttachTo(seal);
 }
 
 /* @socom-skeleton stub TeleportTo__10CZSealBodyFPC6CPnt3DPC5CQuat */
@@ -4125,16 +4201,84 @@ ZOOMSTATE CZSealBody::DecrZoomState()
 /* @socom-skeleton stub NetworkPlayerCreate__10CZSealBodyFv */
 void CZSealBody::NetworkPlayerCreate()
 {
+	/* 0x24db80 (CMission, network game): the local player's seal: named after PLAYERNAMEVAR (a
+	 * string; without the variable "Player<client index>"; 31 characters, the 31st cleared), of the
+	 * network's character type, with a squirm controller when squirm mode is on (else a plain
+	 * CSealCtrl); it becomes the player, its node takes the name, its team mask is the net
+	 * game's team, vehicle index 0, the display name the name. m_oktocallinit is set first. */
+	m_oktocallinit = true;
+	char name[32];
+	CUIVariable *var = theUIVarManager.Find("PLAYERNAMEVAR");
+
+	if (var != NULL && var->type == ZRDR_STRING)
+		strncpy(name, var->string, 31);
+	else if (var != NULL)
+		name[0] = '\0'; /* port: the ELF copies from NULL when the variable is no string */
+	else
+		sprintf(name, "Player%d", theNetwork.zNetGetMyGameClientIndex());
+
+	name[30] = '\0'; /* ELF: sb zero,0x3e(sp) */
+	CCharacterType *type = CCharacterType::GetByNameMod(theNetwork.m_charType);
+	CSealCtrl *ctrl;
+
+	if (ftsGetSquirm())
+		ctrl = new CSealCtrlSquirm;
+	else
+		ctrl = new CSealCtrl;
+
+	CZSealBody *seal = Create(type, name, ctrl);
+	ftsSetPlayer(seal);
+	seal->m_node->SetName(name);
+	seal->SetTeamMask(theMission.m_pNetGame->m_net_team);
+	seal->m_vehicle_index = 0;
+	seal->SetDisplayName(name);
 }
 
 /* @socom-skeleton stub MakeGhost__10CZSealBodyFv */
 void CZSealBody::MakeGhost()
 {
+	/* 0x24da30 (a network player waiting to respawn): dead (death type 6), the node fully
+	 * transparent and switched off, and the AI net state word given to the controller: only its
+	 * transparency (15 when the node is off or transparent, else 15 x (1 - opacity)) and the
+	 * ghost bit */
+	SetHealth(0.0f, (SEAL_DEATH_TYPE)6);
+	zdb::CNode *node = GetNode();
+	node->m_Opacity = 0.0f;
+	node->SetActive(false);
+	SealAiNetState state;
+	memset(&state, 0, sizeof(state));
+
+	if (node->m_active && !(node->m_Opacity <= 0.0f))
+		state.m_transparency = (u32)floorf(15.0f * (1.0f - node->m_Opacity));
+	else
+		state.m_transparency = 15;
+
+	state.m_ghost = 1;
+	u32 word;
+	memcpy(&word, &state, 4);
+	static_cast<CSealCtrl *>(m_control)->SetAiNetState(word);
 }
 
 /* @socom-skeleton stub UnMakeGhost__10CZSealBodyFv */
 void CZSealBody::UnMakeGhost()
 {
+	/* 0x24d8f0 (CMPExitState, the round's end): the node opaque and on again, and the net state
+	 * word as MakeGhost's without the ghost bit */
+	zdb::CNode *node = GetNode();
+	node->m_Opacity = 1.0f;
+	node->SetActive(true);
+	SealAiNetState state;
+	memset(&state, 0, sizeof(state));
+
+	if (node->m_active && !(node->m_Opacity <= 0.0f))
+		state.m_transparency = (u32)floorf(15.0f * (1.0f - node->m_Opacity));
+	else
+		state.m_transparency = 15;
+
+	state.m_ghost = 0;
+	u32 word;
+	memcpy(&word, &state, 4);
+	static_cast<CSealCtrl *>(m_control)->SetAiNetState(word);
 }
 
 /* @socom-skeleton stub OpenHeartbeatSounds__10CZSealBodyFv */

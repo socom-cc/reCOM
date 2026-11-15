@@ -360,6 +360,7 @@ namespace sealai
 #include "gamez/zSound/zsnd.h"
 #include "gamez/zCamera/zcam.h" /* appCamera (PostMortemPreTick) */
 #include "Apps/FTS/hud/hud.h" /* CCompassAnchor (InitAiBrain's escortee anchor) */
+#include "gamez/zVideo/zvid.h" /* zVid.frameNumber (PreTick's AI log frame) */
 void CleanupDiPool(CZSealBody *); /* seal_sensors.cpp 0x2b3250 (OnDeath) */
 /* @socom-skeleton decl forward */
 class AI_FIREPARAMS;
@@ -790,8 +791,43 @@ void CSealCtrlAi::StopAiSound(AI_SOUND sound)
 /* @socom-skeleton stub GetAiLog__11CSealCtrlAiFv */
 CAiLog * CSealCtrlAi::GetAiLog()
 {
-	/* 0x26be30: port: not written (the AI log file, CAiLog); no log */
-	return NULL;
+	/* 0x26be30: with logging on, the log file is made on first use: "<database>.ailog" (no
+	 * mission database: none), a global CAiLog created with aiLogFlag (a failed Create deletes
+	 * it); its header records: the database name (type 32) and, per AI map, its index and
+	 * revision (type 33, 8 bytes). v0 = the log, NULL with logging off. */
+	if (!aiLogEnabled)
+		return NULL;
+
+	if (aiLogFile != 0)
+		return (CAiLog *)(uintptr_t)aiLogFile;
+
+	const char *database = theMission.m_database;
+
+	if (database == NULL)
+		return NULL;
+
+	char name[72];
+	sprintf(name, "%s.ailog", database);
+	CAiLog *log = new CAiLog(true);
+	aiLogFile = (int)(uintptr_t)log;
+
+	if (!log->Create(name, aiLogFlag != 0))
+	{
+		delete log;
+		aiLogFile = 0;
+		return NULL;
+	}
+
+	log->Write(32, 0, strlen(database), database);
+	struct { u32 index; u32 revision; } rec = { 0, 0 }; /* ELF: the literal @2555 */
+
+	for (CAiMap *map; (map = AiMaps.GetMapByIndex(rec.index)) != NULL; rec.index++)
+	{
+		rec.revision = map->m_revision;
+		log->Write(33, 0, 8, &rec);
+	}
+
+	return (CAiLog *)(uintptr_t)aiLogFile;
 }
 
 /* @socom-skeleton stub SetAiLogEnabled__11CSealCtrlAiFbb */
@@ -1764,11 +1800,18 @@ bool CSealCtrlAi::PlayAnim(AnimType type, SEAL_STATE state)
 /* @socom-skeleton stub Dump__9CSealCtrlFv */
 void CSealCtrl::Dump()
 {
+	/* 0x2694f0 (debug): the ELF's printing is compiled out; what is left asks the seal's
+	 * position, this controller's GetSealCtrlAi and, for each target that is a seal, its
+	 * controller's GetSealCtrlAi, and drops the answers: no effect */
 }
 
 /* @socom-skeleton stub Dump__11CSealCtrlAiFv */
 void CSealCtrlAi::Dump()
 {
+	/* 0x269430 (debug; AcquireRemoteAi calls it): CSealCtrl::Dump, empty loops over the state
+	 * numbers and the state stack (printing compiled out), then the path's PrintPath */
+	CSealCtrl::Dump();
+	m_path.PrintPath();
 }
 
 /* @socom-skeleton stub Tick__11CSealCtrlAiFf */
@@ -1898,7 +1941,7 @@ bool CSealCtrlAi::Tick(float dT)
 		shot->m_setup = 1;
 	}
 
-	/* ELF: CZSealState::UpdateLocalSeal(seal) 0x204740 (network replication; not written) */
+	CZSealState::UpdateLocalSeal(static_cast<CZSealBody *>(m_entity)); /* 0x2693e8 (network replication; returns at once offline) */
 	return true;
 }
 
@@ -1984,16 +2027,132 @@ void CSealCtrlAi::PostTick(float dT)
 /* @socom-skeleton stub GetAiNetState__11CSealCtrlAiCFv */
 unsigned int CSealCtrlAi::GetAiNetState() const
 {
+	/* 0x2682e0 (CZSealState::UpdateLocalSeal: an AI seal's state for the other machines): the
+	 * top AI state; following, the follow master's id; rescued, the rescued state's master; the
+	 * node's transparency; the restrained flag and whether the seal has its hostage anchor.
+	 * ELF: the rescued state is re-read and not NULL-tested */
+	CZSealBody *seal = static_cast<CZSealBody *>(m_entity);
+	zdb::CNode *node = seal->GetNode();
+	SealAiNetState state;
+	memset(&state, 0, sizeof(state));
+	const CAiState *top = GetAiState();
+	u8 ai = top != NULL ? top->m_state : 0;
+	state.m_ai_state = ai;
+
+	if (ai == STATE_RESCUED)
+	{
+		const CAiState *now = GetAiState();
+		state.m_master = static_cast<const CAiSRescued *>(now)->m_master;
+	}
+	else if (ai == STATE_FOLLOW)
+	{
+		GetAiState(); /* ELF: asked again, the answer dropped */
+		state.m_master = m_master != NULL ? m_master->m_id : 0;
+	}
+	else
+	{
+		state.m_master = 0;
+	}
+
+	if (node->m_active && !(node->m_Opacity <= 0.0f))
+		state.m_transparency = (u32)floorf(15.0f * (1.0f - node->m_Opacity));
+	else
+		state.m_transparency = 15;
+
+	state.m_restrained = seal->m_restrained ? 1 : 0;
+	state.m_hostage_anchor = seal->m_hostage_anchor != NULL ? 1 : 0;
+	u32 word;
+	memcpy(&word, &state, 4);
+	return word;
 }
 
 /* @socom-skeleton stub SetAiNetState__11CRemoteCtrlFUi */
-void CRemoteCtrl::SetAiNetState(unsigned int)
+void CRemoteCtrl::SetAiNetState(unsigned int word)
 {
+	/* 0x2680d0 (CZSealState::UpdateRemoteSeal): the received state is kept; the node takes its
+	 * opacity (1 - transparency / 15) and is on unless fully transparent; the hostage anchor
+	 * bit makes (ESCORTEE, type 4) or deletes the seal's hostage compass anchor; the restrained
+	 * flag is copied. ELF quirk kept: a change to the rescued state asks for the player and drops
+	 * the answer. */
+	CZSealBody *seal = static_cast<CZSealBody *>(m_entity);
+	zdb::CNode *node = seal->GetNode();
+	u32 old_word = GetAiNetState();
+	SealAiNetState old_state;
+	SealAiNetState state;
+	memcpy(&old_state, &old_word, 4);
+	memcpy(&state, &word, 4);
+	m_ai_net_state = word;
+	node->m_Opacity = 1.0f - (f32)state.m_transparency / 15.0f;
+	node->SetActive(state.m_transparency != 15);
+
+	if (state.m_hostage_anchor)
+	{
+		if (seal->m_hostage_anchor == NULL)
+		{
+			CCompassAnchor *anchor = CCompass::CreateAnchor(*seal->GetPosW(), "ESCORTEE");
+			anchor->m_type = 4;
+			seal->CompassAnchor_Hostage(anchor);
+		}
+	}
+	else if (seal->m_hostage_anchor != NULL)
+	{
+		CZSealBody::m_compass.DeleteAnchor(seal->m_hostage_anchor); /* port: DeleteAnchor is declared a member; the ELF one is static */
+		seal->CompassAnchor_Hostage(NULL);
+	}
+
+	if (old_state.m_ai_state != state.m_ai_state && state.m_ai_state == STATE_RESCUED)
+		ftsGetPlayer();
+
+	if ((state.m_restrained != 0) != (seal->m_restrained != 0))
+		seal->m_restrained = state.m_restrained;
 }
 
 /* @socom-skeleton stub AcquireRemoteAi__10CZSealBodyFP10CZSealBody */
-void CZSealBody::AcquireRemoteAi(CZSealBody *)
+void CZSealBody::AcquireRemoteAi(CZSealBody *seal)
 {
+	/* 0x267f00 (a remote AI seal whose owner left: this machine takes it over): the remote
+	 * controller's last net state is read; the seal gets a new CSealCtrlAi (initialized, a fresh
+	 * brain, the old controller's unit; Dump) and the state is resumed: following, FOLLOW (from
+	 * the top) on the master by id when that is a seal; rescued, RESCUED with the master id, set
+	 * up. ELF: the old controller is not deleted here (SetController(NULL)). */
+	CEntityCtrl *ctrl = seal->m_control;
+	CRemoteCtrl *remote = ctrl->GetRemoteControl();
+
+	if (remote == NULL)
+		return;
+
+	SealAiNetState state;
+	u32 word = remote->GetAiNetState();
+	memcpy(&state, &word, 4);
+	CSealUnit *unit = static_cast<CSealCtrl *>(ctrl)->m_unit;
+	seal->SetController(NULL);
+	CSealCtrlAi *ai = new CSealCtrlAi;
+	seal->SetController(ai);
+	ai->Initalize();
+	ai->InitAiBrain();
+	ai->m_unit = unit;
+	ai->Dump();
+
+	if (state.m_ai_state == STATE_RESCUED)
+	{
+		if (!ai->PushAiState(STATE_RESCUED, true))
+			return;
+
+		CAiState *top = ai->GetAiState();
+		CAiSRescued *rescued = top->m_state == STATE_RESCUED ? static_cast<CAiSRescued *>(top) : NULL;
+		rescued->m_master = state.m_master; /* ELF: not NULL-tested */
+		rescued->m_setup = 1;
+	}
+	else if (state.m_ai_state == STATE_FOLLOW)
+	{
+		CZSealBody *master = SealOfEntity(CEntity::m_list.GetEntityById(state.m_master));
+
+		if (master == NULL)
+			return;
+
+		if (ai->PushAiState(STATE_FOLLOW, true))
+			ai->SetFollowMaster(master);
+	}
 }
 
 /* @socom-skeleton stub PostMortemPreTick__11CSealCtrlAiFf */
@@ -2108,8 +2267,19 @@ bool CSealCtrlAi::PreTick(float dT)
 
 	_dT = dT;
 	_dTI = dT <= 0.0f ? 0.0f : 1.0f / dT;
-	/* ELF: with aiLogEnabled a frame record (type 0) is written to the AI log once per
-	 * frame (logFrameNum). port: not written (CAiLog) */
+	/* 0x267674: with aiLogEnabled a frame record (type 0: the frame's dT) goes to the AI log
+	 * once per video frame (logFrameNum, 64-bit in the ELF) */
+	if (logFrameNum != (long)zVid.frameNumber && aiLogEnabled)
+	{
+		CAiLog *log = GetAiLog();
+
+		if (log != NULL)
+		{
+			log->Write(0, 0, 4, &dT);
+			logFrameNum = (long)zVid.frameNumber;
+		}
+	}
+
 	CZSealBody* seal = static_cast<CZSealBody *>(m_entity);
 	CAiState* state = const_cast<const CSealCtrlAi *>(this)->GetAiState();
 
@@ -2502,18 +2672,187 @@ float CSealCtrl::ComputeTurnThrottle(const CPnt3D *facing, const CPnt3D *goal, f
 }
 
 /* @socom-skeleton stub LadderClimbTick__11CSealCtrlAiFf */
-bool CSealCtrlAi::LadderClimbTick(float)
+bool CSealCtrlAi::LadderClimbTick(float dT)
 {
 	/* @socom-skeleton stub mmt_move$3307 */
 	static float mmt_move;
 	/* @socom-skeleton stub _look$3310 */
 	static const unsigned char _look[12] = {0};
 
-	/* 0x266320 (1932 bytes): an AI on a ladder climbs it and PathFollowTick waits (1).
-	 * port: not written (ladders are another slice): never on a ladder */
-	(void)mmt_move;
+	/* 0x266320 (PathFollowTick; written, untested: m8 has no ladders): an AI whose path's next
+	 * point is a ladder action climbs it; v0 = 1 while the ladder is being handled (the caller
+	 * waits). State 0: on a climb blend already, up (2) or down (3) by the point after; else at
+	 * a ladder cell (action type 4) the path passes through in the action's direction, the goal
+	 * is the ladder's middle at the height of its end nearer the body (tolerance 0.01, goal
+	 * type 3; the goal cleared first) and state 1; no ladder: 0. State 1: the creep tick at
+	 * mmt_move speed with no side throttle; once a climb blend runs the path point is passed and
+	 * up / down chosen. States 2 / 3: climbing, the forward throttle +1 / -1, the others 0; when
+	 * the climb blend is over the goal (type 3) is cleared, the AI creeps, the throttle stops,
+	 * the path point is passed, state 0 and v0 = 0. A state change is logged (Output). ELF
+	 * quirks kept: the ladder's negated normal is overwritten by the action's direction vector
+	 * and neither is used; the GetCell answer is dropped; _look takes CPnt3D::unit_z at the
+	 * first call and is not read (port: a const placeholder, not written). */
+	static bool mmt_init = false; /* init$3308 */
+
+	if (!mmt_init)
+	{
+		mmt_init = true;
+		mmt_move = 0.2f;
+	}
+
 	(void)_look;
-	return false;
+	CZSealBody *seal = static_cast<CZSealBody *>(m_entity);
+	u32 count = m_path.m_points.size();
+
+	if (count == 0)
+	{
+		m_ladder_state = 0;
+		return false;
+	}
+
+	const CAiMapLoc &next = m_path.m_points[count - 1].m_loc;
+	static const CAiMapLoc none = reinterpret_cast<const CAiMapLoc &>(CAiMapLoc::invalid); /* port: CAiPath::next's dummy */
+	const CAiMapLoc &after = count >= 2 ? m_path.m_points[count - 2].m_loc : none;
+	AiMaps.GetCell(next);
+	CAiMap::action *action = AiMaps.GetCellAction(next);
+	f32 speed = m_speed;
+	bool climbing = seal->IsCurrentBlend((AnimType)46) || seal->IsCurrentBlend((AnimType)47) || seal->IsCurrentBlend((AnimType)48);
+	u8 old_state = m_ladder_state;
+	bool result = true;
+
+	switch (m_ladder_state)
+	{
+	case 0:
+		if (climbing)
+		{
+			CPnt3D c;
+			AiMaps.GetCellCenter(after, &c);
+			m_ladder_state = static_cast<CEntity *>(m_entity)->GetPosW()->y < c.y ? 2 : 3;
+			break;
+		}
+
+		if (action == NULL || action->m_type != 4 || m_path.m_points.size() < 2
+			|| !m_path.PassesThrough(action->m_loc, (CAiMap::DIR)action->m_direction, 0))
+		{
+			result = false;
+			break;
+		}
+
+		{
+			CLadderData *ladder = theMission.m_ladders->GetLadderByIndex(action->m_actionId);
+
+			if (ladder == NULL)
+			{
+				result = false;
+				break;
+			}
+
+			const CPnt3D *pos = static_cast<CEntity *>(m_entity)->GetPosW();
+			CPnt3D mid;
+			ladder->m_bbox.m_min.Interp(&ladder->m_bbox.m_max, 0.5f, &mid);
+			CPnt3D dir;
+			dir.x = -ladder->m_norm.x;
+			dir.y = -ladder->m_norm.y;
+			dir.z = -ladder->m_norm.z;
+			CAiMap::GetDirVec((CAiMap::DIR)action->m_direction, dir);
+			f32 y = pos->y;
+			f32 low = ladder->m_bbox.m_min.y;
+			f32 high = ladder->m_bbox.m_max.y;
+			mid.y = fabsf(low - y) <= fabsf(high - y) ? low : high;
+			GOAL_TYPE type = (GOAL_TYPE)(s8)m_goal_type;
+
+			if ((u8)m_goal_type == (u8)type) /* the old ClearGoal, inlined */
+			{
+				SetGoalPos(type, NULL, 3.0f);
+				SetGoalDir(type, NULL, false);
+				m_goal_timer.m_timer = CAiTimer::infinite;
+				m_goal_timer.m_period.m_min = CAiTimer::infinite;
+				m_goal_timer.m_period.m_range = 0.0f;
+			}
+
+			if ((u8)m_goal_type < 4) /* SetGoalPos(3, &mid, 0.01), inlined */
+			{
+				m_goal_pos = mid;
+				m_goal_pos_tolerance = 0.01f;
+				m_goal_pos_valid = 1;
+
+				if (m_goal_dir_valid && (u8)m_goal_type != 3)
+					SetGoalDir((GOAL_TYPE)(s8)m_goal_type, NULL, false);
+
+				m_goal_type = (GOAL_TYPE)3;
+			}
+
+			m_ladder_state = 1;
+		}
+		break;
+
+	case 1:
+		m_speed = mmt_move;
+		saturate<f32>(m_speed, 0.0f, 1.0f); /* _saturate<f> */
+		CreepTick(dT);
+		SetThrottle(1, 0.0f);
+		m_speed = speed;
+		saturate<f32>(m_speed, 0.0f, 1.0f); /* _saturate<f> */
+
+		if (climbing)
+		{
+			CPnt3D c0;
+			CPnt3D c1;
+			AiMaps.GetCellCenter(next, &c0);
+			AiMaps.GetCellCenter(after, &c1);
+
+			if (m_path.m_points.size() != 0)
+			{
+				m_last_loc = m_path.m_points.back().m_loc;
+				m_path.m_points.pop_back();
+			}
+
+			m_pathGoalDot = 0.0f;
+			m_ladder_state = static_cast<CEntity *>(m_entity)->GetPosW()->y < c1.y ? 2 : 3;
+		}
+		break;
+
+	case 2:
+	case 3:
+		if (!climbing)
+		{
+			if ((u8)m_goal_type == 3) /* the old ClearGoal(3), inlined */
+			{
+				SetGoalPos((GOAL_TYPE)3, NULL, 3.0f);
+				SetGoalDir((GOAL_TYPE)3, NULL, false);
+				m_goal_timer.m_timer = CAiTimer::infinite;
+				m_goal_timer.m_period.m_min = CAiTimer::infinite;
+				m_goal_timer.m_period.m_range = 0.0f;
+			}
+
+			m_creeping = 1;
+			SetThrottle(0, 0.0f);
+
+			if (m_path.m_points.size() != 0)
+			{
+				m_last_loc = m_path.m_points.back().m_loc;
+				m_path.m_points.pop_back();
+			}
+
+			m_pathGoalDot = 0.0f;
+			result = false;
+			m_ladder_state = 0;
+			break;
+		}
+
+		SetThrottle(0, m_ladder_state == 2 ? 1.0f : -1.0f);
+		SetThrottle(1, 0.0f);
+		SetThrottle(2, 0.0f);
+		break;
+
+	default:
+		break;
+	}
+
+	if (old_state != m_ladder_state)
+		Output("LADDER_STATE: %d-->%d\n", old_state, m_ladder_state);
+
+	return result;
 }
 
 /* @socom-skeleton stub awareRangeMin */

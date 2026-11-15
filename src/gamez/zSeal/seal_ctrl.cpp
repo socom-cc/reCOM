@@ -20,6 +20,7 @@
 #include "gamez/zInput/zinput.h" /* port: CInput/CPad for StopRumbler (moved from zseal_holding.cpp) */
 #include "gamez/zNetwork/znet.h" /* theNetwork (PostMortemPreTick) */
 #include "gamez/zGame/zgame.h" /* MENU_STATE (PostMortemPreTick) */
+#include "gamez/zFTS/zfts.h" /* CZBombState (TickMPBomb) */
 
 /* @socom-skeleton body StopRumbler__9CSealCtrlFv */
 void CSealCtrl::StopRumbler()
@@ -154,7 +155,7 @@ void CSealCtrl::PostMortemPreTick(float dT)
 
 	if (theNetwork.m_bNetwork)
 	{
-		/* port: not written - theVoice +0x11 = 1 (0x283fd0); the port has no network play */
+		theVoice.m_block_talk = true; /* 0x283fd0: a dead network player cannot talk */
 	}
 	else if (pad->GetTwoButtons(PAD_BUTTON::PAD_SELECT, PAD_BUTTON::PAD_CROSS))
 	{
@@ -222,13 +223,98 @@ void CSealCtrl::PerturbAimVector(CPnt3D *dir)
 }
 
 /* @socom-skeleton stub TickMPBomb__9CSealCtrlFf */
-void CSealCtrl::TickMPBomb(float)
+void CSealCtrl::TickMPBomb(float dT)
 {
+	/* 0x2838f0 (PostTick-side, network: the action button held on the MP bomb): while a bomb
+	 * node is engaged, the dropped MP bomb's node (CPickup::m_mpbombnode) within 20 in front of
+	 * the body (GetClosestNode, 1024 far) is the defusal node; the timer runs while the engaged
+	 * node is that node or the reticle's action node. When it runs out: at the defusal node with
+	 * the bomb placed (state 3) the defuse is attempted (bomb pickup timer 1) and the defusal
+	 * node cleared; else at an MP bomb site the body may use (CanPerformAction, inlined) the bomb
+	 * is placed unless already placed (the action runs, HandlePlacingExlosive(154, 1, 0.2)) and
+	 * the timer is disengaged. The engaged node is cleared then. */
+	if (m_mpbomb_node == NULL)
+		return;
+
+	CZSealBody *seal = static_cast<CZSealBody *>(m_entity);
+	zdb::CNode *bomb = CPickup::m_mpbombnode;
+	f32 d = -1.0f;
+
+	if (bomb != NULL)
+	{
+		const f32 (*m)[4] = seal->m_node->m_matrix.m_matrix;
+		CPnt3D dir;
+		dir.x = -m[2][0];
+		dir.y = -m[2][1];
+		dir.z = -m[2][2];
+		d = bomb->GetClosestNode((const CPnt3D *)&m[3][0], &dir, 1024.0f, 20.0f, 0.0f, -1.0f);
+	}
+
+	if (d == -1.0f)
+		bomb = NULL;
+
+	m_bomb_defusal_node = bomb;
+
+	if (m_mpbomb_node == m_bomb_defusal_node && d != -1.0f)
+		m_mpbomb_timer -= dT;
+
+	CNodeAction *action = seal->GetReticuleAction(true);
+
+	if (action != NULL && m_mpbomb_node == action->m_node)
+		m_mpbomb_timer -= dT;
+
+	if (!(m_mpbomb_timer < 0.0f))
+		return;
+
+	if (m_bomb_defusal_node != NULL)
+	{
+		if ((u8)CZBombState::m_BombStatus.CurrentBombState == 3)
+		{
+			m_bombpickuptimer = 1.0f;
+			seal->AttemptBombDefuse();
+			m_bomb_defusal_node = NULL;
+		}
+	}
+	else if (action != NULL && CanPerformAction(action) && action->m_type == CNodeAction::ACT_MPBOMB)
+	{
+		if ((u8)CZBombState::m_BombStatus.CurrentBombState != 3)
+		{
+			action->ExecuteAction(seal, 0);
+			seal->m_kit.HandlePlacingExlosive((EQUIP_ITEM)154, 1.0f, 0.2f);
+		}
+
+		m_mpbomb_bTimerEngaged = 0;
+	}
+
+	m_mpbomb_node = NULL;
 }
 
 /* @socom-skeleton stub InitMPBomb__9CSealCtrlFv */
 void CSealCtrl::InitMPBomb()
 {
+	/* 0x283750 (the action button pressed, network): with a defusal node in front, it is the
+	 * engaged node (5 s, timer engaged); else at an MP bomb site the body may use
+	 * (CanPerformAction, inlined) the last reticle node is */
+	CZSealBody *seal = static_cast<CZSealBody *>(m_entity);
+	CNodeAction *action = seal->GetReticuleAction(true);
+
+	if (m_bomb_defusal_node != NULL)
+	{
+		m_mpbomb_node = m_bomb_defusal_node;
+		m_mpbomb_timer = 5.0f;
+		m_mpbomb_bTimerEngaged = 1;
+		return;
+	}
+
+	if (action == NULL)
+		return;
+
+	if (CanPerformAction(action) && action->m_type == CNodeAction::ACT_MPBOMB)
+	{
+		m_mpbomb_node = seal->m_last_reticule.m_node;
+		m_mpbomb_timer = 5.0f;
+		m_mpbomb_bTimerEngaged = 1;
+	}
 }
 
 /* @socom-skeleton stub MPBomb_TimerAvailable__9CSealCtrlFb */

@@ -33,11 +33,19 @@
 #include "zinput.h"
 /* @socom-skeleton end include */
 #include "gamez/zFTS/zfts.h" /* theMission */
+#include "gamez/zNetwork/znet.h" /* theNetwork (PreTick's clock) */
+#include <math.h> /* expf, sqrtf (PreTick) */
 
 void NetSendAiOrders(unsigned int, unsigned int, unsigned int, void *); /* fts_remote.cpp (0x203780) */
 
 /* @socom-skeleton stub MultiplayerMsgStrings */
 static unsigned char MultiplayerMsgStrings[28];
+
+/* 0x2ce160 (no skeleton fence; the owner annotation above lists it): only CSealCtrl's part.
+ * port: written for the vtable (CreateRemoteSeal constructs CRemoteCtrl) */
+CRemoteCtrl::~CRemoteCtrl()
+{
+}
 
 /* @socom-skeleton stub GetRemoteAiState__11CRemoteCtrlFv */
 u8 CRemoteCtrl::GetRemoteAiState()
@@ -96,13 +104,102 @@ bool CRemoteCtrl::Tick(float)
 }
 
 /* @socom-skeleton stub PreTick__11CRemoteCtrlFf */
-bool CRemoteCtrl::PreTick(float)
+bool CRemoteCtrl::PreTick(float dT)
 {
 	/* @socom-skeleton stub sm$2347 */
 	static float sm;
 	/* @socom-skeleton stub last_time$2348 */
 	static int last_time;
-	/* 0x2ce310 returns 1; port: stub (the remote seal's network throttles are not written) */
+	/* 0x2ce310 (another machine's seal, each frame): once per network clock tick the smoothing
+	 * factor sm = exp(-dT x the net game's m_pos_smooth). The node takes the received state's
+	 * opacity and is on unless fully transparent. More than sqrt(1000) from the received
+	 * position the seal jumps there (position, orientation, altitude); otherwise it moves
+	 * toward it by sm (the received height taken as it is). The orientation turns toward the
+	 * received one by min(2 sm, 1) (SlerpFaster). The aim: the received fire elevation e, the
+	 * fire direction the node's forward axis scaled by sqrt(1 - e^2) with e as its height, the
+	 * body-space aim (0, e, -sqrt(1 - e^2)). While rounds are left to replay one is fired from
+	 * the fire point along that direction with the seal's velocity. v0 = 1. (init$2349 is the
+	 * function-local static guard of last_time's first set.) */
+	CZSealBody *seal = static_cast<CZSealBody *>(m_entity);
+	f32 goal_y = m_remote_goal_pos.y;
+	f32 rate = theMission.m_pNetGame->m_pos_smooth;
+	static bool init = false; /* init$2349 */
+
+	if (!init)
+	{
+		last_time = 0;
+		init = true;
+	}
+
+	if (last_time != theNetwork.zNetGetTime())
+	{
+		last_time = theNetwork.zNetGetTime();
+		sm = expf(-dT * rate);
+	}
+
+	SealAiNetState state;
+	u32 word = m_ai_net_state;
+	memcpy(&state, &word, 4);
+	zdb::CNode *node = seal->GetNode();
+
+	if (node != NULL)
+	{
+		node->SetActive(state.m_transparency != 15);
+		node->m_Opacity = 1.0f - (f32)state.m_transparency / 15.0f;
+	}
+
+	CPnt3D d;
+	m_remote_goal_pos.Sub(seal->GetPosW(), &d);
+
+	if (!(d.x * d.x + d.y * d.y + d.z * d.z <= 1000.0f))
+	{
+		seal->GetNode()->SetPosition(m_remote_goal_pos.x, m_remote_goal_pos.y, m_remote_goal_pos.z);
+		seal->m_quat.vec = m_remote_goal_quat.vec;
+		seal->m_quat.w = m_remote_goal_quat.w;
+		seal->ResetAltitude(m_remote_goal_pos.y);
+	}
+	else
+	{
+		CPnt3D to;
+		seal->GetPosW()->Interp(&m_remote_goal_pos, sm, &to);
+		to.y = goal_y;
+		seal->GetNode()->SetPosition(to.x, to.y, to.z);
+	}
+
+	f32 t = 2.0f * sm;
+
+	if (!(t <= 1.0f))
+		t = 1.0f;
+	else if (t < 0.0f)
+		t = 0.0f;
+
+	CQuat q;
+	seal->m_quat.SlerpFaster(&m_remote_goal_quat, t, &q);
+	seal->m_quat.vec = q.vec;
+	seal->m_quat.w = q.w;
+	f32 e = seal->m_RemoteFireElevation;
+	f32 c = sqrtf(1.0f - e * e);
+	const f32 (*m)[4] = seal->m_node->m_matrix.m_matrix;
+	CPnt3D fire;
+	fire.x = -m[2][0] * c;
+	fire.y = e;
+	fire.z = -m[2][2] * c;
+	CPnt3D aim;
+	aim.x = 0.0f;
+	aim.y = e;
+	aim.z = -c;
+	seal->AimWeapon();
+	seal->SetAimDirR(&aim, false);
+
+	if (seal->m_RemoteRoundCount != 0)
+	{
+		seal->m_RemoteRoundCount--;
+		CPnt3D fp;
+
+		if (seal->GetFP(fp))
+			seal->m_kit.FireCur(&fp, &fire, &static_cast<CZSealBody *>(m_entity)->m_velW);
+	}
+
 	return true;
 }
 

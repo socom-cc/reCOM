@@ -50,8 +50,8 @@ unsigned char CSealCtrl::AllowCommandFOLLOW(CZSealBody *source)
 	 * reticle) that is not the player, not rescued and not team 0x10000000 may be told to
 	 * follow when it is not following already. An escortee: in the escortee unit (or, single
 	 * player, Bravo) when within 50 cells; else when it follows someone else and the source is
-	 * nearer than 0.9 x that master and 500 units. Port: the network (remote control) branch
-	 * is not written: a remote seal reads as state 0, no master */
+	 * nearer than 0.9 x that master and 500 units. A remote seal (0x283474) reads its state and
+	 * master from the received net state (GetRemoteAiState / GetRemoteAiFollowMaster). */
 	if (source == NULL || IsPlayer())
 		return false;
 
@@ -72,6 +72,12 @@ unsigned char CSealCtrl::AllowCommandFOLLOW(CZSealBody *source)
 
 		if (!net && !ok)
 			ok = (seal->m_team & 2) != 0;
+	}
+	else if (IsRemote())
+	{
+		CRemoteCtrl *remote = GetRemoteControl();
+		state = (AI_STATE)remote->GetRemoteAiState();
+		master = remote->GetRemoteAiFollowMaster();
 	}
 
 	if (ok)
@@ -112,8 +118,7 @@ unsigned char CSealCtrl::AllowCommandHOLDPOS(CZSealBody *source)
 	/* 0x283090: a seal that is not the player or team 0x10000000 may be told to hold unless
 	 * it already holds a plain hold (a hold without option 0x20); an escortee only when
 	 * restrained and at the source's reticle, in the source's unit (single player: or in
-	 * Bravo) and within 50 cells. Port: the network (remote control) branch is not written
-	 * (a remote seal is refused) */
+	 * Bravo) and within 50 cells. A remote seal: an escortee whose net state has an AI state. */
 	if (source == NULL || IsPlayer())
 		return false;
 
@@ -136,6 +141,14 @@ unsigned char CSealCtrl::AllowCommandHOLDPOS(CZSealBody *source)
 			ok = (ai->GetAiState()->m_option_flags & 0x20) != 0;
 		else
 			ok = true;
+	}
+	else if (IsRemote())
+	{
+		/* 0x2831b8: a remote seal: only an escortee with an AI state in its net state */
+		CRemoteCtrl *remote = GetRemoteControl();
+		u8 state = remote->GetRemoteAiState();
+		remote->GetRemoteAiFollowMaster();
+		ok = state != 0 && escortee;
 	}
 
 	if (ok)

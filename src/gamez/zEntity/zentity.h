@@ -30,6 +30,7 @@ class CCharacterType;
 class CTarget;
 class CharacterDynamics;
 class CZSealBody;
+class CRemoteCtrl; /* zInput (CEntityCtrl::GetRemoteControl) */
 class CZBodyPart;
 class CModel;
 class CCameraParams;
@@ -216,6 +217,7 @@ public:
 	static void RefreshAwareCounters(); /* static: 0x1f0220 is called without an object (CSealCtrlAi::PreTick 0x2b3de4) */
 	static void UpdateTargetList(bool);
 	static const int invalidId;
+	static const int deletedId; /* 0x44cd78 = -2 (~CZSealBody: a network seal's id once removed) */
 	static std::list<CEntity*> m_recycle; /* 0x4bc440, 12 B MSL list (was int[3]); PreTickAll recycles its front */
 	static std::list<CEntity*> m_target_add; /* MSL lists (SetIncludeInTargetList 0x1f0b60) */
 	static std::list<CEntity*> m_target_inc;
@@ -242,7 +244,7 @@ public:
 	f32 m_throttle[3];
 	/* @socom-skeleton decl 11CEntityCtrl */
 public:
-	virtual void GetRemoteControl() {} /* ELF 0x1f1fe0 (non-const) returns 0; void kept (CRemoteCtrl override in zInput) */
+	virtual CRemoteCtrl *GetRemoteControl() { return NULL; } /* ELF 0x1f1fe0 (non-const) returns 0; CRemoteCtrl (zInput) answers itself (AcquireRemoteAi) */
 	virtual void SetThrottle(unsigned int index, float throttle) { m_throttle[index] = throttle; } /* ELF 0x1f1ff0: swc1 $f12,8+4*index(a0) */
 	CEntityCtrl(int type); /* ELF __ct__11CEntityCtrlFi: CSealCtrl passes 3 (0x28834c); the body ignores it */
 	/* @socom-skeleton end 11CEntityCtrl */

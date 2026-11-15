@@ -418,18 +418,18 @@ bool CZSealBody::GetAP(CPnt3D &pos)
 }
 
 /* @socom-skeleton stub GetFP__10CZSealBodyFR6CPnt3D */
-void CZSealBody::GetFP(CPnt3D &out)
+bool CZSealBody::GetFP(CPnt3D &out)
 {
 	/* 0x2bf820: the current fire point (its offset from the position), else the "firepoint"
-	 * node's position. ELF: returns 1 / GetFirepointPos's answer (void here) */
+	 * node's position. v0 = 1, or GetFirepointPos's answer */
 	if (m_curr_firept != NULL)
 	{
 		out = m_curr_firepos;
 		out.Add(GetPosW(), &out);
-		return;
+		return true;
 	}
 
-	GetFirepointPos(out, "firepoint");
+	return GetFirepointPos(out, "firepoint");
 }
 
 /* @socom-skeleton stub UpdateAimDir__10CZSealBodyFb */

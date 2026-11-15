@@ -424,3 +424,115 @@ CSealCtrl's base members only as every controller does (`m_entity`). Not written
   CreateMultiPlayerUnits, Revive, PlayRemoteMsg, the Dump debug functions, CRemoteCtrl::PreTick.
 - Single-player placeholders left: the ladder tick (0x266320; m8 has no ladders), the AI log (CAiLog), the aim-anim
   list (never filled in the ELF).
+
+# Part 5 (2026-11-14, socom-port-mod-zsealnet): the network group, CRemoteCtrl::PreTick, the last placeholders
+
+Scratch `build/port/boot-mod-zsealnet/` (untracked: NOTES.md, mine.txt, the surveys before / after, the stub
+disassembly `asm/`, the escort walking test generator `mk_escort2.py` (+ `case20.txt`) and its hook `hook_escort2.cpp`,
+`buildall.sh`, the edit file `edits/znet_h.txt`).
+
+## State
+- `survey.py gamez/zSeal`: stub fences 35 -> 0 (21,888 -> 0 B); written 534,856 -> 556,744 B. `gamez/zInput`: 0 -> 0
+  stubs (11,940 B), but `CRemoteCtrl::PreTick` was a placeholder returning 1: written now.
+- Lines marked "not written" in zSeal + zInput 34 -> 9, "port: stub" 3 -> 1 (left: see "Not written / next").
+- Everything network-only is written, untested (no network game on the demo disc); the offline game is unchanged
+  (each network branch tests `theNetwork.m_bNetwork` as the ELF does; UpdateLocalSeal returns at once offline).
+
+## Written (ELF addresses)
+- Damage replication: `Set{Body 0x290990, Head 0x290850, LArm 0x2906f0, RArm 0x290590, LLeg 0x290430, RLeg
+  0x2902d0}Damage` (the part's wound level from the network: health = the level's share of the maximum less 0.01,
+  then UpdateHealth), `RemoteWeaponDamageVictim` 0x290aa0.
+- Net pickups: `FillNetworkAmmoPickupValues` 0x28d900, `CheckForAmmoPickups` 0x28cdb0, `CanPickupNetItem` 0x28d0a0,
+  `CreateNetAmmoPickup` 0x28d230, `CreateNetWeaponPickup` 0x28d590, `HandlePickupAck` 0x28c5c0, `RemotePickupItem`
+  0x28dba0, and the network branches of DropAmmo 0x28e9c0, DropItem 0x28e6c8, HandlePickupEquip 0x28e2f0, PickupItem
+  0x28dfbc, CZKit::PickupAmmo(CPickup *) 0x2a66a4; `CPickup::NetworkCreate` 0x24d200 (zEntity).
+- MP bomb: `CreateMPBombPickup` 0x28c230, `CSealCtrl::InitMPBomb` 0x283750 / `TickMPBomb` 0x2838f0, TickPickups' bomb
+  part 0x2854cc, `CZKit::PickupMPBomb` 0x2a6900 / `HandlePlaceMPBomb` 0x2a6b30.
+- Remote seals: `CreateRemoteSeal` 0x289480 (the CRemoteCtrl ctor is inlined there: zinput.h has it inline with the
+  trivial virtuals OnDeath 0x2ce1d0, GetRemoteControl 0x2ce1c0, IsPlayer 0x2ce1f0, IsRemote 0x2ce200, OnStunDamage
+  0x2ce1e0; the dtor 0x2ce160 is in remote_control.cpp), `RemoteRespawn` 0x288cb0, `Destroy` 0x2898b0,
+  `CSealCtrlAi::GetAiNetState` 0x2682e0, `CRemoteCtrl::SetAiNetState` 0x2680d0, `AcquireRemoteAi` 0x267f00,
+  `NetworkPlayerCreate` 0x24db80, `MakeGhost` 0x24da30 / `UnMakeGhost` 0x24d8f0, the spectator camera
+  `AdvancePiggyBack` 0x24f180 / `RetreatPiggyBack` 0x24f050, ~CZSealBody's network branch 0x2570f8 (with
+  `CEntity::deletedId` 0x44cd78 = -2), the remote branches of AllowCommandFOLLOW 0x283474 / AllowCommandHOLDPOS
+  0x2831b8.
+- Units and messages: `CSealUnit::CreateMultiPlayerUnits` 0x2d4a40, `Revive` 0x2d63a0, `PlayRemoteMsg` 0x2cf330,
+  IssueCommand's radio units and voice channels 0x2d0924, OnDeath's voice-unit order 0x287cf8, CZKit::Fire's network
+  messages 0x2ad1d4 and SaveFireMessage 0x2adda0, PostMortemPreTick's `theVoice.m_block_talk` 0x283fd0.
+- `CRemoteCtrl::PreTick` 0x2ce310 (zInput): once per network clock tick the smoothing factor exp(-dT x the net game's
+  m_pos_smooth); the node takes the received opacity; more than sqrt(1000) from the received position the seal jumps
+  there, else moves toward it by the factor (the received height kept); the orientation slerps toward the received
+  one by min(2 x factor, 1); the aim from the received fire elevation; one replayed round per frame while
+  m_RemoteRoundCount lasts (GetFP, FireCur). It reads CSealCtrl's own members (m_remote_goal_pos / quat,
+  m_ai_net_state), nothing new in CRemoteCtrl.
+- Debug / AI log: `CSealCtrl::Dump` 0x2694f0 (no effect: the printing is compiled out), `CSealCtrlAi::Dump` 0x269430,
+  `GetAiLog` 0x26be30 ("<database>.ailog", header records 32 / 33), the per-frame log record of PreTick 0x267674.
+- Single player (untested, m8 has no ladders): `CSealCtrlAi::LadderClimbTick` 0x266320 (states 0-3: to the ladder,
+  creep on, climb up / down by the next point's height, off). Also CSealCtrlAi::Tick's and CSealCtrlSquirm::Tick's
+  UpdateLocalSeal calls (0x2693e8, 0x2e24d0).
+- `GetFP` returns bool (0x2bf820; PreTick tests it).
+
+## Outside zSeal / zInput (small in-place edits, free at HEAD)
+- `zEntity/pickup_main.cpp` (NetworkCreate), `zEntity/zentity.h` (GetRemoteControl answers CRemoteCtrl *; deletedId),
+  `zEntity/ent_main.cpp` (deletedId).
+- Edit file for zNetwork (owned by another worker): `znet.h` friends CSealCtrl (m_block_talk) and CSealUnit
+  (m_isOn / m_isOn_save).
+
+## Findings
+- The AI net state word (CSealCtrl +0xe4; no DWARF type, the ELF copies a 4-byte local with memcpy): byte 0 the top AI
+  state; bits 8-23 the follow master's id (FOLLOW: m_master; RESCUED: the state's master); byte 3: bits 0-3 the node's
+  transparency (15 x (1 - opacity), 15 when off), bit 4 m_restrained, bit 5 the hostage compass anchor, bit 6 the ghost
+  flag. zseal.h `SealAiNetState` (names invented).
+- `AckUnion` is one byte of bits (ammo box entry i = bit i, a weapon = bit 0). The zFTS pickup packets' "host" field is
+  the item count; PickupMayI's "type" is the asking seal's id.
+
+## ELF quirks kept
+- RemoteWeaponDamageVictim resolves the hit on the body again after the part (its flag is set to 1 and only re-set to
+  1); SetHeadDamage(4) gives 0.7 of the maximum; CanPickupNetItem runs its check once per item on the same pickup;
+  CreateNetWeaponPickup does not add the model to the world; CreateNetAmmoPickup leaks the record without a model;
+  CreateMPBombPickup answers 0 when told to make no pickup; the ammo entry readers read an index equal to the size;
+  PlayRemoteMsg's two side colours are the same call; CreateMultiPlayerUnits and SetAiNetState ask for the player and
+  drop the answer; NetworkPlayerCreate clears the name's 31st character; LadderClimbTick's ladder normal is overwritten
+  and unused.
+
+## Port deviations
+- HandlePickupAck: entries past the box's end read as none; NetworkPlayerCreate: a PLAYERNAMEVAR that is no string gives
+  an empty name (the ELF copies from NULL); HandlePickupEquip: the seven unused asked items are 0 (stack garbage in the
+  ELF); NetworkCreate answers NULL while the pickups are closed (the ELF writes the net id through NULL);
+  RemotePickupItem bounds-tests the item model slot; CZKit::PickupAmmo asks for at most 8 entries (the packet's size).
+
+## The escortee's rescue from a walk (part 4's open check)
+- Scratch hook `hook_escort2.cpp` (generated by `mk_escort2.py` from `port/test-hooks/win`, -DSOCOM_HOOK_WIN
+  -DESCORT_WALK): the win flow up to Snow3's restraint, the player facing him (teleported, as the win hook does), then
+  no more teleports: a walked trail (40 + 40 units by pad, the ELF's FollowTick gives up at once on a trail that still
+  holds the teleports: err 572-685 > 300, CMD_HOLDPOS, seen again in zne2 / zne4), CMD_ESCORT to the fireteam (the
+  captive as the reticule seal), and a pad walk into Extract along the line a routed walk had taken (waypoints).
+- zne6 (tree = HEAD ae072df3 + this part): the order holds ("escort Snow3 (follows Bailey)", then the player's FOLLOW);
+  the captive follows 15-311 behind over about 1,100 units, calls "wait up" (sound 47) twice; at 312.2 s, with the
+  player at the last waypoint but one and the captive entering the region while following: "AI: Snow3 rescued in
+  region Extract (master player)", PlayMPEG `run/movies/m8/extract.pss` (the extraction movie), the extract valve 0 ->
+  1, mission_complete 0 -> 1, the debrief: "EXIT: debrief open (objectives 3/7)", MISSION SUCCESSFUL on screen. No
+  code was changed for this: the ELF path (part 4's comparison) works from a walk.
+- Hook findings (not game behaviour): a pad walk straight at Extract's centre sticks on the terrain north of the Bosler
+  house; ai::PathPlanImmediate to Extract sometimes answers 12 points, sometimes none, from the same cell.
+
+## Not written / left (zSeal, zInput)
+- The aim-anim list (seal_env.cpp, CZSealBody::m_aim_anims): left as the ELF has it - nothing in the ELF fills it.
+- Single-player gaps outside this part's brief, still marked in the source: ChooseLookDir 0x2597a0 and the idle look
+  (seal_ai.cpp), the AI-state push gate (seal_aistate.cpp: the states without a Tick), DropBody's DetachBody
+  (seal_body.cpp), the peek ray test 0x286f70 (seal_control.cpp), CTMap's cell flags 9 / 10 (seal_tasks.cpp), the
+  _diPool destructor at exit (seal_sensors.cpp).
+- Everything of this part that is network-only is untested (no network game on the demo disc).
+
+## Runs (tree = HEAD ae072df3 + this part; screenshots under `build/port/screenshots/45-zseal/`)
+- znst (part 1's stability hook with team traces, pad_fire.txt, 270 s): no STOP or exception; firing, kills, recycling
+  and respawns (OutPatrol1 / 3); heap in use 23.39-23.40 MB over the last 100 s. The team: DiMone follows to the end;
+  Hutchins lost FOLLOW at 169 s when an enemy grenade's blast hit him in his PURSUE / GRENADE states (all his states
+  popped, no new order), a path this part does not touch (the ladder tick answers 0 in m8: anims 46-48 are the ladder
+  anims; the AI log is off; the rest is network-only).
+- znw2 (`port/test-hooks/win`, -DSOCOM_HOOK_WIN): Snow3 rescued in Extract, extract 0 -> 1, mission_complete 0 -> 1,
+  "EXIT: debrief open (objectives 3/7)", IsMissionSuccessful (its screenshots came out black: the display was off).
+- zne6 (escort walk, above): MISSION SUCCESSFUL on the debrief (escort-walk-mission-successful screenshot).
+- znsr4 (`port/test-hooks/state`, -DSOCOM_HOOK_MISSIONS=8: the hook's default is 4 now): in use 18,666,708 B at return 1,
+  then 18,666,804 B at returns 2-8 (flat); no STOP.
+- zsndef (default build, no hooks): boots to dlgMenu at 15.8 s.

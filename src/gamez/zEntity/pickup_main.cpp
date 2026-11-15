@@ -140,11 +140,24 @@ void CPickup::DebugPickups()
 }
 
 /* @socom-skeleton stub NetworkCreate__7CPickupFUcQ27CPickup7PU_TYPEPQ23zdb5CNodePv */
-CPickup * CPickup::NetworkCreate(unsigned char, CPickup::PU_TYPE, zdb::CNode *, void *)
+CPickup * CPickup::NetworkCreate(unsigned char entity, CPickup::PU_TYPE type, zdb::CNode *node, void *data)
 {
-	/* 0x24d200 (network games only: DropItem / DropAmmo / CreateMP*): a pickup with a network id.
-	 * port: not written (no network game) */
-	return NULL;
+	/* 0x24d200 (network games only: DropItem / DropAmmo / CreateMP*): Create's body (inlined in
+	 * the ELF), then the net id: the entity in the high byte, the next free net pickup index in
+	 * the low byte; the index moves on past every index in use for that entity. v0 = the
+	 * pickup. port: NULL while closed (the ELF writes the net id through NULL) */
+	CPickup *pickup = Create(type, node, data);
+
+	if (pickup == NULL)
+		return NULL;
+
+	pickup->m_netid = (u16)(((u32)entity << 8) | m_nextNetPickupId);
+	m_nextNetPickupId++;
+
+	while (IsNetIdUsed(entity, m_nextNetPickupId))
+		m_nextNetPickupId++;
+
+	return pickup;
 }
 
 /* @socom-skeleton stub GetVisibleByUnit__7CPickupFUi */

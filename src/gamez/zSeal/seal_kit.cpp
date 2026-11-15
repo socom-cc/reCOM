@@ -161,6 +161,7 @@
 #include "gamez/zSound/zsnd.h" /* CSnd::GetSoundByName (Init) */
 #include "gamez/zCharacter/zchar.h" /* CCharacterType::m_gear_list */
 #include "gamez/zNode/node_light.h" /* CLightMap (UnInit) */
+#include "Apps/FTS/hud/hud.h" /* CCompassAnchor (PickupMPBomb) */
 /* @socom-skeleton decl forward */
 class CTargetMods;
 class CZAmmoPickupInstance;
@@ -1049,9 +1050,17 @@ CZProjectile * CZKit::Fire(int index, const CPnt3D *from, const CPnt3D *dir, con
 
 	if (theNetwork.m_bNetwork)
 	{
-		/* port: not written - network fire messages (PlayRemoteMsg 0x3f MP bomb, 0x23 grenade
-		 * warning to the player's team) */
-		(void)body;
+		/* 0x2ad1d4: network fire messages: the MP bomb (154) says message 63; a thrown grenade
+		 * (121, 122, 123, 126) warns (35) when the player is someone else on the thrower's side
+		 * (team bit 0, else bit 8) */
+		u32 shift = (body->m_team & 1) != 0 ? 0 : 8;
+		u8 v = (u8)id;
+
+		if (v == 154)
+			PlayRemoteMsg(body, 63);
+		else if ((v == 121 || v == 126 || v == 122 || v == 123) && ftsGetPlayer() != body
+			&& (ftsGetPlayer()->m_team & (1u << shift)) != 0)
+			PlayRemoteMsg(body, 35);
 	}
 
 	zdb::CModel *model = NULL;
@@ -1259,9 +1268,7 @@ CZProjectile * CZKit::Fire(int index, const CPnt3D *from, const CPnt3D *dir, con
 			m_body->m_stats.Shot(*m_body);
 
 		if (theNetwork.m_bNetwork)
-		{
-			/* port: not written - SaveFireMessage (network) */
-		}
+			SaveFireMessage(m_body, dir); /* 0x2adda0: the shot goes out with its direction */
 	}
 	else
 	{
@@ -3806,13 +3813,75 @@ bool CZKit::WeaponInfoChanged()
 }
 
 /* @socom-skeleton stub HandlePlaceMPBomb__5CZKitFPC6CPnt3D */
-void CZKit::HandlePlaceMPBomb(const CPnt3D *)
+void CZKit::HandlePlaceMPBomb(const CPnt3D *pos)
 {
+	/* 0x2a6b30 (CZBombState: the bomb placed): the bomb model at the point (no pickup); the MP
+	 * bomb item (154) leaves its slot (item and ammo cleared, the ammo count emptied, the item
+	 * count updated); the HUD redraws the weapon box; the satchel gear is hidden */
+	CZSealBody::CreateMPBombPickup(pos, true);
+	int index = GetItemIndex((EQUIP_ITEM)154);
+
+	if (index != -1)
+	{
+		m_item[unwrap(index, m_num_items)] = NULL;
+		s32 slot = unwrap(index, m_num_items);
+		EmptyAmmoCountTotal(slot);
+		m_ammo[slot] = NULL;
+		UpdateNumItems();
+	}
+
+	static_cast<CSealCtrl *>(m_body->m_control)->m_HudUpdateWeapon = 1;
+	m_body->EnableMPBombGear(false);
 }
 
 /* @socom-skeleton stub PickupMPBomb__5CZKitFv */
 void CZKit::PickupMPBomb()
 {
+	/* 0x2a6900 (CZBombState: this seal took the dropped bomb): the MP bomb (item 154, ammo 19,
+	 * one round) into the next slot; the player sees its name in the messenger; the reload
+	 * sound; the "grenade" item model; the bomb pickup is destroyed and its node forgotten; the
+	 * satchel gear is shown. The compass (the player's, or this seal's when it is the player):
+	 * the bomb anchor deleted, an ALL_YOUR_BASE anchor at the enemy side's bomb shack (team
+	 * 0x100: the SEALs' shack, else the terrorists'), type 2 when the player shares the seal's
+	 * team, else 3, as the MP base anchor. Without a bomb pickup only the gear is shown. */
+	CPickup *pickup = CPickup::GetMPBomb();
+
+	if (pickup == NULL)
+	{
+		m_body->EnableMPBombGear(true);
+		return;
+	}
+
+	s32 slot = m_num_items;
+	CZWeapon *weapon = CZWeapon::m_listWeapons.GetWeapon((EQUIP_ITEM)154);
+	CZAmmo *ammo = CZAmmo::m_ammolist.GetAmmo((EQUIP_AMMO)19);
+	SetItemByIndex(slot, weapon);
+	m_ammo[slot] = ammo;
+	AddAmmo(slot, 1);
+
+	if (m_body->m_control != NULL && static_cast<CSealCtrl *>(m_body->m_control)->IsPlayer())
+		theMission.m_messenger.Add_Message(weapon->GetName(), 0);
+
+	if (m_rldsnd != NULL)
+		m_rldsnd->PlaySound(NULL, 255);
+
+	InitItemModel(weapon->GetModelName(), "grenade");
+	CPickup::Destroy(pickup);
+	CPickup::m_mpbombnode = NULL;
+	m_body->EnableMPBombGear(true);
+	CZSealBody *seal;
+
+	if (m_body->m_control != NULL && static_cast<CSealCtrl *>(m_body->m_control)->IsPlayer())
+		seal = m_body;
+	else
+		seal = ftsGetPlayer();
+
+	CZSealBody::m_compass.DeleteAnchor(seal->m_mpbomb_anchor); /* port: DeleteAnchor is declared a member; the ELF one is static */
+	seal->CompassAnchor_MPBomb(NULL);
+	zdb::CNode *shack = (m_body->m_team & 0x100) != 0 ? theMission.m_sealbombshack : theMission.m_terroristbombshack;
+	CCompassAnchor *anchor = CCompass::CreateAnchor(*(const CPnt3D *)&shack->m_matrix.m_matrix[3][0], "ALL_YOUR_BASE");
+	anchor->m_type = (m_body->m_team & seal->m_team) != 0 ? 2 : 3;
+	seal->CompassAnchor_MPBase(anchor);
 }
 
 /* @socom-skeleton stub PickupAmmo__5CZKitFP7CPickup */
@@ -3821,8 +3890,9 @@ void CZKit::PickupAmmo(CPickup *pickup)
 	/* 0x2a6530 (HandlePickupAmmoInstance: an ammo box walked over): a pending network request
 	 * (m_current_requested_ammo) blocks until m_pickupRequestWait runs out; each entry of the
 	 * box goes through PickupAmmo(weapon, ammo, &count) and the entry is written back with the
-	 * rounds left. Network games ask the server instead (CanAddAmmo per entry, then
-	 * SendMayIPickupMessage; port: not written, no network game). ELF quirk kept: an entry index
+	 * rounds left. In a network game a box another seal dropped is asked for instead
+	 * (CanAddAmmo per entry, then SendMayIPickupMessage; port: at most 8 entries asked, the
+	 * packet's size). ELF quirk kept: an entry index
 	 * equal to the box's size is read (and written) one past the end (port: not read). The box
 	 * stays even when empty (only the network ack cleans it up). */
 	if (m_pickupRequestWait <= 0.0f)
@@ -3841,23 +3911,70 @@ void CZKit::PickupAmmo(CPickup *pickup)
 		return;
 
 	s32 count = (s32)box->m_weapons.size();
-
-	if (theNetwork.m_bNetwork)
-		return; /* port: the network request path is not written */
+	u8 owner = (u8)pickup->GetPickupNetEntityID();
+	u16 asked[8];
+	u16 num_asked = 0;
 
 	for (s32 i = 0; i < count; i++)
 	{
-		if (i >= (s32)box->m_weapons.size())
-			continue;
+		CZFTSWeapon *weapon = NULL;
+		CZAmmo *ammo = NULL;
+		s32 rounds = 0;
 
-		CZFTSWeapon *weapon = box->m_weapons[i];
-		CZAmmo *ammo = box->m_ammo[i];
-		s32 rounds = box->m_counts[i];
+		if (i < (s32)box->m_weapons.size())
+		{
+			weapon = box->m_weapons[i];
+			ammo = box->m_ammo[i];
+			rounds = box->m_counts[i];
+		}
+
+		if (theNetwork.m_bNetwork && m_body->m_id != owner)
+		{
+			/* 0x2a66a4: a box dropped by another seal: each entry the kit can take is asked for
+			 * (packed item << 8 | ammo id; 255 without an item) and the kit waits 1 s for the
+			 * answer (m_current_requested_ammo). ELF: the ammo is not NULL-tested */
+			bool can = false;
+
+			if (weapon != NULL)
+			{
+				int index = GetItemIndex(weapon->m_ID);
+				can = CanAddAmmo(index != -1 ? index : m_num_items, rounds);
+			}
+			else
+			{
+				for (s32 k = 0; k < m_num_items; k++)
+				{
+					if (m_item[k]->IsLegalAmmo(ammo))
+					{
+						can = CanAddAmmo(k, rounds);
+						break;
+					}
+				}
+			}
+
+			if (can && num_asked < 8)
+			{
+				u16 item = weapon != NULL ? (u8)weapon->m_ID : 255;
+				asked[num_asked++] = (u16)((item << 8) | (u8)ammo->m_ID);
+				m_current_requested_ammo = 1;
+				m_pickupRequestWait = 1.0f;
+			}
+
+			continue;
+		}
+
 		PickupAmmo(weapon, ammo, &rounds);
-		box->m_weapons[i] = weapon;
-		box->m_ammo[i] = ammo;
-		box->m_counts[i] = rounds;
+
+		if (i < (s32)box->m_weapons.size())
+		{
+			box->m_weapons[i] = weapon;
+			box->m_ammo[i] = ammo;
+			box->m_counts[i] = rounds;
+		}
 	}
+
+	if (theNetwork.m_bNetwork && num_asked > 0)
+		SendMayIPickupMessage(num_asked, pickup->m_netid, asked, (u8)m_body->m_id, owner);
 }
 
 /* @socom-skeleton stub PickupAmmo__5CZKitFP11CZFTSWeaponP6CZAmmoPi */

@@ -261,7 +261,8 @@ bool CSealCtrlSquirm::PreTick(float dT)
 /* @socom-skeleton stub Tick__15CSealCtrlSquirmFf */
 bool CSealCtrlSquirm::Tick(float)
 {
-	/* 0x2e24d0 returns 1; port: stub (squirm mode is not written) */
+	/* 0x2e24d0: the seal's network state goes out (returns at once offline); v0 = 1 */
+	CZSealState::UpdateLocalSeal(static_cast<CZSealBody *>(m_entity));
 	return true;
 }
 

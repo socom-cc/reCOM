@@ -107,6 +107,9 @@
 #include "gamez/zValve/zvalve.h" /* CValve::Create */
 #include "gamez/zNetwork/znet.h" /* theNetwork (AllowCommand) */
 #include "Apps/FTS/hud/hud.h" /* CCompassAnchor (Bravo's compass anchor) */
+
+enum R_SEND_TO { }; /* as fts_remote.cpp declares it (unproven: by value per the mangled name) */
+void SendMessageMessage(int, R_SEND_TO, int); /* fts_remote.cpp (IssueCommand's radio units) */
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
 class MAP_LINEWALK_STRUCT;
@@ -491,8 +494,28 @@ void CSealUnit::SealLeaveUnit(CZSealBody *seal)
 }
 
 /* @socom-skeleton stub Revive__9CSealUnitFP10CZSealBody */
-void CSealUnit::Revive(CZSealBody *)
+void CSealUnit::Revive(CZSealBody *seal)
 {
+	/* 0x2d63a0 (RemoteRespawn): a living seal on the dead list leaves it and goes back to the
+	 * escortees (a hostage, team 0x20000, outside unit 17) or the members. (The ELF then walks
+	 * the member and escortee lists looking for the seal and does nothing either way.) */
+	if (!seal->m_isAlive)
+		return;
+
+	for (std::list<CZSealBody *>::iterator it = m_dead_guys.begin(); it != m_dead_guys.end(); ++it)
+	{
+		if (*it != seal)
+			continue;
+
+		m_dead_guys.erase(it);
+
+		if ((seal->m_team & 0x20000) != 0 && m_unit_num != 17)
+			m_escortees.push_back(seal);
+		else
+			m_seals.push_back(seal);
+
+		return;
+	}
 }
 
 /* @socom-skeleton stub IsMemberOfUnit__9CSealUnitFUiP10CZSealBodyb */
@@ -721,6 +744,60 @@ void CSealUnit::UnInit()
 /* @socom-skeleton stub CreateMultiPlayerUnits__9CSealUnitFv */
 void CSealUnit::CreateMultiPlayerUnits()
 {
+	/* 0x2d4a40 (CMission, network game; once): the units 0 (the player's), 28, 17 (the
+	 * escortees), 31, 30, 26, 25 and 24 are found by number or made and listed, each without a
+	 * radio channel valve; unit 24 gets the "mp_radio_channel_valve" (type 1). Then every seal
+	 * of team 0x10000000 joins unit 28, every hostage (0x20000) unit 17 (SealJoinUnit inlined);
+	 * the player joins unit 0. ELF quirk kept: for any other seal the player is asked for and
+	 * the answer dropped. */
+	if (m_created_units_test)
+		return;
+
+	static const u32 nums[8] = { 0, 28, 17, 31, 30, 26, 25, 24 };
+	CSealUnit *units[8];
+
+	for (int n = 0; n < 8; n++)
+	{
+		CSealUnit *unit = NULL;
+
+		for (std::list<CSealUnit *>::iterator it = m_list.begin(); it != m_list.end(); ++it)
+		{
+			if ((*it)->m_unit_num == nums[n])
+			{
+				unit = *it;
+				break;
+			}
+		}
+
+		if (unit == NULL)
+		{
+			unit = new CSealUnit(nums[n]);
+			m_list.push_back(unit);
+		}
+
+		unit->m_radio_channel_valve = NULL;
+		units[n] = unit;
+	}
+
+	units[7]->m_radio_channel_valve = CValve::Create("mp_radio_channel_valve", (VALVE_TYPE)1);
+	m_created_units_test = 1;
+
+	for (std::list<CEntity *>::const_iterator it = CEntity::m_list.begin(); it != CEntity::m_list.end(); ++it)
+	{
+		CZSealBody *seal = SealOfEntity(*it);
+
+		if (seal == NULL)
+			continue;
+
+		if ((seal->m_team & 0x10000000) != 0)
+			units[1]->SealJoinUnit(seal);
+		else if ((seal->m_team & 0x20000) != 0)
+			units[2]->SealJoinUnit(seal);
+		else
+			ftsGetPlayer();
+	}
+
+	units[0]->SealJoinUnit(ftsGetPlayer());
 }
 
 /* @socom-skeleton stub InitalizeSealUnit__9CSealUnitFP10CZSealBody */
@@ -1310,9 +1387,54 @@ CZSealBody * CSealUnit::IssueCommand(CZSealBody *source, FT_COMMAND cmd, void *b
 		}
 	}
 
-	/* ELF: in a network game the radio units (26, 30, 31) send the order as a message and
-	 * unit 24 switches the voice channel (CMD_RADIO_CHANNEL_*). port: not written (single
-	 * player only) */
+	/* 0x2d0924: in a network game the radio units send the order as a message (26: to all,
+	 * also said here; 31: -3; 30: -2); unit 24 switches the voice: order 32 toggles the radio,
+	 * 28-31 pick channel 0-3 of the source's side (team 0x100: 8 + channel) in the radio
+	 * channel valve and theVoice; any other order to unit 24 does nothing. v0 = 0. */
+	if (theNetwork.m_bNetwork)
+	{
+		if (m_unit_num == 26)
+		{
+			SendMessageMessage((int)source->m_id, (R_SEND_TO)-1, (int)(u8)cmd);
+			PlayRemoteMsg(source, (int)(u8)cmd);
+		}
+
+		if (m_unit_num == 31)
+			SendMessageMessage((int)source->m_id, (R_SEND_TO)-3, (int)(u8)cmd);
+
+		if (m_unit_num == 30)
+			SendMessageMessage((int)source->m_id, (R_SEND_TO)-2, (int)(u8)cmd);
+
+		if (m_unit_num == 24)
+		{
+			u8 base = (source->m_team & 0x100) != 0 ? 8 : 0;
+			u8 order = (u8)cmd;
+
+			if (order == 32)
+			{
+				theVoice.m_isOn = !theVoice.m_isOn;
+				theVoice.m_isOn_save = theVoice.m_isOn;
+				return NULL;
+			}
+
+			if (order < 28 || order > 31)
+				return NULL;
+
+			u32 channel = order - 28;
+			CValve *valve = m_radio_channel_valve;
+			u32 value = base | channel;
+			u32 old = valve->m_value; /* inline set (ELF: a 16-bit value) */
+			s32 change = old == value ? 0 : (value != 0 ? 1 : 2);
+			valve->m_value = value;
+
+			if (change != 0)
+				valve->MakeCallbacks((VALVE_STATE)change);
+
+			theVoice.Channel((int)channel, base);
+			return NULL;
+		}
+	}
+
 	if (m_unit_num == 29)
 	{
 		HandleSupport(source, cmd, buffer, quiet);
@@ -2127,8 +2249,81 @@ void SetPlayAutoMessages(bool on)
 }
 
 /* @socom-skeleton stub PlayRemoteMsg__FP7CEntityi */
-void PlayRemoteMsg(CEntity *, int)
+void PlayRemoteMsg(CEntity *entity, int msg)
 {
+	/* 0x2cf330 (fts_remote.cpp's message packet, CZSealBody's kill / death calls): a seal's
+	 * radio line. Messages 47-51 are the persona's SOUP strings (GetSOUPString(seal, msg - 46));
+	 * any other is looked up in the character type's multiplayer messages (id, text, sound
+	 * name, -, sound: the sound is fetched by name once and kept). The text is a format for the
+	 * seal's display name ("unknown" without a seal); the sound plays (to its end). A non-empty
+	 * line goes to the messenger: messages below 53 coloured (255, 210, 0; the ELF has the same
+	 * call for both sides), the others plain. ELF: the entity is taken as a seal unchecked. */
+	CZSealBody *seal = (CZSealBody *)entity;
+	const char *name = seal != NULL ? seal->m_display_name : "unknown";
+	const char *text = "";
+	const char *sound_name = "";
+	CSnd *sound = NULL;
+	char line[264];
+
+	if (msg >= 47 && msg < 52)
+	{
+		if (entity == NULL)
+			return;
+
+		const char *soup = CZPersonaState::GetSOUPString(seal, msg - 46);
+		text = soup != NULL ? soup : "";
+		sprintf(line, text, name);
+	}
+	else
+	{
+		if (seal == NULL)
+			return;
+
+		std::vector<MultiplayerMsg *> &msgs = static_cast<CZSealBody *>(seal->m_control->m_entity)->GetCharacter()->MultiplayerMessages;
+
+		for (std::vector<MultiplayerMsg *>::iterator it = msgs.begin(); it != msgs.end(); ++it)
+		{
+			MultiplayerMsg *m = *it;
+
+			if ((int)m->m_words[0] != msg)
+				continue;
+
+			const char *t = (const char *)(uintptr_t)m->m_words[1];
+			const char *s = (const char *)(uintptr_t)m->m_words[2];
+			text = t != NULL ? t : "";
+			sound_name = s != NULL ? s : "";
+			sound = (CSnd *)(uintptr_t)m->m_words[4];
+
+			if (sound == NULL && sound_name[0] != '\0')
+			{
+				sound = CSnd::GetSoundByName(sound_name);
+				m->m_words[4] = (u32)(uintptr_t)sound;
+			}
+
+			break;
+		}
+
+		sprintf(line, text, name);
+	}
+
+	if (sound == NULL && sound_name[0] != '\0')
+		sound = CSnd::GetSoundByName(sound_name);
+
+	if (sound != NULL)
+	{
+		CSndInstance *instance = sound->PlaySound(NULL, 255);
+
+		if (instance != NULL)
+			instance->TerminateOnFinish();
+	}
+
+	if (strlen(line) == 0)
+		return;
+
+	if (msg < 53)
+		theMission.m_messenger.Add_Message(line, 255, 210, 0);
+	else
+		theMission.m_messenger.Add_Message(line, 0);
 }
 
 /* @socom-skeleton stub GetAwareCounter__9CSealUnitCFv */

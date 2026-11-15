@@ -237,17 +237,20 @@ struct KeyInput
 class CRemoteCtrl : public CSealCtrl
 {
 public:
-	virtual ~CRemoteCtrl();
+	/* no ctor symbol: CreateRemoteSeal 0x289480 inlines it (CSealCtrl's ctor, the vtable, the
+	 * fade values) */
+	CRemoteCtrl() { m_fade_min = 0.001f; m_fade_time = 2.0f; }
+	virtual ~CRemoteCtrl(); /* 0x2ce160 (remote_control.cpp) */
 	virtual bool PreTick(float);
 	virtual bool Tick(float);
 	virtual void PostMortemPreTick(float);
-	virtual void OnDeath();
-	virtual void GetRemoteControl();
+	virtual void OnDeath() {} /* ELF 0x2ce1d0: jr ra */
+	virtual CRemoteCtrl *GetRemoteControl() { return this; } /* ELF 0x2ce1c0: move v0,a0 */
 	virtual bool AllowCommand(CZSealBody *, FT_COMMAND, void *); /* port: bool = CSealCtrl::AllowCommand (override) */
-	virtual bool IsPlayer() const; /* port: bool = CSealCtrl::IsPlayer (override) */
-	virtual bool IsRemote() const; /* port: bool = CSealCtrl::IsRemote (override) */
+	virtual bool IsPlayer() const { return false; } /* ELF 0x2ce1f0: move v0,zero */
+	virtual bool IsRemote() const { return true; } /* ELF 0x2ce200: li v0,1 */
 	virtual void PostTick(float);
-	virtual void OnStunDamage(STUN_TYPE, float, const CPnt3D *);
+	virtual void OnStunDamage(STUN_TYPE, float, const CPnt3D *) {} /* ELF 0x2ce1e0: jr ra */
 	virtual void SetAiNetState(unsigned int);
 	virtual void OnCommand(CZSealBody *, FT_COMMAND, void *, bool);
 	u8 GetRemoteAiState();
