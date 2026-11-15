@@ -14,6 +14,110 @@ top chunk and the room left below the heap end. The old `-DSOCOM_HOOK_MALLOC` fi
 probes (`largest_free` mallocs and frees up to 32 MB at every trace) and the hook's own `std::string` changed
 the layout they measured; the mapper and the hook now make no heap blocks of their own.
 
+## Is the remaining fragility a quirk of the original game? (follow-up on HEAD 28b71e61)
+
+**Answer: yes, in kind: a quirk of the original. After the fixes below, every block that still decides the
+outcome is one the reference ELF also makes and keeps, and the deciding rule is the allocator's, which the
+ELF shares. The port now matches the original; no port-side cure was added (options at the end of this
+section). How often the original hits it cannot be measured without running it, because the exact block sizes
+differ under GCC and libstdc++.**
+
+What still happens, measured with the heap mapper (tagged builds, 8 returns per boot):
+
+| tree | boots x returns | buffer in a hole | bad returns |
+| --- | --- | --- | --- |
+| d035c977 (before the four fixes) | sweep 11 x 1, types worker `trt2` 1 x 8, `trt` 1 x 2 | 3 of 11; 0 of 8; 0 of 2 | most; `trt` asserted at return 2 (both menu archives on top) |
+| b800665b (four fixes, no site table) | 2 x 8 (`v8`, `v8b`) | 16 of 16 | none |
+| 28b71e61 (HEAD) | 2 x 8 (`h8a`, `h8b`) + the coordinator's MALLOC-hook run 1 x 4 (`boot-verify/v3`) | 15 of 16; 3 of 4 | `h8a` return 3, `v3` return 2 |
+| 28b71e61 + wider dtoa warm-up (only ELF-kept blocks left) | 2 x 8 (`h8fa`, `h8fb`) | 14 of 16 | return 8 in both boots |
+
+In every bad return after the fixes, only the last buffer went above the break (brk 0x1d17000 -> 0x1f92000
+in tagged builds, 0x1c17000 -> 0x1e92000 in default ones); the menus' first archive still found its hole,
+nothing failed, in use stayed flat (18,655,872 / 18,657,248 B), and the break came back down at the next
+mission load. The double failure of `trt` (both archives on top, then `_memalign`'s assert) has not
+recurred: with the four fixes the freed mission memory always keeps a 7.8-8.8 MB hole.
+
+The mechanism, from the maps before the menus' first archive (`h8fa-30.txt` good, `h8fa-33.txt` bad):
+- The freed mission memory has one big hole (7.8-7.9 MB) and, below it, a hole of exactly 2,586,640 B,
+  bounded by the character-type cache (`CCharacterType::InitMultiplayerMessages` strings below, the types
+  made by `CCharacterType::Open` above). That hole is 11,760 B too small for the 2,598,400 B buffer.
+- Good return: the debrief's three small reads (2,064 B `util_sonyio.cpp:228`, 2,416 B `zar_main.cpp:347`,
+  2,944 B `CZAR::ReadDirectory` keys) land in a small low hole; the menus' first 2,581,264 B archive then
+  best-fits the 2,586,640 B hole, and the buffer goes into the big one.
+- Bad return: the texture palette list's buffer (32 B) had moved to the start of the big hole, the debrief's
+  reads followed it there, and that split made the big hole the allocator's "last remainder". newlib's
+  malloc (dlmalloc 2.6) serves a request from the last remainder before it looks for the best fit, so the
+  first archive is cut from the big hole, the 2,586,640 B hole stays empty, the rest of the big hole is filled
+  by the menus' other loads, and the buffer finds nothing.
+
+(1) The blocks involved, against the ELF:
+
+| block | port site | in the ELF | freed |
+| --- | --- | --- | --- |
+| character types (75 KB, 370 blocks) and their multiplayer message strings (2 KB) | `CCharacterType::Open`, `InitMultiplayerMessages` (0x247c30) at the first mission load | same: the type list `m_char_list` 0x5063c0 is a cache, `Release` 0x2485f0 only drops references | never (both) |
+| LOD vector (144 B) | `CCharacterType::CreateLODs` 0x2486f0 | same: `vector_pod<Ui>::insert` 0x14b6c0 into the type | never (both) |
+| texture handle / palette lists (32-48 B, move every round) | `CDynTexList::Add` 0x2fc760 | same: the ELF grows them by exactly one slot per add (the port's `PushTight` repeats that), so the buffer is reallocated and moves on almost every add | replaced on growth (both) |
+| texture manager's buffer list (272 B, bounds the top) | `CTexManager::doAddBuffer` push_back | same list, grown during the mission load | never (both) |
+| the debrief's three reads (7.4 KB) | `util_sonyio.cpp:228`, `zar_main.cpp:347`, `CZAR::ReadDirectory` | same calls (CExitState / CZAR 0x1d87b0) | with the debrief (both) |
+| newlib Bigints (32-144 B) | `_Balloc` / the powers-of-five cache, first made by a trace printing a float | the ELF links the same newlib `mprec` (`_Balloc` 0x3e2d58), but only the game's own number formatting reaches it | port-only: now made at boot (wider warm-up); not in any map since |
+| `m_objanchor_vec` buffer, `CVehicleRdr` buffer, the `__cxa_guard` mutex | fixed earlier (see Fixes) | freed by the ELF / not in the ELF | |
+
+The allocator rule is the ELF's: `_malloc_r` 0x3e21a0 is the same newlib mallocr (dlmalloc 2.6, with the
+last-remainder step), trim threshold 0x20000 and top pad 0.
+
+(2) With only the ELF-kept blocks left (the wider warm-up moves the last port-only blocks to boot; the
+`h8fa` / `h8fb` maps show no `lc@` blocks after boot), the buffer still went above the break once per eight
+returns in both boots. The cause is therefore in what the original keeps plus its allocator, and the original
+would do the same whenever its own block sizes make the hole next to the type cache just too small. What then
+happens in the original: the buffer goes above the break exactly as here. With its 512 KB stack its heap ends
+near 0x1f7f000 and starts at 0x5e7f04, so with the same arena as the port's bad returns (25.70 MB) its break
+would be near 0x1e6bce8 and about 1.13 MB would be left (the port's default build has 1.36 MB). In the
+port's bad returns the rest of the menu session (briefing, deploy) made no request that failed, and the next
+mission load freed the buffer and let the break fall back, so the single case was harmless; the ELF's
+0.23 MB less room was not tested (an idle attract screen after a bad return was not reached in these runs). The original fails
+only if both menu archives miss their holes in one return (about 5.2 MB needed above a break near 0x1c17000:
+3.73 MB available in the ELF, 3.96 MB in the port): then `_memalign__FUiUiPCci` 0x2f46a0 calls `zVid_Assert`
+0x307a40, which prints and returns, and the menu reads into NULL, which crashes. In the port that happened
+only before the fixes, when the mission's freed memory was split into holes under 3 MB; the ELF frees the two
+vectors the port leaked, so the retail game keeps the big hole too. The retail demo could therefore put the
+buffer on top now and then after several missions in one session (only m8, replayed from the debrief), but
+not, by this mechanism, run out.
+
+(3) What makes the port's sequence differ from the original's (each can move a pin or change a hole's size;
+none adds a pin the ELF lacks):
+- Object and allocation sizes under GCC: the character types, their strings and the menus' objects
+  (`StatInfo` is 32 bytes under GCC against 36 in the ELF; libstdc++'s `std::string` keeps up to 15
+  characters inside the object while MSL's allocates; `std::list` nodes and `std::vector` headers differ).
+  These set the 2,586,640 B hole's size; the ELF's hole there is a different size, larger or smaller than the
+  buffer, which is why its frequency cannot be inferred.
+- Container growth: GCC's `std::vector` doubles its capacity; the ELF's MSL `vector_pod::insert` 0x14b6c0
+  computes its own, so grown buffers (the texture manager's list, the type's LOD vector) move at other counts.
+  The one-slot growth of the texture lists is the ELF's own and is kept.
+- Static initialisation: the port's order follows GCC's per-unit order; the sweep shows that a boot-time
+  shift of a few bytes changes the outcome, so the original's order matters as much and cannot be copied
+  exactly.
+- Static storage: the port uses the ELF's static pools (`twelve_pool`, `four_pool` in operator new) and
+  the same globals; the newlib Bigint cache and the lazily made mutex were port-only heap blocks (now
+  removed or moved to boot).
+- Timing: the mission load runs on a thread while the loading screen draws; the CD / IOP completion order
+  moves the load's end by a frame or two between boots, and `rand` is seeded from the real-time clock
+  (`COurGame::StartEngine` 0x140604). Both are the original's, and they make the texture lists' buffers land in
+  different places from round to round, which is why the bad return is the 3rd in one boot and the 8th in
+  another.
+
+(4) Conclusion: **a quirk of the original: the original has the same pins and the same exposure, the port
+now matches it.** Options for the user (none implemented):
+- Accept it: the buffer occasionally goes above the break (about one return in eight here) and comes back at
+  the next load; nothing fails.
+- Reserve the menus' 2.6 MB buffer once and reuse it (a deviation; costs 2.6 MB during missions, where in use
+  peaks at 23.7 MB of 27.07).
+- Allocate the menus' archives from the top of the heap or a separate area (a deviation: a second allocator
+  path for `zar` data).
+- Free or shrink the texture lists after a mission so they cannot drift into the freed memory (a deviation:
+  the ELF keeps them).
+- More room above the break (the 262 KB `mfifoBase` padding, `-O2`): changes nothing about where the buffer
+  goes, only how much room is left when it goes on top.
+
 ## Summary
 - The heap is not smaller than the original's. The port's image is 160 KB larger, but its stack is 384 KB
   smaller, so the port has about 230 KB more heap than the ELF (27.07 MB against 26.83 MB).
@@ -145,7 +249,7 @@ then has to fit in what is left. With the fixes no point puts the buffer on top 
 | `CMission::Close`: `m_objanchor_vec.clear()` and swap with an empty vector (0x1f7670) | ELF difference | the 144 B buffer between the 2.91 and 2.17 MB holes |
 | `CVehicleRdr::Close`: `clear()` and swap with an empty vector (0x1a3810) | ELF difference | the 10,992 B buffer between the 2.17 and 2.29 MB holes |
 | `-fno-threadsafe-statics` (port/CMakeLists.txt) | port-only | the 32 B guard mutex made at the mission load; 47 guard calls fewer; MW's statics have no lock either |
-| dtoa warm-up in `socom_port_ctors_begin` (port/compat/port_diag.c) | port-only | newlib's Bigint free list and Bigints (144 + 32 + 32 B) are made at boot, with the boot blocks |
+| dtoa warm-up in `socom_port_ctors_begin` (port/compat/port_diag.c) | port-only | newlib's Bigint free list and Bigints (144 + 32 + 32 B) are made at boot, with the boot blocks; widened after HEAD 28b71e61 (extreme values and long strings: the powers-of-five cache and larger Bigints, three 32 B blocks a test trace had made in mission 2) |
 
 In use at a return: 18,666,896 -> 18,655,728 B (-11,168). Largest hole when the mission has been freed:
 2,910,544 -> 8,838,928 B.

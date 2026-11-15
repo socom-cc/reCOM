@@ -40,6 +40,14 @@ __attribute__((constructor(101))) static void socom_port_ctors_begin(void)
      * prints a float (during the first mission load), they stayed as small pins in the middle of
      * the mission memory and split it after every mission (docs/port/notes/menu-heap.md). */
     snprintf(warm, sizeof(warm), "%f %e %g %.2f", 3.14159265358979, 1.0e-7, 12345.678, 0.5);
+    /* the cached powers of five (pow5mult) and the larger Bigints are made by the first extreme
+     * value: a value near the double range's ends, a tiny float printed with %f / %.2f, a long
+     * decimal string parsed; made here too */
+    snprintf(warm, sizeof(warm), "%.2f %e %f", -1.2345678e-7, 1.0e300, 1.0e-300);
+    snprintf(warm, sizeof(warm), "%.17g %.17g", 3.4028234663852886e38, 1.1754943508222875e-38);
+    snprintf(warm, sizeof(warm), "%f", 4.9406564584124654e-324);
+    (void)strtod("123456789012345678901234567890.123456789e-250", NULL);
+    (void)strtod("1.7976931348623157e308", NULL);
 }
 
 /* src/ is compiled with -fsanitize=return: a non-void function that falls off its
