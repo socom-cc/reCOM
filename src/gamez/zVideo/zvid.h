@@ -114,6 +114,7 @@ public:
 
 	static s32 m_defaultFrameRate;
 	static s32 m_maxFrameRate; /* .sdata 0x4753dc */
+	static u32 m_brightness; /* .sdata 0x4753e0 (128): Brightness's sprite alpha; nothing else reads it */
 	/* @socom-skeleton decl 6CVideo */
 public:
 	static void Fade(float, unsigned char, unsigned char, unsigned char); /* static: 0x308ed0 uses no object */

@@ -343,14 +343,14 @@ inline void Particle::Instance::Tick(float dT)
 		m_prev = m_pos;
 	}
 
+	/* ELF: VU0 vmulx.xyz / vadd.xyz (0x2374c8, 0x2374f0, 0x23763c): the w words of m_pos and
+	   m_vel are left as they are */
 	m_pos.x += m_vel.x * m_dT;
 	m_pos.y += m_vel.y * m_dT;
 	m_pos.z += m_vel.z * m_dT;
-	m_pos.w += m_vel.w * m_dT;
 	m_vel.x += m_props->m_accelW.x * m_dT;
 	m_vel.y += m_props->m_accelW.y * m_dT;
 	m_vel.z += m_props->m_accelW.z * m_dT;
-	m_vel.w += m_props->m_accelW.w * m_dT;
 
 	if (m_props->m_friction != 0.0f)
 	{
@@ -380,7 +380,6 @@ inline void Particle::Instance::Tick(float dT)
 		m_vel.x = wind.x * factor + (m_vel.x - wind.x * factor) * x;
 		m_vel.y = wind.y * factor + (m_vel.y - wind.y * factor) * x;
 		m_vel.z = wind.z * factor + (m_vel.z - wind.z * factor) * x;
-		m_vel.w = wind.w * factor + (m_vel.w - wind.w * factor) * x;
 	}
 
 	if (m_node != NULL)

@@ -11,7 +11,37 @@
 /* @socom-skeleton body Clear__6CVideoFUcUcUcUc */
 void CVideo::Clear(unsigned char r, unsigned char g, unsigned char b, unsigned char a) { }
 
+extern unsigned char brightnesscode[128]; /* zvid_init.cpp */
+
 /* @socom-skeleton stub Brightness__6CVideoFf */
-void CVideo::Brightness(float)
+void CVideo::Brightness(float value)
 {
+	/* 0x307790: the brightness packet's ALPHA_1 value (+0x20: 0x46 darker, 0x49 brighter) and
+	 * sprite alpha (+0x40, RGBAQ A: 127 x the distance from 0.5; 128 at 0.5 or when it rounds
+	 * to 0 darker), written through the uncached mirror. ELF quirk kept: nothing sends
+	 * brightnesscode (no other code reference), so the tuner changes nothing on screen. */
+	if (value == 0.5f)
+	{
+		m_brightness = 128;
+	}
+	else
+	{
+		value = value - 0.5f;
+
+		if (value < 0.0f)
+		{
+			m_brightness = (u32)(127.0f * -value);
+			*(volatile u64 *)((u32)(brightnesscode + 0x20) | 0x20000000) = 70;
+
+			if (m_brightness == 0)
+				m_brightness = 128;
+		}
+		else
+		{
+			m_brightness = (u32)(127.0f * value);
+			*(volatile u64 *)((u32)(brightnesscode + 0x20) | 0x20000000) = 73;
+		}
+	}
+
+	*(volatile u64 *)((u32)(brightnesscode + 0x40) | 0x20000000) = (u64)m_brightness << 24;
 }

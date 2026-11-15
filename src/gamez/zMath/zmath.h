@@ -239,10 +239,7 @@ class CPnt4D : public PNT4D
 public:
 	CPnt4D()
 	{
-		x = 0.0f;
-		y = 0.0f;
-		z = 0.0f;
-		w = 0.0f;
+		/* __ct__6CPnt4DFv (inline, 0x236740): empty, as CPnt3D() (0x1a9160) */
 	}
 
 	CPnt4D(const CPnt4D& other)

@@ -42,7 +42,7 @@ zdb::CRenderMap::CRenderMap(zdb::CNode *node, zdb::_tag_render_map_type type, co
 	/* @socom-skeleton stub mapNum$1137 */
 	static int mapNum = 0; /* guarded init (init$1138) */
 	/* 0x22bc30 (CWorld::AddShadow / AddChild): a render map of a node into a GS texture: its
-	 * light map (itself: a shadow map, range 1..30 until Update, off, named render_map_<n>,
+	 * light map (itself: a shadow map, range 1..30 until Update, its box from that range, named render_map_<n>,
 	 * the node as instance) joins the world's light maps; the GS packet that points the frame
 	 * at the texture and clears it (a black sprite over w x w, then the drawing offset centred
 	 * on 2048 and a scissor one pixel in) is copied from shadowTemplate and filled in; the VU
@@ -70,7 +70,7 @@ zdb::CRenderMap::CRenderMap(zdb::CNode *node, zdb::_tag_render_map_type type, co
 	lm->m_maxRangeSq = 900.0f;
 	lm->m_invMaxRange = 1.0f / lm->m_maxRange;
 	lm->m_invDeltaRange = 1.0f / (lm->m_maxRange - lm->m_minRange);
-	lm->SetActive(false);
+	lm->UpdateBBox(false); /* 0x22bd9c: vtable +0x38, CLight::UpdateBBox (was read as SetActive, +0x34) */
 	m_lightmap->SetTexture(const_cast<CTexture*>(m_texture));
 	m_lightmap->SetName(name);
 	m_lightmap->m_isShadow = 1;
@@ -214,7 +214,7 @@ void zdb::CRenderMap::Update()
 	lm->m_maxRangeSq = lm->m_maxRange * lm->m_maxRange;
 	lm->m_invMaxRange = 1.0f / lm->m_maxRange;
 	lm->m_invDeltaRange = 1.0f / (lm->m_maxRange - lm->m_minRange);
-	lm->SetActive(false);
+	lm->UpdateBBox(false); /* 0x22b5e8: vtable +0x38, CLight::UpdateBBox (was read as SetActive, +0x34) */
 
 	CPnt3D& sv = CWorld::m_world->m_shadow_vector;
 	sceVu0FVECTOR dir __attribute__((aligned(16))) = { sv.x, sv.y, sv.z, 0.0f };
