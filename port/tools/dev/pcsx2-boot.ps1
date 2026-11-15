@@ -71,11 +71,12 @@ $prev = [PcsxWin]::GetForegroundWindow()
 if (Test-Path $Log) { Remove-Item $Log }
 $p = Start-Process $pcsx2 -PassThru -WindowStyle Minimized -ArgumentList '-nogui', '-batch', '-fastboot', '-earlyconsolelog', '-logfile', "`"$Log`"", '-elf', "`"$Elf`"", '--', "`"$disc`""
 
-# Quiet test runs: set this PCSX2's slider in the Windows volume mixer to 15% as soon as it opens
+# Silent test runs: set this PCSX2's slider in the Windows volume mixer to 0 as soon as it opens
 # its audio (PCSX2's own settings are untouched; set-appvolume.ps1 next to this script, skipped
-# if absent). socom-run.ps1 sets its sessions back to 100%.
+# if absent). Windows remembers the mixer level per program, so the level is put back to 100%
+# just before this run's PCSX2 is closed (below); socom-run.ps1 also sets its sessions to 100%.
 $vol = Join-Path $PSScriptRoot 'set-appvolume.ps1'
-if (Test-Path $vol) { Start-Process powershell -WindowStyle Hidden -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$vol`"", '-ProcessId', $p.Id, '-Level', '0.15' | Out-Null }
+if (Test-Path $vol) { Start-Process powershell -WindowStyle Hidden -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$vol`"", '-ProcessId', $p.Id, '-Level', '0' | Out-Null }
 
 # Watchdog: a hidden process that kills this PCSX2 at -Seconds + 30 even if this script is cut off.
 Start-Process powershell -WindowStyle Hidden -ArgumentList '-NoProfile', '-Command', "Start-Sleep -Seconds $($Seconds + 30); Stop-Process -Id $($p.Id) -Force -ErrorAction SilentlyContinue" | Out-Null
@@ -143,6 +144,10 @@ foreach ($t in $times) {
 }
 $wait = $Seconds - ((Get-Date) - $start).TotalSeconds
 if ($wait -gt 0 -and -not $p.HasExited) { Start-Sleep -Milliseconds ([int]($wait * 1000)) }
-if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
+if (-not $p.HasExited) {
+    # Put the mixer level back before closing, so the user's own PCSX2 is not left silent.
+    if (Test-Path $vol) { & powershell -NoProfile -ExecutionPolicy Bypass -File $vol -ProcessId $p.Id -Level 1 -WaitSeconds 2 | Out-Null }
+    Stop-Process -Id $p.Id -Force
+}
 Start-Sleep -Seconds 1
 Select-String -Path $Log -Pattern 'socom-port|STOP|xception|runtime error' -ErrorAction SilentlyContinue | Select-Object -Last 70 | ForEach-Object { $_.Line }
