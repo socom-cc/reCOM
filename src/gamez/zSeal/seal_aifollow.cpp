@@ -614,11 +614,9 @@ void CSealCtrlAi::FollowTick(float dT)
 
 	if (m_master == NULL)
 	{
+		/* ELF quirk kept (0x2df284): after the HOLDPOS order the tick goes on with the NULL
+		 * master (its fields are read from low memory); not reached in the m8 runs */
 		seal->IssueCommand(NULL, CMD_HOLDPOS, NULL, false);
-#ifdef SOCOM_PORT
-		/* port: the ELF goes on reading the (NULL) master's fields (low memory on the PS2) */
-		return;
-#endif
 	}
 	else if (AiStateIs(STATE_FOLLOW) && (seal->m_team & 0x20000) && (!m_master->m_isAlive || m_followError > lostFollowThreshold))
 		seal->IssueCommand(NULL, CMD_HOLDPOS, NULL, false);
@@ -1019,13 +1017,11 @@ void CSealCtrlAi::FollowTick(float dT)
 			if (!arrived && !masterComing)
 				mode = 0;
 		}
-		else
+		else if (m_followTimer < 0.0f)
 		{
-			bool done = m_followTimer < 0.0f;
-			m_followTimer = 0.0f; /* ELF: stored in the branch delay slot either way */
-
-			if (done)
-				mode = 0;
+			/* 0x2e0ee4: the zero store follows the bc1f's nop delay slot (taken only here) */
+			m_followTimer = 0.0f;
+			mode = 0;
 		}
 
 		break;

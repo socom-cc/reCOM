@@ -2981,7 +2981,10 @@ void CSealCtrlAi::PathFollowTick(float dT)
 	}
 
 	CAiPath::point *target = &path.m_points[count - 1];
-	CAiPath::point *next = count >= 2 ? &path.m_points[count - 2] : NULL; /* port: the ELF points before the vector */
+	/* ELF quirk kept (0x264f48): the point after the target is data + count - 2 even when only
+	 * the target is left; it then lies before the vector and the heap word there is read (the
+	 * door test below only rejects NULL) */
+	CAiPath::point *next = path.m_points.data() + ((s32)count - 2);
 	CZSealBody *seal = static_cast<CZSealBody *>(m_entity);
 	const CPnt3D *pos = seal->GetPosW();
 	CAiMapLoc here = seal->m_mapLocValid;
@@ -3149,15 +3152,12 @@ void CSealCtrlAi::PathFollowTick(float dT)
 		if (PushAiState(STATE_PATHRECO, true))
 		{
 			/* 0x265814: the path recovery state gets the point (+0xc4) and is set up. ELF:
-			 * the state is not NULL-tested */
+			 * the state is not NULL-tested (written through NULL when the push did not land on
+			 * top), as here */
 			CAiState *state = GetAiState();
 			CAiSPathRecover *reco = state->m_state == STATE_PATHRECO ? static_cast<CAiSPathRecover *>(state) : NULL;
-
-			if (reco != NULL)
-			{
-				reco->m_dest = target->m_loc;
-				reco->m_setup = 1;
-			}
+			reco->m_dest = target->m_loc;
+			reco->m_setup = 1;
 #ifdef SOCOM_PORT
 			SOCOM_PORT_TRACE("AI: %s stuck on its route: STATE_PATHRECO", seal->m_node->m_name);
 #endif
@@ -3847,9 +3847,7 @@ unsigned char CSealCtrlAi::AttackTick(float dT, bool allowFire)
 	 * unit is in an ambush (CSealUnit::m_ambush) or with m_weapon_ready; else lowered (2) */
 	WEAPON_STATE rest = (WEAPON_STATE)2;
 
-	if ((m_look_flags & 0x10) || (unit != NULL && unit->m_ambush) || m_weapon_ready) /* ELF: unit not NULL-tested;
-	                                                                   * port: tested (CSpawners::Tick, which
-	                                                                   * puts respawned seals in units, is unwritten) */
+	if ((m_look_flags & 0x10) || unit->m_ambush || m_weapon_ready) /* ELF: unit not NULL-tested (0x2629b8) */
 		rest = (WEAPON_STATE)1;
 
 	CEntity* te = m_target.m_target.m_ent;
@@ -3907,9 +3905,11 @@ unsigned char CSealCtrlAi::AttackTick(float dT, bool allowFire)
 	/* an engaging AI outside STATE_TARGETING / STATE_PURSUE whose top state allows pursuit
 	 * pushes STATE_TARGETING for 2.5 s (holding cover, a sniper rifle, a guard region, a unit
 	 * order, an unaware SEAL, or one time in four) or else STATE_PURSUE (5 s for a SEAL,
-	 * open-ended otherwise). port: the guard-region test (CAiMaps::GetRegionTypeContainer,
-	 * region type 6, unwritten) is taken as "not in one". The unit test: a unit escorting
-	 * someone (m_unit+0x4c, m_escortees' size) stays (ELF: m_unit not NULL-tested). */
+	 * open-ended otherwise). The guard-region test is InGuardRegion inlined (0x263218:
+	 * GetRegionTypeContainer type 6 at the seal's cell; not for a SEAL). The unit test: a
+	 * unit escorting someone (m_unit+0x4c, m_escortees' size) stays (ELF: m_unit not
+	 * NULL-tested). The pushed state is written only when it landed on top (else, as the
+	 * ELF, through NULL). */
 	if (engage)
 	{
 		const CAiState* top = static_cast<const CSealCtrlAi *>(this)->GetAiState();
@@ -3919,7 +3919,10 @@ unsigned char CSealCtrlAi::AttackTick(float dT, bool allowFire)
 		{
 			bool targeting = m_holdCover || kit->HasSniperRifle();
 
-			if (!targeting && m_unit != NULL && !m_unit->m_escortees.empty()) /* port: NULL-tested as above */
+			if (!targeting && !m_navyseal && InGuardRegion())
+				targeting = true;
+
+			if (!targeting && !m_unit->m_escortees.empty()) /* ELF: m_unit not NULL-tested (0x263264) */
 				targeting = true;
 
 			if (!targeting && m_navyseal && m_aware.m_value == 0.0f)
@@ -3933,6 +3936,7 @@ unsigned char CSealCtrlAi::AttackTick(float dT, bool allowFire)
 				if (PushAiState(STATE_TARGETING, true))
 				{
 					CAiState* t = GetAiState();
+					t = t->m_state == STATE_TARGETING ? t : NULL; /* 0x263344 */
 					f32 duration = 2.5f;
 					t->m_time = duration; /* CAiSTarget's duration (+0x08) */
 					t->m_setup = 1;
@@ -3941,6 +3945,7 @@ unsigned char CSealCtrlAi::AttackTick(float dT, bool allowFire)
 			else if (PushAiState(STATE_PURSUE, true))
 			{
 				CAiState* t = GetAiState();
+				t = t->m_state == STATE_PURSUE ? t : NULL; /* 0x2633a0 */
 				static_cast<CAiSPursue *>(t)->m_duration = m_navyseal ? 5.0f : -1.0f;
 				t->m_setup = 1;
 			}
@@ -6149,8 +6154,8 @@ bool CAiSGrenade::Tick(float dT, CSealCtrlAi *ctrl)
 	/* this seal has seen the grenade */
 	u32 idx = body->m_index;
 
-	if (pickup->m_bits.m_vec != NULL) /* port: NULL-tested */
-		pickup->m_bits.m_vec[idx >> 5] |= 1u << (idx & 31);
+	/* not NULL-tested, as the ELF (0x25b32c): a live pickup's bits are sized when it is made */
+	pickup->m_bits.m_vec[idx >> 5] |= 1u << (idx & 31);
 
 	switch (phase)
 	{
@@ -6229,9 +6234,8 @@ bool CAiSGrenade::Tick(float dT, CSealCtrlAi *ctrl)
 
 				pickup->m_locked = 1;
 				ctrl->PlayAiSound((CHARACTER_SOUND)50);
-				ctrl->Debug("ClearRoute()...\n");
 
-				if (ctrl->ClearRoute() && ctrl->m_path.InsertPathLoc(m_dest, NULL))
+				if (ctrl->ClearRoute() /* inline at 0x25b770, its "ClearRoute()..." Debug included */ && ctrl->m_path.InsertPathLoc(m_dest, NULL))
 				{
 					ctrl->SetAiMode(AIM_PATH);
 					phase = 2;
@@ -6421,14 +6425,12 @@ bool CAiSGrenade::Tick(float dT, CSealCtrlAi *ctrl)
 			CAiState *state = ctrl->GetAiState();
 			CAiSAnimate *anim = state->m_state == STATE_ANIMATE ? static_cast<CAiSAnimate *>(state) : NULL;
 
-			if (anim != NULL) /* port: NULL-tested (ELF writes through it) */
-			{
-				anim->m_anim = AnimTypes::KickGrenade;
-				anim->m_time = 1.0f;
-				anim->m_until = 1.0f;
-				anim->m_mode = 0;
-				anim->m_setup = 1;
-			}
+			/* ELF: not NULL-tested (0x25c51c) */
+			anim->m_anim = AnimTypes::KickGrenade;
+			anim->m_time = 1.0f;
+			anim->m_until = 1.0f;
+			anim->m_mode = 0;
+			anim->m_setup = 1;
 		}
 
 		CPnt3D back;
@@ -6451,14 +6453,12 @@ bool CAiSGrenade::Tick(float dT, CSealCtrlAi *ctrl)
 		CAiState *state = ctrl->GetAiState();
 		CAiSAnimate *anim = state->m_state == STATE_ANIMATE ? static_cast<CAiSAnimate *>(state) : NULL;
 
-		if (anim != NULL) /* port: NULL-tested (ELF writes through it) */
-		{
-			anim->m_anim = (s16)FindAnimType("Return throw grenade");
-			anim->m_time = tb_timeToParent;
-			anim->m_until = 0.0f;
-			anim->m_mode = 0;
-			anim->m_setup = 1;
-		}
+		/* ELF: not NULL-tested (0x25c5a4) */
+		anim->m_anim = (s16)FindAnimType("Return throw grenade");
+		anim->m_time = tb_timeToParent;
+		anim->m_until = 0.0f;
+		anim->m_mode = 0;
+		anim->m_setup = 1;
 		break;
 	}
 
@@ -6714,10 +6714,15 @@ bool CAiSPursue::Tick(float dT, CSealCtrlAi *ctrl)
 	switch (phase)
 	{
 	case 0: /* delay */
-		if (m_timer <= 0.0f || (m_option_flags & 6))
+		if (m_timer <= 0.0f)
 			break;
 
+		/* 0x259c18: phase 1 is set in the branch delay slot, so a preset look / cover flag
+		 * (6) goes to plan with its flags kept */
 		phase = 1;
+
+		if (m_option_flags & 6)
+			break;
 
 		if (seen)
 			m_option_flags = (m_option_flags & ~2u) | 4;

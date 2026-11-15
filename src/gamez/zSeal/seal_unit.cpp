@@ -1473,11 +1473,11 @@ CZSealBody * CSealUnit::IssueCommand(CZSealBody *source, FT_COMMAND cmd, void *b
 	if (m_parent != NULL && !quiet)
 		m_parent->CommandNotifyFromChild(this, source, cmd, buffer);
 
-	if (m_unit_num == 17 && source != NULL)
+	if (m_unit_num == 17)
 	{
 		/* 0x2d0d28: the escortee unit gives the order to the seal under the source's reticule
 		 * when its controller accepts it (FOLLOW without an offset: (15, 0, -15)), quiet, and
-		 * answers that seal. port: source NULL-tested (the ELF calls through it) */
+		 * answers that seal. As the ELF the source is not NULL-tested */
 		CZSealBody *target = source->GetReticuleSeal();
 
 		if (target != NULL && target->m_control != NULL
@@ -1653,10 +1653,13 @@ CZSealBody * CSealUnit::IssueCommand(CZSealBody *source, FT_COMMAND cmd, void *b
 	{
 		/* 0x2d0ef8: the seal at the source's reticle, when an escortee (team bit 0x20000),
 		 * joins this unit as one (EscorteeJoinUnit inline) and is ordered to FOLLOW the unit's
-		 * first seal. ELF: the reticle seal is not NULL-tested. */
+		 * first seal. As the ELF the reticle seal is not NULL-tested. port deviation kept: an
+		 * empty unit is skipped - the ELF then reads the first seal from its list sentinel (the
+		 * escortee list's size word, a bad pointer); front() of an empty std::list is undefined
+		 * in the port's library, so that read cannot be reproduced. */
 		CZSealBody *target = source->GetReticuleSeal();
 
-		if (target != NULL && (target->m_team & 0x20000) != 0 && !m_seals.empty()) /* port: an empty unit is skipped */
+		if ((target->m_team & 0x20000) != 0 && !m_seals.empty())
 		{
 			EscorteeJoinUnit(target);
 			target->IssueCommand(m_seals.front(), CMD_FOLLOW, NULL, false);
@@ -1828,8 +1831,7 @@ CZSealBody * CSealUnit::IssueCommand(CZSealBody *source, FT_COMMAND cmd, void *b
 			breachState.m_map_action = NULL;
 			bool found = false;
 
-			if (action != NULL /* port: NULL-tested (ELF reads its id through NULL) */
-				&& AiMaps.GetActionById(action->m_id, breachState.m_loc, &breachState.m_map_action))
+			if (AiMaps.GetActionById(action->m_id, breachState.m_loc, &breachState.m_map_action)) /* ELF: action not NULL-tested */
 			{
 				CPnt3D centre;
 
@@ -2035,12 +2037,22 @@ void CSealUnit::Tick(float dT, void *buf)
 
 		if (alive <= 0)
 		{
+			/* 0x2cfbe0: after each escortee the walk starts again at the front of the list
+			 * (an escortee's HOLDPOS moves it to unit 17, off this list; a remote one is
+			 * erased here). ELF quirk kept: an escortee that stays on the list keeps the loop
+			 * going. port deviation: with no dead member the ELF takes its order source from
+			 * the dead list's sentinel (the next member's word, not NULL); the port cannot
+			 * read that and stops. */
 			it = m_escortees.begin();
 
 			while (it != m_escortees.end())
 			{
 				CZSealBody* seal = *it;
-				CZSealBody* dead = m_dead_guys.empty() ? NULL : m_dead_guys.front();
+
+				if (m_dead_guys.empty())
+					break;
+
+				CZSealBody* dead = m_dead_guys.front();
 				CSealCtrl* ctrl = static_cast<CSealCtrl *>(seal->m_control);
 
 				if (dead != NULL && ctrl != NULL)
@@ -2048,13 +2060,10 @@ void CSealUnit::Tick(float dT, void *buf)
 					ctrl->OnCommand(dead, CMD_HOLDPOS, NULL, false);
 
 					if (ctrl->IsRemote())
-					{
-						it = m_escortees.erase(it);
-						continue;
-					}
+						m_escortees.erase(it);
 				}
 
-				++it;
+				it = m_escortees.begin();
 			}
 		}
 	}

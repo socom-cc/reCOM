@@ -23,6 +23,8 @@
 #include "gamez/zCharacter/zchar.h"
 #include "gamez/zNode/node_world.h" /* zdb::CWorld::m_scale */
 
+float exp_tl(float); /* zmath_trig.cpp 0x222f90 (no header declares it) */
+
 /* @socom-skeleton decl include */
 #include "gamez/zReader/zrdr.h"
 /* @socom-skeleton end include */
@@ -71,13 +73,15 @@ void CharacterDynamics::Load(const CRdrFile &reader_ref)
         zrdr_findreal(reader, "fb_accel", &m_fbStiffness, 1);
         zrdr_findreal(reader, "lr_accel", &m_lrStiffness, 1);
         zrdr_findreal(reader, "throt_exp", &m_throtExp, 1);
-        m_throtScale = 1.0f / (m_throtExp - 1.0f);
+        m_throtScale = 1.0f / (exp_tl(m_throtExp) - 1.0f); /* 0x28a7f8: of exp(throt_exp) (no reader in the ELF) */
 
-        f32 stand_turn_factor = 0.0f;
-        
-        if (zrdr_findreal(reader, "stand_turn_factor", &stand_turn_factor, 1))
+        /* one local for every optional value, as the ELF's sp+0x168 (the tail's unconditional
+         * reads keep the last value found); the port starts it at 0 */
+        f32 fval = 0.0f;
+
+        if (zrdr_findreal(reader, "stand_turn_factor", &fval, 1))
         {
-            m_standTurnFactor = stand_turn_factor;
+            m_standTurnFactor = fval;
         }
 
         zrdr_findreal(reader, "turn_maxrate", &m_turn_maxRate, 1);
@@ -85,8 +89,6 @@ void CharacterDynamics::Load(const CRdrFile &reader_ref)
         zrdr_findreal(reader, "upper_x_accel", &m_accelXMax, 1);
         zrdr_findreal(reader, "lower_z_accel", &m_accelZMin, 1);
         zrdr_findreal(reader, "upper_z_accel", &m_accelZMax, 1);
-
-        f32 fval = 0.0f;
 
         if (zrdr_findreal(reader, "init_aim_pitch", &fval, 1))
         {
@@ -265,24 +267,26 @@ void CharacterDynamics::Load(const CRdrFile &reader_ref)
 
         if (bobbing_firstperson && bobbing_firstperson->type == ZRDR_ARRAY)
         {
-            if (zrdr_findreal(bobbing_firstperson, "Walk_Amplitude", &fval, 1))
+            f32 bob = 0.0f; /* ELF: its own local (sp+0x16c), not fval */
+
+            if (zrdr_findreal(bobbing_firstperson, "Walk_Amplitude", &bob, 1))
             {
-                CSealCtrl::m_bobbing1stperson_amplitude[0] = fval;
+                CSealCtrl::m_bobbing1stperson_amplitude[0] = bob;
             }
 
-            if (zrdr_findreal(bobbing_firstperson, "Walk_Rate", &fval, 1))
+            if (zrdr_findreal(bobbing_firstperson, "Walk_Rate", &bob, 1))
             {
-                CSealCtrl::m_bobbing1stperson_rate[0] = fval;
+                CSealCtrl::m_bobbing1stperson_rate[0] = bob;
             }
 
-            if (zrdr_findreal(bobbing_firstperson, "Crawl_Amplitude", &fval, 1))
+            if (zrdr_findreal(bobbing_firstperson, "Crawl_Amplitude", &bob, 1))
             {
-                CSealCtrl::m_bobbing1stperson_amplitude[1] = fval; /* port: was m_crawl1stperson_amplitude (not an ELF object) */
+                CSealCtrl::m_bobbing1stperson_amplitude[1] = bob; /* port: was m_crawl1stperson_amplitude (not an ELF object) */
             }
 
-            if (zrdr_findreal(bobbing_firstperson, "Crawl_Rate", &fval, 1))
+            if (zrdr_findreal(bobbing_firstperson, "Crawl_Rate", &bob, 1))
             {
-                CSealCtrl::m_bobbing1stperson_rate[1] = fval; /* port: was m_crawl1stperson_rate (not an ELF object) */
+                CSealCtrl::m_bobbing1stperson_rate[1] = bob; /* port: was m_crawl1stperson_rate (not an ELF object) */
             }
         }
 

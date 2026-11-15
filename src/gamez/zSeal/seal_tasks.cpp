@@ -401,41 +401,42 @@ static const char *regionTypeName(u8 type)
 /* @socom-skeleton body RegisterCommands__11CSealCtrlAiFv */
 bool CSealCtrlAi::RegisterCommands()
 {
-	ZAnim.AddCmd("ai::ACTION", CTAction::Parse, NULL, CTAction::Tick, NULL);
-	ZAnim.AddCmd("ai::COMM", CTComm::Parse, NULL, CTComm::Tick, NULL);
-	ZAnim.AddCmd("ai::DEBUG", CTDebug::Parse, NULL, CTDebug::Tick, NULL);
-	ZAnim.AddCmd("ai::DOOR", CTDoor::Parse, CTDoor::Begin, CTDoor::Tick, CTDoor::End);
-	ZAnim.AddCmd("ai::EVENT", CTEvent::Parse, CTEvent::Begin, CTEvent::Tick, NULL);
-	ZAnim.AddCmd("ai::FIREMODE", CTFireMode::Parse, CTFireMode::Begin, CTFireMode::Tick, NULL);
-	ZAnim.AddCmd("ai::FIREWEAPON", CTFireWeapon::Parse, CTFireWeapon::Begin, CTFireWeapon::Tick, NULL);
-	ZAnim.AddCmd("ai::GOTO", CTGoto::Parse, CTGoto::Begin, CTGoto::Tick, CTGoto::End);
-	ZAnim.AddCmd("ai::HOLD", CTHold::Parse, CTHold::Begin, CTHold::Tick, CTHold::End);
-	ZAnim.AddCmd("ai::INSTATE", CTInState::Parse, NULL, CTInState::Tick, NULL);
-	ZAnim.AddCmd("ai::INVIEW", CTInView::Parse, NULL, CTInView::Tick, NULL);
-	ZAnim.AddCmd("ai::LOOKAT", CTLookAt::Parse, CTLookAt::Begin, CTLookAt::Tick, NULL);
-	ZAnim.AddCmd("ai::MACRO", CTMacro::Parse, CTMacro::Begin, CTMacro::Tick, NULL);
-	ZAnim.AddCmd("ai::MAP", CTMap::Parse, NULL, CTMap::Tick, NULL);
-	ZAnim.AddCmd("ai::MOVE", CTMove::Parse, CTMove::Begin, CTMove::Tick, CTMove::End);
-	ZAnim.AddCmd("ai::PAINT", CTPaint::Parse, NULL, CTPaint::Tick, NULL);
-	ZAnim.AddCmd("ai::PARAM", CTParam::Parse, NULL, CTParam::Tick, NULL);
-	ZAnim.AddCmd("ai::PURSUE", CTPursue::Parse, CTPursue::Begin, CTPursue::Tick, CTPursue::End);
-	ZAnim.AddCmd("ai::ANIMATE", CTPlay::Parse, CTPlay::Begin, CTPlay::Tick, CTPlay::End);
-	ZAnim.AddCmd("ai::INRANGE", CTRange::Parse, NULL, CTRange::Tick, NULL);
-	ZAnim.AddCmd("ai::INREGION", CTRegion::Parse, NULL, CTRegion::Tick, NULL);
+	*(u32 *)&ai_cmdid[0] = ZAnim.AddCmd("ai::ACTION", CTAction::Parse, NULL, CTAction::Tick, NULL);
+	*(u32 *)&ai_cmdid[0] = ZAnim.AddCmd("ai::COMM", CTComm::Parse, NULL, CTComm::Tick, NULL);
+	*(u32 *)&ai_cmdid[0] = ZAnim.AddCmd("ai::DEBUG", CTDebug::Parse, NULL, CTDebug::Tick, NULL);
+	*(u32 *)&ai_cmdid[0] = ZAnim.AddCmd("ai::DOOR", CTDoor::Parse, CTDoor::Begin, CTDoor::Tick, CTDoor::End);
+	*(u32 *)&ai_cmdid[0] = ZAnim.AddCmd("ai::EVENT", CTEvent::Parse, CTEvent::Begin, CTEvent::Tick, NULL);
+	*(u32 *)&ai_cmdid[0] = ZAnim.AddCmd("ai::FIREMODE", CTFireMode::Parse, CTFireMode::Begin, CTFireMode::Tick, NULL);
+	*(u32 *)&ai_cmdid[0] = ZAnim.AddCmd("ai::FIREWEAPON", CTFireWeapon::Parse, CTFireWeapon::Begin, CTFireWeapon::Tick, NULL);
+	*(u32 *)&ai_cmdid[0] = ZAnim.AddCmd("ai::GOTO", CTGoto::Parse, CTGoto::Begin, CTGoto::Tick, CTGoto::End);
+	*(u32 *)&ai_cmdid[0] = ZAnim.AddCmd("ai::HOLD", CTHold::Parse, CTHold::Begin, CTHold::Tick, CTHold::End);
+	*(u32 *)&ai_cmdid[0] = ZAnim.AddCmd("ai::INSTATE", CTInState::Parse, NULL, CTInState::Tick, NULL);
+	*(u32 *)&ai_cmdid[0] = ZAnim.AddCmd("ai::INVIEW", CTInView::Parse, NULL, CTInView::Tick, NULL);
+	*(u32 *)&ai_cmdid[0] = ZAnim.AddCmd("ai::LOOKAT", CTLookAt::Parse, CTLookAt::Begin, CTLookAt::Tick, NULL);
+	*(u32 *)&ai_cmdid[0] = ZAnim.AddCmd("ai::MACRO", CTMacro::Parse, CTMacro::Begin, CTMacro::Tick, NULL);
+	*(u32 *)&ai_cmdid[0] = ZAnim.AddCmd("ai::MAP", CTMap::Parse, NULL, CTMap::Tick, NULL);
+	*(u32 *)&ai_cmdid[0] = ZAnim.AddCmd("ai::MOVE", CTMove::Parse, CTMove::Begin, CTMove::Tick, CTMove::End);
+	*(u32 *)&ai_cmdid[0] = ZAnim.AddCmd("ai::PAINT", CTPaint::Parse, NULL, CTPaint::Tick, NULL);
+	*(u32 *)&ai_cmdid[0] = ZAnim.AddCmd("ai::PARAM", CTParam::Parse, NULL, CTParam::Tick, NULL);
+	*(u32 *)&ai_cmdid[0] = ZAnim.AddCmd("ai::PURSUE", CTPursue::Parse, CTPursue::Begin, CTPursue::Tick, CTPursue::End);
+	*(u32 *)&ai_cmdid[0] = ZAnim.AddCmd("ai::ANIMATE", CTPlay::Parse, CTPlay::Begin, CTPlay::Tick, CTPlay::End);
+	*(u32 *)&ai_cmdid[0] = ZAnim.AddCmd("ai::INRANGE", CTRange::Parse, NULL, CTRange::Tick, NULL);
+	*(u32 *)&ai_cmdid[0] = ZAnim.AddCmd("ai::INREGION", CTRegion::Parse, NULL, CTRegion::Tick, NULL);
 	/* 0x2beb5c: ai_cmdid+8 is ai::SELECT's command type (taskFindParam's key, CTSelect::Create)
-	 * and +0xc ai::SPECIAL's; the ELF stores every other id in the first word */
+	 * and +0xc ai::SPECIAL's; every other id is stored in the first word (sw, 0x2be680...), so
+	 * it ends as ai::WAIT's (the Parse functions' header type) */
 	*(u16 *)&ai_cmdid[8] = ZAnim.AddCmd("ai::SELECT", CTSelect::Parse, NULL, CTSelect::Tick, NULL);
-	ZAnim.AddCmd("ai::SETMODE", CTSetMode::Parse, NULL, CTSetMode::Tick, NULL);
-	ZAnim.AddCmd("ai::SETANIMSET", CTSetAnimSet::Parse, NULL, CTSetAnimSet::Tick, NULL);
-	ZAnim.AddCmd("ai::SIGNAL", CTSignal::Parse, NULL, CTSignal::Tick, NULL);
-	ZAnim.AddCmd("ai::SOUND", CTSound::Parse, CTSound::Begin, CTSound::Tick, CTSound::End);
-	ZAnim.AddCmd("ai::STANCE", CTStance::Parse, CTStance::Begin, CTStance::Tick, CTStance::End);
-	ZAnim.AddCmd("ai::STATE", CTState::Parse, NULL, CTState::Tick, NULL);
-	ZAnim.AddCmd("ai::STOPALL", CTStopAll::Parse, NULL, CTStopAll::Tick, NULL);
+	*(u32 *)&ai_cmdid[0] = ZAnim.AddCmd("ai::SETMODE", CTSetMode::Parse, NULL, CTSetMode::Tick, NULL);
+	*(u32 *)&ai_cmdid[0] = ZAnim.AddCmd("ai::SETANIMSET", CTSetAnimSet::Parse, NULL, CTSetAnimSet::Tick, NULL);
+	*(u32 *)&ai_cmdid[0] = ZAnim.AddCmd("ai::SIGNAL", CTSignal::Parse, NULL, CTSignal::Tick, NULL);
+	*(u32 *)&ai_cmdid[0] = ZAnim.AddCmd("ai::SOUND", CTSound::Parse, CTSound::Begin, CTSound::Tick, CTSound::End);
+	*(u32 *)&ai_cmdid[0] = ZAnim.AddCmd("ai::STANCE", CTStance::Parse, CTStance::Begin, CTStance::Tick, CTStance::End);
+	*(u32 *)&ai_cmdid[0] = ZAnim.AddCmd("ai::STATE", CTState::Parse, NULL, CTState::Tick, NULL);
+	*(u32 *)&ai_cmdid[0] = ZAnim.AddCmd("ai::STOPALL", CTStopAll::Parse, NULL, CTStopAll::Tick, NULL);
 	*(u16 *)&ai_cmdid[12] = ZAnim.AddCmd("ai::SPECIAL", CTSpecial::Parse, CTSpecial::Begin, CTSpecial::Tick, CTSpecial::End);
-	ZAnim.AddCmd("ai::TEAM", CTTeam::Parse, NULL, CTTeam::Tick, NULL);
-	ZAnim.AddCmd("ai::VALVE", CTValve::Parse, NULL, CTValve::Tick, NULL);
-	ZAnim.AddCmd("ai::WAIT", CTWait::Parse, CTWait::Begin, CTWait::Tick, NULL); /* 0x2bedb8: Tick__6CTWait (was CTValve::Tick) */
+	*(u32 *)&ai_cmdid[0] = ZAnim.AddCmd("ai::TEAM", CTTeam::Parse, NULL, CTTeam::Tick, NULL);
+	*(u32 *)&ai_cmdid[0] = ZAnim.AddCmd("ai::VALVE", CTValve::Parse, NULL, CTValve::Tick, NULL);
+	*(u32 *)&ai_cmdid[0] = ZAnim.AddCmd("ai::WAIT", CTWait::Parse, CTWait::Begin, CTWait::Tick, NULL); /* 0x2bedb8: Tick__6CTWait (was CTValve::Tick) */
 
     return true;
 }
@@ -2301,8 +2302,9 @@ bool CTParam::Tick(_zanim_cmd_hdr* header, f32* dT)
 		break;
 	}
 	default:
-		/* 0 and 7 (no compare) */
-		done = true;
+		/* 0, 7 and 14 on (no compare): 0x2b84c0 / table 0x454760 go to the end with v0 still
+		 * 0, so the task is never done */
+		done = false;
 		break;
 	}
 
