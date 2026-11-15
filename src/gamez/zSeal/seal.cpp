@@ -566,11 +566,17 @@ static struct { zdb::IntersectStruct* hit; int chord; } l_int[64]; /* 512 bytes:
 /* @socom-skeleton body SealInitCharacterDynamics__Fv */
 void SealInitCharacterDynamics()
 {
-    CRdrFile* dynamics = zrdr_read("dynamics.rdr");
-    if (!theCharacterDynamics.m_loaded && dynamics)
+    /* 0x258ec0: the file is only read while the dynamics are not loaded, from data/common
+     * (which becomes zrdr_read's current path). (was: read every time, with no path) */
+    if (!theCharacterDynamics.m_loaded)
     {
-        theCharacterDynamics.Load(*dynamics); /* port: Load__17CharacterDynamicsFRC8CRdrFile */
-        zrdr_free(dynamics);
+        CRdrFile* dynamics = zrdr_read("dynamics.rdr", "data/common", 0);
+
+        if (dynamics != NULL)
+        {
+            theCharacterDynamics.Load(*dynamics); /* port: Load__17CharacterDynamicsFRC8CRdrFile */
+            zrdr_free(dynamics);
+        }
     }
 
     CZSealBody::InitLookAnims();

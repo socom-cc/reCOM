@@ -451,8 +451,19 @@ void CEntity::OnMissionStart() {}
 void CEntity::OnMissionEnd() {}
 
 /* @socom-skeleton stub TeleportTo__7CEntityFPC7CMatrix */
-void CEntity::TeleportTo(const CMatrix *)
+void CEntity::TeleportTo(const CMatrix *mat)
 {
+	/* 0x1ee5a0: stop, take the matrix as the next one and its rotation as both quats, then
+	 * place the node. (was: empty) ELF quirk: the quat's length (InnerProduct + w*w, sqrtf)
+	 * is computed after the copy and discarded; not repeated here. */
+	m_velW = CPnt3D::zero;
+	m_velM = CPnt3D::zero;
+	m_velR = CPnt3D::zero;
+	m_next_velw = CPnt3D::zero;
+	sceVu0CopyMatrix(m_next_matrix.m_matrix, const_cast<float(*)[4]>(mat->m_matrix));
+	mat->ToQuat(&m_quat);
+	m_next_quat = m_quat;
+	m_node->SetMatrix(&m_next_matrix);
 }
 
 /* @socom-skeleton stub TeleportTo__7CEntityFPC6CPnt3DPC5CQuat */

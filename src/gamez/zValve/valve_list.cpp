@@ -41,8 +41,21 @@ std::list<CValve *, std::allocator<CValve *> > CValve::m_list;
 static CValvePool valvePool; /* port: typed; the skeleton placeholder was the 28-byte ELF object */
 
 /* @socom-skeleton stub FlushNames__10CValvePoolFb */
-void CValvePool::FlushNames(bool)
+void CValvePool::FlushNames(bool force)
 {
+	/* 0x2f6e10 (~CValvePool): the valves whose name lies in the name buffer are counted; with
+	 * none, or when forced, the buffer is emptied. (was: empty) port: void as zvalve.h declares
+	 * it; the ELF also returns count != 0 */
+	u32 count = 0;
+
+	for (std::list<CValve*>::iterator it = CValve::m_list.begin(); it != CValve::m_list.end(); ++it)
+	{
+		if ((*it)->m_name_pooled)
+			count++;
+	}
+
+	if (count == 0 || force)
+		m_pool_name = m_pool_base;
 }
 
 /* @socom-skeleton body Acquire__10CValvePoolFPCc10VALVE_TYPE */

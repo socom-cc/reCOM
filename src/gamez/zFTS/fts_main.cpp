@@ -68,8 +68,9 @@ zdb::IntersectStruct * ftsGetAltitudeApprox(const CPnt3D *position, float offset
 			CAiCell *cell = map->GetCell(loc);
 			f32 altitude = 0.0f;
 
-			/* port: guard - off the grid the ELF reads the flags of a NULL cell */
-			if (cell != NULL && !cell->m_badalt && cell->m_soil != 10)
+			/* ELF 0x1f224c: the cell is not NULL-tested (AiMaps.GetLocation put loc on the map,
+			 * so GetCell answers a cell or the dummy one) */
+			if (!cell->m_badalt && cell->m_soil != 10)
 			{
 				CAiMapLoc local;
 				bool have = false;

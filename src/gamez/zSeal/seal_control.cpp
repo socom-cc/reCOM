@@ -505,7 +505,7 @@ public:
 	static f32 ComputeMaxVel(f32 dist, f32 height, f32 *time)
 	{
 		static const f32 tan_45 = 1.0f;        /* tan_45$localstatic3 */
-		static const f32 cos_45 = 0.70710725f; /* cos_45$localstatic5 (0x3f3504f7) */
+		static const f32 cos_45 = 0.707107f; /* cos_45$localstatic5 (0x3f3504f7; was 0.70710725f = 0x3f3504fb) */
 		f32 t = sqrtf(2.0f * (height + tan_45 * dist) / 98.0f);
 		f32 speed = dist / (cos_45 * t);
 

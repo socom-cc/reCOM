@@ -168,11 +168,11 @@ class CPnt2D : public PNT2D { };
 class CPnt3D : public PNT3D
 {
 public:
+	/* __ct__6CPnt3DFv 0x1a9160: jr ra / move v0,a0 - the members are left as they are (was:
+	 * zeroed). A -Wmaybe-uninitialized sweep of every unit with this empty ctor finds one new
+	 * read, CEntity::UpdateTargetList copying a fresh CTarget (m_vec unset, as the ELF) */
 	CPnt3D()
 	{
-		x = 0.0f;
-		y = 0.0f;
-		z = 0.0f;
 	}
 
 	CPnt3D(const CPnt3D& other)
