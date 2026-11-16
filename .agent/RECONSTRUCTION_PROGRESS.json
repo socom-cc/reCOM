@@ -2546,7 +2546,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 4502,
+  "revision": 4514,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -163840,10 +163840,13 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "amendment 013 review (socom-amend-reviewer-3): plan sha256:b5c15bfda67926999981d91246250b3f696bc7f01c8c45f4d0b3f110290d6b37 matches handoff; validate --check ok (0 problems), draft --check ok; diff vs .prev: only the 13 user-placed artifacts moved from unresolved: new user rows fts_network.cpp (5 + kept CPnt3D::Cross 0x201650 strictly between 0x2014d0 and 0x2016f0, entry decision ## zmath/zmath.h) and fts_network_dme.cpp (5), medium, decision fe2f75ed...; 2 per-entry decisions (medium) into known fts_objectivecam.cpp (0x20a750, 0x20a830; after fts_controller's kept copy 0x20a6c0, before 0x20a8d0); header emit 0x201650 -> src/gamez/zMath/zmath.h (inline, 3 calling units: ODR; same path as 016); reservation adds only src/gamez/zMath for that emit; 1 note; placements check ok, 0 conflicts/ELF objections; emit-check identical to .prev (9 wrong citations pre-existing); placed 13; unresolved 30->17 (data unchanged)",
-        "plan build/source-plans/socom-work-source-segment-024.json sha256:b5c15bfda67926999981d91246250b3f696bc7f01c8c45f4d0b3f110290d6b37; prev build/source-plans/socom-work-source-segment-024.prev.json sha256:df9555b9bbb9fe2ac4a1ad7e02e0dd222bd7a21e33d6fae3cc59c09f4c6ed0ab; validate --check --fill-annotations ok, --check ok (0 problems); draft --check ok; decision docs/reconstruction/decisions/stage4-function-placements.md LF sha256:fe2f75edb96e8fe022e2d298cb3ce68bb7ddc6caa2b9a4d41a0216da1e5680c4; reservation adds src/gamez/zMath (zmath.h emit, path shared with 016/026); emit-check 0 missing, 9 wrong citations all on pre-existing rows and identical on the .prev plan (src/ header drift)"
+        "plan build/source-plans/socom-work-source-segment-024.json sha256:cc745d2d65e46e336b2d35a40f7e5132615dc7de2ae9d5e9d2fa3df2e73ad32d; prev build/source-plans/socom-work-source-segment-024.prev-027.json sha256:b5c15bfda67926999981d91246250b3f696bc7f01c8c45f4d0b3f110290d6b37 (the accepted plan); validate --check --fill-annotations ok, --check ok (0 problems; header_moves state pending; review note that source-segment-033 still names the old header while it is unrevised); draft --check ok; emit-check 0 missing, 9 wrong citations all on rows unchanged from the accepted plan (0x1ff970, 0x1ff980, 0x1ff990, 0x2000f0); user decision build/stage4/owner-decisions/FOLLOWUPS.md item 12; diff vs prev: header_moves row added, header_emits 0x1ff8d0 header path + 1 evidence line, its emits annotation path, 1 reservation evidence line (directories unchanged); from the tool maintainer's candidate build/socom-tool-maintainer-hm1/cand-024.json with one wording correction in the header_moves evidence (it said both plans retire the old header; no retire_files row names it)"
       ],
-      "handoff": null,
+      "handoff": {
+        "owner": "socom-amend-planner-fa2",
+        "submitted_at": "2026-11-16T08:04:41Z",
+        "summary": "amendment 027: header move stated (header_moves src/gamez/zNode/node_action.h -> src/gamez/zFTS/fts_action.h); the emit row of 0x1ff8d0 names the new header; no owner row, note, contradiction or unresolved row changed; unresolved 17 -> 17"
+      },
       "id": "socom:work:source-segment-024",
       "kind": "source-plan-segment",
       "lease": null,
@@ -163941,7 +163944,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 024 (0x1ff8d0-0x20bb40, 190 functions)"
     },
     {
@@ -165207,10 +165210,13 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "amendment 015 review (socom-amend-reviewer-3): plan sha256:bb995108803049dbdabd4313102fb6e4070e74fe88b8ba4d0b2d6e978ec4ae2d matches handoff; validate --check ok (0 problems), draft --check ok; diff vs .prev: only the 11 user-placed artifacts moved from unresolved: new user row node_vector.cpp (0x224260-0x224700, medium, decision fe2f75ed...); reservation unchanged (zNode); reasons of 0x224740 (R1 copy remove_copy<CNode>) and 0x223170 (zmath.h-placed CMatrix op, no deciding neighbour) updated, both parent-accepted unresolved; 0x223170's reason records that CMatrix DWARF header units name Z:\\dev\\gamez\\zmath\\zmath_matrix.h (0x1e45f0, 0x1eb350, 0x3c5bc0; verified in dwarf_cus) against the decision's zmath.h; 1 note; placements check ok, 0 conflicts/ELF objections; emit-check identical to .prev (2 wrong citations 0x21d510/0x21d560); placed 11; unresolved 14->3",
-        "plan build/source-plans/socom-work-source-segment-026.json sha256:bb995108803049dbdabd4313102fb6e4070e74fe88b8ba4d0b2d6e978ec4ae2d; prev build/source-plans/socom-work-source-segment-026.prev.json sha256:32520d4f7c46eb91fc3036c3e7ca86103ed29fbffbed371718536827a8cbdb00; validate --check --fill-annotations ok, --check ok (0 problems); draft --check ok; decision docs/reconstruction/decisions/stage4-function-placements.md LF sha256:fe2f75edb96e8fe022e2d298cb3ce68bb7ddc6caa2b9a4d41a0216da1e5680c4; compiler copies docs/reconstruction/decisions/stage4-compiler-copies.md LF sha256:93d7d8f32f8952a4f0c7f8eea2a63888c3a840c89bd6f3ed8faba6670004aec7; emit-check 0 missing, 2 wrong citations (0x21d510, 0x21d560) on pre-existing zmath.h rows (src/ header drift)"
+        "plan build/source-plans/socom-work-source-segment-026.json sha256:5b929f5ee8c6c98c36cc24d5db66bffa32f270e6c9d2cb1a85e85d257b22275c; prev build/source-plans/socom-work-source-segment-026.prev-029.json sha256:bb995108803049dbdabd4313102fb6e4070e74fe88b8ba4d0b2d6e978ec4ae2d (the accepted plan); validate --check --fill-annotations ok, --check ok (0 problems); draft --check ok (drafted 263, hand 179, the A-kept-copy entry keeps its rule); emit-check 1 missing (0x21b800) and 2 wrong citations (0x21d510, 0x21d560), all on rows unchanged and identical on the prev plan; decision docs/reconstruction/decisions/stage4-function-placements.md LF sha256:7fddc6fb6c56190271f3c977b9c800bb8fb1bc983f5cbc9df16469c56a111945 ## zmath/zmath_matrix.h (lines 183-186); diff vs prev: header_emits +1 (0x218de0) with its emits annotation, decision object on owners[grid_clutter.cpp] entry 0x218de0, unresolved 0x223170 reason, notes +1; reservation unchanged (src/gamez/zMath already reserved); 0x218de0's owner row is in this plan (grid_clutter.cpp row 0, slice start)"
       ],
-      "handoff": null,
+      "handoff": {
+        "owner": "socom-amend-planner-fa2",
+        "submitted_at": "2026-11-16T11:46:31Z",
+        "summary": "amendment 029: 1 header-emit row added (CMatrix::Multiply 0x218de0 -> src/gamez/zMath/zmath_matrix.h, entry decision on grid_clutter.cpp's kept copy, owner unchanged); 0x223170 stays unresolved with the zmath_matrix.h decision in its reason (no evidence decides zmath_trig.cpp vs node_io.cpp); 1 note; unresolved 3 -> 3"
+      },
       "id": "socom:work:source-segment-026",
       "kind": "source-plan-segment",
       "lease": null,
@@ -165322,7 +165328,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 026 (0x218de0-0x22489c, 188 functions)"
     },
     {
@@ -166345,11 +166351,13 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "amendment 017 review: diff vs .prev = only SetMaterial 0x22c3c0 + SetDIBBox 0x22c420 moved unresolved -> node_world.cpp entries (medium, per-entry decision heading 'znode/node_world.cpp' lines 231-232), one owner evidence line, +2 annotations; no other row/note/contradiction/reservation change; placements check ok (run 0x22c3c0-0x230650 unbroken, 0 conflicts, 0 ELF objections); no LOCAL ref, cluster or unit candidate on either (node_util.cpp tail fits equally, so medium is right); validate --check ok (0 problems), draft --check ok; emit-check identical to .prev (missing emit 0x2304b0 predates the amendment: vis_local.h's CLightMapVector decl was added by stage-5 0a9077c after accepted note 5); placed 2; unresolved 3->1; plan sha256 b9907d225bf3aaff4bf8d3c39cf7d4df316b2b29e7e9f7401062d2d154dd23f3; decision file stage4-function-placements.md LF sha256 fe2f75edb96e8fe022e2d298cb3ce68bb7ddc6caa2b9a4d41a0216da1e5680c4",
-        "node_world.cpp row += SetMaterial 0x22c3c0, SetDIBBox 0x22c420 (medium, per-entry decision '## znode/node_world.cpp' lines 231-232; placements check run 0x22c3c0-0x230650 unbroken); emit-check counts unchanged vs .prev (1 missing emit 0x2304b0 and 5 wrong citations pre-existing)",
-        "plan build/source-plans/socom-work-source-segment-028.json sha256:b9907d225bf3aaff4bf8d3c39cf7d4df316b2b29e7e9f7401062d2d154dd23f3; prev build/source-plans/socom-work-source-segment-028.prev.json sha256:507621bd0480957bc064f4719e83dc9beaecbf4d4757066d9218265349b12579; validate --check ok (--fill-annotations, then --check; with the skeleton_deletions fix for reopened skeleton items); draft --check ok; decision file docs/reconstruction/decisions/stage4-function-placements.md LF sha256:fe2f75edb96e8fe022e2d298cb3ce68bb7ddc6caa2b9a4d41a0216da1e5680c4"
+        "plan build/source-plans/socom-work-source-segment-028.json sha256:e32aa0c283116eab1cd0bbb485e48ec0579313a053e89595d5929fbd843c6cb9; prev build/source-plans/socom-work-source-segment-028.prev-030.json sha256:b9907d225bf3aaff4bf8d3c39cf7d4df316b2b29e7e9f7401062d2d154dd23f3 (the accepted plan); validate --check --fill-annotations ok, --check ok (0 problems); draft --check ok (drafted 333, hand 97); emit-check counts identical to the prev plan (4 missing, 5 wrong citations, all on unchanged rows); decision docs/reconstruction/decisions/stage4-function-placements.md LF sha256:7fddc6fb6c56190271f3c977b9c800bb8fb1bc983f5cbc9df16469c56a111945 ## zvisual/zvis.h (lines 298-300); diff vs prev: unresolved 0x231d80 reason, notes +1; ELF facts re-read with source sql: referencers only __sinit_zrndr_pipe.cpp 0x46bae0, __sinit_vis_main.cpp 0x46e190, __sinit_vis_texfx.cpp 0x46e4e0 (later objects), its one relocation a GLOBAL call of __dl__FPv, no LOCAL symbol, no DWARF unit, copy between node_lensflare.cpp's inline dtor 0x231d00 and node_wave.cpp's CRipple::Tick 0x231dd0"
       ],
-      "handoff": null,
+      "handoff": {
+        "owner": "socom-amend-planner-fa2",
+        "submitted_at": "2026-11-16T11:48:16Z",
+        "summary": "amendment 030: zdb::CVisData::~CVisData() 0x231d80 stays unresolved with the zvis.h decision recorded in its reason (no evidence decides node_lensflare.cpp row vs node_wave.cpp, so no header-emit row can be added); 1 note; no row added, moved or dropped; unresolved 1 -> 1"
+      },
       "id": "socom:work:source-segment-028",
       "kind": "source-plan-segment",
       "lease": null,
@@ -166462,7 +166470,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 028 (0x22c1a0-0x23a0cc, 192 functions)"
     },
     {
@@ -169065,10 +169073,13 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-segment-033.json sha256:adcd467df25e004b7255c48ec1bfecb9b74df771c92f512b7abddcb92b7cb79f; validate --check ok; draft --check ok",
-        "x17 re-review: plan sha256 adcd467d = handoff; validate/draft --check ok. Changes since the x17 rejection are exactly the requested fix: an emit for 0x28d880 __dt__11CZFTSWeaponFv to src/gamez/zWeapon/zweapon.h (zweapon.h:559 declares class CZFTSWeapon; its GLOBAL vtable 0x472f30 lies in zWeapon data and is written by ctor 0x315e90 in segment 043), and src/gamez/zWeapon added to the reservation. The other sweep rows are unchanged from the earlier review (GetAction 0x29a6b0 to node_action.h:5, the _TransformPoint note, the two span-override notes). The ODR re-check finds no uncovered cross-unit inline copy."
+        "plan build/source-plans/socom-work-source-segment-033.json sha256:c9eca412afd4d215766cec85d71cd8874027a513e1900bccc362ac6c6f793262; prev build/source-plans/socom-work-source-segment-033.prev-028.json sha256:adcd467df25e004b7255c48ec1bfecb9b74df771c92f512b7abddcb92b7cb79f (the accepted plan); validate --check --fill-annotations ok, --check ok (0 problems; header_moves state pending; no cross-plan note: source-segment-024 states the same move); draft --check ok; emit-check 0 missing, wrong citations 3 -> 2 (0x28c070, 0x28d880 on rows unchanged from the accepted plan; the 0x29a6b0 row now cites class CNodeAction at node_action.h:13); user decision build/stage4/owner-decisions/FOLLOWUPS.md item 12; diff vs prev: header_moves row added, header_emits 0x29a6b0 header path + 1 evidence line, its emits annotation path, reservation directories + src/gamez/zFTS with 1 evidence line and the reason extended; from the tool maintainer's candidate build/socom-tool-maintainer-hm1/cand-033.json with one wording correction in the header_moves evidence (it said both plans retire the old header; no retire_files row names it)"
       ],
-      "handoff": null,
+      "handoff": {
+        "owner": "socom-amend-planner-fa2",
+        "submitted_at": "2026-11-16T08:06:32Z",
+        "summary": "amendment 028: header move stated (header_moves src/gamez/zNode/node_action.h -> src/gamez/zFTS/fts_action.h); the emit row of 0x29a6b0 names the new header; reservation adds src/gamez/zFTS and keeps src/gamez/zNode; no owner row, note or contradiction changed; unresolved 0 -> 0"
+      },
       "id": "socom:work:source-segment-033",
       "kind": "source-plan-segment",
       "lease": null,
@@ -169143,7 +169154,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 033 (0x28a560-0x2a451c, 197 functions)"
     },
     {
@@ -171176,10 +171187,13 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "amendment 024 review: plan sha256:4327cbab7414e553d81351237f4099c0859b142bc4c3156691c32b39d19952cb = handoff; prev fc7d58b2 = accepted plan. validate --check ok; draft --check ok (drafted 237, hand 166). JSON diff vs .prev: only the 23 placed functions - C2D virtuals 0x300bf0-0x300d10 -> user row ztwod_main.cpp (6), C2DBitmap 0x3030e0-0x3039c0 -> user row ztwod_bitmap.cpp (14), C2D::Open/Init 0x303c10/0x303c60 -> new user row ztwod_init.cpp (2), all medium with decision fe2f75ed...; ~C2DLine 0x2fe8e0 -> header emit src/gamez/zTwoD/ztwod.h (inline, binding 13) plus kept copy in c2dbitmap_poly.cpp (low, per-entry decision ztwod/ztwod.h); +1 missing contradiction ~C2D 0x300d10 vs ztwod_main.cpp (same row as the accepted source-data-rodata plan); +annotations, +1 note; reservation unchanged. ~C2DLine ruling: low ownership is supportable, not proven - the header emit needs an authored owner (SOURCE_CORRELATION validation rule), the copy is contained between c2dbitmap_poly.cpp (ends 0x2fe8e0) and ztwod_font.cpp (SetXSpacing 0x2fe9a0) and no relocation from either object reaches it (refs: __vt__7C2DLine and CZLineMap ctor/dtor only), so ztwod_font.cpp fits equally and the basis says so; same treatment as accepted amendment 009 (016 CPnt3D edge copies, low); choosing c2dbitmap_poly.cpp leaves the unresolved list<C2D*> copy 0x2fe940 free for either neighbour. ztwod.h:561/564 citation is authored-line numbering (file lines 623/626, 62-line generated block excluded); emit-check: 0x2fe8e0 implicit shape, 4 units, no wrong citation; all other emit-check counts identical to .prev. ztwod_main/ztwod_bitmap/c2dbitmap_poly paths equal source-data-data/rodata. placements check ok, 0 conflicts. placed 23; unresolved 33->10.",
-        "plan build/source-plans/socom-work-source-segment-041.json sha256:4327cbab7414e553d81351237f4099c0859b142bc4c3156691c32b39d19952cb; prev build/source-plans/socom-work-source-segment-041.prev.json sha256:fc7d58b2ed9d03d2cb7bb0eada2bdcbbf4075c05b21ef11a573c4ed8fa9db9eb; validate --check --fill-annotations ok; validate --check ok; draft --check ok; decision file docs/reconstruction/decisions/stage4-function-placements.md sha256:fe2f75edb96e8fe022e2d298cb3ce68bb7ddc6caa2b9a4d41a0216da1e5680c4"
+        "plan build/source-plans/socom-work-source-segment-041.json sha256:3fec7f9343701d6ca6fd72f6120e532296598a5f530c0ba5818eb16bb8c0a541; prev build/source-plans/socom-work-source-segment-041.prev-031.json sha256:4327cbab7414e553d81351237f4099c0859b142bc4c3156691c32b39d19952cb (the accepted plan); validate --check --fill-annotations ok (removed the two emits annotations), --check ok (0 problems); draft --check ok (drafted 237, hand 166); emit-check: missing emits 2 -> 4 (0x2f9b70 and 0x2f9ca0 are now listed: it counts the vtable readers c2dstring.cpp, ztwod_bitmap.cpp and zui.cpp as units involved; the user decision stands against that ruling, see the plan note), wrong citations 14 -> 12 (the two dropped rows), the rest on unchanged rows; decision docs/reconstruction/decisions/stage4-function-placements.md LF sha256:7fddc6fb6c56190271f3c977b9c800bb8fb1bc983f5cbc9df16469c56a111945 ## ztexture/ztex.h (lines 302-307) and ## ztexture/ztex_manager.cpp (lines 309-312); diff vs prev: header_emits -2 with their 2 emits annotations, 4 unresolved reasons, notes +2; reservation unchanged; the plan file is now LF (the accepted one was CRLF, same JSON otherwise); ELF facts re-read with source sql: 0x2f9b70/0x2f9ca0 referenced only by slots 0x472aac/0x472ab4 of __vt__Q23zdb15CBatchRelocator (GLOBAL, ztex_manager.cpp cluster); 0x3030a0-0x3030d0 referenced only by __vt__23CDblBufTextureRelocator 0x473130 (zui.cpp), no relocation, LOCAL symbol or DWARF unit of their own"
       ],
-      "handoff": null,
+      "handoff": {
+        "owner": "socom-amend-planner-fa2",
+        "submitted_at": "2026-11-16T11:50:51Z",
+        "summary": "amendment 031: 2 header-emit rows dropped (CBatchRelocator::EndBatchReloc 0x2f9b70 and StartBatchReloc 0x2f9ca0 are written inline in ztex_manager.cpp by user decision; owner entries unchanged); the four CTextureRelocMgr copies 0x3030a0-0x3030d0 stay unresolved with the ztex.h decision recorded in their reasons (no evidence decides c2dstring.cpp vs ztwod_bitmap.cpp, so no header-emit rows); 2 notes; unresolved 10 -> 10"
+      },
       "id": "socom:work:source-segment-041",
       "kind": "source-plan-segment",
       "lease": null,
@@ -171305,7 +171319,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 041 (0x2f9ab0-0x304b60, 189 functions)"
     },
     {
@@ -175806,10 +175820,13 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-segment-057.json sha256:e7cc3c00401ef314212297b253f9d586b65a4d43052831a3639c6dc587662dc4; validate --check ok; draft --check ok",
-        "plan sha256:e7cc3c00...2dc4 matches handoff; validate --check ok (0 problems, 1 review note), draft --check ok (276 drafted, 0 hand, 0 overrides; only owner change is the workspace_path src/gamez/zUI/zui_skb.cpp, same as accepted 076, no provisional file exists). No D-referenced rows. The 8 hand MSL emits cover all 7 draft.open_header_emits plus std::operator!= 0x3a3670: __tree::iterator members and the operator!= friend -> <tree>, __red_black_tree<1>::increment -> <tree> (sibling __tree instances' DWARF names ...\\Include\\tree), map::end/find -> <map>, pair ctor -> <utility> (MSL defining headers; no instance has a header unit). All are std-qualified and referenced only by zui_skb.cpp. The 3 no-emit copies (_zrdr::GetInt 0x3a7550, _zrdr::Get 0x3a75a0: explicit inline, only CreateSoftKeyboard references them; CBmpWithNode thunk 0x3aa6f0: only zui_skb's vtable) are single-unit. The ZuiInit contradiction at zui.cpp:5 was verified. No install path in the plan."
+        "plan build/source-plans/socom-work-source-segment-057.json sha256:a1f820dd4fb4fdfa83a457c6193b9669178de8da93ce8c0db112325066b2bdbc; prev build/source-plans/socom-work-source-segment-057.prev-032.json sha256:e7cc3c00401ef314212297b253f9d586b65a4d43052831a3639c6dc587662dc4 (the accepted plan); validate --check --fill-annotations ok, --check ok (0 problems, 1 review note); draft --check ok (drafted 276, hand 0: the A-between entry keeps its rule); emit-check 0 missing, 0 wrong citations (as the prev plan; the new row cites struct _zrdr at src/gamez/zReader/zrdr.h:184 in authored lines); decision docs/reconstruction/decisions/stage4-function-placements.md LF sha256:7fddc6fb6c56190271f3c977b9c800bb8fb1bc983f5cbc9df16469c56a111945 ## zreader/zrdr.h (lines 314-316); diff vs prev: header_emits +1 (0x3a75a0) with its emits annotation, decision object on owners[zui_skb.cpp] entry 0x3a75a0, notes +1, reservation directories + src/gamez/zReader with status confirmed -> corrected, reason and 1 evidence line (the apply reserves only src/gamez/zUI today; src/gamez/zReader is shared with the applies of segments 016, 029, 052 and 076); ELF facts re-read with source sql: only CreateSoftKeyboard 0x3a7940 (zui_skb.cpp) calls the copy"
       ],
-      "handoff": null,
+      "handoff": {
+        "owner": "socom-amend-planner-fa2",
+        "submitted_at": "2026-11-16T11:53:11Z",
+        "summary": "amendment 032: 1 header-emit row added (_zrdr::Get(unsigned int) 0x3a75a0 -> src/gamez/zReader/zrdr.h, entry decision on zui_skb.cpp's kept copy, owner unchanged); reservation adds src/gamez/zReader (status corrected); 1 note; unresolved 0 -> 0"
+      },
       "id": "socom:work:source-segment-057",
       "kind": "source-plan-segment",
       "lease": null,
@@ -175842,7 +175859,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 057 (0x3a2a80-0x3aa6f8, 88 functions)"
     },
     {
