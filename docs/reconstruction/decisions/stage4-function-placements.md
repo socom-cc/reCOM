@@ -183,6 +183,7 @@ Note: inline in their classes (MW binding 13); each kept copy sits in a file tha
 ## zmath/zmath_matrix.h
 Note: DWARF names Z:\dev\gamez\zmath\zmath_matrix.h as CMatrix's header (dwarf_cus 0x1e45f0, 0x1eb350, 0x3c5bc0).
 - CMatrix::operator const float (&)[4][4]() const
+- 0x218de0  CMatrix::Multiply(const CMatrix *, CMatrix *) const
 
 ## ztwod/ztwod.h
 Note: inline in C2DLine's class (its copy sits between c2dbitmap_poly.cpp and ztwod_font.cpp).
@@ -293,3 +294,23 @@ Note: one unbroken run of container classes (0x224260-0x224700) between node_io.
 - zdb::CNodeUniverse::GetIndex(zdb::CNode *)
 - zdb::CNodeUniverse::RemoveNode(zdb::CNode *)
 - zdb::CNodeUniverse::AddNode(zdb::CNode *)
+
+## zvisual/zvis.h
+Note: (2026-11-15) inline in its class (MW binding 13); the kept copy sits between node_lensflare.cpp and node_wave.cpp.
+- 0x231d80  zdb::CVisData::~CVisData()
+
+## ztexture/ztex.h
+Note: (2026-11-15) inline in CTextureRelocMgr's class (MW binding 13); the four kept copies sit directly before ztwod_bitmap.cpp's code.
+- 0x3030a0  zdb::CTextureRelocMgr::AddToBatch(zdb::CTexHandle *) const
+- 0x3030b0  zdb::CTextureRelocMgr::EndBatchReloc() const
+- 0x3030c0  zdb::CTextureRelocMgr::StartBatchReloc() const
+- 0x3030d0  zdb::CTextureRelocMgr::ClearAll()
+
+## ztexture/ztex_manager.cpp
+Note: (2026-11-15) written inline in ztex_manager.cpp, whose object keeps both copies and whose vtable is their only user.
+- 0x2f9b70  zdb::CBatchRelocator::EndBatchReloc() const
+- 0x2f9ca0  zdb::CBatchRelocator::StartBatchReloc() const
+
+## zreader/zrdr.h
+Note: (2026-11-15) inline in _zrdr (MW binding 13); the kept copy sits in zui_skb.cpp, its only caller.
+- 0x3a75a0  _zrdr::Get(unsigned int)
