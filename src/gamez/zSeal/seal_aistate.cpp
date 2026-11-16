@@ -611,6 +611,9 @@ void CSealCtrlAi::StateTick(float dT)
 		std::list<CAiState *>::iterator under = m_stateStack.begin();
 		++under;
 
+		/* port deviation: the ELF does not test for the end (0x2daa6c: a lone state would read
+		 * the list's sentinel, m_stateTimer, as a state); std::list's sentinel differs, so the
+		 * end stays tested. A waiting state always lies above its script state. */
 		if (under == m_stateStack.end() || (*under)->m_state != STATE_SCRIPT)
 			return;
 

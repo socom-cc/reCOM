@@ -246,8 +246,7 @@ void CZSealBody::ConfigureAuxPartAnim(CZBodyAnim *anim)
 	/* 0x27d620: the aux slots 29-31 animate the obj-anim part whose id the anim's script
 	 * object for that slot names (none without an object); a part that leaves its slot is
 	 * set back as gear (SetPartAsGear, inline). ELF quirk: a part leaving for another part
-	 * is set as gear even when its entry has no gear (port: skipped then; the ELF reads from
-	 * address 0x1c). */
+	 * is set as gear even when its entry has no gear (then it reads from address 0x1c). */
 	if (anim == NULL)
 		return;
 
@@ -278,8 +277,8 @@ void CZSealBody::ConfigureAuxPartAnim(CZBodyAnim *anim)
 			OBJ_ANIM *entry = m_obj_anims.GetObjAnim(object->m_body_part_id);
 			CZBodyPart *newpart = entry != NULL ? entry->m_part : NULL;
 
-			if (part != NULL && part != newpart && gear != NULL)
-				SetPartAsGear(part, gear);
+			if (part != NULL && part != newpart)
+				SetPartAsGear(part, gear); /* gear not NULL-tested, as the ELF (0x27d82c) */
 
 			if (i < m_body_parts.size())
 				m_body_parts[i] = newpart;
@@ -407,12 +406,7 @@ CZBodyAnimBlend * CZSealBody::PopBlend()
 	m_CurrentBlendAnimType = m_animset->BaseAnim(blend->m_animType);
 
 	if (blend->m_state == 3)
-	{
-		if (m_state != 3)
-			((CSealCtrl *)m_control)->OnStateChange((SEAL_STATE)m_state, (SEAL_STATE)3);
-
-		BodySetState(3);
-	}
+		BodySetState(3); /* inline in the ELF (0x27cc88: the controller told once, then CBody's) */
 
 	struct Local
 	{
@@ -858,7 +852,7 @@ CZBodyAnimBlend * CZSealBody::SealAnim(bool next, float fb, float strafe, float 
 		if (top == NULL)
 			return NULL;
 
-		if (current == m_animset->BaseAnim((AnimType)AnimTypes::ClimbOver) && m_airborne && m_alt < GetPosW()->y)
+		if ((s16)current == AnimTypes::ClimbOver && m_airborne && m_alt < GetPosW()->y) /* 0x27b574: the raw type, not BaseAnim's */
 		{
 			top = PushBlend(AnimType::animTypeJumpFall, 6, false);
 			BodySetState(6); /* inline in the ELF */
@@ -1109,7 +1103,7 @@ CZBodyAnimBlend * CZSealBody::StandStill(float, float strafe, float)
 
 		if (0.600000024f /* 0x3f19999a */ < side)
 			m_last_foot = 2;
-		else if (side < -0.600000024f /* 0x3f19999a */)
+		else if (side < -0.600000024f /* 0xbf19999a */)
 			m_last_foot = 0x20;
 		else if (m_is_turning)
 			m_last_foot = last;
@@ -1412,7 +1406,7 @@ CZBodyAnimBlend * CZSealBody::InStateCrouch(float fb, float lr, float strafe)
 
 				if (0.600000024f /* 0x3f19999a */ < side)
 					m_last_foot = 2;
-				else if (side < -0.600000024f /* 0x3f19999a */)
+				else if (side < -0.600000024f /* 0xbf19999a */)
 					m_last_foot = 0x20;
 				else if (m_is_turning)
 					m_last_foot = last;
@@ -2830,7 +2824,7 @@ bool CZSealBody::GetThrowAnim(float power, AnimType &anim, float &frac, float &o
 	/* @socom-skeleton stub peek_right_offset$3273 */
 	static float peek_right_offset[3] = { 7.8000002f /* 0x40f9999a */, 10.1300002f /* 0x4122147b */, -5.31f };
 	/* @socom-skeleton stub peek_left_offset$3276 */
-	static float peek_left_offset[3] = { -8.83f, 11.4700003f /* 0x4137851f */, -6.48000002f /* 0x40cf5c29 */ };
+	static float peek_left_offset[3] = { -8.83f, 11.4700003f /* 0x4137851f */, -6.48000002f /* 0xc0cf5c29 */ };
 	/* @socom-skeleton stub moving_threshold_sq$3279 */
 	static float moving_threshold_sq = 225.0f;
 	/* (the ELF fills the statics on first use: 0x274b64..0x274d34) */
@@ -3450,6 +3444,8 @@ void CZSealBody::UpdatePeek()
 			keep = t == 34 || t == 33;
 		else if (peek == 1)
 			keep = t == 32 || t == 30 || t == ppr;
+		else if (peek != 2)
+			keep = true; /* 0x2730e4: a value outside -1..2 keeps the peek */
 
 		if (keep)
 			return;
@@ -4166,7 +4162,7 @@ CZBodyAnimBlend * CZSealBody::CrouchToPickupBuddy(CZSealBody *buddy)
 	 * PickupBuddy fires at 99% of that blend. Then the buddy becomes the carried body, the
 	 * controller zooms out and an AI buddy does not fade. v0 = that blend (the top without
 	 * a buddy or when moving). ELF quirks kept: the buddy's node z row is copied and
-	 * overwritten (left out); the buddy's controller is not NULL-tested (port: guarded). */
+	 * overwritten (left out); the buddy's controller is not NULL-tested. */
 	if (buddy == NULL)
 		return m_blends->Top();
 
@@ -4284,7 +4280,7 @@ CZBodyAnimBlend * CZSealBody::CrouchToPickupBuddy(CZSealBody *buddy)
 	if (m_control != NULL)
 		static_cast<CSealCtrl *>(m_control)->m_zoomout = 1;
 
-	CSealCtrlAi *ai = buddy->m_control != NULL ? static_cast<CSealCtrl *>(buddy->m_control)->GetSealCtrlAi() : NULL;
+	CSealCtrlAi *ai = static_cast<CSealCtrl *>(buddy->m_control)->GetSealCtrlAi(); /* not NULL-tested, as the ELF */
 
 	if (ai != NULL)
 		ai->m_nofade = 1;
@@ -4496,8 +4492,8 @@ CZBodyAnimBlend * CZSealBody::RestrainBuddy(CZSealBody *victim)
 	 * to the base, it plays ApplyRestraints (state 0, the controller told); in camera mode 2
 	 * (first person) with a zoom the top blend gets the (empty) camera callback. v0 = the
 	 * ApplyRestraints blend (the top without a victim). CheckAnim ends it (DetachBody).
-	 * ELF quirks kept: a top state that is not STATE_RESTRAINED is written through NULL (port:
-	 * skipped); the victim's controller is not NULL-tested (port: guarded). */
+	 * ELF quirk kept: the victim's controller is not NULL-tested. Port deviation: a top state
+	 * that is not STATE_RESTRAINED, which the ELF writes through NULL, is skipped. */
 	if (victim == NULL)
 		return m_blends->Top();
 
@@ -4519,7 +4515,7 @@ CZBodyAnimBlend * CZSealBody::RestrainBuddy(CZSealBody *victim)
 	}
 
 	victim->m_restrainable = 0;
-	CSealCtrlAi *ai = victim->m_control != NULL ? static_cast<CSealCtrl *>(victim->m_control)->GetSealCtrlAi() : NULL;
+	CSealCtrlAi *ai = static_cast<CSealCtrl *>(victim->m_control)->GetSealCtrlAi(); /* not NULL-tested, as the ELF */
 
 	if (ai != NULL)
 	{
@@ -4527,9 +4523,12 @@ CZBodyAnimBlend * CZSealBody::RestrainBuddy(CZSealBody *victim)
 
 		if (ai->PushAiState(STATE_RESTRAINED, true))
 		{
+			/* 0x26ecb8: the top state is not NULL-tested; one that is not STATE_RESTRAINED
+			 * the ELF writes through NULL (port: skipped, a NULL write GCC -O3 turns into a
+			 * trap; always STATE_RESTRAINED right after the push) */
 			CAiState *state = ai->GetAiState();
 
-			if (state != NULL && state->m_state == STATE_RESTRAINED)
+			if (state->m_state == STATE_RESTRAINED)
 			{
 				state->m_option_flags |= 2;
 				static_cast<CAiSRestrained *>(state)->m_team = m_team; /* +0x28 the restrainer's team */

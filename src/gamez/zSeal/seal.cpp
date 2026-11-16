@@ -1169,8 +1169,7 @@ CZSealBody::~CZSealBody()
 
 	m_select = NULL;
 
-	if (m_aiEvent != NULL) /* port: guard - the ELF releases without a test (CAiEvent::Acquire is unwritten, so the port's seals have none) */
-		CAiEvent::Release(m_aiEvent);
+	CAiEvent::Release(m_aiEvent); /* not NULL-tested, as the ELF (every seal gets its event in PostCreateSeal) */
 
 	m_aiEvent = NULL;
 	delete m_crouch;
@@ -1491,7 +1490,7 @@ void CZSealBody::PreTick(float dT)
 	if (!CanTurn())
 		pre_thr_lr = 0.0f;
 
-	if (m_wephit != NULL && m_wephit->m_node != NULL)
+	if (m_wephit->m_node != NULL) /* m_wephit not NULL-tested, as the ELF (0x2567d8; the ctor makes it) */
 		HandleWepHit();
 
 	PreCheckDIDown();
@@ -1927,8 +1926,8 @@ void CZSealBody::PostTick(float dT)
 	 * then, after a ticked frame: a carried / stabbed / restrained body follows its carrier,
 	 * the AI event, the position (PostComputeNextPosition), the pose to the nodes (Post),
 	 * the hostage anchor, the aim history, the aim params, the controller's post tick, and
-	 * grenades, kit, stun, footsteps and blood. ELF quirk kept: a carrier copies its carried
-	 * body's region shift onto itself. */
+	 * grenades, kit, stun, footsteps and blood. A carrier gives its carried body its own
+	 * region shift. */
 	zdb::CCamera *camera = zdb::CWorld::m_world->m_camera;
 	u32 region = m_last_altitude.GetRegion();
 
@@ -1937,10 +1936,10 @@ void CZSealBody::PostTick(float dT)
 
 	if (m_state == 9)
 	{
+		/* 0x2550fc: the carried body takes the carrier's region shift */
 		CZSealBody *carry = m_carry;
-		GetNode();
-		zdb::CNode *node = carry->GetNode();
-		node->m_region_shift = node->m_region_shift;
+		u32 shift = GetNode()->m_region_shift;
+		carry->GetNode()->m_region_shift = shift;
 	}
 
 	if (!m_doCZSealBodyPostTick)
@@ -2809,7 +2808,7 @@ bool CZSealBody::HandleWeaponIntersect()
 	if (!m_have_aim_norm || ai::do_aimap_collide)
 		return false;
 
-	bool moved = dpos.z * dpos.z + dpos.x * dpos.x + dpos.y * dpos.y > 0.0002f;
+	bool moved = dpos.x * dpos.x + dpos.y * dpos.y + dpos.z * dpos.z > 0.0002f;
 
 	if (moved && !(m_aim_norm.y < theCharacterDynamics.m_maxSlopeCos))
 		return true;
@@ -2823,7 +2822,7 @@ bool CZSealBody::HandleWeaponIntersect()
 	PointAlongLine(aim, fire, 1.10000003f /* 0x3f8ccccd */, tip);
 	tip.Sub(&m_aim_point, &d);
 
-	if (!(m_aim_norm.z * d.z + m_aim_norm.x * d.x + m_aim_norm.y * d.y < 0.0f))
+	if (!(m_aim_norm.x * d.x + m_aim_norm.y * d.y + m_aim_norm.z * d.z < 0.0f))
 		return false;
 
 	f32 t = LineIntersectPlane(PlaneConstant(m_aim_norm, m_aim_point), m_aim_norm, aim, tip);
@@ -2837,17 +2836,17 @@ bool CZSealBody::HandleWeaponIntersect()
 			flat.y = 0.0f;
 			flat.z = m_aim_norm.z;
 			flat.Normalize();
-			f32 into = dpos.z * flat.z + dpos.x * flat.x + dpos.y * flat.y;
+			f32 into = dpos.x * flat.x + dpos.y * flat.y + dpos.z * flat.z;
 
 			if (into < 0.0f)
 			{
 				CPnt3D strip;
 				flat.Scale(into, &strip);
 				dpos.Sub(&strip, &dpos);
-				moved = dpos.z * dpos.z + dpos.x * dpos.x + dpos.y * dpos.y > 0.0002f;
+				moved = dpos.x * dpos.x + dpos.y * dpos.y + dpos.z * dpos.z > 0.0002f;
 			}
 
-			into = m_inAirHorizVel.z * flat.z + m_inAirHorizVel.x * flat.x + m_inAirHorizVel.y * flat.y;
+			into = m_inAirHorizVel.x * flat.x + m_inAirHorizVel.y * flat.y + m_inAirHorizVel.z * flat.z;
 
 			if (into < 0.0f)
 			{
@@ -2865,7 +2864,7 @@ bool CZSealBody::HandleWeaponIntersect()
 		if (moved)
 		{
 			dpos.Scale(-1.0f, &dir);
-			push = (t - 1.0f) * (barrel.z * dir.z + barrel.x * dir.x + barrel.y * dir.y);
+			push = (t - 1.0f) * (barrel.x * dir.x + barrel.y * dir.y + barrel.z * dir.z);
 		}
 		else
 		{
@@ -2873,10 +2872,10 @@ bool CZSealBody::HandleWeaponIntersect()
 			dir.x = node->m_matrix.m_matrix[2][0];
 			dir.y = node->m_matrix.m_matrix[2][1];
 			dir.z = node->m_matrix.m_matrix[2][2];
-			push = -((t - 1.0f) * (barrel.z * dir.z + barrel.x * dir.x + barrel.y * dir.y));
+			push = -((t - 1.0f) * (barrel.x * dir.x + barrel.y * dir.y + barrel.z * dir.z));
 		}
 
-		if (m_aim_norm.z * dir.z + m_aim_norm.x * dir.x + m_aim_norm.y * dir.y > 0.200000003f /* 0x3e4ccccd */ && push < 0.0f)
+		if (m_aim_norm.x * dir.x + m_aim_norm.y * dir.y + m_aim_norm.z * dir.z > 0.200000003f /* 0x3e4ccccd */ && push < 0.0f)
 		{
 			CPnt3D back;
 			dir.Scale(push, &back);

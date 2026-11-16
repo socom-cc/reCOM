@@ -787,7 +787,7 @@ void CAiPath::UpdatePointFlags()
 			continue;
 		}
 
-		CAiCell *cell = map != NULL ? map->GetCell(cur.m_loc) : NULL; /* port: NULL map tested */
+		CAiCell *cell = map->GetCell(cur.m_loc); /* the map is not NULL-tested, as the ELF (0x194268) */
 
 		if (cell == NULL)
 			continue;

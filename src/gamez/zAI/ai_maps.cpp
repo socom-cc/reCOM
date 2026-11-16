@@ -640,8 +640,8 @@ float CAiMaps::ComputeLineVisibility(const CAiMapLoc &from, const CAiMapLoc &to)
 {
 	/* 0x19a120 (CSealCtrl::ComputeVisibility): on one map, that map's line visibility (1
 	 * without the map); between map 0 and another the other end is moved onto map 0
-	 * (TransformTo) and measured there (1 when it cannot be); other pairs 1. ELF quirk: the
-	 * other map is not NULL-tested before TransformTo (port: guarded, 1). */
+	 * (TransformTo) and measured there (1 when it cannot be); other pairs 1. ELF quirk kept:
+	 * the other map is not NULL-tested before TransformTo. */
 	u32 a = from.m_mapid;
 	u32 b = to.m_mapid;
 
@@ -656,7 +656,7 @@ float CAiMaps::ComputeLineVisibility(const CAiMapLoc &from, const CAiMapLoc &to)
 		CAiMap *map = GetMapByIndex(b);
 		CAiMapLoc moved;
 
-		if (map != NULL && map->TransformTo(to, GetMapByIndex(0), moved))
+		if (map->TransformTo(to, GetMapByIndex(0), moved)) /* 0x19a2f8: map not NULL-tested */
 			return ComputeLineVisibility(from, moved);
 
 		return 1.0f;
@@ -667,7 +667,7 @@ float CAiMaps::ComputeLineVisibility(const CAiMapLoc &from, const CAiMapLoc &to)
 		CAiMap *map = GetMapByIndex(a);
 		CAiMapLoc moved;
 
-		if (map != NULL && map->TransformTo(from, GetMapByIndex(0), moved))
+		if (map->TransformTo(from, GetMapByIndex(0), moved)) /* 0x19a428: map not NULL-tested */
 			return ComputeLineVisibility(moved, to);
 	}
 
@@ -1254,7 +1254,8 @@ CAiMap::region * CAiMaps::GetClosestRegion(const CAiMapLoc &loc, CAiMap::region:
 	 * their corner locations), the one whose centre cell is nearest in x/z to the location's
 	 * cell centre; unless `inside`, regions holding the location are passed over.
 	 * port: the centre cell takes the region's map id (the ELF's GetCenter leaves it to an
-	 * unset stack word); a corner on an unknown map is skipped (the ELF reads a NULL region) */
+	 * unset stack word). The region is not NULL-tested, as the ELF (every corner of the lists
+	 * is a region of a known map) */
 	CAiMap::region *best = NULL;
 	f32 best_dsq = 0.0f;
 	CPnt3D here;
@@ -1269,9 +1270,6 @@ CAiMap::region * CAiMaps::GetClosestRegion(const CAiMapLoc &loc, CAiMap::region:
 	{
 		CAiMap *rmap = GetMapByIndex(it->m_mapid);
 		CAiMap::region *r = rmap != NULL ? rmap->GetRegion(*it) : NULL;
-
-		if (r == NULL)
-			continue; /* port: the ELF reads it */
 
 		if (!inside)
 		{
