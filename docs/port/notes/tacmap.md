@@ -49,6 +49,9 @@
 - Now that C2DLine draws, the full-screen grid shows its ELF quirk: the first horizontal grid
   line (CZNewHudMap ctor, trans 128) is a bright white line across the map; the north arrow
   shafts are visible too.
+  Corrected 2026-11-16 (audit list large-hud-b): the bright line was a port defect, not an ELF
+  quirk. The ELF's loop is entered at its test and the delay slot loads 8.0 before the first
+  pass too, so line 0 has alpha 8 like the others (CZNewHudMap ctor 0x3c6790); fixed.
 
 ## Port deviations
 - TickLine has its own copy of c_arrTypes (the ELF reads SetupPolygon's 0x465618: inline lookup).

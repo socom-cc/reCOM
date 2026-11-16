@@ -942,7 +942,9 @@ void CHUD::ZoomOut()
 	/* 0x3b8a50: the normal (not scoped) layout: compass, weapon box and texts in the HUD
 	 * text colour, team names, pose, map, zoom text, action and radio bitmaps */
 	/* @socom-skeleton stub zoomtext$2973 */
-	static unsigned char zoomtext[10];
+	static unsigned char zoomtext[16];
+	/* ELF: 10 bytes (0x55bef0) and 6 of padding before newstr$3014, which "ZOOM: %0.1fX" (11 or
+	 * 12 bytes with its NUL) runs into; port: 16, so the text cannot reach the next object */
 	CZSealBody* seal = appCamera->m_entity;
 	CZFTSWeapon* item = seal->m_kit.GetCurItem(); /* ELF: before the NULL test of seal */
 
@@ -1011,7 +1013,8 @@ void CHUD::ZoomIn()
 {
 	/* 0x3b86a0: the scoped layout: compass, timer and weapon off; with night vision the
 	 * weapon box and texts turn green, otherwise they go off */
-	static char zoomtext[10]; /* port: a buffer of its own (the ELF prints into ZoomOut's zoomtext$2973) */
+	/* port: a buffer of its own (the ELF prints into ZoomOut's zoomtext$2973); 16 bytes as there */
+	static char zoomtext[16];
 
 	if (m_newmap.m_isFullScreen)
 		return;
@@ -1183,7 +1186,7 @@ void CHUD::SetupFiremode(CZSealBody *seal)
 	if (kit == NULL || kit->GetCurItem() == NULL)
 		return;
 
-	if (!kit->CurItemHasFiremodeGraphic() || kit->GetCurZoom() > 1.5f)
+	if (!kit->CurItemHasFiremodeGraphic() || !(kit->GetCurZoom() <= 1.5f)) /* ELF: c.le.s */
 	{
 		m_firemode.SetUV(0.0f, 0.0f, 0.0f, 0.0f);
 		m_firemode.Load(0.0f, 0.0f, 0.0f, 0.0f, m_firemodetex);
@@ -1269,7 +1272,7 @@ void CHUD::SetupAmmoCount(CZSealBody *seal)
 	m_ammotype.Off();
 	y += 18.0f;
 
-	if (capacity < 1 || kit->GetCurZoom() > 1.5f)
+	if (capacity < 1 || !(kit->GetCurZoom() <= 1.5f)) /* ELF: c.le.s */
 	{
 		m_ammocount.Off();
 		m_magscount.Off();

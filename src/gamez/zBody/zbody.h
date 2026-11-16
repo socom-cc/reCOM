@@ -32,6 +32,7 @@ class CBody
 	friend class CAiSAnimate; /* port: CAiSAnimate::Tick 0x25ad00 reads the seal's top blend */
 	friend class CTPlay; /* port: CTPlay::Tick 0x2b7640 (ai::ANIMATE) reads the seal's top blend */
 	friend class CZKit; /* port: CZKit::TickExplosives 0x2aae34 reads the seal's m_state (the throw reach) */
+	friend class BitmapReticule; /* port: UpdateAccuracy 0x3ce4e0 reads the seal's m_state (no miss X in state 9) */
 	friend void ParentPistolToRHandCallback(void *, void *); /* port: seal_env.cpp 0x2987b0 sets the pistol's body part */
 	friend void ParentPistolToRThighAsGearCallback(void *, void *); /* port: seal_env.cpp 0x2986e0 */
 public:

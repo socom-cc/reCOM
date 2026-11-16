@@ -390,7 +390,7 @@ void CZPauseTest::HudTick(CPad *pad, float dT)
 	selected.m_color.z = m_curcolor * 27.0f;
 	m_curcolor = m_curcolor + m_inc * dT;
 
-	if (m_curcolor >= 0.800000012f /* 0x3f4ccccd */)
+	if (!(m_curcolor < 0.800000012f /* 0x3f4ccccd */)) /* ELF: c.lt.s, taken when not */
 	{
 		m_curcolor = 0.800000012f /* 0x3f4ccccd */;
 		m_inc = -0.7f;

@@ -208,8 +208,8 @@ BitmapReticule::BitmapReticule()
 	m_nvgenabled = false;
 	m_target_verified = false;
 	m_prev_lase = 0.0f;
-	strcpy(m_lase_str, "");
-	strcpy(m_detonation_str, "");
+	strcpy(m_lase_str, "UNUSED"); /* ELF: both strings start as "UNUSED" (0x465c58) */
+	strcpy(m_detonation_str, "UNUSED");
 	m_detonation_verified = false;
 	m_prev_deton = 0.0f;
 	m_pCurval = NULL;
@@ -473,10 +473,10 @@ void BitmapReticule::ThreatDirTick(CZSealBody *seal)
 		m_threatdirpoly[5].SetTrans(50.0f);
 		seal->m_threatscale[5] = DIAGONAL_SCALAR * (seal->m_threatscale[4] + seal->m_threatscale[6]);
 
-		if (seal->m_threatangle[6] < seal->m_threatangle[4])
-			m_threatdirpoly[4].SetTrans(50.0f);
-		else
+		if (seal->m_threatangle[4] <= seal->m_threatangle[6]) /* ELF: c.le.s [4], [6] (audit-large-hud-b) */
 			m_threatdirpoly[6].SetTrans(50.0f);
+		else
+			m_threatdirpoly[4].SetTrans(50.0f);
 	}
 
 	for (u32 i = 0; i < 8; i++)
@@ -568,7 +568,9 @@ void BitmapReticule::HudTick(float dT)
 		CZKit& kit = seal->m_kit;
 		m_retsize = kit.m_retsize;
 
-		if (m_rettype != -1 && m_reticuleTex[m_rettype] != NULL)
+		/* ELF quirk kept: no -1 test; m_reticuleTex[-1] is m_rettype itself (-1, not NULL), so
+		 * the position follows the kit for type -1 too (audit-large-hud-b) */
+		if (m_rettype == -1 || m_reticuleTex[m_rettype] != NULL)
 		{
 			f32 x = kit.m_retposx + kit.m_retoffsetx + 320.0f;
 			f32 y = kit.m_retposy + kit.m_retoffsety + 224.0f;
@@ -743,9 +745,8 @@ void BitmapReticule::UpdateAccuracy()
 	f32 blockedy = kit->m_retblockedY;
 	f32 size = m_retsize;
 
-	/* port: the ELF also tests the body state (CBody::m_state == 9) after m_retblocked;
-	 * CBody::m_state is protected in zbody.h, so that term is left out */
-	if (!kit->m_retblocked || !seal->m_isAlive || kit->IsUsingScope() || kit->IsUsingBinocs() ||
+	/* the body state 9 test after m_retblocked (lb +0x11d): audit-large-hud-b, was left out */
+	if (!kit->m_retblocked || seal->m_state == 9 || !seal->m_isAlive || kit->IsUsingScope() || kit->IsUsingBinocs() ||
 		(blockedx <= size && blockedy <= size))
 	{
 		m_miss_x.Off();
@@ -813,7 +814,7 @@ void BitmapReticule::UpdateAccuracy()
 	m_threatdirpoly[6].SetCenterPos(p, m_threattexsizex * seal->m_threatscale[6], m_threattexsizey);
 	m_threatdirpoly[6].FlipImage_Xaxis();
 
-	if (m_threatdirpoly[1].GetTrans() > 0.0f)
+	if (!(m_threatdirpoly[1].GetTrans() <= 0.0f)) /* ELF: c.le.s, taken when not */
 	{
 		p.x = PT_EAST * ne_x + right;
 		p.y = PT_NORTH * ne_y + top;
@@ -822,7 +823,7 @@ void BitmapReticule::UpdateAccuracy()
 		m_threatdirpoly[1].Rotate_Zaxis(-45.0f);
 	}
 
-	if (m_threatdirpoly[7].GetTrans() > 0.0f)
+	if (!(m_threatdirpoly[7].GetTrans() <= 0.0f)) /* ELF: c.le.s, taken when not */
 	{
 		p.x = PT_EAST * se_x + right;
 		p.y = PT_SOUTH * se_y + bottom;
@@ -831,7 +832,7 @@ void BitmapReticule::UpdateAccuracy()
 		m_threatdirpoly[7].Rotate_Zaxis(45.0f);
 	}
 
-	if (m_threatdirpoly[3].GetTrans() > 0.0f)
+	if (!(m_threatdirpoly[3].GetTrans() <= 0.0f)) /* ELF: c.le.s, taken when not */
 	{
 		p.x = PT_WEST * nw_x + left;
 		p.y = PT_NORTH * nw_y + top;
@@ -841,7 +842,7 @@ void BitmapReticule::UpdateAccuracy()
 		m_threatdirpoly[3].Rotate_Zaxis(45.0f);
 	}
 
-	if (m_threatdirpoly[5].GetTrans() > 0.0f)
+	if (!(m_threatdirpoly[5].GetTrans() <= 0.0f)) /* ELF: c.le.s, taken when not */
 	{
 		p.x = PT_WEST * sw_x + left;
 		p.y = PT_SOUTH * sw_y + bottom;

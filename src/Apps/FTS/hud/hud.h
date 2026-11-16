@@ -887,6 +887,13 @@ public: /* port: public (DWARF has no access; CHUD and the HUD units set these) 
 	CHUD* m_parent;
 	/* @socom-skeleton decl 14CZActionBitmap */
 public:
+	/* inline ctor in CHUD::CHUD 0x3bc180: the textures and m_parent zeroed, not m_canDropMPBomb
+	 * or m_actionXTexture (audit-large-hud-b) */
+	CZActionBitmap()
+		: m_canClimbTexture(NULL), m_pttTexture(NULL), m_canKnifeTexture(NULL), m_canPickupTexture(NULL),
+		  m_canRestrainTexture(NULL), m_canCQBTexture(NULL), m_canCarryBodyTexture(NULL), m_parent(NULL)
+	{
+	}
 	virtual ~CZActionBitmap() {}
 	void Init(CHUD *, C2DFont *);
 	void UnInit();
@@ -905,6 +912,12 @@ public: /* port: public (DWARF has no access; CHUD and the HUD units set these) 
 	CHUD* m_pParent;
 	/* @socom-skeleton decl 19CZStaticRadioBitmap */
 public:
+	/* inline ctor in CHUD::CHUD 0x3bc180: every member zeroed (audit-large-hud-b) */
+	CZStaticRadioBitmap()
+		: m_pRadioOffTexture(NULL), m_pRadioChannelTeamTexture(NULL), m_pRadioChannelOffenseTexture(NULL),
+		  m_pRadioChannelDefenseTexture(NULL), m_pRadioChannelDeadTexture(NULL), m_pParent(NULL)
+	{
+	}
 	virtual ~CZStaticRadioBitmap() {}
 	void Init(CHUD *);
 	void HudTick(MENU_STATE);
@@ -919,6 +932,8 @@ public: /* port: public (DWARF has no access; CHUD and the HUD units set these) 
 	CHUD* m_pParent;
 	/* @socom-skeleton decl 20CZDynamicRadioBitmap */
 public:
+	/* inline ctor in CHUD::CHUD 0x3bc180: every member zeroed (audit-large-hud-b) */
+	CZDynamicRadioBitmap() : m_pRadioChannelInUseTexture(NULL), m_pRadioChannelCanTalkTexture(NULL), m_pParent(NULL) {}
 	virtual ~CZDynamicRadioBitmap() {}
 	void Init(CHUD *);
 	void HudTick(MENU_STATE);

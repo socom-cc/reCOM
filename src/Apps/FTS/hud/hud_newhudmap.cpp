@@ -257,10 +257,10 @@ CZNewHudMap::CZNewHudMap()
 	g_lineNorthIndBarb.SetTrans(128.0f);
 	g_strNorthIndN.m_color.w = 128.0f;
 
-	/* ELF quirk kept: the loop constant is reloaded in the branch delay slot, so only the
-	 * first horizontal grid line gets 128, the others 8 */
+	/* every horizontal grid line 8: the loop is entered at its test, whose delay slot loads
+	 * 8.0 before the first pass too (audit-large-hud-b: line 0 was given 128) */
 	for (u32 i = 0; i < 7; i++)
-		g_arrHorGridLines[i].SetTrans(i == 0 ? 128.0f : 8.0f);
+		g_arrHorGridLines[i].SetTrans(8.0f);
 
 	for (u32 i = 0; i < 9; i++)
 		g_arrVertGridLines[i].SetTrans(8.0f);
@@ -269,7 +269,7 @@ CZNewHudMap::CZNewHudMap()
 /* @socom-skeleton stub __dt__11CZNewHudMapFv */
 CZNewHudMap::~CZNewHudMap()
 {
-	/* 0x3c6490: the circle clipper deleted, the map items taken from the front and deleted
+	/* 0x3c6490: the circle clipper deleted, the map items taken from the back and deleted
 	 * (virtual dtor), the objective list freed and the player items' statics released; the
 	 * members follow. Was empty: the clipper (20 bytes) was kept a mission. */
 	if (m_circleclipper != NULL)
@@ -277,14 +277,16 @@ CZNewHudMap::~CZNewHudMap()
 
 	m_circleclipper = NULL;
 
+	/* from the back: the ELF reads the sentinel's +0 (prev) node; front() reads +4
+	 * (audit-large-hud-b, was from the front) */
 	while (!m_itemlist.empty())
 	{
-		CZMapItem* item = m_itemlist.front();
+		CZMapItem* item = m_itemlist.back();
 
 		if (item != NULL)
 			delete item;
 
-		m_itemlist.erase(m_itemlist.begin());
+		m_itemlist.pop_back();
 	}
 
 	m_objectivelist.FreeList(false);
@@ -383,12 +385,12 @@ void CZNewHudMap::InitMap(zdb::CWorld *)
 	}
 
 	/* the hash marks along the top (0..29) and bottom (30..59) edges of the map: three
-	 * between each pair of the nine vertical grid lines (10.2123 apart) */
+	 * between each pair of the nine vertical grid lines (10.2120533 apart) */
 	for (s32 i = 0; i < 10; i++)
 	{
 		for (s32 j = 0; j < 3; j++)
 		{
-			float x = 230.0f + 10.212296f * (float)(j + 4 * i + 1);
+			float x = 230.0f + 10.2120533f /* 0x41236492 */ * (float)(j + 4 * i + 1);
 			g_arrHashLines[i * 3 + j].Load(x, 60.0f, x, 70.0f, g_pFov);
 			g_arrHashLines[i * 3 + j].SetUV(0.5f, 0.9375f, 0.5f, 0.9375f);
 		}
@@ -398,7 +400,7 @@ void CZNewHudMap::InitMap(zdb::CWorld *)
 	{
 		for (s32 j = 0; j < 3; j++)
 		{
-			float x = 230.0f + 10.212296f * (float)(j + 4 * i + 1);
+			float x = 230.0f + 10.2120533f /* 0x41236492 */ * (float)(j + 4 * i + 1);
 			g_arrHashLines[(i + 10) * 3 + j].Load(x, 355.0f, x, 365.0f, g_pFov);
 			g_arrHashLines[(i + 10) * 3 + j].SetUV(0.5f, 0.9375f, 0.5f, 0.9375f);
 		}
@@ -818,13 +820,13 @@ void CZNewHudMap::HandleScrolling(float fStickX, float fStickY)
 		box = reinterpret_cast<const CBBox*>(map);
 
 	float fXMove = fConst * (fStickX * ptDir.z + fStickY * ptDir.x);
-	bool allowed = fXMove > 0.0f ? m_centerx < box->m_max.x : !(m_centerx <= box->m_min.x);
+	bool allowed = !(fXMove <= 0.0f) ? m_centerx < box->m_max.x : !(m_centerx <= box->m_min.x); /* ELF: c.le.s */
 
 	if (allowed)
 		m_centerx += fXMove;
 
 	float fZMove = fConst * (fStickX * -ptDir.x + fStickY * ptDir.z);
-	allowed = fZMove > 0.0f ? m_centerz < box->m_max.z : !(m_centerz <= box->m_min.z);
+	allowed = !(fZMove <= 0.0f) ? m_centerz < box->m_max.z : !(m_centerz <= box->m_min.z);
 
 	if (allowed)
 		m_centerz += fZMove;
@@ -1161,7 +1163,7 @@ void CZNewHudMap::TickFullScreenAnims(float dT) const
 		if (f == 0.0f)
 			break;
 
-		s32 x = (s32)(230.0f + 40.848f * (float)(s32)(i + 1));
+		s32 x = (s32)(230.0f + 40.8482132f /* 0x42236492 */ * (float)(s32)(i + 1));
 		s32 y2 = (s32)(60.0f + 305.0f * f);
 		g_arrVertGridLines[i].SetPos(x, 60, x, y2);
 	}
