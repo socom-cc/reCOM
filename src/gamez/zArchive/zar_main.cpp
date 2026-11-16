@@ -539,11 +539,11 @@ void zar::CKey::fixupKey(CSTable *table, void *keyPtr)
 		char* keyname = table->FindString(key->m_name);
 		key->m_name = keyname;
 
-		auto key_iterator = key->begin();
-
+		/* 0x1d8600: the key's name, its children's names, and (recursively) every grandchild.
+		 * Was: the first child was fixed up once per child */
 		for (auto i = key->begin(); i != key->end(); i++)
 		{
-			CKey* child = *key_iterator;
+			CKey* child = *i;
 
 			char* childname = table->FindString(child->m_name);
 			child->m_name = childname;

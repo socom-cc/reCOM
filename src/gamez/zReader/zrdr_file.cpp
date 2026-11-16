@@ -413,29 +413,37 @@ unsigned int CRdrFile::Pack()
 /* @socom-skeleton body _resolveA__FP5_zrdrPC5_zrdrPCc */
 void _resolveA(_zrdr *self, const _zrdr *root, const char *name)
 {
+	/* 0x23c660: the inverse of _resolveB - a packed reader's pointers made relative for the
+	 * archive's copy: strings to the string table `name`, arrays to the node block `root` (an
+	 * array after its children, which are read through it). Was a loop without an end test
+	 * that also took string offsets off the arrays (CRdrFile::Insert, the card saves) */
 	if (self->type == ZRDR_STRING)
-		self->string = self->string - (s32)name;
+	{
+		self->string -= (s32)name;
+		return;
+	}
 
 	if (self->type != ZRDR_ARRAY)
 		return;
 
-	for (u32 i = 1; self->array->integer; i++)
+	for (s32 i = 1; i < self->array->integer; i++)
 	{
 		_zrdr* node = &self->array[i];
 
 		if (node->type == ZRDR_STRING)
-			node->string = node->string - (s32)name;
-
-		if (node->type == ZRDR_ARRAY)
 		{
-			for (u32 j = 1; j < node->array->integer; j++)
+			node->string -= (s32)name;
+		}
+		else if (node->type == ZRDR_ARRAY)
+		{
+			for (s32 j = 1; j < node->array->integer; j++)
 				_resolveA(&node->array[j], root, name);
 
-			node->string = self->string - (s32)name;
+			node->string -= (s32)root;
 		}
 	}
 
-	self->string = self->string - (s32)name;
+	self->string -= (s32)root;
 }
 
 /* @socom-skeleton body _resolveB__FP5_zrdrPC5_zrdrPCc */

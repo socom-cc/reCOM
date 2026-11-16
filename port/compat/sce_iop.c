@@ -21,7 +21,13 @@
  *                           offline: 989snd's EE client (snd989.c) needs their RPC
  *                           servers, so a failed load is retried as the game does.
  *   sceOpen/Close/Read/Write/Lseek -> newlib open/close/read/write/lseek (ps2sdk routes
- *                           device paths through fio; SCE flags translated to O_*) */
+ *                           device paths through fio; SCE flags translated to O_*), except
+ *                           read-only cdrom0: files: those are found with sceCdSearchFile and
+ *                           read by sector with the stream-safe CD read the game's own CFileCD
+ *                           uses. The EE fio client does not speak the IOP FILEIO of the game's
+ *                           IOP image: its paths arrive 16 bytes short ("Unknown device
+ *                           'NF;1'" for cdrom0:\SYSTEM.CNF;1), so every cdrom0: open "worked"
+ *                           and read nothing (CMemCard::CreateIconFiles wrote empty icons) */
 /* fioExit only: unbinds the fileio RPC client across an IOP reboot. */
 #define NEWLIB_PORT_AWARE
 #include <stdarg.h>
@@ -38,6 +44,7 @@
 #include <ctype.h>
 #include <fileio.h>
 #include <libcdvd.h>
+#include <989snd.h>
 
 void socom_port_trace(const char *fmt, ...);
 
@@ -186,10 +193,84 @@ int sceSifLoadModule(const char *filename, int args, const char *argp)
     return id;
 }
 
+/* Read-only disc files (see the header). Port only. */
+#define CDF_MAX 4
+#define CDF_FD0 0x7e000000
+static struct {
+    int used;
+    unsigned int lsn, size, pos;
+} cdf[CDF_MAX];
+static unsigned char cdf_sector[2048] __attribute__((aligned(64)));
+
+static int cdf_index(int fd)
+{
+    int i = fd - CDF_FD0;
+    return i >= 0 && i < CDF_MAX && cdf[i].used ? i : -1;
+}
+
+static int cdf_open(const char *filename)
+{
+    sceCdlFILE file;
+    const char *name = strchr(filename, ':') + 1;
+    int i;
+
+    if (!sceCdSearchFile(&file, name)) {
+        socom_port_trace("FILE: sceOpen(%s): not on the disc", filename);
+        return -1;
+    }
+    for (i = 0; i < CDF_MAX; i++) {
+        if (!cdf[i].used) {
+            cdf[i].used = 1;
+            cdf[i].lsn = file.lsn;
+            cdf[i].size = file.size;
+            cdf[i].pos = 0;
+            return CDF_FD0 + i;
+        }
+    }
+    socom_port_trace("FILE: sceOpen(%s): no free disc file slot", filename);
+    return -1;
+}
+
+static int cdf_read(int i, unsigned char *buf, int nbyte)
+{
+    static sceCdRMode mode = {0, SCECdSpinNom, SCECdSecS2048, 0};
+    int done = 0;
+
+    if (nbyte <= 0 || cdf[i].pos >= cdf[i].size)
+        return 0;
+    if ((unsigned int)nbyte > cdf[i].size - cdf[i].pos)
+        nbyte = (int)(cdf[i].size - cdf[i].pos);
+    while (done < nbyte) {
+        unsigned int off = cdf[i].pos & 0x7ff;
+        int n = 2048 - (int)off;
+        int tries;
+
+        if (n > nbyte - done)
+            n = nbyte - done;
+        for (tries = 0; tries < 100; tries++) {
+            snd_StreamSafeCdSync(0);
+            if (snd_StreamSafeCdRead(cdf[i].lsn + (cdf[i].pos >> 11), 1, cdf_sector, &mode))
+                break;
+        }
+        snd_StreamSafeCdSync(0);
+        if (tries == 100 || snd_StreamSafeCdGetError() != 0) {
+            socom_port_trace("FILE: disc read of sector %u failed", cdf[i].lsn + (cdf[i].pos >> 11));
+            return done > 0 ? done : -1;
+        }
+        memcpy(buf + done, cdf_sector + off, n);
+        done += n;
+        cdf[i].pos += n;
+    }
+    return done;
+}
+
 int sceOpen(const char *filename, int flag, ...)
 {
     int oflag;
     int fd;
+
+    if ((strncmp(filename, "cdrom0:", 7) == 0 || strncmp(filename, "cdrom:", 6) == 0) && (flag & SCE_RDWR) == SCE_RDONLY)
+        return cdf_open(filename);
 
     switch (flag & SCE_RDWR) {
     case SCE_WRONLY: oflag = O_WRONLY; break;
@@ -212,11 +293,21 @@ int sceOpen(const char *filename, int flag, ...)
 
 int sceClose(int fd)
 {
+    int i = cdf_index(fd);
+
+    if (i >= 0) {
+        cdf[i].used = 0;
+        return 0;
+    }
     return close(fd);
 }
 
 int sceRead(int fd, void *buf, int nbyte)
 {
+    int i = cdf_index(fd);
+
+    if (i >= 0)
+        return cdf_read(i, (unsigned char *)buf, nbyte);
     return read(fd, buf, nbyte);
 }
 
@@ -227,6 +318,15 @@ int sceWrite(int fd, const void *buf, int nbyte)
 
 int sceLseek(int fd, int offset, int whence)
 {
+    int i = cdf_index(fd);
+
+    if (i >= 0) {
+        int pos = whence == SEEK_SET ? offset : whence == SEEK_CUR ? (int)cdf[i].pos + offset : (int)cdf[i].size + offset;
+        if (pos < 0)
+            return -1;
+        cdf[i].pos = (unsigned int)pos;
+        return pos;
+    }
     return lseek(fd, offset, whence);
 }
 

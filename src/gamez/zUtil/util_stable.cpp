@@ -89,110 +89,75 @@ void CSTable::LoadTable(void* buffer, size_t bytes, bool owner)
 /* @socom-skeleton body Relocate__7CSTableFPv */
 int CSTable::Relocate(void *buffer)
 {
-	if (size() == 0)
-	{
+	/* 0x306500: the strings' bytes copied to buffer; the distance moved is returned (the caller
+	 * moves its string pointers by it). ELF quirk kept: the table's own entries are walked but
+	 * not changed (an empty loop), so they keep the old place until LoadTable */
+	if (size() == 0 || m_buffer == NULL)
 		return 0;
-	}
 
-	char* src = m_buffer;
-	int offset = (char*)buffer - src; /* port: void* arithmetic is a GCC error */
-
-	memcpy(buffer, src, m_bytes);
-
-	auto bufData = data();
-	auto bufSize = bufData + size();
-
-	while (bufData != bufSize)
-	{
-		bufData++;
-	}
-
+	int offset = (char*)buffer - m_buffer; /* port: void* arithmetic is a GCC error */
+	memcpy(buffer, m_buffer, m_bytes);
 	return offset;
 }
 
 /* @socom-skeleton body Pack__7CSTableFPFP7CSTablePv_vPv */
 unsigned int CSTable::Pack(void (*fixup)(CSTable *, void *), void *buffer)
 {
-	u32 index = 0;
-	u32 total_table_length = 0;
-	
+	/* 0x306300: separately allocated strings moved into one buffer (the table then points
+	 * there), fixup(this, buffer) re-points the users' copies (FindString), the old strings
+	 * freed; returns the buffer's bytes (at once when already packed; 0 when empty). Was: the
+	 * copies came from the wrong buffer, the table kept the old strings and freed the wrong
+	 * ones */
 	if (empty())
-	{
 		return 0;
-	}
 
-	if (!m_buffer)
+	if (m_buffer != NULL)
+		return m_bytes;
+
+	u32 total = 0;
+
+	for (iterator it = begin(); it != end(); ++it)
+		total += strlen(*it) + 1;
+
+	char* strbuf = (char*)_malloc(total, "util_stable.cpp", 136);
+	char** old = (char**)_malloc(size() * sizeof(char*), "util_stable.cpp", 138);
+	char* dst = strbuf;
+	u32 count = 0;
+
+	for (iterator it = begin(); it != end(); ++it)
 	{
-		u32 length = 0;
-
-		for (u32 index = 0; index < size(); index++)
-		{
-			total_table_length = length;
-			length = strlen(data()[index]);
-			length = total_table_length + length + 1;
-		}
-
-		char* strbuf = (char*)zmalloc(length);
-		char** tablebuf = (char**)zmalloc(size() << 2);
-
-		for (index = 0; index < size(); index++)
-		{
-			char* str = data()[index];
-			length = strlen(str);
-			memcpy(strbuf, tablebuf, length + 1);
-			tablebuf[index] = str;
-			strbuf += length + 1;
-		}
-
-		fixup(this, (zar::CKey*)buffer);
-
-		s32 size = index + 1;
-		if (index != 0)
-		{
-			index = size * sizeof(u32);
-			bool packed = false;
-			
-			do
-			{
-				zfree(tablebuf[index]);
-				index -= sizeof(u32);
-				packed = size != 0;
-				size--;
-			}
-			while (!packed);
-		}
-
-		zfree(tablebuf);
-
-		if (m_buffer)
-		{
-			zfree(m_buffer);
-		}
-
-		m_buffer = NULL;
-
-		m_buffer = strbuf;
-		m_reserve = total_table_length;
-		m_bytes = total_table_length;
-		total_table_length = m_bytes;
-	}
-	else
-	{
-		total_table_length = m_bytes;
+		char* str = *it;
+		u32 length = strlen(str);
+		memcpy(dst, str, length + 1);
+		old[count++] = str;
+		*it = dst;
+		dst += length + 1;
 	}
 
-	return total_table_length;
+	fixup(this, buffer);
+
+	while (count != 0)
+		_free(old[--count], "util_stable.cpp", 164);
+
+	_free(old, "util_stable.cpp", 165);
+
+	if (m_buffer != NULL)
+		_free(m_buffer, "util_stable.cpp", 169);
+
+	m_buffer = strbuf;
+	m_reserve = total;
+	m_bytes = total;
+	return m_bytes;
 }
 
 /* @socom-skeleton body ReleaseBuffer__7CSTableFb */
 void CSTable::ReleaseBuffer(bool owner)
 {
+	/* 0x3062b0: the buffer is dropped (freed when owner). Was: never dropped (== for =) */
 	if (owner && m_buffer != NULL)
-	{
-		free(m_buffer);
-	}
+		_free(m_buffer, "util_stable.cpp", 182);
 
-	m_buffer == NULL;
+	m_buffer = NULL;
 }
 
 /* @socom-skeleton body Destroy__7CSTableFv */
@@ -247,6 +212,8 @@ void CSTable::Clear()
 /* @socom-skeleton body FindString__7CSTableCFPCc */
 char * CSTable::FindString(const char *str) const
 {
+	/* 0x306040: the table's copy of str (empty strings and empty slots never match), else NULL.
+	 * Was: no NULL slot test and no answer when nothing matched (CRdrFile::Pack's _fixup) */
 	if (str != NULL)
 	{
 		for (auto it = begin(); it != end(); it++)
@@ -254,12 +221,14 @@ char * CSTable::FindString(const char *str) const
 			char* string = *it;
 
 			// String matches?
-			if (strlen(str) != 0 && strlen(string) != 0 && strcmp(string, str) == 0)
+			if (string != NULL && strlen(str) != 0 && strlen(string) != 0 && strcmp(string, str) == 0)
 			{
 				return string;
 			}
 		}
 	}
+
+	return NULL;
 }
 
 /* @socom-skeleton body CreateString__7CSTableFPCc */
@@ -278,8 +247,8 @@ char* CSTable::CreateString(const char* str)
 	{
 		string = *it;
 
-		// String matches?
-		if (strlen(string) != 0 && strlen(str) != 0 && strcmp(string, str) == 0)
+		// String matches? (0x305e60: empty slots skipped)
+		if (string != NULL && strlen(str) != 0 && strlen(string) != 0 && strcmp(string, str) == 0)
 		{
 			// Assign to our output
 			break;
@@ -298,7 +267,7 @@ char* CSTable::CreateString(const char* str)
 		{
 			// Duplicate the string and insert it
 			char* dupstr = zstrdup(str);
-			insert(begin(), dupstr);
+			push_back(dupstr); /* 0x305fd0: added at the end (was: at the front) */
 			out = dupstr;
 		}
 		// Are we the owner of all strings?
@@ -314,7 +283,7 @@ char* CSTable::CreateString(const char* str)
 				memcpy(out, str, length);
 				m_bytes += length;
 
-				insert(begin(), out);
+				push_back(out); /* 0x305fc0: at the end */
 			}
 		}
 	}

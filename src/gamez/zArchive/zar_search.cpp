@@ -79,21 +79,21 @@ CKey* CKey::InsertKey(CKey* key)
 namespace zar {
 bool CKey::Write(CZAR* archive)
 	{
-		archive->Securify(m_name, 4);
-		archive->m_pFile->fwrite(m_name, 4);
-		archive->Unsecurify(m_name, 4);
+		/* 0x1dc2d0: the 16-byte record Read takes back - the name (its address in the packed
+		 * string table: the reader rebases it with the trailer's stable_ofs), the data offset,
+		 * the size, the child count - each word secured, then the children depth first. Was: the
+		 * name's first four characters and four bytes of the list object were written */
+		u32 words[4];
+		words[0] = (u32)m_name;
+		words[1] = (u32)m_offset;
+		words[2] = (u32)m_size;
+		words[3] = (u32)size();
 
-		archive->Securify(&m_offset, 4);
-		archive->m_pFile->fwrite(&m_offset, 4);
-		archive->Unsecurify(&m_offset, 4);
-
-		archive->Securify(&m_size, 4);
-		archive->m_pFile->fwrite(&m_size, 4);
-		archive->Unsecurify(&m_size, 4);
-
-		archive->Securify(this, 4);
-		archive->m_pFile->fwrite(this, 4);
-		archive->Unsecurify(this, 4);
+		for (u32 i = 0; i < 4; i++)
+		{
+			archive->Securify(&words[i], 4);
+			archive->m_pFile->fwrite(&words[i], 4);
+		}
 
 		for (auto it = begin(); it != end(); ++it)
 		{
@@ -441,57 +441,47 @@ zar::CKey * zar::CZAR::Insert(const char *name, const void *buf, int size)
 /* @socom-skeleton body Insert__Q23zar4CZARFPQ23zar4CKeyPCvi */
 bool zar::CZAR::Insert(zar::CKey *key, const void *buf, int size)
 	{
-		s32 keySize, writeOffset, position, keyPad = 0;
-		char padChar = 0;
-		bool validPosition, validOffset = false;
-
-		if (!buf)
+		/* 0x1db410: the data at the end of the file (a secured archive writes an inverted copy),
+		 * the key gets its offset and size, then padding to m_data_padded ('P', inverted 0xaf
+		 * when secured). Was: a secured archive inverted the caller's buffer in place and wrote
+		 * nothing (the card saves: CRdrFile::Insert then read its own buffer inverted) */
+		if (buf == NULL || size <= 0)
 			return false;
 
-		if (size <= 0)
+		s32 position = m_pFile->fseek(0, SEEK_END);
+
+		if (position == -1)
 			return false;
 
-		keySize = size;
+		bool ok;
 
-		position = m_pFile->fseek(0, SEEK_END);
-		validPosition = position != -1;
-
-		if (!validPosition)
-			return false;
-
-		if (!m_bSecure)
+		if (m_bSecure)
 		{
-			writeOffset = m_pFile->fwrite(buf, size);
+			unsigned char* copy = (unsigned char*)_calloc(1, size, "zar_search.cpp", 371);
+			memcpy(copy, buf, size);
+
+			for (s32 i = 0; i < size; i++)
+				copy[i] = ~copy[i];
+
+			ok = (s32)m_pFile->fwrite(copy, size) == size;
+			_free(copy, "zar_search.cpp", 375);
 		}
 		else
 		{
-			void* arrBuf = calloc(1, size);
-			void* dest = arrBuf;
-			memcpy(dest, buf, size);
-
-			ZAR_SECURE(m_bSecure, buf, size)
+			ok = (s32)m_pFile->fwrite(buf, size) == size;
 		}
 
-		validOffset = size == writeOffset;
-
-		if (!validOffset)
+		if (!ok)
 			return false;
 
 		key->m_offset = position;
 		key->m_size = size;
 
-		keyPad = size % m_data_padded;
-		keySize = 0;
+		s32 keyPad = size % m_data_padded;
+		u32 padCount = keyPad != 0 ? m_data_padded - keyPad : 0;
+		char padChar = m_bSecure ? (char)0xaf : 'P';
 
-		if (keyPad != 0)
-			keySize = m_data_padded - keyPad;
-
-		padChar = '�';
-
-		if (!m_bSecure)
-			padChar = 'P';
-
-		for (s32 i = 0; i < keySize; i++)
+		for (u32 i = 0; i < padCount; i++)
 			m_pFile->fwrite(&padChar, 1);
 
 		return true;

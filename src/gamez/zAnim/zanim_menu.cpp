@@ -1274,7 +1274,11 @@ unsigned char UIIsMemCardFormatted(C2DAnimCmdHdr *, float *)
 /* @socom-skeleton stub UIFormatMemCard__FP13C2DAnimCmdHdrPf */
 unsigned char UIFormatMemCard(C2DAnimCmdHdr *, float *)
 {
-	/* 0x1d52e0: tail call to CMemCard::Format (0x3072c0) */
+	/* 0x1d52e0: tail call to CMemCard::Format (0x3072c0). A false answer keeps the command
+	 * running, so the ELF formats again every frame until the card is formatted (kept: an ELF
+	 * quirk). In the port a refused format (port/compat/libmc.c formats only the dedicated test
+	 * card, from the memcard test hook) therefore leaves the "Formatting..." pop-up up; no
+	 * screen the demo can reach runs this command */
 	return theMemCard.Format();
 }
 
@@ -1894,14 +1898,17 @@ unsigned char UIMC_Uninit(C2DAnimCmdHdr *, float *)
 /* @socom-skeleton stub UIMC_ChDir__FP13C2DAnimCmdHdrPf */
 unsigned char UIMC_ChDir(C2DAnimCmdHdr *cmd, float *)
 {
-	/* 0x1d2f20: CMemCard::chdir (0x306c40) to the argument's directory, its result returned */
+	/* 0x1d2f20: CMemCard::chdir (0x306c40) to the argument's directory, its result returned:
+	 * false keeps the command running, so the ELF tries again every frame until it works
+	 * (kept: an ELF quirk) */
 	return theMemCard.chdir(ZAnim.m_CurAnim->GetName(cmd->m_argument_index));
 }
 
 /* @socom-skeleton stub UIMC_MkDir__FP13C2DAnimCmdHdrPf */
 unsigned char UIMC_MkDir(C2DAnimCmdHdr *cmd, float *)
 {
-	/* 0x1d2ee0: CMemCard::mkdir (0x306ca0) of the argument's directory, its result returned */
+	/* 0x1d2ee0: CMemCard::mkdir (0x306ca0) of the argument's directory, its result returned
+	 * (false: tried again next frame, as UIMC_ChDir; kept: an ELF quirk) */
 	return theMemCard.mkdir(ZAnim.m_CurAnim->GetName(cmd->m_argument_index));
 }
 
