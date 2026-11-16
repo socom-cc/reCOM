@@ -177,15 +177,15 @@ namespace {
 /* port: no symbol - the sequence InitSystemTuners repeats per tuner: the variable (made
  * TEMPORARY, then marked PERMANENT), attached, the base (empty) UpdateUIVar run as in the
  * ELF's construction; then, for the tuners with a default, the variable set to it (REAL),
- * which the tuner applies through its dependents. port: the variable is NULL-tested
- * before the PERMANENT store (the ELF stores it in the branch delay slot). */
+ * which the tuner applies through its dependents. As the ELF, the PERMANENT store is not
+ * NULL-tested (it sits in the branch delay slot, e.g. 0x3a2290); only the attach is. */
 SystemTuner* MakeTuner(SystemTuner *tuner, const char *name, bool hasDefault, f32 value)
 {
 	CUIVariable* var = theUIVarManager.Add(name, NULL, UIVL_TEMPORARY);
+	var->m_longevity = UIVL_PERMANENT;
 
 	if (var != NULL)
 	{
-		var->m_longevity = UIVL_PERMANENT;
 		tuner->AttachUIVar(var);
 		tuner->SystemTuner::UpdateUIVar(var);
 	}

@@ -109,6 +109,7 @@ uses no object and the brightness tuner calls it with its own a0).
 - Zeroed where the ELF leaves memory as it was: the check box / slider / radio strip offsets and sizes, the radio
   strip children's XPOS / YPOS; `InitSystemTuners` NULL-tests the variable before its PERMANENT store (the ELF stores
   in a branch delay slot).
+  (2026-11-16, audit list large-ui-a: the `InitSystemTuners` NULL test is removed; the port stores as the ELF does.)
 - File-local helpers for inlined code: `RadioShowSelection`, `RunOptionAnim` (zui_2d.cpp), `MakeTuner`,
   `TunerReal` (zui_tuner.cpp); `CRadioStrip::Tick` calls `C2DButton::Tick` (inline in the ELF); the CBits dtor
   body is written in `CPickup::Close` (CBits has no port dtor).

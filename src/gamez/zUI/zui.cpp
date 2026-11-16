@@ -474,16 +474,19 @@ void CGameMenu::Clear()
 
 	/* texture buffer 0 forgets its textures and chain */
 	zdb::CGSTexBuffer* buffer = reinterpret_cast<zdb::CGSTexBuffer*>(zdb::CTexManager::m_texmanager[0]); /* port: see doAddBuffer */
-	buffer->m_chainp = NULL;
 	buffer->m_dyntex_list.m_tex_list.clear();
 	buffer->m_dyntex_list.m_pal_list.clear();
-	/* 0x383728: the packet buffer (+0x1c) is emptied and its storage freed (clear, then a swap
-	 * with an empty vector, as the ELF does with the two lists too) */
+	buffer->m_chainp = NULL;
+	/* 0x3836f0..0x383768: the two lists, then the packet buffer (+0x1c), are emptied and their
+	 * storage freed (clear, then a swap with an empty vector) */
+	std::vector<zdb::CTexHandle*>().swap(buffer->m_dyntex_list.m_tex_list);
+	std::vector<zdb::CTexPalette*>().swap(buffer->m_dyntex_list.m_pal_list);
 	buffer->m_pktbuf.clear();
 	std::vector<_word128>().swap(buffer->m_pktbuf);
 	buffer->m_chainp = NULL;
 
-	_font.m_charlist.clear();
+	/* 0x383778..0x3837a0: the font's characters too (clear, swap with an empty vector) */
+	std::vector<C2DFontEntry>().swap(_font.m_charlist);
 	_font.m_pTexHandle = NULL;
 	_font.m_displaytop = 0;
 	_font.m_displaybottom = 0;
@@ -1195,9 +1198,11 @@ void ParseButtonAnim(_zrdr *reader, ActionItem *item)
 	char* animation = zrdr_findstring(reader, "ANIMATION");
 	char* argument = zrdr_findstring(reader, "ARGUMENT");
 	char* state = zrdr_findstring(reader, "STATE");
+	int line; /* the two strdups' allocator lines: 1581 / 1583 in the BUTTON part, 1593 / 1595 in the EVENT part */
 
 	if (zrdr_findtag(reader, "BUTTON") != NULL)
 	{
+		line = 0x62d;
 		item->Type = ActionItem::ACTION_TYPE_BUTTON;
 		item->PadButton = (u8)GetButton(zrdr_findstring(reader, "BUTTON"));
 
@@ -1217,6 +1222,7 @@ void ParseButtonAnim(_zrdr *reader, ActionItem *item)
 	else if (zrdr_findtag(reader, "EVENT") != NULL)
 	{
 		char* name = zrdr_findstring(reader, "EVENT");
+		line = 0x639;
 		item->Type = ActionItem::ACTION_TYPE_EVENT;
 		item->Event = ActionItem::ONSTART;
 
@@ -1235,10 +1241,10 @@ void ParseButtonAnim(_zrdr *reader, ActionItem *item)
 	}
 
 	if (animation != NULL)
-		item->Animation = _strdup(animation, "zui.cpp", 0x62d);
+		item->Animation = _strdup(animation, "zui.cpp", line);
 
 	if (argument != NULL)
-		item->Argument = _strdup(argument, "zui.cpp", 0x62f);
+		item->Argument = _strdup(argument, "zui.cpp", line + 2);
 }
 
 /* @socom-skeleton stub SwitchMenu__9CGameMenuFPc */
@@ -1346,8 +1352,7 @@ void CGameMenu::Tick(float dT)
 		stack->HandleCommand(m_ReaderName.c_str());
 	}
 
-	if (C2D* popup = stack->GetPopUp())
-		popup->Tick(dT);
+	stack->GetPopUp()->Tick(dT); /* as the ELF: not NULL-tested (0x380a00; GetPopUp makes it) */
 
 	for (auto it = m_ScreenElements.begin(); it != m_ScreenElements.end(); ++it)
 		(*it)->Tick(dT);

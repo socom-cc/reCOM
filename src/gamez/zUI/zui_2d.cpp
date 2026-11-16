@@ -1004,7 +1004,9 @@ namespace {
 CListItemArrayTypeImpl::CListItemArrayTypeImpl(_zrdr *row, const std::vector<ColumnData *, std::allocator<ColumnData *> > &columns)
 {
 	/* 0x3929b0 (an OPTIONS CAPTION): a string cell per string of the row, up to the column
-	 * count; other entries are skipped. ELF quirk kept: each text is set twice */
+	 * count; other entries are skipped. ELF quirk kept: each text is set twice. port
+	 * deviation: the cell's string row has m_colorSet cleared (its ctor); the ELF's inline one
+	 * (new at 0x392b70) leaves that byte as the heap had it */
 	u32 count = row->IsArray() ? (u32)(row->array->integer - 1) : 0;
 	s32 n = count < columns.size() ? (s32)count : (s32)columns.size();
 	m_enabled = true;
@@ -1772,10 +1774,7 @@ void CTeleType::Tick(float dT)
 			while (m_text[m_index] != '\0')
 				AddCharacter(m_text[m_index++]);
 
-#ifdef SOCOM_PORT
-			/* port: the ELF plays m_sound without a NULL test; the port has no sounds */
-			if (m_sound != NULL)
-#endif
+			/* as the ELF: not NULL-tested here (0x38ff50), unlike the typing path below */
 			m_sound->PlaySound(true, NULL, 255);
 		}
 
@@ -2332,7 +2331,9 @@ void CUIListBox::UpdateUIVar(CUIVariable *var)
 	 * start times (SEQUENCE_DELAY, then SEQUENCE_INTERVAL apart). Every old row goes first.
 	 * ELF quirk kept: a string row's text is set twice (the string's Format: $ escapes).
 	 * port deviation: the ELF also deletes the spec FONT here (m_ownFont, then NULL) while
-	 * m_font still points at it; the port keeps it until the dtor. */
+	 * m_font still points at it; the port keeps it until the dtor. port deviation: the string
+	 * row made for a string entry has m_colorSet cleared (its ctor); the ELF's inline one
+	 * (new at 0x38dad0) leaves that byte as the heap had it. */
 	if (var->type != ZRDR_ARRAY)
 		return;
 
@@ -3378,8 +3379,9 @@ bool CCycleButton::HandlePad(const CPad *pad, int)
 		return false;
 
 	C2Dlist::iterator it = m_options.begin();
+	s32 i = 0;
 
-	for (s32 i = 0; i < m_selection; i++)
+	for (; i < m_selection; i++)
 		++it;
 
 	CycleItem* option = static_cast<CycleItem*>(*it);
@@ -3414,9 +3416,12 @@ bool CCycleButton::HandlePad(const CPad *pad, int)
 		return false;
 	}
 
+	/* ELF quirk kept: the walk to the new option keeps the first walk's counter (s1 is not
+	 * reset, 0x38a220 / 0x38a34c), so it stops max(0, new - old) options from the front: RIGHT
+	 * runs the second option's ONACTIVATE anim, LEFT the first's, a wrap the right one */
 	it = m_options.begin();
 
-	for (s32 i = 0; i < m_selection; i++)
+	for (; i < m_selection; i++)
 		++it;
 
 	option = static_cast<CycleItem*>(*it);
@@ -3927,8 +3932,10 @@ void PopUpParseState(_zrdr* button, const char* tag, u8& image, s32* color)
 	image = *local._TexName.c_str() != '\0' ? (u8)ZAnim.m_CurAnim->AddName(local._TexName.c_str()) : 255;
 }
 
-/* port: no symbol - the YES / NO part, inline twice */
-void PopUpParseButton(_zrdr* yesno, const char* tag, _zui_popup_button& rec)
+/* port: no symbol - the YES / NO part, inline twice. ELF quirk kept: a missing button also
+ * zeroes the dialog's own text offset y (this +0x5bc YES 0x3885a8, +0x9dc NO 0x388ca4), not the
+ * record's (the record's other fields it zeroes are the calloc's zeros already) */
+void PopUpParseButton(_zrdr* yesno, const char* tag, _zui_popup_button& rec, s32& dialogTextOffsetY)
 {
 	_zrdr* button = zrdr_findtag(yesno, tag);
 
@@ -3936,6 +3943,7 @@ void PopUpParseButton(_zrdr* yesno, const char* tag, _zui_popup_button& rec)
 	{
 		rec.image[2] = rec.image[1] = rec.image[0] = 255;
 		rec.caption = 255;
+		dialogTextOffsetY = 0;
 		return;
 	}
 
@@ -4011,8 +4019,8 @@ C2DAnimCmdHdr * CPopUpDialog::ParseZAnimCmd(_zrdr *reader)
 		CValve::Create(valve, 0, (VALVE_TYPE)2);
 	}
 
-	PopUpParseButton(yesno, "YES", cmd->yes);
-	PopUpParseButton(yesno, "NO", cmd->no);
+	PopUpParseButton(yesno, "YES", cmd->yes, m_yesTextOffset.y);
+	PopUpParseButton(yesno, "NO", cmd->no, m_noTextOffset.y);
 	return &cmd->hdr;
 }
 
@@ -4079,7 +4087,7 @@ bool CPopUpDialog::TickZAnimCmd(_zanim_cmd_hdr *header, float *, bool *)
 	char* background = anim->GetName(cmd->background);
 	char* caption = anim->GetName(cmd->caption);
 
-	if (caption != NULL && strcmp(caption, "INPUT_STRING") == 0) /* port: the ELF strcmps NULL as is */
+	if (strcmp(caption, "INPUT_STRING") == 0) /* as the ELF: not NULL-tested (0x387088) */
 		caption = anim->m_arg_list->GetCharP(0);
 
 	zdb::CNode* node = ZAnim.m_CurAnim->GetNode(cmd->hdr.node_ref_index, false);
