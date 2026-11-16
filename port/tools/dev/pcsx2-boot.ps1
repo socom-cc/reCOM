@@ -5,6 +5,7 @@ param(
     [string]$Shots = "",                              # screenshot times in seconds, e.g. "20,35"; empty = one at -Seconds
     [string]$ShotPrefix = "",                         # screenshot path without extension; empty = next to the log
     [switch]$CloseCardDialog,                         # close PCSX2's "Memory Card Read Failed" dialog (default: leave it open)
+    [string]$MemCard = "",                            # a card file of the portable profile's memcards folder, in slot 1 for this run only
     [string]$DonePattern = "",                        # regex: end the run early once the log has it -DoneCount times
     [int]$DoneCount = 1,
     [int]$DoneExtra = 5                               # seconds to keep running after that
@@ -78,7 +79,29 @@ if (Test-Path $Log) { Remove-Item $Log }
 # the user's own profile. The portable profile is set up once by the user; with empty memory-card
 # slots there, test runs never touch or lock the user's cards.
 $pargs = @('-nogui', '-batch', '-fastboot', '-earlyconsolelog')
-if ($env:SOCOM_PCSX2_PORTABLE -and $env:SOCOM_PCSX2_PORTABLE -ne '0') { $pargs = @('-portable') + $pargs }
+$portable = [bool]($env:SOCOM_PCSX2_PORTABLE -and $env:SOCOM_PCSX2_PORTABLE -ne '0')
+$gameIni = $null
+if ($portable) {
+    $pargs = @('-portable') + $pargs
+    # Memory cards, per run. PCSX2 looks for game settings under the ELF's CRC (the XOR of the
+    # file's 32-bit words: "tried '...\gamesettings\<CRC>.ini'" in its log), so this run gets its
+    # own settings file there, removed again when the run ends: both card slots EMPTY, whatever
+    # the profile's own slots say, unless -MemCard names a card file of the portable profile's
+    # memcards folder: then that card is in slot 1, for this run only. So test runs never share
+    # a card, and only a run that asks for one (the save / load test) touches it.
+    $gsDir = Join-Path (Split-Path $pcsx2) 'gamesettings'
+    if ($MemCard -ne "" -and -not (Test-Path (Join-Path (Join-Path (Split-Path $pcsx2) 'memcards') $MemCard))) { "memory card not found in the portable profile: $MemCard"; exit 1 }
+    $bytes = [System.IO.File]::ReadAllBytes($Elf)
+    $crc = [uint32]0
+    for ($i = 0; $i + 3 -lt $bytes.Length; $i += 4) { $crc = $crc -bxor [System.BitConverter]::ToUInt32($bytes, $i) }
+    New-Item -ItemType Directory -Force $gsDir | Out-Null
+    $gameIni = Join-Path $gsDir ('{0:X8}.ini' -f $crc)
+    $slot1 = if ($MemCard -ne "") { "Slot1_Enable = true`r`nSlot1_Filename = $MemCard" } else { "Slot1_Enable = false" }
+    # The same file turns the game's console output on for this run ([socom-port] trace lines:
+    # every check reads them; a fresh profile has EE console logging off).
+    [System.IO.File]::WriteAllText($gameIni, "[MemoryCards]`r`n$slot1`r`nSlot2_Enable = false`r`n`r`n[Logging]`r`nEnableEEConsole = true`r`nEnableIOPConsole = true`r`n")
+    "memory cards for this run: $(if ($MemCard -ne '') { "slot 1 = $MemCard" } else { 'none' }) ($(Split-Path $gameIni -Leaf))"
+} elseif ($MemCard -ne "") { "-MemCard needs the portable profile (SOCOM_PCSX2_PORTABLE=1): it never touches the user's own cards"; exit 1 }
 $pargs += @('-logfile', "`"$Log`"", '-elf', "`"$Elf`"", '--', "`"$disc`"")
 $p = Start-Process $pcsx2 -PassThru -WindowStyle Minimized -ArgumentList $pargs
 
@@ -187,4 +210,5 @@ if (-not $p.HasExited) {
     Stop-Process -Id $p.Id -Force
 }
 Start-Sleep -Seconds 1
+if ($gameIni -and (Test-Path $gameIni)) { Remove-Item $gameIni -ErrorAction SilentlyContinue }
 Select-String -Path $Log -Pattern 'socom-port|STOP|xception|runtime error' -ErrorAction SilentlyContinue | Select-Object -Last 70 | ForEach-Object { $_.Line }
