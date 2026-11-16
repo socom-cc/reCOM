@@ -65,7 +65,7 @@ enum MENU_STATE : unsigned char;
 #include "gamez/zCharacter/zchar.h" /* CHARACTER_SOUND (by value) */
 #include "gamez/zEntity/zentity.h"
 #include "gamez/zMath/zmath.h"
-#include "gamez/zNode/node_action.h"
+#include "gamez/zFTS/fts_action.h"
 #include "gamez/zSound/zsnd.h"
 #include "gamez/zSystem/zsys.h"
 #include "gamez/zWeapon/zweapon.h"

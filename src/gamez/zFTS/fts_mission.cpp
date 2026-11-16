@@ -175,7 +175,7 @@
 #include "gamez/zSound/zsnd.h" /* CSnd, CSndJukebox (CMission::Open) */
 #include "gamez/zIntersect/zintersect.h" /* CMaterialExArray */
 #include "gamez/zParticle/zparticle.h" /* Particle::Open */
-#include "gamez/zNode/node_action.h" /* CNodeAction::Open */
+#include "gamez/zFTS/fts_action.h" /* CNodeAction::Open */
 #include "gamez/zWeapon/zweapon.h" /* CZWeapon::Open, OpenDecals */
 #include "gamez/zEntity/zentity.h" /* CEntity::m_list, CPickup::Open */
 #include "gamez/zBody/zbody.h" /* BodyAnimCallbackList (Close, ReOpen_Unload1) */

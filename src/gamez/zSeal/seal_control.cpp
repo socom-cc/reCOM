@@ -107,11 +107,11 @@
 
 /* @socom-skeleton decl include */
 #include "gamez/zEntity/zentity.h"
+#include "gamez/zFTS/fts_action.h"
 #include "gamez/zGame/zgame.h"
 #include "gamez/zInput/zinput.h"
 #include "gamez/zIntersect/zintersect.h"
 #include "gamez/zMath/zmath.h"
-#include "gamez/zNode/node_action.h"
 #include "gamez/zWeapon/zweapon.h"
 #include "gamez/zFTS/zfts.h" /* CCtrlrConfigs, PadBtnFunc, CZSealState (PreTick, Tick) */
 #include "gamez/zNode/node_world.h" /* zdb::CWorld::m_world (PreTick) */

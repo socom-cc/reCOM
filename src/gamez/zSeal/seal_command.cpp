@@ -26,7 +26,7 @@
 
 /* @socom-skeleton decl include */
 #include "gamez/zAI/zai.h"
-#include "gamez/zNode/node_action.h"
+#include "gamez/zFTS/fts_action.h"
 #include "gamez/zWeapon/zweapon.h"
 #include "zseal.h"
 #include "gamez/zFTS/zfts.h" /* theMission, ftsGetPlayer */

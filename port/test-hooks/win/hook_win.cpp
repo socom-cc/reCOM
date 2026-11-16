@@ -25,7 +25,7 @@
 #include "gamez/zGame/zgame.h"
 #include "gamez/zAI/zai.h"
 #include "gamez/zNode/node_world.h"
-#include "gamez/zNode/node_action.h"
+#include "gamez/zFTS/fts_action.h"
 #include "gamez/zValve/zvalve.h"
 #include "gamez/zWeapon/zweapon.h"
 #include "gamez/zWeapon/zwep_projectilelist.h"

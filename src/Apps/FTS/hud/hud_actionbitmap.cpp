@@ -74,7 +74,7 @@
 #include "gamez/zFTS/zfts.h" /* theMission (the net game's radio locations) */
 #include "gamez/zNode/node_assetlib.h"
 #include "gamez/zEntity/zentity.h" /* CPickup::m_mpbombnode */
-#include "gamez/zNode/node_action.h"
+#include "gamez/zFTS/fts_action.h"
 #include "gamez/zSeal/zseal.h"
 #include "gamez/zVideo/zvid.h" /* zVid.frameTime */
 #include <stdio.h>

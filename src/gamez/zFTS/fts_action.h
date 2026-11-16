@@ -7,14 +7,14 @@
  * @socom-artifact emits main socom:function:0x29a6b0
  * socom-owner-annotations end socom:work:source-segment-033 */
 
-#ifndef NODE_ACTION_H
-#define NODE_ACTION_H
+#ifndef FTS_ACTION_H
+#define FTS_ACTION_H
 
 /* port: forward declarations for names this header uses */
 class CZAnim;
 class CZSealBody;
 class CValve;
-#include "znode.h"
+#include "gamez/zNode/znode.h"
 
 /* DWARF CNodeAction (48 bytes, orders.cpp / hud_actionbitmap.cpp units): a world object the
  * player can use (doors, switches, bomb sites), read from the mission's actions.rdr by Open

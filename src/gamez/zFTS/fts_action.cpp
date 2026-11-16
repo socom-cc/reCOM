@@ -39,9 +39,9 @@
  * socom-owner-annotations end socom:work:source-segment-076 */
 
 /* @socom-skeleton decl include */
+#include "fts_action.h"
 #include "gamez/zAnim/zanim.h"
 #include "gamez/zMath/zmath.h"
-#include "gamez/zNode/node_action.h"
 #include "gamez/zNode/node_world.h"
 #include "gamez/zNode/znode.h"
 #include "gamez/zSeal/zseal.h"

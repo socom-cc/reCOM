@@ -90,9 +90,9 @@ deferred until their real producers and compiler/provider prerequisites exist.
 <!-- SOCOM_PROGRESS_BEGIN -->
 ### Generated progress snapshot
 
-- Tracker revision: `4520`
-- Next work item: `socom:work:source-segment-024-apply`
-- Work items: 1091 total (6 ready, 0 active, 0 awaiting acceptance, 1005 accepted, 80 dependency-blocked)
+- Tracker revision: `4648`
+- Next work item: `none`
+- Work items: 1091 total (0 ready, 0 active, 0 awaiting acceptance, 1038 accepted, 53 dependency-blocked)
 - Open blockers: 3
 - Provisional source owners still unverified: 316
 

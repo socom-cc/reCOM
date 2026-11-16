@@ -70,7 +70,7 @@ enum R_SEND_TO { }; /* port: unproven: passed by value per the mangled name; kin
 #include <stdio.h>
 #include <string.h>
 #include "gamez/zAnim/zanim.h" /* ZAnim, CAnimAuxData */
-#include "gamez/zNode/node_action.h" /* CNodeAction */
+#include "fts_action.h" /* CNodeAction */
 #include "gamez/zReader/zrdr_local.h" /* CRdrEditor */
 #include "gamez/zUI/zui.h" /* theUIVarManager, CUIVariable */
 #include "gamez/zValve/zvalve.h"

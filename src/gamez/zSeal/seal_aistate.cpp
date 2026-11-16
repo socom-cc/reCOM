@@ -97,7 +97,7 @@
 #include "gamez/zSeal/zseal.h"
 #include "gamez/zFTS/zfts.h" /* ftsGetPlayer (CAiSGoto::Tick) */
 #include "gamez/zValve/zvalve.h" /* CAiSBreach's valves */
-#include "gamez/zNode/node_action.h" /* CAiSBreach's door */
+#include "gamez/zFTS/fts_action.h" /* CAiSBreach's door */
 #include <stdlib.h> /* rand (CAiSBreach) */
 
 /* @socom-skeleton stub MultiplayerMsgStrings */

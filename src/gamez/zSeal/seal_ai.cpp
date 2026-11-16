@@ -353,7 +353,7 @@ namespace sealai
 #include <cstdio>
 #include <cstring>
 #include "gamez/zFTS/zfts.h" /* ftsGetPlayer */
-#include "gamez/zNode/node_action.h" /* CNodeAction (PathFollowTick's doors) */
+#include "gamez/zFTS/fts_action.h" /* CNodeAction (PathFollowTick's doors) */
 #include <math.h> /* fabsf, sqrtf (PathFollowTick) */
 #include "gamez/zNetwork/znet.h" /* theNetwork */
 #include "gamez/zSeal/zseal.h"

@@ -26,7 +26,7 @@
 #include "gamez/zSeal/zseal.h"
 #include "gamez/zFTS/zfts.h"
 #include "gamez/zNode/node_world.h"
-#include "gamez/zNode/node_action.h"
+#include "gamez/zFTS/fts_action.h"
 #include "gamez/zGrid/zgrid.h"
 #include "gamez/zIntersect/zintersect.h"
 #include "gamez/zAI/zai.h"

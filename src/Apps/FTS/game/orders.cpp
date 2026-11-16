@@ -112,7 +112,7 @@
 #include "gamez/zAnim/zanim.h" /* ZAnim (the lase targets) */
 #include "gamez/zWeapon/zweapon.h" /* CZWeapon (the deploy items' names) */
 #include "gamez/zSound/zsnd.h" /* CSnd */
-#include "gamez/zNode/node_action.h" /* CNodeAction */
+#include "gamez/zFTS/fts_action.h" /* CNodeAction */
 #include "gamez/zReader/zrdr.h"
 #include <stdio.h>
 #include <stdlib.h>
