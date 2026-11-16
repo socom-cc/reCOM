@@ -249,10 +249,13 @@ void CNode::ComputeFacadeMatrix(const CMatrix* matrix, CMatrix* model)
 			tilt[1][2] = -w[1];
 			tilt[2][1] = w[1];
 
-			sceVu0FMATRIX both;
-			sceVu0UnitMatrix(both);
-			sceVu0MulMatrix(both, turn, tilt);
-			sceVu0CopyMatrix(turn, both);
+			/* the product, then two copies as the ELF (0x229734: through CMatrix's
+			   operator const float (&)[4][4] into a temporary, then into the turn) */
+			CMatrix both;
+			sceVu0MulMatrix(both.m_matrix, turn, tilt);
+			sceVu0FMATRIX copy;
+			sceVu0CopyMatrix(copy, const_cast<float(*)[4]>(static_cast<const CMatrix::rows_t&>(both)));
+			sceVu0CopyMatrix(turn, copy);
 		}
 		else
 		{

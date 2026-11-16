@@ -813,6 +813,86 @@ public:
 	CGraph *m_graph;
 };
 
+/* The old on-disk AI map records (CAiMap::Read 0x189390, versions 2-18). No DWARF: the action and
+ * region records are named by the ELF's template arguments (ReadCellTableCvt<..., actions_v15,
+ * action_v15> 0x18a940, <..., regions_v4, region_v4> 0x18ab70, <..., actions_v18, action_v18>
+ * 0x18ad00) and laid out from those converters; the cell records (port names) from read_cells
+ * 0x188f60, which reads them into locals. Bits a converter never reads are left unnamed. */
+class action_v15 /* 24 bytes: map versions 4-15 */
+{
+public:
+	CAiMapLoc m_loc;         /* +0x0 */
+	u32 m_direction : 4;     /* +0x4 */
+	u32 m_actionId : 16;
+	u32 m_type : 5;          /* bit 20 (CAiMap::action: bit 23, after the m_state this record lacks) */
+	u32 : 3;
+	u32 m_locExValid : 1;    /* bit 28 */
+	u32 : 3;
+	u32 : 32;                /* +0x8: not read (the converted action's m_offset is 8) */
+	CAiMapLoc m_locEx[3];    /* +0xc (CAiMap::action has 6; the other 3 become invalid) */
+};
+class actions_v15 : public std::vector<action_v15> { };
+
+class action_v18 /* 36 bytes: map versions 16-18 (CAiMap::action without m_region) */
+{
+public:
+	CAiMapLoc m_loc;         /* +0x0 */
+	u32 m_direction : 4;     /* +0x4 */
+	u32 : 16;                /* bits 4-19: not read (the converted action keeps action::invalid) */
+	u32 m_type : 5;          /* bit 20, as action_v15 */
+	u32 : 3;
+	u32 m_locExValid : 1;    /* bit 28 */
+	u32 : 3;
+	u32 m_offset : 4;        /* +0x8 */
+	u32 m_type_invalid : 1;
+	u32 : 27;
+	CAiMapLoc m_locEx[6];    /* +0xc; copy ctor __ct__10action_v18FRC10action_v18 0x193330: memberwise */
+};
+class actions_v18 : public std::vector<action_v18> { };
+
+class region_v4 /* 24 bytes: map versions 4-8 */
+{
+public:
+	CAiMapLoc m_loc;         /* +0x0 */
+	u32 m_dx : 16;           /* +0x4 */
+	u32 m_dy : 16;
+	char m_name[16];         /* +0x8 (15 characters taken) */
+};
+class regions_v4 : public std::vector<region_v4> { };
+
+class cell_v2 /* 12 bytes: map version 2 (port name) */
+{
+public:
+	u32 m_soil : 4;          /* +0x0 (CAiCell: 5 bits) */
+	u32 : 1;
+	u32 m_name : 1;
+	u32 m_action : 1;
+	u32 m_link : 1;
+	u32 : 24;
+	u16 m_astar_dir : 4;     /* +0x4 */
+	u16 : 12;
+	s16 m_astar_f;           /* +0x6 */
+	s16 m_astar_g;           /* +0x8 */
+	u16 : 16;                /* +0xa: not read */
+};
+
+class cell_v3 /* 8 bytes: map versions 3-7 (port name) */
+{
+public:
+	u32 m_soil : 4;          /* +0x0 (CAiCell: 5 bits) */
+	u32 : 1;
+	u32 m_name : 1;
+	u32 m_action : 1;
+	u32 m_link : 1;
+	u32 m_altitude : 10;     /* bit 8 (CAiCell: bit 9) */
+	u32 m_boundary : 2;      /* bit 18 (CAiCell: bit 19) */
+	u32 m_mes : 1;           /* bit 20 (CAiCell: bit 21) */
+	u32 : 7;
+	u32 m_astar_dir : 4;     /* bit 28, as CAiCell */
+	s16 m_astar_f;           /* +0x4 */
+	s16 m_astar_g;           /* +0x6 */
+};
+
 /* port: no DWARF definition; the walk record WalkLine 0x1a7570 passes its callbacks (read by
  * _look_ahead 0x2661d0, _TravelLineCallback 0x1a84c0); m_end's slot and all names unproven */
 class MAP_LINEWALK_STRUCT

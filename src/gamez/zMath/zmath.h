@@ -356,29 +356,12 @@ public:
 	/* GetTranslate__7CMatrixCFv (inline, 0x233db0): this + 0x30 */
 	const float* GetTranslate() const { return m_matrix[3]; }
 
-	/* Transform__7CMatrixCFP6CPnt3Di (inline, 0x1eb350): p = row0*x + row1*y + row2*z + row3, in place */
-	void Transform(CPnt3D* points, s32 count) const
-	{
-		for (; count != 0; count--, points++)
-		{
-			f32 px = points->x, py = points->y, pz = points->z;
-			points->x = m_matrix[0][0] * px + m_matrix[1][0] * py + m_matrix[2][0] * pz + m_matrix[3][0];
-			points->y = m_matrix[0][1] * px + m_matrix[1][1] * py + m_matrix[2][1] * pz + m_matrix[3][1];
-			points->z = m_matrix[0][2] * px + m_matrix[1][2] * py + m_matrix[2][2] * pz + m_matrix[3][2];
-		}
-	}
-
-	/* Transform__7CMatrixCFPC6CPnt3DP6CPnt3Di (inline, 0x1f5ef0): as above, in -> out */
-	void Transform(const CPnt3D* in, CPnt3D* out, s32 count) const
-	{
-		for (; count != 0; count--, in++, out++)
-		{
-			f32 px = in->x, py = in->y, pz = in->z;
-			out->x = m_matrix[0][0] * px + m_matrix[1][0] * py + m_matrix[2][0] * pz + m_matrix[3][0];
-			out->y = m_matrix[0][1] * px + m_matrix[1][1] * py + m_matrix[2][1] * pz + m_matrix[3][1];
-			out->z = m_matrix[0][2] * px + m_matrix[1][2] * py + m_matrix[2][2] * pz + m_matrix[3][2];
-		}
-	}
+	/* operator const float (&)[4][4] (__opRA4_A4_Cf__7CMatrixCFv, 0x223170), the Transform
+	   overloads (0x1eb350, 0x1f5ef0) and Multiply (0x218de0): inline, defined in zmath_matrix.h */
+	typedef float rows_t[4][4]; /* port: a conversion function cannot spell the array type itself */
+	operator const rows_t&() const;
+	void Transform(CPnt3D* points, s32 count) const;
+	void Transform(const CPnt3D* in, CPnt3D* out, s32 count) const;
 
 	/* Rotate__7CMatrixCFPC6CPnt3DP6CPnt3Di (inline, 0x1bd170): rows 0-2 only, in -> out */
 	void Rotate(const CPnt3D* in, CPnt3D* out, s32 count) const
@@ -392,11 +375,7 @@ public:
 		}
 	}
 
-	/* Multiply__7CMatrixCFPC7CMatrixP7CMatrix (inline, 0x218de0): tail call sceVu0MulMatrix(out, other, this) */
-	void Multiply(const CMatrix* other, CMatrix* out) const
-	{
-		sceVu0MulMatrix(out->m_matrix, const_cast<float(*)[4]>(other->m_matrix), const_cast<float(*)[4]>(m_matrix));
-	}
+	void Multiply(const CMatrix* other, CMatrix* out) const;
 
 	/* port: SetRotation(const CPnt3D*) (declared, never defined) is removed: the ELF has
 	   SetRotate__7CMatrixFPC6CPnt3D (below) */
@@ -462,4 +441,6 @@ public:
 };
 }
 /* @socom-skeleton end Q23zdb11CCircleClip */
+
+#include "gamez/zMath/zmath_matrix.h" /* CMatrix's inline members (its DWARF header) */
 #endif

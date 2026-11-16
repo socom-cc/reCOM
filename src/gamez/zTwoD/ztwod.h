@@ -223,7 +223,29 @@ protected: /* port: protected (was private) - CPlainBmp::SetMapOffset reads the 
 	/* @socom-skeleton decl 9C2DBitmap */
 public:
 	virtual ~C2DBitmap() {}
-	virtual void GetAssetLibs(C2D::CLibList &); /* 0x1748a0 (inline, emitted in orders.cpp's unit); port: defined in ztwod_bitmap.cpp */
+	virtual void GetAssetLibs(C2D::CLibList &libs) /* 0x1748a0 (inline, emitted in orders.cpp's unit) */
+	{
+		/* the texture's asset library, then the children's. ELF quirk: the library is added
+		 * only when the search result is a NULL pointer, i.e. only into a list that has never
+		 * held an element (a miss in a non-empty list returns end) */
+		zdb::CTexture* texture = m_pTexHandle != NULL ? m_pTexHandle->m_texture : NULL;
+
+		if (texture != NULL && texture->m_AssetLib != NULL)
+		{
+			zdb::CAssetLib* lib = texture->m_AssetLib;
+			zdb::CAssetLib** i = libs.data();
+			zdb::CAssetLib** end = i + libs.size();
+
+			while (i != end && *i != lib)
+				i++;
+
+			if (i == NULL)
+				libs.insert(libs.end(), lib);
+		}
+
+		for (C2Dlist::iterator c = begin(); c != this->end(); ++c)
+			(*c)->GetAssetLibs(libs);
+	}
 	float GetTrans();
 	void MakePacket(zdb::CCamera *, zdb::CTextureRelocMgr *, const CMatrix *);
 	/* @socom-skeleton end 9C2DBitmap */
@@ -752,7 +774,7 @@ public:
 class C2DLine : public C2D
 {
 public:
-	virtual ~C2DLine();
+	virtual ~C2DLine() {} /* __dt__7C2DLineFv 0x2fe8e0 (inline; its copy sits between c2dbitmap_poly.cpp and ztwod_font.cpp): the C2DLine vtable, then only ~C2D */
 	virtual void Draw(zdb::CCamera *);
 	virtual void SetTrans(float);
 	virtual void GetAssetLibs(C2D::CLibList &);

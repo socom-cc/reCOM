@@ -121,6 +121,122 @@ template <class V, class T> bool ReadCellTable(CFileIO &io, V &table)
 /* instantiated for CAiMaps::ReadMapSet (ai_maps.cpp) */
 template bool ReadCellTable<CAiMap::spores, CAiMap::spore>(CFileIO &, CAiMap::spores &);
 
+/* port: the table element's inline default constructor (the value resize__...action 0x18b300 /
+ * resize__...region 0x18c560 copies into each new element), as a function: the port's records keep
+ * their implicit constructors. What the ELF leaves unset (the locations: a stack temporary) is 0
+ * here (the port's resize value-initialises). */
+static void DefaultRecord(CAiMap::action &a)
+{
+	a.m_direction = 0;
+	a.m_actionId = CAiMap::action::invalid[0];
+	a.m_state = 0;
+	a.m_type = 0;
+	a.m_locExValid = 0;
+	a.m_offset = 8;
+	a.m_type_invalid = 0;
+}
+
+static void DefaultRecord(CAiMap::region &r)
+{
+	r.m_dx = 0;
+	r.m_dy = 0;
+	r.m_type = 0;
+	r.m_nodisplay = 1;
+	r.m_flags = 0;
+	r.m_unused = 0;
+	r.m_name[0] = '\0';
+}
+
+/* port: the conversions ReadCellTableCvt inlines per old record type (names invented) */
+
+/* 0x18aa10: version 4-15 actions. The type moves up past the new 3-bit m_state (left 0), m_offset
+ * is 8, the three old extra locations are kept and the other three are invalid; m_region keeps the
+ * element default (unset in the ELF) */
+static void ConvertRecord(CAiMap::action &a, const action_v15 &o)
+{
+	a.m_loc = o.m_loc;
+	a.m_direction = o.m_direction;
+	a.m_actionId = o.m_actionId;
+	a.m_type = o.m_type;
+	a.m_locExValid = o.m_locExValid;
+	a.m_offset = 8;
+	a.m_locEx[0] = o.m_locEx[0];
+	a.m_locEx[1] = o.m_locEx[1];
+	a.m_locEx[2] = o.m_locEx[2];
+	memcpy(&a.m_locEx[3], CAiMapLoc::invalid, 4);
+	memcpy(&a.m_locEx[4], CAiMapLoc::invalid, 4);
+	memcpy(&a.m_locEx[5], CAiMapLoc::invalid, 4);
+}
+
+/* 0x18adbc: version 16-18 actions. ELF quirk kept: the action id is not copied (the element keeps
+ * action::invalid, 0xffff) and m_state stays 0; m_region (new in 19) is invalid */
+static void ConvertRecord(CAiMap::action &a, const action_v18 &o)
+{
+	a.m_loc = o.m_loc;
+	a.m_direction = o.m_direction;
+	a.m_type = o.m_type;
+	a.m_locExValid = o.m_locExValid;
+	a.m_offset = o.m_offset;
+	a.m_type_invalid = o.m_type_invalid;
+	memcpy(a.m_locEx, o.m_locEx, sizeof(a.m_locEx));
+	memcpy(&a.m_region, CAiMapLoc::invalid, 4);
+}
+
+/* 0x18ac2c: version 4-8 regions: location, size and 15 name characters; m_type 0, the rest
+ * (m_nodisplay 1, m_flags 0) the element default */
+static void ConvertRecord(CAiMap::region &r, const region_v4 &o)
+{
+	r.m_loc = o.m_loc;
+	r.m_dx = o.m_dx;
+	r.m_dy = o.m_dy;
+	strncpy(r.m_name, o.m_name, 15);
+	r.m_name[15] = '\0';
+	r.m_type = 0;
+}
+
+/* ReadCellTableCvt<V, T, VO, TO> (0x18a940 actions_v15, 0x18ab70 regions_v4, 0x18ad00
+ * actions_v18): as ReadCellTable, but the count's records are read in the old layout into a local
+ * vector; when they all arrive the table is resized and each record converted. True for a
+ * non-positive count; false when the count or the records are short (the table untouched). */
+template <class V, class T, class VO, class TO> bool ReadCellTableCvt(CFileIO &io, V &table)
+{
+	int count = 0;
+
+	if (io.fread(&count, 4) != 4)
+		return false;
+
+	if (count <= 0)
+		return true;
+
+	VO old;
+	old.resize(count);
+	u32 bytes = count * sizeof(TO);
+	bool ok = io.fread(&old[0], bytes) == bytes;
+
+	if (ok)
+	{
+		u32 first = table.size();
+		table.resize(count);
+
+		for (u32 i = first; i < (u32)count; i++)
+			DefaultRecord(table[i]);
+
+		for (int i = 0; i < count; i++)
+			ConvertRecord(table[i], old[i]);
+	}
+
+	return ok;
+}
+
+/* port: the 52-byte parameter head of versions 2-12 (m_bbox to m_floor), read into a local and
+ * copied over the map's parameters (Read 0x189400 and its siblings inline it) */
+static void read_params_v2(CFileIO &io, AIMAP_PARAMS *params)
+{
+	char head[52];
+	io.fread(head, 52);
+	memcpy(params, head, 52);
+}
+
 /* @socom-skeleton body read_lines__6CAiMapFR7CFileIO */
 bool CAiMap::read_lines(CFileIO &io)
 {
@@ -193,10 +309,19 @@ bool CAiMap::read_readers(CFileIO &io)
 bool CAiMap::Read(CFileIO &io)
 {
 	/* 0x189390: a version word, then a version-specific layout (jump table 0x449380, versions
-	 * 0-19; 0, 1 and 20 on fail). The disc's map sets are all version 19 (checked on the m8
-	 * set; RUN/UI/AIMAPS.MPS holds no maps); version 19 is read, 2-18 (52/84/88-byte headers,
-	 * converted cell, action and region records) are left out on purpose (no data). After the layout: version fixups (< 12 links, < 15 scanlines,
-	 * < 17 action offsets), then ValidateCells, ValidateRoutes and the map's own graph. */
+	 * 0-19; 0, 1 and 20 on fail). The disc's map sets are all version 19 (the m8 set;
+	 * RUN/UI/AIMAPS.MPS holds no maps). What each version adds:
+	 *   2-3   the 52-byte parameter head (m_bbox to m_floor) and the cells (2: 12-byte cell_v2,
+	 *         3: 8-byte cell_v3; read_cells converts both)
+	 *   4     the names, actions (action_v15), links, regions (region_v4) and spores
+	 *   5     m_name; 6 the lines (no line_data word before 10); 7-8 m_resolution
+	 *   9     regions in the current layout; 10 m_flags; 11-12 m_slope_threshold
+	 *   13    the whole 164-byte parameters and the map extra bytes (m_mapex_bytes per cell)
+	 *   14    the readers; 15 the scanlines (compressed cells); 16-17 actions as action_v18
+	 *   18    the routes; 19 actions in the current layout
+	 * After the layout: version fixups (< 12 the links dropped, < 15 one full-width scanline per
+	 * row, < 17 every action's m_offset 8), then ValidateCells, ValidateRoutes and the map's own
+	 * graph. Each case is its own copy in the ELF; identical ones share a label here. */
 	u32 ver;
 	bool ok;
 
@@ -205,16 +330,217 @@ bool CAiMap::Read(CFileIO &io)
 
 	switch (ver)
 	{
-	case 17:
-	case 18:
-#ifdef SOCOM_PORT
-		/* port: left out on purpose - no map of this version exists on the disc (the two
-		 * sets: RUN/SP/M8/AIMAPS.MPS, all version 19; RUN/UI/AIMAPS.MPS, no maps). Needed
-		 * for one: versions 17 / 18 read their actions through ReadCellTableCvt<actions_v18>
-		 * (0x18ad00, 496 B), 17 has no routes (Read 0x189390's case) */
-		SOCOM_PORT_TRACE("AIMAP: map version %u left out (converted actions; none on the disc)", ver);
-#endif
+	case 0:
+	case 1:
 		ok = false;
+		break;
+
+	case 2:
+	case 3:
+		read_params_v2(io, this);
+		read_cells(io);
+		ok = true;
+		break;
+
+	case 4:
+		read_params_v2(io, this);
+		read_cells(io);
+		ReadCellTable<names, name>(io, m_namesTable);
+		ReadCellTableCvt<actions, action, actions_v15, action_v15>(io, m_actionTable);
+		ReadCellTable<links, link>(io, m_linksTable);
+		ReadCellTableCvt<regions, region, regions_v4, region_v4>(io, m_regionTable);
+		ReadCellTable<spores, spore>(io, m_sporeTable);
+		ok = true;
+		break;
+
+	case 5:
+		read_params_v2(io, this);
+		io.fread(m_name, 32);
+		read_cells(io);
+		ReadCellTable<names, name>(io, m_namesTable);
+		ReadCellTableCvt<actions, action, actions_v15, action_v15>(io, m_actionTable);
+		ReadCellTable<links, link>(io, m_linksTable);
+		ReadCellTableCvt<regions, region, regions_v4, region_v4>(io, m_regionTable);
+		ReadCellTable<spores, spore>(io, m_sporeTable);
+		ok = true;
+		break;
+
+	case 6:
+		read_params_v2(io, this);
+		io.fread(m_name, 32);
+		read_cells(io);
+		ReadCellTable<names, name>(io, m_namesTable);
+		ReadCellTableCvt<actions, action, actions_v15, action_v15>(io, m_actionTable);
+		ReadCellTable<links, link>(io, m_linksTable);
+		ReadCellTableCvt<regions, region, regions_v4, region_v4>(io, m_regionTable);
+		ReadCellTable<spores, spore>(io, m_sporeTable);
+		read_lines(io);
+		ok = true;
+		break;
+
+	case 7:
+	case 8:
+		read_params_v2(io, this);
+		io.fread(m_name, 32);
+		io.fread(&m_resolution, 4);
+		read_cells(io);
+		ReadCellTable<names, name>(io, m_namesTable);
+		ReadCellTableCvt<actions, action, actions_v15, action_v15>(io, m_actionTable);
+		ReadCellTable<links, link>(io, m_linksTable);
+		ReadCellTableCvt<regions, region, regions_v4, region_v4>(io, m_regionTable);
+		ReadCellTable<spores, spore>(io, m_sporeTable);
+		read_lines(io);
+		ok = true;
+		break;
+
+	case 9:
+		read_params_v2(io, this);
+		io.fread(m_name, 32);
+		io.fread(&m_resolution, 4);
+		read_cells(io);
+		ReadCellTable<names, name>(io, m_namesTable);
+		ReadCellTableCvt<actions, action, actions_v15, action_v15>(io, m_actionTable);
+		ReadCellTable<links, link>(io, m_linksTable);
+		ReadCellTable<regions, region>(io, m_regionTable);
+		ReadCellTable<spores, spore>(io, m_sporeTable);
+		read_lines(io);
+		ok = true;
+		break;
+
+	case 10:
+		read_params_v2(io, this);
+		io.fread(m_name, 32);
+		io.fread(&m_resolution, 4);
+		io.fread(&m_flags, 4);
+		read_cells(io);
+		ReadCellTable<names, name>(io, m_namesTable);
+		ReadCellTableCvt<actions, action, actions_v15, action_v15>(io, m_actionTable);
+		ReadCellTable<links, link>(io, m_linksTable);
+		ReadCellTable<regions, region>(io, m_regionTable);
+		ReadCellTable<spores, spore>(io, m_sporeTable);
+		read_lines(io);
+		ok = true;
+		break;
+
+	case 11:
+	case 12:
+		read_params_v2(io, this);
+		io.fread(m_name, 32);
+		io.fread(&m_resolution, 4);
+		io.fread(&m_flags, 4);
+		io.fread(&m_slope_threshold, 4);
+		read_cells(io);
+		ReadCellTable<names, name>(io, m_namesTable);
+		ReadCellTableCvt<actions, action, actions_v15, action_v15>(io, m_actionTable);
+		ReadCellTable<links, link>(io, m_linksTable);
+		ReadCellTable<regions, region>(io, m_regionTable);
+		ReadCellTable<spores, spore>(io, m_sporeTable);
+		read_lines(io);
+		ok = true;
+		break;
+
+	case 13:
+		io.fread(static_cast<AIMAP_PARAMS*>(this), sizeof(AIMAP_PARAMS));
+		read_cells(io);
+		ReadCellTable<names, name>(io, m_namesTable);
+		ReadCellTableCvt<actions, action, actions_v15, action_v15>(io, m_actionTable);
+		ReadCellTable<links, link>(io, m_linksTable);
+		ReadCellTable<regions, region>(io, m_regionTable);
+		ReadCellTable<spores, spore>(io, m_sporeTable);
+		read_lines(io);
+
+		if (m_mapex_bytes != 0)
+		{
+			char* ex = AllocEx(m_mapex_bytes);
+			io.fread(ex, m_mapex_bytes * m_cellcount);
+		}
+
+		ok = true;
+		break;
+
+	case 14:
+		io.fread(static_cast<AIMAP_PARAMS*>(this), sizeof(AIMAP_PARAMS));
+		read_cells(io);
+		ReadCellTable<names, name>(io, m_namesTable);
+		ReadCellTableCvt<actions, action, actions_v15, action_v15>(io, m_actionTable);
+		ReadCellTable<links, link>(io, m_linksTable);
+		ReadCellTable<regions, region>(io, m_regionTable);
+		ReadCellTable<spores, spore>(io, m_sporeTable);
+		read_lines(io);
+		read_readers(io);
+
+		if (m_mapex_bytes != 0)
+		{
+			char* ex = AllocEx(m_mapex_bytes);
+			io.fread(ex, m_mapex_bytes * m_cellcount);
+		}
+
+		ok = true;
+		break;
+
+	case 15:
+		io.fread(static_cast<AIMAP_PARAMS*>(this), sizeof(AIMAP_PARAMS));
+		read_cells(io);
+		read_scanlines(io);
+		ReadCellTable<names, name>(io, m_namesTable);
+		ReadCellTableCvt<actions, action, actions_v15, action_v15>(io, m_actionTable);
+		ReadCellTable<links, link>(io, m_linksTable);
+		ReadCellTable<regions, region>(io, m_regionTable);
+		ReadCellTable<spores, spore>(io, m_sporeTable);
+		read_lines(io);
+		read_readers(io);
+
+		if (m_mapex_bytes != 0)
+		{
+			char* ex = AllocEx(m_mapex_bytes);
+			io.fread(ex, m_mapex_bytes * m_cellcount);
+		}
+
+		ok = true;
+		break;
+
+	case 16:
+	case 17:
+		io.fread(static_cast<AIMAP_PARAMS*>(this), sizeof(AIMAP_PARAMS));
+		read_cells(io);
+		read_scanlines(io);
+		ReadCellTable<names, name>(io, m_namesTable);
+		ReadCellTableCvt<actions, action, actions_v18, action_v18>(io, m_actionTable);
+		ReadCellTable<links, link>(io, m_linksTable);
+		ReadCellTable<regions, region>(io, m_regionTable);
+		ReadCellTable<spores, spore>(io, m_sporeTable);
+		read_lines(io);
+		read_readers(io);
+
+		if (m_mapex_bytes != 0)
+		{
+			char* ex = AllocEx(m_mapex_bytes);
+			io.fread(ex, m_mapex_bytes * m_cellcount);
+		}
+
+		ok = true;
+		break;
+
+	case 18:
+		io.fread(static_cast<AIMAP_PARAMS*>(this), sizeof(AIMAP_PARAMS));
+		read_cells(io);
+		read_scanlines(io);
+		ReadCellTable<names, name>(io, m_namesTable);
+		ReadCellTableCvt<actions, action, actions_v18, action_v18>(io, m_actionTable);
+		ReadCellTable<links, link>(io, m_linksTable);
+		ReadCellTable<regions, region>(io, m_regionTable);
+		ReadCellTable<spores, spore>(io, m_sporeTable);
+		read_lines(io);
+		read_readers(io);
+		read_routes(io);
+
+		if (m_mapex_bytes != 0)
+		{
+			char* ex = AllocEx(m_mapex_bytes);
+			io.fread(ex, m_mapex_bytes * m_cellcount);
+		}
+
+		ok = true;
 		break;
 
 	case 19:
@@ -239,11 +565,7 @@ bool CAiMap::Read(CFileIO &io)
 		ok = true;
 		break;
 
-	default:
-#ifdef SOCOM_PORT
-		if (ver >= 2 && ver < 17)
-			SOCOM_PORT_TRACE("AIMAP: map version %u left out (old layout; none on the disc)", ver); /* port: left out on purpose, as 17 / 18 above: versions 2-16 need Read 0x189390's 52/84/88-byte header cases and ReadCellTableCvt<actions_v15> 0x18a940 / <regions_v4> 0x18ab70 */
-#endif
+	default: /* 20 on */
 		ok = false;
 		break;
 	}
@@ -293,8 +615,10 @@ bool CAiMap::Read(CFileIO &io)
 bool CAiMap::read_cells(CFileIO &io)
 {
 	/* 0x188f60: before version 15 the cell count is nx * ny (no compression); the cells are
-	 * zeroed, then read: raw 8-byte cells from version 17, 12- or 8-byte older records
-	 * converted before (jump table 0x449330) */
+	 * zeroed, then read (jump table 0x449330 for versions 0-16): version 2's 12-byte cell_v2 and
+	 * versions 3-7's 8-byte cell_v3 records are converted one by one (soil widened to 5 bits,
+	 * m_occupied 0, the fields the old record lacks left 0); every other version is the current
+	 * 8-byte cell, read whole */
 	if (m_version < 15)
 	{
 		m_cellcount = m_nx * m_ny;
@@ -304,19 +628,58 @@ bool CAiMap::read_cells(CFileIO &io)
 	u32 bytes = m_cellcount * sizeof(CAiCell);
 	m_cell = static_cast<CAiCell*>(_malloc(bytes, "ai_mapio.cpp", 597));
 	memset(m_cell, 0, bytes);
+	u32 count = m_cellcount;
 
-	if (m_version >= 17)
+	switch (m_version)
 	{
+	case 2:
+		/* 0x18900c */
+		for (u32 i = 0; i < count; i++)
+		{
+			cell_v2 old;
+			io.fread(&old, sizeof(old));
+			CAiCell &cell = m_cell[i];
+			cell.m_soil = old.m_soil;
+			cell.m_occupied = 0;
+			cell.m_name = old.m_name;
+			cell.m_action = old.m_action;
+			cell.m_link = old.m_link;
+			cell.m_astar_dir = old.m_astar_dir;
+			cell.m_astar_f = old.m_astar_f;
+			cell.m_astar_g = old.m_astar_g;
+		}
+
+		break;
+
+	case 3:
+	case 4:
+	case 5:
+	case 6:
+	case 7:
+		/* 0x189168 */
+		for (u32 i = 0; i < count; i++)
+		{
+			cell_v3 old;
+			io.fread(&old, sizeof(old));
+			CAiCell &cell = m_cell[i];
+			cell.m_soil = old.m_soil;
+			cell.m_occupied = 0;
+			cell.m_name = old.m_name;
+			cell.m_action = old.m_action;
+			cell.m_link = old.m_link;
+			cell.m_altitude = old.m_altitude;
+			cell.m_boundary = old.m_boundary;
+			cell.m_mes = old.m_mes;
+			cell.m_astar_dir = old.m_astar_dir;
+			cell.m_astar_f = old.m_astar_f;
+			cell.m_astar_g = old.m_astar_g;
+		}
+
+		break;
+
+	default:
 		io.fread(m_cell, bytes);
-	}
-	else
-	{
-#ifdef SOCOM_PORT
-		/* port: left out on purpose (no map before version 17 on the disc, see Read): the 12-
-		 * and 8-byte older cell records converted through read_cells 0x188f60's jump table
-		 * 0x449330 */
-		SOCOM_PORT_TRACE("AIMAP: cell format of version %u left out (none on the disc)", m_version);
-#endif
+		break;
 	}
 
 	return true;

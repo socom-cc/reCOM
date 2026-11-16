@@ -361,9 +361,13 @@ void CLensFlareSaturate::Tick(float dT)
 		pitch.m_matrix[1][2] = -turned.y;
 		pitch.m_matrix[2][1] = turned.y;
 
+		/* the product, then two copies as the ELF (0x3bda04: through CMatrix's
+		 * operator const float (&)[4][4] into a temporary, then into the matrix) */
 		CMatrix product;
 		sceVu0MulMatrix(product.m_matrix, matrix.m_matrix, pitch.m_matrix);
-		sceVu0CopyMatrix(matrix.m_matrix, product.m_matrix);
+		sceVu0FMATRIX copy;
+		sceVu0CopyMatrix(copy, const_cast<float(*)[4]>(static_cast<const CMatrix::rows_t&>(product)));
+		sceVu0CopyMatrix(matrix.m_matrix, copy);
 
 		f32 scale = m_MinLensFlareScale + value * m_LensFlareScaleRange;
 
