@@ -113,6 +113,7 @@ uses no object and the brightness tuner calls it with its own a0).
   `TunerReal` (zui_tuner.cpp); `CRadioStrip::Tick` calls `C2DButton::Tick` (inline in the ELF); the CBits dtor
   body is written in `CPickup::Close` (CBits has no port dtor).
 - `LoadFromDesign` still starts no menu background movie (earlier port decision); `RestartBackgroundMPEG` would.
+- 2026-11-15: that decision is reversed: `LoadFromDesign` starts the movie as the ELF does (`docs/port/notes/mpeg-background.md`).
 
 ## Runs (tree = HEAD 36422b82 + mine.txt)
 - zl1 / zl2: leak walks (above). zm1: the eight-return run (above), screenshot at 715 s: the main menu.

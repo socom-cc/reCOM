@@ -130,4 +130,5 @@ was free at HEAD 7976a660).
 - The zVid_Swap frame limiter (deferred by the user) and the memory-card layer (`port/compat/libmc.c`) are untouched.
 - The menus' MPEG backgrounds (zui.cpp, recorded decision). The old AI map formats (no data). The reco set-up
   (unreachable in the ELF).
+- 2026-11-15: the MPEG-background decision is reversed: the menus' movies play now (`docs/port/notes/mpeg-background.md`).
 - Everything network-only written here is untested (no network game on the demo disc).

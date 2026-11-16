@@ -96,7 +96,7 @@
 #include "gamez/zTexture/ztex.h"
 #include "gamez/zTwoD/ztwod.h"
 #include "gamez/zVideo/zvid.h" /* zVid (CGameMenu::Init) */
-#include "gamez/zMPEG/zmpeg.h" /* CMPEG::End (CGameMenu::Clear) */
+#include "gamez/zMPEG/zmpeg.h" /* CMPEG (the background movie) */
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
 class ActionItem;
@@ -886,14 +886,19 @@ void CGameMenu::LoadFromDesign(const CGameDlgDesign &design, CZAnimZAR *animfile
 
 	if (design.m_useMpeg)
 	{
+		/* 0x382c44: the design's movie is the background (no image is loaded for it): the
+		 * FIFO ended and disabled around CMPEG::Run (no prior CMPEG::Init: Run allocates the
+		 * work areas for 480 lines and End frees them); TickMPEG shows and loops it. A movie
+		 * that is not on the disc does not run (strFileOpen fails) and ONMPEGEND runs below. */
 		m_MPEGName = background ? background : "";
 		m_has_mpeg_background = true;
-		/* port: kept out (a recorded port decision; docs/port/notes/mpeg.md lists the menus'
-		 * looping movie backgrounds as left): the ELF ends the FIFO, runs
-		 * CMPEG::Run(background, true, false) and re-enables the FIFO (0x382c84); here the movie
-		 * does not run, as when Run fails. Needed to play it: that call through the port's
-		 * CMPEG (the mission movies already play) and the FIFO handling around it */
-		m_movieRunning = false;
+		zSysFifoEnd();
+		zSysFifoDisable();
+		m_movieRunning = CMPEG::Run(background, true, false);
+		zSysFifoEnable(1);
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("UI: background movie '%s' %s", background, m_movieRunning ? "running" : "not running");
+#endif
 	}
 
 	if (m_has_mpeg_background && !m_movieRunning)
@@ -1061,8 +1066,7 @@ void CGameMenu::RestartBackgroundMPEG()
 {
 	/* 0x381710 (CMenuState::OnPop): a background movie that is not running starts again,
 	 * the FIFO ended and disabled around CMPEG::Run (looping). port: void (the ELF returns
-	 * whether it runs; no caller reads it). LoadFromDesign never starts one in the port (no
-	 * menu MPEG there), so m_movieRunning is false on such a menu and this starts it. */
+	 * whether it runs; no caller reads it). The movie starts from its beginning. */
 	if (!m_has_mpeg_background || m_movieRunning)
 		return;
 
