@@ -274,7 +274,7 @@ void C2DBitmap::MakePacket(zdb::CCamera *camera, zdb::CTextureRelocMgr *reloc, c
 		{
 			corner[i][0] * m_fXPixel + (f32)camera->m_screen.left,
 			corner[i][1] * m_fYPixel + (f32)camera->m_screen.top,
-			corner[i][2],
+			corner[0][2], /* ELF quirk kept: the second XYZ2 reuses the first corner's z (0x3034cc / 0x3034e0 store only x and y) */
 			0.0625f,
 		};
 

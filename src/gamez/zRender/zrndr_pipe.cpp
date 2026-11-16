@@ -1539,7 +1539,7 @@ bool CPipe::RenderVisual(zdb::CNode* node, zdb::tag_ZVIS_FOV fov)
 
 		bool nearBilinear = false;
 
-		if (zdb::CVisual::m_adjustBilinearRange > 0.0f && visual->m_adjust_bilinear)
+		if (!(zdb::CVisual::m_adjustBilinearRange <= 0.0f) && visual->m_adjust_bilinear) /* 0x2426ac: the ELF's form */
 		{
 			CPnt3D centre;
 			modelToWorld->Transform(&visual->m_centroid, &centre, 1);
@@ -1566,7 +1566,7 @@ bool CPipe::RenderVisual(zdb::CNode* node, zdb::tag_ZVIS_FOV fov)
 			visual->Render(modelToWorld);
 			CBench::countVisuals++;
 		}
-		else if (opacity > 0.0078125f)
+		else if (!(opacity <= 0.0078125f)) /* 0x24280c: the ELF's form */
 		{
 			m_alpha.Add(m_node, node, visual, fov, opacity);
 			m_alpha.m_dyntexlist.Add(&visual->m_dyn_tex_list);
@@ -1624,24 +1624,25 @@ void CPipe::CAlpha::Add(zdb::CNode *atom, zdb::CNode *node, zdb::CVisual *visual
 	std::list<void*>::iterator i = m_last_alpha_insert;
 	f32 depth = entry->m_depth;
 
+	/* the compares in the ELF's forms (0x242270, 0x242310, 0x24233c, 0x242394, 0x24243c) */
 	if (i == m_drawList.begin())
 	{
-		while (i != m_drawList.end() && !(static_cast<tag_DelayedNode*>(*i)->m_depth <= depth))
+		while (i != m_drawList.end() && depth < static_cast<tag_DelayedNode*>(*i)->m_depth)
 			++i;
 	}
-	else if (static_cast<tag_DelayedNode*>(*i)->m_depth <= depth)
+	else if (!(depth < static_cast<tag_DelayedNode*>(*i)->m_depth))
 	{
 		while (i != m_drawList.begin() && !(depth <= static_cast<tag_DelayedNode*>(*i)->m_depth))
 			--i;
 
-		if (static_cast<tag_DelayedNode*>(m_drawList.front())->m_depth <= depth)
+		if (!(depth < static_cast<tag_DelayedNode*>(m_drawList.front())->m_depth))
 			i = m_drawList.begin();
 		else
 			++i;
 	}
 	else
 	{
-		while (i != m_drawList.end() && !(static_cast<tag_DelayedNode*>(*i)->m_depth <= depth))
+		while (i != m_drawList.end() && depth < static_cast<tag_DelayedNode*>(*i)->m_depth)
 			++i;
 	}
 

@@ -433,7 +433,7 @@ void Particle::Source::Tick(float dT)
 
 		if (range != 3.4028235e+38f)
 		{
-			if (m_props->m_farFade2 <= range)
+			if (!(range < m_props->m_farFade2)) /* 0x239768: the ELF's form */
 				range = m_props->m_farFade2;
 
 			f32 dx = m_oldPosW.x - referencePositionW[0];
@@ -441,7 +441,7 @@ void Particle::Source::Tick(float dT)
 			f32 dz = m_oldPosW.z - referencePositionW[2];
 
 			/* 0x239798 / 0x2397a8: (factor range) squared; 0x2397c4..0x2397e4: (dx dx + dy dy) + dz dz */
-			if ((distanceFactor * range) * (distanceFactor * range) <= dx * dx + dy * dy + dz * dz)
+			if (!(dx * dx + dy * dy + dz * dz < (distanceFactor * range) * (distanceFactor * range))) /* 0x2397e8: !(d2 < r2) */
 			{
 				if (m_freezable)
 					m_frozen = true;

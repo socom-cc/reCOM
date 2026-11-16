@@ -364,8 +364,10 @@ void C2DWidePolyline::SetSegments(CPtItr *it, float width)
 
 		C2DBitmapPoly* quad = new C2DBitmapPoly;
 		_vecSegments.push_back(quad);
-		quad->m_tris[0].SetPos(prevL.x, prevL.y, prevR.x, prevR.y, curL.x, curL.y);
-		quad->m_tris[1].SetPos(prevL.x, prevL.y, curL.x, curL.y, curR.x, curR.y);
+		/* 0x2fd9c0 / 0x2fd9e0: the quad's corners in the constructor's (v0 v1 v2) (v0 v2 v3)
+		   order, v0 curL, v1 prevL, v2 prevR, v3 curR */
+		quad->m_tris[0].SetPos(curL.x, curL.y, prevL.x, prevL.y, prevR.x, prevR.y);
+		quad->m_tris[1].SetPos(curL.x, curL.y, prevR.x, prevR.y, curR.x, curR.y);
 
 		if (!it->IsValid())
 			return;

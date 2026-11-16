@@ -1144,7 +1144,9 @@ void CAppCamera::UpdateDeathCamState(float dT)
 					m_death_fade_out_time = 0.200000003f /* 0x3e4ccccd */;
 					m_death_faded_time = 0.200000003f /* 0x3e4ccccd */;
 					m_death_fade_in_time = 0.200000003f /* 0x3e4ccccd */;
-					m_death_state_timer = 0.300000012f; /* 0x3e99999a: the ELF stores Metrowerks' fold of fade_out + 0.5 * faded (0.2f + 0.1f, nearest); GCC r5900 folds it toward zero (0x3e999999) */
+					/* 0x1e9850: computed at run time in the ELF (no fold); the R5900's adder rounds
+					   toward zero, which GCC r5900's fold reproduces */
+					m_death_state_timer = m_death_fade_out_time + 0.5f * m_death_faded_time;
 					theHUD->Flash(0.0f, black, m_death_fade_out_time, m_death_faded_time, m_death_fade_in_time);
 					m_rumble_timer = 0.5f * m_death_fade_out_time;
 				}

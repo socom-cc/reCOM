@@ -446,13 +446,13 @@ void Particle::Instance::Expire()
 void Particle::Instance::Render(const CMatrix &view)
 {
 	/* @socom-skeleton stub OutputOnceOnly$1584 */
-	static unsigned char OutputOnceOnly;
+	static unsigned char OutputOnceOnly = 1; /* guarded init (init$1585) to 1 */
 	/* 0x236a90: a live instance of a running source: size = radius * Props scale at its age
 	 * (the source's box grows over it); a model node is placed; else, faded by view depth
 	 * (Props opacity) and in view (the source's FOV flag 1 skips the box test, 2 never
 	 * draws), it is queued in the draw buffer (5000 at most): the Props colour at its age with
 	 * alpha * opacity, * 128, its texture (else the Props texture at its age), size and
-	 * view depth. The overflow message the ELF prints once is empty here. */
+	 * view depth. The ELF prints no overflow message (OutputOnceOnly is only cleared). */
 	if (m_source->m_frozen || !(m_age < m_lifespan))
 		return;
 
@@ -483,7 +483,7 @@ void Particle::Instance::Render(const CMatrix &view)
 
 	f32 opacity = m_props->GetOpacity(depth);
 
-	if (!(0.01f < opacity) || m_source->m_outOfRange)
+	if (opacity <= 0.01f || m_source->m_outOfRange) /* 0x236ba0: the ELF's form */
 		return;
 
 	bool test = true;
@@ -520,11 +520,11 @@ void Particle::Instance::Render(const CMatrix &view)
 			return;
 	}
 
-	OutputOnceOnly = 1;
-
 	if (numParticles >= 5000)
 	{
-		OutputOnceOnly = 0;
+		if (OutputOnceOnly) /* 0x236cf4: cleared once; the ELF prints nothing here */
+			OutputOnceOnly = 0;
+
 		return;
 	}
 
@@ -657,7 +657,7 @@ void Particle::Destruction_Instance::Tick(float dT)
 
 		s32 halvings = 0;
 
-		for (; 0.5f < x; x *= 0.5f)
+		for (; !(x <= 0.5f); x *= 0.5f) /* 0x236594: the ELF's form */
 			halvings++;
 
 		x = x * (x * (x * (x * ((x + 0.166666002f /* 0x3e2aaa7e */) * x + 0.200000003f /* 0x3e4ccccd */) + 0.25f) + 0.333333f) + 0.5f) + 1.0f;

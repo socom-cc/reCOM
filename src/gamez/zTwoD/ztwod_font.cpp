@@ -77,15 +77,17 @@ C2DFontEntry* C2DFont::GetEntry(char character)
 }
 
 /* @socom-skeleton body Load__7C2DFontFP8CRdrFilePCc */
-/* port: helpers for the inlined _zrdr element reads in Load (0x2fea10) */
+/* port: helpers for the inlined _zrdr element reads in Load (0x2fea10). As the ELF, neither
+ * tests its argument: an element missing from a short charoffsets item is Get's NULL, read
+ * as a node (low memory; the disc's fonts are well formed) */
 static _zrdr* FontItem(_zrdr* array, u32 index)
 {
-    return array ? array->Get(index) : NULL;
+    return array->Get(index);
 }
 
 static s32 FontInt(const _zrdr* item)
 {
-    return item ? item->GetInt() : 0;
+    return item->GetInt();
 }
 
 void C2DFont::Load(CRdrFile* font, const char* name)

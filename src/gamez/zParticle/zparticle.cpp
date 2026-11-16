@@ -288,11 +288,10 @@ zdb::CVisual * Particle::CreateVisuals(CPnt3D *p0, CPnt3D *p1, CPnt3D *p2, CPnt3
 	visual->m_alpha_blend = tex->m_transparent && !tex->m_bumpmap && !(tex->m_transp_1bit && !tex->m_bilinear);
 	vd = vd->SelectVertex(visual, 0, 0);
 
+	/* as the ELF: the walk stops at a NULL next vertex (0x2338c8, 0x233a30), and the batch
+	   header is then written through it (the fragment model has a second triangle, so never) */
 	for (s32 i = 0; i < 3; i++)
 	{
-		if (vd == NULL) /* port: guard - the ELF writes through it (the fragment model has a second triangle) */
-			return visual;
-
 		s16* vertex = vd->m_vertex;
 		u8* rgba = reinterpret_cast<u8*>(vd->m_color);
 		vertex[0] = ShardFix16(16.0f * d[i].x);
@@ -308,13 +307,13 @@ zdb::CVisual * Particle::CreateVisuals(CPnt3D *p0, CPnt3D *p1, CPnt3D *p2, CPnt3
 		vertex[4] = ShardFix16(4096.0f * uv[i]->x);
 		vertex[5] = ShardFix16(4096.0f * uv[i]->y);
 		vd = vd->NextVertex(1);
+
+		if (vd == NULL)
+			break;
 	}
 
-	if (vd != NULL) /* port: guard (see above) */
-	{
-		vd->m_batch_hdr[3] = 1; /* one triangle */
-		vd->m_batch_hdr[2] = 3; /* three vertices */
-	}
+	vd->m_batch_hdr[3] = 1; /* one triangle */
+	vd->m_batch_hdr[2] = 3; /* three vertices */
 
 	CPnt4D vel;
 	f32 base = vel0->x;

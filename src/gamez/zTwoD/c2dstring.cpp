@@ -237,7 +237,7 @@ void C2DString::MakePacket(zdb::CTextureRelocMgr *reloc, int z)
 					f32 scale = m_scale;
 					f32 factor = m_font->m_scale_factor;
 					s32 w = (s32)(scale * (f32)(entry->m_width - 1) * factor + 0.5f);
-					s32 h = (s32)(scale * factor * (f32)(entry->m_bottom - entry->m_top) + 0.5f);
+					s32 h = (s32)(scale * (factor * (f32)(entry->m_bottom - entry->m_top)) + 0.5f); /* 0x3029d4: scale * (factor * height) */
 					s32 base = (s32)(scale * (f32)entry->m_baseline * factor + 0.5f);
 					nloop += 2;
 
@@ -274,7 +274,7 @@ void C2DString::MakePacket(zdb::CTextureRelocMgr *reloc, int z)
 
 		u32 qwc = (u32)((reinterpret_cast<char*>(v) - reinterpret_cast<char*>(tag + 4)) >> 4);
 		tag[0] = qwc | 0x10000000; /* DMAtag CNT */
-		tag[1] = 0;
+		/* tag[1] (the CNT tag's unused ADDR word) is left as it is, as the ELF does (0x302b80-0x302b98) */
 		tag[2] = 0;                /* VIF NOP */
 		tag[3] = qwc | 0x50000000; /* VIF DIRECT */
 		*reinterpret_cast<u64*>(tag + 4) = (u64)nloop | 0x8000ull | (1ull << 46) | ((u64)prim << 47) | (3ull << 60);

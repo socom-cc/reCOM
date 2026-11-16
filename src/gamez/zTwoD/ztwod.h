@@ -199,8 +199,6 @@ public:
 
 	void Reset();
 
-	bool GetTrans() const;
-	
 	void SetTrans(float transparency);
 	void SetPos(s32 x, s32 y, s32 width, s32 height);
 	void SetPos(s32 x, s32 y);
