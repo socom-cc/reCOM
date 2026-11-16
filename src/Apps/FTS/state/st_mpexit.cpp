@@ -196,10 +196,8 @@ void SetMpStatUiVars()
 	for (CEntityItr it(CEntity::m_list.begin()); it._it != CEntity::m_list.end(); it.Advance())
 	{
 		bool mine = (ftsGetPlayer()->m_team & 1) != 0;
+		/* ELF quirk kept (0x3dd8f0): no seal test; the first list entry is used as it is */
 		CZSealBody *seal = it.GetSeal();
-
-		if (seal == NULL) /* port: NULL-tested (as SetFinalTeamTotalsUiVar) */
-			continue;
 
 		if (((seal->m_team & 1) != 0) == mine)
 		{
@@ -415,10 +413,9 @@ bool CMPExitState::Init()
 
 	for (CEntityItr it(CEntity::m_list.begin()); it._it != CEntity::m_list.end(); it.Advance())
 	{
+		/* ELF quirk kept (0x3dd1f8): no seal test; the first list entry is used as it is
+		 * (NULL + 0x4c0 when it is no seal), Advance skips the non-seals after it */
 		CZSealBody *seal = it.GetSeal();
-
-		if (seal == NULL) /* port: NULL-tested (the ELF uses the first entity without a seal test) */
-			continue;
 
 		seal->m_stats.Reset();
 		seal->GetNode()->SetActive(false);

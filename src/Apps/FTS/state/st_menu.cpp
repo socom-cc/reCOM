@@ -51,6 +51,9 @@
 bool LoadWorld(const char* name);
 void UnloadTheWorld(); /* database.cpp (0x1728e0) */
 void zUISchedulerClear(); /* zui.cpp (0x384eb0) */
+void DMEinit(); /* fts_network_dme.cpp */
+bool DMEConnectToGameServer(); /* fts_network_dme.cpp */
+bool DMEJoinGameServer(); /* fts_network_dme.cpp (0x201830) */
 
 /* @socom-skeleton decl include */
 #include "gamez/zFTS/fts_state.h"
@@ -197,10 +200,12 @@ bool CMenuState::Init()
 	{
 		if (theNetwork.m_bNetwork)
 		{
+			/* 0x379428-0x379440: results unused */
 			theMission.CreateNetGame();
-			/* port: unproven - 0x379428-0x379440 then call DMEinit, DMEConnectToGameServer,
-			 * DMEJoinGameServer (user-placed, no body yet) and ftsNetworkGameInit; online is
-			 * an offline stub in the port, so they are not called. */
+			DMEinit();
+			DMEConnectToGameServer();
+			DMEJoinGameServer();
+			ftsNetworkGameInit();
 		}
 
 		theGame.Switch(&theGame.m_loadState, 0);

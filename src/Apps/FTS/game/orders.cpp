@@ -433,7 +433,7 @@ void C2DOrderItem::HandleMoving(float dT)
 	{
 		f32 step = dT / left;
 
-		if (step > 1.0f)
+		if (!(step <= 1.0f)) /* 0x17c23c c.le.s */
 			step = 1.0f;
 
 		if (step < 0.0f)
@@ -474,7 +474,7 @@ void C2DOrderItem::Tick(float dT)
 	case -5:
 		m_time += dT;
 
-		if (m_time > m_speed)
+		if (!(m_time <= m_speed)) /* 0x17be3c c.le.s */
 		{
 			m_state = 0;
 			SetTrans(128.0f);
@@ -485,7 +485,7 @@ void C2DOrderItem::Tick(float dT)
 			m_blinkTime += dT;
 			f32 period = m_speed / numBlinkenLights;
 
-			if (m_blinkTime > period)
+			if (!(m_blinkTime <= period)) /* 0x17be88 c.le.s */
 			{
 				m_blinkTime -= period;
 
@@ -1121,7 +1121,8 @@ void OrdersMenu::SetupTuples(int col)
 						if (anim == NULL || anim->m_state != 1)
 							continue;
 
-						SetupTuple(col, n, team->display, cmd->display, "cross hairs", team->vuiID, cmd->vuiID, recoGetWordID("cross hairs"), t, ncmd, 0, true, unit, cmd->command, orders_loc_data(i->m_loc));
+						/* 0x17a338: the object text is "" (only its word is "cross hairs") */
+						SetupTuple(col, n, team->display, cmd->display, "", team->vuiID, cmd->vuiID, recoGetWordID("cross hairs"), t, ncmd, 0, true, unit, cmd->command, orders_loc_data(i->m_loc));
 						objects++;
 						n++;
 						break;
@@ -2420,7 +2421,9 @@ unsigned char OrdersMenu::ScrollForward()
 	if (m_selected_col == 0)
 		SetupCommandDisplay();
 
-	if (m_size[m_selected_col] > 0)
+	/* 0x1759ec: the next column's size (lw +0x2c + 4 * col): a team without orders keeps the
+	 * menu on the teams */
+	if (m_size[m_selected_col + 1] > 0)
 	{
 		m_selected_col++;
 		m_selected_row = 0;

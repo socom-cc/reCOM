@@ -159,10 +159,12 @@ extern bool LoadWorld(const char* name)
 	if (!universe)
 	{
 		universe = new zdb::CNodeUniverse();
-		universe->m_locked = false;
+		universe->m_locked = true; /* the inline ctor's value (0x172bb4) */
 	}
 
+	/* 0x172bc0: the universe is emptied (size_ 0) and unlocked for the load */
 	zdb::NodeUniverse = universe;
+	zdb::NodeUniverse->clear();
 	zdb::NodeUniverse->m_locked = false;
 	zdb::CSaveLoad sload = zdb::CSaveLoad();
 
@@ -170,6 +172,7 @@ extern bool LoadWorld(const char* name)
 
 	if (!theWorld)
 	{
+		zdb::NodeUniverse->clear(); /* 0x172bf8 */
 		zdb::NodeUniverse->m_locked = true;
 		return false;
 	}
@@ -268,7 +271,9 @@ extern bool LoadWorld(const char* name)
 	}
 
 	char pathbuf[128];
-		 
+	/* 0x173280: the result is the last autoload library's archive Open (true when none) */
+	bool result = true;
+
 	for (auto i = zdb::CAssetMgr::m_assets.begin(); i != zdb::CAssetMgr::m_assets.end(); ++i)
 	{
 		zdb::CAssetLib* library = *i;
@@ -276,23 +281,21 @@ extern bool LoadWorld(const char* name)
 		if (library->m_autoload)
 		{
 			sprintf(pathbuf, "run/%s/models.zar", library->m_name);
-	
-			if (archive.Open(pathbuf, -1, 1, 16))
-			{
-				if (!library->m_models.empty())
-				{
-					for (u32 j = 0; j != library->m_models.size(); j++)
-					{
-						hookupVisuals(&archive, library->m_models[j]);
-					}
+			result = archive.Open(pathbuf, -1, 1, 16);
 
-					library->m_model_buffer = archive.ReleaseDataBuffer();
+			if (result)
+			{
+				for (u32 j = 0; j < library->m_models.size(); j++)
+				{
+					hookupVisuals(&archive, library->m_models[j]);
 				}
-					
+
+				/* 0x173338: released also when the library has no models */
+				library->m_model_buffer = archive.ReleaseDataBuffer();
 				archive.Close(true);
 			}
 		}
-	}                                        
+	}
 
 	archive.Close();
 
@@ -325,7 +328,8 @@ extern bool LoadWorld(const char* name)
 
 	if (theWorld->m_numNoFarClipNodes == 0)
 	{
-		if (theWorld->m_camera->m_mid_plane < theWorld->m_camera->m_far_plane)
+		/* 0x173458: c.le.s far, mid; branch when true */
+		if (!(theWorld->m_camera->m_far_plane <= theWorld->m_camera->m_mid_plane))
 			theWorld->m_camera->SetFarClip(theWorld->m_camera->m_mid_plane);
 	}
 
@@ -334,7 +338,7 @@ extern bool LoadWorld(const char* name)
 
 	thePipe.Flush();
 
-	return true;
+	return result;
 }
 
 /* @socom-skeleton body UnloadTheWorld__Fv */
