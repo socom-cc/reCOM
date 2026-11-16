@@ -427,18 +427,22 @@ void CTurret::Init(zdb::CNode *node, const CTurretDef &def)
 	m_pitch_min_cos = cosf(def.m_pitch[0]);
 	m_pitch_max_sin = sinf(def.m_pitch[1]);
 	m_pitch_max_cos = cosf(def.m_pitch[1]);
-	/* ai::_max (inline): the larger of the two */
+	/* ai::_max<f> (0x26c8a0): c.lt a, b ? b : a */
 	f32 a = fabsf(def.m_yaw[0]);
 	f32 b = fabsf(def.m_yaw[1]);
-	f32 yaw = a > b ? a : b;
+	f32 yaw = a < b ? b : a;
 	a = fabsf(def.m_pitch[0]);
 	b = fabsf(def.m_pitch[1]);
-	f32 pitch = a > b ? a : b;
-	f32 fov = yaw > pitch ? yaw : pitch;
+	f32 pitch = a < b ? b : a;
+	f32 fov = yaw < pitch ? pitch : yaw;
 	m_aimdir = CPnt3D::unit_nz;
 	m_mtw.Transform(&m_aimdir, 1); /* ELF: m_mtw is still the unit matrix here */
 	m_aiParams.visual_fov = fov; /* ELF quirk kept: radians over the definition's degrees */
-	saturate<f32>(fov, 0.01f, 1.5707964f);
+	/* _saturate<f> (0x1a8dd0): !(v <= max) -> max, else v < min -> min */
+	if (!(fov <= 1.5707964f /* 0x3fc90fdb */))
+		fov = 1.5707964f;
+	else if (fov < 0.01f /* 0x3c23d70a */)
+		fov = 0.01f;
 	m_tan_half_fov = tanf(0.5f * fov);
 }
 

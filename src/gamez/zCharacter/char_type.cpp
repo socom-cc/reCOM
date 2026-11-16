@@ -543,7 +543,7 @@ CCharacterType::CCharacterType(const char* name, const CCharacterType* other)
 	m_aiParams.visual_sens = 0.800000012f /* 0x3f4ccccd */;
 	m_aiParams.visual_range = 400.0f;
 	m_aiParams.visual_fov = 60.0f;
-	m_aiParams.aware_decay = -0.075000003f /* 0x3d99999a */;
+	m_aiParams.aware_decay = -0.075000003f /* 0xbd99999a */;
 	m_aiParams.thip_range = 25.0f;
 	m_aiParams.respawn = 0;
 	m_aiParams.target_delay = 0.75f;
@@ -773,7 +773,8 @@ bool CCharacterType::Parse(_zrdr* rdr)
 
 	if (_zrdr* lods = zrdr_findtag(rdr, "lods"))
 	{
-		/* each LOD: { file distance }; its name is the file name without ".xsi" */
+		/* each LOD: { file distance }; m_name (+0x4) the file as given, m_file (+0x0) the
+		 * file without ".xsi" and what follows (0x249108) */
 		m_LODs.clear();
 		s32 count = lods->IsArray() ? lods->array->integer - 1 : 0;
 		LOD lod;

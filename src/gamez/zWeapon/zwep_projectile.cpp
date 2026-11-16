@@ -152,8 +152,9 @@ CZProjectile::~CZProjectile()
 bool CZProjectile::SetProjectile(zdb::CNode *owner, CZWeapon *weapon, CZAmmo *ammo, const CPnt3D *startpos, const CPnt3D *velscale, const CPnt3D *vel, int id, zdb::CModel *model, float time, float removal_time)
 {
 	/* 0x319ff0: flies from startpos at the muzzle velocity along velscale plus vel; direct
-	 * fire is one-frame (shotguns: the shotgun spread) and takes a direct-fire DI, others an
-	 * indirect one. In a network game a thrown grenade of the player needs a grenade slot.
+	 * fire is one-frame (shotguns: the shotgun spread); one-frame shots take a direct-fire
+	 * DI, the rest (the shotgun spread too) an indirect one. In a network game a thrown
+	 * grenade of the player needs a grenade slot.
 	 * (Was a provisional body.) */
 	m_weapon = weapon;
 
@@ -553,7 +554,8 @@ bool CZProjectile::HandleIntersections(float dT)
 			hit->m_pos.Sub(&m_di->m_Tail, &d);
 			f32 sq = d.x * d.x + d.y * d.y + d.z * d.z;
 
-			if (from < sq && (nearest == NULL || sq < dist) && !(range <= sq))
+			/* ELF 0x3192cc..0x3192f8: skip on c.le sq, from; then c.lt sq, dist; c.lt sq, range */
+			if (!(sq <= from) && (nearest == NULL || sq < dist) && sq < range)
 			{
 				dist = sq;
 				nearest = hit;
@@ -886,7 +888,7 @@ bool CZProjectile::HandleImpact(zdb::IntersectStruct *hit, float, float dist, CP
 	{
 		f32 radius = m_weapon->GetImpactRadius() * material->m_impact_radius_mod;
 
-		if (radius > 1.0f && !m_lastHitWasPerson)
+		if (!(radius <= 1.0f) && !m_lastHitWasPerson) /* ELF 0x31839c: c.le radius, 1 */
 		{
 			/* an AIE_WEPHIT AI event (0x3183c0): at the hit, range radius, 0.1 s, owner the
 			 * shooter */
@@ -937,7 +939,7 @@ bool CZProjectile::HandleImpact(zdb::IntersectStruct *hit, float, float dist, CP
 	if (reach < range)
 		m_currange = reach;
 
-	return m_currange * m_currange < dist;
+	return !(dist <= m_currange * m_currange); /* ELF 0x318594: c.le dist, range^2 -> 0 */
 }
 
 /* @socom-skeleton stub Cleanup__12CZProjectileFv */
@@ -1525,7 +1527,7 @@ void CFlyoutMachine::AcquireFlyout(CPnt3D &start, CPnt3D &end, CZAnim *anim, CZW
 	end.Sub(&start, &d);
 	f32 len = sqrtf(d.x * d.x + d.y * d.y + d.z * d.z);
 
-	if (!(70.0f <= len))
+	if (len < 70.0f) /* ELF 0x316a34: c.lt len, 70 */
 		return;
 
 	CFlyout *flyout = m_free[m_free.size() - 1];

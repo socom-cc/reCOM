@@ -900,6 +900,18 @@ static void LobbySetStateValve(CValve *valve, unsigned int state)
 		valve->MakeCallbacks((VALVE_STATE)change);
 }
 
+/* the same inline CValve::Set where the ELF does not test the valve (JoinGame 0x325898,
+ * LobbyReadyToConnectStateHandler 0x32d27c) */
+static void LobbySetValve(CValve *valve, unsigned int state)
+{
+	unsigned int change = 0;
+	if (valve->m_value != state)
+		change = state ? 1 : 2;
+	valve->m_value = state;
+	if (change)
+		valve->MakeCallbacks((VALVE_STATE)change);
+}
+
 /* a lobby request made ready (inline at every request in the ELF: memset to the request's size,
  * the session key copied to +0x15, MediusCreateMessageID with the request's message type) */
 template <class T> static void LobbyPrepareRequest(T &request, int type);
@@ -1891,6 +1903,9 @@ void cbRoomList(int, int, int, MediusChannelListResponse *response)
 			{
 				char name[64];
 				BriefingRoom *base = (*it)->BaseSrc();
+				/* port: snprintf where the ELF sprintfs (0x32e330) into this buffer (sp+144; the
+				 * next slot it uses is sp+212); bounded so a long lobby name cannot overrun the
+				 * port's frame (the same text whenever it fits) */
 				snprintf(name, sizeof(name), "%s %d", base->m_channel.LobbyName, (*it)->CloneIndex() + 1);
 				if (strcmp(name, response->LobbyName) == 0)
 				{
@@ -2361,7 +2376,7 @@ void LobbyReadyToConnectStateHandler(CZOnlineLobby::LOBBY_STATE_FLAG flag)
 		toggle.ChatToggle = 0;
 		MediusChatToggleFilter(&toggle, cbChatToggle);
 		valve_mp_locked_game = NULL;
-		LobbySetStateValve(CValve::Create("mp_persistent", VALVE_TYPE::VTYPE_PERM), 1);
+		LobbySetValve(CValve::Create("mp_persistent", VALVE_TYPE::VTYPE_PERM), 1); /* 0x32d27c: unchecked */
 	}
 }
 
@@ -4136,8 +4151,8 @@ bool CZOnlineLobby::JoinGame(const char *name)
 				break;
 			}
 		}
-		LobbySetStateValve(players, persistent->m_gameInfo.MaxPlayers);
-		LobbySetStateValve(CValve::Create("mp_friendly_fire", VALVE_TYPE::VTYPE_PERM), 0);
+		LobbySetValve(players, persistent->m_gameInfo.MaxPlayers);
+		LobbySetValve(CValve::Create("mp_friendly_fire", VALVE_TYPE::VTYPE_PERM), 0);
 		g_iCreateGameClanAffiliation = persistent->m_gameInfo.GenericField3;
 		int level = m_MissionSequence[m_curr_seq_idx];
 		if (level > 0)
@@ -4154,9 +4169,9 @@ bool CZOnlineLobby::JoinGame(const char *name)
 		m_state_change_fifo.push(JOIN_GAME);
 		return true;
 	}
-	LobbySetStateValve(CValve::Create("PasswordValve", VALVE_TYPE::VTYPE_PERM), 0);
-	LobbySetStateValve(players, 16);
-	LobbySetStateValve(CValve::Create("mp_persistent", VALVE_TYPE::VTYPE_PERM), 1);
+	LobbySetValve(CValve::Create("PasswordValve", VALVE_TYPE::VTYPE_PERM), 0);
+	LobbySetValve(players, 16);
+	LobbySetValve(CValve::Create("mp_persistent", VALVE_TYPE::VTYPE_PERM), 1);
 	m_state_change_fifo.push(CREATE_NEW_GAME);
 	return true;
 }
