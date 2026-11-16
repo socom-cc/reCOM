@@ -490,15 +490,13 @@ public:
 	CPnt3D m_vel;  /* +0x0c */
 	f32 m_range;   /* +0x18 the horizontal reach (not read by DrawFunc) */
 
-	/* the point at flight time t (inline in DrawFunc) */
+	/* the point at flight time t (inline in PostTick and DrawFunc): m_pos + m_vel * t through
+	   CPnt3D::operator* 0x2878e0 and operator+ 0x287890 (inlined at some sites), then Add of
+	   the fall */
 	void PosAt(f32 t, CPnt3D *out) const
 	{
 		CPnt3D g(0.0f, -49.0f * (t * t), 0.0f);
-		CPnt3D v;
-		m_vel.Scale(t, &v);
-		CPnt3D p;
-		m_pos.Add(&v, &p);
-		p.Add(&g, out);
+		(m_pos + m_vel * t).Add(&g, out);
 	}
 
 	/* 0x2879f0: the speed that carries a 45 degree throw dist far from height; the time out */

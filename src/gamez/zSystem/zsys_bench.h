@@ -26,7 +26,7 @@ public:
 	static u32 countClutterNodes;
 	static u32 countVisuals;
 	static u32 countAlphaVisuals;
-	static u32 countParticleSources;          /* 0x47650c: read by CHUD::StatusLine's render report */
+	static u32 countParticleSources;          /* 0x47650c: read by CHUD::StatusLine's render report; the ELF never writes the four */
 	static u32 countParticleSourcesProcessed; /* 0x476510 */
 	static u32 countParticlesProcessed;       /* 0x476514 */
 	static u32 countParticlesDrawn;           /* 0x476518 */

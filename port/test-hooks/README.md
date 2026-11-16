@@ -24,6 +24,7 @@ headers are in `port/tools/dev/` and on every hook's include path.
 | --- | --- | --- | --- |
 | `actions` | `hook_actions.cpp` | `<build> <pad> <targets> [flags]` | player in front of action nodes / climb walls (targets in the header); TRIANGLE = next target; mark/glass cameras |
 | `ai` | `hook_ai.cpp` | `<build> <pad> <ai> [extra sources]` | `CMission::Open` AI override; `PROF=1` live-heap profiler |
+| `camcmd` | `hook_camcmd.cpp` + `../state/hook_state.cpp` | `<build> [pad] [flags]` | the camera animation commands' text parsers (the disc's anims are compiled, so they never run on it): `SOCOM_CAMCMD_DELAY` HUD ticks (default 300) after the mission cameras, a reader file served from memory (`CBufferIO::Open` wrap) goes through `CZAnimMain::AnimParseCmd` command by command (DYNAMICS_RELEASE / ACQUIRE_CAMERA, CAMERA_INDOORS, SET_CAMERA_REGION_TEST ON / OFF, GET_CAMERA_REGION_TEST, CAMERA_PARAMS with SAVE and six key tracks, then RESTORE); each record dumped (header, flags, tracks, keys) and given to its begin / tick, the camera switches and the world camera's fields of view, planes, fog and range scale traced after each, the switches put back |
 | `clone` | `hook_clone.c` | `<build> [pad]` | traces `zdb::CMesh::Clone` / `AddLOD` |
 | `combat` | `hook_combat.cpp` | `<build> [pad] [flags]` | enemy combat set-up, mission cameras skipped, test camera |
 | `death` | `hook_death.cpp`, `hook_free.cpp`, `hook_leak.cpp` | `<build> [pad] [flags]` | fatal fall at `SOCOM_HOOK_KILL_FRAME` (`-DSOCOM_HOOK_KILLER`); `HFREE=1` / `HLEAK=1` heap checkers |

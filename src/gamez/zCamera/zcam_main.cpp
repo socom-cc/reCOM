@@ -301,8 +301,16 @@ void CCamera::RegisterAnimCommands()
 namespace zdb {
 _zanim_cmd_hdr* CCamera::CmdParseRelease(_zrdr* reader)
 	{
-		_zanim_cmd_hdr* cmd = NULL;
-		return cmd;
+		/* 0x1e7530: DYNAMICS_RELEASE_CAMERA, a timeless 8-byte record with release set (the
+		   reader's contents are not read) */
+		if (reader == NULL)
+			return NULL;
+
+		_camera_control_cmd* cmd = static_cast<_camera_control_cmd*>(_calloc(1, sizeof(_camera_control_cmd), "zcam_main.cpp", 162));
+		cmd->hdr.data_size = sizeof(_camera_control_cmd);
+		cmd->hdr.timeless = true;
+		cmd->release = 1;
+		return &cmd->hdr;
 	}
 }
 
@@ -310,8 +318,15 @@ _zanim_cmd_hdr* CCamera::CmdParseRelease(_zrdr* reader)
 namespace zdb {
 _zanim_cmd_hdr* CCamera::CmdParseAcquire(_zrdr* reader)
 	{
-		_zanim_cmd_hdr* cmd = NULL;
-		return cmd;
+		/* 0x1e74b0: DYNAMICS_ACQUIRE_CAMERA, a timeless 8-byte record with acquire set */
+		if (reader == NULL)
+			return NULL;
+
+		_camera_control_cmd* cmd = static_cast<_camera_control_cmd*>(_calloc(1, sizeof(_camera_control_cmd), "zcam_main.cpp", 178));
+		cmd->hdr.data_size = sizeof(_camera_control_cmd);
+		cmd->hdr.timeless = true;
+		cmd->acquire = 1;
+		return &cmd->hdr;
 	}
 }
 
@@ -337,7 +352,13 @@ bool CCamera::CmdTickControlSwitch(_zanim_cmd_hdr* header, f32* dT)
 namespace zdb {
 _zanim_cmd_hdr* CCamera::CmdParseIndoorsTest(_zrdr* reader)
 	{
-		_zanim_cmd_hdr* cmd = NULL;
+		/* 0x1e7400: CAMERA_INDOORS, a timeless record of the header alone */
+		if (reader == NULL)
+			return NULL;
+
+		_zanim_cmd_hdr* cmd = static_cast<_zanim_cmd_hdr*>(_calloc(1, sizeof(_zanim_cmd_hdr), "zcam_main.cpp", 207));
+		cmd->data_size = sizeof(_zanim_cmd_hdr);
+		cmd->timeless = true;
 		return cmd;
 	}
 }
@@ -356,8 +377,21 @@ bool CCamera::CmdTickIndoorsTest(_zanim_cmd_hdr* header, f32* dT)
 namespace zdb {
 _zanim_cmd_hdr* CCamera::CmdParseSetRegions(_zrdr* reader)
 	{
-		_zanim_cmd_hdr* cmd = NULL;
-		return cmd;
+		/* 0x1e7320: SET_CAMERA_REGION_TEST, a timeless 8-byte record: set_on when the reader
+		   holds ON, else clear (OFF or anything else) */
+		if (reader == NULL)
+			return NULL;
+
+		_camera_set_regions_cmd* cmd = static_cast<_camera_set_regions_cmd*>(_calloc(1, sizeof(_camera_set_regions_cmd), "zcam_main.cpp", 232));
+		cmd->hdr.data_size = sizeof(_camera_set_regions_cmd);
+		cmd->hdr.timeless = true;
+
+		if (zrdr_findtag(reader, "ON"))
+			cmd->set_on = 1;
+		else
+			cmd->set_on = 0;
+
+		return &cmd->hdr;
 	}
 }
 
@@ -375,7 +409,13 @@ bool CCamera::CmdTickSetRegions(_zanim_cmd_hdr* header, f32* dT)
 namespace zdb {
 _zanim_cmd_hdr* CCamera::CmdParseGetRegions(_zrdr* reader)
 	{
-		_zanim_cmd_hdr* cmd = NULL;
+		/* 0x1e7280: GET_CAMERA_REGION_TEST, a timeless record of the header alone */
+		if (reader == NULL)
+			return NULL;
+
+		_zanim_cmd_hdr* cmd = static_cast<_zanim_cmd_hdr*>(_calloc(1, sizeof(_zanim_cmd_hdr), "zcam_main.cpp", 264));
+		cmd->data_size = sizeof(_zanim_cmd_hdr);
+		cmd->timeless = true;
 		return cmd;
 	}
 }
@@ -396,11 +436,40 @@ static u32 ParamsLength(_zrdr* tag)
 	return tag->IsArray() ? static_cast<u32>(tag->array->integer - 1) : 0;
 }
 
+/* the record's six {offset, count} track pairs (+0xc + 4 * track: FOV, CLIP, CLIP_ALL,
+   FOG_RANGE, FOG_ALTITUDE, LOD_MULTIPLIER); the track is a constant at each use */
+static void ParamsSetTrackOffset(_camera_params_cmd* cmd, int track, u32 offset)
+{
+	switch (track)
+	{
+	case 0: cmd->fov_offset = offset; break;
+	case 1: cmd->clip_offset = offset; break;
+	case 2: cmd->clip_all_offset = offset; break;
+	case 3: cmd->fog_range_offset = offset; break;
+	case 4: cmd->fog_altitude_offset = offset; break;
+	default: cmd->lod_multiplier_offset = offset; break;
+	}
+}
+
+static void ParamsCountTrackKey(_camera_params_cmd* cmd, int track)
+{
+	switch (track)
+	{
+	case 0: cmd->fov_count++; break;
+	case 1: cmd->clip_count++; break;
+	case 2: cmd->clip_all_count++; break;
+	case 3: cmd->fog_range_count++; break;
+	case 4: cmd->fog_altitude_count++; break;
+	default: cmd->lod_multiplier_count++; break;
+	}
+}
+
 /* one key track of K keys (time, then the values: as many reals as K holds); the record grows
-   by each key (zAnimCmdAddData). offset and count get the track's offset (the record size at
-   its first key) and key count; the caller stores them in the record. */
-template <class K>
-static _camera_params_cmd* ParamsParseTrack(_camera_params_cmd* cmd, _zrdr* tag, u32& offset, u32& count)
+   by each key (zAnimCmdAddData). As the ELF: the track's offset (the record size at its first
+   key) and its key count are written into the record before each key is appended (the copy
+   carries them). The ELF expands this six times (no symbol). */
+template <class K, int TRACK>
+static _camera_params_cmd* ParamsParseTrack(_camera_params_cmd* cmd, _zrdr* tag)
 {
 	if (tag == NULL)
 		return cmd;
@@ -412,20 +481,18 @@ static _camera_params_cmd* ParamsParseTrack(_camera_params_cmd* cmd, _zrdr* tag,
 		K key;
 		f32* field = reinterpret_cast<f32*>(&key); /* time, a[, b[, c]] */
 
+		/* ELF: an element missing from a short last group is Get's NULL, read as a node
+		   (low memory; the disc's CAMERA_PARAMS records are compiled, never parsed) */
 		for (int k = 0; k < width; k++)
-		{
-			/* port: the ELF reads the element of a short last group through NULL */
-			_zrdr* value = tag->Get(i + k);
-			field[k] = value != NULL ? value->GetReal() : 0.0f;
-		}
+			field[k] = tag->Get(i + k)->GetReal();
 
 		if (!(key.time <= cmd->run_time))
 			cmd->run_time = key.time;
 
 		if (i == 0)
-			offset = cmd->hdr.data_size;
+			ParamsSetTrackOffset(cmd, TRACK, cmd->hdr.data_size);
 
-		count++;
+		ParamsCountTrackKey(cmd, TRACK);
 		cmd = reinterpret_cast<_camera_params_cmd*>(zAnimCmdAddData(&cmd->hdr, &key, sizeof(K)));
 	}
 
@@ -473,36 +540,12 @@ _zanim_cmd_hdr* CCamera::CmdParseParams(_zrdr* reader)
 			cmd->fog_altitude_enabled = 0;
 		}
 
-		u32 offset = 0;
-		u32 count = 0;
-		cmd = ParamsParseTrack<_camera_param_2d_data>(cmd, zrdr_findtag(reader, "FOV"), offset, count);
-		cmd->fov_offset = offset;
-		cmd->fov_count = count;
-
-		offset = count = 0;
-		cmd = ParamsParseTrack<_camera_param_2d_data>(cmd, zrdr_findtag(reader, "CLIP"), offset, count);
-		cmd->clip_offset = offset;
-		cmd->clip_count = count;
-
-		offset = count = 0;
-		cmd = ParamsParseTrack<_camera_param_3d_data>(cmd, zrdr_findtag(reader, "CLIP_ALL"), offset, count);
-		cmd->clip_all_offset = offset;
-		cmd->clip_all_count = count;
-
-		offset = count = 0;
-		cmd = ParamsParseTrack<_camera_param_2d_data>(cmd, zrdr_findtag(reader, "FOG_RANGE"), offset, count);
-		cmd->fog_range_offset = offset;
-		cmd->fog_range_count = count;
-
-		offset = count = 0;
-		cmd = ParamsParseTrack<_camera_param_2d_data>(cmd, zrdr_findtag(reader, "FOG_ALTITUDE"), offset, count);
-		cmd->fog_altitude_offset = offset;
-		cmd->fog_altitude_count = count;
-
-		offset = count = 0;
-		cmd = ParamsParseTrack<_camera_param_1d_data>(cmd, zrdr_findtag(reader, "LOD_MULTIPLIER"), offset, count);
-		cmd->lod_multiplier_offset = offset;
-		cmd->lod_multiplier_count = count;
+		cmd = ParamsParseTrack<_camera_param_2d_data, 0>(cmd, zrdr_findtag(reader, "FOV"));
+		cmd = ParamsParseTrack<_camera_param_2d_data, 1>(cmd, zrdr_findtag(reader, "CLIP"));
+		cmd = ParamsParseTrack<_camera_param_3d_data, 2>(cmd, zrdr_findtag(reader, "CLIP_ALL"));
+		cmd = ParamsParseTrack<_camera_param_2d_data, 3>(cmd, zrdr_findtag(reader, "FOG_RANGE"));
+		cmd = ParamsParseTrack<_camera_param_2d_data, 4>(cmd, zrdr_findtag(reader, "FOG_ALTITUDE"));
+		cmd = ParamsParseTrack<_camera_param_1d_data, 5>(cmd, zrdr_findtag(reader, "LOD_MULTIPLIER"));
 
 		return &cmd->hdr;
 	}

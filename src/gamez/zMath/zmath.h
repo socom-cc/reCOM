@@ -189,16 +189,33 @@ public:
 		this->z = z;
 	}
 
-	CPnt3D& operator+(const CPnt3D& vector);
-	CPnt3D& operator-(const CPnt3D& vector);
-	CPnt3D& operator*(f32 scalar);
-	CPnt3D& operator/(f32 scalar);
+	/* __pl__6CPnt3DCFRC6CPnt3D (inline, emitted at 0x287890 in seal_control.cpp): the sum
+	   through Add into a temporary, returned by value (was: non-const, returning a reference,
+	   never defined) */
+	CPnt3D operator+(const CPnt3D& vector) const
+	{
+		CPnt3D sum;
+		Add(&vector, &sum);
+		return sum;
+	}
+
+	/* __ml__6CPnt3DCFf (inline, emitted at 0x2878e0 in seal_control.cpp): Scale into a
+	   temporary, returned by value (was as operator+) */
+	CPnt3D operator*(f32 scalar) const
+	{
+		CPnt3D scaled;
+		Scale(scalar, &scaled);
+		return scaled;
+	}
+
+	/* port: operator- and operator/ (declared, never defined) are removed: the ELF has neither */
 
 	static const CPnt3D zero;
 	static const CPnt3D unit_nz;
 
 	float Normalize(); /* 0x222d40 returns the length (f0: ClipCameraChord uses it; was void) */
-	void Normalize(CPnt3D* other);
+	/* port: the non-const void Normalize(CPnt3D*) was removed (never defined); the ELF has only
+	   Normalize__6CPnt3DCFP6CPnt3D (below) */
 	/* port: the non-const Add(CPnt3D*, CPnt3D*) was removed (never defined); the ELF has only Add__6CPnt3DCFPC6CPnt3DP6CPnt3D (below) */
 	/* port: Sub(CPnt3D*, CPnt3D*) is not declared: the ELF has only Sub__6CPnt3DCFPC6CPnt3DP6CPnt3D (below) */
 	/* port: the non-const Scale(f32, CPnt3D*) was removed; the ELF has only Scale__6CPnt3DCFfP6CPnt3D (below) */
@@ -293,12 +310,8 @@ class CQuat
 public:
 	static const CQuat identity;
 
-	static CQuat Apply(CQuat& quat, CPnt3D& point);
-	static CQuat Normalize(CQuat& quat, CQuat& rhs);
-	static CQuat Div(CQuat& left, CQuat& right);
-	static CQuat Mul(CQuat& left, CQuat& right);
-	static void ToMatrix(CQuat& quat, CMatrix& matrix);
-	static CQuat Exp(CQuat& quat, CPnt3D& point);
+	/* port: the static Apply / Normalize / Div / Mul / ToMatrix / Exp taking references
+	   (declared, never defined) are removed: the ELF has only the members below */
 
 	CPnt3D vec;
 	f32 w;
@@ -385,7 +398,8 @@ public:
 		sceVu0MulMatrix(out->m_matrix, const_cast<float(*)[4]>(other->m_matrix), const_cast<float(*)[4]>(m_matrix));
 	}
 
-	void SetRotation(const CPnt3D* rotation);
+	/* port: SetRotation(const CPnt3D*) (declared, never defined) is removed: the ELF has
+	   SetRotate__7CMatrixFPC6CPnt3D (below) */
 	void SetRows(const CPnt3D* first, const CPnt3D* second, const CPnt3D* third, const CPnt3D* fourth);
 	void SetZero();
 

@@ -46,8 +46,9 @@ f32 CBench::drawTime;
 f32 CBench::twoDTime;
 f32 CBench::dmaTime;
 
-/* port: no stage-4 owner - the particle counters 0x47650c-0x476518 (CHUD::StatusLine's render
-   report prints them; nothing in the port counts them yet, so they stay 0) */
+/* port: no stage-4 owner - the particle counters 0x47650c-0x476518 (.sbss). CHUD::StatusLine's
+   render report prints them (0x3db42c-0x3db444); nothing in the ELF writes them (no other $gp
+   access, no address taken, CBench::Reset leaves them), so they stay 0 as in the original */
 u32 CBench::countParticleSources;
 u32 CBench::countParticleSourcesProcessed;
 u32 CBench::countParticlesProcessed;
