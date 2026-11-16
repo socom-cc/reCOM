@@ -293,7 +293,8 @@ bool zdb::CGrid::GetIntersectBatch(zdb::DiIntersect **dis, int count)
 	/* 0x213830 (CWorld::diTick): the frame's delayed DIs in one grid pass. The cells
 	   under any of them are marked in CellCheck, relative to the x/z extents of all of
 	   them (altitude probes 1 by their tail, proximity spheres 4 by tail +- radius, the
-	   radius in m_Tip.x, chords 2 by both ends), each DI's hits and done mark cleared on
+	   radius in m_Tip.x, chords 2 by both ends; a minimum is replaced unless min < value,
+	   a maximum when max <= value, as 0x213920 tests them), each DI's hits and done mark cleared on
 	   the way; then every active atom of a marked cell, once per grid tick (the node's
 	   m_TickNum), goes through NodeGetIntersectBatch with every DI (their done marks
 	   cleared again first). ELF quirk kept: the extents start from the first DI's tail
@@ -315,10 +316,10 @@ bool zdb::CGrid::GetIntersectBatch(zdb::DiIntersect **dis, int count)
 
 		if (type == 1)
 		{
-			if (di->m_Tail.x <= extents[0].x)
+			if (!(extents[0].x < di->m_Tail.x))
 				extents[0].x = di->m_Tail.x;
 
-			if (di->m_Tail.z <= extents[0].z)
+			if (!(extents[0].z < di->m_Tail.z))
 				extents[0].z = di->m_Tail.z;
 
 			if (extents[1].x <= di->m_Tail.x)
@@ -331,10 +332,10 @@ bool zdb::CGrid::GetIntersectBatch(zdb::DiIntersect **dis, int count)
 		{
 			f32 r = di->m_Tip.x;
 
-			if (di->m_Tail.x - r <= extents[0].x)
+			if (!(extents[0].x < di->m_Tail.x - r))
 				extents[0].x = di->m_Tail.x - r;
 
-			if (di->m_Tail.z - r <= extents[0].z)
+			if (!(extents[0].z < di->m_Tail.z - r))
 				extents[0].z = di->m_Tail.z - r;
 
 			if (extents[1].x <= di->m_Tail.x + r)
@@ -345,10 +346,10 @@ bool zdb::CGrid::GetIntersectBatch(zdb::DiIntersect **dis, int count)
 		}
 		else if (type == 2)
 		{
-			if (di->m_Tail.x <= extents[0].x)
+			if (!(extents[0].x < di->m_Tail.x))
 				extents[0].x = di->m_Tail.x;
 
-			if (di->m_Tail.z <= extents[0].z)
+			if (!(extents[0].z < di->m_Tail.z))
 				extents[0].z = di->m_Tail.z;
 
 			if (extents[1].x <= di->m_Tail.x)
@@ -357,10 +358,10 @@ bool zdb::CGrid::GetIntersectBatch(zdb::DiIntersect **dis, int count)
 			if (extents[1].z <= di->m_Tail.z)
 				extents[1].z = di->m_Tail.z;
 
-			if (di->m_Tip.x <= extents[0].x)
+			if (!(extents[0].x < di->m_Tip.x))
 				extents[0].x = di->m_Tip.x;
 
-			if (di->m_Tip.z <= extents[0].z)
+			if (!(extents[0].z < di->m_Tip.z))
 				extents[0].z = di->m_Tip.z;
 
 			if (extents[1].x <= di->m_Tip.x)
@@ -1049,7 +1050,7 @@ void zdb::CGrid::NodeGetAltitude(zdb::CNode *node, zdb::DiIntersect *di)
 				if (!(poly->m_ditype & 1))
 					continue;
 
-				hit = poly->GetAltitude(di);
+				hit = poly->GetIntersect(di); /* 0x211450: vtable +0x14, GetIntersect (the segment test), not GetAltitude (+0x18); was GetAltitude */
 
 				if (hit && di->m_Cnt < di->m_BufCnt - 1)
 				{

@@ -17,12 +17,12 @@ namespace zdb
 		CLight();
 
 		CLight* _Copy(const CNode*);
-		bool    _Write(CSaveLoad&);
+		virtual bool _Write(CSaveLoad&); /* virtual: __vt__Q23zdb6CLight +0x40, the slot CLight adds */
 
-		bool Read(CSaveLoad&);
+		bool Read(CSaveLoad&); /* overrides +0x30 */
 
-		bool SetActive(bool);
-		CBBox* UpdateBBox(bool);
+		bool SetActive(bool); /* overrides +0x34 (CNode::SetActive is virtual) */
+		CBBox* UpdateBBox(bool); /* overrides +0x38 */
 
 		f32 m_maxRangeSq;
 		f32 m_maxRange;

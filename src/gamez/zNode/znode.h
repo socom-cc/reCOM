@@ -198,27 +198,20 @@ public:
 		static CNode* Create(const char* name); /* static: CGameMenu::CGameMenu (0x384134) passes only the name */
 
 		static CNode* Read(CSaveLoad& sload, CNode* node);
-		virtual bool Read(CSaveLoad& sload);
+		/* Read(CSaveLoad &), AddChild, DeleteChild, DeleteChildren, UpdateGrid, both FindChild
+		   and SetActive are virtual: declared in the skeleton region below, in the order of
+		   __vt__Q23zdb5CNode (0x471eb0) */
 		bool ReadDataBegin(CSaveLoad& sload);
 		bool Delete();
-		
-		virtual void AddChild(CNode* child); /* virtual: __vt__Q23zdb5CNode +0x18 (CWorld overrides; CNode::Read adds through it) */
-		/* virtual: __vt__Q23zdb5CNode +0x1c / +0x20 (CWorld overrides both; RemoveFromParent,
-		   CNode::DeleteChildren and the destructors call them through the vtable) */
-		virtual short DeleteChild(CNode* child);
-		virtual void DeleteChildren();
+
 		void RemoveFromParent();
 
 		/* GetAtom: the binary has only GetAtom__Q23zdb5CNodeFi (int), declared below */
 		void InsertAtom(CGridAtom* atom);
 		void FreeAtom();
-		bool UpdateGrid();
 		void ShrinkAtomBasePtrs();
 		void SetAtomCnt(u16 count);
 		void AllocateAtomBasePtrs(s32 x, s32 y);
-
-		CNode* FindChild(CNode* child, bool nested);
-		CNode* FindChild(const char* child, bool nested);
 
 		CMatrix* BuildMTW(CMatrix& mat); /* 0x223230 returns the matrix, NULL off the grid (was CMatrix&) */
 
@@ -238,7 +231,7 @@ public:
 
 		bool InheritRegionMasks(u32 pmask, u32 cmask);
 
-		virtual s16 Release();
+		s16 Release(); /* not virtual: no slot in __vt__Q23zdb5CNode, CWorld::DeleteChild(ren) call 0x227e10 directly (was virtual) */
 		bool Rendered();
 		
 		/// -------------------------------------------
@@ -263,7 +256,6 @@ public:
 		
 		CMesh* GetMesh() const;
 
-		bool SetActive(bool active);
 		void SetName(const char* name);
 		bool SetModel(CModel* model);
 		void SetModelname(const char* name);
@@ -293,10 +285,27 @@ public:
 		u32 m_region_mask;
 		/* @socom-skeleton decl Q23zdb5CNode */
 public:
+		/* the virtuals in the slot order of __vt__Q23zdb5CNode (0x471eb0): +0x08 dtor, +0x0c _Copy,
+		   +0x10 UpdateGrid, +0x14 ReserveChildren, +0x18 AddChild, +0x1c DeleteChild,
+		   +0x20 DeleteChildren, +0x24 FindChild(const char *), +0x28 FindChild(CNode *),
+		   +0x2c IsCell, +0x30 Read, +0x34 SetActive, +0x38 UpdateBBox, +0x3c UpdateBBoxFromDI.
+		   Overrides: CLight / CLightMap / CRenderMap _Copy, Read, SetActive, UpdateBBox (+ new
+		   _Write); CCell IsCell, UpdateBBox (+ new Copy); CWorld ReserveChildren, AddChild,
+		   DeleteChild, DeleteChildren, Read (+ new AddLandmark, DeleteLandmark, FindLandmark);
+		   CModel Read. UpdateGrid, FindChild and SetActive were not virtual in the port, so a
+		   CNode * call never reached CLight::SetActive (the same body as CNode's) */
 		virtual ~CNode();
 		virtual zdb::CNode * _Copy(zdb::CNode *) const;
+		virtual bool UpdateGrid();
 		virtual void ReserveChildren(int);
+		virtual void AddChild(CNode* child); /* CNode::Read adds through it */
+		virtual short DeleteChild(CNode* child); /* RemoveFromParent, CNode::DeleteChildren and the destructors call it through the vtable */
+		virtual void DeleteChildren();
+		virtual CNode* FindChild(const char* child, bool nested);
+		virtual CNode* FindChild(CNode* child, bool nested);
 		virtual unsigned char IsCell() { return 0; } /* IsCell__Q23zdb5CNodeFv (inline, 0x1e44a0) */
+		virtual bool Read(CSaveLoad& sload);
+		virtual bool SetActive(bool active);
 		virtual CBBox * UpdateBBox(bool);
 		virtual CBBox * UpdateBBoxFromDI(bool);
 		void TransformToWorld(CPnt3D &) const;

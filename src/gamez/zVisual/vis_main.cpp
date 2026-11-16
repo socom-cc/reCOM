@@ -2029,7 +2029,7 @@ void zdb::CVisual::VuUpdate(float opacity)
 				}
 			}
 		}
-		else if (m_stack_vid.back() < m_decals.size() /* port: guard */ && m_decals[m_stack_vid.back()] != NULL)
+		else if (m_decals[m_stack_vid.back()] != NULL) /* 0x30b5a8: no size test (the port had one; m_decals grows with m_buffers) */
 		{
 			CDecal* decal = m_decals[m_stack_vid.back()];
 			u32 lastSelect = 0;

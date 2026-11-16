@@ -38,7 +38,7 @@ namespace zdb
 		bool Initalize();
 
 		void AddChild(CNode* child);
-		void AddLandmark(CNode* landmark);
+		virtual void AddLandmark(CNode* landmark); /* virtual: __vt__Q23zdb6CWorld +0x40, then DeleteLandmark +0x44, FindLandmark +0x48 */
 		void AddTextureAssetCharacter(const CNode& textureAsset);
 		void ReserveChildren(s32 count);
 		void GarbageCollect();

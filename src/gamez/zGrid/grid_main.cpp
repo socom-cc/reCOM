@@ -1030,10 +1030,8 @@ bool CGrid::Create(CWorld* world, const tag_GRID_PARAMS* params)
                     cellidx = 0;
                 }
 
-                if (cellidx <= m_CellCount.cx - 1)
-                {
-                    cx = cellidx;
-                }
+                /* 0x215564: min(cellidx, cx - 1) (was: left 0 past the last column; the loop never gets there) */
+                cx = m_CellCount.cx - 1 < cellidx ? m_CellCount.cx - 1 : cellidx;
 
                 cellidx = y;
 
@@ -1042,10 +1040,7 @@ bool CGrid::Create(CWorld* world, const tag_GRID_PARAMS* params)
                     cellidx = 0;
                 }
 
-                if (cellidx <= m_CellCount.cy - 1)
-                {
-                    cy = cellidx;
-                }
+                cy = m_CellCount.cy - 1 < cellidx ? m_CellCount.cy - 1 : cellidx; /* 0x215590: min(cellidx, cy - 1) */
 
                 m_Atoms[cx + cy * m_CellCount.cx] = NULL;
 

@@ -185,9 +185,8 @@ void InitNodeParams(tag_NODE_PARAMS* nparams, const tag_NODE_PARAMS* other)
 		nparams->m_light_dynamic                = other != NULL ? other->m_light_dynamic : false;
 		nparams->m_light_static                 = other != NULL ? other->m_light_static : false;
 		nparams->m_clutter                      = other != NULL ? other->m_clutter : false;
-		/* port: unproven - the ELF leaves m_mtx_is_identity and m_NOTUSED alone; cleared here so a new node has no stale bits */
-		nparams->m_mtx_is_identity              = other != NULL ? other->m_mtx_is_identity : false;
-		nparams->m_NOTUSED                      = other != NULL ? other->m_NOTUSED : false;
+		/* m_mtx_is_identity and m_NOTUSED (bits 29, 22) are left alone, as 0x228850 does
+		   (the port set them; nothing reads them) */
 		nparams->m_use_parent_bbox              = other != NULL ? other->m_use_parent_bbox : false;
 		nparams->m_apply_clip                   = other != NULL ? other->m_apply_clip : true;
 	}

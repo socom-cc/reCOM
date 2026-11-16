@@ -124,7 +124,9 @@ bool zdb::CSaveLoad::LoadAssetLib_PS2(zdb::CWorld *world, zdb::CAssetLib *librar
 			}
 			else
 			{
-				success = LoadTextures_PS2(library);
+				if (!LoadTextures_PS2(library))
+					success = false;
+
 				m_zfile.Close();
 			}
 		}
@@ -136,16 +138,19 @@ bool zdb::CSaveLoad::LoadAssetLib_PS2(zdb::CWorld *world, zdb::CAssetLib *librar
 
 			sprintf(m_zed_filename, "run/%s/%s%s.zed", library->m_name, temp.c_str(), "_pal");
 
+			/* 0x22adc0: no palette file ends the load (false, no models); a failed palette
+			   load clears the result without setting it again (the port went on to the
+			   models, and a palette success overwrote a texture failure) */
 			if (!m_zfile.Open(m_zed_filename, CWorld::GetVersion(), 1, 16))
 			{
 				m_zfile.Close();
+				return false;
+			}
+
+			if (!LoadPalettes_PS2(library))
 				success = false;
-			}
-			else
-			{
-				success = LoadPalettes_PS2(library);
-				m_zfile.Close();
-			}
+
+			m_zfile.Close();
 		}
 
 		if ((type & TYPE_MODELS) != 0)
@@ -273,15 +278,16 @@ unsigned char zdb::CSaveLoad::LoadAssetLib(zdb::CWorld *world, zdb::CAssetLib *l
 namespace zdb {
 CWorld* CSaveLoad::Load(const char* name)
 	{
+		/* 0x22a170. The three vectors are fetched into one buffer, as the ELF does (sp+200):
+		   without a "ShadowVector" key the shadow vector is the last lens colour read. */
 		f32 metersperunit = 0.0f;
 		CPnt3D shadowvector = CPnt3D::zero;
-		CPnt3D starlightscope = CPnt3D::zero;
 		bool gridterrain = false;
-		bool nightmission = false;
+		s32 nightmission = 0; /* 0x22a29c: Fetch(const char *, int *), 4 bytes (was bool, 1 byte) */
 		char* defaultmaterial = NULL;
-		
+
 		zdb::CWorld* world = NULL;
-		
+
 		FilterMissionFolder(name, "/run", name, m_zed_filename);
 		strcat(m_zed_filename, "/");
 		strcat(m_zed_filename, name);
@@ -291,8 +297,9 @@ CWorld* CSaveLoad::Load(const char* name)
 
 		if (!m_zfile.Open(m_zed_filename, version, 1, 16))
 		{
+			/* 0x22a21c: no world without the file (the port went on and made one) */
 			m_zfile.Close();
-			world = NULL;
+			return NULL;
 		}
 
 		world = new CWorld(name);
@@ -306,16 +313,16 @@ CWorld* CSaveLoad::Load(const char* name)
 		defaultmaterial = NULL;
 
 		m_zfile.Fetch("NightMission", &nightmission);
-		m_world->m_night_mission = nightmission != false;
+		m_world->m_night_mission = nightmission != 0;
 
 		if (m_zfile.Fetch("LensFX_NVG", &shadowvector, sizeof(CPnt3D)))
 		{
-			m_world->m_shadow_vector = shadowvector;
+			m_world->m_lensfx_nvg = shadowvector; /* 0x22a2cc: +0x5cc (was stored to m_shadow_vector) */
 		}
 
-		if (m_zfile.Fetch("LensFX_StarlightScope", &starlightscope, sizeof(CPnt3D)))
+		if (m_zfile.Fetch("LensFX_StarlightScope", &shadowvector, sizeof(CPnt3D)))
 		{
-			m_world->m_lensfx_starlightscope = starlightscope;
+			m_world->m_lensfx_starlightscope = shadowvector;
 		}
 
 		m_zfile.Fetch("DefaultMaterial", &defaultmaterial);
@@ -343,7 +350,7 @@ CWorld* CSaveLoad::Load(const char* name)
 			m_zfile.Fetch("camera", static_cast<tag_CAMERA_PARAMS*>(m_world->m_camera), sizeof(tag_CAMERA_PARAMS)); /* 0x22a424: the params base (+0xc0 in the ELF), not the node */
 			CVisual::m_basefog_color = m_world->m_camera->m_fog_color;
 			CVisual::m_basefog_near = m_world->m_camera->m_fog_near; /* 0x22a480: params +100 */
-			m_world->m_camera->SetHalfHorizontalFOVRadians(0.61008652f);
+			m_world->m_camera->SetHalfHorizontalFOVRadians(0.610865235f /* 0x3f1c61aa, 35 degrees (was 0x3f1c2ea1) */);
 			m_zfile.CloseKey(key);
 		}
 
