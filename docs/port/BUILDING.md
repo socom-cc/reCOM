@@ -15,8 +15,8 @@ docker build -t socom-port port/docker
 docker run --rm -v "<checkout>:/src" -v socom-port-build:/build socom-port
 ```
 
-`<checkout>` is the absolute path of your clone (on Windows, for example `C:\work\reCOM`; in
-PowerShell `${PWD}` from the clone's folder). The first command downloads the toolchain once
+`<checkout>` is the absolute path of your clone: from the clone's folder, `${PWD}` in PowerShell
+or `$PWD` in a Unix shell. The first command downloads the toolchain once
 (about 270 MB) and checks its SHA-256. The second compiles and links, and writes
 
 ```
