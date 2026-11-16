@@ -679,9 +679,11 @@ void ReadSkbStringProps(_zrdr *props, CRenderableString &str, CSaferStr &font, s
 	int r = RdrElementInt(color, 0);
 	int g = RdrElementInt(color, 1);
 	int b = RdrElementInt(color, 2);
+	/* ELF quirk kept: element 2 goes to y and element 1 to z (0x3a8548, 0x3a88bc); the
+	 * retail COLORs are all 255 255 255 */
 	str.m_color.x = (f32)r;
-	str.m_color.y = (f32)g;
-	str.m_color.z = (f32)b;
+	str.m_color.y = (f32)b;
+	str.m_color.z = (f32)g;
 
 	font = zrdr_findstring(props, "FONT");
 
@@ -1881,7 +1883,7 @@ void CSoftKeyboard::Tick(float dT)
 		static int Repeats(float t)
 		{
 			float held = t - g_fSkbRepeatDelay;
-			bool repeating = held > 0.0f;
+			bool repeating = !(held <= 0.0f); /* ELF: c.le.s, false (0x3a2d84) */
 			float ramp = repeating ? held : 0.0f;
 			bool ramped = !(ramp < g_fSkbRepeatAccelTime);
 
