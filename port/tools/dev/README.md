@@ -100,6 +100,9 @@ Port source status (`src/` skeleton fences):
 - `status.py <mangled>... | -f <asm>` - port status of functions.
 - `stubchk.py <regex>...` - which matching fences are still empty.
 - `survey.py [file-regex]` - per file: fences with ELF address, size and status.
+- `auditlist.py [--band large|medium|small] [--modules RE] [--split N] [--out NAME] [--summary]` -
+  lists of fenced functions still to judge for the correctness audit (`docs/port/AUDIT_PLAN.md`);
+  writes `build/port/audit/<NAME>.md`.
 - `incpath.py <from-header> <to-suffix>` - include chains between headers.
 
 Edits (on your own files or the isolated tree; keep each file's line endings):
