@@ -5,7 +5,7 @@
 #   docker run --rm -v "<checkout>:/src" -v socom-port-build:/build socom-port
 #
 # The ELF is written to <checkout>/build/port/docker/socom_port.elf (build/ is ignored by git).
-# docs/port/BUILDING.md has the details; docs/reconstruction/PORT_TOOLCHAIN.md pins the release.
+# docs/port/notes/build-reference.md has the details; docs/reconstruction/PORT_TOOLCHAIN.md pins the release.
 FROM ubuntu:24.04
 
 # The same release, asset and SHA-256 as docs/reconstruction/PORT_TOOLCHAIN.md.

@@ -1,8 +1,12 @@
-# Building the functional port
+# Building the functional port: reference notes
+
+These are working notes on how the port is built and what the Docker image does, kept as
+reference material. The project's build guide is written by the project owner; where the two
+differ, the owner's guide is the one to follow.
 
 The functional port is the playable, non-matching build of the game: `src/` compiled with the
 open-source ps2dev toolchain (GCC 15.2 and ps2sdk, release v2.0.0, pinned in
-[PORT_TOOLCHAIN.md](../reconstruction/PORT_TOOLCHAIN.md)). Everything needed to compile it is
+[PORT_TOOLCHAIN.md](../../reconstruction/PORT_TOOLCHAIN.md)). Everything needed to compile it is
 free. Two ways to build give the same result; pick one.
 
 ## With Docker (any system)
@@ -72,4 +76,4 @@ You supply these yourself; none of them is in the repository and none may be com
 A change to `src/` should at least build. Beyond that, `port/tools/dev/gate.ps1` runs the full
 behaviour check in the emulator (default boot, options screens, a scripted winning playthrough,
 mission round trips); it needs the disc image and is described in
-[WORKER_BRIEF.md](WORKER_BRIEF.md) and `port/tools/dev/README.md`.
+[WORKER_BRIEF.md](../WORKER_BRIEF.md) and `port/tools/dev/README.md`.

@@ -13,7 +13,7 @@ Nothing here is evidence for the matching stages.
   call-site evidence.
 - `tools/sweep.sh` - per-file compile sweep (`units` or standalone `headers`) for diagnosis.
 - `docker/` - a build image with the pinned toolchain (`Dockerfile`, `build-port.sh`), for
-  building without setting up a Linux environment by hand: `docs/port/BUILDING.md`.
+  building without setting up a Linux environment by hand: `docs/port/notes/build-reference.md`.
 
 Run builds on the Linux side (WSL): Windows paths, emulator paths, BIOS and disc data stay
 user-local and are never committed.
