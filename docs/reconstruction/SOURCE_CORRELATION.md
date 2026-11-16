@@ -870,6 +870,8 @@ written and may not use them. The values below are illustrative.
   ],
   "unresolved": [{"artifact": "socom:gap:0x1421a0", "reason": "fill between objects; no owner evidence"}],
   "retire_files": [{"path": "src/Apps/FTS/empty.cpp", "reason": "empty, no evidence", "evidence": ["0 bytes"]}],
+  "header_moves": [{"from": "src/gamez/zNode/node_action.h", "to": "src/gamez/zFTS/fts_action.h",
+                    "reason": "user decision: the class's header goes next to its implementation", "evidence": ["<decision>"]}],
   "contradictions": [
     {"artifact": "socom:function:0x140d00", "provisional_file": "src/Apps/FTS/main.cpp", "line": 42, "kind": "signature",
      "elf_evidence": ["main 0x140d00 reads $a0/$a1: int main(int, char **)"]}
@@ -945,7 +947,11 @@ Schema 2 additions (each optional):
 - an unresolved row's `suggest` `{owner, rule, confidence, basis}`: the
   drafter's suggestion for a row it leaves open (`owner` is an owner key of
   the plan). `source plan decide --accept-suggestion` records it as a hand
-  entry; a row the planner keeps unresolved may keep it for the reviewer.
+  entry; a row the planner keeps unresolved may keep it for the reviewer;
+- `header_moves`: the headers this plan emits from that move, each as
+  `{from, to, reason, evidence}`. A segment plan states a move once, names
+  the new header in its header-emit rows, and its apply moves the file with
+  its content ([Moving a header](#moving-a-header)).
 
 `reservation` is optional, and only a segment plan has one. It is required
 when the apply's reservation is inferred.
@@ -1004,6 +1010,20 @@ when the apply's reservation is inferred.
   first (and reports `mutation_performed: true` when that changes the file);
 - a `retire_files` row names an existing file under `src/` exactly that no
   row cites, with a reason and evidence. The apply deletes it with history;
+- a `header_moves` row (schema 2, a segment plan only) has exactly `from`,
+  `to`, `reason` and `evidence`. Both paths are different header paths under
+  `src/`, each stated once, with no chain of moves. Both lie inside the
+  reservation, because the apply removes the old header and writes the new
+  one (a plan whose reservation lacks a directory records the correction in
+  `reservation`). At least one header-emit row names `to`, and no owner,
+  header-emit or `retire_files` row names `from`. `from` exists exactly and
+  `to` does not, or an apply recorded the move: then `from` is gone and `to`
+  exists. The other plans must agree: a plan that still names `from` in a
+  header-emit row, a segment plan that emits into `to` without stating the
+  same move, and a plan that states another move of either header disagree.
+  A disagreement with an accepted plan is a problem. With a plan awaiting
+  acceptance, or one an open amendment sent back for revision, it is a
+  review note, and the gate checks hold every accepted plan to it;
 - a `contradictions` row (schema 2) has exactly its five fields as above,
   and is not listed twice. An artifact outside the slice must be an
   artifact of the graph, and its `provisional_file` a file this plan's
@@ -1311,7 +1331,8 @@ regenerate it from the ELF) and the current workspace. A segment apply
 then, in one locked tracker mutation:
 
 1. moves each authored row's `provisional_file` to its `workspace_path`
-   when they differ;
+   when they differ, and each header its `header_moves` state
+   ([Moving a header](#moving-a-header));
 2. deletes the `retire_files`, recording each path, size and content
    SHA-256 (git history keeps the content);
 3. writes the generated annotations with `source annotate` (below), creating
@@ -1327,7 +1348,9 @@ then, in one locked tracker mutation:
    retired files, and every file it leaves written with its SHA-256. The
    record's lines (`source-plan`, `source-owner-map-sha256:`,
    `source-file`, `source-moved`, `source-created`, `source-retired`,
-   `source-reservation`) are added to the item's evidence.
+   `source-reservation`) are added to the item's evidence. A header move is
+   a `moves` row with `"kind": "header"` and the line
+   `source-moved <from> -> <to> header`.
 
 If the tracker write fails, every file is restored. A rerun under the lease
 is idempotent: moved, created and retired files that the record names are
@@ -1485,7 +1508,9 @@ checks and refuse while any of them fails. The checks are:
 5. no blocking conflicts: across plans, a translation unit keeps one
    workspace path and one classification, and so does a workspace path. Two
    different stated original paths conflict, while a null original path
-   (a data reconcile's row) agrees with any;
+   (a data reconcile's row) agrees with any. A header one plan moves is
+   named at its new path by every plan, every segment plan that emits from
+   it states the same move, and each stating plan's apply recorded it;
 6. `audit docblocks` and `audit source-trace --require-complete`, whose only
    permitted error is the line listing exactly the unresolved rows;
 7. the deferrals (below);
@@ -1650,6 +1675,67 @@ a reconcile's revision annotates the files of a segment that was not
 marked, the acceptance refuses with that segment's annotation drift: open
 an amendment on that segment's plan (handed off unchanged) and accept both
 together.
+
+#### Moving a header
+
+A header that plans emit from (inline, weak or template instances) may move
+after the stage gate, for example when the user places a class's header next
+to its implementation. The move is stated, never done by hand:
+
+```json
+"header_moves": [
+  {"from": "src/gamez/zNode/node_action.h", "to": "src/gamez/zFTS/fts_action.h",
+   "reason": "user decision 2026-11-15: the CNodeAction header moves next to fts_action.cpp",
+   "evidence": ["build/stage4/owner-decisions/FOLLOWUPS.md item 12"]}
+]
+```
+
+- **Plans.** Open an amendment on every segment plan that emits from the
+  header. Each revised plan carries the same `header_moves` row, names `to`
+  in its header-emit rows (`--fill-annotations` derives the `emits` edges
+  there) and has both directories in its reservation (the old one because
+  the apply removes the file there). No `retire_files` row names the old
+  header: nothing is retired. `source plan validate` reports the row under
+  `header_moves` with its state (`pending` or `applied`) and the `#include`
+  lines that still name the old path.
+- **Re-apply.** The first `progress apply-source-plan` whose plan states the
+  move moves the file: its authored content goes to the new path byte for
+  byte, every plan's generated block goes with it, and the applying plan's
+  block is re-rendered there. The record lists the move with
+  `"performed": true`. A later apply that states the same move finds it
+  done, records it with `"performed": false` and changes nothing. A missing
+  source without a recorded move, or an occupied target, is refused. The
+  skeleton item that reserves the header must be reopened for the amendment
+  first (`progress reopen-order-skeleton`), like any skeleton-written file.
+- **What the tools do not rewrite.** Stage 4 owns the generated blocks and
+  the file layout, not authored content. The moved header keeps its include
+  guard and its own `#include` lines as written; an include spelled relative
+  to the old directory is listed under `own_relative_includes`. No includer
+  is rewritten either. `source plan validate`, `progress apply-source-plan`
+  (also with `--dry-run`) and `source apply-check` list every `#include`
+  line under `src/` and `port/` that names the old path, by kind:
+  - `authored`: the worker's hand edit, with the suggested spelling (the
+    bare name in the header's new directory, else the path from `src/`).
+    The checks report the edited files as drift, never as a failure. A line
+    the port lane added inside a stage 5 `include` region is authored too
+    (`in_region`): the render does not write it;
+  - `fenced`: a line a stage 5 `@socom-skeleton decl include` region
+    generates (the item's stored render holds the include there). The
+    skeleton re-apply of the file's item writes the new path
+    ([FUNCTION_ORDER.md](FUNCTION_ORDER.md#rebase-once-it-is-accepted));
+    `fenced_items` names those items and the reopening that holds each.
+    Leave these lines alone until then: the region is sorted, so a hand
+    edit of a generated line can conflict with the render and then needs a
+    resolution.
+- **Checks.** `source apply-check` fails when the old header exists again
+  (an undone move), when the new one is missing, and when a plan's stated
+  move is not in its apply's record. `source annotate --check` reports a
+  move not yet applied as `pending-move`. The file baseline records the new
+  path; the old one leaves it with the re-applied records.
+- **Stage 5.** After the amendments are accepted,
+  `progress rebase-function-order` follows the recorded move: the frozen
+  base's copy moves, the body snapshot is re-keyed and the items whose
+  include regions name the old path are sent back.
 
 **Acceptance.** `progress accept-source-amendment` names every open
 amendment (`--amendment` is repeatable), because the baseline covers the

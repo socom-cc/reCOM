@@ -291,6 +291,10 @@ class SkeletonInputs:
 
         # Recreated paths: the deleted provisional file is the scan (a body source), the base file the new unit file.
         self.overlays = provisional_overlays(root, tracker, self.source_root)
+        from .source_header_move import recorded_header_moves
+
+        # Headers stage 4 moved after the wave ({from: to}): an authored include of the old path counts as the new one.
+        self.header_moves = recorded_header_moves(tracker)
         scans, files = scan_sources(self.source_root, self.overlays)
         src_sha256 = _digest(sorted((path, row["authored_sha256"]) for path, row in files.items()))
         if src_sha256 != self.manifest["inputs"]["src_sha256"]:

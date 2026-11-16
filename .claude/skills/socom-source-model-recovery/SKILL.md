@@ -44,3 +44,12 @@ and then without `--dry-run`. The route moves, creates and retires files and
 writes the generated annotation docblocks (`source annotate`) only inside
 the reservation. It records the plan and file SHA-256s on the item, and the
 verifier checks them with `python tools/socom.py source apply-check --item <item>`.
+
+A header that plans emit from moves only through a stated move
+([Moving a header](../../../docs/reconstruction/SOURCE_CORRELATION.md#moving-a-header)):
+every segment plan that emits from it carries the same `header_moves` row and
+names the new header in its header-emit rows. Never retire the old header and
+create the new one, and never move the file by hand. The apply moves the file
+with its authored content. The include guard, the header's own relative
+includes and the authored `#include` lines that name it are hand edits, which
+`source plan validate`, the apply and `source apply-check` list.

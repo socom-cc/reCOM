@@ -3,7 +3,9 @@
 An accepted owner plan (``source_plan.py``) is applied under its apply
 item's lease:
 
-* a segment apply moves provisional files to their workspace paths, deletes
+* a segment apply moves provisional files to their workspace paths, moves
+  the headers the plan's ``header_moves`` state (``source_header_move``: the
+  file with its authored content, once whichever applies state it), deletes
   the plan's ``retire_files`` and writes the plan's derived annotations (plus
   those the accepted data reconciles assign to the segment's files) as
   generated docblocks.  It may write only the directories its apply item
@@ -535,6 +537,8 @@ def annotation_changes(
 
 
 def _pending_moves(plan: dict[str, Any], overlay: Overlay) -> list[str]:
+    from .source_header_move import plan_header_moves
+
     return [
         f"{owner['provisional_file']} -> {owner['workspace_path']}"
         for owner in _authored(plan)
@@ -542,6 +546,11 @@ def _pending_moves(plan: dict[str, Any], overlay: Overlay) -> list[str]:
         and owner["provisional_file"] != owner["workspace_path"]
         and overlay.read(owner["provisional_file"]) is not None
         and overlay.read(owner["workspace_path"]) is None
+    ] + [
+        # A header the plan moves: the apply route moves it with its content before anything is annotated.
+        f"{source} -> {target}"
+        for source, target in plan_header_moves(plan)
+        if overlay.read(source) is not None and overlay.read(target) is None
     ]
 
 
@@ -644,7 +653,8 @@ def _record_lines(record: dict[str, Any]) -> list[str]:
     if record.get("amendments"):
         lines.append(f"source-reapply {' '.join(record['amendments'])}")
     lines.extend(f"source-file {row['path']} sha256:{row['sha256']}" for row in record["files"])
-    lines.extend(f"source-moved {row['from']} -> {row['to']}" for row in record["moves"])
+    lines.extend(f"source-moved {row['from']} -> {row['to']}" + (" header" if row.get("kind") == "header" else "")
+                 for row in record["moves"])
     lines.extend(f"source-created {path}" for path in record["created"])
     lines.extend(f"source-retired {row['path']} sha256:{row['sha256']} bytes:{row['bytes']}" for row in record["retired"])
     lines.extend(
@@ -713,6 +723,7 @@ def prepare_apply(
                 ("header emits", bool(plan.get("header_emits"))),
                 ("annotations", bool(plan.get("annotations"))),
                 ("retire_files", bool(plan.get("retire_files"))),
+                ("header_moves", bool(plan.get("header_moves"))),
             )
             if present
         ]
@@ -745,6 +756,22 @@ def prepare_apply(
                 raise SocomError(f"cannot move {provisional} to {workspace}: the source is missing or the target exists")
         elif provisional is None and (overlay.read(workspace) is None or workspace in done_created):
             record["created"].append(workspace)
+    from .source_header_move import HEADER_MOVE_KIND, plan_header_moves
+
+    # A header the plan emits from moves (``header_moves``): the file goes with its authored content and every
+    # plan's blocks, once.  Each apply that states the move records it; the one that finds it done moves nothing.
+    done_headers = {key: row for key, row in (((row.get("from"), row.get("to")), row) for row in done.get("moves") or [])
+                    if row.get("kind") == HEADER_MOVE_KIND}
+    for source, target in plan_header_moves(plan):
+        entry = {"from": source, "to": target, "kind": HEADER_MOVE_KIND}
+        if overlay.read(source) is not None and overlay.read(target) is None:
+            overlay.move(source, target)
+            record["moves"].append({**entry, "performed": True})
+        elif overlay.read(source) is None and overlay.read(target) is not None and (
+                (source, target) in done_moves or (source, target) in other_moves):
+            record["moves"].append({**entry, "performed": bool((done_headers.get((source, target)) or {}).get("performed"))})
+        else:
+            raise SocomError(f"cannot move the header {source} to {target}: the source is missing or the target exists")
     for row in plan.get("retire_files") or []:
         path = row["path"]
         data = overlay.read(path)
@@ -862,6 +889,9 @@ def check_source_apply(root: Path, tracker: dict[str, Any], item: dict[str, Any]
         problems.append(f"the record applied plan {record.get('plan_sha256')}, the accepted plan is {sha}")
     if record.get("owner_map_sha256") != owner_map_sha256(plan):
         problems.append("the record's owner-map digest differs from the accepted plan's")
+    from .source_header_move import unrecorded_moves
+
+    problems.extend(unrecorded_moves(plan, record))
     from .order_skeleton_route import skeleton_custody
 
     custody = skeleton_custody(root, tracker)

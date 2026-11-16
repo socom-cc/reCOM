@@ -101,9 +101,10 @@ PLAN_FIELDS = frozenset(
         "reservation",
     }
 )
-# Schema 2 only: the draft block (``source plan draft``) and the structured
-# contradictions with existing provisional source.
-PLAN_FIELDS_V2 = PLAN_FIELDS | {"draft", "contradictions"}
+# Schema 2 only: the draft block (``source plan draft``), the structured
+# contradictions with existing provisional source, and the moves of headers
+# the plan emits from (``source_header_move``).
+PLAN_FIELDS_V2 = PLAN_FIELDS | {"draft", "contradictions", "header_moves"}
 # One contradiction the ELF decides against a provisional source file: the
 # artifact (in the plan's slice), the file and line that disagree, a kind
 # slug and the ELF evidence lines.  ``line`` may be null for a file-level
@@ -1719,6 +1720,17 @@ def validate_source_plan(
         if not isinstance(row.get("reason"), str) or not row["reason"].strip() or not _strings(row.get("evidence")):
             problems.append(f"retire_files {path} needs a reason and evidence lines")
 
+    if "header_moves" in plan:
+        from .source_header_move import check_header_moves
+
+        # A header the plan emits from moves: stated once per plan, performed by the apply as a move.
+        report["header_moves"] = check_header_moves(root, tracker, item, plan, placement, applied, cited_files, problems, review)
+    elif header_emits:
+        from .source_header_move import cross_plan, emit_headers
+
+        # Another plan may move a header this plan emits from: both must name the new one.
+        cross_plan(root, tracker, item, [], emit_headers(plan), problems, review)
+
     notes = plan.get("notes", [])
     if not isinstance(notes, list) or not all(isinstance(value, str) for value in notes):
         problems.append("notes must be a list of strings")
@@ -1825,6 +1837,8 @@ def validate_source_plan(
     }
     if "contradictions" in plan:
         report["summary"]["contradictions"] = contradictions
+    if "header_moves" in plan:
+        report["summary"]["header_moves"] = len(report.get("header_moves") or [])
     # Citations of an earlier stored revision of a decision file whose placements still hold: never silent.
     report["decision_revisions"] = list(decisions.notes)
     if decisions.notes:

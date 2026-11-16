@@ -23,8 +23,12 @@ plans, annotations and files that stage 5 items are built on:
   reopens every accepted plan the new target no longer validates (with its
   apply), and the link plan when the link order changed.  It advances the
   frozen base: the current stage 4 blocks over the base's authored content,
-  and the files stage 4 created as their blocks.  Plans built on an absorbed
-  baseline whose segment target is unchanged stay accepted ("carried").
+  and the files stage 4 created as their blocks.  A header move stage 4
+  recorded (``source_header_move``) is followed: the base's copy moves, the
+  body snapshot is re-keyed, the skeleton item that reserved the old path
+  reserves the new one, and the applies whose include regions name the old
+  path are sent back.  Plans built on an absorbed baseline whose segment
+  target is unchanged stay accepted ("carried").
 * The planners re-draft and the reviewers accept the reopened plans as in
   phase A; the manifest is rebuilt; each reopened skeleton item is re-applied
   as a three-way merge (``order_skeleton_merge``) and reviewed as before.
@@ -467,12 +471,15 @@ def _reopen_by_rebase(tracker: dict[str, Any], item: dict[str, Any], note: dict[
 
 def rebase_function_order(tracker: dict[str, Any], target: dict[str, Any], derived: dict[str, Any],
                           plans: dict[str, dict[str, Any]], *, by: str, reason: str, evidence: list[str],
-                          available: Callable[[str], bool]) -> dict[str, Any]:
+                          available: Callable[[str], bool],
+                          includers: Callable[[dict[str, Any], dict[str, str]], list[dict[str, Any]]] | None = None) -> dict[str, Any]:
     """``progress rebase-function-order``: move stage 5 onto the stage 4 baseline accepted amendments recorded.
 
     ``plans`` holds the plan file of every accepted order plan (segment and
-    link), at the SHA-256 its acceptance cites.  Mutates ``tracker`` and
-    returns the rebase record (``decomposition.rebases``).
+    link), at the SHA-256 its acceptance cites.  ``includers`` gives, for the
+    header moves the absorbed amendments recorded, the skeleton files whose
+    include regions name an old path (``fenced_includers``).  Mutates
+    ``tracker`` and returns the rebase record (``decomposition.rebases``).
     """
 
     from .order_plan import validate_link_plan, validate_order_plan
@@ -565,6 +572,10 @@ def rebase_function_order(tracker: dict[str, Any], target: dict[str, Any], deriv
                 item["resources"] = list(directories)
     if prepare is not None:
         entry["released"] = release_recreated(tracker, applies)
+    # A header stage 4 moved: the skeleton item that reserved the old path reserves the new one.
+    moved_headers = follow_header_moves(tracker, names)
+    if moved_headers:
+        entry["header_moves"] = moved_headers
     # The decomposition and every order item cite the new baseline and target.
     decomposition.update(digests, graph_sha256=inputs.get("graph_sha256"), link_order_sha256=spec["link_order_sha256"],
                          unit_count=sum(len(units) for units in by_segment.values()), units_by_neighbour=neighbours)
@@ -609,6 +620,23 @@ def rebase_function_order(tracker: dict[str, Any], target: dict[str, Any], deriv
         else:
             _reopen_by_rebase(tracker, link, note, "the link order changed: " + "; ".join(report["problems"][:2]),
                               entry["reopened"])
+    if moved_headers and includers is not None:
+        # An apply whose include region names a moved header renders the new path: it is re-applied (as a merge).
+        rows = includers(tracker, {row["from"]: row["to"] for row in moved_headers})
+        for row in moved_headers:
+            row["fenced_includers"] = sorted(({"path": found["path"], "item": found["item"]} for found in rows
+                                              if found["from"] == row["from"]), key=lambda found: found["path"].casefold())
+        by_item: dict[str, list[dict[str, Any]]] = {}
+        for found in rows:
+            by_item.setdefault(str(found["item"]), []).append(found)
+        for item_id, found in sorted(by_item.items()):
+            item = by_id.get(item_id)
+            if item is None or item.get("kind") not in ORDER_SKELETON_KINDS:
+                continue
+            shown = _shown(sorted({row["path"] for row in found}, key=str.casefold))
+            moves = _shown(sorted({f"{row['from']} -> {row['to']}" for row in found}))
+            _reopen_by_rebase(tracker, item, note, f"its include regions ({shown}) name a header stage 4 moved ({moves}): "
+                              "the new render names the new path", entry["reopened"])
     if missing := _missing_ancestors(tracker, [row["item"] for row in entry["reopened"]], available):
         raise SocomError(f"no merge ancestor is stored for {len(missing)} recorded files the rebase reopens: {_shown(missing)}")
     _block_dependents(tracker)
@@ -617,6 +645,69 @@ def rebase_function_order(tracker: dict[str, Any], target: dict[str, Any], deriv
         decomposition["skeleton_prepare"]["apply_file_count"] = sum(len(row.get("resources") or []) for row in applies)
         decomposition["skeleton_prepare"]["prepare_file_count"] = len(prepare.get("resources") or [])
     return entry
+
+
+def absorbed_header_moves(tracker: dict[str, Any], names: list[str]) -> dict[str, str]:
+    """{from: to} of the header moves the stage 4 applies of the amendments ``names`` recorded."""
+
+    from .source_amend import amendments
+    from .source_header_move import recorded_header_moves
+
+    applies = [str(apply_id) for row in amendments(tracker) if row.get("id") in names for apply_id in row.get("applies") or []]
+    return recorded_header_moves(tracker, applies)
+
+
+def follow_header_moves(tracker: dict[str, Any], names: list[str]) -> list[dict[str, Any]]:
+    """Give each moved header's new path to the skeleton item that reserved the old one; ``[{from, to, item}]``.
+
+    Stage 4 moved the file in ``src/`` (``source_header_move``); the item's
+    record keeps its row at the old path until its re-apply, whose merge
+    takes that row's render as the new path's ancestor
+    (``order_skeleton_route._prior_rows``).  A header no skeleton item
+    reserves has ``item`` None.  Mutates the items.
+    """
+
+    from .order_skeleton_route import skeleton_items
+
+    rows: list[dict[str, Any]] = []
+    for source, target in absorbed_header_moves(tracker, names).items():
+        owners = {str(path): item for item in skeleton_items(tracker) for path in item.get("resources") or []}
+        item = owners.get(source)
+        if item is not None:
+            other = owners.get(target)
+            if other is not None and other is not item:
+                raise SocomError(f"the header {source} moved to {target}, which {other['id']} reserves already "
+                                 f"({item['id']} reserves the old path)")
+            kept = sorted((set(item.get("resources") or []) - {source}) | {target}, key=str.casefold)
+            item["resources"] = list(kept)
+            item.setdefault("batch", {})["files"] = list(kept)
+        rows.append({"from": source, "to": target, "item": item["id"] if item is not None else None})
+    return rows
+
+
+def fenced_includers(root: Path, tracker: dict[str, Any], moves: dict[str, str]) -> list[dict[str, Any]]:
+    """The skeleton files whose stage 5 include region generates an include of a moved header; ``[{path, item, from, to}]``.
+
+    Read from each record row's stored render (the blob store): what the item
+    generated, whatever ``src/`` holds now.  A hand edit of the region does
+    not hide it, and an include the port lane added inside a region is not
+    counted (it is authored: the render does not write it).  Only where no
+    render is stored the live file's region decides.  The fresh render names
+    the new path, so the item is re-applied: the rebase sends back the
+    accepted ones (an item a reopening holds is re-applied anyway).
+    """
+
+    from .source_header_move import generated_include, stored_renders
+
+    found: list[dict[str, Any]] = []
+    for path, (item_id, render) in sorted(stored_renders(root, tracker).items()):
+        data = render if render is not None else ((root / path).read_bytes() if (root / path).is_file() else None)
+        if data is None:
+            continue
+        text = data.decode("utf-8", "surrogateescape")
+        found.extend({"path": path, "item": item_id, "from": source, "to": target}
+                     for source, target in sorted(moves.items()) if generated_include(text, path, source))
+    return found
 
 
 def release_recreated(tracker: dict[str, Any], applies: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -651,21 +742,34 @@ def release_recreated(tracker: dict[str, Any], applies: list[dict[str, Any]]) ->
 # -- the frozen base after a rebase --------------------------------------------------------------
 
 
-def base_changes(root: Path, tracker: dict[str, Any], names: list[str]) -> dict[str, bytes]:
+def base_header_moves(root: Path, tracker: dict[str, Any], names: list[str]) -> dict[str, str]:
+    """{from: to} of the absorbed amendments' recorded header moves whose old path the frozen base still holds."""
+
+    from .order_skeleton_route import base_root
+
+    base = base_root(root)
+    return {source: target for source, target in absorbed_header_moves(tracker, names).items() if (base / source).is_file()}
+
+
+def base_changes(root: Path, tracker: dict[str, Any], names: list[str]) -> dict[str, bytes | None]:
     """The frozen base's new files: the current stage 4 blocks over its authored content (new stage 4 files: blocks only).
 
     The files are those the absorbed amendments' stage 4 applies recorded.
-    A stage 4 move or retirement after the base was frozen is refused (the
-    body snapshot is keyed by the base's paths).  A path the skeleton route
-    deleted that stage 4 created again as a new unit file
-    (``order_skeleton_route.recreated_paths``) is a new file too: its blocks
-    only, never the deleted provisional content the base still holds there
-    (that stays in ``base-history``).
+    A header move stage 4 recorded (``base_header_moves``) is followed: the
+    base's own copy goes to the new path, its authored content byte for byte
+    under the current blocks, and the old path leaves the base (``None``).
+    Any other stage 4 move, and a retirement that is not such a move, is
+    refused after the base was frozen (the body snapshot is keyed by the
+    base's paths).  A path the skeleton route deleted that stage 4 created
+    again as a new unit file (``order_skeleton_route.recreated_paths``) is a
+    new file too: its blocks only, never the deleted provisional content the
+    base still holds there (that stays in ``base-history``).
     """
 
     from .order_skeleton_route import base_root, recreated_paths
     from .source_amend import amendments
     from .source_apply import parse_blocks
+    from .source_header_move import is_header_move
 
     base = base_root(root)
     if not (base / "src").is_dir():
@@ -673,30 +777,38 @@ def base_changes(root: Path, tracker: dict[str, Any], names: list[str]) -> dict[
     rows = [row for row in amendments(tracker) if row.get("id") in names]
     by_id = _by_id(tracker)
     recreated = recreated_paths(tracker)
-    paths: set[str] = set()
+    moved = base_header_moves(root, tracker, names)
+    origin = {target: source for source, target in moved.items()}
+    paths: set[str] = set(origin)
     problems: list[str] = []
     for amendment in rows:
         for apply_id in amendment.get("applies") or []:
             record = (by_id.get(str(apply_id)) or {}).get("source_apply") or {}
             paths.update(str(row.get("path")) for row in record.get("files") or [] if isinstance(row, dict))
             for move in record.get("moves") or []:
-                if (base / str(move.get("from"))).is_file():
+                if not is_header_move(move) and (base / str(move.get("from"))).is_file():
                     problems.append(f"{move.get('from')} -> {move.get('to')} (a stage 4 move after the skeleton wave)")
             for row in record.get("retired") or []:
                 if (base / str(row.get("path"))).is_file():
                     problems.append(f"{row.get('path')} (a stage 4 retirement after the skeleton wave)")
+    for source, target in moved.items():
+        if (base / target).is_file():
+            problems.append(f"{source} -> {target} (the frozen base already holds a file at the header's new path)")
     if problems:
         raise SocomError("the frozen base cannot follow: " + _shown(sorted(problems)))
-    changes: dict[str, bytes] = {}
+    changes: dict[str, bytes | None] = {}
     for path in sorted(paths, key=str.casefold):
         live = root / path
         if not live.is_file():
             raise SocomError(f"{path}: the file stage 4 recorded is missing")
         _bom, blocks, _rest = parse_blocks(live.read_bytes().replace(b"\r\n", b"\n").decode("utf-8", "surrogateescape"))
-        old = (base / path).read_bytes() if (base / path).is_file() else None
+        held = base / origin.get(path, path)
+        old = held.read_bytes() if held.is_file() else None
         updated = with_blocks(None if path in recreated else old, blocks)
-        if old is None or updated != old:
+        if old is None or updated != old or path in origin:
             changes[path] = updated
+    for source in moved:
+        changes[source] = None
     return changes
 
 
@@ -713,7 +825,8 @@ def with_blocks(data: bytes | None, blocks: dict[str, str]) -> bytes:
     return body.encode("utf-8", "surrogateescape")
 
 
-def snapshot_reseal(root: Path, tracker: dict[str, Any], changes: dict[str, bytes], snapshot_path: Path | None) -> dict[str, Any]:
+def snapshot_reseal(root: Path, tracker: dict[str, Any], changes: dict[str, bytes | None], snapshot_path: Path | None,
+                    moves: dict[str, str] | None = None) -> dict[str, Any]:
     """The frozen body snapshot re-sealed over the advanced base: its ``src_sha256`` before and after ``changes``.
 
     The snapshot freezes every provisional body, and its ``src_sha256`` digests
@@ -723,9 +836,14 @@ def snapshot_reseal(root: Path, tracker: dict[str, Any], changes: dict[str, byte
     changes no authored content: a recreated path's authored content stays
     the deleted provisional file (``order_skeleton_route.provisional_overlays``),
     so no snapshot body changes and only the digest of the file list moves.
-    Anything else is refused.  Returns the record (``snapshot`` of the
-    rebase's base delta, with the re-sealed document under ``"document"``),
-    or ``{"resealed": False}`` without a snapshot.
+    A header move (``moves``: {from: to}, ``base_header_moves``) keeps the
+    authored content too, at another path: the bodies the snapshot holds from
+    that header are re-keyed (``id`` and ``path``; their text, digest and
+    lines stay) and kept in path and line order.  Anything else is refused,
+    and so is a move of a header one of whose bodies a skeleton decision is
+    keyed by.  Returns the record (``snapshot`` of the rebase's base delta,
+    with the re-sealed document under ``"document"``), or ``{"resealed":
+    False}`` without a snapshot.
     """
 
     import hashlib
@@ -749,13 +867,34 @@ def snapshot_reseal(root: Path, tracker: dict[str, Any], changes: dict[str, byte
         raise SocomError(f"the body snapshot ({snapshot.get('src_sha256')}) is not the frozen base's ({before}): the base or the "
                          "snapshot changed outside the route; restore them before the rebase")
     recreated = recreated_paths(tracker)
+    moves = dict(moves or {})
+    origin = {target: source for source, target in moves.items()}
     after = dict(authored)
     added: list[str] = []
     rewritten: list[str] = []
     kept: list[str] = []
+    moved: list[dict[str, Any]] = []
     problems: list[str] = []
     empty = hashlib.sha256(b"").hexdigest()
-    for path, data in sorted(changes.items()):
+    for path, data in sorted(changes.items(), key=lambda entry: entry[0]):
+        if data is None:
+            if path not in moves:
+                problems.append(f"{path}: the file leaves the base without a recorded header move")
+            continue
+        if path in origin:
+            # A moved header: the same authored content at its new path.
+            source = origin[path]
+            if source not in authored or changes.get(source, b"") is not None:
+                problems.append(f"{source} -> {path}: the base does not hold the header at its old path only")
+            elif path in authored:
+                problems.append(f"{source} -> {path}: the base already holds a file at the new path")
+            elif digest(_universal(data)) != authored[source]:
+                problems.append(f"{source} -> {path}: the moved header's authored content changes")
+            else:
+                after[path] = after.pop(source)
+                moved.append({"from": source, "to": path, "bodies": sum(1 for row in snapshot.get("bodies") or []
+                                                                         if row.get("path") == source)})
+            continue
         if path in recreated:
             old = deleted_content(root, path, recreated[path]["sha256"])
             if old is None:
@@ -774,12 +913,32 @@ def snapshot_reseal(root: Path, tracker: dict[str, Any], changes: dict[str, byte
         elif path not in kept:
             rewritten.append(path)
         after[path] = new
+    document = {key: value for key, value in snapshot.items() if key != "snapshot_sha256"}
+    rekeyed: list[dict[str, str]] = []
+    if moved:
+        # The moved headers' bodies keep their text, digest and lines under the new path (the id is ``path:line``).
+        bodies = []
+        for row in snapshot.get("bodies") or []:
+            if row.get("path") in moves:
+                target = moves[row["path"]]
+                renamed = {**row, "id": f"{target}:{row['span']['start_line']}", "path": target}
+                rekeyed.append({"from": row["id"], "to": renamed["id"]})
+                row = renamed
+            bodies.append(row)
+        document["bodies"] = sorted(bodies, key=lambda row: (row["path"], row["span"]["start_line"]))
+        if rekeyed:
+            from .order_skeleton_write import load_decisions
+
+            old = {row["from"] for row in rekeyed}
+            if stuck := sorted(f"{kind} {key} ({row['item']})" for (kind, key), row in load_decisions(root, tracker)[0].items()
+                               if key in old):
+                problems.append("skeleton decisions are keyed by bodies of a moved header, and a decision cannot follow "
+                                f"its body to another id: {_shown(stuck)}")
     if problems:
         raise SocomError("the body snapshot cannot follow the base delta: " + _shown(problems))
-    document = {key: value for key, value in snapshot.items() if key != "snapshot_sha256"}
     document["src_sha256"] = snapshot_digest(sorted(after.items()))
     document["snapshot_sha256"] = snapshot_digest(document)
-    return {
+    report = {
         "resealed": document["snapshot_sha256"] != snapshot.get("snapshot_sha256"),
         "path": snapshot_path.relative_to(root).as_posix() if snapshot_path.is_relative_to(root) else snapshot_path.name,
         "src_sha256_before": before,
@@ -795,6 +954,12 @@ def snapshot_reseal(root: Path, tracker: dict[str, Any], changes: dict[str, byte
                 "content), so no snapshot body changes: only src_sha256 follows the base's file list"),
         "document": document,
     }
+    if moved:
+        report["moved"] = moved
+        report["rekeyed"] = rekeyed
+        report["why"] += (f"; {len(moved)} headers move with their authored content byte for byte, so their "
+                          f"{len(rekeyed)} snapshot bodies are re-keyed to the new path and nothing else changes")
+    return report
 
 
 def advance_base(root: Path, tracker: dict[str, Any], names: list[str],
@@ -818,7 +983,8 @@ def advance_base(root: Path, tracker: dict[str, Any], names: list[str],
     if not (base / "src").is_dir():
         return {"files": [], "base_tree_sha256_before": None, "base_tree_sha256": None}, lambda: None
     changes = base_changes(root, tracker, names)
-    reseal = snapshot_reseal(root, tracker, changes, snapshot_path)
+    moves = base_header_moves(root, tracker, names)
+    reseal = snapshot_reseal(root, tracker, changes, snapshot_path, moves)
     before_tree = tree_sha256(base)
     history = root / ROUTE_DIR / "base-history" / before_tree[:16]
     if not history.exists():
@@ -827,7 +993,10 @@ def advance_base(root: Path, tracker: dict[str, Any], names: list[str],
     rows = []
     for path, data in changes.items():
         rows.append({"path": path, "before_sha256": sha(overlay.disk(path)), "after_sha256": sha(data)})
-        overlay.write(path, data)
+        if data is None:
+            overlay.delete(path)  # a moved header's old path: its content is the new path's
+        else:
+            overlay.write(path, data)
     backups = overlay.commit()
     snapshot_before = snapshot_path.read_bytes() if snapshot_path is not None and snapshot_path.is_file() else None
 
@@ -851,8 +1020,11 @@ def advance_base(root: Path, tracker: dict[str, Any], names: list[str],
             raise SocomError("the advanced base does not give the re-sealed body snapshot's src_sha256")
         if reseal["resealed"]:
             atomic_write_json(snapshot_path, document)
-    return {"files": rows, "base_tree_sha256_before": before_tree, "base_tree_sha256": tree_sha256(base),
-            "history": history.relative_to(root).as_posix(), "snapshot": reseal}, undo
+    summary = {"files": rows, "base_tree_sha256_before": before_tree, "base_tree_sha256": tree_sha256(base),
+               "history": history.relative_to(root).as_posix(), "snapshot": reseal}
+    if moves:
+        summary["header_moves"] = [{"from": source, "to": target} for source, target in sorted(moves.items())]
+    return summary, undo
 
 
 # -- audit -------------------------------------------------------------------------------------

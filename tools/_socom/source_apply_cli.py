@@ -37,14 +37,16 @@ def specs(spec: Any) -> tuple[Any, ...]:
             "file exists, moved-from and retired files are gone, paths lie in the reservation and the generated "
             "annotations have not drifted (each block at the top of its file, byte for byte); a recorded file edited "
             "outside its stage 4 blocks after the apply (later stages, the functional port lane) is listed as drift, "
-            "not a failure.",
+            "not a failure; for a recorded header move it lists the #include lines that still name the old path "
+            "(authored lines are hand edits, stage 5 include regions are rewritten by their skeleton re-apply).",
         ),
         spec(
             "progress apply-source-plan",
             "progress",
-            "Apply an accepted, unchanged owner plan under the apply item's lease: a segment's moves, creates, "
-            "retired files and generated annotations inside its reservation; a provider's archive members in "
-            "tracker evidence only; records the plan and file SHA-256s on the item.",
+            "Apply an accepted, unchanged owner plan under the apply item's lease: a segment's moves, header moves "
+            "(the header file with its authored content, once whichever applies state it; no #include line is "
+            "rewritten), creates, retired files and generated annotations inside its reservation; a provider's archive "
+            "members in tracker evidence only; records the plan and file SHA-256s on the item.",
             mutates=True,
         ),
         spec(
@@ -153,24 +155,35 @@ def _source_apply_check(arguments: argparse.Namespace) -> int:
     # Files edited outside their stage 4 blocks after the apply (later stages, the port lane) are drift, not problems.
     problems, drift = check_source_apply(root, tracker, item)
     record = item.get("source_apply") or {}
-    _emit(
-        {
-            "ok": not problems,
-            "mutation_performed": False,
-            "work_item_id": arguments.item,
-            "status": item.get("status"),
-            "plan": record.get("plan"),
-            "plan_sha256": record.get("plan_sha256"),
-            "owner_map_sha256": record.get("owner_map_sha256"),
-            "file_count": len(record.get("files") or []),
-            "removed_count": len(record.get("removed") or []),
-            "member_count": len(record.get("members") or []),
-            "drift": drift,
-            "drift_count": len(drift),
-            "problems": problems,
-        }
-    )
+    report = {
+        "ok": not problems,
+        "mutation_performed": False,
+        "work_item_id": arguments.item,
+        "status": item.get("status"),
+        "plan": record.get("plan"),
+        "plan_sha256": record.get("plan_sha256"),
+        "owner_map_sha256": record.get("owner_map_sha256"),
+        "file_count": len(record.get("files") or []),
+        "removed_count": len(record.get("removed") or []),
+        "member_count": len(record.get("members") or []),
+        "drift": drift,
+        "drift_count": len(drift),
+        "problems": problems,
+    }
+    if moves := _header_moves(root, tracker, record):
+        # The #include lines that still name a moved header: hand edits or stage 5 regions, never a stage 4 failure.
+        report["header_moves"] = moves
+    _emit(report)
     return 0 if not problems else 1
+
+
+def _header_moves(root: Path, tracker: dict[str, Any], record: dict[str, Any]) -> list[dict[str, Any]]:
+    """The header moves of an apply record with the includes that still name the old paths (``header_move_report``)."""
+
+    from .source_header_move import header_move_report, is_header_move
+
+    moves = [(str(row["from"]), str(row["to"])) for row in record.get("moves") or [] if is_header_move(row)]
+    return header_move_report(root, tracker, moves) if moves else []
 
 
 def _progress_apply_source_plan(arguments: argparse.Namespace) -> int:
@@ -217,17 +230,19 @@ def _progress_apply_source_plan(arguments: argparse.Namespace) -> int:
         refresh_ready_and_stages(preview)
         preview["revision"] += 1
         errors = audit_tracker(preview, strict=True)
-        _emit(
-            {
-                "ok": not errors,
-                "dry_run": True,
-                "mutation_performed": False,
-                "revision": tracker["revision"],
-                "graph": origin,
-                "record": summary(record),
-                "errors": errors,
-            }
-        )
+        report = {
+            "ok": not errors,
+            "dry_run": True,
+            "mutation_performed": False,
+            "revision": tracker["revision"],
+            "graph": origin,
+            "record": summary(record),
+            "errors": errors,
+        }
+        if moves := _header_moves(root, tracker, record):
+            # Before the move: every #include line the hand edits and the stage 5 re-applies have to follow.
+            report["header_moves"] = moves
+        _emit(report)
         return 0 if not errors else 1
 
     state: dict[str, Any] = {}
@@ -248,16 +263,17 @@ def _progress_apply_source_plan(arguments: argparse.Namespace) -> int:
             state["overlay"].rollback(state["backups"])
         raise
     write_snapshot(root, updated)
-    _emit(
-        {
-            "ok": True,
-            "dry_run": False,
-            "mutation_performed": True,
-            "revision": updated["revision"],
-            "graph": origin,
-            "record": summary(state["record"]),
-        }
-    )
+    report = {
+        "ok": True,
+        "dry_run": False,
+        "mutation_performed": True,
+        "revision": updated["revision"],
+        "graph": origin,
+        "record": summary(state["record"]),
+    }
+    if moves := _header_moves(root, updated, state["record"]):
+        report["header_moves"] = moves
+    _emit(report)
     return 0
 
 

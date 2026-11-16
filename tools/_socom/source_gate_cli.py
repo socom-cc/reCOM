@@ -24,7 +24,7 @@ def specs(spec: Any) -> tuple[Any, ...]:
             "source gate-check",
             "source",
             "Run every source-correlation gate check read-only: accepted items, no leases or blockers, strict "
-            "audits, plan validation, apply records, annotation drift, cross-plan unit consistency, completeness, "
+            "audits, plan validation, apply records, annotation drift, cross-plan unit and header-move consistency, completeness, "
             "the live stage 3 receipt; list every unresolved artifact with its deferral.",
             ghidra_requirement="optional",
         ),

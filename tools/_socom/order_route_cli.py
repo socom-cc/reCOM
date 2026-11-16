@@ -114,8 +114,11 @@ def specs(spec: Any) -> tuple[Any, ...]:
             "every order item, re-derive each changed segment's units, target digest, directories and unit files, reopen "
             "every accepted plan the new target no longer validates (and its apply) and the link plan when the link order "
             "changed, mark the reopenings absorbed, and advance the frozen skeleton base (current stage 4 blocks over its "
-            "authored content, new stage 4 files as blocks; their edges must have the baseline's digest). Plans built on an "
-            "absorbed baseline whose segment target is unchanged stay accepted (carried).",
+            "authored content, new stage 4 files as blocks; their edges must have the baseline's digest). A header move "
+            "stage 4 recorded is followed: the base's copy moves with its authored content, the body snapshot is re-keyed, "
+            "the skeleton item that reserved the old path reserves the new one and the applies whose include regions name "
+            "the old path are sent back; any other stage 4 move or retirement after the skeleton wave is refused. Plans "
+            "built on an absorbed baseline whose segment target is unchanged stay accepted (carried).",
             mutates=True,
         ),
     )
@@ -464,7 +467,10 @@ def _progress_rebase(arguments: argparse.Namespace) -> int:
     from .cli import _build_path, _emit, _root
     from .constants import tracker_path
     from .order_plan import order_context
-    from .order_reopen import accepted_plan_files, advance_base, base_changes, rebase_function_order, snapshot_reseal
+    from .order_reopen import (
+        accepted_plan_files, advance_base, base_changes, base_header_moves, fenced_includers, rebase_function_order,
+        snapshot_reseal,
+    )
     from .order_skeleton_merge import has_blob
     from .snapshot import write_snapshot
     from .tracker import load_tracker, mutate, require_revision
@@ -481,23 +487,28 @@ def _progress_rebase(arguments: argparse.Namespace) -> int:
         target, derived = order_context(root, current, graph)
         entry = rebase_function_order(
             current, target, derived or {}, accepted_plan_files(root, current), by=arguments.by, reason=arguments.reason,
-            evidence=arguments.evidence, available=lambda digest: has_blob(root, digest))
+            evidence=arguments.evidence, available=lambda digest: has_blob(root, digest),
+            # The applies whose include regions name a header stage 4 moved are re-applied: the new render names the new path.
+            includers=lambda tracked, moves: fenced_includers(root, tracked, moves))
         if write:
             summary, undo = advance_base(root, current, entry["amendments"], paths["snapshot_path"])
             state["undo"] = undo
             entry["base"] = summary
         else:
             changes = base_changes(root, current, entry["amendments"])
-            reseal = snapshot_reseal(root, current, changes, paths["snapshot_path"])
+            moves = base_header_moves(root, current, entry["amendments"])
+            reseal = snapshot_reseal(root, current, changes, paths["snapshot_path"], moves)
             reseal.pop("document", None)
             entry["base"] = {"files": sorted(changes, key=str.casefold), "snapshot": reseal}
+            if moves:
+                entry["base"]["header_moves"] = [{"from": source, "to": target} for source, target in sorted(moves.items())]
         state["entry"] = entry
 
     def shown() -> dict[str, Any]:
         entry = state["entry"]
         return {"rebase": {key: entry.get(key) for key in (
             "number", "amendments", "stage4_baseline_sha256", "order_sha256", "segments_changed", "reopened", "carried",
-            "released", "reopenings", "base")}, "previous": entry.get("previous"), "capture": capture}
+            "released", "header_moves", "reopenings", "base")}, "previous": entry.get("previous"), "capture": capture}
 
     if arguments.dry_run:
         _preview, errors = _dry(tracker, arguments.expected_revision, lambda current: operation(current, write=False))

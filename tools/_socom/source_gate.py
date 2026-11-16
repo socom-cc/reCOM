@@ -539,6 +539,11 @@ def review_gate(
         rows.append(row)
     # No blocking conflicts between the plans.
     problems.extend(unit_conflicts(plans))
+    from .source_header_move import header_move_conflicts
+
+    # A moved header is named at its new path by every plan, and every segment plan emitting from it states the move.
+    problems.extend(header_move_conflicts(
+        [(item_id, plan, (by_id.get(item_id) or {}).get("kind") == SEGMENT_PLAN_KIND) for item_id, plan in plans]))
     # Annotation grammar and completeness (unresolved rows are the deferrals' business).
     docblocks = audit_docblocks(root)
     problems.extend(f"audit docblocks: {error}" for error in docblocks["errors"])

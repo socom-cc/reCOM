@@ -1605,8 +1605,34 @@ the order target over the new baseline and, in one tracker mutation:
   blocks. The previous base is kept under
   `build/stage5/skeleton-route/base-history/<tree digest>`. The advanced
   base's `@socom-artifact` edges must have the stage 4 baseline's edge
-  digest. A stage 4 move or retirement after the wave is refused (the body
-  snapshot is keyed by the base's paths).
+  digest, which is computed after every change of the delta.
+- follows a header move that stage 4 recorded (a `moves` row with
+  `"kind": "header"`,
+  [SOURCE_CORRELATION.md](SOURCE_CORRELATION.md#moving-a-header)):
+  - the base's own copy of the header goes to the new path: its authored
+    content byte for byte under the current stage 4 blocks. The old path
+    leaves the base, and every other file of the base stays byte-identical;
+  - the skeleton item that reserved the old path (the prepare, for a header)
+    reserves the new one, and `resources_sha256` follows. Its record keeps
+    the row at the old path until its re-apply. That re-apply merges the
+    file at the new path from that row's render, so a header that renders
+    as before keeps `src/` as it is (`kept`);
+  - each accepted skeleton item whose `include` region generates an
+    include of the old path is sent back (`reopened`, with the files). The
+    region is read from the item's stored render, so a hand edit in `src/`
+    hides nothing and an include the port lane added inside a region does
+    not count (the render does not write it). The fresh render names the new
+    path, and the re-apply merges it into the file. Items an open reopening
+    holds are listed too and re-applied anyway. The entry records the move
+    under `header_moves` (`from`, `to`, `item`, `fenced_includers`);
+  - the generator keeps the base's authored `#include` lines, which name the
+    old path. Such an include counts as an include of the new path, so no
+    `include` region and no forward declaration is generated for it; the
+    line in `src/` is the worker's hand edit.
+
+  Any other stage 4 move after the wave (a unit file's `provisional_file`
+  to its `workspace_path`) is refused, and so is a retirement that is not
+  such a header move: the body snapshot is keyed by the base's paths.
 - releases each path the skeleton route deleted (an orphan) that a stage 4
   apply created again as a new unit file, as when the user names a new unit
   after the orphan. The deleting item (the prepare) stops reserving it and
@@ -1630,10 +1656,14 @@ the order target over the new baseline and, in one tracker mutation:
 - re-seals the frozen body snapshot. The delta adds blocks-only files and
   rewrites stage 4 blocks, and a recreated path keeps its deleted file's
   authored content, so no body changes and only `src_sha256` follows the
-  base's file list. The snapshot's old and new `src_sha256` and
+  base's file list. The bodies the snapshot holds from a moved header are
+  re-keyed: `id` (`path:line`) and `path` take the new path, their text,
+  digest and lines stay, and the rows stay in path and line order (`moved`,
+  `rekeyed`). The snapshot's old and new `src_sha256` and
   `snapshot_sha256`, the added files and the reason are recorded under the
-  rebase's `base.snapshot`. A delta that changes authored content, or a
-  snapshot that is not the base's, is refused.
+  rebase's `base.snapshot`. A delta that changes authored content, a
+  snapshot that is not the base's, and a move of a header one of whose
+  bodies an `order skeleton decide` decision is keyed by are refused.
 
 It refuses an open amendment, a baseline that is already stage 5's, stage 5
 work in progress or under review, a new target that gives units to a segment
@@ -1667,7 +1697,7 @@ Then, per file, the route merges:
 
 | Input | Content |
 | --- | --- |
-| ancestor | the previous render of the file: the record row's `rendered_sha256` (`after_sha256` for a record from before merges), from the blob store, or the fresh render when it still has that digest; for a file no skeleton item wrote yet, the frozen base's content |
+| ancestor | the previous render of the file: the record row's `rendered_sha256` (`after_sha256` for a record from before merges), from the blob store, or the fresh render when it still has that digest; for a header stage 4 moved, the row of its old path; for a file no skeleton item wrote yet, the frozen base's content |
 | ours | the live file under `src/` |
 | theirs | the new render |
 
@@ -1753,6 +1783,46 @@ recorded `carried`, with `carry` (the inner merge kind and the effective
 inputs' digests, both stored as blobs). The record lists every entry on
 `carried` (name, live name, from, to, destination item, state and text
 digests) and counts them in `carried_by_state`.
+
+### Dry run of a header move (2026-11-16)
+
+The run used a scratch copy of the workspace at tracker revision 4494: the
+tracker, `src/`, `port/`, the plans and the stage 5 inputs. Stage 4
+amendments 027 and 028 (segments 024 and 033) and their reopenings were
+open. Both revised plans state the move of `src/gamez/zNode/node_action.h`
+to `src/gamez/zFTS/fts_action.h`. The live receipt was replaced by the stage
+3 baseline's digest, so the run proves the tool route, never live semantics.
+The tracker reached revision 4546.
+
+- **Includers before the move:** 14 `#include` lines named the old path.
+  Four are generated by include regions (`fts_action.cpp`,
+  `seal_command.cpp`, `seal_control.cpp`, `seal_env.cpp`). Ten are authored:
+  seven in `src/` (one of them, in `orders.cpp`, a port-lane line inside a
+  region) and three in `port/test-hooks/`. The header's own
+  `#include "znode.h"` resolves from the old directory only.
+- **Stage 4:** segment 024's re-apply moved the header (3,820 bytes,
+  byte-identical; the two paths are its only changes). Segment 033's
+  re-apply recorded the move as done and changed nothing. Both
+  `source apply-check`s passed. `progress accept-source-amendment` passed
+  every gate check: 62 plans, 9,122 edges, no problem.
+- **Rebase:** the base delta is the two header paths (the same content
+  digest). The snapshot was re-sealed with no body to re-key. 43 plans were
+  carried and no segment changed. The prepare reserves the new path.
+  Segment 032's apply was sent back for its two include regions; the applies
+  of 023 and 033 were held by the reopenings already.
+- **Plans and manifest:** order plans 023, 024, 025 and 033 were re-planned.
+  The rebuilt manifest found the snapshot `current`.
+- **Skeleton re-applies:** the prepare kept all 144 files (the header merged
+  from its old path's render). Segment 023 merged one file
+  (`fts_action.cpp` now includes `fts_action.h`), 032 two, 033 one; 024 kept
+  13 files and 025 kept 11. Every apply passed every static check (S3: 9,122
+  edges with the baseline digest), and every handoff and acceptance passed
+  its apply-check.
+- **Afterwards:** `progress audit --strict`, `audit source-baseline
+  --strict`, both `source apply-check`s, `audit docblocks`, `audit
+  source-trace` and the gate review with the deferrals in force passed. No
+  generated include named the old path any more. The ten authored lines
+  stayed, as the worker's hand edits.
 
 ### Dry run (2026-11-01)
 

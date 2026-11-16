@@ -595,8 +595,13 @@ def _prior_rows(tracker: dict[str, Any], item: dict[str, Any]) -> dict[str, dict
 
     A deletion stage 4 superseded (it created a new unit file at the deleted
     path) is history, not a write: that file's ancestor is the frozen base's
-    content, the stage 4 blocks a rebase put there.
+    content, the stage 4 blocks a rebase put there.  A row at the old path of
+    a header stage 4 moved (``source_header_move``) is the row of the new
+    path: the file is the same one, so its previous render is the ancestor
+    of the merge there.
     """
+
+    from .source_header_move import recorded_header_moves
 
     created = stage4_created(tracker)
     found: dict[str, dict[str, Any]] = {}
@@ -607,6 +612,10 @@ def _prior_rows(tracker: dict[str, Any], item: dict[str, Any]) -> dict[str, dict
     own = item.get("order_skeleton")
     if isinstance(own, dict):
         found.update({str(row["path"]): row for row in current_rows(own, created)})
+    # A header stage 4 moved (its content went with it): the last write at its old path is the new path's.
+    for source, target in recorded_header_moves(tracker).items():
+        if source in found and target not in found:
+            found[target] = {**found.pop(source), "path": target}
     return found
 
 

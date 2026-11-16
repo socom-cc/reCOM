@@ -218,14 +218,22 @@ def _insert(text: str, offset: int, lines: list[str]) -> tuple[str, bool]:
     return "\n" + "\n".join(lines) + ("\n" if offset < len(text) else ""), True
 
 
-def _included(path: str, scan: FileScan | None) -> set[str]:
-    """The files a source file includes directly, as tree paths (its own directory, or from src/)."""
+def _included(path: str, scan: FileScan | None, moved: dict[str, str] | None = None) -> set[str]:
+    """The files a source file includes directly, as tree paths (its own directory, or from src/).
+
+    ``moved`` ({from: to}) holds the headers stage 4 moved after the skeleton
+    wave: the frozen base's authored ``#include`` lines keep the old path (the
+    base's content is never rewritten), so an include of the old path counts
+    as one of the new path, and no region is generated for it.
+    """
 
     directory = PurePosixPath(path).parent.as_posix()
     found = set()
     for included in (scan.includes if scan is not None else []):
         found.add(os.path.normpath(f"{directory}/{included}").replace("\\", "/"))
         found.add(f"src/{included}")
+    if moved:
+        found |= {moved[name] for name in found if name in moved}
     return found
 
 
@@ -842,7 +850,8 @@ class HeaderWriter:
         result: dict[str, dict[str, str]] = {}
         for path, headers in wanted.items():
             # A recreated path's scan is the deleted provisional file, whose includes the new unit file does not keep.
-            present = _included(path, None if path in getattr(self.inputs, "overlays", {}) else self.inputs.scans.get(path))
+            present = _included(path, None if path in getattr(self.inputs, "overlays", {}) else self.inputs.scans.get(path),
+                                getattr(self.inputs, "header_moves", None))
             rows = {header: why for header, why in headers.items() if header not in present and header != path}
             if rows:
                 result[path] = rows
@@ -951,7 +960,8 @@ class HeaderWriter:
             rows.append(self._region(path, INCLUDE, "include", lines, offset=TAIL, sequence=0, flags=flags))
         # The unit's stubs name classes its includes may not declare: declare them ahead (src/'s key), never twice.
         kept = None if path in getattr(self.inputs, "overlays", {}) else scan
-        forward = self._forward_region(path, names, offset=TAIL, sequence=1, visible=set(includes) | _included(path, kept))
+        forward = self._forward_region(path, names, offset=TAIL, sequence=1,
+                                       visible=set(includes) | _included(path, kept, getattr(self.inputs, "header_moves", None)))
         rows += ([forward] if forward else []) + definitions
         tail = "\n".join(line for row in rows for line in row["text"])
         return {"inserts": inserts, "tail": tail + "\n" if tail else ""}

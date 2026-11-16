@@ -42,7 +42,10 @@ def specs(spec: Any) -> tuple[Any, ...]:
             "name_basis for unnamed objects; user decisions cited by digest and heading), provider, header-emit, "
             "contradiction and annotation rows, provisional "
             "files, no control characters, units agreeing with handed-off and accepted plans, and the graph and slice "
-            "digests (--check regenerates the graph from the ELF); reports the other applies sharing each reserved "
+            "digests (--check regenerates the graph from the ELF); a header_moves row (a header the plan emits from "
+            "moves: the old header exists or the apply moved it, both paths lie in the reservation, the emit rows name "
+            "the new header, the other plans agree) is reported with every #include line that still names the old path; "
+            "reports the other applies sharing each reserved "
             "directory; --output writes the full report under build/ and prints its counts.",
         ),
         spec(
@@ -359,6 +362,9 @@ def _source_plan_validate(arguments: argparse.Namespace) -> int:
         "review": report["review"],
         "problems": report["problems"],
     }
+    if report.get("header_moves"):
+        # Each header move the plan states: pending or applied, and the #include lines that still name the old path.
+        result["header_moves"] = report["header_moves"]
     if output is not None:
         # The full report is a disposable file under build/; the planner reads it in parts.
         atomic_write_json(output, result)
