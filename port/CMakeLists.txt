@@ -55,6 +55,19 @@ set(SOCOM_PORT_FLAGS
   # first time it is locked: during the first mission load, so the block stayed in the middle
   # of the freed mission memory at every return to the menus (docs/port/notes/menu-heap.md).
   -fno-threadsafe-statics
+  # Metrowerks compiles a load or store through a pointer as that load or store, whatever the
+  # pointer may hold, and on the PS2 address 0 is readable and writable memory: the reference
+  # ELF reads and writes through NULL in many places and carries on. GCC at -O2 / -O3 treats
+  # such an access as "cannot happen": it removes NULL tests that follow one and turns a path it
+  # can prove dereferences NULL into an unconditional trap (teq zero,zero; 221 of them in the
+  # game library before these flags). With them the generated code does what the source says,
+  # as the original compiler's did.
+  -fno-delete-null-pointer-checks
+  -fno-isolate-erroneous-paths-dereference
+  # The reference ELF's integer divisions are a bare div / divu (82 in the game code, none
+  # followed by a trap or a break): dividing by zero leaves garbage in HI / LO and execution
+  # goes on. GCC for MIPS adds "teq divisor, zero" after every division by default.
+  -mno-check-zero-division
   -include "${CMAKE_CURRENT_SOURCE_DIR}/include/socom_port_prefix.h")
 
 # VU microcode (src/**/*.vsm, e.g. zRender/zrndr_vu1.vsm): assembled with the ps2dev dvp-as and
