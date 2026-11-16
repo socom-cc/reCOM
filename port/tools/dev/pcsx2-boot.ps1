@@ -155,6 +155,7 @@ if (-not $start) { $start = Get-Date }
 # -DoneExtra seconds have passed since (so a run ends when its evidence is in the log instead of
 # at a fixed time; -Seconds is then only the time limit).
 $script:doneAt = $null
+$script:doneMsg = $null
 function Wait-Run([double]$until) {
     while ($true) {
         $p.Refresh()
@@ -163,7 +164,8 @@ function Wait-Run([double]$until) {
         if ($DonePattern -ne "") {
             if ($null -eq $script:doneAt) {
                 $n = @(Select-String -Path $Log -Pattern $DonePattern -ErrorAction SilentlyContinue).Count
-                if ($n -ge $DoneCount) { $script:doneAt = $now; "done: '$DonePattern' x$n at $([int]$now) s" }
+                # (kept in a variable: text written here would become part of the return value)
+                if ($n -ge $DoneCount) { $script:doneAt = $now; $script:doneMsg = "done: '$DonePattern' x$n at $([int]$now) s" }
             }
             if ($null -ne $script:doneAt -and $now -ge $script:doneAt + $DoneExtra) { return $true }
         }
@@ -178,6 +180,7 @@ foreach ($t in $times) {
     Save-Shot $p.MainWindowHandle $file
 }
 if (-not $ended) { Wait-Run $Seconds | Out-Null }
+if ($script:doneMsg) { $script:doneMsg }
 if (-not $p.HasExited) {
     # Put the mixer level back before closing, so the user's own PCSX2 is not left silent.
     if (Test-Path $vol) { & powershell -NoProfile -ExecutionPolicy Bypass -File $vol -ProcessId $p.Id -Level 1 -WaitSeconds 2 | Out-Null }
