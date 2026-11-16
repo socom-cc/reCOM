@@ -1358,10 +1358,11 @@ void CSealCtrlAi::InitAiBrain()
 
 			if (PushAiState(STATE_RESTRAINED, true))
 			{
-				CAiState *state = GetAiState();
-
-				if (state != NULL && state->m_state == STATE_RESTRAINED) /* port: NULL test (ELF writes through it) */
-					state->m_setup = 1;
+				/* 0x26ac40: set up when the push landed on top; ELF: else written through
+				 * NULL, as here */
+				CAiState *top = GetAiState();
+				CAiState *state = top->m_state == STATE_RESTRAINED ? top : NULL;
+				state->m_setup = 1;
 
 				seal->m_restrained = 1;
 			}
@@ -1387,10 +1388,23 @@ void CSealCtrlAi::InitAiBrain()
 	{
 		OnMissionStart();
 		/* 0x26ad40: a STATE_SCRIPT top state runs its "on_respawn" sequence */
-		CAiState *state = GetAiState();
+		CAiState *state = GetAiState(); /* ELF: not NULL-tested */
 
-		if (state != NULL && state->m_state == STATE_SCRIPT) /* port: NULL test */
+		if (state->m_state == STATE_SCRIPT)
 			static_cast<CAiSScript *>(state)->ActivateSequence("on_respawn", 3);
+	}
+
+	/* 0x26ad88: the brain's record (type 1: the node name) goes to the AI log when logging;
+	 * the length is taken either way */
+	const char *name = seal->m_node->m_name;
+	u32 len = strlen(name);
+
+	if (aiLogEnabled)
+	{
+		CAiLog *log = GetAiLog();
+
+		if (log != NULL)
+			log->Write(1, m_entity->m_id, len, name);
 	}
 
 #ifdef SOCOM_PORT
@@ -2015,14 +2029,11 @@ void CSealCtrlAi::PostTick(float dT)
 			if (SetAiState(STATE_RESCUED))
 			{
 				CAiState *top = GetAiState();
-				CAiSRescued *rescued = top != NULL && top->m_state == STATE_RESCUED ? static_cast<CAiSRescued *>(top) : NULL;
-
-				if (rescued != NULL)
-				{
-					rescued->m_region = region;
-					rescued->m_master = master != NULL ? master->m_id : 0;
-					rescued->m_setup = 1;
-				}
+				/* 0x268808: written through NULL when the state did not land on top, as the ELF */
+				CAiSRescued *rescued = top->m_state == STATE_RESCUED ? static_cast<CAiSRescued *>(top) : NULL;
+				rescued->m_region = region;
+				rescued->m_master = master != NULL ? master->m_id : 0;
+				rescued->m_setup = 1;
 #ifdef SOCOM_PORT
 				SOCOM_PORT_TRACE("AI: %s rescued in region %s (master %s)", seal->m_node->m_name, region->m_name,
 					master != NULL ? master->m_node->m_name : "-");
@@ -3518,7 +3529,7 @@ unsigned char CSealCtrl::SlideTick(float dT)
 	 * goal timer as fudge velocities; 1 while sliding. Not sliding (no goal): 0. */
 	/* @socom-skeleton stub move_tolerance$3566 */
 	static float move_tolerance = 25.0f; /* init$3567: 0x41c80000 (unused) */
-	f32 dTI = 1.0f / dT; /* port: the ELF keeps 1/dT in a file static (__dTI) */
+	_dTI = 1.0f / dT; /* 0x264280: the file static, read again below */
 	CEntity *entity = m_entity;
 
 	if (!m_goal_dir_valid && !m_goal_pos_valid)
@@ -3566,7 +3577,7 @@ unsigned char CSealCtrl::SlideTick(float dT)
 			move.z *= 1.0f / dist;
 		}
 
-		move.Scale(dTI * dist * frac, &m_fudge_velW);
+		move.Scale(_dTI * (dist * frac), &m_fudge_velW); /* 0x264470: _dTI * (dist * frac) */
 
 		if (frac == 1.0f)
 			m_goal_pos_valid = 0;
@@ -3574,13 +3585,14 @@ unsigned char CSealCtrl::SlideTick(float dT)
 
 	if (m_goal_dir_valid)
 	{
-		f32 c = fwd.z * m_goal_dir.z + fwd.x * m_goal_dir.x + fwd.y * m_goal_dir.y;
-		bool right = m_goal_dir.z * fwd.x + m_goal_dir.x * -fwd.z + m_goal_dir.y * 0.0f >= 0.0f;
+		/* 0x2644c0: (x x' + y y') + z z' and (gx (-fz) + gy 0) + gz fx (adda / madd) */
+		f32 c = fwd.x * m_goal_dir.x + fwd.y * m_goal_dir.y + fwd.z * m_goal_dir.z;
+		bool right = !(m_goal_dir.x * -fwd.z + m_goal_dir.y * 0.0f + m_goal_dir.z * fwd.x < 0.0f);
 
 		if (c < 1.0f)
 		{
 			f32 angle = acosf(c);
-			m_fudge_velR.y = angle * frac * dTI * (right ? -1.0f : 1.0f);
+			m_fudge_velR.y = angle * frac * _dTI * (right ? -1.0f : 1.0f);
 		}
 	}
 
@@ -4129,7 +4141,10 @@ void CSealCtrlAi::ChooseWeapon(CAiWepHint &hint)
 	bool same = true;
 	s32 i = 0;
 
-	if (hint.m_use_index && (s32)hint.m_index < count)
+	/* ELF quirk kept (0x261ed8): the count is compared with the use bit (1), not with m_index:
+	 * a named item is taken when the kit holds two or more (an index past the end wraps in
+	 * GetItemByIndex); with one item the scoring runs */
+	if (hint.m_use_index && (s32)hint.m_use_index < count)
 	{
 		best_index = hint.m_index;
 		best = 1.0f;
@@ -7238,13 +7253,12 @@ bool CAiSRescued::Tick(float dT, CSealCtrlAi *ai)
 	case 6:
 		if (ai->PushAiState(STATE_SUSPENDED, true))
 		{
+			/* 0x2595f0: set up when the push landed on top; ELF: else written through NULL,
+			 * as here */
 			CAiState *top = ai->GetAiState();
-
-			if (top != NULL && top->m_state == STATE_SUSPENDED) /* ELF: written through NULL otherwise */
-			{
-				top->m_option_flags |= 0xe;
-				top->m_setup = 1;
-			}
+			CAiState *state = top->m_state == STATE_SUSPENDED ? top : NULL;
+			state->m_option_flags |= 0xe;
+			state->m_setup = 1;
 		}
 
 		break;

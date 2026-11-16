@@ -517,7 +517,7 @@ float CZSealBody::SetVertical()
 	if (m_used_vel_y)
 		y = dy + GetPosW()->y;
 	else if (!IsCurrentBlend(AnimType::animTypeClimbOffLadder) || (m_blends->Top()->m_flags & 0x20) == 0)
-		y = (root->m_pos.y + dy + GetPosW()->y) - 11.487f;
+		y = (root->m_pos.y + (dy + GetPosW()->y)) - 11.487f; /* 0x26cd18: root y + (dy + pos y) */
 	else
 		y = dy + GetPosW()->y;
 

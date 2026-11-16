@@ -184,3 +184,186 @@ uncommitted files kept out). Focus kept in every run. Logs and screenshots are u
 | 19 | 60 | 0x2be630 | 1968 | CSealCtrlAi::RegisterCommands | seal_tasks.cpp | DEFECT-FIXED | C | 0x2be680...: every AddCmd result but SELECT's (+8) and SPECIAL's (+0xc) is stored (sw) in ai_cmdid's first word, which ends as ai::WAIT's id - the type the Parse functions give their task headers (task_alloc); the port left those stores out (headers typed 0). The 33 commands, names, handlers and order match |
 | 20 | 33 | 0x26d6d0 | 1772 | CSealAnim::AnimBlend | seal_anim.cpp | MATCH |  | count < 2: depth; positions of keep-0 parts = weighted sum over the top count frames (id copied when not -1), dropped[10], three passes x 30 pairings (flag 0x100 frames, unflagged, any; CombineRotations, second dropped; scan from frame 0, quirk), survivor = first not dropped, its rotations into the lowest frame, depth = base + 1 |
 | 21 | 72 | 0x2d6bf0 | 1736 | CSealUnit::AllowCommand | seal_unit.cpp | MATCH |  | fireteam -> Bravo set (slot 0xc), network radio units 24-26 / 30-31 with a living source, members' controls (slot 0x28, first that allows), EXTRACT (can_run_anim inline with its run_once static, extraction region type 1, a rescued (17) escortee of unit 17 inside), BOMB, AMBUSH (seals), sub-units, unit 17 reticle escortee of another unit |
+
+## Part 2: rows 22-73 (2026-11-15, socom-port-large-b2)
+
+The remaining 52 rows of the size order (55,296 bytes, from `CSealCtrl::CSealCtrl` 0x288330, 1,648
+bytes, down to `CTLookAt::Tick` 0x2badf0, 700 bytes), audited as part 1 on HEAD 7d2dca73 (part 1
+committed; later HEADs up to d19a3161 changed no file of list B). Same method: `z.sh` per function,
+the raw `dis.sh` listing wherever `cz.py` elided lines next to a branch or a division, `sym.py` for the
+jump tables (0x451a30, 0x451e60, 0x451f90, 0x451210, 0x457170) and statics, `vt.py` for the
+`CWorld` vtable (slot 0x24 FindChild), `off.py` / `dw.py` for every member offset the bodies use,
+`animenum.py` / `denum.py` for enumerators. Float literals were checked by their value against the
+ELF word under the pinned GCC's truncation (every literal of these rows lies on the right side of
+its word; the float pass of a21865c4 had already read them back), so no constant was respelled.
+
+### Counts (part 2)
+
+| Verdict | Rows |
+|---|---|
+| MATCH | 37 |
+| DEFECT-FIXED | 11 (A 0, B 2, C 9) |
+| DEVIATION-KEPT | 4 (rows 23, 41, 47, 48) |
+| UNJUDGED | 0 |
+| total | 52 |
+
+Defect rate in part 2: 11 / 52 = 21% (95% Clopper-Pearson: 11% .. 35%); grade A or B: 2 / 52 = 4%
+(0.5% .. 13%). By bytes: the eleven defective functions are 11,324 of the 55,296 bytes (20%). Five of
+the eleven are only port NULL guards the ELF does not have (rows 33, 54, 60, 62 and part of 32); four
+are float sums / products in another association (rows 34, 49, 51, and the 1/dT static of 49).
+
+The whole list B (73 rows): 21 / 73 defective = 29% (19% .. 41%); grade A or B 7 / 73 = 10% (4% ..
+19%). The rate falls with size, as the sample audit suggested: 48% in the 21 largest rows, 21% below
+1,700 bytes.
+
+### Fixes (ELF addresses)
+
+- Row 26, `CSealCtrlAi::ChooseWeapon` 0x261eb0 (seal_ai.cpp), B: the named-item test compares the
+  item count with the use bit itself (0x261ed8: `andi v0,a0,0xff` of the bit, then `slt` with the
+  count), not with `m_index`: with two or more items the named item is taken (an index past the end
+  wraps in `GetItemByIndex`), with one item the scoring runs. The port tested `m_index < count`.
+  Kept as the ELF and noted as a quirk.
+- Row 73, `CTLookAt::Tick` 0x2badf0 (seal_tasks.cpp), B: the task needs the seal and its controller
+  only; the ELF calls `GetSealCtrlAi` and drops the result (0x2bae74), so a seal without an AI (the
+  player) is made to look too. The port returned done when there was no AI.
+- Row 32, `CSealCtrlAi::InitAiBrain` 0x26a8d0 (seal_ai.cpp), C: the brain's AI-log record (type 1,
+  the node name; its `strlen` taken either way) when `aiLogEnabled` was left out (0x26ad88). Two
+  port NULL guards removed: the RESTRAINED setup after a successful push is written through NULL when
+  the state is not on top (0x26ac40, network hostages), and the respawn's top state is not tested
+  (0x26ad40).
+- Row 33, `CTValve::Parse` 0x2b4510 (seal_tasks.cpp), C: the named valve's `AddValve` reads the
+  valve's name without a NULL test (0x2b48dc); `ParseValveName` creates a named valve, so the port's
+  guard was dead. Removed.
+- Row 34, `CZSealBody::UpdateAimDir` 0x2bf340 (seal_weapon.cpp), C: the prone slope dot is
+  (x x' + y y') + z z' (adda / madd at 0x2bf640) and the upper bound is `d <= 0.642`; the port summed
+  z first and tested `!(0.642 < d)` (differs only for NaN). The still-body test's sum of squares was
+  reordered too (no effect).
+- Row 49, `CSealCtrl::SlideTick` 0x264270 (seal_ai.cpp), C: 1/dT goes to the file static `_dTI`
+  (0x264280) as the ELF; the fudge velocity scale is `_dTI * (dist * frac)` (0x264470); the facing
+  dot and the side test are (x x' + y y') + z z' and (gx (-fz) + gy 0) + gz fx, the side as
+  `!(side < 0)` (0x2644c0). The port used a local, (dTI dist) frac, z-first sums and `>= 0`.
+- Row 51, `CZSealBody::SetVertical` 0x26cb90 (seal_anim.cpp), C: the root-relative height is
+  `root.y + (dy + pos.y) - 11.487` (0x26cd18); the port summed `(root.y + dy) + pos.y`.
+- Row 54, `CAiSRescued::Tick` 0x2592f0 (seal_ai.cpp), C: phase 6 writes the pushed SUSPENDED state's
+  options and setup through NULL when the push landed below the top (0x2595f0); the port guarded it.
+- Row 60, `CSealUnit::HandleSupport` 0x2d2bd0 (seal_unit.cpp), C: unit 17 is not NULL-tested
+  (0x2d2d5c; both unit setups create it) and the rescued escortee's top state is not tested
+  (0x2d2e8c; dead, `AiStateIs` tests the top). Both port guards removed.
+- Row 62, `CSealCtrlAi::PostTick` 0x268530 (seal_ai.cpp), C: the RESCUED state set by `SetAiState`
+  is written through NULL when not on top (0x268808); the port guarded it (dead in practice).
+- Row 67, `CSealUnit::PrivateNotify` 0x2d5c90 (seal_unit.cpp), C: the ambush called off by the
+  player's fire issues FIREATWILL with `quiet` = 1 (0x2d5d10: `t0` still holds the 1 loaded for the
+  case test); the port passed 0. Only `CommandNotifyFromChild` sees the flag, and it ignores every
+  order but FOLLOW, so the effect is nil.
+
+No fix is grade A. The two B fixes change paths the m8 runs may not take (a named weapon in a
+fire-mode task, a look task on a seal without an AI); the C fixes change rounding (rows 34, 49, 51),
+a debug record (row 32) or nothing observable.
+
+### Kept deviations (recorded in the comments; part 2)
+
+- Row 23, `CSealCtrlAi::CSealCtrlAi`: the navyseal / evasive / creeping bits, the mode / idle / state
+  timers, the peek goal (2), the event mask and the event queue's flag are set where the ELF leaves
+  the heap block's bytes.
+- Row 41, `CSealAnim::AnimPush`: the script's object list is bounds-checked; the ELF indexes it by
+  part id without a bound.
+- Row 47, `GetSoundNameStringFromCmd`: the default case passes the command name's fifth character
+  (sign-extended) as the `%s` pointer in the ELF; the port passes the name from there.
+- Row 48, `CTPlay::Tick`: a task without anims (count 0) plays index 0; the ELF divides by zero.
+- Recorded within MATCH rows (no observable effect): row 37's "dbnode" lookup (the ELF's `FindChild`
+  and `BuildMTW` into a local, both pure) is left out; row 30's location map id is set to 0 where the
+  ELF leaves a stack byte (`GetCell` ignores it).
+
+### Leads (part 2)
+
+1. NULL writes after a push: rows 32, 54, 62 (and part 1's rows 5, 7) are the same pattern - a
+   state pushed or set, then its fields written through `top->m_state == X ? top : NULL`. The
+   remaining ones in other zSeal files ("port: NULL-tested") are worth one grep.
+2. `CRemoteCtrl` (zinput.h) is `CSealCtrl` + two words (0x248 bytes); `CreateRemoteSeal` allocates
+   592. No `CRemoteCtrl` code reads past +0x244, so the gap is the 16-byte rounding of the class; a
+   sizeof probe would settle whether the port's class is 592 too (heap only, network only).
+3. Inline `SetAiAware(AIA_DIRECTION)` (row 66) and inline `SetGoalPos` (row 35) were compared with the
+   port's out-of-line versions, which behave the same here; other inline copies of the two are not
+   checked.
+4. Delay slots and kept registers: row 67's defect was an argument register left from a compare
+   (`t0`), not a delay slot; `cz.py` shows such loads far above the call. Worth reading the full
+   argument set of every virtual call in the unit files.
+5. Rows 59 and 64 transform with the VU0 macro sequence inline (`vmulax` ... `vmaddw`); the port's
+   `CMatrix::Transform` is assumed to give the same words.
+
+### Runs (part 2)
+
+All on HEAD 1ef7d286 plus the five changed source files (isolated tree; the other workers'
+uncommitted files kept out). Focus kept in every run.
+
+- Default build (no hooks, no fake pad) of the final tree links (0 errors, 0 undefined).
+- Smoke run with test-only traces (zseal4's `hook_zseal1.cpp` + `pad_fire.txt`, 220 s; the trace edit
+  prints a line wherever a part-2 fix's case occurs: a named weapon in `ChooseWeapon`, a LOOKAT task
+  on a seal without an AI, a state written through NULL in rows 32 / 54 / 62, an ambush called off
+  by fire): cameras skipped at 44 s, 178 s in the mission; 74 "fires at" lines, 72 recycle /
+  respawn lines, team following throughout; no STOP, no exception; heap in use 23.36 .. 23.47 MB
+  over the last 70 s (combat and recycling). None of the traced cases occurred in m8's opening
+  fights, so the two B fixes are not exercised by this run (as the grades say: masked on the demo).
+  A first run (lgb2s) on the portable emulator profile logged nothing from the game (the profile's
+  console logging was off; fixed in `pcsx2-boot.ps1` by the coordinator) and is not counted.
+- No constructor, destructor or per-mission allocation changed (rows 22 and 23 have no fix), so the
+  menus round trip was left to the coordinator's full check.
+
+`python tools/socom.py audit independence --strict` passes.
+
+### Result table (part 2, size order; k = audit order, list = row of the list)
+
+| k | list | Address | Bytes | Function | File | Verdict | Grade | Evidence |
+|---|---|---|---|---|---|---|---|---|
+| 22 | 42 | 0x288330 | 1648 | CSealCtrl::CSealCtrl | seal_control.cpp | MATCH | | every field in the ELF's order (look rate, scan angle/timer reset, cone 1/1/0/1, four decays, net state, goal / weapon timers, unit, vismap, bitfields of +0x168 LSB-first, trigger, pad / readings / memset 40, zoom, HUD 255 / -1 x3, aim pitch, rumble, menu, input, hot swaps, scan limits, ClearGoal / ClearLook(-1), victim, FOV, decay values 1000 / 1 / 1, wep period 5, event times memset 60, fudge vels, MP bomb). Fields the ELF leaves (aim yaw, corpse, trigger power, throwwait, cam state, goal dir/pos, remote goal) are left by the port too (no in-class initialisers). The dead rand branch of the timer reset (range just zeroed) multiplies (range * rand) * 2^-31 where the ELF has range * (2^-31 * rand): never executed |
+| 23 | 23 | 0x26b1c0 | 1560 | CSealCtrlAi::CSealCtrlAi | seal_ai.cpp | DEVIATION-KEPT | | as the ELF field by field (peek timer, fire params reset, reaction 1/0/0/0, AI params, four decays, trigger up/dn draws with the double sum, bitfields of +0x280: 0, 2, 5-11 cleared, 12 set, 13-31 cleared, speed, last action / close door from invalid, deploy pos, spray / aware / stuck timers, FOV 0x3f490fdb, range 400, follow fields, padid 1, ladder, scan limits 0x3f860a92, hold cover, valve / task memsets, UpdateStackFlags, stance, underfire, handle). Recorded deviations kept (comments): navyseal / evasive / creeping bits and mode / idle / state timers, peek goal (2), event mask, queue flag set where the ELF leaves heap bytes |
+| 24 | 39 | 0x286950 | 1560 | CSealCtrl::ThrottlesPreTick | seal_control.cpp | MATCH | | menus 2..5 or input off: throttles 0 / 2 / 1 via slot 0x20, trigger released (3->0, 2/1->3), weapon state 2, rumble (strength zeroed when the time is out), pickups, victims, 1; else analog: turn -rot x yaw 1.15, pitch hack x dilated x 1.05, piecewise (off) with CD +0xf8/+0xfc/+0x100/+0x104, 1/zoom (0 kept), move speed, scope/binocs 0.2, bob (player, zoom 1/2, stance < 3, prone rate/amp index, 0.5(|f|+|s|), fangle wrap 2pi), throttles with -0 -> 0, TickAimPitch, 0 |
+| 25 | 57 | 0x2bc300 | 1552 | CTGoto::Begin | seal_tasks.cpp | MATCH | | select seal / ctrl / slot 0x38, armed bit, count bits 2-9, waypoints bit 14, random bit 15; single: rand % count when >= 2, random spot of the region (GetRandomLoc result ignored), invalid (0) test on x / y only, SetRoute; waypoints >= 2: reserve, push spots / locs, SetRoute(data, size); debug bit + aiDebugEnabled -> Debug + PrintPath; speed saturated 0..1, AIM 3, stance 0, disarm |
+| 26 | 12 | 0x261eb0 | 1524 | CSealCtrlAi::ChooseWeapon | seal_ai.cpp | DEFECT-FIXED | B | 0x261ed8: the named-item test compares the count with the use bit (1), not with m_index (the ELF takes the named item whenever the kit holds >= 2, an index past the end wrapping; with one item it scores); the port tested m_index < count. Rest matches: scoring (accuracy, quiet / auto / burst / quiet-again penalties, > 0 tests, saturate 0..1, best by !(s <= best)), loop until 1, Debug lines, SetTrigger(false); void for the unread 1 is recorded |
+| 27 | 35 | 0x284560 | 1500 | CSealCtrl::OnActionButton | seal_control.cpp | MATCH | | display off: delayed jump + pending; mask bits in the ELF's order (0/1 cancel + masks, 13 reticule action via CanPerformAction (inline at 0x28462c: MP bomb states 2 / 1,3 / other -> satchel test) not type 4, 17 satchel (item 152, valve 0) + HandlePlacingExlosive(1, 0.2) + valve Set(1) = state 1 on change, 2 climb, 3 nothing, 4/5 pickups (timer 3 in the delay slot, MP bomb type 11 without echo), 6 drop bomb (4 s), 8 corpse, 9 put down, 10-12 victim, 14/15 unit 17 FOLLOW / HOLDPOS via slots 0xc / 0x8, 16 ladder), pending cleared unless climb, masks |
+| 28 | 45 | 0x289d60 | 1480 | CZSealBody::PostCreateSeal | seal_create.cpp | MATCH | | view-cone bit, SetNodeEx, box (-10,0,-10)-(10,20,10), controller, AI event, select, debug_uberii, gear list, MP bomb gear, eyes, gear, kit "null" models, weapons (SetItem fail skips the index, model by type 1 rifle / 2 pistol / else grenade, ammo by count x mags), reticule, trigger / round / elevation, aim unit_nz, left game, slot 0x40 Initalize, clutter (world +0x698 = port m_grid->..., bbox up to two parent hops, radius max(|x|, z) via the ELF's bool-to-float trick, x0.5, matrix row 3, velW), shadows (player and one entity, maxShadow), cached reticule seal |
+| 29 | 43 | 0x288cb0 | 1456 | CZSealBody::RemoteRespawn | seal_create.cpp | MATCH | | network only; packed weapons for non-hostage non-0x10000000 non-player; pos / matrix / both 84-byte stats blocks kept across ReCreate; group round ? (0x100 ? 3 : 1) : (0x100 ? 2 : 0); PostSetupItems; player findAlign + row 3 + slot 0x34 + UpdateLocalSeal; AI (slot 0x30) vehicle entry (index < size, 268-byte entries) start matrix, teleport, InitAiBrain, UpdateLocalSeal; remote (slot 0x34) with index != 0; Revive via m_unit; RefreshTeamValves; respawn flag |
+| 30 | 9 | 0x25f6e0 | 1448 | FindPeekDir | seal_ai.cpp | MATCH | | ahead cell (neighbor table, signed / unsigned bounds, GetCell inline with dummy_cell) not soil 0/10/8/9 -> 2; right (dir+9)&7 not 0/8/10 -> 1, left (dir+7)&7 -> -1 (wins) |
+| 31 | 17 | 0x2675e0 | 1360 | CSealCtrlAi::PreTick | seal_ai.cpp | MATCH | | _dT / _dTI (0 for dT <= 0), log frame record (Write 0, 0, 4, &dT once per frame), SUSPENDED: StateTick, ends unless asleep and aiEnabled; dead -> 1; asleep: counts, EventTick, 0; active: count, last pos (slot 0xc), target tick, follow params, slot 0x98 view cone, creeping 0, SensorPreTick unless SURRENDER (6), StateTick, mode table 0x451e60 (0 none, 1 idle, 2 spinner, 3 path, 4 slot 0x8c, 5 slot 0x90, 6 follow), mode timer, throttle ramp (decel 0x43a3a0 when |goal| <= |thr|, accel 0x43a390, x dT, sign, clamp to delta, close_enough eps), shot-at valve countdown with callbacks 1 / 2 |
+| 32 | 22 | 0x26a8d0 | 1304 | CSealCtrlAi::InitAiBrain | seal_ai.cpp | DEFECT-FIXED | C | 0x26ad88: the brain record (AI log type 1: the node name, strlen taken always) when aiLogEnabled was left out; two port NULL guards removed: the RESTRAINED setup write after a successful push (0x26ac40, written through NULL when not on top, network hostages) and the respawn top state (0x26ad40). Rest matches (aware 0, alive valve, ClearLook / states / route inline, idle, SEAL: navyseal, hold-fire valve 1, nofade, nosnooze, player's invincibility, team 26, handle D 3 / B 2 / H 1; enemy: valve 0, binoculars, handle 0; aimap collide; event mask; Merge; courage / discipline / FOV deg / range / sens; 0x10000000 restrainable; hostage network restrained + unit 17, offline 0x80000000 restrainable; ESCORTEE anchor type 4 once; respawn OnMissionStart + on_respawn 3) |
+| 33 | 47 | 0x2b4510 | 1240 | CTValve::Parse | seal_tasks.cpp | DEFECT-FIXED | C | 0x2b48dc: the named valve's AddValve is not NULL-tested (ParseValveName creates the valve, so the port's guard was dead): removed. Rest matches (count, get_valve 5 -> none, calloc 24 / header, which byte, count 1 op 1, count 2 operator, operand: string -> ParseValveName index or anim valve, bits 2 (input) / 3 / 4; number int / real fptosi / else 0, bits 2-4 clear) |
+| 34 | 73 | 0x2bf340 | 1240 | CZSealBody::UpdateAimDir | seal_weapon.cpp | DEFECT-FIXED | C | 0x2bf640: the prone slope test's dot is (x x' + y y') + z z' (adda / madd); the port summed z first, and tested !(0.642 < d) where the ELF has d <= 0.642 (NaN only); the still-body test's sum reordered too (no effect: a sum of squares). Rest matches (aim point bit, weapon slot, aimpoint / firepoint / firepoint_203 / attach offsets + pos (slot 0xc), inverse quat, prone crouch + desired state 1, unattainable: previous aim / norm / reticle / norm bit, CalcAimGoal) |
+| 35 | 8 | 0x25ee30 | 1228 | CAiSAction::Tick | seal_ai.cpp | MATCH | | setup / action / valve value tests; table 0x451a30 case by case (0 stand point: SetGoalPos inline (refused above GOAL_MOVE) + timer 0.25 + slide; 1 wait; 2 GetActionById / SetRoute / Confirm, tolerance 20; 3 path states 1-3 wait, points + COMPLETE -> smooth + path mode; 4 travel; 5 none; 6 ExecuteAction(opt & 0xf), push SCRIPT (NULL write kept), 7; 7 clear setup), substate word |
+| 36 | 36 | 0x284d20 | 1224 | CSealCtrl::PerformProximityActions | seal_control.cpp | MATCH | | single player victim kept when reticule seal / team mate / visible target (bit 2 of +0x24); CQB 12, restraint 11, knife 10 (AI victim nobindanimset), body carry 8; reticule action (CanPerformAction inline) 7 / 17 / 13 + pending cleared; pickups 4 / 5; defusal 7 (status 3, owner valve 1 seals / 2 others); MP bomb drop 6 (item 154, aim goal y < -0.5); void for the unread v0 recorded |
+| 37 | 56 | 0x2bb1c0 | 1212 | CTLookAt::Parse | seal_tasks.cpp | MATCH | | entity name (size rounded to 4 + 48, mode 2, unknownId -3 / invalidId), rate 0.85, pos (mode 1), region centre (copied loc) cell centre, dbnode (ELF: FindChild slot 0x24 + BuildMTW into a local, both pure: the port's omission is recorded), net / node location cell centre, dir (mode 4), wait Rfloat, rate |
+| 38 | 20 | 0x269c00 | 1176 | CSealCtrlAi::OnStunDamage | seal_ai.cpp | MATCH | | SEAL or stunned (28): refresh m_time when set up; head - from normalized (dist = length), dot (x x + y y) + z z; table 0x451f90 (0 flashbang: range x0.1, discipline x0.6, hearing 0, courage x0.5, cower by stance 0 / 1 (rand <= 0.5) / 2 ProneCover when facing or within 15; 1 gas Cough_stagger + SND_COUGH; 3 smoke Cough; 4 hearing x0.1; 2, 5, 6 none); grenade setup dropped (port's non-const GetAiState returns the shared unknown state, never NULL: same result); push 28 (NULL write kept) with time, type, anim, 0.15 / 0.25, sound, setup |
+| 39 | 58 | 0x2bc910 | 1108 | CTGoto::Parse | seal_tasks.cpp | MATCH | | speed 1, timer read and dropped, node list (GetLocation), else region list (GetRegion, random), waypts tag, none -> NULL; size (n-1)*4+20, wait / count / armed / speed / unused / locs packed / waypoints / random |
+| 40 | 15 | 0x2646a0 | 1096 | CSealCtrl::CreepTick | seal_ai.cpp | MATCH | | _dTI, valid bits, goal timer (infinite) expiry clears both goals; forward XZ normalized; to goal XZ, length, unit; ahead / aside sums (the ELF's extra 0 * y terms are exact zeros), move_tolerance 25, GetThrottleFromSpeed 0 / 1 saturated by speed / rateStrafeMax, tolerance clears pos; turn (ComputeTurnThrottle, close to 0 within 0.1 clears dir); slot 0x20 x3. @3531 is a zero vector only read here |
+| 41 | 34 | 0x26deb0 | 1092 | CSealAnim::AnimPush | seal_anim.cpp | DEVIATION-KEPT | | frame at the depth (anim, wt), ids -1, keep 1 for 0..24, 0 for hips / root / biceps / shoulder weights and 25..31, per part: hips or keep 0 -> script pos (raw when interpolating), else node row 3; rotation raw / fast; id; depth + 1. Recorded deviation kept: the script object list is bounds-checked (the ELF indexes it unbounded) |
+| 42 | 41 | 0x287450 | 1080 | CSealCtrl::PostTick | seal_control.cpp | MATCH | | SensorTick; step_count / throwing / not just threw; reach by state, GetThrowAnim, ComputeMaxVel, asin elev saturated 0..0x3f75be0b (statics only read), ElevOfs, speed 0.3 m (1-p) + m p, quadratic -49 max root, dist, do_adjust re-aim (dist^2 + (x^2 + z^2) + 2 dist z, saturate 0..max), dir, elevate, Rotate / Transform, vel, tland, impact pos (unused), colour 0.78 / 0.78 / 0 (0x3f47ae14), opacity 0.75 -> 0.1, DrawFunc(-1, tland x 2, 100) |
+| 43 | 25 | 0x2debc0 | 1064 | CSealCtrlAi::EventTick | seal_aievent.cpp | MATCH | | event tick, seen (alive + visible bit 2 of +0x4e0), every other frame by id parity (lwu, 64-bit frame), stale (dead or unseen > 3 s) -> ClearLook 7, else target pos (seen or < 2 s, slot 0xc) / last pos; in-use events (class 0, index / id / mask into the iterator, audio factor) until handled; asleep -> return; persistent (class 1) unless handled; seen -> return; own event look 3 until expired (NoExpire) |
+| 44 | 59 | 0x2bde00 | 1060 | CTComm::Tick | seal_tasks.cpp | MATCH | | select seal / slot 0x38; 0: done; 26 (AI with a living target): team AIs (type 2, 1 << team bit, slot 0x30) Debug + AIA_GENERAL, target passed; 27: team AIs SetSleeping(false); IssueCommand slot 0x8 (seal, cmd, target, 0); dT 0, 1 |
+| 45 | 50 | 0x2b6840 | 1032 | CTSound::Parse | seal_tasks.cpp | MATCH | | name / NAME array, string count and bytes, entity, size rounded + 20, entity first, names walked from the first m_names values (quirk kept), names bits 9-16 of +8, count bits 1-8 of +0xa, blocking / sitrep / broadcast bits 0-2 |
+| 46 | 61 | 0x2cf330 | 1004 | PlayRemoteMsg | seal_unit.cpp | MATCH | | display name (+0x14) or "unknown"; 47-51 SOUP (msg - 46) needs an entity; else the controller entity's character messages (id, text, sound name, cached sound fetched once), sprintf; sound by name when none; PlaySound(NULL, 255) + TerminateOnFinish; empty line returns; < 53 Add_Message(255, 210, 0) (same both sides), else plain |
+| 47 | 64 | 0x2d2730 | 988 | GetSoundNameStringFromCmd | seal_unit.cpp | DEVIATION-KEPT | | "unknown" (20 bytes, zero tail), unit name, table 0x457170 case by case (1 DEFAULT_ACTION ... 25 CLEARAREA, 13 GOTO, 0 / >= 26 default) as the port's verbs; recorded deviation kept: the default case passes the command name's 5th character (sign-extended) as the %s pointer, the port the name from there |
+| 48 | 51 | 0x2b7640 | 976 | CTPlay::Tick | seal_tasks.cpp | DEVIATION-KEPT | | prewait / postwait timers (0 re-plays), count bits 1-8, rand % count, -1 skips, Debug, negative -> 1, 64/65/67/68 blend unless on top, CQB falls (select 0's FindDeathAnimTypeCQB unchecked, nobind, DropBody, ClearStack(1, 1), invincible state 0, else 8 + SetHealth(0, CQB) + HUD + DropAllItems + cqb sound slot 0x24 (pos, 1, 1.0, 0, 0, 255)), CQB / PistolCQB blend in the stance, else SetStanceIdle; recorded deviation kept: count 0 draws index 0 (the ELF divides by zero) |
+| 49 | 14 | 0x264270 | 968 | CSealCtrl::SlideTick | seal_ai.cpp | DEFECT-FIXED | C | 0x264280: 1/dT goes to the file static _dTI (the port kept a local); 0x264470 the scale is _dTI * (dist * frac) (port (dTI * dist) * frac); 0x2644c0 the facing dot and side test are (x x' + y y') + z z' and (gx (-fz) + gy 0) + gz fx with !(side < 0) (port: z first, >= 0). Rest matches (valid bits, timer / expiry, frac = dT / left unless left < dT, forward XZ, goal XZ unit, pos valid cleared at frac 1, acos x frac x _dTI, sign by side, goals cleared) |
+| 50 | 29 | 0x2e20e0 | 948 | GetSnakeFollowLoc | seal_aifollow.cpp | MATCH | | snake length, point index < size, map by id, best / cur from the point, 0.5 accumulators + dir.z / dir.x, fptosi offsets, PointInPath, map bounds (y, x) + scanline cell (dummy outside the span), walkable (not 0/10/8/9), best kept, out = best, 1 |
+| 51 | 30 | 0x26cb90 | 944 | CZSealBody::SetVertical | seal_anim.cpp | DEFECT-FIXED | C | 0x26cd18: the root-relative height is root.y + (dy + pos.y) - 11.487; the port summed (root.y + dy) + pos.y. Rest matches (UseVelY off: used bit 0, skeleton fix, new altitude bit, lift and saved pos, SetPosition at the altitude; hang-jump-down tfrac > 0.2 / stand2ladder flag 0x20 -> altitude; ladder slide -descent dT else velM.y dT; used / climb-off paths; falls set the altitude; root pinned 0x4137cac0) |
+| 52 | 48 | 0x2b5820 | 944 | CTState::Tick | seal_tasks.cpp | MATCH | | select AI (slot 0x38), push critical; FOLLOW (9): named type-2 master, offset +0x18, setup (NULL write kept); RUSH (29): time, flag 1 / 2 by time / range (squared), flags |= +0xc, named seal else the AI's living target (type 2 or NULL), setup; dT 0, 1 |
+| 53 | 44 | 0x289480 | 920 | CZSealBody::CreateRemoteSeal | seal_create.cpp | MATCH | | new(592) CSealCtrl + CRemoteCtrl vtable + 0.001 / 2 (inline ctor), GetByNameMod, units 17 / 28 as is, else "netchar%d" Create + temporary (not NULL-tested) + UnPack; PreCreateSeal, new body, CreateEntity, PostCreateSeal, player camera_effects (never for remote), id / client / PostSetupItems / joined bit / vehicle / display name. Lead: the port's sizeof(CRemoteCtrl) is 0x248 + padding (ELF 592; no CRemoteCtrl code reads past +0x244) |
+| 54 | 1 | 0x2592f0 | 904 | CAiSRescued::Tick | seal_ai.cpp | DEFECT-FIXED | C | 0x2595f0: the pushed SUSPENDED state is written through NULL when the push landed below the top, as the ELF; the port guarded it. Rest matches (table 0x451210: 0 join unit 17 (not NULL-tested), 1 option bit 0 -> 3, 2 fade by 0.75 dT clamped (constants 0 / 1), SetActive slot 0x34, 3 valve >= 2, 4 3 s + ClearRoute inline + region location route, 5 path done + timer -> valve 3 with callbacks, 6 push SUSPENDED options | 0xe) |
+| 55 | 11 | 0x261740 | 892 | CSealCtrlAi::DoSetStance | seal_ai.cpp | MATCH | | delay 0, same stance ok, stand / crouch desired state 0 / 1, prone: visible living target without hold fire (valve 0) with y^2 / dist^2 over 0.07 or dist^2 < 62500, inside (bit 2 of +0xf5c), hurt non-SEAL; allowed by a grenade state or (top not FOLLOW and restrained stacked) (non-const GetAiState is never NULL: same); denied -> crouch + Debug, else desired 2 + Debug; goal / stance / delay; other stances 0 |
+| 56 | 37 | 0x2852e0 | 880 | CSealCtrl::TickPickups | seal_control.cpp | MATCH | | ammo boxes (type 9, 20) once each (lastpickup), cleared when none; reticule / proximity weapon + secondary: timer counts down (twice with both), type 8 weapon id offered unless held (lb +0x60); network: bomb timer, MP bomb node GetClosestNode(row 3, -row 2, 1024, 20, 0, -1), proximity bomb (type 11, none offered, item 154) taken with 4 s |
+| 57 | 10 | 0x261090 | 872 | CSealCtrlAi::SetRoute | seal_ai.cpp | MATCH | | invalid goal -> ClearRoute inline, 0; own cell (+0xe4) -> ClearRoute inline, ok; else map / bounds / scanline cell walkable + RegisterPathPlan; ok: path mode, bias then type, type bias when set, search limit 0, tolerance 0, last loc |
+| 58 | 66 | 0x2d31d0 | 872 | CSealUnit::SetFormation | seal_unit.cpp | MATCH | | source, statics 25 / -25 / 1.5 / 1, offset, seals but the source (FOLLOW, x stepped out by sign, z + Zoff), escortees once after the first seal (x - Xoff, z - Zoff (1 - E), back + Xoff / + Zoff, x restored), sub-units after the first member (z + Zoff U, x by sign Xoff U / -Xoff U, slot 0x8), offset written back, source |
+| 59 | 40 | 0x286f70 | 868 | OKToPeek | seal_control.cpp | MATCH | | states 0-3, top blend, interruptible unless 3, airborne bit, throwing, blend states 4 / 5 / 7; head part y + 1 at the axis, side +-dist (LEFT -1 / RIGHT 1), both transformed (VU0 inline = Transform), node inactive, camera collide flag, GetIntersect, active restored, ok when no hit or camera type 1 (bits 2-3 of poly +0x1a), flag cleared |
+| 60 | 65 | 0x2d2bd0 | 868 | CSealUnit::HandleSupport | seal_unit.cpp | DEFECT-FIXED | C | two port NULL guards the ELF lacks removed: unit 17 (0x2d2d5c, read through NULL when missing; both unit setups create it) and the rescued top state (0x2d2e8c; dead: AiStateIs tests the top). Rest matches (BOMB team_airsupport, EXTRACT hostage_rescue valve (temp), extraction region (type 1) at the source's cell, rescued escortees inside get the valve, escortee_extract ActivateArg(1, 4, valve, 0) else Activate; v0 0 recorded) |
+| 61 | 70 | 0x2d57f0 | 848 | CSealUnit::Notify | seal_unit.cpp | MATCH | | 1 / 2 private; 0 / 3: grandparent (or this) is the list front -> its sub-units' DistributeNotify + PrivateNotify, else this unit's; others nothing |
+| 62 | 18 | 0x268530 | 840 | CSealCtrlAi::PostTick | seal_ai.cpp | DEFECT-FIXED | C | 0x268808: the RESCUED state after SetAiState is written through NULL when not on top, as the ELF; the port guarded it (dead: SetAiState leaves it on top). Rest matches (SensorTick unless SURRENDER, stuck timer (moved^2 (x, y, z) < 0.6 (speed x terrain x dT)^2), delayed stance, peek timer -> desired peek / goal 2, escortee in FOLLOW inside a type-1 region -> RESCUED with region and master id) |
+| 63 | 27 | 0x2e1510 | 840 | CSealCtrlAi::HandleFollowTickHideCheck | seal_aifollow.cpp | MATCH | | snakeStateData[handle * 6 + 4] hide flag, not hiding 0, arrived 1; front seal / Hutchins (1): goal^2 <= 4200 (1600 for Hutchins) or master^2 <= saved -> stay, else mode 0 + hold-up cleared; others: timer -1 without hold-up -> mode 0, else -2 -> -1, -3 -> -2, -4 -> -3 |
+| 64 | 6 | 0x25e360 | 820 | CSealCtrlAi::ComputeThrowFireParams | seal_ai.cpp | MATCH | | hand (5, 10, 0) transformed, target (extrapolated 1.5 s with flag 2), level dir / dist, look dir, reach (+0x19c) test, apex 10 (+ dy when up), sqrt(196 h), quadratic -49 max root, vx nominal 100 (flag 1) or dist / t, throw vec, power max(abort, dist / reach) via _max(&low, &power), aim -z, stance 0, flags 0x7080000 |
+| 65 | 49 | 0x2b64b0 | 812 | CTSound::Tick | seal_tasks.cpp | MATCH | | pending bit, entity name, rand pick 1..count, names < pick -> done without clearing pending, named seal (type 2) else select, AI awareness <= m_aware (bits 3-6), sitrep +0x20 = 2, broadcast slot 0xc (0, id) else slot 0x14 (pos, 1, 0, 0, id), pending cleared, wait -> IsPlaying |
+| 66 | 21 | 0x26a290 | 796 | CSealCtrlAi::OnWeaponEvent | seal_ai.cpp | MATCH | | awake + alive, shooter of another team, DistToVector of the frame segment, player's shot within 70 -> the player's HELPATTACK (12, 0.5, 1500, id), within thip_range: shot-at valve 2, underfire += delta (1 - d / thip), pos, shooter, SetAiAware(DIRECTION) inline (goal floor, POINT event below SPECIFIC, value max - 0.001 via SetAiAware(f, 1)); helpattack_range unread |
+| 67 | 71 | 0x2d5c90 | 792 | CSealUnit::PrivateNotify | seal_unit.cpp | DEFECT-FIXED | C | 0x2d5d10: the ambush is called off with IssueCommand(NULL, FIREATWILL, NULL, quiet = 1) (t0 still 1 from the case test); the port passed 0 (only CommandNotifyFromChild differs, a no-op for FIREATWILL). Rest matches (0: members that know the entity mark it, AI without a live target take it (slot 0xa0); the caller holding fire points (leader data +0x20 for index 0, follower +0xc), 10 s, pointer-difference dir quirk, 2 ticks; 1 member died; 2 issue follow; 3 sub-units notified) |
+| 68 | 31 | 0x26cf40 | 776 | CZSealBody::ConfigureWeaponAnim | seal_anim.cpp | MATCH | | rifle (item 1) / pistol (2) part; anim object for the held part -> parts[held] = held, parts[weapon] = 0; else object for the weapon part -> parts[held] = 0, parts[weapon] = held; bounds as the ELF |
+| 69 | 7 | 0x25e7b0 | 764 | CSealCtrlAi::ComputeProjectileFireParams | seal_ai.cpp | MATCH | | LeadTargetG with flag 2 (pos, velW, muzzle), dir / dist; direct: aim point, look, aim -z, 0x600000; arced (0x20000): reach v^2 / g (g the float 98 in an int static), y = (0 (1 - r) + 0.707 r) + dir.y saturated 0..sin(50 deg), aim (0, y, -sqrt(1 - y^2)), look, 0x1480000; item 152: clear 0x400000 + 0x1000000, else 0x800000 |
+| 70 | 32 | 0x26d250 | 764 | CSealAnim::AnimOverlay | seal_anim.cpp | MATCH | | top / below frames, wt < 0 -> top's weight, f = wt / ((1 - wt) + wt), ids copied (the below -1 test reads the id just stored: quirk), keep-0 positions (rest 0: copy; wt 0: keep; else rest b + wt t), rotations (below -1 or f >= 0.999: copy; f > 0.001: Slerp with min(f, 1)), depth - 1 |
+| 71 | 28 | 0x2e18b0 | 740 | CZSealBody::UpdateFollowParams | seal_aifollow.cpp | MATCH | | once a frame, follower distance next -> current, SetSnakePathUpdate(1, 75), level velocity / forward, velsquared, > 800: cant, dot > 0.82 counts the clock (fptosi 1000 dT) past 2000 -> formation dir = saved = velocity, else clock 0; not steady: saved or forward; statics shuffled (quirk), look dir, flags |
+| 72 | 53 | 0x2b93d0 | 712 | CTParam::Parse | seal_tasks.cpp | MATCH | | count >= 3, name, operator, value (real / int / 0), entity (4 values: the 5th; more: "entity"), get_param after, size rounded + 20, param / op halfwords, value, entity, select 0 + "ai" |
+| 73 | 55 | 0x2badf0 | 700 | CTLookAt::Tick | seal_tasks.cpp | DEFECT-FIXED | B | 0x2bae74: the ELF tests the seal and its controller and drops GetSealCtrlAi's result, so a seal without an AI (the player) also looks; the port returned done without an AI. Rest matches (modes 1 pos / 2 entity (unknownId: by name, else "player" = entity 0, id cached; else by id) / 4 dir / 3 none, look 5, rate + flags 1 when set, endless: timer 3 s + done, else countdown, expiry clears all looks) |

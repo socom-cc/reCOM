@@ -1537,9 +1537,10 @@ bool CTLookAt::Tick(_zanim_cmd_hdr* header, f32* dT)
 	TASK_LOOKAT *task = reinterpret_cast<TASK_LOOKAT *>(header);
 	CZSealBody *seal = taskSeal(task->m_seal_index);
 	CSealCtrl *ctrl = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control) : NULL;
-	CSealCtrlAi *ai = ctrl != NULL ? ctrl->GetSealCtrlAi() : NULL;
 
-	if (seal == NULL || ai == NULL)
+	/* 0x2bae74: the seal and its controller are tested, not the AI (the ELF calls
+	 * GetSealCtrlAi and drops the result): a seal without an AI looks too */
+	if (seal == NULL || ctrl == NULL)
 	{
 		*dT = 0.0f;
 		return true;
@@ -3636,7 +3637,7 @@ _zanim_cmd_hdr* CTValve::Parse(_zrdr* reader)
 		if (index != -1)
 			cmd.m_value = (u32)index;
 		else
-			cmd.m_value = valve != NULL ? (u32)ZAnim.m_CurAnim->AddValve(valve->m_name) : 0; /* port: NULL test */
+			cmd.m_value = (u32)ZAnim.m_CurAnim->AddValve(valve->m_name); /* ELF: not NULL-tested (0x2b48dc; ParseValveName creates a named valve) */
 
 		cmd.m_flags = (u8)((cmd.m_flags & ~0x1c) | (index != -1 ? 0x4 : 0) | 0x8 | 0x10);
 	}

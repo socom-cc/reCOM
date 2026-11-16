@@ -505,7 +505,7 @@ unsigned char CZSealBody::UpdateAimDir(bool)
 	{
 		bool level = true;
 
-		if (m_velM.z * m_velM.z + m_velM.x * m_velM.x + m_velM.y * m_velM.y == 0.0f)
+		if (m_velM.x * m_velM.x + m_velM.y * m_velM.y + m_velM.z * m_velM.z == 0.0f)
 		{
 			zdb::CCamera *camera = zdb::CWorld::m_world->m_camera;
 			CPnt3D look;
@@ -513,8 +513,9 @@ unsigned char CZSealBody::UpdateAimDir(bool)
 			look.y = camera->m_matrix.m_matrix[2][1];
 			look.z = camera->m_matrix.m_matrix[2][2];
 			look.Scale(-1.0f, &look);
-			f32 d = look.z * m_groundNormal.z + look.x * m_groundNormal.x + look.y * m_groundNormal.y;
-			level = !(d < -0.64200002f /* 0x3f245a1d */) && !(0.64200002f /* 0x3f245a1d */ < d);
+			/* 0x2bf640: (x x' + y y') + z z' as the ELF; level when -0.642 <= d <= 0.642 */
+			f32 d = look.x * m_groundNormal.x + look.y * m_groundNormal.y + look.z * m_groundNormal.z;
+			level = !(d < -0.64200002f /* 0xbf245a1d */) && d <= 0.64200002f /* 0x3f245a1d */;
 		}
 
 		if (!level)

@@ -655,7 +655,7 @@ void CSealUnit::PrivateNotify(CZSealBody *sender, UNIT_MESSAGE message, void *da
 		if (m_ambush)
 		{
 			m_ambush = 0;
-			IssueCommand(NULL, CMD_FIREATWILL, NULL, false);
+			IssueCommand(NULL, CMD_FIREATWILL, NULL, true); /* 0x2d5d10: t0 still 1 from the case test (quiet) */
 		}
 
 		for (std::list<CSealUnit*>::iterator i = m_sub_units.begin(); i != m_sub_units.end(); ++i)
@@ -1127,22 +1127,19 @@ void CSealUnit::HandleSupport(CZSealBody *source, FT_COMMAND cmd, void *, bool)
 			}
 		}
 
-		if (escortees != NULL) /* port: NULL-tested (ELF reads its seals through NULL) */
+		/* ELF: unit 17 is not NULL-tested (0x2d2d5c; both unit setups create it) */
+		for (std::list<CZSealBody *>::iterator i = escortees->m_seals.begin(); i != escortees->m_seals.end(); ++i)
 		{
-			for (std::list<CZSealBody *>::iterator i = escortees->m_seals.begin(); i != escortees->m_seals.end(); ++i)
-			{
-				CZSealBody *seal = *i;
-				CSealCtrlAi *ai = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi() : NULL;
+			CZSealBody *seal = *i;
+			CSealCtrlAi *ai = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi() : NULL;
 
-				if (ai == NULL || !ai->AiStateIs(STATE_RESCUED) || !area->Contains(seal->m_mapLocValid))
-					continue;
+			if (ai == NULL || !ai->AiStateIs(STATE_RESCUED) || !area->Contains(seal->m_mapLocValid))
+				continue;
 
-				CAiState *top = ai->GetAiState();
-				CAiSRescued *rescued = top->m_state == STATE_RESCUED ? static_cast<CAiSRescued *>(top) : NULL;
-
-				if (rescued != NULL) /* port: NULL-tested */
-					rescued->SetExtractValve(valve);
-			}
+			/* the top state, tested above (AiStateIs): not NULL-tested in the ELF either */
+			CAiState *top = ai->GetAiState();
+			CAiSRescued *rescued = top->m_state == STATE_RESCUED ? static_cast<CAiSRescued *>(top) : NULL;
+			rescued->SetExtractValve(valve);
 		}
 	}
 
