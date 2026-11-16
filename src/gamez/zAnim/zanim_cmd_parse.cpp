@@ -701,7 +701,7 @@ _zanim_cmd_hdr * zAnimLoadParticleSource(_zrdr *reader)
 
 	if (tag != NULL)
 	{
-		const char *model = NULL;
+		const char *model = NULL; /* port: NULL (unset in the ELF when MODEL has no NAME) */
 		cmd->flags |= 0x80000000;
 		zrdr_findSTRING(tag, "NAME", &model);
 		zdb::CWorld::GetModel(model); /* ELF: the result is not used */
