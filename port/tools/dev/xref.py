@@ -16,7 +16,8 @@ for s in secs:
 funcs.sort()
 starts = [f[0] for f in funcs]
 text = secs[4]
-base, off, size = text[3], text[4], 0x2f0000
+base, off = text[3], text[4]
+size = max(f[0] + f[1] for f in funcs) - base   # every function (was a fixed 0x2f0000: missed callers above 0x3f0000)
 for a in sys.argv[1:]:
     t = int(a, 16)
     want = 0x0c000000 | ((t >> 2) & 0x3ffffff)

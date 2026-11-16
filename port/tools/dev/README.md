@@ -103,6 +103,24 @@ Port source status (`src/` skeleton fences):
 - `auditlist.py [--band large|medium|small] [--modules RE] [--split N] [--out NAME] [--summary]` -
   lists of fenced functions still to judge for the correctness audit (`docs/port/AUDIT_PLAN.md`);
   writes `build/port/audit/<NAME>.md`.
+- `auditpack.py <list> [--rows 1,3-5]` - one ready-to-read packet per function of an audit list
+  (`build/port/audit/packets/<list>/<row>-<address>.md` + `INDEX.md`): the z.sh disassembly with
+  calls demangled, float words decoded, string pointers and jump tables resolved, the receiver's and
+  class arguments' DWARF members named; the fence's source with line numbers; the members and callee
+  declarations it uses; ELF callers; lines of `docs/port/notes/*.md` naming it. Over 3,000 bytes the
+  disassembly is in `.part<k>.md` files cut at labels. Needs `<scratch>/ref.dis` (`refdis.sh`).
+- `fpbuild.sh <commit> <name>` - "fingerprint" build of a commit for auditscan (`-O2 -g`, inlining,
+  IPA cloning, tail merging and devirtualisation off): `<scratch>/fp/<name>.{elf,dis,syms,commit}`.
+- `auditscan.py [--build NAME] --list <list> | --all | --fn 0xADDR` - compares each fenced function
+  with the ELF on compiler-independent features (calls by readable name, flattened where one side
+  inlined; float words, one-ulp pairs; integer and compare constants; strings; member offsets
+  loaded / stored and their width; globals stored / read; float operation counts; indirect calls)
+  and writes `build/port/audit/scan-<list>.md` (ranked, differences in words) or `scan-all.md`.
+  What a score means is measured in `build/port/audit/SCAN_VALIDATION.md` (`auditval.py --collect`
+  / `--report`, on the verdicts of `docs/port/notes/audit-*.md`): it orders, it cannot see guards,
+  float operation order or call arguments, and in functions of 700 bytes or more nothing scores 0.
+- `auditlib.py` - the readers both share (ELF, objdump text, names, fences, features, verdict rows).
+- `refdis.sh` - copies the cached full reference disassembly to `<scratch>/ref.dis`.
 - `incpath.py <from-header> <to-suffix>` - include chains between headers.
 
 Edits (on your own files or the isolated tree; keep each file's line endings):
