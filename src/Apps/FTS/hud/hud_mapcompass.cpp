@@ -369,10 +369,8 @@ void MapCompass::Tick(CZSealBody *seal)
 		anchor->m_posW.Sub(reinterpret_cast<const CPnt3D*>(node->m_matrix.m_matrix[3]), &d);
 		d.y = 0.0f;
 
-		/* port: CPnt3D::Normalize() is void in the port; the ELF uses its result (the
-		 * length before normalising) */
-		f32 dist = sqrtf(d.z * d.z + d.x * d.x + d.y * d.y);
-		d.Normalize();
+		/* the ELF uses Normalize's result (the length before normalising) */
+		f32 dist = d.Normalize();
 
 		if (type != 6 && type != 7 && type != 8 && type != 2 && type != 3 && dist_reject < dist)
 		{
@@ -407,8 +405,10 @@ void MapCompass::Tick(CZSealBody *seal)
 		if (near < 1.0f)
 		{
 			scalar_def = 0.800000012f /* 0x3f4ccccd */;
-			p.y = p.y - cosine * anchor_dist_scalar_inside * near;
-			p.x = p.x + sine * anchor_dist_scalar_inside * near;
+			/* block 0x3cb840: the ELF forms inside x near once, then sine x it and cosine x it */
+			f32 offset = anchor_dist_scalar_inside * near;
+			p.x = p.x + sine * offset;
+			p.y = p.y - cosine * offset;
 			icon->SetCenterPos(p, w * 0.800000012f /* 0x3f4ccccd */, h * 0.800000012f /* 0x3f4ccccd */);
 			icon->SetTrans(icon->GetTrans() * ((1.0f - near) + base_trans));
 			arrow->Off();

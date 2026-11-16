@@ -67,7 +67,8 @@ void CLensFlareSaturate::LoadRdr(const char *name)
 	CRdrFile *rdr = zrdr_read(name, NULL, 0);
 	const char *str;
 
-	/* port deviation: the ELF goes on to its lens_flare search with a NULL reader */
+	/* the ELF goes on to its lens_flare search with the NULL reader, which zrdr_findtag
+	 * (0x23dca0) answers with NULL, and frees nothing: the same as returning here */
 	if (rdr == NULL)
 	{
 #ifdef SOCOM_PORT
