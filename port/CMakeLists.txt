@@ -68,6 +68,19 @@ set(SOCOM_PORT_FLAGS
   # followed by a trap or a break): dividing by zero leaves garbage in HI / LO and execution
   # goes on. GCC for MIPS adds "teq divisor, zero" after every division by default.
   -mno-check-zero-division
+  # Four more assumptions GCC's optimiser makes that Metrowerks' never did; the game's code was
+  # written for, and its bodies here are reconstructed from, a compiler without them:
+  # - it reads one object through pointers of another type (float bits through an int pointer,
+  #   records through command headers); Metrowerks has no type-based alias analysis;
+  -fno-strict-aliasing
+  # - signed arithmetic is the machine's addu / subu / mult and wraps;
+  -fwrapv
+  # - memory keeps what was stored in it before a constructor runs and after a destructor has
+  #   (operator new overloads that fill the block, members read after a destructor);
+  -fno-lifetime-dse
+  # - a loop runs as many times as its test says, even when that reads past the end of an
+  #   array (the ELF's unbounded indexes are kept as quirks).
+  -fno-aggressive-loop-optimizations
   -include "${CMAKE_CURRENT_SOURCE_DIR}/include/socom_port_prefix.h")
 
 # VU microcode (src/**/*.vsm, e.g. zRender/zrndr_vu1.vsm): assembled with the ps2dev dvp-as and
