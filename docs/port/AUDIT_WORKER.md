@@ -19,6 +19,45 @@ an audit list. Your prompt names the list, your scratch folder and the files you
   of float operations, or call arguments. A function with no reported difference still gets the
   full comparison.
 
+## Known noise in the scan, and gaps in the packets
+
+Learned from the lists already done. None of the scan items below is a defect by itself:
+
+- The comparison build has inlining off, so a call to a small inline function the ELF inlined
+  shows as "ELF never, port N times"; a port helper called in a loop where the ELF repeats the
+  code inline shows as a call-count difference.
+- GCC puts the vtable pointer first where the ELF's layout differs, which shows as offset
+  differences; port layouts that differ from DWARF but are self-consistent do the same.
+- Strings the linker merged as suffixes, and path strings of the comparison tree, show as
+  missing or port-only.
+
+What a packet may lack, and where to get it:
+
+- It may show only a helper that sits above the function instead of the function's own body:
+  read the body from the source file.
+- Bodies of same-file and inlined helpers, and of callees whose exact compare form matters
+  (`_max`, `_saturate`): the source, or the reference disassembly.
+- Enum values, bitfield positions, layouts: the headers; vtable slots: `vt.py`.
+- The text of very short strings and raw data words: `sym.py`, `od.sh`.
+- The compacted disassembly drops nops and can drop the label of a branch target that follows an
+  unconditional branch: run `dis.sh` on the range when a target or a call looks missing (a cached
+  copy of the whole reference disassembly may be at `build/port/boot-auditkit/ref.dis`).
+- "Members touched" labels can be wrong: trust the offsets, not the names.
+
+Working habits that cost other workers time:
+
+- From PowerShell, dot-source the user-local environment file your prompt names before every
+  `wsl.ps1` call, and pass a flag separator as a quoted `'--'`.
+- Do not rejoin lines with `fixnl.py` and do not run `sed -i` from Git Bash on a CRLF file (it
+  turns the file to LF): check with `git ls-files --eol` and read your final `git diff`.
+- When you redirect a script's output to a file, do not give it the name of one of the
+  emulator's own logs (`gate-<check>.log`, `<run>.log`).
+- Float compares are written as the ELF has them, including a form that differs only for a NaN
+  (a `>` where the ELF tests not-less-or-equal): grade those C.
+- For functions under about 700 bytes, work file by file within the scan's rank order: take the
+  highest-ranked function, then judge the rest of that file's functions while its helpers,
+  layouts and enums are in your head, and write that file's rows in one go.
+
 ## What you do
 
 1. Work in the scan's rank order, highest score first, so the likeliest defects are judged
