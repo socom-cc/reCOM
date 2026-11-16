@@ -136,7 +136,8 @@ bool DMERegister()
 	NetMessageField(chat, chat + 1, 1, 32);
 	NetRegisterApplicationMessage(&PacketTypeChatText, ChatPacketHandler);
 
-	NetRegisterMessageStart();
+	/* ELF quirk kept: no NetRegisterMessageStart before the weapon pickup packet's fields
+	   (0x201c38 registers the chat packet, 0x201c4c is the next NetMessageField) */
 	NetMessageField(weapon, weapon, 2, 1);
 	NetMessageField(weapon, weapon + 2, 2, 1);
 	NetMessageField(weapon, weapon + 4, 4, 1);

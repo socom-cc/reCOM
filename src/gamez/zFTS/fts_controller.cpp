@@ -218,7 +218,7 @@ void CCtrlrConfigs::Init()
 	CRdrFile *file = zrdr_read("controller.rdr", "data/common", 0);
 	_zrdr *configs = zrdr_findtag(file, "ControllerConfigs");
 
-	for (u32 i = 0; configs != NULL && i < (configs->IsArray() ? (u32)configs->array->integer - 1 : 0u); i++)
+	for (s32 i = 0; configs != NULL && i < (configs->IsArray() ? configs->array->integer - 1 : 0); i++) /* 0x20a084 slt */
 	{
 		_zrdr *entry = configs->Get(i);
 		CtrlrConfig *config = NewConfig(zrdr_findstring(entry, "Name"));

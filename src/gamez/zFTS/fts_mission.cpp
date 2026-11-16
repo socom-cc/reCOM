@@ -907,7 +907,8 @@ void CMission::PreOpen(const char* db)
 	const char* postfix = NULL;
 	zrdr_findSTRING(mission, "WEAPON_MODEL_POSTFIX", &postfix);
 
-	if (postfix == NULL)
+	if (postfix == NULL) /* port: the ELF tests findSTRING's answer (0x1f8a6c), which is true with
+		 * a NULL string for a value 0: it would strncpy from address 0; kept on the pointer */
 		postfix = empty;
 
 	strncpy(m_weaponmodelpostfix, postfix, 30);
@@ -1113,7 +1114,7 @@ void CMission::Open(const char *db, int ai)
 
 	m_chars_loaded = true;
 	CZSealBody::InitDatabaseHandles();
-	u32 entities = (u32)CEntity::m_list.size(); /* port: guess - the ELF passes the first word of CEntity::m_list (0x4bc420), taken here as its count */
+	u32 entities = (u32)CEntity::m_list.size(); /* the ELF passes the first word of CEntity::m_list (0x4bc420): the MSL list's size (CreateEntity 0x1ef670 sets m_index from it) */
 	CAiEvent::Open(entities);
 
 	if (!theNetwork.m_bNetwork)
@@ -2214,20 +2215,28 @@ void aiMapPlaceItem(zdb::CNode *node, const CPnt3D &pos, int axis, const CPnt3D 
 		mat.SetRotate(rot);
 
 	const CBBox* box = node->GetBBox();
+	/* the corners in the ELF's order (0x1f5830-0x1f5958): (x, y, z) = (min, min, max),
+	 * (min, min, min), (max, min, min), (max, min, max), then the same four with max y */
+	const f32 cx[8] = { box->m_min.x, box->m_min.x, box->m_max.x, box->m_max.x, box->m_min.x, box->m_min.x, box->m_max.x, box->m_max.x };
+	const f32 cy[8] = { box->m_min.y, box->m_min.y, box->m_min.y, box->m_min.y, box->m_max.y, box->m_max.y, box->m_max.y, box->m_max.y };
+	const f32 cz[8] = { box->m_max.z, box->m_min.z, box->m_min.z, box->m_max.z, box->m_max.z, box->m_min.z, box->m_min.z, box->m_max.z };
 	CPnt3D corners[8];
 
 	for (s32 i = 0; i < 8; i++)
 	{
-		corners[i].x = (i & 1) ? box->m_max.x : box->m_min.x;
-		corners[i].y = (i & 2) ? box->m_max.y : box->m_min.y;
-		corners[i].z = (i & 4) ? box->m_max.z : box->m_min.z;
+		corners[i].x = cx[i];
+		corners[i].y = cy[i];
+		corners[i].z = cz[i];
 	}
 
 	mat.Transform(corners, 8);
 	f32 lowest = (&corners[0].x)[axis];
 
-	for (s32 i = 1; i < 8; i++)
-		lowest = std::min((&corners[i].x)[axis], lowest);
+	for (s32 i = 1; i < 8; i++) /* ai::_min<f> (0x1fac10): c.le corner, lowest */
+	{
+		f32 corner = (&corners[i].x)[axis];
+		lowest = corner <= lowest ? corner : lowest;
+	}
 
 	p.y -= lowest;
 
@@ -2324,7 +2333,9 @@ void ftsFixupAiMap(CAiMap *map)
 				if (entry == NULL || !entry->IsArray())
 					continue;
 
-				/* ELF: the first two fields are read without a length test */
+				/* ELF: the first two fields are read without a length test (0x1f4ef4, 0x1f4f44: a
+				 * short entry reads its type byte at address 0); port: kept tested rather than
+				 * read low memory as a node (no data on the disc has a short entry) */
 				_zrdr* ammo_name = entry->Get(0);
 				_zrdr* ammo_count = entry->Get(1);
 				_zrdr* weapon_name = entry->Get(2);
@@ -2513,55 +2524,74 @@ void CMission::OnMissionStart()
 /* @socom-skeleton body Initialize__9CZNetGameFv */
 bool CZNetGame::Initialize()
 {
-    CRdrEditor rdr;
-    
-    m_pTimerValve = NULL;
-    m_pTimerAnim = NULL;
-    m_mp_major_game_state = MP_MAJOR_GAME_STATE::MP_MAJOR_UNKNOWN;
-    m_mp_minor_game_state = MP_MINOR_GAME_STATE::MP_MINOR_UNKNOWN;
-    m_my_major_game_state = MP_MAJOR_GAME_STATE::MP_MAJOR_UNKNOWN;
-    m_mpe3_round_count = 0;
-    m_net_ready_count = 0;
-    m_countdown = 0;
-    m_net_team = 0;
-    m_last_penalty = 0;
-    m_gate_clock = 0;
-    m_game_object_index = -1;
-    m_net_start_flag = MP_NET_READY::NET_READY_UNKNOWN;
-    m_bomb_clock_started = false;
-    m_persona_created = false;
-    m_bomb_created = false;
-    m_ready_to_play = false;
-    m_ten_second_launch = false;
-    m_use_bomb_pos = false;
-    m_ghost_ok = false;
-    m_pos_smooth = 50.0f;
-    m_bdown = false;
+	/* 0x1f4090: the net game's state cleared (start flag NET_READY_WAITING), the four list
+	 * UI vars, the chat list set to an empty array, and the net game valves, most set to 0
+	 * (inline CValve::Set: callbacks on a change), mp_bomb to 1. (was: start flag UNKNOWN,
+	 * m_was_late_joiner cleared, no mp_minor_game_state / mp_x_sec_clock / mp_prog_timer1
+	 * valves, no Set calls, "round_count" for mp_round_count, the chat list a bare reader) */
+	m_pTimerValve = NULL;
+	m_pTimerAnim = NULL;
+	m_mp_major_game_state = MP_MAJOR_GAME_STATE::MP_MAJOR_UNKNOWN;
+	m_mp_minor_game_state = MP_MINOR_GAME_STATE::MP_MINOR_UNKNOWN;
+	m_my_major_game_state = MP_MAJOR_GAME_STATE::MP_MAJOR_UNKNOWN;
+	m_mpe3_round_count = 0;
+	m_net_ready_count = 0;
+	m_countdown = 0;
+	m_net_team = 0;
+	m_last_penalty = 0;
+	m_gate_clock = 0;
+	m_game_object_index = -1;
+	m_net_start_flag = MP_NET_READY::NET_READY_WAITING;
+	m_bomb_clock_started = false;
+	m_persona_created = false;
+	m_bomb_created = false;
+	m_ready_to_play = false;
+	m_ten_second_launch = false;
+	m_use_bomb_pos = false;
+	m_ghost_ok = false;
+	m_pos_smooth = 50.0f;
+	m_bdown = false;
 
-    m_uiv_SealList = theUIVarManager.Add("BSEALLISTVAR", NULL, UIVL_PERMANENT);
-    m_uiv_TerrList = theUIVarManager.Add("BTERRLISTVAR", NULL, UIVL_PERMANENT);
-    m_uiv_NoneList = theUIVarManager.Add("BNONELISTVAR", NULL, UIVL_PERMANENT);
-    m_uiv_ChatList = theUIVarManager.Add("BCHATLISTVAR", NULL, UIVL_PERMANENT);
+	m_uiv_SealList = theUIVarManager.Add("BSEALLISTVAR", NULL, UIVL_PERMANENT);
+	m_uiv_TerrList = theUIVarManager.Add("BTERRLISTVAR", NULL, UIVL_PERMANENT);
+	m_uiv_NoneList = theUIVarManager.Add("BNONELISTVAR", NULL, UIVL_PERMANENT);
+	m_uiv_ChatList = theUIVarManager.Add("BCHATLISTVAR", NULL, UIVL_PERMANENT);
 
-    m_uiv_ChatList->Set(&rdr);
+	CRdrEditor rdr;
+	rdr.push(NULL);
+	rdr.pop();
+	m_uiv_ChatList->Set(&rdr);
 
-    m_pMajorGameStateValve = CValve::Create("mp_major_game_state", 0, VALVE_TYPE::VTYPE_PERM);
+	m_pMajorGameStateValve = CValve::Create("mp_major_game_state", 0, VALVE_TYPE::VTYPE_PERM);
+	m_pMajorGameStateValve->Set(0);
+	m_pMinorGameStateValve = CValve::Create("mp_minor_game_state", 0, VALVE_TYPE::VTYPE_PERM);
+	m_pMinorGameStateValve->Set(0);
+	m_pJoinGameValve = CValve::Create("mp_join_game", VALVE_TYPE::VTYPE_PERM);
+	m_pPlayerTeamValve = CValve::Create("player_team", VALVE_TYPE::VTYPE_PERM);
+	m_pPlayerTeamValve->Set(0);
+	m_pLateJoinerValve = CValve::Create("late_joiner", VALVE_TYPE::VTYPE_PERM);
+	m_pLateJoinerValve->Set(0);
+	LateJoiner(false); /* inline: +0x94 and the valve again */
+	m_p45SecondClockValve = CValve::Create("mp_45_sec_clock", VALVE_TYPE::VTYPE_PERM);
+	m_p45SecondClockValve->Set(0);
+	m_pXSecondClockValve = CValve::Create("mp_x_sec_clock", VALVE_TYPE::VTYPE_PERM);
+	m_pMPProgTimer1Valve = CValve::Create("mp_prog_timer1", 30, VALVE_TYPE::VTYPE_PERM);
+	m_pPenaltyValve = CValve::Create("mp_penalty", VALVE_TYPE::VTYPE_PERM);
+	m_pPenaltyValve->Set(0);
+	m_pPlayerJoinCountValve = CValve::Create("player_join_count", VALVE_TYPE::VTYPE_PERM);
+	m_pPlayerJoinCountValve->Set(0);
+	m_pPlayerReadyCountValve = CValve::Create("player_ready_count", VALVE_TYPE::VTYPE_PERM);
+	m_pPlayerReadyCountValve->Set(0);
+	m_pMPPersistentValve = CValve::Create("mp_persistent", VALVE_TYPE::VTYPE_PERM);
+	m_pBombStatusValve = CValve::Create("mp_bomb", VALVE_TYPE::VTYPE_PERM);
+	m_pBombStatusValve->Set(1);
+	m_pGameOverValve = CValve::Create("mp_game_over", 0, VALVE_TYPE::VTYPE_PERM);
+	m_pGameOverValve->Set(0);
+	m_pBombOwnerValve = CValve::Create("bomb_owner", VALVE_TYPE::VTYPE_PERM);
+	m_pBombOwnerValve->Set(0);
+	m_pRoundCountValve = CValve::Create("mp_round_count", 0, VALVE_TYPE::VTYPE_PERM);
 
-    m_pJoinGameValve = CValve::Create("mp_join_game", VALVE_TYPE::VTYPE_PERM);
-    m_pPlayerTeamValve = CValve::Create("player_team", VALVE_TYPE::VTYPE_PERM);
-    m_pLateJoinerValve = CValve::Create("late_joiner", VALVE_TYPE::VTYPE_PERM);
-    m_was_late_joiner = false;
-    m_p45SecondClockValve = CValve::Create("mp_45_sec_clock", VALVE_TYPE::VTYPE_PERM);
-    m_pPenaltyValve = CValve::Create("mp_penalty", VALVE_TYPE::VTYPE_PERM);
-    m_pPlayerJoinCountValve = CValve::Create("player_join_count", VALVE_TYPE::VTYPE_PERM);
-    m_pPlayerReadyCountValve = CValve::Create("player_ready_count", VALVE_TYPE::VTYPE_PERM);
-    m_pMPPersistentValve = CValve::Create("mp_persistent", VALVE_TYPE::VTYPE_PERM);
-    m_pBombStatusValve = CValve::Create("mp_bomb", VALVE_TYPE::VTYPE_PERM);
-    m_pGameOverValve = CValve::Create("mp_game_over", 0, VALVE_TYPE::VTYPE_PERM);
-    m_pBombOwnerValve = CValve::Create("bomb_owner", VALVE_TYPE::VTYPE_PERM);
-    m_pRoundCountValve = CValve::Create("round_count", 0, VALVE_TYPE::VTYPE_PERM);
-
-    return true;
+	return true;
 }
 
 /* @socom-skeleton stub UnInitialize__9CZNetGameFv */

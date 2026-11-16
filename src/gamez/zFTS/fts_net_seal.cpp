@@ -458,7 +458,7 @@ void CZSealState::IncrementalUpdateRemoteSeal(int client, int index, int field)
 		control->SetAiNetState(state->AIState);
 		unsigned int ai = control->GetAiNetState();
 
-		if ((ai & 0x40000000) != 0 && body->m_health > 0.0f)
+		if ((ai & 0x40000000) != 0 && !(body->m_health <= 0.0f)) /* 0x205348 c.le.s, bc1t */
 		{
 			body->SetHealth(0.0f, (SEAL_DEATH_TYPE)0);
 			body->BodySetState(8);
