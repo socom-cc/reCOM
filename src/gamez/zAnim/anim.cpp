@@ -1339,6 +1339,7 @@ void InitializeAnimNames()
 	AnimTypes::ProneTurn = (short)FindAnimType("Prone turn");
 	AnimTypes::PistolProneTurn = (short)FindAnimType("Pistol prone turn");
 	AnimTypes::MovingRifle2Pistol = (short)FindAnimType("Moving rifle -> Pistol");
+	/* ELF quirk kept: the same string as MovingRifle2Pistol (0x456310) */
 	AnimTypes::MovingPistol2Rifle = (short)FindAnimType("Moving rifle -> Pistol");
 	AnimTypes::SwapRifle = (short)FindAnimType("Swap rifle");
 	AnimTypes::StepUp = (short)FindAnimType("Step up");
@@ -1383,6 +1384,7 @@ void InitializeAnimNames()
 	AnimTypes::Stabbed = (short)FindAnimType("Stabbed");
 	AnimTypes::CQB = (short)FindAnimType("CQB attack");
 	AnimTypes::PistolCQB = (short)FindAnimType("Pistol CQB attack");
+	/* ELF quirk kept: the same string as DeathStandHead01 (0x4565d0) */
 	AnimTypes::CQBVictimFallBackwards = (short)FindAnimType("Death stand head01");
 	AnimTypes::CQBVictimFallForwards = (short)FindAnimType("Death stand head03");
 	AnimTypes::ReceiveRestraints = (short)FindAnimType("Receive restraints");
