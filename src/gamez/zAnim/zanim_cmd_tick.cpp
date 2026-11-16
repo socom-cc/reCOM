@@ -2770,7 +2770,7 @@ void zAnimWaitBegin(_zanim_cmd_hdr *header)
 	if (cmd->flags & 0x20)
 	{
 		int base = (cmd->flags & 0x10) ? 2 : 1;
-		cmd->value[0] = cmd->value[base] + cmd->value[base + 1] * (f32)rand() * 4.656613e-10f;
+		cmd->value[0] = cmd->value[base] + cmd->value[base + 1] * ((f32)rand() * 4.656613e-10f);
 	}
 }
 

@@ -786,8 +786,6 @@ CPnt3D * zdb::CNode::GetRotation(CPnt3D *rotation) const
 /* @socom-skeleton body GetRadiusSq__Q23zdb5CNodeFv */
 float zdb::CNode::GetRadiusSq()
 	{
-		f32 radius = 0.0f;
-
 		f32 minX = m_bbox.m_min.x;
 		f32 minY = m_bbox.m_min.y;
 		f32 minZ = m_bbox.m_min.z;
@@ -800,6 +798,9 @@ float zdb::CNode::GetRadiusSq()
 		f32 min = minX * minX + minY * minY + minZ * minZ;
 		f32 max = maxX * maxX + maxY * maxY + maxZ * maxZ;
 
+		/* 0x226fe8..0x227000: the larger of the two (min kept unless min <= max) */
+		f32 radius = min;
+
 		if (min <= max)
 		{
 			radius = max;
@@ -811,8 +812,6 @@ float zdb::CNode::GetRadiusSq()
 /* @socom-skeleton body GetRadius__Q23zdb5CNodeFv */
 float zdb::CNode::GetRadius()
 	{
-		f32 radius = 0.0f;
-
 		f32 minX = m_bbox.m_min.x;
 		f32 minY = m_bbox.m_min.y;
 		f32 minZ = m_bbox.m_min.z;
@@ -825,13 +824,15 @@ float zdb::CNode::GetRadius()
 		f32 min = minX * minX + minY * minY + minZ * minZ;
 		f32 max = maxX * maxX + maxY * maxY + maxZ * maxZ;
 
+		/* 0x226f88..0x226fa4: sqrtf of the larger (min kept unless min <= max; tail call) */
+		f32 radius = min;
+
 		if (min <= max)
 		{
 			radius = max;
 		}
 
-		radius = sqrtf(min);
-		return radius;
+		return sqrtf(radius);
 	}
 
 /* @socom-skeleton stub Rendered__Q23zdb5CNodeFv */

@@ -1666,8 +1666,6 @@ public:
 	virtual bool IsPlayer() const { return true; } /* ELF 0x1e8850: li v0,1 */
 	virtual bool IsRemote() const { return false; } /* ELF 0x1fe1c0: move v0,zero */
 
-	bool CreateAiEvent(CAiEvent::EVENT event, f32 expiration, f32 radius, bool flag, CPnt3D* position, s32 dummy);
-
 	MENU_STATE GetMenuState();
 	void SetMenuState(MENU_STATE state);
 	

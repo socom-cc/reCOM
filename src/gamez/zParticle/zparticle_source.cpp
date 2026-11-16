@@ -490,20 +490,22 @@ void Particle::Source::Tick(float dT)
 
 				for (s32 n = 0; n < m_number; n++)
 				{
-					f32 lifespan = m_lifespanRange.m_min + (m_lifespanRange.m_max - m_lifespanRange.m_min) * (f32)rand() * 4.656613e-10f;
-					f32 start = Instance::ageFactor * (age + m_initialAgeRange.m_min + (m_initialAgeRange.m_max - m_initialAgeRange.m_min) * (f32)rand() * 4.656613e-10f);
+					/* 0x2399f8..0x239a58 and on: each draw is range * (rand * 2^-31) (the scale times
+					 * rand first), and base + (min + draw) */
+					f32 lifespan = m_lifespanRange.m_min +(m_lifespanRange.m_max - m_lifespanRange.m_min) * ((f32)rand() * 4.656613e-10f);
+					f32 start = Instance::ageFactor * (age + (m_initialAgeRange.m_min + (m_initialAgeRange.m_max - m_initialAgeRange.m_min) * ((f32)rand() * 4.656613e-10f)));
 
 					if (!(start < lifespan))
 						continue;
 
 					CPnt4D vel;
 					CPnt4D at;
-					vel.x = base.x + m_perturbVelocityX.m_min + (m_perturbVelocityX.m_max - m_perturbVelocityX.m_min) * (f32)rand() * 4.656613e-10f;
-					vel.y = base.y + m_perturbVelocityY.m_min + (m_perturbVelocityY.m_max - m_perturbVelocityY.m_min) * (f32)rand() * 4.656613e-10f;
-					vel.z = base.z + m_perturbVelocityZ.m_min + (m_perturbVelocityZ.m_max - m_perturbVelocityZ.m_min) * (f32)rand() * 4.656613e-10f;
-					at.x = m_oldPosW.x + m_perturbPositionX.m_min + (m_perturbPositionX.m_max - m_perturbPositionX.m_min) * (f32)rand() * 4.656613e-10f;
-					at.y = m_oldPosW.y + m_perturbPositionY.m_min + (m_perturbPositionY.m_max - m_perturbPositionY.m_min) * (f32)rand() * 4.656613e-10f;
-					f32 pz = m_perturbPositionZ.m_min + (m_perturbPositionZ.m_max - m_perturbPositionZ.m_min) * (f32)rand() * 4.656613e-10f;
+					vel.x = base.x + (m_perturbVelocityX.m_min + (m_perturbVelocityX.m_max - m_perturbVelocityX.m_min) * ((f32)rand() * 4.656613e-10f));
+					vel.y = base.y + (m_perturbVelocityY.m_min + (m_perturbVelocityY.m_max - m_perturbVelocityY.m_min) * ((f32)rand() * 4.656613e-10f));
+					vel.z = base.z + (m_perturbVelocityZ.m_min + (m_perturbVelocityZ.m_max - m_perturbVelocityZ.m_min) * ((f32)rand() * 4.656613e-10f));
+					at.x = m_oldPosW.x + (m_perturbPositionX.m_min + (m_perturbPositionX.m_max - m_perturbPositionX.m_min) * ((f32)rand() * 4.656613e-10f));
+					at.y = m_oldPosW.y + (m_perturbPositionY.m_min + (m_perturbPositionY.m_max - m_perturbPositionY.m_min) * ((f32)rand() * 4.656613e-10f));
+					f32 pz = m_perturbPositionZ.m_min + (m_perturbPositionZ.m_max - m_perturbPositionZ.m_min) * ((f32)rand() * 4.656613e-10f);
 					CPnt4D total;
 					total.x = moved.x + vel.x;
 					total.y = moved.y + vel.y;
@@ -520,10 +522,10 @@ void Particle::Source::Tick(float dT)
 					}
 
 					CPnt3D spin;
-					spin.x = m_rotationX.m_min + (m_rotationX.m_max - m_rotationX.m_min) * (f32)rand() * 4.656613e-10f;
-					spin.y = m_rotationY.m_min + (m_rotationY.m_max - m_rotationY.m_min) * (f32)rand() * 4.656613e-10f;
-					spin.z = m_rotationZ.m_min + (m_rotationZ.m_max - m_rotationZ.m_min) * (f32)rand() * 4.656613e-10f;
-					f32 radius = m_radiusRange.m_min + (m_radiusRange.m_max - m_radiusRange.m_min) * (f32)rand() * 4.656613e-10f;
+					spin.x = m_rotationX.m_min + (m_rotationX.m_max - m_rotationX.m_min) * ((f32)rand() * 4.656613e-10f);
+					spin.y = m_rotationY.m_min + (m_rotationY.m_max - m_rotationY.m_min) * ((f32)rand() * 4.656613e-10f);
+					spin.z = m_rotationZ.m_min + (m_rotationZ.m_max - m_rotationZ.m_min) * ((f32)rand() * 4.656613e-10f);
+					f32 radius = m_radiusRange.m_min + (m_radiusRange.m_max - m_radiusRange.m_min) * ((f32)rand() * 4.656613e-10f);
 					Instance* instance = Instance::m_instance_pool;
 
 					if (instance != NULL)

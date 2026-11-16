@@ -104,7 +104,53 @@ ELF's own instructions (R5900: every operation rounded toward zero) and reproduc
 The other three `__sinit_seal_env.cpp` calls (cos of 0x3f32b8c2, 0x461cab0b, 0x469ee800:
 `FLASHBANG_DOT` and `FALLBACK_DOT_MIN` / `MAX` of that unit) have no reader in the ELF.
 
-## Runs
+## Follow-up: the defects left above
+
+- `CNode::GetRadius` 0x226f50: `sqrtf` of the larger of the two corner squares (0x226f88..0x226fa4,
+  min kept unless min <= max, tail call to `sqrtf`); the port returned `sqrtf(min)`.
+- `CNode::GetRadiusSq` 0x226fb0: the larger of the two (0x226fe8..0x227000); the port returned 0
+  when min > max.
+- `CCamera::TestLandmarkFOG` 0x1e44c0, compared instruction by instruction: the first flag tests
+  bit 7 of +0x14f, which is `m_fog_alt_enabled` (DWARF bit 31; `CmdBeginParams` 0x1e62d4 writes
+  it from the command's altitude bit and `TestFOG` reads the same bit), not
+  `m_directional_fog_enabled` as the port had it, and is set when `pos.y - radius <
+  m_landmark_fog_top` (0x1e451c; the `li v0,1` at 0x1e4528 is the taken branch's delay slot);
+  the fog flag (bit 5, `m_fog_enabled`) is cleared when `radius + dist < m_fog_near`
+  (0x1e45a0..0x1e45b0); the result is `(below | (fogged & fogCheck)) != 0` (0x1e45d8..0x1e45e0);
+  fog off gives 0. The port never set its flag and ignored the distance. Caller:
+  `CPipe::RenderWorld` 0x244fc4..0x245000 calls it only for landmarks with the fog bit (bit 6 of
+  +0x5c), with `GetRadius()` as the radius, and stores the byte in `m_doFog` (+0x63f) before
+  `RenderNode(node, 0)`: the port's loop does the same.
+- `zseal.h`: the ELF has only `CreateAiEvent__9CSealCtrlFQ28CAiEvent5EVENTffbPC6CPnt3DUi` (and
+  `CZSealBody::CreateAiEvent()`); the undefined `(EVENT, f32, f32, bool, CPnt3D *, s32)` overload
+  is removed, so `OnWeaponEvent`'s call is no longer ambiguous.
+- Three-factor products (`prod3.py`): 166 products of three or more factors in 81 written,
+  unaudited functions, compared by grouping with the classes K (literal / constant) and V.
+  52 have only V factors (every grouping looks alike to the scan: counted, not compared); 70 match;
+  44 differ by class, of which 28 are the scan's noise (globals load like constants in the ELF;
+  doubling by 2 is exact; folded `1.0f / 2147483648.0f`; VU0) and 16 are real, all fixed:
+  - `Particle::Source::Tick` 0x2399f8..0x239c80: each draw is `range * (rand * 2^-31)` (the
+    scale times `rand` first) and the perturbed values are `base + (min + draw)`: lifespan,
+    initial age (`ageFactor * (age + (min + draw))`), velocity x / y / z, position x / y / z,
+    rotation x / y / z, radius (12 lines);
+  - `Particle::Instance::Instance` 0x236fe8, 0x237020: rotation and its acceleration draws (2);
+  - `zAnimWaitBegin` 0x1b9728: the random wait (1);
+  - `CZProjectile::HandleImpact` 0x318568..0x318574: `range + range * (pierce * 0.1)` (1).
+
+Evidence (traced m8 run tr1: test-only trace lines in the three functions, `state` hook and
+`render/pad_fire.txt` from HEAD, `-DSOCOM_HOOK_MISSIONS=1 -DSOCOM_HOOK_PLAY_AT=999999`, 215 s;
+cameras skipped by 105.5 s, 111 s in m8, no STOP, no exception):
+- `GetRadius`: 160,000 calls in m8, 133,408 return another value than before (e.g.
+  `min 25088662 max 29637280 -> 5444.01 (old 5008.86)`, `min 200 max 600 -> 24.49 (old 14.14)`);
+  22,344 calls had min > max. The radius feeds `TestFOG` for atoms and `InsideMidPlane` for cells.
+- `GetRadiusSq`: 2 calls (`GetLandmarkFarPlane`), min <= max in both: same values.
+- `TestLandmarkFOG`: 6,000 calls; m8 has fog and altitude fog on (top 6000, near 1 / 200) and
+  both landmarks below the top, so every call returns 1 as before (0 differences).
+- Before / after (bf1: HEAD 35819eb1 without these changes, same hook, pad and times): the m8
+  view at 210 s is the same picture (939 pixels differ, falling snow) and the renderer's counts
+  match (nodes 319, render 132, visuals 71, alpha 36): the larger radii change no culling or fog
+  decision in this view. No landmark-fog change is visible in m8 (no result changed).
+- def2: the default build boots to the main menu; no exception.
 
 Isolated tree (HEAD plus the eight files), second monitor, focus kept, no memory card.
 - def1: the default build boots to the main menu (dlgMenu at 24 s, the attract screen and back

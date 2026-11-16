@@ -932,7 +932,7 @@ bool CZProjectile::HandleImpact(zdb::IntersectStruct *hit, float, float dist, CP
 		anim->ActivateArg(1, 5, pos, 0);
 
 	f32 range = m_currange;
-	f32 reach = (range + range * m_ammo->GetArmorPierce() * 0.100000002f /* 0x3dcccccd */) * penetration;
+	f32 reach = (range + range * (m_ammo->GetArmorPierce() * 0.100000002f /* 0x3dcccccd */)) * penetration;
 
 	if (reach < range)
 		m_currange = reach;

@@ -385,9 +385,9 @@ Particle::Instance::Instance(const CPnt4D &pos, const CPnt4D &vel, const CPnt3D 
 	if (m_source->m_drawType == PARTICLE_ROTATED)
 	{
 		f32 base = m_source->m_minRot;
-		m_prev.y = base + (m_source->m_maxRot - base) * (f32)rand() * 4.656613e-10f;
+		m_prev.y = base + (m_source->m_maxRot - base) * ((f32)rand() * 4.656613e-10f);
 		base = m_source->m_minRotAcc;
-		m_prev.z = base + (m_source->m_maxRotAcc - base) * (f32)rand() * 4.656613e-10f;
+		m_prev.z = base + (m_source->m_maxRotAcc - base) * ((f32)rand() * 4.656613e-10f);
 	}
 	else if (m_source->m_drawType == PARTICLE_STREAKED)
 	{

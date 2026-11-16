@@ -1137,17 +1137,19 @@ unsigned char zdb::CCamera::TestFOG(const CPnt3D *worldPos, float radius)
 /* @socom-skeleton body TestLandmarkFOG__Q23zdb7CCameraFPC6CPnt3Df */
 unsigned char zdb::CCamera::TestLandmarkFOG(const CPnt3D *pos, float radius)
 	{
-		bool canSee = false;
+		/* 0x1e44c0: two flags. below (s1): the altitude fog is on (bit 7 of +0x14f,
+		 * m_fog_alt_enabled, as TestFOG and CmdBeginParams 0x1e62d4 use it) and the bottom of
+		 * the landmark is below m_landmark_fog_top (0x1e451c; the li v0,1 at 0x1e4528 is the
+		 * taken branch's delay slot). fogged (s0): m_fog_enabled, cleared when the near side of
+		 * the landmark is inside m_fog_near (0x1e45a0..0x1e45b0). Result: below || (fogged &&
+		 * fogCheck) (0x1e45d8..0x1e45e0). Fog off: 0. */
+		bool below = false;
+		bool fogged = m_fog_enabled;
 
-		if (m_fog_enabled)
+		if (fogged)
 		{
-			canSee = false;
-
-			if (m_directional_fog_enabled)
-			{
-				if (m_landmark_fog_top <= pos->y - radius)
-					canSee = false;
-			}
+			if (m_fog_alt_enabled && pos->y - radius < m_landmark_fog_top)
+				below = true;
 
 			CPnt3D& camPos = (CPnt3D&)(m_matrix(3, 0)); /* port: CMatrix has no operator[]; __cl__7CMatrixCFUiUi is emitted by this unit */
 			CPnt3D out;
@@ -1156,10 +1158,10 @@ unsigned char zdb::CCamera::TestLandmarkFOG(const CPnt3D *pos, float radius)
 			/* 0x1e4578..0x1e4594: the length of out (pos - camPos), (x x + y y) + z z */
 			f32 dist = sqrtf(out.x * out.x + out.y * out.y + out.z * out.z);
 			if (radius + dist < m_fog_near)
-				canSee = false;
+				fogged = false;
 		}
 
-		return canSee || (m_fog_enabled & fogCheck) != 0;
+		return (below | (fogged & fogCheck)) != 0;
 	}
 
 /* @socom-skeleton stub GetVuMtxSet__Q23zdb7CCameraFv */
