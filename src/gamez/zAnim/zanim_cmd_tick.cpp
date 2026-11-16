@@ -487,9 +487,7 @@ bool zAnimParticleSourceTick(_zanim_cmd_hdr *header, float *)
 	if (cmd->flags & 0x40000000)
 	{
 		source->m_hasbbox = true;
-
-		if (source->m_diNode != NULL) /* port: no box DI node (Source constructor) */
-			source->m_diNode->SetActive(source->m_hasbbox);
+		source->m_diNode->SetActive(source->m_hasbbox); /* 0x1bfa60: no NULL test (the constructor makes the node) */
 
 		source->m_props = source->m_props->Branch();
 		source->m_props->m_visualDensity = cmd->density;
@@ -1600,11 +1598,13 @@ void zAnimObjectMotionBegin(_zanim_cmd_hdr *header)
 	}
 }
 
-/* zAnimObjectMotionTick: the material entry for a contact (inline loop in the ELF) */
-static _zanim_motion_material* motion_material(_zanim_cmd_motion* cmd, zdb::IntersectStruct* hit)
+/* zAnimObjectMotionTick: the material entry for a contact (inline loop in the ELF). ELF quirk
+ * kept: without a matching entry the register keeps the entry an earlier contact of the same
+ * kind found this frame (s7 ground 0x1bb854, s6 ray 0x1bbc30; cleared once before the loop) */
+static _zanim_motion_material* motion_material(_zanim_cmd_motion* cmd, zdb::IntersectStruct* hit, _zanim_motion_material* found)
 {
 	if (cmd->material_offset <= 0)
-		return NULL;
+		return found;
 
 	_zanim_motion_material* entry = reinterpret_cast<_zanim_motion_material*>(reinterpret_cast<u8*>(cmd) + cmd->material_offset);
 
@@ -1614,7 +1614,7 @@ static _zanim_motion_material* motion_material(_zanim_cmd_motion* cmd, zdb::Inte
 			return entry;
 	}
 
-	return NULL;
+	return found;
 }
 
 /* zAnimObjectMotionTick: the contact's material record, NULL for none (inline in the ELF) */
@@ -1750,7 +1750,7 @@ bool zAnimObjectMotionTick(_zanim_cmd_hdr *header, float *dT)
 						{
 							bounced = true;
 							impact_speed = sqrtf(velocity->x * velocity->x + velocity->y * velocity->y + velocity->z * velocity->z);
-							ground_entry = motion_material(cmd, ground);
+							ground_entry = motion_material(cmd, ground, ground_entry);
 							CPnt3D unit;
 							static_cast<const CPnt3D*>(velocity)->Normalize(&unit);
 							f32 facing = fabsf(unit.x * ground->m_norm.x + unit.y * ground->m_norm.y + unit.z * ground->m_norm.z);
@@ -1801,7 +1801,7 @@ bool zAnimObjectMotionTick(_zanim_cmd_hdr *header, float *dT)
 					{
 						f32 fall = cmd->velocity[1];
 						hit = true;
-						ray_entry = motion_material(cmd, isect);
+						ray_entry = motion_material(cmd, isect, ray_entry);
 
 						if (cmd->flags & 0x20)
 							impact_speed = sqrtf(velocity->x * velocity->x + velocity->y * velocity->y + velocity->z * velocity->z);
@@ -1872,7 +1872,7 @@ bool zAnimObjectMotionTick(_zanim_cmd_hdr *header, float *dT)
 				else if (cmd->impact_sound != 0)
 					sound = anim->GetSoundRef(cmd->impact_sound);
 
-				if (sound != NULL && sound->sound_handle != NULL) /* port: guard (the ELF calls through the handle) */
+				if (sound != NULL) /* GetSoundRef answers NULL for a ref without a handle */
 				{
 					f32 volume = 1.0f;
 					f32 full = (entry != NULL && entry->has_sound_speed) ? entry->sound_speed : cmd->sound_speed;

@@ -1052,10 +1052,10 @@ unsigned char UISwitchMenu(C2DAnimCmdHdr *cmd, float *)
 	char* name = ZAnim.m_CurAnim->GetName(cmd->m_argument_index);
 
 	if (name != NULL && strcmp(name, "INPUT_STRING") == 0)
-		name = ZAnim.m_CurAnim->m_arg_list ? ZAnim.m_CurAnim->m_arg_list->GetCharP(0) : NULL;
+		name = ZAnim.m_CurAnim->m_arg_list->GetCharP(0); /* 0x1d5668: no NULL test of the list */
 
 	if (name == NULL)
-		return true; /* port: the ELF strcmps NULL here */
+		return true; /* port: the ELF strcmps NULL here (reads EE address 0); undefined for GCC, so kept */
 
 	if (strcmp(name, "LOAD_SCREEN") == 0)
 	{

@@ -845,6 +845,9 @@ bool CZAnimMain::LoadZAR(const char *name, const char *setname)
 	if (archive == NULL)
 		return false;
 
+	/* the ELF inlines LoadZAR(archive) here (0x1bff94) without its open-file test (the archive
+	 * was just opened: always passes) and its Anim_Sets NULL test (0x1c043c): without that key
+	 * the inline copy walks a NULL key (EE address 0). Port deviation kept: undefined for GCC */
 	LoadZAR(archive, setname);
 	CloseZAR(archive);
 	return true;
