@@ -457,7 +457,8 @@ void Particle::Instance::Render(const CMatrix &view)
 		return;
 
 	f32 t = m_age * m_invLifespan;
-	f32 depth = view.m_matrix[3][2] + m_pos.z * view.m_matrix[2][2] + m_pos.x * view.m_matrix[0][2] + m_pos.y * view.m_matrix[1][2];
+	/* 0x236b00..0x236b1c: row 3 + ((x m02 + y m12) + z m22) */
+	f32 depth = view.m_matrix[3][2] + (m_pos.x * view.m_matrix[0][2] + m_pos.y * view.m_matrix[1][2] + m_pos.z * view.m_matrix[2][2]);
 	f32 size;
 
 	if (m_props == NULL)

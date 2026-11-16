@@ -126,7 +126,11 @@
 /* @socom-skeleton end forward */
 
 /* @socom-skeleton stub FLASHBANG_DOT */
-static const float FLASHBANG_DOT = cosf(0.8726646f); /* __sinit_seal_control.cpp 0x46c960: cos(50 deg) */
+/* cos(50 deg): __sinit_seal_control.cpp 0x46c960 stores cosf(0x3f5f66f3) (0x46c9a0), which the
+ * ELF's cosf (__ieee754_rem_pio2f 0x167b38 n = 1, then -__kernel_sinf 0x169f38, R5900 arithmetic
+ * rounding toward zero) makes 0x3f248dba; GCC folded cosf(0.8726646f) (an input one ulp low,
+ * 0x3f5f66f2) to 0x3f248dbb, so the ELF's word is written out */
+static const float FLASHBANG_DOT = 0.642787576f /* 0x3f248dba */;
 
 /* @socom-skeleton stub m_bobbing1stperson_enabled__9CSealCtrl */
 unsigned char CSealCtrl::m_bobbing1stperson_enabled = 1;

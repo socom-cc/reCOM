@@ -396,7 +396,8 @@ void CQuat::Div(const CQuat *other, CQuat *out) const
 {
 	/* 0x220eb0: this times the conjugate of other. The ELF writes w first and reads this
 	   again for x, y and z (out may be this: kept). */
-	out->w = w * other->w + vec.y * other->vec.y + vec.x * other->vec.x + vec.z * other->vec.z;
+	/* 0x220ecc..0x220ee0: ((w w' + x x') + y y') + z z' */
+	out->w = w * other->w + vec.x * other->vec.x + vec.y * other->vec.y + vec.z * other->vec.z;
 	out->vec.x = vec.x * other->w - w * other->vec.x - vec.y * other->vec.z + vec.z * other->vec.y;
 	out->vec.y = vec.y * other->w - w * other->vec.y - vec.z * other->vec.x + vec.x * other->vec.z;
 	out->vec.z = vec.z * other->w - w * other->vec.z - vec.x * other->vec.y + vec.y * other->vec.x;

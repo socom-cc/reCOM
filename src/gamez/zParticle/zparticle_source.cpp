@@ -440,7 +440,8 @@ void Particle::Source::Tick(float dT)
 			f32 dy = m_oldPosW.y - referencePositionW[1];
 			f32 dz = m_oldPosW.z - referencePositionW[2];
 
-			if (distanceFactor * range * distanceFactor * range <= dz * dz + dx * dx + dy * dy)
+			/* 0x239798 / 0x2397a8: (factor range) squared; 0x2397c4..0x2397e4: (dx dx + dy dy) + dz dz */
+			if ((distanceFactor * range) * (distanceFactor * range) <= dx * dx + dy * dy + dz * dz)
 			{
 				if (m_freezable)
 					m_frozen = true;

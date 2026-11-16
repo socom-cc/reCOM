@@ -488,8 +488,8 @@ CAppCamera::CAppCamera(zdb::CWorld* world, zdb::CCamera* camera)
 	f32 goalX = m_camGoalPos.x;
 	f32 goalY = m_camGoalPos.y;
 	f32 goalZ = m_camGoalPos.z;
-	f32 goalSqr = (goalZ * goalZ) + (goalX * goalX) + (goalY * goalY);
-	m_goal_t_len = goalSqr;
+	f32 goalSqr = (goalX * goalX) + (goalY * goalY) + (goalZ * goalZ); /* 0x1eb838: (x x + y y) + z z */
+	m_goal_t_len = sqrtf(goalSqr); /* 0x1eb834 sqrtf, stored at 0x1eb840 (the port stored the square) */
 
 	CZSealBody* player = ftsGetPlayer();
 

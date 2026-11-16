@@ -1153,7 +1153,8 @@ unsigned char zdb::CCamera::TestLandmarkFOG(const CPnt3D *pos, float radius)
 			CPnt3D out;
 			pos->Sub(&camPos, &out);
 
-			f32 dist = sqrtf((camPos.z * camPos.z) + (camPos.y * camPos.y) + (camPos.x * camPos.x));
+			/* 0x1e4578..0x1e4594: the length of out (pos - camPos), (x x + y y) + z z */
+			f32 dist = sqrtf(out.x * out.x + out.y * out.y + out.z * out.z);
 			if (radius + dist < m_fog_near)
 				canSee = false;
 		}

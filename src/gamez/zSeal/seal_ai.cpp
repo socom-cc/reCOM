@@ -4707,7 +4707,9 @@ void CSealCtrlAi::ActivateEx(SEAL_TASK task, bool push, ...)
 	}
 	else
 	{
-		Debug("Task %d NULL -- Activation failed!\n", (int)t);
+		/* 0x2608fc..0x260908: the ELF sets only a0 / a1 here, so the %d reads a2, which still
+		 * holds push (ELF quirk kept) */
+		Debug("Task %d NULL -- Activation failed!\n", (int)push);
 	}
 
 	m_task_handle[t] = handle;
@@ -5319,7 +5321,11 @@ bool CSealCtrlAi::ComputeProjectileFireParams(AI_FIREPARAMS &fp)
 	/* @socom-skeleton stub g$4392 */
 	static int g = 0x42c40000; /* ELF: the float 98.0 stored in an int-typed static */
 	/* @socom-skeleton stub max_y$4397 */
-	static float max_y = sinf(0.872664631f /* 0x3f5f66f3 */);
+	/* sin(50 deg), set on the first call (0x25e99c: sinf(0x3f5f66f3)); the ELF's sinf
+	 * (__ieee754_rem_pio2f 0x167b38 n = 1, then __kernel_cosf 0x169580, R5900 arithmetic
+	 * rounding toward zero) makes 0x3f441b7c; GCC folds sinf of the same input to 0x3f441b7d,
+	 * so the ELF's word is written out */
+	static float max_y = 0.766044379f /* 0x3f441b7c */;
 	CZSealBody* seal = static_cast<CZSealBody *>(m_entity);
 	CPnt3D* pos = seal->GetPosW();
 	CPnt3D point;

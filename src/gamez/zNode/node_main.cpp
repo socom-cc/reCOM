@@ -796,8 +796,9 @@ float zdb::CNode::GetRadiusSq()
 		f32 maxY = m_bbox.m_max.y;
 		f32 maxZ = m_bbox.m_max.z;
 
-		f32 min = minZ * minZ + minX * minX + minY * minY;
-		f32 max = maxZ * maxZ + maxX * maxX + maxY * maxY;
+		/* 0x226fc8..0x226fe4: (x x + y y) + z z for both corners */
+		f32 min = minX * minX + minY * minY + minZ * minZ;
+		f32 max = maxX * maxX + maxY * maxY + maxZ * maxZ;
 
 		if (min <= max)
 		{
@@ -820,8 +821,9 @@ float zdb::CNode::GetRadius()
 		f32 maxY = m_bbox.m_max.y;
 		f32 maxZ = m_bbox.m_max.z;
 
-		f32 min = minZ * minZ + minX * minX + minY * minY;
-		f32 max = maxZ * maxZ + maxX * maxX + maxY * maxY;
+		/* 0x226f68..0x226f84: (x x + y y) + z z for both corners */
+		f32 min = minX * minX + minY * minY + minZ * minZ;
+		f32 max = maxX * maxX + maxY * maxY + maxZ * maxZ;
 
 		if (min <= max)
 		{
