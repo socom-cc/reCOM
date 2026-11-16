@@ -637,6 +637,17 @@ void CCoreState::auxUnload()
 		marks->UnInit();
 
 	zdb::CTexManager::DestroyBuffers(zdb::CTexManager::m_texmanager, false);
+#ifdef SOCOM_PORT_HEAP_SHRINK_TEXLIST
+	/* port deviation (option SOCOM_PORT_HEAP_SHRINK_TEXLIST, off by default: port/CMakeLists.txt,
+	 * docs/port/notes/frame-limiter.md): the texture manager's buffer list grew during the mission
+	 * load and its block stays where it was made, at the top of the heap; a copy just large enough
+	 * replaces it, so the freed block lets the top chunk join the mission memory below it. The ELF
+	 * keeps the grown list. */
+	{
+		std::vector<zdb::CDynTexList*> tight(zdb::CTexManager::m_texmanager.begin(), zdb::CTexManager::m_texmanager.end());
+		static_cast<std::vector<zdb::CDynTexList*>&>(zdb::CTexManager::m_texmanager).swap(tight);
+	}
+#endif
 	m_world = NULL;
 	CameraZoom::AttachHud(NULL);
 	CHUD::ReleaseHUD(&m_hud);

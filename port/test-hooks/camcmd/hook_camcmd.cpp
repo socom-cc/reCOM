@@ -27,6 +27,7 @@
 #include "Apps/FTS/hud/hud.h"
 #include <stdio.h>
 #include <string.h>
+#include "hook_clock.h"
 
 #ifndef SOCOM_CAMCMD_DELAY
 #define SOCOM_CAMCMD_DELAY 300
@@ -242,7 +243,9 @@ extern "C" void __wrap__ZN4CHUD4TickEf(CHUD *hud, float dT)
         return;
     }
 
-    if (!g_cams_seen || ++g_after < SOCOM_CAMCMD_DELAY)
+    static unsigned int after_clock; /* HUD ticks were frames at 60 fps: counted in fields (hook_clock.h) */
+
+    if (!g_cams_seen || (g_after += hook_field_step(&after_clock)) < SOCOM_CAMCMD_DELAY)
         return;
 
     g_done = true;

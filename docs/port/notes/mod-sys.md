@@ -118,6 +118,8 @@ the log, an empty DMA packet is sent).
 - Not done: the zVid_Swap frame limiter (waits whole fields while the frame is under 1 / m_maxFrameRate). With it the
   missions run at the ELF's 30 fps (CCoreState sets the default cap 30): every port test and pad script is timed at
   60 fps, so it is left for a coordinated change. `zVid_Assert`'s picframecode screen (no copy of the GS packet).
+- 2026-11-16: the limiter is written (0x307c24..0x307cac) and the pad scripts and hooks are timed in fields:
+  [frame-limiter.md](frame-limiter.md).
 
 ## zGame
 `CGame::StopEngine` 0x20e5d0 (StartEngine's systems shut down, incl. `CRipple` / `CTextureFX::Uninit`; ZAnim closed

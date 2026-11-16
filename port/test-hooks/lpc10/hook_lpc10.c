@@ -2,8 +2,9 @@
  * (port/test-hooks/<feature>/build.sh -> port/tools/dev/hook.sh); never part of a normal build and
  * never compiled by port/CMakeLists.txt. Its results are behaviour checks, never matching evidence. */
 /* TEST HOOK (test only): socom-port-lpc10, an offline self-test of the LPC-10 codec
- * (port/compat/lpc10/, docs/port/notes/lpc10.md). Wraps scePadRead; at pad read SOCOM_HOOK_LPC_AT
- * (default 200: the title screen) it runs, once, on synthetic 8 kHz input:
+ * (port/compat/lpc10/, docs/port/notes/lpc10.md). Wraps scePadRead; SOCOM_HOOK_LPC_AT ticks (1/30 s,
+ * default 200) after the main menu came up (the fake pad's menu anchor, port/tools/dev/hook_clock.h) it
+ * runs, once, on synthetic 8 kHz input:
  *   segment S  silence                                  SOCOM_LPC_FR frames each (default 30)
  *   segment V  100 Hz pulse train (period 80) through three formant resonators (700, 1220,
  *              2600 Hz), amplitude about 0.3
@@ -35,7 +36,10 @@
 void socom_port_trace(const char *fmt, ...);
 int __real_scePadRead(int port, int slot, unsigned char *rdata);
 
-static int reads;
+static int done;
+/* the fake pad's time base (port/compat/libpad.c; hook_clock.h is C++ only) */
+extern unsigned int socom_fake_fields(void);
+extern int socom_fake_anchor_field(const char *name, unsigned int k);
 /* analys_'s lag table (0x43c3f0): the encoder's pitch is an index into it */
 static const int tau[60] = { 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
     42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62, 64, 66, 68, 70, 72, 74, 76, 78, 80, 84, 88, 92, 96, 100,
@@ -285,7 +289,10 @@ static void RunTest(void)
 
 int __wrap_scePadRead(int port, int slot, unsigned char *rdata)
 {
-    if (port == 0 && ++reads == SOCOM_HOOK_LPC_AT) {
+    int menu = port == 0 && !done ? socom_fake_anchor_field("menu", 1) : -1;
+
+    if (menu >= 0 && socom_fake_fields() >= (unsigned int)menu + 2 * SOCOM_HOOK_LPC_AT) {
+        done = 1;
         RunTest();
     }
     return __real_scePadRead(port, slot, rdata);

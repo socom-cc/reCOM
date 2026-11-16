@@ -18,6 +18,7 @@
 #ifdef SOCOM_HOOK_TURRET_CAM
 #define HOOK_FREECAM_WRAP
 #include "hook_freecam.h"
+#include "hook_clock.h"
 #endif
 
 extern "C" int __real_scePadRead(int port, int slot, unsigned char *rdata);
@@ -73,46 +74,50 @@ extern "C" int __wrap_scePadRead(int port, int slot, unsigned char *rdata)
 	if (port != 0)
 		return r;
 
-	g_reads++;
-
-	/* X skips the mission camera (pressed once a second while one plays) */
-	if (skipcams_playing() && g_reads >= g_cross_press + 30)
+	static unsigned int hook_clock1;
+	for (unsigned int hook_n = hook_step(&hook_clock1); hook_n > 0; hook_n--)
 	{
-		g_cross_press = g_reads;
-		g_cross_left = 3;
-		SOCOM_PORT_TRACE("HOOK: X skips mission camera %s at read %u",
-			theHUD->m_missioncams.m_currentcam != NULL ? theHUD->m_missioncams.m_currentcam->m_identifier : "-", g_reads);
-	}
+		g_reads++;
 
-	if (g_cross_left > 0)
-	{
-		rdata[3] &= (unsigned char)~0x40; /* CROSS (active low) */
-		g_cross_left--;
-	}
+		/* X skips the mission camera (pressed once a second while one plays) */
+		if (skipcams_playing() && g_reads >= g_cross_press + 30)
+		{
+			g_cross_press = g_reads;
+			g_cross_left = 3;
+			SOCOM_PORT_TRACE("HOOK: X skips mission camera %s at read %u",
+				theHUD->m_missioncams.m_currentcam != NULL ? theHUD->m_missioncams.m_currentcam->m_identifier : "-", g_reads);
+		}
 
-	CZSealBody *player = ftsGetPlayer();
+		if (g_cross_left > 0)
+		{
+			rdata[3] &= (unsigned char)~0x40; /* CROSS (active low) */
+			g_cross_left--;
+		}
 
-	if (player != NULL && (g_reads % 600) == 0)
-		SOCOM_PORT_TRACE("HOOK: r%u player at %.0f %.0f %.0f alive %d health %.2f", g_reads, player->GetPosW()->x,
-			player->GetPosW()->y, player->GetPosW()->z, (int)player->m_isAlive, player->m_health);
+		CZSealBody *player = ftsGetPlayer();
+
+		if (player != NULL && (g_reads % 600) == 0)
+			SOCOM_PORT_TRACE("HOOK: r%u player at %.0f %.0f %.0f alive %d health %.2f", g_reads, player->GetPosW()->x,
+				player->GetPosW()->y, player->GetPosW()->z, (int)player->m_isAlive, player->m_health);
 
 #ifdef SOCOM_HOOK_TURRET
-	if (g_turret != NULL && (g_reads % 150) == 0)
-	{
-		CEntity *t = g_turret->m_target.m_target.m_ent;
-		SOCOM_PORT_TRACE("HOOK: r%u turret active %d enabled %d targets %u target %s dist %.0f aimdot %.2f shots %d trig %.2f/%.2f fire %.2f firepos %.0f %.0f %.0f player health %.2f",
-			g_reads, (int)g_turret->m_active, (int)g_turret->m_enabled, (u32)g_turret->m_targets.size(),
-			t != NULL && t->m_node != NULL && t->m_node->m_name != NULL ? t->m_node->m_name : "-",
-			g_turret->m_target.m_target.m_dist, g_turret->m_aimdot, g_turret->m_shots, g_turret->m_trigger.m_timer,
-			g_turret->m_trigger.m_marker, g_turret->m_fire_timer.m_timer, g_turret->m_firepos.x, g_turret->m_firepos.y,
-			g_turret->m_firepos.z, player != NULL ? player->m_health : -1.0f);
-	}
+		if (g_turret != NULL && (g_reads % 150) == 0)
+		{
+			CEntity *t = g_turret->m_target.m_target.m_ent;
+			SOCOM_PORT_TRACE("HOOK: r%u turret active %d enabled %d targets %u target %s dist %.0f aimdot %.2f shots %d trig %.2f/%.2f fire %.2f firepos %.0f %.0f %.0f player health %.2f",
+				g_reads, (int)g_turret->m_active, (int)g_turret->m_enabled, (u32)g_turret->m_targets.size(),
+				t != NULL && t->m_node != NULL && t->m_node->m_name != NULL ? t->m_node->m_name : "-",
+				g_turret->m_target.m_target.m_dist, g_turret->m_aimdot, g_turret->m_shots, g_turret->m_trigger.m_timer,
+				g_turret->m_trigger.m_marker, g_turret->m_fire_timer.m_timer, g_turret->m_firepos.x, g_turret->m_firepos.y,
+				g_turret->m_firepos.z, player != NULL ? player->m_health : -1.0f);
+		}
 
 #ifdef SOCOM_HOOK_TURRET_CAM
-	if (g_turret != NULL && !skipcams_playing())
-		freecam_look_from(g_turret->m_firepos, 300.0f, 200.0f, 300.0f);
+		if (g_turret != NULL && !skipcams_playing())
+			freecam_look_from(g_turret->m_firepos, 300.0f, 200.0f, 300.0f);
 #endif
 #endif
+	}
 
 	return r;
 }

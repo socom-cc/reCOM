@@ -18,6 +18,7 @@
 #include "gamez/zGame/zgame.h"
 #include "gamez/zTexture/ztex.h"
 #include "gamez/zVisual/zvis.h"
+#include "hook_clock.h"
 
 extern "C" void __real__ZN10CameraZoom10AttachSealEP10CZSealBody(CZSealBody *seal);
 
@@ -104,21 +105,25 @@ extern "C" unsigned __wrap__ZN5CPipe11RenderWorldEPN3zdb6CWorldE(CPipe *pipe, zd
 {
     static unsigned frame = 0;
     unsigned r = __real__ZN5CPipe11RenderWorldEPN3zdb6CWorldE(pipe, world);
-    frame++;
-    if (frame <= 3 || frame % 300 == 0)
+    static unsigned int hook_clock1;
+    for (unsigned int hook_n = hook_field_step(&hook_clock1); hook_n > 0; hook_n--)
     {
-        unsigned infov = 0;
-        for (auto i = world->m_TextureAssetCharacters.begin(); i != world->m_TextureAssetCharacters.end(); ++i)
-            infov += ((zdb::CTextureAssetCharacters *)*i)->m_numInFOV;
-        SOCOM_PORT_TRACE("CHARF: frame %u characters rendered %u, in view %u", frame, numCharactersRendered, infov);
-        if (frame % 600 == 0)
+        frame++;
+        if (frame <= 3 || frame % 300 == 0)
         {
-            zdb::_globalLight &g = world->m_gLight;
-            SOCOM_PORT_TRACE("LIGHT: dir0 %d %d %d col0 %d %d %d col1 %d %d %d ambient %d %d %d (x1000)",
-                (int)(g.dir[0].x * 1000), (int)(g.dir[0].y * 1000), (int)(g.dir[0].z * 1000),
-                (int)(g.col[0].x * 1000), (int)(g.col[0].y * 1000), (int)(g.col[0].z * 1000),
-                (int)(g.col[1].x * 1000), (int)(g.col[1].y * 1000), (int)(g.col[1].z * 1000),
-                (int)(g.ambient.x * 1000), (int)(g.ambient.y * 1000), (int)(g.ambient.z * 1000));
+            unsigned infov = 0;
+            for (auto i = world->m_TextureAssetCharacters.begin(); i != world->m_TextureAssetCharacters.end(); ++i)
+                infov += ((zdb::CTextureAssetCharacters *)*i)->m_numInFOV;
+            SOCOM_PORT_TRACE("CHARF: frame %u characters rendered %u, in view %u", frame, numCharactersRendered, infov);
+            if (frame % 600 == 0)
+            {
+                zdb::_globalLight &g = world->m_gLight;
+                SOCOM_PORT_TRACE("LIGHT: dir0 %d %d %d col0 %d %d %d col1 %d %d %d ambient %d %d %d (x1000)",
+                    (int)(g.dir[0].x * 1000), (int)(g.dir[0].y * 1000), (int)(g.dir[0].z * 1000),
+                    (int)(g.col[0].x * 1000), (int)(g.col[0].y * 1000), (int)(g.col[0].z * 1000),
+                    (int)(g.col[1].x * 1000), (int)(g.col[1].y * 1000), (int)(g.col[1].z * 1000),
+                    (int)(g.ambient.x * 1000), (int)(g.ambient.y * 1000), (int)(g.ambient.z * 1000));
+            }
         }
     }
     return r;

@@ -8,12 +8,15 @@
  *  - menus: dlgIntroScreen / dlgMenu / dlgHype: CROSS; the m8 briefing (dlgAlaska_mission3):
  *    DOWN x5 to the deploy button, CROSS. After SOCOM_HOOK_MISSIONS missions the hook stops
  *    pressing and the menus idle (the attract screen comes after ~10 s at dlgMenu).
- *  - cinematic on top: CROSS after 40 reads (the intro movie);
- *  - mission n: the briefing cameras are skipped with X (CROSS every 60 reads while one plays;
+ *  - cinematic on top: CROSS after 40 ticks (the intro movie);
+ *  - mission n: the briefing cameras are skipped with X (CROSS every 60 ticks while one plays;
  *    -DSOCOM_HOOK_CAMS_PLAY: they play in full);
- *    SOCOM_HOOK_PLAY_AT reads after the last camera: odd n pause START, row 1 (ABORT), CROSS;
+ *    SOCOM_HOOK_PLAY_AT ticks after the last camera: odd n pause START, row 1 (ABORT), CROSS;
  *    even n the player's real fatal fall (HandleFallingDamage 300, as port/test-hooks/death);
- *  - debrief (exit state on top): TRIANGLE (back to the briefing) after 300 reads, again every 150.
+ *  - debrief (exit state on top): TRIANGLE (back to the briefing) after 300 ticks, again every 150.
+ * Times are hook_clock.h ticks (1/30 s of real time, the pad-read rate at 60 fps the numbers were
+ * tuned at): the state is watched once per tick, so the waits do not depend on the frame rate. A
+ * queued press is held for 3 ticks and seen by at least one read.
  * Every state and dialog change is traced with the heap: newlib's mallinfo (arena, in use, free,
  * top chunk) and the program break. -DSOCOM_HOOK_MALLOC also wraps malloc / memalign / realloc /
  * calloc and traces every failed request with the heap figures. */
@@ -33,6 +36,7 @@
 #include <malloc.h>
 #include <unistd.h>
 #include <stdint.h>
+#include "hook_clock.h"
 
 #ifndef SOCOM_HOOK_PLAY_AT
 #define SOCOM_HOOK_PLAY_AT 300
@@ -66,11 +70,13 @@ struct Press
 {
     unsigned int at;
     unsigned short bits;
+    bool seen;
 };
 
 Press g_queue[256];
 int g_nqueue;
-unsigned int g_reads;
+unsigned int g_reads; /* ticks (hook_clock.h), counted from the first pad read */
+unsigned int g_clock;
 const void *g_top;
 unsigned int g_top_since;
 /* the open dialog's name in a fixed buffer: the hook makes no heap blocks of its own (the heap layout
@@ -102,6 +108,7 @@ void queue(unsigned int at, unsigned short bits)
     {
         g_queue[g_nqueue].at = at;
         g_queue[g_nqueue].bits = bits;
+        g_queue[g_nqueue].seen = false;
         g_nqueue++;
     }
 }
@@ -144,14 +151,14 @@ void on_dialog(const DialogName &name)
 {
     if (g_mission >= SOCOM_HOOK_MISSIONS)
     {
-        SOCOM_PORT_TRACE("HOOK: read %u dialog %s: idle (done with %d missions)", g_reads, name.c_str(), g_mission);
+        SOCOM_PORT_TRACE("HOOK: tick %u dialog %s: idle (done with %d missions)", g_reads, name.c_str(), g_mission);
         return;
     }
 
     if (name == "dlgIntroScreen.rdr" || name == "dlgMenu.rdr" || name == "dlgHype.rdr")
     {
         queue(g_reads + 90, B_CROSS);
-        SOCOM_PORT_TRACE("HOOK: read %u dialog %s: CROSS", g_reads, name.c_str());
+        SOCOM_PORT_TRACE("HOOK: tick %u dialog %s: CROSS", g_reads, name.c_str());
     }
     else if (name == "dlgAlaska_mission3.rdr")
     {
@@ -159,11 +166,11 @@ void on_dialog(const DialogName &name)
             queue(g_reads + 150 + 10 * i, B_DOWN);
 
         queue(g_reads + 210, B_CROSS);
-        SOCOM_PORT_TRACE("HOOK: read %u dialog %s: DOWN x5, CROSS (deploy)", g_reads, name.c_str());
+        SOCOM_PORT_TRACE("HOOK: tick %u dialog %s: DOWN x5, CROSS (deploy)", g_reads, name.c_str());
     }
     else
     {
-        SOCOM_PORT_TRACE("HOOK: read %u dialog %s", g_reads, name.c_str());
+        SOCOM_PORT_TRACE("HOOK: tick %u dialog %s", g_reads, name.c_str());
     }
 }
 
@@ -183,7 +190,7 @@ void watch()
     {
         static unsigned changes;
         HMAP_PHASE(++changes); /* blocks made from now on carry this state change's number (p<n> in the maps) */
-        SOCOM_PORT_TRACE("HOOK: read %u state %s -> %s (index %u, mission %d, phase %u)", g_reads, name_of(g_top), name_of(top),
+        SOCOM_PORT_TRACE("HOOK: tick %u state %s -> %s (index %u, mission %d, phase %u)", g_reads, name_of(g_top), name_of(top),
             (unsigned)theGame.m_CurrentState, g_mission, changes);
 
         if (top == &theGame.m_menuState && g_mission > 0)
@@ -229,7 +236,7 @@ void watch()
 
     if (top == &theGame.m_exitState && g_reads >= g_top_since + 300 && (g_reads - g_top_since - 300) % 150 == 0 && g_exit_pressed < 6)
     {
-        SOCOM_PORT_TRACE("HOOK: read %u debrief: TRIANGLE (mission %d)", g_reads, g_mission);
+        SOCOM_PORT_TRACE("HOOK: tick %u debrief: TRIANGLE (mission %d)", g_reads, g_mission);
         queue(g_reads + 1, B_TRIANGLE);
         g_exit_pressed++;
     }
@@ -241,7 +248,7 @@ void watch()
         g_mission_since = g_reads;
         g_last_cam = 0;
         g_acted = false;
-        SOCOM_PORT_TRACE("HOOK: read %u mission %d starts (player %p)", g_reads, g_mission, (void *)ftsGetPlayer());
+        SOCOM_PORT_TRACE("HOOK: tick %u mission %d starts (player %p)", g_reads, g_mission, (void *)ftsGetPlayer());
         heap("mission start");
 
         if (g_mission <= 2)
@@ -255,14 +262,14 @@ void watch()
 #ifdef SOCOM_HOOK_CAMS_PLAY
             /* the cameras play in full: no X, the play time counts from the last camera frame */
             if (g_last_cam == 0)
-                SOCOM_PORT_TRACE("HOOK: read %u mission camera %s plays (SOCOM_HOOK_CAMS_PLAY)", g_reads,
+                SOCOM_PORT_TRACE("HOOK: tick %u mission camera %s plays (SOCOM_HOOK_CAMS_PLAY)", g_reads,
                     theHUD->m_missioncams.m_currentcam != NULL ? theHUD->m_missioncams.m_currentcam->m_identifier : "-");
 
             g_last_cam = g_reads;
 #else
             if (g_last_cam == 0 || g_reads >= g_last_cam + 60)
             {
-                SOCOM_PORT_TRACE("HOOK: read %u X skips mission camera %s", g_reads,
+                SOCOM_PORT_TRACE("HOOK: tick %u X skips mission camera %s", g_reads,
                     theHUD->m_missioncams.m_currentcam != NULL ? theHUD->m_missioncams.m_currentcam->m_identifier : "-");
                 queue(g_reads + 1, B_CROSS);
                 g_last_cam = g_reads;
@@ -275,7 +282,7 @@ void watch()
 
             if (g_mission % 2 == 1)
             {
-                SOCOM_PORT_TRACE("HOOK: read %u mission %d: pause, ABORT", g_reads, g_mission);
+                SOCOM_PORT_TRACE("HOOK: tick %u mission %d: pause, ABORT", g_reads, g_mission);
                 queue(g_reads + 1, B_START);
                 g_pause_target = 1;
                 g_pause_from = g_reads + 40;
@@ -284,7 +291,7 @@ void watch()
             {
                 CZSealBody *player = ftsGetPlayer();
                 int level = player != NULL ? player->HandleFallingDamage(300.0f) : -1;
-                SOCOM_PORT_TRACE("HOOK: read %u mission %d: fatal fall level %d health %.2f alive %d", g_reads, g_mission, level,
+                SOCOM_PORT_TRACE("HOOK: tick %u mission %d: fatal fall level %d health %.2f alive %d", g_reads, g_mission, level,
                     player != NULL ? player->m_health : 0.0f, player != NULL ? (int)player->m_isAlive : -1);
             }
         }
@@ -299,7 +306,7 @@ void watch()
         }
         else
         {
-            SOCOM_PORT_TRACE("HOOK: read %u pause menu row %d: CROSS", g_reads, g_pause_target);
+            SOCOM_PORT_TRACE("HOOK: tick %u pause menu row %d: CROSS", g_reads, g_pause_target);
             queue(g_reads + 1, B_CROSS);
             g_pause_target = -1;
         }
@@ -314,13 +321,15 @@ unsigned short pressed_now()
 
     for (int i = 0; i < g_nqueue; i++)
     {
-        if (g_reads >= g_queue[i].at && g_reads < g_queue[i].at + 3)
+        if (g_reads >= g_queue[i].at && (g_reads < g_queue[i].at + 3 || !g_queue[i].seen))
         {
             bits |= g_queue[i].bits;
 
-            if (g_reads == g_queue[i].at)
-                SOCOM_PORT_TRACE("HOOK: read %u press %04x (top %s, dialog %s, mission %d)", g_reads, g_queue[i].bits,
+            if (!g_queue[i].seen)
+                SOCOM_PORT_TRACE("HOOK: tick %u press %04x (top %s, dialog %s, mission %d)", g_reads, g_queue[i].bits,
                     name_of(g_top), g_dialog.c_str(), g_mission);
+
+            g_queue[i].seen = true;
         }
     }
 
@@ -342,8 +351,12 @@ extern "C" int __wrap_scePadRead(int port, int slot, unsigned char *rdata)
 
     if (port == 0)
     {
-        g_reads++;
-        watch();
+        for (unsigned int n = hook_step(&g_clock); n > 0; n--)
+        {
+            g_reads++;
+            watch();
+        }
+
         unsigned short bits = pressed_now();
 
         if (bits != 0)

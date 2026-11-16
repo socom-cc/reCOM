@@ -63,6 +63,33 @@ class CDblBufTextureRelocator;
 class CZAnimZAR;
 /* @socom-skeleton end forward */
 
+#ifdef SOCOM_PORT_HEAP_KEEP_MENU_ZAR
+/* port deviation (option SOCOM_PORT_HEAP_KEEP_MENU_ZAR, off by default: port/CMakeLists.txt,
+ * docs/port/notes/frame-limiter.md): the menus' largest archive data buffer (CZAR::ReadDirectory,
+ * zar_main.cpp:394; 2,598,384 B for the m8 briefing's library) is the block that sometimes finds no
+ * hole after a mission. Its size is noted while the menus load; CMenuState::UnInit takes the same
+ * size again once the menus are gone and holds it across the mission; the next request of that size
+ * (the same archive, at the next menu load) gets it back just before it allocates. The ELF frees the
+ * buffer with the menus. */
+static void *s_menuZarReserve;
+static size_t s_menuZarReserveSize;
+static size_t s_menuZarLargest;
+static bool s_menuZarWatch;
+
+void socom_port_menu_zar_request(size_t size)
+{
+	if (s_menuZarWatch && size > s_menuZarLargest)
+		s_menuZarLargest = size;
+
+	if (s_menuZarReserve != NULL && size == s_menuZarReserveSize)
+	{
+		_free(s_menuZarReserve, "st_menu.cpp", __LINE__);
+		s_menuZarReserve = NULL;
+		SOCOM_PORT_TRACE("MENU: kept archive buffer place (%u B) given back for the request", (unsigned)size);
+	}
+}
+#endif
+
 #ifndef SOCOM_PORT /* port: MSL <iostream> per-unit init objects; libstdc++ has no std::__msl_ios_base_* */
 /* @socom-skeleton stub __msl_ios_base_ninit__3std */
 std::__nInit std::__msl_ios_base_ninit;
@@ -241,9 +268,22 @@ bool CMenuState::Init()
 #endif
 
 	animfile = NULL;
+#ifdef SOCOM_PORT_HEAP_KEEP_MENU_ZAR
+	s_menuZarWatch = true; /* port deviation: see socom_port_menu_zar_request */
+	s_menuZarLargest = 0;
+#endif
 	animfile = ZAnim.OpenZAR("run/uizanim.zar");
 
 	m_menu->Init(&g_relocDblBuf, animfile);
+#ifdef SOCOM_PORT_HEAP_KEEP_MENU_ZAR
+	s_menuZarWatch = false;
+
+	if (s_menuZarReserve != NULL) /* no request of that size this time: let it go */
+	{
+		_free(s_menuZarReserve, "st_menu.cpp", __LINE__);
+		s_menuZarReserve = NULL;
+	}
+#endif
 #ifdef SOCOM_PORT
 	SOCOM_PORT_TRACE("MENU: CGameMenu::Init done (animfile %p)", animfile);
 #endif
@@ -478,6 +518,17 @@ void CMenuState::UnInit()
 		ZAnim.CloseZAR(animfile);
 		animfile = NULL;
 	}
+
+#ifdef SOCOM_PORT_HEAP_KEEP_MENU_ZAR
+	/* port deviation (see socom_port_menu_zar_request): the menus are gone; the largest archive
+	 * buffer's size is taken again at once and held across the mission */
+	if (s_menuZarReserve == NULL && s_menuZarLargest != 0)
+	{
+		s_menuZarReserveSize = s_menuZarLargest;
+		s_menuZarReserve = _memalign(64, s_menuZarReserveSize, "st_menu.cpp", __LINE__);
+		SOCOM_PORT_TRACE("UNLOAD: menu archive buffer place kept: %u B at %p", (unsigned)s_menuZarReserveSize, s_menuZarReserve);
+	}
+#endif
 
 #ifdef SOCOM_PORT
 	SOCOM_PORT_TRACE("UNLOAD: CMenuState::UnInit done");

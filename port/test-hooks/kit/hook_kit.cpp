@@ -28,6 +28,7 @@
 #include <libvu0.h>
 #define HOOK_FREECAM_WRAP
 #include "hook_freecam.h"
+#include "hook_clock.h"
 
 extern "C" void __real__ZN10CameraZoom10AttachSealEP10CZSealBody(CZSealBody *seal);
 extern "C" float __real__ZN10CZSealBody22GetTerrainMotionFactorEv(CZSealBody *body);
@@ -368,39 +369,43 @@ extern "C" int __wrap_scePadRead(int port, int slot, unsigned char *rdata)
 
     if (port == 0)
     {
-        g_reads++;
-
-        /* CROSS skips a cinematic and the mission cameras (their on-screen X) */
-        bool cams = theHUD != NULL && theHUD->m_missioncams.IsPlaying() != 0;
-
-        if (cams)
-            g_cam_seen = g_reads;
-
-        bool movie = g_movie || (g_nseals > 0 && g_cam_seen == 0 && !cams); /* the mission-start movie plays between the census and the cameras */
-
-        if ((movie && g_reads >= g_movie_last + 40) || (cams && g_reads >= g_cam_last + 60))
+        static unsigned int hook_clock1;
+        for (unsigned int hook_n = hook_step(&hook_clock1); hook_n > 0; hook_n--)
         {
-            if (movie)
-                g_movie_last = g_reads;
-            else
-                g_cam_last = g_reads;
+            g_reads++;
 
-            SOCOM_PORT_TRACE("HOOK: CROSS skips the %s at read %u", movie ? "cinematic" : "mission camera", g_reads);
-            g_press = B_CROSS;
-            g_press_left = 3;
-        }
+            /* CROSS skips a cinematic and the mission cameras (their on-screen X) */
+            bool cams = theHUD != NULL && theHUD->m_missioncams.IsPlaying() != 0;
 
-        if (g_press_left > 0)
-        {
-            unsigned short held = (unsigned short)(~((rdata[2] << 8) | rdata[3]));
-            held |= g_press;
-            rdata[2] = (unsigned char)~(held >> 8);
-            rdata[3] = (unsigned char)~held;
+            if (cams)
+                g_cam_seen = g_reads;
 
-            if (g_press & B_R1)
-                rdata[17] = 0xff; /* K_R1 pressure */
+            bool movie = g_movie || (g_nseals > 0 && g_cam_seen == 0 && !cams); /* the mission-start movie plays between the census and the cameras */
 
-            g_press_left--;
+            if ((movie && g_reads >= g_movie_last + 40) || (cams && g_reads >= g_cam_last + 60))
+            {
+                if (movie)
+                    g_movie_last = g_reads;
+                else
+                    g_cam_last = g_reads;
+
+                SOCOM_PORT_TRACE("HOOK: CROSS skips the %s at read %u", movie ? "cinematic" : "mission camera", g_reads);
+                g_press = B_CROSS;
+                g_press_left = 3;
+            }
+
+            if (g_press_left > 0)
+            {
+                unsigned short held = (unsigned short)(~((rdata[2] << 8) | rdata[3]));
+                held |= g_press;
+                rdata[2] = (unsigned char)~(held >> 8);
+                rdata[3] = (unsigned char)~held;
+
+                if (g_press & B_R1)
+                    rdata[17] = 0xff; /* K_R1 pressure */
+
+                g_press_left--;
+            }
         }
     }
 
@@ -434,222 +439,226 @@ extern "C" float __wrap__ZN10CZSealBody22GetTerrainMotionFactorEv(CZSealBody *bo
         static int step = 0;
         static int at = 0;
         static int zoomouts = 0;
-        frame++;
-        body->m_invincible = 1;
-
-        if (zoomouts > 0 && frame % 20 == 0)
+        static unsigned int hook_clock2;
+        for (unsigned int hook_n = hook_field_step(&hook_clock2); hook_n > 0; hook_n--)
         {
-            if ((s8)body->m_zoomstate > 0)
+            frame++;
+            body->m_invincible = 1;
+
+            if (zoomouts > 0 && frame % 20 == 0)
             {
-                press(B_DOWN, 3, "zoom out", frame);
-                zoomouts--;
-            }
-            else
-            {
-                zoomouts = 0;
-                trace(body, frame, "third person again");
-            }
-        }
-
-        if (steps[step].op != K_END && frame >= at + steps[step].wait)
-        {
-            const Step &s = steps[step];
-            CZKit &k = body->m_kit;
-            at = frame;
-            step++;
-
-            switch (s.op)
-            {
-            case K_TRACE:
-                trace(body, frame, s.why);
-                break;
-            case K_KITLIST:
-                kitlist(body, frame, s.why);
-                break;
-            case K_UP:
-                press(B_UP, 3, s.why, frame);
-                break;
-            case K_DOWN:
-                press(B_DOWN, 3, s.why, frame);
-                break;
-            case K_R1:
-                press(B_R1, 3, s.why, frame);
-                break;
-            case K_R1HOLD:
-                press(B_R1, s.a, s.why, frame);
-                break;
-            case K_ZOOMOUT:
-                zoomouts = 6;
-                SOCOM_PORT_TRACE("HOOK: f%d %s", frame, s.why);
-                break;
-            case K_SEL:
-                k.SetCurItemByIndex(s.a);
-                SOCOM_PORT_TRACE("HOOK: f%d select slot %d (%s): %s", frame, s.a, s.why, itemname(k.m_item[k.m_selected_item]));
-                break;
-            case K_FINDSEL:
-            {
-                int found = -1;
-
-                for (int i = 0; i < k.m_num_items; i++)
-                    if (k.m_item[i] != NULL && (int)(u8)k.m_item[i]->m_ID == s.a)
-                        found = i;
-
-                if (found >= 0)
-                    k.SetCurItemByIndex(found);
-
-                SOCOM_PORT_TRACE("HOOK: f%d find id %d (%s): slot %d", frame, s.a, s.why, found);
-                break;
-            }
-            case K_SETITEM:
-            {
-                bool have = false;
-
-                for (int i = 0; i < k.m_num_items; i++)
-                    if (k.m_item[i] != NULL && (int)(u8)k.m_item[i]->m_ID == s.a)
-                        have = true;
-
-                if (have && s.b == 0 && s.a == 102)
+                if ((s8)body->m_zoomstate > 0)
                 {
-                    SOCOM_PORT_TRACE("HOOK: f%d M40A1 is in the kit (armory)", frame);
-                    break;
-                }
-
-                bool ok = k.SetItem((unsigned int)s.b, (EQUIP_ITEM)s.a);
-                bool ammo = ok && k.SetItemAmmo((unsigned int)s.b, NULL);
-                SOCOM_PORT_TRACE("HOOK: f%d TEST set slot %d = id %d (%s): %d ammo %d -> %s", frame, s.b, s.a, s.why, (int)ok, (int)ammo,
-                    itemname(k.m_item[s.b]));
-
-                if (s.b == 0)
-                    k.SetCurItemByIndex(0);
-                break;
-            }
-            case K_NIGHT:
-                zdb::CWorld::m_world->m_night_mission = s.a;
-                SOCOM_PORT_TRACE("HOOK: f%d %s", frame, s.why);
-                break;
-            case K_CAMX:
-            {
-                /* the camera beside the player looking 120 ahead (where the throw lands) */
-                const CMatrix &pm = body->m_node->m_matrix;
-                CPnt3D p = *body->GetPosW();
-                CPnt3D target(p.x - pm.m_matrix[2][0] * 120.0f, p.y, p.z - pm.m_matrix[2][2] * 120.0f);
-                CPnt3D eye(p.x + pm.m_matrix[0][0] * 60.0f + pm.m_matrix[2][0] * 20.0f, p.y + 40.0f,
-                    p.z + pm.m_matrix[0][2] * 60.0f + pm.m_matrix[2][2] * 20.0f);
-                freecam_look(eye, target);
-                SOCOM_PORT_TRACE("HOOK: f%d test camera on the throw", frame);
-                break;
-            }
-            case K_CAMOFF:
-                freecam_off();
-                break;
-            case K_WALL:
-            {
-                const char *mname = "-";
-
-                if (find_wall(body, g_wallpos, g_wallnorm, &mname))
-                {
-                    CPnt3D n(g_wallnorm.x, 0.0f, g_wallnorm.z);
-                    float l = sqrtf(n.x * n.x + n.z * n.z);
-                    n.x /= l; n.z /= l;
-                    g_wallnorm = n;
-                    CPnt3D target(g_wallpos.x + n.x * (float)s.a, g_wallpos.y, g_wallpos.z + n.z * (float)s.a);
-                    put_seal(body, target, CPnt3D(-n.x, 0.0f, -n.z));
-                    CPnt3D p = *body->GetPosW();
-                    SOCOM_PORT_TRACE("HOOK: f%d TEST wall %s at %.1f %.1f %.1f normal %.2f %.2f: player put at %.1f %.1f %.1f facing it",
-                        frame, mname, g_wallpos.x, g_wallpos.y, g_wallpos.z, n.x, n.z, p.x, p.y, p.z);
+                    press(B_DOWN, 3, "zoom out", frame);
+                    zoomouts--;
                 }
                 else
-                    SOCOM_PORT_TRACE("HOOK: f%d no wall found", frame);
-                break;
-            }
-            case K_ENEMY:
-            {
-                /* the nearest living enemy not used yet: a = 0 beside the wall spot, 1 ten in
-                 * front of the player */
-                CPnt3D me = *body->GetPosW();
-                CZSealBody *best = s.b == 1 ? g_enemy : NULL;
-                float bd = 1e30f;
-
-                for (int i = 0; i < g_nseals && s.b != 1; i++)
                 {
-                    CZSealBody *e = g_seals[i];
-                    bool used = false;
+                    zoomouts = 0;
+                    trace(body, frame, "third person again");
+                }
+            }
 
-                    for (int j = 0; j < g_nused; j++)
-                        used = used || g_used_enemy[j] == i;
+            if (steps[step].op != K_END && frame >= at + steps[step].wait)
+            {
+                const Step &s = steps[step];
+                CZKit &k = body->m_kit;
+                at = frame;
+                step++;
 
-                    CPnt3D q = *e->GetPosW();
-                    float d = (q.x - me.x) * (q.x - me.x) + (q.z - me.z) * (q.z - me.z);
+                switch (s.op)
+                {
+                case K_TRACE:
+                    trace(body, frame, s.why);
+                    break;
+                case K_KITLIST:
+                    kitlist(body, frame, s.why);
+                    break;
+                case K_UP:
+                    press(B_UP, 3, s.why, frame);
+                    break;
+                case K_DOWN:
+                    press(B_DOWN, 3, s.why, frame);
+                    break;
+                case K_R1:
+                    press(B_R1, 3, s.why, frame);
+                    break;
+                case K_R1HOLD:
+                    press(B_R1, s.a, s.why, frame);
+                    break;
+                case K_ZOOMOUT:
+                    zoomouts = 6;
+                    SOCOM_PORT_TRACE("HOOK: f%d %s", frame, s.why);
+                    break;
+                case K_SEL:
+                    k.SetCurItemByIndex(s.a);
+                    SOCOM_PORT_TRACE("HOOK: f%d select slot %d (%s): %s", frame, s.a, s.why, itemname(k.m_item[k.m_selected_item]));
+                    break;
+                case K_FINDSEL:
+                {
+                    int found = -1;
 
-                    if (!used && (e->m_team & body->m_team) == 0 && e->m_isAlive && d < bd)
+                    for (int i = 0; i < k.m_num_items; i++)
+                        if (k.m_item[i] != NULL && (int)(u8)k.m_item[i]->m_ID == s.a)
+                            found = i;
+
+                    if (found >= 0)
+                        k.SetCurItemByIndex(found);
+
+                    SOCOM_PORT_TRACE("HOOK: f%d find id %d (%s): slot %d", frame, s.a, s.why, found);
+                    break;
+                }
+                case K_SETITEM:
+                {
+                    bool have = false;
+
+                    for (int i = 0; i < k.m_num_items; i++)
+                        if (k.m_item[i] != NULL && (int)(u8)k.m_item[i]->m_ID == s.a)
+                            have = true;
+
+                    if (have && s.b == 0 && s.a == 102)
                     {
-                        bd = d;
-                        best = e;
-                        g_used_enemy[g_nused < 4 ? g_nused : 3] = i;
+                        SOCOM_PORT_TRACE("HOOK: f%d M40A1 is in the kit (armory)", frame);
+                        break;
                     }
-                }
 
-                if (best == NULL)
-                    break;
+                    bool ok = k.SetItem((unsigned int)s.b, (EQUIP_ITEM)s.a);
+                    bool ammo = ok && k.SetItemAmmo((unsigned int)s.b, NULL);
+                    SOCOM_PORT_TRACE("HOOK: f%d TEST set slot %d = id %d (%s): %d ammo %d -> %s", frame, s.b, s.a, s.why, (int)ok, (int)ammo,
+                        itemname(k.m_item[s.b]));
 
-                if (s.b != 1)
-                    g_nused++;
-
-                g_enemy = best;
-                const CMatrix &pm = body->m_node->m_matrix;
-                CPnt3D target;
-
-                if (s.a == 0)
-                    target = CPnt3D(g_wallpos.x + g_wallnorm.x * 5.0f + g_wallnorm.z * 7.0f, g_wallpos.y,
-                        g_wallpos.z + g_wallnorm.z * 5.0f - g_wallnorm.x * 7.0f);
-                else
-                    target = CPnt3D(me.x - pm.m_matrix[2][0] * 14.0f, me.y, me.z - pm.m_matrix[2][2] * 14.0f);
-
-                put_seal(best, target, CPnt3D(pm.m_matrix[2][0], 0.0f, pm.m_matrix[2][2]));
-                CPnt3D q = *best->GetPosW();
-                SOCOM_PORT_TRACE("HOOK: f%d TEST enemy %s put at %.1f %.1f %.1f (health %.2f)", frame, nm(best), q.x, q.y, q.z, best->m_health);
-                break;
-            }
-            case K_CAMEXPL:
-            {
-                std::vector<CZProjectile*> &ex = CZWeapon::m_pProjectilelist->m_explosives;
-
-                if (ex.empty())
-                {
-                    SOCOM_PORT_TRACE("HOOK: f%d no placed explosive", frame);
+                    if (s.b == 0)
+                        k.SetCurItemByIndex(0);
                     break;
                 }
-
-                CZProjectile *e = ex.back();
-                CPnt3D c = e->m_framestartpos;
-                CPnt3D p = *body->GetPosW();
-                float dx = p.x - c.x, dz = p.z - c.z;
-                float l = sqrtf(dx * dx + dz * dz);
-
-                if (l < 1.0f) { dx = 1.0f; dz = 0.0f; l = 1.0f; }
-
-                CPnt3D eye(c.x + dx / l * 45.0f - dz / l * 20.0f, c.y + 20.0f, c.z + dz / l * 45.0f + dx / l * 20.0f);
-                freecam_look(eye, c);
-                SOCOM_PORT_TRACE("HOOK: f%d camera on the placed %s at %.1f %.1f %.1f (instance active %d)", frame,
-                    e->m_weapon != NULL && e->m_weapon->m_name != NULL ? e->m_weapon->m_name : "-", c.x, c.y, c.z,
-                    e->m_instance != NULL ? (int)e->m_instance->m_active : -1);
-                break;
-            }
-            case K_ENEMYTRACE:
-                if (g_enemy != NULL)
+                case K_NIGHT:
+                    zdb::CWorld::m_world->m_night_mission = s.a;
+                    SOCOM_PORT_TRACE("HOOK: f%d %s", frame, s.why);
+                    break;
+                case K_CAMX:
                 {
-                    CPnt3D q = *g_enemy->GetPosW();
-                    SOCOM_PORT_TRACE("HOOK: f%d %s: %s at %.1f %.1f %.1f health %.2f alive %d state %d", frame, s.why, nm(g_enemy), q.x, q.y, q.z,
-                        g_enemy->m_health, (int)g_enemy->m_isAlive, (int)g_enemy->m_state);
+                    /* the camera beside the player looking 120 ahead (where the throw lands) */
+                    const CMatrix &pm = body->m_node->m_matrix;
+                    CPnt3D p = *body->GetPosW();
+                    CPnt3D target(p.x - pm.m_matrix[2][0] * 120.0f, p.y, p.z - pm.m_matrix[2][2] * 120.0f);
+                    CPnt3D eye(p.x + pm.m_matrix[0][0] * 60.0f + pm.m_matrix[2][0] * 20.0f, p.y + 40.0f,
+                        p.z + pm.m_matrix[0][2] * 60.0f + pm.m_matrix[2][2] * 20.0f);
+                    freecam_look(eye, target);
+                    SOCOM_PORT_TRACE("HOOK: f%d test camera on the throw", frame);
+                    break;
                 }
-                break;
-            default:
-                break;
+                case K_CAMOFF:
+                    freecam_off();
+                    break;
+                case K_WALL:
+                {
+                    const char *mname = "-";
+
+                    if (find_wall(body, g_wallpos, g_wallnorm, &mname))
+                    {
+                        CPnt3D n(g_wallnorm.x, 0.0f, g_wallnorm.z);
+                        float l = sqrtf(n.x * n.x + n.z * n.z);
+                        n.x /= l; n.z /= l;
+                        g_wallnorm = n;
+                        CPnt3D target(g_wallpos.x + n.x * (float)s.a, g_wallpos.y, g_wallpos.z + n.z * (float)s.a);
+                        put_seal(body, target, CPnt3D(-n.x, 0.0f, -n.z));
+                        CPnt3D p = *body->GetPosW();
+                        SOCOM_PORT_TRACE("HOOK: f%d TEST wall %s at %.1f %.1f %.1f normal %.2f %.2f: player put at %.1f %.1f %.1f facing it",
+                            frame, mname, g_wallpos.x, g_wallpos.y, g_wallpos.z, n.x, n.z, p.x, p.y, p.z);
+                    }
+                    else
+                        SOCOM_PORT_TRACE("HOOK: f%d no wall found", frame);
+                    break;
+                }
+                case K_ENEMY:
+                {
+                    /* the nearest living enemy not used yet: a = 0 beside the wall spot, 1 ten in
+                     * front of the player */
+                    CPnt3D me = *body->GetPosW();
+                    CZSealBody *best = s.b == 1 ? g_enemy : NULL;
+                    float bd = 1e30f;
+
+                    for (int i = 0; i < g_nseals && s.b != 1; i++)
+                    {
+                        CZSealBody *e = g_seals[i];
+                        bool used = false;
+
+                        for (int j = 0; j < g_nused; j++)
+                            used = used || g_used_enemy[j] == i;
+
+                        CPnt3D q = *e->GetPosW();
+                        float d = (q.x - me.x) * (q.x - me.x) + (q.z - me.z) * (q.z - me.z);
+
+                        if (!used && (e->m_team & body->m_team) == 0 && e->m_isAlive && d < bd)
+                        {
+                            bd = d;
+                            best = e;
+                            g_used_enemy[g_nused < 4 ? g_nused : 3] = i;
+                        }
+                    }
+
+                    if (best == NULL)
+                        break;
+
+                    if (s.b != 1)
+                        g_nused++;
+
+                    g_enemy = best;
+                    const CMatrix &pm = body->m_node->m_matrix;
+                    CPnt3D target;
+
+                    if (s.a == 0)
+                        target = CPnt3D(g_wallpos.x + g_wallnorm.x * 5.0f + g_wallnorm.z * 7.0f, g_wallpos.y,
+                            g_wallpos.z + g_wallnorm.z * 5.0f - g_wallnorm.x * 7.0f);
+                    else
+                        target = CPnt3D(me.x - pm.m_matrix[2][0] * 14.0f, me.y, me.z - pm.m_matrix[2][2] * 14.0f);
+
+                    put_seal(best, target, CPnt3D(pm.m_matrix[2][0], 0.0f, pm.m_matrix[2][2]));
+                    CPnt3D q = *best->GetPosW();
+                    SOCOM_PORT_TRACE("HOOK: f%d TEST enemy %s put at %.1f %.1f %.1f (health %.2f)", frame, nm(best), q.x, q.y, q.z, best->m_health);
+                    break;
+                }
+                case K_CAMEXPL:
+                {
+                    std::vector<CZProjectile*> &ex = CZWeapon::m_pProjectilelist->m_explosives;
+
+                    if (ex.empty())
+                    {
+                        SOCOM_PORT_TRACE("HOOK: f%d no placed explosive", frame);
+                        break;
+                    }
+
+                    CZProjectile *e = ex.back();
+                    CPnt3D c = e->m_framestartpos;
+                    CPnt3D p = *body->GetPosW();
+                    float dx = p.x - c.x, dz = p.z - c.z;
+                    float l = sqrtf(dx * dx + dz * dz);
+
+                    if (l < 1.0f) { dx = 1.0f; dz = 0.0f; l = 1.0f; }
+
+                    CPnt3D eye(c.x + dx / l * 45.0f - dz / l * 20.0f, c.y + 20.0f, c.z + dz / l * 45.0f + dx / l * 20.0f);
+                    freecam_look(eye, c);
+                    SOCOM_PORT_TRACE("HOOK: f%d camera on the placed %s at %.1f %.1f %.1f (instance active %d)", frame,
+                        e->m_weapon != NULL && e->m_weapon->m_name != NULL ? e->m_weapon->m_name : "-", c.x, c.y, c.z,
+                        e->m_instance != NULL ? (int)e->m_instance->m_active : -1);
+                    break;
+                }
+                case K_ENEMYTRACE:
+                    if (g_enemy != NULL)
+                    {
+                        CPnt3D q = *g_enemy->GetPosW();
+                        SOCOM_PORT_TRACE("HOOK: f%d %s: %s at %.1f %.1f %.1f health %.2f alive %d state %d", frame, s.why, nm(g_enemy), q.x, q.y, q.z,
+                            g_enemy->m_health, (int)g_enemy->m_isAlive, (int)g_enemy->m_state);
+                    }
+                    break;
+                default:
+                    break;
+                }
             }
+
+            if (frame % 300 == 0)
+                trace(body, frame, "periodic");
         }
-
-        if (frame % 300 == 0)
-            trace(body, frame, "periodic");
     }
 
     return __real__ZN10CZSealBody22GetTerrainMotionFactorEv(body);

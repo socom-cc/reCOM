@@ -35,6 +35,7 @@
 #include <math.h>
 #define HOOK_FREECAM_WRAP
 #include "hook_freecam.h"
+#include "hook_clock.h"
 
 #ifndef SOCOM_HOOK_DOOR
 #define SOCOM_HOOK_DOOR "door_depot01"
@@ -312,125 +313,129 @@ extern "C" float __wrap__ZN10CZSealBody22GetTerrainMotionFactorEv(CZSealBody *bo
     if (body == ftsGetPlayer())
     {
         static int frame = 0;
-        frame++;
-
-        /* door: the awake enemy nearest to the door (the sleepers are put to sleep after the census) */
-        if (g_door_ok && frame == SOCOM_HOOK_DOOR_AT)
+        static unsigned int hook_clock1;
+        for (unsigned int hook_n = hook_field_step(&hook_clock1); hook_n > 0; hook_n--)
         {
-            float best = 1e30f;
-            g_door_ai = NULL;
+            frame++;
 
-            for (int i = 0; i < g_nseals; i++)
+            /* door: the awake enemy nearest to the door (the sleepers are put to sleep after the census) */
+            if (g_door_ok && frame == SOCOM_HOOK_DOOR_AT)
             {
-                CZSealBody *s = g_seals[i];
+                float best = 1e30f;
+                g_door_ai = NULL;
 
-                if (!is_enemy(s, body) || ai_of(s)->m_sleeping || s == g_corpse_a || s == g_corpse_b || s == g_stun_ai)
-                    continue;
-
-                CPnt3D p = *s->GetPosW();
-                float d = (p.x - g_door_pos.x) * (p.x - g_door_pos.x) + (p.z - g_door_pos.z) * (p.z - g_door_pos.z);
-
-                if (d < best)
+                for (int i = 0; i < g_nseals; i++)
                 {
-                    best = d;
-                    g_door_ai = s;
+                    CZSealBody *s = g_seals[i];
+
+                    if (!is_enemy(s, body) || ai_of(s)->m_sleeping || s == g_corpse_a || s == g_corpse_b || s == g_stun_ai)
+                        continue;
+
+                    CPnt3D p = *s->GetPosW();
+                    float d = (p.x - g_door_pos.x) * (p.x - g_door_pos.x) + (p.z - g_door_pos.z) * (p.z - g_door_pos.z);
+
+                    if (d < best)
+                    {
+                        best = d;
+                        g_door_ai = s;
+                    }
                 }
             }
-        }
 
-        if (g_door_ok && g_door_ai != NULL)
-        {
-            if (frame == SOCOM_HOOK_DOOR_AT)
+            if (g_door_ok && g_door_ai != NULL)
             {
-                CPnt3D a, b;
-                AiMaps.GetCellCenter(g_side_a, &a);
-                AiMaps.GetCellCenter(g_side_b, &b);
-                place(g_door_ai, a, b);
-                g_door_ai->m_invincible = 1;
-                SOCOM_PORT_TRACE("HOOK: f%d door AI %s to %.0f %.0f %.0f", frame, g_door_ai->m_node->m_name, a.x, a.y, a.z);
-                CPnt3D away(a.x - b.x, 0.0f, a.z - b.z);
-                float l = sqrtf(away.x * away.x + away.z * away.z);
-                CPnt3D eye(g_door_pos.x + away.x / l * 90.0f + away.z / l * 40.0f, g_door_pos.y + 45.0f, g_door_pos.z + away.z / l * 90.0f - away.x / l * 40.0f);
-                freecam_look(eye, g_door_pos);
+                if (frame == SOCOM_HOOK_DOOR_AT)
+                {
+                    CPnt3D a, b;
+                    AiMaps.GetCellCenter(g_side_a, &a);
+                    AiMaps.GetCellCenter(g_side_b, &b);
+                    place(g_door_ai, a, b);
+                    g_door_ai->m_invincible = 1;
+                    SOCOM_PORT_TRACE("HOOK: f%d door AI %s to %.0f %.0f %.0f", frame, g_door_ai->m_node->m_name, a.x, a.y, a.z);
+                    CPnt3D away(a.x - b.x, 0.0f, a.z - b.z);
+                    float l = sqrtf(away.x * away.x + away.z * away.z);
+                    CPnt3D eye(g_door_pos.x + away.x / l * 90.0f + away.z / l * 40.0f, g_door_pos.y + 45.0f, g_door_pos.z + away.z / l * 90.0f - away.x / l * 40.0f);
+                    freecam_look(eye, g_door_pos);
+                }
+
+                if (frame == SOCOM_HOOK_DOOR_AT + 5)
+                {
+                    CSealCtrlAi *dai = ai_of(g_door_ai);
+                    CAiState *st = dai->GetAiState();
+
+                    /* the AI's own script would take the route away (HOLD / GOTO): pause it for the test
+                     * (the door anim's script state covers it later and resumes it when done) */
+                    if (st->m_state == STATE_SCRIPT && static_cast<CAiSScript *>(st)->m_anim != NULL)
+                        static_cast<CAiSScript *>(st)->m_anim->Pause();
+
+                    bool ok = dai->SetRoute(g_side_b);
+                    SOCOM_PORT_TRACE("HOOK: f%d door AI route to (%d:%d,%d): %d", frame, g_side_b.m_mapid, g_side_b.x, g_side_b.y, (int)ok);
+                }
+
+                if (frame >= SOCOM_HOOK_DOOR_AT && frame < SOCOM_HOOK_DOOR_AT + SOCOM_HOOK_TEST_LEN && frame % 15 == 0)
+                    trace_ai(frame, g_door_ai, "door");
+
+                if (frame == SOCOM_HOOK_DOOR_AT + SOCOM_HOOK_TEST_LEN)
+                    freecam_off();
             }
 
-            if (frame == SOCOM_HOOK_DOOR_AT + 5)
+            /* corpse */
+            if (g_corpse_a != NULL && g_corpse_b != NULL)
             {
-                CSealCtrlAi *dai = ai_of(g_door_ai);
-                CAiState *st = dai->GetAiState();
+                if (frame == SOCOM_HOOK_CORPSE_AT)
+                {
+                    CPnt3D a = *g_corpse_a->GetPosW();
+                    const CMatrix &m = g_corpse_a->m_node->m_matrix;
+                    CPnt3D fwd(-m.m_matrix[2][0], 0.0f, -m.m_matrix[2][2]);
+                    float l = sqrtf(fwd.x * fwd.x + fwd.z * fwd.z);
+                    fwd.x /= l; fwd.z /= l;
+                    CPnt3D at(a.x + fwd.x * 50.0f, a.y, a.z + fwd.z * 50.0f);
+                    place(g_corpse_b, at, a);
+                    SOCOM_PORT_TRACE("HOOK: f%d corpse-to-be %s put 50 in front of %s", frame, g_corpse_b->m_node->m_name, g_corpse_a->m_node->m_name);
+                    freecam_node(g_corpse_a->m_node, -fwd.x * 70.0f + fwd.z * 40.0f, 60.0f, -fwd.z * 70.0f - fwd.x * 40.0f);
+                }
 
-                /* the AI's own script would take the route away (HOLD / GOTO): pause it for the test
-                 * (the door anim's script state covers it later and resumes it when done) */
-                if (st->m_state == STATE_SCRIPT && static_cast<CAiSScript *>(st)->m_anim != NULL)
-                    static_cast<CAiSScript *>(st)->m_anim->Pause();
+                if (frame == SOCOM_HOOK_CORPSE_AT + 10)
+                {
+                    g_corpse_b->SetHealth(0.0f, (SEAL_DEATH_TYPE)0);
+                    SOCOM_PORT_TRACE("HOOK: f%d %s killed", frame, g_corpse_b->m_node->m_name);
+                }
 
-                bool ok = dai->SetRoute(g_side_b);
-                SOCOM_PORT_TRACE("HOOK: f%d door AI route to (%d:%d,%d): %d", frame, g_side_b.m_mapid, g_side_b.x, g_side_b.y, (int)ok);
+                if (frame >= SOCOM_HOOK_CORPSE_AT && frame < SOCOM_HOOK_CORPSE_AT + SOCOM_HOOK_TEST_LEN && frame % 15 == 0)
+                    trace_ai(frame, g_corpse_a, "corpse");
+
+                if (frame == SOCOM_HOOK_CORPSE_AT + SOCOM_HOOK_TEST_LEN)
+                    freecam_off();
             }
 
-            if (frame >= SOCOM_HOOK_DOOR_AT && frame < SOCOM_HOOK_DOOR_AT + SOCOM_HOOK_TEST_LEN && frame % 15 == 0)
-                trace_ai(frame, g_door_ai, "door");
-
-            if (frame == SOCOM_HOOK_DOOR_AT + SOCOM_HOOK_TEST_LEN)
-                freecam_off();
-        }
-
-        /* corpse */
-        if (g_corpse_a != NULL && g_corpse_b != NULL)
-        {
-            if (frame == SOCOM_HOOK_CORPSE_AT)
+            /* stun */
+            if (g_stun_ai != NULL)
             {
-                CPnt3D a = *g_corpse_a->GetPosW();
-                const CMatrix &m = g_corpse_a->m_node->m_matrix;
-                CPnt3D fwd(-m.m_matrix[2][0], 0.0f, -m.m_matrix[2][2]);
-                float l = sqrtf(fwd.x * fwd.x + fwd.z * fwd.z);
-                fwd.x /= l; fwd.z /= l;
-                CPnt3D at(a.x + fwd.x * 50.0f, a.y, a.z + fwd.z * 50.0f);
-                place(g_corpse_b, at, a);
-                SOCOM_PORT_TRACE("HOOK: f%d corpse-to-be %s put 50 in front of %s", frame, g_corpse_b->m_node->m_name, g_corpse_a->m_node->m_name);
-                freecam_node(g_corpse_a->m_node, -fwd.x * 70.0f + fwd.z * 40.0f, 60.0f, -fwd.z * 70.0f - fwd.x * 40.0f);
+                if (frame == SOCOM_HOOK_STUN_AT)
+                {
+                    const CMatrix &m = g_stun_ai->m_node->m_matrix;
+                    CPnt3D fwd(-m.m_matrix[2][0], 0.0f, -m.m_matrix[2][2]);
+                    float l = sqrtf(fwd.x * fwd.x + fwd.z * fwd.z);
+                    fwd.x /= l; fwd.z /= l;
+                    freecam_node(g_stun_ai->m_node, fwd.x * 60.0f + fwd.z * 30.0f, 45.0f, fwd.z * 60.0f - fwd.x * 30.0f);
+                }
+
+                if (frame == SOCOM_HOOK_STUN_AT + 20)
+                {
+                    CPnt3D head, dir;
+                    g_stun_ai->GetHeadParams(&head, &dir);
+                    const CMatrix &m = g_stun_ai->m_node->m_matrix;
+                    CPnt3D blast(head.x - m.m_matrix[2][0] * 12.0f, head.y, head.z - m.m_matrix[2][2] * 12.0f);
+                    SOCOM_PORT_TRACE("HOOK: f%d flashbang at %.0f %.0f %.0f for %s", frame, blast.x, blast.y, blast.z, g_stun_ai->m_node->m_name);
+                    g_stun_ai->HandleStunDamage(STUN_FLASHBANG, 2.0f, &blast);
+                }
+
+                if (frame >= SOCOM_HOOK_STUN_AT && frame < SOCOM_HOOK_STUN_AT + SOCOM_HOOK_TEST_LEN && frame % 15 == 0)
+                    trace_ai(frame, g_stun_ai, "stun");
+
+                if (frame == SOCOM_HOOK_STUN_AT + SOCOM_HOOK_TEST_LEN)
+                    freecam_off();
             }
-
-            if (frame == SOCOM_HOOK_CORPSE_AT + 10)
-            {
-                g_corpse_b->SetHealth(0.0f, (SEAL_DEATH_TYPE)0);
-                SOCOM_PORT_TRACE("HOOK: f%d %s killed", frame, g_corpse_b->m_node->m_name);
-            }
-
-            if (frame >= SOCOM_HOOK_CORPSE_AT && frame < SOCOM_HOOK_CORPSE_AT + SOCOM_HOOK_TEST_LEN && frame % 15 == 0)
-                trace_ai(frame, g_corpse_a, "corpse");
-
-            if (frame == SOCOM_HOOK_CORPSE_AT + SOCOM_HOOK_TEST_LEN)
-                freecam_off();
-        }
-
-        /* stun */
-        if (g_stun_ai != NULL)
-        {
-            if (frame == SOCOM_HOOK_STUN_AT)
-            {
-                const CMatrix &m = g_stun_ai->m_node->m_matrix;
-                CPnt3D fwd(-m.m_matrix[2][0], 0.0f, -m.m_matrix[2][2]);
-                float l = sqrtf(fwd.x * fwd.x + fwd.z * fwd.z);
-                fwd.x /= l; fwd.z /= l;
-                freecam_node(g_stun_ai->m_node, fwd.x * 60.0f + fwd.z * 30.0f, 45.0f, fwd.z * 60.0f - fwd.x * 30.0f);
-            }
-
-            if (frame == SOCOM_HOOK_STUN_AT + 20)
-            {
-                CPnt3D head, dir;
-                g_stun_ai->GetHeadParams(&head, &dir);
-                const CMatrix &m = g_stun_ai->m_node->m_matrix;
-                CPnt3D blast(head.x - m.m_matrix[2][0] * 12.0f, head.y, head.z - m.m_matrix[2][2] * 12.0f);
-                SOCOM_PORT_TRACE("HOOK: f%d flashbang at %.0f %.0f %.0f for %s", frame, blast.x, blast.y, blast.z, g_stun_ai->m_node->m_name);
-                g_stun_ai->HandleStunDamage(STUN_FLASHBANG, 2.0f, &blast);
-            }
-
-            if (frame >= SOCOM_HOOK_STUN_AT && frame < SOCOM_HOOK_STUN_AT + SOCOM_HOOK_TEST_LEN && frame % 15 == 0)
-                trace_ai(frame, g_stun_ai, "stun");
-
-            if (frame == SOCOM_HOOK_STUN_AT + SOCOM_HOOK_TEST_LEN)
-                freecam_off();
         }
     }
 

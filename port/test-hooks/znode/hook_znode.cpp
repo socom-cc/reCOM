@@ -31,6 +31,7 @@
 #include <string.h>
 
 #include "hook_freecam.h"
+#include "hook_clock.h"
 
 #ifndef ZN_CAMD
 #define ZN_CAMD 6.0f
@@ -142,58 +143,62 @@ extern "C" void __real__ZN10CZSealBody12CheckDIShootEP6CPnt3DP7CMatrix(CZSealBod
 extern "C" void __wrap__ZN10CZSealBody12CheckDIShootEP6CPnt3DP7CMatrix(CZSealBody *body, CPnt3D *eye, CMatrix *mat)
 {
     __real__ZN10CZSealBody12CheckDIShootEP6CPnt3DP7CMatrix(body, eye, mat);
-    g_frames++;
-    g_time += zVid.frameTime;
+    static unsigned int hook_clock1;
+    for (unsigned int hook_n = hook_field_step(&hook_clock1); hook_n > 0; hook_n--)
+    {
+        g_frames++;
+        g_time += zVid.frameTime;
 
 #ifdef ZN_CAM
-    if (g_screen != NULL && g_frames >= (unsigned)(ZN_CAM) && g_frames < (unsigned)(ZN_CAM) + 1800)
-    {
-        static const float side[4][2] = { { 1.0f, 0.0f }, { 0.0f, 1.0f }, { -1.0f, 0.0f }, { 0.0f, -1.0f } };
-        int s = (g_frames - (ZN_CAM)) / 450;
-        CMatrix mtw;
-        sceVu0UnitMatrix(mtw.m_matrix);
+        if (g_screen != NULL && g_frames >= (unsigned)(ZN_CAM) && g_frames < (unsigned)(ZN_CAM) + 1800)
+        {
+            static const float side[4][2] = { { 1.0f, 0.0f }, { 0.0f, 1.0f }, { -1.0f, 0.0f }, { 0.0f, -1.0f } };
+            int s = (g_frames - (ZN_CAM)) / 450;
+            CMatrix mtw;
+            sceVu0UnitMatrix(mtw.m_matrix);
 
-        if (g_screen->BuildMTW(mtw) == NULL)
-            sceVu0CopyMatrix(mtw.m_matrix, g_screen->m_matrix.m_matrix);
+            if (g_screen->BuildMTW(mtw) == NULL)
+                sceVu0CopyMatrix(mtw.m_matrix, g_screen->m_matrix.m_matrix);
 
-        const float *p = mtw.m_matrix[3];
-        CPnt3D target(p[0], p[1], p[2]);
-        freecam_look_from(target, side[s][0] * ZN_CAMD, 1.0f, side[s][1] * ZN_CAMD);
+            const float *p = mtw.m_matrix[3];
+            CPnt3D target(p[0], p[1], p[2]);
+            freecam_look_from(target, side[s][0] * ZN_CAMD, 1.0f, side[s][1] * ZN_CAMD);
 
-        if ((g_frames - (ZN_CAM)) % 450 == 0)
-            SOCOM_PORT_TRACE("HOOK ZN: cam side %d on %s at %.1f %.1f %.1f (frame %u)", s, g_screen->m_name ? g_screen->m_name : "?", p[0], p[1], p[2], g_frames);
-    }
-    else if (g_freecam.on)
-    {
-        freecam_off();
-    }
+            if ((g_frames - (ZN_CAM)) % 450 == 0)
+                SOCOM_PORT_TRACE("HOOK ZN: cam side %d on %s at %.1f %.1f %.1f (frame %u)", s, g_screen->m_name ? g_screen->m_name : "?", p[0], p[1], p[2], g_frames);
+        }
+        else if (g_freecam.on)
+        {
+            freecam_off();
+        }
 #endif
 
-    freecam_apply();
+        freecam_apply();
 
-    if (g_frames % 150 == 0)
-    {
-        zdb::CWorld *w = zdb::CWorld::m_world;
-        const CPnt4D &wind = w->m_Wind.m_Wind;
-        int u = 0, v = 0;
-
-        if (!zdb::CTextureFX::m_texfxpool.empty())
+        if (g_frames % 150 == 0)
         {
-            static zdb::CVisData data;
-            zdb::CTextureFX *fx = zdb::CTextureFX::m_texfxpool.front();
-            zdb::CVisData *d = data.SelectVertex(fx->m_visual, fx->m_vid, 0);
+            zdb::CWorld *w = zdb::CWorld::m_world;
+            const CPnt4D &wind = w->m_Wind.m_Wind;
+            int u = 0, v = 0;
 
-            if (d != NULL)
+            if (!zdb::CTextureFX::m_texfxpool.empty())
             {
-                u = d->m_vertex[4];
-                v = d->m_vertex[5];
-            }
-        }
+                static zdb::CVisData data;
+                zdb::CTextureFX *fx = zdb::CTextureFX::m_texfxpool.front();
+                zdb::CVisData *d = data.SelectVertex(fx->m_visual, fx->m_vid, 0);
 
-        SOCOM_PORT_TRACE("HOOK ZN: f %u wind %.2f %.2f %.2f (az %.2f+%.2f speed %.2f+%.2f) uv0 %d %d lod %u hidden %u frame %.4f s",
-               g_frames, wind.x, wind.y, wind.z, w->m_Wind.m_Azimuth, w->m_Wind.m_AzimuthOffset, w->m_Wind.m_Speed,
-               w->m_Wind.m_SpeedOffset, u, v, g_lod_calls / 150, g_lod_hidden / 150, g_time / 150.0f);
-        g_lod_calls = g_lod_hidden = 0;
-        g_time = 0.0f;
+                if (d != NULL)
+                {
+                    u = d->m_vertex[4];
+                    v = d->m_vertex[5];
+                }
+            }
+
+            SOCOM_PORT_TRACE("HOOK ZN: f %u wind %.2f %.2f %.2f (az %.2f+%.2f speed %.2f+%.2f) uv0 %d %d lod %u hidden %u frame %.4f s",
+                   g_frames, wind.x, wind.y, wind.z, w->m_Wind.m_Azimuth, w->m_Wind.m_AzimuthOffset, w->m_Wind.m_Speed,
+                   w->m_Wind.m_SpeedOffset, u, v, g_lod_calls / 150, g_lod_hidden / 150, g_time / 150.0f);
+            g_lod_calls = g_lod_hidden = 0;
+            g_time = 0.0f;
+        }
     }
 }

@@ -29,6 +29,7 @@
 #include <stdlib.h>
 #include <malloc.h>
 #include <eeregs.h>
+#include "hook_clock.h"
 
 #ifndef SOCOM_HOOK_LOOP
 #define SOCOM_HOOK_LOOP 130
@@ -202,16 +203,20 @@ extern "C" int __wrap_scePadRead(int port, int slot, unsigned char *rdata)
 
     if (port == 0)
     {
-        g_reads++;
-        watch();
-        unsigned short bits = pressed_now();
-
-        if (bits != 0)
+        static unsigned int hook_clock1;
+        for (unsigned int hook_n = hook_step(&hook_clock1); hook_n > 0; hook_n--)
         {
-            unsigned short held = (unsigned short)(~((rdata[2] << 8) | rdata[3]));
-            held |= bits;
-            rdata[2] = (unsigned char)~(held >> 8);
-            rdata[3] = (unsigned char)~held;
+            g_reads++;
+            watch();
+            unsigned short bits = pressed_now();
+
+            if (bits != 0)
+            {
+                unsigned short held = (unsigned short)(~((rdata[2] << 8) | rdata[3]));
+                held |= bits;
+                rdata[2] = (unsigned char)~(held >> 8);
+                rdata[3] = (unsigned char)~held;
+            }
         }
     }
 

@@ -28,6 +28,7 @@
 #include <libvu0.h>
 #define HOOK_FREECAM_WRAP
 #include "hook_freecam.h"
+#include "hook_clock.h"
 
 #ifndef SOCOM_HOOK_KNIFE
 #define SOCOM_HOOK_KNIFE 12.0f
@@ -160,24 +161,28 @@ extern "C" int __wrap_scePadRead(int port, int slot, unsigned char *rdata)
 
     if (port == 0)
     {
-        g_reads++;
-
-        if (g_press_left > 0)
+        static unsigned int hook_clock1;
+        for (unsigned int hook_n = hook_step(&hook_clock1); hook_n > 0; hook_n--)
         {
-            unsigned short held = (unsigned short)(~((rdata[2] << 8) | rdata[3]));
-            held |= g_press;
+            g_reads++;
 
-            if (g_press_left <= g_left_at && g_press_left > g_left_at - 3)
-                held |= 0x8000; /* LEFT */
-            rdata[2] = (unsigned char)~(held >> 8);
-            rdata[3] = (unsigned char)~held;
-            g_press_left--;
-        }
+            if (g_press_left > 0)
+            {
+                unsigned short held = (unsigned short)(~((rdata[2] << 8) | rdata[3]));
+                held |= g_press;
 
-        if (g_stick_left > 0)
-        {
-            rdata[7] = 0; /* LY fully up: forward */
-            g_stick_left--;
+                if (g_press_left <= g_left_at && g_press_left > g_left_at - 3)
+                    held |= 0x8000; /* LEFT */
+                rdata[2] = (unsigned char)~(held >> 8);
+                rdata[3] = (unsigned char)~held;
+                g_press_left--;
+            }
+
+            if (g_stick_left > 0)
+            {
+                rdata[7] = 0; /* LY fully up: forward */
+                g_stick_left--;
+            }
         }
     }
 
@@ -240,175 +245,179 @@ extern "C" float __wrap__ZN10CZSealBody22GetTerrainMotionFactorEv(CZSealBody *bo
         static int frame = 0;
         static int state = 0;
         static int at = 0;
-        frame++;
-        u32 avail = body->ActionAvailableMask();
-        CSealCtrl *ctrl = static_cast<CSealCtrl *>(body->m_control);
+        static unsigned int hook_clock2;
+        for (unsigned int hook_n = hook_field_step(&hook_clock2); hook_n > 0; hook_n--)
+        {
+            frame++;
+            u32 avail = body->ActionAvailableMask();
+            CSealCtrl *ctrl = static_cast<CSealCtrl *>(body->m_control);
 
 #ifdef SOCOM_HOOK_CQB
-        static int cqb_next = 0;
+            static int cqb_next = 0;
 
-        if (state == 0 && g_victim != NULL && (avail & 0x1000) && frame > 30 && frame >= cqb_next)
-        {
-            trace(body, frame, state);
-
-            if (body->ActionSelectionMask() == 0x1000)
-                press(0x0040, "CQB", frame);
-            else
-                press_cycle("CQB not first", frame);
-
-            cqb_next = frame + 60;
-        }
-        else if (state == 0 && g_victim != NULL && (s16)body->m_CurrentBlendAnimType == AnimTypes::CQB)
-        {
-            SOCOM_PORT_TRACE("HOOK: f%d CQB anim playing", frame);
-            state = 10;
-            at = frame;
-        }
-        else if (state == 10 && frame <= at + 450)
-        {
-            const CMatrix &pm = body->m_node->m_matrix;
-            CPnt3D p = *body->GetPosW();
-            CPnt3D target(p.x, p.y + 6.0f, p.z);
-            CPnt3D eye(target.x + pm.m_matrix[0][0] * 30.0f - pm.m_matrix[2][0] * 12.0f, target.y + 8.0f,
-                target.z + pm.m_matrix[0][2] * 30.0f - pm.m_matrix[2][2] * 12.0f);
-            freecam_look(eye, target);
-
-            if (frame % 15 == 0)
-                trace(body, frame, state);
-
-            if (frame == at + 450)
-            {
-                freecam_off();
-                state = 11;
-            }
-        }
-        else if (state == 11 && frame % 300 == 0)
-        {
-            trace(body, frame, state);
-        }
-        else
-#endif
-        if (state == 0 && g_victim != NULL && (avail & 0x400) && frame > 30)
-        {
-            trace(body, frame, state);
-            press(0x0040, "knife", frame);
-            state = 1;
-            at = frame;
-        }
-        else if (state == 1 && at < 0 && body->m_carry != NULL)
-        {
-            trace(body, frame, state);
-            SOCOM_PORT_TRACE("HOOK: f%d crouching to pick up %s", frame, nm(body->m_carry));
-            state = 2;
-            at = frame;
-        }
-        else if (state == 1 && ctrl != NULL && ctrl->m_corpsebody != NULL && (avail & 0x100))
-        {
-            static int next = 0;
-
-            if (at >= 0)
-            {
-                trace(body, frame, state);
-                SOCOM_PORT_TRACE("HOOK: f%d body carry offered (corpse %s), CROSS in 45 frames", frame, nm(ctrl->m_corpsebody));
-                at = -frame;
-                next = frame + 45;
-            }
-            else if (frame >= next && body->m_carry == NULL)
+            if (state == 0 && g_victim != NULL && (avail & 0x1000) && frame > 30 && frame >= cqb_next)
             {
                 trace(body, frame, state);
 
-                if (body->ActionSelectionMask() == 0x100)
-                    press(0x0040, "carry", frame);
+                if (body->ActionSelectionMask() == 0x1000)
+                    press(0x0040, "CQB", frame);
                 else
-                    press_cycle("carry not first", frame);
+                    press_cycle("CQB not first", frame);
 
-                next = frame + 60;
+                cqb_next = frame + 60;
             }
-            else if (body->m_carry != NULL)
+            else if (state == 0 && g_victim != NULL && (s16)body->m_CurrentBlendAnimType == AnimTypes::CQB)
             {
+                SOCOM_PORT_TRACE("HOOK: f%d CQB anim playing", frame);
+                state = 10;
+                at = frame;
+            }
+            else if (state == 10 && frame <= at + 450)
+            {
+                const CMatrix &pm = body->m_node->m_matrix;
+                CPnt3D p = *body->GetPosW();
+                CPnt3D target(p.x, p.y + 6.0f, p.z);
+                CPnt3D eye(target.x + pm.m_matrix[0][0] * 30.0f - pm.m_matrix[2][0] * 12.0f, target.y + 8.0f,
+                    target.z + pm.m_matrix[0][2] * 30.0f - pm.m_matrix[2][2] * 12.0f);
+                freecam_look(eye, target);
+
+                if (frame % 15 == 0)
+                    trace(body, frame, state);
+
+                if (frame == at + 450)
+                {
+                    freecam_off();
+                    state = 11;
+                }
+            }
+            else if (state == 11 && frame % 300 == 0)
+            {
+                trace(body, frame, state);
+            }
+            else
+#endif
+            if (state == 0 && g_victim != NULL && (avail & 0x400) && frame > 30)
+            {
+                trace(body, frame, state);
+                press(0x0040, "knife", frame);
+                state = 1;
+                at = frame;
+            }
+            else if (state == 1 && at < 0 && body->m_carry != NULL)
+            {
+                trace(body, frame, state);
+                SOCOM_PORT_TRACE("HOOK: f%d crouching to pick up %s", frame, nm(body->m_carry));
                 state = 2;
                 at = frame;
             }
-        }
-        else if (state == 1 && at > 0 && frame == at + 600)
-        {
-            trace(body, frame, state);
-            CZSealBody *c = ctrl != NULL ? ctrl->m_corpsebody : NULL;
-            SOCOM_PORT_TRACE("HOOK: f%d no carry offer: corpse %s can %d", frame, nm(c), c != NULL ? (int)body->CanUseBodyCarry(c) : -1);
-        }
-        else if (state == 2 && body->m_state == 9 && body->m_carry != NULL
-            && (s16)body->m_CurrentBlendAnimType != AnimTypes::BuddyCarryPickup)
-        {
-            trace(body, frame, state);
-            SOCOM_PORT_TRACE("HOOK: f%d carrying %s: walk forward %d reads", frame, nm(body->m_carry), SOCOM_HOOK_WALK);
-            g_stick_left = SOCOM_HOOK_WALK;
-            state = 3;
-            at = frame;
-        }
-        else if (state == 2 && frame == at + 600)
-        {
-            trace(body, frame, state);
-            SOCOM_PORT_TRACE("HOOK: f%d pickup did not finish", frame);
-            state = 6;
-        }
-        else if (state == 3 && g_stick_left == 0)
-        {
-            trace(body, frame, state);
-            state = 4;
-            at = frame;
-        }
-        else if (state == 4 && frame >= at + 45 && (avail & 0x200))
-        {
-            trace(body, frame, state);
-            press(0x0040, "put down", frame);
-            state = 5;
-            at = frame;
-        }
-        else if (state == 4 && frame == at + 400)
-        {
-            trace(body, frame, state);
-            SOCOM_PORT_TRACE("HOOK: f%d put down not offered", frame);
-            state = 6;
-        }
-        else if (state == 5 && frame >= at + 10 && body->m_carry == NULL && body->m_state != 9)
-        {
-            trace(body, frame, state);
-            SOCOM_PORT_TRACE("HOOK: f%d put down done", frame);
-            state = 6;
-            at = frame;
-        }
+            else if (state == 1 && ctrl != NULL && ctrl->m_corpsebody != NULL && (avail & 0x100))
+            {
+                static int next = 0;
 
-        /* crouched after the put down: a crouch walk forward (InStateCrouch / CrouchMoveControl) */
-        if (state == 6 && frame == at + 150)
-        {
-            trace(body, frame, state);
-            SOCOM_PORT_TRACE("HOOK: f%d crouch walk forward 45 reads", frame);
-            g_stick_left = 45;
-        }
-        else if (state == 6 && frame > at + 150 && frame < at + 300 && frame % 15 == 0)
-        {
-            trace(body, frame, state);
-        }
+                if (at >= 0)
+                {
+                    trace(body, frame, state);
+                    SOCOM_PORT_TRACE("HOOK: f%d body carry offered (corpse %s), CROSS in 45 frames", frame, nm(ctrl->m_corpsebody));
+                    at = -frame;
+                    next = frame + 45;
+                }
+                else if (frame >= next && body->m_carry == NULL)
+                {
+                    trace(body, frame, state);
 
-        /* test camera: from the side while carrying, until 120 frames after the put down */
-        if (state >= 3 && state <= 5)
-        {
-            const CMatrix &pm = body->m_node->m_matrix;
-            CPnt3D p = *body->GetPosW();
-            CPnt3D target(p.x, p.y + 6.0f, p.z);
-            CPnt3D eye(target.x + pm.m_matrix[0][0] * 28.0f - pm.m_matrix[2][0] * 10.0f, target.y + 6.0f,
-                target.z + pm.m_matrix[0][2] * 28.0f - pm.m_matrix[2][2] * 10.0f);
-            freecam_look(eye, target);
-        }
-        else if (state == 6 && frame == at + 120)
-        {
-            freecam_off();
-        }
+                    if (body->ActionSelectionMask() == 0x100)
+                        press(0x0040, "carry", frame);
+                    else
+                        press_cycle("carry not first", frame);
 
-        if (state >= 1 && state <= 5 && frame % 15 == 0)
-            trace(body, frame, state);
-        else if (frame % 300 == 0)
-            trace(body, frame, state);
+                    next = frame + 60;
+                }
+                else if (body->m_carry != NULL)
+                {
+                    state = 2;
+                    at = frame;
+                }
+            }
+            else if (state == 1 && at > 0 && frame == at + 600)
+            {
+                trace(body, frame, state);
+                CZSealBody *c = ctrl != NULL ? ctrl->m_corpsebody : NULL;
+                SOCOM_PORT_TRACE("HOOK: f%d no carry offer: corpse %s can %d", frame, nm(c), c != NULL ? (int)body->CanUseBodyCarry(c) : -1);
+            }
+            else if (state == 2 && body->m_state == 9 && body->m_carry != NULL
+                && (s16)body->m_CurrentBlendAnimType != AnimTypes::BuddyCarryPickup)
+            {
+                trace(body, frame, state);
+                SOCOM_PORT_TRACE("HOOK: f%d carrying %s: walk forward %d reads", frame, nm(body->m_carry), SOCOM_HOOK_WALK);
+                g_stick_left = SOCOM_HOOK_WALK;
+                state = 3;
+                at = frame;
+            }
+            else if (state == 2 && frame == at + 600)
+            {
+                trace(body, frame, state);
+                SOCOM_PORT_TRACE("HOOK: f%d pickup did not finish", frame);
+                state = 6;
+            }
+            else if (state == 3 && g_stick_left == 0)
+            {
+                trace(body, frame, state);
+                state = 4;
+                at = frame;
+            }
+            else if (state == 4 && frame >= at + 45 && (avail & 0x200))
+            {
+                trace(body, frame, state);
+                press(0x0040, "put down", frame);
+                state = 5;
+                at = frame;
+            }
+            else if (state == 4 && frame == at + 400)
+            {
+                trace(body, frame, state);
+                SOCOM_PORT_TRACE("HOOK: f%d put down not offered", frame);
+                state = 6;
+            }
+            else if (state == 5 && frame >= at + 10 && body->m_carry == NULL && body->m_state != 9)
+            {
+                trace(body, frame, state);
+                SOCOM_PORT_TRACE("HOOK: f%d put down done", frame);
+                state = 6;
+                at = frame;
+            }
+
+            /* crouched after the put down: a crouch walk forward (InStateCrouch / CrouchMoveControl) */
+            if (state == 6 && frame == at + 150)
+            {
+                trace(body, frame, state);
+                SOCOM_PORT_TRACE("HOOK: f%d crouch walk forward 45 reads", frame);
+                g_stick_left = 45;
+            }
+            else if (state == 6 && frame > at + 150 && frame < at + 300 && frame % 15 == 0)
+            {
+                trace(body, frame, state);
+            }
+
+            /* test camera: from the side while carrying, until 120 frames after the put down */
+            if (state >= 3 && state <= 5)
+            {
+                const CMatrix &pm = body->m_node->m_matrix;
+                CPnt3D p = *body->GetPosW();
+                CPnt3D target(p.x, p.y + 6.0f, p.z);
+                CPnt3D eye(target.x + pm.m_matrix[0][0] * 28.0f - pm.m_matrix[2][0] * 10.0f, target.y + 6.0f,
+                    target.z + pm.m_matrix[0][2] * 28.0f - pm.m_matrix[2][2] * 10.0f);
+                freecam_look(eye, target);
+            }
+            else if (state == 6 && frame == at + 120)
+            {
+                freecam_off();
+            }
+
+            if (state >= 1 && state <= 5 && frame % 15 == 0)
+                trace(body, frame, state);
+            else if (frame % 300 == 0)
+                trace(body, frame, state);
+        }
     }
 
     return __real__ZN10CZSealBody22GetTerrainMotionFactorEv(body);

@@ -119,6 +119,50 @@ target_compile_options(socom_game PRIVATE
 file(GLOB_RECURSE SOCOM_COMPAT_SOURCES CONFIGURE_DEPENDS
   "${CMAKE_CURRENT_SOURCE_DIR}/compat/*.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/compat/*.c")
 
+# The image layout: the reference ELF has the 256 KB MFIFO ring (mfifoBase, zsys_spr.cpp, aligned to
+# its size for the DMAC) at 0x100000, ahead of its code (.text from 0x140000). The pinned ps2sdk
+# linker script starts .text at 0x100000 and leaves no room before it, and in .bss the ring cost
+# 262,116 bytes of alignment padding (docs/port/notes/menu-heap.md). So the port links with that
+# script copied here at configure time with one change: a .mfifo section (zsys_spr.cpp puts the ring
+# there) at 0x100000 and .text right after it, as in the ELF. Not an option: it is the ELF's layout.
+set(_socom_sdk_linkfile "$ENV{PS2SDK}/ee/startup/linkfile")
+if(NOT EXISTS "${_socom_sdk_linkfile}")
+  message(FATAL_ERROR "socom port: no ps2sdk linker script at ${_socom_sdk_linkfile} (PS2SDK)")
+endif()
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_socom_sdk_linkfile}")
+file(READ "${_socom_sdk_linkfile}" _socom_linkfile)
+string(REPLACE ".text 0x00100000: {"
+  ".mfifo 0x00100000: {\n\t\tKEEP(*(.mfifo))\n\t} :text\n\n\t.text ALIGN(128): {"
+  _socom_port_linkfile "${_socom_linkfile}")
+if(_socom_port_linkfile STREQUAL _socom_linkfile)
+  message(FATAL_ERROR "socom port: the ps2sdk linker script has no '.text 0x00100000: {' to put .mfifo before")
+endif()
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/socom_port.ld" "${_socom_port_linkfile}")
+string(REGEX REPLACE "-T[^ ]*/ee/startup/linkfile" "-T${CMAKE_CURRENT_BINARY_DIR}/socom_port.ld"
+  CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
+if(NOT CMAKE_EXE_LINKER_FLAGS MATCHES "socom_port.ld")
+  message(FATAL_ERROR "socom port: CMAKE_EXE_LINKER_FLAGS has no ps2sdk -T linkfile to replace: ${CMAKE_EXE_LINKER_FLAGS}")
+endif()
+
+# Heap options, all OFF by default: deviations from the original game's heap use, for the menus'
+# archive buffer that the original itself sometimes puts above the program break (about one return to
+# the menus in eight; docs/port/notes/menu-heap.md, frame-limiter.md). Each is test-proven in one run.
+#   SOCOM_PORT_HEAP_KEEP_MENU_ZAR   keep the place of run/uizanim.zar's 2.6 MB data buffer reserved
+#                                   from the menus' UnInit across the mission to their next Init
+#                                   (CMenuState, st_menu.cpp): the buffer always finds its hole; the
+#                                   mission has 2.6 MB less heap.
+#   SOCOM_PORT_HEAP_SHRINK_TEXLIST  after a mission, replace the texture manager's grown buffer list
+#                                   with a tight copy (CCoreState unload, st_core.cpp), so its block no
+#                                   longer bounds the top of the heap.
+option(SOCOM_PORT_HEAP_KEEP_MENU_ZAR "port deviation: keep the menus' archive buffer reserved across a mission" OFF)
+option(SOCOM_PORT_HEAP_SHRINK_TEXLIST "port deviation: shrink the texture manager's buffer list after a mission" OFF)
+foreach(_opt SOCOM_PORT_HEAP_KEEP_MENU_ZAR SOCOM_PORT_HEAP_SHRINK_TEXLIST)
+  if(${_opt})
+    message(STATUS "socom port: heap option ${_opt}")
+    target_compile_definitions(socom_game PRIVATE ${_opt})
+  endif()
+endforeach()
+
 add_executable(socom_port ${SOCOM_COMPAT_SOURCES})
 set_target_properties(socom_port PROPERTIES OUTPUT_NAME "socom_port.elf" LINKER_LANGUAGE CXX)
 target_include_directories(socom_port PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/compat/include")
@@ -128,14 +172,21 @@ target_link_libraries(socom_port PRIVATE
   -liopreboot -lpatches -lcdvd -lpad -lmc -lmpeg -ldebug -leedebug -lkernel)
 
 # Test hook, off by default: a scratch build configured with
-#   -DSOCOM_PORT_FAKE_PAD=<read>:<BUTTON>[,<read>:<BUTTON>...]
-# synthesizes pad port 0 and presses the buttons at those pad reads (compat/libpad.c;
-# <read>:<AXIS>=<0..255>[+<reads>] terms move a stick, e.g. 300:LY=0+200 pushes up),
-# so batch emulator runs can drive the menus. Never set it in the default build.
+#   -DSOCOM_PORT_FAKE_PAD=<when>:<BUTTON>[,<when>:<BUTTON>...]
+# synthesizes pad port 0 and presses the buttons at those times (compat/libpad.c; <when> is a
+# pad read count, or <anchor>[.<k>]+<fields>: 60 Hz fields after a point the game reached,
+# e.g. menu+120:CROSS; <when>:<AXIS>=<0..255>[+<n>] terms move a stick; syntax in
+# port/test-hooks/README.md), so batch emulator runs can drive the menus. The anchors come from
+# port/test/fake_pad_anchors.cpp, compiled only here. Never set it in the default build.
 set(SOCOM_PORT_FAKE_PAD "" CACHE STRING "port test hook: scripted pad 0 presses (empty = off)")
 if(SOCOM_PORT_FAKE_PAD)
   message(STATUS "socom port: TEST HOOK SOCOM_PORT_FAKE_PAD=${SOCOM_PORT_FAKE_PAD}")
   target_compile_definitions(socom_port PRIVATE "SOCOM_PORT_FAKE_PAD=${SOCOM_PORT_FAKE_PAD}")
+  set(_fake_pad_anchors "${CMAKE_CURRENT_SOURCE_DIR}/test/fake_pad_anchors.cpp")
+  target_sources(socom_port PRIVATE "${_fake_pad_anchors}")
+  set_source_files_properties("${_fake_pad_anchors}" PROPERTIES
+    COMPILE_OPTIONS "${SOCOM_PORT_FLAGS}"
+    INCLUDE_DIRECTORIES "${SOCOM_ROOT}/src")
 endif()
 
 # Test hook, off by default: a scratch build configured with -DSOCOM_PORT_VU1_TEST=ON draws one

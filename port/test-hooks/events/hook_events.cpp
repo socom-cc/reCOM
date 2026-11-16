@@ -26,6 +26,7 @@
 #include <math.h>
 #define HOOK_FREECAM_WRAP
 #include "hook_freecam.h"
+#include "hook_clock.h"
 
 #ifndef SOCOM_HOOK_ENEMY
 #define SOCOM_HOOK_ENEMY 70.0f
@@ -193,42 +194,46 @@ extern "C" float __wrap__ZN10CZSealBody22GetTerrainMotionFactorEv(CZSealBody *bo
     if (body == ftsGetPlayer() && g_enemy != NULL)
     {
         static int frame = 0;
-        frame++;
-
-        if (frame == SOCOM_HOOK_HIDE)
+        static unsigned int hook_clock1;
+        for (unsigned int hook_n = hook_field_step(&hook_clock1); hook_n > 0; hook_n--)
         {
-            CPnt3D me = *body->GetPosW();
-            CPnt3D ep = *g_enemy->GetPosW();
-            CPnt3D away(me.x - ep.x, 0.0f, me.z - ep.z);
-            float l = sqrtf(away.x * away.x + away.z * away.z);
-            away.x /= l; away.z /= l;
-            CPnt3D at(me.x + away.x * SOCOM_HOOK_AWAY, me.y, me.z + away.z * SOCOM_HOOK_AWAY);
-            place(body, at, ep);
-            SOCOM_PORT_TRACE("HOOK: f%d player hidden to %.0f %.0f %.0f", frame, body->GetPosW()->x, body->GetPosW()->y, body->GetPosW()->z);
-            int k = 0;
+            frame++;
 
-            for (int i = 0; i < g_nseals; i++)
+            if (frame == SOCOM_HOOK_HIDE)
             {
-                CZSealBody *s = g_seals[i];
+                CPnt3D me = *body->GetPosW();
+                CPnt3D ep = *g_enemy->GetPosW();
+                CPnt3D away(me.x - ep.x, 0.0f, me.z - ep.z);
+                float l = sqrtf(away.x * away.x + away.z * away.z);
+                away.x /= l; away.z /= l;
+                CPnt3D at(me.x + away.x * SOCOM_HOOK_AWAY, me.y, me.z + away.z * SOCOM_HOOK_AWAY);
+                place(body, at, ep);
+                SOCOM_PORT_TRACE("HOOK: f%d player hidden to %.0f %.0f %.0f", frame, body->GetPosW()->x, body->GetPosW()->y, body->GetPosW()->z);
+                int k = 0;
 
-                if (s == body || (s->m_team & body->m_team) == 0 || !s->m_isAlive)
-                    continue;
+                for (int i = 0; i < g_nseals; i++)
+                {
+                    CZSealBody *s = g_seals[i];
 
-                k++;
-                CPnt3D near(at.x + away.x * 15.0f * k - away.z * 10.0f, at.y, at.z + away.z * 15.0f * k + away.x * 10.0f);
-                place(s, near, ep);
-                SOCOM_PORT_TRACE("HOOK: mate %s hidden too", s->m_node->m_name);
+                    if (s == body || (s->m_team & body->m_team) == 0 || !s->m_isAlive)
+                        continue;
+
+                    k++;
+                    CPnt3D near(at.x + away.x * 15.0f * k - away.z * 10.0f, at.y, at.z + away.z * 15.0f * k + away.x * 10.0f);
+                    place(s, near, ep);
+                    SOCOM_PORT_TRACE("HOOK: mate %s hidden too", s->m_node->m_name);
+                }
+                freecam_node(g_enemy->m_node, 0.0f, 90.0f, 140.0f);
             }
-            freecam_node(g_enemy->m_node, 0.0f, 90.0f, 140.0f);
-        }
 
-        if (frame == SOCOM_HOOK_HIDE + SOCOM_HOOK_CAM)
-            freecam_off();
+            if (frame == SOCOM_HOOK_HIDE + SOCOM_HOOK_CAM)
+                freecam_off();
 
-        if (frame % 30 == 0)
-        {
-            trace_ai(frame, g_enemy, "e1");
-            trace_ai(frame, g_enemy2, "e2");
+            if (frame % 30 == 0)
+            {
+                trace_ai(frame, g_enemy, "e1");
+                trace_ai(frame, g_enemy2, "e2");
+            }
         }
     }
 

@@ -26,7 +26,14 @@ static unsigned char m_hddStatus;
 static int tid;
 
 /* @socom-skeleton stub g_stack */
+#ifdef SOCOM_PORT
+/* port: a thread stack must be quadword aligned (the kernel saves the context with sq); the
+ * ELF's linker happened to place it so, GCC's only by chance: unaligned, the power-off thread
+ * started on a broken stack and ran its shut-down path at the first mission frame */
+static unsigned char g_stack[8192] __attribute__((aligned(16)));
+#else
 static unsigned char g_stack[8192];
+#endif
 
 /* @socom-skeleton stub TRC_PowerOffHandler__FPv */
 void TRC_PowerOffHandler(void *sema)

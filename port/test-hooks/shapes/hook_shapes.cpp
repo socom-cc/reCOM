@@ -20,6 +20,7 @@
 #include "gamez/zGrid/zgrid.h"
 #include "gamez/zIntersect/zintersect.h"
 #include <string.h>
+#include "hook_clock.h"
 
 #ifndef SOCOM_HOOK_ENEMY
 #define SOCOM_HOOK_ENEMY 40.0f
@@ -257,41 +258,45 @@ extern "C" float __wrap__ZN10CZSealBody22GetTerrainMotionFactorEv(CZSealBody *bo
     if (body == ftsGetPlayer())
     {
         static int frame = 0;
-        frame++;
-        CPnt3D me = *body->GetPosW();
-
-        if (frame == SOCOM_HOOK_MOVE_FRAME && g_mate != NULL)
+        static unsigned int hook_clock1;
+        for (unsigned int hook_n = hook_field_step(&hook_clock1); hook_n > 0; hook_n--)
         {
-            const CMatrix &pm = body->m_node->m_matrix;
-            CPnt3D fwd(-pm.m_matrix[2][0], 0.0f, -pm.m_matrix[2][2]);
-            float fl = sqrtf(fwd.x * fwd.x + fwd.z * fwd.z);
-            fwd.x /= fl; fwd.z /= fl;
-            CPnt3D at(me.x + fwd.x * 30.0f, me.y, me.z + fwd.z * 30.0f);
-            place(g_mate, at, me);
-            SOCOM_PORT_TRACE("HOOK: frame %d mate %s moved to %.0f %.0f %.0f", frame, g_mate->m_node->m_name, g_mate->GetPosW()->x, g_mate->GetPosW()->y, g_mate->GetPosW()->z);
-        }
+            frame++;
+            CPnt3D me = *body->GetPosW();
 
-        if (frame % 15 == 0)
-        {
-            float best = 1e30f;
-            const char *bestname = "-";
-
-            for (CTargetList::iterator it = body->m_targets.begin(); it != body->m_targets.end(); ++it)
+            if (frame == SOCOM_HOOK_MOVE_FRAME && g_mate != NULL)
             {
-                if (it->m_distSq < best)
-                {
-                    best = it->m_distSq;
-                    bestname = it->m_ent != NULL && it->m_ent->m_node != NULL ? it->m_ent->m_node->m_name : "-";
-                }
+                const CMatrix &pm = body->m_node->m_matrix;
+                CPnt3D fwd(-pm.m_matrix[2][0], 0.0f, -pm.m_matrix[2][2]);
+                float fl = sqrtf(fwd.x * fwd.x + fwd.z * fwd.z);
+                fwd.x /= fl; fwd.z /= fl;
+                CPnt3D at(me.x + fwd.x * 30.0f, me.y, me.z + fwd.z * 30.0f);
+                place(g_mate, at, me);
+                SOCOM_PORT_TRACE("HOOK: frame %d mate %s moved to %.0f %.0f %.0f", frame, g_mate->m_node->m_name, g_mate->GetPosW()->x, g_mate->GetPosW()->y, g_mate->GetPosW()->z);
             }
 
-            CPnt3D mp = g_mate != NULL ? *g_mate->GetPosW() : CPnt3D(0.0f, 0.0f, 0.0f);
-            float dm = sqrtf((mp.x - me.x) * (mp.x - me.x) + (mp.z - me.z) * (mp.z - me.z));
-            SOCOM_PORT_TRACE("HOOK: f%d player %.1f %.1f %.1f check %d targets %d nearest %s %.1f; mate %.1f %.1f dist %.1f state %d check %d; enemy alive %d health %.2f state %d top %d",
-                frame, me.x, me.y, me.z, (int)body->m_check_player_collision, (int)body->m_targets.size(), bestname, sqrtf(best),
-                mp.x, mp.z, dm, g_mate != NULL ? (int)g_mate->m_state : -1, g_mate != NULL ? (int)g_mate->m_check_player_collision : -1,
-                g_enemy != NULL ? (int)g_enemy->m_isAlive : -1, g_enemy != NULL ? g_enemy->m_health : -1.0f,
-                g_enemy != NULL ? (int)g_enemy->m_state : -1, g_enemy != NULL && g_enemy->m_blends->Top() != NULL ? (int)g_enemy->m_blends->Top()->m_animType : -2);
+            if (frame % 15 == 0)
+            {
+                float best = 1e30f;
+                const char *bestname = "-";
+
+                for (CTargetList::iterator it = body->m_targets.begin(); it != body->m_targets.end(); ++it)
+                {
+                    if (it->m_distSq < best)
+                    {
+                        best = it->m_distSq;
+                        bestname = it->m_ent != NULL && it->m_ent->m_node != NULL ? it->m_ent->m_node->m_name : "-";
+                    }
+                }
+
+                CPnt3D mp = g_mate != NULL ? *g_mate->GetPosW() : CPnt3D(0.0f, 0.0f, 0.0f);
+                float dm = sqrtf((mp.x - me.x) * (mp.x - me.x) + (mp.z - me.z) * (mp.z - me.z));
+                SOCOM_PORT_TRACE("HOOK: f%d player %.1f %.1f %.1f check %d targets %d nearest %s %.1f; mate %.1f %.1f dist %.1f state %d check %d; enemy alive %d health %.2f state %d top %d",
+                    frame, me.x, me.y, me.z, (int)body->m_check_player_collision, (int)body->m_targets.size(), bestname, sqrtf(best),
+                    mp.x, mp.z, dm, g_mate != NULL ? (int)g_mate->m_state : -1, g_mate != NULL ? (int)g_mate->m_check_player_collision : -1,
+                    g_enemy != NULL ? (int)g_enemy->m_isAlive : -1, g_enemy != NULL ? g_enemy->m_health : -1.0f,
+                    g_enemy != NULL ? (int)g_enemy->m_state : -1, g_enemy != NULL && g_enemy->m_blends->Top() != NULL ? (int)g_enemy->m_blends->Top()->m_animType : -2);
+            }
         }
     }
 

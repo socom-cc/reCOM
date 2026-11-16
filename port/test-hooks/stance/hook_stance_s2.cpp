@@ -25,6 +25,7 @@
 #include <libvu0.h>
 #define HOOK_FREECAM_WRAP
 #include "hook_freecam.h"
+#include "hook_clock.h"
 
 extern "C" void __real__ZN10CameraZoom10AttachSealEP10CZSealBody(CZSealBody *seal);
 extern "C" float __real__ZN10CZSealBody22GetTerrainMotionFactorEv(CZSealBody *body);
@@ -177,26 +178,30 @@ extern "C" int __wrap_scePadRead(int port, int slot, unsigned char *rdata)
 
     if (port == 0)
     {
-        g_reads++;
+        static unsigned int hook_clock1;
+        for (unsigned int hook_n = hook_step(&hook_clock1); hook_n > 0; hook_n--)
+        {
+            g_reads++;
 
-        if (g_press_left > 0)
-        {
-            unsigned short held = (unsigned short)(~((rdata[2] << 8) | rdata[3]));
-            held |= g_press;
-            rdata[2] = (unsigned char)~(held >> 8);
-            rdata[3] = (unsigned char)~held;
-            g_press_left--;
-        }
-        else if (g_press2_at > 0)
-        {
-            if (--g_press2_at == 0)
-                g_press_left = 3;
-        }
+            if (g_press_left > 0)
+            {
+                unsigned short held = (unsigned short)(~((rdata[2] << 8) | rdata[3]));
+                held |= g_press;
+                rdata[2] = (unsigned char)~(held >> 8);
+                rdata[3] = (unsigned char)~held;
+                g_press_left--;
+            }
+            else if (g_press2_at > 0)
+            {
+                if (--g_press2_at == 0)
+                    g_press_left = 3;
+            }
 
-        if (g_stick_left > 0)
-        {
-            rdata[7] = 0; /* LY fully up: forward */
-            g_stick_left--;
+            if (g_stick_left > 0)
+            {
+                rdata[7] = 0; /* LY fully up: forward */
+                g_stick_left--;
+            }
         }
     }
 
@@ -237,167 +242,171 @@ extern "C" float __wrap__ZN10CZSealBody22GetTerrainMotionFactorEv(CZSealBody *bo
         static int phase = 0;
         static int at = 0;
         static int tries = 0;
-        frame++;
-        s8 st = body->m_state;
-
-        switch (phase)
+        static unsigned int hook_clock2;
+        for (unsigned int hook_n = hook_field_step(&hook_clock2); hook_n > 0; hook_n--)
         {
-        case 0:
-            if (frame == 120)
+            frame++;
+            s8 st = body->m_state;
+
+            switch (phase)
             {
+            case 0:
+                if (frame == 120)
+                {
+                    trace(body, frame, phase);
+                    press(B_TRIANGLE, "crouch", frame);
+                    phase = 1;
+                    at = frame;
+                }
+                break;
+            case 1: /* crouched: walk */
+                if (st == 1 && frame >= at + 90)
+                {
+                    trace(body, frame, phase);
+                    SOCOM_PORT_TRACE("HOOK: f%d CROUCHED: crouch walk 90 reads", frame);
+                    g_stick_left = 90;
+                    phase = 2;
+                    at = frame;
+                }
+                else if (frame == at + 400)
+                {
+                    SOCOM_PORT_TRACE("HOOK: f%d crouch did not happen", frame);
+                    phase = 2;
+                }
+                break;
+            case 2:
+                if (g_stick_left == 0 && frame >= at + 150)
+                {
+                    trace(body, frame, phase);
+                    press(B_TRIANGLE, "prone", frame);
+                    phase = 3;
+                    at = frame;
+                }
+                break;
+            case 3: /* prone: crawl */
+                if (st == 2 && frame >= at + 120)
+                {
+                    trace(body, frame, phase);
+                    SOCOM_PORT_TRACE("HOOK: f%d PRONE: crawl 150 reads", frame);
+                    g_stick_left = 150;
+                    phase = 4;
+                    at = frame;
+                }
+                else if (frame == at + 400)
+                {
+                    SOCOM_PORT_TRACE("HOOK: f%d prone did not happen", frame);
+                    phase = 4;
+                }
+                break;
+            case 4:
+                if (g_stick_left == 0 && frame >= at + 240)
+                {
+                    trace(body, frame, phase);
+                    press(B_TRIANGLE, "stand", frame);
+                    phase = 5;
+                    at = frame;
+                }
+                break;
+            case 5:
+                if (st == 0 && frame >= at + 90)
+                {
+                    trace(body, frame, phase);
+                    dclick(B_TRIANGLE, "stand -> prone", frame);
+                    phase = 6;
+                    at = frame;
+                }
+                else if (frame == at + 400)
+                {
+                    SOCOM_PORT_TRACE("HOOK: f%d stand did not happen", frame);
+                    phase = 6;
+                }
+                break;
+            case 6:
+                if ((st == 2 && frame >= at + 150) || frame == at + 400)
+                {
+                    trace(body, frame, phase);
+                    press(B_TRIANGLE, "stand again", frame);
+                    phase = 7;
+                    at = frame;
+                }
+                break;
+            case 7: /* run, then zoom in */
+                if (frame == at + 120)
+                {
+                    trace(body, frame, phase);
+                    SOCOM_PORT_TRACE("HOOK: f%d run 150 reads", frame);
+                    g_stick_left = 150;
+                }
+                else if (frame > at + 120 && g_stick_left == 0)
+                {
+                    trace(body, frame, phase);
+                    press(B_UP, "zoom in", frame);
+                    phase = 8;
+                    at = frame;
+                    tries = 1;
+                }
+                break;
+            case 8:
+                if (body->m_kit.IsUsingScope())
+                {
+                    trace(body, frame, phase);
+                    SOCOM_PORT_TRACE("HOOK: f%d SCOPED (zoom %d): hold still 900 frames", frame, (int)body->m_zoomstate);
+                    phase = 9;
+                    at = frame;
+                }
+                else if (frame == at + 20 && tries < 4)
+                {
+                    press(B_UP, "zoom in more", frame);
+                    at = frame;
+                    tries++;
+                }
+                else if (frame == at + 40)
+                {
+                    SOCOM_PORT_TRACE("HOOK: f%d no scope (zoom %d)", frame, (int)body->m_zoomstate);
+                    phase = 9;
+                    at = frame;
+                }
+                break;
+            case 9:
+                if (frame == at + 900)
+                {
+                    trace(body, frame, phase);
+                    press(B_DOWN, "zoom out", frame);
+                    phase = 10;
+                    at = frame;
+                    tries = 1;
+                }
+                break;
+            case 10:
+                if ((s8)body->m_zoomstate > 0 && frame == at + 20 && tries < 5)
+                {
+                    press(B_DOWN, "zoom out more", frame);
+                    at = frame;
+                    tries++;
+                }
+                else if ((s8)body->m_zoomstate <= 0 && frame >= at + 20)
+                {
+                    trace(body, frame, phase);
+                    SOCOM_PORT_TRACE("HOOK: f%d back in third person; idle", frame);
+                    phase = 11;
+                    at = frame;
+                }
+                break;
+            default:
+                break;
+            }
+
+            /* test camera from the side while crouch walking and crawling */
+            if ((phase == 2 && frame < at + 140) || (phase == 4 && frame < at + 220))
+                side_camera(body);
+            else if (g_freecam.on)
+                freecam_off();
+
+            if (phase >= 1 && phase <= 7 && frame % 30 == 0)
                 trace(body, frame, phase);
-                press(B_TRIANGLE, "crouch", frame);
-                phase = 1;
-                at = frame;
-            }
-            break;
-        case 1: /* crouched: walk */
-            if (st == 1 && frame >= at + 90)
-            {
+            else if (frame % 300 == 0)
                 trace(body, frame, phase);
-                SOCOM_PORT_TRACE("HOOK: f%d CROUCHED: crouch walk 90 reads", frame);
-                g_stick_left = 90;
-                phase = 2;
-                at = frame;
-            }
-            else if (frame == at + 400)
-            {
-                SOCOM_PORT_TRACE("HOOK: f%d crouch did not happen", frame);
-                phase = 2;
-            }
-            break;
-        case 2:
-            if (g_stick_left == 0 && frame >= at + 150)
-            {
-                trace(body, frame, phase);
-                press(B_TRIANGLE, "prone", frame);
-                phase = 3;
-                at = frame;
-            }
-            break;
-        case 3: /* prone: crawl */
-            if (st == 2 && frame >= at + 120)
-            {
-                trace(body, frame, phase);
-                SOCOM_PORT_TRACE("HOOK: f%d PRONE: crawl 150 reads", frame);
-                g_stick_left = 150;
-                phase = 4;
-                at = frame;
-            }
-            else if (frame == at + 400)
-            {
-                SOCOM_PORT_TRACE("HOOK: f%d prone did not happen", frame);
-                phase = 4;
-            }
-            break;
-        case 4:
-            if (g_stick_left == 0 && frame >= at + 240)
-            {
-                trace(body, frame, phase);
-                press(B_TRIANGLE, "stand", frame);
-                phase = 5;
-                at = frame;
-            }
-            break;
-        case 5:
-            if (st == 0 && frame >= at + 90)
-            {
-                trace(body, frame, phase);
-                dclick(B_TRIANGLE, "stand -> prone", frame);
-                phase = 6;
-                at = frame;
-            }
-            else if (frame == at + 400)
-            {
-                SOCOM_PORT_TRACE("HOOK: f%d stand did not happen", frame);
-                phase = 6;
-            }
-            break;
-        case 6:
-            if ((st == 2 && frame >= at + 150) || frame == at + 400)
-            {
-                trace(body, frame, phase);
-                press(B_TRIANGLE, "stand again", frame);
-                phase = 7;
-                at = frame;
-            }
-            break;
-        case 7: /* run, then zoom in */
-            if (frame == at + 120)
-            {
-                trace(body, frame, phase);
-                SOCOM_PORT_TRACE("HOOK: f%d run 150 reads", frame);
-                g_stick_left = 150;
-            }
-            else if (frame > at + 120 && g_stick_left == 0)
-            {
-                trace(body, frame, phase);
-                press(B_UP, "zoom in", frame);
-                phase = 8;
-                at = frame;
-                tries = 1;
-            }
-            break;
-        case 8:
-            if (body->m_kit.IsUsingScope())
-            {
-                trace(body, frame, phase);
-                SOCOM_PORT_TRACE("HOOK: f%d SCOPED (zoom %d): hold still 900 frames", frame, (int)body->m_zoomstate);
-                phase = 9;
-                at = frame;
-            }
-            else if (frame == at + 20 && tries < 4)
-            {
-                press(B_UP, "zoom in more", frame);
-                at = frame;
-                tries++;
-            }
-            else if (frame == at + 40)
-            {
-                SOCOM_PORT_TRACE("HOOK: f%d no scope (zoom %d)", frame, (int)body->m_zoomstate);
-                phase = 9;
-                at = frame;
-            }
-            break;
-        case 9:
-            if (frame == at + 900)
-            {
-                trace(body, frame, phase);
-                press(B_DOWN, "zoom out", frame);
-                phase = 10;
-                at = frame;
-                tries = 1;
-            }
-            break;
-        case 10:
-            if ((s8)body->m_zoomstate > 0 && frame == at + 20 && tries < 5)
-            {
-                press(B_DOWN, "zoom out more", frame);
-                at = frame;
-                tries++;
-            }
-            else if ((s8)body->m_zoomstate <= 0 && frame >= at + 20)
-            {
-                trace(body, frame, phase);
-                SOCOM_PORT_TRACE("HOOK: f%d back in third person; idle", frame);
-                phase = 11;
-                at = frame;
-            }
-            break;
-        default:
-            break;
         }
-
-        /* test camera from the side while crouch walking and crawling */
-        if ((phase == 2 && frame < at + 140) || (phase == 4 && frame < at + 220))
-            side_camera(body);
-        else if (g_freecam.on)
-            freecam_off();
-
-        if (phase >= 1 && phase <= 7 && frame % 30 == 0)
-            trace(body, frame, phase);
-        else if (frame % 300 == 0)
-            trace(body, frame, phase);
     }
 
     return __real__ZN10CZSealBody22GetTerrainMotionFactorEv(body);

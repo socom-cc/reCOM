@@ -11,7 +11,9 @@
  * killer), the laptop action executed, the lodge / Bosler / cabin guards killed and the player in
  * their search regions, the weapon crates blown with thrown M67s, Snow3 restrained (the
  * restraint action), escorted (CMD_ESCORT to the fireteam), moved into the Extract region.
- * Objective valves are never written: every change is traced as the game makes it. */
+ * Objective valves are never written: every change is traced as the game makes it.
+ * Times are hook_clock.h ticks (1/30 s of real time, the pad-read rate at 60 fps the numbers were
+ * tuned at): the state is watched and the script run once per tick, whatever the frame rate. */
 #include <map>
 #include <string>
 #include <vector>
@@ -32,6 +34,7 @@
 #include <string.h>
 #include <math.h>
 #include "hook_skipcams.h"
+#include "hook_clock.h"
 #ifndef SOCOM_HOOK_C4_GAP
 #define SOCOM_HOOK_C4_GAP 6.0f
 #endif
@@ -54,10 +57,11 @@ namespace
 enum { B_SELECT = 0x0100, B_START = 0x0800, B_UP = 0x1000, B_DOWN = 0x4000, B_R2 = 0x0002, B_R1 = 0x0008,
        B_TRIANGLE = 0x0010, B_CROSS = 0x0040 };
 
-struct Press { unsigned int at, len; unsigned short bits; };
+struct Press { unsigned int at, len; unsigned short bits; bool seen; };
 Press g_queue[256];
 int g_nqueue;
-unsigned int g_reads;
+unsigned int g_reads; /* ticks (hook_clock.h) from the first pad read */
+unsigned int g_clock;
 bool g_new_mission;
 int g_mission;
 
@@ -68,6 +72,7 @@ void press(unsigned int at, unsigned short bits, unsigned int len = 3)
         g_queue[g_nqueue].at = at;
         g_queue[g_nqueue].len = len;
         g_queue[g_nqueue].bits = bits;
+        g_queue[g_nqueue].seen = false;
         g_nqueue++;
     }
 }
@@ -112,7 +117,7 @@ void watch_valves()
         if (!g_watch_init || value != g_last[i])
         {
             if (g_watch_init)
-                SOCOM_PORT_TRACE("HOOK: read %u VALVE %s %d -> %d", g_reads, g_watch[i], g_last[i], value);
+                SOCOM_PORT_TRACE("HOOK: tick %u VALVE %s %d -> %d", g_reads, g_watch[i], g_last[i], value);
             g_last[i] = value;
         }
     }
@@ -231,7 +236,7 @@ void put(CZSealBody *seal, CPnt3D at, CPnt3D dir, const char *what)
         seal->m_alt = g->m_pos.y;
     }
 
-    SOCOM_PORT_TRACE("HOOK: read %u %s: %s to %.0f %.0f %.0f", g_reads, what, seal->m_node->m_name, at.x, at.y, at.z);
+    SOCOM_PORT_TRACE("HOOK: tick %u %s: %s to %.0f %.0f %.0f", g_reads, what, seal->m_node->m_name, at.x, at.y, at.z);
 }
 
 bool put_in_region(CZSealBody *seal, const char *region, float dx, float dz)
@@ -257,7 +262,7 @@ void kill(CZSealBody *seal, CZSealBody *by)
 
     seal->HandleKiller(by->m_id);
     int level = seal->HandleFallingDamage(300.0f);
-    SOCOM_PORT_TRACE("HOOK: read %u kill %s (fall level %d, alive %d)", g_reads, seal->m_node->m_name, level, (int)seal->m_isAlive);
+    SOCOM_PORT_TRACE("HOOK: tick %u kill %s (fall level %d, alive %d)", g_reads, seal->m_node->m_name, level, (int)seal->m_isAlive);
 }
 
 void kill_team(int team, CZSealBody *by)
@@ -365,7 +370,7 @@ void c4_standin(CZSealBody *player)
             && strcmp(p->m_ammo->GetName(), "Frag Grenade Ammo") == 0)
         {
             p->m_ammo = c4;
-            SOCOM_PORT_TRACE("HOOK: read %u TEST STAND-IN: thrown M67 %d carries the C4 ammo", g_reads, (int)i);
+            SOCOM_PORT_TRACE("HOOK: tick %u TEST STAND-IN: thrown M67 %d carries the C4 ammo", g_reads, (int)i);
         }
     }
 }
@@ -408,12 +413,12 @@ void next(int step)
 {
     g_step = step;
     g_step_at = g_reads;
-    SOCOM_PORT_TRACE("HOOK: read %u step %d", g_reads, step);
+    SOCOM_PORT_TRACE("HOOK: tick %u step %d", g_reads, step);
 }
 
 void open_map_soon(unsigned int after)
 {
-    /* the tac map: SELECT, the objective list with its checkboxes; closed 120 reads later */
+    /* the tac map: SELECT, the objective list with its checkboxes; closed 120 ticks later */
     press(g_reads + after, B_SELECT);
     press(g_reads + after + 120, B_SELECT);
     g_map_at = g_reads + after;
@@ -431,7 +436,7 @@ void script(CZSealBody *player)
     if (g_step == 0 && !skipcams_busy())
     {
         int row = g_mission == 2 ? 3 : 1;
-        SOCOM_PORT_TRACE("HOOK: read %u mission %d: pause, row %d", g_reads, g_mission, row);
+        SOCOM_PORT_TRACE("HOOK: tick %u mission %d: pause, row %d", g_reads, g_mission, row);
         press(g_reads + 60, B_START);
         g_pause_row = row;
         g_pause_from = g_reads + 100;
@@ -511,7 +516,7 @@ void script(CZSealBody *player)
             if (laptop != NULL)
             {
                 bool ok = laptop->ExecuteAction(player, 0);
-                SOCOM_PORT_TRACE("HOOK: read %u laptop ExecuteAction -> %d (valve %d)", g_reads, (int)ok,
+                SOCOM_PORT_TRACE("HOOK: tick %u laptop ExecuteAction -> %d (valve %d)", g_reads, (int)ok,
                     laptop->m_valve != NULL ? (int)laptop->m_valve->m_value : -1);
             }
         }
@@ -578,7 +583,7 @@ void script(CZSealBody *player)
             if (found >= 0)
                 k.SetCurItemByIndex(found);
 
-            SOCOM_PORT_TRACE("HOOK: read %u C4 in slot %d selected", g_reads, found);
+            SOCOM_PORT_TRACE("HOOK: tick %u C4 in slot %d selected", g_reads, found);
         }
 
         if (t >= 600 && g_crate < 3 && g_crate < g_ncrates && g_reads >= g_next_throw)
@@ -593,14 +598,14 @@ void script(CZSealBody *player)
 
             if (g_c4_side > 0 && c4_count(player) > g_c4_base)
             {
-                SOCOM_PORT_TRACE("HOOK: read %u C4 on %s from side %d", g_reads, crate->m_name, g_c4_side - 1);
+                SOCOM_PORT_TRACE("HOOK: tick %u C4 on %s from side %d", g_reads, crate->m_name, g_c4_side - 1);
                 g_crate++;
                 g_c4_side = 0;
                 g_next_throw = g_reads + 400;
             }
             else if (g_c4_side >= 4)
             {
-                SOCOM_PORT_TRACE("HOOK: read %u no C4 face found on %s", g_reads, crate->m_name);
+                SOCOM_PORT_TRACE("HOOK: tick %u no C4 face found on %s", g_reads, crate->m_name);
                 g_crate++;
                 g_c4_side = 0;
             }
@@ -621,7 +626,7 @@ void script(CZSealBody *player)
                 freecam_look_from(c, 45.0f, 35.0f, 45.0f);
                 g_r1_pressure = 0xff;
                 press(g_reads + 30, B_R1, 6);
-                SOCOM_PORT_TRACE("HOOK: read %u C4 at %s (%.0f %.0f %.0f) side %d", g_reads, crate->m_name, c.x, c.y, c.z, g_c4_side);
+                SOCOM_PORT_TRACE("HOOK: tick %u C4 at %s (%.0f %.0f %.0f) side %d", g_reads, crate->m_name, c.x, c.y, c.z, g_c4_side);
                 g_c4_base = c4_count(player);
                 g_c4_side++;
                 g_next_throw = g_reads + 120;
@@ -661,7 +666,7 @@ void script(CZSealBody *player)
 
         if (t == 60)
         {
-            SOCOM_PORT_TRACE("HOOK: read %u restrain Snow3 (restrainable %d, alive %d)", g_reads, (int)snow3->m_restrainable,
+            SOCOM_PORT_TRACE("HOOK: tick %u restrain Snow3 (restrainable %d, alive %d)", g_reads, (int)snow3->m_restrainable,
                 (int)snow3->m_isAlive);
             player->ExecuteAction_ApplyRestraint(snow3);
         }
@@ -672,7 +677,7 @@ void script(CZSealBody *player)
              * his states): restrained again, now over the surrender (no new reaction then) */
             CSealCtrlAi *ai = static_cast<CSealCtrl *>(snow3->m_control)->GetSealCtrlAi();
             CAiState *s = ai != NULL ? ai->GetAiState() : NULL;
-            SOCOM_PORT_TRACE("HOOK: read %u Snow3 top state %d restrained %d", g_reads, s != NULL ? (int)s->m_state : -1, (int)snow3->m_restrained);
+            SOCOM_PORT_TRACE("HOOK: tick %u Snow3 top state %d restrained %d", g_reads, s != NULL ? (int)s->m_state : -1, (int)snow3->m_restrained);
 
             if (s != NULL && s->m_state != STATE_RESTRAINED)
             {
@@ -701,7 +706,7 @@ void script(CZSealBody *player)
         if (t >= 230 && t <= 290 && t % 10 == 0)
         {
             CZSealBody *aim = player->GetReticuleSeal();
-            SOCOM_PORT_TRACE("HOOK: read %u reticule seal %s", g_reads, aim != NULL ? aim->m_node->m_name : "-");
+            SOCOM_PORT_TRACE("HOOK: tick %u reticule seal %s", g_reads, aim != NULL ? aim->m_node->m_name : "-");
 
             if (aim != snow3 && t >= 290)
             {
@@ -710,13 +715,13 @@ void script(CZSealBody *player)
                 player->m_cachedReticuleSeal = snow3;
                 player->m_useCachedReticuleSeal = 1;
                 aim = player->GetReticuleSeal();
-                SOCOM_PORT_TRACE("HOOK: read %u reticule seal cached: %s", g_reads, aim != NULL ? aim->m_node->m_name : "-");
+                SOCOM_PORT_TRACE("HOOK: tick %u reticule seal cached: %s", g_reads, aim != NULL ? aim->m_node->m_name : "-");
             }
 
             if (aim == snow3)
             {
                 CSealUnit *unit = CSealUnit::GetUnitByTeam(1);
-                SOCOM_PORT_TRACE("HOOK: read %u CMD_ESCORT to unit 1 (%p)", g_reads, (void *)unit);
+                SOCOM_PORT_TRACE("HOOK: tick %u CMD_ESCORT to unit 1 (%p)", g_reads, (void *)unit);
 
                 if (unit != NULL)
                     unit->IssueCommand(player, CMD_ESCORT, NULL, false);
@@ -747,7 +752,7 @@ void script(CZSealBody *player)
         {
             CSealCtrlAi *ai = static_cast<CSealCtrl *>(snow3->m_control)->GetSealCtrlAi();
             CAiState *s = ai != NULL ? ai->GetAiState() : NULL;
-            SOCOM_PORT_TRACE("HOOK: read %u Snow3 state %d team %08x", g_reads, s != NULL ? (int)s->m_state : -1, snow3->m_team);
+            SOCOM_PORT_TRACE("HOOK: tick %u Snow3 state %d team %08x", g_reads, s != NULL ? (int)s->m_state : -1, snow3->m_team);
             int type = -1;
             CPnt3D c;
             region_center("Extract", c, &type);
@@ -758,7 +763,7 @@ void script(CZSealBody *player)
         {
             CSealCtrlAi *ai = static_cast<CSealCtrl *>(snow3->m_control)->GetSealCtrlAi();
             CAiState *s = ai != NULL ? ai->GetAiState() : NULL;
-            SOCOM_PORT_TRACE("HOOK: read %u Snow3 state %d loc %d:%d,%d", g_reads, s != NULL ? (int)s->m_state : -1,
+            SOCOM_PORT_TRACE("HOOK: tick %u Snow3 state %d loc %d:%d,%d", g_reads, s != NULL ? (int)s->m_state : -1,
                 (int)snow3->m_mapLocValid.m_mapid, (int)snow3->m_mapLocValid.x, (int)snow3->m_mapLocValid.y);
         }
 
@@ -778,8 +783,16 @@ extern "C" float __wrap__ZN10CZSealBody22GetTerrainMotionFactorEv(CZSealBody *bo
 
     if (body == ftsGetPlayer() && g_step >= 0 && g_reads != last_read)
     {
-        last_read = g_reads; /* the player's motion factor is asked more than once a frame */
-        script(body);
+        /* the player's motion factor is asked more than once a frame; the script runs once per
+         * tick since the last frame (at most 30), so its exact-tick steps are all taken */
+        unsigned int now = g_reads;
+        unsigned int from = last_read != 0 && now - last_read <= 30 ? last_read + 1 : now;
+        last_read = now;
+
+        for (g_reads = from; g_reads <= now && g_step >= 0; g_reads++)
+            script(body);
+
+        g_reads = now;
     }
 
     return __real__ZN10CZSealBody22GetTerrainMotionFactorEv(body);
@@ -799,97 +812,106 @@ extern "C" int __wrap_scePadRead(int port, int slot, unsigned char *rdata)
     if (port != 0)
         return r;
 
-    g_reads++;
     static const void *top_prev = NULL;
     static unsigned int top_since = 0;
     static int exit_presses = 0;
     const void *top = top_state();
 
-    if (top != top_prev)
-    {
-        SOCOM_PORT_TRACE("HOOK: read %u state %s -> %s", g_reads, name_of(top_prev), name_of(top));
-        top_prev = top;
-        top_since = g_reads;
-
-        if (top == &theGame.m_cinematicSubState)
-            press(g_reads + 40, B_CROSS);
-
-        if (top == &theGame.m_exitState)
-            exit_presses = 0;
-    }
-
-    if (g_new_mission)
-    {
-        g_new_mission = false;
-        g_mission++;
-
-#ifdef SOCOM_HOOK_EXITPATHS
-        next(0);
-        g_sc_last_cam = 0;
-        g_sc_reads = 0;
-#else
-        if (g_mission == 1)
-            next(0);
-#endif
-    }
-
     if (top == &theGame.m_coreState)
-    {
-        watch_valves();
-
         skipcams_pad(rdata);
 
-        /* a SELECT that skipped a camera can open the full-screen map (it pauses the game):
-         * TRIANGLE closes it unless the script opened it for a look */
-        static unsigned int close_at = 0;
-
-        if (theHUD != NULL && theHUD->m_newmap.m_isFullScreen && !skipcams_playing()
-            && !(g_map_at != 0 && g_reads >= g_map_at && g_reads < g_map_at + 130) && g_reads >= close_at)
-        {
-            SOCOM_PORT_TRACE("HOOK: read %u map open: TRIANGLE", g_reads);
-            press(g_reads + 1, B_TRIANGLE);
-            close_at = g_reads + 60;
-        }
-    }
-
-    if (g_pause_row >= 0 && g_reads >= g_pause_from && g_reads >= g_pause_next && theHUD != NULL && theHUD->m_pausetest.m_on)
+    for (unsigned int n = hook_step(&g_clock); n > 0; n--)
     {
-        if ((int)theHUD->m_pausetest.m_curselection != g_pause_row)
-            press(g_reads + 1, B_DOWN);
-        else
+        g_reads++;
+
+        if (top != top_prev)
         {
-            SOCOM_PORT_TRACE("HOOK: read %u pause menu row %d: CROSS", g_reads, g_pause_row);
-            press(g_reads + 1, B_CROSS);
-            g_pause_row = -1;
+            SOCOM_PORT_TRACE("HOOK: tick %u state %s -> %s", g_reads, name_of(top_prev), name_of(top));
+            top_prev = top;
+            top_since = g_reads;
+
+            if (top == &theGame.m_cinematicSubState)
+                press(g_reads + 40, B_CROSS);
+
+            if (top == &theGame.m_exitState)
+                exit_presses = 0;
         }
 
-        g_pause_next = g_reads + 10;
-    }
+        if (g_new_mission)
+        {
+            g_new_mission = false;
+            g_mission++;
 
 #ifdef SOCOM_HOOK_EXITPATHS
-    if (top == &theGame.m_exitState && g_reads > top_since + 400 && (g_reads - top_since) % 300 == 0 && exit_presses < 4)
-    {
-        unsigned short b = g_mission == 1 ? B_CROSS : B_TRIANGLE;
-        SOCOM_PORT_TRACE("HOOK: read %u failure debrief: %s (mission %d)", g_reads, b == B_CROSS ? "X (replay)" : "TRIANGLE (menus)", g_mission);
-        press(g_reads + 1, b);
-        exit_presses++;
-    }
+            next(0);
+            g_sc_last_cam = 0;
+            g_sc_reads = 0;
 #else
-    /* the success debrief: X every 300 reads (the first speeds the teletype, the next goes on
-     * to dlgDebriefing when the stats are done) */
-    if (top == &theGame.m_exitState && g_reads > top_since + 400 && (g_reads - top_since) % 300 == 0 && exit_presses < 4)
-    {
-        SOCOM_PORT_TRACE("HOOK: read %u debrief X (StatsProgress %d)", g_reads, val("StatsProgress"));
-        press(g_reads + 1, B_CROSS);
-        exit_presses++;
-    }
+            if (g_mission == 1)
+                next(0);
 #endif
+        }
+
+        if (top == &theGame.m_coreState)
+        {
+            watch_valves();
+
+            /* a SELECT that skipped a camera can open the full-screen map (it pauses the game):
+             * TRIANGLE closes it unless the script opened it for a look */
+            static unsigned int close_at = 0;
+
+            if (theHUD != NULL && theHUD->m_newmap.m_isFullScreen && !skipcams_playing()
+                && !(g_map_at != 0 && g_reads >= g_map_at && g_reads < g_map_at + 130) && g_reads >= close_at)
+            {
+                SOCOM_PORT_TRACE("HOOK: tick %u map open: TRIANGLE", g_reads);
+                press(g_reads + 1, B_TRIANGLE);
+                close_at = g_reads + 60;
+            }
+        }
+
+        if (g_pause_row >= 0 && g_reads >= g_pause_from && g_reads >= g_pause_next && theHUD != NULL && theHUD->m_pausetest.m_on)
+        {
+            if ((int)theHUD->m_pausetest.m_curselection != g_pause_row)
+                press(g_reads + 1, B_DOWN);
+            else
+            {
+                SOCOM_PORT_TRACE("HOOK: tick %u pause menu row %d: CROSS", g_reads, g_pause_row);
+                press(g_reads + 1, B_CROSS);
+                g_pause_row = -1;
+            }
+
+            g_pause_next = g_reads + 10;
+        }
+
+#ifdef SOCOM_HOOK_EXITPATHS
+        if (top == &theGame.m_exitState && g_reads > top_since + 400 && (g_reads - top_since) % 300 == 0 && exit_presses < 4)
+        {
+            unsigned short b = g_mission == 1 ? B_CROSS : B_TRIANGLE;
+            SOCOM_PORT_TRACE("HOOK: tick %u failure debrief: %s (mission %d)", g_reads, b == B_CROSS ? "X (replay)" : "TRIANGLE (menus)", g_mission);
+            press(g_reads + 1, b);
+            exit_presses++;
+        }
+#else
+        /* the success debrief: X every 300 ticks (the first speeds the teletype, the next goes on
+         * to dlgDebriefing when the stats are done) */
+        if (top == &theGame.m_exitState && g_reads > top_since + 400 && (g_reads - top_since) % 300 == 0 && exit_presses < 4)
+        {
+            SOCOM_PORT_TRACE("HOOK: tick %u debrief X (StatsProgress %d)", g_reads, val("StatsProgress"));
+            press(g_reads + 1, B_CROSS);
+            exit_presses++;
+        }
+#endif
+    }
 
     unsigned short bits = 0;
 
+    /* a press is held for its length in ticks and seen by at least one read */
     for (int i = 0; i < g_nqueue; i++)
-        if (g_reads >= g_queue[i].at && g_reads < g_queue[i].at + g_queue[i].len)
+        if (g_reads >= g_queue[i].at && (g_reads < g_queue[i].at + g_queue[i].len || !g_queue[i].seen))
+        {
             bits |= g_queue[i].bits;
+            g_queue[i].seen = true;
+        }
 
     if (bits != 0)
     {

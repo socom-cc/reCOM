@@ -24,6 +24,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <malloc.h>
+#include "hook_clock.h"
 
 CGameMenu *UiGetCurMenu();
 extern "C" int __real_scePadRead(int port, int slot, unsigned char *rdata);
@@ -124,8 +125,12 @@ extern "C" int __wrap_scePadRead(int port, int slot, unsigned char *rdata)
 
     if (port == 0)
     {
-        g_reads++;
-        watch();
+        static unsigned int hook_clock1;
+        for (unsigned int hook_n = hook_step(&hook_clock1); hook_n > 0; hook_n--)
+        {
+            g_reads++;
+            watch();
+        }
     }
 
     return r;

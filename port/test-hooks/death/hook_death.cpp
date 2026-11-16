@@ -15,6 +15,7 @@
 #include "gamez/zFTS/zfts.h"
 #include "gamez/zCamera/zcam.h"
 #include <math.h>
+#include "hook_clock.h"
 
 #ifndef SOCOM_HOOK_KILL_FRAME
 #define SOCOM_HOOK_KILL_FRAME 300
@@ -27,51 +28,55 @@ extern "C" float __wrap__ZN10CZSealBody22GetTerrainMotionFactorEv(CZSealBody *bo
     if (body == ftsGetPlayer())
     {
         static int frame = 0;
-        frame++;
+        static unsigned int hook_clock1;
+        for (unsigned int hook_n = hook_field_step(&hook_clock1); hook_n > 0; hook_n--)
+        {
+            frame++;
 
 #ifndef SOCOM_HOOK_KILL_FRAME2
 #define SOCOM_HOOK_KILL_FRAME2 -1
 #endif
-        if (frame == SOCOM_HOOK_KILL_FRAME || frame == SOCOM_HOOK_KILL_FRAME2)
-        {
+            if (frame == SOCOM_HOOK_KILL_FRAME || frame == SOCOM_HOOK_KILL_FRAME2)
+            {
 #ifdef SOCOM_HOOK_KILLER
-            CZSealBody *best = NULL;
-            float bd = 1e30f;
-            CPnt3D me = *body->GetPosW();
+                CZSealBody *best = NULL;
+                float bd = 1e30f;
+                CPnt3D me = *body->GetPosW();
 
-            for (CEntityList::iterator it = CEntity::m_list.begin(); it != CEntity::m_list.end(); ++it)
-            {
-                CZSealBody *s = SealOfEntity(*it);
-
-                if (s == NULL || s == body || !s->m_isAlive || (s->m_team & body->m_team) != 0)
-                    continue;
-
-                CPnt3D p = *s->GetPosW();
-                float d = (p.x - me.x) * (p.x - me.x) + (p.z - me.z) * (p.z - me.z);
-
-                if (d < bd)
+                for (CEntityList::iterator it = CEntity::m_list.begin(); it != CEntity::m_list.end(); ++it)
                 {
-                    bd = d;
-                    best = s;
+                    CZSealBody *s = SealOfEntity(*it);
+
+                    if (s == NULL || s == body || !s->m_isAlive || (s->m_team & body->m_team) != 0)
+                        continue;
+
+                    CPnt3D p = *s->GetPosW();
+                    float d = (p.x - me.x) * (p.x - me.x) + (p.z - me.z) * (p.z - me.z);
+
+                    if (d < bd)
+                    {
+                        bd = d;
+                        best = s;
+                    }
                 }
-            }
 
-            if (best != NULL)
-            {
-                body->HandleKiller(best->m_id);
-                SOCOM_PORT_TRACE("HOOK: killer %s (id %d) at %.0f", best->m_node->m_name, (int)best->m_id, sqrtf(bd));
-            }
+                if (best != NULL)
+                {
+                    body->HandleKiller(best->m_id);
+                    SOCOM_PORT_TRACE("HOOK: killer %s (id %d) at %.0f", best->m_node->m_name, (int)best->m_id, sqrtf(bd));
+                }
 #endif
-            int level = body->HandleFallingDamage(300.0f);
-            SOCOM_PORT_TRACE("HOOK: frame %d fatal fall: level %d health %.2f alive %d state %d lastkiller %d", frame, level,
-                body->m_health, (int)body->m_isAlive, (int)body->m_state, (int)body->m_lastkiller_id);
-        }
+                int level = body->HandleFallingDamage(300.0f);
+                SOCOM_PORT_TRACE("HOOK: frame %d fatal fall: level %d health %.2f alive %d state %d lastkiller %d", frame, level,
+                    body->m_health, (int)body->m_isAlive, (int)body->m_state, (int)body->m_lastkiller_id);
+            }
 
-        if (frame % 30 == 0)
-        {
-            CPnt3D p = *body->GetPosW();
-            SOCOM_PORT_TRACE("HOOK: f%d player %.0f %.0f %.0f state %d alive %d health %.2f", frame, p.x, p.y, p.z,
-                (int)body->m_state, (int)body->m_isAlive, body->m_health);
+            if (frame % 30 == 0)
+            {
+                CPnt3D p = *body->GetPosW();
+                SOCOM_PORT_TRACE("HOOK: f%d player %.0f %.0f %.0f state %d alive %d health %.2f", frame, p.x, p.y, p.z,
+                    (int)body->m_state, (int)body->m_isAlive, body->m_health);
+            }
         }
     }
 

@@ -36,6 +36,7 @@
 #include "Apps/FTS/hud/hud.h"
 #include "hook_freecam.h"
 #include "gamez/zParticle/zparticle.h"
+#include "hook_clock.h"
 
 /* test camera on bullet marks (socom-port-fx2): every mark is remembered; 20 frames after the
  * last one of a burst the camera looks at it from SOCOM_HOOK_MARKCAM along its normal for 70
@@ -63,23 +64,27 @@ extern "C" void __wrap__ZN10CZMarkList10AddNewMarkEPN3zdb15IntersectStructEP12CZ
 
 static void markcam_tick()
 {
-    g_cam_frame++;
+    static unsigned int hook_clock1;
+    for (unsigned int hook_n = hook_field_step(&hook_clock1); hook_n > 0; hook_n--)
+    {
+        g_cam_frame++;
 #ifdef SOCOM_HOOK_MARKCAM
-    int age = g_cam_frame - g_mark_frame;
+        int age = g_cam_frame - g_mark_frame;
 
-    if (age == 20)
-    {
-        CPnt3D eye(g_mark_pos.x + g_mark_norm.x * SOCOM_HOOK_MARKCAM, g_mark_pos.y + g_mark_norm.y * SOCOM_HOOK_MARKCAM + 2.0f,
-            g_mark_pos.z + g_mark_norm.z * SOCOM_HOOK_MARKCAM);
-        freecam_look(eye, g_mark_pos);
-        SOCOM_PORT_TRACE("HOOK: test camera on the mark at %.1f %.1f %.1f (normal %.2f %.2f %.2f)", g_mark_pos.x, g_mark_pos.y, g_mark_pos.z,
-            g_mark_norm.x, g_mark_norm.y, g_mark_norm.z);
-    }
-    else if (age == 240)
-    {
-        freecam_off();
-    }
+        if (age == 20)
+        {
+            CPnt3D eye(g_mark_pos.x + g_mark_norm.x * SOCOM_HOOK_MARKCAM, g_mark_pos.y + g_mark_norm.y * SOCOM_HOOK_MARKCAM + 2.0f,
+                g_mark_pos.z + g_mark_norm.z * SOCOM_HOOK_MARKCAM);
+            freecam_look(eye, g_mark_pos);
+            SOCOM_PORT_TRACE("HOOK: test camera on the mark at %.1f %.1f %.1f (normal %.2f %.2f %.2f)", g_mark_pos.x, g_mark_pos.y, g_mark_pos.z,
+                g_mark_norm.x, g_mark_norm.y, g_mark_norm.z);
+        }
+        else if (age == 240)
+        {
+            freecam_off();
+        }
 #endif
+    }
 }
 
 #ifndef SOCOM_HOOK_TARGETS
@@ -630,6 +635,7 @@ extern "C" void __wrap__ZN10CZSealBody12CheckDIShootEP6CPnt3DP7CMatrix(CZSealBod
          * phase target's window from SOCOM_HOOK_GLASSCAM ("dx,dy,dz" offset from its centre) for
          * 150 frames */
         static int glass_frames = -1;
+        static unsigned int glass_clock;
 
         if (glass_frames < 0 && last_ammo != -999 && ammo < last_ammo && g_target != NULL)
         {
@@ -639,7 +645,7 @@ extern "C" void __wrap__ZN10CZSealBody12CheckDIShootEP6CPnt3DP7CMatrix(CZSealBod
             glass_frames = 0;
             SOCOM_PORT_TRACE("HOOK: glass camera on %.1f %.1f %.1f", c.x, c.y, c.z);
         }
-        else if (glass_frames >= 0 && ++glass_frames == 150)
+        else if (glass_frames >= 0 && glass_frames < 150 && (glass_frames += (int)hook_field_step(&glass_clock)) >= 150)
         {
             freecam_off();
             SOCOM_PORT_TRACE("HOOK: glass camera off");

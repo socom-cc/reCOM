@@ -81,7 +81,8 @@ You write game code in `src/` for the GCC/ps2sdk port so one system works in the
   - headers, declarations, comments, notes, test hooks only: the default build links; no boot.
   - bodies that only run in a mission: one fake-pad m8 run of about 90 s after the cameras.
   - menus, loading, memory lifetime (constructors, destructors, anything allocated per mission
-    or per menu): `gate.ps1 -Only roundtrip` on your tree (it reads your `mine.txt`).
+    or per menu): `gate.ps1 -Only roundtrip` on your tree (it reads your `mine.txt` and builds in
+    its own dir, `gate-<your scratch folder name>`).
   - anything else: the default build boots to the main menu.
 - One boot should answer several questions: put your checks in one hook run instead of one run
   per check, and read results from the log, not from screenshots.

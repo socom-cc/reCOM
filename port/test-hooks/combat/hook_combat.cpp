@@ -33,6 +33,7 @@
 #define HOOK_FREECAM_WRAP
 #include "hook_freecam.h"
 #include "hook_skipcams.h"
+#include "hook_clock.h"
 
 #ifndef SOCOM_HOOK_FIRE_AT
 #define SOCOM_HOOK_FIRE_AT 60
@@ -245,38 +246,43 @@ extern "C" int __wrap_scePadRead(int port, int slot, unsigned char *rdata)
 
     if (port == 0)
     {
-        g_reads++;
-        skipcams_pad(rdata);
+        skipcams_pad(rdata); /* once per read: it keeps its own tick count */
 
-        /* SELECT held across the camera's end opens the tactical map (the game pauses): close it
-         * with TRIANGLE ("RESUME GAME") */
+        static unsigned int hook_clock1;
+        for (unsigned int hook_n = hook_step(&hook_clock1); hook_n > 0; hook_n--)
         {
-            static unsigned int map_press;
-            static int map_left;
-            CZSealBody *pl = ftsGetPlayer();
-            CSealCtrl *pc = pl != NULL && pl->m_control != NULL ? static_cast<CSealCtrl *>(pl->m_control) : NULL;
+            g_reads++;
 
-            if (pc != NULL && pc->m_menustate == stateFullScreenMapMenu && !skipcams_playing() && g_reads >= map_press + 60)
+            /* SELECT held across the camera's end opens the tactical map (the game pauses): close it
+             * with TRIANGLE ("RESUME GAME") */
             {
-                map_press = g_reads;
-                map_left = 3;
-                SOCOM_PORT_TRACE("HOOK: tactical map open at read %u: TRIANGLE closes it", g_reads);
+                static unsigned int map_press;
+                static int map_left;
+                CZSealBody *pl = ftsGetPlayer();
+                CSealCtrl *pc = pl != NULL && pl->m_control != NULL ? static_cast<CSealCtrl *>(pl->m_control) : NULL;
+
+                if (pc != NULL && pc->m_menustate == stateFullScreenMapMenu && !skipcams_playing() && g_reads >= map_press + 60)
+                {
+                    map_press = g_reads;
+                    map_left = 3;
+                    SOCOM_PORT_TRACE("HOOK: tactical map open at read %u: TRIANGLE closes it", g_reads);
+                }
+
+                if (map_left > 0)
+                {
+                    rdata[3] &= (unsigned char)~0x10;
+                    map_left--;
+                }
             }
 
-            if (map_left > 0)
+            if (g_fire_left > 0)
             {
-                rdata[3] &= (unsigned char)~0x10;
-                map_left--;
+                /* R1 held 4 reads, released 4 */
+                if ((g_fire_left & 7) >= 4)
+                    rdata[3] &= (unsigned char)~B_R1;
+
+                g_fire_left--;
             }
-        }
-
-        if (g_fire_left > 0)
-        {
-            /* R1 held 4 reads, released 4 */
-            if ((g_fire_left & 7) >= 4)
-                rdata[3] &= (unsigned char)~B_R1;
-
-            g_fire_left--;
         }
     }
 
@@ -303,253 +309,257 @@ extern "C" float __wrap__ZN10CZSealBody22GetTerrainMotionFactorEv(CZSealBody *bo
     if (body == ftsGetPlayer() && !skipcams_busy())
     {
         static int frame = 0;
-        frame++;
-
-        if (frame % 30 == 0)
-            census(frame, body);
-
-        if (frame == 30)
+        static unsigned int hook_clock2;
+        for (unsigned int hook_n = hook_field_step(&hook_clock2); hook_n > 0; hook_n--)
         {
-            for (int i = 0; i < g_nseals; i++)
+            frame++;
+
+            if (frame % 30 == 0)
+                census(frame, body);
+
+            if (frame == 30)
             {
-                CZSealBody *s = g_seals[i];
-                char items[96];
-                int n = 0;
-                items[0] = 0;
-
-                for (int k = 0; k < s->m_kit.GetNumItems() && n < 80; k++)
+                for (int i = 0; i < g_nseals; i++)
                 {
-                    CZFTSWeapon *w = s->m_kit.GetItemByIndex(k);
-                    n += snprintf(items + n, sizeof(items) - n, " %d%s", w != NULL ? (int)(u8)w->m_ID : -1, s->m_kit.ItemHasAmmo(k) ? "" : "(0)");
-                }
+                    CZSealBody *s = g_seals[i];
+                    char items[96];
+                    int n = 0;
+                    items[0] = 0;
 
-                SOCOM_PORT_TRACE("HOOK: kit %s team 0x%x sleeping %d:%s", nm(s), s->m_team, ai_of(s) != NULL ? (int)ai_of(s)->m_sleeping : -1, items);
-            }
-        }
-
-        /* fire */
-        if (frame == SOCOM_HOOK_FIRE_AT)
-        {
-            /* the nearest awake enemy that has a cover cell (not its own) from the shooting spot */
-            CPnt3D me = *body->GetPosW();
-            float bd = 1e30f;
-
-            for (int i = 0; i < g_nseals; i++)
-            {
-                CZSealBody *s = g_seals[i];
-
-                if (!is_enemy(s, body))
-                    continue;
-
-                CPnt3D sp = *s->GetPosW();
-                CAiMapLoc here = s->m_mapLocValid, cover;
-                CAiMap *map = AiMaps.GetMapByIndex(here.m_mapid);
-
-                if (map == NULL)
-                    continue;
-
-                /* eight directions 80 out: a clear map line to E and a cover cell 2+ cells away */
-                for (int k = 0; k < 8; k++)
-                {
-                    float a = (float)k * 0.785398f;
-                    const CMatrix &sm = s->m_node->m_matrix;
-
-                    /* behind E (out of its view): the direction against its facing */
-                    if (-sm.m_matrix[2][0] * sinf(a) - sm.m_matrix[2][2] * cosf(a) > -0.3f)
-                        continue;
-                    CPnt3D from(sp.x + sinf(a) * 80.0f, sp.y + 20.0f, sp.z + cosf(a) * 80.0f);
-                    CAiMapLoc fromloc;
-                    CAiMap::DIR dir = (CAiMap::DIR)8;
-
-                    if (!AiMaps.GetLocation(&from, fromloc) || !AiMaps.CanSeeLine(fromloc, here, NULL))
-                        continue;
-
-                    if (!map->FindCoverLoc(here, &from, cover, dir, 5))
-                        continue;
-
-                    int dx = (int)cover.x - (int)here.x, dy = (int)cover.y - (int)here.y;
-
-                    if (dx * dx + dy * dy < 4)
-                        continue;
-
-                    CPnt3D me = *body->GetPosW();
-                    float d = (sp.x - me.x) * (sp.x - me.x) + (sp.z - me.z) * (sp.z - me.z);
-                    SOCOM_PORT_TRACE("HOOK: f%d %s at (%d,%d) has cover (%d,%d) from direction %d", frame, nm(s), here.x, here.y, cover.x, cover.y, k);
-
-                    if (d < bd)
+                    for (int k = 0; k < s->m_kit.GetNumItems() && n < 80; k++)
                     {
-                        bd = d;
-                        g_e[0] = s;
-                        /* the player 12 to the side of that line */
-                        g_fire_from = CPnt3D(from.x + cosf(a) * 12.0f, sp.y, from.z - sinf(a) * 12.0f);
+                        CZFTSWeapon *w = s->m_kit.GetItemByIndex(k);
+                        n += snprintf(items + n, sizeof(items) - n, " %d%s", w != NULL ? (int)(u8)w->m_ID : -1, s->m_kit.ItemHasAmmo(k) ? "" : "(0)");
                     }
 
-                    break;
+                    SOCOM_PORT_TRACE("HOOK: kit %s team 0x%x sleeping %d:%s", nm(s), s->m_team, ai_of(s) != NULL ? (int)ai_of(s)->m_sleeping : -1, items);
                 }
             }
 
-            if (g_e[0] == NULL)
-                g_e[0] = nearest_enemy(body);
-
-            if (g_e[0] != NULL)
+            /* fire */
+            if (frame == SOCOM_HOOK_FIRE_AT)
             {
-                CZSealBody *e = g_e[0];
-                const CMatrix &m = e->m_node->m_matrix;
-                CPnt3D p = *e->GetPosW();
-                CPnt3D fwd(-m.m_matrix[2][0], 0.0f, -m.m_matrix[2][2]);
-                CPnt3D side(m.m_matrix[0][0], 0.0f, m.m_matrix[0][2]);
-                if (bd >= 1e30f)
-                    g_fire_from = CPnt3D(p.x - fwd.x * 80.0f + side.x * 12.0f, p.y, p.z - fwd.z * 80.0f + side.z * 12.0f);
-                aim_player(body, e);
-                watch(e);
-                g_fire_left = 0;
-                SOCOM_PORT_TRACE("HOOK: f%d FIRE test: enemy %s at %.0f %.0f %.0f, player to %.0f %.0f %.0f", frame, nm(e), p.x, p.y, p.z, g_fire_from.x, g_fire_from.y, g_fire_from.z);
-                trace_ai(frame, e, "fire");
-            }
-        }
+                /* the nearest awake enemy that has a cover cell (not its own) from the shooting spot */
+                CPnt3D me = *body->GetPosW();
+                float bd = 1e30f;
 
-        if (g_e[0] != NULL && frame > SOCOM_HOOK_FIRE_AT && frame < SOCOM_HOOK_FIRE_AT + SOCOM_HOOK_TEST_LEN)
-        {
-            CSealCtrlAi *ai = ai_of(g_e[0]);
-
-            if (frame == SOCOM_HOOK_FIRE_AT + 20)
-            {
-                g_fire_left = 8 * 15;
-                SOCOM_PORT_TRACE("HOOK: f%d R1 pulses (15) at read %u", frame, g_reads);
-            }
-
-            /* keep facing past E's side until it reacts (shot at, or sees the player) */
-            if (frame < SOCOM_HOOK_FIRE_AT + 160 && g_e[0]->m_isAlive && ai->GetAiState()->m_state != STATE_SHOTAT && frame % 4 == 0)
-                aim_player(body, g_e[0]);
-
-            if (frame % 10 == 0)
-                trace_ai(frame, g_e[0], "fire");
-        }
-
-        if (frame == SOCOM_HOOK_FIRE_AT + SOCOM_HOOK_TEST_LEN)
-            freecam_off();
-
-        /* rush */
-        if (frame == SOCOM_HOOK_RUSH_AT)
-        {
-            g_e[1] = nearest_enemy(body);
-            CSealCtrlAi *ai = ai_of(g_e[1]);
-            SOCOM_PORT_TRACE("HOOK: f%d RUSH test: rush seen before %d, enemy %s", frame, (int)g_rush_seen, nm(g_e[1]));
-
-            if (ai != NULL)
-            {
-                watch(g_e[1]);
-
-                if (ai->PushAiState(STATE_RUSH, true))
+                for (int i = 0; i < g_nseals; i++)
                 {
-                    CAiSRush *rush = static_cast<CAiSRush *>(ai->GetAiState());
-                    rush->m_time = 0.0f;
-                    rush->m_option_flags &= ~3u;
-                    rush->m_range_sq = 0.0f;
-                    rush->SetTarget(body);
-                    rush->m_setup = 1;
-                    SOCOM_PORT_TRACE("HOOK: f%d %s RUSH pushed at the player", frame, nm(g_e[1]));
-                }
-                else
-                {
-                    SOCOM_PORT_TRACE("HOOK: f%d %s RUSH push refused (top %d)", frame, nm(g_e[1]), (int)ai->GetAiState()->m_state);
-                }
-            }
-        }
+                    CZSealBody *s = g_seals[i];
 
-        /* reload: the rush enemy's current magazine is emptied (it has more), as if fired out */
-        if (frame == SOCOM_HOOK_RUSH_AT + 120 && g_e[1] != NULL && g_e[1]->m_isAlive)
-        {
-            CZKit &kit = g_e[1]->m_kit;
-            int slot = kit.m_selected_item;
+                    if (!is_enemy(s, body))
+                        continue;
 
-            if (slot >= 0 && slot < 30)
-            {
-                kit.m_reloads[slot][kit.m_currentmag[slot]] = 0;
-                SOCOM_PORT_TRACE("HOOK: f%d %s magazine emptied (slot %d, mag %d; mag ammo %d, item ammo %d)", frame, nm(g_e[1]), slot,
-                    kit.m_currentmag[slot], (int)kit.CurMagHasAmmo(), (int)kit.CurItemHasAmmo());
-            }
-        }
+                    CPnt3D sp = *s->GetPosW();
+                    CAiMapLoc here = s->m_mapLocValid, cover;
+                    CAiMap *map = AiMaps.GetMapByIndex(here.m_mapid);
 
-        if (g_e[1] != NULL && frame >= SOCOM_HOOK_RUSH_AT && frame < SOCOM_HOOK_RUSH_AT + SOCOM_HOOK_TEST_LEN && frame % 10 == 0)
-            trace_ai(frame, g_e[1], "rush");
+                    if (map == NULL)
+                        continue;
 
-        if (frame == SOCOM_HOOK_RUSH_AT + SOCOM_HOOK_TEST_LEN)
-            freecam_off();
-
-        /* grenade: an enemy that sees the player and carries a thrown item takes it as a script's
-         * ai::FIREMODE would (ChooseWeapon with the item's index); AttackTick then lobs it */
-        static CZSealBody *gren;
-        static int gren_at;
-
-        if (gren == NULL && frame >= SOCOM_HOOK_GREN_AT && frame % 10 == 0)
-        {
-            for (int i = 0; i < g_nseals && gren == NULL; i++)
-            {
-                CZSealBody *s = g_seals[i];
-                CSealCtrlAi *ai = ai_of(s);
-
-                if (!is_enemy(s, body) || ai->m_target.m_target.m_ent != body || !ai->m_target.m_target.m_visible)
-                    continue;
-
-                for (int k = 0; k < s->m_kit.GetNumItems(); k++)
-                {
-                    CZFTSWeapon *w = s->m_kit.GetItemByIndex(k);
-                    u8 id = w != NULL ? (u8)w->m_ID : 0;
-
-                    if (id >= 120 && id < 126 && s->m_kit.ItemHasAmmo(k))
+                    /* eight directions 80 out: a clear map line to E and a cover cell 2+ cells away */
+                    for (int k = 0; k < 8; k++)
                     {
-                        CAiWepHint hint;
-                        memset(&hint, 0, sizeof(hint));
-                        hint.m_use_index = 1;
-                        hint.m_index = k;
-                        ai->ChooseWeapon(hint);
-                        gren = s;
-                        gren_at = frame;
-                        watch(s);
-                        SOCOM_PORT_TRACE("HOOK: f%d GRENADE test: %s takes item %d (%d), player %.0f away", frame, nm(s), k, (int)id,
-                            sqrtf(ai->m_target.m_target.m_distSq));
+                        float a = (float)k * 0.785398f;
+                        const CMatrix &sm = s->m_node->m_matrix;
+
+                        /* behind E (out of its view): the direction against its facing */
+                        if (-sm.m_matrix[2][0] * sinf(a) - sm.m_matrix[2][2] * cosf(a) > -0.3f)
+                            continue;
+                        CPnt3D from(sp.x + sinf(a) * 80.0f, sp.y + 20.0f, sp.z + cosf(a) * 80.0f);
+                        CAiMapLoc fromloc;
+                        CAiMap::DIR dir = (CAiMap::DIR)8;
+
+                        if (!AiMaps.GetLocation(&from, fromloc) || !AiMaps.CanSeeLine(fromloc, here, NULL))
+                            continue;
+
+                        if (!map->FindCoverLoc(here, &from, cover, dir, 5))
+                            continue;
+
+                        int dx = (int)cover.x - (int)here.x, dy = (int)cover.y - (int)here.y;
+
+                        if (dx * dx + dy * dy < 4)
+                            continue;
+
+                        CPnt3D me = *body->GetPosW();
+                        float d = (sp.x - me.x) * (sp.x - me.x) + (sp.z - me.z) * (sp.z - me.z);
+                        SOCOM_PORT_TRACE("HOOK: f%d %s at (%d,%d) has cover (%d,%d) from direction %d", frame, nm(s), here.x, here.y, cover.x, cover.y, k);
+
+                        if (d < bd)
+                        {
+                            bd = d;
+                            g_e[0] = s;
+                            /* the player 12 to the side of that line */
+                            g_fire_from = CPnt3D(from.x + cosf(a) * 12.0f, sp.y, from.z - sinf(a) * 12.0f);
+                        }
+
                         break;
                     }
                 }
-            }
-        }
 
-        if (gren != NULL && frame < gren_at + 300 && frame % 10 == 0)
-            trace_ai(frame, gren, "gren");
+                if (g_e[0] == NULL)
+                    g_e[0] = nearest_enemy(body);
 
-        if (gren != NULL && frame == gren_at + 300)
-            freecam_off();
-
-        /* surrender / flee */
-        for (int k = 0; k < 2; k++)
-        {
-            int at = k == 0 ? SOCOM_HOOK_SURR_AT : SOCOM_HOOK_FLEE_AT;
-            CZSealBody *&e = g_e[2 + k];
-
-            if (frame == at)
-            {
-                e = nearest_enemy(body);
-                CSealCtrlAi *ai = ai_of(e);
-                SOCOM_PORT_TRACE("HOOK: f%d %s test: enemy %s", frame, k == 0 ? "SURRENDER" : "FLEE", nm(e));
-
-                if (ai != NULL)
+                if (g_e[0] != NULL)
                 {
-                    AI_REACTION r;
-                    r.m_none = 0.0f;
-                    r.m_rush = 0.0f;
-                    r.m_flee = k == 1 ? 1.0f : 0.0f;
-                    r.m_surrender = k == 0 ? 1.0f : 0.0f;
-                    ai->SetDoReaction(true, r, true);
+                    CZSealBody *e = g_e[0];
+                    const CMatrix &m = e->m_node->m_matrix;
+                    CPnt3D p = *e->GetPosW();
+                    CPnt3D fwd(-m.m_matrix[2][0], 0.0f, -m.m_matrix[2][2]);
+                    CPnt3D side(m.m_matrix[0][0], 0.0f, m.m_matrix[0][2]);
+                    if (bd >= 1e30f)
+                        g_fire_from = CPnt3D(p.x - fwd.x * 80.0f + side.x * 12.0f, p.y, p.z - fwd.z * 80.0f + side.z * 12.0f);
+                    aim_player(body, e);
                     watch(e);
+                    g_fire_left = 0;
+                    SOCOM_PORT_TRACE("HOOK: f%d FIRE test: enemy %s at %.0f %.0f %.0f, player to %.0f %.0f %.0f", frame, nm(e), p.x, p.y, p.z, g_fire_from.x, g_fire_from.y, g_fire_from.z);
+                    trace_ai(frame, e, "fire");
                 }
             }
 
-            if (e != NULL && frame >= at && frame < at + SOCOM_HOOK_TEST_LEN && frame % 10 == 0)
-                trace_ai(frame, e, k == 0 ? "surr" : "flee");
+            if (g_e[0] != NULL && frame > SOCOM_HOOK_FIRE_AT && frame < SOCOM_HOOK_FIRE_AT + SOCOM_HOOK_TEST_LEN)
+            {
+                CSealCtrlAi *ai = ai_of(g_e[0]);
 
-            if (frame == at + SOCOM_HOOK_TEST_LEN)
+                if (frame == SOCOM_HOOK_FIRE_AT + 20)
+                {
+                    g_fire_left = 8 * 15;
+                    SOCOM_PORT_TRACE("HOOK: f%d R1 pulses (15) at read %u", frame, g_reads);
+                }
+
+                /* keep facing past E's side until it reacts (shot at, or sees the player) */
+                if (frame < SOCOM_HOOK_FIRE_AT + 160 && g_e[0]->m_isAlive && ai->GetAiState()->m_state != STATE_SHOTAT && frame % 4 == 0)
+                    aim_player(body, g_e[0]);
+
+                if (frame % 10 == 0)
+                    trace_ai(frame, g_e[0], "fire");
+            }
+
+            if (frame == SOCOM_HOOK_FIRE_AT + SOCOM_HOOK_TEST_LEN)
                 freecam_off();
+
+            /* rush */
+            if (frame == SOCOM_HOOK_RUSH_AT)
+            {
+                g_e[1] = nearest_enemy(body);
+                CSealCtrlAi *ai = ai_of(g_e[1]);
+                SOCOM_PORT_TRACE("HOOK: f%d RUSH test: rush seen before %d, enemy %s", frame, (int)g_rush_seen, nm(g_e[1]));
+
+                if (ai != NULL)
+                {
+                    watch(g_e[1]);
+
+                    if (ai->PushAiState(STATE_RUSH, true))
+                    {
+                        CAiSRush *rush = static_cast<CAiSRush *>(ai->GetAiState());
+                        rush->m_time = 0.0f;
+                        rush->m_option_flags &= ~3u;
+                        rush->m_range_sq = 0.0f;
+                        rush->SetTarget(body);
+                        rush->m_setup = 1;
+                        SOCOM_PORT_TRACE("HOOK: f%d %s RUSH pushed at the player", frame, nm(g_e[1]));
+                    }
+                    else
+                    {
+                        SOCOM_PORT_TRACE("HOOK: f%d %s RUSH push refused (top %d)", frame, nm(g_e[1]), (int)ai->GetAiState()->m_state);
+                    }
+                }
+            }
+
+            /* reload: the rush enemy's current magazine is emptied (it has more), as if fired out */
+            if (frame == SOCOM_HOOK_RUSH_AT + 120 && g_e[1] != NULL && g_e[1]->m_isAlive)
+            {
+                CZKit &kit = g_e[1]->m_kit;
+                int slot = kit.m_selected_item;
+
+                if (slot >= 0 && slot < 30)
+                {
+                    kit.m_reloads[slot][kit.m_currentmag[slot]] = 0;
+                    SOCOM_PORT_TRACE("HOOK: f%d %s magazine emptied (slot %d, mag %d; mag ammo %d, item ammo %d)", frame, nm(g_e[1]), slot,
+                        kit.m_currentmag[slot], (int)kit.CurMagHasAmmo(), (int)kit.CurItemHasAmmo());
+                }
+            }
+
+            if (g_e[1] != NULL && frame >= SOCOM_HOOK_RUSH_AT && frame < SOCOM_HOOK_RUSH_AT + SOCOM_HOOK_TEST_LEN && frame % 10 == 0)
+                trace_ai(frame, g_e[1], "rush");
+
+            if (frame == SOCOM_HOOK_RUSH_AT + SOCOM_HOOK_TEST_LEN)
+                freecam_off();
+
+            /* grenade: an enemy that sees the player and carries a thrown item takes it as a script's
+             * ai::FIREMODE would (ChooseWeapon with the item's index); AttackTick then lobs it */
+            static CZSealBody *gren;
+            static int gren_at;
+
+            if (gren == NULL && frame >= SOCOM_HOOK_GREN_AT && frame % 10 == 0)
+            {
+                for (int i = 0; i < g_nseals && gren == NULL; i++)
+                {
+                    CZSealBody *s = g_seals[i];
+                    CSealCtrlAi *ai = ai_of(s);
+
+                    if (!is_enemy(s, body) || ai->m_target.m_target.m_ent != body || !ai->m_target.m_target.m_visible)
+                        continue;
+
+                    for (int k = 0; k < s->m_kit.GetNumItems(); k++)
+                    {
+                        CZFTSWeapon *w = s->m_kit.GetItemByIndex(k);
+                        u8 id = w != NULL ? (u8)w->m_ID : 0;
+
+                        if (id >= 120 && id < 126 && s->m_kit.ItemHasAmmo(k))
+                        {
+                            CAiWepHint hint;
+                            memset(&hint, 0, sizeof(hint));
+                            hint.m_use_index = 1;
+                            hint.m_index = k;
+                            ai->ChooseWeapon(hint);
+                            gren = s;
+                            gren_at = frame;
+                            watch(s);
+                            SOCOM_PORT_TRACE("HOOK: f%d GRENADE test: %s takes item %d (%d), player %.0f away", frame, nm(s), k, (int)id,
+                                sqrtf(ai->m_target.m_target.m_distSq));
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (gren != NULL && frame < gren_at + 300 && frame % 10 == 0)
+                trace_ai(frame, gren, "gren");
+
+            if (gren != NULL && frame == gren_at + 300)
+                freecam_off();
+
+            /* surrender / flee */
+            for (int k = 0; k < 2; k++)
+            {
+                int at = k == 0 ? SOCOM_HOOK_SURR_AT : SOCOM_HOOK_FLEE_AT;
+                CZSealBody *&e = g_e[2 + k];
+
+                if (frame == at)
+                {
+                    e = nearest_enemy(body);
+                    CSealCtrlAi *ai = ai_of(e);
+                    SOCOM_PORT_TRACE("HOOK: f%d %s test: enemy %s", frame, k == 0 ? "SURRENDER" : "FLEE", nm(e));
+
+                    if (ai != NULL)
+                    {
+                        AI_REACTION r;
+                        r.m_none = 0.0f;
+                        r.m_rush = 0.0f;
+                        r.m_flee = k == 1 ? 1.0f : 0.0f;
+                        r.m_surrender = k == 0 ? 1.0f : 0.0f;
+                        ai->SetDoReaction(true, r, true);
+                        watch(e);
+                    }
+                }
+
+                if (e != NULL && frame >= at && frame < at + SOCOM_HOOK_TEST_LEN && frame % 10 == 0)
+                    trace_ai(frame, e, k == 0 ? "surr" : "flee");
+
+                if (frame == at + SOCOM_HOOK_TEST_LEN)
+                    freecam_off();
+            }
         }
     }
 

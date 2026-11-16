@@ -6,12 +6,14 @@
  * pause menu, replay). Wraps scePadRead and drives the pad from the game state it sees (the top of
  * theGame's state stack, the player pointer), so no read numbers have to be guessed across loads:
  *  - cinematic on top: CROSS after 40 reads (skip the movie);
- *  - mission n (a new player pointer = a new mission or a replay): after SOCOM_HOOK_PAUSE_AT reads
+ *  - mission n (a new player pointer = a new mission or a replay): 60 ticks (1/30 s, hook_clock.h)
+ *    after its briefing cameras end (2 s without one; SOCOM_HOOK_PAUSE_AT is no longer used for it)
  *    START (pause menu), then DOWN x1 (ABORT) or x3 (REPLAY), then CROSS;
  *      n=1 ABORT, debrief X (replay: OnPop(1) -> ReOpen_Load);
  *      n=2 pause REPLAY (abort valve 2: the exit state pops 1 without a debrief);
  *      n=3 ABORT, debrief TRIANGLE -> menus -> PLAY GAME, briefing START -> mission 4;
- *      n=4 after SOCOM_HOOK_LAST_AT reads ABORT, debrief TRIANGLE -> menus; then nothing.
+ *      n=4 SOCOM_HOOK_LAST_AT - SOCOM_HOOK_PAUSE_AT ticks later ABORT, debrief TRIANGLE -> menus; then
+ *      nothing.
  *  - debrief (exit state on top): X / TRIANGLE after 300 reads, again every 150 while on top;
  *  - menus again (not the first time): CROSS +60, DOWN x5 +150.., CROSS +210.
  * Every state change is traced (the trace carries the heap use). */
@@ -30,6 +32,7 @@
 #include <math.h>
 #define HOOK_FREECAM_WRAP
 #include "hook_freecam.h"
+#include "hook_clock.h"
 
 #ifndef SOCOM_HOOK_PAUSE_AT
 #define SOCOM_HOOK_PAUSE_AT 450
@@ -71,6 +74,8 @@ unsigned int g_top_since;
 CZSealBody *g_player;
 int g_mission;
 unsigned int g_mission_since;
+bool g_pause_pending;
+bool g_new_pause_wait;
 int g_menus;
 int g_exit_pressed;
 bool g_new_mission;
@@ -182,16 +187,33 @@ void watch()
         g_mission++;
         g_mission_since = g_reads;
         SOCOM_PORT_TRACE("HOOK: read %u mission %d starts (player %p)", g_reads, g_mission, (void *)ftsGetPlayer());
-        unsigned int at = g_reads + (g_mission == 4 ? SOCOM_HOOK_LAST_AT : SOCOM_HOOK_PAUSE_AT);
-        int downs = g_mission == 2 ? 3 : 1;
+        g_pause_pending = g_mission <= 4;
+        g_new_pause_wait = true;
+    }
 
-        if (g_mission <= 4)
-        {
-            queue(at, B_START);
-            g_pause_target = downs == 3 ? 3 : 1; /* REPLAY : ABORT */
-            g_pause_from = at + 30;
-        }
-        (void)downs;
+    /* the pause waits for the briefing cameras to end (2 s without one): the pause menu does not
+     * open over them, and at the missions' 30 fps they outlast the old read-count delay. (Not the fake
+     * pad's play anchor: a REPLAY restarts the mission without a load the anchors would see.) */
+    static unsigned int last_cam;
+
+    if (g_new_pause_wait)
+    {
+        g_new_pause_wait = false;
+        last_cam = 0;
+    }
+
+    if (theHUD != NULL && theHUD->m_missioncams.IsPlaying() != 0)
+        last_cam = g_reads;
+
+    if (g_pause_pending && last_cam != 0 && g_reads >= last_cam + 60)
+    {
+        g_pause_pending = false;
+        unsigned int at = g_reads + 60 + (g_mission == 4 ? SOCOM_HOOK_LAST_AT - SOCOM_HOOK_PAUSE_AT : 0);
+        int downs = g_mission == 2 ? 3 : 1;
+        queue(at, B_START);
+        g_pause_target = downs == 3 ? 3 : 1; /* REPLAY : ABORT */
+        g_pause_from = at + 30;
+        SOCOM_PORT_TRACE("HOOK: read %u mission %d cameras over: pause queued at %u", g_reads, g_mission, at);
     }
 
     if (g_top_since == g_reads && top != &theGame.m_coreState)
@@ -240,16 +262,20 @@ extern "C" int __wrap_scePadRead(int port, int slot, unsigned char *rdata)
 
     if (port == 0)
     {
-        g_reads++;
-        watch();
-        unsigned short bits = pressed_now();
-
-        if (bits != 0)
+        static unsigned int hook_clock1;
+        for (unsigned int hook_n = hook_step(&hook_clock1); hook_n > 0; hook_n--)
         {
-            unsigned short held = (unsigned short)(~((rdata[2] << 8) | rdata[3]));
-            held |= bits;
-            rdata[2] = (unsigned char)~(held >> 8);
-            rdata[3] = (unsigned char)~held;
+            g_reads++;
+            watch();
+            unsigned short bits = pressed_now();
+
+            if (bits != 0)
+            {
+                unsigned short held = (unsigned short)(~((rdata[2] << 8) | rdata[3]));
+                held |= bits;
+                rdata[2] = (unsigned char)~(held >> 8);
+                rdata[3] = (unsigned char)~held;
+            }
         }
     }
 

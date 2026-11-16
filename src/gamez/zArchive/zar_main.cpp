@@ -82,6 +82,9 @@ namespace zar
 /* @socom-skeleton decl include */
 #include "gamez/zUtil/util_stable.h"
 /* @socom-skeleton end include */
+#ifdef SOCOM_PORT_HEAP_KEEP_MENU_ZAR
+void socom_port_menu_zar_request(size_t size); /* port deviation: st_menu.cpp */
+#endif
 /* @socom-skeleton decl forward */
 class CIO;
 /* @socom-skeleton end forward */
@@ -486,6 +489,12 @@ bool CZAR::ReadDirectory(s32 appver, u32 mode)
 	if (m_databuffer_size == 0)
 		return success;
 
+#ifdef SOCOM_PORT_HEAP_KEEP_MENU_ZAR
+	/* port deviation (option SOCOM_PORT_HEAP_KEEP_MENU_ZAR, off by default: port/CMakeLists.txt,
+	 * st_menu.cpp): the place CMenuState::UnInit kept for the menus' largest archive buffer is
+	 * given back just before the request of that size, so the buffer gets exactly that hole */
+	socom_port_menu_zar_request(m_databuffer_size);
+#endif
 	if (m_memalign)
 		m_databuffer = _memalign(64, m_databuffer_size, "zar_main.cpp", 394);
 	else

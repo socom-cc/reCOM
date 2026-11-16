@@ -25,6 +25,7 @@
 #include <libvu0.h>
 #define HOOK_FREECAM_WRAP
 #include "hook_freecam.h"
+#include "hook_clock.h"
 
 #ifndef SOCOM_HOOK_ENEMY
 #define SOCOM_HOOK_ENEMY 30.0f
@@ -301,138 +302,142 @@ extern "C" float __wrap__ZN10CZSealBody22GetTerrainMotionFactorEv(CZSealBody *bo
         static int at = 0;
         static CPnt3D box;
         static CZFTSWeapon *slot0 = NULL;
-        frame++;
-        CPnt3D me = *body->GetPosW();
-        CSealCtrl *ctrl = static_cast<CSealCtrl *>(body->m_control);
-
-        if (slot0 == NULL)
-            slot0 = body->m_kit.m_item[0];
-
-        static int dead_at = 0;
-        static int knife_at = 0;
-
-        if (g_knife != NULL && !g_knife->m_isAlive && knife_at == 0)
-            knife_at = frame;
-
-        if (knife_at != 0 && frame == knife_at + 180 && g_enemy != NULL && g_enemy->m_isAlive)
+        static unsigned int hook_clock1;
+        for (unsigned int hook_n = hook_field_step(&hook_clock1); hook_n > 0; hook_n--)
         {
-            /* the shooting target SOCOM_HOOK_ENEMY in front of where the stab left the player, facing away */
-            const CMatrix &pm = body->m_node->m_matrix;
-            CPnt3D fwd(-pm.m_matrix[2][0], 0.0f, -pm.m_matrix[2][2]);
-            float fl = sqrtf(fwd.x * fwd.x + fwd.z * fwd.z);
-            fwd.x /= fl; fwd.z /= fl;
-            CPnt3D at(me.x + fwd.x * SOCOM_HOOK_ENEMY, me.y, me.z + fwd.z * SOCOM_HOOK_ENEMY);
-            CPnt3D away(at.x + fwd.x * 100.0f, at.y, at.z + fwd.z * 100.0f);
-            place(g_enemy, at, away);
-            SOCOM_PORT_TRACE("HOOK: f%d enemy %s placed again at %.0f %.0f %.0f", frame, g_enemy->m_node->m_name, g_enemy->GetPosW()->x, g_enemy->GetPosW()->y, g_enemy->GetPosW()->z);
-        }
+            frame++;
+            CPnt3D me = *body->GetPosW();
+            CSealCtrl *ctrl = static_cast<CSealCtrl *>(body->m_control);
 
-        if (state == 0 && g_enemy != NULL && !g_enemy->m_isAlive && dead_at == 0)
-            dead_at = frame;
+            if (slot0 == NULL)
+                slot0 = body->m_kit.m_item[0];
+
+            static int dead_at = 0;
+            static int knife_at = 0;
+
+            if (g_knife != NULL && !g_knife->m_isAlive && knife_at == 0)
+                knife_at = frame;
+
+            if (knife_at != 0 && frame == knife_at + 180 && g_enemy != NULL && g_enemy->m_isAlive)
+            {
+                /* the shooting target SOCOM_HOOK_ENEMY in front of where the stab left the player, facing away */
+                const CMatrix &pm = body->m_node->m_matrix;
+                CPnt3D fwd(-pm.m_matrix[2][0], 0.0f, -pm.m_matrix[2][2]);
+                float fl = sqrtf(fwd.x * fwd.x + fwd.z * fwd.z);
+                fwd.x /= fl; fwd.z /= fl;
+                CPnt3D at(me.x + fwd.x * SOCOM_HOOK_ENEMY, me.y, me.z + fwd.z * SOCOM_HOOK_ENEMY);
+                CPnt3D away(at.x + fwd.x * 100.0f, at.y, at.z + fwd.z * 100.0f);
+                place(g_enemy, at, away);
+                SOCOM_PORT_TRACE("HOOK: f%d enemy %s placed again at %.0f %.0f %.0f", frame, g_enemy->m_node->m_name, g_enemy->GetPosW()->x, g_enemy->GetPosW()->y, g_enemy->GetPosW()->z);
+            }
+
+            if (state == 0 && g_enemy != NULL && !g_enemy->m_isAlive && dead_at == 0)
+                dead_at = frame;
 
 #ifdef SOCOM_HOOK_DROPCAM
-        /* test camera: the dropped weapon from the side for 150 frames after the death */
-        if (dead_at != 0 && frame == dead_at + 1)
-        {
-            CPickup *weapon = NULL;
-
-            for (std::list<CPickup *>::iterator it = CPickup::m_list.begin(); it != CPickup::m_list.end(); ++it)
-                if ((*it)->m_type == CPickup::PU_WEAPON && !(*it)->m_secondary)
-                    weapon = *it;
-
-            if (weapon != NULL && weapon->m_node != NULL)
+            /* test camera: the dropped weapon from the side for 150 frames after the death */
+            if (dead_at != 0 && frame == dead_at + 1)
             {
-                const float *p = weapon->m_node->m_matrix.m_matrix[3];
-                CPnt3D target(p[0], p[1] - 6.0f, p[2]);
-                freecam_look_from(target, 30.0f, 4.0f, 30.0f);
-                SOCOM_PORT_TRACE("HOOK: f%d test camera on the dropped weapon at %.1f %.1f %.1f", frame, p[0], p[1], p[2]);
-            }
-        }
+                CPickup *weapon = NULL;
 
-        if (dead_at != 0 && frame == dead_at + 150)
-            freecam_off();
+                for (std::list<CPickup *>::iterator it = CPickup::m_list.begin(); it != CPickup::m_list.end(); ++it)
+                    if ((*it)->m_type == CPickup::PU_WEAPON && !(*it)->m_secondary)
+                        weapon = *it;
+
+                if (weapon != NULL && weapon->m_node != NULL)
+                {
+                    const float *p = weapon->m_node->m_matrix.m_matrix[3];
+                    CPnt3D target(p[0], p[1] - 6.0f, p[2]);
+                    freecam_look_from(target, 30.0f, 4.0f, 30.0f);
+                    SOCOM_PORT_TRACE("HOOK: f%d test camera on the dropped weapon at %.1f %.1f %.1f", frame, p[0], p[1], p[2]);
+                }
+            }
+
+            if (dead_at != 0 && frame == dead_at + 150)
+                freecam_off();
 #endif
 
-        if (state == 0 && dead_at != 0 && frame >= dead_at + 90)
-        {
-            CPickup *weapon = NULL;
-
-            for (std::list<CPickup *>::iterator it = CPickup::m_list.begin(); it != CPickup::m_list.end(); ++it)
+            if (state == 0 && dead_at != 0 && frame >= dead_at + 90)
             {
-                if ((*it)->m_type == CPickup::PU_WEAPON && !(*it)->m_secondary)
-                    weapon = *it; /* the latest: the shot enemy's */
+                CPickup *weapon = NULL;
 
-                if ((*it)->m_type == CPickup::PU_AMMO)
-                    box = *(*it)->GetPosW();
-            }
-
-            if (weapon != NULL && weapon->GetPosW() != NULL)
-            {
-                CPnt3D w = *weapon->GetPosW();
-                CPnt3D d(me.x - w.x, 0.0f, me.z - w.z);
-                float l = sqrtf(d.x * d.x + d.z * d.z);
-
-                if (l > 0.01f)
+                for (std::list<CPickup *>::iterator it = CPickup::m_list.begin(); it != CPickup::m_list.end(); ++it)
                 {
-                    d.x /= l;
-                    d.z /= l;
+                    if ((*it)->m_type == CPickup::PU_WEAPON && !(*it)->m_secondary)
+                        weapon = *it; /* the latest: the shot enemy's */
+
+                    if ((*it)->m_type == CPickup::PU_AMMO)
+                        box = *(*it)->GetPosW();
                 }
 
-                CPnt3D to(w.x + d.x * SOCOM_HOOK_GAP, me.y, w.z + d.z * SOCOM_HOOK_GAP);
-                SOCOM_PORT_TRACE("HOOK: f%d enemy dead, weapon pickup %d at %.1f %.1f %.1f; player to %.1f %.1f", frame, (int)weapon->m_id,
-                    w.x, w.y, w.z, to.x, to.z);
+                if (weapon != NULL && weapon->GetPosW() != NULL)
+                {
+                    CPnt3D w = *weapon->GetPosW();
+                    CPnt3D d(me.x - w.x, 0.0f, me.z - w.z);
+                    float l = sqrtf(d.x * d.x + d.z * d.z);
+
+                    if (l > 0.01f)
+                    {
+                        d.x /= l;
+                        d.z /= l;
+                    }
+
+                    CPnt3D to(w.x + d.x * SOCOM_HOOK_GAP, me.y, w.z + d.z * SOCOM_HOOK_GAP);
+                    SOCOM_PORT_TRACE("HOOK: f%d enemy dead, weapon pickup %d at %.1f %.1f %.1f; player to %.1f %.1f", frame, (int)weapon->m_id,
+                        w.x, w.y, w.z, to.x, to.z);
+                    trace_pickups(body);
+                    place(body, to, w);
+                    state = 1;
+                    at = frame;
+                }
+            }
+            else if (state == 1 && body->m_kit.m_item[0] != slot0)
+            {
+                SOCOM_PORT_TRACE("HOOK: f%d slot 0 changed", frame);
+                trace_kit(body, "taken");
                 trace_pickups(body);
-                place(body, to, w);
-                state = 1;
+                state = 2;
                 at = frame;
             }
-        }
-        else if (state == 1 && body->m_kit.m_item[0] != slot0)
-        {
-            SOCOM_PORT_TRACE("HOOK: f%d slot 0 changed", frame);
-            trace_kit(body, "taken");
-            trace_pickups(body);
-            state = 2;
-            at = frame;
-        }
-        else if (state == 2 && frame == at + 90)
-        {
-            CPnt3D away(me.x + (me.x - box.x) * 0.0f + 60.0f, me.y, me.z);
-            SOCOM_PORT_TRACE("HOOK: f%d player away from the ammo box", frame);
-            place(body, away, box);
-            state = 3;
-            at = frame;
-        }
-        else if (state == 3 && frame == at + 60)
-        {
-            CPnt3D near(box.x + 6.0f, me.y, box.z);
-            SOCOM_PORT_TRACE("HOOK: f%d player back to the ammo box %.1f %.1f", frame, box.x, box.z);
-            place(body, near, box);
-            state = 4;
-            at = frame;
-        }
-        else if (state == 4 && frame == at + 60)
-        {
-            trace_kit(body, "after box");
-            trace_pickups(body);
-            state = 5;
-        }
+            else if (state == 2 && frame == at + 90)
+            {
+                CPnt3D away(me.x + (me.x - box.x) * 0.0f + 60.0f, me.y, me.z);
+                SOCOM_PORT_TRACE("HOOK: f%d player away from the ammo box", frame);
+                place(body, away, box);
+                state = 3;
+                at = frame;
+            }
+            else if (state == 3 && frame == at + 60)
+            {
+                CPnt3D near(box.x + 6.0f, me.y, box.z);
+                SOCOM_PORT_TRACE("HOOK: f%d player back to the ammo box %.1f %.1f", frame, box.x, box.z);
+                place(body, near, box);
+                state = 4;
+                at = frame;
+            }
+            else if (state == 4 && frame == at + 60)
+            {
+                trace_kit(body, "after box");
+                trace_pickups(body);
+                state = 5;
+            }
 
-        if (state == 0 && frame % 15 == 0 && frame < 900 && g_enemy != NULL)
-        {
-            CPnt3D e = *g_enemy->GetPosW();
-            CSealCtrl *ec = static_cast<CSealCtrl *>(g_enemy->m_control);
-            CSealCtrlAi *ai = ec != NULL ? ec->GetSealCtrlAi() : NULL;
-            SOCOM_PORT_TRACE("HOOK: f%d s0 pos %.1f %.1f %.1f enemy %.1f %.1f alive %d/%d aware %d victim %s corpse %s avail 0x%x sel 0x%x disp %d anim %d", frame, me.x, me.y, me.z, e.x, e.z, (int)g_enemy->m_isAlive, g_knife != NULL ? (int)g_knife->m_isAlive : -1,
-                ai != NULL ? (int)ai->GetAiAware() : -1, ctrl != NULL && ctrl->m_victimbody != NULL ? ctrl->m_victimbody->m_node->m_name : "-",
-                ctrl != NULL && ctrl->m_corpsebody != NULL ? ctrl->m_corpsebody->m_node->m_name : "-", body->ActionAvailableMask(), body->ActionSelectionMask(), (int)body->ActionDisplayOn(), (int)body->m_CurrentBlendAnimType);
-        }
+            if (state == 0 && frame % 15 == 0 && frame < 900 && g_enemy != NULL)
+            {
+                CPnt3D e = *g_enemy->GetPosW();
+                CSealCtrl *ec = static_cast<CSealCtrl *>(g_enemy->m_control);
+                CSealCtrlAi *ai = ec != NULL ? ec->GetSealCtrlAi() : NULL;
+                SOCOM_PORT_TRACE("HOOK: f%d s0 pos %.1f %.1f %.1f enemy %.1f %.1f alive %d/%d aware %d victim %s corpse %s avail 0x%x sel 0x%x disp %d anim %d", frame, me.x, me.y, me.z, e.x, e.z, (int)g_enemy->m_isAlive, g_knife != NULL ? (int)g_knife->m_isAlive : -1,
+                    ai != NULL ? (int)ai->GetAiAware() : -1, ctrl != NULL && ctrl->m_victimbody != NULL ? ctrl->m_victimbody->m_node->m_name : "-",
+                    ctrl != NULL && ctrl->m_corpsebody != NULL ? ctrl->m_corpsebody->m_node->m_name : "-", body->ActionAvailableMask(), body->ActionSelectionMask(), (int)body->ActionDisplayOn(), (int)body->m_CurrentBlendAnimType);
+            }
 
-        if (state >= 1 && state <= 4 && frame % 15 == 0)
-            SOCOM_PORT_TRACE("HOOK: f%d s%d pos %.1f %.1f %.1f offer %d/%d avail 0x%x sel 0x%x disp %d timer %.2f pickups %d", frame, state,
-                me.x, me.y, me.z, ctrl != NULL ? ctrl->m_curpickup_ID : -9, ctrl != NULL ? ctrl->m_curpickup_secondary_ID : -9,
-                body->ActionAvailableMask(), body->ActionSelectionMask(), (int)body->ActionDisplayOn(),
-                ctrl != NULL ? ctrl->m_weapon_pickup_timer : 0.0f, (int)CPickup::m_list.size());
+            if (state >= 1 && state <= 4 && frame % 15 == 0)
+                SOCOM_PORT_TRACE("HOOK: f%d s%d pos %.1f %.1f %.1f offer %d/%d avail 0x%x sel 0x%x disp %d timer %.2f pickups %d", frame, state,
+                    me.x, me.y, me.z, ctrl != NULL ? ctrl->m_curpickup_ID : -9, ctrl != NULL ? ctrl->m_curpickup_secondary_ID : -9,
+                    body->ActionAvailableMask(), body->ActionSelectionMask(), (int)body->ActionDisplayOn(),
+                    ctrl != NULL ? ctrl->m_weapon_pickup_timer : 0.0f, (int)CPickup::m_list.size());
+        }
     }
 
     return __real__ZN10CZSealBody22GetTerrainMotionFactorEv(body);

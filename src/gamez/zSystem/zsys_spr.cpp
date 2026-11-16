@@ -44,8 +44,14 @@ static void VU0ProgramDone();
 
 /* @socom-skeleton stub mfifoBase */
 /* The 256 KB MFIFO ring (D_RBOR/D_RBSR); the DMAC needs it aligned to its size. The
- * original linker placed it at 0x100000, ahead of .text. */
+ * original linker placed it at 0x100000, ahead of .text. port: the same, through its own
+ * section, which the port's linker script (port/socom_port.ld) puts at 0x100000 before the
+ * code; in .bss its alignment cost 262,116 bytes of padding (docs/port/notes/menu-heap.md). */
+#ifdef SOCOM_PORT
+static unsigned char mfifoBase[262144] __attribute__((aligned(0x40000), section(".mfifo"))) = {0};
+#else
 static unsigned char mfifoBase[262144] __attribute__((aligned(0x40000))) = {0};
+#endif
 
 /* @socom-skeleton stub mfifoDrainTADR */
 static int mfifoDrainTADR;

@@ -1,5 +1,6 @@
 param(
-    [string]$Build = "gate",        # shared WSL build dir under ~/.cache/socom (kept between runs: incremental)
+    [string]$Build = "",            # WSL build dir under ~/.cache/socom (kept between runs: incremental);
+                                    # default gate-<scratch folder name without boot->, one per worker
     [int]$Missions = 4,             # missions (= returns to the menus) in the round trip
     [switch]$SkipBuild,             # boot the ELFs of the last gate run again
     [switch]$BuildOnly,             # build the four ELFs and stop (boot them later with -SkipBuild)
@@ -16,12 +17,16 @@ param(
 # All four fail on a STOP, a TLB miss or an assert in the log. The four ELFs are built one after
 # the other in ONE build dir (only the fake pad file and the link differ), copied to the scratch
 # folder as gate-<check>.elf, and booted together through pcsx2-boot.ps1, so the wall-clock time is
-# the longest run (the round trip), not the sum. Each run ends when its evidence is in the log
+# the longest run (the round trip), not the sum. The build dir is -Build, by default gate-<scratch
+# folder name without boot-> (e.g. gate-limiter for build\port\boot-limiter), so workers running the
+# gate side by side never share one. Each run ends when its evidence is in the log
 # (pcsx2-boot.ps1 -DonePattern), not at a fixed time. Prints a table and exits 0 only if all passed.
 # Needs SOCOM_PCSX2 and SOCOM_DISC_IMAGE (user-local) as pcsx2-boot.ps1 does.
 . (Join-Path $PSScriptRoot '_dev.ps1')
 $ErrorActionPreference = 'Continue'
 $dir = Get-SocomScratch
+# the build dir: never a name another worker's gate run uses at the same time
+if (-not $Build) { $Build = 'gate-' + ((Split-Path -Leaf $dir) -replace '^boot-', '') }
 try { Get-SocomPcsx2 | Out-Null; Get-SocomDisc | Out-Null } catch { "$($_.Exception.Message)"; exit 2 }
 $wsl = Join-Path $PSScriptRoot 'wsl.ps1'
 $boot = Join-Path $PSScriptRoot 'pcsx2-boot.ps1'

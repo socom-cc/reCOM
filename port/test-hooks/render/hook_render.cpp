@@ -34,6 +34,7 @@
 #include <malloc.h>
 
 #include "hook_freecam.h"
+#include "hook_clock.h"
 
 #ifndef RN_CAMD
 #define RN_CAMD 14.0f
@@ -105,71 +106,75 @@ extern "C" void __real__ZN10CZSealBody12CheckDIShootEP6CPnt3DP7CMatrix(CZSealBod
 extern "C" void __wrap__ZN10CZSealBody12CheckDIShootEP6CPnt3DP7CMatrix(CZSealBody *body, CPnt3D *eye, CMatrix *mat)
 {
     __real__ZN10CZSealBody12CheckDIShootEP6CPnt3DP7CMatrix(body, eye, mat);
-    g_frames++;
-    g_time += zVid.frameTime;
+    static unsigned int hook_clock1;
+    for (unsigned int hook_n = hook_field_step(&hook_clock1); hook_n > 0; hook_n--)
+    {
+        g_frames++;
+        g_time += zVid.frameTime;
 
 #ifdef RN_CAM
-    if (g_frames >= (unsigned)(RN_CAM) && g_frames < (unsigned)(RN_CAM) + 3 * (RN_CAMLEN))
-    {
-        static const float view[3][3] = { { -1.0f, 1.0f, -0.2f }, { 0.3f, 1.0f, -1.0f }, { -0.7f, 0.5f, 0.7f } };
-        int s = (g_frames - (RN_CAM)) / (RN_CAMLEN);
-        freecam_node(body->m_node, view[s][0] * RN_CAMD, view[s][1] * RN_CAMD, view[s][2] * RN_CAMD);
-
-        if ((g_frames - (RN_CAM)) % (RN_CAMLEN) == 0)
+        if (g_frames >= (unsigned)(RN_CAM) && g_frames < (unsigned)(RN_CAM) + 3 * (RN_CAMLEN))
         {
-            const float *p = body->m_node->m_matrix.m_matrix[3];
-            SOCOM_PORT_TRACE("HOOK RN: cam view %d on the player at %.1f %.1f %.1f (frame %u)", s, p[0], p[1], p[2], g_frames);
+            static const float view[3][3] = { { -1.0f, 1.0f, -0.2f }, { 0.3f, 1.0f, -1.0f }, { -0.7f, 0.5f, 0.7f } };
+            int s = (g_frames - (RN_CAM)) / (RN_CAMLEN);
+            freecam_node(body->m_node, view[s][0] * RN_CAMD, view[s][1] * RN_CAMD, view[s][2] * RN_CAMD);
+
+            if ((g_frames - (RN_CAM)) % (RN_CAMLEN) == 0)
+            {
+                const float *p = body->m_node->m_matrix.m_matrix[3];
+                SOCOM_PORT_TRACE("HOOK RN: cam view %d on the player at %.1f %.1f %.1f (frame %u)", s, p[0], p[1], p[2], g_frames);
+            }
         }
-    }
-    else if (g_freecam.on)
-    {
-        freecam_off();
-    }
+        else if (g_freecam.on)
+        {
+            freecam_off();
+        }
 #endif
 
-    freecam_apply();
+        freecam_apply();
 
 #ifdef RN_LMDUMP
-    if (g_watch != NULL && g_watch_frames > 0)
-    {
-        zdb::CLightMap *m = g_watch;
-        g_watch_frames--;
-        SOCOM_PORT_TRACE("HOOK RN: lm %s range %g..%g inv %g invd %g diff %g %g %g op %g pos %g %g %g tex %p %ux%u qwc %u blend %08x%08x active %d",
-                         m->m_name ? m->m_name : "?", m->m_minRange, m->m_maxRange, m->m_invMaxRange, m->m_invDeltaRange,
-                         m->m_diffuse.x, m->m_diffuse.y, m->m_diffuse.z, m->m_opacity, m->m_matrix.m_matrix[3][0],
-                         m->m_matrix.m_matrix[3][1], m->m_matrix.m_matrix[3][2], m->m_pTex,
-                         m->m_pTex ? m->m_pTex->m_width : 0, m->m_pTex ? m->m_pTex->m_height : 0,
-                         m->m_pTex ? (unsigned)m->m_pTex->m_dmaRef.u16[0] : 0,
-                         (unsigned)(m->m_blendmode.m_alphaWORD >> 32), (unsigned)m->m_blendmode.m_alphaWORD, (int)m->m_active);
-    }
+        if (g_watch != NULL && g_watch_frames > 0)
+        {
+            zdb::CLightMap *m = g_watch;
+            g_watch_frames--;
+            SOCOM_PORT_TRACE("HOOK RN: lm %s range %g..%g inv %g invd %g diff %g %g %g op %g pos %g %g %g tex %p %ux%u qwc %u blend %08x%08x active %d",
+                             m->m_name ? m->m_name : "?", m->m_minRange, m->m_maxRange, m->m_invMaxRange, m->m_invDeltaRange,
+                             m->m_diffuse.x, m->m_diffuse.y, m->m_diffuse.z, m->m_opacity, m->m_matrix.m_matrix[3][0],
+                             m->m_matrix.m_matrix[3][1], m->m_matrix.m_matrix[3][2], m->m_pTex,
+                             m->m_pTex ? m->m_pTex->m_width : 0, m->m_pTex ? m->m_pTex->m_height : 0,
+                             m->m_pTex ? (unsigned)m->m_pTex->m_dmaRef.u16[0] : 0,
+                             (unsigned)(m->m_blendmode.m_alphaWORD >> 32), (unsigned)m->m_blendmode.m_alphaWORD, (int)m->m_active);
+        }
 #endif
 
-    if (g_frames % 150 == 0)
-    {
-        zdb::CWorld *w = zdb::CWorld::m_world;
-        int shadow = 0, plain = 0;
-
-        for (zdb::CLightMapVector::iterator it = w->m_lightMaps.begin(); it != w->m_lightMaps.end(); ++it)
+        if (g_frames % 150 == 0)
         {
-            if ((*it)->m_isShadow)
-                shadow++;
-            else
-                plain++;
+            zdb::CWorld *w = zdb::CWorld::m_world;
+            int shadow = 0, plain = 0;
+
+            for (zdb::CLightMapVector::iterator it = w->m_lightMaps.begin(); it != w->m_lightMaps.end(); ++it)
+            {
+                if ((*it)->m_isShadow)
+                    shadow++;
+                else
+                    plain++;
+            }
+
+            float range = -1.0f;
+
+            for (zdb::CRenderMapVector::iterator it = w->m_shadows.begin(); it != w->m_shadows.end(); ++it)
+            {
+                if ((*it)->m_node == body->m_node)
+                    range = (*it)->m_maxRange;
+            }
+
+            struct mallinfo mi = mallinfo();
+            SOCOM_PORT_TRACE("HOOK RN: f %u render maps %d light maps %d shadow + %d plain, updates %.2f restores %.2f per frame, player map range %.1f, frame %.4f s, in use %d",
+                             g_frames, (int)w->m_shadows.size(), shadow, plain, g_updates / 150.0f, g_restores / 150.0f, range,
+                             g_time / 150.0f, mi.uordblks);
+            g_updates = g_restores = 0;
+            g_time = 0.0f;
         }
-
-        float range = -1.0f;
-
-        for (zdb::CRenderMapVector::iterator it = w->m_shadows.begin(); it != w->m_shadows.end(); ++it)
-        {
-            if ((*it)->m_node == body->m_node)
-                range = (*it)->m_maxRange;
-        }
-
-        struct mallinfo mi = mallinfo();
-        SOCOM_PORT_TRACE("HOOK RN: f %u render maps %d light maps %d shadow + %d plain, updates %.2f restores %.2f per frame, player map range %.1f, frame %.4f s, in use %d",
-                         g_frames, (int)w->m_shadows.size(), shadow, plain, g_updates / 150.0f, g_restores / 150.0f, range,
-                         g_time / 150.0f, mi.uordblks);
-        g_updates = g_restores = 0;
-        g_time = 0.0f;
     }
 }

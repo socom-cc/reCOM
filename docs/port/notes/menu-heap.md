@@ -273,6 +273,9 @@ fts_mission.cpp. With the memory-card layer off it changes nothing in play; its 
   (in use at a mission start is 22.9 MB of 27.07) or a second allocator.
 - libstdc++ is 753 KB (92 KB unwind tables although the game is built without exceptions); section garbage
   collection or a smaller C++ library would give some back.
+- 2026-11-16: `mfifoBase` is now at 0x100000 as in the ELF (port linker script), and the reserve / shrink
+  options exist as `SOCOM_PORT_HEAP_KEEP_MENU_ZAR` / `SOCOM_PORT_HEAP_SHRINK_TEXLIST` (off): figures in
+  [frame-limiter.md](frame-limiter.md).
 
 ## Run-to-run spread (one ELF, several boots)
 

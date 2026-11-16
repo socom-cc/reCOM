@@ -6,14 +6,30 @@
  * active low, [4..7] sticks) is the driver's and passes through unchanged.
  *
  * Test hook (off by default, never in the default build): configure a scratch build with
- * -DSOCOM_PORT_FAKE_PAD=<read>:<BUTTON>[,<read>:<BUTTON>...] (port/CMakeLists.txt) and
- * port 0 is a synthesized, always-stable analog pad that holds BUTTON down for three
- * reads starting at the given read count (CPad::Tick reads every other frame). Buttons:
- * START SELECT UP DOWN LEFT RIGHT CROSS CIRCLE SQUARE TRIANGLE L1 L2 R1 R2. A stick term
- * <read>:<AXIS>=<value>[+<reads>] holds an axis (LX LY RX RY, raw 0..255 decimal, 128 is
- * centred; LY=0 is the left stick fully up) for <reads> reads (default 3) from <read>;
- * otherwise the sticks stay centred. Held buttons read full pressure (255) unless a term
- * <read>:<BUTTON>P=<value>[+<reads>] (R1P, CROSSP, ...) gives another value. */
+ * -DSOCOM_PORT_FAKE_PAD=<script> (port/CMakeLists.txt) and port 0 is a synthesized,
+ * always-stable analog pad driven by the script (port/test-hooks/README.md "Pad scripts"):
+ * comma-separated terms <when>:<what>.
+ *  <when>  <read>                   the pad read count from boot (the old form: what it
+ *                                   means moves with the boot length and the frame rate);
+ *          <anchor>[.<k>]+<fields>  <fields> 60 Hz fields (vertical blanks) after the k-th
+ *                                   time (default the 1st) the game reached <anchor>.
+ *  Anchors: boot (scePadInit), menu (dlgMenu opened), brief (the m8 briefing
+ *  dlgAlaska_mission3), any dialog by its file name without .rdr (dlgAlaskaCinematic,
+ *  dlgOptions_Menu, ...), load (the load state on top), core (a mission reached), movie (a
+ *  cinematic on top), start (the mission's play begins after its intro movie: the first camera
+ *  frame), play (the briefing cameras have played and ended), debrief (the exit state on top).
+ *  They are set by port/test/fake_pad_anchors.cpp (polled at every read) or by a hook
+ *  (socom_fake_anchor). The fields come from a vertical-blank interrupt counter, so a time is
+ *  real time whatever the frame rate.
+ *  <what>  <BUTTON>[+<n>]          a button held, or
+ *          <AXIS>=<value>[+<n>]     a stick (LX LY RX RY, raw 0..255, 128 centred; LY=0 is the
+ *                                   left stick fully up) or a held button's pressure (CROSSP,
+ *                                   R1P, ...) set,
+ *          for <n> reads (read form, default 3) or <n> fields (field form, default 6 = the old
+ *          three reads at 60 fps) from the first read at or after <when>, and on that read at
+ *          least.
+ * Buttons: START SELECT UP DOWN LEFT RIGHT CROSS CIRCLE SQUARE TRIANGLE L1 L2 R1 R2 L3 R3.
+ * Held buttons read full pressure (255) unless a pressure term gives another value. */
 #include <libpad.h> /* compat: the Sony declarations */
 #include <string.h>
 
@@ -37,11 +53,34 @@ extern int padSetActAlign(int port, int slot, const char actAlign[6]);
 extern int padSetActDirect(int port, int slot, const char actAlign[6]);
 
 #ifdef SOCOM_PORT_FAKE_PAD
+#include <kernel.h> /* AddIntcHandler, EnableIntc, INTC_VBLANK_S */
+
 #define SOCOM_FAKE_STR(...) #__VA_ARGS__
 #define SOCOM_FAKE_XSTR(...) SOCOM_FAKE_STR(__VA_ARGS__)
 
 static const char socom_fake_script[] = SOCOM_FAKE_XSTR(SOCOM_PORT_FAKE_PAD);
 static unsigned int socom_fake_reads;
+
+/* the time base: vertical blanks (60 Hz fields) since scePadInit */
+static volatile unsigned int socom_fake_vblanks;
+
+static int socom_fake_vblank(int cause)
+{
+    (void)cause;
+    socom_fake_vblanks++;
+    return 0;
+}
+
+/* for the test hooks (port/tools/dev/hook_clock.h) */
+unsigned int socom_fake_fields(void)
+{
+    return socom_fake_vblanks;
+}
+
+unsigned int socom_fake_read_count(void)
+{
+    return socom_fake_reads;
+}
 
 static const struct
 {
@@ -68,6 +107,90 @@ static const struct
     { "CROSSP", 14 }, { "SQUAREP", 15 }, { "L1P", 16 }, { "R1P", 17 }, { "L2P", 18 }, { "R2P", 19 },
 };
 
+/* ---- anchors: the field of the k-th time the game reached a named point ---- */
+#define SOCOM_FAKE_ANCHORS 48
+#define SOCOM_FAKE_OCCURRENCES 16
+
+static struct
+{
+    char name[32];
+    unsigned int count;
+    unsigned int field[SOCOM_FAKE_OCCURRENCES];
+} socom_fake_anchor_table[SOCOM_FAKE_ANCHORS];
+static unsigned int socom_fake_nanchors;
+
+static int socom_fake_anchor_index(const char *name, int create)
+{
+    unsigned int i;
+
+    for (i = 0; i < socom_fake_nanchors; i++)
+        if (strcmp(socom_fake_anchor_table[i].name, name) == 0)
+            return (int)i;
+
+    if (!create || socom_fake_nanchors >= SOCOM_FAKE_ANCHORS)
+        return -1;
+
+    strncpy(socom_fake_anchor_table[socom_fake_nanchors].name, name, sizeof(socom_fake_anchor_table[0].name) - 1);
+    return (int)socom_fake_nanchors++;
+}
+
+/* the game (port/test/fake_pad_anchors.cpp) or a hook reached <name> at <field> (seen now) */
+void socom_fake_anchor_at(const char *name, unsigned int field)
+{
+    int i = socom_fake_anchor_index(name, 1);
+
+    if (i < 0)
+        return;
+
+    if (socom_fake_anchor_table[i].count < SOCOM_FAKE_OCCURRENCES)
+        socom_fake_anchor_table[i].field[socom_fake_anchor_table[i].count] = field;
+
+    socom_fake_anchor_table[i].count++;
+    socom_port_trace("PAD: anchor %s.%u at field %u (seen at field %u, read %u)", name, socom_fake_anchor_table[i].count, field,
+        socom_fake_vblanks, socom_fake_reads);
+}
+
+/* ... reached <name> now */
+void socom_fake_anchor(const char *name)
+{
+    socom_fake_anchor_at(name, socom_fake_vblanks);
+}
+
+/* the field of the k-th (1-based) time <name> was reached; -1 while it has not been */
+int socom_fake_anchor_field(const char *name, unsigned int k)
+{
+    int i = socom_fake_anchor_index(name, 0);
+
+    if (i < 0 || k == 0 || k > socom_fake_anchor_table[i].count || k > SOCOM_FAKE_OCCURRENCES)
+        return -1;
+
+    return (int)socom_fake_anchor_table[i].field[k - 1];
+}
+
+/* the game's progress, polled at every read: port/test/fake_pad_anchors.cpp (weak, so a build
+ * without it still links) */
+void socom_fake_poll(void) __attribute__((weak));
+
+/* ---- the script, parsed once at scePadInit ---- */
+#define SOCOM_FAKE_TERMS 640
+#define SOCOM_FAKE_NOT_YET 0xffffffffu
+
+static struct
+{
+    signed char anchor;       /* index into socom_fake_anchor_names; -1: read form */
+    unsigned char occurrence; /* 1-based */
+    unsigned char byte;       /* axis / pressure byte; 0: a button */
+    unsigned char value;      /* axis / pressure value */
+    unsigned short bit;       /* button bit */
+    unsigned int at;          /* read, or fields after the anchor */
+    unsigned int length;      /* reads (read form) or fields (field form) */
+    unsigned int start;       /* the first read it is active at (field form: set when due) */
+    unsigned int end_field;   /* field form: the field it ends at */
+} socom_fake_terms[SOCOM_FAKE_TERMS];
+static unsigned int socom_fake_nterms;
+static char socom_fake_anchor_names[SOCOM_FAKE_ANCHORS][32];
+static unsigned int socom_fake_nnames;
+
 static unsigned int socom_fake_number(const char **pp)
 {
     unsigned int v = 0;
@@ -78,61 +201,188 @@ static unsigned int socom_fake_number(const char **pp)
     return v;
 }
 
-/* the raw value the script gives a stick byte at this read (0x80, centred, when none) */
-static unsigned char socom_fake_axis(unsigned int read, unsigned int byte)
+static void socom_fake_parse(void)
 {
-    unsigned char value = 0x80;
     const char *p = socom_fake_script;
 
     while (*p != '\0')
     {
-        unsigned int at;
-        char name[16];
+        char word[32];
         unsigned int n = 0;
+        int anchor = -1;
+        int ok = 1;
+        unsigned int occurrence = 1;
+        unsigned int at;
         unsigned int i;
-        unsigned int v;
-        unsigned int reads = 3;
 
         while (*p == ' ' || *p == ',')
             p++;
+
+        if (*p == '\0')
+            break;
+
+        if (!(*p >= '0' && *p <= '9'))
+        {
+            /* <anchor>[.<k>]+<fields> */
+            while (*p != '\0' && *p != '.' && *p != '+' && *p != ':' && *p != ',' && n < sizeof(word) - 1)
+                word[n++] = *p++;
+
+            word[n] = '\0';
+
+            for (i = 0; i < socom_fake_nnames; i++)
+                if (strcmp(socom_fake_anchor_names[i], word) == 0)
+                    break;
+
+            if (i == socom_fake_nnames)
+            {
+                if (socom_fake_nnames < SOCOM_FAKE_ANCHORS)
+                    strcpy(socom_fake_anchor_names[socom_fake_nnames++], word);
+                else
+                    ok = 0;
+            }
+
+            anchor = (int)i;
+
+            if (*p == '.')
+            {
+                p++;
+                occurrence = socom_fake_number(&p);
+            }
+
+            if (*p == '+')
+                p++;
+        }
 
         at = socom_fake_number(&p);
 
         if (*p == ':')
             p++;
 
-        while (*p != '\0' && *p != ',' && *p != ' ' && *p != '=' && n < sizeof(name) - 1)
-            name[n++] = *p++;
+        n = 0;
 
-        name[n] = '\0';
+        while (*p != '\0' && *p != ',' && *p != ' ' && *p != '=' && *p != '+' && n < sizeof(word) - 1)
+            word[n++] = *p++;
 
-        if (*p != '=')
+        word[n] = '\0';
+
+        if (ok && socom_fake_nterms < SOCOM_FAKE_TERMS)
         {
-            while (*p != '\0' && *p != ',' && *p != ' ')
+            unsigned int k = socom_fake_nterms;
+            int known = 0;
+
+            socom_fake_terms[k].anchor = (signed char)anchor;
+            socom_fake_terms[k].occurrence = (unsigned char)(occurrence == 0 ? 1 : occurrence);
+            socom_fake_terms[k].at = at;
+            socom_fake_terms[k].start = anchor < 0 ? at : SOCOM_FAKE_NOT_YET;
+            socom_fake_terms[k].end_field = 0;
+            socom_fake_terms[k].byte = 0;
+            socom_fake_terms[k].bit = 0;
+            socom_fake_terms[k].value = 0x80;
+            socom_fake_terms[k].length = 3;
+
+            if (*p == '=')
+            {
+                unsigned int v;
+
                 p++;
+                v = socom_fake_number(&p);
+                socom_fake_terms[k].value = (unsigned char)(v > 255 ? 255 : v);
 
-            continue;
-        }
+                if (anchor >= 0)
+                    socom_fake_terms[k].length = 6;
 
-        p++;
-        v = socom_fake_number(&p);
+                if (*p == '+')
+                {
+                    p++;
+                    socom_fake_terms[k].length = socom_fake_number(&p);
+                }
 
-        if (*p == '+')
-        {
-            p++;
-            reads = socom_fake_number(&p);
-        }
+                for (i = 0; i < sizeof(socom_fake_axes) / sizeof(socom_fake_axes[0]); i++)
+                    if (strcmp(word, socom_fake_axes[i].name) == 0)
+                    {
+                        socom_fake_terms[k].byte = (unsigned char)socom_fake_axes[i].byte;
+                        known = 1;
+                    }
+            }
+            else
+            {
+                if (anchor >= 0)
+                    socom_fake_terms[k].length = 6;
 
-        for (i = 0; i < sizeof(socom_fake_axes) / sizeof(socom_fake_axes[0]); i++)
-        {
-            if (strcmp(name, socom_fake_axes[i].name) == 0 && socom_fake_axes[i].byte == byte
-                && read >= at && read < at + reads)
-                value = (unsigned char)(v > 255 ? 255 : v);
+                if (*p == '+')
+                {
+                    p++;
+                    socom_fake_terms[k].length = socom_fake_number(&p);
+                }
+
+                for (i = 0; i < sizeof(socom_fake_buttons) / sizeof(socom_fake_buttons[0]); i++)
+                    if (strcmp(word, socom_fake_buttons[i].name) == 0)
+                    {
+                        socom_fake_terms[k].bit = socom_fake_buttons[i].bit;
+                        known = 1;
+                    }
+            }
+
+            if (known)
+                socom_fake_nterms++;
+            else
+                socom_port_trace("PAD: test hook script: unknown term '%s' ignored", word);
         }
 
         while (*p != '\0' && *p != ',' && *p != ' ')
             p++;
     }
+
+    socom_port_trace("PAD: test hook script: %u terms, %u anchors named", socom_fake_nterms, socom_fake_nnames);
+}
+
+/* field-form terms that fall due at this read start now */
+static void socom_fake_due(unsigned int read)
+{
+    unsigned int fields = socom_fake_vblanks;
+    unsigned int k;
+
+    for (k = 0; k < socom_fake_nterms; k++)
+    {
+        int base;
+
+        if (socom_fake_terms[k].anchor < 0 || socom_fake_terms[k].start != SOCOM_FAKE_NOT_YET)
+            continue;
+
+        base = socom_fake_anchor_field(socom_fake_anchor_names[(int)socom_fake_terms[k].anchor], socom_fake_terms[k].occurrence);
+
+        if (base >= 0 && fields >= (unsigned int)base + socom_fake_terms[k].at)
+        {
+            socom_fake_terms[k].start = read;
+            socom_fake_terms[k].end_field = (unsigned int)base + socom_fake_terms[k].at + socom_fake_terms[k].length;
+        }
+    }
+}
+
+/* the term is active at this read */
+static int socom_fake_active(unsigned int k, unsigned int read)
+{
+    unsigned int start = socom_fake_terms[k].start;
+
+    if (start == SOCOM_FAKE_NOT_YET || read < start)
+        return 0;
+
+    if (socom_fake_terms[k].anchor < 0)
+        return read < start + socom_fake_terms[k].length; /* read form: <n> reads */
+
+    return read == start || socom_fake_vblanks < socom_fake_terms[k].end_field; /* field form */
+}
+
+/* the raw value the script gives a stick / pressure byte at this read (0x80 when none; the
+ * last active term wins) */
+static unsigned char socom_fake_axis(unsigned int read, unsigned int byte)
+{
+    unsigned char value = 0x80;
+    unsigned int k;
+
+    for (k = 0; k < socom_fake_nterms; k++)
+        if (socom_fake_terms[k].byte == byte && socom_fake_active(k, read))
+            value = socom_fake_terms[k].value;
 
     return value;
 }
@@ -141,38 +391,11 @@ static unsigned char socom_fake_axis(unsigned int read, unsigned int byte)
 static unsigned short socom_fake_pressed(unsigned int read)
 {
     unsigned short pressed = 0;
-    const char *p = socom_fake_script;
+    unsigned int k;
 
-    while (*p != '\0')
-    {
-        unsigned int at = 0;
-        char name[16];
-        unsigned int n = 0;
-        unsigned int i;
-
-        while (*p == ' ' || *p == ',')
-            p++;
-
-        while (*p >= '0' && *p <= '9')
-            at = at * 10 + (unsigned int)(*p++ - '0');
-
-        if (*p == ':')
-            p++;
-
-        while (*p != '\0' && *p != ',' && *p != ' ' && n < sizeof(name) - 1)
-            name[n++] = *p++;
-
-        name[n] = '\0';
-
-        if (strchr(name, '=') != NULL)
-            continue; /* a stick term (socom_fake_axis) */
-
-        for (i = 0; i < sizeof(socom_fake_buttons) / sizeof(socom_fake_buttons[0]); i++)
-        {
-            if (strcmp(name, socom_fake_buttons[i].name) == 0 && read >= at && read < at + 3)
-                pressed |= socom_fake_buttons[i].bit;
-        }
-    }
+    for (k = 0; k < socom_fake_nterms; k++)
+        if (socom_fake_terms[k].bit != 0 && socom_fake_active(k, read))
+            pressed |= socom_fake_terms[k].bit;
 
     return pressed;
 }
@@ -186,6 +409,10 @@ int scePadInit(int mode)
 {
 #ifdef SOCOM_PORT_FAKE_PAD
     socom_port_trace("PAD: test hook SOCOM_PORT_FAKE_PAD=%s (port 0 is synthesized)", socom_fake_script);
+    socom_fake_parse();
+    AddIntcHandler(INTC_VBLANK_S, socom_fake_vblank, 0);
+    EnableIntc(INTC_VBLANK_S);
+    socom_fake_anchor("boot");
 #endif
     return padInit(mode);
 }
@@ -217,10 +444,19 @@ int scePadRead(int port, int slot, unsigned char *rdata)
 #ifdef SOCOM_PORT_FAKE_PAD
     if (SOCOM_FAKE_PORT(port))
     {
-        unsigned short pressed = socom_fake_pressed(socom_fake_reads);
+        static unsigned short last_pressed;
+        unsigned short pressed;
 
-        if (pressed != 0 && socom_fake_pressed(socom_fake_reads - 1) != pressed)
-            socom_port_trace("PAD: test hook read %u presses %04x", socom_fake_reads, pressed);
+        if (socom_fake_poll)
+            socom_fake_poll();
+
+        socom_fake_due(socom_fake_reads);
+        pressed = socom_fake_pressed(socom_fake_reads);
+
+        if (pressed != 0 && last_pressed != pressed)
+            socom_port_trace("PAD: test hook read %u field %u presses %04x", socom_fake_reads, socom_fake_vblanks, pressed);
+
+        last_pressed = pressed;
 
         socom_fake_reads++;
         memset(rdata, 0, 32);
@@ -245,7 +481,7 @@ int scePadRead(int port, int slot, unsigned char *rdata)
 
             for (i = 0; i < 12; i++)
             {
-                /* a held button's pressure can be lowered by a term <read>:<BUTTON>P=<value>[+<reads>]
+                /* a held button's pressure can be lowered by a term <when>:<BUTTON>P=<value>[+<n>]
                  * (e.g. 800:R1P=100+40; 128 reads as "no term") */
                 unsigned char level = socom_fake_axis(socom_fake_reads - 1, 8 + i);
                 rdata[8 + i] = (pressed & pressure_bits[i]) == 0 ? 0x00 : level != 0x80 ? level : 0xff;
@@ -257,7 +493,7 @@ int scePadRead(int port, int slot, unsigned char *rdata)
             static unsigned int traced;
 
             if (traced++ % 60 == 0)
-                socom_port_trace("PAD: test hook read %u sticks RX %u RY %u LX %u LY %u", socom_fake_reads - 1,
+                socom_port_trace("PAD: test hook read %u field %u sticks RX %u RY %u LX %u LY %u", socom_fake_reads - 1, socom_fake_vblanks,
                     rdata[4], rdata[5], rdata[6], rdata[7]);
         }
 

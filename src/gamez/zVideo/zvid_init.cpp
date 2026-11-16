@@ -353,7 +353,7 @@ void zVid_Sync0()
 	zVid.frameNumber = 0;
 	zvid.vsync_odd = 1;
 	zVid.frameRate = 60;
-	zVid.frameTime = 1.0f / 60.0f; /* 0x3c888889 */
+	zVid.frameTime = 0.0166666676f; /* 0x3c888889 */
 
 	while (sceGsSyncV(0) == 0)
 		;
@@ -399,15 +399,27 @@ void zVid_Swap(bool doSwap)
 	sceGsSyncPath(0, 0);
 	CMPEG::IdleTick();
 
-	f32 procTime = (f32)*T0_COUNT * zSys.timerScale;
-	zVid.procTime = procTime;
+	/* the frame's processing time: H-blanks since the last swap (T0) */
+	zVid.procTime = (f32)*T0_COUNT * zSys.timerScale;
 
-	/* port: interim - the binary waits whole fields here while procTime + 1/60 is below
-	 * 1 / CVideo::m_maxFrameRate (unless it is -1; m_maxFrameRate__6CVideo, .sdata 0x4753dc,
-	 * initially 30, is defined in zvideo_holding.cpp). The limiter is still left out: with it
-	 * the mission runs at the ELF's 30 fps cap (CCoreState sets m_defaultFrameRate 30), which
-	 * halves the frame rate every port test and pad script is timed against. */
-	(void)procTime;
+	/* 0x307c24..0x307cac, the frame limiter: unless the cap is off (-1), whole fields are
+	 * waited while the processing time plus one field is under 1 / cap; each wait counts as
+	 * one field (T0 is not read again). The swap's own V-sync wait below ends the frame on the
+	 * next field, so at the cap 30 every frame lasts two fields (or more when it runs late:
+	 * no wait then, and no catching up). zVid.procTime keeps the time before the waits (the
+	 * dynamic LOD below and the HUD's rate read it). The cap: m_maxFrameRate__6CVideo (.sdata
+	 * 0x4753dc, 30 at boot), set by CCoreState::Init (m_defaultFrameRate, 30), CCoreState::UnInit
+	 * (-1) and around CCinematicState (-1, then the saved cap): see CVideo::MaxFrameRate. */
+	if (CVideo::m_maxFrameRate != -1)
+	{
+		f32 t = zVid.procTime;
+
+		while (t + 0.0166666676f /* 0x3c888889 */ < 1.0f / (f32)CVideo::m_maxFrameRate)
+		{
+			sceGsSyncV(0);
+			t += 0.0166666676f; /* 0x3c888889 */
+		}
+	}
 
 	SetDynamicLOD((int)(1.0f / zVid.procTime));
 

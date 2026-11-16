@@ -47,6 +47,7 @@
 #include <stdio.h>
 #include <libmc.h>
 #include <sifdev.h>
+#include "hook_clock.h"
 
 #ifndef SOCOM_HOOK_MC_FORMAT
 #define SOCOM_HOOK_MC_FORMAT 0
@@ -416,19 +417,24 @@ extern "C" int __wrap_scePadRead(int port, int slot, unsigned char *rdata)
 	int r = __real_scePadRead(port, slot, rdata);
 	if (port != 0)
 		return r;
-	reads++;
+	/* reads counts hook_clock.h ticks (1/30 s, the pad-read rate at 60 fps the waits were tuned
+	 * at): the script runs once per tick, whatever the frame rate */
+	static unsigned int clock;
+	for (unsigned int n = hook_step(&clock); n > 0; n--) {
+		reads++;
 #ifdef SOCOM_HOOK_MC_FIOTEST
-	if (reads == 30)
-		fio_test();
+		if (reads == 30)
+			fio_test();
 #endif
-	if (press_bits != 0 && reads >= press_until)
-		press_bits = 0;
-	drive();
-	if (press_bits != 0 && reads >= press_at && reads < press_until) {
-		unsigned short held = (unsigned short)(~((rdata[2] << 8) | rdata[3]));
-		held |= press_bits;
-		rdata[2] = (unsigned char)~(held >> 8);
-		rdata[3] = (unsigned char)~held;
+		if (press_bits != 0 && reads >= press_until)
+			press_bits = 0;
+		drive();
+		if (press_bits != 0 && reads >= press_at && reads < press_until) {
+			unsigned short held = (unsigned short)(~((rdata[2] << 8) | rdata[3]));
+			held |= press_bits;
+			rdata[2] = (unsigned char)~(held >> 8);
+			rdata[3] = (unsigned char)~held;
+		}
 	}
 	return r;
 }

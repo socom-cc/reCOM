@@ -40,6 +40,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <malloc.h>
+#include "hook_clock.h"
 
 namespace
 {
@@ -524,88 +525,92 @@ extern "C" void __real__ZN10CZSealBody12CheckDIShootEP6CPnt3DP7CMatrix(CZSealBod
 extern "C" void __wrap__ZN10CZSealBody12CheckDIShootEP6CPnt3DP7CMatrix(CZSealBody *body, CPnt3D *eye, CMatrix *mat)
 {
     __real__ZN10CZSealBody12CheckDIShootEP6CPnt3DP7CMatrix(body, eye, mat);
-    g_frames++;
+    static unsigned int hook_clock1;
+    for (unsigned int hook_n = hook_field_step(&hook_clock1); hook_n > 0; hook_n--)
+    {
+        g_frames++;
 
-    if (g_frames == 1)
-        census();
+        if (g_frames == 1)
+            census();
 
 #ifdef SP_GOPT
-    /* -DSP_GOPT=<flag>: one of CHUD::StatusLine's debug readouts on from the first frame (gopt's
-       doStatusLine, doStatusLineSmall, doAssetReport, doTaskReport, doRenderReport, doFPS);
-       -DSP_VISINFO adds ai::visinfo (the small status's AI lines) */
-    if (g_frames == 1)
-    {
-        gopt.SP_GOPT = true;
+        /* -DSP_GOPT=<flag>: one of CHUD::StatusLine's debug readouts on from the first frame (gopt's
+           doStatusLine, doStatusLineSmall, doAssetReport, doTaskReport, doRenderReport, doFPS);
+           -DSP_VISINFO adds ai::visinfo (the small status's AI lines) */
+        if (g_frames == 1)
+        {
+            gopt.SP_GOPT = true;
 #ifdef SP_VISINFO
-        ai::visinfo = 1;
+            ai::visinfo = 1;
 #endif
-        SOCOM_PORT_TRACE("HOOK SP: gopt flag on: status %d small %d asset %d task %d render %d fps %d visinfo %d", (int)gopt.doStatusLine,
-                         (int)gopt.doStatusLineSmall, (int)gopt.doAssetReport, (int)gopt.doTaskReport, (int)gopt.doRenderReport,
-                         (int)gopt.doFPS, (int)ai::visinfo);
-    }
+            SOCOM_PORT_TRACE("HOOK SP: gopt flag on: status %d small %d asset %d task %d render %d fps %d visinfo %d", (int)gopt.doStatusLine,
+                             (int)gopt.doStatusLineSmall, (int)gopt.doAssetReport, (int)gopt.doTaskReport, (int)gopt.doRenderReport,
+                             (int)gopt.doFPS, (int)ai::visinfo);
+        }
 #endif
 
 #ifdef SP_SLOWMO
 #ifndef SP_FLASHCAM_D
 #define SP_FLASHCAM_D 70.0f
 #endif
-    if (g_slow_until != 0 && g_frames > g_slow_until)
-    {
-        g_slow_until = 0;
-        SOCOM_PORT_TRACE("HOOK SP: f%u slow motion off", g_frames);
-    }
-
-    if (g_flashes >= 1 && body == ftsGetPlayer())
-    {
-        const CMatrix &m = body->m_node->m_matrix;
-        float fx = -m.m_matrix[2][0], fz = -m.m_matrix[2][2];
-        float l = sqrtf(fx * fx + fz * fz);
-        fx /= l;
-        fz /= l;
-        freecam_node(body->m_node, fx * SP_FLASHCAM_D + fz * 0.3f * SP_FLASHCAM_D, 0.5f * SP_FLASHCAM_D,
-                     fz * SP_FLASHCAM_D - fx * 0.3f * SP_FLASHCAM_D);
-    }
-#endif
-
-    if (g_frames % 600 == 0)
-    {
-        struct mallinfo mi = mallinfo();
-        SOCOM_PORT_TRACE("HOOK SP: f%u flashes %u, heap in use %d", g_frames, g_flashes, mi.uordblks);
-    }
-
-#ifndef SP_NOROUTE
-    if (g_frames == SP_ROUTE_AT)
-        start_route();
-
-    if (g_route_ai != NULL && g_frames == SP_ROUTE_AT + 15)
-        set_route();
-
-    static int s_map = -1;
-
-    if (g_route_ai != NULL && g_frames > SP_ROUTE_AT && (int)g_route_ai->m_mapLocValid.m_mapid != s_map)
-    {
-        s_map = g_route_ai->m_mapLocValid.m_mapid;
-        trace_route("map");
-    }
-
-    if (g_route_ai != NULL && g_frames > SP_ROUTE_AT && g_frames <= SP_ROUTE_AT + SP_ROUTE_LEN)
-    {
-        CSealCtrlAi *ai = ai_of(g_route_ai);
-
-        if (!g_route_done_shown && g_frames > SP_ROUTE_AT + 15 && ai != NULL && ai->m_path.m_state == ::PATH_STATE::COMPLETE)
+        if (g_slow_until != 0 && g_frames > g_slow_until)
         {
-            g_route_done_shown = 1;
-            trace_route("planned");
-            dump_path();
+            g_slow_until = 0;
+            SOCOM_PORT_TRACE("HOOK SP: f%u slow motion off", g_frames);
         }
 
-        if (g_frames % 60 == 0)
-            trace_route("walk");
-
-        if (g_frames == SP_ROUTE_AT + SP_ROUTE_LEN)
-            freecam_off();
-    }
+        if (g_flashes >= 1 && body == ftsGetPlayer())
+        {
+            const CMatrix &m = body->m_node->m_matrix;
+            float fx = -m.m_matrix[2][0], fz = -m.m_matrix[2][2];
+            float l = sqrtf(fx * fx + fz * fz);
+            fx /= l;
+            fz /= l;
+            freecam_node(body->m_node, fx * SP_FLASHCAM_D + fz * 0.3f * SP_FLASHCAM_D, 0.5f * SP_FLASHCAM_D,
+                         fz * SP_FLASHCAM_D - fx * 0.3f * SP_FLASHCAM_D);
+        }
 #endif
 
-    freecam_apply();
+        if (g_frames % 600 == 0)
+        {
+            struct mallinfo mi = mallinfo();
+            SOCOM_PORT_TRACE("HOOK SP: f%u flashes %u, heap in use %d", g_frames, g_flashes, mi.uordblks);
+        }
+
+#ifndef SP_NOROUTE
+        if (g_frames == SP_ROUTE_AT)
+            start_route();
+
+        if (g_route_ai != NULL && g_frames == SP_ROUTE_AT + 15)
+            set_route();
+
+        static int s_map = -1;
+
+        if (g_route_ai != NULL && g_frames > SP_ROUTE_AT && (int)g_route_ai->m_mapLocValid.m_mapid != s_map)
+        {
+            s_map = g_route_ai->m_mapLocValid.m_mapid;
+            trace_route("map");
+        }
+
+        if (g_route_ai != NULL && g_frames > SP_ROUTE_AT && g_frames <= SP_ROUTE_AT + SP_ROUTE_LEN)
+        {
+            CSealCtrlAi *ai = ai_of(g_route_ai);
+
+            if (!g_route_done_shown && g_frames > SP_ROUTE_AT + 15 && ai != NULL && ai->m_path.m_state == ::PATH_STATE::COMPLETE)
+            {
+                g_route_done_shown = 1;
+                trace_route("planned");
+                dump_path();
+            }
+
+            if (g_frames % 60 == 0)
+                trace_route("walk");
+
+            if (g_frames == SP_ROUTE_AT + SP_ROUTE_LEN)
+                freecam_off();
+        }
+#endif
+
+        freecam_apply();
+    }
 }
