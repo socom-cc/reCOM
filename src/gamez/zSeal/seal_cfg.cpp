@@ -228,15 +228,16 @@ CZBodyAnim * CZSealBody::BaseAnim_0(CZBodyAnim *anim, SEAL_ITEM item)
 	 * item counts as the rifle when the bottom blend is a stand, else as the pistol. The
 	 * rifle plays the set's base anim; the pistol plays the CAnimsByFP pistol variant of the
 	 * stance/climb anims and of a list of action anims (separate ifs in the ELF, at most one
-	 * matches). ELF quirks: the bottom blend is read without a NULL check (port: an empty
-	 * stack counts as the pistol), and m_animset->m_animgps before the set's NULL check. */
+	 * matches). ELF quirks kept: the bottom blend is read without a NULL check (with an empty
+	 * stack the ELF and the port read the anim type at EE address 0x30), and
+	 * m_animset->m_animgps before the set's NULL check. */
 	CZBodyAnim *result = NULL;
 	AnimType type = (AnimType)anim->m_animType;
 
 	if (item != SEAL_ITEM::itemRifle && item != SEAL_ITEM::itemPistol)
 	{
 		CZBodyAnimBlend *bottom = m_blends->m_stack[0];
-		item = (bottom != NULL && bottom->m_animType == AnimType::animTypeStand) ? SEAL_ITEM::itemRifle : SEAL_ITEM::itemPistol;
+		item = bottom->m_animType == AnimType::animTypeStand ? SEAL_ITEM::itemRifle : SEAL_ITEM::itemPistol;
 	}
 
 	if (item == SEAL_ITEM::itemPistol)

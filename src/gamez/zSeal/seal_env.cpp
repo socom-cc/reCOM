@@ -312,7 +312,10 @@ static const float FLASHBANG_DOT = 0;
 static const float RESTRAINT_DOT = cosf(1.48352981f /* 0x3fbde44e */); /* __sinit_seal_env.cpp 0x46cee0: cos(85 deg) */
 
 /* @socom-skeleton stub KNIFE_DOT */
-static const float KNIFE_DOT = cosf(0.4363323f); /* cos(25 deg) */
+/* cos(25 deg): __sinit_seal_env.cpp 0x46cfbc stores cosf(0x3edf66f3), which the ELF's cosf
+ * (__kernel_cosf 0x169580, R5900 arithmetic rounding toward zero) makes 0x3f6803c8; GCC folds
+ * cosf at compile time to 0x3f6803c9, so the ELF's word is written out */
+static const float KNIFE_DOT = 0.906307698f /* 0x3f6803c8 */;
 
 /* @socom-skeleton stub CQB_DOT */
 static const float CQB_DOT = cosf(1.13446403f /* 0x3f91361e */); /* cos(65 deg) */
@@ -535,16 +538,13 @@ void CZSealBody::UpdateAiMapLoc(bool &changed)
 				{
 					CSealCtrlAi::StopAiSound((AI_SOUND)1);
 					CSealCtrlAi::PlayAiSound((AI_SOUND)0);
+					/* unchecked, as the ELF: CMission creates "mission_abort" at every mission start */
 					CValve *valve = theMission.m_valve_abort;
+					bool set = valve->m_value != 1;
+					valve->m_value = 1;
 
-					if (valve != NULL) /* port: NULL-tested (the ELF writes it unchecked) */
-					{
-						bool set = valve->m_value != 1;
-						valve->m_value = 1;
-
-						if (set)
-							valve->MakeCallbacks((VALVE_STATE)1);
-					}
+					if (set)
+						valve->MakeCallbacks((VALVE_STATE)1);
 				}
 			}
 		}
@@ -588,7 +588,7 @@ zdb::IntersectStruct * CZSealBody::SealGetIntersect(const CPnt3D *from, const CP
 
 		CPnt3D d;
 		hit->m_pos.Sub(from, &d);
-		f32 dist = d.z * d.z + d.x * d.x + d.y * d.y;
+		f32 dist = d.x * d.x + d.y * d.y + d.z * d.z;
 
 		if (nearest == NULL || dist < best)
 		{
@@ -724,7 +724,7 @@ float CZSealBody::GetTerrainMotionFactor()
 	{
 		CPnt3D z;
 		m_node->m_matrix.Rotate(&CPnt3D::unit_z, &z, 1);
-		f32 d = m_last_altitude.m_norm.z * z.z + m_last_altitude.m_norm.x * z.x + m_last_altitude.m_norm.y * z.y;
+		f32 d = m_last_altitude.m_norm.x * z.x + m_last_altitude.m_norm.y * z.y + m_last_altitude.m_norm.z * z.z;
 
 		if (d > 0.0f)
 			slope = sqrtf(1.0f - d * d);
@@ -2036,7 +2036,7 @@ void CZSealBody::HandleLanding(float impact)
 	{
 		land = AnimType::animTypeJumpLand;
 
-		if (400.0f < m_velW.z * m_velW.z + m_velW.x * m_velW.x + m_velW.y * m_velW.y
+		if (400.0f < m_velW.x * m_velW.x + m_velW.y * m_velW.y + m_velW.z * m_velW.z
 			&& !_close_enough(pre_thr_strafe, 0.0f, stoppedV) && !_close_enough(pre_thr_fb, 0.0f, stoppedV))
 		{
 			land = AnimType::animTypeUndefined;
@@ -2986,7 +2986,10 @@ void CZSealBody::HandleDamage(CZProjectile *projectile)
 		if (part == NULL || part->m_id < 0)
 			continue;
 
-		if (hit == NULL) /* port: guard (the ELF compares the part's node through the NULL) */
+		/* port: guard. Without a hit node the ELF compares the part's node with the word at
+		 * EE address 0x1c (0x29ba08, through the NULL), which is no part's node: no part takes
+		 * the hit either way; a NULL read is undefined for GCC, so the test stays */
+		if (hit == NULL)
 			continue;
 
 		if (part->m_node != hit->m_node)
@@ -3025,8 +3028,8 @@ void CZSealBody::HandleDamage(CZProjectile *projectile)
 		}
 		else
 		{
-			if (killer->m_control != NULL) /* port: guard (unchecked in the ELF) */
-				static_cast<CSealCtrl *>(killer->m_control)->NotifyTargetDown(this);
+			/* unchecked (0x29bbb0): every seal gets a controller when it is created */
+			static_cast<CSealCtrl *>(killer->m_control)->NotifyTargetDown(this);
 
 			m_killer_index = id;
 			HandleKiller(id);
@@ -3573,8 +3576,8 @@ bool CZSealBody::CanUseKnife(CZSealBody *victim)
 	/* 0x299d10 (PerformProximityActions): a living enemy, not restrained nor protected
 	 * (m_noshoot); the seal not stunned, not stabbing / stabbed, not on a scope, standing; an
 	 * AI victim not alerted (awareness 3, 4); the seal faces it within 25 degrees (KNIFE_DOT)
-	 * and it faces away from the seal. ELF quirk kept: the victim's controller is used
-	 * unchecked (port: guarded). */
+	 * and it faces away from the seal. The victim's controller is used unchecked (0x299e1c):
+	 * every seal gets one when it is created. */
 	if (victim == NULL || !victim->m_isAlive || (victim->m_team & m_team) != 0)
 		return false;
 
@@ -3587,7 +3590,7 @@ bool CZSealBody::CanUseKnife(CZSealBody *victim)
 	if (m_kit.IsUsingScope() || victim->m_noshoot)
 		return false;
 
-	CSealCtrlAi *ai = victim->m_control != NULL ? static_cast<CSealCtrl *>(victim->m_control)->GetSealCtrlAi() : NULL;
+	CSealCtrlAi *ai = static_cast<CSealCtrl *>(victim->m_control)->GetSealCtrlAi();
 
 	if ((u8)GetStance(false) != 0)
 		return false;
@@ -3613,8 +3616,8 @@ bool CZSealBody::CanUseCQB(CZSealBody *victim)
 	 * CQB anim (attack or the victim's falls); the victim not restrained nor protected; the
 	 * seal holds an item (an id), not on a scope, standing or crouching; an AI victim lying
 	 * down only when surrendering; the victim within 25 (level) and within 65 degrees of the
-	 * seal's facing (CQB_DOT). ELF quirk kept: the victim's controller is used unchecked
-	 * (port: guarded). */
+	 * seal's facing (CQB_DOT). The victim's controller is used unchecked (0x299bac): every
+	 * seal gets one when it is created. */
 	if (victim == NULL || !victim->m_isAlive || (victim->m_team & m_team) != 0)
 		return false;
 
@@ -3643,7 +3646,7 @@ bool CZSealBody::CanUseCQB(CZSealBody *victim)
 	if ((u8)GetStance(true) >= 2)
 		return false;
 
-	CSealCtrlAi *ai = victim->m_control != NULL ? static_cast<CSealCtrl *>(victim->m_control)->GetSealCtrlAi() : NULL;
+	CSealCtrlAi *ai = static_cast<CSealCtrl *>(victim->m_control)->GetSealCtrlAi();
 
 	if (ai != NULL && (u8)victim->GetStance(false) >= 2 && !ai->AiStateIs(STATE_SURRENDER))
 		return false;
@@ -3684,8 +3687,8 @@ bool CZSealBody::CanUseRestraint(CZSealBody *victim)
 	/* 0x299600 (PerformProximityActions): a living restrainable seal (any team: team bit
 	 * 0x10000000 at InitAiBrain, surrender); the seal not stunned, not in a restraint anim,
 	 * not on a scope, standing or crouching, facing it within 85 degrees (RESTRAINT_DOT); then
-	 * a surrendering AI, or a victim facing away. ELF quirk kept: the victim's controller is
-	 * used unchecked (port: guarded). */
+	 * a surrendering AI, or a victim facing away. The victim's controller is used unchecked
+	 * (0x2997d4): every seal gets one when it is created. */
 	if (victim == NULL || !victim->m_isAlive || !victim->m_restrainable)
 		return false;
 
@@ -3705,7 +3708,7 @@ bool CZSealBody::CanUseRestraint(CZSealBody *victim)
 	if (CqbFacingDot(this, victim, NULL) <= RESTRAINT_DOT)
 		return false;
 
-	CSealCtrlAi *ai = victim->m_control != NULL ? static_cast<CSealCtrl *>(victim->m_control)->GetSealCtrlAi() : NULL;
+	CSealCtrlAi *ai = static_cast<CSealCtrl *>(victim->m_control)->GetSealCtrlAi();
 
 	if (ai != NULL && ai->AiStateIs(STATE_SURRENDER))
 		return true;
@@ -3838,7 +3841,7 @@ CZBodyAnimBlend * CZSealBody::Reload()
 	if (m_am_stunned)
 		return top;
 
-	bool still = m_velM.z * m_velM.z + m_velM.x * m_velM.x + m_velM.y * m_velM.y <= 400.0f;
+	bool still = m_velM.x * m_velM.x + m_velM.y * m_velM.y + m_velM.z * m_velM.z <= 400.0f; /* 0x298ebc: (x x + y y) + z z */
 	u8 state = (u8)m_state;
 	SEAL_STATE base = PeekBaseState();
 	AnimType type;
@@ -6533,7 +6536,7 @@ void CZSealBody::HandleGrenadeExplosion()
 
 		if (was_alive && !m_isAlive)
 		{
-			if (shooter != NULL && shooter->m_control != NULL) /* port: guard (the controller is unchecked in the ELF) */
+			if (shooter != NULL) /* the controller is used unchecked (0x28fe10): every seal has one */
 				static_cast<CSealCtrl *>(shooter->m_control)->NotifyTargetDown(this);
 
 			m_killer_index = id_shooter;
@@ -6972,10 +6975,7 @@ CPickup * CZSealBody::DropItem(int index, bool noanim)
 	if (slot < m_kit.m_items_avail.size())
 		m_kit.m_items_avail[slot] = NULL;
 
-	/* port: guard (the ELF uses a missing model unchecked) */
-	if (model == NULL)
-		return NULL;
-
+	/* the model is used unchecked, as the ELF (every rifle / pistol slot has one) */
 	model->SetPosition(pos.x, pos.y, pos.z);
 	model->SetRotation(rot);
 

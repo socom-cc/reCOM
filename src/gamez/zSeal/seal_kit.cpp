@@ -1283,10 +1283,10 @@ CZProjectile * CZKit::Fire(int index, const CPnt3D *from, const CPnt3D *dir, con
 
 		if (ai != NULL && ai->AiStateIs(STATE_DEPLOY))
 		{
+			/* the ELF's check-cast of the top state (NULL + 0x54 otherwise) cannot fail:
+			 * AiStateIs has just found STATE_DEPLOY on top */
 			CAiState *top = ai->GetAiState();
-
-			if (top->m_state == STATE_DEPLOY) /* port: tested (ELF writes through NULL + 0x54) */
-				static_cast<CAiSDeploy *>(top)->m_projectile = projectile;
+			static_cast<CAiSDeploy *>(top)->m_projectile = projectile;
 		}
 
 		if (weapon->IsDirectFire())
@@ -1961,13 +1961,14 @@ void CZKit::TickReticule(float dT)
 	}
 
 	CZSealBody *body = m_body;
-	f32 goal = (body->m_velM.z * body->m_velM.z + body->m_velM.x * body->m_velM.x + body->m_velM.y * body->m_velM.y) * 0.0153846154f /* 0x3c7c0fc1 */
-		+ (body->m_velR.z * body->m_velR.z + body->m_velR.x * body->m_velR.x + body->m_velR.y * body->m_velR.y) * 5.29f * 30.0f;
+	/* the squared lengths are (x x + y y) + z z (0x2ab3dc adda / madd) */
+	f32 goal = (body->m_velM.x * body->m_velM.x + body->m_velM.y * body->m_velM.y + body->m_velM.z * body->m_velM.z) * 0.0153846154f /* 0x3c7c0fc1 */
+		+ (body->m_velR.x * body->m_velR.x + body->m_velR.y * body->m_velR.y + body->m_velR.z * body->m_velR.z) * 5.29f * 30.0f;
 
 	if (body->m_airborne)
 	{
-		goal += (body->m_inAirHorizVel.z * body->m_inAirHorizVel.z + body->m_inAirHorizVel.x * body->m_inAirHorizVel.x
-			+ body->m_inAirHorizVel.y * body->m_inAirHorizVel.y) * 0.0153846154f /* 0x3c7c0fc1 */;
+		goal += (body->m_inAirHorizVel.x * body->m_inAirHorizVel.x + body->m_inAirHorizVel.y * body->m_inAirHorizVel.y
+			+ body->m_inAirHorizVel.z * body->m_inAirHorizVel.z) * 0.0153846154f /* 0x3c7c0fc1 */;
 	}
 
 	if (goal < m_retmin)
@@ -3539,7 +3540,7 @@ void CZKit::SetCurAccuracy()
 			if (weapon->AccuracyBurstCnt_Max() < over)
 				over = weapon->AccuracyBurstCnt_Max();
 
-			size = size + size * (f32)over * weapon->m_accuracy_slope;
+			size = size + size * ((f32)over * weapon->m_accuracy_slope); /* 0x2a779c: over x slope first */
 		}
 	}
 
@@ -3719,10 +3720,10 @@ PlacedExplosive * CZKit::HandleRemotePlaceExplosive(const CPnt3D *pos, const CQu
 
 		if (ai != NULL && ai->AiStateIs(STATE_DEPLOY))
 		{
+			/* the ELF's check-cast of the top state (NULL + 0x54 otherwise) cannot fail:
+			 * AiStateIs has just found STATE_DEPLOY on top */
 			CAiState *top = ai->GetAiState();
-
-			if (top->m_state == STATE_DEPLOY) /* port: tested (ELF writes through NULL + 0x54) */
-				static_cast<CAiSDeploy *>(top)->m_projectile = explosive;
+			static_cast<CAiSDeploy *>(top)->m_projectile = explosive;
 		}
 
 #ifdef SOCOM_PORT
@@ -3909,10 +3910,7 @@ void CZKit::PickupAmmo(CPickup *pickup)
 
 	CZAmmoPickupInstance *box = static_cast<CZAmmoPickupInstance *>(pickup->m_data);
 
-	/* port: guard (the ELF reads the box unchecked) */
-	if (box == NULL)
-		return;
-
+	/* the box is read unchecked, as the ELF: every ammo pickup is created with one */
 	s32 count = (s32)box->m_weapons.size();
 	u8 owner = (u8)pickup->GetPickupNetEntityID();
 	u16 asked[8];
@@ -4219,14 +4217,10 @@ void CZKit::FillAmmoPickupInstance(CZAmmoPickupInstance *box, int index)
 		if (weapon != NULL)
 			m_item[i] = NULL;
 
-		slot = unwrap(i, m_num_items);
+		slot = unwrap(i, m_num_items); /* never -1 here: i < m_num_items (0x2a5d5c, no test) */
 
-		/* port: guard (unwrap gives -1 only for an empty kit, which never reaches here) */
-		if (slot != -1)
-		{
-			for (s32 j = 0; j < 10; j++)
-				m_reloads[slot][j] = 0;
-		}
+		for (s32 j = 0; j < 10; j++)
+			m_reloads[slot][j] = 0;
 	}
 
 	s32 last = -1;

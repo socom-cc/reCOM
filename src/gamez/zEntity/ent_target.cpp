@@ -209,7 +209,7 @@ bool CEntity::OnUpdateTargetList(bool force, bool sort)
 			ent->GetPosW()->Sub(GetPosW(), &target->m_vec);
 		}
 
-		target->m_distSq = target->m_vec.z * target->m_vec.z + target->m_vec.x * target->m_vec.x + target->m_vec.y * target->m_vec.y;
+		target->m_distSq = target->m_vec.x * target->m_vec.x + target->m_vec.y * target->m_vec.y + target->m_vec.z * target->m_vec.z;
 		target->m_d_computed = 0;
 
 		if (target->m_ent != ent)
@@ -461,7 +461,7 @@ float CTarget::Update(CEntity *owner, CEntity *ent)
 		ent->GetPosW()->Sub(owner->GetPosW(), &m_vec);
 	}
 
-	m_distSq = m_vec.z * m_vec.z + m_vec.x * m_vec.x + m_vec.y * m_vec.y;
+	m_distSq = m_vec.x * m_vec.x + m_vec.y * m_vec.y + m_vec.z * m_vec.z;
 	m_d_computed = 0;
 
 	if (m_ent != ent)

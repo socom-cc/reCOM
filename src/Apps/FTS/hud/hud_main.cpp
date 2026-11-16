@@ -1330,7 +1330,7 @@ void CHUD::DoRangeText(CZSealBody *seal, MENU_STATE menustate)
 		{
 			CPnt3D d;
 			di->m_pos.Sub(seal->GetPosW(), &d);
-			sprintf(tempstr, "%5.1fM", (double)(sqrtf(d.z * d.z + d.x * d.x + d.y * d.y) * 0.100000002f /* 0x3dcccccd */));
+			sprintf(tempstr, "%5.1fM", (double)(sqrtf(d.x * d.x + d.y * d.y + d.z * d.z) * 0.100000002f /* 0x3dcccccd */));
 			m_rangetext.Load(0.800000012f /* 0x3f4ccccd */, tempstr, m_myfont, 523, 429);
 			m_rangetext.m_color.x = 25.0f;
 			m_rangetext.m_color.y = 127.0f;

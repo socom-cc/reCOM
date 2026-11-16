@@ -265,7 +265,7 @@ void CZProjectile::SetModelOrientation(bool oneframe, const CPnt3D *)
 
 	CPnt3D dir;
 	m_frameendpos.Sub(&m_framestartpos, &dir);
-	f32 len = sqrtf(dir.z * dir.z + dir.x * dir.x + dir.y * dir.y);
+	f32 len = sqrtf(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
 	dir.Normalize();
 	CMatrix scaled;
 	CMatrix stretched;
@@ -526,7 +526,7 @@ bool CZProjectile::HandleIntersections(float dT)
 		{
 			CPnt3D d;
 			nearest->m_pos.Sub(&m_di->m_Tail, &d);
-			from = d.z * d.z + d.x * d.x + d.y * d.y;
+			from = d.x * d.x + d.y * d.y + d.z * d.z;
 		}
 
 		nearest = NULL;
@@ -551,7 +551,7 @@ bool CZProjectile::HandleIntersections(float dT)
 
 			CPnt3D d;
 			hit->m_pos.Sub(&m_di->m_Tail, &d);
-			f32 sq = d.z * d.z + d.x * d.x + d.y * d.y;
+			f32 sq = d.x * d.x + d.y * d.y + d.z * d.z;
 
 			if (from < sq && (nearest == NULL || sq < dist) && !(range <= sq))
 			{
@@ -688,7 +688,7 @@ bool CZProjectile::DoMiss(float dT, CPnt3D *end)
 
 	CPnt3D d;
 	m_frameendpos.Sub(&m_framestartpos, &d);
-	f32 len = sqrtf(d.z * d.z + d.x * d.x + d.y * d.y);
+	f32 len = sqrtf(d.x * d.x + d.y * d.y + d.z * d.z);
 	*end = m_frameendpos;
 
 	if (!(m_weapon->GetMaxRange() < len))
@@ -1523,7 +1523,7 @@ void CFlyoutMachine::AcquireFlyout(CPnt3D &start, CPnt3D &end, CZAnim *anim, CZW
 
 	CPnt3D d;
 	end.Sub(&start, &d);
-	f32 len = sqrtf(d.z * d.z + d.x * d.x + d.y * d.y);
+	f32 len = sqrtf(d.x * d.x + d.y * d.y + d.z * d.z);
 
 	if (!(70.0f <= len))
 		return;
@@ -1651,7 +1651,7 @@ void CFlyoutMachine::Tick(float dT)
 		static_cast<const CPnt3D &>(left).Normalize(&step); /* Normalize__6CPnt3DCFP6CPnt3D */
 		step.Scale(flyout->m_dist + 1.0f, &step);
 
-		if (left.z * left.z + left.x * left.x + left.y * left.y < step.z * step.z + step.x * step.x + step.y * step.y)
+		if (left.x * left.x + left.y * left.y + left.z * left.z < step.x * step.x + step.y * step.y + step.z * step.z)
 		{
 			flyout->m_node->SetPosition(flyout->m_end.x, flyout->m_end.y, flyout->m_end.z);
 			flyout->m_pos = flyout->m_end;

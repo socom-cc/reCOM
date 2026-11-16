@@ -401,7 +401,7 @@ void Particle::Source::Tick(float dT)
 		}
 		else
 		{
-			f32 d2 = moved.z * moved.z + moved.x * moved.x + moved.y * moved.y;
+			f32 d2 = moved.x * moved.x + moved.y * moved.y + moved.z * moved.z;
 
 			if (d2 < 40000.0f)
 				m_phase += sqrtf(d2) * frequencyFactor;

@@ -208,3 +208,161 @@ kept out), second monitor, focus kept in every run. Screenshots (untracked) in
 | 55 | 35 | 0x28e3e0 | 976 | CZSealBody::DropItem | zSeal/seal_env.cpp | DEFECT-FIXED | C | 0x28e778: the drop anim reads the pickup's node with no NULL test; the port added an unrecorded `pickup != NULL` (Create returns NULL only while the pickups are closed). Kept (recorded): the item-model NULL test. Rest matches: network non-player out, item count, FillWeaponEnum, pistol / rifle part (m_weapons[2] / [1]), part node, world position and rotation, detach from the parent (slot 0x1c), items_avail[index + 1] taken and cleared, world child, dynamic, character, textures, DI / visuals, weapon pickup 8 (network: NetworkCreate + SendWeaponPUMessage), secondary for a pistol |
 | 56 | 73 | 0x2a2c70 | 972 | CZSealBody::SealProcessAltitude | zSeal/seal_env.cpp | DEFECT-FIXED | A | 0x2a2d18 keeps the old m_inwater (sp+0xb0) before clearing it; 0x2a2ef8 stops the below-water and in-water anims when the body was in water and is not any more. The port tested m_inwater && !m_inwater (never; its comment called it an ELF quirk), so a wading effect kept running after the body left the water (grade A: visible on any level with water; whether m8 has a LIQUID soil was not established). Rest matches: volumetric list and HandleSmokeAndGas, liquids HandleWater, standing seals skipped (state 2 / 8 kept), highest within `above` else lowest, > 20 above the altitude dropped, player camera regions and region trigger |
 | 57 | 78 | 0x2a6530 | 968 | CZKit::PickupAmmo(pickup) | zSeal/seal_kit.cpp | DEVIATION-KEPT | | recorded: the box NULL test and the 8-entry ask array. Request wait (cleared at <= 0, pending blocks; the ELF repeats the test on the network: no effect), entries (weapon / ammo / count read and written back), network ask for another seal's box (GetItemIndex / CanAddAmmo / IsLegalAmmo, item << 8 / ammo id, 1 s wait, SendMayIPickupMessage), single player PickupAmmo(weapon, ammo, &count) |
+
+# Part 2 (2026-11-15, socom-port-large-a2): rows k = 58..98
+
+Rows k = 58..98 of the size order (41 functions of 700..964 bytes, 33,836 bytes), largest first,
+with part 1's method: each ELF function disassembled (`z.sh`, raw `dis.sh` where the compaction
+hides an address or a zero block, `sym.py` for jump tables, `off.py` / `mem.py` / `dw.py` /
+`denum.py` / `animenum.py` for layouts and enumerators, `sym.py` for vtable slots) and compared
+with the port's body instruction by instruction; float literals checked against the ELF's word with
+both roundings, and the changed constant read back from the port build. Tree: HEAD 1ef7d286, later
+d19a3161 (a boot-script change only), plus this part's files. No marker was added, moved or
+changed and no function moved file.
+
+## Counts (rows k = 58..98)
+
+| Verdict | Rows |
+|---|---|
+| MATCH | 29 |
+| DEFECT-FIXED | 8 (A 0, B 0, C 8) |
+| DEVIATION-KEPT | 4 |
+| UNJUDGED | 0 |
+| total | 41 |
+
+Rates (exact Clopper-Pearson 95% intervals): defects 8 / 41 = 19.5% (8.8% .. 34.9%), grade A or B
+0 / 41 (0 .. 8.6%). Both parts together (98 rows): defects 19 / 98 = 19.4% (12.1% .. 28.6%), A or B
+3 / 98 = 3.1% (0.6% .. 8.7%), A 1 / 98 = 1.0% (0 .. 5.6%). Four of the eight are port guards the
+ELF does not have, three are rounding order and one is a constant.
+
+## Fixes (ELF addresses), all grade C
+
+- k = 77, `CZSealBody::CanUseKnife` 0x299d10: `KNIFE_DOT` (0x453a88) is written at run time by
+  `__sinit_seal_env.cpp` (0x46cfbc) as `cosf(0x3edf66f3)`. The ELF's `cosf` (fdlibm float,
+  `__kernel_cosf` 0x169580, plain `mul.s` / `add.s` / `sub.s`), emulated operation by operation with
+  the R5900's rounding toward zero, gives 0x3f6803c8; the port's GCC folds `cosf` at compile time and
+  built 0x3f6803c9 (its input literal `0.4363323f` was also one ulp low, 0x3edf66f2, though both
+  inputs fold to the same word). The constant is now the ELF's word, `0.906307698f /* 0x3f6803c8 */`
+  (read back from the port build: 0x3f6803c8). Also the victim-controller guard (below).
+- k = 82, `CZKit::TickReticule` 0x2ab220: the three squared speeds (velM, velR, in-air;
+  0x2ab3dc..0x2ab434) are `(x x + y y) + z z`; the port summed z first.
+- k = 94, `CZKit::SetCurAccuracy` 0x2a75a0: the burst growth is `size + size * (over * slope)`
+  (0x2a779c: `over * slope` first); the port wrote `size * over * slope`, which C groups as
+  `(size * over) * slope`.
+- k = 97, `CZSealBody::Reload` 0x298de0: the still test `(x x + y y) + z z <= 400` (0x298ec0); the
+  port summed z first.
+- k = 77, 81, 88, 93: guards of a seal's controller that the ELF calls through unchecked
+  (`CanUseKnife` 0x299e1c, `CanUseCQB` 0x299bac, `CanUseRestraint` 0x2997d4: the victim's slot 0x38
+  `GetSealCtrlAi`; `HandleDamage` 0x29bbb0: the killer's slot 0x94 `NotifyTargetDown`), recorded as
+  port guards, removed under the rule of lead B below: every seal gets its controller when it is
+  created.
+- k = 87, `CZKit::FillAmmoPickupInstance` 0x2a5bb0: the magazines are cleared at `unwrap(i, n)` with
+  no -1 test (0x2a5d5c); the port's test was dead (`i < n`), removed.
+
+## Kept deviations (recorded)
+
+- k = 58 `CAiSHold::Tick`: phase 1's stance byte is seeded with `m_stance` (the ELF leaves sp+0xaf
+  unset; only `GetStanceFromState`'s default for a master in a non-stance state reads it).
+- k = 61 `RemotePickupItem`, k = 63 `PickupItem`: the item-model slot write is bound-tested (the
+  ELF writes `m_items_avail[slot + 1]` unchecked).
+- k = 64 `HandleSmokeAndGas`: the cloud's source is found through `Particle::Source::list` (no
+  `CParticleEx` in the port; the ELF dynamic_casts the node's `CNodeEx`).
+- k = 93 `HandleDamage` also keeps its hit-node test: without a hit node the ELF compares each
+  part's node with the word at EE address 0x1c (0x29ba08), which is no part's node, so no part takes
+  the hit either way; reading through the NULL would be undefined for GCC.
+
+## Lead A: the z-first three-term sums
+
+Of the 38 sites the part 1 grep finds, the two-term sums (`int_bbox.cpp` x2, `seal.cpp` 2399,
+`seal_ai.cpp` 3572, the `+ 0.0f` ones) and the sums whose y term is exactly zero (`unit_nz` or a
+zeroed y: `seal_env.cpp` `CheckDIFwd1`, `ImpactFront`, `AlignForClimb`, `PostCheckDIDown`;
+`hud_mapcompass.cpp` x3) give the same word in either order and were left. Every other site's
+function was read in the ELF: all use `mul`, `mul`, `adda.s`, `madd.s` with z last. Fixed:
+`seal_env.cpp` `SealGetIntersect`, `GetTerrainMotionFactor`, `HandleLanding`; `hud_main.cpp`
+`DoRangeText`; `ent_target.cpp` `OnUpdateTargetList`, `CTarget::Update`; `zmath_main.cpp`
+`CQuat::Pow`; `zparticle_source.cpp` `Source::Tick`; `zwep_projectile.cpp` `SetModelOrientation`,
+`HandleIntersections` x2, `DoMiss`, `AcquireFlyout`, `CFlyoutMachine::Tick` (two sums). For the other
+workers' files, edit files (srep, tested on HEAD and on the working tree): `seal_body.cpp`
+`GetSpeedState`, `Stand_0`, `Jump`; `seal_weapon.cpp` `CanAttainAim` x3. All grade C.
+
+## Lead B: part 1's nine kept NULL guards
+
+Rule: a guard the ELF does not have goes unless the port provably reaches that path with NULL in
+m8 where the original would not.
+
+| k | Function | Guard | Decision |
+|---|---|---|---|
+| 4, 37 | `CZKit::Fire`, `HandleRemotePlaceExplosive` | deploy-state write (ELF: NULL + 0x54 otherwise) | removed: `AiStateIs(STATE_DEPLOY)` (0x26bb40, the top state) has just passed, so the ELF's check-cast of the same top never fails |
+| 8 | `CSealCtrlAi::SensorPreTick` | the pushed AVOID / GRENADE / EVENT (and CQB) state; the pickup bit vector; the unit | removed: a successful `PushAiState` leaves the new state on top; `CPickup::Create` sizes every live pickup's bits; every seal joins a unit when created and `SealLeaveUnit` keeps `m_unit` |
+| 21 | `BaseAnim_0` | the bottom blend | removed: with an empty stack both the ELF and the port read the anim type at EE address 0x30 (test trace: never empty in the run) |
+| 26 | `HandleGrenadeExplosion` | the shooter's controller | removed (the ELF tests the shooter, 0x28fe08, not its controller) |
+| 31 | `HandleSealStep` | the step-anim and decal tables before a mission | kept for now: the test trace never saw a NULL table (front end, load, m8); it matters only if a seal steps before the mission opens, which a trace through the other front-end screens would settle |
+| 41 | `UpdateAiMapLoc` | the mission abort valve | removed: `CMission` creates "mission_abort" at every mission start |
+| 55 | `DropItem` | the item model | removed: every rifle / pistol slot has one (the run's deaths drop their guns) |
+| 57 | `PickupAmmo` | the box | removed: every ammo pickup is created with its box. The 8-entry ask array (network only) stays |
+
+## Lead found here: run-time trig constants
+
+GCC folds `cosf` / `sinf` of a constant at compile time; the ELF computes them in `__sinit` with
+fdlibm float on the R5900, which can differ by an ulp (k = 77). Still to check (inputs above pi/4
+need `__ieee754_rem_pio2f` and `__kernel_sinf` emulated as well): `RESTRAINT_DOT` (input 0x3fbde44e,
+port 0x3db27ebd), `CQB_DOT` (0x3f91361e, port 0x3ed8616b), `seal_control.cpp` `FLASHBANG_DOT` (its
+literal `0.8726646f` builds 0x3f5f66f2, the ELF's input is 0x3f5f66f3), `node_util.cpp`
+`DEFAULT_CLOSESTNODE_DOT`, `seal_ai.cpp` `max_y` (`sinf`). `seal_env.cpp`'s own `FLASHBANG_DOT` and
+`FALLBACK_DOT_MIN` / `MAX` have no reader in the ELF.
+
+## Runs (part 2)
+
+- sm1 (smoke: isolated tree d19a3161 plus this part's files and the two edit files, with a test-only
+  trace of the k = 21 / 31 NULL cases; zseal4's `hook_zseal1.cpp` + `pad_fire.txt`, ended by
+  `-DonePattern 'HOOK: r3600 player'`): cameras skipped at 46.6 s, 110 s in m8; no STOP, no
+  exception, no NULL-case trace; 55 "fires at" lines; OutPatrol1 / 3 killed at 71.9 s and respawned
+  (recycle 4.3, alive at 85.5 s); deaths drop ammo boxes and guns; heap 23,144,7xx..23,145,1xx B
+  from 146 s to the end. Focus kept; portable profile, no memory card.
+- la2-def: the default build of the final tree links.
+
+## Result table (part 2)
+
+| k | # | Address | Bytes | Function | File | Verdict | Grade | Evidence |
+|---|---|---|---|---|---|---|---|---|
+| 58 | 18 | 0x2e6ef0 | 964 | CAiSHold::Tick | zSeal/seal_airesponse.cpp | DEVIATION-KEPT | | phase 1's stance byte (sp+0xaf) is seeded with m_stance (recorded "ELF: left unset"; only GetStanceFromState's default for a non-stance master state reads it). Modes 2 / 4 by opts & 3, anim (s16, u8 m_state) / hand signal (s8) -> 3, cover 0x20 -> +0x240, look at m_lookPos (0x30) or ChooseLookDir from -row 2 and m_mapLocValid (0xe4) unless 8, flags 5 / scan 0x3e860a92, refused -> 4, phase 2 m_time vs +0x330, bit 0 of +0xc |
+| 59 | 98 | 0x2b2ca0 | 948 | CSealCtrl::_GetTargetPerception | zSeal/seal_sensors.cpp | MATCH | | NULL, team (not player), m_isAlive (bit 11), seal AI snoozing (bit 9) / sleeping (bit 8), range^2 cut to mid plane^2, cone (0x70 / 0x90 / 0x9c), m_dot > 0 and vel x x + z z > 2500 (mula / madd), tail / tip / node, free list front or new 52 (NULL: true), state 3, index -1, time 0, owner / node / special / target, push_back, handle; refresh path |
+| 60 | 20 | 0x2e7a30 | 936 | FindTraversableNeighbor | zSeal/seal_airesponse.cpp | MATCH | | GetLocation, GetMapByIndex, inline GetCell + soil 0/10/8/9, neighbours 0..7 from neighbor[] (x, y bounds unsigned), next map id from the map (+0xb0), first walkable one written to loc |
+| 61 | 33 | 0x28dba0 | 936 | CZSealBody::RemotePickupItem | zSeal/seal_env.cpp | DEVIATION-KEPT | | the item-model slot write is bound-tested (recorded; the ELF writes data[slot + 1] unchecked). Slot (pistol 2 -> index or 1, rifle 1 -> index or 0), model slot cleared (bounded), m_weapons[1/2] part node out of its parent, model == part node cleared, pickup node out of the world / parent, mount rhand / hips / spinelo / rhand by m_item, "Swap rifle" unused, AddChild slot 0x18, names, SetItemByIndex (slot or GetNumItems), m_requested_item (bit 12), m_HudUpdateWeapon (bit 4), Destroy |
+| 62 | 38 | 0x28f490 | 932 | CZSealBody::DamageRandomLocation | zSeal/seal_env.cpp | MATCH | | rand x 2^-31, GetDamage(pos, 0), pierce, < 0.1 head (alive, damage != 0: ResolveDamage(0xef8, 0xf28), levels 3 / 2 (0.5) / 1 (0.99) / 0, +3 retmods for 2 / 1, FindRandomDamageAnim(0) + WeaponHitAnim), < 0.4 body 3, < 0.55 larm 2, < 0.7 rarm 1, < 0.8 lleg 5, <= 1 rleg 4, spent limb -> DamageBody(projectile); all float words OK |
+| 63 | 34 | 0x28df50 | 920 | CZSealBody::PickupItem | zSeal/seal_env.cpp | DEVIATION-KEPT | | the item-model slot write is bound-tested (recorded, as row 61). Network non-player -> RemotePickupItem, DropAmmo / DropItem(slot, true) (pistol 1, rifle 0), mounts, Action("Swap rifle", true, 2 x (net ? m_netid : m_id), (s16) rhand id, -1), names, model slot, SetItemByIndex, bits, Destroy (the port's trace line is port-only) |
+| 64 | 71 | 0x2a2370 | 912 | CZSealBody::HandleSmokeAndGas | zSeal/seal_env.cpp | DEVIATION-KEPT | | the cloud's source is found through Particle::Source::list (recorded: no CParticleEx in the port; the ELF dynamic_casts the node's CNodeEx and reads +4 unchecked). Particle flag (bit 3 of +0x38), bbox of the first ancestor not using the parent's (3 levels, then GetBBox), Transform 2, per-axis sort (<= keeps), cloud 0 -> stun 125 + m_isingas (bit 12), 1 -> stun 122 + m_isinsmoke (bit 11); inside test pos >= min, <= max |
+| 65 | 88 | 0x2ab910 | 904 | CZKit::Recoil | zSeal/seal_kit.cpp | MATCH | | player only (slot 0x2c), TargetMods(stance) knock / max / min / max, rumble high / low, zoom < 4 and != 3 (signed byte; the port's int enum compares the same), burst >= 3 kicks y, aspect y scaled (za - zf) / za when not 0 (y x d order), limits most x aspect, bump statics written never read (recorded), recoil_constscl, y / x clamps, prev size, size += knock in [min, max], recoilParam + 1 capped at 1 |
+| 66 | 48 | 0x294d10 | 900 | CZSealBody::DamageBody(projectile) | zSeal/seal_env.cpp | MATCH | | single: first hit (shooter Hit, WasHit), shotgun (type 2) highest proximity else GetDamage(pos, 0), pierce, dead -> killer index + HandleKiller; network: id 0 or a local shooter (slot 0x34), report (from, m_id, 3, ..., first hit, (u8) weapon id), clear first hit, flinch 53, remote out, damage |
+| 67 | 49 | 0x295250 | 900 | CZSealBody::DamageRLeg(projectile) | zSeal/seal_env.cpp | MATCH | | instruction stream identical to row 66 (diffed) but location 4, flinch 54, DamageRLeg |
+| 68 | 53 | 0x296ae0 | 900 | CZSealBody::DamageRArm(projectile) | zSeal/seal_env.cpp | MATCH | | row 66's stream (diffed) with location 1 and the flinch 53 moved before the report, as the port |
+| 69 | 82 | 0x2a98a0 | 892 | CZKit::WillFireWeapon | zSeal/seal_kit.cpp | MATCH | | printf(""), trigger 0 / 3 clear the burst, burst per mode (no ammo 1; 0 / 1 / >= 4 / 2 -> 3 / 3 -> 10000 / else 0), GetFireDelay dropped, down (trigger - 1 < 2 unsigned or waiting to raise, bit 10), raise wait (weight < 1, direct fire), weight test, burst count (signed), CanFire, delay <= 0, infinite ammo (bit 5 of 0xf58), launcher slot (firemode - 3), knife 186 / restraints 183 always, rounds > 0, empty but ids 182 / 186-187 / 183 / 11 |
+| 70 | 72 | 0x2a2700 | 888 | CZSealBody::HandleWater | zSeal/seal_env.cpp | MATCH | | bbox as row 64, top / bottom = bbox y + pos y, depth = surface - bottom, swap, ripple node SetPosition (hit tested after the read, as the ELF), between: stop 0xfd8, big ripple[speed] into 0xfdc (not running, alive); above top by < 10 (10 + top): stop 0xfdc, small into 0xfd8; else in water = surface > top; dead stops both. Speed 3: the ELF reads the zero .bss word after each 12-byte array (no symbol there), the port NULL: same |
+| 71 | 64 | 0x29d3c0 | 884 | CLook::SetLookDir | zSeal/seal_env.cpp | MATCH | | NULL -> unit_nz and 1, same goal (x, y, z ==) -> 1, cone: len = sqrt(z z + x x) (two terms: exact either order), z < 0 -> cosMinLookPitch (0xb0) else cosMax (0xac), -z / len < cosMaxLookYaw (0xb4), clamp CalcGoalDir(curr, dir, &clamped = curr, max, min, -yaw, yaw), SetDir, acos pitch / yaw, signs by y / x, pitch / max or -pitch / min, yaw / maxyaw on both sides (the ELF's two identical divides), SetEyeLookDir |
+| 72 | 92 | 0x2af610 | 884 | CZKit::SetCurItemEnum | zSeal/seal_kit.cpp | MATCH | | first slot with the (u8) id, HUD weapon bit, lit flashlight (181, state & 8) off, launcher ammo: first launcher (none: old kept, 0), type 2 / 1 request unless in hand (bit 12) else UseItemModel(type, "aimnodes"), WepWait by the launcher's type, firemode = slot + 3; plain: selected = slot, with an old item: request / model by the new item, WepWait by the OLD item's type (quirk recorded), encumbrance, weaponinfoChanged (bit 2), 1 |
+| 73 | 37 | 0x28ee80 | 880 | CZSealBody::FindRandomDeathAnim | zSeal/seal_env.cpp | MATCH | | mirror cleared, stance 8 -> BaseState then BodySetState(8), 10 / 9 -> stand, other non-stance -> BaseState, stunned (bit 4 of 0xf5c) -> prone, Stand2Crouch 17 / Crouch2Prone 19 / Stand2Prone 25 with tfrac (reversed 0x20: > 0.5; else < 0.5) -> 1/0, 2/1, 2/0, desired state unless dead, teammate table for a non-player of the player's team, size <= 0 -> -1, 1 -> 0, rand % n, lh |
+| 74 | 24 | 0x2e4660 | 876 | CSealCtrl::SetDefaultLookParams | zSeal/seal_aiscan.cpp | MATCH | | look_rate 0.1 / 0.3 static, timer 1 + 2 r, flags 0x20, zero bias, NORMAL 0 (whole range, period 1 / 2, infinite, 6), EVENT 3 (half range, 0.5 / 2, rate 0.8 / 0, 1), BUDDY 8 (1 + 1.5 r), FRANTIC 6 (whole, 0.5 / 0x3f333334, 0.8 / 0, 0xa), DEPLOY 9 (1, 1 / 0, infinite); the ELF's range == 0 test before rand never fires (ranges 2 / 0.7); mode change: GetSealCtrlAi slot 0x38 for an AI, unused (recorded) |
+| 75 | 31 | 0x28d230 | 856 | CZSealBody::CreateNetAmmoPickup | zSeal/seal_env.cpp | MATCH | | new box (3 vectors), per entry Unpack, item != 255: GetItemIndex / RemoveItemAndAmmo, else GetAmmoIndex(ammo, rounds) / RemoveAmmo, weapon / ammo / rounds pushed, YXZ rot 0, "fiftycal_box" instance at pos, dynamic, character bit 2 of 0x9a, AddTextureAssetCharacter 2, Create 9 (none: box deleted), netid, drop anim on the pickup's node; the closing debug walk has no effect |
+| 76 | 50 | 0x295790 | 836 | CZSealBody::DamageLLeg(projectile) | zSeal/seal_env.cpp | MATCH | | row 67's stream (diffed): location 5, flinch 54 mirrored (a3 1), and no shotgun case in single player (recorded quirk), as the port |
+| 77 | 59 | 0x299d10 | 832 | CZSealBody::CanUseKnife | zSeal/seal_env.cpp | DEFECT-FIXED | C | KNIFE_DOT (0x453a88) is stored by __sinit 0x46cfbc as cosf(0x3edf66f3); the ELF's cosf (__kernel_cosf 0x169580, emulated op by op with R5900 truncation, kcos.py) gives 0x3f6803c8; the port's GCC folded cosf(0.4363323f) to 0x3f6803c9 (read back from the build; its literal was also 1 ulp low, 0x3edf66f2): now the word 0.906307698f. Also the recorded port guard of the victim's controller removed (0x299e1c calls slot 0x38 unchecked; every seal gets a controller when created). Rest matches: alive enemy, restrained (bit 0 of 0xf59), stunned, Stab / PistolStab / Stabbed, scope, noshoot (bit 8), standing, aware 3 / 4, level facing dot (fwd normalised first) > KNIFE_DOT, victim faces away (< 0) |
+| 78 | 3 | 0x186080 | 824 | CAiMap::ResetCells | zAI/ai_map.cpp | MATCH | | whole region (nx, ny), saturate y to scanline count (read twice), rows 12 bytes, x = max(start, x) .. min(end, x + dx), cells 8 bytes, action cell (bit 7) -> GetCellAction: m_type_invalid (bit 4 of +8) and m_state (bits 20-22) cleared, m_occupied (bit 5) cleared |
+| 79 | 89 | 0x2ac8c0 | 820 | CZKit::SetCurItemByIndex | zSeal/seal_kit.cpp | MATCH | | unwrap (== n or n 0 -> -1, wrap), same / -1 out, zoom 0, lit flashlight off, select (>= n -> 0), flashlight 8, WepWait by type 3, type 2 / 1 request (bit 12) else UseItemModel, encumbrance, weaponinfo, zoom range of ((s8) zoom - 3) < size (else 1) > 1.5 -> SetCameraZoom(1, 0.5), zoom 0, firemode 0 -> CycleFireMode, trigger power 0, HUD, reticuletype, reticule |
+| 80 | 52 | 0x2965f0 | 800 | CZSealBody::DamageLArm(projectile) | zSeal/seal_env.cpp | MATCH | | row 68's stream (diffed): network only for shooter id 0 (lookup for nothing; recorded quirk), location 2, flinch 53 mirrored after the report |
+| 81 | 58 | 0x2999f0 | 800 | CZSealBody::CanUseCQB | zSeal/seal_env.cpp | DEFECT-FIXED | C | recorded port guard of the victim's controller removed (0x299bac calls slot 0x38 unchecked; every seal has a controller). Rest matches: alive enemy, stunned, own and victim's CQB / PistolCQB / falls anims, restrained, noshoot, current item with an id (!= 255), scope, GetStance(true) < 2, AI victim prone only when STATE_SURRENDER (6), level distance <= 25, dot > CQB_DOT (0x3f91361e input OK) |
+| 82 | 86 | 0x2ab220 | 780 | CZKit::TickReticule | zSeal/seal_kit.cpp | DEFECT-FIXED | C | 0x2ab3dc..0x2ab434: the three squared speeds (velM, velR, in-air) are (x x + y y) + z z; the port summed z first: fixed. Rest matches: player, dynamic_cast, TargetMods(stance), knock return x dT toward 0 for x then y (the ELF's <= / < tests), goal velM^2 / 65 + 30 (5.29 velR^2) (+ air^2 / 65 when airborne, bit 21), clamp retmin 0x858 / retmax 0x854, size toward the goal at constrict x dT |
+| 83 | 55 | 0x298ad0 | 772 | CZSealBody::CanFire | zSeal/seal_env.cpp | MATCH | | state 6 / 3 / 2 / 1 / 0, zooming (bit 5 of 0xf5c), top state 8, IsThrowing(false) inline (the ten throw / toss types), reloading, changing, Stab / PistolStab, ApplyRestraints x2, CQB x2 (Top re-read each time), carrying 9, overlay anim, carry, stunned, last active anim's fire_val <= tfrac (the ELF's !(t < fire)) |
+| 84 | 75 | 0x2e38c0 | 772 | CZSealBody::InitHandSignals | zSeal/seal_handsig.cpp | MATCH | | 4 signals x "Signal / Crouch signal / Prone signal %s" (s16 stored as words, order follow, holdposition, fireatwill, deploy), Point / Wave / Shrug / Radio into all three stances |
+| 85 | 13 | 0x1a2790 | 764 | CAiVisMap::TickVisMaps | zAI/ai_vismap.cpp | MATCH | | timed maps (-1 kept) count down, < 0: id -1, delete (inline dtor), null_vismap, count; erase(remove(null_vismap)) when any; max_lines 8 static, dynamic maps in order while lines > 0: state != 1 and map -> UpdateVisibilityMap(vm, lines) |
+| 86 | 19 | 0x2e7340 | 760 | CAiSSurrender::Tick | zSeal/seal_airesponse.cpp | MATCH | | jump table 0x458040 (6): hold fire, AllStop(false), AIM_IDLE, weapon state 2, time = timer + (0.25 + 0.25 r), anims; wait; PlayAnim(anim, 0), drop callback (0x3c func, 0.65, 0) once; anim end -> "No_weapon anim set" bound + default (0x460); unit leave, team 0x20000 -> unit 17, valves, idle loop anim, restrainable (bit 7), timer + 5; 5 waits |
+| 87 | 77 | 0x2a5bb0 | 760 | CZKit::FillAmmoPickupInstance | zSeal/seal_kit.cpp | DEFECT-FIXED | C | 0x2a5d5c: the magazines are cleared at unwrap(i, n) with no -1 test; the port had added one (dead: i < n). Removed. Rest matches: slot filter (-1 all), item (rifle / pistol -> NULL), m_ammo[i], rounds of the 10 mags, entry only with ammo, ammo cleared, non-gun item cleared, count = last non-NULL + 1, selection reset when count < selected or the item is NULL (weaponinfo) |
+| 88 | 57 | 0x299600 | 756 | CZSealBody::CanUseRestraint | zSeal/seal_env.cpp | DEFECT-FIXED | C | recorded port guard of the victim's controller removed (0x2997d4 calls slot 0x38 unchecked). Rest matches: alive, restrainable (bit 7 of 0xf58), stunned, Receive / Apply / PistolApply restraints anims, scope, stance < 2, facing dot > RESTRAINT_DOT (0x3fbde44e input OK), surrendering AI (6) -> 1, else victim faces away |
+| 89 | 65 | 0x29d740 | 748 | CZSealBody::CalcGoalDir | zSeal/seal_env.cpp | MATCH | | len sqrt(x x + z z), yaw acos(-z / len or 1) signed by x, pitch acos(len) signed by y, (x ux + y uy) + z uz > 0.8 keeps the yaw on curr's side (+- 0x40c90fdb), pitch in [min, max], yaw in [minyaw, maxyaw], inside: out = dir, 1; else ClipToBox(zero, angles, clipped, maxp, minp, maxyaw, minyaw), MakeYXRot(-x, y), Apply(unit_nz), 0 |
+| 90 | 32 | 0x28d590 | 744 | CZSealBody::CreateNetWeaponPickup | zSeal/seal_env.cpp | MATCH | | not the player, slot of the (u8) item, GetItemByIndex then RemoveItemAndAmmo, NULL out (the ELF's delete after it is dead), part m_weapons[2 / 1] (unchecked) node / parent out, DeleteChild, model slot read and cleared (bounded), pos / rot when given, part node cleared when it is the model, dynamic, character, textures 2, descendant DI, Create 8, secondary = pistol (bit 8), netid, drop anim |
+| 91 | 30 | 0x28cdb0 | 740 | CZSealBody::CheckForAmmoPickups | zSeal/seal_env.cpp | MATCH | | entries 0 .. weapons size, read while size >= e (quirk, recorded), per asked word: low byte == ammo id (255 none), high == item id (255 none), rounds > 0, bit e of the ack byte for e 0..7 |
+| 92 | 26 | 0x27eac0 | 732 | CZSealBody::AnimSetup | zSeal/seal_cfg.cpp | MATCH | | no template: ReadMotionRdr's answer; set by name (char type's first), m_animset, reserve, per template anim: NULL -> AddAnim(NULL, i, -1), BodyAddAnim(name, looped bit 1, i), CopyValues, template ref points of anim id i copied (new 16, pushed even NULL), m_animset 0, BindAnimSet, default set, interp 0 / 0, representative wt 1, AnimPush / AnimPop, snapshot, Snap, 1 |
+| 93 | 61 | 0x29b940 | 732 | CZSealBody::HandleDamage | zSeal/seal_env.cpp | DEFECT-FIXED | C | recorded port guard of the killer's controller removed (0x29bbb0 calls slot 0x94 NotifyTargetDown unchecked). Kept (recorded, reason added): the hit-node NULL test (the ELF reads EE word 0x1c, never a part node; GCC UB otherwise). Rest matches: was alive, projectile / ammo NULL out, same projectile out, explosive damage > 0 keeps it, part list copy, first part with id >= 0 on the hit node, radius > 0 explosive else non-explosive (location 0), UpdateHealth(0, 5) (network: id 0 or a local shooter), death: killer seal -> notify, index, HandleKiller; none -> stats Death |
+| 94 | 80 | 0x2a75a0 | 728 | CZKit::SetCurAccuracy | zSeal/seal_kit.cpp | DEFECT-FIXED | C | 0x2a779c: the burst growth is size + size x (over x slope) (mul over x slope, then x size); the port wrote size x over x slope ((size x over) x slope): fixed. Rest matches: -1 x offset y, 5 x size, fov 640 / scrZ and x 448 / 640, scoped (>= 4 or 3): size 0, sniper drift into screen offsets and knock, aspect y, depth za / (aspect (za - zf)) or 1, GetWeapon, burst over min capped at max, FactorX / Y = (off x depth) x (tan(fov / 2) / 320 or 224), Factor = 0.707 (size x t) (0x3f34fdf4) |
+| 95 | 36 | 0x28ebb0 | 712 | CZSealBody::FindRandomDamageAnim | zSeal/seal_env.cpp | MATCH | | row 73's stream (diffed) with idle 7 as standing, the stunned test after the stance-change one, the desired state skipped for 8 / 7 / 9-10 (unsigned), no teammate table (damageanim) |
+| 96 | 40 | 0x28feb0 | 712 | CZSealBody::GetNumExplosiveHits | zSeal/seal_env.cpp | MATCH | | d = pos - framestartpos (0x38), (x x + y y) + z z < 400 -> 3, r draw 0.05 / 0.15 / 0.5 / 0.85 / 0.95 / <= 1 -> +1..6 (words OK), crouch -1 / prone -3, floor 0, > 900: 900 hits / d2 truncated, fraction rounded up when 0 + 1 r <= frac |
+| 97 | 56 | 0x298de0 | 700 | CZSealBody::Reload | zSeal/seal_env.cpp | DEFECT-FIXED | C | the still test is (x x + y y) + z z <= 400 (adda / madd); the port summed z first: fixed. Rest matches: top, rifle (m_item == 1), changing / reloading / CQB x2 / stunned out with top, state byte, PeekBaseState prone (rifle / pistol prone reload) / crouch / stand (state 3 or moving: moving reload), other: top, -1: NULL, PushBlend(type, state, false), non-moving: active playback = rep tf / reload time when > 0 |
+| 98 | 84 | 0x2aa4e0 | 700 | CZKit::TickFlashlight | zSeal/seal_kit.cpp | MATCH | | light map, flashlight 181 with state 8, dir = quat . aim goal, from = pos + 12 y, at = from + 100 dir, body node hidden (slot 0x34) for GetIntersect(from, at) and restored, hit: rest = at - hit, range sqrt((x x + y y) + z z), min 0.9 r (0x3f666666), max r, r^2, 1 / max, 1 / (max - min), UpdateBBox(false) slot 0x38, at = hit; projection translation -at, SetPosition(at) |

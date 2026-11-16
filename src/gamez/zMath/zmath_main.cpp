@@ -596,7 +596,7 @@ void CQuat::Ln(CPnt3D *out)
 void CQuat::Pow(float t, CQuat *out)
 {
 	/* 0x220610: the rotation's angle scaled by t (the short way round) */
-	f32 len2 = vec.z * vec.z + vec.x * vec.x + vec.y * vec.y;
+	f32 len2 = vec.x * vec.x + vec.y * vec.y + vec.z * vec.z;
 
 	if (len2 == 0.0f)
 	{

@@ -760,11 +760,8 @@ void CSealCtrlAi::SensorPreTick(float dT)
 						 * set here too (it is the 1 the setup bit is or'ed with) */
 						avoiding = true;
 
-						if (cqb != NULL)
-						{
-							cqb->m_victim = seal;
-							cqb->m_setup = 1;
-						}
+						cqb->m_victim = seal; /* unchecked, as the ELF: the new state is on top */
+						cqb->m_setup = 1;
 					}
 				}
 				else
@@ -786,11 +783,10 @@ void CSealCtrlAi::SensorPreTick(float dT)
 					CAiState *state = GetAiState();
 					CAiSAvoid *avoid = state->m_state == STATE_AVOID ? static_cast<CAiSAvoid *>(state) : NULL;
 
-					if (avoid != NULL) /* port: NULL-tested (ELF writes through it) */
-					{
-						avoid->m_avoid = e;
-						avoid->m_setup = 1;
-					}
+					/* the check-cast cannot fail after a successful push (the new state is on
+					 * top); the ELF writes through it unchecked */
+					avoid->m_avoid = e;
+					avoid->m_setup = 1;
 				}
 			}
 		}
@@ -842,9 +838,8 @@ void CSealCtrlAi::SensorPreTick(float dT)
 		bool event = false;
 		u32 idx = me->m_index;
 
-		if (p->m_bits.m_vec == NULL || unit == NULL) /* port: NULL-tested (ELF uses both unchecked) */
-			continue;
-
+		/* the bit vector (sized by CPickup::Create) and the unit (every seal joins one when it
+		 * is created; SealLeaveUnit keeps m_unit) are used unchecked, as the ELF */
 		u32 &word = p->m_bits.m_vec[idx >> 5];
 		u32 bit = 1u << (idx & 31);
 
@@ -910,12 +905,10 @@ void CSealCtrlAi::SensorPreTick(float dT)
 			CAiState *state = GetAiState();
 			CAiSGrenade *g = state->m_state == STATE_GRENADE ? static_cast<CAiSGrenade *>(state) : NULL;
 
-			if (g != NULL) /* port: NULL-tested (ELF writes through it) */
-			{
-				g->m_pickup = p;
-				g->m_pickup_id = p->m_id;
-				g->m_setup = 1;
-			}
+			/* unchecked, as the ELF: the new state is on top after the push */
+			g->m_pickup = p;
+			g->m_pickup_id = p->m_id;
+			g->m_setup = 1;
 #ifdef SOCOM_PORT
 			SOCOM_PORT_TRACE("AI: %s sees a live grenade (type %d, %d away): STATE_GRENADE", me->m_node->m_name, (int)type,
 				(int)sqrtf(d2));
@@ -929,21 +922,19 @@ void CSealCtrlAi::SensorPreTick(float dT)
 			CAiState *state = GetAiState();
 			CAiSEvent *ev = state->m_state == STATE_EVENT ? static_cast<CAiSEvent *>(state) : NULL;
 
-			if (ev != NULL) /* port: NULL-tested (ELF writes through it) */
-			{
-				ev->m_type = 1;
-				ev->m_pos = *p->GetPosW();
-				ev->m_vec = CPnt3D::zero;
-				ev->m_option_flags |= 4;
-				delay *= frac;
-				f32 range = 2.0f * delay - delay;
+			/* unchecked, as the ELF: the new state is on top after the push */
+			ev->m_type = 1;
+			ev->m_pos = *p->GetPosW();
+			ev->m_vec = CPnt3D::zero;
+			ev->m_option_flags |= 4;
+			delay *= frac;
+			f32 range = 2.0f * delay - delay;
 
-				if (range != 0.0f)
-					delay += range * ((f32)rand() * 4.656613e-10f);
+			if (range != 0.0f)
+				delay += range * ((f32)rand() * 4.656613e-10f);
 
-				ev->m_time = delay < 0.5f ? 0.5f : delay;
-				ev->m_setup = 1;
-			}
+			ev->m_time = delay < 0.5f ? 0.5f : delay;
+			ev->m_setup = 1;
 		}
 	}
 }

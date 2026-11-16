@@ -316,7 +316,7 @@ OBJ_ANIM * CObjAnims::GetObjAnim(int id)
 s8 CZSealBody::GetSpeedState()
 {
 	/* 0x27d3e0: standing only: 1 still (< 0.5), 2 walking (< 20), 3 running; 0 otherwise */
-	f32 speed = sqrtf(m_velM.z * m_velM.z + m_velM.x * m_velM.x + m_velM.y * m_velM.y);
+	f32 speed = sqrtf(m_velM.x * m_velM.x + m_velM.y * m_velM.y + m_velM.z * m_velM.z);
 
 	if (m_state != 0)
 		return 0;
@@ -2368,7 +2368,7 @@ CZBodyAnimBlend * CZSealBody::Stand_0(int from, int arg)
 	}
 	else if (from == 1)
 	{
-		f32 speed = sqrtf(m_velM.z * m_velM.z + m_velM.x * m_velM.x + m_velM.y * m_velM.y);
+		f32 speed = sqrtf(m_velM.x * m_velM.x + m_velM.y * m_velM.y + m_velM.z * m_velM.z);
 
 		if (10.0f < speed)
 		{
@@ -3262,7 +3262,7 @@ CZBodyAnimBlend * CZSealBody::Jump()
 	if ((top->m_flags & 0x40) == 0)
 		return NULL;
 
-	f32 speed = sqrtf(m_velM.z * m_velM.z + m_velM.x * m_velM.x + m_velM.y * m_velM.y);
+	f32 speed = sqrtf(m_velM.x * m_velM.x + m_velM.y * m_velM.y + m_velM.z * m_velM.z);
 	CZBodyAnimBlend *blend;
 
 	if (speed < 15.0f)

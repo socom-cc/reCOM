@@ -593,7 +593,7 @@ bool CZSealBody::CanAttainAim(CPnt3D &dir)
 	m_curr_aimpos.Add(GetPosW(), &base);
 	m_aim_point.Sub(&base, &d);
 
-	if (!(m_aim_norm.z * d.z + m_aim_norm.x * d.x + m_aim_norm.y * d.y < 0.0f))
+	if (!(m_aim_norm.x * d.x + m_aim_norm.y * d.y + m_aim_norm.z * d.z < 0.0f))
 		return false;
 
 	/* the node matrix rotates dir (VU0 vmulax/vmadday/vmaddz.xyz, no translation) */
@@ -605,9 +605,9 @@ bool CZSealBody::CanAttainAim(CPnt3D &dir)
 	CPnt3D tip;
 	base.Add(&rot, &tip);
 	m_curr_firepos.Sub(&m_curr_aimpos, &d);
-	f32 len = sqrtf(d.z * d.z + d.x * d.x + d.y * d.y);
+	f32 len = sqrtf(d.x * d.x + d.y * d.y + d.z * d.z);
 	CPnt3D out;
 	PointAlongLine(base, tip, len * 1.10000003f /* 0x3f8ccccd */, out);
 	out.Sub(&m_aim_point, &d);
-	return m_aim_norm.z * d.z + m_aim_norm.x * d.x + m_aim_norm.y * d.y > 0.0f;
+	return m_aim_norm.x * d.x + m_aim_norm.y * d.y + m_aim_norm.z * d.z > 0.0f;
 }
