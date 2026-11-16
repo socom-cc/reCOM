@@ -230,98 +230,60 @@ bool _NeedQuotes(_zrdr* reader)
 /* @socom-skeleton body _OutputASCII__FP7__sFILEP5_zrdri */
 bool _OutputASCII(FILE* out, _zrdr* reader, s32 offset)
 {
-    u32 node_idx = 0;
-    u32 child_count = 0;
-    ZRDR_TYPE type = static_cast<ZRDR_TYPE>(reader->type);
-
-    if (type != ZRDR_ARRAY)
+    /* 0x23fd10: one value; an array is "( ... )", opened on its own line with the next
+     * level's indentation (two spaces a level) when it holds a string followed by an array.
+     * The ELF reads the child count again for every test and runs the string-then-array
+     * search three times; the first search's result is unused (ELF quirk, kept). */
+    switch (reader->type)
     {
-        if (type == ZRDR_STRING)
-        {
-            if (_NeedQuotes(reader))
-            {
-                fprintf(out, " \"%s\" ", reader->string);
-                return true;
-            }
-
-            fprintf(out, " %s ", reader->string);
-            return true;
-        }
-
-        if (type != ZRDR_REAL)
-        {
-            if (type != ZRDR_INTEGER)
-            {
-                return true;
-            }
-			
-            fprintf(out, " %i ", reader->integer);
-        }
+    case ZRDR_ARRAY:
+        break;
+    case ZRDR_STRING:
+        if (_NeedQuotes(reader))
+            fprintf(out, "\"%s\" ", reader->string);
         else
-        {
-            fprintf(out, " %f ", reader->real);
-        }
-
+            fprintf(out, "%s ", reader->string);
+        return true;
+    case ZRDR_REAL:
+        fprintf(out, "%f ", (double)reader->real);
+        return true;
+    case ZRDR_INTEGER:
+        fprintf(out, "%d ", reader->integer);
+        return true;
+    default:
         return true;
     }
 
-    for (u32 i = 0; i + 1 < reader->array->integer - 1; i++)
+#define ZRDR_CHILDREN(r) ((r)->type == ZRDR_ARRAY ? (u32)((r)->array->integer - 1) : 0u)
+#define ZRDR_CHILD(r, n) ((n) < ZRDR_CHILDREN(r) ? &(r)->array[(n) + 1] : NULL)
+
+    u32 i;
+    _zrdr* node;
+
+    for (i = 0; i + 1 < ZRDR_CHILDREN(reader); i++)
     {
-        _zrdr* node = NULL;
-        
-        if (i < reader->array->integer - 1)
-        {
-            node = &reader->array[i] + 1;
-        }
-        else
-        {
-            node = NULL;
-        }
+        node = ZRDR_CHILD(reader, i);
 
-        if (node && node->type == ZRDR_STRING)
+        if (node != NULL && node->type == ZRDR_STRING)
         {
-            if (i + 1 < reader->array->integer - 1)
-            {
-                node = &reader->array[i] + 2;
-            }
-            else
-            {
-                node = NULL;
-            }
+            node = ZRDR_CHILD(reader, i + 1);
 
-            if (node && node->type == ZRDR_ARRAY)
-            {
+            if (node != NULL && node->type == ZRDR_ARRAY)
                 break;
-            }
         }
     }
 
     bool grouparray = false;
-    for (u32 i = 0; i + 1 < reader->array->integer - 1; i++)
+
+    for (i = 0; i + 1 < ZRDR_CHILDREN(reader); i++)
     {
-        _zrdr* node = NULL;
-        
-        if (i < reader->array->integer - 1)
-        {
-            node = &reader->array[i] + 1;
-        }
-        else
-        {
-            node = NULL;
-        }
+        node = ZRDR_CHILD(reader, i);
 
-        if (node && node->type == ZRDR_STRING)
+        if (node != NULL && node->type == ZRDR_STRING)
         {
-            if (i + 1 < reader->array->integer - 1)
-            {
-                node = &reader->array[i] + 2;
-            }
-            else
-            {
-                node = NULL;
-            }
+            node = ZRDR_CHILD(reader, i + 1);
 
-            if (node && node->type == ZRDR_ARRAY)
+            if (node != NULL && node->type == ZRDR_ARRAY)
             {
                 grouparray = true;
                 break;
@@ -333,197 +295,61 @@ bool _OutputASCII(FILE* out, _zrdr* reader, s32 offset)
     {
         fprintf(out, "(\n");
 
-        node_idx = 0;
-
-        if (offset + 1 > 0)
-        {
-            do
-            {
-                fprintf(out, " ");
-                node_idx++;
-            } while (node_idx < offset + 1);
-        }
+        for (s32 n = 0; n < offset + 1; n++)
+            fprintf(out, "  ");
     }
     else
     {
-        fprintf(out, "(");
+        fprintf(out, "( ");
     }
 
-    node_idx = 0;
+    u32 child;
 
-    while (true)
+    for (child = 0; child < ZRDR_CHILDREN(reader); child++)
+        _OutputASCII(out, ZRDR_CHILD(reader, child), offset + 1);
+
+    bool ungrouparray = false;
+
+    for (i = 0; i + 1 < ZRDR_CHILDREN(reader); i++)
     {
-        _zrdr* node = NULL;
-        type = static_cast<ZRDR_TYPE>(reader->type);
-        child_count = 0;
+        node = ZRDR_CHILD(reader, i);
 
-        if (type == ZRDR_ARRAY)
+        if (node != NULL && node->type == ZRDR_STRING)
         {
-            child_count = reader->array->integer - 1;
-        }
+            node = ZRDR_CHILD(reader, i + 1);
 
-        if (child_count <= node_idx)
-        {
-            break;
-        }
-
-        child_count = 0;
-
-        if (type == ZRDR_ARRAY)
-        {
-            child_count = reader->array->integer - 1;
-        }
-
-        if (node_idx < child_count)
-        {
-            node = &reader->array[node_idx] + 1;
-        }
-        else
-        {
-            node = NULL;
-        }
-
-        _OutputASCII(out, node, offset + 1);
-        node_idx++;
-    }
-
-    node_idx = 0;
-    
-    do
-    {
-        _zrdr* node = NULL;
-        type = static_cast<ZRDR_TYPE>(reader->type);
-        child_count = 0;
-        
-        if (type == ZRDR_ARRAY)
-        {
-            child_count = reader->array->integer - 1;
-        }
-        else
-        {
-            child_count = 0;
-        }
-
-        if (child_count <= node_idx + 1)
-        {
-            break;
-        }
-
-        child_count = 0;
-
-        if (type == ZRDR_ARRAY)
-        {
-            child_count = reader->array->integer - 1;
-        }
-
-        if (node_idx < child_count)
-        {
-            node = &reader->array[node_idx] + 1;
-        }
-        else
-        {
-            node = NULL;
-        }
-
-        if (node && node->type == ZRDR_STRING)
-        {
-            child_count = 0;
-
-            if (type == ZRDR_ARRAY)
+            if (node != NULL && node->type == ZRDR_ARRAY)
             {
-                child_count = reader->array->integer - 1;
-            }
-
-            if (node_idx + 1 < child_count)
-            {
-                node = &reader->array[node_idx] + 2;
-            }
-            else
-            {
-                node = NULL;
-            }
-
-            if (node && node->type == ZRDR_ARRAY)
-            {
+                ungrouparray = true;
                 break;
             }
         }
-
-        node_idx++;
-    } while (true);
-
-    bool ungrouparray = true;
+    }
 
     if (ungrouparray)
     {
         fprintf(out, ")\n");
 
-        node_idx = 0;
-
-        if (offset - 1 > 0)
-        {
-            do
-            {
-                fprintf(out, " ");
-                node_idx++;
-            } while (node_idx < offset - 1);
-
-            type = static_cast<ZRDR_TYPE>(reader->type);
-            node_idx = 0;
-
-            if (type == ZRDR_ARRAY)
-            {
-                node_idx = reader->array->integer - 1;
-            }
-
-            if (child_count == node_idx)
-            {
-                fprintf(out, "\n");
-
-                child_count = 0;
-
-                if (offset - 1 > 0)
-                {
-                    do
-                    {
-                        fprintf(out, " ");
-                        child_count++;
-                    } while (child_count < offset - 1);
-                }
-            }
-            return true;
-        }
+        for (s32 n = 0; n < offset - 1; n++)
+            fprintf(out, "  ");
     }
     else
     {
         fprintf(out, ")");
     }
 
-    type = static_cast<ZRDR_TYPE>(reader->type);
-    
-    node_idx = 0;
-
-    if (type == ZRDR_ARRAY)
-    {
-        node_idx = reader->array->integer - 1;
-    }
-
-    if (child_count == node_idx)
+    /* always true: the loop above ran child up to the count */
+    if (child == ZRDR_CHILDREN(reader))
     {
         fprintf(out, "\n");
 
-        child_count = 0;
-
-        if (offset - 1 > 0)
-        {
-            do
-            {
-                fprintf(out, " ");
-                child_count++;
-            } while (child_count < offset - 1);
-        }
+        for (s32 n = 0; n < offset - 1; n++)
+            fprintf(out, "  ");
     }
-    
+
+#undef ZRDR_CHILD
+#undef ZRDR_CHILDREN
+
     return true;
 }
 

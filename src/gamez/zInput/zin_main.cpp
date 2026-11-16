@@ -566,11 +566,12 @@ void CPad::Tick(f32 delta)
 	m_lastStickRaw[2] = m_InData[6];
 	m_lastStickRaw[3] = m_InData[7];
 
-	/* raw 0..255 (128 centred) -> about +1..-1: right and down are negative */
-	m_LeftStick[0] = (127.0f - (f32)m_InData[6]) * 0.00784313772f /* 0x3c008081 = 1.0f / 127.5f */;
-	m_LeftStick[1] = (127.0f - (f32)m_InData[7]) * 0.00784313772f /* 0x3c008081 = 1.0f / 127.5f */;
-	m_RightStick[0] = (127.0f - (f32)m_InData[4]) * 0.00784313772f /* 0x3c008081 = 1.0f / 127.5f */;
-	m_RightStick[1] = (127.0f - (f32)m_InData[5]) * 0.00784313772f /* 0x3c008081 = 1.0f / 127.5f */;
+	/* raw 0..255 (128 centred) -> +1..-1: right and down are negative; the ELF subtracts
+	 * from 127.5f (0x42ff0000, 0x219ff4) */
+	m_LeftStick[0] = (127.5f - (f32)m_InData[6]) * 0.00784313772f /* 0x3c008081 = 1.0f / 127.5f */;
+	m_LeftStick[1] = (127.5f - (f32)m_InData[7]) * 0.00784313772f /* 0x3c008081 = 1.0f / 127.5f */;
+	m_RightStick[0] = (127.5f - (f32)m_InData[4]) * 0.00784313772f /* 0x3c008081 = 1.0f / 127.5f */;
+	m_RightStick[1] = (127.5f - (f32)m_InData[5]) * 0.00784313772f /* 0x3c008081 = 1.0f / 127.5f */;
 
 	CheckStickVelocity(m_LeftStick[0], m_LeftStick[1], 0);
 	CheckStickVelocity(m_RightStick[0], m_RightStick[1], 1);

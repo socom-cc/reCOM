@@ -56,12 +56,12 @@ void MaterialRelease(CMaterialEx* mat)
 	mat->m_land_sound = NULL;
 
 	if (mat->m_name != NULL)
-		zfree(mat->m_name);
+		_free(mat->m_name, "int_material.cpp", 51);
 
 	mat->m_name = NULL;
 
 	if (mat->m_decal != NULL)
-		zfree(mat->m_decal);
+		_free(mat->m_decal, "int_material.cpp", 52);
 
 	mat->m_decal = NULL;
 }
@@ -69,19 +69,19 @@ void MaterialRelease(CMaterialEx* mat)
 void MaterialSetName(CMaterialEx* mat, const char* name)
 {
 	if (mat->m_name != NULL)
-		zfree(mat->m_name);
+		_free(mat->m_name, "int_material.cpp", 58);
 
 	mat->m_name = NULL;
-	mat->m_name = name != NULL ? zstrdup(name) : NULL;
+	mat->m_name = name != NULL ? _strdup(name, "int_material.cpp", 59) : NULL;
 }
 
 void MaterialSetDecal(CMaterialEx* mat, const char* decal)
 {
 	if (mat->m_decal != NULL)
-		zfree(mat->m_decal);
+		_free(mat->m_decal, "int_material.cpp", 64);
 
 	mat->m_decal = NULL;
-	mat->m_decal = decal != NULL ? zstrdup(decal) : NULL;
+	mat->m_decal = decal != NULL ? _strdup(decal, "int_material.cpp", 65) : NULL;
 }
 
 /* the index of a new material is the list size before it is appended */

@@ -162,25 +162,24 @@ CPnt3D CPnt3D::Reflect(const CPnt3D *normal)
 bool CPnt3D::DistToVector(const CPnt3D *a, const CPnt3D *b, CPnt3D *closest, float *dist) const
 {
 	/* 0x222750: as the three-argument DistToVector (beyond either end: the distance to that
-	 * end, false, closest untouched); inside, closest is the foot on the segment: a + (b - a)
-	 * times the share of this point's projections from a and from b (along the unit segment
-	 * direction) that lies on a's side */
+	 * end, false, closest untouched; the ELF repeats that body, the call here computes the
+	 * same); inside, closest is the foot on the segment: a + (b - a) da / (da + db) with the
+	 * two end tests' dot products da = (b - a).(p - a), db = (a - b).(p - b) (0x222a28),
+	 * unless da + db <= 0 */
 	if (!DistToVector(a, b, dist))
 		return false;
 
 	f32 abx = b->x - a->x, aby = b->y - a->y, abz = b->z - a->z;
-	f32 len = sqrtf(abx * abx + aby * aby + abz * abz);
+	f32 apx = x - a->x, apy = y - a->y, apz = z - a->z;
+	f32 bax = a->x - b->x, bay = a->y - b->y, baz = a->z - b->z;
+	f32 bpx = x - b->x, bpy = y - b->y, bpz = z - b->z;
+	f32 da = abx * apx + aby * apy + abz * apz;
+	f32 db = bax * bpx + bay * bpy + baz * bpz;
 
-	if (len == 0.0f)
+	if (da + db <= 0.0f)
 		return true;
 
-	f32 fa = ((x - a->x) * abx + (y - a->y) * aby + (z - a->z) * abz) / len;
-	f32 fb = ((x - b->x) * -abx + (y - b->y) * -aby + (z - b->z) * -abz) / len;
-
-	if (fa + fb <= 0.0f)
-		return true;
-
-	f32 t = fa / (fa + fb);
+	f32 t = da / (da + db);
 	closest->x = a->x + abx * t;
 	closest->y = a->y + aby * t;
 	closest->z = a->z + abz * t;
@@ -211,22 +210,15 @@ bool CPnt3D::DistToVector(const CPnt3D *a, const CPnt3D *b, float *dist) const
 		return false;
 	}
 
-	/* n = bp x ba; m = ba x n, normalized; dist = m . bp */
-	f32 nx = bpy * baz - bpz * bay;
-	f32 ny = bpz * bax - bpx * baz;
-	f32 nz = bpx * bay - bpy * bax;
-	f32 mx = bay * nz - baz * ny;
-	f32 my = baz * nx - bax * nz;
-	f32 mz = bax * ny - bay * nx;
-	f32 len = sqrtf(mx * mx + my * my + mz * mz);
-
-	if (len != 0.0f) /* port: sceVu0Normalize divides without this test */
-	{
-		mx /= len;
-		my /= len;
-		mz /= len;
-	}
-
-	*dist = mx * bpx + my * bpy + mz * bpz;
+	/* n = bp x ba; m = ba x n, normalized (sceVu0Normalize: a multiply by the reciprocal
+	 * length, a zero vector stays zero); dist = m . bp (0x2226a8..0x222710) */
+	sceVu0FVECTOR bpv = { bpx, bpy, bpz, 1.0f };
+	sceVu0FVECTOR bav = { bax, bay, baz, 1.0f };
+	sceVu0FVECTOR n, m;
+	sceVu0OuterProduct(n, bpv, bav);
+	n[3] = 1.0f;
+	sceVu0OuterProduct(m, bav, n);
+	sceVu0Normalize(m, m);
+	*dist = m[0] * bpx + m[1] * bpy + m[2] * bpz;
 	return true;
 }

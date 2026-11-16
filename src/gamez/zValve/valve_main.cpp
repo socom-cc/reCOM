@@ -107,11 +107,13 @@ bool VALVE_CMD_DATA::Compare()
 	default: return false;
 	}
 
-	/* the assignments: Set's change test, then the callbacks (1 set, 2 cleared) */
+	/* the assignments: Set's change test, then the callbacks (1 set, 2 cleared). The ELF
+	 * tests the whole sum / product against the 16-bit value before storing its low half
+	 * (0x2f8500, 0x2f8594): ELF quirk kept, a result of 0x10000 counts as set */
 	u32 change = 0;
 
-	if (valve->m_value != (result & 0xffff))
-		change = (result & 0xffff) ? 1 : 2;
+	if (valve->m_value != result)
+		change = result ? 1 : 2;
 
 	valve->m_value = result;
 

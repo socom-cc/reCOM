@@ -284,7 +284,7 @@ bool CEntity::OnUpdateTargetList(bool force, bool sort)
 				update(target, target->m_ent);
 				f32 dist = target->m_distSq;
 
-				if (dist < limit && !(m_max_target_range_sq <= dist))
+				if (dist < limit && dist < m_max_target_range_sq) /* 0x1f0890 */
 					sort_end = target + 1;
 			}
 		}

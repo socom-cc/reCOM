@@ -153,8 +153,7 @@ bool CSaveManager::Load(const char *name, int version)
 	CSaveHeader hdr;
 	m_Filename = (char *)name;
 	if (GetHeader(name, version, &hdr) && version != -1 && hdr.m_version != version) {
-		m_Filename = NULL; /* port: the ELF returns with m_Filename still set */
-		return false;
+		return false; /* ELF quirk kept: m_Filename stays set (0x3f7370; nothing reads it) */
 	}
 	if (zar.Open(name, version, 1, 16)) {
 		m_AbortLoad = false;

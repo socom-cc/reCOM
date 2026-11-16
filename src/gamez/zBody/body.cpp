@@ -1023,7 +1023,8 @@ bool CBlendOverlay::Tick(CBody *body, float dT)
 	f32 t = m_ovlyT / (anim->m_tf * loop);
 	CZBodyAnimBlend *top = body->m_blends->Top();
 
-	if (m_state == -1 ? t <= 0.0f : 1.0f <= t)
+	/* the ELF's forms: t <= 0 running out (0x1e1314), !(t < 1) running (0x1e1500) */
+	if (m_state == -1 ? t <= 0.0f : !(t < 1.0f))
 	{
 		body->m_active_anim_pool->PutBack(m_anim);
 		m_anim = NULL;
@@ -1035,8 +1036,8 @@ bool CBlendOverlay::Tick(CBody *body, float dT)
 		m_callback.m_tfrac = 0.0f;
 		m_callback.m_userdata = NULL;
 
-		if (body->m_interp1 > 0.0f)
-			body->Snap(); /* inline in the ELF */
+		if (!(body->m_interp1 <= 0.0f))
+			body->Snap(); /* inline in the ELF (0x1e1388, 0x1e1568) */
 
 		f32 blend = top->m_anims->Begin()->m_anim->m_pCommon->m_blendtime;
 		body->m_interp1 = blend;

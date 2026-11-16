@@ -437,7 +437,10 @@ void CFileCD::BuildTOC()
 	m_TOCNum = 0;
 
 	char* buf = (char*)zmemalign(0x40, 0x810);
-	memset(buf + 0x800, 0, 0x10); /* port: unproven - the binary leaves the 16 guard bytes uninitialised */
+	/* port deviation: the ELF leaves these 16 bytes uninitialised; a sector whose last record
+	 * ends at 0x800 makes the walk below read buf[0x800], which in the ELF is whatever the
+	 * heap held. Zeroed so that read ends the sector instead of parsing heap bytes. */
+	memset(buf + 0x800, 0, 0x10);
 
 	cd.m_headSector = -1;
 	cd.m_toc = NULL;
