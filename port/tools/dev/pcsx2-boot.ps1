@@ -90,6 +90,10 @@ if ($portable) {
     # memcards folder: then that card is in slot 1, for this run only. So test runs never share
     # a card, and only a run that asks for one (the save / load test) touches it.
     $gsDir = Join-Path (Split-Path $pcsx2) 'gamesettings'
+    # The only card a test run may hold is the dedicated test card the user named in
+    # SOCOM_TEST_MEMCARD (user-local, like the emulator path): any other name is refused, so a
+    # test build that may format a card can never be given another one.
+    if ($MemCard -ne "" -and (-not $env:SOCOM_TEST_MEMCARD -or $MemCard -ne $env:SOCOM_TEST_MEMCARD)) { "-MemCard refused: '$MemCard' is not the dedicated test card (SOCOM_TEST_MEMCARD)"; exit 1 }
     if ($MemCard -ne "" -and -not (Test-Path (Join-Path (Join-Path (Split-Path $pcsx2) 'memcards') $MemCard))) { "memory card not found in the portable profile: $MemCard"; exit 1 }
     $bytes = [System.IO.File]::ReadAllBytes($Elf)
     $crc = [uint32]0
