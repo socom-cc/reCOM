@@ -59,21 +59,23 @@ s32 FilterMissionFolder(const char* prefix, const char* infix, const char* postf
 		infix = "/";
 	}
 
+	/* 0x22b0e0: sprintf as the ELF (0x22b140 / 0x22b178 / 0x22b194); was snprintf with a
+	   128-byte limit the ELF does not have */
 	// Multiplayer map?
 	if (strncmp(prefix, "mp", 2) == 0)
 	{
-		result = snprintf(output, 128, "%s/mp/%s", infix, postfix);
+		result = sprintf(output, "%s/mp/%s", infix, postfix);
 	}
 	else
 	{
 		// Singleplayer map?
 		if (strncmp(prefix, "m", 1) == 0)
 		{
-			result = snprintf(output, 128, "%s/sp/%s", infix, postfix);
+			result = sprintf(output, "%s/sp/%s", infix, postfix);
 		}
 		else
 		{
-			result = snprintf(output, 128, "%s/%s", infix, postfix);
+			result = sprintf(output, "%s/%s", infix, postfix);
 		}
 	}
 
@@ -247,6 +249,10 @@ bool CSaveLoad::LoadTextures_PS2(CAssetLib* library)
 namespace zdb {
 bool CSaveLoad::LoadPalettes_PS2(CAssetLib* library)
 	{
+		/* 0x22a920: the library's palette list is emptied first (its size word cleared at
+		   0x22a948, the storage kept); the port had kept what it held */
+		library->m_palettes.clear();
+
 		if (zar::CKey* paletteKey = m_zfile.OpenKey("palettes"))
 		{
 			for (auto i = paletteKey->begin(); i != paletteKey->end(); ++i)
@@ -429,7 +435,10 @@ bool zdb::CWorld::Read(zdb::CSaveLoad &sload)
 	/* 0x22a080: every node under world_tree becomes a child of the world. */
 	zar::CKey* tree = sload.m_zfile.OpenKey("world_tree");
 
-	if (tree == NULL) /* port: the ELF iterates without this check */
+	/* port: kept guard - the ELF walks the key's list (and closes it) without this test, so
+	   a file without "world_tree" would walk a list read from address 0 (low memory on the
+	   PS2; a fault or garbage nodes here) */
+	if (tree == NULL)
 		return true;
 
 	for (auto i = tree->begin(); i != tree->end(); ++i)

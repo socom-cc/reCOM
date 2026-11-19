@@ -46,6 +46,7 @@ namespace zdb
 /* @socom-skeleton decl include */
 #include "Apps/FTS/hud/hud.h"
 #include "gamez/zTexture/ztex.h"
+#include <algorithm> /* std::find, std::remove_copy (AddModel) */
 /* @socom-skeleton end include */
 
 /* @socom-skeleton stub m_conflictresolver__Q23zdb9CAssetLib */
@@ -92,10 +93,12 @@ CAssetLib::CAssetLib(const char* name)
 		m_gearlib = false;
 		m_renderphase = _RenderPhase::WORLD;
 
+		/* 0x231940: the inline SetName of zassetlib.h - its file and lines in the
+		   allocation records (0x2319d4 / 0x2319e8); was this file's */
 		if (m_name)
-			zfree(m_name);
+			_free(m_name, "zassetlib.h", 86);
 
-		m_name = zstrdup(name);
+		m_name = _strdup(name, "zassetlib.h", 87);
 	}
 }
 
@@ -202,10 +205,12 @@ bool zdb::CAssetLib::IsNamed(const char *name)
 namespace zdb {
 bool CAssetLib::AddTexture(const char* name)
 	{
-		if (!name)
+		/* 0x231480: the first loaded handle of that name hands its texture to
+		   AddTexture(CTexture *), whose answer is returned (0x23154c; was true) */
+		if (m_locked)
 			return false;
 
-		if (m_locked)
+		if (!name)
 			return false;
 
 		for (auto i = CAssetMgr::m_assets.begin(); i != CAssetMgr::m_assets.end(); i++)
@@ -213,10 +218,7 @@ bool CAssetLib::AddTexture(const char* name)
 			CTexHandle* handle = (*i)->m_textures.GetHandle(name);
 
 			if (handle)
-			{
-				AddTexture(handle->m_texture);
-				return true;
-			}
+				return AddTexture(handle->m_texture);
 		}
 
 		return false;
@@ -227,24 +229,33 @@ bool CAssetLib::AddTexture(const char* name)
 namespace zdb {
 bool CAssetLib::AddTexture(CTexture* texture)
 	{
-		if (!texture)
-			return false;
-
+		/* 0x231360: a texture whose name a loaded library already holds is refused (false,
+		   0x231430); otherwise appended (search on), owned by this library, and Append's
+		   handle answers. Was: appended whatever the search found, always true. */
 		if (m_locked)
 			return false;
 
+		if (!texture)
+			return false;
+
+		CAssetLib* holder = NULL;
+
 		for (auto i = CAssetMgr::m_assets.begin(); i != CAssetMgr::m_assets.end(); i++)
 		{
-			CTexHandle* handle = (*i)->m_textures.GetHandle(texture->m_name);
-
-			if (handle)
+			if ((*i)->m_textures.GetHandle(texture->m_name) != NULL)
+			{
+				holder = *i;
 				break;
+			}
 		}
 
-		m_textures.Append(texture, true);
+		if (holder != NULL)
+			return false;
+
+		CTexHandle* handle = m_textures.Append(texture, true);
 		texture->m_AssetLib = this;
 
-		return true;
+		return handle != NULL;
 	}
 }
 
@@ -252,36 +263,65 @@ bool CAssetLib::AddTexture(CTexture* texture)
 namespace zdb {
 CModel* CAssetLib::AddModel(CModel* model)
 	{
-		char* name = NULL;
-
-		CAssetLib* library = NULL;
-		CAssetLib* resolved = NULL;
-		CModel* asset = NULL;
+		/* 0x2310b0: a locked library refuses (NULL). The first library holding a model of
+		   that name decides: none - the model is appended (0x2312f8; the port had inserted it
+		   first) and belongs here; this one - nothing; another - m_conflictresolver(name,
+		   this, holder) picks (none set in the ELF: it is only read, so nothing); picking
+		   this library takes the holder's model of that name out and adds here again, any
+		   other answer takes this library's out and adds to the holder (the model cache
+		   cleared, 0x231228 / 0x2312c0). The model is returned in every case but the lock. */
+		typedef CAssetLib* (*ConflictResolver)(const char*, CAssetLib*, CAssetLib*);
 
 		if (m_locked)
 			return NULL;
 
-		name = model->m_name;
-		asset = model;
+		const char* name = model->m_name;
+		CAssetLib* holder = NULL;
 
 		for (auto i = CAssetMgr::m_assets.begin(); i != CAssetMgr::m_assets.end(); i++)
 		{
-			CModel* mdl = (*i)->m_models.GetModel(name);
-
-			if (mdl)
+			if ((*i)->m_models.GetModel(name) != NULL)
 			{
-				library = *i;
+				holder = *i;
 				break;
 			}
 		}
 
-		if (!library)
+		if (holder == NULL)
 		{
-			m_models.insert(m_models.begin(), asset);
-			asset->m_AssetLib = this;
+			m_models.push_back(model);
+			model->m_AssetLib = this;
+			return model;
 		}
 
-		return asset;
+		if (holder == this)
+			return model;
+
+		CAssetLib* chosen = NULL;
+
+		if (m_conflictresolver != 0)
+			chosen = ((ConflictResolver)(size_t)(u32)m_conflictresolver)(model->m_name, this, holder);
+
+		if (chosen == NULL)
+			return model;
+
+		CAssetLib* from = chosen == this ? holder : this;
+		CAssetLib* to = chosen == this ? this : holder;
+		CModel* old = from->m_models.GetModel(model->m_name);
+
+		if (old != NULL)
+		{
+			CModelVector& models = from->m_models;
+			CModelVector::iterator it = std::find(models.begin(), models.end(), old);
+
+			if (it != models.end())
+				models.erase(std::remove_copy(it + 1, models.end(), it, old), models.end());
+
+			CAssetMgr::m_assets.m_cache_model = NULL;
+		}
+
+		to->AddModel(model);
+		return model;
 	}
 }
 
@@ -409,16 +449,20 @@ CModel* CAssetList::GetModel(const char* name)
 				return m_cache_model;
 		}
 
+		/* 0x230b70: the search's result becomes the cache, NULL included (0x230c18); the port
+		   had kept the old cache when nothing was found */
+		CModel* model = NULL;
+
 		for (auto i = begin(); i != end(); i++)
 		{
 			CAssetLib* lib = *i;
-			CModel* model = lib->m_models.GetModel(name);
+			model = lib->m_models.GetModel(name);
 
 			if (model)
-				return m_cache_model = model;
+				break;
 		}
 
-		return NULL;
+		return m_cache_model = model;
 	}
 }
 

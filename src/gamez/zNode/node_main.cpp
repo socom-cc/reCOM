@@ -457,29 +457,37 @@ bool CNode::AddVisual(CVisual* visual)
 namespace zdb {
 bool CNode::DeleteVisual(CVisual* visual, bool doChildren)
 	{
+		/* 0x2279d0: every copy of `visual` leaves the list (remove_copy from the first one
+		   0x227a48, erase 0x227a5c), it is Release()d (0x227a64) and, with `doChildren` (the
+		   delete flag) at count 0, deleted through its vtable (0x227a90); m_hasMesh is then
+		   recomputed from the mesh visuals left (0x227ab0 / 0x227adc), and m_modified set.
+		   Was: nothing removed or deleted, m_hasVisuals cleared, true returned. The ELF returns
+		   the Release count; the port's bool is that count != 0 (no caller reads it). */
 		std::vector<CVisual*>::iterator it;
 
-		// Look for copies, I guess.
 		for (it = m_visual.begin(); it != m_visual.end(); ++it)
 			if (*it == visual)
 				break;
 
-		// std::remove_copy(m_visual.begin(), m_visual.end(), it, visual);
+		if (it != m_visual.end())
+			m_visual.erase(std::remove_copy(it + 1, m_visual.end(), it, visual), m_visual.end());
 
-		// m_visual.erase(it);
+		u32 count = visual->Release();
 
-		bool released = visual->Release();
-
-		if (doChildren && !released)
+		if (doChildren && count == 0)
 		{
-			if (visual)
-				// delete visual;
+			if (visual != NULL)
+				delete visual;
 
-			m_hasVisuals = false;
+			m_hasMesh = false;
+
+			for (it = m_visual.begin(); it != m_visual.end(); ++it)
+				if ((*it)->m_vtype == 1)
+					m_hasMesh = true;
 		}
 
 		m_modified = true;
-		return true;
+		return count != 0;
 	}
 }
 
@@ -487,14 +495,21 @@ bool CNode::DeleteVisual(CVisual* visual, bool doChildren)
 namespace zdb {
 s32 CNode::DeleteVisuals()
 	{
+		/* 0x2278e0: each visual is Release()d (0x227904) and deleted through its vtable only
+		   at count 0 (0x227928); the list is emptied, m_modified set (0x22799c) and m_hasMesh
+		   cleared (0x2279ac). Was: every visual deleted whatever its count, m_hasVisuals cleared
+		   and m_modified left. The ELF returns erase's result (no caller reads it). */
 		for (auto i = m_visual.begin(); i != m_visual.end(); ++i)
 		{
-			(*i)->Release();
-			delete (*i);
+			CVisual* visual = *i;
+
+			if (visual->Release() == 0 && visual != NULL)
+				delete visual;
 		}
 
 		m_visual.clear();
-		m_hasVisuals = false;
+		m_modified = true;
+		m_hasMesh = false;
 
 		return 0;
 	}
@@ -520,13 +535,17 @@ void CNode::AddChild(CNode* node)
 	{
 		/* 0x227720: appended last (the port had inserted children first, which reversed
 		 * the drawing order of UI planes); a cell parent (type 3) does not re-parent */
-		if (node == NULL || node->m_parent == this)
+		if (node == NULL)
 			return;
 
 		/* 0x227740: a type-3 parent takes a model child's (type 7) m_char_common flag (the
-		 * low halves of the type words are compared) */
+		 * low halves of the type words are compared), before the own-child test (0x22778c;
+		 * the port had tested that first) */
 		if ((u16)node->m_type == (u16)TYPE::MODEL && (u16)m_type == (u16)TYPE::CHILD)
 			m_char_common = node->m_char_common;
+
+		if (node->m_parent == this)
+			return;
 
 		CNode* child = node;
 
@@ -1297,7 +1316,11 @@ void zdb::CNode::SetDynamicMotion(bool dynamic, bool children)
 namespace zdb {
 void CNode::SetDynamicLight(bool self_light, bool apply_to_children)
 	{
-		m_light_dynamic = self_light;
+		/* 0x225d50: m_dynamic_light (byte 0x5c bit 2, 0x225da0; was m_light_dynamic, bit 26,
+		   which nothing reads) on the node; with `apply_to_children` each child gets
+		   SetDynamicMotion, not SetDynamicLight (inlined at 0x225dac, the grandchildren call
+		   it at 0x225e08). ELF quirk kept: the children's dynamic light is not set. */
+		m_dynamic_light = self_light;
 
 		if (apply_to_children)
 		{
@@ -1306,8 +1329,7 @@ void CNode::SetDynamicLight(bool self_light, bool apply_to_children)
 			{
 				CNode* child = *child_iterator;
 
-				child->m_light_dynamic = m_light_dynamic;
-				child->SetDynamicLight(self_light, apply_to_children);
+				child->SetDynamicMotion(self_light, apply_to_children);
 
 				++child_iterator;
 			}
@@ -1699,14 +1721,25 @@ bool CNode::InheritRegionMasks(u32 pmask, u32 cmask)
 		if (m_type == (u32)TYPE::CELL)
 			return false;
 
+		/* 0x224780: the children get (pmask | own region bit, cmask | own mask) in that order
+		   (a1 = s4, a2 = s3 at 0x224820 / 0x224830; the port had passed them swapped). The ELF
+		   walks a copy of the child list and returns a count: the children's counts plus one
+		   for a light with a nonzero mask (0x224860); the port's bool is that count != 0
+		   (LoadWorld ignores it). */
 		u32 parent = cmask | m_region_mask;
 		u32 child = pmask | 1 << m_region_shift;
 
 		m_region_mask = m_type == (u32)TYPE::LIGHT ? parent : child;
 
-		for (u32 i = 0; i < m_child.size(); i++)
-			m_child[i]->InheritRegionMasks(parent, child);
+		u32 count = 0;
+		CNodeVector children(m_child);
 
-		return true;
+		for (u32 i = 0; i < children.size(); i++)
+			count += children[i]->InheritRegionMasks(child, parent);
+
+		if (m_type == (u32)TYPE::LIGHT && parent != 0)
+			count++;
+
+		return count != 0;
 	}
 }

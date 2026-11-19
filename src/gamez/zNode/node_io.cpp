@@ -57,17 +57,25 @@ CModel* CModel::Create(CSaveLoad& sload, CAssetLib* library)
 		if (model->Read(sload))
 			return model;
 
-		if (library)
+		/* 0x224110..0x2241b8: a failed read takes every copy of the model out of the library,
+		   clears the asset list's model cache (0x224198), deletes the model (0x2241b0) and
+		   returns NULL. Was: the first copy erased (end() when absent), the model kept and
+		   returned. Not reached: CModel::Read always returns true. */
+		if (library != NULL && model != NULL)
 		{
-			auto target = std::find(
-				library->m_models.begin(),
-				library->m_models.end(),
-				model);
+			CModelVector& models = library->m_models;
+			CModelVector::iterator target = std::find(models.begin(), models.end(), model);
 
-			library->m_models.erase(target);
+			if (target != models.end())
+				models.erase(std::remove_copy(target + 1, models.end(), target, model), models.end());
+
+			CAssetMgr::m_assets.m_cache_model = NULL;
 		}
 
-		return model;
+		if (model != NULL)
+			delete model;
+
+		return NULL;
 	}
 }
 
@@ -75,20 +83,21 @@ CModel* CModel::Create(CSaveLoad& sload, CAssetLib* library)
 namespace zdb {
 bool CModel::Read(CSaveLoad& sload)
 	{
+		/* 0x223f80: the defaults go into the local params (InitNodeParams(&local, NULL) at
+		   0x223fec), the file's "nparams" over them, and the model takes the matrix, the box,
+		   the type and the whole flag word (0x224068: +0x5c stored as a word). Was:
+		   InitNodeParams on the model and only m_active copied from the file, so every other
+		   flag of a model (landmark, shadow, char_common, ...) stayed at its default. */
 		tag_NODE_PARAMS nparams;
 
 		if (zar::CKey* modelkey = sload.m_zfile.GetOpenKey())
 		{
-			InitNodeParams(this);
-			
+			InitNodeParams(&nparams);
+
 			sload.m_zfile.Fetch("nparams", &nparams, sizeof(tag_NODE_PARAMS));
 			sload.m_zfile.Fetch("regionmask", &m_region_mask, sizeof(u32));
 
-			m_matrix = nparams.m_matrix;
-			m_bbox.m_min = nparams.m_bbox.m_min;
-			m_bbox.m_max = nparams.m_bbox.m_max;
-			m_type = nparams.m_type;
-			m_active = nparams.m_active;
+			*static_cast<tag_NODE_PARAMS*>(this) = nparams;
 
 			CNode::Read(sload);
 			SetName(modelkey->GetName());
