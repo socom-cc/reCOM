@@ -600,10 +600,22 @@ void CZKit::Init()
 	m_clicksnd = CSnd::GetSoundByName("SND_GUN_EMPTY");
 	m_lasesnd_start = CSnd::GetSoundByName("SND_BONE_BREAK_CRUNCH_01");
 	m_lasesnd_fin = CSnd::GetSoundByName("SND_MAGNETIC_LOCK_DISENGAGE");
-	/* port: the flashlight light map ("flash_lightmap": new zdb::CLightMap 0x2268e0, ranges
-	 * 20..100, opacity 256, blend 0x49) is not created: the CLightMap ctor is unwritten and
-	 * nothing in the port reads m_lightMap yet */
-	m_lightMap = NULL;
+	/* the flashlight light map (0x2aea34): placed at -0 (its UV translation and position, as
+	 * TickFlashlight's -at), ranges 20..100, UpdateBBox (slot 0x38), opacity 256, blend 0x49 */
+	m_lightMap = new zdb::CLightMap;
+	m_lightMap->m_worldToUV.m_matrix[3][0] = -0.0f;
+	m_lightMap->m_worldToUV.m_matrix[3][1] = -0.0f;
+	m_lightMap->m_worldToUV.m_matrix[3][2] = -0.0f;
+	m_lightMap->SetPosition(-0.0f, -0.0f, -0.0f);
+	m_lightMap->m_minRange = 20.0f;
+	m_lightMap->m_maxRange = 100.0f;
+	m_lightMap->m_maxRangeSq = 10000.0f;
+	m_lightMap->m_invMaxRange = 1.0f / m_lightMap->m_maxRange;
+	m_lightMap->m_invDeltaRange = 1.0f / (m_lightMap->m_maxRange - m_lightMap->m_minRange);
+	m_lightMap->UpdateBBox(false);
+	m_lightMap->SetName("flash_lightmap");
+	m_lightMap->m_opacity = 256.0f;
+	m_lightMap->m_blendmode.m_alphaWORD = 73;
 
 	if (m_body != NULL)
 	{
@@ -623,18 +635,19 @@ void CZKit::Init()
 		}
 	}
 
-	m_chill_parabola = 0.0f;
+	/* ELF: the float members get the word 0x80000000 (-0.0f, 0x2aebf0) */
+	m_chill_parabola = -0.0f;
 	m_heartbeat_state = 0;
-	m_sniper_posx = 0.0f;
-	m_sniper_posy = 0.0f;
-	m_sniper_prev_posx = 0.0f;
-	m_sniper_prev_posx = 0.0f; /* ELF quirk: prev_posx twice, prev_posy kept */
-	m_firerifle_kick_movedist = 0.0f;
-	m_firerifle_kick_accum = 0.0f;
+	m_sniper_posx = -0.0f;
+	m_sniper_posy = -0.0f;
+	m_sniper_prev_posx = -0.0f;
+	m_sniper_prev_posx = -0.0f; /* ELF quirk: prev_posx twice, prev_posy kept */
+	m_firerifle_kick_movedist = -0.0f;
+	m_firerifle_kick_accum = -0.0f;
 	m_firerifle_kick_state = 0;
 	m_lase_mapname = NULL;
 	m_lase_anim = NULL;
-	m_lase_timer = 0.0f;
+	m_lase_timer = -0.0f;
 	m_lase_echo = 0;
 	CZWeapon::ClearTimer();
 	CZWeapon::ClearTimer();
@@ -690,12 +703,18 @@ void CZKit::PostSetupItems()
 		}
 		else if (!theNetwork.m_bNetwork)
 		{
+			/* 0x2ae840: the fireteam (unchecked) asked about command 2 with the claymore id as
+			 * its data (vtable +0xc); allowed: the detonator as above */
 			CSealUnit *unit = CSealUnit::GetUnitByTeam(1);
 
-			/* port: no units yet (CSealUnit::CreateSinglePlayerUnits unwritten), so unit is
-			 * NULL. The ELF calls unit->AllowCommand(m_body, 2, CLAYMORE) (vtable +0xc, a bool;
-			 * void in the port) without a NULL test and on true adds the detonator as above. */
-			(void)unit;
+			if (unit->AllowCommand(m_body, (FT_COMMAND)2, (void *)153) && !HasItem(EQUIP_ITEM::DETONATOR))
+			{
+				u32 slot = m_num_items;
+				CZWeapon *detonator = CZWeapon::m_listWeapons.GetWeapon(EQUIP_ITEM::DETONATOR);
+
+				if (detonator != NULL && slot < 30)
+					SetItemByIndex(slot, detonator);
+			}
 		}
 	}
 
@@ -1603,11 +1622,8 @@ int CZKit::GetCurMaxAmmoCount()
 void CZKit::EmptyAmmoCountTotal(int index)
 {
 	/* 0x2ac100: every magazine of the slot emptied (the index wrapped; ELF quirk kept: an
-	 * index equal to the count, or no items, empties slot -1, port: nothing) */
+	 * index equal to the count, or no items, empties slot -1) */
 	s32 slot = unwrap(index, m_num_items);
-
-	if (slot < 0) /* port */
-		return;
 
 	for (int j = 0; j < 10; j++)
 		m_reloads[slot][j] = 0;
@@ -3114,7 +3130,7 @@ int CZKit::GetReticuleByIndex(int index)
 			range = current->GetZoomRange(level);
 	}
 
-	if (range > 1.5f)
+	if (!(range <= 1.5f)) /* c.le.s 0x2a867c */
 		return 5;
 
 	if (weapon != NULL && weapon->IsGrenadeLauncherWeapon())
@@ -3778,7 +3794,7 @@ void CZKit::SetItemByIndex(int index, CZWeapon *weapon)
 				range = current->GetZoomRange(level);
 		}
 
-		if (range > 1.5f)
+		if (!(range <= 1.5f)) /* c.le.s 0x2a6dc0 */
 			((CSealCtrl *)m_body->m_control)->SetCameraZoom(1.0f, 0.5f);
 
 		m_cur_zoom = 0;
@@ -3827,8 +3843,9 @@ void CZKit::HandlePlaceMPBomb(const CPnt3D *pos)
 
 	if (index != -1)
 	{
-		m_item[unwrap(index, m_num_items)] = NULL;
-		s32 slot = unwrap(index, m_num_items);
+		s32 at = unwrap(index, m_num_items);
+		m_item[at] = NULL;
+		s32 slot = unwrap(at, m_num_items); /* the first unwrap's slot unwrapped again (0x2a6b8c) */
 		EmptyAmmoCountTotal(slot);
 		m_ammo[slot] = NULL;
 		UpdateNumItems();
@@ -4042,7 +4059,7 @@ void CZKit::PickupAmmo(CZFTSWeapon *weapon, CZAmmo *ammo, int *rounds)
 	if (ctrl != NULL && static_cast<CSealCtrl *>(ctrl)->IsPlayer())
 	{
 		/* 0x2a64b4: the ammo's name in the ammo messenger, unless it is the newest line */
-		if (ammo != NULL && strcasecmp(theMission.m_ammoMessenger.LastMessage(), ammo->GetName()) != 0) /* port: NULL test */
+		if (strcasecmp(theMission.m_ammoMessenger.LastMessage(), ammo->GetName()) != 0) /* ammo unchecked (0x2a64c4) */
 			theMission.m_ammoMessenger.Add_Message(ammo->GetName(), 0);
 	}
 }
@@ -4105,13 +4122,9 @@ int CZKit::AddAmmo(int slot, int rounds)
 	 * capacity (the mag count doubled for small arms with the double ammo load, at most 10);
 	 * magazines past the count are emptied. A claymore carrier without a detonator gets one
 	 * (as in PostSetupItems).
-	 * The weapon info changes. v0 = the rounds left. ELF quirk kept: the item is not NULL-tested
-	 * before GetNumMags / GetAmmoCapacity (port: guarded). */
+	 * The weapon info changes. v0 = the rounds left. ELF: the item is not NULL-tested before
+	 * GetNumMags / GetAmmoCapacity (every caller fills the slot first). */
 	CZFTSWeapon *weapon = m_item[slot];
-
-	if (weapon == NULL)
-		return rounds;
-
 	s32 mags = weapon->GetNumMags();
 	s32 capacity = weapon->GetAmmoCapacity();
 	bool doubled = false;
@@ -4169,8 +4182,17 @@ int CZKit::AddAmmo(int slot, int rounds)
 	}
 	else if (!theNetwork.m_bNetwork)
 	{
-		/* port: as in PostSetupItems: no units (CSealUnit unwritten); the ELF asks unit 1's
-		 * AllowCommand(m_body, 2, CLAYMORE) unchecked and on true adds the detonator */
+		/* 0x2a60ac: as in PostSetupItems, the fireteam (unchecked) asked about command 2 */
+		CSealUnit *unit = CSealUnit::GetUnitByTeam(1);
+
+		if (unit->AllowCommand(m_body, (FT_COMMAND)2, (void *)153) && !HasItem(EQUIP_ITEM::DETONATOR))
+		{
+			u32 index = m_num_items;
+			CZWeapon *detonator = CZWeapon::m_listWeapons.GetWeapon(EQUIP_ITEM::DETONATOR);
+
+			if (detonator != NULL && index < 30)
+				SetItemByIndex(index, detonator);
+		}
 	}
 
 	m_weaponinfoChanged = 1;
@@ -4244,13 +4266,9 @@ void CZKit::FillAmmoPickupInstance(CZAmmoPickupInstance *box, int index)
 void CZKit::RemoveAmmo(int index)
 {
 	/* 0x2a5a80 (network: a remote seal's pickups): the slot's magazines emptied and its ammo
-	   dropped. port: an index that wraps to -1 (no items) is skipped (the ELF writes the word
-	   before m_ammo) */
+	   dropped. ELF: no -1 test (an index that wraps to -1 writes the word before m_ammo) */
 	s32 slot = unwrap(index, m_num_items);
 	s32 mags = unwrap(slot, m_num_items);
-
-	if (slot < 0 || mags < 0)
-		return;
 
 	for (s32 i = 0; i < 10; i++)
 		m_reloads[mags][i] = 0;
@@ -4263,24 +4281,17 @@ void CZKit::RemoveItemAndAmmo(int index)
 {
 	/* 0x2a5830 (RemoteDropMPBomb, network pickups): the slot's item, magazines and ammo go;
 	   the item count becomes the last used slot + 1 and a selection left on an empty or
-	   missing slot goes back to slot 0 (the HUD's weapon box redrawn). port: an index that
-	   wraps to -1 is skipped */
+	   missing slot goes back to slot 0 (the HUD's weapon box redrawn). ELF: no -1 tests (slot
+	   -1 writes the word before m_item) */
 	s32 slot = unwrap(index, m_num_items);
-
-	if (slot < 0)
-		return;
-
 	m_item[slot] = NULL;
 	s32 at = unwrap(slot, m_num_items);
 	s32 mags = unwrap(at, m_num_items);
 
-	if (at >= 0 && mags >= 0)
-	{
-		for (s32 i = 0; i < 10; i++)
-			m_reloads[mags][i] = 0;
+	for (s32 i = 0; i < 10; i++)
+		m_reloads[mags][i] = 0;
 
-		m_ammo[at] = NULL;
-	}
+	m_ammo[at] = NULL;
 
 	s32 last = -1;
 

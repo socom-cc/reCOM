@@ -687,7 +687,7 @@ bool CZSealBody::CanInterrupt()
 	bool ok = false;
 
 	for (ACTIVE_ANIM *active = top->m_anims->Begin(); active != NULL; active = active->m_overlay)
-		ok = active->m_anim->m_pCommon->m_interrupt_val < top->m_tfrac;
+		ok = !(top->m_tfrac <= active->m_anim->m_pCommon->m_interrupt_val); /* c.le.s 0x27bf7c */
 
 	return ok;
 }
@@ -957,10 +957,11 @@ bool CZSealBody::IsStopped(float z, float x, float turn)
 			return true;
 	}
 
-	if (!(z < stoppedV + turn * turn * (0.300000012f /* 0x3e99999a */ - stoppedV)))
+	/* turn x (turn x (...)): the ELF's product order (0x27b374, 0x27b3ac) */
+	if (!(z < stoppedV + turn * (turn * (0.300000012f /* 0x3e99999a */ - stoppedV))))
 		return false;
 
-	return !(z <= -(stoppedV * 1.5f + turn * turn * (0.5f - stoppedV * 1.5f)));
+	return !(z <= -(stoppedV * 1.5f + turn * (turn * (0.5f - stoppedV * 1.5f))));
 }
 
 /* @socom-skeleton stub SmoothXZThrottles__10CZSealBodyFRfRf */
@@ -982,15 +983,16 @@ bool CZSealBody::SmoothXZThrottles(float &x, float &z)
 	az = az * az;
 	f32 accelZ = theCharacterDynamics.m_accelZMin + (theCharacterDynamics.m_accelZMax - theCharacterDynamics.m_accelZMin) * (1.0f - az * az);
 
-	if (accelX < fabsf((nx - px) / m_dT))
+	/* not-<= forms as the ELF (c.le.s 0x27b218 / 0x27b228, 0x27b274 / 0x27b284) */
+	if (!(fabsf((nx - px) / m_dT) <= accelX))
 	{
-		nx = px < nx ? px + accelX * m_dT : px - accelX * m_dT;
+		nx = !(nx <= px) ? px + accelX * m_dT : px - accelX * m_dT;
 		limited = true;
 	}
 
-	if (accelZ < fabsf((nz - pz) / m_dT))
+	if (!(fabsf((nz - pz) / m_dT) <= accelZ))
 	{
-		nz = pz < nz ? pz + accelZ * m_dT : pz - accelZ * m_dT;
+		nz = !(nz <= pz) ? pz + accelZ * m_dT : pz - accelZ * m_dT;
 		limited = true;
 	}
 
@@ -1608,7 +1610,7 @@ CZBodyAnimBlend * CZSealBody::InStateHang(float fb, float, float strafe)
 		return top;
 	}
 
-	if (fb > 0.0f)
+	if (!(fb <= 0.0f)) /* c.le.s 0x27924c */
 		return Stand_0(4, 1);
 
 	CZBodyAnimBlend *top = m_blends->Top();
@@ -1799,21 +1801,21 @@ CZBodyAnimBlend * CZSealBody::TurnControl(float, float turn)
 	{
 		rate *= 0.600000024f /* 0x3f19999a */;
 
-		if (0.600000024f /* 0x3f19999a */ < rate)
+		if (!(rate <= 0.600000024f /* 0x3f19999a */)) /* c.le.s 0x278850 */
 			rate = 0.600000024f /* 0x3f19999a */;
 	}
 	else if (state == 2)
 	{
 		rate *= 0.35f;
 
-		if (0.35f < rate)
+		if (!(rate <= 0.35f)) /* c.le.s 0x278824 */
 			rate = 0.35f;
 	}
 	else if (state == 1)
 	{
 		rate *= 0.300000012f /* 0x3e99999a */;
 
-		if (0.300000012f /* 0x3e99999a */ < rate)
+		if (!(rate <= 0.300000012f /* 0x3e99999a */)) /* c.le.s 0x2787f8 */
 			rate = 0.300000012f /* 0x3e99999a */;
 	}
 	else if (state == 0)
@@ -2370,7 +2372,7 @@ CZBodyAnimBlend * CZSealBody::Stand_0(int from, int arg)
 	{
 		f32 speed = sqrtf(m_velM.x * m_velM.x + m_velM.y * m_velM.y + m_velM.z * m_velM.z);
 
-		if (10.0f < speed)
+		if (!(speed <= 10.0f)) /* c.le.s 0x276774 */
 		{
 			blend = PushBlend(AnimType::animTypeSneak, 0, false);
 			blend->m_tfrac = t;
@@ -2447,13 +2449,14 @@ CZBodyAnimBlend * CZSealBody::Crouch_0(int from, float t)
 		PushBlend(AnimType::animTypeCrouch, 1, false);
 		f32 speed = sqrtf(m_velM.x * m_velM.x + m_velM.y * m_velM.y + m_velM.z * m_velM.z);
 
-		if (20.0f < speed)
+		/* c.le.s 0x2763ac / 0x276438 (the ELF computes the speed again for the second test) */
+		if (!(speed <= 20.0f))
 		{
 			blend = PushBlend(AnimType::animTypeSneak, 1, false);
 			blend->m_tfrac = t;
 			BodySetState(1); /* inline in the ELF */
 		}
-		else if (10.0f < speed)
+		else if (!(speed <= 10.0f))
 		{
 			blend = PushBlend(AnimType::animTypeCrouchWalk, 1, false);
 			blend->m_tfrac = t;
@@ -2599,7 +2602,9 @@ CZBodyAnimBlend * CZSealBody::Hang_0(int from, int dir)
 		Stand_0(from, 0);
 	}
 
-	if (blend != NULL) /* port: NULL-tested */
+	/* port: NULL-tested: the ELF takes the representative of NULL (0x275d60) and writes through
+	 * it; written so, GCC -O3 traps on the literal NULL (as Crouch_0 / Prone_0) */
+	if (blend != NULL)
 		blend->Representative()->m_flags &= 0xffbf;
 
 	return blend;
@@ -2621,7 +2626,7 @@ CZBodyAnimBlend * CZSealBody::BlendedClimb(float height)
 	else
 		crate = 0.0f;
 
-	if (crate > 0.0f)
+	if (!(crate <= 0.0f)) /* c.le.s 0x275b6c */
 		PushAnim(&newanims, m_active_anim_pool->GetActiveAnim(GetAnimByType(AnimType::animTypeClimbCrate)), crate);
 
 	if (crate < 1.0f)
@@ -3015,7 +3020,7 @@ CZBodyAnimBlend * CZSealBody::SlideLadderDown()
 	if (m_CurrentBlendAnimType != m_animset->BaseAnim(AnimType::animTypeClimbLadder))
 		return top;
 
-	while ((u32)(m_blends->m_top + 1) > 1
+	while (m_blends->m_top + 1 > 1 /* slti 0x2744c0 */
 		&& m_CurrentBlendAnimType != m_animset->BaseAnim(AnimType::animTypeStand)
 		&& m_CurrentBlendAnimType != m_animset->BaseAnim(AnimType::animTypeCrouch)
 		&& m_CurrentBlendAnimType != m_animset->BaseAnim(AnimType::animTypeProne))
@@ -3241,7 +3246,7 @@ CZBodyAnimBlend * CZSealBody::Jump()
 
 	if (!remote)
 	{
-		if (m_airborne || m_nextJumpTimer > 0.0f)
+		if (m_airborne || !(m_nextJumpTimer <= 0.0f)) /* c.le.s 0x273a68 */
 			return NULL;
 
 		if (m_groundNormal.y < theCharacterDynamics.m_maxSlopeCos)
@@ -4405,30 +4410,29 @@ void CZSealBody::DetachBody()
 	root->SetRotation(CQuat::identity);
 	Snap();
 
-	/* port: guard (the ELF reads the carrier unchecked) */
-	if (m_carry != NULL)
+	/* the carrier's altitude is read unchecked (0x26f2c4); only the unlinking tests it */
+	zdb::IntersectStruct *alt = &m_carry->m_last_altitude;
+
+	if (GetSeal(alt->m_node) != NULL)
 	{
-		zdb::IntersectStruct *alt = &m_carry->m_last_altitude;
-
-		if (GetSeal(alt->m_node) != NULL)
-		{
-			m_last_altitude.m_pos = alt->m_pos;
-		}
-		else
-		{
-			m_last_altitude.m_pos = alt->m_pos;
-			m_last_altitude.m_poly = alt->m_poly;
-			m_last_altitude.m_norm = alt->m_norm;
-			m_last_altitude.m_node = alt->m_node;
-		}
-
-		m_carry->m_carry = NULL;
+		m_last_altitude.m_pos = alt->m_pos;
+	}
+	else
+	{
+		m_last_altitude.m_pos = alt->m_pos;
+		m_last_altitude.m_poly = alt->m_poly;
+		m_last_altitude.m_norm = alt->m_norm;
+		m_last_altitude.m_node = alt->m_node;
 	}
 
 #ifdef SOCOM_PORT
 	SOCOM_PORT_TRACE("CQB: %s detached at %.1f %.1f %.1f (state %d)", m_node->m_name, pos.x, pos.y, pos.z, (int)m_state);
 #endif
-	m_carry = NULL;
+	if (m_carry != NULL)
+	{
+		m_carry->m_carry = NULL;
+		m_carry = NULL;
+	}
 }
 
 /* @socom-skeleton stub RestoreCameraPosition__FPvPv */
@@ -4584,7 +4588,8 @@ void CZSealBody::Action(AnimType type, bool reversed, int node_id, int part_id, 
 	 * part, upright). The ELF returns 0 when the node, the part or the object part is missing,
 	 * else 1 (port: void as declared). ELF quirks kept: the node is added to the part's node,
 	 * then deleted from its (new) parent and added again; the object part's entry is not
-	 * NULL-tested (port: tested). */
+	 * NULL-tested (0x26ea84; port: tested, as GetObjAnim's not-found NULL inlines into a
+	 * literal NULL that GCC -O3 turns into a trap). */
 	zdb::CNode *node = GetAnimationNode((u32)node_id);
 
 	if (node == NULL)

@@ -1038,7 +1038,7 @@ bool CAiSStunResponse::Tick(float dT, CSealCtrlAi *ctrl)
 	switch (phase)
 	{
 	case 0:
-		if (m_delay > 0.0f)
+		if (!(m_delay <= 0.0f)) /* c.le.s 0x2e69a4 */
 		{
 			m_delay -= dT;
 			break;
