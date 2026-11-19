@@ -122,7 +122,11 @@ CAiPath::CAiPath()
 /* @socom-skeleton stub __dt__7CAiPathFv */
 CAiPath::~CAiPath()
 {
-	/* 0x196650: the members' vectors are released (implicit here) */
+	/* 0x196650: the planner is deleted, then Clear's body runs inline (a queued or running plan
+	 * is aborted, so the planner queue does not keep the path; the ELF clears the stats through
+	 * CAiPathStats::reset, the same stores); the members' vectors are released after */
+	DeletePlanner();
+	Clear();
 }
 
 /* @socom-skeleton stub GetLength__7CAiPathFb */
@@ -829,7 +833,7 @@ void CAiPath::UpdatePathWidth(unsigned int max)
 		if (p->m_loc.x == goal.x && p->m_loc.y == goal.y)
 		{
 			leg++;
-			u32 index = leg == (u32)-1 ? m_curleg : leg;
+			u32 index = leg == (u32)-1 ? m_planleg : leg; /* 0x193f98: m_planleg (+0x24) */
 			map = index < m_legcount ? m_maps[index] : NULL;
 
 			if (index < m_legcount)

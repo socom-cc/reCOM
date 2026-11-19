@@ -1305,18 +1305,15 @@ CAiMap::region * CAiMaps::GetClosestRegion(const CAiMapLoc &loc, CAiMap::region:
 CAiMap::region * CAiMaps::GetRegionTypeContainer(CAiMap::region::TYPE type, const CAiMapLoc &loc)
 {
 	/* 0x1976d0: the first region of that type (m_regions[type]: their corner locations) whose
-	 * x/y box (corner + m_dx / m_dy) holds the location; the map id is not compared. ELF: a
-	 * corner on a map id past the list reads a NULL region; port: skipped */
+	 * x/y box (corner + m_dx / m_dy) holds the location; the map id is not compared. The region
+	 * is not NULL-tested, as the ELF (0x1977cc; every corner of the lists is a region of a map
+	 * of the set, UpdateActionTables) */
 	CAiMapLocVec &list = m_regions[(u8)type];
 
 	for (CAiMapLocVec::iterator it = list.begin(); it != list.end(); ++it)
 	{
 		CAiMap *map = GetMapByIndex(it->m_mapid);
 		CAiMap::region *r = map != NULL ? map->GetRegion(*it) : NULL;
-
-		if (r == NULL)
-			continue; /* port: the ELF reads it */
-
 		s32 dx = (s32)loc.x - (s32)r->m_loc.x;
 		s32 dy = (s32)loc.y - (s32)r->m_loc.y;
 
