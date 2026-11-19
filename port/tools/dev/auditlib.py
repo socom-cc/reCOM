@@ -10,7 +10,8 @@ mw_key(name) / gnu_key(demangled)  a compiler-independent key for a function or 
                      the qualified name without parameters, spaces removed (CZKit::Fire,
                      AnimSet::~AnimSet, operator new, floorTolerance for function statics).
 mw_readable(name)    readable signature of a Metrowerks symbol (tools/_socom/mwdemangle.py).
-fence_spans(text)    skeleton fences of one source file: name -> (fence line, brace line, end line).
+fence_spans(text)    skeleton fences of one source file: name -> (fence, head, brace, end line); the
+                     definition is found by the fence's demangled name.
 features(...)        the comparison features of one function (see auditscan.py).
 audit_rows()         verdict rows of docs/port/notes/audit-*.md (the audit's ground truth).
 Read-only on the reference ELF and the checkout; writes only under build/.
@@ -343,35 +344,167 @@ def gnu_key(dem):
 
 
 # ---------------------------------------------------------------- source fences
-FENCE = re.compile(r'^/\* @socom-skeleton (body|stub) (\S+) \*/')
+FENCE = re.compile(r'^\s*/\* @socom-skeleton (body|stub) (\S+) \*/')
+
+
+_CODE_NOISE = re.compile(r'//[^\n]*|/\*.*?\*/|"(?:\\.|[^"\\\n])*"|\'(?:\\.|[^\'\\\n])*\'', re.S)
+_PREPRO = re.compile(r'^[ \t]*#[^\n]*(?:\\\n[^\n]*)*', re.M)
+_NOT_HEAD = re.compile(r'[=().!?\-+/%^|]|\b(?:return|if|while|for|switch|case|else|do|new|delete|sizeof|throw|goto|'
+                       r'namespace|using|typedef)\b')
+_ACCESS = re.compile(r'\b(?:public|private|protected)\s*:(?!:)')
+
+
+def strip_code(text):
+    """text with comments, string / character literals and preprocessor lines blanked (newlines
+    and columns kept), so braces and names can be counted on code only."""
+    blank = lambda m: re.sub(r'[^\n]', ' ', m.group(0))
+    return _PREPRO.sub(blank, _CODE_NOISE.sub(blank, text.replace('﻿', ' ')))
+
+
+def _fence_target(name):
+    """(simple name, class base or None, parameter count or None) of a fence's mangled name."""
+    d = _mw.demangle(name) if _mw is not None else None
+    if not d:
+        return name, None, None
+    q, n = _mw_name(d)
+    cls = re.sub(r'\$.*$', '', _mw.template_base(q[-1])) if q else None
+    ps = d['params']
+    npar = None if ps is None else (0 if len(ps) == 1 and ps[0].get('name') == 'void' and not ps[0].get('modifiers')
+                                    else len(ps))
+    return n, cls, npar
+
+
+def _name_re(n):
+    if n.startswith('operator'):
+        rest = n[len('operator'):].strip()
+        return re.compile(r'\boperator\s*' + r'\s*'.join(re.escape(c) for c in rest) + r'\s*\(')
+    return re.compile(r'(?<![\w~])' + re.escape(n) + r'\s*\(')
+
+
+def _close(code, i):
+    """Index after the ')' that closes the '(' at code[i]."""
+    depth = 0
+    for k in range(i, len(code)):
+        c = code[k]
+        if c == '(':
+            depth += 1
+        elif c == ')':
+            depth -= 1
+            if depth == 0:
+                return k + 1
+    return -1
+
+
+def _brace_end(code, b):
+    """Index of the '}' that closes the '{' at code[b]."""
+    depth = 0
+    for k in range(b, len(code)):
+        c = code[k]
+        if c == '{':
+            depth += 1
+        elif c == '}':
+            depth -= 1
+            if depth == 0:
+                return k
+    return len(code) - 1
+
+
+def _old_span(lines, i):
+    """The first rule: the first '{' within 10 lines of the fence opens the body."""
+    n = len(lines)
+    j = i + 1
+    while j < n and j < i + 10 and lines[j].strip() != '{' and not lines[j].rstrip().endswith((';', '{')):
+        j += 1
+    if j >= n or not (lines[j].strip() == '{' or lines[j].rstrip().endswith('{')) or lines[j].rstrip().endswith(';'):
+        return None
+    depth = 0
+    k = j
+    while k < n:
+        depth += lines[k].count('{') - lines[k].count('}')
+        if depth <= 0 and k >= j and '{' in ''.join(lines[j:k + 1]):
+            break
+        k += 1
+    return (i + 1, i + 1, j + 1, k + 1)
+
+
+def _find_def(code, offs, lo, hi, name):
+    """(head line, brace line, end line) 0-based of the definition of the fence's function in
+    code[offs[lo]:offs[hi]]: the first `Name(` whose statement holds only type / qualifier tokens
+    before it (no if / return / =), whose class qualifier (when written) is the fence's, with the
+    parameter count of the mangled name, and a '{' before the next ';'."""
+    n, cls, npar = _fence_target(name)
+    a, b = offs[lo], offs[min(hi, len(offs) - 1)]
+    for m in _name_re(n).finditer(code, a, b):
+        s = m.start()
+        k = s
+        while k > 0 and code[k - 1] not in ';{}':
+            k -= 1
+        prefix = _ACCESS.sub(' ', code[k:s])
+        pre = prefix.rstrip()
+        if _NOT_HEAD.search(pre.replace('::', '  ')):
+            continue
+        qm = re.search(r'([A-Za-z_]\w*)\s*(?:<[^<>]*>)?\s*::\s*$', pre)
+        if qm and cls and qm.group(1) != cls:
+            continue
+        p = code.index('(', m.start())
+        e = _close(code, p)
+        if e < 0:
+            continue
+        if npar is not None:
+            inner = code[p + 1:e - 1]
+            depth, cnt, seen = 0, 0, False
+            for c in inner:
+                if c in '(<[':
+                    depth += 1
+                elif c in ')>]':
+                    depth -= 1
+                elif c == ',' and depth == 0:
+                    cnt += 1
+                if not c.isspace():
+                    seen = True
+            got = 0 if not seen or inner.strip() == 'void' else cnt + 1
+            if got != npar and '...' not in inner and '=' not in inner:
+                continue
+        semi = code.find(';', e)
+        brace = code.find('{', e)
+        if brace < 0 or (0 <= semi < brace):
+            continue
+        end = _brace_end(code, brace)
+        first = k + len(prefix) - len(prefix.lstrip())
+        line = lambda x: bisect.bisect_right(offs, x) - 1
+        return line(min(first, s)), line(brace), line(end)
+    return None
 
 
 def fence_spans(text):
-    """name -> (fence line, brace line, end line), 1-based, for one source file's text."""
+    """name -> (fence line, head line, brace line, end line), 1-based, for one source file's text.
+    The definition is found by the fence's demangled name (a helper or a `namespace {` between
+    the fence and the definition is skipped), up to the next fence of another function or 200
+    lines (data fences in between do not stop it); a fence nested in another body gets its own span. Without a match, the first rule:
+    the first '{' within 10 lines (head line = fence line)."""
     lines = text.split('\n')
+    code = strip_code(text)
+    offs = [0]
+    for l in lines:
+        offs.append(offs[-1] + len(l) + 1)
     out = {}
-    i, n = 0, len(lines)
-    while i < n:
-        m = FENCE.match(lines[i])
-        if not m:
-            i += 1
+    fences = [(i, FENCE.match(l).group(2)) for i, l in enumerate(lines) if FENCE.match(l)]
+    for x, (i, name) in enumerate(fences):
+        if name in out:
             continue
-        name = m.group(2)
-        j = i + 1
-        while j < n and j < i + 10 and lines[j].strip() != '{' and not lines[j].rstrip().endswith((';', '{')):
-            j += 1
-        if j >= n or not (lines[j].strip() == '{' or lines[j].rstrip().endswith('{')) or lines[j].rstrip().endswith(';'):
-            i += 1
-            continue
-        depth = 0
-        k = j
-        while k < n:
-            depth += lines[k].count('{') - lines[k].count('}')
-            if depth <= 0 and k >= j and '{' in ''.join(lines[j:k + 1]):
-                break
-            k += 1
-        out.setdefault(name, (i + 1, j + 1, k + 1))
-        i = k + 1
+        # up to the next fence of another function (a data fence in between does not stop it)
+        nxt = next((j for j, nm in fences[x + 1:] if nm != name and _fence_target(nm)[2] is not None), len(lines))
+        hit = None
+        try:
+            hit = _find_def(code, offs, i + 1, min(nxt, i + 200), name)
+        except Exception:      # a name the demangler or the scanner cannot take: the first rule
+            hit = None
+        if hit:
+            out[name] = (i + 1, hit[0] + 1, hit[1] + 1, hit[2] + 1)
+        else:
+            sp = _old_span(lines, i)
+            if sp:
+                out[name] = sp
     return out
 
 
@@ -396,7 +529,7 @@ def src_files(commit=None):
 
 
 def all_fences(files):
-    """mangled fence name -> (file, fence line, brace line, end line) over {path: text}."""
+    """mangled fence name -> (file, fence line, head line, brace line, end line) over {path: text}."""
     out = {}
     for p, text in files.items():
         if p.endswith(('.cpp', '.c')) and '@socom-skeleton' in text:
@@ -433,11 +566,12 @@ CALLMAP = {'sqrtf': '#sqrt', 'fabsf': '#abs', 'operatordelete': None, 'operatord
            'fptosi': '#cvt', 'fptoui': '#cvt', 'sitofp': '#cvt', 'uitofp': '#cvt',
            'dpmul': 'double*', '__muldf3': 'double*', 'dpadd': 'double+', '__adddf3': 'double+',
            'dpsub': 'double-', '__subdf3': 'double-', 'dpdiv': 'double/', '__divdf3': 'double/',
-           'dpcmp': 'double<>', '__eqdf2': 'double<>', '__nedf2': 'double<>', '__ltdf2': 'double<>',
+           'dpcmp': 'double<>', '_dpfeq': 'double<>', '_dpfgt': 'double<>', '_dpflt': 'double<>', '__eqdf2': 'double<>', '__nedf2': 'double<>', '__ltdf2': 'double<>',
            '__ledf2': 'double<>', '__gtdf2': 'double<>', '__gedf2': 'double<>', '__unorddf2': 'double<>',
            'fptodp': 'float->double', '__extendsfdf2': 'float->double', 'dptofp': 'double->float',
            '__truncdfsf2': 'double->float', 'litodp': 'int->double', '__floatsidf': 'int->double',
-           '__floatdidf': 'int->double', 'dptoli': 'double->int', '__fixdfsi': 'double->int',
+           '__floatdidf': 'int->double', 'dptoli': 'double->int', 'dptoul': 'double->int', '__fixdfsi': 'double->int',
+           '__fixunsdfsi': 'double->int',
            'socom_port_trace': None, 'socom_port_tracef': None}
 
 
@@ -450,18 +584,20 @@ class Feat:
     iconst (integer constants, |v| >= 16), cmpk (compare immediates), strs (string text), mem
     ((offset, 'L'|'S') through non-stack, non-global base registers), memw ((offset, kind)), gst
     (global stores by key), gld (global loads), fops (float operation kinds); scalars size, nbr
-    (conditional branches), ind (indirect calls), callees (callee start addresses for flattening)."""
+    (conditional branches), ind (indirect calls), callees (callee start addresses for flattening),
+    aoff (addiu immediates >= 16 on an object pointer: the address of a member, accessed later)."""
 
     def __init__(self):
         C = collections.Counter
         self.calls, self.fconst, self.iconst, self.cmpk, self.strs = C(), C(), C(), C(), C()
         self.mem, self.memw, self.gst, self.gld, self.fops = C(), C(), C(), C(), C()
+        self.aoff = C()
         self.size = self.nbr = self.ind = 0
         self.callees = collections.Counter()   # key -> start address (first seen)
         self.calladdr = {}
 
     def add(self, o, sign=1):
-        for k in ('calls', 'fconst', 'iconst', 'cmpk', 'strs', 'mem', 'memw', 'gst', 'gld', 'fops'):
+        for k in ('calls', 'fconst', 'iconst', 'cmpk', 'strs', 'mem', 'memw', 'gst', 'gld', 'fops', 'aoff'):
             a, b = getattr(self, k), getattr(o, k)
             for x, v in b.items():
                 a[x] += sign * v
@@ -594,6 +730,8 @@ def features(elf, insns, start, end, keyof, skip_calls=()):
                         if abs(sv) >= 16:
                             F.iconst[sv] += 1
                     continue
+            if op != 'ori' and imm >= 16 and b in GPR and b not in ('zero', 'gp'):
+                F.aoff[imm] += 1
             known.pop(args[0], None)
             lastlui.pop(args[0], None)
             continue
@@ -668,6 +806,223 @@ def features(elf, insns, start, end, keyof, skip_calls=()):
             known.pop(args[0], None)
             lastlui.pop(args[0], None)
     return F
+
+
+# ---------------------------------------------------------------- typed registers
+def reg_types(seq, init):
+    """[{reg: class}] before each instruction of seq [(op, [operands])], in listing order:
+    init ({'a0': 'CFoo'}) holds at the start, a `move` copies a register's type, any other write
+    of the register and a call's clobber (after its delay slot) drop it. Control flow is not
+    followed: a type holds until the listing overwrites the register."""
+    cur = dict(init)
+    out = []
+    pend = False
+    for op, args in seq:
+        out.append(dict(cur))
+        clobber = pend
+        pend = op in ('jal', 'jalr', 'bal')
+        if op == 'move' and len(args) == 2:
+            if args[1] in cur:
+                cur[args[0]] = cur[args[1]]
+            else:
+                cur.pop(args[0], None)
+        elif args and op not in NOWRITE and not (op.startswith('b') and op != 'break') and args[0] in GPR:
+            cur.pop(args[0], None)
+        if clobber:
+            for r in CALL_CLOBBER:
+                cur.pop(r, None)
+    return out
+
+
+# ---------------------------------------------------------------- definitions in source files
+_BR = re.compile(r'[{};]')
+_HEADNAME = re.compile(r'(~?[A-Za-z_]\w*|\boperator\b\s*(?:\(\s*\)|[^\s(]+))\s*\(')
+_KW = {'if', 'while', 'for', 'switch', 'return', 'sizeof', 'catch', 'case', 'do', 'else', 'new', 'delete',
+       'throw', 'static_cast', 'reinterpret_cast', 'const_cast', 'dynamic_cast', 'defined', 'alignof',
+       '__attribute__', 'decltype', 'typeid', 'offsetof', 'va_arg', 'asm', '__asm__', 'goto'}
+
+
+class Def:
+    """One function definition in a source file (1-based lines)."""
+    __slots__ = ('path', 'name', 'cls', 'head', 'brace', 'end', 'static', 'inline', 'in_class', 'unnamed')
+
+    def __init__(self, **kw):
+        for k, v in kw.items():
+            setattr(self, k, v)
+
+    @property
+    def lines(self):
+        return self.end - self.head + 1
+
+    @property
+    def local(self):
+        """File-local or inline: static, in an unnamed namespace, inline, or defined in a class."""
+        return self.static or self.inline or self.in_class or self.unnamed
+
+
+def _skip_template(s):
+    m = re.match(r'\s*template\s*<', s)
+    if not m:
+        return s
+    depth, k = 0, m.end() - 1
+    for k in range(m.end() - 1, len(s)):
+        if s[k] == '<':
+            depth += 1
+        elif s[k] == '>':
+            depth -= 1
+            if depth == 0:
+                return s[k + 1:]
+    return s
+
+
+def _head(stmt):
+    """(name, qualifier class or None, prefix) when stmt (the code before a '{') is a function
+    definition's head, else None."""
+    s = _ACCESS.sub(' ', stmt)
+    s = _skip_template(s)
+    depth = 0
+    for m in _HEADNAME.finditer(s):
+        pre = s[:m.start()]
+        if pre.count('(') != pre.count(')'):
+            return None
+        name = re.sub(r'\s+', '', m.group(1)) if m.group(1).startswith('operator') else m.group(1)
+        if name in _KW:
+            return None
+        if _NOT_HEAD.search(pre.replace('::', '  ')):
+            return None
+        e = _close(s, m.end() - 1)
+        if e < 0:
+            return None
+        rest = s[e:]
+        if '=' in rest.split(':')[0] or re.search(r'[;]', rest):
+            return None
+        qm = re.search(r'([A-Za-z_]\w*)\s*(?:<[^<>]*>)?\s*::\s*$', pre)
+        return name, (qm.group(1) if qm else None), pre
+    return None
+
+
+def definitions(path, text, code=None):
+    """[Def] of the function definitions in one source file, nested into namespaces and classes
+    (not into function bodies)."""
+    code = strip_code(text) if code is None else code
+    offs = [0]
+    for l in text.split('\n'):
+        offs.append(offs[-1] + len(l) + 1)
+    line = lambda x: bisect.bisect_right(offs, x)
+    out = []
+    stack = []          # ('ns', unnamed) | ('class', name)
+    pos = last = 0
+    n = len(code)
+    while pos < n:
+        m = _BR.search(code, pos)
+        if not m:
+            break
+        c, i = m.group(), m.start()
+        pos = i + 1
+        if c == ';':
+            last = pos
+            continue
+        if c == '}':
+            if stack:
+                stack.pop()
+            last = pos
+            continue
+        stmt = code[last:i]
+        s = stmt.strip()
+        ns = re.match(r'(?:inline\s+)?namespace\b\s*(\w*)\s*$', s)
+        if ns or re.match(r'extern\s*$', s):
+            stack.append(('ns', bool(ns) and not ns.group(1)))
+            last = pos
+            continue
+        cm = re.match(r'(?:typedef\s+)?(?:class|struct|union)\b\s*(?:\w+\s+)*?(\w+)?\s*(?:final\s*)?(?::[^(]*)?$',
+                      _skip_template(s).strip())
+        if cm and not re.match(r'(?:typedef\s+)?(?:class|struct|union)\b[^(]*\)', s):
+            stack.append(('class', cm.group(1) or ''))
+            last = pos
+            continue
+        end = _brace_end(code, i)
+        h = _head(stmt) if not s.startswith('enum') else None
+        if h:
+            name, q, pre = h
+            incls = [x[1] for x in stack if x[0] == 'class']
+            first = last + len(stmt) - len(stmt.lstrip())
+            toks = set(re.findall(r'\w+', pre))
+            out.append(Def(path=path, name=name, cls=q or (incls[-1] if incls else None), head=line(first),
+                           brace=line(i), end=line(end), static='static' in toks, inline='inline' in toks,
+                           in_class=bool(incls), unnamed=any(x[0] == 'ns' and x[1] for x in stack)))
+        pos = end + 1
+        last = pos
+    return out
+
+
+CALLED = re.compile(r'(?:(\bthis\s*->|->|\.)\s*|([A-Za-z_]\w*)\s*(?:<[^<>()]*>)?\s*::\s*|(?<![\w.>:]))(~?[A-Za-z_]\w*)\s*\(')
+
+
+def called_names(code, kinds=False):
+    """Names called in (comment-stripped) code, in order of first appearance; with kinds,
+    (name, how, class): how '' (a bare call), 'this', 'obj' (through another object) or '::'
+    (Class::name, class given)."""
+    out = []
+    seen = set()
+    for m in CALLED.finditer(code):
+        n = m.group(3)
+        if n in _KW:
+            continue
+        via = m.group(1) or ''
+        how = 'this' if via.startswith('this') else 'obj' if via else '::' if m.group(2) else ''
+        key = (n, how, m.group(2)) if kinds else n
+        if key not in seen:
+            seen.add(key)
+            out.append(key)
+    return out
+
+
+# ---------------------------------------------------------------- DWARF enums, vtables
+_enums = None
+
+
+def enumerators():
+    """enumerator name -> [(enum qualified name, value, byte size)] from the DWARF type rows."""
+    global _enums
+    if _enums is None:
+        _enums = collections.defaultdict(list)
+        for t in _dev.types():
+            if t.get('kind') != 'enumeration_type':
+                continue
+            ev = (t.get('evidence') or {}).get('attributes') or {}
+            el = ev.get('element_list')
+            if not el:
+                continue
+            b = bytes.fromhex(el['value'])
+            sz = ev.get('byte_size', {}).get('value', 4)
+            i = 0
+            q = t.get('qualified_name') or '?'
+            seen = set()
+            try:
+                while i < len(b):
+                    v = int.from_bytes(b[i:i + sz], 'little', signed=True)
+                    i += sz
+                    j = b.index(0, i)
+                    nm = b[i:j].decode('latin1')
+                    i = j + 1
+                    if (q, nm) not in seen:
+                        seen.add((q, nm))
+                        if (q, v, sz) not in _enums[nm]:
+                            _enums[nm].append((q, v, sz))
+            except ValueError:
+                continue
+    return _enums
+
+
+def vtables(elf):
+    """readable class -> (vtable symbol, address, size) for the '__vt__' symbols of elf."""
+    out = {}
+    for n, v, sz, b, t in elf.syms:
+        if n.startswith('__vt__') and sz and _mw is not None:
+            d = _mw.demangle(n)
+            if d and d['qualifier']:
+                out.setdefault(_squash(_mw.readable_qualified(d['qualifier'])), (n, v, sz))
+    return out
 
 
 # ---------------------------------------------------------------- ground truth

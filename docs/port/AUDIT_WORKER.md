@@ -8,11 +8,27 @@ an audit list. Your prompt names the list, your scratch folder and the files you
 
 - The list: `build/port/audit/<list>.md` (rows `| # | Address | Bytes | Symbol | File |`).
 - One packet per function: `build/port/audit/packets/<list>/<row>-<address>.md`, with an
-  `INDEX.md`. A packet holds the annotated ELF disassembly, the port's source body with file and
-  line, the member offsets named, the ELF callers and the leads earlier notes recorded. Functions
-  over 3,000 bytes have their disassembly split into `.partN.md` files. Read the packet; do not
-  fetch the same facts again with the tools. Fetch only what a packet lacks (a callee's body, a
-  type it does not name), and say in your note what was missing so the packet tool can be fixed.
+  `INDEX.md`; for a small-band list, one packet per source file (`f<n>-<file>.md`) holding all of
+  that file's listed functions, with the facts they share once at the top. A packet holds:
+  - the annotated ELF disassembly: a label on every branch target, `| ` before a delay slot and
+    `| nop` for a nop in one, calls demangled, float words, strings (also of 0 or 1 characters),
+    data words (`= word` for a literal, `init` for a variable's nonzero initial value) and jump
+    tables resolved;
+  - the port's own definition with file and line numbers, found by the fence's demangled name:
+    lines between the fence and the definition (helpers, a `namespace {`) are skipped and named;
+  - the bodies of the helpers it calls, one level deep: same-file static, unnamed-namespace,
+    inline and unfenced functions, the receiver class's header definitions, and a short header
+    definition when it is the only one of its name (60 lines each, 250 a packet);
+  - the DWARF values of the enumerators the body and its helpers name;
+  - the vtable slot of each virtual call, resolved when the object's register is typed, else the
+    methods at that slot the body calls;
+  - members touched, named only through a register that still holds the receiver or a
+    pointer-to-class argument; other offsets by number;
+  - the receiver's member lines and the callee declarations it uses, the ELF callers and the leads
+    earlier notes recorded.
+  Functions over 3,000 bytes have their disassembly split into `.partN.md` files. Read the packet;
+  do not fetch the same facts again with the tools. Fetch only what a packet lacks (see below), and
+  say in your note what was missing so the packet tool can be fixed.
 - The scan: `build/port/audit/scan-<list>.md`, the mechanical comparison of each function with
   the port's compiled code, ranked. A reported difference is a place to look, not a verdict: it
   flags two thirds of correct functions too, and it cannot see guards the ELF lacks, the order
@@ -33,16 +49,21 @@ Learned from the lists already done. None of the scan items below is a defect by
 
 What a packet may lack, and where to get it:
 
-- It may show only a helper that sits above the function instead of the function's own body:
-  read the body from the source file.
-- Bodies of same-file and inlined helpers, and of callees whose exact compare form matters
-  (`_max`, `_saturate`): the source, or the reference disassembly.
-- Enum values, bitfield positions, layouts: the headers; vtable slots: `vt.py`.
-- The text of very short strings and raw data words: `sym.py`, `od.sh`.
-- The compacted disassembly drops nops and can drop the label of a branch target that follows an
-  unconditional branch: run `dis.sh` on the range when a target or a call looks missing (a cached
-  copy of the whole reference disassembly may be at `build/port/boot-auditkit/ref.dis`).
-- "Members touched" labels can be wrong: trust the offsets, not the names.
+- Helpers past the first level, the rest of a helper cut at 60 lines (or at the packet's cap, which
+  the packet names), a helper called through another object (`obj->Inline()`) or whose name has
+  several header definitions: the source.
+- Callees that are ELF functions of their own, when their exact compare form matters: their
+  packet, or the reference disassembly.
+- Bitfield positions and layouts: the headers (`dw.py`, `off.py`); enumerators of port-only enums
+  and enum values the body computes: the headers.
+- The vtable slot of a virtual call through an object whose type the packet does not know, when no
+  method at that slot is named in the body: `vt.py`.
+- Run-time values of data: a packet shows only a variable's initial word.
+- Register types are followed in listing order, not along branches, and the vtable pointer has no
+  DWARF member: a member name can still be wrong after a branch join or at the vtable's offset, so
+  trust the offsets. The disassembly is cut from the cached copy of the whole reference
+  disassembly (`build/port/boot-auditkit/ref.dis`): run `dis.sh` on the range when something looks
+  missing.
 
 Working habits that cost other workers time:
 

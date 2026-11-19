@@ -9,7 +9,8 @@ where the correctness audit (docs/port/AUDIT_PLAN.md) should look first.
 Port side: a fingerprint build (fpbuild.sh <commit> <NAME>: -O2 -g with inlining, IPA cloning,
 code folding and tail merging off) read from <scratch>/fp/NAME.{elf,dis,syms,commit}
 (--fp DIR moves that folder; default NAME head). Each fence is mapped to its compiled symbol by
-the symbol's first debug line (between the fence comment and the body's brace, same file), else
+the symbol's first debug line (between the definition's head, found by the fence's demangled
+name, and the body's brace, same file), else
 by the readable qualified name. The fences are read at the build's commit (git archive).
 
 Features compared (compiler-independent; auditlib.features): direct calls by readable name
@@ -52,6 +53,7 @@ class Ref:
         self.dis = L.ref_dis()
         self._f = {}
         self.virt = {self.key(self.elf.funcs[a][0]) for a in self.elf.virtuals('__vt__')}
+        self.keys = {self.key(f[0]) for f in self.elf.funcs.values()}
 
     def key(self, name):
         return L.mw_key(name)
@@ -118,15 +120,22 @@ class Port:
         return self._f[start]
 
     def find(self, fence, mwname):
-        """Port function start for a fence (file, fence line, brace line, end line)."""
-        path, fl, bl, el = fence
-        cands = [(ln, s, n) for ln, s, n in self.byfile.get(path, ()) if fl <= ln <= bl + 1]
+        """Port function start for a fence (file, fence line, head line, brace line, end line):
+        the symbol whose first line is between the definition's head and its brace."""
+        path, fl, hl, bl, el = fence
+        cands = [(ln, s, n) for ln, s, n in self.byfile.get(path, ()) if hl <= ln <= bl + 1]
         if not cands:
             # the first line marker can be the first statement: the earliest non-lambda symbol
-            # whose first line is inside the body
-            cands = [(ln, s, n) for ln, s, n in self.byfile.get(path, ())
-                     if fl <= ln <= el and '{lambda' not in self.dem.get(n, n)]
-            cands = cands[:1]
+            # whose first line is inside the body, not a member of a class local to a function
+            # (Tick(float)::Local::Incr), the one with the fence's name first
+            inb = [(ln, s, n) for ln, s, n in self.byfile.get(path, ())
+                   if hl <= ln <= el and '{lambda' not in self.dem.get(n, n)]
+            k = L.mw_key(mwname)
+            simple = L._fence_target(mwname)[0]
+            same = [c for c in inb if self.key(c[2]) == k or
+                    re.search(r'(?:^|::)%s$' % re.escape(simple), L._strip_params(self.dem.get(c[2], c[2])))]
+            other = [c for c in inb if ')::' not in self.dem.get(c[2], c[2]).replace('(anonymous namespace)', '')]
+            cands = (same or other)[:1]
         if not cands:
             k = L.mw_key(mwname)
             starts = self.bykey.get(k, [])
@@ -230,6 +239,11 @@ def compare(E, P, ref=None, port=None, flatten=True):
     em, pm = set(E.mem), set(P.mem)
     for (o, ls) in sorted(em ^ pm):
         side = 'ELF' if (o, ls) in em else 'port'
+        B = P if side == 'ELF' else E
+        # the other side took the member's address first (addiu r,obj,o) and used a small offset
+        # on it: the same member through another base, not reported
+        if any(0 <= o - a < 0x40 and (o - a, ls) in B.mem for a in B.aoff):
+            continue
         add('store' if ls == 'S' else 'load', 1, '%s %s +0x%x, the %s never' % (side, 'stores' if ls == 'S' else 'reads', o, 'port' if side == 'ELF' else 'ELF'))
     ek = collections.defaultdict(set)
     pk = collections.defaultdict(set)
@@ -295,10 +309,13 @@ def _flatten(E, P, ref, port, rounds=12):
     E, P = _copy(E), _copy(P)
     # a callee only one side calls that is a tiny leaf (an accessor, an empty or field-setting
     # constructor) was inlined by the other compiler: folded in without a cost test
+    # a port callee the ELF has no function for (a port helper, or an inline function the ELF
+    # always inlined) is folded in up to 2,000 bytes
     for A, B, ctx in ((P, E, port), (E, P, ref)):
         for k in [k for k in A.calls if k not in B.calls and k in A.calladdr]:
             sub = ctx.feat(A.calladdr[k])
-            if sub is not None and sub.size <= 64 and not sub.calls and not sub.ind:
+            portonly = ctx is port and k not in ref.keys and sub is not None and sub.size <= 2000
+            if sub is not None and (portonly or sub.size <= 64 and not sub.calls and not sub.ind):
                 n = A.calls.pop(k)
                 for _i in range(n):
                     A.add(sub)

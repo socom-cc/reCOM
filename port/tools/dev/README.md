@@ -68,7 +68,9 @@ Reference ELF (`support/socom.elf`, read-only):
 - `dx.ps1 <start> [end|+len]` - annotated disassembly of a function (PowerShell; size from the symbol table).
 - `dis.sh [-z] [-r] <start> <end>` - raw objdump range (`-z` zero blocks, `-r` raw words).
 - `disx.py` - annotates objdump output on stdin: lui/addiu and `$gp` targets with symbols and strings.
-- `cz.py [-t reg=Class,...]` - compacts annotated output and names DWARF members on typed registers.
+- `cz.py [-t reg=Class,...] [-k]` - compacts annotated output and names DWARF members on typed registers;
+  `-k` (the audit packets) keeps every branch target's label, prints a delay-slot nop as `| nop` and
+  names members only while the register still holds the typed value.
 - `z.sh <start> <end|+size> [reg=Class]` - `dis.sh | disx.py | cz.py` (WSL, Linux or Git Bash).
 - `nd.py` - on `cz.py` output: branches whose nop delay slot is followed by a real instruction.
 - `zs.sh [-F] [-f file] <pattern> [n]` - search the cached full disassembly, with the containing function.
@@ -100,15 +102,19 @@ Port source status (`src/` skeleton fences):
 - `status.py <mangled>... | -f <asm>` - port status of functions.
 - `stubchk.py <regex>...` - which matching fences are still empty.
 - `survey.py [file-regex]` - per file: fences with ELF address, size and status.
-- `auditlist.py [--band large|medium|small] [--modules RE] [--split N] [--out NAME] [--summary]` -
+- `auditlist.py [--band large|medium|small] [--modules RE] [--split N | --fns N] [--out NAME] [--summary]` -
   lists of fenced functions still to judge for the correctness audit (`docs/port/AUDIT_PLAN.md`);
-  writes `build/port/audit/<NAME>.md`.
-- `auditpack.py <list> [--rows 1,3-5]` - one ready-to-read packet per function of an audit list
-  (`build/port/audit/packets/<list>/<row>-<address>.md` + `INDEX.md`): the z.sh disassembly with
-  calls demangled, float words decoded, string pointers and jump tables resolved, the receiver's and
-  class arguments' DWARF members named; the fence's source with line numbers; the members and callee
-  declarations it uses; ELF callers; lines of `docs/port/notes/*.md` naming it. Over 3,000 bytes the
-  disassembly is in `.part<k>.md` files cut at labels. Needs `<scratch>/ref.dis` (`refdis.sh`).
+  writes `build/port/audit/<NAME>.md`; `--fns 300` makes lists of about 300 functions of whole files.
+- `auditpack.py <list> [--rows 1,3-5] [--by-file] [--out DIR]` - one ready-to-read packet per function
+  of an audit list (`build/port/audit/packets/<list>/<row>-<address>.md` + `INDEX.md`), or with
+  `--by-file` one per source file (`f<n>-<file>.md`, for the small band) with the shared facts once:
+  the `z.sh -k` disassembly with calls demangled, float words, short strings and data words decoded,
+  string pointers and jump tables resolved, members named on typed registers only; the function's own
+  definition (found by its demangled name) with line numbers; the bodies of the same-file and inline
+  helpers it calls (one level); DWARF values of the enumerators it names; vtable slots of its virtual
+  calls; the members and callee declarations it uses; ELF callers; lines of `docs/port/notes/*.md`
+  naming it. Over 3,000 bytes the disassembly is in `.part<k>.md` files cut at labels. Needs
+  `<scratch>/ref.dis` (`refdis.sh`).
 - `fpbuild.sh <commit> <name>` - "fingerprint" build of a commit for auditscan (`-O2 -g`, inlining,
   IPA cloning, tail merging and devirtualisation off): `<scratch>/fp/<name>.{elf,dis,syms,commit}`.
 - `auditscan.py [--build NAME] --list <list> | --all | --fn 0xADDR` - compares each fenced function
@@ -119,7 +125,8 @@ Port source status (`src/` skeleton fences):
   What a score means is measured in `build/port/audit/SCAN_VALIDATION.md` (`auditval.py --collect`
   / `--report`, on the verdicts of `docs/port/notes/audit-*.md`): it orders, it cannot see guards,
   float operation order or call arguments, and in functions of 700 bytes or more nothing scores 0.
-- `auditlib.py` - the readers both share (ELF, objdump text, names, fences, features, verdict rows).
+- `auditlib.py` - the readers both share (ELF, objdump text, names, fences and definitions,
+  features, typed registers, DWARF enumerators, vtables, verdict rows).
 - `refdis.sh` - copies the cached full reference disassembly to `<scratch>/ref.dis`.
 - `incpath.py <from-header> <to-suffix>` - include chains between headers.
 

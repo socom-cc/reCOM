@@ -1,7 +1,10 @@
-"""cz.py [-t reg=Class[,reg=Class...]] < disx-output: compact annotated disassembly for reading.
+"""cz.py [-t reg=Class[,reg=Class...]] [-k] < disx-output: compact annotated disassembly for reading.
 Drops saved-register prologue/epilogue lines and address columns (labels only on branch targets),
 shortens branch/jal operands, prints float values of lui/ori constants, and names DWARF members
-for offsets on the given registers (flattened layout from types.pkl). Scratch only."""
+for offsets on the given registers (flattened layout from types.pkl). Scratch only.
+-k (the audit packets): keeps every branch target's label (also on a dropped save-register line),
+prints a nop in a delay slot as '| nop', and names members only while the register still holds
+the typed value (argN from the start, copied by move, dropped when overwritten or by a call)."""
 import _dev
 import sys, re, struct, os, pickle
 here = os.path.dirname(os.path.abspath(__file__))
@@ -42,8 +45,20 @@ def flat(name, base=0, pre='', out=None, depth=0):
     return out
 regs = {}
 args = sys.argv[1:]
+KEEP = '-k' in args
 lines = [l.rstrip(chr(10)) for l in sys.stdin]
-if '-t' in args:
+ctab = {}; init = {}
+if '-t' in args and KEEP:
+    for kv in args[args.index('-t') + 1].split(','):
+        r, c = kv.split('=')
+        r = 'a' + r[3:] if r.startswith('arg') else r
+        if c not in ctab:
+            fl_ = sorted(set(flat(c)))
+            d = {}
+            for o, n in fl_: d.setdefault(o, []).append(n)
+            ctab[c] = (c, d, sorted(d))
+        init[r] = c
+elif '-t' in args:
     for kv in args[args.index('-t') + 1].split(','):
         r, c = kv.split('=')
         if r.startswith('arg'):
@@ -57,8 +72,8 @@ if '-t' in args:
         for o, n in fl: d.setdefault(o, []).append(n)
         regs[r] = (c, d, sorted(d))
 import bisect
-def member(r, o):
-    c, d, ks = regs[r]
+def member(r, o, tab=None):
+    c, d, ks = tab or regs[r]
     i = bisect.bisect_right(ks, o) - 1
     if i < 0: return ''
     k = ks[i]
@@ -103,6 +118,18 @@ def fl(v):
 hi = {}
 prevbr = False
 strip = set()
+typed = {}
+if KEEP and init:
+    sys.path.insert(0, here)
+    import auditlib
+    seq = []; at = []
+    for i_, l_ in enumerate(lines):
+        m_ = re.match(r'\s*([0-9a-f]+):\s+(\S+)\s*(.*)', l_)
+        if m_:
+            seq.append((m_.group(2), [x.strip() for x in m_.group(3).split(';')[0].split('#')[0].split(',')] if m_.group(3).strip() else []))
+            at.append(i_)
+    for i_, st in zip(at, auditlib.reg_types(seq, init)):
+        typed[i_] = st
 P = re.compile(r'\s*([0-9a-f]+):\s+(\S+)\s*(.*)')
 def isave(l, loads):
     m = P.match(l)
@@ -131,7 +158,9 @@ for idx, l in enumerate(lines):
     note = ''
     if ';' in rest:
         rest, note = rest.split(';', 1); rest = rest.rstrip(); note = note.strip()
-    if idx in strip: continue
+    if idx in strip and not (KEEP and prevbr):  # -k: a save-register line in a delay slot stays
+        if KEEP and a in targets: print('L%x:' % a)
+        continue
     rest = re.sub(r'([0-9a-f]{5,8}) <([^>+]+)\+0x[0-9a-f]+>', lambda k: 'L' + k.group(1), rest)
     rest = re.sub(r'[0-9a-f]{5,8} <([^>]+)>', lambda k: k.group(1), rest)
     ops = [x.strip() for x in rest.split(',')]
@@ -149,12 +178,20 @@ for idx, l in enumerate(lines):
         o = int(mm.group(1)); r = mm.group(2)
         if r != 'sp' or True:
             rest = rest.replace(mm.group(0), '%s0x%x(%s)' % ('-' if o < 0 else '', abs(o), r))
-        if r in regs and o >= 0:
+        if KEEP:
+            c_ = typed.get(idx, {}).get(r)
+            if c_ and o >= 0:
+                n = member(r, o, ctab[c_])
+                if n: note = (n + ' ' + note).strip()
+        elif r in regs and o >= 0:
             n = member(r, o)
             if n: note = (n + ' ' + note).strip()
     lab = ('L%x:' % a) if a in targets else ''
     ds = prevbr
     prevbr = (op.startswith('b') or op in ('j', 'jal', 'jr', 'jalr')) and op not in ('break',)
+    if KEEP and op == 'nop':
+        if lab or ds: print(('%-9s%s' % (lab, '| nop' if ds else '')).rstrip())
+        continue
     if op == 'nop' and not lab: continue
     if len(note) > 60 and '|' in note: note = note.split('|')[0]
     if op == 'nop': print(lab); continue

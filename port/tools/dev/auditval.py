@@ -89,8 +89,8 @@ def collect():
                          'diffs': [[d[1], d[3], d[2]] for d in r.get('diffs', [])]}
             if role == 'before' and name in sc.fences and headfiles and name in headfiles[1]:
                 fb, fh = sc.fences[name], headfiles[1][name]
-                tb = '\n'.join(sc.files[fb[0]].split('\n')[fb[1] - 1:fb[3]])
-                th = '\n'.join(headfiles[0][fh[0]].split('\n')[fh[1] - 1:fh[3]])
+                tb = '\n'.join(sc.files[fb[0]].split('\n')[fb[2] - 1:fb[4]])
+                th = '\n'.join(headfiles[0][fh[0]].split('\n')[fh[2] - 1:fh[4]])
                 rec['body_changed'] = tb != th
         del sc
     json.dump(out, open(os.path.join(VAL, 'rows.json'), 'w'), indent=0)
