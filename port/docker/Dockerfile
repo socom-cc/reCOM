@@ -13,8 +13,11 @@ ARG PS2DEV_TAG=v2.0.0
 ARG PS2DEV_ASSET=ps2dev-ubuntu-latest.tar.gz
 ARG PS2DEV_SHA256=c8e5dedccf62084d476894e88cd0451b57f1ed288e741eb3c1263010aaffc028
 
+# libmpc3, libmpfr6 and libgmp10 are what the toolchain's compiler programs (cc1, cc1plus, lto1)
+# load at run time; a bare Ubuntu image does not have libmpc.so.3.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates curl cmake make ccache \
+      libmpc3 libmpfr6 libgmp10 libstdc++6 \
  && rm -rf /var/lib/apt/lists/*
 
 RUN curl -fL --retry 5 -o /tmp/ps2dev.tar.gz \
