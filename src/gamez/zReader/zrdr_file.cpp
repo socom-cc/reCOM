@@ -90,18 +90,16 @@ bool zrdr_toINT(const _zrdr *reader, int *output, int size)
 	if (reader->array->integer < size + 1)
 		return false;
 
-	for (u32 i = 1; i < size + 1; i++)
+	/* 0x23d4e4: value i to output[i] (a real truncated); another type leaves it. Was: every
+	 * value written to output[0], another type as 0 */
+	for (s32 i = 0; i < size; i++)
 	{
-		s32 integer = 0;
-		_zrdr* node = &reader->array[i];
+		_zrdr* node = &reader->array[i + 1];
 
 		if (node->type == ZRDR_REAL)
-			integer = static_cast<s32>(node->real);
-
-		if (node->type == ZRDR_INTEGER)
-			integer = node->integer;
-
-		*output = integer;
+			output[i] = static_cast<s32>(node->real);
+		else if (node->type == ZRDR_INTEGER)
+			output[i] = node->integer;
 	}
 
 	return true;
@@ -119,18 +117,18 @@ bool zrdr_toREAL(const _zrdr *reader, float *output, int size)
 	if (reader->array->integer < size + 1)
 		return false;
 
-	for (u32 i = 1; i < size; i++)
+	/* 0x23d404: value i to output[i] (an integer converted); another type leaves it. Was: the
+	 * loop started at 1 and stopped one short, and every value went to output[0] through an
+	 * s32 (reals truncated): gear offsets / rotations (CCharacterType::Open) and the zAnim
+	 * tables read wrong or uninitialised values */
+	for (s32 i = 0; i < size; i++)
 	{
-		s32 integer = 0;
-		_zrdr* node = &reader->array[i];
-
-		if (node->type == ZRDR_INTEGER)
-			integer = static_cast<f32>(node->integer);
+		_zrdr* node = &reader->array[i + 1];
 
 		if (node->type == ZRDR_REAL)
-			integer = node->real;
-
-		*output = integer;
+			output[i] = node->real;
+		else if (node->type == ZRDR_INTEGER)
+			output[i] = static_cast<f32>(node->integer);
 	}
 
 	return true;
@@ -182,22 +180,20 @@ bool zrdr_findPNT3D(const _zrdr *reader, const char *name, PNT3D *output)
 	if (tag->type != ZRDR_ARRAY)
 		return false;
 
-	if (tag->array->integer < 3)
+	/* 0x23d268: three values (four nodes with the count); another type leaves its axis.
+	 * Was: two values were enough (the third read past the array) and another type wrote the
+	 * previous axis */
+	if (tag->array->integer < 4)
 		return false;
 
-	f32 axis = 0.0f;
-
-	for (u32 i = 0; i < 3; i++)
+	for (s32 i = 0; i < 3; i++)
 	{
-		_zrdr* node = &tag->array[1];
+		_zrdr* node = &tag->array[i + 1];
 
-		if (node[i].type == ZRDR_REAL)
-			axis = node[i].real;
-
-		if (node[i].type == ZRDR_INTEGER)
-			axis = static_cast<f32>(node[i].integer);
-
-		(&output->x)[i] = axis;
+		if (node->type == ZRDR_REAL)
+			(&output->x)[i] = node->real;
+		else if (node->type == ZRDR_INTEGER)
+			(&output->x)[i] = static_cast<f32>(node->integer);
 	}
 
 	return true;
@@ -217,19 +213,15 @@ bool zrdr_findPNT2D(const _zrdr *reader, const char *name, PNT2D *output)
 	if (tag->array->integer < 3)
 		return false;
 
-	f32 axis = 0.0f;
-
-	for (u32 i = 0; i < 2; i++)
+	/* 0x23d1bc: another type leaves its axis (was: the previous axis, or 0, written) */
+	for (s32 i = 0; i < 2; i++)
 	{
-		_zrdr* node = &tag->array[1];
+		_zrdr* node = &tag->array[i + 1];
 
-		if (node[i].type == ZRDR_REAL)
-			axis = node[i].real;
-
-		if (node[i].type == ZRDR_INTEGER)
-			axis = static_cast<f32>(node[i].integer);
-
-		(&output->x)[i] = axis;
+		if (node->type == ZRDR_REAL)
+			(&output->x)[i] = node->real;
+		else if (node->type == ZRDR_INTEGER)
+			(&output->x)[i] = static_cast<f32>(node->integer);
 	}
 
 	return true;
@@ -480,65 +472,58 @@ void _resolveB(_zrdr *self, const _zrdr *root, const char *name)
 /* @socom-skeleton body Resolve__8CRdrFileFb */
 bool CRdrFile::Resolve(bool resolveA)
 {
-	_zrdr* header = NULL;
-	_zrdr* resolved = NULL;
-	char* start = NULL;
-	char* str = NULL;
-	char* table = NULL;
+	/* 0x23c360: the buffer is {string table bytes, node offset}, the strings from +8, the nodes
+	 * at the offset. resolveA makes the root's pointers relative (its children through
+	 * _resolveA, a string to the table, an array to the nodes); otherwise they are made
+	 * absolute (_resolveB's order: the array first, then its children) and the string table
+	 * reads the buffer. Was: resolveA took a byte of the buffer as the node address, did not
+	 * offset an array root and took a string root off the nodes; a string root was set to the
+	 * table's start and a non-array root gave the table the buffer's address as its size. */
+	char* start = m_buffer;
 
-	header = reinterpret_cast<_zrdr*>(m_buffer);
-
-	if (!header)
+	if (!start)
 		return false;
+
+	const char* str;
+	const _zrdr* resolved;
 
 	if (resolveA)
 	{
-		str = reinterpret_cast<char*>(&header[1]);
-		resolved = reinterpret_cast<_zrdr*>(m_buffer[header->integer]);
+		str = start != NULL ? start + 8 : NULL;
+		resolved = start != NULL ? reinterpret_cast<_zrdr*>(start + reinterpret_cast<s32*>(start)[1]) : NULL;
 
-		if (this->type != ZRDR_STRING && this->type == ZRDR_ARRAY)
+		if (type == ZRDR_STRING)
 		{
-			for (u32 i = 1; i < this->array->integer; i++)
-				_resolveA(&this->array[i], resolved, str);
-			
-			return true;
+			string -= reinterpret_cast<s32>(str);
+		}
+		else if (type == ZRDR_ARRAY)
+		{
+			for (s32 i = 1; i < array->integer; i++)
+				_resolveA(&array[i], resolved, str);
+
+			string -= reinterpret_cast<s32>(resolved);
 		}
 
-		this->string = this->string - (s32)resolved;
 		return true;
 	}
-	
-	str = reinterpret_cast<char*>(header + 1);
-	resolved = reinterpret_cast<_zrdr*>(m_buffer + header->integer);
+
+	str = start != NULL ? start + 8 : NULL;
+	resolved = start != NULL ? reinterpret_cast<_zrdr*>(start + reinterpret_cast<s32*>(start)[1]) : NULL;
 
 	if (type == ZRDR_STRING)
-		this->string = str;
-
-	if (type != ZRDR_ARRAY)
 	{
-		start = m_buffer;
-		table = NULL;
+		string += reinterpret_cast<s32>(str);
+	}
+	else if (type == ZRDR_ARRAY)
+	{
+		string += reinterpret_cast<s32>(resolved);
 
-		if (start)
-			table = start + sizeof(_zrdr);
-
-		m_strings.LoadTable(table, reinterpret_cast<u32>(start), false);
-		return true;
+		for (s32 i = 1; i < array->integer; i++)
+			_resolveB(&array[i], resolved, str);
 	}
 
-	this->array = resolved;
-
-	for (u32 i = 1; i < this->array->integer; i++)
-		_resolveB(&this->array[i], resolved, str);
-
 	start = m_buffer;
-
-	table = NULL;
-
-	if (start)
-		table = start + sizeof(_zrdr);
-
-	m_strings.LoadTable(table, *(u32*)start, false);
+	m_strings.LoadTable(start != NULL ? start + 8 : NULL, *reinterpret_cast<u32*>(start), false);
 	return true;
 }
 
@@ -553,7 +538,7 @@ CRdrFile* CRdrFile::Load(zar::CZAR* archive, zar::CKey* key)
 
 	size_t keySize = key->GetSize();
 
-	void* zrdr_buf = zmalloc(keySize);
+	void* zrdr_buf = _malloc(keySize, "zrdr_file.cpp", 232);
 
 	if (!archive->Fetch(key, zrdr_buf, keySize, 0)) /* port: 4th argument 0 (0x23c274) */
 		return NULL;
@@ -566,7 +551,13 @@ CRdrFile* CRdrFile::Load(zar::CZAR* archive, zar::CKey* key)
 	rdrFile->m_size = keySize;
 	rdrFile->type = ZRDR_ARRAY;
 	rdrFile->array = NULL;
-	rdrFile->Resolve(false);
+
+	/* 0x23c318: a reader that does not resolve is deleted and NULL returned */
+	if (!rdrFile->Resolve(false))
+	{
+		delete rdrFile;
+		return NULL;
+	}
 
 	return rdrFile;
 }

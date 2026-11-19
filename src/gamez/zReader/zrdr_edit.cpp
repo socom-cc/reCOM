@@ -100,10 +100,9 @@ bool CRdrEditor::pop()
 		return true;
 	}
 
+	/* 0x240e20: the type byte and the 16-bit length only; this reader's flag byte is kept
+	 * (was: isclone / packed / unused copied from the new node too) */
 	type = array->type;
-	isclone = array->isclone;
-	packed = array->packed;
-	unused = array->unused;
 	length = array->length;
 	this->array = array->array;
 	_free(array, "zrdr_edit.cpp", 82);

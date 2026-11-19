@@ -228,8 +228,8 @@ void CSndJukebox::ClearQueue()
 /* @socom-skeleton stub Play__11CSndJukeboxF10MUSIC_MODEP4CSnd */
 void CSndJukebox::Play(MUSIC_MODE mode, CSnd *sound)
 {
-	/* 0x2f1380: while something plays it fades out and the request is queued (a lower
-	 * mode never replaces a queued sound, ELF: the queued mode is always replaced);
+	/* 0x2f1380: while something plays it fades out and the request is queued unless the
+	 * queued one has a higher mode (was: the mode was always replaced, the sound kept);
 	 * otherwise 0/1 start a random stealth/fight sequence, 2/3 play the given sound. */
 	if (m_cursequence != NULL)
 	{
@@ -246,11 +246,12 @@ void CSndJukebox::Play(MUSIC_MODE mode, CSnd *sound)
 		if (!m_cursequence->IsFading())
 			m_cursequence->FadeOut();
 
-		signed char queued = m_queue.mode;
-		m_queue.mode = (signed char)mode;
-
-		if (!((signed char)mode < queued))
+		/* 0x2f1410 / 0x2f1464: a lower mode than the queued one changes nothing */
+		if (!((signed char)mode < m_queue.mode))
+		{
+			m_queue.mode = (signed char)mode;
 			m_queue.sound = sound;
+		}
 
 		return;
 	}
@@ -260,11 +261,12 @@ void CSndJukebox::Play(MUSIC_MODE mode, CSnd *sound)
 		if (!m_cursound->IsFading())
 			m_cursound->FadeOut(5.5f);
 
-		signed char queued = m_queue.mode;
-		m_queue.mode = (signed char)mode;
-
-		if (!((signed char)mode < queued))
+		/* 0x2f1410 / 0x2f1464: a lower mode than the queued one changes nothing */
+		if (!((signed char)mode < m_queue.mode))
+		{
+			m_queue.mode = (signed char)mode;
 			m_queue.sound = sound;
+		}
 
 		return;
 	}
