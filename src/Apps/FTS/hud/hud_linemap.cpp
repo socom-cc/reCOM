@@ -185,18 +185,25 @@ float CZLineMap::m_uvo[2][4];
 /* @socom-skeleton body hudAddLineType__FP5_zrdr */
 bool hudAddLineType(_zrdr* node)
 {
+    /* 0x3caa50 (hudInit's TacMap Lines): the type's entry of g_mapLineProps (find_or_insert);
+     * the colour read in place; opacity and width read into locals that default to 1, so a
+     * missing tag gives 128 x 1 and width 1 (hud.rdr gives no Width for most types). v0 is
+     * the Width lookup's result (the ELF sets no other; hudInit ignores it). */
     s32 type = 0;
-    
+
     zrdr_findint(node, "Type", &type);
 
     LINE_DATA& line = g_mapLineProps[type]; /* port: tacmap_lines lives only in the unbuilt holding file; 0x3caa50 find_or_inserts into g_mapLineProps */
-    
-    zrdr_findPNT3D(node, "Color", &line.color);
-    zrdr_findreal(node, "Opacity", &line.opacity);
-    line.opacity *= 128.0f;
-    zrdr_findreal(node, "Width", &line._fWidth);
 
-    return true;
+    zrdr_findPNT3D(node, "Color", &line.color);
+    f32 opacity = 1.0f;
+    zrdr_findreal(node, "Opacity", &opacity);
+    line.opacity = 128.0f * opacity;
+    f32 width = 1.0f;
+    bool found = zrdr_findreal(node, "Width", &width);
+    line._fWidth = width;
+
+    return found;
 }
 
 /* @socom-skeleton body hudAddPolyType__FP5_zrdr */
@@ -207,13 +214,17 @@ bool hudAddPolyType(_zrdr* node)
     zrdr_findint(node, "Type", &type);
 
     LINE_DATA& line = g_mapPolyProps[type]; /* port: tacmap_polys lives only in the unbuilt holding file */
-    
-    zrdr_findPNT3D(node, "Color", &line.color);
-    zrdr_findreal(node, "Opacity", &line.opacity);
-    line.opacity *= 128.0f;
-    zrdr_findreal(node, "Width", &line._fWidth);
 
-    return true;
+    /* 0x3ca980: as hudAddLineType, into g_mapPolyProps */
+    zrdr_findPNT3D(node, "Color", &line.color);
+    f32 opacity = 1.0f;
+    zrdr_findreal(node, "Opacity", &opacity);
+    line.opacity = 128.0f * opacity;
+    f32 width = 1.0f;
+    bool found = zrdr_findreal(node, "Width", &width);
+    line._fWidth = width;
+
+    return found;
 }
 
 /* @socom-skeleton stub hudGetTacMapPulseTrans__Fv */

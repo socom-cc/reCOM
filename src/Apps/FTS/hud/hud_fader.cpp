@@ -49,11 +49,16 @@ void CFader::Tick(float dT)
 {
 	/* 0x4035d0: while the fade runs the bitmap is on and the brightness moves by the rate
 	 * (up fading in, down otherwise); a finished fade-in turns it off, a finished fade out
-	 * keeps darkening to the minimum. dT is capped at 0.1 s. */
-	if (dT >= 0.100000002f /* 0x3dcccccd */)
-		dT = 0.100000002f /* 0x3dcccccd */;
+	 * keeps darkening to the minimum. dT is capped at 0.1 s. The two tests are written as
+	 * the ELF has them (`dT < 0.1` keeps dT, 0x4035e0; `!(t <= 0)`, 0x40360c). */
+	f32 step = 0.100000002f /* 0x3dcccccd */;
 
-	if (m_fadetime > 0.0f)
+	if (dT < 0.100000002f /* 0x3dcccccd */)
+		step = dT;
+
+	dT = step;
+
+	if (!(m_fadetime <= 0.0f))
 	{
 		On();
 

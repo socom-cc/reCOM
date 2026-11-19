@@ -1232,7 +1232,7 @@ void BitmapReticule::TimerProgressTick(float, CZSealBody *seal)
 		if (*m_pCurval < 0.0f)
 			m_pCurval = NULL;
 	}
-	else if (m_maxval < *m_pCurval)
+	else if (!(*m_pCurval <= m_maxval)) /* the ELF's form (0x3cd234) */
 	{
 		m_pCurval = NULL;
 	}

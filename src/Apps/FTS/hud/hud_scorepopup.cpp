@@ -380,21 +380,21 @@ void CTeamDisplay::AddRow(CZSealBody *const *seals, const int *scores, int row, 
 	CIntStr strDeathsVal;
 
 	C2DString *name = &_arrStrs[row + 3];
-	name->Load(0.72f, seal->m_display_name, font, g_iBoxLeftX + 20, iy);
+	name->Load(0.719999969f /* 0x3f3851eb */, seal->m_display_name, font, g_iBoxLeftX + 20, iy);
 	name->m_color.x = color;
 	name->m_color.y = color;
 	name->m_color.z = color;
 
 	sprintf(strFragsVal._ach, "%d", scores[row]);
 	C2DString *frags = &_arrStrs[row + 11];
-	frags->Load(0.72f, strFragsVal._ach, font, g_iBoxRightX - 110, iy);
+	frags->Load(0.719999969f /* 0x3f3851eb */, strFragsVal._ach, font, g_iBoxRightX - 110, iy);
 	frags->m_color.x = color;
 	frags->m_color.y = color;
 	frags->m_color.z = color;
 
 	sprintf(strDeathsVal._ach, "%d", seal->m_mp_stats.m_deaths + seal->m_stats.m_deaths);
 	C2DString *died = &_arrStrs[row + 19];
-	died->Load(0.72f, strDeathsVal._ach, font, g_iBoxRightX - 55, iy);
+	died->Load(0.719999969f /* 0x3f3851eb */, strDeathsVal._ach, font, g_iBoxRightX - 55, iy);
 	died->m_color.x = color;
 	died->m_color.y = color;
 	died->m_color.z = color;
@@ -424,8 +424,8 @@ void CTeamDisplay::SetupTeam(float top, float red, float green, float blue, cons
 	strcat(text, strWins._ach);
 	s32 y = (s32)(20.0f + top);
 	_arrStrs[0].Load(0.800000012f /* 0x3f4ccccd */, text, font, g_iBoxLeftX + 20, y);
-	_arrStrs[1].Load(0.72f, "FRAGS", font, g_iBoxRightX - 110, y);
-	_arrStrs[2].Load(0.72f, "DEATHS", font, g_iBoxRightX - 55, y);
+	_arrStrs[1].Load(0.719999969f /* 0x3f3851eb */, "FRAGS", font, g_iBoxRightX - 110, y);
+	_arrStrs[2].Load(0.719999969f /* 0x3f3851eb */, "DEATHS", font, g_iBoxRightX - 55, y);
 	_bmpDivider.Load(3.0f + (f32)g_iBoxLeftX, bottom, (f32)g_iBoxRightX - 3.0f, 3.0f + bottom,
 		zdb::CAssetMgr::m_assets.GetTexHandle(c_szCornerBoxesTx));
 	_bmpDivider.SetUV(0.5f, 0.0f, 0.5f, 0.0f);

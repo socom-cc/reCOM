@@ -159,8 +159,8 @@ void DrawTaskLine(int line, float *cursor, float width, float mark)
 	 * line x LineSpacing) a bar from the cursor `width` long (x scaled by LineWidX from
 	 * LineBaseX), a second from the cursor `mark` long, and a tick down at the bar's end, in
 	 * TaskLineColor[line % 3]; the cursor moves on by `width`. Line 1 first draws a full-height
-	 * divider at x LineBaseX + LineWidX in TaskLineColor[3]. Port deviation: the points' z / w
-	 * are 0 (the ELF leaves them as the stack had them). */
+	 * divider at x LineBaseX + LineWidX in TaskLineColor[3]. As in the ELF the points' z / w
+	 * are left unset (CPnt4D() is empty); Draw2DLine reads only their x / y. */
 	CPnt4D from;
 	CPnt4D to;
 	CPnt4D colorFrom;

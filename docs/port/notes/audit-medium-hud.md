@@ -1,41 +1,46 @@
-# Audit of the medium HUD functions, list medium-hud (2026-11-16, socom-port-audit-mhud)
+# Audit of the medium HUD functions, list medium-hud (2026-11-16 / 2026-11-19, socom-port-audit-mhud, socom-port-audit-mhud2)
 
 List `medium-hud` of the correctness audit ([AUDIT_PLAN.md](../AUDIT_PLAN.md)): the 88 fenced
 functions of 200 to 699 bytes (37,828 bytes) in 19 files of `src/Apps/FTS/hud/`. Judged file by
 file in the scan's rank order (`build/port/audit/scan-medium-hud.md`), each body compared with its
 packet's ELF disassembly instruction by instruction (operand order, widths and signedness, float
 operation order, constant words, call arguments, stores, guards), including the port helpers that
-stand for the ELF's inline code. HEAD 73d7d121.
+stand for the ELF's inline code. HEAD 73d7d121 (70 rows), then 3adc2cc6 (the last 18 rows and two
+functions outside the list, rows `-`: hudAddPolyType / hudAddLineType, which hudInit #45 now
+calls).
 
-**Unfinished: 70 of 88 judged; the list continues.** Left (18 rows, for a follow-up worker):
-`hud_fader.cpp` #10-12, `hud_mapcompass.cpp` #46-47, `hud_scorepopup.cpp` #77-80,
-`hud_actionbitmap.cpp` #1-5, `hud_bitmapreticule.cpp` #6-8, `hud_devtext.cpp` #9.
+## Counts (88 list rows, all judged; 2 rows outside the list)
 
-## Counts (70 judged)
+| Verdict | List rows | Outside |
+|---|---|---|
+| MATCH | 74 | 0 |
+| DEFECT-FIXED | 13 (A 1, B 1, C 11) | 2 (B 2) |
+| DEVIATION-KEPT | 1 | 0 |
+| UNJUDGED | 0 | 0 |
 
-| Verdict | Rows |
-|---|---|
-| MATCH | 59 |
-| DEFECT-FIXED | 10 (A 0, B 2, C 8) |
-| DEVIATION-KEPT | 1 |
-| UNJUDGED | 18 (not reached) |
-
-Defect rate 10 / 70 (14%); A or B 2 / 70. Six of the eight C rows are only the form of a float
-test (`a > b` for the ELF's `!(a <= b)`), NaN-only.
+Defect rate 13 / 88 (15%); A or B 2 / 88 (plus the two outside rows). Nine of the eleven C rows
+are only the form of a float test (`a > b` for the ELF's `!(a <= b)`), NaN-only.
 
 ## Fixes (ELF evidence)
 
-- B, #45 hudInit 0x3bd010: the TacMap Polygons / Lines loops never ran (count 0, the Lines loop
+- A, #45 hudInit 0x3bd010: the TacMap Polygons / Lines loops never ran (count 0, the Lines loop
   read the Polygons array), so the tactical map's line and polygon types kept the built-in
-  defaults; rewritten with the ELF's inline `_zrdr::Get` walk. Needs a tacmap before / after pair
-  (grade A if the colours change); hudAddPolyType / hudAddLineType now run and were not judged
-  here (small band).
+  defaults; rewritten with the ELF's inline `_zrdr::Get` walk. Regraded B -> A by a before / after
+  pair (m8, full-screen map, objective BRAVO TO CHARLIE): the area outline changes from white to
+  hud.rdr's tan (148, 126, 91) and the green type-1 lines and polygon (opacity 0 in hud.rdr) are
+  gone.
 - B, #67 CZPauseTest::HandleSelectionInput 0x3bf0a4: fptoui gives 0 for -1; GCC's `(u32)` gave
   0xffffffff, so INVERT_PITCH_CONTROLLER got 0xffff / callback 1 instead of 0 / callback 2.
+- B, hudAddPolyType 0x3ca980 / hudAddLineType 0x3caa50 (outside the list): Opacity and Width are
+  read into locals preset to 1.0 (0x3ca9e0 / 0x3caa24, 0x3caab0 / 0x3caaf4); the port read them
+  into the map entry, so a missing tag left 0 instead of 128 / 1. Masked: hud.rdr gives every
+  entry an Opacity, and width 0 or 1 draws the same thin line.
 - C, #74 CZPlayerMapItem ctor 0x3dc850 (and TickSealCone's death swap 0x3dc16c, the hud-b #38
   deviation): the clipped fans' texture copies (C2DTriFan::m_texture exists now).
+- C, #77 CTeamDisplay::AddRow 0x42161c: the string scale word 0x3f3851eb (`0.72f` gives
+  0x3f3851ec); also SetupTeam's two loads (0x4212ac, 0x4212e0), outside this list.
 - C (compare forms, NaN only): #73 0x3dc7d4, #66 0x3be694 / 0x3be6b4, #88 0x3d37d8, #64 0x3c212c,
-  #75 0x3d94f8, #33 0x3ca698 / 0x3ca720, #29 0x3bd290.
+  #75 0x3d94f8, #33 0x3ca698 / 0x3ca720, #29 0x3bd290, #11 0x4035e0 / 0x40360c, #6 0x3cd234.
 
 ## Kept deviations
 
@@ -45,19 +50,30 @@ test (`a > b` for the ELF's `!(a <= b)`), NaN-only.
 
 - audit-large-hud-b.md #38 (TickSealCone) is no longer a deviation: the texture copies are made.
 - CEntity::m_type is a 4-byte enum in the port; the ELF reads it as a byte (+0x10).
-- hudAddPolyType / hudAddLineType (hud_linemap.cpp) now run on hud.rdr data: judge them.
+- CTeamDisplay::SetupTeam 0x421140 (not in this list): its two 0.72 words are fixed; judge the rest.
+- `float-constants.md`-style words: other `0.72f` / decimal literals in the HUD may round one ulp
+  off the ELF's word (0.72 here); a search of the HUD's literals against the ELF would find them.
 
 ## What the packets lacked
 
 Same-file helpers (IgwsLoadHighlight, StepDown / StepUp, SetMapScreenPos, AfterCloseFirst), enum
-values (PadBtnFunc, Selection, ZOOMSTATE), C2DString vtable slots (vt.py), CHUD member offsets
-(off.py), the fptoui body, list tail() / end() bodies, and the ELF's `_zrdr::Get` inline.
+values (PadBtnFunc, Selection, ZOOMSTATE, FADE_DIRECTION, KEY_*), C2DString vtable slots (vt.py),
+CHUD / CZSealBody / CharacterDynamics member offsets (off.py), the fptoui body, list tail() /
+end() bodies, the ELF's `_zrdr::Get` inline, the text of short strings (0x465a98 ""), CPnt4D()'s
+body, and the data a fix's grade rests on (hud.rdr's TacMap, read with iso.py / zar.py / rdr.py).
 Working file by file helped: a file's helpers, layout and enums were read once for all its rows.
 
 ## Runs
 
-- Default build (`default.sh audit-mhud-default`): library and link exit 0. No emulator run
-  (stopped by the coordinator before the smoke run).
+- Default build (`default.sh audit-mhud-default`, then `audit-mhud2-default` on the final tree):
+  library and link exit 0.
+- Tacmap pair (`tacmap/build.sh`, pad_t1, 130 s): `audit-mhud2-tm-before` (hud_main.cpp of
+  a0a49022) and `audit-mhud2-tm-after` (final tree); the shots at 84 s show the colour change
+  (#45 above). Both runs: map opened, objectives stepped, compass map again, no fault.
+- Smoke (`fake.sh audit-mhud2-smoke`, m8, about 90 s after the cameras): cameras ended at 92.9 s, run to
+  191 s (98 s of play): fired, map opened and closed, turned and moved; HUD drawn (ammo 27/30, team
+  rows, compass), no fault. A first pad that walked forward met the m8 rush: player death at
+  134 s, death cameras, debrief at 156 s, no fault.
 
 | # | Address | Bytes | Function | File | Verdict | Grade | What was compared, what differed |
 |---|---|---|---|---|---|---|---|
@@ -119,7 +135,7 @@ Working file by file helped: a file's helpers, layout and enums were read once f
 | 32 | 0x3c8be0 | 224 | CZLineMap::TickLines(CAiMap const&, float, bool) | hud_linemap.cpp | MATCH | - | 16-byte lines, TickLine when not polygon (bit 5 of +0xd) or outlined (bit 6), SetupPolygon for polygons. |
 | 29 | 0x3bd220 | 416 | CLetterBox::Tick(float) | hud_letterbox.cpp | DEFECT-FIXED | C | Direction byte, the `64 == p` / `0 == p` ends, 128 dT steps, the out clamp `p <= 0` with both Off, the two Loads agree; the in clamp is `!(p < 64)` in the ELF (0x3bd290) where the port had `p >= 64` (NaN only): written as the ELF. |
 | 30 | 0x3bd410 | 556 | CLetterBox::CLetterBox() | hud_letterbox.cpp | MATCH | - | C2D base, two bitmaps: no texture bit, Load(0, 0, 1, 1, NULL), black, trans 127, isTrans bit, Off, push_back; m_curpos 0, m_slidedir unset (quirk). |
-| 45 | 0x3bd010 | 428 | hudInit() | hud_main.cpp | DEFECT-FIXED | B | The port's loops had a constant count of 0 (and the Lines loop read the Polygons array), so hud.rdr's TacMap Polygons / Lines never reached hudAddPolyType / hudAddLineType and the map used the built-in _linedata defaults; rewritten from the ELF (count = element 0's integer - 1 each pass, child = the inline _zrdr::Get, Lines found after the polygon loop). B until a tacmap before / after pair shows the colours change (then A). |
+| 45 | 0x3bd010 | 428 | hudInit() | hud_main.cpp | DEFECT-FIXED | A | The port's loops had a constant count of 0 (and the Lines loop read the Polygons array), so hud.rdr's TacMap Polygons / Lines never reached hudAddPolyType / hudAddLineType and the map used the built-in _linedata defaults; rewritten from the ELF (count = element 0's integer - 1 each pass, child = the inline _zrdr::Get, Lines found after the polygon loop). Regraded A (2026-11-19): the before / after pair shows the outline colour change and the type-1 lines gone. |
 | 40 | 0x3b90f0 | 596 | CHUD::On() | hud_main.cpp | MATCH | - | m_ison (+0x14955), network num_connected, the 18 On calls in the ELF's order (offsets checked with off.py), the two messengers, ZoomOut on mode 1 else ZoomIn, full-screen map, network team-mate names. |
 | 39 | 0x3b8ed0 | 536 | CHUD::Off() | hud_main.cpp | MATCH | - | The same elements Off in order (with m_ammotype), network names, m_ison 0, the two messengers. |
 | 43 | 0x3bb1c0 | 468 | CHUD::ReInit_Uninit() | hud_main.cpp | MATCH | - | UninitMap, team names Clear (single player), the five UnInits, the nine ClearAndWipes and 30 perf strings, pause close / Clear, pose Clear, order menu ClearText / Disable, flash Reset, team-mate UnInit, MissionEndCleanup, hudTurnOffScorePopup. |
@@ -131,3 +147,23 @@ Working file by file helped: a file's helpers, layout and enums were read once f
 | 37 | 0x3b83a0 | 328 | CHUD::SwitchToCompassMap() | hud_main.cpp | MATCH | - | Reticule, team names, fire mode On, SetupAmmoCount(appCamera +0x3c), the five On calls, messenger / subtitles, zoom layout, network names, fade time 0. |
 | 38 | 0x3b84f0 | 432 | CHUD::SwitchToFullScreenMap() | hud_main.cpp | MATCH | - | The ten Off calls, map On, zoom text / messenger / subtitles / the three action bitmaps Off, network names. |
 | 28 | 0x3be4a0 | 240 | CLensFlareSaturate::CLensFlareSaturate() | hud_lensflare.cpp | MATCH | - | C2DBitmap base, DiIntersect(8) (the default argument), the six clears, m_hasTexture (bit 3 of +0x15) 0, Load(0, 0, 640, 448, NULL), SetTrans(128) (slot 0x20), m_isTrans (bit 2) 1. |
+| 10 | 0x4031a0 | 664 | CFlashFX::Tick(float) | hud_fader.cpp | MATCH | - | The two 0.1 caps (`dT < 0.1` keeps dT, then `step < 0.1`), `!(fadetime <= 0)`, On (slot 0x1c) and the CFader direction byte (+0x80, IN = 0) with b + -(r x fade), the fade-in end Off (slot 0x18), fadetime -= fade, timer -= step, the switch on the flash direction (+0xa0: OUT 1, FADE 2), duration / fade-in tests `!(t <= 0)`, the inline fade-in stores in the ELF's order and (1 - min) / total. |
+| 11 | 0x4035d0 | 312 | CFader::Tick(float) | hud_fader.cpp | DEFECT-FIXED | C | On / Off slots, IN = 0, the rate steps (the port's b - r dT is the ELF's b + -(r dT), the same IEEE result: the scan's sub count), fadetime -= dT agree. The cap is `dT < 0.1` keeps dT (0x4035e0) where the port tested `dT >= 0.1`, and the run test `!(t <= 0)` (0x40360c) where the port had `t > 0` (NaN only): written as the ELF. |
+| 12 | 0x403710 | 260 | CFader::CFader() | hud_fader.cpp | MATCH | - | C2DBitmap base, CFader vtable, direction byte 0, fadetime / total / rate / min 0 (brightness +0x90 left unset in both), m_hasTexture (bit 3 of +0x15) 0, Load(0, 0, 640, 448, NULL), SetColor(0, 0, 0), SetTrans(128) (slot 0x20), m_isTrans (bit 2) 1, Off (slot 0x18). |
+| 46 | 0x3cbd80 | 272 | MapCompass::~MapCompass() | hud_mapcompass.cpp | MATCH | - | The static navpoint_vec (0x560640) cleared and swapped with an empty vector, then member destructors only (the two 33 x 656 anchor arrays, m_fov, m_anchor_head, m_poly): the port's body gives the same. |
+| 47 | 0x3cc000 | 456 | MapCompass::MapCompass() | hud_mapcompass.cpp | MATCH | - | Member construction (the 33 CPnt3D, m_poly, the inline C2D head, m_fov, the two anchor arrays), the ten zero stores (+0x4, +0x220..+0x234, +0x0, +0x218, +0x21c; m_fovtex unset in both), navpoint_vec reserve(48). |
+| 5 | 0x3d7f40 | 300 | CActionTxtrMachine::UpdateDriverPickup() | hud_actionbitmap.cpp | MATCH | - | Node cleared first, the list size (+0x4) and driver tests, entry 0's action id (+0x4) 4 / 5, CurrentPickup / CurrentPickupSecondary, NULL and the 7-bit type (+0x8 & 0x7f == 8), node (+0x0) stored before the weapon (+0x4) test, GetName or "UNKNOWN" into +0x1a4, v0 = node != NULL. The ELF reads the list of the global ActionTxtrMachine_HUD (the only machine, a static of this file; the port reads this one's: the same object). The trace is port-only. |
+| 4 | 0x3d7930 | 608 | CActionTxtrMachine::TickTransparencyFade(bool) | hud_actionbitmap.cpp | MATCH | - | step 400 x frameTime; active: string alpha (+0x5c of the string) 128, pool entries 1..17 (stride 224, bitmap +16) skipped when off or active (+0xd0), `a == 0` skip, a - step, `a < 0` -> 0 and the string Off, SetTrans; inactive: the string fade with Off, the timer image (GetTrans - step, both Off, both SetTrans), the pool loop without the active test. The ELF addresses the global machine (the same object). |
+| 1 | 0x3d5340 | 496 | CZDynamicRadioBitmap::HudTick(MENU_STATE) | hud_actionbitmap.cpp | MATCH | - | Network byte (+0x9), CHUD::IsOn, full-screen byte (+0xe834), the static off_time (0 at first entry), receiving (voice +0x14) -> 1 + runTime, talking (+0x13) -> talk texture (+0x84), else `!(off_time < runTime)` -> in-use texture (+0x80), net game (mission +0x584) and texture tests -> Off, TickFade, a new texture -> Load(x, y, 32 + x, 32 + y) at +0x68 / +0x6c and On, else On when off. The std::string naming the choice is never read. |
+| 2 | 0x3d55f0 | 384 | CZStaticRadioBitmap::HudTick(MENU_STATE) | hud_actionbitmap.cpp | MATCH | - | The same entry tests; voice off (+0xd) -> +0x80, channel (+0x0) & 3: 0 team (+0x84), 1 defense (+0x8c), 2 offense (+0x88), 4 dead (+0x90, never: quirk kept); the net game / texture tests, TickFade, Load at +0x60 / +0x64 with 32 + x, On, the IsOn test. |
+| 3 | 0x3d5770 | 256 | CZStaticRadioBitmap::Init(CHUD*) | hud_actionbitmap.cpp | MATCH | - | Off (slot 0x18), SetTrans(0) (slot 0x20), fade limit 64, dx 2, enable 1, SetColor(color_base), the five GetTexHandle names in order, parent. |
+| 77 | 0x421510 | 584 | CTeamDisplay::AddRow(CZSealBody* const*, int const*, int, float) | hud_scorepopup.cpp | DEFECT-FIXED | C | Row spacing ((0.5 x ((354 + top) - 3) - 2) - (40 + top)) / 7, y (40 + top) + spacing x row, fptosi, alive bit (+0xdd bit 3) 255 / 128, strings row + 3 / + 11 / + 19 (stride 136 at +256), Load (slot 0x68) at left + 20, right - 110, right - 55, "%d" of the score and of the two deaths (+0x484 + +0x4d8), the colour stores agree. The scale word is 0x3f3851eb (0x42161c) where the port's `0.72f` gives 0x3f3851ec: written `0.719999969f`, also in SetupTeam's two loads (0x4212ac, 0x4212e0; that function is not in this list). |
+| 78 | 0x421760 | 436 | CScorePopup::Draw(zdb::CCamera*) | hud_scorepopup.cpp | MATCH | - | g_bOn, the two title backgrounds (virtual Draw), the ten box bitmaps (C2DBitmap::Draw direct) in order, the seals' divider (+0x80) and 27 strings, the terrorists' divider and 27 strings. |
+| 79 | 0x421df0 | 696 | hudTickScorePopup(CPad const&) | hud_scorepopup.cpp | MATCH | - | On: SELECT (state +0x14) rising (3) clears g_bOn and ClearAndWipes (slot 0x78) the 2 x 27 strings; off: network byte and falling (1), g_bOn, left = left - XMargin (integer), right = fptosi((f32)XMargin + ((f32)left + maxlength)), top + YMargin + 5, SetupBackgroundBox, SetupTeam(top, 32, 32, 64, "SEALs", team 00, 1), the divider Load(3 + left, m, right - 3, 3 + m) with m = 0.5 x ((354 + top) - 3) and c_szCornerBoxesTx, SetUV(0.5, 0, 0.5, 0), SetupTeam(m, 64, 32, 32, "TERRORISTS", team 08, 0). |
+| 80 | 0x422140 | 296 | GetTeamMembers(CZSealBody**, int*, bool) | hud_scorepopup.cpp | MATCH | - | The CEntity list walk with CEntityItr, team bit (+0xc4 & 1) against the flag, the name (+0x14) test, seal and score (+0x47c + +0x4d0) stored, return at 8, count. The scan's +0xb4 / +0xc4 is the port's CZSealBody layout (m_team; off.py). |
+| 6 | 0x3cd110 | 516 | BitmapReticule::TimerProgressTick(float, CZSealBody*) | hud_bitmapreticule.cpp | DEFECT-FIXED | C | No timer: 400 x frameTime off GetTrans, `t < 0` -> 0 with both Off (slot 0x18), both SetTrans (slot 0x20); a timer: the value clamped at `v < 0`, x frac, 1 - v when decreasing, background On / SetTrans(0x4219999a), image On / SetTrans(100), SetPos(fptosi X1, Y1, X1 + W x v, Y2), the decreasing end `cur < 0` agree. The increasing end is `!(cur <= max)` in the ELF (0x3cd234) where the port tested `max < cur` (NaN only): written as the ELF. |
+| 7 | 0x3cd320 | 356 | BitmapReticule::UpdateGBarColor(float) | hud_bitmapreticule.cpp | MATCH | - | GetHUDOwner, aim (+0x10b0 m_aim_goal.y), trigger power (control +0xf0), the toss test power < +0x1a4 then aim < +0x1a8 (off.py), `v <= 0x3e19999a` -> 150, toss 2 x (86 v) / 2 x (63 v) / 2 x (27 v), else 200 v, 200 v, 10 v; SetColor on the two polys (+544, +1040). The ELF's second GetDynamics result is unused (the port drops the call: no side effect). |
+| 8 | 0x3d0520 | 304 | BitmapReticule::DefuseTick(float) | hud_bitmapreticule.cpp | MATCH | - | `t < 0` return, fptosi(t) + 1 before the subtraction, `t <= 0`: SetString("") (slot 0x5c, 0x465a98 is ""), Off, -1, CValve::Create(c_szDefusingValve, 0, 2); else On (slot 0x1c), modff, fptosi(whole) + 1 < before + 1 -> "DEFUSING: %d" and SetString, SetTrans(100 x frac). |
+| 9 | 0x3db5f0 | 616 | DrawTaskLine(int, float*, float, float) | hud_devtext.cpp | MATCH | - | Line 1: TaskLineColor[3] for both colours, x BaseX + WidX, y 0 to 448; then y BaseY + line x Spacing, from BaseX + WidX x cur, the mark end BaseX + WidX x (cur + mark), cur += width, to at the new cursor, TaskLineColor[line % 3] (signed remainder), the three Draw2DLine calls with from = to (all four words) and to.y + Spacing. The code's comment called the points' z / w zeroed in the port; CPnt4D() is empty, so both leave them unset (Draw2DLine reads only x / y): the comment corrected. |
+| - | 0x3ca980 | 196 | hudAddPolyType(_zrdr*) | hud_linemap.cpp | DEFECT-FIXED | B | Not in the list (small band); judged because hudInit (#45) now calls it. "Type" (default 0, start 1), find_or_insert into g_mapPolyProps (0x560530), "Color" read into the entry agree. "Opacity" and "Width" are read into locals preset to 1.0 (0x3ca9e0, 0x3caa24), then opacity = 128 x local and width = local; the port read both straight into the entry, so a missing tag kept the new entry's 0 (opacity 0, width 0) where the ELF gives 128 and 1; v0 is the Width lookup's result (no return is set; hudInit ignores it): written as the ELF. B: hud.rdr gives every TacMap entry an Opacity and only Lines type 7 a Width, and width 0 or 1 both draw the thin line (`!(w <= 1.01)` picks the wide one). |
+| - | 0x3caa50 | 196 | hudAddLineType(_zrdr*) | hud_linemap.cpp | DEFECT-FIXED | B | The same body into g_mapLineProps (0x560510); the same fix (locals preset at 0x3caab0, 0x3caaf4). |
