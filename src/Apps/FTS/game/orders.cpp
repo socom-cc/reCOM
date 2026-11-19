@@ -867,26 +867,34 @@ void OrdersMenu::EnableTuples(int col)
 	int verb = -1;
 	int object = -1;
 
+	/* a differing id is remembered even when it is negative (the move sits in the bltz delay
+	 * slot, 0x17af4c / 0x17af6c / 0x17af8c), so a run broken by -1 enables its word again */
 	for (int i = 0; i < num_tuples; i++)
 	{
 		RecoTuple *tuple = &tuples[i];
 
-		if (object != tuple->objectID && tuple->objectID >= 0)
+		if (object != tuple->objectID)
 		{
 			object = tuple->objectID;
-			recoEnableWord(col, object);
+
+			if (object >= 0)
+				recoEnableWord(col, object);
 		}
 
-		if (verb != tuple->verbID && tuple->verbID >= 0)
+		if (verb != tuple->verbID)
 		{
 			verb = tuple->verbID;
-			recoEnableWord(col, verb);
+
+			if (verb >= 0)
+				recoEnableWord(col, verb);
 		}
 
-		if (subject != tuple->subjectID && tuple->subjectID >= 0)
+		if (subject != tuple->subjectID)
 		{
 			subject = tuple->subjectID;
-			recoEnableWord(col, subject);
+
+			if (subject >= 0)
+				recoEnableWord(col, subject);
 		}
 	}
 
@@ -1563,8 +1571,7 @@ OrdersMenu::~OrdersMenu()
 	delete[] m_team_text;
 	delete[] m_cmd_text;
 	delete[] m_aux_text;
-	delete[] cmd_table;
-	cmd_table = NULL; /* port: cleared (a HUD built again re-reads the table) */
+	delete[] cmd_table; /* the ELF leaves cmd_table pointing at the freed table (0x177fbc) */
 }
 
 /* @socom-skeleton stub Enable__10OrdersMenuFv */

@@ -153,10 +153,8 @@ void SetFinalTeamTotalsUiVar(bool seals, const char *name)
 
 		for (CEntityItr it(CEntity::m_list.begin()); it._it != CEntity::m_list.end(); it.Advance())
 		{
+			/* ELF quirk kept (0x3ddf60): no seal test; the first list entry is used as it is */
 			CZSealBody *seal = it.GetSeal();
-
-			if (seal == NULL) /* port: NULL-tested (the ELF reads the team of a first entity that is no seal) */
-				continue;
 
 			if (seals == ((seal->m_team & 1) != 0))
 				total += (seal->m_mp_stats.*c_arrStatFuncs[i])();
@@ -259,10 +257,8 @@ void SetStatLbUiVar(bool seals, const char *name, CSealStats &(CZSealBody::*stat
 
 	for (CEntityItr it(CEntity::m_list.begin()); it._it != CEntity::m_list.end(); it.Advance())
 	{
+		/* ELF quirk kept (0x3dd654): no seal test; the first list entry is used as it is */
 		CZSealBody *seal = it.GetSeal();
-
-		if (seal == NULL) /* port: NULL-tested (as SetFinalTeamTotalsUiVar) */
-			continue;
 
 		if (seals == ((seal->m_team & 1) != 0))
 			team.insert(team.end(), 1, seal);
@@ -296,8 +292,8 @@ void TickMpStats()
 {
 	/* 0x3dd3c0 (CMPExitState::Tick, every frame): the game's MVP (highest MVP score, then the
 	 * name later in order) and their six game stats. ELF quirk kept: the first list entry is
-	 * the first candidate without a seal test (port: NULL-tested; nothing is shown without a
-	 * seal). */
+	 * the first candidate without a seal test, and the MVP is used without one (0x3dd45c,
+	 * 0x3dd4bc). */
 	CEntityItr it(CEntity::m_list.begin());
 	CZSealBody *mvp = it.GetSeal();
 
@@ -305,12 +301,9 @@ void TickMpStats()
 	{
 		CZSealBody *seal = it.GetSeal();
 
-		if (mvp == NULL || CompareSeals(mvp, seal)) /* the ELF inlines the comparison */
+		if (CompareSeals(mvp, seal)) /* the ELF inlines the comparison */
 			mvp = seal;
 	}
-
-	if (mvp == NULL)
-		return;
 
 	*theUIVarManager.Add("MvpName", NULL, UIVL_TEMPORARY) = mvp->m_display_name;
 
