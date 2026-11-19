@@ -240,12 +240,13 @@ CTexHandle* CTexList::GetHandle(const char* name)
 		{
 			CTexHandle* cur = *i;
 
-			if (!cur->m_texture || !cur->m_name)
+			/* 0x2f89c0: the texture's own name (+0x14), not the handle's copy */
+			if (!cur->m_texture || !cur->m_texture->m_name)
 			{
 				continue;
 			}
 
-			if (strcasecmp(cur->m_name, name) == 0)
+			if (strcasecmp(cur->m_texture->m_name, name) == 0)
 				return cur;
 		}
 
@@ -276,7 +277,7 @@ CTexHandle* CTexList::Append(CTexture* texture, bool search)
 		if (handle == NULL)
 		{
 			handle = CTexHandle::Create(texture);
-			insert(begin(), handle);
+			insert(end(), handle); /* 0x2f8938: appended at data + size */
 		}
 
 		return handle;

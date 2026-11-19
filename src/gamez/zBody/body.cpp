@@ -829,7 +829,7 @@ void CZBodyAnim::SetMultiplier(bool apply)
 	{
 		f32 distance = m_pCommon->m_distance;
 
-		if (distance > 0.200000003f /* 0x3e4ccccd */)
+		if (!(distance <= 0.200000003f /* 0x3e4ccccd */)) /* 0x1e1c78: c.le / bc1t */
 		{
 			multiplier = (m_flags & 0x200) == 0 ? m_tf * 100.0f : m_tf;
 			multiplier = multiplier / distance;
@@ -963,10 +963,12 @@ bool CBlendOverlay::IsTriggerTime(float from, float to, bool backwards)
 		if (to <= from)
 			return to <= t && t <= from;
 
-		return !(t < to - 1.0f || from < t);
+		/* 0x1e18cc: c.le (to - 1) <= t, then t <= from */
+		return to - 1.0f <= t && t <= from;
 	}
 
-	if (from <= to)
+	/* 0x1e1900: the wrap is taken on to < from (c.lt / bc1t) */
+	if (!(to < from))
 		return from <= t && t <= to;
 
 	return from - 1.0f <= t && t <= to;
@@ -984,7 +986,7 @@ bool CBlendOverlay::Trigger(CBody *body, bool out)
 	{
 		m_state = out ? -1 : 1;
 
-		if (body->m_interp1 > 0.0f)
+		if (!(body->m_interp1 <= 0.0f)) /* 0x1e176c: c.le / bc1t */
 			body->Snap(); /* inline in the ELF */
 
 		f32 blend = m_anim->m_anim->m_pCommon->m_blendtime;
@@ -1276,7 +1278,7 @@ bool CZBodyAnimBlend::IsTriggerTime(float t, float from, float to)
 		return to - m_quitT <= t && t <= from;
 	}
 
-	if (from <= to)
+	if (!(to < from)) /* 0x1e0848: c.lt / bc1t to the wrap */
 		return from <= t && t <= to;
 
 	return from - m_quitT <= t && t <= to;
@@ -1321,7 +1323,7 @@ float CZBodyAnimBlend::Propagate(float dT, bool apply)
 
 	for (ACTIVE_ANIM *active = m_anims->Begin(); active != NULL; active = m_anims->Next())
 	{
-		if (active->m_playback > 0.0f)
+		if (!(active->m_playback <= 0.0f)) /* 0x1e047c: c.le / bc1t */
 			dT *= active->m_playback;
 
 		CZBodyAnim *anim = active->m_anim;
@@ -1430,7 +1432,7 @@ void CZBodyAnimBlend::GetVelocity(CPnt3D *vel)
 		CPnt3D v;
 		object->GetVelRaw(anim, active->m_a, active->m_b, &v);
 
-		if ((m_flags & 0x40) == 0 && active->m_playback > 0.0f && active->m_playback != 1.0f)
+		if ((m_flags & 0x40) == 0 && !(active->m_playback <= 0.0f) && active->m_playback != 1.0f) /* 0x1e0078: c.le / bc1t */
 			v.Scale(1.0f / active->m_playback, &v);
 
 		if (anim->m_flags & 0x40)

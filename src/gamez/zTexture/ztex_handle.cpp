@@ -31,9 +31,11 @@ CTexHandle* CTexHandle::Create(CTexture* texture)
 		{
 			char* name = texture->m_name;
 
+			/* 0x2f97e0: the inlined SetTexture tags the name's records with its own lines
+			 * (91 / 92, 0x2f9848 / 0x2f9864) */
 			if (handle->m_name != NULL)
 			{
-				zfree(handle->m_name);
+				_free(handle->m_name, "ztex_handle.cpp", 0x5b);
 			}
 
 			handle->m_name = NULL;
@@ -44,7 +46,7 @@ CTexHandle* CTexHandle::Create(CTexture* texture)
 			}
 			else
 			{
-				handle->m_name = strdup(name);
+				handle->m_name = _strdup(name, "ztex_handle.cpp", 0x5c);
 			}
 
 			texture->m_htex_count++;
