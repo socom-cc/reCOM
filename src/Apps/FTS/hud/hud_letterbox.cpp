@@ -86,7 +86,7 @@ void CLetterBox::Tick(f32 dT)
 		{
 			m_curpos = m_curpos + dT * 128.0f;
 
-			if (m_curpos >= 64.0f)
+			if (!(m_curpos < 64.0f)) /* ELF 0x3bd290: c.lt.s, clamps when not < 64 */
 			{
 				m_curpos = 64.0f;
 				m_slidedir = SLIDE_NONE;

@@ -93,15 +93,18 @@ void CZPlayerMapItem::UnInitStaticItems()
 /* @socom-skeleton stub __ct__15CZPlayerMapItemFP7CEntity */
 CZPlayerMapItem::CZPlayerMapItem(CEntity *entity)
 {
-	/* 0x3dc850: alive, the cone and live-blip textures, faded out and fading in, a blue name
-	 * string. port: the clipped-fan texture copies (+0x418/+0x444/+0x470/+0x49c) are not
-	 * made - C2DTriFan has no texture member yet; Clip is empty, so the fans never draw. */
+	/* 0x3dc850: alive, the cone and live-blip textures (copied into the clipped fans,
+	 * +0x470 / +0x49c / +0x418 / +0x444), faded out and fading in, a blue name string */
 	m_wasalive = true;
 	m_entity = entity;
 	m_mybliptex = NULL;
 	m_myconetex = NULL;
 	m_myconetex = m_conetex;
 	m_mybliptex = m_alivebliptex;
+	m_clippedcone[0].m_texture = m_myconetex;
+	m_clippedcone[1].m_texture = m_myconetex;
+	m_clippedblip[0].m_texture = m_mybliptex;
+	m_clippedblip[1].m_texture = m_mybliptex;
 	m_oldpos = CPnt3D::zero;
 	m_fadeval = 0.0f;
 	m_fadein = true;
@@ -128,7 +131,7 @@ bool CZPlayerMapItem::Tick(CZNewHudMap *map, float dT)
 	{
 		m_fadeval += 0.51f * dT;
 
-		if (m_fadeval > 1.0f)
+		if (!(m_fadeval <= 1.0f)) /* ELF 0x3dc7d4: c.le.s, clamps when not <= */
 			m_fadeval = 1.0f;
 	}
 	else
@@ -289,7 +292,11 @@ void CZPlayerMapItem::TickSealCone(CZNewHudMap *map)
 	{
 		m_myconetex = NULL;
 		m_mybliptex = m_deadbliptex;
-		/* port: the clipped fans' texture copies are not made (see the ctor) */
+		/* the clipped fans' texture copies, as in the ctor (0x3dc16c..0x3dc188) */
+		m_clippedcone[0].m_texture = m_myconetex;
+		m_clippedcone[1].m_texture = m_myconetex;
+		m_clippedblip[0].m_texture = m_mybliptex;
+		m_clippedblip[1].m_texture = m_mybliptex;
 		m_wasalive = false;
 		m_blip.Off();
 		m_cone.Off();

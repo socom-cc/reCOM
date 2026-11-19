@@ -222,7 +222,9 @@ void CZPauseTest::HandleSelectionInput(const CPad &pad)
 	{
 		hackPitchFactor = hackPitchFactor * -1.0f;
 		CValve* valve = CValve::Create("INVERT_PITCH_CONTROLLER", (VALVE_TYPE)2);
-		u32 value = (u32)hackPitchFactor; /* ELF: fptoui (-1 gives 0) */
+		/* ELF 0x3bf0a4: fptoui (0x16d7a0), which gives 0 for a negative value; GCC's (u32) of
+		 * -1.0f gives 0xffffffff, so the negative case is written out */
+		u32 value = hackPitchFactor < 0.0f ? 0 : (u32)hackPitchFactor;
 		u32 change = valve->m_value != value ? (value ? 1 : 2) : 0;
 		valve->m_value = value;
 
@@ -461,18 +463,19 @@ void CZPauseTest::TickOffState(const CPad &pad, float dT)
 	{
 		OpenPauseMenu();
 	}
-	else if (g_fFadeoutTime >= 0.0f)
+	else if (!(g_fFadeoutTime < 0.0f)) /* ELF 0x3be694: c.lt.s, skips when < 0 */
 	{
 		f32 time = g_fFadeoutTime + dT;
-		f32 alpha = time >= 0.5f ? 0.0f : 1.0f - time * 2.0f;
+		bool done = !(time < 0.5f); /* ELF 0x3be6b4: one flag from c.lt.s, used twice */
+		f32 alpha = done ? 0.0f : 1.0f - 2.0f * time;
 		g_fFadeoutTime = time;
 
 		for (s32 i = 0; i < m_num_selections; i++)
-			m_selections[i].SetTrans(alpha * 128.0f);
+			m_selections[i].SetTrans(128.0f * alpha);
 
-		m_background.SetTrans(alpha * 40.0f);
+		m_background.SetTrans(40.0f * alpha);
 
-		if (time >= 0.5f)
+		if (done)
 			g_fFadeoutTime = -1.0f;
 	}
 

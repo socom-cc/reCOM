@@ -232,7 +232,8 @@ CZLineMap::CZLineMap()
 	m_map = NULL;
 	m_hudmap = NULL;
 	m_iNumActiveTriangles = 0;
-	/* port: also cleared here (the ELF leaves them to the first Tick) */
+	/* port deviation kept: also cleared here (the ELF leaves them to the first Tick), so a
+	 * Draw before that Tick reads no stale heap words */
 	m_lastline = 0;
 	m_laststring = 0;
 	m_linetex = NULL;
@@ -314,9 +315,10 @@ C2DLine * CZLineMap::LineTo(const CPnt3D *world)
 
 	C2DLine* line = NULL;
 	bool outside = (m_pointA.x < m_hudmap->m_screenx1 && m_pointB.x < m_hudmap->m_screenx1)
-		|| (m_pointA.x > m_hudmap->m_screenx2 && m_pointB.x > m_hudmap->m_screenx2)
+		|| (!(m_pointA.x <= m_hudmap->m_screenx2) && !(m_pointB.x <= m_hudmap->m_screenx2))
 		|| (m_pointA.y < m_hudmap->m_screeny1 && m_pointB.y < m_hudmap->m_screeny1)
-		|| (m_pointA.y > m_hudmap->m_screeny2 && m_pointB.y > m_hudmap->m_screeny2);
+		|| (!(m_pointA.y <= m_hudmap->m_screeny2) && !(m_pointB.y <= m_hudmap->m_screeny2));
+	/* ELF 0x3ca698 / 0x3ca720: the right and bottom tests are c.le.s (`!(a <= edge)`) */
 
 	if (!outside)
 	{

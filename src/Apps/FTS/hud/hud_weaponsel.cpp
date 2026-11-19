@@ -504,7 +504,7 @@ void CWeaponSel::PulseSelectionArrows(float dT)
 	static_cast<PNT3D&>(up) = m_arrow[0].m_tris[0].GetColor();
 	static_cast<PNT3D&>(down) = m_arrow[1].m_tris[0].GetColor();
 
-	if (down.x < up.x)
+	if (!(up.x <= down.x)) /* ELF 0x3d37d8: c.le.s (the compare forms below as the ELF) */
 	{
 		CPnt3D step;
 		step.x = dT * 500.0f;
@@ -522,7 +522,7 @@ void CWeaponSel::PulseSelectionArrows(float dT)
 
 		m_arrow[0].SetColor(up.x, up.y, up.z);
 	}
-	else if (up.x < down.x)
+	else if (!(down.x <= up.x))
 	{
 		CPnt3D step;
 		step.x = dT * 500.0f;
@@ -556,7 +556,7 @@ void CWeaponSel::PulseSelectionArrows(float dT)
 		{
 			m_arrowcolor += dT * 250.0f;
 
-			if (120.0f < m_arrowcolor)
+			if (!(m_arrowcolor <= 120.0f))
 			{
 				m_arrowincrement = !m_arrowincrement;
 				m_arrowcolor = 120.0f;

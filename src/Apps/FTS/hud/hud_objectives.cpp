@@ -290,7 +290,7 @@ void CZObjectiveList::Tick(float dT)
 	{
 		c += 600.0f * dT;
 
-		if (c > 255.0f)
+		if (!(c <= 255.0f)) /* ELF 0x3c212c: c.le.s, clamps when not <= */
 		{
 			c = 255.0f;
 			m_increment = false;

@@ -123,7 +123,7 @@ void PoseBitmap::Tick(float dT)
 		}
 	}
 
-	if (m_trans > 0.0f)
+	if (!(m_trans <= 0.0f)) /* ELF 0x3d94f8: c.le.s, fades when not <= 0 */
 	{
 		m_trans = m_trans - dT * 64.0f;
 

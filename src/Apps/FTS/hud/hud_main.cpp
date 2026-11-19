@@ -115,66 +115,28 @@ static C2DBitmap X_WeaponBackground;
 /* @socom-skeleton body hudInit__Fv */
 s32 hudInit()
 {
-    CRdrFile* hud = zrdr_read("hud.rdr", "data/common");
-    _zrdr* tacmap = zrdr_findtag(hud, "TacMap");
-    _zrdr* polygons = zrdr_findtag(tacmap, "Polygons");
-    _zrdr* lines = zrdr_findtag(tacmap, "Lines");
+	/* 0x3bd010: hud.rdr's TacMap Polygons and Lines entries give the tactical map's polygon
+	 * and line types (hudAddPolyType / hudAddLineType). The ELF walks each array with the
+	 * inline _zrdr::Get (count = element 0's integer - 1, read again every pass). */
+	CRdrFile* hud = zrdr_read("hud.rdr", "data/common");
+	_zrdr* tacmap = zrdr_findtag(hud, "TacMap");
+	_zrdr* polygons = zrdr_findtag(tacmap, "Polygons");
 
-    if (polygons)
-    {
-        u32 i = 0;
-        u32 children = 0;
-        _zrdr* child = NULL;
-        
-        while (true)
-        {
-            if (children <= i)
-            {
-                break;
-            }
+	if (polygons != NULL)
+	{
+		for (u32 i = 0; i < (polygons->IsArray() ? static_cast<u32>(polygons->array->integer - 1) : 0u); i++)
+			hudAddPolyType(polygons->Get(i));
+	}
 
-            if (i < children)
-            {
-                child = &polygons->array[i];
-            }
-            else
-            {
-                child = NULL;
-            }
+	_zrdr* lines = zrdr_findtag(tacmap, "Lines");
 
-            hudAddPolyType(child);
-            i++;
-        }
-    }
+	if (lines != NULL)
+	{
+		for (u32 i = 0; i < (lines->IsArray() ? static_cast<u32>(lines->array->integer - 1) : 0u); i++)
+			hudAddLineType(lines->Get(i));
+	}
 
-    if (lines)
-    {
-        u32 i = 0;
-        u32 children = 0;
-        _zrdr* child = NULL;
-        
-        while (true)
-        {
-            if (children <= i)
-            {
-                break;
-            }
-
-            if (i < children)
-            {
-                child = &polygons->array[i];
-            }
-            else
-            {
-                child = NULL;
-            }
-
-            hudAddLineType(child);
-            i++;
-        }
-    }
-
-    return zrdr_free(hud);
+	return zrdr_free(hud);
 }
 
 /* @socom-skeleton body __ct__4CHUDFv */
