@@ -67,10 +67,13 @@ Reference ELF (`support/socom.elf`, read-only):
 
 - `dx.ps1 <start> [end|+len]` - annotated disassembly of a function (PowerShell; size from the symbol table).
 - `dis.sh [-z] [-r] <start> <end>` - raw objdump range (`-z` zero blocks, `-r` raw words).
-- `disx.py` - annotates objdump output on stdin: lui/addiu and `$gp` targets with symbols and strings.
-- `cz.py [-t reg=Class,...] [-k]` - compacts annotated output and names DWARF members on typed registers;
-  `-k` (the audit packets) keeps every branch target's label, prints a delay-slot nop as `| nop` and
-  names members only while the register still holds the typed value.
+- `disx.py [-f]` - annotates objdump output on stdin: lui/addiu and `$gp` targets with symbols and strings;
+  `-f` (the audit packets) follows the branches, so a lui in a delay slot pairs with the use it reaches.
+- `cz.py [-t reg=Class,...] [-k [-a] [-r 0xCALL=Class,...] [-p layouts.json]]` - compacts annotated output and
+  names DWARF members on typed registers; `-k` (the audit packets) keeps every branch target's label,
+  prints a delay-slot nop as `| nop`, names members only while the register still holds the typed value
+  (also a call's result with `-r` and a loaded pointer member), bitfields by their bits; `-a` puts the
+  address first on every line; `-p` adds the port's own member where its layout differs.
 - `z.sh <start> <end|+size> [reg=Class]` - `dis.sh | disx.py | cz.py` (WSL, Linux or Git Bash).
 - `nd.py` - on `cz.py` output: branches whose nop delay slot is followed by a real instruction.
 - `zs.sh [-F] [-f file] <pattern> [n]` - search the cached full disassembly, with the containing function.
@@ -108,15 +111,21 @@ Port source status (`src/` skeleton fences):
 - `auditpack.py <list> [--rows 1,3-5] [--by-file] [--out DIR]` - one ready-to-read packet per function
   of an audit list (`build/port/audit/packets/<list>/<row>-<address>.md` + `INDEX.md`), or with
   `--by-file` one per source file (`f<n>-<file>.md`, for the small band) with the shared facts once:
-  the `z.sh -k` disassembly with calls demangled, float words, short strings and data words decoded,
-  string pointers and jump tables resolved, members named on typed registers only; the function's own
-  definition (found by its demangled name) with line numbers; the bodies of the same-file and inline
-  helpers it calls (one level); DWARF values of the enumerators it names; vtable slots of its virtual
-  calls; the members and callee declarations it uses; ELF callers; lines of `docs/port/notes/*.md`
-  naming it. Over 3,000 bytes the disassembly is in `.part<k>.md` files cut at labels. Needs
-  `<scratch>/ref.dis` (`refdis.sh`).
+  the `disx.py -f | cz.py -k -a` disassembly (the address on every line) with calls and data names
+  demangled, float words, short strings, data words and small literal objects decoded, string pointers
+  and jump tables resolved, members (bitfields by bit) named on typed registers, the port's layout
+  beside DWARF's where they differ; the function's own definition (found by its demangled name) with
+  line numbers; the bodies of the helpers it calls (same file, inline, `Base::` calls, inlined port
+  helpers of other files, a forwarder's callees); DWARF and port header values of the enums it names;
+  a return-value check against the ELF's callers; vtable slots of its virtual calls; the members and
+  callee declarations it uses; ELF callers; lines of `docs/port/notes/*.md` naming it. Over 3,000
+  bytes the disassembly is in `.part<k>.md` files cut at labels; a by-file packet of more than 40
+  functions puts them in `.part<k>.md` files. Needs `<scratch>/ref.dis` (`refdis.sh`) and reads
+  `<scratch>/fp/head.lay.json` (`portlay.sh`, made when missing; `--fp NAME`).
 - `fpbuild.sh <commit> <name>` - "fingerprint" build of a commit for auditscan (`-O2 -g`, inlining,
   IPA cloning, tail merging and devirtualisation off): `<scratch>/fp/<name>.{elf,dis,syms,commit}`.
+- `portlay.sh [name]` - the port's class layouts (members, bitfield bits, bases) from that build's debug
+  info into `<scratch>/fp/<name>.lay.json` for `auditpack.py` (about 20 s).
 - `auditscan.py [--build NAME] --list <list> | --all | --fn 0xADDR` - compares each fenced function
   with the ELF on compiler-independent features (calls by readable name, flattened where one side
   inlined; float words, one-ulp pairs; integer and compare constants; strings; member offsets

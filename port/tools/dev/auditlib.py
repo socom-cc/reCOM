@@ -610,11 +610,14 @@ class Feat:
 
 def features(elf, insns, start, end, keyof, skip_calls=()):
     """Features of the instructions insns (Dis.insns) of the function [start, end) of elf.
-    keyof(name) gives the compiler-independent key of a symbol name."""
+    keyof(name) gives the compiler-independent key of a symbol name. Register facts (lui values,
+    addresses, constants) reaching a branch target are those all its paths agree on, so a lui in
+    a delay slot pairs with the use it reaches, not with the last lui in listing order."""
     F = Feat()
     F.size = end - start
     known = {}          # reg -> ('hi', v) | ('addr', v) | ('const', v) | ('stack',)
     lastlui = {}        # reg -> the last lui value written to it
+    G = [F]             # the features being counted (a throw-away set in the settling passes)
     lo, hi = elf.range
     gp = elf.gp
 
@@ -636,7 +639,7 @@ def features(elf, insns, start, end, keyof, skip_calls=()):
         s = s if lit(s) else None
         d = elf.data_at(a)
         if s is not None and (d is None or d[0].startswith('@')):
-            F.strs[s] += 1
+            G[0].strs[s] += 1
             return True
         if s is None and d is not None and d[1] == 0:
             # a table of string pointers (names[] = {"a", "b"}): its strings count as used here
@@ -645,7 +648,7 @@ def features(elf, insns, start, end, keyof, skip_calls=()):
                 w = elf.word(a + 4 * k)
                 s2 = elf.cstr(w) if w and lo <= w < hi else None
                 if lit(s2):
-                    F.strs[s2] += 1
+                    G[0].strs[s2] += 1
         return False
 
     # a call's delay slot runs before the call clobbers the argument registers
@@ -656,181 +659,261 @@ def features(elf, insns, start, end, keyof, skip_calls=()):
             seq[i], seq[i + 1] = seq[i + 1], seq[i]
             i += 1
         i += 1
-    for a, op, ops, raw in seq:
-        args = [x.strip() for x in ops.split(',')] if ops else []
-        if op in ('jal', 'j', 'bal') and args:
-            m = TARGET.match(args[-1])
-            t = int(m.group(1), 16) if m else None
-            if t is not None and (op != 'j' or not (start <= t < end)):
-                f = elf.func_at(t)
-                name = f[1] if f and f[0] == t else (m.group(2) or '0x%x' % t)
-                k = keyof(name)
-                k = CALLMAP.get(k, k)
-                if k and k.startswith('#'):
-                    F.fops[k[1:]] += 1
-                elif k and not k.startswith('std::') and k not in skip_calls:
-                    F.calls[k] += 1
-                    F.calladdr.setdefault(k, t)
-            for r in CALL_CLOBBER:
-                known.pop(r, None)
-            continue
-        if op == 'jalr':
-            F.ind += 1
-            for r in CALL_CLOBBER:
-                known.pop(r, None)
-            continue
-        if op.startswith('b') and op not in ('b', 'bal', 'break') or op in ('bc1t', 'bc1f', 'bc1tl', 'bc1fl'):
-            F.nbr += 1
-            continue
-        if op in FOPS:
-            for x in FOPS[op]:
-                F.fops[x] += 1
-        elif op.startswith('c.') and op.endswith('.s'):
-            F.fops['cmp'] += 1
-        if op == 'lui' and len(args) == 2:
-            known[args[0]] = ('hi', (_imm(args[1]) << 16) & 0xffffffff)
-            lastlui[args[0]] = known[args[0]][1]
-            continue
-        if op == 'li' and len(args) == 2:
-            v = _imm(args[1])
-            lastlui.pop(args[0], None)
-            known[args[0]] = ('const', v & 0xffffffff)
-            if abs(v) >= 16 and v not in (0xff, 0xffff, -1):
-                F.iconst[v] += 1
-            continue
-        if op in ('addiu', 'daddiu', 'ori') and len(args) == 3:
-            b = args[1]
-            imm = _imm(args[2])
-            if b == 'sp' or (b in known and known[b][0] == 'stack'):
-                known[args[0]] = ('stack',)
-                continue
-            if b == 'gp' and gp:
-                v = (gp + imm) & 0xffffffff
-                known[args[0]] = ('addr', v)
-                note_addr(v)
-                continue
-            if b in lastlui and b == args[0] and (b not in known or known[b][0] == 'addr') and op != 'ori':
-                # Metrowerks puts one lui in many delay slots: "addiu a0,a0,lo" after a label
-                # reuses the lui, not the address an earlier addiu built
-                v = (lastlui[b] + imm) & 0xffffffff
-                if elf.cstr(v) is not None or v in elf.at:
-                    known[b] = ('addr', v)
-                    note_addr(v)
-                    continue
-            if b in known and known[b][0] in ('hi', 'addr', 'const'):
-                base = known[b][1]
-                v = (base | imm) if op == 'ori' else (base + imm) & 0xffffffff
-                if known[b][0] == 'hi' or known[b][0] == 'addr':
-                    if lo <= v < hi:
-                        known[args[0]] = ('addr', v)
-                        note_addr(v)
-                    else:
-                        known[args[0]] = ('const', v)
-                        sv = v - (1 << 32) if v & 0x80000000 else v
-                        if abs(sv) >= 16:
-                            F.iconst[sv] += 1
-                    continue
-            if op != 'ori' and imm >= 16 and b in GPR and b not in ('zero', 'gp'):
-                F.aoff[imm] += 1
-            known.pop(args[0], None)
-            lastlui.pop(args[0], None)
-            continue
-        if op in ('slti', 'sltiu') and len(args) == 3:
-            v = _imm(args[2])
-            if abs(v) >= 2:
-                F.cmpk[v] += 1
-            known.pop(args[0], None)
-            lastlui.pop(args[0], None)
-            continue
-        if op == 'mtc1' and len(args) == 2:
-            r = args[0]
-            if r in known and known[r][0] in ('hi', 'const', 'addr'):
-                v = known[r][1] & 0xffffffff
-                if v:
-                    F.fconst[v] += 1
-                    sv = v - (1 << 32) if v & 0x80000000 else v
-                    if known[r][0] != 'hi' and F.iconst.get(sv):
-                        F.iconst[sv] -= 1
-                        if not F.iconst[sv]:
-                            del F.iconst[sv]
-            continue
-        if op in ('move',) and len(args) == 2:
-            if args[1] in known:
-                known[args[0]] = known[args[1]]
-            elif args[1] == 'sp':
-                known[args[0]] = ('stack',)
-            else:
-                known.pop(args[0], None)
-            lastlui.pop(args[0], None)
-            continue
-        kind = STORES.get(op) or LOADS.get(op)
-        if kind and len(args) == 2:
-            m = MEMOP.match(args[1])
-            if m:
-                imm, b = _imm(m.group(1)), m.group(2)
-                ls = kind[0]
+    # one instruction's effect on the register facts (known, lastlui) and on the features G[0]
+    def step(a, op, ops):
+            args = [x.strip() for x in ops.split(',')] if ops else []
+            if op in ('jal', 'j', 'bal') and args:
+                m = TARGET.match(args[-1])
+                t = int(m.group(1), 16) if m else None
+                if t is not None and (op != 'j' or not (start <= t < end)):
+                    f = elf.func_at(t)
+                    name = f[1] if f and f[0] == t else (m.group(2) or '0x%x' % t)
+                    k = keyof(name)
+                    k = CALLMAP.get(k, k)
+                    if k and k.startswith('#'):
+                        G[0].fops[k[1:]] += 1
+                    elif k and not k.startswith('std::') and k not in skip_calls:
+                        G[0].calls[k] += 1
+                        G[0].calladdr.setdefault(k, t)
+                for r in CALL_CLOBBER:
+                    known.pop(r, None)
+                return
+            if op == 'jalr':
+                G[0].ind += 1
+                for r in CALL_CLOBBER:
+                    known.pop(r, None)
+                return
+            if op.startswith('b') and op not in ('b', 'bal', 'break') or op in ('bc1t', 'bc1f', 'bc1tl', 'bc1fl'):
+                G[0].nbr += 1
+                return
+            if op in FOPS:
+                for x in FOPS[op]:
+                    G[0].fops[x] += 1
+            elif op.startswith('c.') and op.endswith('.s'):
+                G[0].fops['cmp'] += 1
+            if op == 'lui' and len(args) == 2:
+                known[args[0]] = ('hi', (_imm(args[1]) << 16) & 0xffffffff)
+                lastlui[args[0]] = known[args[0]][1]
+                return
+            if op == 'li' and len(args) == 2:
+                v = _imm(args[1])
+                lastlui.pop(args[0], None)
+                known[args[0]] = ('const', v & 0xffffffff)
+                if abs(v) >= 16 and v not in (0xff, 0xffff, -1):
+                    G[0].iconst[v] += 1
+                return
+            if op in ('addiu', 'daddiu', 'ori') and len(args) == 3:
+                b = args[1]
+                imm = _imm(args[2])
                 if b == 'sp' or (b in known and known[b][0] == 'stack'):
-                    pass
-                elif (b == 'gp' and gp) or (b in known and known[b][0] in ('hi', 'addr')):
-                    v = ((gp if b == 'gp' else known[b][1]) + imm) & 0xffffffff
-                    if op == 'lwc1':
-                        # a literal (no symbol, a Metrowerks @n, a 4- / 8-byte named constant) is
-                        # a float constant; a member of a larger global object is a global read
-                        d = elf.data_at(v)
-                        w = elf.word(v)
-                        if w and (d is None or d[0].startswith('@') or
-                                  (d[1] == 0 and elf.byname.get(d[0], (0, 0))[1] in (4, 8))):
-                            F.fconst[w] += 1
-                        if symkey(v):
-                            F.gld[symkey(v)] += 1
-                    elif ls == 'S':
-                        if symkey(v):
-                            F.gst[symkey(v)] += 1
-                    else:
-                        if symkey(v):
-                            F.gld[symkey(v)] += 1
-                        dv = elf.data_at(v)
-                        if op == 'lw' and dv and dv[0].startswith('@'):   # Metrowerks: a literal's pointer in data
-                            w = elf.word(v)
-                            s = elf.cstr(w) if w else None
-                            if lit(s):
-                                F.strs[s] += 1
-                elif imm >= 0:
-                    F.mem[(imm, ls)] += 1
-                    F.memw[(imm, kind)] += 1
-            if kind[0] == 'L' and args[0] in GPR:
+                    known[args[0]] = ('stack',)
+                    return
+                if b == 'gp' and gp:
+                    v = (gp + imm) & 0xffffffff
+                    known[args[0]] = ('addr', v)
+                    note_addr(v)
+                    return
+                if b in lastlui and b == args[0] and (b not in known or known[b][0] == 'addr') and op != 'ori':
+                    # Metrowerks puts one lui in many delay slots: "addiu a0,a0,lo" after a label
+                    # reuses the lui, not the address an earlier addiu built
+                    v = (lastlui[b] + imm) & 0xffffffff
+                    if elf.cstr(v) is not None or v in elf.at:
+                        known[b] = ('addr', v)
+                        note_addr(v)
+                        return
+                if b in known and known[b][0] in ('hi', 'addr', 'const'):
+                    base = known[b][1]
+                    v = (base | imm) if op == 'ori' else (base + imm) & 0xffffffff
+                    if known[b][0] == 'hi' or known[b][0] == 'addr':
+                        if lo <= v < hi:
+                            known[args[0]] = ('addr', v)
+                            note_addr(v)
+                        else:
+                            known[args[0]] = ('const', v)
+                            sv = v - (1 << 32) if v & 0x80000000 else v
+                            if abs(sv) >= 16:
+                                G[0].iconst[sv] += 1
+                        return
+                if op != 'ori' and imm >= 16 and b in GPR and b not in ('zero', 'gp'):
+                    G[0].aoff[imm] += 1
                 known.pop(args[0], None)
                 lastlui.pop(args[0], None)
-            continue
-        if args and op not in NOWRITE and args[0] in GPR:
-            known.pop(args[0], None)
-            lastlui.pop(args[0], None)
+                return
+            if op in ('slti', 'sltiu') and len(args) == 3:
+                v = _imm(args[2])
+                if abs(v) >= 2:
+                    G[0].cmpk[v] += 1
+                known.pop(args[0], None)
+                lastlui.pop(args[0], None)
+                return
+            if op == 'mtc1' and len(args) == 2:
+                r = args[0]
+                if r in known and known[r][0] in ('hi', 'const', 'addr'):
+                    v = known[r][1] & 0xffffffff
+                    if v:
+                        G[0].fconst[v] += 1
+                        sv = v - (1 << 32) if v & 0x80000000 else v
+                        if known[r][0] != 'hi' and G[0].iconst.get(sv):
+                            G[0].iconst[sv] -= 1
+                            if not G[0].iconst[sv]:
+                                del G[0].iconst[sv]
+                return
+            if op in ('move',) and len(args) == 2:
+                if args[1] in known:
+                    known[args[0]] = known[args[1]]
+                elif args[1] == 'sp':
+                    known[args[0]] = ('stack',)
+                else:
+                    known.pop(args[0], None)
+                lastlui.pop(args[0], None)
+                return
+            kind = STORES.get(op) or LOADS.get(op)
+            if kind and len(args) == 2:
+                m = MEMOP.match(args[1])
+                if m:
+                    imm, b = _imm(m.group(1)), m.group(2)
+                    ls = kind[0]
+                    if b == 'sp' or (b in known and known[b][0] == 'stack'):
+                        pass
+                    elif (b == 'gp' and gp) or (b in known and known[b][0] in ('hi', 'addr')):
+                        v = ((gp if b == 'gp' else known[b][1]) + imm) & 0xffffffff
+                        if op == 'lwc1':
+                            # a literal (no symbol, a Metrowerks @n, a 4- / 8-byte named constant) is
+                            # a float constant; a member of a larger global object is a global read
+                            d = elf.data_at(v)
+                            w = elf.word(v)
+                            if w and (d is None or d[0].startswith('@') or
+                                      (d[1] == 0 and elf.byname.get(d[0], (0, 0))[1] in (4, 8))):
+                                G[0].fconst[w] += 1
+                            if symkey(v):
+                                G[0].gld[symkey(v)] += 1
+                        elif ls == 'S':
+                            if symkey(v):
+                                G[0].gst[symkey(v)] += 1
+                        else:
+                            if symkey(v):
+                                G[0].gld[symkey(v)] += 1
+                            dv = elf.data_at(v)
+                            if op == 'lw' and dv and dv[0].startswith('@'):   # Metrowerks: a literal's pointer in data
+                                w = elf.word(v)
+                                s = elf.cstr(w) if w else None
+                                if lit(s):
+                                    G[0].strs[s] += 1
+                    elif imm >= 0:
+                        G[0].mem[(imm, ls)] += 1
+                        G[0].memw[(imm, kind)] += 1
+                if kind[0] == 'L' and args[0] in GPR:
+                    known.pop(args[0], None)
+                    lastlui.pop(args[0], None)
+                return
+            if args and op not in NOWRITE and args[0] in GPR:
+                known.pop(args[0], None)
+                lastlui.pop(args[0], None)
+    # the register facts at a branch target are those every path to it agrees on (taken branches
+    # after their delay slot, the fall-through unless an unconditional jump ends it): passes
+    # without counting carry the back edges until the facts settle, then one counting pass
+    n = len(seq)
+    at = {}
+    for i, (a, op, ops, raw) in enumerate(seq):
+        at.setdefault(a, i)
+    for i in range(n - 1):
+        if seq[i + 1][1] in ('jal', 'jalr', 'bal') and seq[i][0] == seq[i + 1][0] + 4:
+            at[seq[i + 1][0]] = i          # a target at a call is the swapped slot before it
+    br = {}
+    for i, (a, op, ops, raw) in enumerate(seq):
+        args = [x.strip() for x in ops.split(',')] if ops else []
+        t = None
+        if args and op not in ('jal', 'jalr', 'bal', 'jr'):
+            m = TARGET.match(args[-1])
+            t = at.get(int(m.group(1), 16)) if m else None
+        if op == 'jr' or (op == 'j' and t is None):
+            br[i] = ('end', None)
+        elif op in ('b', 'j'):
+            br[i] = ('jump', t) if t is not None else ('end', None)
+        elif op.startswith('b') and op not in ('bal', 'break') and t is not None:
+            br[i] = ('likely' if op.endswith('l') else 'cond', t)
+    targets = set(t for k, t in br.values() if t is not None)
+    incoming = {}
+
+    def merge(sts):
+        m = dict(sts[0])
+        for s in sts[1:]:
+            m = {r: v for r, v in m.items() if s.get(r) == v}
+        return m
+
+    def run(count):
+        G[0] = F if count else Feat()
+        known.clear()
+        lastlui.clear()
+        alive = True
+        for i, (a, op, ops, raw) in enumerate(seq):
+            if i in targets:
+                sts = list(incoming.get(i, {}).values()) + ([(dict(known), dict(lastlui))] if alive else [])
+                k2, l2 = (merge([s[0] for s in sts]), merge([s[1] for s in sts])) if sts else ({}, {})
+                known.clear(); known.update(k2)
+                lastlui.clear(); lastlui.update(l2)
+                alive = True
+            before = (dict(known), dict(lastlui)) if br.get(i - 1, ('',))[0] == 'likely' else None
+            step(a, op, ops)
+            b = br.get(i - 1)
+            if b is not None:
+                kind, t = b
+                if kind != 'end':
+                    incoming.setdefault(t, {})[i - 1] = (dict(known), dict(lastlui))
+                if kind in ('end', 'jump'):
+                    alive = False
+                elif kind == 'likely':
+                    known.clear(); known.update(before[0])
+                    lastlui.clear(); lastlui.update(before[1])
+    prev = None
+    for npass in range(4 if targets else 0):
+        run(False)
+        now = repr(sorted((t, sorted((s, sorted(v[0].items()), sorted(v[1].items())) for s, v in d.items()))
+                          for t, d in incoming.items()))
+        if now == prev:
+            break
+        prev = now
+    run(True)
     return F
 
 
 # ---------------------------------------------------------------- typed registers
-def reg_types(seq, init):
+def reg_types(seq, init, after=None, load=None):
     """[{reg: class}] before each instruction of seq [(op, [operands])], in listing order:
     init ({'a0': 'CFoo'}) holds at the start, a `move` copies a register's type, any other write
-    of the register and a call's clobber (after its delay slot) drop it. Control flow is not
-    followed: a type holds until the listing overwrites the register."""
+    of the register and a call's clobber (after its delay slot) drop it. after ({index of a call:
+    {'v0': 'CBar'}}) types the result of that call once its delay slot ran; load(class, offset)
+    gives the class a pointer member points to, so `lw r,off(typed)` types r. Control flow is
+    not followed: a type holds until the listing overwrites the register."""
     cur = dict(init)
     out = []
-    pend = False
-    for op, args in seq:
+    pend = None
+    after = after or {}
+    for i, (op, args) in enumerate(seq):
         out.append(dict(cur))
         clobber = pend
-        pend = op in ('jal', 'jalr', 'bal')
+        pend = i if op in ('jal', 'jalr', 'bal') else None
+        lt = None
+        if load and op == 'lw' and len(args) == 2:
+            mm = MEMOP.match(args[1])
+            if mm and mm.group(2) in cur:
+                try:
+                    lt = load(cur[mm.group(2)], int(mm.group(1), 0))
+                except (ValueError, KeyError):
+                    lt = None
         if op == 'move' and len(args) == 2:
             if args[1] in cur:
                 cur[args[0]] = cur[args[1]]
             else:
                 cur.pop(args[0], None)
+        elif lt:
+            cur[args[0]] = lt
         elif args and op not in NOWRITE and not (op.startswith('b') and op != 'break') and args[0] in GPR:
             cur.pop(args[0], None)
-        if clobber:
+        if clobber is not None:
             for r in CALL_CLOBBER:
                 cur.pop(r, None)
+            cur.update(after.get(clobber, {}))
     return out
 
 

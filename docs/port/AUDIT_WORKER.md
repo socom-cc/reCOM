@@ -9,21 +9,39 @@ an audit list. Your prompt names the list, your scratch folder and the files you
 - The list: `build/port/audit/<list>.md` (rows `| # | Address | Bytes | Symbol | File |`).
 - One packet per function: `build/port/audit/packets/<list>/<row>-<address>.md`, with an
   `INDEX.md`; for a small-band list, one packet per source file (`f<n>-<file>.md`) holding all of
-  that file's listed functions, with the facts they share once at the top. A packet holds:
-  - the annotated ELF disassembly: a label on every branch target, `| ` before a delay slot and
-    `| nop` for a nop in one, calls demangled, float words, strings (also of 0 or 1 characters),
-    data words (`= word` for a literal, `init` for a variable's nonzero initial value) and jump
-    tables resolved;
+  that file's listed functions, with the facts they share once at the top (a file of more than 40
+  functions keeps those facts and its contents table in `f<n>-<file>.md` and the functions in
+  `f<n>-<file>.part<k>.md`). A packet holds:
+  - the annotated ELF disassembly with the address first on every line: cite addresses from it,
+    do not count lines (dropped save-register lines and nops outside delay slots leave a gap in
+    the addresses). A label on every branch target, `| ` before a delay slot and `| nop` for a nop
+    in one, calls demangled, data names demangled, a `lui` reaching its use through a delay slot
+    followed along the branches, float words (`= 0.5f` a literal, `init` a variable), strings (also
+    of 0 or 1 characters), data words (`= word` for a literal, `init` for a variable's initial
+    value, `init 0` for a function's static), small literal objects such as pointer-to-member
+    constants by their words, and jump tables resolved;
   - the port's own definition with file and line numbers, found by the fence's demangled name:
     lines between the fence and the definition (helpers, a `namespace {`) are skipped and named;
-  - the bodies of the helpers it calls, one level deep: same-file static, unnamed-namespace,
-    inline and unfenced functions, the receiver class's header definitions, and a short header
-    definition when it is the only one of its name (60 lines each, 250 a packet);
-  - the DWARF values of the enumerators the body and its helpers name;
+  - the bodies of the helpers it calls: same-file static, unnamed-namespace, inline and unfenced
+    functions, the receiver class's header definitions, a `Base::Name()` call's definition, a short
+    header definition when it is the only one of its name (also `obj->Inline()`), a port helper in
+    another file that the ELF never calls (it inlined it), and the callees of a helper of six
+    lines or fewer (60 lines each, 250 a packet, 400 a file packet);
+  - the enumerators the body and its helpers name (also `Enum::NAME` of an enum class and a nested
+    enum through its class) and every value of an enum whose type the body or signature names: the
+    DWARF value and byte size, the port header's value when it differs, or the header's alone,
+    marked, when DWARF has no such enum;
   - the vtable slot of each virtual call, resolved when the object's register is typed, else the
     methods at that slot the body calls;
-  - members touched, named only through a register that still holds the receiver or a
-    pointer-to-class argument; other offsets by number;
+  - members touched: DWARF names, a bitfield by name and bit within the byte, half or word the
+    instruction accesses (narrowed by the mask the code applies), through a register that holds
+    the receiver, a pointer-to-class argument, a call's result or a pointer member loaded from a
+    typed object (`Class::member` then); `[port ...]` where the port's own layout (the comparison
+    build) has no member of that name or puts the bitfield elsewhere, `port:` for a class DWARF
+    lacks; other offsets by number;
+  - the return value, when the port's definition is void (or float where the ELF uses v0, or the
+    reverse) and the ELF writes v0 / `$f0` before returning or a caller reads it: each reading
+    caller on one line;
   - the receiver's member lines and the callee declarations it uses, the ELF callers and the leads
     earlier notes recorded.
   Functions over 3,000 bytes have their disassembly split into `.partN.md` files. Read the packet;
@@ -49,21 +67,23 @@ Learned from the lists already done. None of the scan items below is a defect by
 
 What a packet may lack, and where to get it:
 
-- Helpers past the first level, the rest of a helper cut at 60 lines (or at the packet's cap, which
-  the packet names), a helper called through another object (`obj->Inline()`) or whose name has
-  several header definitions: the source.
+- Helpers past the second level, the rest of a helper cut at 60 lines (or at the packet's cap,
+  which the packet names), a helper whose name has several definitions none of whose classes the
+  body names: the source.
 - Callees that are ELF functions of their own, when their exact compare form matters: their
   packet, or the reference disassembly.
-- Bitfield positions and layouts: the headers (`dw.py`, `off.py`); enumerators of port-only enums
-  and enum values the body computes: the headers.
+- Layouts of objects reached through an untyped register (a pointer read from an array, a cast
+  the packet cannot follow): `mem.py <Class> <offset>` (bit positions included) or `dw.py`; enum
+  values the body computes from others: the headers.
 - The vtable slot of a virtual call through an object whose type the packet does not know, when no
   method at that slot is named in the body: `vt.py`.
 - Run-time values of data: a packet shows only a variable's initial word.
-- Register types are followed in listing order, not along branches, and the vtable pointer has no
-  DWARF member: a member name can still be wrong after a branch join or at the vtable's offset, so
-  trust the offsets. The disassembly is cut from the cached copy of the whole reference
-  disassembly (`build/port/boot-auditkit/ref.dis`): run `dis.sh` on the range when something looks
-  missing.
+- Register types are followed in listing order, not along branches (the lui values of the
+  annotations and of the scan are merged along them). A member name can still be wrong after
+  a branch join or at the vtable's offset (no DWARF member), and a `port:` name comes from the
+  port's layout, which can sit at other offsets than the ELF's: trust the offsets. The
+  disassembly is cut from the cached copy of the whole reference disassembly
+  (`build/port/boot-auditkit/ref.dis`): run `dis.sh` on the range when something looks missing.
 
 Working habits that cost other workers time:
 
@@ -78,6 +98,26 @@ Working habits that cost other workers time:
 - For functions under about 700 bytes, work file by file within the scan's rank order: take the
   highest-ranked function, then judge the rest of that file's functions while its helpers,
   layouts and enums are in your head, and write that file's rows in one go.
+
+## Small functions from a by-file packet
+
+The small band (functions under 200 bytes) comes as one packet per source file. Work file by
+file in the scan's rank order of its highest-ranked function:
+
+1. Read the file packet's top once: the contents table (its Notes column flags a return value
+   that differs, virtual calls, a jump table, leads), the leads, helpers, enums, the members the
+   file's functions touch, and the declarations. These hold for every function below them.
+2. Then take the functions one by one (in a part file when the file has more than 40): the
+   header line, the port source, its own notes (untyped offsets, return value, virtual calls)
+   and the listing. Most are getters, setters, forwarders and flag tests: compare the offsets and
+   widths (`lb` / `lbu`, a bitfield's bit), the constants, the call and its arguments, and what is
+   returned (v0 / `$f0`, a `bool` as one byte) against the body.
+3. Write one row per function as soon as it is judged, one line each: what was compared in a
+   few words (`+0x1c m_count lw, returned`; `bit 3 of +0xdd set, others kept`). Cite addresses
+   from the listing. A function the scan reports nothing for still gets its row.
+
+Leave a function UNJUDGED (with the reason) rather than guess when the packet lacks what decides
+it and the lookup tools do not settle it quickly; say what was missing in the note.
 
 ## What you do
 
