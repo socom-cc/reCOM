@@ -156,7 +156,7 @@ unsigned int assetWait[17];
 CPipe::CPipe()
 {
 	m_wireframe = false;
-	m_terrain = false;
+	m_terrain = true; /* 0x246460: sb 1,+0x639 (never read) */
 	m_alpha.m_visualList = static_cast<tag_DelayedNode*>(_malloc(0x36b00, "zrndr_pipe.cpp", 2270)); /* 2000 records */
 	m_alpha.m_next = m_alpha.m_visualList;
 	m_delayedNodeNum = 0;
@@ -172,7 +172,7 @@ CPipe::CPipe()
 	m_opacity_stack_size = 32;
 	m_opacity_stack_index = 0;
 
-	m_DelayedNodes.reserve(48);
+	m_DelayedNodes.resize(48); /* 0x246554: vector_imp::resize(48), 48 records up front */
 	
 	m_texIntIdx = 0;
 	m_texLoadIdx = 0;
@@ -1668,7 +1668,7 @@ void CPipe::CAlpha::Render()
 		{
 			tag_DelayedNode* entry = static_cast<tag_DelayedNode*>(*i);
 
-			if (entry->m_depth < range && __doParticles)
+			if (!(range <= entry->m_depth) && __doParticles) /* 0x241db0: c.le range, depth */
 				range = Particle::DrawRange(range, entry->m_depth);
 
 			zdb::CVisual* visual = entry->m_visual;

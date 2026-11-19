@@ -73,7 +73,7 @@ C2DFontEntry* C2DFont::GetEntry(char character)
             return &m_charlist[i];
     }
 
-    return &m_charlist[(int)character % count];
+    return &m_charlist[(u32)(s32)character % (u32)count]; /* 0x2ff31c: divu of the sign-extended char */
 }
 
 /* @socom-skeleton body Load__7C2DFontFP8CRdrFilePCc */

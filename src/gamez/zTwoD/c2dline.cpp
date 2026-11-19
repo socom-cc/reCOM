@@ -328,7 +328,7 @@ bool clip3DLine(CPnt4D *point, CPnt4D *normal, CPnt4D *p1, CPnt4D *p2)
 	 * (all four components) */
 	f32 d1 = (p1->x - point->x) * normal->x + (p1->y - point->y) * normal->y + (p1->z - point->z) * normal->z;
 	f32 d2 = (p2->x - point->x) * normal->x + (p2->y - point->y) * normal->y + (p2->z - point->z) * normal->z;
-	if (d1 > 0.0f && d2 > 0.0f)
+	if (!(d1 <= 0.0f) && !(d2 <= 0.0f)) /* 0x2ffd94 / 0x2ffda4: the ELF's c.le forms */
 		return true;
 	if (d1 <= 0.0f && d2 <= 0.0f)
 		return false;
@@ -338,7 +338,7 @@ bool clip3DLine(CPnt4D *point, CPnt4D *normal, CPnt4D *p1, CPnt4D *p2)
 	CPnt4D diff;
 	p2->Sub(p1, &diff);
 	CPnt4D at(p1->x + diff.x * t, p1->y + diff.y * t, p1->z + diff.z * t, p1->w + diff.w * t);
-	if (d1 > 0.0f)
+	if (!(d1 <= 0.0f)) /* 0x2ffe04 */
 		*p2 = at;
 	else
 		*p1 = at;

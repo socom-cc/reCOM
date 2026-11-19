@@ -36,7 +36,7 @@ float zdb::CCamera::GetFogVisibility(const CPnt3D *from, const CPnt3D *to) const
 	f32 dist = sqrtf(d.x * d.x + d.y * d.y + d.z * d.z);
 	f32 fog = m_fogA + m_fogB * dist;
 
-	if (fog < 0.0f)
+	if (!(0.0f <= fog)) /* 0x1e8668: c.le 0, fog */
 		fog = 0.0f;
 
 	if (fog > 255.0f)
@@ -47,7 +47,7 @@ float zdb::CCamera::GetFogVisibility(const CPnt3D *from, const CPnt3D *to) const
 		f32 y = (to->y < from->y) ? to->y : from->y;
 		f32 alt = (y - m_fog_bottom) * m_fog_alt[1].y;
 
-		if (alt < 0.0f)
+		if (!(0.0f <= alt)) /* 0x1e86e8 */
 			alt = 0.0f;
 
 		if (alt > 1.0f)

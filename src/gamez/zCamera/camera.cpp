@@ -529,11 +529,12 @@ CAppCamera::CAppCamera(zdb::CWorld* world, zdb::CCamera* camera)
 	m_wiggle_rate = theCharacterDynamics.m_cam_wiggle.rate;
 	m_wiggle_inv_rate = 1.0f / m_wiggle_rate;
 
-	if (m_wiggle_echo)
+	/* the inline WiggleScalar(1.0) (0x1eb930..0x1eb958): set without an echo, else only raised */
+	if (!m_wiggle_echo)
 	{
 		m_wiggle_scalar = 1.0f;
 	}
-	else if (m_wiggle_scalar < 1.0f)
+	else if (!(1.0f <= m_wiggle_scalar))
 	{
 		m_wiggle_scalar = 1.0f;
 	}
@@ -845,38 +846,38 @@ void FirstToThirdPersonTransition(CAppCamera* camera)
 /* @socom-skeleton body TickCameraWiggle__10CAppCameraFfPQ23zdb7CCamera */
 void CAppCamera::TickCameraWiggle(f32 dT, zdb::CCamera* camera)
 {
-	f32 wiggle = 0.0f;
+	/* 0x1ea710: the shake moves the camera's screen offset (+0x450 / +0x454 m_screenOffset,
+	   which feeds the clip-to-screen matrix) by cos / 0.5 * sin of the wiggle phase, fading out
+	   over the duration; past the duration the offset is zeroed and the echo ends */
 	f32 wiggle_cur_time = m_wiggle_cur_time;
 
-	if (m_wiggle_duration < wiggle_cur_time)
+	if (!(wiggle_cur_time <= m_wiggle_duration))
 	{
-		camera->m_screen.right = 0;
-		camera->m_screen.bottom = 0;
+		camera->m_screenOffset.x = 0.0f;
+		camera->m_screenOffset.y = 0.0f;
 		m_wiggle_echo = false;
+		return;
 	}
-	else
+
+	f32 phase = PI * (2.0f * wiggle_cur_time) * m_wiggle_inv_rate;
+	f32 t = wiggle_cur_time * m_wiggle_inv_duration;
+
+	if (t < 0.0f)
 	{
-		f32 wiggle_inv_duration = wiggle_cur_time * m_wiggle_inv_duration;
-		wiggle_cur_time *= 2.0f * PI * m_wiggle_inv_rate;
-
-		if (wiggle_inv_duration < 0.0f)
-		{
-			wiggle_inv_duration = 0.0f;
-		}
-
-		wiggle = 1.0f;
-
-		if (wiggle_inv_duration <= 1.0f)
-		{
-			wiggle = wiggle_inv_duration;
-		}
-
-		wiggle = (1.0f - wiggle) * m_wiggle_amp * m_wiggle_scalar;
-		wiggle_inv_duration = sinf(wiggle_cur_time);
-		camera->m_screen.right = wiggle * wiggle_cur_time + camera->m_screen.right;
-		camera->m_screen.bottom = wiggle * 0.5 * wiggle_inv_duration + camera->m_screen.bottom;
-		m_wiggle_cur_time += dT;
+		t = 0.0f;
 	}
+
+	if (!(t <= 1.0f))
+	{
+		t = 1.0f;
+	}
+
+	f32 wiggle = (1.0f - t) * (m_wiggle_amp * m_wiggle_scalar);
+	f32 s = sinf(phase);
+	f32 c = cosf(phase);
+	camera->m_screenOffset.x = wiggle * c + camera->m_screenOffset.x;
+	camera->m_screenOffset.y = 0.5f * wiggle * s + camera->m_screenOffset.y;
+	m_wiggle_cur_time += dT;
 }
 
 /* @socom-skeleton body Tick__10CAppCameraFf */

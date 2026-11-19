@@ -230,17 +230,17 @@ void Particle::Props::GetColor(float t, CPnt4D &color) const
 
 		if (t <= 0.0f)
 			color.w = 1.0f;
-		else if (1.0f <= t)
-			color.w = 0.0f;
-		else
+		else if (t < 1.0f) /* 0x237af0: c.lt t, 1 */
 			color.w = 1.0f - t;
+		else
+			color.w = 0.0f;
 
 		return;
 	}
 
 	s32 i = 0;
 
-	while (i < count && m_colorSeq[i].m_fraction <= t)
+	while (i < count && !(t < m_colorSeq[i].m_fraction)) /* 0x237b34: c.lt t, fraction */
 		i++;
 
 	s32 prev = i - 1;
@@ -279,7 +279,7 @@ void Particle::Props::GetScale(float t, float &scale) const
 
 	s32 i = 0;
 
-	while (i < count && m_scaleSeq[i].m_fraction <= t)
+	while (i < count && !(t < m_scaleSeq[i].m_fraction)) /* 0x2379f0: c.lt t, fraction */
 		i++;
 
 	s32 prev = i - 1;
@@ -337,7 +337,7 @@ void Particle::Instance::List::Tick(float dT)
 	{
 		Instance* instance = *it;
 
-		if (instance->m_lifespan <= instance->m_age)
+		if (!(instance->m_age < instance->m_lifespan)) /* 0x23724c: c.lt age, lifespan */
 		{
 			instance->Expire();
 			instance->m_source = reinterpret_cast<Source*>(m_instance_pool); /* the pool link */

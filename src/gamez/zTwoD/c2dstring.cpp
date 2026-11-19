@@ -502,7 +502,7 @@ void C2DString::UpdatePos()
 		if (c == '\n')
 		{
 			m_numLines++;
-			m_length += (f32)(line >> 4) * m_scale * m_font->m_scale_factor;
+			m_length += (f32)(line >> 4) * (m_scale * m_font->m_scale_factor); /* 0x302094: scale * factor first */
 			line = 0;
 		}
 		else if (line != 0 || c != ' ')
@@ -515,8 +515,8 @@ void C2DString::UpdatePos()
 	}
 
 	f32 last = (f32)(line >> 4);
-	m_length += last * m_scale * m_font->m_scale_factor;
-	m_shortLength = (s32)(last * m_scale * m_font->m_scale_factor);
+	m_length += last * (m_scale * m_font->m_scale_factor);
+	m_shortLength = (s32)(last * (m_scale * m_font->m_scale_factor));
 	m_height = m_charheight * m_scale * m_font->m_scale_factor;
 }
 
