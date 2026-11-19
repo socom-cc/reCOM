@@ -421,7 +421,7 @@ int CZAnimMain::NetworkReceive(void *data)
 
 			copy->m_arg_list = NULL;
 
-			if (packet->packet_size > 8)
+			if ((u32)packet->packet_size > 8) /* 0x1cf510: an unsigned compare (sltiu 9) */
 			{
 				if (copy->m_arg_list == NULL)
 					copy->m_arg_list = new CZAnimArgList;
@@ -1246,6 +1246,10 @@ void CZAnim::MakeClones()
 
 	CZAnim* last = this;
 
+	/* port: walks the copies to the last one. The ELF loop (0x1cd018) never reloads its
+	 * pointer (last = m_sibling_anim; then five short-loop nops), so an anim that already had
+	 * a copy would spin forever; CZAnimSet::Start calls this only on the set's first start,
+	 * when clone anims have no copies yet */
 	while (last->m_sibling_anim != NULL)
 		last = last->m_sibling_anim;
 
@@ -1927,13 +1931,12 @@ void CZAnim::CreateRootNode()
 	if (m_root_node_index == 0)
 		m_root_node_index = AddNewNodeRef(0, 0, 0);
 
-	_zanim_node_ref* ref = m_root_node_index ? &m_node_ref_list[m_root_node_index] : NULL;
+	/* the ELF inlines GetNodeRef here (NULL for index 0 and 250, the node looked up when unset) */
+	_zanim_node_ref* ref = GetNodeRef(m_root_node_index);
 
+	/* port guard: for a NULL ref the ELF reads ref->node_ptr from address 4 (0x1cb078) */
 	if (ref == NULL)
 		return;
-
-	if (ref->node_ptr == NULL)
-		GetNode(m_root_node_index, false);
 
 	if (ref->node_ptr == NULL)
 	{
@@ -2833,7 +2836,7 @@ bool CZAnim::Load(zar::CZAR &archive)
 
 	m_nameindex_table.Load(archive);
 
-	s32 count = 0;
+	s32 count = 0; /* port: zeroed; the ELF leaves the slot unset for a missing key */
 	archive.Fetch("Node_Ref_Count", &count, sizeof(count));
 	m_node_ref_count = count;
 

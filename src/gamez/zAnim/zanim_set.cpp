@@ -204,7 +204,8 @@ void _store_frame_data(_zanim_si_script *script, zanim_script_frame_header *head
 		to->Sub(from, &delta);
 	}
 
-	if (!(fabs(delta.x) > 1e-5) && !(fabs(delta.y) > 1e-5) && !(fabs(delta.z) > 1e-5) && !force && !script->spline_interp)
+	/* the ELF compares in double with the float 1e-5f widened (0x3ee4f8b5_80000000) */
+	if (!(fabs(delta.x) > 1e-5f) && !(fabs(delta.y) > 1e-5f) && !(fabs(delta.z) > 1e-5f) && !force && !script->spline_interp)
 		return;
 
 	if (header->flags == 0)
@@ -813,7 +814,7 @@ bool CZAnimSet::Load(zar::CZAR &archive)
 	m_name_table.Load(archive);
 	LoadSIScript(archive);
 
-	s32 count = 0;
+	s32 count = 0; /* port: zeroed; the ELF leaves the slot unset for a missing key */
 	archive.Fetch("Animation_List_Count", &count, sizeof(count));
 
 	if (m_anim_max < count)
@@ -853,13 +854,18 @@ bool CZAnimSet::LoadSIScript(zar::CZAR &archive)
 
 	if (key != NULL)
 	{
+		/* the entry is indexed by this call's own count (0x1c5c38: s1 from 0), not by
+		 * m_si_script_count (the same while the set starts with no scripts) */
+		s32 n = 0;
+
 		for (zar::CKey::iterator it = key->begin(); it != key->end(); ++it)
 		{
 			if (archive.OpenKey(*it) == NULL)
 				continue;
 
 			m_si_script = static_cast<_zanim_si_script*>(_realloc(m_si_script, (m_si_script_count + 1) * sizeof(_zanim_si_script), "zanim_set.cpp", 0x514));
-			_zanim_si_script* script = &m_si_script[m_si_script_count++];
+			m_si_script_count++;
+			_zanim_si_script* script = &m_si_script[n++];
 			archive.Fetch("Script_Params", script, 0x14);
 			script->script_data = static_cast<char*>(_malloc(script->script_data_size, "zanim_set.cpp", 0x51c));
 			archive.Fetch("Script_Data", script->script_data, script->script_data_size);

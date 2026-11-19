@@ -317,18 +317,18 @@ float CSequence::LinearWeight()
 {
 	/* 0x1dc820: 0 -> 1 over the down time, 1 while held, 1 -> 0 over the up time (the time
 	 * is clamped to the total) */
-	f32 total = m_downT + m_upT + m_holdT;
+	f32 total = m_downT + (m_upT + m_holdT); /* 0x1dc830: up + hold first */
 	f32 t = m_currT;
 
-	if (total <= t)
+	if (!(t < total))
 		t = total;
 
 	m_currT = t;
 
-	if (!(t > 0.0f))
+	if (t <= 0.0f)
 		return 0.0f;
 
-	if (m_holdT + m_downT < t)
+	if (!(t <= m_holdT + m_downT))
 		return (total - t) / m_upT;
 
 	return t < m_downT ? t / m_downT : 1.0f;

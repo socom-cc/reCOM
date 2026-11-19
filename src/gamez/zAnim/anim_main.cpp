@@ -610,7 +610,9 @@ CZAnim * CZAnimMain::GetAnim(const char *name, const char *setname)
 
 	CZAnim* anim = NULL;
 
-	if (animname != NULL)
+	/* the ELF tests each set's address before asking it (0x1c4424, 0x1c4464): no set is
+	 * asked while the set list is NULL (no set loaded yet) */
+	if (animname != NULL && &m_animset_list[set] != NULL)
 		anim = m_animset_list[set].Anim(animname);
 
 	if (anim == NULL)
@@ -620,7 +622,7 @@ CZAnim * CZAnimMain::GetAnim(const char *name, const char *setname)
 			if (i == set)
 				continue;
 
-			anim = animname ? m_animset_list[i].Anim(animname) : NULL;
+			anim = (animname != NULL && &m_animset_list[i] != NULL) ? m_animset_list[i].Anim(animname) : NULL;
 
 			if (anim != NULL)
 				return anim;
@@ -845,6 +847,7 @@ void CZAnimMain::ActivateSequence(const char *name)
 	{
 		char* seqname = m_CurAnim->GetName(m_CurSeq->name_index);
 
+		/* port: the ELF strcmps a NULL name as is */
 		if (seqname != NULL && strcmp(seqname, name) == 0 && !StateRunning(m_CurSeq->state))
 		{
 			SeqSetState(2);
@@ -901,6 +904,7 @@ void CZAnimMain::PauseSequence(const char *name)
 	{
 		char* seqname = m_CurAnim->GetName(m_CurSeq->name_index);
 
+		/* port: the ELF strcmps a NULL name as is */
 		if (seqname != NULL && strcmp(seqname, name) == 0 && StateRunning(m_CurSeq->state))
 		{
 			m_CurSeq->paused = 1;
@@ -979,6 +983,7 @@ unsigned char CZAnimMain::SequenceRunning(const char *name)
 	{
 		char* seqname = m_CurAnim->GetName(m_CurSeq->name_index);
 
+		/* port: the ELF strcmps a NULL name as is */
 		if (seqname != NULL && strcmp(seqname, name) == 0 && StateRunning(m_CurSeq->state))
 		{
 			running = true;
@@ -1037,6 +1042,7 @@ zdb::CNode * CZAnimMain::GetDatabaseNode(const char *name, int scope)
 
 	if (world != NULL && (scope == 3 || scope == 0))
 	{
+		/* port: the ELF strcmps a NULL world name as is (0x1c3288) */
 		if (world->m_name != NULL && strcmp(world->m_name, name) == 0)
 			node = world;
 
