@@ -711,13 +711,15 @@ float CZSealBody::GetTerrainMotionFactor()
 	f32 slope = 1.0f;
 	f32 water = 1.0f;
 
-	if (m_waterdepth > 0.0f)
+	/* the compares are the ELF's forms, the not-<= ones included (0x2a2acc, 0x2a2af4,
+	 * 0x2a2be8, 0x2a2c38) */
+	if (!(m_waterdepth <= 0.0f))
 	{
 		f32 w = 1.0f - m_waterdepth * theCharacterDynamics.m_waterFactorSlope;
-		water = theCharacterDynamics.m_minWaterFactor;
+		water = w;
 
-		if (theCharacterDynamics.m_minWaterFactor <= w)
-			water = w;
+		if (w < theCharacterDynamics.m_minWaterFactor)
+			water = theCharacterDynamics.m_minWaterFactor;
 	}
 
 	if (m_blends->Top()->m_flags & 0x40)
@@ -726,13 +728,13 @@ float CZSealBody::GetTerrainMotionFactor()
 		m_node->m_matrix.Rotate(&CPnt3D::unit_z, &z, 1);
 		f32 d = m_last_altitude.m_norm.x * z.x + m_last_altitude.m_norm.y * z.y + m_last_altitude.m_norm.z * z.z;
 
-		if (d > 0.0f)
+		if (!(d <= 0.0f))
 			slope = sqrtf(1.0f - d * d);
 	}
 
 	f32 f = water * slope;
 
-	if (f < 0.0f || f > 1.0f)
+	if (f < 0.0f || !(f <= 1.0f))
 		f = 1.0f;
 
 	return f;
@@ -2009,8 +2011,9 @@ void CZSealBody::HandleLanding(float impact)
 	 * with both throttles off zero skips (the run goes on). A carrying body pushes none. The
 	 * anim goes on with the snapshot flag set (restored after), the body stands. ELF quirk:
 	 * the hard branch leaves the anim unset for a damage outside 0..3 (HandleFallingDamage
-	 * returns only 0..3; port: no anim then). */
-	if (theMission.m_wait_before_falling > 0.0f)
+	 * returns only 0..3; port: no anim then). The three float tests are the ELF's not-<= forms
+	 * (0x29e920, 0x29e988, 0x29ea08). */
+	if (!(theMission.m_wait_before_falling <= 0.0f))
 		return;
 
 	if (IsCurrentBlend(AnimType::animTypeJumpLandHard) || IsCurrentBlend(AnimType::animTypeJumpLand))
@@ -2020,7 +2023,7 @@ void CZSealBody::HandleLanding(float impact)
 	AnimType land = AnimType::animTypeUndefined;
 	s32 damage = HandleFallingDamage(impact);
 
-	if (impact > theCharacterDynamics.m_landHardFallRate)
+	if (!(impact <= theCharacterDynamics.m_landHardFallRate))
 	{
 		if (damage == 3)
 		{
@@ -2036,7 +2039,7 @@ void CZSealBody::HandleLanding(float impact)
 	{
 		land = AnimType::animTypeJumpLand;
 
-		if (400.0f < m_velW.x * m_velW.x + m_velW.y * m_velW.y + m_velW.z * m_velW.z
+		if (!(m_velW.x * m_velW.x + m_velW.y * m_velW.y + m_velW.z * m_velW.z <= 400.0f)
 			&& !_close_enough(pre_thr_strafe, 0.0f, stoppedV) && !_close_enough(pre_thr_fb, 0.0f, stoppedV))
 		{
 			land = AnimType::animTypeUndefined;
@@ -2194,12 +2197,13 @@ bool CZSealBody::SetEyeLookDir(float pitch, float yaw, const CPnt3D *, float rat
 	CPnt3D *curr = &m_eyelook->m_curr_dir;
 	CQuat qx, qy, q;
 
-	if (pitch >= 0.0f)
+	/* the ELF tests pitch < 0 / yaw < 0 for the second branch (0x29dbd8, 0x29dc28) */
+	if (!(pitch < 0.0f))
 		qx.MakeXRot(pitch * 0.13962634f);
 	else
 		qx.MakeXRot(pitch * -0.244346113f /* 0x3e7a35de */);
 
-	if (yaw >= 0.0f)
+	if (!(yaw < 0.0f))
 		qy.MakeYRot(yaw * -0.296706f);
 	else
 		qy.MakeYRot(yaw * -0.296706f);
@@ -2729,9 +2733,8 @@ void CZSealBody::OnWeaponHit(zdb::IntersectStruct* intersection, CZProjectile* p
 
 	if (m_isAlive && GetNode()->m_active)
 	{
-		if (m_control != NULL) /* port: guard (the ELF calls through the controller unchecked) */
-			static_cast<CSealCtrl *>(m_control)->OnWeaponHit(intersection, projectile);
-
+		/* 0x29c54c: the controller is called unchecked (every seal has one) */
+		static_cast<CSealCtrl *>(m_control)->OnWeaponHit(intersection, projectile);
 		AdrenalineIncr(0.99000001f /* 0x3f7d70a4 */);
 
 		if (intersection == NULL)
@@ -3079,7 +3082,7 @@ void DrawAutoReticle(CPnt3D *point)
 	a.w = 1.0f;
 	CPnt4D b;
 	b.x = x;
-	b.y = y + distOff + retLen;
+	b.y = y + (distOff + retLen); /* 0x29b7d0: distOff + retLen first */
 	b.z = 0.0f;
 	b.w = 1.0f;
 	Draw2DLine(&a, &b, &inner, &outer);
@@ -4025,8 +4028,9 @@ void ParentPistolToRThighAsGearCallback(void *seal, void *)
 		pistol->m_parent = body->m_rthigh;
 		pistol->m_parent->m_node->AddChild(pistol->m_node);
 
-		if ((u16)pistol->m_id < (u16)body->m_body_parts.size())
-			body->m_body_parts[(u16)pistol->m_id] = NULL;
+		/* 0x298764: lh id, sltu against the size (signed id, unsigned test) */
+		if ((u32)(s32)pistol->m_id < body->m_body_parts.size())
+			body->m_body_parts[pistol->m_id] = NULL;
 
 		pistol->m_blendme = 0;
 	}
@@ -4047,8 +4051,9 @@ void CZSealBody::ChangeToPistolMode(bool draw)
 		m_pistol->m_parent = m_rhand;
 		m_pistol->m_parent->m_node->AddChild(m_pistol->m_node);
 
-		if ((u16)m_pistol->m_id < (u16)m_body_parts.size())
-			m_body_parts[(u16)m_pistol->m_id] = m_pistol;
+		/* 0x2985d8: lh id, sltu against the size (signed id, unsigned test) */
+		if ((u32)(s32)m_pistol->m_id < m_body_parts.size())
+			m_body_parts[m_pistol->m_id] = m_pistol;
 
 		m_pistol->m_blendme = 0;
 	}
@@ -4098,8 +4103,9 @@ void CZSealBody::ChangeToRifleMode(bool holster)
 			m_pistol->m_parent = m_rthigh;
 			m_pistol->m_parent->m_node->AddChild(m_pistol->m_node);
 
-			if ((u16)m_pistol->m_id < (u16)m_body_parts.size())
-				m_body_parts[(u16)m_pistol->m_id] = NULL;
+			/* 0x2984b4: lh id, sltu against the size (signed id, unsigned test) */
+			if ((u32)(s32)m_pistol->m_id < m_body_parts.size())
+				m_body_parts[m_pistol->m_id] = NULL;
 
 			m_pistol->m_blendme = 0;
 		}
@@ -4389,14 +4395,15 @@ void CZSealBody::PostChangeWeapon(SEAL_ITEM item)
 			m_rifle->m_parent = m_rhand;
 			m_rifle->m_parent->m_node->AddChild(m_rifle->m_node);
 
-			if ((u16)m_rifle->m_id < (u16)m_body_parts.size())
-				m_body_parts[(u16)m_rifle->m_id] = m_rifle;
+			/* 0x296f80 / 0x296fb4: lh id, sltu against the size (signed id, unsigned test) */
+			if ((u32)(s32)m_rifle->m_id < m_body_parts.size())
+				m_body_parts[(s32)m_rifle->m_id] = m_rifle;
 
 			m_rifle->m_blendme = 0;
 		}
 
-		if ((u16)m_weapon->m_id < (u16)m_body_parts.size())
-			m_body_parts[(u16)m_weapon->m_id] = NULL;
+		if ((u32)(s32)m_weapon->m_id < m_body_parts.size())
+			m_body_parts[(s32)m_weapon->m_id] = NULL;
 
 		m_item = SEAL_ITEM::itemRifle;
 		RePose(SEAL_ITEM::itemRifle);
@@ -4503,7 +4510,7 @@ bool CZSealBody::DamageRArm(float damage, float pierce)
 
 	if (health <= max * 0.300000012f /* 0x3e99999a */)
 		level = 3;
-	else if (!(max * 0.7f < health))
+	else if (health <= max * 0.7f) /* the ELF tests h <= 0.7 max (c.le.s) */
 		level = 2;
 	else if (health <= max * 0.9f)
 		level = 1;
@@ -4615,7 +4622,7 @@ bool CZSealBody::DamageLArm(float damage, float pierce)
 
 	if (health <= max * 0.300000012f /* 0x3e99999a */)
 		level = 3;
-	else if (!(max * 0.7f < health))
+	else if (health <= max * 0.7f) /* the ELF tests h <= 0.7 max (c.le.s) */
 		level = 2;
 	else if (health <= max * 0.9f)
 		level = 1;
@@ -4828,7 +4835,7 @@ bool CZSealBody::DamageLLeg(float damage, float pierce)
 
 	if (health <= max * 0.300000012f /* 0x3e99999a */)
 		level = 3;
-	else if (!(max * 0.7f < health))
+	else if (health <= max * 0.7f) /* the ELF tests h <= 0.7 max (c.le.s) */
 		level = 2;
 	else if (health <= max * 0.9f)
 		level = 1;
@@ -4940,7 +4947,7 @@ bool CZSealBody::DamageRLeg(float damage, float pierce)
 
 	if (health <= max * 0.300000012f /* 0x3e99999a */)
 		level = 3;
-	else if (!(max * 0.7f < health))
+	else if (health <= max * 0.7f) /* the ELF tests h <= 0.7 max (c.le.s) */
 		level = 2;
 	else if (health <= max * 0.9f)
 		level = 1;
@@ -5680,7 +5687,7 @@ void CZSealBody::HandleFootfallSound(CPnt3D *pos)
 
 	if (GetStance(false) == SEAL_STATE::stateProne)
 		sound = material->m_crawl_sound;
-	else if (0.5f < m_control->m_throttle[0] || 0.5f < m_control->m_throttle[1])
+	else if (!(m_control->m_throttle[0] <= 0.5f) || !(m_control->m_throttle[1] <= 0.5f)) /* 0x292150 / 0x292160 */
 		sound = material->m_step_sound;
 	else
 		sound = material->m_stealth_step_sound;
@@ -6831,8 +6838,8 @@ void CZSealBody::DropAllItems()
 	 * (its satchel hidden). */
 	if (!theNetwork.m_bNetwork)
 	{
-		/* port: guard (the ELF asks the controller unchecked) */
-		CSealCtrlAi *ai = m_control != NULL ? static_cast<CSealCtrl *>(m_control)->GetSealCtrlAi() : NULL;
+		/* 0x28eb28: the controller is asked unchecked (every seal has one) */
+		CSealCtrlAi *ai = static_cast<CSealCtrl *>(m_control)->GetSealCtrlAi();
 
 		if (ai != NULL && ai->m_navyseal)
 			return;
@@ -7518,6 +7525,9 @@ void CZSealBody::CanPickupNetItem(unsigned short count, unsigned short netid, un
 	SendPickupAckMessage(count, netid, asker, ack);
 	CZSealBody *seal = SealOfEntity(CEntity::m_list.GetEntityById(asker));
 
+	/* port deviation: the ELF tests the entity, not the seal (0x28d1ec), so an asker id of an
+	 * entity that is no seal would get HandlePickupAck on NULL; the port tests the seal (a
+	 * member call on NULL is undefined in GCC; askers are always seals) */
 	if (seal != NULL)
 		seal->HandlePickupAck(count, netid, &ack);
 }

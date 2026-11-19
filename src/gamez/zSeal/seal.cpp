@@ -3190,18 +3190,20 @@ void CZSealBody::NormalizeToTerrain()
 	f32 t = top->m_tfrac;
 	f32 w = 0.0f; /* port: the ELF leaves it unset where no branch assigns (a == b < t <= b: impossible) */
 
+	/* the compares are the ELF's forms, including the not-< / not-<= ones (0x24fa58, 0x24fa78,
+	 * 0x24faa4, 0x24fb00, 0x24fb40) */
 	if (a == b)
 	{
 		if (t <= a)
 			w = 0.0f;
-		else if (b < t)
+		else if (!(t <= b))
 			w = 1.0f;
 	}
-	else if (a < b)
+	else if (!(b <= a))
 	{
 		if (t <= a)
 			w = 0.0f;
-		else if (b <= t)
+		else if (!(t < b))
 			w = 1.0f;
 		else
 			w = (t - a) / (b - a);
@@ -3210,7 +3212,7 @@ void CZSealBody::NormalizeToTerrain()
 	{
 		w = 1.0f;
 	}
-	else if (a <= t)
+	else if (!(t < a))
 	{
 		w = 0.0f;
 	}
@@ -3219,7 +3221,7 @@ void CZSealBody::NormalizeToTerrain()
 		w = 1.0f - (t - b) / (a - b);
 	}
 
-	if (w > 0.0f)
+	if (!(w <= 0.0f))
 	{
 		CQuat inv;
 		inv.w = m_quat.w;
@@ -3332,11 +3334,10 @@ float CZSealBody::SetHealth(float health, SEAL_DEATH_TYPE death)
 	m_health = health;
 	CSealCtrl *control = static_cast<CSealCtrl *>(m_control);
 
+	/* the controller is called unchecked (0x24f634 / 0x24f6b0): every caller's seal has one */
 	if (!alive && !(health <= 0.0f))
 	{
-		if (control != NULL) /* port: guard (unchecked in the ELF) */
-			control->OnSetHealth(health, old);
-
+		control->OnSetHealth(health, old);
 		m_isAlive = 1;
 		SetIncludeInTargetList(true);
 		return m_health;
@@ -3349,9 +3350,7 @@ float CZSealBody::SetHealth(float health, SEAL_DEATH_TYPE death)
 		return m_health;
 	}
 
-	if (control != NULL) /* port: guard (unchecked in the ELF) */
-		control->OnSetHealth(health, old);
-
+	control->OnSetHealth(health, old);
 	return m_health;
 }
 
