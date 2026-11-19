@@ -481,26 +481,19 @@ bool CTAction::Tick(_zanim_cmd_hdr* header, f32* dT)
 			if (task->m_auto_return && ai->PushAiState(STATE_GOTO, true))
 			{
 				CAiState *top = ai->GetAiState();
+				/* the check-casts (0x2be3dc, 0x2be4bc) cannot fail: a successful push leaves the state on top */
 				CAiSGoto *go = top->m_state == STATE_GOTO ? static_cast<CAiSGoto *>(top) : NULL;
-
-				if (go != NULL) /* port: NULL-tested (ELF writes through it) */
-				{
-					go->m_dest = ai->m_entity->m_mapLocValid;
-					go->m_setup = 1;
-				}
+				go->m_dest = ai->m_entity->m_mapLocValid;
+				go->m_setup = 1;
 			}
 
 			if (ai->PushAiState(STATE_ACTION, true))
 			{
 				CAiState *top = ai->GetAiState();
 				CAiSAction *act = top->m_state == STATE_ACTION ? static_cast<CAiSAction *>(top) : NULL;
-
-				if (act != NULL) /* port: NULL-tested (ELF writes through it) */
-				{
-					act->m_action = action;
-					act->m_value = task->m_state;
-					act->m_setup = 1;
-				}
+				act->m_action = action;
+				act->m_value = task->m_state;
+				act->m_setup = 1;
 			}
 		}
 	}
@@ -931,17 +924,14 @@ bool CTFireWeapon::Tick(_zanim_cmd_hdr* header, f32* dT)
 	if (ok && ai->PushAiState(STATE_DEPLOY, true))
 	{
 		CAiState *top = ai->GetAiState();
+		/* the check-cast of 0x2bcf04 cannot fail: a successful push leaves STATE_DEPLOY on top */
 		CAiSDeploy *deploy = top->m_state == STATE_DEPLOY ? static_cast<CAiSDeploy *>(top) : NULL;
-
-		if (deploy != NULL) /* port: NULL-tested (ELF writes through it) */
-		{
-			deploy->m_option_flags = 1;
-			deploy->m_target = at;
-			deploy->m_offset = CPnt3D::zero;
-			deploy->m_unk_40 = 0;
-			deploy->m_item = task->m_item;
-			deploy->m_setup = 1;
-		}
+		deploy->m_option_flags = 1;
+		deploy->m_target = at;
+		deploy->m_offset = CPnt3D::zero;
+		deploy->m_unk_40 = 0;
+		deploy->m_item = task->m_item;
+		deploy->m_setup = 1;
 	}
 
 	*dT = 0.0f;
@@ -1517,7 +1507,9 @@ void CTLookAt::Begin(_zanim_cmd_hdr* header)
 	CZSealBody *seal = taskSeal(task->m_seal_index);
 	CSealCtrl *ctrl = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control) : NULL;
 
-	if (seal == NULL || ctrl == NULL || ctrl->GetSealCtrlAi() == NULL)
+	/* 0x2bb134: as in Tick, the seal and its controller are tested, not the AI (the ELF calls
+	 * GetSealCtrlAi and drops the result): a seal without an AI draws its time too */
+	if (seal == NULL || ctrl == NULL)
 		return;
 
 	f32 t = task->m_time.m_min;
@@ -2704,6 +2696,20 @@ bool CTSetAnimSet::Tick(_zanim_cmd_hdr* header, f32* dT)
 /* @socom-skeleton body GetSignalByName__8CTSignalFPCc */
 AiSig CTSignal::GetSignalByName(const char* signal)
 {
+	/* 0x2b6f60: the signal whose name (jump table 0x454560) matches, case ignored; NULL or
+	 * no match: AISIG_UNKNOWN */
+	static const char *const names[6] = { "AISIG_UNKNOWN", "AISIG_ANIMCOMPLETE", "AISIG_BEGINCRITICAL",
+		"AISIG_ENDCRITICAL", "AISIG_SUSPEND", "AISIG_RELEASE" };
+
+	if (signal == NULL)
+		return AiSig::AISIG_UNKNOWN;
+
+	for (u32 i = 0; i < 6; i++)
+	{
+		if (strcasecmp(signal, names[i]) == 0)
+			return (AiSig)(u8)i;
+	}
+
 	return AiSig::AISIG_UNKNOWN;
 }
 
@@ -2994,7 +3000,9 @@ void CTSpecial::End(_zanim_cmd_hdr* header)
 	TASK_SELECT *select = reinterpret_cast<TASK_SELECT *>(taskFindParam(*(u16 *)&ai_cmdid[8], task->m_seal_index));
 	CSealCtrlAi *ai = select != NULL ? select->m_ai : NULL;
 
-	if (ai != NULL) /* port: tested (ELF: Debug on a NULL controller) */
+	/* port deviation, kept: tested (ELF 0x2b631c: Debug on a NULL controller, which the retail
+	 * Debug never reads; the port's trace Debug reads its receiver) */
+	if (ai != NULL)
 		ai->Debug("CTSpecial::COMPLETE\n");
 
 	for (int i = 1;; i++)

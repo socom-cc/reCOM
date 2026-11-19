@@ -80,7 +80,9 @@ bool CAiTarget::UpdateTarget(CTarget *target, float threat)
 
 	if (target != NULL)
 	{
-		m_last_pos = *target->m_ent->GetPosW(); /* ELF: no entity test */
+		/* 0x2ea1f8: without an entity the ELF reads the position at address 0 */
+		const CPnt3D *pos = target->m_ent != NULL ? target->m_ent->GetPosW() : NULL;
+		m_last_pos = *pos;
 
 		if (changed)
 			m_targeted = target->m_targeted;
@@ -104,7 +106,9 @@ void CAiTarget::SetTarget(CTarget *target, float threat)
 
 	if (target != NULL)
 	{
-		m_last_pos = *target->m_ent->GetPosW(); /* ELF: no entity test */
+		/* 0x2e9cf0: without an entity the ELF reads the position at address 0 */
+		const CPnt3D *pos = target->m_ent != NULL ? target->m_ent->GetPosW() : NULL;
+		m_last_pos = *pos;
 
 		if (changed)
 			m_targeted = target->m_targeted;
@@ -120,7 +124,8 @@ void CAiTarget::SetTarget(CTarget *target, float threat)
 
 	if (target != NULL)
 	{
-		m_last_pos = *target->m_ent->GetPosW();
+		const CPnt3D *pos = target->m_ent != NULL ? target->m_ent->GetPosW() : NULL; /* 0x2e9dcc, as above */
+		m_last_pos = *pos;
 		m_time_lost_sight = theMission.m_timer;
 	}
 

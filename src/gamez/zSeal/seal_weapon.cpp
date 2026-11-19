@@ -310,7 +310,7 @@ unsigned char CZSealBody::CalcAimGoal(const CPnt3D *curr, const CPnt3D *dir, CPn
 	f32 len = sqrtf(dir->x * dir->x + dir->z * dir->z);
 	f32 yawcos = len != 0.0f ? -dir->z / len : 1.0f;
 
-	if (dir->z >= 0.0f)
+	if (!(dir->z < 0.0f)) /* c.lt.s / bc1t (0x2bfcdc): a NaN z takes the max-pitch test */
 	{
 		if (len < cosmax)
 			inside = false;
@@ -609,5 +609,6 @@ bool CZSealBody::CanAttainAim(CPnt3D &dir)
 	CPnt3D out;
 	PointAlongLine(base, tip, len * 1.10000003f /* 0x3f8ccccd */, out);
 	out.Sub(&m_aim_point, &d);
-	return m_aim_norm.x * d.x + m_aim_norm.y * d.y + m_aim_norm.z * d.z > 0.0f;
+	/* c.le.s / bc1f (0x2bf1e0): attainable unless the dot is <= 0 (a NaN dot is attainable) */
+	return !(m_aim_norm.x * d.x + m_aim_norm.y * d.y + m_aim_norm.z * d.z <= 0.0f);
 }

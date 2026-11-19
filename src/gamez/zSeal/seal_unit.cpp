@@ -405,7 +405,8 @@ CSealUnit::CSealUnit(unsigned int num)
 	m_point_ticks = 0;
 	m_compassanchor = NULL;
 	/* ELF: start_turn, m_ambush_dir, the targets, m_follower_is_pointing and the valve are
-	 * left as allocated (Create sets the valve) */
+	 * left as allocated (Create sets the valve). Port deviation, kept: they are zeroed here so
+	 * that no reader sees heap garbage (audit medium-seal-c row 85) */
 	m_follower_point_data.start_turn = 0;
 	m_leader_point_data.start_turn = 0;
 	m_ambush_dir = CPnt3D::zero;
@@ -717,9 +718,8 @@ void CSealUnit::UnInit()
 {
 	/* 0x2d5570 (CMission::Close, ReOpen_Unload1): every unit leaves the list and is deleted
 	 * (the inlined dtor deletes its compass anchor (+0x0) and empties its member lists), then
-	 * the units count as not created. port: the unit's anchor and lists are not declared
-	 * (their dtors run as members once they are); CreateSinglePlayerUnits is unwritten, so
-	 * the list is empty today. */
+	 * the units count as not created. The ELF dtor then clears the sub-units and seals and
+	 * destroys the five lists; the port's implicit dtor destroys the same member lists. */
 	std::list<CSealUnit*>::iterator it = m_list.begin();
 
 	while (it != m_list.end())
@@ -917,10 +917,8 @@ void AddBreachMember(CAiSBreach *breach, CSealCtrlAi *ai)
 		return;
 
 	CAiState *top = ai->GetAiState();
+	/* the check-cast of 0x2d3584 cannot fail: a successful push leaves STATE_BREACH on top */
 	CAiSBreach *state = top->m_state == STATE_BREACH ? static_cast<CAiSBreach *>(top) : NULL;
-
-	if (state == NULL) /* port: NULL-tested (ELF writes through it) */
-		return;
 
 	*state = *breach;
 

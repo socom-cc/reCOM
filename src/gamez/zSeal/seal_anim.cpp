@@ -572,7 +572,7 @@ void CZSealBody::Post()
 		}
 	}
 
-	if (w > 0.0f)
+	if (!(w <= 0.0f)) /* c.le.s / bc1t (0x26ca04): a NaN weight smooths */
 		SmoothAnims(w);
 
 	if (m_interp1 <= 0.0f)
