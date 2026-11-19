@@ -723,7 +723,51 @@ bool HUDStartDefuseTimerTick(_zanim_cmd_hdr *header, float *)
 }
 
 /* @socom-skeleton body __ct__8CMissionFv */
-CMission::CMission() : CSaveModule("CMission", NULL) {}
+CMission::CMission() : CSaveModule("CMission", theMemCard.m_game)
+{
+	/* 0x1f94a0 (__sinit_fts_mission.cpp): a module of the saved-games manager (theMemCard
+	 * +0x18, built just before in this unit), then the ELF's stores in order. Read resets the
+	 * AI parameters and the satchel fuse; the grid spacing, the see-farther factors and the
+	 * win / loss timer's rate (-1 per second, never written again) come only from here. */
+	m_state = MISSION_UNLOADED;
+	m_database = NULL;
+	m_timer = 0.0f;
+	m_ai_params.weather_factor = 0.0f;
+	m_ai_params.fireteam_command = FT_COMMAND::CMD_FOLLOW;
+	m_ai_params.recycle_time = 60.0f;
+	m_ai_params.recycle_range = 10000.0f;
+	m_ai_params.respawn_time = 5.0f;
+	m_ai_params.respawn_fade = 0.75f;
+	m_ai_params.respawn_range = 2500.0f;
+	m_ai_params.player_grid_spacing = 15.0f;
+	m_ai_params.player_grid_count = 0;
+	m_ladders = NULL;
+	m_pNetGame = NULL;
+	m_fighttimer = 0.0f;
+	m_satcheltimer = 10.0f;
+	m_e3_team = E3_EITHER;
+	strncpy(m_weaponmodelpostfix, "", 30); /* the ELF tests the array's address first: both arms the same */
+	m_chars_loaded = false;
+	m_ignore_objectives = false;
+	m_winlossinc = -1.0f;
+	m_winlosstimer = -1.0f;
+	m_vehicleRdr = NULL;
+	m_strLoadingScrLib.assign("ui/assetlib/junk_name", strlen("ui/assetlib/junk_name"));
+	memset(m_teamValve, 0, sizeof(m_teamValve));
+	m_player_valve = NULL;
+	m_objectives_timer = 0.0f;
+	m_prev_selected_objcam = NULL;
+	strcpy(m_db_string, "UNKNOWN");
+	m_ordersRdr = NULL;
+	m_materialsRdr = NULL;
+	m_decalsRdr = NULL;
+	m_fontsRdr = NULL;
+	m_messagesRdr = NULL;
+	m_subtitlesRdr = NULL;
+	m_smallmessagesRdr = NULL;
+	m_seefarther_binocs = 200.0f;
+	m_seefarther_weapzoom = 300.0f;
+}
 
 /* @socom-skeleton stub __dt__8CMissionFv */
 CMission::~CMission()
@@ -1614,7 +1658,10 @@ void _OnMissionComplete()
 	{
 		CZProjectileList *projectiles = CZWeapon::m_pProjectilelist;
 		player = ftsGetPlayer();
-		projectiles->Clear(player != NULL ? player->m_id : 0);
+
+		if (player != NULL) /* 0x1f6e80: no Clear without a player (was Clear(0)) */
+			projectiles->Clear(player->m_id);
+
 		CPickup::Close(false);
 	}
 
@@ -2432,49 +2479,24 @@ void ftsFixupAiMap(CAiMap *map)
 /* @socom-skeleton body OnMissionStart__8CMissionFv */
 void CMission::OnMissionStart()
 {
-	VALVE_STATE valveMissionState;
-
 	m_state = MISSION_RUNNING;
 	m_delay = -1.0f;
 	appCamera->ResetDeathCam();
 	m_DelayEndMission = false;
 	m_FadingToEndMission = false;
 
-	valveMissionState = VALVE_STATE::VSTATE_DORMANT;
+	/* 0x1f4544-0x1f460c: the five end valves get the inline Set(0), unchecked: the callbacks
+	 * run (state 2) only for a valve that was set. Was a NULL test each and the callbacks
+	 * every time. */
+	CValve* valves[5] = { m_valve_complete, m_valve_failure, m_valve_abort, m_valve_timeout, m_valve_nofade };
 
-	if (m_valve_complete)
+	for (int i = 0; i < 5; i++)
 	{
-		valveMissionState = VALVE_STATE::VSTATE_PERMANENT;
-		m_valve_complete->m_value = 0;
-		m_valve_complete->MakeCallbacks(valveMissionState);
-	}
+		bool changed = valves[i]->m_value != 0;
+		valves[i]->m_value = 0;
 
-	if (m_valve_failure)
-	{
-		valveMissionState = VALVE_STATE::VSTATE_PERMANENT;
-		m_valve_failure->m_value = 0;
-		m_valve_failure->MakeCallbacks(valveMissionState);
-	}
-
-	if (m_valve_abort)
-	{
-		valveMissionState = VALVE_STATE::VSTATE_PERMANENT;
-		m_valve_abort->m_value = 0;
-		m_valve_abort->MakeCallbacks(valveMissionState);
-	}
-
-	if (m_valve_timeout)
-	{
-		valveMissionState = VALVE_STATE::VSTATE_PERMANENT;
-		m_valve_timeout->m_value = 0;
-		m_valve_timeout->MakeCallbacks(valveMissionState);
-	}
-
-	if (m_valve_nofade)
-	{
-		valveMissionState = VALVE_STATE::VSTATE_PERMANENT;
-		m_valve_nofade->m_value = 0;
-		m_valve_nofade->MakeCallbacks(valveMissionState);
+		if (changed)
+			valves[i]->MakeCallbacks(VALVE_STATE::VSTATE_PERMANENT);
 	}
 
 	zdb::CWorld::m_world->m_diIntDelayCnt = 0;
@@ -2484,10 +2506,11 @@ void CMission::OnMissionStart()
 	/* 0x1f4618: the common and mission anim sets start (their anims can be activated from
 	 * now on; on-start anims run) */
 	CZAnimSet* common = ZAnim.GetAnimSet("common");
-	CZAnimSet* mission = ZAnim.GetAnimSet("mission");
 
 	if (common)
 		common->Start();
+
+	CZAnimSet* mission = ZAnim.GetAnimSet("mission");
 
 	if (mission)
 		mission->Start();
@@ -2502,12 +2525,12 @@ void CMission::OnMissionStart()
 	else
 		CSnd::NetOpen();
 
-	CSnd::m_listenerIsValid = true;
+	CSnd::m_listenerIsValid = false; /* 0x1f474c / 0x1f4758 sb zero: valid again at the next PostTick (was true) */
 	CSndJukebox::Start();
 
 	if (theNetwork.m_bNetwork)
 	{
-		// CPickup::Open(CEntity::m_list);
+		CPickup::Open((u32)CEntity::m_list.size()); /* 0x1f4774; port: as Open (the ELF passes the first word of CEntity::m_list) */
 		theHUD->ReInit_Uninit();
 		theHUD->ReInit_Init();
 

@@ -115,6 +115,7 @@ void CMissionObjectiveCam::Set(const char *identifier, const char *name, const c
 
 	m_szDisplayValveName = NULL;
 	m_vecLines.clear();
+	std::vector<u32>().swap(m_vecLines); /* 0x20aa08: cleared, then swapped with an empty vector (the buffer freed) */
 
 	if (valve != NULL)
 		m_valvename = _strdup(valve, "fts_objectivecam.cpp", 83);

@@ -1204,7 +1204,7 @@ int GameSignalPacketHandler(int, int, int, void *data)
 		}
 		else
 		{
-			netGame->NetworkTeam(0x40000100);
+			netGame->NetworkTeam(0x80000100); /* 0x202224: lui 0x8000 in the branch's delay slot, then ori 0x100 (was 0x40000100) */
 			netGame->m_uiv_TerrList->Set(&editor);
 		}
 
