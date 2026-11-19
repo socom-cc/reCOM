@@ -911,10 +911,14 @@ void CGameMenu::LoadFromDesign(const CGameDlgDesign &design, CZAnimZAR *animfile
 }
 
 /* @socom-skeleton stub RunEventAnim__9CGameMenuFQ210ActionItem5EVENTPCc */
-void CGameMenu::RunEventAnim(ActionItem::EVENT event, const char *argument)
+bool CGameMenu::RunEventAnim(ActionItem::EVENT event, const char *argument)
 {
 	/* 0x382030: activate the design's anims for that event, from the menu's own set
-	 * first; the given argument (else the design's) goes to the anim as a string */
+	 * first; the given argument (else the design's) goes to the anim as a string. Returns
+	 * whether an anim ran (0x382150; CMenuState::RunEventAnim passes it on). port: bool (the
+	 * skeleton had void) */
+	bool ran = false;
+
 	for (s32 i = 0; i < m_numCommands; i++)
 	{
 		ActionItem& item = m_commands[i];
@@ -936,7 +940,11 @@ void CGameMenu::RunEventAnim(ActionItem::EVENT event, const char *argument)
 			anim->ActivateArg(1, 8, item.Argument, 0);
 		else
 			anim->Activate(NULL);
+
+		ran = true;
 	}
+
+	return ran;
 }
 
 /* @socom-skeleton stub MakeNextButtonActive__9CGameMenuFv */
@@ -1022,7 +1030,10 @@ void CGameMenu::MakeButtonActive(const char *name)
 	std::advance(it, m_activeButton);
 	(*it)->SetNormal();
 
-	C2D* control = NULL; /* port: the ELF leaves its register unset when the node has no 2D visual */
+	/* port: when the found node has no 2D visual the ELF calls SetActive and plays the sound
+	 * through a register left from its caller (0x381938) and matches the list against it; the
+	 * port has no such value, so it skips both and leaves the index (kept deviation) */
+	C2D* control = NULL;
 	zdb::CNode* node = m_nodeTop.FindChild(name, true);
 
 	if (node != NULL)

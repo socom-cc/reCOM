@@ -545,9 +545,7 @@ unsigned char CMenuState::RunEventAnim(const char *name, const char *argument)
 {
 	/* 0x3788c0 (CMemCard LoadConfig / SaveConfig): an event by name (GetEvent inlined) runs
 	 * the menu's anims for it. ONSTART, like an unknown name, runs nothing (ELF quirk: its
-	 * value is 0). The ELF returns CGameMenu::RunEventAnim's result (1 when an anim ran;
-	 * 0x382150); port: that function is declared void in zgame.h (zUI's), so a run event
-	 * returns 1 (port deviation; the memory-card callers ignore it). */
+	 * value is 0). Returns CGameMenu::RunEventAnim's result (1 when an anim ran; 0x382150). */
 	u8 result = 0;
 
 	if (m_menu != NULL)
@@ -555,10 +553,7 @@ unsigned char CMenuState::RunEventAnim(const char *name, const char *argument)
 		u8 event = GetMenuEvent(name);
 
 		if (event != 0)
-		{
-			m_menu->RunEventAnim((ActionItem::EVENT)event, argument);
-			result = 1;
-		}
+			result = m_menu->RunEventAnim((ActionItem::EVENT)event, argument);
 	}
 
 	return result;

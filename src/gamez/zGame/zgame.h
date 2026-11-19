@@ -201,7 +201,7 @@ public:
 	void Draw2dOnly();
 	void HandlePad(const CPad *);
 	void LoadFromDesign(const CGameDlgDesign &, CZAnimZAR *);
-	void RunEventAnim(ActionItem::EVENT, const char *);
+	bool RunEventAnim(ActionItem::EVENT, const char *); /* port: bool - 0x382030 returns whether an anim ran (the skeleton had void) */
 	void MakeNextButtonActive();
 	void MakePrevButtonActive();
 	void MakeButtonActive(const char *);
