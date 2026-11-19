@@ -880,7 +880,8 @@ int C2DCounter::GetZAnimCmdType(const char *name)
 	if (strcasecmp("Caption", name) == 0)
 		return GetUICommandType(NULL) + 1;
 
-	return GetUICommandType(name);
+	/* an unknown name gets the UI base: a0 is the zero of the branch's delay slot (0x39323c) */
+	return GetUICommandType(NULL);
 }
 
 /* @socom-skeleton stub ParseZAnimCmd__10C2DCounterFP5_zrdr */
@@ -965,7 +966,7 @@ bool C2DCounter::TickZAnimCmd(_zanim_cmd_hdr *header, float *, bool *result)
 {
 	/* 0x392cf0: Start counts from now; Finish shows the target at once (and stops the
 	 * clock: the end becomes 0); else CRenderableString's Caption inline (0x388d60).
-	 * Start leaves *result alone. ELF: Start returns 2 in v0 (true). */
+	 * Start leaves *result alone and returns 1 (v0 from the second type test). */
 	C2DAnimCmdHdr* cmd = reinterpret_cast<C2DAnimCmdHdr*>(header);
 	s32 sub = (s32)cmd->m_command_type - (GetUICommandType(NULL) + 2);
 
@@ -1130,7 +1131,7 @@ void CListItemArrayTypeImpl::DrawPrep(const CUIListBox &list, int x, int y, int 
 			text->m_string.m_Type = STRING_GLOWY;
 			text->m_string.m_fadeTime = list.m_selection == row ? list.m_glowTime : 0.0f;
 			text->m_string.m_fadeMax = list.m_selection == row ? list.m_glowMax : 0.0f;
-			text->m_string.m_fadeMin = list.m_glowMin; /* ELF: read without the row test */
+			text->m_string.m_fadeMin = list.m_selection == row ? list.m_glowMin : 0.0f; /* the ELF tests the row for each of the three */
 		}
 		else
 		{
@@ -1198,7 +1199,7 @@ void CListItemStringTypeImpl::DrawPrep(const CUIListBox &list, int x, int y, int
 		m_string.m_Type = STRING_GLOWY;
 		m_string.m_fadeTime = list.m_selection == row ? list.m_glowTime : 0.0f;
 		m_string.m_fadeMax = list.m_selection == row ? list.m_glowMax : 0.0f;
-		m_string.m_fadeMin = list.m_glowMin; /* ELF: read without the row test */
+		m_string.m_fadeMin = list.m_selection == row ? list.m_glowMin : 0.0f; /* the ELF tests the row for each of the three */
 	}
 	else
 	{
@@ -1742,7 +1743,8 @@ int CTeleType::GetZAnimCmdType(const char *name)
 	if (strcasecmp("Caption", name) == 0)
 		return GetUICommandType(NULL) + 1;
 
-	return GetUICommandType(name);
+	/* an unknown name gets the UI base: a0 is the zero of the branch's delay slot (0x3903e4) */
+	return GetUICommandType(NULL);
 }
 
 /* @socom-skeleton stub Tick__9CTeleTypeFf */
@@ -4451,18 +4453,15 @@ C2DAnimCmdHdr * CUIMapCtrl::ParseZAnimCmd(_zrdr *reader)
 		char* direction = zrdr_findstring(pan, "DIRECTION");
 		cmd->m_direction = 0;
 
-		/* ELF: the direction string is not NULL-tested */
-		if (direction != NULL)
-		{
-			if (strcmp(direction, "UP") == 0)
-				cmd->m_direction = 0;
-			else if (strcmp(direction, "DOWN") == 0)
-				cmd->m_direction = 1;
-			else if (strcmp(direction, "LEFT") == 0)
-				cmd->m_direction = 2;
-			else if (strcmp(direction, "RIGHT") == 0)
-				cmd->m_direction = 3;
-		}
+		/* ELF quirk kept: the direction string goes to strcmp without a NULL test (0x385f74) */
+		if (strcmp(direction, "UP") == 0)
+			cmd->m_direction = 0;
+		else if (strcmp(direction, "DOWN") == 0)
+			cmd->m_direction = 1;
+		else if (strcmp(direction, "LEFT") == 0)
+			cmd->m_direction = 2;
+		else if (strcmp(direction, "RIGHT") == 0)
+			cmd->m_direction = 3;
 
 		cmd->m_speed = 0;
 		zrdr_findint(pan, "SPEED", &cmd->m_speed, 1);
