@@ -901,7 +901,8 @@ static void LobbySetStateValve(CValve *valve, unsigned int state)
 }
 
 /* the same inline CValve::Set where the ELF does not test the valve (JoinGame 0x325898,
- * LobbyReadyToConnectStateHandler 0x32d27c) */
+ * LobbyReadyToConnectStateHandler 0x32d27c, cbGetMyClans 0x32b1e0, cbGetClanMemberDescriptions
+ * 0x3233c0) */
 static void LobbySetValve(CValve *valve, unsigned int state)
 {
 	unsigned int change = 0;
@@ -1434,7 +1435,26 @@ static void LobbyAppendMOTD(const char *text)
  * (inline in cbFilterChat 0x324de0 and cbLobbyServerConnect 0x32d630) */
 static void LobbyShowRoomChat()
 {
-	LobbyShowRoomChat();
+	/* 0x324f74..0x325050: nothing without the variable; the room looked up again (FindRoom out of
+	 * line); each line "%s: %s" of name (+0x1c) and text (+0x40) in a 256-byte buffer; the
+	 * editor written to stdout, then set */
+	if (uiv_MediusChatRecvVar == NULL)
+		return;
+	CRdrEditor editor;
+	editor.push(NULL);
+	BriefingRoom *room = BriefingRoomVec.FindRoom(LobbyVarString(uiv_LobbyWorldNameVar));
+	if (room != NULL)
+	{
+		for (std::vector<MediusChatFwdMessage>::iterator it = room->m_chat.begin(); it != room->m_chat.end(); ++it)
+		{
+			char text[256];
+			sprintf(text, "%s: %s", it->OriginatorName, it->Message);
+			editor.addstringnode(text);
+		}
+	}
+	editor.pop();
+	editor.Write(stdout);
+	uiv_MediusChatRecvVar->Set(&editor);
 }
 
 /* a list's items deleted and the list emptied (inline delete loop and clear) */
@@ -2875,7 +2895,7 @@ void cbGetMyClans(MediusErrorCode, MediusErrorCode, MediusErrorCode, MediusGetMy
 		memcpy(badge, StoredClanInfo.ClanStats, 3);
 		badge[3] = '\0';
 		int value = atoi(badge);
-		LobbySetStateValve(CValve::Create("clan_badge", VALVE_TYPE::VTYPE_PERM), value);
+		LobbySetValve(CValve::Create("clan_badge", VALVE_TYPE::VTYPE_PERM), value); /* 0x32b1e0: unchecked */
 		*uiv_ClanDescription = StoredClanInfo.ClanStats + 3;
 		sprintf(badge, "clan_icon_%.2d.tif", atoi(badge));
 		*theUIVarManager.Add("clan_badge_image", NULL, UIVL_TEMPORARY) = badge;
@@ -3126,7 +3146,7 @@ void CZOnlineLobby::TransferLeadership(const char *name)
 	MediusTransferClanLeadershipRequest request;
 	LobbyPrepareRequest(request, 65);
 	request.NewLeaderAccountID = member->m_accountID;
-	strncpy(request.NewLeaderAccountName, member->m_name.c_str(), sizeof(request.NewLeaderAccountName)); /* the ELF: 32 bytes */
+	strncpy(request.NewLeaderAccountName, member->m_name.c_str(), sizeof(request.NewLeaderAccountName)); /* port: the ELF memcpys 32 bytes (0x32a4a8), past a shorter name's end */
 	MediusTransferClanLeadership(&request, cbTransferClanLeadership);
 }
 
@@ -4766,7 +4786,7 @@ void cbGetClanMemberDescriptions(int, int, int, MediusPlayerInfoResponse *respon
 			member->m_description = description;
 	}
 	UpdateClanMemberList();
-	LobbySetStateValve(CValve::Create("NumClanMembers", VALVE_TYPE::VTYPE_PERM), ClanMemberVec.m_items.size());
+	LobbySetValve(CValve::Create("NumClanMembers", VALVE_TYPE::VTYPE_PERM), ClanMemberVec.m_items.size()); /* 0x3233c0: unchecked */
 }
 
 /* @socom-skeleton stub cbGetClanMemberLadderPosition__FiiiP28MediusLadderPositionResponse */
