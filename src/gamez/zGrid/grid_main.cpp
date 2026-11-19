@@ -740,7 +740,10 @@ bool CGrid::gridGetNextIndex()
                 m_CurCellOut = 0;
             }
 
-            if (m_RowCellIn == 0 || m_CurCellOut == 0 && m_zz < m_izb - 1)
+            /* 0x215b64: (no cell of the column in yet, or this one not out) and below the
+               last row; was RowCellIn == 0 || (CurCellOut == 0 && below), which stepped past
+               the last row (audit medium-gridvis) */
+            if ((m_RowCellIn == 0 || m_CurCellOut == 0) && m_zz < m_izb - 1)
             {
                 valid = true;
                 m_zz++;
@@ -759,7 +762,7 @@ bool CGrid::gridGetNextIndex()
                     m_zz = m_iz_next_row;
 
                     if (m_iz < m_zz)
-                        m_zz++;
+                        m_zz--; /* 0x215bfc: one row back (was ++) */
 
                     m_iz_dir = -1;
                 }
@@ -772,7 +775,7 @@ bool CGrid::gridGetNextIndex()
             else
             {
                 m_RowCellIn = 0;
-                m_CurCellOut = 0;
+                m_CurCellOut = 1; /* 0x215c34 stores 1 (was 0) */
                 valid = false;
             }
         }
