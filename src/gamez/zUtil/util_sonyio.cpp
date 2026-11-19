@@ -225,7 +225,7 @@ unsigned char CFileIO::Open(const char *file, unsigned int mode)
 			cd->m_toc = NULL;
 			cd->m_pos = 0;
 			cd->m_buf = NULL;
-			cd->m_sector = (char*)zmemalign(0x40, 0x800);
+			cd->m_sector = (char*)_memalign(0x40, 0x800, "util_sonyio.cpp", 705);
 		}
 
 		m_cd = cd;
@@ -252,7 +252,7 @@ unsigned char CFileIO::Open(const char *file, unsigned int mode)
 			if (m_cd != NULL)
 			{
 				if (m_cd->m_sector != NULL)
-					zfree(m_cd->m_sector);
+					_free(m_cd->m_sector, "util_sonyio.cpp", 710);
 
 				m_cd->m_sector = NULL;
 				delete m_cd;
@@ -293,7 +293,7 @@ void CFileIO::Close()
 		else
 		{
 			if (m_cd->m_sector != NULL)
-				zfree(m_cd->m_sector);
+				_free(m_cd->m_sector, "util_sonyio.cpp", 710);
 
 			m_cd->m_sector = NULL;
 			delete m_cd;

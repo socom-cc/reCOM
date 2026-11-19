@@ -266,7 +266,7 @@ char* CSTable::CreateString(const char* str)
 		if (m_buffer == NULL)
 		{
 			// Duplicate the string and insert it
-			char* dupstr = zstrdup(str);
+			char* dupstr = _strdup(str, "util_stable.cpp", 280);
 			push_back(dupstr); /* 0x305fd0: added at the end (was: at the front) */
 			out = dupstr;
 		}

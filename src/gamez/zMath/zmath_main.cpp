@@ -367,7 +367,7 @@ void CQuat::Align(const CPnt3D &from, const CPnt3D &to)
 		axis.z = from.x * half.y - from.y * half.x;
 		bool zero = axis.x == CPnt3D::zero.x && axis.y == CPnt3D::zero.y && axis.z == CPnt3D::zero.z;
 
-		if (!zero || from.x * to.x + from.y * to.y + from.z * to.z >= 0.0f)
+		if (!zero || !(from.x * to.x + from.y * to.y + from.z * to.z < 0.0f)) /* 0x221170: the ELF's NaN form */
 		{
 			w = from.x * half.x + from.y * half.y + from.z * half.z;
 			vec = axis;
@@ -608,7 +608,7 @@ void CQuat::Pow(float t, CQuat *out)
 	f32 len = sqrtf(len2);
 	f32 angle;
 
-	if (w >= 0.0f)
+	if (!(w < 0.0f)) /* 0x220698: the ELF's NaN form */
 		angle = t * atan2f(len, w);
 	else
 		angle = t * -atan2f(len, -w);

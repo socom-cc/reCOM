@@ -121,7 +121,11 @@ void CPnt3D::Interp(const CPnt3D *from, float step, CPnt3D *to) const
 {
 	if (step == 0.0f)
 	{
-		to = const_cast<CPnt3D*>(this); /* port: const_cast for GCC; assignment to the local pointer kept as written */
+		/* 0x222bf0: step 0 copies this into *to (the port assigned the local pointer and left
+		   *to unwritten) */
+		to->x = x;
+		to->y = y;
+		to->z = z;
 	}
 	else
 	{

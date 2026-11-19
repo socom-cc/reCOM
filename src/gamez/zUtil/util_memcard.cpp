@@ -104,7 +104,9 @@ void CMemCard::Init()
 	}
 	sceMcInit();
 	for (int tries = 2; tries > 0; tries--) {
-		int format = 0;
+		int format = 0; /* port: starts 0; the ELF passes its stack word unset (0x307648) for
+		                   sceMcGetInfo to fill at the sync, so a call that fails to fill it
+		                   cannot leave stack garbage that ends the loop */
 		int cmd, result;
 		if (sceMcGetInfo(theMemCard.m_card_port, theMemCard.m_card_slot, NULL, NULL, &format) < 0)
 			return;

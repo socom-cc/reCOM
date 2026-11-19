@@ -67,7 +67,8 @@ zdb::DiIntersect::~DiIntersect()
 namespace zdb {
 CDI::CDI()
     {
-        m_nrm = CPnt4D::zero;
+        /* 0x21c600: m_nrm and m_reserved are not set (Read, SetCDIBBox or
+           SetEdgeVecsAndNorm fill the normal) */
         m_region = 0;
         m_refcount = 0;
         m_ditype = 0;
@@ -77,9 +78,9 @@ CDI::CDI()
         m_appflags = 0;
         m_inside = false;
         m_shadow = 0;
-        m_reserved = 0;
 
         m_pts = NULL;
+        m_refcount = 0;
     }
 }
 

@@ -166,7 +166,7 @@ int zdb::CDI::GetEdgeIntersects(CPnt3D *point, CPnt3D *top, CPnt3D *bottom)
 
 	for (int i = 1; i < count; i++)
 	{
-		if (top->y < found[i].y)
+		if (!(found[i].y <= top->y)) /* 0x21df10: the ELF's NaN form */
 			*top = found[i];
 
 		if (found[i].y < bottom->y)
@@ -192,7 +192,8 @@ int zdb::CDI::GetEdgeIntersectsY(CPnt3D *point, CPnt3D *out)
 		const CPnt3D *a = reinterpret_cast<const CPnt3D *>(&m_pts[prev]);
 		const CPnt3D *b = reinterpret_cast<const CPnt3D *>(&m_pts[i]);
 
-		if (!((a->y < y && y <= b->y) || (b->y <= y && y < a->y)))
+		/* 0x21dc34 / 0x21dc60: the ELF's NaN forms */
+		if (!((!(y <= a->y) && y <= b->y) || (!(y < b->y) && y < a->y)))
 			continue;
 
 		f32 rise = b->y - a->y;

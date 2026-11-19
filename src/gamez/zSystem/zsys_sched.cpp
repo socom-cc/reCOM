@@ -101,12 +101,13 @@ void CSched_Manager::AddTask(const char* name, bool(*func)(f32, void*), f32 prio
 /* @socom-skeleton body RemoveTask__14CSched_ManagerFPCcb */
 bool CSched_Manager::RemoveTask(const char* name, bool child)
 {
-	/* port: unproven - not re-read from 0x2f3db0; mirrors RemoveTask(void *, bool) by name */
+	/* 0x2f3db0: mark the task(s) of that name removed; the next Tick frees them. The ELF
+	   compares without NULL tests (every zTaskScheduler task has a name). */
 	bool removed = false;
 
 	for (iterator it = begin(); it != end(); ++it)
 	{
-		if ((*it)->m_name != NULL && name != NULL && !strcmp((*it)->m_name, name))
+		if (!strcmp((*it)->m_name, name))
 		{
 			(*it)->m_removed = true;
 
@@ -209,6 +210,7 @@ bool CSched_Manager::Tick(f32 dT)
 		while (it != end())
 		{
 			CSched_Task* task = *it;
+			task->m_startTime = *T0_COUNT; /* 0x2f38b0: before the removed test */
 			bool done = task->m_removed;
 
 			if (!done)
@@ -220,7 +222,6 @@ bool CSched_Manager::Tick(f32 dT)
 					SOCOM_PORT_TRACE("TASK: frame %u %s", socom_port_core_frame, task->m_name ? task->m_name : "?");
 #endif
 				m_priority = task->m_priority;
-				task->m_startTime = *T0_COUNT;
 				done = task->m_func ? task->m_func(dT, task->m_registrar) : true;
 			}
 

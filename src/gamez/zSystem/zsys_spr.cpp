@@ -152,9 +152,10 @@ void zSysFifoInit()
 /* @socom-skeleton stub zSysFifoDisable__Fv */
 void zSysFifoDisable()
 {
-	/* 0x2f5ca0 */
+	/* 0x2f5ca0: MFD cleared through D_CTRL's low byte (lbu / sb 0x2f5cc0, 0x2f5cd4) */
+	volatile u8* ctrl = reinterpret_cast<volatile u8*>(D_CTRL);
 	sceGsSyncPath(0, 0);
-	*D_CTRL = *D_CTRL & ~0xc;
+	*ctrl = *ctrl & ~0xc;
 	__asm__ volatile("sync.l");
 }
 
@@ -162,7 +163,10 @@ void zSysFifoDisable()
 void zSysFifoEnable(unsigned int mode)
 {
 	/* 0x2f5b50: fromSPR fills the ring; the GIF (mode 2) or VIF1 (mode 1) channel drains
-	 * it as a source chain; any other mode turns the MFIFO off. */
+	 * it as a source chain; any other mode turns the MFIFO off. D_CTRL's MFD field (bits
+	 * 2-3) is changed through its low byte, as the ELF's lbu / sb (0x2f5be4, 0x2f5c48,
+	 * 0x2f5c88). */
+	volatile u8* ctrl = reinterpret_cast<volatile u8*>(D_CTRL);
 	*D_RBOR = (u32)mfifoBase;
 	*D_RBSR = 0x3fff0;
 
@@ -171,7 +175,7 @@ void zSysFifoEnable(unsigned int mode)
 		while (*D2_CHCR & 0x100)
 			;
 
-		*D_CTRL = (*D_CTRL & ~0xc) | 0xc;
+		*ctrl = (*ctrl & ~0xc) | 0xc;
 		*D8_MADR = (u32)mfifoBase;
 		*D2_TADR = (u32)mfifoBase;
 		*D2_CHCR = 0x144;
@@ -182,7 +186,7 @@ void zSysFifoEnable(unsigned int mode)
 		while (*D1_CHCR & 0x100)
 			;
 
-		*D_CTRL = (*D_CTRL & ~0xc) | 8;
+		*ctrl = (*ctrl & ~0xc) | 8;
 		*D8_MADR = (u32)mfifoBase;
 		*D1_TADR = (u32)mfifoBase;
 		*D1_CHCR = 0x145;
@@ -191,7 +195,7 @@ void zSysFifoEnable(unsigned int mode)
 	else
 	{
 		sceGsSyncPath(0, 0);
-		*D_CTRL = *D_CTRL & ~0xc;
+		*ctrl = *ctrl & ~0xc;
 		__asm__ volatile("sync.l");
 	}
 

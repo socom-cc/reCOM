@@ -43,8 +43,9 @@ CGraph * CGraph::Create(CFileIO &io, void (*fixupNode)(CGraph *, CGNode *, bool,
 /* @socom-skeleton body Read__6CGraphFR7CFileIOPFP6CGraphP6CGNodebRUiPv_vPFP6CGraphP6CGEdgebRUiPv_vPv */
 bool CGraph::Read(CFileIO &io, void (*fixupNode)(CGraph *, CGNode *, bool, unsigned int &, void *), void (*fixupEdge)(CGraph *, CGEdge *, bool, unsigned int &, void *), void *user)
 {
-	/* 0x20f2a0: a 16-byte header {version, bytes, nodes, edges}; another version skips the block
-	 * (fseek from the current position). Then one u32 per node (handed to fixupNode) and a
+	/* 0x20f2a0: a 16-byte header {version, bytes, nodes, edges}; another version calls
+	 * fseek(1, bytes - 16) and fails (ELF quirk kept: the arguments are in (origin, offset)
+	 * order, so the seek does not skip the block). Then one u32 per node (handed to fixupNode) and a
 	 * 16-byte record per edge {node index, node index, length, data (handed to fixupEdge)} */
 	struct header
 	{

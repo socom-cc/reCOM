@@ -116,7 +116,7 @@ CQuat * CMatrix::ToQuat(CQuat *q) const
 	static const int next[3] = { 1, 2, 0 };
 	f32 trace = m_matrix[0][0] + m_matrix[1][1] + m_matrix[2][2];
 
-	if (trace > 0.0f)
+	if (!(trace <= 0.0f)) /* the ELF's NaN forms here and below (0x222084, 0x2220fc, 0x222124) */
 	{
 		f32 s = sqrtf(trace + 1.0f);
 		q->w = 0.5f * s;
@@ -128,9 +128,9 @@ CQuat * CMatrix::ToQuat(CQuat *q) const
 	else
 	{
 		f32 *v = &q->vec.x;
-		int i = m_matrix[1][1] > m_matrix[0][0] ? 1 : 0;
+		int i = !(m_matrix[1][1] <= m_matrix[0][0]) ? 1 : 0;
 
-		if (m_matrix[2][2] > m_matrix[i][i])
+		if (!(m_matrix[2][2] <= m_matrix[i][i]))
 			i = 2;
 
 		int j = next[i];
