@@ -511,9 +511,9 @@ bool CSealCtrlAi::PushAiState(AI_STATE state, bool unique)
 /* @socom-skeleton stub PopAiState__11CSealCtrlAiFv */
 void CSealCtrlAi::PopAiState()
 {
-	/* 0x2db200: pop the top state. port: written from the same sequence inlined in
-	 * StateTick / PopAiState(AI_STATE) / ClearAiState; this function's own 400 bytes were
-	 * not read */
+	/* 0x2db200: pop the top state (the same sequence StateTick / PopAiState(AI_STATE) /
+	 * ClearAiState inline). port: void where the ELF returns the new top's type (lb +0x10,
+	 * 0 for an empty stack); its one caller, CAiSCorpse::Tick 0x2e6dac, drops it */
 	PopTop(this);
 }
 
@@ -527,7 +527,7 @@ bool CSealCtrlAi::PopToAiState(AI_STATE state)
 
 	for (CAiStateStack::iterator it = m_stateStack.begin(); it != m_stateStack.end(); ++it)
 	{
-		if (*it != NULL && (*it)->m_state == (u8)state)
+		if ((*it)->m_state == (u8)state) /* 0x2dafe0: no NULL test */
 		{
 			stacked = true;
 			break;
@@ -560,7 +560,7 @@ void CSealCtrlAi::UpdateStackFlags(bool ifDirty)
 {
 	/* 0x2dac90: m_stateFlags from the whole stack (bottom to top): bit 1 (2) while every
 	 * state allows attacking; bit 2 (4) when a script state that allows it has its +0x2c
-	 * bit 0 clear. With ifDirty only when bit 0 asks for it. */
+	 * bit 0 (m_critical) set. With ifDirty only when bit 0 asks for it. */
 	if (ifDirty && !(m_stateFlags & 1))
 		return;
 
@@ -665,7 +665,7 @@ bool CAiSPickup::Tick(float, CSealCtrlAi *ctrl)
 	CZSealBody* body = static_cast<CZSealBody *>(ctrl->m_entity);
 	u8 phase = (u8)m_substate;
 
-	if (m_pickup == NULL || m_pickup->m_id != (m_pickup_id & 0xffff))
+	if (m_pickup == NULL || m_pickup->m_id != m_pickup_id) /* 0x2da790..0x2da798: lhu id against the whole word */
 		return false;
 
 	switch (phase)

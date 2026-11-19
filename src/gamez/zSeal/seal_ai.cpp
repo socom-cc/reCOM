@@ -547,8 +547,46 @@ static unsigned char MultiplayerMsgStrings[28];
 namespace sealai {
 AI_MODE get_mode(const char* name)
 	{
-		AI_MODE mode;
-		return mode;
+		/* 0x26c4b0 (CTSetMode::Parse): the first of the seven modes whose name strcmp-equals
+		 * the given one, else (or for a NULL name) AIM_IDLE. The mode-name switch (jump table
+		 * 0x452370; index 7 and above "error") is inlined in the ELF. */
+		for (s32 i = 0; name != NULL && i < 7; i++)
+		{
+			const char* str;
+
+			switch ((u8)i)
+			{
+			case AIM_SLEEP:
+				str = "sleep";
+				break;
+			case AIM_IDLE:
+				str = "idle";
+				break;
+			case AIM_HOLD:
+				str = "hold";
+				break;
+			case AIM_PATH:
+				str = "path";
+				break;
+			case AIM_CREEP:
+				str = "creep";
+				break;
+			case AIM_SLIDE:
+				str = "slide";
+				break;
+			case AIM_FOLLOW:
+				str = "follow";
+				break;
+			default:
+				str = "error";
+				break;
+			}
+
+			if (strcmp(name, str) == 0)
+				return (AI_MODE)(u8)i;
+		}
+
+		return AIM_IDLE;
 	}
 }
 
@@ -2074,7 +2112,12 @@ unsigned int CSealCtrlAi::GetAiNetState() const
 	}
 
 	if (node->m_active && !(node->m_Opacity <= 0.0f))
-		state.m_transparency = (u32)floorf(15.0f * (1.0f - node->m_Opacity));
+	{
+		/* 0x26845c: fptoui, which gives 0 for a negative value (an opacity above 1), where
+		 * GCC's (u32) does not */
+		f32 level = floorf(15.0f * (1.0f - node->m_Opacity));
+		state.m_transparency = level < 0.0f ? 0u : (u32)level;
+	}
 	else
 		state.m_transparency = 15;
 
@@ -2540,13 +2583,12 @@ void CSealCtrlAi::SetSnoozing(bool on)
 	{
 		if (PushAiState(STATE_SUSPENDED, false))
 		{
+			/* 0x267118..0x26716c: the top, NULL unless STATE_SUSPENDED, written through without a
+			 * test (a successful push leaves the suspended state on top) */
 			CAiState *state = GetAiState();
-
-			if (state != NULL && state->m_state == STATE_SUSPENDED) /* port: NULL-tested (ELF writes through it) */
-			{
-				state->m_option_flags |= 3;
-				state->m_setup = 1;
-			}
+			state = state->m_state == STATE_SUSPENDED ? state : NULL;
+			state->m_option_flags |= 3;
+			state->m_setup = 1;
 		}
 
 		ai::snooze_count++;
@@ -2610,11 +2652,16 @@ void CSealCtrlAi::SetAiMode(AI_MODE mode)
 {
 	/* 0x266bf0: the movement mode the PreTick runs (idle / hold / path / creep / slide /
 	 * follow). Follow mode is not left while the top state is STATE_FOLLOW. */
-	static const char* const names[8] = { "sleep", "idle", "hold", "path", "creep", "slide", "follow", "" };
+	static const char* const names[8] = { "sleep", "idle", "hold", "path", "creep", "slide", "follow", "error" };
 	u8 old = m_mode;
 
 	if (old == (u8)mode)
 		return;
+
+	/* 0x266c1c..0x266c58: the change goes to the AI log first (record 6: the old and the new
+	 * mode as two words), before the follow test; PutAiLog inlined */
+	u32 rec[2] = { old, (u8)mode };
+	PutAiLog(6, sizeof(rec), rec);
 
 	if (old == AIM_FOLLOW)
 	{
@@ -4268,7 +4315,7 @@ bool CSealCtrlAi::GetDuckStance(CZSealBody *master, SEAL_STANCE &stance) const
 
 	const f32* row = master->m_node->m_matrix.m_matrix[2];
 
-	if (!(-row[0] * d.x + -row[1] * d.y + -row[2] * d.z > duckThreshold))
+	if (-row[0] * d.x + -row[1] * d.y + -row[2] * d.z <= duckThreshold) /* 0x261e40: c.le / bc1t */
 		return false;
 
 	SEAL_STANCE theirs = CZSealBody::GetStanceFromState(master->GetStance(false), stance);
@@ -4576,10 +4623,11 @@ bool CSealCtrlAi::SetRoute(const CAiMapLoc *goals, int count)
 	}
 	else
 	{
-		Debug("SetRoute() failed: %d goals\n", count); /* ELF: the text at 0x451b80 (not read) */
+		Debug("SetRoute( %d pts ) : FAILED!\n", count); /* 0x451b80 */
 
+		/* each goal with its cell's name (GetCellNameString 0x26100c) */
 		for (int i = 0; i < count; i++)
-			Debug("\t%2d:%3d:%3d -- %s\n", goals[i].m_mapid, goals[i].x, goals[i].y, "");
+			Debug("\t%2d:%3d:%3d -- %s\n", goals[i].m_mapid, goals[i].x, goals[i].y, AiMaps.GetCellNameString(goals[i]));
 	}
 
 	return ok;

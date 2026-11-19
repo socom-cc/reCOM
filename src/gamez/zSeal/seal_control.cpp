@@ -669,7 +669,7 @@ bool CSealCtrl::Tick(float dT)
 
 		if (!still)
 		{
-			f32 angle = _scale * m_scan_limits * turn;
+			f32 angle = _scale * (m_scan_limits * turn); /* 0x2873bc / 0x2873c0: limits x turn first */
 			CPnt3D dir;
 			dir.x = sinf(angle);
 			dir.z = -cosf(angle);
