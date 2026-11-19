@@ -3827,9 +3827,10 @@ _zanim_cmd_hdr * zAnimLoadMessage(_zrdr *reader)
 	{
 		PNT3D color;
 		zrdr_findPNT3D(reader, "COLOR", &color); /* ELF: the result is not tested */
-		cmd->m_red = (u32)color.x;
-		cmd->m_green = (u32)color.y;
-		cmd->m_blue = (u32)color.z;
+		/* fptoui (0x1aadec, 0x1aadf8, 0x1aae04) gives 0 for a negative value; GCC's (u32) does not */
+		cmd->m_red = color.x < 0.0f ? 0 : (u32)color.x;
+		cmd->m_green = color.y < 0.0f ? 0 : (u32)color.y;
+		cmd->m_blue = color.z < 0.0f ? 0 : (u32)color.z;
 	}
 
 	return &cmd->header;

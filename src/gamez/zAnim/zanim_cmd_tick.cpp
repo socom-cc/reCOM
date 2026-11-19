@@ -1209,7 +1209,7 @@ bool zAnimObjectBlendModeTick(_zanim_cmd_hdr *header, float *dt)
 	if (node == NULL)
 		return true;
 
-	if (cmd->duration > 0.0f)
+	if (!(cmd->duration <= 0.0f)) /* the ELF's form (0x1bd608) */
 	{
 		f32 elapsed = ZAnim.m_CurSeq->cmd_timer;
 
@@ -2743,7 +2743,8 @@ bool zAnimLoopTick(_zanim_cmd_hdr* header, f32* dT)
 	{
 		f32 time = *reinterpret_cast<f32*>(reinterpret_cast<u32*>(header + 1) + 1);
 
-		if ((flags & 2) != 0 && 0.0f <= time && time <= ZAnim.m_CurSeq->loop_timer)
+		/* the ELF's forms (0x1b97d4, 0x1b97e8) */
+		if ((flags & 2) != 0 && !(time < 0.0f) && !(ZAnim.m_CurSeq->loop_timer < time))
 			return true;
 	}
 	else
@@ -2793,7 +2794,7 @@ bool zAnimWaitTick(_zanim_cmd_hdr* header, f32* dT)
 		else
 			timer = ZAnim.m_CurSeq->cmd_timer;
 
-		if (cmd->value[0] < timer + *dT)
+		if (!(timer + *dT <= cmd->value[0])) /* the ELF's form (0x1b961c) */
 		{
 			f32 used = cmd->value[0] - timer;
 

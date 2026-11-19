@@ -918,7 +918,7 @@ void CMenuStack::PopUpDialog(const char *name)
 		name = ZAnim.m_CurAnim->m_arg_list->GetCharP(0);
 
 	m_cmds[m_top].type = 3;
-	strcpy(m_cmds[m_top].arg, name != NULL ? name : ""); /* port: the ELF strlens NULL as is */
+	strcpy(m_cmds[m_top].arg, name != NULL ? name : ""); /* port: the ELF strcmps and strlens NULL as is (0x1d5f58, 0x1d5f80 / 0x1d5fa0) */
 	m_count++;
 
 	zdb::CNode* node = g_menuRootNode->FindChild("POPUP", true); /* virtual slot 0x24 */
@@ -1706,7 +1706,7 @@ unsigned char UIActivateButton(C2DAnimCmdHdr *cmd, float *)
 	char* name = ZAnim.m_CurAnim->GetName(cmd->m_argument_index);
 
 	if (name != NULL && strcmp(name, "INPUT_STRING") == 0)
-		name = ZAnim.m_CurAnim->m_arg_list ? ZAnim.m_CurAnim->m_arg_list->GetCharP(0) : NULL;
+		name = ZAnim.m_CurAnim->m_arg_list->GetCharP(0); /* the ELF has no NULL test of the list */
 
 	g_MenuStack.m_top++;
 	g_MenuStack.m_cmds[g_MenuStack.m_top].type = 6;
@@ -1722,7 +1722,7 @@ unsigned char UIEnableButton(C2DAnimCmdHdr *cmd, float *)
 	char* name = ZAnim.m_CurAnim->GetName(cmd->m_argument_index);
 
 	if (name != NULL && strcmp(name, "INPUT_STRING") == 0)
-		name = ZAnim.m_CurAnim->m_arg_list ? ZAnim.m_CurAnim->m_arg_list->GetCharP(0) : NULL;
+		name = ZAnim.m_CurAnim->m_arg_list->GetCharP(0); /* the ELF has no NULL test of the list */
 
 	g_MenuStack.m_top++;
 	g_MenuStack.m_cmds[g_MenuStack.m_top].type = 7;
@@ -1738,7 +1738,7 @@ unsigned char UIDisableButton(C2DAnimCmdHdr *cmd, float *)
 	char* name = ZAnim.m_CurAnim->GetName(cmd->m_argument_index);
 
 	if (name != NULL && strcmp(name, "INPUT_STRING") == 0)
-		name = ZAnim.m_CurAnim->m_arg_list ? ZAnim.m_CurAnim->m_arg_list->GetCharP(0) : NULL;
+		name = ZAnim.m_CurAnim->m_arg_list->GetCharP(0); /* the ELF has no NULL test of the list */
 
 	g_MenuStack.m_top++;
 	g_MenuStack.m_cmds[g_MenuStack.m_top].type = 8;
@@ -2477,7 +2477,13 @@ unsigned char UINetAddDev(C2DAnimCmdHdr *cmd, float *)
 
 	if (!ticking)
 	{
-		ticking = CNetCnf::AddDev(HCnf, UiArgument(cmd));
+		/* not UiArgument: the ELF strcmps the name without a NULL test (0x1d1a60) */
+		char* name = ZAnim.m_CurAnim->GetName(cmd->m_argument_index);
+
+		if (strcmp(name, "INPUT_STRING") == 0)
+			name = ZAnim.m_CurAnim->m_arg_list->GetCharP(0);
+
+		ticking = CNetCnf::AddDev(HCnf, name);
 		return false;
 	}
 
