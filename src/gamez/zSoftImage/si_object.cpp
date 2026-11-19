@@ -85,18 +85,18 @@ bool CZSIObject::Read(CZSIScript *script, zar::CZAR &archive)
 
 	if (m_rotations != NULL)
 	{
-		zfree(m_rotations);
+		_free(m_rotations, "si_object.cpp", 166);
 		m_rotations = NULL;
 	}
 
 	if (m_positionData != NULL)
 	{
-		zfree(m_positionData);
+		_free(m_positionData, "si_object.cpp", 167);
 		m_positionData = NULL;
 	}
 
-	m_positionData = (f32 *)zmalloc(positions * 12);
-	m_rotations = (CQuat *)zmalloc(rotations * 16);
+	m_positionData = (f32 *)_malloc(positions * 12, "si_object.cpp", 168);
+	m_rotations = (CQuat *)_malloc(rotations * 16, "si_object.cpp", 171);
 
 	if ((flags & 0x8) != 0)
 		archive.m_pFile->fread(m_positionData, positions * 12);

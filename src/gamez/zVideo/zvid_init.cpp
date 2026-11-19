@@ -158,7 +158,8 @@ void zvid_SetVideoMode(_zvid_mode mode, bool sync)
 	}
 
 	zVid.vidMode = mode;
-	sceGsSyncV(sync);
+	(void)sync; /* the ELF never reads it: sceGsSyncV(0) on every path (0x30890c / 0x308818) */
+	sceGsSyncV(0);
 	*GS_PMODE = 0;
 	__asm__ volatile("sync.l"); /* SYNC.L (0x308930); port: unproven Metrowerks spelling */
 	sceGsResetGraph(0, zvid.interlace, zvid.output_mode, zvid.field_mode);
@@ -516,16 +517,19 @@ void zVid_FrameRestore()
 /* @socom-skeleton body zVid_Assert__FbUiPci */
 void zVid_Assert(bool condition, unsigned int mask, char *file, int line)
 {
-	/* 0x307a40: a failed assertion ends the frame's FIFO, shows the message on terminal line 12
-	 * and returns (no stop). port: the ELF also sends picframecode (0x43b280, 43 qwords: the
-	 * frame filled in a colour built from `mask`) before the text; the port has no copy of that
-	 * GS packet, so the picture is left as it is. */
-	(void)mask;
+	/* 0x307a40: a failed assertion ends the frame's FIFO, fills the shown frame buffer in the
+	 * colour `mask` (picframecode, 43 qwords: FRAME_1 = the display buffer with disp_psm, RGBAQ =
+	 * mask with Q 1.0), shows the message on terminal line 12 and returns (no stop). */
 	if (!condition)
 	{
 		zSysFifoEnd();
+		picframecode[4] = (s64)((u64)zVid.displayBuf | 0xa0000 | (u64)zvid.disp_psm << 24); /* 0x307a7c..0x307ab8 */
+		picframecode[12] = (s64)((u64)mask | 0x3f800000ULL << 32);
+		FlushCache(0);
+		sceDmaSendN(zSys.DmaToGif, picframecode, 43);
+		sceDmaSync(zSys.DmaToGif, 0, 0);
 		char buffer[256];
-		snprintf(buffer, 256, "A S S E R T: %s : %d", file, line); /* port: was MSVC sprintf_s */
+		sprintf(buffer, "A S S E R T: %s : %d", file, line);
 		theTerminal->m_on = true;
 		theTerminal->Print(buffer, 12);
 		theTerminal->Render();

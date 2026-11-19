@@ -29,6 +29,7 @@
 
 #include "zvalve.h"
 #include <algorithm> /* std::remove_if (Reset, Close) */
+#include <strings.h> /* strcasecmp (Parse) */
 
 /* @socom-skeleton decl include */
 #include "gamez/zReader/zrdr.h"
@@ -366,86 +367,65 @@ void CValve::Close()
 /* @socom-skeleton body Parse__6CValveFP8CRdrFile10VALVE_TYPE */
 bool CValve::Parse(CRdrFile *reader, VALVE_TYPE type)
 {
-	CValve* valve = NULL;
+	/* 0x2f6180: each entry of "valves" ({ name, value, type }): the type word (strcasecmp PERM 1,
+	 * TEMP 2, PERSIST 3; else the caller's type) makes a new valve of that type at the list's
+	 * end; the value is set with Set's change test and callbacks (1 set, 2 cleared) on a new or
+	 * an existing valve, which then takes PERM (unless persistent) or PERSIST as Create does.
+	 * Returns whether the tag was found. */
 	_zrdr* valves = zrdr_findtag(reader, "valves");
 
-	if (valves)
+	if (valves == NULL)
+		return false;
+
+	s32 count = valves->array->integer;
+
+	for (s32 idx = 1; idx < count; idx++)
 	{
-		s32 idx = 1;
-		
-		if (valves->array->integer > 1)
+		_zrdr* node = &valves->array[idx];
+		s32 value = 0;
+		char* name = zrdr_findstring(node, "name");
+		zrdr_findint(node, "value", &value, 1);
+		char* valve_type = zrdr_findstring(node, "type");
+		VALVE_TYPE vtype = type;
+
+		if (valve_type != NULL)
 		{
-			do
-			{
-				VALVE_STATE vstate;
-				char* name = NULL;
-				s32 value = 0;
-				char* valve_type = NULL;
-				
-				_zrdr* node = &valves->array[idx];
-
-				name = zrdr_findstring(node, "name");
-				zrdr_findint(node, "value", &value);
-				valve_type = zrdr_findstring(node, "type");
-
-				VALVE_TYPE rdr_valve_type = VALVE_TYPE::VTYPE_NONE;
-
-				if (valve_type)
-				{
-					if (strcmp(valve_type, "PERM") == 0)
-					{
-						rdr_valve_type = VALVE_TYPE::VTYPE_PERM;
-					}
-					else if (strcmp(valve_type, "TEMP") == 0)
-					{
-						rdr_valve_type = VALVE_TYPE::VTYPE_TEMP;
-					}
-					else if (strcmp(valve_type, "PERSIST") == 0)
-					{
-						rdr_valve_type = VALVE_TYPE::VTYPE_PERSIST;
-					}
-				}
-
-				if (!name)
-				{
-					valve = NULL;
-				}
-				else
-				{
-					valve = GetByName(name);
-				}
-
-				if (!valve)
-				{
-					valve = valvePool.Acquire(name, type);
-					vstate = VALVE_STATE::VSTATE_DORMANT;
-
-					if (value != 0)
-					{
-						vstate = VALVE_STATE::VSTATE_PERMANENT;
-					}
-					
-					if (valve->m_value != value)
-					{
-						vstate = VALVE_STATE::VSTATE_TEMPORARY;
-					}
-
-					valve->m_value = value;
-
-					if (vstate != VALVE_STATE::VSTATE_DORMANT)
-					{
-						// valve->MakeCallbacks(vstate);
-					}
-
-					m_list.insert(m_list.begin(), valve);
-				}
-				
-				idx++;
-			}
-			while (idx < valves->array->integer);
+			if (strcasecmp(valve_type, "PERM") == 0)
+				vtype = VALVE_TYPE::VTYPE_PERM;
+			else if (strcasecmp(valve_type, "TEMP") == 0)
+				vtype = VALVE_TYPE::VTYPE_TEMP;
+			else if (strcasecmp(valve_type, "PERSIST") == 0)
+				vtype = VALVE_TYPE::VTYPE_PERSIST;
 		}
+
+		CValve* valve = name != NULL ? GetByName(name) : NULL;
+
+		if (valve == NULL)
+		{
+			valve = valvePool.Acquire(name, vtype);
+			u32 change = valve->m_value != value ? (value != 0 ? 1 : 2) : 0;
+			valve->m_value = value;
+
+			if (change)
+				valve->MakeCallbacks((VALVE_STATE)change);
+
+			m_list.insert(m_list.end(), valve);
+			continue;
+		}
+
+		u32 change = valve->m_value != value ? (value != 0 ? 1 : 2) : 0;
+		valve->m_value = value;
+
+		if (change)
+			valve->MakeCallbacks((VALVE_STATE)change);
+
+		if (vtype == VALVE_TYPE::VTYPE_PERM && valve->m_type != (u32)VALVE_TYPE::VTYPE_PERSIST)
+			valve->m_type = (u32)VALVE_TYPE::VTYPE_PERM;
+
+		if (vtype == VALVE_TYPE::VTYPE_PERSIST)
+			valve->m_type = (u32)VALVE_TYPE::VTYPE_PERSIST;
 	}
-	
+
 	return true;
 }
 

@@ -127,7 +127,7 @@ void CVideo::RestoreImage(char *img)
 
 	if (file.Open(img))
 	{
-		void* buf = zmemalign(0x80, file.m_filesize);
+		void* buf = _memalign(0x80, file.m_filesize, "zvid_draw.cpp", 454);
 		file.fread(buf, file.m_filesize);
 		file.Close();
 
@@ -145,7 +145,7 @@ void CVideo::RestoreImage(char *img)
 			sceGsSyncPath(0, 0);
 		}
 
-		zfree(buf);
+		_free(buf, "zvid_draw.cpp", 482);
 	}
 }
 
