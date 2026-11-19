@@ -223,7 +223,7 @@ void CCharacterType::KorusGetPackedWeapons(CCharacterWeapPacked *out)
 void CCharacterType::UnPack(const CCharacterWeapPacked *packed, CCharacterType *type)
 {
 	/* 0x24ada0 (a remote seal's creation / respawn): the type's weapons become the eight
-	   packed items (an empty item is skipped) */
+	   packed items up to the first empty one (0x24adf0 ends the loop there) */
 	type->m_weapons.clear();
 
 	for (s32 i = 0; i < 8; i++)
@@ -233,7 +233,7 @@ void CCharacterType::UnPack(const CCharacterWeapPacked *packed, CCharacterType *
 		CZWeapon::UnpackItemAndAmmoEnums(packed[i].m_packed, &item, &ammo);
 
 		if ((u8)item == 0)
-			continue;
+			break;
 
 		CCharacterWeap w;
 		w.m_wepId = item;

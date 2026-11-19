@@ -219,7 +219,7 @@ CZWeapon::CZWeapon()
 CZWeapon::~CZWeapon()
 {
 	/* 0x31f640: every allocated name and the hit anim tables are freed (zwep_weapon.cpp lines
-	   92-105); the legal ammo list is emptied with the members */
+	   92-105), then the legal ammo list is emptied */
 	if (m_name != NULL)
 		_free(m_name, "zwep_weapon.cpp", 92);
 	m_name = NULL;
@@ -262,6 +262,9 @@ CZWeapon::~CZWeapon()
 	if (m_reloadsoundname != NULL)
 		_free(m_reloadsoundname, "zwep_weapon.cpp", 105);
 	m_reloadsoundname = NULL;
+	/* the legal ammo list is erased here (0x31f80c), so ~CZAmmoList (0x31f818) deletes none of
+	   the ammo, which CZAmmo::m_ammolist owns */
+	m_LegalAmmoList.clear();
 }
 
 /* @socom-skeleton stub CreateProjectileList__8CZWeaponFi */
@@ -336,7 +339,7 @@ void CZWeapon::Fire(zdb::CNode *owner, CZAmmo *ammo, const CPnt3D *from, const C
 		return;
 	}
 
-	if (IsDirectFire() && m_soundradius > 1.0f)
+	if (IsDirectFire() && !(m_soundradius <= 1.0f)) /* c.le.s radius, 1 (0x31f378) */
 	{
 		/* an AIE_WEPFIRE AI event (0x31f388): at from, range the sound radius, 0.1 s, owner
 		 * id; heard by the AIs around (CSealCtrlAi::HandleEvent) */
@@ -374,7 +377,7 @@ void CZWeapon::Fire(zdb::CNode *owner, CZWeapon *weapon, CZAmmo *ammo, const CPn
 		return;
 	}
 
-	if (weapon->m_soundradius > 1.0f)
+	if (!(weapon->m_soundradius <= 1.0f)) /* c.le.s radius, 1 (0x31f1f4) */
 	{
 		/* the AIE_WEPFIRE AI event (0x31f204): at from, range the sound radius, 0.1 s, owner id */
 		CAiEvent *ev = CAiEvent::Acquire();
@@ -405,7 +408,7 @@ void CZWeapon::Fire(CZProjectile& projectile)
 		return;
 	}
 
-	if (projectile.m_weapon->m_soundradius > 1.0f)
+	if (!(projectile.m_weapon->m_soundradius <= 1.0f)) /* c.le.s radius, 1 (0x31f05c) */
 	{
 		/* the AIE_WEPFIRE AI event (0x31f06c): at the projectile's frame start, range the
 		 * sound radius, 0.1 s, owner the shooter */
@@ -1241,7 +1244,7 @@ void CZMarkList::ReadBloodDecals(_zrdr *rdr)
 		def.m_texture = texture;
 		m_bloodDecals.push_back(def);
 #ifdef SOCOM_PORT
-		if (texture == NULL) /* port: guard - the ELF passes a missing texture on */
+		if (texture == NULL) /* port: guard - the ELF passes a missing texture on, which AddTextureAssetDecals (0x22e290) reads through and the lists keep as NULL: a texture not found stays out of them */
 			continue;
 #endif
 		zdb::CWorld::m_world->AddTextureAssetDecals(texture);
@@ -1543,7 +1546,7 @@ void CZDecalSet::ReadDecalEntry(_zrdr *entry)
 	m_decals[index].m_decalmaxsize = maxsize;
 	m_decals[index].m_texture = texture;
 #ifdef SOCOM_PORT
-	if (texture == NULL) /* port: guard - the ELF passes a missing texture on */
+	if (texture == NULL) /* port: guard - the ELF passes a missing texture on, which AddTextureAssetDecals (0x22e290) reads through and the lists keep as NULL: a texture not found stays out of them */
 		return;
 #endif
 

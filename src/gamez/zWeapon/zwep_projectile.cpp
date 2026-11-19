@@ -614,7 +614,7 @@ bool CZProjectile::HandleTimers()
 	/* 0x318f90: a fuse run out detonates (M203 illum: hidden and removed at once; others
 	 * removed with the removal time already out); true when a finished projectile's removal
 	 * time runs out */
-	if (!(m_time > 0.0f) && m_time != 9999999.0f && !m_done)
+	if (m_time <= 0.0f && m_time != 9999999.0f && !m_done) /* c.le.s time, 0 (0x318fa8) */
 	{
 		m_state = PROJECTILE_STATE::PROJECTILE_TO_BE_DETONATED;
 
@@ -632,7 +632,7 @@ bool CZProjectile::HandleTimers()
 
 		m_grenadestate = GRENADE_STATE::DETONATE;
 
-		if (m_removaltime > 0.0f || m_removaltime == 9999999.0f)
+		if (!(m_removaltime <= 0.0f) || m_removaltime == 9999999.0f) /* c.le.s removal, 0 (0x319080) */
 		{
 			m_done = 1;
 			return false;
@@ -668,17 +668,17 @@ bool CZProjectile::DoMiss(float dT, CPnt3D *end)
 		f32 spin = dT * 1.5707964f;
 		m_roll += spin;
 
-		if (m_roll > 6.2831855f)
+		if (!(m_roll <= 6.2831855f)) /* c.le.s (0x318dfc) */
 			m_roll -= 6.2831855f;
 
 		m_pitch += spin;
 
-		if (m_pitch > 6.2831855f)
+		if (!(m_pitch <= 6.2831855f)) /* c.le.s (0x318e2c) */
 			m_pitch -= 6.2831855f;
 
 		m_heading += spin;
 
-		if (m_heading > 6.2831855f)
+		if (!(m_heading <= 6.2831855f)) /* c.le.s (0x318e5c) */
 			m_heading -= 6.2831855f;
 
 		CQuat rot;
@@ -693,7 +693,7 @@ bool CZProjectile::DoMiss(float dT, CPnt3D *end)
 	f32 len = sqrtf(d.x * d.x + d.y * d.y + d.z * d.z);
 	*end = m_frameendpos;
 
-	if (!(m_weapon->GetMaxRange() < len))
+	if (len <= m_weapon->GetMaxRange()) /* c.le.s len, max (0x318f10) */
 		return false;
 
 	if (!theNetwork.m_bNetwork)
