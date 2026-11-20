@@ -217,8 +217,8 @@ void CMeshDecalPool::RecycleTick()
 			CMeshDecal::m_tempPool.m_array->PutBack(decal);
 			decal->m_mesh->RemoveMeshDecal(decal);
 
-			if (decal->m_mem != NULL)
-				_free(decal->m_mem, "vis_decal.cpp", 518);
+			if (decal->m_mem != NULL) /* the low 28 bits freed (dsll32 / dsrl32 0x3131ec), as FreeMem */
+				_free((void*)((u32)decal->m_mem & 0x0fffffff), "vis_decal.cpp", 518);
 
 			decal->m_mem = NULL;
 			decal->m_chain = NULL;
@@ -326,9 +326,10 @@ void zdb::CDecal::Tick(float)
 /* @socom-skeleton stub FreeMem__Q23zdb10CMeshDecalFv */
 void zdb::CMeshDecal::FreeMem()
 {
-	/* 0x312e20 */
+	/* 0x312e20: the block freed by its address's low 28 bits (dsll32 / dsrl32 4 at 0x312e38:
+	 * an uncached alias freed as its cached address) */
 	if (m_mem != NULL)
-		_free(m_mem, "vis_decal.cpp", 518);
+		_free((void*)((u32)m_mem & 0x0fffffff), "vis_decal.cpp", 518);
 
 	m_mem = NULL;
 	m_chain = NULL;

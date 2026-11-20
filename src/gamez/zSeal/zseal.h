@@ -246,7 +246,7 @@ enum class SEAL_PEEK
 
 enum class SEAL_STANCE
 {
-	STANCE_NONE,
+	STANCE_NONE = -1, /* DWARF element_list (1 byte): NONE -1 .. MAX 4 (was 0..5) */
 	STANCE_STAND,
 	STANCE_CROUCH,
 	STANCE_PRONE,

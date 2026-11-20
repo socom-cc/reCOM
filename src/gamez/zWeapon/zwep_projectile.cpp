@@ -1442,8 +1442,9 @@ CFlyout::CFlyout()
 /* @socom-skeleton stub __dt__7CFlyoutFv */
 CFlyout::~CFlyout()
 {
-	/* 0x317050 */
-	zdb::CNode::Delete(m_node);
+	/* 0x317050: the node deleted when set (the ELF's test, 0x317070) */
+	if (m_node != NULL)
+		zdb::CNode::Delete(m_node);
 }
 
 /* @socom-skeleton stub __ct__14CFlyoutMachineFv */

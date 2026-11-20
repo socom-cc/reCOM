@@ -854,8 +854,15 @@ void CTFireMode::Begin(_zanim_cmd_hdr* header)
 /* @socom-skeleton body Tick__10CTFireModeFP14_zanim_cmd_hdrPf */
 bool CTFireMode::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
-	/* 0x2bd100: done at once (the frame's time used up), with or without a seal */
-	*dT = 0.0f;
+	/* 0x2bd100: done at once; without an AI (no select seal, or not an AI) the frame's time is
+	 * used up (sw zero 0x2bd178), with one it is left to the next command (0x2bd184) */
+	TASK_FIREMODE *task = reinterpret_cast<TASK_FIREMODE *>(header);
+	CZSealBody *seal = taskSeal(task->m_seal_index);
+	CSealCtrlAi *ai = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi() : NULL;
+
+	if (ai == NULL)
+		*dT = 0.0f;
+
 	return true;
 }
 
@@ -2061,8 +2068,8 @@ bool CTPaint::Tick(_zanim_cmd_hdr* header, f32* dT)
 		break;
 
 	case 3:
-		if (region != NULL) /* port: NULL-tested (ELF passes it on) */
-			AiMaps.SetRegionType(region, (CAiMap::region::TYPE)(u8)task->m_value);
+		/* the region passed on untested, as the ELF (0x2b989c) */
+		AiMaps.SetRegionType(region, (CAiMap::region::TYPE)(u8)task->m_value);
 		break;
 
 	default:
@@ -2984,7 +2991,9 @@ void CTSpecial::Begin(_zanim_cmd_hdr* header)
 	TASK_SELECT *select = reinterpret_cast<TASK_SELECT *>(taskFindParam(*(u16 *)&ai_cmdid[8], task->m_seal_index));
 	CSealCtrlAi *ai = select != NULL ? select->m_ai : NULL;
 
-	if (ai != NULL) /* port: tested (ELF: Debug on a NULL controller) */
+	/* port deviation, kept: tested (ELF 0x2b6418: Debug on a NULL controller, which the retail
+	 * Debug never reads; the port's trace Debug reads its receiver), as End */
+	if (ai != NULL)
 		ai->Debug("CTSpecial::BEGIN\n");
 
 	task->m_index = 1;
@@ -3661,14 +3670,16 @@ _zanim_cmd_hdr* CTValve::Parse(_zrdr* reader)
 bool CTValve::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
 	/* 0x2b4450: the AI's own valve (SEAL_VALVE) is compared as the task says; without an AI
-	 * it is done */
+	 * it is done and the frame's time used up (0x2b44d0); with one dT is left as it is */
 	TASK_VALVE *task = reinterpret_cast<TASK_VALVE *>(header);
 	CZSealBody *seal = taskSeal(task->m_seal_index);
 	CSealCtrlAi *ai = seal != NULL ? static_cast<CSealCtrl *>(seal->m_control)->GetSealCtrlAi() : NULL;
-	*dT = 0.0f;
 
 	if (ai == NULL)
+	{
+		*dT = 0.0f;
 		return true;
+	}
 
 	task->m_cmd.m_valve = (u32)ai->GetValve((SEAL_VALVE)task->m_which);
 	bool ok = task->m_cmd.Compare();

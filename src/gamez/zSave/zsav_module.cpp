@@ -17,7 +17,8 @@
 /* @socom-skeleton body __ct__11CSaveModuleFPCcP12CSaveManager */
 CSaveModule::CSaveModule(const char* name, CSaveManager* manager)
 {
-	m_ModuleName = zstrdup(name);
+	/* 0x3f70b0: the name tagged "zsav_module.cpp" 27 (0x3f70d8) */
+	m_ModuleName = _strdup(name, "zsav_module.cpp", 27);
 	m_Priority = 0;
 	m_Flags = 0;
 	m_Manager = manager;

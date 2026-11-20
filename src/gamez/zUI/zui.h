@@ -786,12 +786,12 @@ public:
 	/* no DWARF; 236 bytes (Copy 0x3a0210): a button spec plus one SUBORDINATE control (a
 	 * design object of its own, deleted by the dtor 0x3a0270) */
 	CDesignDlgObj* m_child;  /* +0xe8 SUBORDINATE */
-	/* port: no out-of-line copy ctor (inline in Copy 0x3a0210). ELF quirk not kept: the ELF
-	 * copies the child pointer and the original's dtor deletes it (as CRadioStripSpec); the
-	 * port copies the child. */
+	/* port: no out-of-line copy ctor (inline in Copy 0x3a0210): the copy takes the child
+	 * pointer and the original's is cleared (0x3a0254), so only the copy deletes it */
 	CHandlerButtonSpec(CHandlerButtonSpec& other) : CButtonSpec(other)
 	{
-		m_child = other.m_child != NULL ? new CDesignDlgObj(*other.m_child) : NULL;
+		m_child = other.m_child;
+		other.m_child = NULL;
 	}
 	virtual ~CHandlerButtonSpec();
 	virtual CDlgObjSpec * Copy();
@@ -830,13 +830,12 @@ public:
 	/* no DWARF; 244 bytes (Copy 0x39f500): a button spec plus its SUBORDINATES, each a
 	 * design object of its own (new; the dtor 0x39f2b0 deletes them) */
 	std::vector<CDesignDlgObj*> m_children;  /* +0xe8 SUBORDINATES */
-	/* port: no out-of-line copy ctor (inline in Copy 0x39f500). ELF quirk not kept: the
-	 * ELF copies the child pointers, and the original's dtor deletes them, so a copy made
-	 * when the design's vector grows points at freed objects; the port copies the children. */
-	CRadioStripSpec(CRadioStripSpec& other) : CButtonSpec(other)
+	/* port: no out-of-line copy ctor (inline in Copy 0x39f500): the copy takes the child
+	 * pointers and the original's count is zeroed (+0xec, 0x39f558), so only the copy's dtor
+	 * deletes them */
+	CRadioStripSpec(CRadioStripSpec& other) : CButtonSpec(other), m_children(other.m_children)
 	{
-		for (u32 i = 0; i < other.m_children.size(); i++)
-			m_children.push_back(new CDesignDlgObj(*other.m_children[i]));
+		other.m_children.clear();
 	}
 	virtual ~CRadioStripSpec();
 	virtual CDlgObjSpec * Copy();

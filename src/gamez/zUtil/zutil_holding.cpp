@@ -63,18 +63,17 @@ size_t CFileIO::GetSize() const
 /* held from src/gamez/zUtil/util_systemio.cpp:122 */
 size_t CFileIO::fwrite(const char* buf)
 {
+	/* 0x304ad0: as CIO::fwrite - the length word is written for a NULL string too (0), the
+	 * characters only for a string */
 	size_t length = 0;
 
-	if (buf == NULL)
-	{
-		return 0;
-	}
-	else
-	{
+	if (buf != NULL)
 		length = strlen(buf);
-	}
 
-	size_t writeBufResult = fwrite(&length, sizeof(char*));
-	size_t writeStrResult = fwrite(buf, length);
-	return writeStrResult + writeBufResult;
+	size_t written = fwrite(&length, 4);
+
+	if (buf != NULL)
+		written += fwrite(buf, length);
+
+	return written;
 }

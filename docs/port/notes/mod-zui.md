@@ -101,8 +101,8 @@ uses no object and the brightness tuner calls it with its own a0).
   directly, unlike `Stop`).
 
 ## Port deviations
-- `CRadioStripSpec`'s copy (inline in `Copy` 0x39f500) copies its children; the ELF copies the pointers, and the
-  original's dtor (0x39f2b0) deletes them, so a copy made when a design's vector grows points at freed objects.
+- `CRadioStripSpec`'s copy (inline in `Copy` 0x39f500) no longer deviates (audit list small-b): it takes the child
+  pointers and zeroes the original's count (0x39f558), as the ELF does, so only the copy's dtor deletes them.
 - `CDlgObjSpec::GetChild` returns `CDesignDlgObj *` (the radio strip's children are design objects; the skeleton had
   `CDlgObjSpec *`); `Copy` / `GetType` / `DidStickMove*` got their ELF return types (the skeleton had void);
   `RestartBackgroundMPEG` / `HaltBackgroundMPEG` stay void (no caller reads the result).
@@ -220,8 +220,8 @@ both free at HEAD; the new test hook `port/test-hooks/zui/` and its README row).
   does not model), so the variable's dependents reach UpdateUIVar.
 - `CUIListBox::UpdateUIVar` does not delete the spec FONT (the ELF deletes it and leaves m_font pointing at it); the
   dtor does.
-- `CHandlerButtonSpec`'s copy (inline in Copy 0x3a0210) copies its SUBORDINATE (the ELF copies the pointer and the
-  original's dtor deletes it), as part 1 did for CRadioStripSpec.
+- `CHandlerButtonSpec`'s copy (inline in Copy 0x3a0210) no longer deviates (audit list small-b): it takes the
+  SUBORDINATE pointer and clears the original's (0x3a0254), as the ELF does.
 - `CUIVarManager` derives from CSaveModule with no save manager (the ELF registers it with the memory card's): the
   port has no memory-card layer, so nothing calls Serialize / UnSerialize, and `CSaveModule::SaveRdr` is a zSave
   stub. This is the memory-card boundary of the variable save.
