@@ -15,20 +15,23 @@ cannot run on this disc: their rows are read-only evidence, without a trace.
 | Verdict | Rows |
 |---|---|
 | MATCH | 81 |
-| DEFECT-FIXED | 5 (A 0, B 3, C 2) |
+| DEFECT-FIXED | 5 (A 1, B 2, C 2) |
 | DEVIATION-KEPT | 0 |
 | UNJUDGED | 0 |
 
-Defect rate 5 / 86 (6%); A or B 3 / 86.
+Defect rate 5 / 86 (6%); A or B 3 / 86 (A 1, B 2).
 
 ## Fixes (ELF evidence)
 
-- B, #21 CMission::CMission 0x1f94a0: the body was empty with a NULL save manager; rewritten from
-  the ELF. The module joins theMemCard.m_game (0x1f94bc, the saved-games manager), and the ctor's
-  stores are made: m_winlossinc = -1 (0x1f966c; nothing else writes it, so the port's win / loss
-  timer never counted down), player_grid_spacing 15 (Read does not reset it), the see-farther
-  factors 200 / 300 (0x1f9720 / 0x1f9728; Read keeps them when mission.rdr lacks the tags), the AI
-  defaults, the satchel fuse 10, "UNKNOWN", "ui/assetlib/junk_name", the team valves and readers.
+- A (was B; regraded by [audit-leads.md](audit-leads.md)), #21 CMission::CMission 0x1f94a0: the
+  body was empty with a NULL save manager; rewritten from the ELF. The module joins
+  theMemCard.m_game (0x1f94bc, the saved-games manager), and the ctor's stores are made:
+  m_winlossinc = -1 (0x1f966c; nothing else writes it, so the port's win / loss timer never counted
+  down), player_grid_spacing 15 (Read does not reset it), the see-farther factors 200 / 300
+  (0x1f9720 / 0x1f9728; Read keeps them when mission.rdr lacks the tags), the AI defaults, the
+  satchel fuse 10, "UNKNOWN", "ui/assetlib/junk_name", the team valves and readers. m8's
+  mission.rdr has no SEEFARTHER tags, so every scope and binocular view of m8 had its fog and far
+  plane 300 / 200 too close (A); the TIMER command, the other visible path, is not in m8's data.
 - B, #11 CMission::OnMissionStart 0x1f4510: the five end valves get the inline Set(0) unchecked,
   callbacks only for a set valve (0x1f4544-0x1f460c; the port NULL-tested them and ran the
   callbacks every time); CSnd::m_listenerIsValid cleared (0x1f474c / 0x1f4758, the port set it
@@ -75,7 +78,7 @@ the runs (comments only). The network fixes have no run (no network game offline
 | # | Address | Bytes | Function | File | Verdict | Grade | What was compared, what differed |
 |---|---|---|---|---|---|---|---|
 | 26 | 0x1fa2b0 | 584 | UpdateCharWeaponUiVars | fts_mission.cpp | MATCH | - | The 8 x 6 name table copied from 0x439c30, the signed index < 8 return, the inlined GetCustomCharTypeName (< 32 else NULL), GetByNameMod's NULL return, the weapon walk (12-byte entries, signed byte id, slot < 6), GetWeapon + GetDescription or "(empty)", Add(name, NULL, 1) and operator=, the double ammo load (188) / satchel (152) "---" in the next slot, then "(empty)" to slot 6. The scan's strings are the port's literal table (noise). |
-| 21 | 0x1f94a0 | 672 | CMission::CMission | fts_mission.cpp | DEFECT-FIXED | B | The port's body was empty with a NULL save manager. The ELF passes theMemCard+0x18 (0x1f94bc) (m_game, the saved-games manager: CMission is one of its modules) and stores m_winlossinc = -1 (0x1f966c; nothing else writes it, so the port's win / loss timer never counted down: the satchel / MP-bomb fuse and the TIMER zanim command's HUD clock stood still), player_grid_spacing 15 (+0xd0, Read does not reset it), the see-farther factors 200 / 300 (+0xd8 / +0xdc, kept by Read when the reader lacks them), the AI-parameter defaults, the satchel fuse 10, the "UNKNOWN" db string, the "ui/assetlib/junk_name" loading library, the zeroed team valves (memset 128) and the readers. Rewritten from the ELF. B: no satchel site in m8, the MP bomb is network only. |
+| 21 | 0x1f94a0 | 672 | CMission::CMission | fts_mission.cpp | DEFECT-FIXED | A | The port's body was empty with a NULL save manager. The ELF passes theMemCard+0x18 (0x1f94bc) (m_game, the saved-games manager: CMission is one of its modules) and stores m_winlossinc = -1 (0x1f966c; nothing else writes it, so the port's win / loss timer never counted down: the satchel / MP-bomb fuse and the TIMER zanim command's HUD clock stood still), player_grid_spacing 15 (+0xd0, Read does not reset it), the see-farther factors 200 / 300 (+0xd8 / +0xdc, kept by Read when the reader lacks them), the AI-parameter defaults, the satchel fuse 10, the "UNKNOWN" db string, the "ui/assetlib/junk_name" loading library, the zeroed team valves (memset 128) and the readers. Rewritten from the ELF. B: no satchel site in m8, the MP bomb is network only. Regraded A ([audit-leads.md](audit-leads.md)): m8's mission.rdr has no SEEFARTHER tags, so the see-farther factors were 0 and the scope / binocular views kept their fog and far plane (run: scope fog 1..1042 -> 301..1343); m8's compiled anims have no TIMER (0x002b) command. |
 | 17 | 0x1f6fc0 | 444 | CMission::Read | fts_mission.cpp | MATCH | - | The seven AI-parameter defaults in the ELF's store order, ai_params findtag, the six findreals with the two squarings on success, fireteam_command (GetCommandId, the andi 0xff test, stored when non-zero), SATCHEL_TIMER 10 then its findreal, both SEEFARTHER findreals without a default. The ELF returns 1 (PreOpen ignores it). |
 | 15 | 0x1f6b40 | 652 | CMission::Tick | fts_mission.cpp | MATCH | - | m_timer, the c.le wait-before-falling test, timer += inc x dT, the network test with a NULL net game falling to TickObjectives, CNetClock::Tick, the unsigned game time x 0x3a83126f by fptoui (never negative), the inline valve Set(0), UpdateLocalGame, the start flag (1), the client's ROUNDOVER 4 / GAMEOVER 6 test, OnMissionComplete((s8)m_state), _OnMissionComplete, total += round time before Push(MPexit), the four end valves (2..5) or abort only, spawners, TickInFirefight. The scan's call counts are its inlining (noise). |
 | 19 | 0x1f79a0 | 624 | CMission::ReOpen_Load | fts_mission.cpp | MATCH | - | Wait 10 before CloseAll, readerc.zar / run/ui, Reset, the objective cam list Reset (+0x5c0), the six valves (perm, mission_replay 1), team valves, AiMaps Reset, extraction, weapons, LoadVehicles(m_load_ai), the semaphore unless loaded, the three handle calls, AiEvent / Pickup Open with the list's size word, units, RefreshTeamValves, ftsFixupAiMap per map, node pool, AttachTo (slot 0xc), CloseAll, the three queues in the ELF's order (+0x100, +0x400, +0x280: ScrollUp, move time 2, top = fptosi(target)). Port trace only. |
