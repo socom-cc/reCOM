@@ -33,7 +33,7 @@ CSndSequence::CSndSequence()
 	m_current = -1;
 	m_name = NULL;
 	m_fading = false;
-	m_done = false; /* port: never initialised in the ELF; Play sets it before any Tick */
+	/* m_done is not set (0x2f2440: the ELF stores m_fading only); Play sets it before any Tick */
 }
 
 /* @socom-skeleton stub __dt__12CSndSequenceFv */
@@ -164,9 +164,7 @@ void CSndSequence::FadeOut()
 		return;
 	}
 
-	m_current = -1;
-	m_done = true;
-	m_fading = false;
+	Stop(); /* inline in the ELF (0x2f1ffc..0x2f2024, its entry test included) */
 }
 
 /* @socom-skeleton stub __ct__17CSndSequenceEntryFP4CSndf */

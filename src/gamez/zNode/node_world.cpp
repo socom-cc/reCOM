@@ -406,6 +406,10 @@ void zdb::CWorld::AddShadow(zdb::CNode *node)
 namespace zdb {
 void CWorld::GarbageCollect()
 	{
+		/* 0x22f94c..0x22f964: the children trimmed to their size first (copy, swap, the old
+		 * buffer freed) */
+		std::vector<CNode*>(m_child).swap(m_child);
+
 		for (auto i = m_child.begin(); i != m_child.end(); ++i)
 		{
 			zdb::CNode* node = dynamic_cast<CCell*>(*i);

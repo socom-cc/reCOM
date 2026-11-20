@@ -277,7 +277,7 @@ public:
 	{
 		if (str == NULL)
 		{
-			replace(0, npos, "", 0);
+			replace(0, npos, (size_type)0, '\0'); /* replace(Ui, Ui, Ui, c), as the ELF's callers */
 		}
 		else
 		{

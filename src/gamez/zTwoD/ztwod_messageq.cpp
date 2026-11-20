@@ -68,7 +68,7 @@ void C2DMessageString::SetString(const char *text)
 	if (text != NULL)
 		m_text.assign(text, strlen(text));
 	else
-		m_text.clear(); /* ELF: replace(0, npos, 0, 0) */
+		m_text.replace(0, std::string::npos, (std::string::size_type)0, '\0'); /* replace(Ui, Ui, Ui, c) 0x201108 */
 }
 
 /* @socom-skeleton body __ct__12C2DMessage_QFv */
@@ -329,8 +329,9 @@ void C2DMessage_Q::Add_Message(const char *text, int red, int green, int blue)
 /* @socom-skeleton body ScrollUp__12C2DMessage_QFv */
 void C2DMessage_Q::ScrollUp()
 {
+    /* 0x200100: the distance in floats from the converted target (sub.s 0x200120) */
     m_target_top = -m_YMargin;
-    m_Distance = -m_YMargin - m_cur_top;
+    m_Distance = m_target_top - (f32)m_cur_top;
     m_moveTime = 0;
 }
 

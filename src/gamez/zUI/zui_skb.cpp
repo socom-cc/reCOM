@@ -993,7 +993,7 @@ unsigned char UiSetSkbPurpose(C2DAnimCmdHdr *cmd, float *)
 	if (name != NULL)
 		g_strSkbPurpose.assign(name, strlen(name));
 	else
-		g_strSkbPurpose.replace(0, CSaferStr::npos, "", 0);
+		g_strSkbPurpose.replace(0, CSaferStr::npos, (CSaferStr::size_type)0, '\0'); /* replace(Ui, Ui, Ui, c) 0x3a71a4 */
 
 	return true;
 }

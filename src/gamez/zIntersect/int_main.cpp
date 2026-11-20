@@ -42,7 +42,7 @@ namespace zdb {
 DiIntersect::DiIntersect(s32 count)
     {
         m_BufCnt = count;
-        m_Intersects = static_cast<IntersectStruct*>(zmalloc(count << 5));
+        m_Intersects = static_cast<IntersectStruct*>(_malloc(count << 5, "int_main.cpp", 41)); /* 0x21c770 */
         m_Node = NULL;
         m_Cnt = 0;
 
@@ -94,8 +94,9 @@ zdb::CDI::~CDI()
 /* @socom-skeleton body Allocate__Q23zdb3CDIFi */
 void zdb::CDI::Allocate(int size)
     {
+        /* 0x21c530: the size argument (not the 8-bit count) sizes the points */
         m_ptcount = size;
-        m_pts = static_cast<CPnt4D*>(zmalloc(m_ptcount << 4));
+        m_pts = static_cast<CPnt4D*>(_malloc(size << 4, "int_main.cpp", 100));
     }
 
 /* @socom-skeleton stub Release__Q23zdb3CDIFv */
@@ -110,20 +111,14 @@ unsigned int zdb::CDI::Release()
 namespace zdb {
 void CDI::Free()
     {
+        /* 0x21c4b0: the points and their count only; the other parameters are kept */
         if (m_pts)
         {
-            zfree(m_pts);
+            _free(m_pts, "int_main.cpp", 113);
         }
 
         m_pts = NULL;
-        m_ditype = 0;
         m_ptcount = 0;
-        m_material = 0;
-        m_cameratype = 0;
-        m_appflags = 0;
-        m_inside = false;
-        m_shadow = 0;
-        m_reserved = 0;
     }
 }
 

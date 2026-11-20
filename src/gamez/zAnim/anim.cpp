@@ -939,7 +939,7 @@ float CBlendable::MaxTrans1()
 
 	for (s32 i = 0; i < 4 && m_blendable[i].m_animtype != AnimType::animTypeUndefined; i++)
 	{
-		if (m_blendable[i].m_trans1 > max)
+		if (!(m_blendable[i].m_trans1 <= max)) /* c.le.s, false (0x2cd65c) */
 			max = m_blendable[i].m_trans1;
 	}
 

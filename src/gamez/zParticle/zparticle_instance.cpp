@@ -202,7 +202,7 @@ void Particle::Props::GetTexture(float t, zdb::CTexHandle *&texture) const
 
 	s32 i = 0;
 
-	while (i < count && m_textureSeq[i].m_fraction <= t)
+	while (i < count && !(t < m_textureSeq[i].m_fraction)) /* c.lt.s, false (0x237cac) */
 		i++;
 
 	s32 index = i - 1;
@@ -304,10 +304,10 @@ void Particle::Props::GetScale(float t, float &scale) const
 float Particle::Props::GetOpacity(float depth) const
 {
 	/* 0x237930: the near and far fades by view depth */
-	if (m_farFade2 <= depth || depth <= m_nearFade1)
+	if (!(depth < m_farFade2) || depth <= m_nearFade1) /* c.lt.s false (0x237934), c.le.s */
 		return 0.0f;
 
-	if (m_farFade1 < depth)
+	if (!(depth <= m_farFade1)) /* c.le.s, false (0x237968) */
 		return m_invFarFade * (m_farFade2 - depth);
 
 	if (depth < m_nearFade2)

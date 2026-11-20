@@ -2417,7 +2417,7 @@ bool zAnimObjectOpacityFromToTick(_zanim_cmd_hdr *header, float *dT)
 		return true;
 
 	f32 step = *dT;
-	bool done = cmd->duration < step + ZAnim.m_CurSeq->cmd_timer;
+	bool done = !(step + ZAnim.m_CurSeq->cmd_timer <= cmd->duration); /* c.le.s, false (0x1ba210) */
 
 	if (done)
 	{
@@ -2825,13 +2825,9 @@ bool zAnimWaitTick(_zanim_cmd_hdr* header, f32* dT)
 /* @socom-skeleton body IsOperator__16CZAnimExpressionFPCc */
 bool CZAnimExpression::IsOperator(const char* operation)
 {
-    bool is_not = strcmp(operation, "!") == 0;
-    bool is_and = strcmp(operation, "&&") == 0;
-    bool is_or = strcmp(operation, "||") == 0;
-    bool is_start_tag = strcmp(operation, "(") == 0;
-    bool is_end_tag = strcmp(operation, ")") == 0;
-    
-    if (is_not || is_and || is_or || is_start_tag || is_end_tag)
+    /* 0x1b9530: the first match ends the tests (each strcmp only when the ones before failed) */
+    if (strcmp(operation, "!") == 0 || strcmp(operation, "&&") == 0 || strcmp(operation, "||") == 0
+        || strcmp(operation, "(") == 0 || strcmp(operation, ")") == 0)
     {
         return true;
     }

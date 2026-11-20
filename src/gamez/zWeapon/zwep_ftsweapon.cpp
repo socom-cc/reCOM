@@ -354,7 +354,7 @@ void CZFTSWeapon::SetRumbleHigh_Time(float time)
 {
 	/* 0x315a70: enabled by a positive time */
 	m_rumblehigh_time = time;
-	m_rumblehigh_enable = time > 0.0f;
+	m_rumblehigh_enable = !(time <= 0.0f); /* c.le.s, false (0x315a78) */
 }
 
 /* @socom-skeleton stub GetRumbleHigh_Enable__11CZFTSWeaponCFv */
@@ -374,7 +374,7 @@ void CZFTSWeapon::SetRumbleLow_Time(float time)
 {
 	/* 0x315a20 */
 	m_rumblelow_time = time;
-	m_rumblelow_enable = time > 0.0f;
+	m_rumblelow_enable = !(time <= 0.0f); /* c.le.s, false (0x315a28) */
 }
 
 /* @socom-skeleton stub SetRumbleLow_Power__11CZFTSWeaponFf */
@@ -382,7 +382,7 @@ void CZFTSWeapon::SetRumbleLow_Power(float power)
 {
 	/* 0x3159f0: ELF: the power also sets the low rumble's enable */
 	m_rumblelow_power = power;
-	m_rumblelow_enable = power > 0.0f;
+	m_rumblelow_enable = !(power <= 0.0f); /* c.le.s, false (0x3159f8) */
 }
 
 /* @socom-skeleton stub GetRumbleLow_Enable__11CZFTSWeaponCFv */

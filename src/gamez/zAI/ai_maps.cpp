@@ -1225,8 +1225,7 @@ char * CAiMaps::GetCellNameString(const CAiMapLoc &loc) const
 	/* 0x198060 (SetRoute, CAiSBreach::Tick): the cell's name, "" (0x4494b0) for none */
 	CAiMap *map = GetMapByIndex(loc.m_mapid);
 	CAiMap::name *name = map != NULL ? map->GetCellName(loc) : NULL;
-	static char none[1] = "";
-	return name != NULL ? name->m_name : none;
+	return name != NULL ? name->m_name : const_cast<char *>(""); /* the literal @2386 (0x1980a8) */
 }
 
 /* @socom-skeleton stub Tile__7CAiMapsFPCQ26CAiMap6regionUiUi */
