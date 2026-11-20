@@ -141,6 +141,16 @@ second monitor, focus kept, no memory card.
    removed with Lead B. #39 (k 26) and #78 (k 57) say their guard went with Lead B and stay kept
    for the rest. Counts are now DEFECT-FIXED 14 (C 11) and DEVIATION-KEPT 10.
 
+4. Crouch_0 brought in line ("Bring `Crouch_0` in line"): the ELF joins every path at 0x2764f0 and
+   calls Representative on the blend unchecked (0x2764f4, the write at 0x276504), so the port's
+   "NULL returned" guard is gone. Its caller CrouchToPickupBuddy had the matching guard (a NULL
+   blend returned the top): the ELF writes the callback through Crouch_0's answer as is
+   (0x26fce8..0x26fd14), so that is gone too. Checked and already equal: Stand_0, Prone_0,
+   Hang_0 (this round), BaseAnim_0 (both forms; Lead B). Tick_0 is not a stance transition and
+   has no such guard. Both rows were DEFECT-FIXED already (medium-seal-d #34, large-c #48), so
+   only their text changed and the counts stay. Runs: the default build links;
+   `gate.ps1 -Only roundtrip`: PASS, 4 returns, in use 18,642,780 B flat.
+
 Runs of this round (HEAD 0d823ba6 + this round's files): the default build links;
 `gate.ps1 -Only win -Build audit-closeout-gate` five times, 5 PASS, objectives 3/7 each, debrief at
 196.2, 200.4, 214.4, 238.1 and 200.3 s. Before the restrainable test, the first run of this round failed

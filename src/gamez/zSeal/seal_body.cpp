@@ -2431,8 +2431,8 @@ CZBodyAnimBlend * CZSealBody::Crouch_0(int from, float t)
 	 * 10 the crouch walk (both at the same time, the controller's throttle 0 set to 1 for
 	 * the walk), else stand-to-crouch; prone: under the crouch blend crouch-to-prone
 	 * reversed; hanging: drop (Crouch_0 from standing, then Stand_0 from the hang). ELF
-	 * quirk: hanging and the other states leave no blend and the representative of NULL is
-	 * written (port: guarded, NULL returned). */
+	 * quirk kept: hanging and the other states leave no blend and the representative of NULL
+	 * is written (every path joins at 0x2764f0: Representative 0x2764f4, sh 0x276504). */
 	CZBodyAnimBlend *top = m_blends->Top();
 
 	if (t < 0.0f)
@@ -2475,10 +2475,7 @@ CZBodyAnimBlend * CZSealBody::Crouch_0(int from, float t)
 		blend = PushBlend(AnimType::animTypeCrouch2Prone, 1, true);
 	}
 
-	if (blend == NULL) /* port: guard (see above) */
-		return NULL;
-
-	blend->Representative()->m_flags &= 0xffbf;
+	blend->Representative()->m_flags &= 0xffbf; /* not NULL-tested, as the ELF */
 	return blend;
 }
 
@@ -4263,9 +4260,8 @@ CZBodyAnimBlend * CZSealBody::CrouchToPickupBuddy(CZSealBody *buddy)
 			}
 		}
 
-		if (blend == NULL) /* port: guard (Crouch_0 from a hang or another state) */
-			return m_blends->Top();
-
+		/* not NULL-tested, as the ELF: Crouch_0's answer takes the callback as is (0x26fce8..0x26fd14;
+		 * NULL from a hang or another state) */
 		blend->m_callback.m_func = (void (*)())PickupBuddyCallback;
 		blend->m_callback.m_tfrac = 0.99000001f /* 0x3f7d70a4 */;
 		blend->m_callback.m_userdata = buddy;
