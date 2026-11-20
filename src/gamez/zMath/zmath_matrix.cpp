@@ -248,12 +248,13 @@ void CMatrix::ToEuler(CPnt3D *p) const
 /* @socom-skeleton body Multiply__6CStackFPC7CMatrixb */
 CMatrix * CStack::Multiply(const CMatrix *matrix, bool other)
 {
-	CMatrix m = *m_top;
+	/* 0x221de8-0x221e00: the new top is multiplied from the previous one in place (a1 =
+	   m_top - 1), no local copy. */
 	if (other)
 	{
 		m_top++;
 		m_pointer++;
-		zMathMulMatrix(m_top, &m, const_cast<CMatrix*>(matrix)); /* port: callee takes CMatrix* (zMathMulMatrix__FP7CMatrixP7CMatrixP7CMatrix) */
+		zMathMulMatrix(m_top, m_top - 1, const_cast<CMatrix*>(matrix)); /* port: callee takes CMatrix* (zMathMulMatrix__FP7CMatrixP7CMatrixP7CMatrix) */
 	}
 	else
 		zMathMulMatrix(m_top, m_top, const_cast<CMatrix*>(matrix));

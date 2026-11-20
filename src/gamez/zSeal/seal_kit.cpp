@@ -1366,7 +1366,7 @@ void CZKit::ChangeItemModel(int, int type, int, bool first)
 bool CZKit::CanChangeItem()
 {
 	/* 0x2acc00: not while a shot is pending or firing, nor through binoculars or a scope */
-	if (m_waiting_to_fire || m_firetime > 0.0f)
+	if (m_waiting_to_fire || !(m_firetime <= 0.0f)) /* c.le.s 0x2acc20, as the ELF tests it */
 		return false;
 
 	ZOOMSTATE zoom = m_body->m_zoomstate;
@@ -3757,7 +3757,8 @@ PlacedExplosive * CZKit::HandleRemotePlaceExplosive(const CPnt3D *pos, const CQu
 void CZKit::FillWeaponEnum(int index, CZFTSWeapon **weapon)
 {
 	/* 0x2a6e40 (DropItem): the slot's item (the index wrapped, unwrap inline). ELF quirk kept: an
-	 * index equal to the count (or no items) reads m_item[-1] (port: NULL) */
+	 * index equal to the count (or no items) reads m_item[-1] (port: NULL; that word is
+	 * m_itemstate[29] (+0xcc), flags, not a weapon, so DropItem would use a wild pointer) */
 	s32 slot = unwrap(index, m_num_items);
 	*weapon = slot != -1 ? m_item[slot] : NULL;
 }

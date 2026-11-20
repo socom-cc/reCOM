@@ -856,15 +856,15 @@ void BitmapReticule::UpdateAccuracy()
 /* @socom-skeleton stub On__14BitmapReticuleFv */
 void BitmapReticule::On()
 {
-	/* 0x3ce4d0 */
-	m_on = true;
+	/* 0x3ce4d0: tail call j C2D::On */
+	C2D::On();
 }
 
 /* @socom-skeleton stub Off__14BitmapReticuleFv */
 void BitmapReticule::Off()
 {
-	/* 0x3ce4c0 */
-	m_on = false;
+	/* 0x3ce4c0: tail call j C2D::Off */
+	C2D::Off();
 }
 
 /* @socom-skeleton stub ChangeReticule__14BitmapReticuleFi */

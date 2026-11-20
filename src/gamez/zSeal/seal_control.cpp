@@ -1998,7 +1998,7 @@ float CSealCtrl::GetThrowAverage()
 
 	f32 best = m_buttonreading[i];
 
-	if (!(m_buttonreading[last] < best))
+	if (best <= m_buttonreading[last]) /* c.le.s 0x2844c8, as the ELF tests it */
 		best = m_buttonreading[last];
 
 	for (s32 n = 0; n < 5; n++)

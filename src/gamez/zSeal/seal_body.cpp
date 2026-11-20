@@ -296,6 +296,7 @@ CObjAnims::~CObjAnims()
 	for (std::vector<OBJ_ANIM*>::iterator it = m_obj_anims.begin(); it != m_obj_anims.end(); ++it)
 		delete *it;
 
+	m_obj_anims.clear(); /* sw zero size_ 0x27d5c4, before the swap */
 	std::vector<OBJ_ANIM*>().swap(m_obj_anims);
 }
 

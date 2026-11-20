@@ -866,7 +866,9 @@ bool CZProjectileList::GetNextIndirectFireDI(zdb::DiIntersect** di, s32* free_ha
 	if (m_indirectFireDI[0] == NULL)
 		return false;
 
-	if (m_indirect_firstfree >= 30)
+	/* ELF quirk kept: the bound test reads the direct list's m_direct_firstfree (+0x14c,
+	 * 0x31a6a4 / 0x31a6b0), not m_indirect_firstfree */
+	if (m_direct_firstfree >= 30)
 		return false;
 
 	*di = m_indirectFireDI[m_indirect_firstfree];

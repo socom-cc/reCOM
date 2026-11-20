@@ -103,9 +103,12 @@ CIOPManager theIOPManager;
 /* @socom-skeleton body InterruptDmacBusError__Fi */
 int InterruptDmacBusError(int)
 {
+	/* 0x2f5280: two scePrintf lines (printf here: the port has no scePrintf), then a break
+	 * trap (0x2f52a0), sync, ei and 0 - not abort() */
 	printf("DMAC Bus Error Interrupt (dma chain error)\n");
-	printf("Please contact you neighborhood friendly software expert\n");
-	abort();
+	printf("Please contact you friendly neighborhood software expert\n"); /* 0x458a90 */
+	__asm__ volatile("break\n\tsync.l\n\tei"); /* port: GCC spelling */
+	return 0;
 }
 
 /* @socom-skeleton stub RebootIOP__11CIOPManagerFQ211CIOPManager10RebootMode */

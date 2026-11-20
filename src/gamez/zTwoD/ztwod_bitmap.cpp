@@ -321,12 +321,13 @@ void C2DBitmap::TickFade()
 
 		if (m_fade_dx < 0.0f)
 		{
-			limit = m_fade_limit;
-
-			if ((m_fade_limit <= alpha) && (limit = alpha, alpha < 0.0f))
-			{
+			/* c.lt.s alpha, limit (0x303118) then alpha < 0 (0x303130), as the ELF tests */
+			if (alpha < m_fade_limit)
+				limit = m_fade_limit;
+			else if (alpha < 0.0f)
 				limit = 0.0f;
-			}
+			else
+				limit = alpha;
 		}
 		else
 		{

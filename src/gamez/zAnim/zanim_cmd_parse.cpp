@@ -3777,7 +3777,7 @@ _zanim_cmd_hdr * zAnimLoadTimer(_zrdr *reader)
 {
 	/* 0x1aae30: TIMER: HIDE (the win/loss timer off: -1) or TIME seconds (default 0);
 	 * a timeless 8-byte record */
-	_zanim_cmd_timer *cmd = (_zanim_cmd_timer *)zcalloc(1, sizeof(_zanim_cmd_timer));
+	_zanim_cmd_timer *cmd = (_zanim_cmd_timer *)_calloc(1, sizeof(_zanim_cmd_timer), "zanim_cmd_parse.cpp", 4637); /* 0x1aae4c */
 	cmd->header.data_size = sizeof(_zanim_cmd_timer);
 	cmd->header.timeless = true;
 

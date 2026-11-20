@@ -603,40 +603,106 @@ bool StopImageRecorderTick(_zanim_cmd_hdr *, float *)
 	return true;
 }
 
+/* port: no DWARF type; the 8-byte record HUD_ON / HUD_OFF / HUD_LETTERBOX_ON / _OFF parse
+ * (0x1f9d60 / 0x1f9ce0 / 0x1f9be0 / 0x1f9b60): byte +4 bit 0 on, bit 1 off (the ticks
+ * 0x1f9c70 / 0x1f9af0 test them in that order) */
+struct zanim_cmd_hudswitch
+{
+	_zanim_cmd_hdr header;
+	u8 on : 1;  /* +0x4 bit 0 */
+	u8 off : 1; /* +0x4 bit 1 */
+};
+
 /* @socom-skeleton body HUDCmdParseOn__FP5_zrdr */
 _zanim_cmd_hdr* HUDCmdParseOn(_zrdr* reader)
 {
-    return NULL;
+	/* 0x1f9d60: HUD_ON, timeless, 8 bytes, the on bit (was a stub returning NULL) */
+	if (reader == NULL)
+		return NULL;
+
+	zanim_cmd_hudswitch* cmd = (zanim_cmd_hudswitch*)_calloc(1, 8, "fts_mission.cpp", 843);
+	cmd->header.data_size = 8;
+	cmd->header.timeless = 1;
+	cmd->on = 1;
+	return &cmd->header;
 }
 
 /* @socom-skeleton body HUDCmdParseOff__FP5_zrdr */
 _zanim_cmd_hdr* HUDCmdParseOff(_zrdr* reader)
 {
-    return NULL;
+	/* 0x1f9ce0: HUD_OFF, as HUD_ON with the off bit (was a stub returning NULL) */
+	if (reader == NULL)
+		return NULL;
+
+	zanim_cmd_hudswitch* cmd = (zanim_cmd_hudswitch*)_calloc(1, 8, "fts_mission.cpp", 859);
+	cmd->header.data_size = 8;
+	cmd->header.timeless = 1;
+	cmd->off = 1;
+	return &cmd->header;
 }
 
 /* @socom-skeleton body HUDCmdTickControlSwitch__FP14_zanim_cmd_hdrPf */
 bool HUDCmdTickControlSwitch(_zanim_cmd_hdr* header, f32* dT)
 {
-    return false;
+	/* 0x1f9c70: the HUD on (bit 0) or else off (bit 1); done at once (was a stub returning
+	 * false) */
+	if (theHUD == NULL)
+		return true;
+
+	zanim_cmd_hudswitch* cmd = reinterpret_cast<zanim_cmd_hudswitch*>(header);
+
+	if (cmd->on)
+		theHUD->On();
+	else if (cmd->off)
+		theHUD->Off();
+
+	return true;
 }
 
 /* @socom-skeleton body HUDLetterBoxCmdParseOn__FP5_zrdr */
 _zanim_cmd_hdr*  HUDLetterBoxCmdParseOn(_zrdr* reader)
 {
-    return NULL;
+	/* 0x1f9be0: HUD_LETTERBOX_ON, timeless, 8 bytes, the on bit (was a stub returning NULL) */
+	if (reader == NULL)
+		return NULL;
+
+	zanim_cmd_hudswitch* cmd = (zanim_cmd_hudswitch*)_calloc(1, 8, "fts_mission.cpp", 899);
+	cmd->header.data_size = 8;
+	cmd->header.timeless = 1;
+	cmd->on = 1;
+	return &cmd->header;
 }
 
 /* @socom-skeleton body HUDLetterBoxCmdParseOff__FP5_zrdr */
 _zanim_cmd_hdr* HUDLetterBoxCmdParseOff(_zrdr* reader)
 {
-    return NULL;
+	/* 0x1f9b60: HUD_LETTERBOX_OFF, the off bit (was a stub returning NULL) */
+	if (reader == NULL)
+		return NULL;
+
+	zanim_cmd_hudswitch* cmd = (zanim_cmd_hudswitch*)_calloc(1, 8, "fts_mission.cpp", 915);
+	cmd->header.data_size = 8;
+	cmd->header.timeless = 1;
+	cmd->off = 1;
+	return &cmd->header;
 }
 
 /* @socom-skeleton body HUDLetterBoxCmdTick__FP14_zanim_cmd_hdrPf */
 bool HUDLetterBoxCmdTick(_zanim_cmd_hdr* header, f32* dT)
 {
-    return false;
+	/* 0x1f9af0: the HUD's letterbox (+0x14280) added (bit 0) or else removed (bit 1); done
+	 * at once (was a stub returning false) */
+	if (theHUD == NULL)
+		return true;
+
+	zanim_cmd_hudswitch* cmd = reinterpret_cast<zanim_cmd_hudswitch*>(header);
+
+	if (cmd->on)
+		theHUD->m_letterbox.AddLetterbox();
+	else if (cmd->off)
+		theHUD->m_letterbox.RemoveLetterbox();
+
+	return true;
 }
 
 /* port: no DWARF type; the 8-byte record HUDTriggerMissionCamParse builds (0x1f9980) */
@@ -3160,10 +3226,11 @@ void CMission::TickInFirefight(f32 dT)
 	// music if at least ONE enemy entity saw you.
 	
 	u32 aware_counter = 0;
-	
-	if (ftsPlayer)
+	CZSealBody *player = ftsGetPlayer(); /* jal ftsGetPlayer 0x1f2b4c */
+
+	if (player)
 	{
-		aware_counter = ftsPlayer->m_aware_counter;
+		aware_counter = player->m_aware_counter;
 	}
 
 	/* 0x1f2b30 (rewritten from the asm: the old body set the timer to -dT and told the jukebox

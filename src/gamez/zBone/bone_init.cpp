@@ -78,6 +78,10 @@ bool zBoneOpen()
 /* @socom-skeleton body zBoneClose__Fv */
 bool zBoneClose()
 {
+    /* 0x1dd670 (CMission::Init, after zBoneLoadAll): tail call boneArchive's CZAR::Close
+     * (was a stub: motion.zar, its keys and string table stayed open across missions).
+     * The ELF returns what Close leaves in v0; no caller reads it. */
+    boneArchive.Close();
     return true;
 }
 
