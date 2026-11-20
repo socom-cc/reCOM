@@ -118,15 +118,15 @@ void C2DString::ClearAndWipe()
 /* @socom-skeleton stub Off__9C2DStringFv */
 void C2DString::Off()
 {
-	/* 0x302dc0 */
-	m_on = 0;
+	/* 0x302dc0: tail-calls C2D::Off */
+	C2D::Off();
 }
 
 /* @socom-skeleton stub On__9C2DStringFv */
 void C2DString::On()
 {
-	/* 0x302db0 */
-	m_on = 1;
+	/* 0x302db0: tail-calls C2D::On */
+	C2D::On();
 }
 
 /* @socom-skeleton stub Tick__9C2DStringFf */
@@ -139,7 +139,8 @@ void C2DString::Tick(float dT)
 	f32 t = m_elapsedTime + dT / 2.0f;
 	m_elapsedTime = t;
 
-	if (m_fadeTime < t)
+	/* c.le.s at 0x302d2c: the compare as the ELF has it */
+	if (!(t <= m_fadeTime))
 		m_elapsedTime = t - m_fadeTime;
 
 	f32 s = sinf((m_elapsedTime / m_fadeTime) * 3.14000011f /* 0x4048f5c3 */);

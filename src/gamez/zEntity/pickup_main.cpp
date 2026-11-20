@@ -172,7 +172,12 @@ void CPickup::SetVisibleByUnit(unsigned int unit)
 	/* 0x24d180: units 2, 4 and 8 mark bits 1 and 2 (port guess: the fire teams' parents);
 	 * any other unit marks its own bits */
 	if (unit == 2 || unit == 4 || unit == 8)
+	{
+		/* ELF: three read-modify-writes, 1, 2 then 3 (0x24d1a0..0x24d1c4) */
+		m_visible_by_units |= 1;
+		m_visible_by_units |= 2;
 		m_visible_by_units |= 3;
+	}
 	else
 		m_visible_by_units |= unit;
 }
@@ -474,7 +479,10 @@ unsigned short CPickup::GetEntityIDFromNetID(unsigned short id)
 /* @socom-skeleton stub FindNetPickup__7CPickupFUi */
 CPickup * CPickup::FindNetPickup(unsigned int id)
 {
-	/* 0x24c610: the pickup with that net id, else NULL */
+	/* 0x24c610: the pickup with that net id, else NULL (an empty list first, 0x24c628) */
+	if (m_list.size() == 0)
+		return NULL;
+
 	for (std::list<CPickup *>::iterator it = m_list.begin(); it != m_list.end(); ++it)
 	{
 		if ((*it)->m_netid == id)

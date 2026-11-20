@@ -22,7 +22,8 @@ COutput *debug;
 /* @socom-skeleton body zUtilInit__FPCc */
 void zUtilInit(const char* log)
 {
-	debug = new COutput(log, false);
+	/* 0x304510: logging on (li a2,1 at 0x304538) */
+	debug = new COutput(log, true);
 }
 
 /* @socom-skeleton stub zUtilUninit__Fv */
@@ -83,8 +84,10 @@ void COutput::DumpLog(const char* file)
 /* @socom-skeleton stub __dt__7COutputFv */
 COutput::~COutput()
 {
-	/* 0x304320: the log file closed (vtable +0xc) and deleted */
+	/* 0x304320: the log file closed (vtable +0xc) and its storage freed: operator delete
+	 * only (0x304354), no destructor (the port's inline ~CFileIO would Close again). The
+	 * ELF also zeroes its +0x4 word, which the port's layout lacks (no reader); m_doLog
+	 * (+0x8) is left */
 	m_fileIO->Close();
-	m_doLog = false;
-	delete m_fileIO;
+	::operator delete(m_fileIO);
 }

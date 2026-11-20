@@ -272,7 +272,8 @@ void CCoreState::OnPop(int index)
 /* @socom-skeleton body __ct__10CCoreStateFv */
 CCoreState::CCoreState()
 {
-	m_name = zstrdup("CoreState");
+	/* 0x17d730: the name through the inline SetName ("zgame.h", 84 at 0x17d788) */
+	SetName("CoreState");
 	m_loading = false;
 	m_loadstarted = false;
 	zMathUnitMatrix(objMtx1);

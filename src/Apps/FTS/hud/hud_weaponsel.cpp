@@ -1106,12 +1106,16 @@ void CWeaponSel::HudTick(CPad *pad, float dT)
 /* @socom-skeleton stub Increment__10CWeaponSelFfff */
 float CWeaponSel::Increment(float increment, float val, float goal)
 {
-	/* 0x3d1a70: val stepped toward goal, not past it */
+	/* 0x3d1a70: val stepped toward goal, not past it; the compares as the ELF has them
+	 * (c.le.s val, goal at 0x3d1a9c, c.lt.s at 0x3d1ab0) */
 	if (val < goal)
 		return val + increment <= goal ? val + increment : goal;
 
-	if (goal < val)
-		return goal <= val - increment ? val - increment : goal;
+	if (!(val <= goal)) {
+		val -= increment;
+		if (val < goal)
+			val = goal;
+	}
 
 	return val;
 }

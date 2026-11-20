@@ -27,7 +27,7 @@ CSTable::CSTable(size_t size, size_t count)
 	if (size != 0)
 	{
 		m_reserve = size;
-		m_buffer = (char*)malloc(size);
+		m_buffer = (char*)_malloc(size, "util_stable.cpp", 25); /* 0x306824 */
 		reserve(count);
 	}
 }

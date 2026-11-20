@@ -142,8 +142,10 @@ CZBodyPart::CZBodyPart(zdb::CNode* node)
 /* @socom-skeleton stub __dt__10CZBodyPartFv */
 CZBodyPart::~CZBodyPart()
 {
-	/* 0x1e3850: the part forgets its node (the node belongs to the model) */
-	m_node = NULL;
+	/* 0x1e3850: the part forgets its node (the node belongs to the model); ELF: only when
+	 * one is set (0x1e386c) */
+	if (m_node != NULL)
+		m_node = NULL;
 }
 
 /* @socom-skeleton stub __ct__5CBodyFv */
@@ -641,22 +643,12 @@ CZBodyAnimBlend * CBody::PopBlend()
 /* @socom-skeleton stub ClearBlendOverlay__5CBodyFv */
 void CBody::ClearBlendOverlay()
 {
-	/* 0x1e22d0: the overlay's anim goes back to the pool, cleared */
+	/* 0x1e22d0: the overlay's anim goes back to the pool, cleared (CActiveAnimPool::PutBack
+	 * inline: the clear, then RTArray::PutBack at 0x1e2310) */
 	ACTIVE_ANIM *anim = m_overlay->m_anim;
 
 	if (anim != NULL)
-	{
-		anim->m_anim = NULL;
-		anim->m_wt = 0.0f;
-		anim->m_overlay = NULL;
-		anim->m_tfrac = 0.0f;
-		anim->m_dfrac = 0.0f;
-		anim->m_playback = 0.0f;
-		anim->m_script_wt = 0.0f;
-		anim->m_a = 0;
-		anim->m_b = 0;
 		m_active_anim_pool->PutBack(anim);
-	}
 
 	m_overlay->m_anim = NULL;
 	m_overlay->m_triggerT = 0.0f;
@@ -868,7 +860,8 @@ float CZBodyAnim::TrueLoopTime()
 	{
 		f32 frames = (f32)m_pCommon->m_nFrames;
 
-		if (frames > 1.0f)
+		/* c.le.s frames, 1 at 0x1e1b80: the compare as the ELF has it */
+		if (!(frames <= 1.0f))
 			fraction = (frames - 1.0f) / frames;
 	}
 

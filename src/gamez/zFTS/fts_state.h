@@ -39,6 +39,9 @@ namespace zdb
 class CGameState
 {
 public:
+	/* inline in each derived ctor (0x17d750): the name starts empty */
+	CGameState() : m_name(NULL) {}
+
 	virtual ~CGameState()
 	{
 		/* 0x140bc0 */

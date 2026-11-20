@@ -479,8 +479,10 @@ void CListItemArrayTypeImpl::SetFont(C2DFont *font)
 namespace {
 const char * CListItemArrayTypeImpl::GetString()
 {
-	/* 0x394370: the first cell's text (ELF: no test for an empty row). port: the fallback
-	 * is the static of PrepListItem (achFallback$3573) in the ELF; an empty literal here */
+	/* 0x394370: the first cell's text (ELF: no test for an empty row). Port deviation kept:
+	 * the ELF's fallback is the address of achFallback$3573 (0x3943b0), PrepListItem's
+	 * function-local static under its own fence, which this function cannot name; an empty
+	 * literal gives the same empty text */
 	if (m_cells[0]->m_impl != NULL)
 		return m_cells[0]->m_impl->GetString();
 
@@ -1434,12 +1436,14 @@ void CRenderableString::LoadSpec(const CTextSpec &spec)
 void CRenderableString::UpdateUIVar(CUIVariable *var)
 {
 	/* 0x390f10: the attached variable's value as text (CUIVariable::Format into a zeroed
-	 * 768-byte buffer, copied from a template at 0x53b5e0) becomes the string */
+	 * 768-byte buffer, copied from a template at 0x53b5e0) becomes the string through the
+	 * virtual C2DString::Format (slot +0x60 at 0x390f78: the raw text kept, "$" escapes
+	 * applied), not SetString */
 	char buffer[768] = "";
 
 	if (UIVarMixin::m_uivar != NULL && UIVarMixin::m_uivar == var) /* the mixin part (+0x8c), not C2D::m_uivar */
 	{
-		SetString(CUIVariable::Format(var, buffer, sizeof(buffer)));
+		Format(CUIVariable::Format(var, buffer, sizeof(buffer)));
 		Update();
 	}
 }
@@ -1504,7 +1508,8 @@ void CPlainBmp::Tick(float dT)
 		const f32 TWO_PI = 6.2831855f;
 		m_curtrans += (dT / m_period) * TWO_PI;
 
-		if (m_curtrans > TWO_PI)
+		/* c.le.s at 0x390cb8: the compare as the ELF has it */
+		if (!(m_curtrans <= TWO_PI))
 			m_curtrans -= TWO_PI;
 
 		if (m_curtrans < 0.0f)
