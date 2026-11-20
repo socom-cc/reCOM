@@ -815,7 +815,8 @@ void CAiSHostage::OnSignal(CAiState::SIGNAL signal, CSealCtrlAi *)
 bool CAiSHostage::Tick(float, CSealCtrlAi *ctrl)
 {
 	/* 0x2da2d0: ordered down (GETDOWN pushes it in phase 1): at m_time the AI stops where it
-	 * is and takes STANCE_STAND for 8-15 s; then the stance is released (STANCE_NONE). The
+	 * is and takes stance 1 (DWARF STANCE_CROUCH) for 8-15 s; then stance 0 (DWARF
+	 * STANCE_STAND; the port's SEAL_STANCE names run one off, the numbers are the ELF's). The
 	 * state never ends by itself. ELF quirks kept: phase 0 only re-arms its 0-1.5 s timer and
 	 * never moves on, and phase 2 releases the stance on every tick, not only when it ends. */
 	if (!m_setup)

@@ -1168,17 +1168,13 @@ bool zdb::CGrid::AddClutter(zdb::CClutter *clutter)
 void zdb::CGrid::DeleteClutter()
 {
 	/* 0x214e30 (ReadClutter when clutter was read before): every cell's clutter deleted.
-	   port: the ELF calls CCell::DeleteClutter on a slot's first atom without checking that it
-	   is a cell (it always is: the cells go in first); guarded here. */
+	   The ELF inlines GetCell on each slot's first atom and calls CCell::DeleteClutter on its
+	   result unchecked (0x214e90 / 0x214e98: a non-cell would pass NULL; the first atom is
+	   always a cell, the cells go in first). The port's type guard is removed. */
 	s32 count = m_CellCount.cx * m_CellCount.cy;
 
 	for (s32 i = 0; i < count; i++)
-	{
-		CNode* cell = m_Atoms[i]->Ent;
-
-		if (cell->m_type == (u32)CNode::TYPE::CELL)
-			static_cast<CCell*>(cell)->DeleteClutter();
-	}
+		static_cast<CCell*>(m_Atoms[i]->GetCell())->DeleteClutter();
 
 	m_ClutterCreated = false;
 }

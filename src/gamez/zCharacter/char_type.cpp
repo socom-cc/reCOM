@@ -463,9 +463,7 @@ CCharacterType* CCharacterType::Create(const char* name, const CCharacterType* o
 /* @socom-skeleton body DeleteTemporaryCharType__FP14CCharacterType */
 bool DeleteTemporaryCharType(CCharacterType* chartype)
 {
-    if (!chartype)
-        return false;
-
+    /* 0x24a320: m_istemporary is read without a NULL test (the port's test removed) */
     if (!chartype->m_istemporary)
         return false;
 
@@ -1145,14 +1143,15 @@ void CCharacterType::ClearMultiplayerMessageSounds()
 void CCharacterType::PlayAt(CHARACTER_SOUND sound, unsigned int id, const CPnt3D *pos)
 {
 	/* 0x247a70: the character's sound for that line (0..65), at a point (3D) or, without
-	 * one, as the entity id's own (2D); the instance ends with its sound */
+	 * one, as the entity id's own (2D); the instance ends with its sound. Both calls pass
+	 * the id as the entity (the 3D one in t1, 0x247a88 / 0x247ad8; was 0) */
 	s32 i = (s8)sound;
 	CSnd* snd = i >= 0 && i < 66 ? m_sounds[i] : NULL;
 
 	if (snd == NULL)
 		return;
 
-	CSndInstance* inst = pos != NULL ? snd->PlaySound3D(pos, false, 1.0f, 0, NULL, 0) : snd->PlaySound(true, NULL, id);
+	CSndInstance* inst = pos != NULL ? snd->PlaySound3D(pos, false, 1.0f, 0, NULL, id) : snd->PlaySound(true, NULL, id);
 
 	if (inst != NULL)
 		inst->TerminateOnFinish();
