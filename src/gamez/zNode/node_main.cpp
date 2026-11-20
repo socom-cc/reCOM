@@ -419,7 +419,7 @@ void CNode::SetParentHasVisuals()
 /* @socom-skeleton body ReserveVisuals__Q23zdb5CNodeFi */
 void zdb::CNode::ReserveVisuals(int size)
 	{
-		m_visual.reserve(size);
+		m_visual.reserve(m_visual.size() + size); /* 0x227c70: room for `size` more */
 	}
 
 /* @socom-skeleton body AddVisual__Q23zdb5CNodeFPQ23zdb7CVisual */
@@ -526,7 +526,7 @@ void zdb::CNode::RemoveFromParent()
 /* @socom-skeleton body ReserveChildren__Q23zdb5CNodeFi */
 void zdb::CNode::ReserveChildren(int size)
 	{
-		m_child.reserve(size);
+		m_child.reserve(m_child.size() + size); /* 0x227890: room for `size` more */
 	}
 
 /* @socom-skeleton body AddChild__Q23zdb5CNodeFPQ23zdb5CNode */
@@ -1092,14 +1092,14 @@ void CNode::SetName(const char* name)
 
 		if (str && str != UNNAMED_NODE)
 		{
-			zfree(str);
+			_free(str, "node_main.cpp", 963); /* the ELF's tags (0x2266fc, 0x22671c) */
 		}
 
 		str = const_cast<char*>(UNNAMED_NODE);
 
 		if (name)
 		{
-			str = zstrdup(name);
+			str = _strdup(name, "node_main.cpp", 964);
 		}
 
 		m_name = str;
@@ -1203,12 +1203,12 @@ void CNode::AllocateAtomBasePtrs(s32 x, s32 y)
 		if (!m_Atom)
 		{
 			m_AtomAlloc = allocCnt;
-			m_Atom = static_cast<CGridAtom**>(zmalloc(m_AtomAlloc << 2));
+			m_Atom = static_cast<CGridAtom**>(_malloc(m_AtomAlloc << 2, "node_main.cpp", 1285));
 		}
 		else if (m_AtomAlloc < allocCnt)
 		{
 			m_AtomAlloc = allocCnt;
-			m_Atom = static_cast<CGridAtom**>(zrealloc(m_Atom, allocCnt << 2));
+			m_Atom = static_cast<CGridAtom**>(_realloc(m_Atom, allocCnt << 2, "node_main.cpp", 1290));
 		}
 	}
 }
@@ -1217,12 +1217,13 @@ void CNode::AllocateAtomBasePtrs(s32 x, s32 y)
 namespace zdb {
 void CNode::ShrinkAtomBasePtrs()
 	{
-		if (m_AtomCnt > m_AtomAlloc)
+		/* 0x2261e8: only when fewer are used than allocated (was: also when equal) */
+		if (m_AtomCnt >= m_AtomAlloc)
 			return;
 
-		CGridAtom** atom = (CGridAtom**)zmalloc(m_AtomCnt << 2);
+		CGridAtom** atom = (CGridAtom**)_malloc(m_AtomCnt << 2, "node_main.cpp", 1300);
 		memcpy(atom, m_Atom, m_AtomCnt << 2);
-		zfree(m_Atom);
+		_free(m_Atom, "node_main.cpp", 1302);
 		m_Atom = atom;
 		m_AtomAlloc = m_AtomCnt;
 	}
@@ -1234,7 +1235,7 @@ void CNode::FreeAtom()
 	{
 		if (m_Atom)
 		{
-			zfree(m_Atom);
+			_free(m_Atom, "node_main.cpp", 1310); /* the ELF's tag (0x22619c) */
 		}
 
 		m_Atom = NULL;
@@ -1417,7 +1418,8 @@ void zdb::CNode::SetApplyClutterFlag(bool clutter)
 /* @socom-skeleton body ReserveDI__Q23zdb5CNodeFi */
 void zdb::CNode::ReserveDI(int size)
 	{
-		// m_di.reserve(size);
+		/* 0x225680: room for `size` more */
+		m_di.reserve(m_di.size() + size);
 	}
 
 /* @socom-skeleton body AddDI__Q23zdb5CNodeFPQ23zdb3CDI */
@@ -1703,14 +1705,14 @@ void CNode::SetModelname(const char* name)
 	{
 		if (m_modelname)
 		{
-			zfree(m_modelname);
+			_free(m_modelname, "node_main.cpp", 2759); /* the ELF's tags (0x2248c4, 0x2248ec) */
 			m_modelname = NULL;
 		}
 
 		if (!name)
 			return;
 
-		m_modelname = zstrdup(name);
+		m_modelname = _strdup(name, "node_main.cpp", 2762);
 	}
 }
 

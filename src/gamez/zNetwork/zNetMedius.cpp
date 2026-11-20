@@ -3409,7 +3409,7 @@ void CZOnlineLobby::SetPlayerDescription(const char *text)
 	LobbyPrepareRequest(request, 90);
 	request.TextFilterType = 1;
 	if (text != NULL)
-		strncpy(request.Text, text, sizeof(request.Text)); /* port: the ELF copies 64 bytes */
+		memcpy(request.Text, text, sizeof(request.Text)); /* 64 bytes, as the ELF (0x3290e4) */
 	appcallback = cbFilterPlayerDescription;
 	censor_userdata = NULL;
 	MediusTextFilter(&request, cbCensor);
@@ -3722,7 +3722,8 @@ void CZOnlineLobby::UnInit()
 bool CZOnlineLobby::Login(const char *name, const char *password)
 {
 	/* 0x326ff0: the account to log in with, then SESSION_BEGIN (DoLogin set). ELF quirk kept: the
-	 * stats blob is 256 bytes copied from a shorter literal (port: copied and zero-padded) */
+	 * stats blob is 256 bytes copied from a shorter literal (port deviation kept: copied and
+	 * zero-padded, since reading past the literal would copy the port's unrelated rodata) */
 	if (!m_isopen)
 		return false;
 	AccountInfo.m_id = -1;
@@ -3771,7 +3772,9 @@ void CZOnlineLobby::Bailout()
 /* @socom-skeleton stub Register__13CZOnlineLobbyFPCcPCc */
 bool CZOnlineLobby::Register(const char *name, const char *password)
 {
-	/* 0x326e40: as Login, without DoLogin */
+	/* 0x326e40: as Login, without DoLogin. Port deviation kept (as Login): strncpy where the ELF
+	 * memcpys 256 bytes from the 47-byte literal (0x326ec8), reading past it into whatever rodata
+	 * follows; the port's rodata differs there anyway, so the tail is zero-filled instead */
 	if (!m_isopen)
 		return false;
 	AccountInfo.m_id = -1;
@@ -3928,7 +3931,12 @@ bool CZOnlineLobby::CreateGame()
 		return false;
 	if (m_current_state != LOBBY_ACTIVE)
 		return false;
-	LobbySetStateValve(CValve::Create("mp_persistent", VALVE_TYPE::VTYPE_PERM), 0);
+	/* the inline CValve::Set(0), without the NULL test Tick's copy has (0x326934) */
+	CValve *persistent = CValve::Create("mp_persistent", VALVE_TYPE::VTYPE_PERM);
+	unsigned int change = persistent->m_value != 0 ? 2 : 0;
+	persistent->m_value = 0;
+	if (change)
+		persistent->MakeCallbacks((VALVE_STATE)change);
 	m_state_change_fifo.push(CREATE_NEW_GAME);
 	return true;
 }
@@ -4291,7 +4299,7 @@ void CZOnlineLobby::Censor(const char *text, void (*callback)(const char *, void
 	LobbyPrepareRequest(request, 90);
 	request.TextFilterType = 1;
 	if (text != NULL)
-		strncpy(request.Text, text, sizeof(request.Text)); /* port: the ELF copies 64 bytes */
+		memcpy(request.Text, text, sizeof(request.Text)); /* 64 bytes, as the ELF (0x325174) */
 	appcallback = callback;
 	censor_userdata = userdata;
 	MediusTextFilter(&request, cbCensor);
@@ -4451,7 +4459,7 @@ void CZOnlineLobby::CreateClan(const char *name)
 	LobbyPrepareRequest(request, 90);
 	request.TextFilterType = 0;
 	if (name != NULL)
-		strncpy(request.Text, name, 32); /* port: the ELF copies 32 bytes */
+		memcpy(request.Text, name, 32); /* 32 bytes, as the ELF (0x324678) */
 	MediusTextFilter(&request, cbFilterClanName);
 }
 

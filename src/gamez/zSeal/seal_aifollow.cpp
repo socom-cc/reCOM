@@ -177,9 +177,10 @@ void CAiSFollow::OnSignal(CAiState::SIGNAL signal, CSealCtrlAi *ai)
 /* @socom-skeleton stub GetStatus__10CAiSFollowCFv */
 const char * CAiSFollow::GetStatus() const
 {
-	/* 0x2e1e70: the follow mode's name (jump table 0x457c60) */
+	/* 0x2e1e70: the follow mode's name, in the jump table's order (0x457c60: 2 is WAIT, 3
+	 * FOLLOW, 7 HIDE; was the strings' order) */
 	static const char* const names[10] = {
-		"INIT", "PLAN", "FOLLOW", "WAIT", "HIDE", "HIDE PLAN", "HIDE WAIT", "HIDE FOLLOW", "COVERING", "AVOID"
+		"INIT", "PLAN", "WAIT", "FOLLOW", "HIDE PLAN", "HIDE WAIT", "HIDE FOLLOW", "HIDE", "COVERING", "AVOID"
 	};
 	return m_substate < 10 ? names[m_substate] : "UNKNOWN";
 }
@@ -216,12 +217,13 @@ bool CAiSFollow::Tick(float, CSealCtrlAi *ai)
 /* @socom-skeleton stub SetFollowMaster__11CSealCtrlAiFP10CZSealBody */
 void CSealCtrlAi::SetFollowMaster(CZSealBody *master)
 {
-	/* 0x2e1d60: ELF: the master is stored even when it is the seal itself; a new master
-	 * restarts the follow modes */
-	m_master = master;
-
+	/* 0x2e1d60: the seal itself is refused (nothing stored: beq 0x2e1d64 skips both stores;
+	 * was: the master stored anyway); another master restarts the follow modes */
 	if (master != m_entity)
+	{
+		m_master = master;
 		m_followMode = 0;
+	}
 }
 
 /* @socom-skeleton stub SetFollowOffset__11CSealCtrlAiFPC6CPnt3D */

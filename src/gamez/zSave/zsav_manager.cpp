@@ -48,8 +48,10 @@ CSaveManager::~CSaveManager()
 {
 	/* 0x3f7c20: the temporary buffer, then the module list (not the modules) */
 	if (m_TempBuffer != NULL)
+	{
 		delete m_TempBuffer;
-	m_TempBuffer = NULL;
+		m_TempBuffer = NULL; /* only after a delete (0x3f7c50) */
+	}
 	clear();
 }
 

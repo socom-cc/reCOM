@@ -294,7 +294,7 @@ void CValve::SetName(const char *name)
 {
 	/* 0x2f7540: the name becomes a heap copy */
 	FreeName(); /* inlined in the ELF */
-	m_name = name != NULL ? zstrdup(name) : NULL;
+	m_name = name != NULL ? _strdup(name, "valve_main.cpp", 438) : NULL; /* the ELF's tag (0x2f75b0) */
 	m_name_pooled = false;
 }
 
@@ -303,7 +303,7 @@ void CValve::FreeName()
 {
 	/* 0x2f74d0: a heap name is freed, a pooled one only dropped (was the other way round) */
 	if (!m_name_pooled && m_name != NULL)
-		zfree(m_name);
+		_free(m_name, "valve_main.cpp", 448); /* the ELF's tag (0x2f7504) */
 
 	m_name = NULL;
 	m_name_pooled = false;

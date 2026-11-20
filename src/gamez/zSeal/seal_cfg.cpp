@@ -887,34 +887,36 @@ void CZSealBody::SetMaxMotion()
 }
 
 /* @socom-skeleton body GetMaxZMotion__10CZSealBodyFRfRf */
-void CZSealBody::GetMaxZMotion(f32& min, f32& max)
+void CZSealBody::GetMaxZMotion(f32& fwd, f32& back)
 {
+	/* 0x27df70: as GetMaxXMotion, on the body's current state (lb +0x11d; was m_desiredState),
+	 * forward speed first (a1 <- +0x0 / +0x10 / +0x20) and backward second (a2 <- +0x4 /
+	 * +0x14 / +0x24); was the other way round, so GetSpeedFromThrottle / GetThrottleFromSpeed
+	 * scaled forward motion by the backward maximum */
 	AnimSet* set = m_animset;
 
-	if (m_desiredState == SEAL_STATE::stateClimbLadder)
+	switch (m_state)
 	{
-		min = set->m_aparams.m_ladder_updn;
-		max = set->m_aparams.m_ladder_updn;
-	}
-	else if (m_desiredState == SEAL_STATE::stateProne)
-	{
-		min = set->m_aparams.m_prone_max_back;
-		max = set->m_aparams.m_prone_max_fwd;
-	}
-	else if (m_desiredState == SEAL_STATE::stateCrouch)
-	{
-		min = set->m_aparams.m_crouch_max_back;
-		max = set->m_aparams.m_crouch_max_fwd;
-	}
-	else if (m_desiredState == SEAL_STATE::stateStand)
-	{
-		min = set->m_aparams.m_stand_max_back;
-		max = set->m_aparams.m_stand_max_fwd;
-	}
-	else
-	{
-		min = 0.0f;
-		max = 0.0f;
+	case 0:
+		fwd = set->m_aparams.m_stand_max_fwd;
+		back = set->m_aparams.m_stand_max_back;
+		break;
+	case 1:
+		fwd = set->m_aparams.m_crouch_max_fwd;
+		back = set->m_aparams.m_crouch_max_back;
+		break;
+	case 2:
+		fwd = set->m_aparams.m_prone_max_fwd;
+		back = set->m_aparams.m_prone_max_back;
+		break;
+	case 5:
+		fwd = set->m_aparams.m_ladder_updn;
+		back = set->m_aparams.m_ladder_updn;
+		break;
+	default:
+		fwd = 0.0f;
+		back = 0.0f;
+		break;
 	}
 }
 

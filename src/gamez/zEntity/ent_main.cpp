@@ -430,12 +430,13 @@ void CEntity::SetDisplayName(const char* name)
 {
 	if (m_display_name)
 	{
-		zfree(m_display_name);
+		_free(m_display_name, "ent_main.cpp", 407); /* the ELF's tags (0x1ee714, 0x1ee738) */
 	}
 
 	m_display_name = NULL;
 
-	m_display_name = zstrdup(name);
+	/* 0x1ee720: a NULL name leaves no name (was: _strdup(NULL), a crash in strlen) */
+	m_display_name = name != NULL ? _strdup(name, "ent_main.cpp", 408) : NULL;
 }
 
 /* @socom-skeleton stub ResetToInitialState__7CEntityFv */
