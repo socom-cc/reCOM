@@ -105,10 +105,11 @@ int CZAnimSet::GetAnimIndex(CZAnim *anim)
 /* @socom-skeleton body Name__9CZAnimSetFPCc */
 void CZAnimSet::Name(const char* name)
 {
+    /* 0x1c7d50: the ELF's tags are ("zanim_set.cpp", 111) and (113) */
     if (m_name)
-        zfree(m_name);
+        _free(m_name, "zanim_set.cpp", 111);
 
-    m_name = zstrdup(name);
+    m_name = _strdup(name, "zanim_set.cpp", 113);
 }
 
 /* @socom-skeleton stub Anim__9CZAnimSetFi */
@@ -132,6 +133,7 @@ CZAnim * CZAnimSet::Anim(const char *name)
 	{
 		char* animname = m_anim_list[i].GetName();
 
+		/* port: the ELF strcasecmps a NULL name as is (0x1c7cb4) */
 		if (animname != NULL && strcasecmp(name, animname) == 0)
 			return &m_anim_list[i];
 	}

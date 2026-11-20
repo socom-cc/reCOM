@@ -151,7 +151,7 @@ bool CZAnimMain::Close()
 
 	if (_local_wildcard_str)
 	{
-		zfree(_local_wildcard_str);
+		_free(_local_wildcard_str, "anim_main.cpp", 1898); /* 0x1c5360 */
 		_local_wildcard_str = NULL;
 	}
 
@@ -160,7 +160,7 @@ bool CZAnimMain::Close()
 
 	if (m_NetworkPacket)
 	{
-		zfree(m_NetworkPacket);
+		_free(m_NetworkPacket, "anim_main.cpp", 159); /* 0x1c5384 */
 		m_NetworkPacket = NULL;
 	}
 
@@ -356,13 +356,13 @@ zanim_cmd * CZAnimMain::GetCmdEntry(const char *name, bool create)
 	/* 0x1c4b50 */
 	char* cmdname;
 	char* setname = SplitName(name, &cmdname);
-	int set = GetCmdSet(setname, create) & 0xff;
-	int cmd = GetCmd(set, cmdname, create) & 0xff;
+	int set = GetCmdSet(setname, create);
+	int cmd = GetCmd(set, cmdname, create); /* the whole set index (0x1c4b9c); bytes below */
 
 	if (setname != NULL)
 		_free(setname, "anim_main.cpp", 0x1e0);
 
-	return &m_cmdset_list[set].cmd_list[cmd];
+	return &m_cmdset_list[(u8)set].cmd_list[(u8)cmd];
 }
 
 /* @socom-skeleton body AddCmd__10CZAnimMainFPCcPFP5_zrdr_P14_zanim_cmd_hdrPFP14_zanim_cmd_hdr_vPFP14_zanim_cmd_hdrPf_bPFP14_zanim_cmd_hdr_v */
@@ -930,6 +930,7 @@ void CZAnimMain::ResumeSequence(const char *name)
 	{
 		char* seqname = m_CurAnim->GetName(m_CurSeq->name_index);
 
+		/* port: the ELF strcmps a NULL name as is */
 		if (seqname != NULL && strcmp(seqname, name) == 0)
 		{
 			m_CurSeq->paused = 0;
@@ -956,6 +957,7 @@ unsigned char CZAnimMain::SequenceExists(const char *name)
 	{
 		char* seqname = m_CurAnim->GetName(m_CurSeq->name_index);
 
+		/* port: the ELF strcmps a NULL name as is */
 		if (seqname != NULL && strcmp(seqname, name) == 0)
 		{
 			found = true;
@@ -1142,7 +1144,7 @@ void CZAnimNameTable::Unload()
 	/* 0x1c2e20 (port: re-read as the free loop of Load 0x1c2b20) */
 	if (m_name != NULL)
 	{
-		for (u32 i = 0; i < m_count; i++)
+		for (int i = 0; i < (int)m_count; i++) /* signed, as DWARF's sint count (slt 0x1c2e7c) */
 		{
 			if (m_name[i] != NULL)
 				_free(m_name[i], "anim_main.cpp", 0x5d7);
@@ -1252,7 +1254,7 @@ bool CZAnimNameIndexTable::Load(zar::CZAR &archive)
 {
 	/* 0x1c2890 */
 	archive.GetOpenKey();
-	s32 count = 0;
+	s32 count = 0; /* port: zeroed; the ELF leaves the slot unset for a missing key */
 	archive.Fetch("Name_Index_Table_Count", &count, sizeof(count));
 
 	if (count > 0)

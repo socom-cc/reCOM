@@ -338,10 +338,12 @@ CTexPalette* CAssetLib::AddPalette(CTexPalette* palette, bool checkDuplicate)
 			}
 		}
 
-		m_palettes.insert(m_palettes.begin(), palette);
+		/* 0x231060-0x231090: appended (insert at data + size), the library set, the palette
+		 * returned (NULL for a duplicate) */
+		m_palettes.insert(m_palettes.end(), palette);
 		palette->m_AssetLib = this;
-		
-		return NULL;
+
+		return palette;
 	}
 }
 

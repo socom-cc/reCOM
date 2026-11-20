@@ -7,9 +7,24 @@
 /* @socom-skeleton decl include */
 #include "zvid.h"
 /* @socom-skeleton end include */
+#include <eekernel.h> /* FlushCache */
+#include <libdma.h> /* sceDmaSendN, sceDmaSync */
+
+extern s64 vramcode[20]; /* zvid_init.cpp: the clear packet zVid_Open sends too */
 
 /* @socom-skeleton body Clear__6CVideoFUcUcUcUc */
-void CVideo::Clear(unsigned char r, unsigned char g, unsigned char b, unsigned char a) { }
+void CVideo::Clear(unsigned char r, unsigned char g, unsigned char b, unsigned char a)
+{
+	/* 0x307870 (mission end, exit, cinematics): the vramcode sprite clears the render buffer
+	 * (FRAME_1: FBP renderBuf, FBW 10) to the colour (RGBAQ, Q 1.0) over 640 x 448 (XYZ2
+	 * 0x2800 / 0x1c00), sent and waited for */
+	vramcode[4] = (u64)zVid.renderBuf | 0xa0000;
+	vramcode[14] = (s64)((u64)r | (u64)g << 8 | (u64)b << 16 | (u64)a << 24 | (u64)0x3f800000 << 32);
+	vramcode[18] = 0x1c002800;
+	FlushCache(0);
+	sceDmaSendN(zSys.DmaToGif, vramcode, 10);
+	sceDmaSync(zSys.DmaToGif, 0, 0);
+}
 
 extern unsigned char brightnesscode[128]; /* zvid_init.cpp */
 

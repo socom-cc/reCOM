@@ -148,7 +148,7 @@ bool CZSIScript::Share(CZSIScript *other)
 	m_pCommon = other->m_pCommon;
 	m_pCommon->m_refCount++;
 
-	if (m_isLoaded && other->m_tf > 0.0f)
+	if (m_isLoaded && !(other->m_tf <= 0.0f)) /* c.le.s / bc1t 0x1dec4c */
 		m_tf = other->m_tf;
 
 	m_tScale = other->m_tScale;
@@ -305,7 +305,7 @@ CZSIObject * CZSIScript::GetObject(const char *name, bool exact)
 void CZSIScript::SetLoopTime(float time)
 {
 	/* 0x1de2e0 */
-	if (m_isLoaded && time > 0.0f)
+	if (m_isLoaded && !(time <= 0.0f)) /* c.le.s / bc1t, as the ELF tests it */
 		m_tf = time;
 }
 
@@ -315,7 +315,7 @@ void CZSIScript::SetFrameRate(float rate)
 	/* 0x1de280 */
 	f32 time = (f32)m_pCommon->m_nFrames / rate;
 
-	if (m_isLoaded && time > 0.0f)
+	if (m_isLoaded && !(time <= 0.0f)) /* c.le.s / bc1t, as the ELF tests it */
 		m_tf = time;
 }
 

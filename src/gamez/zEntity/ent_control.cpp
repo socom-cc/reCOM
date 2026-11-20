@@ -9,13 +9,14 @@
 /* @socom-skeleton decl include */
 #include "zentity.h"
 /* @socom-skeleton end include */
+#include <string.h> /* memset */
 
 /* @socom-skeleton stub __ct__11CEntityCtrlFi */
 CEntityCtrl::CEntityCtrl(s32)
 {
 	/* ELF 0x1f20a0: m_entity = 0; memset(m_throttle, 0, 12) */
 	m_entity = NULL;
-	m_throttle[0] = m_throttle[1] = m_throttle[2] = 0.0f;
+	memset(m_throttle, 0, sizeof(m_throttle)); /* 0x1f20c8 */
 }
 
 /* @socom-skeleton stub __dt__11CEntityCtrlFv */

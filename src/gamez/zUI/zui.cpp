@@ -367,11 +367,13 @@ void ActionItem::operator=(const ActionItem &other)
 	if (Animation != NULL)
 		_free(Animation, "zui.cpp", 0x194);
 
+	Animation = NULL; /* 0x3842e8: cleared before other's is read (a self-assignment copies NULL) */
 	Animation = other.Animation ? _strdup(other.Animation, "zui.cpp", 0x195) : NULL;
 
 	if (Argument != NULL)
 		_free(Argument, "zui.cpp", 0x196);
 
+	Argument = NULL; /* 0x384328 */
 	Argument = other.Argument ? _strdup(other.Argument, "zui.cpp", 0x197) : NULL;
 	PadButton = other.PadButton;
 	State = other.State;

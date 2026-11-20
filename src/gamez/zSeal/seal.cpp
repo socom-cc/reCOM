@@ -3905,6 +3905,9 @@ void CCompass::Close()
 {
 	/* 0x24e440 (CMission::Close): the list emptied and its storage released (the anchors are
 	 * their owners' to delete) */
+	/* 0x24e44c-0x24e470: cleared, then swapped with an empty vector (its dtor frees the
+	 * storage); the ELF stores size 0 again in the swap's delay slot */
+	clear();
 	CCompassAnchorVec empty;
 	swap(empty);
 }

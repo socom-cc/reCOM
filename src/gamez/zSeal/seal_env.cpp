@@ -3047,7 +3047,7 @@ void CZSealBody::SetMoveWeaponEncumbMod()
 	m_encumbmod = 1.0f - (f32)m_kit.GetTotalEnc() * 0.01f;
 	m_movespeedmod = m_encumbmod * m_damagemod;
 
-	if (m_movespeedmod > 1.0f)
+	if (!(m_movespeedmod <= 1.0f)) /* c.le.s / bc1t 0x29b918 */
 		m_movespeedmod = 1.0f;
 }
 
@@ -4008,8 +4008,9 @@ void ParentPistolToRHandCallback(void *seal, void *)
 	pistol->m_parent = body->m_rhand;
 	pistol->m_parent->m_node->AddChild(pistol->m_node);
 
-	if ((u16)pistol->m_id < (u16)body->m_body_parts.size())
-		body->m_body_parts[(u16)pistol->m_id] = pistol;
+	/* 0x298828-0x298844: m_id lh, sign-extended, compared unsigned with the full size */
+	if ((u32)pistol->m_id < body->m_body_parts.size())
+		body->m_body_parts[pistol->m_id] = pistol;
 
 	pistol->m_blendme = 0;
 }
@@ -5641,7 +5642,12 @@ void CZSealBody::UninitDatabaseHandles()
 		_free(m_steptexhandles, "seal_env.cpp", 8697);
 
 	m_steptexhandles = NULL;
-	std::vector<CZDecalDef>().swap(m_blooddriptexhandles); /* clear and swap with an empty one: the storage is freed */
+	{
+		/* 0x292230-0x29225c: an empty vector, clear(), swap with it, its dtor frees the storage */
+		std::vector<CZDecalDef> empty;
+		m_blooddriptexhandles.clear();
+		std::swap(m_blooddriptexhandles, empty);
+	}
 	m_dropanim = NULL;
 
 	if (m_sealstep != NULL)
@@ -7731,7 +7737,9 @@ bool CZSealBody::CreateMPBombPickup(const CPnt3D *pos, bool nopickup)
 /* @socom-skeleton body AttemptBombDefuse__10CZSealBodyFv */
 void CZSealBody::AttemptBombDefuse()
 {
-
+	/* 0x28c200 (CSealCtrl::TickMPBomb): the bomb state asks for "defused" (4) by this seal */
+	CPnt3D zero(0.0f, 0.0f, 0.0f);
+	CZBombState::RequestNewBombState(m_id, (CZBombState::EnumBombState)4, &zero);
 }
 
 /* @socom-skeleton body HandleBombDefuse__10CZSealBodyFv */

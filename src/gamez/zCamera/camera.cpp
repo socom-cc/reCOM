@@ -442,9 +442,11 @@ _zanim_cmd_hdr* CAppCamera::CmdParse3rdPersonTest(_zrdr* reader)
 	}
 	else
 	{
-		cmd = static_cast<_zanim_cmd_hdr*>(zcalloc(1, sizeof(_zanim_cmd_hdr)));
-		cmd->quad_align = false;
-		cmd->timeless = false;
+		/* 0x1eb9b4-0x1eb9fc: a bare 4-byte header, data_size 4 and timeless set (quad_align
+		 * stays the calloc's 0) */
+		cmd = static_cast<_zanim_cmd_hdr*>(_calloc(1, sizeof(_zanim_cmd_hdr), "camera.cpp", 421));
+		cmd->data_size = sizeof(_zanim_cmd_hdr);
+		cmd->timeless = true;
 	}
 
 	return cmd;
@@ -546,6 +548,7 @@ CAppCamera::CAppCamera(zdb::CWorld* world, zdb::CCamera* camera)
 /* @socom-skeleton body __dt__10CAppCameraFv */
 CAppCamera::~CAppCamera()
 {
+	m_track = NULL; /* 0x1eb76c */
 	m_skel_root = NULL;
 	m_entity = NULL;
 	m_camera_effects = NULL;
@@ -976,7 +979,7 @@ void CAppCamera::WiggleScalar(f32 wiggle)
 	{
 		m_wiggle_scalar = wiggle;
 	}
-	else if (m_wiggle_scalar < wiggle)
+	else if (!(wiggle <= m_wiggle_scalar)) /* c.le.s / bc1t 0x1ea458 */
 	{
 		m_wiggle_scalar = wiggle;
 	}

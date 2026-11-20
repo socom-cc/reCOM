@@ -7,7 +7,7 @@
 namespace zar {
 CKey::~CKey()
 	{
-		clear();
+		/* 0x1d8130: only the key ring's own (list) dtor, no clear() of its own */
 	}
 }
 

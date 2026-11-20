@@ -98,6 +98,7 @@ const char *gsapi_ErrorGetString(int error);
 int gsapi_EngineEnableWords(void *engine, GSAPI_WORD_LIST words);
 int gsapi_EngineDisableAllWords(void *engine);
 int gsapi_EngineStop(void *engine);
+int gsapi_EngineStart(void *engine);
 int gsapi_LanguageLoadBuffer(void *data, int flags);
 int gsapi_EngineOpen(int flags, void **engine);
 int gsapi_NotifySetCallback(void *callback);
@@ -344,14 +345,30 @@ int recoStartRecognizing()
 	/* @socom-skeleton stub iRecoMode$2795 */
 	static int iRecoMode;
 
-	/* 0x3363b0: 0 without recognition; otherwise one head, the engine started (port: offline
-	 * provider, recoInited stays 0) */
-	(void)iRecoMode;
-
+	/* 0x3363b0: 0 without recognition; otherwise one head, the engine started. ELF quirk kept:
+	 * a failed start sets recoRecognizing too, and prints only when it was not set. The ELF's
+	 * first-call guard stores iRecoMode = 0 (0x3363e4), as the zero static here. Unreachable:
+	 * recoInited stays 0 (recoInit2) */
 	if (!recoInited)
 		return 0;
 
-	return 0;
+	recoNumHeads = 1.0f;
+	(void)iRecoMode;
+	int r = gsapi_EngineStart(g_hEngine);
+
+	if (r >= 0)
+	{
+		recoRecognizing = true;
+		return r;
+	}
+
+	if (!recoRecognizing)
+	{
+		recoRecognizing = true;
+		gsapi_ErrorGetString(r);
+	}
+
+	return r;
 }
 
 /* @socom-skeleton stub ec */
@@ -443,12 +460,23 @@ unsigned char recoGetNextWordID(int *word)
 /* @socom-skeleton stub recoStopRecognizing__Fv */
 int recoStopRecognizing()
 {
-	/* 0x3360b0: 0 without recognition; otherwise the engine stops (port: offline provider) */
+	/* 0x3360b0: 0 without recognition; otherwise a running engine is stopped (its result, an
+	 * error printed) and recoRecognizing cleared. Unreachable: recoInited stays 0 (recoInit2) */
 	if (!recoInited)
 		return 0;
 
-	recoRecognizing = false;
-	return 0;
+	int r = 0;
+
+	if (recoRecognizing)
+	{
+		r = gsapi_EngineStop(g_hEngine);
+		recoRecognizing = false;
+
+		if (r < 0)
+			gsapi_ErrorGetString(r);
+	}
+
+	return r;
 }
 
 /* @socom-skeleton stub recoGetNumHeads__Fv */

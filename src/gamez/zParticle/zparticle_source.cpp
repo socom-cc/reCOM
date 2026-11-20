@@ -76,8 +76,9 @@ Particle::Source::List Particle::Source::list;
 /* @socom-skeleton stub Uninit__Q38Particle6Source4ListFv */
 void Particle::Source::List::Uninit()
 {
-	/* 0x23aa70: every listed source is deleted (its destructor unlists it: the walk takes the
-	   next node first), then the list is emptied */
+	/* 0x23aa70: every listed source is deleted, then the list is emptied. port: the walk takes
+	   the next node before the delete; the ELF reads it from the node after (0x23aac8), but the
+	   destructor unlists the source and frees that node, so the port does not read it */
 	for (iterator it = begin(); it != end();)
 	{
 		Source* source = *it;

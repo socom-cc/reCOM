@@ -230,7 +230,8 @@ int sceUsbKeybdInit()
 				;
 		if (cdUsbKeybd.server != NULL)
 			break;
-		for (volatile int i = 0xffff; i != 0; i--)
+		/* 0x21ba54-0x21ba6c: the test sees the count before the decrement, from 0x10000 */
+		for (volatile int i = 0x10000; i-- != 0;)
 			;
 	}
 	return 0;

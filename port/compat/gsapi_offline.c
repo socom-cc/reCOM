@@ -29,6 +29,7 @@ const char *gsapi_ErrorGetString(int error)
 int gsapi_EngineEnableWords(void *engine, struct GSAPI_WORD_LIST words) { (void)engine; (void)words; return -1; }
 int gsapi_EngineDisableAllWords(void *engine) { (void)engine; return -1; }
 int gsapi_EngineStop(void *engine) { (void)engine; return -1; }
+int gsapi_EngineStart(void *engine) { (void)engine; return -1; }
 int gsapi_LanguageLoadBuffer(void *data, int flags) { (void)data; (void)flags; return -1; }
 int gsapi_EngineOpen(int flags, void **engine) { (void)flags; if (engine) *engine = 0; return -1; }
 int gsapi_NotifySetCallback(void *callback) { (void)callback; return -1; }
