@@ -415,7 +415,12 @@ void C2DString::Load(const char* message, C2DFont* font, s32 x, s32 y)
 		SetTrans(128.0f * m_font->m_opacity);
 
 	m_charwidth = m_scale * font->m_avgWidth * font->m_scale_factor;
-	m_charheight = texture != NULL ? (f32)texture->m_height : 0.0f; /* port: the ELF reads the height through a NULL texture (low RAM) */
+	/* not NULL-tested, as the ELF: without a texture the height is read from low RAM */
+#ifdef SOCOM_PORT
+	if (texture == NULL)
+		SOCOM_PORT_TRACE("2D: string \"%s\" loaded with a font without texture", message != NULL ? message : "-");
+#endif
+	m_charheight = (f32)texture->m_height;
 }
 
 /* @socom-skeleton body Load__9C2DStringFPCcP7C2DFontiiii */

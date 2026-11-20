@@ -847,8 +847,8 @@ void CZAnimMain::ActivateSequence(const char *name)
 	{
 		char* seqname = m_CurAnim->GetName(m_CurSeq->name_index);
 
-		/* port: the ELF strcmps a NULL name as is */
-		if (seqname != NULL && strcmp(seqname, name) == 0 && !StateRunning(m_CurSeq->state))
+		/* the name is not NULL-tested (0x1c3a80: strcmp of GetName's answer as is) */
+		if (strcmp(seqname, name) == 0 && !StateRunning(m_CurSeq->state))
 		{
 			SeqSetState(2);
 			m_anim_complete = false;
@@ -874,7 +874,7 @@ void CZAnimMain::StopSequence(const char *name)
 	{
 		char* seqname = m_CurAnim->GetName(m_CurSeq->name_index);
 
-		if (seqname == NULL || strcmp(seqname, name) != 0) /* port: the ELF strcmps a NULL name as is */
+		if (strcmp(seqname, name) != 0) /* not NULL-tested, as the ELF (0x1c38d0) */
 			continue;
 
 		m_CurSeq->paused = 0;
@@ -904,8 +904,8 @@ void CZAnimMain::PauseSequence(const char *name)
 	{
 		char* seqname = m_CurAnim->GetName(m_CurSeq->name_index);
 
-		/* port: the ELF strcmps a NULL name as is */
-		if (seqname != NULL && strcmp(seqname, name) == 0 && StateRunning(m_CurSeq->state))
+		/* the name is not NULL-tested (0x1c37c0: strcmp of GetName's answer as is) */
+		if (strcmp(seqname, name) == 0 && StateRunning(m_CurSeq->state))
 		{
 			m_CurSeq->paused = 1;
 			break;
@@ -930,8 +930,8 @@ void CZAnimMain::ResumeSequence(const char *name)
 	{
 		char* seqname = m_CurAnim->GetName(m_CurSeq->name_index);
 
-		/* port: the ELF strcmps a NULL name as is */
-		if (seqname != NULL && strcmp(seqname, name) == 0)
+		/* the name is not NULL-tested (0x1c3700: strcmp of GetName's answer as is) */
+		if (strcmp(seqname, name) == 0)
 		{
 			m_CurSeq->paused = 0;
 			break;
@@ -957,8 +957,8 @@ unsigned char CZAnimMain::SequenceExists(const char *name)
 	{
 		char* seqname = m_CurAnim->GetName(m_CurSeq->name_index);
 
-		/* port: the ELF strcmps a NULL name as is */
-		if (seqname != NULL && strcmp(seqname, name) == 0)
+		/* the name is not NULL-tested (0x1c3650: strcmp of GetName's answer as is) */
+		if (strcmp(seqname, name) == 0)
 		{
 			found = true;
 			break;
@@ -985,8 +985,8 @@ unsigned char CZAnimMain::SequenceRunning(const char *name)
 	{
 		char* seqname = m_CurAnim->GetName(m_CurSeq->name_index);
 
-		/* port: the ELF strcmps a NULL name as is */
-		if (seqname != NULL && strcmp(seqname, name) == 0 && StateRunning(m_CurSeq->state))
+		/* the name is not NULL-tested (0x1c3540: strcmp of GetName's answer as is) */
+		if (strcmp(seqname, name) == 0 && StateRunning(m_CurSeq->state))
 		{
 			running = true;
 			break;
@@ -1044,8 +1044,8 @@ zdb::CNode * CZAnimMain::GetDatabaseNode(const char *name, int scope)
 
 	if (world != NULL && (scope == 3 || scope == 0))
 	{
-		/* port: the ELF strcmps a NULL world name as is (0x1c3288) */
-		if (world->m_name != NULL && strcmp(world->m_name, name) == 0)
+		/* the world's name is not NULL-tested (0x1c328c: strcmp as is) */
+		if (strcmp(world->m_name, name) == 0)
 			node = world;
 
 		if (node == NULL)

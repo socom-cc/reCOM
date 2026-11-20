@@ -215,8 +215,8 @@ _zanim_cmd_hdr * CValve::CmdParseCmp(_zrdr *reader)
 	};
 	auto valveRef = [&index](CValve *valve) -> u32
 	{
-		/* port: NULL-tested (the ELF reads the name through it) */
-		return index != -1 ? (u32)index : valve != NULL ? (u32)ZAnim.m_CurAnim->AddValve(valve->m_name) : 0;
+		/* not NULL-tested, as the ELF (a failed Create's name is read through NULL) */
+		return index != -1 ? (u32)index : (u32)ZAnim.m_CurAnim->AddValve(valve->m_name);
 	};
 
 	CValve *valve = parse(v[1].type == ZRDR_STRING ? v[1].string : NULL);

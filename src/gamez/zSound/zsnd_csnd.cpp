@@ -701,9 +701,9 @@ void CSnd::LoadCSnd(_zrdr* reader)
 	m_soundmode = SND_MODE_BANK_DEFINED;
 	m_isOneShot = false;
 
-	/* port: a reader without elements is guarded (the ELF reads the type at address 0) */
+	/* not NULL-tested, as the ELF: a reader without elements reads the type at address 0 */
 	_zrdr* first = snd_count(reader) > 0 ? &reader->array[1] : NULL;
-	char* name = first != NULL && first->type == ZRDR_STRING ? first->string : NULL;
+	char* name = first->type == ZRDR_STRING ? first->string : NULL;
 
 	if (name != NULL)
 		m_name = _strdup(name, "zsnd_csnd.cpp", 620);
@@ -771,9 +771,9 @@ void CSnd::LoadCSnd(_zrdr* reader)
 				continue;
 
 			sprintf(*names[n], "%s", text);
-			/* ELF quirk: N2 is upper-cased over N1's length (port: guarded for no N1) */
+			/* ELF quirk: N2 is upper-cased over N1's length (strlen of a missing N1 as is) */
 			const char* measured = n == 1 ? m_stream1name : *names[n];
-			snd_upper_in_place(*names[n], measured != NULL ? strlen(measured) : 0);
+			snd_upper_in_place(*names[n], strlen(measured));
 		}
 
 		zrdr_findint(stream, "OFFSET1", &m_offset1, 1);

@@ -284,13 +284,10 @@ zdb::CWorld::~CWorld()
 	delete m_diInt;
 	m_diInt = NULL;
 
-	/* port: guard - a world that was never initialised (Initalize) has no handle; the ELF
-	   calls SetTexture/Destroy on it as is */
-	if (m_shadowTexH != NULL)
-	{
-		m_shadowTexH->SetTexture(NULL);
-		CTexHandle::Destroy(m_shadowTexH);
-	}
+	/* the handle is not NULL-tested, as the ELF (every world is initialised by LoadWorld right
+	   after it is made, Initalize makes the handle) */
+	m_shadowTexH->SetTexture(NULL);
+	CTexHandle::Destroy(m_shadowTexH);
 
 	for (s32 i = 0; i < 4; i++)
 		delete m_shadowTex[i];
@@ -377,8 +374,8 @@ void zdb::CWorld::AddLightMap(zdb::CLightMap *map)
 	   texture takes the world's light-map texture; appended to the light maps */
 	if (map->m_pTex == NULL && !map->m_isShadow && !map->m_isReflection)
 	{
-		/* port: guard - the ELF reads m_lightMapTexture's texture as is (NULL outside a mission) */
-		map->SetTexture(CVisual::m_lightMapTexture != NULL ? CVisual::m_lightMapTexture->m_texture : NULL);
+		/* m_lightMapTexture's texture is read as is, as the ELF (it is NULL outside a mission) */
+		map->SetTexture(CVisual::m_lightMapTexture->m_texture);
 	}
 
 	m_lightMaps.insert(m_lightMaps.end(), 1, map);

@@ -656,9 +656,9 @@ void CHUD::Tick(float dT)
 		}
 	}
 
-	/* the orders menu (the result is discarded). Port deviation: not without a pad (the ELF
-	 * passes it unchecked; NULL only for a network spectator) */
-	if ((menustate == stateNone || menustate == stateOrders) && pad != NULL)
+	/* the orders menu (the result is discarded); the pad is passed unchecked, as the ELF (NULL
+	 * only for a network spectator) */
+	if (menustate == stateNone || menustate == stateOrders)
 		m_ordermenu.HandlePad(pad, dT);
 
 	m_mapcompass.Tick(seal);

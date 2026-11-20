@@ -1015,10 +1015,9 @@ void CMission::PreOpen(const char* db)
 	char empty[1];
 	empty[0] = '\0';
 	const char* postfix = NULL;
-	zrdr_findSTRING(mission, "WEAPON_MODEL_POSTFIX", &postfix);
-
-	if (postfix == NULL) /* port: the ELF tests findSTRING's answer (0x1f8a6c), which is true with
-		 * a NULL string for a value 0: it would strncpy from address 0; kept on the pointer */
+	/* findSTRING's answer is tested (0x1f8a6c), not the pointer: a tag with the value 0 gives
+	 * a NULL string, copied from address 0 (ELF quirk kept) */
+	if (!zrdr_findSTRING(mission, "WEAPON_MODEL_POSTFIX", &postfix))
 		postfix = empty;
 
 	strncpy(m_weaponmodelpostfix, postfix, 30);
@@ -2446,16 +2445,12 @@ void ftsFixupAiMap(CAiMap *map)
 				if (entry == NULL || !entry->IsArray())
 					continue;
 
-				/* ELF: the first two fields are read without a length test (0x1f4ef4, 0x1f4f44: a
-				 * short entry reads its type byte at address 0); port: kept tested rather than
-				 * read low memory as a node (no data on the disc has a short entry) */
+				/* ELF quirk kept: the first two fields are read without a length test (0x1f4ef8,
+				 * 0x1f4f48: a short entry reads its type byte at address 0; no data on the disc
+				 * has one) */
 				_zrdr* ammo_name = entry->Get(0);
 				_zrdr* ammo_count = entry->Get(1);
 				_zrdr* weapon_name = entry->Get(2);
-
-				if (ammo_name == NULL || ammo_count == NULL)
-					continue;
-
 				char* aname = ammo_name->type == ZRDR_STRING ? ammo_name->string : NULL;
 				s32 rounds = ammo_count->GetInt();
 				char* wname = weapon_name != NULL && weapon_name->type == ZRDR_STRING ? weapon_name->string : NULL;

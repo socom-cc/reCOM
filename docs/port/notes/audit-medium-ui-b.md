@@ -12,12 +12,14 @@ GCC's vtable pointer and the spec classes' member order).
 | Verdict | Rows |
 |---|---|
 | MATCH | 63 |
-| DEFECT-FIXED | 1 (A 0, B 1, C 0) |
-| DEVIATION-KEPT | 6 |
+| DEFECT-FIXED | 2 (A 0, B 1, C 1) |
+| DEVIATION-KEPT | 5 |
 | UNJUDGED | 0 |
 | total | 70 |
 
-Defect rate 1 / 70 (1.4%), masked on this disc.
+Defect rate 2 / 70 (2.9%), masked on this disc.
+
+2026-11-20 (audit-closeout): kept guards removed, now DEFECT-FIXED C: #61 (the user's rule: the prototype's behaviour is kept; see [audit-closeout.md](audit-closeout.md)).
 
 ## Fixes
 
@@ -127,7 +129,7 @@ Defect rate 1 / 70 (1.4%), masked on this disc.
 | 10 | 0x384880 | 436 | GetButton(char const*) | gamez/zUI/zui.cpp | MATCH | - | Whole range compared. NULL -> START (0); strcmp in the order START, SELECT, TRIANGLE, CROSS, SQUARE, CIRCLE, UP, DOWN, LEFT, RIGHT, TRIGGER_L1, L2, R1, R2 with the DWARF values (0, 1, 6, 9, 8, 7, 4, 5, 3, 2, 12, 13, 10, 11); unknown -> 0. |
 | 1 | 0x380600 | 252 | CDblBufTextureRelocator::PreGetSprPacket(zdb::CTexHandle*) | gamez/zUI/zui.cpp | MATCH | - | Whole range compared. Saved palette 0 first (ELF quirk kept: the sync test can then never hold); a handle: the half's buffer Add(handle, true), chain 0, palette (+0x1c of the texture) compared and saved, Load(true), both lists cleared, chain 0, half switched; no handle (or sync): sceDmaSync(DmaToGif, 0, 0). |
 | 59 | 0x39d730 | 452 | CUIVarManager::UnSerialize(char const*, CRdrFile*, int) | gamez/zUI/zui_var.cpp | DEVIATION-KEPT | - | Whole range compared. Value = the reader's first element when it is an array with one or more; Find, else FindDormantVar(name, value, 3); a found TEMPORARY one with a value -> Set; longevity raised to 3 (byte, untested NULL: quirk kept); DeleteChildren unless packed; new(8) _zrdr(value, current table): word 0 and word 1 copied (= the port's field copy), an array unpacked, the node deleted; every attached UpdateUIVar (slot 0xc). Kept (reason in the code): with no value the ELF clones from NULL; the port skips that copy. |
-| 61 | 0x39da20 | 624 | CUIVarManager::Add(char const*, _zrdr*, UIVAR_LONGEVITY) | gamez/zUI/zui_var.cpp | DEVIATION-KEPT | - | Whole range compared. Inline Find (live, strcasecmp(name, var name)); none: inline FindDormantVar (CreateString in the current table, longevity byte, Set when a reader); found TEMPORARY with a reader: Set inline (row 68); longevity raised (signed byte compare). Kept (reason in the code): with all 256 slots live the ELF reads and may write +0x18 of NULL; the port returns NULL. |
+| 61 | 0x39da20 | 624 | CUIVarManager::Add(char const*, _zrdr*, UIVAR_LONGEVITY) | gamez/zUI/zui_var.cpp | DEFECT-FIXED | C | kept earlier; guard removed 2026-11-20: FindDormantVar's NULL (256 live) is used as is. Earlier: Whole range compared. Inline Find (live, strcasecmp(name, var name)); none: inline FindDormantVar (CreateString in the current table, longevity byte, Set when a reader); found TEMPORARY with a reader: Set inline (row 68); longevity raised (signed byte compare). Kept (reason in the code): with all 256 slots live the ELF reads and may write +0x18 of NULL; the port returns NULL. |
 | 60 | 0x39d900 | 280 | CUIVarManager::Serialize(int) | gamez/zUI/zui_var.cpp | MATCH | - | Whole range compared. CValve::Create("SecurePassword", 1), value 0 -> no passwords; per PERSISTENT variable with a name: PLAYERPASSWORD / STORE_PASSWORD skipped without passwords; CRdrEditor, push(NULL), addrdrnode(var), pop, SaveRdr(name, editor) on the CSaveModule part (+0xc). |
 | 62 | 0x39ddf0 | 384 | CUIVarManager::CollectGarbage() | gamez/zUI/zui_var.cpp | MATCH | - | Whole range compared. Table switched (movz); every name re-made (also NULL ones) and _Refresh; old table Clear; buffer m_packbuf[new] (+0x64 + table << 14), 16384 left; per array: zrdr_pack, DeleteChildren unless packed, left -= used, type byte, length halfword and word 1 from the packed node, buffer += used, packed bit set. |
 | 63 | 0x39e100 | 216 | UIVarMixin::DetachUIVar(CUIVariable*) | gamez/zUI/zui_var.cpp | MATCH | - | Whole range compared. NULL -> the attached one; none or another -> 0; m_uivar 0; find this in the list; found: DetachUIVar(item, var) (does nothing now), erase, returns 1. The port's is void (zui.h says so); Destroy and DetachAll, which use the result, compute it themselves (rows 69, 70). |

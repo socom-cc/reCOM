@@ -381,10 +381,10 @@ void CHUD::StatusLine()
 
 		sprintf(lines[count++], "");
 
-		/* port: the ELF reads the camera's entity unchecked (NULL outside a mission) */
+		/* the camera's entity is read unchecked, as the ELF (the status line runs in a mission,
+		 * where it is the player) */
 		CZSealBody *seal = appCamera->m_entity;
 
-		if (seal != NULL)
 		{
 			CPnt3D *pos = seal->GetPosW();
 			CAiMapLoc here = seal->m_mapLocValid;

@@ -1013,9 +1013,9 @@ static void InitLightMap(zdb::CLightMap* map)
 	map->m_dir.y = 1.0f;
 	map->m_dir.x = 1.0f;
 	map->m_SpecularFade = 1.0f;
-	/* port: guard - the ELF reads m_lightMapTexture's texture as is; outside a mission
+	/* m_lightMapTexture's texture is read as is, as the ELF (0x226990); outside a mission
 	   (CDataBase sets it from the mission's light map) it is NULL */
-	map->m_pTex = zdb::CVisual::m_lightMapTexture != NULL ? zdb::CVisual::m_lightMapTexture->m_texture : NULL;
+	map->m_pTex = zdb::CVisual::m_lightMapTexture->m_texture;
 }
 
 /* @socom-skeleton stub __ct__Q23zdb9CLightMapFv */

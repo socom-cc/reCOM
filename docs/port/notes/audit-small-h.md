@@ -14,11 +14,13 @@ order, from the by-file packets.
 | Verdict | Rows |
 |---|---|
 | MATCH | 264 |
-| DEFECT-FIXED | 23 (A 1, B 5, C 17) |
-| DEVIATION-KEPT | 9 |
+| DEFECT-FIXED | 26 (A 1, B 5, C 20) |
+| DEVIATION-KEPT | 6 |
 | UNJUDGED | 0 |
 
-Defect rate 23 / 296 (A 1, B 5, C 17).
+Defect rate 26 / 296 (A 1, B 5, C 20).
+
+2026-11-20 (audit-closeout): kept guards removed, now DEFECT-FIXED C: #29, #30, #65 (the user's rule: the prototype's behaviour is kept; see [audit-closeout.md](audit-closeout.md)).
 
 Fixes:
 - A, #296 CVideo::Clear: the ELF clears the render buffer through the vramcode sprite packet
@@ -227,8 +229,8 @@ per-function emulator run.
 | 26 | 0x1c2ad0 | 76 | CZAnimNameIndexTable::GetName(CZAnimSet*, int) | gamez/zAnim/anim_main.cpp | MATCH | | index < 0 or >= m_count NULL, set->GetName(m_index[index] lhu) |
 | 27 | 0x1c2e20 | 156 | CZAnimNameTable::Unload() | gamez/zAnim/anim_main.cpp | DEFECT-FIXED | C | _free of each name (line 1495) and the table (1497), both 0 match; the loop compares signed (slt 0x1c2e7c, DWARF m_count sint), the port unsigned (the header's u32): written signed |
 | 28 | 0x1c3060 | 56 | CZAnimNameTable::GetName(int) | gamez/zAnim/anim_main.cpp | MATCH | | index < 0 or >= m_count (signed) NULL, else m_name[index] |
-| 29 | 0x1c3600 | 188 | CZAnimMain::SequenceExists(char const*) | gamez/zAnim/anim_main.cpp | DEVIATION-KEPT | | NULL name returns 0; m_CurSeq saved, walk from m_seq_data below data + size by seq_data_size, strcmp(GetName(name_index), name) == 0 returns 1, restored: same. Kept (now commented): the seqname NULL test the ELF lacks (0x1c3650), as audit-medium-anim-b recorded for the other walks |
-| 30 | 0x1c36c0 | 188 | CZAnimMain::ResumeSequence(char const*) | gamez/zAnim/anim_main.cpp | DEVIATION-KEPT | | same walk; the first of that name gets paused (bit 0 of +4) cleared, walk stops, m_CurSeq restored: same. Kept (now commented): the seqname NULL test, as #29 |
+| 29 | 0x1c3600 | 188 | CZAnimMain::SequenceExists(char const*) | gamez/zAnim/anim_main.cpp | DEFECT-FIXED | C | kept earlier; guard removed 2026-11-20: strcmp of GetName's answer as is (0x1c3650). Earlier: NULL name returns 0; m_CurSeq saved, walk from m_seq_data below data + size by seq_data_size, strcmp(GetName(name_index), name) == 0 returns 1, restored: same. Kept (now commented): the seqname NULL test the ELF lacks (0x1c3650), as audit-medium-anim-b recorded for the other walks |
+| 30 | 0x1c36c0 | 188 | CZAnimMain::ResumeSequence(char const*) | gamez/zAnim/anim_main.cpp | DEFECT-FIXED | C | kept earlier; guard removed 2026-11-20: strcmp of GetName's answer as is (0x1c3700). Earlier: same walk; the first of that name gets paused (bit 0 of +4) cleared, walk stops, m_CurSeq restored: same. Kept (now commented): the seqname NULL test, as #29 |
 | 31 | 0x1c3bd0 | 60 | CZAnimMain::SeqRunning() | gamez/zAnim/anim_main.cpp | MATCH | | state lbu +5 in 3, 4, 2 |
 | 32 | 0x1c3c10 | 52 | CZAnimMain::StateRunning(int) | gamez/zAnim/anim_main.cpp | MATCH | | 3, 4, 2 true |
 | 33 | 0x1c3c50 | 28 | CZAnimMain::SeqValid() | gamez/zAnim/anim_main.cpp | MATCH | | m_CurSeq < m_seq_data + m_seq_data_size (sltu) |
@@ -298,7 +300,7 @@ per-function emulator run.
 | 62 | 0x1c7be0 | 100 | CZAnimSet::AddAnimEx(CZAnimEx*) | gamez/zAnim/zanim_set.cpp | MATCH | | +0x18 NULL: new 12-byte vector; Add(ex) |
 | 63 | 0x1c7c50 | 8 | CZAnimSet::AddName(char const*) | gamez/zAnim/zanim_set.cpp | MATCH | | tail call m_name_table (+0x8) AddName |
 | 64 | 0x1c7c60 | 8 | CZAnimSet::GetName(int) | gamez/zAnim/zanim_set.cpp | MATCH | | tail call m_name_table (+0x8) GetName |
-| 65 | 0x1c7c70 | 148 | CZAnimSet::Anim(char const*) | gamez/zAnim/zanim_set.cpp | DEVIATION-KEPT | | NULL name NULL; each anim: strcasecmp(name, GetName()) == 0 returns it, else NULL: same. Kept (now commented): the animname NULL test the ELF lacks (0x1c7cb4), as the seqname tests audit-medium-anim-b kept |
+| 65 | 0x1c7c70 | 148 | CZAnimSet::Anim(char const*) | gamez/zAnim/zanim_set.cpp | DEFECT-FIXED | C | kept earlier; guard removed 2026-11-20: strcasecmp of GetName's answer as is (0x1c7cb4). Earlier: NULL name NULL; each anim: strcasecmp(name, GetName()) == 0 returns it, else NULL: same. Kept (now commented): the animname NULL test the ELF lacks (0x1c7cb4), as the seqname tests audit-medium-anim-b kept |
 | 66 | 0x1c7d10 | 60 | CZAnimSet::Anim(int) | gamez/zAnim/zanim_set.cpp | MATCH | | < 0 or >= count NULL, else list + index * 96 |
 | 67 | 0x1c7d50 | 92 | CZAnimSet::Name(char const*) | gamez/zAnim/zanim_set.cpp | DEFECT-FIXED | C | old name freed, the copy stored match; the ELF's tags are ("zanim_set.cpp", 111) and (113) (0x1c7d74 / 0x1c7d90), the port's zfree / zstrdup gave its own file / line: written as the ELF |
 | 68 | 0x1c7db0 | 72 | CZAnimSet::GetAnimIndex(CZAnim*) | gamez/zAnim/zanim_set.cpp | MATCH | | (anim - list) / 96 signed, < count returns it, else -1 (no lower bound, as the ELF) |

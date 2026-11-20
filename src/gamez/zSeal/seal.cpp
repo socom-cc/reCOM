@@ -4220,10 +4220,9 @@ void CZSealBody::NetworkPlayerCreate()
 	char name[32];
 	CUIVariable *var = theUIVarManager.Find("PLAYERNAMEVAR");
 
-	if (var != NULL && var->type == ZRDR_STRING)
-		strncpy(name, var->string, 31);
-	else if (var != NULL)
-		name[0] = '\0'; /* port: the ELF copies from NULL when the variable is no string */
+	/* a variable that is no string gives a NULL text, copied from address 0 (ELF quirk kept) */
+	if (var != NULL)
+		strncpy(name, var->type == ZRDR_STRING ? var->string : NULL, 31);
 	else
 		sprintf(name, "Player%d", theNetwork.zNetGetMyGameClientIndex());
 

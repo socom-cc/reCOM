@@ -743,11 +743,8 @@ void CZLineMap::TickWayPoints(const CAiMap &map, bool bDistant)
 			if (text == NULL)
 				continue;
 
+			/* not NULL-tested: with all 32 labels used the ELF writes through NULL (quirk kept) */
 			C2DString* str = NextMapString(m_stringlist, m_laststring);
-
-			if (str == NULL) /* port: the ELF writes through NULL with all 32 labels used */
-				continue;
-
 			CPnt3D draw;
 			m_hudmap->m_matrix.Transform(seal->GetPosW(), &draw, 1);
 			LoadMapString(str, text, draw);

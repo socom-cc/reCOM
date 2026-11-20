@@ -914,11 +914,12 @@ void CMenuStack::PopUpDialog(const char *name)
 	 * next command, on the POPUP node, fills the dialog (CPopUpDialog::TickZAnimCmd). */
 	m_top++;
 
-	if (name != NULL && strcmp(name, "INPUT_STRING") == 0)
+	/* the name is not NULL-tested, as the ELF (strcmp 0x1d5f58, strlen 0x1d5f80 / 0x1d5fa0) */
+	if (strcmp(name, "INPUT_STRING") == 0)
 		name = ZAnim.m_CurAnim->m_arg_list->GetCharP(0);
 
 	m_cmds[m_top].type = 3;
-	strcpy(m_cmds[m_top].arg, name != NULL ? name : ""); /* port: the ELF strcmps and strlens NULL as is (0x1d5f58, 0x1d5f80 / 0x1d5fa0) */
+	strcpy(m_cmds[m_top].arg, name);
 	m_count++;
 
 	zdb::CNode* node = g_menuRootNode->FindChild("POPUP", true); /* virtual slot 0x24 */

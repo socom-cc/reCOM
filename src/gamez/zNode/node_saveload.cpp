@@ -435,12 +435,8 @@ bool zdb::CWorld::Read(zdb::CSaveLoad &sload)
 	/* 0x22a080: every node under world_tree becomes a child of the world. */
 	zar::CKey* tree = sload.m_zfile.OpenKey("world_tree");
 
-	/* port: kept guard - the ELF walks the key's list (and closes it) without this test, so
-	   a file without "world_tree" would walk a list read from address 0 (low memory on the
-	   PS2; a fault or garbage nodes here) */
-	if (tree == NULL)
-		return true;
-
+	/* ELF quirk kept: the key is not NULL-tested; a file without "world_tree" would walk a
+	   list read from address 0 (every world file on the disc has one) */
 	for (auto i = tree->begin(); i != tree->end(); ++i)
 	{
 		sload.m_zfile.OpenKey(*i);

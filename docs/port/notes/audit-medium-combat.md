@@ -14,11 +14,13 @@ field, CZWeapon::AI_PARAMS bits, LOD, HEALTH_PARAMS) and the port helpers the EL
 | Verdict | Rows |
 |---|---|
 | MATCH | 62 |
-| DEFECT-FIXED | 7 (A 0, B 2, C 5) |
-| DEVIATION-KEPT | 2 |
+| DEFECT-FIXED | 9 (A 0, B 2, C 7) |
+| DEVIATION-KEPT | 0 |
 | UNJUDGED | 0 |
 
-Defect rate 7 / 71 (B 2 / 71).
+Defect rate 9 / 71 (B 2 / 71).
+
+2026-11-20 (audit-closeout): kept guards removed, now DEFECT-FIXED C: #53, #56 (the user's rule: the prototype's behaviour is kept; see [audit-closeout.md](audit-closeout.md)).
 
 ## Fixes
 
@@ -82,10 +84,10 @@ unpack) and the C fixes are NaN-only, so no targeted trace.
 | 15 | 0x37b7e0 | 224 | _is_active(zdb::CNode*) | veh_turret.cpp | MATCH | - | NULL -> 0, type halfword (+0x58) 6 -> 1, m_active (bit 0 of +0x5c) clear -> 0, parent (+0x64) NULL -> 0, else the parent (the ELF unrolls two levels, then recurses). The scan's L2u is the port's u32 bitfield read. |
 | 18 | 0x37c480 | 200 | CTurretDefVector::PrefixMatch(char const*) | veh_turret.cpp | MATCH | - | NULL name and empty name or empty vector -> NULL; per 400-byte definition the name's strlen, 0 skipped, strncmp(name, def, len) == 0 -> the definition; NULL. |
 | 54 | 0x31cf50 | 508 | CZDecalSet::ReadDecalSet(_zrdr*) | zwep_weapon.cpp | MATCH | - | NULL return, new 12; when allocated: the material count, _malloc(count x 12, line 1493), name NULL, each CZDecalDef zeroed (the ELF unrolls by 8), reserve(128) of m_decalsets, not permanent; ReadDecalEntry of elements 1.. (count re-read), the set inserted at the end. The scan's stores are the ELF's unrolled clear; the string is the port trace. |
-| 53 | 0x31cd90 | 436 | CZDecalSet::ReadDecalEntry(_zrdr*) | zwep_weapon.cpp | DEVIATION-KEPT | - | NULL return; SETNAME: the old name freed (1510), NULL, _strdup (1511), return; PERMENANT: permanent 1; MATERIALNAME (else return), ResolveMaterialIndex, TEXTURENAME (else return), MIN_SIZE / MAX_SIZE (zeroed slots, findreal 1), GetTexHandle, the three words into m_decals[index], strcmp "PERSON" -> AddTextureAssetCharacterAll else AddTextureAssetDecals. Kept (reason now in the code): the decals worker's guard keeps a texture not found out of the world's lists; the ELF passes it on (AddTextureAssetDecals 0x22e290 reads through it). |
+| 53 | 0x31cd90 | 436 | CZDecalSet::ReadDecalEntry(_zrdr*) | zwep_weapon.cpp | DEFECT-FIXED | C | kept earlier; guard removed 2026-11-20: a texture not found is passed to AddTextureAssetCharacterAll / Decals (traced). Earlier: NULL return; SETNAME: the old name freed (1510), NULL, _strdup (1511), return; PERMENANT: permanent 1; MATERIALNAME (else return), ResolveMaterialIndex, TEXTURENAME (else return), MIN_SIZE / MAX_SIZE (zeroed slots, findreal 1), GetTexHandle, the three words into m_decals[index], strcmp "PERSON" -> AddTextureAssetCharacterAll else AddTextureAssetDecals. Kept (reason now in the code): the decals worker's guard keeps a texture not found out of the world's lists; the ELF passes it on (AddTextureAssetDecals 0x22e290 reads through it). |
 | 52 | 0x31cbb0 | 216 | CZWeapon::OpenDecals() | zwep_weapon.cpp | MATCH | - | The mission's decals reader (ELF theMission+0x59c, the port's m_decalsRdr), NULL return, DECAL_SETS (NULL return), count = array size - 1 (signed > 0), ReadDecalSet of the inline Get(i) per element. The scan's Get call and theMission offset are the port's layout and helper. |
 | 55 | 0x31d1e0 | 232 | CZDecalSet::DestroyDecalSet() | zwep_weapon.cpp | MATCH | - | Empty -> 0; while not empty: the back set popped, when set its decals freed (1505) and NULLed, name freed (1506) and NULLed, operator delete; the list swapped with an empty one, 1. |
-| 56 | 0x31d800 | 340 | CZMarkList::ReadBloodDecals(_zrdr*) | zwep_weapon.cpp | DEVIATION-KEPT | - | BLOOD_DECALS (NULL return), the texture name and the def zeroed once, per element 1..: TEXTURENAME (else skipped), MIN_SIZE / MAX_SIZE zeroed then findreal 1, GetTexHandle, the def inserted at the end of m_bloodDecals, AddTextureAssetDecals. Kept (reason now in the code): the same texture guard as #53 before AddTextureAssetDecals. |
+| 56 | 0x31d800 | 340 | CZMarkList::ReadBloodDecals(_zrdr*) | zwep_weapon.cpp | DEFECT-FIXED | C | kept earlier; guard removed 2026-11-20: a texture not found is passed to AddTextureAssetDecals (traced). Earlier: BLOOD_DECALS (NULL return), the texture name and the def zeroed once, per element 1..: TEXTURENAME (else skipped), MIN_SIZE / MAX_SIZE zeroed then findreal 1, GetTexHandle, the def inserted at the end of m_bloodDecals, AddTextureAssetDecals. Kept (reason now in the code): the same texture guard as #53 before AddTextureAssetDecals. |
 | 57 | 0x31d960 | 380 | CZMarkList::ReadWeaponDecals(_zrdr*) | zwep_weapon.cpp | MATCH | - | WEAPON_DECALS (NULL return), both names zeroed once, per element: MATERIALNAME (else skipped), sizes 0x3e99999a / 0x3fe66666, TEXTURENAME (else skipped), MIN_SIZE / MAX_SIZE, GetTexHandle, both names cleared, ResolveDecalMaterialIndex(NULL, 0) then (matname, index) while != 0 storing min, max and texture (quirk kept: never runs). |
 | 58 | 0x31dae0 | 552 | CZMarkList::ReadDecalNames(char*) | zwep_weapon.cpp | MATCH | - | m_decal_list_size = material count, > 0: the three _malloc(size x 4) (1119-1121) and the fill NULL / 0x3e99999a / 0x3fe66666; decals reader NULL -> 0; TEMP_DECAL_POOL base 300 / overflow 50, BASE then overflow = base + 50 then OVERFLOW, both pools' Init; PERM_DECAL_POOL 1 / 1 and its two ints, both Init; ReadWeaponDecals, ReadBloodDecals, 1. The scan's string is the port trace. |
 | 59 | 0x31dd10 | 244 | CZMarkList::UnInit() | zwep_weapon.cpp | MATCH | - | The mark list erased, the three tables freed (1098-1100) and NULLed, list size 0, the CDecal temp pool's RTArray deleted (deleting dtor) with m_count (+0x0) and m_recycle (+0xc) 0, the same for the perm pool (array pointer left, quirk kept), both CMeshDecal pools' Uninit. |

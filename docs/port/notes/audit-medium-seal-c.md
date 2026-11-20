@@ -11,11 +11,13 @@ ai_target, seal_anim, seal_ik, seal_tasks); the addresses cited were taken from 
 | Verdict | Rows |
 |---|---|
 | MATCH | 82 |
-| DEFECT-FIXED | 10 (A 0, B 2, C 8) |
-| DEVIATION-KEPT | 4 |
+| DEFECT-FIXED | 11 (A 0, B 2, C 9) |
+| DEVIATION-KEPT | 3 |
 | UNJUDGED | 0 |
 
-Defect rate 10 / 96 (10%); B 2.
+Defect rate 11 / 96 (11%); B 2.
+
+2026-11-20 (audit-closeout): kept guards removed, now DEFECT-FIXED C: #63 (the user's rule: the prototype's behaviour is kept; see [audit-closeout.md](audit-closeout.md)).
 
 ## Fixes
 
@@ -156,7 +158,7 @@ On e0270b9a plus this list's five changed files (isolated tree):
 | 18 | 0x2b53f0 | 472 | CTRange::Tick(_zanim_cmd_hdr*, float*) | seal_tasks.cpp | MATCH | | select seal and control (no seal / control -> dT 0, true), the inlined entity lookup (invalidId none, -3: GetEntity(name), else "player" -> index 0, id stored; else GetEntityById), no entity -> false; d = seal PosW - entity PosW, (x x + y y) + z z <= range (c.le.s) |
 | 35 | 0x2b7c40 | 396 | CTPlay::Parse(_zrdr*) | seal_tasks.cpp | MATCH | | "anim" (none -> NULL), count = array count - 1, Create(count, NULL, 0, 0), each element (Get: element i + 1) of type 3 -> (s16) FindAnimType, else -1; "prewait", "postwait" Rfloats, "ai" (0 first) |
 | 61 | 0x2bd860 | 448 | CTEvent::Parse(_zrdr*) | seal_tasks.cpp | MATCH | | _calloc(36), header (36 << 2), pos zero, type 1 then (s8) GetEventFromString(type, 1), "pos", "node" -> LoadNodeNames(NULL, node, 0, 1) + bit 3, "range" bit 1, "duration" bit 2, "vis" bit 0 |
-| 63 | 0x2bdc90 | 360 | CTDebug::Parse(_zrdr*) | seal_tasks.cpp | DEVIATION-KEPT | | first value: integer -> enable and "Enabling DEBUG" / "Disabling DEBUG info" (the real branch of the inlined GetInt is dead), string -> text with enable -1, else NULL; rounded length + 16, _calloc, data_size only (type not set: quirk kept), text, enable. A list without values: the ELF reads the value's type at address 0; the port returns no record (reason in the code) |
+| 63 | 0x2bdc90 | 360 | CTDebug::Parse(_zrdr*) | seal_tasks.cpp | DEFECT-FIXED | C | kept earlier; guard removed 2026-11-20: a list without values reads the type through NULL. Earlier: first value: integer -> enable and "Enabling DEBUG" / "Disabling DEBUG info" (the real branch of the inlined GetInt is dead), string -> text with enable -1, else NULL; rounded length + 16, _calloc, data_size only (type not set: quirk kept), text, enable. A list without values: the ELF reads the value's type at address 0; the port returns no record (reason in the code) |
 | 32 | 0x2b74b0 | 212 | CTSelect::Parse(_zrdr*) | seal_tasks.cpp | MATCH | | _calloc(16), header (16 << 2, type ai_cmdid +8), seal / AI NULL, GetEntity(element 1's string, no type test), type 2 -> seal and its GetSealCtrlAi, else both NULL |
 | 42 | 0x2ba8a0 | 392 | CTMap::Parse(_zrdr*) | seal_tasks.cpp | MATCH | | "clear_action" present -> _calloc(20), header, mode 1; else "region" (none -> NULL), GetRegion(its "name", loc) (none -> NULL), "set_type" (none -> NULL), the type 1..6 whose GetTypeName matches (strcasecmp; the port's regionTypeName is that table), else 0; mode 2, loc, type word |
 | 17 | 0x2b5260 | 400 | CTRegion::Parse(_zrdr*) | seal_tasks.cpp | DEVIATION-KEPT | | "entity", "region", "weapon", "team" (0), GetRegion(region, loc), rounded length + 28, header, loc, region NULL, team byte, pickup 0 then GetWeaponId & 0xff, entity unknownId / invalidId, cookie 0, name or "". The ELF's loc is an unset stack word when the region is not found; the port starts it invalid (reason in the code) |

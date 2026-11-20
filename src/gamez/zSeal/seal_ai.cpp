@@ -4715,9 +4715,8 @@ void CSealCtrlAi::AnimSignal(CZAnim *anim, AI_SIGNAL signal)
 		if (PushAiState(STATE_SUSPENDED, false))
 		{
 			CAiState *state = GetAiState();
-
-			if (state != NULL && state->m_state == STATE_SUSPENDED) /* port: NULL-tested (see above) */
-				state->m_setup = 1;
+			state = state->m_state == STATE_SUSPENDED ? state : NULL; /* ELF: not tested for NULL (0x260d58) */
+			state->m_setup = 1;
 		}
 
 		break;

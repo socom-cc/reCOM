@@ -289,10 +289,9 @@ void CLensFlareSaturate::Tick(float dT)
 	if (m_CameraLightDIValid && m_CameraLightDI.m_Cnt == 0)
 		blocked = false;
 
-	/* port deviation: NULL test (the ELF writes the opacity through m_LightNode unchecked;
-	 * "active" with no light_source node leaves it NULL) */
-	if (m_LightNode != NULL)
-		m_LightNode->m_Opacity = m_MinLightNodeOpacity + value * m_LightNodeOpacityRange;
+	/* not NULL-tested, as the ELF ("active" with no light_source node leaves m_LightNode NULL:
+	 * the opacity then goes to low memory; quirk kept) */
+	m_LightNode->m_Opacity = m_MinLightNodeOpacity + value * m_LightNodeOpacityRange;
 
 	if (m_GlareActive)
 	{

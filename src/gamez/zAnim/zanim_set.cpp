@@ -133,8 +133,8 @@ CZAnim * CZAnimSet::Anim(const char *name)
 	{
 		char* animname = m_anim_list[i].GetName();
 
-		/* port: the ELF strcasecmps a NULL name as is (0x1c7cb4) */
-		if (animname != NULL && strcasecmp(name, animname) == 0)
+		/* the name is not NULL-tested (0x1c7cb4: strcasecmp of GetName's answer as is) */
+		if (strcasecmp(name, animname) == 0)
 			return &m_anim_list[i];
 	}
 

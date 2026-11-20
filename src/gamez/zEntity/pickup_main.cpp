@@ -144,11 +144,9 @@ CPickup * CPickup::NetworkCreate(unsigned char entity, CPickup::PU_TYPE type, zd
 	/* 0x24d200 (network games only: DropItem / DropAmmo / CreateMP*): Create's body (inlined in
 	 * the ELF), then the net id: the entity in the high byte, the next free net pickup index in
 	 * the low byte; the index moves on past every index in use for that entity. v0 = the
-	 * pickup. port: NULL while closed (the ELF writes the net id through NULL) */
+	 * pickup. ELF quirk kept: Create's NULL (closed) is not tested, the net id is written
+	 * through it */
 	CPickup *pickup = Create(type, node, data);
-
-	if (pickup == NULL)
-		return NULL;
 
 	pickup->m_netid = (u16)(((u32)entity << 8) | m_nextNetPickupId);
 	m_nextNetPickupId++;
@@ -211,10 +209,7 @@ CPickup * CPickup::Create(CPickup::PU_TYPE type, zdb::CNode *node, void *data)
 		m_pool.pop_front();
 	}
 
-	/* port: guard (the ELF writes through a failed allocation) */
-	if (pickup == NULL)
-		return NULL;
-
+	/* a failed allocation is not tested, as the ELF (written through) */
 	pickup->m_visible_by_units = 0;
 	pickup->m_type = type;
 	pickup->m_node = node;
@@ -374,10 +369,7 @@ CPickup * CPickup::GetNext(std::list<CPickup *>::iterator &it, const CPnt3D *pos
 		if ((u8)type != 0 && pickup->m_type != (u8)type)
 			continue;
 
-		/* port: guard (the ELF subtracts from a NULL node's position) */
-		if (pickup->m_node == NULL)
-			continue;
-
+		/* the node is not NULL-tested, as the ELF */
 		CPnt3D delta;
 		((CPnt3D *)&pickup->m_node->m_matrix.m_matrix[3][0])->Sub(pos, &delta);
 
@@ -411,10 +403,7 @@ CPickup * CPickup::GetClosest(const CPnt3D *pos, float radius, CPickup::PU_TYPE 
 		if ((u8)type != 0 && (u8)type != kind)
 			continue;
 
-		/* port: guard (the ELF subtracts from a NULL node's position) */
-		if (pickup->m_node == NULL)
-			continue;
-
+		/* the node is not NULL-tested, as the ELF */
 		CPnt3D delta;
 		((CPnt3D *)&pickup->m_node->m_matrix.m_matrix[3][0])->Sub(pos, &delta);
 		f32 d = delta.x * delta.x + delta.y * delta.y + delta.z * delta.z;

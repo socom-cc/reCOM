@@ -308,17 +308,13 @@ void CAiVisMap::ReleaseDynamicVisMap(CAiVisMap *vm)
 void CAiVisMap::CloseAll()
 {
 	/* 0x1a1dd0 (CAiEvent::Close): every timed vis map gets id -1 and is deleted; then both
-	 * lists are emptied (the seals' vis maps belong to their controllers).
-	 * port: a NULL entry is skipped (the ELF writes its id through NULL) */
+	 * lists are emptied (the seals' vis maps belong to their controllers). An entry is not
+	 * NULL-tested (0x1a1e08: its id is written as is) */
 	for (std::list<CAiVisMap *>::iterator i = globalVisMap.begin(); i != globalVisMap.end(); ++i)
 	{
 		CAiVisMap *vm = *i;
-
-		if (vm != NULL)
-		{
-			vm->m_id = -1;
-			delete vm;
-		}
+		vm->m_id = -1;
+		delete vm;
 	}
 
 	globalVisMap.clear();

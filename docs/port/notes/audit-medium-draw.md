@@ -8,11 +8,13 @@ Judged in the scan's rank order, file by file for the small ones, each over its 
 | Verdict | Rows |
 |---|---|
 | MATCH | 75 |
-| DEFECT-FIXED | 11 (A 1, B 2, C 8) |
-| DEVIATION-KEPT | 2 |
+| DEFECT-FIXED | 12 (A 1, B 2, C 9) |
+| DEVIATION-KEPT | 1 |
 | UNJUDGED | 0 |
 
-Defect rate 11 / 88 (12.5%); without the NaN-only compare forms (6 rows) and the other C rows,
+Defect rate 12 / 88 (13.6%); without the NaN-only compare forms (6 rows) and the other C rows,
+
+2026-11-20 (audit-closeout): kept guards removed, now DEFECT-FIXED C: #71 (the user's rule: the prototype's behaviour is kept; see [audit-closeout.md](audit-closeout.md)).
 3 / 88, one of them visible on this disc.
 
 ## Fixes
@@ -133,7 +135,7 @@ font texture before reading its height (the ELF reads low RAM through NULL).
 | 24 | 0x1e7e60 | 208 | `zdb::CCamera::UpdateDirectionalFog` | zCamera/zcam_update.cpp | MATCH | | fz = row2.z (negated with the -z colour when < 0, else +z), sum = fz +/- fx with the -x / +x colour (fx negated); sum = 1 / sum unless 0 == sum; weights * sum; fog rgb = fx * xcol + fz * zcol. |
 | 43 | 0x237ab0 | 456 | `Particle::Props::GetColor` | zParticle/zparticle_instance.cpp | DEFECT-FIXED | C | No sequence: white, w = 1 for t <= 0, 1 - t for t < 1, else 0; else the first entry with t < fraction ends the walk (prev = i - 1, else count - 1); prev < 0 the first colour, !(prev < count - 1) the last, else f = (t - a.f) / (b.f - a.f), sceVu0InterVector(b, a, f) = b * f + a * (1 - f). Differed only for a NaN t: the port's `1 <= t` and `fraction <= t` for the ELF's c.lt forms (0x237af0, 0x237b34): written as the ELF. |
 | 42 | 0x2379c0 | 232 | `Particle::Props::GetScale` | zParticle/zparticle_instance.cpp | DEFECT-FIXED | C | No sequence: 1; the walk as #43; ends clamp; a + ((t - a.f) / (b.f - a.f)) * (b - a). Differed only for a NaN: the loop's `fraction <= t` for the ELF's c.lt (0x2379f0): written as the ELF. |
-| 71 | 0x3023a0 | 212 | `C2DString::Load` | zTwoD/c2dstring.cpp | DEVIATION-KEPT | | Texture = the font's handle's texture or NULL; pos << 4; virtual SetString (+0x5c); font; 128 == alpha takes virtual SetTrans (+0x20) of 128 * font opacity (+0x28); char width (scale * avgWidth) * scale factor; char height = (f32) texture +2 halfword. Kept: the port's NULL-texture test before the height (the ELF reads low RAM; reason in the code). |
+| 71 | 0x3023a0 | 212 | `C2DString::Load` | zTwoD/c2dstring.cpp | DEFECT-FIXED | C | kept earlier; guard removed 2026-11-20: the height is read through the texture as is (a NULL one traced). Earlier: Texture = the font's handle's texture or NULL; pos << 4; virtual SetString (+0x5c); font; 128 == alpha takes virtual SetTrans (+0x20) of 128 * font opacity (+0x28); char width (scale * avgWidth) * scale factor; char height = (f32) texture +2 halfword. Kept: the port's NULL-texture test before the height (the ELF reads low RAM; reason in the code). |
 | 25 | 0x1e85f0 | 344 | `zdb::CCamera::GetFogVisibility` | zCamera/zcam_update.cpp | DEFECT-FIXED | C | d = to - from; dist = sqrtf((x x + y y) + z z); fog = fogA + fogB * dist, 0 when !(0 <= fog), 255 when 255 < fog; alt fog (bit 31): the lower y less fog bottom, * m_fog_alt[1].y (+0x4e4), clamped the same way, fog *= alt; returns 0x3b808081 * fog. Differed only for a NaN: the two `< 0` clamps for the ELF's c.le (0x1e8668, 0x1e86e8): written as the ELF. |
 | 26 | 0x232700 | 284 | `Particle::GetFreeInstance` | zParticle/zparticle.cpp | MATCH | | Empty pool: sprintf "PNODE%d" with a2 = the pool size just tested (0, so "PNODE0", as the port's 0), CNode::Create, pushed (reserve cap + 10 when full); back popped; world virtual AddChild (+0x18); virtual SetActive(1) (+0x34); count++. |
 | 46 | 0x239eb0 | 540 | `Particle::Source::~Source` | zParticle/zparticle_source.cpp | MATCH | | Unlisted from Source::list (first match); every live instance of this source: Expire, its source word = the pool head, pool = it, erased; Props DecRefCount(1) when set; world virtual DeleteChild(m_diNode) (+0x1c); the DI node's virtual deleting dtor (+8, 1) when set; operator delete(m_particleEx); the vector member. |

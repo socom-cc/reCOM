@@ -76,16 +76,14 @@ std::vector<CSndInstance *> CSndInstance::m_removallist;
 
 /* port: ELF quirk in Remove (0x2efbbc) and AwarenessUpgrade (0x2efad4): the parent type
  * test is inverted - false for any instance with a parent, and for one without a parent
- * it reads the type at address 0x20. So neither function stops a sound; the port answers
- * false for a missing parent too. */
+ * it reads the type at address 0x20 (as here: through the NULL parent). Every instance
+ * has a parent, so neither function stops a sound. */
 static bool snd_parent_is(const CSndInstance* instance, u8 type)
 {
-	(void)type;
-
 	if (instance->m_parent != NULL)
 		return false;
 
-	return false;
+	return instance->m_parent->m_type == type;
 }
 
 /* @socom-skeleton stub Cleanup__12CSndInstanceFv */

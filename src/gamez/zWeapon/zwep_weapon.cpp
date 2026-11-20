@@ -1243,9 +1243,11 @@ void CZMarkList::ReadBloodDecals(_zrdr *rdr)
 		def.m_decalmaxsize = maxsize;
 		def.m_texture = texture;
 		m_bloodDecals.push_back(def);
+		/* a texture not found is passed on, as the ELF (AddTextureAssetDecals 0x22e290 reads
+		 * through it and the lists keep it as NULL) */
 #ifdef SOCOM_PORT
-		if (texture == NULL) /* port: guard - the ELF passes a missing texture on, which AddTextureAssetDecals (0x22e290) reads through and the lists keep as NULL: a texture not found stays out of them */
-			continue;
+		if (texture == NULL)
+			SOCOM_PORT_TRACE("DECAL: blood texture %s not found", texname);
 #endif
 		zdb::CWorld::m_world->AddTextureAssetDecals(texture);
 	}
@@ -1545,9 +1547,11 @@ void CZDecalSet::ReadDecalEntry(_zrdr *entry)
 	m_decals[index].m_decalminsize = minsize;
 	m_decals[index].m_decalmaxsize = maxsize;
 	m_decals[index].m_texture = texture;
+	/* a texture not found is passed on, as the ELF (AddTextureAssetDecals 0x22e290 reads
+	 * through it and the lists keep it as NULL) */
 #ifdef SOCOM_PORT
-	if (texture == NULL) /* port: guard - the ELF passes a missing texture on, which AddTextureAssetDecals (0x22e290) reads through and the lists keep as NULL: a texture not found stays out of them */
-		return;
+	if (texture == NULL)
+		SOCOM_PORT_TRACE("DECAL: decal texture %s not found", texname);
 #endif
 
 	if (strcmp(matname, "PERSON") == 0)

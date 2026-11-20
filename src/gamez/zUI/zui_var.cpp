@@ -370,12 +370,7 @@ CUIVariable* CUIVarManager::Add(const char* name, _zrdr* reader, UIVAR_LONGEVITY
 	CUIVariable* var = Find(name);
 
 	if (var == NULL)
-	{
-		var = FindDormantVar(name, reader, longevity);
-
-		if (var == NULL)
-			return NULL; /* port: the ELF reads and may write +0x18 of NULL when all 256 slots are live */
-	}
+		var = FindDormantVar(name, reader, longevity); /* not NULL-tested: with all 256 slots live the ELF reads and may write +0x18 of NULL */
 	else if (reader != NULL && var->m_longevity != UIVL_PERSISTENT && var->m_longevity != UIVL_PERMANENT)
 	{
 		var->Set(reader);

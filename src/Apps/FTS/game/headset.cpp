@@ -417,9 +417,9 @@ void Headset::Remove(int entity, bool conversational, bool sitrep)
 	if (m_entity != (u32)entity)
 		return;
 
-	/* port: guarded (no line yet); the ELF (0x2f2c8c) reads the type byte through a NULL
-	 * m_sound, i.e. from address 0x20, when the entity matches before the first line */
-	u8 type = m_sound != NULL ? m_sound->m_type : 0;
+	/* not NULL-tested, as the ELF (0x2f2c8c): when the entity matches before the first line
+	 * the type byte is read through a NULL m_sound, from address 0x20 (quirk kept) */
+	u8 type = m_sound->m_type;
 
 	if (conversational || type == SND_CONVERSATIONAL || (sitrep && type == SND_SITREP))
 	{

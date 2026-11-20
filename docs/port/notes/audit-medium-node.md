@@ -10,11 +10,13 @@ order, each over its whole address range; addresses cited from `ref.dis`.
 | Verdict | Rows |
 |---|---|
 | MATCH | 55 |
-| DEFECT-FIXED | 14 (A 2, B 8, C 4) |
-| DEVIATION-KEPT | 5 |
+| DEFECT-FIXED | 15 (A 2, B 8, C 5) |
+| DEVIATION-KEPT | 4 |
 | UNJUDGED | 0 |
 
-Defect rate 14 / 74 (19%); A 2, B 8.
+Defect rate 15 / 74 (20%); A 2, B 8.
+
+2026-11-20 (audit-closeout): kept guards removed, now DEFECT-FIXED C: #48 (the user's rule: the prototype's behaviour is kept; see [audit-closeout.md](audit-closeout.md)).
 
 ## Fixes
 
@@ -154,7 +156,7 @@ the compacted listings drop instructions.
 | 50 | 0x22aa70 | 472 | zdb::CSaveLoad::LoadTextures_PS2(zdb::CAssetLib*) | node_saveload.cpp | MATCH | | "renderphase" int fetch (-1 default), 3 <= p < 11 -> 16, the low byte stored only when fetched; "textures": per key OpenKey (no CloseKey when it fails), the key name, GetTexHandle, else AddTexture(name), else new CTexture(name) (112), Read: AddTexture(texture) or the deleting dtor; CloseKey(element), CloseKey; ReleaseDataBuffer into m_texture_buffer; true |
 | 49 | 0x22a920 | 324 | zdb::CSaveLoad::LoadPalettes_PS2(zdb::CAssetLib*) | node_saveload.cpp | DEFECT-FIXED | B | the ELF empties the library's palette list first (size word 0 at 0x22a948); the port kept what it held. Masked: every library comes here once, empty. Rest as the ELF: "palettes", per key OpenKey, new CTexPalette(name) (32), Read (result unused), AddPalette(palette, false), CloseKey, CloseKey; true |
 | 51 | 0x22af80 | 340 | find_node(zdb::CNode*, char const*) | node_saveload.cpp | MATCH | | NULL node or name NULL, strcasecmp of the node's name, per child (a NULL child skipped) its own name then its children's find_node, the first hit; NULL. The ELF inlines one level |
-| 48 | 0x22a080 | 236 | zdb::CWorld::Read(zdb::CSaveLoad&) | node_saveload.cpp | DEVIATION-KEPT | | the port's test for a missing "world_tree" key (the ELF walks and closes it unchecked: a list at address 0); the reason now recorded in the code. Rest as the ELF: per element OpenKey, CNode::Read(sload, this), CloseKey(element), CloseKey(tree), true |
+| 48 | 0x22a080 | 236 | zdb::CWorld::Read(zdb::CSaveLoad&) | node_saveload.cpp | DEFECT-FIXED | C | kept earlier; guard removed 2026-11-20: the world_tree key is walked without a NULL test. Earlier: the port's test for a missing "world_tree" key (the ELF walks and closes it unchecked: a list at address 0); the reason now recorded in the code. Rest as the ELF: per element OpenKey, CNode::Read(sload, this), CloseKey(element), CloseKey(tree), true |
 | 9 | 0x231940 | 204 | zdb::CAssetLib::CAssetLib(char const*) | node_assetlib.cpp | DEFECT-FIXED | C | the inline SetName records zassetlib.h lines 86 / 87 for its _free / _strdup (0x2319d4 / 0x2319e8); the port recorded this file and its own lines. Rest as the ELF: name 0, the three vectors, buffers 0, ref count 1, autoload 1, locked / gear 0, phase 0, the name freed when set (never: just cleared), strdup |
 | 4 | 0x2310b0 | 640 | zdb::CAssetLib::AddModel(zdb::CModel*) | node_assetlib.cpp | DEFECT-FIXED | B | a model of a name no library holds is appended (0x2312f8) and owned (+0xd8, 0x231304); the port inserted it first, which reversed each library's model order (every m_models walk: hookups, the destructor, GetModel on duplicate names). The conflict path written as the ELF (m_conflictresolver(name, this, holder); only read in the ELF, so it stays NULL and the model is returned unadded, as the port did): this library chosen takes the holder's model out and adds here, else this library's out and adds to the holder, the cache cleared (0x231228 / 0x2312c0). Locked: NULL |
 | 8 | 0x231750 | 492 | zdb::CAssetLib::~CAssetLib() | node_assetlib.cpp | MATCH | | per model m_AssetLib (+0xd8) cleared before the NULL test (written through NULL as the ELF), the deleting dtor through slot 8, the slot NULLed, size 0; the buffers freed (lines 110 / 114) and NULLed, CTexList::Free, each palette's deleting dtor, size 0, the name freed (124) and NULLed |

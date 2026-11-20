@@ -375,23 +375,20 @@ void c4_standin(CZSealBody *player)
     }
 }
 
-/* the player's C4 projectiles in the list (placed ones; a new one = a placement) */
+/* the player's placed charges (CZKit::HandleRemotePlaceExplosive lists each one in the projectile
+ * list's m_explosives, shooter = the body's id; a new one = a placement) */
 int c4_count(CZSealBody *player)
 {
     int n = 0;
 
     CZProjectileList *list = CZWeapon::m_pProjectilelist;
 
-    if (list == NULL || list->m_projectiles == NULL)
+    if (list == NULL)
         return 0;
 
-    for (s32 i = 0; i <= list->m_lastused; i++)
-    {
-        CZProjectile *p = &list->m_projectiles[i];
-
-        if (list->m_used[i] == 1 && p->m_owner == player->m_node && p->m_ammo != NULL && strcmp(p->m_ammo->GetName(), "C4 Ammo") == 0)
+    for (std::vector<CZProjectile *>::iterator it = list->m_explosives.begin(); it != list->m_explosives.end(); ++it)
+        if (*it != NULL && (*it)->m_shooterID == (s32)player->m_id)
             n++;
-    }
 
     return n;
 }
@@ -409,11 +406,65 @@ int g_c4_base;
 unsigned int g_cam_off;
 unsigned int g_map_at;
 
+/* the crate groups: a group is left only when its destruction is seen (cratecount, the mission's
+ * own count, goes up about 10 s after the charge is placed); its four faces are tried in turn
+ * (an enemy's CQB attack can keep the R1 from starting the action), at most HOOK_C4_TRIES times a
+ * pass, and a group still standing after a pass is visited again in a second pass. Bounded, so a
+ * real defect still fails the run. */
+enum { HOOK_C4_TRIES = 8, HOOK_C4_PASSES = 2, HOOK_C4_ATTEMPT = 120, HOOK_C4_WAIT = 450 };
+bool g_crate_done[8];
+int g_crate_tries;
+int g_crate_base;
+int g_crate_pass;
+int g_crate_last; /* the groups this script works on: min(found, 3) */
+unsigned int g_attempt_at;
+unsigned int g_placed_at;
+unsigned int g_crates_end;
+
 void next(int step)
 {
     g_step = step;
     g_step_at = g_reads;
     SOCOM_PORT_TRACE("HOOK: tick %u step %d", g_reads, step);
+}
+
+void crate_begin(int index)
+{
+    g_crate = index;
+    g_crate_base = val("cratecount");
+    g_crate_tries = 0;
+    g_c4_side = 0;
+    g_attempt_at = 0;
+    g_placed_at = 0;
+    g_next_throw = g_reads + 60;
+
+    if (index < g_crate_last)
+        SOCOM_PORT_TRACE("HOOK: tick %u crate %s, pass %d (cratecount %d)", g_reads, g_crates[index]->m_name, g_crate_pass + 1, g_crate_base);
+}
+
+/* the next group still standing: later in this pass, else from the first in the next pass */
+void crate_next()
+{
+    for (int i = g_crate + 1; i < g_crate_last; i++)
+        if (!g_crate_done[i])
+        {
+            crate_begin(i);
+            return;
+        }
+
+    if (g_crate_pass + 1 < HOOK_C4_PASSES)
+        for (int i = 0; i < g_crate_last; i++)
+            if (!g_crate_done[i])
+            {
+                g_crate_pass++;
+                SOCOM_PORT_TRACE("HOOK: tick %u crate groups still standing: pass %d", g_reads, g_crate_pass + 1);
+                crate_begin(i);
+                return;
+            }
+
+    g_crate = g_crate_last;
+    g_crates_end = g_reads;
+    SOCOM_PORT_TRACE("HOOK: tick %u crate passes done (cratecount %d)", g_reads, val("cratecount"));
 }
 
 void open_map_soon(unsigned int after)
@@ -453,6 +504,11 @@ void script(CZSealBody *player)
             return;
 
         list_regions();
+
+        if (theHUD != NULL)
+            SOCOM_PORT_TRACE("HOOK: lens flare active %d, light node %p", (int)theHUD->m_LensFlareFade.m_Active,
+                (void *)theHUD->m_LensFlareFade.m_LightNode);
+
         g_ncrates = 0;
         find_crates(zdb::CWorld::m_world, 0);
         player->m_invincible = 1;
@@ -564,7 +620,14 @@ void script(CZSealBody *player)
         {
             open_map_soon(250);
             next(7);
-            g_crate = 0;
+            g_crate_last = g_ncrates < 3 ? g_ncrates : 3;
+            g_crate_pass = 0;
+            g_crates_end = 0;
+
+            for (int i = 0; i < 8; i++)
+                g_crate_done[i] = false;
+
+            crate_begin(0);
         }
         break;
 
@@ -586,28 +649,49 @@ void script(CZSealBody *player)
             SOCOM_PORT_TRACE("HOOK: tick %u C4 in slot %d selected", g_reads, found);
         }
 
-        if (t >= 600 && g_crate < 3 && g_crate < g_ncrates && g_reads >= g_next_throw)
+        if (t >= 600 && g_crate < g_crate_last && g_reads >= g_next_throw)
         {
             /* event-driven (a cinematic - the klaxon after the first cache - pauses the script).
              * In front of a face of the crate stack, facing it, R1 puts the C4 on it
              * (HandleRemotePlaceExplosive: a wall within 16 of the hand), a timed charge (5 s);
-             * the four faces are tried in turn until a charge is placed. */
+             * the faces are tried in turn until a charge is placed, then the group's destruction
+             * is waited for (see crate_next) */
             zdb::CNode *crate = g_crates[g_crate];
             const CBBox &b = crate->m_bbox;
             CPnt3D c((b.m_min.x + b.m_max.x) * 0.5f, b.m_min.y, (b.m_min.z + b.m_max.z) * 0.5f);
+            int count = val("cratecount");
 
-            if (g_c4_side > 0 && c4_count(player) > g_c4_base)
+            if (count > g_crate_base)
             {
-                SOCOM_PORT_TRACE("HOOK: tick %u C4 on %s from side %d", g_reads, crate->m_name, g_c4_side - 1);
-                g_crate++;
-                g_c4_side = 0;
-                g_next_throw = g_reads + 400;
+                SOCOM_PORT_TRACE("HOOK: tick %u %s destroyed (cratecount %d -> %d) after %d tries", g_reads, crate->m_name, g_crate_base,
+                    count, g_crate_tries);
+                g_crate_done[g_crate] = true;
+                crate_next();
             }
-            else if (g_c4_side >= 4)
+            else if (g_placed_at != 0)
             {
-                SOCOM_PORT_TRACE("HOOK: tick %u no C4 face found on %s", g_reads, crate->m_name);
-                g_crate++;
-                g_c4_side = 0;
+                if (g_reads - g_placed_at > HOOK_C4_WAIT)
+                {
+                    SOCOM_PORT_TRACE("HOOK: tick %u %s: no destruction %d ticks after the charge", g_reads, crate->m_name, HOOK_C4_WAIT);
+                    g_placed_at = 0;
+                }
+            }
+            else if (g_attempt_at != 0)
+            {
+                if (c4_count(player) > g_c4_base)
+                {
+                    SOCOM_PORT_TRACE("HOOK: tick %u C4 on %s from side %d", g_reads, crate->m_name, (g_c4_side + 3) % 4);
+                    g_attempt_at = 0;
+                    g_placed_at = g_reads;
+                }
+                else if (g_reads - g_attempt_at >= HOOK_C4_ATTEMPT)
+                    g_attempt_at = 0; /* nothing placed from that face: the next */
+            }
+            else if (g_crate_tries >= HOOK_C4_TRIES)
+            {
+                SOCOM_PORT_TRACE("HOOK: tick %u %s still standing after %d tries (pass %d)", g_reads, crate->m_name, g_crate_tries,
+                    g_crate_pass + 1);
+                crate_next();
             }
             else
             {
@@ -626,10 +710,12 @@ void script(CZSealBody *player)
                 freecam_look_from(c, 45.0f, 35.0f, 45.0f);
                 g_r1_pressure = 0xff;
                 press(g_reads + 30, B_R1, 6);
-                SOCOM_PORT_TRACE("HOOK: tick %u C4 at %s (%.0f %.0f %.0f) side %d", g_reads, crate->m_name, c.x, c.y, c.z, g_c4_side);
+                SOCOM_PORT_TRACE("HOOK: tick %u C4 at %s (%.0f %.0f %.0f) side %d try %d", g_reads, crate->m_name, c.x, c.y, c.z, g_c4_side,
+                    g_crate_tries + 1);
                 g_c4_base = c4_count(player);
-                g_c4_side++;
-                g_next_throw = g_reads + 120;
+                g_c4_side = (g_c4_side + 1) % 4;
+                g_crate_tries++;
+                g_attempt_at = g_reads;
                 g_cam_off = g_reads + 600;
             }
         }
@@ -641,7 +727,8 @@ void script(CZSealBody *player)
         }
 
 
-        if ((t > 600 && val("POBJ2") == 1) || t > 3600)
+        /* POBJ2 follows the third group's count; the passes are bounded, then the time */
+        if ((t > 600 && val("POBJ2") == 1) || (g_crates_end != 0 && g_reads - g_crates_end > 300) || t > 7200)
         {
             freecam_off();
             next(8);

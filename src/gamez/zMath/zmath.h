@@ -100,7 +100,7 @@ bool _close_enough(const T& value, const T& target, const T& eps)
 template<typename T>
 bool saturate(T& value, T min, T max)
 {
-	if (value > max)
+	if (!(value <= max)) /* _saturate<f> 0x1a8dd0: the ELF's form (a NaN is set to max) */
 	{
 		value = max;
 		return true;

@@ -12,11 +12,13 @@ disassembly; addresses quoted below and every delay slot relied on were checked 
 | Verdict | Rows |
 |---|---|
 | MATCH | 82 |
-| DEFECT-FIXED | 17 (A 0, B 0, C 17) |
-| DEVIATION-KEPT | 2 |
+| DEFECT-FIXED | 18 (A 0, B 0, C 18) |
+| DEVIATION-KEPT | 1 |
 | UNJUDGED | 0 |
 
-Defect rate 17 / 101 (16.8%), all grade C: 9 rows of NaN-only compare forms, 4 rows of a body-part
+Defect rate 18 / 101 (17.8%), all grade C: 9 rows of NaN-only compare forms, 4 rows of a body-part
+
+2026-11-20 (audit-closeout): kept guards removed, now DEFECT-FIXED C: #4 (the user's rule: the prototype's behaviour is kept; see [audit-closeout.md](audit-closeout.md)).
 slot test's signedness, 3 unrecorded controller NULL tests, 1 float sum order. None changes what
 the player sees on this disc.
 
@@ -123,7 +125,7 @@ the player sees on this disc.
 | 22 | 0x2dea90 | 300 | CanHearAttenuatedExplosionEvent | zSeal/seal_aievent.cpp | MATCH | | m_inside (bit 24, byte 3 bit 0) of each cell (NULL false), both: dist <= 40000 x 1 else x 16, one: x 4, none x 1, left = (range - dist s) / range, <= 0 false, 0 + 1 x (2^-31 r) <= left |
 | 2 | 0x24d8f0 | 316 | CZSealBody::UnMakeGhost | zSeal/seal.cpp | MATCH | | node opacity 1, SetActive(true) (slot 0x34 of the vtable at +0x60), zeroed state, active (bit 0 of +0x5c) and !(opacity <= 0): fptoui(floorf(15 (1 - op))) into bits 24-27 (argument >= 0), else 15; ghost bit 30 0; SetAiNetState (slot 0x70) with the word |
 | 3 | 0x24da30 | 324 | CZSealBody::MakeGhost | zSeal/seal.cpp | MATCH | | SetHealth(0, 6), opacity 0, SetActive(false), transparency as row 2 (15 here), ghost bit 30 1, SetAiNetState |
-| 4 | 0x24db80 | 312 | CZSealBody::NetworkPlayerCreate | zSeal/seal.cpp | DEVIATION-KEPT | | recorded: PLAYERNAMEVAR found but no string (type != 3) gives an empty name where the ELF strncpy's from NULL. Rest matches: m_oktocallinit, strncpy 31 / "Player%d" of the client index, name[30] 0, GetByNameMod(net char type), squirm (ftsGetSquirm) or plain controller (the ELF's 624 / 576 bytes are its sizes; the port's own sizeof), Create, ftsSetPlayer, node name, team mask of m_pNetGame +0x90, vehicle index 0, display name |
+| 4 | 0x24db80 | 312 | CZSealBody::NetworkPlayerCreate | zSeal/seal.cpp | DEFECT-FIXED | C | kept earlier; guard removed 2026-11-20: a PLAYERNAMEVAR that is no string strncpy's from NULL. Earlier: recorded: PLAYERNAMEVAR found but no string (type != 3) gives an empty name where the ELF strncpy's from NULL. Rest matches: m_oktocallinit, strncpy 31 / "Player%d" of the client index, name[30] 0, GetByNameMod(net char type), squirm (ftsGetSquirm) or plain controller (the ELF's 624 / 576 bytes are its sizes; the port's own sizeof), Create, ftsSetPlayer, node name, team mask of m_pNetGame +0x90, vehicle index 0, display name |
 | 5 | 0x24dcc0 | 240 | CZSealBody::DecrZoomState | zSeal/seal.cpp | MATCH | | table 0x450e10: 0 stays, 1 -> 0, 2 -> 1, 3 -> 1 + sniper kick, 4..11: weapon NULL stays, state - 4 < 1 -> night 2 else 1, else < zoom mode count (signed) -> state - 1; SetCurZoomState, returned |
 | 6 | 0x24ddb0 | 396 | CZSealBody::IncrZoomState | zSeal/seal.cpp | MATCH | | table 0x450e40: 0 -> 1; 1: night -> 2, else 3, weapon with >= 2 modes -> 4; 2 / 3: >= 2 modes -> 4, two sniper kicks (quirk); 4..10: state - 2 < count (unsigned) -> state + 1, two kicks each unless prev 5; 11 stays; SetCurZoomState, returned |
 | 8 | 0x24e1a0 | 240 | CCompass::DeleteAnchor | zSeal/seal.cpp | MATCH | | NULL out, m_compass walk: match -> swap with the last (size >= 2, not last), size-- and the walk goes on, name _free("seal.cpp", 4901) and cleared, delete; the ELF's bool return is not read (recorded) |

@@ -147,7 +147,7 @@ void CSndGroup::LoadCSndGroup(_zrdr *reader)
 		return;
 
 	_zrdr* first = reader->Get(0);
-	char* name = first != NULL && first->type == ZRDR_STRING ? first->string : NULL; /* port: NULL guarded */
+	char* name = first->type == ZRDR_STRING ? first->string : NULL; /* not NULL-tested, as the ELF (0x2f061c) */
 
 	if (name != NULL)
 		m_name = _strdup(name, "zsnd_csndgroup.cpp", 141);
@@ -167,7 +167,7 @@ void CSndGroup::LoadCSndGroup(_zrdr *reader)
 		CSnd* sound = NULL;
 		f32 weight = 0.0f;
 		_zrdr* label = entry->Get(0);
-		char* soundname = label != NULL && label->type == ZRDR_STRING ? label->string : NULL; /* port: NULL guarded */
+		char* soundname = label->type == ZRDR_STRING ? label->string : NULL; /* not NULL-tested, as the ELF (0x2f0734) */
 
 		zrdr_findreal(entry, "WEIGHT", &weight, 1);
 

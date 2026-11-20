@@ -10,11 +10,13 @@ address range.
 | Verdict | Rows |
 |---|---|
 | MATCH | 49 |
-| DEFECT-FIXED | 5 (A 0, B 0, C 5) |
-| DEVIATION-KEPT | 3 |
+| DEFECT-FIXED | 6 (A 0, B 0, C 6) |
+| DEVIATION-KEPT | 2 |
 | UNJUDGED | 0 |
 
-Defect rate 5 / 57 (9%); all five are cosmetic or unreachable offline: two in the voice
+Defect rate 6 / 57 (11%); all five are cosmetic or unreachable offline: two in the voice
+
+2026-11-20 (audit-closeout): kept guards removed, now DEFECT-FIXED C: #4 (the user's rule: the prototype's behaviour is kept; see [audit-closeout.md](audit-closeout.md)).
 recogniser's paths and three removed seal NULL guards in the multiplayer debrief.
 
 ## Fixes
@@ -128,7 +130,7 @@ recogniser's paths and three removed seal NULL guards in the multiplayer debrief
 | 1 | 0x1728e0 | 264 | `UnloadTheWorld` | Apps/FTS/game/database.cpp | MATCH | | No world returns; the app camera's deleting dtor and NULL, ReleaseLandmarkList, ReleaseLightList, the world's deleting dtor (vt +0x8 at +0x60) and NULL, EmptyAssetRecycleBin, m_assets.Clear, the four CVisual map textures NULL, the light tick list cleared and swapped with an empty one, NodeUniverse (its vector) deleted and NULL, thePipe.Flush. |
 | 5 | 0x2f2cf0 | 432 | `Headset::ConnectedTick` | Apps/FTS/game/headset.cpp | MATCH | | State 3 -> next; state 1: m_stop -> extern call 6 (A), state 3, m_stop 0; else call 2 with the callback and this (zero-extended), state 2; next: DeQueue(NULL, &entity, &sound, &volume), "%s.WAV" of the stream name (+0x2c) into the static name, vagReadOffset, sector = (offset >> 11) + m_vagoffset and offset & 0x7ff before the found test, found: volume = (int)((f32)volume * sound_mod) (0.75 on first use, guarded static), call 1 (sector, offset, volume, 2, 0), state 0. |
 | 3 | 0x2f2a00 | 292 | `Headset::StopSound` | Apps/FTS/game/headset.cpp | MATCH | | The queue walk: an entry of the entity and the sound erased (the iterator from erase) and its slot pushed on the free list, else step; the current line of the entity and sound with state 1, 0 or 2 -> m_stop 1. |
-| 4 | 0x2f2b30 | 448 | `Headset::Remove` | Apps/FTS/game/headset.cpp | DEVIATION-KEPT | | The queue walk: the entity's entries erased when conversational and type 1, else when sitrep and type 2 (slot back on the free list); the current line of the entity: conversational, or type 1, or sitrep and type 2 -> m_stop for state 1 / 0 / 2 (ELF quirk, commented). Kept (reason in the code, made explicit): the port reads the current type only with a line set; the ELF (0x2f2c8c) reads it through a NULL m_sound (address 0x20) when the entity matches before the first line. |
+| 4 | 0x2f2b30 | 448 | `Headset::Remove` | Apps/FTS/game/headset.cpp | DEFECT-FIXED | C | kept earlier; guard removed 2026-11-20: the type byte is read through m_sound as is (0x2f2c8c). Earlier: The queue walk: the entity's entries erased when conversational and type 1, else when sitrep and type 2 (slot back on the free list); the current line of the entity: conversational, or type 1, or sitrep and type 2 -> m_stop for state 1 / 0 / 2 (ELF quirk, commented). Kept (reason in the code, made explicit): the port reads the current type only with a line set; the ELF (0x2f2c8c) reads it through a NULL m_sound (address 0x20) when the entity matches before the first line. |
 | 6 | 0x2f30f0 | 412 | `Headset::DeQueue` | Apps/FTS/game/headset.cpp | DEVIATION-KEPT | | Per queue entry: the skip list (count = *skip[0], entities *skip[1..count]) tested, else entity / sound / volume out, erase, slot to the free list, result 1, and the loop goes on (drains the queue, newest kept: ELF quirk, commented). Kept (reason in the code): a skipped entry advances the loop where the ELF stays on it for ever; every ELF caller passes no list (a1 zero). |
 | 7 | 0x2f3290 | 364 | `Headset::Queue` | Apps/FTS/game/headset.cpp | MATCH | | No free slot -> 0, the last free slot (-1 -> 0) erased from the free list, the entry's entity / sound / volume, push on the queue, type (+0x20) 2 -> Remove(entity, 1, 0), 3 -> Remove(entity, 1, 1), 1. The port trace only adds a log line. |
 | 8 | 0x2f3400 | 216 | `Headset::ftsDeleteHeadset` | Apps/FTS/game/headset.cpp | MATCH | | theHeadset set: state 1 (connected) and line state not 3 -> extern call 6, state 3, m_stop 0; DeQueue(NULL, ...) until false, the queue cleared and swapped with an empty vector, the deleting dtor, NULL; theHeadsetState 0 either way. |

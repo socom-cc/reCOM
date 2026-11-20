@@ -37,6 +37,24 @@ without a fence (508). Still to judge, from `port/tools/dev/auditlist.py --summa
 The defect rate found so far falls with size: about one large function in four, about one in
 seventeen in the mixed-size sample. So the large band goes first.
 
+## Result (2026-11-20)
+
+All three bands are judged; `auditlist.py --summary` reports nothing left. Counts from the notes
+`docs/port/notes/audit-<list>.md` (the 248 large zSeal / zAI functions judged before the lists
+are not in this table):
+
+| Band | Judged | Match | Fixed A | Fixed B | Fixed C | Kept |
+|---|---|---|---|---|---|---|
+| large | 398 | 291 | 1 | 15 | 59 | 32 |
+| medium | 1,707 | 1,455 | 7 | 32 | 136 | 77 |
+| small | 2,368 | 2,216 | 9 | 13 | 107 | 23 |
+
+A = changes what the player sees or hears, or crashes; B = wrong but masked on this disc; C =
+cosmetic. The defect rate fell with size as expected: 19% of the large rows, 10% of the medium,
+5% of the small. The full behaviour check passed on the last commit of the small band
+(abb909ac). The kept deviations and the leads the lists left are settled in
+`docs/port/notes/audit-closeout.md` and `docs/port/notes/audit-leads.md`.
+
 ## Phase 1: large functions (13 lists, 5 rounds of three workers)
 
 One list is about 50 KB of functions, which is what one worker judges in one session. Lists hold

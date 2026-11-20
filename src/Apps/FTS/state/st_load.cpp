@@ -574,7 +574,7 @@ void CE3Config::Parse(_zrdr *reader)
 	{
 		_zrdr *entry = reader->Get(i);
 		_zrdr *first = entry->Get(0);
-		const char *name = first != NULL && first->type == ZRDR_STRING ? first->string : NULL; /* port: NULL-tested (ELF reads the type of NULL for an entry that is no list) */
+		const char *name = first->type == ZRDR_STRING ? first->string : NULL; /* not NULL-tested: an entry that is no list reads the type at address 0 (0x37e130) */
 		CSaferStr key;
 		key = name;
 

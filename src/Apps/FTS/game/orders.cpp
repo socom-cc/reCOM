@@ -1400,8 +1400,8 @@ unsigned char OrdersMenu::SetupContextDisplay(bool show)
 {
 	/* 0x178eb0: the context column of the chosen order (show): its entries one row apart,
 	 * the first bright, the others after a pause; the unused items hidden. Whether there is a
-	 * context column. Port deviation: an entry the list left unfilled (see RefreshContext)
-	 * shows an empty text (the ELF copies from address 0) */
+	 * context column. ELF quirk kept: an entry the list left unfilled (see RefreshContext)
+	 * has no text, and its text is copied from address 0 */
 	m_size[2] = 0;
 	m_submenu = NULL;
 	int count = 0;
@@ -1426,7 +1426,7 @@ unsigned char OrdersMenu::SetupContextDisplay(bool show)
 			item->SetUV(0.01f, 0.01f, 0.99000001f /* 0x3f7d70a4 */, 0.99000001f /* 0x3f7d70a4 */);
 			orders_item_target(item, x, y);
 			orders_text_color(item);
-			const char *display = sub->m_display != NULL ? sub->m_display : "";
+			const char *display = sub->m_display; /* not NULL-tested (strncpy 0x179038 / 0x179134) */
 
 			if (first)
 			{

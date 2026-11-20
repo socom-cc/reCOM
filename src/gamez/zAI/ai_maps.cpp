@@ -807,9 +807,8 @@ bool CAiMaps::RegisterPathPlan(const CAiMapLoc &start, const CAiMapLoc &goal, CA
 unsigned int CAiMaps::GetLocationDelta(const CAiMapLoc &a, const CAiMapLoc &b)
 {
 	/* 0x199610: the cells between two locations (|dx| + |dy|); across maps a is moved onto b's
-	 * map (CAiMap::TransformTo) and measured there, else the larger map's cell count.
-	 * port: a map off the set counts 0 cells and transforms nothing (the ELF calls through
-	 * NULL) */
+	 * map (CAiMap::TransformTo) and measured there, else the larger map's cell count. ELF
+	 * quirk kept: the maps are not NULL-tested (a map off the set is called through NULL) */
 	if (a.m_mapid == b.m_mapid)
 	{
 		int dx = (int)b.x - (int)a.x;
@@ -821,15 +820,15 @@ unsigned int CAiMaps::GetLocationDelta(const CAiMapLoc &a, const CAiMapLoc &b)
 	CAiMap *mb = GetMapByIndex(b.m_mapid);
 	CAiMapLoc moved;
 
-	if (ma != NULL && ma->TransformTo(a, mb, moved))
+	if (ma->TransformTo(a, mb, moved))
 	{
 		int dx = (int)b.x - (int)moved.x;
 		int dy = (int)b.y - (int)moved.y;
 		return (u32)((dx < 0 ? -dx : dx) + (dy < 0 ? -dy : dy));
 	}
 
-	u32 ca = ma != NULL ? ma->m_cellcount : 0;
-	u32 cb = mb != NULL ? mb->m_cellcount : 0;
+	u32 ca = ma->m_cellcount;
+	u32 cb = mb->m_cellcount;
 	return ca > cb ? ca : cb;
 }
 

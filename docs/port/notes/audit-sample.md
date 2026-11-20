@@ -21,10 +21,14 @@ or note); UNJUDGED (none).
 | Verdict | Rows |
 |---|---|
 | MATCH | 103 |
-| DEFECT-FIXED | 7 (A 0, B 6, C 1) |
-| DEVIATION-KEPT | 10 |
+| DEFECT-FIXED | 10 (A 0, B 6, C 4) |
+| DEVIATION-KEPT | 7 |
 | UNJUDGED | 0 |
 | total | 120 |
+
+2026-11-20 (audit-closeout): kept guards removed, now DEFECT-FIXED C: #42, #52, #111 (the user's rule:
+the prototype's behaviour is kept; see [audit-closeout.md](audit-closeout.md)). The rates below are the
+sample as first judged (7 defects).
 
 ## Rates (n = 120 judged rows; 95% intervals are exact Clopper-Pearson)
 
@@ -217,7 +221,7 @@ the minimized window). The later runs above were not affected.
 | 39 | 0x2f5900 | zSysFifoKick | zSystem/zsys_spr.cpp | MATCH | | CNT tag appended below 0x70003e60 when the last tag is not an end tag, D9 / D8 waits, SADR / QWC, ring room loop (0x40000 when equal), STR bit |
 | 40 | 0x4034f0 | CFader::SetBrightness | Apps/FTS/hud/hud_fader.cpp | MATCH | | clamp to 1 then minimum (+0x94), SetTrans slot 0x20 with 128 (1 - b) |
 | 41 | 0x218a10 | zdb::CClutter::Render | zGrid/grid_clutter.cpp | MATCH | | anim node (ClutterTick), region bits 7-11, far / near fade bands with 0.008 cut (translate +0x20 animated, +0x30 static), opacity saved / restored, matrix, add colour, light scale, mesh / node, pop |
-| 42 | 0x2b73a0 | CTSetMode::Parse | zSeal/seal_tasks.cpp | DEVIATION-KEPT | | port guard recorded in the comment: an empty list gives get_mode(NULL), the ELF reads element type through NULL (0x2b7438); else 12-byte record, mode byte, "ai" index |
+| 42 | 0x2b73a0 | CTSetMode::Parse | zSeal/seal_tasks.cpp | DEFECT-FIXED | C | kept earlier; guard removed 2026-11-20: get_mode of the type read through NULL (0x2b7438). Earlier: port guard recorded in the comment: an empty list gives get_mode(NULL), the ELF reads element type through NULL (0x2b7438); else 12-byte record, mode byte, "ai" index |
 | 43 | 0x231dd0 | zdb::CRipple::Tick | zNode/node_wave.cpp | MATCH | | age += dT, at life: erase (iterator from erase), free pool, reset the visual's vertices (+6 0, +0xc 32768, +0xe 0) unless another running ripple has the visual, inactive |
 | 44 | 0x2fc760 | zdb::CDynTexList::Add | zTexture/ztex_manager.cpp | MATCH | | handles not listed (GetHandle) appended with grow-by-one, their palette unless found, then the list's palettes not found |
 | 45 | 0x392420 | CListItemArrayTypeImpl::CListItemArrayTypeImpl | zUI/zui_2d.cpp | MATCH | | min(row count, columns), enabled, ListItem per cell, image (type 0: pushed, no font) / timed text (2), VALUE Format slot 0x60, COLOR slot 0x28 (x, y, z), DISABLED clears both, else CUIVariable::Format 768; SetFont 0x1c, SetScale 0x24 |
@@ -227,7 +231,7 @@ the minimized window). The later runs above were not affected.
 | 49 | 0x2b4c50 | CTRegion::Tick | zSeal/seal_tasks.cpp | MATCH | | region cached by AiMaps cookie (the ELF stores the cookie only with a cached region: same result), pickup mode types 4-7 / +0xc object +0x60 id, select seal / named (unknownId -3, "player" index 0) / id, missing entity clears name, team walk with alive + team bit, map id + x / y bounds |
 | 50 | 0x219a50 | CPad::GetSingleClick | zInput/zin_main.cpp | MATCH | | m_click[b] == -1 -> -3, true |
 | 51 | 0x217100 | zdb::CCell::~CCell | zGrid/grid_cell.cpp | MATCH | | light list erased (refs only), clutter Free, member dtors, ~CNode |
-| 52 | 0x2609a0 | CSealCtrlAi::AnimSignal | zSeal/seal_ai.cpp | DEVIATION-KEPT | | port NULL test before the SUSPENDED setup bit, recorded (the ELF writes +0xc through NULL when the push is not on top, 0x260d58). Table 0x451b60: 1 forget anim, 2 / 3 critical bit + flags 1 (ELF walks from the end: only the Debug line order differs), 4 push 18, 5 pop; UpdateStackFlags(1) |
+| 52 | 0x2609a0 | CSealCtrlAi::AnimSignal | zSeal/seal_ai.cpp | DEFECT-FIXED | C | kept earlier; guard removed 2026-11-20: the SUSPENDED check-cast is written through as is (0x260d58). Earlier: port NULL test before the SUSPENDED setup bit, recorded (the ELF writes +0xc through NULL when the push is not on top, 0x260d58). Table 0x451b60: 1 forget anim, 2 / 3 critical bit + flags 1 (ELF walks from the end: only the Debug line order differs), 4 push 18, 5 pop; UpdateStackFlags(1) |
 | 53 | 0x276530 | CZSealBody::Crouch | zSeal/seal_body.cpp | MATCH | | CanCrouch inline (anims 18 / 87, water <= 8.5), stand path (desired 0, changed bit, ClearStack + Stand_0 unless standing), already crouched -> top, ClearStack(1, true) inline (ctrl 0, peek 2), Crouch_0(state, tfrac) |
 | 54 | 0x229360 | zdb::CNode::CreateInstance(model, pos, rot) | zNode/node_model.cpp | MATCH | | Copy, position, rotation, model list append, m_parent only while single, m_model, model name, type 2 |
 | 55 | 0x2ac1f0 | CZKit::GetCurMaxAmmoCount | zSeal/seal_kit.cpp | MATCH | | three unwraps, launcher with fire mode >= 4: grenade slot m_firemode[index] - 3 capacity, else the item's, 0 without |
@@ -286,7 +290,7 @@ the minimized window). The later runs above were not affected.
 | 108 | 0x1aba30 | zAnimLoadObjectDeleteChild | zAnim/zanim_cmd_parse.cpp | MATCH | | 8-byte record (4465), PARENT / CHILD (NAME inside or the tag) node refs, 0 when missing |
 | 109 | 0x216f40 | zdb::CGrid::CGrid | zGrid/grid_main.cpp | MATCH | | CFRect, atoms / buffer / free (+0x30..+0x38), ordered cells counts and view (+0x10c..+0x118), cell count, posts, world, ring, anim manager, created byte |
 | 110 | 0x1f3860 | CZNetGame::TenSecondLaunch | zFTS/fts_mission.cpp | MATCH | | start (not yet, master): start = net time + valve value * 1000, not set; stop (was, master): 0; flag stored and returned |
-| 111 | 0x2268e0 | zdb::CLightMap::CLightMap | zNode/node_main.cpp | DEVIATION-KEPT | | port NULL guard on CVisual::m_lightMapTexture recorded in InitLightMap (the ELF reads +0xc through it, 0x226990). CLight part (type 8, ranges, diffuse 128, opacity 64), unit matrix +0x110, alpha 68 (u64), shadow / reflection bits, dir and fade 1.0, motion and light bits as the ELF |
+| 111 | 0x2268e0 | zdb::CLightMap::CLightMap | zNode/node_main.cpp | DEFECT-FIXED | C | kept earlier; guard removed 2026-11-20: m_lightMapTexture's texture is read as is (0x226990). Earlier: port NULL guard on CVisual::m_lightMapTexture recorded in InitLightMap (the ELF reads +0xc through it, 0x226990). CLight part (type 8, ranges, diffuse 128, opacity 64), unit matrix +0x110, alpha 68 (u64), shadow / reflection bits, dir and fade 1.0, motion and light bits as the ELF |
 | 112 | 0x214620 | zdb::DiIntersect::GetNearestIntersect | zGrid/grid_di.cpp | MATCH | | no hits -> NULL, nearest to the tail (+4) by d^2 <= best (later wins ties), 32-byte records |
 | 113 | 0x3fbcb0 | CInGameWeaponSel::OnOpen | Apps/FTS/hud/hud_ingame_weaponsel.cpp | MATCH | | loadout bytes 255 then up to 6 of the character's (0 read twice), heights, goal 10 / 219, state 1, next / prev / next inline (= GetNextItem(-1), GetPrevItem, GetNextItem), icons +0x94, selection flags, positions, background Off, slot 1 back (x + 171 quirk) / icon, texts off, icon clip SetPos, fades 40 / 128, SetMenuState(1) |
 | 114 | 0x23e3c0 | zrdr_freearray | zReader/zrdr_main.cpp | MATCH | | string forgotten, array walk over [0, array[0].integer) (count element included), free (151), NULL; one level unrolled in the ELF |

@@ -13,11 +13,13 @@ zwep_ftsweapon. HEAD cd4a0470. Judged file by file in the scan's rank order, fro
 | Verdict | Rows |
 |---|---|
 | MATCH | 276 |
-| DEFECT-FIXED | 18 (A 0, B 0, C 18) |
-| DEVIATION-KEPT | 2 |
+| DEFECT-FIXED | 19 (A 0, B 0, C 19) |
+| DEVIATION-KEPT | 1 |
 | UNJUDGED | 0 |
 
-Defect rate 18 / 296 (all C).
+Defect rate 19 / 296 (all C).
+
+2026-11-20 (audit-closeout): kept guards removed, now DEFECT-FIXED C: #148 (the user's rule: the prototype's behaviour is kept; see [audit-closeout.md](audit-closeout.md)).
 
 Fixes:
 - C, #145 CWorld::GarbageCollect: the children trimmed to their size first (vector copy, swap and
@@ -134,7 +136,7 @@ provider exit 0.
 | 138 | 0x22ebf0 | 132 | zdb::CWorld::FindLandmark(char const*) | node_world.cpp | MATCH | - | strcmp(landmark +0x90 m_name, name) == 0 -> that node; else NULL |
 | 141 | 0x22ed40 | 56 | zdb::CWorld::ReleaseLightList() | node_world.cpp | MATCH | - | m_lights (+0x544) erase(begin, end) |
 | 147 | 0x22fa80 | 152 | zdb::CWorld::DeleteLightMap(zdb::CLightMap*) | node_world.cpp | MATCH | - | find, remove_copy from the next, erase to the end on m_lightMaps (+0x55c): std::remove + erase |
-| 148 | 0x22fb20 | 132 | zdb::CWorld::AddLightMap(zdb::CLightMap*) | node_world.cpp | DEVIATION-KEPT | - | +0x100 m_pTex NULL and bits 0 / 1 of +0x160 clear -> SetTexture(m_lightMapTexture +0xc), appended; the port's NULL test of m_lightMapTexture is the recorded deviation of mod-render / mod-znode (reason in the code: NULL outside a mission) |
+| 148 | 0x22fb20 | 132 | zdb::CWorld::AddLightMap(zdb::CLightMap*) | node_world.cpp | DEFECT-FIXED | C | kept earlier; guard removed 2026-11-20: m_lightMapTexture's texture is read as is. Earlier: +0x100 m_pTex NULL and bits 0 / 1 of +0x160 clear -> SetTexture(m_lightMapTexture +0xc), appended; the port's NULL test of m_lightMapTexture is the recorded deviation of mod-render / mod-znode (reason in the code: NULL outside a mission) |
 | 115 | 0x22c3c0 | 96 | SetMaterial(zdb::CNode*, int) | node_world.cpp | MATCH | - | empty m_di (+0x78) returns; each DI's +0x18 bits 10..17 = material & 0xff (mask 0xfffc03ff), the port's 8-bit m_material bitfield |
 | 118 | 0x22dc50 | 108 | zdb::CWorld::RemoveDecals() | node_world.cpp | MATCH | - | count +0x6c read once, CNode::RemoveDecals on each child |
 | 119 | 0x22dfa0 | 196 | zdb::CWorld::FindTextureAssetCharacter(zdb::CNode*) | node_world.cpp | MATCH | - | each set of the list at +0x6b9c: set->m_nodes (+0x8).Exists(node) -> 1; else 0 |

@@ -737,7 +737,7 @@ bool CZProjectile::HandleBounce(zdb::IntersectStruct *hit, float dT, CPnt3D *end
 	 * hit normal and scaled by the elasticity (the first bounce by three quarters of it);
 	 * slower than 5 it comes to rest; the segment ends at the hit, 0.4 off the surface, plus
 	 * this frame's travel. Always 0. ELF quirk kept: with a hit anim the bounce reads the
-	 * material's under-water bit without a NULL test (guarded here). */
+	 * material's under-water bit without a NULL test (+0x38 of address 0 for none). */
 	u32 index = hit->GetMaterial();
 	u32 slot = index < CMaterialExArray::m_materialex_list.size() ? index : 0;
 	CMaterialEx *material = CMaterialExArray::m_materialex_list[slot];
@@ -766,7 +766,7 @@ bool CZProjectile::HandleBounce(zdb::IntersectStruct *hit, float dT, CPnt3D *end
 
 	CZAnim *anim = m_weapon->GetHitAnim(index);
 
-	if (anim != NULL && (material == NULL || !material->m_underwater) && CZWeapon::m_allowImpactAnimations) /* port: guard (material) */
+	if (anim != NULL && !material->m_underwater && CZWeapon::m_allowImpactAnimations) /* material not NULL-tested, as the ELF */
 	{
 		f32 pos[3] = { hit->m_pos.x, hit->m_pos.y, hit->m_pos.z };
 		anim->ActivateArg(1, 5, pos, 0);

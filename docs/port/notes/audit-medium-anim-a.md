@@ -15,11 +15,13 @@ UiSetValve, UiCharSetMask, CSelectedCharsItr::Advance, UiApplyStickPreset, GetUI
 | Verdict | Rows |
 |---|---|
 | MATCH | 66 |
-| DEFECT-FIXED | 8 (A 0, B 1, C 7) |
-| DEVIATION-KEPT | 4 |
+| DEFECT-FIXED | 9 (A 0, B 1, C 8) |
+| DEVIATION-KEPT | 3 |
 | UNJUDGED | 0 |
 
-Defect rate 8 / 78 (10%); A or B 1 / 78. Three of the C rows are only the form of a float test
+Defect rate 9 / 78 (12%); A or B 1 / 78. Three of the C rows are only the form of a float test
+
+2026-11-20 (audit-closeout): kept guards removed, now DEFECT-FIXED C: #67 (the user's rule: the prototype's behaviour is kept; see [audit-closeout.md](audit-closeout.md)).
 (NaN only), four are NULL tests the ELF does not have.
 
 ## Fixes (ELF evidence)
@@ -103,7 +105,7 @@ and CZAnimArg::TYPE; the CNode SetRotation / GetRotation overloads; EQUIP_ITEM's
 | 76 | 0x1d71d0 | 300 | ExecuteChooseEquipment(C2DAnimCmdHdr*, float*) | gamez/zAnim/zanim_menu.cpp | MATCH | - | GetWeaponId(GetName(arg)); ChooseEquipmentForCharacter(it, item) per selected character (inlined Advance = the port's); returns 1. |
 | 56 | 0x1d37c0 | 220 | UISwitchProgressiveVideo(C2DAnimCmdHdr*, float*) | gamez/zAnim/zanim_menu.cpp | MATCH | - | UiArgument (INPUT_STRING -> GetCharP(0), no list test); NULL or empty -> 1; NTSC: vidMode (+0x51) != 0 -> videoMode (+0x50) = 0; DTV: videoMode != 2 -> 2 (ELF quirk, commented). The scan's zVid offsets are the port's _zvid_public layout. |
 | 57 | 0x1d38a0 | 208 | UICheckVideoMode(C2DAnimCmdHdr*, float*) | gamez/zAnim/zanim_menu.cpp | MATCH | - | UiArgument; NULL or empty -> 1; NTSC -> vidMode == 0; DTV -> vidMode == 2; other -> 1. |
-| 67 | 0x1d5f20 | 348 | CMenuStack::PopUpDialog(char const*) | gamez/zAnim/zanim_menu.cpp | DEVIATION-KEPT | - | m_top++ first; INPUT_STRING -> GetCharP(0) (no list test); type 3 and the name copied (through a std::string in the ELF); m_count++; g_menuRootNode->FindChild("POPUP", true) (slot 0x24), SetActive(true) (slot 0x34, virtual in the port's znode.h). Kept: the port's NULL-name handling (no strcmp, "" copied) where the ELF strcmps and strlens NULL (strcmp 0x1d5f58, strlen 0x1d5f80 / 0x1d5fa0); the comment now names both. |
+| 67 | 0x1d5f20 | 348 | CMenuStack::PopUpDialog(char const*) | gamez/zAnim/zanim_menu.cpp | DEFECT-FIXED | C | kept earlier; guard removed 2026-11-20: strcmp / strcpy of the name as is (0x1d5f58, 0x1d5f80). Earlier: m_top++ first; INPUT_STRING -> GetCharP(0) (no list test); type 3 and the name copied (through a std::string in the ELF); m_count++; g_menuRootNode->FindChild("POPUP", true) (slot 0x24), SetActive(true) (slot 0x34, virtual in the port's znode.h). Kept: the port's NULL-name handling (no strcmp, "" copied) where the ELF strcmps and strlens NULL (strcmp 0x1d5f58, strlen 0x1d5f80 / 0x1d5fa0); the comment now names both. |
 | 58 | 0x1d3970 | 252 | UIDisableButton(C2DAnimCmdHdr*, float*) | gamez/zAnim/zanim_menu.cpp | DEFECT-FIXED | C | Fixed: the m_arg_list NULL test before GetCharP(0), which the ELF lacks (0x1d39bc). Rest: m_top++, type 8, strcpy, m_count++, 1. Kept (in the code): "" for a NULL name where the ELF strcpys NULL. |
 | 59 | 0x1d3a70 | 252 | UIEnableButton(C2DAnimCmdHdr*, float*) | gamez/zAnim/zanim_menu.cpp | DEFECT-FIXED | C | Fixed: the same m_arg_list NULL test (0x1d3abc). Rest as UIDisableButton with type 7. Kept: "" for a NULL name. |
 | 60 | 0x1d3b70 | 252 | UIActivateButton(C2DAnimCmdHdr*, float*) | gamez/zAnim/zanim_menu.cpp | DEFECT-FIXED | C | Fixed: the same m_arg_list NULL test (0x1d3bbc; the large-anim-c lead). Rest as UIDisableButton with type 6. Kept: "" for a NULL name. |

@@ -590,14 +590,11 @@ _zanim_cmd_hdr* CTDebug::Parse(_zrdr* reader)
 	/* 0x2bdc90 (written, untested): the command's first value: a number turns the AI debug
 	 * output on / off ("Enabling DEBUG" / "Disabling DEBUG info" as the text), a string is a
 	 * text to print (m_enable -1); anything else: no record. ELF quirks kept: a list without
-	 * values is read through NULL in the ELF (port: no record); the record's command type is
-	 * not set (the loader's) */
+	 * values is read through NULL (its type at address 0); the record's command type is not
+	 * set (the loader's) */
 	_zrdr *value = reader->IsArray() && reader->array->integer - 1 != 0 ? &reader->array[1] : NULL;
 	s32 enable = -1;
 	const char *text = NULL;
-
-	if (value == NULL)
-		return NULL;
 
 	if (value->type == ZRDR_INTEGER)
 	{
@@ -2604,12 +2601,12 @@ bool CTSelect::Tick(_zanim_cmd_hdr* header, f32* dT)
 _zanim_cmd_hdr* CTSetMode::Parse(_zrdr* reader)
 {
 	/* 0x2b73a0 (written, untested): the command's first value names the AI mode (get_mode;
-	 * 1 by default), "ai" the select index (+4). port: a list without values gives mode 0
-	 * (the ELF reads through NULL) */
+	 * 1 by default), "ai" the select index (+4). ELF quirk kept: a list without values reads
+	 * the type through NULL (0x2b7438) */
 	TASK_SETMODE *task = (TASK_SETMODE *)task_alloc(12, *(u16 *)&ai_cmdid[0]);
 	task->m_mode = 1;
 	_zrdr *value = reader->IsArray() && reader->array->integer - 1 != 0 ? &reader->array[1] : NULL;
-	const char *name = value != NULL && value->type == ZRDR_STRING ? value->string : NULL;
+	const char *name = value->type == ZRDR_STRING ? value->string : NULL;
 	task->m_mode = (u8)sealai::get_mode(name);
 	task->m_seal_index = 0;
 	zrdr_finduint(reader, "ai", &task->m_seal_index, 1);

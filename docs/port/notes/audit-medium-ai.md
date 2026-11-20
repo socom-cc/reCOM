@@ -13,11 +13,13 @@ AIMAP_PARAMS and CAiMap offsets from `mem.py`, CAiPath, CAiEvent, CAiVisMap).
 | Verdict | Rows |
 |---|---|
 | MATCH | 81 |
-| DEFECT-FIXED | 3 (A 1, B 0, C 2) |
-| DEVIATION-KEPT | 3 |
+| DEFECT-FIXED | 5 (A 1, B 0, C 4) |
+| DEVIATION-KEPT | 1 |
 | UNJUDGED | 0 |
 
-Defect rate 3 / 87 (A or B 1 / 87).
+Defect rate 5 / 87 (A or B 1 / 87).
+
+2026-11-20 (audit-closeout): kept guards removed, now DEFECT-FIXED C: #53, #85 (the user's rule: the prototype's behaviour is kept; see [audit-closeout.md](audit-closeout.md)).
 
 ## Fixes
 
@@ -121,7 +123,7 @@ Runs, on HEAD aac25173 plus these files:
 | 57 | 0x19bfc0 | 348 | CAiMaps::GetCell(CAiMapLoc const&) | ai_maps.cpp | MATCH | | GetMapByIndex inline, NULL -> NULL, y < ny and x < nx, scanline span or dummy cell, else NULL |
 | 47 | 0x1980c0 | 224 | CAiMaps::GetCellName(CAiMapLoc const&) const | ai_maps.cpp | MATCH | | GetMapByIndex inline, map GetCellName(loc), NULL without a map |
 | 48 | 0x1981a0 | 628 | CAiMaps::CreateGraph(bool) | ai_maps.cpp | MATCH | | kept graph unless rebuild; "AiMap Graph"; per map per link: node by node ex, else a node (link as ex), the peer GetCellLink on the link's map (NULL map not tested), a second node and a 0-length edge; then per earlier link: its node, FlushPlannerQueue, a local CAiPath with flags 0, PathPlanImmediate(map, l, o) -> edge(node, peer) with GetLength(false); m_graph = graph |
-| 53 | 0x199610 | 584 | CAiMaps::GetLocationDelta(CAiMapLoc const&, CAiMapLoc const&) | ai_maps.cpp | DEVIATION-KEPT | | recorded (code and mod-zai.md): a map off the set transforms nothing and counts 0 cells where the ELF calls TransformTo / reads m_cellcount through NULL. Rest matches: same map |dx| (unsigned larger - smaller) + |dy| (signed); else both maps by index, TransformTo(a, mb, moved) -> distance moved .. b, else _max of the two m_cellcount (+0x70) |
+| 53 | 0x199610 | 584 | CAiMaps::GetLocationDelta(CAiMapLoc const&, CAiMapLoc const&) | ai_maps.cpp | DEFECT-FIXED | C | recorded (code and mod-zai.md): a map off the set transforms nothing and counts 0 cells where the ELF calls TransformTo / reads m_cellcount through NULL. Rest matches: same map |dx| (unsigned larger - smaller) + |dy| kept earlier; guard removed 2026-11-20: TransformTo / m_cellcount through the maps unchecked. Earlier: (signed); else both maps by index, TransformTo(a, mb, moved) -> distance moved .. b, else _max of the two m_cellcount (+0x70) |
 | 45 | 0x1976d0 | 464 | CAiMaps::GetRegionTypeContainer(CAiMap::region::TYPE, CAiMapLoc const&) | ai_maps.cpp | DEFECT-FIXED | C | port-only guard removed: a NULL region was skipped; the ELF reads it (0x1977cc), as GetClosestRegion (audit-large-c row 43); every corner in m_regions is a region of a map of the set, so it is never NULL. Rest matches: m_regions[(u8) type], map by index, GetRegion(corner), dx / dy signed in [0, m_dx) / [0, m_dy) (u16 extents) -> region; NULL |
 | 46 | 0x197f70 | 232 | CAiMaps::Tile(CAiMap::region const*, unsigned int, unsigned int) | ai_maps.cpp | MATCH | | NULL region 0; map by index, none 0; map Tile(region, value, flags) (u8), ai::ResetPathPlan, the answer |
 | 54 | 0x19a480 | 232 | CAiMaps::CanSeeLine(CAiMapLoc const&, CAiMapLoc const&, CAiMapLoc*) | ai_maps.cpp | MATCH | | different map ids 0; map by index, NULL 0; CAiMap::CanSeeLine (u8) |
@@ -144,7 +146,7 @@ Runs, on HEAD aac25173 plus these files:
 | 16 | 0x180000 | 240 | CAiEvent::GetEventString(CAiEvent::EVENT) | ai_events.cpp | MATCH | | (s8) event unsigned < 15 through the jump table 0x449010 (13 ALARM, 14 LIGHTSOFF), else UNKNOWN |
 | 86 | 0x1a2300 | 500 | CAiMap::CenterRegion(CAiMapLoc const&, CAiMap::region&) const | ai_vismap.cpp | MATCH | | hw / hh = region dx / dy >> 1 (u16); (f32)(u32)(x + hw) <= m_dx (the cell size, quirk commented) -> x - hw else fptoui(m_dx - (f32) region dx) (vis_fptoui: negative 0, as fptoui 0x16d7a0); y - hh < 0 (signed) -> 0, (f32)(s32)(y + hh) <= m_dy -> y - hh, else fptoui(m_dy - (f32) region dy); 13-bit stores; 1 |
 | 84 | 0x1a1c40 | 388 | CAiVisMap::CAiVisMap() | ai_vismap.cpp | MATCH | | m_map NULL, m_loc = CAiMapLoc::invalid, region corner unset, dx / dy 0, type / nodisplay / flags / unused 0, name[0] 0, state (byte +0x40) 0, line / cells / bytes 0, bits NULL, id -1, lifetime -1 |
-| 85 | 0x1a1dd0 | 252 | CAiVisMap::CloseAll() | ai_vismap.cpp | DEVIATION-KEPT | | recorded (code, mod-zai.md): a NULL entry of globalVisMap is skipped where the ELF stores its id -1 through NULL (delay slot 0x1a1e08). Rest matches: id -1, the inline destructor (bytes / map 0, delete[] bits, NULL), delete; both lists erased |
+| 85 | 0x1a1dd0 | 252 | CAiVisMap::CloseAll() | ai_vismap.cpp | DEFECT-FIXED | C | kept earlier; guard removed 2026-11-20: an entry's id is written without a NULL test (0x1a1e08). Earlier: recorded (code, mod-zai.md): a NULL entry of globalVisMap is skipped where the ELF stores its id -1 through NULL (delay slot 0x1a1e08). Rest matches: id -1, the inline destructor (bytes / map 0, delete[] bits, NULL), delete; both lists erased |
 | 83 | 0x1a0ea0 | 288 | CAiVisMap::FindEvadeLocation(CAiMapLoc const&, CAiMapLoc&) | ai_vismap.cpp | MATCH | | no map 0; function statics max 20 / min 2 (guarded); s from min while s < max: CheckBoxEdges(loc, s, out, UNSEEN, 0, 0), stop on a hit; none 0; else (u16) out.y < ny and out.x < nx |
 | 87 | 0x1a2500 | 588 | CAiVisMap::RegisterDynamicVisMap(CAiVisMap*, CAiMapLoc const&, int) | ai_vismap.cpp | MATCH | | already listed 1; size 2 r, cells size^2, words (cells >> 4) + (cells & 15 != 0), bytes 4 words, !(bytes < 16000) -> 0; m_cells; m_bytes < bytes: bytes / map 0, delete[] bits, new[](bytes), width / height = size; m_bytes, memset(bits, nosee_byte 0) when bits; pushed at the tail, corner (0, 0, map 0), dx / dy = size (u16), state 1, UpdateDynamicVisMap(vm, loc), 1 |
 | 34 | 0x19dce0 | 440 | CAiMap::CreateGraph(bool) | ai_mapdata.cpp | MATCH | | rebuild: Destroy, NULL, flag 1 off; no routes: the same and return; "AiMap Graph"; a node per type-4 region (5 bits of +8; node ex = region, SetName(m_name)); per route without flag 1: FindByLocation of both region corners, nodes by ex (first, then second), CreateEdge, length = m_path.ComputeLength, edge ex = route; m_graph, flag 1 when set |
