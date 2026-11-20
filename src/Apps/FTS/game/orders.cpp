@@ -341,10 +341,17 @@ void orders_read_sound(CRdrFile *rdr, const char *tag, CSaferStr &name, bool &ha
 }
 
 /* @socom-skeleton stub OnRecoCmd__10OrdersMenuFiiiiPc */
-void OrdersMenu::OnRecoCmd(int, int, int, int, char *)
+void OrdersMenu::OnRecoCmd(int count, int word0, int word1, int word2, char *last)
 {
-	/* 0x17c540: the voice recogniser's result callback (headset input: stays stubbed in the
-	 * port, the recogniser never starts) */
+	/* 0x17c540: the voice recogniser's result callback (cbrecoResult): the result is kept for
+	 * the next HandlePad / Tick (recoResult, then the last word's text at +0x10). In the port
+	 * the recogniser never starts, so nothing calls it. */
+	recoResult[3] = word2;
+	handle_reco_result = 1;
+	recoResult[0] = count;
+	recoResult[1] = word0;
+	recoResult[2] = word1;
+	sprintf((char *)&recoResult[4], "%s", last);
 }
 
 /* @socom-skeleton stub __dt__9CMD_TABLEFv */

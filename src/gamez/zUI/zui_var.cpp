@@ -256,8 +256,9 @@ void UIVarMixin::DetachUIVar(CUIVariable *var)
 /* @socom-skeleton stub __dt__13CUIVarManagerFv */
 CUIVarManager::~CUIVarManager()
 {
-	/* 0x39e050: the variables, the two string tables and the CSaveModule part go with the
-	 * members and bases */
+	/* 0x39e050: the variables are cleared first (0x39e080), then the two string tables and
+	 * the CSaveModule part go with the members and bases */
+	clear();
 }
 
 /* @socom-skeleton stub Reset__13CUIVarManagerFv */
@@ -335,7 +336,7 @@ CUIVariable * CUIVarManager::FindDormantVar(const char *name, _zrdr *reader, UIV
 		if (it->m_longevity != UIVL_DORMANT)
 			continue;
 
-		it->m_varname = CurrentTable()->CreateString(name);
+		it->m_varname = theUIVarManager.CurrentTable()->CreateString(name); /* 0x39dd74: the global's table */
 		it->m_longevity = longevity;
 
 		if (reader != NULL)

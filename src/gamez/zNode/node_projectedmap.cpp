@@ -18,6 +18,5 @@ zdb::CProjectedMap_Object::CProjectedMap_Object()
 /* @socom-skeleton stub __dt__Q23zdb20CProjectedMap_ObjectFv */
 zdb::CProjectedMap_Object::~CProjectedMap_Object()
 {
-	/* 0x22b260: the vector's storage freed */
-	std::vector<unsigned int>().swap(*this);
+	/* 0x22b260: nothing of its own; the vector base frees its storage */
 }

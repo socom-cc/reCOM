@@ -43,7 +43,7 @@ const char* zrdr_findfile(const char* name, const char* dir)
 	static char _buffer[256]; /* local static _buffer$711 (256 bytes; 0x5056b0) */
 	if (dir)
 	{
-		snprintf(_buffer, sizeof(_buffer), "%s/%s", dir, name); /* asm 0x23e4e0: sprintf(buf, fmt, a1, a0) */
+		sprintf(_buffer, "%s/%s", dir, name); /* asm 0x23e500: sprintf(buf, fmt, a1, a0), unbounded */
 		name = _buffer;
 	}
 
@@ -138,11 +138,9 @@ void _zrdr::Clone(_zrdr *other, CSTable *table)
 /* @socom-skeleton body __ct__5_zrdrFP5_zrdrP7CSTable */
 _zrdr::_zrdr(_zrdr* other, CSTable* stable)
 {
-	type = ZRDR_NULL;
+	/* 0x23e140: only isclone is cleared before the clone (Clone sets type and length, and
+	 * packed for an array) */
 	isclone = false;
-	packed = false;
-	unused = 0;
-	length = 0;
 
 	Clone(other, stable);
 }

@@ -2659,19 +2659,19 @@ bool CZAnim::ExecuteSpecialSequence(int offset)
 {
 	/* 0x1c8f00: run the sequence at that offset for one 1-second tick; true (go on)
 	 * unless it is still running. No offset: true. */
+	if (offset <= 0)
+		return true; /* 0x1c8f18: before the current anim / sequence are saved */
+
 	CZAnim* savedAnim = ZAnim.m_CurAnim;
 	_zsequence* savedSeq = ZAnim.m_CurSeq;
 	bool go = true;
 
-	if (offset > 0)
-	{
-		ZAnim.m_CurSeq = reinterpret_cast<_zsequence*>(m_seq_data + offset);
-		ZAnim.m_CurAnim = this;
-		ZAnim.SeqSetState(2);
-		ZAnim.SeqTick(1.0f);
-		go = !ZAnim.SeqRunning();
-		ZAnim.SeqSetState(1);
-	}
+	ZAnim.m_CurSeq = reinterpret_cast<_zsequence*>(m_seq_data + offset);
+	ZAnim.m_CurAnim = this;
+	ZAnim.SeqSetState(2);
+	ZAnim.SeqTick(1.0f);
+	go = !ZAnim.SeqRunning();
+	ZAnim.SeqSetState(1);
 
 	ZAnim.m_CurAnim = savedAnim;
 	ZAnim.m_CurSeq = savedSeq;

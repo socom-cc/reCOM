@@ -602,7 +602,8 @@ void CSnd::AddNewCSnd(CSnd* sound)
 	if (!m_isDisabled)
 	{
 		sound_map[std::string(sound->m_name)] = sound;
-		m_soundlist.insert(m_soundlist.begin(), sound);
+		/* 0x2edb60: inserted at *data() + size (the end), as LoadSounds does */
+		m_soundlist.insert(m_soundlist.end(), sound);
 	}
 }
 

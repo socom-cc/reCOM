@@ -99,7 +99,7 @@ bool CRemoteCtrl::AllowCommand(CZSealBody *commander, FT_COMMAND command, void *
 bool CRemoteCtrl::Tick(float)
 {
 	/* 0x2ce6c0: a remote seal has no goal of its own */
-	ClearGoal((GOAL_TYPE)0);
+	CSealCtrl::ClearGoal((GOAL_TYPE)0); /* 0x2ce6c8: a direct call */
 	return true;
 }
 

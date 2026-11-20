@@ -61,11 +61,14 @@ bool CZAnimMain::Unload()
 /* @socom-skeleton stub UnloadSIScript__10CZAnimMainFP16_zanim_si_script */
 void CZAnimMain::UnloadSIScript(_zanim_si_script *script)
 {
-	/* 0x1c2370 (port: unproven - not re-read): free the script data */
+	/* 0x1c2370: free the script data; the data, its size and the frame count cleared (the ELF
+	 * returns 1, no caller reads it) */
 	if (script->script_data != NULL)
-		_free(script->script_data, "anim_main.cpp", 0);
+		_free(script->script_data, "zanim_load.cpp", 80);
 
 	script->script_data = NULL;
+	script->script_data_size = 0;
+	script->total_frame_count = 0;
 }
 
 /* @socom-skeleton stub UnloadCmdSet__10CZAnimMainFi */

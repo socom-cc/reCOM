@@ -287,7 +287,7 @@ void CSequence::Start(float up, float hold, float down)
 	m_upT = up;
 	m_holdT = hold;
 	m_downT = down;
-	m_currT = down + up + hold;
+	m_currT = down + (up + hold); /* 0x1dc930: up + hold first */
 }
 
 /* @socom-skeleton stub Clear__9CSequenceFv */

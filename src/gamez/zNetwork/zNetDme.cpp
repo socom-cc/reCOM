@@ -473,8 +473,9 @@ int CZNetwork::zNetJoin(void (*joinCallback)(int, int), void (*leaveCallback)(in
 void CZNetwork::zNetLeaveAndDisconnect()
 {
 	/* 0x321550: the session left (disconnected when that worked), the defaults back */
-	m_bJoined = false;
-	if (NetLeave(m_GameConnectionIndex) == 0)
+	int left = NetLeave(m_GameConnectionIndex);
+	m_bJoined = false; /* 0x32156c: after NetLeave */
+	if (left == 0)
 	{
 		NetDisconnect(m_GameConnectionIndex);
 		m_bConnected = false;
@@ -520,7 +521,7 @@ void CZNetwork::zNetRemoteObjectUpdateCallback(int, int index, int fields)
 {
 	/* 0x321340: a remote object changed: its type's update callback, and the object is marked
 	 * for zNetUpdate's post-update callback */
-	void *object = NULL;
+	void *object; /* 0x321348: not cleared before NetGetObject (zNetGetObject clears it) */
 	NetGetObject(&object, index);
 	NetObjectRec *rec = (NetObjectRec *)object;
 	if (rec != NULL && theNetwork.m_ObjectUpdateCallbackList[rec->m_unk_00[0]] != NULL)

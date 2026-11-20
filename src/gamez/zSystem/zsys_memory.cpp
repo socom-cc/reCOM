@@ -60,8 +60,10 @@ size_t zsys_FullAllocAndFree()
 /* @socom-skeleton stub _free__FPvPCci */
 void _free(void *block, const char *, int)
 {
-	/* port: body carried from zsystem_holding.cpp (held from zsys_memory.cpp:142) */
+	/* 0x2f48e0: as _delete, with interrupts off */
+	DIntr();
 	free(block);
+	EIntr();
 }
 
 /* @socom-skeleton stub _delete__FPvPCci */
@@ -81,7 +83,7 @@ void * _new(unsigned int size, const char *, int)
 	DIntr();
 	void* p = malloc(size);
 	EIntr();
-	zVid_Assert(size == 0 || p != NULL, 0x800000ff, (char*)__FILE__, 0x20c);
+	zVid_Assert(size == 0 || p != NULL, 0x800000ff, (char*)"zsys_memory.cpp", 0x20c);
 	return p;
 }
 
@@ -104,7 +106,7 @@ void * _new_vec(unsigned int size, const char *, int)
 	DIntr();
 	void* p = malloc(size);
 	EIntr();
-	zVid_Assert(size == 0 || p != NULL, 0x800000ff, (char*)__FILE__, 0x231);
+	zVid_Assert(size == 0 || p != NULL, 0x800000ff, (char*)"zsys_memory.cpp", 0x231);
 	return p;
 }
 
@@ -115,7 +117,7 @@ void * _malloc(unsigned int size, const char *, int)
 	DIntr();
 	void* p = malloc(size);
 	EIntr();
-	zVid_Assert(size == 0 || p != NULL, 0x800000ff, (char*)__FILE__, 0x243);
+	zVid_Assert(size == 0 || p != NULL, 0x800000ff, (char*)"zsys_memory.cpp", 0x243);
 	return p;
 }
 
@@ -126,7 +128,7 @@ void * _memalign(unsigned int alignment, unsigned int size, const char *, int)
 	DIntr();
 	void* p = memalign(alignment, size);
 	EIntr();
-	zVid_Assert(size == 0 || p != NULL, 0x800000ff, (char*)__FILE__, 0x255);
+	zVid_Assert(size == 0 || p != NULL, 0x800000ff, (char*)"zsys_memory.cpp", 0x255);
 	return p;
 }
 
@@ -137,7 +139,7 @@ void * _realloc(void *block, unsigned int size, const char *, int)
 	DIntr();
 	void* p = realloc(block, size);
 	EIntr();
-	zVid_Assert(size == 0 || p != NULL, 0x800000ff, (char*)__FILE__, 0x26b);
+	zVid_Assert(size == 0 || p != NULL, 0x800000ff, (char*)"zsys_memory.cpp", 0x26b);
 	return p;
 }
 
@@ -150,7 +152,7 @@ void * _calloc(unsigned int count, unsigned int size, const char *, int)
 	void* p = malloc(total);
 	EIntr();
 	memset(p, 0, total);
-	zVid_Assert(total == 0 || p != NULL, 0x800000ff, (char*)__FILE__, 0x281);
+	zVid_Assert(total == 0 || p != NULL, 0x800000ff, (char*)"zsys_memory.cpp", 0x281);
 	return p;
 }
 
@@ -163,7 +165,7 @@ char * _strdup(const char *str, const char *, int)
 	char* p = (char*)malloc(size);
 	strcpy(p, str);
 	EIntr();
-	zVid_Assert(size == 0 || p != NULL, 0x800000ff, (char*)__FILE__, 0x294);
+	zVid_Assert(size == 0 || p != NULL, 0x800000ff, (char*)"zsys_memory.cpp", 0x294);
 	return p;
 }
 

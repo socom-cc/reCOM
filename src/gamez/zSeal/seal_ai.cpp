@@ -829,9 +829,10 @@ void CSealCtrlAi::StopAiSound(AI_SOUND sound)
 	s32 i = (s8)sound;
 
 	if (aiSoundInstance[i] != NULL)
+	{
 		aiSoundInstance[i]->Stop();
-
-	aiSoundInstance[i] = NULL;
+		aiSoundInstance[i] = NULL; /* 0x26bf84: cleared only after a Stop */
+	}
 }
 
 /* @socom-skeleton stub GetAiLog__11CSealCtrlAiFv */
@@ -1704,8 +1705,8 @@ void CSealCtrlAi::OnStunDamage(STUN_TYPE type, float amount, const CPnt3D *from)
 void CSealCtrlAi::OnSetHealth(float health, float old)
 {
 	/* 0x269bb0: a health loss cuts the character's sounds (CSndInstance::Remove of its
-	 * entity) and plays its hurt sound (0x39) */
-	if (health < old)
+	 * entity) and plays its hurt sound (0x39); the compare as the ELF has it (c.le.s 0x269bb8) */
+	if (!(old <= health))
 	{
 		CSndInstance::Remove(m_entity->m_id, true, true);
 		PlayAiSound((CHARACTER_SOUND)0x39);
