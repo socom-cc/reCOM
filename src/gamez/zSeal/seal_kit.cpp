@@ -225,8 +225,10 @@ void sealSaveFireModes()
 	{
 		CSavedFireModeInfo *info = &g_arrSavedFireModeInfo[i];
 		s32 idx = kit->unwrap(i, kit->m_num_items);
-		/* ELF reads the id through NULL when unwrap answers -1; port: 255 (none) */
-		info->m_item = idx != -1 ? (u8)kit->m_item[idx]->m_ID : 255;
+		/* ELF quirk kept: when unwrap answers -1 the id byte is read through NULL (0x2afb48;
+		 * unreachable: i < count) */
+		CZFTSWeapon *item = idx != -1 ? kit->m_item[idx] : NULL;
+		info->m_item = (u8)item->m_ID;
 		info->m_firemode = kit->m_firemode[i];
 	}
 }

@@ -2522,8 +2522,8 @@ CZBodyAnimBlend * CZSealBody::Prone_0(int from)
 	/* 0x275e80: the prone transition from a state, all pushed in the prone state over the
 	 * prone blend: standing stand-to-prone, crouched crouch-to-prone; hanging the stand-to-
 	 * prone pair, then Stand_0 drops from the hang. The last foot is 2 and the transition's
-	 * representative loses flag 0x40. ELF quirk: from a hang or another state the
-	 * representative of NULL is written (port: guarded, NULL returned). */
+	 * representative loses flag 0x40. ELF quirk kept: from a hang or another state the
+	 * representative of NULL is written (0x275f68). */
 	CZBodyAnimBlend *blend = NULL;
 
 	if (from == 4)
@@ -2546,11 +2546,7 @@ CZBodyAnimBlend * CZSealBody::Prone_0(int from)
 	}
 
 	m_last_foot = 2;
-
-	if (blend == NULL) /* port: guard (see above) */
-		return NULL;
-
-	blend->Representative()->m_flags &= 0xffbf;
+	blend->Representative()->m_flags &= 0xffbf; /* not NULL-tested, as the ELF */
 	return blend;
 }
 
@@ -2587,8 +2583,8 @@ CZBodyAnimBlend * CZSealBody::Hang_0(int from, int dir)
 	/* 0x275c40 (SetStance's hang transitions): from standing, the grab (36) then the hang
 	 * climbing up (35, dir > 0) or the hang (39); its representative loses flag 0x40. From
 	 * crouched or prone: first to the hang from standing, then Stand_0 from the old state.
-	 * ELF quirk kept: those two answer no blend (the representative is then taken of NULL;
-	 * port: skipped) */
+	 * ELF quirk kept: those two answer no blend (the representative is then taken of NULL
+	 * and written through, 0x275d60) */
 	m_blends->Top(); /* ELF: called, the answer unused */
 	CZBodyAnimBlend *blend = NULL;
 
@@ -2603,11 +2599,7 @@ CZBodyAnimBlend * CZSealBody::Hang_0(int from, int dir)
 		Stand_0(from, 0);
 	}
 
-	/* port: NULL-tested: the ELF takes the representative of NULL (0x275d60) and writes through
-	 * it; written so, GCC -O3 traps on the literal NULL (as Crouch_0 / Prone_0) */
-	if (blend != NULL)
-		blend->Representative()->m_flags &= 0xffbf;
-
+	blend->Representative()->m_flags &= 0xffbf; /* not NULL-tested, as the ELF */
 	return blend;
 }
 
@@ -4589,8 +4581,7 @@ void CZSealBody::Action(AnimType type, bool reversed, int node_id, int part_id, 
 	 * part, upright). The ELF returns 0 when the node, the part or the object part is missing,
 	 * else 1 (port: void as declared). ELF quirks kept: the node is added to the part's node,
 	 * then deleted from its (new) parent and added again; the object part's entry is not
-	 * NULL-tested (0x26ea84; port: tested, as GetObjAnim's not-found NULL inlines into a
-	 * literal NULL that GCC -O3 turns into a trap). */
+	 * NULL-tested (0x26ea84). */
 	zdb::CNode *node = GetAnimationNode((u32)node_id);
 
 	if (node == NULL)
@@ -4602,7 +4593,7 @@ void CZSealBody::Action(AnimType type, bool reversed, int node_id, int part_id, 
 		return;
 
 	OBJ_ANIM *entry = m_obj_anims.GetObjAnim(BodyId("rifle_out"));
-	CZBodyPart *carry = entry != NULL ? entry->m_part : NULL;
+	CZBodyPart *carry = entry->m_part;
 
 	if (carry == NULL)
 		return;

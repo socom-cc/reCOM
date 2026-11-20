@@ -421,6 +421,57 @@ unsigned int g_attempt_at;
 unsigned int g_placed_at;
 unsigned int g_crates_end;
 
+/* the restraint waits for a quiet moment: an enemy that is engaging (an awake hostile AI that
+ * sees the player or the captive, or stands within HOOK_ENGAGE_RANGE of the captive) can hit the
+ * captive during the restraint anim (a hit detaches him; CheckAnim then reads the NULL carry as
+ * the ELF does). Waited for at most HOOK_QUIET_WAIT ticks; then the engaging enemies are killed
+ * as the hook kills guards elsewhere (kill: real fall damage, the player the killer). */
+enum { HOOK_QUIET_WAIT = 600, HOOK_QUIET_TICKS = 30 };
+const float HOOK_ENGAGE_RANGE = 200.0f;
+unsigned int g_restrain_at;
+unsigned int g_quiet_since;
+
+int engaging(CZSealBody *player, CZSealBody *captive, bool deal)
+{
+    int n = 0;
+    const CPnt3D *c = captive->GetPosW();
+
+    for (CEntityList::iterator it = CEntity::m_list.begin(); it != CEntity::m_list.end(); ++it)
+    {
+        CZSealBody *s = SealOfEntity(*it);
+
+        if (s == NULL || s == player || s == captive || !s->m_isAlive || (s->m_team & player->m_team) != 0 || (s->m_team & 0x20000) != 0)
+            continue;
+
+        if (s->m_control == NULL || !static_cast<CSealCtrl *>(s->m_control)->IsAi())
+            continue;
+
+        CSealCtrlAi *ai = static_cast<CSealCtrl *>(s->m_control)->GetSealCtrlAi();
+
+        if (ai == NULL || ai->m_sleeping)
+            continue;
+
+        const CPnt3D *p = s->GetPosW();
+        float dx = p->x - c->x, dz = p->z - c->z;
+        CTarget *sees_player = s->m_targets.FindTarget(player);
+        CTarget *sees_captive = s->m_targets.FindTarget(captive);
+        bool near = dx * dx + dz * dz < HOOK_ENGAGE_RANGE * HOOK_ENGAGE_RANGE;
+
+        if (!near && !(sees_player != NULL && sees_player->m_visible) && !(sees_captive != NULL && sees_captive->m_visible))
+            continue;
+
+        n++;
+
+        if (deal)
+        {
+            SOCOM_PORT_TRACE("HOOK: tick %u %s still engaging at the restraint (%.0f away)", g_reads, s->m_node->m_name, sqrtf(dx * dx + dz * dz));
+            kill(s, player);
+        }
+    }
+
+    return n;
+}
+
 void next(int step)
 {
     g_step = step;
@@ -731,11 +782,14 @@ void script(CZSealBody *player)
         if ((t > 600 && val("POBJ2") == 1) || (g_crates_end != 0 && g_reads - g_crates_end > 300) || t > 7200)
         {
             freecam_off();
+            g_restrain_at = 0;
+            g_quiet_since = 0;
             next(8);
         }
         break;
 
     case 8: /* Pincushion: behind Snow3, the restraint (POBJ3) */
+    {
         if (snow3 == NULL)
         {
             SOCOM_PORT_TRACE("HOOK: no Snow3");
@@ -743,7 +797,42 @@ void script(CZSealBody *player)
             break;
         }
 
-        if (t == 30)
+        if (g_restrain_at == 0 || g_reads - g_restrain_at < 30)
+        {
+            /* a quiet moment first (see engaging); also until the restraint starts */
+            if (t < 30)
+                break;
+
+            bool deal = t >= 30 + HOOK_QUIET_WAIT;
+            int n = engaging(player, snow3, deal);
+
+            if (n != 0 && !deal)
+            {
+                if (g_restrain_at != 0 || g_quiet_since != 0 || t == 30)
+                    SOCOM_PORT_TRACE("HOOK: tick %u %d enemies engaging at Snow3: the restraint waits", g_reads, n);
+
+                g_restrain_at = 0;
+                g_quiet_since = 0;
+                break;
+            }
+
+            if (g_restrain_at == 0)
+            {
+                if (g_quiet_since == 0)
+                    g_quiet_since = g_reads;
+
+                if (g_reads - g_quiet_since < HOOK_QUIET_TICKS)
+                    break;
+
+                g_restrain_at = g_reads;
+                SOCOM_PORT_TRACE("HOOK: tick %u no enemy engaging at Snow3 (waited %u)", g_reads, t - 30);
+            }
+        }
+
+        /* r: ticks since the quiet moment (the old fixed times, t - 30) */
+        unsigned int r = g_reads - g_restrain_at;
+
+        if (r == 0)
         {
             CPnt3D p = *snow3->GetPosW();
             const float *m = snow3->m_node->m_matrix.m_matrix[2];
@@ -751,14 +840,25 @@ void script(CZSealBody *player)
             put(player, CPnt3D(p.x + m[0] * 8.0f, p.y, p.z + m[2] * 8.0f), CPnt3D(-m[0], 0.0f, -m[2]), "behind Snow3");
         }
 
-        if (t == 60)
+        if (r == 30 && !snow3->m_restrainable && t < 30 + 2 * HOOK_QUIET_WAIT)
+        {
+            /* the game offers RESTRAIN only for a restrainable captive (the action list); one
+             * that is not (turned, aware) detaches at once and the player's restraint anim is
+             * left without its partner: put behind him again and wait (bounded) */
+            SOCOM_PORT_TRACE("HOOK: tick %u Snow3 not restrainable: behind him again", g_reads);
+            g_restrain_at = 0;
+            g_quiet_since = 0;
+            break;
+        }
+
+        if (r == 30)
         {
             SOCOM_PORT_TRACE("HOOK: tick %u restrain Snow3 (restrainable %d, alive %d)", g_reads, (int)snow3->m_restrainable,
                 (int)snow3->m_isAlive);
             player->ExecuteAction_ApplyRestraint(snow3);
         }
 
-        if (t == 200 || t == 400)
+        if (r == 170 || r == 370)
         {
             /* the restrained captive can surrender once he sees the player (DoReaction clears
              * his states): restrained again, now over the surrender (no new reaction then) */
@@ -775,9 +875,10 @@ void script(CZSealBody *player)
             }
         }
 
-        if ((t > 450 && val("POBJ3") == 1) || t > 700)
+        if ((r > 420 && val("POBJ3") == 1) || r > 670)
             next(9);
         break;
+    }
 
     case 9: /* escort: in front of him, aiming at him, CMD_ESCORT to the fireteam */
         if (t == 200)

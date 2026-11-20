@@ -117,16 +117,40 @@ second monitor, focus kept, no memory card.
   ELF does unchecked (0x277880..0x2778c8), and PCSX2 stops on the TLB miss at 0x520.
 - `gate.ps1 -Only roundtrip`: PASS, 4 returns, in use 18,642,780 B flat at every return.
 
+## Follow-ups (2026-11-20, approved by the user)
+
+1. The five guards kept for a GCC reason are gone ("Remove them for accuracy"); each is now in the
+   ELF's form and the row reads `DEFECT-FIXED | C`: medium-seal-d #31 Hang_0 and #33 Prone_0 (the
+   representative of a NULL blend written, 0x275d60 / 0x275f68), #13 Action (the rifle_out entry
+   read unchecked, 0x26ea84), #98 sealSaveFireModes (unwrap's -1 reads the id through NULL,
+   0x2afb48), medium-seal-a #36 CanPickupNetItem (the entity tested, not the seal, 0x28d1ec).
+   `port/CMakeLists.txt` gives `SOCOM_PORT_FLAGS` (with `-fno-delete-null-pointer-checks` and
+   `-fno-isolate-erroneous-paths-dereference`) to every C++ unit of `socom_game`; in the default
+   build Hang_0 (0x2b2650) and Prone_0 (0x2b1a40) keep the Representative call and the `sh` through
+   its answer on the no-blend path, with no `teq` / `break`. `Crouch_0` has the same kind of guard
+   ("port: guard, NULL returned") but was not one of the kept rows; left as it is.
+2. Win hook, step 8: the restraint waits for a quiet moment, at most 600 ticks: no awake hostile
+   AI that sees the player or Snow3 or stands within 200 of him. After that the ones still
+   engaging are killed as the hook kills guards elsewhere. Then the hook restrains only a
+   restrainable Snow3: the game offers RESTRAIN only then, and he becomes restrainable when he
+   surrenders. Until then the player is put behind him again, bounded at 1200 ticks. Both failed
+   runs (round 1 run 3, and the first run of this round) restrained him with `restrainable 0`, so
+   he was not hit: he detached at once (state 0), and the player's ApplyRestraints blend reached
+   CheckAnim's NULL `m_carry`.
+3. audit-large-a.md: #28 (k 21), #79 (k 37) and #74 (k 41) now read DEFECT-FIXED C, their guards
+   removed with Lead B. #39 (k 26) and #78 (k 57) say their guard went with Lead B and stay kept
+   for the rest. Counts are now DEFECT-FIXED 14 (C 11) and DEVIATION-KEPT 10.
+
+Runs of this round (HEAD 0d823ba6 + this round's files): the default build links;
+`gate.ps1 -Only win -Build audit-closeout-gate` five times, 5 PASS, objectives 3/7 each, debrief at
+196.2, 200.4, 214.4, 238.1 and 200.3 s. Before the restrainable test, the first run of this round failed
+as round 1's run 3 did. In runs 1-3 and 5 the hook waited once or twice and then restrained a
+restrainable Snow3. In run 4 he never surrendered within the bound (1200 ticks): the restraint ran
+with `restrainable 0` and held that time (POBJ3 set).
+
 ## Open questions
 
-- Rows kept for a GCC reason that the CMake flags have since removed: medium-seal-d #31 Hang_0,
-  #33 Prone_0, #13 Action, #98 sealSaveFireModes ("a literal NULL traps under GCC -O3": now
-  `-fno-isolate-erroneous-paths-dereference`) and medium-seal-a #36 CanPickupNetItem ("a member
-  call on NULL is undefined in GCC"). By the user's rule they would go too; not changed here.
-- Five rows of large-a still read DEVIATION-KEPT though Lead B removed their guards.
-- PCSX2 reports a TLB miss for a read below 0x80000 in the port (run 3), so a read through NULL
-  stops the port rather than reading low memory; the guards removed here are not reached in the
-  runs, but any of them that is reached stops the port as the ELF's read would.
-- The restraint crash of run 3 (ELF-faithful NULL `m_carry` in CheckAnim after a hit detaches the
-  captive): the hook could restrain Snow3 only when no enemy is engaging, but that changes the
-  test's conditions; left for a decision.
+- Settled by the follow-ups: the five GCC-reason rows, the five large-a rows, the restraint.
+- PCSX2 reports a TLB miss for a read below 0x80000 in the port, so a read through NULL stops the
+  port rather than reading low memory; the guards removed here are not reached in the runs, but
+  any of them that is reached stops the port as the ELF's read would.

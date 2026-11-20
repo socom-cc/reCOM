@@ -7529,12 +7529,12 @@ void CZSealBody::CanPickupNetItem(unsigned short count, unsigned short netid, un
 	}
 
 	SendPickupAckMessage(count, netid, asker, ack);
-	CZSealBody *seal = SealOfEntity(CEntity::m_list.GetEntityById(asker));
+	CEntity *entity = CEntity::m_list.GetEntityById(asker);
+	CZSealBody *seal = SealOfEntity(entity);
 
-	/* port deviation: the ELF tests the entity, not the seal (0x28d1ec), so an asker id of an
-	 * entity that is no seal would get HandlePickupAck on NULL; the port tests the seal (a
-	 * member call on NULL is undefined in GCC; askers are always seals) */
-	if (seal != NULL)
+	/* ELF quirk kept: the entity is tested, not the seal (0x28d1ec), so an asker id of an
+	 * entity that is no seal gets HandlePickupAck on NULL (askers are always seals) */
+	if (entity != NULL)
 		seal->HandlePickupAck(count, netid, &ack);
 }
 

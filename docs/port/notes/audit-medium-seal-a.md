@@ -12,11 +12,13 @@ disassembly; addresses quoted below and every delay slot relied on were checked 
 | Verdict | Rows |
 |---|---|
 | MATCH | 82 |
-| DEFECT-FIXED | 18 (A 0, B 0, C 18) |
-| DEVIATION-KEPT | 1 |
+| DEFECT-FIXED | 19 (A 0, B 0, C 19) |
+| DEVIATION-KEPT | 0 |
 | UNJUDGED | 0 |
 
-Defect rate 18 / 101 (17.8%), all grade C: 9 rows of NaN-only compare forms, 4 rows of a body-part
+Defect rate 19 / 101 (18.8%), all grade C: 9 rows of NaN-only compare forms, 4 rows of a body-part
+
+2026-11-20 (audit-closeout follow-up): the GCC-reason guards removed (the build flags cover them), now DEFECT-FIXED C: #36 (the user's rule: the prototype's behaviour is kept; see [audit-closeout.md](audit-closeout.md)).
 
 2026-11-20 (audit-closeout): kept guards removed, now DEFECT-FIXED C: #4 (the user's rule: the prototype's behaviour is kept; see [audit-closeout.md](audit-closeout.md)).
 slot test's signedness, 3 unrecorded controller NULL tests, 1 float sum order. None changes what
@@ -184,7 +186,7 @@ the player sees on this disc.
 | 72 | 0x298930 | 224 | CZSealBody::IsReloading | zSeal/seal_env.cpp | MATCH | | Top twice (quirk), the seven reload types, overlay anim and its anim (+0x1a) MovingRifleReload / MovingPistolReload |
 | 76 | 0x299900 | 228 | CZSealBody::FindDeathAnimTypeCQB | zSeal/seal_env.cpp | MATCH | | victim facing = -(row 2) with y 0, d = own translation - victim's with y 0, (dx fx + dy fy) + dz fz < 0 -> CQBVictimFallForwards else Backwards; no NULL tests (quirk) |
 | 37 | 0x28d900 | 304 | CZSealBody::FillNetworkAmmoPickupValues | zSeal/seal_env.cpp | MATCH | | count = weapons size, per entry: !(size < i) reads weapon / ammo / count (quirk), rounds (u16), Pack(weapon id lb +0x60 or 255, ammo id lb +0x20 or 255) (Pack masks to bytes: the sign is harmless) |
-| 36 | 0x28d0a0 | 396 | CZSealBody::CanPickupNetItem | zSeal/seal_env.cpp | DEVIATION-KEPT | | 0x28d1ec tests the entity, not the seal, so a non-seal asker would get HandlePickupAck on NULL; the port tests the seal (now recorded in the code). Rest matches: FindNetPickup((u16) netid), none: DebugPickups + empty ack, count times (quirk): type 9 CheckForAmmoPickups(count, data, items, &ack), 8: items[0] == (u8) weapon id -> bit 0; SendPickupAckMessage(count, netid, asker, ack), asker's HandlePickupAck(count, netid, &ack) |
+| 36 | 0x28d0a0 | 396 | CZSealBody::CanPickupNetItem | zSeal/seal_env.cpp | DEFECT-FIXED | C | kept earlier; guard removed 2026-11-20: the entity is tested, not the seal (0x28d1ec). Earlier: 0x28d1ec tests the entity, not the seal, so a non-seal asker would get HandlePickupAck on NULL; the port tests the seal (now recorded in the code). Rest matches: FindNetPickup((u16) netid), none: DebugPickups + empty ack, count times (quirk): type 9 CheckForAmmoPickups(count, data, items, &ack), 8: items[0] == (u8) weapon id -> bit 0; SendPickupAckMessage(count, netid, asker, ack), asker's HandlePickupAck(count, netid, &ack) |
 | 90 | 0x29e6a0 | 288 | ComputeDeltaLookQuat | zSeal/seal_env.cpp | MATCH | | QFromRot both, conj(from) Mul(to) into dq, dq Apply(unit_nz), sceVu0OuterProduct((nz, 1), (r, 1)) into axis xyz |
 | 44 | 0x290180 | 324 | CZSealBody::FindHighestProximityDamage | zSeal/seal_env.cpp | MATCH | | "player" node name -> 0, copy of m_body_parts, parts with node and id >= 0 (lh): PartInSpace(part, zero, local, rot), m_quat Apply, + posw, GetDamage(world, 0), !(d <= best) keeps |
 | 55 | 0x293430 | 244 | AnimSet::InitDeathAndFlinchAnimations | zSeal/seal_env.cpp | MATCH | | 6 x 3: reserve(8) on deathanim, pistoldeathanim, teammatedeathanim, teammatepistoldeathanim, damageanim, pistoldamageanim in that order |
