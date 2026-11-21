@@ -4,8 +4,8 @@
 
 /* @socom-skeleton body tacmap_polys */
 /* held from src/Apps/FTS/hud/hud_newhudmap.cpp:3 */
-std::map<s32, LINE_DATA*> tacmap_polys;
+/* port: deleted (port-only leftover): not in the ELF, unused (hud_linemap.cpp uses g_mapPolyProps) */
 
 /* @socom-skeleton body tacmap_lines */
 /* held from src/Apps/FTS/hud/hud_newhudmap.cpp:4 */
-std::map<s32, LINE_DATA*> tacmap_lines;
+/* port: deleted (port-only leftover): not in the ELF, unused (hud_linemap.cpp uses g_mapLineProps) */

@@ -3,4 +3,4 @@
 
 /* @socom-skeleton body _dest */
 /* held from src/gamez/zVehicle/vehicle_main.cpp:8 */
-CVehicleRdrEntry* _dest = NULL;
+/* port: deleted (port-only leftover): not in the ELF, unused; declaration removed from zvehicle.h */

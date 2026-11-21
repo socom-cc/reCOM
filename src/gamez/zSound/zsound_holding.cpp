@@ -4,26 +4,20 @@
 
 /* @socom-skeleton body g_iReverbTime */
 /* held from src/gamez/zSound/zsnd_csnd.cpp:11 */
-/* port: duplicate of gamez/zSound/zsnd_csnd.cpp (g_iReverbTime__23@unnamed@zsnd_csnd_cpp@) */
-#if 0
-s32 g_iReverbTime = 0;
-#endif
+/* port: deleted (was #if 0): duplicate of gamez/zSound/zsnd_csnd.cpp (g_iReverbTime__23@unnamed@zsnd_csnd_cpp@) */
 
 /* @socom-skeleton body m_snd_data__4CSnd */
 /* held from src/gamez/zSound/zsnd_csnd.cpp:24 */
-u8* CSnd::m_snd_data = NULL; /* port: unproven - not in the ELF; provisional storage existing bodies use */
+/* port: deleted (port-only leftover): not in the ELF, unused; declaration removed from zsnd.h */
 
 /* @socom-skeleton body m_snd_len__4CSnd */
 /* held from src/gamez/zSound/zsnd_csnd.cpp:25 */
-u32 CSnd::m_snd_len = 0; /* port: unproven - not in the ELF; provisional storage existing bodies use */
+/* port: deleted (port-only leftover): not in the ELF, unused; declaration removed from zsnd.h */
 
 /* @socom-skeleton body m_soundmap__4CSnd */
 /* held from src/gamez/zSound/zsnd_csnd.cpp:34 */
-std::unordered_map<const char*, CSnd*> CSnd::m_soundmap; /* port: unproven - not in the ELF; provisional storage existing bodies use */
+/* port: deleted (port-only leftover): not in the ELF (the ELF's map is the LOCAL sound_map), unused; declaration removed from zsnd.h */
 
 /* @socom-skeleton body sound_rdr */
 /* held from src/gamez/zSound/zsnd_csnd.cpp:38 */
-/* port: not in the ELF; the binary's object is the LOCAL _sound_rdr in zsnd_csnd.cpp */
-#if 0
-_zrdr* sound_rdr = NULL;
-#endif
+/* port: deleted (was #if 0): not in the ELF; the binary's object is the LOCAL _sound_rdr in zsnd_csnd.cpp */

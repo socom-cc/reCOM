@@ -61,7 +61,6 @@ struct _zvid_private
 };
 
 extern _zvid_private zvid;
-extern CWindow* theWindow;
 
 extern CValve* lodLevel;
 

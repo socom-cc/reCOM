@@ -87,9 +87,6 @@ public:
 
 	static f32 m_fadetime;
 
-	static u8* m_snd_data; /* port: unproven - not in the ELF (zsound_holding.cpp) */
-	static u32 m_snd_len; /* port: unproven - not in the ELF (zsound_holding.cpp) */
-
 	static s32 m_max_num_vags;
 
 	static bool m_isDisabled;
@@ -102,7 +99,6 @@ public:
 	static s32 m_bnkoffset;
 	static s32 m_vagoffset;
 
-	static std::unordered_map<const char*, CSnd*> m_soundmap; /* port: unproven - not in the ELF; the ELF's map is the LOCAL sound_map */
 	static std::vector<u32> m_bankloaded; /* vector_pod<Ui>: 1 = the bank at that index loaded */
 	static std::vector<u32> m_soundbank; /* vector_pod<Ui>: 989snd bank handles, by bank index */
 	static std::vector<CSnd*> m_soundlist;

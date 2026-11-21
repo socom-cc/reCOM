@@ -7,7 +7,7 @@
 
 /* @socom-skeleton body dumpLog */
 /* held from src/gamez/zUtil/util_output.cpp:5 */
-bool dumpLog = true; /* port: unproven - not in the ELF; Apps/FTS/main.cpp:110 still reads it */
+/* port: deleted (port-only leftover): not in the ELF, unused (main.cpp reads gopt.dumpLog); declaration removed from zutil.h */
 
 /* @socom-skeleton body __ct__7CSTableFv */
 /* held from src/gamez/zUtil/util_stable.cpp:5 */

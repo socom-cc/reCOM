@@ -4,30 +4,20 @@
 
 /* @socom-skeleton body seal_init */
 /* held from src/gamez/zSeal/seal.cpp:6 */
-bool seal_init = false;
+/* port: deleted (port-only leftover): not in the ELF, unused */
 
 /* @socom-skeleton body m_crawl1stperson_amplitude__9CSealCtrl */
 /* held from src/gamez/zSeal/seal_control.cpp:5 */
-#if 0 /* port: not an ELF object; seal_dyn.cpp writes CSealCtrl::m_bobbing1stperson_amplitude[1] */
-f32 CSealCtrl::m_crawl1stperson_amplitude = 0.0f;
-#endif
+/* port: deleted (was #if 0): not an ELF object; seal_dyn.cpp writes CSealCtrl::m_bobbing1stperson_amplitude[1] */
 
 /* @socom-skeleton body m_crawl1stperson_rate__9CSealCtrl */
 /* held from src/gamez/zSeal/seal_control.cpp:6 */
-#if 0 /* port: not an ELF object; seal_dyn.cpp writes CSealCtrl::m_bobbing1stperson_rate[1] */
-f32 CSealCtrl::m_crawl1stperson_rate = 0.0f;
-#endif
+/* port: deleted (was #if 0): not an ELF object; seal_dyn.cpp writes CSealCtrl::m_bobbing1stperson_rate[1] */
 
 /* @socom-skeleton body Begin__8CTSelectFP14_zanim_cmd_hdr */
 /* held from src/gamez/zSeal/seal_tasks.cpp:320 */
-void CTSelect::Begin(_zanim_cmd_hdr* header)
-{
-
-}
+/* port: deleted (port-only leftover): not in the ELF; ai::SELECT is registered with a NULL begin (seal_tasks.cpp); declaration removed from zseal.h */
 
 /* @socom-skeleton body End__8CTSelectFP14_zanim_cmd_hdr */
 /* held from src/gamez/zSeal/seal_tasks.cpp:325 */
-void CTSelect::End(_zanim_cmd_hdr* header)
-{
-
-}
+/* port: deleted (port-only leftover): not in the ELF; ai::SELECT is registered with a NULL end (seal_tasks.cpp); declaration removed from zseal.h */

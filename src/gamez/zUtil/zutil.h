@@ -24,8 +24,6 @@ namespace zar
 	class CKey;
 }
 
-extern bool dumpLog;
-
 class COutput;
 
 extern COutput* debug;

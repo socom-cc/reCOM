@@ -4,15 +4,15 @@
 
 /* @socom-skeleton body lastRenderTime */
 /* held from src/gamez/zVideo/zvid_draw.cpp:5 */
-f32 lastRenderTime = 0.0f;
+/* port: deleted (port-only leftover): not in the ELF, unused */
 
 /* @socom-skeleton body curRenderTime */
 /* held from src/gamez/zVideo/zvid_draw.cpp:6 */
-f32 curRenderTime = 0.0f;
+/* port: deleted (port-only leftover): not in the ELF, unused */
 
 /* @socom-skeleton body theWindow */
 /* held from src/gamez/zVideo/zvid_main.cpp:8 */
-CWindow* theWindow = NULL;
+/* port: deleted (port-only leftover): not in the ELF, unused; declaration removed from zvid.h */
 
 /* @socom-skeleton body m_defaultFrameRate__6CVideo */
 /* held from src/gamez/zVideo/zvid_main.cpp:10 */

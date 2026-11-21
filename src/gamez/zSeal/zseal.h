@@ -2380,8 +2380,6 @@ public:
 class CTSelect
 {
 public:
-	static void Begin(_zanim_cmd_hdr* header);
-	static void End(_zanim_cmd_hdr* header);
 	static _zanim_cmd_hdr* Parse(_zrdr* reader);
 	static bool Tick(_zanim_cmd_hdr* header, f32* delta);
 	/* @socom-skeleton decl 8CTSelect */

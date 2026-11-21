@@ -161,7 +161,6 @@ class CMultiplayerMsgVec : public std::vector<MultiplayerMsg*>
 class CCharacterType
 {
 public:
-	CCharacterType();
 	CCharacterType(const char*, const CCharacterType*);
 
 	static std::vector<CCharacterType*> m_char_list; /* __vector_pod (Open 0x24a4c0 inserts at data + size) */

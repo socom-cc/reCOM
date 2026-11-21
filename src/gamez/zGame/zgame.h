@@ -161,7 +161,6 @@ public:
 	void LoadFromDesign(CGameDlgDesign* design, CZAnimZAR* animfile);
 	
 	void DrawForeplane();
-	void Draw2DOnly();
 	
 	zdb::CNode m_nodeTop;
 

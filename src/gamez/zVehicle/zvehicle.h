@@ -65,7 +65,6 @@ public:
     /* @socom-skeleton end 16CVehicleRdrEntry */
 };
 
-extern CVehicleRdrEntry* _dest;
 /* No DWARF for the turret family: the layouts are from the asm (CTurretDef 400 bytes:
  * CTurret::Init 0x37c2e0 steps 400, the ctor 0x37ccf0, Parse 0x37c550; CTurret 784 bytes:
  * ScanForTurretDefinitionHookups 0x37b8c0 allocates 784). Member names are invented. */
