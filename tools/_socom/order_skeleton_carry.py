@@ -37,7 +37,10 @@ file is recorded ``merged``, and that item's later re-apply finds it carried
 (``carried-by``) instead of deleting an edit.  A live entry with no ancestor
 anywhere (the port lane added the fence) whose name the render places
 nowhere keeps its code, its fence turned into a ``/* port: ... (no owner in
-the render) */`` comment (``port-comment``).
+the render) */`` comment (``port-comment``).  An entry a held plan retires
+(``order_skeleton_held``) leaves with its fence when its live text holds no
+code (``retired``), and a holding file the plan empties loses its port-added
+``#include`` preamble with it (``dropped-preamble``).
 """
 
 from __future__ import annotations
@@ -52,7 +55,7 @@ from .order_skeleton_merge import Merged, get_blob, lf, merge3, sha
 FENCE_LINE = re.compile(r"^(?P<indent>[ \t]*)/\* @socom-skeleton (?P<kind>stub|body|decl|end) (?P<name>\S+) \*/[ \t]*$")
 HELD_LINE = re.compile(r"^/\* held from (?P<source>\S+) \*/[ \t]*$")
 PORT_COMMENT = "{indent}/* port: {kind} {name} (no owner in the render) */\n"
-STATES = ("merged", "pending", "carried-by", "port-comment")
+STATES = ("merged", "pending", "carried-by", "port-comment", "retired", "dropped-preamble")
 
 Location = tuple[str, int]
 
@@ -237,11 +240,18 @@ def _carried_by(record: dict[str, Any] | None, path: str, name: str, origin: str
 
 def carry_entries(item_id: str, paths: list[str], ancestors: dict[str, bytes | None], live: dict[str, bytes | None],
                   render: dict[str, bytes | None], render_sources: dict[tuple[str, str], str], owners: dict[str, str],
-                  records: dict[str, dict[str, Any]], root: Any, entry_level: set[str] | None = None) -> Carry:
+                  records: dict[str, dict[str, Any]], root: Any, entry_level: set[str] | None = None,
+                  retired: set[str] | None = None, retired_files: set[str] | None = None) -> Carry:
     """Carry the live text of every entry that crossed a file or a name into the render's place (see the module).
 
     In the files of ``entry_level`` (those the plain per-file merge could not
     merge) an edited entry that stays in its file is merged on its own too.
+    ``retired`` holds the body ids a held plan retires: such a live entry
+    (found by its ``/* held from */`` line) is dropped when it holds no code,
+    else it is an entry conflict (the port lane deletes the code first).  A
+    file of ``retired_files`` (a holding file the render deletes because a
+    held plan emptied it) loses its port-added preamble with it when the rest
+    of the live file is ``#include`` / ``#pragma`` lines and comments.
     """
 
     mine = set(paths)
@@ -258,6 +268,8 @@ def carry_entries(item_id: str, paths: list[str], ancestors: dict[str, bytes | N
         for number, entry in enumerate(new.entries[path]):
             here = (path, number)
             before, current = old.find(entry.key, entry.source, path), now.find(entry.key, entry.source, path)
+            if current is not None and retired and now.entry(current).kind != "decl" and now.entry(current).source in retired:
+                current = None  # a retired live entry is no other entry's live text (a name it shares says nothing)
             links[here] = (before, current)
             if current is not None:
                 claims.setdefault(current, []).append(here)
@@ -336,6 +348,24 @@ def carry_entries(item_id: str, paths: list[str], ancestors: dict[str, bytes | N
         for number, entry in enumerate(now.entries[path]):
             here = (path, number)
             target = claimed.get(here)
+            if retired and target is None and entry.kind != "decl" and entry.source in retired:
+                # A held plan retires it: drop the live fence, never port code.
+                from .order_skeleton_held import code_lines
+
+                body = now.body(here)
+                note = {"name": entry.name, "kind": entry.kind, "from": path, "to": None, "source": entry.source,
+                        "live_sha256": _text_sha(body)}
+                if code_lines(body[1:]):
+                    result.conflict(path, {**note, "entry": entry.name, "reason": "a held plan retires this entry but src/ "
+                                           "still holds code in it: the port lane deletes the code first (or resolve)"})
+                    continue
+                own = old.find(entry.key, entry.source, path)
+                if own is not None and own[0] == path:
+                    ours_edits.setdefault(path, []).append((entry.start, entry.end, old.text(own)))
+                else:
+                    removals.setdefault(path, []).append((entry.start, entry.end))
+                result.note(path, {**note, "state": "retired"})
+                continue
             if target is not None and legacy(target):
                 continue
             if target is None and here not in claims and (twin := _twin(new, entry)) is not None and twin[0] not in mine:
@@ -425,6 +455,24 @@ def carry_entries(item_id: str, paths: list[str], ancestors: dict[str, bytes | N
         ours_edits.setdefault(path, []).extend(_removals(now.lines[path], ranges, floors.get(path, 0)))
     for path, edits in ours_edits.items():
         result.ours[path] = _apply(now.lines[path], edits)
+    # A holding file a held plan emptied: the render deletes it, and the port lane's preamble (#include lines,
+    # comments) goes with it once every live entry is retired or moved; other unfenced code stays a conflict.
+    for path in sorted(mine & set(retired_files or ())):
+        if render.get(path) is not None or path not in now.lines or ancestors.get(path) is None or result.conflicts.get(path):
+            continue
+        from .order_skeleton_held import code_lines
+
+        entries = now.entries.get(path) or []
+        done = {(row.get("name"), row.get("source")) for row in result.entries.get(path) or [] if row.get("state") == "retired"}
+        if not all((path, number) in claimed or (entry.name, entry.source) in done for number, entry in enumerate(entries)):
+            continue
+        inside = {line for entry in entries for line in range(entry.start, entry.end)}
+        outside = [line for number, line in enumerate(now.lines[path]) if number not in inside]
+        if code_lines(outside, preamble=True):
+            continue
+        result.ours[path] = ancestors[path]
+        result.note(path, {"name": "(preamble)", "kind": "preamble", "from": path, "to": None, "state": "dropped-preamble",
+                           "live_sha256": _text_sha(outside)})
     for path, edits in theirs_edits.items():
         result.theirs[path] = _apply(new.lines[path], edits)
     return result

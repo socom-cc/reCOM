@@ -47,7 +47,11 @@ verifier with `progress accept-order-skeleton`; both re-run
 `order skeleton apply-check`. A stage 4 amendment reopens the stage 5 items
 built on it (`progress reopen-order-skeleton`), stage 5 absorbs the accepted
 amendment (`progress rebase-function-order`), and the reopened skeletons are
-re-applied as merges that keep later `src/` edits. Its phase C compile items and the stage gate wait for
+re-applied as merges that keep later `src/` edits. Held entries of the
+holding files are retired or moved in batches through a reviewed held plan
+(`order skeleton held-check`, then `order skeleton held-decide` under the
+reopened prepare's lease, then the re-applies and their independent
+acceptance). Its phase C compile items and the stage gate wait for
 `socom:work:order-compile-route`, which opens only once the compiler license
 (`socom:blocker:metrowerks-flexlm-license`) works and a compile route exists
 ([FUNCTION_ORDER.md](FUNCTION_ORDER.md)).

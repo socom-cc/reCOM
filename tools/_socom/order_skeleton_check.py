@@ -216,6 +216,7 @@ def _entries_by_file(written: dict[str, Any]) -> dict[str, list[dict[str, Any]]]
 def _s1(target: Path, written: dict[str, Any], scans: dict[str, Any], program: Program) -> dict[str, Any]:
     checked, failures, unverifiable, statics = 0, [], [], 0
     units = {row["path"] for row in written["files"] if row["action"] == "unit"}
+    moved = _held_moved(written)
     for path in sorted(units):
         scan = scans.get(path)
         if scan is None:
@@ -223,6 +224,8 @@ def _s1(target: Path, written: dict[str, Any], scans: dict[str, Any], program: P
         lines = scan.text.split("\n")
         for fence in parse_fences(scan.text):
             name = fence["name"]
+            if name in moved.get(path, {}):
+                continue  # a held entry a held plan moved here: provisional text, checked by S4 as in a holding file
             low, high = fence["line"], fence["end_line"]
             symbol = parse_symbol(name)
             checked += 1
@@ -247,6 +250,17 @@ def _s1(target: Path, written: dict[str, Any], scans: dict[str, Any], program: P
     return {"ok": not failures, "checked": checked, "local_statics_checked": statics, "failed": len(failures),
             "failures": failures[:50], "unverifiable": sorted(unverifiable),
             "note": "members of a function-local class are numbered by the compiler (Local$N): checked in phase C"}
+
+
+def _held_moved(written: dict[str, Any]) -> dict[str, dict[str, dict[str, Any]]]:
+    """{path: {name: entry}} of the held entries a held plan moved out of their holding file (``held-*`` outside one)."""
+
+    holding = {row["path"] for row in written["files"] if row["action"] == "holding"}
+    found: dict[str, dict[str, dict[str, Any]]] = defaultdict(dict)
+    for entry in written["entries"]:
+        if entry["kind"].startswith("held-") and entry.get("path") not in holding:
+            found[entry["path"]][entry["name"]] = entry
+    return found
 
 
 def _is_data(name: str, written: dict[str, Any], path: str) -> bool:
@@ -275,12 +289,15 @@ def _s2(target: Path, written: dict[str, Any], inputs: SkeletonInputs, scans: di
     in_class: list[dict[str, Any]] = []
     class_bodies = _class_definitions(scans, inputs, program)
     checked_units = 0
+    moved = _held_moved(written)
     for number, unit in selected:
         path = unit["workspace_path"]
         fences = fences_by_path.get(path)
         if fences is None:
             problems.append(f"{path} was not written")
             continue
+        # A held entry a held plan moved here is no row of the unit (a compiler copy or code with no ELF symbol).
+        fences = [fence for fence in fences if fence["name"] not in moved.get(path, {})]
         checked_units += 1
         rank: dict[str, tuple[int, int]] = {}
         owner_of: dict[str, str] = {}  # a local static -> the entry it sits in
@@ -619,6 +636,9 @@ def _s4(target: Path, written: dict[str, Any], inputs: SkeletonInputs, scans: di
             checked += 1
             source = entry["source"]
             text = fence["text"]
+            if entry.get("moved_from") and entry.get("lines"):
+                # A held entry moved into a header sits before its closing #endif: the entry is its recorded lines.
+                text = "\n".join(text.split("\n")[: int(entry["lines"]) - 1])
             held = HELD_FROM.format(source=source)
             if entry["kind"].startswith("held-"):
                 if not text.startswith(held + "\n"):
@@ -665,6 +685,8 @@ def _s4(target: Path, written: dict[str, Any], inputs: SkeletonInputs, scans: di
             if scan is not None and any(name == body["mangled"] and kind == "definition" for klass in scan.classes
                                         if klass.chain and not klass.template for name, _line, kind in class_member_names(program, scan, klass)):
                 problems.append(f"{body['id']}: {body['mangled']} lands twice (its in-class body is still in the header)")
+    # A held plan's retired entries land nowhere (order skeleton held-decide).
+    expected -= set((written.get("held") or {}).get("retired") or [])
     missing = sorted(identity for identity in expected if landed[identity] == 0)
     if segment_units is not None:
         missing = [identity for identity in missing if inputs.bodies[identity]["action"] in ("move-in-place", "cross-file-move",
@@ -717,6 +739,7 @@ def _s7(target: Path, written: dict[str, Any], inputs: SkeletonInputs, scans: di
     regions_found: dict[str, list[dict[str, Any]]] = {}
     texts: dict[str, str] = {}
     header_rows = [row for row in written["files"] if row["action"] in ("header", "new-header")]
+    moved = _held_moved(written)
     region_paths = sorted({row["path"] for row in headers["regions"]})
     for path in sorted({row["path"] for row in header_rows} | set(region_paths)):
         copy = target / path
@@ -744,6 +767,11 @@ def _s7(target: Path, written: dict[str, Any], inputs: SkeletonInputs, scans: di
         found = regions_found[path]
         splits = {index for index, record in enumerate(records.get(path, [])) if record.get("split")}
         stripped = strip_regions(texts[path], found, splits)
+        if moved.get(path):
+            from .order_skeleton_held import strip_entries
+
+            # Inline copies a held plan moved into the header (before its closing #endif): not the header's own text.
+            stripped = strip_entries(stripped, list(moved[path].values()))
         source = inputs.scans.get(path)
         if source is None:
             guard = re.sub(r"\W", "_", PurePosixPath(path).name).upper()

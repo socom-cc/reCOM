@@ -82,6 +82,29 @@ def specs(spec: Any) -> tuple[Any, ...]:
             mutates=True,
         ),
         spec(
+            "order skeleton held-check",
+            "order",
+            "Read-only check of a held plan (build/stage5/held-plans/<name>.json, kind socom-order-held-plan) against a fresh "
+            "render: each row names a held entry by its body id (its /* held from */ line), fence name and holding file, and "
+            "retires it (reason duplicate with of, or no-elf-symbol) or moves it to a destination (a unit file of the "
+            "accepted order plans, or a header for an inline copy; an optional fence corrects a fence name to the ELF "
+            "symbol), with its evidence class (PROVEN, LIKELY, GUESS) and evidence; a move takes only compiler copies "
+            "(binding 13 or WEAK), into the file stage 4's applied annotations place it in (defines in a .cpp, emits in a "
+            "header), or code with no ELF symbol; an ordered ELF artifact moves through its stage 4 owner row and the order "
+            "plans instead. Reports the counts, the destinations and the skeleton items whose files change (to reopen).",
+        ),
+        spec(
+            "order skeleton held-decide",
+            "order",
+            "Record a held plan that passes order skeleton held-check in the prepare's decisions file (kinds held-retire, "
+            "held-move; one row per entry, an earlier plan's row for the same entry replaced) as the holder of the "
+            "prepare's lease; the writer then drops retired entries, writes moved ones at their destination with the port's "
+            "live text carried along unchanged, and deletes a holding file left without an entry; the prepare's re-apply "
+            "(and that of each segment apply receiving a move) writes them, and an independent socom-verifier accepts each "
+            "through progress accept-order-skeleton, whose apply-check re-validates the rows.",
+            mutates=True,
+        ),
+        spec(
             "order skeleton apply-check",
             "order",
             "Read-only check of an applied stage 5 skeleton item's own recorded write: its inputs are not stale (stage 5's "
@@ -196,6 +219,18 @@ def register_skeleton(skeleton_commands: Any) -> None:
     decide.add_argument("--basis", required=True)
     _inputs(decide)
     decide.set_defaults(handler=_order_skeleton_decide)
+
+    held_check = skeleton_commands.add_parser("held-check")
+    held_check.add_argument("--plan", required=True, help="the held plan under build/ (build/stage5/held-plans/<name>.json)")
+    _inputs(held_check)
+    held_check.set_defaults(handler=_order_skeleton_held_check)
+
+    held_decide = skeleton_commands.add_parser("held-decide")
+    held_decide.add_argument("--item", required=True, help="socom:work:order-skeleton-prepare (the holding files are its files)")
+    held_decide.add_argument("--lease-owner", required=True)
+    held_decide.add_argument("--plan", required=True, help="the held plan under build/ (build/stage5/held-plans/<name>.json)")
+    _inputs(held_decide)
+    held_decide.set_defaults(handler=_order_skeleton_held_decide)
 
     check = skeleton_commands.add_parser("apply-check")
     check.add_argument("--item", required=True)
@@ -397,6 +432,38 @@ def _order_skeleton_decide(arguments: argparse.Namespace) -> int:
     with exclusive_state_lock(path):
         report = decide(root, load_tracker(path), arguments.item, arguments.lease_owner, arguments.artifact, option, value,
                         arguments.basis, **paths)
+    _emit(report)
+    return 0
+
+
+def _order_skeleton_held_check(arguments: argparse.Namespace) -> int:
+    from .cli import _emit, _root
+    from .constants import tracker_path
+    from .order_skeleton_held import plan_path
+    from .order_skeleton_route import held_check
+    from .tracker import load_tracker
+
+    root = _root(arguments)
+    report = held_check(root, load_tracker(tracker_path(root)), plan_path(root, arguments.plan), **_paths(root, arguments))
+    _emit(report)
+    return 0 if report["ok"] else 1
+
+
+def _order_skeleton_held_decide(arguments: argparse.Namespace) -> int:
+    from .cli import _emit, _root
+    from .constants import tracker_path
+    from .locking import exclusive_state_lock
+    from .order_skeleton_held import plan_path
+    from .order_skeleton_route import held_decide
+    from .tracker import load_tracker
+
+    root = _root(arguments)
+    paths = _paths(root, arguments)
+    plan = plan_path(root, arguments.plan)
+    path = tracker_path(root)
+    # The decisions file is a route input: it is written under the tracker lock, like order skeleton decide.
+    with exclusive_state_lock(path):
+        report = held_decide(root, load_tracker(path), arguments.item, arguments.lease_owner, plan, **paths)
     _emit(report)
     return 0
 

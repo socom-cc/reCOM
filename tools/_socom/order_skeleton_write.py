@@ -96,7 +96,7 @@ FLAG_KINDS = (
     "overload-tie-held", "unparsed-body-held", "ambiguous-owner-held", "mixed-data-statement-held",
     "provisional-data-replaced", "provisional-data-kept", "local-static-owner-hypothesis", "local-static-in-body",
     "local-static-not-in-body", "local-static-order-conflict", "local-class-owner-hypothesis", "local-class-key-unproven",
-    "in-class-row", "by-value-undeclared", "header-body-replaced", "decided",
+    "in-class-row", "by-value-undeclared", "header-body-replaced", "decided", "held-moved", "held-guess",
 )
 WAIT_KINDS = ("local-static-owner", "initializer-unrenderable", "overload-tie", "local-class-owner", "type-undefined")
 # `order skeleton decide`: the waiting rows a lease holder may settle, and the option that settles each.
@@ -109,6 +109,9 @@ DECISION_KINDS = {
     "local-static-owner": "owner",
     "local-class-owner": "owner",
     "initializer-unrenderable": "initializer",
+    # Held plans (order skeleton held-decide): a retired or moved held entry, keyed by its body id.
+    "held-retire": "held-plan",
+    "held-move": "held-plan",
 }
 _ZERO_INIT = re.compile(r"^(?:0+|0x0+|0*\.0*f?|0\.0*f?|NULL|false|\{\s*0?\s*\})$", re.I)
 
@@ -1626,26 +1629,31 @@ def cut_preamble(text: str, cuts: list[tuple[int, int]]) -> str:
     return "\n".join(lines) + "\n" if lines else ""
 
 
+def held_parts(item: dict[str, Any], inputs: SkeletonInputs) -> tuple[list[str], str, list[str]]:
+    """(the scope wrappers opening, the held definition or statement text, the wrappers closing) of one held item."""
+
+    if item["kind"] == "function":
+        body = item["body"]
+        scan = inputs.scans[body["path"]]
+        definition = next((row for row in scan.definitions if row.line == body["span"]["start_line"]
+                           and _sha(scan.text[row.start : row.end]) == body["sha256"]), None)
+        opening, closing = _scope_wrappers(definition.scope) if definition is not None and body["kind"] == "definition" else ([], [])
+        return opening, inputs.texts[body["id"]]["text"], closing
+    opening, closing = _scope_wrappers(item["scope"])
+    return opening, item["text"], closing
+
+
 def holding_text(items: list[dict[str, Any]], inputs: SkeletonInputs) -> tuple[str, list[dict[str, Any]]]:
     """One holding file: per donor file, its held bodies and data statements in line order."""
+
+    from .order_skeleton_held import held_name, held_source
 
     parts = [HOLDING_NOTE]
     rows = []
     for item in sorted(items, key=lambda row: (row["path"], row["line"])):
-        if item["kind"] == "function":
-            body = item["body"]
-            scan = inputs.scans[body["path"]]
-            definition = next((row for row in scan.definitions if row.line == body["span"]["start_line"]
-                               and _sha(scan.text[row.start : row.end]) == body["sha256"]), None)
-            opening, closing = _scope_wrappers(definition.scope) if definition is not None and body["kind"] == "definition" else ([], [])
-            text = "\n".join([*opening, inputs.texts[body["id"]]["text"], *closing])
-            name = body.get("mangled") or f"unparsed:{body['id']}"
-            source = body["id"]
-        else:
-            opening, closing = _scope_wrappers(item["scope"])
-            text = "\n".join([*opening, item["text"], *closing])
-            name = item.get("mangled") or f"unparsed:{item['path']}:{item['line']}"
-            source = f"{item['path']}:{item['line']}"
+        opening, inner, closing = held_parts(item, inputs)
+        text = "\n".join([*opening, inner, *closing])
+        name, source = held_name(item), held_source(item)
         parts.append(f"/* @socom-skeleton body {name} */\n{HELD_FROM.format(source=source)}\n{text}")
         rows.append({"kind": "held-" + item["kind"], "name": name, "source": source, "flags": [{"kind": item["flag"], "detail": source}],
                      "text_sha256": _sha(text)})
@@ -1665,9 +1673,18 @@ def render_skeletons(inputs: SkeletonInputs, *, segment: int | None, headers: bo
 
     from .order_skeleton_headers import HeaderWriter
 
+    from .order_skeleton_held import HOLDING_RETIRED, append_entries, dispose, insert_entries, is_header, manifest_record
+
     header_writer = HeaderWriter(inputs, newline=inputs.newline) if segment is None and headers else None
     additions = header_writer.render() if header_writer is not None else None
     writer = _Writer(inputs, headers=additions["units"] if additions is not None else None)
+    # Held plans (order skeleton held-decide): retired entries leave the holding files, moved ones go to their destination.
+    disposed = dispose(inputs, writer, lambda item: held_parts(item, inputs))
+    moved = dict(disposed["moved"]) if disposed is not None else {}
+
+    def moved_rows(path: str) -> list[dict[str, Any]]:
+        return [{**{key: value for key, value in entry.items() if key != "block"}, "path": path} for entry in moved.get(path) or []]
+
     selected = [(number, unit) for number, unit in inputs.units if segment is None or number == segment]
     if segment is not None and not selected:
         raise SocomError(f"segment {segment} has no accepted order plan")
@@ -1676,17 +1693,41 @@ def render_skeletons(inputs: SkeletonInputs, *, segment: int | None, headers: bo
     file_rows: list[dict[str, Any]] = []
     for number, unit in selected:
         text, newline, rows = writer.unit_file(number, unit)
-        files[unit["workspace_path"]] = text.replace("\n", newline).encode("utf-8")
+        path = unit["workspace_path"]
+        if moved.get(path):
+            text = append_entries(text, moved[path])
+        files[path] = text.replace("\n", newline).encode("utf-8")
         for row in rows:
-            row["path"] = unit["workspace_path"]
+            row["path"] = path
         records.extend(rows)
-        file_rows.append({"path": unit["workspace_path"], "action": "unit", "unit": unit["unit"], "segment": number,
+        records.extend(moved_rows(path))
+        file_rows.append({"path": path, "action": "unit", "unit": unit["unit"], "segment": number,
                           "entries": sum(1 for row in rows if row["kind"] in ("function", "data")), "sha256": _sha(text)})
+        if moved.get(path):
+            file_rows[-1]["held_moved"] = len(moved[path])
     if additions is not None:
+        header_moves = {path: entries for path, entries in moved.items() if is_header(path)}
         for path, row in sorted(additions["headers"].items()):
-            text = separated(row["prefix"], row["text"]) + row["text"]
+            body = insert_entries(row["text"], header_moves.pop(path)) if path in header_moves else row["text"]
+            text = separated(row["prefix"], body) + body
             files[path] = text.replace("\n", row["newline"]).encode("utf-8")
             file_rows.append({"path": path, "action": row["action"], "sha256": _sha(text)})
+            if moved.get(path):
+                file_rows[-1]["held_moved"] = len(moved[path])
+                records.extend(moved_rows(path))
+        for path, entries in sorted(header_moves.items()):
+            # A header the header writer leaves as it is: the base's text with the moved entries.
+            source, newline = read_source(inputs.source_root / path)
+            prefix, rest = split_blocks(path, source)
+            body = insert_entries(rest, entries)
+            text = separated(prefix, body) + body
+            files[path] = text.replace("\n", newline).encode("utf-8")
+            file_rows.append({"path": path, "action": "header", "sha256": _sha(text), "held_moved": len(entries)})
+            records.extend(moved_rows(path))
+    if segment is None and additions is not None and moved:
+        unplaced = sorted(path for path in moved if path not in files)
+        if unplaced:
+            raise SocomError(f"held moves name files the render does not write: {', '.join(unplaced)}")
     deleted: list[dict[str, Any]] = []
     if segment is None:
         for path, items in sorted(writer.held.items()):
@@ -1696,6 +1737,14 @@ def render_skeletons(inputs: SkeletonInputs, *, segment: int | None, headers: bo
                 row["path"] = path
             records.extend(rows)
             file_rows.append({"path": path, "action": "holding", "entries": len(rows), "sha256": _sha(text)})
+        for path in (disposed or {}).get("emptied") or []:
+            # Every entry retired or moved: the holding file goes (its port preamble with it, see the carry).
+            files[path] = None
+            deleted.append({"path": path, "action": HOLDING_RETIRED,
+                            "retired": sum(1 for row in disposed["index"].values() if row["holding_file"] == path
+                                           and row["source"] in set(disposed["retired"])),
+                            "moved": sum(1 for row in disposed["index"].values() if row["holding_file"] == path
+                                         and row["source"] not in set(disposed["retired"]))})
         for path, record in sorted(inputs.files.items()):
             if not record["orphan"]:
                 continue
@@ -1758,8 +1807,19 @@ def render_skeletons(inputs: SkeletonInputs, *, segment: int | None, headers: bo
         "replaced_data": writer.replaced,
         "headers": header_record,
     }
+    if (held := manifest_record(disposed)) is not None:
+        # Only with held decisions, so a render without them keeps its digest.
+        manifest["held"] = held
+        summary["held"] = {"retired": len(held["retired"]), "moved": len(held["moved"]), "files_retired": len(held["files_retired"])}
     manifest["write_sha256"] = _digest(manifest)
-    return {"files": files, "manifest": manifest}
+    rendered: dict[str, Any] = {"files": files, "manifest": manifest}
+    if disposed is not None:
+        rendered["held"] = disposed  # not part of the manifest: the held index before the decisions, for their checks
+    else:
+        from .order_skeleton_held import held_index
+
+        rendered["held"] = {"index": held_index(writer.held), "retired": [], "moved": {}, "emptied": [], "rows": []}
+    return rendered
 
 
 def judgment_defaults(inputs: SkeletonInputs, writer: _Writer, headers: dict[str, Any] | None = None) -> list[dict[str, Any]]:

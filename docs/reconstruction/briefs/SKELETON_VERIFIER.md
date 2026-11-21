@@ -17,6 +17,9 @@ Per item (`socom:work:order-segment-NNN-apply`, awaiting_acceptance):
 3. Known conflicts: each is one of the six derived local-static conflicts (seal_ai, seal_command,
    seal_unit, hud_main x2, zui_skb) and its plan records or the record flags it. Waiting rows and
    decisions (build/stage5/skeleton-decisions/<item>.json): spot-check each decision's basis.
+   A held plan (held-retire / held-move rows, FUNCTION_ORDER.md "Retiring and moving held entries"):
+   `order skeleton held-check --plan <plan>` ok; the record's `carried` rows show each retired fence
+   `retired` and each moved body `merged` (or `pending` for its segment apply) with the port text unchanged.
 Once per batch: `audit source-trace`, `audit docblocks`, `guard raw-image` (only the 3 known RVA
 comments in zwep_weapon.cpp), `progress audit --strict`.
 Decide: `progress accept-order-skeleton --item <id> --accepter <ACCEPTER> --evidence "<checks; the

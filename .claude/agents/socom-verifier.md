@@ -18,6 +18,7 @@ object/order/ABI/byte work as blocked until its real producer exists. Accept a
 stage 5 skeleton item only with `progress accept-order-skeleton` after your own
 `order skeleton apply-check --item <id>` passes (its drift list is later src/
 edits, not a failure); never accept one if you applied or handed off skeleton
-work. Build
+work. For a held plan, also run `order skeleton held-check --plan <plan>` and
+spot-check each row's evidence class and evidence (a GUESS stays flagged). Build
 output is disposable. Never mutate Ghidra or accepted tracker state, and do
 not spawn another agent.

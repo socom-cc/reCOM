@@ -503,6 +503,8 @@ def prepare_skeleton_apply(root: Path, tracker: dict[str, Any], item_id: str, ow
     if unused := inputs.unused_decisions():
         raise SocomError("decisions that no longer apply (their rows are not waiting): "
                          + _shown([f"{row['kind']} {row['key']} ({row['item']})" for row in unused]))
+    if held_problems := check_held_decisions(root, inputs, rendered):
+        raise SocomError("the held plan's decisions do not hold:\n- " + "\n- ".join(held_problems[:_SHOWN]))
     report = check_tree(root, tracker, target, base, manifest_path=manifest_path, snapshot_path=snapshot_path)
     if not report["ok"]:
         from .order_skeleton_check import headline
@@ -651,7 +653,10 @@ def _carry(root: Path, tracker: dict[str, Any], item: dict[str, Any], rendered: 
     sources = {(row["path"], row["name"]): row["source"] for row in (rendered.get("manifest") or {}).get("entries") or []
                if isinstance(row, dict) and row.get("path") and row.get("name") and ":" in str(row.get("source") or "")}
     records = {other["id"]: other["order_skeleton"] for other in skeleton_items(tracker) if isinstance(other.get("order_skeleton"), dict)}
-    return carry_entries(item["id"], paths, ancestors, live, dict(files), sources, owners, records, root, entry_level)
+    # A held plan's retirements (order skeleton held-decide): their live fences leave, and emptied holding files go.
+    held = (rendered.get("manifest") or {}).get("held") or {}
+    return carry_entries(item["id"], paths, ancestors, live, dict(files), sources, owners, records, root, entry_level,
+                         retired=set(held.get("retired") or []), retired_files=set(held.get("files_retired") or []))
 
 
 def _merge_one(root: Path, path: str, source: Path, files: dict[str, bytes | None], prior: dict[str, dict[str, Any]],
@@ -818,8 +823,9 @@ def _content(data: bytes | None) -> str | None:
 
 
 def _action(rendered: dict[str, Any], path: str) -> str:
-    if path in {row["path"] for row in rendered["manifest"]["deleted"]}:
-        return "orphan-deleted"
+    deleted = next((row for row in rendered["manifest"]["deleted"] if row["path"] == path), None)
+    if deleted is not None:
+        return str(deleted.get("action") or "orphan-deleted")  # an orphan, or a holding file a held plan emptied
     row = next((row for row in rendered["manifest"]["files"] if row["path"] == path), None)
     return row["action"] if row is not None else "unchanged"
 
@@ -868,6 +874,7 @@ def verify_skeletons(root: Path, tracker: dict[str, Any], item_ids: list[str], *
 
     reports: list[dict[str, Any]] = []
     shared: tuple[Any, Path | None, dict[str, Any], dict[str, Any]] | None = None
+    held: list[str] = []
     for item_id in item_ids:
         item = _skeleton_item(tracker, item_id)
         record = item.get("order_skeleton")
@@ -882,7 +889,13 @@ def verify_skeletons(root: Path, tracker: dict[str, Any], item_ids: list[str], *
             rendered = render_tree(root, inputs, base, target)
             report = check_tree(root, tracker, target, base, manifest_path=manifest_path, snapshot_path=snapshot_path)
             shared = (inputs, base, rendered, report)
-        reports.append(_verify_record(root, tracker, item, record, *shared))
+            held = check_held_decisions(root, inputs, rendered)
+        found = _verify_record(root, tracker, item, record, *shared)
+        if held:
+            # The reviewer re-validates the held plan's rows against the render, the ELF and stage 4 (order skeleton held-check).
+            found["problems"] = found["problems"] + [f"held plan: {text}" for text in held]
+            found["ok"] = False
+        reports.append(found)
     return reports
 
 
@@ -1135,7 +1148,8 @@ def decide(root: Path, tracker: dict[str, Any], item_id: str, lease_owner: str, 
     inputs, _base = route_inputs(root, tracker, manifest_path=manifest_path, snapshot_path=snapshot_path)
     rendered = render_skeletons(inputs, segment=None)
     # A row this item decided already may be decided again (the new decision replaces it).
-    rows = waiting_rows(rendered, inputs) + decided_rows(inputs, item_id)
+    # Held-plan rows are decided by order skeleton held-decide only (their option is a whole plan).
+    rows = waiting_rows(rendered, inputs) + [row for row in decided_rows(inputs, item_id) if row["option"] != "held-plan"]
     matches = [row for row in rows if artifact in (row.get("key"), row.get("name"), *(row.get("aliases") or []))]
     if not matches:
         raise SocomError(f"{artifact} is not a waiting row (order skeleton apply-check or the write manifest lists them)")
@@ -1232,6 +1246,78 @@ def _unit_of(inputs: Any, kind: str, key: str) -> str | None:
     if kind == "local-class-owner":
         return (inputs.signatures.get(key) or {}).get("unit")
     return None
+
+
+# -- held plans: retire or move held entries ----------------------------------------------------------
+
+
+def check_held_decisions(root: Path, inputs: Any, rendered: dict[str, Any]) -> list[str]:
+    """The problems of the recorded held decisions against the render's held entries, the ELF and stage 4 (none: [])."""
+
+    from .order_skeleton_held import check_rows, held_decisions, plan_from_decisions
+
+    rows = held_decisions(inputs)
+    if not rows:
+        return []
+    problems, _report = check_rows(root, inputs, rendered["held"]["index"], plan_from_decisions(rows))
+    return problems
+
+
+def held_check(root: Path, tracker: dict[str, Any], plan_file: Path, *, manifest_path: Path,
+               snapshot_path: Path) -> dict[str, Any]:
+    """``order skeleton held-check``: a held plan against a fresh render (read-only; nothing is written under src/)."""
+
+    from .order_skeleton_held import check_rows, load_plan, plan_report, plan_sha256
+    from .order_skeleton_write import render_skeletons
+
+    plan = load_plan(plan_file)
+    inputs, _base = route_inputs(root, tracker, manifest_path=manifest_path, snapshot_path=snapshot_path)
+    rendered = render_skeletons(inputs, segment=None)
+    # One entry is decided in one decisions file: another item's held row for it would be decided twice.
+    decided = {key: row["item"] for (_kind, key), row in inputs.decisions.items() if row["item"] != ORDER_SKELETON_PREPARE_ID}
+    problems, report = check_rows(root, inputs, rendered["held"]["index"], plan["rows"], decided=decided)
+    summary = plan_report(problems, report, file_owners(tracker), ORDER_SKELETON_PREPARE_ID)
+    relative = plan_file.relative_to(root).as_posix() if plan_file.is_relative_to(root) else plan_file.name
+    return {"mutation_performed": False, "plan": relative, "plan_sha256": plan_sha256(plan),
+            "held_entries": len(rendered["held"]["index"]), **summary}
+
+
+def held_decide(root: Path, tracker: dict[str, Any], item_id: str, lease_owner: str, plan_file: Path, *,
+                manifest_path: Path, snapshot_path: Path) -> dict[str, Any]:
+    """``order skeleton held-decide``: record a checked held plan's rows in the prepare's decisions file under its lease.
+
+    The held entries live in the prepare's holding files, so the rows are the
+    prepare's decisions; a row an earlier plan decided is replaced.  The
+    prepare's re-apply writes them, and so does the re-apply of each segment
+    apply whose unit file receives a move.
+    """
+
+    from .order_skeleton_held import HELD_KINDS, decision_rows, load_plan
+    from .order_skeleton_write import DECISIONS_KIND, DECISIONS_SCHEMA, decisions_path
+    from .tracker import _iso, _utc_now
+
+    if item_id != ORDER_SKELETON_PREPARE_ID:
+        raise SocomError(f"held entries live in the prepare's holding files: decide a held plan under {ORDER_SKELETON_PREPARE_ID}")
+    item = _skeleton_item(tracker, item_id)
+    _lease(item, lease_owner)
+    report = held_check(root, tracker, plan_file, manifest_path=manifest_path, snapshot_path=snapshot_path)
+    if not report["ok"]:
+        raise SocomError("the held plan does not check (order skeleton held-check):\n- " + "\n- ".join(report["problems"][:_SHOWN]))
+    plan = load_plan(plan_file)
+    rows = decision_rows(plan, report["plan"], lease_owner, _iso(_utc_now()))
+    path = root / decisions_path(item_id)
+    current = load_json(path) if path.is_file() else {"kind": DECISIONS_KIND, "schema_version": DECISIONS_SCHEMA,
+                                                         "work_item_id": item_id, "decisions": []}
+    keys = {row["key"] for row in rows}
+    replaced = [old for old in current["decisions"] if old["kind"] in HELD_KINDS and old["key"] in keys]
+    current["decisions"] = sorted([old for old in current["decisions"] if old not in replaced] + rows,
+                                  key=lambda old: (old["kind"], old["key"]))
+    atomic_write_json(path, current)
+    return {"ok": True, "mutation_performed": True, "work_item_id": item_id, "decisions": decisions_path(item_id),
+            "plan": report["plan"], "plan_sha256": report["plan_sha256"], "recorded": len(rows), "replaced": len(replaced),
+            "retire": report["retire"], "move": report["move"], "items_to_reopen": report["items_to_reopen"],
+            "note": f"the decisions take effect at the next {APPLY_ROUTE} of {item_id}; reopen (progress work reopen) and "
+                    "re-apply each item listed in items_to_reopen"}
 
 
 # -- stage 4 chain of custody ------------------------------------------------------------------------

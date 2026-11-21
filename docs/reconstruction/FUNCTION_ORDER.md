@@ -913,7 +913,9 @@ render with the file in `src/`, so later edits survive
 - the unbuilt `<module>_holding.cpp` files (BD4). They hold copy-only,
   unowned and non-ELF bodies, the held data statements, and the overload
   ties, which wait for a decision while every candidate row gets a stub.
-  Each entry starts with `/* held from <path>:<line> */`.
+  Each entry starts with `/* held from <path>:<line> */`. An entry leaves
+  its holding file only through a held plan
+  ([Retiring and moving held entries](#retiring-and-moving-held-entries)).
 - the removal of the orphan `.cpp` files the moves leave empty. The write
   manifest records each one's dropped preamble digest.
 
@@ -1783,6 +1785,131 @@ recorded `carried`, with `carry` (the inner merge kind and the effective
 inputs' digests, both stored as blobs). The record lists every entry on
 `carried` (name, live name, from, to, destination item, state and text
 digests) and counts them in `carried_by_state`.
+
+### Retiring and moving held entries
+
+The writer renders every held body and data statement of the frozen base
+into its holding file on every apply, and `progress rebase-function-order`
+refuses a base delta that changes authored content. A held entry therefore
+leaves its holding file only through a **held plan**: one reviewed JSON file
+under `build/stage5/held-plans/<name>.json` (kind `socom-order-held-plan`,
+schema 1, a `reason` and `rows`) that lists any number of held entries. Each
+row names the entry by its body id (`source`, the `/* held from <id> */`
+line), its fence name (`entry`) and its `holding_file`, and gives its
+`evidence_class` (`PROVEN`, `LIKELY` or `GUESS`) and `evidence` lines:
+
+| Action | Fields | What the render does |
+| --- | --- | --- |
+| `retire` | `reason`: `duplicate` (with `of`, what it duplicates) or `no-elf-symbol` | drops the entry |
+| `move` | `destination`; optional `fence`, the ELF symbol when the fence name differs from it | writes the held text under its fence at the destination: appended to a unit file, or before a header's closing include-guard `#endif`, where `inline` is added to the head of the definition (an inline copy) |
+
+A held plan moves only what stage 5 does not order:
+
+- a **compiler copy** (Metrowerks binding 13 or WEAK; stage 7), the held
+  entry's own artifact or the one a corrected `fence` names. Its
+  destination must be the file stage 4's applied annotations place it in:
+  `@socom-artifact defines` in a `.cpp`, `emits` in a header. A missing row
+  is a stage 4 amendment first (`progress amend-source-plan` and the route
+  of [After a stage 4 amendment](#after-a-stage-4-amendment));
+- **code with no ELF symbol** (a port-only definition). It has no stage 4
+  identity; its destination is a unit file of the accepted order plans or a
+  header of the route, and a `GUESS` keeps the `held-guess` flag.
+
+An **ordered ELF artifact** (a strong function or any data object, an
+unnamed-namespace object included) is refused: it moves through its stage
+4 owner row and the order plans, and the render then places it itself, in
+planned order and in its scope (`namespace {` for an unnamed-namespace
+object), with the BD6 rewrite correcting its declarator. A retirement needs
+no stage 4 record: the holding files carry no stage 4 blocks, and the
+artifact's stage 4 state (owned elsewhere, deferred, or none) does not
+change.
+
+```powershell
+python tools/socom.py order skeleton held-check --plan build/stage5/held-plans/<name>.json
+python tools/socom.py progress work reopen --item socom:work:order-skeleton-prepare --reviewer <name> --reason "<why>" `
+  --evidence "<plan>" --expected-revision <n>
+#   reopen each order-segment-NNN-apply whose unit file receives a move (held-check lists them under items_to_reopen)
+python tools/socom.py progress work claim --item socom:work:order-skeleton-prepare --owner <worker> --expected-revision <n>
+python tools/socom.py order skeleton held-decide --item socom:work:order-skeleton-prepare --lease-owner <worker> `
+  --plan build/stage5/held-plans/<name>.json
+python tools/socom.py progress apply-order-skeleton --item socom:work:order-skeleton-prepare --owner <worker> --expected-revision <n> --dry-run
+#   then without --dry-run; handoff-order-skeleton (worker), accept-order-skeleton (an independent socom-verifier);
+#   then claim, apply, hand off and accept each reopened segment apply; then reference census --write
+```
+
+- `order skeleton held-check` is read-only. It renders the tree and checks
+  every row: the entry is held (body id, fence name and holding file
+  agree), listed once and decided by no other item; a `no-elf-symbol`
+  retirement has no ELF artifact; a destination is a unit file or an
+  existing header (never a holding file, never outside the plan) and a
+  header receives functions only; a corrected fence is one ELF function or
+  object symbol; the copy and stage 4 rules above. It reports the counts,
+  the destinations and the skeleton items whose files change.
+- `order skeleton held-decide` runs as the holder of the prepare's lease,
+  under the tracker lock. It re-runs the check and records the rows in the
+  prepare's decisions file (kinds `held-retire` and `held-move`, keyed by the
+  body id, with the plan's path and SHA-256); a row an earlier plan decided
+  is replaced. The prepare's record cites the decisions file, so its
+  apply-check refuses a later change.
+- **The re-apply.** The render drops retired entries, writes moved ones at
+  their destination and deletes a holding file left without an entry (write
+  manifest `deleted`, action `holding-retired`; `held`: the retired body
+  ids, the moves and the retired files). The carry then:
+  - removes a retired entry's live fence (`retired`) when its live text
+    holds no code, only comments; live code is an entry conflict, so the
+    port lane deletes the code first (or a resolution settles it). The
+    route never drops port code;
+  - carries a moved entry's live text to its destination unchanged, as for
+    any entry the render moves (`merged`, or `pending` for a segment apply's
+    file until that apply's re-apply carries it);
+  - drops a retired holding file's port-added preamble (`#include` and
+    `#pragma` lines, comments) with it (`dropped-preamble`). Other code
+    outside every fence keeps the file: its deletion conflicts. Unfenced
+    port code is moved by the port lane by hand first.
+
+  A header the port lane edited just before its `#endif` conflicts with a
+  moved inline there (both insert at the same place); the resolution keeps
+  both ([Re-apply as a merge](#re-apply-as-a-merge)).
+- **Checks.** S1 and S2 skip a moved entry in a unit file (no unit row; S4
+  checks it as a held entry: its provenance line and its snapshot body, with
+  the `inline` head). S4 expects no retired body to land. S7 compares a
+  header outside its regions and its moved entries. `apply-check`, and so
+  `progress accept-order-skeleton`, re-validate the recorded held rows
+  against the render, the ELF and stage 4.
+- **Afterwards.** The deleted holding files change the `src/` file count:
+  refresh the census with `reference census --write` once the items are
+  accepted. The frozen base and the body snapshot do not change: the held
+  bodies stay in the base at their provisional paths, and the decisions
+  decide where they render.
+
+### Dry run of a held plan (2026-11-21)
+
+The run used a scratch copy of the workspace at tracker revision 4648 (the
+tracker, `src/`, `port/`, the plans and the stage 5 inputs). The plan held 79
+rows: the 75 fences the port lane had emptied (step 1, 37 of them
+`no-elf-symbol`, 38 `duplicate`) and four survey moves, all `PROVEN`:
+`CNode::SetActive` into `znode.h` (stage 4 `emits`), `CBatchRelocator::ClearAll`
+into `ztex_manager.cpp` (`defines`), and `EndBatchReloc` / `StartBatchReloc`
+into `ztex_manager.cpp` with their fences corrected to the ELF's `CFv`
+names. The tracker reached revision 4658.
+
+- **Check and record:** `held-check` passed every row (154 held entries;
+  items to reopen: the prepare and segment 041's apply); `held-decide`
+  recorded 79 decisions.
+- **Prepare:** the static checks passed over the render (S1 6,285; S3 9,122
+  edges with the baseline digest). `znode.h` conflicted once: the port lane
+  had added declarations before its `#endif`; the resolution kept both. The
+  apply then carried 20 files and kept 123: 75 fences `retired`, 12 holding
+  files deleted with their `#include` preambles (`dropped-preamble`),
+  `SetActive` merged into `znode.h` with `inline`, the three copies
+  `pending` for segment 041.
+- **Segment 041:** its re-apply carried the three bodies from the prepare's
+  record into `ztex_manager.cpp`, the port's text unchanged.
+- **Review:** the worker's own `accept-order-skeleton` was refused; an
+  independent verifier accepted both. Both apply-checks, `progress audit
+  --strict`, `audit docblocks`, `audit source-trace`, segment 041's `source
+  apply-check` and `audit source-baseline --strict` passed. `reference
+  verify` reported the census stale until `reference census --write`.
 
 ### Dry run of a header move (2026-11-16)
 

@@ -18,7 +18,11 @@ members' ownership in tracker evidence only. A stage 5 skeleton item
 only its reserved files, through `progress apply-order-skeleton` (dry run
 first); settle its waiting rows only with `order skeleton decide` and a
 basis, leave the others waiting, never hand-edit fenced skeleton entries or
-regions, and hand off with `progress handoff-order-skeleton`. A re-apply after
+regions, and hand off with `progress handoff-order-skeleton`. Held entries
+leave the holding files only through a held plan under build/stage5/held-plans/
+that passes `order skeleton held-check`, recorded with `order skeleton
+held-decide` under the prepare's lease; delete a retired entry's port code
+before its re-apply (the route drops only comment-only fences). A re-apply after
 a stage 4 amendment merges later src/ edits; on a conflict nothing is written:
 resolve each marker file from the conflict report into a directory under
 build/, keeping every fence line and stage 4 block, and re-run with

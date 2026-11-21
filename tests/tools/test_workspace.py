@@ -234,7 +234,7 @@ def _leaf_commands(parser: argparse.ArgumentParser, prefix: tuple[str, ...] = ()
 
 def test_command_registry_exactly_matches_parser() -> None:
     registered = {row.path for row in COMMAND_SPECS}
-    assert len(registered) == len(COMMAND_SPECS) == 175
+    assert len(registered) == len(COMMAND_SPECS) == 177
     assert _leaf_commands(build_parser()) == registered
 
 
