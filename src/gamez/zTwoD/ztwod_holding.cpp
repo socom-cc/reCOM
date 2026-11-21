@@ -61,35 +61,6 @@ C2D::C2D()
 	m_active_and_handling_input = true;
 }
 
-/* @socom-skeleton body CanHandleInput__3C2DFv */
-/* held from src/gamez/zTwoD/ztwod_main.cpp:43 */
-bool C2D::CanHandleInput()
-{
-	return m_active_and_handling_input;
-}
-
-/* @socom-skeleton body SetCanHandleInput__3C2DFb */
-/* held from src/gamez/zTwoD/ztwod_main.cpp:48 */
-void C2D::SetCanHandleInput(bool enable)
-{
-	m_active_and_handling_input = enable;
-}
-
-/* @socom-skeleton body GetAssetLibs__3C2DFRQ23C2D8CLibList */
-/* held from src/gamez/zTwoD/ztwod_main.cpp:53 */
-void C2D::GetAssetLibs(CLibList& libs)
-{
-	for (auto i = begin(); i != end(); ++i)
-		(*i)->GetAssetLibs(libs);
-}
-
-/* @socom-skeleton body SetUseFrameBufferAlpha__3C2DFb */
-/* held from src/gamez/zTwoD/ztwod_main.cpp:73 */
-void C2D::SetUseFrameBufferAlpha(bool enable)
-{
-	m_isFrameAlpha = enable;
-}
-
 /* @socom-skeleton body Load__9C2DStringFPCcP10C2DTTFFontiiii */
 /* held from src/gamez/zTwoD/ztwod_string.cpp:85 */
 void C2DString::Load(const char* message, C2DTTFFont* font, s32 x, s32 y, s32 width, s32 height)

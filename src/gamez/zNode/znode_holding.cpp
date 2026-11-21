@@ -8,27 +8,6 @@
 #include "gamez/zNode/node_world.h"
 #include "gamez/zNode/node_assetlib.h"
 
-/* @socom-skeleton body g_assetsRecycle__3zdb */
-/* held from src/gamez/zNode/node_assetlib.cpp:32 */
-/* port: deleted (was #if 0): duplicate of gamez/zNode/node_assetlib.cpp (g_assetsRecycle__Q23zdb27@unnamed@node_assetlib_cpp@) */
-
-/* @socom-skeleton body numNodes__3zdb */
-/* held from src/gamez/zNode/node_main.cpp:21 */
-/* port: deleted (was #if 0): duplicate of gamez/zNode/node_main.cpp (ELF numNodes) */
-
-/* @socom-skeleton body SetActive__Q23zdb5CNodeFb */
-/* held from src/gamez/zNode/node_main.cpp:671 */
-namespace zdb {
-bool CNode::SetActive(bool active)
-	{
-		/* 0x17d2b0: returns the previous state (callers such as CZSealBody::SealGetAltitude
-		   0x2a2250 restore it); port fix: returned the new one */
-		bool was = m_active;
-		m_active = active;
-		return was;
-	}
-}
-
 /* @socom-skeleton body GetBBox__Q23zdb5CNodeFv */
 /* held from src/gamez/zNode/node_main.cpp:715 */
 namespace zdb {
@@ -42,10 +21,6 @@ CBBox* CNode::GetBBox() const /* port: the ELF has only GetBBox__Q23zdb5CNodeCFv
 		return const_cast<CBBox*>(&m_bbox);
 	}
 }
-
-/* @socom-skeleton body Reset__Q23zdb5CWindFv */
-/* held from src/gamez/zNode/node_wind.cpp:5 */
-/* port: deleted (was #if 0): duplicate of gamez/zNode/node_world.cpp (ELF Reset__5CWindFv; CWind is global) */
 
 /* @socom-skeleton body GetTexHandle__Q23zdb6CWorldFPc */
 /* held from src/gamez/zNode/node_world.cpp:235 */

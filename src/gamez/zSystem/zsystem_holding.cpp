@@ -58,46 +58,6 @@ u32 CBench::countParticlesDrawn;
 /* held from src/gamez/zSystem/zsys_main.cpp:3 */
 _zsys_public zSys;
 
-/* @socom-skeleton body postinit */
-/* held from src/gamez/zSystem/zsys_main.cpp:4 */
-/* port: deleted (was #if 0): not in the ELF (the binary has the LOCAL postinited in zsys_init.cpp); nothing uses it */
-
 /* @socom-skeleton body _HeapSize */
 /* held from src/gamez/zSystem/zsys_memory.cpp:11 */
 size_t __HeapSize = 0; /* port: __HeapSize (C name; zsys_FullAllocAndFree stores it at 0x2f4964) */
-
-/* @socom-skeleton body __malloc__FUiPCci */
-/* held from src/gamez/zSystem/zsys_memory.cpp:88 */
-/* port: deleted (was #if 0): duplicate of the gamez/zSystem/zsys_memory.cpp stub _malloc__FUiPCci (this body is its candidate) */
-
-/* @socom-skeleton body __calloc__FUiUiPCci */
-/* held from src/gamez/zSystem/zsys_memory.cpp:95 */
-/* port: deleted (was #if 0): duplicate of the gamez/zSystem/zsys_memory.cpp stub _calloc__FUiUiPCci (this body is its candidate) */
-
-/* @socom-skeleton body __realloc__FPvUiPCci */
-/* held from src/gamez/zSystem/zsys_memory.cpp:111 */
-/* port: deleted (was #if 0): duplicate of the gamez/zSystem/zsys_memory.cpp stub _realloc__FPvUiPCci (this body is its candidate) */
-
-/* @socom-skeleton body __memalign__FUiUiPCci */
-/* held from src/gamez/zSystem/zsys_memory.cpp:118 */
-/* port: deleted (was #if 0): duplicate of the gamez/zSystem/zsys_memory.cpp stub _memalign__FUiUiPCci (this body is its candidate) */
-
-/* @socom-skeleton body __strdup__FPCcPCci */
-/* held from src/gamez/zSystem/zsys_memory.cpp:125 */
-/* port: deleted (was #if 0): duplicate of the gamez/zSystem/zsys_memory.cpp stub _strdup__FPCcPCci (this body is its candidate) */
-
-/* @socom-skeleton body __free__FPvPCci */
-/* held from src/gamez/zSystem/zsys_memory.cpp:142 */
-/* port: deleted (was #if 0): duplicate of the gamez/zSystem/zsys_memory.cpp stub _free__FPvPCci (this body is its candidate) */
-
-/* @socom-skeleton body zsysSprGetPacket__FP8_word128 */
-/* held from src/gamez/zSystem/zsys_spr.cpp:6 */
-/* port: deleted (was #if 0): not in the ELF; the binary has zSysSprGetPacket__FPP1 (stub in zsys_spr.cpp) */
-
-/* @socom-skeleton body zsys_AllocScratchpad__Fv */
-/* held from src/gamez/zSystem/zsys_spr.cpp:23 */
-/* port: deleted (was #if 0): not in the ELF; zSysInit (0x2f4df0) calls zsys_FullAllocAndFree instead */
-
-/* @socom-skeleton body Print__4CTTYFPcUi */
-/* held from src/gamez/zSystem/zsys_tty.cpp:12 */
-/* port: deleted (was #if 0): not in the ELF; Print__4CTTYFPci is defined in gamez/zVideo/zvid_draw.cpp */

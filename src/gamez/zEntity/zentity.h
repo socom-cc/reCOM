@@ -360,4 +360,11 @@ public:
 	CEntity * GetEntityByIndex(unsigned int) const;
 };
 /* @socom-skeleton end 11CEntityList */
+/* @socom-skeleton body GetEntityList__7CEntityFv */
+/* held from src/gamez/zEntity/ent_main.cpp:47 */
+inline CEntityList& CEntity::GetEntityList()
+{
+	return m_list;
+}
+
 #endif

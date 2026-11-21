@@ -2,18 +2,6 @@
 
 #include "zvid.h"
 
-/* @socom-skeleton body lastRenderTime */
-/* held from src/gamez/zVideo/zvid_draw.cpp:5 */
-/* port: deleted (port-only leftover): not in the ELF, unused */
-
-/* @socom-skeleton body curRenderTime */
-/* held from src/gamez/zVideo/zvid_draw.cpp:6 */
-/* port: deleted (port-only leftover): not in the ELF, unused */
-
-/* @socom-skeleton body theWindow */
-/* held from src/gamez/zVideo/zvid_main.cpp:8 */
-/* port: deleted (port-only leftover): not in the ELF, unused; declaration removed from zvid.h */
-
 /* @socom-skeleton body m_defaultFrameRate__6CVideo */
 /* held from src/gamez/zVideo/zvid_main.cpp:10 */
 s32 CVideo::m_defaultFrameRate = 30; /* .sdata 0x4753d8 holds 30 */

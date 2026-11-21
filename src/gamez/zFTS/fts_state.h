@@ -300,4 +300,23 @@ public:
 };
 
 class CStateCmdQueue : public std::deque<CGameStateChangeCmd*> {};
+/* @socom-skeleton body __ct__10CMenuStateFv */
+/* held from src/Apps/FTS/state/st_menu.cpp:16 */
+inline CMenuState::CMenuState()
+{
+	m_name = zstrdup("MenuState");
+	m_skip = 0;
+	m_skip_swap = 0;
+
+	TtySoundString = CSaferStr();
+	BackSoundString = CSaferStr();
+
+	SelectionSound = NULL;
+
+	strncpy(m_DefaultMenu, "dlgIntroScreen.rdr", 64);
+
+	TtySoundString.reserve(64);
+	BackSoundString.reserve(64);
+}
+
 #endif

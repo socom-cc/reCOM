@@ -818,4 +818,33 @@ public:
 	std::vector<C2DBitmapPoly*> _vecSegments;
 };
 /* @socom-skeleton end 15C2DWidePolyline */
+/* @socom-skeleton body CanHandleInput__3C2DFv */
+/* held from src/gamez/zTwoD/ztwod_main.cpp:43 */
+inline bool C2D::CanHandleInput()
+{
+	return m_active_and_handling_input;
+}
+
+/* @socom-skeleton body SetCanHandleInput__3C2DFb */
+/* held from src/gamez/zTwoD/ztwod_main.cpp:48 */
+inline void C2D::SetCanHandleInput(bool enable)
+{
+	m_active_and_handling_input = enable;
+}
+
+/* @socom-skeleton body GetAssetLibs__3C2DFRQ23C2D8CLibList */
+/* held from src/gamez/zTwoD/ztwod_main.cpp:53 */
+inline void C2D::GetAssetLibs(CLibList& libs)
+{
+	for (auto i = begin(); i != end(); ++i)
+		(*i)->GetAssetLibs(libs);
+}
+
+/* @socom-skeleton body SetUseFrameBufferAlpha__3C2DFb */
+/* held from src/gamez/zTwoD/ztwod_main.cpp:73 */
+inline void C2D::SetUseFrameBufferAlpha(bool enable)
+{
+	m_isFrameAlpha = enable;
+}
+
 #endif

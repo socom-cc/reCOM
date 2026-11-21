@@ -5,10 +5,6 @@
 #include "gamez/zUtil/util_stable.h"
 #include "gamez/zUtil/util_systemio.h"
 
-/* @socom-skeleton body dumpLog */
-/* held from src/gamez/zUtil/util_output.cpp:5 */
-/* port: deleted (port-only leftover): not in the ELF, unused (main.cpp reads gopt.dumpLog); declaration removed from zutil.h */
-
 /* @socom-skeleton body __ct__7CSTableFv */
 /* held from src/gamez/zUtil/util_stable.cpp:5 */
 CSTable::CSTable() /* port: unproven - not in the ELF (only __ct__7CSTableFUiUi); by-value CSTable members still default-construct */

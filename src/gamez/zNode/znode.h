@@ -362,4 +362,17 @@ public:
 /* free functions of node_world.cpp (CZSealBody::AddDIPolys uses them) */
 void SetDIBBox(zdb::CNode *node, const CBBox *box, bool update); /* 0x22c420 */
 void SetMaterial(zdb::CNode *node, int material); /* 0x22c3c0 */
+/* @socom-skeleton body SetActive__Q23zdb5CNodeFb */
+/* held from src/gamez/zNode/node_main.cpp:671 */
+namespace zdb {
+inline bool CNode::SetActive(bool active)
+	{
+		/* 0x17d2b0: returns the previous state (callers such as CZSealBody::SealGetAltitude
+		   0x2a2250 restore it); port fix: returned the new one */
+		bool was = m_active;
+		m_active = active;
+		return was;
+	}
+}
+
 #endif
