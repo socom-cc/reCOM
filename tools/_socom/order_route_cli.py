@@ -84,13 +84,13 @@ def specs(spec: Any) -> tuple[Any, ...]:
         spec(
             "order skeleton held-check",
             "order",
-            "Read-only check of a held plan (build/stage5/held-plans/<name>.json, kind socom-order-held-plan) against a fresh "
+            "Read-only check of a held plan (a .json file under build/stage5/held-plans/ or build/order-plans/held/, kind socom-order-held-plan) against a fresh "
             "render: each row names a held entry by its body id (its /* held from */ line), fence name and holding file, and "
             "retires it (reason duplicate with of, or no-elf-symbol) or moves it to a destination (a unit file of the "
             "accepted order plans, or a header for an inline copy; an optional fence corrects a fence name to the ELF "
             "symbol), with its evidence class (PROVEN, LIKELY, GUESS) and evidence; a move takes only compiler copies "
             "(binding 13 or WEAK), into the file stage 4's applied annotations place it in (defines in a .cpp, emits in a "
-            "header), or code with no ELF symbol; an ordered ELF artifact moves through its stage 4 owner row and the order "
+            "header), or code with no ELF symbol; a held data statement never moves (retire it: as a duplicate when the ELF has the object, checked against the ELF for no-elf-symbol); an ordered ELF artifact reaches its unit only through its stage 4 owner row and the order "
             "plans instead. Reports the counts, the destinations and the skeleton items whose files change (to reopen).",
         ),
         spec(
@@ -98,7 +98,7 @@ def specs(spec: Any) -> tuple[Any, ...]:
             "order",
             "Record a held plan that passes order skeleton held-check in the prepare's decisions file (kinds held-retire, "
             "held-move; one row per entry, an earlier plan's row for the same entry replaced) as the holder of the "
-            "prepare's lease; the writer then drops retired entries, writes moved ones at their destination with the port's "
+            "prepare's lease (--replace: a revised plan replaces the one recorded under the current lease before any apply in it, rows it no longer lists removed, the replacement kept in the decisions file's held_plan_history); the writer then drops retired entries, writes moved ones at their destination with the port's "
             "live text carried along unchanged, and deletes a holding file left without an entry; the prepare's re-apply "
             "(and that of each segment apply receiving a move) writes them, and an independent socom-verifier accepts each "
             "through progress accept-order-skeleton, whose apply-check re-validates the rows.",
@@ -221,14 +221,17 @@ def register_skeleton(skeleton_commands: Any) -> None:
     decide.set_defaults(handler=_order_skeleton_decide)
 
     held_check = skeleton_commands.add_parser("held-check")
-    held_check.add_argument("--plan", required=True, help="the held plan under build/ (build/stage5/held-plans/<name>.json)")
+    held_check.add_argument("--plan", required=True, help="the held plan: build/stage5/held-plans/<name>.json or build/order-plans/held/<name>.json")
     _inputs(held_check)
     held_check.set_defaults(handler=_order_skeleton_held_check)
 
     held_decide = skeleton_commands.add_parser("held-decide")
     held_decide.add_argument("--item", required=True, help="socom:work:order-skeleton-prepare (the holding files are its files)")
     held_decide.add_argument("--lease-owner", required=True)
-    held_decide.add_argument("--plan", required=True, help="the held plan under build/ (build/stage5/held-plans/<name>.json)")
+    held_decide.add_argument("--plan", required=True, help="the held plan: build/stage5/held-plans/<name>.json or build/order-plans/held/<name>.json")
+    held_decide.add_argument("--replace", action="store_true",
+                             help="replace the held plan recorded under the current lease (before any apply in it): rows "
+                                  "the revision no longer lists are removed; the decisions file records the replacement")
     _inputs(held_decide)
     held_decide.set_defaults(handler=_order_skeleton_held_decide)
 
@@ -311,7 +314,8 @@ def _progress_add_prepare(arguments: argparse.Namespace) -> int:
 
 def _summary(record: dict[str, Any]) -> dict[str, Any]:
     keep = ("item", "write_sha256", "files_sha256", "changed", "check", "entries", "regions", "flags", "known_conflicts",
-            "waiting_by_kind", "decisions", "merges", "amendments", "reserved_added", "carried_by_state")
+            "waiting_by_kind", "decisions", "merges", "amendments", "reserved_added", "carried_by_state",
+            "regions_reordered")
     shown = {key: record.get(key) for key in keep}
     shown["inputs"] = {key: value for key, value in record["inputs"].items() if key not in ("plans",)}
     shown["file_count"] = len(record["files"])
@@ -463,7 +467,8 @@ def _order_skeleton_held_decide(arguments: argparse.Namespace) -> int:
     path = tracker_path(root)
     # The decisions file is a route input: it is written under the tracker lock, like order skeleton decide.
     with exclusive_state_lock(path):
-        report = held_decide(root, load_tracker(path), arguments.item, arguments.lease_owner, plan, **paths)
+        report = held_decide(root, load_tracker(path), arguments.item, arguments.lease_owner, plan, replace=arguments.replace,
+                             **paths)
     _emit(report)
     return 0
 

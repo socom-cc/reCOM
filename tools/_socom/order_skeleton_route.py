@@ -579,6 +579,9 @@ def prepare_skeleton_apply(root: Path, tracker: dict[str, Any], item_id: str, ow
         record["carried_by_state"] = dict(sorted(Counter(str(row.get("state") or "conflict") for row in carried).items()))
     if grown:
         record["reserved_added"] = grown
+    if reordered := reordered_regions(rows):
+        # Leads for correcting the headers' rendered order (a type needed complete before its user).
+        record["regions_reordered"] = reordered
     if write:
         from .order_skeleton_merge import put_blob
 
@@ -781,11 +784,32 @@ def _merge_scope(root: Path, tracker: dict[str, Any], item: dict[str, Any], rend
             entry["carried"] = sorted(used.entries[path], key=lambda row: (str(row.get("name")), str(row.get("from")), str(row.get("to"))))
         if path in resolved:
             entry["resolution"] = {key: resolved[path][key] for key in ("path", "sha256", "deleted") if key in resolved[path]}
+            if (moved := resolved_reorder(path, after, theirs)) is not None:
+                # A header resolution that keeps another order of whole declaration regions: recorded for the verifier.
+                entry["resolution"]["regions_reordered"] = moved
         rows.append(entry)
         blobs.extend((found["ancestor"], ours, theirs, after))
     if problems:
         raise SocomError("refused, the resolved files break the render's structure:\n- " + "\n- ".join(problems[:_SHOWN]))
     return rows, changes, blobs
+
+
+def resolved_reorder(path: str, after: bytes | None, render: bytes | None) -> list[dict[str, Any]] | None:
+    """The namespace-scope regions a header resolution keeps in another order than the render (None: the render's order)."""
+
+    from .order_skeleton_merge import fence_lines, region_reorder
+
+    if after is None or render is None or fence_lines(after) == fence_lines(render):
+        return None
+    problems, moved = region_reorder(path, after, render)
+    return None if problems else moved
+
+
+def reordered_regions(rows: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    """{path: moved regions} of a record's resolved headers that keep another region order than the render."""
+
+    return {row["path"]: row["resolution"]["regions_reordered"] for row in rows
+            if (row.get("resolution") or {}).get("regions_reordered")}
 
 
 def carried_entries(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -938,6 +962,8 @@ def _verify_record(root: Path, tracker: dict[str, Any], item: dict[str, Any], re
         "waiting": record.get("waiting_by_kind"),
         "drift": drift,
         "drift_count": len(drift),
+        # Header resolutions that keep another order of whole declaration regions (a lead for the rendered order).
+        "regions_reordered": record.get("regions_reordered") or {},
         "notes": notes,
         "problems": problems,
     }
@@ -1002,6 +1028,8 @@ def verify_written(root: Path, record: dict[str, Any], rendered: dict[str, bytes
                 problems.append(f"{path}: the recorded resolution is not in the blob store")
             else:
                 problems.extend(check_merged(path, resolution, render, resolved=True))
+                if resolved_reorder(path, resolution, render) != (row.get("resolution") or {}).get("regions_reordered"):
+                    problems.append(f"{path}: the resolution's region order is not the one its record lists (regions_reordered)")
         elif kind in ("kept", "same") and row.get("before_sha256") != row.get("after_sha256"):
             problems.append(f"{path}: a kept file must be written unchanged")
         elif kind in (None, "render") and row.get("after_sha256") != _sha(render):
@@ -1283,13 +1311,17 @@ def held_check(root: Path, tracker: dict[str, Any], plan_file: Path, *, manifest
 
 
 def held_decide(root: Path, tracker: dict[str, Any], item_id: str, lease_owner: str, plan_file: Path, *,
-                manifest_path: Path, snapshot_path: Path) -> dict[str, Any]:
+                manifest_path: Path, snapshot_path: Path, replace: bool = False) -> dict[str, Any]:
     """``order skeleton held-decide``: record a checked held plan's rows in the prepare's decisions file under its lease.
 
     The held entries live in the prepare's holding files, so the rows are the
     prepare's decisions; a row an earlier plan decided is replaced.  The
     prepare's re-apply writes them, and so does the re-apply of each segment
-    apply whose unit file receives a move.
+    apply whose unit file receives a move.  With ``replace`` the plan replaces
+    the held rows recorded under the current lease, before any apply in it:
+    those its revision no longer lists are removed, and the decisions file
+    keeps the replacement under ``held_plan_history``.  Rows an applied plan
+    recorded stay (only a later plan's row for the same entry replaces one).
     """
 
     from .order_skeleton_held import HELD_KINDS, decision_rows, load_plan
@@ -1310,11 +1342,32 @@ def held_decide(root: Path, tracker: dict[str, Any], item_id: str, lease_owner: 
                                                          "work_item_id": item_id, "decisions": []}
     keys = {row["key"] for row in rows}
     replaced = [old for old in current["decisions"] if old["kind"] in HELD_KINDS and old["key"] in keys]
-    current["decisions"] = sorted([old for old in current["decisions"] if old not in replaced] + rows,
+    removed: list[dict[str, Any]] = []
+    if replace:
+        claimed = str((item.get("lease") or {}).get("claimed_at") or "")
+        applied = str((item.get("order_skeleton") or {}).get("applied_at") or "")
+        if not claimed:
+            raise SocomError(f"{item_id}'s lease has no claim time: a replacement needs the rows recorded under this lease")
+        if applied and applied >= claimed:
+            raise SocomError(f"{item_id} was applied under this lease ({applied}): its held rows are written; a revision "
+                             "is a new plan after the review (reopen the prepare), never a replacement")
+        pending = [old for old in current["decisions"] if old["kind"] in HELD_KINDS and str(old.get("at") or "") >= claimed]
+        if not pending:
+            raise SocomError(f"no held plan was recorded under the current lease of {item_id} (since {claimed}): "
+                             "record the plan without --replace")
+        removed = [old for old in pending if old["key"] not in keys]
+        history = current.setdefault("held_plan_history", [])
+        history.append({
+            "replaced": sorted({(str(old.get("plan")), str(old.get("plan_sha256"))) for old in pending}),
+            "by_plan": report["plan"], "by_plan_sha256": report["plan_sha256"], "removed": sorted(old["key"] for old in removed),
+            "lease_owner": lease_owner, "at": rows[0]["at"] if rows else _iso(_utc_now()),
+        })
+    current["decisions"] = sorted([old for old in current["decisions"] if old not in replaced and old not in removed] + rows,
                                   key=lambda old: (old["kind"], old["key"]))
     atomic_write_json(path, current)
     return {"ok": True, "mutation_performed": True, "work_item_id": item_id, "decisions": decisions_path(item_id),
             "plan": report["plan"], "plan_sha256": report["plan_sha256"], "recorded": len(rows), "replaced": len(replaced),
+            "removed": sorted(old["key"] for old in removed),
             "retire": report["retire"], "move": report["move"], "items_to_reopen": report["items_to_reopen"],
             "note": f"the decisions take effect at the next {APPLY_ROUTE} of {item_id}; reopen (progress work reopen) and "
                     "re-apply each item listed in items_to_reopen"}

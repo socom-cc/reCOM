@@ -259,7 +259,9 @@ def test_a_plan_retires_and_moves_copies_where_stage_4_places_them(render: tuple
 def test_a_plan_is_refused_outside_its_rules(render: tuple) -> None:
     inputs, rendered = render
     index = rendered["held"]["index"]
-    ordered = next(source for source, row in sorted(index.items()) if row["kind"] == "data" and row.get("artifact"))
+    ordered = next(source for source, row in sorted(index.items()) if row["kind"] == "function" and row.get("artifact")
+                   and row.get("reason") != "copy-only")
+    data = next(source for source, row in sorted(index.items()) if row["kind"] == "data")
     no_artifact = next(source for source, row in sorted(index.items()) if row["kind"] == "function" and not row.get("artifact"))
     copy_row = _row(index, CLEAR_ALL, "move", destination="src/gamez/zTexture/ztex_manager.cpp")
     cases = {
@@ -269,7 +271,10 @@ def test_a_plan_is_refused_outside_its_rules(render: tuple) -> None:
         "outside the plan: not a unit file": {**copy_row, "destination": "src/gamez/zTexture/ztex_nowhere.cpp"},
         "is a holding file": {**copy_row, "destination": index[CLEAR_ALL]["holding_file"]},
         "stage 4 does not place": {**copy_row, "destination": "src/gamez/zTexture/ztex_main.cpp"},
-        "ordered ELF artifact": _row(index, ordered, "move", destination="src/gamez/zTexture/ztex_manager.cpp"),
+        "ordered ELF artifact, which a held plan does not move": _row(index, ordered, "move",
+                                                                       destination="src/gamez/zTexture/ztex_manager.cpp"),
+        "its route is retirement": _row(index, ordered, "move", destination="src/gamez/zTexture/ztex_manager.cpp"),
+        "a held data statement does not move": _row(index, data, "move", destination="src/gamez/zTexture/ztex_manager.cpp"),
         "retire it as a duplicate": _row(index, CLEAR_ALL, "retire", reason="no-elf-symbol"),
         "no single ELF function": {**_row(index, no_artifact, "move", destination="src/gamez/zTexture/ztex_manager.cpp"),
                                    "fence": "NoSuchSymbol__Fv"},
@@ -296,6 +301,13 @@ def test_a_render_with_held_decisions_moves_retires_and_passes_its_checks(live: 
         if (ROOT / decisions_dir).exists():
             shutil.rmtree(ROOT / decisions_dir)
         shutil.copytree(real, ROOT / decisions_dir) if real.is_dir() else (ROOT / decisions_dir).mkdir(parents=True)
+        own = ROOT / order_skeleton_write.decisions_path(ORDER_SKELETON_PREPARE_ID)
+        if own.is_file():
+            # The real held plans' rows go: this test records its own rows for the same entries.
+            value = json.loads(own.read_text(encoding="utf-8"))
+            value["decisions"] = [row for row in value["decisions"] if not row["kind"].startswith("held-")]
+            value.pop("held_plan_history", None)
+            own.write_text(json.dumps(value), encoding="utf-8")
         inputs, _base = route_inputs(ROOT, live, manifest_path=INPUTS[0], snapshot_path=INPUTS[1])
         before = order_skeleton_write.render_skeletons(inputs, segment=None)
         index = before["held"]["index"]
@@ -343,3 +355,163 @@ def test_a_render_with_held_decisions_moves_retires_and_passes_its_checks(live: 
             shutil.rmtree(ROOT / decisions_dir)
         if preview.exists():
             shutil.rmtree(preview)
+
+
+# -- a header resolution may keep another order of whole declaration regions ---------------------------
+
+HEADER = "src/gamez/zDemo/zdemo.h"
+
+
+def _region(name: str, text: str = "", indent: str = "") -> str:
+    return f"{indent}/* @socom-skeleton decl {name} */\n{text}{indent}/* @socom-skeleton end {name} */\n"
+
+
+WRAPPED = _region("8CWrapped", "class CWrapped {\n" + _region("8CWrapped_m", "\tint m_n;\n", "\t") + "};\n")
+POPUP = _region("10CPopUpDlg", "class CPopUpDlg { CWrapped m_text; };\n")
+RENDERED_HEADER = ("#ifndef ZDEMO_H\n#define ZDEMO_H\n" + _region("include", '#include "a.h"\n') + "\n" + POPUP + "\n" + WRAPPED
+                   + "\n/* @socom-skeleton body f__Fv */\n/* held from src/demo.cpp:3 */\ninline void f() {}\n\n#endif\n")
+REORDERED_HEADER = RENDERED_HEADER.replace(POPUP + "\n" + WRAPPED, WRAPPED + "\n" + POPUP)
+
+
+def test_a_header_resolution_may_reorder_whole_regions_and_records_it() -> None:
+    from tools._socom.order_skeleton_merge import check_merged, region_reorder
+
+    reordered, render = REORDERED_HEADER.encode(), RENDERED_HEADER.encode()
+    assert reordered != render and check_merged(HEADER, reordered, render, resolved=True) == []
+    problems, moved = region_reorder(HEADER, reordered, render)
+    assert problems == [] and moved == [
+        {"region": "8CWrapped", "after": "region include", "render_after": "region 10CPopUpDlg"},
+        {"region": "10CPopUpDlg", "after": "region 8CWrapped", "render_after": "region include"}]
+    # A merge (no resolution) keeps the render's order, and a .cpp unit's order stays strict.
+    assert any("fence lines differ" in text for text in check_merged(HEADER, reordered, render))
+    unit = "src/gamez/zDemo/demo_main.cpp"
+    assert any("fence lines differ" in text for text in check_merged(unit, reordered, render, resolved=True))
+
+
+@pytest.mark.parametrize("change, needle", [
+    (lambda text: text.replace(WRAPPED, ""), "dropped ['8CWrapped']"),
+    (lambda text: text.replace("#endif\n", POPUP + "#endif\n"), "duplicated ['10CPopUpDlg']"),
+    # A region split in two, or its inner region taken out: no longer the render's block of fence lines.
+    (lambda text: text.replace("class CPopUpDlg { CWrapped m_text; };\n",
+                               "class CPopUpDlg;\n/* @socom-skeleton end 10CPopUpDlg */\n/* @socom-skeleton decl 10CPopUpDlg */\n"),
+     "duplicated ['10CPopUpDlg']"),
+    (lambda text: text.replace(_region("8CWrapped_m", "\tint m_n;\n", "\t"), "\tint m_n;\n"), "fence lines changed or split ['8CWrapped']"),
+    # A body fence dropped (or renamed), or an end fence without its decl.
+    (lambda text: text.replace("/* @socom-skeleton body f__Fv */\n", ""), "outside the regions"),
+    (lambda text: text.replace("body f__Fv", "body g__Fv"), "outside the regions"),
+    (lambda text: text + "/* @socom-skeleton end stray */\n", "not well formed"),
+])
+def test_a_header_resolution_that_drops_duplicates_or_splits_a_region_is_still_refused(change, needle) -> None:
+    from tools._socom.order_skeleton_merge import check_merged
+
+    problems = check_merged(HEADER, change(REORDERED_HEADER).encode(), RENDERED_HEADER.encode(), resolved=True)
+    assert any(needle in text for text in problems), problems
+
+
+def test_a_reordered_header_resolution_is_recorded_and_reproduced_by_apply_check(tmp_path: Path) -> None:
+    from tools._socom.order_skeleton_route import verify_written
+
+    previous = RENDERED_HEADER.replace("inline void f() {}\n", "")
+    live = previous.replace(POPUP + "\n" + WRAPPED, WRAPPED + "\n" + POPUP).replace("#endif\n", "void port_decl();\n#endif\n")
+    files = {HEADER: (previous.encode(), live.encode(), RENDERED_HEADER.encode())}
+    tracker, rendered = _workspace(tmp_path, files, retired=[], files_retired=[])
+    with pytest.raises(SocomError, match="1 files conflict"):
+        _merge(tmp_path, tracker, rendered)
+    resolutions = tmp_path / "build" / "resolved"
+    (resolutions / HEADER).parent.mkdir(parents=True)
+    resolved = REORDERED_HEADER.replace("\n#endif\n", "\nvoid port_decl();\n#endif\n").encode()
+    (resolutions / HEADER).write_bytes(resolved)
+    rows, changes, blobs = _merge_scope(tmp_path, tracker, tracker["work_items"][0], rendered, tmp_path / "base", resolutions)
+    (row,) = rows
+    assert row["merge"] == "resolved" and changes[HEADER] == resolved
+    assert [moved["region"] for moved in row["resolution"]["regions_reordered"]] == ["8CWrapped", "10CPopUpDlg"]
+    for data in blobs:
+        put_blob(tmp_path, data)
+    assert verify_written(tmp_path, {"files": rows}, {HEADER: files[HEADER][2]})[0] == []
+    forged = [{**row, "resolution": {key: value for key, value in row["resolution"].items() if key != "regions_reordered"}}]
+    assert any("regions_reordered" in text for text in verify_written(tmp_path, {"files": forged}, {HEADER: files[HEADER][2]})[0])
+
+
+# -- held-decide --replace ---------------------------------------------------------------------------------
+
+
+def _replace_workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, applied_at: str | None) -> tuple[dict, Path]:
+    from tools._socom import order_skeleton_route
+
+    tracker = {"work_items": [{"id": ORDER_SKELETON_PREPARE_ID, "kind": ORDER_PREPARE_KIND, "status": "in_progress",
+                               "lease": {"owner": "worker", "claimed_at": "2026-11-21T10:00:00Z"},
+                               **({"order_skeleton": {"applied_at": applied_at}} if applied_at else {})}]}
+    rows = [{"source": f"src/a.cpp:{line}", "entry": f"f{line}__Fv", "holding_file": "src/x_holding.cpp", "action": "retire",
+             "reason": "no-elf-symbol", "evidence_class": "PROVEN", "evidence": ["no ELF symbol"]} for line in (1, 2, 3)]
+    plan = tmp_path / "build" / "stage5" / "held-plans" / "p.json"
+    plan.parent.mkdir(parents=True)
+    plan.write_text(json.dumps({"kind": PLAN_KIND, "schema_version": 1, "reason": "first", "rows": rows}), encoding="utf-8")
+    monkeypatch.setattr(order_skeleton_route, "held_check", lambda root, tracker, plan_file, **_paths: {
+        "ok": True, "plan": plan_file.relative_to(root).as_posix(), "plan_sha256": "s" * 64, "retire": 0, "move": 0,
+        "items_to_reopen": [ORDER_SKELETON_PREPARE_ID], "problems": []})
+    earlier = {"kind": "held-retire", "key": "src/old.cpp:9", "value": "retire", "basis": "PROVEN: applied", "by": "w0",
+               "at": "2026-11-20T00:00:00Z", "plan": "build/stage5/held-plans/old.json"}
+    decisions = tmp_path / order_skeleton_write.decisions_path(ORDER_SKELETON_PREPARE_ID)
+    decisions.parent.mkdir(parents=True)
+    decisions.write_text(json.dumps({"kind": order_skeleton_write.DECISIONS_KIND, "schema_version": 1,
+                                     "work_item_id": ORDER_SKELETON_PREPARE_ID, "decisions": [earlier]}), encoding="utf-8")
+    held_decide(tmp_path, tracker, ORDER_SKELETON_PREPARE_ID, "worker", plan, manifest_path=INPUTS[0], snapshot_path=INPUTS[1])
+    revised = json.loads(plan.read_text(encoding="utf-8"))
+    revised.update(reason="revised", rows=revised["rows"][:2])
+    plan.write_text(json.dumps(revised), encoding="utf-8")
+    return tracker, plan
+
+
+def test_a_revised_plan_replaces_the_rows_recorded_under_the_lease_before_any_apply(tmp_path: Path, monkeypatch) -> None:
+    tracker, plan = _replace_workspace(tmp_path, monkeypatch, applied_at="2026-11-21T09:00:00Z")
+    decisions = tmp_path / order_skeleton_write.decisions_path(ORDER_SKELETON_PREPARE_ID)
+    # Without --replace a recorded row is replaced but never removed.
+    held_decide(tmp_path, tracker, ORDER_SKELETON_PREPARE_ID, "worker", plan, manifest_path=INPUTS[0], snapshot_path=INPUTS[1])
+    assert sorted(row["key"] for row in json.loads(decisions.read_text(encoding="utf-8"))["decisions"]) == [
+        "src/a.cpp:1", "src/a.cpp:2", "src/a.cpp:3", "src/old.cpp:9"]
+    report = held_decide(tmp_path, tracker, ORDER_SKELETON_PREPARE_ID, "worker", plan, manifest_path=INPUTS[0],
+                         snapshot_path=INPUTS[1], replace=True)
+    assert report["removed"] == ["src/a.cpp:3"]
+    value = json.loads(decisions.read_text(encoding="utf-8"))
+    # The applied plan's row stays; the replacement is recorded.
+    assert sorted(row["key"] for row in value["decisions"]) == ["src/a.cpp:1", "src/a.cpp:2", "src/old.cpp:9"]
+    (history,) = value["held_plan_history"]
+    assert history["removed"] == ["src/a.cpp:3"] and history["by_plan"] == "build/stage5/held-plans/p.json"
+
+
+def test_a_plan_applied_under_the_lease_is_not_replaced(tmp_path: Path, monkeypatch) -> None:
+    tracker, plan = _replace_workspace(tmp_path, monkeypatch, applied_at="2026-11-21T11:00:00Z")
+    with pytest.raises(SocomError, match="was applied under this lease"):
+        held_decide(tmp_path, tracker, ORDER_SKELETON_PREPARE_ID, "worker", plan, manifest_path=INPUTS[0],
+                    snapshot_path=INPUTS[1], replace=True)
+
+
+def test_held_plans_live_in_the_two_plan_directories(tmp_path: Path) -> None:
+    from tools._socom.order_skeleton_held import PLAN_DIRS, plan_path
+
+    for directory in PLAN_DIRS:
+        path = tmp_path / directory / "p.json"
+        path.parent.mkdir(parents=True)
+        path.write_text("{}", encoding="utf-8")
+        assert plan_path(tmp_path, f"{directory}/p.json") == path.resolve()
+    (tmp_path / "build" / "elsewhere").mkdir()
+    (tmp_path / "build" / "elsewhere" / "p.json").write_text("{}", encoding="utf-8")
+    with pytest.raises(SocomError, match="a held plan is a .json file under"):
+        plan_path(tmp_path, "build/elsewhere/p.json")
+
+
+@needs_inputs
+def test_held_data_never_moves_and_a_no_elf_retirement_is_checked_against_the_elf(render: tuple) -> None:
+    inputs, rendered = render
+    index = rendered["held"]["index"]
+    by_name = {row["name"]: source for source, row in index.items() if row["kind"] == "data"}
+    # is_init is held under its provisional global name; the ELF has the LOCAL is_init__23@unnamed@bone_init_cpp@.
+    is_init = _row(index, by_name["is_init"], "move", destination="src/gamez/zBone/bone_init.cpp")
+    problems, _report = check_rows(ROOT, inputs, index, [is_init])
+    assert any("a held data statement does not move" in text for text in problems)
+    retire = {**{key: value for key, value in is_init.items() if key != "destination"}, "action": "retire", "reason": "no-elf-symbol"}
+    problems, _report = check_rows(ROOT, inputs, index, [retire])
+    assert any("is_init__23@unnamed@bone_init_cpp@" in text and "retire it as a duplicate" in text for text in problems)
+    # A port-only object the ELF lacks retires as no-elf-symbol.
+    port_only = _row(index, by_name["tacmap_polys"], "retire", reason="no-elf-symbol")
+    assert check_rows(ROOT, inputs, index, [port_only])[0] == []

@@ -20,6 +20,8 @@ Per item (`socom:work:order-segment-NNN-apply`, awaiting_acceptance):
    A held plan (held-retire / held-move rows, FUNCTION_ORDER.md "Retiring and moving held entries"):
    `order skeleton held-check --plan <plan>` ok; the record's `carried` rows show each retired fence
    `retired` and each moved body `merged` (or `pending` for its segment apply) with the port text unchanged.
+   A header resolution listed under the record's `regions_reordered` keeps the port lane's order of whole
+   regions: confirm each move puts a type before its by-value user, and report it as a rendered-order lead.
 Once per batch: `audit source-trace`, `audit docblocks`, `guard raw-image` (only the 3 known RVA
 comments in zwep_weapon.cpp), `progress audit --strict`.
 Decide: `progress accept-order-skeleton --item <id> --accepter <ACCEPTER> --evidence "<checks; the

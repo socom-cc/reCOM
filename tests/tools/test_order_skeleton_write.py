@@ -364,13 +364,14 @@ def test_every_planned_row_is_written_once_or_listed(rendered: dict) -> None:
 def test_bodies_land_once_and_judgment_rows_all_get_a_default(rendered: dict) -> None:
     inputs, manifest = rendered["inputs"], rendered["first"]["manifest"]
     sources = Counter(row["source"] for row in manifest["entries"] if row.get("fence") == "body" or row["kind"] == "held-function")
-    snapshot = {row["id"] for row in inputs.snapshot["bodies"]}
+    # A held plan's retired bodies land nowhere (order skeleton held-decide).
+    snapshot = {row["id"] for row in inputs.snapshot["bodies"]} - set((manifest.get("held") or {}).get("retired") or [])
     assert {identity for identity in sources if identity in snapshot} == snapshot
     assert all(sources[identity] == 1 for identity in snapshot)
     assert len(manifest["judgment"]) == len(inputs.manifest["judgment"])
     assert all(row["default"] and row["flag"] and isinstance(row["waits"], bool) for row in manifest["judgment"])
     orphans = [path for path, row in inputs.files.items() if row["orphan"]]
-    assert sorted(row["path"] for row in manifest["deleted"]) == sorted(orphans)
+    assert sorted(row["path"] for row in manifest["deleted"] if row.get("action") != "holding-retired") == sorted(orphans)
     assert all(rendered["first"]["files"][path] is None for path in orphans)
     holding = [row["path"] for row in manifest["files"] if row["action"] == "holding"]
     assert holding and all(path.endswith("_holding.cpp") for path in holding)
@@ -416,6 +417,11 @@ def test_headers_keep_src_outside_their_regions(rendered: dict) -> None:
         assert all(_sha("\n".join(lines[found["start"] : found["end"] + 1])) == record["region_sha256"]
                    for found, record in zip(regions, records)), path
         stripped = strip_regions(rest, regions, {index for index, record in enumerate(records) if record["split"]})
+        # Inline copies a held plan moved into the header are not the header's own text (S7 strips them too).
+        from tools._socom.order_skeleton_held import strip_entries
+
+        moved = [entry for entry in manifest["entries"] if entry.get("path") == path and entry["kind"].startswith("held-")]
+        stripped = strip_entries(stripped, moved) if moved else stripped
         source = inputs.scans.get(path)
         if source is None:
             assert row["action"] == "new-header" and stripped.startswith("#ifndef ") and stripped.endswith("#endif\n")

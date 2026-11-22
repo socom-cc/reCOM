@@ -254,11 +254,105 @@ def fence_lines(data: bytes | None) -> list[str]:
     return [line.strip() for line in _text(data).splitlines() if _FENCE.search(line)]
 
 
+HEADER_SUFFIXES = (".h", ".hh", ".hpp", ".inc")
+_REGION_FENCE = re.compile(r"^[ \t]*/\* @socom-skeleton (?P<kind>decl|end) (?P<name>\S+) \*/[ \t]*$")
+
+
+def _fence_units(data: bytes) -> list[tuple[str, Any]] | None:
+    """The fence lines of a file as units: an outermost ``decl`` region (a type at namespace scope, or the members
+    region inside a class the header spells itself) with all its fence lines is one ``("region", (name, lines))``
+    unit, every other fence line a ``("line", text)`` unit.
+
+    None when the regions are not well formed (an ``end`` without its ``decl``, a region never closed).
+    """
+
+    units: list[tuple[str, Any]] = []
+    open_region: tuple[str, list[str]] | None = None
+    depth = 0
+    for raw in _text(data).splitlines():
+        if not _FENCE.search(raw):
+            continue
+        line = raw.strip()
+        match = _REGION_FENCE.match(raw)
+        if open_region is not None:
+            open_region[1].append(line)
+            if match and match["kind"] == "decl":
+                depth += 1
+            elif match and match["kind"] == "end":
+                if depth:
+                    depth -= 1
+                elif match["name"] == open_region[0]:
+                    units.append(("region", (open_region[0], tuple(open_region[1]))))
+                    open_region = None
+                else:
+                    return None
+            continue
+        if match and match["kind"] == "decl":
+            open_region = (match["name"], [line])
+            continue
+        if match and match["kind"] == "end":
+            return None
+        units.append(("line", line))
+    return None if open_region is not None else units
+
+
+def region_reorder(path: str, merged: bytes, render: bytes) -> tuple[list[str], list[dict[str, Any]] | None]:
+    """(problems, the moved regions) of a header resolution whose fence lines differ from the render's only in the order
+    of whole ``decl`` regions.
+
+    The rule: the same regions (each once, nothing dropped, added or
+    duplicated), each with exactly the render's fence lines (no region split
+    or merged), and every other fence line (bodies, stubs) in the render's
+    sequence; a whole region may move past them.  A region is an outermost
+    one: a type's region, or the members region inside a class the header
+    spells itself, which moves with its class.  A header orders types by what
+    each needs complete (a by-value member's type first); the render may order
+    them otherwise, so the port lane's order is kept and recorded:
+    ``[{"region", "after", "render_after"}]``, the fence unit before the moved
+    region in the resolution and in the render (``region <name>`` or the
+    fence line).  The definition order of a ``.cpp`` unit stays strict.
+    """
+
+    if not path.casefold().endswith(HEADER_SUFFIXES):
+        return [f"{path}: its @socom-skeleton fence lines differ from the render's (a fence was dropped, added or moved)"], None
+    mine, theirs = _fence_units(merged), _fence_units(render)
+    if mine is None or theirs is None:
+        return [f"{path}: its @socom-skeleton regions are not well formed (an end fence without its decl, or a region "
+                "never closed)"], None
+    regions = [unit[1] for unit in mine if unit[0] == "region"]
+    rendered = [unit[1] for unit in theirs if unit[0] == "region"]
+    names, wanted = [name for name, _lines in regions], [name for name, _lines in rendered]
+    if len(set(names)) != len(names) or sorted(regions) != sorted(rendered):
+        dropped = sorted(set(wanted) - set(names))
+        added = sorted(set(names) - set(wanted))
+        twice = sorted({name for name in names if names.count(name) > 1})
+        changed = sorted(name for name, block in regions if name in wanted and (name, block) not in rendered)
+        return [f"{path}: its regions are not the render's (dropped {dropped}, added {added}, "
+                f"duplicated {twice}, fence lines changed or split {changed})"], None
+    # Every other fence line (bodies, stubs) keeps the render's sequence; a whole region moves past them where the
+    # port lane placed its type (before the class that holds it by value, say).
+    if [unit for unit in mine if unit[0] == "line"] != [unit for unit in theirs if unit[0] == "line"]:
+        return [f"{path}: its @socom-skeleton fence lines outside the regions differ from the render's "
+                "(a fence was dropped, added or moved)"], None
+    labels = [f"region {unit[1][0]}" if unit[0] == "region" else unit[1] for unit in mine]
+    render_labels = [f"region {unit[1][0]}" if unit[0] == "region" else unit[1] for unit in theirs]
+
+    def before(sequence: list[str], name: str) -> str | None:
+        index = sequence.index(f"region {name}")
+        return sequence[index - 1] if index else None
+
+    moved = [{"region": name, "after": before(labels, name), "render_after": before(render_labels, name)}
+             for name in names if before(labels, name) != before(render_labels, name)]
+    return [], moved or None
+
+
 def check_merged(path: str, merged: bytes | None, render: bytes | None, *, resolved: bool = False) -> list[str]:
     """A merged or resolved file keeps the render's fences (same sequence) and stage 4 blocks, with no conflict marker.
 
     A resolution may keep (as port code without fences) a file the render
     deletes; a merge may not, and nothing may delete a file the render writes.
+    A resolution of a header may also keep another order of whole
+    namespace-scope declaration regions (``region_reorder``); a merge may not.
     """
 
     from .source_apply import parse_blocks
@@ -276,7 +370,10 @@ def check_merged(path: str, merged: bytes | None, render: bytes | None, *, resol
             problems.append(f"{path}: a kept file the render deletes may hold no @socom-skeleton fence")
         return problems
     if fence_lines(merged) != fence_lines(render):
-        problems.append(f"{path}: its @socom-skeleton fence lines differ from the render's (a fence was dropped, added or moved)")
+        if resolved:
+            problems.extend(region_reorder(path, merged, render)[0])
+        else:
+            problems.append(f"{path}: its @socom-skeleton fence lines differ from the render's (a fence was dropped, added or moved)")
     try:
         if parse_blocks(text)[1] != parse_blocks(_text(render))[1]:
             problems.append(f"{path}: its stage 4 blocks differ from the render's")

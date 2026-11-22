@@ -1741,6 +1741,30 @@ evidence line `order-skeleton-reapply`), and `progress audit` requires it on
 every item in review or accepted that an absorbed reopening or a rebase sent
 back.
 
+**A header resolution may reorder whole regions.** A header orders its
+types by what each needs complete: a class that holds another by value
+(`CPopUpDialog` holds a `CWrappedText` at +0xa4) must follow that class's
+definition. The render may place the regions otherwise, and the port lane
+then reorders them so the header compiles; a resolution that had to keep the
+render's sequence would not compile. So a **resolution of a header** (never a
+merge, never a `.cpp` unit, whose definition order is the planned one and
+stays strict) may keep another order of whole `decl … end` regions when:
+
+- the set of outermost regions is the render's: none dropped, added or
+  duplicated. An outermost region is a type's region, or the members region
+  inside a class the header spells itself, which moves with its class;
+- each region holds exactly the render's fence lines (none split, merged or
+  emptied);
+- every other fence line (bodies, stubs) keeps the render's sequence.
+
+The record lists the moved regions on the file's `resolution`
+(`regions_reordered`: each region, the fence unit before it in the
+resolution and in the render) and per file under the record's
+`regions_reordered`; `apply-check` re-derives the list and reports it, and
+refuses a record whose list differs. Each reorder is a lead for correcting
+the header's rendered order (the header writer placing a by-value member's
+type first).
+
 #### Carrying moved entries
 
 The per-file merge cannot follow an entry the new render moves to another
@@ -1792,8 +1816,10 @@ The writer renders every held body and data statement of the frozen base
 into its holding file on every apply, and `progress rebase-function-order`
 refuses a base delta that changes authored content. A held entry therefore
 leaves its holding file only through a **held plan**: one reviewed JSON file
-under `build/stage5/held-plans/<name>.json` (kind `socom-order-held-plan`,
-schema 1, a `reason` and `rows`) that lists any number of held entries. Each
+(kind `socom-order-held-plan`, schema 1, a `reason` and `rows`) that lists
+any number of held entries. The tools accept a plan under
+`build/stage5/held-plans/` or `build/order-plans/held/` (`<name>.json`) and
+refuse one anywhere else. Each
 row names the entry by its body id (`source`, the `/* held from <id> */`
 line), its fence name (`entry`) and its `holding_file`, and gives its
 `evidence_class` (`PROVEN`, `LIKELY` or `GUESS`) and `evidence` lines:
@@ -1815,11 +1841,19 @@ A held plan moves only what stage 5 does not order:
   identity; its destination is a unit file of the accepted order plans or a
   header of the route, and a `GUESS` keeps the `held-guess` flag.
 
-An **ordered ELF artifact** (a strong function or any data object, an
-unnamed-namespace object included) is refused: it moves through its stage
-4 owner row and the order plans, and the render then places it itself, in
-planned order and in its scope (`namespace {` for an unnamed-namespace
-object), with the BD6 rewrite correcting its declarator. A retirement needs
+An **ordered ELF artifact** (a strong function) is refused: a held plan does
+not move it. It reaches its unit only through its stage 4 owner row and the
+order plans, and the render then places it itself, in planned order and in
+its scope, with the BD6 rewrite correcting its declarator; where that owner
+row exists already, the held body is a stale copy and its only route is
+retirement (`duplicate`). A **held data statement** never moves, whatever
+the held index says about it (its rows carry the provisional spelling, so an
+unnamed-namespace object such as `is_init` looks like code with no ELF
+symbol): an object the ELF has reaches its unit through its owner row (in
+`namespace {` for an unnamed-namespace object), so the held statement is
+retired as a `duplicate`; a `no-elf-symbol` retirement of data is checked
+against the ELF, which must hold no object of that name, also as a LOCAL
+`<name>__N@unnamed@…` or a function-local `<name>$N`. A retirement needs
 no stage 4 record: the holding files carry no stage 4 blocks, and the
 artifact's stage 4 state (owned elsewhere, deferred, or none) does not
 change.
@@ -1840,9 +1874,9 @@ python tools/socom.py progress apply-order-skeleton --item socom:work:order-skel
 - `order skeleton held-check` is read-only. It renders the tree and checks
   every row: the entry is held (body id, fence name and holding file
   agree), listed once and decided by no other item; a `no-elf-symbol`
-  retirement has no ELF artifact; a destination is a unit file or an
-  existing header (never a holding file, never outside the plan) and a
-  header receives functions only; a corrected fence is one ELF function or
+  retirement has no ELF artifact (for data: no ELF object of that name); a
+  data statement never moves; a destination is a unit file or an existing
+  header (never a holding file, never outside the plan); a corrected fence is one ELF function or
   object symbol; the copy and stage 4 rules above. It reports the counts,
   the destinations and the skeleton items whose files change.
 - `order skeleton held-decide` runs as the holder of the prepare's lease,
@@ -1850,7 +1884,13 @@ python tools/socom.py progress apply-order-skeleton --item socom:work:order-skel
   prepare's decisions file (kinds `held-retire` and `held-move`, keyed by the
   body id, with the plan's path and SHA-256); a row an earlier plan decided
   is replaced. The prepare's record cites the decisions file, so its
-  apply-check refuses a later change.
+  apply-check refuses a later change. With `--replace`, a revised plan
+  replaces the held rows recorded under the current lease, while the prepare
+  has not been applied in it: rows the revision no longer lists are removed,
+  and the decisions file keeps the replacement under `held_plan_history`
+  (the replaced plans, the new plan, the removed body ids, who and when).
+  Rows of plans applied before stay; once applied under the lease, a
+  revision is a new plan after the review, never a replacement.
 - **The re-apply.** The render drops retired entries, writes moved ones at
   their destination and deletes a holding file left without an entry (write
   manifest `deleted`, action `holding-retired`; `held`: the retired body
@@ -1869,7 +1909,11 @@ python tools/socom.py progress apply-order-skeleton --item socom:work:order-skel
 
   A header the port lane edited just before its `#endif` conflicts with a
   moved inline there (both insert at the same place); the resolution keeps
-  both ([Re-apply as a merge](#re-apply-as-a-merge)).
+  both ([Re-apply as a merge](#re-apply-as-a-merge)). A header whose regions
+  the port lane reordered (a by-value member's type first) was kept as long
+  as its render did not change; once a move changes it, the merge breaks the
+  render's fence order and the resolution keeps the port lane's order of
+  whole regions, recorded under `regions_reordered`.
 - **Checks.** S1 and S2 skip a moved entry in a unit file (no unit row; S4
   checks it as a held entry: its provenance line and its snapshot body, with
   the `inline` head). S4 expects no retired body to land. S7 compares a

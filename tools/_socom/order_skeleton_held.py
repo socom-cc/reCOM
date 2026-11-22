@@ -3,8 +3,8 @@
 The skeleton writer holds every body or data statement that no planned unit
 owns in the module's unbuilt ``*_holding.cpp`` (BD4), rendered from the
 frozen base on every apply.  A held entry leaves its holding file only
-through a reviewed **held plan**: a JSON file under ``build/stage5/held-plans/``
-(kind ``socom-order-held-plan``) listing rows, each keyed by the entry's
+through a reviewed **held plan**: a JSON file under ``build/stage5/held-plans/`` or
+``build/order-plans/held/`` (``PLAN_DIRS``; kind ``socom-order-held-plan``) listing rows, each keyed by the entry's
 body id (its ``/* held from <id> */`` line)::
 
     {"source": "src/gamez/zNode/node_main.cpp:671", "entry": "SetActive__Q23zdb5CNodeFb",
@@ -24,7 +24,9 @@ body id (its ``/* held from <id> */`` line)::
   unchanged, as for any entry the render moves.  ``fence`` corrects a fence
   name that differs from the ELF symbol.
 
-A plan moves only what stage 5 does not order: compiler copies (Metrowerks
+A held data statement never moves (a ``no-elf-symbol`` retirement of one is
+checked against the ELF's LOCAL and local-static names).  A plan moves only
+what stage 5 does not order: compiler copies (Metrowerks
 binding 13 or WEAK, stage 7) and code with no ELF symbol.  An ordered ELF
 artifact (a strong function or any data object) moves through its stage 4
 owner row and the order plans (``progress amend-source-plan``, ``progress
@@ -58,6 +60,8 @@ from .util import SocomError, canonical_json, load_json
 PLAN_KIND = "socom-order-held-plan"
 PLAN_SCHEMA = 1
 PLAN_DIR = "build/stage5/held-plans"
+# Where held plans live: the stage 5 plan directory, or beside the order plans (the first real plans were kept there).
+PLAN_DIRS = (PLAN_DIR, "build/order-plans/held")
 RETIRE_KIND = "held-retire"
 MOVE_KIND = "held-move"
 HELD_KINDS = (RETIRE_KIND, MOVE_KIND)
@@ -124,7 +128,9 @@ def held_index(held: dict[str, list[dict[str, Any]]]) -> dict[str, dict[str, Any
             else:
                 artifacts = sorted({str(entry.get("artifact")) for entry in item.get("rows") or [] if entry.get("artifact")})
                 row.update(artifact=artifacts[0] if len(artifacts) == 1 else None, artifacts=artifacts,
-                           reason=",".join(sorted({str(entry.get("action")) for entry in item.get("rows") or []})))
+                           reason=",".join(sorted({str(entry.get("action")) for entry in item.get("rows") or []})),
+                           names=sorted({str(entry.get("mangled") or entry.get("name")) for entry in item.get("rows") or []
+                                         if entry.get("mangled") or entry.get("name")}))
             found[source] = row
     return found
 
@@ -133,13 +139,12 @@ def held_index(held: dict[str, list[dict[str, Any]]]) -> dict[str, dict[str, Any
 
 
 def plan_path(root: Path, value: str) -> Path:
-    """A held plan under build/ (repo-relative or absolute inside the workspace)."""
+    """A held plan in one of the plan directories (``PLAN_DIRS``; repo-relative or absolute inside the workspace)."""
 
     path = Path(value)
     path = (path if path.is_absolute() else root / path).resolve()
-    build = (root / "build").resolve()
-    if not path.is_relative_to(build):
-        raise SocomError(f"a held plan lives under build/ ({PLAN_DIR}/<name>.json): {value}")
+    if not any(path.is_relative_to((root / directory).resolve()) for directory in PLAN_DIRS) or path.suffix != ".json":
+        raise SocomError(f"a held plan is a .json file under {' or '.join(f'{directory}/' for directory in PLAN_DIRS)}: {value}")
     if not path.is_file():
         raise SocomError(f"the held plan {value} does not exist")
     return path
@@ -254,6 +259,22 @@ class _Symbols:
         rows = [symbol for symbol in self.by_name.get(name, []) if symbol.type in (1, 2) and symbol.size]
         return rows[0] if len(rows) == 1 else None
 
+    def data_like(self, names: list[str]) -> list[str]:
+        """ELF data symbols that are these names: exact, an unnamed-namespace (LOCAL) ``name__N@unnamed@...`` or a
+        function-local static ``name$N``."""
+
+        found = []
+        for name in names:
+            plain = name if "@unnamed@" in name else re.sub(r"(?<=.)__(?:\d|Q|F).*$", "", name)
+            for symbol_name, symbols in self.by_name.items():
+                if not any(symbol.type == 1 for symbol in symbols):
+                    continue
+                if symbol_name == name or (symbol_name.startswith(f"{plain}__") and "@unnamed@" in symbol_name
+                                           and symbol_name[len(plain) + 2:].lstrip("0123456789").startswith("@unnamed@")) \
+                        or re.fullmatch(rf"{re.escape(plain)}\$\d+", symbol_name):
+                    found.append(symbol_name)
+        return sorted(set(found))
+
 
 def _artifact_id(symbol: Any) -> str:
     return f"socom:{'function' if symbol.type == 2 else 'data'}:0x{symbol.value:x}"
@@ -318,10 +339,22 @@ def check_rows(root: Path, inputs: Any, index: dict[str, dict[str, Any]], rows: 
         if row["action"] == "retire":
             if row["reason"] == "no-elf-symbol" and entry.get("artifact"):
                 problems.append(f"{label}: it has the ELF artifact {entry['artifact']}: retire it as a duplicate (of)")
+            elif row["reason"] == "no-elf-symbol" and entry["kind"] == "data":
+                # A held data statement's rows name its provisional spelling: the ELF may hold the object as a LOCAL
+                # (unnamed-namespace) symbol or a function-local static under the same name.
+                symbols = symbols or _Symbols(inputs.elf)
+                if found := symbols.data_like(entry.get("names") or [entry["name"]]):
+                    problems.append(f"{label}: the ELF has {', '.join(found[:3])}: retire it as a duplicate (of)")
             report.append(result)
             continue
         destination = row["destination"]
         result["destination"] = destination
+        if entry["kind"] == "data":
+            problems.append(f"{label}: a held data statement does not move: a data object the ELF has reaches its unit only "
+                            "through its stage 4 owner row and the order plans (where that row exists, the held statement is a "
+                            "stale copy: retire it as a duplicate); one the ELF lacks is retired (no-elf-symbol)")
+            report.append(result)
+            continue
         if destination in holding or destination.endswith("_holding.cpp"):
             problems.append(f"{label}: {destination} is a holding file")
             report.append(result)
@@ -353,9 +386,10 @@ def check_rows(root: Path, inputs: Any, index: dict[str, dict[str, Any]], rows: 
         result["artifact"] = artifact
         if artifact:
             if entry["kind"] != "function" or not copy:
-                problems.append(f"{label}: {artifact} is an ordered ELF artifact: it moves through its stage 4 owner row and the "
-                                "order plans (progress amend-source-plan, reopen-order-skeleton, rebase-function-order), "
-                                "not a held plan")
+                problems.append(f"{label}: {artifact} is an ordered ELF artifact, which a held plan does not move: it reaches "
+                                "its unit only through its stage 4 owner row and the order plans (progress amend-source-plan, "
+                                "reopen-order-skeleton, rebase-function-order); where that owner row exists already, the held "
+                                "body is a stale copy and its route is retirement (retire it as a duplicate)")
             else:
                 edges = edges if edges is not None else _edges(root, inputs.source_root)
                 relation = "emits" if header else "defines"
