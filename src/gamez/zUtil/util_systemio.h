@@ -170,4 +170,63 @@ public:
 	virtual void fflush();
 	/* @socom-skeleton end 9CBufferIO */
 };
+/* @socom-skeleton body fwrite__7CFileIOFPCc */
+/* held from src/gamez/zUtil/util_systemio.cpp:122 */
+inline size_t CFileIO::fwrite(const char* buf)
+{
+	/* 0x304ad0: as CIO::fwrite - the length word is written for a NULL string too (0), the
+	 * characters only for a string */
+	size_t length = 0;
+
+	if (buf != NULL)
+		length = strlen(buf);
+
+	size_t written = fwrite(&length, 4);
+
+	if (buf != NULL)
+		written += fwrite(buf, length);
+
+	return written;
+}
+
+/* @socom-skeleton body fwrite__3CIOFPCc */
+/* held from src/gamez/zUtil/util_systemio.cpp:5 */
+inline size_t CIO::fwrite(const char* buf)
+{
+	size_t size = 0;
+
+	if (buf == NULL)
+	{
+		size = 0;
+	}
+	else
+	{
+		size = strlen(buf);
+	}
+
+	size_t bytesWritten = fwrite(&size, 4);
+
+	if (buf != NULL)
+	{
+		size_t bufBytesWritten = fwrite(buf, size);
+		bytesWritten += bufBytesWritten;
+	}
+
+	return bytesWritten;
+}
+
+/* @socom-skeleton body GetMode__7CFileIOCFv */
+/* held from src/gamez/zUtil/util_systemio.cpp:76 */
+inline unsigned int CFileIO::GetMode() const
+{
+	return m_mode;
+}
+
+/* @socom-skeleton body GetSize__7CFileIOCFv */
+/* held from src/gamez/zUtil/util_systemio.cpp:81 */
+inline size_t CFileIO::GetSize() const
+{
+	return m_filesize;
+}
+
 #endif

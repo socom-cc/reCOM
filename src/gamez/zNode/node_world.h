@@ -145,4 +145,13 @@ public:
 		/* @socom-skeleton end Q23zdb6CWorld */
 	};
 }
+/* @socom-skeleton body GetTexHandle__Q23zdb6CWorldFPCc */
+/* held from src/gamez/zNode/node_world.cpp:235 */
+namespace zdb {
+inline CTexHandle* CWorld::GetTexHandle(const char* name) /* port: GetTexHandle__Q23zdb6CWorldFPCc */
+	{
+		return CAssetMgr::m_assets.GetTexHandle(name);
+	}
+}
+
 #endif

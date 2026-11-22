@@ -56,6 +56,8 @@ Note: inline virtuals defined in CEntityCtrl's class (vtable slots 5-8, MW bindi
 - CEntityCtrl::PostMortemPreTick(float)
 - CEntityCtrl::GetRemoteControl()
 - CEntityCtrl::SetThrottle(unsigned int, float)
+Note: (2026-11-22, holding rows of 2026-11-21) row 1: inline in CEntity's class (MW binding 13); the kept copy sits in seal_ai.cpp.
+- 0x25ab70  CEntity::IsAlive() const
 
 ## zreader/zrdr_main.cpp
 - zrdr_finduint(const _zrdr *, const char *, unsigned int *, int)
@@ -188,6 +190,9 @@ Note: DWARF names Z:\dev\gamez\zmath\zmath_matrix.h as CMatrix's header (dwarf_c
 ## ztwod/ztwod.h
 Note: inline in C2DLine's class (its copy sits between c2dbitmap_poly.cpp and ztwod_font.cpp).
 - C2DLine::~C2DLine()
+Note: (2026-11-22, holding rows of 2026-11-21) row 4: inline in C2D's class (MW binding 13); the kept copy sits in zanim_menu.cpp.
+- 0x1d6180  C2D::C2D()
+Note: (2026-11-22, holding rows of 2026-11-21) row 5, user-accepted guess: C2DFade::C2DFade() has no ELF copy (inlined into the C2DBitmap and C2DBitmapPoly constructors), so it is written inline in C2DFade's class here.
 
 ## zreader/zrdr_local.cpp
 Note: own zReader file after zrdr_edit.cpp (0x241530-0x2416d0); zrdr_relocate is static (LOCAL), called only by zrdr_pack; zrdr_pack is called from zUI (CUIVarManager::CollectGarbage), so its prototype goes in a header zUI includes.
@@ -310,7 +315,51 @@ Note: (2026-11-15) inline in CTextureRelocMgr's class (MW binding 13); the four 
 Note: (2026-11-15) written inline in ztex_manager.cpp, whose object keeps both copies and whose vtable is their only user.
 - 0x2f9b70  zdb::CBatchRelocator::EndBatchReloc() const
 - 0x2f9ca0  zdb::CBatchRelocator::StartBatchReloc() const
+Note: (2026-11-22, holding rows of 2026-11-21) row 6: the same rule for AddToBatch, the copy between ClearAll and EndBatchReloc.
+- 0x2f9b20  zdb::CBatchRelocator::AddToBatch(zdb::CTexHandle *) const
 
 ## zreader/zrdr.h
 Note: (2026-11-15) inline in _zrdr (MW binding 13); the kept copy sits in zui_skb.cpp, its only caller.
 - 0x3a75a0  _zrdr::Get(unsigned int)
+Note: (2026-11-22, holding rows of 2026-11-21) row 10: inline in _zrdr (MW binding 13); the kept copy sits in zrdr_main.cpp's object.
+- 0x23e380  _zrdr::_zrdr()
+
+## znode/znode.h
+Note: (2026-11-22, holding rows of 2026-11-21) row 2: inline in CNode's class (MW binding 13); the kept copy sits in zanim_cmd_tick.cpp.
+- 0x1bc4a0  zdb::CNode::GetBBox() const
+
+## znode/node_world.h
+Note: (2026-11-22, holding rows of 2026-11-21) row 3: inline in CWorld's class (MW binding 13); the kept copy sits in zanim_anim.cpp.
+- 0x1ca770  zdb::CWorld::GetTexHandle(const char *)
+
+## zai/zai.h
+Note: (2026-11-22, holding rows of 2026-11-21) row 7: inline in CAiState's class (MW binding 13); the kept copy sits in seal_unit.cpp.
+- 0x2d1e60  CAiState::Reset(AI_STATE)
+
+## zarchive/zar.h
+Note: (2026-11-22, holding rows of 2026-11-21) row 8: inline in CKey's class (MW binding 13); the kept copy sits in zar_main.cpp's object.
+- 0x1d8130  zar::CKey::~CKey()
+
+## zvalve/zvalve.h
+Note: (2026-11-22, holding rows of 2026-11-21) row 9: inline in CValve's class (MW binding 13); the kept copy sits in fts_action.cpp.
+- 0x1ff660  CValve::Set(unsigned int)
+
+## zui/zui.h
+Note: (2026-11-22, holding rows of 2026-11-21) row 11: inline in CGameDlgDesign's class (MW binding 13); the kept copy sits in zui.cpp.
+- 0x380e10  CGameDlgDesign::CGameDlgDesign()
+
+## zutil/util_systemio.h
+Note: (2026-11-22, holding rows of 2026-11-21) rows 12-15: inline in CIO's and CFileIO's classes (MW binding 13); the kept copies sit in util_sonyio.cpp, util_bufio.cpp and ai_log.cpp.
+- 0x305da0  CIO::fwrite(const char *)
+- 0x303c90  CFileIO::GetMode() const
+- 0x1a93c0  CFileIO::GetSize() const
+- 0x304ad0  CFileIO::fwrite(const char *)
+
+## ztwod/c2dstring.cpp
+Note: (2026-11-22, holding rows of 2026-11-21) rows 16-18: the three C2DString::Load overloads; the ELF's font type is C2DFont.
+- 0x3022e0  C2DString::Load(const char *, C2DFont *, int, int, int, int)
+- 0x3023a0  C2DString::Load(const char *, C2DFont *, int, int)
+- 0x302480  C2DString::Load(float, const char *, C2DFont *, int, int)
+
+## zutil/util_stable.cpp
+Note: (2026-11-22, holding rows of 2026-11-21) row 72, user-accepted guess: CSTable::CSTable() is not in the ELF (only CSTable(unsigned int, unsigned int) 0x3067b0); the port keeps it here for GCC's default construction of by-value CSTable members.

@@ -202,4 +202,13 @@ public:
 		/* @socom-skeleton end Q23zar4CZAR */
 	};
 }
+/* @socom-skeleton body __dt__Q23zar4CKeyFv */
+/* held from src/gamez/zArchive/zar_main.cpp:21 */
+namespace zar {
+inline CKey::~CKey()
+	{
+		/* 0x1d8130: only the key ring's own (list) dtor, no clear() of its own */
+	}
+}
+
 #endif

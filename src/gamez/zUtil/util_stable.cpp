@@ -290,3 +290,13 @@ char* CSTable::CreateString(const char* str)
 
 	return out;
 }
+
+/* @socom-skeleton body __ct__7CSTableFv */
+/* held from src/gamez/zUtil/util_stable.cpp:5 */
+CSTable::CSTable() /* port: unproven - not in the ELF (only __ct__7CSTableFUiUi); by-value CSTable members still default-construct */
+{
+	m_owner = false;
+	m_buffer = NULL;
+	m_bytes = 0;
+	m_reserve = 0;
+}

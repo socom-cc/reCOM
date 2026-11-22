@@ -363,10 +363,6 @@ public:
 
 	void Draw(zdb::CCamera* camera);
 
-	void Load(const char* message, C2DTTFFont* font, s32 x, s32 y, s32 width, s32 height);
-	void Load(const char* message, C2DTTFFont* font, s32 x, s32 y);
-	void Load(f32 scale, const char* message, C2DTTFFont* font, s32 x, s32 y);
-	
 	void Load(const char* message, C2DFont* font, s32 x, s32 y, s32 width, s32 height);
 	void Load(const char* message, C2DFont* font, s32 x, s32 y);
 	void Load(f32 scale, const char* message, C2DFont* font, s32 x, s32 y);
@@ -818,6 +814,30 @@ public:
 	std::vector<C2DBitmapPoly*> _vecSegments;
 };
 /* @socom-skeleton end 15C2DWidePolyline */
+/* @socom-skeleton body __ct__7C2DFadeFv */
+/* held from src/gamez/zTwoD/ztwod_fade.cpp:3 */
+inline C2DFade::C2DFade()
+{
+	m_fade_enable = false;
+	m_fade_dx = 0.0f;
+	m_fade_limit = 128.0f;
+}
+
+/* @socom-skeleton body __ct__3C2DFv */
+/* held from src/gamez/zTwoD/ztwod_main.cpp:14 */
+inline C2D::C2D()
+{
+	m_on = true;
+	first = true;
+	m_isAA = false;
+	m_isTrans = false;
+	m_hasTexture = true;
+	m_isFrameAlpha = false;
+	
+	m_uivar = NULL;
+	m_active_and_handling_input = true;
+}
+
 /* @socom-skeleton body CanHandleInput__3C2DFv */
 /* held from src/gamez/zTwoD/ztwod_main.cpp:43 */
 inline bool C2D::CanHandleInput()

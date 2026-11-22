@@ -1947,4 +1947,19 @@ public:
 /* @socom-skeleton end 9CAiVisMap */
 
 extern CAiMaps AiMaps; /* ai_maps.cpp (0x49b190) */
+/* @socom-skeleton body Reset__8CAiStateF8AI_STATE */
+/* held from src/gamez/zAI/ai_main.cpp:129 */
+inline void CAiState::Reset(AI_STATE state)
+{
+	/* 0x2d1e60 */
+	m_unk_0c_1 = 0;
+	m_state = (u8)state;
+	m_substate = 0;
+	m_setup = 0;
+	m_time = 0.0f;
+	m_option_flags = 0;
+	m_response = 0;
+	m_unk_0c_3 = 0;
+}
+
 #endif

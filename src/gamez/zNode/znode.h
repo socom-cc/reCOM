@@ -375,4 +375,18 @@ inline bool CNode::SetActive(bool active)
 	}
 }
 
+/* @socom-skeleton body GetBBox__Q23zdb5CNodeCFv */
+/* held from src/gamez/zNode/node_main.cpp:715 */
+namespace zdb {
+inline CBBox* CNode::GetBBox() const /* port: the ELF has only GetBBox__Q23zdb5CNodeCFv */
+	{
+		if (m_use_parent_bbox)
+		{
+			return m_parent->GetBBox();
+		}
+
+		return const_cast<CBBox*>(&m_bbox);
+	}
+}
+
 #endif

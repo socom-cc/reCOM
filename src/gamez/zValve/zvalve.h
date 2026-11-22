@@ -175,4 +175,28 @@ public:
 	static CValve *ParseValveName(const char *, int &); /* 0x2f8070 answers the valve (NULL for INPUT_VALVE<n>) */
 };
 /* @socom-skeleton end 14VALVE_CMD_DATA */
+/* @socom-skeleton body Set__6CValveFUi */
+/* held from src/gamez/zValve/valve_main.cpp:247 */
+inline bool CValve::Set(u32 value)
+{
+	/* 0x1ff660: a change of the 16-bit value calls the callbacks with 1 (set to non-zero) or 2
+	 * (set to 0); no change, no callbacks (and false). The value is stored either way. (was:
+	 * state left unset, and DORMANT for a change to non-zero, so no callback ran) */
+	VALVE_STATE state = VALVE_STATE::VSTATE_DORMANT;
+
+	if (m_value != value)
+	{
+		state = value != 0 ? VALVE_STATE::VSTATE_TEMPORARY : VALVE_STATE::VSTATE_PERMANENT;
+	}
+
+	m_value = value;
+
+	if (state != VALVE_STATE::VSTATE_DORMANT)
+	{
+		MakeCallbacks(state);
+	}
+
+	return state != VALVE_STATE::VSTATE_DORMANT;
+}
+
 #endif

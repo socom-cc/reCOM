@@ -22,15 +22,3 @@ u32 CTexture::m_endAddress = 0;
 namespace zdb {
 u32 CTexture::m_startAddress = 0;
 }
-
-/* @socom-skeleton body AddToBatch__Q23zdb15CBatchRelocatorCFPQ23zdb10CTexHandle */
-/* held from src/gamez/zTexture/ztex_manager.cpp:12 */
-namespace zdb {
-void CBatchRelocator::AddToBatch(zdb::CTexHandle* handle) const
-	{
-		/* 0x2f9b20: buffer 0 lists the handle (once) and its chain is rebuilt at the end */
-		CGSTexBuffer* buffer = reinterpret_cast<CGSTexBuffer*>(CTexManager::m_texmanager[0]); /* port: the ELF vector holds CGSTexBuffer * (see doAddBuffer) */
-		buffer->m_dyntex_list.Add(handle, true);
-		buffer->m_chainp = NULL;
-	}
-}

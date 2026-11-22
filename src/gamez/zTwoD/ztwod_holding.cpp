@@ -9,15 +9,6 @@
 #include "gamez/zNode/node_assetlib.h"
 #include "gamez/zReader/zrdr.h"
 
-/* @socom-skeleton body __ct__7C2DFadeFv */
-/* held from src/gamez/zTwoD/ztwod_fade.cpp:3 */
-C2DFade::C2DFade()
-{
-	m_fade_enable = false;
-	m_fade_dx = 0.0f;
-	m_fade_limit = 128.0f;
-}
-
 /* @socom-skeleton body m_p2dcamera__3C2D */
 /* held from src/gamez/zTwoD/ztwod_main.cpp:5 */
 zdb::CCamera* C2D::m_p2dcamera;
@@ -45,59 +36,3 @@ f32 C2D::m_fXPixel;
 /* @socom-skeleton body m_fYPixel__3C2D */
 /* held from src/gamez/zTwoD/ztwod_main.cpp:12 */
 f32 C2D::m_fYPixel;
-
-/* @socom-skeleton body __ct__3C2DFv */
-/* held from src/gamez/zTwoD/ztwod_main.cpp:14 */
-C2D::C2D()
-{
-	m_on = true;
-	first = true;
-	m_isAA = false;
-	m_isTrans = false;
-	m_hasTexture = true;
-	m_isFrameAlpha = false;
-	
-	m_uivar = NULL;
-	m_active_and_handling_input = true;
-}
-
-/* @socom-skeleton body Load__9C2DStringFPCcP10C2DTTFFontiiii */
-/* held from src/gamez/zTwoD/ztwod_string.cpp:85 */
-void C2DString::Load(const char* message, C2DTTFFont* font, s32 x, s32 y, s32 width, s32 height)
-{
-    m_pos.x = x;
-    m_pos.y = y;
-    SetString(message);
-
-    if (m_color.w >= 128.0f)
-    {
-        SetTrans(m_color.w);
-    }
-
-    m_charwidth = width;
-    m_charheight = height;
-}
-
-/* @socom-skeleton body Load__9C2DStringFPCcP10C2DTTFFontii */
-/* held from src/gamez/zTwoD/ztwod_string.cpp:100 */
-void C2DString::Load(const char* message, C2DTTFFont* font, s32 x, s32 y)
-{
-    m_pos.x = x;
-    m_pos.y = y;
-    SetString(message);
-
-    if (m_color.w >= 128.0f)
-    {
-        SetTrans(m_color.w);
-    }
-}
-
-/* @socom-skeleton body Load__9C2DStringFfPCcP10C2DTTFFontii */
-/* held from src/gamez/zTwoD/ztwod_string.cpp:112 */
-void C2DString::Load(f32 scale, const char* message, C2DTTFFont* font, s32 x, s32 y)
-{
-    m_scale = scale;
-    Load(message, font, x, y);
-}
-
-/* port: __dt__7C2DLineFv (0x2fe8e0) is inline in ztwod.h's C2DLine class */

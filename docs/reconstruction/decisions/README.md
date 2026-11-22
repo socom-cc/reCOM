@@ -11,11 +11,14 @@ heading (stage-4 `name_basis: "user"` and per-entry `decision` objects, see
 | [stage4-function-placements.md](stage4-function-placements.md) | Source files for the 194 stage-4 unresolved functions (2026-11-05/06): one `## module/file` heading per destination, `.h` headings for inline and template code |
 | [stage4-compiler-copies.md](stage4-compiler-copies.md) | The 10 compiler copies among them and the headers they come from |
 | [stage4-microcode-placements.md](stage4-microcode-placements.md) | Source files for the VU1 and VU0 microcode, which have no DWARF or source path (2026-11-06) |
+| [stage4-data-placements.md](stage4-data-placements.md) | Source files for 53 stage-4 unresolved data objects, the holding rows of 2026-11-21 (2026-11-22): one `## module/file` heading per destination; rows 49-71 user-accepted guesses |
 
 Stored revisions live in [history/](history/). `stage4-function-placements.fe2f75ed....md` is
 the revision that 19 accepted stage-4 plans cite. It predates the 2026-11-06 move of
 `CMatrix::operator const float (&)[4][4]() const` from `## zmath/zmath.h` to
-`## zmath/zmath_matrix.h`; no plan places that function.
+`## zmath/zmath_matrix.h`; no plan places that function. `stage4-function-placements.7fddc6fb....md`
+is the revision before the holding rows of 2026-11-21 were added (2026-11-22); segment 026's
+accepted plan cites it.
 
 ## Revising a decision file
 
