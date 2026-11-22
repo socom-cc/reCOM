@@ -1134,7 +1134,7 @@ CUIVariable *uiv_ClanDescription; /* Clan_Description */
 
 /* @socom-skeleton stub ForceReport__24@unnamed@zNetMedius_cpp@ */
 namespace {
-unsigned char ForceReport;
+bool ForceReport;
 }
 
 /* @socom-skeleton stub ThreadId__24@unnamed@zNetMedius_cpp@ */

@@ -46,7 +46,7 @@ extern CZNetwork theNetwork;
 extern CZNetVoice theVoice;
 extern CZOnlineLobby theLobby;
 
-int PTT_HeartbeatPrepare(); /* 0x3f02c0: 1 sent, -1 not (libptt; held in znetwork_holding.cpp) */
+int PTT_HeartbeatPrepare(); /* 0x3f02c0: 1 sent, -1 not (libptt; port: port/compat/ptt_offline.cpp) */
 
 /* port: the global MP_MINOR_GAME_STATE / MP_MAJOR_GAME_STATE duplicates were removed; the binary's types are CZNetGame::MP_*_GAME_STATE (Q29CZNetGame19MP_MAJOR_GAME_STATE) */
 

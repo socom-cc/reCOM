@@ -55,6 +55,30 @@ decided.
 Tool gap found: `held-check` lets a data entry through as code with no ELF symbol, although the
 route's rules refuse all data; the worker left the data rows out by hand.
 
+## The second plan: the rest of the proven group
+
+The 18 entries above turned out to need no stage-4 amendment. `source owner` shows an accepted
+owner row for each, and the skeleton already writes each one's own entry in its owner file,
+inside `namespace { }` for the 17 authored ones (the ELF's symbols are the unnamed-namespace
+LOCAL ones of `bone_init.cpp`, `zmpeg.cpp`, `zNetMedius.cpp` and `zui_spec.cpp`). The port used
+those entries; nothing referred to the held copies, which were duplicates.
+
+Held plan `build/order-plans/held/holding-proven-2.json` (canonical sha256 6c6af6bd...92eb), 18
+`retire` rows, planned by `socom-amend-planner-h1`, applied by `socom-held-worker-w1`, accepted
+by `socom-held-verifier-v1` (tracker revisions 4658 to 4663):
+
+- the 16 data copies and `LoadDlgObjects` are deleted and their fences retired;
+- seven one-byte flags take `bool` in their owner entries, as the held text had them (`is_init`,
+  the five zmpeg `*Alloc` flags, `ForceReport`); the verifier decoded every ELF access to them:
+  loads are `lbu`, stores write 0, 1 or an `sltiu` result;
+- `PTT_HeartbeatPrepare` (0x3f02c0, provider code of libptt) was the port's only definition: its
+  text moved unchanged to the end of `port/compat/ptt_offline.cpp`;
+- `zbone_holding.cpp`, `zmpeg_holding.cpp` and `znetwork_holding.cpp` are deleted. 14 holding
+  files and 51 fenced entries remain: the survey's LIKELY and GUESS groups.
+
+Before treating a held entry as needing an owner amendment, check `source owner` for it: an
+accepted row with a rendered entry in the unit file means the held copy is only a duplicate.
+
 ## Checks
 
 Default port build links (0 undefined, 0 multiple definitions). `order skeleton` apply-check,

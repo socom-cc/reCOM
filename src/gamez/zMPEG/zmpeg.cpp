@@ -52,27 +52,27 @@ sceMpeg *p_mp;
 
 /* @socom-skeleton stub mpegBuffAlloc__19@unnamed@zmpeg_cpp@ */
 namespace {
-unsigned char mpegBuffAlloc;
+bool mpegBuffAlloc;
 }
 
 /* @socom-skeleton stub rgb32Alloc__19@unnamed@zmpeg_cpp@ */
 namespace {
-unsigned char rgb32Alloc;
+bool rgb32Alloc;
 }
 
 /* @socom-skeleton stub path3tagAlloc__19@unnamed@zmpeg_cpp@ */
 namespace {
-unsigned char path3tagAlloc;
+bool path3tagAlloc;
 }
 
 /* @socom-skeleton stub demuxBuffAlloc__19@unnamed@zmpeg_cpp@ */
 namespace {
-unsigned char demuxBuffAlloc;
+bool demuxBuffAlloc;
 }
 
 /* @socom-skeleton stub audioBuffAlloc__19@unnamed@zmpeg_cpp@ */
 namespace {
-unsigned char audioBuffAlloc;
+bool audioBuffAlloc;
 }
 
 /* @socom-skeleton stub rsrcs__19@unnamed@zmpeg_cpp@ */

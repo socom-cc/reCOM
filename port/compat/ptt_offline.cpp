@@ -5,6 +5,7 @@
  * (src/gamez/zNetwork/zNetVoice.cpp) takes as "no voice": PTT_Init's failure turns m_do_voice off,
  * so nothing else is reached; a failed Sync or request is skipped by each caller. The heartbeat
  * answers 0 (no time taken). */
+#include <eekernel.h> /* WaitSema (PTT_HeartbeatPrepare) */
 #include <ptt.h>
 
 int PTT_Init(const char *server, unsigned int port) { (void)server; (void)port; return -1; }
@@ -38,3 +39,20 @@ bool g_wasPrepared = false;
 unsigned int g_buffer_hb[0x8000 / 4] __attribute__((aligned(64)));
 SifRpcClientData_t g_cd_hb;
 void _PTT_HeartbeatCallback(void *) {} /* never reached offline (no RPC is sent) */
+
+/* moved from src/gamez/zNetwork/znetwork_holding.cpp (held from src/gamez/zNetwork/zNetVoice.cpp:7) */
+int PTT_HeartbeatPrepare()
+{
+	/* 0x3f02c0 (libptt): once initialised, the heartbeat request (40 in the buffer's second word)
+	 * sent to PTTCLNT.IRX without waiting (RPC 8, the 32 KB buffer both ways, _PTT_HeartbeatCallback
+	 * at its end, after the semaphore); 1 when sent, -1 else (offline: libptt is never initialised,
+	 * port/compat/ptt_offline.cpp). The ELF returns the value in v0; CZNetVoice::PreTick ignores it */
+	if (!g_isInitialized)
+		return -1;
+	WaitSema(g_heartbeatSemaphore);
+	g_buffer_hb[1] = 40;
+	if (sceSifCallRpc(&g_cd_hb, 8, 1, g_buffer_hb, 0x8000, g_buffer_hb, 0x8000, _PTT_HeartbeatCallback, NULL) < 0)
+		return -1;
+	g_wasPrepared = true;
+	return 1;
+}

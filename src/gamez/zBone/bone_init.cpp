@@ -28,7 +28,7 @@ static unsigned int bone_archive_version;
 
 /* @socom-skeleton stub is_init__23@unnamed@bone_init_cpp@ */
 namespace {
-unsigned char is_init;
+bool is_init;
 }
 
 /* @socom-skeleton stub boneArchive */
