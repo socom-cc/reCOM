@@ -113,7 +113,7 @@ CZPlayerMapItem::CZPlayerMapItem(CEntity *entity)
 	m_namestring.m_color.z = 40.0f;
 }
 
-/* @socom-skeleton stub __dt__15CZPlayerMapItemFv */
+/* port: stub __dt__15CZPlayerMapItemFv (no owner in the render) */
 CZPlayerMapItem::~CZPlayerMapItem()
 {
 	/* 0x3db870: member destructors only */

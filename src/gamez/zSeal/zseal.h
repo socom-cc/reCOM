@@ -2587,7 +2587,7 @@ public:
 class ai
 {
 public:
-	static bool do_aimap_collide; /* do_aimap_collide__2ai 0x475d50 (1 byte): the player also uses the AI map's cell repel (PostComputeNextPosition 0x24fc10); port: defined in zai_holding.cpp */
+	static bool do_aimap_collide; /* do_aimap_collide__2ai 0x475d50 (1 byte): the player also uses the AI map's cell repel (PostComputeNextPosition 0x24fc10); port: defined in seal_ai.cpp */
 	enum LINE_TYPE { }; /* port: unproven: passed by value per the mangled name; kind and enumerators not in DWARF */
 	static void FlushPlannerQueue();
 	static bool PathPlanBegin(CAiPath *); /* 0x1810d0 returns 1 */

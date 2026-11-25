@@ -16,6 +16,7 @@
 class CFlyout;
 class CTargetMods;
 class CZDecalSet;
+class CZMarkList;
 /* @socom-skeleton end forward */
 class CFlyoutMachine;
 class CZDecalDef;
@@ -553,7 +554,6 @@ public:
 
 	static CZWeaponList m_listWeapons;
 
-	static CSnd* m_bulletPassSound;
 	static CZMarkList* m_pMarklist; /* 0x476680 (CreateMarkList) */
 
 	/* DWARF CZWeapon (176 bytes, vptr at +0) */
@@ -653,6 +653,7 @@ public:
 	static void RetrieveTimerRegistration(float **, float *, bool *);
 	static unsigned char TimerRegistered();
 	static unsigned char TimerCleared();
+	static CSnd *m_bulletpassSound; /* m_bulletpassSound__8CZWeapon 0x476684 (the ELF's spelling; owner zwep_weapon.cpp) */
 	static CFlyoutMachine m_flyout_machine; /* 0x511db0 */
 	/* @socom-skeleton end 8CZWeapon */
 };

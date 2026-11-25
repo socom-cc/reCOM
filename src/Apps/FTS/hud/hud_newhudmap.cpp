@@ -181,7 +181,7 @@ COverlayLine::COverlayLine()
 }
 }
 
-/* @socom-skeleton stub __dt__Q227@unnamed@hud_newhudmap_cpp@12COverlayLineFv */
+/* port: stub __dt__Q227@unnamed@hud_newhudmap_cpp@12COverlayLineFv (no owner in the render) */
 namespace {
 COverlayLine::~COverlayLine()
 {

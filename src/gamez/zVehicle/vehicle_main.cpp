@@ -122,7 +122,7 @@ CVehicleRdr::CVehicleRdr()
 	/* 0x1a38e0: only the vector base (capacity 0, size 0, no storage) */
 }
 
-/* @socom-skeleton body __ct__9AI_PARAMSFv */
+/* port: body __ct__9AI_PARAMSFv (no owner in the render) */
 AI_PARAMS::AI_PARAMS()
 {
 	/* 0x1a5270: no value set (mask 0) and the defaults Merge falls back to. The roster

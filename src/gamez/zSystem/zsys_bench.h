@@ -31,5 +31,8 @@ public:
 	static u32 countParticlesProcessed;       /* 0x476514 */
 	static u32 countParticlesDrawn;           /* 0x476518 */
 	static f32 drawTimeX[10]; /* DWARF array_type float[0..9] (hud_devtext.cpp); CPipe::RenderWorld fills [0..8] */
+	/* @socom-skeleton decl 6CBench */
+	/* port: the render's 15 statics (the frame timing stamps and the particle counters) are declared above with the port's types */
+	/* @socom-skeleton end 6CBench */
 };
 #endif

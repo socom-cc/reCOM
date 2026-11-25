@@ -89,7 +89,7 @@ zdb::CAssetLib *g_pMissionLoadingLib;
 /* @socom-skeleton stub MultiplayerMsgStrings */
 static CSTable MultiplayerMsgStrings;
 
-/* @socom-skeleton stub GetReaderFileName__9CLoadMenuFv */
+/* port: stub GetReaderFileName__9CLoadMenuFv (no owner in the render) */
 char * CLoadMenu::GetReaderFileName() /* 0x37fdd0 returns the literal at 0x460a20 */
 {
 	return (char *)"dlgLoad.rdr";
@@ -523,7 +523,7 @@ bool CLoadState::Tick(float dT)
 	return false;
 }
 
-/* @socom-skeleton stub __dt__9CLoadMenuFv */
+/* port: stub __dt__9CLoadMenuFv (no owner in the render) */
 CLoadMenu::~CLoadMenu()
 {
 	/* 0x37e6e0: nothing of its own; the three strings and the five bitmaps (each detaching

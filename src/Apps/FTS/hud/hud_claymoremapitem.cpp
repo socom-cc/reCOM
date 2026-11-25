@@ -80,7 +80,7 @@ CZClaymoreMapItem::CZClaymoreMapItem(CZSealBody *owner, CZProjectile *projectile
 	m_size = 3.0f;
 }
 
-/* @socom-skeleton stub __dt__17CZClaymoreMapItemFv */
+/* port: stub __dt__17CZClaymoreMapItemFv (no owner in the render) */
 CZClaymoreMapItem::~CZClaymoreMapItem()
 {
 	/* 0x3c2fd0: member and base destruction only */

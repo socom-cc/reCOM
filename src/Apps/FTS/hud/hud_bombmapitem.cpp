@@ -77,7 +77,7 @@ CZMPBombMapItem::CZMPBombMapItem(zdb::CNode *node)
 	m_graphic.SetColor(255.0f, 0.0f, 0.0f);
 }
 
-/* @socom-skeleton stub __dt__15CZMPBombMapItemFv */
+/* port: stub __dt__15CZMPBombMapItemFv (no owner in the render) */
 CZMPBombMapItem::~CZMPBombMapItem()
 {
 	/* 0x3c6dc0: member and base destruction only */

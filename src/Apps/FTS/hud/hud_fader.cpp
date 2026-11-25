@@ -279,7 +279,7 @@ void CFlashFXVector::Reset()
 	m_FlashFX.swap(empty);
 }
 
-/* @socom-skeleton stub __dt__8CFlashFXFv */
+/* port: stub __dt__8CFlashFXFv (no owner in the render) */
 CFlashFX::~CFlashFX()
 {
 	/* 0x402f60: base destruction only */

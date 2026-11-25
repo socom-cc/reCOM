@@ -95,7 +95,7 @@ template <class V, class T> static typename V::iterator FindIteratorByLocation(V
 	return i;
 }
 
-/* @socom-skeleton body ComputeLength__12CAiMapLocVecCFv */
+/* port: body ComputeLength__12CAiMapLocVecCFv (no owner in the render) */
 float CAiMapLocVec::ComputeLength() const
 {
 	/* 0x19dea0: the summed cell distances between consecutive locations */
@@ -119,7 +119,7 @@ float CAiMapLocVec::ComputeLength() const
 	return length;
 }
 
-/* @socom-skeleton body AllocEx__6CAiMapFUi */
+/* @socom-skeleton stub AllocEx__6CAiMapFUi */
 char * CAiMap::AllocEx(unsigned int bytes)
 {
 	/* 0x19f390: replaces the per-cell extra data (bytes per cell, zeroed), each row pointing at
@@ -180,14 +180,14 @@ char * CAiMap::GetMapEx(const CAiMapLoc &loc)
 	return row.m_mapEx + m_mapex_bytes * (loc.x - row.m_start);
 }
 
-/* @socom-skeleton body ValidateName__Q26CAiMap4nameFv */
+/* @socom-skeleton stub ValidateName__Q26CAiMap4nameFv */
 void CAiMap::name::ValidateName()
 {
 	/* 0x19f260: terminates the 15-byte name */
 	m_name[14] = '\0';
 }
 
-/* @socom-skeleton body GetCellName__6CAiMapFRC9CAiMapLoc */
+/* @socom-skeleton stub GetCellName__6CAiMapFRC9CAiMapLoc */
 CAiMap::name * CAiMap::GetCellName(const CAiMapLoc &loc)
 {
 	/* 0x19f1c0 */
@@ -200,14 +200,14 @@ template <class T> static bool CompareT(const T &a, const T &b)
 	return strncasecmp(a.m_name, b.m_name, 14) < 0;
 }
 
-/* @socom-skeleton body SortByNames__Q26CAiMap5namesFv */
+/* @socom-skeleton stub SortByNames__Q26CAiMap5namesFv */
 void CAiMap::names::SortByNames()
 {
 	/* 0x19f190 */
 	std::sort(begin(), end(), CompareT<name>);
 }
 
-/* @socom-skeleton body GetLocation__6CAiMapCFPCcR9CAiMapLoc */
+/* @socom-skeleton stub GetLocation__6CAiMapCFPCcR9CAiMapLoc */
 bool CAiMap::GetLocation(const char *str, CAiMapLoc &loc) const
 {
 	/* 0x19f0d0: the location of the first name matching str (case-blind, 14 characters) */
@@ -226,7 +226,7 @@ bool CAiMap::GetLocation(const char *str, CAiMapLoc &loc) const
 	return false;
 }
 
-/* @socom-skeleton body GetCellAction__6CAiMapFRC9CAiMapLoc */
+/* @socom-skeleton stub GetCellAction__6CAiMapFRC9CAiMapLoc */
 CAiMap::action * CAiMap::GetCellAction(const CAiMapLoc &loc)
 {
 	/* 0x19f030 */
@@ -252,7 +252,7 @@ bool CAiMap::FindActionLocation(unsigned int id, CAiMapLoc &loc, CAiMap::action 
 	return false;
 }
 
-/* @socom-skeleton body SetCellLink__6CAiMapFRC9CAiMapLocb */
+/* @socom-skeleton stub SetCellLink__6CAiMapFRC9CAiMapLocb */
 CAiMap::link * CAiMap::SetCellLink(const CAiMapLoc &loc, bool set)
 {
 	/* 0x19ec60: clearing drops the location's link record and the cell's link flag; setting
@@ -295,7 +295,7 @@ CAiMap::link * CAiMap::SetCellLink(const CAiMapLoc &loc, bool set)
 	return rec;
 }
 
-/* @socom-skeleton body GetCellLink__6CAiMapFRC9CAiMapLoc */
+/* @socom-skeleton stub GetCellLink__6CAiMapFRC9CAiMapLoc */
 CAiMap::link * CAiMap::GetCellLink(const CAiMapLoc &loc)
 {
 	/* 0x19ebd0 */
@@ -438,7 +438,7 @@ CAiMapLoc * CAiMap::region::GetCenter(CAiMapLoc &out) const
 	return &out;
 }
 
-/* @socom-skeleton body __ct__Q26CAiMap6readerFv */
+/* @socom-skeleton stub __ct__Q26CAiMap6readerFv */
 CAiMap::reader::reader()
 {
 	/* 0x19e670: m_loc is left unset */
@@ -461,7 +461,7 @@ CAiMap::readers::~readers()
 	}
 }
 
-/* @socom-skeleton body SetReader__Q26CAiMap6readerFP8CRdrFile */
+/* @socom-skeleton stub SetReader__Q26CAiMap6readerFP8CRdrFile */
 void CAiMap::reader::SetReader(CRdrFile *rdr)
 {
 	/* 0x19e570: the old reader is freed (zrdr_free ignores NULL) */
@@ -529,7 +529,7 @@ bool CAiMap::ReRoute(CAiMap::route *route)
 	return !(route->m_flags & 1);
 }
 
-/* @socom-skeleton body _invalid_route__FRQ26CAiMap5route */
+/* @socom-skeleton stub _invalid_route__FRQ26CAiMap5route */
 bool _invalid_route(CAiMap::route &route)
 {
 	/* 0x19e300: flag bit 0 marks an invalid route */
@@ -551,7 +551,7 @@ static inline bool _in_region(const CAiMap::region *r, const CAiMapLoc &loc)
 	return true;
 }
 
-/* @socom-skeleton body ValidateRoutes__6CAiMapFb */
+/* @socom-skeleton stub ValidateRoutes__6CAiMapFb */
 void CAiMap::ValidateRoutes(bool reroute)
 {
 	/* 0x19e0a0: a route is invalid unless both its regions exist, its first waypoint lies in
@@ -590,7 +590,7 @@ void CAiMap::ValidateRoutes(bool reroute)
 	m_routeTable.erase(std::remove_if(m_routeTable.begin(), m_routeTable.end(), _invalid_route), m_routeTable.end());
 }
 
-/* @socom-skeleton body CreateGraph__6CAiMapFb */
+/* @socom-skeleton stub CreateGraph__6CAiMapFb */
 void CAiMap::CreateGraph(bool rebuild)
 {
 	/* 0x19dce0: a node per type-4 region (named after it) and an edge per valid route (its

@@ -68,8 +68,8 @@ Note: (2026-11-22, holding rows of 2026-11-21) rows 50-56, user-accepted guess: 
 Note: (2026-11-22, holding rows of 2026-11-21) row 57, user-accepted guess: .sbss between zanim_cmd_tick.cpp's and anim_main.cpp's data; zanim_load.cpp lies between them in text and is its only zAnim user (alternative anim_main.cpp, the origin).
 - 0x4757ec  CZAnimMain::m_LoadFromZAR
 
-## zweapon/zwep_global.cpp
-Note: (2026-11-22, holding rows of 2026-11-21) rows 58-71, user-accepted guess: the .sdata and .sbss runs that follow zwep_global.cpp's own data (@1462) and precede thezoom.cpp; zwep_global.cpp is the first zWeapon unit (alternative zwep_weapon.cpp, CZWeapon's class file); the ELF spells m_bulletpassSound.
+## zweapon/zwep_weapon.cpp
+Note: (2026-11-24, holding rows of 2026-11-21; first placed in zwep_global.cpp on 2026-11-22) rows 58-71, user-accepted guess: most of these statics are read by CZWeapon methods in zwep_weapon.cpp; CZProjectile in zwep_projectile.cpp also reads personMaterialId and m_timer_pCurval, and no zwep_weapon.cpp code reads m_allowFireAnimations, m_allowImpactAnimations and m_allowWeaponIntersection (rows 59-61: read by options.cpp, seal_kit.cpp and CZProjectile), which are placed with their class, CZWeapon's class file; the .sdata and .sbss runs fit one file per class (review of 2026-11-24: zwep_weaponlist.cpp at 0x314690, not zwep_global.cpp, is the first zWeapon unit in .text; alternative zwep_global.cpp); the ELF spells m_bulletpassSound.
 - 0x475418  zwep::personMaterialId
 - 0x47541c  CZWeapon::m_allowFireAnimations
 - 0x475420  CZWeapon::m_allowImpactAnimations

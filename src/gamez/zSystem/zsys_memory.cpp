@@ -12,6 +12,7 @@
  * @socom-artifact defines main socom:function:0x2f48a0
  * @socom-artifact defines main socom:function:0x2f48e0
  * @socom-artifact defines main socom:function:0x2f4920
+ * @socom-artifact defines main socom:data:0x47651c
  * @socom-artifact defines main socom:data:0x476520
  * socom-owner-annotations end socom:work:source-segment-039 */
 
@@ -25,6 +26,9 @@
 #include "gamez/zVideo/zvid.h"
 #include <malloc.h> /* memalign */
 #include <eekernel.h> /* DIntr, EIntr */
+
+/* @socom-skeleton stub __HeapSize */
+size_t __HeapSize = 0; /* port: __HeapSize (C name; zsys_FullAllocAndFree stores it at 0x2f4964) */
 
 /* @socom-skeleton stub __HeapSizePS2 */
 int __HeapSizePS2;

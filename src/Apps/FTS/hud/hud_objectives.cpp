@@ -144,7 +144,7 @@ CZObjectiveList::CZObjectiveList()
 	m_cur_selected_objective = NULL;
 }
 
-/* @socom-skeleton stub __dt__15CZObjectiveListFv */
+/* port: stub __dt__15CZObjectiveListFv (no owner in the render) */
 CZObjectiveList::~CZObjectiveList()
 {
 	/* 0x3bf730: member and base destruction only (FreeList, from ~CZNewHudMap, frees the

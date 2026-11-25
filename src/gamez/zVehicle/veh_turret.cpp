@@ -481,7 +481,7 @@ int CTurret::ScanForTurretDefinitionHookups(zdb::CNode *node, bool recurse)
 	return count;
 }
 
-/* @socom-skeleton body _is_active__FPQ23zdb5CNode */
+/* port: body _is_active__FPQ23zdb5CNode (no owner in the render) */
 static bool _is_active(zdb::CNode *node)
 {
 	/* 0x37b7e0: active up to a type-6 node (the ELF inlines two levels, then recurses) */

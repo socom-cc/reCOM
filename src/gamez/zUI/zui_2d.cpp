@@ -377,7 +377,7 @@ std::__nInit std::__msl_ios_base_ninit;
 std::__wInit std::__msl_ios_base_winit;
 #endif
 
-/* @socom-skeleton stub __dt__10C2DCounterFv */
+/* port: stub __dt__10C2DCounterFv (no owner in the render) */
 C2DCounter::~C2DCounter()
 {
 	/* 0x394820: nothing of its own (~CRenderableString inline: the spec font, the UI
@@ -534,25 +534,25 @@ void CListItemStringTypeImpl::Tick(float dT)
 }
 }
 
-/* @socom-skeleton stub __dt__9CTeleTypeFv */
+/* port: stub __dt__9CTeleTypeFv (no owner in the render) */
 CTeleType::~CTeleType()
 {
 	/* 0x394040: nothing of its own (the cursor image and ~CRenderableString) */
 }
 
-/* @socom-skeleton stub Tick__13C3StateButtonFf */
+/* port: stub Tick__13C3StateButtonFf (no owner in the render) */
 void C3StateButton::Tick(float dT) /* 0x394020: virtual Tick on _strCaption (+0x20) */
 {
 	_strCaption.Tick(dT);
 }
 
-/* @socom-skeleton stub __dt__14CHandlerButtonFv */
+/* port: stub __dt__14CHandlerButtonFv (no owner in the render) */
 CHandlerButton::~CHandlerButton()
 {
 	/* 0x393fc0: nothing of its own (~C2DButton) */
 }
 
-/* @socom-skeleton stub SetNormal__10CUIListBoxFv */
+/* port: stub SetNormal__10CUIListBoxFv (no owner in the render) */
 void CUIListBox::SetNormal()
 {
 	/* 0x393eb0: the selected row in the normal colour, no glow, the active background off,
@@ -572,7 +572,7 @@ void CUIListBox::SetNormal()
 	m_glowTime = 0.0f;
 }
 
-/* @socom-skeleton stub SetActive__10CUIListBoxFv */
+/* port: stub SetActive__10CUIListBoxFv (no owner in the render) */
 void CUIListBox::SetActive()
 {
 	/* 0x393d60: the selected row in the active colour, glowing (ACTIVE_COLOR RANGE / TIME),
@@ -592,58 +592,58 @@ void CUIListBox::SetActive()
 	m_glowMax = m_activeRange[1];
 }
 
-/* @socom-skeleton stub __dt__10CSliderBarFv */
+/* port: stub __dt__10CSliderBarFv (no owner in the render) */
 CSliderBar::~CSliderBar()
 {
 	/* 0x393c70: nothing of its own - the knob, the mixin (DetachUIVar) and the button part are
 	 * the member / base destructors */
 }
 
-/* @socom-skeleton stub __dt__13CHProgressBarFv */
+/* port: stub __dt__13CHProgressBarFv (no owner in the render) */
 CHProgressBar::~CHProgressBar()
 {
 	/* 0x393ba0: nothing of its own (the leading-edge name and the image part) */
 }
 
-/* @socom-skeleton stub UpdateUIVar__9CCheckBoxFP11CUIVariable */
+/* port: stub UpdateUIVar__9CCheckBoxFP11CUIVariable (no owner in the render) */
 void CCheckBox::UpdateUIVar(CUIVariable *)
 {
 	/* 0x393b90: empty in the ELF (jr ra): the check does not follow its variable */
 }
 
-/* @socom-skeleton stub __dt__9CCheckBoxFv */
+/* port: stub __dt__9CCheckBoxFv (no owner in the render) */
 CCheckBox::~CCheckBox()
 {
 	/* 0x393a90: nothing of its own - the check image, both items, the mixin (DetachUIVar)
 	 * and the button part are the member / base destructors */
 }
 
-/* @socom-skeleton stub __dt__11CRadioStripFv */
+/* port: stub __dt__11CRadioStripFv (no owner in the render) */
 CRadioStrip::~CRadioStrip()
 {
 	/* 0x393a30: nothing of its own (the options are the C2D list's, deleted by ~C2DButton) */
 }
 
-/* @socom-skeleton stub __dt__11CScrollTextFv */
+/* port: stub __dt__11CScrollTextFv (no owner in the render) */
 CScrollText::~CScrollText()
 {
 	/* 0x393790: nothing of its own (~CWrappedText: the words) */
 }
 
-/* @socom-skeleton stub __dt__15CTickerTapeTextFv */
+/* port: stub __dt__15CTickerTapeTextFv (no owner in the render) */
 CTickerTapeText::~CTickerTapeText()
 {
 	/* 0x3936a0: nothing of its own (~CRenderableString inline) */
 }
 
-/* @socom-skeleton stub Get2DVisual__9C2DVisualFv */
+/* port: stub Get2DVisual__9C2DVisualFv (no owner in the render) */
 C2DVisual * C2DVisual::Get2DVisual()
 {
 	/* 0x393690 */
 	return this;
 }
 
-/* @socom-skeleton stub __dt__9C2DVisualFv */
+/* port: stub __dt__9C2DVisualFv (no owner in the render) */
 C2DVisual::~C2DVisual()
 {
 	/* 0x393630: nothing of its own (~zdb::CVisual) */
@@ -1519,7 +1519,7 @@ void CPlainBmp::Tick(float dT)
 	}
 }
 
-/* @socom-skeleton stub GetSpacing__9CTeleTypeFv */
+/* port: stub GetSpacing__9CTeleTypeFv (no owner in the render) */
 CGameMenu * UiGetCurMenu(); /* zui.cpp (0x384540) */
 
 float CTeleType::GetSpacing()
@@ -2465,7 +2465,7 @@ void CUIListBox::Tick(float dT)
 	}
 }
 
-/* @socom-skeleton stub SetPressed__10CUIListBoxFv */
+/* port: stub SetPressed__10CUIListBoxFv (no owner in the render) */
 void CUIListBox::SetPressed()
 {
 	/* 0x38d4e0: the selected row in the pressed colour, the highlight bar's PRESSED image
@@ -3709,7 +3709,7 @@ void CScrollText::LoadSpec(const CScrollSpec &spec)
 	CRenderableString::LoadSpec(spec);
 }
 
-/* @socom-skeleton stub GetSpacing__12CWrappedTextFv */
+/* port: stub GetSpacing__12CWrappedTextFv (no owner in the render) */
 float CWrappedText::GetSpacing()
 {
 	/* 0x389380 */
@@ -4610,7 +4610,7 @@ ListItem::ListItem(_zrdr *caption, const std::vector<ColumnData *, std::allocato
 		m_impl = new CListItemArrayTypeImpl(caption, columns);
 }
 
-/* @socom-skeleton stub IsEnabled__17CListItemTypeImplFv */
+/* port: stub IsEnabled__17CListItemTypeImplFv (no owner in the render) */
 bool CListItemTypeImpl::IsEnabled()
 {
 	/* 0x385710 */
@@ -4630,19 +4630,19 @@ ListItem::~ListItem()
 		delete m_impl;
 }
 
-/* @socom-skeleton stub Finish__17CListItemTypeImplFv */
+/* port: stub Finish__17CListItemTypeImplFv (no owner in the render) */
 void CListItemTypeImpl::Finish()
 {
 	/* 0x385660: empty in the ELF */
 }
 
-/* @socom-skeleton stub SetSequenceTime__17CListItemTypeImplFff */
+/* port: stub SetSequenceTime__17CListItemTypeImplFff (no owner in the render) */
 float CListItemTypeImpl::SetSequenceTime(float time, float) /* 0x385650 returns its first argument */
 {
 	return time;
 }
 
-/* @socom-skeleton stub __dt__17CListItemTypeImplFv */
+/* port: stub __dt__17CListItemTypeImplFv (no owner in the render) */
 CListItemTypeImpl::~CListItemTypeImpl()
 {
 	/* 0x385600: nothing of its own */
@@ -4657,7 +4657,7 @@ CListItemStringTypeImpl::~CListItemStringTypeImpl()
 }
 }
 
-/* @socom-skeleton stub Tick__17CListItemTypeImplFf */
+/* port: stub Tick__17CListItemTypeImplFf (no owner in the render) */
 void CListItemTypeImpl::Tick(float)
 {
 	/* 0x385500: empty in the ELF */
@@ -4685,7 +4685,7 @@ void C2DClock::UpdateUIVar(CUIVariable *var)
 	UpdatePos();
 }
 
-/* @socom-skeleton stub SetMapOffset__17CRenderableStringFii */
+/* port: stub SetMapOffset__17CRenderableStringFii (no owner in the render) */
 void CRenderableString::SetMapOffset(int x, int y)
 {
 	/* 0x3853c0: the string's offset from its node */
@@ -4694,13 +4694,13 @@ void CRenderableString::SetMapOffset(int x, int y)
 	m_offset.z = 0.0f;
 }
 
-/* @socom-skeleton stub Tick__17CRenderableStringFf */
+/* port: stub Tick__17CRenderableStringFf (no owner in the render) */
 void CRenderableString::Tick(float dT) /* 0x3853b0 tail-calls C2DString::Tick */
 {
 	C2DString::Tick(dT);
 }
 
-/* @socom-skeleton stub __dt__8C2DClockFv */
+/* port: stub __dt__8C2DClockFv (no owner in the render) */
 C2DClock::~C2DClock()
 {
 	/* 0x3852c0: nothing of its own (~CRenderableString inline: the spec font, the UI

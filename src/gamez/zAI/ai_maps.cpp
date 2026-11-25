@@ -94,7 +94,7 @@ const char *CAiMaps::default_mapset = "aimaps.mps";
 
 template <class V, class T> bool ReadCellTable(CFileIO &io, V &table); /* ai_mapio.cpp */
 
-/* @socom-skeleton body GetCell__Q26CAiMap8scanlineCFUi */
+/* port: body GetCell__Q26CAiMap8scanlineCFUi (no owner in the render) */
 CAiCell * CAiMap::scanline::GetCell(unsigned int x) const
 {
 	/* 0x197660: the dummy cell outside the row's span */
@@ -161,7 +161,7 @@ void CAiMaps::Reset()
 		((CAiMap *)*i)->ResetCells();
 }
 
-/* @socom-skeleton body GetMapByIndex__7CAiMapsCFUi */
+/* @socom-skeleton stub GetMapByIndex__7CAiMapsCFUi */
 CAiMap * CAiMaps::GetMapByIndex(unsigned int index) const
 {
 	/* 0x19d3c0 (inlined by the map-id lookups below): NULL past the end */
@@ -409,7 +409,7 @@ unsigned int CAiMaps::GetBoundary(const CAiMapLoc &loc)
 	return 0;
 }
 
-/* @socom-skeleton body GetCell__7CAiMapsFRC9CAiMapLoc */
+/* @socom-skeleton stub GetCell__7CAiMapsFRC9CAiMapLoc */
 CAiCell * CAiMaps::GetCell(const CAiMapLoc &loc)
 {
 	/* 0x19bfc0 */
@@ -417,7 +417,7 @@ CAiCell * CAiMaps::GetCell(const CAiMapLoc &loc)
 	return map != NULL ? map->GetCell(loc) : NULL;
 }
 
-/* @socom-skeleton body GetCellCenter__7CAiMapsFRC9CAiMapLocP6CPnt3D */
+/* @socom-skeleton stub GetCellCenter__7CAiMapsFRC9CAiMapLocP6CPnt3D */
 CPnt3D * CAiMaps::GetCellCenter(const CAiMapLoc &loc, CPnt3D *out)
 {
 	/* 0x19bc60: the cell's centre in x/z, its quantized altitude in y (the map's y range over
@@ -900,7 +900,7 @@ bool CAiMaps::ExtendPath(CAiPath &path, const CAiMapLoc &goal)
 	return extended;
 }
 
-/* @socom-skeleton body UpdateActionTables__7CAiMapsFv */
+/* @socom-skeleton stub UpdateActionTables__7CAiMapsFv */
 void CAiMaps::UpdateActionTables()
 {
 	/* 0x199010: per map (index = map id): every action's id is reset to invalid and its ex
@@ -934,7 +934,7 @@ void CAiMaps::UpdateActionTables()
 	}
 }
 
-/* @socom-skeleton body UpdateNameTables__7CAiMapsFv */
+/* @socom-skeleton stub UpdateNameTables__7CAiMapsFv */
 void CAiMaps::UpdateNameTables()
 {
 	/* 0x198d10: m_names[type] (types 1-5; 0 is unused) collects every map's names of that
@@ -1036,7 +1036,7 @@ bool CAiMaps::GetSporeLocation(unsigned int id, unsigned int n, CPnt3D *pos, CPn
 	return true;
 }
 
-/* @socom-skeleton body _fixupNode__FP6CGraphP6CGNodebRUiPv */
+/* @socom-skeleton stub _fixupNode__FP6CGraphP6CGNodebRUiPv */
 void _fixupNode(CGraph *, CGNode *node, bool reading, unsigned int &data, void *user)
 {
 	/* 0x198870: a map-set graph node is a cell link, stored packed (map id << 26 | x << 13 | y) */
@@ -1058,7 +1058,7 @@ void _fixupNode(CGraph *, CGNode *node, bool reading, unsigned int &data, void *
 	}
 }
 
-/* @socom-skeleton body _fixupEdge__FP6CGraphP6CGEdgebRUiPv */
+/* @socom-skeleton stub _fixupEdge__FP6CGraphP6CGEdgebRUiPv */
 void _fixupEdge(CGraph *, CGEdge *edge, bool reading, unsigned int &data, void *)
 {
 	/* 0x198850: no edge data */
@@ -1068,7 +1068,7 @@ void _fixupEdge(CGraph *, CGEdge *edge, bool reading, unsigned int &data, void *
 		data = 0;
 }
 
-/* @socom-skeleton body ReadMapSet__7CAiMapsFPCcPCc */
+/* @socom-skeleton stub ReadMapSet__7CAiMapsFPCcPCc */
 bool CAiMaps::ReadMapSet(const char *name, const char *dir)
 {
 	/* 0x198680: <dir><name>: a 4-byte header (unused), the AIMAPS_PARAMS, the maps (each a new
@@ -1122,7 +1122,7 @@ bool CAiMaps::ReadMapSet(const char *name, const char *dir)
 	return opened;
 }
 
-/* @socom-skeleton body ValidateLinks__7CAiMapsFv */
+/* @socom-skeleton stub ValidateLinks__7CAiMapsFv */
 void CAiMaps::ValidateLinks()
 {
 	/* 0x198420: per map, a link is kept only when its target map has a link back to it
@@ -1155,7 +1155,7 @@ void CAiMaps::ValidateLinks()
 	}
 }
 
-/* @socom-skeleton body CreateGraph__7CAiMapsFb */
+/* @socom-skeleton stub CreateGraph__7CAiMapsFb */
 void CAiMaps::CreateGraph(bool rebuild)
 {
 	/* 0x1981a0: keeps the graph read with the set unless asked to rebuild (ReadMapSet passes
