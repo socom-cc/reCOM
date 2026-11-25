@@ -2,7 +2,8 @@ param(
     [switch]$WorkingTree,   # build the working tree (includes uncommitted worker edits) instead of HEAD
     [switch]$SkipBuild,     # boot the last socom-run build without rebuilding
     [switch]$Monitor2,      # open PCSX2 on the secondary monitor
-    [switch]$NoLaunch       # build only, don't start PCSX2
+    [switch]$NoLaunch,      # build only, don't start PCSX2
+    [string]$GameArgs = ""  # the game's command line (PCSX2 -gameargs), e.g. "-f" for the status line
 )
 # Play launcher: builds the normal port ELF (no test hooks, no fake pad) from the last commit's src/
 # and port/ (or the working tree with -WorkingTree) into its own WSL build dir
@@ -63,7 +64,9 @@ if (-not (Test-Path $copy)) { "No socom-run build yet; run without -SkipBuild fi
 # the previous one is kept as last-run.prev.log.
 $log = Join-Path $PlayDir 'last-run.log'
 if (Test-Path $log) { Move-Item $log (Join-Path $PlayDir 'last-run.prev.log') -Force }
-$p = Start-Process -FilePath $Pcsx2 -PassThru -ArgumentList @('-fastboot', '-earlyconsolelog', '-logfile', "`"$log`"", '-elf', "`"$copy`"", '--', "`"$Disc`"")
+$pargs = @('-fastboot', '-earlyconsolelog')
+if ($GameArgs -ne "") { $pargs += @('-gameargs', "`"$GameArgs`"") }
+$p = Start-Process -FilePath $Pcsx2 -PassThru -ArgumentList ($pargs + @('-logfile', "`"$log`"", '-elf', "`"$copy`"", '--', "`"$Disc`""))
 # Test runs turn their PCSX2 down to 15% in the Windows mixer; make sure this session is at the
 # normal level in case Windows carried that over (PCSX2's own volume setting still applies).
 $vol = Join-Path $PSScriptRoot 'set-appvolume.ps1'

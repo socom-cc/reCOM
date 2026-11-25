@@ -8,7 +8,8 @@ param(
     [string]$MemCard = "",                            # a card file of the portable profile's memcards folder, in slot 1 for this run only
     [string]$DonePattern = "",                        # regex: end the run early once the log has it -DoneCount times
     [int]$DoneCount = 1,
-    [int]$DoneExtra = 5                               # seconds to keep running after that
+    [int]$DoneExtra = 5,                              # seconds to keep running after that
+    [string]$GameArgs = ""                            # the game's command line (PCSX2 -gameargs), e.g. "-f"; empty = none
 )
 # Shared PCSX2 boot helper for port test runs. The emulator and the disc image come from
 # $env:SOCOM_PCSX2 (pcsx2-qt.exe or its folder) and $env:SOCOM_DISC_IMAGE; both are user-local.
@@ -106,6 +107,7 @@ if ($portable) {
     [System.IO.File]::WriteAllText($gameIni, "[MemoryCards]`r`n$slot1`r`nSlot2_Enable = false`r`n`r`n[Logging]`r`nEnableEEConsole = true`r`nEnableIOPConsole = true`r`n")
     "memory cards for this run: $(if ($MemCard -ne '') { "slot 1 = $MemCard" } else { 'none' }) ($(Split-Path $gameIni -Leaf))"
 } elseif ($MemCard -ne "") { "-MemCard needs the portable profile (SOCOM_PCSX2_PORTABLE=1): it never touches the user's own cards"; exit 1 }
+if ($GameArgs -ne "") { $pargs += @('-gameargs', "`"$GameArgs`"") }
 $pargs += @('-logfile', "`"$Log`"", '-elf', "`"$Elf`"", '--', "`"$disc`"")
 $p = Start-Process $pcsx2 -PassThru -WindowStyle Minimized -ArgumentList $pargs
 

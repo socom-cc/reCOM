@@ -31,7 +31,7 @@ namespace zdb
 		f32 m_invDeltaRange;
 		f32 m_opacity;
 		CPnt3D m_diffuse;
-		bool m_appliedToNode;
+		u32 m_appliedToNode; /* +0xe4, DWARF uint: BuildNodeLocalLightList's call counter (lw / sw 228 at 0x243fdc / 0x243fe8), so a light listed in several grid cells is added once per node */
 		CPnt3D m_WorldPosition;
 		/* @socom-skeleton decl Q23zdb6CLight */
 public:
