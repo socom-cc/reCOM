@@ -67,10 +67,10 @@ extern CValve* lodLevel;
 class _zvid_public
 {
 public:
-	u32 wideFrameFlag;
+	u32 wireFrameFlag; /* +0x0, DWARF name (was wideFrameFlag) */
 
-	bool showTextureBuffer;
-	bool showTextureBufferFormat;
+	s32 showTextureBuffer;       /* +0x4, DWARF sint */
+	s32 showTextureBufferFormat; /* +0x8, DWARF sint; frameNumber follows at +0x10 as in DWARF */
 
 	s64 frameNumber;
 	u32 frameRate;

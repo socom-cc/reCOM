@@ -997,7 +997,7 @@ struct _zanim_valve_ref
 struct _zanim_sound
 {
 	s16 name_index;
-	bool stop_on_exit;
+	s16 stop_on_exit; /* +0x2, DWARF sshort (holds 0 or 1) */
 	CSnd* sound_handle;
 	CSndInstance* sound_instance;
 };

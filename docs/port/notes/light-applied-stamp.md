@@ -44,3 +44,15 @@ lights reach most nodes in the first place.
   game's own command line through PCSX2's `-gameargs` (`process_arguments` then sees it: `-f`
   shows the status line with the player's position).
 - `port/test-hooks/lightspot`: the player at a given position once the mission cameras are over.
+
+## The same kind of mistake elsewhere
+
+A sweep of the 384 classes that have DWARF (3,351 members): every member the port declares with a
+one-byte type against DWARF's wider integer or pointer type. Three more, none changing behaviour,
+corrected in the commit after the fix:
+
+- `_zanim_sound::stop_on_exit` (+0x2): DWARF `sshort`, the port had `bool`; it only holds 0 or 1.
+- `_zvid_public::showTextureBuffer` (+0x4) and `showTextureBufferFormat` (+0x8): DWARF `sint`,
+  the port had `bool`; nothing reads them. With `s32` the members after them sit at DWARF's
+  offsets (`frameNumber` +0x10). The first member is `wireFrameFlag` in DWARF (was
+  `wideFrameFlag`).
