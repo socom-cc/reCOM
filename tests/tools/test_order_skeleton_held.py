@@ -515,3 +515,39 @@ def test_held_data_never_moves_and_a_no_elf_retirement_is_checked_against_the_el
     # A port-only object the ELF lacks retires as no-elf-symbol.
     port_only = _row(index, by_name["tacmap_polys"], "retire", reason="no-elf-symbol")
     assert check_rows(ROOT, inputs, index, [port_only])[0] == []
+
+
+# -- moved entries in a unit file follow the ELF's address order ---------------------------------------------
+
+
+def test_copies_moved_into_a_unit_file_follow_the_elf_address_order() -> None:
+    from types import SimpleNamespace
+
+    from tools._socom.order_skeleton_held import dispose
+
+    def symbol(name: str, value: int) -> SimpleNamespace:
+        return SimpleNamespace(name=name, value=value, size=8, type=2, binding=13)
+
+    # held-from order :12, :18, :20, :23; ELF order 0x100 (:18), 0x200 (:12), 0x300 (:23, by its corrected fence).
+    bodies = {"src/x.cpp:12": ("a__1CFv", "socom:function:0x200"), "src/x.cpp:18": ("b__1CFv", "socom:function:0x100"),
+              "src/x.cpp:20": ("port__Fv", None), "src/x.cpp:23": ("d__1CFv", None)}
+    items = [{"kind": "function", "path": "src/x.cpp", "line": int(source.rsplit(":", 1)[1]), "flag": "bd4-held",
+              "mangled": name, "body": {"id": source, "mangled": name, "artifact": artifact, "reason": "copy-only"}}
+             for source, (name, artifact) in bodies.items()]
+
+    def render(destination: str) -> list[str]:
+        decisions = {("held-move", source): {"kind": "held-move", "key": source, "value": destination, "basis": "PROVEN: x",
+                                             "item": ORDER_SKELETON_PREPARE_ID, "evidence_class": "PROVEN",
+                                             **({"fence": "d__1CFCv"} if source.endswith(":23") else {})}
+                     for source in bodies}
+        inputs = SimpleNamespace(decisions=decisions, texts={}, decided_flag=lambda row: {"kind": "decided"},
+                                 elf=SimpleNamespace(symbols=lambda: [symbol("a__1CFv", 0x200), symbol("b__1CFv", 0x100),
+                                                                      symbol("d__1CFCv", 0x300)]))
+        writer = SimpleNamespace(held={"src/x_holding.cpp": copy.deepcopy(items)})
+        disposed = dispose(inputs, writer, lambda item: ([], f"void {item['mangled']}() {{}}", []))
+        return [entry["source"] for entry in disposed["moved"][destination]]
+
+    # The entry with no ELF symbol keeps its slot; the copies take theirs in address order.
+    assert render("src/x_main.cpp") == ["src/x.cpp:18", "src/x.cpp:12", "src/x.cpp:20", "src/x.cpp:23"]
+    # A header keeps the held-from order (its inline copies are emitted per unit).
+    assert render("src/x.h") == ["src/x.cpp:12", "src/x.cpp:18", "src/x.cpp:20", "src/x.cpp:23"]

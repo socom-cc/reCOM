@@ -1829,6 +1829,18 @@ line), its fence name (`entry`) and its `holding_file`, and gives its
 | `retire` | `reason`: `duplicate` (with `of`, what it duplicates) or `no-elf-symbol` | drops the entry |
 | `move` | `destination`; optional `fence`, the ELF symbol when the fence name differs from it | writes the held text under its fence at the destination: appended to a unit file, or before a header's closing include-guard `#endif`, where `inline` is added to the head of the definition (an inline copy) |
 
+**Order of moved entries.** The entries a held plan moves into one unit
+`.cpp` follow the ELF's address order: each takes the address of its held
+artifact, or of the ELF symbol its corrected `fence` names, and the entries
+with an address are sorted by it within the slots the held-from order gives
+the moved entries (an entry with no ELF symbol keeps its slot). So
+`CBatchRelocator::ClearAll` (0x2f9ab0) comes before `AddToBatch` (0x2f9b20)
+and `EndBatchReloc` (0x2f9b70), whatever their held-from lines say. Moved
+entries go after the unit's planned rows; the render gives compiler copies no
+other place in a unit, and where they sit among the unit's own definitions
+stays a later stage's matter (the copies are ordered in stage 7). A header's
+moved inline copies keep the held-from order (each unit emits its own copy).
+
 A held plan moves only what stage 5 does not order:
 
 - a **compiler copy** (Metrowerks binding 13 or WEAK; stage 7), the held

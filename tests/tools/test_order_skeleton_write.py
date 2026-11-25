@@ -374,7 +374,8 @@ def test_bodies_land_once_and_judgment_rows_all_get_a_default(rendered: dict) ->
     assert sorted(row["path"] for row in manifest["deleted"] if row.get("action") != "holding-retired") == sorted(orphans)
     assert all(rendered["first"]["files"][path] is None for path in orphans)
     holding = [row["path"] for row in manifest["files"] if row["action"] == "holding"]
-    assert holding and all(path.endswith("_holding.cpp") for path in holding)
+    # Held plans may have emptied every holding file (then the render deletes them all).
+    assert (holding or (manifest.get("held") or {}).get("files_retired")) and all(path.endswith("_holding.cpp") for path in holding)
 
 
 @needs_inputs

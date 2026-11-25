@@ -478,9 +478,30 @@ def dispose(inputs: Any, writer: Any, held_text: Any) -> dict[str, Any] | None:
         else:
             del writer.held[path]
             emptied.append(path)
-    for entries in moved.values():
+    symbols: _Symbols | None = None
+    for destination, entries in moved.items():
         entries.sort(key=lambda entry: entry["source"])
+        if is_header(destination):
+            continue  # an inline copy in a header: emitted per unit, its place there says nothing about the ELF
+        # Into a unit file: the copies with an ELF symbol in the ELF's address order, each in a slot the held-from
+        # order gives the moved entries (an entry with no ELF symbol keeps its slot).
+        symbols = symbols or _Symbols(inputs.elf)
+        addresses = {entry["source"]: _address(index.get(entry["source"]) or {}, entry["name"], symbols) for entry in entries}
+        slots = [number for number, entry in enumerate(entries) if addresses[entry["source"]] is not None]
+        placed = sorted((entries[number] for number in slots), key=lambda entry: addresses[entry["source"]])
+        for number, entry in zip(slots, placed):
+            entries[number] = entry
     return {"index": index, "retired": sorted(retired), "moved": moved, "emptied": sorted(emptied), "rows": rows}
+
+
+def _address(entry: dict[str, Any], name: str, symbols: "_Symbols") -> int | None:
+    """The ELF address of a moved entry: its held artifact's, else that of the ELF symbol its (corrected) fence names."""
+
+    artifact = entry.get("artifact")
+    if isinstance(artifact, str) and re.fullmatch(r"socom:(?:function|data):0x[0-9a-f]+", artifact):
+        return int(artifact.rsplit(":", 1)[1], 16)
+    symbol = symbols.find(name)
+    return symbol.value if symbol is not None else None
 
 
 def append_entries(text: str, entries: list[dict[str, Any]]) -> str:
