@@ -90,7 +90,7 @@ deferred until their real producers and compiler/provider prerequisites exist.
 <!-- SOCOM_PROGRESS_BEGIN -->
 ### Generated progress snapshot
 
-- Tracker revision: `5244`
+- Tracker revision: `5762`
 - Next work item: `none`
 - Work items: 1091 total (0 ready, 0 active, 0 awaiting acceptance, 1038 accepted, 53 dependency-blocked)
 - Open blockers: 3

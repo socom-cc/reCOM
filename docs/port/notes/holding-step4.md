@@ -79,6 +79,9 @@ order rules out); for the `C2D` statics it mildly favours the user's `ztwod_init
 - `CBatchRelocator::AddToBatch` sits before `ClearAll` in `ztex_manager.cpp`; the ELF has it after.
 - In `zai.h`'s recorded region reorder, `CAiCell` did not need to move.
 
+All three were settled on 2026-11-25, see [holding-step5.md](holding-step5.md). The third one was
+wrong: `CAiCell` does have to come before `CAiMap`.
+
 ## Checks
 
 Default port build links (0 undefined, 0 multiple definitions), also in the verifier's own

@@ -49,6 +49,14 @@ Note: (2026-11-22, holding rows of 2026-11-21) row 47: directly before zsys_memo
 ## zseal/seal_ai.cpp
 Note: (2026-11-22, holding rows of 2026-11-21) row 48: inside the .sbss run of the ai / CSealCtrlAi statics that ends at seal_ai.cpp's LOCAL @2555.
 - 0x475d50  ai::do_aimap_collide
+Note: (2026-11-25, user: "Put the statics of CSealCtrlAi into seal_ai.cpp") the five .sbss CSealCtrlAi statics 0x475d54-0x475d67 lie between ai::do_aimap_collide 0x475d50 (placed here on 2026-11-22) and CSealCtrlAi::aiLogEnabled 0x475d68, which seal_ai.cpp owns (referenced only by seal_ai.cpp, directly before its LOCAL @2555 0x475d78); a unit's .sbss block is contiguous, so with those two owners the five are seal_ai.cpp's. Without the 2026-11-22 placement the binary would permit seal.cpp's tail as well (its LOCAL statics end at init$3579 0x475d40; seal.cpp and seal_ai.cpp are adjacent in link order, sinit 68, 69). Accesses: CSealCtrlAi::PreTick(float) in seal_ai.cpp increments the three counts (0x2677ac/b8, 0x2677d8/ec, 0x2677f8/0x267800); seal_sensors.cpp's PreTick(float, void *) stores zero to the three counts (0x2b3df8, 0x2b3e00, 0x2b3e04) and reads aiActiveCount (0x2b3924), hud_devtext.cpp's CHUD::StatusLine reads them; diCount is only stored, by seal_sensors.cpp's PrePostTick (0x2b380c); aiDebugEnabled (1 byte) is set to 1 by options.cpp's process_arguments (0x1742e4) and read by seal_tasks.cpp's CTGoto::Begin (0x2bc880); seal.cpp touches none of them. Link order rules those four files out (seal_sensors.cpp, seal_tasks.cpp, hud_devtext.cpp, options.cpp).
+- 0x475d54  CSealCtrlAi::aiActiveCount
+- 0x475d58  CSealCtrlAi::aiSleepingCount
+- 0x475d5c  CSealCtrlAi::aiSnoozingCount
+- 0x475d60  CSealCtrlAi::diCount
+- 0x475d64  CSealCtrlAi::aiDebugEnabled
+Note: (2026-11-25, the same decision) CSealCtrlAi::aiCameraRangeFilter 0x474f60 (.sdata, 1 byte, initial value 1) lies strictly inside seal_ai.cpp's .sdata run: after its LOCAL throttleEps 0x474f54 and the CSealCtrlAi statics aiAccuracyAngle 0x474f58 and aiEnabled 0x474f5c (placed in seal_ai.cpp), before aiSoundHandle 0x474f68, aiSoundInstance 0x474f70 and its LOCAL @3270 0x474f78; its only access is a store of zero by options.cpp's process_arguments (0x174340), which link order rules out.
+- 0x474f60  CSealCtrlAi::aiCameraRangeFilter
 
 ## zsystem/zsys_init.cpp
 Note: (2026-11-22, holding rows of 2026-11-21) row 49, user-accepted guess: .bss right after zsys_init.cpp's theIOPManager; zSysInit fills it (the origin zsys_main.cpp does not exist; alternative zsys_spr.cpp).

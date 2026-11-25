@@ -11,7 +11,7 @@ heading (stage-4 `name_basis: "user"` and per-entry `decision` objects, see
 | [stage4-function-placements.md](stage4-function-placements.md) | Source files for the 194 stage-4 unresolved functions (2026-11-05/06): one `## module/file` heading per destination, `.h` headings for inline and template code |
 | [stage4-compiler-copies.md](stage4-compiler-copies.md) | The 10 compiler copies among them and the headers they come from |
 | [stage4-microcode-placements.md](stage4-microcode-placements.md) | Source files for the VU1 and VU0 microcode, which have no DWARF or source path (2026-11-06) |
-| [stage4-data-placements.md](stage4-data-placements.md) | Source files for 53 stage-4 unresolved data objects, the holding rows of 2026-11-21 (2026-11-22): one `## module/file` heading per destination; rows 49-71 user-accepted guesses |
+| [stage4-data-placements.md](stage4-data-placements.md) | Source files for 59 stage-4 unresolved data objects: the holding rows of 2026-11-21 (53, decided 2026-11-22) and the six `CSealCtrlAi` statics (2026-11-25): one `## module/file` heading per destination; rows 49-71 user-accepted guesses |
 
 Stored revisions live in [history/](history/). `stage4-function-placements.fe2f75ed....md` is
 the revision that 19 accepted stage-4 plans cite. It predates the 2026-11-06 move of

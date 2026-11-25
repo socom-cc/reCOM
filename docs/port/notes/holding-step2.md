@@ -14,7 +14,7 @@ itself is generated and not tracked): 85 rows, every one classed PROVEN.
   `no-elf-symbol`.
 - 10 moves, all Metrowerks binding-13 inline copies, each into the file stage 4's annotations
   name:
-  - `CTextureRelocMgr::ClearAll` (0x2f9ab0), `CBatchRelocator::EndBatchReloc` (0x2f9b70) and
+  - `CBatchRelocator::ClearAll` (0x2f9ab0), `CBatchRelocator::EndBatchReloc` (0x2f9b70) and
     `StartBatchReloc` (0x2f9ca0) into `src/gamez/zTexture/ztex_manager.cpp`; the last two are the
     user's placements, with their fence names corrected to the ELF's `...CFv` symbols.
   - four C2D functions into `src/gamez/zTwoD/ztwod.h`.
