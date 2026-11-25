@@ -92,6 +92,11 @@ through the virtual `~CZFTSWeapon`, `CDiPool`), the port's had to be written or 
   `vector<action_v18>` of `ReadCellTableCvt<actions_v18>`, the reader of version 17 / 18 AI maps. That path is
   left out on purpose (`zAI/ai_mapio.cpp`: every map on the disc is version 19).
 
+Later state (2026-11-25): none of the three is left. `theValveSaveManager` is a real
+`CValveSaveManager` with its destructor in `fts_mission.cpp`; the version 16-18 AI-map reader is
+written and `action_v18`'s copy constructor is the compiler's memberwise one; `CStack` is as the
+ELF has it (see [audit-unmarked-c2.md](audit-unmarked-c2.md)).
+
 ## Notes
 
 - `CPnt3D::operator+` / `operator*` are declared in `zmath.h` as non-const members returning a reference and are

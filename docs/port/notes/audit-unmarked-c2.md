@@ -76,6 +76,13 @@ menus round trip does not run any of them, so none of these rows changes the hea
   copies, each erase runs `~CBufferIO` and `~CFileIO`, both closing); the port's holds
   `CBufferIO*`. `fstack` is erased at the end of `zrdr_read`, so at exit it is empty in both.
 
+Later state (2026-11-25): none of the three is left. `CStack` has its flag byte, both
+constructors and the destructor (inline in `zrender.h`); `ai::ai_line_stack` is a real `CStack`
+built with the identity, `seal_env.cpp`'s `_stack` is a `CStack`, `CStack::m_top` starts one
+below `m_stack` (0x4d7920, as the ELF's data has it) and `m_pointer` is the `int` depth index.
+`zrdr_sym::~zrdr_sym` is written in `zrdr_parse.cpp`, and `CFileStack` holds `CBufferIO` by
+value, so its implicit destructor is the ELF's.
+
 ## Findings for a later pass (marked functions, not changed here)
 - `CFileStack::pop` (zrdr_parse.cpp) erases the whole stack; the ELF's 0x23f6e0 closes or
   releases the front file and erases only that element (`erase(begin())`). With a nested

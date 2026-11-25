@@ -94,10 +94,10 @@ std::__wInit std::__msl_ios_base_winit;
 #endif
 
 /* @socom-skeleton stub ai_line_stack__2ai */
-unsigned char ai::ai_line_stack; /* ELF: a CStack whose ctor (__sinit_seal_ailines.cpp) pushes
-                                    the identity on the matrix stack for the AI lines; port: not
-                                    pushed (the port's stack base, m_stack[0], is the identity
-                                    the lines use outside rendering) */
+CStack ai::ai_line_stack(CMatrix::identity); /* __sinit_seal_ailines.cpp 0x46db18: built pushed, the
+                                                identity copied to the new top (m_stack[0]): the
+                                                matrix the AI lines use outside rendering. Popped
+                                                by ~CStack at exit only. */
 
 /* @socom-skeleton stub ai_line_mask__2ai */
 int ai::ai_line_mask;

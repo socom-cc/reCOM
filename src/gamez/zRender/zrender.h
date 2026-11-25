@@ -115,15 +115,44 @@ public:
 	// SOLUTION: Do bounds checking inside of the arithmetic operator overloads.
 
 	static CMatrix m_stack[64];
-	static CMatrix* m_top;
-	static CMatrix* m_pointer;
+	static CMatrix* m_top;   /* 0x474e7c: the current matrix; starts one below m_stack (0x4d7920) */
+	static int m_pointer;    /* 0x474e78: the depth as an index (+1 / -1 per push / pop), starts at -1 */
+
+	/* One byte (no DWARF; the name is the port's): set when this object pushed a matrix. The
+	   objects built without a matrix are stored 0 by their unit's __sinit (grid_di 0x46b1f8,
+	   grid_clutter 0x46b260, zrndr_pipe 0x46bb8c, seal_env 0x46d00c). */
+	bool m_pushed;
+
+	CStack() : m_pushed(false) {}
+
+	/* inline in __sinit_seal_ailines.cpp (0x46db18-0x46db4c), the only object built this way
+	   (ai::ai_line_stack): the flag set, the depth and the top raised, the matrix copied to
+	   the new top. */
+	CStack(const CMatrix &matrix) : m_pushed(true)
+	{
+		m_pointer++;
+		m_top++;
+		sceVu0CopyMatrix(m_top->m_matrix, const_cast<f32 (*)[4]>(matrix.m_matrix));
+	}
+
+	/* __dt__6CStackFv 0x2148d0 (inline; registered by the five units' __sinit): pops what the
+	   object pushed. */
+	~CStack()
+	{
+		if (m_pushed)
+		{
+			m_pointer--;
+			m_top--;
+		}
+	}
 	/* @socom-skeleton decl 6CStack */
 public:
 	CMatrix * Multiply(const CMatrix *, bool);
 	/* @socom-skeleton end 6CStack */
 };
 
-/* `stack` is a file-local CStack (1-byte LOCAL symbol) in zrndr_pipe.cpp, grid_clutter.cpp and grid_di.cpp */
+/* `stack` is a file-local CStack (1-byte LOCAL symbol) in zrndr_pipe.cpp, grid_clutter.cpp and grid_di.cpp;
+   seal_env.cpp has `_stack`, and ai::ai_line_stack (seal_ailines.cpp) is the one built with a matrix */
 
 class LODVec : public std::vector<LOD> {}; /* DWARF: __vector_deleter<LOD> of 12-byte elements (CCharacterType::CreateLODs 0x2486f0) */
 

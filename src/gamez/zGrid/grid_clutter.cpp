@@ -61,7 +61,7 @@ std::__wInit std::__msl_ios_base_winit;
 #endif
 
 /* @socom-skeleton stub stack */
-static CStack stack; /* 1-byte LOCAL object: CStack has only static data */
+static CStack stack; /* 1-byte LOCAL object: the "pushed" flag, 0 here (nothing to pop) */
 
 /* @socom-skeleton stub Add__Q23zdb12CClutterListFPQ23zdb8CClutter */
 void zdb::CClutterList::Add(zdb::CClutter *clutter)

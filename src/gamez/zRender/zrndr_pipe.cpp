@@ -135,7 +135,7 @@ static int VifHandlerID;
 std::list<void*>::iterator CPipe::CAlpha::m_last_alpha_insert;
 
 /* @socom-skeleton stub stack */
-static CStack stack; /* 1-byte LOCAL object: CStack has only static data */
+static CStack stack; /* 1-byte LOCAL object: the "pushed" flag, 0 here (nothing to pop) */
 
 /* @socom-skeleton stub _AlphaBufUsed */
 int _AlphaBufUsed;

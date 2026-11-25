@@ -56,6 +56,7 @@
    both of them reach zinput.h again (via zgame.h/ztwod.h); this header needs only the names below. */
 class CCompassAnchor;
 class CPad;
+class CStack; /* gamez/zRender/zrender.h (ai::ai_line_stack) */
 /* port: opaque declaration; the definition is in gamez/zGame/zgame.h (DWARF byte_size 1) */
 enum MENU_STATE : unsigned char;
 
@@ -2634,7 +2635,7 @@ public:
 	static float ai_line_opacity_end;
 	static float ai_line_opacity_start;
 	static float ai_line_pos[3];
-	static unsigned char ai_line_stack;
+	static CStack ai_line_stack; /* 0x4763a0, 1 byte */
 	static unsigned char eventNoise[8];
 	static float minTurnAngle;
 	static int pathShortLimit;

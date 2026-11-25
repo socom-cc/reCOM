@@ -43,10 +43,11 @@ const CMatrix CMatrix::identity(1.0f, 0.0f, 0.0f, 0.0f,
                                  0.0f, 0.0f, 0.0f, 1.0f); /* values: __sinit_zmath_matrix.cpp (16-float ctor call) */
 
 /* @socom-skeleton stub m_pointer__6CStack */
-CMatrix *CStack::m_pointer = (CMatrix *)0xffffffff;
+int CStack::m_pointer = -1; /* 0x474e78: ffffffff; a depth index (addiu +1 / -1 at every push / pop) */
 
 /* @socom-skeleton body m_top__6CStack */
-CMatrix* CStack::m_top = CStack::m_stack;
+CMatrix* CStack::m_top = CStack::m_stack - 1; /* 0x474e7c: 0x4d7920 = m_stack - 64; the first push
+                                                (ai::ai_line_stack, at static init) makes it m_stack[0] */
 
 /* @socom-skeleton stub m_stack__6CStack */
 CMatrix CStack::m_stack[64];

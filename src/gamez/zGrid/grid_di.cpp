@@ -68,7 +68,7 @@ u32 CDI::m_backface_mask = 32;
 }
 
 /* @socom-skeleton stub stack */
-static CStack stack; /* 1-byte LOCAL object: CStack has only static data */
+static CStack stack; /* 1-byte LOCAL object: the "pushed" flag, 0 here (nothing to pop) */
 
 /* @socom-skeleton stub cameraCollideFlagRequired__21@unnamed@grid_di_cpp@ */
 namespace {

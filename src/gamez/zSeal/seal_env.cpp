@@ -281,6 +281,7 @@
 #include "gamez/zFTS/zfts.h" /* theMission (HandleLanding) */
 #include "gamez/zParticle/zparticle.h" /* Particle::Source (HandleSmokeAndGas) */
 #include "Apps/FTS/hud/hud.h" /* CCompassAnchor (CreateMPBombPickup's BOMB_GROUND anchor) */
+#include "gamez/zRender/zrender.h" /* CStack (_stack) */
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
 /* port: AckUnion is declared in gamez/zSeal/zseal.h */
@@ -398,7 +399,7 @@ CSnd* CZSealBody::m_cqb_sound;
 CSnd *CZSealBody::m_body_fall_sound;
 
 /* @socom-skeleton stub _stack */
-static unsigned char _stack;
+static CStack _stack; /* 0x476068, 1 byte: built without a matrix (0x46d00c stores 0) */
 
 /* @socom-skeleton stub MultiplayerMsgStrings */
 static unsigned char MultiplayerMsgStrings[28];
