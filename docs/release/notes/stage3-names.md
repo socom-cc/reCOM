@@ -22,9 +22,10 @@ Layouts were compared by size, not member by member. The types stay linked to th
 | pilot two, gamez/zIntersect | 251bc5d6... | 63 | 4 | 63 | 62 | 63 | saved, confirmed (192 rows) |
 | whole map, first try | 2d683270... | 2 | 0 | 1 | 1 | 2 | stopped on its third entry; saved, confirmed (4 rows) |
 | whole map, batch 1 | 700f6398... | 466 | 79 | 447 | 227 | 466 | stopped at 0x15a600; saved, confirmed (1,219 rows) |
+| whole map, batch 2 | e53b253f... | 900 | 34 | 826 | 468 | 900 | full batch, no stop, no side effect; check clean; saved, confirmed (2,228 rows) |
 
-The record holds 1,631 saved rows. The release program has 8,858 functions (8,772 after the
-auto-analysis).
+Batch 2 rewrote the plates of the two thunks of batch 1 (0x1405c0, 0x1405d0), which now name
+their targets; those two rows were replaced, not added.
 
 ## Stops, and what they showed
 
