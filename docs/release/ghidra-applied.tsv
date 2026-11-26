@@ -1,4 +1,8 @@
 release_address	applied	value	source_pair	date	state
+0x140008	label	ENTRYPOINT	0x140010 ENTRYPOINT (deviating)	2026-11-26	saved 2026-11-26
+0x140008	plate	Release map: deviating pair with prototype 0x140010 ENTRYPOINT (evidence entry; flags imm-only). // Owner -.	0x140010 ENTRYPOINT (deviating)	2026-11-26	saved 2026-11-26
+0x1401c8	name	_exit	0x1401d0 _exit (exact)	2026-11-26	saved 2026-11-26
+0x1401c8	plate	Release map: exact pair with prototype 0x1401d0 _exit (evidence exact; flags -). // Owner -.	0x1401d0 _exit (exact)	2026-11-26	saved 2026-11-26
 0x1d9930	name	zar::CZAR::NewKey	0x1d7ff0 NewKey__Q23zar4CZARFPCc (deviating)	2026-11-26	saved 2026-11-26
 0x1d9930	label	NewKey__Q23zar4CZARFPCc	0x1d7ff0 NewKey__Q23zar4CZARFPCc (deviating)	2026-11-26	saved 2026-11-26
 0x1d9930	plate	Release map: deviating pair with prototype 0x1d7ff0 NewKey__Q23zar4CZARFPCc (evidence call; flags imm-only). // Owner src/gamez/zArchive/zar_main.cpp.	0x1d7ff0 NewKey__Q23zar4CZARFPCc (deviating)	2026-11-26	saved 2026-11-26
