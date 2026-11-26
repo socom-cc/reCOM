@@ -2229,7 +2229,7 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x1dc5b0	24	exact	0x1dae00	24	__ct__Q23std42__list_deleter<PCv,Q23std14allocator<PCv>>FRCQ23std14allocator<PCv>	authored	-	src/gamez/zArchive/zar_main.cpp	1.000	1.000	1.000	+0	call	-	-
 0x1dc5d0	276	exact	0x1daf80	276	FetchLIP__Q23zar4CZARFPQ23zar4CKeyPPv	authored	-	src/gamez/zArchive/zar_search.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x1dc6f0	472	deviating	0x1db0a0	456	Fetch__Q23zar4CZARFPQ23zar4CKeyPviUi	authored	-	src/gamez/zArchive/zar_search.cpp	0.888	0.957	0.974	+16	call	-	-
-0x1dc8d0	200	deviating	0x1db270	200	Securify__Q23zar4CZARFPvi	authored	-	src/gamez/zArchive/zar_search.cpp	0.980	1.000	1.000	+0	call-deviating	imm-only	-
+0x1dc8d0	200	deviating	0x1db270	200	Securify__Q23zar4CZARFPvi	authored	-	src/gamez/zArchive/zar_search.cpp	0.980	1.000	1.000	+0	settled	-	-
 0x1dc9a0	200	deviating	0x1db340	200	Unsecurify__Q23zar4CZARFPvi	authored	-	src/gamez/zArchive/zar_search.cpp	0.980	1.000	1.000	+0	call-deviating	imm-only	-
 0x1dca70	860	deviating	0x1db410	620	Insert__Q23zar4CZARFPQ23zar4CKeyPCvi	authored	-	src/gamez/zArchive/zar_search.cpp	0.524	0.568	0.714	+240	call	-	-
 0x1dcdd0	180	deviating	0x1db680	180	Insert__Q23zar4CZARFPCcPCvi	authored	-	src/gamez/zArchive/zar_search.cpp	1.000	1.000	1.000	+0	settled	call-conflict	-
@@ -3971,7 +3971,7 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x253510	32	deviating	0x24ecf0	32	ExecuteDelayedAction_Climb__10CZSealBodyFv	authored	-	src/gamez/zSeal/seal.cpp	0.750	1.000	1.000	+0	call-deviating	imm-only	-
 0x253530	68	deviating	0x24ed10	68	ExecuteAction_ApplyRestraint__10CZSealBodyFP10CZSealBody	authored	-	src/gamez/zSeal/seal.cpp	0.882	1.000	1.000	+0	call-deviating	imm-only	-
 0x253580	300	deviating	0x24ed60	292	ExecuteAction_CQBAttack__10CZSealBodyFP10CZSealBody	authored	-	src/gamez/zSeal/seal.cpp	0.581	0.635	0.865	+8	call-deviating	-	-
-0x2536b0	68	deviating	0x24ee90	68	ExecuteAction_KnifeAttack__10CZSealBodyFP10CZSealBody	authored	-	src/gamez/zSeal/seal.cpp	0.882	1.000	1.000	+0	call-deviating	imm-only	-
+0x2536b0	68	deviating	0x24ee90	68	ExecuteAction_KnifeAttack__10CZSealBodyFP10CZSealBody	authored	-	src/gamez/zSeal/seal.cpp	0.882	1.000	1.000	+0	settled	-	-
 0x253700	68	new	-	-	-	-	-	src/gamez/zSeal/seal.cpp	-	-	-	-	-	owner-guess	gamez/zSeal
 0x253750	128	deviating	0x24eee0	128	SetSnakePathUpdate__10CZSealBodyFbUi	authored	-	src/gamez/zSeal/seal.cpp	0.781	1.000	1.000	+0	call-deviating	imm-only	-
 0x2537d0	232	deviating	0x24ef80	92	TeleportTo__10CZSealBodyFPC7CMatrix	authored	-	src/gamez/zSeal/seal.cpp	0.494	0.543	0.543	+140	vtable-slot	-	-
@@ -4099,7 +4099,7 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x2683b0	76	exact	0x260000	76	GetAiAware__11CSealCtrlAiFf	authored	-	src/gamez/zSeal/seal_ai.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x268400	1044	deviating	0x260050	636	AcquireAiAware__11CSealCtrlAiFP11CSealCtrlAi	authored	-	src/gamez/zSeal/seal_ai.cpp	0.290	0.371	0.538	+408	call-deviating	call-and-slot	-
 0x268820	356	deviating	0x2602d0	332	SetAiAware__11CSealCtrlAiF8AI_AWAREPC6CPnt3D	authored	-	src/gamez/zSeal/seal_ai.cpp	0.558	0.616	0.756	+24	call-deviating	-	-
-0x268990	252	deviating	0x260420	180	SetAiAware__11CSealCtrlAiFfUi	authored	-	src/gamez/zSeal/seal_ai.cpp	0.630	0.648	0.815	+72	position	caller-mismatch	-
+0x268990	252	deviating	0x260420	180	SetAiAware__11CSealCtrlAiFfUi	authored	-	src/gamez/zSeal/seal_ai.cpp	0.630	0.648	0.815	+72	settled	-	-
 0x268a90	628	deviating	0x2604e0	644	DoReaction__11CSealCtrlAiFv	authored	-	src/gamez/zSeal/seal_ai.cpp	0.774	0.956	0.975	-16	call-deviating	-	-
 0x268d10	192	deviating	0x260770	192	SetDoReaction__11CSealCtrlAiFbRC11AI_REACTIONb	authored	-	src/gamez/zSeal/seal_ai.cpp	0.729	1.000	1.000	+0	call-deviating	imm-only	-
 0x268dd0	288	deviating	0x260830	368	ActivateEx__11CSealCtrlAiF9SEAL_TASKbe	authored	-	src/gamez/zSeal/seal_ai.cpp	0.463	0.732	0.841	-80	call	-	-
@@ -4267,7 +4267,7 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x27aae0	624	deviating	0x26f0f0	596	DetachBody__10CZSealBodyFv	authored	-	src/gamez/zSeal/seal_body.cpp	0.531	0.643	0.682	+28	call-deviating	-	-
 0x27ad50	312	deviating	0x26f350	476	PutdownBuddy__10CZSealBodyFv	authored	-	src/gamez/zSeal/seal_body.cpp	0.396	0.416	0.731	-164	call-deviating	call-and-slot	-
 0x27ae90	580	deviating	0x26f530	532	PickupBuddy__10CZSealBodyFP10CZSealBody	authored	-	src/gamez/zSeal/seal_body.cpp	0.209	0.216	0.590	+48	call	call-and-slot	-
-0x27b0e0	1204	deviating	0x26f750	1628	CrouchToPickupBuddy__10CZSealBodyFP10CZSealBody	authored	-	src/gamez/zSeal/seal_body.cpp	0.613	0.771	0.822	-424	position	-	-
+0x27b0e0	1204	deviating	0x26f750	1628	CrouchToPickupBuddy__10CZSealBodyFP10CZSealBody	authored	-	src/gamez/zSeal/seal_body.cpp	0.613	0.771	0.822	-424	settled	-	-
 0x27b5a0	108	deviating	0x26fdb0	144	CrouchToPickupBuddyCallback__FPvPv	authored	-	src/gamez/zSeal/seal_body.cpp	0.222	0.349	0.476	-36	call-deviating	call-and-slot	-
 0x27b610	8	exact	0x26fe40	8	PickupBuddyCallback__FPvPv	authored	-	src/gamez/zSeal/seal_body.cpp	1.000	1.000	1.000	+0	exact-position	-	-
 0x27b620	184	new	-	-	-	-	-	src/gamez/zSeal/seal_body.cpp	-	-	-	-	-	owner-guess	gamez/zSeal
@@ -4351,7 +4351,7 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x288720	84	new	-	-	-	-	-	src/gamez/zSeal/seal_body.cpp	-	-	-	-	-	owner-guess	gamez/zSeal
 0x288780	480	deviating	0x273490	340	ClearToBase__10CZSealBodyFb	authored	-	src/gamez/zSeal/seal_body.cpp	0.371	0.263	0.615	+140	settled	moved	-
 0x288960	360	deviating	0x27d1c0	128	ClearStack__10CZSealBodyFUib	authored	-	src/gamez/zSeal/seal_body.cpp	0.279	0.361	0.508	+232	call-deviating	call-and-slot	-
-0x288ad0	96	deviating	0x27d240	88	BodySetState__10CZSealBodyFi	authored	-	src/gamez/zSeal/seal_body.cpp	0.739	0.783	0.870	+8	position	-	-
+0x288ad0	96	deviating	0x27d240	88	BodySetState__10CZSealBodyFi	authored	-	src/gamez/zSeal/seal_body.cpp	0.739	0.783	0.870	+8	settled	-	-
 0x288b30	292	deviating	0x27d2a0	312	GetStance__10CZSealBodyCFb	authored	-	src/gamez/zSeal/seal_body.cpp	0.464	0.583	0.795	-20	call-deviating	call-and-slot	-
 0x288c60	140	deviating	0x27d3e0	152	GetSpeedState__10CZSealBodyFv	authored	-	src/gamez/zSeal/seal_body.cpp	0.274	0.438	0.521	-12	call-deviating	call-and-slot	-
 0x288cf0	140	exact	0x27d480	140	__dt__15CActiveAnimListFv	authored	-	src/gamez/zSeal/seal_body.cpp	1.000	1.000	1.000	+0	exact	-	-
@@ -4425,8 +4425,8 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x290850	8	exact	0x2852d0	8	PerformCollisionActions__9CSealCtrlFv	authored	-	src/gamez/zSeal/seal_control.cpp	1.000	1.000	1.000	+0	exact-position	-	-
 0x290860	824	deviating	0x2852e0	880	TickPickups__9CSealCtrlFf	authored	-	src/gamez/zSeal/seal_control.cpp	0.432	0.488	0.761	-56	call-deviating	call-and-slot	-
 0x290ba0	388	deviating	0x285650	380	TickVictims__9CSealCtrlFv	authored	-	src/gamez/zSeal/seal_control.cpp	0.865	0.969	0.969	+8	call-deviating	-	-
-0x290d30	256	deviating	0x2858b0	176	CanPlaceBomb__9CSealCtrlFP11CNodeAction	authored	-	src/gamez/zSeal/seal_control.cpp	0.315	0.352	0.519	+80	call-deviating	call-and-slot	-
-0x290e30	176	new	-	-	-	-	-	src/gamez/zSeal/seal_control.cpp	-	-	-	-	-	owner-guess	gamez/zSeal
+0x290d30	256	deviating	0x2857d0	224	CanPerformAction__9CSealCtrlFP11CNodeAction	authored	-	src/gamez/zSeal/seal_control.cpp	0.450	0.533	0.800	+32	settled	-	-
+0x290e30	176	deviating	0x2858b0	176	CanPlaceBomb__9CSealCtrlFP11CNodeAction	authored	-	src/gamez/zSeal/seal_control.cpp	0.955	1.000	1.000	+0	settled	-	-
 0x290ee0	592	deviating	0x285960	400	TickAimPitch__9CSealCtrlFff	authored	-	src/gamez/zSeal/seal_control.cpp	0.589	0.742	0.790	+192	call-deviating	-	-
 0x291130	4948	deviating	0x285af0	3676	PreTick__9CSealCtrlFf	authored	-	src/gamez/zSeal/seal_control.cpp	0.599	0.767	0.798	+1272	vtable-slot	-	-
 0x292490	1680	deviating	0x286950	1560	ThrottlesPreTick__9CSealCtrlFP4CPadf	authored	-	src/gamez/zSeal/seal_control.cpp	0.881	0.926	0.956	+120	call-deviating	-	-
@@ -4562,8 +4562,8 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x2a0650	56	deviating	0x2941d0	56	GetHudHitFlag__10CZSealBodyFv	authored	-	src/gamez/zSeal/seal_env.cpp	0.857	1.000	1.000	+0	call-deviating	imm-only	-
 0x2a0690	1836	deviating	0x294210	1836	UpdateHealth__10CZSealBodyF15DAMAGE_LOCATION15SEAL_DEATH_TYPE	authored	-	src/gamez/zSeal/seal_env.cpp	0.950	1.000	1.000	+0	call-deviating	imm-only	-
 0x2a0dc0	172	exact	0x294940	172	GetBodyDamage__10CZSealBodyFff	authored	-	src/gamez/zSeal/seal_env.cpp	1.000	1.000	1.000	+0	exact	-	-
-0x2a0e70	128	exact	0x2949f0	128	GetArmDamage__10CZSealBodyFff	authored	-	src/gamez/zSeal/seal_env.cpp	1.000	1.000	1.000	+0	position	-	-
-0x2a0ef0	128	exact	0x294a70	128	GetLegDamage__10CZSealBodyFff	authored	-	src/gamez/zSeal/seal_env.cpp	1.000	1.000	1.000	+0	position	-	-
+0x2a0e70	128	exact	0x2949f0	128	GetArmDamage__10CZSealBodyFff	authored	-	src/gamez/zSeal/seal_env.cpp	1.000	1.000	1.000	+0	settled	-	-
+0x2a0ef0	128	exact	0x294a70	128	GetLegDamage__10CZSealBodyFff	authored	-	src/gamez/zSeal/seal_env.cpp	1.000	1.000	1.000	+0	settled	-	-
 0x2a0f70	112	exact	0x294af0	112	GetHeadDamage__10CZSealBodyFff	authored	-	src/gamez/zSeal/seal_env.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x2a0fe0	428	deviating	0x294b60	428	DamageBody__10CZSealBodyFff	authored	-	src/gamez/zSeal/seal_env.cpp	0.916	1.000	1.000	+0	call-deviating	imm-only	-
 0x2a1190	868	deviating	0x294d10	900	DamageBody__10CZSealBodyFP12CZProjectile	authored	-	src/gamez/zSeal/seal_env.cpp	0.801	0.887	0.923	-32	call-deviating	-	-
@@ -4653,7 +4653,7 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x2ad650	220	deviating	0x29fea0	220	Slide__10CZSealBodyFPQ23zdb15IntersectStruct	authored	-	src/gamez/zSeal/seal_env.cpp	0.927	1.000	1.000	+0	call-deviating	imm-only	-
 0x2ad730	552	deviating	0x29ff80	580	CheckDILadder__10CZSealBodyFRfRfRf	authored	-	src/gamez/zSeal/seal_env.cpp	0.530	0.601	0.954	-28	call	-	-
 0x2ad960	64	exact	0x2a01d0	64	PostCheckDILadder__10CZSealBodyFRfRfRf	authored	-	src/gamez/zSeal/seal_env.cpp	1.000	1.000	1.000	+0	exact	-	-
-0x2ad9a0	320	deviating	0x2a0210	312	AlignForPickup__10CZSealBodyFP6CPnt3DP6CPnt3D	authored	-	src/gamez/zSeal/seal_env.cpp	0.506	0.620	0.785	+8	position	-	-
+0x2ad9a0	320	deviating	0x2a0210	312	AlignForPickup__10CZSealBodyFP6CPnt3DP6CPnt3D	authored	-	src/gamez/zSeal/seal_env.cpp	0.506	0.620	0.785	+8	call-deviating	-	-
 0x2adae0	664	deviating	0x2a0350	668	PreClimbLadderDown__10CZSealBodyFv	authored	-	src/gamez/zSeal/seal_env.cpp	0.456	0.805	0.877	-4	call-deviating	call-and-slot	-
 0x2add80	1224	deviating	0x2a05f0	1092	AlignForClimb__10CZSealBodyFbR6CPnt3DR6CPnt3DP6CPnt3D	authored	-	src/gamez/zSeal/seal_env.cpp	0.525	0.560	0.832	+132	call-deviating	-	-
 0x2ae250	1352	deviating	0x2a0a40	1244	ImpactFront__10CZSealBodyFPQ23zdb15IntersectStructP6CPnt3D	authored	-	src/gamez/zSeal/seal_env.cpp	0.604	0.777	0.875	+108	call-deviating	-	-
@@ -5116,10 +5116,10 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x2eb000	16	exact	0x2d79d0	16	__ct__Q310Metrowerks7details126compressed_pair_imp<Q210Metrowerks12number<Ui,1>,PQ33std60__list_deleter<10FT_COMMAND,Q23std23allocator<10FT_COMMAND>>4node,1>FRCQ310Metrowerks7details126compressed_pair_imp<Q210Metrowerks12number<Ui,1>,PQ33std60__list_deleter<10FT_COMMAND,Q23std23allocator<10FT_COMMAND>>4node,1>	authored	-	src/gamez/zSeal/seal_unit.cpp	1.000	1.000	1.000	+0	call	-	-
 0x2eb010	24	exact	0x2d79e0	24	__ct__Q23std60__list_deleter<10FT_COMMAND,Q23std23allocator<10FT_COMMAND>>Fv	authored	-	src/gamez/zSeal/seal_unit.cpp	1.000	1.000	1.000	+0	call	-	-
 0x2eb030	96	exact	0x2d7a00	96	__dt__13CAiSCQBAttackFv	authored	-	src/gamez/zSeal/seal_aistate.cpp	1.000	1.000	1.000	+0	exact-position	-	-
-0x2eb090	8	exact	0x2d7a60	8	CanAttack__13CAiSCQBAttackCFv	authored	-	src/gamez/zSeal/seal_aistate.cpp	1.000	1.000	1.000	+0	exact-position	-	-
+0x2eb090	8	exact	0x2d7a60	8	CanAttack__13CAiSCQBAttackCFv	authored	-	src/gamez/zSeal/seal_aistate.cpp	1.000	1.000	1.000	+0	settled	-	-
 0x2eb0a0	336	deviating	0x2d7a70	324	Tick__13CAiSCQBAttackFfP11CSealCtrlAi	authored	-	src/gamez/zSeal/seal_aistate.cpp	0.667	0.945	0.945	+12	vtable-slot	-	-
 0x2eb1f0	120	deviating	0x2d7bc0	120	OnSignal__13CAiSCQBAttackFQ28CAiState6SIGNALP11CSealCtrlAi	authored	-	src/gamez/zSeal/seal_aistate.cpp	0.867	1.000	1.000	+0	vtable-slot	-	-
-0x2eb270	8	exact	0x2d7c40	8	Tick__11CAiSUnknownFfP11CSealCtrlAi	authored	-	src/gamez/zSeal/seal_aistate.cpp	1.000	1.000	1.000	+0	exact-position	-	-
+0x2eb270	8	exact	0x2d7c40	8	Tick__11CAiSUnknownFfP11CSealCtrlAi	authored	-	src/gamez/zSeal/seal_aistate.cpp	1.000	1.000	1.000	+0	settled	-	-
 0x2eb280	8	exact	0x2d7c50	8	OnSignal__11CAiSUnknownFQ28CAiState6SIGNALP11CSealCtrlAi	authored	-	src/gamez/zSeal/seal_aistate.cpp	1.000	1.000	1.000	+0	exact-position	-	-
 0x2eb290	440	deviating	0x2d7c60	428	Tick__13CAiSSuspendedFfP11CSealCtrlAi	authored	-	src/gamez/zSeal/seal_aistate.cpp	0.885	0.959	0.968	+12	vtable-slot	-	-
 0x2eb450	492	deviating	0x2d7e10	492	OnSignal__13CAiSSuspendedFQ28CAiState6SIGNALP11CSealCtrlAi	authored	-	src/gamez/zSeal/seal_aistate.cpp	0.959	1.000	1.000	+0	vtable-slot	-	-
@@ -5314,7 +5314,7 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x2ffe90	196	deviating	0x2e9900	212	ModifyAimDir__9CAiTargetFP6CPnt3Dff	authored	-	src/gamez/zSeal/ai_target.cpp	0.725	0.784	0.843	-16	call-deviating	-	-
 0x2fff60	380	deviating	0x2e99e0	232	OnSetVisible__9CAiTargetFb	authored	-	src/gamez/zSeal/ai_target.cpp	0.235	0.353	0.667	+148	call-deviating	call-and-slot	-
 0x3000e0	372	deviating	0x2e9ad0	192	Tick__9CAiTargetFP7CEntityf	authored	-	src/gamez/zSeal/ai_target.cpp	0.270	0.383	0.596	+180	call-deviating	call-and-slot	-
-0x300260	116	deviating	0x2e9b90	108	GetTimeVisible__9CAiTargetCFv	authored	-	src/gamez/zSeal/ai_target.cpp	0.500	0.500	0.679	+8	position	-	-
+0x300260	116	deviating	0x2e9b90	108	GetTimeVisible__9CAiTargetCFv	authored	-	src/gamez/zSeal/ai_target.cpp	0.500	0.500	0.679	+8	settled	-	-
 0x3002e0	20	exact	0x2e9c00	20	GetTimeAcquired__9CAiTargetCFv	authored	-	src/gamez/zSeal/ai_target.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x300300	20	exact	0x2e9c20	20	GetTimeSinceLastSighting__9CAiTargetCFv	authored	-	src/gamez/zSeal/ai_target.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x300320	64	deviating	0x2e9c40	96	UpdateLastKnownPosW__9CAiTargetFv	authored	-	src/gamez/zSeal/ai_target.cpp	0.350	0.350	0.650	-32	call-deviating	call-and-slot	-
@@ -9982,7 +9982,6 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 -	-	removed	0x27c050	60	IsCurrentBlend__10CZSealBodyCF8AnimType	authored	-	src/gamez/zSeal/seal_body.cpp	-	-	-	-	-	-	-
 -	-	removed	0x283750	404	InitMPBomb__9CSealCtrlFv	authored	-	src/gamez/zSeal/seal_ctrl.cpp	-	-	-	-	-	-	-
 -	-	removed	0x2844a0	188	GetThrowAverage__9CSealCtrlFv	authored	-	src/gamez/zSeal/seal_control.cpp	-	-	-	-	-	-	-
--	-	removed	0x2857d0	224	CanPerformAction__9CSealCtrlFP11CNodeAction	authored	-	src/gamez/zSeal/seal_control.cpp	-	-	-	-	-	-	-
 -	-	removed	0x28cd70	16	__vc__Q23std38__vector_imp<i,Q23std12allocator<i>,1>FUi	authored	-	src/gamez/zSeal/seal_env.cpp	-	-	-	-	-	-	-
 -	-	removed	0x28cd80	16	__vc__Q23std52__vector_imp<P6CZAmmo,Q23std19allocator<P6CZAmmo>,1>FUi	authored	-	src/gamez/zSeal/seal_env.cpp	-	-	-	-	-	-	-
 -	-	removed	0x28cd90	16	__vc__Q23std64__vector_imp<P11CZFTSWeapon,Q23std25allocator<P11CZFTSWeapon>,1>FUi	authored	-	src/gamez/zSeal/seal_env.cpp	-	-	-	-	-	-	-

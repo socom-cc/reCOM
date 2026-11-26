@@ -57,23 +57,23 @@ order), `ambiguous`, `low-similarity`, `owner-guess`, `copy`.
 
 | scope | exact | deviating | unsure | new | removed | exact bytes | deviating bytes | unsure bytes | new bytes | removed bytes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| all functions | 6325 | 2849 | 58 | 628 | 474 | 1257400 | 1666464 | 27088 | 170880 | 124736 |
-| authored (by prototype classification) | 3772 | 2558 | 1 | 0 | 234 | 690736 | 1548148 | 140 | 0 | 49480 |
-| authored, with new functions placed in authored modules | 3772 | 2558 | 1 | 426 | 234 | 690736 | 1548148 | 140 | 105964 | 49480 |
+| all functions | 6325 | 2850 | 58 | 627 | 473 | 1257400 | 1666640 | 27088 | 170704 | 124512 |
+| authored (by prototype classification) | 3772 | 2559 | 1 | 0 | 233 | 690736 | 1548324 | 140 | 0 | 49256 |
+| authored, with new functions placed in authored modules | 3772 | 2559 | 1 | 425 | 233 | 690736 | 1548324 | 140 | 105788 | 49256 |
 
 Bytes are release sizes, prototype sizes for removed functions. Of the deviating
-functions, 761 (252020 bytes) differ only in immediates or offsets (`imm-only`).
+functions, 759 (251752 bytes) differ only in immediates or offsets (`imm-only`).
 238 pairs are out of order relative to the order anchors (`moved`).
 
 ## By prototype classification
 
 | group | exact | deviating | unsure | new | removed | exact bytes | deviating bytes | unsure bytes | new bytes | removed bytes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| authored | 3772 | 2558 | 1 | 0 | 234 | 690736 | 1548148 | 140 | 0 | 49480 |
+| authored | 3772 | 2559 | 1 | 0 | 233 | 690736 | 1548324 | 140 | 0 | 49256 |
 | provider: SCE | 687 | 28 | 4 | 0 | 82 | 105132 | 5408 | 568 | 0 | 13016 |
 | provider: Medius | 593 | 114 | 1 | 0 | 78 | 68320 | 62620 | 160 | 0 | 15364 |
 | provider: speech middleware | 699 | 1 | 0 | 0 | 0 | 268564 | 256 | 0 | 0 | 0 |
-| (new: no prototype counterpart) | 0 | 0 | 0 | 628 | 0 | 0 | 0 | 0 | 170880 | 0 |
+| (new: no prototype counterpart) | 0 | 0 | 0 | 627 | 0 | 0 | 0 | 0 | 170704 | 0 |
 | provider: newlib | 65 | 68 | 43 | 0 | 21 | 31152 | 24660 | 22632 | 0 | 2084 |
 | compiler-generated | 141 | 33 | 0 | 0 | 3 | 20404 | 9756 | 0 | 0 | 932 |
 | provider: MSL | 175 | 0 | 0 | 0 | 0 | 37496 | 0 | 0 | 0 | 0 |
@@ -95,7 +95,7 @@ flag `owner-guess`). Sorted by changed bytes (deviating + unsure + new + removed
 
 | group | exact | deviating | unsure | new | removed | exact bytes | deviating bytes | unsure bytes | new bytes | removed bytes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| gamez/zSeal | 451 | 745 | 0 | 165 | 45 | 87464 | 520332 | 0 | 47196 | 4704 |
+| gamez/zSeal | 451 | 746 | 0 | 164 | 44 | 87464 | 520508 | 0 | 47020 | 4480 |
 | gamez/zAnim | 334 | 243 | 0 | 27 | 8 | 58020 | 187876 | 0 | 5436 | 860 |
 | Apps/FTS/hud | 141 | 224 | 0 | 24 | 8 | 21276 | 163064 | 0 | 9900 | 10200 |
 | gamez/zUI | 308 | 198 | 0 | 24 | 5 | 59952 | 118044 | 0 | 6424 | 416 |
@@ -175,13 +175,13 @@ Every relocated instruction field of the prototype's functions against the maski
 
 | similarity | 0.0-0.1 | 0.1-0.2 | 0.2-0.3 | 0.3-0.4 | 0.4-0.5 | 0.5-0.6 | 0.6-0.7 | 0.7-0.8 | 0.8-0.9 | 0.9-1.0 |
 |---|---|---|---|---|---|---|---|---|---|---|
-| call | 21 | 49 | 99 | 110 | 132 | 228 | 186 | 266 | 430 | 722 |
+| call | 21 | 49 | 99 | 109 | 132 | 229 | 186 | 266 | 429 | 721 |
 | call (>= 16 instructions) | 15 | 15 | 17 | 26 | 26 | 49 | 40 | 57 | 109 | 221 |
 | global | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 1 |
-| null | 456 | 489 | 295 | 110 | 80 | 93 | 29 | 37 | 38 | 227 |
-| null (>= 16 instructions) | 326 | 405 | 156 | 60 | 44 | 25 | 23 | 17 | 20 | 79 |
-| position | 0 | 0 | 0 | 3 | 5 | 11 | 9 | 7 | 6 | 21 |
-| position (>= 16 instructions) | 0 | 0 | 0 | 2 | 5 | 6 | 8 | 7 | 6 | 20 |
+| null | 451 | 489 | 294 | 110 | 80 | 93 | 28 | 37 | 37 | 227 |
+| null (>= 16 instructions) | 321 | 405 | 155 | 60 | 44 | 25 | 22 | 17 | 19 | 79 |
+| position | 0 | 0 | 0 | 3 | 5 | 9 | 7 | 6 | 6 | 21 |
+| position (>= 16 instructions) | 0 | 0 | 0 | 2 | 5 | 4 | 6 | 6 | 6 | 20 |
 | string | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 
 `call`: non-exact pairs made by call-tree propagation (the pairing does not look at
@@ -194,7 +194,7 @@ Small functions look alike (accessors, stubs), so the null of all sizes has a ta
 1.0; for them the order between anchors decides and a pair is unsure (`ambiguous`) when an
 unpaired alternative in the same gap scores within 0.05.
 
-Thresholds, from the >= 16-instruction rows: 85.8% of null pairs stay below 0.50 and
+Thresholds, from the >= 16-instruction rows: 85.9% of null pairs stay below 0.50 and
 76.8% below 0.30, while 82.8% of call-tree counterparts reach 0.50. So:
 
 - a positional, `global` or `call-deviating` pair is deviating at similarity >= 0.50, unsure
@@ -348,7 +348,7 @@ descendants).
 
 Rows of [settled-pairs.tsv](settled-pairs.tsv), applied before any pairing (evidence
 `settled`; a settled pair is exact when its bytes, calls and data operands agree, otherwise
-deviating). 247 rows.
+deviating). 259 rows.
 
 | release | prototype | basis | checker | date | owner, flags |
 |---|---|---|---|---|---|
@@ -599,6 +599,18 @@ deviating). 247 rows.
 | 0x239e80 | new | adds a visual to a Destruction_Instance's node; callers Create3Sided and CreateVisuals; first function of the instance file's range | socom-release-check-small-3 | 2026-11-26 | src/gamez/zParticle/zparticle_instance.cpp |
 | 0x1dac10 | 0x3f7a90 | the vector<CKey*> destructor: exact, the name carries over; replaces the zArchive pair 0x1dac10 <-> 0x1d9160 made by role (the key ring is a vector in the release, zArchive note); decided by the coordinator 2026-11-26 (hud note) | socom-release-coordinator | 2026-11-26 | - |
 | removed | 0x1d9160 | list<CKey*>::~list: the key ring is a vector in the release (zArchive note); its former release partner 0x1dac10 is the vector<CKey*> destructor (hud note); decided by the coordinator 2026-11-26 | socom-release-coordinator | 2026-11-26 | - |
+| 0x2a0e70 | 0x2949f0 | byte twin of GetLegDamage; UpdateLocalSeal calls Leg, Leg, Arm, Arm on both sides | socom-release-xcheck-1 | 2026-11-26 | - |
+| 0x2a0ef0 | 0x294a70 | byte twin of GetArmDamage; UpdateLocalSeal calls Leg, Leg, Arm, Arm on both sides | socom-release-xcheck-1 | 2026-11-26 | - |
+| 0x2536b0 | 0x24ee90 | byte twin of new 0x253700, which calls CrouchToPickupBuddy; this one reaches StabBuddy through new 0x27a890/0x27aac0 | socom-release-xcheck-1 | 2026-11-26 | - |
+| 0x1dc8d0 | 0x1db270 | byte twin of Unsecurify; called only by WriteDirectory and CKey::Write on both sides | socom-release-xcheck-1 | 2026-11-26 | - |
+| 0x2eb090 | 0x2d7a60 | empty twin; CAiSCQBAttack slot 5 -> 6 after the inserted slot 1 | socom-release-xcheck-1 | 2026-11-26 | - |
+| 0x2eb270 | 0x2d7c40 | empty twin; CAiSUnknown slot 1 -> 2 after the inserted slot 1 | socom-release-xcheck-1 | 2026-11-26 | - |
+| 0x268990 | 0x260420 | same body (masks 1/2/4, _saturate into +0xc0/+0xc4) behind a new guard; now called by SetAiAware(AI_AWARE,pnt), AcquireAiAware and OnDeath where the prototype inlined it | socom-release-xcheck-2 | 2026-11-26 | src/gamez/zSeal/seal_ai.cpp |
+| 0x27b0e0 | 0x26f750 | 23 aligned calls and the PickupBuddyCallback / CrouchToPickupBuddyCallback loads; its caller OnActionButton now goes through new 0x253700 | socom-release-xcheck-2 | 2026-11-26 | src/gamez/zSeal/seal_body.cpp |
+| 0x288ad0 | 0x27d240 | calls CBody::BodySetState as before; now virtual (slot 6 of the CZSealBody CBody subobject table, after CBody gained slot 3) | socom-release-xcheck-2 | 2026-11-26 | src/gamez/zSeal/seal_body.cpp |
+| 0x300260 | 0x2e9b90 | same body after the validity test moved into new 0x300940; AttackTick reaches it through new 0x26bc70 | socom-release-xcheck-2 | 2026-11-26 | src/gamez/zSeal/ai_target.cpp |
+| 0x290d30 | 0x2857d0 | body: CanPerformAction's action-type switch (6, 4), HasItem/ItemHasAmmo(152) and the +0x18 halfword test, plus a type-5 case; caller CActionTxtrMachine::Add as in the prototype | socom-release-xcheck-3 | 2026-11-26 | - |
+| 0x290e30 | 0x2858b0 | body: CanPlaceBomb's 44 instructions, only the two globals and the kit offset (1312 -> 1328) differ; called by 0x290d30 where CanPerformAction calls CanPlaceBomb; adjacent in the same order | socom-release-xcheck-3 | 2026-11-26 | - |
 
 ## Unsure pairs
 

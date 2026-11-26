@@ -198,3 +198,9 @@ function-local statics decided it. Suggestions:
   single function on each side as identity evidence for that pair.
 - In the sheet, show function pointers loaded by `lui`/`addiu` as callers; the four callbacks
   showed "callers 0x262a10" but no call site, which an earlier checker read as uncalled.
+
+## Corrections
+
+- 2026-11-26, by the coordinator from [xcheck-3.md](xcheck-3.md): in the InitMPBomb row above, the code
+  inlined into the release's CSealCtrl::PreTick calls CanPerformAction (0x290d30), not CanPlaceBomb. The
+  map had those two functions crossed when this list was checked.
