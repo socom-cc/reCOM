@@ -27,6 +27,7 @@ import mips  # noqa: E402
 import pairing  # noqa: E402
 import protofacts  # noqa: E402
 import report  # noqa: E402
+import vtables  # noqa: E402
 
 PROTOTYPE = Path("support/socom.elf")
 RELEASE = Path("support/SCUS_971.34")
@@ -123,7 +124,11 @@ def read_settled(path: Path) -> list[dict]:
 
 
 def run(root: Path, write: bool = True, use_settled: bool = True, sheet: str | None = None,
-        sheet_list: str | None = None, lists_module: str | None = None, split: int = 1, sample: int = 15) -> dict:
+        sheet_list: str | None = None, lists_module: str | None = None, split: int = 1, sample: int = 15,
+        out: Path | None = None, done: list[str] | None = None, first: str = "a") -> dict:
+    """Compare; ``out`` (default: the repository root) receives every output under the same relative paths."""
+
+    out = out or root
     proto_image = elfimage.load(root / PROTOTYPE, "prototype")
     release_image = elfimage.load(root / RELEASE, "release")
 
@@ -142,7 +147,12 @@ def run(root: Path, write: bool = True, use_settled: bool = True, sheet: str | N
     p_fns = functions.build("p", proto_image, p_words, p_spans, functions.find_gp(proto_image, p_words))
     r_fns = functions.build("r", release_image, r_words, r_spans, functions.find_gp(release_image, r_words))
 
-    matcher = pairing.Matcher(p_fns, r_fns, proto_image.entry, release_image.entry)
+    sizes = {s.address: s.size for s in proto_image.symbols if s.name.startswith("__vt__")}
+    proto_tables = vtables.find_tables(proto_image, {f.address for f in p_fns}, sizes)
+    release_tables = vtables.find_tables(release_image, {f.address for f in r_fns})
+    table_pairs = vtables.pair_tables(proto_tables, release_tables)
+    matcher = pairing.Matcher(p_fns, r_fns, proto_image.entry, release_image.entry, table_pairs)
+    matcher.proto_tables, matcher.release_tables = proto_tables, release_tables
     settled_rows = read_settled(root / SETTLED) if use_settled else []
     matcher.run([(row["release"], row["prototype"]) for row in settled_rows])
 
@@ -200,26 +210,34 @@ def run(root: Path, write: bool = True, use_settled: bool = True, sheet: str | N
             "call_at_or_above_deviating": round(sum(1 for v in large["call"] if v >= pairing.DEVIATING_MIN) / max(1, len(large["call"])), 3),
         },
         "matcher": dict(sorted(matcher.stats.items())),
+        "vtables": {"prototype": len(proto_tables), "release": len(release_tables), "paired": len(table_pairs),
+                    "slots_paired": sum(1 for tp, tr, _ in matcher.vtable_correspondences()
+                                        if tp in matcher.pairs and matcher.pairs[tp].r.address == tr),
+                    "slots_inserted": matcher.stats.get("vtable-slots-inserted", 0),
+                    "slots_dropped": matcher.stats.get("vtable-slots-dropped", 0),
+                    "new_virtuals": len({t for table in release_tables.values() for t in table.slots
+                                         if t in matcher.r_by and t not in matcher.r_paired}),
+                    "removed_virtuals": len({t for table in proto_tables.values() for t in table.slots
+                                             if t in matcher.p_by and t not in matcher.pairs})},
         "settled": settled_rows,
     }
     if write:
         for relative, text in ((OUT_TSV, report.write_tsv(rows)), (OUT_MD, report.markdown(data, rows)),
                                (OUT_JSON, report.write_json(data, rows))):
-            path = root / relative
+            path = out / relative
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(text.encode("utf-8"))
     if lists_module:
         import lists
 
-        made = lists.split(lists_module, rows, matcher, split, sample)
-        data["lists"] = [(path, item) for path, item in zip(lists.write(root, lists_module, made, sample, LISTS), made)]
+        made = lists.split(lists_module, rows, matcher, split, sample, lists.parse_done(done), first)
+        data["lists"] = [(path, item) for path, item in zip(lists.write(out, lists_module, made, sample, LISTS), made)]
     if sheet:
         import lists
         import sheets
 
-        selected = lists.select(root, sheet, sheet_list, rows, LISTS) if sheet_list else None
-        name = sheet + ("-" + sheet_list if sheet_list else "")
-        path = root / SHEETS / (name + ".md")
+        selected = lists.select(out, sheet, sheet_list, rows, LISTS) if sheet_list else None
+        path = sheet_path(out, sheet, sheet_list)
         path.parent.mkdir(parents=True, exist_ok=True)
         text = sheets.module_sheet(sheet, matcher, rows, protos, proto_image, release_image, selected=selected,
                                    title=sheet + (" list " + sheet_list if sheet_list else ""))
@@ -229,21 +247,45 @@ def run(root: Path, write: bool = True, use_settled: bool = True, sheet: str | N
     return data
 
 
+def sheet_path(out: Path, module: str, letter: str | None = None) -> Path:
+    """A flat sheet name: build/release/sheets/<module with / as ->[-<letter>].md under ``out``."""
+
+    return out / SHEETS / ("%s%s.md" % (module.replace("/", "-"), "-" + letter if letter else ""))
+
+
+def shown(path, root: Path) -> str:
+    try:
+        return Path(path).resolve().relative_to(root).as_posix()
+    except ValueError:
+        return Path(path).name
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--root", type=Path, default=HERE.parent.parent)
     parser.add_argument("--no-write", action="store_true", help="compute without writing the map")
+    parser.add_argument("--write-map", action="store_true",
+                        help="with --sheet or --lists: also rewrite the map (otherwise only the sheet or lists)")
+    parser.add_argument("--out", type=Path, metavar="DIR",
+                        help="write every output under DIR (same relative paths) instead of the repository")
     parser.add_argument("--no-settled", action="store_true", help="ignore docs/release/settled-pairs.tsv")
     parser.add_argument("--sheet", metavar="MODULE", help="also write a check sheet for MODULE, e.g. gamez/zArchive")
     parser.add_argument("--list", metavar="LETTER", help="with --sheet: only the rows of that check list")
     parser.add_argument("--lists", metavar="MODULE", help="split MODULE's rows into check lists")
     parser.add_argument("--split", type=int, default=1, metavar="N", help="with --lists: how many lists")
     parser.add_argument("--sample", type=int, default=15, metavar="K", help="with --lists: deviating rows sampled per list")
+    parser.add_argument("--done", action="append", metavar="FILE[:LO-HI]",
+                        help="with --lists: an owner file (optionally a release range of it) already checked; repeatable")
+    parser.add_argument("--first", default="a", metavar="LETTER", help="with --lists: the letter of the first list")
     arguments = parser.parse_args(argv)
+    root = arguments.root.resolve()
+    out = (root / arguments.out).resolve() if arguments.out else root
+    write = not arguments.no_write and (arguments.write_map or not (arguments.sheet or arguments.lists))
     try:
-        data = run(arguments.root.resolve(), write=not arguments.no_write,
+        data = run(root, write=write, out=out,
                    use_settled=not arguments.no_settled, sheet=arguments.sheet, sheet_list=arguments.list,
-                   lists_module=arguments.lists, split=arguments.split, sample=arguments.sample)
+                   lists_module=arguments.lists, split=arguments.split, sample=arguments.sample,
+                   done=arguments.done, first=arguments.first)
     except elfimage.InputRefused as error:
         print("refused: %s" % error, file=sys.stderr)
         return 2
@@ -261,9 +303,9 @@ def main(argv: list[str] | None = None) -> int:
     for path, item in data.get("lists", []):
         print("list %s: %d uncertain, %d sampled, %d exact, about %.0f minutes: %s" % (
             item["letter"], len(item["uncertain"]), len(item["sample"]), item["exact"], item["minutes"],
-            Path(path).relative_to(arguments.root.resolve()).as_posix()))
+            shown(path, root)))
     if data.get("sheet"):
-        print("sheet: %s" % Path(data["sheet"]).relative_to(arguments.root.resolve()).as_posix())
+        print("sheet: %s" % shown(data["sheet"], root))
     return 0
 
 

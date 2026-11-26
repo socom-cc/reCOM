@@ -47,6 +47,12 @@ class Fn:
 
         return sorted(self.calls + self.tail_calls + self.code_refs)
 
+    def typed_references(self) -> list[tuple[int, int, str]]:
+        """References with their kind: ``call`` (jal or tail call) or ``ptr`` (a loaded code address)."""
+
+        out = [(i, t, "call") for i, t in self.calls + self.tail_calls] + [(i, t, "ptr") for i, t in self.code_refs]
+        return sorted(out)
+
 
 def find_gp(image, words) -> int | None:
     """The value crt0 loads into $gp (``lui gp`` then ``addiu/ori gp, gp``) near the entry point."""

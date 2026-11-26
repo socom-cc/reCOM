@@ -388,6 +388,19 @@ def markdown(data: dict, rows: list[dict]) -> str:
     add("  (`callee-changed`) when it is in order, unsure when moved; one whose data operands point")
     add("  to another kind of region (`ref-kind`) is unsure.")
     add("")
+    vt = data.get("vtables")
+    if vt:
+        add("## Virtual function tables")
+        add("")
+        add("Tables are found through their RTTI records (the release keeps them) and paired by class")
+        add("name and this-offset: %(prototype)d prototype tables, %(release)d release tables, %(paired)d paired. "
+            "%(slots_paired)d slot places agree with the pairs; %(new_virtuals)d release functions in a slot "
+            "are new (new virtuals or new overrides), %(removed_virtuals)d prototype functions in a slot are "
+            "removed. Evidence `vtable-slot`: the function fills the same slot of paired tables (anchored on "
+            "pairs made by other evidence, ancestors' and descendants' tables included); it pairs functions "
+            "without callers and outranks order among byte-identical copies. Flag `identical-copy`: equal "
+            "bytes exist elsewhere and no slot, caller or settled row decided which copy this is." % vt)
+        add("")
     add("## Settled by a checker")
     add("")
     settled = data.get("settled", [])

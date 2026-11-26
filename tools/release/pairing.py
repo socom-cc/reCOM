@@ -51,6 +51,10 @@ BAND = 64  # positional candidates: index distance allowed from the gap's diagon
 CALL_BLOCK = 4  # a call of a deviating pair counts only inside an equal block this long
 GLOBAL_SLOT_BONUS = 0.2  # global pass: preference for a candidate between the function's own anchors
 GLOBAL_SMALL = 256  # global pass: below this size (bytes) look-alikes need agreeing callers
+VTABLE_RESEMBLE_SIZE = 32  # bytes: below this, slot functions are not matched by resemblance
+VTABLE_RESEMBLANCE = 0.30  # ... and above it they need this resemblance
+VTABLE_KEEPS = {"exact", "entry", "settled", "call"}  # pairs a vtable slot does not overrule
+SMALL_GAP = 64  # positional gaps with at most this many candidate pairs skip the 3-gram prefilter
 AMBIGUITY = 0.05  # an unpaired alternative this close to the chosen score makes a pair unsure
 
 
@@ -218,7 +222,8 @@ class SettledError(ValueError):
 
 
 class Matcher:
-    def __init__(self, proto: list, release: list, proto_entry: int, release_entry: int):
+    def __init__(self, proto: list, release: list, proto_entry: int, release_entry: int,
+                 table_pairs: list | None = None):
         self.P = sorted(proto, key=lambda f: f.address)
         self.R = sorted(release, key=lambda f: f.address)
         self.p_by = {f.address: f for f in self.P}
@@ -240,9 +245,14 @@ class Matcher:
         self.p_referrers = self._referrers(self.P, self.p_by)
         self.r_referrers = self._referrers(self.R, self.r_by)
         self.stats: dict = defaultdict(int)
+        self.table_pairs = list(table_pairs or [])  # (prototype Table, release Table)
+        self.vt_confirmed: set[int] = set()  # prototype addresses whose pair a vtable slot confirms
+        self.vt_slots: dict[int, list] = defaultdict(list)  # prototype address -> [(p table, r table, p off, r off)]
         self._resemblance: dict[tuple[int, int], float] = {}
         self._slot_refs: set[tuple[int, int]] = set()
-        self._anchor_cache = None  # (prototype, release) targets of 1-to-1 reference slots
+        self._anchor_cache = None
+        self.allow_reference_slots = False
+        self._token_counts = None  # (prototype, release) targets of 1-to-1 reference slots
         self.blocked_p: set[int] = set()  # settled as removed
         self.blocked_r: set[int] = set()  # settled as new
 
@@ -272,6 +282,20 @@ class Matcher:
                 if target in by and target != f.address:
                     out[target].add(f.address)
         return out
+
+    def shares_unique_token(self, pair: Pair) -> bool:
+        """The pair shares a string or (file, line) token no other function on either side uses."""
+
+        if self._token_counts is None:
+            counts_p, counts_r = Counter(), Counter()
+            for f in self.P:
+                counts_p.update(f.strings | f.lines)
+            for f in self.R:
+                counts_r.update(f.strings | f.lines)
+            self._token_counts = (counts_p, counts_r)
+        counts_p, counts_r = self._token_counts
+        shared = (pair.p.strings | pair.p.lines) & (pair.r.strings | pair.r.lines)
+        return any(counts_p[t] == 1 and counts_r[t] == 1 for t in shared)
 
     def agreeing_callers(self, pair: Pair) -> int:
         """Paired functions that reference the pair on both sides."""
@@ -324,6 +348,202 @@ class Matcher:
                 self.blocked_p.add(proto)
         self.stats["settled"] = len(settled)
 
+    # -- vtables --------------------------------------------------------------------
+    def vtable_correspondences(self) -> list[tuple[int, int, tuple]]:
+        """(prototype function, release function, place) for the slots of every paired table.
+
+        A slot is placed by anchors: slots whose functions are already paired by
+        other evidence (not by order alone among equal copies, not by a slot). A
+        class's primary table starts with its bases' tables, so the anchors of every
+        ancestor and descendant table count for a table too, inside its own length.
+        The longest consistent set of anchors fixes the slots; between two anchors a
+        run of equal length on both sides maps slot for slot; what is left over is an
+        inserted (release) or dropped (prototype) virtual.
+        """
+
+        def reliable(t):
+            pair = self.pairs.get(t)
+            if pair is None or pair.evidence <= {"vtable-slot"}:
+                return None
+            if pair.p.key == pair.r.key and (len(self.p_by_key[pair.p.key]) > 1 or len(self.r_by_key[pair.r.key]) > 1) \
+                    and not pair.evidence & {"settled", "call", "exact-caller"}:
+                return None
+            return pair.r.address
+
+        own: dict[str, set] = {}
+        primary = {}
+        for pt, rt in self.table_pairs:
+            if pt.offset or rt.offset:
+                continue
+            primary[pt.name] = (pt, rt)
+            where_r = defaultdict(list)
+            for j, t in enumerate(rt.slots):
+                where_r[t].append(j)
+            anchors = set()
+            for i, t in enumerate(pt.slots):
+                partner = reliable(t)
+                if partner is not None and len(where_r.get(partner, ())) == 1:
+                    anchors.add((i, where_r[partner][0]))
+            own[pt.name] = anchors
+        related = defaultdict(set)  # class -> ancestors and descendants with primary tables
+        for name, (pt, _) in primary.items():
+            for base in pt.bases:
+                if base in primary:
+                    related[name].add(base)
+                    related[base].add(name)
+        # families: classes joined by inheritance share slot numbers
+        family = {}
+        for name in sorted(primary):
+            if name in family:
+                continue
+            stack = [name]
+            while stack:
+                current = stack.pop()
+                if current in family:
+                    continue
+                family[current] = name
+                stack.extend(sorted(related[current]))
+
+        def chain_of(pt, rt):
+            a, b = pt.slots, rt.slots
+            if pt.offset or rt.offset or pt.name not in own:
+                anchors = set()
+                where_r = defaultdict(list)
+                for j, t in enumerate(b):
+                    where_r[t].append(j)
+                for i, t in enumerate(a):
+                    partner = reliable(t)
+                    if partner is not None and len(where_r.get(partner, ())) == 1:
+                        anchors.add((i, where_r[partner][0]))
+            else:
+                anchors = set(own[pt.name])
+                for other in related[pt.name]:
+                    anchors.update((i, j) for i, j in own[other] if i < len(a) and j < len(b))
+            return sorted(increasing_subsequence(sorted(anchors)))
+
+        def gaps(chain, a, b):
+            previous = (-1, -1)
+            for i, j in chain + [(len(a), len(b))]:
+                yield list(range(previous[0] + 1, i)), list(range(previous[1] + 1, j)), (i, j)
+                previous = (i, j)
+
+        chains = {}
+        known_inserted = defaultdict(set)  # family -> release slot numbers that are new virtuals
+        known_dropped = defaultdict(set)  # family -> prototype slot numbers that are gone
+        for pt, rt in self.table_pairs:
+            chain = chains[(pt.address, rt.address)] = chain_of(pt, rt)
+            fam = family.get(pt.name) if not (pt.offset or rt.offset) else None
+            if fam is None:
+                continue
+            for gap_a, gap_b, _ in gaps(chain, pt.slots, rt.slots):
+                if gap_b and not gap_a:
+                    known_inserted[fam].update(gap_b)
+                if gap_a and not gap_b:
+                    known_dropped[fam].update(gap_a)
+        out = []
+        inserted = dropped = 0
+        for pt, rt in self.table_pairs:
+            a, b = pt.slots, rt.slots
+            chain = chains[(pt.address, rt.address)]
+            fam = family.get(pt.name) if not (pt.offset or rt.offset) else None
+            if len(a) == len(b) and all(i == j for i, j in chain):
+                places = list(zip(range(len(a)), range(len(b))))
+            else:
+                places = []
+                for gap_a, gap_b, (i, j) in gaps(chain, a, b):
+                    if len(gap_a) != len(gap_b) and fam is not None:
+                        # a slot another table of the family shows as added (or dropped) is one here too
+                        trimmed_b = [y for y in gap_b if y not in known_inserted[fam]]
+                        trimmed_a = [x for x in gap_a if x not in known_dropped[fam]]
+                        if len(trimmed_a) == len(trimmed_b):
+                            inserted += len(gap_b) - len(trimmed_b)
+                            dropped += len(gap_a) - len(trimmed_a)
+                            gap_a, gap_b = trimmed_a, trimmed_b
+                    if len(gap_a) == len(gap_b):
+                        places.extend(zip(gap_a, gap_b))
+                    else:
+                        # what clearly resembles, in order; small or equal copies cannot be told apart
+                        candidates = []
+                        for x, ia in enumerate(gap_a):
+                            for y, jb in enumerate(gap_b):
+                                if a[ia] in self.p_by and b[jb] in self.r_by:
+                                    pf, rf = self.p_by[a[ia]], self.r_by[b[jb]]
+                                    if min(pf.size, rf.size) < VTABLE_RESEMBLE_SIZE:
+                                        continue
+                                    weight = self.callee_resemblance(a[ia], b[jb])
+                                    if weight >= VTABLE_RESEMBLANCE:
+                                        candidates.append((x, y, weight))
+                        chosen = weighted_monotone_matching(candidates)
+                        places.extend((gap_a[x], gap_b[y]) for x, y, _ in chosen)
+                        dropped += len(gap_a) - len(chosen)
+                        inserted += len(gap_b) - len(chosen)
+                    if i < len(a):
+                        places.append((i, j))
+            for i, j in places:
+                if a[i] in self.p_by and b[j] in self.r_by:
+                    out.append((a[i], b[j], (pt, rt, 8 + 4 * i, 8 + 4 * j)))
+        self.stats["vtable-slots-inserted"] = inserted
+        self.stats["vtable-slots-dropped"] = dropped
+        return out
+
+    def vtable_pass(self, repair: bool) -> int:
+        """Pair (or, with ``repair``, re-pair) functions that fill the same slot of paired tables."""
+
+        correspondences = self.vtable_correspondences()
+        votes_p: dict[int, Counter] = defaultdict(Counter)
+        votes_r: dict[int, Counter] = defaultdict(Counter)
+        places = defaultdict(list)
+        for tp, tr, place in correspondences:
+            votes_p[tp][tr] += 1
+            votes_r[tr][tp] += 1
+            places[tp].append(place)
+        self.vt_slots = places
+
+        def winner(votes: Counter):
+            # the place most tables agree on; a minority is a class that overrides it differently
+            ranked = votes.most_common()
+            if len(ranked) == 1 or ranked[0][1] > sum(c for _, c in ranked[1:]):
+                return ranked[0][0]
+            return None
+
+        changed = 0
+        for tp in sorted(votes_p):
+            tr = winner(votes_p[tp])
+            if tr is None or winner(votes_r[tr]) != tp:
+                self.stats["vtable-slot-disagreements"] += 1
+                continue
+            current = self.pairs.get(tp)
+            if current is not None and current.r.address == tr:
+                self.vt_confirmed.add(tp)
+                continue
+            if tp in self.blocked_p or tr in self.blocked_r:
+                continue
+            other_p = self.r_paired.get(tr)
+            other = self.pairs.get(other_p) if other_p is not None else None
+            if current is not None or other is not None:
+                if not repair:
+                    continue
+                if any(x is not None and x.evidence & VTABLE_KEEPS for x in (current, other)):
+                    self.stats["vtable-slot-conflicts-kept"] += 1
+                    continue
+                for x in (current, other):
+                    if x is not None:
+                        if x.p.key == x.r.key:
+                            self.stats["vtable-reassigned-exact"] += 1
+                        self.remove(x)
+                pair = self.add(self.p_by[tp], self.r_by[tr], "vtable-slot")
+                if pair:
+                    pair.flags.add("repaired")
+                    self.stats["vtable-reassigned"] += 1
+                    self.vt_confirmed.add(tp)
+                    changed += 1
+                continue
+            if self.add(self.p_by[tp], self.r_by[tr], "vtable-slot"):
+                self.stats["vtable-created"] += 1
+                self.vt_confirmed.add(tp)
+                changed += 1
+        return changed
+
     # -- 1. exact ------------------------------------------------------------------
     def exact_unique(self) -> None:
         for key, ps in sorted(self.p_by_key.items(), key=lambda kv: kv[1][0].address):
@@ -345,25 +565,32 @@ class Matcher:
         """
 
         p, r = pair.p, pair.r
-        pr = [(i, t) for i, t in p.references() if t in self.p_by]
-        rr = [(i, t) for i, t in r.references() if t in self.r_by]
+        pr = [(i, t, k) for i, t, k in p.typed_references() if t in self.p_by]
+        rr = [(i, t, k) for i, t, k in r.typed_references() if t in self.r_by]
         if p.key == r.key:
-            rd = dict(rr)
-            return [(t, rd[i]) for i, t in pr if i in rd]
-        return self.align_references([t for _, t in pr], [t for _, t in rr], p.address, r.address)
+            rd = {i: t for i, t, _ in rr}
+            return [(t, rd[i]) for i, t, _ in pr if i in rd]
+        return self.align_references([t for _, t, _ in pr], [t for _, t, _ in rr], p.address, r.address,
+                                     [k for _, _, k in pr], [k for _, _, k in rr])
 
-    def align_references(self, a: list[int], b: list[int], pa: int, ra: int) -> list[tuple[int, int]]:
-        def token_p(target):
+    def align_references(self, a: list[int], b: list[int], pa: int, ra: int,
+                         kinds_a: list[str] | None = None, kinds_b: list[str] | None = None) -> list[tuple[int, int]]:
+        """Align two ordered reference lists; a call only meets a call, a function pointer a pointer."""
+
+        kinds_a = kinds_a or ["call"] * len(a)
+        kinds_b = kinds_b or ["call"] * len(b)
+
+        def token_p(target, kind):
             if target == pa:
-                return ("self",)
+                return ("self", kind)
             pair = self.pairs.get(target)
-            return ("r", pair.r.address) if pair else ("p", target)
+            return ("r", pair.r.address, kind) if pair else ("p", target, kind)
 
-        def token_r(target):
-            return ("self",) if target == ra else ("r", target)
+        def token_r(target, kind):
+            return ("self", kind) if target == ra else ("r", target, kind)
 
-        ta = [token_p(t) for t in a]
-        tb = [token_r(t) for t in b]
+        ta = [token_p(t, k) for t, k in zip(a, kinds_a)]
+        tb = [token_r(t, k) for t, k in zip(b, kinds_b)]
 
         def one_sided(blocks) -> int:
             gaps = 0
@@ -383,29 +610,30 @@ class Matcher:
         out = []
         ia = ib = 0
         for block in chosen:
-            gap_a = list(range(ia, block[0]))
-            gap_b = list(range(ib, block[1]))
-            open_a = [x for x in gap_a if ta[x][0] == "p"]
-            open_b = [y for y in gap_b if b[y] not in self.r_paired and b[y] != ra]
-            if len({a[x] for x in open_a}) == 1 and len({b[y] for y in open_b}) == 1:
-                # one unpaired target on each side between the same two anchors: a 1-to-1 slot
-                out.append((a[open_a[0]], b[open_b[0]]))
-                self._slot_refs.add((a[open_a[0]], b[open_b[0]]))
-            elif gap_a and gap_b:
-                # between anchors: map the unpaired targets that resemble each other, in order
-                # (also for runs of equal length: a changed caller may call other functions)
-                candidates = []
-                for i, x in enumerate(gap_a):
-                    if ta[x][0] != "p":
-                        continue
-                    for j, y in enumerate(gap_b):
-                        if b[y] in self.r_paired or b[y] == ra:
+            for kind in ("call", "ptr"):
+                gap_a = [x for x in range(ia, block[0]) if kinds_a[x] == kind]
+                gap_b = [y for y in range(ib, block[1]) if kinds_b[y] == kind]
+                open_a = [x for x in gap_a if ta[x][0] == "p"]
+                open_b = [y for y in gap_b if b[y] not in self.r_paired and b[y] != ra]
+                if len({a[x] for x in open_a}) == 1 and len({b[y] for y in open_b}) == 1:
+                    # one unpaired target of this kind on each side between the same two anchors
+                    out.append((a[open_a[0]], b[open_b[0]]))
+                    self._slot_refs.add((a[open_a[0]], b[open_b[0]]))
+                elif gap_a and gap_b:
+                    # between anchors: map the unpaired targets that resemble each other, in order
+                    # (also for runs of equal length: a changed caller may call other functions)
+                    candidates = []
+                    for i, x in enumerate(gap_a):
+                        if ta[x][0] != "p":
                             continue
-                        weight = self.callee_resemblance(a[x], b[y])
-                        if weight:
-                            candidates.append((i, j, weight))
-                for i, j, _ in weighted_monotone_matching(candidates):
-                    out.append((a[gap_a[i]], b[gap_b[j]]))
+                        for j, y in enumerate(gap_b):
+                            if b[y] in self.r_paired or b[y] == ra:
+                                continue
+                            weight = self.callee_resemblance(a[x], b[y])
+                            if weight:
+                                candidates.append((i, j, weight))
+                    for i, j, _ in weighted_monotone_matching(candidates):
+                        out.append((a[gap_a[i]], b[gap_b[j]]))
             out.extend((a[block[0] + k], b[block[1] + k]) for k in range(block[2]))
             ia, ib = block[0] + block[2], block[1] + block[2]
         return out
@@ -472,6 +700,8 @@ class Matcher:
                         continue  # several equal copies still open: position decides, not a changed caller
                 exact_voter = any(self.pairs[v].p.key == self.pairs[v].r.key for v in voters if v in self.pairs)
                 if (tp, tr) in self._slot_refs and not exact_voter and self.callee_resemblance(tp, tr) == 0:
+                    if not self.allow_reference_slots:
+                        continue  # later: positional and global pairs come first
                     small, large = sorted((p_fn.size, r_fn.size))
                     if small / large < SLOT_SIZE_RATIO or not self.in_window(p_fn, r_fn):
                         self.stats["slot-rejected-shape-or-order"] += 1
@@ -578,11 +808,11 @@ class Matcher:
         return added
 
     # -- 4. positional --------------------------------------------------------------
-    def _score(self, p, r) -> float | None:
+    def _score(self, p, r, prefilter: bool = True) -> float | None:
         small, large = sorted((p.size, r.size))
         if large and small / large < SIZE_RATIO_MIN:
             return None
-        if jaccard(p.grams, r.grams) < GRAM_PREFILTER:
+        if prefilter and jaccard(p.grams, r.grams) < GRAM_PREFILTER:
             # a small function's 3-grams say little: a high operation similarity may stand in
             if max(p.size, r.size) > SMALL_FUNCTION or similarity(p.ops, r.ops) < SMALL_OPERATIONS:
                 return None
@@ -608,12 +838,14 @@ class Matcher:
             if not ps or not rs:
                 continue
             candidates = []
+            # a small gap is cheap to score in full: no 3-gram prefilter there
+            prefilter = len(ps) * len(rs) > SMALL_GAP
             for i, p in enumerate(ps):
                 centre = i * len(rs) / len(ps)
                 lo = max(0, int(centre) - BAND)
                 hi = min(len(rs), int(centre) + BAND + 1)
                 for j in range(lo, hi):
-                    value = self._score(p, rs[j])
+                    value = self._score(p, rs[j], prefilter)
                     if value is not None:
                         candidates.append((i, j, value))
             chosen = weighted_monotone_matching(candidates)
@@ -702,7 +934,9 @@ class Matcher:
             top_r = sorted(best_r[ra], key=lambda x: (-x[0], x[1]))
             if top_p[0][1] != ra or top_r[0][1] != pa:
                 continue
-            small = self.p_by[pa].size < GLOBAL_SMALL and (pa, ra) not in slotted
+            p_fn, r_fn = self.p_by[pa], self.r_by[ra]
+            same_shape = p_fn.size == r_fn.size and p_fn.shape == r_fn.shape
+            small = p_fn.size < GLOBAL_SMALL and (pa, ra) not in slotted and not same_shape
             if not self.callers_agree(pa, ra, small):
                 self.stats["global-rejected-callers"] += 1
                 continue
@@ -882,7 +1116,12 @@ class Matcher:
             if pair.ref_mismatches:
                 flags.add("ref-kind")
             exact = pair.p.key == pair.r.key
-            if "settled" in pair.evidence:
+            if exact and (len(self.p_by_key[pair.p.key]) > 1 or len(self.r_by_key[pair.r.key]) > 1):
+                decided = (pair.p.address in self.vt_confirmed or pair.evidence & {"settled", "call", "exact-caller"}
+                           or self.agreeing_callers(pair) > 0)
+                if not decided:
+                    flags.add("identical-copy")  # equal bytes elsewhere: only order chose this copy
+            if "settled" in pair.evidence or "vtable-slot" in pair.evidence:
                 plain = exact and not pair.call_conflicts and not pair.ref_mismatches
                 pair.cls = "exact" if plain else "deviating"
                 continue
@@ -899,7 +1138,7 @@ class Matcher:
                 continue
             if pair.p.size == pair.r.size and pair.shape_similarity == 1.0:
                 flags.add("imm-only")
-            strong = bool(pair.evidence & {"call", "entry", "string"})
+            strong = bool(pair.evidence & {"call", "entry", "string"}) or self.shares_unique_token(pair)
             agreeing = self.agreeing_callers(pair)
             called = bool(pair.evidence & {"call", "call-deviating"}) or pair.call_sites > 0 or agreeing > 0
             if pair.call_conflicts:
@@ -913,8 +1152,8 @@ class Matcher:
                 pair.cls = "deviating"
             elif strong and (pair.similarity >= STRONG_SIMILARITY or pair.operation_similarity >= STRONG_OPERATIONS):
                 pair.cls = "deviating"
-            elif called and in_order and (pair.operation_similarity >= CALL_SLOT_OPERATIONS
-                                          or pair.p.address in alone or agreeing >= 2):
+            elif called and (in_order and (pair.operation_similarity >= CALL_SLOT_OPERATIONS
+                                           or pair.p.address in alone or agreeing >= 2) or agreeing >= 3):
                 # referenced at the place of the prototype function by a paired caller, in its slot
                 pair.cls = "deviating"
                 flags.add("call-and-slot")
@@ -940,6 +1179,9 @@ class Matcher:
             added += self.resolve_duplicates()
             if not added:
                 break
+        if self.table_pairs:
+            self.vtable_pass(repair=False)
+            self.propagate()
         self.stats["after-exact-and-calls"] = len(self.pairs)
         for _ in range(4):
             added = self.positional()
@@ -950,12 +1192,16 @@ class Matcher:
                 break
         added = self.global_leftovers()
         self.stats["global"] = added
-        if added:
-            self.propagate()
+        self.allow_reference_slots = True
+        self.propagate()  # now the 1-to-1 reference slots may pair what order and resemblance left
         for _ in range(4):
             added = self.address_slots()
             self.stats["address-slots"] += added
             if not added:
+                break
+            self.propagate()
+        for _ in range(3):
+            if not self.table_pairs or not self.vtable_pass(repair=True):
                 break
             self.propagate()
         for _ in range(4):

@@ -294,6 +294,40 @@ def masked_diff(p, r, namer, data) -> list[str]:
     return lines
 
 
+SLOT_SCORED = 60  # candidates of a new/removed row's slot that get a similarity
+SLOT_SHOWN = 8  # ... and how many of them are listed
+
+
+def similarity(a, b) -> float:
+    return SequenceMatcher(None, a, b, autojunk=False).ratio()
+
+
+def stored_pointers(image, spans, starts: set[int]) -> dict[int, list[int]]:
+    """Function address -> data addresses outside code that hold it (callback tables, vtables)."""
+
+    words = mips.words_of(image.data)
+    spans = sorted(spans)
+    begins = [s for s, _ in spans]
+    out = defaultdict(list)
+    for index, value in enumerate(words):
+        if value not in starts:
+            continue
+        address = image.base + 4 * index
+        k = bisect.bisect_right(begins, address) - 1
+        if k >= 0 and spans[k][0] <= address < spans[k][1]:
+            continue  # an instruction, not stored data
+        out[value].append(address)
+    return out
+
+
+def vtable_places(tables) -> dict[int, list[str]]:
+    out = defaultdict(list)
+    for table in (tables or {}).values():
+        for k, target in enumerate(table.slots):
+            out[target].append("%s%s +0x%x" % (table.name, " (offset %d)" % table.offset if table.offset else "", 8 + 4 * k))
+    return out
+
+
 def slot_lines(matcher, namer, row) -> list[str]:
     """For a new or removed row: its paired neighbours and what the other side has between them."""
 
@@ -317,9 +351,23 @@ def slot_lines(matcher, namer, row) -> list[str]:
         lo, hi = other_index[partner(before).address], other_index[partner(after).address]
         if lo < hi:
             between = [f for f in other[lo + 1:hi] if not other_paired(f)]
-            out.append("- unpaired on the other side in that slot: " + (
-                ", ".join(label_other(f.address) for f in between[:8]) or "none")
-                + (" (+%d)" % (len(between) - 8) if len(between) > 8 else ""))
+            me = side[index]
+            ranked = between
+            if len(between) > 1:
+                # the most similar first (scored for at most SLOT_SCORED of them), at most SLOT_SHOWN shown
+                scored = []
+                for f in between[:SLOT_SCORED]:
+                    small, large = sorted((me.size, f.size))
+                    value = similarity(me.masked, f.masked) if large and small / large >= 0.25 else 0.0
+                    scored.append((value, f))
+                ranked = [f for _, f in sorted(scored, key=lambda x: (-x[0], x[1].address))] + between[SLOT_SCORED:]
+                values = {f.address: v for v, f in scored}
+            else:
+                values = {}
+            shown = ["%s%s" % (label_other(f.address), " %.2f" % values[f.address] if f.address in values else "")
+                     for f in ranked[:SLOT_SHOWN]]
+            out.append("- unpaired on the other side in that slot (most similar first): " + (", ".join(shown) or "none")
+                       + (" (+%d more)" % (len(between) - SLOT_SHOWN) if len(between) > SLOT_SHOWN else ""))
         else:
             out.append("- the neighbours' partners are out of order on the other side")
     return out
@@ -330,6 +378,12 @@ def module_sheet(module: str, matcher, rows: list[dict], protos: dict, proto_ima
     import report  # late: report imports protofacts too
 
     namer = Namer(matcher, protos)
+    p_vt = vtable_places(getattr(matcher, "proto_tables", None))
+    r_vt = vtable_places(getattr(matcher, "release_tables", None))
+    p_stored = stored_pointers(proto_image, [(f.address, f.end) for f in matcher.P], set(matcher.p_by)) \
+        if proto_image is not None else {}
+    r_stored = stored_pointers(release_image, [(f.address, f.end) for f in matcher.R], set(matcher.r_by)) \
+        if release_image is not None else {}
     if selected is None:
         selected = [row for row in rows if report.module_label(row) == module]
     interesting = [matcher.pairs[row["prototype_address"]] for row in selected
@@ -391,8 +445,16 @@ def module_sheet(module: str, matcher, rows: list[dict], protos: dict, proto_ima
             refs = [namer.p_label(t) if t in matcher.p_by else "0x%x" % t for _, t in p.references()]
             out.append("- prototype references: " + (", ".join(refs) or "none"))
             callers = sorted(namer.p_refs_by.get(proto, ()))
-            out.append("- prototype callers: " + (", ".join(namer.p_label(c) for c in callers[:12]) or "none")
-                       + (" (+%d)" % (len(callers) - 12) if len(callers) > 12 else ""))
+            if callers or not p_vt.get(proto):
+                out.append("- prototype callers: " + (", ".join(namer.p_label(c) for c in callers[:12]) or "none")
+                           + (" (+%d)" % (len(callers) - 12) if len(callers) > 12 else ""))
+            if p_vt.get(proto):
+                out.append("- prototype vtable slots: " + ", ".join(p_vt[proto][:8])
+                           + (" (+%d)" % (len(p_vt[proto]) - 8) if len(p_vt[proto]) > 8 else ""))
+            stored = p_stored.get(proto, [])
+            if stored:
+                out.append("- prototype pointers to it in data: " + ", ".join(data.proto(a) for a in stored[:8])
+                           + (" (+%d)" % (len(stored) - 8) if len(stored) > 8 else ""))
             names = list(dict.fromkeys(data.proto(a) for _, a in p.data_refs))
             if names:
                 out.append("- prototype data: " + ", ".join(names[:20]) + (" (+%d)" % (len(names) - 20) if len(names) > 20 else ""))
@@ -400,8 +462,16 @@ def module_sheet(module: str, matcher, rows: list[dict], protos: dict, proto_ima
             refs = [namer.r_label(t) if t in matcher.r_by else "0x%x" % t for _, t in r.references()]
             out.append("- release references: " + (", ".join(refs) or "none"))
             callers = sorted(namer.r_refs_by.get(rel, ()))
-            out.append("- release callers: " + (", ".join(namer.r_label(c) for c in callers[:12]) or "none")
-                       + (" (+%d)" % (len(callers) - 12) if len(callers) > 12 else ""))
+            if callers or not r_vt.get(rel):
+                out.append("- release callers: " + (", ".join(namer.r_label(c) for c in callers[:12]) or "none")
+                           + (" (+%d)" % (len(callers) - 12) if len(callers) > 12 else ""))
+            if r_vt.get(rel):
+                out.append("- release vtable slots: " + ", ".join(r_vt[rel][:8])
+                           + (" (+%d)" % (len(r_vt[rel]) - 8) if len(r_vt[rel]) > 8 else ""))
+            stored = r_stored.get(rel, [])
+            if stored:
+                out.append("- release pointers to it in data: " + ", ".join("0x%x" % a for a in stored[:8])
+                           + (" (+%d)" % (len(stored) - 8) if len(stored) > 8 else ""))
             names = list(dict.fromkeys(("0x%x = " % a if a not in data.release_to_proto else "") + data.release(a)
                                        for _, a in r.data_refs))
             if names:

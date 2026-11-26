@@ -20,3 +20,33 @@ removed	0x1d9910	out-of-line copy only called by ReOpen, which now calls Open; i
 0x3511f0	0x334d10	function pointer of the sceMpegCbError sceMpegAddCallback in startPss; slot between fillBuff and backgroundCallback	socom-release-check-z2	2026-11-25
 0x351680	0x3350b0	slot between videoCallback and stopPss; blocking loop of tickPss until sceMpegIsEnd; caller moved Run -> Tick	socom-release-check-z2	2026-11-25
 0x351e50	0x335640	callers End and Uninit; slot; audioDecDelete(&audioDec)	socom-release-check-z2	2026-11-25
+0x293ac0	0x288050	CSealCtrl vtable slot 0x40 (release table 0x489ce0, the other 35 mapped slots agree); same +308 store and SetSnakePathUpdate(body,1,75)	socom-release-check-seal-a	2026-11-26
+0x293ae0	0x288120	CSealCtrl vtable slot 0x60, also in the CSealCtrlCopy and CSealCtrlSquirm tables	socom-release-check-seal-a	2026-11-26
+0x293b30	0x288130	CSealCtrl vtable slot 0x5c, also in the CSealCtrlCopy and CSealCtrlSquirm tables	socom-release-check-seal-a	2026-11-26
+0x293bd0	0x288140	CSealCtrl vtable slot 0x48, also in the CSealCtrlCopy and CSealCtrlSquirm tables; empty body (was paired exact with OnMissionEnd)	socom-release-check-seal-a	2026-11-26
+0x29dce0	0x2918d0	CZSealBody vtable slot after UpdateNextPosition (release table 0x4899f0); same body part +660	socom-release-check-seal-a	2026-11-26
+0x2aed50	0x2a0f20	call site in Tick_0: last call before Animate; operations 0.873	socom-release-check-seal-a	2026-11-26
+0x2b89a0	new	PreTick's first-tick block made a function (ChangeItemModel's first branch inlined, CycleFireMode, fire-mode restore); takes no arguments	socom-release-check-seal-a	2026-11-26
+removed	0x2acc70	inlined into 0x2b89a0; only caller PreTick; no release look-alike	socom-release-check-seal-a	2026-11-26
+0x25f090	0x259220	vtable slot 10 of the CAiState family holds the paired CanPursue overrides; 0x25f090 is the base entry	socom-release-check-seal-b	2026-11-26
+0x25f0a0	new	base entry of new vtable slot 12 (override CAiSBreach 0x2ec870); bytes equal to CanPursue's	socom-release-check-seal-b	2026-11-26
+0x262720	0x25ad00	vtable slot 4 of the CAiSAnimate vtable; slot between OnSignal CAiSPursue and OnSignal CAiSAnimate; same Top/PushBlend state machine	socom-release-check-seal-b	2026-11-26
+0x2667f0	0x25d080	equal size and shape, imm-only (range bound 6 -> 7); caller now AI_FIREPARAMS::setup	socom-release-check-seal-b	2026-11-26
+0x279ff0	0x26eb70	same body calls and "Restrained anim set"; reached through thunk 0x27a650 from wrapper 0x27a420	socom-release-check-seal-b	2026-11-26
+0x27a660	0x26ef00	same body calls; reached through thunk 0x27aac0 from wrapper 0x27a890 as RestrainBuddy is	socom-release-check-seal-b	2026-11-26
+0x27a890	new	knife wrapper (AlignForPickup + callback 0x27aac0) in StabBuddy's call site	socom-release-check-seal-b	2026-11-26
+0x27f240	0x2736c0	callers CSealCtrl::PreTick (two sites); 1-to-1 slot between PeekBaseState and LowerBinoculars	socom-release-check-seal-b	2026-11-26
+0x288780	0x273490	same callers (PreTick, InStateCrouch, InStateStand, BindAnimSet x4, WeaponHitAnim, CAiSSurrender::OnSignal)	socom-release-check-seal-b	2026-11-26
+0x268000	0x25fc90	vtable slot +0x24 of CSealCtrlAi; slot between FindPeekDir and ConfirmAiState; GetCharacter + PlayAt body	socom-release-check-seal-c	2026-11-25
+0x26bea0	0x263a30	call site in AttackTick after FireWhenReady and both SetTrigger; slot	socom-release-check-seal-c	2026-11-25
+0x26c600	0x2640d0	vtable slot +0xa0 of CSealCtrlAi; slot between SetValve and SlideTick; CanAttack + CAiTarget::SetTarget	socom-release-check-seal-c	2026-11-25
+0x26d1a0	0x264af0	vtable slot +0x8c of CSealCtrlAi; same callees	socom-release-check-seal-c	2026-11-25
+0x26f020	new	calls WalkLine with 0x26f210 as the callback; callers PathFollowTick, CreepTick, 0x266be0	socom-release-check-seal-c	2026-11-25
+0x26f210	0x2661d0	function pointer passed to WalkLine (by 0x26f020); same cell compare at the start	socom-release-check-seal-c	2026-11-25
+0x26f5f0	0x266320	only AI caller of GetLadderByIndex on both sides; slot between _look_ahead and ComputeTurnThrottle; caller moved PathFollowTick -> PreTick	socom-release-check-seal-c	2026-11-25
+0x271290	0x2675e0	vtable slot +0x0c of CSealCtrlAi; same call sequence	socom-release-check-seal-c	2026-11-25
+0x271a70	0x267b30	vtable slot +0x14 of CSealCtrlAi; same calls	socom-release-check-seal-c	2026-11-25
+0x2bfcd0	0x2afeb0	vtable slot +0x98 of CSealCtrl	socom-release-check-seal-c	2026-11-25
+0x2c2150	0x2b1910	vtable slot +0x9c of CSealCtrl	socom-release-check-seal-c	2026-11-25
+0x2c2300	0x2b1980	vtable slot +0x9c of CSealCtrlAi	socom-release-check-seal-c	2026-11-25
+0x2f67a0	0x2e1d80	CAiSFollow vtable slot between OnSignal and GetStatus; ConfirmAiState(ai, this, 1) first; slot between SetFollowMaster and GetStatus	socom-release-check-seal-c	2026-11-25

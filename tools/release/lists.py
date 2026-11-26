@@ -33,7 +33,7 @@ def kind(row: dict) -> str | None:
 
     if row["class"] in ("unsure", "new", "removed"):
         return row["class"]
-    return "weak" if is_weak(row) else None
+    return "weak" if is_weak(row) or "identical-copy" in row["flags"] else None
 
 
 def key(row: dict) -> str:
@@ -61,12 +61,36 @@ def positions(matcher, rows: list[dict]) -> dict[str, int]:
     return out
 
 
-def split(module: str, rows: list[dict], matcher, count: int, sample: int = 15) -> list[dict]:
+def parse_done(items: list[str]) -> list[tuple[str, int, int]]:
+    """``file`` or ``file:0xlo-0xhi`` (release range, inclusive): rows already checked."""
+
+    out = []
+    for item in items or []:
+        name, _, span = item.partition(":")
+        lo, hi = 0, 1 << 32
+        if span:
+            first, _, last = span.partition("-")
+            lo, hi = int(first, 16), int(last, 16)
+        out.append((name, lo, hi))
+    return out
+
+
+def split(module: str, rows: list[dict], matcher, count: int, sample: int = 15, done=(), first: str = "a") -> list[dict]:
     selected = [row for row in rows if report.module_label(row) == module]
     if not selected:
         raise ValueError("no rows for module %s" % module)
-    count = max(1, min(count, len(LETTERS)))
+    count = max(1, min(count, len(LETTERS) - LETTERS.index(first)))
     where = positions(matcher, rows)
+    if done:
+        def checked(row):
+            owner = row["owner_file"]
+            return any(owner.endswith("/" + name) or owner == name for name, lo, hi in done
+                       if lo <= where[key(row)] <= hi)
+        excluded = [row for row in selected if checked(row)]
+        selected = [row for row in selected if not checked(row)]
+        done_ranges = [(lo, hi) for _, lo, hi in done]
+    else:
+        excluded, done_ranges = [], []
     files = defaultdict(list)
     ordered = sorted(selected, key=lambda row: (where[key(row)], key(row)))
     last_owner = ""
@@ -100,13 +124,16 @@ def split(module: str, rows: list[dict], matcher, count: int, sample: int = 15) 
                 units.append((owner, chunk))
         else:
             units.append((owner, part))
-    bins = [{"letter": LETTERS[i], "units": [], "work": 0.0} for i in range(count)]
+    start = LETTERS.index(first)
+    bins = [{"letter": LETTERS[start + i], "units": [], "work": 0.0} for i in range(count)]
     for owner, part in sorted(units, key=lambda unit: (-work(unit[1]), unit[0], where[key(unit[1][0])])):
         target_bin = min(bins, key=lambda b: (b["work"], b["letter"]))
         target_bin["units"].append((owner, part))
         target_bin["work"] += work(part)
     # unplaced new functions inside a list's address ranges join that list
-    unplaced = [row for row in rows if row["class"] == "new" and report.module_label(row) == "(new, unplaced)"]
+    unplaced = [row for row in rows if row["class"] == "new" and report.module_label(row) == "(new, unplaced)"
+                and not (excluded and any(lo <= row["release_address"] <= hi for lo, hi in done_ranges
+                                          if hi - lo < 1 << 31))]
     lists = []
     for b in bins:
         members = [row for _, part in b["units"] for row in part]

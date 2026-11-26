@@ -7,12 +7,15 @@ Read `RULES.md` and `COMPARISON.md` first, and `notes/zArchive.md` and `notes/zM
 ## What you are checking
 
 `python tools/release/compare.py` pairs every function of the release executable with a
-prototype function and classes it. Two modules were checked row by row before this brief: where
-the tool commits to a pair (exact, deviating) it was right 91 times out of 91, and every error
-was a pair it failed to make, shown as one "new" and one "removed" row. So a list holds:
+prototype function and classes it. In the modules checked so far the deviating pairs it commits
+to were right every time (two modules row by row, then 45 of 45 sampled). Its errors were of two
+kinds: pairs it failed to make, shown as one "new" and one "removed" row, and byte-identical
+small functions given to the wrong twin (two exact pairs between empty virtuals, told apart only
+by position; the tool reads vtables since then). So a list holds:
 
-- every **uncertain** row: unsure, new, removed, and the weakly evidenced pairs (`slot-only`,
-  `role-only`);
+- every **uncertain** row: unsure, new, removed, the weakly evidenced pairs (`slot-only`,
+  `role-only`), and the rows flagged `identical-copy` (equal bytes exist elsewhere and no vtable
+  slot, caller or settled row decided which copy this is);
 - a **sample** of the deviating rows, as a guard on the committed pairs;
 - the count of exact rows, which you do not check.
 
@@ -45,6 +48,10 @@ finding that matters more than any other.
    executable; `port/tools/dev/` helpers work on the prototype).
    - A "new" row and a "removed" row that are one function: a pair, deviating.
    - A weak pair: confirm it or split it into a new and a removed row.
+   - An `identical-copy` row: a vtable slot, a caller or a stored pointer decides which twin it
+     is. Where nothing can, say so in one line ("twins undecidable"): the code is the same, and
+     only the name is in doubt. Do several such rows as one batch.
+   - A virtual function has no direct caller: use the vtable and slot the sheet shows for it.
    - A row you cannot settle stays unsure, with the reason.
 3. Check each sampled deviating row: same function on both sides, yes or no. Do not describe
    what changed in it; that belongs to stage 4.
