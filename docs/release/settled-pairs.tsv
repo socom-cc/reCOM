@@ -1,0 +1,18 @@
+release	prototype	basis	checker	date
+0x1d9780	new	callers: Insert(CKey*,...) only; zar_main.cpp lines 1108/1109	socom-release-check-z1	2026-11-25
+removed	0x1d9910	out-of-line copy only called by ReOpen, which now calls Open; inline in Open, CZAR, ~CZAR (zar_main.cpp lines 102/109)	socom-release-check-z1	2026-11-25
+0x1d9a70	new	call sites of the CKey destructor in NewKey, ~CZAR, Insert	socom-release-check-z1	2026-11-25
+0x1d9ae0	0x1d8130	call sites in insert +0x4e0, reserve +0x190	socom-release-check-z1	2026-11-25
+0x1d9b50	0x1d81a0	caller Close(); slot; strings	socom-release-check-z1	2026-11-25
+0x1d9f70	0x1d8480	call site in WriteDirectory; slot; recursion	socom-release-check-z1	2026-11-25
+0x1da0a0	0x1d8600	function pointer passed to CSTable::Pack in WriteDirectory; slot	socom-release-check-z1	2026-11-25
+0x1da250	0x1d87b0	caller Open; call order; strings	socom-release-check-z1	2026-11-25
+0x1dacb0	0x1d9200	15 matching outside call sites	socom-release-check-z1	2026-11-25
+0x1daf50	0x1d9680	caller LoadWorld	socom-release-check-z1	2026-11-25
+0x1dbce0	0x1da440	call site in insert +0x284	socom-release-check-z1	2026-11-25
+0x1dbd10	0x1da4f0	call site in insert +0x24c	socom-release-check-z1	2026-11-25
+0x1dcdd0	0x1db680	bytes equal; callers	socom-release-check-z1	2026-11-25
+0x1dd7c0	0x1dc1d0	call site in ReadDirectory; slot; recursion	socom-release-check-z1	2026-11-25
+0x1dd8e0	0x1dc2d0	call site in WriteDirectory; slot; recursion	socom-release-check-z1	2026-11-25
+0x1ddb90	0x1dc4a0	bytes equal; slot	socom-release-check-z1	2026-11-25
+0x1ddbd0	0x1dc4e0	bytes equal; slot	socom-release-check-z1	2026-11-25

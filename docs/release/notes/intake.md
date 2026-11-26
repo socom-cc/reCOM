@@ -38,8 +38,10 @@ address tables reach, so this is a lower bound; the comparison's own function li
 
 ## First comparison
 
-`python tools/release/compare.py` pairs the two executables directly (see
-[../COMPARISON.md](../COMPARISON.md)): 6,320 exact, 2,331 deviating, 375 unsure, 820 new, 680
+These are the first run's numbers; the tool has been improved since, and the current ones are
+in [../COMPARISON.md](../COMPARISON.md).
+
+`python tools/release/compare.py` pairs the two executables directly: 6,320 exact, 2,331 deviating, 375 unsure, 820 new, 680
 removed. For authored code: 3,768 exact, 2,132 deviating (1.28 MB), 294 unsure, 371 removed, and
 545 of the new functions sit among authored neighbours. No pair has been checked by a second
 agent yet.

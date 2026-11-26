@@ -27,6 +27,7 @@ def build_rows(matcher, proto_facts: dict, release_found: dict) -> list[dict]:
 
     rows = []
     owner_by_r = {}
+    defined_by_r = {}  # owners from definitions, not from emitted template instances
     group_by_r = {}
     for f in matcher.R:
         pair_address = matcher.r_paired.get(f.address)
@@ -35,6 +36,8 @@ def build_rows(matcher, proto_facts: dict, release_found: dict) -> list[dict]:
         facts = proto_facts.get(pair_address)
         if facts and facts.owner:
             owner_by_r[f.address] = facts.owner
+            if facts.owner_kind == "defines":
+                defined_by_r[f.address] = facts.owner
         if facts:
             group_by_r[f.address] = (module_of(facts.owner) if facts.owner else
                                      ("provider:" + facts.library if facts.classification == "provider"
@@ -49,7 +52,7 @@ def build_rows(matcher, proto_facts: dict, release_found: dict) -> list[dict]:
             "prototype_names": [], "prototype_classification": "", "prototype_library": "",
             "owner_file": "", "similarity": None, "shape_similarity": None, "operation_similarity": None,
             "size_delta": None, "evidence": [], "flags": [], "found_by": evidence_found,
-            "neighbour_group": "", "prototype_unsized": False,
+            "neighbour_group": "", "prototype_unsized": False, "prototype_owner": "",
         }
         if pair_address is not None:
             pair = matcher.pairs[pair_address]
@@ -65,7 +68,22 @@ def build_rows(matcher, proto_facts: dict, release_found: dict) -> list[dict]:
                     "prototype_symbol": facts.name, "prototype_names": list(facts.names),
                     "prototype_classification": facts.classification, "prototype_library": facts.library,
                     "owner_file": facts.owner, "prototype_unsized": not facts.sized,
+                    "prototype_owner": facts.owner,
                 })
+                if facts.owner_kind == "emits":
+                    # a template instance is emitted where it is first used: when the release
+                    # puts it among another file's definitions, that file emits it now
+                    before = next((defined_by_r[a] for a in reversed(ordered[:index]) if a in defined_by_r), "")
+                    after = next((defined_by_r[a] for a in ordered[index + 1:] if a in defined_by_r), "")
+                    if before != after:
+                        # the nearest functions of other files, emitted instances included
+                        own = facts.owner
+                        before = next((owner_by_r[a] for a in reversed(ordered[:index])
+                                       if owner_by_r.get(a, own) != own), "")
+                        after = next((owner_by_r[a] for a in ordered[index + 1:] if owner_by_r.get(a, own) != own), "")
+                    if before and before == after and before != facts.owner:
+                        row["owner_file"] = before
+                        row["flags"] = sorted(set(row["flags"]) | {"owner-moved"})
         else:
             # a new function between two release functions owned by the same file probably belongs there
             before = next((owner_by_r[a] for a in reversed(ordered[:index]) if a in owner_by_r), "")
@@ -80,6 +98,8 @@ def build_rows(matcher, proto_facts: dict, release_found: dict) -> list[dict]:
             same = [p for p in matcher.p_by_key.get(f.key, ())]
             if same:
                 row["flags"] = sorted(set(row["flags"]) | {"copy"})
+            if f.address in matcher.blocked_r:
+                row["evidence"] = ["settled"]
         rows.append(row)
     for p in matcher.P:
         if p.address in matcher.pairs:
@@ -92,8 +112,10 @@ def build_rows(matcher, proto_facts: dict, release_found: dict) -> list[dict]:
             "prototype_classification": facts.classification if facts else "",
             "prototype_library": facts.library if facts else "", "owner_file": facts.owner if facts else "",
             "prototype_unsized": bool(facts and not facts.sized),
+            "prototype_owner": facts.owner if facts else "",
             "similarity": None, "shape_similarity": None, "operation_similarity": None, "size_delta": None,
-            "evidence": [], "flags": ["unsized-symbol"] if (facts and not facts.sized) else [], "found_by": [],
+            "evidence": ["settled"] if p.address in matcher.blocked_p else [],
+            "flags": ["unsized-symbol"] if (facts and not facts.sized) else [], "found_by": [],
             "neighbour_group": "",
         })
     return rows
@@ -218,6 +240,23 @@ def markdown(data: dict, rows: list[dict]) -> str:
     add("is the same over the operations alone (no registers, immediates or targets): it")
     add("survives register-allocation changes.")
     add("")
+    add("A function's references are its calls, tail calls and loaded code addresses (function")
+    add("pointers), in instruction order. An exact pair maps them position for position; any other")
+    add("pair aligns the two ordered lists on the targets already paired, and between two such")
+    add("anchors maps the unpaired targets that resemble each other (similarity >= 0.20 or")
+    add("operation similarity >= 0.50), in order. A callee is paired when the callers' votes for")
+    add("it have a strict majority, exact callers first. Strings and `(file, line)` tokens of the")
+    add("debug allocators count as identity evidence only when exactly one function on each side")
+    add("uses them; source-file names alone never do.")
+    add("")
+    add("Flags: `callee-changed` (a reference leads to a function paired elsewhere: the callee was")
+    add("replaced), `call-and-slot` (referenced at the prototype function's place by a paired")
+    add("caller and in its slot between the order anchors), `role-only` (an exact caller references")
+    add("it at the same place but the body was rewritten: the prototype name may not carry over),")
+    add("`owner-moved` (a template instance the release emits among another file's functions;")
+    add("the owner is that file and the prototype owner is kept in the JSON copy), `moved` (out of")
+    add("order), `ambiguous`, `low-similarity`, `owner-guess`, `copy`.")
+    add("")
     add("## Totals")
     add("")
     totals = tally(rows, lambda r: "all")
@@ -325,19 +364,43 @@ def markdown(data: dict, rows: list[dict]) -> str:
         % (100 * t["null_below_unsure"], t["unsure"], 100 * t["call_at_or_above_deviating"], t["deviating"]))
     add("")
     add("- a positional, `global` or `call-deviating` pair is deviating at similarity >= %.2f, unsure" % t["deviating"])
-    add("  from %.2f to %.2f;" % (t["unsure"], t["deviating"]))
+    add("  from %.2f to %.2f, unless it is referenced at its place by a paired caller and in its" % (
+        t["unsure"], t["deviating"]))
+    add("  slot with operation similarity >= %.2f (`call-and-slot`);" % t["call_slot_operations"])
     add("- a pair with independent evidence (called at the same call site of an exact pair, a")
     add("  unique shared string, the entry point) is deviating at similarity >= %.2f or operation" % t["strong_similarity"])
-    add("  similarity >= %.2f, otherwise unsure (flag `low-similarity`);" % t["strong_operations"])
-    add("- an exact byte match whose calls lead to functions paired elsewhere (`call-conflict`) or")
-    add("  whose data operands point to another kind of region (`ref-kind`) is unsure.")
+    add("  similarity >= %.2f; a pair an exact caller references at the same place and in its slot" % t["strong_operations"])
+    add("  is deviating whatever its similarity (`role-only`); otherwise unsure (`low-similarity`);")
+    add("- a global look-alike under 256 bytes outside its slot needs callers that agree (a paired")
+    add("  caller on one side whose partner calls the other) unless neither side has paired callers;")
+    add("- an exact byte match whose calls lead to functions paired elsewhere is deviating")
+    add("  (`callee-changed`) when it is in order, unsure when moved; one whose data operands point")
+    add("  to another kind of region (`ref-kind`) is unsure.")
+    add("")
+    add("## Settled by a checker")
+    add("")
+    settled = data.get("settled", [])
+    add("Rows of [settled-pairs.tsv](settled-pairs.tsv), applied before any pairing (evidence")
+    add("`settled`; a settled pair is exact when its bytes, calls and data operands agree, otherwise")
+    add("deviating). %d rows." % len(settled))
+    if settled:
+        add("")
+        add("| release | prototype | basis | checker | date |")
+        add("|---|---|---|---|---|")
+        for item in settled:
+            add("| %s | %s | %s | %s | %s |" % (
+                hx(item["release"]) if item["release"] is not None else "removed",
+                hx(item["prototype"]) if item["prototype"] is not None else "new",
+                item["basis"].replace("|", "\\|"), item["checker"], item["date"]))
     add("")
     add("## Unsure pairs")
     add("")
     unsure = [r for r in rows if r["class"] == "unsure"]
     reasons = Counter()
     for r in unsure:
-        reason = [f for f in r["flags"] if f in ("call-conflict", "ref-kind", "low-similarity")]
+        reason = [f for f in r["flags"] if f in ("ambiguous", "ref-kind", "low-similarity")]
+        if not reason and "callee-changed" in r["flags"] and "moved" in r["flags"]:
+            reason = ["callee-changed,moved"]
         reasons[",".join(reason) or "other"] += 1
     add("%d pairs: " % len(unsure) + ", ".join("%s %d" % kv for kv in sorted(reasons.items())) + ".")
     add("")
@@ -374,8 +437,13 @@ def markdown(data: dict, rows: list[dict]) -> str:
     add("")
     add("```powershell")
     add("python tools/release/compare.py")
+    add("python tools/release/compare.py --sheet gamez/zArchive   # a check sheet under build/release/sheets/")
     add("uv run --no-project --with pytest python -m pytest tests/release -q")
     add("```")
+    add("")
+    add("A pair settled by a checker goes into `docs/release/settled-pairs.tsv` (release address or")
+    add("`removed`, prototype address or `new`, basis, checker, date); an address that is not a")
+    add("function start of its image stops the run.")
     add("")
     add("The tool reads `support/socom.elf` and `support/SCUS_971.34` (refused unless their")
     add("SHA-256 values are the pinned ones), the optional `build/cache/source-graph.sqlite`")

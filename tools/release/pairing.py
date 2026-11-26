@@ -4,9 +4,12 @@ Order of work:
 
 1. exact: equal masked bytes (same size, same instructions, same layout) and the
    only such pair for that byte string;
+0. pairs, new and removed functions settled by a checker (an input file);
 2. call-tree propagation from every pair, starting at the entry point: the k-th
-   call of an exact pair (calls of a deviating pair at aligned, equal
-   instructions) leads to the callee pair; votes that disagree are conflicts;
+   reference of an exact pair (calls, tail calls, loaded code addresses) leads
+   to the callee pair; a deviating or unsure pair aligns its ordered reference
+   list with its partner's (see ``call_correspondences``); a callee is paired
+   when its votes have a strict majority, exact callers first;
 3. many-times-found exact byte strings resolved by position between order
    anchors, then by paired callers;
 4. the rest aligned by position between order anchors with a similarity score
@@ -34,10 +37,15 @@ DEVIATING_MIN = 0.50  # a positional pair with this similarity is a deviating pa
 UNSURE_MIN = 0.30  # below this a positional candidate is not a pair at all
 STRONG_SIMILARITY = 0.30  # a pair with independent evidence (exact caller, strings) needs this similarity
 STRONG_OPERATIONS = 0.70  # ... or this operation similarity
+CALLEE_SIMILARITY = 0.20  # inside an unequal run of calls, a callee candidate needs this similarity
+CALLEE_OPERATIONS = 0.50  # ... or this operation similarity
+CALL_SLOT_OPERATIONS = 0.40  # a pair referenced at the same place by a paired caller, in order
 GRAM_PREFILTER = 0.15  # shape 3-gram Jaccard needed before computing a similarity
 SIZE_RATIO_MIN = 0.25  # smaller/larger size ratio needed for a positional candidate
 BAND = 64  # positional candidates: index distance allowed from the gap's diagonal
 CALL_BLOCK = 4  # a call of a deviating pair counts only inside an equal block this long
+GLOBAL_SLOT_BONUS = 0.2  # global pass: preference for a candidate between the function's own anchors
+GLOBAL_SMALL = 256  # global pass: below this size (bytes) look-alikes need agreeing callers
 AMBIGUITY = 0.05  # an unpaired alternative this close to the chosen score makes a pair unsure
 
 
@@ -77,6 +85,7 @@ class Pair:
     cls: str = ""
     flags: set[str] = field(default_factory=set)
     call_consistent: int = 0
+    call_sites: int = 0  # paired callers whose aligned references lead to this pair
     call_conflicts: list = field(default_factory=list)
     ref_mismatches: int = 0
 
@@ -156,6 +165,10 @@ def weighted_monotone_matching(candidates: list[tuple[int, int, float]]) -> list
     return sorted(out)
 
 
+class SettledError(ValueError):
+    """A settled pair that contradicts the images."""
+
+
 class Matcher:
     def __init__(self, proto: list, release: list, proto_entry: int, release_entry: int):
         self.P = sorted(proto, key=lambda f: f.address)
@@ -177,6 +190,9 @@ class Matcher:
         self.p_callers = self._callers(self.P, self.p_by)
         self.r_callers = self._callers(self.R, self.r_by)
         self.stats: dict = defaultdict(int)
+        self._resemblance: dict[tuple[int, int], float] = {}
+        self.blocked_p: set[int] = set()  # settled as removed
+        self.blocked_r: set[int] = set()  # settled as new
 
     @staticmethod
     def _containing(functions, address):
@@ -198,6 +214,8 @@ class Matcher:
     def add(self, p, r, evidence: str) -> Pair | None:
         if p.address in self.pairs or r.address in self.r_paired:
             return None
+        if p.address in self.blocked_p or r.address in self.blocked_r:
+            return None
         pair = Pair(p, r, {evidence})
         if p.key == r.key:
             pair.similarity = pair.shape_similarity = pair.operation_similarity = 1.0
@@ -213,6 +231,29 @@ class Matcher:
         del self.pairs[pair.p.address]
         del self.r_paired[pair.r.address]
 
+    # -- 0. settled by a checker ------------------------------------------------------
+    def apply_settled(self, settled: list[tuple[int | None, int | None]]) -> None:
+        """Pairs, new and removed functions settled by a checker; applied before any pairing.
+
+        Each entry is (release address or None for removed, prototype address or None
+        for new). An address that is not a function start of its image is an error.
+        """
+
+        for release, proto in settled:
+            if release is not None and release not in self.r_by:
+                raise SettledError("settled release address 0x%x is not a release function start" % release)
+            if proto is not None and proto not in self.p_by:
+                raise SettledError("settled prototype address 0x%x is not a prototype function start" % proto)
+            if release is not None and proto is not None:
+                if proto in self.pairs or release in self.r_paired:
+                    raise SettledError("settled pair 0x%x/0x%x repeats an address" % (release, proto))
+                self.add(self.p_by[proto], self.r_by[release], "settled")
+            elif release is not None:
+                self.blocked_r.add(release)
+            elif proto is not None:
+                self.blocked_p.add(proto)
+        self.stats["settled"] = len(settled)
+
     # -- 1. exact ------------------------------------------------------------------
     def exact_unique(self) -> None:
         for key, ps in sorted(self.p_by_key.items(), key=lambda kv: kv[1][0].address):
@@ -224,17 +265,76 @@ class Matcher:
 
     # -- 2. call tree ----------------------------------------------------------------
     def call_correspondences(self, pair: Pair) -> list[tuple[int, int]]:
+        """(prototype target, release target) for the references of a pair.
+
+        References are calls, tail calls and loaded code addresses (function
+        pointers), in instruction order. An exact pair maps them position for
+        position. Any other pair aligns the two ordered lists: targets already
+        paired with each other (and self-references) anchor the alignment, and
+        between two anchors, runs of equal length are mapped one for one.
+        """
+
         p, r = pair.p, pair.r
+        pr = [(i, t) for i, t in p.references() if t in self.p_by]
+        rr = [(i, t) for i, t in r.references() if t in self.r_by]
         if p.key == r.key:
-            return [(pc[1], rc[1]) for pc, rc in zip(p.calls, r.calls)]
-        mapping = aligned_indices(p.masked, r.masked, CALL_BLOCK)
-        r_calls = dict(r.calls)
+            rd = dict(rr)
+            return [(t, rd[i]) for i, t in pr if i in rd]
+        return self.align_references([t for _, t in pr], [t for _, t in rr], p.address, r.address)
+
+    def align_references(self, a: list[int], b: list[int], pa: int, ra: int) -> list[tuple[int, int]]:
+        def token_p(target):
+            if target == pa:
+                return ("self",)
+            pair = self.pairs.get(target)
+            return ("r", pair.r.address) if pair else ("p", target)
+
+        def token_r(target):
+            return ("self",) if target == ra else ("r", target)
+
+        ta = [token_p(t) for t in a]
+        tb = [token_r(t) for t in b]
         out = []
-        for index, target in p.calls:
-            other = mapping.get(index)
-            if other is not None and other in r_calls:
-                out.append((target, r_calls[other]))
+        ia = ib = 0
+        for block in SequenceMatcher(None, ta, tb, autojunk=False).get_matching_blocks():
+            gap_a = list(range(ia, block.a))
+            gap_b = list(range(ib, block.b))
+            if gap_a and gap_b:
+                # between anchors: map the unpaired targets that resemble each other, in order
+                # (also for runs of equal length: a changed caller may call other functions)
+                candidates = []
+                for i, x in enumerate(gap_a):
+                    if ta[x][0] != "p":
+                        continue
+                    for j, y in enumerate(gap_b):
+                        if b[y] in self.r_paired or b[y] == ra:
+                            continue
+                        weight = self.callee_resemblance(a[x], b[y])
+                        if weight:
+                            candidates.append((i, j, weight))
+                for i, j, _ in weighted_monotone_matching(candidates):
+                    out.append((a[gap_a[i]], b[gap_b[j]]))
+            out.extend((a[block.a + k], b[block.b + k]) for k in range(block.size))
+            ia, ib = block.a + block.size, block.b + block.size
         return out
+
+    def callee_resemblance(self, pa: int, ra: int) -> float:
+        """Weight of a callee candidate inside an unequal run of a paired caller; 0 when unlike."""
+
+        key = (pa, ra)
+        cached = self._resemblance.get(key)
+        if cached is not None:
+            return cached
+        p, r = self.p_by[pa], self.r_by[ra]
+        small, large = sorted((p.size, r.size))
+        value = 0.0
+        if large and small / large >= SIZE_RATIO_MIN:
+            masked = similarity(p.masked, r.masked)
+            operations = similarity(p.ops, r.ops)
+            if masked >= CALLEE_SIMILARITY or operations >= CALLEE_OPERATIONS:
+                value = max(masked, 0.8 * operations)
+        self._resemblance[key] = value
+        return value
 
     def propagate(self) -> int:
         """Pairs implied by the calls of current pairs, entry point first; returns how many were added."""
@@ -252,21 +352,32 @@ class Matcher:
                 if tp not in self.pairs:
                     for tr in choices:
                         claimed[tr].add(tp)
+            def exact_parent(voters):
+                return any(v in self.pairs and self.pairs[v].p.key == self.pairs[v].r.key for v in voters)
+
             added = 0
             for tp in sorted(votes):
                 choices = votes[tp]
                 if tp in self.pairs:
                     continue
-                if len(choices) != 1:
+                free = {tr: voters for tr, voters in choices.items() if tr not in self.r_paired}
+                if not free:
+                    continue
+                tr = self._majority(free)
+                if tr is None:
                     self.stats["call-vote-disagreements"] += 1
                     continue
-                (tr, voters), = choices.items()
-                if tr in self.r_paired:
-                    continue
-                # the release callee must not be claimed by another unpaired prototype callee
-                if len(claimed[tr]) > 1:
+                voters = free[tr]
+                # the release callee must not be claimed as strongly by another prototype callee
+                rivals = {other: votes[other][tr] for other in claimed[tr]}
+                if len(rivals) > 1 and self._majority(rivals) != tp:
                     self.stats["call-vote-rivals"] += 1
                     continue
+                p_fn, r_fn = self.p_by[tp], self.r_by[tr]
+                if p_fn.key == r_fn.key and not exact_parent(voters):
+                    open_copies = [f for f in self.p_by_key[p_fn.key] if f.address not in self.pairs]
+                    if len(open_copies) > 1:
+                        continue  # several equal copies still open: position decides, not a changed caller
                 exact_voter = any(self.pairs[v].p.key == self.pairs[v].r.key for v in voters if v in self.pairs)
                 pair = self.add(self.p_by[tp], self.r_by[tr], "call" if exact_voter else "call-deviating")
                 if pair:
@@ -274,6 +385,22 @@ class Matcher:
             added_total += added
             if not added:
                 return added_total
+
+    def _majority(self, options: dict) -> object:
+        """The option whose voters outnumber all other voters together, exact-pair voters first."""
+
+        def exact_count(voters):
+            return sum(1 for v in voters if v in self.pairs and self.pairs[v].p.key == self.pairs[v].r.key)
+
+        for count in (exact_count, len):
+            ranked = sorted(options, key=lambda k: (-count(options[k]), k))
+            best = ranked[0]
+            rest = sum(count(options[k]) for k in ranked[1:])
+            if count(options[best]) > rest:
+                return best
+            if count is exact_count and count(options[best]) and rest:
+                return None  # exact callers disagree
+        return None
 
     def _bfs_order(self) -> list[Pair]:
         """Pairs in breadth-first call-tree order from the entry pair, then the rest by address."""
@@ -419,21 +546,46 @@ class Matcher:
                 break
         return out
 
+    def callers_agree(self, pa: int, ra: int, small: bool = False) -> bool:
+        """A look-alike found anywhere must share a paired caller when both sides have paired callers."""
+
+        p_callers = self.p_callers.get(pa, set())
+        r_callers = self.r_callers.get(ra, set())
+        mapped = {self.pairs[c].r.address for c in p_callers if c in self.pairs}
+        r_paired_callers = {c for c in r_callers if c in self.r_paired}
+        if mapped and r_paired_callers:
+            return bool(mapped & r_callers)
+        if small:
+            # a small look-alike needs its callers to agree; one side's paired callers alone do not
+            return not mapped and not r_paired_callers
+        return True  # nothing to contradict the match
+
     # -- 4c. moved functions -----------------------------------------------------------
     def global_leftovers(self, min_size: int = 64, prefilter: float = 0.30) -> int:
         """Mutual best matches among the remaining functions anywhere in the image (moved code)."""
 
         ps = [f for f in self.P if f.address not in self.pairs and f.size >= min_size]
         rs = [f for f in self.R if f.address not in self.r_paired and f.size >= min_size]
+        anchors = self.anchors()
+        anchors_p = [self.p_index[a.p.address] for a in anchors]
+        anchors_r = [self.r_index[a.r.address] for a in anchors]
         scores: dict[tuple[int, int], float] = {}
+        similarities: dict[tuple[int, int], float] = {}
+        slotted: set[tuple[int, int]] = set()
         for p in ps:
+            lo, hi = self._window(anchors_p, anchors_r, self.p_index[p.address])
             for r in rs:
                 small, large = sorted((p.size, r.size))
                 if small / large < 0.5 or jaccard(p.grams, r.grams) < prefilter:
                     continue
                 value = similarity(p.masked, r.masked)
                 if value >= UNSURE_MIN:
-                    scores[(p.address, r.address)] = value
+                    similarities[(p.address, r.address)] = value
+                    # a candidate in the prototype function's own slot is preferred
+                    in_slot = lo < self.r_index[r.address] < hi
+                    if in_slot:
+                        slotted.add((p.address, r.address))
+                    scores[(p.address, r.address)] = value + (GLOBAL_SLOT_BONUS if in_slot else 0)
         best_p: dict[int, list] = defaultdict(list)
         best_r: dict[int, list] = defaultdict(list)
         for (pa, ra), value in scores.items():
@@ -444,6 +596,10 @@ class Matcher:
             top_p = sorted(best_p[pa], key=lambda x: (-x[0], x[1]))
             top_r = sorted(best_r[ra], key=lambda x: (-x[0], x[1]))
             if top_p[0][1] != ra or top_r[0][1] != pa:
+                continue
+            small = self.p_by[pa].size < GLOBAL_SMALL and (pa, ra) not in slotted
+            if not self.callers_agree(pa, ra, small):
+                self.stats["global-rejected-callers"] += 1
                 continue
             pair = self.add(self.p_by[pa], self.r_by[ra], "global")
             if pair is None:
@@ -456,27 +612,34 @@ class Matcher:
 
     # -- 4b. strings anywhere ---------------------------------------------------------
     def by_strings(self) -> int:
+        """Pairs from strings and (file, line) tokens that exactly one function on each side uses.
+
+        Uniqueness is counted over all functions, paired or not; file-name strings
+        alone are not identity evidence (many functions pass the same __FILE__).
+        """
+
         p_owner = defaultdict(list)
         r_owner = defaultdict(list)
         for f in self.P:
-            if f.address not in self.pairs:
-                for s in f.strings:
-                    p_owner[s].append(f)
+            for token in f.strings | f.lines:
+                p_owner[token].append(f)
         for f in self.R:
-            if f.address not in self.r_paired:
-                for s in f.strings:
-                    r_owner[s].append(f)
+            for token in f.strings | f.lines:
+                r_owner[token].append(f)
         votes = defaultdict(int)
-        for s in sorted(p_owner):
-            if len(p_owner[s]) == 1 and len(r_owner.get(s, ())) == 1:
-                votes[(p_owner[s][0].address, r_owner[s][0].address)] += 1
+        for token in sorted(p_owner, key=repr):
+            if len(p_owner[token]) == 1 and len(r_owner.get(token, ())) == 1:
+                p, r = p_owner[token][0], r_owner[token][0]
+                if (p.address not in self.pairs and r.address not in self.r_paired
+                        and p.address not in self.blocked_p and r.address not in self.blocked_r):
+                    votes[(p.address, r.address)] += 1
         added = 0
         by_p = defaultdict(list)
         by_r = defaultdict(list)
-        for (pa, ra), n in votes.items():
+        for (pa, ra) in votes:
             by_p[pa].append(ra)
             by_r[ra].append(pa)
-        for (pa, ra), n in sorted(votes.items()):
+        for (pa, ra) in sorted(votes):
             if len(by_p[pa]) == 1 and len(by_r[ra]) == 1:
                 if self.add(self.p_by[pa], self.r_by[ra], "string"):
                     added += 1
@@ -484,7 +647,7 @@ class Matcher:
 
     # -- call-tree authority -----------------------------------------------------------
     def repair_from_exact_calls(self) -> int:
-        """Re-pair callees that exact parents unanimously call, over weaker pairs."""
+        """Re-pair callees that exact parents unanimously reference, over weaker pairs."""
 
         votes: dict[int, set] = defaultdict(set)
         for pair in list(self.pairs.values()):
@@ -507,10 +670,12 @@ class Matcher:
             current = self.pairs.get(tp)
             if current is not None and current.r.address == tr:
                 continue
+            if tp in self.blocked_p or tr in self.blocked_r:
+                continue
             other_p = self.r_paired.get(tr)
             other = self.pairs.get(other_p) if other_p is not None else None
-            if any(x is not None and x.evidence & {"exact", "entry"} for x in (current, other)):
-                continue  # never break a unique exact pair
+            if any(x is not None and x.evidence & {"exact", "entry", "settled"} for x in (current, other)):
+                continue  # never break a unique exact, entry or settled pair
             for x in (current, other):
                 if x is not None:
                     self.remove(x)
@@ -523,6 +688,8 @@ class Matcher:
     # -- consistency -------------------------------------------------------------------
     def check(self) -> None:
         for pair in self.pairs.values():
+            pair.call_sites = 0
+        for pair in self.pairs.values():
             pair.call_consistent = 0
             pair.call_conflicts = []
             for tp, tr in self.call_correspondences(pair):
@@ -533,6 +700,8 @@ class Matcher:
                     continue
                 if other.r.address == tr:
                     pair.call_consistent += 1
+                    if other is not pair:
+                        other.call_sites += 1
                 else:
                     pair.call_conflicts.append((tp, tr))
             if pair.p.key == pair.r.key:
@@ -542,36 +711,60 @@ class Matcher:
 
     # -- 5. classes -----------------------------------------------------------------------
     def classify(self) -> None:
-        order = {(a.p.address) for a in self.anchors()}
+        order = {a.p.address for a in self.anchors()}
         for pair in self.pairs.values():
             flags = pair.flags
-            if pair.p.address not in order:
+            in_order = pair.p.address in order
+            if not in_order:
                 flags.add("moved")
             if pair.call_conflicts:
                 flags.add("call-conflict")
             if pair.ref_mismatches:
                 flags.add("ref-kind")
             exact = pair.p.key == pair.r.key
+            if "settled" in pair.evidence:
+                plain = exact and not pair.call_conflicts and not pair.ref_mismatches
+                pair.cls = "exact" if plain else "deviating"
+                continue
             if exact:
-                if pair.call_conflicts or pair.ref_mismatches:
+                if pair.ref_mismatches:
                     pair.cls = "unsure"
+                elif pair.call_conflicts:
+                    # equal bytes calling other functions: the callee was replaced. Sure only
+                    # when the pair itself is in order (a copy found elsewhere could be another's).
+                    pair.cls = "deviating" if in_order else "unsure"
+                    flags.add("callee-changed")
                 else:
                     pair.cls = "exact"
                 continue
             if pair.p.size == pair.r.size and pair.shape_similarity == 1.0:
                 flags.add("imm-only")
             strong = bool(pair.evidence & {"call", "entry", "string"})
-            if pair.call_conflicts or "ambiguous" in flags:
+            called = bool(pair.evidence & {"call", "call-deviating"}) or pair.call_sites > 0
+            if pair.call_conflicts:
+                # calls of a changed function lead elsewhere: callees replaced, not a contradiction
+                flags.add("callee-changed")
+            if "ambiguous" in flags:
                 pair.cls = "unsure"
             elif pair.similarity >= DEVIATING_MIN or "imm-only" in flags:
                 pair.cls = "deviating"
             elif strong and (pair.similarity >= STRONG_SIMILARITY or pair.operation_similarity >= STRONG_OPERATIONS):
                 pair.cls = "deviating"
+            elif called and in_order and pair.operation_similarity >= CALL_SLOT_OPERATIONS:
+                # referenced at the place of the prototype function by a paired caller, in its slot
+                pair.cls = "deviating"
+                flags.add("call-and-slot")
+            elif "call" in pair.evidence and in_order:
+                # an exact caller references it at the same place: the same role, rewritten body;
+                # the prototype's name may not carry over
+                pair.cls = "deviating"
+                flags.add("role-only")
             else:
                 pair.cls = "unsure"
                 flags.add("low-similarity")
 
-    def run(self) -> None:
+    def run(self, settled: list | None = None) -> None:
+        self.apply_settled(settled or [])
         self.exact_unique()
         self.stats["exact-unique"] = len(self.pairs)
         for _ in range(8):

@@ -31,9 +31,11 @@ import report  # noqa: E402
 PROTOTYPE = Path("support/socom.elf")
 RELEASE = Path("support/SCUS_971.34")
 SOURCE_GRAPH = Path("build/cache/source-graph.sqlite")
+SETTLED = Path("docs/release/settled-pairs.tsv")
 OUT_TSV = Path("docs/release/function-map.tsv")
 OUT_MD = Path("docs/release/COMPARISON.md")
 OUT_JSON = Path("build/release/function-map.json")
+SHEETS = Path("build/release/sheets")
 
 
 def prototype_functions(image, found: list) -> dict[int, protofacts.ProtoFunction]:
@@ -85,7 +87,41 @@ def validate_discovery(protos, found) -> dict:
             "false_bytes": sum(f.size for f in false)}
 
 
-def run(root: Path, write: bool = True) -> dict:
+SETTLED_COLUMNS = ("release", "prototype", "basis", "checker", "date")
+
+
+def read_settled(path: Path) -> list[dict]:
+    """Rows of the settled-pairs file: release address or ``removed``, prototype address or ``new``."""
+
+    if not path.is_file():
+        return []
+    rows = []
+    lines = path.read_text(encoding="utf-8").splitlines()
+    if not lines or tuple(lines[0].split("\t")) != SETTLED_COLUMNS:
+        raise pairing.SettledError("%s: the header must be %s" % (path.name, " ".join(SETTLED_COLUMNS)))
+    for number, line in enumerate(lines[1:], 2):
+        if not line.strip() or line.startswith("#"):
+            continue
+        cells = line.split("\t")
+        if len(cells) != len(SETTLED_COLUMNS):
+            raise pairing.SettledError("%s:%d: %d columns, expected %d" % (
+                path.name, number, len(cells), len(SETTLED_COLUMNS)))
+        release, proto = cells[0].strip(), cells[1].strip()
+        try:
+            r_value = None if release == "removed" else int(release, 16)
+            p_value = None if proto == "new" else int(proto, 16)
+        except ValueError:
+            raise pairing.SettledError("%s:%d: addresses are hex, or removed / new" % (path.name, number)) from None
+        if r_value is None and p_value is None:
+            raise pairing.SettledError("%s:%d: removed and new together say nothing" % (path.name, number))
+        if not cells[2].strip() or not cells[3].strip():
+            raise pairing.SettledError("%s:%d: basis and checker are required" % (path.name, number))
+        rows.append({"release": r_value, "prototype": p_value, "basis": cells[2].strip(),
+                     "checker": cells[3].strip(), "date": cells[4].strip()})
+    return rows
+
+
+def run(root: Path, write: bool = True, use_settled: bool = True, sheet: str | None = None) -> dict:
     proto_image = elfimage.load(root / PROTOTYPE, "prototype")
     release_image = elfimage.load(root / RELEASE, "release")
 
@@ -105,7 +141,8 @@ def run(root: Path, write: bool = True) -> dict:
     r_fns = functions.build("r", release_image, r_words, r_spans, functions.find_gp(release_image, r_words))
 
     matcher = pairing.Matcher(p_fns, r_fns, proto_image.entry, release_image.entry)
-    matcher.run()
+    settled_rows = read_settled(root / SETTLED) if use_settled else []
+    matcher.run([(row["release"], row["prototype"]) for row in settled_rows])
 
     rows = report.build_rows(matcher, protos, {f.start: f.evidence for f in release_found})
     by_evidence = {"call": [], "position": [], "string": [], "global": []}
@@ -155,11 +192,13 @@ def run(root: Path, write: bool = True) -> dict:
         "thresholds": {
             "deviating": pairing.DEVIATING_MIN, "unsure": pairing.UNSURE_MIN,
             "strong_similarity": pairing.STRONG_SIMILARITY, "strong_operations": pairing.STRONG_OPERATIONS,
+            "call_slot_operations": pairing.CALL_SLOT_OPERATIONS,
             "null_below_deviating": round(sum(1 for v in null_large if v < pairing.DEVIATING_MIN) / max(1, len(null_large)), 3),
             "null_below_unsure": round(sum(1 for v in null_large if v < pairing.UNSURE_MIN) / max(1, len(null_large)), 3),
             "call_at_or_above_deviating": round(sum(1 for v in large["call"] if v >= pairing.DEVIATING_MIN) / max(1, len(large["call"])), 3),
         },
         "matcher": dict(sorted(matcher.stats.items())),
+        "settled": settled_rows,
     }
     if write:
         for relative, text in ((OUT_TSV, report.write_tsv(rows)), (OUT_MD, report.markdown(data, rows)),
@@ -167,6 +206,13 @@ def run(root: Path, write: bool = True) -> dict:
             path = root / relative
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(text.encode("utf-8"))
+    if sheet:
+        import sheets
+
+        path = root / SHEETS / (sheet + ".md")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(sheets.module_sheet(sheet, matcher, rows, protos).encode("utf-8"))
+        data["sheet"] = path
     data["rows"] = rows
     return data
 
@@ -174,18 +220,26 @@ def run(root: Path, write: bool = True) -> dict:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--root", type=Path, default=HERE.parent.parent)
-    parser.add_argument("--no-write", action="store_true")
+    parser.add_argument("--no-write", action="store_true", help="compute without writing the map")
+    parser.add_argument("--no-settled", action="store_true", help="ignore docs/release/settled-pairs.tsv")
+    parser.add_argument("--sheet", metavar="MODULE", help="also write a check sheet for MODULE, e.g. gamez/zArchive")
     arguments = parser.parse_args(argv)
     try:
-        data = run(arguments.root.resolve(), write=not arguments.no_write)
+        data = run(arguments.root.resolve(), write=not arguments.no_write,
+                   use_settled=not arguments.no_settled, sheet=arguments.sheet)
     except elfimage.InputRefused as error:
         print("refused: %s" % error, file=sys.stderr)
+        return 2
+    except pairing.SettledError as error:
+        print("settled pairs: %s" % error, file=sys.stderr)
         return 2
     except FileNotFoundError as error:
         print("missing input: %s" % Path(error.filename).name, file=sys.stderr)
         return 2
     counts = Counter(row["class"] for row in data["rows"])
     print(" ".join("%s=%d" % (c, counts[c]) for c in report.CLASSES))
+    if data.get("sheet"):
+        print("sheet: %s" % Path(data["sheet"]).relative_to(arguments.root.resolve()).as_posix())
     return 0
 
 

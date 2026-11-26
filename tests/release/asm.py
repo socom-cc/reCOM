@@ -1,7 +1,7 @@
 """A few R5900 encoders for synthetic test images."""
 from __future__ import annotations
 
-SP, RA, GP, ZERO, V0, A0, A1, AT, S0 = 29, 31, 28, 0, 2, 4, 5, 1, 16
+SP, RA, GP, ZERO, V0, A0, A1, A2, AT, S0 = 29, 31, 28, 0, 2, 4, 5, 6, 1, 16
 NOP = 0
 JR_RA = 0x03E00008
 

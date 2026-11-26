@@ -84,7 +84,7 @@ def test_exact_call_tree_duplicates_new_and_removed():
     assert rs[1] not in m.r_paired  # new
 
 
-def test_exact_bytes_with_a_conflicting_call_are_unsure():
+def test_exact_bytes_with_a_replaced_callee_are_deviating_in_order():
     target = body(7)
     other = body(8, 14)
     proto = [caller(1, 2), target, body(11)]
@@ -93,7 +93,18 @@ def test_exact_bytes_with_a_conflicting_call_are_unsure():
     pair = m.pairs[ps[0]]
     assert pair.p.key == pair.r.key
     assert m.pairs[ps[1]].r.address == rs[1]
-    assert pair.cls == "unsure" and "call-conflict" in pair.flags
+    assert pair.cls == "deviating" and {"call-conflict", "callee-changed"} <= pair.flags
+
+
+def test_exact_bytes_with_a_replaced_callee_are_unsure_when_moved():
+    target = body(7)
+    other = body(8, 14)
+    proto = [caller(1, 2), target, body(11), body(12), body(13)]
+    release = [target, other, body(11), body(12), body(13), caller(1, 2)]
+    m, ps, rs = match(proto, release)
+    pair = m.pairs[ps[0]]
+    assert pair.r.address == rs[5] and "moved" in pair.flags
+    assert pair.cls == "unsure"
 
 
 @pytest.mark.parametrize("changes,expected", [(1, "deviating"), (24, "unsure"), (40, "new")])

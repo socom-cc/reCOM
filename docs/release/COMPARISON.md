@@ -33,34 +33,51 @@ offsets differ (such a pair is deviating whatever its similarity). Operation sim
 is the same over the operations alone (no registers, immediates or targets): it
 survives register-allocation changes.
 
+A function's references are its calls, tail calls and loaded code addresses (function
+pointers), in instruction order. An exact pair maps them position for position; any other
+pair aligns the two ordered lists on the targets already paired, and between two such
+anchors maps the unpaired targets that resemble each other (similarity >= 0.20 or
+operation similarity >= 0.50), in order. A callee is paired when the callers' votes for
+it have a strict majority, exact callers first. Strings and `(file, line)` tokens of the
+debug allocators count as identity evidence only when exactly one function on each side
+uses them; source-file names alone never do.
+
+Flags: `callee-changed` (a reference leads to a function paired elsewhere: the callee was
+replaced), `call-and-slot` (referenced at the prototype function's place by a paired
+caller and in its slot between the order anchors), `role-only` (an exact caller references
+it at the same place but the body was rewritten: the prototype name may not carry over),
+`owner-moved` (a template instance the release emits among another file's functions;
+the owner is that file and the prototype owner is kept in the JSON copy), `moved` (out of
+order), `ambiguous`, `low-similarity`, `owner-guess`, `copy`.
+
 ## Totals
 
 | scope | exact | deviating | unsure | new | removed | exact bytes | deviating bytes | unsure bytes | new bytes | removed bytes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| all functions | 6320 | 2331 | 375 | 820 | 680 | 1257532 | 1375388 | 235696 | 250132 | 200332 |
-| authored (by prototype classification) | 3768 | 2132 | 294 | 0 | 371 | 690880 | 1280224 | 207052 | 0 | 104952 |
-| authored, with new functions placed in authored modules | 3768 | 2132 | 294 | 545 | 371 | 690880 | 1280224 | 207052 | 163964 | 104952 |
+| all functions | 6320 | 2629 | 158 | 739 | 599 | 1257716 | 1543180 | 104868 | 212984 | 169772 |
+| authored (by prototype classification) | 3770 | 2370 | 76 | 0 | 349 | 691152 | 1445020 | 60976 | 0 | 92028 |
+| authored, with new functions placed in authored modules | 3770 | 2370 | 76 | 526 | 349 | 691152 | 1445020 | 60976 | 145172 | 92028 |
 
 Bytes are release sizes, prototype sizes for removed functions. Of the deviating
-functions, 954 (300628 bytes) differ only in immediates or offsets (`imm-only`).
-190 pairs are out of order relative to the order anchors (`moved`).
+functions, 955 (299976 bytes) differ only in immediates or offsets (`imm-only`).
+230 pairs are out of order relative to the order anchors (`moved`).
 
 ## By prototype classification
 
 | group | exact | deviating | unsure | new | removed | exact bytes | deviating bytes | unsure bytes | new bytes | removed bytes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| authored | 3768 | 2132 | 294 | 0 | 371 | 690880 | 1280224 | 207052 | 0 | 104952 |
-| (new: no prototype counterpart) | 0 | 0 | 0 | 820 | 0 | 0 | 0 | 0 | 250132 | 0 |
-| provider: SCE | 687 | 15 | 12 | 0 | 87 | 105132 | 3532 | 1628 | 0 | 13928 |
-| provider: Medius | 593 | 86 | 19 | 0 | 88 | 68320 | 58812 | 1740 | 0 | 17344 |
+| authored | 3770 | 2370 | 76 | 0 | 349 | 691152 | 1445020 | 60976 | 0 | 92028 |
+| provider: SCE | 687 | 25 | 2 | 0 | 87 | 105132 | 4952 | 292 | 0 | 13900 |
+| provider: Medius | 593 | 112 | 2 | 0 | 79 | 68320 | 62460 | 228 | 0 | 15416 |
+| (new: no prototype counterpart) | 0 | 0 | 0 | 739 | 0 | 0 | 0 | 0 | 212984 | 0 |
 | provider: speech middleware | 699 | 1 | 0 | 0 | 0 | 268564 | 256 | 0 | 0 | 0 |
-| provider: newlib | 64 | 36 | 28 | 0 | 69 | 31140 | 14380 | 16424 | 0 | 18584 |
-| compiler-generated | 141 | 30 | 0 | 0 | 6 | 20404 | 7280 | 0 | 0 | 2444 |
+| provider: newlib | 65 | 48 | 63 | 0 | 21 | 31148 | 9740 | 37552 | 0 | 2088 |
+| compiler-generated | 138 | 33 | 0 | 0 | 6 | 20308 | 7376 | 0 | 0 | 2444 |
 | provider: MSL | 175 | 0 | 0 | 0 | 0 | 37496 | 0 | 0 | 0 | 0 |
-| provider: libptt | 7 | 7 | 3 | 0 | 52 | 1188 | 1872 | 1828 | 0 | 42496 |
+| provider: libptt | 7 | 10 | 8 | 0 | 44 | 1188 | 2056 | 2704 | 0 | 41256 |
 | provider: unidentified GNU object | 51 | 1 | 0 | 0 | 1 | 3632 | 540 | 0 | 0 | 244 |
-| provider: 989snd | 36 | 5 | 2 | 0 | 0 | 3908 | 2032 | 1012 | 0 | 0 |
-| provider: RSA | 16 | 7 | 17 | 0 | 2 | 3012 | 3260 | 6012 | 0 | 196 |
+| provider: 989snd | 36 | 6 | 1 | 0 | 0 | 3908 | 2840 | 64 | 0 | 0 |
+| provider: RSA | 16 | 12 | 6 | 0 | 8 | 3012 | 4740 | 3052 | 0 | 2252 |
 | provider: MW runtime | 37 | 0 | 0 | 0 | 4 | 9720 | 0 | 0 | 0 | 144 |
 | provider: libgcc | 28 | 0 | 0 | 0 | 0 | 10616 | 0 | 0 | 0 | 0 |
 | provider: lgAud | 15 | 10 | 0 | 0 | 0 | 3496 | 2752 | 0 | 0 | 0 |
@@ -75,53 +92,53 @@ flag `owner-guess`). Sorted by changed bytes (deviating + unsure + new + removed
 
 | group | exact | deviating | unsure | new | removed | exact bytes | deviating bytes | unsure bytes | new bytes | removed bytes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| gamez/zSeal | 437 | 583 | 107 | 210 | 91 | 82924 | 379236 | 102332 | 83552 | 33176 |
-| gamez/zAnim | 329 | 209 | 12 | 44 | 29 | 57072 | 181704 | 3164 | 7508 | 5704 |
-| Apps/FTS/hud | 126 | 190 | 20 | 32 | 14 | 18560 | 129976 | 24952 | 13836 | 12208 |
-| gamez/zUI | 306 | 170 | 17 | 34 | 15 | 58144 | 105072 | 8168 | 11100 | 4120 |
-| (provider: Medius) | 593 | 86 | 19 | 28 | 88 | 68320 | 58812 | 1740 | 4084 | 17344 |
-| gamez/zFTS | 179 | 150 | 15 | 36 | 9 | 21380 | 67960 | 7436 | 4860 | 1272 |
-| gamez/zNetwork | 156 | 114 | 16 | 14 | 93 | 23080 | 48356 | 5800 | 3572 | 22356 |
-| (provider: newlib) | 64 | 36 | 28 | 68 | 69 | 31140 | 14380 | 16424 | 18308 | 18584 |
-| (provider: libptt) | 7 | 7 | 3 | 26 | 52 | 1188 | 1872 | 1828 | 20204 | 42496 |
-| gamez/zAI | 392 | 41 | 3 | 10 | 13 | 115916 | 44152 | 1472 | 6088 | 6044 |
-| Apps/FTS/game | 89 | 37 | 8 | 4 | 1 | 10332 | 35180 | 3924 | 460 | 12 |
-| gamez/zWeapon | 192 | 85 | 4 | 33 | 5 | 15852 | 29296 | 1800 | 4820 | 448 |
-| gamez/zNode | 139 | 74 | 8 | 7 | 8 | 27320 | 29644 | 1440 | 1772 | 1980 |
-| (new, unplaced) | 0 | 0 | 0 | 88 | 0 | 0 | 0 | 0 | 33088 | 0 |
-| gamez/zCamera | 42 | 32 | 2 | 4 | 2 | 4968 | 26588 | 1824 | 532 | 140 |
-| (provider: SCE) | 687 | 15 | 12 | 50 | 87 | 105132 | 3532 | 1628 | 6048 | 13928 |
-| gamez/zGrid | 45 | 22 | 7 | 3 | 1 | 8808 | 21256 | 2732 | 500 | 8 |
-| gamez/zParticle | 87 | 14 | 7 | 5 | 0 | 14880 | 11864 | 10992 | 1620 | 0 |
+| gamez/zSeal | 433 | 669 | 32 | 201 | 82 | 82884 | 454740 | 38156 | 71720 | 24060 |
+| gamez/zAnim | 324 | 213 | 8 | 45 | 30 | 54992 | 182688 | 1432 | 8360 | 6116 |
+| Apps/FTS/hud | 127 | 210 | 1 | 26 | 13 | 18700 | 154936 | 1604 | 11524 | 10840 |
+| gamez/zUI | 306 | 178 | 9 | 34 | 15 | 58144 | 108192 | 5280 | 10868 | 4092 |
+| gamez/zFTS | 175 | 167 | 3 | 31 | 5 | 20672 | 74772 | 2448 | 3840 | 496 |
+| (provider: Medius) | 593 | 112 | 2 | 20 | 79 | 68320 | 62460 | 228 | 2108 | 15416 |
+| gamez/zNetwork | 161 | 127 | 3 | 14 | 92 | 25160 | 54024 | 1212 | 2612 | 21300 |
+| (provider: libptt) | 7 | 10 | 8 | 33 | 44 | 1188 | 2056 | 2704 | 31392 | 41256 |
+| gamez/zAI | 393 | 44 | 2 | 9 | 12 | 115924 | 46656 | 708 | 4884 | 4780 |
+| (provider: newlib) | 65 | 48 | 63 | 21 | 21 | 31148 | 9740 | 37552 | 1820 | 2088 |
+| Apps/FTS/game | 89 | 43 | 0 | 6 | 3 | 10332 | 38996 | 0 | 568 | 136 |
+| gamez/zWeapon | 192 | 89 | 2 | 31 | 3 | 15852 | 31124 | 88 | 4704 | 400 |
+| gamez/zNode | 137 | 79 | 2 | 7 | 8 | 27352 | 30752 | 576 | 1468 | 1572 |
+| gamez/zCamera | 42 | 34 | 0 | 4 | 2 | 4968 | 28412 | 0 | 532 | 140 |
+| (provider: SCE) | 687 | 25 | 2 | 46 | 87 | 105132 | 4952 | 292 | 5592 | 13900 |
+| gamez/zGrid | 45 | 28 | 0 | 4 | 2 | 8808 | 23924 | 0 | 564 | 16 |
+| gamez/zParticle | 87 | 21 | 0 | 5 | 0 | 14880 | 22856 | 0 | 1620 | 0 |
 | Apps/FTS/state | 51 | 35 | 4 | 4 | 14 | 8816 | 16052 | 5088 | 160 | 1872 |
-| gamez/zVisual | 140 | 26 | 3 | 22 | 3 | 30948 | 12160 | 1144 | 8132 | 892 |
-| gamez/zTwoD | 89 | 38 | 6 | 7 | 3 | 13084 | 14460 | 3220 | 1876 | 1236 |
-| gamez/zSound | 77 | 45 | 10 | 9 | 3 | 9212 | 14200 | 2504 | 2332 | 1516 |
-| gamez/zRender | 35 | 19 | 1 | 1 | 2 | 6304 | 14316 | 3420 | 8 | 332 |
-| gamez/zArchive | 31 | 26 | 11 | 6 | 12 | 4484 | 6848 | 4096 | 1480 | 1844 |
-| (provider: RSA) | 16 | 7 | 17 | 8 | 2 | 3012 | 3260 | 6012 | 3664 | 196 |
-| gamez/zInput | 23 | 17 | 6 | 4 | 11 | 1248 | 9140 | 1444 | 292 | 1828 |
-| gamez/zEntity | 62 | 29 | 4 | 13 | 3 | 8700 | 9500 | 1120 | 1536 | 484 |
-| gamez/zCharacter | 37 | 19 | 0 | 2 | 0 | 6916 | 12428 | 0 | 76 | 0 |
-| gamez/zVehicle | 42 | 12 | 2 | 1 | 2 | 11908 | 9576 | 2092 | 28 | 104 |
-| Apps/FTS | 18 | 15 | 6 | 9 | 3 | 2036 | 6344 | 2176 | 1916 | 160 |
-| gamez/zBody | 73 | 12 | 3 | 7 | 2 | 11784 | 5892 | 1396 | 1452 | 1584 |
-| (no owner file) | 154 | 31 | 0 | 0 | 6 | 20968 | 7728 | 0 | 0 | 2444 |
-| gamez/zMPEG | 12 | 17 | 2 | 9 | 8 | 1860 | 5416 | 128 | 1964 | 1172 |
-| gamez/zMath | 33 | 13 | 1 | 1 | 2 | 5540 | 5432 | 428 | 144 | 472 |
-| gamez/zSystem | 41 | 19 | 0 | 3 | 5 | 4932 | 5588 | 0 | 172 | 672 |
-| gamez/zVideo | 13 | 7 | 3 | 3 | 5 | 2004 | 2040 | 1484 | 520 | 1208 |
-| gamez/zUtil | 61 | 19 | 3 | 3 | 3 | 11188 | 3628 | 100 | 620 | 232 |
-| gamez/zTexture | 57 | 3 | 1 | 3 | 5 | 14768 | 1996 | 224 | 864 | 1328 |
+| gamez/zTwoD | 89 | 44 | 0 | 7 | 3 | 13084 | 17876 | 0 | 1680 | 1892 |
+| gamez/zVisual | 142 | 26 | 1 | 21 | 3 | 31020 | 12752 | 812 | 7320 | 220 |
+| gamez/zSound | 77 | 52 | 1 | 11 | 5 | 9212 | 15528 | 1088 | 2420 | 1916 |
+| (new, unplaced) | 0 | 0 | 0 | 72 | 0 | 0 | 0 | 0 | 20844 | 0 |
+| gamez/zRender | 35 | 20 | 0 | 1 | 2 | 6304 | 17736 | 0 | 8 | 332 |
+| (provider: RSA) | 16 | 12 | 6 | 14 | 8 | 3012 | 4740 | 3052 | 5144 | 2252 |
+| gamez/zInput | 23 | 21 | 4 | 9 | 9 | 1248 | 10068 | 780 | 1092 | 1716 |
+| gamez/zCharacter | 44 | 20 | 0 | 3 | 0 | 7280 | 12900 | 0 | 324 | 0 |
+| Apps/FTS | 18 | 17 | 3 | 9 | 4 | 2036 | 6624 | 1692 | 1916 | 2632 |
+| gamez/zEntity | 62 | 34 | 0 | 12 | 2 | 8700 | 10680 | 0 | 1476 | 400 |
+| gamez/zArchive | 32 | 39 | 0 | 3 | 9 | 4948 | 11284 | 0 | 340 | 672 |
+| gamez/zVehicle | 42 | 14 | 0 | 1 | 2 | 11908 | 11668 | 0 | 28 | 104 |
+| gamez/zBody | 72 | 15 | 0 | 7 | 2 | 11692 | 7288 | 0 | 1452 | 1584 |
+| (no owner file) | 151 | 34 | 0 | 0 | 6 | 20872 | 7824 | 0 | 0 | 2444 |
+| gamez/zMPEG | 13 | 21 | 1 | 5 | 4 | 1892 | 6372 | 12 | 1092 | 408 |
+| gamez/zSystem | 41 | 19 | 0 | 3 | 5 | 4932 | 5588 | 0 | 172 | 864 |
+| gamez/zMath | 33 | 15 | 0 | 0 | 1 | 5540 | 6004 | 0 | 0 | 312 |
+| gamez/zVideo | 13 | 10 | 0 | 3 | 5 | 2004 | 3764 | 0 | 280 | 1120 |
+| gamez/zUtil | 62 | 21 | 0 | 3 | 3 | 11196 | 3720 | 0 | 620 | 292 |
+| gamez/zTexture | 57 | 3 | 0 | 5 | 5 | 14768 | 1168 | 0 | 1356 | 1328 |
 | gamez/zValve | 28 | 5 | 0 | 0 | 2 | 6368 | 3124 | 0 | 0 | 400 |
 | gamez/zSoftImage | 21 | 9 | 0 | 1 | 0 | 3132 | 3272 | 0 | 104 | 0 |
-| (provider: 989snd) | 36 | 5 | 2 | 4 | 0 | 3908 | 2032 | 1012 | 184 | 0 |
+| (provider: 989snd) | 36 | 6 | 1 | 4 | 0 | 3908 | 2840 | 64 | 324 | 0 |
 | (provider: lgAud) | 15 | 10 | 0 | 1 | 0 | 3496 | 2752 | 0 | 200 | 0 |
 | gamez/zIntersect | 52 | 10 | 0 | 0 | 0 | 14016 | 2612 | 0 | 0 | 0 |
 | gamez/zReader | 92 | 8 | 0 | 0 | 0 | 21212 | 2264 | 0 | 0 | 0 |
-| gamez/zSave | 11 | 2 | 1 | 0 | 2 | 1864 | 1148 | 796 | 0 | 148 |
+| gamez/zSave | 10 | 3 | 0 | 0 | 2 | 1856 | 1944 | 0 | 0 | 16 |
 | gamez/zGraph | 49 | 1 | 0 | 0 | 0 | 8636 | 1448 | 0 | 0 | 0 |
-| gamez/zBone | 3 | 4 | 1 | 1 | 0 | 120 | 868 | 156 | 68 | 0 |
+| gamez/zBone | 3 | 5 | 0 | 1 | 0 | 120 | 1024 | 0 | 68 | 0 |
 | (provider: unidentified GNU object) | 51 | 1 | 0 | 0 | 1 | 3632 | 540 | 0 | 0 | 244 |
 | (provider: MSL) | 175 | 0 | 0 | 1 | 0 | 37496 | 0 | 0 | 312 | 0 |
 | (provider: speech middleware) | 699 | 1 | 0 | 0 | 0 | 268564 | 256 | 0 | 0 | 0 |
@@ -153,14 +170,14 @@ Every relocated instruction field of the prototype's functions against the maski
 
 | similarity | 0.0-0.1 | 0.1-0.2 | 0.2-0.3 | 0.3-0.4 | 0.4-0.5 | 0.5-0.6 | 0.6-0.7 | 0.7-0.8 | 0.8-0.9 | 0.9-1.0 |
 |---|---|---|---|---|---|---|---|---|---|---|
-| call | 35 | 59 | 62 | 59 | 70 | 88 | 76 | 97 | 164 | 321 |
-| call (>= 16 instructions) | 15 | 17 | 14 | 22 | 25 | 42 | 32 | 45 | 83 | 180 |
-| global | 0 | 0 | 0 | 0 | 0 | 2 | 1 | 1 | 6 | 6 |
-| null | 1054 | 1117 | 558 | 198 | 137 | 236 | 70 | 70 | 61 | 376 |
-| null (>= 16 instructions) | 884 | 994 | 392 | 139 | 83 | 69 | 59 | 43 | 43 | 149 |
-| position | 0 | 1 | 3 | 30 | 77 | 176 | 161 | 222 | 364 | 592 |
-| position (>= 16 instructions) | 0 | 1 | 3 | 28 | 76 | 132 | 144 | 208 | 337 | 576 |
-| string | 3 | 3 | 6 | 3 | 5 | 2 | 0 | 1 | 0 | 0 |
+| call | 22 | 53 | 98 | 99 | 99 | 159 | 124 | 168 | 276 | 525 |
+| call (>= 16 instructions) | 15 | 16 | 18 | 26 | 29 | 48 | 39 | 55 | 99 | 218 |
+| global | 0 | 0 | 0 | 0 | 0 | 1 | 2 | 1 | 3 | 2 |
+| null | 891 | 986 | 498 | 171 | 128 | 214 | 71 | 66 | 52 | 369 |
+| null (>= 16 instructions) | 716 | 869 | 324 | 108 | 71 | 53 | 60 | 39 | 34 | 137 |
+| position | 0 | 1 | 2 | 23 | 62 | 126 | 121 | 153 | 253 | 386 |
+| position (>= 16 instructions) | 0 | 1 | 2 | 22 | 61 | 92 | 105 | 141 | 231 | 373 |
+| string | 2 | 2 | 1 | 1 | 1 | 0 | 0 | 0 | 0 | 0 |
 
 `call`: non-exact pairs made by call-tree propagation (the pairing does not look at
 similarity, so this is the distribution of real counterparts); `position`: pairs from the
@@ -172,72 +189,102 @@ Small functions look alike (accessors, stubs), so the null of all sizes has a ta
 1.0; for them the order between anchors decides and a pair is unsure (`ambiguous`) when an
 unpaired alternative in the same gap scores within 0.05.
 
-Thresholds, from the >= 16-instruction rows: 87.3% of null pairs stay below 0.50 and
-79.5% below 0.30, while 80.4% of call-tree counterparts reach 0.50. So:
+Thresholds, from the >= 16-instruction rows: 86.6% of null pairs stay below 0.50 and
+79.2% below 0.30, while 81.5% of call-tree counterparts reach 0.50. So:
 
 - a positional, `global` or `call-deviating` pair is deviating at similarity >= 0.50, unsure
-  from 0.30 to 0.50;
+  from 0.30 to 0.50, unless it is referenced at its place by a paired caller and in its
+  slot with operation similarity >= 0.40 (`call-and-slot`);
 - a pair with independent evidence (called at the same call site of an exact pair, a
   unique shared string, the entry point) is deviating at similarity >= 0.30 or operation
-  similarity >= 0.70, otherwise unsure (flag `low-similarity`);
-- an exact byte match whose calls lead to functions paired elsewhere (`call-conflict`) or
-  whose data operands point to another kind of region (`ref-kind`) is unsure.
+  similarity >= 0.70; a pair an exact caller references at the same place and in its slot
+  is deviating whatever its similarity (`role-only`); otherwise unsure (`low-similarity`);
+- a global look-alike under 256 bytes outside its slot needs callers that agree (a paired
+  caller on one side whose partner calls the other) unless neither side has paired callers;
+- an exact byte match whose calls lead to functions paired elsewhere is deviating
+  (`callee-changed`) when it is in order, unsure when moved; one whose data operands point
+  to another kind of region (`ref-kind`) is unsure.
+
+## Settled by a checker
+
+Rows of [settled-pairs.tsv](settled-pairs.tsv), applied before any pairing (evidence
+`settled`; a settled pair is exact when its bytes, calls and data operands agree, otherwise
+deviating). 17 rows.
+
+| release | prototype | basis | checker | date |
+|---|---|---|---|---|
+| 0x1d9780 | new | callers: Insert(CKey*,...) only; zar_main.cpp lines 1108/1109 | socom-release-check-z1 | 2026-11-25 |
+| removed | 0x1d9910 | out-of-line copy only called by ReOpen, which now calls Open; inline in Open, CZAR, ~CZAR (zar_main.cpp lines 102/109) | socom-release-check-z1 | 2026-11-25 |
+| 0x1d9a70 | new | call sites of the CKey destructor in NewKey, ~CZAR, Insert | socom-release-check-z1 | 2026-11-25 |
+| 0x1d9ae0 | 0x1d8130 | call sites in insert +0x4e0, reserve +0x190 | socom-release-check-z1 | 2026-11-25 |
+| 0x1d9b50 | 0x1d81a0 | caller Close(); slot; strings | socom-release-check-z1 | 2026-11-25 |
+| 0x1d9f70 | 0x1d8480 | call site in WriteDirectory; slot; recursion | socom-release-check-z1 | 2026-11-25 |
+| 0x1da0a0 | 0x1d8600 | function pointer passed to CSTable::Pack in WriteDirectory; slot | socom-release-check-z1 | 2026-11-25 |
+| 0x1da250 | 0x1d87b0 | caller Open; call order; strings | socom-release-check-z1 | 2026-11-25 |
+| 0x1dacb0 | 0x1d9200 | 15 matching outside call sites | socom-release-check-z1 | 2026-11-25 |
+| 0x1daf50 | 0x1d9680 | caller LoadWorld | socom-release-check-z1 | 2026-11-25 |
+| 0x1dbce0 | 0x1da440 | call site in insert +0x284 | socom-release-check-z1 | 2026-11-25 |
+| 0x1dbd10 | 0x1da4f0 | call site in insert +0x24c | socom-release-check-z1 | 2026-11-25 |
+| 0x1dcdd0 | 0x1db680 | bytes equal; callers | socom-release-check-z1 | 2026-11-25 |
+| 0x1dd7c0 | 0x1dc1d0 | call site in ReadDirectory; slot; recursion | socom-release-check-z1 | 2026-11-25 |
+| 0x1dd8e0 | 0x1dc2d0 | call site in WriteDirectory; slot; recursion | socom-release-check-z1 | 2026-11-25 |
+| 0x1ddb90 | 0x1dc4a0 | bytes equal; slot | socom-release-check-z1 | 2026-11-25 |
+| 0x1ddbd0 | 0x1dc4e0 | bytes equal; slot | socom-release-check-z1 | 2026-11-25 |
 
 ## Unsure pairs
 
-375 pairs: call-conflict 11, low-similarity 335, other 28, ref-kind 1.
+158 pairs: ambiguous 22, low-similarity 135, ref-kind 1.
 
 | release | prototype | symbol | similarity | evidence | flags |
 |---|---|---|---|---|---|
-| 0x2f0bd0 | 0x2dcd60 | `HandleEvent__11CSealCtrlAiFPC8CAiEvent` | 0.465 | position | low-similarity |
 | 0x262a10 | 0x25af40 | `Tick__11CAiSGrenadeFfP11CSealCtrlAi` | 0.486 | position | low-similarity |
-| 0x42c628 | 0x3e8d08 | `_vfprintf_r` | 0.079 | string | low-similarity,moved |
-| 0x2363b0 | 0x232ea0 | `CreateVisuals__8ParticleFP6CPnt3DP6CPnt3DP6CPnt3D6CPnt3D6CPnt3D6CPnt3D7CMatrixPQ23zdb10CTexHandleP6CPnt4DfPQ23zdb6CModelP6CPnt3DP6CPnt3DP6CPnt3DPQ28Particle5Propsf` | 0.337 | position | low-similarity |
-| 0x3d8bb0 | 0x3b94e0 | `Tick__4CHUDFf` | 0.402 | position | low-similarity |
+| 0x42c628 | 0x3e8d08 | `_vfprintf_r` | 0.079 | call-deviating | low-similarity,moved |
+| 0x422a00 | 0x3df370 | `_dtoa_r` | 0.351 | call-deviating | low-similarity,moved |
 | 0x2eb640 | 0x2d8000 | `Tick__10CAiSBreachFfP11CSealCtrlAi` | 0.468 | position | low-similarity |
-| 0x2ac150 | 0x29eb00 | `PostCheckDIDown__10CZSealBodyFRfRfRf` | 0.200 | position | low-similarity |
-| 0x248710 | 0x244780 | `RenderWorld__5CPipeFPQ23zdb6CWorld` | 0.493 | position | low-similarity |
+| 0x429f78 | 0x3e66a8 | `_strtod_r` | 0.337 | call-deviating | low-similarity,moved |
 | 0x42df38 | 0x3ea4b0 | `__svfscanf` | 0.219 | call-deviating | low-similarity,moved |
-| 0x29cd10 | 0x291190 | `WeaponHitAnim__10CZSealBodyF8AnimType10SEAL_STATEb` | 0.302 | call-deviating | low-similarity |
 | 0x2ed4b0 | 0x2d9780 | `Tick__8CAiSGotoFfP11CSealCtrlAi` | 0.444 | position | low-similarity |
-| 0x2c9e40 | 0x2b8230 | `Tick__7CTParamFP14_zanim_cmd_hdrPf` | 0.445 | position | low-similarity |
-| 0x2598e0 | 0x2545e0 | `CollidePlayers__10CZSealBodyFR6CPnt3D` | 0.439 | position | low-similarity |
-| 0x3e10a0 | 0x3c0c90 | `RefreshStatics__15CZObjectiveListFv` | 0.247 | position | low-similarity |
+| 0x42b8b8 | 0x3e7fc0 | `_vfiprintf_r` | 0.107 | call-deviating | low-similarity,moved |
 | 0x4277d0 | 0x3e3eb8 | `qsort` | 0.140 | call | low-similarity,moved |
-| 0x33b7e0 | 0x320b60 | `SetRoundStatUiVars__21@unnamed@st_exit_cpp@Fii` | 0.205 | string | low-similarity |
+| 0x33b7e0 | 0x320b60 | `SetRoundStatUiVars__21@unnamed@st_exit_cpp@Fii` | 0.205 | call-deviating | low-similarity |
 | 0x2fa760 | 0x2e4ab0 | `Tick__8CAiSRushFfP11CSealCtrlAi` | 0.336 | position | low-similarity |
 | 0x2fc2e0 | 0x2e5e80 | `Tick__9CAiSEventFfP11CSealCtrlAi` | 0.467 | position | low-similarity |
-| 0x34bcf0 | 0x330320 | `sort<P34MediusLobbyWorldPlayerListResponse,PFR34MediusLobbyWorldPlayerListResponseR34MediusLobbyWorldPlayerListResponse_b>__3stdFP34MediusLobbyWorldPlayerListResponseP34MediusLobbyWorldPlayerListResponsePFR34MediusLobbyWorldPlayerListResponseR34MediusLobbyWorldPlayerListResponse_b` | 0.286 | call-deviating | low-similarity |
 | 0x2c2300 | 0x2b1980 | `OnSetTargetVisible__11CSealCtrlAiFR7CTargetbPQ23zdb11DiIntersect` | 0.404 | position | low-similarity |
-| 0x3f1d80 | 0x3d10a0 | `SetItemPos__10CWeaponSelFi` | 0.193 | call-deviating | low-similarity |
-| 0x3158f0 | 0x2fea10 | `Load__7C2DFontFP8CRdrFilePCc` | 0.374 | call-deviating | low-similarity |
-| 0x3ffb30 | 0x3f8fa0 | `SetItemPos__16CInGameWeaponSelFi` | 0.247 | call-deviating | low-similarity |
-| 0x175d80 | 0x176e60 | `HandleRecoCmd__10OrdersMenuFiiiiPc` | 0.385 | call-deviating | low-similarity |
-| 0x275350 | 0x26b1c0 | `__ct__11CSealCtrlAiFv` | 0.174 | call-deviating | low-similarity |
-| 0x2c0570 | 0x2b06b0 | `ComputeVisibility__9CSealCtrlFPQ23zdb11DiIntersectP7CTarget` | 0.442 | position | low-similarity |
 | 0x425ac8 | 0x3e21a0 | `_malloc_r` | 0.212 | call-deviating | low-similarity,moved |
 | 0x25bcd0 | 0x2563e0 | `PreTick__10CZSealBodyFf` | 0.496 | position | low-similarity |
 | 0x2aed50 | 0x2a0f20 | `HomingTick__10CZSealBodyFv` | 0.390 | position | ambiguous |
-| 0x3e7e40 | 0x3c7a70 | `TickWayPoints__9CZLineMapFRC6CAiMapb` | 0.227 | call-deviating | low-similarity |
 | 0x3a9810 | 0x38c9a0 | `Draw__10CUIListBoxFRC7CMatrixPQ23zdb16CTextureRelocMgr` | 0.494 | position | low-similarity |
-| 0x1e8ba0 | 0x1e7780 | `__ct__Q23zdb7CCameraFv` | 0.224 | call-deviating | low-similarity |
 | 0x29b3c0 | 0x28f840 | `HandleGrenadeExplosion__10CZSealBodyFv` | 0.489 | position | low-similarity |
-| 0x2e5990 | 0x2d2f40 | `VoiceHandSignal__9CSealUnitFP10CZSealBody10FT_COMMANDPvb` | 0.364 | position | low-similarity |
-| 0x2390d0 | 0x235780 | `DrawStreaked__Q28Particle13BufferElementFRA4_A4_f` | 0.204 | call | low-similarity |
-| 0x3efa70 | 0x3cf360 | `ThreatDirTick__14BitmapReticuleFP10CZSealBody` | 0.315 | position | low-similarity |
 | 0x3fd410 | 0x3de6a0 | `Tick__14CTeamMateNamesFf` | 0.492 | position | low-similarity |
 | 0x1f4eb0 | 0x1f3460 | `UnSerialize__8CMissionFPCcP8CRdrFilei` | 0.171 | string | low-similarity |
-| 0x274970 | 0x26a8d0 | `InitAiBrain__11CSealCtrlAiFv` | 0.342 | call-deviating | low-similarity |
-| 0x2092c0 | 0x206320 | `RemoteGameUpdateCallback__11CZGameStateFiii` | 0.486 | position | low-similarity |
+| 0x428308 | 0x3e49b0 | `_realloc_r` | 0.212 | call-deviating | low-similarity,moved |
+| 0x273c60 | 0x269c00 | `OnStunDamage__11CSealCtrlAiF9STUN_TYPEfPC6CPnt3D` | 0.420 | position | low-similarity |
+| 0x2608c0 | 0x2e6c30 | `Tick__10CAiSCorpseFfP11CSealCtrlAi` | 0.088 | string | low-similarity,moved |
+| 0x4382c0 | 0x3f0370 | `PTT_Heartbeat__Fi` | 0.145 | call-deviating | low-similarity,moved |
+| 0x25abd0 | 0x255400 | `UpdateAiEvent__10CZSealBodyFv` | 0.465 | position | low-similarity |
+| 0x3ae9a0 | 0x391110 | `Draw__12CWrappedTextFRC7CMatrixPQ23zdb16CTextureRelocMgr` | 0.316 | position | low-similarity |
+| 0x40b950 | 0x409418 | `RSAGenerateKeyPair` | 0.996 | position | ambiguous,imm-only |
+| 0x303a10 | 0x2ecef0 | `PlaySoundVolPanPitch__4CSndFfiiP12CSndInstanceUi` | 0.380 | position | low-similarity |
+| 0x3fbc50 | 0x3dcee0 | `Init__12CMPExitStateFv` | 0.498 | position | low-similarity |
+| 0x279ff0 | 0x26eb70 | `RestrainBuddy__10CZSealBodyFP10CZSealBody` | 0.474 | position | low-similarity |
+| 0x40acf8 | 0x407924 | `MODIP` | 0.050 | call | low-similarity,moved |
+| 0x2c2c10 | 0x2b20b0 | `SensorPreTick__9CSealCtrlFf` | 0.228 | call-deviating | low-similarity |
+| 0x29e090 | 0x291b60 | `HandleSealStep__10CZSealBodyFv` | 0.462 | position | low-similarity |
+| 0x17c270 | 0x17ccd0 | `Tick__10CCoreStateFf` | 0.486 | position | low-similarity |
+| 0x3a2b90 | 0x386840 | `HandlePad__10CUIMapCtrlFPC4CPadi` | 0.379 | position | low-similarity |
+| 0x32bb60 | 0x312e80 | `AddDecal__Q23zdb6CDecalFfPPQ23zdb10AddonPointUiPQ23zdb10CTexHandlePQ23zdb7CVisualUi` | 0.486 | call-deviating | low-similarity,moved |
+| 0x4243b0 | 0x3e0b48 | `_free_r` | 0.180 | call-deviating | low-similarity,moved |
+| 0x1ccb30 | 0x1cbb60 | `StopAnims__6CZAnimFv` | 0.266 | call-deviating | low-similarity,moved |
+| 0x2fd120 | 0x2e6930 | `Tick__16CAiSStunResponseFfP11CSealCtrlAi` | 0.471 | position | low-similarity |
+| 0x274390 | 0x26a290 | `OnWeaponEvent__11CSealCtrlAiFP12CZProjectileUiPv` | 0.437 | position | low-similarity |
 
-(335 more in function-map.tsv.)
+(118 more in function-map.tsv.)
 
 ## Largest new functions
 
 | release | size | probable owner | between functions of |
 |---|---|---|---|
-| 0x429f78 | 3860 | - | provider:newlib |
-| 0x43a3a0 | 3780 | - | - |
+| 0x43a3a0 | 3780 | - | provider:libptt |
 | 0x433810 | 3692 | - | provider:libptt |
 | 0x4351d0 | 3580 | - | provider:libptt |
 | 0x26f5f0 | 3460 | src/gamez/zSeal/seal_ai.cpp | gamez/zSeal |
@@ -245,13 +292,11 @@ Thresholds, from the >= 16-instruction rows: 87.3% of null pairs stay below 0.50
 | 0x3e66b0 | 3116 | src/Apps/FTS/hud/hud_newhudmap.cpp | Apps/FTS/hud |
 | 0x43c4e0 | 2572 | - | - |
 | 0x32aad0 | 2536 | src/gamez/zVisual/vis_decal.cpp | gamez/zVisual |
-| 0x439670 | 2512 | - | - |
-| 0x2c4910 | 2476 | src/gamez/zSeal/seal_sensors.cpp | gamez/zSeal |
+| 0x439670 | 2512 | - | provider:libptt |
 | 0x421620 | 2460 | src/Apps/FTS/hud/hud_scorepopup.cpp | Apps/FTS/hud |
 | 0x488180 | 2400 | - | - |
 | 0x4346e0 | 2388 | - | provider:libptt |
 | 0x2fb2e0 | 2348 | src/gamez/zSeal/seal_airesponse.cpp | gamez/zSeal |
-| 0x287e60 | 2228 | src/gamez/zSeal/seal_body.cpp | gamez/zSeal |
 | 0x432fc0 | 2124 | - | provider:libptt |
 | 0x25f260 | 2052 | - | gamez/zSeal |
 | 0x271290 | 2012 | src/gamez/zSeal/seal_ai.cpp | gamez/zSeal |
@@ -259,8 +304,11 @@ Thresholds, from the >= 16-instruction rows: 87.3% of null pairs stay below 0.50
 | 0x266be0 | 1864 | src/gamez/zSeal/seal_ai.cpp | gamez/zSeal |
 | 0x199c00 | 1820 | src/gamez/zAI/ai_maps.cpp | gamez/zAI |
 | 0x2afad0 | 1800 | src/gamez/zSeal/seal_env.cpp | gamez/zSeal |
-| 0x26bea0 | 1760 | src/gamez/zSeal/seal_ai.cpp | gamez/zSeal |
 | 0x2e5150 | 1588 | src/gamez/zSeal/seal_unit.cpp | gamez/zSeal |
+| 0x436640 | 1588 | - | provider:libptt |
+| 0x409f70 | 1556 | - | provider:RSA |
+| 0x192870 | 1496 | - | gamez/zAI |
+| 0x2ae7a0 | 1456 | src/gamez/zSeal/seal_env.cpp | gamez/zSeal |
 
 ## Largest removed functions
 
@@ -268,36 +316,41 @@ Thresholds, from the >= 16-instruction rows: 87.3% of null pairs stay below 0.50
 |---|---|---|---|
 | 0x3d9820 | 7620 | `StatusLine__4CHUDFv` | src/Apps/FTS/hud/hud_devtext.cpp |
 | 0x3ecda0 | 4060 | `decode___FPiPiPiPiPiPfPfP19lpc10_decoder_state` | - |
-| 0x3e66a8 | 3840 | `_strtod_r` | - |
 | 0x3f2b00 | 3292 | `pitsyn___FPiPiPiPfPfPiPiPiPfPfPiPfP19lpc10_decoder_state` | - |
 | 0x3f5430 | 3164 | `voicin___FPiPfPfPiPiPfPfPiPfPiPiPiP19lpc10_encoder_state` | - |
 | 0x268880 | 2968 | `Tick__11CSealCtrlAiFf` | src/gamez/zSeal/seal_ai.cpp |
 | 0x3eb3a0 | 2768 | `analys___FPfPiPiPfPfP19lpc10_encoder_state` | - |
 | 0x3f37e0 | 2576 | `placea___FPiPiPiPiPiPiPiPiPi` | - |
 | 0x3ebe70 | 2524 | `bsynz___FPfPiPiPfPfPfPfP19lpc10_decoder_state` | - |
+| 0x173e30 | 2472 | `process_arguments__FiPPc` | src/Apps/FTS/options.cpp |
 | 0x413810 | 2440 | `rt_rel_udp_receive_from` | - |
 | 0x3f6090 | 2184 | `vparms___FPiPfPfPiPiPfPiPiPiPiPfPfPfPf` | - |
 | 0x25c860 | 2072 | `SetReturnVelocity__11CSealCtrlAiFP12CZProjectileP6CPnt3Db` | src/gamez/zSeal/seal_ai.cpp |
 | 0x266320 | 1932 | `LadderClimbTick__11CSealCtrlAiFf` | src/gamez/zSeal/seal_ai.cpp |
 | 0x3ee790 | 1836 | `encode___FPiPiPfPfPiPiPi` | - |
-| 0x263a30 | 1560 | `SelectFireParams__11CSealCtrlAiFv` | src/gamez/zSeal/seal_ai.cpp |
 | 0x3ee180 | 1544 | `dyptrk___FPfPiPiPiPiPiP19lpc10_encoder_state` | - |
-| 0x27cbf0 | 1480 | `PopBlend__10CZSealBodyFv` | src/gamez/zSeal/seal_body.cpp |
 | 0x3858e0 | 1480 | `TickZAnimCmd__10CUIMapCtrlFP14_zanim_cmd_hdrPfPb` | src/gamez/zUI/zui_2d.cpp |
 | 0x3f41f0 | 1476 | `placev___FPiPiPiPiPiPiPiPiPiPiPi` | - |
-| 0x2b3880 | 1464 | `PreTick__11CSealCtrlAiFfPv` | src/gamez/zSeal/seal_sensors.cpp |
-| 0x3e49b0 | 1392 | `_realloc_r` | - |
 | 0x470cf0 | 1384 | `__sinit_hud_scorepopup.cpp` | - |
 | 0x2675e0 | 1360 | `PreTick__11CSealCtrlAiFf` | src/gamez/zSeal/seal_ai.cpp |
 | 0x3f1c70 | 1332 | `lpfilt___FPfPfPiPi` | - |
 | 0x3f4f20 | 1292 | `tbdm___FPfPiPiPiPfPiPiPi` | - |
+| 0x1e1210 | 1252 | `Tick__13CBlendOverlayFP5CBodyf` | src/gamez/zBody/body.cpp |
+| 0x25ee30 | 1228 | `Tick__10CAiSActionFfP11CSealCtrlAi` | src/gamez/zSeal/seal_ai.cpp |
+| 0x3ef560 | 1212 | `invert___FPiPfPfPf` | - |
+| 0x2e5290 | 1204 | `Tick__15CAiSPathRecoverFfP11CSealCtrlAi` | src/gamez/zSeal/seal_airesponse.cpp |
 
 ## Regenerate
 
 ```powershell
 python tools/release/compare.py
+python tools/release/compare.py --sheet gamez/zArchive   # a check sheet under build/release/sheets/
 uv run --no-project --with pytest python -m pytest tests/release -q
 ```
+
+A pair settled by a checker goes into `docs/release/settled-pairs.tsv` (release address or
+`removed`, prototype address or `new`, basis, checker, date); an address that is not a
+function start of its image stops the run.
 
 The tool reads `support/socom.elf` and `support/SCUS_971.34` (refused unless their
 SHA-256 values are the pinned ones), the optional `build/cache/source-graph.sqlite`

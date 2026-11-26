@@ -1,13 +1,21 @@
-"""Per-function facts both sides share: masked words, shapes, calls, data references, strings."""
+"""Per-function facts both sides share: masked words, shapes, calls, data references, strings.
+
+Strings that are source-file names (the ``__FILE__`` argument of the debug
+allocators) are kept apart from the identity strings: many functions share one.
+With the line number loaded into the next argument register they form a
+(file, line) token, which is identity evidence.
+"""
 from __future__ import annotations
 
 import bisect
+import re
 from dataclasses import dataclass, field
 
 import mips
 
 PRINTABLE = set(range(0x20, 0x7F)) | {0x09, 0x0A, 0x0D}
 MIN_STRING = 4
+SOURCE_NAME = re.compile(r"^[A-Za-z0-9_./\\:-]*\.(?:c|cc|cpp|cxx|h|hpp|inl|s)$", re.IGNORECASE)
 
 
 @dataclass
@@ -22,6 +30,9 @@ class Fn:
     refs: list[tuple[int, str]]  # (word index, region kind) for every masked data operand
     strings: frozenset
     code_refs: list[tuple[int, int]] = field(default_factory=list)  # (word index, code address)
+    tail_calls: list[tuple[int, int]] = field(default_factory=list)  # (word index, j target outside)
+    file_strings: frozenset = frozenset()
+    lines: frozenset = frozenset()  # (file, line) of debug-allocator calls
     key: bytes = b""
     grams: frozenset = frozenset()
     ops: tuple = ()
@@ -29,6 +40,11 @@ class Fn:
     @property
     def end(self) -> int:
         return self.address + self.size
+
+    def references(self) -> list[tuple[int, int]]:
+        """Calls, tail calls and loaded code addresses in instruction order: (word index, target)."""
+
+        return sorted(self.calls + self.tail_calls + self.code_refs)
 
 
 def find_gp(image, words) -> int | None:
@@ -95,14 +111,21 @@ def build(side: str, image, words, spans, gp: int | None) -> list[Fn]:
         raw = tuple(words[first:first + count])
         masked, kinds = mips.mask_function(words, first, count, image.base)
         calls = []
+        tail_calls = []
         refs = []
         code_refs = []
         strings = set()
+        file_strings = set()
+        file_loads = []  # (word index, register, file name)
         hi: dict[int, int] = {}
         for index, (word, kind) in enumerate(zip(raw, kinds)):
             op = word >> 26
             if kind == mips.M_CALL:
                 calls.append((index, mips.jump_target(word, start + 4 * index)))
+            elif kind == mips.M_JUMP:
+                target = mips.jump_target(word, start + 4 * index)
+                if not start <= target < end:
+                    tail_calls.append((index, target))
             elif kind == mips.M_HI:
                 hi[(word >> 16) & 0x1F] = (word & 0xFFFF) << 16
             elif kind == mips.M_LO:
@@ -116,7 +139,10 @@ def build(side: str, image, words, spans, gp: int | None) -> list[Fn]:
                         code_refs.append((index, value))
                     elif op == 0x09:
                         text = regions.string_at(value)
-                        if text is not None:
+                        if text is not None and SOURCE_NAME.match(text):
+                            file_strings.add(text)
+                            file_loads.append((index, (word >> 16) & 0x1F, text))
+                        elif text is not None:
                             strings.add(text)
                 else:
                     refs.append((index, "unknown"))
@@ -125,8 +151,17 @@ def build(side: str, image, words, spans, gp: int | None) -> list[Fn]:
                 refs.append((index, "gp-" + (regions.kind(value) if value is not None else "unknown")))
             if kind != mips.M_HI and op == 0x0F:
                 hi.pop((word >> 16) & 0x1F, None)
+        lines = set()
+        for index, register, name in file_loads:
+            # the line number: a small constant loaded into the next argument register nearby
+            for other in range(max(0, index - 8), min(len(raw), index + 9)):
+                word = raw[other]
+                if (word >> 26) in (0x09, 0x0D) and ((word >> 21) & 0x1F) == 0 and ((word >> 16) & 0x1F) == register + 1:
+                    lines.add((name, word & 0xFFFF))
+                    break
         shape = tuple(mips.shape(w) for w in raw)
-        fn = Fn(side, start, end - start, raw, tuple(masked), shape, calls, refs, frozenset(strings), code_refs)
+        fn = Fn(side, start, end - start, raw, tuple(masked), shape, calls, refs, frozenset(strings), code_refs,
+                tail_calls, frozenset(file_strings), frozenset(lines))
         fn.key = mips.pack(masked)
         fn.grams = grams_of(shape)
         fn.ops = tuple(mips.operation(w) for w in raw)
