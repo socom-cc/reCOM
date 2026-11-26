@@ -135,14 +135,20 @@ class Namer:
         self.protos = protos
         self.p_refs_by = defaultdict(set)
         self.r_refs_by = defaultdict(set)
+        self.p_pointers = set()  # (target, referrer) where the referrer loads the target's address
+        self.r_pointers = set()
         for f in matcher.P:
-            for _, target in f.references():
+            for _, target, kind in f.typed_references():
                 if target in matcher.p_by and target != f.address:
                     self.p_refs_by[target].add(f.address)
+                    if kind == "ptr":
+                        self.p_pointers.add((target, f.address))
         for f in matcher.R:
-            for _, target in f.references():
+            for _, target, kind in f.typed_references():
                 if target in matcher.r_by and target != f.address:
                     self.r_refs_by[target].add(f.address)
+                    if kind == "ptr":
+                        self.r_pointers.add((target, f.address))
 
     def proto_name(self, address: int) -> str:
         facts = self.protos.get(address)
@@ -446,7 +452,8 @@ def module_sheet(module: str, matcher, rows: list[dict], protos: dict, proto_ima
             out.append("- prototype references: " + (", ".join(refs) or "none"))
             callers = sorted(namer.p_refs_by.get(proto, ()))
             if callers or not p_vt.get(proto):
-                out.append("- prototype callers: " + (", ".join(namer.p_label(c) for c in callers[:12]) or "none")
+                out.append("- prototype callers (& loads its address): " + (", ".join(
+                    ("&" if (proto, c) in namer.p_pointers else "") + namer.p_label(c) for c in callers[:12]) or "none")
                            + (" (+%d)" % (len(callers) - 12) if len(callers) > 12 else ""))
             if p_vt.get(proto):
                 out.append("- prototype vtable slots: " + ", ".join(p_vt[proto][:8])
@@ -463,7 +470,8 @@ def module_sheet(module: str, matcher, rows: list[dict], protos: dict, proto_ima
             out.append("- release references: " + (", ".join(refs) or "none"))
             callers = sorted(namer.r_refs_by.get(rel, ()))
             if callers or not r_vt.get(rel):
-                out.append("- release callers: " + (", ".join(namer.r_label(c) for c in callers[:12]) or "none")
+                out.append("- release callers (& loads its address): " + (", ".join(
+                    ("&" if (rel, c) in namer.r_pointers else "") + namer.r_label(c) for c in callers[:12]) or "none")
                            + (" (+%d)" % (len(callers) - 12) if len(callers) > 12 else ""))
             if r_vt.get(rel):
                 out.append("- release vtable slots: " + ", ".join(r_vt[rel][:8])

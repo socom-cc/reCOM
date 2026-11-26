@@ -55,6 +55,8 @@ VTABLE_RESEMBLE_SIZE = 32  # bytes: below this, slot functions are not matched b
 VTABLE_RESEMBLANCE = 0.30  # ... and above it they need this resemblance
 VTABLE_KEEPS = {"exact", "entry", "settled", "call"}  # pairs a vtable slot does not overrule
 SMALL_GAP = 64  # positional gaps with at most this many candidate pairs skip the 3-gram prefilter
+STRING_SIMILARITY = 0.15  # a string-only pair needs this similarity ...
+STRING_OPERATIONS = 0.40  # ... or this operation similarity
 AMBIGUITY = 0.05  # an unpaired alternative this close to the chosen score makes a pair unsure
 
 
@@ -289,13 +291,19 @@ class Matcher:
         if self._token_counts is None:
             counts_p, counts_r = Counter(), Counter()
             for f in self.P:
-                counts_p.update(f.strings | f.lines)
+                counts_p.update(self.tokens_p(f))
             for f in self.R:
-                counts_r.update(f.strings | f.lines)
+                counts_r.update(self.tokens_r(f))
             self._token_counts = (counts_p, counts_r)
         counts_p, counts_r = self._token_counts
-        shared = (pair.p.strings | pair.p.lines) & (pair.r.strings | pair.r.lines)
+        shared = self.tokens_p(pair.p) & self.tokens_r(pair.r)
         return any(counts_p[t] == 1 and counts_r[t] == 1 for t in shared)
+
+    def tokens_p(self, f) -> set:
+        return set(f.strings | f.lines)
+
+    def tokens_r(self, f) -> set:
+        return set(f.strings | f.lines)
 
     def agreeing_callers(self, pair: Pair) -> int:
         """Paired functions that reference the pair on both sides."""
@@ -363,8 +371,11 @@ class Matcher:
 
         def reliable(t):
             pair = self.pairs.get(t)
-            if pair is None or pair.evidence <= {"vtable-slot"}:
+            if pair is None:
                 return None
+            if pair.evidence <= {"vtable-slot"} and not (pair.p.key != pair.r.key and (
+                    pair.similarity >= DEVIATING_MIN or pair.operation_similarity >= STRONG_OPERATIONS)):
+                return None  # only a slot made it, and its body does not confirm it
             if pair.p.key == pair.r.key and (len(self.p_by_key[pair.p.key]) > 1 or len(self.r_by_key[pair.r.key]) > 1) \
                     and not pair.evidence & {"settled", "call", "exact-caller"}:
                 return None
@@ -771,6 +782,45 @@ class Matcher:
         hi = anchors_r[k] if k < len(anchors_p) else len(self.R)
         return lo, hi
 
+    # -- 3b. equal copies told apart by what they reference -------------------------------
+    def repair_copies(self) -> int:
+        """Re-pair members of equal-byte families by their references (a thunk's jump target, a call).
+
+        For a prototype copy, the release copies whose every reference leads to the
+        partners of its references are candidates; when exactly one fits and it is
+        not the current partner, the weak current pairs give way.
+        """
+
+        changed = 0
+        for key, ps in sorted(self.p_by_key.items(), key=lambda kv: kv[1][0].address):
+            rs = self.r_by_key.get(key, [])
+            if len(ps) + len(rs) <= 2 or not ps[0].references():
+                continue
+            for p in ps:
+                targets = [t for _, t in p.references()]
+                if not all(t in self.pairs for t in targets):
+                    continue
+                fits = [r for r in rs if [tr for _, tr in r.references()] == [self.pairs[t].r.address for t in targets]]
+                if len(fits) != 1:
+                    continue
+                r = fits[0]
+                current = self.pairs.get(p.address)
+                if current is not None and current.r.address == r.address:
+                    continue
+                other_p = self.r_paired.get(r.address)
+                other = self.pairs.get(other_p) if other_p is not None else None
+                if p.address in self.blocked_p or r.address in self.blocked_r:
+                    continue
+                if any(x is not None and x.evidence & VTABLE_KEEPS - {"exact"} for x in (current, other)):
+                    continue
+                for x in (current, other):
+                    if x is not None:
+                        self.remove(x)
+                if self.add(p, r, "exact-callee"):
+                    changed += 1
+        self.stats["copies-repaired"] += changed
+        return changed
+
     # -- 3. many-times-found ---------------------------------------------------------
     def resolve_duplicates(self) -> int:
         added = 0
@@ -935,8 +985,9 @@ class Matcher:
             if top_p[0][1] != ra or top_r[0][1] != pa:
                 continue
             p_fn, r_fn = self.p_by[pa], self.r_by[ra]
-            same_shape = p_fn.size == r_fn.size and p_fn.shape == r_fn.shape
-            small = p_fn.size < GLOBAL_SMALL and (pa, ra) not in slotted and not same_shape
+            same_shape = p_fn.size == r_fn.size and p_fn.shape == r_fn.shape and p_fn.key != r_fn.key
+            copies = p_fn.key == r_fn.key and (len(self.p_by_key[p_fn.key]) > 1 or len(self.r_by_key[r_fn.key]) > 1)
+            small = (p_fn.size < GLOBAL_SMALL and (pa, ra) not in slotted and not same_shape) or copies
             if not self.callers_agree(pa, ra, small):
                 self.stats["global-rejected-callers"] += 1
                 continue
@@ -1008,10 +1059,10 @@ class Matcher:
         p_owner = defaultdict(list)
         r_owner = defaultdict(list)
         for f in self.P:
-            for token in f.strings | f.lines:
+            for token in self.tokens_p(f):
                 p_owner[token].append(f)
         for f in self.R:
-            for token in f.strings | f.lines:
+            for token in self.tokens_r(f):
                 r_owner[token].append(f)
         votes = defaultdict(int)
         for token in sorted(p_owner, key=repr):
@@ -1028,7 +1079,12 @@ class Matcher:
             by_r[ra].append(pa)
         for (pa, ra) in sorted(votes):
             if len(by_p[pa]) == 1 and len(by_r[ra]) == 1:
-                if self.add(self.p_by[pa], self.r_by[ra], "string"):
+                p_fn, r_fn = self.p_by[pa], self.r_by[ra]
+                if (similarity(p_fn.masked, r_fn.masked) < STRING_SIMILARITY
+                        and similarity(p_fn.ops, r_fn.ops) < STRING_OPERATIONS):
+                    self.stats["string-rejected-unlike"] += 1
+                    continue  # a string kept by a function that replaced a removed one
+                if self.add(p_fn, r_fn, "string"):
                     added += 1
         return added
 
@@ -1117,7 +1173,8 @@ class Matcher:
                 flags.add("ref-kind")
             exact = pair.p.key == pair.r.key
             if exact and (len(self.p_by_key[pair.p.key]) > 1 or len(self.r_by_key[pair.r.key]) > 1):
-                decided = (pair.p.address in self.vt_confirmed or pair.evidence & {"settled", "call", "exact-caller"}
+                decided = (pair.p.address in self.vt_confirmed
+                           or pair.evidence & {"settled", "call", "exact-caller", "exact-callee"}
                            or self.agreeing_callers(pair) > 0)
                 if not decided:
                     flags.add("identical-copy")  # equal bytes elsewhere: only order chose this copy
@@ -1203,6 +1260,8 @@ class Matcher:
         for _ in range(3):
             if not self.table_pairs or not self.vtable_pass(repair=True):
                 break
+            self.propagate()
+        if self.repair_copies():
             self.propagate()
         for _ in range(4):
             repaired = self.repair_from_exact_calls()

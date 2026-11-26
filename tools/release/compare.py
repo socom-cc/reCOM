@@ -90,36 +90,57 @@ def validate_discovery(protos, found) -> dict:
 
 
 SETTLED_COLUMNS = ("release", "prototype", "basis", "checker", "date")
+SETTLED_OPTIONAL = ("owner", "flags")
 
 
 def read_settled(path: Path) -> list[dict]:
-    """Rows of the settled-pairs file: release address or ``removed``, prototype address or ``new``."""
+    """Rows of the settled-pairs file.
+
+    Columns: release address or ``removed``; prototype address, ``new`` or ``-``
+    (an owner-only row, whose release column may be a range ``0xLO-0xHI``); basis;
+    checker; date; optionally the owner file a checker fixed and comma-separated
+    flags (``name-changed``). The header names the columns used.
+    """
 
     if not path.is_file():
         return []
     rows = []
     lines = path.read_text(encoding="utf-8").splitlines()
-    if not lines or tuple(lines[0].split("\t")) != SETTLED_COLUMNS:
-        raise pairing.SettledError("%s: the header must be %s" % (path.name, " ".join(SETTLED_COLUMNS)))
+    header = tuple(lines[0].split("\t")) if lines else ()
+    if header[:5] != SETTLED_COLUMNS or header[5:] != SETTLED_OPTIONAL[:len(header) - 5]:
+        raise pairing.SettledError("%s: the header must be %s" % (
+            path.name, " ".join(SETTLED_COLUMNS + SETTLED_OPTIONAL)))
     for number, line in enumerate(lines[1:], 2):
         if not line.strip() or line.startswith("#"):
             continue
         cells = line.split("\t")
-        if len(cells) != len(SETTLED_COLUMNS):
-            raise pairing.SettledError("%s:%d: %d columns, expected %d" % (
-                path.name, number, len(cells), len(SETTLED_COLUMNS)))
+        if not len(SETTLED_COLUMNS) <= len(cells) <= len(header):
+            raise pairing.SettledError("%s:%d: %d columns, expected %d to %d" % (
+                path.name, number, len(cells), len(SETTLED_COLUMNS), len(header)))
+        cells += [""] * (len(header) - len(cells))
         release, proto = cells[0].strip(), cells[1].strip()
+        owner = cells[5].strip() if len(cells) > 5 else ""
+        flags = [f for f in (cells[6].strip().split(",") if len(cells) > 6 else []) if f]
+        span = None
         try:
-            r_value = None if release == "removed" else int(release, 16)
-            p_value = None if proto == "new" else int(proto, 16)
+            if proto == "-":
+                first, _, last = release.partition("-")
+                span = (int(first, 16), int(last or first, 16))
+                r_value = p_value = None
+            else:
+                r_value = None if release == "removed" else int(release, 16)
+                p_value = None if proto == "new" else int(proto, 16)
         except ValueError:
-            raise pairing.SettledError("%s:%d: addresses are hex, or removed / new" % (path.name, number)) from None
-        if r_value is None and p_value is None:
+            raise pairing.SettledError("%s:%d: addresses are hex, or removed / new / -" % (path.name, number)) from None
+        if span is None and r_value is None and p_value is None:
             raise pairing.SettledError("%s:%d: removed and new together say nothing" % (path.name, number))
+        if span is not None and not owner:
+            raise pairing.SettledError("%s:%d: an owner-only row needs the owner column" % (path.name, number))
         if not cells[2].strip() or not cells[3].strip():
             raise pairing.SettledError("%s:%d: basis and checker are required" % (path.name, number))
         rows.append({"release": r_value, "prototype": p_value, "basis": cells[2].strip(),
-                     "checker": cells[3].strip(), "date": cells[4].strip()})
+                     "checker": cells[3].strip(), "date": cells[4].strip(), "owner": owner,
+                     "flags": flags, "span": span})
     return rows
 
 
@@ -154,9 +175,10 @@ def run(root: Path, write: bool = True, use_settled: bool = True, sheet: str | N
     matcher = pairing.Matcher(p_fns, r_fns, proto_image.entry, release_image.entry, table_pairs)
     matcher.proto_tables, matcher.release_tables = proto_tables, release_tables
     settled_rows = read_settled(root / SETTLED) if use_settled else []
-    matcher.run([(row["release"], row["prototype"]) for row in settled_rows])
+    matcher.run([(row["release"], row["prototype"]) for row in settled_rows if row["span"] is None])
 
     rows = report.build_rows(matcher, protos, {f.start: f.evidence for f in release_found})
+    report.apply_settled_owners(rows, settled_rows)
     by_evidence = {"call": [], "position": [], "string": [], "global": []}
     for pair in matcher.pairs.values():
         if pair.p.key == pair.r.key:

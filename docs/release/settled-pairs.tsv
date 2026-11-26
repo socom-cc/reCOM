@@ -1,4 +1,4 @@
-release	prototype	basis	checker	date
+release	prototype	basis	checker	date	owner	flags
 0x1d9780	new	callers: Insert(CKey*,...) only; zar_main.cpp lines 1108/1109	socom-release-check-z1	2026-11-25
 removed	0x1d9910	out-of-line copy only called by ReOpen, which now calls Open; inline in Open, CZAR, ~CZAR (zar_main.cpp lines 102/109)	socom-release-check-z1	2026-11-25
 0x1d9a70	new	call sites of the CKey destructor in NewKey, ~CZAR, Insert	socom-release-check-z1	2026-11-25
@@ -50,3 +50,31 @@ removed	0x2acc70	inlined into 0x2b89a0; only caller PreTick; no release look-ali
 0x2c2150	0x2b1910	vtable slot +0x9c of CSealCtrl	socom-release-check-seal-c	2026-11-25
 0x2c2300	0x2b1980	vtable slot +0x9c of CSealCtrlAi	socom-release-check-seal-c	2026-11-25
 0x2f67a0	0x2e1d80	CAiSFollow vtable slot between OnSignal and GetStatus; ConfirmAiState(ai, this, 1) first; slot between SetFollowMaster and GetStatus	socom-release-check-seal-c	2026-11-25
+0x276f90	new	erase(first, last) of a new list element type; only caller the new list dtor 0x276ca0 called by ~CAiSAnimate; the release has no list<CPnt3D>	socom-release-check-seal-d	2026-11-26
+0x277040	new	erase(it) of the same new list; only caller CAiSAnimate::Tick (list at +0x30); PopLineColor no longer erases	socom-release-check-seal-d	2026-11-26
+removed	0x2e36b0	list<CPnt3D>::erase(first, last): its only caller ~color_stack is gone; the colour stack is an array in the release	socom-release-check-seal-d	2026-11-26
+removed	0x2e33c0	list<CPnt3D>::erase(it): its only caller PopLineColor no longer uses a list	socom-release-check-seal-d	2026-11-26
+0x276b60	0x26c5f0	GetScriptResponse slot of every CAiState-family table (release +0x2c, prototype +0x28)	socom-release-check-seal-d	2026-11-26
+0x2737f0	0x2696e0	only caller CAiSEvent::Tick on both sides, twice at the same places; FindAnimType first	socom-release-check-seal-d	2026-11-26
+0x2f83d0	0x2e3340	only caller CSealCtrl::PostTick on both sides, after PushLineColor	socom-release-check-seal-d	2026-11-26
+0x2f8410	0x2e3380	only caller CSealCtrl::PostTick on both sides, before PopLineColor; returns 1 on both	socom-release-check-seal-d	2026-11-26
+0x25efb0	0x259150	thunk j __dt__10CZSealBody; addiu a0,-272; slot +0x08 of the CBody-in-CZSealBody table on both sides	socom-release-check-seal-f	2026-11-26
+0x25efa0	0x259140	thunk to GetRootPart__10CZSealBody (this -272); slot +0x10 of the CBody-in-CZSealBody table (outside list f)	socom-release-check-seal-f	2026-11-26
+0x25ef90	new	thunk to BodySetState__10CZSealBody (this -272) in a new slot +0x14 of the CBody-in-CZSealBody table (outside list f)	socom-release-check-seal-f	2026-11-26
+0x2608c0	new	not virtual: one direct caller, HandleEvent; the corpse block that the prototype HandleEvent had inline, now pushing STATE_EVENT with "on_corpse"	socom-release-check-seal-f	2026-11-26
+removed	0x2e6c30	class CAiSCorpse gone (no RTTI name in the release; StunResponse::OnSignal is followed by Hold::Tick); its release partner 0x2608c0 is new	socom-release-check-seal-f	2026-11-26
+0x25f0b0	new	base entry of new CAiState vtable slot +0x34 (overridden by CAiSAction 0x2676b0); bytes equal to CanPursue's	socom-release-check-seal-f	2026-11-26
+0x255d80	0x250f20	slot +0x1c of the CZSealBody vtable on both sides	socom-release-check-seal-f	2026-11-26
+0x255d90	0x250f30	slot +0x18 of the CZSealBody vtable on both sides	socom-release-check-seal-f	2026-11-26
+0x2ff9f0	0x2e93c0	GetScriptResponse slot of the CAiSRestrained vtable on both sides	socom-release-check-seal-f	2026-11-26
+0x2ffb40	0x2e9570	GetScriptResponse slot of the CAiSSurrender vtable on both sides	socom-release-check-seal-f	2026-11-26
+0x264600	0x25c860	function-local statics 80.0 / 150.0 with guards used by this function alone on each side, same opening, sole caller CAiSGrenade::Tick (list e); list b called it removed; decided by the coordinator 2026-11-26; class and parameters differ	socom-release-check-seal-e	2026-11-26		name-changed
+0x2f6fc0	-	called only by 0x2f63c0 in FollowTick; sits before the squirm code (list c)	socom-release-coordinator	2026-11-26	src/gamez/zSeal/seal_aifollow.cpp
+0x2f7290	-	called only by 0x2f6fc0 (list c)	socom-release-coordinator	2026-11-26	src/gamez/zSeal/seal_aifollow.cpp
+0x2f09f0	-	owner fixed by the list f check	socom-release-coordinator	2026-11-26	src/gamez/zSeal/seal_aistate.cpp
+0x2f0ae0	-	owner fixed by the list f check	socom-release-coordinator	2026-11-26	src/gamez/zSeal/seal_aistate.cpp
+0x2f0b00	-	owner fixed by the list f check	socom-release-coordinator	2026-11-26	src/gamez/zSeal/seal_aistate.cpp
+0x2f0b20	-	owner fixed by the list f check	socom-release-coordinator	2026-11-26	src/gamez/zSeal/seal_aistate.cpp
+0x2608c0	-	owner fixed by the list f check (the corpse block of HandleEvent)	socom-release-coordinator	2026-11-26	src/gamez/zSeal/seal_ai.cpp
+0x25f0a0-0x260860	-	owner fixed by the list f check (CAiState family block)	socom-release-coordinator	2026-11-26	src/gamez/zSeal/seal_ai.cpp
+0x276f90-0x277470	-	owner fixed by the list d check (new list instances used by seal_ai.cpp)	socom-release-coordinator	2026-11-26	src/gamez/zSeal/seal_ai.cpp

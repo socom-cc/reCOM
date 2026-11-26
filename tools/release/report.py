@@ -121,6 +121,28 @@ def build_rows(matcher, proto_facts: dict, release_found: dict) -> list[dict]:
     return rows
 
 
+def apply_settled_owners(rows: list[dict], settled: list[dict]) -> None:
+    """Owners and flags a checker fixed in the settled file (flag ``owner-settled`` on a changed owner)."""
+
+    for item in settled:
+        if not item.get("owner") and not item.get("flags"):
+            continue
+        for row in rows:
+            if item.get("span") is not None:
+                hit = row["release_address"] is not None and item["span"][0] <= row["release_address"] <= item["span"][1]
+            elif item["release"] is not None:
+                hit = row["release_address"] == item["release"]
+            else:
+                hit = row["release_address"] is None and row["prototype_address"] == item["prototype"]
+            if not hit:
+                continue
+            if item.get("owner") and row["owner_file"] != item["owner"]:
+                row["owner_file"] = item["owner"]
+                row["flags"] = sorted(set(row["flags"]) - {"owner-guess", "owner-moved"} | {"owner-settled"})
+            if item.get("flags"):
+                row["flags"] = sorted(set(row["flags"]) | set(item["flags"]))
+
+
 def write_tsv(rows: list[dict]) -> str:
     lines = ["\t".join(TSV_COLUMNS)]
     for row in rows:
@@ -409,13 +431,19 @@ def markdown(data: dict, rows: list[dict]) -> str:
     add("deviating). %d rows." % len(settled))
     if settled:
         add("")
-        add("| release | prototype | basis | checker | date |")
-        add("|---|---|---|---|---|")
+        add("| release | prototype | basis | checker | date | owner, flags |")
+        add("|---|---|---|---|---|---|")
         for item in settled:
-            add("| %s | %s | %s | %s | %s |" % (
-                hx(item["release"]) if item["release"] is not None else "removed",
-                hx(item["prototype"]) if item["prototype"] is not None else "new",
-                item["basis"].replace("|", "\\|"), item["checker"], item["date"]))
+            if item.get("span"):
+                low, high = item["span"]
+                release = hx(low) if low == high else "%s-%s" % (hx(low), hx(high))
+                proto = "(owner only)"
+            else:
+                release = hx(item["release"]) if item["release"] is not None else "removed"
+                proto = hx(item["prototype"]) if item["prototype"] is not None else "new"
+            extra = ", ".join(x for x in [item.get("owner", "")] + list(item.get("flags", [])) if x) or "-"
+            add("| %s | %s | %s | %s | %s | %s |" % (release, proto, item["basis"].replace("|", "\\|"),
+                                                     item["checker"], item["date"], extra))
     add("")
     add("## Unsure pairs")
     add("")

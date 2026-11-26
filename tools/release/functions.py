@@ -54,8 +54,15 @@ class Fn:
         return sorted(out)
 
 
+GP_PSEUDO = 0x7F800000  # stands in for an unknown $gp: data_refs then hold GP_PSEUDO + offset
+
+
 def find_gp(image, words) -> int | None:
-    """The value crt0 loads into $gp (``lui gp`` then ``addiu/ori gp, gp``) near the entry point."""
+    """$gp: the ``_gp`` symbol when the image has one, else what crt0 loads near the entry point."""
+
+    for symbol in image.symbols:
+        if symbol.name == "_gp" and symbol.address:
+            return symbol.address
 
     start = (image.entry - image.base) // 4
     hi = None
@@ -126,6 +133,7 @@ def build(side: str, image, words, spans, gp: int | None) -> list[Fn]:
         file_loads = []  # (word index, register, file name)
         data_refs = []  # (word index, data address) of lui/low-half and $gp operands
         hi: dict[int, int] = {}
+        last_hi: dict[int, int] = {}
         for index, (word, kind) in enumerate(zip(raw, kinds)):
             op = word >> 26
             if kind == mips.M_CALL:
@@ -136,9 +144,12 @@ def build(side: str, image, words, spans, gp: int | None) -> list[Fn]:
                     tail_calls.append((index, target))
             elif kind == mips.M_HI:
                 hi[(word >> 16) & 0x1F] = (word & 0xFFFF) << 16
+                last_hi[(word >> 16) & 0x1F] = (word & 0xFFFF) << 16
             elif kind == mips.M_LO:
                 base_register = (word >> 21) & 0x1F
-                value = hi.get(base_register)
+                # the flow analysis said a high half reaches here; the latest lui of the
+                # register stands in when it came through a branch
+                value = hi.get(base_register, last_hi.get(base_register))
                 if value is not None:
                     value += mips.simm(word) if op != 0x0D else (word & 0xFFFF)
                     region = regions.kind(value)
@@ -157,10 +168,10 @@ def build(side: str, image, words, spans, gp: int | None) -> list[Fn]:
                 else:
                     refs.append((index, "unknown"))
             elif kind == mips.M_GP:
-                value = None if gp is None else gp + mips.simm(word)
-                refs.append((index, "gp-" + (regions.kind(value) if value is not None else "unknown")))
-                if value is not None:
-                    data_refs.append((index, value))
+                # $gp operands are one kind on both sides; without a known $gp the offset itself
+                # (moved to GP_PSEUDO) still names the variable within one image
+                refs.append((index, "gp"))
+                data_refs.append((index, (gp if gp is not None else GP_PSEUDO) + mips.simm(word)))
             if kind != mips.M_HI and op == 0x0F:
                 hi.pop((word >> 16) & 0x1F, None)
         lines = set()
