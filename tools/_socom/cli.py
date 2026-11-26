@@ -1244,6 +1244,99 @@ def _ghidra_repair_boundaries(arguments: argparse.Namespace) -> int:
     return 0
 
 
+def _ghidra_type_archive(arguments: argparse.Namespace) -> int:
+    """Export every program type to a .gdt with the pinned read-only script (no lease; none may be held)."""
+
+    from .type_archive import (
+        RECORD_PATH,
+        active_writers,
+        export_type_archive,
+        output_root,
+        resolve_output,
+        type_archive_record,
+    )
+
+    root = _root(arguments)
+    output = resolve_output(root, arguments.output)
+    report_output = _build_path(root, arguments.report_output, "type archive reports")
+    writers = active_writers(load_tracker(tracker_path(root)))
+    if writers:
+        raise SocomError(f"the Ghidra writer lease is held by {writers}; export once no writer is active")
+    preflight = live_preflight(root, bridge_url=arguments.bridge_url, strict_baseline=False)
+    if not preflight["ok"]:
+        _emit({"ok": False, "preflight": preflight})
+        return 1
+    bridge = GhidraBridge(arguments.bridge_url, timeout=1800.0)
+    location = output_root(root, output)
+    base = {
+        "kind": "socom-ghidra-type-archive-report",
+        "schema_version": 1,
+        "dry_run": arguments.dry_run,
+        "archive": output.name,
+        "location": location,
+        "replace": arguments.replace,
+    }
+    error: str | None = None
+    ran = written = False
+    try:
+        result = export_type_archive(
+            root,
+            _ReadOnlyBridge(bridge) if arguments.dry_run else bridge,
+            output,
+            replace=arguments.replace,
+            dry_run=arguments.dry_run,
+            log=lambda message: print(message, file=sys.stderr, flush=True),
+        )
+    except SocomError as failure:
+        error = str(failure)
+        ran, written = bool(getattr(failure, "ran", False)), bool(getattr(failure, "written", False))
+        response = getattr(failure, "response", None)
+        result = {"script_response": response} if response is not None else {}
+    if error is None and not arguments.dry_run:
+        after = live_preflight(root, bridge_url=arguments.bridge_url, strict_baseline=False)
+        if not after["ok"]:
+            error = "live preflight failed after the export: " + "; ".join(after.get("errors", []))
+            ran, written = True, output.is_file()
+    if error is not None:
+        report = base | {
+            "ok": False,
+            "error": error,
+            "script_may_have_run": ran,
+            "archive_may_be_written": written,
+            "recovery": (
+                "the script only reads the program; check the program is unchanged (ghidra fingerprint), "
+                f"then delete {output.name} if it is not wanted and retry"
+                if ran
+                else "nothing was sent; the live program and the output path are unchanged"
+            ),
+        } | result
+        atomic_write_json(report_output, report)
+        _emit({key: value for key, value in report.items() if key != "script_response"})
+        return 1
+    record = None
+    if arguments.dry_run:
+        # The reviewed text the real run sends, and its pinned hash.
+        print(f"--- {result['script']['path']} sha256 {result['script']['sha256']}", file=sys.stderr)
+        print(result["source"], file=sys.stderr, end="", flush=True)
+        print(
+            f"--- args: <hex of the absolute path of {location}/{output.name}> "
+            f"{'replace' if arguments.replace else 'create'}",
+            file=sys.stderr,
+            flush=True,
+        )
+    elif location == "support":
+        record = type_archive_record(result, preflight)
+        atomic_write_json(root / RECORD_PATH, record)
+    report = base | {
+        "ok": True,
+        **{key: value for key, value in result.items() if key != "source"},
+        "record": RECORD_PATH if record else None,
+    }
+    atomic_write_json(report_output, report)
+    _emit({key: value for key, value in report.items() if key not in ("script_result", "snapshot")})
+    return 0
+
+
 def _ghidra_repair_labels(arguments: argparse.Namespace) -> int:
     return _ghidra_repair(arguments, "labels", repair_labels)
 
@@ -3022,6 +3115,16 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
         mutates_ghidra=True,
     ),
     _spec(
+        "ghidra type-archive",
+        "ghidra",
+        "Copy every socom.elf data type into a new .gdt file archive under support/ or build/ with the pinned "
+        "read-only script (program architecture, per-kind counts, no .conflict types, program unchanged), with "
+        "--replace and --dry-run; refused while a writer lease is held. A support/ export writes "
+        ".agent/TYPE_ARCHIVE.json.",
+        mutates=True,
+        ghidra_requirement="required",
+    ),
+    _spec(
         "ghidra map-zero-fill",
         "ghidra",
         "Map the ELF load image's zero fill in Ghidra under the item's writer lease.",
@@ -3502,6 +3605,13 @@ def build_parser() -> argparse.ArgumentParser:
     repair_boundaries_parser.add_argument("--dry-run", action="store_true")
     repair_boundaries_parser.add_argument("--bridge-url")
     repair_boundaries_parser.set_defaults(handler=_ghidra_repair_boundaries)
+    type_archive_parser = ghidra_commands.add_parser("type-archive")
+    type_archive_parser.add_argument("--output", default="support/socom-types.gdt")
+    type_archive_parser.add_argument("--replace", action="store_true")
+    type_archive_parser.add_argument("--report-output", default="build/type-archive/report.json")
+    type_archive_parser.add_argument("--dry-run", action="store_true")
+    type_archive_parser.add_argument("--bridge-url")
+    type_archive_parser.set_defaults(handler=_ghidra_type_archive)
     repair_labels_parser = ghidra_commands.add_parser("repair-labels")
     repair_labels_parser.add_argument("--item", required=True)
     repair_labels_parser.add_argument("--owner", required=True)

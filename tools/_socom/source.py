@@ -146,7 +146,12 @@ def _portability_files(root: Path) -> set[Path]:
     schema = root / ".agent" / "schema"
     if schema.exists():
         files.update(path for path in schema.rglob("*") if path.is_file())
-    for name in (*ROOT_AUDIT_FILES, ".agent/WORKSPACE_ISSUES.json", "compiler/PROVENANCE.json"):
+    for name in (
+        *ROOT_AUDIT_FILES,
+        ".agent/WORKSPACE_ISSUES.json",
+        ".agent/TYPE_ARCHIVE.json",
+        "compiler/PROVENANCE.json",
+    ):
         path = root / name
         if path.is_file():
             files.add(path)

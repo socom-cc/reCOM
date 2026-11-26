@@ -35,6 +35,7 @@ Generated from `python tools/socom.py commands --json`.
 | `python tools/socom.py ghidra repair-names` | ghidra | yes | required | yes | Give mangled functions their readable names (names repair), with --dry-run, under the writer lease. |
 | `python tools/socom.py ghidra repair-signatures` | ghidra | yes | required | yes | Restore function signatures a recorded repair names, under the repair item's writer lease. |
 | `python tools/socom.py ghidra repair-boundaries` | ghidra | yes | required | yes | Rejoin the ten split function boundaries with the pinned one-time script, with --dry-run, under the writer lease. |
+| `python tools/socom.py ghidra type-archive` | ghidra | yes | required | no | Copy every socom.elf data type into a new .gdt file archive under support/ or build/ with the pinned read-only script (program architecture, per-kind counts, no .conflict types, program unchanged), with --replace and --dry-run; refused while a writer lease is held. A support/ export writes .agent/TYPE_ARCHIVE.json. |
 | `python tools/socom.py ghidra map-zero-fill` | ghidra | yes | required | yes | Map the ELF load image's zero fill in Ghidra under the item's writer lease. |
 | `python tools/socom.py ghidra apply-types` | ghidra | yes | required | yes | Apply a translated type program under the item's writer lease and verify it. |
 | `python tools/socom.py ghidra data-overlap` | ghidra | no | required | no | Report overlapping Ghidra data roots. |

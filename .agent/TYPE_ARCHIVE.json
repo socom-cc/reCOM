@@ -1,0 +1,36 @@
+{
+  "archive": "socom-types.gdt",
+  "category_count": 55,
+  "exported_on": "2026-11-26",
+  "ghidra_version": "12.1.4",
+  "kind": "socom-type-archive",
+  "pointer_size": 4,
+  "program": {
+    "compiler_spec": "default",
+    "language": "r5900:LE:32:default",
+    "path": "/socom.elf",
+    "project": "soCOM",
+    "source_sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a"
+  },
+  "schema_version": 1,
+  "script": {
+    "path": "tools/_socom/ghidra_scripts/ExportTypeArchive.java",
+    "sha256": "488ec9c2efd48ba32f93312d28e903fd7bbce0620335367c96817d3f33b9c6d8"
+  },
+  "sha256": "cdcba8d65288b449d19bc59e862223720748e6b73c84b398b5b5f6b083fcc2b3",
+  "size": 227661,
+  "type_counts": {
+    "array": 315,
+    "builtin": 29,
+    "enum": 84,
+    "function_definition": 22,
+    "other": 0,
+    "pointer": 480,
+    "structure": 771,
+    "total": 1733,
+    "typedef": 24,
+    "union": 8
+  },
+  "universal_id": "3765764018135167454",
+  "user_decision": "2026-11-25"
+}

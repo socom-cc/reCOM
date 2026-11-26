@@ -5,4 +5,7 @@ generated control state or immutable manifests. Never edit
 `RECONSTRUCTION_PROGRESS.json` or `REFERENCE_CENSUS.json` manually; use
 `python tools/socom.py`. Workspace tooling/process issues are maintained only
 through the registered `issue` commands; do not edit
-`WORKSPACE_ISSUES.json` manually.
+`WORKSPACE_ISSUES.json` manually. `TYPE_ARCHIVE.json` records the last
+data type archive export to `support/`; only
+`python tools/socom.py ghidra type-archive` writes it, and it names the
+archive file but never a directory.

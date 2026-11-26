@@ -143,8 +143,10 @@ verified boundary, code/data, or reference changes.
 
 Routine reconstruction must not open, switch, import, close, or delete
 programs; call `save_all_programs`; run scripts; use debugger operations;
-patch bytes; clear flow; or call `save_program` directly. The only script
-exception is the one-time boundary repair described below.
+patch bytes; clear flow; or call `save_program` directly. There are exactly
+two script exceptions, each a pinned, reviewed file run only by its own
+command: the one-time boundary repair and the read-only type archive export,
+both described below.
 
 ### Bridge hazards
 
@@ -449,7 +451,7 @@ repair keeps the compiler spec's default convention. It reads back both
 targets and both thunks and scopes all four functions for the handoff
 receipt.
 
-### One-time boundary repair (the only script exception)
+### One-time boundary repair (the first script exception)
 
 Ghidra split ten `.symtab` functions that begin `b L; nop`, where L is more
 than 8 bytes past the start. `CreateThunkFunctionCmd` treats such a branch as
@@ -467,8 +469,9 @@ Running `delete_function` and then `create_function` rebuilds the split.
 On 2026-10-30 the user allowed one reviewed Ghidra script for exactly these
 ten functions, under `socom:work:ghidra-repair-split-function-boundaries`; a
 patched plugin was rejected. The no-scripts rule in AGENTS.md still covers
-everything else. No other command or worker may call `run_script_inline` or
-`run_ghidra_script`, and this command runs nothing but the pinned file.
+everything else, apart from the type archive export below. No other command
+or worker may call `run_script_inline` or `run_ghidra_script`, and this
+command runs nothing but the pinned file.
 
 ```powershell
 python tools/socom.py ghidra repair-boundaries `
@@ -570,6 +573,124 @@ the live program is unchanged. If it may have, close `socom.elf` without
 saving and reopen it before retrying.
 
 Hand off with `progress handoff-live-ghidra`; someone else accepts it.
+
+### Type archive export (the second script exception)
+
+The release program and later game versions are to reuse the prototype's
+data types. GhidraMCP 6.0.0 has no endpoint that writes a data type archive,
+so on 2026-11-25 the user allowed a second reviewed Ghidra script,
+`tools/_socom/ghidra_scripts/ExportTypeArchive.java`. It only reads the
+program: it copies every `socom.elf` data type into a new `.gdt` file
+archive. Every other script stays forbidden; no other command or worker may
+call `run_script_inline` or `run_ghidra_script`, and this command runs
+nothing but the pinned file. Its SHA-256 (CRLF read as LF) is
+`488ec9c2efd48ba32f93312d28e903fd7bbce0620335367c96817d3f33b9c6d8`, pinned
+in `tools/_socom/type_archive.py`; a changed script needs a new review and
+a new pin.
+
+```powershell
+python tools/socom.py ghidra type-archive `
+  --output support/socom-types.gdt `
+  --dry-run
+```
+
+The `.gdt` is never tracked: the output must be a `.gdt` under `support/`
+(the default, `support/socom-types.gdt`) or `build/`, both git-ignored. An
+existing archive is refused unless `--replace` is given, and so is one that
+Ghidra holds open (a `<name>.*lock` file beside it). The command needs no
+work item and no lease, because it writes no program state, but it refuses
+while any item holds `ghidra-writer`.
+
+**Before it runs.** The command checks the live preflight (project `soCOM`,
+program `/socom.elf`, source SHA-256, language and compiler), the script's
+pinned hash and the output path, and reads a type snapshot: every
+`list_data_types` row (name, category, size, path), the category names, and
+no `.conflict` name. `--dry-run` stops there; it prints the script and its
+hash and sends nothing.
+
+**The run.** One `run_script_inline` call sends the pinned text with two
+arguments: the absolute output path as hex of its UTF-8 bytes (the bridge
+splits arguments at whitespace) and `create` or `replace`. As for the
+boundary repair, start Ghidra with `GHIDRA_MCP_ALLOW_SCRIPTS=1` for this run
+only and restart it without it afterwards; the bridge writes
+`~/ghidra_scripts/ExportTypeArchive.java` and runs it on the Swing thread
+against `program=socom.elf`. The script:
+
+- refuses unless the program is `/socom.elf` with `r5900:LE:32:default` and
+  compiler spec `default`, and the output is a `.gdt` in an existing
+  directory that is absent (or, with `replace`, a plain unlocked file);
+- creates the archive under its final name in a new staging directory next
+  to the output with `FileDataTypeManager.createFileArchive(file, language,
+  compiler spec)`, so the archive has the program's architecture and data
+  organization;
+- in the archive's own transaction creates every program category and
+  resolves every program type with `DEFAULT_HANDLER`, so a clash shows as a
+  `.conflict` name instead of a silent replacement;
+- saves and closes the archive, reopens it read-only, and requires the same
+  category and type paths, an equivalent type of the same length at every
+  path, the same count per kind (structure, union, enum, typedef, function
+  definition, pointer, array, built-in, other), the program's language,
+  compiler spec and data organization, and no archive warning;
+- only then renames the file onto the output path; on any problem it deletes
+  the staging directory, so nothing half-written is left;
+- prints one `SOCOM_TYPE_ARCHIVE_RESULT {json}` line with both sets of
+  counts, the conflict, missing, extra and non-equivalent counts (all must be
+  0), the archive's universal ID and the program state before and after. It
+  names the archive file but never a directory.
+
+The copy cannot change the program. A program type's source archive is the
+program itself, and `resolve` does not carry a program's identity into
+another manager: the archive gets an unassociated copy with a new universal
+ID, and every write goes to the archive. (A program type that is already
+linked to another file or project archive keeps that link and its ID in the
+new `.gdt`; `socom.elf` has one such source, Ghidra's own `generic_clib`.)
+The script never calls
+`associateDataTypeWithArchive`, never opens the archive in the tool, renames
+nothing and saves nothing. As a runtime proof it records the program's
+database modification count, modification number, changed flag, type count
+and source archives before and after; any difference fails the export and
+aborts a nested program transaction, so Ghidra rolls the script's
+transaction back. An unchanged program's empty script transaction commits
+nothing and leaves no undo entry.
+
+**Read-back.** The command requires the result to match (counts equal to each
+other and to the live `list_data_types` count, every problem count 0, the
+architecture, an unchanged program state), reads the type snapshot again and
+requires it equal, requires the file, hashes it, and runs the live preflight
+again. A `support/` export then writes `.agent/TYPE_ARCHIVE.json`: the
+archive's file name (no directory), SHA-256, size, universal ID, counts per
+kind and categories, the program's identity and source SHA-256, the script
+path and hash, the Ghidra pin, the decision date and the export date. A
+`build/` export is a disposable trial and writes only its report under
+`build/type-archive/`. Each export gets a new universal ID, so the archive's
+hash changes with every export.
+
+**Failure.** The report says whether the script may have run and whether the
+archive may have been written. The script only reads the program; if it may
+have run, confirm the program is unchanged (for example with
+`ghidra fingerprint`) and delete an unwanted archive before retrying.
+
+**First export (2026-11-26, the record's UTC date).** Run after an independent review of the script
+against the Ghidra 12.1.4 sources: 1,733 types in 55 categories, equal counts
+per kind in program and archive, no conflict, missing, extra or
+non-equivalent type, the program's modification count unchanged. A semantic
+receipt taken afterwards with the stage baseline's scope has the baseline's
+digest (`f8912398...`). The record is `.agent/TYPE_ARCHIVE.json`.
+
+**Known limits** (from the review; none affects a first export):
+
+- A later `--replace` writes an archive with a new universal ID and new type
+  IDs. A program that has been linked to the earlier `.gdt` loses that link,
+  so do not replace an archive another program already uses until the export
+  can keep the IDs.
+- Settings on structure members are not carried: only a program's type
+  manager stores them, and the equivalence check does not compare them.
+- The lock test uses the plain file name. Ghidra mangles capitals in its lock
+  file names, and an archive open read-only leaves no lock file, so keep the
+  lower-case default name and close the archive in Ghidra before `--replace`.
+- The before and after snapshot the command reads through the bridge sees
+  names, categories, sizes and paths, not member layouts; the script's own
+  modification-count check covers those.
 
 ### Restoring the accepted state
 
