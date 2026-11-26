@@ -52,7 +52,7 @@ PROGRAMS = {PROTOTYPE_PROGRAM: PROTOTYPE_PATH, RELEASE_PROGRAM: RELEASE_PATH}
 READS = frozenset({
     "list_open_programs", "analysis_status", "get_program_options", "list_functions_enhanced",
     "get_function_by_address", "get_plate_comment", "get_function_labels", "audit_global",
-    "get_function_documentation",
+    "get_function_documentation", "get_xrefs_from",
 })
 NO_PROGRAM = frozenset({"list_open_programs"})
 # The only writes the names step sends; none of them saves.

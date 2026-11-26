@@ -35,18 +35,22 @@ HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
+import createflow  # noqa: E402
+import elfimage  # noqa: E402
 import ghidra_bridge as gb  # noqa: E402
+import mips  # noqa: E402
 import report  # noqa: E402
 from elfimage import PROTOTYPE_SHA256, RELEASE_SHA256  # noqa: E402
 
 MAP_JSON = Path("build/release/function-map.json")
 MAP_TSV = Path("docs/release/function-map.tsv")
+RELEASE_ELF = Path("support/SCUS_971.34")
 NOTES = Path("docs/release/notes")
 OUT = Path("build/release/names")
 RECORD = Path("docs/release/ghidra-applied.tsv")
 RECORD_COLUMNS = ("release_address", "applied", "value", "source_pair", "date", "state")
 PLAN_KIND = "socom-release-names-plan"
-PLAN_SCHEMA = 1
+PLAN_SCHEMA = 2  # 2: creates carry a predicted-body safety class and an order
 PLATE_PREFIX = "Release map: "
 SHA_OPTION = "Executable SHA256"
 SETTLE_SECONDS = 300  # longest wait for analysis to go idle
@@ -60,6 +64,8 @@ NAME_BLOCK = {
     "merged": "the release function absorbed another prototype function (merged)",
     "rename-possible": "the checker left a class rename open (rename-possible)",
 }
+# Function actions that leave a map function without any write.
+UNNAMED_ACTIONS = ("inside", "no-instruction", "excluded", "create-withheld")
 _DEFAULT_NAME = re.compile(r"^(?:thunk_)?FUN_[0-9a-f]{8}$")
 
 
@@ -177,6 +183,61 @@ def read_plate(bridge, address: int) -> str | None:
     if int(str(value.get("address")), 16) != address:
         raise gb.BridgeError(f"get_plate_comment {hx(address)} answered the function at {value.get('address')}")
     return value.get("comment") or ""
+
+
+def live_function(bridge, address: int, assumed: frozenset = frozenset()) -> dict | None:
+    """The release function at or containing ``address``, ignoring functions assumed removed."""
+
+    found = read_function(bridge, gb.RELEASE_PROGRAM, address)
+    return None if found is None or found["entry"] in assumed else found
+
+
+def jump_targets(bridge, address: int) -> list[int]:
+    """Flow targets Ghidra recorded for a computed jump (``get_xrefs_from``)."""
+
+    text = bridge.get("get_xrefs_from", gb.RELEASE_PROGRAM, address=hx(address), offset=0, limit=1000)
+    if not isinstance(text, str):
+        raise gb.BridgeError(f"get_xrefs_from {hx(address)}: {text!r}")
+    return sorted(int(m.group(1), 16) for m in re.finditer(r"^To ([0-9a-fA-F]+)\b.*\[(\w*JUMP\w*)\]$", text, re.M))
+
+
+def plan_creates(rows, bridge, live_list: dict, assumed: frozenset, image, exclude) -> dict[int, dict]:
+    """Every map start Ghidra would have to create, whole map, with its safety class.
+
+    A create is sent only when ``CreateFunctionCmd`` is predicted to give it exactly the map
+    extent (``createflow``): safe in any order, ordered (the creates it flows into first), or
+    withheld with the reason.
+    """
+
+    candidates: dict[int, int] = {}
+    for row in rows:
+        address = row["release_address"]
+        if address is None or address in live_list or address in exclude:
+            continue
+        if live_function(bridge, address, assumed):
+            continue  # inside another function's body
+        audit = bridge.get("audit_global", gb.RELEASE_PROGRAM, address=hx(address))
+        if isinstance(audit, dict) and audit.get("is_code_address"):
+            candidates[address] = row["release_size"]
+    details = {a: read_function(bridge, gb.RELEASE_PROGRAM, a) for a in live_list}
+    noreturn = {a for a, d in details.items() if d and d["noreturn"]}
+    spans = [(d["body_min"], d["body_max"]) for d in details.values() if d]
+    blocked: dict[int, str] = {}
+    jumps: dict[int, list[int]] = {}
+    for address, size in sorted(candidates.items()):
+        last = address + size - 1
+        if any(lo <= last and hi >= address for lo, hi in spans):
+            # some body's range covers the extent; ask address by address (bodies may have holes)
+            for pc in range(address + 4, address + size, 4):
+                found = live_function(bridge, pc, assumed)
+                if found:
+                    blocked[address] = f"its extent overlaps the body of the function at {hx(found['entry'])}"
+                    break
+        for pc in range(address, address + size, 4):
+            word = image.word(pc) if image.contains(pc) else 0
+            if mips.is_jr(word) and word != mips.JR_RA:
+                jumps[pc] = jump_targets(bridge, pc)
+    return createflow.classify(candidates, set(live_list), image.word, image.contains, noreturn, jumps, blocked)
 
 
 def read_labels(bridge, function_name: str) -> list[tuple[int, str]]:
@@ -308,7 +369,10 @@ def global_names(rows, proto_list, live_list) -> tuple[dict, dict]:
     return planned, collisions
 
 
-def build_plan(root: Path, bridge, module: str | None, exclude: set[int] = frozenset(), progress=None) -> dict:
+def build_plan(root: Path, bridge, module: str | None, exclude: set[int] = frozenset(), progress=None,
+               assumed: frozenset = frozenset(), image=None) -> dict:
+    """``assumed``: release functions the plan treats as removed (the apply checks they are)."""
+
     check = preflight(bridge)
     if not check["ok"]:
         raise Refused("preflight failed: " + "; ".join(check["errors"]))
@@ -316,11 +380,14 @@ def build_plan(root: Path, bridge, module: str | None, exclude: set[int] = froze
     settled_by_release = {s["release"]: s for s in settled if s["release"] is not None}
     index = notes_index(root)
     proto_list = function_list(bridge, gb.PROTOTYPE_PROGRAM)
-    live_list = function_list(bridge, gb.RELEASE_PROGRAM)
+    live_list = {a: f for a, f in function_list(bridge, gb.RELEASE_PROGRAM).items() if a not in assumed}
     planned, collisions = global_names(rows, proto_list, live_list)
     targets = thunk_targets(live_list)
     chosen = select(rows, module)
     starts = {r["release_address"] for r in rows if r["release_address"] is not None}
+    image = image or elfimage.load(root / RELEASE_ELF, "release")
+    creates = plan_creates(rows, bridge, live_list, frozenset(assumed), image, exclude)
+    selected = {r["release_address"] for r in chosen}
 
     entries = []
     for number, row in enumerate(chosen):
@@ -347,7 +414,7 @@ def build_plan(root: Path, bridge, module: str | None, exclude: set[int] = froze
                 "thunk": listed["thunk"], "noreturn": bool(detail and detail["noreturn"]),
             }
 
-        live = read_function(bridge, gb.RELEASE_PROGRAM, address)
+        live = live_function(bridge, address, frozenset(assumed))
         if live and live["entry"] == address:
             entry["live"] = {"name": live["name"], "body_max": hx(live["body_max"]),
                              "thunk": live_list.get(address, {}).get("thunk", False), "noreturn": live["noreturn"]}
@@ -379,6 +446,16 @@ def build_plan(root: Path, bridge, module: str | None, exclude: set[int] = froze
             entry["function"] = "create" if code else "no-instruction"
         if address in exclude:
             entry["function"] = "excluded"
+        if entry["function"] == "create":
+            info = dict(creates[address])
+            outside = [a for a in info["after"] if a not in selected]
+            if info["safety"] == "ordered" and outside:
+                info = {"safety": "withheld", "after": [],
+                        "reason": f"needs the create at {hx(outside[0])} first, which is outside this plan"}
+            entry["create"] = {"safety": info["safety"], "after": [hx(a) for a in info["after"]],
+                               "reason": info["reason"]}
+            if info["safety"] == "withheld":
+                entry["function"] = "create-withheld"
 
         name, label, reason = planned[address]
         if name in collisions:
@@ -394,9 +471,10 @@ def build_plan(root: Path, bridge, module: str | None, exclude: set[int] = froze
             else:
                 name, label, reason = None, None, f"Ghidra already names it {live_name} and the pair is not exact"
         entry.update({"name": name, "label": label, "name_reason": reason, "previous_name": previous})
-        if entry["function"] in ("inside", "no-instruction", "excluded"):
+        if entry["function"] in UNNAMED_ACTIONS:
+            why = entry["create"]["reason"] if entry["function"] == "create-withheld" else ""
             entry.update({"name": None, "label": None, "plate": None,
-                          "name_reason": f"not named: function {entry['function']}"})
+                          "name_reason": f"not named: function {entry['function']}" + (f" ({why})" if why else "")})
         else:
             entry["plate"] = plate_text(row, entry, note_for(settled_by_release.get(address), address, index, root))
         proto, here = entry["prototype"], entry["live"]
@@ -418,7 +496,7 @@ def build_plan(root: Path, bridge, module: str | None, exclude: set[int] = froze
         "program_path": gb.RELEASE_PATH, "reference_program": gb.PROTOTYPE_PROGRAM,
         "release_sha256": RELEASE_SHA256, "prototype_sha256": PROTOTYPE_SHA256,
         "selection": module or "--all", "function_map_sha256": map_sha,
-        "excluded": sorted(hx(a) for a in exclude),
+        "excluded": sorted(hx(a) for a in exclude), "assumed_removed": sorted(hx(a) for a in assumed),
         "entries": entries, "ghidra_only": ghidra_only,
         "collisions": sorted((c for c in collisions.values() if set(c["addresses"]) & chosen_addresses),
                              key=lambda c: c["name"]),
@@ -451,6 +529,15 @@ def summarize(plan: dict) -> dict:
         "plates": sum(1 for e in entries if e["plate"]),
         "analysis_names_replaced": sum(1 for e in entries if e["previous_name"]),
         "name_reasons": dict(sorted(Counter(e["name_reason"] for e in entries if not e["name"]).items())),
+        "creates": {
+            "safe": sum(1 for e in entries if e.get("create", {}).get("safety") == "safe"),
+            "ordered": sum(1 for e in entries if e.get("create", {}).get("safety") == "ordered"),
+            "withheld": sum(1 for e in entries if e.get("create", {}).get("safety") == "withheld"),
+            "withheld_bytes": sum(e["size"] for e in entries if e.get("create", {}).get("safety") == "withheld"),
+            "withheld_reasons": dict(sorted(Counter(
+                re.sub(r"0x[0-9a-f]+", "0x..", e["create"]["reason"]) for e in entries
+                if e.get("create", {}).get("safety") == "withheld").items())),
+        },
         "boundary_differences": len(boundary),
         "largest_boundary_differences": [
             {"address": e["address"], "function": e["function"], **e["boundary"]} for e in largest],
@@ -478,6 +565,13 @@ def plan_markdown(plan: dict) -> str:
     for b in s["largest_boundary_differences"]:
         lines.append(f"| {b['address']} | {b['function']} | {b.get('ghidra_function', b['address'])} | "
                      f"{b.get('ghidra_lowest', '-')} | {b['ghidra_end']} | {b['map_end']} | {b['bytes']} |")
+    c = s["creates"]
+    lines += ["", f"## Creates: {c['safe']} safe, {c['ordered']} after another create, {c['withheld']} withheld "
+              f"({c['withheld_bytes']} bytes)", ""]
+    lines += [f"- {e['address']} ({e['size']} bytes) after {', '.join(e['create']['after'])}"
+              for e in plan["entries"] if e.get("create", {}).get("safety") == "ordered"]
+    lines += [f"- withheld {e['address']} ({e['size']} bytes, {e['class']}): {e['create']['reason']}"
+              for e in plan["entries"] if e.get("create", {}).get("safety") == "withheld"]
     unplaced = [e for e in plan["entries"] if e["function"] == "no-instruction"]
     if unplaced:
         lines += ["", f"## Starts without an instruction ({len(unplaced)}; need disassembly, not done)", ""]
@@ -588,6 +682,7 @@ class Applier:
         self.changed_entries = 0
         self.batch_full = False
         self.renamed: dict[int, str] = {}
+        self.remove_by_hand: list[dict] = []  # functions a create made with the wrong extent
 
     # The names Ghidra shows, kept current through this run's renames (thunks follow targets).
     def show(self, address: int, name: str) -> None:
@@ -642,16 +737,19 @@ class Applier:
         self.display = {a: f["name"] for a, f in self.before.items()}
         self.counts = Counter(self.display.values())
         self.listed = set(self.before)
+        self.by_address = {e["address"]: e for e in self.plan["entries"]}
+        self.processed: set[str] = set()
         try:
             for entry in sorted(self.plan["entries"], key=lambda e: int(e["address"], 16)):
-                if entry["function"] in ("inside", "no-instruction", "excluded"):
+                if entry["function"] in UNNAMED_ACTIONS:
                     self.skipped.append({"address": entry["address"], "reason": entry["name_reason"]})
+                    continue
+                if entry["address"] in self.processed:
                     continue
                 if self.batch and self.changed_entries >= self.batch:
                     self.batch_full = True
                     break
-                if self.entry(entry):
-                    self.changed_entries += 1
+                self.process(entry, ())
         finally:
             if not self.dry_run and (self.written or self.bridge.sent):
                 try:
@@ -661,6 +759,21 @@ class Applier:
                 after = snapshot(self.bridge)
                 created = {int(w["address"], 16) for w in self.written if w["applied"] == "create"}
                 self.side_effects += diff_snapshots(self.before, after, created, self.renamed)
+
+    def process(self, entry: dict, chain: tuple) -> None:
+        """One entry, after the creates its flow falls or jumps into (descending runs come out first)."""
+
+        for before in entry.get("create", {}).get("after", []):
+            if before in chain:
+                raise Stop(f"create order loops through {before}: replan")
+            needed = self.by_address.get(before)
+            if needed is None or needed["function"] != "create":
+                raise Stop(f"{entry['address']} needs the create at {before}, which the plan does not make")
+            if before not in self.processed:
+                self.process(needed, chain + (entry["address"],))
+        self.processed.add(entry["address"])
+        if self.entry(entry):
+            self.changed_entries += 1
 
     def labels_at(self, address: int, name: str) -> list[tuple[int, str]]:
         """Labels of the function at ``address``: by its name when unique, otherwise by address."""
@@ -696,12 +809,26 @@ class Applier:
                 audit = self.bridge.get("audit_global", gb.RELEASE_PROGRAM, address=entry["address"])
                 if not (isinstance(audit, dict) and audit.get("is_code_address")):
                     raise Stop(f"{entry['address']}: no instruction at the start any more: replan")
+                if entry.get("create", {}).get("safety") not in ("safe", "ordered"):
+                    raise Stop(f"{entry['address']}: the plan gives this create no safety class: replan")
+                for before in entry["create"]["after"]:
+                    if not self.dry_run:
+                        there = read_function(self.bridge, gb.RELEASE_PROGRAM, int(before, 16))
+                        if not there or there["entry"] != int(before, 16):
+                            raise Stop(f"{entry['address']} would flow into {before}, which is no function yet")
                 if self.send(entry, "create", f"{entry['address']}-{entry['end']}", "create_function",
                              gb.ok_create, address=entry["address"], disassemble_first=False):
                     self.settle()
                     back = read_function(self.bridge, gb.RELEASE_PROGRAM, address)
                     if not back or back["entry"] != address or back["body_max"] != end or back["body_min"] != address:
                         got = "nothing" if not back else f"{hx(back['body_min'])}..{hx(back['body_max'])}"
+                        if back and back["entry"] == address:
+                            self.remove_by_hand.append({"address": entry["address"], "name": back["name"],
+                                                        "body": got, "planned": f"{entry['address']}..{entry['end']}"})
+                            raise Stop(f"create {entry['address']} read back {got}, expected {entry['address']}.."
+                                       f"{entry['end']}: remove the function {back['name']} at {entry['address']} "
+                                       "by hand in Ghidra, then save and --confirm-saved this report (or close "
+                                       "without saving and --discard-unsaved it), then replan")
                         raise Stop(f"create {entry['address']} read back {got}, expected {entry['address']}..{entry['end']}")
                     self.done(entry, "create", f"{entry['address']}-{entry['end']}")
                     self.after_create(entry, back)
@@ -896,6 +1023,10 @@ def apply(root: Path, plan_path: Path, bridge, *, dry_run: bool, today: str | No
     if not check["ok"]:
         raise Refused("preflight failed: " + "; ".join(check["errors"]))
     out = (root / OUT / f"{plan_path.stem}.dry-run.json") if dry_run else next_report(root, plan_path.stem)
+    for address in plan.get("assumed_removed", []):
+        there = read_function(bridge, gb.RELEASE_PROGRAM, int(address, 16))
+        if there and there["entry"] == int(address, 16):
+            raise Refused(f"the plan assumes the function at {address} was removed, but it is still there")
     applier = Applier(bridge, plan, dry_run, batch)
     stopped = None
     try:
@@ -912,7 +1043,7 @@ def apply(root: Path, plan_path: Path, bridge, *, dry_run: bool, today: str | No
         "sent": [] if dry_run else bridge.sent, "written": applier.written, "would_write": applier.would,
         "counts": dict(sorted(Counter(w["applied"] for w in (applier.would if dry_run else applier.written)).items())),
         "unchanged": dict(sorted(applier.unchanged.items())), "skipped": applier.skipped,
-        "side_effects": applier.side_effects,
+        "side_effects": applier.side_effects, "remove_by_hand": applier.remove_by_hand,
         "boundary_differences": plan["summary"]["boundary_differences"], "collisions": plan["summary"]["collisions"],
     }
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -937,6 +1068,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--all", action="store_true", help="with --plan: every release function")
     parser.add_argument("--exclude", action="append", default=[], metavar="0xADDR",
                         help="with --plan: leave this release function out (repeatable)")
+    parser.add_argument("--assume-removed", action="append", default=[], metavar="0xADDR",
+                        help="with --plan: plan as if the release function at this entry had been removed "
+                             "(the apply refuses until it is)")
     parser.add_argument("--dry-run", action="store_true", help="with --apply: reads and checks only")
     parser.add_argument("--yes", action="store_true", help="with --apply: really write")
     parser.add_argument("--batch", type=int, metavar="N", help="with --apply: stop after N changed functions")
@@ -949,13 +1083,14 @@ def main(argv: list[str] | None = None) -> int:
                 parser.error("--plan takes either a module or --all")
             exclude = {int(a, 16) for a in args.exclude}
             plan = build_plan(root, gb.Bridge(args.url, read_only=True), args.plan or None, exclude,
-                              progress=lambda m: print(m, file=sys.stderr))
+                              progress=lambda m: print(m, file=sys.stderr),
+                              assumed=frozenset(int(a, 16) for a in args.assume_removed))
             path = write_plan(root, plan)
             print(json.dumps(plan["summary"], indent=1))
             print(f"wrote {path.relative_to(root).as_posix()} (plan sha256 {plan['plan_sha256']})")
             return 0
-        if args.all or args.exclude:
-            parser.error("--all and --exclude go with --plan")
+        if args.all or args.exclude or args.assume_removed:
+            parser.error("--all, --exclude and --assume-removed go with --plan")
         if args.confirm_saved or args.discard_unsaved:
             bridge = gb.Bridge(args.url, read_only=True)
             check = preflight(bridge)
@@ -977,6 +1112,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"sent: {len(result['sent'])}; skipped: {len(result['skipped'])}; side effects: "
               f"{len(result['side_effects'])}; boundary differences: {result['boundary_differences']}; "
               f"collisions: {result['collisions']}")
+        for item in result["remove_by_hand"]:
+            print(f"REMOVE BY HAND in Ghidra: the function {item['name']} at {item['address']} "
+                  f"(body {item['body']}, planned {item['planned']})")
         if result["batch_full"]:
             print("batch complete: save through the bridge, then --confirm-saved the report, then rerun")
         return 1 if result["stopped"] or result["side_effects"] else 0

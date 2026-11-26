@@ -113,7 +113,13 @@ python tools/release/names.py --confirm-saved build/release/names/plan-gamez-zAr
   names the prototype counterpart. Every function gets a two-line plate comment (`Release map: ...`)
   with class, prototype address and symbol, evidence, flags, owner file and the settling note.
   Boundary differences, starts without an instruction and thunk or no-return differences are
-  listed, not fixed.
+  listed, not fixed. A create is planned only when its body is predictable: `CreateFunctionCmd`
+  follows flow from the entry until an existing function entry, so the plan repeats that flow over
+  the release image (`tools/release/createflow.py`) and classes each create safe (the body is the
+  map extent as things stand), ordered (after the creates its flow falls or jumps into; the apply
+  makes those first) or withheld with the reason (padding or other code would join the body, part
+  of the extent is unreachable, its extent overlaps a function). `--assume-removed 0x..` plans as
+  if a function had been removed by hand; the apply refuses until it is.
 - **Review**: a second agent that did not write the plan checks it before anything is applied.
 - **Apply**: the coordinator only, after the review: the dry run first, then `--yes`, optionally
   in batches (`--batch N` changed functions; a rerun continues). The tool checks the open
@@ -124,7 +130,7 @@ python tools/release/names.py --confirm-saved build/release/names/plan-gamez-zAr
   writes the plate comment, reading each back; the first failed read-back stops the run. It waits
   for auto-analysis after each create, compares a snapshot of every release function before and
   after, and reports each change it did not make. The report under `build/release/names/` lists
-  every write sent, in order, with its answer. A second run changes nothing.
+  every write sent, in order, with its answer. A create that still reads back another extent stops the run; the message and the report (`remove_by_hand`) name the function to remove by hand in Ghidra. A second run changes nothing.
 - **Save**: the coordinator, through the bridge, after a second agent has checked the batch; then
   `--confirm-saved <report>`. After closing without a save, `--discard-unsaved <report>`.
 - **Record**: `docs/release/ghidra-applied.tsv` (release address, what was applied, the value, the

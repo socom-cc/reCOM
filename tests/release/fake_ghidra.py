@@ -6,7 +6,8 @@ behaviour follows the plugin and Ghidra 12.1.4: programs looked up by project pa
 decoded twice, address lookups that fall back to the containing function, ``create_label`` that
 renames a function whose name is still DEFAULT instead of labelling it
 (``SymbolManager.tryUpdatingDefaultFunction``), DEFAULT thunks that show their target's name
-(``FunctionSymbol.doGetName``), label lookup by the first function of a name, and labels by
+(``FunctionSymbol.doGetName``), ``CreateFunctionCmd`` bodies that follow flow over the image's
+instructions until an existing function entry (fall-through into a missing successor included), label lookup by the first function of a name, and labels by
 address through ``get_function_documentation``.
 """
 from __future__ import annotations
@@ -14,6 +15,7 @@ from __future__ import annotations
 import json
 from urllib.parse import parse_qsl, unquote, urlsplit
 
+import createflow
 import ghidra_bridge as gb
 from elfimage import PROTOTYPE_SHA256, RELEASE_SHA256
 
@@ -25,7 +27,8 @@ class Program:
         self.labels: dict[int, list[str]] = {}
         self.plates: dict[int, str] = {}
         self.code: set[int] = set()  # addresses holding an instruction
-        self.flow_end: dict[int, int] = {}  # where CreateFunctionCmd would end a new body
+        self.flow_end: dict[int, int] = {}  # override: where CreateFunctionCmd ends a new body
+        self.image = None  # the instructions CreateFunctionCmd follows
         self.analyzing = False
 
     def add(self, entry: int, end: int, name: str | None = None, thunk_of=None, noreturn=False, lo=None):
@@ -139,6 +142,9 @@ class FakeGhidra(gb.Bridge):
                   if address <= a <= end for n in names if n != p.shown(address)]
         return {"source_address": "%08x" % address, "function_name": p.shown(address), "labels": labels}
 
+    def get_get_xrefs_from(self, q):
+        return f"No references found from address: {q['address']}"
+
     def get_audit_global(self, q):
         p = self.program(q["program"])
         address = int(q["address"], 16)
@@ -153,7 +159,12 @@ class FakeGhidra(gb.Bridge):
             return {"error": f"Function already exists at {d['address']}"}
         if address not in p.code:
             return {"error": "no instruction"}
-        p.add(address, p.flow_end[address], self.analysis_names.get(address))
+        if address in p.flow_end:
+            lo, end = address, p.flow_end[address]
+        else:  # CreateFunctionCmd.getFunctionBody: FollowFlow, stopping at existing function entries
+            flow = createflow.predict(p.image.word, p.image.contains, address, set(p.functions))
+            lo, end = min(flow.body), max(flow.body) + 3
+        p.add(address, end, self.analysis_names.get(address), lo=lo)
         for extra in self.analysis_creates.get(address, ()):
             p.add(extra, extra + 0xF)
         return {"success": True, "function_name": p.shown(address)}

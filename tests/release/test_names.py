@@ -5,10 +5,13 @@ import json
 
 import pytest
 
+import createflow
+import elfimage
 import ghidra_bridge as gb
 import names
 import report
 from elfimage import PROTOTYPE_SHA256, RELEASE_SHA256
+from asm import JR_RA, NOP, j
 from fake_ghidra import FakeGhidra
 
 OWNER = "src/gamez/zTest/test_main.cpp"
@@ -52,6 +55,20 @@ PROTO_NAMES = {0x300000: "CFo::Foo", 0x300020: "Bar", 0x300040: "CFo::Baz", 0x30
 WRITES = {"create": 1, "label": 4, "name": 5, "plate": 9}
 
 
+BASE, TOP = 0x200000, 0x210400
+SYSCALL, LI_V1 = 0x0000000C, (9 << 26) | (3 << 16) | 0x23  # syscall; addiu v1, zero, 0x23
+
+
+def image_for(rows, special=None):
+    """The release image: nops, each map function ending in jr ra; nop, plus ``special`` words."""
+
+    words = {a: NOP for a in range(BASE, TOP, 4)}
+    for r in rows:
+        words[r["release_address"] + r["release_size"] - 8] = JR_RA
+    words.update(special or {})
+    return elfimage.synthetic([words[a] for a in range(BASE, TOP, 4)], base=BASE)
+
+
 def make_root(tmp_path, rows=ROWS):
     data = {"rows": rows, "inputs": {"release": {"sha256": RELEASE_SHA256}, "prototype": {"sha256": PROTOTYPE_SHA256}},
             "settled": [{"release": 0x200030, "prototype": None, "checker": "check-t", "basis": "-", "date": "-",
@@ -73,7 +90,7 @@ def make_ghidra(**kwargs):
     r = g.release
     r.add(0x200000, 0x20001F)
     r.code.add(0x200020)
-    r.flow_end[0x200020] = 0x20002F
+    r.image = image_for(ROWS)
     for a in (0x200030, 0x200040, 0x200050, 0x200090, 0x2000a0):
         r.add(a, a + 0xF)
     r.add(0x200060, 0x20007F)  # swallows 0x200070
@@ -91,7 +108,7 @@ def reader_for(g):
 
 def plan_for(tmp_path, g, module="gamez/zTest", rows=ROWS):
     root = make_root(tmp_path, rows)
-    plan = names.build_plan(root, reader_for(g), module)
+    plan = names.build_plan(root, reader_for(g), module, image=g.release.image)
     return root, plan, names.write_plan(root, plan)
 
 
@@ -128,7 +145,7 @@ def test_plan(tmp_path):
     assert all(e["plate"].startswith(names.PLATE_PREFIX) for e in plan["entries"] if e["plate"])
     text = path.read_text(encoding="utf-8")
     assert str(tmp_path) not in text and ":\\" not in text and "executable_path" not in text
-    assert names.canonical(names.build_plan(root, reader_for(g), "gamez/zTest")) == text  # deterministic
+    assert names.canonical(names.build_plan(root, reader_for(g), "gamez/zTest", image=g.release.image)) == text  # deterministic
 
 
 def test_plan_reports_ghidra_only_and_collisions(tmp_path):
@@ -306,6 +323,7 @@ def test_shared_names_read_labels_by_address_and_foreign_plates_are_kept(tmp_pat
     for a in (0x200000, 0x200010, 0x200020):
         g.release.add(a, a + 0xF)
     g.release.plates[0x200020] = "a comment someone wrote"
+    g.release.image = image_for(rows)
     root, plan, path = plan_for(tmp_path, g, module=None, rows=rows)
     first = names.apply(root, path, g, dry_run=False, today="2026-11-26")
     assert first["stopped"] is None and first["skipped"] == [
@@ -325,3 +343,113 @@ def test_get_values_with_specials_are_encoded_twice():
     g.release.add(0x220000, 0x22000F, "CFo::operator=")
     g.release.labels[0x220000] = ["__as__3CFoFRC3CFo"]
     assert names.read_labels(g, "CFo::operator=") == [(0x220000, "__as__3CFoFRC3CFo")]
+
+
+# --- creates whose body CreateFunctionCmd would not make the map extent -------------------------
+
+CREATE_ROWS = [
+    row(0x200100, 0x08, "exact", 0x300100, "_root"),               # addiu; syscall: falls into 0x200108
+    row(0x200108, 0x10, "exact", 0x300108, "After__1AFv"),         # a create: must exist first
+    row(0x200200, 0x08, "exact", 0x300200, "Fall__1AFv"),          # falls into 0x200208, no function there
+    row(0x200208, 0x10, "exact", 0x300208, "NoCode__1AFv"),        # no instruction in Ghidra
+    row(0x200300, 0x08, "exact", 0x300300, "Pad__1AFv"),           # falls through padding into 0x200310
+    row(0x200310, 0x10, "exact", 0x300310, "Next__1AFv"),          # exists
+    row(0x200400, 0x08, "exact", 0x300400, "Tail__1AFv"),          # j 0x200500 (a create): after it
+    row(0x200500, 0x10, "exact", 0x300500, "Target__1AFv"),
+    row(0x200600, 0x10, "exact", 0x300600, "Plain__1AFv"),         # safe
+]
+CREATE_SPECIAL = {0x200100: LI_V1, 0x200104: SYSCALL, 0x200200: LI_V1, 0x200204: SYSCALL,
+                  0x200208: LI_V1, 0x200300: LI_V1, 0x200304: SYSCALL, 0x200400: j(0x200500), 0x200404: NOP}
+
+
+def create_ghidra():
+    g = FakeGhidra()
+    for r in CREATE_ROWS:
+        g.prototype.add(r["prototype_address"], r["prototype_address"] + r["release_size"] - 1,
+                        "A::" + r["prototype_symbol"].split("__")[0])
+    g.release.image = image_for(CREATE_ROWS, CREATE_SPECIAL)
+    for r in CREATE_ROWS:
+        if r["release_address"] not in (0x200208, 0x200310):
+            g.release.code.add(r["release_address"])
+    g.release.add(0x200310, 0x20031F)
+    return g
+
+
+def test_flow_prediction_follows_ghidra():
+    img = image_for(CREATE_ROWS, CREATE_SPECIAL)
+    # _root without its successor runs on to the next return: the defect seen at 0x1401d0
+    alone = createflow.predict(img.word, img.contains, 0x200100, set())
+    assert max(alone.body) == 0x200114
+    stopped = createflow.predict(img.word, img.contains, 0x200100, {0x200108})
+    assert stopped.body == {0x200100, 0x200104} and stopped.stops == {0x200108}
+    tail = createflow.predict(img.word, img.contains, 0x200400, {0x200500})
+    assert tail.body == {0x200400, 0x200404} and tail.stops == {0x200500}
+
+
+def test_creates_are_classified_ordered_and_withheld(tmp_path):
+    g = create_ghidra()
+    _, plan, _ = plan_for(tmp_path, g, module=None, rows=CREATE_ROWS)
+    by = {e["address"]: e for e in plan["entries"]}
+    assert by["0x200100"]["create"] == {"safety": "ordered", "after": ["0x200108"], "reason": ""}
+    assert by["0x200108"]["create"]["safety"] == "safe"
+    assert by["0x200200"]["function"] == "create-withheld"
+    assert "falls through past its end" in by["0x200200"]["create"]["reason"]
+    assert by["0x200208"]["function"] == "no-instruction"
+    assert by["0x200300"]["function"] == "create-withheld"  # the padding would join the body
+    assert "padding" in by["0x200300"]["create"]["reason"]
+    assert by["0x200400"]["create"] == {"safety": "ordered", "after": ["0x200500"], "reason": ""}
+    assert by["0x200600"]["create"]["safety"] == "safe"
+    counts = plan["summary"]["creates"]
+    assert (counts["safe"], counts["ordered"], counts["withheld"], counts["withheld_bytes"]) == (3, 2, 2, 16)
+    assert by["0x200200"]["plate"] is None and by["0x200200"]["name"] is None
+
+
+def test_apply_creates_successors_first_and_never_sends_a_withheld_create(tmp_path):
+    g = create_ghidra()
+    root, plan, path = plan_for(tmp_path, g, module=None, rows=CREATE_ROWS)
+    result = names.apply(root, path, g, dry_run=False, today="2026-11-26")
+    assert result["stopped"] is None and result["side_effects"] == []
+    creates = [s["body"]["address"] for s in result["sent"] if s["endpoint"] == "create_function"]
+    assert creates.index("0x200108") < creates.index("0x200100")
+    assert creates.index("0x200500") < creates.index("0x200400")
+    assert "0x200200" not in creates and "0x200300" not in creates
+    r = g.release
+    assert {a: r.functions[a]["end"] for a in (0x200100, 0x200108, 0x200400, 0x200500, 0x200600)} == {
+        0x200100: 0x200107, 0x200108: 0x200117, 0x200400: 0x200407, 0x200500: 0x20050F, 0x200600: 0x20060F}
+    # the old address order would have given _root its successor's body
+    old = create_ghidra()
+    old.write("create_function", gb.RELEASE_PROGRAM, address="0x200100", disassemble_first=False)
+    assert old.release.functions[0x200100]["end"] == 0x200117
+
+
+def test_a_wrong_extent_names_the_function_to_remove_and_the_record_copes(tmp_path):
+    g = create_ghidra()
+    root, plan, path = plan_for(tmp_path, g, module=None, rows=CREATE_ROWS)
+    g.release.flow_end[0x200108] = 0x20011F  # Ghidra does something the prediction did not
+    result = names.apply(root, path, g, dry_run=False, today="2026-11-26")
+    assert "remove the function FUN_00200108 at 0x200108 by hand" in result["stopped"]
+    assert result["remove_by_hand"] == [{"address": "0x200108", "name": "FUN_00200108",
+                                         "body": "0x200108..0x20011f", "planned": "0x200108..0x200117"}]
+    assert [s["body"]["address"] for s in result["sent"]] == ["0x200108"]
+    assert result["written"] == [] and not (root / names.RECORD).exists()
+    # the user removes it: nothing of the run is left, and a replan plans the create again
+    del g.release.functions[0x200108]
+    names.discard_unsaved(root, root / names.OUT / result["report"], g)
+    root2 = tmp_path / "again"
+    root2.mkdir()
+    _, again, _ = plan_for(root2, g, module=None, rows=CREATE_ROWS)
+    assert {e["address"]: e["function"] for e in again["entries"]}["0x200108"] == "create"
+
+
+def test_plan_assuming_a_removal_is_refused_until_it_happened(tmp_path):
+    g = create_ghidra()
+    g.release.add(0x200100, 0x200117)  # the wrong function, still there
+    root = make_root(tmp_path, CREATE_ROWS)
+    plan = names.build_plan(root, reader_for(g), None, image=g.release.image, assumed=frozenset({0x200100}))
+    by = {e["address"]: e for e in plan["entries"]}
+    assert by["0x200100"]["create"]["safety"] == "ordered" and by["0x200108"]["function"] == "create"
+    path = names.write_plan(root, plan)
+    with pytest.raises(names.Refused, match="assumes the function at 0x200100 was removed"):
+        names.apply(root, path, g, dry_run=True)
+    del g.release.functions[0x200100]
+    assert names.apply(root, path, g, dry_run=True)["stopped"] is None
