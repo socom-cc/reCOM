@@ -57,23 +57,23 @@ order), `ambiguous`, `low-similarity`, `owner-guess`, `copy`.
 
 | scope | exact | deviating | unsure | new | removed | exact bytes | deviating bytes | unsure bytes | new bytes | removed bytes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| all functions | 6324 | 2828 | 74 | 620 | 480 | 1257572 | 1659240 | 31656 | 170280 | 130180 |
-| authored (by prototype classification) | 3772 | 2538 | 17 | 0 | 238 | 690988 | 1543276 | 4708 | 0 | 53444 |
-| authored, with new functions placed in authored modules | 3772 | 2538 | 17 | 429 | 238 | 690988 | 1543276 | 4708 | 106052 | 53444 |
+| all functions | 6323 | 2836 | 66 | 621 | 481 | 1257444 | 1661932 | 29352 | 170020 | 129112 |
+| authored (by prototype classification) | 3771 | 2546 | 9 | 0 | 239 | 690860 | 1545968 | 2404 | 0 | 52376 |
+| authored, with new functions placed in authored modules | 3771 | 2546 | 9 | 431 | 239 | 690860 | 1545968 | 2404 | 105856 | 52376 |
 
 Bytes are release sizes, prototype sizes for removed functions. Of the deviating
-functions, 776 (254072 bytes) differ only in immediates or offsets (`imm-only`).
-243 pairs are out of order relative to the order anchors (`moved`).
+functions, 766 (253252 bytes) differ only in immediates or offsets (`imm-only`).
+237 pairs are out of order relative to the order anchors (`moved`).
 
 ## By prototype classification
 
 | group | exact | deviating | unsure | new | removed | exact bytes | deviating bytes | unsure bytes | new bytes | removed bytes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| authored | 3772 | 2538 | 17 | 0 | 238 | 690988 | 1543276 | 4708 | 0 | 53444 |
+| authored | 3771 | 2546 | 9 | 0 | 239 | 690860 | 1545968 | 2404 | 0 | 52376 |
 | provider: SCE | 687 | 28 | 4 | 0 | 82 | 105132 | 5408 | 568 | 0 | 13016 |
 | provider: Medius | 593 | 114 | 1 | 0 | 78 | 68320 | 62620 | 160 | 0 | 15364 |
 | provider: speech middleware | 699 | 1 | 0 | 0 | 0 | 268564 | 256 | 0 | 0 | 0 |
-| (new: no prototype counterpart) | 0 | 0 | 0 | 620 | 0 | 0 | 0 | 0 | 170280 | 0 |
+| (new: no prototype counterpart) | 0 | 0 | 0 | 621 | 0 | 0 | 0 | 0 | 170020 | 0 |
 | provider: newlib | 65 | 68 | 43 | 0 | 21 | 31152 | 24660 | 22632 | 0 | 2084 |
 | compiler-generated | 140 | 31 | 0 | 0 | 6 | 20324 | 7360 | 0 | 0 | 2444 |
 | provider: MSL | 175 | 0 | 0 | 0 | 0 | 37496 | 0 | 0 | 0 | 0 |
@@ -96,28 +96,28 @@ flag `owner-guess`). Sorted by changed bytes (deviating + unsure + new + removed
 | group | exact | deviating | unsure | new | removed | exact bytes | deviating bytes | unsure bytes | new bytes | removed bytes |
 |---|---|---|---|---|---|---|---|---|---|---|
 | gamez/zSeal | 431 | 739 | 0 | 165 | 46 | 82600 | 517704 | 0 | 47196 | 5336 |
-| gamez/zAnim | 329 | 241 | 2 | 25 | 8 | 57072 | 187424 | 112 | 5536 | 1104 |
-| Apps/FTS/hud | 127 | 216 | 0 | 21 | 8 | 18700 | 157824 | 0 | 10240 | 9832 |
-| gamez/zUI | 306 | 196 | 3 | 22 | 3 | 58144 | 117412 | 516 | 6412 | 252 |
-| gamez/zFTS | 175 | 168 | 2 | 36 | 4 | 20672 | 75436 | 864 | 5444 | 384 |
+| gamez/zAnim | 329 | 242 | 0 | 27 | 8 | 57072 | 187700 | 0 | 5436 | 860 |
+| Apps/FTS/hud | 127 | 217 | 0 | 20 | 7 | 18700 | 157952 | 0 | 10112 | 9820 |
+| gamez/zUI | 305 | 198 | 0 | 24 | 5 | 58016 | 118044 | 0 | 6424 | 416 |
+| gamez/zFTS | 175 | 169 | 0 | 37 | 5 | 20672 | 76060 | 0 | 5684 | 376 |
 | (provider: Medius) | 593 | 114 | 1 | 20 | 78 | 68320 | 62620 | 160 | 2176 | 15364 |
-| gamez/zNetwork | 156 | 135 | 0 | 12 | 87 | 23080 | 55552 | 0 | 2452 | 21024 |
+| gamez/zNetwork | 156 | 135 | 0 | 12 | 88 | 23080 | 55552 | 0 | 2452 | 21148 |
 | (provider: libptt) | 7 | 12 | 7 | 32 | 43 | 1188 | 2344 | 2424 | 31384 | 41220 |
 | gamez/zAI | 394 | 48 | 1 | 8 | 8 | 115932 | 50248 | 140 | 3064 | 2140 |
 | (provider: newlib) | 65 | 68 | 43 | 19 | 21 | 31152 | 24660 | 22632 | 1800 | 2084 |
 | Apps/FTS/game | 89 | 46 | 0 | 4 | 0 | 10332 | 39136 | 0 | 460 | 0 |
-| gamez/zWeapon | 192 | 92 | 0 | 30 | 2 | 15852 | 31464 | 0 | 4452 | 292 |
+| gamez/zWeapon | 192 | 93 | 0 | 29 | 1 | 15852 | 31636 | 0 | 4280 | 276 |
 | gamez/zNode | 137 | 81 | 2 | 5 | 6 | 27352 | 30948 | 576 | 1272 | 1312 |
 | gamez/zCamera | 42 | 34 | 0 | 4 | 2 | 4968 | 28412 | 0 | 532 | 140 |
 | gamez/zGrid | 45 | 29 | 0 | 3 | 1 | 8808 | 23988 | 0 | 500 | 8 |
 | gamez/zParticle | 87 | 21 | 0 | 5 | 0 | 14880 | 22856 | 0 | 1620 | 0 |
 | (provider: SCE) | 687 | 28 | 4 | 34 | 82 | 105132 | 5408 | 568 | 3700 | 13016 |
 | Apps/FTS/state | 51 | 40 | 1 | 2 | 12 | 8816 | 21236 | 48 | 16 | 1240 |
-| gamez/zVisual | 142 | 26 | 1 | 21 | 3 | 31020 | 12752 | 812 | 7320 | 220 |
-| gamez/zTwoD | 89 | 45 | 0 | 6 | 2 | 13084 | 18824 | 0 | 732 | 996 |
+| gamez/zVisual | 142 | 27 | 0 | 21 | 3 | 31020 | 13564 | 0 | 7320 | 220 |
+| gamez/zTwoD | 89 | 46 | 0 | 5 | 1 | 13084 | 18872 | 0 | 684 | 112 |
 | gamez/zSound | 77 | 56 | 1 | 6 | 1 | 9212 | 17536 | 432 | 1024 | 220 |
 | gamez/zRender | 35 | 20 | 0 | 1 | 2 | 6304 | 17736 | 0 | 8 | 332 |
-| (new, unplaced) | 0 | 0 | 0 | 58 | 0 | 0 | 0 | 0 | 17952 | 0 |
+| (new, unplaced) | 0 | 0 | 0 | 57 | 0 | 0 | 0 | 0 | 17888 | 0 |
 | (provider: RSA) | 16 | 17 | 1 | 14 | 8 | 3012 | 6692 | 1100 | 5144 | 2252 |
 | gamez/zInput | 23 | 23 | 2 | 9 | 9 | 1248 | 10548 | 300 | 1092 | 1716 |
 | gamez/zCharacter | 44 | 20 | 0 | 3 | 0 | 7280 | 12900 | 0 | 324 | 0 |
@@ -128,7 +128,7 @@ flag `owner-guess`). Sorted by changed bytes (deviating + unsure + new + removed
 | (no owner file) | 153 | 32 | 0 | 0 | 6 | 20888 | 7808 | 0 | 0 | 2444 |
 | gamez/zBody | 72 | 17 | 0 | 5 | 0 | 11692 | 7920 | 0 | 820 | 0 |
 | gamez/zMPEG | 13 | 25 | 0 | 2 | 1 | 1892 | 7236 | 0 | 240 | 60 |
-| gamez/zSystem | 41 | 19 | 0 | 3 | 5 | 4932 | 5588 | 0 | 172 | 864 |
+| gamez/zSystem | 41 | 19 | 0 | 3 | 5 | 4932 | 5588 | 0 | 172 | 672 |
 | gamez/zMath | 33 | 15 | 0 | 0 | 1 | 5540 | 6004 | 0 | 0 | 312 |
 | gamez/zVideo | 13 | 11 | 0 | 2 | 4 | 2004 | 3796 | 0 | 248 | 840 |
 | gamez/zUtil | 62 | 21 | 0 | 2 | 3 | 11196 | 3720 | 0 | 612 | 292 |
@@ -174,13 +174,13 @@ Every relocated instruction field of the prototype's functions against the maski
 
 | similarity | 0.0-0.1 | 0.1-0.2 | 0.2-0.3 | 0.3-0.4 | 0.4-0.5 | 0.5-0.6 | 0.6-0.7 | 0.7-0.8 | 0.8-0.9 | 0.9-1.0 |
 |---|---|---|---|---|---|---|---|---|---|---|
-| call | 22 | 52 | 102 | 112 | 133 | 225 | 188 | 264 | 428 | 716 |
+| call | 22 | 52 | 102 | 109 | 132 | 225 | 187 | 264 | 428 | 717 |
 | call (>= 16 instructions) | 15 | 16 | 18 | 26 | 27 | 49 | 40 | 57 | 109 | 220 |
-| global | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 1 | 2 | 0 |
-| null | 471 | 516 | 315 | 117 | 90 | 106 | 40 | 50 | 43 | 242 |
-| null (>= 16 instructions) | 336 | 429 | 170 | 66 | 51 | 34 | 33 | 26 | 25 | 92 |
-| position | 0 | 0 | 1 | 8 | 11 | 24 | 13 | 16 | 17 | 44 |
-| position (>= 16 instructions) | 0 | 0 | 1 | 6 | 9 | 16 | 11 | 16 | 16 | 43 |
+| global | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 0 |
+| null | 467 | 506 | 307 | 115 | 88 | 99 | 40 | 48 | 43 | 238 |
+| null (>= 16 instructions) | 335 | 420 | 166 | 65 | 50 | 30 | 33 | 26 | 25 | 90 |
+| position | 0 | 0 | 1 | 6 | 10 | 20 | 12 | 15 | 14 | 34 |
+| position (>= 16 instructions) | 0 | 0 | 1 | 5 | 9 | 15 | 11 | 15 | 14 | 33 |
 | string | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 
 `call`: non-exact pairs made by call-tree propagation (the pairing does not look at
@@ -193,8 +193,8 @@ Small functions look alike (accessors, stubs), so the null of all sizes has a ta
 1.0; for them the order between anchors decides and a pair is unsure (`ambiguous`) when an
 unpaired alternative in the same gap scores within 0.05.
 
-Thresholds, from the >= 16-instruction rows: 83.4% of null pairs stay below 0.50 and
-74.1% below 0.30, while 82.3% of call-tree counterparts reach 0.50. So:
+Thresholds, from the >= 16-instruction rows: 83.5% of null pairs stay below 0.50 and
+74.3% below 0.30, while 82.3% of call-tree counterparts reach 0.50. So:
 
 - a positional, `global` or `call-deviating` pair is deviating at similarity >= 0.50, unsure
   from 0.30 to 0.50, unless it is referenced at its place by a paired caller and in its
@@ -220,13 +220,134 @@ Thresholds, from the >= 16-instruction rows: 83.4% of null pairs stay below 0.50
 ## Virtual function tables
 
 Tables are found through their RTTI records (the release keeps them) and paired by class
-name and this-offset: 259 prototype tables, 250 release tables, 246 paired. 2488 slot places agree with the pairs; 55 release functions in a slot are new (new virtuals or new overrides), 22 prototype functions in a slot are removed. Evidence `vtable-slot`: the function fills the same slot of paired tables (anchored on pairs made by other evidence, ancestors' and descendants' tables included); it pairs functions without callers and outranks order among byte-identical copies. Flag `identical-copy`: equal bytes exist elsewhere and no slot, caller or settled row decided which copy this is.
+name and this-offset: 259 prototype tables, 250 release tables, 246 paired. 2497 slot places agree with the pairs; 56 release functions in a slot are new (new virtuals or new overrides), 25 prototype functions in a slot are removed. Evidence `vtable-slot`: the function fills the same slot of paired tables (anchored on pairs made by other evidence, ancestors' and descendants' tables included); it pairs functions without callers and outranks order among byte-identical copies. Flag `identical-copy`: equal bytes exist elsewhere and no slot, caller or settled row decided which copy this is.
+
+### Slots added and dropped per paired table
+
+Slot offsets from the table start (+0x8 is the first slot); `family` marks slots another table of
+the same class family showed as added or dropped (a base class's change inherited by its
+descendants).
+
+| class | prototype | release | slots | dropped | inserted | from family |
+|---|---|---|---|---|---|---|
+| std::basic_istream<wchar_t, std::char_traits<wchar_t>> | 0x471560 | 0x488ea0 | 4 / 1 | +0xc +0x10 +0x14 | - | - |
+| std::basic_ostream<wchar_t, std::char_traits<wchar_t>> | 0x471590 | 0x488ed0 | 4 / 1 | +0xc +0x10 +0x14 | - | - |
+| std::basic_istream<char, std::char_traits<char>> | 0x471630 | 0x488f70 | 4 / 1 | +0xc +0x10 +0x14 | - | - |
+| std::basic_ostream<char, std::char_traits<char>> | 0x471660 | 0x488fa0 | 4 / 1 | +0xc +0x10 +0x14 | - | - |
+| C2DOrderItem | 0x471800 | 0x489140 | 21 / 22 | - | +0x20 | +0x20 |
+| zdb::CNodeEx | 0x471960 | 0x4892a0 | 7 / 3 | +0x10 +0x14 +0x18 +0x1c +0x20 | +0x10 | - |
+| CZAnimArg | 0x471990 | 0x4892c0 | 2 / 1 | +0xc | - | +0xc |
+| CZAnimEx | 0x4719f0 | 0x489320 | 7 / 3 | +0xc +0x10 +0x14 +0x18 +0x1c +0x20 | +0xc +0x10 | - |
+| UIVarMixin | 0x471a20 | 0x489340 | 2 / 1 | +0xc | - | +0xc |
+| CBody | 0x471a80 | 0x4893a0 | 3 / 2 | +0xc +0x10 | +0xc | - |
+| CEntity | 0x471b30 | 0x489450 | 18 / 21 | - | +0x24 +0x34 +0x38 | +0x24 +0x34 +0x38 |
+| CNodeAction | 0x471cb0 | 0x4895e0 | 7 / 3 | +0x10 +0x14 +0x18 +0x1c +0x20 | +0x10 | - |
+| C2DMessage_Q | 0x471ce0 | 0x489600 | 21 / 22 | - | +0x20 | +0x20 |
+| C2DMessageString | 0x471d40 | 0x489660 | 29 / 30 | - | +0x20 | +0x20 |
+| zdb::CDI | 0x471e50 | 0x489770 | 6 / 3 | +0x14 +0x18 +0x1c | - | +0x14 +0x18 +0x1c |
+| zdb::CLightMap | 0x471ef0 | 0x489810 | 15 / 14 | +0x40 | - | +0x40 |
+| zdb::CLight | 0x471f40 | 0x489850 | 15 / 14 | +0x40 | - | +0x40 |
+| zdb::CRenderMap | 0x471fd0 | 0x4898d0 | 15 / 14 | +0x40 | - | +0x40 |
+| CParticleEx | 0x4720d0 | 0x4899c0 | 7 / 3 | +0x8 +0xc +0x10 +0x14 +0x18 +0x1c +0x20 | +0x8 +0xc +0x10 | - |
+| CZSealBody | 0x472110 | 0x4899f0 | 25 / 21 | +0x50 +0x54 +0x58 +0x5c +0x60 +0x64 +0x68 | +0x24 +0x34 +0x38 | +0x24 +0x34 +0x38 +0x50 +0x54 +0x58 +0x5c +0x60 +0x64 +0x68 |
+| CZSealBody (offset -272) | 0x472160 | 0x489a4c | 5 / 7 | - | +0x14 +0x20 | - |
+| CAiSRescued | 0x472180 | 0x489a70 | 10 / 13 | - | +0xc +0x30 +0x34 | +0xc +0x30 +0x34 |
+| CAiState | 0x4721b0 | 0x489ab0 | 10 / 13 | - | +0xc +0x30 +0x34 | +0xc +0x30 +0x34 |
+| CAiSPursue | 0x4721e0 | 0x489af0 | 10 / 13 | - | +0xc +0x30 +0x34 | +0xc +0x30 +0x34 |
+| CAiSAnimate | 0x472210 | 0x489b30 | 10 / 13 | - | +0xc +0x30 +0x34 | +0xc +0x30 +0x34 |
+| CAiSGrenade | 0x472240 | 0x489b70 | 10 / 13 | - | +0xc +0x30 +0x34 | +0xc +0x30 +0x34 |
+| CAiSDeploy | 0x472270 | 0x489bb0 | 10 / 13 | - | +0xc +0x30 +0x34 | +0xc +0x30 +0x34 |
+| CAiSAction | 0x4722a0 | 0x489bf0 | 10 / 13 | - | +0xc +0x30 +0x34 | +0xc +0x30 +0x34 |
+| CSealEx | 0x472430 | 0x489d90 | 7 / 3 | +0xc +0x10 +0x14 +0x18 +0x1c +0x20 | +0xc +0x10 | - |
+| CAiSCQBAttack | 0x472520 | 0x489e70 | 10 / 13 | - | +0xc +0x30 +0x34 | +0xc +0x30 +0x34 |
+| CAiSUnknown | 0x472550 | 0x489eb0 | 10 / 13 | - | +0xc +0x30 +0x34 | +0xc +0x30 +0x34 |
+| CAiSSuspended | 0x472580 | 0x489ef0 | 10 / 13 | - | +0xc +0x30 +0x34 | +0xc +0x30 +0x34 |
+| CAiSBreach | 0x4725b0 | 0x489f30 | 10 / 13 | - | +0xc +0x30 +0x34 | +0xc +0x30 +0x34 |
+| CAiSScript | 0x4725e0 | 0x489f70 | 10 / 13 | - | +0xc +0x30 +0x34 | +0xc +0x30 +0x34 |
+| CAiSGoto | 0x472610 | 0x489fb0 | 10 / 13 | - | +0xc +0x30 +0x34 | +0xc +0x30 +0x34 |
+| CAiSHostage | 0x472640 | 0x489ff0 | 10 / 13 | - | +0xc +0x30 +0x34 | +0xc +0x30 +0x34 |
+| CAiSAvoid | 0x472670 | 0x48a160 | 10 / 13 | - | +0xc +0x30 +0x34 | +0xc +0x30 +0x34 |
+| CAiSPickup | 0x4726a0 | 0x48a030 | 10 / 13 | - | +0xc +0x30 +0x34 | +0xc +0x30 +0x34 |
+| CAiSFollow | 0x4726d0 | 0x48a070 | 10 / 13 | - | +0xc +0x30 +0x34 | +0xc +0x30 +0x34 |
+| CAiSRush | 0x4727b0 | 0x48a1a0 | 10 / 13 | - | +0xc +0x30 +0x34 | +0xc +0x30 +0x34 |
+| CAiSPathRecover | 0x4727e0 | 0x48a1e0 | 10 / 13 | - | +0xc +0x30 +0x34 | +0xc +0x30 +0x34 |
+| CAiSFlee | 0x472810 | 0x48a220 | 10 / 13 | - | +0xc +0x30 +0x34 | +0xc +0x30 +0x34 |
+| CAiSTarget | 0x472840 | 0x48a260 | 10 / 13 | - | +0xc +0x30 +0x34 | +0xc +0x30 +0x34 |
+| CAiSEvent | 0x472870 | 0x48a2a0 | 10 / 13 | - | +0xc +0x30 +0x34 | +0xc +0x30 +0x34 |
+| CAiSRestrained | 0x4728a0 | 0x48a2e0 | 10 / 13 | - | +0xc +0x30 +0x34 | +0xc +0x30 +0x34 |
+| CAiSStunResponse | 0x4728d0 | 0x48a320 | 10 / 13 | - | +0xc +0x30 +0x34 | +0xc +0x30 +0x34 |
+| CAiSHold | 0x472930 | 0x48a360 | 10 / 13 | - | +0xc +0x30 +0x34 | +0xc +0x30 +0x34 |
+| CAiSSurrender | 0x472960 | 0x48a3a0 | 10 / 13 | - | +0xc +0x30 +0x34 | +0xc +0x30 +0x34 |
+| CAiSNoAmmo | 0x472990 | 0x48a3e0 | 10 / 13 | - | +0xc +0x30 +0x34 | +0xc +0x30 +0x34 |
+| CAiSReload | 0x4729c0 | 0x48a420 | 10 / 13 | - | +0xc +0x30 +0x34 | +0xc +0x30 +0x34 |
+| CAiSShotAt | 0x4729f0 | 0x48a460 | 10 / 13 | - | +0xc +0x30 +0x34 | +0xc +0x30 +0x34 |
+| CSnd | 0x472a20 | 0x48a4a0 | 9 / 10 | - | +0x2c | +0x2c |
+| CSndGroup | 0x472a50 | 0x48a4d0 | 9 / 10 | - | +0x2c | +0x2c |
+| C2DBitmapPoly | 0x472ac0 | 0x48a540 | 21 / 22 | - | +0x20 | +0x20 |
+| C2DLine | 0x472b30 | 0x48a5b0 | 21 / 22 | - | +0x20 | +0x20 |
+| C2D | 0x472b90 | 0x48a610 | 21 / 22 | - | +0x20 | +0x20 |
+| C2DTriFan | 0x472bf0 | 0x48a670 | 21 / 22 | - | +0x20 | +0x20 |
+| C2DPoly | 0x472c50 | 0x48a6d0 | 21 / 22 | - | +0x20 | +0x20 |
+| C2DString | 0x472cb0 | 0x48a730 | 29 / 30 | - | +0x20 | +0x20 |
+| C2DBitmap | 0x472d30 | 0x48a7b0 | 21 / 22 | - | +0x20 | +0x20 |
+| zdb::CVisual | 0x472e90 | 0x48a910 | 7 / 6 | +0x1c | - | +0x1c |
+| zdb::CSubMesh | 0x472ec0 | 0x48a930 | 7 / 6 | +0x1c | - | +0x1c |
+| zdb::CMesh | 0x472ef0 | 0x48a950 | 8 / 7 | +0x1c | - | +0x1c |
+| C2DClock | 0x473170 | 0x48abe0 | 35 / 30 | +0x7c +0x80 +0x84 +0x88 +0x8c +0x90 | +0x20 | +0x20 +0x7c +0x80 +0x84 +0x88 +0x8c +0x90 |
+| @unnamed@zui_2d_cpp@::CListItemImageTypeImpl | 0x473210 | 0x48ac80 | 13 / 14 | - | +0x18 | +0x18 |
+| @unnamed@zui_2d_cpp@::CListItemTimedTextTypeImpl | 0x473250 | 0x48acc0 | 13 / 14 | - | +0x18 | +0x18 |
+| CListItemTypeImpl | 0x473290 | 0x48ad00 | 13 / 1 | +0xc +0x10 +0x14 +0x18 +0x1c +0x20 +0x24 +0x28 +0x2c +0x30 +0x34 +0x38 | - | +0xc +0x10 +0x14 +0x18 +0x1c +0x20 +0x24 +0x28 +0x2c +0x30 +0x34 +0x38 |
+| CUIMapCtrl | 0x4732d0 | 0x48ad40 | 21 / 22 | - | +0x20 | +0x20 |
+| C2DVisual | 0x473330 | 0x48ada0 | 7 / 6 | +0x1c | - | +0x1c |
+| CTickerTapeText | 0x473360 | 0x48adc0 | 35 / 30 | +0x7c +0x80 +0x84 +0x88 +0x8c +0x90 | +0x20 | +0x20 +0x7c +0x80 +0x84 +0x88 +0x8c +0x90 |
+| CScrollText | 0x473400 | 0x48ae60 | 35 / 30 | +0x7c +0x80 +0x84 +0x88 +0x8c +0x90 | +0x20 | +0x20 +0x7c +0x80 +0x84 +0x88 +0x8c +0x90 |
+| CPopUpDialog | 0x4734a0 | 0x48af00 | 26 / 22 | +0x5c +0x60 +0x64 +0x68 +0x6c | +0x20 | +0x20 +0x5c +0x60 +0x64 +0x68 +0x6c |
+| CCycleButton | 0x473510 | 0x48af80 | 24 / 25 | - | +0x20 | +0x20 |
+| CRadioStrip | 0x473580 | 0x48aff0 | 24 / 25 | - | +0x20 | +0x20 |
+| CCheckBox | 0x4735f0 | 0x48b060 | 29 / 25 | +0x68 +0x6c +0x70 +0x74 +0x78 | +0x20 | +0x20 +0x68 +0x6c +0x70 +0x74 +0x78 |
+| CHProgressBar | 0x473670 | 0x48b0e0 | 27 / 22 | +0x5c +0x60 +0x64 +0x68 +0x6c +0x70 | +0x20 | +0x20 +0x5c +0x60 +0x64 +0x68 +0x6c +0x70 |
+| CSliderBar | 0x4736f0 | 0x48b160 | 29 / 25 | +0x68 +0x6c +0x70 +0x74 +0x78 | +0x20 | +0x20 +0x68 +0x6c +0x70 +0x74 +0x78 |
+| CUIListBox | 0x473770 | 0x48b1e0 | 27 / 22 | +0x5c +0x60 +0x64 +0x68 +0x6c +0x70 | +0x20 | +0x20 +0x5c +0x60 +0x64 +0x68 +0x6c +0x70 |
+| CHandlerButton | 0x4737f0 | 0x48b260 | 24 / 25 | - | +0x20 | +0x20 |
+| C2DButton | 0x473860 | 0x48b2d0 | 24 / 25 | - | +0x20 | +0x20 |
+| C3StateButton | 0x4738d0 | 0x48b340 | 24 / 14 | +0x3c +0x40 +0x44 +0x48 +0x4c +0x50 +0x54 +0x58 +0x5c +0x60 +0x64 | +0x20 | +0x20 +0x3c +0x40 +0x44 +0x48 +0x4c +0x50 +0x54 +0x58 +0x5c +0x60 +0x64 |
+| CTeleType | 0x473940 | 0x48b3b0 | 35 / 30 | +0x7c +0x80 +0x84 +0x88 +0x8c +0x90 | +0x20 | +0x20 +0x7c +0x80 +0x84 +0x88 +0x8c +0x90 |
+| CPlainBmp | 0x4739e0 | 0x48b450 | 26 / 22 | +0x5c +0x60 +0x64 +0x68 +0x6c | +0x20 | +0x20 +0x5c +0x60 +0x64 +0x68 +0x6c |
+| CWrappedText | 0x473a50 | 0x48b4d0 | 35 / 30 | +0x7c +0x80 +0x84 +0x88 +0x8c +0x90 | +0x20 | +0x20 +0x7c +0x80 +0x84 +0x88 +0x8c +0x90 |
+| CRenderableString | 0x473af0 | 0x48b570 | 35 / 30 | +0x7c +0x80 +0x84 +0x88 +0x8c +0x90 | +0x20 | +0x20 +0x7c +0x80 +0x84 +0x88 +0x8c +0x90 |
+| @unnamed@zui_2d_cpp@::CListItemStringTypeImpl | 0x473b90 | 0x48b610 | 13 / 14 | - | +0x18 | +0x18 |
+| @unnamed@zui_2d_cpp@::CListItemArrayTypeImpl | 0x473bd0 | 0x48b650 | 13 / 14 | - | +0x18 | +0x18 |
+| C2DCounter | 0x473c10 | 0x48b690 | 35 / 30 | +0x7c +0x80 +0x84 +0x88 +0x8c +0x90 | +0x20 | +0x20 +0x7c +0x80 +0x84 +0x88 +0x8c +0x90 |
+| CycleItem | 0x473ce0 | 0x48b760 | 26 / 22 | +0x5c +0x60 +0x64 +0x68 +0x6c | +0x20 | +0x20 +0x5c +0x60 +0x64 +0x68 +0x6c |
+| CDlgObjSpec | 0x474080 | 0x48bb10 | 7 / 1 | +0xc +0x10 +0x14 +0x18 +0x1c +0x20 | - | +0xc +0x10 +0x14 +0x18 +0x1c +0x20 |
+| @unnamed@zui_skb_cpp@::CBmpWithNode | 0x474130 | 0x48bbc0 | 26 / 22 | +0x5c +0x60 +0x64 +0x68 +0x6c | +0x20 | +0x20 +0x5c +0x60 +0x64 +0x68 +0x6c |
+| CHudBrightText | 0x4741a0 | 0x48bc40 | 29 / 30 | - | +0x20 | +0x20 |
+| CWeaponSel | 0x474220 | 0x48bcc0 | 21 / 22 | - | +0x20 | +0x20 |
+| CInGameWeaponSel | 0x474280 | 0x48bd20 | 21 / 22 | - | +0x20 | +0x20 |
+| CZActionBitmap | 0x4742e0 | 0x48bd80 | 21 / 22 | - | +0x20 | +0x20 |
+| CZStaticRadioBitmap | 0x474340 | 0x48bde0 | 21 / 22 | - | +0x20 | +0x20 |
+| CZDynamicRadioBitmap | 0x4743a0 | 0x48be40 | 21 / 22 | - | +0x20 | +0x20 |
+| CLetterBox | 0x474400 | 0x48bea0 | 21 / 22 | - | +0x20 | +0x20 |
+| CLensFlareSaturate | 0x474460 | 0x48bf00 | 21 / 22 | - | +0x20 | +0x20 |
+| CZPauseTest | 0x4744c0 | 0x48bf60 | 21 / 22 | - | +0x20 | +0x20 |
+| CZObjectiveList | 0x474520 | 0x48bfc0 | 21 / 22 | - | +0x20 | +0x20 |
+| CZNewHudMap | 0x4745c0 | 0x48c060 | 21 / 22 | - | +0x20 | +0x20 |
+| @unnamed@hud_newhudmap_cpp@::COverlayLine | 0x474620 | 0x48c0c0 | 21 / 22 | - | +0x20 | +0x20 |
+| BitmapReticule | 0x4746e0 | 0x48c180 | 21 / 22 | - | +0x20 | +0x20 |
+| CTeamNames | 0x474740 | 0x48c1e0 | 21 / 22 | - | +0x20 | +0x20 |
+| PoseBitmap | 0x4747a0 | 0x48c240 | 21 / 22 | - | +0x20 | +0x20 |
+| CTeamMateNames | 0x474870 | 0x48c310 | 21 / 22 | - | +0x20 | +0x20 |
+| CFlashFX | 0x4749a0 | 0x48c390 | 21 / 22 | - | +0x20 | +0x20 |
+| CFader | 0x474a00 | 0x48c3f0 | 21 / 22 | - | +0x20 | +0x20 |
+| CZHudMissionCams | 0x474a60 | 0x48c450 | 21 / 22 | - | +0x20 | +0x20 |
+| @unnamed@hud_scorepopup_cpp@::CScorePopup | 0x474ac0 | 0x48c4b0 | 21 / 22 | - | +0x20 | +0x20 |
+| @unnamed@hud_scorepopup_cpp@::CScoreBmp | 0x474b20 | 0x48c570 | 21 / 22 | - | +0x20 | +0x20 |
 
 ## Settled by a checker
 
 Rows of [settled-pairs.tsv](settled-pairs.tsv), applied before any pairing (evidence
 `settled`; a settled pair is exact when its bytes, calls and data operands agree, otherwise
-deviating). 107 rows.
+deviating). 173 rows.
 
 | release | prototype | basis | checker | date | owner, flags |
 |---|---|---|---|---|---|
@@ -337,10 +458,76 @@ deviating). 107 rows.
 | 0x33d270 | (owner only) | owner fixed by the zNetwork-c check (getter of the zNetMedius.cpp static MediusWorldID) | socom-release-coordinator | 2026-11-26 | src/gamez/zNetwork/zNetMedius.cpp |
 | 0x431a40-0x431ed0 | (owner only) | SCE ezNetCnf library (libezcnf.c), per the zNetwork checks | socom-release-coordinator | 2026-11-26 | provider:SCE ezNetCnf |
 | removed | 0x3ff8a0 | list a confirmed it removed (CNetCnf::Open); a round-6 knock-on had paired it with 0x431c48 of the SCE ezNetCnf library | socom-release-check-net-a | 2026-11-26 | - |
+| 0x1ccb30 | 0x1cc080 | State's callees in order and State's callers (ActivateBegin, NewAnim, Unload); the old StopAnims call sites now call it with a mode; after DeleteParticleSources as in the prototype | socom-release-check-anim | 2026-11-26 | - |
+| removed | 0x1cbb60 | StopAnims: its call sites now call State(1/5); no release function makes its GetAnimSet/TaskScheduler/RemoveTask sequence | socom-release-check-anim | 2026-11-26 | - |
+| 0x1d0ba0 | 0x1d0330 | the parser AddCmd("ui::UI_APP_COMMAND") registers on both sides; 380 bytes, same calls | socom-release-check-anim | 2026-11-26 | - |
+| 0x1d0d20 | 0x1d04b0 | the parser AddCmd("ui::UI_COMMAND") registers on both sides; 600 bytes, same calls in order | socom-release-check-anim | 2026-11-26 | - |
+| 0x1c0d00 | 0x1bfd70 | the tick AddCmd("TIMER") registers on both sides; same slot between zAnimMessageTick and zAnimDestructorTick | socom-release-check-anim | 2026-11-26 | - |
+| 0x1ab8d0 | 0x1aae30 | the parser AddCmd("TIMER") registers on both sides | socom-release-check-anim | 2026-11-26 | - |
+| 0x1cc940 | 0x1cbe70 | same sound-instance calls; called by State on both sides | socom-release-check-anim | 2026-11-26 | - |
+| 0x1d0b90 | 0x1d0320 | last slot of the CVisual, CSubMesh and CMesh tables on both sides | socom-release-check-anim | 2026-11-26 | - |
+| 0x1d0770 | new | slot +0x10 now returns bool, overridden by CZAnimEx and called by CZKit/BitmapReticule; the CNode setters no longer call it | socom-release-check-anim | 2026-11-26 | - |
+| removed | 0x1cfec0 | OnMove: the CNode setters' m_ex->OnMove(this) calls are gone; its slot holds a new query | socom-release-check-anim | 2026-11-26 | - |
+| 0x1d9620 | new | destructor of 0x1d7db0's local one-byte vector (no tear_down; element loop 0x1d9740) | socom-release-check-anim | 2026-11-26 | - |
+| removed | 0x402060 | the CCnfStateMachine deque destructor; its only caller __dt__8CHNetCnfFv is removed | socom-release-check-anim | 2026-11-26 | - |
+| 0x1c9770 | new | CZAnimEx's override of the new CNodeEx slot +0x10 (table 0x489320) | socom-release-check-anim | 2026-11-26 | src/gamez/zAnim/zanim_anim.cpp |
+| 0x1d9740 | new | element-destroy loop called by 0x1d91e0 and 0x1d9620; after zanim_menu.cpp's last template | socom-release-check-anim | 2026-11-26 | src/gamez/zAnim/zanim_menu.cpp |
+| 0x3b2bb0 | 0x394b40 | slot 0 of the CClockSpec table; stores the CClockSpec vtable; before GetType__10CClockSpecFv on both sides (outside list a) | socom-release-check-ui | 2026-11-26 | - |
+| 0x3b8b30 | 0x39a610 | slot 0 of the CWrapSpec table on both sides; stores the CWrapSpec vtable | socom-release-check-ui | 2026-11-26 | - |
+| 0x3a5920 | 0x389390 | called by CScrollSpec::CreateDisplayObj right after SetFont, as LoadSpec was; between Tick and Draw of CScrollText on both sides (body now empty) | socom-release-check-ui | 2026-11-26 | - |
+| removed | 0x389380 | GetSpacing__12CWrappedTextFv: its slot 28 holds the shared CRenderableString-family function 0x3a1670 | socom-release-check-ui | 2026-11-26 | - |
+| 0x39fe90 | new | caches GetSoundByName's result in the zui.cpp global PlayCountSound plays; callers CMenuState::Init and the zMenuState IOPRebootHandler | socom-release-check-ui | 2026-11-26 | - |
+| removed | 0x383b40 | AddNode__9CGameMenu: its only caller CLoadMenu::PrepControls is gone | socom-release-check-ui | 2026-11-26 | - |
+| 0x3c1050 | new | stores the CStickInertiaTuner vtable (release RTTI) and is its slot 0; a rename CStickAccelerationTuner -> CStickInertiaTuner is the other reading | socom-release-check-ui | 2026-11-26 | rename-possible |
+| removed | 0x3a1fa0 | __dt__23CStickAccelerationTunerFv: the class is replaced by CStickInertiaTuner ("STICK_ACCELERATION" -> "STICK_INERTIA" in InitSystemTuners); a rename CStickAccelerationTuner -> CStickInertiaTuner is the other reading | socom-release-check-ui | 2026-11-26 | rename-possible |
+| 0x3c1a70 | new | passed by InitSystemTuners to CIOPManager::RegisterRebootCallback; calls UIStoreOptions(0, 0) | socom-release-check-ui | 2026-11-26 | - |
+| removed | 0x3a2920 | UpdateUIVar__23CStickAccelerationTunerFP11CUIVariable: replaced by CStickInertiaTuner's (0x3c0b30); its callee CPad::SetAcceleration is gone; a rename CStickAccelerationTuner -> CStickInertiaTuner is the other reading | socom-release-check-ui | 2026-11-26 | rename-possible |
+| 0x3c08d0 | new | calls UpdateUIVar on the ten system-tuner globals of InitSystemTuners/UninitSystemTuners | socom-release-check-ui | 2026-11-26 | src/gamez/zUI/zui_tuner.cpp |
+| 0x3c65c0 | 0x3a71c0 | same single caller OnGetTextFromUser; masked code equal | socom-release-check-ui | 2026-11-26 | - |
+| 0x3b1470 | 0x393350 | slot 1 of the CListItemImageTypeImpl table | socom-release-check-ui | 2026-11-26 | - |
+| 0x3b1480 | 0x393360 | slot 3 of the CListItemImageTypeImpl table | socom-release-check-ui | 2026-11-26 | - |
+| 0x3b14a0 | 0x393370 | CListItemImageTypeImpl slot 4 -> 5 (new slot 4) | socom-release-check-ui | 2026-11-26 | - |
+| 0x3b14b0 | 0x393380 | CListItemImageTypeImpl slot 5 -> 6 | socom-release-check-ui | 2026-11-26 | - |
+| 0x3b14c0 | 0x393390 | CListItemImageTypeImpl slot 6 -> 7; its twin 0x3b1490 is the new slot 4 | socom-release-check-ui | 2026-11-26 | - |
+| 0x3b14d0 | 0x3933a0 | CListItemImageTypeImpl slot 7 -> 8 | socom-release-check-ui | 2026-11-26 | - |
+| 0x3b16e0 | 0x3935a0 | CListItemStringTypeImpl and CListItemTimedTextTypeImpl slot 4 -> 5 | socom-release-check-ui | 2026-11-26 | - |
+| 0x3b16f0 | 0x3935b0 | CListItemStringTypeImpl and CListItemTimedTextTypeImpl slot 5 -> 6 | socom-release-check-ui | 2026-11-26 | - |
+| 0x3b17d0 | 0x393690 | C2DVisual slot 6 -> 5 (the Write slot before it is gone) | socom-release-check-ui | 2026-11-26 | - |
+| 0x1fc080 | 0x1f9740 | the tick registered by AddCmd with "HUD_START_DEFUSE_TIMER" on both sides (CMission::Init / 0x1fbcd0); calls hudStartDefuseTimer | socom-release-check-fts | 2026-11-26 | - |
+| 0x1fc0b0 | 0x1f9760 | the parse registered by AddCmd with "HUD_START_DEFUSE_TIMER" on both sides | socom-release-check-fts | 2026-11-26 | - |
+| 0x1fbff0 | new | the tick registered with "HUD_STOP_DEFUSE_TIMER" (new command); calls CZWeapon::ClearTimer | socom-release-check-fts | 2026-11-26 | - |
+| 0x1fc310 | 0x1f9980 | the parse registered with "HUD_TRIGGER_MISSION_CAM" on both sides, with the paired Begin and Tick | socom-release-check-fts | 2026-11-26 | - |
+| 0x20ae80 | new | returns whether the votes (0x20b090) exceed half of the local player's team; UIHaveBeenBannedFromGame tail-calls it; the prototype NumActiveTerrorists/NumActiveSeals loops are inline in it | socom-release-check-fts | 2026-11-26 | - |
+| removed | 0x2088c0 | NumActiveTerrorists: its loop is inline in 0x20ae80; no release function has its body | socom-release-check-fts | 2026-11-26 | - |
+| 0x20b090 | new | counts the persona vote byte +0x2d3 set by 0x20b2c0; printed by VoterPacketHandler as the votes against you | socom-release-check-fts | 2026-11-26 | - |
+| removed | 0x208810 | NumActiveSeals: its loop (team bit 1) is inline in 0x20ae80; no release function has its body | socom-release-check-fts | 2026-11-26 | - |
+| 0x200c30 | (owner only) | owner: uses CNodeAction::m_actions; sits before SyncActionsMP | socom-release-check-fts | 2026-11-26 | src/gamez/zFTS/fts_action.cpp |
+| 0x208da0 | (owner only) | owner: called only by __sinit_fts_net_seal.cpp; directly after the CRemoteGuyList destructor | socom-release-check-fts | 2026-11-26 | src/gamez/zFTS/fts_net_seal.cpp |
+| 0x20d220 | (owner only) | owner: reads g_pCurrentConfig, an unnamed-namespace global of fts_controller.cpp; directly before SetButtonState | socom-release-check-fts | 2026-11-26 | src/gamez/zFTS/fts_controller.cpp |
+| 0x3375b0 | 0x31cb50 | the same callers PerturbAimVector and GetWeaponAccuracy at the same call site (receiver weapon + 84); slot between SetDefaults and Close on both sides | socom-release-check-weapon | 2026-11-26 | - |
+| 0x338c80 | 0x31e140 | wrapper of CZWeaponList::GetWeaponName on m_listWeapons; slot between GetWeaponUIName and GetWeaponId; OnDeath's call moved into new 0x254020 | socom-release-check-weapon | 2026-11-26 | - |
+| 0x32f180 | 0x315e70 | its calls moved from SetCurAccuracy to Recoil in the same order; reads the field AccuracyBurstCnt_Max(int) writes | socom-release-check-weapon | 2026-11-26 | - |
+| 0x32f190 | 0x315e80 | the same; reads the field AccuracyBurstCnt_Min(int) writes | socom-release-check-weapon | 2026-11-26 | - |
+| 0x32e400 | (owner only) | owner: PlacedExplosive method (+0xbc, +0xd0 read by PostTick); directly before PreTick__15PlacedExplosiveFf | socom-release-check-weapon | 2026-11-26 | src/gamez/zWeapon/zwep_explosive.cpp |
+| 0x32e430 | (owner only) | owner: PlacedExplosive method (+0xc0 read by PostTick); directly before PreTick__15PlacedExplosiveFf | socom-release-check-weapon | 2026-11-26 | src/gamez/zWeapon/zwep_explosive.cpp |
+| 0x334440 | (owner only) | owner: CZProjectileList method (list layout of RemoveExplosive); directly before AcquireProjectile | socom-release-check-weapon | 2026-11-26 | src/gamez/zWeapon/zwep_projectilelist.cpp |
+| 0x334620 | (owner only) | owner: the same | socom-release-check-weapon | 2026-11-26 | src/gamez/zWeapon/zwep_projectilelist.cpp |
+| 0x334730 | (owner only) | owner: the same | socom-release-check-weapon | 2026-11-26 | src/gamez/zWeapon/zwep_projectilelist.cpp |
+| 0x336e70 | (owner only) | owner: CZAmmoPickupInstance method, after ZWepReader at the end of the file's range (position only) | socom-release-check-weapon | 2026-11-26 | src/gamez/zWeapon/zwep_projectilelist.cpp, guess |
+| 0x336e80 | (owner only) | owner: the same | socom-release-check-weapon | 2026-11-26 | src/gamez/zWeapon/zwep_projectilelist.cpp, guess |
+| 0x336e90 | (owner only) | owner: the same | socom-release-check-weapon | 2026-11-26 | src/gamez/zWeapon/zwep_projectilelist.cpp, guess |
+| 0x336f40 | (owner only) | owner: the same | socom-release-check-weapon | 2026-11-26 | src/gamez/zWeapon/zwep_projectilelist.cpp, guess |
+| 0x337020 | (owner only) | owner: the same | socom-release-check-weapon | 2026-11-26 | src/gamez/zWeapon/zwep_projectilelist.cpp, guess |
+| 0x337060 | (owner only) | owner: the same | socom-release-check-weapon | 2026-11-26 | src/gamez/zWeapon/zwep_projectilelist.cpp, guess |
+| 0x337180 | (owner only) | owner: the same | socom-release-check-weapon | 2026-11-26 | src/gamez/zWeapon/zwep_projectilelist.cpp, guess |
+| 0x337280 | (owner only) | owner: the same | socom-release-check-weapon | 2026-11-26 | src/gamez/zWeapon/zwep_projectilelist.cpp, guess |
+| 0x337320 | (owner only) | owner: the same | socom-release-check-weapon | 2026-11-26 | src/gamez/zWeapon/zwep_projectilelist.cpp, guess |
+| 0x3373a0 | (owner only) | owner: CZWeapon static (m_pProjectilelist), directly before TimerCleared__8CZWeaponFv | socom-release-check-weapon | 2026-11-26 | src/gamez/zWeapon/zwep_weapon.cpp, guess |
+| 0x32bb60 | 0x312e80 | AddDecal__Q23zdb6CDecal: only caller CVisual::AttachDecal at the same call site; same GIF/VIF tag words and CDecal offsets; one argument more | socom-release-check-visual | 2026-11-26 | - |
 
 ## Unsure pairs
 
-74 pairs: ambiguous 6, low-similarity 67, ref-kind 1.
+66 pairs: ambiguous 3, low-similarity 63.
 
 | release | prototype | symbol | similarity | evidence | flags |
 |---|---|---|---|---|---|
@@ -350,20 +537,16 @@ deviating). 107 rows.
 | 0x428308 | 0x3e49b0 | `_realloc_r` | 0.212 | call-deviating | low-similarity,moved |
 | 0x4382c0 | 0x3f0370 | `PTT_Heartbeat__Fi` | 0.145 | call-deviating | low-similarity,moved |
 | 0x40b950 | 0x409418 | `RSAGenerateKeyPair` | 0.996 | position | ambiguous,imm-only |
-| 0x32bb60 | 0x312e80 | `AddDecal__Q23zdb6CDecalFfPPQ23zdb10AddonPointUiPQ23zdb10CTexHandlePQ23zdb7CVisualUi` | 0.486 | call-deviating | low-similarity,moved |
 | 0x425870 | 0x3e1f48 | `malloc_extend_top` | 0.375 | call-deviating | low-similarity,moved |
 | 0x42afc8 | 0x3e76c8 | `_strtol_r` | 0.345 | call-deviating | low-similarity,moved |
 | 0x4227d0 | 0x3df158 | `quorem` | 0.485 | call-deviating | low-similarity,moved |
 | 0x42b230 | 0x3e7938 | `_strtoul_r` | 0.343 | call-deviating | low-similarity,moved |
-| 0x20ae80 | 0x2088c0 | `NumActiveTerrorists__14CZPersonaStateFv` | 0.355 | call-deviating | low-similarity,moved |
 | 0x3110b0 | 0x2f9d00 | `MIPUpdateTextureSelects__Q23zdb8CTextureFUiUi` | 0.224 | position | low-similarity |
-| 0x3c65c0 | 0x3a71c0 | `UiGetTextFromUser__FP13C2DAnimCmdHdrPf` | 1.000 | exact | ref-kind |
 | 0x425608 | 0x3e1d40 | `_memalign_r` | 0.339 | call-deviating | low-similarity,moved |
 | 0x42dc98 | 0x3ea220 | `cvt` | 0.409 | call-deviating | low-similarity,moved |
 | 0x302ab0 | 0x2ebdb0 | `SetGroupVolTemp__4CSndFffiiiiiii` | 0.364 | position | caller-mismatch,low-similarity |
 | 0x313ef0 | 0x2fccd0 | `insert__Q23std38__vector_imp<1,Q23std12allocator<1>,0>FP1UiRC1` | 0.343 | position | low-similarity |
 | 0x427438 | 0x3e3ac8 | `_d2b` | 0.427 | call-deviating | low-similarity,moved |
-| 0x1fc310 | 0x1f9980 | `HUDTriggerMissionCamParse__FP5_zrdr` | 0.989 | position | ambiguous,imm-only |
 | 0x4246a8 | 0x3e0e68 | `_malloc_trim_r` | 0.253 | call-deviating | low-similarity,moved |
 | 0x231050 | 0x22e070 | `DeleteTextureAssetCharacter__Q23zdb6CWorldFPQ23zdb9CAssetLibPQ23zdb5CNode` | 0.459 | position | caller-mismatch,low-similarity |
 | 0x426e80 | 0x3e3540 | `_lshift` | 0.267 | call-deviating | low-similarity,moved |
@@ -384,8 +567,12 @@ deviating). 107 rows.
 | 0x42c4f8 | 0x3e8bd8 | `__sbprintf` | 0.444 | call-deviating | low-similarity,moved |
 | 0x438c20 | 0x3f1450 | `lpc10_encode__FPfPiP19lpc10_encoder_state` | 0.180 | call-deviating | low-similarity,moved |
 | 0x4381d0 | 0x3f0b30 | `PTT_Sync__FPvii` | 0.358 | call-deviating | low-similarity,moved |
+| 0x42f6d0 | 0x422c38 | `sceInetSend` | 0.373 | position | low-similarity |
+| 0x3d4ea0 | 0x3b4cb0 | `MediusCreateMessageID` | 0.228 | call-deviating | low-similarity,moved |
+| 0x438b80 | 0x3f1380 | `lpc10_decode__FPiPfP19lpc10_decoder_state` | 0.135 | call-deviating | low-similarity,moved |
+| 0x43d808 | 0x21b950 | `sceUsbKeybdRead__FUiPUc` | 0.159 | call-deviating | low-similarity,moved |
 
-(34 more in function-map.tsv.)
+(26 more in function-map.tsv.)
 
 ## Largest new functions
 

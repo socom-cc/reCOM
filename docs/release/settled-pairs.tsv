@@ -106,3 +106,69 @@ removed	0x2e6c30	class CAiSCorpse gone (no RTTI name in the release; StunRespons
 0x33d270	-	owner fixed by the zNetwork-c check (getter of the zNetMedius.cpp static MediusWorldID)	socom-release-coordinator	2026-11-26	src/gamez/zNetwork/zNetMedius.cpp
 0x431a40-0x431ed0	-	SCE ezNetCnf library (libezcnf.c), per the zNetwork checks	socom-release-coordinator	2026-11-26	provider:SCE ezNetCnf
 removed	0x3ff8a0	list a confirmed it removed (CNetCnf::Open); a round-6 knock-on had paired it with 0x431c48 of the SCE ezNetCnf library	socom-release-check-net-a	2026-11-26
+0x1ccb30	0x1cc080	State's callees in order and State's callers (ActivateBegin, NewAnim, Unload); the old StopAnims call sites now call it with a mode; after DeleteParticleSources as in the prototype	socom-release-check-anim	2026-11-26
+removed	0x1cbb60	StopAnims: its call sites now call State(1/5); no release function makes its GetAnimSet/TaskScheduler/RemoveTask sequence	socom-release-check-anim	2026-11-26
+0x1d0ba0	0x1d0330	the parser AddCmd("ui::UI_APP_COMMAND") registers on both sides; 380 bytes, same calls	socom-release-check-anim	2026-11-26
+0x1d0d20	0x1d04b0	the parser AddCmd("ui::UI_COMMAND") registers on both sides; 600 bytes, same calls in order	socom-release-check-anim	2026-11-26
+0x1c0d00	0x1bfd70	the tick AddCmd("TIMER") registers on both sides; same slot between zAnimMessageTick and zAnimDestructorTick	socom-release-check-anim	2026-11-26
+0x1ab8d0	0x1aae30	the parser AddCmd("TIMER") registers on both sides	socom-release-check-anim	2026-11-26
+0x1cc940	0x1cbe70	same sound-instance calls; called by State on both sides	socom-release-check-anim	2026-11-26
+0x1d0b90	0x1d0320	last slot of the CVisual, CSubMesh and CMesh tables on both sides	socom-release-check-anim	2026-11-26
+0x1d0770	new	slot +0x10 now returns bool, overridden by CZAnimEx and called by CZKit/BitmapReticule; the CNode setters no longer call it	socom-release-check-anim	2026-11-26
+removed	0x1cfec0	OnMove: the CNode setters' m_ex->OnMove(this) calls are gone; its slot holds a new query	socom-release-check-anim	2026-11-26
+0x1d9620	new	destructor of 0x1d7db0's local one-byte vector (no tear_down; element loop 0x1d9740)	socom-release-check-anim	2026-11-26
+removed	0x402060	the CCnfStateMachine deque destructor; its only caller __dt__8CHNetCnfFv is removed	socom-release-check-anim	2026-11-26
+0x1c9770	new	CZAnimEx's override of the new CNodeEx slot +0x10 (table 0x489320)	socom-release-check-anim	2026-11-26	src/gamez/zAnim/zanim_anim.cpp
+0x1d9740	new	element-destroy loop called by 0x1d91e0 and 0x1d9620; after zanim_menu.cpp's last template	socom-release-check-anim	2026-11-26	src/gamez/zAnim/zanim_menu.cpp
+0x3b2bb0	0x394b40	slot 0 of the CClockSpec table; stores the CClockSpec vtable; before GetType__10CClockSpecFv on both sides (outside list a)	socom-release-check-ui	2026-11-26
+0x3b8b30	0x39a610	slot 0 of the CWrapSpec table on both sides; stores the CWrapSpec vtable	socom-release-check-ui	2026-11-26
+0x3a5920	0x389390	called by CScrollSpec::CreateDisplayObj right after SetFont, as LoadSpec was; between Tick and Draw of CScrollText on both sides (body now empty)	socom-release-check-ui	2026-11-26
+removed	0x389380	GetSpacing__12CWrappedTextFv: its slot 28 holds the shared CRenderableString-family function 0x3a1670	socom-release-check-ui	2026-11-26
+0x39fe90	new	caches GetSoundByName's result in the zui.cpp global PlayCountSound plays; callers CMenuState::Init and the zMenuState IOPRebootHandler	socom-release-check-ui	2026-11-26
+removed	0x383b40	AddNode__9CGameMenu: its only caller CLoadMenu::PrepControls is gone	socom-release-check-ui	2026-11-26
+0x3c1050	new	stores the CStickInertiaTuner vtable (release RTTI) and is its slot 0; a rename CStickAccelerationTuner -> CStickInertiaTuner is the other reading	socom-release-check-ui	2026-11-26		rename-possible
+removed	0x3a1fa0	__dt__23CStickAccelerationTunerFv: the class is replaced by CStickInertiaTuner ("STICK_ACCELERATION" -> "STICK_INERTIA" in InitSystemTuners); a rename CStickAccelerationTuner -> CStickInertiaTuner is the other reading	socom-release-check-ui	2026-11-26		rename-possible
+0x3c1a70	new	passed by InitSystemTuners to CIOPManager::RegisterRebootCallback; calls UIStoreOptions(0, 0)	socom-release-check-ui	2026-11-26
+removed	0x3a2920	UpdateUIVar__23CStickAccelerationTunerFP11CUIVariable: replaced by CStickInertiaTuner's (0x3c0b30); its callee CPad::SetAcceleration is gone; a rename CStickAccelerationTuner -> CStickInertiaTuner is the other reading	socom-release-check-ui	2026-11-26		rename-possible
+0x3c08d0	new	calls UpdateUIVar on the ten system-tuner globals of InitSystemTuners/UninitSystemTuners	socom-release-check-ui	2026-11-26	src/gamez/zUI/zui_tuner.cpp
+0x3c65c0	0x3a71c0	same single caller OnGetTextFromUser; masked code equal	socom-release-check-ui	2026-11-26
+0x3b1470	0x393350	slot 1 of the CListItemImageTypeImpl table	socom-release-check-ui	2026-11-26
+0x3b1480	0x393360	slot 3 of the CListItemImageTypeImpl table	socom-release-check-ui	2026-11-26
+0x3b14a0	0x393370	CListItemImageTypeImpl slot 4 -> 5 (new slot 4)	socom-release-check-ui	2026-11-26
+0x3b14b0	0x393380	CListItemImageTypeImpl slot 5 -> 6	socom-release-check-ui	2026-11-26
+0x3b14c0	0x393390	CListItemImageTypeImpl slot 6 -> 7; its twin 0x3b1490 is the new slot 4	socom-release-check-ui	2026-11-26
+0x3b14d0	0x3933a0	CListItemImageTypeImpl slot 7 -> 8	socom-release-check-ui	2026-11-26
+0x3b16e0	0x3935a0	CListItemStringTypeImpl and CListItemTimedTextTypeImpl slot 4 -> 5	socom-release-check-ui	2026-11-26
+0x3b16f0	0x3935b0	CListItemStringTypeImpl and CListItemTimedTextTypeImpl slot 5 -> 6	socom-release-check-ui	2026-11-26
+0x3b17d0	0x393690	C2DVisual slot 6 -> 5 (the Write slot before it is gone)	socom-release-check-ui	2026-11-26
+0x1fc080	0x1f9740	the tick registered by AddCmd with "HUD_START_DEFUSE_TIMER" on both sides (CMission::Init / 0x1fbcd0); calls hudStartDefuseTimer	socom-release-check-fts	2026-11-26
+0x1fc0b0	0x1f9760	the parse registered by AddCmd with "HUD_START_DEFUSE_TIMER" on both sides	socom-release-check-fts	2026-11-26
+0x1fbff0	new	the tick registered with "HUD_STOP_DEFUSE_TIMER" (new command); calls CZWeapon::ClearTimer	socom-release-check-fts	2026-11-26
+0x1fc310	0x1f9980	the parse registered with "HUD_TRIGGER_MISSION_CAM" on both sides, with the paired Begin and Tick	socom-release-check-fts	2026-11-26
+0x20ae80	new	returns whether the votes (0x20b090) exceed half of the local player's team; UIHaveBeenBannedFromGame tail-calls it; the prototype NumActiveTerrorists/NumActiveSeals loops are inline in it	socom-release-check-fts	2026-11-26
+removed	0x2088c0	NumActiveTerrorists: its loop is inline in 0x20ae80; no release function has its body	socom-release-check-fts	2026-11-26
+0x20b090	new	counts the persona vote byte +0x2d3 set by 0x20b2c0; printed by VoterPacketHandler as the votes against you	socom-release-check-fts	2026-11-26
+removed	0x208810	NumActiveSeals: its loop (team bit 1) is inline in 0x20ae80; no release function has its body	socom-release-check-fts	2026-11-26
+0x200c30	-	owner: uses CNodeAction::m_actions; sits before SyncActionsMP	socom-release-check-fts	2026-11-26	src/gamez/zFTS/fts_action.cpp
+0x208da0	-	owner: called only by __sinit_fts_net_seal.cpp; directly after the CRemoteGuyList destructor	socom-release-check-fts	2026-11-26	src/gamez/zFTS/fts_net_seal.cpp
+0x20d220	-	owner: reads g_pCurrentConfig, an unnamed-namespace global of fts_controller.cpp; directly before SetButtonState	socom-release-check-fts	2026-11-26	src/gamez/zFTS/fts_controller.cpp
+0x3375b0	0x31cb50	the same callers PerturbAimVector and GetWeaponAccuracy at the same call site (receiver weapon + 84); slot between SetDefaults and Close on both sides	socom-release-check-weapon	2026-11-26
+0x338c80	0x31e140	wrapper of CZWeaponList::GetWeaponName on m_listWeapons; slot between GetWeaponUIName and GetWeaponId; OnDeath's call moved into new 0x254020	socom-release-check-weapon	2026-11-26
+0x32f180	0x315e70	its calls moved from SetCurAccuracy to Recoil in the same order; reads the field AccuracyBurstCnt_Max(int) writes	socom-release-check-weapon	2026-11-26
+0x32f190	0x315e80	the same; reads the field AccuracyBurstCnt_Min(int) writes	socom-release-check-weapon	2026-11-26
+0x32e400	-	owner: PlacedExplosive method (+0xbc, +0xd0 read by PostTick); directly before PreTick__15PlacedExplosiveFf	socom-release-check-weapon	2026-11-26	src/gamez/zWeapon/zwep_explosive.cpp
+0x32e430	-	owner: PlacedExplosive method (+0xc0 read by PostTick); directly before PreTick__15PlacedExplosiveFf	socom-release-check-weapon	2026-11-26	src/gamez/zWeapon/zwep_explosive.cpp
+0x334440	-	owner: CZProjectileList method (list layout of RemoveExplosive); directly before AcquireProjectile	socom-release-check-weapon	2026-11-26	src/gamez/zWeapon/zwep_projectilelist.cpp
+0x334620	-	owner: the same	socom-release-check-weapon	2026-11-26	src/gamez/zWeapon/zwep_projectilelist.cpp
+0x334730	-	owner: the same	socom-release-check-weapon	2026-11-26	src/gamez/zWeapon/zwep_projectilelist.cpp
+0x336e70	-	owner: CZAmmoPickupInstance method, after ZWepReader at the end of the file's range (position only)	socom-release-check-weapon	2026-11-26	src/gamez/zWeapon/zwep_projectilelist.cpp	guess
+0x336e80	-	owner: the same	socom-release-check-weapon	2026-11-26	src/gamez/zWeapon/zwep_projectilelist.cpp	guess
+0x336e90	-	owner: the same	socom-release-check-weapon	2026-11-26	src/gamez/zWeapon/zwep_projectilelist.cpp	guess
+0x336f40	-	owner: the same	socom-release-check-weapon	2026-11-26	src/gamez/zWeapon/zwep_projectilelist.cpp	guess
+0x337020	-	owner: the same	socom-release-check-weapon	2026-11-26	src/gamez/zWeapon/zwep_projectilelist.cpp	guess
+0x337060	-	owner: the same	socom-release-check-weapon	2026-11-26	src/gamez/zWeapon/zwep_projectilelist.cpp	guess
+0x337180	-	owner: the same	socom-release-check-weapon	2026-11-26	src/gamez/zWeapon/zwep_projectilelist.cpp	guess
+0x337280	-	owner: the same	socom-release-check-weapon	2026-11-26	src/gamez/zWeapon/zwep_projectilelist.cpp	guess
+0x337320	-	owner: the same	socom-release-check-weapon	2026-11-26	src/gamez/zWeapon/zwep_projectilelist.cpp	guess
+0x3373a0	-	owner: CZWeapon static (m_pProjectilelist), directly before TimerCleared__8CZWeaponFv	socom-release-check-weapon	2026-11-26	src/gamez/zWeapon/zwep_weapon.cpp	guess
+0x32bb60	0x312e80	AddDecal__Q23zdb6CDecal: only caller CVisual::AttachDecal at the same call site; same GIF/VIF tag words and CDecal offsets; one argument more	socom-release-check-visual	2026-11-26

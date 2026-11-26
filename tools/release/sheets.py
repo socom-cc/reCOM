@@ -344,6 +344,21 @@ def entry_places(matcher) -> tuple[dict, dict]:
     return p_out, r_out
 
 
+def vtable_change_lines(matcher, p_address, r_address) -> list[str]:
+    """The added / dropped slots of the paired tables a function sits in."""
+
+    out = []
+    for change in getattr(matcher, "vt_changes", {}).values():
+        pt = next((t for t, _ in matcher.table_pairs if t.address == change["prototype"]), None)
+        rt = next((t for _, t in matcher.table_pairs if t.address == change["release"]), None)
+        if (pt and p_address in pt.slots) or (rt and r_address in rt.slots):
+            out.append("- vtable %s: %d -> %d slots; dropped %s; inserted %s" % (
+                change["class"], change["prototype_slots"], change["release_slots"],
+                " ".join("+0x%x" % x for x in change["dropped"]) or "-",
+                " ".join("+0x%x" % x for x in change["inserted"]) or "-"))
+    return out[:4]
+
+
 def vtable_places(tables) -> dict[int, list[str]]:
     out = defaultdict(list)
     for table in (tables or {}).values():
@@ -464,6 +479,7 @@ def module_sheet(module: str, matcher, rows: list[dict], protos: dict, proto_ima
         out.append("- " + "; ".join(facts))
         if row["class"] in ("new", "removed"):
             out.extend(slot_lines(matcher, namer, row))
+        out.extend(vtable_change_lines(matcher, proto, rel))
         p = matcher.p_by.get(proto) if proto is not None else None
         r = matcher.r_by.get(rel) if rel is not None else None
         if p is not None:

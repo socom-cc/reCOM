@@ -428,6 +428,23 @@ def markdown(data: dict, rows: list[dict]) -> str:
             "without callers and outranks order among byte-identical copies. Flag `identical-copy`: equal "
             "bytes exist elsewhere and no slot, caller or settled row decided which copy this is." % vt)
         add("")
+    changes = data.get("vtable_changes") or []
+    if changes:
+        add("### Slots added and dropped per paired table")
+        add("")
+        add("Slot offsets from the table start (+0x8 is the first slot); `family` marks slots another table of")
+        add("the same class family showed as added or dropped (a base class's change inherited by its")
+        add("descendants).")
+        add("")
+        add("| class | prototype | release | slots | dropped | inserted | from family |")
+        add("|---|---|---|---|---|---|---|")
+        for c in changes:
+            add("| %s%s | %s | %s | %d / %d | %s | %s | %s |" % (
+                c["class"].replace("|", "\\|"), " (offset %d)" % c["offset"] if c["offset"] else "",
+                hx(c["prototype"]), hx(c["release"]), c["prototype_slots"], c["release_slots"],
+                " ".join("+0x%x" % x for x in c["dropped"]) or "-", " ".join("+0x%x" % x for x in c["inserted"]) or "-",
+                " ".join("+0x%x" % x for x in c["from_family"]) or "-"))
+        add("")
     add("## Settled by a checker")
     add("")
     settled = data.get("settled", [])

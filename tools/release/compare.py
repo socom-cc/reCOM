@@ -287,6 +287,7 @@ def run(root: Path, write: bool = True, use_settled: bool = True, sheet: str | N
                     "removed_virtuals": len({t for table in proto_tables.values() for t in table.slots
                                              if t in matcher.p_by and t not in matcher.pairs})},
         "settled": settled_rows,
+        "vtable_changes": [matcher.vt_changes[k] for k in sorted(matcher.vt_changes)],
         "entry_tables": entry_table_report(matcher, entry_pairs + matcher.index_pairs, p_entry_tables, r_entry_tables),
     }
     if write:

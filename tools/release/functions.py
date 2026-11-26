@@ -36,6 +36,7 @@ class Fn:
     data_refs: list[tuple[int, int]] = field(default_factory=list)  # (word index, data address)
     code_stores: dict = field(default_factory=dict)  # store offset -> function address it stores (a table filled by code)
     pointer_sites: dict = field(default_factory=dict)  # callee -> the function address passed to it (a callback)
+    call_args: list = field(default_factory=list)  # (callee, {register: ("fn", address) | ("str", text)})
     key: bytes = b""
     grams: frozenset = frozenset()
     ops: tuple = ()
@@ -205,9 +206,26 @@ def build(side: str, image, words, spans, gp: int | None) -> list[Fn]:
                     sites.setdefault(call_at[k], []).append(value)
                     break
         pointer_sites = {callee: targets[0] for callee, targets in sites.items() if len(set(targets)) == 1}
+        # the string and function-address arguments of each call (a0-a3, t0-t3 loaded just before it)
+        loads = [(i, (raw[i] >> 16) & 0x1F, ("fn", v)) for i, v in code_refs if (raw[i] >> 26) == 0x09]
+        for i, address in data_refs:
+            if (raw[i] >> 26) == 0x09:
+                text = regions.string_at(address)
+                if text is not None:
+                    loads.append((i, (raw[i] >> 16) & 0x1F, ("str", text)))
+        loads.sort()
+        call_args = []
+        for k, callee in calls:
+            args = {}
+            for i, register, value in loads:
+                if k - 12 <= i <= k + 1 and 4 <= register <= 11:
+                    args[register] = value
+            if args:
+                call_args.append((callee, args))
         shape = tuple(mips.shape(w) for w in raw)
         fn = Fn(side, start, end - start, raw, tuple(masked), shape, calls, refs, frozenset(strings), code_refs,
-                tail_calls, frozenset(file_strings), frozenset(lines), data_refs, code_stores, pointer_sites)
+                tail_calls, frozenset(file_strings), frozenset(lines), data_refs, code_stores, pointer_sites,
+                call_args)
         fn.key = mips.pack(masked)
         fn.grams = grams_of(shape)
         fn.ops = tuple(mips.operation(w) for w in raw)

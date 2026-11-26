@@ -55,7 +55,12 @@ VTABLE_RESEMBLE_SIZE = 32  # bytes: below this, slot functions are not matched b
 VTABLE_RESEMBLANCE = 0.30  # ... and above it they need this resemblance
 STUB_SIZE = 12  # bytes: a release handler this small (jr ra; li v0, n) is a stub ...
 STUB_FROM = 32  # ... when the prototype handler had at least this many bytes
-CROSS_KEEPS = {"settled", "entry", "vtable-slot", "table-entry", "pointer-site"}  # pairs the cross-check never moves
+CROSS_KEEPS = {"settled", "entry", "vtable-slot", "table-entry", "pointer-site", "registration", "vtable-store"}  # pairs the cross-check never moves
+SPECIFIC = {"registration", "pointer-site", "vtable-store"}  # evidence naming one place exactly ...
+SPECIFIC_KEEPS = {"exact", "entry", "settled", "vtable-slot", "table-entry"}  # ... overrides even a call pair
+CALLEE_NEIGHBOURS = 12  # prototype functions either side of the partner that the callee check looks at
+CALLEE_FIT = 0.6  # an alternative's ordered calls must agree this much ...
+CALLEE_MARGIN = 0.3  # ... and this much better than the current partner's
 VTABLE_KEEPS = {"exact", "entry", "settled", "call"}  # pairs a vtable slot does not overrule
 SMALL_GAP = 64  # positional gaps with at most this many candidate pairs skip the 3-gram prefilter
 STRING_SIMILARITY = 0.15  # a string-only pair needs this similarity ...
@@ -256,12 +261,16 @@ class Matcher:
         self.index_tables = index_tables or ([], [])  # unkeyed tables (prototype, release)
         self.index_pairs: list = []
         self.vt_confirmed: set[int] = set()  # prototype addresses whose pair a vtable slot confirms
-        self.vt_slots: dict[int, list] = defaultdict(list)  # prototype address -> [(p table, r table, p off, r off)]
+        self.vt_slots: dict[int, list] = defaultdict(list)
+        self.vt_changes: dict = {}  # (p table, r table) -> slots dropped / inserted  # prototype address -> [(p table, r table, p off, r off)]
         self._resemblance: dict[tuple[int, int], float] = {}
         self._slot_refs: set[tuple[int, int]] = set()
         self._anchor_cache = None
         self.allow_reference_slots = False
         self._entry_confirmed = None
+        self._registrations = None
+        self._own_classes = None
+        self._storers = None
         self._token_counts = None  # (prototype, release) targets of 1-to-1 reference slots
         self.blocked_p: set[int] = set()  # settled as removed
         self.blocked_r: set[int] = set()  # settled as new
@@ -461,6 +470,7 @@ class Matcher:
                     known_dropped[fam].update(gap_a)
         out = []
         inserted = dropped = 0
+        self.vt_changes = {}
         for pt, rt in self.table_pairs:
             a, b = pt.slots, rt.slots
             chain = chains[(pt.address, rt.address)]
@@ -501,6 +511,17 @@ class Matcher:
             for i, j in places:
                 if a[i] in self.p_by and b[j] in self.r_by:
                     out.append((a[i], b[j], (pt, rt, 8 + 4 * i, 8 + 4 * j)))
+            mapped_a = {i for i, _ in places}
+            mapped_b = {j for _, j in places}
+            gone = [8 + 4 * i for i in range(len(a)) if i not in mapped_a]
+            added = [8 + 4 * j for j in range(len(b)) if j not in mapped_b]
+            if gone or added:
+                family_added = sorted(8 + 4 * j for j in known_inserted.get(fam, ()) if j < len(b)) if fam else []
+                family_gone = sorted(8 + 4 * i for i in known_dropped.get(fam, ()) if i < len(a)) if fam else []
+                self.vt_changes[(pt.address, rt.address)] = {
+                    "class": pt.name, "offset": pt.offset, "prototype": pt.address, "release": rt.address,
+                    "prototype_slots": len(a), "release_slots": len(b), "dropped": gone, "inserted": added,
+                    "from_family": sorted(set(added) & set(family_added)) + sorted(set(gone) & set(family_gone))}
         self.stats["vtable-slots-inserted"] = inserted
         self.stats["vtable-slots-dropped"] = dropped
         return out
@@ -514,7 +535,97 @@ class Matcher:
         sites = self.pointer_site_correspondences()
         if sites:
             changed += self.place_pass(sites, repair, "pointer-site", record=False)
+        registrations = self.registration_correspondences()
+        if registrations:
+            changed += self.place_pass(registrations, repair, "registration", record=False)
+        stores = self.vtable_store_correspondences()
+        if stores:
+            changed += self.place_pass(stores, repair, "vtable-store", record=False)
         return changed
+
+    def registration_correspondences(self) -> list[tuple[int, int, tuple]]:
+        """Function pointers registered under the same string with the same paired registrar.
+
+        For every call of a paired callee where a string argument is unique among that
+        callee's calls on each side, the function-pointer arguments in the same
+        argument registers pair (``AddCmd("TIMER", parse, tick)``).
+        """
+
+        def sites(functions):
+            out = defaultdict(lambda: defaultdict(list))  # callee -> string -> [args]
+            for f in functions:
+                for callee, args in f.call_args:
+                    texts = [v[1] for v in args.values() if v[0] == "str"]
+                    if len(texts) == 1 and any(v[0] == "fn" for v in args.values()):
+                        out[callee][texts[0]].append(args)
+            return out
+
+        if self._registrations is None:
+            self._registrations = (sites(self.P), sites(self.R))
+        p_sites, r_sites = self._registrations
+        out = []
+        for callee, by_text in p_sites.items():
+            partner = self.pairs.get(callee)
+            if partner is None or partner.r.address not in r_sites:
+                continue
+            r_by_text = r_sites[partner.r.address]
+            for text, calls in by_text.items():
+                if len(calls) != 1 or len(r_by_text.get(text, ())) != 1:
+                    continue
+                p_args, r_args = calls[0], r_by_text[text][0]
+                for register, value in p_args.items():
+                    other = r_args.get(register)
+                    if value[0] == "fn" and other is not None and other[0] == "fn" \
+                            and value[1] in self.p_by and other[1] in self.r_by:
+                        out.append((value[1], other[1], ("registration", callee, text, register)))
+        return out
+
+    def vtable_store_correspondences(self) -> list[tuple[int, int, tuple]]:
+        """Constructors and destructors by the vtable they store: the class must agree on both sides.
+
+        Per paired class table, the functions on each side that load its address; those
+        already paired with each other are set aside, and when one is left on each side
+        they pair.
+        """
+
+        if not self.table_pairs:
+            return []
+        if self._storers is None:
+            def storers(functions, tables):
+                # a function's own class is the most derived of the tables it loads (an inlined
+                # base constructor or destructor loads its base's table too); tables of either
+                # side that did not pair still count, so a renamed class is not read as its base
+                at = {t.address: t for t in tables}
+                out = defaultdict(list)
+                for f in functions:
+                    stored = {a for _, a in f.data_refs if a in at}
+                    own = [a for a in stored if all(o == a or at[o].name in at[a].bases for o in stored)]
+                    if len(own) == 1:
+                        out[own[0]].append(f.address)
+                return out
+            all_p = getattr(self, "proto_tables", None) or {p.address: p for p, _ in self.table_pairs}
+            all_r = getattr(self, "release_tables", None) or {r.address: r for _, r in self.table_pairs}
+            self._storers = (storers(self.P, list(all_p.values())), storers(self.R, list(all_r.values())))
+        p_storers, r_storers = self._storers
+        out = []
+        for pt, rt in self.table_pairs:
+            ps = [a for a in p_storers.get(pt.address, ()) if a in self.p_by]
+            rs = [a for a in r_storers.get(rt.address, ()) if a in self.r_by]
+            open_p = [a for a in ps if not (a in self.pairs and self.pairs[a].r.address in rs)]
+            open_r = [a for a in rs if not (a in self.r_paired and self.r_paired[a] in ps)]
+            if len(open_p) == 1 and len(open_r) == 1:
+                out.append((open_p[0], open_r[0], ("vtable-store", pt.name)))
+            elif 1 < len(open_p) == len(open_r) <= 3:
+                # a constructor and a destructor (and a deleting variant): the like ones go together
+                scored = sorted(((similarity(self.p_by[a].masked, self.r_by[b].masked), a, b)
+                                 for a in open_p for b in open_r), reverse=True)
+                used_p, used_r = set(), set()
+                for value, a, b in scored:
+                    if value >= DEVIATING_MIN and a not in used_p and b not in used_r:
+                        used_p.add(a)
+                        used_r.add(b)
+                        out.append((a, b, ("vtable-store", pt.name)))
+        return out
 
     def pointer_site_correspondences(self) -> list[tuple[int, int, tuple]]:
         """Callbacks: what a paired function passes to the same paired callee on both sides."""
@@ -629,7 +740,9 @@ class Matcher:
             if current is not None or other is not None:
                 if not repair:
                     continue
-                if any(x is not None and x.evidence & VTABLE_KEEPS for x in (current, other)):
+                keeps = SPECIFIC_KEEPS if evidence in SPECIFIC else VTABLE_KEEPS
+                if any(x is not None and (x.evidence & keeps or (
+                        evidence == "pointer-site" and self.agreeing_callers(x) > 0)) for x in (current, other)):
                     self.stats[evidence + "-conflicts-kept"] += 1
                     continue
                 for x in (current, other):
@@ -817,7 +930,8 @@ class Matcher:
                     if not self.allow_reference_slots:
                         continue  # later: positional and global pairs come first
                     small, large = sorted((p_fn.size, r_fn.size))
-                    if small / large < SLOT_SIZE_RATIO or not self.in_window(p_fn, r_fn):
+                    # two or more paired callers calling it at the same place outweigh any size change
+                    if (small / large < SLOT_SIZE_RATIO and len(voters) < 2) or not self.in_window(p_fn, r_fn):
                         self.stats["slot-rejected-shape-or-order"] += 1
                         continue
                     if not self.slot_plausible(p_fn, r_fn):
@@ -914,7 +1028,8 @@ class Matcher:
                 other = self.pairs.get(other_p) if other_p is not None else None
                 if p.address in self.blocked_p or r.address in self.blocked_r:
                     continue
-                if any(x is not None and x.evidence & VTABLE_KEEPS - {"exact"} for x in (current, other)):
+                if any(x is not None and x.evidence & (VTABLE_KEEPS - {"exact"} | SPECIFIC | {"vtable-slot", "table-entry"})
+                       for x in (current, other)):
                     continue
                 for x in (current, other):
                     if x is not None:
@@ -1248,6 +1363,89 @@ class Matcher:
             self.r_paired[holder.r.address] = holder.p.address
         return after - before
 
+    def own_classes(self) -> tuple[dict, dict]:
+        """Function -> the class name of the most derived vtable it loads (constructors, destructors)."""
+
+        if self._own_classes is None:
+            def own(functions, tables):
+                out = {}
+                for f in functions:
+                    stored = {a for _, a in f.data_refs if a in tables}
+                    best = [a for a in stored if all(o == a or tables[o].name in tables[a].bases for o in stored)]
+                    if len(best) == 1:
+                        out[f.address] = tables[best[0]].name
+                return out
+            self._own_classes = (own(self.P, getattr(self, "proto_tables", None) or {}),
+                                 own(self.R, getattr(self, "release_tables", None) or {}))
+        return self._own_classes
+
+    def class_check(self) -> int:
+        """Unpair a constructor or destructor whose own class differs between the sides."""
+
+        p_own, r_own = self.own_classes()
+        undone = 0
+        for address in sorted(self.pairs):
+            pair = self.pairs[address]
+            a, b = p_own.get(pair.p.address), r_own.get(pair.r.address)
+            if a is None or b is None or a == b:
+                continue
+            if pair.evidence & CROSS_KEEPS:
+                pair.flags.add("class-mismatch")
+                continue
+            self.remove(pair)  # the tables say these are two classes: removed and new
+            undone += 1
+        self.stats["class-mismatch-unpaired"] = undone
+        return undone
+
+    def callee_check(self) -> int:
+        """A deviating pair whose ordered calls fit a nearby unpaired prototype function much better.
+
+        The release function's calls (paired targets) are compared, in order, with the
+        mapped calls of its partner and of the unpaired prototype functions within
+        CALLEE_NEIGHBOURS places of the partner. When exactly one of them fits by a wide
+        margin, it becomes the partner (evidence ``callee-check``); when several do, the
+        pair is flagged ``callee-mismatch``.
+        """
+
+        def tokens_r(fn):
+            return [("r", t) for _, t in fn.calls if t in self.r_paired]
+
+        def tokens_p(fn):
+            return [("r", self.pairs[t].r.address) for _, t in fn.calls if t in self.pairs]
+
+        changed = 0
+        for address in sorted(self.pairs):
+            pair = self.pairs.get(address)
+            if pair is None or pair.p.key == pair.r.key or pair.evidence & CROSS_KEEPS:
+                continue
+            calls = tokens_r(pair.r)
+            if len(calls) < 3:
+                continue
+            current = SequenceMatcher(None, tokens_p(pair.p), calls, autojunk=False).ratio()
+            index = self.p_index[pair.p.address]
+            fits = []
+            for k in range(max(0, index - CALLEE_NEIGHBOURS), min(len(self.P), index + CALLEE_NEIGHBOURS + 1)):
+                other = self.P[k]
+                if other.address in self.pairs or other.address in self.blocked_p:
+                    continue
+                value = SequenceMatcher(None, tokens_p(other), calls, autojunk=False).ratio()
+                if value >= CALLEE_FIT and value >= current + CALLEE_MARGIN:
+                    fits.append((value, other))
+            if len(fits) == 1:
+                other = fits[0][1]
+                self.remove(pair)
+                new = self.add(other, pair.r, "callee-check")
+                if new is not None:
+                    new.flags.add("repaired")
+                    changed += 1
+                else:
+                    self.pairs[pair.p.address] = pair
+                    self.r_paired[pair.r.address] = pair.p.address
+            elif fits:
+                pair.flags.add("callee-mismatch")
+        self.stats["callee-check-repaired"] = changed
+        return changed
+
     def cross_check(self) -> tuple[int, int]:
         """Re-pair, or flag, pairs whose callers contradict them; returns (re-paired, flagged).
 
@@ -1296,6 +1494,8 @@ class Matcher:
             repaired += changed
             if not changed:
                 break
+        self.class_check()
+        self.callee_check()
         flagged = 0
         for pair in self.pairs.values():
             if "settled" not in pair.evidence and self.mismatched(pair):
@@ -1398,7 +1598,7 @@ class Matcher:
             if "table-entry" in pair.evidence or pair.p.address in self.entry_confirmed():
                 if pair.r.size <= STUB_SIZE and pair.p.size >= STUB_FROM and not exact:
                     flags.add("stubbed")  # a real handler in the prototype, an empty one in the release
-            if pair.evidence & {"settled", "vtable-slot", "table-entry", "pointer-site"}:
+            if pair.evidence & {"settled", "vtable-slot", "table-entry", "pointer-site", "registration", "vtable-store"}:
                 plain = exact and not pair.call_conflicts and not pair.ref_mismatches
                 pair.cls = "exact" if plain else "deviating"
                 continue
@@ -1486,6 +1686,8 @@ class Matcher:
             self.propagate()
         if self.repair_copies():
             self.propagate()
+            if self.table_pass(repair=True):
+                self.propagate()
         self.cross_check()
         for _ in range(4):
             repaired = self.repair_from_exact_calls()
