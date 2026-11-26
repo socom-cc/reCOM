@@ -21,6 +21,10 @@ mono_crash.*
 [Dd]ebugPublic/
 [Rr]elease/
 [Rr]eleases/
+# the release-lane folders are source, not build results (docs/release/RULES.md)
+!/docs/release/
+!/tools/release/
+!/tests/release/
 x64/
 x86/
 [Ww][Ii][Nn]32/

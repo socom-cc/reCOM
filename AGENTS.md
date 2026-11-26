@@ -127,6 +127,20 @@ cannot be claimed, handed off, or accepted until a real stage-specific producer
 and acceptance route replace it. Current deferred capabilities and blockers are
 listed in `docs/reconstruction/TOOL_COVERAGE.md`.
 
+### Release lane
+
+On the branch `fts` the target is the release executable `support/SCUS_971.34`
+(SCUS-971.34, SHA-256
+`5111e776f64611ae1dcdc725f0ce9db660e90e1763e897e8f5b90f7402ce30d1`), which is
+stripped. The prototype above, its Ghidra program, its tracker and its debug
+data are read-only reference evidence there, and `tools/socom.py` stays pinned
+to the prototype. Release work follows
+[docs/release/RULES.md](docs/release/RULES.md): its own evidence order, six
+stages, a light record under `docs/release/`, standalone tools under
+`tools/release/`, and Ghidra writes only to the program `SCUS_971.34`. The
+rules of this file hold for release work wherever that document does not say
+otherwise.
+
 ## Reconstruction rules
 
 ### Evidence precedence
