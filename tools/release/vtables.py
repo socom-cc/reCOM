@@ -49,7 +49,9 @@ def find_tables(image, starts: set[int], sizes: dict[int, int] | None = None) ->
         if sizes and address in sizes and sizes[address] >= 12:
             end = index + sizes[address] // 4
         else:
-            while end < len(words) and words[end] in starts:
+            # a zero slot (a pure virtual) does not end the table when a slot follows it
+            while end < len(words) and (words[end] in starts or (
+                    words[end] == 0 and end + 1 < len(words) and words[end + 1] in starts)):
                 end += 1
         out[address] = Table(address, name, offset, list(words[index + 2:end]), base_names(image, regions, record))
     return out

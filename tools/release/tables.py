@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 import mips
 
 MIN_ENTRIES = 3
-STRIDES = (8, 12, 16, 20, 24, 28, 32)
+STRIDES = (4, 8, 12, 16, 20, 24, 28, 32)  # 4: a plain array of function pointers (static-init table)
 MAX_ID = 0x10000
 STRING_PAIR_MIN = 0.5  # Jaccard of the string keys for two tables to pair
 ID_PAIR_MIN = 0.8  # ... of the id keys (ids repeat across tables, so more is needed)
@@ -78,7 +78,7 @@ def find_tables(image, starts: set[int], spans: list[tuple[int, int]], skip: set
                 run.append(run[-1] + stride)
             if len(run) < MIN_ENTRIES:
                 continue
-            table = _keyed(image, words, run, stride, pointers)
+            table = _keyed(image, words, run, stride, pointers) if stride > 4 else None
             if table is None:
                 table = EntryTable(run[0], stride, "index", [(k, pointers[a]) for k, a in enumerate(run)])
             out.append(table)

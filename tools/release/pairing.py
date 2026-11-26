@@ -58,6 +58,8 @@ STUB_FROM = 32  # ... when the prototype handler had at least this many bytes
 CROSS_KEEPS = {"settled", "entry", "vtable-slot", "table-entry", "pointer-site", "registration", "vtable-store"}  # pairs the cross-check never moves
 SPECIFIC = {"registration", "pointer-site", "vtable-store"}  # evidence naming one place exactly ...
 SPECIFIC_KEEPS = {"exact", "entry", "settled", "vtable-slot", "table-entry"}  # ... overrides even a call pair
+TWIN_NEIGHBOURS = 12  # release functions either side of a pair the twin check looks at
+TWIN_MIN_SIZE = 32  # bytes: smaller shapes (one-load getters, stubs) are equal too often
 CALLEE_NEIGHBOURS = 12  # prototype functions either side of the partner that the callee check looks at
 CALLEE_FIT = 0.6  # an alternative's ordered calls must agree this much ...
 CALLEE_MARGIN = 0.3  # ... and this much better than the current partner's
@@ -659,43 +661,53 @@ class Matcher:
         return out
 
     def index_table_correspondences(self) -> list[tuple[int, int, tuple]]:
-        """Entries of unkeyed tables, by position, for tables of equal length that already agree.
+        """Entries of unkeyed tables (static-init tables, callback and state tables), by position.
 
-        Two tables pair when at least two of their entries hold handlers paired by
-        other evidence at the same position and none disagrees; then every position
-        pairs its handlers.
+        A release table pairs with a prototype table when at least two of their
+        entries hold handlers paired by other evidence and it is the only table with
+        that many; the entries are then aligned on those anchors (unique ones first)
+        and runs of equal length between two anchors pair one for one, so an entry
+        added or dropped in one place does not shift the rest.
         """
 
         proto_tables, release_tables = self.index_tables
         where = defaultdict(list)
         for table in release_tables:
             for k, (_, handler) in enumerate(table.entries):
-                where[handler].append((table, k))
+                where[handler].append(table.address)
+        by_address = {t.address: t for t in release_tables}
         out = []
         self.index_pairs = []
         for p in proto_tables:
             votes = Counter()
-            for k, (_, handler) in enumerate(p.entries):
+            for _, handler in p.entries:
                 pair = self.pairs.get(handler)
                 if pair is None or pair.evidence <= {"table-entry"}:
                     continue
-                for table, j in where.get(pair.r.address, ()):
-                    if j == k and len(table.entries) == len(p.entries) and table.stride == p.stride:
-                        votes[table.address] += 1
+                for address in set(where.get(pair.r.address, ())):
+                    if by_address[address].stride == p.stride:
+                        votes[address] += 1
             if not votes:
                 continue
-            (best, count), = votes.most_common(1)
-            if count < 2 or sum(1 for _, c in votes.items() if c == count) > 1:
+            ranked = votes.most_common(2)
+            best, count = ranked[0]
+            if count < 2 or (len(ranked) > 1 and ranked[1][1] == count):
                 continue
-            r = next(t for t in release_tables if t.address == best)
-            conflicts = sum(1 for (_, a), (_, b) in zip(p.entries, r.entries)
-                            if a in self.pairs and self.pairs[a].r.address != b
-                            and not self.pairs[a].evidence <= {"table-entry"})
-            if conflicts:
-                continue
+            r = by_address[best]
+            a = [h for _, h in p.entries]
+            b = [h for _, h in r.entries]
+            ta = [("r", self.pairs[h].r.address) if h in self.pairs and not self.pairs[h].evidence <= {"table-entry"}
+                  else ("p", h) for h in a]
+            tb = [("r", h) for h in b]
+            places = []
+            ia = ib = 0
+            for i, j, size in patience_blocks(ta, tb):
+                if i - ia == j - ib:
+                    places.extend(zip(range(ia, i), range(ib, j)))
+                places.extend((i + k, j + k) for k in range(size))
+                ia, ib = i + size, j + size
             self.index_pairs.append((p, r))
-            out.extend((a, b, (p, r, k)) for k, ((_, a), (_, b)) in enumerate(zip(p.entries, r.entries))
-                       if a in self.p_by and b in self.r_by)
+            out.extend((a[i], b[j], (p, r, i)) for i, j in places if a[i] in self.p_by and b[j] in self.r_by)
         return out
 
     def vtable_pass(self, repair: bool) -> int:
@@ -1397,6 +1409,52 @@ class Matcher:
         self.stats["class-mismatch-unpaired"] = undone
         return undone
 
+    def twin_check(self) -> int:
+        """A changed pair gives way to an unpaired release function equal to the prototype's.
+
+        For a non-exact pair: an unpaired release function with the prototype's masked
+        bytes anywhere (a template instance's own copy), or, when the pair rests on
+        little similarity, one nearby equal to it apart from immediates and offsets,
+        takes the prototype function when it is the only one.
+        """
+
+        unpaired_by_key = defaultdict(list)
+        for f in self.R:
+            if f.address not in self.r_paired and f.address not in self.blocked_r:
+                unpaired_by_key[f.key].append(f)
+        changed = 0
+        for address in sorted(self.pairs):
+            pair = self.pairs.get(address)
+            if pair is None or pair.p.key == pair.r.key or pair.evidence & CROSS_KEEPS:
+                continue
+            # the bytes must name one function on each side: copies of a common shape (one-load
+            # getters, empty stubs) say nothing
+            twins = [f for f in unpaired_by_key.get(pair.p.key, []) if f.address not in self.r_paired]                 if len(self.p_by_key[pair.p.key]) == 1 and len(self.r_by_key[pair.p.key]) == 1 else []
+            evidence = "exact"
+            if len(twins) != 1 and pair.similarity < DEVIATING_MIN:
+                index = self.r_index[pair.r.address]
+                twins = [f for f in self.R[max(0, index - TWIN_NEIGHBOURS):index + TWIN_NEIGHBOURS + 1]
+                         if f.address not in self.r_paired and f.address not in self.blocked_r
+                         and f.size == pair.p.size >= TWIN_MIN_SIZE and f.shape == pair.p.shape]
+                if twins:
+                    # the equal-shaped neighbour must be called where the prototype function was
+                    current = self.agreeing_callers(pair)
+                    twins = [f for f in twins if self.agreeing_callers(Pair(pair.p, f)) > max(0, current - 1)]
+                evidence = "shape-check"
+            if len(twins) != 1:
+                continue
+            twin = twins[0]
+            self.remove(pair)
+            new = self.add(pair.p, twin, evidence)
+            if new is None:
+                self.pairs[pair.p.address] = pair
+                self.r_paired[pair.r.address] = pair.p.address
+                continue
+            new.flags.add("repaired")
+            changed += 1
+        self.stats["twin-check-repaired"] = changed
+        return changed
+
     def callee_check(self) -> int:
         """A deviating pair whose ordered calls fit a nearby unpaired prototype function much better.
 
@@ -1496,6 +1554,7 @@ class Matcher:
                 break
         self.class_check()
         self.callee_check()
+        self.twin_check()
         flagged = 0
         for pair in self.pairs.values():
             if "settled" not in pair.evidence and self.mismatched(pair):

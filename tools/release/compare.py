@@ -184,7 +184,8 @@ def read_settled(path: Path) -> list[dict]:
 
 def run(root: Path, write: bool = True, use_settled: bool = True, sheet: str | None = None,
         sheet_list: str | None = None, lists_module: str | None = None, split: int = 1, sample: int = 15,
-        out: Path | None = None, done: list[str] | None = None, first: str = "a") -> dict:
+        out: Path | None = None, done: list[str] | None = None, first: str = "a",
+        pairs_only: bool = False, only: list[str] | None = None) -> dict:
     """Compare; ``out`` (default: the repository root) receives every output under the same relative paths."""
 
     out = out or root
@@ -223,6 +224,7 @@ def run(root: Path, write: bool = True, use_settled: bool = True, sheet: str | N
     matcher.run([(row["release"], row["prototype"]) for row in settled_rows if row["span"] is None])
 
     rows = report.build_rows(matcher, protos, {f.start: f.evidence for f in release_found})
+    report.static_init_owners(rows)
     report.apply_settled_owners(rows, settled_rows)
     by_evidence = {"call": [], "position": [], "string": [], "global": []}
     for pair in matcher.pairs.values():
@@ -299,8 +301,12 @@ def run(root: Path, write: bool = True, use_settled: bool = True, sheet: str | N
     if lists_module:
         import lists
 
-        made = lists.split(lists_module, rows, matcher, split, sample, lists.parse_done(done), first)
-        data["lists"] = [(path, item) for path, item in zip(lists.write(out, lists_module, made, sample, LISTS), made)]
+        if pairs_only:
+            made = lists.split_pairs(lists_module, rows, matcher, split, only)
+            data["pair_lists"] = list(zip(lists.write_pairs(out, lists_module, made, LISTS), made))
+        else:
+            made = lists.split(lists_module, rows, matcher, split, sample, lists.parse_done(done), first)
+            data["lists"] = [(path, item) for path, item in zip(lists.write(out, lists_module, made, sample, LISTS), made)]
     if sheet:
         import lists
         import sheets
@@ -346,6 +352,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--done", action="append", metavar="FILE[:LO-HI]",
                         help="with --lists: an owner file (optionally a release range of it) already checked; repeatable")
     parser.add_argument("--first", default="a", metavar="LETTER", help="with --lists: the letter of the first list")
+    parser.add_argument("--pairs-only", action="store_true",
+                        help="with --lists: every committed pair of the module (a cross-check pass), no sample")
+    parser.add_argument("--only", action="append", metavar="FILE",
+                        help="with --lists --pairs-only: only these owner files; repeatable")
     arguments = parser.parse_args(argv)
     root = arguments.root.resolve()
     out = (root / arguments.out).resolve() if arguments.out else root
@@ -354,7 +364,7 @@ def main(argv: list[str] | None = None) -> int:
         data = run(root, write=write, out=out,
                    use_settled=not arguments.no_settled, sheet=arguments.sheet, sheet_list=arguments.list,
                    lists_module=arguments.lists, split=arguments.split, sample=arguments.sample,
-                   done=arguments.done, first=arguments.first)
+                   done=arguments.done, first=arguments.first, pairs_only=arguments.pairs_only, only=arguments.only)
     except elfimage.InputRefused as error:
         print("refused: %s" % error, file=sys.stderr)
         return 2
@@ -373,6 +383,8 @@ def main(argv: list[str] | None = None) -> int:
         print("list %s: %d uncertain, %d sampled, %d exact, about %.0f minutes: %s" % (
             item["letter"], len(item["uncertain"]), len(item["sample"]), item["exact"], item["minutes"],
             shown(path, root)))
+    for path, item in data.get("pair_lists", []):
+        print("pairs list %s: %d pairs: %s" % (item["letter"], len(item["pairs"]), shown(path, root)))
     if data.get("sheet"):
         print("sheet: %s" % shown(data["sheet"], root))
     return 0

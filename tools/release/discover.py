@@ -25,6 +25,7 @@ import mips
 
 MAX_FUNCTION = 0x20000  # longest sweep accepted (bytes); the prototype's largest is 0x5f4c
 NEAR_GAP = 0x10000  # a pointer into a gap at most this long between functions is accepted alone
+TAIL_GAP = 0x800  # ... and one at most this far past the last function of a cluster
 
 
 @dataclass
@@ -294,6 +295,15 @@ class Discovery:
             return True
         return address - 8 >= self.base and ends_flow(self.word(address - 8))
 
+    def _code_like(self, result: Found) -> bool:
+        """A leaf right after code: no invalid word, few image addresses, an ordinary return."""
+
+        words = [self.word(a) for a in range(result.start, result.end, 4)]
+        if any(mips.is_invalid(w) for w in words) or not mips.is_jr(self.word(result.end - 8)):
+            return False
+        addresses = sum(1 for w in words if self.base <= w < self.limit)
+        return addresses * 8 <= len(words) and len(words) >= 3
+
     def _strong(self, result: Found) -> bool:
         """Code that cannot plausibly be data: it calls a known function or has a frame and returns."""
 
@@ -309,10 +319,19 @@ class Discovery:
 
         def near(address: int) -> bool:
             index = bisect.bisect_right(starts, address)
-            if index == 0 or index >= len(spans):
+            if index == 0:
+                return False
+            # just past the end of a cluster (code reached only through tables or interrupt
+            # registration follows the last called function)
+            if address - spans[index - 1][1] <= TAIL_GAP and (index >= len(spans) or
+                                                             spans[index][0] - spans[index - 1][1] > NEAR_GAP):
+                tail.add(address)
+                return True
+            if index >= len(spans):
                 return False
             return spans[index][0] - spans[index - 1][1] <= NEAR_GAP
 
+        tail = self._tail = set()
         table_words = set()
         for found in self._found.values():
             for table, count in found.tables:
@@ -351,6 +370,13 @@ class Discovery:
         result = self.sweep(address, nxt)
         if result is None or not result.ends_with_return:
             return None
+        if address in getattr(self, "_tail", ()):
+            # past the end of a cluster data follows: a table of addresses decodes as code, so
+            # a body made largely of image addresses is data
+            words = [self.word(a) for a in range(result.start, result.end, 4)]
+            addresses = sum(1 for w in words if self.base <= w < self.limit)
+            if addresses * 4 > len(words):
+                return None
         if strong and not self._strong(result):
             return None
         return result
@@ -396,7 +422,7 @@ class Discovery:
                 result = self.sweep(address, lambda _a, s1=s1: s1 if s1 < self.limit else None)
                 if result is None or result.end > s1:
                     break
-                if not clean and not (result.ends_with_return and self._strong(result)):
+                if not clean and not (result.ends_with_return and (self._strong(result) or self._code_like(result))):
                     break
                 added += self._add(address, "sweep")
                 address = result.end

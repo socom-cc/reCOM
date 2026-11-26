@@ -148,6 +148,25 @@ def apply_settled_owners(rows: list[dict], settled: list[dict]) -> None:
                 row["flags"] = sorted(set(row["flags"]) | set(item["flags"]))
 
 
+def static_init_owners(rows: list[dict]) -> int:
+    """A static initialiser ``__sinit_<file>`` belongs to <file>: take the owner from its name."""
+
+    by_name = {}
+    for row in rows:
+        if row["owner_file"]:
+            by_name.setdefault(row["owner_file"].rsplit("/", 1)[-1], row["owner_file"])
+    fixed = 0
+    for row in rows:
+        name = row["prototype_symbol"] or ""
+        if name.startswith("__sinit_") and not row["owner_file"]:
+            owner = by_name.get(name[len("__sinit_"):])
+            if owner:
+                row["owner_file"] = owner
+                row["flags"] = sorted(set(row["flags"]) | {"owner-sinit"})
+                fixed += 1
+    return fixed
+
+
 def write_tsv(rows: list[dict]) -> str:
     lines = ["\t".join(TSV_COLUMNS)]
     for row in rows:

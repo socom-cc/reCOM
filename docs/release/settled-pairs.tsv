@@ -172,3 +172,77 @@ removed	0x208810	NumActiveSeals: its loop (team bit 1) is inline in 0x20ae80; no
 0x337320	-	owner: the same	socom-release-check-weapon	2026-11-26	src/gamez/zWeapon/zwep_projectilelist.cpp	guess
 0x3373a0	-	owner: CZWeapon static (m_pProjectilelist), directly before TimerCleared__8CZWeaponFv	socom-release-check-weapon	2026-11-26	src/gamez/zWeapon/zwep_weapon.cpp	guess
 0x32bb60	0x312e80	AddDecal__Q23zdb6CDecal: only caller CVisual::AttachDecal at the same call site; same GIF/VIF tag words and CDecal offsets; one argument more	socom-release-check-visual	2026-11-26
+0x3f0130	0x29b650	CheckDIShoot stores the auto-aim point (seal +0x534, flag +0x532 bit 0) where it called DrawAutoReticle; 0x3f0130 reads those fields and projects the point with the same code; caller BitmapReticule::HudTick	socom-release-check-hud	2026-11-26	src/Apps/FTS/hud/hud_bitmapreticule.cpp
+0x422190	new	only loader __sinit_hud_scorepopup.cpp (dtor of the new vector 0x58d7e0); the prototype 0x3f7a90's loader __sinit_zsav_manager.cpp registers 0x1dac10 in the release	socom-release-check-hud	2026-11-26	src/Apps/FTS/hud/hud_scorepopup.cpp
+0x488180	0x470cf0	__sinit_hud_scorepopup.cpp: the same first 12 registrations in the same order (CSTable MultiplayerMsgStrings, the ten CScoreBmp g_bmp*, the two CTeamDisplay arrays); directly after __sinit_hud_missioncams.cpp on both sides	socom-release-check-hud	2026-11-26	src/Apps/FTS/hud/hud_scorepopup.cpp
+0x422220	new	owner: registered by __sinit_hud_scorepopup.cpp (dtor of the vector 0x58d7c0)	socom-release-check-hud	2026-11-26	src/Apps/FTS/hud/hud_scorepopup.cpp
+0x4222b0	new	owner: the same (vector 0x58d7a0)	socom-release-check-hud	2026-11-26	src/Apps/FTS/hud/hud_scorepopup.cpp
+0x422340	new	owner: the same (vector 0x58d780)	socom-release-check-hud	2026-11-26	src/Apps/FTS/hud/hud_scorepopup.cpp
+0x4223d0	new	owner: the same (vector 0x58d760)	socom-release-check-hud	2026-11-26	src/Apps/FTS/hud/hud_scorepopup.cpp
+0x43d808	new	sceUsbKbGetInfo of libusbkb.a (own message, RPC 1); not the prototype's zin_keyboard.cpp wrapper sceUsbKeybdRead (RPC 2)	socom-release-check-input-state	2026-11-26	provider:SCE libusbkb
+removed	0x21b950	sceUsbKeybdRead: the zin_keyboard.cpp RPC wrapper is replaced by libusbkb's sceUsbKbRead (0x43d8a8) at its call site in GetKeyReadThisFrame	socom-release-check-input-state	2026-11-26
+0x43dcf0	new	sceUsbKbSync of libusbkb.a (two arguments, semaphore, result dispatch 0x43dd90)	socom-release-check-input-state	2026-11-26	provider:SCE libusbkb
+removed	0x21b870	sceUsbKeybdSync: the zin_keyboard.cpp wrapper is replaced by libusbkb's sceUsbKbSync (0x43dcf0)	socom-release-check-input-state	2026-11-26
+0x43d578-0x43dd90	-	SCE USB keyboard library (libusbkb.a, its own messages), appended at the end of the text with the release's other new libraries	socom-release-check-input-state	2026-11-26	provider:SCE libusbkb
+0x3fce20	0x321270	entry 3 of c_arrStatFuncs (__sinit_st_mpexit.cpp) on both sides; same body	socom-release-check-input-state	2026-11-26	src/Apps/FTS/state/st_mpexit.cpp
+0x3fce60	0x3212f0	entry 1 of c_arrStatFuncs on both sides; same body	socom-release-check-input-state	2026-11-26	src/Apps/FTS/state/st_mpexit.cpp
+0x3fce30	0x3de0d0	entry 2 of c_arrStatFuncs on both sides	socom-release-check-input-state	2026-11-26
+0x33c1c0	0x321300	entry 0 of c_arrStatFuncs and the first member-pointer record of SetRoundStatUiVars on both sides	socom-release-check-input-state	2026-11-26
+0x3fce00	0x3de0b0	entry 5 of c_arrStatFuncs on both sides	socom-release-check-input-state	2026-11-26
+0x3fce10	0x3de0c0	entry 4 of c_arrStatFuncs on both sides	socom-release-check-input-state	2026-11-26
+0x3fcba0	0x3dded0	same body; its two calls moved from the end of SetMpStatUiVars to the end of TickMpStats	socom-release-check-input-state	2026-11-26
+0x1a8f20	0x1a8280	calls WalkLine(CAiMapLoc, CAiMapLoc) as the prototype did; called at the paired call site of CAiMaps::ComputeLineVisibility (+0xc4 → +0xd0); overload order as WalkLine and CanSeeLine	socom-release-check-ai-node	2026-11-26
+0x1a8e90	new	calls WalkLine(CAiMapLoc, CPnt3D*): the new CPnt3D overload, called twice from the new cross-map part of CAiMaps::ComputeLineVisibility	socom-release-check-ai-node	2026-11-26	src/gamez/zAI/ai_mapwalk.cpp
+0x4817e0	0x46a2e0	the same static-init table entry between __sinit_ai_astar.cpp and __sinit_ai_path.cpp; constructs the same CAiCell global	socom-release-check-ai-node	2026-11-26	src/gamez/zAI/ai_map.cpp
+0x17d9a0	new	owner: the Rfloat constructor, emitted after Rfloat::operator float inside ai_main.cpp's range; first caller AddNoise	socom-release-check-ai-node	2026-11-26	src/gamez/zAI/ai_main.cpp	guess
+0x192870	new	owner: CAiPath method (+0x8c, +0x90), directly before ai_path.cpp's first template instances	socom-release-check-ai-node	2026-11-26	src/gamez/zAI/ai_path.cpp	guess
+0x192e80	new	owner: CAiPath::point constructor, called only by 0x192870; between ai_path.cpp's instances	socom-release-check-ai-node	2026-11-26	src/gamez/zAI/ai_path.cpp	guess
+0x192f70	new	owner: WalkLine callback of 0x192870, directly before PointInPath	socom-release-check-ai-node	2026-11-26	src/gamez/zAI/ai_path.cpp	guess
+0x31ac40	0x1a93c0	owner: GetSize__7CFileIOCFv sits between util_bufio.cpp's GetMode and fwrite; ai_log.cpp, which emitted the prototype's copy, is gone	socom-release-check-ai-node	2026-11-26	src/gamez/zUtil/util_bufio.cpp
+0x22a630	0x2270e0	same caller TickZAnimCmd; slot after SetScale(CPnt3D*); writes the scale to +0/+0x14/+0x28 and sets bit 1 of +0x9a	socom-release-check-ai-node	2026-11-26
+0x232050	0x22eb70	masked bytes of GetIntersect except the CWorld offsets (+0xcc → +0xdc, 1648 → 1664); 7 of its 8 prototype callers	socom-release-check-ai-node	2026-11-26
+0x2320d0	new	the bool overload of GetIntersect (sets and restores bit 0 of the intersect flags); only caller zAnimObjectMotionTick	socom-release-check-ai-node	2026-11-26	src/gamez/zNode/node_world.cpp
+0x231050	0x22e070	same body minus CNodeVector::Remove, which moved into its two former callers; now called from CPipe::RenderWorld	socom-release-check-ai-node	2026-11-26
+0x32d390	0x2322c0	the only list_imp<PCv>::resize on both sides; shared caller RTPool<CTextureFX>'s constructor; erase inlined	socom-release-check-ai-node	2026-11-26	src/gamez/zVisual/vis_texfx.cpp
+0x235690	0x232080	the same call site in StartEngine (second call, before CTextureFX::Init); body now empty	socom-release-check-ai-node	2026-11-26
+0x32d470	0x232340	owner: list_imp<PCv>::insert now follows the RTPool<CTextureFX> instances; node_wave.cpp no longer instantiates RTPool<CRipple>'s constructor	socom-release-check-ai-node	2026-11-26	src/gamez/zVisual/vis_texfx.cpp
+0x32d530	0x2324c0	owner: list_imp<PCv>::init, the same	socom-release-check-ai-node	2026-11-26	src/gamez/zVisual/vis_texfx.cpp
+0x142ea0	0x141710	malloc(4); allocate<c>'s size-4 branch with the pool built by __ct__15_zmalloc<4four> in __sinit_main.cpp	socom-release-check-small-1	2026-11-26
+0x142d80	new	malloc(16); allocate<c>'s size-16 branch with the pool built by new ctor 0x142480 (12500)	socom-release-check-small-1	2026-11-26	src/Apps/FTS/main.cpp
+0x1735e0	0x173e30	main's call after mwInit; init$2590/opt_string prologue and getopt loop; only -m left	socom-release-check-small-1	2026-11-26	src/Apps/FTS/options.cpp
+0x3068b0	0x2efa80	AwarenessUpgrade's call site in CSealCtrlAi::Tick (after MakeCallbacks); slot between PostTick and Remove; body Remove(id, true, false)	socom-release-check-small-1	2026-11-26	src/gamez/zSound/zsnd_csndinstance.cpp
+removed	0x142140	_dpfgt: no release copy (only _dpflt); its callers' debug and double compares are gone	socom-release-check-small-1	2026-11-26
+0x302ab0	0x2ebdb0	the same fade statics and seven-group master-volume loop; callers moved to HandleGrenadeExplosion and StreamSoundVolPan	socom-release-check-small-1	2026-11-26
+0x306200	0x2ef190	shared caller ClosePauseMenu	socom-release-check-small-1	2026-11-26
+0x306230	0x2ef260	shared caller OpenPauseMenu	socom-release-check-small-1	2026-11-26
+0x306400	0x2ef540	shared caller the UIStopAllSounds anim command (0x1d1860)	socom-release-check-small-1	2026-11-26
+0x31ee50	0x307a40	the seven debug allocators call it on both sides	socom-release-check-small-1	2026-11-26
+0x31fa40	0x308590	equal bytes; video start-up moved from CGame::StartEngine to CIOPManager::RebootIOP	socom-release-check-small-1	2026-11-26
+0x31fb20	0x308690	the same move (zVid_Init, zSysReset, zVid_Open order kept); still calls zvid_SetVideoMode	socom-release-check-small-1	2026-11-26
+0x3200b0	0x308c20	imm-only, similarity 0.988; moved from COurGame::StartEngine to RebootIOP	socom-release-check-small-1	2026-11-26
+0x404800	0x402e10	the thread entry TRC_PreparePowerOff stores (prototype: TRC_PowerOffThread); semaphore in a0, WaitSema loop; Aux inlined; decided by the coordinator 2026-11-26	socom-release-check-small-1	2026-11-26		merged
+removed	0x402e50	TRC_PowerOffThread_Aux inlined into its only caller TRC_PowerOffThread (0x404800)	socom-release-check-small-1	2026-11-26
+0x30bf10	0x2f49d0	similarity 0.995; moved with zVid_Init/zVid_Open from CGame::StartEngine into RebootIOP, order kept	socom-release-check-small-1	2026-11-26
+0x1e2590	0x1e1210	the same opening and calls; frame arithmetic moved to new 0x1e29d0; caller split out of Tick_0 into new 0x27b620	socom-release-check-small-1	2026-11-26
+0x1e27c0	0x1e1700	shared caller BlendOverlayPreTick, the same three call positions; the same opening checks	socom-release-check-small-1	2026-11-26
+0x202c50	0x200130	the (PCciii) signature, passing its three ints through to 0x202810; PlayRemoteMsg's two call sites and OnDeath's (now in 0x254020)	socom-release-check-small-2	2026-11-26
+0x202810	new	the general Add_Message (the prototype (PCciii) body plus an int, a bool and a float); called only by the four overload wrappers	socom-release-check-small-2	2026-11-26	src/gamez/zTwoD/ztwod_messageq.cpp
+0x202c70	0x2004b0	7 of its 8 other prototype callers; zAnimMessageTick moved to 0x202ca0; body now a forwarder to 0x202810	socom-release-check-small-2	2026-11-26
+0x31b390	0x3044e0	the same call position in StopEngine (after zVid_Uninit); body now empty	socom-release-check-small-2	2026-11-26
+0x3110b0	0x2f9d00	the same TBP updates at +0x54/+0x58; reached from UpdateTextureSelects through new 0x3112a0	socom-release-check-small-2	2026-11-26
+0x313ef0	0x2fccd0	the only vector_imp<1>::insert on both sides: same calls and strings; its caller resize is inlined into Load	socom-release-check-small-2	2026-11-26
+0x21acd0	0x2170e0	the same call site in CGrid::AddClutter; adds to one of the cell's two clutter lists	socom-release-check-small-2	2026-11-26
+0x21ac90	0x2170d0	same caller CPipe::RenderWorld; renders both clutter lists	socom-release-check-small-2	2026-11-26
+0x21ad50	0x2170f0	same caller CGrid::DeleteClutter; frees both clutter lists	socom-release-check-small-2	2026-11-26
+0x1e9e40	new	stops the heartbeat instance; its gp statics are camera.cpp's (shared with UpdateDeathCamState)	socom-release-check-small-2	2026-11-26	src/gamez/zCamera/camera.cpp
+0x1e9e80	new	loads the three SND_HEARTBEAT loops into camera.cpp's gp statics	socom-release-check-small-2	2026-11-26	src/gamez/zCamera/camera.cpp
+0x176a20	0x1777c0	same caller CHUD::Init; the same four stores at +0x68..+0x74	socom-release-check-small-2	2026-11-26
+0x3534c0	0x336d90	same caller CLoadState::Init; same return, before the same neighbour	socom-release-check-small-2	2026-11-26
+0x1effc0	0x177290	owner: the release copy of GetPosW__7CEntityCFv sits inside ent_main.cpp's run; decided by the coordinator 2026-11-26: paired (same vtable slot on both sides, the CTurret override changed alike; small-1 split it); it no longer returns a pointer but caches the node's position at +0x1c	socom-release-check-small-2	2026-11-26	src/gamez/zEntity/ent_main.cpp	name-changed
+0x397a00	0x37cfc0	slot 1 of the CTurret table (no RTTI word) on both sides; the base CEntity::GetPosW changed the same way (stores the position at +0x1c)	socom-release-check-small-3	2026-11-26
+0x396d60	0x37cf60	slot 0 of the CTurret table	socom-release-check-small-3	2026-11-26
+0x3979f0	0x37b1e0	slot 6 of the CTurret table	socom-release-check-small-3	2026-11-26
+0x3979e0	0x37b1d0	CTurret table slot 7 (prototype) / 8 (release, after the new CEntity slot 0x1f38f0)	socom-release-check-small-3	2026-11-26
+0x239e80	new	adds a visual to a Destruction_Instance's node; callers Create3Sided and CreateVisuals; first function of the instance file's range	socom-release-check-small-3	2026-11-26	src/gamez/zParticle/zparticle_instance.cpp
+0x1dac10	0x3f7a90	the vector<CKey*> destructor: exact, the name carries over; replaces the zArchive pair 0x1dac10 <-> 0x1d9160 made by role (the key ring is a vector in the release, zArchive note); decided by the coordinator 2026-11-26 (hud note)	socom-release-coordinator	2026-11-26
+removed	0x1d9160	list<CKey*>::~list: the key ring is a vector in the release (zArchive note); its former release partner 0x1dac10 is the vector<CKey*> destructor (hud note); decided by the coordinator 2026-11-26	socom-release-coordinator	2026-11-26

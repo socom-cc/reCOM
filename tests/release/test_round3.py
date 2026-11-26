@@ -134,3 +134,15 @@ def test_sheet_names_data_and_shows_slots_and_full_diffs():
     image = elfimage.synthetic([0] * 8, BASE, symbols=[elfimage.Symbol(BASE + 8, 4, "g_count", 1, 1)])
     namer = sheets.DataNamer(m, image, image)
     assert namer.proto(BASE + 8) == "g_count" and namer.proto(BASE + 10) == "g_count+0x2"
+
+
+def test_pairs_only_lists_hold_every_committed_pair():
+    files = [("src/gamez/zX/a.cpp", ["exact"] * 30 + ["deviating"] * 10 + ["new"] * 3),
+             ("src/gamez/zX/b.cpp", ["exact"] * 25 + ["unsure"] * 2 + ["removed"] * 4)]
+    rows = _rows(files)
+    made = lists.split_pairs("gamez/zX", rows, _FakeMatcher(rows), 2)
+    assert sum(len(x["pairs"]) for x in made) == 67
+    assert all(r["class"] in ("exact", "deviating", "unsure") for x in made for r in x["pairs"])
+    only = lists.split_pairs("gamez/zX", rows, _FakeMatcher(rows), 1, ["b.cpp"])
+    assert len(only[0]["pairs"]) == 27
+    assert "Cross-check list gamez/zX-a" in lists.render_pairs("gamez/zX", only[0])
