@@ -26,9 +26,15 @@ Layouts were compared by size, not member by member. The types stay linked to th
 | whole map, batch 3 | e53b253f... | 2,500 | 138 | 2,335 | 2,327 | 2,500 | full batch, no stop, no side effect; check clean; saved, confirmed (7,300 rows) |
 | whole map, batch 4 | e53b253f... | 2,000 | 128 | 1,822 | 1,765 | 2,000 | full batch, no stop, no side effect; check clean; saved, confirmed (5,715 rows) |
 | whole map, batch 5 | e53b253f... | 2,000 | 284 | 1,941 | 1,088 | 2,000 | full batch, no stop, no side effect; check clean; saved, confirmed (5,313 rows) |
+| whole map, batch 6 | e53b253f... | 1,471 | 51 | 992 | 372 | 1,471 | end of the map, no stop, no side effect; check clean; saved, confirmed (2,886 rows) |
 
 Batch 2 rewrote the plates of the two thunks of batch 1 (0x1405c0, 0x1405d0), which now name
 their targets; those two rows were replaced, not added.
+
+The pass is complete (2026-11-26): a dry run of the whole-map plan after batch 6 sends nothing.
+The record holds 25,071 saved rows: 718 creates, 8,498 names, 6,381 labels and 9,474 plates. The
+release program has 9,493 functions (8,772 after the auto-analysis): the 718 created by the tool
+and 3 created by Ghidra's analysis during batch 1.
 
 ## Stops, and what they showed
 
