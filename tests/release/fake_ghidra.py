@@ -17,6 +17,7 @@ from urllib.parse import parse_qsl, unquote, urlsplit
 
 import createflow
 import ghidra_bridge as gb
+import mips
 from elfimage import PROTOTYPE_SHA256, RELEASE_SHA256
 
 
@@ -35,7 +36,7 @@ class Program:
         """``name`` None: a DEFAULT name (FUN_..., or the target's name for a thunk)."""
 
         self.functions[entry] = {"own": name, "end": end, "thunk_of": thunk_of, "noreturn": noreturn,
-                                 "lo": entry if lo is None else lo}
+                                 "lo": entry if lo is None else lo, "holes": []}
         self.code.add(entry)
 
     def shown(self, entry: int) -> str:
@@ -53,7 +54,7 @@ class Program:
         if address in self.functions:
             return address
         for entry, fn in self.functions.items():
-            if fn["lo"] <= address <= fn["end"]:
+            if fn["lo"] <= address <= fn["end"] and not any(a <= address <= b for a, b in fn["holes"]):
                 return entry
         return None
 
@@ -67,7 +68,12 @@ class FakeGhidra(gb.Bridge):
         self.ignore_renames = False  # simulate a rename that does not stick
         self.analysis_creates: dict[int, list[int]] = {}  # auto-analysis adding functions after a create
         self.analysis_names: dict[int, str] = {}  # Function ID naming a created function
+        self.analysis_effects: dict[int, object] = {}  # create address -> callable(program): analysis follow-up
+        self.drop_plate_read_after_set = False  # the next plate read after a set answers empty once
         self.requests: list[tuple[str, str]] = []
+
+    def clones(self, count):
+        return [self]  # one in-memory program: reads stay sequential
 
     def program(self, path):
         return {p.path: p for p in (self.prototype, self.release)}[path]
@@ -119,6 +125,9 @@ class FakeGhidra(gb.Bridge):
         if entry is None:
             return {"error": f"No function at address: {q['address']}"}
         out = {"address": "%08x" % entry, "function_name": p.shown(entry)}
+        if getattr(self, "drop_next_plate_read", False):
+            self.drop_next_plate_read = False
+            return out
         if entry in p.plates:
             out["comment"] = p.plates[entry]
         return out
@@ -164,9 +173,17 @@ class FakeGhidra(gb.Bridge):
         else:  # CreateFunctionCmd.getFunctionBody: FollowFlow, stopping at existing function entries
             flow = createflow.predict(p.image.word, p.image.contains, address, set(p.functions))
             lo, end = min(flow.body), max(flow.body) + 3
-        p.add(address, end, self.analysis_names.get(address), lo=lo)
+        thunk_of = None
+        first = p.image.word(address) if p.image is not None else None
+        if (lo, end) == (address, address + 7) and p.image.word(address + 4) == 0:
+            target = mips.jump_target(first, address) if mips.is_j(first) else None
+            if target in p.functions:  # CreateFunctionCmd.resolveThunk
+                thunk_of = target
+        p.add(address, end, self.analysis_names.get(address), lo=lo, thunk_of=thunk_of)
         for extra in self.analysis_creates.get(address, ()):
             p.add(extra, extra + 0xF)
+        if address in self.analysis_effects:
+            self.analysis_effects[address](p)
         return {"success": True, "function_name": p.shown(address)}
 
     def post_create_label(self, p, d):
@@ -186,6 +203,8 @@ class FakeGhidra(gb.Bridge):
         entry = p.at(int(d["function_address"], 16))  # the plugin falls back to the containing function
         if entry is None:
             return {"error": "Function not found"}
+        if d["new_name"] in p.labels.get(entry, []):  # SymbolManager.checkDuplicateSymbolName
+            return {"error": f"A symbol named {d['new_name']} already exists at this address!"}
         if not self.ignore_renames:
             p.functions[entry]["own"] = d["new_name"]
         return {"status": "success", "message": "Renamed"}
@@ -193,4 +212,7 @@ class FakeGhidra(gb.Bridge):
     def post_set_comment(self, p, d):
         assert d["type"] == "plate"
         p.plates[int(d["address"], 16)] = d["comment"]
+        if self.drop_plate_read_after_set:
+            self.drop_plate_read_after_set = False
+            self.drop_next_plate_read = True
         return {"status": "success", "message": f"Set comment at {d['address']}"}

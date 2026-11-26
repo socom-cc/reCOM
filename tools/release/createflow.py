@@ -42,6 +42,9 @@ def _is_call(word: int) -> bool:
     return op == 3 or (op == 0 and (word & 0x3F) == 9) or (op == 1 and ((word >> 16) & 0x1F) in (0x10, 0x11, 0x12, 0x13))
 
 
+is_call = _is_call  # a call, not followed by FollowFlow
+
+
 def predict(word_at, contains, entry: int, entries: set[int], noreturn: set[int] = frozenset(),
             jumps: dict[int, list[int]] | None = None, limit: int = 1 << 16) -> Flow:
     """``word_at(address)`` reads an instruction word, ``contains(address)`` says it is loaded."""

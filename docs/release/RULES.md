@@ -118,7 +118,10 @@ python tools/release/names.py --confirm-saved build/release/names/plan-gamez-zAr
   the release image (`tools/release/createflow.py`) and classes each create safe (the body is the
   map extent as things stand), ordered (after the creates its flow falls or jumps into; the apply
   makes those first) or withheld with the reason (padding or other code would join the body, part
-  of the extent is unreachable, its extent overlaps a function). `--assume-removed 0x..` plans as
+  of the extent is unreachable, its extent overlaps a function, it lies in a gap of an existing
+  body: `hole`, or `jump-neighbour` when that function jumps to a map start that is no function).
+  Creates that other creates flow or jump into are made first. A planned name that is already a
+  label at the function's entry is not sent (Ghidra refuses it); the plate says so. `--assume-removed 0x..` plans as
   if a function had been removed by hand; the apply refuses until it is.
 - **Review**: a second agent that did not write the plan checks it before anything is applied.
 - **Apply**: the coordinator only, after the review: the dry run first, then `--yes`, optionally
@@ -130,9 +133,15 @@ python tools/release/names.py --confirm-saved build/release/names/plan-gamez-zAr
   writes the plate comment, reading each back; the first failed read-back stops the run. It waits
   for auto-analysis after each create, compares a snapshot of every release function before and
   after, and reports each change it did not make. The report under `build/release/names/` lists
-  every write sent, in order, with its answer. A create that still reads back another extent stops the run; the message and the report (`remove_by_hand`) name the function to remove by hand in Ghidra. A second run changes nothing.
+  every write sent, in order, with its answer. A create that still reads back another extent stops the run; the message and the report (`remove_by_hand`) name the function to remove by hand in Ghidra. Any other change after a create (a function that
+  appears or vanishes, a body, name, thunk or no-return flag that changes) stops the run too
+  (`analysis_changes` in the report); nothing is removed by hand then: check, save, confirm, replan.
+  A second run changes nothing.
 - **Save**: the coordinator, through the bridge, after a second agent has checked the batch; then
-  `--confirm-saved <report>`. After closing without a save, `--discard-unsaved <report>`.
+  `--confirm-saved <report>`, which refuses while a function the report says to remove by hand
+  still exists, and also records the writes that were sent but stopped the run before their
+  read-back if the saved program holds them. After closing without a save, `--discard-unsaved <report>`.
+  A planned create that analysis already made with the map's extent gets a `create-by-analysis` row.
 - **Record**: `docs/release/ghidra-applied.tsv` (release address, what was applied, the value, the
   source pair, the date, the state), written by the tool for changes that read back. Its rows stay
   `unsaved <report>` until `--confirm-saved` re-reads them and marks them `saved <date>`; no new

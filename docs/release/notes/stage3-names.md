@@ -58,17 +58,39 @@ ones, and each leaves Ghidra's layout equal to the map's.
 
 Which analyzer turns such a jump into a call cannot be seen through the bridge.
 
-## Open before the next batch
+## What the tool learned from batch 1
 
-- A function that appears or vanishes, or a body that changes, after a create is to stop the
-  run, not only be reported.
-- Creates that lie in the lowest-to-highest range of an existing function (one is left:
-  0x317c00, inside the 13 KB body of 0x315210) and creates next to existing functions that jump
-  into map starts that are not functions yet (0x156b30 and 0x156c40 to 0x156978, 0x159658 to
-  0x159780, 0x1f4370 to 0x1f4380, 0x315210 to 0x318580) are to be withheld or batched apart.
-- A planned name that already exists as a label at the function's entry is to be found when
-  the plan is made (0x15a600 is the only case in the kernel region; the default-named functions
-  elsewhere were not scanned).
-- Thunks created by the run are to be tracked, for the label read-back at 0x288ad0.
-- Not touched by any batch: 373 map starts without an instruction, 31 boundary differences,
-  19 functions Ghidra has that the map does not, the 4 withheld creates.
+Changed by the builder after batch 1 (plan schema 3); the coordinator compared the new whole-map
+plan with the reviewed one entry by entry: the writes differ only in the cases below and in the
+three functions batch 1 freed, which now get their names.
+
+- Any change after a create that the plan did not predict (a function that appears or vanishes,
+  a body, name or flag that changes) stops the run. Nothing is predicted: the bridge does not
+  show which analyzer acts, so the tool removes the triggers instead.
+- A create that lies in a gap of an existing function's body is withheld: 0x317c00
+  (`C2D::Enable`), in the 13 KB body Ghidra gives 0x315210.
+- Creates that other creates fall or jump into are made before all others, so no create's
+  analysis meets a jump to a planned start that does not exist yet.
+- A planned name that is already a label at the function's entry is found when the plan is made
+  and not sent. Every entry with a planned rename was read: 0x15a600 is the only case; it keeps
+  `AddDmacHandler`, and its plate says why.
+- Thunks the run creates are tracked like those of the starting snapshot (14 predicted).
+- `--confirm-saved` also records a write that was sent but stopped the run before its read-back,
+  and refuses while a function the report says to remove by hand still exists. A planned create
+  that analysis already made gets a `create-by-analysis` row (not 0x159ed8 of batch 1).
+
+Each batch is checked before its save with the checker's script (its own reads of both programs
+against a baseline of the whole function list); the checker itself is called when the script
+shows something unexplained, on a stop the tool does not explain, and for the whole map at the end.
+What the script cannot see: labels other than the planned ones, and reference changes that leave
+every body as it was.
+
+## What the whole map will leave
+
+- No Ghidra function of their own, 386 map functions (23,212 bytes): 373 starts without an
+  instruction, 8 that lie inside another function (0x156978, 0x159780, 0x15b0b0, 0x1f4380,
+  0x318580, 0x407c28, 0x42af00, 0x42b8b8), 5 withheld creates (0x1401d0, 0x1631c0, 0x163300,
+  0x1baa20, 0x317c00).
+- A function but no name, 919: 602 new functions, 254 library pairs that are not exact, 58
+  unsure pairs, 4 flagged `name-changed`, `split` or `merged`, 1 label clash.
+- 28 boundary differences and 19 functions Ghidra has that the map does not.

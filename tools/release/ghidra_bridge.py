@@ -115,6 +115,11 @@ class Bridge:
         except json.JSONDecodeError:
             return text
 
+    def clones(self, count: int) -> list["Bridge"]:
+        """Read-only clients on their own connections (the bridge serves three requests at once)."""
+
+        return [Bridge(self.url, read_only=True, timeout=self.timeout) for _ in range(count)]
+
     def get(self, endpoint: str, program: str | None = None, **params):
         if endpoint not in READS:
             raise BridgeError(f"{endpoint} is not a read this tool may send")

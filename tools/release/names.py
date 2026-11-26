@@ -28,6 +28,7 @@ import json
 import re
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -50,9 +51,10 @@ OUT = Path("build/release/names")
 RECORD = Path("docs/release/ghidra-applied.tsv")
 RECORD_COLUMNS = ("release_address", "applied", "value", "source_pair", "date", "state")
 PLAN_KIND = "socom-release-names-plan"
-PLAN_SCHEMA = 2  # 2: creates carry a predicted-body safety class and an order
+PLAN_SCHEMA = 3  # 3: label clashes, holes, jump holders, predicted thunks, creates made first
 PLATE_PREFIX = "Release map: "
 SHA_OPTION = "Executable SHA256"
+NEAR_BYTES = 0x4000  # bodies within this distance of a create are re-read after it
 SETTLE_SECONDS = 300  # longest wait for analysis to go idle
 QUIET_SECONDS = 2.0  # idle this long without a break counts as settled
 POLL_SECONDS = 0.2
@@ -201,7 +203,7 @@ def jump_targets(bridge, address: int) -> list[int]:
     return sorted(int(m.group(1), 16) for m in re.finditer(r"^To ([0-9a-fA-F]+)\b.*\[(\w*JUMP\w*)\]$", text, re.M))
 
 
-def plan_creates(rows, bridge, live_list: dict, assumed: frozenset, image, exclude) -> dict[int, dict]:
+def plan_creates(rows, bridge, live_list: dict, assumed: frozenset, image, exclude) -> tuple[dict, dict]:
     """Every map start Ghidra would have to create, whole map, with its safety class.
 
     A create is sent only when ``CreateFunctionCmd`` is predicted to give it exactly the map
@@ -222,10 +224,36 @@ def plan_creates(rows, bridge, live_list: dict, assumed: frozenset, image, exclu
     details = {a: read_function(bridge, gb.RELEASE_PROGRAM, a) for a in live_list}
     noreturn = {a for a, d in details.items() if d and d["noreturn"]}
     spans = [(d["body_min"], d["body_max"]) for d in details.values() if d]
+    map_starts = {r["release_address"] for r in rows if r["release_address"] is not None}
+    # Existing functions holding a plain jump (not a call) to a map start that is no function yet:
+    # analysis turned such jumps into calls and made functions there after a nearby create.
+    holders: list[dict] = []
+    for entry_point, d in sorted(details.items()):
+        if not d:
+            continue
+        for pc in range(entry_point, d["body_max"] + 1, 4):
+            if not image.contains(pc):
+                break
+            word = image.word(pc)
+            if createflow.is_call(word):
+                continue
+            target = mips.jump_target(word, pc) if mips.is_j(word) else mips.branch_target(word, pc)
+            if target is not None and target in map_starts and target not in live_list and target != entry_point:
+                holders.append({"function": hx(entry_point), "at": hx(pc), "target": hx(target)})
+    holder_entries = {int(h["function"], 16) for h in holders}
     blocked: dict[int, str] = {}
     jumps: dict[int, list[int]] = {}
+    thunk_of: dict[int, int] = {}
     for address, size in sorted(candidates.items()):
         last = address + size - 1
+        # A start in a gap of an existing body (between its entry and its end): batch 1 showed
+        # that analysis then reworks the surrounding function.
+        gap = [a for a, d in details.items() if d and a < address <= d["body_max"]]
+        if gap:
+            kind = "jump-neighbour" if gap[0] in holder_entries else "hole"
+            blocked[address] = (f"{kind}: lies in a gap of the body of the function at {hx(gap[0])} "
+                                f"(between its entry and its end {hx(details[gap[0]]['body_max'])})")
+            continue
         if any(lo <= last and hi >= address for lo, hi in spans):
             # some body's range covers the extent; ask address by address (bodies may have holes)
             for pc in range(address + 4, address + size, 4):
@@ -237,7 +265,81 @@ def plan_creates(rows, bridge, live_list: dict, assumed: frozenset, image, exclu
             word = image.word(pc) if image.contains(pc) else 0
             if mips.is_jr(word) and word != mips.JR_RA:
                 jumps[pc] = jump_targets(bridge, pc)
-    return createflow.classify(candidates, set(live_list), image.word, image.contains, noreturn, jumps, blocked)
+        # A body of one jump and a nop delay slot becomes a Ghidra thunk of the jump's target.
+        first = image.word(address)
+        if size == 8 and image.word(address + 4) == 0:
+            if mips.is_j(first):
+                thunk_of[address] = mips.jump_target(first, address)
+            elif mips.is_unconditional_branch(first):
+                thunk_of[address] = mips.branch_target(first, address)
+    classes = createflow.classify(candidates, set(live_list), image.word, image.contains, noreturn, jumps, blocked)
+    # Creates other creates flow or jump into are made before every other create, so that no
+    # create's analysis meets a jump to a planned start that is no function yet.
+    made_first = {a for c in classes.values() if c["safety"] == "ordered" for a in c["after"]}
+    return classes, {"jump_holders": holders, "thunk_of": thunk_of, "first": made_first}
+
+
+LABEL_CLASH = ("the prototype name {name} is already a label at this entry (Ghidra's analysis put it there): "
+               "a function cannot take the name of a label at its own entry, so no rename is sent and the "
+               "function keeps the analysis name {live}, which does not count against that name elsewhere")
+
+
+def scan_entry_labels(bridge, items: list[tuple[int, str]], counts: Counter) -> dict[int, list[str]]:
+    """The labels at each function entry ``(address, live name)``, read by address.
+
+    ``get_function_labels`` finds the first function of a name, so it is used only for a name
+    one function holds; otherwise ``get_function_documentation`` reads by address. Both are slow
+    (they walk the symbol table or decompile), so three read-only clients share the work.
+    """
+
+    def read(client, address, name):
+        if counts[name] == 1:
+            found = read_labels(client, name)
+        else:
+            found = gb.parse_documentation_labels(
+                client.get("get_function_documentation", gb.RELEASE_PROGRAM, address=hx(address)), address)
+        return address, sorted(n for a, n in found if a == address)
+
+    clients = bridge.clones(3)
+    if len(clients) == 1:
+        return dict(read(bridge, a, n) for a, n in items)
+    chunks = [items[i::len(clients)] for i in range(len(clients))]
+    with ThreadPoolExecutor(len(clients)) as pool:
+        parts = pool.map(lambda pair: [read(pair[0], a, n) for a, n in pair[1]], zip(clients, chunks))
+    return dict(item for part in parts for item in part)
+
+
+def image_thunk_target(image, address: int) -> int | None:
+    """The target of a thunk body ``j target`` / ``b target`` with a nop delay slot, else None."""
+
+    if not (image.contains(address) and image.contains(address + 4)) or image.word(address + 4) != 0:
+        return None
+    word = image.word(address)
+    if mips.is_j(word):
+        return mips.jump_target(word, address)
+    if mips.is_unconditional_branch(word):
+        return mips.branch_target(word, address)
+    return None
+
+
+def withheld_group(reason: str) -> str:
+    if reason.startswith("jump-neighbour"):
+        return "jump-neighbour"
+    if reason.startswith("hole"):
+        return "hole"
+    if "padding" in reason:
+        return "padding"
+    if "does not reach" in reason or "computed jump" in reason:
+        return "unreachable"
+    if "overlaps" in reason:
+        return "overlap"
+    if "falls through past" in reason or "flows to" in reason:
+        return "flows into code that is no function"
+    if "withheld create" in reason or "each other" in reason:
+        return "depends on a withheld create"
+    if "outside this plan" in reason:
+        return "needs a create outside the plan"
+    return "other"
 
 
 def read_labels(bridge, function_name: str) -> list[tuple[int, str]]:
@@ -329,8 +431,11 @@ def thunk_shows_target(address: int, name: str | None, live_list: dict, targets:
     return name in (shown, f"thunk_{shown}")
 
 
-def global_names(rows, proto_list, live_list) -> tuple[dict, dict]:
-    """Every planned name (whole map) and its collisions with each other and with live names."""
+def global_names(rows, proto_list, live_list, keep: dict | None = None) -> tuple[dict, dict]:
+    """Every planned name (whole map) and its collisions with each other and with live names.
+
+    ``keep``: functions that keep their live name (address -> why), e.g. a label clash.
+    """
 
     planned: dict[int, tuple] = {}
     for row in rows:
@@ -338,6 +443,8 @@ def global_names(rows, proto_list, live_list) -> tuple[dict, dict]:
             continue
         proto = proto_list.get(row["prototype_address"]) if row["prototype_address"] is not None else None
         planned[row["release_address"]] = decide_name(row, proto)
+    for address, why in (keep or {}).items():
+        planned[address] = (None, None, why)
     proto_count = Counter(f["name"] for f in proto_list.values())
     holders: dict[str, set] = defaultdict(set)
     for address, (name, _, _) in planned.items():
@@ -346,6 +453,8 @@ def global_names(rows, proto_list, live_list) -> tuple[dict, dict]:
     targets = thunk_targets(live_list)
     for address, fn in live_list.items():
         name = fn["name"]
+        if address in (keep or {}):
+            continue  # it keeps an analysis name only because Ghidra refuses the planned one; its plate says so
         if address in targets and (is_default_name(name) or thunk_shows_target(address, name, live_list, targets)):
             # A default thunk left unnamed will show its target's (planned) name.
             target = targets[address]
@@ -381,12 +490,30 @@ def build_plan(root: Path, bridge, module: str | None, exclude: set[int] = froze
     index = notes_index(root)
     proto_list = function_list(bridge, gb.PROTOTYPE_PROGRAM)
     live_list = {a: f for a, f in function_list(bridge, gb.RELEASE_PROGRAM).items() if a not in assumed}
-    planned, collisions = global_names(rows, proto_list, live_list)
-    targets = thunk_targets(live_list)
     chosen = select(rows, module)
+    # A planned name that is already a label at the entry cannot be given (checkDuplicateSymbolName).
+    items, wanted = [], {}
+    for row in chosen:
+        address = row["release_address"]
+        if address not in live_list or row["prototype_address"] is None:
+            continue
+        name = decide_name(row, proto_list.get(row["prototype_address"]))[0]
+        if name and live_list[address]["name"] != name:
+            items.append((address, live_list[address]["name"]))
+            wanted[address] = name
+    if progress:
+        progress(f"labels at {len(items)} entries")
+    at_entry = scan_entry_labels(bridge, items, Counter(f["name"] for f in live_list.values()))
+    keep = {a: LABEL_CLASH.format(name=wanted[a], live=live_list[a]["name"])
+            for a in sorted(wanted) if wanted[a] in at_entry.get(a, [])}
+    planned, collisions = global_names(rows, proto_list, live_list, keep)
+    targets = thunk_targets(live_list)
     starts = {r["release_address"] for r in rows if r["release_address"] is not None}
     image = image or elfimage.load(root / RELEASE_ELF, "release")
-    creates = plan_creates(rows, bridge, live_list, frozenset(assumed), image, exclude)
+    for address, target in list(targets.items()):
+        if target is None:  # a thunk that has its own name: read the jump itself
+            targets[address] = image_thunk_target(image, address)
+    creates, create_facts = plan_creates(rows, bridge, live_list, frozenset(assumed), image, exclude)
     selected = {r["release_address"] for r in chosen}
 
     entries = []
@@ -452,8 +579,10 @@ def build_plan(root: Path, bridge, module: str | None, exclude: set[int] = froze
             if info["safety"] == "ordered" and outside:
                 info = {"safety": "withheld", "after": [],
                         "reason": f"needs the create at {hx(outside[0])} first, which is outside this plan"}
+            thunk_of = create_facts["thunk_of"].get(address)
             entry["create"] = {"safety": info["safety"], "after": [hx(a) for a in info["after"]],
-                               "reason": info["reason"]}
+                               "reason": info["reason"], "first": address in create_facts["first"],
+                               "thunk_of": hx(thunk_of) if thunk_of is not None else None}
             if info["safety"] == "withheld":
                 entry["function"] = "create-withheld"
 
@@ -470,7 +599,8 @@ def build_plan(root: Path, bridge, module: str | None, exclude: set[int] = froze
                 previous = live_name
             else:
                 name, label, reason = None, None, f"Ghidra already names it {live_name} and the pair is not exact"
-        entry.update({"name": name, "label": label, "name_reason": reason, "previous_name": previous})
+        entry.update({"name": name, "label": label, "name_reason": reason, "previous_name": previous,
+                      "label_clash": address in keep})
         if entry["function"] in UNNAMED_ACTIONS:
             why = entry["create"]["reason"] if entry["function"] == "create-withheld" else ""
             entry.update({"name": None, "label": None, "plate": None,
@@ -498,6 +628,8 @@ def build_plan(root: Path, bridge, module: str | None, exclude: set[int] = froze
         "selection": module or "--all", "function_map_sha256": map_sha,
         "excluded": sorted(hx(a) for a in exclude), "assumed_removed": sorted(hx(a) for a in assumed),
         "entries": entries, "ghidra_only": ghidra_only,
+        "jump_holders": [j for j in create_facts["jump_holders"]
+                         if module is None or int(j["function"], 16) in selected or int(j["target"], 16) in selected],
         "collisions": sorted((c for c in collisions.values() if set(c["addresses"]) & chosen_addresses),
                              key=lambda c: c["name"]),
     }
@@ -537,7 +669,16 @@ def summarize(plan: dict) -> dict:
             "withheld_reasons": dict(sorted(Counter(
                 re.sub(r"0x[0-9a-f]+", "0x..", e["create"]["reason"]) for e in entries
                 if e.get("create", {}).get("safety") == "withheld").items())),
+            "withheld_by_group": dict(sorted(Counter(
+                withheld_group(e["create"]["reason"]) for e in entries
+                if e.get("create", {}).get("safety") == "withheld").items())),
+            "made_first": sum(1 for e in entries if e.get("create", {}).get("first")),
+            "thunks": sum(1 for e in entries if e.get("create", {}).get("thunk_of")
+                          and e["create"]["safety"] != "withheld"),
+            "predicted_follow_ups": 0,  # none are predicted: any change analysis makes stops the run
         },
+        "renames_skipped_for_label": sum(1 for e in entries if e.get("label_clash")),
+        "jump_holders": len(plan.get("jump_holders", [])),
         "boundary_differences": len(boundary),
         "largest_boundary_differences": [
             {"address": e["address"], "function": e["function"], **e["boundary"]} for e in largest],
@@ -555,7 +696,12 @@ def plan_markdown(plan: dict) -> str:
              f"- functions: {s['functions']}; actions: {s['function_actions']}",
              f"- names by class: {s['names_by_class']}; labels: {s['labels']}; plates: {s['plates']}",
              f"- comment only by class: {s['comment_only_by_class']}",
-             f"- analysis names replaced: {s['analysis_names_replaced']}",
+             f"- analysis names replaced: {s['analysis_names_replaced']}; renames skipped for a label at the "
+             f"entry: {s['renames_skipped_for_label']}",
+             f"- creates withheld by group: {s['creates']['withheld_by_group']}; made first: "
+             f"{s['creates']['made_first']}; thunks: {s['creates']['thunks']}; predicted follow-ups: "
+             f"{s['creates']['predicted_follow_ups']}",
+             f"- existing functions jumping to a map start that is no function: {s['jump_holders']}",
              f"- collisions: {s['collisions']}; Ghidra-only functions: {s['ghidra_only']}",
              f"- thunk / no-return differences: {s['differences']}", "", "## Why a name is not applied", ""]
     lines += [f"- {count}: {reason}" for reason, count in s["name_reasons"].items()]
@@ -588,6 +734,13 @@ def plan_markdown(plan: dict) -> str:
         lines += ["", "## Collisions", ""]
         lines += [f"- `{c['name']}` at {', '.join(c['addresses'])} (prototype holds it {c['prototype_count']}x)"
                   for c in plan["collisions"]]
+    if plan.get("jump_holders"):
+        lines += ["", "## Existing functions with a plain jump to a map start that is no function", ""]
+        lines += [f"- {h['function']} at {h['at']} -> {h['target']}" for h in plan["jump_holders"]]
+    clashes = [e for e in plan["entries"] if e.get("label_clash")]
+    if clashes:
+        lines += ["", "## Renames skipped: the name is a label at the entry", ""]
+        lines += [f"- {e['address']}: {e['name_reason']}" for e in clashes]
     if plan["ghidra_only"]:
         lines += ["", "## Functions Ghidra has that the map does not", ""]
         lines += [f"- {g['address']} {g['name']}" + (" (thunk)" if g["thunk"] else "") for g in plan["ghidra_only"]]
@@ -671,9 +824,16 @@ def diff_snapshots(before: dict, after: dict, created: set, renamed: dict) -> li
 
 # --- the apply -------------------------------------------------------------------------------
 
+class AnalysisStop(Stop):
+    """Ghidra's analysis changed the program after a create beyond what the plan predicted."""
+
+
 class Applier:
-    def __init__(self, bridge, plan: dict, dry_run: bool, batch: int | None = None):
+    def __init__(self, bridge, plan: dict, dry_run: bool, batch: int | None = None, recorded=frozenset()):
         self.bridge, self.plan, self.dry_run, self.batch = bridge, plan, dry_run, batch
+        self.recorded = set(recorded)  # (address, applied) rows the record already holds
+        self.attempted: list[dict] = []  # every write sent, as the record would hold it
+        self.analysis_changes: list[dict] = []
         self.written: list[dict] = []  # read back correctly
         self.would: list[dict] = []  # dry run: writes that would be sent
         self.unchanged: Counter = Counter()
@@ -701,6 +861,8 @@ class Applier:
             self.would.append({"address": entry["address"], "applied": applied, "value": value,
                                "source_pair": entry["source_pair"]})
             return False
+        self.attempted.append({"address": entry["address"], "applied": applied, "value": value,
+                               "source_pair": entry["source_pair"], "end": entry["end"]})
         response = self.bridge.write(endpoint, gb.RELEASE_PROGRAM, **body)
         if not ok(response):
             raise Stop(f"{endpoint} at {entry['address']} failed: {response!r}")
@@ -732,15 +894,23 @@ class Applier:
         self.before = snapshot(self.bridge)
         listed = {a: {"name": f["name"], "thunk": f["thunk"]} for a, f in self.before.items()}
         self.targets = {a: t for a, t in thunk_targets(listed).items() if t is not None}
+        for e in self.plan["entries"]:  # targets the plan read from the jump itself
+            if e.get("live", {}).get("thunk_target"):
+                self.targets.setdefault(int(e["address"], 16), int(e["live"]["thunk_target"], 16))
         self.default_thunks = {a for a in self.targets
                                if is_default_name(listed[a]["name"]) or thunk_shows_target(a, listed[a]["name"], listed, self.targets)}
         self.display = {a: f["name"] for a, f in self.before.items()}
         self.counts = Counter(self.display.values())
         self.listed = set(self.before)
+        self.state = {a: dict(f) for a, f in self.before.items()}
         self.by_address = {e["address"]: e for e in self.plan["entries"]}
         self.processed: set[str] = set()
+        ordered = sorted(self.plan["entries"], key=lambda e: int(e["address"], 16))
+        # Creates other creates flow into come first, then everything in address order.
+        ordered = [e for e in ordered if e.get("create", {}).get("first")] + \
+                  [e for e in ordered if not e.get("create", {}).get("first")]
         try:
-            for entry in sorted(self.plan["entries"], key=lambda e: int(e["address"], 16)):
+            for entry in ordered:
                 if entry["function"] in UNNAMED_ACTIONS:
                     self.skipped.append({"address": entry["address"], "reason": entry["name_reason"]})
                     continue
@@ -801,10 +971,14 @@ class Applier:
         simulated = False
         if entry["function"] == "create":
             if live:
-                if live["body_max"] != end:
-                    raise Stop(f"{entry['address']}: a function exists with body end {hx(live['body_max'])}, "
-                               f"the plan creates one ending at {entry['end']}")
-                self.unchanged["create"] += 1
+                if live["body_max"] != end or live["body_min"] != address:
+                    raise Stop(f"{entry['address']}: a function exists with body {hx(live['body_min'])}.."
+                               f"{hx(live['body_max'])}, the plan creates one ending at {entry['end']}")
+                if {(entry["address"], "create"), (entry["address"], "create-by-analysis")} & self.recorded:
+                    self.unchanged["create"] += 1
+                else:  # Ghidra's analysis made it, with the map's extent
+                    self.done(entry, "create-by-analysis", f"{entry['address']}-{entry['end']}")
+                    self.recorded.add((entry["address"], "create-by-analysis"))
             else:
                 audit = self.bridge.get("audit_global", gb.RELEASE_PROGRAM, address=entry["address"])
                 if not (isinstance(audit, dict) and audit.get("is_code_address")):
@@ -836,7 +1010,8 @@ class Applier:
                 else:
                     live = {"entry": address, "name": "FUN_%08x" % address, "body_max": end}
                     simulated = True
-                    self.show(address, live["name"])
+                    self.show(address, self.expected_display(entry, live["name"]))
+                    live["name"] = self.display[address]
         elif not live:
             raise Stop(f"{entry['address']}: the planned function is gone: replan")
         plate = entry["plate"]
@@ -861,23 +1036,66 @@ class Applier:
             self.done(entry, "plate", plate)
         return len(self.would) + len(self.bridge.sent) > writes
 
-    def after_create(self, entry: dict, back: dict) -> None:
-        """Attribute what Ghidra's analysis did after this create to it."""
+    def expected_display(self, entry: dict, default: str) -> str:
+        """The name a new function shows: a predicted thunk shows its target's (FunctionSymbol.doGetName)."""
 
-        now = function_list(self.bridge, gb.RELEASE_PROGRAM)
+        thunk_of = entry.get("create", {}).get("thunk_of")
+        if not thunk_of:
+            return default
+        address, target = int(entry["address"], 16), int(thunk_of, 16)
+        self.targets[address] = target
+        self.default_thunks.add(address)
+        shown = self.display.get(target, "FUN_%08x" % target)
+        return f"thunk_{shown}" if is_default_name(shown) and target not in self.targets else shown
+
+    def after_create(self, entry: dict, back: dict) -> None:
+        """Stop on anything Ghidra's analysis changed after this create that the plan did not predict."""
+
         address = int(entry["address"], 16)
-        for other in sorted(set(now) - self.listed - {address}):
-            self.side_effects.append({"address": hx(other), "change": "appeared", "after_create": entry["address"],
-                                      "name": now[other]["name"]})
-        for other in sorted(self.listed - set(now)):
-            self.side_effects.append({"address": hx(other), "change": "vanished", "after_create": entry["address"]})
-        if not is_default_name(back["name"]):
-            self.side_effects.append({"address": entry["address"], "change": "named by analysis",
-                                      "after_create": entry["address"], "name": back["name"]})
-        for other in set(now) - set(self.display):
-            self.show(other, now[other]["name"])
-        self.listed = set(now) | {address}
+        now = function_list(self.bridge, gb.RELEASE_PROGRAM)
+        changes: list[dict] = []
+        for other in sorted(set(now) - set(self.state) - {address}):
+            changes.append({"address": hx(other), "change": "appeared", "name": now[other]["name"]})
+        for other in sorted(set(self.state) - set(now)):
+            changes.append({"address": hx(other), "change": "vanished", "name": self.state[other]["name"]})
+        thunk = bool(entry.get("create", {}).get("thunk_of"))
+        if address in now and now[address]["thunk"] != thunk:
+            changes.append({"address": entry["address"], "change": "thunk", "predicted": thunk,
+                            "after": now[address]["thunk"]})
+        shown = self.expected_display(entry, "FUN_%08x" % address)
+        if back["name"] != shown:
+            changes.append({"address": entry["address"], "change": "named by analysis", "name": back["name"],
+                            "predicted": shown})
+        self.state[address] = {"name": back["name"], "thunk": now.get(address, {}).get("thunk", thunk),
+                               "lo": back["body_min"], "hi": back["body_max"], "noreturn": back["noreturn"]}
         self.show(address, back["name"])
+        for other, fn in now.items():
+            if other == address or other not in self.state:
+                continue
+            if fn["thunk"] != self.state[other]["thunk"]:
+                changes.append({"address": hx(other), "change": "thunk", "before": self.state[other]["thunk"],
+                                "after": fn["thunk"]})
+            if fn["name"] != self.display.get(other):
+                changes.append({"address": hx(other), "change": "name", "before": self.display.get(other),
+                                "after": fn["name"]})
+        near = [a for a, f in self.state.items() if a != address
+                and (abs(a - address) <= NEAR_BYTES or f["lo"] <= address <= f["hi"])]
+        for other in sorted(near):
+            d = read_function(self.bridge, gb.RELEASE_PROGRAM, other)
+            if not d or d["entry"] != other:
+                continue  # already reported as vanished
+            old = self.state[other]
+            for key, value in (("lo", d["body_min"]), ("hi", d["body_max"]), ("noreturn", d["noreturn"])):
+                if old[key] != value:
+                    show = hx if key in ("lo", "hi") else str
+                    changes.append({"address": hx(other), "change": key, "before": show(old[key]),
+                                    "after": show(value)})
+        if changes:
+            self.analysis_changes = [dict(c, after_create=entry["address"]) for c in changes]
+            raise AnalysisStop(
+                f"Ghidra's analysis changed the program after the create at {entry['address']} "
+                f"({len(changes)} changes, listed in the report under analysis_changes): nothing has to be "
+                "removed by hand; have the batch checked, save, --confirm-saved this report, then replan")
 
     def rename(self, entry: dict, live: dict) -> bool:
         """Rename first: ``create_label`` would rename a DEFAULT-named function instead of labelling it."""
@@ -931,7 +1149,7 @@ def read_record(root: Path) -> dict[tuple, dict]:
 
 
 def write_record(root: Path, rows: dict[tuple, dict]) -> None:
-    order = {"create": 0, "name": 1, "label": 2, "plate": 3}
+    order = {"create": 0, "create-by-analysis": 0, "name": 1, "label": 2, "plate": 3}
     text = "\t".join(RECORD_COLUMNS) + "\n" + "".join(
         "\t".join(rows[k][c] for c in RECORD_COLUMNS) + "\n"
         for k in sorted(rows, key=lambda k: (int(k[0], 16), order.get(k[1], 9))))
@@ -960,7 +1178,7 @@ def reads_back(bridge, item: dict) -> bool:
     live = read_function(bridge, gb.RELEASE_PROGRAM, address)
     if not live or live["entry"] != address:
         return False
-    if item["applied"] == "create":
+    if item["applied"] in ("create", "create-by-analysis"):
         return live["body_min"] == address and live["body_max"] == int(item["end"], 16)
     if item["applied"] == "name":
         return live["name"] == item["value"]
@@ -975,17 +1193,32 @@ def confirm_saved(root: Path, report_path: Path, bridge, today: str | None = Non
     """After the coordinator saved: re-read every change of the report and mark its rows saved."""
 
     result = json.loads(report_path.read_text(encoding="utf-8"))
+    still = [item for item in result.get("remove_by_hand", [])
+             if (f := read_function(bridge, gb.RELEASE_PROGRAM, int(item["address"], 16)))
+             and f["entry"] == int(item["address"], 16)]
+    if still:
+        raise Refused(f"the function {still[0]['name']} at {still[0]['address']} ({still[0]['body']}) that the "
+                      "report says to remove by hand is still there: remove it, save, then confirm")
     rows = read_record(root)
     mine = [k for k, row in rows.items() if row["state"] == f"unsaved {report_path.name}"]
-    if not mine:
+    written = {(item["address"], item["applied"]) for item in result["written"]}
+    # Writes sent whose read-back stopped the run: those the saved program holds are recorded too.
+    late = [item for item in result.get("attempted", []) if (item["address"], item["applied"]) not in written
+            and reads_back(bridge, item)]
+    if not mine and not late:
         raise Refused(f"the record holds no unsaved rows of {report_path.name}")
     failed = [f"{item['address']} {item['applied']}" for item in result["written"] if not reads_back(bridge, item)]
     if failed:
         raise Refused(f"{len(failed)} changes do not read back ({', '.join(failed[:10])}); nothing marked saved")
+    day = today or _dt.date.today().isoformat()
     for key in mine:
-        rows[key]["state"] = f"saved {today or _dt.date.today().isoformat()}"
+        rows[key]["state"] = f"saved {day}"
+    for item in late:
+        rows[(item["address"], item["applied"])] = {
+            "release_address": item["address"], "applied": item["applied"], "value": record_value(item["value"]),
+            "source_pair": item["source_pair"], "date": day, "state": f"saved {day}"}
     write_record(root, rows)
-    return {"confirmed": len(mine), "report": report_path.name}
+    return {"confirmed": len(mine), "recorded_after_a_stop": len(late), "report": report_path.name}
 
 
 def discard_unsaved(root: Path, report_path: Path, bridge) -> dict:
@@ -1027,7 +1260,7 @@ def apply(root: Path, plan_path: Path, bridge, *, dry_run: bool, today: str | No
         there = read_function(bridge, gb.RELEASE_PROGRAM, int(address, 16))
         if there and there["entry"] == int(address, 16):
             raise Refused(f"the plan assumes the function at {address} was removed, but it is still there")
-    applier = Applier(bridge, plan, dry_run, batch)
+    applier = Applier(bridge, plan, dry_run, batch, recorded=set(read_record(root)))
     stopped = None
     try:
         applier.run()
@@ -1044,6 +1277,7 @@ def apply(root: Path, plan_path: Path, bridge, *, dry_run: bool, today: str | No
         "counts": dict(sorted(Counter(w["applied"] for w in (applier.would if dry_run else applier.written)).items())),
         "unchanged": dict(sorted(applier.unchanged.items())), "skipped": applier.skipped,
         "side_effects": applier.side_effects, "remove_by_hand": applier.remove_by_hand,
+        "analysis_changes": applier.analysis_changes, "attempted": [] if dry_run else applier.attempted,
         "boundary_differences": plan["summary"]["boundary_differences"], "collisions": plan["summary"]["collisions"],
     }
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -1117,6 +1351,9 @@ def main(argv: list[str] | None = None) -> int:
                   f"(body {item['body']}, planned {item['planned']})")
         if result["batch_full"]:
             print("batch complete: save through the bridge, then --confirm-saved the report, then rerun")
+        if result["analysis_changes"]:
+            print(f"ANALYSIS STOP: {len(result['analysis_changes'])} changes after a create, listed in the report; "
+                  "nothing to remove by hand: check, save, --confirm-saved, replan")
         return 1 if result["stopped"] or result["side_effects"] else 0
     except (Refused, gb.BridgeError) as exc:
         print(f"refused: {exc}", file=sys.stderr)

@@ -240,16 +240,17 @@ def test_batches_stop_cleanly_and_unsaved_rows_can_be_discarded(tmp_path):
         names.confirm_saved(root, root / names.OUT / first["report"], fresh)
 
 
-def test_side_effects_of_analysis_are_reported(tmp_path):
+def test_changes_analysis_makes_after_a_create_stop_the_run(tmp_path):
     g = make_ghidra()
     root, plan, path = plan_for(tmp_path, g)
     g.analysis_creates[0x200020] = [0x2200f0]
     g.analysis_names[0x200020] = "FidName"
     result = names.apply(root, path, g, dry_run=False, today="2026-11-26")
-    assert result["stopped"] is None
-    changes = {(e["address"], e["change"]) for e in result["side_effects"]}
-    assert ("0x2200f0", "appeared") in changes and ("0x200020", "named by analysis") in changes
-    assert g.release.shown(0x200020) == "Bar"  # the planned name replaces Function ID's
+    assert "nothing has to be removed by hand" in result["stopped"]
+    changes = {(e["address"], e["change"]) for e in result["analysis_changes"]}
+    assert changes == {("0x2200f0", "appeared"), ("0x200020", "named by analysis")}
+    assert [w["applied"] for w in result["written"] if w["address"] == "0x200020"] == ["create"]
+    assert result["remove_by_hand"] == []
 
 
 def test_refusals(tmp_path):
@@ -390,14 +391,16 @@ def test_creates_are_classified_ordered_and_withheld(tmp_path):
     g = create_ghidra()
     _, plan, _ = plan_for(tmp_path, g, module=None, rows=CREATE_ROWS)
     by = {e["address"]: e for e in plan["entries"]}
-    assert by["0x200100"]["create"] == {"safety": "ordered", "after": ["0x200108"], "reason": ""}
+    assert {k: by["0x200100"]["create"][k] for k in ("safety", "after")} == {"safety": "ordered", "after": ["0x200108"]}
+    assert by["0x200108"]["create"]["first"] is True and by["0x200100"]["create"]["first"] is False
     assert by["0x200108"]["create"]["safety"] == "safe"
     assert by["0x200200"]["function"] == "create-withheld"
     assert "falls through past its end" in by["0x200200"]["create"]["reason"]
     assert by["0x200208"]["function"] == "no-instruction"
     assert by["0x200300"]["function"] == "create-withheld"  # the padding would join the body
     assert "padding" in by["0x200300"]["create"]["reason"]
-    assert by["0x200400"]["create"] == {"safety": "ordered", "after": ["0x200500"], "reason": ""}
+    assert {k: by["0x200400"]["create"][k] for k in ("safety", "after", "thunk_of")} == {
+        "safety": "ordered", "after": ["0x200500"], "thunk_of": "0x200500"}
     assert by["0x200600"]["create"]["safety"] == "safe"
     counts = plan["summary"]["creates"]
     assert (counts["safe"], counts["ordered"], counts["withheld"], counts["withheld_bytes"]) == (3, 2, 2, 16)
@@ -453,3 +456,129 @@ def test_plan_assuming_a_removal_is_refused_until_it_happened(tmp_path):
         names.apply(root, path, g, dry_run=True)
     del g.release.functions[0x200100]
     assert names.apply(root, path, g, dry_run=True)["stopped"] is None
+
+
+# --- batch 1 findings: label clashes, holes and jumps, created thunks, the record ------------------
+
+def small_ghidra(rows, special=None):
+    g = FakeGhidra()
+    for r in rows:
+        if r["prototype_address"] is not None:
+            g.prototype.add(r["prototype_address"], r["prototype_address"] + r["release_size"] - 1,
+                            PROTO.get(r["prototype_address"], r["prototype_symbol"]))
+    g.release.image = image_for(rows, special)
+    return g
+
+
+PROTO = {}
+
+
+def test_a_planned_name_that_is_a_label_at_the_entry_is_not_renamed(tmp_path):
+    rows = [row(0x200000, 0x10, "exact", 0x300000, "Sys2"), row(0x200010, 0x10, "exact", 0x300010, "Sys")]
+    g = small_ghidra(rows)
+    g.release.add(0x200000, 0x20000F, "Sys")  # the syscall analysis named it and left the label Sys2
+    g.release.labels[0x200000] = ["Sys2"]
+    g.release.add(0x200010, 0x20001F)
+    # the refusal the plan has to foresee
+    assert "already exists at this address" in g.write(
+        "rename_function_by_address", gb.RELEASE_PROGRAM, function_address="0x200000", new_name="Sys2",
+        strict_mode="off")["error"]
+    root, plan, path = plan_for(tmp_path, g, module=None, rows=rows)
+    by = {e["address"]: e for e in plan["entries"]}
+    assert by["0x200000"]["label_clash"] and by["0x200000"]["name"] is None
+    assert "already a label at this entry" in by["0x200000"]["plate"]
+    assert plan["summary"]["renames_skipped_for_label"] == 1
+    assert by["0x200010"]["name"] == "Sys"  # 0x200000 keeps Sys only because of the clash; it does not block
+    result = names.apply(root, path, g, dry_run=False, today="2026-11-26")
+    assert result["stopped"] is None
+    renames = [(s["body"]["function_address"], s["body"]["new_name"]) for s in result["sent"]
+               if s["endpoint"] == "rename_function_by_address"]
+    assert renames == [("0x200000", "Sys2"), ("0x200010", "Sys")]  # the refused demonstration, then 0x200010 only
+    assert g.release.shown(0x200000) == "Sys" and g.release.labels[0x200000] == ["Sys2"]
+
+
+def test_a_create_in_a_gap_of_a_body_is_withheld_and_jump_holders_are_listed(tmp_path):
+    rows = [row(0x200000, 0x10, "exact", 0x300000, "F__1AFv"), row(0x200010, 0x10, "exact", 0x300010, "C__1AFv"),
+            row(0x200020, 0x10, "exact", 0x300020, "T__1AFv")]
+    g = small_ghidra(rows, {0x200008: j(0x200020), 0x20000c: NOP})
+    g.release.add(0x200000, 0x20002F)  # F followed its jump to T; C lies in the gap
+    g.release.functions[0x200000]["holes"] = [(0x200010, 0x20001F)]
+    g.release.code.add(0x200010)
+    _, plan, _ = plan_for(tmp_path, g, module=None, rows=rows)
+    by = {e["address"]: e for e in plan["entries"]}
+    assert by["0x200000"]["function"] == "boundary" and by["0x200020"]["function"] == "inside"
+    assert by["0x200010"]["function"] == "create-withheld"
+    assert by["0x200010"]["create"]["reason"].startswith("jump-neighbour: lies in a gap of the body of the function at 0x200000")
+    assert plan["jump_holders"] == [{"function": "0x200000", "at": "0x200008", "target": "0x200020"}]
+    assert plan["summary"]["creates"]["withheld_by_group"] == {"jump-neighbour": 1}
+
+
+def test_a_neighbour_changed_by_analysis_stops_the_run(tmp_path):
+    g = make_ghidra()
+    root, plan, path = plan_for(tmp_path, g)
+
+    def follow_up(program):  # the jump turned into a call: a function at the target, the jumper cut back
+        program.functions[0x200060]["end"] = 0x20006F
+        program.add(0x200070, 0x20007F)
+
+    g.analysis_effects[0x200020] = follow_up
+    result = names.apply(root, path, g, dry_run=False, today="2026-11-26")
+    assert isinstance(result["stopped"], str) and "nothing has to be removed by hand" in result["stopped"]
+    assert {(c["address"], c["change"]) for c in result["analysis_changes"]} == {("0x200070", "appeared"),
+                                                                                  ("0x200060", "hi")}
+    assert result["remove_by_hand"] == []
+
+
+def test_a_created_thunk_follows_its_target_and_the_label_still_reads_back(tmp_path):
+    rows = [row(0x200000, 0x08, "new"), row(0x200100, 0x10, "exact", 0x300100, "T__1AFv")]
+    PROTO[0x300100] = "A::T"
+    g = small_ghidra(rows, {0x200000: j(0x200100), 0x200004: NOP})
+    g.release.code.add(0x200000)
+    g.release.add(0x200100, 0x20010F)
+    root, plan, path = plan_for(tmp_path, g, module=None, rows=rows)
+    by = {e["address"]: e for e in plan["entries"]}
+    assert by["0x200000"]["create"]["thunk_of"] == "0x200100" and by["0x200000"]["name"] is None
+    result = names.apply(root, path, g, dry_run=False, today="2026-11-26")
+    assert result["stopped"] is None and result["side_effects"] == []
+    assert g.release.shown(0x200000) == "A::T" == g.release.shown(0x200100)  # the thunk shows its target's name
+    assert g.release.labels[0x200100] == ["T__1AFv"]
+    assert ("GET", "get_function_documentation") in g.requests  # the shared name was read by address
+
+
+def test_a_write_whose_read_back_stopped_the_run_is_recorded_at_confirm(tmp_path):
+    g = make_ghidra()
+    root, plan, path = plan_for(tmp_path, g)
+    g.drop_plate_read_after_set = True
+    result = names.apply(root, path, g, dry_run=False, today="2026-11-26")
+    assert result["stopped"].startswith("plate 0x200000 read back")
+    assert [w["applied"] for w in result["written"]] == ["name", "label"]
+    assert [a["applied"] for a in result["attempted"]] == ["name", "label", "plate"]
+    done = names.confirm_saved(root, root / names.OUT / result["report"], g, today="2026-11-27")
+    assert done == {"confirmed": 2, "recorded_after_a_stop": 1, "report": result["report"]}
+    record = (root / names.RECORD).read_text(encoding="utf-8")
+    assert "0x200000\tplate\tRelease map:" in record and "unsaved" not in record
+
+
+def test_confirm_refuses_while_a_function_to_remove_by_hand_exists(tmp_path):
+    g = create_ghidra()
+    root, plan, path = plan_for(tmp_path, g, module=None, rows=CREATE_ROWS)
+    g.release.flow_end[0x200108] = 0x20011F
+    result = names.apply(root, path, g, dry_run=False, today="2026-11-26")
+    with pytest.raises(names.Refused, match="remove it, save, then confirm"):
+        names.confirm_saved(root, root / names.OUT / result["report"], g)
+
+
+def test_a_planned_create_analysis_already_made_gets_its_own_row(tmp_path):
+    g = make_ghidra()
+    root, plan, path = plan_for(tmp_path, g)
+    g.release.add(0x200020, 0x20002F)  # made by analysis between the plan and the apply
+    result = names.apply(root, path, g, dry_run=False, today="2026-11-26")
+    assert result["stopped"] is None
+    assert ("0x200020", "create-by-analysis") in {(w["address"], w["applied"]) for w in result["written"]}
+    assert "0x200020\tcreate-by-analysis\t0x200020-0x20002f" in (root / names.RECORD).read_text(encoding="utf-8")
+
+
+def test_a_named_thunk_gets_its_target_from_the_jump():
+    img = image_for([row(0x200000, 0x08, "exact", 0x300000, "X")], {0x200000: j(0x200100), 0x200004: NOP})
+    assert names.image_thunk_target(img, 0x200000) == 0x200100
+    assert names.image_thunk_target(img, 0x200004) is None
