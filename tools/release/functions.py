@@ -34,6 +34,8 @@ class Fn:
     file_strings: frozenset = frozenset()
     lines: frozenset = frozenset()  # (file, line) of debug-allocator calls
     data_refs: list[tuple[int, int]] = field(default_factory=list)  # (word index, data address)
+    code_stores: dict = field(default_factory=dict)  # store offset -> function address it stores (a table filled by code)
+    pointer_sites: dict = field(default_factory=dict)  # callee -> the function address passed to it (a callback)
     key: bytes = b""
     grams: frozenset = frozenset()
     ops: tuple = ()
@@ -182,9 +184,30 @@ def build(side: str, image, words, spans, gp: int | None) -> list[Fn]:
                 if (word >> 26) in (0x09, 0x0D) and ((word >> 21) & 0x1F) == 0 and ((word >> 16) & 0x1F) == register + 1:
                     lines.add((name, word & 0xFFFF))
                     break
+        # a function address loaded and then stored at a fixed offset: a table filled by code
+        stores: dict[int, list[int]] = {}
+        for index, value in code_refs:
+            register = (raw[index] >> 16) & 0x1F
+            for k in range(index + 1, min(len(raw), index + 7)):
+                word = raw[k]
+                if (word >> 26) == 0x2B and ((word >> 16) & 0x1F) == register:
+                    stores.setdefault(mips.simm(word), []).append(value)
+                    break
+                if register in mips.written_registers(word):
+                    break
+        code_stores = {offset: targets[0] for offset, targets in stores.items() if len(set(targets)) == 1}
+        # a function address loaded shortly before a call: the callback passed to that callee
+        sites: dict[int, list[int]] = {}
+        call_at = dict(calls)
+        for index, value in code_refs:
+            for k in range(index + 1, min(len(raw), index + 9)):
+                if k in call_at:
+                    sites.setdefault(call_at[k], []).append(value)
+                    break
+        pointer_sites = {callee: targets[0] for callee, targets in sites.items() if len(set(targets)) == 1}
         shape = tuple(mips.shape(w) for w in raw)
         fn = Fn(side, start, end - start, raw, tuple(masked), shape, calls, refs, frozenset(strings), code_refs,
-                tail_calls, frozenset(file_strings), frozenset(lines), data_refs)
+                tail_calls, frozenset(file_strings), frozenset(lines), data_refs, code_stores, pointer_sites)
         fn.key = mips.pack(masked)
         fn.grams = grams_of(shape)
         fn.ops = tuple(mips.operation(w) for w in raw)

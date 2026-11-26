@@ -78,3 +78,31 @@ removed	0x2e6c30	class CAiSCorpse gone (no RTTI name in the release; StunRespons
 0x2608c0	-	owner fixed by the list f check (the corpse block of HandleEvent)	socom-release-coordinator	2026-11-26	src/gamez/zSeal/seal_ai.cpp
 0x25f0a0-0x260860	-	owner fixed by the list f check (CAiState family block)	socom-release-coordinator	2026-11-26	src/gamez/zSeal/seal_ai.cpp
 0x276f90-0x277470	-	owner fixed by the list d check (new list instances used by seal_ai.cpp)	socom-release-coordinator	2026-11-26	src/gamez/zSeal/seal_ai.cpp
+0x33d2d0	0x322470	same callers UICheckJoinMP and CLoadState::Tick; same global dme_joined_count	socom-release-check-net-a	2026-11-26
+0x343de0	0x328b50	same caller zNetInitialize; returns the RSA key pair's address (generated on first use)	socom-release-check-net-a	2026-11-26
+0x34f1a0	0x333050	same call site in RemotePersonaCreationCallback, between the CZNetVoice Init and ServerPermit calls	socom-release-check-net-a	2026-11-26
+0x349100	0x32dbb0	the function pointer passed to MediusGetPolicy; same response handling ("UsagePolicy")	socom-release-check-net-a	2026-11-26
+0x349040	new	the policy request moved out of LobbyActiveStateHandler: direct caller UI command 0x1d2ae0 (this = theLobby); sends MediusGetPolicy with 0x349100	socom-release-check-net-a	2026-11-26
+0x3474d0	0x32c140	stored at handler offset +8 by Open on both sides; after LobbyActiveStateHandler on both sides	socom-release-check-net-a	2026-11-26
+0x347550	0x32c150	stored at handler offset +56 by Open on both sides (outside list a)	socom-release-check-net-a	2026-11-26
+0x347560	0x32c160	stored at handler offset +4 by Open on both sides (outside list a)	socom-release-check-net-a	2026-11-26
+0x347570	0x32c170	stored at handler offset +40 by Open on both sides (outside list a)	socom-release-check-net-a	2026-11-26
+0x347580	0x32c180	stored at handler offset +24 by Open on both sides (outside list a)	socom-release-check-net-a	2026-11-26
+0x33f800	0x324a50	the pointer GetAnnouncements passes to MediusGetAnnouncements on both sides; follows GetAnnouncements (outside list a)	socom-release-check-net-a	2026-11-26
+0x345b90	0x32a790	the pointer passed to MediusGetMyClanMessages; follows cbSendClanMessage; same CheckClanInvitations tail (outside list a)	socom-release-check-net-a	2026-11-26
+0x4043c0	0x3ff0f0	directly before IOPRebootHandler on both sides; LibNETSetup's libnet sequence registering IOPRebootHandler	socom-release-check-net-a	2026-11-26
+0x404640	0x3ffa40	caller UINetCnfInit on both sides; m_isinit test and set; directly after Uninit on both sides (outside list a); decided by the coordinator 2026-11-26 (list b called it new): caller UINetCnfInit at the same site, the m_isinit test and set, position right after Uninit	socom-release-check-net-a	2026-11-26		split
+0x404130	new	no m_isinit; caller InitFromCombo only; loads the device drivers of the selected configuration (list b's range)	socom-release-check-net-a	2026-11-26
+0x3408d0	0x325a70	slot +0x08 of the RoomGame table, stored by the PersistentGame constructor before its own table	socom-release-check-net-a	2026-11-26
+0x349af0	0x32e4b0	slot +0x10 of the BriefingRoom table (stored by its constructor and destructor)	socom-release-check-net-a	2026-11-26
+0x349db0	0x32e800	slot +0x08 of the BriefingRoom table	socom-release-check-net-a	2026-11-26
+0x34b810	0x32fe40	slot +0x0c of the PersistentGameClone table (last table stored by the BriefingRoomClone constructor)	socom-release-check-net-a	2026-11-26
+0x34b820	0x32fe50	slot +0x08 of the PersistentGame and PersistentGameClone tables	socom-release-check-net-a	2026-11-26
+0x34b870	0x32fea0	slot +0x0c of the BriefingRoom table	socom-release-check-net-a	2026-11-26
+0x34b880	0x32feb0	slot +0x0c of the PersistentGame table	socom-release-check-net-a	2026-11-26
+0x404050	0x3feb80	the only caller, zNetLoadIRX, calls it at the same place (after CSnd::Close, the +0xe5 test); the same Init__7CNetCnf start and eznetctl.irx / initEzNetCtl / ezNetCtlSetProperties / ezNetCtlUpInterface tail	socom-release-check-net-b	2026-11-26
+0x33d270	new	getter of the zNetMedius.cpp static MediusWorldID ($gp load); callers only the release CZNetVoice functions; the prototype voice code never reads it; equal bytes elsewhere are other one-load getters	socom-release-check-net-c	2026-11-26
+0x403e30-0x4046a0	-	owner fixed by the zNetwork checks (0x403e30, 0x403f80, 0x404010, 0x404640)	socom-release-coordinator	2026-11-26	src/gamez/zNetwork/zNetCnf.cpp
+0x33d270	-	owner fixed by the zNetwork-c check (getter of the zNetMedius.cpp static MediusWorldID)	socom-release-coordinator	2026-11-26	src/gamez/zNetwork/zNetMedius.cpp
+0x431a40-0x431ed0	-	SCE ezNetCnf library (libezcnf.c), per the zNetwork checks	socom-release-coordinator	2026-11-26	provider:SCE ezNetCnf
+removed	0x3ff8a0	list a confirmed it removed (CNetCnf::Open); a round-6 knock-on had paired it with 0x431c48 of the SCE ezNetCnf library	socom-release-check-net-a	2026-11-26

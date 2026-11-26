@@ -62,7 +62,8 @@ def test_reference_slot_pairs_the_only_pointer_between_the_same_anchors():
     m, ps, rs = match(proto, release)
     pair = m.pairs.get(ps[3])
     assert pair is not None and pair.r.address == rs[4]
-    assert pair.evidence == {"slot-only"} and pair.cls == "deviating"
+    # the pointer is passed to the same paired callee on both sides: a callback site, stronger than the slot
+    assert pair.evidence == {"pointer-site"} and pair.cls == "deviating"
 
 
 def test_small_function_operations_override_the_gram_prefilter():

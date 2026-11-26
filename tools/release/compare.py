@@ -27,6 +27,7 @@ import mips  # noqa: E402
 import pairing  # noqa: E402
 import protofacts  # noqa: E402
 import report  # noqa: E402
+import tables  # noqa: E402
 import vtables  # noqa: E402
 
 PROTOTYPE = Path("support/socom.elf")
@@ -38,6 +39,15 @@ OUT_MD = Path("docs/release/COMPARISON.md")
 OUT_JSON = Path("build/release/function-map.json")
 SHEETS = Path("build/release/sheets")
 LISTS = Path("build/release/lists")
+
+
+def slot_words(vtable_map) -> set[int]:
+    """The data words that are vtable slots (not entries of a named table)."""
+
+    out = set()
+    for table in vtable_map.values():
+        out.update(range(table.address + 8, table.address + 8 + 4 * len(table.slots), 4))
+    return out
 
 
 def prototype_functions(image, found: list) -> dict[int, protofacts.ProtoFunction]:
@@ -87,6 +97,34 @@ def validate_discovery(protos, found) -> dict:
     return {"truth": len(truth), "exact_extent": exact, "start_only": start_only, "missed": len(missed),
             "missed_bytes": sum(truth[a] for a in missed), "false_starts": len(false),
             "false_bytes": sum(f.size for f in false)}
+
+
+def entry_table_report(matcher, pairs, proto_tables, release_tables) -> dict:
+    """Per paired table: addresses, record size, entries, keys paired, handlers paired or re-paired, stubs."""
+
+    out = {"prototype": len(proto_tables), "release": len(release_tables), "pairs": []}
+    for p, r in pairs:
+        common = p.keys & r.keys
+        made = repaired = stubbed = agree = 0
+        for key, handler in p.entries:
+            if key not in common:
+                continue
+            pair = matcher.pairs.get(handler)
+            release = dict(r.entries)[key]
+            if pair is None or pair.r.address != release:
+                continue
+            agree += 1
+            if "table-entry" in pair.evidence:
+                made += 1
+                repaired += "repaired" in pair.flags
+            stubbed += "stubbed" in pair.flags
+        out["pairs"].append({
+            "prototype": p.address, "release": r.address, "record": p.stride, "release_record": r.stride,
+            "key": p.kind, "prototype_entries": len(p.entries), "release_entries": len(r.entries),
+            "paired_keys": len(common), "handlers_agree": agree, "handlers_paired_by_entry": made - repaired,
+            "handlers_repaired": repaired, "stubbed": stubbed,
+            "only_prototype": len(p.keys - r.keys), "only_release": len(r.keys - p.keys)})
+    return out
 
 
 SETTLED_COLUMNS = ("release", "prototype", "basis", "checker", "date")
@@ -172,7 +210,14 @@ def run(root: Path, write: bool = True, use_settled: bool = True, sheet: str | N
     proto_tables = vtables.find_tables(proto_image, {f.address for f in p_fns}, sizes)
     release_tables = vtables.find_tables(release_image, {f.address for f in r_fns})
     table_pairs = vtables.pair_tables(proto_tables, release_tables)
-    matcher = pairing.Matcher(p_fns, r_fns, proto_image.entry, release_image.entry, table_pairs)
+    p_entry_tables = tables.find_tables(proto_image, {f.address for f in p_fns}, p_spans, slot_words(proto_tables))
+    r_entry_tables = tables.find_tables(release_image, {f.address for f in r_fns}, r_spans, slot_words(release_tables))
+    entry_pairs = tables.pair_tables(p_entry_tables, r_entry_tables)
+    entry_correspondences = tables.entry_correspondences(entry_pairs)
+    matcher = pairing.Matcher(p_fns, r_fns, proto_image.entry, release_image.entry, table_pairs,
+                              entry_correspondences,
+                              ([t for t in p_entry_tables if t.kind == "index"],
+                               [t for t in r_entry_tables if t.kind == "index"]))
     matcher.proto_tables, matcher.release_tables = proto_tables, release_tables
     settled_rows = read_settled(root / SETTLED) if use_settled else []
     matcher.run([(row["release"], row["prototype"]) for row in settled_rows if row["span"] is None])
@@ -242,6 +287,7 @@ def run(root: Path, write: bool = True, use_settled: bool = True, sheet: str | N
                     "removed_virtuals": len({t for table in proto_tables.values() for t in table.slots
                                              if t in matcher.p_by and t not in matcher.pairs})},
         "settled": settled_rows,
+        "entry_tables": entry_table_report(matcher, entry_pairs + matcher.index_pairs, p_entry_tables, r_entry_tables),
     }
     if write:
         for relative, text in ((OUT_TSV, report.write_tsv(rows)), (OUT_MD, report.markdown(data, rows)),

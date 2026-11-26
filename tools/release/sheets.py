@@ -326,6 +326,24 @@ def stored_pointers(image, spans, starts: set[int]) -> dict[int, list[int]]:
     return out
 
 
+def entry_places(matcher) -> tuple[dict, dict]:
+    """Handler -> 'table 0x.. key ...' on each side, for the paired tables of named entries."""
+
+    p_out, r_out = defaultdict(list), defaultdict(list)
+    places = [place for _, _, place in getattr(matcher, "entry_correspondences", [])]
+    places += [(p, r, None) for p, r in getattr(matcher, "index_pairs", [])]
+    seen = set()
+    for p, r, _ in places:
+        if (p.address, r.address) in seen:
+            continue
+        seen.add((p.address, r.address))
+        for table, other, out in ((p, r, p_out), (r, p, r_out)):
+            for key, handler in table.entries:
+                label = repr(key) if table.kind == "string" else ("id 0x%x" % key if table.kind == "id" else "entry %d" % key)
+                out[handler].append("table 0x%x (paired 0x%x) %s" % (table.address, other.address, label))
+    return p_out, r_out
+
+
 def vtable_places(tables) -> dict[int, list[str]]:
     out = defaultdict(list)
     for table in (tables or {}).values():
@@ -384,6 +402,7 @@ def module_sheet(module: str, matcher, rows: list[dict], protos: dict, proto_ima
     import report  # late: report imports protofacts too
 
     namer = Namer(matcher, protos)
+    p_te, r_te = entry_places(matcher)
     p_vt = vtable_places(getattr(matcher, "proto_tables", None))
     r_vt = vtable_places(getattr(matcher, "release_tables", None))
     p_stored = stored_pointers(proto_image, [(f.address, f.end) for f in matcher.P], set(matcher.p_by)) \
@@ -451,10 +470,12 @@ def module_sheet(module: str, matcher, rows: list[dict], protos: dict, proto_ima
             refs = [namer.p_label(t) if t in matcher.p_by else "0x%x" % t for _, t in p.references()]
             out.append("- prototype references: " + (", ".join(refs) or "none"))
             callers = sorted(namer.p_refs_by.get(proto, ()))
-            if callers or not p_vt.get(proto):
+            if callers or not (p_vt.get(proto) or p_te.get(proto)):
                 out.append("- prototype callers (& loads its address): " + (", ".join(
                     ("&" if (proto, c) in namer.p_pointers else "") + namer.p_label(c) for c in callers[:12]) or "none")
                            + (" (+%d)" % (len(callers) - 12) if len(callers) > 12 else ""))
+            if p_te.get(proto):
+                out.append("- prototype table entries: " + ", ".join(p_te[proto][:6]))
             if p_vt.get(proto):
                 out.append("- prototype vtable slots: " + ", ".join(p_vt[proto][:8])
                            + (" (+%d)" % (len(p_vt[proto]) - 8) if len(p_vt[proto]) > 8 else ""))
@@ -469,10 +490,12 @@ def module_sheet(module: str, matcher, rows: list[dict], protos: dict, proto_ima
             refs = [namer.r_label(t) if t in matcher.r_by else "0x%x" % t for _, t in r.references()]
             out.append("- release references: " + (", ".join(refs) or "none"))
             callers = sorted(namer.r_refs_by.get(rel, ()))
-            if callers or not r_vt.get(rel):
+            if callers or not (r_vt.get(rel) or r_te.get(rel)):
                 out.append("- release callers (& loads its address): " + (", ".join(
                     ("&" if (rel, c) in namer.r_pointers else "") + namer.r_label(c) for c in callers[:12]) or "none")
                            + (" (+%d)" % (len(callers) - 12) if len(callers) > 12 else ""))
+            if r_te.get(rel):
+                out.append("- release table entries: " + ", ".join(r_te[rel][:6]))
             if r_vt.get(rel):
                 out.append("- release vtable slots: " + ", ".join(r_vt[rel][:8])
                            + (" (+%d)" % (len(r_vt[rel]) - 8) if len(r_vt[rel]) > 8 else ""))

@@ -14,8 +14,9 @@ small functions given to the wrong twin (two exact pairs between empty virtuals,
 by position; the tool reads vtables since then). So a list holds:
 
 - every **uncertain** row: unsure, new, removed, the weakly evidenced pairs (`slot-only`,
-  `role-only`), and the rows flagged `identical-copy` (equal bytes exist elsewhere and no vtable
-  slot, caller or settled row decided which copy this is);
+  `role-only`), the rows flagged `identical-copy` (equal bytes exist elsewhere and no vtable
+  slot, table entry, caller or settled row decided which copy this is) and the rows flagged
+  `caller-mismatch` (the two sides' callers do not correspond);
 - a **sample** of the deviating rows, as a guard on the committed pairs;
 - the count of exact rows, which you do not check.
 
@@ -55,10 +56,22 @@ finding that matters more than any other.
    - A row you cannot settle stays unsure, with the reason.
 3. Check each sampled deviating row: same function on both sides, yes or no. Do not describe
    what changed in it; that belongs to stage 4.
-4. For a function that is really new: one line on what it does and a proposed name with its
+4. **Cross-check every committed pair of your owner files**, not only the sample. The sample of
+   15 is too thin: in zNetwork a checker who compared the callers and the loaded function
+   pointers of all 262 paired rows of its files found seven wrong pairs the sample had not
+   shown (two crossed callbacks, four empty handlers one place off, a function paired with the
+   wrong half of a split). Do the same over your list's address ranges: for each pair, the
+   paired images of the prototype side's callers and address-loaders should be the release
+   side's, and a pointer should go to the same argument or table offset. The tool's own pass
+   flags only the cases where the two caller sets share nothing; you look at every difference.
+   `build/release/check-zNetwork-a/xcheck.py` and `fptrs.py` are that checker's scripts (scratch,
+   read them as an example, write your own in your folder). Most differences are callers that
+   moved or were inlined: say so in a word and move on. Report every pair this shows to be
+   wrong; those are the findings that matter most.
+5. For a function that is really new: one line on what it does and a proposed name with its
    basis. A guess is fine when it is marked as a guess. For one that is really removed: one
    line on where its work went, if the callers show it.
-5. Note a class layout change only when a row you settled shows it plainly. Do not go looking.
+6. Note a class layout change only when a row you settled shows it plainly. Do not go looking.
 
 ## The note
 
@@ -76,7 +89,8 @@ finding that matters more than any other.
    really removed ones.
 5. **Still unsure**, with reasons.
 6. **How the tool did**: right and wrong per class; for each wrong row, what misled it; the
-   sample's result on its own line.
+   sample's result and the cross-check's result (pairs compared, differences looked at, pairs
+   wrong) each on its own line.
 
 ## The report
 

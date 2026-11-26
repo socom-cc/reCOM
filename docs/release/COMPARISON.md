@@ -57,27 +57,27 @@ order), `ambiguous`, `low-similarity`, `owner-guess`, `copy`.
 
 | scope | exact | deviating | unsure | new | removed | exact bytes | deviating bytes | unsure bytes | new bytes | removed bytes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| all functions | 6323 | 2800 | 79 | 644 | 504 | 1257564 | 1655652 | 32840 | 172692 | 135132 |
-| authored (by prototype classification) | 3772 | 2509 | 24 | 0 | 260 | 690988 | 1539548 | 6180 | 0 | 58288 |
-| authored, with new functions placed in authored modules | 3772 | 2509 | 24 | 447 | 260 | 690988 | 1539548 | 6180 | 107676 | 58288 |
+| all functions | 6324 | 2828 | 74 | 620 | 480 | 1257572 | 1659240 | 31656 | 170280 | 130180 |
+| authored (by prototype classification) | 3772 | 2538 | 17 | 0 | 238 | 690988 | 1543276 | 4708 | 0 | 53444 |
+| authored, with new functions placed in authored modules | 3772 | 2538 | 17 | 429 | 238 | 690988 | 1543276 | 4708 | 106052 | 53444 |
 
 Bytes are release sizes, prototype sizes for removed functions. Of the deviating
-functions, 792 (257120 bytes) differ only in immediates or offsets (`imm-only`).
-241 pairs are out of order relative to the order anchors (`moved`).
+functions, 776 (254072 bytes) differ only in immediates or offsets (`imm-only`).
+243 pairs are out of order relative to the order anchors (`moved`).
 
 ## By prototype classification
 
 | group | exact | deviating | unsure | new | removed | exact bytes | deviating bytes | unsure bytes | new bytes | removed bytes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| authored | 3772 | 2509 | 24 | 0 | 260 | 690988 | 1539548 | 6180 | 0 | 58288 |
-| provider: SCE | 687 | 29 | 3 | 0 | 82 | 105132 | 5400 | 440 | 0 | 13080 |
-| provider: Medius | 593 | 115 | 0 | 0 | 78 | 68320 | 62776 | 0 | 0 | 15364 |
+| authored | 3772 | 2538 | 17 | 0 | 238 | 690988 | 1543276 | 4708 | 0 | 53444 |
+| provider: SCE | 687 | 28 | 4 | 0 | 82 | 105132 | 5408 | 568 | 0 | 13016 |
+| provider: Medius | 593 | 114 | 1 | 0 | 78 | 68320 | 62620 | 160 | 0 | 15364 |
 | provider: speech middleware | 699 | 1 | 0 | 0 | 0 | 268564 | 256 | 0 | 0 | 0 |
-| (new: no prototype counterpart) | 0 | 0 | 0 | 644 | 0 | 0 | 0 | 0 | 172692 | 0 |
-| provider: newlib | 64 | 68 | 43 | 0 | 22 | 31144 | 24660 | 22632 | 0 | 2092 |
+| (new: no prototype counterpart) | 0 | 0 | 0 | 620 | 0 | 0 | 0 | 0 | 170280 | 0 |
+| provider: newlib | 65 | 68 | 43 | 0 | 21 | 31152 | 24660 | 22632 | 0 | 2084 |
 | compiler-generated | 140 | 31 | 0 | 0 | 6 | 20324 | 7360 | 0 | 0 | 2444 |
 | provider: MSL | 175 | 0 | 0 | 0 | 0 | 37496 | 0 | 0 | 0 | 0 |
-| provider: libptt | 7 | 11 | 7 | 0 | 44 | 1188 | 2336 | 2424 | 0 | 41256 |
+| provider: libptt | 7 | 12 | 7 | 0 | 43 | 1188 | 2344 | 2424 | 0 | 41220 |
 | provider: unidentified GNU object | 51 | 1 | 0 | 0 | 1 | 3632 | 540 | 0 | 0 | 244 |
 | provider: 989snd | 36 | 6 | 1 | 0 | 0 | 3908 | 2840 | 64 | 0 | 0 |
 | provider: RSA | 16 | 17 | 1 | 0 | 8 | 3012 | 6692 | 1100 | 0 | 2252 |
@@ -96,28 +96,28 @@ flag `owner-guess`). Sorted by changed bytes (deviating + unsure + new + removed
 | group | exact | deviating | unsure | new | removed | exact bytes | deviating bytes | unsure bytes | new bytes | removed bytes |
 |---|---|---|---|---|---|---|---|---|---|---|
 | gamez/zSeal | 431 | 739 | 0 | 165 | 46 | 82600 | 517704 | 0 | 47196 | 5336 |
-| gamez/zAnim | 329 | 216 | 6 | 46 | 29 | 57072 | 184304 | 668 | 8100 | 5940 |
+| gamez/zAnim | 329 | 241 | 2 | 25 | 8 | 57072 | 187424 | 112 | 5536 | 1104 |
 | Apps/FTS/hud | 127 | 216 | 0 | 21 | 8 | 18700 | 157824 | 0 | 10240 | 9832 |
 | gamez/zUI | 306 | 196 | 3 | 22 | 3 | 58144 | 117412 | 516 | 6412 | 252 |
 | gamez/zFTS | 175 | 168 | 2 | 36 | 4 | 20672 | 75436 | 864 | 5444 | 384 |
-| (provider: Medius) | 593 | 115 | 0 | 19 | 78 | 68320 | 62776 | 0 | 2020 | 15364 |
-| gamez/zNetwork | 156 | 131 | 3 | 9 | 88 | 23080 | 54844 | 916 | 1612 | 21032 |
-| (provider: libptt) | 7 | 11 | 7 | 33 | 44 | 1188 | 2336 | 2424 | 31392 | 41256 |
+| (provider: Medius) | 593 | 114 | 1 | 20 | 78 | 68320 | 62620 | 160 | 2176 | 15364 |
+| gamez/zNetwork | 156 | 135 | 0 | 12 | 87 | 23080 | 55552 | 0 | 2452 | 21024 |
+| (provider: libptt) | 7 | 12 | 7 | 32 | 43 | 1188 | 2344 | 2424 | 31384 | 41220 |
 | gamez/zAI | 394 | 48 | 1 | 8 | 8 | 115932 | 50248 | 140 | 3064 | 2140 |
-| (provider: newlib) | 64 | 68 | 43 | 20 | 22 | 31144 | 24660 | 22632 | 1808 | 2092 |
+| (provider: newlib) | 65 | 68 | 43 | 19 | 21 | 31152 | 24660 | 22632 | 1800 | 2084 |
 | Apps/FTS/game | 89 | 46 | 0 | 4 | 0 | 10332 | 39136 | 0 | 460 | 0 |
 | gamez/zWeapon | 192 | 92 | 0 | 30 | 2 | 15852 | 31464 | 0 | 4452 | 292 |
 | gamez/zNode | 137 | 81 | 2 | 5 | 6 | 27352 | 30948 | 576 | 1272 | 1312 |
 | gamez/zCamera | 42 | 34 | 0 | 4 | 2 | 4968 | 28412 | 0 | 532 | 140 |
 | gamez/zGrid | 45 | 29 | 0 | 3 | 1 | 8808 | 23988 | 0 | 500 | 8 |
 | gamez/zParticle | 87 | 21 | 0 | 5 | 0 | 14880 | 22856 | 0 | 1620 | 0 |
-| (provider: SCE) | 687 | 29 | 3 | 41 | 82 | 105132 | 5400 | 440 | 4996 | 13080 |
+| (provider: SCE) | 687 | 28 | 4 | 34 | 82 | 105132 | 5408 | 568 | 3700 | 13016 |
 | Apps/FTS/state | 51 | 40 | 1 | 2 | 12 | 8816 | 21236 | 48 | 16 | 1240 |
 | gamez/zVisual | 142 | 26 | 1 | 21 | 3 | 31020 | 12752 | 812 | 7320 | 220 |
 | gamez/zTwoD | 89 | 45 | 0 | 6 | 2 | 13084 | 18824 | 0 | 732 | 996 |
-| gamez/zSound | 77 | 56 | 1 | 6 | 1 | 9212 | 17636 | 432 | 924 | 220 |
-| (new, unplaced) | 0 | 0 | 0 | 63 | 0 | 0 | 0 | 0 | 18744 | 0 |
+| gamez/zSound | 77 | 56 | 1 | 6 | 1 | 9212 | 17536 | 432 | 1024 | 220 |
 | gamez/zRender | 35 | 20 | 0 | 1 | 2 | 6304 | 17736 | 0 | 8 | 332 |
+| (new, unplaced) | 0 | 0 | 0 | 58 | 0 | 0 | 0 | 0 | 17952 | 0 |
 | (provider: RSA) | 16 | 17 | 1 | 14 | 8 | 3012 | 6692 | 1100 | 5144 | 2252 |
 | gamez/zInput | 23 | 23 | 2 | 9 | 9 | 1248 | 10548 | 300 | 1092 | 1716 |
 | gamez/zCharacter | 44 | 20 | 0 | 3 | 0 | 7280 | 12900 | 0 | 324 | 0 |
@@ -141,6 +141,7 @@ flag `owner-guess`). Sorted by changed bytes (deviating + unsure + new + removed
 | gamez/zReader | 92 | 8 | 0 | 0 | 0 | 21212 | 2264 | 0 | 0 | 0 |
 | gamez/zSave | 12 | 3 | 0 | 0 | 0 | 1872 | 1944 | 0 | 0 | 0 |
 | gamez/zGraph | 49 | 1 | 0 | 0 | 0 | 8636 | 1448 | 0 | 0 | 0 |
+| (provider: SCE ezNetCnf) | 0 | 0 | 0 | 7 | 0 | 0 | 0 | 0 | 1160 | 0 |
 | gamez/zBone | 3 | 5 | 0 | 1 | 0 | 120 | 1024 | 0 | 68 | 0 |
 | (provider: unidentified GNU object) | 51 | 1 | 0 | 0 | 1 | 3632 | 540 | 0 | 0 | 244 |
 | (provider: MSL) | 175 | 0 | 0 | 1 | 0 | 37496 | 0 | 0 | 312 | 0 |
@@ -173,14 +174,14 @@ Every relocated instruction field of the prototype's functions against the maski
 
 | similarity | 0.0-0.1 | 0.1-0.2 | 0.2-0.3 | 0.3-0.4 | 0.4-0.5 | 0.5-0.6 | 0.6-0.7 | 0.7-0.8 | 0.8-0.9 | 0.9-1.0 |
 |---|---|---|---|---|---|---|---|---|---|---|
-| call | 22 | 51 | 100 | 109 | 129 | 219 | 184 | 261 | 414 | 707 |
-| call (>= 16 instructions) | 15 | 15 | 18 | 26 | 27 | 48 | 39 | 55 | 100 | 218 |
-| global | 0 | 0 | 0 | 0 | 0 | 1 | 1 | 2 | 2 | 0 |
-| null | 485 | 547 | 343 | 131 | 95 | 119 | 44 | 54 | 43 | 263 |
-| null (>= 16 instructions) | 344 | 450 | 195 | 78 | 55 | 37 | 35 | 27 | 25 | 97 |
-| position | 0 | 1 | 2 | 12 | 15 | 33 | 22 | 26 | 35 | 72 |
-| position (>= 16 instructions) | 0 | 1 | 2 | 8 | 11 | 24 | 18 | 25 | 31 | 70 |
-| string | 0 | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| call | 22 | 52 | 102 | 112 | 133 | 225 | 188 | 264 | 428 | 716 |
+| call (>= 16 instructions) | 15 | 16 | 18 | 26 | 27 | 49 | 40 | 57 | 109 | 220 |
+| global | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 1 | 2 | 0 |
+| null | 471 | 516 | 315 | 117 | 90 | 106 | 40 | 50 | 43 | 242 |
+| null (>= 16 instructions) | 336 | 429 | 170 | 66 | 51 | 34 | 33 | 26 | 25 | 92 |
+| position | 0 | 0 | 1 | 8 | 11 | 24 | 13 | 16 | 17 | 44 |
+| position (>= 16 instructions) | 0 | 0 | 1 | 6 | 9 | 16 | 11 | 16 | 16 | 43 |
+| string | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 
 `call`: non-exact pairs made by call-tree propagation (the pairing does not look at
 similarity, so this is the distribution of real counterparts); `position`: pairs from the
@@ -192,8 +193,8 @@ Small functions look alike (accessors, stubs), so the null of all sizes has a ta
 1.0; for them the order between anchors decides and a pair is unsure (`ambiguous`) when an
 unpaired alternative in the same gap scores within 0.05.
 
-Thresholds, from the >= 16-instruction rows: 83.5% of null pairs stay below 0.50 and
-73.6% below 0.30, while 82.0% of call-tree counterparts reach 0.50. So:
+Thresholds, from the >= 16-instruction rows: 83.4% of null pairs stay below 0.50 and
+74.1% below 0.30, while 82.3% of call-tree counterparts reach 0.50. So:
 
 - a positional, `global` or `call-deviating` pair is deviating at similarity >= 0.50, unsure
   from 0.30 to 0.50, unless it is referenced at its place by a paired caller and in its
@@ -225,7 +226,7 @@ name and this-offset: 259 prototype tables, 250 release tables, 246 paired. 2488
 
 Rows of [settled-pairs.tsv](settled-pairs.tsv), applied before any pairing (evidence
 `settled`; a settled pair is exact when its bytes, calls and data operands agree, otherwise
-deviating). 79 rows.
+deviating). 107 rows.
 
 | release | prototype | basis | checker | date | owner, flags |
 |---|---|---|---|---|---|
@@ -308,10 +309,38 @@ deviating). 79 rows.
 | 0x2608c0 | (owner only) | owner fixed by the list f check (the corpse block of HandleEvent) | socom-release-coordinator | 2026-11-26 | src/gamez/zSeal/seal_ai.cpp |
 | 0x25f0a0-0x260860 | (owner only) | owner fixed by the list f check (CAiState family block) | socom-release-coordinator | 2026-11-26 | src/gamez/zSeal/seal_ai.cpp |
 | 0x276f90-0x277470 | (owner only) | owner fixed by the list d check (new list instances used by seal_ai.cpp) | socom-release-coordinator | 2026-11-26 | src/gamez/zSeal/seal_ai.cpp |
+| 0x33d2d0 | 0x322470 | same callers UICheckJoinMP and CLoadState::Tick; same global dme_joined_count | socom-release-check-net-a | 2026-11-26 | - |
+| 0x343de0 | 0x328b50 | same caller zNetInitialize; returns the RSA key pair's address (generated on first use) | socom-release-check-net-a | 2026-11-26 | - |
+| 0x34f1a0 | 0x333050 | same call site in RemotePersonaCreationCallback, between the CZNetVoice Init and ServerPermit calls | socom-release-check-net-a | 2026-11-26 | - |
+| 0x349100 | 0x32dbb0 | the function pointer passed to MediusGetPolicy; same response handling ("UsagePolicy") | socom-release-check-net-a | 2026-11-26 | - |
+| 0x349040 | new | the policy request moved out of LobbyActiveStateHandler: direct caller UI command 0x1d2ae0 (this = theLobby); sends MediusGetPolicy with 0x349100 | socom-release-check-net-a | 2026-11-26 | - |
+| 0x3474d0 | 0x32c140 | stored at handler offset +8 by Open on both sides; after LobbyActiveStateHandler on both sides | socom-release-check-net-a | 2026-11-26 | - |
+| 0x347550 | 0x32c150 | stored at handler offset +56 by Open on both sides (outside list a) | socom-release-check-net-a | 2026-11-26 | - |
+| 0x347560 | 0x32c160 | stored at handler offset +4 by Open on both sides (outside list a) | socom-release-check-net-a | 2026-11-26 | - |
+| 0x347570 | 0x32c170 | stored at handler offset +40 by Open on both sides (outside list a) | socom-release-check-net-a | 2026-11-26 | - |
+| 0x347580 | 0x32c180 | stored at handler offset +24 by Open on both sides (outside list a) | socom-release-check-net-a | 2026-11-26 | - |
+| 0x33f800 | 0x324a50 | the pointer GetAnnouncements passes to MediusGetAnnouncements on both sides; follows GetAnnouncements (outside list a) | socom-release-check-net-a | 2026-11-26 | - |
+| 0x345b90 | 0x32a790 | the pointer passed to MediusGetMyClanMessages; follows cbSendClanMessage; same CheckClanInvitations tail (outside list a) | socom-release-check-net-a | 2026-11-26 | - |
+| 0x4043c0 | 0x3ff0f0 | directly before IOPRebootHandler on both sides; LibNETSetup's libnet sequence registering IOPRebootHandler | socom-release-check-net-a | 2026-11-26 | - |
+| 0x404640 | 0x3ffa40 | caller UINetCnfInit on both sides; m_isinit test and set; directly after Uninit on both sides (outside list a); decided by the coordinator 2026-11-26 (list b called it new): caller UINetCnfInit at the same site, the m_isinit test and set, position right after Uninit | socom-release-check-net-a | 2026-11-26 | split |
+| 0x404130 | new | no m_isinit; caller InitFromCombo only; loads the device drivers of the selected configuration (list b's range) | socom-release-check-net-a | 2026-11-26 | - |
+| 0x3408d0 | 0x325a70 | slot +0x08 of the RoomGame table, stored by the PersistentGame constructor before its own table | socom-release-check-net-a | 2026-11-26 | - |
+| 0x349af0 | 0x32e4b0 | slot +0x10 of the BriefingRoom table (stored by its constructor and destructor) | socom-release-check-net-a | 2026-11-26 | - |
+| 0x349db0 | 0x32e800 | slot +0x08 of the BriefingRoom table | socom-release-check-net-a | 2026-11-26 | - |
+| 0x34b810 | 0x32fe40 | slot +0x0c of the PersistentGameClone table (last table stored by the BriefingRoomClone constructor) | socom-release-check-net-a | 2026-11-26 | - |
+| 0x34b820 | 0x32fe50 | slot +0x08 of the PersistentGame and PersistentGameClone tables | socom-release-check-net-a | 2026-11-26 | - |
+| 0x34b870 | 0x32fea0 | slot +0x0c of the BriefingRoom table | socom-release-check-net-a | 2026-11-26 | - |
+| 0x34b880 | 0x32feb0 | slot +0x0c of the PersistentGame table | socom-release-check-net-a | 2026-11-26 | - |
+| 0x404050 | 0x3feb80 | the only caller, zNetLoadIRX, calls it at the same place (after CSnd::Close, the +0xe5 test); the same Init__7CNetCnf start and eznetctl.irx / initEzNetCtl / ezNetCtlSetProperties / ezNetCtlUpInterface tail | socom-release-check-net-b | 2026-11-26 | - |
+| 0x33d270 | new | getter of the zNetMedius.cpp static MediusWorldID ($gp load); callers only the release CZNetVoice functions; the prototype voice code never reads it; equal bytes elsewhere are other one-load getters | socom-release-check-net-c | 2026-11-26 | - |
+| 0x403e30-0x4046a0 | (owner only) | owner fixed by the zNetwork checks (0x403e30, 0x403f80, 0x404010, 0x404640) | socom-release-coordinator | 2026-11-26 | src/gamez/zNetwork/zNetCnf.cpp |
+| 0x33d270 | (owner only) | owner fixed by the zNetwork-c check (getter of the zNetMedius.cpp static MediusWorldID) | socom-release-coordinator | 2026-11-26 | src/gamez/zNetwork/zNetMedius.cpp |
+| 0x431a40-0x431ed0 | (owner only) | SCE ezNetCnf library (libezcnf.c), per the zNetwork checks | socom-release-coordinator | 2026-11-26 | provider:SCE ezNetCnf |
+| removed | 0x3ff8a0 | list a confirmed it removed (CNetCnf::Open); a round-6 knock-on had paired it with 0x431c48 of the SCE ezNetCnf library | socom-release-check-net-a | 2026-11-26 | - |
 
 ## Unsure pairs
 
-79 pairs: ambiguous 11, low-similarity 67, ref-kind 1.
+74 pairs: ambiguous 6, low-similarity 67, ref-kind 1.
 
 | release | prototype | symbol | similarity | evidence | flags |
 |---|---|---|---|---|---|
@@ -326,18 +355,17 @@ deviating). 79 rows.
 | 0x42afc8 | 0x3e76c8 | `_strtol_r` | 0.345 | call-deviating | low-similarity,moved |
 | 0x4227d0 | 0x3df158 | `quorem` | 0.485 | call-deviating | low-similarity,moved |
 | 0x42b230 | 0x3e7938 | `_strtoul_r` | 0.343 | call-deviating | low-similarity,moved |
-| 0x4043c0 | 0x3ff0f0 | `LibNETSetup__8CHNetCnfFv` | 0.398 | position | ambiguous |
 | 0x20ae80 | 0x2088c0 | `NumActiveTerrorists__14CZPersonaStateFv` | 0.355 | call-deviating | low-similarity,moved |
 | 0x3110b0 | 0x2f9d00 | `MIPUpdateTextureSelects__Q23zdb8CTextureFUiUi` | 0.224 | position | low-similarity |
 | 0x3c65c0 | 0x3a71c0 | `UiGetTextFromUser__FP13C2DAnimCmdHdrPf` | 1.000 | exact | ref-kind |
 | 0x425608 | 0x3e1d40 | `_memalign_r` | 0.339 | call-deviating | low-similarity,moved |
 | 0x42dc98 | 0x3ea220 | `cvt` | 0.409 | call-deviating | low-similarity,moved |
-| 0x302ab0 | 0x2ebdb0 | `SetGroupVolTemp__4CSndFffiiiiiii` | 0.364 | position | low-similarity |
+| 0x302ab0 | 0x2ebdb0 | `SetGroupVolTemp__4CSndFffiiiiiii` | 0.364 | position | caller-mismatch,low-similarity |
 | 0x313ef0 | 0x2fccd0 | `insert__Q23std38__vector_imp<1,Q23std12allocator<1>,0>FP1UiRC1` | 0.343 | position | low-similarity |
 | 0x427438 | 0x3e3ac8 | `_d2b` | 0.427 | call-deviating | low-similarity,moved |
 | 0x1fc310 | 0x1f9980 | `HUDTriggerMissionCamParse__FP5_zrdr` | 0.989 | position | ambiguous,imm-only |
 | 0x4246a8 | 0x3e0e68 | `_malloc_trim_r` | 0.253 | call-deviating | low-similarity,moved |
-| 0x231050 | 0x22e070 | `DeleteTextureAssetCharacter__Q23zdb6CWorldFPQ23zdb9CAssetLibPQ23zdb5CNode` | 0.459 | position | low-similarity |
+| 0x231050 | 0x22e070 | `DeleteTextureAssetCharacter__Q23zdb6CWorldFPQ23zdb9CAssetLibPQ23zdb5CNode` | 0.459 | position | caller-mismatch,low-similarity |
 | 0x426e80 | 0x3e3540 | `_lshift` | 0.267 | call-deviating | low-similarity,moved |
 | 0x437ed0 | 0x3f0e60 | `PTT_JoinGame__FPUiPUiUs` | 0.265 | call-deviating | low-similarity,moved |
 | 0x4268c8 | 0x3e2f48 | `_s2b` | 0.468 | call-deviating | low-similarity,moved |
@@ -345,18 +373,19 @@ deviating). 79 rows.
 | 0x426d80 | 0x3e3440 | `_pow5mult` | 0.488 | call-deviating | low-similarity,moved |
 | 0x437cf0 | 0x3f11f0 | `PTT_PushToTalk__Fi` | 0.425 | call-deviating | low-similarity,moved |
 | 0x42b4d0 | 0x3e7bd0 | `__submore` | 0.322 | call-deviating | low-similarity,moved |
-| 0x404050 | 0x3feb80 | `InitFromCombo__7CNetCnfFPci` | 0.174 | string | low-similarity |
 | 0x32d390 | 0x2322c0 | `resize__Q23std38__list_imp<PCv,Q23std14allocator<PCv>>FUiRCPCv` | 0.207 | call | low-similarity,moved |
 | 0x42de58 | 0x3ea3d0 | `exponent` | 0.288 | call-deviating | low-similarity,moved |
 | 0x428ce8 | 0x3e5298 | `_raise_r` | 0.281 | call-deviating | low-similarity,moved |
 | 0x4271d0 | 0x3e38b0 | `_ulp` | 0.444 | call-deviating | low-similarity,moved |
 | 0x4275c0 | 0x3e3c48 | `_ratio` | 0.263 | call-deviating | low-similarity,moved |
-| 0x1d1e20 | 0x1d1fa0 | `UINetCnfCount__FP13C2DAnimCmdHdrPf` | 0.707 | position | ambiguous |
-| 0x1d2eb0 | 0x1d2830 | `UIVagStreaming__FP13C2DAnimCmdHdrPf` | 0.935 | position | ambiguous |
 | 0x426a78 | 0x3e3118 | `_lo0bits` | 0.253 | call-deviating | low-similarity,moved |
-| 0x349040 | 0x32dbb0 | `cbGetPolicyRequest__FiiiP23MediusGetPolicyResponse` | 0.299 | position | low-similarity |
+| 0x4226c0 | 0x3df040 | `_calloc_r` | 0.130 | call-deviating | low-similarity,moved |
+| 0x42b788 | 0x3e7e90 | `__sbprintf` | 0.444 | call-deviating | low-similarity,moved |
+| 0x42c4f8 | 0x3e8bd8 | `__sbprintf` | 0.444 | call-deviating | low-similarity,moved |
+| 0x438c20 | 0x3f1450 | `lpc10_encode__FPfPiP19lpc10_encoder_state` | 0.180 | call-deviating | low-similarity,moved |
+| 0x4381d0 | 0x3f0b30 | `PTT_Sync__FPvii` | 0.358 | call-deviating | low-similarity,moved |
 
-(39 more in function-map.tsv.)
+(34 more in function-map.tsv.)
 
 ## Largest new functions
 
@@ -410,13 +439,13 @@ deviating). 79 rows.
 | 0x3f4f20 | 1292 | `tbdm___FPfPiPiPiPfPiPiPi` | - |
 | 0x3ef560 | 1212 | `invert___FPiPfPfPf` | - |
 | 0x3f2670 | 1168 | `onset___FPfPiPiPiPiPiPiP19lpc10_encoder_state` | - |
-| 0x1d1400 | 1084 | `UINetSaveIfc__FP13C2DAnimCmdHdrPf` | src/gamez/zAnim/zanim_menu.cpp |
 | 0x3c5780 | 1084 | `RefreshBackground__11CZNewHudMapFPQ23zdb6CWorld` | src/Apps/FTS/hud/hud_newhudmap.cpp |
 | 0x3ff3f0 | 1044 | `__as__15sceNetcnfifDataFRC15sceNetcnfifData` | src/gamez/zNetwork/zNetCnf.cpp |
 | 0x3f4b10 | 1040 | `synths___FPiPiPfPfPfPiP19lpc10_decoder_state` | - |
 | 0x401c50 | 1032 | `__dt__8CHNetCnfFv` | src/gamez/zNetwork/zNetCnf.cpp |
 | 0x3f15b0 | 1012 | `init_lpc10_encoder_state__FP19lpc10_encoder_state` | - |
 | 0x3f22c0 | 940 | `mload___FPiPiPiPfPfPf` | - |
+| 0x37fa30 | 916 | `PrepControls__9CLoadMenuFPQ23zdb16CTextureRelocMgr` | src/Apps/FTS/state/st_load.cpp |
 
 ## Regenerate
 

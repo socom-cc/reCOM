@@ -270,7 +270,7 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x14f040	160	exact	0x14e160	160	checkModelVersion	provider	SCE	-	1.000	1.000	1.000	+0	exact	-	-
 0x14f0e0	16	exact	0x14e200	16	_GetGsDxDyOffset	provider	SCE	-	1.000	1.000	1.000	+0	exact	-	-
 0x14f0f0	884	exact	0x14e210	884	sceGsSetDefDispEnv	provider	SCE	-	1.000	1.000	1.000	+0	exact	-	-
-0x14f468	188	exact	0x14e588	188	sceGsPutDispEnv	provider	SCE	-	1.000	1.000	1.000	+0	exact	-	-
+0x14f468	188	exact	0x14e588	188	sceGsPutDispEnv	provider	SCE	-	1.000	1.000	1.000	+0	exact	caller-mismatch	-
 0x14f528	200	exact	0x14e648	200	sceGszbufaddr	provider	SCE	-	1.000	1.000	1.000	+0	exact	-	-
 0x14f5f0	484	exact	0x14e710	484	sceGsSetDefDrawEnv	provider	SCE	-	1.000	1.000	1.000	+0	exact	-	-
 0x14f7d8	260	exact	0x14e8f8	260	sceGsSetDefClear	provider	SCE	-	1.000	1.000	1.000	+0	exact	-	-
@@ -490,10 +490,10 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x159b08	224	exact	0x15a738	224	_setDefaultQM	provider	SCE	-	1.000	1.000	1.000	+0	exact	-	-
 0x159be8	304	exact	0x15a818	304	_sequenceExtension	provider	SCE	-	1.000	1.000	1.000	+0	exact	-	-
 0x159d18	140	exact	0x15a948	140	_sequenceDisplayExtension	provider	SCE	-	1.000	1.000	1.000	+0	exact	-	-
-0x159da8	12	exact	0x15a9d8	12	_sequenceScalableExtension	provider	SCE	-	1.000	1.000	1.000	+0	position	identical-copy	-
-0x159db8	12	exact	0x15a9e8	12	_unknown_extension	provider	SCE	-	1.000	1.000	1.000	+0	position	identical-copy	-
-0x159dc8	12	exact	0x15a9f8	12	_pictureSpatialScalableExtension	provider	SCE	-	1.000	1.000	1.000	+0	position	identical-copy	-
-0x159dd8	12	exact	0x15aa08	12	_pictureTemporalScalableExtension	provider	SCE	-	1.000	1.000	1.000	+0	position	identical-copy	-
+0x159da8	12	exact	0x15a9d8	12	_sequenceScalableExtension	provider	SCE	-	1.000	1.000	1.000	+0	table-entry	-	-
+0x159db8	12	exact	0x15a9e8	12	_unknown_extension	provider	SCE	-	1.000	1.000	1.000	+0	table-entry	-	-
+0x159dc8	12	exact	0x15a9f8	12	_pictureSpatialScalableExtension	provider	SCE	-	1.000	1.000	1.000	+0	table-entry	-	-
+0x159dd8	12	exact	0x15aa08	12	_pictureTemporalScalableExtension	provider	SCE	-	1.000	1.000	1.000	+0	table-entry	-	-
 0x159de8	12	exact	0x15aa18	12	_defStopDMA	provider	SCE	-	1.000	1.000	1.000	+0	call	-	-
 0x159df8	12	exact	0x15aa28	12	_defRestartDMA	provider	SCE	-	1.000	1.000	1.000	+0	call	-	-
 0x159e08	100	exact	0x15aa38	100	setD3_CHCR	provider	SCE	-	1.000	1.000	1.000	+0	exact	-	-
@@ -1152,7 +1152,7 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x17ccf0	328	deviating	0x17d900	196	UnInit__15CCinematicStateFv	authored	-	src/Apps/FTS/state/st_core.cpp	0.656	0.672	0.687	+132	vtable-slot	-	-
 0x17ce40	380	deviating	0x17d9d0	336	Tick__15CCinematicStateFf	authored	-	src/Apps/FTS/state/st_core.cpp	0.827	0.872	0.916	+44	vtable-slot	-	-
 0x17cfc0	516	deviating	0x17db20	308	Init__15CCinematicStateFv	authored	-	src/Apps/FTS/state/st_core.cpp	0.553	0.563	0.670	+208	vtable-slot	-	-
-0x17d1d0	112	deviating	0x17dc60	96	SetMovie__15CCinematicStateFPCc	authored	-	src/Apps/FTS/state/st_core.cpp	0.577	0.731	0.923	+16	position	-	-
+0x17d1d0	112	deviating	0x17dc60	96	SetMovie__15CCinematicStateFPCc	authored	-	src/Apps/FTS/state/st_core.cpp	0.577	0.731	0.923	+16	call-deviating	-	-
 0x17d240	164	exact	0x17dcc0	164	__dt__15CCinematicStateFv	authored	-	src/Apps/FTS/state/st_core.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x17d2f0	260	exact	0x17dd70	260	reserve__Q23std38__vector_pod<Ui,Q23std13allocator<Ui>>FUi	authored	-	src/Apps/FTS/state/st_core.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x17d400	468	exact	0x17de90	468	get_clock_direction__2aiFPC6CPnt3D	authored	-	src/gamez/zAI/ai_main.cpp	1.000	1.000	1.000	+0	exact	-	-
@@ -1894,7 +1894,7 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x1cc5a0	8	exact	0x1cb8f0	8	Priority__6CZAnimFf	authored	-	src/gamez/zAnim/zanim_anim.cpp	1.000	1.000	1.000	+0	exact-position	-	-
 0x1cc5b0	596	deviating	0x1cb900	596	GarbageCollect__6CZAnimFv	authored	-	src/gamez/zAnim/zanim_anim.cpp	0.772	1.000	1.000	+0	call-deviating	imm-only	-
 0x1cc810	304	deviating	0x1cbd40	304	StopLights__6CZAnimFb	authored	-	src/gamez/zAnim/zanim_anim.cpp	0.974	1.000	1.000	+0	call-deviating	imm-only	-
-0x1cc940	360	deviating	0x1cbe70	240	StopSounds__6CZAnimFv	authored	-	src/gamez/zAnim/zanim_anim.cpp	0.560	0.800	0.800	+120	position	-	-
+0x1cc940	360	deviating	0x1cbe70	240	StopSounds__6CZAnimFv	authored	-	src/gamez/zAnim/zanim_anim.cpp	0.560	0.800	0.800	+120	position	caller-mismatch	-
 0x1ccab0	128	deviating	0x1cbf60	128	DeleteParticleSources__6CZAnimFv	authored	-	src/gamez/zAnim/zanim_anim.cpp	0.906	1.000	1.000	+0	call-deviating	imm-only	-
 0x1ccb30	732	deviating	0x1cbb60	472	StopAnims__6CZAnimFv	authored	-	src/gamez/zAnim/zanim_anim.cpp	0.266	0.199	0.512	+260	call-deviating	call-and-slot,moved	-
 0x1cce10	412	deviating	0x1cc340	632	Tick__6CZAnimFf	authored	-	src/gamez/zAnim/zanim_anim.cpp	0.582	0.659	0.782	-220	call	-	-
@@ -1955,7 +1955,7 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x1d07e0	96	exact	0x1cff70	96	__dt__12CZAnimArgCmdFv	authored	-	src/gamez/zAnim/zanim_anim.cpp	1.000	1.000	1.000	+0	vtable-slot	-	-
 0x1d0840	96	exact	0x1cffd0	96	__dt__14CZAnimArgValveFv	authored	-	src/gamez/zAnim/zanim_anim.cpp	1.000	1.000	1.000	+0	vtable-slot	-	-
 0x1d08a0	96	exact	0x1d0030	96	__dt__13CZAnimArgNodeFv	authored	-	src/gamez/zAnim/zanim_anim.cpp	1.000	1.000	1.000	+0	vtable-slot	-	-
-0x1d0900	160	deviating	0x1d0090	160	Advance__Q224@unnamed@zanim_menu_cpp@17CSelectedCharsItrFv	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.975	1.000	1.000	+0	position	imm-only	-
+0x1d0900	160	deviating	0x1d0090	160	Advance__Q224@unnamed@zanim_menu_cpp@17CSelectedCharsItrFv	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.975	1.000	1.000	+0	call-deviating	imm-only	-
 0x1d09a0	8	exact	0x1d0130	8	zAnimUIAppMenuTick__FP14_zanim_cmd_hdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	-	-
 0x1d09b0	480	deviating	0x1d0140	480	zAnimUIMenuTick__FP14_zanim_cmd_hdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.983	1.000	1.000	+0	position	imm-only	-
 0x1d0b90	8	exact	0x1d0320	8	Get2DVisual__Q23zdb7CVisualFv	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	identical-copy	-
@@ -1967,106 +1967,106 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x1d10f0	64	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	owner-guess	gamez/zAnim
 0x1d1130	136	exact	0x1d07e0	136	UISysLoadIRX__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x1d11c0	88	exact	0x1d0870	88	UISysPostInit__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
-0x1d1220	32	exact	0x1d08d0	32	UIPasswordSecurity__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x1d1240	12	exact	0x1d08f0	12	UIIsTeamGame__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	identical-copy	-
+0x1d1220	32	exact	0x1d08d0	32	UIPasswordSecurity__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	-	-
+0x1d1240	12	exact	0x1d08f0	12	UIIsTeamGame__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	-	-
 0x1d1250	136	exact	0x1d0900	136	UITransferLeadership__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
-0x1d12e0	148	exact	0x1d0990	148	UIDeclineInvitation__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	position	identical-copy	-
-0x1d1380	148	exact	0x1d0a30	148	UIAcceptInvitation__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	position	identical-copy	-
+0x1d12e0	148	exact	0x1d0990	148	UIDeclineInvitation__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	table-entry	-	-
+0x1d1380	148	exact	0x1d0a30	148	UIAcceptInvitation__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	table-entry	-	-
 0x1d1420	40	exact	0x1d0ad0	40	UINotOnCorrectClanTeam__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
-0x1d1450	36	exact	0x1d0b00	36	UIUpdateClanStats__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	identical-copy	-
+0x1d1450	36	exact	0x1d0b00	36	UIUpdateClanStats__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	-	-
 0x1d1480	68	exact	0x1d0b30	68	UICanLadderPressDown__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x1d14d0	40	exact	0x1d0b80	40	UICanLadderPressUp__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x1d1500	60	exact	0x1d0bb0	60	UILadderDown__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x1d1540	80	exact	0x1d0bf0	80	UILadderUp__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x1d1590	104	exact	0x1d0c40	104	UISetPlayerDescription__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
-0x1d1600	36	exact	0x1d0cb0	36	UIForceMediusStatusReport__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	identical-copy	-
+0x1d1600	36	exact	0x1d0cb0	36	UIForceMediusStatusReport__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	-	-
 0x1d1630	224	exact	0x1d0ce0	224	UINetCensorText__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x1d1710	40	exact	0x1d0dc0	40	AuxNetCensorText__FPCcPv	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
-0x1d1740	252	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	owner-guess	gamez/zAnim
-0x1d1840	32	exact	0x1d0e20	32	UIStopAllSounds__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-callee	-	-
-0x1d1860	32	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	copy,owner-guess	gamez/zAnim
-0x1d1880	12	exact	0x1d0e40	12	UIHasClanInvitations__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	position	identical-copy	-
-0x1d1890	8	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	copy,owner-guess	gamez/zAnim
-0x1d18a0	260	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	owner-guess	gamez/zAnim
-0x1d19b0	8	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	copy,owner-guess	gamez/zAnim
-0x1d19c0	8	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	copy,owner-guess	gamez/zAnim
-0x1d19d0	8	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	copy,owner-guess	gamez/zAnim
-0x1d19e0	12	exact	0x1d13f0	12	UIClanHasInvitations__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	position	identical-copy	-
-0x1d19f0	8	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	copy,owner-guess	gamez/zAnim
-0x1d1a00	8	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	copy,owner-guess	gamez/zAnim
-0x1d1a10	8	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	copy,owner-guess	gamez/zAnim
-0x1d1a20	8	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	copy,owner-guess	gamez/zAnim
-0x1d1a30	8	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	copy,owner-guess	gamez/zAnim
-0x1d1a40	8	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	copy,owner-guess	gamez/zAnim
-0x1d1a50	320	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	owner-guess	gamez/zAnim
-0x1d1b90	8	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	copy,owner-guess	gamez/zAnim
-0x1d1ba0	268	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	owner-guess	gamez/zAnim
-0x1d1cb0	356	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	owner-guess	gamez/zAnim
-0x1d1e20	200	unsure	0x1d1fa0	128	UINetCnfCount__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.707	0.707	0.732	+72	position	ambiguous	-
-0x1d1ef0	116	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	owner-guess	gamez/zAnim
-0x1d1f70	476	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	owner-guess	gamez/zAnim
-0x1d2150	32	deviating	0x1d20a0	32	UINetCnfUninit__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.875	0.875	0.875	+0	position	-	-
-0x1d2170	32	unsure	0x1d20c0	32	UINetCnfInit__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.750	0.750	0.750	+0	position	ambiguous	-
+0x1d1740	252	deviating	0x1d0df0	40	UIRebootIOP__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.110	0.192	0.274	+212	table-entry	-	-
+0x1d1840	32	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	copy,owner-guess	gamez/zAnim
+0x1d1860	32	exact	0x1d0e20	32	UIStopAllSounds__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	table-entry	-	-
+0x1d1880	12	exact	0x1d0e40	12	UIHasClanInvitations__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	table-entry	-	-
+0x1d1890	8	deviating	0x1d0e50	108	UINetCnfDeleteAll__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.069	0.069	0.069	-100	table-entry	stubbed	-
+0x1d18a0	260	deviating	0x1d0ec0	208	UINetSaveCombo__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.188	0.222	0.291	+52	table-entry	-	-
+0x1d19b0	8	deviating	0x1d0f90	228	UINetGetIFCInfo__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.034	0.034	0.068	-220	table-entry	stubbed	-
+0x1d19c0	8	deviating	0x1d1080	228	UINetGetDevInfo__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.034	0.034	0.068	-220	table-entry	stubbed	-
+0x1d19d0	8	deviating	0x1d1170	640	UINetUpdateIFCVars__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.012	0.012	0.025	-632	table-entry	stubbed	-
+0x1d19e0	12	exact	0x1d13f0	12	UIClanHasInvitations__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	table-entry	-	-
+0x1d19f0	8	deviating	0x1d1400	1084	UINetSaveIfc__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.007	0.007	0.007	-1076	table-entry	stubbed	-
+0x1d1a00	8	deviating	0x1d1840	120	UINetGetDevIndex__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.062	0.062	0.125	-112	table-entry	stubbed	-
+0x1d1a10	8	deviating	0x1d18c0	108	UINetSaveDev__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.069	0.069	0.069	-100	table-entry	stubbed	-
+0x1d1a20	8	deviating	0x1d1930	108	UINetAddCombo__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.069	0.069	0.069	-100	table-entry	stubbed	-
+0x1d1a30	8	deviating	0x1d19a0	108	UINetAddIfc__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.069	0.069	0.069	-100	table-entry	stubbed	-
+0x1d1a40	8	deviating	0x1d1a10	248	UINetAddDev__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.031	0.031	0.031	-240	table-entry	stubbed	-
+0x1d1a50	320	deviating	0x1d1b10	568	UINetGetInterfaceList__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.216	0.342	0.405	-248	table-entry	-	-
+0x1d1b90	8	deviating	0x1d1d50	372	UINetCnfGetDispNames__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.021	0.021	0.042	-364	table-entry	stubbed	-
+0x1d1ba0	268	deviating	0x1d1ed0	76	UINetCnfSelectCombo__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.256	0.372	0.372	+192	table-entry	-	-
+0x1d1cb0	356	deviating	0x1d1f20	128	UINetCnfCurrCombo__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.347	0.430	0.512	+228	table-entry	-	-
+0x1d1e20	200	deviating	0x1d1fa0	128	UINetCnfCount__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.707	0.707	0.732	+72	table-entry	-	-
+0x1d1ef0	116	deviating	0x1d2020	36	UINetCnfClose__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.211	0.316	0.368	+80	table-entry	-	-
+0x1d1f70	476	deviating	0x1d2050	80	UINetCnfOpen__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.072	0.144	0.187	+396	table-entry	-	-
+0x1d2150	32	deviating	0x1d20a0	32	UINetCnfUninit__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.875	0.875	0.875	+0	table-entry	-	-
+0x1d2170	32	deviating	0x1d20c0	32	UINetCnfInit__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.750	0.750	0.750	+0	table-entry	-	-
 0x1d2190	56	exact	0x1d20e0	56	UIAbortLoad__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x1d21d0	284	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	owner-guess	gamez/zAnim
-0x1d22f0	352	deviating	0x1d2120	348	UITestUIVar__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.789	0.834	0.983	+4	position	-	-
+0x1d22f0	352	deviating	0x1d2120	348	UITestUIVar__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.789	0.834	0.983	+4	table-entry	-	-
 0x1d2450	324	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	owner-guess	gamez/zAnim
-0x1d25a0	36	exact	0x1d2280	36	UIGetLadderInfo__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	position	identical-copy	-
-0x1d25d0	36	exact	0x1d22b0	36	UIQuitClan__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	position	identical-copy	-
-0x1d2600	36	exact	0x1d22e0	36	UIBanSelfFromGame__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	position	identical-copy	-
+0x1d25a0	36	exact	0x1d2280	36	UIGetLadderInfo__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	table-entry	-	-
+0x1d25d0	36	exact	0x1d22b0	36	UIQuitClan__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	table-entry	-	-
+0x1d2600	36	exact	0x1d22e0	36	UIBanSelfFromGame__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	table-entry	-	-
 0x1d2630	140	exact	0x1d2310	140	UISetDefaultMenuScreen__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
-0x1d26c0	180	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	owner-guess	gamez/zAnim
-0x1d2780	8	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	copy,owner-guess	gamez/zAnim
-0x1d2790	204	deviating	0x1d23e0	132	UISetMPMissionSeq__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.500	0.619	0.690	+72	position	-	-
-0x1d2860	400	deviating	0x1d2470	228	UIAdvanceMPMission__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.688	0.726	0.726	+172	position	-	-
-0x1d29f0	8	exact	0x1d2560	8	UIIsClanChallengeGame__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	identical-copy	-
+0x1d26c0	180	deviating	0x1d23a0	40	UIGameStatePopCommand__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.218	0.327	0.364	+140	table-entry	-	-
+0x1d2780	8	deviating	0x1d23d0	8	UIHaveBeenBannedFromGame__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.000	0.000	0.000	+0	table-entry	-	-
+0x1d2790	204	deviating	0x1d23e0	132	UISetMPMissionSeq__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.500	0.619	0.690	+72	table-entry	-	-
+0x1d2860	400	deviating	0x1d2470	228	UIAdvanceMPMission__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.688	0.726	0.726	+172	table-entry	-	-
+0x1d29f0	8	exact	0x1d2560	8	UIIsClanChallengeGame__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	-	-
 0x1d2a00	168	exact	0x1d2570	168	UIChangeCharacterType__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x1d2ab0	40	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	owner-guess	gamez/zAnim
 0x1d2ae0	36	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	copy,owner-guess	gamez/zAnim
-0x1d2b10	228	exact	0x1d2620	228	UISendClanMessage__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	position	identical-copy	-
-0x1d2c00	132	exact	0x1d2710	132	UIRevokeInvite__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	position	identical-copy	-
-0x1d2c90	36	exact	0x1d27a0	36	UIGetClanRoster__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	position	ambiguous,identical-copy	-
-0x1d2cc0	36	exact	0x1d27d0	36	UICheckClanInvites__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	position	ambiguous,identical-copy	-
-0x1d2cf0	36	exact	0x1d2800	36	UIGetInvitedPlayers__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	position	ambiguous,identical-copy	-
+0x1d2b10	228	exact	0x1d2620	228	UISendClanMessage__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	table-entry	-	-
+0x1d2c00	132	exact	0x1d2710	132	UIRevokeInvite__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	table-entry	-	-
+0x1d2c90	36	exact	0x1d27a0	36	UIGetClanRoster__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	table-entry	-	-
+0x1d2cc0	36	exact	0x1d27d0	36	UICheckClanInvites__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	table-entry	-	-
+0x1d2cf0	36	exact	0x1d2800	36	UIGetInvitedPlayers__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	table-entry	-	-
 0x1d2d20	212	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	owner-guess	gamez/zAnim
 0x1d2e00	172	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	owner-guess	gamez/zAnim
-0x1d2eb0	188	unsure	0x1d2830	180	UIVagStreaming__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.935	0.978	0.978	+8	position	ambiguous	-
-0x1d2f70	132	exact	0x1d28f0	132	UIInvitePlayerToClanWithArg__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	position	identical-copy	-
-0x1d3000	228	exact	0x1d2980	228	UIInvitePlayerToClan__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	position	identical-copy	-
+0x1d2eb0	188	deviating	0x1d2830	180	UIVagStreaming__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.935	0.978	0.978	+8	table-entry	-	-
+0x1d2f70	132	exact	0x1d28f0	132	UIInvitePlayerToClanWithArg__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	table-entry	-	-
+0x1d3000	228	exact	0x1d2980	228	UIInvitePlayerToClan__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	table-entry	-	-
 0x1d30f0	68	exact	0x1d2a70	68	UIRemovePlayerFromClan__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
-0x1d3140	132	exact	0x1d2ac0	132	UIIsLeaderOfClan__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x1d31d0	12	exact	0x1d2b50	12	UIIsMemberOfClan__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x1d31e0	36	exact	0x1d2b60	36	UIDisbandClan__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	identical-copy	-
+0x1d3140	132	exact	0x1d2ac0	132	UIIsLeaderOfClan__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	-	-
+0x1d31d0	12	exact	0x1d2b50	12	UIIsMemberOfClan__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	-	-
+0x1d31e0	36	exact	0x1d2b60	36	UIDisbandClan__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	-	-
 0x1d3210	168	exact	0x1d2b90	168	UICreateClan__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
-0x1d32c0	12	exact	0x1d2c40	12	UIGetClan__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x1d32d0	136	unsure	0x1d2c50	132	UIPlayMPEG__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.925	0.955	0.955	+4	position	ambiguous	-
-0x1d3360	136	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	owner-guess	gamez/zAnim
-0x1d33f0	12	exact	0x1d2ce0	12	UIMediusEnabled__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x1d3400	8	exact	0x1d2cf0	8	UICoopMissionExists__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x1d3410	56	exact	0x1d2d00	56	UISaveConfig__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	identical-copy	-
+0x1d32c0	12	exact	0x1d2c40	12	UIGetClan__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	-	-
+0x1d32d0	136	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	owner-guess	gamez/zAnim
+0x1d3360	136	deviating	0x1d2c50	132	UIPlayMPEG__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.925	0.955	0.985	+4	table-entry	-	-
+0x1d33f0	12	exact	0x1d2ce0	12	UIMediusEnabled__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	-	-
+0x1d3400	8	exact	0x1d2cf0	8	UICoopMissionExists__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	-	-
+0x1d3410	56	exact	0x1d2d00	56	UISaveConfig__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	-	-
 0x1d3450	164	exact	0x1d2d40	164	UILoadConfig__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
-0x1d3500	36	exact	0x1d2df0	36	UIMC_CreateIconFiles__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x1d3530	52	exact	0x1d2e20	52	UIMC_Exists__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	position	identical-copy	-
-0x1d3570	96	deviating	0x1d2e60	60	UIMC_ChSlot__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.667	0.718	0.718	+36	position	-	-
-0x1d35d0	96	deviating	0x1d2ea0	60	UIMC_ChPort__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.667	0.718	0.718	+36	position	-	-
-0x1d3630	52	exact	0x1d2ee0	52	UIMC_MkDir__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	position	identical-copy	-
-0x1d3670	52	exact	0x1d2f20	52	UIMC_ChDir__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	position	identical-copy	-
+0x1d3500	36	exact	0x1d2df0	36	UIMC_CreateIconFiles__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	-	-
+0x1d3530	52	exact	0x1d2e20	52	UIMC_Exists__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	table-entry	-	-
+0x1d3570	96	deviating	0x1d2e60	60	UIMC_ChSlot__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.667	0.718	0.718	+36	table-entry	-	-
+0x1d35d0	96	deviating	0x1d2ea0	60	UIMC_ChPort__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.667	0.718	0.718	+36	table-entry	-	-
+0x1d3630	52	exact	0x1d2ee0	52	UIMC_MkDir__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	table-entry	-	-
+0x1d3670	52	exact	0x1d2f20	52	UIMC_ChDir__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	table-entry	-	-
 0x1d36b0	16	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	owner-guess	gamez/zAnim
-0x1d36c0	32	exact	0x1d2f60	32	UIMC_Uninit__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	position	identical-copy	-
-0x1d36e0	32	exact	0x1d2f80	32	UIMC_Init__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	position	identical-copy	-
-0x1d3700	40	deviating	0x1d2fa0	40	UIIsSpaceForSaveGameFile__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.900	1.000	1.000	+0	position	imm-only	-
-0x1d3730	780	deviating	0x1d2fd0	824	UIInitializeOptions__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.923	0.913	0.958	-44	position	-	-
-0x1d3a40	352	deviating	0x1d3310	352	UISetStickPreset__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.943	0.943	0.955	+0	position	-	-
-0x1d3ba0	936	deviating	0x1d3470	844	UIStoreOptions__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.742	0.751	0.858	+92	position	-	-
-0x1d3f50	196	deviating	0x1d37c0	220	UISwitchProgressiveVideo__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.827	0.923	0.923	-24	position	-	-
+0x1d36c0	32	exact	0x1d2f60	32	UIMC_Uninit__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	table-entry	-	-
+0x1d36e0	32	exact	0x1d2f80	32	UIMC_Init__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	table-entry	-	-
+0x1d3700	40	deviating	0x1d2fa0	40	UIIsSpaceForSaveGameFile__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.900	1.000	1.000	+0	table-entry	-	-
+0x1d3730	780	deviating	0x1d2fd0	824	UIInitializeOptions__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.923	0.913	0.958	-44	table-entry	-	-
+0x1d3a40	352	deviating	0x1d3310	352	UISetStickPreset__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.943	0.943	0.955	+0	table-entry	-	-
+0x1d3ba0	936	deviating	0x1d3470	844	UIStoreOptions__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.742	0.751	0.858	+92	table-entry	-	-
+0x1d3f50	196	deviating	0x1d37c0	220	UISwitchProgressiveVideo__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.827	0.923	0.923	-24	table-entry	-	-
 0x1d4020	208	exact	0x1d38a0	208	UICheckVideoMode__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x1d40f0	252	exact	0x1d3970	252	UIDisableButton__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x1d41f0	252	exact	0x1d3a70	252	UIEnableButton__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x1d42f0	252	exact	0x1d3b70	252	UIActivateButton__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x1d43f0	716	exact	0x1d3c70	716	UISetFilters__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x1d46c0	128	exact	0x1d3f40	128	UIToggleAutoMessages__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
-0x1d4740	8	exact	0x1d3fc0	8	UIClearGameState__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x1d4750	180	deviating	0x1d3fd0	180	UIFlushMenuHistory__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.867	1.000	1.000	+0	position	imm-only	-
+0x1d4740	8	exact	0x1d3fc0	8	UIClearGameState__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	-	-
+0x1d4750	180	deviating	0x1d3fd0	180	UIFlushMenuHistory__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.867	1.000	1.000	+0	table-entry	-	-
 0x1d4810	276	deviating	0x1d4090	276	__dt__12CPopUpDialogFv	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.913	1.000	1.000	+0	vtable-slot	-	-
 0x1d4930	16	exact	0x1d41b0	16	empty__Q23std38__vector_pod<Ui,Q23std13allocator<Ui>>CFv	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	-	-
 0x1d4940	16	exact	0x1d41c0	16	pop_back__Q23std38__vector_pod<Ui,Q23std13allocator<Ui>>Fv	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
@@ -2074,48 +2074,48 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x1d4970	28	exact	0x1d41f0	28	push_back__Q23std38__vector_pod<Ui,Q23std13allocator<Ui>>FRCUi	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	call	-	-
 0x1d4990	24	exact	0x1d4210	24	back__Q23std40__vector_imp<Pc,Q23std13allocator<Pc>,1>Fv	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	-	-
 0x1d49b0	188	exact	0x1d4230	188	UISetMenuState__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
-0x1d4a70	128	deviating	0x1d42f0	128	UIReadyToLoad__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.969	1.000	1.000	+0	position	imm-only	-
+0x1d4a70	128	deviating	0x1d42f0	128	UIReadyToLoad__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.969	1.000	1.000	+0	table-entry	-	-
 0x1d4af0	128	exact	0x1d4370	128	UISendChatText__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
-0x1d4b70	552	deviating	0x1d43f0	552	UICheckForcedLaunch__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.978	1.000	1.000	+0	position	imm-only	-
-0x1d4da0	128	deviating	0x1d4620	128	UIForceMPLaunch__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.938	1.000	1.000	+0	position	imm-only	-
-0x1d4e20	84	deviating	0x1d46a0	84	UISwitchSides__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.952	1.000	1.000	+0	position	imm-only	-
-0x1d4e80	28	deviating	0x1d4700	28	UIIsTerrorist__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.857	1.000	1.000	+0	position	imm-only	-
+0x1d4b70	552	deviating	0x1d43f0	552	UICheckForcedLaunch__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.978	1.000	1.000	+0	table-entry	-	-
+0x1d4da0	128	deviating	0x1d4620	128	UIForceMPLaunch__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.938	1.000	1.000	+0	table-entry	-	-
+0x1d4e20	84	deviating	0x1d46a0	84	UISwitchSides__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.952	1.000	1.000	+0	table-entry	-	-
+0x1d4e80	28	deviating	0x1d4700	28	UIIsTerrorist__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.857	1.000	1.000	+0	table-entry	-	-
 0x1d4ea0	96	exact	0x1d4720	96	UIKillPopUp__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
-0x1d4f00	36	exact	0x1d4780	36	UIGetMediusAnnouncements__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	identical-copy	-
+0x1d4f00	36	exact	0x1d4780	36	UIGetMediusAnnouncements__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	-	-
 0x1d4f30	124	exact	0x1d47b0	124	UISendMediusChat__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x1d4fb0	148	exact	0x1d4830	148	UIJoinMPRoom__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x1d5050	676	exact	0x1d48d0	676	UIStoreSOP__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x1d5300	8	exact	0x1d4b80	8	length__Q23std14char_traits<c>FPCc	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	call	-	-
-0x1d5310	132	exact	0x1d4b90	132	UIGameHasPassword__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	identical-copy	-
+0x1d5310	132	exact	0x1d4b90	132	UIGameHasPassword__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	-	-
 0x1d53a0	120	exact	0x1d4c20	120	UIJoinMPGame__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
-0x1d5420	12	exact	0x1d4ca0	12	UICreateMPGame__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x1d5430	156	deviating	0x1d4cb0	156	UIRefreshGamePlayerList__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.974	1.000	1.000	+0	position	imm-only	-
-0x1d54d0	156	deviating	0x1d4d50	156	UIRefreshRoomPlayerList__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.974	1.000	1.000	+0	position	imm-only	-
-0x1d5570	156	deviating	0x1d4df0	156	UIRefreshRoomList__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.974	1.000	1.000	+0	position	imm-only	-
-0x1d5610	156	deviating	0x1d4e90	156	UIRefreshGameList__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.974	1.000	1.000	+0	position	imm-only	-
-0x1d56b0	8	exact	0x1d4f30	8	UIGetAcctInfo__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x1d56c0	36	exact	0x1d4f40	36	UILobbyBailout__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	identical-copy	-
+0x1d5420	12	exact	0x1d4ca0	12	UICreateMPGame__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	-	-
+0x1d5430	156	deviating	0x1d4cb0	156	UIRefreshGamePlayerList__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.974	1.000	1.000	+0	table-entry	-	-
+0x1d54d0	156	deviating	0x1d4d50	156	UIRefreshRoomPlayerList__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.974	1.000	1.000	+0	table-entry	-	-
+0x1d5570	156	deviating	0x1d4df0	156	UIRefreshRoomList__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.974	1.000	1.000	+0	table-entry	-	-
+0x1d5610	156	deviating	0x1d4e90	156	UIRefreshGameList__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.974	1.000	1.000	+0	table-entry	-	-
+0x1d56b0	8	exact	0x1d4f30	8	UIGetAcctInfo__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	-	-
+0x1d56c0	36	exact	0x1d4f40	36	UILobbyBailout__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	-	-
 0x1d56f0	80	exact	0x1d4f70	80	UILobbyLogout__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
-0x1d5740	196	exact	0x1d4fc0	196	UILobbyLogin__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	position	identical-copy	-
-0x1d5810	196	exact	0x1d5090	196	UILobbyRegister__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	position	identical-copy	-
+0x1d5740	196	exact	0x1d4fc0	196	UILobbyLogin__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	table-entry	-	-
+0x1d5810	196	exact	0x1d5090	196	UILobbyRegister__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	table-entry	-	-
 0x1d58e0	208	exact	0x1d5160	208	UIGetNumSavedGames__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x1d59b0	172	exact	0x1d5230	172	UIDoesSlotHaveGame__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
-0x1d5a60	12	exact	0x1d52e0	12	UIFormatMemCard__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	position	identical-copy	-
-0x1d5a70	12	exact	0x1d52f0	12	UIIsMemCardFormatted__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	position	identical-copy	-
-0x1d5a80	12	exact	0x1d5300	12	UIIsMemCardInserted__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	position	identical-copy	-
-0x1d5a90	152	deviating	0x1d5310	136	UICheckJoinMP__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.917	0.944	0.944	+16	position	-	-
-0x1d5b30	116	deviating	0x1d53a0	116	UIJoinGameServer__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.966	1.000	1.000	+0	position	imm-only	-
+0x1d5a60	12	exact	0x1d52e0	12	UIFormatMemCard__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	table-entry	-	-
+0x1d5a70	12	exact	0x1d52f0	12	UIIsMemCardFormatted__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	table-entry	-	-
+0x1d5a80	12	exact	0x1d5300	12	UIIsMemCardInserted__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	table-entry	-	-
+0x1d5a90	152	deviating	0x1d5310	136	UICheckJoinMP__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.917	0.944	0.944	+16	table-entry	-	-
+0x1d5b30	116	deviating	0x1d53a0	116	UIJoinGameServer__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.966	1.000	1.000	+0	table-entry	-	-
 0x1d5bb0	108	exact	0x1d5420	108	UIDisconnectFromGameServer__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x1d5c20	80	exact	0x1d5490	80	UIConnectToGameServer__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x1d5c70	68	exact	0x1d54e0	68	UIUnInitNetwork__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x1d5cc0	128	exact	0x1d5530	128	UIInitNetwork__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x1d5d40	24	exact	0x1d55b0	24	UILobbyEventHandler__FPCcPCc	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
-0x1d5d60	12	exact	0x1d55d0	12	UIIsNetwork__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	identical-copy	-
+0x1d5d60	12	exact	0x1d55d0	12	UIIsNetwork__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	-	-
 0x1d5d70	52	exact	0x1d55e0	52	UIIsSessionMaster__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
-0x1d5db0	916	deviating	0x1d5620	1008	UISwitchMenu__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.782	0.923	0.923	-92	position	-	-
+0x1d5db0	916	deviating	0x1d5620	1008	UISwitchMenu__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.782	0.923	0.923	-92	table-entry	-	-
 0x1d6150	16	exact	0x1d5a10	16	empty__Q23std40__vector_imp<Pc,Q23std13allocator<Pc>,1>CFv	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	-	-
-0x1d6160	56	exact	0x1d5a20	56	UIPopUpDialog__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x1d61a0	244	deviating	0x1d5a60	168	UISetMission__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.621	0.699	0.816	+76	position	-	-
+0x1d6160	56	exact	0x1d5a20	56	UIPopUpDialog__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	-	-
+0x1d61a0	244	deviating	0x1d5a60	168	UISetMission__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.621	0.699	0.816	+76	table-entry	-	-
 0x1d62a0	228	exact	0x1d5b10	228	__ct__12CMenuHistoryFv	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x1d6390	104	exact	0x1d5c00	104	__dt__Q23std40__vector_imp<Pc,Q23std13allocator<Pc>,1>Fv	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	call	-	-
 0x1d6400	12	exact	0x1d5c70	12	__ct__Q310Metrowerks7details47compressed_pair_imp<Q23std13allocator<Ui>,Ui,1>FUi	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	call	-	-
@@ -2139,30 +2139,30 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x1d70c0	8	exact	0x1d6760	8	RegisterMenuNode__FPQ23zdb5CNode	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	-	-
 0x1d70d0	12	exact	0x1d6770	12	GetDatabase__Fv	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	call	-	-
 0x1d70e0	16	exact	0x1d6780	16	SetDatabase__FPCc	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	-	-
-0x1d70f0	528	deviating	0x1d6790	296	_SaveSavedGame__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.573	0.670	0.670	+232	position	-	-
+0x1d70f0	528	deviating	0x1d6790	296	_SaveSavedGame__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.573	0.670	0.670	+232	table-entry	-	-
 0x1d7300	248	exact	0x1d68c0	248	_LoadSavedGame__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x1d7400	132	exact	0x1d69c0	132	UISetControllerConfig__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x1d7490	32	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	copy,owner-guess	gamez/zAnim
-0x1d74b0	148	exact	0x1d6a50	148	OnSetTtySpeedFactor__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x1d7550	8	exact	0x1d6af0	8	OnSetSkbPurpose__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x1d7560	148	exact	0x1d6b00	148	OnSetCounterSpeedFactor__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	identical-copy	-
+0x1d74b0	148	exact	0x1d6a50	148	OnSetTtySpeedFactor__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	-	-
+0x1d7550	8	exact	0x1d6af0	8	OnSetSkbPurpose__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	-	-
+0x1d7560	148	exact	0x1d6b00	148	OnSetCounterSpeedFactor__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	-	-
 0x1d7600	108	exact	0x1d6ba0	108	OnReplayMission__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
-0x1d7670	352	deviating	0x1d6c10	352	OnRemoveEquipment__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.989	1.000	1.000	+0	position	imm-only	-
-0x1d77d0	600	deviating	0x1d6d70	400	OnListSavedGames__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.744	0.752	0.736	+200	position	-	-
+0x1d7670	352	deviating	0x1d6c10	352	OnRemoveEquipment__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.989	1.000	1.000	+0	table-entry	-	-
+0x1d77d0	600	deviating	0x1d6d70	400	OnListSavedGames__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.744	0.752	0.736	+200	table-entry	-	-
 0x1d7a30	472	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	owner-guess	gamez/zAnim
 0x1d7c10	20	exact	0x1d6f00	20	OnIsMissionSuccessful__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
-0x1d7c30	360	deviating	0x1d6f20	360	OnIsEquipmentSelected__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.989	1.000	1.000	+0	position	imm-only	-
-0x1d7da0	8	exact	0x1d7090	8	OnGetTextFromUser__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	identical-copy	-
+0x1d7c30	360	deviating	0x1d6f20	360	OnIsEquipmentSelected__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.989	1.000	1.000	+0	table-entry	-	-
+0x1d7da0	8	exact	0x1d7090	8	OnGetTextFromUser__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	-	-
 0x1d7db0	768	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	owner-guess	gamez/zAnim
 0x1d80b0	188	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	owner-guess	gamez/zAnim
 0x1d8170	12	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	copy,owner-guess	gamez/zAnim
-0x1d8180	300	deviating	0x1d70a0	300	OnCloseAndSwitch__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.987	1.000	1.000	+0	position	imm-only	-
+0x1d8180	300	deviating	0x1d70a0	300	OnCloseAndSwitch__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.987	1.000	1.000	+0	table-entry	-	-
 0x1d82b0	32	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	copy,owner-guess	gamez/zAnim
-0x1d82d0	504	deviating	0x1d7300	416	ExecuteChooseDefaultEquipment__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.557	0.661	0.861	+88	position	-	-
-0x1d84d0	8	exact	0x1d74a0	8	data__Q23std70__vector_deleter<14CCharacterWeap,Q23std27allocator<14CCharacterWeap>>CFv	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	-	-
-0x1d84e0	328	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	owner-guess	gamez/zAnim
-0x1d8630	416	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	owner-guess	gamez/zAnim
-0x1d87d0	456	deviating	0x1d74b0	504	ChooseEquipmentForCharacter__24@unnamed@zanim_menu_cpp@FRCQ224@unnamed@zanim_menu_cpp@17CSelectedCharsItr10EQUIP_ITEM	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.558	0.600	0.775	-48	position	-	-
+0x1d82d0	504	new	-	-	-	-	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	owner-guess	gamez/zAnim
+0x1d84d0	8	exact	0x1d74a0	8	data__Q23std70__vector_deleter<14CCharacterWeap,Q23std27allocator<14CCharacterWeap>>CFv	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact-position	moved	-
+0x1d84e0	328	deviating	0x1d71d0	300	ExecuteChooseEquipment__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.624	0.777	0.930	+28	table-entry	-	-
+0x1d8630	416	deviating	0x1d7300	416	ExecuteChooseDefaultEquipment__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.981	1.000	1.000	+0	table-entry	-	-
+0x1d87d0	456	deviating	0x1d74b0	504	ChooseEquipmentForCharacter__24@unnamed@zanim_menu_cpp@FRCQ224@unnamed@zanim_menu_cpp@17CSelectedCharsItr10EQUIP_ITEM	authored	-	src/gamez/zAnim/zanim_menu.cpp	0.558	0.600	0.775	-48	call-deviating	-	-
 0x1d89a0	72	exact	0x1d76b0	72	__dt__14CCharacterWeapFv	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x1d89f0	736	exact	0x1d7700	736	do_assign<PC14CCharacterWeap>__Q23std68__vector_imp<14CCharacterWeap,Q23std27allocator<14CCharacterWeap>,0>FPC14CCharacterWeapPC14CCharacterWeapQ23std20forward_iterator_tag	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x1d8cd0	8	exact	0x1d79e0	8	first__Q310Metrowerks7details61compressed_pair_imp<Q23std27allocator<14CCharacterWeap>,Ui,1>Fv	authored	-	src/gamez/zAnim/zanim_menu.cpp	1.000	1.000	1.000	+0	call	-	-
@@ -2950,7 +2950,7 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x20b380	176	exact	0x207b80	176	GetPersonaName__14CZPersonaStateFi	authored	-	src/gamez/zFTS/fts_net_persona.cpp	1.000	1.000	1.000	+0	exact	moved	-
 0x20b430	292	deviating	0x207c40	292	GetSOUPString__14CZPersonaStateFP10CZSealBodyi	authored	-	src/gamez/zFTS/fts_net_persona.cpp	0.986	1.000	1.000	+0	call-deviating	imm-only	-
 0x20b560	616	deviating	0x207d70	328	CheckStateSwitch__14CZPersonaStateFv	authored	-	src/gamez/zFTS/fts_net_persona.cpp	0.458	0.686	0.695	+288	call	-	-
-0x20b7d0	84	deviating	0x207ec0	84	ToggleReady__14CZPersonaStateFv	authored	-	src/gamez/zFTS/fts_net_persona.cpp	0.952	1.000	1.000	+0	position	imm-only	-
+0x20b7d0	84	deviating	0x207ec0	84	ToggleReady__14CZPersonaStateFv	authored	-	src/gamez/zFTS/fts_net_persona.cpp	0.952	1.000	1.000	+0	call-deviating	imm-only	-
 0x20b830	180	exact	0x207f20	180	AllReadyToPlay__14CZPersonaStateFv	authored	-	src/gamez/zFTS/fts_net_persona.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x20b8f0	312	deviating	0x207fe0	312	AllReadyToLoad__14CZPersonaStateFv	authored	-	src/gamez/zFTS/fts_net_persona.cpp	0.974	1.000	1.000	+0	call-deviating	imm-only	-
 0x20ba30	308	exact	0x208120	308	RequestTeamSwitch__14CZPersonaStateFii	authored	-	src/gamez/zFTS/fts_net_persona.cpp	1.000	1.000	1.000	+0	exact	-	-
@@ -3207,10 +3207,10 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x21ec70	400	deviating	0x21aa50	472	Dilate__4CPadFRfRfi	authored	-	src/gamez/zInput/zin_main.cpp	0.706	0.752	0.798	-72	call-deviating	-	-
 0x21ee00	596	deviating	0x21ac30	588	CheckStickVelocity__4CPadFRfRfi	authored	-	src/gamez/zInput/zin_main.cpp	0.858	0.986	0.993	+8	call-deviating	-	-
 0x21f060	216	deviating	0x21ae80	188	ReadControlFile__10CStickTypeFi	authored	-	src/gamez/zInput/zin_main.cpp	0.673	0.733	0.832	+28	call-deviating	-	-
-0x21f140	204	deviating	0x21af40	152	SetPreset__4CPadFii	authored	-	src/gamez/zInput/zin_main.cpp	0.112	0.360	0.764	+52	position	call-and-slot	-
-0x21f210	32	deviating	0x21afe0	24	GetDeadZone__4CPadFi	authored	-	src/gamez/zInput/zin_main.cpp	0.571	0.714	0.857	+8	position	-	-
+0x21f140	204	deviating	0x21af40	152	SetPreset__4CPadFii	authored	-	src/gamez/zInput/zin_main.cpp	0.112	0.360	0.764	+52	call-deviating	call-and-slot	-
+0x21f210	32	deviating	0x21afe0	24	GetDeadZone__4CPadFi	authored	-	src/gamez/zInput/zin_main.cpp	0.571	0.714	0.857	+8	call-deviating	-	-
 0x21f230	40	deviating	0x21b000	32	SetDeadZone__4CPadFif	authored	-	src/gamez/zInput/zin_main.cpp	0.667	0.778	0.889	+8	call-deviating	-	-
-0x21f260	148	deviating	0x21b1d0	56	GetSensitivity__4CPadFi	authored	-	src/gamez/zInput/zin_main.cpp	0.314	0.353	0.471	+92	position	call-and-slot	-
+0x21f260	148	deviating	0x21b1d0	56	GetSensitivity__4CPadFi	authored	-	src/gamez/zInput/zin_main.cpp	0.314	0.353	0.471	+92	call-deviating	call-and-slot	-
 0x21f300	128	deviating	0x21b210	44	SetSensitivity__4CPadFif	authored	-	src/gamez/zInput/zin_main.cpp	0.233	0.279	0.372	+84	call-deviating	call-and-slot	-
 0x21f380	104	deviating	0x21b240	100	__dt__4CPadFv	authored	-	src/gamez/zInput/zin_main.cpp	0.902	0.980	0.980	+4	call-deviating	-	-
 0x21f3f0	228	deviating	0x21b2b0	212	Flush__4CPadFv	authored	-	src/gamez/zInput/zin_main.cpp	0.618	0.964	0.964	+16	call	-	-
@@ -3475,7 +3475,7 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x230d70	216	deviating	0x22dcc0	216	ClearShadowList__Q23zdb6CWorldFv	authored	-	src/gamez/zNode/node_world.cpp	0.926	1.000	1.000	+0	call-deviating	imm-only	-
 0x230e50	216	deviating	0x22dda0	216	ClearLightMapList__Q23zdb6CWorldFv	authored	-	src/gamez/zNode/node_world.cpp	0.926	1.000	1.000	+0	call-deviating	imm-only	-
 0x230f30	280	deviating	0x22de80	280	WipeoutTextureAssetCharacters__Q23zdb6CWorldFv	authored	-	src/gamez/zNode/node_world.cpp	0.929	1.000	1.000	+0	call-deviating	imm-only	-
-0x231050	356	unsure	0x22e070	376	DeleteTextureAssetCharacter__Q23zdb6CWorldFPQ23zdb9CAssetLibPQ23zdb5CNode	authored	-	src/gamez/zNode/node_world.cpp	0.459	0.798	0.951	-20	position	low-similarity	-
+0x231050	356	unsure	0x22e070	376	DeleteTextureAssetCharacter__Q23zdb6CWorldFPQ23zdb9CAssetLibPQ23zdb5CNode	authored	-	src/gamez/zNode/node_world.cpp	0.459	0.798	0.951	-20	position	caller-mismatch,low-similarity	-
 0x2311c0	184	deviating	0x22e1f0	72	DeleteTextureAssetCharacter__Q23zdb6CWorldFQ23zdb12_RenderPhasePQ23zdb5CNode	authored	-	src/gamez/zNode/node_world.cpp	0.281	0.406	0.438	+112	call-deviating	call-and-slot	-
 0x231280	184	deviating	0x22e240	72	DeleteTextureAssetCharacter__Q23zdb6CWorldFPcPQ23zdb5CNode	authored	-	src/gamez/zNode/node_world.cpp	0.281	0.406	0.438	+112	call-deviating	call-and-slot	-
 0x231340	100	deviating	0x22e290	100	AddTextureAssetDecals__Q23zdb6CWorldFPQ23zdb10CTexHandle	authored	-	src/gamez/zNode/node_world.cpp	0.840	1.000	1.000	+0	call	imm-only	-
@@ -3986,9 +3986,9 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x254020	464	new	-	-	-	-	-	src/gamez/zSeal/seal.cpp	-	-	-	-	-	owner-guess	gamez/zSeal
 0x2541f0	716	deviating	0x24f6d0	720	OnDeath__10CZSealBodyFv	authored	-	src/gamez/zSeal/seal.cpp	0.362	0.435	0.568	-4	vtable-slot	-	-
 0x2544c0	52	new	-	-	-	-	-	src/gamez/zSeal/seal.cpp	-	-	-	-	-	owner-guess	gamez/zSeal
-0x254500	804	deviating	0x24f9a0	612	NormalizeToTerrain__10CZSealBodyFv	authored	-	src/gamez/zSeal/seal.cpp	0.797	0.842	0.853	+192	position	-	-
+0x254500	804	deviating	0x24f9a0	612	NormalizeToTerrain__10CZSealBodyFv	authored	-	src/gamez/zSeal/seal.cpp	0.797	0.842	0.853	+192	position	caller-mismatch	-
 0x254830	4304	deviating	0x24fc10	3696	PostComputeNextPosition__10CZSealBodyFf	authored	-	src/gamez/zSeal/seal.cpp	0.600	0.806	0.853	+608	position	-	-
-0x255900	1144	deviating	0x250a80	1176	HandleWeaponIntersect__10CZSealBodyFv	authored	-	src/gamez/zSeal/seal.cpp	0.841	0.976	0.979	-32	position	-	-
+0x255900	1144	deviating	0x250a80	1176	HandleWeaponIntersect__10CZSealBodyFv	authored	-	src/gamez/zSeal/seal.cpp	0.841	0.976	0.979	-32	position	caller-mismatch	-
 0x255d80	8	exact	0x250f20	8	PrePostTick__10CZSealBodyFf	authored	-	src/gamez/zSeal/seal.cpp	1.000	1.000	1.000	+0	settled	-	-
 0x255d90	8	exact	0x250f30	8	PostPreTick__10CZSealBodyFf	authored	-	src/gamez/zSeal/seal.cpp	1.000	1.000	1.000	+0	settled	-	-
 0x255da0	748	new	-	-	-	-	-	src/gamez/zSeal/seal.cpp	-	-	-	-	-	owner-guess	gamez/zSeal
@@ -4099,7 +4099,7 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x2683b0	76	exact	0x260000	76	GetAiAware__11CSealCtrlAiFf	authored	-	src/gamez/zSeal/seal_ai.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x268400	1044	deviating	0x260050	636	AcquireAiAware__11CSealCtrlAiFP11CSealCtrlAi	authored	-	src/gamez/zSeal/seal_ai.cpp	0.290	0.371	0.538	+408	call-deviating	call-and-slot	-
 0x268820	356	deviating	0x2602d0	332	SetAiAware__11CSealCtrlAiF8AI_AWAREPC6CPnt3D	authored	-	src/gamez/zSeal/seal_ai.cpp	0.558	0.616	0.756	+24	call-deviating	-	-
-0x268990	252	deviating	0x260420	180	SetAiAware__11CSealCtrlAiFfUi	authored	-	src/gamez/zSeal/seal_ai.cpp	0.630	0.648	0.815	+72	position	-	-
+0x268990	252	deviating	0x260420	180	SetAiAware__11CSealCtrlAiFfUi	authored	-	src/gamez/zSeal/seal_ai.cpp	0.630	0.648	0.815	+72	position	caller-mismatch	-
 0x268a90	628	deviating	0x2604e0	644	DoReaction__11CSealCtrlAiFv	authored	-	src/gamez/zSeal/seal_ai.cpp	0.774	0.956	0.975	-16	call-deviating	-	-
 0x268d10	192	deviating	0x260770	192	SetDoReaction__11CSealCtrlAiFbRC11AI_REACTIONb	authored	-	src/gamez/zSeal/seal_ai.cpp	0.729	1.000	1.000	+0	call-deviating	imm-only	-
 0x268dd0	288	deviating	0x260830	368	ActivateEx__11CSealCtrlAiF9SEAL_TASKbe	authored	-	src/gamez/zSeal/seal_ai.cpp	0.463	0.732	0.841	-80	call	-	-
@@ -5375,7 +5375,7 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x302870	96	new	-	-	-	-	-	-	-	-	-	-	-	-	-
 0x3028d0	332	deviating	0x2ebd20	136	ResetGroupVolTemp__4CSndFv	authored	-	src/gamez/zSound/zsnd_csnd.cpp	0.325	0.427	0.479	+196	call-deviating	call-and-slot	-
 0x302a20	144	new	-	-	-	-	-	src/gamez/zSound/zsnd_csnd.cpp	-	-	-	-	-	owner-guess	gamez/zSound
-0x302ab0	432	unsure	0x2ebdb0	272	SetGroupVolTemp__4CSndFffiiiiiii	authored	-	src/gamez/zSound/zsnd_csnd.cpp	0.364	0.500	0.670	+160	position	low-similarity	-
+0x302ab0	432	unsure	0x2ebdb0	272	SetGroupVolTemp__4CSndFffiiiiiii	authored	-	src/gamez/zSound/zsnd_csnd.cpp	0.364	0.500	0.670	+160	position	caller-mismatch,low-similarity	-
 0x302c60	36	deviating	0x2ebec0	60	SetGroupVol__4CSndFif	authored	-	src/gamez/zSound/zsnd_csnd.cpp	0.167	0.167	0.250	-24	call	call-and-slot	-
 0x302c90	48	deviating	0x2ebf00	64	SetReverbSeconds__4CSndFPCf	authored	-	src/gamez/zSound/zsnd_csnd.cpp	0.214	0.286	0.571	-16	call-deviating	call-and-slot	-
 0x302cc0	56	deviating	0x2ebf40	72	SetReverbDepth__4CSndFPCf	authored	-	src/gamez/zSound/zsnd_csnd.cpp	0.188	0.250	0.625	-16	call-deviating	call-and-slot	-
@@ -5442,8 +5442,8 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x306230	48	deviating	0x2ef260	204	PauseAllSounds__12CSndInstanceFv	authored	-	src/gamez/zSound/zsnd_csndinstance.cpp	0.127	0.286	0.317	-156	slot-only	-	-
 0x306260	208	deviating	0x2ef330	208	StopAllSounds__12CSndInstanceF10SOUND_MODE	authored	-	src/gamez/zSound/zsnd_csndinstance.cpp	0.942	1.000	1.000	+0	position	imm-only	-
 0x306330	208	deviating	0x2ef400	316	StopAllSounds__12CSndInstanceFv	authored	-	src/gamez/zSound/zsnd_csndinstance.cpp	0.412	0.565	0.672	-108	call	-	-
-0x306400	40	new	-	-	-	-	-	src/gamez/zSound/zsnd_csndinstance.cpp	-	-	-	-	-	copy,owner-guess	gamez/zSound
-0x306430	140	deviating	0x2ef540	172	UIStopAllSounds__12CSndInstanceFv	authored	-	src/gamez/zSound/zsnd_csndinstance.cpp	0.667	0.744	0.795	-32	position	-	-
+0x306400	40	deviating	0x2ef540	172	UIStopAllSounds__12CSndInstanceFv	authored	-	src/gamez/zSound/zsnd_csndinstance.cpp	0.189	0.377	0.377	-132	call	role-only	-
+0x306430	140	new	-	-	-	-	-	src/gamez/zSound/zsnd_csndinstance.cpp	-	-	-	-	-	owner-guess	gamez/zSound
 0x3064c0	12	deviating	0x2ef5f0	12	TerminateOnFinish__12CSndInstanceFv	authored	-	src/gamez/zSound/zsnd_csndinstance.cpp	0.667	1.000	1.000	+0	call	imm-only	-
 0x3064d0	16	exact	0x2ef600	16	Set3D__12CSndInstanceFf	authored	-	src/gamez/zSound/zsnd_csndinstance.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x3064e0	36	deviating	0x2ef610	12	IsPlaying__12CSndInstanceFv	authored	-	src/gamez/zSound/zsnd_csndinstance.cpp	0.333	0.333	0.333	+24	call	-	-
@@ -5558,7 +5558,7 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x30be40	64	exact	0x2f4980	64	zSysSleep__Fi	authored	-	src/gamez/zSystem/zsys_init.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x30be80	8	exact	0x2f49c0	8	SleepAlarmCB__FiUsPv	authored	-	src/gamez/zSystem/zsys_init.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x30be90	120	new	-	-	-	-	-	src/gamez/zSystem/zsys_init.cpp	-	-	-	-	-	owner-guess	gamez/zSystem
-0x30bf10	840	deviating	0x2f49d0	848	zSysReset__Fv	authored	-	src/gamez/zSystem/zsys_init.cpp	0.995	0.995	0.995	-8	position	-	-
+0x30bf10	840	deviating	0x2f49d0	848	zSysReset__Fv	authored	-	src/gamez/zSystem/zsys_init.cpp	0.995	0.995	0.995	-8	position	caller-mismatch	-
 0x30c260	56	exact	0x2f4d20	56	zSysUnloadIRX__Fi	authored	-	src/gamez/zSystem/zsys_init.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x30c2a0	104	exact	0x2f4d60	104	zSysLoadIRX__FPciPcb	authored	-	src/gamez/zSystem/zsys_init.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x30c310	44	new	-	-	-	-	-	src/gamez/zSystem/zsys_init.cpp	-	-	-	-	-	owner-guess	gamez/zSystem
@@ -5835,7 +5835,7 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x31b9b0	768	exact	0x304b60	768	Read__7CFileCDFPci	authored	-	src/gamez/zUtil/util_sonyio.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x31bcb0	260	exact	0x304e60	260	XferSectorsToCaller__7CFileCDFPci	authored	-	src/gamez/zUtil/util_sonyio.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x31bdc0	160	exact	0x304f70	160	Find__7CFileCDFPCc	authored	-	src/gamez/zUtil/util_sonyio.cpp	1.000	1.000	1.000	+0	exact	-	-
-0x31be60	1288	exact	0x305010	1288	BuildTOC__7CFileCDFv	authored	-	src/gamez/zUtil/util_sonyio.cpp	1.000	1.000	1.000	+0	exact	-	-
+0x31be60	1288	exact	0x305010	1288	BuildTOC__7CFileCDFv	authored	-	src/gamez/zUtil/util_sonyio.cpp	1.000	1.000	1.000	+0	exact	caller-mismatch	-
 0x31c370	260	exact	0x305520	260	CreatePath__7CFileCDFPcPc	authored	-	src/gamez/zUtil/util_sonyio.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x31c480	8	exact	0x305630	8	fflush__7CFileIOFv	authored	-	src/gamez/zUtil/util_sonyio.cpp	1.000	1.000	1.000	+0	call	-	-
 0x31c490	8	exact	0x305640	8	ftell__7CFileIOCFv	authored	-	src/gamez/zUtil/util_sonyio.cpp	1.000	1.000	1.000	+0	call	-	-
@@ -5875,23 +5875,23 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x31d930	16	exact	0x306a60	16	IsOpen__10CMemCardIOCFv	authored	-	src/gamez/zUtil/util_memcard.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x31d940	120	deviating	0x306a70	88	Close__10CMemCardIOFv	authored	-	src/gamez/zUtil/util_memcard.cpp	0.769	0.808	0.808	+32	vtable-slot	-	-
 0x31d9c0	404	deviating	0x306ad0	356	Open__10CMemCardIOFPCcUi	authored	-	src/gamez/zUtil/util_memcard.cpp	0.884	0.937	0.937	+48	vtable-slot	-	-
-0x31db60	136	deviating	0x306c40	84	chdir__8CMemCardFPCc	authored	-	src/gamez/zUtil/util_memcard.cpp	0.618	0.691	0.691	+52	position	-	-
-0x31dbf0	140	deviating	0x306ca0	80	mkdir__8CMemCardFPCc	authored	-	src/gamez/zUtil/util_memcard.cpp	0.545	0.618	0.655	+60	position	-	-
+0x31db60	136	deviating	0x306c40	84	chdir__8CMemCardFPCc	authored	-	src/gamez/zUtil/util_memcard.cpp	0.618	0.691	0.691	+52	call	-	-
+0x31dbf0	140	deviating	0x306ca0	80	mkdir__8CMemCardFPCc	authored	-	src/gamez/zUtil/util_memcard.cpp	0.545	0.618	0.655	+60	call	-	-
 0x31dc80	132	deviating	0x306cf0	108	Exists__8CMemCardFPCc	authored	-	src/gamez/zUtil/util_memcard.cpp	0.867	0.900	0.900	+24	call	-	-
 0x31dd10	1060	deviating	0x306d60	916	CreateIconFiles__8CMemCardFv	authored	-	src/gamez/zUtil/util_memcard.cpp	0.854	0.927	0.927	+144	call	-	-
 0x31e140	344	exact	0x307100	344	Ascii2Sjis__FUc	authored	-	src/gamez/zUtil/util_memcard.cpp	1.000	1.000	1.000	+0	exact	-	-
-0x31e2a0	108	deviating	0x307260	84	GetFreeSpace__8CMemCardFv	authored	-	src/gamez/zUtil/util_memcard.cpp	0.833	0.875	0.875	+24	position	-	-
-0x31e310	96	deviating	0x3072c0	72	Format__8CMemCardFv	authored	-	src/gamez/zUtil/util_memcard.cpp	0.810	0.857	0.857	+24	position	-	-
+0x31e2a0	108	deviating	0x307260	84	GetFreeSpace__8CMemCardFv	authored	-	src/gamez/zUtil/util_memcard.cpp	0.833	0.875	0.875	+24	call-deviating	-	-
+0x31e310	96	deviating	0x3072c0	72	Format__8CMemCardFv	authored	-	src/gamez/zUtil/util_memcard.cpp	0.810	0.857	0.857	+24	call	-	-
 0x31e370	392	new	-	-	-	-	-	src/gamez/zUtil/util_memcard.cpp	-	-	-	-	-	owner-guess	gamez/zUtil
-0x31e500	168	deviating	0x307310	144	IsFormatted__8CMemCardFv	authored	-	src/gamez/zUtil/util_memcard.cpp	0.872	0.923	0.923	+24	position	-	-
-0x31e5b0	196	deviating	0x3073a0	172	IsInserted__8CMemCardFv	authored	-	src/gamez/zUtil/util_memcard.cpp	0.891	0.935	0.935	+24	position	-	-
+0x31e500	168	deviating	0x307310	144	IsFormatted__8CMemCardFv	authored	-	src/gamez/zUtil/util_memcard.cpp	0.872	0.923	0.923	+24	call	-	-
+0x31e5b0	196	deviating	0x3073a0	172	IsInserted__8CMemCardFv	authored	-	src/gamez/zUtil/util_memcard.cpp	0.891	0.935	0.935	+24	call	-	-
 0x31e680	108	deviating	0x307450	76	LoadConfig__8CMemCardFPCc	authored	-	src/gamez/zUtil/util_memcard.cpp	0.783	0.826	0.826	+32	call	-	-
 0x31e6f0	84	exact	0x3074a0	84	SaveConfig__8CMemCardFPCc	authored	-	src/gamez/zUtil/util_memcard.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x31e750	76	deviating	0x307500	28	LoadGame__8CMemCardFPCc	authored	-	src/gamez/zUtil/util_memcard.cpp	0.462	0.462	0.462	+48	call	-	-
-0x31e7a0	84	deviating	0x307520	36	SaveGame__8CMemCardFPCcPc	authored	-	src/gamez/zUtil/util_memcard.cpp	0.400	0.400	0.400	+48	position	call-and-slot	-
-0x31e800	116	deviating	0x307550	100	Uninit__8CMemCardFv	authored	-	src/gamez/zUtil/util_memcard.cpp	0.741	0.778	0.926	+16	position	-	-
+0x31e7a0	84	deviating	0x307520	36	SaveGame__8CMemCardFPCcPc	authored	-	src/gamez/zUtil/util_memcard.cpp	0.400	0.400	0.400	+48	call-deviating	call-and-slot	-
+0x31e800	116	deviating	0x307550	100	Uninit__8CMemCardFv	authored	-	src/gamez/zUtil/util_memcard.cpp	0.741	0.778	0.926	+16	call	-	-
 0x31e880	220	new	-	-	-	-	-	src/gamez/zUtil/util_memcard.cpp	-	-	-	-	-	owner-guess	gamez/zUtil
-0x31e960	192	deviating	0x3075c0	208	Init__8CMemCardFv	authored	-	src/gamez/zUtil/util_memcard.cpp	0.460	0.580	0.740	-16	call	repaired	-
+0x31e960	192	deviating	0x3075c0	208	Init__8CMemCardFv	authored	-	src/gamez/zUtil/util_memcard.cpp	0.460	0.580	0.740	-16	call	-	-
 0x31ea20	100	exact	0x307690	100	__dt__8CMemCardFv	authored	-	src/gamez/zUtil/util_memcard.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x31ea90	136	exact	0x307700	136	__ct__8CMemCardFv	authored	-	src/gamez/zUtil/util_memcard.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x31eb20	100	new	-	-	-	-	-	-	-	-	-	-	-	-	-
@@ -5912,13 +5912,13 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x31f840	144	exact	0x308390	144	zvid_KickPacket__FPUlib	authored	-	src/gamez/zVideo/zvid_init.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x31f8d0	224	exact	0x308420	224	zVid_Scissor__Fiiii	authored	-	src/gamez/zVideo/zvid_init.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x31f9b0	140	exact	0x308500	140	SetGSReg__FsUl	authored	-	src/gamez/zVideo/zvid_init.cpp	1.000	1.000	1.000	+0	exact	-	-
-0x31fa40	200	exact	0x308590	200	zVid_Open__Fv	authored	-	src/gamez/zVideo/zvid_init.cpp	1.000	1.000	1.000	+0	exact	-	-
+0x31fa40	200	exact	0x308590	200	zVid_Open__Fv	authored	-	src/gamez/zVideo/zvid_init.cpp	1.000	1.000	1.000	+0	exact	caller-mismatch	-
 0x31fb10	8	deviating	0x308660	44	zVid_Uninit__Fv	authored	-	src/gamez/zVideo/zvid_init.cpp	0.154	0.154	0.154	-36	call	call-and-slot	-
-0x31fb20	304	deviating	0x308690	324	zVid_Init__F10_zvid_mode	authored	-	src/gamez/zVideo/zvid_init.cpp	0.892	0.892	0.917	-20	position	-	-
+0x31fb20	304	deviating	0x308690	324	zVid_Init__F10_zvid_mode	authored	-	src/gamez/zVideo/zvid_init.cpp	0.892	0.892	0.917	-20	position	caller-mismatch	-
 0x31fc50	572	deviating	0x3087e0	540	zvid_SetVideoMode__F10_zvid_modeb	authored	-	src/gamez/zVideo/zvid_init.cpp	0.748	0.777	0.971	+32	call-deviating	-	-
 0x31fe90	192	exact	0x308a00	192	WriteGsMemory__6CVideoFUiP1Ui	authored	-	src/gamez/zVideo/zvid_draw.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x31ff50	340	exact	0x308ac0	340	ReadGsMemory__6CVideoFUiP1Ui	authored	-	src/gamez/zVideo/zvid_draw.cpp	1.000	1.000	1.000	+0	exact	-	-
-0x3200b0	684	deviating	0x308c20	684	RestoreImage__6CVideoFPc	authored	-	src/gamez/zVideo/zvid_draw.cpp	0.988	1.000	1.000	+0	position	imm-only	-
+0x3200b0	684	deviating	0x308c20	684	RestoreImage__6CVideoFPc	authored	-	src/gamez/zVideo/zvid_draw.cpp	0.988	1.000	1.000	+0	position	caller-mismatch,imm-only	-
 0x320360	68	exact	0x308ed0	68	Fade__6CVideoFfUcUcUc	authored	-	src/gamez/zVideo/zvid_draw.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x3203b0	28	exact	0x308f20	28	MaxFrameRate__6CVideoFi	authored	-	src/gamez/zVideo/zvid_draw.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x3203d0	172	exact	0x3092b0	172	DereferenceDecals__Q23zdb7CVisualFUi	authored	-	src/gamez/zVisual/vis_main.cpp	1.000	1.000	1.000	+0	exact	-	-
@@ -6201,8 +6201,8 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x32f060	84	deviating	0x315d50	84	AccuracyScalar_Min__11CZFTSWeaponFf	authored	-	src/gamez/zWeapon/zwep_ftsweapon.cpp	0.714	1.000	1.000	+0	call-deviating	imm-only	-
 0x32f0c0	84	deviating	0x315db0	84	AccuracyBurstCnt_Max__11CZFTSWeaponFi	authored	-	src/gamez/zWeapon/zwep_ftsweapon.cpp	0.714	1.000	1.000	+0	call-deviating	imm-only	-
 0x32f120	84	deviating	0x315e10	84	AccuracyBurstCnt_Min__11CZFTSWeaponFi	authored	-	src/gamez/zWeapon/zwep_ftsweapon.cpp	0.714	1.000	1.000	+0	call-deviating	imm-only	-
-0x32f180	8	deviating	0x315e70	8	AccuracyBurstCnt_Max__11CZFTSWeaponCFv	authored	-	src/gamez/zWeapon/zwep_ftsweapon.cpp	0.500	1.000	1.000	+0	position	imm-only	-
-0x32f190	8	deviating	0x315e80	8	AccuracyBurstCnt_Min__11CZFTSWeaponCFv	authored	-	src/gamez/zWeapon/zwep_ftsweapon.cpp	0.500	1.000	1.000	+0	position	imm-only	-
+0x32f180	8	deviating	0x315e70	8	AccuracyBurstCnt_Max__11CZFTSWeaponCFv	authored	-	src/gamez/zWeapon/zwep_ftsweapon.cpp	0.500	1.000	1.000	+0	position	caller-mismatch,imm-only	-
+0x32f190	8	deviating	0x315e80	8	AccuracyBurstCnt_Min__11CZFTSWeaponCFv	authored	-	src/gamez/zWeapon/zwep_ftsweapon.cpp	0.500	1.000	1.000	+0	position	caller-mismatch,imm-only	-
 0x32f1a0	172	deviating	0x315e90	172	__ct__11CZFTSWeaponFv	authored	-	src/gamez/zWeapon/zwep_ftsweapon.cpp	0.721	1.000	1.000	+0	call-deviating	imm-only	-
 0x32f250	152	exact	0x315f40	152	MakeWeaponEventCallbacks__8CZWeaponFUiP12CZProjectile	authored	-	src/gamez/zWeapon/zwep_global.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x32f2f0	8	exact	0x315fe0	8	second__Q310Metrowerks7details243compressed_pair_imp<Q23std108allocator<Q33std84__list_deleter<22WEAPON_CALLBACK_STRUCT,Q23std35allocator<22WEAPON_CALLBACK_STRUCT>>4node>,Q33std84__list_deleter<22WEAPON_CALLBACK_STRUCT,Q23std35allocator<22WEAPON_CALLBACK_STRUCT>>9node_base,1>Fv	authored	-	src/gamez/zWeapon/zwep_global.cpp	1.000	1.000	1.000	+0	call	-	-
@@ -6333,7 +6333,7 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x338930	240	exact	0x31de10	240	Init__10CZMarkListFv	authored	-	src/gamez/zWeapon/zwep_weapon.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x338a20	304	deviating	0x31df00	284	GetWeaponVUIName__8CZWeaponF10EQUIP_ITEM	authored	-	src/gamez/zWeapon/zwep_weapon.cpp	0.898	0.966	0.966	+20	call-deviating	-	-
 0x338b50	304	deviating	0x31e020	284	GetWeaponUIName__8CZWeaponF10EQUIP_ITEM	authored	-	src/gamez/zWeapon/zwep_weapon.cpp	0.925	0.966	0.966	+20	call-deviating	-	-
-0x338c80	60	deviating	0x31e140	16	GetWeaponName__8CZWeaponF10EQUIP_ITEM	authored	-	src/gamez/zWeapon/zwep_weapon.cpp	0.316	0.316	0.316	+44	position,slot-only	-	-
+0x338c80	60	deviating	0x31e140	16	GetWeaponName__8CZWeaponF10EQUIP_ITEM	authored	-	src/gamez/zWeapon/zwep_weapon.cpp	0.316	0.316	0.316	+44	position,slot-only	caller-mismatch	-
 0x338cc0	108	exact	0x31e150	108	GetWeaponId__8CZWeaponFPCc	authored	-	src/gamez/zWeapon/zwep_weapon.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x338d30	348	exact	0x31e1c0	348	GetIDType__8CZWeaponF10EQUIP_ITEM	authored	-	src/gamez/zWeapon/zwep_weapon.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x338e90	44	exact	0x31e320	44	PackItemAndAmmoEnums__8CZWeaponF10EQUIP_ITEM10EQUIP_AMMO	authored	-	src/gamez/zWeapon/zwep_weapon.cpp	1.000	1.000	1.000	+0	exact	-	-
@@ -6475,9 +6475,9 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x33d120	44	deviating	0x322150	64	IOPRebootHandler__FQ211CIOPManager11RebootPhaseQ211CIOPManager10RebootModePv	authored	-	src/gamez/zNetwork/zNetDme.cpp	0.815	0.815	0.815	-20	call-deviating	-	-
 0x33d150	24	exact	0x322300	24	__ct__19CZBroadcastScheduleFUi18NetThresholdMethodd	authored	-	src/gamez/zNetwork/zNetDme.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x33d170	252	exact	0x322320	252	__dt__9CZNetworkFv	authored	-	src/gamez/zNetwork/zNetDme.cpp	1.000	1.000	1.000	+0	exact	-	-
-0x33d270	8	new	-	-	-	-	-	-	-	-	-	-	-	copy	gamez/zNetwork
+0x33d270	8	new	-	-	-	-	-	src/gamez/zNetwork/zNetMedius.cpp	-	-	-	-	settled	copy,owner-settled	gamez/zNetwork
 0x33d280	72	exact	0x322420	72	SendEndGameReport__13CZOnlineLobbyFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
-0x33d2d0	40	deviating	0x322470	8	GetDMEJoinedCount__13CZOnlineLobbyFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.167	0.167	0.167	+32	slot-only	-	-
+0x33d2d0	40	deviating	0x322470	8	GetDMEJoinedCount__13CZOnlineLobbyFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.167	0.167	0.167	+32	settled	-	-
 0x33d300	136	exact	0x322480	136	SyncGameClock__13CZOnlineLobbyFi	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x33d390	504	deviating	0x322510	480	RecoverFromNetError__13CZOnlineLobbyFi	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.407	0.480	0.545	+24	call	-	-
 0x33d590	8	exact	0x3226f0	8	MediusConnectionIndex__13CZOnlineLobbyFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	call	-	-
@@ -6490,37 +6490,37 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x33d990	120	deviating	0x322af0	140	DisbandClan__13CZOnlineLobbyFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.862	0.923	0.923	-20	call	-	-
 0x33da10	380	exact	0x322b80	380	cbDisbandClan__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP25MediusDisbandClanResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x33db90	116	exact	0x322d00	116	__dt__14ClanMemberItemFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	call	-	-
-0x33dc10	268	deviating	0x322d80	292	GetClanRoster__13CZOnlineLobbyFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.914	0.957	0.957	-24	position	-	-
+0x33dc10	268	deviating	0x322d80	292	GetClanRoster__13CZOnlineLobbyFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.914	0.957	0.957	-24	call	-	-
 0x33dd20	524	deviating	0x322eb0	544	cbGetClanMemberList__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP31MediusGetClanMemberListResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.936	0.966	0.966	-20	call-deviating	-	-
 0x33df30	200	deviating	0x3230d0	232	GetClanMemberRanking__Fv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.444	0.463	0.759	-32	call	-	-
 0x33e000	212	exact	0x3231c0	212	cbGetClanMemberLadderPosition__FiiiP28MediusLadderPositionResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x33e0e0	356	exact	0x3232a0	356	cbGetClanMemberDescriptions__FiiiP24MediusPlayerInfoResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x33e250	352	deviating	0x323410	312	UpdateClanMemberList__Fv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.916	0.940	0.940	+40	call	-	-
-0x33e3b0	256	deviating	0x323550	276	GetInvitedPlayers__13CZOnlineLobbyFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.902	0.947	0.962	-20	position	-	-
-0x33e4b0	484	deviating	0x323670	532	cbGetClanInvitationsSent__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP36MediusGetClanInvitationsSentResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.921	0.953	0.953	-48	position	-	-
+0x33e3b0	256	deviating	0x323550	276	GetInvitedPlayers__13CZOnlineLobbyFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.902	0.947	0.962	-20	call	-	-
+0x33e4b0	484	deviating	0x323670	532	cbGetClanInvitationsSent__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP36MediusGetClanInvitationsSentResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.921	0.953	0.953	-48	call-deviating	-	-
 0x33e6a0	120	exact	0x323890	120	__ct__18ClanInvitationItemFP36MediusGetClanInvitationsSentResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x33e720	388	exact	0x323910	388	ClanUpdateInvitations__Fv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x33e8b0	8	exact	0x323aa0	8	cbClanInviteRevokeHack__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP34MediusRevokeClanInvitationResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	position	-	-
 0x33e8c0	8	exact	0x323ab0	8	cbAddPlayerToClan__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP29MediusAddPlayerToClanResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	position	-	-
 0x33e8d0	16	exact	0x323ac0	16	ClanHasInvitations__13CZOnlineLobbyFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact-position	-	-
-0x33e8e0	340	deviating	0x323ad0	364	RevokeInvite__13CZOnlineLobbyFPCc	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.909	0.966	0.966	-24	position	-	-
-0x33ea40	240	deviating	0x323c40	260	cbRevokePlayerInvitation__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP34MediusRevokeClanInvitationResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.896	0.944	0.960	-20	position	-	-
+0x33e8e0	340	deviating	0x323ad0	364	RevokeInvite__13CZOnlineLobbyFPCc	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.909	0.966	0.966	-24	call	-	-
+0x33ea40	240	deviating	0x323c40	260	cbRevokePlayerInvitation__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP34MediusRevokeClanInvitationResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.896	0.944	0.960	-20	call-deviating	-	-
 0x33eb30	20	exact	0x323d50	20	end__Q23std78__vector_imp<P18ClanInvitationItem,Q23std32allocator<P18ClanInvitationItem>,1>Fv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	call	-	-
 0x33eb50	8	exact	0x323d70	8	begin__Q23std78__vector_imp<P18ClanInvitationItem,Q23std32allocator<P18ClanInvitationItem>,1>Fv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	call	-	-
 0x33eb60	408	deviating	0x323d80	432	RemovePlayerFromClan__13CZOnlineLobbyFPCc	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.914	0.971	0.971	-24	call	-	-
 0x33ed00	580	deviating	0x323f30	604	cbRemovePlayerFromClan__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP34MediusRemovePlayerFromClanResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.953	0.980	0.980	-24	call-deviating	-	-
 0x33ef50	20	exact	0x324190	20	end__Q23std70__vector_imp<P14ClanMemberItem,Q23std28allocator<P14ClanMemberItem>,1>Fv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	call	-	-
 0x33ef70	8	exact	0x3241b0	8	begin__Q23std70__vector_imp<P14ClanMemberItem,Q23std28allocator<P14ClanMemberItem>,1>Fv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	call	-	-
-0x33ef80	676	deviating	0x3241c0	528	InvitePlayerToClan__13CZOnlineLobbyFPCc	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.784	0.831	0.831	+148	position	-	-
-0x33f230	200	deviating	0x3243d0	224	cbInvitePlayerToClanGetID__FiiiP26MediusAccountGetIDResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.906	0.943	0.943	-24	position	-	-
-0x33f300	304	deviating	0x3244b0	324	cbInvitePlayerToClanInvitation__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP32MediusInvitePlayerToClanResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.904	0.955	0.968	-20	position	-	-
+0x33ef80	676	deviating	0x3241c0	528	InvitePlayerToClan__13CZOnlineLobbyFPCc	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.784	0.831	0.831	+148	call	-	-
+0x33f230	200	deviating	0x3243d0	224	cbInvitePlayerToClanGetID__FiiiP26MediusAccountGetIDResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.906	0.943	0.943	-24	call-deviating	-	-
+0x33f300	304	deviating	0x3244b0	324	cbInvitePlayerToClanInvitation__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP32MediusInvitePlayerToClanResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.904	0.955	0.968	-20	call-deviating	-	-
 0x33f430	136	deviating	0x324600	160	CreateClan__13CZOnlineLobbyFPCc	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.838	0.919	0.919	-24	call	-	-
 0x33f4c0	192	deviating	0x3246a0	216	cbFilterClanName__FiiiP24MediusTextFilterResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.902	0.941	0.941	-24	call-deviating	-	-
 0x33f580	252	exact	0x324780	252	cbCreateClan__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP24MediusCreateClanResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x33f680	212	deviating	0x324880	304	UpdateClanStats__13CZOnlineLobbyFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.512	0.682	0.775	-92	call	-	-
 0x33f760	8	exact	0x3249b0	8	cbUpdateClanStats__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP29MediusUpdateClanStatsResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact-position	-	-
 0x33f770	136	deviating	0x3249c0	144	GetAnnouncements__13CZOnlineLobbyFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.686	0.771	0.857	-8	call	-	-
-0x33f800	696	deviating	0x32a790	620	cbGetMyClanMessages__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP31MediusGetMyClanMessagesResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.742	0.857	0.875	+76	global	moved	-
+0x33f800	696	deviating	0x324a50	700	cbGetAnnouncements__FiiiP30MediusGetAnnouncementsResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.963	0.974	0.974	-4	settled	-	-
 0x33fac0	180	deviating	0x324d10	200	SendChat__13CZOnlineLobbyFPCc	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.863	0.926	0.947	-20	call	-	-
 0x33fb80	860	deviating	0x324de0	656	cbFilterChat__FPCcPv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.786	0.802	0.807	+204	call-deviating	-	-
 0x33fee0	144	exact	0x325070	144	FindRoom__14BriefingRoomDBFPCc	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
@@ -6532,7 +6532,7 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x3402a0	168	deviating	0x325430	168	OnCorrectClanTeam__13CZOnlineLobbyFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.976	1.000	1.000	+0	call	imm-only	-
 0x340350	12	exact	0x3254e0	12	IsTeamGame__13CZOnlineLobbyFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x340360	1388	deviating	0x3254f0	1396	JoinGame__13CZOnlineLobbyFPCc	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.899	0.925	0.943	-8	call	-	-
-0x3408d0	8	exact	0x325a70	8	IsPersistent__8RoomGameFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact-position	identical-copy	-
+0x3408d0	8	exact	0x325a70	8	IsPersistent__8RoomGameFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	settled	-	-
 0x3408e0	144	exact	0x325a80	144	FindGame__12BriefingRoomFPCc	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x340970	20	exact	0x325b10	20	end__Q23std56__vector_imp<P8RoomGame,Q23std21allocator<P8RoomGame>,1>Fv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	call	-	-
 0x340990	8	exact	0x325b30	8	begin__Q23std56__vector_imp<P8RoomGame,Q23std21allocator<P8RoomGame>,1>Fv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	call	-	-
@@ -6544,12 +6544,12 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x341380	388	exact	0x326550	388	cbRandomGameSecurity__FiiiP35MediusGetWorldSecurityLevelResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x341510	520	exact	0x3266e0	520	DoJoinRandomGame__Fv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x341720	664	deviating	0x3268f0	144	CreateGame__13CZOnlineLobbyFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.277	0.356	0.356	+520	call	call-and-slot	-
-0x3419c0	224	deviating	0x326980	248	RefreshGamePlayerList__13CZOnlineLobbyFP3C2D	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.898	0.949	0.949	-24	position	-	-
-0x341aa0	476	deviating	0x326a80	448	cbGameWorldPlayerListCallback__FiiiP33MediusGameWorldPlayerListResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.719	0.788	0.814	+28	position	-	-
-0x341c80	216	deviating	0x326c40	216	RefreshRoomPlayerList__13CZOnlineLobbyFP3C2D	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.463	0.704	0.741	+0	position	call-and-slot	-
-0x341d60	224	deviating	0x326d20	220	RefreshRoomList__13CZOnlineLobbyFP3C2D	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.685	0.757	0.793	+4	position	-	-
+0x3419c0	224	deviating	0x326980	248	RefreshGamePlayerList__13CZOnlineLobbyFP3C2D	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.898	0.949	0.949	-24	call-deviating	-	-
+0x341aa0	476	deviating	0x326a80	448	cbGameWorldPlayerListCallback__FiiiP33MediusGameWorldPlayerListResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.719	0.788	0.814	+28	call-deviating	-	-
+0x341c80	216	deviating	0x326c40	216	RefreshRoomPlayerList__13CZOnlineLobbyFP3C2D	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.463	0.704	0.741	+0	call-deviating	call-and-slot	-
+0x341d60	224	deviating	0x326d20	220	RefreshRoomList__13CZOnlineLobbyFP3C2D	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.685	0.757	0.793	+4	call-deviating	-	-
 0x341e40	344	new	-	-	-	-	-	src/gamez/zNetwork/zNetMedius.cpp	-	-	-	-	-	owner-guess	gamez/zNetwork
-0x341fa0	96	deviating	0x326e00	52	RefreshGameList__13CZOnlineLobbyFP3C2D	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.486	0.541	0.649	+44	position	call-and-slot	-
+0x341fa0	96	deviating	0x326e00	52	RefreshGameList__13CZOnlineLobbyFP3C2D	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.486	0.541	0.649	+44	call-deviating	call-and-slot	-
 0x342000	192	exact	0x326e40	192	Register__13CZOnlineLobbyFPCcPCc	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x3420c0	164	exact	0x326f00	164	Bailout__13CZOnlineLobbyFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x342170	60	exact	0x326fb0	60	Logout__13CZOnlineLobbyFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
@@ -6583,7 +6583,7 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x343c10	20	exact	0x3289b0	20	__ct__Q23std82__vector_deleter<20MediusChatFwdMessage,Q23std33allocator<20MediusChatFwdMessage>>Fv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	position	-	-
 0x343c30	20	exact	0x3289d0	20	__ct__Q23std110__vector_deleter<34MediusLobbyWorldPlayerListResponse,Q23std47allocator<34MediusLobbyWorldPlayerListResponse>>Fv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	position	-	-
 0x343c50	392	deviating	0x3289f0	344	Init__13CZOnlineLobbyFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.913	0.924	0.935	+48	call-deviating	-	-
-0x343de0	76	deviating	0x328b50	12	GetKeyPair__13CZOnlineLobbyFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.182	0.182	0.273	+64	slot-only	-	-
+0x343de0	76	deviating	0x328b50	12	GetKeyPair__13CZOnlineLobbyFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.182	0.182	0.273	+64	settled	-	-
 0x343e30	36	exact	0x328b60	36	NetInitThreadEntry__FPv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x343e60	748	deviating	0x328b90	616	AuxInitNetwork__Fv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.891	0.897	0.903	+132	call	-	-
 0x344150	88	exact	0x328e00	88	cbConnect__Fi	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
@@ -6595,8 +6595,8 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x344680	356	deviating	0x329240	316	UpdateLadderRating__13CZOnlineLobbyFi	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.774	0.798	0.821	+40	call-deviating	-	-
 0x3447f0	112	deviating	0x329380	132	GetLadderRanking__13CZOnlineLobbyFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.918	0.918	0.918	-20	call-deviating	-	-
 0x344860	120	exact	0x329410	120	cbGetLadderRanking__FiiiP28MediusLadderPositionResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
-0x3448e0	140	deviating	0x329490	160	GetLadderInfo__13CZOnlineLobbyFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.880	0.933	0.933	-20	position	-	-
-0x344970	184	deviating	0x329530	176	cbGetLadderPosition__FiiiP28MediusLadderPositionResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.756	0.800	0.822	+8	position	-	-
+0x3448e0	140	deviating	0x329490	160	GetLadderInfo__13CZOnlineLobbyFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.880	0.933	0.933	-20	call	-	-
+0x344970	184	deviating	0x329530	176	cbGetLadderPosition__FiiiP28MediusLadderPositionResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.756	0.800	0.822	+8	call-deviating	-	-
 0x344a30	524	deviating	0x3295e0	564	GetSurroundingLadderPosition__13CZOnlineLobbyFiib	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.882	0.912	0.934	-40	call	-	-
 0x344c40	832	deviating	0x329820	876	cbGetLadderInfo__FiiiP24MediusLadderListResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.909	0.946	0.965	-44	call-deviating	-	-
 0x344f80	580	deviating	0x329b90	604	cbGetLadderTop10__FiiiP24MediusLadderListResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.953	0.980	0.980	-24	call-deviating	-	-
@@ -6608,18 +6608,18 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x345540	464	deviating	0x32a160	464	UpdateLadderRanking__Fv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.966	0.974	0.991	+0	call-deviating	-	-
 0x345710	400	deviating	0x32a330	420	TransferLeadership__13CZOnlineLobbyFPCc	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.937	0.976	0.976	-20	call	-	-
 0x3458a0	100	exact	0x32a4e0	100	cbTransferClanLeadership__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP36MediusTransferClanLeadershipResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
-0x345910	208	deviating	0x32a550	228	SendClanMessage__13CZOnlineLobbyFPCc	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.862	0.936	0.954	-20	position	-	-
+0x345910	208	deviating	0x32a550	228	SendClanMessage__13CZOnlineLobbyFPCc	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.862	0.936	0.954	-20	call	-	-
 0x3459e0	104	deviating	0x32a640	128	cbFilterClanMessage__FPCcPv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.862	0.897	0.897	-24	call-deviating	-	-
 0x345a50	180	deviating	0x32a6c0	204	cbSendClanMessage__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP29MediusSendClanMessageResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.604	0.667	0.792	-24	call-deviating	-	-
 0x345b10	128	new	-	-	-	-	-	src/gamez/zNetwork/zNetMedius.cpp	-	-	-	-	-	owner-guess	gamez/zNetwork
-0x345b90	636	deviating	0x324a50	700	cbGetAnnouncements__FiiiP30MediusGetAnnouncementsResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.731	0.850	0.862	-64	call-deviating	moved	-
-0x345e10	328	deviating	0x32aa00	348	CheckClanInvitations__13CZOnlineLobbyFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.947	0.959	0.970	-20	call	-	-
+0x345b90	636	deviating	0x32a790	620	cbGetMyClanMessages__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP31MediusGetMyClanMessagesResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.981	0.987	0.987	+16	settled	-	-
+0x345e10	328	deviating	0x32aa00	348	CheckClanInvitations__13CZOnlineLobbyFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.947	0.959	0.970	-20	call-deviating	-	-
 0x345f60	324	exact	0x32ab60	324	cbCheckMyClanInvitations__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP36MediusCheckMyClanInvitationsResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x3460b0	136	exact	0x32acb0	136	__ct__14InvitationItemFP36MediusCheckMyClanInvitationsResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x346140	16	exact	0x32ad40	16	HasClanInvitations__13CZOnlineLobbyFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact-position	-	-
 0x346150	344	exact	0x32ad50	344	UpdateInvitations__Fv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
-0x3462b0	104	deviating	0x32aeb0	124	DeclineClanInvitation__13CZOnlineLobbyFi	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.842	0.877	0.912	-20	position	-	-
-0x346320	104	deviating	0x32af30	124	AcceptClanInvitation__13CZOnlineLobbyFi	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.842	0.877	0.912	-20	position	-	-
+0x3462b0	104	deviating	0x32aeb0	124	DeclineClanInvitation__13CZOnlineLobbyFi	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.842	0.877	0.912	-20	call	-	-
+0x346320	104	deviating	0x32af30	124	AcceptClanInvitation__13CZOnlineLobbyFi	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.842	0.877	0.912	-20	call	-	-
 0x346390	12	exact	0x32afb0	12	cbRespondToClanInvitation__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP37MediusRespondToClanInvitationResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact-position	-	-
 0x3463a0	252	deviating	0x32afc0	272	GetClan__13CZOnlineLobbyFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.855	0.947	0.962	-20	call	-	-
 0x3464a0	436	deviating	0x32b0d0	552	cbGetMyClans__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP24MediusGetMyClansResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.818	0.834	0.818	-116	call-deviating	-	-
@@ -6634,11 +6634,11 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x347260	348	deviating	0x32be70	312	cbCreateGame__FiiiP24MediusCreateGameResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.545	0.727	0.800	+36	call-deviating	-	-
 0x3473c0	100	exact	0x32bfb0	100	cbFindGameByName__FiiiP29MediusFindWorldByNameResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x347430	160	deviating	0x32c020	276	LobbyActiveStateHandler__FQ213CZOnlineLobby16LOBBY_STATE_FLAG	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.587	0.734	0.734	-116	call-deviating	-	-
-0x3474d0	128	new	-	-	-	-	-	src/gamez/zNetwork/zNetMedius.cpp	-	-	-	-	-	owner-guess	gamez/zNetwork
-0x347550	8	exact	0x32c140	8	ConnectErrorStateHandler__FQ213CZOnlineLobby16LOBBY_STATE_FLAG	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	position	ambiguous	-
-0x347560	8	exact	0x32c150	8	CreateFailureStateHandler__FQ213CZOnlineLobby16LOBBY_STATE_FLAG	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	position	ambiguous	-
-0x347570	8	exact	0x32c160	8	ConnectSuccessStateHandler__FQ213CZOnlineLobby16LOBBY_STATE_FLAG	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	position	ambiguous	-
-0x347580	8	exact	0x32c170	8	LoginFailureStateHandler__FQ213CZOnlineLobby16LOBBY_STATE_FLAG	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	position	ambiguous	-
+0x3474d0	128	deviating	0x32c140	8	ConnectErrorStateHandler__FQ213CZOnlineLobby16LOBBY_STATE_FLAG	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.059	0.059	0.059	+120	settled	-	-
+0x347550	8	exact	0x32c150	8	CreateFailureStateHandler__FQ213CZOnlineLobby16LOBBY_STATE_FLAG	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	settled	-	-
+0x347560	8	exact	0x32c160	8	ConnectSuccessStateHandler__FQ213CZOnlineLobby16LOBBY_STATE_FLAG	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	settled	-	-
+0x347570	8	exact	0x32c170	8	LoginFailureStateHandler__FQ213CZOnlineLobby16LOBBY_STATE_FLAG	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	settled	-	-
+0x347580	8	exact	0x32c180	8	RegistrationFailureStateHandler__FQ213CZOnlineLobby16LOBBY_STATE_FLAG	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	settled	-	-
 0x347590	200	deviating	0x32c190	224	EndSessionStateHandler__FQ213CZOnlineLobby16LOBBY_STATE_FLAG	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.830	0.943	0.943	-24	call-deviating	-	-
 0x347660	84	exact	0x32c270	84	cbSessionEnd__FiiiP24MediusSessionEndResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x3476c0	284	deviating	0x32c2d0	312	SessionBeginStateHandler__FQ213CZOnlineLobby16LOBBY_STATE_FLAG	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.859	0.953	0.953	-28	call-deviating	-	-
@@ -6659,27 +6659,27 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x348b00	572	deviating	0x32d630	640	cbLobbyServerConnect__Fi	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.898	0.937	0.944	-68	call-deviating	-	-
 0x348d40	580	deviating	0x32d8b0	560	cbGetPlayerStats__FiiiP24MediusPlayerInfoResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.912	0.940	0.947	+20	call-deviating	-	-
 0x348f90	8	exact	0x32dae0	8	cbUpdateAccountStats__FiiiP20MediusStatusResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	position	-	-
-0x348fa0	8	exact	0x32daf0	8	cbVersionServer__FiiiP27MediusVersionServerResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	position	-	-
-0x348fb0	8	exact	0x32db00	8	cbSetGameListFilter__FiiiP31MediusSetGameListFilterResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	position	-	-
-0x348fc0	112	deviating	0x32db10	132	QuitClan__13CZOnlineLobbyFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.885	0.918	0.918	-20	position	-	-
+0x348fa0	8	exact	0x32daf0	8	cbVersionServer__FiiiP27MediusVersionServerResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	pointer-site	-	-
+0x348fb0	8	exact	0x32db00	8	cbSetGameListFilter__FiiiP31MediusSetGameListFilterResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	pointer-site	-	-
+0x348fc0	112	deviating	0x32db10	132	QuitClan__13CZOnlineLobbyFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.885	0.918	0.918	-20	call	-	-
 0x349030	8	exact	0x32dba0	8	cbQuitClan__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP34MediusRemovePlayerFromClanResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	position	-	-
-0x349040	180	unsure	0x32dbb0	88	cbGetPolicyRequest__FiiiP23MediusGetPolicyResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.299	0.448	0.448	+92	position	low-similarity	-
-0x349100	396	new	-	-	-	-	-	src/gamez/zNetwork/zNetMedius.cpp	-	-	-	-	-	owner-guess	gamez/zNetwork
-0x349290	124	deviating	0x32dc10	144	BanSelfFromGame__13CZOnlineLobbyFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.836	0.896	0.925	-20	position	-	-
-0x349310	8	exact	0x32dca0	8	cbBanSelfFromGame__FiiiP23MediusBanPlayerResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	position	-	-
-0x349320	316	deviating	0x32dcb0	296	cbRoomPlayerList__FiiiP34MediusLobbyWorldPlayerListResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.876	0.928	0.941	+20	position	-	-
-0x349460	400	deviating	0x32dde0	400	UpdateRoomPlayerListDisplay__Fv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.900	0.940	0.940	+0	position	-	-
-0x3495f0	40	deviating	0x32df70	40	_roomplayer_sort_aux__FR34MediusLobbyWorldPlayerListResponseR34MediusLobbyWorldPlayerListResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.800	1.000	1.000	+0	position	imm-only	-
+0x349040	180	new	-	-	-	-	-	src/gamez/zNetwork/zNetMedius.cpp	-	-	-	-	settled	owner-guess	gamez/zNetwork
+0x349100	396	deviating	0x32dbb0	88	cbGetPolicyRequest__FiiiP23MediusGetPolicyResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.248	0.331	0.364	+308	settled	-	-
+0x349290	124	deviating	0x32dc10	144	BanSelfFromGame__13CZOnlineLobbyFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.836	0.896	0.925	-20	call	-	-
+0x349310	8	exact	0x32dca0	8	cbBanSelfFromGame__FiiiP23MediusBanPlayerResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact-position	-	-
+0x349320	316	deviating	0x32dcb0	296	cbRoomPlayerList__FiiiP34MediusLobbyWorldPlayerListResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.876	0.928	0.941	+20	call-deviating	-	-
+0x349460	400	deviating	0x32dde0	400	UpdateRoomPlayerListDisplay__Fv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.900	0.940	0.940	+0	call-deviating	-	-
+0x3495f0	40	deviating	0x32df70	40	_roomplayer_sort_aux__FR34MediusLobbyWorldPlayerListResponseR34MediusLobbyWorldPlayerListResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.800	1.000	1.000	+0	call-deviating	imm-only	-
 0x349620	140	deviating	0x32dfa0	172	GetRoomList__Fi	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.487	0.718	0.744	-32	call-deviating	call-and-slot	-
 0x3496b0	1076	deviating	0x32e050	1116	cbRoomList__FiiiP25MediusChannelListResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.927	0.964	0.974	-40	position	-	-
-0x349af0	8	exact	0x32e4b0	8	BaseSrc__12BriefingRoomFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact-position	identical-copy	-
+0x349af0	8	exact	0x32e4b0	8	BaseSrc__12BriefingRoomFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	settled	-	-
 0x349b00	676	deviating	0x32e4c0	820	__ct__17BriefingRoomCloneFP12BriefingRoomi	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.743	0.866	0.882	-144	position	-	-
-0x349db0	8	exact	0x32e800	8	CloneIndex__12BriefingRoomFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact-position	identical-copy	-
+0x349db0	8	exact	0x32e800	8	CloneIndex__12BriefingRoomFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	settled	-	-
 0x349dc0	264	exact	0x32e810	264	cbChannelInfo__FiiiP25MediusChannelInfoResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x349ed0	340	exact	0x32e920	340	UpdateRoomListDisplay__Fv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
-0x34a030	892	deviating	0x32ea80	556	GetGameList__Fi	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.580	0.586	0.707	+336	position	-	-
+0x34a030	892	deviating	0x32ea80	556	GetGameList__Fi	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.580	0.586	0.707	+336	call-deviating	-	-
 0x34a3b0	100	new	-	-	-	-	-	src/gamez/zNetwork/zNetMedius.cpp	-	-	-	-	-	owner-guess	gamez/zNetwork
-0x34a420	104	deviating	0x32ecb0	44	deltrans__12BriefingRoomFP8RoomGame	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.324	0.486	0.486	+60	position	call-and-slot	-
+0x34a420	104	deviating	0x32ecb0	44	deltrans__12BriefingRoomFP8RoomGame	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.324	0.486	0.486	+60	call-deviating	call-and-slot	-
 0x34a490	796	deviating	0x32ece0	908	cbGameList__FiiiP22MediusGameListResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.568	0.648	0.845	-112	position	-	-
 0x34a7b0	260	new	-	-	-	-	-	src/gamez/zNetwork/zNetMedius.cpp	-	-	-	-	-	owner-guess	gamez/zNetwork
 0x34a8c0	388	exact	0x32f070	388	cbGameSecurityCheck__FiiiP35MediusGetWorldSecurityLevelResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
@@ -6692,13 +6692,13 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x34b490	96	exact	0x32fac0	96	PasswordSecurity__13CZOnlineLobbyFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x34b4f0	680	exact	0x32fb20	680	LookupMediusCallbackStatus__F20MediusCallbackStatus	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x34b7a0	112	exact	0x32fdd0	112	LastClone__12BriefingRoomFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
-0x34b810	8	exact	0x32fe40	8	IsAClone__19PersistentGameCloneFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	position	identical-copy	-
-0x34b820	8	exact	0x32fe50	8	IsPersistent__14PersistentGameFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	position	identical-copy	-
+0x34b810	8	exact	0x32fe40	8	IsAClone__19PersistentGameCloneFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	settled	-	-
+0x34b820	8	exact	0x32fe50	8	IsPersistent__14PersistentGameFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	settled	-	-
 0x34b830	8	exact	0x32fe60	8	CloneIndex__17BriefingRoomCloneFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x34b840	8	exact	0x32fe70	8	IsAClone__17BriefingRoomCloneFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x34b850	20	exact	0x32fe80	20	BaseSrc__17BriefingRoomCloneFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
-0x34b870	8	exact	0x32fea0	8	IsAClone__12BriefingRoomFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	position	identical-copy	-
-0x34b880	8	exact	0x32feb0	8	IsAClone__14PersistentGameFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	position	identical-copy	-
+0x34b870	8	exact	0x32fea0	8	IsAClone__12BriefingRoomFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	settled	-	-
+0x34b880	8	exact	0x32feb0	8	IsAClone__14PersistentGameFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	settled	-	-
 0x34b890	56	exact	0x32fec0	56	remove_copy<PP8RoomGame,PP8RoomGame,P8RoomGame>__3stdFPP8RoomGamePP8RoomGamePP8RoomGameRCP8RoomGame	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	call	-	-
 0x34b8d0	132	exact	0x32ff00	132	remove_if<PP8RoomGame,PFP8RoomGame_b>__3stdFPP8RoomGamePP8RoomGamePFP8RoomGame_b	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact-position	-	-
 0x34b960	908	exact	0x32ff90	908	sort<PP10LadderItem,14compare_ladder>__3stdFPP10LadderItemPP10LadderItem14compare_ladder	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
@@ -6708,7 +6708,7 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x34c8a0	512	exact	0x330b60	512	push_back__Q23std87deque<Q213CZOnlineLobby11LOBBY_STATE,Q23std41allocator<Q213CZOnlineLobby11LOBBY_STATE>>FRCQ213CZOnlineLobby11LOBBY_STATE	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x34caa0	448	exact	0x330d60	448	__ct__Q23std87deque<Q213CZOnlineLobby11LOBBY_STATE,Q23std41allocator<Q213CZOnlineLobby11LOBBY_STATE>>FRCQ23std87deque<Q213CZOnlineLobby11LOBBY_STATE,Q23std41allocator<Q213CZOnlineLobby11LOBBY_STATE>>	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x34cc60	136	exact	0x330f20	136	__pp__Q33std87deque<Q213CZOnlineLobby11LOBBY_STATE,Q23std41allocator<Q213CZOnlineLobby11LOBBY_STATE>>14const_iteratorFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
-0x34ccf0	1540	deviating	0x330fb0	1484	insert__Q23std108__vector_imp<34MediusLobbyWorldPlayerListResponse,Q23std47allocator<34MediusLobbyWorldPlayerListResponse>,0>FP34MediusLobbyWorldPlayerListResponseUiRC34MediusLobbyWorldPlayerListResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.579	0.669	0.897	+56	position	-	-
+0x34ccf0	1540	deviating	0x330fb0	1484	insert__Q23std108__vector_imp<34MediusLobbyWorldPlayerListResponse,Q23std47allocator<34MediusLobbyWorldPlayerListResponse>,0>FP34MediusLobbyWorldPlayerListResponseUiRC34MediusLobbyWorldPlayerListResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.579	0.669	0.897	+56	call-deviating	-	-
 0x34d300	8	exact	0x331580	8	first__Q310Metrowerks7details81compressed_pair_imp<Q23std47allocator<34MediusLobbyWorldPlayerListResponse>,Ui,1>Fv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact-position	-	-
 0x34d310	20	exact	0x331590	20	swap__Q310Metrowerks7details81compressed_pair_imp<Q23std47allocator<34MediusLobbyWorldPlayerListResponse>,Ui,1>FRQ310Metrowerks7details81compressed_pair_imp<Q23std47allocator<34MediusLobbyWorldPlayerListResponse>,Ui,1>	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact-position	-	-
 0x34d330	1500	exact	0x3315b0	1500	insert__Q23std80__vector_imp<20MediusChatFwdMessage,Q23std33allocator<20MediusChatFwdMessage>,0>FP20MediusChatFwdMessageUiRC20MediusChatFwdMessage	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
@@ -6720,7 +6720,7 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x34daf0	164	exact	0x331d20	164	__sort132<PP10LadderItem,14compare_ladder>__3stdFPP10LadderItemPP10LadderItemPP10LadderItem14compare_ladder	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x34dba0	1252	deviating	0x331dd0	460	__sort132<P34MediusLobbyWorldPlayerListResponse,PFR34MediusLobbyWorldPlayerListResponseR34MediusLobbyWorldPlayerListResponse_b>__3stdFP34MediusLobbyWorldPlayerListResponseP34MediusLobbyWorldPlayerListResponseP34MediusLobbyWorldPlayerListResponsePFR34MediusLobbyWorldPlayerListResponseR34MediusLobbyWorldPlayerListResponse_b	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.238	0.285	0.472	+792	call-deviating	call-and-slot	-
 0x34e090	120	exact	0x331fa0	120	remove_copy_if<PP8RoomGame,PP8RoomGame,PFP8RoomGame_b>__3stdFPP8RoomGamePP8RoomGamePP8RoomGamePFP8RoomGame_b	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact-position	-	-
-0x34e110	468	deviating	0x332020	252	__selection_sort<P34MediusLobbyWorldPlayerListResponse,PFR34MediusLobbyWorldPlayerListResponseR34MediusLobbyWorldPlayerListResponse_b>__3stdFP34MediusLobbyWorldPlayerListResponseP34MediusLobbyWorldPlayerListResponsePFR34MediusLobbyWorldPlayerListResponseR34MediusLobbyWorldPlayerListResponse_b	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.444	0.567	0.667	+216	position	call-and-slot	-
+0x34e110	468	deviating	0x332020	252	__selection_sort<P34MediusLobbyWorldPlayerListResponse,PFR34MediusLobbyWorldPlayerListResponseR34MediusLobbyWorldPlayerListResponse_b>__3stdFP34MediusLobbyWorldPlayerListResponseP34MediusLobbyWorldPlayerListResponsePFR34MediusLobbyWorldPlayerListResponseR34MediusLobbyWorldPlayerListResponse_b	authored	-	src/gamez/zNetwork/zNetMedius.cpp	0.444	0.567	0.667	+216	call-deviating	call-and-slot	-
 0x34e2f0	144	exact	0x332120	144	__selection_sort<PP10LadderItem,14compare_ladder>__3stdFPP10LadderItemPP10LadderItem14compare_ladder	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x34e380	584	exact	0x3321b0	584	grow_buf_back__Q23std87deque<Q213CZOnlineLobby11LOBBY_STATE,Q23std41allocator<Q213CZOnlineLobby11LOBBY_STATE>>FUiRQ210Metrowerks90cdeque<PQ213CZOnlineLobby11LOBBY_STATE,Q23std42allocator<PQ213CZOnlineLobby11LOBBY_STATE>>RUiUi	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x34e5d0	252	exact	0x332400	252	make_iterator__Q23std87deque<Q213CZOnlineLobby11LOBBY_STATE,Q23std41allocator<Q213CZOnlineLobby11LOBBY_STATE>>CFUi	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	call	-	-
@@ -6734,8 +6734,8 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x34ef70	200	exact	0x332df0	200	__dt__14BriefingRoomDBFv	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact-position	-	-
 0x34f040	24	exact	0x332ec0	24	__ct__Q210Metrowerks34cdeque<PCv,Q23std14allocator<PCv>>FRCQ23std14allocator<PCv>	authored	-	src/gamez/zNetwork/zNetMedius.cpp	1.000	1.000	1.000	+0	exact-position	-	-
 0x34f060	248	deviating	0x332ee0	296	HandleNewIPBuf__10CZNetVoiceFiPUi	authored	-	src/gamez/zNetwork/zNetVoice.cpp	0.824	0.897	0.912	-48	call	-	-
-0x34f160	64	exact	0x333010	64	ServerPermit__10CZNetVoiceFPUi	authored	-	src/gamez/zNetwork/zNetVoice.cpp	1.000	1.000	1.000	+0	exact-caller	-	-
-0x34f1a0	8	deviating	0x333050	64	Permit__10CZNetVoiceFPUi	authored	-	src/gamez/zNetwork/zNetVoice.cpp	0.111	0.111	0.111	-56	slot-only	-	-
+0x34f160	64	exact	0x333010	64	ServerPermit__10CZNetVoiceFPUi	authored	-	src/gamez/zNetwork/zNetVoice.cpp	1.000	1.000	1.000	+0	call-deviating	-	-
+0x34f1a0	8	deviating	0x333050	64	Permit__10CZNetVoiceFPUi	authored	-	src/gamez/zNetwork/zNetVoice.cpp	0.111	0.111	0.111	-56	settled	-	-
 0x34f1b0	52	exact	0x333090	52	Channel__10CZNetVoiceFiUi	authored	-	src/gamez/zNetwork/zNetVoice.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x34f1f0	348	deviating	0x3330d0	180	IAmNewSessionMaster__10CZNetVoiceFv	authored	-	src/gamez/zNetwork/zNetVoice.cpp	0.333	0.515	0.636	+168	call-deviating	call-and-slot	-
 0x34f350	120	deviating	0x333190	340	RemoteSMUpdateCallback__10CZNetVoiceFPUi	authored	-	src/gamez/zNetwork/zNetVoice.cpp	0.157	0.070	0.470	-220	call	call-and-slot	-
@@ -6809,7 +6809,7 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x353520	304	exact	0x336dc0	304	recoUnInit__Fv	authored	-	src/Apps/FTS/game/reco.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x353650	532	exact	0x336ef0	532	asrspi_cbResult	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x353868	88	exact	0x337108	88	asrspi_cbAbnorm	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
-0x3538c0	8	exact	0x337160	8	asrspi_cbAgc	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
+0x3538c0	8	exact	0x337160	8	asrspi_cbAgc	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
 0x3538c8	88	exact	0x337168	88	asrspi_cbEnergyLevel	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x353920	88	exact	0x3371c0	88	asrspi_cbSNRLevel	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x353978	88	exact	0x337218	88	asrspi_cbSpeechDetected	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
@@ -7036,8 +7036,8 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x36a978	108	exact	0x34e218	108	cbStartDetected	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x36a9e8	116	exact	0x34e288	116	cbTOSRecognised	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x36aa60	12	exact	0x34e300	12	cbSpellRecognised	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
-0x36aa70	132	exact	0x34e310	132	cbNothingRecognised	provider	speech middleware	-	1.000	1.000	1.000	+0	position	identical-copy	-
-0x36aaf8	132	exact	0x34e398	132	cbSpellNothingRecognised	provider	speech middleware	-	1.000	1.000	1.000	+0	position	identical-copy	-
+0x36aa70	132	exact	0x34e310	132	cbNothingRecognised	provider	speech middleware	-	1.000	1.000	1.000	+0	table-entry	-	-
+0x36aaf8	132	exact	0x34e398	132	cbSpellNothingRecognised	provider	speech middleware	-	1.000	1.000	1.000	+0	table-entry	-	-
 0x36ab80	24	exact	0x34e420	24	cbDoSecondPass	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x36ab98	332	exact	0x34e438	332	cbDoSecondPassIfEnabled	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x36ace8	88	exact	0x34e588	88	cbTrain	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
@@ -7161,7 +7161,7 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x37bf48	64	exact	0x35f7e8	64	ConstructPitchDP	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x37bf88	560	exact	0x35f828	560	CreateWindow	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x37c1b8	528	exact	0x35fa58	528	InitPitchWindow	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
-0x37c3c8	64	exact	0x35fc68	64	ConstructPitchWindow	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
+0x37c3c8	64	exact	0x35fc68	64	ConstructPitchWindow	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
 0x37c408	316	exact	0x35fca8	316	ProcessPitchWindow	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x37c548	224	exact	0x35fde8	224	ControlPitchWindow	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x37c628	372	exact	0x35fec8	372	InitStacker	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
@@ -7180,7 +7180,7 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x37d8b0	588	exact	0x361150	588	InitAcne	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x37db00	64	exact	0x3613a0	64	ConstructAcne	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x37db40	756	exact	0x3613e0	756	InitDCTLift	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
-0x37de38	64	exact	0x3616d8	64	ConstructDCTLift	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
+0x37de38	64	exact	0x3616d8	64	ConstructDCTLift	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
 0x37de78	268	exact	0x361718	268	ProcessDCTLift	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x37df88	80	exact	0x361828	80	ControlDCTLift	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x37dfd8	1204	exact	0x361878	1204	ControlGender	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
@@ -7193,7 +7193,7 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x37f130	612	exact	0x3629d0	612	LogAdd	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x37f398	216	exact	0x362c38	216	HLnOnePlusExpHFloat	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x37f470	2176	exact	0x362d10	2176	MelInitBands	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
-0x37fcf0	64	exact	0x363590	64	ConstructMel	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
+0x37fcf0	64	exact	0x363590	64	ConstructMel	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
 0x37fd30	240	exact	0x3635d0	240	ProcessMel	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x37fe20	352	exact	0x3636c0	352	ControlMel	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x37ff80	100	exact	0x363820	100	InitMel	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
@@ -7280,7 +7280,7 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x3890f0	100	exact	0x36c990	100	ControlLookAhead	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x389158	192	exact	0x36c9f8	192	InitLookAhead	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x389218	544	exact	0x36cab8	544	ProcessMedian	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
-0x389438	64	exact	0x36ccd8	64	ConstructMedian	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
+0x389438	64	exact	0x36ccd8	64	ConstructMedian	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
 0x389478	88	exact	0x36cd18	88	ControlMedian	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x3894d0	24	exact	0x36cd70	24	Median_Reset	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x3894e8	188	exact	0x36cd88	188	InitMedian	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
@@ -7328,19 +7328,19 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x38f518	708	exact	0x372db8	708	Voicing_AddSignal	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x38f7e0	212	exact	0x373080	212	FillContextV2VirtualTable	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x38f8b8	20	exact	0x373158	20	_contextCheckDataType	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
-0x38f8d0	12	exact	0x373170	12	_contextGetSize	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x38f8e0	12	exact	0x373180	12	_contextGetLanguageVersionInfo	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x38f8f0	12	exact	0x373190	12	_contextGetTS	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x38f900	12	exact	0x3731a0	12	_contextGetAccuracy	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x38f910	12	exact	0x3731b0	12	_contextGetRejection	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x38f920	12	exact	0x3731c0	12	_contextGetGarbage	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x38f930	12	exact	0x3731d0	12	_contextGetNbrItem	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x38f940	12	exact	0x3731e0	12	_contextGetNbrWord	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x38f950	12	exact	0x3731f0	12	_contextGetNbrPron	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x38f960	12	exact	0x373200	12	_contextGetNbrFollower	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x38f970	12	exact	0x373210	12	_contextGetNbrStartWord	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x38f980	12	exact	0x373220	12	_contextGetNbrStopWord	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x38f990	12	exact	0x373230	12	_contextGetGarbageWordID	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
+0x38f8d0	12	exact	0x373170	12	_contextGetSize	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
+0x38f8e0	12	exact	0x373180	12	_contextGetLanguageVersionInfo	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
+0x38f8f0	12	exact	0x373190	12	_contextGetTS	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
+0x38f900	12	exact	0x3731a0	12	_contextGetAccuracy	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
+0x38f910	12	exact	0x3731b0	12	_contextGetRejection	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
+0x38f920	12	exact	0x3731c0	12	_contextGetGarbage	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
+0x38f930	12	exact	0x3731d0	12	_contextGetNbrItem	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
+0x38f940	12	exact	0x3731e0	12	_contextGetNbrWord	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
+0x38f950	12	exact	0x3731f0	12	_contextGetNbrPron	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
+0x38f960	12	exact	0x373200	12	_contextGetNbrFollower	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
+0x38f970	12	exact	0x373210	12	_contextGetNbrStartWord	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
+0x38f980	12	exact	0x373220	12	_contextGetNbrStopWord	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
+0x38f990	12	exact	0x373230	12	_contextGetGarbageWordID	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
 0x38f9a0	20	exact	0x373240	20	_contextIsSpellingContext	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x38f9b8	20	exact	0x373258	20	_contextIsIsoWordContext	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x38f9d0	12	exact	0x373270	12	_contextGetpLex	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
@@ -7354,20 +7354,20 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x38ff60	52	exact	0x373800	52	_transwGetSize	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x38ff98	16	exact	0x373838	16	_langCheckBitField	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x38ffa8	20	exact	0x373848	20	_langCheckDataType	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
-0x38ffc0	12	exact	0x373860	12	_langGetSize	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x38ffd0	12	exact	0x373870	12	_langGetVersionInfo	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x38ffe0	12	exact	0x373880	12	_langGetNbrCodeBook	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x38fff0	12	exact	0x373890	12	_langGetNbrState	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
+0x38ffc0	12	exact	0x373860	12	_langGetSize	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
+0x38ffd0	12	exact	0x373870	12	_langGetVersionInfo	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
+0x38ffe0	12	exact	0x373880	12	_langGetNbrCodeBook	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
+0x38fff0	12	exact	0x373890	12	_langGetNbrState	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
 0x390000	20	exact	0x3738a0	20	_langGetNbrPhenome	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
-0x390018	12	exact	0x3738b8	12	_langGetAdaptSilState	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x390028	12	exact	0x3738c8	12	_langGetNbrErgodicStates	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x390038	12	exact	0x3738d8	12	_langGetNbrStateErgodicStates	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x390048	12	exact	0x3738e8	12	_langGetNbrErgodicPhenomes	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x390058	12	exact	0x3738f8	12	_langGetNbrStateErgodicPhenomes	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x390068	12	exact	0x373908	12	_langGetNbrNonErgodicPhenomes	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x390078	12	exact	0x373918	12	_langGetSilencePhenome	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x390088	12	exact	0x373928	12	_langGetUWSilencePhenome	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x390098	12	exact	0x373938	12	_langGetSingleWordGarbagePhenome	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
+0x390018	12	exact	0x3738b8	12	_langGetAdaptSilState	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
+0x390028	12	exact	0x3738c8	12	_langGetNbrErgodicStates	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
+0x390038	12	exact	0x3738d8	12	_langGetNbrStateErgodicStates	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
+0x390048	12	exact	0x3738e8	12	_langGetNbrErgodicPhenomes	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
+0x390058	12	exact	0x3738f8	12	_langGetNbrStateErgodicPhenomes	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
+0x390068	12	exact	0x373908	12	_langGetNbrNonErgodicPhenomes	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
+0x390078	12	exact	0x373918	12	_langGetSilencePhenome	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
+0x390088	12	exact	0x373928	12	_langGetUWSilencePhenome	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
+0x390098	12	exact	0x373938	12	_langGetSingleWordGarbagePhenome	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
 0x3900a8	12	exact	0x373948	12	_langGetSentenceGarbagePhenome	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x3900b8	12	exact	0x373958	12	_langGetAnySpeechGarbagePhenome	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x3900c8	12	exact	0x373968	12	_langGetNbrSpeechUnit	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
@@ -7379,12 +7379,12 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x390128	12	exact	0x3739c8	12	_langGetNbrPhenUserWordTraining	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x390138	12	exact	0x3739d8	12	_langGetRecogWTP	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x390148	12	exact	0x3739e8	12	_langGetSpellingWTP	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
-0x390158	8	exact	0x3739f8	8	_cdbGetCodeBookDim	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x390160	8	exact	0x373a00	8	_cdbGetFirstCdbSize	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x390168	8	exact	0x373a08	8	_cdbGetNbrInSecSearch	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x390170	8	exact	0x373a10	8	_cdbGetSecondCdbSize	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x390178	8	exact	0x373a18	8	_cdbGetCompStart	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x390180	8	exact	0x373a20	8	_cdbGetNbrGastone	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
+0x390158	8	exact	0x3739f8	8	_cdbGetCodeBookDim	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
+0x390160	8	exact	0x373a00	8	_cdbGetFirstCdbSize	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
+0x390168	8	exact	0x373a08	8	_cdbGetNbrInSecSearch	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
+0x390170	8	exact	0x373a10	8	_cdbGetSecondCdbSize	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
+0x390178	8	exact	0x373a18	8	_cdbGetCompStart	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
+0x390180	8	exact	0x373a20	8	_cdbGetNbrGastone	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
 0x390188	12	exact	0x373a28	12	_langGetSilPhenome	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x390198	12	exact	0x373a38	12	_langGetpWarpFactors	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x3901a8	24	exact	0x373a48	24	_langGetpGastone	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
@@ -7399,7 +7399,7 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x3909e0	108	exact	0x374280	108	_langGetpOffsetForFinals	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x390a50	108	exact	0x3742f0	108	_langGetpToneConversionMatrix	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x390ac0	24	exact	0x374360	24	_langIsNormalPhenome	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
-0x390ad8	8	exact	0x374378	8	_transwGetpTransWordLex	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
+0x390ad8	8	exact	0x374378	8	_transwGetpTransWordLex	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
 0x390ae0	20	exact	0x374380	20	_transwGetpBeginOfTransWords	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x390af8	8	exact	0x374398	8	_cdbGetpFirstCdb	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x390b00	28	exact	0x3743a0	28	_cdbGetpIndexInSecCdb	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
@@ -7408,19 +7408,19 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x390b90	136	exact	0x374430	136	_cdbGetpSmoothMatrix	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x390c18	52	exact	0x3744b8	52	_cdbGetProbMatrixSize	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x390c50	16	exact	0x3744f0	16	_cdbGetSmoothMatrixSize	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
-0x390c60	8	exact	0x374500	8	_exevGetLeading_NBS_penalty	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x390c68	8	exact	0x374508	8	_exevGetTrailing_NBS_penalty	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x390c70	8	exact	0x374510	8	_exevGetRejection_NBS_penalty	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x390c78	8	exact	0x374518	8	_exevGetRejection_NBS_path_penalty	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x390c80	8	exact	0x374520	8	_exevGetExtraEventSilencePhenome	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x390c88	8	exact	0x374528	8	_exevGetNbrItemsInLexicon	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x390c90	8	exact	0x374530	8	_exevGetNbrOfPronunciations	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x390c98	8	exact	0x374538	8	_exevGetLeading_NBS_WordIndex	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x390ca0	8	exact	0x374540	8	_exevGetTrailing_NBS_WordIndex	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
-0x390ca8	8	exact	0x374548	8	_exevGetRejection_NBS_WordIndex	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
+0x390c60	8	exact	0x374500	8	_exevGetLeading_NBS_penalty	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
+0x390c68	8	exact	0x374508	8	_exevGetTrailing_NBS_penalty	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
+0x390c70	8	exact	0x374510	8	_exevGetRejection_NBS_penalty	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
+0x390c78	8	exact	0x374518	8	_exevGetRejection_NBS_path_penalty	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
+0x390c80	8	exact	0x374520	8	_exevGetExtraEventSilencePhenome	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
+0x390c88	8	exact	0x374528	8	_exevGetNbrItemsInLexicon	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
+0x390c90	8	exact	0x374530	8	_exevGetNbrOfPronunciations	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
+0x390c98	8	exact	0x374538	8	_exevGetLeading_NBS_WordIndex	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
+0x390ca0	8	exact	0x374540	8	_exevGetTrailing_NBS_WordIndex	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
+0x390ca8	8	exact	0x374548	8	_exevGetRejection_NBS_WordIndex	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
 0x390cb0	8	exact	0x374550	8	_exevGetpBeginOfItems	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x390cb8	28	exact	0x374558	28	_exevGetpBeginOfWords	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
-0x390cd8	8	exact	0x374578	8	_exevGetpBeginOfProns	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	identical-copy	-
+0x390cd8	8	exact	0x374578	8	_exevGetpBeginOfProns	provider	speech middleware	-	1.000	1.000	1.000	+0	exact-position	-	-
 0x390ce0	32	exact	0x374580	32	_GetNbrStatesInPhenome	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x390d00	48	exact	0x3745a0	48	_ConvPhenomesToStates	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
 0x390d30	68	exact	0x3745d0	68	qFreeElem	provider	speech middleware	-	1.000	1.000	1.000	+0	exact	-	-
@@ -8410,7 +8410,7 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x3d3fcc	160	exact	0x3b4ad0	160	MediusSetGameListFilter	provider	Medius	-	1.000	1.000	1.000	+0	exact	-	-
 0x3d406c	160	exact	0x3b4b70	160	MediusClearGameListFilter	provider	Medius	-	1.000	1.000	1.000	+0	exact-position	-	-
 0x3d410c	160	exact	0x3b4c10	160	MediusGetGameListFilter	provider	Medius	-	1.000	1.000	1.000	+0	position	identical-copy	-
-0x3d41ac	156	deviating	0x3b4cb0	156	MediusCreateMessageID	provider	Medius	-	0.974	1.000	1.000	+0	position	imm-only	-
+0x3d41ac	156	new	-	-	-	-	-	-	-	-	-	-	-	-	provider:Medius
 0x3d4248	44	exact	0x3b4d4c	44	MediusReassignCallbackChatFwdMessageCallback	provider	Medius	-	1.000	1.000	1.000	+0	position	identical-copy	-
 0x3d4274	44	exact	0x3b4d78	44	MediusReassignCallbackAddToBuddyListFwdConfirmationRequestCallback	provider	Medius	-	1.000	1.000	1.000	+0	position	identical-copy	-
 0x3d42a0	44	exact	0x3b4da4	44	MediusReassignCallbackErrorMessageCallback	provider	Medius	-	1.000	1.000	1.000	+0	position	identical-copy	-
@@ -8427,9 +8427,9 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x3d4878	800	exact	0x3b537c	800	MediusGetCallbackStatusString	provider	Medius	-	1.000	1.000	1.000	+0	exact	-	-
 0x3d4b98	268	exact	0x3b569c	268	MediusGetErrorCodeString	provider	Medius	-	1.000	1.000	1.000	+0	exact	-	-
 0x3d4ca4	188	deviating	0x3b57a8	148	MediusSetDefaultConnectInfo	provider	Medius	-	0.667	0.762	0.857	+40	call-deviating	-	-
-0x3d4d60	160	exact	0x3b583c	160	MediusGetTotalGames	provider	Medius	-	1.000	1.000	1.000	+0	position	ambiguous,identical-copy	-
-0x3d4e00	160	exact	0x3b58dc	160	MediusGetTotalChannels	provider	Medius	-	1.000	1.000	1.000	+0	position	ambiguous,identical-copy	-
-0x3d4ea0	160	new	-	-	-	-	-	-	-	-	-	-	-	copy	-
+0x3d4d60	160	exact	0x3b583c	160	MediusGetTotalGames	provider	Medius	-	1.000	1.000	1.000	+0	position	identical-copy	-
+0x3d4e00	160	exact	0x3b58dc	160	MediusGetTotalChannels	provider	Medius	-	1.000	1.000	1.000	+0	position	identical-copy	-
+0x3d4ea0	160	unsure	0x3b4cb0	156	MediusCreateMessageID	provider	Medius	-	0.228	0.405	0.582	+4	call-deviating	low-similarity,moved	-
 0x3d4f40	668	deviating	0x3b5980	628	lgAudInit	provider	lgAud	-	0.827	0.870	0.901	+40	call	-	-
 0x3d51e0	124	exact	0x3b5bf8	124	lgAudEnumHint	provider	lgAud	-	1.000	1.000	1.000	+0	exact	-	-
 0x3d5260	464	exact	0x3b5c78	464	lgAudEnumerate	provider	lgAud	-	1.000	1.000	1.000	+0	exact	-	-
@@ -8767,7 +8767,7 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x3fcb30	68	deviating	0x3dde60	68	GetTimeInRoundSec__9CNetClockFv	authored	-	src/Apps/FTS/state/st_mpexit.cpp	0.941	1.000	1.000	+0	position	imm-only	-
 0x3fcb80	8	deviating	0x3ddeb0	8	GetGameStats__10CZSealBodyFv	authored	-	src/Apps/FTS/state/st_mpexit.cpp	0.500	1.000	1.000	+0	position	imm-only	-
 0x3fcb90	8	deviating	0x3ddec0	8	GetRoundStats__10CZSealBodyFv	authored	-	src/Apps/FTS/state/st_mpexit.cpp	0.500	1.000	1.000	+0	position	imm-only	-
-0x3fcba0	536	deviating	0x3dded0	412	SetFinalTeamTotalsUiVar__23@unnamed@st_mpexit_cpp@FbPCc	authored	-	src/Apps/FTS/state/st_mpexit.cpp	0.447	0.743	0.835	+124	position,slot-only	-	-
+0x3fcba0	536	deviating	0x3dded0	412	SetFinalTeamTotalsUiVar__23@unnamed@st_mpexit_cpp@FbPCc	authored	-	src/Apps/FTS/state/st_mpexit.cpp	0.447	0.743	0.835	+124	position,slot-only	caller-mismatch	-
 0x3fcdc0	60	deviating	0x3de070	60	CompareSeals__23@unnamed@st_mpexit_cpp@FP10CZSealBodyP10CZSealBody	authored	-	src/Apps/FTS/state/st_mpexit.cpp	0.867	1.000	1.000	+0	call-deviating	imm-only	-
 0x3fce00	8	exact	0x3de0b0	8	GetBasesDestroyed__10CSealStatsCFv	authored	-	src/Apps/FTS/state/st_mpexit.cpp	1.000	1.000	1.000	+0	exact-position	identical-copy	-
 0x3fce10	8	exact	0x3de0c0	8	GetRescues__10CSealStatsCFv	authored	-	src/Apps/FTS/state/st_mpexit.cpp	1.000	1.000	1.000	+0	exact-position	identical-copy	-
@@ -8783,7 +8783,7 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x3fdae0	124	deviating	0x3deda0	124	UnInit__14CTeamMateNamesFv	authored	-	src/Apps/FTS/hud/hud_teammatenames.cpp	0.935	1.000	1.000	+0	call-deviating	imm-only	-
 0x3fdb60	172	deviating	0x3dee20	172	Init__14CTeamMateNamesFP7C2DFont	authored	-	src/Apps/FTS/hud/hud_teammatenames.cpp	0.930	1.000	1.000	+0	call-deviating	imm-only	-
 0x3fdc10	8	exact	0x3f6fd0	8	UnSerialize__11CSaveModuleFPCcPQ23zar4CZARi	authored	-	src/gamez/zSave/zsav_module.cpp	1.000	1.000	1.000	+0	vtable-slot	-	-
-0x3fdc20	8	exact	0x3f6fe0	8	UnSerialize__11CSaveModuleFPCcP8CRdrFilei	authored	-	src/gamez/zSave/zsav_module.cpp	1.000	1.000	1.000	+0	position	identical-copy	-
+0x3fdc20	8	exact	0x3f6fe0	8	UnSerialize__11CSaveModuleFPCcP8CRdrFilei	authored	-	src/gamez/zSave/zsav_module.cpp	1.000	1.000	1.000	+0	table-entry	-	-
 0x3fdc30	60	exact	0x3f6ff0	60	SaveRdr__11CSaveModuleFPCcP8CRdrFile	authored	-	src/gamez/zSave/zsav_module.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x3fdc70	120	exact	0x3f7030	120	__dt__11CSaveModuleFv	authored	-	src/gamez/zSave/zsav_module.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x3fdcf0	116	exact	0x3f70b0	116	__ct__11CSaveModuleFPCcP12CSaveManager	authored	-	src/gamez/zSave/zsav_module.cpp	1.000	1.000	1.000	+0	exact	-	-
@@ -8827,15 +8827,15 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x402f70	368	deviating	0x3fc450	368	UnInit__16CInGameWeaponSelFv	authored	-	src/Apps/FTS/hud/hud_ingame_weaponsel.cpp	0.663	1.000	1.000	+0	call-deviating	imm-only	-
 0x4030e0	2628	deviating	0x3fc5c0	2660	Init__16CInGameWeaponSelFPQ23zdb6CWorldP7C2DFont	authored	-	src/Apps/FTS/hud/hud_ingame_weaponsel.cpp	0.693	0.882	0.912	-32	call-deviating	-	-
 0x403b30	760	deviating	0x3fd030	760	__ct__16CInGameWeaponSelFv	authored	-	src/Apps/FTS/hud/hud_ingame_weaponsel.cpp	0.784	1.000	1.000	+0	call-deviating	imm-only	-
-0x403e30	328	new	-	-	-	-	-	-	-	-	-	-	-	-	-
-0x403f80	144	new	-	-	-	-	-	-	-	-	-	-	-	-	-
-0x404010	60	new	-	-	-	-	-	-	-	-	-	-	-	-	-
-0x404050	224	unsure	0x3feb80	1064	InitFromCombo__7CNetCnfFPci	authored	-	src/gamez/zNetwork/zNetCnf.cpp	0.174	0.199	0.280	-840	string	low-similarity	-
-0x404130	652	deviating	0x3ffa40	536	Init__7CNetCnfFb	authored	-	src/gamez/zNetwork/zNetCnf.cpp	0.525	0.593	0.694	+116	global	moved	-
-0x4043c0	512	unsure	0x3ff0f0	192	LibNETSetup__8CHNetCnfFv	authored	-	src/gamez/zNetwork/zNetCnf.cpp	0.398	0.443	0.455	+320	position	ambiguous	-
-0x4045c0	80	deviating	0x3ff1b0	64	IOPRebootHandler__8CHNetCnfFQ211CIOPManager11RebootPhaseQ211CIOPManager10RebootModePv	authored	-	src/gamez/zNetwork/zNetCnf.cpp	0.667	0.667	0.722	+16	position	-	-
-0x404610	44	deviating	0x3ff9f0	68	Uninit__7CNetCnfFv	authored	-	src/gamez/zNetwork/zNetCnf.cpp	0.643	0.643	0.714	-24	position	-	-
-0x404640	100	new	-	-	-	-	-	-	-	-	-	-	-	-	-
+0x403e30	328	new	-	-	-	-	-	src/gamez/zNetwork/zNetCnf.cpp	-	-	-	-	-	owner-settled	-
+0x403f80	144	new	-	-	-	-	-	src/gamez/zNetwork/zNetCnf.cpp	-	-	-	-	-	owner-settled	-
+0x404010	60	new	-	-	-	-	-	src/gamez/zNetwork/zNetCnf.cpp	-	-	-	-	-	owner-settled	-
+0x404050	224	deviating	0x3feb80	1064	InitFromCombo__7CNetCnfFPci	authored	-	src/gamez/zNetwork/zNetCnf.cpp	0.174	0.199	0.280	-840	settled	-	-
+0x404130	652	new	-	-	-	-	-	src/gamez/zNetwork/zNetCnf.cpp	-	-	-	-	settled	owner-guess	gamez/zNetwork
+0x4043c0	512	deviating	0x3ff0f0	192	LibNETSetup__8CHNetCnfFv	authored	-	src/gamez/zNetwork/zNetCnf.cpp	0.398	0.443	0.455	+320	settled	-	-
+0x4045c0	80	deviating	0x3ff1b0	64	IOPRebootHandler__8CHNetCnfFQ211CIOPManager11RebootPhaseQ211CIOPManager10RebootModePv	authored	-	src/gamez/zNetwork/zNetCnf.cpp	0.667	0.667	0.722	+16	call-deviating	-	-
+0x404610	44	deviating	0x3ff9f0	68	Uninit__7CNetCnfFv	authored	-	src/gamez/zNetwork/zNetCnf.cpp	0.643	0.643	0.714	-24	call-deviating	-	-
+0x404640	100	deviating	0x3ffa40	536	Init__7CNetCnfFb	authored	-	src/gamez/zNetwork/zNetCnf.cpp	0.189	0.289	0.289	-436	settled	split	-
 0x4046b0	204	deviating	0x402ca0	240	TRC_PreparePowerOff	authored	-	src/gamez/zSystem/zsys_trc.cpp	0.793	0.811	0.829	-36	call-deviating	-	-
 0x404780	120	exact	0x402d90	120	_UnPreparePowerOff__FQ211CIOPManager11RebootPhaseQ211CIOPManager10RebootModePv	authored	-	src/gamez/zSystem/zsys_trc.cpp	1.000	1.000	1.000	+0	exact	-	-
 0x404800	208	deviating	0x402e10	52	TRC_PowerOffThread__FPv	authored	-	src/gamez/zSystem/zsys_trc.cpp	0.338	0.400	0.400	+156	call-deviating	call-and-slot	-
@@ -9472,7 +9472,7 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x428f40	20	deviating	0x3e5548	28	_getpid_r	provider	newlib	-	0.667	0.667	0.667	-8	call-deviating	moved	-
 0x428f58	136	new	-	-	-	-	-	-	-	-	-	-	-	-	provider:newlib
 0x428fe0	144	deviating	0x3e55d0	112	sprintf	provider	newlib	-	0.438	0.688	0.719	+32	call	moved	-
-0x429070	8	new	-	-	-	-	-	-	-	-	-	-	-	copy	provider:newlib
+0x429070	8	exact	0x3e5640	8	eofread	provider	newlib	-	1.000	1.000	1.000	+0	table-entry	moved	-
 0x429078	168	deviating	0x3e5648	136	sscanf	provider	newlib	-	0.447	0.684	0.711	+32	call	moved	-
 0x429120	100	unsure	0x3e56d0	100	__sread	provider	newlib	-	0.280	0.400	0.840	+0	call-deviating	low-similarity,moved	-
 0x429188	128	deviating	0x3e5738	128	__swrite	provider	newlib	-	0.500	0.688	0.875	+0	call-deviating	moved	-
@@ -9551,7 +9551,7 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x42fdc0	192	deviating	0x4223a0	188	libnet_init	provider	SCE	-	0.505	0.589	0.779	+4	call-deviating	moved	-
 0x42fe80	124	unsure	0x422460	144	libnet_term	provider	SCE	-	0.418	0.537	0.776	-20	call-deviating	low-similarity,moved	-
 0x42ff00	64	deviating	0x4234a0	128	reg_handler	provider	SCE	-	0.167	0.458	0.625	-64	call-deviating	call-and-slot	-
-0x42ff40	64	deviating	0x423520	128	unreg_handler	provider	SCE	-	0.167	0.458	0.625	-64	call-deviating	call-and-slot	-
+0x42ff40	64	new	-	-	-	-	-	-	-	-	-	-	-	-	provider:SCE
 0x42ff80	68	new	-	-	-	-	-	-	-	-	-	-	-	-	provider:SCE
 0x42ffc8	136	new	-	-	-	-	-	-	-	-	-	-	-	-	provider:SCE
 0x430050	24	new	-	-	-	-	-	-	-	-	-	-	-	-	provider:SCE
@@ -9592,16 +9592,16 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x4316b8	156	exact	0x424ef8	156	libnetb_udp_calc_avail	provider	SCE	-	1.000	1.000	1.000	+0	exact	-	-
 0x431758	552	exact	0x424f98	552	libnetb_udp_create_space	provider	SCE	-	1.000	1.000	1.000	+0	exact	-	-
 0x431980	192	exact	0x4251c0	192	libnetb_get_valid_data_header_ptr	provider	SCE	-	1.000	1.000	1.000	+0	exact	-	-
-0x431a40	200	new	-	-	-	-	-	-	-	-	-	-	-	-	provider:SCE
-0x431b08	128	new	-	-	-	-	-	-	-	-	-	-	-	-	provider:SCE
-0x431b88	188	new	-	-	-	-	-	-	-	-	-	-	-	-	provider:SCE
-0x431c48	188	new	-	-	-	-	-	-	-	-	-	-	-	-	provider:SCE
-0x431d08	124	new	-	-	-	-	-	-	-	-	-	-	-	-	provider:SCE
-0x431d88	124	new	-	-	-	-	-	-	-	-	-	-	-	-	provider:SCE
-0x431e08	196	new	-	-	-	-	-	-	-	-	-	-	-	-	provider:SCE
-0x431ed0	212	new	-	-	-	-	-	-	-	-	-	-	-	-	provider:SCE
+0x431a40	200	deviating	0x425290	160	sceNetcnfifSetup	provider	SCE	-	0.267	0.289	0.511	+40	call-deviating	call-and-slot,owner-settled	provider:SCE ezNetCnf
+0x431b08	128	new	-	-	-	-	-	-	-	-	-	-	-	owner-settled	provider:SCE ezNetCnf
+0x431b88	188	new	-	-	-	-	-	-	-	-	-	-	-	owner-settled	provider:SCE ezNetCnf
+0x431c48	188	new	-	-	-	-	-	-	-	-	-	-	-	owner-settled	provider:SCE ezNetCnf
+0x431d08	124	new	-	-	-	-	-	-	-	-	-	-	-	owner-settled	provider:SCE ezNetCnf
+0x431d88	124	new	-	-	-	-	-	-	-	-	-	-	-	owner-settled	provider:SCE ezNetCnf
+0x431e08	196	new	-	-	-	-	-	-	-	-	-	-	-	owner-settled	provider:SCE ezNetCnf
+0x431ed0	212	new	-	-	-	-	-	-	-	-	-	-	-	owner-settled	provider:SCE ezNetCnf
 0x431fa8	200	exact	0x425ea0	200	initEzNetCtl	provider	SCE	-	1.000	1.000	1.000	+0	exact	-	-
-0x432070	128	deviating	0x425f68	96	exitEzNetCtl	provider	SCE	-	0.321	0.429	0.679	+32	position,slot-only	-	-
+0x432070	128	unsure	0x423520	128	unreg_handler	provider	SCE	-	0.344	0.375	0.438	+0	call-deviating	low-similarity,moved	-
 0x4320f0	288	exact	0x425fc8	288	ezNetCtlSetProperties	provider	SCE	-	1.000	1.000	1.000	+0	exact	-	-
 0x432210	196	exact	0x4260e8	196	ezNetCtlSetCombination	provider	SCE	-	1.000	1.000	1.000	+0	exact	-	-
 0x4322d8	160	exact	0x4261b0	160	ezNetCtlGetStatus	provider	SCE	-	1.000	1.000	1.000	+0	exact	-	-
@@ -9656,7 +9656,7 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 0x438280	64	deviating	0x3f0ae0	80	_PTT_SyncCallback__FPv	provider	libptt	-	0.500	0.667	0.667	-16	call-deviating	moved	-
 0x4382c0	1300	unsure	0x3f0370	1744	PTT_Heartbeat__Fi	provider	libptt	-	0.145	0.242	0.547	-444	call-deviating	low-similarity,moved	-
 0x4387e0	132	deviating	0x3f02c0	168	PTT_HeartbeatPrepare__Fv	provider	libptt	-	0.507	0.587	0.560	-36	call	moved	-
-0x438870	8	new	-	-	-	-	-	-	-	-	-	-	-	-	provider:libptt
+0x438870	8	deviating	0x3f0290	36	_PTT_HeartbeatCallback__FPv	provider	libptt	-	0.182	0.182	0.182	-28	pointer-site	moved	-
 0x438880	280	deviating	0x3f0110	372	PTT_Destroy__Fv	provider	libptt	-	0.380	0.429	0.417	-92	call-deviating	moved	-
 0x4389a0	472	deviating	0x3efee0	552	PTT_Init__FPCcUi	provider	libptt	-	0.508	0.586	0.664	-80	call-deviating	moved	-
 0x438b80	156	unsure	0x3f1380	200	lpc10_decode__FPiPfP19lpc10_decoder_state	provider	libptt	-	0.135	0.449	0.562	-44	call-deviating	low-similarity,moved	-
@@ -9910,27 +9910,6 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 -	-	removed	0x1cfee0	8	OnCopy__Q23zdb7CNodeExFPQ23zdb5CNodePQ23zdb5CNode	authored	-	src/gamez/zAnim/zanim_anim.cpp	-	-	-	-	-	-	-
 -	-	removed	0x1cfef0	8	OnDoubleClick__Q23zdb7CNodeExFPQ23zdb5CNode	authored	-	src/gamez/zAnim/zanim_anim.cpp	-	-	-	-	-	-	-
 -	-	removed	0x1cff00	8	OnSelect__Q23zdb7CNodeExFPQ23zdb5CNodeb	authored	-	src/gamez/zAnim/zanim_anim.cpp	-	-	-	-	-	-	-
--	-	removed	0x1d0df0	40	UIRebootIOP__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	-	-
--	-	removed	0x1d0e50	108	UINetCnfDeleteAll__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	-	-
--	-	removed	0x1d0ec0	208	UINetSaveCombo__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	-	-
--	-	removed	0x1d0f90	228	UINetGetIFCInfo__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	-	-
--	-	removed	0x1d1080	228	UINetGetDevInfo__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	-	-
--	-	removed	0x1d1170	640	UINetUpdateIFCVars__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	-	-
--	-	removed	0x1d1400	1084	UINetSaveIfc__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	-	-
--	-	removed	0x1d1840	120	UINetGetDevIndex__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	-	-
--	-	removed	0x1d18c0	108	UINetSaveDev__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	-	-
--	-	removed	0x1d1930	108	UINetAddCombo__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	-	-
--	-	removed	0x1d19a0	108	UINetAddIfc__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	-	-
--	-	removed	0x1d1a10	248	UINetAddDev__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	-	-
--	-	removed	0x1d1b10	568	UINetGetInterfaceList__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	-	-
--	-	removed	0x1d1d50	372	UINetCnfGetDispNames__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	-	-
--	-	removed	0x1d1ed0	76	UINetCnfSelectCombo__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	-	-
--	-	removed	0x1d1f20	128	UINetCnfCurrCombo__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	-	-
--	-	removed	0x1d2020	36	UINetCnfClose__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	-	-
--	-	removed	0x1d2050	80	UINetCnfOpen__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	-	-
--	-	removed	0x1d23a0	40	UIGameStatePopCommand__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	-	-
--	-	removed	0x1d23d0	8	UIHaveBeenBannedFromGame__FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	-	-
--	-	removed	0x1d71d0	300	ExecuteChooseEquipment__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf	authored	-	src/gamez/zAnim/zanim_menu.cpp	-	-	-	-	-	-	-
 -	-	removed	0x1d8470	16	__ct__Q33std50list<PQ23zar4CKey,Q23std23allocator<PQ23zar4CKey>>19generic_iterator<0>FQ33std42__list_deleter<PCv,Q23std14allocator<PCv>>19generic_iterator<0>	authored	-	src/gamez/zArchive/zar_main.cpp	-	-	-	-	-	-	-
 -	-	removed	0x1d94e0	84	__dt__Q23std58__vector_imp<Q23zar4CKey,Q23std22allocator<Q23zar4CKey>,0>Fv	authored	-	src/gamez/zArchive/zar_main.cpp	-	-	-	-	-	-	-
 -	-	removed	0x1d9740	92	swap<Q23zar4CKey,Q23std22allocator<Q23zar4CKey>>__3stdFRQ23std60__vector_deleter<Q23zar4CKey,Q23std22allocator<Q23zar4CKey>>RQ23std60__vector_deleter<Q23zar4CKey,Q23std22allocator<Q23zar4CKey>>	authored	-	src/gamez/zArchive/zar_main.cpp	-	-	-	-	-	-	-
@@ -10046,7 +10025,6 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 -	-	removed	0x3212e0	8	NumStealthKills__10CSealStatsCFv	authored	-	src/Apps/FTS/state/st_exit.cpp	-	-	-	-	-	-	-
 -	-	removed	0x3212f0	8	GetHeadShots__10CSealStatsCFv	authored	-	src/Apps/FTS/state/st_exit.cpp	-	-	-	-	-	-	-
 -	-	removed	0x322190	356	zNetInit__9CZNetworkFv	authored	-	src/gamez/zNetwork/zNetDme.cpp	-	-	-	-	-	-	-
--	-	removed	0x32c180	8	RegistrationFailureStateHandler__FQ213CZOnlineLobby16LOBBY_STATE_FLAG	authored	-	src/gamez/zNetwork/zNetMedius.cpp	-	-	-	-	-	-	-
 -	-	removed	0x32d5d0	48	cbClientDisconnect__FiiPCc	authored	-	src/gamez/zNetwork/zNetMedius.cpp	-	-	-	-	-	-	-
 -	-	removed	0x32d600	48	cbClientConnect__FiiPCc	authored	-	src/gamez/zNetwork/zNetMedius.cpp	-	-	-	-	-	-	-
 -	-	removed	0x330810	180	__as__34MediusLobbyWorldPlayerListResponseFRC34MediusLobbyWorldPlayerListResponse	authored	-	src/gamez/zNetwork/zNetMedius.cpp	-	-	-	-	-	-	-
@@ -10084,7 +10062,6 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 -	-	removed	0x3e5498	36	_init_signal	provider	newlib	-	-	-	-	-	-	-	-
 -	-	removed	0x3e54c0	40	__sigtramp	provider	newlib	-	-	-	-	-	-	-	-
 -	-	removed	0x3e5568	104	_sprintf_r	provider	newlib	-	-	-	-	-	-	-	-
--	-	removed	0x3e5640	8	eofread	provider	newlib	-	-	-	-	-	-	-	-
 -	-	removed	0x3e60c0	428	strncat	provider	newlib	-	-	-	-	-	-	-	-
 -	-	removed	0x3e75d8	36	strtodf	provider	newlib	-	-	-	-	-	-	-	-
 -	-	removed	0x3eb3a0	2768	analys___FPfPiPiPfPfP19lpc10_encoder_state	provider	libptt	-	-	-	-	-	-	-	-
@@ -10107,7 +10084,6 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 -	-	removed	0x3ef560	1212	invert___FPiPfPfPf	provider	libptt	-	-	-	-	-	-	-	-
 -	-	removed	0x3efa20	536	irc2pc___FPfPfPiPfPf	provider	libptt	-	-	-	-	-	-	-	-
 -	-	removed	0x3efc40	660	ivfilt___FPfPfPiPiPf	provider	libptt	-	-	-	-	-	-	-	-
--	-	removed	0x3f0290	36	_PTT_HeartbeatCallback__FPv	provider	libptt	-	-	-	-	-	-	-	-
 -	-	removed	0x3f0a40	12	scePcGetCounter0	provider	libptt	-	-	-	-	-	-	-	-
 -	-	removed	0x3f0a50	136	PTT_IsNewCallOk__Fv	provider	libptt	-	-	-	-	-	-	-	-
 -	-	removed	0x3f0d80	216	PTT_PermitWANAddress__FUiUi	provider	libptt	-	-	-	-	-	-	-	-
@@ -10173,7 +10149,7 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 -	-	removed	0x3ff870	8	NumIFC__7CNetCnfFPv	authored	-	src/gamez/zNetwork/zNetCnf.cpp	-	-	-	-	-	-	-
 -	-	removed	0x3ff880	8	NumCombos__7CNetCnfFPv	authored	-	src/gamez/zNetwork/zNetCnf.cpp	-	-	-	-	-	-	-
 -	-	removed	0x3ff890	12	Close__7CNetCnfFPv	authored	-	src/gamez/zNetwork/zNetCnf.cpp	-	-	-	-	-	-	-
--	-	removed	0x3ff8a0	124	Open__7CNetCnfFPCc	authored	-	src/gamez/zNetwork/zNetCnf.cpp	-	-	-	-	-	-	-
+-	-	removed	0x3ff8a0	124	Open__7CNetCnfFPCc	authored	-	src/gamez/zNetwork/zNetCnf.cpp	-	-	-	-	settled	-	-
 -	-	removed	0x3ff920	200	OpenTick__7CNetCnfFPv	authored	-	src/gamez/zNetwork/zNetCnf.cpp	-	-	-	-	-	-	-
 -	-	removed	0x3ffc60	208	AllocMem__10CSMSaveDevFQ216CCnfStateMachine10STATE_FLAG	authored	-	src/gamez/zNetwork/zNetCnf.cpp	-	-	-	-	-	-	-
 -	-	removed	0x3ffd30	220	GetAddr__10CSMSaveDevFQ216CCnfStateMachine10STATE_FLAG	authored	-	src/gamez/zNetwork/zNetCnf.cpp	-	-	-	-	-	-	-
@@ -10321,7 +10297,6 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 -	-	removed	0x423c28	136	up_interface	provider	SCE	-	-	-	-	-	-	-	-
 -	-	removed	0x423cb0	136	down_interface	provider	SCE	-	-	-	-	-	-	-	-
 -	-	removed	0x425280	16	sceNetcnfifInit	provider	SCE	-	-	-	-	-	-	-	-
--	-	removed	0x425290	160	sceNetcnfifSetup	provider	SCE	-	-	-	-	-	-	-	-
 -	-	removed	0x425330	32	sceNetcnfifCheck	provider	SCE	-	-	-	-	-	-	-	-
 -	-	removed	0x425350	204	sceNetcnfifGetResult	provider	SCE	-	-	-	-	-	-	-	-
 -	-	removed	0x425420	12	sceNetcnfifSetFNoDecode	provider	SCE	-	-	-	-	-	-	-	-
@@ -10343,6 +10318,7 @@ release_address	release_size	class	prototype_address	prototype_size	prototype_sy
 -	-	removed	0x425bb8	620	sceNetcnfifDataDump	provider	SCE	-	-	-	-	-	-	-	-
 -	-	removed	0x425e28	80	sceNetcnfifSendIOP	provider	SCE	-	-	-	-	-	-	-	-
 -	-	removed	0x425e78	36	sceNetcnfifDmaCheck	provider	SCE	-	-	-	-	-	-	-	-
+-	-	removed	0x425f68	96	exitEzNetCtl	provider	SCE	-	-	-	-	-	-	-	-
 -	-	removed	0x46a2e0	8	__sinit_ai_map.cpp	compiler-generated	-	-	-	-	-	-	-	-	-
 -	-	removed	0x46b270	72	__sinit_zin_cheats.cpp	compiler-generated	-	-	-	-	-	-	-	-	-
 -	-	removed	0x46ec50	120	__sinit_zNetVoice.cpp	compiler-generated	-	-	-	-	-	-	-	-	-

@@ -136,7 +136,12 @@ def apply_settled_owners(rows: list[dict], settled: list[dict]) -> None:
                 hit = row["release_address"] is None and row["prototype_address"] == item["prototype"]
             if not hit:
                 continue
-            if item.get("owner") and row["owner_file"] != item["owner"]:
+            if item.get("owner", "").startswith("provider:"):
+                # a provider library a checker named: no source file, a library group
+                row["owner_file"] = ""
+                row["neighbour_group"] = item["owner"]
+                row["flags"] = sorted(set(row["flags"]) - {"owner-guess"} | {"owner-settled"})
+            elif item.get("owner") and row["owner_file"] != item["owner"]:
                 row["owner_file"] = item["owner"]
                 row["flags"] = sorted(set(row["flags"]) - {"owner-guess", "owner-moved"} | {"owner-settled"})
             if item.get("flags"):

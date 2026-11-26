@@ -53,6 +53,9 @@ GLOBAL_SLOT_BONUS = 0.2  # global pass: preference for a candidate between the f
 GLOBAL_SMALL = 256  # global pass: below this size (bytes) look-alikes need agreeing callers
 VTABLE_RESEMBLE_SIZE = 32  # bytes: below this, slot functions are not matched by resemblance
 VTABLE_RESEMBLANCE = 0.30  # ... and above it they need this resemblance
+STUB_SIZE = 12  # bytes: a release handler this small (jr ra; li v0, n) is a stub ...
+STUB_FROM = 32  # ... when the prototype handler had at least this many bytes
+CROSS_KEEPS = {"settled", "entry", "vtable-slot", "table-entry", "pointer-site"}  # pairs the cross-check never moves
 VTABLE_KEEPS = {"exact", "entry", "settled", "call"}  # pairs a vtable slot does not overrule
 SMALL_GAP = 64  # positional gaps with at most this many candidate pairs skip the 3-gram prefilter
 STRING_SIMILARITY = 0.15  # a string-only pair needs this similarity ...
@@ -225,7 +228,8 @@ class SettledError(ValueError):
 
 class Matcher:
     def __init__(self, proto: list, release: list, proto_entry: int, release_entry: int,
-                 table_pairs: list | None = None):
+                 table_pairs: list | None = None, entry_correspondences: list | None = None,
+                 index_tables: tuple | None = None):
         self.P = sorted(proto, key=lambda f: f.address)
         self.R = sorted(release, key=lambda f: f.address)
         self.p_by = {f.address: f for f in self.P}
@@ -248,12 +252,16 @@ class Matcher:
         self.r_referrers = self._referrers(self.R, self.r_by)
         self.stats: dict = defaultdict(int)
         self.table_pairs = list(table_pairs or [])  # (prototype Table, release Table)
+        self.entry_correspondences = list(entry_correspondences or [])  # (p handler, r handler, place)
+        self.index_tables = index_tables or ([], [])  # unkeyed tables (prototype, release)
+        self.index_pairs: list = []
         self.vt_confirmed: set[int] = set()  # prototype addresses whose pair a vtable slot confirms
         self.vt_slots: dict[int, list] = defaultdict(list)  # prototype address -> [(p table, r table, p off, r off)]
         self._resemblance: dict[tuple[int, int], float] = {}
         self._slot_refs: set[tuple[int, int]] = set()
         self._anchor_cache = None
         self.allow_reference_slots = False
+        self._entry_confirmed = None
         self._token_counts = None  # (prototype, release) targets of 1-to-1 reference slots
         self.blocked_p: set[int] = set()  # settled as removed
         self.blocked_r: set[int] = set()  # settled as new
@@ -497,10 +505,96 @@ class Matcher:
         self.stats["vtable-slots-dropped"] = dropped
         return out
 
+    def table_pass(self, repair: bool) -> int:
+        """Pair (or re-pair) the handlers of entries with the same key in paired tables of named entries."""
+
+        correspondences = (self.entry_correspondences + self.index_table_correspondences()
+                           + self.store_table_correspondences())
+        changed = self.place_pass(correspondences, repair, "table-entry", record=False) if correspondences else 0
+        sites = self.pointer_site_correspondences()
+        if sites:
+            changed += self.place_pass(sites, repair, "pointer-site", record=False)
+        return changed
+
+    def pointer_site_correspondences(self) -> list[tuple[int, int, tuple]]:
+        """Callbacks: what a paired function passes to the same paired callee on both sides."""
+
+        out = []
+        for pair in self.pairs.values():
+            p_sites, r_sites = pair.p.pointer_sites, pair.r.pointer_sites
+            if not p_sites or not r_sites:
+                continue
+            for callee, target in p_sites.items():
+                partner = self.pairs.get(callee)
+                if partner is None:
+                    continue
+                other = r_sites.get(partner.r.address)
+                if other is not None and target in self.p_by and other in self.r_by and target != pair.p.address:
+                    out.append((target, other, ("site", pair.p.address, callee)))
+        return out
+
+    def store_table_correspondences(self) -> list[tuple[int, int, tuple]]:
+        """Handlers a paired function stores at the same offset on both sides (``Open`` filling a table)."""
+
+        out = []
+        for pair in self.pairs.values():
+            p_stores, r_stores = pair.p.code_stores, pair.r.code_stores
+            if not p_stores or not r_stores:
+                continue
+            for offset, target in p_stores.items():
+                other = r_stores.get(offset)
+                if other is not None and target in self.p_by and other in self.r_by:
+                    out.append((target, other, ("stores", pair.p.address, pair.r.address, offset)))
+        return out
+
+    def index_table_correspondences(self) -> list[tuple[int, int, tuple]]:
+        """Entries of unkeyed tables, by position, for tables of equal length that already agree.
+
+        Two tables pair when at least two of their entries hold handlers paired by
+        other evidence at the same position and none disagrees; then every position
+        pairs its handlers.
+        """
+
+        proto_tables, release_tables = self.index_tables
+        where = defaultdict(list)
+        for table in release_tables:
+            for k, (_, handler) in enumerate(table.entries):
+                where[handler].append((table, k))
+        out = []
+        self.index_pairs = []
+        for p in proto_tables:
+            votes = Counter()
+            for k, (_, handler) in enumerate(p.entries):
+                pair = self.pairs.get(handler)
+                if pair is None or pair.evidence <= {"table-entry"}:
+                    continue
+                for table, j in where.get(pair.r.address, ()):
+                    if j == k and len(table.entries) == len(p.entries) and table.stride == p.stride:
+                        votes[table.address] += 1
+            if not votes:
+                continue
+            (best, count), = votes.most_common(1)
+            if count < 2 or sum(1 for _, c in votes.items() if c == count) > 1:
+                continue
+            r = next(t for t in release_tables if t.address == best)
+            conflicts = sum(1 for (_, a), (_, b) in zip(p.entries, r.entries)
+                            if a in self.pairs and self.pairs[a].r.address != b
+                            and not self.pairs[a].evidence <= {"table-entry"})
+            if conflicts:
+                continue
+            self.index_pairs.append((p, r))
+            out.extend((a, b, (p, r, k)) for k, ((_, a), (_, b)) in enumerate(zip(p.entries, r.entries))
+                       if a in self.p_by and b in self.r_by)
+        return out
+
     def vtable_pass(self, repair: bool) -> int:
         """Pair (or, with ``repair``, re-pair) functions that fill the same slot of paired tables."""
 
-        correspondences = self.vtable_correspondences()
+        return self.place_pass(self.vtable_correspondences(), repair, "vtable-slot", record=True)
+
+    def place_pass(self, correspondences, repair: bool, evidence: str, record: bool) -> int:
+        """Pair functions that fill the same place (vtable slot, table entry) on both sides."""
+
         votes_p: dict[int, Counter] = defaultdict(Counter)
         votes_r: dict[int, Counter] = defaultdict(Counter)
         places = defaultdict(list)
@@ -508,7 +602,8 @@ class Matcher:
             votes_p[tp][tr] += 1
             votes_r[tr][tp] += 1
             places[tp].append(place)
-        self.vt_slots = places
+        if record:
+            self.vt_slots = places
 
         def winner(votes: Counter):
             # the place most tables agree on; a minority is a class that overrides it differently
@@ -521,7 +616,7 @@ class Matcher:
         for tp in sorted(votes_p):
             tr = winner(votes_p[tp])
             if tr is None or winner(votes_r[tr]) != tp:
-                self.stats["vtable-slot-disagreements"] += 1
+                self.stats[evidence + "-disagreements"] += 1
                 continue
             current = self.pairs.get(tp)
             if current is not None and current.r.address == tr:
@@ -535,25 +630,33 @@ class Matcher:
                 if not repair:
                     continue
                 if any(x is not None and x.evidence & VTABLE_KEEPS for x in (current, other)):
-                    self.stats["vtable-slot-conflicts-kept"] += 1
+                    self.stats[evidence + "-conflicts-kept"] += 1
                     continue
                 for x in (current, other):
                     if x is not None:
                         if x.p.key == x.r.key:
-                            self.stats["vtable-reassigned-exact"] += 1
+                            self.stats[evidence + "-reassigned-exact"] += 1
                         self.remove(x)
-                pair = self.add(self.p_by[tp], self.r_by[tr], "vtable-slot")
+                pair = self.add(self.p_by[tp], self.r_by[tr], evidence)
                 if pair:
                     pair.flags.add("repaired")
-                    self.stats["vtable-reassigned"] += 1
+                    self.stats[evidence + "-reassigned"] += 1
                     self.vt_confirmed.add(tp)
                     changed += 1
                 continue
-            if self.add(self.p_by[tp], self.r_by[tr], "vtable-slot"):
-                self.stats["vtable-created"] += 1
+            if self.add(self.p_by[tp], self.r_by[tr], evidence):
+                self.stats[evidence + "-created"] += 1
                 self.vt_confirmed.add(tp)
                 changed += 1
         return changed
+
+    def entry_confirmed(self) -> set[int]:
+        """Prototype handlers whose pair a table entry confirms."""
+
+        if self._entry_confirmed is None:
+            self._entry_confirmed = {tp for tp, tr, _ in self.entry_correspondences
+                                     if tp in self.pairs and self.pairs[tp].r.address == tr}
+        return self._entry_confirmed
 
     # -- 1. exact ------------------------------------------------------------------
     def exact_unique(self) -> None:
@@ -1088,6 +1191,120 @@ class Matcher:
                     added += 1
         return added
 
+    # -- cross-check: callers and address loaders on both sides ------------------------
+    def caller_images(self, pair: Pair) -> tuple[set, set]:
+        """(release images of the prototype's paired referrers, the release's paired referrers)."""
+
+        mapped = {self.pairs[c].r.address for c in self.p_referrers.get(pair.p.address, ())
+                  if c in self.pairs and c != pair.p.address}
+        release = {c for c in self.r_referrers.get(pair.r.address, ()) if c in self.r_paired and c != pair.r.address}
+        return mapped, release
+
+    def mismatched(self, pair: Pair) -> bool:
+        """Both sides have paired callers or address loaders and not one of them corresponds."""
+
+        mapped, release = self.caller_images(pair)
+        return bool(mapped) and bool(release) and not (mapped & release)
+
+    def _agreement(self, pairs) -> int:
+        total = 0
+        for pair in pairs:
+            if pair is not None:
+                mapped, release = self.caller_images(pair)
+                total += len(mapped & release) - (1 if mapped and release and not mapped & release else 0)
+        return total
+
+    def _swap(self, pair, r_address, holder, keep: bool):
+        """Give ``pair.p`` the release function ``r_address``; the displaced holder takes ``pair.r``
+        when it resembles it. Returns the new pairs; with ``keep`` False the caller undoes it."""
+
+        old_r = pair.r
+        self.remove(pair)
+        if holder is not None:
+            self.remove(holder)
+        new = self.add(pair.p, self.r_by[r_address], "caller-check")
+        swapped = None
+        if holder is not None and (holder.p.key == old_r.key or self.callee_resemblance(holder.p.address, old_r.address)):
+            swapped = self.add(holder.p, old_r, "caller-check")
+        if keep:
+            for x in (new, swapped):
+                if x is not None:
+                    x.flags.add("repaired")
+        return new, swapped
+
+    def _trial_swap(self, pair, r_address, holder) -> int:
+        """How much the callers agree more after the swap (the swap is undone)."""
+
+        before = self._agreement([pair, holder])
+        new, swapped = self._swap(pair, r_address, holder, keep=False)
+        after = self._agreement([new, swapped])
+        for x in (new, swapped):
+            if x is not None:
+                self.remove(x)
+        self.pairs[pair.p.address] = pair
+        self.r_paired[pair.r.address] = pair.p.address
+        if holder is not None:
+            self.pairs[holder.p.address] = holder
+            self.r_paired[holder.r.address] = holder.p.address
+        return after - before
+
+    def cross_check(self) -> tuple[int, int]:
+        """Re-pair, or flag, pairs whose callers contradict them; returns (re-paired, flagged).
+
+        For a pair whose paired callers on the two sides have nothing in common, the
+        release functions that every mapped prototype caller references are the
+        candidates; one that resembles the prototype function at least as well as the
+        current partner, and whose own pair (if any) is weak or contradicted too, takes
+        its place. A contradicted pair that nothing names a better partner for keeps
+        its partner and the flag ``caller-mismatch``.
+        """
+
+        repaired = 0
+        for _ in range(3):
+            changed = 0
+            for address in sorted(self.pairs):
+                pair = self.pairs.get(address)
+                if pair is None or pair.evidence & CROSS_KEEPS or not self.mismatched(pair):
+                    continue
+                mapped, _ = self.caller_images(pair)
+                candidates = None
+                for caller in mapped:
+                    targets = {t for _, t in self.r_by[caller].references() if t in self.r_by}
+                    candidates = targets if candidates is None else candidates & targets
+                candidates = sorted((candidates or set()) - {pair.r.address})
+                own = self.callee_resemblance(pair.p.address, pair.r.address) if pair.p.key != pair.r.key else 1.0
+                best = None
+                for r_address in candidates:
+                    if r_address in self.blocked_r:
+                        continue
+                    r_fn = self.r_by[r_address]
+                    value = 1.0 if r_fn.key == pair.p.key else self.callee_resemblance(pair.p.address, r_address)
+                    if value <= 0 or value < own - AMBIGUITY:
+                        continue
+                    holder_p = self.r_paired.get(r_address)
+                    holder = self.pairs.get(holder_p) if holder_p is not None else None
+                    if holder is not None and holder.evidence & CROSS_KEEPS:
+                        continue
+                    gain = self._trial_swap(pair, r_address, holder)
+                    if gain > 0 and (best is None or gain > best[0]):
+                        best = (gain, r_address, holder)
+                if best is None:
+                    continue
+                _, r_address, holder = best
+                self._swap(pair, r_address, holder, keep=True)
+                changed += 1
+            repaired += changed
+            if not changed:
+                break
+        flagged = 0
+        for pair in self.pairs.values():
+            if "settled" not in pair.evidence and self.mismatched(pair):
+                pair.flags.add("caller-mismatch")
+                flagged += 1
+        self.stats["cross-check-repaired"] = repaired
+        self.stats["cross-check-flagged"] = flagged
+        return repaired, flagged
+
     # -- call-tree authority -----------------------------------------------------------
     def repair_from_exact_calls(self) -> int:
         """Re-pair callees that exact parents unanimously reference, over weaker pairs."""
@@ -1178,7 +1395,10 @@ class Matcher:
                            or self.agreeing_callers(pair) > 0)
                 if not decided:
                     flags.add("identical-copy")  # equal bytes elsewhere: only order chose this copy
-            if "settled" in pair.evidence or "vtable-slot" in pair.evidence:
+            if "table-entry" in pair.evidence or pair.p.address in self.entry_confirmed():
+                if pair.r.size <= STUB_SIZE and pair.p.size >= STUB_FROM and not exact:
+                    flags.add("stubbed")  # a real handler in the prototype, an empty one in the release
+            if pair.evidence & {"settled", "vtable-slot", "table-entry", "pointer-site"}:
                 plain = exact and not pair.call_conflicts and not pair.ref_mismatches
                 pair.cls = "exact" if plain else "deviating"
                 continue
@@ -1239,6 +1459,8 @@ class Matcher:
         if self.table_pairs:
             self.vtable_pass(repair=False)
             self.propagate()
+        if self.table_pass(repair=False):
+            self.propagate()
         self.stats["after-exact-and-calls"] = len(self.pairs)
         for _ in range(4):
             added = self.positional()
@@ -1258,11 +1480,13 @@ class Matcher:
                 break
             self.propagate()
         for _ in range(3):
-            if not self.table_pairs or not self.vtable_pass(repair=True):
+            changed = (self.vtable_pass(repair=True) if self.table_pairs else 0) + self.table_pass(repair=True)
+            if not changed:
                 break
             self.propagate()
         if self.repair_copies():
             self.propagate()
+        self.cross_check()
         for _ in range(4):
             repaired = self.repair_from_exact_calls()
             self.stats["repaired"] += repaired

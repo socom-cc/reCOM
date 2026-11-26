@@ -33,7 +33,9 @@ def kind(row: dict) -> str | None:
 
     if row["class"] in ("unsure", "new", "removed"):
         return row["class"]
-    return "weak" if is_weak(row) or "identical-copy" in row["flags"] else None
+    if is_weak(row) or "identical-copy" in row["flags"] or "caller-mismatch" in row["flags"]:
+        return "weak"
+    return None
 
 
 def key(row: dict) -> str:
