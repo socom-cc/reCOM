@@ -92,6 +92,46 @@ that did not produce it, and the note names both.
 - One writer at a time. A batch of names or types is checked by a second agent before the next
   batch builds on it.
 
+## Stage 3: names
+
+Step one of stage 3 carries function starts, names and a provenance comment into `SCUS_971.34`
+with `tools/release/names.py`, through ordinary bridge endpoints (no script):
+
+```powershell
+python tools/release/names.py --plan gamez/zArchive        # or: --plan --all
+python tools/release/names.py --apply build/release/names/plan-gamez-zArchive.json --dry-run
+python tools/release/names.py --apply build/release/names/plan-gamez-zArchive.json --yes [--batch N]
+python tools/release/names.py --confirm-saved build/release/names/plan-gamez-zArchive.apply-001.json
+```
+
+- **Plan** (any worker; reads both programs, writes nothing to Ghidra): `build/release/names/plan-<module>.json`
+  and a summary `.md`, deterministic, with its own digest. A paired function takes the name the
+  prototype program gives its counterpart, a flat name in the global namespace
+  (`zar::CZAR::NewKey`), plus the mangled symbol as a second label, as the prototype stores them.
+  Library functions are named from exact pairs only. Pairs flagged `name-changed`, `split`,
+  `merged` or `rename-possible`, unsure pairs and new functions get no name; their plate comment
+  names the prototype counterpart. Every function gets a two-line plate comment (`Release map: ...`)
+  with class, prototype address and symbol, evidence, flags, owner file and the settling note.
+  Boundary differences, starts without an instruction and thunk or no-return differences are
+  listed, not fixed.
+- **Review**: a second agent that did not write the plan checks it before anything is applied.
+- **Apply**: the coordinator only, after the review: the dry run first, then `--yes`, optionally
+  in batches (`--batch N` changed functions; a rerun continues). The tool checks the open
+  programs, the release program's recorded SHA-256 and idle analysis, refuses a plan whose digest
+  does not match or that was made from another map, writes to `SCUS_971.34` only (addressed by
+  its project path `/socom-release`) and never saves. Per function it creates, renames, adds the
+  label (after the rename: Ghidra turns a label on a default-named function into its name) and
+  writes the plate comment, reading each back; the first failed read-back stops the run. It waits
+  for auto-analysis after each create, compares a snapshot of every release function before and
+  after, and reports each change it did not make. The report under `build/release/names/` lists
+  every write sent, in order, with its answer. A second run changes nothing.
+- **Save**: the coordinator, through the bridge, after a second agent has checked the batch; then
+  `--confirm-saved <report>`. After closing without a save, `--discard-unsaved <report>`.
+- **Record**: `docs/release/ghidra-applied.tsv` (release address, what was applied, the value, the
+  source pair, the date, the state), written by the tool for changes that read back. Its rows stay
+  `unsaved <report>` until `--confirm-saved` re-reads them and marks them `saved <date>`; no new
+  apply starts while unsaved rows exist.
+
 ## Source
 
 - `src/` stays the single game source and the port lane's rules in `AGENTS.md` hold: assembly
