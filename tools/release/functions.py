@@ -33,6 +33,7 @@ class Fn:
     tail_calls: list[tuple[int, int]] = field(default_factory=list)  # (word index, j target outside)
     file_strings: frozenset = frozenset()
     lines: frozenset = frozenset()  # (file, line) of debug-allocator calls
+    data_refs: list[tuple[int, int]] = field(default_factory=list)  # (word index, data address)
     key: bytes = b""
     grams: frozenset = frozenset()
     ops: tuple = ()
@@ -117,6 +118,7 @@ def build(side: str, image, words, spans, gp: int | None) -> list[Fn]:
         strings = set()
         file_strings = set()
         file_loads = []  # (word index, register, file name)
+        data_refs = []  # (word index, data address) of lui/low-half and $gp operands
         hi: dict[int, int] = {}
         for index, (word, kind) in enumerate(zip(raw, kinds)):
             op = word >> 26
@@ -135,6 +137,8 @@ def build(side: str, image, words, spans, gp: int | None) -> list[Fn]:
                     value += mips.simm(word) if op != 0x0D else (word & 0xFFFF)
                     region = regions.kind(value)
                     refs.append((index, region))
+                    if region != "code":
+                        data_refs.append((index, value))
                     if region == "code":
                         code_refs.append((index, value))
                     elif op == 0x09:
@@ -149,6 +153,8 @@ def build(side: str, image, words, spans, gp: int | None) -> list[Fn]:
             elif kind == mips.M_GP:
                 value = None if gp is None else gp + mips.simm(word)
                 refs.append((index, "gp-" + (regions.kind(value) if value is not None else "unknown")))
+                if value is not None:
+                    data_refs.append((index, value))
             if kind != mips.M_HI and op == 0x0F:
                 hi.pop((word >> 16) & 0x1F, None)
         lines = set()
@@ -161,7 +167,7 @@ def build(side: str, image, words, spans, gp: int | None) -> list[Fn]:
                     break
         shape = tuple(mips.shape(w) for w in raw)
         fn = Fn(side, start, end - start, raw, tuple(masked), shape, calls, refs, frozenset(strings), code_refs,
-                tail_calls, frozenset(file_strings), frozenset(lines))
+                tail_calls, frozenset(file_strings), frozenset(lines), data_refs)
         fn.key = mips.pack(masked)
         fn.grams = grams_of(shape)
         fn.ops = tuple(mips.operation(w) for w in raw)

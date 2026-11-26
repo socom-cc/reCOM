@@ -36,6 +36,7 @@ OUT_TSV = Path("docs/release/function-map.tsv")
 OUT_MD = Path("docs/release/COMPARISON.md")
 OUT_JSON = Path("build/release/function-map.json")
 SHEETS = Path("build/release/sheets")
+LISTS = Path("build/release/lists")
 
 
 def prototype_functions(image, found: list) -> dict[int, protofacts.ProtoFunction]:
@@ -121,7 +122,8 @@ def read_settled(path: Path) -> list[dict]:
     return rows
 
 
-def run(root: Path, write: bool = True, use_settled: bool = True, sheet: str | None = None) -> dict:
+def run(root: Path, write: bool = True, use_settled: bool = True, sheet: str | None = None,
+        sheet_list: str | None = None, lists_module: str | None = None, split: int = 1, sample: int = 15) -> dict:
     proto_image = elfimage.load(root / PROTOTYPE, "prototype")
     release_image = elfimage.load(root / RELEASE, "release")
 
@@ -206,12 +208,22 @@ def run(root: Path, write: bool = True, use_settled: bool = True, sheet: str | N
             path = root / relative
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(text.encode("utf-8"))
+    if lists_module:
+        import lists
+
+        made = lists.split(lists_module, rows, matcher, split, sample)
+        data["lists"] = [(path, item) for path, item in zip(lists.write(root, lists_module, made, sample, LISTS), made)]
     if sheet:
+        import lists
         import sheets
 
-        path = root / SHEETS / (sheet + ".md")
+        selected = lists.select(root, sheet, sheet_list, rows, LISTS) if sheet_list else None
+        name = sheet + ("-" + sheet_list if sheet_list else "")
+        path = root / SHEETS / (name + ".md")
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(sheets.module_sheet(sheet, matcher, rows, protos).encode("utf-8"))
+        text = sheets.module_sheet(sheet, matcher, rows, protos, proto_image, release_image, selected=selected,
+                                   title=sheet + (" list " + sheet_list if sheet_list else ""))
+        path.write_bytes(text.encode("utf-8"))
         data["sheet"] = path
     data["rows"] = rows
     return data
@@ -223,21 +235,33 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--no-write", action="store_true", help="compute without writing the map")
     parser.add_argument("--no-settled", action="store_true", help="ignore docs/release/settled-pairs.tsv")
     parser.add_argument("--sheet", metavar="MODULE", help="also write a check sheet for MODULE, e.g. gamez/zArchive")
+    parser.add_argument("--list", metavar="LETTER", help="with --sheet: only the rows of that check list")
+    parser.add_argument("--lists", metavar="MODULE", help="split MODULE's rows into check lists")
+    parser.add_argument("--split", type=int, default=1, metavar="N", help="with --lists: how many lists")
+    parser.add_argument("--sample", type=int, default=15, metavar="K", help="with --lists: deviating rows sampled per list")
     arguments = parser.parse_args(argv)
     try:
         data = run(arguments.root.resolve(), write=not arguments.no_write,
-                   use_settled=not arguments.no_settled, sheet=arguments.sheet)
+                   use_settled=not arguments.no_settled, sheet=arguments.sheet, sheet_list=arguments.list,
+                   lists_module=arguments.lists, split=arguments.split, sample=arguments.sample)
     except elfimage.InputRefused as error:
         print("refused: %s" % error, file=sys.stderr)
         return 2
     except pairing.SettledError as error:
         print("settled pairs: %s" % error, file=sys.stderr)
         return 2
+    except ValueError as error:
+        print("lists: %s" % error, file=sys.stderr)
+        return 2
     except FileNotFoundError as error:
         print("missing input: %s" % Path(error.filename).name, file=sys.stderr)
         return 2
     counts = Counter(row["class"] for row in data["rows"])
     print(" ".join("%s=%d" % (c, counts[c]) for c in report.CLASSES))
+    for path, item in data.get("lists", []):
+        print("list %s: %d uncertain, %d sampled, %d exact, about %.0f minutes: %s" % (
+            item["letter"], len(item["uncertain"]), len(item["sample"]), item["exact"], item["minutes"],
+            Path(path).relative_to(arguments.root.resolve()).as_posix()))
     if data.get("sheet"):
         print("sheet: %s" % Path(data["sheet"]).relative_to(arguments.root.resolve()).as_posix())
     return 0

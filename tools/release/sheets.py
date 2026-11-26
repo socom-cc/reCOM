@@ -9,10 +9,12 @@ template replaced by calls of another) are reported once for the module.
 """
 from __future__ import annotations
 
+import bisect
 import re
 from collections import Counter, defaultdict
 from difflib import SequenceMatcher
 
+import functions
 import mips
 
 REG = ("zero", "at", "v0", "v1", "a0", "a1", "a2", "a3", "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7",
@@ -189,53 +191,166 @@ def immediate_deltas(p, r) -> list[str]:
     return out
 
 
-def differing_instructions(p, r, namer, limit: int = 40) -> list[str]:
+class DataNamer:
+    """Names data operands through the prototype's symbols; release addresses through paired operands."""
+
+    def __init__(self, matcher, proto_image=None, release_image=None, rows_of_interest=()):
+        self.m = matcher
+        symbols = []
+        if proto_image is not None:
+            for symbol in proto_image.symbols:
+                if symbol.kind != 2 and symbol.name and not symbol.name.startswith(".") and symbol.address:
+                    symbols.append((symbol.address, symbol.size, symbol.name))
+        symbols.sort()
+        self.symbols = symbols
+        self.starts = [s[0] for s in symbols]
+        self.p_strings = functions.Regions(proto_image, []) if proto_image is not None else None
+        self.r_strings = functions.Regions(release_image, []) if release_image is not None else None
+        votes = defaultdict(Counter)
+        pairs = [pair for pair in matcher.pairs.values() if pair.p.key == pair.r.key]
+        for pair in pairs:
+            r_refs = dict(pair.r.data_refs)
+            for index, address in pair.p.data_refs:
+                if index in r_refs:
+                    votes[r_refs[index]][address] += 1
+        for pair in rows_of_interest:
+            mapping = aligned(pair.p.masked, pair.r.masked)
+            r_refs = dict(pair.r.data_refs)
+            for index, address in pair.p.data_refs:
+                other = mapping.get(index)
+                if other is not None and other in r_refs:
+                    votes[r_refs[other]][address] += 1
+        self.release_to_proto = {r: c.most_common(1)[0][0] for r, c in votes.items()}
+
+    def proto(self, address: int) -> str:
+        text = self.p_strings.string_at(address) if self.p_strings else None
+        if text is not None:
+            return '"%s"' % short(text.replace("\n", "\\n"), 40)
+        index = bisect.bisect_right(self.starts, address) - 1
+        if index >= 0:
+            start, size, name = self.symbols[index]
+            if address == start:
+                return name
+            if address < start + max(size, 1) or address - start < 0x100:
+                return "%s+0x%x" % (name, address - start)
+        return "0x%x" % address
+
+    def release(self, address: int) -> str:
+        mapped = self.release_to_proto.get(address)
+        if mapped is not None:
+            return self.proto(mapped)
+        text = self.r_strings.string_at(address) if self.r_strings else None
+        if text is not None:
+            return '"%s"' % short(text.replace("\n", "\\n"), 40)
+        return "0x%x (unmapped)" % address
+
+
+def aligned(a, b) -> dict[int, int]:
+    out = {}
+    for block in SequenceMatcher(None, a, b, autojunk=False).get_matching_blocks():
+        for k in range(block.size):
+            out[block.a + k] = block.b + k
+    return out
+
+
+FULL_DIFF = 200  # instructions: below this the whole function is listed side by side
+DIFF_LINES = 400  # at most this many lines per row; the rest is counted, not dropped silently
+
+
+def masked_diff(p, r, namer, data) -> list[str]:
+    """Side-by-side listing aligned on masked words; data operands named on both sides."""
+
+    p_data = dict(p.data_refs)
+    r_data = dict(r.data_refs)
+
+    def left(i):
+        text = disassemble(p.words[i], p.address + 4 * i, lambda t: short(namer.proto_name(t), 36))
+        if i in p_data:
+            text += "  ; " + data.proto(p_data[i])
+        return "+%03x %s" % (4 * i, text)
+
+    def right(j):
+        text = disassemble(r.words[j], r.address + 4 * j, lambda t: namer.r_name(t)[:36])
+        if j in r_data:
+            text += "  ; " + data.release(r_data[j])
+        return "+%03x %s" % (4 * j, text)
+
+    full = max(len(p.words), len(r.words)) < FULL_DIFF
     lines = []
-    ops = SequenceMatcher(None, p.masked, r.masked, autojunk=False).get_opcodes()
-    for tag, i1, i2, j1, j2 in ops:
+    skipped = 0
+    for tag, i1, i2, j1, j2 in SequenceMatcher(None, p.masked, r.masked, autojunk=False).get_opcodes():
         if tag == "equal":
+            if full:
+                lines.extend("  %-62s | %s" % (left(i1 + k), right(j1 + k)) for k in range(i2 - i1))
+            else:
+                skipped += i2 - i1
+                lines.append("  ... %d equal instructions" % (i2 - i1))
             continue
         for k in range(max(i2 - i1, j2 - j1)):
-            left = right = ""
-            if i1 + k < i2:
-                left = "+%03x %s" % (4 * (i1 + k), disassemble(p.words[i1 + k], p.address + 4 * (i1 + k),
-                                                              lambda t: short(namer.proto_name(t), 40)))
-            if j1 + k < j2:
-                right = "+%03x %s" % (4 * (j1 + k), disassemble(r.words[j1 + k], r.address + 4 * (j1 + k),
-                                                               lambda t: namer.r_name(t)[:40]))
-            lines.append("%-58s | %s" % (left, right))
-            if len(lines) >= limit:
-                lines.append("... (%d more differing blocks)" % sum(1 for o in ops if o[0] != "equal"))
-                return lines
+            lines.append("* %-62s | %s" % (left(i1 + k) if i1 + k < i2 else "", right(j1 + k) if j1 + k < j2 else ""))
+    if len(lines) > DIFF_LINES:
+        omitted = len(lines) - DIFF_LINES
+        lines = lines[:DIFF_LINES] + ["... %d more lines omitted (raise DIFF_LINES in sheets.py to see them)" % omitted]
     return lines
 
 
-def module_sheet(module: str, matcher, rows: list[dict], protos: dict) -> str:
+def slot_lines(matcher, namer, row) -> list[str]:
+    """For a new or removed row: its paired neighbours and what the other side has between them."""
+
+    if row["class"] == "new":
+        side, index = matcher.R, matcher.r_index[row["release_address"]]
+        paired = lambda f: f.address in matcher.r_paired  # noqa: E731
+        partner = lambda f: matcher.p_by[matcher.r_paired[f.address]]  # noqa: E731
+        other, other_index, other_paired = matcher.P, matcher.p_index, lambda f: f.address in matcher.pairs  # noqa: E731
+        label_self, label_other = namer.r_label, namer.p_label
+    else:
+        side, index = matcher.P, matcher.p_index[row["prototype_address"]]
+        paired = lambda f: f.address in matcher.pairs  # noqa: E731
+        partner = lambda f: matcher.pairs[f.address].r  # noqa: E731
+        other, other_index, other_paired = matcher.R, matcher.r_index, lambda f: f.address in matcher.r_paired  # noqa: E731
+        label_self, label_other = namer.p_label, namer.r_label
+    before = next((side[k] for k in range(index - 1, -1, -1) if paired(side[k])), None)
+    after = next((side[k] for k in range(index + 1, len(side)) if paired(side[k])), None)
+    out = ["- slot: between %s and %s" % (label_self(before.address) if before else "the start",
+                                          label_self(after.address) if after else "the end")]
+    if before and after:
+        lo, hi = other_index[partner(before).address], other_index[partner(after).address]
+        if lo < hi:
+            between = [f for f in other[lo + 1:hi] if not other_paired(f)]
+            out.append("- unpaired on the other side in that slot: " + (
+                ", ".join(label_other(f.address) for f in between[:8]) or "none")
+                + (" (+%d)" % (len(between) - 8) if len(between) > 8 else ""))
+        else:
+            out.append("- the neighbours' partners are out of order on the other side")
+    return out
+
+
+def module_sheet(module: str, matcher, rows: list[dict], protos: dict, proto_image=None, release_image=None,
+                 selected: list[dict] | None = None, title: str | None = None) -> str:
     import report  # late: report imports protofacts too
 
     namer = Namer(matcher, protos)
-    selected = [row for row in rows if report.module_label(row) == module]
-    out = ["# Check sheet: %s" % module, "",
+    if selected is None:
+        selected = [row for row in rows if report.module_label(row) == module]
+    interesting = [matcher.pairs[row["prototype_address"]] for row in selected
+                   if row["prototype_address"] in matcher.pairs and row["release_address"] is not None]
+    data = DataNamer(matcher, proto_image, release_image, [p for p in interesting if p.p.key != p.r.key])
+    name = title or module
+    out = ["# Check sheet: %s" % name, "",
            "Generated by `python tools/release/compare.py --sheet %s`; not tracked. %d rows." % (module, len(selected)),
            ""]
     counts = Counter(row["class"] for row in selected)
     out.append("Classes: " + ", ".join("%s %d" % (c, counts[c]) for c in report.CLASSES if counts[c]) + ".")
     out.append("")
-    # template families replaced, once for the module
     families = defaultdict(set)
-    for row in selected:
-        if row["prototype_address"] is None or row["release_address"] is None:
-            continue
-        pair = matcher.pairs.get(row["prototype_address"])
-        if pair is None:
-            continue
+    for pair in interesting:
         # templates whose calls disappear and templates whose calls appear (callees named through the map)
         before = {family(namer.proto_name(t)) for _, t in pair.p.references()} - {""}
         after = {family(namer.proto_name(matcher.r_paired[t])) for _, t in pair.r.references()
                  if t in matcher.r_paired} - {""}
         for old in before - after:
             for new in (after - before) or {"(none)"}:
-                families[(old, new)].add(row["release_address"])
+                families[(old, new)].add(pair.r.address)
     if families:
         out += ["## Template families replaced", "",
                 "| prototype calls | release calls | functions | first release rows |", "|---|---|---|---|"]
@@ -268,6 +383,8 @@ def module_sheet(module: str, matcher, rows: list[dict], protos: dict) -> str:
         facts.append("evidence %s; flags %s; owner %s" % (
             ",".join(row["evidence"]) or "-", ",".join(row["flags"]) or "-", row["owner_file"] or "-"))
         out.append("- " + "; ".join(facts))
+        if row["class"] in ("new", "removed"):
+            out.extend(slot_lines(matcher, namer, row))
         p = matcher.p_by.get(proto) if proto is not None else None
         r = matcher.r_by.get(rel) if rel is not None else None
         if p is not None:
@@ -276,12 +393,19 @@ def module_sheet(module: str, matcher, rows: list[dict], protos: dict) -> str:
             callers = sorted(namer.p_refs_by.get(proto, ()))
             out.append("- prototype callers: " + (", ".join(namer.p_label(c) for c in callers[:12]) or "none")
                        + (" (+%d)" % (len(callers) - 12) if len(callers) > 12 else ""))
+            names = list(dict.fromkeys(data.proto(a) for _, a in p.data_refs))
+            if names:
+                out.append("- prototype data: " + ", ".join(names[:20]) + (" (+%d)" % (len(names) - 20) if len(names) > 20 else ""))
         if r is not None:
             refs = [namer.r_label(t) if t in matcher.r_by else "0x%x" % t for _, t in r.references()]
             out.append("- release references: " + (", ".join(refs) or "none"))
             callers = sorted(namer.r_refs_by.get(rel, ()))
             out.append("- release callers: " + (", ".join(namer.r_label(c) for c in callers[:12]) or "none")
                        + (" (+%d)" % (len(callers) - 12) if len(callers) > 12 else ""))
+            names = list(dict.fromkeys(("0x%x = " % a if a not in data.release_to_proto else "") + data.release(a)
+                                       for _, a in r.data_refs))
+            if names:
+                out.append("- release data: " + ", ".join(names[:20]) + (" (+%d)" % (len(names) - 20) if len(names) > 20 else ""))
         for side, fn in (("prototype", p), ("release", r)):
             if fn is not None and (fn.strings or fn.lines):
                 items = sorted(fn.strings)[:6] + ["%s:%d" % token for token in sorted(fn.lines)[:6]]
@@ -291,6 +415,6 @@ def module_sheet(module: str, matcher, rows: list[dict], protos: dict) -> str:
             if deltas:
                 out.append("- immediate deltas: " + "; ".join(deltas))
             if p.key != r.key:
-                out += ["", "```text"] + differing_instructions(p, r, namer) + ["```"]
+                out += ["", "```text"] + masked_diff(p, r, namer, data) + ["```"]
         out.append("")
     return "\n".join(out) + "\n"

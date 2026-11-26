@@ -16,3 +16,7 @@ removed	0x1d9910	out-of-line copy only called by ReOpen, which now calls Open; i
 0x1dd8e0	0x1dc2d0	call site in WriteDirectory; slot; recursion	socom-release-check-z1	2026-11-25
 0x1ddb90	0x1dc4a0	bytes equal; slot	socom-release-check-z1	2026-11-25
 0x1ddbd0	0x1dc4e0	bytes equal; slot	socom-release-check-z1	2026-11-25
+0x350110	0x333d50	caller zVid_Swap at the same place (after sceGsSyncPath); slot between End and Tick; same T0 read-ahead loop	socom-release-check-z2	2026-11-25
+0x3511f0	0x334d10	function pointer of the sceMpegCbError sceMpegAddCallback in startPss; slot between fillBuff and backgroundCallback	socom-release-check-z2	2026-11-25
+0x351680	0x3350b0	slot between videoCallback and stopPss; blocking loop of tickPss until sceMpegIsEnd; caller moved Run -> Tick	socom-release-check-z2	2026-11-25
+0x351e50	0x335640	callers End and Uninit; slot; audioDecDelete(&audioDec)	socom-release-check-z2	2026-11-25

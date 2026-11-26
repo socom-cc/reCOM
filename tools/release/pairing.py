@@ -28,7 +28,7 @@ alone (no registers, no immediates): it survives register-allocation changes.
 from __future__ import annotations
 
 import bisect
-from collections import defaultdict
+from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 
@@ -39,7 +39,12 @@ STRONG_SIMILARITY = 0.30  # a pair with independent evidence (exact caller, stri
 STRONG_OPERATIONS = 0.70  # ... or this operation similarity
 CALLEE_SIMILARITY = 0.20  # inside an unequal run of calls, a callee candidate needs this similarity
 CALLEE_OPERATIONS = 0.50  # ... or this operation similarity
-CALL_SLOT_OPERATIONS = 0.40  # a pair referenced at the same place by a paired caller, in order
+CALL_SLOT_OPERATIONS = 0.40
+SMALL_FUNCTION = 256  # bytes: below this the 3-gram prefilter can be overridden ...
+SMALL_OPERATIONS = 0.60  # ... by this operation similarity
+SLOT_OPERATIONS = 0.25  # a 1-to-1 address slot pair needs this operation similarity ...
+SLOT_SIZE_RATIO = 0.10  # ... and this size ratio (a reference slot: the size ratio and its order slot)
+SLOT_CALLER_DISTANCE = 0x10000  # callers of a slot pair must lie within this distance in the prototype  # a pair referenced at the same place by a paired caller, in order
 GRAM_PREFILTER = 0.15  # shape 3-gram Jaccard needed before computing a similarity
 SIZE_RATIO_MIN = 0.25  # smaller/larger size ratio needed for a positional candidate
 BAND = 64  # positional candidates: index distance allowed from the gap's diagonal
@@ -65,6 +70,49 @@ def aligned_indices(a: tuple, b: tuple, min_block: int = 1) -> dict[int, int]:
         for k in range(block.size):
             out[block.a + k] = block.b + k
     return out
+
+
+def patience_blocks(a: list, b: list) -> list[tuple[int, int, int]]:
+    """Matching blocks (i, j, size) of two token lists, ending with a (len(a), len(b), 0) sentinel.
+
+    Tokens that occur once in both lists are aligned first (their longest common
+    order), and each stretch between two of them is aligned the same way, falling
+    back to difflib only where no unique token is left. A repeated token (the same
+    SDK call several times) can then no longer pull its neighbours to the wrong
+    occurrence and leave a one-sided gap.
+    """
+
+    blocks: list[tuple[int, int, int]] = []
+
+    def solve(alo: int, ahi: int, blo: int, bhi: int) -> None:
+        if alo >= ahi or blo >= bhi:
+            return
+        count_a = Counter(a[alo:ahi])
+        count_b = Counter(b[blo:bhi])
+        where_b = {b[j]: j for j in range(blo, bhi) if count_b[b[j]] == 1}
+        points = [(i, where_b[a[i]]) for i in range(alo, ahi) if count_a[a[i]] == 1 and a[i] in where_b]
+        if not points:
+            matcher = SequenceMatcher(None, a[alo:ahi], b[blo:bhi], autojunk=False)
+            for block in matcher.get_matching_blocks():
+                if block.size:
+                    blocks.append((alo + block.a, blo + block.b, block.size))
+            return
+        i0, j0 = alo, blo
+        for i, j in sorted(increasing_subsequence(points)):
+            solve(i0, i, j0, j)
+            blocks.append((i, j, 1))
+            i0, j0 = i + 1, j + 1
+        solve(i0, ahi, j0, bhi)
+
+    solve(0, len(a), 0, len(b))
+    merged: list[tuple[int, int, int]] = []
+    for i, j, size in sorted(blocks):
+        if merged and merged[-1][0] + merged[-1][2] == i and merged[-1][1] + merged[-1][2] == j:
+            merged[-1] = (merged[-1][0], merged[-1][1], merged[-1][2] + size)
+        else:
+            merged.append((i, j, size))
+    merged.append((len(a), len(b), 0))
+    return merged
 
 
 def jaccard(a: frozenset, b: frozenset) -> float:
@@ -189,8 +237,12 @@ class Matcher:
             self.p_by_key[f.key].append(f)
         self.p_callers = self._callers(self.P, self.p_by)
         self.r_callers = self._callers(self.R, self.r_by)
+        self.p_referrers = self._referrers(self.P, self.p_by)
+        self.r_referrers = self._referrers(self.R, self.r_by)
         self.stats: dict = defaultdict(int)
         self._resemblance: dict[tuple[int, int], float] = {}
+        self._slot_refs: set[tuple[int, int]] = set()
+        self._anchor_cache = None  # (prototype, release) targets of 1-to-1 reference slots
         self.blocked_p: set[int] = set()  # settled as removed
         self.blocked_r: set[int] = set()  # settled as new
 
@@ -209,6 +261,24 @@ class Matcher:
                 if target in by:
                     out[target].add(f.address)
         return out
+
+    @staticmethod
+    def _referrers(functions, by):
+        """Functions that call, tail-call or load the address of each function (not itself)."""
+
+        out = defaultdict(set)
+        for f in functions:
+            for _, target in f.references():
+                if target in by and target != f.address:
+                    out[target].add(f.address)
+        return out
+
+    def agreeing_callers(self, pair: Pair) -> int:
+        """Paired functions that reference the pair on both sides."""
+
+        r_side = self.r_referrers.get(pair.r.address, set())
+        return sum(1 for c in self.p_referrers.get(pair.p.address, ())
+                   if c in self.pairs and self.pairs[c].r.address in r_side)
 
     # -- bookkeeping -------------------------------------------------------------
     def add(self, p, r, evidence: str) -> Pair | None:
@@ -294,12 +364,34 @@ class Matcher:
 
         ta = [token_p(t) for t in a]
         tb = [token_r(t) for t in b]
+
+        def one_sided(blocks) -> int:
+            gaps = 0
+            ia = ib = 0
+            for i, j, size in blocks:
+                open_a = any(ta[x][0] == "p" for x in range(ia, i))
+                open_b = any(b[y] not in self.r_paired and b[y] != ra for y in range(ib, j))
+                gaps += open_a != open_b
+                ia, ib = i + size, j + size
+            return gaps
+
+        plain = [(x.a, x.b, x.size) for x in SequenceMatcher(None, ta, tb, autojunk=False).get_matching_blocks()]
+        unique = patience_blocks(ta, tb)
+        # the alignment that leaves fewer one-sided gaps (an open target with nothing opposite),
+        # then the one that matches more targets
+        chosen = min((plain, unique), key=lambda blocks: (one_sided(blocks), -sum(x[2] for x in blocks)))
         out = []
         ia = ib = 0
-        for block in SequenceMatcher(None, ta, tb, autojunk=False).get_matching_blocks():
-            gap_a = list(range(ia, block.a))
-            gap_b = list(range(ib, block.b))
-            if gap_a and gap_b:
+        for block in chosen:
+            gap_a = list(range(ia, block[0]))
+            gap_b = list(range(ib, block[1]))
+            open_a = [x for x in gap_a if ta[x][0] == "p"]
+            open_b = [y for y in gap_b if b[y] not in self.r_paired and b[y] != ra]
+            if len({a[x] for x in open_a}) == 1 and len({b[y] for y in open_b}) == 1:
+                # one unpaired target on each side between the same two anchors: a 1-to-1 slot
+                out.append((a[open_a[0]], b[open_b[0]]))
+                self._slot_refs.add((a[open_a[0]], b[open_b[0]]))
+            elif gap_a and gap_b:
                 # between anchors: map the unpaired targets that resemble each other, in order
                 # (also for runs of equal length: a changed caller may call other functions)
                 candidates = []
@@ -314,8 +406,8 @@ class Matcher:
                             candidates.append((i, j, weight))
                 for i, j, _ in weighted_monotone_matching(candidates):
                     out.append((a[gap_a[i]], b[gap_b[j]]))
-            out.extend((a[block.a + k], b[block.b + k]) for k in range(block.size))
-            ia, ib = block.a + block.size, block.b + block.size
+            out.extend((a[block[0] + k], b[block[1] + k]) for k in range(block[2]))
+            ia, ib = block[0] + block[2], block[1] + block[2]
         return out
 
     def callee_resemblance(self, pa: int, ra: int) -> float:
@@ -379,7 +471,18 @@ class Matcher:
                     if len(open_copies) > 1:
                         continue  # several equal copies still open: position decides, not a changed caller
                 exact_voter = any(self.pairs[v].p.key == self.pairs[v].r.key for v in voters if v in self.pairs)
-                pair = self.add(self.p_by[tp], self.r_by[tr], "call" if exact_voter else "call-deviating")
+                if (tp, tr) in self._slot_refs and not exact_voter and self.callee_resemblance(tp, tr) == 0:
+                    small, large = sorted((p_fn.size, r_fn.size))
+                    if small / large < SLOT_SIZE_RATIO or not self.in_window(p_fn, r_fn):
+                        self.stats["slot-rejected-shape-or-order"] += 1
+                        continue
+                    if not self.slot_plausible(p_fn, r_fn):
+                        self.stats["slot-rejected-callers"] += 1
+                        continue
+                    evidence = "slot-only"  # only the 1-to-1 place in a caller's references
+                else:
+                    evidence = "call" if exact_voter else "call-deviating"
+                pair = self.add(self.p_by[tp], self.r_by[tr], evidence)
                 if pair:
                     added += 1
             added_total += added
@@ -480,7 +583,9 @@ class Matcher:
         if large and small / large < SIZE_RATIO_MIN:
             return None
         if jaccard(p.grams, r.grams) < GRAM_PREFILTER:
-            return None
+            # a small function's 3-grams say little: a high operation similarity may stand in
+            if max(p.size, r.size) > SMALL_FUNCTION or similarity(p.ops, r.ops) < SMALL_OPERATIONS:
+                return None
         value = similarity(p.masked, r.masked)
         if p.strings and r.strings:
             value = max(value, 0.5 * value + 0.5 * jaccard(p.strings, r.strings))
@@ -610,6 +715,54 @@ class Matcher:
                 pair.flags.add("ambiguous")
         return added
 
+    # -- 4d. one-to-one slots ------------------------------------------------------------
+    def slot_plausible(self, p, r) -> bool:
+        """A slot pair must not contradict its callers: paired callers on both sides lie together."""
+
+        p_callers = self.p_callers.get(p.address, set())
+        r_callers = self.r_callers.get(r.address, set())
+        mapped = [self.r_paired[c] for c in r_callers if c in self.r_paired]
+        if not p_callers or not mapped:
+            return True
+        return any(abs(m - c) <= SLOT_CALLER_DISTANCE for m in mapped for c in p_callers)
+
+    def in_window(self, p, r) -> bool:
+        """The release function lies between the release partners of the prototype function's anchors."""
+
+        anchors = self._anchor_cache
+        if anchors is None or anchors[0] != len(self.pairs):
+            current = self.anchors()
+            anchors = (len(self.pairs), [self.p_index[a.p.address] for a in current],
+                       [self.r_index[a.r.address] for a in current])
+            self._anchor_cache = anchors
+        lo, hi = self._window(anchors[1], anchors[2], self.p_index[p.address])
+        return lo < self.r_index[r.address] < hi
+
+    def address_slots(self) -> int:
+        """Pair the single unpaired function on each side between two consecutive order anchors."""
+
+        anchors = self.anchors()
+        cuts = [(self.p_index[a.p.address], self.r_index[a.r.address]) for a in anchors]
+        added = 0
+        for (p0, r0), (p1, r1) in zip(cuts, cuts[1:]):
+            ps = [f for f in self.P[p0 + 1:p1] if f.address not in self.pairs]
+            rs = [f for f in self.R[r0 + 1:r1] if f.address not in self.r_paired]
+            if len(ps) != 1 or len(rs) != 1:
+                continue
+            p, r = ps[0], rs[0]
+            if p.address in self.blocked_p or r.address in self.blocked_r:
+                continue
+            small, large = sorted((p.size, r.size))
+            if small / large < SLOT_SIZE_RATIO or similarity(p.ops, r.ops) < SLOT_OPERATIONS:
+                self.stats["slot-rejected-shape"] += 1
+                continue
+            if not self.slot_plausible(p, r):
+                self.stats["slot-rejected-callers"] += 1
+                continue
+            if self.add(p, r, "slot-only"):
+                added += 1
+        return added
+
     # -- 4b. strings anywhere ---------------------------------------------------------
     def by_strings(self) -> int:
         """Pairs from strings and (file, line) tokens that exactly one function on each side uses.
@@ -711,7 +864,14 @@ class Matcher:
 
     # -- 5. classes -----------------------------------------------------------------------
     def classify(self) -> None:
-        order = {a.p.address for a in self.anchors()}
+        anchors = self.anchors()
+        order = {a.p.address for a in anchors}
+        # pairs alone between their two neighbouring anchors on both sides (a 1-to-1 slot)
+        alone = set()
+        for before, pair, after in zip(anchors, anchors[1:], anchors[2:]):
+            if (self.p_index[after.p.address] - self.p_index[before.p.address] == 2
+                    and self.r_index[after.r.address] - self.r_index[before.r.address] == 2):
+                alone.add(pair.p.address)
         for pair in self.pairs.values():
             flags = pair.flags
             in_order = pair.p.address in order
@@ -740,17 +900,21 @@ class Matcher:
             if pair.p.size == pair.r.size and pair.shape_similarity == 1.0:
                 flags.add("imm-only")
             strong = bool(pair.evidence & {"call", "entry", "string"})
-            called = bool(pair.evidence & {"call", "call-deviating"}) or pair.call_sites > 0
+            agreeing = self.agreeing_callers(pair)
+            called = bool(pair.evidence & {"call", "call-deviating"}) or pair.call_sites > 0 or agreeing > 0
             if pair.call_conflicts:
                 # calls of a changed function lead elsewhere: callees replaced, not a contradiction
                 flags.add("callee-changed")
             if "ambiguous" in flags:
                 pair.cls = "unsure"
+            elif "slot-only" in pair.evidence:
+                pair.cls = "deviating"  # only the 1-to-1 place: weak, and said so by its evidence
             elif pair.similarity >= DEVIATING_MIN or "imm-only" in flags:
                 pair.cls = "deviating"
             elif strong and (pair.similarity >= STRONG_SIMILARITY or pair.operation_similarity >= STRONG_OPERATIONS):
                 pair.cls = "deviating"
-            elif called and in_order and pair.operation_similarity >= CALL_SLOT_OPERATIONS:
+            elif called and in_order and (pair.operation_similarity >= CALL_SLOT_OPERATIONS
+                                          or pair.p.address in alone or agreeing >= 2):
                 # referenced at the place of the prototype function by a paired caller, in its slot
                 pair.cls = "deviating"
                 flags.add("call-and-slot")
@@ -759,6 +923,10 @@ class Matcher:
                 # the prototype's name may not carry over
                 pair.cls = "deviating"
                 flags.add("role-only")
+            elif in_order and pair.p.address in alone:
+                # alone between its two neighbouring anchors on both sides: the 1-to-1 slot is the evidence
+                pair.cls = "deviating"
+                pair.evidence.add("slot-only")
             else:
                 pair.cls = "unsure"
                 flags.add("low-similarity")
@@ -783,6 +951,12 @@ class Matcher:
         added = self.global_leftovers()
         self.stats["global"] = added
         if added:
+            self.propagate()
+        for _ in range(4):
+            added = self.address_slots()
+            self.stats["address-slots"] += added
+            if not added:
+                break
             self.propagate()
         for _ in range(4):
             repaired = self.repair_from_exact_calls()

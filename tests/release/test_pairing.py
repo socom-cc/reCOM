@@ -116,7 +116,8 @@ def test_positional_pair_class_follows_similarity(changes, expected):
     if changes >= 40:
         changed = [frame()] + [lw(V0, 4 * k, A0) for k in range(37)] + [JR_RA, unframe()]
     proto = [body(1), original, body(2)]
-    release = [body(1), changed, body(2)]
+    # a second, unrelated release function in the gap: no 1-to-1 slot, the similarity decides
+    release = [body(1), changed, [frame()] + [lw(V0, 4 * k, A1) for k in range(9)] + [JR_RA, unframe()], body(2)]
     m, ps, rs = match(proto, release)
     if expected == "new":
         assert ps[1] not in m.pairs and rs[1] not in m.r_paired
