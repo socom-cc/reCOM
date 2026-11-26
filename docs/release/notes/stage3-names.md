@@ -24,6 +24,7 @@ Layouts were compared by size, not member by member. The types stay linked to th
 | whole map, batch 1 | 700f6398... | 466 | 79 | 447 | 227 | 466 | stopped at 0x15a600; saved, confirmed (1,219 rows) |
 | whole map, batch 2 | e53b253f... | 900 | 34 | 826 | 468 | 900 | full batch, no stop, no side effect; check clean; saved, confirmed (2,228 rows) |
 | whole map, batch 3 | e53b253f... | 2,500 | 138 | 2,335 | 2,327 | 2,500 | full batch, no stop, no side effect; check clean; saved, confirmed (7,300 rows) |
+| whole map, batch 4 | e53b253f... | 2,000 | 128 | 1,822 | 1,765 | 2,000 | full batch, no stop, no side effect; check clean; saved, confirmed (5,715 rows) |
 
 Batch 2 rewrote the plates of the two thunks of batch 1 (0x1405c0, 0x1405d0), which now name
 their targets; those two rows were replaced, not added.
