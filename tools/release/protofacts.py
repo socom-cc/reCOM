@@ -95,6 +95,35 @@ def apply_source_graph(functions: dict[int, ProtoFunction], database: Path) -> b
     return True
 
 
+DATA_ANNOTATION = re.compile(r"@socom-artifact (defines|emits) (\S+) socom:data:0x([0-9a-f]+)")
+
+
+def data_annotations(root: Path) -> dict[int, str]:
+    """Prototype data address -> the repo-relative source file whose annotation defines it.
+
+    The same rule as for functions: a definition outranks an emission, otherwise the
+    first file in path order.
+    """
+
+    source = root / "src"
+    out: dict[int, tuple[str, str]] = {}
+    if not source.is_dir():
+        return {}
+    for path in sorted(source.rglob("*"), key=lambda p: p.as_posix()):
+        if not path.is_file() or path.suffix not in SOURCE_SUFFIXES:
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        if "socom:data:" not in text:
+            continue
+        relative = path.relative_to(root).as_posix()
+        for match in DATA_ANNOTATION.finditer(text):
+            address = int(match.group(3), 16)
+            held = out.get(address)
+            if held is None or (held[1] == "emits" and match.group(1) == "defines"):
+                out[address] = (relative, match.group(1))
+    return {address: owner for address, (owner, _) in out.items()}
+
+
 def apply_annotations(functions: dict[int, ProtoFunction], root: Path) -> int:
     source = root / "src"
     count = 0

@@ -408,6 +408,77 @@ python tools/release/starts.py --confirm-saved build/release/starts/plan-starts.
   (what Function Start Search gave the new function). Rows stay `unsaved <report>` until
   `--confirm-saved`.
 
+## Stage 3: globals (pairing)
+
+The step after signatures carries the prototype's global names and types into `SCUS_971.34`. Its
+first phase pairs the data objects of the two executables; nothing is applied in it:
+
+```powershell
+python tools/release/datapair.py              # writes data-map.tsv, DATA.md, build/release/data-map.json
+python tools/release/datapair.py --out build/release/<scratch>   # the same files under a scratch folder
+```
+
+- **The record**: `docs/release/data-map.tsv` (one row per prototype data object and per release
+  data address that code references and no pair covers: release address and size, prototype
+  address, size, symbol and section, the release section, class, evidence kinds with their witness
+  counts, independent witnesses, flags, owner file) and `docs/release/DATA.md` (counts by class,
+  section and module, coverage, the self-check, every witness conflict and contradiction, the
+  accesses outside a prototype size). Both are generated, deterministic and never edited by hand;
+  `build/release/data-map.json` holds every witness. The report is a file of its own so that
+  `compare.py` keeps writing the same function files; rerun `datapair.py` after every `compare.py`
+  run, since it reads `function-map.tsv`. It reads both executables, the function map and the
+  `@socom-artifact ... socom:data:` annotations under `src/`; nothing from Ghidra.
+- **Objects**: the prototype's OBJECT and NOTYPE symbols outside the map's functions, aliases at one
+  address grouped (the largest size kept; VU microcode labels dropped), plus an anonymous object at
+  every address the prototype's code reaches that no symbol holds. An address inside an object pairs
+  that object and an offset, never a new object; an address equal to an object's end belongs to it
+  when no object starts there.
+- **Evidence** (`tools/release/dataflow.py` computes the addresses: a must-analysis of `lui`
+  high halves, their low halves, `$gp` offsets and register offsets over each function's own flow;
+  on the prototype it agrees with the relocation symbol on 28,911 of 28,914 checkable uses):
+  `operand-exact` (the same use at the same position of an exact function pair), `operand-aligned`
+  (a deviating pair where the use and every instruction that built its address align: blocks of at
+  least four equal masked words that occur once in each function, equal-length stretches of equal
+  shapes between two such blocks, or the whole function of an `imm-only` pair), `vtable` and
+  `named-table` (the function comparison's table pairs), `pointer` (the relocated word at offset k of
+  a paired object whose bytes agree up to k+4, pointer words masked and function pointers mapped),
+  `content` (bytes found once in each image's data at the prototype's alignment; pointer words
+  mapped through the pairs first), `order` (between two paired neighbours of one section at the same
+  distance on both sides). One function pair, one paired object or one table is one witness. The
+  release `$gp` (0x494670) is what the entry function moves into `$gp`.
+- **Decision by tier, not by votes**: tier 0 unique content (8 bytes or more, or a C string) of a
+  literal (`@N`), 1 `operand-exact` and tables, 2 such content of other objects and `pointer`, 3
+  `operand-aligned` and shorter content, 4 `order`. The strongest tier with witnesses decides: the
+  release start is the release address minus the offset of its witnesses with the smallest offset;
+  if those disagree the object is `unsure`, `witness-conflict`. Two objects claiming one release start
+  keep it only for the one of the strongest tier when it is alone there (`release-shared`). A weaker
+  witness that disagrees does not vote: one that points before the start or past the next paired
+  release object (or takes the start's address elsewhere) is listed (`contradicted`); one inside the
+  object is a field at another offset (`offset-changed`, `offset-outside` past the prototype size).
+  Literals rank content first because the release's `GetCommandName` is byte-identical but returns
+  the previous string at every case after an inserted enum entry.
+- **Classes**: `exact` (same size and the same bytes once pointer words are masked; `.bss` counts as
+  zeros; the size is the same when the next prototype object is paired at the same distance, the
+  next paired release object starts where the prototype size ends, or a C string's bytes are equal),
+  `deviating` (paired, with a difference or a size the evidence only bounds: `size-unconfirmed`,
+  `size-changed`, `content-changed`, `pointer-changed`, `offset-changed`, `offset-outside`,
+  `section-changed`), `unsure` (a conflict, or a pair on order alone without equal non-zero bytes),
+  `new` (a release address code uses that no paired object covers; a field of a new object is a row
+  of its own), `removed` (`refs-removed`: only removed functions use it; `refs-unaligned`: paired
+  functions use it, not at an aligned place; `unreached`). `identical-copy` marks bytes that occur
+  more than once, so content could not decide. Release sizes are `N` when confirmed, else
+  `lower..upper`: the furthest release access and the room before the next paired release object.
+- **Check** (a second agent that did not change the tool): the self-check in `DATA.md` (every vtable
+  and named-table pair against the pairing made without them; an inner table whose offset moved is a
+  layout finding); a sample across classes and evidence kinds against both images: the bytes at both
+  addresses, and for a code witness the instructions that build the address in both functions; the
+  witness conflicts and contradictions read one by one (an enum shift, a deviating function whose
+  repeated code aligned wrongly, a release that shares one object between units); `offset-outside`
+  and `size-changed` rows against the release code that uses them. The checker's results go into
+  the module note that uses the pairs.
+- **Not done here**: types (the apply's plan reads them from `socom.elf`, as `signatures.py` does), and
+  the apply itself, which needs its own section, review and the user's go-ahead.
+
 ## Source
 
 - `src/` stays the single game source and the port lane's rules in `AGENTS.md` hold: assembly
