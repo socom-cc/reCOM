@@ -138,3 +138,49 @@ A dry run for both groups sends nothing, and a names plan made afterwards sends 
 
 Not applied: the group `mangled` (79 prototypes derived from the mangled symbol), which waits for
 a review, and what placeholder types would add to it, which waits for the user's decision.
+
+## Prototypes derived from the mangled symbol
+
+Decided by the user on 2026-11-27: close the gap of the functions whose prototype counterpart has
+no signature with the evidence the ELF holds. Their Metrowerks symbols carry the class and every
+parameter type. `tools/release/mwmangle.py` (a port of the prototype tools' demangler; all 6,844
+mangled function symbols of the prototype ELF parse and mangle back, and an independent demangler
+the reviewer wrote agrees on every one) and `tools/release/mangledsig.py` derive a prototype for
+the group `mangled` of the signatures tool. Tool by `socom-release-mangle-m1`, review by
+`socom-release-mangled-review-r4`.
+
+What is derived: the parameter types from the name; `this` from ordered evidence (constructor or
+destructor, const member, a slot in a vtable, free function, a namespace known as one, and last
+the code reading the register after the declared ones); a return type only for constructors,
+destructors, conversion operators and vtable-slot overrides that agree; otherwise `undefined`. Each
+plate says the signature is derived, by which evidence, and where the receiver rests on the code
+alone.
+
+The first review said do not apply, and was right. A function that returns a structure takes a
+hidden pointer to the return buffer in a0, which moves `this` and every argument by one; the rules
+that decide from the name never looked at the code, and nine of the 79 entries planned then were
+wrong. The author's agreement check could not show it: the prototype program has no
+structure-returning function with a signature (29 of the 30 that DWARF knows were left unsigned,
+which is how they came into this group). A class passed by value can also travel by address. Since
+the fix an entry is withheld, under every rule, when the release code reads an argument register
+beyond the predicted ones, when the counterpart's DWARF record returns a class by value, when a
+function other than a constructor or destructor returns its entry a0, when a named type by value
+is not proven an enum, and when the first access through a0 is a store. The second review read
+all 61 remaining entries against the release code and their callers (no caller passes a stack
+buffer in a0 or sets a register beyond the predicted ones) and would withhold none.
+
+Applied in five batches (1, 4, 10, 20, 26), a snapshot after every write, each checked with the
+reviewer's script (the signature line, parameters and storage, the plate clause, no `in_aN` left
+in the decompiler) before its save: 61 prototypes and 61 plates, 35 on exact pairs and 26 on
+deviating ones, no stop, no change a run did not make. In the decompiler `CBBox::GetIntersect`
+went from no member access to 14 and `CSnd::CalcVolPan` from 3 raw offsets to 5 member accesses.
+The record marks these values `[derived from the mangled symbol]`.
+
+Why only 61 of 2,215: 1,311 are withheld for a receiver class and 715 for a parameter type that
+exists in neither program or whose name the endpoint's parser cannot read (a comma in a template
+name), 168 because `this` is undecided, 131 for a possible hidden argument. Empty placeholder
+types for 284 of the missing names would bring the group to about 865; a plan and a tool for them
+exist (`tools/release/placeholders.py`), not used: the user has not decided, and the reviewer
+found one more defect in its apply path. Left open by the review: a function that returns a class,
+has no DWARF record, never returns a0 and reads nothing beyond the predicted registers would pass
+the rules; for these 61 the callers were read by hand.
