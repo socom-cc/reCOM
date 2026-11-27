@@ -96,3 +96,26 @@ anyone set, and the written functions that were probed have no stored local at a
 | 7 | deviating | 500 | 500 | full batch, no stop, no change the run did not make; check clean; saved, confirmed |
 | 8 | deviating | 500 | 500 | full batch, no stop, no change the run did not make; check clean; saved, confirmed |
 | 9 | deviating | 503 | 503 | full batch, no stop, no change the run did not make (the end of the plan); check clean; saved, confirmed |
+
+The pass is complete (2026-11-26): a dry run of the plan for both groups sends nothing, and a
+plan of the names step made afterwards sends nothing either. The record holds 4,522 rows of the
+kind `prototype` (2,485 exact pairs, 2,037 deviating pairs with their plate flag), 29,702 rows in
+all, every one saved. No run stopped, no analysis answered a write, and no function's signature,
+name or body changed that a run did not write; 22 thunks follow their targets as predicted.
+
+## What is left without a signature
+
+Of the 6,991 functions of the game and engine modules, 4,118 have a signature now. The others:
+
+- 2,215 pair with a prototype function whose signature is still Ghidra's default (about three
+  in four of them exact pairs), `gamez/zUI` most of all (390 of its 530). A first look at them: their
+  mangled symbols carry the class and every parameter type, for example
+  `PrepModels__9CGameMenuFRC14CGameDlgDesign`; the return type and whether a member is static
+  are not in the name. Nothing was derived from the symbols in this pass.
+- 481 are new in the release and have no counterpart.
+- 177 are withheld (no Ghidra function at the map start, a differing body, a flagged pair, a
+  missing type).
+
+No module has a signature on every function. `gamez/zArchive`, `gamez/zGraph` and
+`gamez/zConsole` had everything that could be carried before the deviating group; every module
+has it now.
