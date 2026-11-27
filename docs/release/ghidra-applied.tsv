@@ -25509,12 +25509,20 @@ release_address	applied	value	source_pair	date	state
 0x3b2ac0	disassemble	0x3b2ac0-0x3b2ac7	0x394a50 @128@UpdateUIVar__10CUIListBoxFP11CUIVariable (exact)	2026-11-27	saved 2026-11-27
 0x3b2ad0	create	0x3b2ad0-0x3b2ad7	0x394a60 @128@__dt__10CUIListBoxFv (exact)	2026-11-27	saved 2026-11-27
 0x3b2ad0	disassemble	0x3b2ad0-0x3b2ad7	0x394a60 @128@__dt__10CUIListBoxFv (exact)	2026-11-27	saved 2026-11-27
+0x3b2ae0	create	0x3b2ae0-0x3b2ae7	0x394a70 @1040@UpdateUIVar__10CSliderBarFP11CUIVariable (exact)	2026-11-27	saved 2026-11-27
+0x3b2ae0	disassemble	0x3b2ae0-0x3b2ae7	0x394a70 @1040@UpdateUIVar__10CSliderBarFP11CUIVariable (exact)	2026-11-27	saved 2026-11-27
 0x3b2af0	create	0x3b2af0-0x3b2af7	0x394a80 @1040@__dt__10CSliderBarFv (exact)	2026-11-27	saved 2026-11-27
 0x3b2af0	disassemble	0x3b2af0-0x3b2af7	0x394a80 @1040@__dt__10CSliderBarFv (exact)	2026-11-27	saved 2026-11-27
+0x3b2b00	create	0x3b2b00-0x3b2b07	0x394a90 @128@UpdateUIVar__13CHProgressBarFP11CUIVariable (exact)	2026-11-27	saved 2026-11-27
+0x3b2b00	disassemble	0x3b2b00-0x3b2b07	0x394a90 @128@UpdateUIVar__13CHProgressBarFP11CUIVariable (exact)	2026-11-27	saved 2026-11-27
 0x3b2b10	create	0x3b2b10-0x3b2b17	0x394aa0 @128@__dt__13CHProgressBarFv (exact)	2026-11-27	saved 2026-11-27
 0x3b2b10	disassemble	0x3b2b10-0x3b2b17	0x394aa0 @128@__dt__13CHProgressBarFv (exact)	2026-11-27	saved 2026-11-27
+0x3b2b20	create	0x3b2b20-0x3b2b27	0x394ab0 @1040@UpdateUIVar__9CCheckBoxFP11CUIVariable (exact)	2026-11-27	saved 2026-11-27
+0x3b2b20	disassemble	0x3b2b20-0x3b2b27	0x394ab0 @1040@UpdateUIVar__9CCheckBoxFP11CUIVariable (exact)	2026-11-27	saved 2026-11-27
 0x3b2b30	create	0x3b2b30-0x3b2b37	0x394ac0 @1040@__dt__9CCheckBoxFv (exact)	2026-11-27	saved 2026-11-27
 0x3b2b30	disassemble	0x3b2b30-0x3b2b37	0x394ac0 @1040@__dt__9CCheckBoxFv (exact)	2026-11-27	saved 2026-11-27
+0x3b2b40	create	0x3b2b40-0x3b2b47	0x394ad0 @128@UpdateUIVar__9CPlainBmpFP11CUIVariable (exact)	2026-11-27	saved 2026-11-27
+0x3b2b40	disassemble	0x3b2b40-0x3b2b47	0x394ad0 @128@UpdateUIVar__9CPlainBmpFP11CUIVariable (exact)	2026-11-27	saved 2026-11-27
 0x3b2b50	create	0x3b2b50-0x3b2b57	0x394ae0 @128@__dt__12CPopUpDialogFv (exact)	2026-11-27	saved 2026-11-27
 0x3b2b50	disassemble	0x3b2b50-0x3b2b57	0x394ae0 @128@__dt__12CPopUpDialogFv (exact)	2026-11-27	saved 2026-11-27
 0x3b2b60	create	0x3b2b60-0x3b2b67	0x394af0 @136@__dt__11CScrollTextFv (deviating)	2026-11-27	saved 2026-11-27
@@ -26392,6 +26400,7 @@ release_address	applied	value	source_pair	date	state
 0x3c9bf8	plate	Release map: exact pair with prototype 0x3aa798 IsT10K (evidence exact; flags -). // Owner -.	0x3aa798 IsT10K (exact)	2026-11-26	saved 2026-11-26
 0x3c9c38	name	sceScfGetLanguage	0x3aa7d8 sceScfGetLanguage (exact)	2026-11-26	saved 2026-11-26
 0x3c9c38	plate	Release map: exact pair with prototype 0x3aa7d8 sceScfGetLanguage (evidence exact; flags -). // Owner -.	0x3aa7d8 sceScfGetLanguage (exact)	2026-11-26	saved 2026-11-26
+0x3c9c98	create	0x3c9c98-0x3c9cb3	0x3aa838 sceScfSetT10kConfig (exact)	2026-11-27	saved 2026-11-27
 0x3c9c98	disassemble	0x3c9c98-0x3c9cb3	0x3aa838 sceScfSetT10kConfig (exact)	2026-11-27	saved 2026-11-27
 0x3c9cb8	name	sceScfGetAspect	0x3aa858 sceScfGetAspect (exact)	2026-11-26	saved 2026-11-26
 0x3c9cb8	plate	Release map: exact pair with prototype 0x3aa858 sceScfGetAspect (evidence exact; flags -). // Owner -.	0x3aa858 sceScfGetAspect (exact)	2026-11-26	saved 2026-11-26
@@ -26430,11 +26439,25 @@ release_address	applied	value	source_pair	date	state
 0x3ca198	name	AdjustTime	0x3aad38 AdjustTime (exact)	2026-11-26	saved 2026-11-26
 0x3ca198	plate	Release map: exact pair with prototype 0x3aad38 AdjustTime (evidence exact; flags -). // Owner -.	0x3aad38 AdjustTime (exact)	2026-11-26	saved 2026-11-26
 0x3ca198	prototype	void __stdcall AdjustTime(sceCdCLOCK * clock, int minutes) [storage clock=a0_lo:4, minutes=a1_lo:4]	0x3aad38 AdjustTime (exact)	2026-11-26	saved 2026-11-26
+0x3ca228	create	0x3ca228-0x3ca22f	0x3aadc8 sceScfGetGMTfromRTC (exact)	2026-11-27	saved 2026-11-27
+0x3ca228	disassemble	0x3ca228-0x3ca22f	0x3aadc8 sceScfGetGMTfromRTC (exact)	2026-11-27	saved 2026-11-27
 0x3ca230	name	sceScfGetLocalTimefromRTC	0x3aadd0 sceScfGetLocalTimefromRTC (exact)	2026-11-26	saved 2026-11-26
 0x3ca230	plate	Release map: exact pair with prototype 0x3aadd0 sceScfGetLocalTimefromRTC (evidence exact; flags -). // Owner -.	0x3aadd0 sceScfGetLocalTimefromRTC (exact)	2026-11-26	saved 2026-11-26
 0x3ca230	prototype	void __stdcall sceScfGetLocalTimefromRTC(sceCdCLOCK * rtc) [storage rtc=a0_lo:4]	0x3aadd0 sceScfGetLocalTimefromRTC (exact)	2026-11-26	saved 2026-11-26
 0x3ca278	name	RegisterPackets	0x3aae18 RegisterPackets (deviating)	2026-11-27	saved 2026-11-27
 0x3ca278	plate	Release map: deviating pair with prototype 0x3aae18 RegisterPackets (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3aae18 RegisterPackets (deviating)	2026-11-27	saved 2026-11-27
+0x3cf240	create	0x3cf240-0x3cf247	0x3afcf8 WriteAccessGranted (exact)	2026-11-27	saved 2026-11-27
+0x3cf240	disassemble	0x3cf240-0x3cf247	0x3afcf8 WriteAccessGranted (exact)	2026-11-27	saved 2026-11-27
+0x3cf248	create	0x3cf248-0x3cf24f	0x3afd00 RemoteClientJoinsCallback (exact)	2026-11-27	saved 2026-11-27
+0x3cf248	disassemble	0x3cf248-0x3cf24f	0x3afd00 RemoteClientJoinsCallback (exact)	2026-11-27	saved 2026-11-27
+0x3cf250	create	0x3cf250-0x3cf257	0x3afd08 RemoteClientLeavesCallback (exact)	2026-11-27	saved 2026-11-27
+0x3cf250	disassemble	0x3cf250-0x3cf257	0x3afd08 RemoteClientLeavesCallback (exact)	2026-11-27	saved 2026-11-27
+0x3cf258	create	0x3cf258-0x3cf25f	0x3afd10 RemoteObjectCreationCallback (exact)	2026-11-27	saved 2026-11-27
+0x3cf258	disassemble	0x3cf258-0x3cf25f	0x3afd10 RemoteObjectCreationCallback (exact)	2026-11-27	saved 2026-11-27
+0x3cf260	create	0x3cf260-0x3cf267	0x3afd18 RemoteObjectUpdateCallback (exact)	2026-11-27	saved 2026-11-27
+0x3cf260	disassemble	0x3cf260-0x3cf267	0x3afd18 RemoteObjectUpdateCallback (exact)	2026-11-27	saved 2026-11-27
+0x3cf268	create	0x3cf268-0x3cf26f	0x3afd20 RemoteObjectDeletionCallback (exact)	2026-11-27	saved 2026-11-27
+0x3cf268	disassemble	0x3cf268-0x3cf26f	0x3afd20 RemoteObjectDeletionCallback (exact)	2026-11-27	saved 2026-11-27
 0x3cf270	name	MediusUniqueCallbackErrorMessageHandler	0x3afd28 MediusUniqueCallbackErrorMessageHandler (exact)	2026-11-26	saved 2026-11-26
 0x3cf270	plate	Release map: exact pair with prototype 0x3afd28 MediusUniqueCallbackErrorMessageHandler (evidence exact; flags -). // Owner -.	0x3afd28 MediusUniqueCallbackErrorMessageHandler (exact)	2026-11-26	saved 2026-11-26
 0x3cf2a0	create	0x3cf2a0-0x3cf2a7	0x3afd58 MediusUniqueCallbackWorldReportHandler (exact)	2026-11-26	saved 2026-11-26
@@ -26572,6 +26595,10 @@ release_address	applied	value	source_pair	date	state
 0x3cf880	plate	Release map: exact pair with prototype 0x3b0334 MediusUniqueCallbackFindPlayerRequestHandler (evidence exact; flags -). // Owner -.	0x3b0334 MediusUniqueCallbackFindPlayerRequestHandler (exact)	2026-11-26	saved 2026-11-26
 0x3cf888	name	MediusUniqueCallbackFindPlayerResponseHandler	0x3b033c MediusUniqueCallbackFindPlayerResponseHandler (exact)	2026-11-26	saved 2026-11-26
 0x3cf888	plate	Release map: exact pair with prototype 0x3b033c MediusUniqueCallbackFindPlayerResponseHandler (evidence exact-position; flags -). // Owner -.	0x3b033c MediusUniqueCallbackFindPlayerResponseHandler (exact)	2026-11-26	saved 2026-11-26
+0x3cf8b8	create	0x3cf8b8-0x3cf8bf	0x3b036c MediusUniqueCallbackUpdateGameRequestHandler (exact)	2026-11-27	saved 2026-11-27
+0x3cf8b8	disassemble	0x3cf8b8-0x3cf8bf	0x3b036c MediusUniqueCallbackUpdateGameRequestHandler (exact)	2026-11-27	saved 2026-11-27
+0x3cf8c0	create	0x3cf8c0-0x3cf8c7	0x3b0374 MediusUniqueCallbackUpdateGameResponseHandler (exact)	2026-11-27	saved 2026-11-27
+0x3cf8c0	disassemble	0x3cf8c0-0x3cf8c7	0x3b0374 MediusUniqueCallbackUpdateGameResponseHandler (exact)	2026-11-27	saved 2026-11-27
 0x3cf8c8	create	0x3cf8c8-0x3cf8cf	0x3b037c MediusUniqueCallbackChatMessageHandler (exact)	2026-11-26	saved 2026-11-26
 0x3cf8c8	name	MediusUniqueCallbackChatMessageHandler	0x3b037c MediusUniqueCallbackChatMessageHandler (exact)	2026-11-26	saved 2026-11-26
 0x3cf8c8	plate	Release map: exact pair with prototype 0x3b037c MediusUniqueCallbackChatMessageHandler (evidence exact; flags -). // Owner -.	0x3b037c MediusUniqueCallbackChatMessageHandler (exact)	2026-11-26	saved 2026-11-26
@@ -27035,6 +27062,12 @@ release_address	applied	value	source_pair	date	state
 0x3d410c	name	MediusGetGameListFilter	0x3b4c10 MediusGetGameListFilter (exact)	2026-11-26	saved 2026-11-26
 0x3d410c	plate	Release map: exact pair with prototype 0x3b4c10 MediusGetGameListFilter (evidence position; flags identical-copy). // Owner -.	0x3b4c10 MediusGetGameListFilter (exact)	2026-11-26	saved 2026-11-26
 0x3d41ac	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
+0x3d4248	create	0x3d4248-0x3d4273	0x3b4d4c MediusReassignCallbackChatFwdMessageCallback (exact)	2026-11-27	saved 2026-11-27
+0x3d4248	disassemble	0x3d4248-0x3d4273	0x3b4d4c MediusReassignCallbackChatFwdMessageCallback (exact)	2026-11-27	saved 2026-11-27
+0x3d4274	create	0x3d4274-0x3d429f	0x3b4d78 MediusReassignCallbackAddToBuddyListFwdConfirmationRequestCallback (exact)	2026-11-27	saved 2026-11-27
+0x3d4274	disassemble	0x3d4274-0x3d429f	0x3b4d78 MediusReassignCallbackAddToBuddyListFwdConfirmationRequestCallback (exact)	2026-11-27	saved 2026-11-27
+0x3d42a0	create	0x3d42a0-0x3d42cb	0x3b4da4 MediusReassignCallbackErrorMessageCallback (exact)	2026-11-27	saved 2026-11-27
+0x3d42a0	disassemble	0x3d42a0-0x3d42cb	0x3b4da4 MediusReassignCallbackErrorMessageCallback (exact)	2026-11-27	saved 2026-11-27
 0x3d42cc	name	MediusGetMyIP	0x3b4dd0 MediusGetMyIP (exact)	2026-11-26	saved 2026-11-26
 0x3d42cc	plate	Release map: exact pair with prototype 0x3b4dd0 MediusGetMyIP (evidence position; flags identical-copy). // Owner -.	0x3b4dd0 MediusGetMyIP (exact)	2026-11-26	saved 2026-11-26
 0x3d436c	name	MediusGetWorldSecurityLevel	0x3b4e70 MediusGetWorldSecurityLevel (exact)	2026-11-26	saved 2026-11-26
@@ -27056,6 +27089,8 @@ release_address	applied	value	source_pair	date	state
 0x3d4738	plate	Release map: exact pair with prototype 0x3b523c MediusLadderList (evidence exact; flags -). // Owner -.	0x3b523c MediusLadderList (exact)	2026-11-26	saved 2026-11-26
 0x3d47d8	name	MediusChatToggleFilter	0x3b52dc MediusChatToggleFilter (exact)	2026-11-26	saved 2026-11-26
 0x3d47d8	plate	Release map: exact pair with prototype 0x3b52dc MediusChatToggleFilter (evidence exact-position; flags -). // Owner -.	0x3b52dc MediusChatToggleFilter (exact)	2026-11-26	saved 2026-11-26
+0x3d4878	create	0x3d4878-0x3d4b97	0x3b537c MediusGetCallbackStatusString (exact)	2026-11-27	saved 2026-11-27
+0x3d4878	disassemble	0x3d4878-0x3d4b97	0x3b537c MediusGetCallbackStatusString (exact)	2026-11-27	saved 2026-11-27
 0x3d4ca4	name	MediusSetDefaultConnectInfo	0x3b57a8 MediusSetDefaultConnectInfo (deviating)	2026-11-27	saved 2026-11-27
 0x3d4ca4	plate	Release map: deviating pair with prototype 0x3b57a8 MediusSetDefaultConnectInfo (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3b57a8 MediusSetDefaultConnectInfo (deviating)	2026-11-27	saved 2026-11-27
 0x3d4d60	name	MediusGetTotalGames	0x3b583c MediusGetTotalGames (exact)	2026-11-26	saved 2026-11-26
@@ -27541,6 +27576,14 @@ release_address	applied	value	source_pair	date	state
 0x3e2f20	label	__dt__17CZClaymoreMapItemFv	0x3c2fd0 __dt__17CZClaymoreMapItemFv (exact)	2026-11-26	saved 2026-11-26
 0x3e2f20	plate	Release map: exact pair with prototype 0x3c2fd0 __dt__17CZClaymoreMapItemFv (evidence exact-position; flags -). // Owner src/Apps/FTS/hud/hud_claymoremapitem.cpp.	0x3c2fd0 __dt__17CZClaymoreMapItemFv (exact)	2026-11-26	saved 2026-11-26
 0x3e2f20	prototype	void * __stdcall CZClaymoreMapItem::~CZClaymoreMapItem(CZClaymoreMapItem * this, short __dtor_flags) [storage this=a0_lo:4, __dtor_flags=a1_lo:2]	0x3c2fd0 __dt__17CZClaymoreMapItemFv (exact)	2026-11-26	saved 2026-11-26
+0x3e2fd0	create	0x3e2fd0-0x3e2fd7	0x3c3080 PostDraw__9CZMapItemFPQ23zdb7CCamera (exact)	2026-11-27	saved 2026-11-27
+0x3e2fd0	disassemble	0x3e2fd0-0x3e2fd7	0x3c3080 PostDraw__9CZMapItemFPQ23zdb7CCamera (exact)	2026-11-27	saved 2026-11-27
+0x3e2fe0	create	0x3e2fe0-0x3e2fe7	0x3c3090 Clip__9CZMapItemFP11CZNewHudMap (exact)	2026-11-27	saved 2026-11-27
+0x3e2fe0	disassemble	0x3e2fe0-0x3e2fe7	0x3c3090 Clip__9CZMapItemFP11CZNewHudMap (exact)	2026-11-27	saved 2026-11-27
+0x3e2ff0	create	0x3e2ff0-0x3e3003	0x3c30a0 Draw__17CZClaymoreMapItemFPQ23zdb7CCamera (exact)	2026-11-27	saved 2026-11-27
+0x3e2ff0	disassemble	0x3e2ff0-0x3e3003	0x3c30a0 Draw__17CZClaymoreMapItemFPQ23zdb7CCamera (exact)	2026-11-27	saved 2026-11-27
+0x3e3010	create	0x3e3010-0x3e3303	0x3c30c0 Tick__17CZClaymoreMapItemFP11CZNewHudMapf (deviating)	2026-11-27	saved 2026-11-27
+0x3e3010	disassemble	0x3e3010-0x3e3303	0x3c30c0 Tick__17CZClaymoreMapItemFP11CZNewHudMapf (deviating)	2026-11-27	saved 2026-11-27
 0x3e3310	name	CZClaymoreMapItem::CZClaymoreMapItem	0x3c33c0 __ct__17CZClaymoreMapItemFP10CZSealBodyP12CZProjectile (exact)	2026-11-26	saved 2026-11-26
 0x3e3310	label	__ct__17CZClaymoreMapItemFP10CZSealBodyP12CZProjectile	0x3c33c0 __ct__17CZClaymoreMapItemFP10CZSealBodyP12CZProjectile (exact)	2026-11-26	saved 2026-11-26
 0x3e3310	plate	Release map: exact pair with prototype 0x3c33c0 __ct__17CZClaymoreMapItemFP10CZSealBodyP12CZProjectile (evidence exact; flags -). // Owner src/Apps/FTS/hud/hud_claymoremapitem.cpp.	0x3c33c0 __ct__17CZClaymoreMapItemFP10CZSealBodyP12CZProjectile (exact)	2026-11-26	saved 2026-11-26
@@ -27549,6 +27592,10 @@ release_address	applied	value	source_pair	date	state
 0x3e33a0	label	__dt__9CZMapItemFv	0x3c3450 __dt__9CZMapItemFv (exact)	2026-11-26	saved 2026-11-26
 0x3e33a0	plate	Release map: exact pair with prototype 0x3c3450 __dt__9CZMapItemFv (evidence exact-position; flags -). // Owner src/Apps/FTS/hud/hud_claymoremapitem.cpp.	0x3c3450 __dt__9CZMapItemFv (exact)	2026-11-26	saved 2026-11-26
 0x3e33a0	prototype	void * __stdcall CZMapItem::~CZMapItem(CZMapItem * this, short __dtor_flags) [storage this=a0_lo:4, __dtor_flags=a1_lo:2]	0x3c3450 __dt__9CZMapItemFv (exact)	2026-11-26	saved 2026-11-26
+0x3e33f0	create	0x3e33f0-0x3e33f7	0x3c34a0 Tick__9CZMapItemFP11CZNewHudMapf (exact)	2026-11-27	saved 2026-11-27
+0x3e33f0	disassemble	0x3e33f0-0x3e33f7	0x3c34a0 Tick__9CZMapItemFP11CZNewHudMapf (exact)	2026-11-27	saved 2026-11-27
+0x3e3400	create	0x3e3400-0x3e3407	0x3c34b0 Draw__9CZMapItemFPQ23zdb7CCamera (exact)	2026-11-27	saved 2026-11-27
+0x3e3400	disassemble	0x3e3400-0x3e3407	0x3c34b0 Draw__9CZMapItemFPQ23zdb7CCamera (exact)	2026-11-27	saved 2026-11-27
 0x3e3410	name	CZNewHudMap::FindMPBombItem	0x3c34c0 FindMPBombItem__11CZNewHudMapFv (exact)	2026-11-26	saved 2026-11-26
 0x3e3410	label	FindMPBombItem__11CZNewHudMapFv	0x3c34c0 FindMPBombItem__11CZNewHudMapFv (exact)	2026-11-26	saved 2026-11-26
 0x3e3410	plate	Release map: exact pair with prototype 0x3c34c0 FindMPBombItem__11CZNewHudMapFv (evidence exact; flags -). // Owner src/Apps/FTS/hud/hud_newhudmap.cpp.	0x3c34c0 FindMPBombItem__11CZNewHudMapFv (exact)	2026-11-26	saved 2026-11-26
@@ -27667,6 +27714,10 @@ release_address	applied	value	source_pair	date	state
 0x3e7450	label	__dt__15CZMPBombMapItemFv	0x3c6dc0 __dt__15CZMPBombMapItemFv (exact)	2026-11-26	saved 2026-11-26
 0x3e7450	plate	Release map: exact pair with prototype 0x3c6dc0 __dt__15CZMPBombMapItemFv (evidence exact-position; flags -). // Owner src/Apps/FTS/hud/hud_bombmapitem.cpp.	0x3c6dc0 __dt__15CZMPBombMapItemFv (exact)	2026-11-26	saved 2026-11-26
 0x3e7450	prototype	void * __stdcall CZMPBombMapItem::~CZMPBombMapItem(CZMPBombMapItem * this, short __dtor_flags) [storage this=a0_lo:4, __dtor_flags=a1_lo:2]	0x3c6dc0 __dt__15CZMPBombMapItemFv (exact)	2026-11-26	saved 2026-11-26
+0x3e7500	create	0x3e7500-0x3e7513	0x3c6e70 Draw__15CZMPBombMapItemFPQ23zdb7CCamera (exact)	2026-11-27	saved 2026-11-27
+0x3e7500	disassemble	0x3e7500-0x3e7513	0x3c6e70 Draw__15CZMPBombMapItemFPQ23zdb7CCamera (exact)	2026-11-27	saved 2026-11-27
+0x3e7520	create	0x3e7520-0x3e77f7	0x3c6e90 Tick__15CZMPBombMapItemFP11CZNewHudMapf (deviating)	2026-11-27	saved 2026-11-27
+0x3e7520	disassemble	0x3e7520-0x3e77f7	0x3c6e90 Tick__15CZMPBombMapItemFP11CZNewHudMapf (deviating)	2026-11-27	saved 2026-11-27
 0x3e7800	name	CZMPBombMapItem::CZMPBombMapItem	0x3c7170 __ct__15CZMPBombMapItemFPQ23zdb5CNode (exact)	2026-11-26	saved 2026-11-26
 0x3e7800	label	__ct__15CZMPBombMapItemFPQ23zdb5CNode	0x3c7170 __ct__15CZMPBombMapItemFPQ23zdb5CNode (exact)	2026-11-26	saved 2026-11-26
 0x3e7800	plate	Release map: exact pair with prototype 0x3c7170 __ct__15CZMPBombMapItemFPQ23zdb5CNode (evidence exact; flags -). // Owner src/Apps/FTS/hud/hud_bombmapitem.cpp.	0x3c7170 __ct__15CZMPBombMapItemFPQ23zdb5CNode (exact)	2026-11-26	saved 2026-11-26
@@ -27702,6 +27753,8 @@ release_address	applied	value	source_pair	date	state
 0x3e8f90	label	FindValid__Q225@unnamed@hud_linemap_cpp@12CAiLinePtItrFv	0x3c90f0 FindValid__Q225@unnamed@hud_linemap_cpp@12CAiLinePtItrFv (exact)	2026-11-26	saved 2026-11-26
 0x3e8f90	plate	Release map: exact pair with prototype 0x3c90f0 FindValid__Q225@unnamed@hud_linemap_cpp@12CAiLinePtItrFv (evidence exact; flags -). // Owner src/Apps/FTS/hud/hud_linemap.cpp.	0x3c90f0 FindValid__Q225@unnamed@hud_linemap_cpp@12CAiLinePtItrFv (exact)	2026-11-26	saved 2026-11-26
 0x3e8f90	prototype	void __stdcall @unnamed@hud_linemap_cpp@::CAiLinePtItr::FindValid(CAiLinePtItr * this) [storage this=a0_lo:4]	0x3c90f0 FindValid__Q225@unnamed@hud_linemap_cpp@12CAiLinePtItrFv (exact)	2026-11-26	saved 2026-11-26
+0x3e9060	create	0x3e9060-0x3e9083	0x3c91c0 IsValid__Q225@unnamed@hud_linemap_cpp@12CAiLinePtItrCFv (exact)	2026-11-27	saved 2026-11-27
+0x3e9060	disassemble	0x3e9060-0x3e9083	0x3c91c0 IsValid__Q225@unnamed@hud_linemap_cpp@12CAiLinePtItrCFv (exact)	2026-11-27	saved 2026-11-27
 0x3e9090	name	std::__tree<std::pair<int_const,LINE_DATA>,std::map<int,LINE_DATA,std::less<int>,std::allocator<std::pair<int_const,LINE_DATA>>>::value_compare,std::allocator<std::pair<int_const,LINE_DATA>>>::const_iterator::const_iterator	0x3c91f0 __ct__Q33std185__tree<Q23std19pair<Ci,9LINE_DATA>,Q33std79map<i,9LINE_DATA,Q23std7less<i>,Q23std38allocator<Q23std19pair<Ci,9LINE_DATA>>>13value_compare,Q23std38allocator<Q23std19pair<Ci,9LINE_DATA>>>14const_iteratorFPCQ33std185__tree<Q23std19pair<Ci,9LINE_DATA>,Q33std79map<i,9LINE_DATA,Q23std7less<i>,Q23std38allocator<Q23std19pair<Ci,9LINE_DATA>>>13value_compare,Q23std38allocator<Q23std19pair<Ci,9LINE_DATA>>>4node (exact)	2026-11-26	saved 2026-11-26
 0x3e9090	label	__ct__Q33std185__tree<Q23std19pair<Ci,9LINE_DATA>,Q33std79map<i,9LINE_DATA,Q23std7less<i>,Q23std38allocator<Q23std19pair<Ci,9LINE_DATA>>>13value_compare,Q23std38allocator<Q23std19pair<Ci,9LINE_DATA>>>14const_iteratorFPCQ33std185__tree<Q23std19pair<Ci,9LINE_DATA>,Q33std79map<i,9LINE_DATA,Q23std7less<i>,Q23std38allocator<Q23std19pair<Ci,9LINE_DATA>>>13value_compare,Q23std38allocator<Q23std19pair<Ci,9LINE_DATA>>>4node	0x3c91f0 __ct__Q33std185__tree<Q23std19pair<Ci,9LINE_DATA>,Q33std79map<i,9LINE_DATA,Q23std7less<i>,Q23std38allocator<Q23std19pair<Ci,9LINE_DATA>>>13value_compare,Q23std38allocator<Q23std19pair<Ci,9LINE_DATA>>>14const_iteratorFPCQ33std185__tree<Q23std19pair<Ci,9LINE_DATA>,Q33std79map<i,9LINE_DATA,Q23std7less<i>,Q23std38allocator<Q23std19pair<Ci,9LINE_DATA>>>13value_compare,Q23std38allocator<Q23std19pair<Ci,9LINE_DATA>>>4node (exact)	2026-11-26	saved 2026-11-26
 0x3e9090	plate	Release map: exact pair with prototype 0x3c91f0 __ct__Q33std185__tree<Q23std19pair<Ci,9LINE_DATA>,Q33std79map<i,9LINE_DATA,Q23std7less<i>,Q23std38allocator<Q23std19pair<Ci,9LINE_DATA>>>13value_compare,Q23std38allocator<Q23std19pair<Ci,9LINE_DATA>>>14const_iteratorFPCQ33std185__tree<Q23std19pair<Ci,9LINE_DATA>,Q33std79map<i,9LINE_DATA,Q23std7less<i>,Q23std38allocator<Q23std19pair<Ci,9LINE_DATA>>>13value_compare,Q23std38allocator<Q23std19pair<Ci,9LINE_DATA>>>4node (evidence exact-position; flags -). // Owner src/Apps/FTS/hud/hud_linemap.cpp.	0x3c91f0 __ct__Q33std185__tree<Q23std19pair<Ci,9LINE_DATA>,Q33std79map<i,9LINE_DATA,Q23std7less<i>,Q23std38allocator<Q23std19pair<Ci,9LINE_DATA>>>13value_compare,Q23std38allocator<Q23std19pair<Ci,9LINE_DATA>>>14const_iteratorFPCQ33std185__tree<Q23std19pair<Ci,9LINE_DATA>,Q33std79map<i,9LINE_DATA,Q23std7less<i>,Q23std38allocator<Q23std19pair<Ci,9LINE_DATA>>>13value_compare,Q23std38allocator<Q23std19pair<Ci,9LINE_DATA>>>4node (exact)	2026-11-26	saved 2026-11-26
@@ -27752,6 +27805,8 @@ release_address	applied	value	source_pair	date	state
 0x3eae80	label	Advance__Q225@unnamed@hud_linemap_cpp@12CAiLinePtItrFv	0x3cab20 Advance__Q225@unnamed@hud_linemap_cpp@12CAiLinePtItrFv (exact)	2026-11-26	saved 2026-11-26
 0x3eae80	plate	Release map: exact pair with prototype 0x3cab20 Advance__Q225@unnamed@hud_linemap_cpp@12CAiLinePtItrFv (evidence exact; flags -). // Owner src/Apps/FTS/hud/hud_linemap.cpp.	0x3cab20 Advance__Q225@unnamed@hud_linemap_cpp@12CAiLinePtItrFv (exact)	2026-11-26	saved 2026-11-26
 0x3eae80	prototype	void __stdcall @unnamed@hud_linemap_cpp@::CAiLinePtItr::Advance(CAiLinePtItr * this) [storage this=a0_lo:4]	0x3cab20 Advance__Q225@unnamed@hud_linemap_cpp@12CAiLinePtItrFv (exact)	2026-11-26	saved 2026-11-26
+0x3eaf40	create	0x3eaf40-0x3eaf6f	0x3cabe0 GetPt__Q225@unnamed@hud_linemap_cpp@12CAiLinePtItrCFv (exact)	2026-11-27	saved 2026-11-27
+0x3eaf40	disassemble	0x3eaf40-0x3eaf6f	0x3cabe0 GetPt__Q225@unnamed@hud_linemap_cpp@12CAiLinePtItrCFv (exact)	2026-11-27	saved 2026-11-27
 0x3eaf70	name	std::__tree<std::pair<int_const,LINE_DATA>,std::map<int,LINE_DATA,std::less<int>,std::allocator<std::pair<int_const,LINE_DATA>>>::value_compare,std::allocator<std::pair<int_const,LINE_DATA>>>::find_or_insert<int,LINE_DATA>	0x3cac10 find_or_insert<i,9LINE_DATA>__Q23std185__tree<Q23std19pair<Ci,9LINE_DATA>,Q33std79map<i,9LINE_DATA,Q23std7less<i>,Q23std38allocator<Q23std19pair<Ci,9LINE_DATA>>>13value_compare,Q23std38allocator<Q23std19pair<Ci,9LINE_DATA>>>FRCi (exact)	2026-11-26	saved 2026-11-26
 0x3eaf70	label	find_or_insert<i,9LINE_DATA>__Q23std185__tree<Q23std19pair<Ci,9LINE_DATA>,Q33std79map<i,9LINE_DATA,Q23std7less<i>,Q23std38allocator<Q23std19pair<Ci,9LINE_DATA>>>13value_compare,Q23std38allocator<Q23std19pair<Ci,9LINE_DATA>>>FRCi	0x3cac10 find_or_insert<i,9LINE_DATA>__Q23std185__tree<Q23std19pair<Ci,9LINE_DATA>,Q33std79map<i,9LINE_DATA,Q23std7less<i>,Q23std38allocator<Q23std19pair<Ci,9LINE_DATA>>>13value_compare,Q23std38allocator<Q23std19pair<Ci,9LINE_DATA>>>FRCi (exact)	2026-11-26	saved 2026-11-26
 0x3eaf70	plate	Release map: exact pair with prototype 0x3cac10 find_or_insert<i,9LINE_DATA>__Q23std185__tree<Q23std19pair<Ci,9LINE_DATA>,Q33std79map<i,9LINE_DATA,Q23std7less<i>,Q23std38allocator<Q23std19pair<Ci,9LINE_DATA>>>13value_compare,Q23std38allocator<Q23std19pair<Ci,9LINE_DATA>>>FRCi (evidence exact; flags -). // Owner src/Apps/FTS/hud/hud_linemap.cpp.	0x3cac10 find_or_insert<i,9LINE_DATA>__Q23std185__tree<Q23std19pair<Ci,9LINE_DATA>,Q33std79map<i,9LINE_DATA,Q23std7less<i>,Q23std38allocator<Q23std19pair<Ci,9LINE_DATA>>>13value_compare,Q23std38allocator<Q23std19pair<Ci,9LINE_DATA>>>FRCi (exact)	2026-11-26	saved 2026-11-26
@@ -28155,6 +28210,12 @@ release_address	applied	value	source_pair	date	state
 0x3fb3a0	label	DrawAlphaBravo__15CZPlayerMapItemFPQ23zdb7CCamera	0x3dc640 DrawAlphaBravo__15CZPlayerMapItemFPQ23zdb7CCamera (exact)	2026-11-26	saved 2026-11-26
 0x3fb3a0	plate	Release map: exact pair with prototype 0x3dc640 DrawAlphaBravo__15CZPlayerMapItemFPQ23zdb7CCamera (evidence exact; flags -). // Owner src/Apps/FTS/hud/hud_playermapitem.cpp.	0x3dc640 DrawAlphaBravo__15CZPlayerMapItemFPQ23zdb7CCamera (exact)	2026-11-26	saved 2026-11-26
 0x3fb3a0	prototype	void __stdcall CZPlayerMapItem::DrawAlphaBravo(CCamera * camera) [storage camera=a0_lo:4]	0x3dc640 DrawAlphaBravo__15CZPlayerMapItemFPQ23zdb7CCamera (exact)	2026-11-26	saved 2026-11-26
+0x3fb400	create	0x3fb400-0x3fb413	0x3dc6a0 PostDraw__15CZPlayerMapItemFPQ23zdb7CCamera (exact)	2026-11-27	saved 2026-11-27
+0x3fb400	disassemble	0x3fb400-0x3fb413	0x3dc6a0 PostDraw__15CZPlayerMapItemFPQ23zdb7CCamera (exact)	2026-11-27	saved 2026-11-27
+0x3fb420	create	0x3fb420-0x3fb4bf	0x3dc6c0 Draw__15CZPlayerMapItemFPQ23zdb7CCamera (exact)	2026-11-27	saved 2026-11-27
+0x3fb420	disassemble	0x3fb420-0x3fb4bf	0x3dc6c0 Draw__15CZPlayerMapItemFPQ23zdb7CCamera (exact)	2026-11-27	saved 2026-11-27
+0x3fb4c0	create	0x3fb4c0-0x3fb4c7	0x3dc760 Clip__15CZPlayerMapItemFP11CZNewHudMap (exact)	2026-11-27	saved 2026-11-27
+0x3fb4c0	disassemble	0x3fb4c0-0x3fb4c7	0x3dc760 Clip__15CZPlayerMapItemFP11CZNewHudMap (exact)	2026-11-27	saved 2026-11-27
 0x3fb4d0	name	CZPlayerMapItem::Tick	0x3dc770 Tick__15CZPlayerMapItemFP11CZNewHudMapf (exact)	2026-11-26	saved 2026-11-26
 0x3fb4d0	label	Tick__15CZPlayerMapItemFP11CZNewHudMapf	0x3dc770 Tick__15CZPlayerMapItemFP11CZNewHudMapf (exact)	2026-11-26	saved 2026-11-26
 0x3fb4d0	plate	Release map: exact pair with prototype 0x3dc770 Tick__15CZPlayerMapItemFP11CZNewHudMapf (evidence exact; flags -). // Owner src/Apps/FTS/hud/hud_playermapitem.cpp.	0x3dc770 Tick__15CZPlayerMapItemFP11CZNewHudMapf (exact)	2026-11-26	saved 2026-11-26
@@ -28216,6 +28277,10 @@ release_address	applied	value	source_pair	date	state
 0x3fcb30	label	GetTimeInRoundSec__9CNetClockFv	0x3dde60 GetTimeInRoundSec__9CNetClockFv (deviating)	2026-11-26	saved 2026-11-26
 0x3fcb30	plate	Release map: deviating pair with prototype 0x3dde60 GetTimeInRoundSec__9CNetClockFv (evidence position; flags imm-only). // Owner src/Apps/FTS/state/st_mpexit.cpp; signature carried from the prototype as a starting point (the pair is not exact).	0x3dde60 GetTimeInRoundSec__9CNetClockFv (deviating)	2026-11-26	saved 2026-11-26
 0x3fcb30	prototype	uint __stdcall CNetClock::GetTimeInRoundSec(CNetClock * this) [storage this=a0_lo:4]	0x3dde60 GetTimeInRoundSec__9CNetClockFv (deviating)	2026-11-26	saved 2026-11-26
+0x3fcb80	create	0x3fcb80-0x3fcb87	0x3ddeb0 GetGameStats__10CZSealBodyFv (deviating)	2026-11-27	saved 2026-11-27
+0x3fcb80	disassemble	0x3fcb80-0x3fcb87	0x3ddeb0 GetGameStats__10CZSealBodyFv (deviating)	2026-11-27	saved 2026-11-27
+0x3fcb90	create	0x3fcb90-0x3fcb97	0x3ddec0 GetRoundStats__10CZSealBodyFv (deviating)	2026-11-27	saved 2026-11-27
+0x3fcb90	disassemble	0x3fcb90-0x3fcb97	0x3ddec0 GetRoundStats__10CZSealBodyFv (deviating)	2026-11-27	saved 2026-11-27
 0x3fcba0	name	@unnamed@st_mpexit_cpp@::SetFinalTeamTotalsUiVar	0x3dded0 SetFinalTeamTotalsUiVar__23@unnamed@st_mpexit_cpp@FbPCc (deviating)	2026-11-26	saved 2026-11-26
 0x3fcba0	label	SetFinalTeamTotalsUiVar__23@unnamed@st_mpexit_cpp@FbPCc	0x3dded0 SetFinalTeamTotalsUiVar__23@unnamed@st_mpexit_cpp@FbPCc (deviating)	2026-11-26	saved 2026-11-26
 0x3fcba0	plate	Release map: deviating pair with prototype 0x3dded0 SetFinalTeamTotalsUiVar__23@unnamed@st_mpexit_cpp@FbPCc (evidence settled; flags -). // Owner src/Apps/FTS/state/st_mpexit.cpp; settled: docs/release/notes/state.md; signature carried from the prototype as a starting point (the pair is not exact).	0x3dded0 SetFinalTeamTotalsUiVar__23@unnamed@st_mpexit_cpp@FbPCc (deviating)	2026-11-26	saved 2026-11-26
@@ -28249,6 +28314,8 @@ release_address	applied	value	source_pair	date	state
 0x3fce60	label	GetHeadShots__10CSealStatsCFv	0x3212f0 GetHeadShots__10CSealStatsCFv (exact)	2026-11-26	saved 2026-11-26
 0x3fce60	plate	Release map: exact pair with prototype 0x3212f0 GetHeadShots__10CSealStatsCFv (evidence settled; flags moved,owner-settled). // Owner src/Apps/FTS/state/st_mpexit.cpp; settled: docs/release/notes/state.md.	0x3212f0 GetHeadShots__10CSealStatsCFv (exact)	2026-11-26	saved 2026-11-26
 0x3fce60	prototype	int __stdcall CSealStats::GetHeadShots(CSealStats * this) [storage this=a0_lo:4]	0x3212f0 GetHeadShots__10CSealStatsCFv (exact)	2026-11-26	saved 2026-11-26
+0x3fce70	create	0x3fce70-0x3fce93	0x3de100 GetReaderFileName__11CMPExitMenuFv (exact)	2026-11-27	saved 2026-11-27
+0x3fce70	disassemble	0x3fce70-0x3fce93	0x3de100 GetReaderFileName__11CMPExitMenuFv (exact)	2026-11-27	saved 2026-11-27
 0x3fcea0	name	std::sort<CZSealBody**,bool_(*)(CZSealBody*,CZSealBody*)>	0x3de130 sort<PP10CZSealBody,PFP10CZSealBodyP10CZSealBody_b>__3stdFPP10CZSealBodyPP10CZSealBodyPFP10CZSealBodyP10CZSealBody_b (exact)	2026-11-26	saved 2026-11-26
 0x3fcea0	label	sort<PP10CZSealBody,PFP10CZSealBodyP10CZSealBody_b>__3stdFPP10CZSealBodyPP10CZSealBodyPFP10CZSealBodyP10CZSealBody_b	0x3de130 sort<PP10CZSealBody,PFP10CZSealBodyP10CZSealBody_b>__3stdFPP10CZSealBodyPP10CZSealBodyPFP10CZSealBodyP10CZSealBody_b (exact)	2026-11-26	saved 2026-11-26
 0x3fcea0	plate	Release map: exact pair with prototype 0x3de130 sort<PP10CZSealBody,PFP10CZSealBodyP10CZSealBody_b>__3stdFPP10CZSealBodyPP10CZSealBodyPFP10CZSealBodyP10CZSealBody_b (evidence exact; flags -). // Owner src/Apps/FTS/state/st_mpexit.cpp.	0x3de130 sort<PP10CZSealBody,PFP10CZSealBodyP10CZSealBody_b>__3stdFPP10CZSealBodyPP10CZSealBodyPFP10CZSealBodyP10CZSealBody_b (exact)	2026-11-26	saved 2026-11-26
@@ -28279,6 +28346,8 @@ release_address	applied	value	source_pair	date	state
 0x3fdc10	label	UnSerialize__11CSaveModuleFPCcPQ23zar4CZARi	0x3f6fd0 UnSerialize__11CSaveModuleFPCcPQ23zar4CZARi (exact)	2026-11-26	saved 2026-11-26
 0x3fdc10	plate	Release map: exact pair with prototype 0x3f6fd0 UnSerialize__11CSaveModuleFPCcPQ23zar4CZARi (evidence vtable-slot; flags -). // Owner src/gamez/zSave/zsav_module.cpp.	0x3f6fd0 UnSerialize__11CSaveModuleFPCcPQ23zar4CZARi (exact)	2026-11-26	saved 2026-11-26
 0x3fdc10	prototype	void __stdcall CSaveModule::UnSerialize(CSaveModule * this, char * param_2, CZAR * param_3, int param_4) [storage this=a0_lo:4, param_2=a1_lo:4, param_3=a2_lo:4, param_4=a3_lo:4]	0x3f6fd0 UnSerialize__11CSaveModuleFPCcPQ23zar4CZARi (exact)	2026-11-26	saved 2026-11-26
+0x3fdc20	create	0x3fdc20-0x3fdc27	0x3f6fe0 UnSerialize__11CSaveModuleFPCcP8CRdrFilei (exact)	2026-11-27	saved 2026-11-27
+0x3fdc20	disassemble	0x3fdc20-0x3fdc27	0x3f6fe0 UnSerialize__11CSaveModuleFPCcP8CRdrFilei (exact)	2026-11-27	saved 2026-11-27
 0x3fdc30	name	CSaveModule::SaveRdr	0x3f6ff0 SaveRdr__11CSaveModuleFPCcP8CRdrFile (exact)	2026-11-26	saved 2026-11-26
 0x3fdc30	label	SaveRdr__11CSaveModuleFPCcP8CRdrFile	0x3f6ff0 SaveRdr__11CSaveModuleFPCcP8CRdrFile (exact)	2026-11-26	saved 2026-11-26
 0x3fdc30	plate	Release map: exact pair with prototype 0x3f6ff0 SaveRdr__11CSaveModuleFPCcP8CRdrFile (evidence exact; flags -). // Owner src/gamez/zSave/zsav_module.cpp.	0x3f6ff0 SaveRdr__11CSaveModuleFPCcP8CRdrFile (exact)	2026-11-26	saved 2026-11-26
@@ -28592,6 +28661,8 @@ release_address	applied	value	source_pair	date	state
 0x4064f0	plate	Release map: exact pair with prototype 0x404b70 rt_comm_get_local_ip (evidence call; flags -). // Owner -.	0x404b70 rt_comm_get_local_ip (exact)	2026-11-26	saved 2026-11-26
 0x406508	name	rt_comm_get_host_by_name	0x404b88 rt_comm_get_host_by_name (exact)	2026-11-26	saved 2026-11-26
 0x406508	plate	Release map: exact pair with prototype 0x404b88 rt_comm_get_host_by_name (evidence call; flags -). // Owner -.	0x404b88 rt_comm_get_host_by_name (exact)	2026-11-26	saved 2026-11-26
+0x406520	create	0x406520-0x40658b	0x404ba0 rt_comm_get_remote_ip (exact)	2026-11-27	saved 2026-11-27
+0x406520	disassemble	0x406520-0x40658b	0x404ba0 rt_comm_get_remote_ip (exact)	2026-11-27	saved 2026-11-27
 0x406590	name	rt_comm_get_metrics	0x404c10 rt_comm_get_metrics (exact)	2026-11-26	saved 2026-11-26
 0x406590	plate	Release map: exact pair with prototype 0x404c10 rt_comm_get_metrics (evidence exact; flags -). // Owner -.	0x404c10 rt_comm_get_metrics (exact)	2026-11-26	saved 2026-11-26
 0x406640	name	rt_comm_display_state	0x404cc0 rt_comm_display_state (exact)	2026-11-26	saved 2026-11-26
@@ -28640,8 +28711,12 @@ release_address	applied	value	source_pair	date	state
 0x406c18	plate	Release map: exact pair with prototype 0x4052b0 rt_comm_platform_get_local_ip (evidence call; flags -). // Owner -.	0x4052b0 rt_comm_platform_get_local_ip (exact)	2026-11-26	saved 2026-11-26
 0x406c30	name	rt_comm_platform_get_host_by_name	0x4052c8 rt_comm_platform_get_host_by_name (exact)	2026-11-26	saved 2026-11-26
 0x406c30	plate	Release map: exact pair with prototype 0x4052c8 rt_comm_platform_get_host_by_name (evidence call; flags -). // Owner -.	0x4052c8 rt_comm_platform_get_host_by_name (exact)	2026-11-26	saved 2026-11-26
+0x406c48	create	0x406c48-0x406c5b	0x4052e0 rt_comm_platform_get_remote_ip (exact)	2026-11-27	saved 2026-11-27
+0x406c48	disassemble	0x406c48-0x406c5b	0x4052e0 rt_comm_platform_get_remote_ip (exact)	2026-11-27	saved 2026-11-27
 0x406c60	name	rt_comm_platform_display_state	0x4052f8 rt_comm_platform_display_state (exact)	2026-11-26	saved 2026-11-26
 0x406c60	plate	Release map: exact pair with prototype 0x4052f8 rt_comm_platform_display_state (evidence call; flags -). // Owner -.	0x4052f8 rt_comm_platform_display_state (exact)	2026-11-26	saved 2026-11-26
+0x406c78	create	0x406c78-0x406d7f	0x405310 rt_comm_platform_assert (exact)	2026-11-27	saved 2026-11-27
+0x406c78	disassemble	0x406c78-0x406d7f	0x405310 rt_comm_platform_assert (exact)	2026-11-27	saved 2026-11-27
 0x406d80	name	rt_comm_platform2_startup	0x405418 rt_comm_platform2_startup (deviating)	2026-11-27	saved 2026-11-27
 0x406d80	plate	Release map: deviating pair with prototype 0x405418 rt_comm_platform2_startup (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x405418 rt_comm_platform2_startup (deviating)	2026-11-27	saved 2026-11-27
 0x406e30	name	rt_comm_platform2_shutdown	0x4054b8 rt_comm_platform2_shutdown (deviating)	2026-11-27	saved 2026-11-27
@@ -28689,6 +28764,8 @@ release_address	applied	value	source_pair	date	state
 0x407bc8	plate	Release map: exact pair with prototype 0x4060d0 rt_memory_get_aligned_address (evidence exact; flags -). // Owner -.	0x4060d0 rt_memory_get_aligned_address (exact)	2026-11-26	saved 2026-11-26
 0x407c10	name	rt_time_get_local	0x406118 rt_time_get_local (exact)	2026-11-26	saved 2026-11-26
 0x407c10	plate	Release map: exact pair with prototype 0x406118 rt_time_get_local (evidence call; flags -). // Owner -.	0x406118 rt_time_get_local (exact)	2026-11-26	saved 2026-11-26
+0x407c10	cut-by-analysis	0x407c10-0x407c23 (was 0x407c10-0x407c6f; after the create at 0x407c28)	0x406130 rt_time_get_msecs (exact)	2026-11-27	saved 2026-11-27
+0x407c28	create	0x407c28-0x407c6f	0x406130 rt_time_get_msecs (exact)	2026-11-27	saved 2026-11-27
 0x407c70	name	rt_time_get_secs	0x406178 rt_time_get_secs (exact)	2026-11-26	saved 2026-11-26
 0x407c70	plate	Release map: exact pair with prototype 0x406178 rt_time_get_secs (evidence call; flags -). // Owner -.	0x406178 rt_time_get_secs (exact)	2026-11-26	saved 2026-11-26
 0x407cb8	name	rt_time_start	0x4061c0 rt_time_start (exact)	2026-11-26	saved 2026-11-26
@@ -28697,6 +28774,8 @@ release_address	applied	value	source_pair	date	state
 0x407cd0	plate	Release map: exact pair with prototype 0x4061d8 rt_time_get_time_stamp (evidence call; flags -). // Owner -.	0x4061d8 rt_time_get_time_stamp (exact)	2026-11-26	saved 2026-11-26
 0x407ce8	name	rt_time_elapsed	0x4061f0 rt_time_elapsed (exact)	2026-11-26	saved 2026-11-26
 0x407ce8	plate	Release map: exact pair with prototype 0x4061f0 rt_time_elapsed (evidence call; flags -). // Owner -.	0x4061f0 rt_time_elapsed (exact)	2026-11-26	saved 2026-11-26
+0x407d00	create	0x407d00-0x407d4b	0x406208 rt_time_elapsed_secs (exact)	2026-11-27	saved 2026-11-27
+0x407d00	disassemble	0x407d00-0x407d4b	0x406208 rt_time_elapsed_secs (exact)	2026-11-27	saved 2026-11-27
 0x407d50	name	rt_time_elapsed_msecs	0x406258 rt_time_elapsed_msecs (exact)	2026-11-26	saved 2026-11-26
 0x407d50	plate	Release map: exact pair with prototype 0x406258 rt_time_elapsed_msecs (evidence call; flags -). // Owner -.	0x406258 rt_time_elapsed_msecs (exact)	2026-11-26	saved 2026-11-26
 0x407da0	name	rt_time_elapsed_usecs	0x4062a8 rt_time_elapsed_usecs (exact)	2026-11-26	saved 2026-11-26
@@ -28719,6 +28798,10 @@ release_address	applied	value	source_pair	date	state
 0x4080d0	plate	Release map: exact pair with prototype 0x4065d8 rt_time_elapsed_timestamp (evidence exact; flags -). // Owner -.	0x4065d8 rt_time_elapsed_timestamp (exact)	2026-11-26	saved 2026-11-26
 0x408130	name	rt_time_sleep_usecs	0x406638 rt_time_sleep_usecs (exact)	2026-11-26	saved 2026-11-26
 0x408130	plate	Release map: exact pair with prototype 0x406638 rt_time_sleep_usecs (evidence exact-position; flags identical-copy). // Owner -.	0x406638 rt_time_sleep_usecs (exact)	2026-11-26	saved 2026-11-26
+0x408148	create	0x408148-0x40815b	0x406650 rt_time_get_time_string (exact)	2026-11-27	saved 2026-11-27
+0x408148	disassemble	0x408148-0x40815b	0x406650 rt_time_get_time_string (exact)	2026-11-27	saved 2026-11-27
+0x408160	create	0x408160-0x4081ab	0x406668 rt_time_get_time_string_ptr (exact)	2026-11-27	saved 2026-11-27
+0x408160	disassemble	0x408160-0x4081ab	0x406668 rt_time_get_time_string_ptr (exact)	2026-11-27	saved 2026-11-27
 0x4081b0	name	rt_time_platform_get_time_stamp	0x4066b8 rt_time_platform_get_time_stamp (exact)	2026-11-26	saved 2026-11-26
 0x4081b0	plate	Release map: exact pair with prototype 0x4066b8 rt_time_platform_get_time_stamp (evidence exact; flags -). // Owner -.	0x4066b8 rt_time_platform_get_time_stamp (exact)	2026-11-26	saved 2026-11-26
 0x408208	name	rt_time_sleep_usecs_platform	0x406710 rt_time_sleep_usecs_platform (deviating)	2026-11-27	saved 2026-11-27
@@ -28748,6 +28831,8 @@ release_address	applied	value	source_pair	date	state
 0x40888c	plate	Release map: exact pair with prototype 0x406eb8 lintGetBit (evidence exact; flags -). // Owner -.	0x406eb8 lintGetBit (exact)	2026-11-26	saved 2026-11-26
 0x4088b0	name	lintSetBit	0x406edc lintSetBit (exact)	2026-11-26	saved 2026-11-26
 0x4088b0	plate	Release map: exact pair with prototype 0x406edc lintSetBit (evidence exact; flags -). // Owner -.	0x406edc lintSetBit (exact)	2026-11-26	saved 2026-11-26
+0x4088d4	create	0x4088d4-0x4088fb	0x406f00 lintClearBit (exact)	2026-11-27	saved 2026-11-27
+0x4088d4	disassemble	0x4088d4-0x4088fb	0x406f00 lintClearBit (exact)	2026-11-27	saved 2026-11-27
 0x4088fc	name	lintIncrement	0x4073a0 lintIncrement (exact)	2026-11-26	saved 2026-11-26
 0x4088fc	plate	Release map: exact pair with prototype 0x4073a0 lintIncrement (evidence exact; flags -). // Owner -.	0x4073a0 lintIncrement (exact)	2026-11-26	saved 2026-11-26
 0x408954	name	lintDecrement	0x4073f8 lintDecrement (exact)	2026-11-26	saved 2026-11-26
@@ -28867,6 +28952,8 @@ release_address	applied	value	source_pair	date	state
 0x40d35c	name	SHA	0x40a81c SHA (exact)	2026-11-26	saved 2026-11-26
 0x40d35c	plate	Release map: exact pair with prototype 0x40a81c SHA (evidence exact; flags -). // Owner -.	0x40a81c SHA (exact)	2026-11-26	saved 2026-11-26
 0x40d35c	prototype	void __stdcall SHA(uchar * d, uint n, uchar * md, uint md_len) [storage d=a0_lo:4, n=a1_lo:4, md=a2_lo:4, md_len=a3_lo:4]	0x40a81c SHA (exact)	2026-11-26	saved 2026-11-26
+0x40d3c8	create	0x40d3c8-0x40d3d3	0x40a888 KM_GetVersionStringPtr (exact)	2026-11-27	saved 2026-11-27
+0x40d3c8	disassemble	0x40d3c8-0x40d3d3	0x40a888 KM_GetVersionStringPtr (exact)	2026-11-27	saved 2026-11-27
 0x40d3d4	name	KM_Initialize	0x40a894 KM_Initialize (exact)	2026-11-26	saved 2026-11-26
 0x40d3d4	plate	Release map: exact pair with prototype 0x40a894 KM_Initialize (evidence exact; flags -). // Owner -.	0x40a894 KM_Initialize (exact)	2026-11-26	saved 2026-11-26
 0x40d590	name	KM_Create	0x40aa50 KM_Create (exact)	2026-11-26	saved 2026-11-26
@@ -28909,6 +28996,8 @@ release_address	applied	value	source_pair	date	state
 0x40e9b0	name	KM_Decrypt	0x40bdc0 KM_Decrypt (exact)	2026-11-26	saved 2026-11-26
 0x40e9b0	plate	Release map: exact pair with prototype 0x40bdc0 KM_Decrypt (evidence exact; flags -). // Owner -.	0x40bdc0 KM_Decrypt (exact)	2026-11-26	saved 2026-11-26
 0x40ebf0	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
+0x40ec48	create	0x40ec48-0x40ec53	0x40c000 rt_msg_client_get_version_string_ptr (exact)	2026-11-27	saved 2026-11-27
+0x40ec48	disassemble	0x40ec48-0x40ec53	0x40c000 rt_msg_client_get_version_string_ptr (exact)	2026-11-27	saved 2026-11-27
 0x40ec58	name	rt_msg_client_get_build_timestamp	0x40c010 rt_msg_client_get_build_timestamp (exact)	2026-11-26	saved 2026-11-26
 0x40ec58	plate	Release map: exact pair with prototype 0x40c010 rt_msg_client_get_build_timestamp (evidence exact-position; flags identical-copy). // Owner -.	0x40c010 rt_msg_client_get_build_timestamp (exact)	2026-11-26	saved 2026-11-26
 0x40edb0	name	rt_msg_client_IPStringToBinary	0x40c168 rt_msg_client_IPStringToBinary (exact)	2026-11-26	saved 2026-11-26
@@ -28964,6 +29053,12 @@ release_address	applied	value	source_pair	date	state
 0x40fa10	plate	Release map: exact pair with prototype 0x40d0f0 rt_msg_client_display_comm_state (evidence exact-position; flags identical-copy). // Owner -.	0x40d0f0 rt_msg_client_display_comm_state (exact)	2026-11-26	saved 2026-11-26
 0x40fa88	name	rt_msg_client_udp_clear_target	0x40d168 rt_msg_client_udp_clear_target (deviating)	2026-11-27	saved 2026-11-27
 0x40fa88	plate	Release map: deviating pair with prototype 0x40d168 rt_msg_client_udp_clear_target (evidence call; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40d168 rt_msg_client_udp_clear_target (deviating)	2026-11-27	saved 2026-11-27
+0x40fa90	create	0x40fa90-0x40fa97	new	2026-11-27	saved 2026-11-27
+0x40fa90	disassemble	0x40fa90-0x40fa97	new	2026-11-27	saved 2026-11-27
+0x40fa98	create	0x40fa98-0x40fa9f	new	2026-11-27	saved 2026-11-27
+0x40fa98	disassemble	0x40fa98-0x40fa9f	new	2026-11-27	saved 2026-11-27
+0x40faa0	create	0x40faa0-0x40faa7	new	2026-11-27	saved 2026-11-27
+0x40faa0	disassemble	0x40faa0-0x40faa7	new	2026-11-27	saved 2026-11-27
 0x40faa8	name	rt_msg_client_ishutdown	0x40d3d0 rt_msg_client_ishutdown (deviating)	2026-11-27	saved 2026-11-27
 0x40faa8	plate	Release map: deviating pair with prototype 0x40d3d0 rt_msg_client_ishutdown (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40d3d0 rt_msg_client_ishutdown (deviating)	2026-11-27	saved 2026-11-27
 0x40fc18	name	rt_msg_client_iconnect	0x40d720 rt_msg_client_iconnect (deviating)	2026-11-27	saved 2026-11-27
@@ -29068,14 +29163,26 @@ release_address	applied	value	source_pair	date	state
 0x4127d8	plate	Release map: exact pair with prototype 0x4108d8 rt_msg_client_set_scratch_buf_min_size (evidence exact; flags -). // Owner -.	0x4108d8 rt_msg_client_set_scratch_buf_min_size (exact)	2026-11-26	saved 2026-11-26
 0x412868	name	rt_msg_client_tcp_aggregate_msg	0x410968 rt_msg_client_tcp_aggregate_msg (deviating)	2026-11-27	saved 2026-11-27
 0x412868	plate	Release map: deviating pair with prototype 0x410968 rt_msg_client_tcp_aggregate_msg (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x410968 rt_msg_client_tcp_aggregate_msg (deviating)	2026-11-27	saved 2026-11-27
+0x412aa0	create	0x412aa0-0x412abf	0x410b88 rt_msg_set_byte (exact)	2026-11-27	saved 2026-11-27
+0x412aa0	disassemble	0x412aa0-0x412abf	0x410b88 rt_msg_set_byte (exact)	2026-11-27	saved 2026-11-27
+0x412ac0	create	0x412ac0-0x412ae3	0x410ba8 rt_msg_get_byte (exact)	2026-11-27	saved 2026-11-27
+0x412ac0	disassemble	0x412ac0-0x412ae3	0x410ba8 rt_msg_get_byte (exact)	2026-11-27	saved 2026-11-27
 0x412ae8	name	rt_msg_set_ubyte	0x410bd0 rt_msg_set_ubyte (exact)	2026-11-26	saved 2026-11-26
 0x412ae8	plate	Release map: exact pair with prototype 0x410bd0 rt_msg_set_ubyte (evidence exact; flags -). // Owner -.	0x410bd0 rt_msg_set_ubyte (exact)	2026-11-26	saved 2026-11-26
 0x412b08	name	rt_msg_get_ubyte	0x410bf0 rt_msg_get_ubyte (exact)	2026-11-26	saved 2026-11-26
 0x412b08	plate	Release map: exact pair with prototype 0x410bf0 rt_msg_get_ubyte (evidence call; flags -). // Owner -.	0x410bf0 rt_msg_get_ubyte (exact)	2026-11-26	saved 2026-11-26
+0x412b30	create	0x412b30-0x412b57	0x410c18 rt_msg_set_2byte (exact)	2026-11-27	saved 2026-11-27
+0x412b30	disassemble	0x412b30-0x412b57	0x410c18 rt_msg_set_2byte (exact)	2026-11-27	saved 2026-11-27
+0x412b58	create	0x412b58-0x412b8f	0x410c40 rt_msg_get_2byte (exact)	2026-11-27	saved 2026-11-27
+0x412b58	disassemble	0x412b58-0x412b8f	0x410c40 rt_msg_get_2byte (exact)	2026-11-27	saved 2026-11-27
 0x412b90	name	rt_msg_set_u2byte	0x410c78 rt_msg_set_u2byte (exact)	2026-11-26	saved 2026-11-26
 0x412b90	plate	Release map: exact pair with prototype 0x410c78 rt_msg_set_u2byte (evidence exact; flags -). // Owner -.	0x410c78 rt_msg_set_u2byte (exact)	2026-11-26	saved 2026-11-26
 0x412bb8	name	rt_msg_get_u2byte	0x410ca0 rt_msg_get_u2byte (exact)	2026-11-26	saved 2026-11-26
 0x412bb8	plate	Release map: exact pair with prototype 0x410ca0 rt_msg_get_u2byte (evidence call; flags -). // Owner -.	0x410ca0 rt_msg_get_u2byte (exact)	2026-11-26	saved 2026-11-26
+0x412bf0	create	0x412bf0-0x412c27	0x410cd8 rt_msg_set_4byte (exact)	2026-11-27	saved 2026-11-27
+0x412bf0	disassemble	0x412bf0-0x412c27	0x410cd8 rt_msg_set_4byte (exact)	2026-11-27	saved 2026-11-27
+0x412c28	create	0x412c28-0x412c87	0x410d10 rt_msg_get_4byte (exact)	2026-11-27	saved 2026-11-27
+0x412c28	disassemble	0x412c28-0x412c87	0x410d10 rt_msg_get_4byte (exact)	2026-11-27	saved 2026-11-27
 0x412c88	name	rt_msg_set_u4byte	0x410d70 rt_msg_set_u4byte (exact)	2026-11-26	saved 2026-11-26
 0x412c88	plate	Release map: exact pair with prototype 0x410d70 rt_msg_set_u4byte (evidence exact; flags -). // Owner -.	0x410d70 rt_msg_set_u4byte (exact)	2026-11-26	saved 2026-11-26
 0x412cc0	name	rt_msg_get_u4byte	0x410da8 rt_msg_get_u4byte (exact)	2026-11-26	saved 2026-11-26
@@ -29228,12 +29335,16 @@ release_address	applied	value	source_pair	date	state
 0x417d28	plate	Release map: exact pair with prototype 0x419508 NetGetTime (evidence exact; flags -). // Owner -.	0x419508 NetGetTime (exact)	2026-11-26	saved 2026-11-26
 0x417d40	name	NetGetSessionMasterClientIndex	0x419520 NetGetSessionMasterClientIndex (exact)	2026-11-26	saved 2026-11-26
 0x417d40	plate	Release map: exact pair with prototype 0x419520 NetGetSessionMasterClientIndex (evidence call; flags -). // Owner -.	0x419520 NetGetSessionMasterClientIndex (exact)	2026-11-26	saved 2026-11-26
+0x417d60	create	0x417d60-0x417d7b	0x419540 NetGetConnectStatus (exact)	2026-11-27	saved 2026-11-27
+0x417d60	disassemble	0x417d60-0x417d7b	0x419540 NetGetConnectStatus (exact)	2026-11-27	saved 2026-11-27
 0x417d80	name	NetGetValidClientCount	0x419560 NetGetValidClientCount (exact)	2026-11-26	saved 2026-11-26
 0x417d80	plate	Release map: exact pair with prototype 0x419560 NetGetValidClientCount (evidence call; flags -). // Owner -.	0x419560 NetGetValidClientCount (exact)	2026-11-26	saved 2026-11-26
 0x417da0	name	NetGetBuildTimeStamp	0x419580 NetGetBuildTimeStamp (exact)	2026-11-26	saved 2026-11-26
 0x417da0	plate	Release map: exact pair with prototype 0x419580 NetGetBuildTimeStamp (evidence exact; flags -). // Owner -.	0x419580 NetGetBuildTimeStamp (exact)	2026-11-26	saved 2026-11-26
 0x417ec8	name	NetGetClientVersion	0x4196a8 NetGetClientVersion (exact)	2026-11-26	saved 2026-11-26
 0x417ec8	plate	Release map: exact pair with prototype 0x4196a8 NetGetClientVersion (evidence exact; flags -). // Owner -.	0x4196a8 NetGetClientVersion (exact)	2026-11-26	saved 2026-11-26
+0x417ef0	create	0x417ef0-0x417f1f	0x4196d0 NetGetServerVersion (exact)	2026-11-27	saved 2026-11-27
+0x417ef0	disassemble	0x417ef0-0x417f1f	0x4196d0 NetGetServerVersion (exact)	2026-11-27	saved 2026-11-27
 0x417f20	name	NetSetClientTargetActive	0x419700 NetSetClientTargetActive (exact)	2026-11-26	saved 2026-11-26
 0x417f20	plate	Release map: exact pair with prototype 0x419700 NetSetClientTargetActive (evidence exact; flags -). // Owner -.	0x419700 NetSetClientTargetActive (exact)	2026-11-26	saved 2026-11-26
 0x417f68	name	FilterTargetClientBitmask	0x419748 FilterTargetClientBitmask (exact)	2026-11-26	saved 2026-11-26
@@ -29336,6 +29447,9 @@ release_address	applied	value	source_pair	date	state
 0x41a760	plate	Release map: exact pair with prototype 0x41bf30 NetResolveAddr (evidence exact; flags -). // Owner -.	0x41bf30 NetResolveAddr (exact)	2026-11-26	saved 2026-11-26
 0x41a898	name	NetSetDefaultIncomingClientParams	0x41c068 NetSetDefaultIncomingClientParams (exact)	2026-11-26	saved 2026-11-26
 0x41a898	plate	Release map: exact pair with prototype 0x41c068 NetSetDefaultIncomingClientParams (evidence exact; flags -). // Owner -.	0x41c068 NetSetDefaultIncomingClientParams (exact)	2026-11-26	saved 2026-11-26
+0x41a8d8	create	0x41a8d8-0x41a93b	0x41c0a8 NetIncomingClient (exact)	2026-11-27	saved 2026-11-27
+0x41a8d8	disassemble	0x41a8d8-0x41a93b	0x41c0a8 NetIncomingClient (exact)	2026-11-27	saved 2026-11-27
+0x41a8d8	extent-accepted	0x41a8d8-0x41a93b: unreachable [['0x41a92c', '0x41a92f']]	0x41c0a8 NetIncomingClient (exact)	2026-11-27	saved 2026-11-27
 0x41a940	name	NetSetMyClientReceiveBroadcast	0x41c110 NetSetMyClientReceiveBroadcast (exact)	2026-11-26	saved 2026-11-26
 0x41a940	plate	Release map: exact pair with prototype 0x41c110 NetSetMyClientReceiveBroadcast (evidence exact; flags -). // Owner -.	0x41c110 NetSetMyClientReceiveBroadcast (exact)	2026-11-26	saved 2026-11-26
 0x41aa18	name	NetJoin	0x41c1e8 NetJoin (deviating)	2026-11-27	saved 2026-11-27
@@ -29472,6 +29586,10 @@ release_address	applied	value	source_pair	date	state
 0x41f550	plate	Release map: exact pair with prototype 0x420b50 RegisterChildStructure (evidence exact; flags -). // Owner -.	0x420b50 RegisterChildStructure (exact)	2026-11-26	saved 2026-11-26
 0x41f650	name	NetRegisterStructure	0x420c50 NetRegisterStructure (exact)	2026-11-26	saved 2026-11-26
 0x41f650	plate	Release map: exact pair with prototype 0x420c50 NetRegisterStructure (evidence exact; flags -). // Owner -.	0x420c50 NetRegisterStructure (exact)	2026-11-26	saved 2026-11-26
+0x41f7d8	create	0x41f7d8-0x41f83f	0x420dd8 NetRegisterDataStream (exact)	2026-11-27	saved 2026-11-27
+0x41f7d8	disassemble	0x41f7d8-0x41f83f	0x420dd8 NetRegisterDataStream (exact)	2026-11-27	saved 2026-11-27
+0x41f840	create	0x41f840-0x41f88f	0x420e40 NetRegisterObjectFilter (exact)	2026-11-27	saved 2026-11-27
+0x41f840	disassemble	0x41f840-0x41f88f	0x420e40 NetRegisterObjectFilter (exact)	2026-11-27	saved 2026-11-27
 0x41f890	name	NetRegisterMessage	0x420e90 NetRegisterMessage (exact)	2026-11-26	saved 2026-11-26
 0x41f890	plate	Release map: exact pair with prototype 0x420e90 NetRegisterMessage (evidence exact; flags -). // Owner -.	0x420e90 NetRegisterMessage (exact)	2026-11-26	saved 2026-11-26
 0x41f958	name	NetRegisterApplicationMessage	0x420f58 NetRegisterApplicationMessage (exact)	2026-11-26	saved 2026-11-26
@@ -29509,6 +29627,10 @@ release_address	applied	value	source_pair	date	state
 0x420ce0	label	hudTickScorePopup__FRC4CPad	0x421df0 hudTickScorePopup__FRC4CPad (deviating)	2026-11-26	saved 2026-11-26
 0x420ce0	plate	Release map: deviating pair with prototype 0x421df0 hudTickScorePopup__FRC4CPad (evidence call-deviating; flags -). // Owner src/Apps/FTS/hud/hud_scorepopup.cpp; signature carried from the prototype as a starting point (the pair is not exact).	0x421df0 hudTickScorePopup__FRC4CPad (deviating)	2026-11-26	saved 2026-11-26
 0x420ce0	prototype	void __stdcall hudTickScorePopup(CPad * pad) [storage pad=a0_lo:4]	0x421df0 hudTickScorePopup__FRC4CPad (deviating)	2026-11-26	saved 2026-11-26
+0x421190	create	0x421190-0x421197	0x4220b0 GetE3ScoreTeam08__9CZNetGameCFv (deviating)	2026-11-27	saved 2026-11-27
+0x421190	disassemble	0x421190-0x421197	0x4220b0 GetE3ScoreTeam08__9CZNetGameCFv (deviating)	2026-11-27	saved 2026-11-27
+0x4211a0	create	0x4211a0-0x4211a7	0x4220c0 GetE3ScoreTeam00__9CZNetGameCFv (deviating)	2026-11-27	saved 2026-11-27
+0x4211a0	disassemble	0x4211a0-0x4211a7	0x4220c0 GetE3ScoreTeam00__9CZNetGameCFv (deviating)	2026-11-27	saved 2026-11-27
 0x4211b0	plate	Release map: new, no prototype counterpart (evidence -; flags owner-guess). // Owner src/Apps/FTS/hud/hud_scorepopup.cpp.	new	2026-11-26	saved 2026-11-26
 0x421290	plate	Release map: new, no prototype counterpart (evidence -; flags owner-guess). // Owner src/Apps/FTS/hud/hud_scorepopup.cpp.	new	2026-11-26	saved 2026-11-26
 0x4213c0	plate	Release map: new, no prototype counterpart (evidence -; flags owner-guess). // Owner src/Apps/FTS/hud/hud_scorepopup.cpp.	new	2026-11-26	saved 2026-11-26
@@ -29583,6 +29705,8 @@ release_address	applied	value	source_pair	date	state
 0x424018	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x424110	name	_cleanup_r	0x3e0908 _cleanup_r (unsure)	2026-11-26	saved 2026-11-26
 0x424110	plate	Release map: unsure pair with prototype 0x3e0908 _cleanup_r (evidence call-deviating; flags low-similarity,moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e0908 _cleanup_r (unsure)	2026-11-26	saved 2026-11-26
+0x424130	create	0x424130-0x42414b	new	2026-11-27	saved 2026-11-27
+0x424130	disassemble	0x424130-0x42414b	new	2026-11-27	saved 2026-11-27
 0x424150	name	__sinit	0x3e0928 __sinit (deviating)	2026-11-26	saved 2026-11-26
 0x424150	plate	Release map: deviating pair with prototype 0x3e0928 __sinit (evidence call-deviating; flags moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e0928 __sinit (deviating)	2026-11-26	saved 2026-11-26
 0x4241e0	name	fiprintf	0x3e09b8 fiprintf (unsure)	2026-11-26	saved 2026-11-26
@@ -29736,11 +29860,17 @@ release_address	applied	value	source_pair	date	state
 0x428e58	plate	Release map: unsure pair with prototype 0x3e5440 raise (evidence call-deviating; flags low-similarity,moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype; signature carried from the prototype as a starting point (the pair is not exact).	0x3e5440 raise (unsure)	2026-11-26	saved 2026-11-26
 0x428e58	prototype	int __stdcall raise(int __sig) [storage __sig=a0_lo:4]	0x3e5440 raise (unsure)	2026-11-26	saved 2026-11-26
 0x428e78	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
+0x428ea0	create	0x428ea0-0x428ebb	new	2026-11-27	saved 2026-11-27
+0x428ea0	disassemble	0x428ea0-0x428ebb	new	2026-11-27	saved 2026-11-27
+0x428ec0	create	0x428ec0-0x428edf	new	2026-11-27	saved 2026-11-27
+0x428ec0	disassemble	0x428ec0-0x428edf	new	2026-11-27	saved 2026-11-27
 0x428ee0	name	_kill_r	0x3e54e8 _kill_r (unsure)	2026-11-26	saved 2026-11-26
 0x428ee0	plate	Release map: unsure pair with prototype 0x3e54e8 _kill_r (evidence call-deviating; flags low-similarity,moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e54e8 _kill_r (unsure)	2026-11-26	saved 2026-11-26
 0x428f40	name	_getpid_r	0x3e5548 _getpid_r (deviating)	2026-11-26	saved 2026-11-26
 0x428f40	plate	Release map: deviating pair with prototype 0x3e5548 _getpid_r (evidence call-deviating; flags moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e5548 _getpid_r (deviating)	2026-11-26	saved 2026-11-26
 0x428f40	cut-by-analysis	0x428f40-0x428f53 (was 0x15b0b0-0x428f53; after the create at 0x15b0b0)	0x15bcf0 getpid (exact)	2026-11-27	saved 2026-11-27
+0x428f58	create	0x428f58-0x428fdf	new	2026-11-27	saved 2026-11-27
+0x428f58	disassemble	0x428f58-0x428fdf	new	2026-11-27	saved 2026-11-27
 0x428fe0	name	sprintf	0x3e55d0 sprintf (deviating)	2026-11-26	saved 2026-11-26
 0x428fe0	plate	Release map: deviating pair with prototype 0x3e55d0 sprintf (evidence call; flags moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype; signature carried from the prototype as a starting point (the pair is not exact).	0x3e55d0 sprintf (deviating)	2026-11-26	saved 2026-11-26
 0x428fe0	prototype	int __stdcall sprintf(char * __s, char * __format, ...) [storage __s=a0_lo:4, __format=a1_lo:4]	0x3e55d0 sprintf (deviating)	2026-11-26	saved 2026-11-26
@@ -29806,6 +29936,8 @@ release_address	applied	value	source_pair	date	state
 0x42ae90	name	strtod	0x3e75a8 strtod (deviating)	2026-11-26	saved 2026-11-26
 0x42ae90	plate	Release map: deviating pair with prototype 0x3e75a8 strtod (evidence call; flags moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype; signature carried from the prototype as a starting point (the pair is not exact).	0x3e75a8 strtod (deviating)	2026-11-26	saved 2026-11-26
 0x42ae90	prototype	double __stdcall strtod(char * __nptr, char * * __endptr) [storage __nptr=a0_lo:4, __endptr=a1_lo:4]	0x3e75a8 strtod (deviating)	2026-11-26	saved 2026-11-26
+0x42aeb8	create	0x42aeb8-0x42aedf	new	2026-11-27	saved 2026-11-27
+0x42aeb8	disassemble	0x42aeb8-0x42aedf	new	2026-11-27	saved 2026-11-27
 0x42aee0	name	strtok	0x3e7600 strtok (deviating)	2026-11-26	saved 2026-11-26
 0x42aee0	plate	Release map: deviating pair with prototype 0x3e7600 strtok (evidence call; flags moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e7600 strtok (deviating)	2026-11-26	saved 2026-11-26
 0x42aee0	cut-by-analysis	0x42aee0-0x42aeff (was 0x42aee0-0x42afc7; after the create at 0x42af00)	0x3e7628 strtok_r (deviating)	2026-11-27	saved 2026-11-27
@@ -29837,6 +29969,9 @@ release_address	applied	value	source_pair	date	state
 0x42b788	plate	Release map: unsure pair with prototype 0x3e7e90 __sbprintf (evidence call-deviating; flags low-similarity,moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e7e90 __sbprintf (unsure)	2026-11-26	saved 2026-11-26
 0x42b840	name	vfiprintf	0x3e7f48 vfiprintf (unsure)	2026-11-26	saved 2026-11-26
 0x42b840	plate	Release map: unsure pair with prototype 0x3e7f48 vfiprintf (evidence call-deviating; flags low-similarity,moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e7f48 vfiprintf (unsure)	2026-11-26	saved 2026-11-26
+0x42b840	cut-by-analysis	0x42b840-0x42b8b3 (was 0x42b840-0x42c4af; after the create at 0x42b8b8)	0x3e7fc0 _vfiprintf_r (deviating)	2026-11-27	saved 2026-11-27
+0x42b8b8	create	0x42b8b8-0x42c4af	0x3e7fc0 _vfiprintf_r (deviating)	2026-11-27	saved 2026-11-27
+0x42b8b8	extent-accepted	0x42b8b8-0x42c4af: unreachable [['0x42b95c', '0x42b95f'], ['0x42ba84', '0x42ba87'], ['0x42baac', '0x42baaf'], ['0x42bba4', '0x42bba7'], ['0x42bbec', '0x42bbef'], ['0x42bc4c', '0x42bc4f'], ['0x42bc6c', '0x42bc6f'], ['0x42bc84', '0x42bc87'], ['0x42bca4', '0x42bca7'], ['0x42bd44', '0x42bd47'], ['0x42bd74', '0x42bd77'], ['0x42bdac', '0x42bdaf'], ['0x42bdd4', '0x42bdd7'], ['0x42bea4', '0x42bea7'], ['0x42bf6c', '0x42bf6f']]	0x3e7fc0 _vfiprintf_r (deviating)	2026-11-27	saved 2026-11-27
 0x42c4b0	name	__sprint	0x3e8b90 __sprint (deviating)	2026-11-26	saved 2026-11-26
 0x42c4b0	plate	Release map: deviating pair with prototype 0x3e8b90 __sprint (evidence call-deviating; flags moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e8b90 __sprint (deviating)	2026-11-26	saved 2026-11-26
 0x42c4f8	name	__sbprintf	0x3e8bd8 __sbprintf (unsure)	2026-11-26	saved 2026-11-26
@@ -29892,6 +30027,8 @@ release_address	applied	value	source_pair	date	state
 0x42f958	plate	Release map: deviating pair with prototype 0x422fb8 sceInetGetInterfaceList (evidence call-deviating; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x422fb8 sceInetGetInterfaceList (deviating)	2026-11-27	saved 2026-11-27
 0x42f9e8	name	sceInetInterfaceControl	0x423070 sceInetInterfaceControl (deviating)	2026-11-27	saved 2026-11-27
 0x42f9e8	plate	Release map: deviating pair with prototype 0x423070 sceInetInterfaceControl (evidence call-deviating; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x423070 sceInetInterfaceControl (deviating)	2026-11-27	saved 2026-11-27
+0x42fa98	create	0x42fa98-0x42fb37	new	2026-11-27	saved 2026-11-27
+0x42fa98	disassemble	0x42fa98-0x42fb37	new	2026-11-27	saved 2026-11-27
 0x42fb38	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x42fbc8	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x42fc10	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
@@ -29919,6 +30056,8 @@ release_address	applied	value	source_pair	date	state
 0x430280	name	wait_get_addr	0x423b90 wait_get_addr (deviating)	2026-11-27	saved 2026-11-27
 0x430280	plate	Release map: deviating pair with prototype 0x423b90 wait_get_addr (evidence position; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x423b90 wait_get_addr (deviating)	2026-11-27	saved 2026-11-27
 0x430300	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
+0x430338	create	0x430338-0x430343	0x423d38 sceBInetGetVersionStringPtr (exact)	2026-11-27	saved 2026-11-27
+0x430338	disassemble	0x430338-0x430343	0x423d38 sceBInetGetVersionStringPtr (exact)	2026-11-27	saved 2026-11-27
 0x430348	name	sceBInetGetBuildTimestamp	0x423d48 sceBInetGetBuildTimestamp (exact)	2026-11-26	saved 2026-11-26
 0x430348	plate	Release map: exact pair with prototype 0x423d48 sceBInetGetBuildTimestamp (evidence exact; flags -). // Owner -.	0x423d48 sceBInetGetBuildTimestamp (exact)	2026-11-26	saved 2026-11-26
 0x4304a0	name	sceBInetCreate	0x423ea0 sceBInetCreate (deviating)	2026-11-27	saved 2026-11-27
@@ -30115,12 +30254,24 @@ release_address	applied	value	source_pair	date	state
 0x43d978	plate	Release map: new, no prototype counterpart (evidence -; flags owner-settled). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x43da48	plate	Release map: new, no prototype counterpart (evidence -; flags owner-settled). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x43db18	plate	Release map: new, no prototype counterpart (evidence -; flags owner-settled). // Owner -.	new	2026-11-26	saved 2026-11-26
+0x43dc08	create	0x43dc08-0x43dc4b	new	2026-11-27	saved 2026-11-27
+0x43dc08	disassemble	0x43dc08-0x43dc4b	new	2026-11-27	saved 2026-11-27
 0x43dc50	plate	Release map: new, no prototype counterpart (evidence -; flags owner-settled). // Owner -.	new	2026-11-26	saved 2026-11-26
+0x43dca0	create	0x43dca0-0x43dceb	new	2026-11-27	saved 2026-11-27
+0x43dca0	disassemble	0x43dca0-0x43dceb	new	2026-11-27	saved 2026-11-27
 0x43dcf0	plate	Release map: new, no prototype counterpart (evidence settled; flags owner-settled). // Owner -; settled: docs/release/notes/zInput.md.	new	2026-11-26	saved 2026-11-26
 0x43dd80	create	0x43dd80-0x43dd8b	new	2026-11-26	saved 2026-11-26
 0x43dd80	plate	Release map: new, no prototype counterpart (evidence -; flags copy,owner-settled). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x43dd90	plate	Release map: new, no prototype counterpart (evidence -; flags owner-settled). // Owner -.	new	2026-11-26	saved 2026-11-26
+0x43ddf8	create	0x43ddf8-0x43de4f	new	2026-11-27	saved 2026-11-27
+0x43ddf8	disassemble	0x43ddf8-0x43de4f	new	2026-11-27	saved 2026-11-27
 0x43de50	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
+0x43e3c8	create	0x43e3c8-0x43e413	new	2026-11-27	saved 2026-11-27
+0x43e3c8	disassemble	0x43e3c8-0x43e413	new	2026-11-27	saved 2026-11-27
+0x43e418	create	0x43e418-0x43e437	new	2026-11-27	saved 2026-11-27
+0x43e418	disassemble	0x43e418-0x43e437	new	2026-11-27	saved 2026-11-27
+0x43e438	create	0x43e438-0x43e457	new	2026-11-27	saved 2026-11-27
+0x43e438	disassemble	0x43e438-0x43e457	new	2026-11-27	saved 2026-11-27
 0x43e458	create	0x43e458-0x43e4db	new	2026-11-26	saved 2026-11-26
 0x43e458	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x43e4e0	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
@@ -30129,6 +30280,8 @@ release_address	applied	value	source_pair	date	state
 0x43e5e8	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x43e738	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x43e860	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
+0x43e8d0	create	0x43e8d0-0x43e93b	new	2026-11-27	saved 2026-11-27
+0x43e8d0	disassemble	0x43e8d0-0x43e93b	new	2026-11-27	saved 2026-11-27
 0x43e940	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x481300	create	0x481300-0x4814a7	0x469e80 __sinit_main.cpp (deviating)	2026-11-26	saved 2026-11-26
 0x481300	name	__sinit_main.cpp	0x469e80 __sinit_main.cpp (deviating)	2026-11-26	saved 2026-11-26

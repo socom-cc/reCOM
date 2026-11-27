@@ -120,3 +120,30 @@ left those bytes as an `undefined2` and six `undefined1` items; Ghidra took them
 data area; the reviewer's check showed these eight changes and nothing else. The tool now accepts
 and lists an untyped item that analysis takes into a wider one away from code, and still stops
 when a typed item is removed.
+| 5 (the rest) | 76 created | no stop; 2 containers cut, 2 bodies accepted with dead words; five data items defined by analysis, three of them at predicted addresses, two away from code; saved, confirmed |
+
+## Result
+
+The step is complete (2026-11-27): a fresh plan has no entry left to apply, and its dry run sends
+nothing. The release program has 9,875 functions (9,493 before the step). The record gained
+371 `disassemble` and 382 `create` rows (the functions made by this step, 12 of them in the
+pilot), 8 `cut-by-analysis`, 7 `extent-accepted`, 83 `name-by-analysis` and 1 `label-by-analysis`;
+it holds 30,736 rows, all saved.
+
+Of the 9,860 functions of the map, 9,843 now have a Ghidra function with the map's extent or an
+accepted one. What is left, each with its reason in the plan:
+
+- 3 bodies accepted as they are: 0x1401d0 and 0x145210 (padding), 0x15a418 (unreachable words
+  after an `eret`).
+- 4 withheld: 0x15d124 (its return's delay slot is the entry of 0x15d128), 0x3d4b98 (a switch
+  Ghidra has not resolved), 0x1631c0 and 0x163300 (code after an `eret`; the handler at 0x163400
+  inside the second row is code without a function).
+- 10 that creates cannot mend: Ghidra split each into a thunk and a function at +0xc.
+
+Nine runs stopped in all, five kinds of cause: a name from Ghidra's function-start patterns, code
+found through an operand reference, the tool's expectation of a thunk's signature line, data
+defined at offsets from a base, untyped data taken into a wider item. Each was accepted by the
+coordinator on the evidence of the reviewer's check, item by item, and the tool predicts or
+accepts each kind now; none needed the program closed without saving. In the program without a
+record row: the 63 instructions at 0x163400 with their bookmark, and the data items analysis
+defined (listed in the apply reports).
