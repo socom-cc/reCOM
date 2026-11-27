@@ -174,7 +174,9 @@ python tools/release/signatures.py --confirm-saved build/release/signatures/sign
   `socom.elf` (the Signature line of `get_function_by_address`; names, types and storage from
   `get_function_variables`). Every type it names must exist in the release program at the same
   path with the same size, and be the only type of its name there (the signature parser looks
-  types up by name); otherwise the pair is withheld and the summary lists the missing types. A
+  types up by name, ignores `.conflict` suffixes and takes C primitive names such as `long` as
+  Ghidra's built-in before any type of the program); otherwise the pair is withheld, the summary
+  lists the missing types and says how many type names those two parser rules touch. A
   prototype signature that is still Ghidra's default (undefined return, no parameter) gives
   nothing to carry and is listed. Exact pairs form one group; deviating pairs, and C library
   pairs named by their place, form another, taken only with `--classes exact,deviating`; their
@@ -193,7 +195,9 @@ python tools/release/signatures.py --confirm-saved build/release/signatures/sign
 - **Apply**: the coordinator only, after the review: the dry run first, then `--yes`, optionally
   in batches. The same guards as for names (open programs, recorded SHA-256, idle analysis, plan
   digest and map, no unsaved rows, writes to the release program only, never a save). Per
-  function it checks that the live state is the one planned, writes, reads back the whole
+  function it checks that the live state is the one planned (body, name, signature, and that it
+  is no thunk now: a write to a thunk goes to its target), keeps what the function held in the
+  report, writes, reads back the whole
   prototype (signature line and every parameter's name, type and storage) and compares it field
   by field; the first mismatch stops the run. Thunks are never written: a thunk of a written
   function must show the predicted signature at once. A snapshot of every release function
@@ -201,10 +205,20 @@ python tools/release/signatures.py --confirm-saved build/release/signatures/sign
   expected state after every `--check-every` written functions (default 10), whenever analysis is
   seen running after a write, and at the end; any change the plan did not make stops the run and
   is listed in the report with the writes since the last clean snapshot (`--check-every 1` names
-  the write exactly). A second run changes nothing.
+  the write exactly). A second run changes nothing. Every stop says what to do (the report
+  repeats it under `what_to_do`): a stop before a write (`StopBefore`) left nothing for that
+  function: save, confirm, replan; a stop after a write was sent (`StopAfter`: the convention
+  failed after the signature was committed, or the read-back differs) may leave another
+  prototype: save and confirm (the record then says what is there), or close without saving and
+  discard; a change the plan did not make (`AnalysisStop`) is checked first: if acceptable, save
+  and confirm (the change itself is not recorded), otherwise close without saving and discard.
 - **Save**: the coordinator, through the bridge, after a second agent has checked the batch; then
-  `--confirm-saved <report>`. After closing without a save, `--discard-unsaved <report>`, which
-  also restores the names step's plate rows that the flag replaced.
+  `--confirm-saved <report>`. It marks the report's rows saved and reads every write that was sent
+  but not recorded: one that holds the planned value is recorded as saved; one that holds
+  something else than before the run is recorded as it is, with the state `saved <date>, not the
+  planned prototype (<report>)`, and listed in the output. After closing without a save,
+  `--discard-unsaved <report>`, which refuses while the program holds any write of the report and
+  restores the names step's plate rows that the report replaced.
 - **Record**: `docs/release/ghidra-applied.tsv`, kind `prototype`, value the signature line with
   the storage of each parameter; plate flags replace the function's `plate` row. Rows stay
   `unsaved <report>` until `--confirm-saved`.

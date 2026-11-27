@@ -45,6 +45,7 @@ What the bridge carries, and what it cannot (from the plugin's ``FunctionService
 from __future__ import annotations
 
 import argparse
+import bisect
 import copy
 import datetime as _dt
 import json
@@ -151,6 +152,21 @@ def type_table(bridge, program: str) -> dict[str, list[tuple[str, int | None]]]:
     return {k: sorted(v) for k, v in out.items()}
 
 
+# DataTypeUtilities.cPrimitiveNameMap: names DataTypeParser resolves as built-ins first.
+C_PRIMITIVES = frozenset({
+    "char", "signed char", "unsigned char", "short", "short int", "signed short", "signed short int",
+    "unsigned short", "unsigned short int", "int", "signed", "signed int", "unsigned", "unsigned int",
+    "long", "long int", "signed long", "signed long int", "unsigned long", "long long", "long long int",
+    "signed long long", "signed long long int", "unsigned long long", "unsigned long long int",
+    "float", "double", "long double"})
+PARSER_RULE = "parser rule: "
+_CONFLICT = re.compile(r"\.conflict(?:_?\d+)?$")  # DataTypeUtilities.BASE_DATATYPE_CONFLICT_PATTERN
+
+
+def strip_conflict(name: str) -> str:
+    return _CONFLICT.sub("", name)
+
+
 def base_type(text: str) -> str:
     """The named type under pointer and array modifiers (``CKey * *`` -> ``CKey``)."""
 
@@ -163,15 +179,29 @@ def check_type(text: str, proto_types: dict, release_types: dict) -> tuple[str |
     if any(c in text for c in "(),"):
         return f"type {text} holds ( ) or , which the signature parser cannot read", None
     name = base_type(text)
-    if name == "undefined" or name in BUILTIN_TYPES and name not in proto_types:
+    if name == "undefined":
         return None, None
     found = proto_types.get(name, [])
+    if " ".join(name.split()) in C_PRIMITIVES:
+        # DataTypeParser.findDataType takes a C primitive name as Ghidra's built-in before any
+        # type of the program: only the built-in itself (at the root) is carried.
+        other = [p for p, _ in found if p != "/" + name]
+        if other:
+            return f"{PARSER_RULE}C primitive name {name}: the parser takes Ghidra's built-in, not {other[0]}", None
+        return None, None
+    if name in BUILTIN_TYPES and name not in proto_types:
+        return None, None
     if not found:
         return f"type {name} is not in the prototype's type list", None
     if len(found) > 1:
         return f"type name {name} names {len(found)} types in the prototype", None
     path, size = found[0]
-    there = release_types.get(name, [])
+    # DataTypeManagerDB.findDataTypes ignores .conflict suffixes in the name and in the matches.
+    there = sorted(x for n, v in release_types.items() if strip_conflict(n) == strip_conflict(name) for x in v)
+    twins = sorted(n for n in release_types if n != name and strip_conflict(n) == strip_conflict(name))
+    if twins:
+        return (f"{PARSER_RULE}type name {name}: the parser also finds {', '.join(twins)} in the release "
+                "(it ignores .conflict suffixes)"), None
     if not there:
         if name in BUILTIN_TYPES and path == "/" + name:
             return None, None  # the parser takes Ghidra's built-in
@@ -323,6 +353,7 @@ def build_plan(root: Path, bridge, module: str | None, progress=None, image=None
         progress(f"prototype parameters of {len(need)} functions")
     proto_vars = read_many(bridge, gb.PROTOTYPE_PROGRAM, need)
     missing: Counter = Counter()
+    checked: set[str] = set()  # every base type name a considered prototype names
     later = []
     for entry, sig, here, row, live in pending:
         params = proto_vars.get(int(entry["prototype"]["address"], 16), []) if sig["inside"] else []
@@ -333,13 +364,15 @@ def build_plan(root: Path, bridge, module: str | None, progress=None, image=None
             continue
         reason = None
         for text in [sig["return"]] + [p["type"] for p in params]:
+            checked.add(base_type(text))
             reason, path = check_type(text, proto_types, release_types)
             if path:
                 missing[path] += 1
             if reason:
                 break
         if reason:
-            entry.update({"action": "withheld", "reason_group": "type", "reason": reason})
+            entry.update({"action": "withheld", "reason_group": "parser-rule" if reason.startswith(PARSER_RULE)
+                          else "type", "reason": reason})
             continue
         bad = [p["name"] for p in params if not can_parse_name(p["name"])]
         auto = [p["name"] for p in params if p["name"] == "__return_storage_ptr__"
@@ -421,6 +454,15 @@ def build_plan(root: Path, bridge, module: str | None, progress=None, image=None
         "release_sha256": RELEASE_SHA256, "prototype_sha256": PROTOTYPE_SHA256,
         "selection": module or "--all", "function_map_sha256": map_sha,
         "entries": entries, "missing_types": dict(sorted(missing.items())),
+        # The two DataTypeParser rules (C primitive names first; .conflict ignored), over every
+        # type name a considered prototype names: which of them the rules would resolve elsewhere.
+        "parser_rules": {
+            "type_names_checked": len(checked),
+            "c_primitive_names": sorted(n for n in checked if " ".join(n.split()) in C_PRIMITIVES),
+            "with_conflict_twins_in_release": sorted(
+                n for n in checked if any(m != n and strip_conflict(m) == strip_conflict(n) for m in release_types)),
+            "resolved_elsewhere": sorted({e["reason"] for e in entries if e.get("reason_group") == "parser-rule"}),
+        },
     }
     plan["summary"] = summarize(plan)
     plan["plan_sha256"] = sha256_text(canonical(plan))
@@ -457,6 +499,10 @@ def summarize(plan: dict) -> dict:
         "default_prototype_signatures": len(defaults),
         "default_with_convention_only": sum(1 for e in defaults if e["prototype"]["convention"]),
         "missing_types": len(plan["missing_types"]),
+        "parser_rules": (f"{plan['parser_rules']['type_names_checked']} type names checked; C primitive names "
+                         f"{len(plan['parser_rules']['c_primitive_names'])} (all Ghidra's built-in unless listed); "
+                         f".conflict twins {len(plan['parser_rules']['with_conflict_twins_in_release'])}; "
+                         f"resolved elsewhere, withheld {sum(1 for e in entries if e.get('reason_group') == 'parser-rule')}"),
         "replaces_a_live_signature": sum(1 for e in writes if e.get("replaces")),
         "thunks_that_follow": sum(len(e["thunks"]) for e in writes),
         "plate_flags": sum(1 for e in entries if e.get("plate") and e["plate"]["after"] != e["plate"]["before"]),
@@ -475,6 +521,7 @@ def plan_markdown(plan: dict) -> str:
              f"- withheld by reason: {s['withheld_by_reason']}",
              f"- default prototype signatures (nothing to carry): {s['default_prototype_signatures']} "
              f"({s['default_with_convention_only']} with only a convention set)",
+             f"- parser rules (C primitive names first, .conflict ignored): {s['parser_rules']}",
              f"- missing types: {s['missing_types']}; live signatures replaced: {s['replaces_a_live_signature']}; "
              f"thunks that follow: {s['thunks_that_follow']}; plate flags: {s['plate_flags']}; "
              f"no-return differences (not applied): {s['no_return_differences']}",
@@ -568,6 +615,25 @@ def diff_states(expected: dict, now: dict) -> list[dict]:
 
 # --- the apply -------------------------------------------------------------------------------
 
+# What the coordinator does after each kind of stop (the report repeats it under what_to_do).
+AFTER_NOTHING = ("nothing was sent for this function and every earlier write read back as planned: save, "
+                 "--confirm-saved this report, then replan")
+AFTER_A_WRITE = ("the program may hold another prototype there: save and --confirm-saved this report (it "
+                 "records what the program really holds, marked as not the planned prototype, and lists it), "
+                 "or close without saving and --discard-unsaved it; then replan")
+AFTER_ANALYSIS = ("have the changes listed under analysis_changes checked: if they are acceptable, save and "
+                  "--confirm-saved this report (it records this run's writes, not those changes); if not, close "
+                  "without saving and --discard-unsaved it; then replan")
+
+
+class StopBefore(Stop):
+    """Stopped before a write to this function."""
+
+
+class StopAfter(Stop):
+    """Stopped after a write was sent: the function may hold something else than planned."""
+
+
 class AnalysisStop(Stop):
     """The program changed beyond what the plan predicted."""
 
@@ -602,8 +668,9 @@ def compare(entry: dict, live: dict | None, params: list[dict]) -> list[str]:
 
 class Applier:
     def __init__(self, bridge, plan: dict, dry_run: bool, classes=("exact",), batch=None,
-                 check_every: int = CHECK_EVERY):
+                 check_every: int = CHECK_EVERY, recorded: dict | None = None):
         self.bridge, self.plan, self.dry_run = bridge, plan, dry_run
+        self.recorded = recorded or {}  # the record's rows: a function saved as planned is not re-read in full
         self.classes, self.batch, self.check_every = tuple(classes), batch, max(1, check_every)
         self.written: list[dict] = []
         self.attempted: list[dict] = []
@@ -618,19 +685,24 @@ class Applier:
         self.window: list[str] = []  # entries written since the last clean snapshot
         self.clean = True
 
-    def send(self, entry: dict, applied: str, value: str, endpoint: str, ok, **body) -> bool:
-        item = {"address": entry["address"], "applied": applied, "value": value,
+    def send(self, entry: dict, applied: str, value: str, before: str, endpoint: str, ok, **body) -> bool:
+        """``before``: what the function held, so that --confirm-saved can tell what a stopped write left."""
+
+        item = {"address": entry["address"], "applied": applied, "value": value, "before": before,
                 "source_pair": entry["source_pair"], "end": entry["end"]}
         if self.dry_run:
             self.would.append(item)
             return False
         self.attempted.append(item)
         self.clean = False
-        response = self.bridge.write(endpoint, gb.RELEASE_PROGRAM, **body)
+        try:
+            response = self.bridge.write(endpoint, gb.RELEASE_PROGRAM, **body)
+        except gb.BridgeError as exc:
+            raise StopAfter(f"{endpoint} at {entry['address']}: {exc}: {AFTER_A_WRITE}") from exc
         if not ok(response):
-            raise Stop(f"{endpoint} at {entry['address']} failed: {response!r}"
-                       + (" (the signature may be written already: the convention is set in a second "
-                          "transaction; see the snapshot in the report)" if endpoint == "set_function_prototype" else ""))
+            raise StopAfter(f"{endpoint} at {entry['address']} failed: {response!r}"
+                            + (" (the signature is committed before the convention, so it may be there)"
+                               if endpoint == "set_function_prototype" else "") + f": {AFTER_A_WRITE}")
         return True
 
     def checkpoint(self, why: str) -> None:
@@ -641,16 +713,17 @@ class Applier:
         if changes:
             self.analysis_changes = [dict(c, window=list(self.window)) for c in changes]
             self.expected = now
+            self.order = sorted(now)
             raise AnalysisStop(
                 f"the program changed beyond the plan ({len(changes)} changes, listed in the report under "
-                f"analysis_changes) after writing {', '.join(self.window) or 'nothing'}: check, save, "
-                "--confirm-saved this report, then replan")
+                f"analysis_changes) after writing {', '.join(self.window) or 'nothing'} ({why}): {AFTER_ANALYSIS}")
         self.window = []
         self.clean = True
 
     def run(self) -> None:
         self.before = snapshot(self.bridge)
         self.expected = copy.deepcopy(self.before)
+        self.order = sorted(self.expected)
         ordered = sorted((e for e in self.plan["entries"] if e["action"] in ("write", "unchanged")),
                          key=lambda e: int(e["address"], 16))
         try:
@@ -675,50 +748,86 @@ class Applier:
                 except (Stop, gb.BridgeError) as exc:
                     self.side_effects = [{"change": "no final snapshot", "detail": str(exc)}]
 
+    def saved_as_planned(self, entry: dict) -> bool:
+        """The record holds this entry's prototype (and plate flag) as planned, saved."""
+
+        def saved(applied, value):
+            row = self.recorded.get((entry["address"], applied))
+            return bool(row) and row["value"] == names.record_value(value) and row["state"].startswith("saved ") \
+                and "not the planned" not in row["state"]
+
+        value = prototype_value(entry["expected"]["signature"], entry["expected"]["parameters"])
+        return saved("prototype", value) and (not entry.get("plate") or saved("plate", entry["plate"]["after"]))
+
+    def thunk_now(self, address: int) -> bool:
+        """The live thunk flag of this function alone (``list_functions_enhanced`` at its index).
+
+        The plugin skips the functions before ``offset`` without classifying them, so one row is
+        cheap. A function at another index means the function list changed: the snapshot says how.
+        """
+
+        index = bisect.bisect_left(self.order, address)
+        value = self.bridge.get("list_functions_enhanced", gb.RELEASE_PROGRAM, offset=index, limit=1)
+        rows = value.get("functions") if isinstance(value, dict) else None
+        if not rows or int(rows[0]["address"], 16) != address:
+            if not self.dry_run:
+                self.checkpoint(f"the function list moved before {hx(address)}")
+            raise StopBefore(f"{hx(address)} is not where the function list had it: {AFTER_NOTHING}")
+        return bool(rows[0].get("isThunk"))
+
     def entry(self, entry: dict) -> bool:
         address = int(entry["address"], 16)
         state = self.expected.get(address)
         live = names.read_function(self.bridge, gb.RELEASE_PROGRAM, address)
         if not live or live["entry"] != address or state is None:
-            raise Stop(f"{entry['address']}: the planned function is gone: replan")
+            raise StopBefore(f"{entry['address']}: the planned function is gone: {AFTER_NOTHING}")
         if (live["body_min"], live["body_max"], live["name"]) != (address, int(entry["end"], 16), entry["release"]["name"]):
-            raise Stop(f"{entry['address']} is now {live['name']} {hx(live['body_min'])}..{hx(live['body_max'])}: replan")
+            raise StopBefore(f"{entry['address']} is now {live['name']} {hx(live['body_min'])}..{hx(live['body_max'])}: "
+                             f"{AFTER_NOTHING}")
+        if live.get("signature") == entry["expected"]["signature"] and self.saved_as_planned(entry):
+            # an earlier batch wrote and saved it: the signature line is checked, the full read-back
+            # (storage, ~0.25 s) was made then and is in the record; the snapshots still cover it
+            self.unchanged["prototype (saved)"] += 1
+            return False
+        if self.thunk_now(address):
+            raise StopBefore(f"{entry['address']} is a thunk now (a write would go to its target): {AFTER_NOTHING}")
         expected = entry["expected"]["signature"]
         if live.get("signature") == expected:
             params = read_variables(self.bridge, gb.RELEASE_PROGRAM, address)
             if params != entry["expected"]["parameters"]:
-                raise Stop(f"{entry['address']} has the planned signature with another storage: replan")
+                raise StopBefore(f"{entry['address']} has the planned signature with another storage: {AFTER_NOTHING}")
             self.unchanged["prototype"] += 1
-            done_plate = self.plate(entry)
-            return done_plate
+            return self.plate(entry)
         if entry["action"] != "write" or live.get("signature") != entry["release"]["signature"]:
-            raise Stop(f"{entry['address']} now has the signature {live.get('signature')!r}, the plan saw "
-                       f"{entry['release']['signature']!r}: replan")
+            raise StopBefore(f"{entry['address']} now has the signature {live.get('signature')!r}, the plan saw "
+                             f"{entry['release']['signature']!r}: {AFTER_NOTHING}")
         if entry.get("plate"):
             current = names.read_plate(self.bridge, address)
             if current not in (entry["plate"]["before"], entry["plate"]["after"]):
-                raise Stop(f"{entry['address']}: its plate comment changed since the plan: replan")
+                raise StopBefore(f"{entry['address']}: its plate comment changed since the plan: {AFTER_NOTHING}")
+        before = live_value(self.bridge, {"address": entry["address"], "applied": "prototype"}, live)
         value = prototype_value(expected, entry["expected"]["parameters"])
         body = {"function_address": entry["address"], "prototype": entry["send"]["prototype"]}
         if entry["send"]["calling_convention"]:
             body["calling_convention"] = entry["send"]["calling_convention"]
-        if self.send(entry, "prototype", value, "set_function_prototype",
+        if self.send(entry, "prototype", value, before, "set_function_prototype",
                      lambda r: isinstance(r, str) and r.startswith("Successfully set prototype"), **body):
             self.window.append(entry["address"])
             back = names.read_function(self.bridge, gb.RELEASE_PROGRAM, address)
             params = read_variables(self.bridge, gb.RELEASE_PROGRAM, address) if back and back["entry"] == address else []
             wrong = compare(entry, back, params)
             if wrong:
-                raise Stop(f"prototype {entry['address']} read back wrong: {'; '.join(wrong)}")
-            self.written.append({"address": entry["address"], "applied": "prototype", "value": value,
+                raise StopAfter(f"prototype {entry['address']} read back wrong: {'; '.join(wrong)}: {AFTER_A_WRITE}")
+            self.written.append({"address": entry["address"], "applied": "prototype", "value": value, "before": before,
                                  "source_pair": entry["source_pair"], "end": entry["end"]})
             self.expected[address] = dict(self.expected[address], signature=back["signature"])
             for thunk in entry["thunks"]:
                 t = int(thunk["address"], 16)
                 seen = names.read_function(self.bridge, gb.RELEASE_PROGRAM, t)
                 if not seen or seen["entry"] != t or seen.get("signature") != thunk["signature_after"]:
-                    raise Stop(f"the thunk {thunk['address']} of {entry['address']} shows "
-                               f"{seen and seen.get('signature')!r}, predicted {thunk['signature_after']!r}")
+                    raise AnalysisStop(f"the thunk {thunk['address']} of {entry['address']} shows "
+                                       f"{seen and seen.get('signature')!r}, predicted {thunk['signature_after']!r} "
+                                       f"(the write itself read back as planned): {AFTER_ANALYSIS}")
                 self.expected[t] = dict(self.expected[t], signature=thunk["signature_after"])
         self.plate(entry)
         if not self.dry_run:
@@ -737,27 +846,64 @@ class Applier:
             self.unchanged["plate"] += 1
             return False
         if current != entry["plate"]["before"]:
-            raise Stop(f"{entry['address']}: its plate comment changed since the plan: replan")
-        if self.send(entry, "plate", after, "set_comment", gb.ok_status,
+            raise StopBefore(f"{entry['address']}: its plate comment changed since the plan: {AFTER_NOTHING}")
+        if self.send(entry, "plate", after, current, "set_comment", gb.ok_status,
                      address=entry["address"], comment=after, type="plate"):
             self.window.append(entry["address"] + " (plate)")
             if names.read_plate(self.bridge, address) != after:
-                raise Stop(f"plate {entry['address']} did not read back")
-            self.written.append({"address": entry["address"], "applied": "plate", "value": after,
+                raise StopAfter(f"plate {entry['address']} did not read back: {AFTER_A_WRITE}")
+            self.written.append({"address": entry["address"], "applied": "plate", "value": after, "before": current,
                                  "source_pair": entry["source_pair"], "end": entry["end"]})
         return True
 
 
 # --- the record ------------------------------------------------------------------------------
 
-def reads_back(bridge, item: dict) -> bool:
-    if item["applied"] != "prototype":
-        return names.reads_back(bridge, item)
+def live_value(bridge, item: dict, live: dict | None = None) -> str | None:
+    """What the release function holds now, in the record's terms (None: no function starts there)."""
+
     address = int(item["address"], 16)
-    live = names.read_function(bridge, gb.RELEASE_PROGRAM, address)
+    if item["applied"] == "plate":
+        return names.read_plate(bridge, address)
+    live = live or names.read_function(bridge, gb.RELEASE_PROGRAM, address)
     if not live or live["entry"] != address:
-        return False
-    return prototype_value(live.get("signature", ""), read_variables(bridge, gb.RELEASE_PROGRAM, address)) == item["value"]
+        return None
+    here = parse_signature(live.get("signature"), live["name"])
+    params = read_variables(bridge, gb.RELEASE_PROGRAM, address) if here is None or here["inside"] else []
+    return prototype_value(live.get("signature", ""), params)
+
+
+def reads_back(bridge, item: dict) -> bool:
+    if item["applied"] not in ("prototype", "plate"):
+        return names.reads_back(bridge, item)
+    return live_value(bridge, item) == item["value"]
+
+
+def stopped_writes(bridge, result: dict) -> tuple[list, list, list]:
+    """The writes a stop left behind: (as planned, something else, nothing), read from the program.
+
+    A write that was sent but is not in ``written`` holds the planned value, another value (the
+    convention transaction failed, or the read-back found a mismatch), or what it held before.
+    """
+
+    written = {(w["address"], w["applied"]) for w in result["written"]}
+    planned, other, untouched = [], [], []
+    for item in result.get("attempted", []):
+        if (item["address"], item["applied"]) in written:
+            continue
+        now = live_value(bridge, item)
+        if now == item["value"]:
+            planned.append(item)
+        elif now != item.get("before"):
+            other.append(dict(item, value=now if now is not None else "(no function starts here)",
+                              planned=item["value"]))
+        else:
+            untouched.append(item)
+    return planned, other, untouched
+
+
+def not_planned_state(day: str, item: dict, report_name: str) -> str:
+    return f"saved {day}, not the planned {item['applied']} ({report_name})"
 
 
 def next_report(root: Path, stem: str) -> Path:
@@ -784,31 +930,35 @@ def apply(root: Path, plan_path: Path, bridge, *, dry_run: bool, classes=("exact
     if not check["ok"]:
         raise Refused("preflight failed: " + "; ".join(check["errors"]))
     out = (root / OUT / f"{plan_path.stem}.dry-run.json") if dry_run else next_report(root, plan_path.stem)
-    applier = Applier(bridge, plan, dry_run, classes, batch, check_every)
-    stopped = None
+    record_before = names.read_record(root)
+    applier = Applier(bridge, plan, dry_run, classes, batch, check_every, recorded=record_before)
+    stopped, stop_kind = None, None
     replaced: list[dict] = []
     try:
         applier.run()
     except (Stop, gb.BridgeError) as exc:
-        stopped = str(exc)
+        stopped, stop_kind = str(exc), type(exc).__name__
     finally:
+        # Rows of the names step (plates) that this run's rows replace now or at --confirm-saved;
+        # --discard-unsaved puts them back.
+        replaced = [record_before[k] for k in sorted({(w["address"], w["applied"]) for w in applier.attempted})
+                    if k in record_before]
         if not dry_run and applier.written:
-            # A plate row of the names step is replaced; --discard-unsaved puts it back.
-            before = names.read_record(root)
-            replaced = [before[k] for k in sorted({(w["address"], w["applied"]) for w in applier.written})
-                        if k in before]
             names.update_record(root, applier.written, today or _dt.date.today().isoformat(), out.name)
+    what_to_do = {"StopBefore": AFTER_NOTHING, "StopAfter": AFTER_A_WRITE, "AnalysisStop": AFTER_ANALYSIS}.get(
+        stop_kind, AFTER_A_WRITE if stopped else None)
     done = applier.would if dry_run else applier.written
     result = {
         "plan": plan_path.name, "plan_sha256": plan["plan_sha256"], "selection": plan["selection"],
-        "dry_run": dry_run, "classes": list(classes), "stopped": stopped, "saved": False, "batch": batch,
+        "dry_run": dry_run, "classes": list(classes), "stopped": stopped, "stop_kind": stop_kind,
+        "what_to_do": what_to_do, "saved": False, "batch": batch,
         "batch_full": applier.batch_full, "entries_changed": applier.changed, "check_every": applier.check_every,
         "sent": [] if dry_run else bridge.sent, "written": applier.written, "would_write": applier.would,
         "counts": dict(sorted(Counter(w["applied"] for w in done).items())),
         "unchanged": dict(sorted(applier.unchanged.items())), "skipped": dict(sorted(applier.skipped.items())),
         "checkpoints": applier.checkpoints, "analysis_changes": applier.analysis_changes,
         "side_effects": applier.side_effects, "attempted": [] if dry_run else applier.attempted,
-        "remove_by_hand": [], "replaced_rows": replaced,
+        "remove_by_hand": [], "replaced_rows": [] if dry_run else replaced,
     }
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(canonical(result), encoding="utf-8", newline="\n")
@@ -817,19 +967,60 @@ def apply(root: Path, plan_path: Path, bridge, *, dry_run: bool, classes=("exact
 
 
 def confirm_saved(root: Path, report_path: Path, bridge, today: str | None = None) -> dict:
-    return names.confirm_saved(root, report_path, bridge, today, reads_back=reads_back)
+    """After the coordinator saved: re-read the report's writes and make the record say what is there.
+
+    Rows that read back are marked saved. A write the run sent without recording it (a stop) is
+    recorded as it reads now: saved as planned, or, when the function holds something else than
+    before the run and than planned, with a state that says it is not the planned one.
+    """
+
+    result = json.loads(report_path.read_text(encoding="utf-8"))
+    rows = names.read_record(root)
+    mine = [k for k, row in rows.items() if row["state"] == f"unsaved {report_path.name}"]
+    failed = [f"{w['address']} {w['applied']}" for w in result["written"] if not reads_back(bridge, w)]
+    if failed:
+        raise Refused(f"{len(failed)} changes do not read back ({', '.join(failed[:10])}); nothing marked saved")
+    planned, other, untouched = stopped_writes(bridge, result)
+    if not mine and not planned and not other:
+        raise Refused(f"the record holds no unsaved rows of {report_path.name} and its stopped writes left nothing")
+    day = today or _dt.date.today().isoformat()
+    for key in mine:
+        rows[key]["state"] = f"saved {day}"
+    for item in planned:
+        rows[(item["address"], item["applied"])] = {
+            "release_address": item["address"], "applied": item["applied"], "value": names.record_value(item["value"]),
+            "source_pair": item["source_pair"], "date": day, "state": f"saved {day}"}
+    for item in other:
+        rows[(item["address"], item["applied"])] = {
+            "release_address": item["address"], "applied": item["applied"], "value": names.record_value(item["value"]),
+            "source_pair": item["source_pair"], "date": day, "state": not_planned_state(day, item, report_path.name)}
+    names.write_record(root, rows)
+    return {"confirmed": len(mine), "recorded_after_a_stop": len(planned),
+            "not_as_planned": [{"address": i["address"], "applied": i["applied"], "holds": i["value"],
+                                "planned": i["planned"]} for i in other],
+            "sent_but_not_there": [f"{i['address']} {i['applied']}" for i in untouched], "report": report_path.name}
 
 
 def discard_unsaved(root: Path, report_path: Path, bridge) -> dict:
-    """Drop the report's unsaved rows and restore the rows they replaced (the names step's plates)."""
+    """After a close without saving: drop the report's rows and restore those they replaced.
 
-    done = names.discard_unsaved(root, report_path, bridge, reads_back=reads_back)
-    previous = json.loads(report_path.read_text(encoding="utf-8")).get("replaced_rows", [])
+    Refused while the program still holds any write of the report, recorded or not.
+    """
+
+    result = json.loads(report_path.read_text(encoding="utf-8"))
+    present = [f"{w['address']} {w['applied']}" for w in result["written"] if reads_back(bridge, w)]
+    planned, other, _ = stopped_writes(bridge, result)
+    present += [f"{i['address']} {i['applied']}" for i in planned + other]
+    if present:
+        raise Refused(f"{len(present)} changes of {report_path.name} are still in the program "
+                      f"({', '.join(present[:10])}): save and --confirm-saved instead")
     rows = names.read_record(root)
-    for row in previous:
-        rows.setdefault((row["release_address"], row["applied"]), row)
-    names.write_record(root, rows)
-    return dict(done, restored=len(previous))
+    kept = {k: r for k, r in rows.items() if r["state"] != f"unsaved {report_path.name}"}
+    for row in result.get("replaced_rows", []):
+        kept.setdefault((row["release_address"], row["applied"]), row)
+    names.write_record(root, kept)
+    return {"discarded": sum(1 for r in rows.values() if r["state"] == f"unsaved {report_path.name}"),
+            "restored": len(result.get("replaced_rows", [])), "report": report_path.name}
 
 
 # --- command line ----------------------------------------------------------------------------
@@ -872,7 +1063,10 @@ def main(argv: list[str] | None = None) -> int:
                 raise Refused("preflight failed: " + "; ".join(check["errors"]))
             done = (confirm_saved(root, args.confirm_saved.resolve(), bridge) if args.confirm_saved
                     else discard_unsaved(root, args.discard_unsaved.resolve(), bridge))
-            print(json.dumps(done))
+            print(json.dumps(done, indent=1))
+            for item in done.get("not_as_planned", []):
+                print(f"NOT AS PLANNED, recorded as it is: {item['address']} {item['applied']} holds {item['holds']!r}, "
+                      f"planned {item['planned']!r}")
             return 0
         if not args.dry_run and not args.yes:
             print("refused: --apply writes to the release program; pass --yes (or --dry-run)", file=sys.stderr)
@@ -883,8 +1077,9 @@ def main(argv: list[str] | None = None) -> int:
         classes = tuple(c.strip() for c in args.classes.split(",") if c.strip())
         result = apply(root, args.apply.resolve(), bridge, dry_run=args.dry_run, classes=classes,
                        batch=args.batch, check_every=args.check_every)
-        print(json.dumps({k: result[k] for k in ("report", "dry_run", "classes", "stopped", "counts", "unchanged",
-                                                 "skipped", "saved", "batch_full", "entries_changed")}, indent=1))
+        print(json.dumps({k: result[k] for k in ("report", "dry_run", "classes", "stopped", "stop_kind", "what_to_do",
+                                                 "counts", "unchanged", "skipped", "saved", "batch_full",
+                                                 "entries_changed")}, indent=1))
         print(f"sent: {len(result['sent'])}; snapshots: {len(result['checkpoints'])}; analysis changes: "
               f"{len(result['analysis_changes'])}; side effects: {len(result['side_effects'])}")
         if result["batch_full"]:

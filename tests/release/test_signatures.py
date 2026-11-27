@@ -125,10 +125,18 @@ def test_clean_apply_thunk_follows_record_confirm_and_rerun(tmp_path):
     assert done["confirmed"] == 2
     saved = (root / names.RECORD).read_text(encoding="utf-8")
     assert "unsaved" not in saved
-    sent = len(g.sent)
+    sent, asked = len(g.sent), len(g.requests)
     again = sg.apply(root, path, g, dry_run=False, today="2026-11-29")
     assert again["stopped"] is None and again["written"] == [] and len(g.sent) == sent
-    assert again["unchanged"] == {"prototype": 2}
+    assert again["unchanged"] == {"prototype (saved)": 2}  # a later batch passes them by cheaply
+    assert ("GET", "get_function_variables") not in g.requests[asked:]
+    # a saved row that is not the planned prototype does not count as done
+    rows = names.read_record(root)
+    rows[("0x200000", "prototype")]["state"] = "saved 2026-11-28, not the planned prototype (x)"
+    names.write_record(root, rows)
+    assert sg.apply(root, path, g, dry_run=True)["unchanged"] == {"prototype": 1, "prototype (saved)": 1}
+    rows[("0x200000", "prototype")]["state"] = "saved 2026-11-28"
+    names.write_record(root, rows)
     assert (root / names.RECORD).read_text(encoding="utf-8") == saved
     replan = sg.build_plan(root, reader_for(g), "gamez/zTest", image=g.release.image)
     assert {e["address"]: e["action"] for e in replan["entries"]}["0x200000"] == "unchanged"
@@ -180,6 +188,65 @@ def test_a_read_back_mismatch_stops_at_the_first_function(tmp_path):
     assert result["written"] == [] and not (root / names.RECORD).exists()
     assert [a["applied"] for a in result["attempted"]] == ["prototype"]
     assert {(c["address"], c["change"]) for c in result["side_effects"]} == {("0x200000", "signature")}
+
+
+def test_a_failed_convention_leaves_a_signature_that_confirm_records_as_not_planned(tmp_path):
+    g = make_ghidra()
+    root, plan, path = plan_for(tmp_path, g)
+    g.refuse_convention = True
+    result = sg.apply(root, path, g, dry_run=False, today="2026-11-27")
+    assert result["stop_kind"] == "StopAfter" and result["what_to_do"] == sg.AFTER_A_WRITE
+    assert "Unknown calling convention" in result["stopped"] and result["written"] == []
+    assert result["attempted"][0]["before"] == "undefined CFoo::Get(void)"
+    holds = "int CFoo::Get(CFoo * this, int param_2) [storage this=a0_lo:4, param_2=a1_lo:4]"
+    assert g.release.signature(0x200000) == "int CFoo::Get(CFoo * this, int param_2)"  # no convention
+    with pytest.raises(names.Refused, match="still in the program"):
+        sg.discard_unsaved(root, root / sg.OUT / result["report"], g)
+    done = sg.confirm_saved(root, root / sg.OUT / result["report"], g, today="2026-11-28")
+    assert done["not_as_planned"] == [{"address": "0x200000", "applied": "prototype", "holds": holds,
+                                       "planned": result["attempted"][0]["value"]}]
+    row = names.read_record(root)[("0x200000", "prototype")]
+    assert row["value"] == holds and row["state"] == f"saved 2026-11-28, not the planned prototype ({result['report']})"
+    assert names.unsaved(names.read_record(root)) == []
+
+
+def test_a_mismatch_is_recorded_as_it_is_or_discarded_after_a_close(tmp_path):
+    g = make_ghidra()
+    root, plan, path = plan_for(tmp_path, g)
+    g.mangle_prototype = True
+    result = sg.apply(root, path, g, dry_run=False, today="2026-11-27")
+    assert result["stop_kind"] == "StopAfter"
+    fresh = make_ghidra()  # closed without saving
+    done = sg.discard_unsaved(root, root / sg.OUT / result["report"], fresh)
+    assert done["discarded"] == 0 and not names.read_record(root)
+    with pytest.raises(names.Refused, match="left nothing"):
+        sg.confirm_saved(root, root / sg.OUT / result["report"], fresh)
+    done = sg.confirm_saved(root, root / sg.OUT / result["report"], g, today="2026-11-28")
+    assert [i["holds"] for i in done["not_as_planned"]] == [
+        "int __stdcall CFoo::Get(CFoo * param_1, int param_2) [storage param_1=a0_lo:4, param_2=a1_lo:4]"]
+
+
+def test_a_function_that_became_a_thunk_is_not_written(tmp_path):
+    g = make_ghidra()
+    root, plan, path = plan_for(tmp_path, g)
+    g.release.functions[0x200000]["thunk_of"] = 0x200060  # its name stays its own
+    result = sg.apply(root, path, g, dry_run=False)
+    assert result["stop_kind"] == "StopBefore" and "is a thunk now" in result["stopped"]
+    assert result["sent"] == [] and result["what_to_do"] == sg.AFTER_NOTHING
+
+
+def test_types_the_parser_would_resolve_elsewhere_are_withheld(tmp_path):
+    g = make_ghidra()
+    g.prototype.add_type("/project/zTest/long", 4)       # a program type named like a C primitive
+    g.prototype.sign(0x300030, "long", "__stdcall", [("CFoo *", "this")])
+    g.release.add_type("/project/CFoo.conflict", 8)      # findDataTypes would also find it
+    _, plan, _ = plan_for(tmp_path, g)
+    by = by_address(plan)
+    assert by["0x200030"]["reason_group"] == "parser-rule" and "C primitive name long" in by["0x200030"]["reason"]
+    assert by["0x200000"]["reason_group"] == "parser-rule" and "CFoo.conflict" in by["0x200000"]["reason"]
+    rules = plan["parser_rules"]
+    assert rules["c_primitive_names"] == ["int", "long"] and rules["with_conflict_twins_in_release"] == ["CFoo"]
+    assert "resolved elsewhere, withheld 4" in plan["summary"]["parser_rules"]
 
 
 def test_storage_the_parser_cannot_carry_stops_the_run(tmp_path):

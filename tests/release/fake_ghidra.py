@@ -121,6 +121,7 @@ class FakeGhidra(gb.Bridge):
         self.analysis_effects: dict[int, object] = {}  # create address -> callable(program): analysis follow-up
         self.drop_plate_read_after_set = False  # the next plate read after a set answers empty once
         self.mangle_prototype = False  # set_function_prototype loses the parameter names (a bad read-back)
+        self.refuse_convention = False  # the second transaction (the convention) fails, the signature stays
         self.prototype_effects: dict[int, list] = {}  # address -> callables(program): analysis after a write
         self.requests: list[tuple[str, str]] = []
 
@@ -158,7 +159,9 @@ class FakeGhidra(gb.Bridge):
         p = self.program(q["program"])
         rows = [{"address": "%08x" % a, "name": p.shown(a), "isThunk": f["thunk_of"] is not None, "isExternal": False}
                 for a, f in sorted(p.functions.items())]
-        return {"functions": rows, "count": len(rows)}
+        offset, limit = int(q.get("offset", 0)), int(q.get("limit", 10000))  # skipped, then a window
+        rows = rows[offset:offset + limit]
+        return {"functions": rows, "count": len(rows), "offset": offset, "limit": limit}
 
     def get_get_function_by_address(self, q):
         p = self.program(q["program"])
@@ -331,7 +334,7 @@ class FakeGhidra(gb.Bridge):
         for effect in self.prototype_effects.get(entry, ()):
             effect(p)
         if conv:
-            if conv not in ("__stdcall", "__thiscall"):
+            if conv not in ("__stdcall", "__thiscall") or self.refuse_convention:
                 return fail + f"Unknown calling convention: {conv}. "
             f["conv"] = conv
         return f"Successfully set prototype for function at {d['function_address']}" + (
