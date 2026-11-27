@@ -1615,7 +1615,8 @@ release_address	applied	value	source_pair	date	state
 0x15cf50	name	_sceSifCmdIntrHdlr	0x15db90 _sceSifCmdIntrHdlr (exact)	2026-11-26	saved 2026-11-26
 0x15cf50	plate	Release map: exact pair with prototype 0x15db90 _sceSifCmdIntrHdlr (evidence exact; flags -). // Owner -.	0x15db90 _sceSifCmdIntrHdlr (exact)	2026-11-26	saved 2026-11-26
 0x15cf50	prototype	undefined __stdcall _sceSifCmdIntrHdlr(int channel) [storage channel=a0_lo:4]	0x15db90 _sceSifCmdIntrHdlr (exact)	2026-11-26	saved 2026-11-26
-0x15d078	plate	Release map: deviating pair with prototype 0x15dcb8 sceSifWriteBackDCache (evidence call; flags -). // Owner -; prototype name sceSifWriteBackDCache not applied: library pair that is not exact (libraries are named from exact pairs only).	0x15dcb8 sceSifWriteBackDCache (deviating)	2026-11-26	saved 2026-11-26
+0x15d078	name	sceSifWriteBackDCache	0x15dcb8 sceSifWriteBackDCache (deviating)	2026-11-27	saved 2026-11-27
+0x15d078	plate	Release map: deviating pair with prototype 0x15dcb8 sceSifWriteBackDCache (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x15dcb8 sceSifWriteBackDCache (deviating)	2026-11-27	saved 2026-11-27
 0x15d128	name	sceSifInitRpc	0x15dd68 sceSifInitRpc (exact)	2026-11-26	saved 2026-11-26
 0x15d128	plate	Release map: exact pair with prototype 0x15dd68 sceSifInitRpc (evidence exact; flags -). // Owner -.	0x15dd68 sceSifInitRpc (exact)	2026-11-26	saved 2026-11-26
 0x15d2c8	name	sceSifExitRpc	0x15df08 sceSifExitRpc (exact)	2026-11-26	saved 2026-11-26
@@ -17360,17 +17361,20 @@ release_address	applied	value	source_pair	date	state
 0x300d50	plate	Release map: exact pair with prototype 0x2ea5c0 snd_SetReverbType (evidence exact; flags -). // Owner -.	0x2ea5c0 snd_SetReverbType (exact)	2026-11-26	saved 2026-11-26
 0x300d90	name	snd_StreamSafeCdGetError	0x2ea600 snd_StreamSafeCdGetError (exact)	2026-11-26	saved 2026-11-26
 0x300d90	plate	Release map: exact pair with prototype 0x2ea600 snd_StreamSafeCdGetError (evidence exact; flags -). // Owner -.	0x2ea600 snd_StreamSafeCdGetError (exact)	2026-11-26	saved 2026-11-26
-0x300dc0	plate	Release map: deviating pair with prototype 0x2ea630 snd_StreamSafeCdSync (evidence call; flags -). // Owner -; prototype name snd_StreamSafeCdSync not applied: library pair that is not exact (libraries are named from exact pairs only).	0x2ea630 snd_StreamSafeCdSync (deviating)	2026-11-26	saved 2026-11-26
+0x300dc0	name	snd_StreamSafeCdSync	0x2ea630 snd_StreamSafeCdSync (deviating)	2026-11-27	saved 2026-11-27
+0x300dc0	plate	Release map: deviating pair with prototype 0x2ea630 snd_StreamSafeCdSync (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x2ea630 snd_StreamSafeCdSync (deviating)	2026-11-27	saved 2026-11-27
 0x300e70	name	snd_StreamSafeCdRead	0x2ea6d0 snd_StreamSafeCdRead (exact)	2026-11-26	saved 2026-11-26
 0x300e70	plate	Release map: exact pair with prototype 0x2ea6d0 snd_StreamSafeCdRead (evidence exact; flags -). // Owner -.	0x2ea6d0 snd_StreamSafeCdRead (exact)	2026-11-26	saved 2026-11-26
 0x300f50	name	snd_StreamSafeCheckCDIdle	0x2ea7b0 snd_StreamSafeCheckCDIdle (exact)	2026-11-26	saved 2026-11-26
 0x300f50	plate	Release map: exact pair with prototype 0x2ea7b0 snd_StreamSafeCheckCDIdle (evidence exact; flags -). // Owner -.	0x2ea7b0 snd_StreamSafeCheckCDIdle (exact)	2026-11-26	saved 2026-11-26
 0x300f80	name	snd_PlayVAGStreamByLoc_CB	0x2ea7e0 snd_PlayVAGStreamByLoc_CB (exact)	2026-11-26	saved 2026-11-26
 0x300f80	plate	Release map: exact pair with prototype 0x2ea7e0 snd_PlayVAGStreamByLoc_CB (evidence exact; flags -). // Owner -.	0x2ea7e0 snd_PlayVAGStreamByLoc_CB (exact)	2026-11-26	saved 2026-11-26
-0x300ff0	plate	Release map: deviating pair with prototype 0x2ea850 snd_CloseVAGStreaming (evidence call-deviating; flags -). // Owner -; prototype name snd_CloseVAGStreaming not applied: library pair that is not exact (libraries are named from exact pairs only).	0x2ea850 snd_CloseVAGStreaming (deviating)	2026-11-26	saved 2026-11-26
+0x300ff0	name	snd_CloseVAGStreaming	0x2ea850 snd_CloseVAGStreaming (deviating)	2026-11-27	saved 2026-11-27
+0x300ff0	plate	Release map: deviating pair with prototype 0x2ea850 snd_CloseVAGStreaming (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x2ea850 snd_CloseVAGStreaming (deviating)	2026-11-27	saved 2026-11-27
 0x3010e0	name	snd_StopAllStreams	0x2ea930 snd_StopAllStreams (exact)	2026-11-26	saved 2026-11-26
 0x3010e0	plate	Release map: exact pair with prototype 0x2ea930 snd_StopAllStreams (evidence exact; flags -). // Owner -.	0x2ea930 snd_StopAllStreams (exact)	2026-11-26	saved 2026-11-26
-0x301100	plate	Release map: deviating pair with prototype 0x2ea950 snd_InitVAGStreamingEx (evidence call; flags -). // Owner -; prototype name snd_InitVAGStreamingEx not applied: library pair that is not exact (libraries are named from exact pairs only).	0x2ea950 snd_InitVAGStreamingEx (deviating)	2026-11-26	saved 2026-11-26
+0x301100	name	snd_InitVAGStreamingEx	0x2ea950 snd_InitVAGStreamingEx (deviating)	2026-11-27	saved 2026-11-27
+0x301100	plate	Release map: deviating pair with prototype 0x2ea950 snd_InitVAGStreamingEx (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x2ea950 snd_InitVAGStreamingEx (deviating)	2026-11-27	saved 2026-11-27
 0x301240	name	snd_SendCache	0x2eaa80 snd_SendCache (exact)	2026-11-26	saved 2026-11-26
 0x301240	plate	Release map: exact pair with prototype 0x2eaa80 snd_SendCache (evidence exact; flags -). // Owner -.	0x2eaa80 snd_SendCache (exact)	2026-11-26	saved 2026-11-26
 0x301250	name	snd_StartCaching	0x2eaa90 snd_StartCaching (exact)	2026-11-26	saved 2026-11-26
@@ -17421,10 +17425,13 @@ release_address	applied	value	source_pair	date	state
 0x301d60	prototype	void __stdcall snd_ResolveBankXREFS(void)	0x2eb520 snd_ResolveBankXREFS (exact)	2026-11-26	saved 2026-11-26
 0x301d80	name	snd_BankLoadByLoc	0x2eb540 snd_BankLoadByLoc (exact)	2026-11-26	saved 2026-11-26
 0x301d80	plate	Release map: exact pair with prototype 0x2eb540 snd_BankLoadByLoc (evidence exact; flags -). // Owner -.	0x2eb540 snd_BankLoadByLoc (exact)	2026-11-26	saved 2026-11-26
-0x301ef0	plate	Release map: deviating pair with prototype 0x2eb6b0 snd_BankLoad (evidence call-deviating; flags -). // Owner -; prototype name snd_BankLoad not applied: library pair that is not exact (libraries are named from exact pairs only).	0x2eb6b0 snd_BankLoad (deviating)	2026-11-26	saved 2026-11-26
+0x301ef0	name	snd_BankLoad	0x2eb6b0 snd_BankLoad (deviating)	2026-11-27	saved 2026-11-27
+0x301ef0	plate	Release map: deviating pair with prototype 0x2eb6b0 snd_BankLoad (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x2eb6b0 snd_BankLoad (deviating)	2026-11-27	saved 2026-11-27
 0x302220	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x3022f0	plate	Release map: deviating pair with prototype 0x2eb7f0 snd_FlushSoundCommands (evidence call; flags -). // Owner -; prototype name snd_FlushSoundCommands not applied: library pair that is not exact (libraries are named from exact pairs only).	0x2eb7f0 snd_FlushSoundCommands (deviating)	2026-11-26	saved 2026-11-26
-0x302670	plate	Release map: deviating pair with prototype 0x2ebb70 snd_StartSoundSystem (evidence call-deviating; flags imm-only). // Owner -; prototype name snd_StartSoundSystem not applied: library pair that is not exact (libraries are named from exact pairs only).	0x2ebb70 snd_StartSoundSystem (deviating)	2026-11-26	saved 2026-11-26
+0x3022f0	name	snd_FlushSoundCommands	0x2eb7f0 snd_FlushSoundCommands (deviating)	2026-11-27	saved 2026-11-27
+0x3022f0	plate	Release map: deviating pair with prototype 0x2eb7f0 snd_FlushSoundCommands (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x2eb7f0 snd_FlushSoundCommands (deviating)	2026-11-27	saved 2026-11-27
+0x302670	name	snd_StartSoundSystem	0x2ebb70 snd_StartSoundSystem (deviating)	2026-11-27	saved 2026-11-27
+0x302670	plate	Release map: deviating pair with prototype 0x2ebb70 snd_StartSoundSystem (evidence call-deviating; flags imm-only). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x2ebb70 snd_StartSoundSystem (deviating)	2026-11-27	saved 2026-11-27
 0x302820	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x302870	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x3028d0	name	CSnd::ResetGroupVolTemp	0x2ebd20 ResetGroupVolTemp__4CSndFv (deviating)	2026-11-26	saved 2026-11-26
@@ -25733,7 +25740,8 @@ release_address	applied	value	source_pair	date	state
 0x3ca230	name	sceScfGetLocalTimefromRTC	0x3aadd0 sceScfGetLocalTimefromRTC (exact)	2026-11-26	saved 2026-11-26
 0x3ca230	plate	Release map: exact pair with prototype 0x3aadd0 sceScfGetLocalTimefromRTC (evidence exact; flags -). // Owner -.	0x3aadd0 sceScfGetLocalTimefromRTC (exact)	2026-11-26	saved 2026-11-26
 0x3ca230	prototype	void __stdcall sceScfGetLocalTimefromRTC(sceCdCLOCK * rtc) [storage rtc=a0_lo:4]	0x3aadd0 sceScfGetLocalTimefromRTC (exact)	2026-11-26	saved 2026-11-26
-0x3ca278	plate	Release map: deviating pair with prototype 0x3aae18 RegisterPackets (evidence call; flags -). // Owner -; prototype name RegisterPackets not applied: library pair that is not exact (libraries are named from exact pairs only).	0x3aae18 RegisterPackets (deviating)	2026-11-26	saved 2026-11-26
+0x3ca278	name	RegisterPackets	0x3aae18 RegisterPackets (deviating)	2026-11-27	saved 2026-11-27
+0x3ca278	plate	Release map: deviating pair with prototype 0x3aae18 RegisterPackets (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3aae18 RegisterPackets (deviating)	2026-11-27	saved 2026-11-27
 0x3cf270	name	MediusUniqueCallbackErrorMessageHandler	0x3afd28 MediusUniqueCallbackErrorMessageHandler (exact)	2026-11-26	saved 2026-11-26
 0x3cf270	plate	Release map: exact pair with prototype 0x3afd28 MediusUniqueCallbackErrorMessageHandler (evidence exact; flags -). // Owner -.	0x3afd28 MediusUniqueCallbackErrorMessageHandler (exact)	2026-11-26	saved 2026-11-26
 0x3cf2a0	create	0x3cf2a0-0x3cf2a7	0x3afd58 MediusUniqueCallbackWorldReportHandler (exact)	2026-11-26	saved 2026-11-26
@@ -25748,7 +25756,8 @@ release_address	applied	value	source_pair	date	state
 0x3cf2b8	create	0x3cf2b8-0x3cf2bf	0x3afd70 MediusUniqueCallbackSessionBeginRequestHandler (exact)	2026-11-26	saved 2026-11-26
 0x3cf2b8	name	MediusUniqueCallbackSessionBeginRequestHandler	0x3afd70 MediusUniqueCallbackSessionBeginRequestHandler (exact)	2026-11-26	saved 2026-11-26
 0x3cf2b8	plate	Release map: exact pair with prototype 0x3afd70 MediusUniqueCallbackSessionBeginRequestHandler (evidence exact-position; flags -). // Owner -.	0x3afd70 MediusUniqueCallbackSessionBeginRequestHandler (exact)	2026-11-26	saved 2026-11-26
-0x3cf2c0	plate	Release map: deviating pair with prototype 0x3afd78 MediusUniqueCallbackSessionBeginResponseHandler (evidence call-deviating; flags -). // Owner -; prototype name MediusUniqueCallbackSessionBeginResponseHandler not applied: library pair that is not exact (libraries are named from exact pairs only).	0x3afd78 MediusUniqueCallbackSessionBeginResponseHandler (deviating)	2026-11-26	saved 2026-11-26
+0x3cf2c0	name	MediusUniqueCallbackSessionBeginResponseHandler	0x3afd78 MediusUniqueCallbackSessionBeginResponseHandler (deviating)	2026-11-27	saved 2026-11-27
+0x3cf2c0	plate	Release map: deviating pair with prototype 0x3afd78 MediusUniqueCallbackSessionBeginResponseHandler (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3afd78 MediusUniqueCallbackSessionBeginResponseHandler (deviating)	2026-11-27	saved 2026-11-27
 0x3cf344	create	0x3cf344-0x3cf34b	0x3afdf8 MediusUniqueCallbackSessionEndRequestHandler (exact)	2026-11-26	saved 2026-11-26
 0x3cf344	name	MediusUniqueCallbackSessionEndRequestHandler	0x3afdf8 MediusUniqueCallbackSessionEndRequestHandler (exact)	2026-11-26	saved 2026-11-26
 0x3cf344	plate	Release map: exact pair with prototype 0x3afdf8 MediusUniqueCallbackSessionEndRequestHandler (evidence exact-position; flags -). // Owner -.	0x3afdf8 MediusUniqueCallbackSessionEndRequestHandler (exact)	2026-11-26	saved 2026-11-26
@@ -26190,7 +26199,8 @@ release_address	applied	value	source_pair	date	state
 0x3d148c	plate	Release map: exact pair with prototype 0x3b1f0c MediusGetClanMemberList (evidence exact-position; flags -). // Owner -.	0x3b1f0c MediusGetClanMemberList (exact)	2026-11-26	saved 2026-11-26
 0x3d1530	name	iTerminateString	0x3b1fb0 iTerminateString (exact)	2026-11-26	saved 2026-11-26
 0x3d1530	plate	Release map: exact pair with prototype 0x3b1fb0 iTerminateString (evidence exact; flags -). // Owner -.	0x3b1fb0 iTerminateString (exact)	2026-11-26	saved 2026-11-26
-0x3d1554	plate	Release map: deviating pair with prototype 0x3b1fd4 iCreateAndAllocateMessageID (evidence position; flags -). // Owner -; prototype name iCreateAndAllocateMessageID not applied: library pair that is not exact (libraries are named from exact pairs only).	0x3b1fd4 iCreateAndAllocateMessageID (deviating)	2026-11-26	saved 2026-11-26
+0x3d1554	name	iCreateAndAllocateMessageID	0x3b1fd4 iCreateAndAllocateMessageID (deviating)	2026-11-27	saved 2026-11-27
+0x3d1554	plate	Release map: deviating pair with prototype 0x3b1fd4 iCreateAndAllocateMessageID (evidence position; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3b1fd4 iCreateAndAllocateMessageID (deviating)	2026-11-27	saved 2026-11-27
 0x3d15ac	name	iGetMessageIDValues	0x3b203c iGetMessageIDValues (exact)	2026-11-26	saved 2026-11-26
 0x3d15ac	plate	Release map: exact pair with prototype 0x3b203c iGetMessageIDValues (evidence exact; flags -). // Owner -.	0x3b203c iGetMessageIDValues (exact)	2026-11-26	saved 2026-11-26
 0x3d1658	name	MediusSetNatServiceAddress	0x3b20e8 MediusSetNatServiceAddress (exact)	2026-11-26	saved 2026-11-26
@@ -26215,7 +26225,8 @@ release_address	applied	value	source_pair	date	state
 0x3d1a58	plate	Release map: exact pair with prototype 0x3b24e8 MediusGetQueuedRequest (evidence exact; flags -). // Owner -.	0x3b24e8 MediusGetQueuedRequest (exact)	2026-11-26	saved 2026-11-26
 0x3d1bf4	name	MediusCheckRequestQueue	0x3b2684 MediusCheckRequestQueue (exact)	2026-11-26	saved 2026-11-26
 0x3d1bf4	plate	Release map: exact pair with prototype 0x3b2684 MediusCheckRequestQueue (evidence exact; flags -). // Owner -.	0x3b2684 MediusCheckRequestQueue (exact)	2026-11-26	saved 2026-11-26
-0x3d1cf8	plate	Release map: deviating pair with prototype 0x3b2788 MediusLocalConnectCallback (evidence call-deviating; flags -). // Owner -; prototype name MediusLocalConnectCallback not applied: library pair that is not exact (libraries are named from exact pairs only).	0x3b2788 MediusLocalConnectCallback (deviating)	2026-11-26	saved 2026-11-26
+0x3d1cf8	name	MediusLocalConnectCallback	0x3b2788 MediusLocalConnectCallback (deviating)	2026-11-27	saved 2026-11-27
+0x3d1cf8	plate	Release map: deviating pair with prototype 0x3b2788 MediusLocalConnectCallback (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3b2788 MediusLocalConnectCallback (deviating)	2026-11-27	saved 2026-11-27
 0x3d1d5c	name	MediusSetClientConnectCallback	0x3b27f4 MediusSetClientConnectCallback (exact)	2026-11-26	saved 2026-11-26
 0x3d1d5c	plate	Release map: exact pair with prototype 0x3b27f4 MediusSetClientConnectCallback (evidence exact-position; flags -). // Owner -.	0x3b27f4 MediusSetClientConnectCallback (exact)	2026-11-26	saved 2026-11-26
 0x3d1d68	name	MediusGetClientConnectCallback	0x3b2800 MediusGetClientConnectCallback (exact)	2026-11-26	saved 2026-11-26
@@ -26232,16 +26243,20 @@ release_address	applied	value	source_pair	date	state
 0x3d2068	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x3d2090	name	MediusVersionServer	0x3b2b60 MediusVersionServer (exact)	2026-11-26	saved 2026-11-26
 0x3d2090	plate	Release map: exact pair with prototype 0x3b2b60 MediusVersionServer (evidence exact; flags -). // Owner -.	0x3b2b60 MediusVersionServer (exact)	2026-11-26	saved 2026-11-26
-0x3d2104	plate	Release map: deviating pair with prototype 0x3b2bd4 MediusGetMySessionKey (evidence position,slot-only; flags -). // Owner -; prototype name MediusGetMySessionKey not applied: library pair that is not exact (libraries are named from exact pairs only).	0x3b2bd4 MediusGetMySessionKey (deviating)	2026-11-26	saved 2026-11-26
+0x3d2104	name	MediusGetMySessionKey	0x3b2bd4 MediusGetMySessionKey (deviating)	2026-11-27	saved 2026-11-27
+0x3d2104	plate	Release map: deviating pair with prototype 0x3b2bd4 MediusGetMySessionKey (evidence position,slot-only; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3b2bd4 MediusGetMySessionKey (deviating)	2026-11-27	saved 2026-11-27
 0x3d215c	name	MediusClose	0x3b2c08 MediusClose (exact)	2026-11-26	saved 2026-11-26
 0x3d215c	plate	Release map: exact pair with prototype 0x3b2c08 MediusClose (evidence exact; flags -). // Owner -.	0x3b2c08 MediusClose (exact)	2026-11-26	saved 2026-11-26
 0x3d21b8	name	MediusCloseBare	0x3b2c64 MediusCloseBare (exact)	2026-11-26	saved 2026-11-26
 0x3d21b8	plate	Release map: exact pair with prototype 0x3b2c64 MediusCloseBare (evidence exact; flags -). // Owner -.	0x3b2c64 MediusCloseBare (exact)	2026-11-26	saved 2026-11-26
-0x3d21e0	plate	Release map: deviating pair with prototype 0x3b2c8c MediusConnect (evidence call-deviating; flags -). // Owner -; prototype name MediusConnect not applied: library pair that is not exact (libraries are named from exact pairs only).	0x3b2c8c MediusConnect (deviating)	2026-11-26	saved 2026-11-26
+0x3d21e0	name	MediusConnect	0x3b2c8c MediusConnect (deviating)	2026-11-27	saved 2026-11-27
+0x3d21e0	plate	Release map: deviating pair with prototype 0x3b2c8c MediusConnect (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3b2c8c MediusConnect (deviating)	2026-11-27	saved 2026-11-27
 0x3d23e0	name	MediusDisconnect	0x3b2e94 MediusDisconnect (exact)	2026-11-26	saved 2026-11-26
 0x3d23e0	plate	Release map: exact pair with prototype 0x3b2e94 MediusDisconnect (evidence exact; flags -). // Owner -.	0x3b2e94 MediusDisconnect (exact)	2026-11-26	saved 2026-11-26
-0x3d2444	plate	Release map: deviating pair with prototype 0x3b2ef8 MediusUpdate (evidence call-deviating; flags -). // Owner -; prototype name MediusUpdate not applied: library pair that is not exact (libraries are named from exact pairs only).	0x3b2ef8 MediusUpdate (deviating)	2026-11-26	saved 2026-11-26
-0x3d24f4	plate	Release map: deviating pair with prototype 0x3b2fd0 MediusUpdateBare (evidence position,slot-only; flags -). // Owner -; prototype name MediusUpdateBare not applied: library pair that is not exact (libraries are named from exact pairs only).	0x3b2fd0 MediusUpdateBare (deviating)	2026-11-26	saved 2026-11-26
+0x3d2444	name	MediusUpdate	0x3b2ef8 MediusUpdate (deviating)	2026-11-27	saved 2026-11-27
+0x3d2444	plate	Release map: deviating pair with prototype 0x3b2ef8 MediusUpdate (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3b2ef8 MediusUpdate (deviating)	2026-11-27	saved 2026-11-27
+0x3d24f4	name	MediusUpdateBare	0x3b2fd0 MediusUpdateBare (deviating)	2026-11-27	saved 2026-11-27
+0x3d24f4	plate	Release map: deviating pair with prototype 0x3b2fd0 MediusUpdateBare (evidence position,slot-only; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3b2fd0 MediusUpdateBare (deviating)	2026-11-27	saved 2026-11-27
 0x3d25a8	name	MediusUpdateClientState	0x3b30ac MediusUpdateClientState (exact)	2026-11-26	saved 2026-11-26
 0x3d25a8	plate	Release map: exact pair with prototype 0x3b30ac MediusUpdateClientState (evidence exact; flags -). // Owner -.	0x3b30ac MediusUpdateClientState (exact)	2026-11-26	saved 2026-11-26
 0x3d262c	name	MediusSessionBegin	0x3b3130 MediusSessionBegin (exact)	2026-11-26	saved 2026-11-26
@@ -26348,13 +26363,15 @@ release_address	applied	value	source_pair	date	state
 0x3d4738	plate	Release map: exact pair with prototype 0x3b523c MediusLadderList (evidence exact; flags -). // Owner -.	0x3b523c MediusLadderList (exact)	2026-11-26	saved 2026-11-26
 0x3d47d8	name	MediusChatToggleFilter	0x3b52dc MediusChatToggleFilter (exact)	2026-11-26	saved 2026-11-26
 0x3d47d8	plate	Release map: exact pair with prototype 0x3b52dc MediusChatToggleFilter (evidence exact-position; flags -). // Owner -.	0x3b52dc MediusChatToggleFilter (exact)	2026-11-26	saved 2026-11-26
-0x3d4ca4	plate	Release map: deviating pair with prototype 0x3b57a8 MediusSetDefaultConnectInfo (evidence call-deviating; flags -). // Owner -; prototype name MediusSetDefaultConnectInfo not applied: library pair that is not exact (libraries are named from exact pairs only).	0x3b57a8 MediusSetDefaultConnectInfo (deviating)	2026-11-26	saved 2026-11-26
+0x3d4ca4	name	MediusSetDefaultConnectInfo	0x3b57a8 MediusSetDefaultConnectInfo (deviating)	2026-11-27	saved 2026-11-27
+0x3d4ca4	plate	Release map: deviating pair with prototype 0x3b57a8 MediusSetDefaultConnectInfo (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3b57a8 MediusSetDefaultConnectInfo (deviating)	2026-11-27	saved 2026-11-27
 0x3d4d60	name	MediusGetTotalGames	0x3b583c MediusGetTotalGames (exact)	2026-11-26	saved 2026-11-26
 0x3d4d60	plate	Release map: exact pair with prototype 0x3b583c MediusGetTotalGames (evidence position; flags identical-copy). // Owner -.	0x3b583c MediusGetTotalGames (exact)	2026-11-26	saved 2026-11-26
 0x3d4e00	name	MediusGetTotalChannels	0x3b58dc MediusGetTotalChannels (exact)	2026-11-26	saved 2026-11-26
 0x3d4e00	plate	Release map: exact pair with prototype 0x3b58dc MediusGetTotalChannels (evidence position; flags identical-copy). // Owner -.	0x3b58dc MediusGetTotalChannels (exact)	2026-11-26	saved 2026-11-26
 0x3d4ea0	plate	Release map: unsure pair with prototype 0x3b4cb0 MediusCreateMessageID (evidence call-deviating; flags low-similarity,moved). // Owner -; prototype name MediusCreateMessageID not applied: unsure pair: the evidence does not settle it.	0x3b4cb0 MediusCreateMessageID (unsure)	2026-11-26	saved 2026-11-26
-0x3d4f40	plate	Release map: deviating pair with prototype 0x3b5980 lgAudInit (evidence call; flags -). // Owner -; prototype name lgAudInit not applied: library pair that is not exact (libraries are named from exact pairs only).	0x3b5980 lgAudInit (deviating)	2026-11-26	saved 2026-11-26
+0x3d4f40	name	lgAudInit	0x3b5980 lgAudInit (deviating)	2026-11-27	saved 2026-11-27
+0x3d4f40	plate	Release map: deviating pair with prototype 0x3b5980 lgAudInit (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3b5980 lgAudInit (deviating)	2026-11-27	saved 2026-11-27
 0x3d51e0	name	lgAudEnumHint	0x3b5bf8 lgAudEnumHint (exact)	2026-11-26	saved 2026-11-26
 0x3d51e0	plate	Release map: exact pair with prototype 0x3b5bf8 lgAudEnumHint (evidence exact; flags -). // Owner -.	0x3b5bf8 lgAudEnumHint (exact)	2026-11-26	saved 2026-11-26
 0x3d5260	name	lgAudEnumerate	0x3b5c78 lgAudEnumerate (exact)	2026-11-26	saved 2026-11-26
@@ -26363,9 +26380,12 @@ release_address	applied	value	source_pair	date	state
 0x3d5430	plate	Release map: exact pair with prototype 0x3b5e48 lgAudOpen (evidence exact; flags -). // Owner -.	0x3b5e48 lgAudOpen (exact)	2026-11-26	saved 2026-11-26
 0x3d5598	name	lgAudClose	0x3b5fb0 lgAudClose (exact)	2026-11-26	saved 2026-11-26
 0x3d5598	plate	Release map: exact pair with prototype 0x3b5fb0 lgAudClose (evidence exact; flags -). // Owner -.	0x3b5fb0 lgAudClose (exact)	2026-11-26	saved 2026-11-26
-0x3d5670	plate	Release map: deviating pair with prototype 0x3b6088 lgAudRead (evidence position; flags -). // Owner -; prototype name lgAudRead not applied: library pair that is not exact (libraries are named from exact pairs only).	0x3b6088 lgAudRead (deviating)	2026-11-26	saved 2026-11-26
-0x3d57d8	plate	Release map: deviating pair with prototype 0x3b61f0 lgAudWrite (evidence position; flags -). // Owner -; prototype name lgAudWrite not applied: library pair that is not exact (libraries are named from exact pairs only).	0x3b61f0 lgAudWrite (deviating)	2026-11-26	saved 2026-11-26
-0x3d5940	plate	Release map: deviating pair with prototype 0x3b6358 lgAudGetMixer (evidence position; flags -). // Owner -; prototype name lgAudGetMixer not applied: library pair that is not exact (libraries are named from exact pairs only).	0x3b6358 lgAudGetMixer (deviating)	2026-11-26	saved 2026-11-26
+0x3d5670	name	lgAudRead	0x3b6088 lgAudRead (deviating)	2026-11-27	saved 2026-11-27
+0x3d5670	plate	Release map: deviating pair with prototype 0x3b6088 lgAudRead (evidence position; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3b6088 lgAudRead (deviating)	2026-11-27	saved 2026-11-27
+0x3d57d8	name	lgAudWrite	0x3b61f0 lgAudWrite (deviating)	2026-11-27	saved 2026-11-27
+0x3d57d8	plate	Release map: deviating pair with prototype 0x3b61f0 lgAudWrite (evidence position; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3b61f0 lgAudWrite (deviating)	2026-11-27	saved 2026-11-27
+0x3d5940	name	lgAudGetMixer	0x3b6358 lgAudGetMixer (deviating)	2026-11-27	saved 2026-11-27
+0x3d5940	plate	Release map: deviating pair with prototype 0x3b6358 lgAudGetMixer (evidence position; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3b6358 lgAudGetMixer (deviating)	2026-11-27	saved 2026-11-27
 0x3d5a60	name	lgAudSetMixer	0x3b6478 lgAudSetMixer (exact)	2026-11-26	saved 2026-11-26
 0x3d5a60	plate	Release map: exact pair with prototype 0x3b6478 lgAudSetMixer (evidence exact; flags -). // Owner -.	0x3b6478 lgAudSetMixer (exact)	2026-11-26	saved 2026-11-26
 0x3d5b78	name	lgAudGetRemainingPlaybackBytes	0x3b6590 lgAudGetRemainingPlaybackBytes (exact)	2026-11-26	saved 2026-11-26
@@ -26389,15 +26409,22 @@ release_address	applied	value	source_pair	date	state
 0x3d6350	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x3d6418	name	lgAudASync	0x3b6d68 lgAudASync (exact)	2026-11-26	saved 2026-11-26
 0x3d6418	plate	Release map: exact pair with prototype 0x3b6d68 lgAudASync (evidence exact; flags -). // Owner -.	0x3b6d68 lgAudASync (exact)	2026-11-26	saved 2026-11-26
-0x3d6468	plate	Release map: deviating pair with prototype 0x3b6db8 fnReadEndFunc (evidence call-deviating; flags -). // Owner -; prototype name fnReadEndFunc not applied: library pair that is not exact (libraries are named from exact pairs only).	0x3b6db8 fnReadEndFunc (deviating)	2026-11-26	saved 2026-11-26
-0x3d64d0	plate	Release map: deviating pair with prototype 0x3b6e30 lgAudARead (evidence call; flags -). // Owner -; prototype name lgAudARead not applied: library pair that is not exact (libraries are named from exact pairs only).	0x3b6e30 lgAudARead (deviating)	2026-11-26	saved 2026-11-26
-0x3d65f8	plate	Release map: deviating pair with prototype 0x3b6f70 fnWriteEndFunc (evidence registration; flags -). // Owner -; prototype name fnWriteEndFunc not applied: library pair that is not exact (libraries are named from exact pairs only).	0x3b6f70 fnWriteEndFunc (deviating)	2026-11-26	saved 2026-11-26
-0x3d6640	plate	Release map: deviating pair with prototype 0x3b6fc0 lgAudAWrite (evidence position; flags -). // Owner -; prototype name lgAudAWrite not applied: library pair that is not exact (libraries are named from exact pairs only).	0x3b6fc0 lgAudAWrite (deviating)	2026-11-26	saved 2026-11-26
-0x3d6788	plate	Release map: deviating pair with prototype 0x3b7120 fnCheckDeviceChangeEndFunc (evidence call-deviating; flags -). // Owner -; prototype name fnCheckDeviceChangeEndFunc not applied: library pair that is not exact (libraries are named from exact pairs only).	0x3b7120 fnCheckDeviceChangeEndFunc (deviating)	2026-11-26	saved 2026-11-26
-0x3d67d8	plate	Release map: deviating pair with prototype 0x3b7178 lgAudAEnumHint (evidence call-deviating; flags -). // Owner -; prototype name lgAudAEnumHint not applied: library pair that is not exact (libraries are named from exact pairs only).	0x3b7178 lgAudAEnumHint (deviating)	2026-11-26	saved 2026-11-26
+0x3d6468	name	fnReadEndFunc	0x3b6db8 fnReadEndFunc (deviating)	2026-11-27	saved 2026-11-27
+0x3d6468	plate	Release map: deviating pair with prototype 0x3b6db8 fnReadEndFunc (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3b6db8 fnReadEndFunc (deviating)	2026-11-27	saved 2026-11-27
+0x3d64d0	name	lgAudARead	0x3b6e30 lgAudARead (deviating)	2026-11-27	saved 2026-11-27
+0x3d64d0	plate	Release map: deviating pair with prototype 0x3b6e30 lgAudARead (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3b6e30 lgAudARead (deviating)	2026-11-27	saved 2026-11-27
+0x3d65f8	name	fnWriteEndFunc	0x3b6f70 fnWriteEndFunc (deviating)	2026-11-27	saved 2026-11-27
+0x3d65f8	plate	Release map: deviating pair with prototype 0x3b6f70 fnWriteEndFunc (evidence registration; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3b6f70 fnWriteEndFunc (deviating)	2026-11-27	saved 2026-11-27
+0x3d6640	name	lgAudAWrite	0x3b6fc0 lgAudAWrite (deviating)	2026-11-27	saved 2026-11-27
+0x3d6640	plate	Release map: deviating pair with prototype 0x3b6fc0 lgAudAWrite (evidence position; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3b6fc0 lgAudAWrite (deviating)	2026-11-27	saved 2026-11-27
+0x3d6788	name	fnCheckDeviceChangeEndFunc	0x3b7120 fnCheckDeviceChangeEndFunc (deviating)	2026-11-27	saved 2026-11-27
+0x3d6788	plate	Release map: deviating pair with prototype 0x3b7120 fnCheckDeviceChangeEndFunc (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3b7120 fnCheckDeviceChangeEndFunc (deviating)	2026-11-27	saved 2026-11-27
+0x3d67d8	name	lgAudAEnumHint	0x3b7178 lgAudAEnumHint (deviating)	2026-11-27	saved 2026-11-27
+0x3d67d8	plate	Release map: deviating pair with prototype 0x3b7178 lgAudAEnumHint (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3b7178 lgAudAEnumHint (deviating)	2026-11-27	saved 2026-11-27
 0x3d68a0	name	flushbuffer	0x3b7248 flushbuffer (exact)	2026-11-26	saved 2026-11-26
 0x3d68a0	plate	Release map: exact pair with prototype 0x3b7248 flushbuffer (evidence exact; flags -). // Owner -.	0x3b7248 flushbuffer (exact)	2026-11-26	saved 2026-11-26
-0x3d68e0	plate	Release map: deviating pair with prototype 0x3b7288 openmic (evidence call; flags imm-only). // Owner -; prototype name openmic not applied: library pair that is not exact (libraries are named from exact pairs only).	0x3b7288 openmic (deviating)	2026-11-26	saved 2026-11-26
+0x3d68e0	name	openmic	0x3b7288 openmic (deviating)	2026-11-27	saved 2026-11-27
+0x3d68e0	plate	Release map: deviating pair with prototype 0x3b7288 openmic (evidence call; flags imm-only). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3b7288 openmic (deviating)	2026-11-27	saved 2026-11-27
 0x3d69e0	name	closemic	0x3b7388 closemic (exact)	2026-11-26	saved 2026-11-26
 0x3d69e0	plate	Release map: exact pair with prototype 0x3b7388 closemic (evidence exact; flags -). // Owner -.	0x3b7388 closemic (exact)	2026-11-26	saved 2026-11-26
 0x3d6a38	name	getsamples	0x3b73e0 getsamples (exact)	2026-11-26	saved 2026-11-26
@@ -27852,7 +27879,8 @@ release_address	applied	value	source_pair	date	state
 0x405fb8	plate	Release map: exact pair with prototype 0x404638 rt_comm_startup (evidence exact; flags -). // Owner -.	0x404638 rt_comm_startup (exact)	2026-11-26	saved 2026-11-26
 0x406018	name	rt_comm_shutdown	0x404698 rt_comm_shutdown (exact)	2026-11-26	saved 2026-11-26
 0x406018	plate	Release map: exact pair with prototype 0x404698 rt_comm_shutdown (evidence exact; flags -). // Owner -.	0x404698 rt_comm_shutdown (exact)	2026-11-26	saved 2026-11-26
-0x406068	plate	Release map: deviating pair with prototype 0x4046e8 rt_comm_create (evidence call-deviating; flags -). // Owner -; prototype name rt_comm_create not applied: library pair that is not exact (libraries are named from exact pairs only).	0x4046e8 rt_comm_create (deviating)	2026-11-26	saved 2026-11-26
+0x406068	name	rt_comm_create	0x4046e8 rt_comm_create (deviating)	2026-11-27	saved 2026-11-27
+0x406068	plate	Release map: deviating pair with prototype 0x4046e8 rt_comm_create (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x4046e8 rt_comm_create (deviating)	2026-11-27	saved 2026-11-27
 0x406158	name	rt_comm_destroy	0x4047d8 rt_comm_destroy (exact)	2026-11-26	saved 2026-11-26
 0x406158	plate	Release map: exact pair with prototype 0x4047d8 rt_comm_destroy (evidence exact; flags -). // Owner -.	0x4047d8 rt_comm_destroy (exact)	2026-11-26	saved 2026-11-26
 0x4061c0	name	rt_comm_send	0x404840 rt_comm_send (exact)	2026-11-26	saved 2026-11-26
@@ -27891,7 +27919,8 @@ release_address	applied	value	source_pair	date	state
 0x406830	plate	Release map: exact pair with prototype 0x404eb0 rt_comm_metric_add_data (evidence exact; flags -). // Owner -.	0x404eb0 rt_comm_metric_add_data (exact)	2026-11-26	saved 2026-11-26
 0x4068a8	name	rt_comm_metric_update	0x404f28 rt_comm_metric_update (exact)	2026-11-26	saved 2026-11-26
 0x4068a8	plate	Release map: exact pair with prototype 0x404f28 rt_comm_metric_update (evidence exact; flags -). // Owner -.	0x404f28 rt_comm_metric_update (exact)	2026-11-26	saved 2026-11-26
-0x406950	plate	Release map: deviating pair with prototype 0x404fd0 rt_comm_metric_update_single (evidence call; flags -). // Owner -; prototype name rt_comm_metric_update_single not applied: library pair that is not exact (libraries are named from exact pairs only).	0x404fd0 rt_comm_metric_update_single (deviating)	2026-11-26	saved 2026-11-26
+0x406950	name	rt_comm_metric_update_single	0x404fd0 rt_comm_metric_update_single (deviating)	2026-11-27	saved 2026-11-27
+0x406950	plate	Release map: deviating pair with prototype 0x404fd0 rt_comm_metric_update_single (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x404fd0 rt_comm_metric_update_single (deviating)	2026-11-27	saved 2026-11-27
 0x406a00	name	rt_comm_metric_print	0x405098 rt_comm_metric_print (exact)	2026-11-26	saved 2026-11-26
 0x406a00	plate	Release map: exact pair with prototype 0x405098 rt_comm_metric_print (evidence exact; flags -). // Owner -.	0x405098 rt_comm_metric_print (exact)	2026-11-26	saved 2026-11-26
 0x406b38	name	rt_comm_platform_startup	0x4051d0 rt_comm_platform_startup (exact)	2026-11-26	saved 2026-11-26
@@ -27918,13 +27947,18 @@ release_address	applied	value	source_pair	date	state
 0x406c30	plate	Release map: exact pair with prototype 0x4052c8 rt_comm_platform_get_host_by_name (evidence call; flags -). // Owner -.	0x4052c8 rt_comm_platform_get_host_by_name (exact)	2026-11-26	saved 2026-11-26
 0x406c60	name	rt_comm_platform_display_state	0x4052f8 rt_comm_platform_display_state (exact)	2026-11-26	saved 2026-11-26
 0x406c60	plate	Release map: exact pair with prototype 0x4052f8 rt_comm_platform_display_state (evidence call; flags -). // Owner -.	0x4052f8 rt_comm_platform_display_state (exact)	2026-11-26	saved 2026-11-26
-0x406d80	plate	Release map: deviating pair with prototype 0x405418 rt_comm_platform2_startup (evidence call; flags -). // Owner -; prototype name rt_comm_platform2_startup not applied: library pair that is not exact (libraries are named from exact pairs only).	0x405418 rt_comm_platform2_startup (deviating)	2026-11-26	saved 2026-11-26
-0x406e30	plate	Release map: deviating pair with prototype 0x4054b8 rt_comm_platform2_shutdown (evidence call; flags -). // Owner -; prototype name rt_comm_platform2_shutdown not applied: library pair that is not exact (libraries are named from exact pairs only).	0x4054b8 rt_comm_platform2_shutdown (deviating)	2026-11-26	saved 2026-11-26
-0x406ea8	plate	Release map: deviating pair with prototype 0x405518 rt_comm_platform2_create (evidence call; flags -). // Owner -; prototype name rt_comm_platform2_create not applied: library pair that is not exact (libraries are named from exact pairs only).	0x405518 rt_comm_platform2_create (deviating)	2026-11-26	saved 2026-11-26
+0x406d80	name	rt_comm_platform2_startup	0x405418 rt_comm_platform2_startup (deviating)	2026-11-27	saved 2026-11-27
+0x406d80	plate	Release map: deviating pair with prototype 0x405418 rt_comm_platform2_startup (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x405418 rt_comm_platform2_startup (deviating)	2026-11-27	saved 2026-11-27
+0x406e30	name	rt_comm_platform2_shutdown	0x4054b8 rt_comm_platform2_shutdown (deviating)	2026-11-27	saved 2026-11-27
+0x406e30	plate	Release map: deviating pair with prototype 0x4054b8 rt_comm_platform2_shutdown (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x4054b8 rt_comm_platform2_shutdown (deviating)	2026-11-27	saved 2026-11-27
+0x406ea8	name	rt_comm_platform2_create	0x405518 rt_comm_platform2_create (deviating)	2026-11-27	saved 2026-11-27
+0x406ea8	plate	Release map: deviating pair with prototype 0x405518 rt_comm_platform2_create (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x405518 rt_comm_platform2_create (deviating)	2026-11-27	saved 2026-11-27
 0x407110	name	rt_comm_platform2_destroy	0x405780 rt_comm_platform2_destroy (exact)	2026-11-26	saved 2026-11-26
 0x407110	plate	Release map: exact pair with prototype 0x405780 rt_comm_platform2_destroy (evidence exact; flags -). // Owner -.	0x405780 rt_comm_platform2_destroy (exact)	2026-11-26	saved 2026-11-26
-0x407160	plate	Release map: deviating pair with prototype 0x4057d0 rt_comm_platform2_send (evidence call; flags -). // Owner -; prototype name rt_comm_platform2_send not applied: library pair that is not exact (libraries are named from exact pairs only).	0x4057d0 rt_comm_platform2_send (deviating)	2026-11-26	saved 2026-11-26
-0x4071f8	plate	Release map: deviating pair with prototype 0x405868 rt_comm_platform2_send_to (evidence call; flags -). // Owner -; prototype name rt_comm_platform2_send_to not applied: library pair that is not exact (libraries are named from exact pairs only).	0x405868 rt_comm_platform2_send_to (deviating)	2026-11-26	saved 2026-11-26
+0x407160	name	rt_comm_platform2_send	0x4057d0 rt_comm_platform2_send (deviating)	2026-11-27	saved 2026-11-27
+0x407160	plate	Release map: deviating pair with prototype 0x4057d0 rt_comm_platform2_send (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x4057d0 rt_comm_platform2_send (deviating)	2026-11-27	saved 2026-11-27
+0x4071f8	name	rt_comm_platform2_send_to	0x405868 rt_comm_platform2_send_to (deviating)	2026-11-27	saved 2026-11-27
+0x4071f8	plate	Release map: deviating pair with prototype 0x405868 rt_comm_platform2_send_to (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x405868 rt_comm_platform2_send_to (deviating)	2026-11-27	saved 2026-11-27
 0x4072e8	name	rt_comm_platform2_receive	0x405958 rt_comm_platform2_receive (exact)	2026-11-26	saved 2026-11-26
 0x4072e8	plate	Release map: exact pair with prototype 0x405958 rt_comm_platform2_receive (evidence exact; flags -). // Owner -.	0x405958 rt_comm_platform2_receive (exact)	2026-11-26	saved 2026-11-26
 0x407398	name	rt_comm_platform2_receive_from	0x405a08 rt_comm_platform2_receive_from (exact)	2026-11-26	saved 2026-11-26
@@ -27940,7 +27974,8 @@ release_address	applied	value	source_pair	date	state
 0x4076e0	name	rt_comm_platform2_display_state	0x405d50 rt_comm_platform2_display_state (exact)	2026-11-26	saved 2026-11-26
 0x4076e0	plate	Release map: exact pair with prototype 0x405d50 rt_comm_platform2_display_state (evidence exact; flags -). // Owner -.	0x405d50 rt_comm_platform2_display_state (exact)	2026-11-26	saved 2026-11-26
 0x407718	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x407878	plate	Release map: deviating pair with prototype 0x405d88 rt_comm_platform2_get_local_ip_from_stack (evidence call-deviating; flags -). // Owner -; prototype name rt_comm_platform2_get_local_ip_from_stack not applied: library pair that is not exact (libraries are named from exact pairs only).	0x405d88 rt_comm_platform2_get_local_ip_from_stack (deviating)	2026-11-26	saved 2026-11-26
+0x407878	name	rt_comm_platform2_get_local_ip_from_stack	0x405d88 rt_comm_platform2_get_local_ip_from_stack (deviating)	2026-11-27	saved 2026-11-27
+0x407878	plate	Release map: deviating pair with prototype 0x405d88 rt_comm_platform2_get_local_ip_from_stack (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x405d88 rt_comm_platform2_get_local_ip_from_stack (deviating)	2026-11-27	saved 2026-11-27
 0x407920	name	rt_memory_allocate	0x405e28 rt_memory_allocate (exact)	2026-11-26	saved 2026-11-26
 0x407920	plate	Release map: exact pair with prototype 0x405e28 rt_memory_allocate (evidence exact; flags -). // Owner -.	0x405e28 rt_memory_allocate (exact)	2026-11-26	saved 2026-11-26
 0x407998	name	rt_memory_allocate_init_zero	0x405ea0 rt_memory_allocate_init_zero (exact)	2026-11-26	saved 2026-11-26
@@ -27991,7 +28026,8 @@ release_address	applied	value	source_pair	date	state
 0x408130	plate	Release map: exact pair with prototype 0x406638 rt_time_sleep_usecs (evidence exact-position; flags identical-copy). // Owner -.	0x406638 rt_time_sleep_usecs (exact)	2026-11-26	saved 2026-11-26
 0x4081b0	name	rt_time_platform_get_time_stamp	0x4066b8 rt_time_platform_get_time_stamp (exact)	2026-11-26	saved 2026-11-26
 0x4081b0	plate	Release map: exact pair with prototype 0x4066b8 rt_time_platform_get_time_stamp (evidence exact; flags -). // Owner -.	0x4066b8 rt_time_platform_get_time_stamp (exact)	2026-11-26	saved 2026-11-26
-0x408208	plate	Release map: deviating pair with prototype 0x406710 rt_time_sleep_usecs_platform (evidence call; flags -). // Owner -; prototype name rt_time_sleep_usecs_platform not applied: library pair that is not exact (libraries are named from exact pairs only).	0x406710 rt_time_sleep_usecs_platform (deviating)	2026-11-26	saved 2026-11-26
+0x408208	name	rt_time_sleep_usecs_platform	0x406710 rt_time_sleep_usecs_platform (deviating)	2026-11-27	saved 2026-11-27
+0x408208	plate	Release map: deviating pair with prototype 0x406710 rt_time_sleep_usecs_platform (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x406710 rt_time_sleep_usecs_platform (deviating)	2026-11-27	saved 2026-11-27
 0x408318	name	rt_time_platform_get_time_string	0x406830 rt_time_platform_get_time_string (exact)	2026-11-26	saved 2026-11-26
 0x408318	plate	Release map: exact pair with prototype 0x406830 rt_time_platform_get_time_string (evidence exact; flags -). // Owner -.	0x406830 rt_time_platform_get_time_string (exact)	2026-11-26	saved 2026-11-26
 0x408568	name	rt_time_platform_timer_getcount	0x406a80 rt_time_platform_timer_getcount (exact)	2026-11-26	saved 2026-11-26
@@ -27999,15 +28035,20 @@ release_address	applied	value	source_pair	date	state
 0x408568	prototype	uint __stdcall rt_time_platform_timer_getcount(void)	0x406a80 rt_time_platform_timer_getcount (exact)	2026-11-26	saved 2026-11-26
 0x408578	name	rt_time_platform_init	0x406a90 rt_time_platform_init (exact)	2026-11-26	saved 2026-11-26
 0x408578	plate	Release map: exact pair with prototype 0x406a90 rt_time_platform_init (evidence exact; flags -). // Owner -.	0x406a90 rt_time_platform_init (exact)	2026-11-26	saved 2026-11-26
-0x4085d8	plate	Release map: deviating pair with prototype 0x406af0 rt_time_platform_update_base (evidence call; flags -). // Owner -; prototype name rt_time_platform_update_base not applied: library pair that is not exact (libraries are named from exact pairs only).	0x406af0 rt_time_platform_update_base (deviating)	2026-11-26	saved 2026-11-26
+0x4085d8	name	rt_time_platform_update_base	0x406af0 rt_time_platform_update_base (deviating)	2026-11-27	saved 2026-11-27
+0x4085d8	plate	Release map: deviating pair with prototype 0x406af0 rt_time_platform_update_base (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x406af0 rt_time_platform_update_base (deviating)	2026-11-27	saved 2026-11-27
 0x4086e8	name	rt_time_alarm_func	0x406c10 rt_time_alarm_func (exact)	2026-11-26	saved 2026-11-26
 0x4086e8	plate	Release map: exact pair with prototype 0x406c10 rt_time_alarm_func (evidence exact; flags -). // Owner -.	0x406c10 rt_time_alarm_func (exact)	2026-11-26	saved 2026-11-26
-0x408700	plate	Release map: deviating pair with prototype 0x406c28 lintSetSmallValue (evidence call; flags call-and-slot). // Owner -; prototype name lintSetSmallValue not applied: library pair that is not exact (libraries are named from exact pairs only).	0x406c28 lintSetSmallValue (deviating)	2026-11-26	saved 2026-11-26
+0x408700	name	lintSetSmallValue	0x406c28 lintSetSmallValue (deviating)	2026-11-27	saved 2026-11-27
+0x408700	plate	Release map: deviating pair with prototype 0x406c28 lintSetSmallValue (evidence call; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x406c28 lintSetSmallValue (deviating)	2026-11-27	saved 2026-11-27
 0x4087bc	name	IsEven	0x406c64 IsEven (exact)	2026-11-26	saved 2026-11-26
 0x4087bc	plate	Release map: exact pair with prototype 0x406c64 IsEven (evidence exact; flags -). // Owner -.	0x406c64 IsEven (exact)	2026-11-26	saved 2026-11-26
-0x4087cc	plate	Release map: deviating pair with prototype 0x406c74 IsZero (evidence position; flags -). // Owner -; prototype name IsZero not applied: library pair that is not exact (libraries are named from exact pairs only).	0x406c74 IsZero (deviating)	2026-11-26	saved 2026-11-26
-0x408804	plate	Release map: deviating pair with prototype 0x406cb0 IsOne (evidence call-deviating; flags call-and-slot). // Owner -; prototype name IsOne not applied: library pair that is not exact (libraries are named from exact pairs only).	0x406cb0 IsOne (deviating)	2026-11-26	saved 2026-11-26
-0x40884c	plate	Release map: deviating pair with prototype 0x406cf0 IsEqual (evidence position; flags -). // Owner -; prototype name IsEqual not applied: library pair that is not exact (libraries are named from exact pairs only).	0x406cf0 IsEqual (deviating)	2026-11-26	saved 2026-11-26
+0x4087cc	name	IsZero	0x406c74 IsZero (deviating)	2026-11-27	saved 2026-11-27
+0x4087cc	plate	Release map: deviating pair with prototype 0x406c74 IsZero (evidence position; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x406c74 IsZero (deviating)	2026-11-27	saved 2026-11-27
+0x408804	name	IsOne	0x406cb0 IsOne (deviating)	2026-11-27	saved 2026-11-27
+0x408804	plate	Release map: deviating pair with prototype 0x406cb0 IsOne (evidence call-deviating; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x406cb0 IsOne (deviating)	2026-11-27	saved 2026-11-27
+0x40884c	name	IsEqual	0x406cf0 IsEqual (deviating)	2026-11-27	saved 2026-11-27
+0x40884c	plate	Release map: deviating pair with prototype 0x406cf0 IsEqual (evidence position; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x406cf0 IsEqual (deviating)	2026-11-27	saved 2026-11-27
 0x40888c	name	lintGetBit	0x406eb8 lintGetBit (exact)	2026-11-26	saved 2026-11-26
 0x40888c	plate	Release map: exact pair with prototype 0x406eb8 lintGetBit (evidence exact; flags -). // Owner -.	0x406eb8 lintGetBit (exact)	2026-11-26	saved 2026-11-26
 0x4088b0	name	lintSetBit	0x406edc lintSetBit (exact)	2026-11-26	saved 2026-11-26
@@ -28022,32 +28063,43 @@ release_address	applied	value	source_pair	date	state
 0x408b5c	plate	Release map: exact pair with prototype 0x407734 lintSub (evidence position; flags -). // Owner -.	0x407734 lintSub (exact)	2026-11-26	saved 2026-11-26
 0x408cd8	name	MOD	0x407aa4 MOD (exact)	2026-11-26	saved 2026-11-26
 0x408cd8	plate	Release map: exact pair with prototype 0x407aa4 MOD (evidence call; flags -). // Owner -.	0x407aa4 MOD (exact)	2026-11-26	saved 2026-11-26
-0x408e54	plate	Release map: deviating pair with prototype 0x407c20 QUO (evidence position; flags -). // Owner -; prototype name QUO not applied: library pair that is not exact (libraries are named from exact pairs only).	0x407c20 QUO (deviating)	2026-11-26	saved 2026-11-26
-0x409150	plate	Release map: deviating pair with prototype 0x407f1c QRMOD (evidence position; flags -). // Owner -; prototype name QRMOD not applied: library pair that is not exact (libraries are named from exact pairs only).	0x407f1c QRMOD (deviating)	2026-11-26	saved 2026-11-26
-0x4093a0	plate	Release map: deviating pair with prototype 0x40816c GCD (evidence position; flags -). // Owner -; prototype name GCD not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40816c GCD (deviating)	2026-11-26	saved 2026-11-26
+0x408e54	name	QUO	0x407c20 QUO (deviating)	2026-11-27	saved 2026-11-27
+0x408e54	plate	Release map: deviating pair with prototype 0x407c20 QUO (evidence position; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x407c20 QUO (deviating)	2026-11-27	saved 2026-11-27
+0x409150	name	QRMOD	0x407f1c QRMOD (deviating)	2026-11-27	saved 2026-11-27
+0x409150	plate	Release map: deviating pair with prototype 0x407f1c QRMOD (evidence position; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x407f1c QRMOD (deviating)	2026-11-27	saved 2026-11-27
+0x4093a0	name	GCD	0x40816c GCD (deviating)	2026-11-27	saved 2026-11-27
+0x4093a0	plate	Release map: deviating pair with prototype 0x40816c GCD (evidence position; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40816c GCD (deviating)	2026-11-27	saved 2026-11-27
 0x4096b4	name	EMOD	0x40895c EMOD (exact)	2026-11-26	saved 2026-11-26
 0x4096b4	plate	Release map: exact pair with prototype 0x40895c EMOD (evidence exact; flags -). // Owner -.	0x40895c EMOD (exact)	2026-11-26	saved 2026-11-26
-0x409864	plate	Release map: deviating pair with prototype 0x408b0c lintIsbSPRP (evidence position; flags call-and-slot). // Owner -; prototype name lintIsbSPRP not applied: library pair that is not exact (libraries are named from exact pairs only).	0x408b0c lintIsbSPRP (deviating)	2026-11-26	saved 2026-11-26
-0x409a5c	plate	Release map: deviating pair with prototype 0x408c8c LucasTest (evidence position; flags -). // Owner -; prototype name LucasTest not applied: library pair that is not exact (libraries are named from exact pairs only).	0x408c8c LucasTest (deviating)	2026-11-26	saved 2026-11-26
+0x409864	name	lintIsbSPRP	0x408b0c lintIsbSPRP (deviating)	2026-11-27	saved 2026-11-27
+0x409864	plate	Release map: deviating pair with prototype 0x408b0c lintIsbSPRP (evidence position; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x408b0c lintIsbSPRP (deviating)	2026-11-27	saved 2026-11-27
+0x409a5c	name	LucasTest	0x408c8c LucasTest (deviating)	2026-11-27	saved 2026-11-27
+0x409a5c	plate	Release map: deviating pair with prototype 0x408c8c LucasTest (evidence position; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x408c8c LucasTest (deviating)	2026-11-27	saved 2026-11-27
 0x409bac	name	lintRandomize	0x408ddc lintRandomize (exact)	2026-11-26	saved 2026-11-26
 0x409bac	plate	Release map: exact pair with prototype 0x408ddc lintRandomize (evidence exact; flags -). // Owner -.	0x408ddc lintRandomize (exact)	2026-11-26	saved 2026-11-26
-0x409c8c	plate	Release map: deviating pair with prototype 0x408ebc lintPrime (evidence position; flags imm-only). // Owner -; prototype name lintPrime not applied: library pair that is not exact (libraries are named from exact pairs only).	0x408ebc lintPrime (deviating)	2026-11-26	saved 2026-11-26
+0x409c8c	name	lintPrime	0x408ebc lintPrime (deviating)	2026-11-27	saved 2026-11-27
+0x409c8c	plate	Release map: deviating pair with prototype 0x408ebc lintPrime (evidence position; flags imm-only). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x408ebc lintPrime (deviating)	2026-11-27	saved 2026-11-27
 0x409f20	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x409f70	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x40a588	plate	Release map: deviating pair with prototype 0x4078b0 lintGetBits (evidence call; flags call-and-slot,moved). // Owner -; prototype name lintGetBits not applied: library pair that is not exact (libraries are named from exact pairs only).	0x4078b0 lintGetBits (deviating)	2026-11-26	saved 2026-11-26
+0x40a588	name	lintGetBits	0x4078b0 lintGetBits (deviating)	2026-11-27	saved 2026-11-27
+0x40a588	plate	Release map: deviating pair with prototype 0x4078b0 lintGetBits (evidence call; flags call-and-slot,moved). // Owner -; named although the pair is not exact: its place in the library differs, its callers decide it.	0x4078b0 lintGetBits (deviating)	2026-11-27	saved 2026-11-27
 0x40a618	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x40a68c	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x40a700	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x40a780	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x40a800	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x40a940	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x40aaa0	plate	Release map: deviating pair with prototype 0x407484 lintAddIP (evidence call; flags call-and-slot,moved). // Owner -; prototype name lintAddIP not applied: library pair that is not exact (libraries are named from exact pairs only).	0x407484 lintAddIP (deviating)	2026-11-26	saved 2026-11-26
+0x40aaa0	name	lintAddIP	0x407484 lintAddIP (deviating)	2026-11-27	saved 2026-11-27
+0x40aaa0	plate	Release map: deviating pair with prototype 0x407484 lintAddIP (evidence call; flags call-and-slot,moved). // Owner -; named although the pair is not exact: its place in the library differs, its callers decide it.	0x407484 lintAddIP (deviating)	2026-11-27	saved 2026-11-27
 0x40ab28	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x40abcc	plate	Release map: deviating pair with prototype 0x40751c lintSubIP (evidence call; flags call-and-slot,moved). // Owner -; prototype name lintSubIP not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40751c lintSubIP (deviating)	2026-11-26	saved 2026-11-26
+0x40abcc	name	lintSubIP	0x40751c lintSubIP (deviating)	2026-11-27	saved 2026-11-27
+0x40abcc	plate	Release map: deviating pair with prototype 0x40751c lintSubIP (evidence call; flags call-and-slot,moved). // Owner -; named although the pair is not exact: its place in the library differs, its callers decide it.	0x40751c lintSubIP (deviating)	2026-11-27	saved 2026-11-27
 0x40ac54	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x40acf8	plate	Release map: deviating pair with prototype 0x407924 MODIP (evidence call; flags call-and-slot,moved). // Owner -; prototype name MODIP not applied: library pair that is not exact (libraries are named from exact pairs only).	0x407924 MODIP (deviating)	2026-11-26	saved 2026-11-26
+0x40acf8	name	MODIP	0x407924 MODIP (deviating)	2026-11-27	saved 2026-11-27
+0x40acf8	plate	Release map: deviating pair with prototype 0x407924 MODIP (evidence call; flags call-and-slot,moved). // Owner -; named although the pair is not exact: its place in the library differs, its callers decide it.	0x407924 MODIP (deviating)	2026-11-27	saved 2026-11-27
 0x40b124	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x40b2ec	plate	Release map: deviating pair with prototype 0x4086e4 XMOD (evidence call; flags call-and-slot,moved). // Owner -; prototype name XMOD not applied: library pair that is not exact (libraries are named from exact pairs only).	0x4086e4 XMOD (deviating)	2026-11-26	saved 2026-11-26
+0x40b2ec	name	XMOD	0x4086e4 XMOD (deviating)	2026-11-27	saved 2026-11-27
+0x40b2ec	plate	Release map: deviating pair with prototype 0x4086e4 XMOD (evidence call; flags call-and-slot,moved). // Owner -; named although the pair is not exact: its place in the library differs, its callers decide it.	0x4086e4 XMOD (deviating)	2026-11-27	saved 2026-11-27
 0x40b4c8	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x40b688	name	RCInitialize	0x409150 RCInitialize (exact)	2026-11-26	saved 2026-11-26
 0x40b688	plate	Release map: exact pair with prototype 0x409150 RCInitialize (evidence exact; flags -). // Owner -.	0x409150 RCInitialize (exact)	2026-11-26	saved 2026-11-26
@@ -28057,30 +28109,47 @@ release_address	applied	value	source_pair	date	state
 0x40b800	plate	Release map: exact pair with prototype 0x4092c8 RCEncrypt (evidence exact; flags -). // Owner -.	0x4092c8 RCEncrypt (exact)	2026-11-26	saved 2026-11-26
 0x40b8a8	name	RCDecrypt	0x409370 RCDecrypt (exact)	2026-11-26	saved 2026-11-26
 0x40b8a8	plate	Release map: exact pair with prototype 0x409370 RCDecrypt (evidence exact; flags -). // Owner -.	0x409370 RCDecrypt (exact)	2026-11-26	saved 2026-11-26
-0x40b950	plate	Release map: unsure pair with prototype 0x409418 RSAGenerateKeyPair (evidence position; flags ambiguous,imm-only). // Owner -; prototype name RSAGenerateKeyPair not applied: unsure pair: the evidence does not settle it.	0x409418 RSAGenerateKeyPair (unsure)	2026-11-26	saved 2026-11-26
+0x40b950	name	RSAGenerateKeyPair	0x409418 RSAGenerateKeyPair (unsure)	2026-11-27	saved 2026-11-27
+0x40b950	plate	Release map: unsure pair with prototype 0x409418 RSAGenerateKeyPair (evidence position; flags ambiguous,imm-only). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x409418 RSAGenerateKeyPair (unsure)	2026-11-27	saved 2026-11-27
 0x40bd9c	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x40c1dc	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x40c208	plate	Release map: deviating pair with prototype 0x4098c8 RSADecryptBlock (evidence exact; flags call-conflict,callee-changed). // Owner -; prototype name RSADecryptBlock not applied: library pair that is not exact (libraries are named from exact pairs only).	0x4098c8 RSADecryptBlock (deviating)	2026-11-26	saved 2026-11-26
-0x40c4a0	plate	Release map: deviating pair with prototype 0x409b60 RSAEncrypt (evidence call; flags call-and-slot). // Owner -; prototype name RSAEncrypt not applied: library pair that is not exact (libraries are named from exact pairs only).	0x409b60 RSAEncrypt (deviating)	2026-11-26	saved 2026-11-26
+0x40c208	name	RSADecryptBlock	0x4098c8 RSADecryptBlock (deviating)	2026-11-27	saved 2026-11-27
+0x40c208	plate	Release map: deviating pair with prototype 0x4098c8 RSADecryptBlock (evidence exact; flags call-conflict,callee-changed). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x4098c8 RSADecryptBlock (deviating)	2026-11-27	saved 2026-11-27
+0x40c4a0	name	RSAEncrypt	0x409b60 RSAEncrypt (deviating)	2026-11-27	saved 2026-11-27
+0x40c4a0	plate	Release map: deviating pair with prototype 0x409b60 RSAEncrypt (evidence call; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x409b60 RSAEncrypt (deviating)	2026-11-27	saved 2026-11-27
 0x40c4d4	name	RSADecrypt	0x409bd4 RSADecrypt (exact)	2026-11-26	saved 2026-11-26
 0x40c4d4	plate	Release map: exact pair with prototype 0x409bd4 RSADecrypt (evidence exact; flags -). // Owner -.	0x409bd4 RSADecrypt (exact)	2026-11-26	saved 2026-11-26
-0x40c568	plate	Release map: deviating pair with prototype 0x409c68 rt_circ_buf_create (evidence call-deviating; flags -). // Owner -; prototype name rt_circ_buf_create not applied: library pair that is not exact (libraries are named from exact pairs only).	0x409c68 rt_circ_buf_create (deviating)	2026-11-26	saved 2026-11-26
+0x40c568	name	rt_circ_buf_create	0x409c68 rt_circ_buf_create (deviating)	2026-11-27	saved 2026-11-27
+0x40c568	plate	Release map: deviating pair with prototype 0x409c68 rt_circ_buf_create (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x409c68 rt_circ_buf_create (deviating)	2026-11-27	saved 2026-11-27
 0x40c638	name	rt_circ_buf_destroy	0x409d08 rt_circ_buf_destroy (exact)	2026-11-26	saved 2026-11-26
 0x40c638	plate	Release map: exact pair with prototype 0x409d08 rt_circ_buf_destroy (evidence exact; flags -). // Owner -.	0x409d08 rt_circ_buf_destroy (exact)	2026-11-26	saved 2026-11-26
-0x40c688	plate	Release map: deviating pair with prototype 0x409d58 rt_circ_buf_clear (evidence call-deviating; flags call-and-slot). // Owner -; prototype name rt_circ_buf_clear not applied: library pair that is not exact (libraries are named from exact pairs only).	0x409d58 rt_circ_buf_clear (deviating)	2026-11-26	saved 2026-11-26
-0x40c6a8	plate	Release map: deviating pair with prototype 0x409d98 rt_circ_buf_free (evidence call-deviating; flags call-and-slot). // Owner -; prototype name rt_circ_buf_free not applied: library pair that is not exact (libraries are named from exact pairs only).	0x409d98 rt_circ_buf_free (deviating)	2026-11-26	saved 2026-11-26
-0x40c7e0	plate	Release map: deviating pair with prototype 0x409e48 rt_circ_buf_use (evidence call-deviating; flags call-and-slot). // Owner -; prototype name rt_circ_buf_use not applied: library pair that is not exact (libraries are named from exact pairs only).	0x409e48 rt_circ_buf_use (deviating)	2026-11-26	saved 2026-11-26
-0x40c918	plate	Release map: deviating pair with prototype 0x409f38 rt_circ_buf_store (evidence call-deviating; flags call-and-slot). // Owner -; prototype name rt_circ_buf_store not applied: library pair that is not exact (libraries are named from exact pairs only).	0x409f38 rt_circ_buf_store (deviating)	2026-11-26	saved 2026-11-26
-0x40ca88	plate	Release map: deviating pair with prototype 0x40a030 rt_circ_buf_copy (evidence call; flags -). // Owner -; prototype name rt_circ_buf_copy not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40a030 rt_circ_buf_copy (deviating)	2026-11-26	saved 2026-11-26
-0x40cbf0	plate	Release map: deviating pair with prototype 0x40a120 rt_circ_buf_normalize (evidence call-deviating; flags call-and-slot). // Owner -; prototype name rt_circ_buf_normalize not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40a120 rt_circ_buf_normalize (deviating)	2026-11-26	saved 2026-11-26
-0x40cc40	plate	Release map: deviating pair with prototype 0x40a198 rt_circ_buf_normalize_with_buf (evidence call; flags -). // Owner -; prototype name rt_circ_buf_normalize_with_buf not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40a198 rt_circ_buf_normalize_with_buf (deviating)	2026-11-26	saved 2026-11-26
-0x40cdc0	plate	Release map: deviating pair with prototype 0x40a270 rt_circ_buf_get_used (evidence call; flags call-and-slot). // Owner -; prototype name rt_circ_buf_get_used not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40a270 rt_circ_buf_get_used (deviating)	2026-11-26	saved 2026-11-26
-0x40cde8	plate	Release map: deviating pair with prototype 0x40a2c0 rt_circ_buf_get_used_nowrap (evidence call-deviating; flags call-and-slot). // Owner -; prototype name rt_circ_buf_get_used_nowrap not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40a2c0 rt_circ_buf_get_used_nowrap (deviating)	2026-11-26	saved 2026-11-26
+0x40c688	name	rt_circ_buf_clear	0x409d58 rt_circ_buf_clear (deviating)	2026-11-27	saved 2026-11-27
+0x40c688	plate	Release map: deviating pair with prototype 0x409d58 rt_circ_buf_clear (evidence call-deviating; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x409d58 rt_circ_buf_clear (deviating)	2026-11-27	saved 2026-11-27
+0x40c6a8	name	rt_circ_buf_free	0x409d98 rt_circ_buf_free (deviating)	2026-11-27	saved 2026-11-27
+0x40c6a8	plate	Release map: deviating pair with prototype 0x409d98 rt_circ_buf_free (evidence call-deviating; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x409d98 rt_circ_buf_free (deviating)	2026-11-27	saved 2026-11-27
+0x40c7e0	name	rt_circ_buf_use	0x409e48 rt_circ_buf_use (deviating)	2026-11-27	saved 2026-11-27
+0x40c7e0	plate	Release map: deviating pair with prototype 0x409e48 rt_circ_buf_use (evidence call-deviating; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x409e48 rt_circ_buf_use (deviating)	2026-11-27	saved 2026-11-27
+0x40c918	name	rt_circ_buf_store	0x409f38 rt_circ_buf_store (deviating)	2026-11-27	saved 2026-11-27
+0x40c918	plate	Release map: deviating pair with prototype 0x409f38 rt_circ_buf_store (evidence call-deviating; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x409f38 rt_circ_buf_store (deviating)	2026-11-27	saved 2026-11-27
+0x40ca88	name	rt_circ_buf_copy	0x40a030 rt_circ_buf_copy (deviating)	2026-11-27	saved 2026-11-27
+0x40ca88	plate	Release map: deviating pair with prototype 0x40a030 rt_circ_buf_copy (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40a030 rt_circ_buf_copy (deviating)	2026-11-27	saved 2026-11-27
+0x40cbf0	name	rt_circ_buf_normalize	0x40a120 rt_circ_buf_normalize (deviating)	2026-11-27	saved 2026-11-27
+0x40cbf0	plate	Release map: deviating pair with prototype 0x40a120 rt_circ_buf_normalize (evidence call-deviating; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40a120 rt_circ_buf_normalize (deviating)	2026-11-27	saved 2026-11-27
+0x40cc40	name	rt_circ_buf_normalize_with_buf	0x40a198 rt_circ_buf_normalize_with_buf (deviating)	2026-11-27	saved 2026-11-27
+0x40cc40	plate	Release map: deviating pair with prototype 0x40a198 rt_circ_buf_normalize_with_buf (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40a198 rt_circ_buf_normalize_with_buf (deviating)	2026-11-27	saved 2026-11-27
+0x40cdc0	name	rt_circ_buf_get_used	0x40a270 rt_circ_buf_get_used (deviating)	2026-11-27	saved 2026-11-27
+0x40cdc0	plate	Release map: deviating pair with prototype 0x40a270 rt_circ_buf_get_used (evidence call; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40a270 rt_circ_buf_get_used (deviating)	2026-11-27	saved 2026-11-27
+0x40cde8	name	rt_circ_buf_get_used_nowrap	0x40a2c0 rt_circ_buf_get_used_nowrap (deviating)	2026-11-27	saved 2026-11-27
+0x40cde8	plate	Release map: deviating pair with prototype 0x40a2c0 rt_circ_buf_get_used_nowrap (evidence call-deviating; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40a2c0 rt_circ_buf_get_used_nowrap (deviating)	2026-11-27	saved 2026-11-27
 0x40ce40	plate	Release map: deviating pair with prototype 0x409ef8 rt_circ_buf_is_valid (evidence call-deviating; flags call-and-slot,moved). // Owner -; prototype name rt_circ_buf_is_valid not applied: library pair that is not exact (libraries are named from exact pairs only).	0x409ef8 rt_circ_buf_is_valid (deviating)	2026-11-26	saved 2026-11-26
-0x40ce70	plate	Release map: deviating pair with prototype 0x40a398 rt_circ_buf_get_avail_nowrap (evidence call; flags call-and-slot). // Owner -; prototype name rt_circ_buf_get_avail_nowrap not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40a398 rt_circ_buf_get_avail_nowrap (deviating)	2026-11-26	saved 2026-11-26
-0x40cec0	plate	Release map: deviating pair with prototype 0x40a418 rt_circ_buf_get_start_used_ptr (evidence call-deviating; flags call-and-slot). // Owner -; prototype name rt_circ_buf_get_start_used_ptr not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40a418 rt_circ_buf_get_start_used_ptr (deviating)	2026-11-26	saved 2026-11-26
-0x40cf98	plate	Release map: deviating pair with prototype 0x40a490 rt_circ_buf_get_start_avail_ptr (evidence call-deviating; flags call-and-slot). // Owner -; prototype name rt_circ_buf_get_start_avail_ptr not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40a490 rt_circ_buf_get_start_avail_ptr (deviating)	2026-11-26	saved 2026-11-26
-0x40d070	plate	Release map: deviating pair with prototype 0x40a508 rt_circ_buf_is_wrapped (evidence call-deviating; flags call-and-slot). // Owner -; prototype name rt_circ_buf_is_wrapped not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40a508 rt_circ_buf_is_wrapped (deviating)	2026-11-26	saved 2026-11-26
+0x40ce70	name	rt_circ_buf_get_avail_nowrap	0x40a398 rt_circ_buf_get_avail_nowrap (deviating)	2026-11-27	saved 2026-11-27
+0x40ce70	plate	Release map: deviating pair with prototype 0x40a398 rt_circ_buf_get_avail_nowrap (evidence call; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40a398 rt_circ_buf_get_avail_nowrap (deviating)	2026-11-27	saved 2026-11-27
+0x40cec0	name	rt_circ_buf_get_start_used_ptr	0x40a418 rt_circ_buf_get_start_used_ptr (deviating)	2026-11-27	saved 2026-11-27
+0x40cec0	plate	Release map: deviating pair with prototype 0x40a418 rt_circ_buf_get_start_used_ptr (evidence call-deviating; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40a418 rt_circ_buf_get_start_used_ptr (deviating)	2026-11-27	saved 2026-11-27
+0x40cf98	name	rt_circ_buf_get_start_avail_ptr	0x40a490 rt_circ_buf_get_start_avail_ptr (deviating)	2026-11-27	saved 2026-11-27
+0x40cf98	plate	Release map: deviating pair with prototype 0x40a490 rt_circ_buf_get_start_avail_ptr (evidence call-deviating; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40a490 rt_circ_buf_get_start_avail_ptr (deviating)	2026-11-27	saved 2026-11-27
+0x40d070	name	rt_circ_buf_is_wrapped	0x40a508 rt_circ_buf_is_wrapped (deviating)	2026-11-27	saved 2026-11-27
+0x40d070	plate	Release map: deviating pair with prototype 0x40a508 rt_circ_buf_is_wrapped (evidence call-deviating; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40a508 rt_circ_buf_is_wrapped (deviating)	2026-11-27	saved 2026-11-27
 0x40d0c0	name	IsNullRSAKey	0x40a580 IsNullRSAKey (exact)	2026-11-26	saved 2026-11-26
 0x40d0c0	plate	Release map: exact pair with prototype 0x40a580 IsNullRSAKey (evidence exact; flags -). // Owner -.	0x40a580 IsNullRSAKey (exact)	2026-11-26	saved 2026-11-26
 0x40d100	name	IsNullRCKey	0x40a5c0 IsNullRCKey (exact)	2026-11-26	saved 2026-11-26
@@ -28133,7 +28202,8 @@ release_address	applied	value	source_pair	date	state
 0x40e498	plate	Release map: exact pair with prototype 0x40b958 KM_DeleteKeys (evidence exact; flags -). // Owner -.	0x40b958 KM_DeleteKeys (exact)	2026-11-26	saved 2026-11-26
 0x40e4f4	name	KM_Destroy	0x40b9b4 KM_Destroy (exact)	2026-11-26	saved 2026-11-26
 0x40e4f4	plate	Release map: exact pair with prototype 0x40b9b4 KM_Destroy (evidence exact; flags -). // Owner -.	0x40b9b4 KM_Destroy (exact)	2026-11-26	saved 2026-11-26
-0x40e624	plate	Release map: deviating pair with prototype 0x40bae4 KM_Cleanup (evidence call-deviating; flags call-and-slot). // Owner -; prototype name KM_Cleanup not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40bae4 KM_Cleanup (deviating)	2026-11-26	saved 2026-11-26
+0x40e624	name	KM_Cleanup	0x40bae4 KM_Cleanup (deviating)	2026-11-27	saved 2026-11-27
+0x40e624	plate	Release map: deviating pair with prototype 0x40bae4 KM_Cleanup (evidence call-deviating; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40bae4 KM_Cleanup (deviating)	2026-11-27	saved 2026-11-27
 0x40e6e0	name	KM_GenerateRSAKeyPair	0x40bb2c KM_GenerateRSAKeyPair (exact)	2026-11-26	saved 2026-11-26
 0x40e6e0	plate	Release map: exact pair with prototype 0x40bb2c KM_GenerateRSAKeyPair (evidence position; flags ambiguous,identical-copy). // Owner -.	0x40bb2c KM_GenerateRSAKeyPair (exact)	2026-11-26	saved 2026-11-26
 0x40e71c	plate	Release map: new, no prototype counterpart (evidence -; flags copy). // Owner -.	new	2026-11-26	saved 2026-11-26
@@ -28148,10 +28218,12 @@ release_address	applied	value	source_pair	date	state
 0x40ec58	plate	Release map: exact pair with prototype 0x40c010 rt_msg_client_get_build_timestamp (evidence exact-position; flags identical-copy). // Owner -.	0x40c010 rt_msg_client_get_build_timestamp (exact)	2026-11-26	saved 2026-11-26
 0x40edb0	name	rt_msg_client_IPStringToBinary	0x40c168 rt_msg_client_IPStringToBinary (exact)	2026-11-26	saved 2026-11-26
 0x40edb0	plate	Release map: exact pair with prototype 0x40c168 rt_msg_client_IPStringToBinary (evidence exact; flags -). // Owner -.	0x40c168 rt_msg_client_IPStringToBinary (exact)	2026-11-26	saved 2026-11-26
-0x40ee48	plate	Release map: deviating pair with prototype 0x40c200 rt_msg_client_startup (evidence call-deviating; flags -). // Owner -; prototype name rt_msg_client_startup not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40c200 rt_msg_client_startup (deviating)	2026-11-26	saved 2026-11-26
+0x40ee48	name	rt_msg_client_startup	0x40c200 rt_msg_client_startup (deviating)	2026-11-27	saved 2026-11-27
+0x40ee48	plate	Release map: deviating pair with prototype 0x40c200 rt_msg_client_startup (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40c200 rt_msg_client_startup (deviating)	2026-11-27	saved 2026-11-27
 0x40eef0	name	rt_msg_client_shutdown	0x40c2b8 rt_msg_client_shutdown (exact)	2026-11-26	saved 2026-11-26
 0x40eef0	plate	Release map: exact pair with prototype 0x40c2b8 rt_msg_client_shutdown (evidence exact; flags -). // Owner -.	0x40c2b8 rt_msg_client_shutdown (exact)	2026-11-26	saved 2026-11-26
-0x40efa0	plate	Release map: deviating pair with prototype 0x40c368 rt_msg_client_enable_udp (evidence call; flags call-and-slot). // Owner -; prototype name rt_msg_client_enable_udp not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40c368 rt_msg_client_enable_udp (deviating)	2026-11-26	saved 2026-11-26
+0x40efa0	name	rt_msg_client_enable_udp	0x40c368 rt_msg_client_enable_udp (deviating)	2026-11-27	saved 2026-11-27
+0x40efa0	plate	Release map: deviating pair with prototype 0x40c368 rt_msg_client_enable_udp (evidence call; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40c368 rt_msg_client_enable_udp (deviating)	2026-11-27	saved 2026-11-27
 0x40efa8	name	rt_msg_client_connect	0x40c3f8 rt_msg_client_connect (exact)	2026-11-26	saved 2026-11-26
 0x40efa8	plate	Release map: exact pair with prototype 0x40c3f8 rt_msg_client_connect (evidence exact-position; flags -). // Owner -.	0x40c3f8 rt_msg_client_connect (exact)	2026-11-26	saved 2026-11-26
 0x40f048	name	rt_msg_client_disconnect	0x40c498 rt_msg_client_disconnect (exact)	2026-11-26	saved 2026-11-26
@@ -28167,10 +28239,12 @@ release_address	applied	value	source_pair	date	state
 0x40f280	plate	Release map: exact pair with prototype 0x40c6d0 rt_msg_client_send_target (evidence exact; flags -). // Owner -.	0x40c6d0 rt_msg_client_send_target (exact)	2026-11-26	saved 2026-11-26
 0x40f350	name	rt_msg_client_send_client_set	0x40c7a0 rt_msg_client_send_client_set (exact)	2026-11-26	saved 2026-11-26
 0x40f350	plate	Release map: exact pair with prototype 0x40c7a0 rt_msg_client_send_client_set (evidence exact; flags -). // Owner -.	0x40c7a0 rt_msg_client_send_client_set (exact)	2026-11-26	saved 2026-11-26
-0x40f440	plate	Release map: deviating pair with prototype 0x40c890 rt_msg_client_send_udp (evidence call; flags call-and-slot). // Owner -; prototype name rt_msg_client_send_udp not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40c890 rt_msg_client_send_udp (deviating)	2026-11-26	saved 2026-11-26
+0x40f440	name	rt_msg_client_send_udp	0x40c890 rt_msg_client_send_udp (deviating)	2026-11-27	saved 2026-11-27
+0x40f440	plate	Release map: deviating pair with prototype 0x40c890 rt_msg_client_send_udp (evidence call; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40c890 rt_msg_client_send_udp (deviating)	2026-11-27	saved 2026-11-27
 0x40f448	name	rt_msg_client_get_buffer_status	0x40c960 rt_msg_client_get_buffer_status (exact)	2026-11-26	saved 2026-11-26
 0x40f448	plate	Release map: exact pair with prototype 0x40c960 rt_msg_client_get_buffer_status (evidence exact; flags -). // Owner -.	0x40c960 rt_msg_client_get_buffer_status (exact)	2026-11-26	saved 2026-11-26
-0x40f518	plate	Release map: deviating pair with prototype 0x40ca30 rt_msg_client_udp_get_buffer_status (evidence call; flags call-and-slot). // Owner -; prototype name rt_msg_client_udp_get_buffer_status not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40ca30 rt_msg_client_udp_get_buffer_status (deviating)	2026-11-26	saved 2026-11-26
+0x40f518	name	rt_msg_client_udp_get_buffer_status	0x40ca30 rt_msg_client_udp_get_buffer_status (deviating)	2026-11-27	saved 2026-11-27
+0x40f518	plate	Release map: deviating pair with prototype 0x40ca30 rt_msg_client_udp_get_buffer_status (evidence call; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40ca30 rt_msg_client_udp_get_buffer_status (deviating)	2026-11-27	saved 2026-11-27
 0x40f520	name	rt_msg_client_get_local_ip	0x40caf0 rt_msg_client_get_local_ip (exact)	2026-11-26	saved 2026-11-26
 0x40f520	plate	Release map: exact pair with prototype 0x40caf0 rt_msg_client_get_local_ip (evidence exact-position; flags -). // Owner -.	0x40caf0 rt_msg_client_get_local_ip (exact)	2026-11-26	saved 2026-11-26
 0x40f5b0	name	rt_msg_client_get_host_by_name	0x40cb80 rt_msg_client_get_host_by_name (exact)	2026-11-26	saved 2026-11-26
@@ -28185,23 +28259,31 @@ release_address	applied	value	source_pair	date	state
 0x40f830	plate	Release map: exact pair with prototype 0x40ce00 rt_msg_client_set_send_aggregation_time (evidence call; flags -). // Owner -.	0x40ce00 rt_msg_client_set_send_aggregation_time (exact)	2026-11-26	saved 2026-11-26
 0x40f8d0	name	rt_msg_client_set_server_send_aggregation_time	0x40cea0 rt_msg_client_set_server_send_aggregation_time (exact)	2026-11-26	saved 2026-11-26
 0x40f8d0	plate	Release map: exact pair with prototype 0x40cea0 rt_msg_client_set_server_send_aggregation_time (evidence call; flags -). // Owner -.	0x40cea0 rt_msg_client_set_server_send_aggregation_time (exact)	2026-11-26	saved 2026-11-26
-0x40f970	plate	Release map: deviating pair with prototype 0x40cf40 rt_msg_client_udp_set_send_aggregation_time (evidence call; flags call-and-slot). // Owner -; prototype name rt_msg_client_udp_set_send_aggregation_time not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40cf40 rt_msg_client_udp_set_send_aggregation_time (deviating)	2026-11-26	saved 2026-11-26
+0x40f970	name	rt_msg_client_udp_set_send_aggregation_time	0x40cf40 rt_msg_client_udp_set_send_aggregation_time (deviating)	2026-11-27	saved 2026-11-27
+0x40f970	plate	Release map: deviating pair with prototype 0x40cf40 rt_msg_client_udp_set_send_aggregation_time (evidence call; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40cf40 rt_msg_client_udp_set_send_aggregation_time (deviating)	2026-11-27	saved 2026-11-27
 0x40f978	name	rt_msg_client_set_default_connect_options	0x40cfd0 rt_msg_client_set_default_connect_options (exact)	2026-11-26	saved 2026-11-26
 0x40f978	plate	Release map: exact pair with prototype 0x40cfd0 rt_msg_client_set_default_connect_options (evidence exact-position; flags -). // Owner -.	0x40cfd0 rt_msg_client_set_default_connect_options (exact)	2026-11-26	saved 2026-11-26
-0x40fa08	plate	Release map: deviating pair with prototype 0x40d060 rt_msg_client_udp_set_default_options (evidence call; flags call-and-slot). // Owner -; prototype name rt_msg_client_udp_set_default_options not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40d060 rt_msg_client_udp_set_default_options (deviating)	2026-11-26	saved 2026-11-26
+0x40fa08	name	rt_msg_client_udp_set_default_options	0x40d060 rt_msg_client_udp_set_default_options (deviating)	2026-11-27	saved 2026-11-27
+0x40fa08	plate	Release map: deviating pair with prototype 0x40d060 rt_msg_client_udp_set_default_options (evidence call; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40d060 rt_msg_client_udp_set_default_options (deviating)	2026-11-27	saved 2026-11-27
 0x40fa10	name	rt_msg_client_display_comm_state	0x40d0f0 rt_msg_client_display_comm_state (exact)	2026-11-26	saved 2026-11-26
 0x40fa10	plate	Release map: exact pair with prototype 0x40d0f0 rt_msg_client_display_comm_state (evidence exact-position; flags identical-copy). // Owner -.	0x40d0f0 rt_msg_client_display_comm_state (exact)	2026-11-26	saved 2026-11-26
-0x40fa88	plate	Release map: deviating pair with prototype 0x40d168 rt_msg_client_udp_clear_target (evidence call; flags call-and-slot). // Owner -; prototype name rt_msg_client_udp_clear_target not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40d168 rt_msg_client_udp_clear_target (deviating)	2026-11-26	saved 2026-11-26
-0x40faa8	plate	Release map: deviating pair with prototype 0x40d3d0 rt_msg_client_ishutdown (evidence call; flags -). // Owner -; prototype name rt_msg_client_ishutdown not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40d3d0 rt_msg_client_ishutdown (deviating)	2026-11-26	saved 2026-11-26
-0x40fc18	plate	Release map: deviating pair with prototype 0x40d720 rt_msg_client_iconnect (evidence call; flags -). // Owner -; prototype name rt_msg_client_iconnect not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40d720 rt_msg_client_iconnect (deviating)	2026-11-26	saved 2026-11-26
+0x40fa88	name	rt_msg_client_udp_clear_target	0x40d168 rt_msg_client_udp_clear_target (deviating)	2026-11-27	saved 2026-11-27
+0x40fa88	plate	Release map: deviating pair with prototype 0x40d168 rt_msg_client_udp_clear_target (evidence call; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40d168 rt_msg_client_udp_clear_target (deviating)	2026-11-27	saved 2026-11-27
+0x40faa8	name	rt_msg_client_ishutdown	0x40d3d0 rt_msg_client_ishutdown (deviating)	2026-11-27	saved 2026-11-27
+0x40faa8	plate	Release map: deviating pair with prototype 0x40d3d0 rt_msg_client_ishutdown (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40d3d0 rt_msg_client_ishutdown (deviating)	2026-11-27	saved 2026-11-27
+0x40fc18	name	rt_msg_client_iconnect	0x40d720 rt_msg_client_iconnect (deviating)	2026-11-27	saved 2026-11-27
+0x40fc18	plate	Release map: deviating pair with prototype 0x40d720 rt_msg_client_iconnect (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40d720 rt_msg_client_iconnect (deviating)	2026-11-27	saved 2026-11-27
 0x40ff40	name	rt_msg_client_idisconnect	0x40dab0 rt_msg_client_idisconnect (exact)	2026-11-26	saved 2026-11-26
 0x40ff40	plate	Release map: exact pair with prototype 0x40dab0 rt_msg_client_idisconnect (evidence exact; flags -). // Owner -.	0x40dab0 rt_msg_client_idisconnect (exact)	2026-11-26	saved 2026-11-26
 0x40ff40	prototype	undefined __stdcall rt_msg_client_idisconnect(ushort connection_index) [storage connection_index=a0_lo:2]	0x40dab0 rt_msg_client_idisconnect (exact)	2026-11-26	saved 2026-11-26
 0x410058	name	rt_msg_client_idisconnect_all	0x40dbc8 rt_msg_client_idisconnect_all (exact)	2026-11-26	saved 2026-11-26
 0x410058	plate	Release map: exact pair with prototype 0x40dbc8 rt_msg_client_idisconnect_all (evidence exact; flags -). // Owner -.	0x40dbc8 rt_msg_client_idisconnect_all (exact)	2026-11-26	saved 2026-11-26
-0x4100f8	plate	Release map: deviating pair with prototype 0x40dc68 rt_msg_client_iupdate (evidence call; flags -). // Owner -; prototype name rt_msg_client_iupdate not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40dc68 rt_msg_client_iupdate (deviating)	2026-11-26	saved 2026-11-26
-0x410118	plate	Release map: deviating pair with prototype 0x40dcc0 rt_msg_client_iupdate_all (evidence call; flags -). // Owner -; prototype name rt_msg_client_iupdate_all not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40dcc0 rt_msg_client_iupdate_all (deviating)	2026-11-26	saved 2026-11-26
-0x4101c8	plate	Release map: deviating pair with prototype 0x40dd90 rt_msg_client_isend_target (evidence call; flags -). // Owner -; prototype name rt_msg_client_isend_target not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40dd90 rt_msg_client_isend_target (deviating)	2026-11-26	saved 2026-11-26
+0x4100f8	name	rt_msg_client_iupdate	0x40dc68 rt_msg_client_iupdate (deviating)	2026-11-27	saved 2026-11-27
+0x4100f8	plate	Release map: deviating pair with prototype 0x40dc68 rt_msg_client_iupdate (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40dc68 rt_msg_client_iupdate (deviating)	2026-11-27	saved 2026-11-27
+0x410118	name	rt_msg_client_iupdate_all	0x40dcc0 rt_msg_client_iupdate_all (deviating)	2026-11-27	saved 2026-11-27
+0x410118	plate	Release map: deviating pair with prototype 0x40dcc0 rt_msg_client_iupdate_all (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40dcc0 rt_msg_client_iupdate_all (deviating)	2026-11-27	saved 2026-11-27
+0x4101c8	name	rt_msg_client_isend_target	0x40dd90 rt_msg_client_isend_target (deviating)	2026-11-27	saved 2026-11-27
+0x4101c8	plate	Release map: deviating pair with prototype 0x40dd90 rt_msg_client_isend_target (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40dd90 rt_msg_client_isend_target (deviating)	2026-11-27	saved 2026-11-27
 0x4102e0	name	rt_msg_client_isend_client_set	0x40deb8 rt_msg_client_isend_client_set (exact)	2026-11-26	saved 2026-11-26
 0x4102e0	plate	Release map: exact pair with prototype 0x40deb8 rt_msg_client_isend_client_set (evidence call; flags -). // Owner -.	0x40deb8 rt_msg_client_isend_client_set (exact)	2026-11-26	saved 2026-11-26
 0x4102e8	name	rt_msg_client_iget_buffer_status	0x40dfb8 rt_msg_client_iget_buffer_status (exact)	2026-11-26	saved 2026-11-26
@@ -28212,49 +28294,69 @@ release_address	applied	value	source_pair	date	state
 0x410480	plate	Release map: exact pair with prototype 0x40e238 rt_msg_client_iget_host_by_name (evidence exact; flags -). // Owner -.	0x40e238 rt_msg_client_iget_host_by_name (exact)	2026-11-26	saved 2026-11-26
 0x4104d0	name	rt_msg_client_iget_connection_ip	0x40e288 rt_msg_client_iget_connection_ip (exact)	2026-11-26	saved 2026-11-26
 0x4104d0	plate	Release map: exact pair with prototype 0x40e288 rt_msg_client_iget_connection_ip (evidence exact; flags -). // Owner -.	0x40e288 rt_msg_client_iget_connection_ip (exact)	2026-11-26	saved 2026-11-26
-0x410548	plate	Release map: deviating pair with prototype 0x40e300 rt_msg_client_ireceive_broadcasts (evidence call; flags -). // Owner -; prototype name rt_msg_client_ireceive_broadcasts not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40e300 rt_msg_client_ireceive_broadcasts (deviating)	2026-11-26	saved 2026-11-26
-0x4105e8	plate	Release map: deviating pair with prototype 0x40e3d8 rt_msg_client_iget_metrics (evidence call; flags call-and-slot). // Owner -; prototype name rt_msg_client_iget_metrics not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40e3d8 rt_msg_client_iget_metrics (deviating)	2026-11-26	saved 2026-11-26
+0x410548	name	rt_msg_client_ireceive_broadcasts	0x40e300 rt_msg_client_ireceive_broadcasts (deviating)	2026-11-27	saved 2026-11-27
+0x410548	plate	Release map: deviating pair with prototype 0x40e300 rt_msg_client_ireceive_broadcasts (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40e300 rt_msg_client_ireceive_broadcasts (deviating)	2026-11-27	saved 2026-11-27
+0x4105e8	name	rt_msg_client_iget_metrics	0x40e3d8 rt_msg_client_iget_metrics (deviating)	2026-11-27	saved 2026-11-27
+0x4105e8	plate	Release map: deviating pair with prototype 0x40e3d8 rt_msg_client_iget_metrics (evidence call; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40e3d8 rt_msg_client_iget_metrics (deviating)	2026-11-27	saved 2026-11-27
 0x4106a8	name	rt_msg_client_iset_send_aggregation_time	0x40e4a8 rt_msg_client_iset_send_aggregation_time (exact)	2026-11-26	saved 2026-11-26
 0x4106a8	plate	Release map: exact pair with prototype 0x40e4a8 rt_msg_client_iset_send_aggregation_time (evidence exact; flags -). // Owner -.	0x40e4a8 rt_msg_client_iset_send_aggregation_time (exact)	2026-11-26	saved 2026-11-26
-0x410700	plate	Release map: deviating pair with prototype 0x40e500 rt_msg_client_iset_server_send_aggregation_time (evidence call; flags -). // Owner -; prototype name rt_msg_client_iset_server_send_aggregation_time not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40e500 rt_msg_client_iset_server_send_aggregation_time (deviating)	2026-11-26	saved 2026-11-26
+0x410700	name	rt_msg_client_iset_server_send_aggregation_time	0x40e500 rt_msg_client_iset_server_send_aggregation_time (deviating)	2026-11-27	saved 2026-11-27
+0x410700	plate	Release map: deviating pair with prototype 0x40e500 rt_msg_client_iset_server_send_aggregation_time (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40e500 rt_msg_client_iset_server_send_aggregation_time (deviating)	2026-11-27	saved 2026-11-27
 0x410780	name	rt_msg_client_iset_default_connect_options	0x40e5e8 rt_msg_client_iset_default_connect_options (exact)	2026-11-26	saved 2026-11-26
 0x410780	plate	Release map: exact pair with prototype 0x40e5e8 rt_msg_client_iset_default_connect_options (evidence exact; flags -). // Owner -.	0x40e5e8 rt_msg_client_iset_default_connect_options (exact)	2026-11-26	saved 2026-11-26
 0x4107e8	name	rt_msg_client_idisplay_comm_state	0x40e6b8 rt_msg_client_idisplay_comm_state (exact)	2026-11-26	saved 2026-11-26
 0x4107e8	plate	Release map: exact pair with prototype 0x40e6b8 rt_msg_client_idisplay_comm_state (evidence exact; flags -). // Owner -.	0x40e6b8 rt_msg_client_idisplay_comm_state (exact)	2026-11-26	saved 2026-11-26
-0x410820	plate	Release map: deviating pair with prototype 0x40e9a8 rt_msg_client_update_single (evidence call-deviating; flags -). // Owner -; prototype name rt_msg_client_update_single not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40e9a8 rt_msg_client_update_single (deviating)	2026-11-26	saved 2026-11-26
-0x4108f0	plate	Release map: deviating pair with prototype 0x40ea58 rt_msg_client_update_connection (evidence call-deviating; flags -). // Owner -; prototype name rt_msg_client_update_connection not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40ea58 rt_msg_client_update_connection (deviating)	2026-11-26	saved 2026-11-26
-0x410b88	plate	Release map: deviating pair with prototype 0x40edc0 rt_msg_client_create_new_connection_index (evidence call-deviating; flags -). // Owner -; prototype name rt_msg_client_create_new_connection_index not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40edc0 rt_msg_client_create_new_connection_index (deviating)	2026-11-26	saved 2026-11-26
-0x410db8	plate	Release map: deviating pair with prototype 0x40efe8 rt_msg_client_free_connection_index (evidence call; flags -). // Owner -; prototype name rt_msg_client_free_connection_index not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40efe8 rt_msg_client_free_connection_index (deviating)	2026-11-26	saved 2026-11-26
-0x410e88	plate	Release map: deviating pair with prototype 0x40f0a0 rt_msg_client_is_valid_connection (evidence call; flags call-and-slot). // Owner -; prototype name rt_msg_client_is_valid_connection not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40f0a0 rt_msg_client_is_valid_connection (deviating)	2026-11-26	saved 2026-11-26
+0x410820	name	rt_msg_client_update_single	0x40e9a8 rt_msg_client_update_single (deviating)	2026-11-27	saved 2026-11-27
+0x410820	plate	Release map: deviating pair with prototype 0x40e9a8 rt_msg_client_update_single (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40e9a8 rt_msg_client_update_single (deviating)	2026-11-27	saved 2026-11-27
+0x4108f0	name	rt_msg_client_update_connection	0x40ea58 rt_msg_client_update_connection (deviating)	2026-11-27	saved 2026-11-27
+0x4108f0	plate	Release map: deviating pair with prototype 0x40ea58 rt_msg_client_update_connection (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40ea58 rt_msg_client_update_connection (deviating)	2026-11-27	saved 2026-11-27
+0x410b88	name	rt_msg_client_create_new_connection_index	0x40edc0 rt_msg_client_create_new_connection_index (deviating)	2026-11-27	saved 2026-11-27
+0x410b88	plate	Release map: deviating pair with prototype 0x40edc0 rt_msg_client_create_new_connection_index (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40edc0 rt_msg_client_create_new_connection_index (deviating)	2026-11-27	saved 2026-11-27
+0x410db8	name	rt_msg_client_free_connection_index	0x40efe8 rt_msg_client_free_connection_index (deviating)	2026-11-27	saved 2026-11-27
+0x410db8	plate	Release map: deviating pair with prototype 0x40efe8 rt_msg_client_free_connection_index (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40efe8 rt_msg_client_free_connection_index (deviating)	2026-11-27	saved 2026-11-27
+0x410e88	name	rt_msg_client_is_valid_connection	0x40f0a0 rt_msg_client_is_valid_connection (deviating)	2026-11-27	saved 2026-11-27
+0x410e88	plate	Release map: deviating pair with prototype 0x40f0a0 rt_msg_client_is_valid_connection (evidence call; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40f0a0 rt_msg_client_is_valid_connection (deviating)	2026-11-27	saved 2026-11-27
 0x410ec0	name	rt_msg_client_is_valid_connection_id	0x40f0f8 rt_msg_client_is_valid_connection_id (exact)	2026-11-26	saved 2026-11-26
 0x410ec0	plate	Release map: exact pair with prototype 0x40f0f8 rt_msg_client_is_valid_connection_id (evidence exact; flags -). // Owner -.	0x40f0f8 rt_msg_client_is_valid_connection_id (exact)	2026-11-26	saved 2026-11-26
 0x410f10	name	rt_msg_client_get_connection	0x40f148 rt_msg_client_get_connection (exact)	2026-11-26	saved 2026-11-26
 0x410f10	plate	Release map: exact pair with prototype 0x40f148 rt_msg_client_get_connection (evidence exact; flags -). // Owner -.	0x40f148 rt_msg_client_get_connection (exact)	2026-11-26	saved 2026-11-26
 0x410f60	name	rt_msg_client_get_valid_connection	0x40f198 rt_msg_client_get_valid_connection (exact)	2026-11-26	saved 2026-11-26
 0x410f60	plate	Release map: exact pair with prototype 0x40f198 rt_msg_client_get_valid_connection (evidence exact; flags -). // Owner -.	0x40f198 rt_msg_client_get_valid_connection (exact)	2026-11-26	saved 2026-11-26
-0x410fb0	plate	Release map: deviating pair with prototype 0x40f1e8 rt_msg_client_store_pkey_msg_in_send_buf (evidence call-deviating; flags -). // Owner -; prototype name rt_msg_client_store_pkey_msg_in_send_buf not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40f1e8 rt_msg_client_store_pkey_msg_in_send_buf (deviating)	2026-11-26	saved 2026-11-26
-0x411070	plate	Release map: deviating pair with prototype 0x40f298 rt_msg_client_store_connect_msg_in_send_buf (evidence call-deviating; flags -). // Owner -; prototype name rt_msg_client_store_connect_msg_in_send_buf not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40f298 rt_msg_client_store_connect_msg_in_send_buf (deviating)	2026-11-26	saved 2026-11-26
+0x410fb0	name	rt_msg_client_store_pkey_msg_in_send_buf	0x40f1e8 rt_msg_client_store_pkey_msg_in_send_buf (deviating)	2026-11-27	saved 2026-11-27
+0x410fb0	plate	Release map: deviating pair with prototype 0x40f1e8 rt_msg_client_store_pkey_msg_in_send_buf (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40f1e8 rt_msg_client_store_pkey_msg_in_send_buf (deviating)	2026-11-27	saved 2026-11-27
+0x411070	name	rt_msg_client_store_connect_msg_in_send_buf	0x40f298 rt_msg_client_store_connect_msg_in_send_buf (deviating)	2026-11-27	saved 2026-11-27
+0x411070	plate	Release map: deviating pair with prototype 0x40f298 rt_msg_client_store_connect_msg_in_send_buf (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40f298 rt_msg_client_store_connect_msg_in_send_buf (deviating)	2026-11-27	saved 2026-11-27
 0x411240	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x411338	name	rt_msg_client_send_disconnect	0x40f470 rt_msg_client_send_disconnect (exact)	2026-11-26	saved 2026-11-26
 0x411338	plate	Release map: exact pair with prototype 0x40f470 rt_msg_client_send_disconnect (evidence exact; flags -). // Owner -.	0x40f470 rt_msg_client_send_disconnect (exact)	2026-11-26	saved 2026-11-26
-0x4113a8	plate	Release map: deviating pair with prototype 0x40f4e0 rt_msg_client_store_flush_msg_in_send_buf (evidence call-deviating; flags -). // Owner -; prototype name rt_msg_client_store_flush_msg_in_send_buf not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40f4e0 rt_msg_client_store_flush_msg_in_send_buf (deviating)	2026-11-26	saved 2026-11-26
-0x411448	plate	Release map: deviating pair with prototype 0x40f588 rt_msg_client_store_msg_in_send_buf (evidence call-deviating; flags call-and-slot). // Owner -; prototype name rt_msg_client_store_msg_in_send_buf not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40f588 rt_msg_client_store_msg_in_send_buf (deviating)	2026-11-26	saved 2026-11-26
+0x4113a8	name	rt_msg_client_store_flush_msg_in_send_buf	0x40f4e0 rt_msg_client_store_flush_msg_in_send_buf (deviating)	2026-11-27	saved 2026-11-27
+0x4113a8	plate	Release map: deviating pair with prototype 0x40f4e0 rt_msg_client_store_flush_msg_in_send_buf (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40f4e0 rt_msg_client_store_flush_msg_in_send_buf (deviating)	2026-11-27	saved 2026-11-27
+0x411448	name	rt_msg_client_store_msg_in_send_buf	0x40f588 rt_msg_client_store_msg_in_send_buf (deviating)	2026-11-27	saved 2026-11-27
+0x411448	plate	Release map: deviating pair with prototype 0x40f588 rt_msg_client_store_msg_in_send_buf (evidence call-deviating; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40f588 rt_msg_client_store_msg_in_send_buf (deviating)	2026-11-27	saved 2026-11-27
 0x4115c0	name	rt_msg_client_create_send_buf_space	0x40f748 rt_msg_client_create_send_buf_space (exact)	2026-11-26	saved 2026-11-26
 0x4115c0	plate	Release map: exact pair with prototype 0x40f748 rt_msg_client_create_send_buf_space (evidence exact; flags -). // Owner -.	0x40f748 rt_msg_client_create_send_buf_space (exact)	2026-11-26	saved 2026-11-26
-0x4116a0	plate	Release map: deviating pair with prototype 0x40f828 rt_msg_client_process_recv_buf (evidence call-deviating; flags -). // Owner -; prototype name rt_msg_client_process_recv_buf not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40f828 rt_msg_client_process_recv_buf (deviating)	2026-11-26	saved 2026-11-26
-0x411830	plate	Release map: deviating pair with prototype 0x40f9b0 rt_msg_client_process_message (evidence call-deviating; flags -). // Owner -; prototype name rt_msg_client_process_message not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40f9b0 rt_msg_client_process_message (deviating)	2026-11-26	saved 2026-11-26
-0x411ab0	plate	Release map: deviating pair with prototype 0x40fc10 rt_msg_client_process_connect_result (evidence call-deviating; flags -). // Owner -; prototype name rt_msg_client_process_connect_result not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40fc10 rt_msg_client_process_connect_result (deviating)	2026-11-26	saved 2026-11-26
-0x411d68	plate	Release map: deviating pair with prototype 0x40fec0 rt_msg_client_process_client_connect_notify (evidence call-deviating; flags -). // Owner -; prototype name rt_msg_client_process_client_connect_notify not applied: library pair that is not exact (libraries are named from exact pairs only).	0x40fec0 rt_msg_client_process_client_connect_notify (deviating)	2026-11-26	saved 2026-11-26
-0x411f50	plate	Release map: deviating pair with prototype 0x410088 rt_msg_client_process_app_message (evidence call-deviating; flags -). // Owner -; prototype name rt_msg_client_process_app_message not applied: library pair that is not exact (libraries are named from exact pairs only).	0x410088 rt_msg_client_process_app_message (deviating)	2026-11-26	saved 2026-11-26
-0x412050	plate	Release map: deviating pair with prototype 0x410170 rt_msg_client_process_disconnect_message (evidence call-deviating; flags -). // Owner -; prototype name rt_msg_client_process_disconnect_message not applied: library pair that is not exact (libraries are named from exact pairs only).	0x410170 rt_msg_client_process_disconnect_message (deviating)	2026-11-26	saved 2026-11-26
+0x4116a0	name	rt_msg_client_process_recv_buf	0x40f828 rt_msg_client_process_recv_buf (deviating)	2026-11-27	saved 2026-11-27
+0x4116a0	plate	Release map: deviating pair with prototype 0x40f828 rt_msg_client_process_recv_buf (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40f828 rt_msg_client_process_recv_buf (deviating)	2026-11-27	saved 2026-11-27
+0x411830	name	rt_msg_client_process_message	0x40f9b0 rt_msg_client_process_message (deviating)	2026-11-27	saved 2026-11-27
+0x411830	plate	Release map: deviating pair with prototype 0x40f9b0 rt_msg_client_process_message (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40f9b0 rt_msg_client_process_message (deviating)	2026-11-27	saved 2026-11-27
+0x411ab0	name	rt_msg_client_process_connect_result	0x40fc10 rt_msg_client_process_connect_result (deviating)	2026-11-27	saved 2026-11-27
+0x411ab0	plate	Release map: deviating pair with prototype 0x40fc10 rt_msg_client_process_connect_result (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40fc10 rt_msg_client_process_connect_result (deviating)	2026-11-27	saved 2026-11-27
+0x411d68	name	rt_msg_client_process_client_connect_notify	0x40fec0 rt_msg_client_process_client_connect_notify (deviating)	2026-11-27	saved 2026-11-27
+0x411d68	plate	Release map: deviating pair with prototype 0x40fec0 rt_msg_client_process_client_connect_notify (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x40fec0 rt_msg_client_process_client_connect_notify (deviating)	2026-11-27	saved 2026-11-27
+0x411f50	name	rt_msg_client_process_app_message	0x410088 rt_msg_client_process_app_message (deviating)	2026-11-27	saved 2026-11-27
+0x411f50	plate	Release map: deviating pair with prototype 0x410088 rt_msg_client_process_app_message (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x410088 rt_msg_client_process_app_message (deviating)	2026-11-27	saved 2026-11-27
+0x412050	name	rt_msg_client_process_disconnect_message	0x410170 rt_msg_client_process_disconnect_message (deviating)	2026-11-27	saved 2026-11-27
+0x412050	plate	Release map: deviating pair with prototype 0x410170 rt_msg_client_process_disconnect_message (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x410170 rt_msg_client_process_disconnect_message (deviating)	2026-11-27	saved 2026-11-27
 0x412130	name	rt_msg_client_set_header	0x410238 rt_msg_client_set_header (exact)	2026-11-26	saved 2026-11-26
 0x412130	plate	Release map: exact pair with prototype 0x410238 rt_msg_client_set_header (evidence exact; flags -). // Owner -.	0x410238 rt_msg_client_set_header (exact)	2026-11-26	saved 2026-11-26
 0x4121c0	name	rt_msg_client_get_header	0x4102c8 rt_msg_client_get_header (exact)	2026-11-26	saved 2026-11-26
 0x4121c0	plate	Release map: exact pair with prototype 0x4102c8 rt_msg_client_get_header (evidence exact; flags -). // Owner -.	0x4102c8 rt_msg_client_get_header (exact)	2026-11-26	saved 2026-11-26
 0x412250	name	rt_msg_client_send_buffer	0x410358 rt_msg_client_send_buffer (exact)	2026-11-26	saved 2026-11-26
 0x412250	plate	Release map: exact pair with prototype 0x410358 rt_msg_client_send_buffer (evidence exact; flags -). // Owner -.	0x410358 rt_msg_client_send_buffer (exact)	2026-11-26	saved 2026-11-26
-0x412358	plate	Release map: deviating pair with prototype 0x410460 rt_msg_client_send_circ_buf (evidence call; flags -). // Owner -; prototype name rt_msg_client_send_circ_buf not applied: library pair that is not exact (libraries are named from exact pairs only).	0x410460 rt_msg_client_send_circ_buf (deviating)	2026-11-26	saved 2026-11-26
-0x412490	plate	Release map: deviating pair with prototype 0x410588 rt_msg_client_recv_circ_buf (evidence call-deviating; flags -). // Owner -; prototype name rt_msg_client_recv_circ_buf not applied: library pair that is not exact (libraries are named from exact pairs only).	0x410588 rt_msg_client_recv_circ_buf (deviating)	2026-11-26	saved 2026-11-26
+0x412358	name	rt_msg_client_send_circ_buf	0x410460 rt_msg_client_send_circ_buf (deviating)	2026-11-27	saved 2026-11-27
+0x412358	plate	Release map: deviating pair with prototype 0x410460 rt_msg_client_send_circ_buf (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x410460 rt_msg_client_send_circ_buf (deviating)	2026-11-27	saved 2026-11-27
+0x412490	name	rt_msg_client_recv_circ_buf	0x410588 rt_msg_client_recv_circ_buf (deviating)	2026-11-27	saved 2026-11-27
+0x412490	plate	Release map: deviating pair with prototype 0x410588 rt_msg_client_recv_circ_buf (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x410588 rt_msg_client_recv_circ_buf (deviating)	2026-11-27	saved 2026-11-27
 0x4125f8	name	rt_msg_client_is_valid_outgoing_msg	0x4106f8 rt_msg_client_is_valid_outgoing_msg (exact)	2026-11-26	saved 2026-11-26
 0x4125f8	plate	Release map: exact pair with prototype 0x4106f8 rt_msg_client_is_valid_outgoing_msg (evidence exact; flags -). // Owner -.	0x4106f8 rt_msg_client_is_valid_outgoing_msg (exact)	2026-11-26	saved 2026-11-26
 0x412678	name	rt_msg_client_change_state	0x410778 rt_msg_client_change_state (exact)	2026-11-26	saved 2026-11-26
@@ -28269,7 +28371,8 @@ release_address	applied	value	source_pair	date	state
 0x412770	plate	Release map: exact pair with prototype 0x410870 rt_msg_client_map_fdisconnect_reason (evidence exact; flags -). // Owner -.	0x410870 rt_msg_client_map_fdisconnect_reason (exact)	2026-11-26	saved 2026-11-26
 0x4127d8	name	rt_msg_client_set_scratch_buf_min_size	0x4108d8 rt_msg_client_set_scratch_buf_min_size (exact)	2026-11-26	saved 2026-11-26
 0x4127d8	plate	Release map: exact pair with prototype 0x4108d8 rt_msg_client_set_scratch_buf_min_size (evidence exact; flags -). // Owner -.	0x4108d8 rt_msg_client_set_scratch_buf_min_size (exact)	2026-11-26	saved 2026-11-26
-0x412868	plate	Release map: deviating pair with prototype 0x410968 rt_msg_client_tcp_aggregate_msg (evidence call-deviating; flags -). // Owner -; prototype name rt_msg_client_tcp_aggregate_msg not applied: library pair that is not exact (libraries are named from exact pairs only).	0x410968 rt_msg_client_tcp_aggregate_msg (deviating)	2026-11-26	saved 2026-11-26
+0x412868	name	rt_msg_client_tcp_aggregate_msg	0x410968 rt_msg_client_tcp_aggregate_msg (deviating)	2026-11-27	saved 2026-11-27
+0x412868	plate	Release map: deviating pair with prototype 0x410968 rt_msg_client_tcp_aggregate_msg (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x410968 rt_msg_client_tcp_aggregate_msg (deviating)	2026-11-27	saved 2026-11-27
 0x412ae8	name	rt_msg_set_ubyte	0x410bd0 rt_msg_set_ubyte (exact)	2026-11-26	saved 2026-11-26
 0x412ae8	plate	Release map: exact pair with prototype 0x410bd0 rt_msg_set_ubyte (evidence exact; flags -). // Owner -.	0x410bd0 rt_msg_set_ubyte (exact)	2026-11-26	saved 2026-11-26
 0x412b08	name	rt_msg_get_ubyte	0x410bf0 rt_msg_get_ubyte (exact)	2026-11-26	saved 2026-11-26
@@ -28301,20 +28404,32 @@ release_address	applied	value	source_pair	date	state
 0x413178	prototype	void __stdcall setNewSeed(uint seed) [storage seed=a0_lo:4]	0x411260 setNewSeed (exact)	2026-11-26	saved 2026-11-26
 0x413198	name	setNewSeed_platform	0x411280 setNewSeed_platform (exact)	2026-11-26	saved 2026-11-26
 0x413198	plate	Release map: exact pair with prototype 0x411280 setNewSeed_platform (evidence exact; flags -). // Owner -.	0x411280 setNewSeed_platform (exact)	2026-11-26	saved 2026-11-26
-0x413230	plate	Release map: deviating pair with prototype 0x411318 rt_mutex_create (evidence call-deviating; flags -). // Owner -; prototype name rt_mutex_create not applied: library pair that is not exact (libraries are named from exact pairs only).	0x411318 rt_mutex_create (deviating)	2026-11-26	saved 2026-11-26
-0x41327c	plate	Release map: deviating pair with prototype 0x411360 rt_mutex_destroy (evidence call; flags -). // Owner -; prototype name rt_mutex_destroy not applied: library pair that is not exact (libraries are named from exact pairs only).	0x411360 rt_mutex_destroy (deviating)	2026-11-26	saved 2026-11-26
-0x4132cc	plate	Release map: deviating pair with prototype 0x4113a8 rt_mutex_lock (evidence call; flags -). // Owner -; prototype name rt_mutex_lock not applied: library pair that is not exact (libraries are named from exact pairs only).	0x4113a8 rt_mutex_lock (deviating)	2026-11-26	saved 2026-11-26
-0x413374	plate	Release map: deviating pair with prototype 0x411450 rt_mutex_lock_no_block (evidence position; flags -). // Owner -; prototype name rt_mutex_lock_no_block not applied: library pair that is not exact (libraries are named from exact pairs only).	0x411450 rt_mutex_lock_no_block (deviating)	2026-11-26	saved 2026-11-26
-0x413440	plate	Release map: deviating pair with prototype 0x411520 rt_mutex_unlock (evidence call; flags -). // Owner -; prototype name rt_mutex_unlock not applied: library pair that is not exact (libraries are named from exact pairs only).	0x411520 rt_mutex_unlock (deviating)	2026-11-26	saved 2026-11-26
-0x4134e8	plate	Release map: deviating pair with prototype 0x4115c8 rt_mutex_platform_create (evidence call-deviating; flags -). // Owner -; prototype name rt_mutex_platform_create not applied: library pair that is not exact (libraries are named from exact pairs only).	0x4115c8 rt_mutex_platform_create (deviating)	2026-11-26	saved 2026-11-26
-0x413540	plate	Release map: deviating pair with prototype 0x411620 rt_mutex_platform_destroy (evidence call-deviating; flags -). // Owner -; prototype name rt_mutex_platform_destroy not applied: library pair that is not exact (libraries are named from exact pairs only).	0x411620 rt_mutex_platform_destroy (deviating)	2026-11-26	saved 2026-11-26
-0x41356c	plate	Release map: deviating pair with prototype 0x411650 rt_mutex_platform_lock (evidence call-deviating; flags -). // Owner -; prototype name rt_mutex_platform_lock not applied: library pair that is not exact (libraries are named from exact pairs only).	0x411650 rt_mutex_platform_lock (deviating)	2026-11-26	saved 2026-11-26
-0x413598	plate	Release map: deviating pair with prototype 0x411680 rt_mutex_platform_lock_no_block (evidence position; flags call-and-slot). // Owner -; prototype name rt_mutex_platform_lock_no_block not applied: library pair that is not exact (libraries are named from exact pairs only).	0x411680 rt_mutex_platform_lock_no_block (deviating)	2026-11-26	saved 2026-11-26
-0x4135fc	plate	Release map: deviating pair with prototype 0x4116e8 rt_mutex_platform_unlock (evidence call-deviating; flags -). // Owner -; prototype name rt_mutex_platform_unlock not applied: library pair that is not exact (libraries are named from exact pairs only).	0x4116e8 rt_mutex_platform_unlock (deviating)	2026-11-26	saved 2026-11-26
-0x413628	plate	Release map: deviating pair with prototype 0x411718 rt_mutex_platform_get_thread_id (evidence call-deviating; flags -). // Owner -; prototype name rt_mutex_platform_get_thread_id not applied: library pair that is not exact (libraries are named from exact pairs only).	0x411718 rt_mutex_platform_get_thread_id (deviating)	2026-11-26	saved 2026-11-26
+0x413230	name	rt_mutex_create	0x411318 rt_mutex_create (deviating)	2026-11-27	saved 2026-11-27
+0x413230	plate	Release map: deviating pair with prototype 0x411318 rt_mutex_create (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x411318 rt_mutex_create (deviating)	2026-11-27	saved 2026-11-27
+0x41327c	name	rt_mutex_destroy	0x411360 rt_mutex_destroy (deviating)	2026-11-27	saved 2026-11-27
+0x41327c	plate	Release map: deviating pair with prototype 0x411360 rt_mutex_destroy (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x411360 rt_mutex_destroy (deviating)	2026-11-27	saved 2026-11-27
+0x4132cc	name	rt_mutex_lock	0x4113a8 rt_mutex_lock (deviating)	2026-11-27	saved 2026-11-27
+0x4132cc	plate	Release map: deviating pair with prototype 0x4113a8 rt_mutex_lock (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x4113a8 rt_mutex_lock (deviating)	2026-11-27	saved 2026-11-27
+0x413374	name	rt_mutex_lock_no_block	0x411450 rt_mutex_lock_no_block (deviating)	2026-11-27	saved 2026-11-27
+0x413374	plate	Release map: deviating pair with prototype 0x411450 rt_mutex_lock_no_block (evidence position; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x411450 rt_mutex_lock_no_block (deviating)	2026-11-27	saved 2026-11-27
+0x413440	name	rt_mutex_unlock	0x411520 rt_mutex_unlock (deviating)	2026-11-27	saved 2026-11-27
+0x413440	plate	Release map: deviating pair with prototype 0x411520 rt_mutex_unlock (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x411520 rt_mutex_unlock (deviating)	2026-11-27	saved 2026-11-27
+0x4134e8	name	rt_mutex_platform_create	0x4115c8 rt_mutex_platform_create (deviating)	2026-11-27	saved 2026-11-27
+0x4134e8	plate	Release map: deviating pair with prototype 0x4115c8 rt_mutex_platform_create (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x4115c8 rt_mutex_platform_create (deviating)	2026-11-27	saved 2026-11-27
+0x413540	name	rt_mutex_platform_destroy	0x411620 rt_mutex_platform_destroy (deviating)	2026-11-27	saved 2026-11-27
+0x413540	plate	Release map: deviating pair with prototype 0x411620 rt_mutex_platform_destroy (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x411620 rt_mutex_platform_destroy (deviating)	2026-11-27	saved 2026-11-27
+0x41356c	name	rt_mutex_platform_lock	0x411650 rt_mutex_platform_lock (deviating)	2026-11-27	saved 2026-11-27
+0x41356c	plate	Release map: deviating pair with prototype 0x411650 rt_mutex_platform_lock (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x411650 rt_mutex_platform_lock (deviating)	2026-11-27	saved 2026-11-27
+0x413598	name	rt_mutex_platform_lock_no_block	0x411680 rt_mutex_platform_lock_no_block (deviating)	2026-11-27	saved 2026-11-27
+0x413598	plate	Release map: deviating pair with prototype 0x411680 rt_mutex_platform_lock_no_block (evidence position; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x411680 rt_mutex_platform_lock_no_block (deviating)	2026-11-27	saved 2026-11-27
+0x4135fc	name	rt_mutex_platform_unlock	0x4116e8 rt_mutex_platform_unlock (deviating)	2026-11-27	saved 2026-11-27
+0x4135fc	plate	Release map: deviating pair with prototype 0x4116e8 rt_mutex_platform_unlock (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x4116e8 rt_mutex_platform_unlock (deviating)	2026-11-27	saved 2026-11-27
+0x413628	name	rt_mutex_platform_get_thread_id	0x411718 rt_mutex_platform_get_thread_id (deviating)	2026-11-27	saved 2026-11-27
+0x413628	plate	Release map: deviating pair with prototype 0x411718 rt_mutex_platform_get_thread_id (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x411718 rt_mutex_platform_get_thread_id (deviating)	2026-11-27	saved 2026-11-27
 0x413660	name	SHAInit	0x4149d0 SHAInit (exact)	2026-11-26	saved 2026-11-26
 0x413660	plate	Release map: exact pair with prototype 0x4149d0 SHAInit (evidence exact; flags -). // Owner -.	0x4149d0 SHAInit (exact)	2026-11-26	saved 2026-11-26
-0x4136f8	plate	Release map: deviating pair with prototype 0x414a68 SHSTransform (evidence call; flags -). // Owner -; prototype name SHSTransform not applied: library pair that is not exact (libraries are named from exact pairs only).	0x414a68 SHSTransform (deviating)	2026-11-26	saved 2026-11-26
+0x4136f8	name	SHSTransform	0x414a68 SHSTransform (deviating)	2026-11-27	saved 2026-11-27
+0x4136f8	plate	Release map: deviating pair with prototype 0x414a68 SHSTransform (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x414a68 SHSTransform (deviating)	2026-11-27	saved 2026-11-27
 0x415fb4	name	longReverse	0x417bcc longReverse (exact)	2026-11-26	saved 2026-11-26
 0x415fb4	plate	Release map: exact pair with prototype 0x417bcc longReverse (evidence exact; flags -). // Owner -.	0x417bcc longReverse (exact)	2026-11-26	saved 2026-11-26
 0x416080	name	SHAUpdate	0x417c98 SHAUpdate (exact)	2026-11-26	saved 2026-11-26
@@ -28325,7 +28440,8 @@ release_address	applied	value	source_pair	date	state
 0x416444	plate	Release map: exact pair with prototype 0x41805c SHAtoByte (evidence exact; flags -). // Owner -.	0x41805c SHAtoByte (exact)	2026-11-26	saved 2026-11-26
 0x416554	name	endianTest	0x41816c endianTest (exact)	2026-11-26	saved 2026-11-26
 0x416554	plate	Release map: exact pair with prototype 0x41816c endianTest (evidence exact; flags -). // Owner -.	0x41816c endianTest (exact)	2026-11-26	saved 2026-11-26
-0x4165a8	plate	Release map: deviating pair with prototype 0x4181c0 NetInitializeClients (evidence call-deviating; flags -). // Owner -; prototype name NetInitializeClients not applied: library pair that is not exact (libraries are named from exact pairs only).	0x4181c0 NetInitializeClients (deviating)	2026-11-26	saved 2026-11-26
+0x4165a8	name	NetInitializeClients	0x4181c0 NetInitializeClients (deviating)	2026-11-27	saved 2026-11-27
+0x4165a8	plate	Release map: deviating pair with prototype 0x4181c0 NetInitializeClients (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x4181c0 NetInitializeClients (deviating)	2026-11-27	saved 2026-11-27
 0x416608	name	NetGetClient	0x418218 NetGetClient (exact)	2026-11-26	saved 2026-11-26
 0x416608	plate	Release map: exact pair with prototype 0x418218 NetGetClient (evidence exact; flags -). // Owner -.	0x418218 NetGetClient (exact)	2026-11-26	saved 2026-11-26
 0x416680	name	NetGetClientStatus	0x418290 NetGetClientStatus (exact)	2026-11-26	saved 2026-11-26
@@ -28334,7 +28450,8 @@ release_address	applied	value	source_pair	date	state
 0x416720	plate	Release map: exact pair with prototype 0x418330 NetCreateClient (evidence exact; flags -). // Owner -.	0x418330 NetCreateClient (exact)	2026-11-26	saved 2026-11-26
 0x4167d0	name	NetFreeClient	0x4183e0 NetFreeClient (exact)	2026-11-26	saved 2026-11-26
 0x4167d0	plate	Release map: exact pair with prototype 0x4183e0 NetFreeClient (evidence exact; flags -). // Owner -.	0x4183e0 NetFreeClient (exact)	2026-11-26	saved 2026-11-26
-0x416830	plate	Release map: deviating pair with prototype 0x418440 NetFreeClients (evidence call; flags -). // Owner -; prototype name NetFreeClients not applied: library pair that is not exact (libraries are named from exact pairs only).	0x418440 NetFreeClients (deviating)	2026-11-26	saved 2026-11-26
+0x416830	name	NetFreeClients	0x418440 NetFreeClients (deviating)	2026-11-27	saved 2026-11-27
+0x416830	plate	Release map: deviating pair with prototype 0x418440 NetFreeClients (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x418440 NetFreeClients (deviating)	2026-11-27	saved 2026-11-27
 0x4168a8	name	NetFreeAllClients	0x4184b8 NetFreeAllClients (exact)	2026-11-26	saved 2026-11-26
 0x4168a8	plate	Release map: exact pair with prototype 0x4184b8 NetFreeAllClients (evidence exact; flags -). // Owner -.	0x4184b8 NetFreeAllClients (exact)	2026-11-26	saved 2026-11-26
 0x4168f8	name	NetFreeClientPointers	0x418508 NetFreeClientPointers (exact)	2026-11-26	saved 2026-11-26
@@ -28345,10 +28462,12 @@ release_address	applied	value	source_pair	date	state
 0x416a00	plate	Release map: exact pair with prototype 0x418610 NetSendMyClientUpdate (evidence exact; flags -). // Owner -.	0x418610 NetSendMyClientUpdate (exact)	2026-11-26	saved 2026-11-26
 0x416ac8	name	MyClientJoins	0x4186d8 MyClientJoins (exact)	2026-11-26	saved 2026-11-26
 0x416ac8	plate	Release map: exact pair with prototype 0x4186d8 MyClientJoins (evidence exact; flags -). // Owner -.	0x4186d8 MyClientJoins (exact)	2026-11-26	saved 2026-11-26
-0x416b50	plate	Release map: deviating pair with prototype 0x418760 NetClientJoins (evidence call-deviating; flags -). // Owner -; prototype name NetClientJoins not applied: library pair that is not exact (libraries are named from exact pairs only).	0x418760 NetClientJoins (deviating)	2026-11-26	saved 2026-11-26
+0x416b50	name	NetClientJoins	0x418760 NetClientJoins (deviating)	2026-11-27	saved 2026-11-27
+0x416b50	plate	Release map: deviating pair with prototype 0x418760 NetClientJoins (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x418760 NetClientJoins (deviating)	2026-11-27	saved 2026-11-27
 0x416be8	name	NetSetMyClientObject	0x4187f8 NetSetMyClientObject (exact)	2026-11-26	saved 2026-11-26
 0x416be8	plate	Release map: exact pair with prototype 0x4187f8 NetSetMyClientObject (evidence exact; flags -). // Owner -.	0x4187f8 NetSetMyClientObject (exact)	2026-11-26	saved 2026-11-26
-0x416c88	plate	Release map: deviating pair with prototype 0x418898 NetClientLeaves (evidence call; flags -). // Owner -; prototype name NetClientLeaves not applied: library pair that is not exact (libraries are named from exact pairs only).	0x418898 NetClientLeaves (deviating)	2026-11-26	saved 2026-11-26
+0x416c88	name	NetClientLeaves	0x418898 NetClientLeaves (deviating)	2026-11-27	saved 2026-11-27
+0x416c88	plate	Release map: deviating pair with prototype 0x418898 NetClientLeaves (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x418898 NetClientLeaves (deviating)	2026-11-27	saved 2026-11-27
 0x416f30	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x416f70	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x416fc8	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
@@ -28382,7 +28501,8 @@ release_address	applied	value	source_pair	date	state
 0x417808	plate	Release map: exact pair with prototype 0x418fd8 NetGetMyWorldID (evidence exact; flags -). // Owner -.	0x418fd8 NetGetMyWorldID (exact)	2026-11-26	saved 2026-11-26
 0x417828	name	NetResetTime	0x418ff8 NetResetTime (exact)	2026-11-26	saved 2026-11-26
 0x417828	plate	Release map: exact pair with prototype 0x418ff8 NetResetTime (evidence call; flags -). // Owner -.	0x418ff8 NetResetTime (exact)	2026-11-26	saved 2026-11-26
-0x417838	plate	Release map: deviating pair with prototype 0x419008 DMEmalloc (evidence exact; flags call-conflict,callee-changed). // Owner -; prototype name DMEmalloc not applied: library pair that is not exact (libraries are named from exact pairs only).	0x419008 DMEmalloc (deviating)	2026-11-26	saved 2026-11-26
+0x417838	name	DMEmalloc	0x419008 DMEmalloc (deviating)	2026-11-27	saved 2026-11-27
+0x417838	plate	Release map: deviating pair with prototype 0x419008 DMEmalloc (evidence exact; flags call-conflict,callee-changed). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x419008 DMEmalloc (deviating)	2026-11-27	saved 2026-11-27
 0x417878	name	DmeFree	0x419048 DmeFree (exact)	2026-11-26	saved 2026-11-26
 0x417878	plate	Release map: exact pair with prototype 0x419048 DmeFree (evidence exact; flags -). // Owner -.	0x419048 DmeFree (exact)	2026-11-26	saved 2026-11-26
 0x4178c0	name	NetRegisterMallocFreeCallbacks	0x419090 NetRegisterMallocFreeCallbacks (exact)	2026-11-26	saved 2026-11-26
@@ -28395,7 +28515,8 @@ release_address	applied	value	source_pair	date	state
 0x4179d8	plate	Release map: exact pair with prototype 0x4191a8 NetGetMyIpAddress (evidence exact; flags -). // Owner -.	0x4191a8 NetGetMyIpAddress (exact)	2026-11-26	saved 2026-11-26
 0x417a10	name	NetGetClientIpAddress	0x4191e0 NetGetClientIpAddress (exact)	2026-11-26	saved 2026-11-26
 0x417a10	plate	Release map: exact pair with prototype 0x4191e0 NetGetClientIpAddress (evidence exact; flags -). // Owner -.	0x4191e0 NetGetClientIpAddress (exact)	2026-11-26	saved 2026-11-26
-0x417a70	plate	Release map: deviating pair with prototype 0x419240 RemoteClientConnects (evidence call; flags -). // Owner -; prototype name RemoteClientConnects not applied: library pair that is not exact (libraries are named from exact pairs only).	0x419240 RemoteClientConnects (deviating)	2026-11-26	saved 2026-11-26
+0x417a70	name	RemoteClientConnects	0x419240 RemoteClientConnects (deviating)	2026-11-27	saved 2026-11-27
+0x417a70	plate	Release map: deviating pair with prototype 0x419240 RemoteClientConnects (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x419240 RemoteClientConnects (deviating)	2026-11-27	saved 2026-11-27
 0x417be8	name	RemoteClientDisconnects	0x4193c8 RemoteClientDisconnects (exact)	2026-11-26	saved 2026-11-26
 0x417be8	plate	Release map: exact pair with prototype 0x4193c8 RemoteClientDisconnects (evidence exact; flags -). // Owner -.	0x4193c8 RemoteClientDisconnects (exact)	2026-11-26	saved 2026-11-26
 0x417c20	name	NetGetCurrentUDPSourceBinaryIP	0x419400 NetGetCurrentUDPSourceBinaryIP (exact)	2026-11-26	saved 2026-11-26
@@ -28432,7 +28553,8 @@ release_address	applied	value	source_pair	date	state
 0x4181e0	plate	Release map: exact pair with prototype 0x4199c0 NetSendMessageToAllByUDP (evidence exact; flags -). // Owner -.	0x4199c0 NetSendMessageToAllByUDP (exact)	2026-11-26	saved 2026-11-26
 0x418328	name	NetSendMessageByUDP	0x419b08 NetSendMessageByUDP (exact)	2026-11-26	saved 2026-11-26
 0x418328	plate	Release map: exact pair with prototype 0x419b08 NetSendMessageByUDP (evidence exact; flags -). // Owner -.	0x419b08 NetSendMessageByUDP (exact)	2026-11-26	saved 2026-11-26
-0x418450	plate	Release map: deviating pair with prototype 0x419c30 NetSendMessageByTCP (evidence call; flags -). // Owner -; prototype name NetSendMessageByTCP not applied: library pair that is not exact (libraries are named from exact pairs only).	0x419c30 NetSendMessageByTCP (deviating)	2026-11-26	saved 2026-11-26
+0x418450	name	NetSendMessageByTCP	0x419c30 NetSendMessageByTCP (deviating)	2026-11-27	saved 2026-11-27
+0x418450	plate	Release map: deviating pair with prototype 0x419c30 NetSendMessageByTCP (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x419c30 NetSendMessageByTCP (deviating)	2026-11-27	saved 2026-11-27
 0x418640	name	NetSendMessage	0x419e20 NetSendMessage (exact)	2026-11-26	saved 2026-11-26
 0x418640	plate	Release map: exact pair with prototype 0x419e20 NetSendMessage (evidence exact; flags -). // Owner -.	0x419e20 NetSendMessage (exact)	2026-11-26	saved 2026-11-26
 0x4186d0	name	NetSendTargetClientBitmask	0x419eb0 NetSendTargetClientBitmask (exact)	2026-11-26	saved 2026-11-26
@@ -28459,7 +28581,8 @@ release_address	applied	value	source_pair	date	state
 0x418b90	plate	Release map: exact pair with prototype 0x41a370 NetFreeObject (evidence exact; flags -). // Owner -.	0x41a370 NetFreeObject (exact)	2026-11-26	saved 2026-11-26
 0x418c10	name	LocalObjectName2Index	0x41a3f0 LocalObjectName2Index (exact)	2026-11-26	saved 2026-11-26
 0x418c10	plate	Release map: exact pair with prototype 0x41a3f0 LocalObjectName2Index (evidence exact; flags -). // Owner -.	0x41a3f0 LocalObjectName2Index (exact)	2026-11-26	saved 2026-11-26
-0x418cf8	plate	Release map: deviating pair with prototype 0x41a4d8 FindFreeLocalObject (evidence call-deviating; flags -). // Owner -; prototype name FindFreeLocalObject not applied: library pair that is not exact (libraries are named from exact pairs only).	0x41a4d8 FindFreeLocalObject (deviating)	2026-11-26	saved 2026-11-26
+0x418cf8	name	FindFreeLocalObject	0x41a4d8 FindFreeLocalObject (deviating)	2026-11-27	saved 2026-11-27
+0x418cf8	plate	Release map: deviating pair with prototype 0x41a4d8 FindFreeLocalObject (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x41a4d8 FindFreeLocalObject (deviating)	2026-11-27	saved 2026-11-27
 0x418d80	name	ParseMessageList	0x41a558 ParseMessageList (exact)	2026-11-26	saved 2026-11-26
 0x418d80	plate	Release map: exact pair with prototype 0x41a558 ParseMessageList (evidence exact; flags -). // Owner -.	0x41a558 ParseMessageList (exact)	2026-11-26	saved 2026-11-26
 0x418ee0	name	IncomingUDPMessage	0x41a6b8 IncomingUDPMessage (exact)	2026-11-26	saved 2026-11-26
@@ -28476,7 +28599,8 @@ release_address	applied	value	source_pair	date	state
 0x4191b8	prototype	undefined __stdcall UdpTimeoutCallback(char * address) [storage address=a0_lo:4]	0x41a990 UdpTimeoutCallback (exact)	2026-11-26	saved 2026-11-26
 0x419228	name	NetSetDefaultInitializeParams	0x41aa00 NetSetDefaultInitializeParams (exact)	2026-11-26	saved 2026-11-26
 0x419228	plate	Release map: exact pair with prototype 0x41aa00 NetSetDefaultInitializeParams (evidence exact; flags -). // Owner -.	0x41aa00 NetSetDefaultInitializeParams (exact)	2026-11-26	saved 2026-11-26
-0x419278	plate	Release map: deviating pair with prototype 0x41aa50 NetInitialize (evidence call; flags -). // Owner -; prototype name NetInitialize not applied: library pair that is not exact (libraries are named from exact pairs only).	0x41aa50 NetInitialize (deviating)	2026-11-26	saved 2026-11-26
+0x419278	name	NetInitialize	0x41aa50 NetInitialize (deviating)	2026-11-27	saved 2026-11-27
+0x419278	plate	Release map: deviating pair with prototype 0x41aa50 NetInitialize (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x41aa50 NetInitialize (deviating)	2026-11-27	saved 2026-11-27
 0x419708	name	NetAssignLocalServer	0x41aee0 NetAssignLocalServer (exact)	2026-11-26	saved 2026-11-26
 0x419708	plate	Release map: exact pair with prototype 0x41aee0 NetAssignLocalServer (evidence exact; flags -). // Owner -.	0x41aee0 NetAssignLocalServer (exact)	2026-11-26	saved 2026-11-26
 0x419748	name	NetEnableUDP	0x41af20 NetEnableUDP (exact)	2026-11-26	saved 2026-11-26
@@ -28493,16 +28617,22 @@ release_address	applied	value	source_pair	date	state
 0x419a00	plate	Release map: exact pair with prototype 0x41b1d8 MyClientConnectsPeerToPeer (evidence exact; flags -). // Owner -.	0x41b1d8 MyClientConnectsPeerToPeer (exact)	2026-11-26	saved 2026-11-26
 0x419ad8	name	NetConnectPeerToPeer	0x41b2b0 NetConnectPeerToPeer (exact)	2026-11-26	saved 2026-11-26
 0x419ad8	plate	Release map: exact pair with prototype 0x41b2b0 NetConnectPeerToPeer (evidence exact; flags -). // Owner -.	0x41b2b0 NetConnectPeerToPeer (exact)	2026-11-26	saved 2026-11-26
-0x419be8	plate	Release map: deviating pair with prototype 0x41b3c0 MsgClientConnectCallback (evidence call-deviating; flags -). // Owner -; prototype name MsgClientConnectCallback not applied: library pair that is not exact (libraries are named from exact pairs only).	0x41b3c0 MsgClientConnectCallback (deviating)	2026-11-26	saved 2026-11-26
-0x419da0	plate	Release map: deviating pair with prototype 0x41b588 MsgClientDisonnectCallback (evidence call-deviating; flags -). // Owner -; prototype name MsgClientDisonnectCallback not applied: library pair that is not exact (libraries are named from exact pairs only).	0x41b588 MsgClientDisonnectCallback (deviating)	2026-11-26	saved 2026-11-26
+0x419be8	name	MsgClientConnectCallback	0x41b3c0 MsgClientConnectCallback (deviating)	2026-11-27	saved 2026-11-27
+0x419be8	plate	Release map: deviating pair with prototype 0x41b3c0 MsgClientConnectCallback (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x41b3c0 MsgClientConnectCallback (deviating)	2026-11-27	saved 2026-11-27
+0x419da0	name	MsgClientDisonnectCallback	0x41b588 MsgClientDisonnectCallback (deviating)	2026-11-27	saved 2026-11-27
+0x419da0	plate	Release map: deviating pair with prototype 0x41b588 MsgClientDisonnectCallback (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x41b588 MsgClientDisonnectCallback (deviating)	2026-11-27	saved 2026-11-27
 0x419df0	name	NetSetDefaultConnectParams	0x41b5e0 NetSetDefaultConnectParams (exact)	2026-11-26	saved 2026-11-26
 0x419df0	plate	Release map: exact pair with prototype 0x41b5e0 NetSetDefaultConnectParams (evidence exact; flags -). // Owner -.	0x41b5e0 NetSetDefaultConnectParams (exact)	2026-11-26	saved 2026-11-26
-0x419e60	plate	Release map: deviating pair with prototype 0x41b650 NetConnect (evidence call; flags -). // Owner -; prototype name NetConnect not applied: library pair that is not exact (libraries are named from exact pairs only).	0x41b650 NetConnect (deviating)	2026-11-26	saved 2026-11-26
-0x41a020	plate	Release map: deviating pair with prototype 0x41b808 NetConnect_ClientServerTCP (evidence call-deviating; flags -). // Owner -; prototype name NetConnect_ClientServerTCP not applied: library pair that is not exact (libraries are named from exact pairs only).	0x41b808 NetConnect_ClientServerTCP (deviating)	2026-11-26	saved 2026-11-26
-0x41a390	plate	Release map: deviating pair with prototype 0x41bb60 NetConnect_PeerToPeerUDP (evidence call-deviating; flags -). // Owner -; prototype name NetConnect_PeerToPeerUDP not applied: library pair that is not exact (libraries are named from exact pairs only).	0x41bb60 NetConnect_PeerToPeerUDP (deviating)	2026-11-26	saved 2026-11-26
+0x419e60	name	NetConnect	0x41b650 NetConnect (deviating)	2026-11-27	saved 2026-11-27
+0x419e60	plate	Release map: deviating pair with prototype 0x41b650 NetConnect (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x41b650 NetConnect (deviating)	2026-11-27	saved 2026-11-27
+0x41a020	name	NetConnect_ClientServerTCP	0x41b808 NetConnect_ClientServerTCP (deviating)	2026-11-27	saved 2026-11-27
+0x41a020	plate	Release map: deviating pair with prototype 0x41b808 NetConnect_ClientServerTCP (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x41b808 NetConnect_ClientServerTCP (deviating)	2026-11-27	saved 2026-11-27
+0x41a390	name	NetConnect_PeerToPeerUDP	0x41bb60 NetConnect_PeerToPeerUDP (deviating)	2026-11-27	saved 2026-11-27
+0x41a390	plate	Release map: deviating pair with prototype 0x41bb60 NetConnect_PeerToPeerUDP (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x41bb60 NetConnect_PeerToPeerUDP (deviating)	2026-11-27	saved 2026-11-27
 0x41a5b0	name	NetSetDefaultHostPeerToPeerParams	0x41bd80 NetSetDefaultHostPeerToPeerParams (exact)	2026-11-26	saved 2026-11-26
 0x41a5b0	plate	Release map: exact pair with prototype 0x41bd80 NetSetDefaultHostPeerToPeerParams (evidence exact; flags -). // Owner -.	0x41bd80 NetSetDefaultHostPeerToPeerParams (exact)	2026-11-26	saved 2026-11-26
-0x41a600	plate	Release map: deviating pair with prototype 0x41bdd0 NetHostPeerToPeer (evidence call; flags -). // Owner -; prototype name NetHostPeerToPeer not applied: library pair that is not exact (libraries are named from exact pairs only).	0x41bdd0 NetHostPeerToPeer (deviating)	2026-11-26	saved 2026-11-26
+0x41a600	name	NetHostPeerToPeer	0x41bdd0 NetHostPeerToPeer (deviating)	2026-11-27	saved 2026-11-27
+0x41a600	plate	Release map: deviating pair with prototype 0x41bdd0 NetHostPeerToPeer (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x41bdd0 NetHostPeerToPeer (deviating)	2026-11-27	saved 2026-11-27
 0x41a718	name	NetSetNATServiceAddr	0x41bee8 NetSetNATServiceAddr (exact)	2026-11-26	saved 2026-11-26
 0x41a718	plate	Release map: exact pair with prototype 0x41bee8 NetSetNATServiceAddr (evidence call; flags -). // Owner -.	0x41bee8 NetSetNATServiceAddr (exact)	2026-11-26	saved 2026-11-26
 0x41a720	name	NetSetDefaultResolveAddrParams	0x41bef0 NetSetDefaultResolveAddrParams (exact)	2026-11-26	saved 2026-11-26
@@ -28513,8 +28643,10 @@ release_address	applied	value	source_pair	date	state
 0x41a898	plate	Release map: exact pair with prototype 0x41c068 NetSetDefaultIncomingClientParams (evidence exact; flags -). // Owner -.	0x41c068 NetSetDefaultIncomingClientParams (exact)	2026-11-26	saved 2026-11-26
 0x41a940	name	NetSetMyClientReceiveBroadcast	0x41c110 NetSetMyClientReceiveBroadcast (exact)	2026-11-26	saved 2026-11-26
 0x41a940	plate	Release map: exact pair with prototype 0x41c110 NetSetMyClientReceiveBroadcast (evidence exact; flags -). // Owner -.	0x41c110 NetSetMyClientReceiveBroadcast (exact)	2026-11-26	saved 2026-11-26
-0x41aa18	plate	Release map: deviating pair with prototype 0x41c1e8 NetJoin (evidence call; flags -). // Owner -; prototype name NetJoin not applied: library pair that is not exact (libraries are named from exact pairs only).	0x41c1e8 NetJoin (deviating)	2026-11-26	saved 2026-11-26
-0x41acd0	plate	Release map: deviating pair with prototype 0x41c450 NetLeave (evidence call-deviating; flags -). // Owner -; prototype name NetLeave not applied: library pair that is not exact (libraries are named from exact pairs only).	0x41c450 NetLeave (deviating)	2026-11-26	saved 2026-11-26
+0x41aa18	name	NetJoin	0x41c1e8 NetJoin (deviating)	2026-11-27	saved 2026-11-27
+0x41aa18	plate	Release map: deviating pair with prototype 0x41c1e8 NetJoin (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x41c1e8 NetJoin (deviating)	2026-11-27	saved 2026-11-27
+0x41acd0	name	NetLeave	0x41c450 NetLeave (deviating)	2026-11-27	saved 2026-11-27
+0x41acd0	plate	Release map: deviating pair with prototype 0x41c450 NetLeave (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x41c450 NetLeave (deviating)	2026-11-27	saved 2026-11-27
 0x41ad80	name	FindFreePingSlot	0x41c4f8 FindFreePingSlot (exact)	2026-11-26	saved 2026-11-26
 0x41ad80	plate	Release map: exact pair with prototype 0x41c4f8 FindFreePingSlot (evidence exact; flags -). // Owner -.	0x41c4f8 FindFreePingSlot (exact)	2026-11-26	saved 2026-11-26
 0x41adc8	name	TimeBasePingCallback	0x41c540 TimeBasePingCallback (exact)	2026-11-26	saved 2026-11-26
@@ -28527,7 +28659,8 @@ release_address	applied	value	source_pair	date	state
 0x41b0e0	plate	Release map: exact pair with prototype 0x41c858 NetPingIP (evidence exact; flags -). // Owner -.	0x41c858 NetPingIP (exact)	2026-11-26	saved 2026-11-26
 0x41b1d8	name	NetRequestCreateRemoteNamedObject	0x41c950 NetRequestCreateRemoteNamedObject (exact)	2026-11-26	saved 2026-11-26
 0x41b1d8	plate	Release map: exact pair with prototype 0x41c950 NetRequestCreateRemoteNamedObject (evidence exact; flags -). // Owner -.	0x41c950 NetRequestCreateRemoteNamedObject (exact)	2026-11-26	saved 2026-11-26
-0x41b3a0	plate	Release map: deviating pair with prototype 0x41cb18 NetCreateObject (evidence call; flags -). // Owner -; prototype name NetCreateObject not applied: library pair that is not exact (libraries are named from exact pairs only).	0x41cb18 NetCreateObject (deviating)	2026-11-26	saved 2026-11-26
+0x41b3a0	name	NetCreateObject	0x41cb18 NetCreateObject (deviating)	2026-11-27	saved 2026-11-27
+0x41b3a0	plate	Release map: deviating pair with prototype 0x41cb18 NetCreateObject (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x41cb18 NetCreateObject (deviating)	2026-11-27	saved 2026-11-27
 0x41b640	name	NetOpenDataStream	0x41cdb0 NetOpenDataStream (exact)	2026-11-26	saved 2026-11-26
 0x41b640	plate	Release map: exact pair with prototype 0x41cdb0 NetOpenDataStream (evidence exact; flags -). // Owner -.	0x41cdb0 NetOpenDataStream (exact)	2026-11-26	saved 2026-11-26
 0x41b848	name	NetEndDataStream	0x41cfb8 NetEndDataStream (exact)	2026-11-26	saved 2026-11-26
@@ -28540,13 +28673,16 @@ release_address	applied	value	source_pair	date	state
 0x41ba40	plate	Release map: exact pair with prototype 0x41d1b0 NetGetFilteredObjectTargetClients (evidence exact; flags -). // Owner -.	0x41d1b0 NetGetFilteredObjectTargetClients (exact)	2026-11-26	saved 2026-11-26
 0x41bb70	name	SendFieldUpdate	0x41d2e0 SendFieldUpdate (exact)	2026-11-26	saved 2026-11-26
 0x41bb70	plate	Release map: exact pair with prototype 0x41d2e0 SendFieldUpdate (evidence exact; flags -). // Owner -.	0x41d2e0 SendFieldUpdate (exact)	2026-11-26	saved 2026-11-26
-0x41bd40	plate	Release map: deviating pair with prototype 0x41d4b0 NetSendObjectFullUpdate (evidence call; flags -). // Owner -; prototype name NetSendObjectFullUpdate not applied: library pair that is not exact (libraries are named from exact pairs only).	0x41d4b0 NetSendObjectFullUpdate (deviating)	2026-11-26	saved 2026-11-26
-0x41c078	plate	Release map: deviating pair with prototype 0x41d7e0 NetAddToDataStream (evidence position; flags -). // Owner -; prototype name NetAddToDataStream not applied: library pair that is not exact (libraries are named from exact pairs only).	0x41d7e0 NetAddToDataStream (deviating)	2026-11-26	saved 2026-11-26
+0x41bd40	name	NetSendObjectFullUpdate	0x41d4b0 NetSendObjectFullUpdate (deviating)	2026-11-27	saved 2026-11-27
+0x41bd40	plate	Release map: deviating pair with prototype 0x41d4b0 NetSendObjectFullUpdate (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x41d4b0 NetSendObjectFullUpdate (deviating)	2026-11-27	saved 2026-11-27
+0x41c078	name	NetAddToDataStream	0x41d7e0 NetAddToDataStream (deviating)	2026-11-27	saved 2026-11-27
+0x41c078	plate	Release map: deviating pair with prototype 0x41d7e0 NetAddToDataStream (evidence position; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x41d7e0 NetAddToDataStream (deviating)	2026-11-27	saved 2026-11-27
 0x41c1a0	name	ElementErrorExceedsThreshold	0x41d8f8 ElementErrorExceedsThreshold (exact)	2026-11-26	saved 2026-11-26
 0x41c1a0	plate	Release map: exact pair with prototype 0x41d8f8 ElementErrorExceedsThreshold (evidence exact; flags -). // Owner -.	0x41d8f8 ElementErrorExceedsThreshold (exact)	2026-11-26	saved 2026-11-26
 0x41c4b8	name	GlobalFieldErrorExceedsThreshold	0x41dc10 GlobalFieldErrorExceedsThreshold (exact)	2026-11-26	saved 2026-11-26
 0x41c4b8	plate	Release map: exact pair with prototype 0x41dc10 GlobalFieldErrorExceedsThreshold (evidence exact; flags -). // Owner -.	0x41dc10 GlobalFieldErrorExceedsThreshold (exact)	2026-11-26	saved 2026-11-26
-0x41c580	plate	Release map: deviating pair with prototype 0x41dcd8 NetGetDataStreamPacket (evidence call; flags -). // Owner -; prototype name NetGetDataStreamPacket not applied: library pair that is not exact (libraries are named from exact pairs only).	0x41dcd8 NetGetDataStreamPacket (deviating)	2026-11-26	saved 2026-11-26
+0x41c580	name	NetGetDataStreamPacket	0x41dcd8 NetGetDataStreamPacket (deviating)	2026-11-27	saved 2026-11-27
+0x41c580	plate	Release map: deviating pair with prototype 0x41dcd8 NetGetDataStreamPacket (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x41dcd8 NetGetDataStreamPacket (deviating)	2026-11-27	saved 2026-11-27
 0x41c6e0	name	CloseDataStream	0x41de30 CloseDataStream (exact)	2026-11-26	saved 2026-11-26
 0x41c6e0	plate	Release map: exact pair with prototype 0x41de30 CloseDataStream (evidence exact; flags -). // Owner -.	0x41de30 CloseDataStream (exact)	2026-11-26	saved 2026-11-26
 0x41c710	name	SendCloseDataStream	0x41de60 SendCloseDataStream (exact)	2026-11-26	saved 2026-11-26
@@ -28563,7 +28699,8 @@ release_address	applied	value	source_pair	date	state
 0x41ccf8	plate	Release map: exact pair with prototype 0x41e448 NetTick (evidence exact; flags -). // Owner -.	0x41e448 NetTick (exact)	2026-11-26	saved 2026-11-26
 0x41cd20	name	NetUpdate	0x41e470 NetUpdate (exact)	2026-11-26	saved 2026-11-26
 0x41cd20	plate	Release map: exact pair with prototype 0x41e470 NetUpdate (evidence exact; flags -). // Owner -.	0x41e470 NetUpdate (exact)	2026-11-26	saved 2026-11-26
-0x41cf80	plate	Release map: deviating pair with prototype 0x41e6d0 NetDisconnect (evidence call; flags -). // Owner -; prototype name NetDisconnect not applied: library pair that is not exact (libraries are named from exact pairs only).	0x41e6d0 NetDisconnect (deviating)	2026-11-26	saved 2026-11-26
+0x41cf80	name	NetDisconnect	0x41e6d0 NetDisconnect (deviating)	2026-11-27	saved 2026-11-27
+0x41cf80	plate	Release map: deviating pair with prototype 0x41e6d0 NetDisconnect (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x41e6d0 NetDisconnect (deviating)	2026-11-27	saved 2026-11-27
 0x41d1c8	name	NetClose	0x41e910 NetClose (exact)	2026-11-26	saved 2026-11-26
 0x41d1c8	plate	Release map: exact pair with prototype 0x41e910 NetClose (evidence exact; flags -). // Owner -.	0x41e910 NetClose (exact)	2026-11-26	saved 2026-11-26
 0x41d2c8	name	NetMapMsgClientError	0x41ea10 NetMapMsgClientError (exact)	2026-11-26	saved 2026-11-26
@@ -28588,7 +28725,8 @@ release_address	applied	value	source_pair	date	state
 0x41d768	plate	Release map: exact pair with prototype 0x41ee78 ServerVersionPacketHandler (evidence exact; flags -). // Owner -.	0x41ee78 ServerVersionPacketHandler (exact)	2026-11-26	saved 2026-11-26
 0x41d798	name	ClientLeavesPacketHandler	0x41eea8 ClientLeavesPacketHandler (exact)	2026-11-26	saved 2026-11-26
 0x41d798	plate	Release map: exact pair with prototype 0x41eea8 ClientLeavesPacketHandler (evidence exact; flags -). // Owner -.	0x41eea8 ClientLeavesPacketHandler (exact)	2026-11-26	saved 2026-11-26
-0x41d7b8	plate	Release map: deviating pair with prototype 0x41eec8 ClientUpdatePacketHandler (evidence call-deviating; flags -). // Owner -; prototype name ClientUpdatePacketHandler not applied: library pair that is not exact (libraries are named from exact pairs only).	0x41eec8 ClientUpdatePacketHandler (deviating)	2026-11-26	saved 2026-11-26
+0x41d7b8	name	ClientUpdatePacketHandler	0x41eec8 ClientUpdatePacketHandler (deviating)	2026-11-27	saved 2026-11-27
+0x41d7b8	plate	Release map: deviating pair with prototype 0x41eec8 ClientUpdatePacketHandler (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x41eec8 ClientUpdatePacketHandler (deviating)	2026-11-27	saved 2026-11-27
 0x41d898	create	0x41d898-0x41d8c7	0x41ef90 SessionMasterPacketHandler (exact)	2026-11-26	saved 2026-11-26
 0x41d898	name	SessionMasterPacketHandler	0x41ef90 SessionMasterPacketHandler (exact)	2026-11-26	saved 2026-11-26
 0x41d898	plate	Release map: exact pair with prototype 0x41ef90 SessionMasterPacketHandler (evidence exact; flags -). // Owner -.	0x41ef90 SessionMasterPacketHandler (exact)	2026-11-26	saved 2026-11-26
@@ -28598,8 +28736,10 @@ release_address	applied	value	source_pair	date	state
 0x41da28	plate	Release map: exact pair with prototype 0x41f120 ServerResponsePacketHandler (evidence exact; flags -). // Owner -.	0x41f120 ServerResponsePacketHandler (exact)	2026-11-26	saved 2026-11-26
 0x41da80	name	RequestClientConnectPacketHandler	0x41f178 RequestClientConnectPacketHandler (exact)	2026-11-26	saved 2026-11-26
 0x41da80	plate	Release map: exact pair with prototype 0x41f178 RequestClientConnectPacketHandler (evidence exact; flags -). // Owner -.	0x41f178 RequestClientConnectPacketHandler (exact)	2026-11-26	saved 2026-11-26
-0x41dbf0	plate	Release map: deviating pair with prototype 0x41f2e8 RequestClientJoinPacketHandler (evidence call-deviating; flags -). // Owner -; prototype name RequestClientJoinPacketHandler not applied: library pair that is not exact (libraries are named from exact pairs only).	0x41f2e8 RequestClientJoinPacketHandler (deviating)	2026-11-26	saved 2026-11-26
-0x41dd78	plate	Release map: deviating pair with prototype 0x41f420 AcceptClientPacketHandler (evidence call-deviating; flags -). // Owner -; prototype name AcceptClientPacketHandler not applied: library pair that is not exact (libraries are named from exact pairs only).	0x41f420 AcceptClientPacketHandler (deviating)	2026-11-26	saved 2026-11-26
+0x41dbf0	name	RequestClientJoinPacketHandler	0x41f2e8 RequestClientJoinPacketHandler (deviating)	2026-11-27	saved 2026-11-27
+0x41dbf0	plate	Release map: deviating pair with prototype 0x41f2e8 RequestClientJoinPacketHandler (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x41f2e8 RequestClientJoinPacketHandler (deviating)	2026-11-27	saved 2026-11-27
+0x41dd78	name	AcceptClientPacketHandler	0x41f420 AcceptClientPacketHandler (deviating)	2026-11-27	saved 2026-11-27
+0x41dd78	plate	Release map: deviating pair with prototype 0x41f420 AcceptClientPacketHandler (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x41f420 AcceptClientPacketHandler (deviating)	2026-11-27	saved 2026-11-27
 0x41de48	name	PingPacketHandler	0x41f4e8 PingPacketHandler (exact)	2026-11-26	saved 2026-11-26
 0x41de48	plate	Release map: exact pair with prototype 0x41f4e8 PingPacketHandler (evidence exact; flags -). // Owner -.	0x41f4e8 PingPacketHandler (exact)	2026-11-26	saved 2026-11-26
 0x41e070	name	PacketFragmentPacketHandler	0x41f710 PacketFragmentPacketHandler (exact)	2026-11-26	saved 2026-11-26
@@ -28607,17 +28747,24 @@ release_address	applied	value	source_pair	date	state
 0x41e218	create	0x41e218-0x41e23b	0x41f8b8 DeleteNetObjectPacketHandler (exact)	2026-11-26	saved 2026-11-26
 0x41e218	name	DeleteNetObjectPacketHandler	0x41f8b8 DeleteNetObjectPacketHandler (exact)	2026-11-26	saved 2026-11-26
 0x41e218	plate	Release map: exact pair with prototype 0x41f8b8 DeleteNetObjectPacketHandler (evidence exact; flags -). // Owner -.	0x41f8b8 DeleteNetObjectPacketHandler (exact)	2026-11-26	saved 2026-11-26
-0x41e240	plate	Release map: deviating pair with prototype 0x41f8e0 RequestOwnershipPacketHandler (evidence call-deviating; flags -). // Owner -; prototype name RequestOwnershipPacketHandler not applied: library pair that is not exact (libraries are named from exact pairs only).	0x41f8e0 RequestOwnershipPacketHandler (deviating)	2026-11-26	saved 2026-11-26
-0x41e308	plate	Release map: deviating pair with prototype 0x41f9a0 GrantOwnershipPacketHandler (evidence call-deviating; flags -). // Owner -; prototype name GrantOwnershipPacketHandler not applied: library pair that is not exact (libraries are named from exact pairs only).	0x41f9a0 GrantOwnershipPacketHandler (deviating)	2026-11-26	saved 2026-11-26
-0x41e368	plate	Release map: deviating pair with prototype 0x41f9f8 ReleaseOwnershipPacketHandler (evidence call-deviating; flags -). // Owner -; prototype name ReleaseOwnershipPacketHandler not applied: library pair that is not exact (libraries are named from exact pairs only).	0x41f9f8 ReleaseOwnershipPacketHandler (deviating)	2026-11-26	saved 2026-11-26
-0x41e3b8	plate	Release map: deviating pair with prototype 0x41fa48 NetObjectFullUpdatePacketHandler (evidence call-deviating; flags -). // Owner -; prototype name NetObjectFullUpdatePacketHandler not applied: library pair that is not exact (libraries are named from exact pairs only).	0x41fa48 NetObjectFullUpdatePacketHandler (deviating)	2026-11-26	saved 2026-11-26
-0x41e718	plate	Release map: deviating pair with prototype 0x41fd88 FieldUpdate (evidence call; flags -). // Owner -; prototype name FieldUpdate not applied: library pair that is not exact (libraries are named from exact pairs only).	0x41fd88 FieldUpdate (deviating)	2026-11-26	saved 2026-11-26
+0x41e240	name	RequestOwnershipPacketHandler	0x41f8e0 RequestOwnershipPacketHandler (deviating)	2026-11-27	saved 2026-11-27
+0x41e240	plate	Release map: deviating pair with prototype 0x41f8e0 RequestOwnershipPacketHandler (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x41f8e0 RequestOwnershipPacketHandler (deviating)	2026-11-27	saved 2026-11-27
+0x41e308	name	GrantOwnershipPacketHandler	0x41f9a0 GrantOwnershipPacketHandler (deviating)	2026-11-27	saved 2026-11-27
+0x41e308	plate	Release map: deviating pair with prototype 0x41f9a0 GrantOwnershipPacketHandler (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x41f9a0 GrantOwnershipPacketHandler (deviating)	2026-11-27	saved 2026-11-27
+0x41e368	name	ReleaseOwnershipPacketHandler	0x41f9f8 ReleaseOwnershipPacketHandler (deviating)	2026-11-27	saved 2026-11-27
+0x41e368	plate	Release map: deviating pair with prototype 0x41f9f8 ReleaseOwnershipPacketHandler (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x41f9f8 ReleaseOwnershipPacketHandler (deviating)	2026-11-27	saved 2026-11-27
+0x41e3b8	name	NetObjectFullUpdatePacketHandler	0x41fa48 NetObjectFullUpdatePacketHandler (deviating)	2026-11-27	saved 2026-11-27
+0x41e3b8	plate	Release map: deviating pair with prototype 0x41fa48 NetObjectFullUpdatePacketHandler (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x41fa48 NetObjectFullUpdatePacketHandler (deviating)	2026-11-27	saved 2026-11-27
+0x41e718	name	FieldUpdate	0x41fd88 FieldUpdate (deviating)	2026-11-27	saved 2026-11-27
+0x41e718	plate	Release map: deviating pair with prototype 0x41fd88 FieldUpdate (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x41fd88 FieldUpdate (deviating)	2026-11-27	saved 2026-11-27
 0x41e830	name	FieldUpdatePacketHandler	0x41fe98 FieldUpdatePacketHandler (exact)	2026-11-26	saved 2026-11-26
 0x41e830	plate	Release map: exact pair with prototype 0x41fe98 FieldUpdatePacketHandler (evidence exact; flags -). // Owner -.	0x41fe98 FieldUpdatePacketHandler (exact)	2026-11-26	saved 2026-11-26
-0x41e860	plate	Release map: deviating pair with prototype 0x41fec8 DataStreamUpdatePacketHandler (evidence call-deviating; flags -). // Owner -; prototype name DataStreamUpdatePacketHandler not applied: library pair that is not exact (libraries are named from exact pairs only).	0x41fec8 DataStreamUpdatePacketHandler (deviating)	2026-11-26	saved 2026-11-26
+0x41e860	name	DataStreamUpdatePacketHandler	0x41fec8 DataStreamUpdatePacketHandler (deviating)	2026-11-27	saved 2026-11-27
+0x41e860	plate	Release map: deviating pair with prototype 0x41fec8 DataStreamUpdatePacketHandler (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x41fec8 DataStreamUpdatePacketHandler (deviating)	2026-11-27	saved 2026-11-27
 0x41eaa8	name	DataStreamEndPacketHandler	0x4200f0 DataStreamEndPacketHandler (exact)	2026-11-26	saved 2026-11-26
 0x41eaa8	plate	Release map: exact pair with prototype 0x4200f0 DataStreamEndPacketHandler (evidence exact; flags -). // Owner -.	0x4200f0 DataStreamEndPacketHandler (exact)	2026-11-26	saved 2026-11-26
-0x41ebb0	plate	Release map: deviating pair with prototype 0x4201f8 RegisterDMEmessages (evidence call-deviating; flags -). // Owner -; prototype name RegisterDMEmessages not applied: library pair that is not exact (libraries are named from exact pairs only).	0x4201f8 RegisterDMEmessages (deviating)	2026-11-26	saved 2026-11-26
+0x41ebb0	name	RegisterDMEmessages	0x4201f8 RegisterDMEmessages (deviating)	2026-11-27	saved 2026-11-27
+0x41ebb0	plate	Release map: deviating pair with prototype 0x4201f8 RegisterDMEmessages (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x4201f8 RegisterDMEmessages (deviating)	2026-11-27	saved 2026-11-27
 0x41f408	name	NetRegisterMessageStart	0x420a08 NetRegisterMessageStart (exact)	2026-11-26	saved 2026-11-26
 0x41f408	plate	Release map: exact pair with prototype 0x420a08 NetRegisterMessageStart (evidence call-deviating; flags -). // Owner -.	0x420a08 NetRegisterMessageStart (exact)	2026-11-26	saved 2026-11-26
 0x41f430	name	NetMessageField	0x420a30 NetMessageField (exact)	2026-11-26	saved 2026-11-26
@@ -29023,20 +29170,29 @@ release_address	applied	value	source_pair	date	state
 0x42f0d0	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x42f128	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x42f1b8	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x42f1f0	plate	Release map: deviating pair with prototype 0x4224f0 sceInetName2Address (evidence call; flags call-and-slot). // Owner -; prototype name sceInetName2Address not applied: library pair that is not exact (libraries are named from exact pairs only).	0x4224f0 sceInetName2Address (deviating)	2026-11-26	saved 2026-11-26
-0x42f298	plate	Release map: deviating pair with prototype 0x422600 sceInetAddress2String (evidence call; flags call-and-slot). // Owner -; prototype name sceInetAddress2String not applied: library pair that is not exact (libraries are named from exact pairs only).	0x422600 sceInetAddress2String (deviating)	2026-11-26	saved 2026-11-26
-0x42f340	plate	Release map: deviating pair with prototype 0x4226d8 sceInetAddress2Name (evidence slot-only; flags -). // Owner -; prototype name sceInetAddress2Name not applied: library pair that is not exact (libraries are named from exact pairs only).	0x4226d8 sceInetAddress2Name (deviating)	2026-11-26	saved 2026-11-26
-0x42f3f0	plate	Release map: deviating pair with prototype 0x4227b0 sceInetCreate (evidence slot-only; flags -). // Owner -; prototype name sceInetCreate not applied: library pair that is not exact (libraries are named from exact pairs only).	0x4227b0 sceInetCreate (deviating)	2026-11-26	saved 2026-11-26
-0x42f468	plate	Release map: deviating pair with prototype 0x4228b0 sceInetOpen (evidence call-deviating; flags call-and-slot). // Owner -; prototype name sceInetOpen not applied: library pair that is not exact (libraries are named from exact pairs only).	0x4228b0 sceInetOpen (deviating)	2026-11-26	saved 2026-11-26
+0x42f1f0	name	sceInetName2Address	0x4224f0 sceInetName2Address (deviating)	2026-11-27	saved 2026-11-27
+0x42f1f0	plate	Release map: deviating pair with prototype 0x4224f0 sceInetName2Address (evidence call; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x4224f0 sceInetName2Address (deviating)	2026-11-27	saved 2026-11-27
+0x42f298	name	sceInetAddress2String	0x422600 sceInetAddress2String (deviating)	2026-11-27	saved 2026-11-27
+0x42f298	plate	Release map: deviating pair with prototype 0x422600 sceInetAddress2String (evidence call; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x422600 sceInetAddress2String (deviating)	2026-11-27	saved 2026-11-27
+0x42f340	name	sceInetAddress2Name	0x4226d8 sceInetAddress2Name (deviating)	2026-11-27	saved 2026-11-27
+0x42f340	plate	Release map: deviating pair with prototype 0x4226d8 sceInetAddress2Name (evidence slot-only; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x4226d8 sceInetAddress2Name (deviating)	2026-11-27	saved 2026-11-27
+0x42f3f0	name	sceInetCreate	0x4227b0 sceInetCreate (deviating)	2026-11-27	saved 2026-11-27
+0x42f3f0	plate	Release map: deviating pair with prototype 0x4227b0 sceInetCreate (evidence slot-only; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x4227b0 sceInetCreate (deviating)	2026-11-27	saved 2026-11-27
+0x42f468	name	sceInetOpen	0x4228b0 sceInetOpen (deviating)	2026-11-27	saved 2026-11-27
+0x42f468	plate	Release map: deviating pair with prototype 0x4228b0 sceInetOpen (evidence call-deviating; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x4228b0 sceInetOpen (deviating)	2026-11-27	saved 2026-11-27
 0x42f4b0	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x42f4f8	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x42f5c0	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x42f6d0	plate	Release map: unsure pair with prototype 0x422c38 sceInetSend (evidence position; flags low-similarity). // Owner -; prototype name sceInetSend not applied: unsure pair: the evidence does not settle it.	0x422c38 sceInetSend (unsure)	2026-11-26	saved 2026-11-26
+0x42f6d0	name	sceInetSend	0x422c38 sceInetSend (unsure)	2026-11-27	saved 2026-11-27
+0x42f6d0	plate	Release map: unsure pair with prototype 0x422c38 sceInetSend (evidence position; flags low-similarity). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x422c38 sceInetSend (unsure)	2026-11-27	saved 2026-11-27
 0x42f778	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x42f860	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x42f8a8	plate	Release map: deviating pair with prototype 0x422ed0 sceInetControl (evidence call; flags call-and-slot). // Owner -; prototype name sceInetControl not applied: library pair that is not exact (libraries are named from exact pairs only).	0x422ed0 sceInetControl (deviating)	2026-11-26	saved 2026-11-26
-0x42f958	plate	Release map: deviating pair with prototype 0x422fb8 sceInetGetInterfaceList (evidence call-deviating; flags call-and-slot). // Owner -; prototype name sceInetGetInterfaceList not applied: library pair that is not exact (libraries are named from exact pairs only).	0x422fb8 sceInetGetInterfaceList (deviating)	2026-11-26	saved 2026-11-26
-0x42f9e8	plate	Release map: deviating pair with prototype 0x423070 sceInetInterfaceControl (evidence call-deviating; flags call-and-slot). // Owner -; prototype name sceInetInterfaceControl not applied: library pair that is not exact (libraries are named from exact pairs only).	0x423070 sceInetInterfaceControl (deviating)	2026-11-26	saved 2026-11-26
+0x42f8a8	name	sceInetControl	0x422ed0 sceInetControl (deviating)	2026-11-27	saved 2026-11-27
+0x42f8a8	plate	Release map: deviating pair with prototype 0x422ed0 sceInetControl (evidence call; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x422ed0 sceInetControl (deviating)	2026-11-27	saved 2026-11-27
+0x42f958	name	sceInetGetInterfaceList	0x422fb8 sceInetGetInterfaceList (deviating)	2026-11-27	saved 2026-11-27
+0x42f958	plate	Release map: deviating pair with prototype 0x422fb8 sceInetGetInterfaceList (evidence call-deviating; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x422fb8 sceInetGetInterfaceList (deviating)	2026-11-27	saved 2026-11-27
+0x42f9e8	name	sceInetInterfaceControl	0x423070 sceInetInterfaceControl (deviating)	2026-11-27	saved 2026-11-27
+0x42f9e8	plate	Release map: deviating pair with prototype 0x423070 sceInetInterfaceControl (evidence call-deviating; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x423070 sceInetInterfaceControl (deviating)	2026-11-27	saved 2026-11-27
 0x42fb38	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x42fbc8	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x42fc10	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
@@ -29046,35 +29202,46 @@ release_address	applied	value	source_pair	date	state
 0x42fd78	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x42fdc0	plate	Release map: deviating pair with prototype 0x4223a0 libnet_init (evidence call-deviating; flags moved). // Owner -; prototype name libnet_init not applied: library pair that is not exact (libraries are named from exact pairs only).	0x4223a0 libnet_init (deviating)	2026-11-26	saved 2026-11-26
 0x42fe80	plate	Release map: unsure pair with prototype 0x422460 libnet_term (evidence call-deviating; flags low-similarity,moved). // Owner -; prototype name libnet_term not applied: unsure pair: the evidence does not settle it.	0x422460 libnet_term (unsure)	2026-11-26	saved 2026-11-26
-0x42ff00	plate	Release map: deviating pair with prototype 0x4234a0 reg_handler (evidence call-deviating; flags call-and-slot). // Owner -; prototype name reg_handler not applied: library pair that is not exact (libraries are named from exact pairs only).	0x4234a0 reg_handler (deviating)	2026-11-26	saved 2026-11-26
+0x42ff00	name	reg_handler	0x4234a0 reg_handler (deviating)	2026-11-27	saved 2026-11-27
+0x42ff00	plate	Release map: deviating pair with prototype 0x4234a0 reg_handler (evidence call-deviating; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x4234a0 reg_handler (deviating)	2026-11-27	saved 2026-11-27
 0x42ff40	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x42ff80	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x42ffc8	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x430050	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x430068	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x430080	plate	Release map: deviating pair with prototype 0x423838 get_if_id (evidence position; flags -). // Owner -; prototype name get_if_id not applied: library pair that is not exact (libraries are named from exact pairs only).	0x423838 get_if_id (deviating)	2026-11-26	saved 2026-11-26
-0x430160	plate	Release map: deviating pair with prototype 0x423938 wait_if_attached (evidence slot-only; flags -). // Owner -; prototype name wait_if_attached not applied: library pair that is not exact (libraries are named from exact pairs only).	0x423938 wait_if_attached (deviating)	2026-11-26	saved 2026-11-26
-0x430180	plate	Release map: unsure pair with prototype 0x4239d0 get_interface_id (evidence position; flags ambiguous). // Owner -; prototype name get_interface_id not applied: unsure pair: the evidence does not settle it.	0x4239d0 get_interface_id (unsure)	2026-11-26	saved 2026-11-26
-0x430218	plate	Release map: deviating pair with prototype 0x423b18 wait_get_addr_only (evidence position; flags -). // Owner -; prototype name wait_get_addr_only not applied: library pair that is not exact (libraries are named from exact pairs only).	0x423b18 wait_get_addr_only (deviating)	2026-11-26	saved 2026-11-26
-0x430280	plate	Release map: deviating pair with prototype 0x423b90 wait_get_addr (evidence position; flags -). // Owner -; prototype name wait_get_addr not applied: library pair that is not exact (libraries are named from exact pairs only).	0x423b90 wait_get_addr (deviating)	2026-11-26	saved 2026-11-26
+0x430080	name	get_if_id	0x423838 get_if_id (deviating)	2026-11-27	saved 2026-11-27
+0x430080	plate	Release map: deviating pair with prototype 0x423838 get_if_id (evidence position; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x423838 get_if_id (deviating)	2026-11-27	saved 2026-11-27
+0x430160	name	wait_if_attached	0x423938 wait_if_attached (deviating)	2026-11-27	saved 2026-11-27
+0x430160	plate	Release map: deviating pair with prototype 0x423938 wait_if_attached (evidence slot-only; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x423938 wait_if_attached (deviating)	2026-11-27	saved 2026-11-27
+0x430180	name	get_interface_id	0x4239d0 get_interface_id (unsure)	2026-11-27	saved 2026-11-27
+0x430180	plate	Release map: unsure pair with prototype 0x4239d0 get_interface_id (evidence position; flags ambiguous). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x4239d0 get_interface_id (unsure)	2026-11-27	saved 2026-11-27
+0x430218	name	wait_get_addr_only	0x423b18 wait_get_addr_only (deviating)	2026-11-27	saved 2026-11-27
+0x430218	plate	Release map: deviating pair with prototype 0x423b18 wait_get_addr_only (evidence position; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x423b18 wait_get_addr_only (deviating)	2026-11-27	saved 2026-11-27
+0x430280	name	wait_get_addr	0x423b90 wait_get_addr (deviating)	2026-11-27	saved 2026-11-27
+0x430280	plate	Release map: deviating pair with prototype 0x423b90 wait_get_addr (evidence position; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x423b90 wait_get_addr (deviating)	2026-11-27	saved 2026-11-27
 0x430300	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x430348	name	sceBInetGetBuildTimestamp	0x423d48 sceBInetGetBuildTimestamp (exact)	2026-11-26	saved 2026-11-26
 0x430348	plate	Release map: exact pair with prototype 0x423d48 sceBInetGetBuildTimestamp (evidence exact; flags -). // Owner -.	0x423d48 sceBInetGetBuildTimestamp (exact)	2026-11-26	saved 2026-11-26
-0x4304a0	plate	Release map: deviating pair with prototype 0x423ea0 sceBInetCreate (evidence call-deviating; flags call-and-slot). // Owner -; prototype name sceBInetCreate not applied: library pair that is not exact (libraries are named from exact pairs only).	0x423ea0 sceBInetCreate (deviating)	2026-11-26	saved 2026-11-26
-0x4305c0	plate	Release map: deviating pair with prototype 0x423f80 sceBInetOpen (evidence call-deviating; flags -). // Owner -; prototype name sceBInetOpen not applied: library pair that is not exact (libraries are named from exact pairs only).	0x423f80 sceBInetOpen (deviating)	2026-11-26	saved 2026-11-26
+0x4304a0	name	sceBInetCreate	0x423ea0 sceBInetCreate (deviating)	2026-11-27	saved 2026-11-27
+0x4304a0	plate	Release map: deviating pair with prototype 0x423ea0 sceBInetCreate (evidence call-deviating; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x423ea0 sceBInetCreate (deviating)	2026-11-27	saved 2026-11-27
+0x4305c0	name	sceBInetOpen	0x423f80 sceBInetOpen (deviating)	2026-11-27	saved 2026-11-27
+0x4305c0	plate	Release map: deviating pair with prototype 0x423f80 sceBInetOpen (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x423f80 sceBInetOpen (deviating)	2026-11-27	saved 2026-11-27
 0x4306d8	name	sceBInetClose	0x4240a0 sceBInetClose (exact)	2026-11-26	saved 2026-11-26
 0x4306d8	plate	Release map: exact pair with prototype 0x4240a0 sceBInetClose (evidence exact; flags -). // Owner -.	0x4240a0 sceBInetClose (exact)	2026-11-26	saved 2026-11-26
-0x430770	plate	Release map: deviating pair with prototype 0x424138 sceBInetRecv (evidence call; flags imm-only). // Owner -; prototype name sceBInetRecv not applied: library pair that is not exact (libraries are named from exact pairs only).	0x424138 sceBInetRecv (deviating)	2026-11-26	saved 2026-11-26
+0x430770	name	sceBInetRecv	0x424138 sceBInetRecv (deviating)	2026-11-27	saved 2026-11-27
+0x430770	plate	Release map: deviating pair with prototype 0x424138 sceBInetRecv (evidence call; flags imm-only). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x424138 sceBInetRecv (deviating)	2026-11-27	saved 2026-11-27
 0x430888	name	sceBInetRecvFrom	0x424250 sceBInetRecvFrom (exact)	2026-11-26	saved 2026-11-26
 0x430888	plate	Release map: exact pair with prototype 0x424250 sceBInetRecvFrom (evidence exact; flags -). // Owner -.	0x424250 sceBInetRecvFrom (exact)	2026-11-26	saved 2026-11-26
 0x430918	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x430980	plate	Release map: deviating pair with prototype 0x4242e0 sceBInetSend (evidence call-deviating; flags -). // Owner -; prototype name sceBInetSend not applied: library pair that is not exact (libraries are named from exact pairs only).	0x4242e0 sceBInetSend (deviating)	2026-11-26	saved 2026-11-26
+0x430980	name	sceBInetSend	0x4242e0 sceBInetSend (deviating)	2026-11-27	saved 2026-11-27
+0x430980	plate	Release map: deviating pair with prototype 0x4242e0 sceBInetSend (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x4242e0 sceBInetSend (deviating)	2026-11-27	saved 2026-11-27
 0x430ab8	name	sceBInetSendTo	0x424418 sceBInetSendTo (exact)	2026-11-26	saved 2026-11-26
 0x430ab8	plate	Release map: exact pair with prototype 0x424418 sceBInetSendTo (evidence exact; flags -). // Owner -.	0x424418 sceBInetSendTo (exact)	2026-11-26	saved 2026-11-26
 0x430b50	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x430bb8	name	sceBInetControl	0x4244b0 sceBInetControl (exact)	2026-11-26	saved 2026-11-26
 0x430bb8	plate	Release map: exact pair with prototype 0x4244b0 sceBInetControl (evidence exact; flags -). // Owner -.	0x4244b0 sceBInetControl (exact)	2026-11-26	saved 2026-11-26
-0x430be8	plate	Release map: deviating pair with prototype 0x4244e0 sceBInetGetAvailBytesToRead (evidence call; flags imm-only). // Owner -; prototype name sceBInetGetAvailBytesToRead not applied: library pair that is not exact (libraries are named from exact pairs only).	0x4244e0 sceBInetGetAvailBytesToRead (deviating)	2026-11-26	saved 2026-11-26
+0x430be8	name	sceBInetGetAvailBytesToRead	0x4244e0 sceBInetGetAvailBytesToRead (deviating)	2026-11-27	saved 2026-11-27
+0x430be8	plate	Release map: deviating pair with prototype 0x4244e0 sceBInetGetAvailBytesToRead (evidence call; flags imm-only). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x4244e0 sceBInetGetAvailBytesToRead (deviating)	2026-11-27	saved 2026-11-27
 0x430c90	name	sceBInetIP2Address	0x424588 sceBInetIP2Address (exact)	2026-11-26	saved 2026-11-26
 0x430c90	plate	Release map: exact pair with prototype 0x424588 sceBInetIP2Address (evidence exact; flags -). // Owner -.	0x424588 sceBInetIP2Address (exact)	2026-11-26	saved 2026-11-26
 0x430d28	name	sceBInetAddress2IP	0x424620 sceBInetAddress2IP (exact)	2026-11-26	saved 2026-11-26
@@ -29083,15 +29250,22 @@ release_address	applied	value	source_pair	date	state
 0x430d78	plate	Release map: exact pair with prototype 0x424670 sceBInetDisplayLibnetbState (evidence exact; flags -). // Owner -.	0x424670 sceBInetDisplayLibnetbState (exact)	2026-11-26	saved 2026-11-26
 0x430dc8	name	libnetb_trans_data	0x4246c0 libnetb_trans_data (exact)	2026-11-26	saved 2026-11-26
 0x430dc8	plate	Release map: exact pair with prototype 0x4246c0 libnetb_trans_data (evidence exact; flags -). // Owner -.	0x4246c0 libnetb_trans_data (exact)	2026-11-26	saved 2026-11-26
-0x430e60	plate	Release map: deviating pair with prototype 0x424758 libnetb_recv_from (evidence call; flags imm-only). // Owner -; prototype name libnetb_recv_from not applied: library pair that is not exact (libraries are named from exact pairs only).	0x424758 libnetb_recv_from (deviating)	2026-11-26	saved 2026-11-26
+0x430e60	name	libnetb_recv_from	0x424758 libnetb_recv_from (deviating)	2026-11-27	saved 2026-11-27
+0x430e60	plate	Release map: deviating pair with prototype 0x424758 libnetb_recv_from (evidence call; flags imm-only). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x424758 libnetb_recv_from (deviating)	2026-11-27	saved 2026-11-27
 0x431088	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x431118	plate	Release map: deviating pair with prototype 0x424980 libnetb_send_to (evidence call; flags imm-only). // Owner -; prototype name libnetb_send_to not applied: library pair that is not exact (libraries are named from exact pairs only).	0x424980 libnetb_send_to (deviating)	2026-11-26	saved 2026-11-26
+0x431118	name	libnetb_send_to	0x424980 libnetb_send_to (deviating)	2026-11-27	saved 2026-11-27
+0x431118	plate	Release map: deviating pair with prototype 0x424980 libnetb_send_to (evidence call; flags imm-only). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x424980 libnetb_send_to (deviating)	2026-11-27	saved 2026-11-27
 0x431328	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x4313a8	plate	Release map: deviating pair with prototype 0x424b90 libnetb_alloc_bufs (evidence call-deviating; flags call-and-slot). // Owner -; prototype name libnetb_alloc_bufs not applied: library pair that is not exact (libraries are named from exact pairs only).	0x424b90 libnetb_alloc_bufs (deviating)	2026-11-26	saved 2026-11-26
-0x431418	plate	Release map: deviating pair with prototype 0x424c40 libnetb_free_bufs (evidence call; flags -). // Owner -; prototype name libnetb_free_bufs not applied: library pair that is not exact (libraries are named from exact pairs only).	0x424c40 libnetb_free_bufs (deviating)	2026-11-26	saved 2026-11-26
-0x431470	plate	Release map: deviating pair with prototype 0x424cb8 libnetb_prepare_async_receive (evidence call-deviating; flags -). // Owner -; prototype name libnetb_prepare_async_receive not applied: library pair that is not exact (libraries are named from exact pairs only).	0x424cb8 libnetb_prepare_async_receive (deviating)	2026-11-26	saved 2026-11-26
-0x431518	plate	Release map: deviating pair with prototype 0x424d58 libnetb_prepare_async_send (evidence call-deviating; flags -). // Owner -; prototype name libnetb_prepare_async_send not applied: library pair that is not exact (libraries are named from exact pairs only).	0x424d58 libnetb_prepare_async_send (deviating)	2026-11-26	saved 2026-11-26
-0x4315c0	plate	Release map: deviating pair with prototype 0x424df8 libnetb_is_data_waiting (evidence call-deviating; flags -). // Owner -; prototype name libnetb_is_data_waiting not applied: library pair that is not exact (libraries are named from exact pairs only).	0x424df8 libnetb_is_data_waiting (deviating)	2026-11-26	saved 2026-11-26
+0x4313a8	name	libnetb_alloc_bufs	0x424b90 libnetb_alloc_bufs (deviating)	2026-11-27	saved 2026-11-27
+0x4313a8	plate	Release map: deviating pair with prototype 0x424b90 libnetb_alloc_bufs (evidence call-deviating; flags call-and-slot). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x424b90 libnetb_alloc_bufs (deviating)	2026-11-27	saved 2026-11-27
+0x431418	name	libnetb_free_bufs	0x424c40 libnetb_free_bufs (deviating)	2026-11-27	saved 2026-11-27
+0x431418	plate	Release map: deviating pair with prototype 0x424c40 libnetb_free_bufs (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x424c40 libnetb_free_bufs (deviating)	2026-11-27	saved 2026-11-27
+0x431470	name	libnetb_prepare_async_receive	0x424cb8 libnetb_prepare_async_receive (deviating)	2026-11-27	saved 2026-11-27
+0x431470	plate	Release map: deviating pair with prototype 0x424cb8 libnetb_prepare_async_receive (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x424cb8 libnetb_prepare_async_receive (deviating)	2026-11-27	saved 2026-11-27
+0x431518	name	libnetb_prepare_async_send	0x424d58 libnetb_prepare_async_send (deviating)	2026-11-27	saved 2026-11-27
+0x431518	plate	Release map: deviating pair with prototype 0x424d58 libnetb_prepare_async_send (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x424d58 libnetb_prepare_async_send (deviating)	2026-11-27	saved 2026-11-27
+0x4315c0	name	libnetb_is_data_waiting	0x424df8 libnetb_is_data_waiting (deviating)	2026-11-27	saved 2026-11-27
+0x4315c0	plate	Release map: deviating pair with prototype 0x424df8 libnetb_is_data_waiting (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x424df8 libnetb_is_data_waiting (deviating)	2026-11-27	saved 2026-11-27
 0x431678	name	libnetb_udp_init_buffer	0x424eb8 libnetb_udp_init_buffer (exact)	2026-11-26	saved 2026-11-26
 0x431678	plate	Release map: exact pair with prototype 0x424eb8 libnetb_udp_init_buffer (evidence exact; flags -). // Owner -.	0x424eb8 libnetb_udp_init_buffer (exact)	2026-11-26	saved 2026-11-26
 0x4316b8	name	libnetb_udp_calc_avail	0x424ef8 libnetb_udp_calc_avail (exact)	2026-11-26	saved 2026-11-26
@@ -29100,7 +29274,8 @@ release_address	applied	value	source_pair	date	state
 0x431758	plate	Release map: exact pair with prototype 0x424f98 libnetb_udp_create_space (evidence exact; flags -). // Owner -.	0x424f98 libnetb_udp_create_space (exact)	2026-11-26	saved 2026-11-26
 0x431980	name	libnetb_get_valid_data_header_ptr	0x4251c0 libnetb_get_valid_data_header_ptr (exact)	2026-11-26	saved 2026-11-26
 0x431980	plate	Release map: exact pair with prototype 0x4251c0 libnetb_get_valid_data_header_ptr (evidence exact; flags -). // Owner -.	0x4251c0 libnetb_get_valid_data_header_ptr (exact)	2026-11-26	saved 2026-11-26
-0x431a40	plate	Release map: deviating pair with prototype 0x425290 sceNetcnfifSetup (evidence call-deviating; flags call-and-slot,owner-settled). // Owner -; prototype name sceNetcnfifSetup not applied: library pair that is not exact (libraries are named from exact pairs only).	0x425290 sceNetcnfifSetup (deviating)	2026-11-26	saved 2026-11-26
+0x431a40	name	sceNetcnfifSetup	0x425290 sceNetcnfifSetup (deviating)	2026-11-27	saved 2026-11-27
+0x431a40	plate	Release map: deviating pair with prototype 0x425290 sceNetcnfifSetup (evidence call-deviating; flags call-and-slot,owner-settled). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x425290 sceNetcnfifSetup (deviating)	2026-11-27	saved 2026-11-27
 0x431b08	plate	Release map: new, no prototype counterpart (evidence -; flags owner-settled). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x431b88	plate	Release map: new, no prototype counterpart (evidence -; flags owner-settled). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x431c48	plate	Release map: new, no prototype counterpart (evidence -; flags owner-settled). // Owner -.	new	2026-11-26	saved 2026-11-26
@@ -29126,7 +29301,8 @@ release_address	applied	value	source_pair	date	state
 0x4324e0	name	dmaIOP	0x4263b8 dmaIOP (exact)	2026-11-26	saved 2026-11-26
 0x4324e0	plate	Release map: exact pair with prototype 0x4263b8 dmaIOP (evidence exact; flags -). // Owner -.	0x4263b8 dmaIOP (exact)	2026-11-26	saved 2026-11-26
 0x432590	plate	Release map: deviating pair with prototype 0x3b2b00 MediusVersionClient (evidence global; flags moved). // Owner -; prototype name MediusVersionClient not applied: library pair that is not exact (libraries are named from exact pairs only).	0x3b2b00 MediusVersionClient (deviating)	2026-11-26	saved 2026-11-26
-0x432630	plate	Release map: deviating pair with prototype 0x420fc0 KM_GetSoftwareID (evidence call; flags moved). // Owner -; prototype name KM_GetSoftwareID not applied: library pair that is not exact (libraries are named from exact pairs only).	0x420fc0 KM_GetSoftwareID (deviating)	2026-11-26	saved 2026-11-26
+0x432630	name	KM_GetSoftwareID	0x420fc0 KM_GetSoftwareID (deviating)	2026-11-27	saved 2026-11-27
+0x432630	plate	Release map: deviating pair with prototype 0x420fc0 KM_GetSoftwareID (evidence call; flags moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x420fc0 KM_GetSoftwareID (deviating)	2026-11-27	saved 2026-11-27
 0x43263c	name	KM_GetSoftwareKeyPair	0x420fc8 KM_GetSoftwareKeyPair (exact)	2026-11-26	saved 2026-11-26
 0x43263c	plate	Release map: exact pair with prototype 0x420fc8 KM_GetSoftwareKeyPair (evidence exact; flags moved). // Owner -.	0x420fc8 KM_GetSoftwareKeyPair (exact)	2026-11-26	saved 2026-11-26
 0x432760	create	0x432760-0x432767	new	2026-11-26	saved 2026-11-26
@@ -29159,12 +29335,16 @@ release_address	applied	value	source_pair	date	state
 0x432bb0	label	PTTServer_QueryWANAddress__Fv	0x3f6c40 PTTServer_QueryWANAddress__Fv (exact)	2026-11-26	saved 2026-11-26
 0x432bb0	plate	Release map: exact pair with prototype 0x3f6c40 PTTServer_QueryWANAddress__Fv (evidence exact; flags moved). // Owner -.	0x3f6c40 PTTServer_QueryWANAddress__Fv (exact)	2026-11-26	saved 2026-11-26
 0x432bb0	prototype	int __stdcall PTTServer_QueryWANAddress(void)	0x3f6c40 PTTServer_QueryWANAddress__Fv (exact)	2026-11-26	saved 2026-11-26
-0x432c80	plate	Release map: deviating pair with prototype 0x3f6d10 PTTServer_Start__FPCcUs (evidence call-deviating; flags moved). // Owner -; prototype name PTTServer_Start not applied: library pair that is not exact (libraries are named from exact pairs only).	0x3f6d10 PTTServer_Start__FPCcUs (deviating)	2026-11-26	saved 2026-11-26
+0x432c80	name	PTTServer_Start	0x3f6d10 PTTServer_Start__FPCcUs (deviating)	2026-11-27	saved 2026-11-27
+0x432c80	label	PTTServer_Start__FPCcUs	0x3f6d10 PTTServer_Start__FPCcUs (deviating)	2026-11-27	saved 2026-11-27
+0x432c80	plate	Release map: deviating pair with prototype 0x3f6d10 PTTServer_Start__FPCcUs (evidence call-deviating; flags moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3f6d10 PTTServer_Start__FPCcUs (deviating)	2026-11-27	saved 2026-11-27
 0x432d90	name	PTTServer_Stop	0x3f6e10 PTTServer_Stop__Fv (exact)	2026-11-26	saved 2026-11-26
 0x432d90	label	PTTServer_Stop__Fv	0x3f6e10 PTTServer_Stop__Fv (exact)	2026-11-26	saved 2026-11-26
 0x432d90	plate	Release map: exact pair with prototype 0x3f6e10 PTTServer_Stop__Fv (evidence exact; flags moved). // Owner -.	0x3f6e10 PTTServer_Stop__Fv (exact)	2026-11-26	saved 2026-11-26
 0x432d90	prototype	int __stdcall PTTServer_Stop(void)	0x3f6e10 PTTServer_Stop__Fv (exact)	2026-11-26	saved 2026-11-26
-0x432e60	plate	Release map: deviating pair with prototype 0x3f6ee0 PTTServer_PermitWANAddress__FUiUi (evidence call-deviating; flags moved). // Owner -; prototype name PTTServer_PermitWANAddress not applied: library pair that is not exact (libraries are named from exact pairs only).	0x3f6ee0 PTTServer_PermitWANAddress__FUiUi (deviating)	2026-11-26	saved 2026-11-26
+0x432e60	name	PTTServer_PermitWANAddress	0x3f6ee0 PTTServer_PermitWANAddress__FUiUi (deviating)	2026-11-27	saved 2026-11-27
+0x432e60	label	PTTServer_PermitWANAddress__FUiUi	0x3f6ee0 PTTServer_PermitWANAddress__FUiUi (deviating)	2026-11-27	saved 2026-11-27
+0x432e60	plate	Release map: deviating pair with prototype 0x3f6ee0 PTTServer_PermitWANAddress__FUiUi (evidence call-deviating; flags moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3f6ee0 PTTServer_PermitWANAddress__FUiUi (deviating)	2026-11-27	saved 2026-11-27
 0x432fc0	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x433810	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x434680	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
@@ -29195,7 +29375,9 @@ release_address	applied	value	source_pair	date	state
 0x4381d0	plate	Release map: unsure pair with prototype 0x3f0b30 PTT_Sync__FPvii (evidence call-deviating; flags low-similarity,moved). // Owner -; prototype name PTT_Sync not applied: unsure pair: the evidence does not settle it.	0x3f0b30 PTT_Sync__FPvii (unsure)	2026-11-26	saved 2026-11-26
 0x438280	plate	Release map: deviating pair with prototype 0x3f0ae0 _PTT_SyncCallback__FPv (evidence call-deviating; flags moved). // Owner -; prototype name _PTT_SyncCallback not applied: library pair that is not exact (libraries are named from exact pairs only).	0x3f0ae0 _PTT_SyncCallback__FPv (deviating)	2026-11-26	saved 2026-11-26
 0x4382c0	plate	Release map: unsure pair with prototype 0x3f0370 PTT_Heartbeat__Fi (evidence call-deviating; flags low-similarity,moved). // Owner -; prototype name PTT_Heartbeat not applied: unsure pair: the evidence does not settle it.	0x3f0370 PTT_Heartbeat__Fi (unsure)	2026-11-26	saved 2026-11-26
-0x4387e0	plate	Release map: deviating pair with prototype 0x3f02c0 PTT_HeartbeatPrepare__Fv (evidence call; flags moved). // Owner -; prototype name PTT_HeartbeatPrepare not applied: library pair that is not exact (libraries are named from exact pairs only).	0x3f02c0 PTT_HeartbeatPrepare__Fv (deviating)	2026-11-26	saved 2026-11-26
+0x4387e0	name	PTT_HeartbeatPrepare	0x3f02c0 PTT_HeartbeatPrepare__Fv (deviating)	2026-11-27	saved 2026-11-27
+0x4387e0	label	PTT_HeartbeatPrepare__Fv	0x3f02c0 PTT_HeartbeatPrepare__Fv (deviating)	2026-11-27	saved 2026-11-27
+0x4387e0	plate	Release map: deviating pair with prototype 0x3f02c0 PTT_HeartbeatPrepare__Fv (evidence call; flags moved). // Owner -; named although the pair is not exact: its place in the library differs, its callers decide it.	0x3f02c0 PTT_HeartbeatPrepare__Fv (deviating)	2026-11-27	saved 2026-11-27
 0x438870	create	0x438870-0x438877	0x3f0290 _PTT_HeartbeatCallback__FPv (deviating)	2026-11-26	saved 2026-11-26
 0x438870	plate	Release map: deviating pair with prototype 0x3f0290 _PTT_HeartbeatCallback__FPv (evidence pointer-site; flags moved). // Owner -; prototype name _PTT_HeartbeatCallback not applied: library pair that is not exact (libraries are named from exact pairs only).	0x3f0290 _PTT_HeartbeatCallback__FPv (deviating)	2026-11-26	saved 2026-11-26
 0x438880	plate	Release map: deviating pair with prototype 0x3f0110 PTT_Destroy__Fv (evidence call-deviating; flags moved). // Owner -; prototype name PTT_Destroy not applied: library pair that is not exact (libraries are named from exact pairs only).	0x3f0110 PTT_Destroy__Fv (deviating)	2026-11-26	saved 2026-11-26

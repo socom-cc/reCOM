@@ -45,7 +45,7 @@ ROWS = [
     row(0x200060, 0x10, "exact", 0x300060, "One__3CFoFv"),                    # Ghidra body too long
     row(0x200070, 0x10, "exact", 0x300070, "Two__3CFoFv"),                    # inside the one above
     row(0x200080, 0x10, "exact", 0x300080, "Three__3CFoFv"),                  # no instruction at the start
-    row(0x200090, 0x10, "deviating", 0x300090, "sceLib", classification="provider", library="SCE"),
+    row(0x200090, 0x10, "deviating", 0x300090, "sceLib", classification="provider", library=""),   # library unknown
     row(0x2000a0, 0x10, "deviating", 0x3000a0, "Stub__FP13C2DAnimCmdHdrPf", flags=("stubbed",)),
     row(0x2000b0, 0x10, "exact", 0x3000b0, "Jump__3CFoFv"),                   # a default thunk of 0x200000
 ]
@@ -137,10 +137,11 @@ def test_c_library_pairs_are_named_by_their_place():
         lib(0x400040, "unsure", 0x500008, "quorem"),           # unsure and out of place: not named
         lib(0x400050, "deviating", 0x500004, "_dtoa_r"),       # out of place, no caller evidence: not named
         lib(0x400060, "exact", 0x500040, "fclose"),
-        lib(0x400070, "deviating", 0x500050, "sceGsSyncV", library="SCE"),  # another library: exact pairs only
+        lib(0x400070, "deviating", 0x500050, "sceGsSyncV", library="SCE"),  # another library: its own order
+        lib(0x400080, "deviating", 0x500060, "mystery", library=""),        # library unknown: exact pairs only
     ]
     placed = names.library_place(rows)
-    assert placed == {0x400000, 0x400010, 0x400020, 0x400060}
+    assert placed == {0x400000, 0x400010, 0x400020, 0x400060, 0x400070}
 
     def decide(index):
         return names.decide_name(rows[index], {"name": rows[index]["prototype_symbol"]}, placed)
@@ -153,7 +154,8 @@ def test_c_library_pairs_are_named_by_their_place():
     assert name == "exit" and "callers decide" in why
     assert decide(4) == (None, None, "unsure pair: the evidence does not settle it")
     assert decide(5)[0] is None and "exact pairs only" in decide(5)[2]
-    assert decide(7)[0] is None and "exact pairs only" in decide(7)[2]
+    assert decide(7)[0] == "sceGsSyncV" and "same place" in decide(7)[2]
+    assert decide(8)[0] is None and "exact pairs only" in decide(8)[2]
     # Without the place (an old caller), the rule is the old one.
     assert names.decide_name(rows[1], {"name": "atof"})[0] is None
     # The plate of a function named this way says so.

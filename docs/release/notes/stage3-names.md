@@ -139,3 +139,18 @@ every body as it was.
   pairs that are not exact, 15 unsure pairs, 4 flagged `name-changed`, `split` or `merged`,
   1 label clash.
 - 28 boundary differences and 19 functions Ghidra has that the map does not.
+
+## Every library named by its place
+
+Decided by the user on 2026-11-27: the rule for the C standard library holds for every library,
+to keep the release readable. Applied through a plan of the whole map (23288b71...), which
+differed from the applied state in these entries only: 179 more library functions named, with
+their plates and 3 mangled labels: Medius 112, SCE 29, RSA 18, lgAud 10, 989snd 6, libptt 3,
+speech middleware 1. With the 109 of newlib, 288 library functions are named by their place: 7
+of them deviating pairs out of place whose callers decide them, 46 unsure pairs in place. No stop,
+no collision. The coordinator compared the whole function list with the baseline taken after the
+signatures pass: exactly those 179 functions differ, in their name only; bookmarks and
+`socom.elf` as they were. Saved and confirmed (361 rows).
+
+Left on the old rule: 12 library pairs that are deviating, out of place and not decided by their
+callers, and 12 unsure pairs out of place. A function but no name now: 631.

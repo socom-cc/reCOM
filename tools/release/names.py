@@ -348,26 +348,27 @@ def read_labels(bridge, function_name: str) -> list[tuple[int, str]]:
 
 # --- the plan --------------------------------------------------------------------------------
 
-# The C standard library. Its functions keep their order from one build to the next, so a pair
-# that is not exact is named when it stands in the same place as in the prototype (user rule,
-# 2026-11-26). Other libraries stay on the exact-pairs rule.
-C_LIBRARIES = ("newlib", "MSL")
-C_PLACE = "C library pair that is not exact"
+# A library's functions keep their order from one build to the next, so a library pair that is
+# not exact is named when it stands in the same place as in the prototype (user rule: the C
+# standard library on 2026-11-26, every library on 2026-11-27).
+C_PLACE = "library pair that is not exact, named by its place"
 
 
-def _is_c_library(row: dict) -> bool:
-    return row["prototype_classification"] == "provider" and row["prototype_library"] in C_LIBRARIES
+def _is_library(row: dict) -> bool:
+    return row["prototype_classification"] == "provider" and bool(row["prototype_library"])
 
 
 def library_place(rows: list[dict]) -> frozenset[int]:
-    """Release addresses of the C library pairs that stand in the same place as in the prototype.
+    """Release addresses of the library pairs that stand in the same place as in the prototype.
 
     Per library, the pairs sorted by release address: the longest run of them whose prototype
     addresses rise too. A pair in it lies between the same neighbours in both executables.
     """
 
     placed: set[int] = set()
-    for library in C_LIBRARIES:
+    libraries = sorted({r["prototype_library"] for r in rows
+                        if r["prototype_classification"] == "provider" and r["prototype_library"]})
+    for library in libraries:
         pairs = sorted((r["release_address"], r["prototype_address"]) for r in rows
                        if r["release_address"] is not None and r["prototype_address"] is not None
                        and r["prototype_classification"] == "provider" and r["prototype_library"] == library)
@@ -393,16 +394,17 @@ def library_place(rows: list[dict]) -> frozenset[int]:
     return frozenset(placed)
 
 
-def decide_name(row: dict, proto: dict | None, placed: frozenset = frozenset()) -> tuple[str | None, str | None, str]:
+def decide_name(row: dict, proto: dict | None, placed: frozenset | None = None) -> tuple[str | None, str | None, str]:
     """(name, label, reason): the prototype program's name and mangled label, or none and why.
 
-    ``placed``: the result of ``library_place`` for the whole map.
+    ``placed``: the result of ``library_place`` for the whole map; without it no library pair
+    that is not exact is named.
     """
 
     if row["class"] == "new":
         return None, None, "new function: no name yet (proposed names are in the notes)"
     by_place = None
-    if row["class"] != "exact" and _is_c_library(row):
+    if placed is not None and row["class"] != "exact" and _is_library(row):
         if row["release_address"] in placed:
             by_place = "it stands in the same place as in the prototype"
         elif row["class"] == "deviating" and "call" in row["evidence"]:
