@@ -306,7 +306,16 @@ python tools/release/starts.py --confirm-saved build/release/starts/plan-starts.
   function stood, and when a function is added there `FunctionStartFuncAnalyzer` calls
   `SymbolTable.createLabel(.., ANALYSIS)`, which renames the DEFAULT-named function; a second
   pattern of the same bytes adds a label unless a symbol there already contains its text
-  (`AddDmacHandler` and `AddDmacHandler2`). `eret` has no fall-through.
+  (`AddDmacHandler` and `AddDmacHandler2`). The Reference analyzer (`OperandReferenceAnalyzer`)
+  looks at every address the new code points to that is undefined: for an address taken (not a
+  load or store, nothing reads or writes it) that passes `PseudoDisassembler.checkValidSubroutine`
+  (decodes, no data or code in the way, reaches a return, more than one instruction, nothing
+  references its inside, not eight zero bytes) it disassembles there with flow following and sets
+  a "Found Code" bookmark, and makes no function (its `createFunctions` is empty); otherwise it may
+  define a string, a unicode string or a pointer there. The plan predicts both per disassembly
+  (`found_code`, `operand_references`); the apply accepts the predicted code with its bookmark or
+  none of it, records `found-code-by-analysis`, and stops on anything else. `eret` has no
+  fall-through.
 - **Plan** (any worker; reads the release program, writes nothing): `build/release/starts/plan-starts.json`
   and a summary `.md`, deterministic, with its own digest and a baseline (digests of the function
   list, the code gaps, the bookmarks and the defined data). It needs the names plan of the whole

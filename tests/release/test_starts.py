@@ -19,7 +19,7 @@ import ghidra_bridge as gb
 import mips
 import names
 import starts
-from asm import JR_RA, NOP, A0, V0, addiu, b, j, jal, jr
+from asm import JR_RA, NOP, A0, V0, addiu, b, j, jal, jr, lui, lw
 from fake_ghidra import FakeGhidra
 from test_names import make_root, row
 
@@ -66,6 +66,7 @@ class FakeStarts(FakeGhidra):
         self.fail_create: set[int] = set()  # create_function answers an error (its transaction committed)
         self.no_call_return = False  # Shared Return Calls does not convert the jumps
         self.switch_refs: dict[int, int] = {}  # computed jump -> a target Decompiler Switch Analysis found
+        self.found_code: dict[int, list[int]] = {}  # disassembly start -> code the Reference analyzer finds
         r.calls: set[int] = set()  # jump sites turned into call-returns
 
     def call_returns(self, p, target):
@@ -161,6 +162,10 @@ class FakeStarts(FakeGhidra):
                 pc += step
         p.code |= set(self.extra_code.get(start, ()))
         p.code -= set(self.missing_code.get(start, ()))
+        if self.found_code.get(start):  # OperandReferenceAnalyzer: disassembled, bookmarked, no function
+            words = self.found_code[start]
+            p.code |= set(words)
+            p.bookmarks.append((words[0], "Analysis", "Found Code", "Found code from operand reference"))
         for pc in range(start, end, 4):  # SharedReturnJumpAnalyzer: new jumps to function entries
             word = p.image.word(pc)
             dest = mips.jump_target(word, pc) if mips.is_j(word) else None
@@ -249,6 +254,9 @@ SPECIAL = {
     **simple(0x200220, [addiu(3, 0, 0xF), SYSCALL, JR_RA, NOP]),   # S25: named otherwise than its pair
     0x200230: ADD, 0x200234: j(0x200190), 0x200238: NOP,  # S26: a tail call to F21, turned into a call
     **simple(0x200240, [ADD, ADD, jr(25), NOP]),          # S28: a virtual thunk ending in jr t9
+    # S29 passes 0x2002a0 as a parameter in a call's delay slot; a handler (two adds, eret) is there
+    0x200260: lui(5, 0x20), 0x200264: jal(0x200000), 0x200268: addiu(5, 5, 0x2A0), 0x20026c: JR_RA, 0x200270: NOP,
+    0x2002a0: ADD, 0x2002a4: ADD, 0x2002a8: ERET,
 }
 PATTERNS_XML = """<patternlist>
   <patternpairs totalbits="32" postbits="16"><prepatterns><data>0x0800e003 0x........</data></prepatterns>
@@ -272,7 +280,7 @@ ROWS = [row(a, n, "new", evidence=("settled",)) for a, n in (
     (0x200070, 16), (0x200080, 16), (0x200090, 16), (0x2000a0, 16), (0x2000b0, 16), (0x2000c0, 20),
     (0x2000e0, 12), (0x2000f0, 16), (0x200100, 4), (0x200104, 12), (0x200110, 20), (0x200140, 16),
     (0x200150, 16), (0x200160, 24), (0x200180, 8), (0x200190, 16), (0x2001c0, 20), (0x2001e0, 12),
-    (0x200230, 12), (0x200240, 16))] + [row(a, 16, "exact", proto, name) for a, (proto, name) in PROTO.items()]
+    (0x200230, 12), (0x200240, 16), (0x200260, 20))] + [row(a, 16, "exact", proto, name) for a, (proto, name) in PROTO.items()]
 
 
 def make_program(special=SPECIAL, rows=ROWS):
@@ -297,7 +305,8 @@ def make_program(special=SPECIAL, rows=ROWS):
     r.data.append((0x200300, 16, "string"))
     for proto, name in PROTO.values():
         g.prototype.add(proto, proto + 0xF, name)
-    g.pattern_names = {0x200200: ("SetVCommonHandler", []), 0x200210: ("AddDmacHandler", ["AddDmacHandler2"]),
+    g.found_code = {0x200260: [0x2002a0, 0x2002a4, 0x2002a8]}
+    g.pattern_names = {0x200200:("SetVCommonHandler", []), 0x200210: ("AddDmacHandler", ["AddDmacHandler2"]),
                        0x200220: ("SetVInterruptHandler", [])}
     return g
 
@@ -360,7 +369,7 @@ def test_every_case_is_planned_or_withheld_with_its_reason(tmp_path):
     assert c20["case"] == "create-withheld" and c20["decision"] == "planned"
     assert [s["kind"] for s in c20["steps"]] == ["create"] and c20["steps"][0]["accepted"]["kind"] == "padding"
     assert "switch analysis" in e["0x2001c0"]["reason"]
-    assert plan["summary"]["by_decision"] == {"accept": 2, "cannot": 1, "fixed-by-create": 1, "planned": 11,
+    assert plan["summary"]["by_decision"] == {"accept": 2, "cannot": 1, "fixed-by-create": 1, "planned": 12,
                                               "withheld": 8}
 
 
@@ -470,6 +479,59 @@ def test_a_computed_jump_the_switch_analysis_resolves_stops_the_run(tmp_path):
     assert result["stop_kind"] == "analysis" and "computed jump at 0x200248" in result["stopped"]
 
 
+def test_code_the_new_code_points_to_is_predicted_found_and_recorded(tmp_path):
+    g = make_program()
+    root, plan, path = plan_for(tmp_path, g)
+    dis = by(plan)["0x200260"]["steps"][0]
+    assert dis["found_code"] == [{"target": "0x2002a0", "by": "0x200268", "instructions": [["0x2002a0", "0x2002ab"]],
+                                  "bookmark": ["0x2002a0", "Analysis", "Found Code", "Found code from operand reference"],
+                                  "map_row": None, "map_row_state": "no map function"}]
+    assert plan["summary"]["found_code_predicted"] == 1
+    result = starts.apply(root, path, g, dry_run=False, image=g.release.image)
+    assert result["stopped"] is None, result["stopped"]
+    assert names.read_record(root)[("0x2002a0", "found-code-by-analysis")]["value"].startswith("0x2002a0-0x2002ab")
+    assert result["checked"]["code found by the Reference analyzer"] == 1
+
+
+def test_found_code_may_also_not_come_but_never_in_part(tmp_path):
+    g = make_program()
+    root, plan, path = plan_for(tmp_path, g)
+    g.found_code = {}
+    result = starts.apply(root, path, g, dry_run=False, image=g.release.image)
+    assert result["stopped"] is None and result["checked"]["predicted found code not made"] == 1
+    g = make_program()
+    root, plan, path = plan_for(tmp_path / "b", g)
+    g.found_code = {0x200260: [0x2002a0, 0x2002a4]}
+    result = starts.apply(root, path, g, dry_run=False, image=g.release.image)
+    assert result["stop_kind"] == "after" and "2 of the 3" in result["stopped"]
+    g = make_program()
+    root, plan, path = plan_for(tmp_path / "c", g)
+    g.found_code = {0x200260: [0x2002a0, 0x2002a4, 0x2002a8, 0x2002ac]}  # more than predicted
+    result = starts.apply(root, path, g, dry_run=False, image=g.release.image)
+    assert result["stop_kind"] in ("after", "analysis")
+
+
+def test_operand_reference_rules():
+    words = {a: NOP for a in range(BASE, TOP, 4)}
+    words.update({0x200000: lui(5, 0x20), 0x200004: jal(0x200100), 0x200008: addiu(5, 5, 0x40),  # delay slot
+                  0x20000c: lui(6, 0x20), 0x200010: lw(2, 0x60, 6),                             # a load
+                  0x200040: ADD, 0x200044: JR_RA, 0x200048: NOP,                                 # a subroutine
+                  0x200060: ADD, 0x200064: ADD})                                                  # no return
+    image = elfimage.synthetic([words[a] for a in range(BASE, TOP, 4)], base=BASE)
+    gap = [{"start": BASE, "end": TOP - 1, "undefined": True, "orphans": False, "before": None, "after": None}]
+    model = starts.Model(image, {0x200100: {"name": "f", "thunk": False}}, {0x200100: (0x200100, 0x200107)}, set(),
+                         gap, [], lambda a: False)
+    assert starts.lui_references(image.word, 0x200000, 0x200014) == [(0x200008, 0x200040), (0x200010, 0x200060)]
+    effects = starts.operand_effects(model, 0x200000, 0x200014)
+    assert [f["target"] for f in effects["found"]] == ["0x200040"]
+    assert [(d["address"], d["by"], d["access"]) for d in effects["data"]] == [("0x200060", "0x200010", "read")]
+    assert starts.valid_subroutine(model, 0x200060)[0] is False  # never returns
+    model.refs_to = lambda a: ["DATA"] if a == 0x200044 else []
+    assert "references 0x200044" in starts.valid_subroutine(model, 0x200040)[1]
+    assert starts.data_kind_allowed("string") and starts.data_kind_allowed("pointer")
+    assert not starts.data_kind_allowed("undefined4") and not starts.data_kind_allowed("float")
+
+
 def test_only_takes_hexadecimal_addresses():
     assert starts.parse_only(["0x200030", "0x10"]) == {"0x200030", "0x000010"}
     for bad in ("200030", "2097200", "0x", "0xzz"):
@@ -502,7 +564,7 @@ def test_apply_makes_exactly_the_prediction_and_records_it(tmp_path):
     assert body_of(r, 0x200060) == set(range(0x200060, 0x200070, 4))  # the container cut back
     assert body_of(r, 0x200070) == set(range(0x200070, 0x200080, 4))
     assert body_of(r, 0x200050) == set(range(0x200050, 0x200060, 4))
-    assert result["counts"] == {"create": 11, "cut-by-analysis": 1, "disassemble": 9, "extent-accepted": 3,
+    assert result["counts"] == {"create": 12, "cut-by-analysis": 1, "disassemble": 10, "extent-accepted": 3, "found-code-by-analysis": 1,
                                 "label-by-analysis": 1, "name-by-analysis": 3}
     assert result["checked"]["accepted as is"] == 2
     record = names.read_record(root)
@@ -511,7 +573,7 @@ def test_apply_makes_exactly_the_prediction_and_records_it(tmp_path):
     assert record[("0x200050", "extent-accepted")]["value"].startswith("0x200050-0x20005f: padding")
     report = root / starts.OUT / result["report"]
     done = names.confirm_saved(root, report, reader(g), today="2026-11-28", reads_back=starts.reads_back)
-    assert done["confirmed"] == 28
+    assert done["confirmed"] == 31
     # names then plans the new functions as existing ones
     names_plan = names.build_plan(root, reader(g), None, image=r.image)
     actions = {e["address"]: e["function"] for e in names_plan["entries"]}
@@ -526,7 +588,7 @@ def test_dry_run_sends_nothing_and_lists_the_writes(tmp_path):
     result = starts.apply(root, path, ro, dry_run=True, image=g.release.image)
     assert result["stopped"] is None and ro.sent == []
     kinds = Counter_of(result["would_write"])
-    assert kinds == {"create": 11, "disassemble": 9}
+    assert kinds == {"create": 12, "disassemble": 10}
 
 
 def Counter_of(items):

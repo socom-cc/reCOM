@@ -72,7 +72,9 @@ PLAN_KIND = "socom-release-starts-plan"
 PLAN_SCHEMA = 1
 PLAN_STEM = "plan-starts"
 AROUND = 0x40  # words on each side of a disassembled range whose code-unit state is compared
-CASES = ("no-instruction", "inside", "boundary", "create-withheld")
+# "create": code without a function that the names step would create (a start disassembled by an
+# earlier starts run whose create is still to come)
+CASES = ("no-instruction", "inside", "boundary", "create-withheld", "create")
 TERMINATORS = frozenset({createflow.ERET})
 hx = nm.hx
 Refused = nm.Refused
@@ -149,21 +151,34 @@ def flow_targets(word: int, pc: int) -> tuple[str, int] | None:
 def lui_references(word_at, start: int, end: int) -> list[tuple[int, int]]:
     """(instruction, address) of each lui/low-half pair inside [start, end): constant references."""
 
-    out, high = [], {}
+    out, high, clear_next = [], {}, False
     for pc in range(start, end, 4):
         word = word_at(pc)
         op, rs, rt = word >> 26, (word >> 21) & 31, (word >> 16) & 31
+        after_slot = clear_next  # a call clobbers registers after its delay slot, which still sees them
+        clear_next = createflow.is_call(word)
         if op == 0x0F:
             high[rt] = (word & 0xFFFF) << 16
-            continue
-        if rs in high and (op == 0x09 or op == 0x0D or op in mips.LOADSTORE):
-            low = (word & 0xFFFF) if op == 0x0D else mips.simm(word)
-            out.append((pc, (high[rs] + low) & 0xFFFFFFFF))
-        for reg in mips.written_registers(word):
-            high.pop(reg, None)
-        if createflow.is_call(word):
+        else:
+            if rs in high and (op == 0x09 or op == 0x0D or op in mips.LOADSTORE):
+                low = (word & 0xFFFF) if op == 0x0D else mips.simm(word)
+                out.append((pc, (high[rs] + low) & 0xFFFFFFFF))
+            for reg in mips.written_registers(word):
+                high.pop(reg, None)
+        if after_slot:
             high.clear()
     return out
+
+
+def access_kind(word: int) -> str:
+    """How the low half of a lui pair uses the address: Ghidra gives loads READ and stores WRITE references."""
+
+    op = word >> 26
+    if op in mips.LOADS:
+        return "read"
+    if op in mips.LOADSTORE:
+        return "write"
+    return "address"
 
 
 # --- address sets ------------------------------------------------------------------------------
@@ -314,6 +329,7 @@ class Model:
         self._data_starts = [d[0] for d in data]
         self.code_at = code_at  # live: does this word hold an instruction (cached)
         self.new_code: set[int] = set()
+        self.refs_to = lambda address: []  # the reference types to an address (the plan reads them live)
 
     def copy(self) -> "Model":
         other = Model.__new__(Model)
@@ -481,6 +497,145 @@ def simulate_disassembly(model: Model, start: int, end: int) -> dict:
                 return {"error": f"falls through past its end beyond {hx(end + 0x40)}"}
     overrun = sorted(a for a in new if a >= end)
     return {"error": None, "new": new, "overrun": overrun}
+
+
+FOUND_CODE = ("Analysis", "Found Code", "Found code from operand reference")
+# what the Reference analyzer may define at an address the new code points to (checkForAscii,
+# checkForUnicode, checkForPointer): a string, a unicode string or a pointer
+DATA_KINDS = ("string", "unicode", "char", "ds", "pointer")
+
+
+def data_kind_allowed(type_name: str) -> bool:
+    low = type_name.lower()
+    return "string" in low or "pointer" in low or low.startswith(DATA_KINDS)
+
+
+def valid_subroutine(model: Model, target: int) -> tuple[bool, str, set[int]]:
+    """``PseudoDisassembler.checkValidSubroutine(target, allowExistingCode=false, mustTerminate=true)``.
+
+    Follows fall-through and jumps (not calls; a call to a no-return function ends its run), at
+    most 4000 instructions; fails on bytes that do not decode, on existing code or data in the
+    body, on a body of one instruction, on references into the body other than at its entry, on
+    eight zero bytes at the entry; needs a return (jr ra, eret), a computed jump or a jump or call
+    to an existing function.
+    """
+
+    word_at, contains = model.image.word, model.image.contains
+    if not (contains(target) and contains(target + 4)):
+        return False, "outside the image", set()
+    if word_at(target) == 0 and word_at(target + 4) == 0:
+        return False, "starts with eight zero bytes", set()
+    starts_, stack, terminated, called = set(), [target], False, False
+    while stack:
+        pc = stack.pop()
+        if pc in starts_:
+            continue
+        if len(starts_) > 4000 or not contains(pc) or not contains(pc + 4):
+            return False, "runs out of the image or past 4000 instructions", set()
+        word = word_at(pc)
+        if mips.is_invalid(word) or model.state(pc) != "undefined":
+            return False, f"meets {'bytes that do not decode' if mips.is_invalid(word) else model.state(pc)} at {hx(pc)}", set()
+        starts_.add(pc)
+        step = 4
+        if has_delay(word):
+            slot = pc + 4
+            if mips.is_invalid(word_at(slot)) or model.state(slot) != "undefined":
+                return False, f"its delay slot at {hx(slot)} is no undefined instruction", set()
+            starts_.add(slot)
+            step = 8
+        if word == mips.JR_RA or word in TERMINATORS or (mips.is_jr(word) and word != mips.JR_RA):
+            terminated = True
+        found = flow_targets(word, pc)
+        if found:
+            kind, t = found
+            if t in model.functions:
+                called = True
+            elif kind != "call":
+                stack.append(t)
+            if kind == "call" and t in model.noreturn:
+                continue
+        if falls_through(word):
+            stack.append(pc + step)
+    if not (terminated or called):
+        return False, "does not reach a return", set()
+    if len(starts_) == 1 and not called:
+        return False, "one instruction", set()
+    inside = [a for a in sorted(starts_) if a != target and model.refs_to(a)]
+    if inside:
+        return False, f"something references {hx(inside[0])} inside it", set()
+    return True, "", starts_
+
+
+def follow_disassembly(model: Model, target: int) -> dict:
+    """``DisassembleCommand(target, null, true)`` as the Reference analyzer sends it: all flow, calls too."""
+
+    word_at, new, calls, stack = model.image.word, set(), set(), [target]
+    while stack:
+        pc = stack.pop()
+        if pc in new or model.state(pc) == "code":
+            continue
+        if model.state(pc) == "data" or mips.is_invalid(word_at(pc)):
+            return {"error": f"its flow reaches data or bytes that do not decode at {hx(pc)}"}
+        new.add(pc)
+        step = 4
+        if has_delay(word_at(pc)):
+            new.add(pc + 4)
+            step = 8
+        found = flow_targets(word_at(pc), pc)
+        if found:
+            kind, t = found
+            if kind == "call" and t not in model.functions and t != pc + 8:
+                calls.add(t)
+            stack.append(t)
+            if kind == "call" and t in model.noreturn:
+                continue
+        if falls_through(word_at(pc)):
+            stack.append(pc + step)
+        if len(new) > 0x4000:
+            return {"error": "runs on past 64 KiB"}
+    if calls:
+        return {"error": f"the code found calls {hx(min(calls))}, which is no function (Subroutine References "
+                         "would make one)", "new": new}
+    return {"error": None, "new": new}
+
+
+def operand_effects(model: Model, start: int, end: int) -> dict:
+    """What the Reference analyzer (``OperandReferenceAnalyzer``) does with what new code points to.
+
+    For every lui/low-half pair of the new code whose target is undefined now: a load or a store
+    gives READ/WRITE references, so only a string, a unicode string or a pointer may be defined
+    there; an address taken (addiu/ori) at a target nothing reads or writes, which passes the
+    valid-subroutine test, is disassembled with flow following (no function is made: its
+    createFunctions is empty) and bookmarked "Found Code"; otherwise data may be defined there.
+    """
+
+    found, data, errors, seen = [], [], [], set()
+    for pc, target in lui_references(model.image.word, start, end):
+        if not model.image.contains(target) or target in model.functions or start <= target < end:
+            continue
+        if target in seen:  # checkedTargets: each target once
+            continue
+        seen.add(target)
+        if model.state(target) != "undefined":
+            continue
+        kind = access_kind(model.image.word(pc))
+        reads = [r for r in model.refs_to(target) if "READ" in r or "WRITE" in r]
+        why = "a load or store: READ/WRITE references, no code is looked for" if kind != "address" else (
+            "read or written elsewhere (hasDataAccessReferences)" if reads else "")
+        if kind == "address" and not reads:
+            ok, why, _ = valid_subroutine(model, target)
+            why = f"no valid subroutine there: {why}" if not ok else why
+            if ok:
+                flow = follow_disassembly(model, target)
+                if flow["error"]:
+                    errors.append(f"the Reference analyzer would disassemble at {hx(target)} (from {hx(pc)}) and "
+                                  f"{flow['error']}")
+                    continue
+                found.append({"target": hx(target), "by": hx(pc), "instructions": ranges(flow["new"]),
+                              "bookmark": [hx(target), *FOUND_CODE]})
+                continue
+        data.append({"address": hx(target), "by": hx(pc), "access": kind, "why": why})
+    return {"found": found, "data": data, "errors": errors}
 
 
 def body_flow(model: Model, entry: int, jumps: dict | None = None):
@@ -865,10 +1020,8 @@ def static_needs(model: Model, start: int, size: int, starts: set[int],
         refs.append({"at": hx(pc), "address": hx(target), "state": state})
         owner = next((s for s in starts if s <= target < s + starts[s]), None) if state == "undefined" else None
         if owner is not None and owner != start:
-            needs.add(owner)
-        elif state == "undefined" and in_text(target) and not start <= target < end:
-            why.append(f"references undefined bytes in the text at {hx(target)} (from {hx(pc)}): the operand "
-                       "reference analyzer may disassemble there")
+            needs.add(owner)  # that start first: its code is there then, and nothing is found
+        # other undefined targets: what the Reference analyzer makes there is predicted per step
     return needs, why, refs
 
 
@@ -939,6 +1092,14 @@ def build_plan(root: Path, bridge, names_path: Path = NAMES_PLAN, progress=None,
                           "Reloaded extension) was not found: pass --patterns or set SOCOM_R5900_PATTERNS")
         patterns = load_patterns(Path(path))
     model.patterns = patterns
+    ref_types: dict[int, list[str]] = {}
+
+    def refs_to(address: int) -> list[str]:
+        if address not in ref_types:
+            ref_types[address] = [line.rsplit("[", 1)[-1].rstrip("]") for line in references_to(bridge, address)]
+        return ref_types[address]
+
+    model.refs_to = refs_to
     text_end = max(r["release_address"] + r["release_size"] for r in rows if r["release_address"] is not None)
     index = jump_index(image, text_end)
     extents = sorted((r["release_address"], r["release_address"] + r["release_size"]) for r in rows
@@ -979,7 +1140,7 @@ def build_plan(root: Path, bridge, names_path: Path = NAMES_PLAN, progress=None,
                 item.update(decision="withheld", reason=why[0])
                 continue
             pending[a] = {"needs": needs, "item": item}
-        elif e["function"] == "create-withheld":
+        elif e["function"] in ("create-withheld", "create"):
             item["now"] = describe_now(model, a, n, extent_references(bridge, a, n))
             item["names_reason"] = (e.get("create") or {}).get("reason")
             pending[a] = {"needs": set(), "item": item}  # create only: its code is there (in part)
@@ -1096,6 +1257,15 @@ def build_plan(root: Path, bridge, names_path: Path = NAMES_PLAN, progress=None,
             inner = [x for x in out.values() if x["case"] == "inside" and x["now"].get("container") == e["address"]]
             if inner and item["decision"] == "cannot":
                 item["reason"] = f"the create at {inner[0]['address']} that would cut it is withheld: {inner[0]['reason']}"
+    for item in out.values():  # which map function each predicted piece of found code belongs to
+        for st in item["steps"]:
+            for f in st.get("found_code", []):
+                t = int(f["target"], 16)
+                i = bisect.bisect_right(starts_of, t) - 1
+                row = extents[i][0] if i >= 0 and extents[i][0] <= t < extents[i][1] else None
+                f["map_row"] = hx(row) if row is not None else None
+                f["map_row_state"] = (out[hx(row)]["decision"] if row is not None and hx(row) in out else
+                                      "has a function" if row in functions else "no map function")
     plan = {
         "kind": PLAN_KIND, "schema_version": PLAN_SCHEMA, "program": gb.RELEASE_PROGRAM,
         "program_path": gb.RELEASE_PATH, "release_sha256": RELEASE_SHA256, "prototype_sha256": PROTOTYPE_SHA256,
@@ -1155,11 +1325,13 @@ def plan_entry(model: Model, start: int, item: dict, index: dict, jumps: dict) -
                 return {"withheld": f"falls through padding into {hx(stop)}, which is no function entry",
                         "needs_function": stop}
         already = sorted(a for a in range(start, stop, 4) if model.state(a) == "code")
-        data_refs = []
-        for pc, target in lui_references(model.image.word, start, end):
-            if model.image.contains(target) and model.state(target) == "undefined" and target not in model.functions:
-                data_refs.append(hx(target))
         model.disassembled(dis["new"])
+        operands = operand_effects(model, start, end)
+        if operands["errors"]:
+            return {"withheld": operands["errors"][0]}
+        for f in operands["found"]:  # orphan code the Reference analyzer makes; no function
+            model.disassembled(words_of(f["instructions"]))
+        data_refs = [d["address"] for d in operands["data"]]
         # SharedReturnJumpAnalyzer (an instruction analyzer) runs SharedReturnAnalysisCmd for every
         # function entry a new jump or branch reaches: unconditional jumps to it become call-returns
         # and its neighbourhood is scanned for jumps that cross a function.
@@ -1176,6 +1348,8 @@ def plan_entry(model: Model, start: int, item: dict, index: dict, jumps: dict) -
                       "instructions": ranges(set(range(start, stop, 4))), "new": ranges(dis["new"]),
                       "already_instructions": ranges(already), "padding": ranges(dis["overrun"]) if dis["overrun"] else [],
                       "may_define_data_at": sorted(set(data_refs)),
+                      "operand_references": operands["data"],
+                      "found_code": operands["found"],
                       "overrides": [{"at": hx(s), "to": hx(d)} for s, d in after_dis["overrides"]],
                       "callees": sorted({hx(flow_targets(model.image.word(pc), pc)[1]) for pc in calls}),
                       "returns_after_calls": [hx(pc + 8) for pc in calls if start <= pc + 8 < stop]})
@@ -1237,6 +1411,9 @@ def summarize(plan: dict) -> dict:
         "predicted_overrides": sum(len(s.get("overrides", [])) for e in planned for s in e["steps"]),
         "thunks": sum(1 for e in planned for s in e["steps"] if s.get("thunk_of")),
         "may_define_data": sum(len(s.get("may_define_data_at", [])) for e in planned for s in e["steps"]),
+        "found_code_predicted": sum(len(s.get("found_code", [])) for e in planned for s in e["steps"]),
+        "operand_references_to_undefined": sum(len(s.get("operand_references", [])) + len(s.get("found_code", []))
+                                               for e in planned for s in e["steps"]),
         "overrides_after_disassembly": sum(len(s.get("overrides", [])) for e in planned for s in e["steps"]
                                            if s["kind"] == "disassemble"),
         "analysis_names": {
@@ -1273,6 +1450,16 @@ def plan_markdown(plan: dict) -> str:
             if st.get("analysis_name"):
                 lines.append(f"| {e['address']} | {st['analysis_name']} | {', '.join(st['analysis_labels']) or '-'} | "
                              f"{e.get('prototype_name') or '-'} |")
+    lines += ["", "## What the new code points to that is undefined now (Reference analyzer)", "",
+              "| start | instruction | target | predicted effect | map function there |", "|---|---|---|---|---|"]
+    for e in plan["entries"]:
+        for st in e["steps"]:
+            for f in st.get("found_code", []):
+                lines.append(f"| {e['address']} | {f['by']} | {f['target']} | found code {f['instructions']}, bookmark "
+                             f"Found Code | {f['map_row'] or '-'} ({f['map_row_state']}) |")
+            for d in st.get("operand_references", []):
+                lines.append(f"| {e['address']} | {d['by']} | {d['address']} | data may be defined ({d['access']}: "
+                             "string, unicode or pointer) | - |")
     lines += ["", "## Not planned", ""]
     for e in plan["entries"]:
         if e["decision"] != "planned":
@@ -1486,13 +1673,32 @@ class Applier:
                             f"{step['instructions']} (extra {[hx(a) for a in extra[:3]]}, missing "
                             f"{[hx(a) for a in gone[:3]]})")
         nm.settle(self.bridge)
-        moved = [a for a, was in before.items() if is_code_live(self.bridge, a) != (was or a in new)]
+        # Code the Reference analyzer may find where the new code points: all of it, or none of it.
+        found_words, bookmarks = set(), set()
+        for f in step.get("found_code", []):
+            words = words_of(f["instructions"])
+            made = [a for a in sorted(words) if is_code_live(self.bridge, a)]
+            if made and len(made) != len(words):
+                raise StopAfter(f"after the disassembly at {e['address']} the Reference analyzer made {len(made)} of the "
+                                f"{len(words)} predicted instructions at {f['target']} ({f['instructions']})")
+            if made:
+                found_words |= words
+                bookmarks.add((int(f["bookmark"][0], 16), *f["bookmark"][1:]))
+                self.model.disassembled(words)
+                lo, hi = min(words), max(words) + 3
+                self.record({**e, "address": f["target"]}, "found-code-by-analysis",
+                            f"{hx(lo)}-{hx(hi)}: from {f['by']} in {e['address']}; bookmark Found Code", hx(hi))
+                self.checked["code found by the Reference analyzer"] += 1
+            else:
+                self.checked["predicted found code not made"] += 1
+        moved = [a for a, was in before.items()
+                 if is_code_live(self.bridge, a) != (was or a in new or a in found_words)]
         if moved:
             raise StopAfter(f"after the disassembly at {e['address']} the code-unit state differs from the "
                             f"prediction at {', '.join(hx(a) for a in moved[:5])}")
         self.record(e, "disassemble", f"{hx(start)}-{hx(stop - 1)}", hx(stop - 1))
         self.check_overrides(e, step)
-        self.compare(e, step, allowed_data={int(a, 16) for a in step["may_define_data_at"]})
+        self.compare(e, step, allowed_data={int(a, 16) for a in step["may_define_data_at"]}, bookmarks=bookmarks)
 
     def labels(self, address: int) -> list[tuple[int, str]]:
         """The labels of the function at ``address`` (``get_function_documentation``, read by address)."""
@@ -1586,10 +1792,10 @@ class Applier:
             self.checked["computed jumps without references"] += 1
         self.compare(e, step, allowed_data=set())
 
-    def compare(self, e, step, allowed_data: set[int]):
-        """Everything the bridge lists, against the model after this step."""
+    def compare(self, e, step, allowed_data: set[int], bookmarks: set = frozenset()):
+        """Everything the bridge lists, against the model after this step (``bookmarks``: predicted, made)."""
 
-        functions, gaps, bookmarks, data = self.light()
+        functions, gaps, found_bookmarks, data = self.light()
         changes = []
         want = self.model.functions
         for a in sorted(set(functions) | set(want)):
@@ -1615,14 +1821,16 @@ class Applier:
             if x["undefined"] is None or x["orphans"] is None:
                 self.model.gap_flags[key] = (f["undefined"], f["orphans"])  # learnt, not predicted
                 self.checked["gap flags not predicted"] += 1
-        if bookmarks != self.state[2]:
-            for b in sorted(set(bookmarks) ^ set(self.state[2])):
+        found_marks = set(found_bookmarks)
+        expected_marks = set(self.state[2]) | set(bookmarks)
+        if found_marks != expected_marks:
+            for b in sorted(found_marks ^ expected_marks):
                 changes.append({"bookmark": [hx(b[0]), b[1], b[2], b[3]],
-                                "change": "added" if b in bookmarks else "removed"})
+                                "change": "added" if b in found_marks else "missing"})
         if data != self.state[3]:
             old = set(self.state[3])
             for d in sorted(set(data) ^ old):
-                if d in old or d[0] not in allowed_data:
+                if d in old or d[0] not in allowed_data or not data_kind_allowed(d[2]):
                     changes.append({"data": [hx(d[0]), d[1], d[2]], "change": "removed" if d in old else "added"})
                 else:
                     self.data_defined.append({"address": hx(d[0]), "length": d[1], "type": d[2],
@@ -1637,7 +1845,7 @@ class Applier:
             self.analysis_changes = [dict(c, after=f"{step['kind']} {e['address']}") for c in changes]
             raise AnalysisStop(f"after the {step['kind']} at {e['address']} the program differs from the prediction "
                                f"({len(changes)} differences, listed under analysis_changes)")
-        self.state = (functions, gaps, bookmarks, data)
+        self.state = (functions, gaps, found_bookmarks, data)
         self.model.data = data
         self.model._data_starts = [d[0] for d in data]
 
@@ -1656,7 +1864,7 @@ def reads_back(bridge, item: dict) -> bool:
             bridge.get("get_function_documentation", gb.RELEASE_PROGRAM, address=hx(address)), address)
         return (address, item["value"]) in found
     lo, hi = (int(x, 16) for x in item["value"].split(" ")[0].rstrip(":").split("-"))
-    if item["applied"] == "disassemble":
+    if item["applied"] in ("disassemble", "found-code-by-analysis"):
         return is_code_live(bridge, lo) and is_code_live(bridge, hi - 3)
     live = nm.read_function(bridge, gb.RELEASE_PROGRAM, address)
     return bool(live) and live["entry"] == address and (live["body_min"], live["body_max"]) == (lo, hi)
