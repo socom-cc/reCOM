@@ -27,6 +27,12 @@ Facts this client relies on were read from the installed plugin (GhidraMCP 6.0.0
 * ``get_function_documentation`` lists the labels in the body of the function starting at an
   address (it decompiles, so it is slow, about 0.5 s); ``get_function_labels`` lists them for
   the first function of a given name;
+* ``get_function_by_address`` prints ``Function.getSignature()``, i.e.
+  ``FunctionDefinitionDataType.getPrototypeString(true)``: ``[noreturn ]<return> [<convention> ]
+  <name>(<type> <name>, ...)``; ``get_function_variables`` lists each parameter's name, type name
+  and storage (it decompiles, about 0.2 s); ``list_data_types`` prints
+  ``name | category | size bytes | path`` for every type of the program;
+* ``set_function_prototype`` (signatures step only) is described in ``signatures.py``;
 * no endpoint used here saves the program.
 
 Only the GET endpoints in ``READS`` and the POST endpoints in ``WRITES`` can be sent. A
@@ -53,10 +59,15 @@ READS = frozenset({
     "list_open_programs", "analysis_status", "get_program_options", "list_functions_enhanced",
     "get_function_by_address", "get_plate_comment", "get_function_labels", "audit_global",
     "get_function_documentation", "get_xrefs_from",
+    # signatures step: DataTypeService.listDataTypes walks the data type manager;
+    # FunctionService.getFunctionVariables reads the parameters (and decompiles, read-only)
+    "list_data_types", "get_function_variables",
 })
 NO_PROGRAM = frozenset({"list_open_programs"})
 # The only writes the names step sends; none of them saves.
 WRITES = frozenset({"create_function", "create_label", "rename_function_by_address", "set_comment"})
+# The only writes the signatures step sends (tools/release/signatures.py); none of them saves.
+SIGNATURE_WRITES = frozenset({"set_function_prototype", "set_comment"})
 
 _FUNCTION = re.compile(r"^Function: (.*) at ([0-9a-fA-F]+)$")
 _BODY = re.compile(r"^Body: ([0-9a-fA-F]+) - ([0-9a-fA-F]+)$")
@@ -81,13 +92,15 @@ def _value(value) -> str:
 class Bridge:
     """Keep-alive client; ``read_only`` refuses every write (dry runs and plans)."""
 
-    def __init__(self, url: str | None = None, *, read_only: bool = True, timeout: float = 120.0):
+    def __init__(self, url: str | None = None, *, read_only: bool = True, timeout: float = 120.0,
+                 writes: frozenset = WRITES):
         self.url = (url or os.environ.get("SOCOM_GHIDRA_URL") or DEFAULT_URL).rstrip("/")
         parts = urlsplit(self.url)
         if parts.scheme != "http" or not parts.hostname:
             raise BridgeError(f"bridge URL must be http://host:port, not {self.url!r}")
         self.host, self.port = parts.hostname, parts.port or 80
         self.read_only = read_only
+        self.writes = writes  # the write endpoints this client may send (WRITES or SIGNATURE_WRITES)
         self.timeout = timeout
         self.sent: list[dict] = []  # every write sent, in order, with its answer
         self._conn: http.client.HTTPConnection | None = None
@@ -133,7 +146,7 @@ class Bridge:
     def write(self, endpoint: str, program: str, **body):
         if self.read_only:
             raise WriteRefused(f"read-only bridge: {endpoint} not sent")
-        if endpoint not in WRITES:
+        if endpoint not in self.writes:
             raise WriteRefused(f"{endpoint} is not a write this tool may send")
         if program != RELEASE_PROGRAM or "program" in body:
             raise WriteRefused(f"writes go to {RELEASE_PROGRAM} only, not {program!r}")

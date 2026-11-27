@@ -153,6 +153,62 @@ python tools/release/names.py --confirm-saved build/release/names/plan-gamez-zAr
   `unsaved <report>` until `--confirm-saved` re-reads them and marks them `saved <date>`; no new
   apply starts while unsaved rows exist.
 
+## Stage 3: signatures
+
+Step two of stage 3 carries function prototypes (return type, calling convention, parameter
+names and types, varargs) into `SCUS_971.34` with `tools/release/signatures.py`, through
+`set_function_prototype` only (no script), so that the decompiler shows members instead of raw
+offsets:
+
+```powershell
+python tools/release/signatures.py --plan gamez/zArchive        # or: --plan --all
+python tools/release/signatures.py --apply build/release/signatures/signatures-gamez-zArchive.json --dry-run
+python tools/release/signatures.py --apply build/release/signatures/signatures-gamez-zArchive.json --yes [--batch N] [--classes exact,deviating]
+python tools/release/signatures.py --confirm-saved build/release/signatures/signatures-gamez-zArchive.apply-001.json
+```
+
+- **Plan** (any worker; reads both programs, writes nothing to Ghidra):
+  `build/release/signatures/signatures-<module>.json` and a summary `.md`, deterministic, with its
+  own digest. A pair is planned when its release function exists with the map's extent, is no
+  thunk and has no name of its own other than its counterpart's. Its prototype is read from
+  `socom.elf` (the Signature line of `get_function_by_address`; names, types and storage from
+  `get_function_variables`). Every type it names must exist in the release program at the same
+  path with the same size, and be the only type of its name there (the signature parser looks
+  types up by name); otherwise the pair is withheld and the summary lists the missing types. A
+  prototype signature that is still Ghidra's default (undefined return, no parameter) gives
+  nothing to carry and is listed. Exact pairs form one group; deviating pairs, and C library
+  pairs named by their place, form another, taken only with `--classes exact,deviating`; their
+  plate comment gets the clause that the signature is the prototype's and a starting point.
+  Unsure pairs, other library pairs that are not exact, pairs flagged `name-changed`, `split`,
+  `merged` or `rename-possible`, thunks, boundary differences and functions inside another are
+  withheld with the reason.
+- **What cannot be carried.** `set_function_prototype` recomputes storage from the calling
+  convention (custom storage is switched off; `set_variable_storage` changes nothing), never sets
+  or clears no-return (differences are listed, not applied: a no-return change reworks flow at
+  every call site), cannot read a type or name holding `(`, `)` or `,`, and sets varargs only
+  after a fixed parameter. The prototype's `this` is an ordinary first parameter under
+  `__stdcall` and travels as one. Its read-back compares the storage of every parameter with the
+  prototype's, so a prototype with storage of its own stops the run.
+- **Review**: a second agent that did not write the plan checks it before anything is applied.
+- **Apply**: the coordinator only, after the review: the dry run first, then `--yes`, optionally
+  in batches. The same guards as for names (open programs, recorded SHA-256, idle analysis, plan
+  digest and map, no unsaved rows, writes to the release program only, never a save). Per
+  function it checks that the live state is the one planned, writes, reads back the whole
+  prototype (signature line and every parameter's name, type and storage) and compares it field
+  by field; the first mismatch stops the run. Thunks are never written: a thunk of a written
+  function must show the predicted signature at once. A snapshot of every release function
+  (existence, body, name, thunk flag, signature line with no-return) is compared with the
+  expected state after every `--check-every` written functions (default 10), whenever analysis is
+  seen running after a write, and at the end; any change the plan did not make stops the run and
+  is listed in the report with the writes since the last clean snapshot (`--check-every 1` names
+  the write exactly). A second run changes nothing.
+- **Save**: the coordinator, through the bridge, after a second agent has checked the batch; then
+  `--confirm-saved <report>`. After closing without a save, `--discard-unsaved <report>`, which
+  also restores the names step's plate rows that the flag replaced.
+- **Record**: `docs/release/ghidra-applied.tsv`, kind `prototype`, value the signature line with
+  the storage of each parameter; plate flags replace the function's `plate` row. Rows stay
+  `unsaved <report>` until `--confirm-saved`.
+
 ## Source
 
 - `src/` stays the single game source and the port lane's rules in `AGENTS.md` hold: assembly

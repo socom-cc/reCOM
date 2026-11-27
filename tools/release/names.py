@@ -445,12 +445,58 @@ def plate_text(row: dict, entry: dict, note: str | None) -> str:
     if entry.get("name") and C_PLACE in (entry.get("name_reason") or ""):
         parts.append("named although the pair is not exact: " + entry["name_reason"].split(C_PLACE, 1)[1].split(": ", 1)[1])
     if entry.get("previous_name"):
-        parts.append(f"replaces the analysis name {entry['previous_name']}")
+        parts.append(f"{REPLACES}{entry['previous_name']}")
     live = entry.get("live") or {}
     if live.get("thunk"):
-        parts.append(f"Ghidra thunk of {live.get('thunk_target') or 'an unknown target'}"
+        parts.append(f"{THUNK_CLAUSE}{live.get('thunk_target') or 'an unknown target'}"
                      + ("" if entry.get("name") else ", shown under its target's name"))
     return first + "\n" + "; ".join(parts) + "."
+
+
+# Plate clauses that describe the program as an earlier apply found it, or that a later step added.
+REPLACES = "replaces the analysis name "
+THUNK_CLAUSE = "Ghidra thunk of "
+# Added by tools/release/signatures.py to the plate of a function whose pair is not exact.
+SIGNATURE_CLAUSE = "signature carried from the prototype as a starting point (the pair is not exact)"
+
+
+def plate_clauses(plate: str) -> tuple[str, list[str]]:
+    """(first line, the clauses of the second line) of a plate written by plate_text."""
+
+    first, _, rest = (plate or "").partition("\n")
+    rest = rest[:-1] if rest.endswith(".") else rest
+    return first, rest.split("; ") if rest else []
+
+
+def join_plate(first: str, clauses: list[str]) -> str:
+    return first + "\n" + "; ".join(clauses) + "."
+
+
+def kept_plate(planned: str | None, recorded_value: str | None) -> str | None:
+    """The plate the record holds, when a replan differs from it only where it cannot know better.
+
+    A replan cannot see the analysis name an earlier apply replaced (the live name is the planned
+    one now), and a function the tool created as a predicted thunk was planned before it was a
+    thunk, so its plate lacks the thunk clause. A clause the signatures step added stays too. Any
+    other difference gives the planned plate.
+    """
+
+    if not planned or not recorded_value or record_value(planned) == recorded_value:
+        return planned
+    recorded = recorded_value.replace(" // ", "\n")
+    if record_value(recorded) != recorded_value or not recorded.startswith(PLATE_PREFIX):
+        return planned
+    first, mine = plate_clauses(planned)
+    first_recorded, theirs = plate_clauses(recorded)
+    if first != first_recorded:
+        return planned
+    only_planned = [c for c in mine if c not in theirs]
+    only_recorded = [c for c in theirs if c not in mine]
+    if all(c.startswith(THUNK_CLAUSE) for c in only_planned) \
+            and all(c.startswith(REPLACES) or c == SIGNATURE_CLAUSE for c in only_recorded) \
+            and [c for c in mine if c in theirs] == [c for c in theirs if c in mine]:
+        return recorded
+    return planned
 
 
 def select(rows: list[dict], module: str | None) -> list[dict]:
@@ -504,7 +550,11 @@ def global_names(rows, proto_list, live_list, keep: dict | None = None) -> tuple
         planned[row["release_address"]] = decide_name(row, proto, placed)
     for address, why in (keep or {}).items():
         planned[address] = (None, None, why)
-    proto_count = Counter(f["name"] for f in proto_list.values())
+    # Default thunks show their target's name without holding it, in both programs.
+    proto_targets = thunk_targets(proto_list)
+    proto_count = Counter(f["name"] for a, f in proto_list.items()
+                          if not (f["thunk"] and (is_default_name(f["name"])
+                                                  or thunk_shows_target(a, f["name"], proto_list, proto_targets))))
     holders: dict[str, set] = defaultdict(set)
     for address, (name, _, _) in planned.items():
         if name:
@@ -515,11 +565,8 @@ def global_names(rows, proto_list, live_list, keep: dict | None = None) -> tuple
         if address in (keep or {}):
             continue  # it keeps an analysis name only because Ghidra refuses the planned one; its plate says so
         if address in targets and (is_default_name(name) or thunk_shows_target(address, name, live_list, targets)):
-            # A default thunk left unnamed will show its target's (planned) name.
-            target = targets[address]
-            shown = planned.get(target, (None,))[0] if target is not None else None
-            if planned.get(address, (None,))[0] is None and shown:
-                holders[shown].add(address)
+            # A default thunk shows its target's name (FunctionSymbol.doGetName) but holds no
+            # symbol of that name: it is no second holder (0x27a650 shows 0x279ff0's name).
             continue
         if is_default_name(name) or name not in holders:
             continue
@@ -545,6 +592,7 @@ def build_plan(root: Path, bridge, module: str | None, exclude: set[int] = froze
     if not check["ok"]:
         raise Refused("preflight failed: " + "; ".join(check["errors"]))
     rows, settled, map_sha = load_map(root)
+    recorded = read_record(root)
     settled_by_release = {s["release"]: s for s in settled if s["release"] is not None}
     index = notes_index(root)
     proto_list = function_list(bridge, gb.PROTOTYPE_PROGRAM)
@@ -666,7 +714,11 @@ def build_plan(root: Path, bridge, module: str | None, exclude: set[int] = froze
             entry.update({"name": None, "label": None, "plate": None,
                           "name_reason": f"not named: function {entry['function']}" + (f" ({why})" if why else "")})
         else:
-            entry["plate"] = plate_text(row, entry, note_for(settled_by_release.get(address), address, index, root))
+            planned_plate = plate_text(row, entry, note_for(settled_by_release.get(address), address, index, root))
+            entry["plate"] = kept_plate(planned_plate, recorded.get((hx(address), "plate"), {}).get("value"))
+            replaced = [c for c in plate_clauses(entry["plate"])[1] if c.startswith(REPLACES)]
+            if replaced and entry["name"] and not entry["previous_name"]:
+                entry["previous_name"] = replaced[0][len(REPLACES):]  # replaced by an earlier apply (the record says so)
         proto, here = entry["prototype"], entry["live"]
         if proto and "thunk" in here and proto["thunk"] != here["thunk"]:
             entry["differences"].append(f"thunk: prototype {proto['thunk']}, release {here['thunk']}")
@@ -886,6 +938,25 @@ def diff_snapshots(before: dict, after: dict, created: set, renamed: dict) -> li
 
 # --- the apply -------------------------------------------------------------------------------
 
+def settle(bridge) -> None:
+    """Wait until Ghidra's auto-analysis has been idle for QUIET_SECONDS without a break."""
+
+    deadline = time.monotonic() + SETTLE_SECONDS
+    quiet_since = None
+    while True:
+        status = bridge.get("analysis_status", gb.RELEASE_PROGRAM)
+        now = time.monotonic()
+        if isinstance(status, dict) and status.get("analyzing") is False:
+            quiet_since = now if quiet_since is None else quiet_since
+            if now - quiet_since >= QUIET_SECONDS:
+                return
+        else:
+            quiet_since = None
+        if now > deadline:
+            raise Stop(f"analysis still running {SETTLE_SECONDS} s after a write")
+        time.sleep(POLL_SECONDS)
+
+
 class AnalysisStop(Stop):
     """Ghidra's analysis changed the program after a create beyond what the plan predicted."""
 
@@ -935,22 +1006,7 @@ class Applier:
                              "source_pair": entry["source_pair"], "end": entry["end"]})
 
     def settle(self) -> None:
-        """Wait until Ghidra's auto-analysis has been idle for QUIET_SECONDS without a break."""
-
-        deadline = time.monotonic() + SETTLE_SECONDS
-        quiet_since = None
-        while True:
-            status = self.bridge.get("analysis_status", gb.RELEASE_PROGRAM)
-            now = time.monotonic()
-            if isinstance(status, dict) and status.get("analyzing") is False:
-                quiet_since = now if quiet_since is None else quiet_since
-                if now - quiet_since >= QUIET_SECONDS:
-                    return
-            else:
-                quiet_since = None
-            if now > deadline:
-                raise Stop(f"analysis still running {SETTLE_SECONDS} s after a write")
-            time.sleep(POLL_SECONDS)
+        settle(self.bridge)
 
     def run(self) -> None:
         self.before = snapshot(self.bridge)
@@ -1211,7 +1267,7 @@ def read_record(root: Path) -> dict[tuple, dict]:
 
 
 def write_record(root: Path, rows: dict[tuple, dict]) -> None:
-    order = {"create": 0, "create-by-analysis": 0, "name": 1, "label": 2, "plate": 3}
+    order = {"create": 0, "create-by-analysis": 0, "name": 1, "label": 2, "plate": 3, "prototype": 4}
     text = "\t".join(RECORD_COLUMNS) + "\n" + "".join(
         "\t".join(rows[k][c] for c in RECORD_COLUMNS) + "\n"
         for k in sorted(rows, key=lambda k: (int(k[0], 16), order.get(k[1], 9))))
@@ -1251,9 +1307,13 @@ def reads_back(bridge, item: dict) -> bool:
     return read_plate(bridge, address) == item["value"]
 
 
-def confirm_saved(root: Path, report_path: Path, bridge, today: str | None = None) -> dict:
-    """After the coordinator saved: re-read every change of the report and mark its rows saved."""
+def confirm_saved(root: Path, report_path: Path, bridge, today: str | None = None, reads_back=None) -> dict:
+    """After the coordinator saved: re-read every change of the report and mark its rows saved.
 
+    ``reads_back(bridge, item)``: the read-back of another step's rows (signatures.py).
+    """
+
+    reads_back = reads_back or globals()["reads_back"]
     result = json.loads(report_path.read_text(encoding="utf-8"))
     still = [item for item in result.get("remove_by_hand", [])
              if (f := read_function(bridge, gb.RELEASE_PROGRAM, int(item["address"], 16)))
@@ -1283,9 +1343,10 @@ def confirm_saved(root: Path, report_path: Path, bridge, today: str | None = Non
     return {"confirmed": len(mine), "recorded_after_a_stop": len(late), "report": report_path.name}
 
 
-def discard_unsaved(root: Path, report_path: Path, bridge) -> dict:
+def discard_unsaved(root: Path, report_path: Path, bridge, reads_back=None) -> dict:
     """After the program was closed without saving: drop the report's unsaved rows."""
 
+    reads_back = reads_back or globals()["reads_back"]
     result = json.loads(report_path.read_text(encoding="utf-8"))
     present = [f"{item['address']} {item['applied']}" for item in result["written"] if reads_back(bridge, item)]
     if present:
