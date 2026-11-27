@@ -96,3 +96,17 @@ on something the tool did not yet predict (a name from Ghidra's pattern file, co
 an operand reference, the text of a thunk's signature line); each was understood, accepted on the
 evidence of the reviewer's check, and is predicted now. The last five entries, with both container
 cuts, ran without a stop.
+
+## Batches
+
+| Batch | Entries done | Outcome |
+|---|---|---|
+| 1 (of 40) | 25 created, 0x1522d0 disassembled | stopped after the disassembly of 0x1522d0: analysis defined 11 data items the plan had not listed; accepted by the coordinator, saved, confirmed |
+
+The stop in batch 1: the plan expects data only at an address the new code names directly
+(0x443ab0 here). Ghidra's analysis also defines data at the offsets the code reads and writes from
+such a base: 0x443ab4 (a pointer) and 0x443ab8..0x443acc (seven four-byte items), and three
+hardware registers at 0x10004004..0x1000400c. The reviewer's check showed those 11 items as the
+only differences. Data of this kind is what Ghidra's analysis made all over the program (it holds
+over 32,000 such items); none of it lies in code. Accepted; the tool is to accept data that
+analysis defines outside executable memory and list it, and to keep stopping on data inside code.

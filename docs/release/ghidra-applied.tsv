@@ -189,6 +189,8 @@ release_address	applied	value	source_pair	date	state
 0x143590	prototype	void * __stdcall std::exception::~exception(exception * this, short __dtor_flags) [storage this=a0_lo:4, __dtor_flags=a1_lo:2]	0x1427e0 __dt__Q23std9exceptionFv (exact)	2026-11-26	saved 2026-11-26
 0x1435e0	create	0x1435e0-0x1435eb	0x142830 what__Q23std8bad_castCFv (exact)	2026-11-27	saved 2026-11-27
 0x1435e0	disassemble	0x1435e0-0x1435eb	0x142830 what__Q23std8bad_castCFv (exact)	2026-11-27	saved 2026-11-27
+0x1435f0	create	0x1435f0-0x1435fb	0x142840 what__Q23std9exceptionCFv (exact)	2026-11-27	saved 2026-11-27
+0x1435f0	disassemble	0x1435f0-0x1435fb	0x142840 what__Q23std9exceptionCFv (exact)	2026-11-27	saved 2026-11-27
 0x143600	name	__throw_catch_compare	0x142850 __throw_catch_compare (exact)	2026-11-26	saved 2026-11-26
 0x143600	plate	Release map: exact pair with prototype 0x142850 __throw_catch_compare (evidence exact; flags -). // Owner -.	0x142850 __throw_catch_compare (exact)	2026-11-26	saved 2026-11-26
 0x143600	prototype	char __stdcall __throw_catch_compare(char * throwtype, char * catchtype, longlong * offset_result) [storage throwtype=a0_lo:4, catchtype=a1_lo:4, offset_result=a2_lo:4]	0x142850 __throw_catch_compare (exact)	2026-11-26	saved 2026-11-26
@@ -249,6 +251,8 @@ release_address	applied	value	source_pair	date	state
 0x144fd0	name	FindExceptionRecord	0x144220 FindExceptionRecord__FPcP13ExceptionInfo (exact)	2026-11-26	saved 2026-11-26
 0x144fd0	label	FindExceptionRecord__FPcP13ExceptionInfo	0x144220 FindExceptionRecord__FPcP13ExceptionInfo (exact)	2026-11-26	saved 2026-11-26
 0x144fd0	plate	Release map: exact pair with prototype 0x144220 FindExceptionRecord__FPcP13ExceptionInfo (evidence exact; flags -). // Owner -.	0x144220 FindExceptionRecord__FPcP13ExceptionInfo (exact)	2026-11-26	saved 2026-11-26
+0x145190	create	0x145190-0x14519b	0x1443e0 what__Q23std13bad_exceptionCFv (exact)	2026-11-27	saved 2026-11-27
+0x145190	disassemble	0x145190-0x14519b	0x1443e0 what__Q23std13bad_exceptionCFv (exact)	2026-11-27	saved 2026-11-27
 0x1451a0	name	__TransferControl	0x1443f0 __TransferControl__FP12ThrowContextP13ExceptionInfoPc (exact)	2026-11-26	saved 2026-11-26
 0x1451a0	label	__TransferControl__FP12ThrowContextP13ExceptionInfoPc	0x1443f0 __TransferControl__FP12ThrowContextP13ExceptionInfoPc (exact)	2026-11-26	saved 2026-11-26
 0x1451a0	plate	Release map: exact pair with prototype 0x1443f0 __TransferControl__FP12ThrowContextP13ExceptionInfoPc (evidence exact; flags -). // Owner -.	0x1443f0 __TransferControl__FP12ThrowContextP13ExceptionInfoPc (exact)	2026-11-26	saved 2026-11-26
@@ -295,6 +299,8 @@ release_address	applied	value	source_pair	date	state
 0x145840	label	init__Q23std8ios_baseFPv	0x144aa0 init__Q23std8ios_baseFPv (exact)	2026-11-26	saved 2026-11-26
 0x145840	plate	Release map: exact pair with prototype 0x144aa0 init__Q23std8ios_baseFPv (evidence exact; flags -). // Owner -.	0x144aa0 init__Q23std8ios_baseFPv (exact)	2026-11-26	saved 2026-11-26
 0x145840	prototype	void __stdcall std::ios_base::init(ios_base * this, void * sb) [storage this=a0_lo:4, sb=a1_lo:4]	0x144aa0 init__Q23std8ios_baseFPv (exact)	2026-11-26	saved 2026-11-26
+0x145910	create	0x145910-0x145917	0x144b70 what__Q33std8ios_base7failureCFv (exact)	2026-11-27	saved 2026-11-27
+0x145910	disassemble	0x145910-0x145917	0x144b70 what__Q33std8ios_base7failureCFv (exact)	2026-11-27	saved 2026-11-27
 0x145920	name	std::_RefCountedPtr<std::__locale_imp<1>,std::_Single<std::__locale_imp<1>>>::_RefCountedPtr	0x144b80 __ct__Q23std80_RefCountedPtr<Q23std15__locale_imp<1>,Q23std32_Single<Q23std15__locale_imp<1>>>FRCQ23std80_RefCountedPtr<Q23std15__locale_imp<1>,Q23std32_Single<Q23std15__locale_imp<1>>> (exact)	2026-11-26	saved 2026-11-26
 0x145920	label	__ct__Q23std80_RefCountedPtr<Q23std15__locale_imp<1>,Q23std32_Single<Q23std15__locale_imp<1>>>FRCQ23std80_RefCountedPtr<Q23std15__locale_imp<1>,Q23std32_Single<Q23std15__locale_imp<1>>>	0x144b80 __ct__Q23std80_RefCountedPtr<Q23std15__locale_imp<1>,Q23std32_Single<Q23std15__locale_imp<1>>>FRCQ23std80_RefCountedPtr<Q23std15__locale_imp<1>,Q23std32_Single<Q23std15__locale_imp<1>>> (exact)	2026-11-26	saved 2026-11-26
 0x145920	plate	Release map: exact pair with prototype 0x144b80 __ct__Q23std80_RefCountedPtr<Q23std15__locale_imp<1>,Q23std32_Single<Q23std15__locale_imp<1>>>FRCQ23std80_RefCountedPtr<Q23std15__locale_imp<1>,Q23std32_Single<Q23std15__locale_imp<1>>> (evidence exact; flags -). // Owner -.	0x144b80 __ct__Q23std80_RefCountedPtr<Q23std15__locale_imp<1>,Q23std32_Single<Q23std15__locale_imp<1>>>FRCQ23std80_RefCountedPtr<Q23std15__locale_imp<1>,Q23std32_Single<Q23std15__locale_imp<1>>> (exact)	2026-11-26	saved 2026-11-26
@@ -766,12 +772,22 @@ release_address	applied	value	source_pair	date	state
 0x14d650	name	Metrowerks::range_map<wchar_t,wchar_t>::operator[]	0x14c8b0 __vc__Q210Metrowerks14range_map<w,w>CFRCw (exact)	2026-11-26	saved 2026-11-26
 0x14d650	label	__vc__Q210Metrowerks14range_map<w,w>CFRCw	0x14c8b0 __vc__Q210Metrowerks14range_map<w,w>CFRCw (exact)	2026-11-26	saved 2026-11-26
 0x14d650	plate	Release map: exact pair with prototype 0x14c8b0 __vc__Q210Metrowerks14range_map<w,w>CFRCw (evidence exact; flags -). // Owner -.	0x14c8b0 __vc__Q210Metrowerks14range_map<w,w>CFRCw (exact)	2026-11-26	saved 2026-11-26
+0x14d700	create	0x14d700-0x14d707	0x14c960 what__Q23std11logic_errorCFv (exact)	2026-11-27	saved 2026-11-27
+0x14d700	disassemble	0x14d700-0x14d707	0x14c960 what__Q23std11logic_errorCFv (exact)	2026-11-27	saved 2026-11-27
 0x14d710	name	std::lower_bound<Metrowerks::range_map<wchar_t,wchar_t>::entry_const*,wchar_t>	0x14c970 lower_bound<PCQ310Metrowerks14range_map<w,w>5entry,w>__3stdFPCQ310Metrowerks14range_map<w,w>5entryPCQ310Metrowerks14range_map<w,w>5entryRCw (exact)	2026-11-26	saved 2026-11-26
 0x14d710	label	lower_bound<PCQ310Metrowerks14range_map<w,w>5entry,w>__3stdFPCQ310Metrowerks14range_map<w,w>5entryPCQ310Metrowerks14range_map<w,w>5entryRCw	0x14c970 lower_bound<PCQ310Metrowerks14range_map<w,w>5entry,w>__3stdFPCQ310Metrowerks14range_map<w,w>5entryPCQ310Metrowerks14range_map<w,w>5entryRCw (exact)	2026-11-26	saved 2026-11-26
 0x14d710	plate	Release map: exact pair with prototype 0x14c970 lower_bound<PCQ310Metrowerks14range_map<w,w>5entry,w>__3stdFPCQ310Metrowerks14range_map<w,w>5entryPCQ310Metrowerks14range_map<w,w>5entryRCw (evidence call; flags -). // Owner -.	0x14c970 lower_bound<PCQ310Metrowerks14range_map<w,w>5entry,w>__3stdFPCQ310Metrowerks14range_map<w,w>5entryPCQ310Metrowerks14range_map<w,w>5entryRCw (exact)	2026-11-26	saved 2026-11-26
 0x14d790	name	std::lower_bound<Metrowerks::range_map<wchar_t,unsigned_char>::entry_const*,wchar_t>	0x14c9f0 lower_bound<PCQ310Metrowerks15range_map<w,Uc>5entry,w>__3stdFPCQ310Metrowerks15range_map<w,Uc>5entryPCQ310Metrowerks15range_map<w,Uc>5entryRCw (exact)	2026-11-26	saved 2026-11-26
 0x14d790	label	lower_bound<PCQ310Metrowerks15range_map<w,Uc>5entry,w>__3stdFPCQ310Metrowerks15range_map<w,Uc>5entryPCQ310Metrowerks15range_map<w,Uc>5entryRCw	0x14c9f0 lower_bound<PCQ310Metrowerks15range_map<w,Uc>5entry,w>__3stdFPCQ310Metrowerks15range_map<w,Uc>5entryPCQ310Metrowerks15range_map<w,Uc>5entryRCw (exact)	2026-11-26	saved 2026-11-26
 0x14d790	plate	Release map: exact pair with prototype 0x14c9f0 lower_bound<PCQ310Metrowerks15range_map<w,Uc>5entry,w>__3stdFPCQ310Metrowerks15range_map<w,Uc>5entryPCQ310Metrowerks15range_map<w,Uc>5entryRCw (evidence call; flags -). // Owner -.	0x14c9f0 lower_bound<PCQ310Metrowerks15range_map<w,Uc>5entry,w>__3stdFPCQ310Metrowerks15range_map<w,Uc>5entryPCQ310Metrowerks15range_map<w,Uc>5entryRCw (exact)	2026-11-26	saved 2026-11-26
+0x14d820	create	0x14d820-0x14d82f	0x14ca80 @8@72@__dt__Q23std39basic_ostream<c,Q23std14char_traits<c>>Fv (exact)	2026-11-27	saved 2026-11-27
+0x14d820	disassemble	0x14d820-0x14d82f	0x14ca80 @8@72@__dt__Q23std39basic_ostream<c,Q23std14char_traits<c>>Fv (exact)	2026-11-27	saved 2026-11-27
+0x14d830	create	0x14d830-0x14d83f	0x14ca90 @24@72@__dt__Q23std39basic_istream<c,Q23std14char_traits<c>>Fv (exact)	2026-11-27	saved 2026-11-27
+0x14d830	disassemble	0x14d830-0x14d83f	0x14ca90 @24@72@__dt__Q23std39basic_istream<c,Q23std14char_traits<c>>Fv (exact)	2026-11-27	saved 2026-11-27
+0x14d840	create	0x14d840-0x14d84f	0x14caa0 @8@72@__dt__Q23std39basic_ostream<w,Q23std14char_traits<w>>Fv (exact)	2026-11-27	saved 2026-11-27
+0x14d840	disassemble	0x14d840-0x14d84f	0x14caa0 @8@72@__dt__Q23std39basic_ostream<w,Q23std14char_traits<w>>Fv (exact)	2026-11-27	saved 2026-11-27
+0x14d850	create	0x14d850-0x14d85f	0x14cab0 @24@72@__dt__Q23std39basic_istream<w,Q23std14char_traits<w>>Fv (exact)	2026-11-27	saved 2026-11-27
+0x14d850	disassemble	0x14d850-0x14d85f	0x14cab0 @24@72@__dt__Q23std39basic_istream<w,Q23std14char_traits<w>>Fv (exact)	2026-11-27	saved 2026-11-27
 0x14d860	name	std::locale::global	0x14cac0 global__Q23std6localeFv (exact)	2026-11-26	saved 2026-11-26
 0x14d860	label	global__Q23std6localeFv	0x14cac0 global__Q23std6localeFv (exact)	2026-11-26	saved 2026-11-26
 0x14d860	plate	Release map: exact pair with prototype 0x14cac0 global__Q23std6localeFv (evidence exact; flags -). // Owner -.	0x14cac0 global__Q23std6localeFv (exact)	2026-11-26	saved 2026-11-26
@@ -926,6 +942,10 @@ release_address	applied	value	source_pair	date	state
 0x150c40	prototype	undefined __stdcall sceDmaReset(int mode) [storage mode=a0_lo:4]	0x14fd60 sceDmaReset (exact)	2026-11-26	saved 2026-11-26
 0x150d20	name	sceDmaPutEnv	0x14fe40 sceDmaPutEnv (exact)	2026-11-26	saved 2026-11-26
 0x150d20	plate	Release map: exact pair with prototype 0x14fe40 sceDmaPutEnv (evidence exact; flags -). // Owner -.	0x14fe40 sceDmaPutEnv (exact)	2026-11-26	saved 2026-11-26
+0x150ef8	create	0x150ef8-0x150f2f	0x150018 sceDmaGetEnv (exact)	2026-11-27	saved 2026-11-27
+0x150ef8	disassemble	0x150ef8-0x150f2f	0x150018 sceDmaGetEnv (exact)	2026-11-27	saved 2026-11-27
+0x150f30	create	0x150f30-0x150f43	0x150050 sceDmaPutStallAddr (exact)	2026-11-27	saved 2026-11-27
+0x150f30	disassemble	0x150f30-0x150f43	0x150050 sceDmaPutStallAddr (exact)	2026-11-27	saved 2026-11-27
 0x150f48	name	sceDmaSend	0x150068 sceDmaSend (exact)	2026-11-26	saved 2026-11-26
 0x150f48	plate	Release map: exact pair with prototype 0x150068 sceDmaSend (evidence exact; flags -). // Owner -.	0x150068 sceDmaSend (exact)	2026-11-26	saved 2026-11-26
 0x150fb0	name	sceDmaSendN	0x1500d0 sceDmaSendN (exact)	2026-11-26	saved 2026-11-26
@@ -945,6 +965,8 @@ release_address	applied	value	source_pair	date	state
 0x151258	name	sceDmaPause	0x150378 sceDmaPause (exact)	2026-11-26	saved 2026-11-26
 0x151258	plate	Release map: exact pair with prototype 0x150378 sceDmaPause (evidence exact; flags -). // Owner -.	0x150378 sceDmaPause (exact)	2026-11-26	saved 2026-11-26
 0x151258	prototype	undefined __stdcall sceDmaPause(sceDmaChan * d) [storage d=a0_lo:4]	0x150378 sceDmaPause (exact)	2026-11-26	saved 2026-11-26
+0x1512f0	create	0x1512f0-0x151303	0x150410 sceDmaRestart (exact)	2026-11-27	saved 2026-11-27
+0x1512f0	disassemble	0x1512f0-0x151303	0x150410 sceDmaRestart (exact)	2026-11-27	saved 2026-11-27
 0x151308	name	sceVif1PkInit	0x151f38 sceVif1PkInit (exact)	2026-11-26	saved 2026-11-26
 0x151308	plate	Release map: exact pair with prototype 0x151f38 sceVif1PkInit (evidence call; flags -). // Owner -.	0x151f38 sceVif1PkInit (exact)	2026-11-26	saved 2026-11-26
 0x151318	name	sceVif1PkReset	0x151f48 sceVif1PkReset (exact)	2026-11-26	saved 2026-11-26
@@ -990,6 +1012,10 @@ release_address	applied	value	source_pair	date	state
 0x151730	name	sceVu0InversMatrix	0x152360 sceVu0InversMatrix (exact)	2026-11-26	saved 2026-11-26
 0x151730	plate	Release map: exact pair with prototype 0x152360 sceVu0InversMatrix (evidence exact; flags -). // Owner -.	0x152360 sceVu0InversMatrix (exact)	2026-11-26	saved 2026-11-26
 0x151730	prototype	void __stdcall sceVu0InversMatrix(float * m0, float * m1) [storage m0=a0_lo:4, m1=a1_lo:4]	0x152360 sceVu0InversMatrix (exact)	2026-11-26	saved 2026-11-26
+0x1517a0	create	0x1517a0-0x1517bf	0x1523d0 sceVu0DivVector (exact)	2026-11-27	saved 2026-11-27
+0x1517a0	disassemble	0x1517a0-0x1517bf	0x1523d0 sceVu0DivVector (exact)	2026-11-27	saved 2026-11-27
+0x1517c0	create	0x1517c0-0x1517df	0x1523f0 sceVu0DivVectorXYZ (exact)	2026-11-27	saved 2026-11-27
+0x1517c0	disassemble	0x1517c0-0x1517df	0x1523f0 sceVu0DivVectorXYZ (exact)	2026-11-27	saved 2026-11-27
 0x1517e0	name	sceVu0InterVector	0x152410 sceVu0InterVector (exact)	2026-11-26	saved 2026-11-26
 0x1517e0	plate	Release map: exact pair with prototype 0x152410 sceVu0InterVector (evidence exact; flags -). // Owner -.	0x152410 sceVu0InterVector (exact)	2026-11-26	saved 2026-11-26
 0x1517e0	prototype	void __stdcall sceVu0InterVector(float * v0, float * v1, float * v2, float t) [storage v0=a0_lo:4, v1=a1_lo:4, v2=a2_lo:4, t=f12:4]	0x152410 sceVu0InterVector (exact)	2026-11-26	saved 2026-11-26
@@ -999,6 +1025,8 @@ release_address	applied	value	source_pair	date	state
 0x151820	name	sceVu0SubVector	0x152450 sceVu0SubVector (exact)	2026-11-26	saved 2026-11-26
 0x151820	plate	Release map: exact pair with prototype 0x152450 sceVu0SubVector (evidence exact; flags -). // Owner -.	0x152450 sceVu0SubVector (exact)	2026-11-26	saved 2026-11-26
 0x151820	prototype	void __stdcall sceVu0SubVector(float * v0, float * v1, float * v2) [storage v0=a0_lo:4, v1=a1_lo:4, v2=a2_lo:4]	0x152450 sceVu0SubVector (exact)	2026-11-26	saved 2026-11-26
+0x151838	create	0x151838-0x15184b	0x152468 sceVu0MulVector (exact)	2026-11-27	saved 2026-11-27
+0x151838	disassemble	0x151838-0x15184b	0x152468 sceVu0MulVector (exact)	2026-11-27	saved 2026-11-27
 0x151850	name	sceVu0ScaleVector	0x152480 sceVu0ScaleVector (exact)	2026-11-26	saved 2026-11-26
 0x151850	plate	Release map: exact pair with prototype 0x152480 sceVu0ScaleVector (evidence exact; flags -). // Owner -.	0x152480 sceVu0ScaleVector (exact)	2026-11-26	saved 2026-11-26
 0x151850	prototype	void __stdcall sceVu0ScaleVector(float * v0, float * v1, float t) [storage v0=a0_lo:4, v1=a1_lo:4, t=f12:4]	0x152480 sceVu0ScaleVector (exact)	2026-11-26	saved 2026-11-26
@@ -1017,6 +1045,10 @@ release_address	applied	value	source_pair	date	state
 0x1518e0	name	sceVu0FTOI0Vector	0x152510 sceVu0FTOI0Vector (exact)	2026-11-26	saved 2026-11-26
 0x1518e0	plate	Release map: exact pair with prototype 0x152510 sceVu0FTOI0Vector (evidence exact; flags -). // Owner -.	0x152510 sceVu0FTOI0Vector (exact)	2026-11-26	saved 2026-11-26
 0x1518e0	prototype	void __stdcall sceVu0FTOI0Vector(int * v0, float * v1) [storage v0=a0_lo:4, v1=a1_lo:4]	0x152510 sceVu0FTOI0Vector (exact)	2026-11-26	saved 2026-11-26
+0x1518f0	create	0x1518f0-0x1518ff	0x152520 sceVu0ITOF4Vector (exact)	2026-11-27	saved 2026-11-27
+0x1518f0	disassemble	0x1518f0-0x1518ff	0x152520 sceVu0ITOF4Vector (exact)	2026-11-27	saved 2026-11-27
+0x151900	create	0x151900-0x15190f	0x152530 sceVu0ITOF0Vector (exact)	2026-11-27	saved 2026-11-27
+0x151900	disassemble	0x151900-0x15190f	0x152530 sceVu0ITOF0Vector (exact)	2026-11-27	saved 2026-11-27
 0x151910	name	sceVu0UnitMatrix	0x152540 sceVu0UnitMatrix (exact)	2026-11-26	saved 2026-11-26
 0x151910	plate	Release map: exact pair with prototype 0x152540 sceVu0UnitMatrix (evidence exact; flags -). // Owner -.	0x152540 sceVu0UnitMatrix (exact)	2026-11-26	saved 2026-11-26
 0x151910	prototype	void __stdcall sceVu0UnitMatrix(float * m0) [storage m0=a0_lo:4]	0x152540 sceVu0UnitMatrix (exact)	2026-11-26	saved 2026-11-26
@@ -1033,6 +1065,8 @@ release_address	applied	value	source_pair	date	state
 0x151b00	prototype	void __stdcall sceVu0RotMatrixY(float * m0, float * m1, float ry) [storage m0=a0_lo:4, m1=a1_lo:4, ry=f12:4]	0x152730 sceVu0RotMatrixY (exact)	2026-11-26	saved 2026-11-26
 0x151ba8	name	sceVu0RotMatrix	0x1527d8 sceVu0RotMatrix (exact)	2026-11-26	saved 2026-11-26
 0x151ba8	plate	Release map: exact pair with prototype 0x1527d8 sceVu0RotMatrix (evidence exact; flags -). // Owner -.	0x1527d8 sceVu0RotMatrix (exact)	2026-11-26	saved 2026-11-26
+0x151bf8	create	0x151bf8-0x151c1b	0x152828 sceVu0ClampVector (exact)	2026-11-27	saved 2026-11-27
+0x151bf8	disassemble	0x151bf8-0x151c1b	0x152828 sceVu0ClampVector (exact)	2026-11-27	saved 2026-11-27
 0x151c20	name	sceVu0CameraMatrix	0x152850 sceVu0CameraMatrix (exact)	2026-11-26	saved 2026-11-26
 0x151c20	plate	Release map: exact pair with prototype 0x152850 sceVu0CameraMatrix (evidence exact; flags -). // Owner -.	0x152850 sceVu0CameraMatrix (exact)	2026-11-26	saved 2026-11-26
 0x151c20	prototype	void __stdcall sceVu0CameraMatrix(float * m, float * p, float * zd, float * yd) [storage m=a0_lo:4, p=a1_lo:4, zd=a2_lo:4, yd=a3_lo:4]	0x152850 sceVu0CameraMatrix (exact)	2026-11-26	saved 2026-11-26
@@ -1044,9 +1078,26 @@ release_address	applied	value	source_pair	date	state
 0x151d90	prototype	void __stdcall sceVu0LightColorMatrix(float * m, float * c0, float * c1, float * c2, float * a) [storage m=a0_lo:4, c0=a1_lo:4, c1=a2_lo:4, c2=a3_lo:4, a=t0_lo:4]	0x1529c0 sceVu0LightColorMatrix (exact)	2026-11-26	saved 2026-11-26
 0x151df8	name	sceVu0ViewScreenMatrix	0x152a28 sceVu0ViewScreenMatrix (exact)	2026-11-26	saved 2026-11-26
 0x151df8	plate	Release map: exact pair with prototype 0x152a28 sceVu0ViewScreenMatrix (evidence exact; flags -). // Owner -.	0x152a28 sceVu0ViewScreenMatrix (exact)	2026-11-26	saved 2026-11-26
+0x151f00	create	0x151f00-0x15208f	0x152b30 sceVu0DropShadowMatrix (exact)	2026-11-27	saved 2026-11-27
+0x151f00	disassemble	0x151f00-0x15208f	0x152b30 sceVu0DropShadowMatrix (exact)	2026-11-27	saved 2026-11-27
+0x152090	create	0x152090-0x1520e7	0x152cc0 sceVu0RotTransPersN (exact)	2026-11-27	saved 2026-11-27
+0x152090	disassemble	0x152090-0x1520e7	0x152cc0 sceVu0RotTransPersN (exact)	2026-11-27	saved 2026-11-27
 0x1520e8	name	sceVu0RotTransPers	0x152d18 sceVu0RotTransPers (exact)	2026-11-26	saved 2026-11-26
 0x1520e8	plate	Release map: exact pair with prototype 0x152d18 sceVu0RotTransPers (evidence exact; flags -). // Owner -.	0x152d18 sceVu0RotTransPers (exact)	2026-11-26	saved 2026-11-26
 0x1520e8	prototype	void __stdcall sceVu0RotTransPers(int * v0, float * m0, float * v1, int mode) [storage v0=a0_lo:4, m0=a1_lo:4, v1=a2_lo:4, mode=a3_lo:4]	0x152d18 sceVu0RotTransPers (exact)	2026-11-26	saved 2026-11-26
+0x152130	create	0x152130-0x15214b	0x152d60 sceVu0CopyVectorXYZ (exact)	2026-11-27	saved 2026-11-27
+0x152130	disassemble	0x152130-0x15214b	0x152d60 sceVu0CopyVectorXYZ (exact)	2026-11-27	saved 2026-11-27
+0x152150	create	0x152150-0x15217b	0x152d80 sceVu0InterVectorXYZ (exact)	2026-11-27	saved 2026-11-27
+0x152150	disassemble	0x152150-0x15217b	0x152d80 sceVu0InterVectorXYZ (exact)	2026-11-27	saved 2026-11-27
+0x152180	create	0x152180-0x152197	0x152db0 sceVu0ScaleVectorXYZ (exact)	2026-11-27	saved 2026-11-27
+0x152180	disassemble	0x152180-0x152197	0x152db0 sceVu0ScaleVectorXYZ (exact)	2026-11-27	saved 2026-11-27
+0x152198	create	0x152198-0x1521df	0x152dc8 sceVu0ClipScreen (exact)	2026-11-27	saved 2026-11-27
+0x152198	disassemble	0x152198-0x1521df	0x152dc8 sceVu0ClipScreen (exact)	2026-11-27	saved 2026-11-27
+0x1521e0	create	0x1521e0-0x15223f	0x152e10 sceVu0ClipScreen3 (exact)	2026-11-27	saved 2026-11-27
+0x1521e0	disassemble	0x1521e0-0x15223f	0x152e10 sceVu0ClipScreen3 (exact)	2026-11-27	saved 2026-11-27
+0x152240	create	0x152240-0x1522cb	0x152e70 sceVu0ClipAll (exact)	2026-11-27	saved 2026-11-27
+0x152240	disassemble	0x152240-0x1522cb	0x152e70 sceVu0ClipAll (exact)	2026-11-27	saved 2026-11-27
+0x1522d0	disassemble	0x1522d0-0x15232b	0x152f00 sceVpu0Reset (exact)	2026-11-27	saved 2026-11-27
 0x152330	name	_motionComp0	0x152f60 _motionComp0 (exact)	2026-11-26	saved 2026-11-26
 0x152330	plate	Release map: exact pair with prototype 0x152f60 _motionComp0 (evidence exact; flags -). // Owner -.	0x152f60 _motionComp0 (exact)	2026-11-26	saved 2026-11-26
 0x152580	name	_getAllRefs	0x1531b0 _getAllRefs (exact)	2026-11-26	saved 2026-11-26
