@@ -426,8 +426,15 @@ python tools/release/datapair.py --out build/release/<scratch>   # the same file
   accesses outside a prototype size). Both are generated, deterministic and never edited by hand;
   `build/release/data-map.json` holds every witness. The report is a file of its own so that
   `compare.py` keeps writing the same function files; rerun `datapair.py` after every `compare.py`
-  run, since it reads `function-map.tsv`. It reads both executables, the function map and the
-  `@socom-artifact ... socom:data:` annotations under `src/`; nothing from Ghidra.
+  run, since it reads `function-map.tsv`. It reads both executables, the function map, the
+  `@socom-artifact ... socom:data:` annotations under `src/` and `docs/release/settled-data.tsv`;
+  nothing from Ghidra.
+- **Settled rows**: `docs/release/settled-data.tsv` (release address, `removed` or `-`; prototype
+  address or `new`; the prototype symbol, checked against the object; basis; checker; date; optionally
+  a withhold reason) is the checker's input, in the spirit of `settled-pairs.tsv`. A row with an
+  address or `removed` decides the pair above every other tier (evidence `settled`); evidence that still
+  disagrees is listed as a contradiction, not hidden. A row with `-` decides nothing and only carries
+  its withhold reason. `--no-settled` ignores the file (to measure the tool alone).
 - **Objects**: the prototype's OBJECT and NOTYPE symbols outside the map's functions, aliases at one
   address grouped (the largest size kept; VU microcode labels dropped), plus an anonymous object at
   every address the prototype's code reaches that no symbol holds. An address inside an object pairs
@@ -439,7 +446,12 @@ python tools/release/datapair.py --out build/release/<scratch>   # the same file
   `operand-exact` (the same use at the same position of an exact function pair), `operand-aligned`
   (a deviating pair where the use and every instruction that built its address align: blocks of at
   least four equal masked words that occur once in each function, equal-length stretches of equal
-  shapes between two such blocks, or the whole function of an `imm-only` pair), `vtable` and
+  shapes between two such blocks, or the whole function of an `imm-only` pair; such a use votes only
+  after a key check: no key in the same aligned stretch, 32 words either side, may lead elsewhere, a
+  key being a callee or an already decided object used once in the function, or the use's own
+  distinctive bytes; a use whose neighbourhood of nine instruction shapes recurs in the function
+  (repeated code: name lookups, field registrations, destructor records) needs a key that agrees, since
+  an insertion in the release can shift such code by whole blocks), `vtable` and
   `named-table` (the function comparison's table pairs), `pointer` (the relocated word at offset k of
   a paired object whose bytes agree up to k+4, pointer words masked and function pointers mapped),
   `content` (bytes found once in each image's data at the prototype's alignment; pointer words
@@ -468,6 +480,15 @@ python tools/release/datapair.py --out build/release/<scratch>   # the same file
   functions use it, not at an aligned place; `unreached`). `identical-copy` marks bytes that occur
   more than once, so content could not decide. Release sizes are `N` when confirmed, else
   `lower..upper`: the furthest release access and the room before the next paired release object.
+  A pointer into a function body (a jump table) maps to the same offset of an exact function pair,
+  else only into the paired function.
+- **For the apply step**: `single-aligned` (the pair rests on one `operand-aligned` witness alone),
+  `size-from-release` (a string whose text changed: size and type from the release bytes),
+  `constant-as-address` (a witness with no relocation behind it in the prototype), `unrelocated-word`
+  (an unrelocated address word that maps through the pairs, compared like a pointer), and the
+  `withhold` column with the reason a pair must not be carried: a single aligned witness whose bytes
+  differ, an order-only pair whose bytes occur more than once or that paired functions use in the
+  prototype but not at an aligned place, or a reason from `settled-data.tsv`.
 - **Check** (a second agent that did not change the tool): the self-check in `DATA.md` (every vtable
   and named-table pair against the pairing made without them; an inner table whose offset moved is a
   layout finding); a sample across classes and evidence kinds against both images: the bytes at both

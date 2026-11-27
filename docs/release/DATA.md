@@ -34,26 +34,31 @@ code accesses, and the distance to the next paired release object (`?` when none
 
 | group | exact | deviating | unsure | new | removed | exact bytes | deviating bytes | unsure bytes | new bytes | removed bytes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| all objects | 8977 | 576 | 190 | 1418 | 1226 | 956678 | 474515 | 9548 | 0 | 201770 |
+| all objects | 9044 | 508 | 195 | 1320 | 1222 | 960948 | 477619 | 1524 | 0 | 202420 |
 
 Bytes are prototype sizes (new rows have none). Flags:
 
 | flag | objects |
 |---|---|
-| `witness-conflict` | 88 |
-| `release-shared` | 36 |
-| `contradicted` | 136 |
-| `offset-outside` | 5 |
-| `offset-changed` | 38 |
-| `size-changed` | 33 |
-| `size-unconfirmed` | 428 |
-| `content-changed` | 193 |
-| `pointer-changed` | 3 |
+| `settled` | 179 |
+| `witness-conflict` | 13 |
+| `release-shared` | 18 |
+| `contradicted` | 79 |
+| `offset-outside` | 8 |
+| `offset-changed` | 39 |
+| `size-changed` | 36 |
+| `size-unconfirmed` | 378 |
+| `content-changed` | 152 |
+| `pointer-changed` | 1 |
 | `section-changed` | 8 |
-| `identical-copy` | 316 |
-| `order-only` | 274 |
+| `size-from-release` | 19 |
+| `unrelocated-word` | 1 |
+| `constant-as-address` | 7 |
+| `single-aligned` | 1344 |
+| `identical-copy` | 287 |
+| `order-only` | 362 |
 | `refs-removed` | 372 |
-| `refs-unaligned` | 684 |
+| `refs-unaligned` | 680 |
 | `unreached` | 170 |
 | `ref-by-new` | 352 |
 
@@ -67,13 +72,13 @@ address whose paired neighbours below and above lie in different sections reads 
 
 | group | exact | deviating | unsure | new | removed | exact bytes | deviating bytes | unsure bytes | new bytes | removed bytes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| .rodata | 5774 | 137 | 51 | 492 | 666 | 86271 | 5171 | 470 | 0 | 12899 |
-| between .sdata and .bss from _fbss | 947 | 140 | 55 | 430 | 262 | 2793 | 332 | 157 | 0 | 729 |
-| .bss | 886 | 85 | 30 | 183 | 118 | 608743 | 193187 | 8704 | 0 | 142610 |
-| between .rodata and .sdata from __data_end | 443 | 52 | 46 | 126 | 71 | 1338 | 173 | 113 | 0 | 262 |
-| .data | 268 | 44 | 5 | 42 | 75 | 26537 | 5016 | 56 | 0 | 45032 |
-| between .bss and .vubss | 239 | 8 | 1 | 2 | 4 | 222814 | 76 | 16 | 0 | 16 |
-| between .rodata and .sdata from __static_init_end | 131 | 105 | 1 | 3 | 13 | 4248 | 8392 | 16 | 0 | 180 |
+| .rodata | 5847 | 100 | 42 | 464 | 639 | 87253 | 4706 | 335 | 0 | 12517 |
+| between .sdata and .bss from _fbss | 921 | 129 | 90 | 392 | 264 | 2752 | 285 | 228 | 0 | 746 |
+| .bss | 879 | 79 | 27 | 191 | 134 | 612015 | 196859 | 756 | 0 | 143614 |
+| between .rodata and .sdata from __data_end | 477 | 41 | 17 | 88 | 77 | 1386 | 149 | 69 | 0 | 282 |
+| .data | 271 | 42 | 5 | 42 | 74 | 26562 | 5000 | 56 | 0 | 45023 |
+| between .bss and .vubss | 227 | 8 | 13 | 2 | 4 | 222766 | 76 | 64 | 0 | 16 |
+| between .rodata and .sdata from __static_init_end | 133 | 104 | 0 | 3 | 13 | 4280 | 8376 | 0 | 0 | 180 |
 | between .rodata and .sdata from __static_init | 143 | 2 | 0 | 0 | 3 | 572 | 8 | 0 | 0 | 12 |
 | between .vudata and .rodata | 126 | 1 | 1 | 3 | 1 | 2582 | 16 | 16 | 0 | 0 |
 | (between .sdata and .bss from _fbss)..(.bss) | 0 | 0 | 0 | 26 | 0 | 0 | 0 | 0 | 0 | 0 |
@@ -88,7 +93,6 @@ address whose paired neighbours below and above lie in different sections reads 
 | between .vutext and .data from __data_start | 5 | 0 | 0 | 0 | 1 | 776 | 0 | 0 | 0 | 0 |
 | .vudata | 0 | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 0 | 0 |
 | (between .rodata and .sdata)..(.rodata) | 0 | 0 | 0 | 4 | 0 | 0 | 0 | 0 | 0 | 0 |
-| (.rodata)..(.data) | 0 | 0 | 0 | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
 | (between .bss and .vubss)..(.bss) | 0 | 0 | 0 | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
 | (between .rodata and .sdata from __static_init_end)..(between .rodata and .sdata from __data_end) | 0 | 0 | 0 | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
 | between .data and .vudata | 0 | 0 | 0 | 0 | 2 | 0 | 0 | 0 | 0 | 20 |
@@ -96,8 +100,8 @@ address whose paired neighbours below and above lie in different sections reads 
 | between .vubss and end | 1 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 4 |
 | between .vutext and .data | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | between start and .text | 0 | 1 | 0 | 0 | 1 | 0 | 262144 | 0 | 0 | 1 |
-| (.data)..(.rodata) | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
 | (.data)..(between .vudata and .rodata) | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
+| (.rodata)..(.data) | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
 | (between .bss and .vubss)..(between .vubss and end) | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
 | .sdata | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 4 |
 | .vutext | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
@@ -111,32 +115,32 @@ of the prototype functions that reference it have (the function map's owner colu
 
 | group | exact | deviating | unsure | new | removed | exact bytes | deviating bytes | unsure bytes | new bytes | removed bytes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| (no owner) | 3343 | 55 | 28 | 233 | 405 | 307779 | 4986 | 145 | 0 | 121256 |
-| gamez/zSeal | 1299 | 146 | 40 | 421 | 269 | 22423 | 3408 | 187 | 0 | 5425 |
-| gamez/zAnim | 810 | 35 | 39 | 114 | 51 | 12685 | 4676 | 101 | 0 | 417 |
-| Apps/FTS/hud | 474 | 95 | 28 | 252 | 166 | 11507 | 20337 | 8321 | 0 | 6840 |
-| gamez/zUI | 491 | 73 | 4 | 50 | 5 | 6579 | 4294 | 40 | 0 | 47 |
-| gamez/zFTS | 433 | 27 | 18 | 81 | 9 | 42435 | 1965 | 109 | 0 | 68 |
-| gamez/zNetwork | 264 | 22 | 7 | 75 | 111 | 112205 | 5574 | 346 | 0 | 55147 |
-| Apps/FTS/state | 185 | 12 | 1 | 22 | 26 | 72276 | 164 | 17 | 0 | 757 |
-| gamez/zAI | 141 | 12 | 3 | 17 | 13 | 1860 | 46 | 57 | 0 | 126 |
-| gamez/zWeapon | 159 | 0 | 1 | 7 | 5 | 1698 | 0 | 3 | 0 | 40 |
+| (no owner) | 3330 | 55 | 41 | 233 | 405 | 307727 | 4990 | 193 | 0 | 121256 |
+| gamez/zSeal | 1279 | 145 | 71 | 389 | 259 | 22176 | 3627 | 300 | 0 | 5340 |
+| gamez/zAnim | 855 | 22 | 2 | 94 | 56 | 12791 | 4641 | 14 | 0 | 433 |
+| Apps/FTS/hud | 471 | 88 | 37 | 245 | 167 | 14979 | 23929 | 416 | 0 | 7681 |
+| gamez/zUI | 523 | 43 | 1 | 50 | 6 | 7217 | 3704 | 16 | 0 | 23 |
+| gamez/zFTS | 450 | 14 | 10 | 54 | 13 | 42541 | 1901 | 56 | 0 | 79 |
+| gamez/zNetwork | 269 | 21 | 4 | 68 | 110 | 112283 | 5605 | 296 | 0 | 55088 |
+| Apps/FTS/state | 187 | 11 | 1 | 21 | 25 | 72297 | 152 | 17 | 0 | 748 |
+| gamez/zAI | 139 | 12 | 5 | 17 | 13 | 1906 | 46 | 11 | 0 | 126 |
+| gamez/zWeapon | 160 | 2 | 0 | 6 | 3 | 1704 | 6 | 0 | 0 | 31 |
 | Apps/FTS/game | 134 | 12 | 0 | 15 | 1 | 90538 | 373 | 0 | 0 | 25 |
-| gamez/zSound | 99 | 11 | 1 | 14 | 8 | 1216 | 402 | 1 | 0 | 103 |
+| gamez/zSound | 101 | 10 | 0 | 14 | 8 | 1221 | 398 | 0 | 0 | 103 |
 | gamez/zCharacter | 130 | 1 | 0 | 1 | 0 | 2224 | 264 | 0 | 0 | 0 |
 | Apps/FTS | 35 | 5 | 3 | 30 | 49 | 607 | 621 | 68 | 0 | 566 |
 | gamez/zNode | 110 | 5 | 0 | 6 | 0 | 1402 | 232 | 0 | 0 | 0 |
 | gamez/zVisual | 111 | 6 | 1 | 2 | 1 | 2996 | 138 | 4 | 0 | 6 |
-| gamez/zSystem | 31 | 6 | 1 | 5 | 40 | 357 | 262319 | 31 | 0 | 8760 |
-| gamez/zParticle | 68 | 4 | 0 | 4 | 6 | 20661 | 160044 | 0 | 0 | 18 |
+| gamez/zParticle | 63 | 4 | 5 | 4 | 6 | 20641 | 160044 | 20 | 0 | 18 |
+| gamez/zSystem | 33 | 5 | 1 | 4 | 39 | 394 | 262300 | 31 | 0 | 8742 |
 | gamez/zVehicle | 65 | 2 | 2 | 3 | 9 | 606 | 84 | 5 | 0 | 19 |
-| gamez/zCamera | 49 | 3 | 1 | 21 | 0 | 820 | 9 | 10 | 0 | 0 |
+| gamez/zCamera | 50 | 3 | 0 | 20 | 0 | 830 | 9 | 0 | 0 | 0 |
 | gamez/zTwoD | 53 | 7 | 4 | 1 | 0 | 504 | 708 | 24 | 0 | 0 |
 | gamez/zInput | 16 | 4 | 1 | 13 | 26 | 84 | 685 | 7 | 0 | 550 |
 | gamez/zUtil | 41 | 3 | 1 | 4 | 1 | 10132 | 39 | 1 | 0 | 4 |
 | gamez/zGrid | 41 | 2 | 0 | 0 | 5 | 2041 | 13 | 0 | 0 | 39 |
 | gamez/zReader | 46 | 1 | 0 | 0 | 0 | 1468 | 257 | 0 | 0 | 0 |
-| gamez/zTexture | 38 | 0 | 0 | 3 | 3 | 594 | 0 | 0 | 0 | 71 |
+| gamez/zTexture | 39 | 0 | 0 | 2 | 2 | 620 | 0 | 0 | 0 | 45 |
 | gamez/zVideo | 14 | 8 | 3 | 11 | 6 | 1004 | 789 | 21 | 0 | 1257 |
 | gamez/zIntersect | 36 | 1 | 0 | 1 | 0 | 506 | 1 | 0 | 0 | 0 |
 | gamez/zRender | 25 | 4 | 1 | 1 | 7 | 584 | 1698 | 12 | 0 | 19 |
@@ -144,13 +148,13 @@ of the prototype functions that reference it have (the function map's owner colu
 | gamez/zEntity | 32 | 3 | 0 | 0 | 0 | 327 | 88 | 0 | 0 | 0 |
 | gamez/zConsole | 34 | 0 | 0 | 0 | 0 | 131549 | 0 | 0 | 0 | 0 |
 | gamez/zValve | 32 | 0 | 0 | 0 | 1 | 251 | 0 | 0 | 0 | 112 |
-| gamez/zMath | 23 | 3 | 0 | 0 | 0 | 7440 | 24 | 0 | 0 | 0 |
-| gamez/zArchive | 16 | 0 | 1 | 5 | 1 | 195 | 0 | 26 | 0 | 96 |
+| gamez/zMath | 24 | 2 | 0 | 0 | 0 | 7452 | 12 | 0 | 0 | 0 |
 | gamez/zGame | 23 | 0 | 0 | 0 | 0 | 69975 | 0 | 0 | 0 | 0 |
+| gamez/zArchive | 17 | 0 | 0 | 4 | 1 | 221 | 0 | 0 | 0 | 96 |
 | gamez/zGraph | 14 | 0 | 0 | 0 | 0 | 142 | 0 | 0 | 0 | 0 |
 | gamez/zSave | 10 | 2 | 0 | 0 | 0 | 105 | 29 | 0 | 0 | 0 |
+| gamez/zBone | 8 | 1 | 0 | 1 | 1 | 69 | 180 | 0 | 0 | 12 |
 | gamez/zBody | 10 | 0 | 0 | 0 | 0 | 107 | 0 | 0 | 0 | 0 |
-| gamez/zBone | 8 | 2 | 0 | 0 | 0 | 69 | 192 | 0 | 0 | 0 |
 | gamez/zSoftImage | 10 | 0 | 0 | 0 | 0 | 118 | 0 | 0 | 0 | 0 |
 
 ## Coverage
@@ -158,39 +162,72 @@ of the prototype functions that reference it have (the function map's owner colu
 | measure | value |
 |---|---|
 | named prototype objects | 10377 |
-| named objects paired (no conflict) | 9197 |
-| ... strongest evidence `content` | 3334 |
-| ... strongest evidence `operand-exact` | 3293 |
-| ... strongest evidence `operand-aligned` | 1829 |
-| ... strongest evidence `pointer` | 422 |
-| ... strongest evidence `order` | 266 |
+| named objects paired (no conflict) | 9276 |
+| ... strongest evidence `content` | 3377 |
+| ... strongest evidence `operand-exact` | 3292 |
+| ... strongest evidence `operand-aligned` | 1608 |
+| ... strongest evidence `pointer` | 415 |
+| ... strongest evidence `order` | 353 |
+| ... strongest evidence `settled` | 178 |
 | ... strongest evidence `vtable` | 52 |
 | ... strongest evidence `named-table` | 1 |
-| named pairs `content` supports | 4294 |
-| named pairs `operand-aligned` supports | 3867 |
-| named pairs `operand-exact` supports | 3293 |
-| named pairs `pointer` supports | 1878 |
-| named pairs `order` supports | 266 |
+| named pairs `content` supports | 4395 |
+| named pairs `operand-aligned` supports | 3620 |
+| named pairs `operand-exact` supports | 3294 |
+| named pairs `pointer` supports | 1879 |
+| named pairs `order` supports | 353 |
 | named pairs `vtable` supports | 226 |
+| named pairs `settled` supports | 178 |
 | named pairs `named-table` supports | 2 |
-| pairs resting on one witness | 4577 |
-| ... of them `operand-exact` | 1606 |
-| ... of them `operand-aligned` | 1464 |
-| ... of them `content` | 820 |
-| ... of them `pointer` | 410 |
-| ... of them `order` | 274 |
+| pairs resting on one witness | 4715 |
+| ... of them `operand-exact` | 1636 |
+| ... of them `operand-aligned` | 1344 |
+| ... of them `content` | 846 |
+| ... of them `pointer` | 403 |
+| ... of them `order` | 362 |
+| ... of them `settled` | 121 |
 | ... of them `vtable` | 3 |
 | release data addresses code references | 10315 |
-| ... inside a paired object | 8897 |
-| release-only rows (`new`) | 1418 |
+| ... inside a paired object | 8995 |
+| release-only rows (`new`) | 1320 |
 
 Code witnesses: 26561 aligned uses. Uses the alignment rejected:
 
 - imm-only pairs aligned whole: 423
 - operand-aligned uses not aligned: 7304
-- content duplicated: 1778
-- pointer rounds: 7
+- content duplicated: 1698
+- operand-aligned uses rejected by a key: 1527
+- pointer rounds: 11
 - aligned uses whose release address is code or outside the image: 0
+
+Key check of the `operand-aligned` uses (an aligned use votes only when no key near it, a callee
+or decided object used once in the function or its own distinctive bytes, leads elsewhere; one in
+repeated code needs a key that agrees): 511 rejected because a key leads elsewhere, 1016 in repeated
+code without a key. Every rejected use is in `build/release/data-map.json` (`key_rejected`).
+
+## Settled rows and the apply step
+
+`docs/release/settled-data.tsv` (a checker's input, read on every run): 179 rows decide a pair or
+that there is none (evidence `settled`; evidence that still disagrees is listed as a contradiction),
+16 objects carry a withhold reason from it. The map's `withhold` column says why the apply step must
+not carry a pair; 211 committed pairs carry one:
+
+| reason | committed pairs |
+|---|---|
+| order only; its bytes occur more than once, so the order chose among copies | 95 |
+| order only; the paired functions use it in the prototype, not at an aligned place | 83 |
+| single aligned witness, bytes differ | 30 |
+| order only; the paired function no longer references it | 4 |
+| InitSystemTuners group: the release creates more tuners and has no STICK_ACCELERATION | 2 |
+| text changed, role unclear (OnListSavedGames) | 2 |
+| jump table of the GetCommandName switch: 33 of 66 entries changed; carry the name, not the entries | 1 |
+| only the alias _fbss is witnessed (the entry function's bss start): carry _fbss, not the local static | 1 |
+
+`single-aligned` marks every committed pair that rests on one `operand-aligned` witness and nothing
+else; `size-from-release` a string whose release text differs (its size and type come from the
+release bytes); `constant-as-address` a witness with no relocation behind it in the prototype (an
+integer constant read as an address, or a linker symbol resolved without one); `unrelocated-word` an
+unrelocated address word that maps through the pairs (masked like a pointer).
 
 ## Self-check against the table pairs
 
@@ -234,92 +271,17 @@ shorter content, 4 order.
 |---|---|---|---|---|
 | 0x43b0c0 | `zon_writeon_dmaref` | 16 | 1 | 0x44be00: fn:0x307920; 0x44be40: fn:0x307920 |
 | 0x444e90 | `@1220` | 16 | 2 | 0x45d890: data:0x444ea0 (release-shared) |
-| 0x44c248 | `@5005` | 15 | 3 | 0x463c18: fn:0x1d3470; 0x463c28: fn:0x1d3310 |
-| 0x44c770 | `@2178` | 26 | 1 | 0x464320: fn:0x1d9ed0 fn:0x1da5f0; 0x4643a0: fn:0x1dad90 |
-| 0x44cb40 | `@3077` | 10 | 3 | 0x4647a8: fn:0x1e9620 fn:0x1eb7a0; 0x4647b8: fn:0x1e9620 |
-| 0x44e300 | `@8981` | 26 | 1 | 0x464320: fn:0x1fc880 fn:0x1fca00; 0x466160: fn:0x1facc0 fn:0x1fb150 |
-| 0x44ea78 | `@3349` | 3 | 3 | 0x466950: fn:0x208970; 0x466968: fn:0x208b80 |
 | 0x452ec0 | `@3676` | 12 | 1 | 0x46a2a0: fn:0x282d40 (release-shared) |
-| 0x454cf0 | `@9675` | 26 | 3 | 0x460dd0: fn:0x2bede0 (release-shared) |
-| 0x454d10 | `@9752` | 30 | 3 | 0x460df0: fn:0x2bede0 (release-shared) |
 | 0x4572b0 | `__RTTI__8CAiState` | 8 | 2 | 0x46e630: data:0x4572b8 data:0x457898 data:0x4578c0 data:0x4578e8 data:0x457910 data:0x457938 +2; 0x46ec40: data:0x457988 |
-| 0x4573f8 | `@3598` | 5 | 3 | 0x46e6e0: fn:0x2d8b60 (release-shared) |
 | 0x458910 | `@1119` | 19 | 2 | 0x46f7a0: data:0x43a750 (release-shared) |
-| 0x45b5e8 | `@9953` | 2 | 3 | 0x472240: fn:0x32f460; 0x472250: fn:0x32f460 |
 | 0x4645c8 | `c_szCornerBoxesTx` | 4 | 3 | 0x47b608: fn:0x3ba0b0 (release-shared) |
 | 0x465c78 | `c_szCornerBoxesTx` | 4 | 3 | 0x47b608: fn:0x3d4430 (release-shared) |
-| 0x466068 | `@3436` | 7 | 3 | 0x47d360: fn:0x3d5e40 (release-shared) |
 | 0x466188 | `c_szCornerBoxesTx` | 4 | 3 | 0x47b608: fn:0x3d8a00 (release-shared) |
 | 0x467f90 | `@2212` | 16 | 3 | 0x47e0d0: fn:0x3feb80 (release-shared) |
 | 0x468510 | `@1185` | 31 | 3 | 0x527160: fn:0x402ca0 (release-shared) |
 | 0x4690f8 | `c_szCornerBoxesTx` | 4 | 3 | 0x47b608: fn:0x421140 fn:0x421920 (release-shared) |
-| 0x4740f0 | `__vt__23CStickAccelerationTuner` | 16 | 3 | 0x48bb70: fn:0x3a2220 (release-shared) |
 | 0x4750a8 | `FireStand__9AnimTypes` | 2 | 3 | 0x48cbb8: fn:0x2c7ef0; 0x48ce3c: fn:0x2c0970 |
-| 0x475110 | `Rotate180__9AnimTypes` | 2 | 3 | 0x48cc20: fn:0x255870 fn:0x2a05f0 fn:0x2c7ef0; 0x48ce54: fn:0x27cbf0 |
-| 0x4751e0 | `StepUp__9AnimTypes` | 2 | 3 | 0x48ccf0: fn:0x275630 fn:0x27c090 fn:0x27cbf0 fn:0x2a0a40 fn:0x2a1850 fn:0x2c7ef0; 0x48cd1c: fn:0x2c0970 |
-| 0x4751e4 | `PistolStepUp__9AnimTypes` | 2 | 3 | 0x48ccf4: fn:0x2c7ef0; 0x48cd20: fn:0x2c0970 |
-| 0x4751ec | `PistolClimbMedium__9AnimTypes` | 2 | 3 | 0x48ccf4: fn:0x2c0970; 0x48ccfc: fn:0x2c7ef0 |
-| 0x4751f0 | `ClimbOver__9AnimTypes` | 2 | 3 | 0x48ccf8: fn:0x2c0970; 0x48cd00: fn:0x275560 fn:0x27b4d0 fn:0x2c7ef0 |
-| 0x4751f4 | `PistolClimbOver__9AnimTypes` | 2 | 3 | 0x48ccfc: fn:0x2c0970; 0x48cd04: fn:0x2c7ef0 |
-| 0x475274 | `Stab__9AnimTypes` | 2 | 3 | 0x48cd84: fn:0x2c7ef0; 0x48cdb0: fn:0x280500 fn:0x2993e0 fn:0x2c0970 |
-| 0x475278 | `PistolStab__9AnimTypes` | 2 | 3 | 0x48cd88: fn:0x2c7ef0; 0x48cdb4: fn:0x2993e0 fn:0x2c0970 |
-| 0x475280 | `CQB__9AnimTypes` | 2 | 3 | 0x48cd90: fn:0x2c7ef0; 0x48cdbc: fn:0x27c090 fn:0x280500 fn:0x2993e0 fn:0x2c0970 |
-| 0x475284 | `PistolCQB__9AnimTypes` | 2 | 3 | 0x48cd94: fn:0x2c7ef0; 0x48cdc0: fn:0x27c090 fn:0x2993e0 fn:0x2c0970 |
-| 0x475288 | `CQBVictimFallBackwards__9AnimTypes` | 2 | 3 | 0x48cd98: fn:0x2c7ef0; 0x48cdc4: fn:0x27c090 fn:0x299900 |
-| 0x47528c | `CQBVictimFallForwards__9AnimTypes` | 2 | 3 | 0x48cd9c: fn:0x2c7ef0; 0x48cdc8: fn:0x27c090 fn:0x299900 |
-| 0x475294 | `ApplyRestraints__9AnimTypes` | 2 | 3 | 0x48cda4: fn:0x2c7ef0; 0x48cdd0: fn:0x280500 fn:0x2993e0 |
-| 0x475298 | `PistolApplyRestraints__9AnimTypes` | 2 | 3 | 0x48cda8: fn:0x2c7ef0; 0x48cdd4: fn:0x2993e0 |
-| 0x47529c | `BuddyCarryStand__9AnimTypes` | 2 | 3 | 0x48cd00: fn:0x2c0970; 0x48cdac: fn:0x2c7ef0; 0x48cddc: fn:0x280500 |
-| 0x4752a0 | `PistolBuddyCarryStand__9AnimTypes` | 2 | 3 | 0x48cd04: fn:0x2c0970; 0x48cdb0: fn:0x2c7ef0 |
-| 0x4752ac | `BuddyCarryWalk__9AnimTypes` | 2 | 3 | 0x48cdbc: fn:0x2c7ef0; 0x48cddc: fn:0x2c0970; 0x48cdec: fn:0x280500 |
-| 0x4752b0 | `PistolBuddyCarryWalk__9AnimTypes` | 2 | 3 | 0x48cdc0: fn:0x2c7ef0; 0x48cde0: fn:0x2c0970 |
-| 0x4752b8 | `BuddyCarryPickup__9AnimTypes` | 2 | 3 | 0x48cdc8: fn:0x2c7ef0; 0x48cdec: fn:0x2c0970; 0x48cdf8: fn:0x26f350 fn:0x280500 fn:0x284b40; 0x48ce00: fn:0x26f530 |
-| 0x4752bc | `PistolBuddyCarryPickup__9AnimTypes` | 2 | 3 | 0x48cdcc: fn:0x2c7ef0; 0x48cdf0: fn:0x2c0970 |
-| 0x4752c0 | `BuddyCarriedPickup__9AnimTypes` | 2 | 3 | 0x48cdd0: fn:0x2c7ef0; 0x48ce00: fn:0x26f350 fn:0x284b40 |
-| 0x4752c4 | `BuddyCarryStep__9AnimTypes` | 2 | 3 | 0x48cdd4: fn:0x2c7ef0; 0x48cdf8: fn:0x2c0970; 0x48ce04: fn:0x280500 |
-| 0x4752c8 | `PistolBuddyCarryStep__9AnimTypes` | 2 | 3 | 0x48cdd8: fn:0x2c7ef0; 0x48cdfc: fn:0x2c0970 |
-| 0x4752d0 | `FallForward01__9AnimTypes` | 2 | 3 | 0x48cde0: fn:0x2c7ef0; 0x48ce10: fn:0x273bd0 |
-| 0x4752d4 | `FallBackward01__9AnimTypes` | 2 | 3 | 0x48cde4: fn:0x2c7ef0; 0x48ce14: fn:0x273bd0 |
-| 0x4752dc | `LandForward01__9AnimTypes` | 2 | 3 | 0x48cdec: fn:0x2c7ef0; 0x48ce1c: fn:0x275170 fn:0x29e8f0 |
-| 0x4752ec | `DefuseBombBegin__9AnimTypes` | 2 | 3 | 0x48cdfc: fn:0x2c7ef0; 0x48ce04: fn:0x2c0970; 0x48ce2c: fn:0x280500 |
-| 0x4752f0 | `PistolDefuseBombBegin__9AnimTypes` | 2 | 3 | 0x48ce00: fn:0x2c7ef0; 0x48ce08: fn:0x2c0970 |
-| 0x4752f4 | `DefuseBombLoop__9AnimTypes` | 2 | 3 | 0x48ce04: fn:0x2c7ef0; 0x48ce2c: fn:0x2c0970; 0x48ce34: fn:0x280500 |
-| 0x4752f8 | `PistolDefuseBombLoop__9AnimTypes` | 2 | 3 | 0x48ce08: fn:0x2c7ef0; 0x48ce30: fn:0x2c0970 |
-| 0x4752fc | `DefuseBombEnd__9AnimTypes` | 2 | 3 | 0x48ce0c: fn:0x2c7ef0; 0x48ce34: fn:0x2c0970; 0x48ce3c: fn:0x280500 |
-| 0x475300 | `PistolDefuseBombEnd__9AnimTypes` | 2 | 3 | 0x48ce10: fn:0x2c7ef0; 0x48ce38: fn:0x2c0970 |
-| 0x475304 | `Ladder2Slide__9AnimTypes` | 2 | 3 | 0x48ce14: fn:0x2c7ef0; 0x48ce44: fn:0x274450 fn:0x280500 |
-| 0x47530c | `LadderSlide__9AnimTypes` | 2 | 3 | 0x48ce1c: fn:0x2c7ef0; 0x48ce4c: fn:0x280500 |
-| 0x475314 | `LadderSlideLand__9AnimTypes` | 2 | 3 | 0x48ce24: fn:0x2c7ef0; 0x48ce54: fn:0x280500 |
-| 0x475318 | `PistolLadderSlideLand__9AnimTypes` | 2 | 3 | 0x48ce58: fn:0x27eda0; 0x48ce78: fn:0x2c7ef0 |
-| 0x47599c | `PacketTypeAiOrders` | 4 | 3 | 0x48d568: fn:0x201920; 0x48d570: fn:0x203780 |
-| 0x4759c4 | `PacketTypeReady` | 4 | 3 | 0x48d560: fn:0x201920 (release-shared) |
-| 0x4759f0 | `m_ThrottleSTFieldID__11CZSealState` | 4 | 3 | 0x48d5bc: fn:0x205930; 0x48d63c: fn:0x204e10 |
-| 0x475a00 | `m_ActionStateFieldID__11CZSealState` | 4 | 3 | 0x48d5cc: fn:0x205930; 0x48d5f8: fn:0x204e10 |
-| 0x475a2c | `m_AIStateFieldID__11CZSealState` | 4 | 3 | 0x48d604: fn:0x205930; 0x48d67c: fn:0x204e10 |
-| 0x475a30 | `m_UnitIDFieldID__11CZSealState` | 4 | 4 | 0x48d608: order (release-shared) |
-| 0x475a4c | `m_GameStatsFieldID__11CZSealState` | 4 | 3 | 0x48d624: fn:0x205930; 0x48d69c: fn:0x204e10 |
-| 0x475a54 | `m_MaxGameTimeFieldID__11CZGameState` | 4 | 3 | 0x48d6a8: fn:0x206770; 0x48d6e0: fn:0x206320 |
-| 0x475a58 | `m_InitialClockFieldID__11CZGameState` | 4 | 3 | 0x48d6ac: fn:0x206770; 0x48d6b0: fn:0x206320 |
-| 0x475a64 | `m_FlagsFieldID__11CZGameState` | 4 | 3 | 0x48d6b8: fn:0x206770; 0x48d6f0: fn:0x206320 |
-| 0x475ce8 | `adren_incr2$2814` | 4 | 3 | 0x48d93c: fn:0x255870; 0x48d944: fn:0x255870 |
-| 0x475cec | `init$2815` | 1 | 3 | 0x48d940: fn:0x255870; 0x48d948: fn:0x255870 |
 | 0x475d2c | `radius$3465` | 4 | 3 | 0x48d9b8: fn:0x24fc10; 0x48d9c0: fn:0x24fc10 |
-| 0x476150 | `init$2658` | 1 | 3 | 0x48df80: fn:0x2b21e0; 0x48df88: fn:0x2b21e0 |
-| 0x476444 | `m_listenerIsValid__4CSnd` | 1 | 3 | 0x48cf18: fn:0x2ec080; 0x48e354: fn:0x1f4510 fn:0x2ec080 |
-| 0x476704 | `GlobalMapFilter__24@unnamed@zNetMedius_cpp@` | 4 | 3 | 0x48e5fc: fn:0x325ce0; 0x48e600: fn:0x32ea80 |
-| 0x476708 | `GlobalPlayerFilter__24@unnamed@zNetMedius_cpp@` | 4 | 3 | 0x48e600: fn:0x325ce0 fn:0x32f720; 0x48e604: fn:0x32ea80 |
-| 0x47670c | `GlobalSpeedFilter__24@unnamed@zNetMedius_cpp@` | 4 | 3 | 0x48e604: fn:0x325ce0 fn:0x32f720; 0x48e608: fn:0x32ea80 |
-| 0x47691c | `_pMusicTuner` | 4 | 3 | 0x48e828: fn:0x3a2220; 0x48e82c: fn:0x3a1d80 |
-| 0x476930 | `_pDialogTuner` | 4 | 3 | 0x48e840: fn:0x3a1d80; 0x48e84c: fn:0x3a1d80 |
-| 0x476d20 | `g_iBoxTopY__28@unnamed@hud_scorepopup_cpp@` | 4 | 3 | 0x48eb70: fn:0x421df0; 0x48eb74: fn:0x421920 fn:0x421df0 |
-| 0x576e40 | `libnetCd__7CNetCnf` | 60 | 3 | 0x527160: fn:0x3ff0f0; 0x57f040: fn:0x321d60 fn:0x321e20 fn:0x3ff0f0 fn:0x3ff1b0 |
-| 0x5ae130 | `@2596` | 12 | 4 | 0x58b110: order (release-shared) |
-| 0x5ae1c0 | `@2597` | 12 | 4 | 0x58b1a0: order (release-shared) |
-| 0x5ae250 | `@2598` | 12 | 4 | 0x58b230: order (release-shared) |
-| 0x5ae2e0 | `@2599` | 12 | 4 | 0x58b2c0: order (release-shared) |
-| 0x5ae650 | `g_bmpTeamDivider__28@unnamed@hud_scorepopup_cpp@` | 128 | 3 | 0x58b1b0: fn:0x470cf0; 0x58b6e0: fn:0x421760 fn:0x421df0 |
-| 0x5ae6e0 | `g_oSeals2Ds__28@unnamed@hud_scorepopup_cpp@` | 3936 | 3 | 0x58b240: fn:0x470cf0; 0x58b770: fn:0x421760 fn:0x421d40 fn:0x421df0 |
-| 0x5af650 | `g_oTerrs2Ds__28@unnamed@hud_scorepopup_cpp@` | 3936 | 3 | 0x58b2d0: fn:0x470cf0; 0x58c750: fn:0x421760 fn:0x421d40 |
 
 ## Contradicted pairs
 
@@ -328,27 +290,17 @@ start or past the next paired release object). The weaker witness does not vote;
 
 | prototype | symbol | size | release | decided by (tier) | contradicting release address: witnesses |
 |---|---|---|---|---|---|
-| 0x449a78 | `@3350` | 15 | 0x461350 | content (0) | 0x461340: fn:0x1a9f70 |
-| 0x449a90 | `@3351` | 19 | 0x461360 | content (0) | 0x461350: fn:0x1a9f70 |
 | 0x44bd88 | `@3877` | 12 | 0x4636d8 | content (0) | 0x4636c8: data:0x439540 |
+| 0x44c248 | `@5005` | 15 | 0x463c28 | operand-aligned, settled (-1) | 0x463c18: fn:0x1d3470 |
 | 0x44c508 | `@5851` | 12 | 0x4776f8 | content (0) | 0x463f40: fn:0x1d5620 |
+| 0x44c600 | `@6468` | 11 | removed |  (-1) | 0x4640b0: fn:0x1d6d70 |
+| 0x44c770 | `@2178` | 26 | 0x464320 | operand-exact, settled (-1) | 0x4643a0: fn:0x1dad90 |
 | 0x44e090 | `@7307` | 16 | 0x465ed0 | content (0) | 0x465550: fn:0x1f7f50 |
-| 0x44e1f8 | `@7660` | 14 | 0x466038 | content (0) | 0x465ff8: fn:0x1f8e30 |
-| 0x44e210 | `@7661` | 19 | 0x466050 | content (0) | 0x466008: fn:0x1f8e30 |
-| 0x44e5b8 | `@2438` | 7 | 0x4664b8 | operand-exact (1) | 0x4663d8: data:0x474df0 |
+| 0x44e300 | `@8981` | 26 | 0x466160 | operand-aligned, operand-exact, settled (-1) | 0x464320: fn:0x1fc880 fn:0x1fca00 |
+| 0x44e5b8 | `@2438` | 7 | 0x4663d8 | content, pointer, settled (-1) | 0x4664b8: fn:0x1ff840 |
 | 0x44e628 | `@3122` | 6 | 0x466448 | content (0) | 0x466450: fn:0x1ff140 |
-| 0x44f530 | `zero__6CPnt3D` | 12 | 0x467400 | operand-aligned, operand-exact (1) | 0x467448: fn:0x2a0210 |
-| 0x4501f0 | `@3703` | 11 | 0x4680d0 | content (0) | 0x4680e0: fn:0x248190 |
-| 0x450200 | `@3704` | 10 | 0x4680e0 | content (0) | 0x4680f0: fn:0x248190 |
-| 0x450210 | `@3705` | 21 | 0x4680f0 | content (0) | 0x468110: fn:0x248190 |
-| 0x450230 | `@3706` | 21 | 0x468110 | content (0) | 0x468130: fn:0x248190 |
+| 0x44ea78 | `@3349` | 3 | 0x466968 | operand-aligned, settled (-1) | 0x466950: fn:0x208970 |
 | 0x450dd0 | `@4073` | 24 | 0x464780 | content (0) | 0x468d00: fn:0x24d8a0 |
-| 0x4512e8 | `@5915` | 5 | 0x469148 | operand-aligned, operand-exact (1) | 0x4697d8: fn:0x26c4b0 |
-| 0x451bf0 | `@9153` | 5 | 0x4695f0 | content, operand-exact (0) | 0x469148: fn:0x26c4b0 |
-| 0x451d98 | `@11427` | 6 | 0x4697d8 | content (0) | 0x4697e0: fn:0x26c4b0 |
-| 0x451da0 | `@11428` | 6 | 0x4697e0 | content (0) | 0x4696a0: fn:0x26c4b0 |
-| 0x451da8 | `@11429` | 7 | 0x4696a0 | operand-exact (1) | 0x4697e8: fn:0x26c4b0 |
-| 0x451db0 | `@11430` | 5 | 0x4697e8 | content (0) | 0x4697f0: fn:0x26c4b0 |
 | 0x452c10 | `@3643` | 24 | 0x46a000 | content (0) | 0x469fe0: fn:0x282d40 |
 | 0x452c30 | `@3644` | 19 | 0x46a020 | content (0) | 0x46a000: fn:0x282d40 |
 | 0x452c48 | `@3645` | 15 | 0x46a038 | content (0) | 0x46a020: fn:0x282d40 |
@@ -383,87 +335,41 @@ start or past the next paired release object). The weaker witness does not vote;
 | 0x452ea0 | `@3674` | 11 | 0x46a290 | content (0) | 0x46a280: fn:0x282d40 |
 | 0x452eb0 | `@3675` | 11 | 0x46a2a0 | content (0) | 0x46a290: fn:0x282d40 |
 | 0x453e98 | `@9714` | 10 | 0x46b298 | content (0) | 0x46b280: fn:0x2936e0 |
-| 0x4544d0 | `@5397` | 19 | 0x46b7d0 | content, operand-exact (0) | 0x46b800: fn:0x2b6f60 |
-| 0x4544e8 | `@5456` | 14 | 0x46b7e8 | content, operand-aligned (0) | 0x46b7d0: fn:0x2b6f60 |
-| 0x454500 | `@5457` | 20 | 0x46b800 | content (0) | 0x46b820: fn:0x2b6f60 |
-| 0x454520 | `@5458` | 18 | 0x46b820 | content (0) | 0x46b838: fn:0x2b6f60 |
-| 0x454538 | `@5459` | 14 | 0x46b838 | content (0) | 0x46b848: fn:0x2b6f60 |
-| 0x454548 | `@5460` | 14 | 0x46b848 | content (0) | 0x46b858: fn:0x2b6f60 |
-| 0x4550d8 | `@2121` | 13 | 0x46c2b8 | content, pointer (0) | 0x46d9f0: fn:0x2c7ef0 |
-| 0x4550e8 | `@2122` | 15 | 0x46c2c8 | content, pointer (0) | 0x46da70: fn:0x2c7ef0 |
-| 0x455220 | `@2134` | 17 | 0x46c400 | content, pointer (0) | 0x46d930: fn:0x2c7ef0 |
-| 0x455240 | `@2135` | 19 | 0x46c420 | content, pointer (0) | 0x46d920: fn:0x2c7ef0 |
-| 0x455330 | `@2149` | 5 | 0x46c510 | content, pointer (0) | 0x46d8b0: fn:0x2c7ef0 |
-| 0x455338 | `@2150` | 12 | 0x46c518 | content, pointer (0) | 0x46d8d0: fn:0x2c7ef0 |
-| 0x455348 | `@2151` | 8 | 0x46c528 | content, pointer (0) | 0x46d8e8: fn:0x2c7ef0 |
-| 0x455960 | `@2207` | 24 | 0x46cb40 | content, pointer (0) | 0x46d940: fn:0x2c7ef0 |
-| 0x4565d0 | `@10096` | 19 | 0x46d7b0 | content, operand-aligned (0) | 0x46d910: fn:0x2c7ef0 |
-| 0x4566d0 | `@10104` | 11 | 0x46d958 | content (0) | 0x46d8f8: fn:0x2c7ef0 |
-| 0x4566e0 | `@10105` | 18 | 0x46d970 | content (0) | 0x46c300: fn:0x2c7ef0 |
-| 0x456700 | `@10106` | 19 | 0x46d990 | content (0) | 0x46c320: fn:0x2c7ef0 |
-| 0x456720 | `@10107` | 17 | 0x46d9d0 | content (0) | 0x46d950: fn:0x2c7ef0 |
-| 0x456740 | `@10108` | 24 | 0x46d9f0 | content (0) | 0x46c510: fn:0x2c7ef0 |
-| 0x456760 | `@10109` | 19 | 0x46da10 | content (0) | 0x46c518: fn:0x2c7ef0 |
-| 0x456780 | `@10110` | 16 | 0x46da30 | content (0) | 0x46c528: fn:0x2c7ef0 |
-| 0x456790 | `@10111` | 16 | 0x46da40 | content (0) | 0x46d958: fn:0x2c7ef0 |
-| 0x4567a0 | `@10112` | 23 | 0x46da50 | content (0) | 0x46d970: fn:0x2c7ef0 |
-| 0x4567c0 | `@10113` | 18 | 0x46da70 | content (0) | 0x46d7b0: fn:0x2c7ef0 |
-| 0x4567e0 | `@10114` | 18 | 0x46da90 | content (0) | 0x46d990: fn:0x2c7ef0 |
-| 0x456800 | `@10115` | 25 | 0x46dab0 | content (0) | 0x46c420: fn:0x2c7ef0 |
-| 0x456820 | `@10116` | 20 | 0x46dad0 | content (0) | 0x46c400: fn:0x2c7ef0 |
-| 0x456840 | `@10117` | 16 | 0x46daf0 | content (0) | 0x46cb40: fn:0x2c7ef0 |
-| 0x456850 | `@10118` | 23 | 0x46db00 | content (0) | 0x46d9b0: fn:0x2c7ef0 |
-| 0x456870 | `@10119` | 18 | 0x46db20 | content (0) | 0x46d9d0: fn:0x2c7ef0 |
-| 0x456888 | `@10120` | 15 | 0x46db38 | content (0) | 0x46da10: fn:0x2c7ef0 |
-| 0x456898 | `@10121` | 13 | 0x46db48 | content (0) | 0x46da30: fn:0x2c7ef0 |
-| 0x4568a8 | `@10122` | 13 | 0x46db58 | content (0) | 0x46da40: fn:0x2c7ef0 |
-| 0x4568b8 | `@10123` | 15 | 0x46db68 | content (0) | 0x46da50: fn:0x2c7ef0 |
-| 0x4568d0 | `@10124` | 17 | 0x46db80 | content (0) | 0x46da90: fn:0x2c7ef0 |
-| 0x4568f0 | `@10125` | 17 | 0x46dba0 | content (0) | 0x46dab0: fn:0x2c7ef0 |
-| 0x456910 | `@10126` | 24 | 0x46dbc0 | content (0) | 0x46dad0: fn:0x2c7ef0 |
-| 0x456930 | `@10127` | 16 | 0x46dbe0 | content (0) | 0x46daf0: fn:0x2c7ef0 |
-| 0x456940 | `@10128` | 23 | 0x46dbf0 | content (0) | 0x46db00: fn:0x2c7ef0 |
-| 0x456958 | `@10129` | 15 | 0x46dc08 | content (0) | 0x46db20: fn:0x2c7ef0 |
-| 0x456970 | `@10130` | 22 | 0x46dc20 | content (0) | 0x46c2b8: fn:0x2c7ef0 |
-| 0x456990 | `@10131` | 16 | 0x46dc40 | content (0) | 0x46db38: fn:0x2c7ef0 |
-| 0x4569a0 | `@10132` | 23 | 0x46dc50 | content (0) | 0x46db48: fn:0x2c7ef0 |
-| 0x4569b8 | `@10133` | 12 | 0x46dc68 | content (0) | 0x46db58: fn:0x2c7ef0 |
-| 0x4569d0 | `@10134` | 19 | 0x46dc80 | content (0) | 0x46db68: fn:0x2c7ef0 |
-| 0x4569f0 | `@10135` | 17 | 0x46dca0 | content (0) | 0x46c2c8: fn:0x2c7ef0 |
-| 0x456a10 | `@10136` | 24 | 0x46dcc0 | content (0) | 0x46db80: fn:0x2c7ef0 |
-| 0x4573d0 | `@3593` | 6 | 0x46e698 | content (0) | 0x46e6b0: fn:0x2d8b60 |
-| 0x4573d8 | `@3594` | 6 | 0x46e6a0 | content (0) | 0x46e6b8: fn:0x2d8b60 |
-| 0x4573e0 | `@3595` | 6 | 0x46e6a8 | content (0) | 0x46e6c0: fn:0x2d8b60 |
-| 0x4573f0 | `@3597` | 5 | 0x46e6c0 | content (0) | 0x46e6d0: fn:0x2d8b60 |
-| 0x457400 | `@3599` | 6 | 0x46e6e0 | content (0) | 0x46e6e8: fn:0x2d8b60 |
-| 0x457408 | `@3600` | 6 | 0x46e6e8 | content (0) | 0x46e6f0: fn:0x2d8b60 |
+| 0x458610 | `@3032` | 3 | 0x46f4f0 | settled (-1) | 0x46f4e0: fn:0x2ed2d0 |
 | 0x458620 | `@3034` | 8 | 0x46f500 | content (0) | 0x46f4f8: fn:0x2ed2d0 |
 | 0x4588d0 | `@1117` | 19 | 0x46f780 | content (0) | 0x46f760: data:0x43a750 |
 | 0x4588f0 | `@1118` | 18 | 0x46f760 | content (0) | 0x46f780: data:0x43a750 |
+| 0x458a40 | `@1391` | 19 | 0x46f8b0 | settled (-1) | 0x46f890: fn:0x2f4e90 |
 | 0x459768 | `@1605` | 14 | 0x4704a8 | operand-exact (1) | 0x470520: fn:0x307450 |
 | 0x45a100 | `@2100` | 7 | 0x470e60 | content (0) | 0x470e50: fn:0x31b920 |
-| 0x45ad68 | `@4287` | 2 | 0x4717c8 | operand-aligned, operand-exact (1) | 0x472248: fn:0x32f460; 0x472258: fn:0x32f460 |
+| 0x45ad68 | `@4287` | 2 | 0x4717c8 | operand-aligned, operand-exact (1) | 0x472248: fn:0x32f460 |
 | 0x45af30 | `@5025` | 23 | 0x471a00 | operand-exact (1) | 0x4719c0: fn:0x3246a0 |
-| 0x45b090 | `@5730` | 17 | 0x471b30 | content, operand-aligned (0) | 0x471b50: fn:0x32ea80 |
-| 0x45b0b0 | `@5731` | 16 | 0x471b50 | content, operand-aligned (0) | 0x472210: fn:0x32ea80 |
+| 0x45b578 | `@9196` | 12 | 0x472178 | content, settled (-1) | 0x4721b0: fn:0x32dbb0 |
 | 0x461cd0 | `@2191` | 5 | 0x478ae0 | operand-aligned, operand-exact (1) | 0x4793f8: fn:0x398f50 |
-| 0x462e30 | `@1925` | 13 | 0x479da0 | content (0) | 0x479d90: fn:0x3a2220 |
-| 0x462e40 | `@1926` | 11 | 0x479db0 | content (0) | 0x479da0: fn:0x3a2220 |
-| 0x466058 | `@3435` | 13 | 0x47d338 | content (0) | 0x47d360: fn:0x3d5e40 |
+| 0x466068 | `@3436` | 7 | 0x47d348 | settled (-1) | 0x47d360: fn:0x3d5e40 |
 | 0x466070 | `@3437` | 6 | 0x47d350 | content (0) | 0x47d368: fn:0x3d5e40 |
 | 0x466078 | `@3438` | 5 | 0x47d358 | content (0) | 0x47d380: fn:0x3d5e40 |
-| 0x4740c0 | `__vt__11CMusicTuner` | 16 | 0x48bb50 | content, operand-exact, vtable (1) | 0x48bb40: fn:0x3a2220 |
-| 0x4740d0 | `__vt__16CBrightnessTuner` | 16 | 0x48bb60 | content, operand-exact, vtable (1) | 0x48bb50: fn:0x3a2220 |
-| 0x474100 | `__vt__19CStickDeadzoneTuner` | 16 | 0x48bb90 | content, operand-exact, vtable (1) | 0x48bb80: fn:0x3a2220 |
-| 0x4751e8 | `ClimbMedium__9AnimTypes` | 2 | 0x48ccf8 | operand-aligned, operand-exact (1) | 0x48ccf0: fn:0x2c0970 |
-| 0x49c1a0 | `BodyAnimCallbackList` | 12 | 0x4b4450 | operand-aligned, operand-exact (1) | 0x4b31a0: fn:0x1f7180 |
+| 0x475110 | `Rotate180__9AnimTypes` | 2 | 0x48cc20 | operand-aligned, settled (-1) | 0x48ce54: fn:0x27cbf0 |
+| 0x4752b8 | `BuddyCarryPickup__9AnimTypes` | 2 | 0x48cdf8 | operand-aligned, settled (-1) | 0x48ce00: fn:0x26f530 |
+| 0x4759e8 | `m_ThrottleFBFieldID__11CZSealState` | 4 | 0x48d5bc | settled (-1) | 0x48d634: fn:0x204e10 |
+| 0x475a24 | `m_WeaponSelectFieldID__11CZSealState` | 4 | 0x48d5fc | settled (-1) | 0x48d608: fn:0x205930 |
+| 0x475a2c | `m_AIStateFieldID__11CZSealState` | 4 | 0x48d604 | settled (-1) | 0x48d67c: fn:0x204e10 |
+| 0x475a34 | `m_AimElevationFieldID__11CZSealState` | 4 | 0x48d60c | settled (-1) | 0x48d680: fn:0x204e10 |
+| 0x475a38 | `m_FireTriggerCountFieldID__11CZSealState` | 4 | 0x48d610 | settled (-1) | 0x48d6a0: fn:0x204e10 |
+| 0x475a48 | `m_RoundStatsFieldID__11CZSealState` | 4 | 0x48d620 | settled (-1) | 0x48d688: fn:0x204e10 |
+| 0x475a54 | `m_MaxGameTimeFieldID__11CZGameState` | 4 | 0x48d6a8 | operand-aligned, settled (-1) | 0x48d6e0: fn:0x206320 |
+| 0x475a58 | `m_InitialClockFieldID__11CZGameState` | 4 | 0x48d6ac | operand-aligned, settled (-1) | 0x48d6b0: fn:0x206320 |
+| 0x475a64 | `m_FlagsFieldID__11CZGameState` | 4 | 0x48d6b8 | operand-aligned, settled (-1) | 0x48d6f0: fn:0x206320 |
+| 0x475ce8 | `adren_incr2$2814` | 4 | 0x48d93c | operand-aligned, settled (-1) | 0x48d944: fn:0x255870 |
+| 0x476150 | `init$2658` | 1 | 0x48df80 | operand-aligned, settled (-1) | 0x48df88: fn:0x2b21e0 |
+| 0x476444 | `m_listenerIsValid__4CSnd` | 1 | 0x48e354 | operand-aligned, settled (-1) | 0x48cf18: fn:0x2ec080 |
+| 0x476d20 | `g_iBoxTopY__28@unnamed@hud_scorepopup_cpp@` | 4 | 0x48eb74 | operand-aligned, settled (-1) | 0x48eb70: fn:0x421df0 |
 | 0x4ac400 | `_rbuf` | 65536 | 0x4c4680 | operand-exact (1) | 0x4afb20: fn:0x167858 |
-| 0x4bc480 | `m_target_add__7CEntity` | 12 | 0x4d4700 | operand-aligned, operand-exact (1) | 0x4d46a0: fn:0x1efbf0 |
 | 0x4c5710 | `m_FlashBroadcastSchedule__11CZNetObject` | 24 | 0x4ddd70 | operand-aligned, operand-exact (1) | 0x4dddd0: fn:0x205930 |
 | 0x50e7b0 | `m_bnkArchive__4CSnd` | 164 | 0x526e40 | operand-aligned, operand-exact (1) | 0x526d70: fn:0x2ee1d0 |
-| 0x511ea0 | `theNetwork` | 4708 | 0x52a5a0 | operand-aligned, operand-exact (1) | 0x4d4f10: fn:0x201800 |
-| 0x52cb40 | `theVoice` | 72 | 0x545240 | operand-aligned, operand-exact (1) | 0x52b960: fn:0x203de0 |
 | 0x55be50 | `m_hud_textcolor__4CHUD` | 16 | 0x577f90 | operand-aligned, operand-exact (1) | 0x47d098: fn:0x3d5e40; 0x47d09c: fn:0x3d5870 fn:0x3d5e40; 0x47d0a0: fn:0x3d5870 fn:0x3d5e40 |
+| 0x576e40 | `libnetCd__7CNetCnf` | 60 | 0x57f040 | operand-aligned, settled (-1) | 0x527160: fn:0x3ff0f0 |
+| 0x5af640 | `@2607` | 12 | 0x58c740 | settled (-1) | 0x58b2c0: fn:0x470cf0 |
 
 ## Accesses outside the prototype size
 
@@ -472,6 +378,9 @@ for the module's note in stage 4). Offsets are prototype -> release.
 
 | prototype | symbol | size | release | field offsets (p -> r) |
 |---|---|---|---|---|
+| 0x475318 | `PistolLadderSlideLand__9AnimTypes` | 2 | 0x48ce58 | +0x0->+0x20 |
+| 0x475a4c | `m_GameStatsFieldID__11CZSealState` | 4 | 0x48d624 | +0x0->+0x78 |
+| 0x475cec | `init$2815` | 1 | 0x48d940 | +0x0->+0x8 |
 | 0x49b5d0 | `g_MenuStack` | 2612 | 0x4b3450 | +0x410->+0x820 +0x414->+0x824 +0x418->+0x828 +0xa30->+0xe40 |
 | 0x4bc600 | `theMission` | 1648 | 0x4d4880 | +0xd8->+0xec +0xdc->+0xf0 +0xe8->+0xfc +0x100->+0x110 +0x10c->+0x11c +0x26c->+0x27c +0x278->+0x288 +0x280->+0x290 ... |
 | 0x509000 | `_colorEntNoBlock` | 12 | 0x521614 | +0x8->+0xc |

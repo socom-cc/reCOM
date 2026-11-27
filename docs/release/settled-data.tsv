@@ -1,0 +1,196 @@
+release	prototype	symbol	basis	checker	date	withhold
+removed	0x44c600	@6468	wrong: text 'Empty Slot' absent from the release; OnListSavedGames dropped it	socom-release-data-check-k1	2026-11-27	-
+0x4663d8	0x44e5b8	@2438	wrong by the literal rule: 'BREACH' is at this address (UISTR_ACT_BREACH points here); the exact function now uses 'ACT_BREACH'	socom-release-data-check-k1	2026-11-27	-
+0x4697f0	0x451db8	@11431	wrong: string text; the paired release function references the same text here	socom-release-data-check-k1	2026-11-27	-
+0x46e6b8	0x4573e8	@3596	wrong: string text; the paired release function references the same text here	socom-release-data-check-k1	2026-11-27	-
+0x46f4f0	0x458610	@3032	wrong: string text; the paired release function references the same text here	socom-release-data-check-k1	2026-11-27	-
+0x46f8b0	0x458a40	@1391	wrong: string text; the paired release function references the same text here	socom-release-data-check-k1	2026-11-27	-
+0x472178	0x45b578	@9196	wrong: string text; the paired release function references the same text here	socom-release-data-check-k1	2026-11-27	-
+0x478ea8	0x462078	@3403	wrong: string text; __ct__14CUIListBoxSpec (p 0x3966b0) references the same text here (tool's alignment off by 14 blocks)	socom-release-data-check-k1	2026-11-27	-
+0x478eb8	0x462088	@3404	wrong: string text; __ct__14CUIListBoxSpec (p 0x3966b0) references the same text here (tool's alignment off by 14 blocks)	socom-release-data-check-k1	2026-11-27	-
+0x478ec8	0x462098	@3405	wrong: string text; __ct__14CUIListBoxSpec (p 0x3966b0) references the same text here (tool's alignment off by 14 blocks)	socom-release-data-check-k1	2026-11-27	-
+0x478ed8	0x4620a8	@3406	wrong: string text; __ct__14CUIListBoxSpec (p 0x3966b0) references the same text here (tool's alignment off by 14 blocks)	socom-release-data-check-k1	2026-11-27	-
+0x478ef0	0x4620c0	@3407	wrong: string text; __ct__14CUIListBoxSpec (p 0x3966b0) references the same text here (tool's alignment off by 14 blocks)	socom-release-data-check-k1	2026-11-27	-
+0x478f08	0x4620d8	@3408	wrong: string text; __ct__14CUIListBoxSpec (p 0x3966b0) references the same text here (tool's alignment off by 14 blocks)	socom-release-data-check-k1	2026-11-27	-
+0x478f20	0x4620f0	@3409	wrong: string text; __ct__14CUIListBoxSpec (p 0x3966b0) references the same text here (tool's alignment off by 14 blocks)	socom-release-data-check-k1	2026-11-27	-
+0x478f40	0x462110	@3410	wrong: string text; __ct__14CUIListBoxSpec (p 0x3966b0) references the same text here (tool's alignment off by 14 blocks)	socom-release-data-check-k1	2026-11-27	-
+0x478f60	0x462130	@3411	wrong: string text; __ct__14CUIListBoxSpec (p 0x3966b0) references the same text here (tool's alignment off by 14 blocks)	socom-release-data-check-k1	2026-11-27	-
+0x478f80	0x462150	@3412	wrong: string text; __ct__14CUIListBoxSpec (p 0x3966b0) references the same text here (tool's alignment off by 14 blocks)	socom-release-data-check-k1	2026-11-27	-
+0x478fa0	0x462170	@3413	wrong: string text; __ct__14CUIListBoxSpec (p 0x3966b0) references the same text here (tool's alignment off by 14 blocks)	socom-release-data-check-k1	2026-11-27	-
+0x478fb0	0x462180	@3414	wrong: string text; __ct__14CUIListBoxSpec (p 0x3966b0) references the same text here (tool's alignment off by 14 blocks)	socom-release-data-check-k1	2026-11-27	-
+0x478fd0	0x4621a0	@3415	wrong: string text; __ct__14CUIListBoxSpec (p 0x3966b0) references the same text here (tool's alignment off by 14 blocks)	socom-release-data-check-k1	2026-11-27	-
+0x478ff0	0x4621c0	@3416	wrong: string text; __ct__14CUIListBoxSpec (p 0x3966b0) references the same text here (tool's alignment off by 14 blocks)	socom-release-data-check-k1	2026-11-27	-
+0x479010	0x4621e0	@3417	wrong: string text; __ct__14CUIListBoxSpec (p 0x3966b0) references the same text here (tool's alignment off by 14 blocks)	socom-release-data-check-k1	2026-11-27	-
+0x479020	0x4621f0	@3418	wrong: string text; __ct__14CUIListBoxSpec (p 0x3966b0) references the same text here (tool's alignment off by 14 blocks)	socom-release-data-check-k1	2026-11-27	-
+0x479038	0x462208	@3419	wrong: string text; __ct__14CUIListBoxSpec (p 0x3966b0) references the same text here (tool's alignment off by 14 blocks)	socom-release-data-check-k1	2026-11-27	-
+0x479050	0x462220	@3420	wrong: string text; __ct__14CUIListBoxSpec (p 0x3966b0) references the same text here (tool's alignment off by 14 blocks)	socom-release-data-check-k1	2026-11-27	-
+0x479070	0x462240	@3421	wrong: string text; __ct__14CUIListBoxSpec (p 0x3966b0) references the same text here (tool's alignment off by 14 blocks)	socom-release-data-check-k1	2026-11-27	-
+0x479090	0x462260	@3422	wrong: string text; __ct__14CUIListBoxSpec (p 0x3966b0) references the same text here (tool's alignment off by 14 blocks)	socom-release-data-check-k1	2026-11-27	-
+0x4790b0	0x462280	@3423	wrong: string text; __ct__14CUIListBoxSpec (p 0x3966b0) references the same text here (tool's alignment off by 14 blocks)	socom-release-data-check-k1	2026-11-27	-
+0x4790d0	0x4622a0	@3424	wrong: string text; __ct__14CUIListBoxSpec (p 0x3966b0) references the same text here (tool's alignment off by 14 blocks)	socom-release-data-check-k1	2026-11-27	-
+0x4790f0	0x4622c0	@3425	wrong: string text; __ct__14CUIListBoxSpec (p 0x3966b0) references the same text here (tool's alignment off by 14 blocks)	socom-release-data-check-k1	2026-11-27	-
+0x479100	0x4622d0	@3426	wrong: string text; __ct__14CUIListBoxSpec (p 0x3966b0) references the same text here (tool's alignment off by 14 blocks)	socom-release-data-check-k1	2026-11-27	-
+0x479118	0x4622e8	@3427	wrong: string text; __ct__14CUIListBoxSpec (p 0x3966b0) references the same text here (tool's alignment off by 14 blocks)	socom-release-data-check-k1	2026-11-27	-
+0x479128	0x4622f8	@3428	wrong: string text; __ct__14CUIListBoxSpec (p 0x3966b0) references the same text here (tool's alignment off by 14 blocks)	socom-release-data-check-k1	2026-11-27	-
+0x479140	0x462310	@3429	wrong: string text; __ct__14CUIListBoxSpec (p 0x3966b0) references the same text here (tool's alignment off by 14 blocks)	socom-release-data-check-k1	2026-11-27	-
+0x479160	0x462330	@3430	wrong: string text; __ct__14CUIListBoxSpec (p 0x3966b0) references the same text here (tool's alignment off by 14 blocks)	socom-release-data-check-k1	2026-11-27	-
+0x479180	0x462350	@3431	wrong: string text; __ct__14CUIListBoxSpec (p 0x3966b0) references the same text here (tool's alignment off by 14 blocks)	socom-release-data-check-k1	2026-11-27	-
+0x479dd8	0x462e70	@1928	wrong: InitSystemTuners order SENSITIVITY, ACCELERATION->INERTIA, DEADZONE; text changed (deviating)	socom-release-data-check-k1	2026-11-27	-
+0x479de8	0x462e88	@1929	wrong: string text; the paired release function references the same text here	socom-release-data-check-k1	2026-11-27	-
+0x47e220	0x468020	@2235	wrong: string text; the paired release function references the same text here	socom-release-data-check-k1	2026-11-27	-
+0x48cdb8	0x47527c	Stabbed__9AnimTypes	wrong: InitializeAnimNames stores this after looking up the same name string (tool off by 11-12 slots)	socom-release-data-check-k1	2026-11-27	-
+0x48cdcc	0x475290	ReceiveRestraints__9AnimTypes	wrong: InitializeAnimNames stores this after looking up the same name string (tool off by 11-12 slots)	socom-release-data-check-k1	2026-11-27	-
+0x48cde4	0x4752a4	BuddyCarriedStand__9AnimTypes	wrong: InitializeAnimNames stores this after looking up the same name string (tool off by 11-12 slots)	socom-release-data-check-k1	2026-11-27	-
+0x48cde8	0x4752a8	BuddyCarryBody__9AnimTypes	wrong: InitializeAnimNames stores this after looking up the same name string (tool off by 11-12 slots)	socom-release-data-check-k1	2026-11-27	-
+0x48cdf4	0x4752b4	BuddyCarriedWalk__9AnimTypes	wrong: InitializeAnimNames stores this after looking up the same name string (tool off by 11-12 slots)	socom-release-data-check-k1	2026-11-27	-
+0x48ce0c	0x4752cc	BuddyCarriedStep__9AnimTypes	wrong: InitializeAnimNames stores this after looking up the same name string (tool off by 11-12 slots)	socom-release-data-check-k1	2026-11-27	-
+0x48ce18	0x4752d8	DiveForward01__9AnimTypes	wrong: InitializeAnimNames stores this after looking up the same name string (tool off by 11-12 slots)	socom-release-data-check-k1	2026-11-27	-
+0x48ce20	0x4752e0	LandBackward01__9AnimTypes	wrong: InitializeAnimNames stores this after looking up the same name string (tool off by 11-12 slots)	socom-release-data-check-k1	2026-11-27	-
+0x48ce24	0x4752e4	GetupForward01__9AnimTypes	wrong: InitializeAnimNames stores this after looking up the same name string (tool off by 11-12 slots)	socom-release-data-check-k1	2026-11-27	-
+0x48ce28	0x4752e8	GetupBackward01__9AnimTypes	wrong: InitializeAnimNames stores this after looking up the same name string (tool off by 11-12 slots)	socom-release-data-check-k1	2026-11-27	-
+0x48ce48	0x475308	PistolLadder2Slide__9AnimTypes	wrong: InitializeAnimNames stores this after looking up the same name string (tool off by 11-12 slots)	socom-release-data-check-k1	2026-11-27	-
+0x48ce50	0x475310	PistolLadderSlide__9AnimTypes	wrong: InitializeAnimNames stores this after looking up the same name string (tool off by 11-12 slots)	socom-release-data-check-k1	2026-11-27	-
+0x48d5bc	0x4759e8	m_ThrottleFBFieldID__11CZSealState	wrong: zNetRegisterSeal registers it with the same member offset (+2 after offset 136), size and flags	socom-release-data-check-k1	2026-11-27	-
+0x48d5c0	0x4759ec	m_ThrottleLRFieldID__11CZSealState	wrong: zNetRegisterSeal registers it with the same member offset (+2 after offset 136), size and flags	socom-release-data-check-k1	2026-11-27	-
+0x48d5c8	0x4759f4	m_WeaponStateFieldID__11CZSealState	wrong: zNetRegisterSeal registers it with the same member offset (+2 after offset 136), size and flags	socom-release-data-check-k1	2026-11-27	-
+0x48d5d0	0x4759fc	m_PeekStateFieldID__11CZSealState	wrong: zNetRegisterSeal registers it with the same member offset (+2 after offset 136), size and flags	socom-release-data-check-k1	2026-11-27	-
+0x48d5d8	0x475a04	m_HeadHealthFieldID__11CZSealState	wrong: zNetRegisterSeal registers it with the same member offset (+2 after offset 136), size and flags	socom-release-data-check-k1	2026-11-27	-
+0x48d5dc	0x475a08	m_BodyHealthFieldID__11CZSealState	wrong: zNetRegisterSeal registers it with the same member offset (+2 after offset 136), size and flags	socom-release-data-check-k1	2026-11-27	-
+0x48d5e0	0x475a0c	m_LLegHealthFieldID__11CZSealState	wrong: zNetRegisterSeal registers it with the same member offset (+2 after offset 136), size and flags	socom-release-data-check-k1	2026-11-27	-
+0x48d5e4	0x475a10	m_RLegHealthFieldID__11CZSealState	wrong: zNetRegisterSeal registers it with the same member offset (+2 after offset 136), size and flags	socom-release-data-check-k1	2026-11-27	-
+0x48d5e8	0x475a14	m_LArmHealthFieldID__11CZSealState	wrong: zNetRegisterSeal registers it with the same member offset (+2 after offset 136), size and flags	socom-release-data-check-k1	2026-11-27	-
+0x48d5ec	0x475a18	m_RArmHealthFieldID__11CZSealState	wrong: zNetRegisterSeal registers it with the same member offset (+2 after offset 136), size and flags	socom-release-data-check-k1	2026-11-27	-
+0x48d5f0	0x475a1c	m_KillerIndexFieldID__11CZSealState	wrong: zNetRegisterSeal registers it with the same member offset (+2 after offset 136), size and flags	socom-release-data-check-k1	2026-11-27	-
+0x48d5f4	0x475a20	m_FireModeSelectFieldID__11CZSealState	wrong: zNetRegisterSeal registers it with the same member offset (+2 after offset 136), size and flags	socom-release-data-check-k1	2026-11-27	-
+0x48d5fc	0x475a24	m_WeaponSelectFieldID__11CZSealState	wrong: zNetRegisterSeal registers it with the same member offset (+2 after offset 136), size and flags	socom-release-data-check-k1	2026-11-27	-
+0x48d60c	0x475a34	m_AimElevationFieldID__11CZSealState	wrong: zNetRegisterSeal registers it with the same member offset (+2 after offset 136), size and flags	socom-release-data-check-k1	2026-11-27	-
+0x48d610	0x475a38	m_FireTriggerCountFieldID__11CZSealState	wrong: zNetRegisterSeal registers it with the same member offset (+2 after offset 136), size and flags	socom-release-data-check-k1	2026-11-27	-
+0x48d620	0x475a48	m_RoundStatsFieldID__11CZSealState	wrong: zNetRegisterSeal registers it with the same member offset (+2 after offset 136), size and flags	socom-release-data-check-k1	2026-11-27	-
+0x58b590	0x5ae5b0	@2604	wrong: __sinit_hud_scorepopup registers this destructor record for the paired global	socom-release-data-check-k1	2026-11-27	-
+0x58b6d0	0x5ae640	@2605	wrong: __sinit_hud_scorepopup registers this destructor record for the paired global	socom-release-data-check-k1	2026-11-27	-
+0x58b760	0x5ae6d0	@2606	wrong: __sinit_hud_scorepopup registers this destructor record for the paired global	socom-release-data-check-k1	2026-11-27	-
+0x58c740	0x5af640	@2607	wrong: __sinit_hud_scorepopup registers this destructor record for the paired global	socom-release-data-check-k1	2026-11-27	-
+0x48cc20	0x475110	Rotate180__9AnimTypes	settled: InitializeAnimNames stores it after looking up its name string	socom-release-data-check-k1	2026-11-27	-
+0x48ccf0	0x4751e0	StepUp__9AnimTypes	settled: InitializeAnimNames stores it after looking up its name string	socom-release-data-check-k1	2026-11-27	-
+0x48ccf4	0x4751e4	PistolStepUp__9AnimTypes	settled: InitializeAnimNames stores it after looking up its name string	socom-release-data-check-k1	2026-11-27	-
+0x48ccfc	0x4751ec	PistolClimbMedium__9AnimTypes	settled: InitializeAnimNames stores it after looking up its name string	socom-release-data-check-k1	2026-11-27	-
+0x48cd00	0x4751f0	ClimbOver__9AnimTypes	settled: InitializeAnimNames stores it after looking up its name string	socom-release-data-check-k1	2026-11-27	-
+0x48cd04	0x4751f4	PistolClimbOver__9AnimTypes	settled: InitializeAnimNames stores it after looking up its name string	socom-release-data-check-k1	2026-11-27	-
+0x48cdb0	0x475274	Stab__9AnimTypes	settled: InitializeAnimNames stores it after looking up its name string	socom-release-data-check-k1	2026-11-27	-
+0x48cdb4	0x475278	PistolStab__9AnimTypes	settled: InitializeAnimNames stores it after looking up its name string	socom-release-data-check-k1	2026-11-27	-
+0x48cdbc	0x475280	CQB__9AnimTypes	settled: InitializeAnimNames stores it after looking up its name string	socom-release-data-check-k1	2026-11-27	-
+0x48cdc0	0x475284	PistolCQB__9AnimTypes	settled: InitializeAnimNames stores it after looking up its name string	socom-release-data-check-k1	2026-11-27	-
+0x48cdc4	0x475288	CQBVictimFallBackwards__9AnimTypes	settled: InitializeAnimNames stores it after looking up its name string	socom-release-data-check-k1	2026-11-27	-
+0x48cdc8	0x47528c	CQBVictimFallForwards__9AnimTypes	settled: InitializeAnimNames stores it after looking up its name string	socom-release-data-check-k1	2026-11-27	-
+0x48cdd0	0x475294	ApplyRestraints__9AnimTypes	settled: InitializeAnimNames stores it after looking up its name string	socom-release-data-check-k1	2026-11-27	-
+0x48cdd4	0x475298	PistolApplyRestraints__9AnimTypes	settled: InitializeAnimNames stores it after looking up its name string	socom-release-data-check-k1	2026-11-27	-
+0x48cddc	0x47529c	BuddyCarryStand__9AnimTypes	settled: InitializeAnimNames stores it after looking up its name string	socom-release-data-check-k1	2026-11-27	-
+0x48cde0	0x4752a0	PistolBuddyCarryStand__9AnimTypes	settled: InitializeAnimNames stores it after looking up its name string	socom-release-data-check-k1	2026-11-27	-
+0x48cdec	0x4752ac	BuddyCarryWalk__9AnimTypes	settled: InitializeAnimNames stores it after looking up its name string	socom-release-data-check-k1	2026-11-27	-
+0x48cdf0	0x4752b0	PistolBuddyCarryWalk__9AnimTypes	settled: InitializeAnimNames stores it after looking up its name string	socom-release-data-check-k1	2026-11-27	-
+0x48cdf8	0x4752b8	BuddyCarryPickup__9AnimTypes	settled: InitializeAnimNames stores it after looking up its name string	socom-release-data-check-k1	2026-11-27	-
+0x48cdfc	0x4752bc	PistolBuddyCarryPickup__9AnimTypes	settled: InitializeAnimNames stores it after looking up its name string	socom-release-data-check-k1	2026-11-27	-
+0x48ce00	0x4752c0	BuddyCarriedPickup__9AnimTypes	settled: InitializeAnimNames stores it after looking up its name string	socom-release-data-check-k1	2026-11-27	-
+0x48ce04	0x4752c4	BuddyCarryStep__9AnimTypes	settled: InitializeAnimNames stores it after looking up its name string	socom-release-data-check-k1	2026-11-27	-
+0x48ce08	0x4752c8	PistolBuddyCarryStep__9AnimTypes	settled: InitializeAnimNames stores it after looking up its name string	socom-release-data-check-k1	2026-11-27	-
+0x48ce10	0x4752d0	FallForward01__9AnimTypes	settled: InitializeAnimNames stores it after looking up its name string	socom-release-data-check-k1	2026-11-27	-
+0x48ce14	0x4752d4	FallBackward01__9AnimTypes	settled: InitializeAnimNames stores it after looking up its name string	socom-release-data-check-k1	2026-11-27	-
+0x48ce1c	0x4752dc	LandForward01__9AnimTypes	settled: InitializeAnimNames stores it after looking up its name string	socom-release-data-check-k1	2026-11-27	-
+0x48ce2c	0x4752ec	DefuseBombBegin__9AnimTypes	settled: InitializeAnimNames stores it after looking up its name string	socom-release-data-check-k1	2026-11-27	-
+0x48ce30	0x4752f0	PistolDefuseBombBegin__9AnimTypes	settled: InitializeAnimNames stores it after looking up its name string	socom-release-data-check-k1	2026-11-27	-
+0x48ce34	0x4752f4	DefuseBombLoop__9AnimTypes	settled: InitializeAnimNames stores it after looking up its name string	socom-release-data-check-k1	2026-11-27	-
+0x48ce38	0x4752f8	PistolDefuseBombLoop__9AnimTypes	settled: InitializeAnimNames stores it after looking up its name string	socom-release-data-check-k1	2026-11-27	-
+0x48ce3c	0x4752fc	DefuseBombEnd__9AnimTypes	settled: InitializeAnimNames stores it after looking up its name string	socom-release-data-check-k1	2026-11-27	-
+0x48ce40	0x475300	PistolDefuseBombEnd__9AnimTypes	settled: InitializeAnimNames stores it after looking up its name string	socom-release-data-check-k1	2026-11-27	-
+0x48ce44	0x475304	Ladder2Slide__9AnimTypes	settled: InitializeAnimNames stores it after looking up its name string	socom-release-data-check-k1	2026-11-27	-
+0x48ce4c	0x47530c	LadderSlide__9AnimTypes	settled: InitializeAnimNames stores it after looking up its name string	socom-release-data-check-k1	2026-11-27	-
+0x48ce54	0x475314	LadderSlideLand__9AnimTypes	settled: InitializeAnimNames stores it after looking up its name string	socom-release-data-check-k1	2026-11-27	-
+0x48ce58	0x475318	PistolLadderSlideLand__9AnimTypes	settled: InitializeAnimNames stores it after looking up its name string	socom-release-data-check-k1	2026-11-27	-
+0x48d5c4	0x4759f0	m_ThrottleSTFieldID__11CZSealState	settled: zNetRegisterSeal member offset (+2 after 136), size and flags	socom-release-data-check-k1	2026-11-27	-
+0x48d5cc	0x4759f8	m_StanceStateFieldID__11CZSealState	settled: zNetRegisterSeal member offset (+2 after 136), size and flags	socom-release-data-check-k1	2026-11-27	-
+0x48d5d4	0x475a00	m_ActionStateFieldID__11CZSealState	settled: zNetRegisterSeal member offset (+2 after 136), size and flags	socom-release-data-check-k1	2026-11-27	-
+0x48d604	0x475a2c	m_AIStateFieldID__11CZSealState	settled: zNetRegisterSeal member offset (+2 after 136), size and flags	socom-release-data-check-k1	2026-11-27	-
+0x48d5f8	0x475a30	m_UnitIDFieldID__11CZSealState	settled: zNetRegisterSeal member offset (+2 after 136), size and flags	socom-release-data-check-k1	2026-11-27	-
+0x48d624	0x475a4c	m_GameStatsFieldID__11CZSealState	settled: zNetRegisterSeal member offset (+2 after 136), size and flags	socom-release-data-check-k1	2026-11-27	-
+0x48d6a8	0x475a54	m_MaxGameTimeFieldID__11CZGameState	settled: zNetRegisterGame member offset and order (Flags 8 -> 4 bytes)	socom-release-data-check-k1	2026-11-27	-
+0x48d6ac	0x475a58	m_InitialClockFieldID__11CZGameState	settled: zNetRegisterGame member offset and order (Flags 8 -> 4 bytes)	socom-release-data-check-k1	2026-11-27	-
+0x48d6b8	0x475a64	m_FlagsFieldID__11CZGameState	settled: zNetRegisterGame member offset and order (Flags 8 -> 4 bytes)	socom-release-data-check-k1	2026-11-27	-
+0x58b0f0	0x5ae110	MultiplayerMsgStrings	settled: __sinit_hud_scorepopup constructs/registers it in the same order	socom-release-data-check-k1	2026-11-27	-
+0x58b110	0x5ae130	@2596	settled: __sinit_hud_scorepopup constructs/registers it in the same order	socom-release-data-check-k1	2026-11-27	-
+0x58b1a0	0x5ae1c0	@2597	settled: __sinit_hud_scorepopup constructs/registers it in the same order	socom-release-data-check-k1	2026-11-27	-
+0x58b230	0x5ae250	@2598	settled: __sinit_hud_scorepopup constructs/registers it in the same order	socom-release-data-check-k1	2026-11-27	-
+0x58b2c0	0x5ae2e0	@2599	settled: __sinit_hud_scorepopup constructs/registers it in the same order	socom-release-data-check-k1	2026-11-27	-
+0x58b350	0x5ae370	@2600	settled: __sinit_hud_scorepopup constructs/registers it in the same order	socom-release-data-check-k1	2026-11-27	-
+0x58b3e0	0x5ae400	@2601	settled: __sinit_hud_scorepopup constructs/registers it in the same order	socom-release-data-check-k1	2026-11-27	-
+0x58b470	0x5ae490	@2602	settled: __sinit_hud_scorepopup constructs/registers it in the same order	socom-release-data-check-k1	2026-11-27	-
+0x58b500	0x5ae520	@2603	settled: __sinit_hud_scorepopup constructs/registers it in the same order	socom-release-data-check-k1	2026-11-27	-
+0x58b6e0	0x5ae650	g_bmpTeamDivider__28@unnamed@hud_scorepopup_cpp@	settled: its three users (p 0x421760, 0x421df0) take this address; the sinit builds a new object at 0x58b630 before it	socom-release-data-check-k1	2026-11-27	-
+0x58b770	0x5ae6e0	g_oSeals2Ds__28@unnamed@hud_scorepopup_cpp@	settled: 7 aligned uses in 3 functions and the sinit array construction agree	socom-release-data-check-k1	2026-11-27	-
+0x58c750	0x5af650	g_oTerrs2Ds__28@unnamed@hud_scorepopup_cpp@	settled: 7 aligned uses in 3 functions and the sinit array construction agree	socom-release-data-check-k1	2026-11-27	-
+0x463c28	0x44c248	@5005	settled: text STICK_DEADZONE, referenced by both paired functions	socom-release-data-check-k1	2026-11-27	-
+0x464320	0x44c770	@2178	settled (medium): identical-copy twins; 2 of 3 uses	socom-release-data-check-k1	2026-11-27	-
+0x4647a8	0x44cb40	@3077	settled: text, referenced by the paired functions (3 uses)	socom-release-data-check-k1	2026-11-27	-
+0x466160	0x44e300	@8981	settled (medium): identical-copy twins; 4 of 6 uses	socom-release-data-check-k1	2026-11-27	-
+0x466968	0x44ea78	@3349	settled (medium): text '%s', referenced by both functions	socom-release-data-check-k1	2026-11-27	-
+0x46e6c8	0x4573f8	@3598	settled: text BANG, GetStatus__10CAiSBreach references it	socom-release-data-check-k1	2026-11-27	-
+0x47d348	0x466068	@3436	settled: text, referenced by the paired function	socom-release-data-check-k1	2026-11-27	-
+0x48d570	0x47599c	PacketTypeAiOrders	settled (medium): 2 aligned uses	socom-release-data-check-k1	2026-11-27	-
+0x48d93c	0x475ce8	adren_incr2$2814	settled (medium): 2 aligned uses, next to init$2815	socom-release-data-check-k1	2026-11-27	-
+0x48d940	0x475cec	init$2815	settled (medium): 2 aligned uses, next to adren_incr2$2814	socom-release-data-check-k1	2026-11-27	-
+0x48df80	0x476150	init$2658	settled (medium): 2 aligned uses	socom-release-data-check-k1	2026-11-27	-
+0x48e354	0x476444	m_listenerIsValid__4CSnd	settled (medium): 4 aligned uses in 2 functions	socom-release-data-check-k1	2026-11-27	-
+0x48e5fc	0x476704	GlobalMapFilter__24@unnamed@zNetMedius_cpp@	settled (medium): 2 functions against 1 (p 0x32ea80 is one slot off for all three filters)	socom-release-data-check-k1	2026-11-27	-
+0x48e600	0x476708	GlobalPlayerFilter__24@unnamed@zNetMedius_cpp@	settled (medium): as GlobalMapFilter	socom-release-data-check-k1	2026-11-27	-
+0x48e604	0x47670c	GlobalSpeedFilter__24@unnamed@zNetMedius_cpp@	settled (medium): as GlobalMapFilter	socom-release-data-check-k1	2026-11-27	-
+0x48eb74	0x476d20	g_iBoxTopY__28@unnamed@hud_scorepopup_cpp@	settled (medium): 5 aligned uses in 2 functions against 1	socom-release-data-check-k1	2026-11-27	-
+0x57f040	0x576e40	libnetCd__7CNetCnf	settled: 5 aligned uses in 4 functions	socom-release-data-check-k1	2026-11-27	-
+0x44c4a0	0x43bc78	@2605	settled: string text, referenced by the paired release function	socom-release-data-check-k1	2026-11-27	-
+0x463988	0x44c040	@4519	settled: string text, referenced by the paired release function	socom-release-data-check-k1	2026-11-27	-
+0x465970	0x44db98	@5658	settled: string text, referenced by the paired release function	socom-release-data-check-k1	2026-11-27	-
+0x4660c8	0x44e278	@7759	settled: string text, referenced by the paired release function	socom-release-data-check-k1	2026-11-27	-
+0x4691b0	0x4514f0	@6611	settled: string text, referenced by the paired release function	socom-release-data-check-k1	2026-11-27	-
+0x4699f8	0x452508	@4265	settled: string text, referenced by the paired release function	socom-release-data-check-k1	2026-11-27	-
+0x460dd0	0x454cf0	@9675	settled: string text, referenced by the paired function; the release keeps one copy, shared with `@6589` (0x449500)	socom-release-data-check-k1	2026-11-27	-
+0x460df0	0x454d10	@9752	settled: string text, referenced by the paired function; the release keeps one copy, shared with `@6923` (0x449520)	socom-release-data-check-k1	2026-11-27	-
+0x46ecd0	0x457f00	@3298	settled: string text, referenced by the paired release function	socom-release-data-check-k1	2026-11-27	-
+0x46f890	0x458a20	@1390	settled: string text, referenced by the paired release function	socom-release-data-check-k1	2026-11-27	-
+0x46fce0	0x458f80	@3820	settled: string text, referenced by the paired release function	socom-release-data-check-k1	2026-11-27	-
+0x4710a8	0x45a2b8	@3242	settled: string text, referenced by the paired release function	socom-release-data-check-k1	2026-11-27	-
+0x4710a0	0x45a340	@3254	settled: string text, referenced by the paired release function	socom-release-data-check-k1	2026-11-27	-
+0x4710e8	0x45a378	@3275	settled: string text, referenced by the paired release function	socom-release-data-check-k1	2026-11-27	-
+0x471f60	0x45b470	@8441	settled: string text, referenced by the paired release function	socom-release-data-check-k1	2026-11-27	-
+0x472118	0x45b4f8	@8941	settled: string text, referenced by the paired release function	socom-release-data-check-k1	2026-11-27	-
+0x477ad0	0x460e70	@2770	settled: string text, referenced by the paired release function	socom-release-data-check-k1	2026-11-27	-
+0x478320	0x461548	@8388	settled: string text, referenced by the paired release function	socom-release-data-check-k1	2026-11-27	-
+0x479428	0x4624b8	@4067	settled: string text, referenced by the paired release function	socom-release-data-check-k1	2026-11-27	-
+0x479dc0	0x462e50	@1927	settled: string text, referenced by the paired release function	socom-release-data-check-k1	2026-11-27	-
+0x47c078	0x464e40	@3004	settled: string text, referenced by the paired release function	socom-release-data-check-k1	2026-11-27	-
+0x47c268	0x465058	@4232	settled: string text, referenced by the paired release function	socom-release-data-check-k1	2026-11-27	-
+0x47c278	0x465078	@4234	settled: string text, referenced by the paired release function	socom-release-data-check-k1	2026-11-27	-
+0x47cfa0	0x465cb0	@2980	settled: string text, referenced by the paired release function	socom-release-data-check-k1	2026-11-27	-
+0x47d000	0x465d20	@4002	settled: string text, referenced by the paired release function	socom-release-data-check-k1	2026-11-27	-
+0x47d008	0x465d28	@4003	settled: string text, referenced by the paired release function	socom-release-data-check-k1	2026-11-27	-
+0x47d010	0x465d30	@4202	settled: string text, referenced by the paired release function	socom-release-data-check-k1	2026-11-27	-
+0x47d020	0x465d40	@4203	settled: string text, referenced by the paired release function	socom-release-data-check-k1	2026-11-27	-
+0x47d058	0x465d78	@4207	settled: string text, referenced by the paired release function	socom-release-data-check-k1	2026-11-27	-
+0x47d6c8	0x466398	@2694	settled: string text, referenced by the paired release function	socom-release-data-check-k1	2026-11-27	-
+0x47e040	0x467ac0	@2491	settled: string text, referenced by the paired release function	socom-release-data-check-k1	2026-11-27	-
+0x47e020	0x467ef0	@4775	settled: string text, referenced by the paired release function	socom-release-data-check-k1	2026-11-27	-
+0x47e070	0x467f28	@4779	settled: string text, referenced by the paired release function	socom-release-data-check-k1	2026-11-27	-
+0x47e240	0x468040	@2236	settled: string text, referenced by the paired release function	socom-release-data-check-k1	2026-11-27	-
+-	0x475a68	m_RoundWinnerFieldID__11CZGameState	data-pairing check: pairs to withhold	socom-release-data-check-k1	2026-11-27	CZGameState round fields: the release has six one-byte fields where the prototype has four; which four is not known
+-	0x475a6c	m_Score00FieldID__11CZGameState	data-pairing check: pairs to withhold	socom-release-data-check-k1	2026-11-27	CZGameState round fields: the release has six one-byte fields where the prototype has four; which four is not known
+-	0x476928	_pStickAccelerationTuner	data-pairing check: pairs to withhold	socom-release-data-check-k1	2026-11-27	InitSystemTuners group: the release creates more tuners and has no STICK_ACCELERATION
+-	0x47692c	_pStickDeadZoneTuner	data-pairing check: pairs to withhold	socom-release-data-check-k1	2026-11-27	InitSystemTuners group: the release creates more tuners and has no STICK_ACCELERATION
+-	0x47691c	_pMusicTuner	data-pairing check: pairs to withhold	socom-release-data-check-k1	2026-11-27	InitSystemTuners group: the release creates more tuners and has no STICK_ACCELERATION
+-	0x476930	_pDialogTuner	data-pairing check: pairs to withhold	socom-release-data-check-k1	2026-11-27	InitSystemTuners group: the release creates more tuners and has no STICK_ACCELERATION
+-	0x4740f0	__vt__23CStickAccelerationTuner	data-pairing check: pairs to withhold	socom-release-data-check-k1	2026-11-27	InitSystemTuners group: the release creates more tuners and has no STICK_ACCELERATION
+-	0x44c610	@6469	data-pairing check: pairs to withhold	socom-release-data-check-k1	2026-11-27	text changed, role unclear (OnListSavedGames)
+-	0x44c620	@6470	data-pairing check: pairs to withhold	socom-release-data-check-k1	2026-11-27	text changed, role unclear (OnListSavedGames)
+-	0x44ea68	@3348	data-pairing check: pairs to withhold	socom-release-data-check-k1	2026-11-27	text changed, role unclear
+-	0x475600	init$localstatic4$next__7CAiPathFv	data-pairing check: pairs to withhold	socom-release-data-check-k1	2026-11-27	only the alias _fbss is witnessed (the entry function's bss start): carry _fbss, not the local static
+-	0x452ef0	@3679	data-pairing check: pairs to withhold	socom-release-data-check-k1	2026-11-27	jump table of the GetCommandName switch: 33 of 66 entries changed; carry the name, not the entries
+-	0x449190	@2401	data-pairing check: pairs to withhold	socom-release-data-check-k1	2026-11-27	order only; the paired function no longer references it
+-	0x4491b8	@2406	data-pairing check: pairs to withhold	socom-release-data-check-k1	2026-11-27	order only; the paired function no longer references it
+-	0x44e808	@1923	data-pairing check: pairs to withhold	socom-release-data-check-k1	2026-11-27	order only; the paired function no longer references it
+-	0x4645e0	@3084	data-pairing check: pairs to withhold	socom-release-data-check-k1	2026-11-27	order only; the paired function no longer references it

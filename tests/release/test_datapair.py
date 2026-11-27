@@ -28,7 +28,8 @@ def lo_of(address: int) -> int:
     return address - (hi_of(address) << 16)
 
 
-def image(functions: dict[int, list[int]], data: dict[int, bytes], objects=(), relocations=(), memsz: int = 0x2000):
+def image(functions: dict[int, list[int]], data: dict[int, bytes], objects=(), relocations=(), memsz: int = 0x2000,
+          code_relocations=None):
     raw = bytearray(4 * WORDS)
     for address, words in functions.items():
         struct.pack_into("<%dI" % len(words), raw, address - BASE, *words)
@@ -38,6 +39,7 @@ def image(functions: dict[int, list[int]], data: dict[int, bytes], objects=(), r
     symbols = [elfimage.Symbol(a, s, n, 1, 1) for a, s, n in objects]
     out = elfimage.synthetic(words, BASE, symbols=symbols, memsz=memsz)
     out.relocations = {a: 2 for a in relocations}
+    out.relocations.update(code_relocations or {})
     return out
 
 
@@ -46,13 +48,13 @@ def row(p, r, size_p, size_r=None, cls="exact", flags=()):
             "r_size": size_p if size_r is None else size_r}
 
 
-def run(p_image, r_image, fmap):
+def run(p_image, r_image, fmap, settled=None, key_check=True):
     p_spans = datapair.Spans((x["p"], x["p"] + x["p_size"]) for x in fmap if x["p"] is not None)
     r_spans = datapair.Spans((x["r"], x["r"] + x["r_size"]) for x in fmap if x["r"] is not None)
     proto = datapair.Side(p_image, p_spans, None)
     release = datapair.Side(r_image, r_spans, None)
     objects = datapair.build_objects(p_image, p_spans, {})
-    pairing = datapair.DataPairing(proto, release, objects, fmap)
+    pairing = datapair.DataPairing(proto, release, objects, fmap, settled=settled, key_check=key_check)
     stats = {}
     from collections import Counter
     stats = Counter()
@@ -235,3 +237,137 @@ def test_unknown_input_is_refused(tmp_path):
     (tmp_path / "support" / "SCUS_971.34").write_bytes(b"\x7fELF not really")
     with pytest.raises(elfimage.InputRefused):
         datapair.run(tmp_path, write=False)
+
+
+# -- settled rows, the key check, code pointers, flags (the data-pairing check) ---------------------
+
+def settled_row(release, proto, symbol, withhold=""):
+    return {"release": None if release in ("-", None) else release, "prototype": proto, "symbol": symbol,
+            "basis": "test", "checker": "k", "date": "2026-11-27", "decides": release != "-", "withhold": withhold}
+
+
+def test_settled_file_is_read_and_checked(tmp_path):
+    path = tmp_path / "settled-data.tsv"
+    path.write_text("release\tprototype\tsymbol\tbasis\tchecker\tdate\twithhold\n"
+                    "0x100840\t0x100800\tg_s\tby text\tk\t2026-11-27\t-\n"
+                    "removed\t0x100810\t@2\tgone\tk\t2026-11-27\n"
+                    "-\t0x100820\t@3\tcheck\tk\t2026-11-27\trole unclear\n", encoding="utf-8")
+    rows = datapair.read_settled(path)
+    assert [(r["release"], r["prototype"], r["decides"], r["withhold"]) for r in rows] == [
+        (0x100840, 0x100800, True, ""), (None, 0x100810, True, ""), (None, 0x100820, False, "role unclear")]
+    path.write_text("release\tprototype\tsymbol\tbasis\tchecker\tdate\n-\t0x1\tx\tb\tk\td\n", encoding="utf-8")
+    with pytest.raises(datapair.SettledError):
+        datapair.read_settled(path)
+
+
+def test_a_settled_row_decides_and_disagreeing_evidence_is_listed():
+    f_p = [*la(A0, DATA), *la(A1, DATA + 0x10), JR_RA, NOP]
+    f_r = [*la(A0, DATA + 0x40), *la(A1, DATA + 0x50), JR_RA, NOP]
+    p = image({BASE: f_p}, {}, [(DATA, 4, "g_a"), (DATA + 0x10, 4, "g_b")])
+    r = image({BASE: f_r}, {})
+    settled = [settled_row(DATA + 0x60, DATA, "g_a"), settled_row(None, DATA + 0x10, "g_b")]
+    pairing = run(p, r, [row(BASE, BASE, 24)], settled=settled)
+    a, b = result(pairing, DATA), result(pairing, DATA + 0x10)
+    assert a.base == DATA + 0x60 and "settled" in a.evidence and "settled" in a.flags
+    assert (DATA + 0x40, "operand-exact", "fn:%#x" % BASE) in a.contradictions
+    assert b.cls == "removed" and "settled" in b.flags and b.contradictions
+    with pytest.raises(datapair.SettledError):
+        run(p, r, [row(BASE, BASE, 24)], settled=[settled_row(DATA + 0x60, DATA, "g_wrong")])
+
+
+def block(string: int, target: int) -> list[int]:
+    """One block of repeated code: load a name, store into a global."""
+
+    return [*la(A0, string), *la(A1, target), sw(V0, 0, A1), NOP]
+
+
+UNIQUE_A = [addiu(V0, 0, 0x111), addiu(V0, V0, 0x222), addiu(V0, V0, 0x333), addiu(V0, V0, 0x444)]
+UNIQUE_B = [addiu(V0, 0, 0x555), addiu(V0, V0, 0x666), addiu(V0, V0, 0x777), addiu(V0, V0, 0x888)]
+BLOCKS = 6
+NAMES = [("NAME_%d" % k).encode().ljust(16, b"\0") for k in range(BLOCKS)] + [b"NAME_NEW".ljust(16, b"\0")]
+GLOBALS = 0x101000  # bss
+
+
+def shifted_images(with_names: bool = True):
+    """The release inserts a block before the old ones and drops the last, so equal-shape stretches
+    align the old block k with release block k: one block off."""
+
+    s_p = [DATA + 0x100 + 0x10 * k for k in range(BLOCKS)]
+    g_p = [GLOBALS + 4 * k for k in range(BLOCKS)]
+    order = ["new"] + list(range(BLOCKS - 1))
+    s_r = {k: DATA + 0x200 + 0x10 * n for n, k in enumerate(order)}
+    g_r = {k: GLOBALS + 0x100 + 4 * n for n, k in enumerate(order)}
+    f_p = UNIQUE_A + [w for k in range(BLOCKS) for w in block(s_p[k], g_p[k])] + UNIQUE_B + [JR_RA, NOP]
+    f_r = UNIQUE_A + [w for k in order for w in block(s_r[k], g_r[k])] + UNIQUE_B + [JR_RA, NOP]
+    data_p = {s_p[k]: NAMES[k] for k in range(BLOCKS)} if with_names else {}
+    data_r = {s_r[k]: NAMES[-1 if k == "new" else k] for k in order} if with_names else {}
+    objects = [(s_p[k], 16, "@%d" % k) for k in range(BLOCKS)] + [(g_p[k], 4, "g_%d" % k) for k in range(BLOCKS)]
+    p = image({BASE: f_p}, data_p, objects)
+    r = image({BASE: f_r}, data_r)
+    return p, r, [row(BASE, BASE, 4 * len(f_p), cls="deviating")], g_r
+
+
+def test_a_whole_block_shift_is_found_by_the_key_the_block_carries():
+    p, r, fmap, g_r = shifted_images()
+    unchecked = run(p, r, fmap, key_check=False)
+    assert result(unchecked, GLOBALS).base == g_r["new"]  # the old failure: one block off
+    pairing = run(p, r, fmap)
+    assert result(pairing, DATA + 0x100).base == DATA + 0x210  # the string by its text (tier 0)
+    assert result(pairing, GLOBALS).base is None  # its aligned use sits next to a key that leads elsewhere
+    assert any(k[0] == GLOBALS and "@0" in k[3] for k in pairing.key_rejected)
+
+
+def test_repeated_code_without_a_key_does_not_vote():
+    p, r, fmap, g_r = shifted_images(with_names=False)
+    middle = GLOBALS + 8
+    assert result(run(p, r, fmap, key_check=False), middle).base == g_r[1]  # one block off
+    pairing = run(p, r, fmap)
+    assert result(pairing, middle).cls in ("unsure", "removed")  # at most an order proposal on .bss
+    assert any(k[0] == middle and k[3] == "repeated code, no key" for k in pairing.key_rejected)
+
+
+def test_a_pointer_into_a_function_body_maps_to_the_same_offset_of_an_exact_pair():
+    f = [*la(A0, DATA), NOP, NOP, JR_RA, NOP]
+    table_p = struct.pack("<II", BASE + 8, BASE + 12)
+    p = image({BASE: f}, {DATA: table_p}, [(DATA, 8, "@3679")], relocations=[DATA, DATA + 4])
+    same = image({BASE: f}, {DATA: table_p})
+    moved = image({BASE: f}, {DATA: struct.pack("<II", BASE + 8, BASE + 16)})
+    assert result(run(p, same, [row(BASE, BASE, 24)]), DATA).content == "equal"
+    changed = result(run(p, moved, [row(BASE, BASE, 24)]), DATA)
+    assert changed.cls == "deviating" and changed.content == "changed" and "content-changed" in changed.flags
+
+
+def test_single_aligned_pairs_are_flagged_and_withheld_when_their_bytes_differ():
+    f_p = [*la(A0, DATA), lw(V0, 0, A0), JR_RA, NOP]
+    f_r = [*la(A0, DATA + 0x20), lw(V0, 0, A0), JR_RA, NOP]
+    p = image({BASE: f_p}, {DATA: b"\x01\x02\x03\x04"}, [(DATA, 4, "g_value"), (DATA + 0x10, 4, "g_next")])
+    r = image({BASE: f_r}, {DATA + 0x20: b"\x09\x02\x03\x04"})
+    fmap = [row(BASE, BASE, 16, cls="deviating", flags=("imm-only",))]
+    got = result(run(p, r, fmap), DATA)
+    assert got.base == DATA + 0x20 and "single-aligned" in got.flags
+    assert got.withhold == ["single aligned witness, bytes differ"]
+    withheld = run(p, r, fmap, settled=[settled_row("-", DATA, "g_value", "role unclear")])
+    assert "role unclear" in result(withheld, DATA).withhold
+
+
+def test_a_changed_text_takes_its_size_from_the_release():
+    f = [*la(A0, DATA), JR_RA, NOP]
+    p = image({BASE: f}, {DATA: b"AUTO AIM\0\0\0\0"}, [(DATA, 12, "@2861")])
+    r = image({BASE: f}, {DATA: b"AIM ASSIST\0\0"})
+    got = result(run(p, r, [row(BASE, BASE, 16)]), DATA)
+    assert got.cls == "deviating" and "size-from-release" in got.flags
+
+
+def test_constants_read_as_addresses_and_unrelocated_address_words_are_flagged():
+    # g_a has a relocated use; g_ptr's use carries none and g_ptr holds &g_a without a relocation
+    f_p = [*la(A0, DATA), *la(A1, DATA + 0x10), JR_RA, NOP]
+    f_r = [*la(A0, DATA + 0x40), *la(A1, DATA + 0x50), JR_RA, NOP]
+    relocs = {BASE: 5, BASE + 4: 6}
+    p = image({BASE: f_p}, {DATA: b"\x01\x02\x03\x04", DATA + 0x10: struct.pack("<I", DATA)},
+              [(DATA, 4, "g_a"), (DATA + 0x10, 4, "g_ptr")], code_relocations=relocs)
+    r = image({BASE: f_r}, {DATA + 0x40: b"\x01\x02\x03\x04", DATA + 0x50: struct.pack("<I", DATA + 0x40)})
+    pairing = run(p, r, [row(BASE, BASE, 24)])
+    a, ptr = result(pairing, DATA), result(pairing, DATA + 0x10)
+    assert "constant-as-address" not in a.flags
+    assert "constant-as-address" in ptr.flags
+    assert ptr.content == "equal" and "unrelocated-word" in ptr.flags and "content-changed" not in ptr.flags

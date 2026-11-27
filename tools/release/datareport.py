@@ -6,8 +6,9 @@ from collections import Counter, defaultdict
 import protofacts
 
 CLASSES = ("exact", "deviating", "unsure", "new", "removed")
-FLAG_ORDER = ("witness-conflict", "release-shared", "contradicted", "offset-outside", "offset-changed",
+FLAG_ORDER = ("settled", "witness-conflict", "release-shared", "contradicted", "offset-outside", "offset-changed",
               "size-changed", "size-unconfirmed", "content-changed", "pointer-changed", "section-changed",
+              "size-from-release", "unrelocated-word", "constant-as-address", "single-aligned",
               "identical-copy", "order-only", "refs-removed", "refs-unaligned", "unreached", "ref-by-new")
 
 
@@ -116,7 +117,17 @@ def collect(pairing_, rows, new_rows, coverage, stats, witnesses, vt_pairs, entr
                                    "decided_by": sorted(result.evidence), "tier": result.tier,
                                    "against": [(b, sorted(w)) for b, w in sorted(against.items())]})
     outside = [r for r in sorted(pairing_.results.values(), key=lambda r: r.obj.address) if "offset-outside" in r.flags]
+    withheld = Counter()
+    for result in pairing_.results.values():
+        if result.cls in ("exact", "deviating"):
+            for reason in result.withhold:
+                withheld[reason] += 1
+    rejected = Counter("repeated code, no key" if why == "repeated code, no key" else "a key leads elsewhere"
+                       for _, _, _, why in pairing_.key_rejected)
     return {
+        "withheld": withheld, "withheld_pairs": sum(1 for r in pairing_.results.values()
+                                                    if r.withhold and r.cls in ("exact", "deviating")),
+        "key_rejected": rejected, "settled_rows": len(pairing_.settled), "withhold_rows": len(pairing_.withheld),
         "by_class": by_class, "by_section": by_section, "by_module": by_module, "flags": flags,
         "coverage": {
             "named objects": len(named), "named paired": len(named_paired),
@@ -229,6 +240,30 @@ def markdown(data: dict) -> str:
         add("- %s: %d" % (key, value))
     add("- aligned uses whose release address is code or outside the image: %d" % len(data["mismatches"]))
     add("")
+    add("Key check of the `operand-aligned` uses (an aligned use votes only when no key near it, a callee")
+    add("or decided object used once in the function or its own distinctive bytes, leads elsewhere; one in")
+    add("repeated code needs a key that agrees): %d rejected because a key leads elsewhere, %d in repeated" % (
+        data["key_rejected"]["a key leads elsewhere"], data["key_rejected"]["repeated code, no key"]))
+    add("code without a key. Every rejected use is in `build/release/data-map.json` (`key_rejected`).")
+    add("")
+    add("## Settled rows and the apply step")
+    add("")
+    add("`docs/release/settled-data.tsv` (a checker's input, read on every run): %d rows decide a pair or" % data["settled_rows"])
+    add("that there is none (evidence `settled`; evidence that still disagrees is listed as a contradiction),")
+    add("%d objects carry a withhold reason from it. The map's `withhold` column says why the apply step must" % data["withhold_rows"])
+    add("not carry a pair; %d committed pairs carry one:" % data["withheld_pairs"])
+    add("")
+    add("| reason | committed pairs |")
+    add("|---|---|")
+    for reason, count in sorted(data["withheld"].items(), key=lambda kv: (-kv[1], kv[0])):
+        add("| %s | %d |" % (reason, count))
+    add("")
+    add("`single-aligned` marks every committed pair that rests on one `operand-aligned` witness and nothing")
+    add("else; `size-from-release` a string whose release text differs (its size and type come from the")
+    add("release bytes); `constant-as-address` a witness with no relocation behind it in the prototype (an")
+    add("integer constant read as an address, or a linker symbol resolved without one); `unrelocated-word` an")
+    add("unrelocated address word that maps through the pairs (masked like a pointer).")
+    add("")
     add("## Self-check against the table pairs")
     add("")
     check = data["self_check"]
@@ -281,7 +316,8 @@ def markdown(data: dict) -> str:
         add("|---|---|---|---|---|---|")
         for c in data["contradictions"]:
             against = "; ".join("%#x: %s" % (b, witnesses(w)) for b, w in c["against"])
-            add("| %#x | `%s` | %d | %#x | %s (%d) | %s |" % (c["prototype"], c["symbol"], c["size"], c["release"],
+            add("| %#x | `%s` | %d | %s | %s (%d) | %s |" % (c["prototype"], c["symbol"], c["size"],
+                                                           "removed" if c["release"] is None else "%#x" % c["release"],
                                                            ", ".join(c["decided_by"]), c["tier"], against))
     else:
         add("None.")
@@ -311,7 +347,7 @@ def json_copy(pairing_, data: dict) -> dict:
         objects.append({
             "prototype": obj.address, "size": obj.size, "names": obj.names, "section": obj.section,
             "owner": obj.owner, "owner_source": obj.owner_source, "anonymous": obj.anonymous,
-            "release": result.base, "class": result.cls, "flags": sorted(result.flags),
+            "release": result.base, "class": result.cls, "flags": sorted(result.flags), "withhold": result.withhold,
             "release_size": result.r_size, "size_state": result.size_state, "content": result.content,
             "release_section": result.release_section, "evidence": result.evidence,
             "conflict": result.conflict, "field_moves": sorted(set(result.field_moves)), "tier": result.tier,
@@ -320,5 +356,6 @@ def json_copy(pairing_, data: dict) -> dict:
         })
     return {"schema_version": 1, "inputs": data["inputs"], "coverage": data["coverage"],
             "conflicts": data["conflicts"], "contradictions": data["contradictions"], "mismatches": data["mismatches"],
+            "key_rejected": sorted(pairing_.key_rejected),
             "self_check": {k: (dict(v) if isinstance(v, Counter) else v) for k, v in data["self_check"].items()},
             "objects": objects}
