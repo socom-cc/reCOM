@@ -184,3 +184,33 @@ exist (`tools/release/placeholders.py`), not used: the user has not decided, and
 found one more defect in its apply path. Left open by the review: a function that returns a class,
 has no DWARF record, never returns a0 and reads nothing beyond the predicted registers would pass
 the rules; for these 61 the callers were read by hand.
+
+## Placeholder types
+
+Agreed by the user on 2026-11-27. The symbols name classes and types that exist in neither
+program and have no debug record; a function whose `this` or pointer parameter is of such a type
+could get no signature. `tools/release/placeholders.py` made an empty structure for each name that
+can be declared safely: 284 types (244 under `/project`, 14 under `/project/zdb`, the rest in the
+scopes their names carry). Each is a structure without members, shown as one byte, packed as the C
+parser makes it; it claims no layout. A later real layout has to switch packing off and grow the
+same type in place; deleting and recreating it would turn every parameter that names it
+`undefined`. They are local to the release program: the prototype and the archive do not have
+them.
+
+Not made: 214 names that are not C identifiers (template instances, unnamed scopes), 52 that are
+passed by value (an enum or a class, size unknown), 7 that equal an existing type name when case
+is ignored (the endpoint that moves a type to its category searches without regard to case and
+takes the first hit, so such a move could have taken the existing type).
+
+The reviewer's defect in the apply path (a successful import was read as a failure because the
+answer always carries an empty `error` key) was fixed by the coordinator before any use; the first
+real import answered in exactly that shape. Applied in four batches (1, 9, 100, 174), one type at
+a time inside each. The tool compares the whole type table around every write; the coordinator
+also compared the whole type list of both programs before and after each batch with a script of
+his own: the release program gained exactly the planned rows at their planned paths, none stayed
+at the root, no other type changed, and the prototype's list did not change. Saved and confirmed
+after each batch. Record: `docs/release/ghidra-types.tsv`, 284 rows.
+
+What they unlock is planned next and not applied yet: the review's condition is that every
+function they unlock is checked against its callers first, because these classes have no debug
+record that could show a hidden argument.
