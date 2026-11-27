@@ -62,12 +62,21 @@ READS = frozenset({
     # signatures step: DataTypeService.listDataTypes walks the data type manager;
     # FunctionService.getFunctionVariables reads the parameters (and decompiles, read-only)
     "list_data_types", "get_function_variables",
+    # function starts step (tools/release/starts.py): ProgramScriptService.listBookmarks,
+    # AnalysisService.findCodeGaps (invokeAndWait, no transaction), ListingService.listDefinedData,
+    # FunctionService.disassembleFunction (instructions from the entry to the body's end),
+    # XrefCallGraphService getXrefsTo; none opens a transaction
+    "list_bookmarks", "find_code_gaps", "list_data_items", "disassemble_function", "get_xrefs_to",
 })
 NO_PROGRAM = frozenset({"list_open_programs"})
 # The only writes the names step sends; none of them saves.
 WRITES = frozenset({"create_function", "create_label", "rename_function_by_address", "set_comment"})
 # The only writes the signatures step sends (tools/release/signatures.py); none of them saves.
 SIGNATURE_WRITES = frozenset({"set_function_prototype", "set_comment"})
+# The only writes the function starts step sends (tools/release/starts.py); none of them saves.
+# disassemble_bytes is always sent with restrict_to_execute_memory false: the plugin passes that
+# flag to DisassembleCommand as its followFlow argument (FunctionService.disassembleBytes).
+STARTS_WRITES = frozenset({"disassemble_bytes", "create_function"})
 
 _FUNCTION = re.compile(r"^Function: (.*) at ([0-9a-fA-F]+)$")
 _BODY = re.compile(r"^Body: ([0-9a-fA-F]+) - ([0-9a-fA-F]+)$")

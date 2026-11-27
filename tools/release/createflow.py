@@ -45,9 +45,19 @@ def _is_call(word: int) -> bool:
 is_call = _is_call  # a call, not followed by FollowFlow
 
 
+ERET = 0x42000018  # eret: Ghidra's R5900 language gives it no fall-through (scePcStart, 0x15a470)
+
+
 def predict(word_at, contains, entry: int, entries: set[int], noreturn: set[int] = frozenset(),
-            jumps: dict[int, list[int]] | None = None, limit: int = 1 << 16) -> Flow:
-    """``word_at(address)`` reads an instruction word, ``contains(address)`` says it is loaded."""
+            jumps: dict[int, list[int]] | None = None, limit: int = 1 << 16, is_code=None,
+            terminal=None) -> Flow:
+    """``word_at(address)`` reads an instruction word, ``contains(address)`` says it is loaded.
+
+    ``is_code(address)`` (optional): FollowFlow adds instructions only (``includeData`` false), so
+    flow into an address that holds no instruction ends there; ``terminal(word)`` (optional): an
+    instruction with no fall-through besides jumps and branches (``eret``). Both default to the
+    behaviour above (every loaded word is an instruction; only jumps end a run).
+    """
 
     flow = Flow()
     jumps = jumps or {}
@@ -59,9 +69,15 @@ def predict(word_at, contains, entry: int, entries: set[int], noreturn: set[int]
         if not contains(pc) or not contains(pc + 4):
             flow.outside = True
             continue
+        if is_code is not None and not is_code(pc):
+            flow.invalid.append(pc)
+            continue
         word = word_at(pc)
         if mips.is_invalid(word):
             flow.invalid.append(pc)
+            continue
+        if terminal is not None and terminal(word):
+            flow.body.add(pc)
             continue
 
         def go(target: int) -> None:

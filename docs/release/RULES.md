@@ -224,6 +224,85 @@ python tools/release/signatures.py --confirm-saved build/release/signatures/sign
   the storage of each parameter; plate flags replace the function's `plate` row. Rows stay
   `unsaved <report>` until `--confirm-saved`.
 
+## Stage 3: function starts
+
+A step between names and signatures gives the map functions the names step left without a
+Ghidra function of their own one, with `tools/release/starts.py`, through two ordinary bridge
+writes (no script, nothing removed, cleared or saved):
+
+```powershell
+python tools/release/starts.py --plan                     # reads build/release/names/plan-all.json
+python tools/release/starts.py --apply build/release/starts/plan-starts.json --dry-run
+python tools/release/starts.py --apply build/release/starts/plan-starts.json --yes [--batch N]
+python tools/release/starts.py --confirm-saved build/release/starts/plan-starts.apply-001.json
+```
+
+- **The cases**: map starts without an instruction (`disassemble_bytes` over exactly the map
+  extent, then `create_function`), map functions inside another Ghidra function and creates the
+  names step withheld (`create_function` only), and boundary differences (no write: fixed by one
+  of those creates, accepted, or not possible).
+- **What Ghidra does** (plugin 6.0.0 and Ghidra 12.1.4, read from the classes):
+  `disassemble_bytes` runs `DisassembleCommand(range, null, flag)` where the flag is the request's
+  `restrict_to_execute_memory`, which the plugin passes as followFlow (`FunctionService.disassembleBytes`);
+  the tool always sends false, so only fall-through is disassembled: every undefined address of
+  the range, defined data skipped, a run ends silently at an identical existing instruction
+  (`CodeManager.checkInstructionSet`, DUPLICATE), a fall into data or into bytes that do not decode
+  leaves a "Bad Instruction" bookmark, an existing instruction met as a delay slot is re-made, and
+  a run goes on past the range while its last instruction falls through (`Disassembler`). It then
+  notifies auto-analysis (`codeDefined`): "Subroutine References" (`FunctionAnalyzer`) creates a
+  function at every call target that is none (a one-byte place-holder where there is no
+  instruction: `CreateFunctionCmd.getFunctionBody`), "Shared Return Calls" turns jumps to function
+  entries into call-returns, and the operand-reference analysis may define data or disassemble
+  where the new code points. `create_function` with `disassemble_first` false runs
+  `CreateFunctionCmd`: the body follows flow over instructions only and is taken out of an
+  existing function it overlaps (`subtractBodyFromExisting`); then, for the new function and every
+  function whose body changed, `SharedReturnAnalysisCmd` (contiguous functions assumed, the
+  default) turns jumps to the new entry into call-returns and makes Ghidra create a function at
+  the target of every unconditional jump between the previous function's entry and the next
+  function that now crosses a function (the `_doMC` case of batch 1). `eret` has no fall-through.
+- **Plan** (any worker; reads the release program, writes nothing): `build/release/starts/plan-starts.json`
+  and a summary `.md`, deterministic, with its own digest and a baseline (digests of the function
+  list, the code gaps, the bookmarks and the defined data). It needs the names plan of the whole
+  map made from the current map and the live function list. Per entry: what is there now
+  (undefined bytes, instructions, data, references to it), the steps and, per step, the predicted
+  instructions, the predicted body of every function the step creates or changes, the jumps it
+  turns into calls, or the reason it is withheld. The plan repeats the behaviour above over the
+  release image and orders the steps so that every call target, jump target, fall-through
+  successor and referenced start is a function first (callee first); creates that need each other
+  are withheld. A start is withheld when its bytes do not decode or hold data, its delay slot is
+  another function's entry, it calls or jumps to an address that is no function and no map start,
+  it references undefined bytes inside another map function, it lies in a gap of another body that
+  no create of the plan cuts, a crossing jump would make analysis create a function that is no map
+  start, or its flow cannot give the map's extent. A body that differs from the map only by padding
+  (nop after a last instruction that falls through, up to the next function) or by unreachable
+  words (dead words inside, a `jr ra; nop` after an `eret`) is accepted and marked `accepted` in
+  the step; the two existing functions of that kind are accepted as they are. Ghidra's thunk splits
+  (a function starting with a branch over its delay slot) cannot be undone with creates and are
+  listed.
+- **Apply**: the coordinator only, after a second agent reviewed the plan: the dry run first, then
+  `--yes`, optionally `--batch N` entries or, for a pilot, `--only 0x..` (repeatable; plan order,
+  and every entry a selected one needs first must be selected too). The same guards as for names (open programs, recorded
+  SHA-256, idle analysis, plan digest and map, no unsaved rows, release program only, never a save);
+  the program must still match the plan's baseline. A full snapshot of every function (body lowest
+  and highest, name, signature line, thunk and no-return) is taken before and after the run. After
+  every step the tool waits for idle analysis, reads back what the step made (the instructions the
+  disassembly lists and the word after its range; the new function's body, name, signature and
+  flags; every cut function's body; every predicted call-return) and compares the whole function
+  list, every code gap, every bookmark, every defined data item and the functions near the step
+  with the prediction. Data defined at an address the new code references is listed, not a stop.
+  Every stop names its kind and what to do: `before` (nothing sent for that entry: check, save,
+  confirm, replan), `after` (the write reads back otherwise: close without saving and
+  `--discard-unsaved`, then replan; for a create, the function may instead be removed by hand and
+  the batch saved and confirmed), `analysis` (a change the plan did not predict: check; save and
+  confirm if acceptable, else close without saving and discard). Disassembly is never cleared.
+- **Save and replan**: as for names. After each batch: `--confirm-saved`, then
+  `names.py --plan --all` (it plans names and plates for the new functions; a padded body appears
+  there as a boundary difference), then a new starts plan.
+- **Record**: `docs/release/ghidra-applied.tsv`, kinds `disassemble` (the instruction range),
+  `create` (the body), `extent-accepted` (the body and the accepted difference), `cut-by-analysis`
+  (a container's new body after a create inside it). Rows stay `unsaved <report>` until
+  `--confirm-saved`.
+
 ## Source
 
 - `src/` stays the single game source and the port lane's rules in `AGENTS.md` hold: assembly
