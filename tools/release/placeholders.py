@@ -360,7 +360,16 @@ def _regroup(rows) -> dict:
 
 def _check_answer(endpoint: str, row: dict, answer) -> None:
     text = json.dumps(answer) if not isinstance(answer, str) else answer
-    if (isinstance(answer, dict) and "error" in answer) or re.search(r"\b(?:error|failed)\b", text, re.I):
+    if endpoint == "import_data_types" and isinstance(answer, dict):
+        # The plugin answers a successful import with status, parse_succeeded, types_added,
+        # types_after, messages AND an "error" key that is empty (DataTypeService, Response.ok):
+        # the key's presence says nothing, its value does.
+        good = (answer.get("status") == "success" and answer.get("parse_succeeded") is True
+                and answer.get("types_added") == 1 and not answer.get("error"))
+        if not good:
+            raise sg.StopAfter(f"{endpoint} {row['name']} answered {text[:200]!r}: {AFTER_A_WRITE}")
+        return
+    if (isinstance(answer, dict) and answer.get("error")) or re.search(r"\b(?:error|failed|not found)\b", text, re.I):
         raise sg.StopAfter(f"{endpoint} {row['name']} answered {text[:200]!r}: {AFTER_A_WRITE}")
 
 

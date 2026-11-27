@@ -363,14 +363,20 @@ class FakeGhidra(gb.Bridge):
         structure (shown as 1 byte) at the root, added with REPLACE_HANDLER."""
 
         found = re.fullmatch(r"struct (\w+);", d["source"].strip())
+        # The answer has the plugin's real shape: Response.ok(status, parse_succeeded, types_added,
+        # types_after, error, messages), with "error" present and empty on success.
         if not found:
-            return {"error": "parse failed"}
+            return {"status": "error", "parse_succeeded": False, "types_added": 0, "types_after": len(p.types),
+                    "error": "parse failed", "messages": ""}
         name = found.group(1)
+        added = 0
         if name not in p.types:
             p.types[name] = [("/" + name, 1)]
+            added = 1
             if getattr(self, "import_side_effect", None):
                 self.import_side_effect(p)
-        return f"Imported data types: 1 parsed"
+        return {"status": "success", "parse_succeeded": True, "types_added": added, "types_after": len(p.types),
+                "error": "", "messages": ""}
 
     def post_move_data_type_to_category(self, p, d):
         hit = self.find_type(p, d["type_name"])  # case ignored, the first hit
