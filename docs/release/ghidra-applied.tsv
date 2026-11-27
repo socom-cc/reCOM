@@ -185,6 +185,8 @@ release_address	applied	value	source_pair	date	state
 0x143590	label	__dt__Q23std9exceptionFv	0x1427e0 __dt__Q23std9exceptionFv (exact)	2026-11-26	saved 2026-11-26
 0x143590	plate	Release map: exact pair with prototype 0x1427e0 __dt__Q23std9exceptionFv (evidence exact-position; flags -). // Owner -.	0x1427e0 __dt__Q23std9exceptionFv (exact)	2026-11-26	saved 2026-11-26
 0x143590	prototype	void * __stdcall std::exception::~exception(exception * this, short __dtor_flags) [storage this=a0_lo:4, __dtor_flags=a1_lo:2]	0x1427e0 __dt__Q23std9exceptionFv (exact)	2026-11-26	saved 2026-11-26
+0x1435e0	create	0x1435e0-0x1435eb	0x142830 what__Q23std8bad_castCFv (exact)	2026-11-27	saved 2026-11-27
+0x1435e0	disassemble	0x1435e0-0x1435eb	0x142830 what__Q23std8bad_castCFv (exact)	2026-11-27	saved 2026-11-27
 0x143600	name	__throw_catch_compare	0x142850 __throw_catch_compare (exact)	2026-11-26	saved 2026-11-26
 0x143600	plate	Release map: exact pair with prototype 0x142850 __throw_catch_compare (evidence exact; flags -). // Owner -.	0x142850 __throw_catch_compare (exact)	2026-11-26	saved 2026-11-26
 0x143600	prototype	char __stdcall __throw_catch_compare(char * throwtype, char * catchtype, longlong * offset_result) [storage throwtype=a0_lo:4, catchtype=a1_lo:4, offset_result=a2_lo:4]	0x142850 __throw_catch_compare (exact)	2026-11-26	saved 2026-11-26

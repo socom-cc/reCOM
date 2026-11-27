@@ -1474,7 +1474,9 @@ def apply(root: Path, plan_path: Path, bridge, *, dry_run: bool, today: str | No
     stopped, kind, side_effects = None, None, []
     try:
         applier.run()
-    except (Stop, gb.BridgeError) as exc:
+    except (nm.Stop, gb.BridgeError) as exc:
+        # nm.Stop, not only this module's Stop: names.settle raises it on a timeout, and a run
+        # that ends without its report can be neither confirmed nor discarded.
         stopped, kind = str(exc), getattr(exc, "kind", "stop")
     finally:
         if not dry_run and applier.written:
