@@ -62,9 +62,11 @@ HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
+import dwarf1  # noqa: E402
 import elfimage  # noqa: E402
 import ghidra_bridge as gb  # noqa: E402
 import mangledsig as ms  # noqa: E402
+import mwmangle as mw  # noqa: E402
 import mips  # noqa: E402
 import names  # noqa: E402
 import report  # noqa: E402
@@ -75,6 +77,19 @@ OUT = Path("build/release/signatures")
 PLAN_KIND = "socom-release-signatures-plan"
 PLAN_SCHEMA = 1
 GROUPS = ("exact", "deviating", "mangled")
+# --classes: a group, or the part of group mangled whose pairs are exact or deviating ("mangled"
+# takes both: a derived signature of a deviating pair rests on the prototype's mangled name only).
+CLASSES = GROUPS + ("mangled-exact", "mangled-deviating")
+
+
+def taken(entry: dict, classes) -> bool:
+    if entry["group"] in classes:
+        return True
+    return entry["group"] == "mangled" and f"mangled-{entry.get('pair_group')}" in classes
+
+
+def selection_label(entry: dict) -> str:
+    return f"mangled-{entry.get('pair_group')}" if entry["group"] == "mangled" else entry["group"]
 PROTOTYPE_ELF = Path("support/socom.elf")
 CHECK_EVERY = 10  # written functions between two full snapshots
 PLACEHOLDER = "socom_prototype"  # the parse-only name sent for a function that has a name of its own
@@ -277,8 +292,50 @@ def thunk_rows(bridge, entry: dict, target_parts: dict, thunks_of: dict, live_li
     return rows
 
 
+def proven_enums(bridge, wanted: set, release_types: dict) -> dict[str, int]:
+    """Type name -> size of each wanted name the release program shows as an enum.
+
+    ``get_enum_values`` looks its name up case-insensitively in every category and takes the first
+    hit (``ServiceUtils.findDataTypeByNameInAllCategories``), so only a name that is the one type
+    of its spelling, case ignored, is asked; the answer must name it and give its table size.
+    """
+
+    lower = Counter(n.lower() for n in release_types)
+    out = {}
+    for name in sorted(wanted):
+        rows = release_types.get(name, [])
+        if len(rows) != 1 or lower[name.lower()] != 1:
+            continue
+        text = bridge.get("get_enum_values", gb.RELEASE_PROGRAM, enum_name=name)
+        found = re.match(r"^Enumeration: (.*)\nSize: (\d+) bytes", text) if isinstance(text, str) else None
+        if found and found.group(1) == name and int(found.group(2)) == rows[0][1]:
+            out[name] = rows[0][1]
+    return out
+
+
+def by_value_names(facts, types, address: int) -> set[str]:
+    """The release type names a counterpart's mangled symbol passes or converts to by value."""
+
+    try:
+        parts = facts.parts(address)
+    except ms.Withheld:
+        return set()
+    nodes = [p for p in parts["params"] if p["t"] == "named"]
+    structured = mw.demangle_function(parts["symbol"])
+    target = structured.get("target", structured)
+    if "conversion" in target["name"] and target["name"]["conversion"]["t"] == "named":
+        nodes.append(target["name"]["conversion"])
+    out = set()
+    for node in nodes:
+        try:
+            out.add(types.resolve(node)[0])
+        except ms.Withheld:
+            pass
+    return out
+
+
 def plan_mangled(bridge, defaults: list, image, prototype_image, proto_types: dict, release_types: dict,
-                 thunks_of: dict, live_list: dict) -> list:
+                 thunks_of: dict, live_list: dict, dwarf: dict | None = None) -> list:
     """Group mangled: derive the prototypes of the entries that reached ``default``.
 
     Each entry joins the group (``pair_group`` keeps exact or deviating) and is withheld with the
@@ -288,7 +345,7 @@ def plan_mangled(bridge, defaults: list, image, prototype_image, proto_types: di
     """
 
     facts = ms.Facts(prototype_image)
-    types = ms.Types(release_types, strip_conflict, C_PRIMITIVES)
+    plain = ms.Types(release_types, strip_conflict, C_PRIMITIVES)
     words_r, words_p = mips.words_of(image.data), mips.words_of(prototype_image.data)
     need = sorted({s for _, row, _, _ in defaults for s in ms.siblings(row["prototype_address"], facts)})
     returns = {}
@@ -297,6 +354,10 @@ def plan_mangled(bridge, defaults: list, image, prototype_image, proto_types: di
         sig = parse_signature(found and found.get("signature"), found["name"]) if found else None
         if found and found["entry"] == address and sig and not is_default_signature(sig):
             returns[address] = sig["return"]
+    wanted = {n for _, row, _, _ in defaults for n in by_value_names(facts, plain, row["prototype_address"])}
+    wanted |= {r for r in returns.values() if r in release_types}
+    types = ms.Types(release_types, strip_conflict, C_PRIMITIVES, proven_enums(bridge, wanted, release_types))
+    dwarf = dwarf or {}
 
     def check_return(text: str) -> str | None:
         return check_type(text, proto_types, release_types)[0]
@@ -305,14 +366,15 @@ def plan_mangled(bridge, defaults: list, image, prototype_image, proto_types: di
     for entry, row, live, here in defaults:
         entry["pair_group"], entry["group"] = entry["group"], "mangled"
         address = row["prototype_address"]
-        reads = ms.entry_reads(words_r, (row["release_address"] - image.base) // 4, row["release_size"] // 4,
-                               image.base)
-        proto_reads = None
+        code = ms.entry_facts(words_r, (row["release_address"] - image.base) // 4, row["release_size"] // 4,
+                              image.base)
+        proto_code = None
         if row.get("prototype_size") and prototype_image.contains(address):
-            proto_reads = ms.entry_reads(words_p, (address - prototype_image.base) // 4, row["prototype_size"] // 4,
-                                         prototype_image.base)
+            proto_code = ms.entry_facts(words_p, (address - prototype_image.base) // 4, row["prototype_size"] // 4,
+                                        prototype_image.base)
         try:
-            derived = ms.derive(address, facts, types, reads, proto_reads, returns, check_return)
+            derived = ms.derive(address, facts, types, code, proto_code, returns, check_return,
+                                (dwarf.get(address) or {}).get("return"))
         except ms.Withheld as exc:
             entry.update({"action": "withheld", "reason_group": f"mangled {exc.group}", "reason": exc.reason,
                           "mangled": exc.details})
@@ -350,7 +412,8 @@ def holds(now: str | None, value: str) -> bool:
     return now == value or (now is not None and value.endswith(ms.DERIVED_MARK) and now + ms.DERIVED_MARK == value)
 
 
-def build_plan(root: Path, bridge, module: str | None, progress=None, image=None, prototype_image=None) -> dict:
+def build_plan(root: Path, bridge, module: str | None, progress=None, image=None, prototype_image=None,
+               dwarf: dict | None = None) -> dict:
     check = names.preflight(bridge)
     if not check["ok"]:
         raise Refused("preflight failed: " + "; ".join(check["errors"]))
@@ -504,8 +567,10 @@ def build_plan(root: Path, bridge, module: str | None, progress=None, image=None
         if progress:
             progress(f"mangled symbols of {len(defaults)} prototype functions with Ghidra's default signature")
         prototype_image = prototype_image or elfimage.load(root / PROTOTYPE_ELF, "prototype")
+        if dwarf is None:  # the counterparts' DWARF return types (the prototype ELF is pinned by its hash)
+            dwarf = dwarf1.subroutines(root / PROTOTYPE_ELF) if (root / PROTOTYPE_ELF).is_file() else {}
         later += plan_mangled(bridge, defaults, image, prototype_image, proto_types, release_types,
-                              thunks_of, live_list)
+                              thunks_of, live_list, dwarf)
 
     # A release signature that is set already: equal (then the storage decides) or replaced.
     same = sorted(int(e["address"], 16) for e, here, live in later if live["signature"] == e["expected"]["signature"])
@@ -628,7 +693,7 @@ def summarize(plan: dict) -> dict:
 
 def _evidence_kind(text: str) -> str:
     text = re.sub(r"^slot \d+ of \S+$", "vtable slot", text)
-    text = re.sub(r"^the code reads \w+ at 0x[0-9a-f]+, ", "code: ", text)
+    text = re.sub(r"^the code alone \(it reads \w+ at 0x[0-9a-f]+, (.*)\)$", r"the code alone: \1", text)
     return re.sub(r"the code reads \w+, beyond", "the code reads a GPR beyond", text)
 
 
@@ -835,6 +900,7 @@ class Applier:
         self.would: list[dict] = []
         self.unchanged: Counter = Counter()
         self.skipped: Counter = Counter()
+        self.taken: Counter = Counter()  # entries taken, by group (mangled split by pair class)
         self.analysis_changes: list[dict] = []
         self.side_effects: list[dict] = []
         self.checkpoints: list[dict] = []
@@ -886,9 +952,10 @@ class Applier:
                          key=lambda e: int(e["address"], 16))
         try:
             for entry in ordered:
-                if entry["group"] not in self.classes:
-                    self.skipped[f"group {entry['group']} not taken"] += 1
+                if not taken(entry, self.classes):
+                    self.skipped[f"group {selection_label(entry)} not taken"] += 1
                     continue
+                self.taken[selection_label(entry)] += 1
                 if self.batch and self.changed >= self.batch:
                     self.batch_full = True
                     break
@@ -1075,9 +1142,9 @@ def next_report(root: Path, stem: str) -> Path:
 def apply(root: Path, plan_path: Path, bridge, *, dry_run: bool, classes=("exact",), batch: int | None = None,
           check_every: int = CHECK_EVERY, today: str | None = None) -> dict:
     plan = load_plan(plan_path, root)
-    unknown = [c for c in classes if c not in GROUPS]
+    unknown = [c for c in classes if c not in CLASSES]
     if unknown or "exact" not in classes:
-        raise Refused(f"--classes takes exact, plus deviating and/or mangled, not {','.join(classes)}")
+        raise Refused(f"--classes takes exact, plus any of {', '.join(CLASSES[1:])}, not {','.join(classes)}")
     if not dry_run:
         pending = names.unsaved(names.read_record(root))
         if pending:
@@ -1114,6 +1181,7 @@ def apply(root: Path, plan_path: Path, bridge, *, dry_run: bool, classes=("exact
         "sent": [] if dry_run else bridge.sent, "written": applier.written, "would_write": applier.would,
         "counts": dict(sorted(Counter(w["applied"] for w in done).items())),
         "unchanged": dict(sorted(applier.unchanged.items())), "skipped": dict(sorted(applier.skipped.items())),
+        "taken": dict(sorted(applier.taken.items())),
         "checkpoints": applier.checkpoints, "analysis_changes": applier.analysis_changes,
         "side_effects": applier.side_effects, "attempted": [] if dry_run else applier.attempted,
         "remove_by_hand": [], "replaced_rows": [] if dry_run else replaced,
@@ -1195,7 +1263,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--all", action="store_true", help="with --plan: every pair")
     parser.add_argument("--dry-run", action="store_true", help="with --apply: reads and checks only")
     parser.add_argument("--yes", action="store_true", help="with --apply: really write")
-    parser.add_argument("--classes", default="exact", help="with --apply: exact (default), plus deviating and/or mangled (exact,deviating,mangled)")
+    parser.add_argument("--classes", default="exact", help="with --apply: exact (default), plus deviating, mangled (derived signatures of exact and deviating pairs), mangled-exact or mangled-deviating")
     parser.add_argument("--batch", type=int, metavar="N", help="with --apply: stop after N changed functions")
     parser.add_argument("--check-every", type=int, default=CHECK_EVERY, metavar="N",
                         help=f"with --apply: full snapshot after every N written functions (default {CHECK_EVERY})")
@@ -1236,7 +1304,7 @@ def main(argv: list[str] | None = None) -> int:
         result = apply(root, args.apply.resolve(), bridge, dry_run=args.dry_run, classes=classes,
                        batch=args.batch, check_every=args.check_every)
         print(json.dumps({k: result[k] for k in ("report", "dry_run", "classes", "stopped", "stop_kind", "what_to_do",
-                                                 "counts", "unchanged", "skipped", "saved", "batch_full",
+                                                 "counts", "unchanged", "skipped", "taken", "saved", "batch_full",
                                                  "entries_changed")}, indent=1))
         print(f"sent: {len(result['sent'])}; snapshots: {len(result['checkpoints'])}; analysis changes: "
               f"{len(result['analysis_changes'])}; side effects: {len(result['side_effects'])}")

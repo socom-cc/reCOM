@@ -229,25 +229,41 @@ python tools/release/signatures.py --confirm-saved build/release/signatures/sign
 A pair whose prototype counterpart still has Ghidra's default signature has nothing to carry, but
 the counterpart's Metrowerks symbol in `support/socom.elf` names its scope and every parameter
 type (`tools/release/mwmangle.py`, `tools/release/mangledsig.py`). The plan derives a prototype
-for each such entry after every withhold rule above, in a group of its own, applied only with
-`--classes exact,...,mangled`. The rules were measured on the 4,311 prototype functions that have
-a signature and a mangled symbol: no derived field (type, `this`, storage, return) differed.
+for each such entry after every withhold rule above, in a group of its own, applied only when
+`--classes` names it: `mangled` takes the derived signatures of exact and of deviating pairs,
+`mangled-exact` or `mangled-deviating` one of them; the report counts what it took. On the
+prototype functions that have a signature and a mangled symbol no derived field (type, `this`,
+storage, return) differs; that ground truth holds no function returning a class by value, and
+most of its receivers were set by the prototype's stage 3 with rules of the same kind, so it does
+not test the hidden-argument checks below.
 
 - **Parameters**: spelled as the prototype program spells them (reference and pointer `T *`,
   const and volatile dropped, `wchar_t` `ushort`, `long` and `long long` `longlong` (the EE long
   is 64-bit: DWARF, and `long_size` 8 in `r5900.cspec`), `signed char` `schar`, the 128-bit type
   `uint16`, a class or enum by its archive name at `/project/<scopes>`). A named type must be the
-  only type of its name in the release, at that category. Withheld: missing or ambiguous types,
-  function and member pointers, arrays, classes by value other than 1, 2, 4 or 8 bytes, `double`,
-  `long double` and the 128-bit type by value (their passing is not proven against Ghidra's
-  `__stdcall`), more than eight GPR or FPR arguments, varargs without a fixed parameter, aliases
-  at the counterpart that disagree, `@N@` this-adjusting stubs.
+  only type of its name in the release, at that category. A named type by value must be an enum
+  the release program shows (`get_enum_values`): a class by value may travel as the address of a
+  caller's copy (`HandleFollowTickHideCheck`, 0x2f5ba0) or in a register (`PNT2D`), and the name
+  does not tell. Withheld: missing or ambiguous types, function and member pointers, arrays,
+  classes by value, `double`, `long double` and the 128-bit type by value, more than eight GPR
+  or FPR arguments, varargs without a fixed parameter, aliases at the counterpart that disagree,
+  `@N@` this-adjusting stubs.
+- **Hidden arguments**, under every rule: a function returning a class by value takes a hidden
+  pointer to the buffer in a0 and a constructor of a class with virtual bases a hidden flag,
+  which move every argument up one register. Withheld: the release code reads an argument
+  register's entry value beyond the predicted storage (varargs excepted); the counterpart's DWARF
+  record returns a class, structure or union by value; a function other than a constructor or
+  destructor copies the entry a0 into v0; a return derived from the slot overrides or a
+  conversion operator names a class by value.
 - **`this`** (the name does not say whether a member is static), the first that applies decides:
   constructor or destructor; const or volatile member; a slot of a prototype `__vt__` table; no
-  scope (none); a scope that is an archive category, not a type (namespace: none); `operator
-  new`/`delete` (static); the release function's own code reads the entry value of the GPR after
-  the declared GPR parameters (`this`). Anything else is undecided and withheld. The plan keeps
-  what the prototype's bytes would have decided (`prototype_bytes_this`).
+  scope (none); a scope that is positively a namespace (`std`, `Metrowerks`,
+  `Metrowerks::details`, an unnamed namespace: an archive category without a type proves nothing,
+  `CZBombState` is a class with a nested enum); `operator new`/`delete` (static); the release
+  function's own code reads the entry value of the GPR after the declared GPR parameters, unless
+  it stores through a0 before any load through it (a static returning a class looks the same,
+  `CPickup::GetFirst`). Anything else is undecided and withheld. The plan keeps what the
+  prototype's bytes would have decided (`prototype_bytes_this`).
 - **Return** (not in the name): constructors and destructors `void *` (a destructor also takes
   a last `short __dtor_flags`); a conversion operator its type; the one return the signed
   overrides of the same vtable slot agree on; else `undefined`.
@@ -256,10 +272,27 @@ a signature and a mangled symbol: no derived field (type, `this`, storage, retur
   read-back compares it like the other groups: a difference stops the run.
 - **Plate**: every entry of the group needs a plate of the names step and gets the clause
   `signature derived from the mangled symbol <symbol>: this from <evidence>, return type unknown`
-  (or the return and its evidence); the names step's replan keeps that clause. A release function
-  that already has another signature is withheld (a derived signature replaces none).
+  (or the return and its evidence; a receiver from the code rule reads `this inferred from the
+  code alone (...)`); the names step's replan keeps that clause. A release function that already
+  has another signature is withheld (a derived signature replaces none).
 - **Record**: kind `prototype`, the value ends with `[derived from the mangled symbol]`, so a
   derived prototype never reads as one carried from the prototype.
+
+### Placeholder types (only with the user's agreement)
+
+`tools/release/placeholders.py` plans, and can apply, empty structures for the classes and
+parameter types the mangled symbols name and no program holds, so that `T *` parses (`--plan`,
+`--apply ... --dry-run`, `--apply ... --yes [--batch N]`, `--confirm-saved`, `--discard-unsaved`;
+record `docs/release/ghidra-types.tsv`). A type is created only when it is used as a receiver or
+through a pointer, is a C identifier, and no type name of the program or other planned name is
+the same with case ignored (the move finds its type case ignored, first hit); a name present in
+any spelling (hashed, `.conflict`, `/project/unresolved`) is not missing. Per type:
+`import_data_types` `struct <Name>;` (the C parser makes a packed empty structure at the root),
+then `move_data_type_to_category`; the whole type table is read before and after each write and
+must differ by exactly that one type at the planned category (1 byte), or the run stops. A later
+real layout switches packing off and grows the same type in place; deleting and recreating it
+would turn every parameter that names it `undefined`, and an archive import at the same path
+would add a `.conflict` twin.
 
 ## Stage 3: function starts
 

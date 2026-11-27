@@ -36,6 +36,7 @@ class Program:
         self.image = None  # the instructions CreateFunctionCmd follows
         self.analyzing = False
         self.types: dict[str, list[tuple[str, int]]] = {}  # name -> [(path, size)] in the data type manager
+        self.enums: set[str] = set()  # type names that are enums
 
     def add_type(self, path: str, size: int) -> None:
         name = path.rsplit("/", 1)[1]
@@ -75,7 +76,8 @@ class Program:
             return list(s["storage"])
         ints, floats, out = iter(["a0", "a1", "a2", "a3", "t0", "t1", "t2", "t3"]), iter(f"f{n}" for n in range(12, 20)), []
         for p in s["params"]:
-            size = 4 if p["type"].endswith("*") else TYPE_SIZES.get(p["type"], 4)
+            named = self.types.get(p["type"], [(None, 4)])[0][1]  # a program type by value: its size
+            size = 4 if p["type"].endswith("*") else TYPE_SIZES.get(p["type"], named)
             out.append(f"{next(floats)}:4" if p["type"] == "float" else f"{next(ints)}_lo:{size}")
         return out
 
@@ -188,6 +190,22 @@ class FakeGhidra(gb.Bridge):
         rows = [f"{name} | {path.split('/')[-2] or 'builtin'} | {size} bytes | {path}"
                 for name, found in sorted(p.types.items()) for path, size in found]
         return "\n".join(rows) if rows else "No data types found"
+
+    def find_type(self, p, name: str):
+        """ServiceUtils.findDataTypeByNameInAllCategories: case ignored, the first hit."""
+
+        hits = sorted((path, n, size) for n, rows in p.types.items() if n.lower() == name.lower() for path, size in rows)
+        return hits[0] if hits else None
+
+    def get_get_enum_values(self, q):
+        p = self.program(q["program"])
+        hit = self.find_type(p, q["enum_name"])
+        if hit is None:
+            return f"Enumeration not found: {q['enum_name']}"
+        path, name, size = hit
+        if name not in p.enums:
+            return f"Data type is not an enumeration: {q['enum_name']}"
+        return f"Enumeration: {name}\nSize: {size} bytes\n\nValues:\nName | Value\n"
 
     def get_get_plate_comment(self, q):
         p = self.program(q["program"])
@@ -339,6 +357,29 @@ class FakeGhidra(gb.Bridge):
             f["conv"] = conv
         return f"Successfully set prototype for function at {d['function_address']}" + (
             f" with {conv} calling convention" if d.get("calling_convention") else "")
+
+    def post_import_data_types(self, p, d):
+        """CParser over ``struct <Name>;``: a composite found by name is reused; otherwise an empty
+        structure (shown as 1 byte) at the root, added with REPLACE_HANDLER."""
+
+        found = re.fullmatch(r"struct (\w+);", d["source"].strip())
+        if not found:
+            return {"error": "parse failed"}
+        name = found.group(1)
+        if name not in p.types:
+            p.types[name] = [("/" + name, 1)]
+            if getattr(self, "import_side_effect", None):
+                self.import_side_effect(p)
+        return f"Imported data types: 1 parsed"
+
+    def post_move_data_type_to_category(self, p, d):
+        hit = self.find_type(p, d["type_name"])  # case ignored, the first hit
+        if hit is None:
+            return f"Data type not found: {d['type_name']}"
+        path, name, size = hit
+        p.types[name] = [(x if x != (path, size) else (d["category_path"].rstrip("/") + "/" + name, size))
+                         for x in p.types[name]]
+        return f"Successfully moved data type '{name}' to category '{d['category_path']}'"
 
     def post_set_comment(self, p, d):
         assert d["type"] == "plate"

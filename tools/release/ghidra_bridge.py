@@ -67,6 +67,10 @@ READS = frozenset({
     # FunctionService.disassembleFunction (instructions from the entry to the body's end),
     # XrefCallGraphService getXrefsTo; none opens a transaction
     "list_bookmarks", "find_code_gaps", "list_data_items", "disassemble_function", "get_xrefs_to",
+    # group mangled (signatures.py): DataTypeService.getEnumValues finds a type by name, case
+    # ignored, in every category (ServiceUtils.findDataTypeByNameInAllCategories) and prints an
+    # enum's name, size and values; no transaction
+    "get_enum_values",
 })
 NO_PROGRAM = frozenset({"list_open_programs"})
 # The only writes the names step sends; none of them saves.
