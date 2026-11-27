@@ -1857,6 +1857,13 @@ class Applier:
                 if d not in old and (predicted or self.outside_code(d[0], d[1])):
                     self.data_defined.append({"address": hx(d[0]), "length": d[1], "type": d[2],
                                               "after": e["address"], "predicted": predicted})
+                elif d in old and d[2].lower().startswith("undefined") and any(
+                        n not in old and n[0] <= d[0] and d[0] + d[1] <= n[0] + n[1]
+                        and self.outside_code(n[0], n[1]) for n in data):
+                    # An untyped item analysis itself had made, taken into a wider one the new code
+                    # reads as a whole (seen in batch 4: 0x44c208, seven items become one undefined8).
+                    self.data_defined.append({"address": hx(d[0]), "length": d[1], "type": d[2],
+                                              "after": e["address"], "predicted": False, "replaced": True})
                 else:
                     changes.append({"data": [hx(d[0]), d[1], d[2]], "change": "removed" if d in old else "added"})
         # Every function's body ends, name, signature line, thunk and no-return flags (a callee that

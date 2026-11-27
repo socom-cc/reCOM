@@ -110,3 +110,13 @@ hardware registers at 0x10004004..0x1000400c. The reviewer's check showed those 
 only differences. Data of this kind is what Ghidra's analysis made all over the program (it holds
 over 32,000 such items); none of it lies in code. Accepted; the tool is to accept data that
 analysis defines outside executable memory and list it, and to keep stopping on data inside code.
+| 2 (of 60) | 60 created | no stop; 43 named by Ghidra's patterns and 2 containers cut, all predicted; the check's 86 items are those names; saved, confirmed |
+| 3 (of 150) | 150 created | no stop; 40 named by the patterns, 2 containers cut, 2 bodies accepted with dead words; one byte of data defined by analysis away from code (0x45ff30); saved, confirmed |
+| 4 (the rest) | 59 created, 0x3c9c98 disassembled | stopped after the disassembly of 0x3c9c98: analysis replaced seven untyped items at 0x44c208..0x44c20f by one eight-byte item; accepted by the coordinator, saved, confirmed |
+
+The stop in batch 4: 0x3c9c98 reads eight bytes at 0x44c208 as one value. Earlier analysis had
+left those bytes as an `undefined2` and six `undefined1` items; Ghidra took them into one
+`undefined8`. Both the removed items and the new one are Ghidra's own untyped placeholders, in a
+data area; the reviewer's check showed these eight changes and nothing else. The tool now accepts
+and lists an untyped item that analysis takes into a wider one away from code, and still stops
+when a typed item is removed.

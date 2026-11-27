@@ -676,6 +676,29 @@ def test_data_analysis_defines_outside_code_is_listed_and_inside_code_stops(tmp_
     assert result["stop_kind"] == "analysis"
     assert any(c.get("data", [None])[0] == "0x200044" and c["change"] == "added" for c in result["analysis_changes"])
 
+def test_untyped_data_taken_into_a_wider_item_is_listed_and_typed_data_removed_stops(tmp_path):
+    def program(kind):
+        g = make_program()
+        g.release.data.append((0x700008, 2, kind))
+        return g
+
+    def widen(p):
+        p.data[:] = [d for d in p.data if d[0] != 0x700008] + [(0x700008, 8, "undefined8")]
+
+    g = program("undefined2")
+    root, plan, path = plan_for(tmp_path, g)
+    g.analysis_effects[0x200030] = widen
+    result = starts.apply(root, path, g, dry_run=False, image=g.release.image)
+    assert result["stopped"] is None
+    assert any(d.get("replaced") and d["address"] == "0x700008" for d in result["data_defined_by_analysis"])
+
+    g = program("float")  # a type somebody chose: its removal stays a stop
+    root, plan, path = plan_for(tmp_path / "typed", g)
+    g.analysis_effects[0x200030] = widen
+    result = starts.apply(root, path, g, dry_run=False, image=g.release.image)
+    assert result["stop_kind"] == "analysis"
+    assert any(c.get("change") == "removed" for c in result["analysis_changes"])
+
 def test_a_changed_neighbour_stops_the_run(tmp_path):
     g = make_program()
     root, plan, path = plan_for(tmp_path, g)
