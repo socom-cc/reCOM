@@ -5,11 +5,29 @@ import json
 
 import pytest
 
+import elfimage
 import ghidra_bridge as gb
 import names
 import signatures as sg
+from asm import JR_RA, NOP
 from fake_ghidra import FakeGhidra
 from test_names import image_for, make_root, row
+
+
+def proto_image_for(rows, base=0x300000, top=0x300400, special=None):
+    """The prototype image: each counterpart's mangled symbol, nops ending in jr ra; nop."""
+
+    words = {a: NOP for a in range(base, top, 4)}
+    symbols = []
+    for r in rows:
+        if r["prototype_address"] is None:
+            continue
+        words[r["prototype_address"] + r["prototype_size"] - 8] = JR_RA
+        for name in r["prototype_names"]:
+            symbols.append(elfimage.Symbol(r["prototype_address"], r["prototype_size"], name, 2, 1))
+    words.update(special or {})
+    return elfimage.synthetic([words[a] for a in range(base, top, 4)], base=base, symbols=symbols)
+
 
 PLATE = "Release map: deviating pair with prototype 0x300050 Dev__4CFooFv (evidence call; flags -).\nOwner -."
 ROWS = [
@@ -63,7 +81,7 @@ def reader_for(g):
 
 def plan_for(tmp_path, g, module="gamez/zTest"):
     root = make_root(tmp_path, ROWS)
-    plan = sg.build_plan(root, reader_for(g), module, image=g.release.image)
+    plan = sg.build_plan(root, reader_for(g), module, image=g.release.image, prototype_image=proto_image_for(ROWS))
     return root, plan, sg.write_plan(root, plan)
 
 
@@ -84,7 +102,11 @@ def test_plan_groups_reasons_and_determinism(tmp_path):
     miss = by["0x200010"]
     assert miss["action"] == "withheld" and miss["reason"] == "missing type /project/CBar"
     assert plan["missing_types"] == {"/project/CBar": 1} and plan["summary"]["missing_types"] == 1
-    assert by["0x200020"]["action"] == "default" and plan["summary"]["default_prototype_signatures"] == 1
+    # the prototype's default signature: group mangled, whose rules leave this one undecided
+    dflt = by["0x200020"]
+    assert (dflt["group"], dflt["pair_group"], dflt["action"], dflt["reason_group"]) == (
+        "mangled", "exact", "withheld", "mangled this")
+    assert plan["summary"]["default_prototype_signatures"] == 0
     target = by["0x200030"]
     assert target["send"]["prototype"] == "void FUN_00200030(CFoo * this)"  # a default name is sent as it is
     assert target["thunks"] == [{"address": "0x200040", "name": "thunk_FUN_00200030",
@@ -98,7 +120,8 @@ def test_plan_groups_reasons_and_determinism(tmp_path):
     assert plan["summary"]["planned"] == {"deviating": 1, "exact": 2}
     text = path.read_text(encoding="utf-8")
     assert str(tmp_path) not in text and ":\\" not in text
-    assert sg.canonical(sg.build_plan(root, reader_for(g), "gamez/zTest", image=g.release.image)) == text
+    assert sg.canonical(sg.build_plan(root, reader_for(g), "gamez/zTest", image=g.release.image,
+                                      prototype_image=proto_image_for(ROWS))) == text
     assert "missing type" in path.with_suffix(".md").read_text(encoding="utf-8")
 
 
@@ -138,7 +161,8 @@ def test_clean_apply_thunk_follows_record_confirm_and_rerun(tmp_path):
     rows[("0x200000", "prototype")]["state"] = "saved 2026-11-28"
     names.write_record(root, rows)
     assert (root / names.RECORD).read_text(encoding="utf-8") == saved
-    replan = sg.build_plan(root, reader_for(g), "gamez/zTest", image=g.release.image)
+    replan = sg.build_plan(root, reader_for(g), "gamez/zTest", image=g.release.image,
+                                      prototype_image=proto_image_for(ROWS))
     assert {e["address"]: e["action"] for e in replan["entries"]}["0x200000"] == "unchanged"
 
 

@@ -10,7 +10,10 @@ every pair whose release function exists with the map's extent and is no thunk, 
 function's prototype (return type, calling convention, parameter names, types and storage,
 varargs, no-return) and the release function's current one. Every type a prototype names must
 exist in the release program at the same path with the same size. The plan, with its own digest,
-goes to ``build/release/signatures/signatures-<module>.json`` with a summary ``.md``.
+goes to ``build/release/signatures/signatures-<module>.json`` with a summary ``.md``. A pair whose
+prototype still has Ghidra's default signature joins the group ``mangled``: its prototype is
+derived from the counterpart's mangled symbol (``mangledsig.py``), each decision with its
+evidence, and is applied only with ``--classes exact,...,mangled``.
 
 ``--apply`` makes the planned changes to ``SCUS_971.34`` only, through ``set_function_prototype``
 (and, for a pair that is not exact, ``set_comment`` for the plate flag), never saves, and takes
@@ -61,6 +64,8 @@ if str(HERE) not in sys.path:
 
 import elfimage  # noqa: E402
 import ghidra_bridge as gb  # noqa: E402
+import mangledsig as ms  # noqa: E402
+import mips  # noqa: E402
 import names  # noqa: E402
 import report  # noqa: E402
 from elfimage import PROTOTYPE_SHA256, RELEASE_SHA256  # noqa: E402
@@ -69,7 +74,8 @@ from names import Refused, Stop, hx, canonical, sha256_text  # noqa: E402
 OUT = Path("build/release/signatures")
 PLAN_KIND = "socom-release-signatures-plan"
 PLAN_SCHEMA = 1
-GROUPS = ("exact", "deviating")
+GROUPS = ("exact", "deviating", "mangled")
+PROTOTYPE_ELF = Path("support/socom.elf")
 CHECK_EVERY = 10  # written functions between two full snapshots
 PLACEHOLDER = "socom_prototype"  # the parse-only name sent for a function that has a name of its own
 CONVENTIONS = ("__stdcall", "__thiscall", "__cdecl", "__fastcall", "__vectorcall")  # the plugin's pattern
@@ -259,7 +265,92 @@ def group_of(row: dict, proto: dict | None, placed: frozenset) -> tuple[str | No
     return "deviating", None
 
 
-def build_plan(root: Path, bridge, module: str | None, progress=None, image=None) -> dict:
+def thunk_rows(bridge, entry: dict, target_parts: dict, thunks_of: dict, live_list: dict) -> list[dict]:
+    """The release thunks of an entry's function, with the signature each shows after the write."""
+
+    rows = []
+    for thunk in thunks_of.get(int(entry["address"], 16), []):
+        shown = live_list[thunk]["name"]
+        before = names.read_function(bridge, gb.RELEASE_PROGRAM, thunk)
+        rows.append({"address": hx(thunk), "name": shown, "signature_before": before["signature"],
+                     "signature_after": thunk_signature(target_parts, shown, before["signature"])})
+    return rows
+
+
+def plan_mangled(bridge, defaults: list, image, prototype_image, proto_types: dict, release_types: dict,
+                 thunks_of: dict, live_list: dict) -> list:
+    """Group mangled: derive the prototypes of the entries that reached ``default``.
+
+    Each entry joins the group (``pair_group`` keeps exact or deviating) and is withheld with the
+    derivation's reason, or gets ``send``/``expected`` and goes on like the carried ones. The code
+    rule reads the release function's own bytes; ``mangled.prototype_bytes_this`` says what the
+    prototype's bytes would have decided.
+    """
+
+    facts = ms.Facts(prototype_image)
+    types = ms.Types(release_types, strip_conflict, C_PRIMITIVES)
+    words_r, words_p = mips.words_of(image.data), mips.words_of(prototype_image.data)
+    need = sorted({s for _, row, _, _ in defaults for s in ms.siblings(row["prototype_address"], facts)})
+    returns = {}
+    for address in need:  # the signed overrides of the same slots (their return types)
+        found = names.read_function(bridge, gb.PROTOTYPE_PROGRAM, address)
+        sig = parse_signature(found and found.get("signature"), found["name"]) if found else None
+        if found and found["entry"] == address and sig and not is_default_signature(sig):
+            returns[address] = sig["return"]
+
+    def check_return(text: str) -> str | None:
+        return check_type(text, proto_types, release_types)[0]
+
+    out = []
+    for entry, row, live, here in defaults:
+        entry["pair_group"], entry["group"] = entry["group"], "mangled"
+        address = row["prototype_address"]
+        reads = ms.entry_reads(words_r, (row["release_address"] - image.base) // 4, row["release_size"] // 4,
+                               image.base)
+        proto_reads = None
+        if row.get("prototype_size") and prototype_image.contains(address):
+            proto_reads = ms.entry_reads(words_p, (address - prototype_image.base) // 4, row["prototype_size"] // 4,
+                                         prototype_image.base)
+        try:
+            derived = ms.derive(address, facts, types, reads, proto_reads, returns, check_return)
+        except ms.Withheld as exc:
+            entry.update({"action": "withheld", "reason_group": f"mangled {exc.group}", "reason": exc.reason,
+                          "mangled": exc.details})
+            continue
+        entry["mangled"] = {k: v for k, v in derived.items() if k != "parameters"}
+        params = [{"name": p["name"], "type": p["type"], "storage": p["storage"]} for p in derived["parameters"]]
+        default_name = names.is_default_name(live["name"])
+        sent_name = live["name"] if default_name else PLACEHOLDER
+        if default_name and not can_parse_name(sent_name):
+            entry.update({"action": "withheld", "reason_group": "name",
+                          "reason": f"the default name {sent_name} cannot be parsed"})
+            continue
+        entry["send"] = {"prototype": ms.text_of(derived["return"], sent_name, params, derived["varargs"]),
+                         "calling_convention": ms.CONVENTION}
+        entry["expected"] = {"signature": format_signature(derived["return"], ms.CONVENTION, live["name"], params,
+                                                           derived["varargs"], here["noreturn"]),
+                             "parameters": params}
+        entry["differences"] = []
+        entry["thunks"] = thunk_rows(bridge, entry, {"return": derived["return"], "convention": ms.CONVENTION,
+                                                     "parameters": params}, thunks_of, live_list)
+        out.append((entry, here, live))
+    return out
+
+
+def recorded_prototype(entry: dict) -> str:
+    """The record's value for an entry's prototype; a derived one is marked as derived."""
+
+    value = prototype_value(entry["expected"]["signature"], entry["expected"]["parameters"])
+    return value + ms.DERIVED_MARK if entry["group"] == "mangled" else value
+
+
+def holds(now: str | None, value: str) -> bool:
+    """The program holds the recorded ``value`` (a derived prototype's mark is the record's own)."""
+
+    return now == value or (now is not None and value.endswith(ms.DERIVED_MARK) and now + ms.DERIVED_MARK == value)
+
+
+def build_plan(root: Path, bridge, module: str | None, progress=None, image=None, prototype_image=None) -> dict:
     check = names.preflight(bridge)
     if not check["ok"]:
         raise Refused("preflight failed: " + "; ".join(check["errors"]))
@@ -280,7 +371,7 @@ def build_plan(root: Path, bridge, module: str | None, progress=None, image=None
         if target is not None:
             thunks_of[target].append(thunk)
 
-    entries, pending = [], []
+    entries, pending, defaults = [], [], []
     for row in chosen:
         address, end = row["release_address"], row["release_address"] + row["release_size"] - 1
         if row["prototype_address"] is None:
@@ -344,6 +435,7 @@ def build_plan(root: Path, bridge, module: str | None, progress=None, image=None
             entry.update({"action": "default", "reason_group": "default",
                           "reason": "the prototype's signature is Ghidra's default: nothing to carry"
                           + (f" (only the convention {sig['convention']} is set)" if sig["convention"] else "")})
+            defaults.append((entry, row, live, here))
             continue
         pending.append((entry, sig, here, row, live))
 
@@ -404,13 +496,16 @@ def build_plan(root: Path, bridge, module: str | None, progress=None, image=None
         entry["differences"] = ([f"no-return: prototype {sig['noreturn']}, release {here['noreturn']} "
                                  "(listed, not applied)"] if sig["noreturn"] != here["noreturn"] else [])
         target_parts = {"return": sig["return"], "convention": sig["convention"], "parameters": params}
-        entry["thunks"] = []
-        for thunk in thunks_of.get(int(entry["address"], 16), []):
-            shown = live_list[thunk]["name"]
-            before = names.read_function(bridge, gb.RELEASE_PROGRAM, thunk)
-            entry["thunks"].append({"address": hx(thunk), "name": shown, "signature_before": before["signature"],
-                                    "signature_after": thunk_signature(target_parts, shown, before["signature"])})
+        entry["thunks"] = thunk_rows(bridge, entry, target_parts, thunks_of, live_list)
         later.append((entry, here, live))
+
+    # Group mangled: the defaults, derived from the counterpart's mangled symbol (mangledsig.py).
+    if defaults:
+        if progress:
+            progress(f"mangled symbols of {len(defaults)} prototype functions with Ghidra's default signature")
+        prototype_image = prototype_image or elfimage.load(root / PROTOTYPE_ELF, "prototype")
+        later += plan_mangled(bridge, defaults, image, prototype_image, proto_types, release_types,
+                              thunks_of, live_list)
 
     # A release signature that is set already: equal (then the storage decides) or replaced.
     same = sorted(int(e["address"], 16) for e, here, live in later if live["signature"] == e["expected"]["signature"])
@@ -425,6 +520,10 @@ def build_plan(root: Path, bridge, module: str | None, progress=None, image=None
                                         f"({release_vars.get(address)})"})
                 continue
             entry.update({"action": "unchanged", "reason_group": None, "reason": "the release has this prototype"})
+        elif not is_default_signature(here) and entry["group"] == "mangled":
+            entry.update({"action": "withheld", "reason_group": "live",
+                          "reason": f"Ghidra already gives it {live['signature']}; a derived signature replaces none"})
+            continue
         elif not is_default_signature(here) and entry["group"] != "exact":
             entry.update({"action": "withheld", "reason_group": "live",
                           "reason": f"Ghidra already gives it {live['signature']} and the pair is not exact"})
@@ -446,6 +545,21 @@ def build_plan(root: Path, bridge, module: str | None, progress=None, image=None
             first, clauses = names.plate_clauses(plate)
             after = plate if names.SIGNATURE_CLAUSE in clauses else names.join_plate(
                 first, clauses + [names.SIGNATURE_CLAUSE])
+            entry["plate"] = {"before": plate, "after": after}
+        elif entry["group"] == "mangled":
+            plate = names.read_plate(bridge, address)
+            if not plate.startswith(names.PLATE_PREFIX):
+                entry.update({"action": "withheld", "reason_group": "plate",
+                              "reason": "no plate comment of the names step to carry the derived-signature clause"})
+                continue
+            clause = entry["mangled"]["clause"]
+            first, clauses = names.plate_clauses(plate)
+            other = [c for c in clauses if c.startswith(names.MANGLED_CLAUSE) and c != clause]
+            if other:
+                entry.update({"action": "withheld", "reason_group": "plate",
+                              "reason": f"the plate holds another derived-signature clause: {other[0]}"})
+                continue
+            after = plate if clause in clauses else names.join_plate(first, clauses + [clause])
             entry["plate"] = {"before": plate, "after": after}
 
     plan = {
@@ -508,6 +622,39 @@ def summarize(plan: dict) -> dict:
         "plate_flags": sum(1 for e in entries if e.get("plate") and e["plate"]["after"] != e["plate"]["before"]),
         "no_return_differences": sum(1 for e in writes if e["differences"]),
         "with_convention": dict(sorted(Counter(e["send"]["calling_convention"] or "none" for e in writes).items())),
+        "mangled": mangled_summary(entries),
+    }
+
+
+def _evidence_kind(text: str) -> str:
+    text = re.sub(r"^slot \d+ of \S+$", "vtable slot", text)
+    text = re.sub(r"^the code reads \w+ at 0x[0-9a-f]+, ", "code: ", text)
+    return re.sub(r"the code reads \w+, beyond", "the code reads a GPR beyond", text)
+
+
+def mangled_summary(entries: list[dict]) -> dict:
+    """Group mangled: planned by module and pair class, withheld by reason, the evidence used."""
+
+    group = [e for e in entries if e["group"] == "mangled"]
+    planned = [e for e in group if e["action"] in ("write", "unchanged")]
+    withheld = [e for e in group if e["action"] == "withheld"]
+    derived = [e for e in group if e.get("mangled")]
+    changed = [e for e in derived if e["mangled"].get("prototype_bytes_this", e["mangled"]["this"]) != e["mangled"]["this"]]
+    return {
+        "entries": len(group),
+        "planned": len(planned),
+        "planned_by_pair": dict(sorted(Counter(e["pair_group"] for e in planned).items())),
+        "planned_by_module": dict(sorted(Counter(e["module"] for e in planned).items())),
+        "with_a_return_type": sum(1 for e in planned if e["mangled"]["return"] != "undefined"),
+        "withheld_by_reason": dict(sorted(Counter(e["reason_group"] for e in withheld).items())),
+        "withheld_reasons": dict(Counter(re.sub(r"0x[0-9a-f]+", "0x..", re.sub(r" /project\S*", " <type>", e["reason"]))
+                                         for e in withheld).most_common(40)),
+        "this_evidence": dict(sorted(Counter(_evidence_kind(e["mangled"]["this_evidence"]) for e in planned).items())),
+        "return_evidence": dict(sorted(Counter(e["mangled"]["return_evidence"] for e in planned).items())),
+        "code_rule_release_vs_prototype_bytes": {
+            "decisions_that_differ": len(changed),
+            "examples": [f"{e['address']} {e['mangled']['symbol']}: release {e['mangled']['this']}, prototype bytes "
+                         f"{e['mangled']['prototype_bytes_this']} ({e['pair_group']})" for e in changed[:20]]},
     }
 
 
@@ -526,8 +673,19 @@ def plan_markdown(plan: dict) -> str:
              f"thunks that follow: {s['thunks_that_follow']}; plate flags: {s['plate_flags']}; "
              f"no-return differences (not applied): {s['no_return_differences']}",
              f"- calling conventions sent: {s['with_convention']}",
-             "", "The deviating group is applied only with `--classes exact,deviating`.",
-             "", "## Withheld, by reason", ""]
+             "", "The deviating group is applied only with `--classes exact,deviating`; the mangled group "
+             "(signatures derived from the counterpart's mangled symbol) only with `--classes exact,...,mangled`.",
+             "", "## Group mangled", "",
+             f"- planned: {s['mangled']['planned']} of {s['mangled']['entries']} "
+             f"(by pair {s['mangled']['planned_by_pair']}; {s['mangled']['with_a_return_type']} with a return type)",
+             f"- withheld by reason: {s['mangled']['withheld_by_reason']}",
+             f"- this evidence: {s['mangled']['this_evidence']}",
+             f"- return evidence: {s['mangled']['return_evidence']}",
+             f"- code rule, release bytes against prototype bytes: "
+             f"{s['mangled']['code_rule_release_vs_prototype_bytes']['decisions_that_differ']} decisions differ",
+             "", "Planned by module:", ""]
+    lines += [f"- {m}: {n}" for m, n in s["mangled"]["planned_by_module"].items()]
+    lines += ["", "## Withheld, by reason", ""]
     lines += [f"- {count}: {reason}" for reason, count in sorted(s["withheld_reasons"].items(), key=lambda kv: (-kv[1], kv[0]))]
     if plan["missing_types"]:
         lines += ["", "## Missing types (prototype path: signatures that name it)", ""]
@@ -756,7 +914,7 @@ class Applier:
             return bool(row) and row["value"] == names.record_value(value) and row["state"].startswith("saved ") \
                 and "not the planned" not in row["state"]
 
-        value = prototype_value(entry["expected"]["signature"], entry["expected"]["parameters"])
+        value = recorded_prototype(entry)
         return saved("prototype", value) and (not entry.get("plate") or saved("plate", entry["plate"]["after"]))
 
     def thunk_now(self, address: int) -> bool:
@@ -806,7 +964,7 @@ class Applier:
             if current not in (entry["plate"]["before"], entry["plate"]["after"]):
                 raise StopBefore(f"{entry['address']}: its plate comment changed since the plan: {AFTER_NOTHING}")
         before = live_value(self.bridge, {"address": entry["address"], "applied": "prototype"}, live)
-        value = prototype_value(expected, entry["expected"]["parameters"])
+        value = recorded_prototype(entry)
         body = {"function_address": entry["address"], "prototype": entry["send"]["prototype"]}
         if entry["send"]["calling_convention"]:
             body["calling_convention"] = entry["send"]["calling_convention"]
@@ -876,7 +1034,7 @@ def live_value(bridge, item: dict, live: dict | None = None) -> str | None:
 def reads_back(bridge, item: dict) -> bool:
     if item["applied"] not in ("prototype", "plate"):
         return names.reads_back(bridge, item)
-    return live_value(bridge, item) == item["value"]
+    return holds(live_value(bridge, item), item["value"])
 
 
 def stopped_writes(bridge, result: dict) -> tuple[list, list, list]:
@@ -892,7 +1050,7 @@ def stopped_writes(bridge, result: dict) -> tuple[list, list, list]:
         if (item["address"], item["applied"]) in written:
             continue
         now = live_value(bridge, item)
-        if now == item["value"]:
+        if holds(now, item["value"]):
             planned.append(item)
         elif now != item.get("before"):
             other.append(dict(item, value=now if now is not None else "(no function starts here)",
@@ -919,7 +1077,7 @@ def apply(root: Path, plan_path: Path, bridge, *, dry_run: bool, classes=("exact
     plan = load_plan(plan_path, root)
     unknown = [c for c in classes if c not in GROUPS]
     if unknown or "exact" not in classes:
-        raise Refused(f"--classes takes exact or exact,deviating, not {','.join(classes)}")
+        raise Refused(f"--classes takes exact, plus deviating and/or mangled, not {','.join(classes)}")
     if not dry_run:
         pending = names.unsaved(names.read_record(root))
         if pending:
@@ -1037,7 +1195,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--all", action="store_true", help="with --plan: every pair")
     parser.add_argument("--dry-run", action="store_true", help="with --apply: reads and checks only")
     parser.add_argument("--yes", action="store_true", help="with --apply: really write")
-    parser.add_argument("--classes", default="exact", help="with --apply: exact (default) or exact,deviating")
+    parser.add_argument("--classes", default="exact", help="with --apply: exact (default), plus deviating and/or mangled (exact,deviating,mangled)")
     parser.add_argument("--batch", type=int, metavar="N", help="with --apply: stop after N changed functions")
     parser.add_argument("--check-every", type=int, default=CHECK_EVERY, metavar="N",
                         help=f"with --apply: full snapshot after every N written functions (default {CHECK_EVERY})")

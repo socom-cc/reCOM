@@ -460,6 +460,9 @@ REPLACES = "replaces the analysis name "
 THUNK_CLAUSE = "Ghidra thunk of "
 # Added by tools/release/signatures.py to the plate of a function whose pair is not exact.
 SIGNATURE_CLAUSE = "signature carried from the prototype as a starting point (the pair is not exact)"
+# Added by tools/release/signatures.py (group mangled) to every function whose signature it derived
+# from the counterpart's mangled symbol; the clause goes on with the symbol and its evidence.
+MANGLED_CLAUSE = "signature derived from the mangled symbol "
 
 
 def plate_clauses(plate: str) -> tuple[str, list[str]]:
@@ -479,8 +482,9 @@ def kept_plate(planned: str | None, recorded_value: str | None) -> str | None:
 
     A replan cannot see the analysis name an earlier apply replaced (the live name is the planned
     one now), and a function the tool created as a predicted thunk was planned before it was a
-    thunk, so its plate lacks the thunk clause. A clause the signatures step added stays too. Any
-    other difference gives the planned plate.
+    thunk, so its plate lacks the thunk clause. A clause the signatures step added stays too (the
+    deviating flag, and the clause of a signature derived from the mangled symbol). Any other
+    difference gives the planned plate.
     """
 
     if not planned or not recorded_value or record_value(planned) == recorded_value:
@@ -495,7 +499,8 @@ def kept_plate(planned: str | None, recorded_value: str | None) -> str | None:
     only_planned = [c for c in mine if c not in theirs]
     only_recorded = [c for c in theirs if c not in mine]
     if all(c.startswith(THUNK_CLAUSE) for c in only_planned) \
-            and all(c.startswith(REPLACES) or c == SIGNATURE_CLAUSE for c in only_recorded) \
+            and all(c.startswith(REPLACES) or c == SIGNATURE_CLAUSE or c.startswith(MANGLED_CLAUSE)
+                    for c in only_recorded) \
             and [c for c in mine if c in theirs] == [c for c in theirs if c in mine]:
         return recorded
     return planned

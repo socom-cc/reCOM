@@ -164,7 +164,7 @@ offsets:
 ```powershell
 python tools/release/signatures.py --plan gamez/zArchive        # or: --plan --all
 python tools/release/signatures.py --apply build/release/signatures/signatures-gamez-zArchive.json --dry-run
-python tools/release/signatures.py --apply build/release/signatures/signatures-gamez-zArchive.json --yes [--batch N] [--classes exact,deviating]
+python tools/release/signatures.py --apply build/release/signatures/signatures-gamez-zArchive.json --yes [--batch N] [--classes exact,deviating,mangled]
 python tools/release/signatures.py --confirm-saved build/release/signatures/signatures-gamez-zArchive.apply-001.json
 ```
 
@@ -223,6 +223,43 @@ python tools/release/signatures.py --confirm-saved build/release/signatures/sign
 - **Record**: `docs/release/ghidra-applied.tsv`, kind `prototype`, value the signature line with
   the storage of each parameter; plate flags replace the function's `plate` row. Rows stay
   `unsaved <report>` until `--confirm-saved`.
+
+### Group mangled: signatures derived from the mangled symbol
+
+A pair whose prototype counterpart still has Ghidra's default signature has nothing to carry, but
+the counterpart's Metrowerks symbol in `support/socom.elf` names its scope and every parameter
+type (`tools/release/mwmangle.py`, `tools/release/mangledsig.py`). The plan derives a prototype
+for each such entry after every withhold rule above, in a group of its own, applied only with
+`--classes exact,...,mangled`. The rules were measured on the 4,311 prototype functions that have
+a signature and a mangled symbol: no derived field (type, `this`, storage, return) differed.
+
+- **Parameters**: spelled as the prototype program spells them (reference and pointer `T *`,
+  const and volatile dropped, `wchar_t` `ushort`, `long` and `long long` `longlong` (the EE long
+  is 64-bit: DWARF, and `long_size` 8 in `r5900.cspec`), `signed char` `schar`, the 128-bit type
+  `uint16`, a class or enum by its archive name at `/project/<scopes>`). A named type must be the
+  only type of its name in the release, at that category. Withheld: missing or ambiguous types,
+  function and member pointers, arrays, classes by value other than 1, 2, 4 or 8 bytes, `double`,
+  `long double` and the 128-bit type by value (their passing is not proven against Ghidra's
+  `__stdcall`), more than eight GPR or FPR arguments, varargs without a fixed parameter, aliases
+  at the counterpart that disagree, `@N@` this-adjusting stubs.
+- **`this`** (the name does not say whether a member is static), the first that applies decides:
+  constructor or destructor; const or volatile member; a slot of a prototype `__vt__` table; no
+  scope (none); a scope that is an archive category, not a type (namespace: none); `operator
+  new`/`delete` (static); the release function's own code reads the entry value of the GPR after
+  the declared GPR parameters (`this`). Anything else is undecided and withheld. The plan keeps
+  what the prototype's bytes would have decided (`prototype_bytes_this`).
+- **Return** (not in the name): constructors and destructors `void *` (a destructor also takes
+  a last `short __dtor_flags`); a conversion operator its type; the one return the signed
+  overrides of the same vtable slot agree on; else `undefined`.
+- **Names and convention**: `this`, `param_N`, `__dtor_flags`; `__stdcall`.
+- **Storage** is predicted the Metrowerks way (a0-a3, t0-t3 in order, floats f12-f19) and the
+  read-back compares it like the other groups: a difference stops the run.
+- **Plate**: every entry of the group needs a plate of the names step and gets the clause
+  `signature derived from the mangled symbol <symbol>: this from <evidence>, return type unknown`
+  (or the return and its evidence); the names step's replan keeps that clause. A release function
+  that already has another signature is withheld (a derived signature replaces none).
+- **Record**: kind `prototype`, the value ends with `[derived from the mangled symbol]`, so a
+  derived prototype never reads as one carried from the prototype.
 
 ## Stage 3: function starts
 
