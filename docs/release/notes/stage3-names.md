@@ -154,3 +154,19 @@ signatures pass: exactly those 179 functions differ, in their name only; bookmar
 
 Left on the old rule: 12 library pairs that are deviating, out of place and not decided by their
 callers, and 12 unsure pairs out of place. A function but no name now: 631.
+
+## Names for the functions the starts step made
+
+After the function-starts step (`stage3-starts.md`) the release program had 382 more functions.
+A plan of the whole map (ee819fc5...) differed from the applied state in those entries only:
+282 names, 138 mangled labels and 382 plates; 74 of the new functions already carried the right
+name from Ghidra's function-start patterns, and 9 pattern names on exact pairs were replaced by
+the prototype's (`RFU005_ResumeIntrDispatch` to `RFU005`, four TLB stubs the patterns misname).
+0x15a5d0 keeps `AddIntcHandler`: the prototype's `AddIntcHandler2` is a label there, like
+`AddDmacHandler2` at 0x15a600. No stop, no collision. The coordinator compared the whole function
+list with a baseline taken before the run: exactly the 282 renamed functions differ, in their name
+only; bookmarks and `socom.elf` as they were. Saved and confirmed (802 rows).
+
+9,199 of the map's 9,860 functions carry a name now. Without one: 626 new functions, 12 unsure
+pairs, 12 library pairs that are deviating and out of place, 4 without a Ghidra function, 4
+flagged pairs, 2 label clashes and 1 whose counterpart has no name.
