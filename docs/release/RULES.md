@@ -312,7 +312,11 @@ python tools/release/starts.py --confirm-saved build/release/starts/plan-starts.
   (decodes, no data or code in the way, reaches a return, more than one instruction, nothing
   references its inside, not eight zero bytes) it disassembles there with flow following and sets
   a "Found Code" bookmark, and makes no function (its `createFunctions` is empty); otherwise it may
-  define a string, a unicode string or a pointer there. The plan predicts both per disassembly
+  define a string, a unicode string or a pointer there. Analysis also defines data at the offsets
+  new code reads and writes from a base (a table, hardware registers; seen in batch 1 at
+  0x443ab4.. and 0x10004004..), which the plan does not list: data defined outside executable
+  memory is accepted and listed in the report, data defined inside code stops the run. The plan
+  predicts both per disassembly
   (`found_code`, `operand_references`); the apply accepts the predicted code with its bookmark or
   none of it, records `found-code-by-analysis`, and stops on anything else. `eret` has no
   fall-through.

@@ -660,6 +660,22 @@ def test_a_bookmark_after_a_create_stops_the_run(tmp_path):
     assert any("bookmark" in c for c in result["analysis_changes"])
 
 
+def test_data_analysis_defines_outside_code_is_listed_and_inside_code_stops(tmp_path):
+    g = make_program()
+    root, plan, path = plan_for(tmp_path, g)
+    g.analysis_effects[0x200030] = lambda p: p.data.append((0x700004, 4, "undefined4"))  # far from any code
+    result = starts.apply(root, path, g, dry_run=False, image=g.release.image)
+    assert result["stopped"] is None
+    assert {"address": "0x700004", "length": 4, "type": "undefined4", "after": "0x200030",
+            "predicted": False} in result["data_defined_by_analysis"]
+
+    g = make_program()
+    root, plan, path = plan_for(tmp_path / "inside", g)
+    g.analysis_effects[0x200030] = lambda p: p.data.append((0x2002c0, 4, "undefined4"))  # in a gap between bodies
+    result = starts.apply(root, path, g, dry_run=False, image=g.release.image)
+    assert result["stop_kind"] == "analysis"
+    assert any(c.get("data", [None])[0] == "0x2002c0" and c["change"] == "added" for c in result["analysis_changes"])
+
 def test_a_changed_neighbour_stops_the_run(tmp_path):
     g = make_program()
     root, plan, path = plan_for(tmp_path, g)

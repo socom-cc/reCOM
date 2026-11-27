@@ -1799,6 +1799,13 @@ class Applier:
             self.checked["computed jumps without references"] += 1
         self.compare(e, step, allowed_data=set())
 
+    def outside_code(self, address: int, length: int) -> bool:
+        """No byte of it lies in executable memory as the bridge lists it (a function body or a gap)."""
+
+        last = address + max(length, 1) - 1
+        if any(g[0] <= last and address <= g[1] for g in self.model.gaps):
+            return False
+        return not any(lo <= last and address <= hi for lo, hi in self.model.spans.values())
     def compare(self, e, step, allowed_data: set[int], bookmarks: set = frozenset()):
         """Everything the bridge lists, against the model after this step (``bookmarks``: predicted, made)."""
 
@@ -1837,11 +1844,16 @@ class Applier:
         if data != self.state[3]:
             old = set(self.state[3])
             for d in sorted(set(data) ^ old):
-                if d in old or d[0] not in allowed_data or not data_kind_allowed(d[2]):
-                    changes.append({"data": [hx(d[0]), d[1], d[2]], "change": "removed" if d in old else "added"})
-                else:
+                predicted = d[0] in allowed_data and data_kind_allowed(d[2])
+                # Analysis also defines data at the offsets new code reads and writes from a base
+                # (seen in batch 1: a table at 0x443ab0.., hardware registers at 0x10004004..), as
+                # it did all over the program. Outside executable memory that is accepted and
+                # listed; data inside code stays a stop.
+                if d not in old and (predicted or self.outside_code(d[0], d[1])):
                     self.data_defined.append({"address": hx(d[0]), "length": d[1], "type": d[2],
-                                              "after": e["address"]})
+                                              "after": e["address"], "predicted": predicted})
+                else:
+                    changes.append({"data": [hx(d[0]), d[1], d[2]], "change": "removed" if d in old else "added"})
         # Every function's body ends, name, signature line, thunk and no-return flags (a callee that
         # "Non-Returning Functions - Discovered" marks, a body its flow repair or switch analysis changes).
         if not changes:
