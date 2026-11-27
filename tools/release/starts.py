@@ -1800,12 +1800,17 @@ class Applier:
         self.compare(e, step, allowed_data=set())
 
     def outside_code(self, address: int, length: int) -> bool:
-        """No byte of it lies in executable memory as the bridge lists it (a function body or a gap)."""
+        """No byte of it lies in a function's span or in the map extent of a function still to be made.
+
+        Not "outside executable memory": the image is one executable block, so the bridge lists
+        its data areas as gaps too. Every map function is either a Ghidra function (its span) or
+        an entry of the plan (planned, withheld or not possible) with its map extent.
+        """
 
         last = address + max(length, 1) - 1
-        if any(g[0] <= last and address <= g[1] for g in self.model.gaps):
+        if any(lo <= last and address <= hi for lo, hi in self.model.spans.values()):
             return False
-        return not any(lo <= last and address <= hi for lo, hi in self.model.spans.values())
+        return not any(int(x["address"], 16) <= last and address <= int(x["end"], 16) for x in self.plan["entries"])
     def compare(self, e, step, allowed_data: set[int], bookmarks: set = frozenset()):
         """Everything the bridge lists, against the model after this step (``bookmarks``: predicted, made)."""
 
@@ -1847,8 +1852,8 @@ class Applier:
                 predicted = d[0] in allowed_data and data_kind_allowed(d[2])
                 # Analysis also defines data at the offsets new code reads and writes from a base
                 # (seen in batch 1: a table at 0x443ab0.., hardware registers at 0x10004004..), as
-                # it did all over the program. Outside executable memory that is accepted and
-                # listed; data inside code stays a stop.
+                # it did all over the program. Away from every function and every map extent still
+                # to be made, that is accepted and listed; data inside code stays a stop.
                 if d not in old and (predicted or self.outside_code(d[0], d[1])):
                     self.data_defined.append({"address": hx(d[0]), "length": d[1], "type": d[2],
                                               "after": e["address"], "predicted": predicted})
