@@ -119,3 +119,22 @@ Of the 6,991 functions of the game and engine modules, 4,118 have a signature no
 No module has a signature on every function. `gamez/zArchive`, `gamez/zGraph` and
 `gamez/zConsole` had everything that could be carried before the deviating group; every module
 has it now.
+
+## After the function starts
+
+The function-starts step (`stage3-starts.md`) made 382 functions, the names step named them, and
+every library is now named by its place. A new plan of the whole map (1908fcc1...) carried, in
+two runs with the same checks as before, the prototypes that had become possible:
+
+| Run | Group | Prototypes | Plates | Outcome |
+|---|---|---|---|---|
+| 10 | exact | 149 | 0 | no stop, no change the run did not make; check clean; saved, confirmed |
+| 11 | deviating | 49 | 49 | no stop, no change the run did not make; check clean; saved, confirmed |
+
+The deviating group holds 14 library functions named by their place (`strtok`, `strtok_r`,
+`DMEmalloc`, `PTTServer_Start` and others); the coordinator read their planned prototypes before
+the run. The record holds 4,720 rows of the kind `prototype` (2,634 exact pairs, 2,086 deviating).
+A dry run for both groups sends nothing, and a names plan made afterwards sends nothing.
+
+Not applied: the group `mangled` (79 prototypes derived from the mangled symbol), which waits for
+a review, and what placeholder types would add to it, which waits for the user's decision.
