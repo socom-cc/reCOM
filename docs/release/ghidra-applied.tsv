@@ -1825,6 +1825,7 @@ release_address	applied	value	source_pair	date	state
 0x162b80	plate	Release map: exact pair with prototype 0x1637c0 sceSifRebootIop (evidence exact; flags -). // Owner -.	0x1637c0 sceSifRebootIop (exact)	2026-11-26	saved 2026-11-26
 0x162c90	name	SetTLBHandler	0x1638d0 SetTLBHandler (exact)	2026-11-26	saved 2026-11-26
 0x162c90	plate	Release map: exact pair with prototype 0x1638d0 SetTLBHandler (evidence exact; flags -). // Owner -.	0x1638d0 SetTLBHandler (exact)	2026-11-26	saved 2026-11-26
+0x162cf0	disassemble	0x162cf0-0x162d73	0x163930 SetDebugHandler (exact)	2026-11-27	saved 2026-11-27
 0x162d78	name	Copy	0x1639b8 Copy (exact)	2026-11-26	saved 2026-11-26
 0x162d78	plate	Release map: exact pair with prototype 0x1639b8 Copy (evidence call; flags -). // Owner -.	0x1639b8 Copy (exact)	2026-11-26	saved 2026-11-26
 0x162d78	prototype	int __stdcall Copy(void * dest, void * src, int size) [storage dest=a0_lo:4, src=a1_lo:4, size=a2_lo:4]	0x1639b8 Copy (exact)	2026-11-26	saved 2026-11-26

@@ -70,3 +70,19 @@ and the reviewer's check both showed that name as the only difference; the funct
 besides it. The coordinator accepted it on that evidence instead of closing without saving, which
 the reviewer's condition would have asked for. 88 of the planned starts hold a `syscall`
 instruction, so the tool has to predict this naming before the pilot goes on.
+| 3, second entry | 0x162cf0 | disassembled over its map extent; the run stopped before the create because Ghidra had disassembled other code on its own; accepted by the coordinator, saved, confirmed |
+
+The second stop in step 3: 0x162cf0 passes the address 0x163400 as a parameter (it installs debug
+handlers; its prototype counterpart is `SetDebugHandler`). Ghidra's operand-reference analysis
+took that address for code and disassembled 0x163400..0x1634fb, 63 instructions that end in an
+`eret`, leaving one "Found Code" bookmark at 0x163400. The reviewer's check showed those 63 words
+and that bookmark as the only differences; no function appeared or changed and no data was
+defined. The coordinator accepted it: it is the handler that function installs, and it is what
+Ghidra's analysis would have made had it reached 0x162cf0 by itself. Not in the record: those 63
+instructions and the bookmark. The plan had listed the reference as one to undefined data.
+
+What this shows about the map: the release's handler starts at 0x163400, while the map has one
+row 0x163300..0x16351b paired with the prototype's `_kDebugException` (0x164040), and that row
+holds an `eret` at 0x1633f0, the handler from 0x163400 to its `eret` at 0x1634f8, and more words
+after it. The row covers more than one routine; it is one of the two starts withheld for code
+after an `eret`. Left for the comparison to settle.
