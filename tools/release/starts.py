@@ -45,9 +45,12 @@ from __future__ import annotations
 import argparse
 import bisect
 import datetime as _dt
+import hashlib
 import json
+import os
 import re
 import sys
+import xml.etree.ElementTree as ET
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -68,7 +71,7 @@ NAMES_PLAN = Path("build/release/names/plan-all.json")
 PLAN_KIND = "socom-release-starts-plan"
 PLAN_SCHEMA = 1
 PLAN_STEM = "plan-starts"
-NEAR = 0x1000  # functions whose entry lies this close to a step are re-read after it
+AROUND = 0x40  # words on each side of a disassembled range whose code-unit state is compared
 CASES = ("no-instruction", "inside", "boundary", "create-withheld")
 TERMINATORS = frozenset({createflow.ERET})
 hx = nm.hx
@@ -100,13 +103,13 @@ class AnalysisStop(Stop):
 WHAT_TO_DO = {
     "before": "nothing was sent for this entry: have the batch checked, save, --confirm-saved this report, "
               "rerun names.py --plan --all and replan",
-    "after": "the write was sent and reads back otherwise: close the program without saving and "
-             "--discard-unsaved this report, then replan (the entry stays withheld until the plan explains it); "
-             "for a create, the rest of the batch can be kept instead by removing that function by hand, saving "
-             "and --confirm-saved (it refuses while the function is still there); disassembly is never cleared",
-    "analysis": "Ghidra's analysis changed something the plan did not predict (listed under analysis_changes): "
-                "check it; if acceptable, save and --confirm-saved (the change itself is not recorded), otherwise "
-                "close without saving and --discard-unsaved; then replan",
+    "after": "the write was sent and reads back otherwise: the program now holds it and whatever Ghidra's analysis "
+             "did after it (a create that failed commits its partial effects too). Close the program without "
+             "saving, --discard-unsaved this report, then replan; nothing is removed or cleared by hand (removing "
+             "a new function gives a cut container neither its body nor its jumps back)",
+    "analysis": "Ghidra's analysis changed something the plan did not predict (listed under analysis_changes, or "
+                "side_effects for the end-of-run snapshot): check it; if acceptable, save and --confirm-saved (the "
+                "change itself is not recorded), otherwise close without saving and --discard-unsaved; then replan",
     "stop": "check the report, then save and --confirm-saved or close without saving and --discard-unsaved",
 }
 
@@ -259,15 +262,26 @@ def references_to(bridge, address: int) -> list[str]:
     return sorted(line.strip() for line in text.splitlines() if line.strip().startswith("From "))
 
 
-def flow_reference(bridge, address: int) -> str | None:
-    """The reference type of a flow reference from ``address`` (UNCONDITIONAL_JUMP, UNCONDITIONAL_CALL, ...)."""
+def extent_references(bridge, start: int, size: int) -> list[str]:
+    """Every reference to any word of an extent, as ``From <source> [<type>] -> <word>``."""
+
+    return [f"{line} -> {hx(w)}" for w in range(start, start + size, 4) for line in references_to(bridge, w)]
+
+
+def flow_references(bridge, address: int) -> list[tuple[int, str]]:
+    """(target, reference type) of every flow reference from ``address`` (``get_xrefs_from``)."""
 
     text = bridge.get("get_xrefs_from", gb.RELEASE_PROGRAM, address=hx(address), offset=0, limit=100)
     if not isinstance(text, str):
-        return None
-    found = re.findall(r"^To [0-9a-fA-F]+\b.*\[(\w+)\]$", text, re.M)
-    flows = [t for t in found if "JUMP" in t or "CALL" in t]
-    return flows[0] if flows else None
+        return []
+    found = re.findall(r"^To ([0-9a-fA-F]+)\b.*\[(\w+)\]$", text, re.M)
+    return [(int(a, 16), kind) for a, kind in found if "JUMP" in kind or "CALL" in kind]
+
+
+def calls_to(bridge, address: int, target: int) -> bool:
+    """A jump turned into a call-return shows a CALL reference to its target (seen at 0x153238)."""
+
+    return any(to == target and "CALL" in kind for to, kind in flow_references(bridge, address))
 
 
 def fingerprint(functions: dict, gaps: list, bookmarks: list, data: list) -> dict:
@@ -492,11 +506,13 @@ def jump_sources(model: Model, dest: int, index: dict) -> list[int]:
     return [s for s in index.get(dest, ()) if model.is_code(s)]
 
 
-def shared_return(model: Model, events: list[int], index: dict, jumps: dict, new: frozenset = frozenset()) -> dict:
+def shared_return(model: Model, events: list[int], index: dict, jumps: dict, new: frozenset = frozenset(),
+                  sources=None) -> dict:
     """``SharedReturnAnalyzer`` for every function added or re-bodied: overrides and functions it creates.
 
     Jumps to a function that existed before were turned into call-returns when that function was
-    added, so only jumps to the ``new`` functions are predicted to change.
+    added, so only jumps to the ``new`` functions are predicted to change; ``sources`` limits the
+    predicted overrides to these jump sites (the new code of a disassembly).
     """
 
     overrides: set[tuple[int, int]] = set()
@@ -509,7 +525,8 @@ def shared_return(model: Model, events: list[int], index: dict, jumps: dict, new
         for src in jump_sources(model, dest, index):
             if src in model.functions or model.containing(src) == dest:
                 continue
-            overrides.add((src, dest))
+            if sources is None or src in sources:
+                overrides.add((src, dest))
 
     def want(src, dest):
         if dest in model.functions:
@@ -530,6 +547,9 @@ def shared_return(model: Model, events: list[int], index: dict, jumps: dict, new
         scan = set(range(prev if prev is not None else entry, entry + 1, 4))
         below = set(range(entry, (nxt if nxt is not None else entry + 4), 4))
         body = model.bodies.get(entry)
+        if body is None and model.spans.get(entry, (None,))[0] == entry:
+            lo, hi = model.spans[entry]  # a body known by its ends only: taken as one range
+            body = set(range(lo, hi + 1, 4))
         if body is not None and len(ranges(body)) <= 1:
             below -= body
         elif body is not None:
@@ -652,6 +672,94 @@ def simulate_create(model: Model, entry: int, size: int, index: dict, jumps: dic
     return {"withheld": None, "body": body, "accepted": accepted, "thunk_of": target,
             "cuts": [{"function": hx(o), "before": ranges(k), "after": ranges(c)} for o, k, c in cuts],
             "overrides": [{"at": hx(s), "to": hx(d)} for s, d in analysis["overrides"]]}
+
+
+# --- names from function-start patterns ---------------------------------------------------------
+
+# Ghidra's "Function Start Search" (BytePatterns: FunctionStartAnalyzer) reads the language's
+# pattern file; the Emotion Engine Reloaded extension ships r5900_LE_patterns.xml, whose
+# <pattern> entries with <funcstart label=".." validcode="function"/> name the kernel call stubs
+# (li v1,N; syscall; jr ra; nop). validcode="function" needs a function at the match, so the first
+# whole-program search only left a "potential match" mark there; FunctionStartFuncAnalyzer (a
+# function analyzer) searches those marks again when a function is added at one and then calls
+# setFunctionLabel: SymbolTable.createLabel(.., ANALYSIS), which renames a function whose name is
+# still DEFAULT; a further pattern of the same bytes adds a second label unless a symbol there
+# already contains its text (AddDmacHandler and AddDmacHandler2 at 0x15a600). thunk="true" makes
+# the function a thunk (CreateThunkFunctionCmd).
+PATTERN_FILE = ("ghidra", "ghidra_12.1.4_PUBLIC", "Extensions", "ghidra-emotionengine-reloaded", "data", "patterns",
+                "r5900_LE_patterns.xml")
+
+
+def default_patterns() -> Path | None:
+    if os.environ.get("SOCOM_R5900_PATTERNS"):
+        return Path(os.environ["SOCOM_R5900_PATTERNS"])
+    base = os.environ.get("APPDATA")
+    return Path(base, *PATTERN_FILE) if base else None
+
+
+def _ditted(text: str) -> list[tuple[int, int]]:
+    """A Ghidra DittedBitSequence: hex tokens (0x.. with '.' nibbles) or 8-bit binary tokens."""
+
+    out = []
+    for token in text.split():
+        if token.startswith("0x"):
+            digits = token[2:]
+            for i in range(0, len(digits), 2):
+                pair, value, mask = digits[i:i + 2], 0, 0
+                for ch in pair:
+                    value, mask = value << 4, mask << 4
+                    if ch != ".":
+                        value |= int(ch, 16)
+                        mask |= 0xF
+                out.append((value, mask))
+        else:
+            value = mask = 0
+            for ch in token:
+                value, mask = value << 1, mask << 1
+                if ch != ".":
+                    value |= int(ch)
+                    mask |= 1
+            out.append((value, mask))
+    return out
+
+
+def load_patterns(path: Path) -> dict:
+    raw = path.read_bytes()
+    root = ET.fromstring(raw)
+    patterns = []
+    for index, node in enumerate(root.findall("pattern")):
+        start = node.find("funcstart")
+        if start is None or start.get("validcode") != "function":
+            continue
+        for data in node.findall("data"):
+            patterns.append({"index": index, "bytes": _ditted(data.text or ""), "label": start.get("label"),
+                             "thunk": start.get("thunk") == "true"})
+    return {"file": path.name, "sha256": hashlib.sha256(raw).hexdigest(), "patterns": patterns}
+
+
+def pattern_effects(image, address: int, patterns: dict | None) -> dict:
+    """The names, labels and thunk flag the function-start patterns give a function created at ``address``."""
+
+    out = {"name": None, "labels": [], "thunk": False, "patterns": []}
+    if not patterns:
+        return out
+    symbols: list[str] = []
+    for p in patterns["patterns"]:
+        n = len(p["bytes"])
+        if not (image.contains(address) and image.contains(address + n - 1)):
+            continue
+        data = image.data[address - image.base:address - image.base + n]
+        if all((b & m) == v for b, (v, m) in zip(data, p["bytes"])):
+            out["patterns"].append(p["index"])
+            out["thunk"] |= p["thunk"]
+            label = p["label"]
+            if label and not any(label in s for s in symbols):
+                if out["name"] is None:
+                    out["name"] = label  # createLabel renames the DEFAULT-named function
+                else:
+                    out["labels"].append(label)
+                symbols.append(label)
+    return out
 
 
 # --- the plan ----------------------------------------------------------------------------------
@@ -791,7 +899,8 @@ def classify_boundary(entry: dict, model: Model, names_plan: dict) -> dict:
     return {"decision": "cannot", "reason": "no create makes Ghidra's body equal the map's extent"}
 
 
-def build_plan(root: Path, bridge, names_path: Path = NAMES_PLAN, progress=None, image=None) -> dict:
+def build_plan(root: Path, bridge, names_path: Path = NAMES_PLAN, progress=None, image=None,
+               patterns_path: Path | None = None, patterns: dict | None = None) -> dict:
     check = nm.preflight(bridge)
     if not check["ok"]:
         raise Refused("preflight failed: " + "; ".join(check["errors"]))
@@ -823,6 +932,13 @@ def build_plan(root: Path, bridge, names_path: Path = NAMES_PLAN, progress=None,
             noreturn.add(d["entry"])
     code = CodeCache(bridge)
     model = Model(image, functions, spans, noreturn, gaps, data, code)
+    if patterns is None:
+        path = patterns_path or default_patterns()
+        if path is None or not Path(path).is_file():
+            raise Refused("the R5900 function-start pattern file (r5900_LE_patterns.xml of the Emotion Engine "
+                          "Reloaded extension) was not found: pass --patterns or set SOCOM_R5900_PATTERNS")
+        patterns = load_patterns(Path(path))
+    model.patterns = patterns
     text_end = max(r["release_address"] + r["release_size"] for r in rows if r["release_address"] is not None)
     index = jump_index(image, text_end)
     extents = sorted((r["release_address"], r["release_address"] + r["release_size"]) for r in rows
@@ -851,11 +967,12 @@ def build_plan(root: Path, bridge, names_path: Path = NAMES_PLAN, progress=None,
     for e in cases:
         a, n = int(e["address"], 16), e["size"]
         item = {"address": e["address"], "size": n, "end": e["end"], "case": e["function"], "class": e["class"],
+                "prototype_name": (e.get("prototype") or {}).get("name"),
                 "module": e["module"], "source_pair": e["source_pair"], "steps": [], "after": [],
                 "decision": None, "reason": ""}
         out[e["address"]] = item
         if e["function"] == "no-instruction":
-            item["now"] = describe_now(model, a, n, references_to(bridge, a))
+            item["now"] = describe_now(model, a, n, extent_references(bridge, a, n))
             needs, why, refs = static_needs(model, a, n, starts, in_text)
             item["now"]["constant_references"] = refs
             if why:
@@ -863,7 +980,7 @@ def build_plan(root: Path, bridge, names_path: Path = NAMES_PLAN, progress=None,
                 continue
             pending[a] = {"needs": needs, "item": item}
         elif e["function"] == "create-withheld":
-            item["now"] = describe_now(model, a, n, references_to(bridge, a))
+            item["now"] = describe_now(model, a, n, extent_references(bridge, a, n))
             item["names_reason"] = (e.get("create") or {}).get("reason")
             pending[a] = {"needs": set(), "item": item}  # create only: its code is there (in part)
         elif e["function"] == "inside":
@@ -984,6 +1101,7 @@ def build_plan(root: Path, bridge, names_path: Path = NAMES_PLAN, progress=None,
         "program_path": gb.RELEASE_PATH, "release_sha256": RELEASE_SHA256, "prototype_sha256": PROTOTYPE_SHA256,
         "function_map_sha256": map_sha, "names_plan_sha256": names_plan["plan_sha256"],
         "baseline": fingerprint(functions, gaps, bookmarks, data),
+        "patterns": {"file": patterns["file"], "sha256": patterns["sha256"], "used": len(patterns["patterns"])},
         "order": order, "entries": [out[k] for k in sorted(out, key=lambda k: int(k, 16))],
     }
     plan["summary"] = summarize(plan)
@@ -1042,19 +1160,46 @@ def plan_entry(model: Model, start: int, item: dict, index: dict, jumps: dict) -
             if model.image.contains(target) and model.state(target) == "undefined" and target not in model.functions:
                 data_refs.append(hx(target))
         model.disassembled(dis["new"])
+        # SharedReturnJumpAnalyzer (an instruction analyzer) runs SharedReturnAnalysisCmd for every
+        # function entry a new jump or branch reaches: unconditional jumps to it become call-returns
+        # and its neighbourhood is scanned for jumps that cross a function.
+        targets = sorted({t for pc in dis["new"] if (f := flow_targets(model.image.word(pc), pc))
+                          and f[0] != "call" and (t := f[1]) in model.functions})
+        after_dis = shared_return(model, targets, index, jumps, frozenset(targets), sources=dis["new"])
+        if after_dis["creates"]:
+            c = after_dis["creates"][0]
+            return {"withheld": f"after its disassembly analysis would create a function at {c['at']}: the jump at "
+                                f"{c['jump']} crosses a function (Shared Return Calls)",
+                    "needs_function": int(c["at"], 16)}
+        calls = sorted(pc for pc in dis["new"] if (f := flow_targets(model.image.word(pc), pc)) and f[0] == "call")
         steps.append({"kind": "disassemble", "start": hx(start), "end_exclusive": hx(stop),
                       "instructions": ranges(set(range(start, stop, 4))), "new": ranges(dis["new"]),
                       "already_instructions": ranges(already), "padding": ranges(dis["overrun"]) if dis["overrun"] else [],
-                      "may_define_data_at": sorted(set(data_refs))})
+                      "may_define_data_at": sorted(set(data_refs)),
+                      "overrides": [{"at": hx(s), "to": hx(d)} for s, d in after_dis["overrides"]],
+                      "callees": sorted({hx(flow_targets(model.image.word(pc), pc)[1]) for pc in calls}),
+                      "returns_after_calls": [hx(pc + 8) for pc in calls if start <= pc + 8 < stop]})
+    effects = pattern_effects(model.image, start, getattr(model, "patterns", None))
+    if effects["thunk"]:
+        return {"withheld": "a function-start pattern (thunk=\"true\") would make it a thunk of a target the plan "
+                            "cannot predict"}
     result = simulate_create(model, start, size, index, jumps)
     if result.get("withheld"):
         return result
     body = result["body"]
+    default = model.functions[start]["name"]
+    if effects["name"] and not result["thunk_of"]:
+        model.functions[start]["name"] = effects["name"]  # what later predictions see
     steps.append({"kind": "create", "address": hx(start), "body": ranges(body),
                   "body_lowest": hx(min(body)), "body_highest": hx(max(body) + 3),
                   "accepted": result["accepted"], "thunk_of": hx(result["thunk_of"]) if result["thunk_of"] else None,
-                  "name": model.functions[start]["name"], "cuts": result["cuts"], "overrides": result["overrides"],
-                  "signature": f"undefined {model.functions[start]['name']}(void)" if not result["thunk_of"] else None})
+                  "name": default, "cuts": result["cuts"], "overrides": result["overrides"],
+                  "signature": f"undefined {default}(void)" if not result["thunk_of"] else None,
+                  "analysis_name": effects["name"], "analysis_labels": effects["labels"],
+                  "pattern_thunk": effects["thunk"],
+                  # jr other than jr ra: Decompiler Switch Analysis would add jump references to them
+                  "computed_jumps": [hx(pc) for pc in sorted(body) if mips.is_jr(model.image.word(pc))
+                                     and model.image.word(pc) != mips.JR_RA and not jumps.get(pc)]})
     return {"withheld": None, "steps": steps}
 
 
@@ -1092,6 +1237,16 @@ def summarize(plan: dict) -> dict:
         "predicted_overrides": sum(len(s.get("overrides", [])) for e in planned for s in e["steps"]),
         "thunks": sum(1 for e in planned for s in e["steps"] if s.get("thunk_of")),
         "may_define_data": sum(len(s.get("may_define_data_at", [])) for e in planned for s in e["steps"]),
+        "overrides_after_disassembly": sum(len(s.get("overrides", [])) for e in planned for s in e["steps"]
+                                           if s["kind"] == "disassemble"),
+        "analysis_names": {
+            "entries": sum(1 for e in planned for s in e["steps"] if s.get("analysis_name")),
+            "equal_to_prototype": sum(1 for e in planned for s in e["steps"]
+                                      if s.get("analysis_name") and s["analysis_name"] == e.get("prototype_name")),
+            "second_labels": sum(len(s.get("analysis_labels", [])) for e in planned for s in e["steps"]),
+            "second_label_equal_to_prototype": sum(1 for e in planned for s in e["steps"]
+                                                   if e.get("prototype_name") in s.get("analysis_labels", [])),
+        },
     }
 
 
@@ -1108,8 +1263,17 @@ def plan_markdown(plan: dict) -> str:
              f"{s['predicted_overrides']}; thunks: {s['thunks']}; data the new code references, undefined now: "
              f"{s['may_define_data']}",
              f"- what is at the no-instruction starts now: {s['now']}; referenced from elsewhere: {s['referenced']}",
-             f"- withheld or not possible, by group: {s['withheld_by_group']}", "",
-             "## Not planned", ""]
+             f"- withheld or not possible, by group: {s['withheld_by_group']}",
+             f"- jumps turned into calls after a disassembly: {s['overrides_after_disassembly']}",
+             f"- names the function-start patterns give ({plan['patterns']['file']}): {s['analysis_names']}", "",
+             "## Names Ghidra's analysis gives at the create (accepted, recorded; names.py decides later)", "",
+             "| start | analysis name | second labels | prototype name |", "|---|---|---|---|"]
+    for e in plan["entries"]:
+        for st in e["steps"]:
+            if st.get("analysis_name"):
+                lines.append(f"| {e['address']} | {st['analysis_name']} | {', '.join(st['analysis_labels']) or '-'} | "
+                             f"{e.get('prototype_name') or '-'} |")
+    lines += ["", "## Not planned", ""]
     for e in plan["entries"]:
         if e["decision"] != "planned":
             lines.append(f"- {e['address']} ({e['size']} bytes, {e['case']}, {e['class']}): {e['decision']}: "
@@ -1229,7 +1393,11 @@ class Applier:
                                "source_pair": entry["source_pair"], "end": end})
         response = self.bridge.write(endpoint, gb.RELEASE_PROGRAM, **body)
         if not ok(response):
-            raise StopAfter(f"{endpoint} at {entry['address']} failed: {str(response)[:300]}")
+            # create_function runs inside the plugin's executeWrite, whose transaction is committed even when
+            # the command fails; disassemble_bytes ends its own transaction unsuccessful (rolled back).
+            held = ("the program may now hold the command's partial effects" if endpoint == "create_function"
+                    else "its transaction was rolled back")
+            raise StopAfter(f"{endpoint} at {entry['address']} failed ({held}): {str(response)[:300]}")
         return response
 
     def light(self):
@@ -1298,10 +1466,12 @@ class Applier:
     def disassemble(self, e, step):
         start, stop = int(step["start"], 16), int(step["end_exclusive"], 16)
         new = words_of(step["new"])
-        for a in sorted(new)[:1] + sorted(new)[-1:]:
-            if is_code_live(self.bridge, a):
+        # The code-unit state of every word of the range and AROUND words on each side, read before.
+        around = range(start - AROUND, stop + AROUND, 4)
+        before = {a: is_code_live(self.bridge, a) for a in around if self.image.contains(a)}
+        for a in sorted(new):
+            if before.get(a):
                 raise StopBefore(f"{e['address']}: {hx(a)} holds an instruction already: replan")
-        after_end = is_code_live(self.bridge, stop)
         response = self.send(e, "disassemble", f"{hx(start)}-{hx(stop - 1)}", hx(stop - 1), "disassemble_bytes",
                              lambda r: isinstance(r, dict) and r.get("success") is True,
                              start_address=hx(start), end_address=hx(stop), restrict_to_execute_memory=False)
@@ -1316,10 +1486,30 @@ class Applier:
                             f"{step['instructions']} (extra {[hx(a) for a in extra[:3]]}, missing "
                             f"{[hx(a) for a in gone[:3]]})")
         nm.settle(self.bridge)
-        if is_code_live(self.bridge, stop) != after_end:
-            raise StopAfter(f"disassembly at {e['address']} changed the word after its range ({hx(stop)})")
+        moved = [a for a, was in before.items() if is_code_live(self.bridge, a) != (was or a in new)]
+        if moved:
+            raise StopAfter(f"after the disassembly at {e['address']} the code-unit state differs from the "
+                            f"prediction at {', '.join(hx(a) for a in moved[:5])}")
         self.record(e, "disassemble", f"{hx(start)}-{hx(stop - 1)}", hx(stop - 1))
+        self.check_overrides(e, step)
         self.compare(e, step, allowed_data={int(a, 16) for a in step["may_define_data_at"]})
+
+    def labels(self, address: int) -> list[tuple[int, str]]:
+        """The labels of the function at ``address`` (``get_function_documentation``, read by address)."""
+
+        return gb.parse_documentation_labels(
+            self.bridge.get("get_function_documentation", gb.RELEASE_PROGRAM, address=hx(address)), address)
+
+    def check_overrides(self, e, step):
+        """Every jump the plan says Shared Return Calls turns into a call-return shows a CALL reference to its target."""
+
+        for o in step.get("overrides", []):
+            if not calls_to(self.bridge, int(o["at"], 16), int(o["to"], 16)):
+                found = flow_references(self.bridge, int(o["at"], 16))
+                raise AnalysisStop(f"after the {step['kind']} at {e['address']} the jump at {o['at']} shows "
+                                   f"{[(hx(a), k) for a, k in found] or 'no flow reference'}; predicted a call-return "
+                                   f"to {o['to']} (Shared Return Calls)")
+            self.checked["call-returns read back"] += 1
 
     def create(self, e, step):
         start = int(e["address"], 16)
@@ -1351,10 +1541,28 @@ class Applier:
                 self.remove_by_hand.append({"address": e["address"], "name": back["name"], "body": got,
                                             "planned": f"{hx(lo)}..{hx(hi)}"})
             raise StopAfter(f"create {e['address']} read back {got}, predicted {hx(lo)}..{hx(hi)}")
-        if back["name"] != step["name"] or back["noreturn"] or (signature and back.get("signature") != signature):
-            raise AnalysisStop(f"create {e['address']} reads back as {back['name']!r} {back.get('signature')!r}, "
-                               f"predicted {step['name']!r} {signature!r}")
+        found = back["name"]
+        by_pattern = step.get("analysis_name")
+        if found == by_pattern and by_pattern and not thunk_of:
+            # Function Start Search named it from its bytes (r5900_LE_patterns.xml): accepted, recorded
+            signature = f"undefined {found}(void)"
+            self.model.functions[start]["name"] = found
+            self.expected[start].update(name=found, signature=signature)
+        if found != self.model.functions[start]["name"] and not thunk_of or back["noreturn"] \
+                or (signature and back.get("signature") != signature):
+            raise AnalysisStop(f"create {e['address']} reads back as {found!r} {back.get('signature')!r}, "
+                               f"predicted {step['name']!r}" + (f" or {by_pattern!r}" if by_pattern else "")
+                               + f" {signature!r}")
         self.record(e, "create", f"{hx(lo)}-{hx(hi)}", hx(hi))
+        labels = sorted(n for a, n in self.labels(start) if a == start and n != found)
+        want_labels = sorted(step.get("analysis_labels", [])) if found == by_pattern else []
+        if labels != want_labels:
+            raise AnalysisStop(f"create {e['address']}: labels at the entry {labels}, predicted {want_labels}")
+        if found == by_pattern and by_pattern:
+            self.record(e, "name-by-analysis", found, hx(hi))
+            for label in labels:
+                self.record(e, "label-by-analysis", label, hx(hi))
+            self.checked["named by Function Start Search"] += 1
         if step["accepted"]:
             acc = step["accepted"]
             self.record(e, "extent-accepted",
@@ -1369,11 +1577,13 @@ class Applier:
             self.record({**e, "address": cut["function"]}, "cut-by-analysis",
                         f"{hx(min(after))}-{hx(max(after) + 3)} (was {cut['before'][0][0]}-{cut['before'][-1][1]}; "
                         f"after the create at {e['address']})", hx(max(after) + 3))
-        for o in step["overrides"]:
-            kind = flow_reference(self.bridge, int(o["at"], 16))
-            if kind is not None and "CALL" not in kind:
-                raise AnalysisStop(f"the jump at {o['at']} to {o['to']} is still {kind}; predicted a call-return "
-                                   "(Shared Return Calls)")
+        self.check_overrides(e, step)
+        for pc in step.get("computed_jumps", []):
+            found = flow_references(self.bridge, int(pc, 16))
+            if found:  # the switch analysis resolved it: the body may grow later
+                raise AnalysisStop(f"after the create at {e['address']} the computed jump at {pc} has flow "
+                                   f"references {[(hx(a), k) for a, k in found]}; predicted none")
+            self.checked["computed jumps without references"] += 1
         self.compare(e, step, allowed_data=set())
 
     def compare(self, e, step, allowed_data: set[int]):
@@ -1417,17 +1627,12 @@ class Applier:
                 else:
                     self.data_defined.append({"address": hx(d[0]), "length": d[1], "type": d[2],
                                               "after": e["address"]})
-        start = int(e["address"], 16)
-        near = [a for a in want if abs(a - start) <= NEAR and a in self.before and a in functions]
-        for a in sorted(near):
-            d = nm.read_function(self.bridge, gb.RELEASE_PROGRAM, a)
-            base = {**self.before[a], **self.expected.get(a, {})}
-            if not d or d["entry"] != a:
-                continue
-            for key, value in (("lo", d["body_min"]), ("hi", d["body_max"]), ("noreturn", d["noreturn"]),
-                               ("signature", d.get("signature"))):
-                if key in base and base[key] != value:
-                    changes.append({"address": hx(a), "change": key, "expected": base[key], "found": value})
+        # Every function's body ends, name, signature line, thunk and no-return flags (a callee that
+        # "Non-Returning Functions - Discovered" marks, a body its flow repair or switch analysis changes).
+        if not changes:
+            changes += [c for c in compare_snapshots(self.before, full_snapshot(self.bridge), self.expected)
+                        if c.get("change") != "appeared"]  # appearances are listed above already
+            self.checked["full snapshots"] += 1
         if changes:
             self.analysis_changes = [dict(c, after=f"{step['kind']} {e['address']}") for c in changes]
             raise AnalysisStop(f"after the {step['kind']} at {e['address']} the program differs from the prediction "
@@ -1441,6 +1646,15 @@ def reads_back(bridge, item: dict) -> bool:
     """Does the saved (or still open) program hold a row of this tool?"""
 
     address = int(item["address"], 16)
+    if item["applied"] in ("name-by-analysis", "label-by-analysis"):
+        live = nm.read_function(bridge, gb.RELEASE_PROGRAM, address)
+        if not live or live["entry"] != address:
+            return False
+        if item["applied"] == "name-by-analysis":
+            return live["name"] == item["value"]
+        found = gb.parse_documentation_labels(
+            bridge.get("get_function_documentation", gb.RELEASE_PROGRAM, address=hx(address)), address)
+        return (address, item["value"]) in found
     lo, hi = (int(x, 16) for x in item["value"].split(" ")[0].rstrip(":").split("-"))
     if item["applied"] == "disassemble":
         return is_code_live(bridge, lo) and is_code_live(bridge, hi - 3)
@@ -1487,6 +1701,9 @@ def apply(root: Path, plan_path: Path, bridge, *, dry_run: bool, today: str | No
         except nm.Stop as exc:
             side_effects.append({"change": "analysis did not settle", "detail": str(exc)})
         side_effects += compare_snapshots(applier.before, full_snapshot(bridge), applier.expected)
+        if side_effects and not stopped:
+            stopped, kind = (f"the end-of-run snapshot differs from the prediction ({len(side_effects)} differences, "
+                             "listed under side_effects)"), "analysis"
     result = {
         "plan": plan_path.name, "plan_sha256": plan["plan_sha256"], "dry_run": dry_run, "stopped": stopped,
         "stop_kind": kind, "what_to_do": WHAT_TO_DO.get(kind) if stopped else None, "saved": False, "batch": batch,
@@ -1506,6 +1723,16 @@ def apply(root: Path, plan_path: Path, bridge, *, dry_run: bool, today: str | No
 
 # --- command line ------------------------------------------------------------------------------
 
+def parse_only(values: list[str]) -> frozenset[str]:
+    """``--only`` takes hexadecimal addresses written 0x...; anything else is refused (a decimal is no address)."""
+
+    out = set()
+    for value in values:
+        if not re.fullmatch(r"0x[0-9a-fA-F]+", value):
+            raise Refused(f"--only {value!r}: write the start address in hexadecimal, as 0x...")
+        out.add(hx(int(value, 16)))
+    return frozenset(out)
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--root", type=Path, default=HERE.parents[1])
@@ -1521,13 +1748,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--batch", type=int, metavar="N", help="with --apply: stop after N planned entries")
     parser.add_argument("--only", action="append", default=[], metavar="0xADDR",
                         help="with --apply: these planned entries only, in plan order (a pilot; repeatable)")
+    parser.add_argument("--patterns", type=Path,
+                        help="with --plan: r5900_LE_patterns.xml (default: the installed Emotion Engine Reloaded "
+                             "extension under %%APPDATA%%, or SOCOM_R5900_PATTERNS)")
     parser.add_argument("--url")
     args = parser.parse_args(argv)
     root = args.root.resolve()
     try:
         if args.plan:
             plan = build_plan(root, gb.Bridge(args.url, read_only=True), args.names_plan,
-                              progress=lambda m: print(m, file=sys.stderr))
+                              progress=lambda m: print(m, file=sys.stderr), patterns_path=args.patterns)
             path = write_plan(root, plan)
             print(json.dumps(plan["summary"], indent=1))
             print(f"wrote {path.relative_to(root).as_posix()} (plan sha256 {plan['plan_sha256']})")
@@ -1549,7 +1779,7 @@ def main(argv: list[str] | None = None) -> int:
             parser.error("--dry-run and --yes exclude each other")
         bridge = gb.Bridge(args.url, read_only=args.dry_run, writes=gb.STARTS_WRITES)
         result = apply(root, args.apply.resolve(), bridge, dry_run=args.dry_run, batch=args.batch,
-                       only=frozenset(nm.hx(int(a, 16)) for a in args.only))
+                       only=parse_only(args.only))
         print(json.dumps({k: result[k] for k in ("report", "dry_run", "stopped", "stop_kind", "counts", "saved",
                                                  "batch_full", "entries_done")}, indent=1))
         if result["stopped"]:

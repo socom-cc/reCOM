@@ -62,6 +62,35 @@ class FakeStarts(FakeGhidra):
         self.extra_code: dict[int, list[int]] = {}  # disassembly start -> more instructions it makes
         self.missing_code: dict[int, list[int]] = {}  # disassembly start -> instructions it does not make
         self.bookmark_after: dict[int, tuple] = {}  # create address -> a bookmark analysis adds
+        self.pattern_names: dict[int, tuple] = {}  # create address -> (name, [labels]): Function Start Search
+        self.fail_create: set[int] = set()  # create_function answers an error (its transaction committed)
+        self.no_call_return = False  # Shared Return Calls does not convert the jumps
+        self.switch_refs: dict[int, int] = {}  # computed jump -> a target Decompiler Switch Analysis found
+        r.calls: set[int] = set()  # jump sites turned into call-returns
+
+    def call_returns(self, p, target):
+        """SharedReturnAnalysisCmd.processFunctionJumpReferences: unconditional jumps to a function entry."""
+
+        if self.no_call_return:
+            return
+        for src in p.code:
+            word = p.image.word(src)
+            dest = mips.jump_target(word, src) if mips.is_j(word) else (
+                mips.branch_target(word, src) if mips.is_unconditional_branch(word) else None)
+            if dest == target and src not in p.functions and p.at(src) != target:
+                p.calls.add(src)
+
+    def get_get_xrefs_from(self, q):
+        p = self.program(q["program"])
+        src = int(q["address"], 16)
+        word = p.image.word(src) if p.image.contains(src) else 0
+        if src in self.switch_refs and src in p.code:
+            return f"To {self.switch_refs[src]:08x} [COMPUTED_JUMP]"
+        dest =mips.jump_target(word, src) if (mips.is_j(word) or mips.is_jal(word)) else mips.branch_target(word, src)
+        if src not in p.code or dest is None:
+            return f"No references found from address: {q['address']}"
+        kind = "UNCONDITIONAL_CALL" if src in p.calls or mips.is_jal(word) else "UNCONDITIONAL_JUMP"
+        return f"To {dest:08x} [{kind}]"
 
     def put(self, entry, words, name=None, thunk_of=None):
         self.release.add(entry, max(words) + 3, name, thunk_of=thunk_of)
@@ -132,6 +161,11 @@ class FakeStarts(FakeGhidra):
                 pc += step
         p.code |= set(self.extra_code.get(start, ()))
         p.code -= set(self.missing_code.get(start, ()))
+        for pc in range(start, end, 4):  # SharedReturnJumpAnalyzer: new jumps to function entries
+            word = p.image.word(pc)
+            dest = mips.jump_target(word, pc) if mips.is_j(word) else None
+            if dest in p.functions:
+                self.call_returns(p, dest)
         listed = sorted(a for a in p.code if start <= a < end)
         return {"success": True, "instructions": [{"address": "%08x" % a} for a in listed]}
 
@@ -140,6 +174,8 @@ class FakeStarts(FakeGhidra):
         assert d["disassemble_first"] is False
         if address in p.functions:
             return {"error": f"Function already exists at {d['address']}"}
+        if address in self.fail_create:
+            return {"error": f"Failed to create function at {d['address']}"}
         if address not in p.code:
             p.add(address, address)  # CreateFunctionCmd.getFunctionBody: a one-byte place-holder
             return {"success": True}
@@ -164,6 +200,11 @@ class FakeStarts(FakeGhidra):
             thunk_of = mips.jump_target(first, address)
         p.add(address, max(body) + 3, self.analysis_names.get(address), thunk_of=thunk_of)
         set_body(p, address, body)
+        self.call_returns(p, address)
+        if address in self.pattern_names:  # FunctionStartFuncAnalyzer: createLabel renames, more labels
+            name, labels = self.pattern_names[address]
+            p.functions[address]["own"] = name
+            p.labels.setdefault(address, []).extend(labels)
         for extra in self.analysis_creates.get(address, ()):
             p.add(extra, extra + 0xF)
         if address in self.bookmark_after:
@@ -202,12 +243,36 @@ SPECIAL = {
     0x200180: LI_V1, 0x200184: SYSCALL,                   # C20: code without a function, padding, F21
     **simple(0x200190),                                   # F21
     0x2001c0: jr(V0), 0x2001c4: NOP, 0x2001c8: ADD, 0x2001cc: JR_RA, 0x2001d0: NOP,  # W22: a switch
+    0x2001e0: ADD, 0x2001e4: j(0x200160), 0x2001e8: NOP,  # S27: its tail call makes analysis scan Q19's neighbours
+    **simple(0x200200, [addiu(3, 0, 0xE), SYSCALL, JR_RA, NOP]),   # S23: a kernel stub the patterns name
+    **simple(0x200210, [addiu(3, 0, 0x12), SYSCALL, JR_RA, NOP]),  # S24: two patterns, two names
+    **simple(0x200220, [addiu(3, 0, 0xF), SYSCALL, JR_RA, NOP]),   # S25: named otherwise than its pair
+    0x200230: ADD, 0x200234: j(0x200190), 0x200238: NOP,  # S26: a tail call to F21, turned into a call
+    **simple(0x200240, [ADD, ADD, jr(25), NOP]),          # S28: a virtual thunk ending in jr t9
 }
+PATTERNS_XML = """<patternlist>
+  <patternpairs totalbits="32" postbits="16"><prepatterns><data>0x0800e003 0x........</data></prepatterns>
+    <postpatterns><data>......00 1....... 10111101 00100111</data><funcstart/></postpatterns></patternpairs>
+  <pattern><data>0x0e 0x00 0x03 0x24 0x0c 0x00 0x00 0x00 0x08 0x00 0xe0 0x03 0x00 0x00 0x00 0x00</data>
+    <funcstart label="SetVCommonHandler" validcode="function"/></pattern>
+  <pattern><data>0x0f 0x00 0x03 0x24 0x0c000000 0x0800e003 00000000 0x000000</data>
+    <funcstart label="SetVInterruptHandler" validcode="function"/></pattern>
+  <pattern><data>0x12 0x00 0x03 0x24 0x0c 0x00 0x00 0x00 0x08 0x00 0xe0 0x03 0x00 0x00 0x00 0x00</data>
+    <funcstart label="AddDmacHandler" validcode="function"/></pattern>
+  <pattern><data>0x12 0x00 0x03 0x24 0x0c 0x00 0x00 0x00 0x08 0x00 0xe0 0x03 0x00 0x00 0x00 0x00</data>
+    <funcstart label="AddDmacHandler2" validcode="function"/></pattern>
+  <pattern><data>0x.. 0x.. 0x03 0x24 0x0c 0x00 0x00 0x00 0x08 0x00 0xe0 0x03</data>
+    <funcstart validcode="function"/></pattern>
+</patternlist>
+"""
+PROTO = {0x200200: (0x300200, "SetVCommonHandler"), 0x200210: (0x300210, "AddDmacHandler2"),
+         0x200220: (0x300220, "SetVInterruptHandlerOther")}
 ROWS = [row(a, n, "new", evidence=("settled",)) for a, n in (
     (0x200000, 16), (0x200020, 16), (0x200030, 16), (0x200040, 16), (0x200050, 8), (0x200060, 16),
     (0x200070, 16), (0x200080, 16), (0x200090, 16), (0x2000a0, 16), (0x2000b0, 16), (0x2000c0, 20),
     (0x2000e0, 12), (0x2000f0, 16), (0x200100, 4), (0x200104, 12), (0x200110, 20), (0x200140, 16),
-    (0x200150, 16), (0x200160, 24), (0x200180, 8), (0x200190, 16), (0x2001c0, 20))]
+    (0x200150, 16), (0x200160, 24), (0x200180, 8), (0x200190, 16), (0x2001c0, 20), (0x2001e0, 12),
+    (0x200230, 12), (0x200240, 16))] + [row(a, 16, "exact", proto, name) for a, (proto, name) in PROTO.items()]
 
 
 def make_program(special=SPECIAL, rows=ROWS):
@@ -230,6 +295,10 @@ def make_program(special=SPECIAL, rows=ROWS):
     g.put(0x200160, range(0x200160, 0x200178, 4))
     r.code |= set(range(0x200180, 0x200190, 4))                      # C20: instructions, no function
     r.data.append((0x200300, 16, "string"))
+    for proto, name in PROTO.values():
+        g.prototype.add(proto, proto + 0xF, name)
+    g.pattern_names = {0x200200: ("SetVCommonHandler", []), 0x200210: ("AddDmacHandler", ["AddDmacHandler2"]),
+                       0x200220: ("SetVInterruptHandler", [])}
     return g
 
 
@@ -243,8 +312,14 @@ def plan_for(tmp_path, g, rows=ROWS):
     root = make_root(tmp_path, rows)
     names_plan = names.build_plan(root, reader(g), None, image=g.release.image)
     names.write_plan(root, names_plan)
-    plan = starts.build_plan(root, reader(g), image=g.release.image)
+    plan = starts.build_plan(root, reader(g), image=g.release.image, patterns=patterns(tmp_path))
     return root, plan, starts.write_plan(root, plan)
+
+
+def patterns(tmp_path):
+    path = tmp_path / "r5900_LE_patterns.xml"
+    path.write_text(PATTERNS_XML, encoding="utf-8")
+    return starts.load_patterns(path)
 
 
 def by(plan):
@@ -285,18 +360,133 @@ def test_every_case_is_planned_or_withheld_with_its_reason(tmp_path):
     assert c20["case"] == "create-withheld" and c20["decision"] == "planned"
     assert [s["kind"] for s in c20["steps"]] == ["create"] and c20["steps"][0]["accepted"]["kind"] == "padding"
     assert "switch analysis" in e["0x2001c0"]["reason"]
-    assert plan["summary"]["by_decision"] == {"accept": 2, "cannot": 1, "fixed-by-create": 1, "planned": 6,
-                                              "withheld": 7}
+    assert plan["summary"]["by_decision"] == {"accept": 2, "cannot": 1, "fixed-by-create": 1, "planned": 11,
+                                              "withheld": 8}
+
+
+def test_syscall_stubs_are_named_by_the_patterns_and_tail_calls_predicted(tmp_path):
+    g = make_program()
+    _, plan, _ = plan_for(tmp_path, g)
+    e = by(plan)
+    create = {a: e[a]["steps"][-1] for a in ("0x200200", "0x200210", "0x200220", "0x200030")}
+    assert (create["0x200200"]["analysis_name"], create["0x200200"]["analysis_labels"]) == ("SetVCommonHandler", [])
+    assert (create["0x200210"]["analysis_name"], create["0x200210"]["analysis_labels"]) == (
+        "AddDmacHandler", ["AddDmacHandler2"])  # no symbol there contains "AddDmacHandler2": a second label
+    assert create["0x200220"]["analysis_name"] == "SetVInterruptHandler"  # multi-byte and binary tokens
+    assert create["0x200030"]["analysis_name"] is None
+    assert plan["summary"]["analysis_names"] == {"entries": 3, "equal_to_prototype": 1, "second_labels": 1,
+                                                 "second_label_equal_to_prototype": 1}
+    dis = e["0x200230"]["steps"][0]
+    assert dis["overrides"] == [{"at": "0x200234", "to": "0x200190"}]
+    assert "after its disassembly analysis would create a function at 0x20016c" in e["0x2001e0"]["reason"]
+    assert plan["summary"]["overrides_after_disassembly"] == 1
+    assert plan["patterns"]["file"] == "r5900_LE_patterns.xml"
+
+
+def test_names_from_analysis_are_accepted_recorded_and_names_decides_later(tmp_path):
+    g = make_program()
+    root, plan, path = plan_for(tmp_path, g)
+    result = starts.apply(root, path, g, dry_run=False, today="2026-11-27", image=g.release.image)
+    assert result["stopped"] is None, result["stopped"]
+    record = names.read_record(root)
+    assert record[("0x200200", "name-by-analysis")]["value"] == "SetVCommonHandler"
+    assert record[("0x200210", "label-by-analysis")]["value"] == "AddDmacHandler2"
+    assert result["checked"]["named by Function Start Search"] == 3
+    assert result["checked"]["call-returns read back"] == 2  # S26's tail call, X6's container jump
+    names.confirm_saved(root, root / starts.OUT / result["report"], reader(g), reads_back=starts.reads_back)
+    after = {e["address"]: e for e in names.build_plan(root, reader(g), None, image=g.release.image)["entries"]}
+    assert after["0x200200"]["name"] == "SetVCommonHandler" and after["0x200200"]["previous_name"] is None
+    assert after["0x200210"]["label_clash"] and after["0x200210"]["name"] is None  # the name is a label there
+    assert after["0x200220"]["name"] == "SetVInterruptHandlerOther"  # an exact pair replaces the analysis name
+    assert after["0x200220"]["previous_name"] == "SetVInterruptHandler"
+
+
+def test_an_analysis_name_the_patterns_do_not_give_stops_the_run(tmp_path):
+    g = make_program()
+    root, plan, path = plan_for(tmp_path, g)
+    g.pattern_names[0x200200] = ("SetVSyscallHandler", [])
+    result = starts.apply(root, path, g, dry_run=False, image=g.release.image)
+    assert result["stop_kind"] == "analysis" and "SetVSyscallHandler" in result["stopped"]
+    g = make_program()
+    root, plan, path = plan_for(tmp_path / "b", g)
+    g.pattern_names[0x200210] = ("AddDmacHandler", [])  # the second label missing
+    result = starts.apply(root, path, g, dry_run=False, image=g.release.image)
+    assert result["stop_kind"] == "analysis" and "labels at the entry" in result["stopped"]
+
+
+def test_a_jump_that_does_not_become_a_call_stops_the_run(tmp_path):
+    g = make_program()
+    root, plan, path = plan_for(tmp_path, g)
+    g.no_call_return = True
+    result = starts.apply(root, path, g, dry_run=False, image=g.release.image)
+    assert result["stop_kind"] == "analysis" and "no flow reference" not in result["stopped"]
+    assert "predicted a call-return" in result["stopped"]
+
+
+def test_a_failed_create_says_the_program_holds_its_effects(tmp_path):
+    g = make_program()
+    root, plan, path = plan_for(tmp_path, g)
+    g.fail_create.add(0x200030)
+    result = starts.apply(root, path, g, dry_run=False, image=g.release.image)
+    assert result["stop_kind"] == "after" and "partial effects" in result["stopped"]
+    assert "by hand" in result["what_to_do"] and "removing that function" not in result["what_to_do"]
+    assert "--discard-unsaved" in result["what_to_do"]
+
+
+def test_a_timeout_while_waiting_for_analysis_still_writes_the_report(tmp_path, monkeypatch):
+    g = make_program()
+    root, plan, path = plan_for(tmp_path, g)
+
+    def late(bridge):
+        raise names.Stop("analysis still running 300 s after a write")
+
+    monkeypatch.setattr(names, "settle", late)
+    result = starts.apply(root, path, g, dry_run=False, image=g.release.image)
+    assert "still running" in result["stopped"] and (root / starts.OUT / result["report"]).is_file()
+    assert result["attempted"] and names.unsaved(names.read_record(root)) == []  # nothing read back yet
+
+
+def test_an_end_of_run_difference_is_a_stop(tmp_path, monkeypatch):
+    g = make_program()
+    root, plan, path = plan_for(tmp_path, g)
+    run = starts.Applier.run
+
+    def run_then_change(self):
+        run(self)
+        g.release.functions[0x200000]["noreturn"] = True  # after the last step's checks
+
+    monkeypatch.setattr(starts.Applier, "run", run_then_change)
+    result = starts.apply(root, path, g, dry_run=False, image=g.release.image)
+    assert result["stop_kind"] == "analysis" and "end-of-run" in result["stopped"]
+    assert any(c["change"] == "noreturn" for c in result["side_effects"])
+
+
+def test_a_computed_jump_the_switch_analysis_resolves_stops_the_run(tmp_path):
+    g = make_program()
+    root, plan, path = plan_for(tmp_path, g)
+    assert by(plan)["0x200240"]["steps"][1]["computed_jumps"] == ["0x200248"]
+    g.switch_refs[0x200248] = 0x200100
+    result = starts.apply(root, path, g, dry_run=False, image=g.release.image)
+    assert result["stop_kind"] == "analysis" and "computed jump at 0x200248" in result["stopped"]
+
+
+def test_only_takes_hexadecimal_addresses():
+    assert starts.parse_only(["0x200030", "0x10"]) == {"0x200030", "0x000010"}
+    for bad in ("200030", "2097200", "0x", "0xzz"):
+        with pytest.raises(names.Refused, match="hexadecimal"):
+            starts.parse_only([bad])
 
 
 def test_the_plan_is_deterministic_and_refuses_a_stale_names_plan(tmp_path):
     g = make_program()
     root, plan, path = plan_for(tmp_path, g)
-    again = starts.build_plan(root, reader(g), image=g.release.image)
+    again = starts.build_plan(root, reader(g), image=g.release.image, patterns=patterns(tmp_path))
     assert again["plan_sha256"] == plan["plan_sha256"]
-    g.put(0x200200, [0x200200, 0x200204])  # a function the names plan does not know
+    with pytest.raises(names.Refused, match="pattern file"):
+        starts.build_plan(root, reader(g), image=g.release.image, patterns_path=tmp_path / "missing.xml")
+    g.put(0x200280, [0x200280, 0x200284])  # a function the names plan does not know
     with pytest.raises(names.Refused, match="names plan does not describe"):
-        starts.build_plan(root, reader(g), image=g.release.image)
+        starts.build_plan(root, reader(g), image=g.release.image, patterns=patterns(tmp_path))
 
 
 def test_apply_makes_exactly_the_prediction_and_records_it(tmp_path):
@@ -312,7 +502,8 @@ def test_apply_makes_exactly_the_prediction_and_records_it(tmp_path):
     assert body_of(r, 0x200060) == set(range(0x200060, 0x200070, 4))  # the container cut back
     assert body_of(r, 0x200070) == set(range(0x200070, 0x200080, 4))
     assert body_of(r, 0x200050) == set(range(0x200050, 0x200060, 4))
-    assert result["counts"] == {"create": 6, "cut-by-analysis": 1, "disassemble": 4, "extent-accepted": 3}
+    assert result["counts"] == {"create": 11, "cut-by-analysis": 1, "disassemble": 9, "extent-accepted": 3,
+                                "label-by-analysis": 1, "name-by-analysis": 3}
     assert result["checked"]["accepted as is"] == 2
     record = names.read_record(root)
     assert record[("0x200060", "cut-by-analysis")]["state"] == f"unsaved {result['report']}"
@@ -320,7 +511,7 @@ def test_apply_makes_exactly_the_prediction_and_records_it(tmp_path):
     assert record[("0x200050", "extent-accepted")]["value"].startswith("0x200050-0x20005f: padding")
     report = root / starts.OUT / result["report"]
     done = names.confirm_saved(root, report, reader(g), today="2026-11-28", reads_back=starts.reads_back)
-    assert done["confirmed"] == 14
+    assert done["confirmed"] == 28
     # names then plans the new functions as existing ones
     names_plan = names.build_plan(root, reader(g), None, image=r.image)
     actions = {e["address"]: e["function"] for e in names_plan["entries"]}
@@ -335,7 +526,7 @@ def test_dry_run_sends_nothing_and_lists_the_writes(tmp_path):
     result = starts.apply(root, path, ro, dry_run=True, image=g.release.image)
     assert result["stopped"] is None and ro.sent == []
     kinds = Counter_of(result["would_write"])
-    assert kinds == {"create": 6, "disassemble": 4}
+    assert kinds == {"create": 11, "disassemble": 9}
 
 
 def Counter_of(items):
@@ -369,7 +560,7 @@ def test_other_instructions_than_predicted_stop_after_the_write(tmp_path):
 def test_disassembly_elsewhere_stops_the_run(tmp_path):
     g = make_program()
     root, plan, path = plan_for(tmp_path, g)
-    g.extra_code[0x200030] = [0x200240]  # outside the range: the operand-reference analyzer, say
+    g.extra_code[0x200030] = [0x2002c0]  # outside the range: the operand-reference analyzer, say
     result = starts.apply(root, path, g, dry_run=False, image=g.release.image)
     assert result["stop_kind"] == "analysis" and result["counts"] == {"disassemble": 1}
     assert any(c.get("change") == "orphans" or c.get("change") == "unexpected" for c in result["analysis_changes"])
@@ -389,10 +580,10 @@ def test_a_create_with_another_body_names_the_function_to_remove(tmp_path):
 def test_a_function_analysis_adds_stops_the_run(tmp_path):
     g = make_program()
     root, plan, path = plan_for(tmp_path, g)
-    g.analysis_creates[0x200030] = [0x200250]
+    g.analysis_creates[0x200030] = [0x2002d0]
     result = starts.apply(root, path, g, dry_run=False, image=g.release.image)
     assert result["stop_kind"] == "analysis"
-    assert {"address": "0x200250", "change": "appeared", "name": "FUN_00200250",
+    assert {"address": "0x2002d0", "change": "appeared", "name": "FUN_002002d0",
             "after": "create 0x200030"} in result["analysis_changes"]
     record = names.read_record(root)
     assert ("0x200030", "create") in record and ("0x200020", "disassemble") not in record

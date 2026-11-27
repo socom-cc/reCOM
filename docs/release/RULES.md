@@ -296,7 +296,17 @@ python tools/release/starts.py --confirm-saved build/release/starts/plan-starts.
   function whose body changed, `SharedReturnAnalysisCmd` (contiguous functions assumed, the
   default) turns jumps to the new entry into call-returns and makes Ghidra create a function at
   the target of every unconditional jump between the previous function's entry and the next
-  function that now crosses a function (the `_doMC` case of batch 1). `eret` has no fall-through.
+  function that now crosses a function (the `_doMC` case of batch 1). The same command runs after a
+  disassembly for every function entry a new jump reaches ("Shared Return Calls" is also an
+  instruction analyzer, `SharedReturnJumpAnalyzer`): the new tail call becomes a call-return and
+  that function's neighbourhood is scanned the same way. "Function Start Search" names kernel
+  call stubs: the language's pattern file (`r5900_LE_patterns.xml` of the Emotion Engine Reloaded
+  extension) has `<funcstart label=".." validcode="function"/>` patterns of `li v1,N; syscall;
+  jr ra; nop`; the first search of the whole program left a "potential match" mark where no
+  function stood, and when a function is added there `FunctionStartFuncAnalyzer` calls
+  `SymbolTable.createLabel(.., ANALYSIS)`, which renames the DEFAULT-named function; a second
+  pattern of the same bytes adds a label unless a symbol there already contains its text
+  (`AddDmacHandler` and `AddDmacHandler2`). `eret` has no fall-through.
 - **Plan** (any worker; reads the release program, writes nothing): `build/release/starts/plan-starts.json`
   and a summary `.md`, deterministic, with its own digest and a baseline (digests of the function
   list, the code gaps, the bookmarks and the defined data). It needs the names plan of the whole
@@ -315,29 +325,41 @@ python tools/release/starts.py --confirm-saved build/release/starts/plan-starts.
   words (dead words inside, a `jr ra; nop` after an `eret`) is accepted and marked `accepted` in
   the step; the two existing functions of that kind are accepted as they are. Ghidra's thunk splits
   (a function starting with a branch over its delay slot) cannot be undone with creates and are
-  listed.
+  listed. A create whose entry matches a labelled pattern is marked with the name and labels the
+  patterns give (`analysis_name`, `analysis_labels`; the plan reads the pattern file and records
+  its digest); the summary counts how many equal the prototype counterpart's name. Those names
+  stay: the names step later replaces one with the prototype's name for an exact pair, and keeps
+  it when the prototype's name is a label at the entry.
 - **Apply**: the coordinator only, after a second agent reviewed the plan: the dry run first, then
   `--yes`, optionally `--batch N` entries or, for a pilot, `--only 0x..` (repeatable; plan order,
   and every entry a selected one needs first must be selected too). The same guards as for names (open programs, recorded
   SHA-256, idle analysis, plan digest and map, no unsaved rows, release program only, never a save);
-  the program must still match the plan's baseline. A full snapshot of every function (body lowest
-  and highest, name, signature line, thunk and no-return) is taken before and after the run. After
-  every step the tool waits for idle analysis, reads back what the step made (the instructions the
-  disassembly lists and the word after its range; the new function's body, name, signature and
-  flags; every cut function's body; every predicted call-return) and compares the whole function
-  list, every code gap, every bookmark, every defined data item and the functions near the step
-  with the prediction. Data defined at an address the new code references is listed, not a stop.
-  Every stop names its kind and what to do: `before` (nothing sent for that entry: check, save,
-  confirm, replan), `after` (the write reads back otherwise: close without saving and
-  `--discard-unsaved`, then replan; for a create, the function may instead be removed by hand and
-  the batch saved and confirmed), `analysis` (a change the plan did not predict: check; save and
-  confirm if acceptable, else close without saving and discard). Disassembly is never cleared.
+  the program must still match the plan's baseline. After every step the tool waits for idle
+  analysis, reads back what the step made (the instructions the disassembly lists and the
+  code-unit state of every word of the range and 64 bytes on each side; the new function's body,
+  name, signature, flags and the labels at its entry; every cut function's body; every predicted
+  call-return as a CALL reference to its target) and compares the whole function list, every code
+  gap, every bookmark, every defined data item and a full snapshot of every function (body lowest
+  and highest, name, signature line, thunk and no-return: a callee that analysis marks no-return
+  shows there) with the prediction. A name the patterns give is accepted and recorded; any other
+  name stops the run. Data defined at an address the new code references is listed, not a stop. A
+  difference in the end-of-run snapshot is a stop too. Every stop names its kind and what to do:
+  `before` (nothing sent for that entry: check, save, confirm, replan), `after` (the write reads
+  back otherwise; the program holds it, and a create that failed commits its partial effects:
+  close without saving, `--discard-unsaved`, replan; nothing is removed by hand, since removing a
+  new function gives a cut container neither its body nor its jumps back), `analysis` (a change the
+  plan did not predict: check; save and confirm if acceptable, else close without saving and
+  discard). Disassembly is never cleared. Not visible through the bridge: instructions made or
+  cleared inside a gap that already held orphan instructions farther than 64 bytes from the step,
+  changes inside a body that keep its ends and the union of all bodies, references, and flow
+  overrides other than the predicted ones.
 - **Save and replan**: as for names. After each batch: `--confirm-saved`, then
   `names.py --plan --all` (it plans names and plates for the new functions; a padded body appears
   there as a boundary difference), then a new starts plan.
 - **Record**: `docs/release/ghidra-applied.tsv`, kinds `disassemble` (the instruction range),
   `create` (the body), `extent-accepted` (the body and the accepted difference), `cut-by-analysis`
-  (a container's new body after a create inside it). Rows stay `unsaved <report>` until
+  (a container's new body after a create inside it), `name-by-analysis` and `label-by-analysis`
+  (what Function Start Search gave the new function). Rows stay `unsaved <report>` until
   `--confirm-saved`.
 
 ## Source
