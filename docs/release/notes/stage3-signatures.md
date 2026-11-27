@@ -72,3 +72,20 @@ offsets to 19 member accesses, `zar::CKey::Read` (0x1dd7c0) from 4 to 4, `zar::C
 afterwards sends nothing.
 
 The record holds 43 rows of the kind `prototype`.
+
+## Whole map
+
+Plan 72381549... (made after the pilot and after the reviewer's defects were fixed in the tool:
+the record stays truthful after a stop, the thunk flag is read again before each write, the type
+check follows the parser's two rules; that change was not reviewed again). Batches of 500, a
+snapshot after every ten writes. Each batch is checked before its save with the reviewer's
+script against a baseline of every function's signature line, both programs' bookmarks and
+`socom.elf`; the script also reads each written function's parameters and storage. Its baseline
+holds locals only for the pilot's functions, so a local variable that Ghidra drops when a
+signature is set would not be seen in these batches; the release program has no local that
+anyone set, and the written functions that were probed have no stored local at all.
+
+| Batch | Group | Prototypes | Plates | Outcome |
+|---|---|---|---|---|
+| 1 | exact | 500 | 0 | full batch, no stop, no change the run did not make; check clean; saved, confirmed |
+| 2 | exact | 500 | 0 | full batch, no stop, no change the run did not make; check clean; saved, confirmed |
