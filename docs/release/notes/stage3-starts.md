@@ -86,3 +86,4 @@ row 0x163300..0x16351b paired with the prototype's `_kDebugException` (0x164040)
 holds an `eret` at 0x1633f0, the handler from 0x163400 to its `eret` at 0x1634f8, and more words
 after it. The row covers more than one routine; it is one of the two starts withheld for code
 after an `eret`. Left for the comparison to settle.
+| 3, three more | 0x162cf0, 0x16fef0, 0x1d2780 | 0x162cf0 created; 0x16fef0 disassembled where it was not yet code and created with its map extent; 0x1d2780 disassembled and created as the predicted thunk of 0x20ae80. The run stopped at the thunk on the tool's own expectation, not on the program: it expected the thunk's signature line under the target's name, and a thunk shows it under its own (`undefined thunk_FUN_0020ae80(void)`). The reviewer's check was clean, with nothing unexplained; the expectation is corrected in the tool. Saved, confirmed |

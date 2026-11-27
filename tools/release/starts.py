@@ -1731,7 +1731,14 @@ class Applier:
             for a in words_of(cut["before"]) - words_of(cut["after"]) - body:
                 self.model.free(a)
         self.model.add_function(start, body, step["name"], thunk_of is not None)
-        signature = step["signature"] or (self.before.get(thunk_of, {}).get("signature") if thunk_of else None)
+        signature = step["signature"]
+        if not signature and thunk_of:
+            # A thunk shows its target's prototype under its OWN shown name: a default thunk of
+            # FUN_0020ae80 reads "undefined thunk_FUN_0020ae80(void)" (seen in the pilot, 0x1d2780).
+            target = self.before.get(thunk_of, {})
+            signature = target.get("signature")
+            if signature and target.get("name") and step["name"] != target["name"]:
+                signature = signature.replace(f" {target['name']}(", f" {step['name']}(", 1)
         self.expected[start] = {"name": step["name"], "thunk": thunk_of is not None, "lo": lo, "hi": hi,
                                 "noreturn": False, **({"signature": signature} if signature else {})}
         for cut in step["cuts"]:

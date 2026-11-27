@@ -1825,6 +1825,7 @@ release_address	applied	value	source_pair	date	state
 0x162b80	plate	Release map: exact pair with prototype 0x1637c0 sceSifRebootIop (evidence exact; flags -). // Owner -.	0x1637c0 sceSifRebootIop (exact)	2026-11-26	saved 2026-11-26
 0x162c90	name	SetTLBHandler	0x1638d0 SetTLBHandler (exact)	2026-11-26	saved 2026-11-26
 0x162c90	plate	Release map: exact pair with prototype 0x1638d0 SetTLBHandler (evidence exact; flags -). // Owner -.	0x1638d0 SetTLBHandler (exact)	2026-11-26	saved 2026-11-26
+0x162cf0	create	0x162cf0-0x162d73	0x163930 SetDebugHandler (exact)	2026-11-27	saved 2026-11-27
 0x162cf0	disassemble	0x162cf0-0x162d73	0x163930 SetDebugHandler (exact)	2026-11-27	saved 2026-11-27
 0x162d78	name	Copy	0x1639b8 Copy (exact)	2026-11-26	saved 2026-11-26
 0x162d78	plate	Release map: exact pair with prototype 0x1639b8 Copy (evidence call; flags -). // Owner -.	0x1639b8 Copy (exact)	2026-11-26	saved 2026-11-26
@@ -2250,6 +2251,8 @@ release_address	applied	value	source_pair	date	state
 0x16fd48	plate	Release map: exact pair with prototype 0x170538 scePadGetReqState (evidence exact; flags -). // Owner -.	0x170538 scePadGetReqState (exact)	2026-11-26	saved 2026-11-26
 0x16fdd0	name	scePadInfoAct	0x1705c0 scePadInfoAct (exact)	2026-11-26	saved 2026-11-26
 0x16fdd0	plate	Release map: exact pair with prototype 0x1705c0 scePadInfoAct (evidence exact; flags -). // Owner -.	0x1705c0 scePadInfoAct (exact)	2026-11-26	saved 2026-11-26
+0x16fef0	create	0x16fef0-0x17000b	0x1706e0 scePadInfoComb (exact)	2026-11-27	saved 2026-11-27
+0x16fef0	disassemble	0x16fef0-0x17000b	0x1706e0 scePadInfoComb (exact)	2026-11-27	saved 2026-11-27
 0x170010	name	scePadInfoMode	0x170800 scePadInfoMode (exact)	2026-11-26	saved 2026-11-26
 0x170010	plate	Release map: exact pair with prototype 0x170800 scePadInfoMode (evidence exact; flags -). // Owner -.	0x170800 scePadInfoMode (exact)	2026-11-26	saved 2026-11-26
 0x170148	name	scePadSetMainMode	0x170938 scePadSetMainMode (exact)	2026-11-26	saved 2026-11-26
@@ -5791,6 +5794,8 @@ release_address	applied	value	source_pair	date	state
 0x1d26c0	label	UIGameStatePopCommand__FP13C2DAnimCmdHdrPf	0x1d23a0 UIGameStatePopCommand__FP13C2DAnimCmdHdrPf (deviating)	2026-11-26	saved 2026-11-26
 0x1d26c0	plate	Release map: deviating pair with prototype 0x1d23a0 UIGameStatePopCommand__FP13C2DAnimCmdHdrPf (evidence table-entry; flags -). // Owner src/gamez/zAnim/zanim_menu.cpp; signature carried from the prototype as a starting point (the pair is not exact).	0x1d23a0 UIGameStatePopCommand__FP13C2DAnimCmdHdrPf (deviating)	2026-11-26	saved 2026-11-26
 0x1d26c0	prototype	uchar __stdcall UIGameStatePopCommand(C2DAnimCmdHdr * param_1, float * param_2) [storage param_1=a0_lo:4, param_2=a1_lo:4]	0x1d23a0 UIGameStatePopCommand__FP13C2DAnimCmdHdrPf (deviating)	2026-11-26	saved 2026-11-26
+0x1d2780	create	0x1d2780-0x1d2787	0x1d23d0 UIHaveBeenBannedFromGame__FP13C2DAnimCmdHdrPf (deviating)	2026-11-27	saved 2026-11-27
+0x1d2780	disassemble	0x1d2780-0x1d2787	0x1d23d0 UIHaveBeenBannedFromGame__FP13C2DAnimCmdHdrPf (deviating)	2026-11-27	saved 2026-11-27
 0x1d2860	name	UIAdvanceMPMission	0x1d2470 UIAdvanceMPMission__FP13C2DAnimCmdHdrPf (deviating)	2026-11-26	saved 2026-11-26
 0x1d2860	label	UIAdvanceMPMission__FP13C2DAnimCmdHdrPf	0x1d2470 UIAdvanceMPMission__FP13C2DAnimCmdHdrPf (deviating)	2026-11-26	saved 2026-11-26
 0x1d2860	plate	Release map: deviating pair with prototype 0x1d2470 UIAdvanceMPMission__FP13C2DAnimCmdHdrPf (evidence table-entry; flags -). // Owner src/gamez/zAnim/zanim_menu.cpp; signature carried from the prototype as a starting point (the pair is not exact).	0x1d2470 UIAdvanceMPMission__FP13C2DAnimCmdHdrPf (deviating)	2026-11-26	saved 2026-11-26
