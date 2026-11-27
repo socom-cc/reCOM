@@ -60,3 +60,13 @@ items and the jump sites against a baseline.
 | Step | Entries | Outcome |
 |---|---|---|
 | 1 | 0x1435e0 | 3 instructions disassembled, function created with the map's 12 bytes; no stop, no analysis change; check clean; saved, confirmed |
+| 2 | 0x1401d0 | function created with the predicted body 0x1401d0..0x1401df, the eight bytes of padding accepted (`extent-accepted`); it did not take its neighbour; check clean; saved, confirmed |
+| 3, first entry | 0x15a5a0 | disassembled and created with the map's sixteen bytes; the run stopped because the function read back as `SetVCommonHandler`, not under a default name; accepted by the coordinator, saved, confirmed |
+
+The stop in step 3: 0x15a5a0 is a kernel call stub (`li v1,0xe; syscall; jr ra; nop`), and
+Ghidra's PS2 analysis names a function from the system call in it. The name it gave is the one the
+prototype program has for the exact counterpart (0x15b1e0). The tool's snapshot of every function
+and the reviewer's check both showed that name as the only difference; the function has no label
+besides it. The coordinator accepted it on that evidence instead of closing without saving, which
+the reviewer's condition would have asked for. 88 of the planned starts hold a `syscall`
+instruction, so the tool has to predict this naming before the pilot goes on.

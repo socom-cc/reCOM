@@ -4,6 +4,8 @@ release_address	applied	value	source_pair	date	state
 0x1401c8	name	_exit	0x1401d0 _exit (exact)	2026-11-26	saved 2026-11-26
 0x1401c8	plate	Release map: exact pair with prototype 0x1401d0 _exit (evidence exact; flags -). // Owner -.	0x1401d0 _exit (exact)	2026-11-26	saved 2026-11-26
 0x1401c8	prototype	void __stdcall _exit(int __status) [storage __status=a0_lo:4]	0x1401d0 _exit (exact)	2026-11-26	saved 2026-11-26
+0x1401d0	create	0x1401d0-0x1401df	0x1401d8 _root (exact)	2026-11-27	saved 2026-11-27
+0x1401d0	extent-accepted	0x1401d0-0x1401df: padding ['0x1401d8', '0x1401df']	0x1401d8 _root (exact)	2026-11-27	saved 2026-11-27
 0x1401e0	create	0x1401e0-0x1405b7	0x1401e0 __dt__8COurGameFv (deviating)	2026-11-26	saved 2026-11-26
 0x1401e0	name	COurGame::~COurGame	0x1401e0 __dt__8COurGameFv (deviating)	2026-11-26	saved 2026-11-26
 0x1401e0	label	__dt__8COurGameFv	0x1401e0 __dt__8COurGameFv (deviating)	2026-11-26	saved 2026-11-26
@@ -1354,6 +1356,8 @@ release_address	applied	value	source_pair	date	state
 0x15a520	plate	Release map: exact pair with prototype 0x15b160 _LoadExecPS2 (evidence exact; flags -). // Owner -.	0x15b160 _LoadExecPS2 (exact)	2026-11-26	saved 2026-11-26
 0x15a520	prototype	undefined __stdcall _LoadExecPS2(char * filename, int argc, char * * argv) [storage filename=a0_lo:4, argc=a1_lo:4, argv=a2_lo:4]	0x15b160 _LoadExecPS2 (exact)	2026-11-26	saved 2026-11-26
 0x15a590	plate	Release map: exact pair with prototype 0x15b1d0 SetVTLBRefillHandler (evidence exact; flags -). // Owner -.	0x15b1d0 SetVTLBRefillHandler (exact)	2026-11-26	saved 2026-11-26
+0x15a5a0	create	0x15a5a0-0x15a5af	0x15b1e0 SetVCommonHandler (exact)	2026-11-27	saved 2026-11-27
+0x15a5a0	disassemble	0x15a5a0-0x15a5af	0x15b1e0 SetVCommonHandler (exact)	2026-11-27	saved 2026-11-27
 0x15a5c0	plate	Release map: exact pair with prototype 0x15b200 AddIntcHandler (evidence call; flags -). // Owner -.	0x15b200 AddIntcHandler (exact)	2026-11-26	saved 2026-11-26
 0x15a5e0	plate	Release map: exact pair with prototype 0x15b220 RemoveIntcHandler (evidence exact; flags -). // Owner -.	0x15b220 RemoveIntcHandler (exact)	2026-11-26	saved 2026-11-26
 0x15a5e0	prototype	undefined __stdcall RemoveIntcHandler(int cause, int handler_id) [storage cause=a0_lo:4, handler_id=a1_lo:4]	0x15b220 RemoveIntcHandler (exact)	2026-11-26	saved 2026-11-26
