@@ -108,7 +108,13 @@ python tools/release/names.py --confirm-saved build/release/names/plan-gamez-zAr
   and a summary `.md`, deterministic, with its own digest. A paired function takes the name the
   prototype program gives its counterpart, a flat name in the global namespace
   (`zar::CZAR::NewKey`), plus the mangled symbol as a second label, as the prototype stores them.
-  Library functions are named from exact pairs only. Pairs flagged `name-changed`, `split`,
+  Library functions are named from exact pairs only, with one exception decided by the user
+  (2026-11-26): a function of the C standard library (newlib, MSL) whose pair is deviating or
+  unsure takes the prototype's name when it stands in the same place as in the prototype
+  (between the same library neighbours) or, for a deviating pair, when its callers decide it;
+  the plate says which. A worker who meets such a function still unnamed may name it on the
+  same grounds, in the release program when it is the Ghidra writer, and lists it with its
+  evidence in its note. Pairs flagged `name-changed`, `split`,
   `merged` or `rename-possible`, unsure pairs and new functions get no name; their plate comment
   names the prototype counterpart. Every function gets a two-line plate comment (`Release map: ...`)
   with class, prototype address and symbol, evidence, flags, owner file and the settling note.

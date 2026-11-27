@@ -348,16 +348,70 @@ def read_labels(bridge, function_name: str) -> list[tuple[int, str]]:
 
 # --- the plan --------------------------------------------------------------------------------
 
-def decide_name(row: dict, proto: dict | None) -> tuple[str | None, str | None, str]:
-    """(name, label, reason): the prototype program's name and mangled label, or none and why."""
+# The C standard library. Its functions keep their order from one build to the next, so a pair
+# that is not exact is named when it stands in the same place as in the prototype (user rule,
+# 2026-11-26). Other libraries stay on the exact-pairs rule.
+C_LIBRARIES = ("newlib", "MSL")
+C_PLACE = "C library pair that is not exact"
+
+
+def _is_c_library(row: dict) -> bool:
+    return row["prototype_classification"] == "provider" and row["prototype_library"] in C_LIBRARIES
+
+
+def library_place(rows: list[dict]) -> frozenset[int]:
+    """Release addresses of the C library pairs that stand in the same place as in the prototype.
+
+    Per library, the pairs sorted by release address: the longest run of them whose prototype
+    addresses rise too. A pair in it lies between the same neighbours in both executables.
+    """
+
+    placed: set[int] = set()
+    for library in C_LIBRARIES:
+        pairs = sorted((r["release_address"], r["prototype_address"]) for r in rows
+                       if r["release_address"] is not None and r["prototype_address"] is not None
+                       and r["prototype_classification"] == "provider" and r["prototype_library"] == library)
+        tails: list[int] = []        # index into pairs of the last element of the best run of each length
+        before: list[int | None] = []
+        for index, (_, proto) in enumerate(pairs):
+            lo, hi = 0, len(tails)
+            while lo < hi:
+                mid = (lo + hi) // 2
+                if pairs[tails[mid]][1] < proto:
+                    lo = mid + 1
+                else:
+                    hi = mid
+            before.append(tails[lo - 1] if lo else None)
+            if lo == len(tails):
+                tails.append(index)
+            else:
+                tails[lo] = index
+        at = tails[-1] if tails else None
+        while at is not None:
+            placed.add(pairs[at][0])
+            at = before[at]
+    return frozenset(placed)
+
+
+def decide_name(row: dict, proto: dict | None, placed: frozenset = frozenset()) -> tuple[str | None, str | None, str]:
+    """(name, label, reason): the prototype program's name and mangled label, or none and why.
+
+    ``placed``: the result of ``library_place`` for the whole map.
+    """
 
     if row["class"] == "new":
         return None, None, "new function: no name yet (proposed names are in the notes)"
-    if row["class"] == "unsure":
+    by_place = None
+    if row["class"] != "exact" and _is_c_library(row):
+        if row["release_address"] in placed:
+            by_place = "it stands in the same place as in the prototype"
+        elif row["class"] == "deviating" and "call" in row["evidence"]:
+            by_place = "its place in the library differs, its callers decide it"
+    if row["class"] == "unsure" and not by_place:
         return None, None, "unsure pair: the evidence does not settle it"
     if proto is None or is_default_name(proto["name"]):
         return None, None, "the prototype program has no name for its counterpart"
-    if row["prototype_classification"] == "provider" and row["class"] != "exact":
+    if row["prototype_classification"] == "provider" and row["class"] != "exact" and not by_place:
         return None, None, "library pair that is not exact (libraries are named from exact pairs only)"
     for flag in row["flags"]:
         if flag in NAME_BLOCK:
@@ -370,6 +424,8 @@ def decide_name(row: dict, proto: dict | None) -> tuple[str | None, str | None, 
         how += "; stubbed: the same command-table entry, body emptied"
     if "identical-copy" in row["flags"]:
         how += "; identical-copy: equal bytes elsewhere, the copy was chosen by position"
+    if by_place:
+        how += f"; {C_PLACE} ({row['class']}): {by_place}"
     return name, label, how
 
 
@@ -386,6 +442,8 @@ def plate_text(row: dict, entry: dict, note: str | None) -> str:
         parts.append(f"settled: {note}")
     if entry.get("name") is None and row["class"] != "new" and entry.get("prototype"):
         parts.append(f"prototype name {entry['prototype']['name']} not applied: {entry['name_reason']}")
+    if entry.get("name") and C_PLACE in (entry.get("name_reason") or ""):
+        parts.append("named although the pair is not exact: " + entry["name_reason"].split(C_PLACE, 1)[1].split(": ", 1)[1])
     if entry.get("previous_name"):
         parts.append(f"replaces the analysis name {entry['previous_name']}")
     live = entry.get("live") or {}
@@ -438,11 +496,12 @@ def global_names(rows, proto_list, live_list, keep: dict | None = None) -> tuple
     """
 
     planned: dict[int, tuple] = {}
+    placed = library_place(rows)
     for row in rows:
         if row["release_address"] is None:
             continue
         proto = proto_list.get(row["prototype_address"]) if row["prototype_address"] is not None else None
-        planned[row["release_address"]] = decide_name(row, proto)
+        planned[row["release_address"]] = decide_name(row, proto, placed)
     for address, why in (keep or {}).items():
         planned[address] = (None, None, why)
     proto_count = Counter(f["name"] for f in proto_list.values())
@@ -493,11 +552,12 @@ def build_plan(root: Path, bridge, module: str | None, exclude: set[int] = froze
     chosen = select(rows, module)
     # A planned name that is already a label at the entry cannot be given (checkDuplicateSymbolName).
     items, wanted = [], {}
+    placed = library_place(rows)
     for row in chosen:
         address = row["release_address"]
         if address not in live_list or row["prototype_address"] is None:
             continue
-        name = decide_name(row, proto_list.get(row["prototype_address"]))[0]
+        name = decide_name(row, proto_list.get(row["prototype_address"]), placed)[0]
         if name and live_list[address]["name"] != name:
             items.append((address, live_list[address]["name"]))
             wanted[address] = name
@@ -748,7 +808,9 @@ def plan_markdown(plan: dict) -> str:
 
 
 def write_plan(root: Path, plan: dict) -> Path:
-    stem = "plan-" + ("all" if plan["selection"] == "--all" else plan["selection"].replace("/", "-"))
+    # A module label such as "(provider: newlib)" is no file name (a colon makes a stream on NTFS).
+    stem = "plan-" + ("all" if plan["selection"] == "--all"
+                      else re.sub(r"[^A-Za-z0-9._-]+", "-", plan["selection"]).strip("-"))
     out = root / OUT
     out.mkdir(parents=True, exist_ok=True)
     (out / f"{stem}.json").write_text(canonical(plan), encoding="utf-8", newline="\n")

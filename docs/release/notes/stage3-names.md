@@ -31,10 +31,44 @@ Layouts were compared by size, not member by member. The types stay linked to th
 Batch 2 rewrote the plates of the two thunks of batch 1 (0x1405c0, 0x1405d0), which now name
 their targets; those two rows were replaced, not added.
 
+| C library by place, (provider: newlib) | 21523369... | 109 | 0 | 109 | 0 | 109 | no stop, no side effect; check clean; saved, confirmed (218 rows) |
+
 The pass is complete (2026-11-26): a dry run of the whole-map plan after batch 6 sends nothing.
-The record holds 25,071 saved rows: 718 creates, 8,498 names, 6,381 labels and 9,474 plates. The
-release program has 9,493 functions (8,772 after the auto-analysis): the 718 created by the tool
-and 3 created by Ghidra's analysis during batch 1.
+With the C library names the record holds 25,180 saved rows: 718 creates, 8,607 names, 6,381
+labels and 9,474 plates. The release program has 9,493 functions (8,772 after the
+auto-analysis): the 718 created by the tool and 3 created by Ghidra's analysis during batch 1.
+
+## Check of the whole map
+
+After batch 6 the checker read the whole end state with one script of its own (both programs,
+read-only) and found it as planned: all 8,498 names are on their functions and equal the
+prototype program's name at the map's counterpart; all 6,381 labels and 9,474 plates are the
+planned ones; every created function has the map's extent without gaps; the map starts without a
+Ghidra function, the differing extents and the Ghidra-only functions are exactly the plan's sets;
+36 thunks (20 from the analysis, 2 of batch 1, the 14 predicted); `socom.elf` and the release
+program's bookmarks as they were; every record row reads back. Not verifiable through the bridge:
+labels other than the planned ones, and reference changes that leave bodies and signatures as
+they were.
+
+## C library functions named by their place
+
+Decided by the user on 2026-11-26, after the pass: a C standard library function that stands in
+the same place as in the prototype may take its name although the pair is not exact, and a worker
+may name such a function too (`RULES.md`). The rule had left 111 newlib functions without a name.
+The block has the same order in both executables: 108 of them lie in the longest run of pairs
+whose order agrees, and one, `exit` (0x423c78), moved from the head of the block to its
+alphabetical place and is named because its callers decide it. 66 were deviating pairs, 43
+unsure ones. Their plates say "named although the pair is not exact" and why. Two more
+(`strtok_r` 0x42af00, `_vfiprintf_r` 0x42b8b8) lie inside another Ghidra function and wait for
+their own. The change to the tool and its application were made by the coordinator and compared
+with the applied plan entry by entry (109 names and their plates, nothing else); other libraries
+stay on exact pairs.
+
+A plan of the whole map made after the apply is not usable yet, for two reasons seen in that
+comparison and left for the next change to the tool: it no longer knows the analysis names it
+replaced (ten plates would lose that part), and it counts a default thunk that shows its target's
+name as a second holder of that name (0x279ff0 and 0x27a660 would be called collisions). The C
+library names were therefore planned for their module alone.
 
 ## Stops, and what they showed
 
@@ -101,6 +135,7 @@ every body as it was.
   instruction, 8 that lie inside another function (0x156978, 0x159780, 0x15b0b0, 0x1f4380,
   0x318580, 0x407c28, 0x42af00, 0x42b8b8), 5 withheld creates (0x1401d0, 0x1631c0, 0x163300,
   0x1baa20, 0x317c00).
-- A function but no name, 919: 602 new functions, 254 library pairs that are not exact, 58
-  unsure pairs, 4 flagged `name-changed`, `split` or `merged`, 1 label clash.
+- A function but no name, 810 (919 before the C library names): 602 new functions, 188 library
+  pairs that are not exact, 15 unsure pairs, 4 flagged `name-changed`, `split` or `merged`,
+  1 label clash.
 - 28 boundary differences and 19 functions Ghidra has that the map does not.

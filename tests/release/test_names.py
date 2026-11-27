@@ -124,6 +124,43 @@ def test_name_rules():
     assert names.decide_name(ROWS[0], {"name": "FUN_00300000"})[0] is None
 
 
+def test_c_library_pairs_are_named_by_their_place():
+    def lib(release, cls, proto, symbol, library="newlib", evidence=("call-deviating",), flags=()):
+        return row(release, 0x10, cls, proto, symbol, classification="provider", library=library,
+                   evidence=evidence, flags=flags)
+
+    rows = [
+        lib(0x400000, "exact", 0x500010, "abort"),
+        lib(0x400010, "deviating", 0x500020, "atof"),          # between the same neighbours: named
+        lib(0x400020, "unsure", 0x500030, "_calloc_r"),        # unsure, but in place: named
+        lib(0x400030, "deviating", 0x500000, "exit", evidence=("call",)),   # moved, its callers decide: named
+        lib(0x400040, "unsure", 0x500008, "quorem"),           # unsure and out of place: not named
+        lib(0x400050, "deviating", 0x500004, "_dtoa_r"),       # out of place, no caller evidence: not named
+        lib(0x400060, "exact", 0x500040, "fclose"),
+        lib(0x400070, "deviating", 0x500050, "sceGsSyncV", library="SCE"),  # another library: exact pairs only
+    ]
+    placed = names.library_place(rows)
+    assert placed == {0x400000, 0x400010, 0x400020, 0x400060}
+
+    def decide(index):
+        return names.decide_name(rows[index], {"name": rows[index]["prototype_symbol"]}, placed)
+
+    name, label, why = decide(1)
+    assert (name, label) == ("atof", None) and "same place" in why and "(deviating)" in why
+    name, _, why = decide(2)
+    assert name == "_calloc_r" and "(unsure)" in why
+    name, _, why = decide(3)
+    assert name == "exit" and "callers decide" in why
+    assert decide(4) == (None, None, "unsure pair: the evidence does not settle it")
+    assert decide(5)[0] is None and "exact pairs only" in decide(5)[2]
+    assert decide(7)[0] is None and "exact pairs only" in decide(7)[2]
+    # Without the place (an old caller), the rule is the old one.
+    assert names.decide_name(rows[1], {"name": "atof"})[0] is None
+    # The plate of a function named this way says so.
+    entry = {"name": "atof", "name_reason": why and decide(1)[2], "prototype": {"name": "atof"}}
+    assert "named although the pair is not exact: it stands in the same place" in names.plate_text(rows[1], entry, None)
+
+
 def test_plan(tmp_path):
     g = make_ghidra()
     root, plan, path = plan_for(tmp_path, g)
