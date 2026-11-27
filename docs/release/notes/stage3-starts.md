@@ -87,3 +87,12 @@ holds an `eret` at 0x1633f0, the handler from 0x163400 to its `eret` at 0x1634f8
 after it. The row covers more than one routine; it is one of the two starts withheld for code
 after an `eret`. Left for the comparison to settle.
 | 3, three more | 0x162cf0, 0x16fef0, 0x1d2780 | 0x162cf0 created; 0x16fef0 disassembled where it was not yet code and created with its map extent; 0x1d2780 disassembled and created as the predicted thunk of 0x20ae80. The run stopped at the thunk on the tool's own expectation, not on the program: it expected the thunk's signature line under the target's name, and a thunk shows it under its own (`undefined thunk_FUN_0020ae80(void)`). The reviewer's check was clean, with nothing unexplained; the expectation is corrected in the tool. Saved, confirmed |
+| 3, the last three | 0x390018, 0x34b850, 0x405e50 | disassembled and created, no stop; analysis defined one pointer, at 0x44c678, an address the plan lists as possible; check clean; saved, confirmed |
+| 4 | 0x318580, 0x317c00 | both created, no stop; the create at 0x318580 cut `C2DBitmapPoly::GetTrans` (0x315210) from 13 KB back to the map's eight bytes, as predicted, and 0x317c00 took its place in what had been a gap of that body; check clean; saved, confirmed |
+| 5 | 0x42af00 | `strtok_r` created inside what Ghidra had as `strtok`; `strtok` (0x42aee0) cut back to 0x42aee0..0x42aeff and the jump at 0x42aef8 turned into a call, both as predicted; check clean; saved, confirmed |
+
+The pilot is complete: 12 functions created, one of every kind of case. Three runs stopped, each
+on something the tool did not yet predict (a name from Ghidra's pattern file, code found through
+an operand reference, the text of a thunk's signature line); each was understood, accepted on the
+evidence of the reviewer's check, and is predicted now. The last five entries, with both container
+cuts, ran without a stop.

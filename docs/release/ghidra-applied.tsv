@@ -18579,6 +18579,7 @@ release_address	applied	value	source_pair	date	state
 0x315210	name	C2DBitmapPoly::GetTrans	0x2fe2c0 GetTrans__13C2DBitmapPolyFv (exact)	2026-11-26	saved 2026-11-26
 0x315210	label	GetTrans__13C2DBitmapPolyFv	0x2fe2c0 GetTrans__13C2DBitmapPolyFv (exact)	2026-11-26	saved 2026-11-26
 0x315210	plate	Release map: exact pair with prototype 0x2fe2c0 GetTrans__13C2DBitmapPolyFv (evidence exact; flags -). // Owner src/gamez/zTwoD/c2dbitmap_poly.cpp.	0x2fe2c0 GetTrans__13C2DBitmapPolyFv (exact)	2026-11-26	saved 2026-11-26
+0x315210	cut-by-analysis	0x315210-0x315217 (was 0x315210-0x318587; after the create at 0x318580)	0x301620 GetTrans__7C2DPolyFv (exact)	2026-11-27	saved 2026-11-27
 0x315220	name	C2DBitmapPoly::SetTrans	0x2fe2d0 SetTrans__13C2DBitmapPolyFf (deviating)	2026-11-26	saved 2026-11-26
 0x315220	label	SetTrans__13C2DBitmapPolyFf	0x2fe2d0 SetTrans__13C2DBitmapPolyFf (deviating)	2026-11-26	saved 2026-11-26
 0x315220	plate	Release map: deviating pair with prototype 0x2fe2d0 SetTrans__13C2DBitmapPolyFf (evidence vtable-slot; flags -). // Owner src/gamez/zTwoD/c2dbitmap_poly.cpp; signature carried from the prototype as a starting point (the pair is not exact).	0x2fe2d0 SetTrans__13C2DBitmapPolyFf (deviating)	2026-11-26	saved 2026-11-26
@@ -18731,6 +18732,7 @@ release_address	applied	value	source_pair	date	state
 0x317990	label	__ct__7C2DLineFv	0x300980 __ct__7C2DLineFv (deviating)	2026-11-26	saved 2026-11-26
 0x317990	plate	Release map: deviating pair with prototype 0x300980 __ct__7C2DLineFv (evidence call; flags imm-only). // Owner src/gamez/zTwoD/c2dline.cpp; signature carried from the prototype as a starting point (the pair is not exact).	0x300980 __ct__7C2DLineFv (deviating)	2026-11-26	saved 2026-11-26
 0x317990	prototype	void * __stdcall C2DLine::C2DLine(C2DLine * this) [storage this=a0_lo:4]	0x300980 __ct__7C2DLineFv (deviating)	2026-11-26	saved 2026-11-26
+0x317c00	create	0x317c00-0x317c1f	0x300bf0 Enable__3C2DFb (exact)	2026-11-27	saved 2026-11-27
 0x317c20	name	C2D::IsOn	0x300c10 IsOn__3C2DCFv (exact)	2026-11-26	saved 2026-11-26
 0x317c20	label	IsOn__3C2DCFv	0x300c10 IsOn__3C2DCFv (exact)	2026-11-26	saved 2026-11-26
 0x317c20	plate	Release map: exact pair with prototype 0x300c10 IsOn__3C2DCFv (evidence exact; flags -). // Owner src/gamez/zTwoD/ztwod_main.cpp.	0x300c10 IsOn__3C2DCFv (exact)	2026-11-26	saved 2026-11-26
@@ -18789,6 +18791,7 @@ release_address	applied	value	source_pair	date	state
 0x3184d0	label	Load__7C2DPolyFffffffPQ23zdb8CTexture	0x301510 Load__7C2DPolyFffffffPQ23zdb8CTexture (deviating)	2026-11-26	saved 2026-11-26
 0x3184d0	plate	Release map: deviating pair with prototype 0x301510 Load__7C2DPolyFffffffPQ23zdb8CTexture (evidence call; flags -). // Owner src/gamez/zTwoD/ztwod_poly.cpp; signature carried from the prototype as a starting point (the pair is not exact).	0x301510 Load__7C2DPolyFffffffPQ23zdb8CTexture (deviating)	2026-11-26	saved 2026-11-26
 0x3184d0	prototype	void __stdcall C2DPoly::Load(C2DPoly * this, float param_2, float param_3, float param_4, float param_5, float param_6, float param_7, CTexture * param_8) [storage this=a0_lo:4, param_2=f12:4, param_3=f13:4, param_4=f14:4, param_5=f15:4, param_6=f16:4, param_7=f17:4, param_8=a1_lo:4]	0x301510 Load__7C2DPolyFffffffPQ23zdb8CTexture (deviating)	2026-11-26	saved 2026-11-26
+0x318580	create	0x318580-0x318587	0x301620 GetTrans__7C2DPolyFv (exact)	2026-11-27	saved 2026-11-27
 0x318590	create	0x318590-0x3185b7	0x301630 SetTrans__7C2DPolyFf (exact)	2026-11-26	saved 2026-11-26
 0x318590	name	C2DPoly::SetTrans	0x301630 SetTrans__7C2DPolyFf (exact)	2026-11-26	saved 2026-11-26
 0x318590	label	SetTrans__7C2DPolyFf	0x301630 SetTrans__7C2DPolyFf (exact)	2026-11-26	saved 2026-11-26
@@ -21982,6 +21985,8 @@ release_address	applied	value	source_pair	date	state
 0x34b7a0	name	BriefingRoom::LastClone	0x32fdd0 LastClone__12BriefingRoomFv (exact)	2026-11-26	saved 2026-11-26
 0x34b7a0	label	LastClone__12BriefingRoomFv	0x32fdd0 LastClone__12BriefingRoomFv (exact)	2026-11-26	saved 2026-11-26
 0x34b7a0	plate	Release map: exact pair with prototype 0x32fdd0 LastClone__12BriefingRoomFv (evidence exact; flags -). // Owner src/gamez/zNetwork/zNetMedius.cpp.	0x32fdd0 LastClone__12BriefingRoomFv (exact)	2026-11-26	saved 2026-11-26
+0x34b850	create	0x34b850-0x34b863	0x32fe80 BaseSrc__17BriefingRoomCloneFv (exact)	2026-11-27	saved 2026-11-27
+0x34b850	disassemble	0x34b850-0x34b863	0x32fe80 BaseSrc__17BriefingRoomCloneFv (exact)	2026-11-27	saved 2026-11-27
 0x34b890	name	std::remove_copy<RoomGame**,RoomGame**,RoomGame*>	0x32fec0 remove_copy<PP8RoomGame,PP8RoomGame,P8RoomGame>__3stdFPP8RoomGamePP8RoomGamePP8RoomGameRCP8RoomGame (exact)	2026-11-26	saved 2026-11-26
 0x34b890	label	remove_copy<PP8RoomGame,PP8RoomGame,P8RoomGame>__3stdFPP8RoomGamePP8RoomGamePP8RoomGameRCP8RoomGame	0x32fec0 remove_copy<PP8RoomGame,PP8RoomGame,P8RoomGame>__3stdFPP8RoomGamePP8RoomGamePP8RoomGameRCP8RoomGame (exact)	2026-11-26	saved 2026-11-26
 0x34b890	plate	Release map: exact pair with prototype 0x32fec0 remove_copy<PP8RoomGame,PP8RoomGame,P8RoomGame>__3stdFPP8RoomGamePP8RoomGamePP8RoomGameRCP8RoomGame (evidence call; flags -). // Owner src/gamez/zNetwork/zNetMedius.cpp.	0x32fec0 remove_copy<PP8RoomGame,PP8RoomGame,P8RoomGame>__3stdFPP8RoomGamePP8RoomGamePP8RoomGameRCP8RoomGame (exact)	2026-11-26	saved 2026-11-26
@@ -23462,6 +23467,8 @@ release_address	applied	value	source_pair	date	state
 0x390000	create	0x390000-0x390013	0x3738a0 _langGetNbrPhenome (exact)	2026-11-26	saved 2026-11-26
 0x390000	name	_langGetNbrPhenome	0x3738a0 _langGetNbrPhenome (exact)	2026-11-26	saved 2026-11-26
 0x390000	plate	Release map: exact pair with prototype 0x3738a0 _langGetNbrPhenome (evidence exact; flags -). // Owner -.	0x3738a0 _langGetNbrPhenome (exact)	2026-11-26	saved 2026-11-26
+0x390018	create	0x390018-0x390023	0x3738b8 _langGetAdaptSilState (exact)	2026-11-27	saved 2026-11-27
+0x390018	disassemble	0x390018-0x390023	0x3738b8 _langGetAdaptSilState (exact)	2026-11-27	saved 2026-11-27
 0x390038	create	0x390038-0x390043	0x3738d8 _langGetNbrStateErgodicStates (exact)	2026-11-26	saved 2026-11-26
 0x390038	name	_langGetNbrStateErgodicStates	0x3738d8 _langGetNbrStateErgodicStates (exact)	2026-11-26	saved 2026-11-26
 0x390038	plate	Release map: exact pair with prototype 0x3738d8 _langGetNbrStateErgodicStates (evidence exact-position; flags -). // Owner -.	0x3738d8 _langGetNbrStateErgodicStates (exact)	2026-11-26	saved 2026-11-26
@@ -27885,6 +27892,8 @@ release_address	applied	value	source_pair	date	state
 0x405d00	label	__ct__16CZHudMissionCamsFv	0x404380 __ct__16CZHudMissionCamsFv (deviating)	2026-11-26	saved 2026-11-26
 0x405d00	plate	Release map: deviating pair with prototype 0x404380 __ct__16CZHudMissionCamsFv (evidence call-deviating; flags imm-only). // Owner src/Apps/FTS/hud/hud_missioncams.cpp; signature carried from the prototype as a starting point (the pair is not exact).	0x404380 __ct__16CZHudMissionCamsFv (deviating)	2026-11-26	saved 2026-11-26
 0x405d00	prototype	void * __stdcall CZHudMissionCams::CZHudMissionCams(CZHudMissionCams * this) [storage this=a0_lo:4]	0x404380 __ct__16CZHudMissionCamsFv (deviating)	2026-11-26	saved 2026-11-26
+0x405e50	create	0x405e50-0x405e5b	0x4044d0 rt_comm_get_version_string_ptr (exact)	2026-11-27	saved 2026-11-27
+0x405e50	disassemble	0x405e50-0x405e5b	0x4044d0 rt_comm_get_version_string_ptr (exact)	2026-11-27	saved 2026-11-27
 0x405e60	name	rt_comm_get_build_timestamp	0x4044e0 rt_comm_get_build_timestamp (exact)	2026-11-26	saved 2026-11-26
 0x405e60	plate	Release map: exact pair with prototype 0x4044e0 rt_comm_get_build_timestamp (evidence exact-position; flags identical-copy). // Owner -.	0x4044e0 rt_comm_get_build_timestamp (exact)	2026-11-26	saved 2026-11-26
 0x405fb8	name	rt_comm_startup	0x404638 rt_comm_startup (exact)	2026-11-26	saved 2026-11-26
@@ -29124,6 +29133,9 @@ release_address	applied	value	source_pair	date	state
 0x42ae90	prototype	double __stdcall strtod(char * __nptr, char * * __endptr) [storage __nptr=a0_lo:4, __endptr=a1_lo:4]	0x3e75a8 strtod (deviating)	2026-11-26	saved 2026-11-26
 0x42aee0	name	strtok	0x3e7600 strtok (deviating)	2026-11-26	saved 2026-11-26
 0x42aee0	plate	Release map: deviating pair with prototype 0x3e7600 strtok (evidence call; flags moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e7600 strtok (deviating)	2026-11-26	saved 2026-11-26
+0x42aee0	cut-by-analysis	0x42aee0-0x42aeff (was 0x42aee0-0x42afc7; after the create at 0x42af00)	0x3e7628 strtok_r (deviating)	2026-11-27	saved 2026-11-27
+0x42af00	create	0x42af00-0x42afc7	0x3e7628 strtok_r (deviating)	2026-11-27	saved 2026-11-27
+0x42af00	extent-accepted	0x42af00-0x42afc7: unreachable [['0x42afa4', '0x42afa7']]	0x3e7628 strtok_r (deviating)	2026-11-27	saved 2026-11-27
 0x42afc8	name	_strtol_r	0x3e76c8 _strtol_r (unsure)	2026-11-26	saved 2026-11-26
 0x42afc8	plate	Release map: unsure pair with prototype 0x3e76c8 _strtol_r (evidence call-deviating; flags low-similarity,moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e76c8 _strtol_r (unsure)	2026-11-26	saved 2026-11-26
 0x42b200	name	strtol	0x3e7900 strtol (deviating)	2026-11-26	saved 2026-11-26
