@@ -71,6 +71,11 @@ READS = frozenset({
     # ignored, in every category (ServiceUtils.findDataTypeByNameInAllCategories) and prints an
     # enum's name, size and values; no transaction
     "get_enum_values",
+    # globals step (tools/release/globals.py), each read in the plugin: ListingService.listGlobals
+    # (the stored symbols of the global namespace), ListingService.listSegments (the memory blocks),
+    # CommentService.getComment (every comment kind at any address), DataTypeService.getStructLayout
+    # (a structure's defined components); none opens a transaction
+    "list_globals", "list_segments", "get_comment", "get_struct_layout",
 })
 NO_PROGRAM = frozenset({"list_open_programs"})
 # The only writes the names step sends; none of them saves.
@@ -81,6 +86,12 @@ SIGNATURE_WRITES = frozenset({"set_function_prototype", "set_comment"})
 # disassemble_bytes is always sent with restrict_to_execute_memory false: the plugin passes that
 # flag to DisassembleCommand as its followFlow argument (FunctionService.disassembleBytes).
 STARTS_WRITES = frozenset({"disassemble_bytes", "create_function"})
+# The only writes the globals step sends (tools/release/globals.py); none of them saves or clears.
+# apply_data_type is sent only with clear_existing false (DataTypeService.applyDataType then does
+# Listing.createData alone, which refuses any overlap with an instruction or defined data); the
+# client refuses any other form. set_global, apply_data_classification and rename_data are in no
+# set: the first two clear code units, the last applies a global naming policy.
+GLOBALS_WRITES = frozenset({"create_label", "apply_data_type", "set_comment"})
 
 _FUNCTION = re.compile(r"^Function: (.*) at ([0-9a-fA-F]+)$")
 _BODY = re.compile(r"^Body: ([0-9a-fA-F]+) - ([0-9a-fA-F]+)$")
@@ -163,6 +174,9 @@ class Bridge:
             raise WriteRefused(f"{endpoint} is not a write this tool may send")
         if program != RELEASE_PROGRAM or "program" in body:
             raise WriteRefused(f"writes go to {RELEASE_PROGRAM} only, not {program!r}")
+        if endpoint == "apply_data_type" and body.get("clear_existing") is not False:
+            # the plugin's default is true: it would clear the code units in the range first
+            raise WriteRefused("apply_data_type is sent only with clear_existing false")
         path = PROGRAMS[program]
         payload = json.dumps({"program": path, **body}, sort_keys=True).encode("utf-8")
         record = {"endpoint": endpoint, "program": path, "body": body, "response": None}

@@ -500,6 +500,82 @@ python tools/release/datapair.py --out build/release/<scratch>   # the same file
 - **Not done here**: types (the apply's plan reads them from `socom.elf`, as `signatures.py` does), and
   the apply itself, which needs its own section, review and the user's go-ahead.
 
+## Stage 3: globals (names and types)
+
+The second phase carries the paired objects' names, then types, into `SCUS_971.34` with
+`tools/release/globals.py`, through three ordinary bridge writes (no script, nothing cleared or saved):
+
+```powershell
+python tools/release/globals.py --plan gamez/zCamera        # or: --plan --all
+python tools/release/globals.py --apply build/release/globals/plan-gamez-zCamera.json --dry-run
+python tools/release/globals.py --apply build/release/globals/plan-gamez-zCamera.json --yes [--batch N] [--only 0x..] [--check-every N]
+python tools/release/globals.py --confirm-saved build/release/globals/plan-gamez-zCamera.apply-001.json
+python tools/release/globals.py --discard-unsaved build/release/globals/plan-gamez-zCamera.apply-001.json
+```
+
+- **What the bridge does** (plugin 6.0.0 and Ghidra 12.1.4, read from the classes): `create_label`
+  refuses a label of the same name at the address and otherwise calls `SymbolTable.createLabel(..,
+  USER_DEFINED)` in the global namespace; no code unit changes; a DEFAULT-named function there takes the
+  name instead; a dynamic primary (`DAT_`, `PTR_`, `s_`) is deleted and the new label becomes primary,
+  otherwise the label is secondary. Symbol events start no analysis. `apply_data_type` resolves the
+  type by *name* (well-known names first, then a root type, then the first type of any category with
+  that name, case ignored); with `clear_existing` true, the default, it clears the range first, so the
+  tool sends false only and the client refuses any other form; `Listing.createData` then refuses, before
+  it changes anything, any overlap with an instruction or defined data, analysis `undefinedN` included.
+  Pointer components get DATA references to their values (not 0 or all ones, also to addresses no block
+  holds), and the new data schedules the data analyzers: only "Data Reference" can act here (it may
+  disassemble, or define a string or a pointer, at a target that is undefined bytes or analysis
+  `undefined` data; it leaves instructions, strings, pointers and other defined data alone and skips
+  addresses outside every block); "Function Start Search After Data" needs `after="data"` patterns,
+  which the R5900 pattern file does not have. A primary name starting `g_` can make the naming policy
+  refuse a type, so the type goes before the labels. `set_comment` replaces one comment kind. Never sent:
+  `set_global` and `apply_data_classification` (they clear), `rename_data` (a naming policy).
+- **Labels**: per committed pair of `data-map.tsv`, the prototype program's primary symbol at the
+  prototype address (an assembler-local `.dma.1` or `$L..` excepted) and the map's ELF symbol as a second
+  label where it differs, as the prototype has them (names that repeat at several addresses stay
+  repeated). Literals (`@N`) and anonymous objects get no label and no comment. Withheld, with the
+  reason: a map withhold, two committed pairs at one release address, an address no release memory
+  block holds, a function (entry or body), an instruction, an address inside a defined data item (an
+  offcut label), a stored label there that is no planned one, a release primary in another namespace, a
+  prototype symbol outside the global namespace, an invalid name, a name of a release function.
+  Unsure, new and removed rows are not named. A one-line plate comment `Release data map: <class> pair
+  with prototype <address> <symbol> (evidence ..; flags ..)` goes with the labels unless a plate this tool
+  did not write is there; `single-aligned` and the deviating flags show in it.
+- **Types**: the prototype's data item at the prototype address, when it is no placeholder
+  (`undefinedN`, `undefinedN[k]`, the bare `pointer`, `undefined *`: nothing to carry), the release holds
+  the same type at the same path and size and the name resolves to exactly it, the release size is
+  confirmed and at least its length (deviating pairs: equal to the prototype size), the flags are none of
+  `size-changed`, `offset-outside`, `size-from-release`, the range is undefined bytes, in no function and
+  no instruction, overlaps no other paired object, and every pointer component's value is 0, all ones,
+  outside every block, an instruction or defined data other than `undefined`. A string takes the length
+  to its NUL in the release bytes. A type the release does not hold (an array built on the fly) is
+  withheld: applying it would add it to the release type table.
+- **Step C** (counted, never built): where a real type would have to replace analysis data, the plan
+  counts the objects, bytes, analysis items by kind, the outgoing references a clear would drop and how
+  many the new type would make again. Replacing needs a clear; that is the user's decision.
+- **Apply**: the coordinator only, after a second agent reviewed the plan: the dry run first, then
+  `--yes`, optionally `--batch N` changed entries or `--only 0x..` for a pilot. The same guards as for the
+  other steps (open programs, recorded SHA-256, idle analysis, plan digest and map, no unsaved rows,
+  release program only, never a save), and the release memory blocks as planned. Per entry, in address
+  order: the type, the labels, the comment, each checked first against the state the plan saw or this
+  tool's own result, and read back: the data item's type and length, the address's reference count, each
+  predicted reference from a pointer component; the primary symbol, type, length, reference count and
+  code state after a label, the label in the global list; the comment and the other comment kinds. A light
+  snapshot (function list, every defined data item, every stored label, bookmarks) after every type,
+  every `--check-every` entries (default 25) and at the end must equal the prediction. Every stop names
+  its kind and what to do: `StopBefore` (nothing sent for that entry: save, confirm, replan), `StopAfter`
+  (a write answered otherwise or reads back otherwise; a refused type has changed nothing: read, then save
+  and confirm or close and discard), `AnalysisStop` (a change the plan did not make: check; save and
+  confirm if acceptable, otherwise close without saving and discard).
+- **Not handled**: the release program has no memory block for the zero-filled part of its PT_LOAD
+  (0x48d200..0x5d6cff, the bss): its pairs get no label or type until a block exists, which is a
+  structural change for the user to decide. References, comments and analysis effects inside a range
+  other than those listed are not visible through the bridge.
+- **Record**: `docs/release/ghidra-applied.tsv`, kinds `data-label`, `data-label-mangled`, `data-type`
+  (the type, path and length), `data-comment`; rows stay `unsaved <report>` until `--confirm-saved`, which
+  also records a write sent before a stop when the saved program holds it. `--discard-unsaved` refuses
+  while the program holds any write the report sent.
+
 ## Source
 
 - `src/` stays the single game source and the port lane's rules in `AGENTS.md` hold: assembly
