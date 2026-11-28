@@ -9,7 +9,10 @@ something references it; nothing else runs. ``get_xrefs_from`` lists target and 
 """
 from __future__ import annotations
 
+import re
+
 import ghidra_bridge as gb
+from fake_ghidra import TYPE_SIZES
 from fake_globals import FakeGlobals
 
 
@@ -21,6 +24,29 @@ class FakeReferences(FakeGlobals):
             p.ref_ops = {}  # from -> [(to, type, operand, source)]
         self.reference_effects = {}  # from -> callable(program): analysis after the write
         self.reference_answers = {}  # from -> the answer the bridge gives instead
+
+    def primary(self, p, address):
+        """``SymbolUtilities.getDynamicDataName`` for a referenced address inside a data item: the
+        component's path (``<item>[i]``, ``<item>.<field>``, plus ``+<offset>`` inside a primitive), or
+        ``<item>+<offset>`` for an item without components; ``<item>`` is the item's primary name."""
+
+        if p.labels.get(address) or address in p.ns_symbols or not p.refs_to.get(address):
+            return super().primary(p, address)
+        item = next(((a, t, n) for a, (t, n) in sorted(p.data.items()) if a < address < a + n), None)
+        if item is None:
+            return super().primary(p, address)
+        a, t, n = item
+        root = self.primary(p, a) or (("s_x_%08x" if t == "string" else "PTR_%08x" if t.endswith("*") else "DAT_%08x") % a)
+        offset = address - a
+        array = re.fullmatch(r"(.+)\[(\d+)\]", t)
+        if array:
+            size = TYPE_SIZES.get(array.group(1), 4)
+            index, rest = divmod(offset, size)
+            return f"{root}[{index}]" + (f"+{rest}" if rest else "")
+        if t in p.layouts:
+            o = max(o for o, _, _ in p.layouts[t] if o <= offset)
+            return f"{root}.f{o}" + (f"+{offset - o}" if offset - o else "")
+        return f"{root}+{offset if offset < 10 else hex(offset)}"
 
     def get_disassemble_function(self, q):
         p = self.program(q["program"])

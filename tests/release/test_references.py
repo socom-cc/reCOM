@@ -52,7 +52,13 @@ F3 = [lui(A0, 0x21), addiu(A0, A0, 0x300), sw(A0, 0x40, GP),   # stored; the sto
       lui(T0, 0x21), addu(T0, T0, A2), lw(T1, 0x500, T0),      # indexed: no fixed target
       JR_RA, NOP, NOP]
 F4 = [JR_RA, NOP, lw(V0, 0x50, GP), NOP, JR_RA, NOP, NOP, NOP]  # words 2-3: a gap of the body
-LAYOUT = [("F0", F0), ("f_access", F1), ("f_withheld", F2), ("f_store", F3), ("f_gap", F4)]
+# gp addresses into the initialised block (gp - n): made only for another use, as the one reference
+F5 = [addiu(A0, GP, -0x100),                   # other use, the only reference: made
+      addiu(A1, GP, -0x200), lw(A2, 4, A1),    # a base: withheld (and the field access)
+      addiu(A3, GP, -0x300), sw(A3, 0x60, GP),  # stored: withheld; the store into .bss is made
+      addiu(T0, GP, -0x400), lw(T1, -0x400, GP),  # the load already references it: a second reference
+      JR_RA, NOP, NOP]
+LAYOUT = [("F0", F0), ("f_access", F1), ("f_withheld", F2), ("f_store", F3), ("f_gap", F4), ("f_init", F5)]
 
 
 @pytest.fixture(autouse=True)
@@ -83,13 +89,16 @@ def make_ghidra(read_only=False):
         r.code.update(range(at, at + 4 * count, 4))
     gap = where["f_gap"][0]
     r.functions[gap]["holes"] = [(gap + 8, gap + 15)]
-    r.segments = [("SECTION4", 0x100000, 0x1001FF), (".bss", 0x200000, 0x2FFFFF)]
-    f1, f2, f3 = where["f_access"][0], where["f_withheld"][0], where["f_store"][0]
-    r.refs_from = {f1 + 24: [(0x208018, "READ")], f2 + 52: [(0x2000F0, "DATA")], f3 + 8: [(0x210300, "DATA")]}
+    r.segments = [("SECTION4", 0x100000, 0x207FFF), (".bss", 0x208000, 0x2FFFFF)]
+    f1, f2, f3, f5 = where["f_access"][0], where["f_withheld"][0], where["f_store"][0], where["f_init"][0]
+    r.refs_from = {f1 + 24: [(0x208018, "READ")], f2 + 52: [(0x2000F0, "DATA")], f3 + 8: [(0x210300, "DATA")],
+                   f5 + 24: [(0x207C00, "READ")]}
     r.refs_to = {0x208018: [f"From {f1 + 24:08x} in f_access [READ]"], 0x2000F0: ["From x in f [DATA]"],
-                 0x210300: [f"From {f3 + 8:08x} in f_store [DATA]"]}
+                 0x210300: [f"From {f3 + 8:08x} in f_store [DATA]"], 0x207C00: [f"From {f5 + 24:08x} in f_init [READ]"]}
     r.labels[0x208010] = ["g_count"]
-    r.data[0x210100] = ("int", 4)
+    r.labels[0x208012] = ["g_half"]
+    r.data[0x208012] = ("int", 4)        # 0x208014 lies inside it: g_half+2
+    r.data[0x210100] = ("int[4]", 16)    # 0x210104 lies inside it: <item>[1]
     return g
 
 
@@ -145,9 +154,11 @@ def test_plan_kinds_types_and_operands(tmp_path, monkeypatch):
     assert (at("f_access", 4), "0x210104", "pair-store", "WRITE", 1) in got
     assert (at("f_access", 5), "0x208020", "gp-address", "DATA", 0) in got
     assert (at("f_withheld", 1), "0x210200", "pair-address", "DATA", 0) in got
-    assert (at("f_withheld", 12), "0x100020", "pair-address", "DATA", 0) in got  # a function entry
     assert (at("f_store", 4), "0x210400", "pair-address", "DATA", 0) in got
     assert (at("f_store", 5), "0x208044", "gp-store", "WRITE", 1) in got
+    assert (at("f_init", 0), "0x207f00", "gp-address", "DATA", 0) in got  # the initialised block, another use
+    assert (at("f_init", 4), "0x208060", "gp-store", "WRITE", 1) in got
+    assert len(got) == 10
     assert all(e["source_type"] == "ANALYSIS" for e in plan["entries"] if e["state"] == "planned")
     assert entry(plan, "f_withheld", 1)["feeds"] == ["accesses through it"]
     assert entry(plan, "f_store", 4)["feeds"] == ["a store"]
@@ -161,8 +172,11 @@ def test_plan_target_state(tmp_path, monkeypatch):
     assert t["block"] == ".bss" and t["labels"] == ["g_count"]
     assert t["map"] == {"release": "0x208010", "symbol": "g_count", "class": "exact", "offset": 0, "size": "4"}
     t = entry(plan, "f_access", 4)["target"]
-    assert t["map"]["symbol"] == "g_obj" and t["map"]["offset"] == 4 and t["data"] is None
-    assert entry(plan, "f_access", 3)["target"]["data"] == ["0x210100", 4, "int", 0]
+    assert t["map"]["symbol"] == "g_obj" and t["map"]["offset"] == 4
+    assert t["data"] == ["0x210100", 16, "int[4]", 4] and t["item_labels"] == []
+    assert entry(plan, "f_access", 3)["target"]["data"] == ["0x210100", 16, "int[4]", 0]
+    assert "item_labels" not in entry(plan, "f_access", 3)["target"]
+    assert entry(plan, "f_access", 1)["target"]["item_labels"] == ["g_half"]
 
 
 def test_plan_present_covered_and_withheld(tmp_path, monkeypatch):
@@ -176,13 +190,20 @@ def test_plan_present_covered_and_withheld(tmp_path, monkeypatch):
                        at("f_withheld", 5): "gp itself", at("f_withheld", 6): "unaligned left half",
                        at("f_withheld", 8): "outside every memory block", at("f_withheld", 10): "reads or writes code",
                        at("f_withheld", 11): "points into code", at("f_withheld", 13): "other references on the instruction",
-                       at("F0", 1): "gp itself", at("f_store", 2): "other references on the instruction"}
+                       at("F0", 1): "gp itself", at("f_store", 2): "other references on the instruction",
+                       at("f_withheld", 12): "initialised block: pair address",
+                       at("f_init", 1): "initialised block: gp address, a base",
+                       at("f_init", 2): "register-offset access",
+                       at("f_init", 3): "initialised block: gp address, stored",
+                       at("f_init", 5): "initialised block: gp address, a second reference"}
     assert "f_access at" in entry(plan, "f_withheld", 11)["reason"]
+    assert at("f_init", 6) in entry(plan, "f_init", 5)["reason"]
+    assert entry(plan, "f_init", 6)["state"] == "present"
     s = plan["summary"]
     assert s["uses_without_a_fixed_target"] == {"indexed-load": 1}
     assert s["uses_left_out"] == {"in no function body": 1}  # the load in the gap of f_gap
-    assert s["planned"] == 9 and s["planned_by_block"] == {".bss": 8, "SECTION4": 1}
-    assert s["covered_at_a_store"] == 1 and s["present"] == {"gp-load": 1}
+    assert s["planned"] == 10 and s["planned_by_block"] == {".bss": 9, "SECTION4": 1}
+    assert s["covered_at_a_store"] == 1 and s["present"] == {"gp-load": 2}
 
 
 def test_plan_is_deterministic_and_selects_a_module(tmp_path, monkeypatch):
@@ -212,7 +233,7 @@ def test_dry_run_sends_nothing(tmp_path, monkeypatch):
     root, plan, path = plan_for(tmp_path, monkeypatch, g)
     reader = reader_for(g)
     result = run(root, path, reader, dry_run=True)
-    assert result["stopped"] is None and result["counts"] == {"reference": 9} and not reader.sent
+    assert result["stopped"] is None and result["counts"] == {"reference": 10} and not reader.sent
     assert result["would_write"][0]["body"] == {"from_address": at("f_access", 0), "to_address": "0x208010",
                                                  "ref_type": "READ", "source_type": "ANALYSIS", "operand_index": 1}
     assert not (root / names.RECORD).exists()
@@ -223,16 +244,16 @@ def test_apply_writes_reads_back_records_and_a_second_run_changes_nothing(tmp_pa
     root, plan, path = plan_for(tmp_path, monkeypatch, g)
     result = run(root, path, g, dry_run=False, check_every=4)
     assert result["stopped"] is None, result["stopped"]
-    assert [s["endpoint"] for s in g.sent] == ["add_memory_reference"] * 9
+    assert [s["endpoint"] for s in g.sent] == ["add_memory_reference"] * 10
     assert (0x208010, "READ") in g.release.refs_from[addresses()["f_access"][0]]
     assert result["checks"] == 3  # after 4, after 8, at the end
     rows = names.read_record(root)
     row = rows[(at("f_access", 0), rf.REFERENCE)]
     assert row["value"] == "to 0x208010 READ operand 1 ANALYSIS (gp-load)"
     assert row["state"] == f"unsaved {result['report']}"
-    assert rf.confirm_saved(root, root / rf.OUT / result["report"], reader_for(g), today="2026-11-28")["confirmed"] == 9
+    assert rf.confirm_saved(root, root / rf.OUT / result["report"], reader_for(g), today="2026-11-28")["confirmed"] == 10
     again = run(root, path, g, dry_run=False)
-    assert again["stopped"] is None and again["unchanged"] == 9 and len(g.sent) == 9
+    assert again["stopped"] is None and again["unchanged"] == 10 and len(g.sent) == 10
 
 
 def test_apply_refuses_unsaved_rows_a_changed_plan_and_other_blocks(tmp_path, monkeypatch):
@@ -411,3 +432,91 @@ def test_refs_from_reads_every_form():
     assert rf.refs_from(g, 0x100020) == [("0x140010", "DATA"), ("0x48d454", "READ"), ("Stack[0x10]", "WRITE")]
     g.get_get_xrefs_from = lambda q: "No references found from address: 0x100020"
     assert rf.refs_from(g, 0x100020) == []
+    g.get_get_xrefs_to = lambda q: "From 00141708 in FUN_001416d0 [DATA]\nFrom 00100000 [READ]"
+    assert rf.refs_to(g, 0x52718D) == [("0x100000", "READ"), ("0x141708", "DATA")]
+
+
+# --- target names, the snapshot's reference lists, the texts -------------------------------------
+
+def test_offcut_names_inside_a_data_item(tmp_path, monkeypatch):
+    g = make_ghidra()
+    root, plan, path = plan_for(tmp_path, monkeypatch, g)
+    result = run(root, path, g, dry_run=False)
+    assert result["stopped"] is None, result["stopped"]
+    reader = reader_for(g)
+    assert rf.target_state(reader, 0x208014)["name"] == "g_half+2"
+    assert rf.target_state(reader, 0x210104)["name"] == "DAT_00210100[1]"
+    assert rf.target_state(reader, 0x210100)["name"] == "DAT_00210100"
+
+
+@pytest.mark.parametrize("name, target, ok", [
+    ("g_half+2", {"data": ["0x208012", 4, "int", 2], "item_labels": ["g_half"]}, True),
+    ("g_half+3", {"data": ["0x208012", 4, "int", 2], "item_labels": ["g_half"]}, False),
+    ("g_half.f2", {"data": ["0x208012", 4, "int", 2], "item_labels": ["g_half"]}, False),  # an int has no fields
+    ("DAT_00208012+2", {"data": ["0x208012", 4, "int", 2], "item_labels": ["g_half"]}, False),
+    ("s_0123456789abcdef_0047f3bf+0x21", {"data": ["0x47f3bf", 40, "string", 0x21], "item_labels": []}, True),
+    ("theNetwork.m_bSessionMaster", {"data": ["0x511e00", 400, "CZNetwork", 0xA8], "item_labels": ["theNetwork"]}, True),
+    ("neighbor__6CAiMap[4]", {"data": ["0x4390a4", 32, "int[8]", 16], "item_labels": ["neighbor__6CAiMap"]}, True),
+    ("other[4]", {"data": ["0x4390a4", 32, "int[8]", 16], "item_labels": ["neighbor__6CAiMap"]}, False),
+    ("DAT_004390a4[4]", {"data": ["0x4390a4", 32, "int[8]", 16], "item_labels": []}, True),
+    ("DAT_004390a8[4]", {"data": ["0x4390a4", 32, "int[8]", 16], "item_labels": []}, False),  # another item
+    ("_zsys_public+0x1d", {"data": ["0x527170", 64, "_zsys_public", 0x1D], "item_labels": ["_zsys_public"]}, True),
+])
+def test_same_target_accepts_the_offcut_forms_of_that_item_only(name, target, ok):
+    address = int(target["data"][0], 16) + target["data"][3]
+    want = {"address": names.hx(address), "name": "", "type": "", "length": 0, "xref_count": 1, "code": False,
+            "entry": False}
+    assert rf.same_target(dict(want, name=name), want, target) is ok
+
+
+def test_a_name_at_an_item_start_or_in_no_item_must_be_dynamic():
+    want = {"address": "0x208010", "name": "", "type": "", "length": 0, "xref_count": 1, "code": False, "entry": False}
+    assert rf.same_target(dict(want, name="DAT_00208010"), want, {"data": None})
+    assert not rf.same_target(dict(want, name="g_half+2"), want, {"data": None})
+    assert not rf.same_target(dict(want, name="DAT_00208010"), dict(want, name="g_count"), {"data": None})
+
+
+def test_stop_after_a_name_the_plan_did_not_predict(tmp_path, monkeypatch):
+    g = make_ghidra()
+    root, plan, path = plan_for(tmp_path, monkeypatch, g)
+    g.reference_effects[addresses()["f_access"][0] + 4] = lambda p: p.labels.update({0x208014: ["made"]})
+    result = run(root, path, g, dry_run=False)
+    assert result["stop_kind"] == "StopAfter" and "the target 0x208014" in result["stopped"]
+
+
+def test_the_check_reads_the_references_from_every_planned_instruction(tmp_path, monkeypatch):
+    g = make_ghidra()
+    root, plan, path = plan_for(tmp_path, monkeypatch, g)
+    first = addresses()["f_access"][0]
+    g.reference_effects[first + 4] = lambda p: p.refs_from[first].append((0x2000F0, "DATA"))
+    result = run(root, path, g, dry_run=False, check_every=2)
+    assert result["stop_kind"] == "AnalysisStop"
+    assert [c for c in result["analysis_changes"] if c.get("references_from") == at("f_access", 0)]
+
+
+def test_the_check_reads_the_reference_list_of_every_written_target(tmp_path, monkeypatch):
+    g = make_ghidra()
+    root, plan, path = plan_for(tmp_path, monkeypatch, g)
+    first = addresses()["f_access"][0]
+
+    def retype(p):  # the same count, another type
+        p.refs_to[0x208010] = [line.replace("[READ]", "[DATA]") for line in p.refs_to[0x208010]]
+    g.reference_effects[first + 4] = retype
+    result = run(root, path, g, dry_run=False, check_every=2)
+    assert result["stop_kind"] == "AnalysisStop"
+    assert [c for c in result["analysis_changes"] if c.get("references_to") == "0x208010"]
+
+
+def test_stop_after_a_reference_list_that_reads_otherwise(tmp_path, monkeypatch):
+    g = make_ghidra()
+    root, plan, path = plan_for(tmp_path, monkeypatch, g)
+    first = addresses()["f_access"][0]
+    g.reference_effects[first] = lambda p: p.refs_to[0x208010].__setitem__(0, f"From {first:08x} in f [DATA]")
+    result = run(root, path, g, dry_run=False)
+    assert result["stop_kind"] == "StopAfter" and "the references to 0x208010" in result["stopped"]
+
+
+def test_the_stop_texts_name_the_undo_and_the_route():
+    for kind in ("StopAfter", "AnalysisStop"):
+        assert "Edit > Undo" in rf.WHAT_TO_DO[kind] and "--discard-unsaved" in rf.WHAT_TO_DO[kind]
+    assert "Undo" not in rf.WHAT_TO_DO["StopBefore"]

@@ -32,8 +32,15 @@ What the bridge does (GhidraMCP 6.0.0 ``XrefCallGraphService.addMemoryReference`
   made at the target (a ``DAT_`` name there is dynamic, not stored), and auto-analysis listens to
   no reference event (``AutoAnalysisManager``: function, code and flow events only), so nothing
   runs. Success: ``status success`` with from, to, ``ref_type``, ``source_type``,
-  ``operand_index`` and ``is_primary``; failure: ``{"error": ...}``. There is no undo endpoint;
-  ``remove_reference`` deletes every reference from-to whatever its source (never sent here).
+  ``operand_index`` and ``is_primary`` (only ``is_primary`` is read from the stored reference; the
+  type, source and operand are echoed from the request); failure: ``{"error": ...}``. There is no undo
+  endpoint, but each write is its own transaction, so Edit > Undo in the Ghidra window can take back
+  the last ones; the route this tool names stays closing without saving. ``remove_reference`` deletes
+  every reference from-to whatever its source (never sent here).
+* Once referenced, an address with no symbol shows a dynamic name: ``DAT_<address>`` (or the item's
+  default label) at a data item's start or in no item; inside an item ``<item>+<offset>``,
+  ``<item>.<field>`` or ``<item>[i]`` (``SymbolUtilities.getDynamicDataName``). The decompiler then
+  shows that name where it showed a raw ``uRam..`` (``DecompileCallback.lookupSymbol``).
 * ``get_xrefs_from`` lists the target and type of every reference from an address, not its
   operand, source or primary flag: no read endpoint shows those.
 
@@ -54,8 +61,14 @@ Ghidra holds there), and the kinds this tool takes from it:
   that store already has the reference, is ``covered``. 35 address computations have no
   relocation: 17 ``lui``/``ori`` pairs (all constants: masks, magic numbers) and 6 ``addiu r, gp, 0``
   are withheld, and so is a pair equal to gp; the other 12 are linker-defined addresses (section
-  bounds). Applied to the prototype, this rule would add 1,252 references, 1,246 of them relocated,
-  the other 6 linker-defined addresses.
+  bounds). Split by the target's block (the review ``socom-release-refs-review-r6``): into the
+  uninitialised block the analyzer put DATA on the computation whatever the use (bases 719 of 719,
+  other uses 5,533 of 5,537, stored 118 of 120, gp 254 of 254); into the initialised block it marks a
+  base on the accesses through it, a stored address on the store, and other uses with PARAM on the
+  computation (gp: 420 of 426). So address computations are made into the uninitialised block, and
+  into the initialised block only through gp, for another use, as the function's one reference to
+  that target (the release analyzer lacked gp there); a ``lui`` pair into the initialised block is
+  what the release analyzer chose not to mark, and is withheld.
 * register-offset accesses (``lw t, k(r)`` with r an address): the analyzer marks 1,070 of 2,716 and
   base plus offset lies outside the base's symbol in a third: withheld. Indexed accesses (an unknown
   register added) have no fixed target: not planned. Not derivable at all: references through
@@ -96,7 +109,7 @@ from names import Refused, Stop, canonical, hx, sha256_text  # noqa: E402
 
 OUT = Path("build/release/references")
 PLAN_KIND = "socom-release-references-plan"
-PLAN_SCHEMA = 1
+PLAN_SCHEMA = 2  # 2: the initialised block's address computations withheld; offcut target names
 REFERENCE = "reference"  # the record's kind
 CHECK_EVERY = 250  # writes between two snapshots
 SOURCE_TYPES = ("ANALYSIS", "USER_DEFINED")
@@ -115,11 +128,27 @@ FIELD_REASON = ("a register-offset access: withheld (the prototype's analysis ma
 ORI_REASON = "a lui/ori pair: a constant, not an address (all 17 in the prototype are constants)"
 GP0_REASON = "the value of gp itself (addiu r, gp, 0, or a lui pair equal to gp): a base, not an object"
 OTHER_REASON = "the instruction has other references ({}): their operand cannot be read through the bridge"
+# Address computations into the initialised block (the analyzer had it and needed no gp for lui pairs):
+# the prototype's analysis marks a base on its accesses, a stored address on the store, and puts PARAM
+# on the computation only for other uses (gp: 420 of 426); into the uninitialised block it put DATA on
+# the computation whatever the use, as this tool does.
+INIT_PAIR_REASON = ("a lui/addiu pair into the initialised block: the analyzer had the block and the pair and "
+                    "chose not to mark it")
+INIT_BASE_REASON = ("a gp address into the initialised block used as a base: the analyzer marks the accesses "
+                    "through it, not the computation")
+INIT_STORED_REASON = ("a gp address into the initialised block that the function stores: the analyzer marks the "
+                      "store, not the computation")
+INIT_SECOND_REASON = ("a gp address into the initialised block that the function already references from {}: it "
+                      "would be a second reference")
 
+UNDO = (" Each reference is its own transaction, so Edit > Undo in the Ghidra window can take back the last ones; "
+        "the route this tool names stays closing without saving and --discard-unsaved.")
 AFTER_NOTHING = gl.AFTER_NOTHING
-AFTER_A_WRITE = gl.AFTER_A_WRITE
-AFTER_ANALYSIS = gl.AFTER_ANALYSIS
-WHAT_TO_DO = gl.WHAT_TO_DO
+AFTER_A_WRITE = gl.AFTER_A_WRITE + "." + UNDO
+AFTER_ANALYSIS = gl.AFTER_ANALYSIS + "." + UNDO
+WHAT_TO_DO = {"StopBefore": AFTER_NOTHING, "StopAfter": AFTER_A_WRITE, "AnalysisStop": AFTER_ANALYSIS,
+              "Stop": AFTER_A_WRITE, "BridgeError": AFTER_A_WRITE}
+_REF_TO = re.compile(r"^From (\S+?)(?: in .*?)? \[(\w+)\]$")
 
 
 # --- live reads --------------------------------------------------------------------------------
@@ -140,6 +169,24 @@ def refs_from(bridge, address: int) -> list[tuple[str, str]]:
             raise gb.BridgeError(f"get_xrefs_from {hx(address)}: cannot read {line!r}")
         target = match.group(1)
         out.append((hx(int(target, 16)) if re.fullmatch(r"[0-9a-fA-F]+", target) else target, match.group(2)))
+    return sorted(out)
+
+
+def refs_to(bridge, address: int) -> list[tuple[str, str]]:
+    """Every reference to an address as (from, type), sorted."""
+
+    text = bridge.get("get_xrefs_to", gb.RELEASE_PROGRAM, address=hx(address), offset=0, limit=1000000)
+    if not isinstance(text, str):
+        raise gb.BridgeError(f"get_xrefs_to {hx(address)}: {str(text)[:200]}")
+    if text.startswith("No references"):
+        return []
+    out = []
+    for line in text.splitlines():
+        match = _REF_TO.match(line.strip())
+        if not match:
+            raise gb.BridgeError(f"get_xrefs_to {hx(address)}: cannot read {line!r}")
+        source = match.group(1)
+        out.append((hx(int(source, 16)) if re.fullmatch(r"[0-9a-fA-F]+", source) else source, match.group(2)))
     return sorted(out)
 
 
@@ -324,13 +371,15 @@ def build_plan(root: Path, bridge, module: str | None, image=None, source_type: 
     holder = gl.parallel(bridge, in_code, lambda c, a: names.read_function(c, gb.RELEASE_PROGRAM, a))
     data = gl.DataIndex(gl.read_data(bridge, gb.RELEASE_PROGRAM))
     labels = gl.read_labels(bridge, gb.RELEASE_PROGRAM)
+    init_block = block_of(segments, image.entry)
     entries, unfixed = [], Counter()
     for use in sorted(uses.values(), key=lambda u: u["from"]):
         if use["target"] is None:
             unfixed[use["kind"]] += 1
             continue
         entries.append(decide(use, had[use["from"]], store_refs, segments, states, holder, data, labels, maps,
-                              bodies, source_type, gp))
+                              bodies, source_type, gp, init_block))
+    second_references(bridge, entries, bodies, init_block)
     plan = {
         "kind": PLAN_KIND, "schema_version": PLAN_SCHEMA, "program": gb.RELEASE_PROGRAM,
         "selection": module or "--all", "function_map_sha256": map_sha, "data_map_sha256": data_sha,
@@ -345,7 +394,8 @@ def build_plan(root: Path, bridge, module: str | None, image=None, source_type: 
     return plan
 
 
-def decide(use, had, store_refs, segments, states, holder, data, labels, maps, bodies, source_type, gp) -> dict:
+def decide(use, had, store_refs, segments, states, holder, data, labels, maps, bodies, source_type, gp,
+           init_block) -> dict:
     at, target, kind = use["from"], use["target"], use["kind"]
     fn = bodies[use["function"]]
     entry = {"from": hx(at), "to": hx(target), "kind": kind, "function": hx(use["function"]),
@@ -362,6 +412,9 @@ def decide(use, had, store_refs, segments, states, holder, data, labels, maps, b
                        "state": states.get(target),
                        "data": [hx(here[0]), here[1], here[2], target - here[0]] if here else None,
                        "map": maps.containing(target)}
+    if here and target > here[0]:
+        # an address inside a data item: once referenced, its dynamic name derives from the item's
+        entry["target"]["item_labels"] = labels.get(here[0], [])
     if any(t == hx(target) for t, _ in had):
         entry["state"] = "present"
         return entry
@@ -390,6 +443,12 @@ def decide(use, had, store_refs, segments, states, holder, data, labels, maps, b
         reason = "reads or writes code"
     elif had:
         reason = OTHER_REASON.format(", ".join(f"{t} {k}" for t, k in had))
+    elif kind == "pair-address" and block == init_block:
+        reason = INIT_PAIR_REASON
+    elif kind == "gp-address" and block == init_block and use["base"]:
+        reason = INIT_BASE_REASON
+    elif kind == "gp-address" and block == init_block and use["stores"]:
+        reason = INIT_STORED_REASON
     if reason:
         entry["reason"] = reason
         return entry
@@ -398,12 +457,37 @@ def decide(use, had, store_refs, segments, states, holder, data, labels, maps, b
     return entry
 
 
+def second_references(bridge, entries, bodies, init_block) -> None:
+    """A gp address into the initialised block is made only as the function's one reference to its target."""
+
+    chosen = [e for e in entries if e["state"] == "planned" and e["kind"] == "gp-address"
+              and e["target"]["block"] == init_block]
+    if not chosen:
+        return
+    # Only references the program holds count: planned ones stand where analysis with gp would have
+    # marked them too (it marks every such site).
+    to = gl.parallel(bridge, sorted({int(e["to"], 16) for e in chosen}), lambda c, a: refs_to(c, a))
+    for e in chosen:
+        fn = bodies[int(e["function"], 16)]
+        others = sorted({f for f, _ in to[int(e["to"], 16)] if f.startswith("0x") and f != e["from"]
+                         and fn["lo"] <= int(f, 16) <= fn["hi"]})
+        if others:
+            e.update(state="withheld", reason=INIT_SECOND_REASON.format(", ".join(others)), ref_type=None,
+                     operand=None, source_type=None)
+
+
 def reason_group(reason: str) -> str:
     for prefix, group in (("a register-offset", "register-offset access"), ("the left half", "unaligned left half"),
                           ("a lui/ori", "lui/ori constant"), ("the value of gp", "gp itself"),
                           ("outside every memory block", "outside every memory block"),
                           ("points into code", "points into code"), ("reads or writes code", "reads or writes code"),
-                          ("the instruction has other", "other references on the instruction")):
+                          ("the instruction has other", "other references on the instruction"),
+                          ("a lui/addiu pair into the initialised", "initialised block: pair address"),
+                          ("a gp address into the initialised block used", "initialised block: gp address, a base"),
+                          ("a gp address into the initialised block that the function stores",
+                           "initialised block: gp address, stored"),
+                          ("a gp address into the initialised block that the function already",
+                           "initialised block: gp address, a second reference")):
         if reason.startswith(prefix):
             return group
     return "other"
@@ -504,6 +588,10 @@ def snapshot(bridge) -> dict:
 
 
 def ok_answer(answer, entry) -> bool:
+    """The plugin echoes ``ref_type``, ``source_type`` and ``operand_index`` from the request (and from
+    and to as parsed); only ``is_primary`` is read from the stored reference. So the answer proves the
+    request was taken and the new reference is primary on some operand, not its operand or source."""
+
     if not isinstance(answer, dict) or answer.get("status") != "success":
         return False
     try:
@@ -533,6 +621,8 @@ class Applier:
         self.checks = 0
         self.batch_full = False
         self.targets: dict[str, dict] = {}  # target -> the state expected now
+        self.expected_from: dict[str, list] = {}  # planned instruction met in this run -> its references
+        self.expected_to: dict[str, list] = {}  # written target -> the references to it
 
     def run(self) -> None:
         entries = [e for e in self.plan["entries"] if e["state"] == "planned"]
@@ -594,6 +684,14 @@ class Applier:
             got = target_state(self.bridge, int(target, 16))
             if not same_target(got, want):
                 changes.append({"target": target, "expected": want, "now": got})
+        for source, want in sorted(self.expected_from.items()):
+            got = refs_from(self.bridge, int(source, 16))
+            if got != want:
+                changes.append({"references_from": source, "expected": want, "now": got})
+        for target, want in sorted(self.expected_to.items()):
+            got = refs_to(self.bridge, int(target, 16))
+            if got != want:
+                changes.append({"references_to": target, "expected": want, "now": got})
         return changes
 
     def entry(self, entry: dict) -> bool:
@@ -603,6 +701,7 @@ class Applier:
         live = refs_from(self.bridge, at)
         if live == sorted(had + [planned]):
             self.unchanged += 1
+            self.expected_from[entry["from"]] = live
             return False
         if live != had:
             raise sg.StopBefore(f"{entry['from']}: the references from it are {live} now, the plan saw {had}: "
@@ -626,6 +725,7 @@ class Applier:
         if self.dry_run:
             self.would.append(dict(item, endpoint="add_memory_reference", body=body))
             return True
+        to_before = refs_to(self.bridge, to)
         self.attempted.append(item)
         answer = self.bridge.write("add_memory_reference", gb.RELEASE_PROGRAM, **body)
         if not ok_answer(answer, entry):
@@ -635,24 +735,64 @@ class Applier:
         if back != sorted(had + [planned]):
             raise sg.StopAfter(f"{entry['from']}: the references from it read {back}, expected {sorted(had + [planned])}: "
                                f"{AFTER_A_WRITE}")
+        self.expected_from[entry["from"]] = back
         after = target_state(self.bridge, to)
         want = dict(before, xref_count=(before.get("xref_count") or 0) + 1)
-        if not same_target(after, want):
+        if not same_target(after, want, entry["target"]):
             raise sg.StopAfter(f"{entry['from']}: the target {entry['to']} reads {after}, expected {want}: {AFTER_A_WRITE}")
+        to_after = refs_to(self.bridge, to)
+        if to_after != sorted(to_before + [(entry["from"], entry["ref_type"])]):
+            raise sg.StopAfter(f"{entry['from']}: the references to {entry['to']} read {to_after}, expected those before "
+                               f"plus this one: {AFTER_A_WRITE}")
         self.targets[entry["to"]] = dict(after)
+        self.expected_to[entry["to"]] = to_after
         self.written.append(item)
         return True
 
 
-def same_target(got: dict, want: dict) -> bool:
+def diff_string(offset: int) -> str:
+    """``SymbolUtilities.getDiffString``: below 10 in decimal, else 0x and hex."""
+
+    return str(offset) if offset < 10 else "0x%x" % offset
+
+
+def has_no_components(type_name: str) -> bool:
+    """A data item Ghidra gives no components: scalars, strings, pointers, analysis ``undefinedN``."""
+
+    return type_name in gl.SCALARS or type_name.endswith("*") or bool(re.fullmatch(r"undefined\d*|pointer\d*", type_name))
+
+
+def offcut_name_ok(name: str, target: dict) -> bool:
+    """The dynamic name an address inside a data item takes once referenced (``SymbolUtilities.getDynamicDataName``):
+    an item without components gives ``<item>+<offset>``; a structure or an array gives the component's path,
+    ``<item>.<field>`` or ``<item>[i]`` (plus ``+<offset>`` inside a primitive), or ``<item>+<offset>`` in padding.
+    ``<item>`` is a stored label at the item, else its own dynamic name (``<prefix>_<item address>``)."""
+
+    item, _, type_name, offset = target["data"]
+    roots = [re.escape(label) for label in target.get("item_labels") or []] or \
+        [r"[A-Za-z][^\s+]*_%08x" % int(item, 16)]
+    root = "(?:" + "|".join(roots) + ")"
+    plus = re.escape("+" + diff_string(offset))
+    if re.fullmatch(root + plus, name):
+        return True
+    return not has_no_components(type_name) and bool(re.fullmatch(root + r"(?:\.|\[)\S*", name))
+
+
+def same_target(got: dict, want: dict, target: dict | None = None) -> bool:
     """The target as expected: type, length, code state and reference count; its primary name the
-    same, or a dynamic one where there was none (a referenced address shows ``DAT_..``)."""
+    same, or, where there was none, the dynamic name a referenced address takes: ``DAT_..`` (or the
+    item's own default label) at a data item's start or in no item, the offcut forms inside an item."""
 
     if any(got.get(k) != want.get(k) for k in ("type", "length", "code", "entry", "xref_count")):
         return False
     if got.get("name") == want.get("name"):
         return True
-    return not want.get("name") and gl.is_dynamic(got.get("name") or "", int(got["address"], 16))
+    if want.get("name"):
+        return False
+    inside = (target or {}).get("data")
+    if inside and inside[3] > 0:
+        return offcut_name_ok(got.get("name") or "", target)
+    return gl.is_dynamic(got.get("name") or "", int(got["address"], 16))
 
 
 def reads_back(bridge, item: dict) -> bool:

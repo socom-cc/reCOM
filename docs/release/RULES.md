@@ -597,37 +597,57 @@ python tools/release/references.py --discard-unsaved build/release/references/pl
   `ReferenceManager.addMemoryReference(from, to, type, source, operand)` in one transaction. It first
   deletes the stack and register references on that operand; the same from, to and operand is never
   duplicated (the type is combined: READ and WRITE give READ_WRITE); a new reference is primary when
-  its operand has none. No symbol, data or code unit is made at the target (the `DAT_` name a
-  referenced address shows is dynamic), and auto-analysis reacts to no reference event, so nothing
-  runs. The answer is `status success` with the fields and `is_primary`, or `{"error": ...}`. There is
-  no undo endpoint. `get_xrefs_from` shows target and type only: the operand, source and primary flag
+  its operand has none. No symbol, data or code unit is made at the target, and auto-analysis reacts
+  to no reference event, so nothing runs. The answer is `status success` with the fields and
+  `is_primary`, or `{"error": ...}`; type, source and operand in it are echoed from the request, only
+  `is_primary` is read from the stored reference, so the answer does not verify the operand or the
+  source. There is no undo endpoint, but each write is its own transaction: Edit > Undo in the Ghidra
+  window can take back the last ones; the route the tool names stays closing without saving and
+  `--discard-unsaved`. `get_xrefs_from` shows target and type only: the operand, source and primary flag
   of a stored reference cannot be read through the bridge. The client sends the write only with type
   READ, WRITE or DATA, source ANALYSIS or USER_DEFINED and an operand of 0 or more.
+- **Names a reference brings** (`SymbolUtilities.getDynamicDataName`): a referenced address without a
+  symbol shows a dynamic name, `DAT_<address>` (or a data item's own default label, `s_..`, `PTR_..`)
+  at an item's start or in no item; inside an item `<item>+<offset>` (offset in decimal below 10, else
+  `0x..`), and for a structure or an array the component's path, `<item>.<field>` or `<item>[i]`, where
+  `<item>` is the item's primary name. The decompiler then shows that name where it showed a raw
+  `uRam..` (`DecompileCallback.lookupSymbol`): expected, so a check that compares decompiler text
+  counts it as explained.
 - **What analysis makes**, measured on the prototype (every use `dataflow.py` derives in its 9,705
   bodies against every reference Ghidra holds there): a load or store through gp or through a `lui`
   high half gets READ or WRITE on operand 1 (7,224 of 7,224 and 6,640 of 6,640 agree; the right half
   `lwr`/`ldr` of an unaligned pair too, the left half never); an address computation gets a reference
-  on itself (15,223, DATA or PARAM), on the store that stores it (1,457), or none. A register-offset
-  access is marked in 1,070 of 2,716 cases. The 877 gp references the release holds all agree with
-  the derivation.
+  on itself (15,223, DATA or PARAM), on the store that stores it (1,457), or none. Split by the
+  target's block (review `socom-release-refs-review-r6`): into the uninitialised block analysis put
+  DATA on the computation whatever the use (bases 719 of 719, other uses 5,533 of 5,537, stored 118 of
+  120, gp 254 of 254); into the initialised block a base gets its references on the accesses through
+  it (or none), a stored address on the store, other uses PARAM on the computation (gp: 420 of 426).
+  A register-offset access is marked in 1,070 of 2,716 cases. The 877 gp references the release holds
+  all agree with the derivation.
 - **Plan** (any worker; reads the release program, writes nothing): per instruction of a release
   function body (the function holding it) with a use whose target is fixed: the kind, the reference
   (from, to, type, operand), the instructions that build the address, what the instruction holds
   already, and the target's block, labels, defined data with the offset in it, data-map row with the
   offset, and code-unit state. Made: `gp-load`, `pair-load` READ operand 1; `gp-store`, `pair-store`
-  WRITE operand 1; `gp-address`, `pair-address` DATA operand 0 (the destination register, which the
+  WRITE operand 1; `gp-address`, `pair-address` DATA operand 0 into the uninitialised block, and
+  `gp-address` into the initialised block only for another use (no base, not stored) and as the
+  function's one reference to that target, where analysis without gp missed the PARAM it makes
+  (operand 0 is the destination register, which the
   analyzer's operand search matches; PARAM is not made, since analysis deletes PARAM references of any
   source when it revisits an instruction). Source ANALYSIS (`--source-type USER_DEFINED` at plan time
   for the other); a re-analysis removes neither. Present: a reference to the target from the
   instruction exists; covered: an address the function stores, where the store has the reference.
   Withheld, with the reason: register-offset accesses, the left half of an unaligned pair, a
   `lui`/`ori` pair (a constant: all 17 in the prototype), the value of gp itself, a target outside
-  every memory block, a load or store into code, an address into code that is no function entry, and
-  an instruction that already has another reference (its operand cannot be read). Indexed accesses
-  have no fixed target and are counted. An address computation lists what the function does with the
-  address (`feeds`: accesses through it, field or indexed; a store); where analysis would have marked those instead, the
-  reference stands at the computation. Not derived: references through pointers analysis read from
-  initialized memory, values stored as addresses no computation of the function builds.
+  every memory block, a load or store into code, an address into code that is no function entry, an
+  instruction that already has another reference (its operand cannot be read), a `lui` pair address
+  into the initialised block (the release analyzer had the block and the pair and chose not to mark
+  it), and a gp address into the initialised block used as a base, stored, or as a second reference of
+  the function to its target (a reference the program holds from another of its instructions).
+  Indexed accesses have no fixed target and are counted. An address computation lists what the
+  function does with the address (`feeds`: accesses through it, field or indexed; a store). Not
+  derived: references through pointers analysis read from initialized memory, values stored as
+  addresses no computation of the function builds.
 - **Review**: a second agent that did not write the plan checks it before anything is applied.
 - **Apply**: the coordinator only, after the review: the dry run first, then `--yes`, optionally
   `--batch N` references or `--only 0x..` (the instruction) for a pilot. The same guards as the other
@@ -635,16 +655,19 @@ python tools/release/references.py --discard-unsaved build/release/references/pl
   release program only, never a save) and the memory blocks as planned. Per reference: the references
   from the instruction must be those the plan saw (with the planned one too: unchanged, a second run
   changes nothing), the function holding it must have the planned entry and body, the target the
-  planned type, length and code state; then one write, whose answer must echo the planned fields with
+  planned type, length and code state; then one write, whose answer must echo the request with
   `is_primary` true; the references from the instruction must read back as before plus exactly the
-  planned one, and the target's reference count one more, nothing else of it changed (a dynamic name
-  where it had none). A snapshot of every function (body, name, thunk, signature line, no-return),
-  every defined data item, every stored label, every bookmark and the state of every target written so
-  far is compared with the one before the run after every `--check-every` writes (default 250),
+  planned one, the references to the target as before plus this one, and nothing else of the target
+  changed (where it had no name, the dynamic name above: at an offset inside a data item only the
+  offcut forms of that item). A snapshot of every function (body, name, thunk, signature line,
+  no-return), every defined data item, every stored label, every bookmark, the state and the whole
+  reference list of every target written so far, and the references from every planned instruction
+  met in the run is compared with the expected one after every `--check-every` writes (default 250),
   whenever analysis is seen running after a write, and at the end. Stops as in the globals step:
   `StopBefore` (nothing sent for that reference: save, confirm, replan), `StopAfter` (the write
   answered or reads back otherwise: read it; save and confirm, or close without saving and discard),
-  `AnalysisStop` (a change the plan did not make: check it first).
+  `AnalysisStop` (a change the plan did not make: check it first); after a write, Edit > Undo can also
+  take back the last references, as above.
 - **Record**: `docs/release/ghidra-applied.tsv`, kind `reference`, the row at the instruction's
   address, the value `to <target> <type> operand <n> <source> (<kind>)`; rows stay
   `unsaved <report>` until `--confirm-saved`, which also records a write sent before a stop when the
