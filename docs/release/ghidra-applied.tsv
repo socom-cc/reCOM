@@ -34215,8 +34215,8 @@ release_address	applied	value	source_pair	date	state
 0x479ee8	data-comment	Release data map: exact pair with prototype 0x462f88 __RTTI__16CBrightnessTuner (evidence content:1,pointer:1; flags none)	p 0x462f88 __RTTI__16CBrightnessTuner (exact)	2026-11-27	saved 2026-11-27
 0x479f28	data-label	__RTTI__22CStickSensitivityTuner	p 0x462fc8 __RTTI__22CStickSensitivityTuner (exact)	2026-11-27	saved 2026-11-27
 0x479f28	data-comment	Release data map: exact pair with prototype 0x462fc8 __RTTI__22CStickSensitivityTuner (evidence content:1,pointer:1; flags none)	p 0x462fc8 __RTTI__22CStickSensitivityTuner (exact)	2026-11-27	saved 2026-11-27
-0x479f68	data-label	__RTTI__23CStickAccelerationTuner	p 0x463008 __RTTI__23CStickAccelerationTuner (exact)	2026-11-27	saved 2026-11-27
-0x479f68	data-comment	Release data map: exact pair with prototype 0x463008 __RTTI__23CStickAccelerationTuner (evidence order:1; flags order-only)	p 0x463008 __RTTI__23CStickAccelerationTuner (exact)	2026-11-27	saved 2026-11-27
+0x479f68	data-label	__RTTI__18CStickInertiaTuner	new: named from the class name the record holds; corrected by the coordinator (the order-only pair with p 0x463008 __RTTI__23CStickAccelerationTuner was wrong)	2026-11-27	saved 2026-11-27
+0x479f68	data-comment	Release data map: new, no prototype counterpart; named from the class name this record holds (CStickInertiaTuner). Corrected: the pair with prototype 0x463008 __RTTI__23CStickAccelerationTuner rested on order only and was wrong.	new: named from the class name the record holds; corrected by the coordinator (the order-only pair with p 0x463008 __RTTI__23CStickAccelerationTuner was wrong)	2026-11-27	saved 2026-11-27
 0x479fa8	data-label	__RTTI__19CStickDeadzoneTuner	p 0x463048 __RTTI__19CStickDeadzoneTuner (exact)	2026-11-27	saved 2026-11-27
 0x479fa8	data-comment	Release data map: exact pair with prototype 0x463048 __RTTI__19CStickDeadzoneTuner (evidence content:1,pointer:1; flags none)	p 0x463048 __RTTI__19CStickDeadzoneTuner (exact)	2026-11-27	saved 2026-11-27
 0x479fd8	data-label	__RTTI__12CDialogTuner	p 0x463078 __RTTI__12CDialogTuner (exact)	2026-11-27	saved 2026-11-27

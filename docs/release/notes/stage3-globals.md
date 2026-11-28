@@ -125,3 +125,22 @@ just past the block).
   the user's decision.
 - The pairs nobody can confirm: names taken from a single aligned witness carry the flag in
   their plate.
+
+## A wrong name found and corrected
+
+While revising the name proposals with the new globals as context, `socom-release-newnames-p1`
+saw that the RTTI record at 0x479f68, labelled `__RTTI__23CStickAccelerationTuner`, holds the
+class name "CStickInertiaTuner": the release replaced that tuner class. The pair rested on order
+alone, with one witness, and was not on the pairing check's withhold list, although the vtable
+pointing at the record was (the `InitSystemTuners` group).
+
+Every RTTI record holds its class name and every vtable points at its record, so the coordinator
+checked all 678 such labels of this step against the release image: 677 agree, this one does not,
+8 cannot be read that way. Corrected: the pair is settled as removed in `settled-data.tsv`; the
+label in the release program was renamed to `__RTTI__18CStickInertiaTuner`, the name its own
+string gives, and its plate says so (one `rename_label` and one `set_comment` through the bridge,
+read back and saved; the record's two rows for the address follow). A fresh plan of the step
+still has nothing to apply.
+
+The same self-check is a way to name what is new in the release from its own strings: RTTI
+records and vtables of classes that have no prototype counterpart. Not done here.

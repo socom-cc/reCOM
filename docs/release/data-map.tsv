@@ -5946,8 +5946,7 @@ release_address	release_size	prototype_address	prototype_size	prototype_symbol	p
 0x479f10	20	0x462fb0	20	@1967	.rodata	.rodata	exact	pointer:1	1	-	-	-
 0x479f28	8	0x462fc8	8	__RTTI__22CStickSensitivityTuner	.rodata	.rodata	exact	content:1,pointer:1	2	-	-	-
 0x479f30	24	0x462fd0	24	@1977	.rodata	.rodata	unsure	order:1	1	order-only	-	-
-0x479f50	20	0x462ff0	20	@1978	.rodata	.rodata	exact	order:1	1	identical-copy,order-only	order only; its bytes occur more than once, so the order chose among copies	-
-0x479f68	8	0x463008	8	__RTTI__23CStickAccelerationTuner	.rodata	.rodata	exact	order:1	1	order-only	-	-
+0x479f50	0..32	0x462ff0	20	@1978	.rodata	.rodata	deviating	order:1	1	identical-copy,order-only,size-unconfirmed	order only; its bytes occur more than once, so the order chose among copies	-
 0x479f70	20	0x463010	20	@1988	.rodata	.rodata	exact	content:1,pointer:1	2	-	-	-
 0x479f90	20	0x463030	20	@1989	.rodata	.rodata	exact	pointer:1	1	-	-	-
 0x479fa8	8	0x463048	8	__RTTI__19CStickDeadzoneTuner	.rodata	.rodata	exact	content:1,pointer:1	2	-	-	-
@@ -11518,6 +11517,7 @@ release_address	release_size	prototype_address	prototype_size	prototype_symbol	p
 -	-	0x4609b0	34	@3657	.rodata	-	removed	-	0	refs-removed	-	src/Apps/FTS/state/st_load.cpp
 -	-	0x4609d8	4	@3658	.rodata	-	removed	-	0	identical-copy,refs-removed	-	src/Apps/FTS/state/st_load.cpp
 -	-	0x462980	3	@2370	.rodata	-	removed	-	0	refs-unaligned	-	src/gamez/zUI/zui_var.cpp
+-	-	0x463008	8	__RTTI__23CStickAccelerationTuner	.rodata	-	removed	-	0	settled,unreached	-	-
 -	-	0x463fe8	-	-	.rodata	-	removed	-	0	refs-unaligned	-	-
 -	-	0x4643d8	-	-	.rodata	-	removed	-	0	refs-unaligned	-	-
 -	-	0x464400	-	-	.rodata	-	removed	-	0	refs-unaligned	-	-

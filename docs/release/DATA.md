@@ -34,20 +34,20 @@ code accesses, and the distance to the next paired release object (`?` when none
 
 | group | exact | deviating | unsure | new | removed | exact bytes | deviating bytes | unsure bytes | new bytes | removed bytes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| all objects | 9044 | 508 | 195 | 1320 | 1222 | 960948 | 477619 | 1524 | 0 | 202420 |
+| all objects | 9042 | 509 | 195 | 1320 | 1223 | 960920 | 477639 | 1524 | 0 | 202428 |
 
 Bytes are prototype sizes (new rows have none). Flags:
 
 | flag | objects |
 |---|---|
-| `settled` | 179 |
+| `settled` | 180 |
 | `witness-conflict` | 13 |
 | `release-shared` | 18 |
 | `contradicted` | 79 |
 | `offset-outside` | 8 |
 | `offset-changed` | 39 |
 | `size-changed` | 36 |
-| `size-unconfirmed` | 378 |
+| `size-unconfirmed` | 379 |
 | `content-changed` | 152 |
 | `pointer-changed` | 1 |
 | `section-changed` | 8 |
@@ -56,10 +56,10 @@ Bytes are prototype sizes (new rows have none). Flags:
 | `constant-as-address` | 7 |
 | `single-aligned` | 1344 |
 | `identical-copy` | 287 |
-| `order-only` | 362 |
+| `order-only` | 361 |
 | `refs-removed` | 372 |
 | `refs-unaligned` | 680 |
-| `unreached` | 170 |
+| `unreached` | 171 |
 | `ref-by-new` | 352 |
 
 ## By prototype section
@@ -72,7 +72,7 @@ address whose paired neighbours below and above lie in different sections reads 
 
 | group | exact | deviating | unsure | new | removed | exact bytes | deviating bytes | unsure bytes | new bytes | removed bytes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| .rodata | 5847 | 100 | 42 | 464 | 639 | 87253 | 4706 | 335 | 0 | 12517 |
+| .rodata | 5845 | 101 | 42 | 464 | 640 | 87225 | 4726 | 335 | 0 | 12525 |
 | between .sdata and .bss from _fbss | 921 | 129 | 90 | 392 | 264 | 2752 | 285 | 228 | 0 | 746 |
 | .bss | 879 | 79 | 27 | 191 | 134 | 612015 | 196859 | 756 | 0 | 143614 |
 | between .rodata and .sdata from __data_end | 477 | 41 | 17 | 88 | 77 | 1386 | 149 | 69 | 0 | 282 |
@@ -115,7 +115,7 @@ of the prototype functions that reference it have (the function map's owner colu
 
 | group | exact | deviating | unsure | new | removed | exact bytes | deviating bytes | unsure bytes | new bytes | removed bytes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| (no owner) | 3330 | 55 | 41 | 233 | 405 | 307727 | 4990 | 193 | 0 | 121256 |
+| (no owner) | 3328 | 56 | 41 | 233 | 406 | 307699 | 5010 | 193 | 0 | 121264 |
 | gamez/zSeal | 1279 | 145 | 71 | 389 | 259 | 22176 | 3627 | 300 | 0 | 5340 |
 | gamez/zAnim | 855 | 22 | 2 | 94 | 56 | 12791 | 4641 | 14 | 0 | 433 |
 | Apps/FTS/hud | 471 | 88 | 37 | 245 | 167 | 14979 | 23929 | 416 | 0 | 7681 |
@@ -162,12 +162,12 @@ of the prototype functions that reference it have (the function map's owner colu
 | measure | value |
 |---|---|
 | named prototype objects | 10377 |
-| named objects paired (no conflict) | 9276 |
+| named objects paired (no conflict) | 9275 |
 | ... strongest evidence `content` | 3377 |
 | ... strongest evidence `operand-exact` | 3292 |
 | ... strongest evidence `operand-aligned` | 1608 |
 | ... strongest evidence `pointer` | 415 |
-| ... strongest evidence `order` | 353 |
+| ... strongest evidence `order` | 352 |
 | ... strongest evidence `settled` | 178 |
 | ... strongest evidence `vtable` | 52 |
 | ... strongest evidence `named-table` | 1 |
@@ -175,16 +175,16 @@ of the prototype functions that reference it have (the function map's owner colu
 | named pairs `operand-aligned` supports | 3620 |
 | named pairs `operand-exact` supports | 3294 |
 | named pairs `pointer` supports | 1879 |
-| named pairs `order` supports | 353 |
+| named pairs `order` supports | 352 |
 | named pairs `vtable` supports | 226 |
 | named pairs `settled` supports | 178 |
 | named pairs `named-table` supports | 2 |
-| pairs resting on one witness | 4715 |
+| pairs resting on one witness | 4714 |
 | ... of them `operand-exact` | 1636 |
 | ... of them `operand-aligned` | 1344 |
 | ... of them `content` | 846 |
 | ... of them `pointer` | 403 |
-| ... of them `order` | 362 |
+| ... of them `order` | 361 |
 | ... of them `settled` | 121 |
 | ... of them `vtable` | 3 |
 | release data addresses code references | 10315 |
@@ -207,7 +207,7 @@ code without a key. Every rejected use is in `build/release/data-map.json` (`key
 
 ## Settled rows and the apply step
 
-`docs/release/settled-data.tsv` (a checker's input, read on every run): 179 rows decide a pair or
+`docs/release/settled-data.tsv` (a checker's input, read on every run): 180 rows decide a pair or
 that there is none (evidence `settled`; evidence that still disagrees is listed as a contradiction),
 17 objects carry a withhold reason from it. The map's `withhold` column says why the apply step must
 not carry a pair; 212 committed pairs carry one:
