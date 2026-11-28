@@ -209,8 +209,8 @@ code without a key. Every rejected use is in `build/release/data-map.json` (`key
 
 `docs/release/settled-data.tsv` (a checker's input, read on every run): 179 rows decide a pair or
 that there is none (evidence `settled`; evidence that still disagrees is listed as a contradiction),
-16 objects carry a withhold reason from it. The map's `withhold` column says why the apply step must
-not carry a pair; 211 committed pairs carry one:
+17 objects carry a withhold reason from it. The map's `withhold` column says why the apply step must
+not carry a pair; 212 committed pairs carry one:
 
 | reason | committed pairs |
 |---|---|
@@ -220,6 +220,7 @@ not carry a pair; 211 committed pairs carry one:
 | order only; the paired function no longer references it | 4 |
 | InitSystemTuners group: the release creates more tuners and has no STICK_ACCELERATION | 2 |
 | text changed, role unclear (OnListSavedGames) | 2 |
+| contradicted and offset-changed (aligned uses point at 0x47d098..0x47d0a0 in the data): carry the name, not the type | 1 |
 | jump table of the GetCommandName switch: 33 of 66 entries changed; carry the name, not the entries | 1 |
 | only the alias _fbss is witnessed (the entry function's bss start): carry _fbss, not the local static | 1 |
 

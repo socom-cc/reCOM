@@ -10512,7 +10512,7 @@ release_address	release_size	prototype_address	prototype_size	prototype_symbol	p
 0x577f50	28	0x55be10	28	MultiplayerMsgStrings	.bss	.bss	exact	operand-exact:1	1	-	-	src/Apps/FTS/hud/hud_main.cpp
 0x577f70	12	0x55be30	12	@2608	.bss	.bss	exact	operand-exact:1	1	-	-	src/Apps/FTS/hud/hud_main.cpp
 0x577f80	12	0x55be40	12	@2609	.bss	.bss	exact	operand-exact:1	1	-	-	src/Apps/FTS/hud/hud_main.cpp
-0x577f90	16	0x55be50	16	m_hud_textcolor__4CHUD	.bss	.bss	deviating	operand-exact:1,operand-aligned:6	7	contradicted,offset-changed	-	src/Apps/FTS/hud/hud_main.cpp
+0x577f90	16	0x55be50	16	m_hud_textcolor__4CHUD	.bss	.bss	deviating	operand-exact:1,operand-aligned:6	7	contradicted,offset-changed	contradicted and offset-changed (aligned uses point at 0x47d098..0x47d0a0 in the data): carry the name, not the type	src/Apps/FTS/hud/hud_main.cpp
 0x577fa0	12	0x55be60	12	@2756	.bss	.bss	exact	operand-exact:1	1	-	-	src/Apps/FTS/hud/hud_main.cpp
 0x577fb0	128	0x55be70	128	X_WeaponBackground	.bss	.bss	exact	operand-exact:1,operand-aligned:1	2	-	-	src/Apps/FTS/hud/hud_main.cpp
 0x578030	80	0x55bf00	80	newstr$3014	.bss	.bss	exact	operand-aligned:1	1	single-aligned	-	src/Apps/FTS/hud/hud_main.cpp

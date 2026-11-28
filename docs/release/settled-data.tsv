@@ -194,3 +194,4 @@ removed	0x44c600	@6468	wrong: text 'Empty Slot' absent from the release; OnListS
 -	0x4491b8	@2406	data-pairing check: pairs to withhold	socom-release-data-check-k1	2026-11-27	order only; the paired function no longer references it
 -	0x44e808	@1923	data-pairing check: pairs to withhold	socom-release-data-check-k1	2026-11-27	order only; the paired function no longer references it
 -	0x4645e0	@3084	data-pairing check: pairs to withhold	socom-release-data-check-k1	2026-11-27	order only; the paired function no longer references it
+-	0x55be50	m_hud_textcolor__4CHUD	globals plan review: a type to withhold	socom-release-globals-review-r5	2026-11-27	contradicted and offset-changed (aligned uses point at 0x47d098..0x47d0a0 in the data): carry the name, not the type
