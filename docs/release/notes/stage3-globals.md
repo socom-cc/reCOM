@@ -116,8 +116,8 @@ cases (an existing label, addresses inside an item or an instruction, conflictin
 just past the block).
 ## Open
 
-- The memory block for the uninitialised data: done, see above. A later re-analysis of the code
-  would create references into it; none exist yet.
+- The memory block for the uninitialised data: done, see above. The references into it were
+  added by the references step (`stage3-references.md`).
 
 - **67 objects where analysis already defined untyped data** (81 items: 77 untyped scalars, 4
   pointers). Their real type would need a clear. It would drop 4 outgoing references, all of
@@ -164,7 +164,5 @@ and re-running the analyzer would have re-flowed every function.
 
 Checked by the coordinator against a baseline taken before: all 1,496 functions decompiled again,
 and none shows a raw gp variable (933 before); the function count (9,875), every name and
-signature line and both programs' bookmarks are unchanged. Not done: the references themselves.
-7,797 gp-relative accesses have no stored reference (6,231 of them into the uninitialised data,
-which had no memory block when the analysis ran), so the reference lists of those globals are
-incomplete. Adding them would be a step of its own.
+signature line and both programs' bookmarks are unchanged. The references themselves were a step
+of its own, done on 2026-11-28: see `stage3-references.md` (18,430 references added).
