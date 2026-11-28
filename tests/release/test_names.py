@@ -139,6 +139,7 @@ def test_c_library_pairs_are_named_by_their_place():
         lib(0x400060, "exact", 0x500040, "fclose"),
         lib(0x400070, "deviating", 0x500050, "sceGsSyncV", library="SCE"),  # another library: its own order
         lib(0x400080, "deviating", 0x500060, "mystery", library=""),        # library unknown: exact pairs only
+        lib(0x400090, "deviating", 0x500002, "chanrd_", evidence=("settled",)),   # out of place, settled by a checker: named
     ]
     placed = names.library_place(rows)
     assert placed == {0x400000, 0x400010, 0x400020, 0x400060, 0x400070}
@@ -156,6 +157,8 @@ def test_c_library_pairs_are_named_by_their_place():
     assert decide(5)[0] is None and "exact pairs only" in decide(5)[2]
     assert decide(7)[0] == "sceGsSyncV" and "same place" in decide(7)[2]
     assert decide(8)[0] is None and "exact pairs only" in decide(8)[2]
+    assert 0x400090 not in placed
+    assert decide(9)[0] == "chanrd_" and "check settles it" in decide(9)[2]
     # Without the place (an old caller), the rule is the old one.
     assert names.decide_name(rows[1], {"name": "atof"})[0] is None
     # The plate of a function named this way says so.

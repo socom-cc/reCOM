@@ -110,7 +110,8 @@ python tools/release/names.py --confirm-saved build/release/names/plan-gamez-zAr
   (`zar::CZAR::NewKey`), plus the mangled symbol as a second label, as the prototype stores them.
   A library function whose pair is exact takes the prototype's name. One whose pair is
   deviating or unsure takes it when it stands in the same place as in the prototype (between
-  the same neighbours of its library) or, for a deviating pair, when its callers decide it; the
+  the same neighbours of its library) or, for a deviating pair, when its callers decide it or a
+  second agent's check settled it (a row in `settled-pairs.tsv`); the
   plate says which. The user decided this for the C standard library on 2026-11-26 and for
   every library on 2026-11-27, to keep the release readable; a pair whose library is not known
   stays on exact pairs. A worker who meets such a function still unnamed may name it on the

@@ -3525,7 +3525,7 @@ release_address	applied	value	source_pair	date	state
 0x16ad78	plate	Release map: exact pair with prototype 0x16ba48 acosf (evidence call; flags -). // Owner -.	0x16ba48 acosf (exact)	2026-11-26	saved 2026-11-26
 0x16ad78	prototype	float __stdcall acosf(float __x) [storage __x=f12:4]	0x16ba48 acosf (exact)	2026-11-26	saved 2026-11-26
 0x16ad90	name	asinf	0x16ba60 asinf (exact)	2026-11-26	saved 2026-11-26
-0x16ad90	plate	Release map: exact pair with prototype 0x16ba60 asinf (evidence exact-position; flags -). // Owner -.	0x16ba60 asinf (exact)	2026-11-26	saved 2026-11-26
+0x16ad90	plate	Release map: exact pair with prototype 0x16ba60 asinf (evidence call-deviating; flags -). // Owner -.	0x16ba60 asinf (exact)	2026-11-28	saved 2026-11-28
 0x16ad90	prototype	float __stdcall asinf(float __x) [storage __x=f12:4]	0x16ba60 asinf (exact)	2026-11-26	saved 2026-11-26
 0x16ada8	name	atan2f	0x16ba78 atan2f (exact)	2026-11-26	saved 2026-11-26
 0x16ada8	plate	Release map: exact pair with prototype 0x16ba78 atan2f (evidence exact-caller; flags -). // Owner -.	0x16ba78 atan2f (exact)	2026-11-26	saved 2026-11-26
@@ -3534,10 +3534,10 @@ release_address	applied	value	source_pair	date	state
 0x16adc0	plate	Release map: exact pair with prototype 0x16ba90 expf (evidence call; flags -). // Owner -.	0x16ba90 expf (exact)	2026-11-26	saved 2026-11-26
 0x16adc0	prototype	float __stdcall expf(float x) [storage x=f12:4]	0x16ba90 expf (exact)	2026-11-26	saved 2026-11-26
 0x16add8	name	logf	0x16baa8 logf (exact)	2026-11-26	saved 2026-11-26
-0x16add8	plate	Release map: exact pair with prototype 0x16baa8 logf (evidence position; flags identical-copy). // Owner -.	0x16baa8 logf (exact)	2026-11-26	saved 2026-11-26
+0x16add8	plate	Release map: exact pair with prototype 0x16baa8 logf (evidence exact-caller; flags -). // Owner -.	0x16baa8 logf (exact)	2026-11-28	saved 2026-11-28
 0x16add8	prototype	float __stdcall logf(float x) [storage x=f12:4]	0x16baa8 logf (exact)	2026-11-26	saved 2026-11-26
 0x16adf0	name	sqrtf	0x16bac0 sqrtf (exact)	2026-11-26	saved 2026-11-26
-0x16adf0	plate	Release map: exact pair with prototype 0x16bac0 sqrtf (evidence position; flags identical-copy). // Owner -.	0x16bac0 sqrtf (exact)	2026-11-26	saved 2026-11-26
+0x16adf0	plate	Release map: exact pair with prototype 0x16bac0 sqrtf (evidence exact-position; flags -). // Owner -.	0x16bac0 sqrtf (exact)	2026-11-28	saved 2026-11-28
 0x16adf0	prototype	float __stdcall sqrtf(float x) [storage x=f12:4]	0x16bac0 sqrtf (exact)	2026-11-26	saved 2026-11-26
 0x16ae08	name	__muldi3	0x16bad8 __muldi3 (exact)	2026-11-26	saved 2026-11-26
 0x16ae08	plate	Release map: exact pair with prototype 0x16bad8 __muldi3 (evidence exact; flags -). // Owner -.	0x16bad8 __muldi3 (exact)	2026-11-26	saved 2026-11-26
@@ -43190,7 +43190,7 @@ release_address	applied	value	source_pair	date	state
 0x3d1530	name	iTerminateString	0x3b1fb0 iTerminateString (exact)	2026-11-26	saved 2026-11-26
 0x3d1530	plate	Release map: exact pair with prototype 0x3b1fb0 iTerminateString (evidence exact; flags -). // Owner -.	0x3b1fb0 iTerminateString (exact)	2026-11-26	saved 2026-11-26
 0x3d1554	name	iCreateAndAllocateMessageID	0x3b1fd4 iCreateAndAllocateMessageID (deviating)	2026-11-27	saved 2026-11-27
-0x3d1554	plate	Release map: deviating pair with prototype 0x3b1fd4 iCreateAndAllocateMessageID (evidence position; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3b1fd4 iCreateAndAllocateMessageID (deviating)	2026-11-27	saved 2026-11-27
+0x3d1554	plate	Release map: deviating pair with prototype 0x3b1fd4 iCreateAndAllocateMessageID (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3b1fd4 iCreateAndAllocateMessageID (deviating)	2026-11-28	saved 2026-11-28
 0x3d15ac	name	iGetMessageIDValues	0x3b203c iGetMessageIDValues (exact)	2026-11-26	saved 2026-11-26
 0x3d15ac	plate	Release map: exact pair with prototype 0x3b203c iGetMessageIDValues (evidence exact; flags -). // Owner -.	0x3b203c iGetMessageIDValues (exact)	2026-11-26	saved 2026-11-26
 0x3d1658	name	MediusSetNatServiceAddress	0x3b20e8 MediusSetNatServiceAddress (exact)	2026-11-26	saved 2026-11-26
@@ -43382,9 +43382,10 @@ release_address	applied	value	source_pair	date	state
 0x3d406c	plate	Release map: exact pair with prototype 0x3b4b70 MediusClearGameListFilter (evidence exact-position; flags -). // Owner -.	0x3b4b70 MediusClearGameListFilter (exact)	2026-11-26	saved 2026-11-26
 0x3d40dc	reference	to 0x5a0748 READ operand 1 ANALYSIS (pair-load)	derived from the code (pair-load in MediusClearGameListFilter)	2026-11-28	saved 2026-11-28
 0x3d410c	name	MediusGetGameListFilter	0x3b4c10 MediusGetGameListFilter (exact)	2026-11-26	saved 2026-11-26
-0x3d410c	plate	Release map: exact pair with prototype 0x3b4c10 MediusGetGameListFilter (evidence position; flags identical-copy). // Owner -.	0x3b4c10 MediusGetGameListFilter (exact)	2026-11-26	saved 2026-11-26
+0x3d410c	plate	Release map: exact pair with prototype 0x3b4c10 MediusGetGameListFilter (evidence exact-position; flags identical-copy). // Owner -.	0x3b4c10 MediusGetGameListFilter (exact)	2026-11-28	saved 2026-11-28
 0x3d417c	reference	to 0x5a0750 READ operand 1 ANALYSIS (pair-load)	derived from the code (pair-load in MediusGetGameListFilter)	2026-11-28	saved 2026-11-28
-0x3d41ac	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
+0x3d41ac	name	MediusCreateMessageID	0x3b4cb0 MediusCreateMessageID (deviating)	2026-11-28	saved 2026-11-28
+0x3d41ac	plate	Release map: deviating pair with prototype 0x3b4cb0 MediusCreateMessageID (evidence settled; flags -). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3b4cb0 MediusCreateMessageID (deviating)	2026-11-28	saved 2026-11-28
 0x3d4248	create	0x3d4248-0x3d4273	0x3b4d4c MediusReassignCallbackChatFwdMessageCallback (exact)	2026-11-27	saved 2026-11-27
 0x3d4248	name	MediusReassignCallbackChatFwdMessageCallback	0x3b4d4c MediusReassignCallbackChatFwdMessageCallback (exact)	2026-11-27	saved 2026-11-27
 0x3d4248	plate	Release map: exact pair with prototype 0x3b4d4c MediusReassignCallbackChatFwdMessageCallback (evidence position; flags identical-copy). // Owner -.	0x3b4d4c MediusReassignCallbackChatFwdMessageCallback (exact)	2026-11-27	saved 2026-11-27
@@ -43398,7 +43399,7 @@ release_address	applied	value	source_pair	date	state
 0x3d42a0	plate	Release map: exact pair with prototype 0x3b4da4 MediusReassignCallbackErrorMessageCallback (evidence position; flags identical-copy). // Owner -.	0x3b4da4 MediusReassignCallbackErrorMessageCallback (exact)	2026-11-27	saved 2026-11-27
 0x3d42a0	disassemble	0x3d42a0-0x3d42cb	0x3b4da4 MediusReassignCallbackErrorMessageCallback (exact)	2026-11-27	saved 2026-11-27
 0x3d42cc	name	MediusGetMyIP	0x3b4dd0 MediusGetMyIP (exact)	2026-11-26	saved 2026-11-26
-0x3d42cc	plate	Release map: exact pair with prototype 0x3b4dd0 MediusGetMyIP (evidence position; flags identical-copy). // Owner -.	0x3b4dd0 MediusGetMyIP (exact)	2026-11-26	saved 2026-11-26
+0x3d42cc	plate	Release map: exact pair with prototype 0x3b4dd0 MediusGetMyIP (evidence exact-position; flags identical-copy). // Owner -.	0x3b4dd0 MediusGetMyIP (exact)	2026-11-28	saved 2026-11-28
 0x3d433c	reference	to 0x5a0758 READ operand 1 ANALYSIS (pair-load)	derived from the code (pair-load in MediusGetMyIP)	2026-11-28	saved 2026-11-28
 0x3d436c	name	MediusGetWorldSecurityLevel	0x3b4e70 MediusGetWorldSecurityLevel (exact)	2026-11-26	saved 2026-11-26
 0x3d436c	plate	Release map: exact pair with prototype 0x3b4e70 MediusGetWorldSecurityLevel (evidence exact-position; flags -). // Owner -.	0x3b4e70 MediusGetWorldSecurityLevel (exact)	2026-11-26	saved 2026-11-26
@@ -43434,12 +43435,12 @@ release_address	applied	value	source_pair	date	state
 0x3d4ca4	name	MediusSetDefaultConnectInfo	0x3b57a8 MediusSetDefaultConnectInfo (deviating)	2026-11-27	saved 2026-11-27
 0x3d4ca4	plate	Release map: deviating pair with prototype 0x3b57a8 MediusSetDefaultConnectInfo (evidence call-deviating; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3b57a8 MediusSetDefaultConnectInfo (deviating)	2026-11-27	saved 2026-11-27
 0x3d4d60	name	MediusGetTotalGames	0x3b583c MediusGetTotalGames (exact)	2026-11-26	saved 2026-11-26
-0x3d4d60	plate	Release map: exact pair with prototype 0x3b583c MediusGetTotalGames (evidence position; flags identical-copy). // Owner -.	0x3b583c MediusGetTotalGames (exact)	2026-11-26	saved 2026-11-26
+0x3d4d60	plate	Release map: exact pair with prototype 0x3b583c MediusGetTotalGames (evidence position; flags ambiguous,identical-copy). // Owner -.	0x3b583c MediusGetTotalGames (exact)	2026-11-28	saved 2026-11-28
 0x3d4dd0	reference	to 0x5a087c READ operand 1 ANALYSIS (pair-load)	derived from the code (pair-load in MediusGetTotalGames)	2026-11-28	saved 2026-11-28
 0x3d4e00	name	MediusGetTotalChannels	0x3b58dc MediusGetTotalChannels (exact)	2026-11-26	saved 2026-11-26
-0x3d4e00	plate	Release map: exact pair with prototype 0x3b58dc MediusGetTotalChannels (evidence position; flags identical-copy). // Owner -.	0x3b58dc MediusGetTotalChannels (exact)	2026-11-26	saved 2026-11-26
+0x3d4e00	plate	Release map: exact pair with prototype 0x3b58dc MediusGetTotalChannels (evidence position; flags ambiguous,identical-copy). // Owner -.	0x3b58dc MediusGetTotalChannels (exact)	2026-11-28	saved 2026-11-28
 0x3d4e70	reference	to 0x5a0884 READ operand 1 ANALYSIS (pair-load)	derived from the code (pair-load in MediusGetTotalChannels)	2026-11-28	saved 2026-11-28
-0x3d4ea0	plate	Release map: unsure pair with prototype 0x3b4cb0 MediusCreateMessageID (evidence call-deviating; flags low-similarity,moved). // Owner -; prototype name MediusCreateMessageID not applied: unsure pair: the evidence does not settle it.	0x3b4cb0 MediusCreateMessageID (unsure)	2026-11-26	saved 2026-11-26
+0x3d4ea0	plate	Release map: new, no prototype counterpart (evidence settled; flags copy). // Owner -; settled: docs/release/notes/library-pairs.md.	new	2026-11-28	saved 2026-11-28
 0x3d4f10	reference	to 0x5a088c READ operand 1 ANALYSIS (pair-load)	derived from the code (pair-load in FUN_003d4ea0)	2026-11-28	saved 2026-11-28
 0x3d4f40	name	lgAudInit	0x3b5980 lgAudInit (deviating)	2026-11-27	saved 2026-11-27
 0x3d4f40	plate	Release map: deviating pair with prototype 0x3b5980 lgAudInit (evidence call; flags -). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3b5980 lgAudInit (deviating)	2026-11-27	saved 2026-11-27
@@ -48383,12 +48384,15 @@ release_address	applied	value	source_pair	date	state
 0x423e28	prototype	undefined __stdcall fflush(__sFILE * __stream) [storage __stream=a0_lo:4]	0x3e0658 fflush (deviating)	2026-11-26	saved 2026-11-26
 0x423f40	name	std	0x3e0760 std (deviating)	2026-11-26	saved 2026-11-26
 0x423f40	plate	Release map: deviating pair with prototype 0x3e0760 std (evidence call-deviating; flags moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e0760 std (deviating)	2026-11-26	saved 2026-11-26
-0x423fa0	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x424018	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
+0x423fa0	name	__sfmoreglue	0x3e07b8 __sfmoreglue (deviating)	2026-11-28	saved 2026-11-28
+0x423fa0	plate	Release map: deviating pair with prototype 0x3e07b8 __sfmoreglue (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e07b8 __sfmoreglue (deviating)	2026-11-28	saved 2026-11-28
+0x424018	name	__sfp	0x3e0828 __sfp (deviating)	2026-11-28	saved 2026-11-28
+0x424018	plate	Release map: deviating pair with prototype 0x3e0828 __sfp (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e0828 __sfp (deviating)	2026-11-28	saved 2026-11-28
 0x424110	name	_cleanup_r	0x3e0908 _cleanup_r (unsure)	2026-11-26	saved 2026-11-26
-0x424110	plate	Release map: unsure pair with prototype 0x3e0908 _cleanup_r (evidence call-deviating; flags low-similarity,moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e0908 _cleanup_r (unsure)	2026-11-26	saved 2026-11-26
+0x424110	plate	Release map: deviating pair with prototype 0x3e0908 _cleanup_r (evidence call-deviating; flags call-and-slot,moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e0908 _cleanup_r (deviating)	2026-11-28	saved 2026-11-28
 0x424130	create	0x424130-0x42414b	new	2026-11-27	saved 2026-11-27
-0x424130	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-27	saved 2026-11-27
+0x424130	name	_cleanup	0x3e0918 _cleanup (deviating)	2026-11-28	saved 2026-11-28
+0x424130	plate	Release map: deviating pair with prototype 0x3e0918 _cleanup (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e0918 _cleanup (deviating)	2026-11-28	saved 2026-11-28
 0x424130	disassemble	0x424130-0x42414b	new	2026-11-27	saved 2026-11-27
 0x424150	name	__sinit	0x3e0928 __sinit (deviating)	2026-11-26	saved 2026-11-26
 0x424150	plate	Release map: deviating pair with prototype 0x3e0928 __sinit (evidence call-deviating; flags moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e0928 __sinit (deviating)	2026-11-26	saved 2026-11-26
@@ -48418,10 +48422,12 @@ release_address	applied	value	source_pair	date	state
 0x424e88	plate	Release map: deviating pair with prototype 0x3e1600 __sfvwrite (evidence call-deviating; flags moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e1600 __sfvwrite (deviating)	2026-11-26	saved 2026-11-26
 0x425268	name	_fwalk	0x3e19d8 _fwalk (deviating)	2026-11-26	saved 2026-11-26
 0x425268	plate	Release map: deviating pair with prototype 0x3e19d8 _fwalk (evidence call-deviating; flags moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e19d8 _fwalk (deviating)	2026-11-26	saved 2026-11-26
-0x425300	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
+0x425300	name	_setlocale_r	0x3e1a70 _setlocale_r (deviating)	2026-11-28	saved 2026-11-28
+0x425300	plate	Release map: deviating pair with prototype 0x3e1a70 _setlocale_r (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e1a70 _setlocale_r (deviating)	2026-11-28	saved 2026-11-28
 0x425390	name	_localeconv_r	0x3e1af8 _localeconv_r (exact)	2026-11-26	saved 2026-11-26
 0x425390	plate	Release map: exact pair with prototype 0x3e1af8 _localeconv_r (evidence call-deviating; flags moved). // Owner -.	0x3e1af8 _localeconv_r (exact)	2026-11-26	saved 2026-11-26
-0x4253a0	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
+0x4253a0	name	setlocale	0x3e1b08 setlocale (deviating)	2026-11-28	saved 2026-11-28
+0x4253a0	plate	Release map: deviating pair with prototype 0x3e1b08 setlocale (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e1b08 setlocale (deviating)	2026-11-28	saved 2026-11-28
 0x4253c8	name	localeconv	0x3e1b38 localeconv (deviating)	2026-11-26	saved 2026-11-26
 0x4253c8	plate	Release map: deviating pair with prototype 0x3e1b38 localeconv (evidence call-deviating; flags moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e1b38 localeconv (deviating)	2026-11-26	saved 2026-11-26
 0x4253e8	name	_lseek_r	0x3e1b60 _lseek_r (unsure)	2026-11-26	saved 2026-11-26
@@ -48462,8 +48468,10 @@ release_address	applied	value	source_pair	date	state
 0x426558	name	memset	0x3e2c88 memset (deviating)	2026-11-26	saved 2026-11-26
 0x426558	plate	Release map: deviating pair with prototype 0x3e2c88 memset (evidence call; flags moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype; signature carried from the prototype as a starting point (the pair is not exact).	0x3e2c88 memset (deviating)	2026-11-26	saved 2026-11-26
 0x426558	prototype	void * __stdcall memset(void * __s, int __c, uint __n) [storage __s=a0_lo:4, __c=a1_lo:4, __n=a2_lo:4]	0x3e2c88 memset (deviating)	2026-11-26	saved 2026-11-26
-0x426618	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x426698	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
+0x426618	name	__malloc_lock	0x3e2d48 __malloc_lock (deviating)	2026-11-28	saved 2026-11-28
+0x426618	plate	Release map: deviating pair with prototype 0x3e2d48 __malloc_lock (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e2d48 __malloc_lock (deviating)	2026-11-28	saved 2026-11-28
+0x426698	name	__malloc_unlock	0x3e2d50 __malloc_unlock (deviating)	2026-11-28	saved 2026-11-28
+0x426698	plate	Release map: deviating pair with prototype 0x3e2d50 __malloc_unlock (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e2d50 __malloc_unlock (deviating)	2026-11-28	saved 2026-11-28
 0x4266e8	name	_Balloc	0x3e2d58 _Balloc (deviating)	2026-11-26	saved 2026-11-26
 0x4266e8	plate	Release map: deviating pair with prototype 0x3e2d58 _Balloc (evidence call-deviating; flags moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e2d58 _Balloc (deviating)	2026-11-26	saved 2026-11-26
 0x426790	name	_Bfree	0x3e2e00 _Bfree (exact)	2026-11-26	saved 2026-11-26
@@ -48502,8 +48510,10 @@ release_address	applied	value	source_pair	date	state
 0x4275c0	name	_ratio	0x3e3c48 _ratio (unsure)	2026-11-26	saved 2026-11-26
 0x4275c0	plate	Release map: unsure pair with prototype 0x3e3c48 _ratio (evidence call-deviating; flags low-similarity,moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype; signature carried from the prototype as a starting point (the pair is not exact).	0x3e3c48 _ratio (unsure)	2026-11-26	saved 2026-11-26
 0x4275c0	prototype	double __stdcall _ratio(_Bigint * a, _Bigint * b) [storage a=a0_lo:4, b=a1_lo:4]	0x3e3c48 _ratio (unsure)	2026-11-26	saved 2026-11-26
-0x427690	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x427700	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
+0x427690	name	_mprec_log10	0x3e3d08 _mprec_log10 (deviating)	2026-11-28	saved 2026-11-28
+0x427690	plate	Release map: deviating pair with prototype 0x3e3d08 _mprec_log10 (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e3d08 _mprec_log10 (deviating)	2026-11-28	saved 2026-11-28
+0x427700	name	_printf_r	0x3e3d78 _printf_r (deviating)	2026-11-28	saved 2026-11-28
+0x427700	plate	Release map: deviating pair with prototype 0x3e3d78 _printf_r (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e3d78 _printf_r (deviating)	2026-11-28	saved 2026-11-28
 0x427760	name	printf	0x3e3db8 printf (deviating)	2026-11-26	saved 2026-11-26
 0x427760	plate	Release map: deviating pair with prototype 0x3e3db8 printf (evidence call; flags moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype; signature carried from the prototype as a starting point (the pair is not exact).	0x3e3db8 printf (deviating)	2026-11-26	saved 2026-11-26
 0x427760	prototype	int __stdcall printf(char * __format, ...) [storage __format=a0_lo:4]	0x3e3db8 printf (deviating)	2026-11-26	saved 2026-11-26
@@ -48539,19 +48549,24 @@ release_address	applied	value	source_pair	date	state
 0x428b90	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
 0x428bf8	name	_init_signal_r	0x3e5198 _init_signal_r (deviating)	2026-11-26	saved 2026-11-26
 0x428bf8	plate	Release map: deviating pair with prototype 0x3e5198 _init_signal_r (evidence call-deviating; flags moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e5198 _init_signal_r (deviating)	2026-11-26	saved 2026-11-26
-0x428c68	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
+0x428c68	name	_signal_r	0x3e5208 _signal_r (deviating)	2026-11-28	saved 2026-11-28
+0x428c68	plate	Release map: deviating pair with prototype 0x3e5208 _signal_r (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e5208 _signal_r (deviating)	2026-11-28	saved 2026-11-28
 0x428ce8	name	_raise_r	0x3e5298 _raise_r (unsure)	2026-11-26	saved 2026-11-26
 0x428ce8	plate	Release map: unsure pair with prototype 0x3e5298 _raise_r (evidence call-deviating; flags low-similarity,moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e5298 _raise_r (unsure)	2026-11-26	saved 2026-11-26
-0x428dc0	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
+0x428dc0	name	__sigtramp_r	0x3e5388 __sigtramp_r (deviating)	2026-11-28	saved 2026-11-28
+0x428dc0	plate	Release map: deviating pair with prototype 0x3e5388 __sigtramp_r (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e5388 __sigtramp_r (deviating)	2026-11-28	saved 2026-11-28
 0x428e58	name	raise	0x3e5440 raise (unsure)	2026-11-26	saved 2026-11-26
 0x428e58	plate	Release map: unsure pair with prototype 0x3e5440 raise (evidence call-deviating; flags low-similarity,moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype; signature carried from the prototype as a starting point (the pair is not exact).	0x3e5440 raise (unsure)	2026-11-26	saved 2026-11-26
 0x428e58	prototype	int __stdcall raise(int __sig) [storage __sig=a0_lo:4]	0x3e5440 raise (unsure)	2026-11-26	saved 2026-11-26
-0x428e78	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
+0x428e78	name	signal	0x3e5468 signal (deviating)	2026-11-28	saved 2026-11-28
+0x428e78	plate	Release map: deviating pair with prototype 0x3e5468 signal (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e5468 signal (deviating)	2026-11-28	saved 2026-11-28
 0x428ea0	create	0x428ea0-0x428ebb	new	2026-11-27	saved 2026-11-27
-0x428ea0	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-27	saved 2026-11-27
+0x428ea0	name	_init_signal	0x3e5498 _init_signal (deviating)	2026-11-28	saved 2026-11-28
+0x428ea0	plate	Release map: deviating pair with prototype 0x3e5498 _init_signal (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e5498 _init_signal (deviating)	2026-11-28	saved 2026-11-28
 0x428ea0	disassemble	0x428ea0-0x428ebb	new	2026-11-27	saved 2026-11-27
 0x428ec0	create	0x428ec0-0x428edf	new	2026-11-27	saved 2026-11-27
-0x428ec0	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-27	saved 2026-11-27
+0x428ec0	name	__sigtramp	0x3e54c0 __sigtramp (deviating)	2026-11-28	saved 2026-11-28
+0x428ec0	plate	Release map: deviating pair with prototype 0x3e54c0 __sigtramp (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e54c0 __sigtramp (deviating)	2026-11-28	saved 2026-11-28
 0x428ec0	disassemble	0x428ec0-0x428edf	new	2026-11-27	saved 2026-11-27
 0x428ee0	name	_kill_r	0x3e54e8 _kill_r (unsure)	2026-11-26	saved 2026-11-26
 0x428ee0	plate	Release map: unsure pair with prototype 0x3e54e8 _kill_r (evidence call-deviating; flags low-similarity,moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e54e8 _kill_r (unsure)	2026-11-26	saved 2026-11-26
@@ -48560,7 +48575,8 @@ release_address	applied	value	source_pair	date	state
 0x428f40	plate	Release map: deviating pair with prototype 0x3e5548 _getpid_r (evidence call-deviating; flags moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e5548 _getpid_r (deviating)	2026-11-26	saved 2026-11-26
 0x428f40	cut-by-analysis	0x428f40-0x428f53 (was 0x15b0b0-0x428f53; after the create at 0x15b0b0)	0x15bcf0 getpid (exact)	2026-11-27	saved 2026-11-27
 0x428f58	create	0x428f58-0x428fdf	new	2026-11-27	saved 2026-11-27
-0x428f58	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-27	saved 2026-11-27
+0x428f58	name	_sprintf_r	0x3e5568 _sprintf_r (deviating)	2026-11-28	saved 2026-11-28
+0x428f58	plate	Release map: deviating pair with prototype 0x3e5568 _sprintf_r (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e5568 _sprintf_r (deviating)	2026-11-28	saved 2026-11-28
 0x428f58	disassemble	0x428f58-0x428fdf	new	2026-11-27	saved 2026-11-27
 0x428fe0	name	sprintf	0x3e55d0 sprintf (deviating)	2026-11-26	saved 2026-11-26
 0x428fe0	plate	Release map: deviating pair with prototype 0x3e55d0 sprintf (evidence call; flags moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype; signature carried from the prototype as a starting point (the pair is not exact).	0x3e55d0 sprintf (deviating)	2026-11-26	saved 2026-11-26
@@ -48628,7 +48644,8 @@ release_address	applied	value	source_pair	date	state
 0x42ae90	plate	Release map: deviating pair with prototype 0x3e75a8 strtod (evidence call; flags moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype; signature carried from the prototype as a starting point (the pair is not exact).	0x3e75a8 strtod (deviating)	2026-11-26	saved 2026-11-26
 0x42ae90	prototype	double __stdcall strtod(char * __nptr, char * * __endptr) [storage __nptr=a0_lo:4, __endptr=a1_lo:4]	0x3e75a8 strtod (deviating)	2026-11-26	saved 2026-11-26
 0x42aeb8	create	0x42aeb8-0x42aedf	new	2026-11-27	saved 2026-11-27
-0x42aeb8	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-27	saved 2026-11-27
+0x42aeb8	name	strtodf	0x3e75d8 strtodf (deviating)	2026-11-28	saved 2026-11-28
+0x42aeb8	plate	Release map: deviating pair with prototype 0x3e75d8 strtodf (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3e75d8 strtodf (deviating)	2026-11-28	saved 2026-11-28
 0x42aeb8	disassemble	0x42aeb8-0x42aedf	new	2026-11-27	saved 2026-11-27
 0x42aee0	name	strtok	0x3e7600 strtok (deviating)	2026-11-26	saved 2026-11-26
 0x42aee0	plate	Release map: deviating pair with prototype 0x3e7600 strtok (evidence call; flags moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype; signature carried from the prototype as a starting point (the pair is not exact).	0x3e7600 strtok (deviating)	2026-11-27	saved 2026-11-27
@@ -48954,7 +48971,7 @@ release_address	applied	value	source_pair	date	state
 0x432c14	reference	to 0x58dfc0 DATA operand 0 ANALYSIS (pair-address)	derived from the code (pair-address in PTTServer_QueryWANAddress)	2026-11-28	saved 2026-11-28
 0x432c80	name	PTTServer_Start	0x3f6d10 PTTServer_Start__FPCcUs (deviating)	2026-11-27	saved 2026-11-27
 0x432c80	label	PTTServer_Start__FPCcUs	0x3f6d10 PTTServer_Start__FPCcUs (deviating)	2026-11-27	saved 2026-11-27
-0x432c80	plate	Release map: deviating pair with prototype 0x3f6d10 PTTServer_Start__FPCcUs (evidence call-deviating; flags moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype; signature carried from the prototype as a starting point (the pair is not exact).	0x3f6d10 PTTServer_Start__FPCcUs (deviating)	2026-11-27	saved 2026-11-27
+0x432c80	plate	Release map: deviating pair with prototype 0x3f6d10 PTTServer_Start__FPCcUs (evidence call-deviating; flags moved). // Owner -; prototype name PTTServer_Start not applied: library pair that is not exact (libraries are named from exact pairs only).	0x3f6d10 PTTServer_Start__FPCcUs (deviating)	2026-11-28	saved 2026-11-28
 0x432c80	prototype	int __stdcall PTTServer_Start(char * echoServerAddress, ushort echoServerPort) [storage echoServerAddress=a0_lo:4, echoServerPort=a1_lo:2]	0x3f6d10 PTTServer_Start__FPCcUs (deviating)	2026-11-27	saved 2026-11-27
 0x432c94	reference	to 0x48eba0 READ operand 1 ANALYSIS (gp-load)	derived from the code (gp-load in PTTServer_Start)	2026-11-28	saved 2026-11-28
 0x432ccc	reference	to 0x48ebac WRITE operand 1 ANALYSIS (gp-store)	derived from the code (gp-store in PTTServer_Start)	2026-11-28	saved 2026-11-28
@@ -48975,7 +48992,7 @@ release_address	applied	value	source_pair	date	state
 0x432dfc	reference	to 0x58dfc0 DATA operand 0 ANALYSIS (pair-address)	derived from the code (pair-address in PTTServer_Stop)	2026-11-28	saved 2026-11-28
 0x432e60	name	PTTServer_PermitWANAddress	0x3f6ee0 PTTServer_PermitWANAddress__FUiUi (deviating)	2026-11-27	saved 2026-11-27
 0x432e60	label	PTTServer_PermitWANAddress__FUiUi	0x3f6ee0 PTTServer_PermitWANAddress__FUiUi (deviating)	2026-11-27	saved 2026-11-27
-0x432e60	plate	Release map: deviating pair with prototype 0x3f6ee0 PTTServer_PermitWANAddress__FUiUi (evidence call-deviating; flags moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype; signature carried from the prototype as a starting point (the pair is not exact).	0x3f6ee0 PTTServer_PermitWANAddress__FUiUi (deviating)	2026-11-27	saved 2026-11-27
+0x432e60	plate	Release map: deviating pair with prototype 0x3f6ee0 PTTServer_PermitWANAddress__FUiUi (evidence call-deviating; flags moved). // Owner -; prototype name PTTServer_PermitWANAddress not applied: library pair that is not exact (libraries are named from exact pairs only).	0x3f6ee0 PTTServer_PermitWANAddress__FUiUi (deviating)	2026-11-28	saved 2026-11-28
 0x432e60	prototype	int __stdcall PTTServer_PermitWANAddress(uint ip, uint port) [storage ip=a0_lo:4, port=a1_lo:4]	0x3f6ee0 PTTServer_PermitWANAddress__FUiUi (deviating)	2026-11-27	saved 2026-11-27
 0x432e70	reference	to 0x48eba0 READ operand 1 ANALYSIS (gp-load)	derived from the code (gp-load in PTTServer_PermitWANAddress)	2026-11-28	saved 2026-11-28
 0x432ec8	reference	to 0x48ebac WRITE operand 1 ANALYSIS (gp-store)	derived from the code (gp-store in PTTServer_PermitWANAddress)	2026-11-28	saved 2026-11-28
@@ -48984,7 +49001,9 @@ release_address	applied	value	source_pair	date	state
 0x432f50	reference	to 0x58dbc0 DATA operand 0 ANALYSIS (pair-address)	derived from the code (pair-address in PTTServer_PermitWANAddress)	2026-11-28	saved 2026-11-28
 0x432f58	reference	to 0x58dbc0 DATA operand 0 ANALYSIS (pair-address)	derived from the code (pair-address in PTTServer_PermitWANAddress)	2026-11-28	saved 2026-11-28
 0x432f60	reference	to 0x58dfc0 DATA operand 0 ANALYSIS (pair-address)	derived from the code (pair-address in PTTServer_PermitWANAddress)	2026-11-28	saved 2026-11-28
-0x432fc0	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
+0x432fc0	name	analys_	0x3eb3a0 analys___FPfPiPiPfPfP19lpc10_encoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x432fc0	label	analys___FPfPiPiPfPfP19lpc10_encoder_state	0x3eb3a0 analys___FPfPiPiPfPfP19lpc10_encoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x432fc0	plate	Release map: deviating pair with prototype 0x3eb3a0 analys___FPfPiPiPfPfP19lpc10_encoder_state (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3eb3a0 analys___FPfPiPiPfPfP19lpc10_encoder_state (deviating)	2026-11-28	saved 2026-11-28
 0x432ff0	reference	to 0x48ebb4 READ operand 1 ANALYSIS (gp-load)	derived from the code (gp-load in FUN_00432fc0)	2026-11-28	saved 2026-11-28
 0x433010	reference	to 0x48ebb0 WRITE operand 1 ANALYSIS (gp-store)	derived from the code (gp-store in FUN_00432fc0)	2026-11-28	saved 2026-11-28
 0x433014	reference	to 0x48ebb4 WRITE operand 1 ANALYSIS (gp-store)	derived from the code (gp-store in FUN_00432fc0)	2026-11-28	saved 2026-11-28
@@ -49031,7 +49050,9 @@ release_address	applied	value	source_pair	date	state
 0x43374c	reference	to 0x5a0410 DATA operand 0 ANALYSIS (pair-address)	derived from the code (pair-address in FUN_00432fc0)	2026-11-28	saved 2026-11-28
 0x433764	reference	to 0x5a0410 DATA operand 0 ANALYSIS (pair-address)	derived from the code (pair-address in FUN_00432fc0)	2026-11-28	saved 2026-11-28
 0x4337a4	reference	to 0x5a0410 READ operand 1 ANALYSIS (pair-load)	derived from the code (pair-load in FUN_00432fc0)	2026-11-28	saved 2026-11-28
-0x433810	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
+0x433810	name	bsynz_	0x3ebe70 bsynz___FPfPiPiPfPfPfPfP19lpc10_decoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x433810	label	bsynz___FPfPiPiPfPfPfPfP19lpc10_decoder_state	0x3ebe70 bsynz___FPfPiPiPfPfPfPfP19lpc10_decoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x433810	plate	Release map: deviating pair with prototype 0x3ebe70 bsynz___FPfPiPiPfPfPfPfP19lpc10_decoder_state (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3ebe70 bsynz___FPfPiPiPfPfPfPfP19lpc10_decoder_state (deviating)	2026-11-28	saved 2026-11-28
 0x4338fc	reference	to 0x5a0410 READ operand 1 ANALYSIS (pair-load)	derived from the code (pair-load in FUN_00433810)	2026-11-28	saved 2026-11-28
 0x433aa4	reference	to 0x5a0410 READ operand 1 ANALYSIS (pair-load)	derived from the code (pair-load in FUN_00433810)	2026-11-28	saved 2026-11-28
 0x433aec	reference	to 0x5a0410 READ operand 1 ANALYSIS (pair-load)	derived from the code (pair-load in FUN_00433810)	2026-11-28	saved 2026-11-28
@@ -49060,11 +49081,21 @@ release_address	applied	value	source_pair	date	state
 0x4345b8	reference	to 0x5a0410 READ operand 1 ANALYSIS (pair-load)	derived from the code (pair-load in FUN_00433810)	2026-11-28	saved 2026-11-28
 0x4345d8	reference	to 0x5a0410 READ operand 1 ANALYSIS (pair-load)	derived from the code (pair-load in FUN_00433810)	2026-11-28	saved 2026-11-28
 0x434614	reference	to 0x5a0410 READ operand 1 ANALYSIS (pair-load)	derived from the code (pair-load in FUN_00433810)	2026-11-28	saved 2026-11-28
-0x434680	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x4346b0	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x4346e0	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x435040	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x4351d0	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
+0x434680	name	chanrd_	0x3ecc30 chanrd___FPiPiPiPiPi (deviating)	2026-11-28	saved 2026-11-28
+0x434680	label	chanrd___FPiPiPiPiPi	0x3ecc30 chanrd___FPiPiPiPiPi (deviating)	2026-11-28	saved 2026-11-28
+0x434680	plate	Release map: deviating pair with prototype 0x3ecc30 chanrd___FPiPiPiPiPi (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: its place in the library differs, a second agent's check settles it.	0x3ecc30 chanrd___FPiPiPiPiPi (deviating)	2026-11-28	saved 2026-11-28
+0x4346b0	name	chanwr_	0x3ecbd0 chanwr___FPiPiPiPiPiP19lpc10_encoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x4346b0	label	chanwr___FPiPiPiPiPiP19lpc10_encoder_state	0x3ecbd0 chanwr___FPiPiPiPiPiP19lpc10_encoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x4346b0	plate	Release map: deviating pair with prototype 0x3ecbd0 chanwr___FPiPiPiPiPiP19lpc10_encoder_state (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: its place in the library differs, a second agent's check settles it.	0x3ecbd0 chanwr___FPiPiPiPiPiP19lpc10_encoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x4346e0	name	chanwr_0_	0x3ec850 chanwr_0___FiPiPiPiPiPiP19lpc10_encoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x4346e0	label	chanwr_0___FiPiPiPiPiPiP19lpc10_encoder_state	0x3ec850 chanwr_0___FiPiPiPiPiPiP19lpc10_encoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x4346e0	plate	Release map: deviating pair with prototype 0x3ec850 chanwr_0___FiPiPiPiPiPiP19lpc10_encoder_state (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3ec850 chanwr_0___FiPiPiPiPiPiP19lpc10_encoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x435040	name	dcbias_	0x3ecc90 dcbias___FPiPfPf (deviating)	2026-11-28	saved 2026-11-28
+0x435040	label	dcbias___FPiPfPf	0x3ecc90 dcbias___FPiPfPf (deviating)	2026-11-28	saved 2026-11-28
+0x435040	plate	Release map: deviating pair with prototype 0x3ecc90 dcbias___FPiPfPf (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3ecc90 dcbias___FPiPfPf (deviating)	2026-11-28	saved 2026-11-28
+0x4351d0	name	decode_	0x3ecda0 decode___FPiPiPiPiPiPfPfP19lpc10_decoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x4351d0	label	decode___FPiPiPiPiPiPfPfP19lpc10_decoder_state	0x3ecda0 decode___FPiPiPiPiPiPfPfP19lpc10_decoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x4351d0	plate	Release map: deviating pair with prototype 0x3ecda0 decode___FPiPiPiPiPiPfPfP19lpc10_decoder_state (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3ecda0 decode___FPiPiPiPiPiPfPfP19lpc10_decoder_state (deviating)	2026-11-28	saved 2026-11-28
 0x435200	reference	to 0x48ebbc READ operand 1 ANALYSIS (gp-load)	derived from the code (gp-load in FUN_004351d0)	2026-11-28	saved 2026-11-28
 0x435224	reference	to 0x48ebb8 WRITE operand 1 ANALYSIS (gp-store)	derived from the code (gp-store in FUN_004351d0)	2026-11-28	saved 2026-11-28
 0x435228	reference	to 0x48ebbc WRITE operand 1 ANALYSIS (gp-store)	derived from the code (gp-store in FUN_004351d0)	2026-11-28	saved 2026-11-28
@@ -49090,26 +49121,54 @@ release_address	applied	value	source_pair	date	state
 0x435dc4	reference	to 0x5a0410 READ operand 1 ANALYSIS (pair-load)	derived from the code (pair-load in FUN_004351d0)	2026-11-28	saved 2026-11-28
 0x435dec	reference	to 0x48d17c DATA operand 0 ANALYSIS (gp-address)	derived from the code (gp-address in FUN_004351d0)	2026-11-28	saved 2026-11-28
 0x435e88	reference	to 0x5a0410 READ operand 1 ANALYSIS (pair-load)	derived from the code (pair-load in FUN_004351d0)	2026-11-28	saved 2026-11-28
-0x435fd0	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x4360b0	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x4361e0	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x436640	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
+0x435fd0	name	deemp_	0x3edd80 deemp___FPfPiP19lpc10_decoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x435fd0	label	deemp___FPfPiP19lpc10_decoder_state	0x3edd80 deemp___FPfPiP19lpc10_decoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x435fd0	plate	Release map: deviating pair with prototype 0x3edd80 deemp___FPfPiP19lpc10_decoder_state (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3edd80 deemp___FPfPiP19lpc10_decoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x4360b0	name	difmag_	0x3edf10 difmag___FPfPiPiPiPiPfPiPi (deviating)	2026-11-28	saved 2026-11-28
+0x4360b0	label	difmag___FPfPiPiPiPiPfPiPi	0x3edf10 difmag___FPfPiPiPiPiPfPiPi (deviating)	2026-11-28	saved 2026-11-28
+0x4360b0	plate	Release map: deviating pair with prototype 0x3edf10 difmag___FPfPiPiPiPiPfPiPi (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3edf10 difmag___FPfPiPiPiPiPfPiPi (deviating)	2026-11-28	saved 2026-11-28
+0x4361e0	name	dyptrk_	0x3ee180 dyptrk___FPfPiPiPiPiPiP19lpc10_encoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x4361e0	label	dyptrk___FPfPiPiPiPiPiP19lpc10_encoder_state	0x3ee180 dyptrk___FPfPiPiPiPiPiP19lpc10_encoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x4361e0	plate	Release map: deviating pair with prototype 0x3ee180 dyptrk___FPfPiPiPiPiPiP19lpc10_encoder_state (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3ee180 dyptrk___FPfPiPiPiPiPiP19lpc10_encoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x436640	name	encode_	0x3ee790 encode___FPiPiPfPfPiPiPi (deviating)	2026-11-28	saved 2026-11-28
+0x436640	label	encode___FPiPiPfPfPiPiPi	0x3ee790 encode___FPiPiPfPfPiPiPi (deviating)	2026-11-28	saved 2026-11-28
+0x436640	plate	Release map: deviating pair with prototype 0x3ee790 encode___FPiPiPfPfPiPiPi (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3ee790 encode___FPiPiPfPfPiPiPi (deviating)	2026-11-28	saved 2026-11-28
 0x436698	reference	to 0x5a0410 READ operand 1 ANALYSIS (pair-load)	derived from the code (pair-load in FUN_00436640)	2026-11-28	saved 2026-11-28
 0x436818	reference	to 0x5a0418 READ operand 1 ANALYSIS (pair-load)	derived from the code (pair-load in FUN_00436640)	2026-11-28	saved 2026-11-28
 0x4369c8	reference	to 0x5a0410 READ operand 1 ANALYSIS (pair-load)	derived from the code (pair-load in FUN_00436640)	2026-11-28	saved 2026-11-28
 0x436a00	reference	to 0x5a0410 READ operand 1 ANALYSIS (pair-load)	derived from the code (pair-load in FUN_00436640)	2026-11-28	saved 2026-11-28
 0x436a98	reference	to 0x48d180 DATA operand 0 ANALYSIS (gp-address)	derived from the code (gp-address in FUN_00436640)	2026-11-28	saved 2026-11-28
 0x436ae4	reference	to 0x5a0418 READ operand 1 ANALYSIS (pair-load)	derived from the code (pair-load in FUN_00436640)	2026-11-28	saved 2026-11-28
-0x436c80	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x436de0	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x436e70	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x436ed0	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x436f70	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x437030	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x437120	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x437550	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x4379b0	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x437b10	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
+0x436c80	name	energy_	0x3eeec0 energy___FPiPfPf (deviating)	2026-11-28	saved 2026-11-28
+0x436c80	label	energy___FPiPfPf	0x3eeec0 energy___FPiPfPf (deviating)	2026-11-28	saved 2026-11-28
+0x436c80	plate	Release map: deviating pair with prototype 0x3eeec0 energy___FPiPfPf (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3eeec0 energy___FPiPfPf (deviating)	2026-11-28	saved 2026-11-28
+0x436de0	name	i_nint	0x3ef160 i_nint__FPf (deviating)	2026-11-28	saved 2026-11-28
+0x436de0	label	i_nint__FPf	0x3ef160 i_nint__FPf (deviating)	2026-11-28	saved 2026-11-28
+0x436de0	plate	Release map: deviating pair with prototype 0x3ef160 i_nint__FPf (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: its place in the library differs, a second agent's check settles it.	0x3ef160 i_nint__FPf (deviating)	2026-11-28	saved 2026-11-28
+0x436e70	name	r_sign	0x3ef0b0 r_sign__FPfPf (deviating)	2026-11-28	saved 2026-11-28
+0x436e70	label	r_sign__FPfPf	0x3ef0b0 r_sign__FPfPf (deviating)	2026-11-28	saved 2026-11-28
+0x436e70	plate	Release map: deviating pair with prototype 0x3ef0b0 r_sign__FPfPf (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: its place in the library differs, a second agent's check settles it.	0x3ef0b0 r_sign__FPfPf (deviating)	2026-11-28	saved 2026-11-28
+0x436ed0	name	pow_ii	0x3eefb0 pow_ii__FPiPi (deviating)	2026-11-28	saved 2026-11-28
+0x436ed0	label	pow_ii__FPiPi	0x3eefb0 pow_ii__FPiPi (deviating)	2026-11-28	saved 2026-11-28
+0x436ed0	plate	Release map: deviating pair with prototype 0x3eefb0 pow_ii__FPiPi (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3eefb0 pow_ii__FPiPi (deviating)	2026-11-28	saved 2026-11-28
+0x436f70	name	ham84_	0x3ef230 ham84___FPiPiPi (deviating)	2026-11-28	saved 2026-11-28
+0x436f70	label	ham84___FPiPiPi	0x3ef230 ham84___FPiPiPi (deviating)	2026-11-28	saved 2026-11-28
+0x436f70	plate	Release map: deviating pair with prototype 0x3ef230 ham84___FPiPiPi (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3ef230 ham84___FPiPiPi (deviating)	2026-11-28	saved 2026-11-28
+0x437030	name	hp100_	0x3ef370 hp100___FPfPiPiP19lpc10_encoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x437030	label	hp100___FPfPiPiP19lpc10_encoder_state	0x3ef370 hp100___FPfPiPiP19lpc10_encoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x437030	plate	Release map: deviating pair with prototype 0x3ef370 hp100___FPfPiPiP19lpc10_encoder_state (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3ef370 hp100___FPfPiPiP19lpc10_encoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x437120	name	invert_	0x3ef560 invert___FPiPfPfPf (deviating)	2026-11-28	saved 2026-11-28
+0x437120	label	invert___FPiPfPfPf	0x3ef560 invert___FPiPfPfPf (deviating)	2026-11-28	saved 2026-11-28
+0x437120	plate	Release map: deviating pair with prototype 0x3ef560 invert___FPiPfPfPf (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3ef560 invert___FPiPfPfPf (deviating)	2026-11-28	saved 2026-11-28
+0x437550	name	irc2pc_	0x3efa20 irc2pc___FPfPfPiPfPf (deviating)	2026-11-28	saved 2026-11-28
+0x437550	label	irc2pc___FPfPfPiPfPf	0x3efa20 irc2pc___FPfPfPiPfPf (deviating)	2026-11-28	saved 2026-11-28
+0x437550	plate	Release map: deviating pair with prototype 0x3efa20 irc2pc___FPfPfPiPfPf (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3efa20 irc2pc___FPfPfPiPfPf (deviating)	2026-11-28	saved 2026-11-28
+0x4379b0	name	ivfilt_	0x3efc40 ivfilt___FPfPfPiPiPf (deviating)	2026-11-28	saved 2026-11-28
+0x4379b0	label	ivfilt___FPfPfPiPiPf	0x3efc40 ivfilt___FPfPfPiPiPf (deviating)	2026-11-28	saved 2026-11-28
+0x4379b0	plate	Release map: deviating pair with prototype 0x3efc40 ivfilt___FPfPfPiPiPf (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3efc40 ivfilt___FPfPfPiPiPf (deviating)	2026-11-28	saved 2026-11-28
+0x437b10	name	PTT_ReleaseTalk	0x3f12c0 PTT_ReleaseTalk__Fv (deviating)	2026-11-28	saved 2026-11-28
+0x437b10	label	PTT_ReleaseTalk__Fv	0x3f12c0 PTT_ReleaseTalk__Fv (deviating)	2026-11-28	saved 2026-11-28
+0x437b10	plate	Release map: deviating pair with prototype 0x3f12c0 PTT_ReleaseTalk__Fv (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: its place in the library differs, a second agent's check settles it.	0x3f12c0 PTT_ReleaseTalk__Fv (deviating)	2026-11-28	saved 2026-11-28
 0x437b1c	reference	to 0x48ebd8 READ operand 1 ANALYSIS (gp-load)	derived from the code (gp-load in FUN_00437b10)	2026-11-28	saved 2026-11-28
 0x437b28	reference	to 0x598000 DATA operand 0 ANALYSIS (pair-address)	derived from the code (pair-address in FUN_00437b10)	2026-11-28	saved 2026-11-28
 0x437b38	reference	to 0x48ebd8 READ operand 1 ANALYSIS (gp-load)	derived from the code (gp-load in FUN_00437b10)	2026-11-28	saved 2026-11-28
@@ -49118,7 +49177,9 @@ release_address	applied	value	source_pair	date	state
 0x437b88	reference	to 0x48ebf4 WRITE operand 1 ANALYSIS (gp-store)	derived from the code (gp-store in FUN_00437b10)	2026-11-28	saved 2026-11-28
 0x437b98	reference	to 0x58e000 DATA operand 0 ANALYSIS (pair-address)	derived from the code (pair-address in FUN_00437b10)	2026-11-28	saved 2026-11-28
 0x437b9c	reference	to 0x598000 DATA operand 0 ANALYSIS (pair-address)	derived from the code (pair-address in FUN_00437b10)	2026-11-28	saved 2026-11-28
-0x437bf0	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
+0x437bf0	name	PTT_PushToTalk	0x3f11f0 PTT_PushToTalk__Fi (deviating)	2026-11-28	saved 2026-11-28
+0x437bf0	label	PTT_PushToTalk__Fi	0x3f11f0 PTT_PushToTalk__Fi (deviating)	2026-11-28	saved 2026-11-28
+0x437bf0	plate	Release map: deviating pair with prototype 0x3f11f0 PTT_PushToTalk__Fi (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: its place in the library differs, a second agent's check settles it.	0x3f11f0 PTT_PushToTalk__Fi (deviating)	2026-11-28	saved 2026-11-28
 0x437c04	reference	to 0x48ebd8 READ operand 1 ANALYSIS (gp-load)	derived from the code (gp-load in FUN_00437bf0)	2026-11-28	saved 2026-11-28
 0x437c10	reference	to 0x58e000 DATA operand 0 ANALYSIS (pair-address)	derived from the code (pair-address in FUN_00437bf0)	2026-11-28	saved 2026-11-28
 0x437c1c	reference	to 0x598000 DATA operand 0 ANALYSIS (pair-address)	derived from the code (pair-address in FUN_00437bf0)	2026-11-28	saved 2026-11-28
@@ -49128,7 +49189,9 @@ release_address	applied	value	source_pair	date	state
 0x437c78	reference	to 0x48ebf4 WRITE operand 1 ANALYSIS (gp-store)	derived from the code (gp-store in FUN_00437bf0)	2026-11-28	saved 2026-11-28
 0x437c8c	reference	to 0x58e000 DATA operand 0 ANALYSIS (pair-address)	derived from the code (pair-address in FUN_00437bf0)	2026-11-28	saved 2026-11-28
 0x437c9c	reference	to 0x598000 DATA operand 0 ANALYSIS (pair-address)	derived from the code (pair-address in FUN_00437bf0)	2026-11-28	saved 2026-11-28
-0x437cf0	plate	Release map: unsure pair with prototype 0x3f11f0 PTT_PushToTalk__Fi (evidence call-deviating; flags low-similarity,moved). // Owner -; prototype name PTT_PushToTalk not applied: unsure pair: the evidence does not settle it.	0x3f11f0 PTT_PushToTalk__Fi (unsure)	2026-11-26	saved 2026-11-26
+0x437cf0	name	PTT_SetChannel	0x3f1040 PTT_SetChannel__Fi (deviating)	2026-11-28	saved 2026-11-28
+0x437cf0	label	PTT_SetChannel__Fi	0x3f1040 PTT_SetChannel__Fi (deviating)	2026-11-28	saved 2026-11-28
+0x437cf0	plate	Release map: deviating pair with prototype 0x3f1040 PTT_SetChannel__Fi (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: its place in the library differs, a second agent's check settles it.	0x3f1040 PTT_SetChannel__Fi (deviating)	2026-11-28	saved 2026-11-28
 0x437d04	reference	to 0x48ebd8 READ operand 1 ANALYSIS (gp-load)	derived from the code (gp-load in FUN_00437cf0)	2026-11-28	saved 2026-11-28
 0x437d10	reference	to 0x58e000 DATA operand 0 ANALYSIS (pair-address)	derived from the code (pair-address in FUN_00437cf0)	2026-11-28	saved 2026-11-28
 0x437d1c	reference	to 0x598000 DATA operand 0 ANALYSIS (pair-address)	derived from the code (pair-address in FUN_00437cf0)	2026-11-28	saved 2026-11-28
@@ -49147,7 +49210,9 @@ release_address	applied	value	source_pair	date	state
 0x437e68	reference	to 0x48ebf4 WRITE operand 1 ANALYSIS (gp-store)	derived from the code (gp-store in FUN_00437df0)	2026-11-28	saved 2026-11-28
 0x437e78	reference	to 0x58e000 DATA operand 0 ANALYSIS (pair-address)	derived from the code (pair-address in FUN_00437df0)	2026-11-28	saved 2026-11-28
 0x437e7c	reference	to 0x598000 DATA operand 0 ANALYSIS (pair-address)	derived from the code (pair-address in FUN_00437df0)	2026-11-28	saved 2026-11-28
-0x437ed0	plate	Release map: unsure pair with prototype 0x3f0e60 PTT_JoinGame__FPUiPUiUs (evidence call-deviating; flags low-similarity,moved). // Owner -; prototype name PTT_JoinGame not applied: unsure pair: the evidence does not settle it.	0x3f0e60 PTT_JoinGame__FPUiPUiUs (unsure)	2026-11-26	saved 2026-11-26
+0x437ed0	name	PTT_JoinGame	0x3f0e60 PTT_JoinGame__FPUiPUiUs (deviating)	2026-11-28	saved 2026-11-28
+0x437ed0	label	PTT_JoinGame__FPUiPUiUs	0x3f0e60 PTT_JoinGame__FPUiPUiUs (deviating)	2026-11-28	saved 2026-11-28
+0x437ed0	plate	Release map: deviating pair with prototype 0x3f0e60 PTT_JoinGame__FPUiPUiUs (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: its place in the library differs, a second agent's check settles it.	0x3f0e60 PTT_JoinGame__FPUiPUiUs (deviating)	2026-11-28	saved 2026-11-28
 0x437ef4	reference	to 0x48ebd8 READ operand 1 ANALYSIS (gp-load)	derived from the code (gp-load in FUN_00437ed0)	2026-11-28	saved 2026-11-28
 0x437f08	reference	to 0x598000 DATA operand 0 ANALYSIS (pair-address)	derived from the code (pair-address in FUN_00437ed0)	2026-11-28	saved 2026-11-28
 0x437f18	reference	to 0x48ebd8 READ operand 1 ANALYSIS (gp-load)	derived from the code (gp-load in FUN_00437ed0)	2026-11-28	saved 2026-11-28
@@ -49175,7 +49240,9 @@ release_address	applied	value	source_pair	date	state
 0x438168	reference	to 0x48ebf4 WRITE operand 1 ANALYSIS (gp-store)	derived from the code (gp-store in FUN_004380f0)	2026-11-28	saved 2026-11-28
 0x438174	reference	to 0x58e000 DATA operand 0 ANALYSIS (pair-address)	derived from the code (pair-address in FUN_004380f0)	2026-11-28	saved 2026-11-28
 0x438180	reference	to 0x598000 DATA operand 0 ANALYSIS (pair-address)	derived from the code (pair-address in FUN_004380f0)	2026-11-28	saved 2026-11-28
-0x4381d0	plate	Release map: unsure pair with prototype 0x3f0b30 PTT_Sync__FPvii (evidence call-deviating; flags low-similarity,moved). // Owner -; prototype name PTT_Sync not applied: unsure pair: the evidence does not settle it.	0x3f0b30 PTT_Sync__FPvii (unsure)	2026-11-26	saved 2026-11-26
+0x4381d0	name	PTT_Sync	0x3f0b30 PTT_Sync__FPvii (deviating)	2026-11-28	saved 2026-11-28
+0x4381d0	label	PTT_Sync__FPvii	0x3f0b30 PTT_Sync__FPvii (deviating)	2026-11-28	saved 2026-11-28
+0x4381d0	plate	Release map: deviating pair with prototype 0x3f0b30 PTT_Sync__FPvii (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: its place in the library differs, a second agent's check settles it.	0x3f0b30 PTT_Sync__FPvii (deviating)	2026-11-28	saved 2026-11-28
 0x4381f4	reference	to 0x48ebdc READ operand 1 ANALYSIS (gp-load)	derived from the code (gp-load in FUN_004381d0)	2026-11-28	saved 2026-11-28
 0x4381fc	reference	to 0x48ebdc READ operand 1 ANALYSIS (gp-load)	derived from the code (gp-load in FUN_004381d0)	2026-11-28	saved 2026-11-28
 0x438204	reference	to 0x48ebdc READ operand 1 ANALYSIS (gp-load)	derived from the code (gp-load in FUN_004381d0)	2026-11-28	saved 2026-11-28
@@ -49189,7 +49256,9 @@ release_address	applied	value	source_pair	date	state
 0x4382a4	reference	to 0x48ebf4 READ operand 1 ANALYSIS (gp-load)	derived from the code (gp-load in FUN_00438280)	2026-11-28	saved 2026-11-28
 0x4382a8	reference	to 0x48ebf0 READ operand 1 ANALYSIS (gp-load)	derived from the code (gp-load in FUN_00438280)	2026-11-28	saved 2026-11-28
 0x4382b0	reference	to 0x58e000 DATA operand 0 ANALYSIS (pair-address)	derived from the code (pair-address in FUN_00438280)	2026-11-28	saved 2026-11-28
-0x4382c0	plate	Release map: unsure pair with prototype 0x3f0370 PTT_Heartbeat__Fi (evidence call-deviating; flags low-similarity,moved). // Owner -; prototype name PTT_Heartbeat not applied: unsure pair: the evidence does not settle it.	0x3f0370 PTT_Heartbeat__Fi (unsure)	2026-11-26	saved 2026-11-26
+0x4382c0	name	PTT_Heartbeat	0x3f0370 PTT_Heartbeat__Fi (deviating)	2026-11-28	saved 2026-11-28
+0x4382c0	label	PTT_Heartbeat__Fi	0x3f0370 PTT_Heartbeat__Fi (deviating)	2026-11-28	saved 2026-11-28
+0x4382c0	plate	Release map: deviating pair with prototype 0x3f0370 PTT_Heartbeat__Fi (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: its place in the library differs, a second agent's check settles it.	0x3f0370 PTT_Heartbeat__Fi (deviating)	2026-11-28	saved 2026-11-28
 0x4382ec	reference	to 0x48ebe8 READ operand 1 ANALYSIS (gp-load)	derived from the code (gp-load in FUN_004382c0)	2026-11-28	saved 2026-11-28
 0x438300	reference	to 0x48ebe4 READ operand 1 ANALYSIS (gp-load)	derived from the code (gp-load in FUN_004382c0)	2026-11-28	saved 2026-11-28
 0x438318	reference	to 0x48ebe0 READ operand 1 ANALYSIS (gp-load)	derived from the code (gp-load in FUN_004382c0)	2026-11-28	saved 2026-11-28
@@ -49256,7 +49325,9 @@ release_address	applied	value	source_pair	date	state
 0x438944	reference	to 0x48ebfc WRITE operand 1 ANALYSIS (gp-store)	derived from the code (gp-store in FUN_00438880)	2026-11-28	saved 2026-11-28
 0x438950	reference	to 0x58e000 DATA operand 0 ANALYSIS (pair-address)	derived from the code (pair-address in FUN_00438880)	2026-11-28	saved 2026-11-28
 0x438954	reference	to 0x598000 DATA operand 0 ANALYSIS (pair-address)	derived from the code (pair-address in FUN_00438880)	2026-11-28	saved 2026-11-28
-0x4389a0	plate	Release map: deviating pair with prototype 0x3efee0 PTT_Init__FPCcUi (evidence call-deviating; flags moved). // Owner -; prototype name PTT_Init not applied: library pair that is not exact (libraries are named from exact pairs only).	0x3efee0 PTT_Init__FPCcUi (deviating)	2026-11-26	saved 2026-11-26
+0x4389a0	name	PTT_Init	0x3efee0 PTT_Init__FPCcUi (deviating)	2026-11-28	saved 2026-11-28
+0x4389a0	label	PTT_Init__FPCcUi	0x3efee0 PTT_Init__FPCcUi (deviating)	2026-11-28	saved 2026-11-28
+0x4389a0	plate	Release map: deviating pair with prototype 0x3efee0 PTT_Init__FPCcUi (evidence call-deviating; flags moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3efee0 PTT_Init__FPCcUi (deviating)	2026-11-28	saved 2026-11-28
 0x4389c4	reference	to 0x598024 WRITE operand 1 ANALYSIS (pair-store)	derived from the code (pair-store in FUN_004389a0)	2026-11-28	saved 2026-11-28
 0x4389cc	reference	to 0x598054 WRITE operand 1 ANALYSIS (pair-store)	derived from the code (pair-store in FUN_004389a0)	2026-11-28	saved 2026-11-28
 0x4389d4	reference	to 0x598024 READ operand 1 ANALYSIS (pair-load)	derived from the code (pair-load in FUN_004389a0)	2026-11-28	saved 2026-11-28
@@ -49275,47 +49346,87 @@ release_address	applied	value	source_pair	date	state
 0x438b14	reference	to 0x598000 DATA operand 0 ANALYSIS (pair-address)	derived from the code (pair-address in FUN_004389a0)	2026-11-28	saved 2026-11-28
 0x438b4c	reference	to 0x58e000 DATA operand 0 ANALYSIS (pair-address)	derived from the code (pair-address in FUN_004389a0)	2026-11-28	saved 2026-11-28
 0x438b50	reference	to 0x48ebe8 WRITE operand 1 ANALYSIS (gp-store)	derived from the code (gp-store in FUN_004389a0)	2026-11-28	saved 2026-11-28
-0x438b80	plate	Release map: unsure pair with prototype 0x3f1380 lpc10_decode__FPiPfP19lpc10_decoder_state (evidence call-deviating; flags low-similarity,moved). // Owner -; prototype name lpc10_decode not applied: unsure pair: the evidence does not settle it.	0x3f1380 lpc10_decode__FPiPfP19lpc10_decoder_state (unsure)	2026-11-26	saved 2026-11-26
+0x438b80	name	lpc10_decode	0x3f1380 lpc10_decode__FPiPfP19lpc10_decoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x438b80	label	lpc10_decode__FPiPfP19lpc10_decoder_state	0x3f1380 lpc10_decode__FPiPfP19lpc10_decoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x438b80	plate	Release map: deviating pair with prototype 0x3f1380 lpc10_decode__FPiPfP19lpc10_decoder_state (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3f1380 lpc10_decode__FPiPfP19lpc10_decoder_state (deviating)	2026-11-28	saved 2026-11-28
 0x438bb0	reference	to 0x48d184 DATA operand 0 ANALYSIS (gp-address)	derived from the code (gp-address in FUN_00438b80)	2026-11-28	saved 2026-11-28
-0x438c20	plate	Release map: unsure pair with prototype 0x3f1450 lpc10_encode__FPfPiP19lpc10_encoder_state (evidence call-deviating; flags low-similarity,moved). // Owner -; prototype name lpc10_encode not applied: unsure pair: the evidence does not settle it.	0x3f1450 lpc10_encode__FPfPiP19lpc10_encoder_state (unsure)	2026-11-26	saved 2026-11-26
+0x438c20	name	lpc10_encode	0x3f1450 lpc10_encode__FPfPiP19lpc10_encoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x438c20	label	lpc10_encode__FPfPiP19lpc10_encoder_state	0x3f1450 lpc10_encode__FPfPiP19lpc10_encoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x438c20	plate	Release map: deviating pair with prototype 0x3f1450 lpc10_encode__FPfPiP19lpc10_encoder_state (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3f1450 lpc10_encode__FPfPiP19lpc10_encoder_state (deviating)	2026-11-28	saved 2026-11-28
 0x438c54	reference	to 0x48d188 DATA operand 0 ANALYSIS (gp-address)	derived from the code (gp-address in FUN_00438c20)	2026-11-28	saved 2026-11-28
 0x438ca4	reference	to 0x48d18c DATA operand 0 ANALYSIS (gp-address)	derived from the code (gp-address in FUN_00438c20)	2026-11-28	saved 2026-11-28
-0x438ce0	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
+0x438ce0	name	init_lpc10_decoder_state	0x3f1a00 init_lpc10_decoder_state__FP19lpc10_decoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x438ce0	label	init_lpc10_decoder_state__FP19lpc10_decoder_state	0x3f1a00 init_lpc10_decoder_state__FP19lpc10_decoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x438ce0	plate	Release map: deviating pair with prototype 0x3f1a00 init_lpc10_decoder_state__FP19lpc10_decoder_state (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: its place in the library differs, a second agent's check settles it.	0x3f1a00 init_lpc10_decoder_state__FP19lpc10_decoder_state (deviating)	2026-11-28	saved 2026-11-28
 0x438ce8	reference	to 0x5a0410 WRITE operand 1 ANALYSIS (pair-store)	derived from the code (pair-store in FUN_00438ce0)	2026-11-28	saved 2026-11-28
 0x438cf8	reference	to 0x5a0414 WRITE operand 1 ANALYSIS (pair-store)	derived from the code (pair-store in FUN_00438ce0)	2026-11-28	saved 2026-11-28
 0x438d08	reference	to 0x5a0418 WRITE operand 1 ANALYSIS (pair-store)	derived from the code (pair-store in FUN_00438ce0)	2026-11-28	saved 2026-11-28
 0x438ef0	plate	Release map: deviating pair with prototype 0x3f19b0 create_lpc10_decoder_state__Fv (evidence call-deviating; flags moved). // Owner -; prototype name create_lpc10_decoder_state not applied: library pair that is not exact (libraries are named from exact pairs only).	0x3f19b0 create_lpc10_decoder_state__Fv (deviating)	2026-11-26	saved 2026-11-26
-0x438f30	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
+0x438f30	name	init_lpc10_encoder_state	0x3f15b0 init_lpc10_encoder_state__FP19lpc10_encoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x438f30	label	init_lpc10_encoder_state__FP19lpc10_encoder_state	0x3f15b0 init_lpc10_encoder_state__FP19lpc10_encoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x438f30	plate	Release map: deviating pair with prototype 0x3f15b0 init_lpc10_encoder_state__FP19lpc10_encoder_state (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: its place in the library differs, a second agent's check settles it.	0x3f15b0 init_lpc10_encoder_state__FP19lpc10_encoder_state (deviating)	2026-11-28	saved 2026-11-28
 0x438f38	reference	to 0x5a0410 WRITE operand 1 ANALYSIS (pair-store)	derived from the code (pair-store in FUN_00438f30)	2026-11-28	saved 2026-11-28
 0x438f48	reference	to 0x5a0414 WRITE operand 1 ANALYSIS (pair-store)	derived from the code (pair-store in FUN_00438f30)	2026-11-28	saved 2026-11-28
 0x438f58	reference	to 0x5a0418 WRITE operand 1 ANALYSIS (pair-store)	derived from the code (pair-store in FUN_00438f30)	2026-11-28	saved 2026-11-28
-0x4392d0	plate	Release map: deviating pair with prototype 0x3f1560 create_lpc10_encoder_state__Fv (evidence call-deviating; flags moved). // Owner -; prototype name create_lpc10_encoder_state not applied: library pair that is not exact (libraries are named from exact pairs only).	0x3f1560 create_lpc10_encoder_state__Fv (deviating)	2026-11-26	saved 2026-11-26
-0x439310	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x439600	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x439670	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x43a040	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
+0x4392d0	name	create_lpc10_encoder_state	0x3f1560 create_lpc10_encoder_state__Fv (deviating)	2026-11-28	saved 2026-11-28
+0x4392d0	label	create_lpc10_encoder_state__Fv	0x3f1560 create_lpc10_encoder_state__Fv (deviating)	2026-11-28	saved 2026-11-28
+0x4392d0	plate	Release map: deviating pair with prototype 0x3f1560 create_lpc10_encoder_state__Fv (evidence call-deviating; flags moved). // Owner -; named although the pair is not exact: it stands in the same place as in the prototype.	0x3f1560 create_lpc10_encoder_state__Fv (deviating)	2026-11-28	saved 2026-11-28
+0x439310	name	lpfilt_	0x3f1c70 lpfilt___FPfPfPiPi (deviating)	2026-11-28	saved 2026-11-28
+0x439310	label	lpfilt___FPfPfPiPi	0x3f1c70 lpfilt___FPfPfPiPi (deviating)	2026-11-28	saved 2026-11-28
+0x439310	plate	Release map: deviating pair with prototype 0x3f1c70 lpfilt___FPfPfPiPi (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3f1c70 lpfilt___FPfPfPiPi (deviating)	2026-11-28	saved 2026-11-28
+0x439600	name	median_	0x3f21b0 median___FPiPiPi (deviating)	2026-11-28	saved 2026-11-28
+0x439600	label	median___FPiPiPi	0x3f21b0 median___FPiPiPi (deviating)	2026-11-28	saved 2026-11-28
+0x439600	plate	Release map: deviating pair with prototype 0x3f21b0 median___FPiPiPi (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3f21b0 median___FPiPiPi (deviating)	2026-11-28	saved 2026-11-28
+0x439670	name	mload_	0x3f22c0 mload___FPiPiPiPfPfPf (deviating)	2026-11-28	saved 2026-11-28
+0x439670	label	mload___FPiPiPiPfPfPf	0x3f22c0 mload___FPiPiPiPfPfPf (deviating)	2026-11-28	saved 2026-11-28
+0x439670	plate	Release map: deviating pair with prototype 0x3f22c0 mload___FPiPiPiPfPfPf (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3f22c0 mload___FPiPiPiPfPfPf (deviating)	2026-11-28	saved 2026-11-28
+0x43a040	name	onset_	0x3f2670 onset___FPfPiPiPiPiPiPiP19lpc10_encoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x43a040	label	onset___FPfPiPiPiPiPiPiP19lpc10_encoder_state	0x3f2670 onset___FPfPiPiPiPiPiPiP19lpc10_encoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x43a040	plate	Release map: deviating pair with prototype 0x3f2670 onset___FPfPiPiPiPiPiPiP19lpc10_encoder_state (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3f2670 onset___FPfPiPiPiPiPiPiP19lpc10_encoder_state (deviating)	2026-11-28	saved 2026-11-28
 0x43a1bc	reference	to 0x48d190 DATA operand 0 ANALYSIS (gp-address)	derived from the code (gp-address in FUN_0043a040)	2026-11-28	saved 2026-11-28
-0x43a3a0	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x43b270	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x43b740	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x43ba10	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x43bb70	plate	Release map: unsure pair with prototype 0x3f4890 prepro___FPfPiP19lpc10_encoder_state (evidence call-deviating; flags low-similarity,moved). // Owner -; prototype name prepro_ not applied: unsure pair: the evidence does not settle it.	0x3f4890 prepro___FPfPiP19lpc10_encoder_state (unsure)	2026-11-26	saved 2026-11-26
+0x43a3a0	name	pitsyn_	0x3f2b00 pitsyn___FPiPiPiPfPfPiPiPiPfPfPiPfP19lpc10_decoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x43a3a0	label	pitsyn___FPiPiPiPfPfPiPiPiPfPfPiPfP19lpc10_decoder_state	0x3f2b00 pitsyn___FPiPiPiPfPfPiPiPiPfPfPiPfP19lpc10_decoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x43a3a0	plate	Release map: deviating pair with prototype 0x3f2b00 pitsyn___FPiPiPiPfPfPiPiPiPfPfPiPfP19lpc10_decoder_state (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3f2b00 pitsyn___FPiPiPiPfPfPiPiPiPfPfPiPfP19lpc10_decoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x43b270	name	placea_	0x3f37e0 placea___FPiPiPiPiPiPiPiPiPi (deviating)	2026-11-28	saved 2026-11-28
+0x43b270	label	placea___FPiPiPiPiPiPiPiPiPi	0x3f37e0 placea___FPiPiPiPiPiPiPiPiPi (deviating)	2026-11-28	saved 2026-11-28
+0x43b270	plate	Release map: deviating pair with prototype 0x3f37e0 placea___FPiPiPiPiPiPiPiPiPi (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3f37e0 placea___FPiPiPiPiPiPiPiPiPi (deviating)	2026-11-28	saved 2026-11-28
+0x43b740	name	placev_	0x3f41f0 placev___FPiPiPiPiPiPiPiPiPiPiPi (deviating)	2026-11-28	saved 2026-11-28
+0x43b740	label	placev___FPiPiPiPiPiPiPiPiPiPiPi	0x3f41f0 placev___FPiPiPiPiPiPiPiPiPiPiPi (deviating)	2026-11-28	saved 2026-11-28
+0x43b740	plate	Release map: deviating pair with prototype 0x3f41f0 placev___FPiPiPiPiPiPiPiPiPiPiPi (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3f41f0 placev___FPiPiPiPiPiPiPiPiPiPiPi (deviating)	2026-11-28	saved 2026-11-28
+0x43ba10	name	preemp_	0x3f47c0 preemp___FPfPfPiPfPf (deviating)	2026-11-28	saved 2026-11-28
+0x43ba10	label	preemp___FPfPfPiPfPf	0x3f47c0 preemp___FPfPfPiPfPf (deviating)	2026-11-28	saved 2026-11-28
+0x43ba10	plate	Release map: deviating pair with prototype 0x3f47c0 preemp___FPfPfPiPfPf (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3f47c0 preemp___FPfPfPiPfPf (deviating)	2026-11-28	saved 2026-11-28
+0x43bb70	name	prepro_	0x3f4890 prepro___FPfPiP19lpc10_encoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x43bb70	label	prepro___FPfPiP19lpc10_encoder_state	0x3f4890 prepro___FPfPiP19lpc10_encoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x43bb70	plate	Release map: deviating pair with prototype 0x3f4890 prepro___FPfPiP19lpc10_encoder_state (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3f4890 prepro___FPfPiP19lpc10_encoder_state (deviating)	2026-11-28	saved 2026-11-28
 0x43bb90	reference	to 0x48d194 DATA operand 0 ANALYSIS (gp-address)	derived from the code (gp-address in FUN_0043bb70)	2026-11-28	saved 2026-11-28
-0x43bbb0	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x43bc30	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x43bd50	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
+0x43bbb0	name	random_	0x3f48f0 random___FP19lpc10_decoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x43bbb0	label	random___FP19lpc10_decoder_state	0x3f48f0 random___FP19lpc10_decoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x43bbb0	plate	Release map: deviating pair with prototype 0x3f48f0 random___FP19lpc10_decoder_state (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3f48f0 random___FP19lpc10_decoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x43bc30	name	rcchk_	0x3f49d0 rcchk___FPiPfPf (deviating)	2026-11-28	saved 2026-11-28
+0x43bc30	label	rcchk___FPiPfPf	0x3f49d0 rcchk___FPiPfPf (deviating)	2026-11-28	saved 2026-11-28
+0x43bc30	plate	Release map: deviating pair with prototype 0x3f49d0 rcchk___FPiPfPf (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3f49d0 rcchk___FPiPfPf (deviating)	2026-11-28	saved 2026-11-28
+0x43bd50	name	synths_	0x3f4b10 synths___FPiPiPfPfPfPiP19lpc10_decoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x43bd50	label	synths___FPiPiPfPfPfPiP19lpc10_decoder_state	0x3f4b10 synths___FPiPiPfPfPfPiP19lpc10_decoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x43bd50	plate	Release map: deviating pair with prototype 0x3f4b10 synths___FPiPiPfPfPfPiP19lpc10_decoder_state (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3f4b10 synths___FPiPiPfPfPfPiP19lpc10_decoder_state (deviating)	2026-11-28	saved 2026-11-28
 0x43bdf4	reference	to 0x5a0410 READ operand 1 ANALYSIS (pair-load)	derived from the code (pair-load in FUN_0043bd50)	2026-11-28	saved 2026-11-28
 0x43bea0	reference	to 0x5a0410 DATA operand 0 ANALYSIS (pair-address)	derived from the code (pair-address in FUN_0043bd50)	2026-11-28	saved 2026-11-28
 0x43bea8	reference	to 0x5a0414 DATA operand 0 ANALYSIS (pair-address)	derived from the code (pair-address in FUN_0043bd50)	2026-11-28	saved 2026-11-28
 0x43beec	reference	to 0x5a0410 DATA operand 0 ANALYSIS (pair-address)	derived from the code (pair-address in FUN_0043bd50)	2026-11-28	saved 2026-11-28
 0x43bef0	reference	to 0x48d198 DATA operand 0 ANALYSIS (gp-address)	derived from the code (gp-address in FUN_0043bd50)	2026-11-28	saved 2026-11-28
-0x43c140	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
-0x43c4e0	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
+0x43c140	name	tbdm_	0x3f4f20 tbdm___FPfPiPiPiPfPiPiPi (deviating)	2026-11-28	saved 2026-11-28
+0x43c140	label	tbdm___FPfPiPiPiPfPiPiPi	0x3f4f20 tbdm___FPfPiPiPiPfPiPiPi (deviating)	2026-11-28	saved 2026-11-28
+0x43c140	plate	Release map: deviating pair with prototype 0x3f4f20 tbdm___FPfPiPiPiPfPiPiPi (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3f4f20 tbdm___FPfPiPiPiPfPiPiPi (deviating)	2026-11-28	saved 2026-11-28
+0x43c4e0	name	voicin_	0x3f5430 voicin___FPiPfPfPiPiPfPfPiPfPiPiPiP19lpc10_encoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x43c4e0	label	voicin___FPiPfPfPiPiPfPfPiPfPiPiPiP19lpc10_encoder_state	0x3f5430 voicin___FPiPfPfPiPiPfPfPiPfPiPiPiP19lpc10_encoder_state (deviating)	2026-11-28	saved 2026-11-28
+0x43c4e0	plate	Release map: deviating pair with prototype 0x3f5430 voicin___FPiPfPfPiPiPfPfPiPfPiPiPiP19lpc10_encoder_state (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3f5430 voicin___FPiPfPfPiPiPfPfPiPfPiPiPiP19lpc10_encoder_state (deviating)	2026-11-28	saved 2026-11-28
 0x43c510	reference	to 0x48ec0c READ operand 1 ANALYSIS (gp-load)	derived from the code (gp-load in FUN_0043c4e0)	2026-11-28	saved 2026-11-28
 0x43c52c	reference	to 0x48ec08 WRITE operand 1 ANALYSIS (gp-store)	derived from the code (gp-store in FUN_0043c4e0)	2026-11-28	saved 2026-11-28
 0x43c530	reference	to 0x48ec0c WRITE operand 1 ANALYSIS (gp-store)	derived from the code (gp-store in FUN_0043c4e0)	2026-11-28	saved 2026-11-28
 0x43c758	reference	to 0x48ec08 READ operand 1 ANALYSIS (gp-load)	derived from the code (gp-load in FUN_0043c4e0)	2026-11-28	saved 2026-11-28
-0x43cef0	plate	Release map: new, no prototype counterpart (evidence -; flags -). // Owner -.	new	2026-11-26	saved 2026-11-26
+0x43cef0	name	vparms_	0x3f6090 vparms___FPiPfPfPiPiPfPiPiPiPiPfPfPfPf (deviating)	2026-11-28	saved 2026-11-28
+0x43cef0	label	vparms___FPiPfPfPiPiPfPiPiPiPiPfPfPfPf	0x3f6090 vparms___FPiPfPfPiPiPfPiPiPiPiPfPfPfPf (deviating)	2026-11-28	saved 2026-11-28
+0x43cef0	plate	Release map: deviating pair with prototype 0x3f6090 vparms___FPiPfPfPiPiPfPiPiPiPiPfPfPfPf (evidence settled; flags moved). // Owner -; settled: docs/release/notes/library-pairs.md; named although the pair is not exact: it stands in the same place as in the prototype.	0x3f6090 vparms___FPiPfPfPiPiPfPiPiPiPiPfPfPfPf (deviating)	2026-11-28	saved 2026-11-28
 0x43cffc	reference	to 0x48d19c DATA operand 0 ANALYSIS (gp-address)	derived from the code (gp-address in FUN_0043cef0)	2026-11-28	saved 2026-11-28
 0x43d0d0	reference	to 0x48d19c DATA operand 0 ANALYSIS (gp-address)	derived from the code (gp-address in FUN_0043cef0)	2026-11-28	saved 2026-11-28
 0x43d460	create	0x43d460-0x43d467	new	2026-11-26	saved 2026-11-26

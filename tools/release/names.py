@@ -409,6 +409,8 @@ def decide_name(row: dict, proto: dict | None, placed: frozenset | None = None) 
             by_place = "it stands in the same place as in the prototype"
         elif row["class"] == "deviating" and "call" in row["evidence"]:
             by_place = "its place in the library differs, its callers decide it"
+        elif row["class"] == "deviating" and "settled" in row["evidence"]:
+            by_place = "its place in the library differs, a second agent's check settles it"
     if row["class"] == "unsure" and not by_place:
         return None, None, "unsure pair: the evidence does not settle it"
     if proto is None or is_default_name(proto["name"]):
