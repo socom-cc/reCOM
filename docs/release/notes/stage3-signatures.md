@@ -214,3 +214,36 @@ after each batch. Record: `docs/release/ghidra-types.tsv`, 284 rows.
 What they unlock is planned next and not applied yet: the review's condition is that every
 function they unlock is checked against its callers first, because these classes have no debug
 record that could show a hidden argument.
+
+## The signatures the placeholder types unlocked
+
+With the 284 placeholder types present, a new whole-map plan (7f8bb7d8...) planned 804 more
+entries of the group `mangled`. The review had set a condition for them: these receivers have no
+debug record, so the rule that withholds a class-returning function from DWARF can never fire,
+and every one has to be cleared against its callers and its own code first.
+
+The reviewer built two checks for that and calibrated them on the ten known structure returns,
+which they all flag. A function is cleared when it is a constructor or destructor (215), when on
+some path its first access through a0 is a load, since a return buffer is written before it is
+read (331), when a0 is never accessed, handed on or saved (169), when a caller sets exactly the
+predicted argument registers (39), when a signed override of the same slot exists, a0 goes on to
+a member that takes `this`, or every function a0 is handed to reads through it first (18), and by
+hand for the rest (32, each with its reason in the reviewer's scratch). No caller sets a register
+beyond the predicted ones. Result: all 804 cleared, none withheld; the 61 applied before pass
+the same checks.
+
+Applied in five batches (25, 100, 200, 250, 229), a snapshot after every ten writes, each checked
+with the reviewer's script before its save: 804 prototypes and 804 plates, no stop, no change a
+run did not make. The record holds 5,585 prototypes: 2,634 carried on exact pairs, 2,086 on
+deviating pairs, 865 derived from the mangled symbol. Dry runs of the plan for all three groups
+and of a names plan made afterwards send nothing.
+
+Of the 6,991 functions of the game and engine modules 5,075 have a signature now, 852 of them
+derived; `gamez/zUI` went from 107 to 379 of its 530, `gamez/zSeal` to 1,032 of 1,361,
+`gamez/zNetwork` to 196 of 306. A receiver that is a placeholder shows its class name and raw
+offsets, not members: the type has no layout yet.
+
+Still without a signature in the group: 2,035 functions without a mangled symbol (C names, most
+of them library code), 692 whose receiver and 498 whose parameter type cannot be named (template
+names the endpoint's parser cannot read, types passed by value, names that are not C
+identifiers), 199 with `this` undecided, 132 with a possible hidden argument.
