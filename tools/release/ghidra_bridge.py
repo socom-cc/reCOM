@@ -92,6 +92,13 @@ STARTS_WRITES = frozenset({"disassemble_bytes", "create_function"})
 # client refuses any other form. set_global, apply_data_classification and rename_data are in no
 # set: the first two clear code units, the last applies a global naming policy.
 GLOBALS_WRITES = frozenset({"create_label", "apply_data_type", "set_comment"})
+# The only write the references step sends (tools/release/references.py); it saves nothing.
+# add_memory_reference (XrefCallGraphService.addMemoryReference) runs ReferenceManager.addMemoryReference
+# in one transaction; the client sends it only with a data type (READ, WRITE, DATA: a flow type could
+# change fall-through), an explicit source (ANALYSIS or USER_DEFINED) and an operand of 0 or more.
+REFERENCE_WRITES = frozenset({"add_memory_reference"})
+REFERENCE_TYPES = frozenset({"READ", "WRITE", "DATA"})
+REFERENCE_SOURCES = frozenset({"ANALYSIS", "USER_DEFINED"})
 
 _FUNCTION = re.compile(r"^Function: (.*) at ([0-9a-fA-F]+)$")
 _BODY = re.compile(r"^Body: ([0-9a-fA-F]+) - ([0-9a-fA-F]+)$")
@@ -177,6 +184,11 @@ class Bridge:
         if endpoint == "apply_data_type" and body.get("clear_existing") is not False:
             # the plugin's default is true: it would clear the code units in the range first
             raise WriteRefused("apply_data_type is sent only with clear_existing false")
+        if endpoint == "add_memory_reference" and not (
+                body.get("ref_type") in REFERENCE_TYPES and body.get("source_type") in REFERENCE_SOURCES
+                and isinstance(body.get("operand_index"), int) and body["operand_index"] >= 0):
+            raise WriteRefused("add_memory_reference is sent only with ref_type READ, WRITE or DATA, source_type "
+                               "ANALYSIS or USER_DEFINED and an operand index of 0 or more")
         path = PROGRAMS[program]
         payload = json.dumps({"program": path, **body}, sort_keys=True).encode("utf-8")
         record = {"endpoint": endpoint, "program": path, "body": body, "response": None}

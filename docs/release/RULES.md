@@ -576,6 +576,83 @@ python tools/release/globals.py --discard-unsaved build/release/globals/plan-gam
   also records a write sent before a stop when the saved program holds it. `--discard-unsaved` refuses
   while the program holds any write the report sent.
 
+## Stage 3: references to globals
+
+Analysis left many accesses from code to globals without a stored reference: it drops a data
+reference to an address no memory block holds, and the block `.bss` (0x48d200..0x5d6cff) came
+later; for many functions it also had no value of gp yet (`notes/stage3-globals.md`). The step
+adds them with `tools/release/references.py`, through one ordinary bridge write (no script, no
+analysis, nothing cleared or saved):
+
+```powershell
+python tools/release/references.py --plan gamez/zBone        # or: --plan --all
+python tools/release/references.py --apply build/release/references/plan-gamez-zBone.json --dry-run
+python tools/release/references.py --apply build/release/references/plan-all.json --yes [--batch N] [--only 0x..] [--check-every N]
+python tools/release/references.py --confirm-saved build/release/references/plan-all.apply-001.json
+python tools/release/references.py --discard-unsaved build/release/references/plan-all.apply-001.json
+```
+
+- **What the bridge does** (plugin 6.0.0 and Ghidra 12.1.4, read from the classes):
+  `add_memory_reference` (`XrefCallGraphService.addMemoryReference`) calls
+  `ReferenceManager.addMemoryReference(from, to, type, source, operand)` in one transaction. It first
+  deletes the stack and register references on that operand; the same from, to and operand is never
+  duplicated (the type is combined: READ and WRITE give READ_WRITE); a new reference is primary when
+  its operand has none. No symbol, data or code unit is made at the target (the `DAT_` name a
+  referenced address shows is dynamic), and auto-analysis reacts to no reference event, so nothing
+  runs. The answer is `status success` with the fields and `is_primary`, or `{"error": ...}`. There is
+  no undo endpoint. `get_xrefs_from` shows target and type only: the operand, source and primary flag
+  of a stored reference cannot be read through the bridge. The client sends the write only with type
+  READ, WRITE or DATA, source ANALYSIS or USER_DEFINED and an operand of 0 or more.
+- **What analysis makes**, measured on the prototype (every use `dataflow.py` derives in its 9,705
+  bodies against every reference Ghidra holds there): a load or store through gp or through a `lui`
+  high half gets READ or WRITE on operand 1 (7,224 of 7,224 and 6,640 of 6,640 agree; the right half
+  `lwr`/`ldr` of an unaligned pair too, the left half never); an address computation gets a reference
+  on itself (15,223, DATA or PARAM), on the store that stores it (1,457), or none. A register-offset
+  access is marked in 1,070 of 2,716 cases. The 877 gp references the release holds all agree with
+  the derivation.
+- **Plan** (any worker; reads the release program, writes nothing): per instruction of a release
+  function body (the function holding it) with a use whose target is fixed: the kind, the reference
+  (from, to, type, operand), the instructions that build the address, what the instruction holds
+  already, and the target's block, labels, defined data with the offset in it, data-map row with the
+  offset, and code-unit state. Made: `gp-load`, `pair-load` READ operand 1; `gp-store`, `pair-store`
+  WRITE operand 1; `gp-address`, `pair-address` DATA operand 0 (the destination register, which the
+  analyzer's operand search matches; PARAM is not made, since analysis deletes PARAM references of any
+  source when it revisits an instruction). Source ANALYSIS (`--source-type USER_DEFINED` at plan time
+  for the other); a re-analysis removes neither. Present: a reference to the target from the
+  instruction exists; covered: an address the function stores, where the store has the reference.
+  Withheld, with the reason: register-offset accesses, the left half of an unaligned pair, a
+  `lui`/`ori` pair (a constant: all 17 in the prototype), the value of gp itself, a target outside
+  every memory block, a load or store into code, an address into code that is no function entry, and
+  an instruction that already has another reference (its operand cannot be read). Indexed accesses
+  have no fixed target and are counted. An address computation lists what the function does with the
+  address (`feeds`: accesses through it, field or indexed; a store); where analysis would have marked those instead, the
+  reference stands at the computation. Not derived: references through pointers analysis read from
+  initialized memory, values stored as addresses no computation of the function builds.
+- **Review**: a second agent that did not write the plan checks it before anything is applied.
+- **Apply**: the coordinator only, after the review: the dry run first, then `--yes`, optionally
+  `--batch N` references or `--only 0x..` (the instruction) for a pilot. The same guards as the other
+  steps (open programs, recorded SHA-256, idle analysis, plan digest and function map, no unsaved rows,
+  release program only, never a save) and the memory blocks as planned. Per reference: the references
+  from the instruction must be those the plan saw (with the planned one too: unchanged, a second run
+  changes nothing), the function holding it must have the planned entry and body, the target the
+  planned type, length and code state; then one write, whose answer must echo the planned fields with
+  `is_primary` true; the references from the instruction must read back as before plus exactly the
+  planned one, and the target's reference count one more, nothing else of it changed (a dynamic name
+  where it had none). A snapshot of every function (body, name, thunk, signature line, no-return),
+  every defined data item, every stored label, every bookmark and the state of every target written so
+  far is compared with the one before the run after every `--check-every` writes (default 250),
+  whenever analysis is seen running after a write, and at the end. Stops as in the globals step:
+  `StopBefore` (nothing sent for that reference: save, confirm, replan), `StopAfter` (the write
+  answered or reads back otherwise: read it; save and confirm, or close without saving and discard),
+  `AnalysisStop` (a change the plan did not make: check it first).
+- **Record**: `docs/release/ghidra-applied.tsv`, kind `reference`, the row at the instruction's
+  address, the value `to <target> <type> operand <n> <source> (<kind>)`; rows stay
+  `unsaved <report>` until `--confirm-saved`, which also records a write sent before a stop when the
+  saved program holds it; `--discard-unsaved` refuses while the program holds any reference the
+  report sent.
+- **Not visible through the bridge**: the operand index and source of a stored reference (a pilot
+  checks them in the Ghidra window), and the listing's operand display.
+
 ## Source
 
 - `src/` stays the single game source and the port lane's rules in `AGENTS.md` hold: assembly
