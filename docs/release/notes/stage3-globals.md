@@ -144,3 +144,27 @@ still has nothing to apply.
 
 The same self-check is a way to name what is new in the release from its own strings: RTTI
 records and vtables of classes that have no prototype counterpart. Not done here.
+
+## The value of gp
+
+The revision of the name proposals showed that many globals reached through the `gp` register
+still appeared in the decompiler as raw variables (`iGpffff9114`) although their addresses carry
+labels. `socom-release-gp-q1` found the cause, read-only: the decompiler resolves `gp + offset`
+from the value of gp that the program's context holds at a function's entry, not from references.
+In the prototype the MIPS constant analyzer set that value for every function because the
+executable has a `_gp` symbol. The stripped release has none; the analyzer worked the value out
+(0x494670, from `move gp,a0` in the entry function) only partway through its run, so functions it
+had already passed never got it, and no function made later by the release tools has it. Of the
+1,496 release functions that use gp, 933 decompiled with raw gp variables (4,685 accesses).
+
+Fix, done by the user in the Ghidra window on 2026-11-28: Set Register Values, `gp` = 0x494670,
+over the code block 0x00100000 to 0x0048d1ff. It writes only the context: no references, no
+data, no names, no function bodies, no analysis. The bridge has no endpoint for register values,
+and re-running the analyzer would have re-flowed every function.
+
+Checked by the coordinator against a baseline taken before: all 1,496 functions decompiled again,
+and none shows a raw gp variable (933 before); the function count (9,875), every name and
+signature line and both programs' bookmarks are unchanged. Not done: the references themselves.
+7,797 gp-relative accesses have no stored reference (6,231 of them into the uninitialised data,
+which had no memory block when the analysis ran), so the reference lists of those globals are
+incomplete. Adding them would be a step of its own.
