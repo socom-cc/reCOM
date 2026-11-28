@@ -79,14 +79,46 @@ A fresh plan has nothing left to apply (1,855 plates, 2,033 labels and 3,680 typ
 The record gained 1,855 `data-label`, 178 `data-label-mangled`, 1,855 `data-comment` and 23
 `data-type` rows.
 
+## The uninitialised data
+
+The user added the missing block in the Memory Map window on 2026-11-27: `.bss`, 0x48d200 to
+0x5d6cff, read and write, not executable, uninitialised. The coordinator compared the whole
+program with the reviewer's baseline afterwards: the block is the only difference, and no
+analysis ran.
+
+A new plan with the block present held 1,839 more labels, 151 second labels, 1,839 plates and 228
+types. Here the prototype has real types: string tables (`CSTable`, 29), scalars, pointers to
+textures, nodes and the HUD, and class instances such as `CZNetwork`, `CTexManager`, `CAiMaps`,
+`CEntityList`, `_zsys_public`, `CPnt4D[20]`, `RecoTuple[300]`.
+
+The reviewer checked what is new about it before any write: creating data in an uninitialised
+block behaves as elsewhere and makes no reference, because there is no stored value; all 61 type
+names resolve to the prototype's path and size, add nothing to the type table, and none is one of
+the empty placeholder types; no typed object runs past the next paired object (sizes come from
+neighbour arithmetic, since an uninitialised object has no content); the objects whose layout
+the pairing check found changed are not among the typed ones. Of the 747 names that rest on one
+aligned witness it read 100 against the instructions that use them in both programs: none wrong
+(68 anchored by an independently witnessed neighbour, 31 by position and access width, 1 not
+checkable). Verdict: safe to apply, with one type withheld: `m_hud_textcolor__4CHUD` (0x577f90),
+contradicted and offset-changed, which keeps its name (a row in `settled-data.tsv`).
+
+| Run | Entries | Types | Outcome |
+|---|---|---|---|
+| pilot | 6 | 6 | an `int`, a locale id, a `CNode *`, a stream object, `RecoTuple[300]`, `CZNetwork`; check clean; saved, confirmed |
+| batch 1 | 300 | 37 | no stop; check clean; saved, confirmed |
+| batch 2 | 600 | 74 | no stop; check clean; saved, confirmed |
+| batch 3 | 933 | 110 | no stop; check clean; saved, confirmed |
+
+With both passes the release program has 3,694 named data objects, 329 second labels, 3,694
+plates and 250 types from this step; a fresh plan has nothing left to apply. Still without a
+name: 5,185 literals, 449 anonymous objects, 210 pairs the pairing check withholds, and 14 single
+cases (an existing label, addresses inside an item or an instruction, conflicting rows, `_end`
+just past the block).
 ## Open
 
-- **No memory block for the uninitialised data.** The release program's only loaded block ends
-  at 0x48d1ff; the part of the image the loader zero-fills, 0x48d200 to 0x5d6cff (0x149b00
-  bytes), has none (the prototype program has `main.bss`). 2,241 paired objects lie there. Adding
-  an uninitialised block starts no analysis and creates no reference; afterwards every plan has
-  to be made again. Whether and when is the user's decision; the reviewer's advice is that the
-  user adds it in the Memory Map window.
+- The memory block for the uninitialised data: done, see above. A later re-analysis of the code
+  would create references into it; none exist yet.
+
 - **67 objects where analysis already defined untyped data** (81 items: 77 untyped scalars, 4
   pointers). Their real type would need a clear. It would drop 4 outgoing references, all of
   which the new `char *` types make again; the 559 references to these objects stay. Not built;
