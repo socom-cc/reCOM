@@ -256,7 +256,8 @@ release_address	release_size	prototype_address	prototype_size	prototype_symbol	p
 0x44c310	4..8	0x43ba20	4	MediusGetTotalChannelsCallbackFunctionPtr	.data	.data	deviating	operand-exact:2	2	size-unconfirmed	-	-
 0x44c318	4	0x43ba24	4	geMediusProcessingState	.data	.data	exact	operand-exact:2	2	-	-	-
 0x44c31c	4	0x43ba28	4	geQueuedRequestType	.data	.data	exact	operand-exact:3,content:1	4	-	-	-
-0x44c320	4..8	0x43ba2c	4	gpfClientConnectCallback	.data	.data	deviating	operand-exact:3	3	size-unconfirmed	-	-
+0x44c320	4	0x43ba2c	4	gpfClientConnectCallback	.data	.data	exact	operand-exact:3	3	-	-	-
+0x44c324	4	0x43ba30	4	MsgCounter.0	.data	.data	exact	operand-aligned:1	1	single-aligned	-	-
 0x44c328	4	0x43ba38	4	devicechanged	.data	.data	exact	operand-exact:14,operand-aligned:6	20	-	-	-
 0x44c32c	4..36	0x43ba3c	4	threadsafeSema	.data	.data	deviating	operand-exact:13,operand-aligned:7	20	size-unconfirmed	-	-
 0x44c350	128	0x43ba40	128	tempstr$2631	.data	.data	exact	operand-aligned:1	1	single-aligned	-	src/Apps/FTS/hud/hud_actionbitmap.cpp
@@ -335,21 +336,21 @@ release_address	release_size	prototype_address	prototype_size	prototype_symbol	p
 0x455bc0	-	-	-	-	-	.data	new	code:1	1	-	-	-
 0x455bc8	-	-	-	-	-	.data	new	code:1	1	-	-	-
 0x455bd0	-	-	-	-	-	.data	new	code:1	1	-	-	-
-0x455bf8	-	-	-	-	-	.data	new	code:2	2	ref-by-new	-	-
-0x455bfc	-	-	-	-	-	.data	new	code:2	2	ref-by-new	-	-
+0x455bf8	-	-	-	-	-	.data	new	code:2	2	-	-	-
+0x455bfc	-	-	-	-	-	.data	new	code:2	2	-	-	-
 0x455c00	4..8	0x43e2d0	4	gpszVersion	.data	.data	deviating	operand-exact:1	1	size-unconfirmed	-	-
 0x455c08	8..72	0x463890	-	-	.rodata	.data	deviating	operand-aligned:1	1	section-changed,single-aligned	-	-
 0x455c48	-	-	-	-	-	(.rodata)..(.data)	new	code:1	1	-	-	-
 0x455c50	71..64	0x43e230	64	pubKey.0	.data	.data	deviating	operand-exact:1	1	content-changed,size-changed	-	-
 0x455c90	71..96	0x43e270	64	priKey.1	.data	.data	deviating	operand-exact:1	1	content-changed,size-changed	-	-
 0x455ce0	-	-	-	-	-	.data	new	code:1	1	ref-by-new	-	-
-0x455cec	-	-	-	-	-	.data	new	code:1	1	ref-by-new	-	-
+0x455cec	-	-	-	-	-	.data	new	code:1	1	-	-	-
 0x455cf0	240	0x43c3f0	240	tau$13	.data	.data	exact	content:1	1	-	-	-
 0x455de0	16	0x43c4e0	16	buflim$14	.data	.data	exact	content:1	1	-	-	-
 0x455df0	100	0x43c4f0	100	kexc$16	.data	.data	exact	content:1	1	-	-	-
 0x455e60	40	0x43c560	40	bit$12	.data	.data	exact	content:1	1	-	-	-
 0x455e90	212	0x43c590	212	iblist$13	.data	.data	exact	content:1	1	-	-	-
-0x455f6c	-	-	-	-	-	.data	new	code:1	1	ref-by-new	-	-
+0x455f6c	-	-	-	-	-	.data	new	code:1	1	-	-	-
 0x455f70	128	0x43c670	128	ivtab$25	.data	.data	exact	content:1	1	-	-	-
 0x455ff0	128	0x43c6f0	128	corth$26	.data	.data	exact	content:1	1	-	-	-
 0x456070	0..768	0x43c770	512	detau$27	.data	.data	deviating	content:1	1	size-unconfirmed	-	-
@@ -366,7 +367,7 @@ release_address	release_size	prototype_address	prototype_size	prototype_symbol	p
 0x456620	32	0x43cd20	32	enscl$16	.data	.data	exact	content:1	1	-	-	-
 0x456640	32	0x43cd40	32	enbits$17	.data	.data	exact	content:1	1	-	-	-
 0x456660	0..512	0x43cd60	256	entab6$18	.data	.data	deviating	content:1	1	size-unconfirmed	-	-
-0x456860	512	0x43cf60	512	dactab$12	.data	.data	exact	content:1	1	-	-	-
+0x456860	512	0x43cf60	512	dactab$12	.data	.data	exact	content:1,operand-aligned:1	2	-	-	-
 0x456a60	400	0x43d160	400	vdc$16	.data	.data	exact	content:1	1	-	-	-
 0x456bf0	0..25144	0x43d2f0	40	vdcl$20	.data	.data	deviating	content:1	1	size-unconfirmed	-	-
 0x456c28	-	-	-	-	-	(.data)..(between .vudata and .rodata)	new	code:1	1	ref-by-new	-	-
@@ -6923,7 +6924,7 @@ release_address	release_size	prototype_address	prototype_size	prototype_symbol	p
 0x47f150	-	-	-	-	-	.rodata	new	code:1	1	-	-	-
 0x47f160	-	-	-	-	-	.rodata	new	code:1	1	-	-	-
 0x47f180	0..72	0x466e30	48	lconv	.rodata	.rodata	deviating	operand-exact:1,pointer:1	2	size-unconfirmed	-	-
-0x47f1c0	-	-	-	-	-	.rodata	new	code:1	1	ref-by-new	-	-
+0x47f1c0	-	-	-	-	-	.rodata	new	code:1	1	-	-	-
 0x47f1c4	-	-	-	-	-	.rodata	new	code:1	1	-	-	-
 0x47f1c8	12	0x466e78	12	p05.27	.rodata	.rodata	exact	content:1	1	-	-	-
 0x47f1d8	0..1512	0x466e88	200	__mprec_tens	.rodata	.rodata	deviating	content:1	1	size-unconfirmed	-	-
@@ -6999,7 +7000,7 @@ release_address	release_size	prototype_address	prototype_size	prototype_symbol	p
 0x480350	30	0x467940	30	@50	.rodata	.rodata	exact	content:1	1	-	-	-
 0x480370	33	0x467960	33	@51	.rodata	.rodata	exact	content:1	1	-	-	-
 0x4803a0	40	0x4678f0	40	@30	.rodata	.rodata	exact	content:1	1	-	-	-
-0x4803d0	-	-	-	-	-	(.rodata)..(between .rodata and .sdata from __static_init)	new	code:1	1	ref-by-new	-	-
+0x4803d0	-	-	-	-	-	(.rodata)..(between .rodata and .sdata from __static_init)	new	code:1	1	-	-	-
 0x480478	-	-	-	-	-	(.rodata)..(between .rodata and .sdata from __static_init)	new	code:1	1	ref-by-new	-	-
 0x480480	-	-	-	-	-	(.rodata)..(between .rodata and .sdata from __static_init)	new	code:1	1	ref-by-new	-	-
 0x4804a0	-	-	-	-	-	(.rodata)..(between .rodata and .sdata from __static_init)	new	code:1	1	ref-by-new	-	-
@@ -8031,25 +8032,25 @@ release_address	release_size	prototype_address	prototype_size	prototype_symbol	p
 0x48d138	-	-	-	-	-	(between .rodata and .sdata from __data_end)..(between .sdata and .bss)	new	code:4	4	ref-by-new	-	-
 0x48d140	4	0x4755e0	4	m_rpcRunning	between .sdata and .bss	between .sdata and .bss	exact	operand-exact:7	7	-	-	-
 0x48d148	-	0x4755e8	-	-	between .sdata and .bss	between .sdata and .bss	exact	operand-exact:4	4	-	-	-
-0x48d150	-	-	-	-	-	(between .sdata and .bss)..(between .rodata and .sdata from __data_end)	new	code:1	1	ref-by-new	-	-
-0x48d154	-	-	-	-	-	(between .sdata and .bss)..(between .rodata and .sdata from __data_end)	new	code:1	1	ref-by-new	-	-
-0x48d158	-	-	-	-	-	(between .sdata and .bss)..(between .rodata and .sdata from __data_end)	new	code:1	1	ref-by-new	-	-
-0x48d15c	-	-	-	-	-	(between .sdata and .bss)..(between .rodata and .sdata from __data_end)	new	code:1	1	ref-by-new	-	-
-0x48d160	-	-	-	-	-	(between .sdata and .bss)..(between .rodata and .sdata from __data_end)	new	code:1	1	ref-by-new	-	-
-0x48d164	-	-	-	-	-	(between .sdata and .bss)..(between .rodata and .sdata from __data_end)	new	code:1	1	ref-by-new	-	-
+0x48d150	-	-	-	-	-	(between .sdata and .bss)..(between .rodata and .sdata from __data_end)	new	code:1	1	-	-	-
+0x48d154	-	-	-	-	-	(between .sdata and .bss)..(between .rodata and .sdata from __data_end)	new	code:1	1	-	-	-
+0x48d158	-	-	-	-	-	(between .sdata and .bss)..(between .rodata and .sdata from __data_end)	new	code:1	1	-	-	-
+0x48d15c	-	-	-	-	-	(between .sdata and .bss)..(between .rodata and .sdata from __data_end)	new	code:1	1	-	-	-
+0x48d160	-	-	-	-	-	(between .sdata and .bss)..(between .rodata and .sdata from __data_end)	new	code:1	1	-	-	-
+0x48d164	-	-	-	-	-	(between .sdata and .bss)..(between .rodata and .sdata from __data_end)	new	code:1	1	-	-	-
 0x48d168	4	0x475594	4	c__307	between .rodata and .sdata from __data_end	between .rodata and .sdata from __data_end	exact	content:1	1	-	-	-
 0x48d16c	4	0x475598	4	c__462	between .rodata and .sdata from __data_end	between .rodata and .sdata from __data_end	exact	content:1	1	-	-	-
 0x48d170	0..144	0x47559c	4	c__312	between .rodata and .sdata from __data_end	between .rodata and .sdata from __data_end	deviating	content:1	1	size-unconfirmed	-	-
-0x48d178	-	-	-	-	-	(between .rodata and .sdata from __data_end)..(between .sdata and .bss from _fbss)	new	code:1	1	ref-by-new	-	-
-0x48d17c	-	-	-	-	-	(between .rodata and .sdata from __data_end)..(between .sdata and .bss from _fbss)	new	code:1	1	ref-by-new	-	-
-0x48d180	-	-	-	-	-	(between .rodata and .sdata from __data_end)..(between .sdata and .bss from _fbss)	new	code:1	1	ref-by-new	-	-
+0x48d178	-	-	-	-	-	(between .rodata and .sdata from __data_end)..(between .sdata and .bss from _fbss)	new	code:1	1	-	-	-
+0x48d17c	-	-	-	-	-	(between .rodata and .sdata from __data_end)..(between .sdata and .bss from _fbss)	new	code:1	1	-	-	-
+0x48d180	-	-	-	-	-	(between .rodata and .sdata from __data_end)..(between .sdata and .bss from _fbss)	new	code:1	1	-	-	-
 0x48d184	-	-	-	-	-	(between .rodata and .sdata from __data_end)..(between .sdata and .bss from _fbss)	new	code:1	1	-	-	-
 0x48d188	-	-	-	-	-	(between .rodata and .sdata from __data_end)..(between .sdata and .bss from _fbss)	new	code:1	1	-	-	-
 0x48d18c	-	-	-	-	-	(between .rodata and .sdata from __data_end)..(between .sdata and .bss from _fbss)	new	code:1	1	-	-	-
-0x48d190	-	-	-	-	-	(between .rodata and .sdata from __data_end)..(between .sdata and .bss from _fbss)	new	code:1	1	ref-by-new	-	-
+0x48d190	-	-	-	-	-	(between .rodata and .sdata from __data_end)..(between .sdata and .bss from _fbss)	new	code:1	1	-	-	-
 0x48d194	-	-	-	-	-	(between .rodata and .sdata from __data_end)..(between .sdata and .bss from _fbss)	new	code:1	1	-	-	-
-0x48d198	-	-	-	-	-	(between .rodata and .sdata from __data_end)..(between .sdata and .bss from _fbss)	new	code:1	1	ref-by-new	-	-
-0x48d19c	-	-	-	-	-	(between .rodata and .sdata from __data_end)..(between .sdata and .bss from _fbss)	new	code:1	1	ref-by-new	-	-
+0x48d198	-	-	-	-	-	(between .rodata and .sdata from __data_end)..(between .sdata and .bss from _fbss)	new	code:1	1	-	-	-
+0x48d19c	-	-	-	-	-	(between .rodata and .sdata from __data_end)..(between .sdata and .bss from _fbss)	new	code:1	1	-	-	-
 0x48d1a0	-	-	-	-	-	(between .rodata and .sdata from __data_end)..(between .sdata and .bss from _fbss)	new	code:1	1	ref-by-new	-	-
 0x48d1a8	-	-	-	-	-	(between .rodata and .sdata from __data_end)..(between .sdata and .bss from _fbss)	new	code:1	1	ref-by-new	-	-
 0x48d200	0..12	0x475600	1	init$localstatic4$next__7CAiPathFv	between .sdata and .bss from _fbss	between .sdata and .bss from _fbss	deviating	operand-aligned:1	1	constant-as-address,single-aligned,size-unconfirmed	only the alias _fbss is witnessed (the entry function's bss start): carry _fbss, not the local static	src/gamez/zSeal/seal_ai.cpp
@@ -9583,16 +9584,16 @@ release_address	release_size	prototype_address	prototype_size	prototype_symbol	p
 0x48eba4	4	0x476cc0	4	g_syncCallback	between .sdata and .bss from _fbss	between .sdata and .bss from _fbss	exact	operand-exact:1	1	-	-	-
 0x48eba8	4	0x476cc4	4	g_syncCalldata	between .sdata and .bss from _fbss	between .sdata and .bss from _fbss	exact	operand-exact:1	1	-	-	-
 0x48ebac	1..212	0x476cc8	1	g_syncReason	between .sdata and .bss from _fbss	between .sdata and .bss from _fbss	deviating	operand-exact:3,operand-aligned:1	4	size-unconfirmed	-	-
-0x48ebb0	-	-	-	-	-	(between .sdata and .bss from _fbss)..(.bss)	new	code:1	1	ref-by-new	-	-
-0x48ebb4	-	-	-	-	-	(between .sdata and .bss from _fbss)..(.bss)	new	code:1	1	ref-by-new	-	-
-0x48ebb8	-	-	-	-	-	(between .sdata and .bss from _fbss)..(.bss)	new	code:1	1	ref-by-new	-	-
-0x48ebbc	-	-	-	-	-	(between .sdata and .bss from _fbss)..(.bss)	new	code:1	1	ref-by-new	-	-
-0x48ebc0	-	-	-	-	-	(between .sdata and .bss from _fbss)..(.bss)	new	code:1	1	ref-by-new	-	-
-0x48ebc4	-	-	-	-	-	(between .sdata and .bss from _fbss)..(.bss)	new	code:1	1	ref-by-new	-	-
-0x48ebc8	-	-	-	-	-	(between .sdata and .bss from _fbss)..(.bss)	new	code:1	1	ref-by-new	-	-
-0x48ebcc	-	-	-	-	-	(between .sdata and .bss from _fbss)..(.bss)	new	code:1	1	ref-by-new	-	-
-0x48ebd0	-	-	-	-	-	(between .sdata and .bss from _fbss)..(.bss)	new	code:1	1	ref-by-new	-	-
-0x48ebd4	-	-	-	-	-	(between .sdata and .bss from _fbss)..(.bss)	new	code:1	1	ref-by-new	-	-
+0x48ebb0	-	-	-	-	-	(between .sdata and .bss from _fbss)..(.bss)	new	code:1	1	-	-	-
+0x48ebb4	-	-	-	-	-	(between .sdata and .bss from _fbss)..(.bss)	new	code:1	1	-	-	-
+0x48ebb8	-	-	-	-	-	(between .sdata and .bss from _fbss)..(.bss)	new	code:1	1	-	-	-
+0x48ebbc	-	-	-	-	-	(between .sdata and .bss from _fbss)..(.bss)	new	code:1	1	-	-	-
+0x48ebc0	-	-	-	-	-	(between .sdata and .bss from _fbss)..(.bss)	new	code:1	1	-	-	-
+0x48ebc4	-	-	-	-	-	(between .sdata and .bss from _fbss)..(.bss)	new	code:1	1	-	-	-
+0x48ebc8	-	-	-	-	-	(between .sdata and .bss from _fbss)..(.bss)	new	code:1	1	-	-	-
+0x48ebcc	-	-	-	-	-	(between .sdata and .bss from _fbss)..(.bss)	new	code:1	1	-	-	-
+0x48ebd0	-	-	-	-	-	(between .sdata and .bss from _fbss)..(.bss)	new	code:1	1	-	-	-
+0x48ebd4	-	-	-	-	-	(between .sdata and .bss from _fbss)..(.bss)	new	code:1	1	-	-	-
 0x48ebd8	-	-	-	-	-	(between .sdata and .bss from _fbss)..(.bss)	new	code:10	10	-	-	-
 0x48ebdc	-	-	-	-	-	(between .sdata and .bss from _fbss)..(.bss)	new	code:11	11	-	-	-
 0x48ebe0	-	-	-	-	-	(between .sdata and .bss from _fbss)..(.bss)	new	code:5	5	-	-	-
@@ -9605,8 +9606,8 @@ release_address	release_size	prototype_address	prototype_size	prototype_symbol	p
 0x48ebfc	-	-	-	-	-	(between .sdata and .bss from _fbss)..(.bss)	new	code:3	3	-	-	-
 0x48ec00	-	-	-	-	-	(between .sdata and .bss from _fbss)..(.bss)	new	code:1	1	-	-	-
 0x48ec04	-	-	-	-	-	(between .sdata and .bss from _fbss)..(.bss)	new	code:1	1	-	-	-
-0x48ec08	-	-	-	-	-	(between .sdata and .bss from _fbss)..(.bss)	new	code:1	1	ref-by-new	-	-
-0x48ec0c	-	-	-	-	-	(between .sdata and .bss from _fbss)..(.bss)	new	code:1	1	ref-by-new	-	-
+0x48ec08	-	-	-	-	-	(between .sdata and .bss from _fbss)..(.bss)	new	code:1	1	-	-	-
+0x48ec0c	-	-	-	-	-	(between .sdata and .bss from _fbss)..(.bss)	new	code:1	1	-	-	-
 0x48ec10	-	-	-	-	-	(between .sdata and .bss from _fbss)..(.bss)	new	code:1	1	ref-by-new	-	-
 0x48ec14	-	-	-	-	-	(between .sdata and .bss from _fbss)..(.bss)	new	code:1	1	ref-by-new	-	-
 0x48ec80	4..328	0x476d80	0	_args	.bss	.bss	exact	operand-aligned:1	1	single-aligned	-	-
@@ -10793,13 +10794,11 @@ release_address	release_size	prototype_address	prototype_size	prototype_symbol	p
 0x58e000	-	-	-	-	-	.bss	new	code:11	11	-	-	-
 0x590000	-	-	-	-	-	.bss	new	code:2	2	-	-	-
 0x598000	40	0x56d0c0	40	g_cd	.bss	.bss	exact	operand-aligned:1	1	single-aligned	-	-
-0x598030	40..34272	0x56d0f0	40	g_cd_hb	.bss	.bss	deviating	operand-aligned:1	1	single-aligned,size-unconfirmed	-	-
-0x598060	-	-	-	-	-	(.bss)..(between .bss and .vubss)	new	code:1	1	-	-	-
-0x598140	-	-	-	-	-	(.bss)..(between .bss and .vubss)	new	code:1	1	-	-	-
-0x598410	-	-	-	-	-	(.bss)..(between .bss and .vubss)	new	code:1	1	-	-	-
-0x5a0410	-	-	-	-	-	(.bss)..(between .bss and .vubss)	new	code:7	7	ref-by-new	-	-
-0x5a0414	-	-	-	-	-	(.bss)..(between .bss and .vubss)	new	code:4	4	ref-by-new	-	-
-0x5a0418	-	-	-	-	-	(.bss)..(between .bss and .vubss)	new	code:4	4	ref-by-new	-	-
+0x598030	40..33760	0x56d0f0	40	g_cd_hb	.bss	.bss	deviating	operand-aligned:1	1	single-aligned,size-unconfirmed	-	-
+0x598060	-	-	-	-	-	.bss	new	code:1	1	-	-	-
+0x598140	-	-	-	-	-	.bss	new	code:1	1	-	-	-
+0x598410	-	-	-	-	-	.bss	new	code:1	1	-	-	-
+0x5a0410	8..512	0x5754d0	12	contrl_	.bss	.bss	deviating	operand-aligned:1	1	single-aligned,size-unconfirmed	-	-
 0x5a0420	-	-	-	-	-	(.bss)..(between .bss and .vubss)	new	code:1	1	ref-by-new	-	-
 0x5a0430	-	-	-	-	-	(.bss)..(between .bss and .vubss)	new	code:1	1	ref-by-new	-	-
 0x5a0440	-	-	-	-	-	(.bss)..(between .bss and .vubss)	new	code:15	15	ref-by-new	-	-
@@ -11088,7 +11087,6 @@ release_address	release_size	prototype_address	prototype_size	prototype_symbol	p
 -	-	0x43b5d8	12	@2595	.data	-	removed	-	0	identical-copy,refs-unaligned	-	src/Apps/FTS/state/st_exit.cpp
 -	-	0x43b5e8	12	@2601	.data	-	removed	-	0	refs-unaligned	-	src/Apps/FTS/state/st_exit.cpp
 -	-	0x43b600	396	@2602	.data	-	removed	-	0	refs-unaligned	-	src/Apps/FTS/state/st_exit.cpp
--	-	0x43ba30	4	MsgCounter.0	.data	-	removed	-	0	refs-unaligned	-	-
 -	-	0x43bac0	32	nbi$2671	.data	-	removed	-	0	refs-removed	-	src/Apps/FTS/hud/hud_devtext.cpp
 -	-	0x43bf78	4	__mb_cur_max	.data	-	removed	-	0	identical-copy,refs-unaligned	-	-
 -	-	0x43bf80	8	lc_ctype.3	.data	-	removed	-	0	identical-copy,unreached	-	-
@@ -11100,8 +11098,8 @@ release_address	release_size	prototype_address	prototype_size	prototype_symbol	p
 -	-	0x43c3b0	8	__malloc_max_sbrked_mem	.data	-	removed	-	0	refs-unaligned	-	-
 -	-	0x43c3b8	8	__malloc_max_total_mem	.data	-	removed	-	0	refs-unaligned	-	-
 -	-	0x43c3c0	40	__malloc_current_mallinfo	.data	-	removed	-	0	refs-unaligned	-	-
--	-	0x43c970	256	rmst$28	.data	-	removed	-	0	identical-copy,refs-removed	-	-
--	-	0x43ce60	256	rmst$19	.data	-	removed	-	0	identical-copy,refs-removed	-	-
+-	-	0x43c970	256	rmst$28	.data	-	removed	-	0	identical-copy,refs-unaligned	-	-
+-	-	0x43ce60	256	rmst$19	.data	-	removed	-	0	identical-copy,refs-unaligned	-	-
 -	-	0x43d318	12	@1226	.data	-	removed	-	0	identical-copy,refs-removed	-	src/gamez/zNetwork/zNetCnf.cpp
 -	-	0x43d328	12	@1248	.data	-	removed	-	0	refs-unaligned	-	src/gamez/zNetwork/zNetCnf.cpp
 -	-	0x43d338	12	@1249	.data	-	removed	-	0	identical-copy,refs-unaligned	-	src/gamez/zNetwork/zNetCnf.cpp
@@ -11591,7 +11589,7 @@ release_address	release_size	prototype_address	prototype_size	prototype_symbol	p
 -	-	0x466df8	-	-	.rodata	-	removed	-	0	refs-unaligned	-	-
 -	-	0x466e00	-	-	.rodata	-	removed	-	0	refs-unaligned	-	-
 -	-	0x466e10	-	-	.rodata	-	removed	-	0	refs-unaligned	-	-
--	-	0x466e70	-	-	.rodata	-	removed	-	0	refs-removed	-	-
+-	-	0x466e70	-	-	.rodata	-	removed	-	0	refs-unaligned	-	-
 -	-	0x466f50	40	__mprec_bigtens	.rodata	-	removed	-	0	refs-unaligned	-	-
 -	-	0x466f78	40	__mprec_tinytens	.rodata	-	removed	-	0	refs-unaligned	-	-
 -	-	0x466fb0	-	-	.rodata	-	removed	-	0	refs-unaligned	-	-
@@ -11618,7 +11616,7 @@ release_address	release_size	prototype_address	prototype_size	prototype_symbol	p
 -	-	0x4676a0	-	-	.rodata	-	removed	-	0	refs-unaligned	-	-
 -	-	0x4676c0	-	-	.rodata	-	removed	-	0	refs-unaligned	-	-
 -	-	0x467800	-	-	.rodata	-	removed	-	0	refs-unaligned	-	-
--	-	0x4679c0	68	@147	.rodata	-	removed	-	0	refs-removed	-	-
+-	-	0x4679c0	68	@147	.rodata	-	removed	-	0	refs-unaligned	-	-
 -	-	0x467f10	2	@4776	.rodata	-	removed	-	0	refs-unaligned	-	src/Apps/FTS/hud/hud_ingame_weaponsel.cpp
 -	-	0x467f18	2	@4777	.rodata	-	removed	-	0	refs-unaligned	-	src/Apps/FTS/hud/hud_ingame_weaponsel.cpp
 -	-	0x467f20	2	@4778	.rodata	-	removed	-	0	refs-unaligned	-	src/Apps/FTS/hud/hud_ingame_weaponsel.cpp
@@ -11864,23 +11862,23 @@ release_address	release_size	prototype_address	prototype_size	prototype_symbol	p
 -	-	0x475570	4	LineBaseX	between .rodata and .sdata from __data_end	-	removed	-	0	identical-copy,refs-removed	-	src/Apps/FTS/hud/hud_devtext.cpp
 -	-	0x475574	4	stayTime	between .rodata and .sdata from __data_end	-	removed	-	0	identical-copy,refs-removed	-	src/Apps/FTS/hud/hud_devtext.cpp
 -	-	0x475578	4	decTime	between .rodata and .sdata from __data_end	-	removed	-	0	refs-removed	-	src/Apps/FTS/hud/hud_devtext.cpp
--	-	0x47557c	4	c__10	between .rodata and .sdata from __data_end	-	removed	-	0	identical-copy,refs-removed	-	-
--	-	0x475580	4	c__181	between .rodata and .sdata from __data_end	-	removed	-	0	identical-copy,refs-removed	-	-
--	-	0x475584	4	c__720	between .rodata and .sdata from __data_end	-	removed	-	0	identical-copy,refs-removed	-	-
--	-	0x475588	4	c__3	between .rodata and .sdata from __data_end	-	removed	-	0	identical-copy,refs-removed	-	-
--	-	0x47558c	4	c__90	between .rodata and .sdata from __data_end	-	removed	-	0	identical-copy,refs-removed	-	-
--	-	0x475590	4	c__156	between .rodata and .sdata from __data_end	-	removed	-	0	identical-copy,refs-removed	-	-
--	-	0x4755a0	4	c__60	between .rodata and .sdata from __data_end	-	removed	-	0	identical-copy,refs-removed	-	-
--	-	0x4755a4	4	c__1	between .rodata and .sdata from __data_end	-	removed	-	0	identical-copy,refs-removed	-	-
--	-	0x4755a8	4	c__2	between .rodata and .sdata from __data_end	-	removed	-	0	identical-copy,refs-removed	-	-
--	-	0x4755ac	4	c__2	between .rodata and .sdata from __data_end	-	removed	-	0	identical-copy,refs-removed	-	-
+-	-	0x47557c	4	c__10	between .rodata and .sdata from __data_end	-	removed	-	0	identical-copy,refs-unaligned	-	-
+-	-	0x475580	4	c__181	between .rodata and .sdata from __data_end	-	removed	-	0	identical-copy,refs-unaligned	-	-
+-	-	0x475584	4	c__720	between .rodata and .sdata from __data_end	-	removed	-	0	identical-copy,refs-unaligned	-	-
+-	-	0x475588	4	c__3	between .rodata and .sdata from __data_end	-	removed	-	0	identical-copy,refs-unaligned	-	-
+-	-	0x47558c	4	c__90	between .rodata and .sdata from __data_end	-	removed	-	0	identical-copy,refs-unaligned	-	-
+-	-	0x475590	4	c__156	between .rodata and .sdata from __data_end	-	removed	-	0	identical-copy,refs-unaligned	-	-
+-	-	0x4755a0	4	c__60	between .rodata and .sdata from __data_end	-	removed	-	0	identical-copy,refs-unaligned	-	-
+-	-	0x4755a4	4	c__1	between .rodata and .sdata from __data_end	-	removed	-	0	identical-copy,refs-unaligned	-	-
+-	-	0x4755a8	4	c__2	between .rodata and .sdata from __data_end	-	removed	-	0	identical-copy,refs-unaligned	-	-
+-	-	0x4755ac	4	c__2	between .rodata and .sdata from __data_end	-	removed	-	0	identical-copy,refs-unaligned	-	-
 -	-	0x4755b0	4	c__10	between .rodata and .sdata from __data_end	-	removed	-	0	identical-copy,refs-unaligned	-	-
 -	-	0x4755b4	4	c__180	between .rodata and .sdata from __data_end	-	removed	-	0	identical-copy,refs-unaligned	-	-
 -	-	0x4755b8	4	c__10	between .rodata and .sdata from __data_end	-	removed	-	0	identical-copy,refs-unaligned	-	-
--	-	0x4755bc	4	c_b2	between .rodata and .sdata from __data_end	-	removed	-	0	identical-copy,refs-removed	-	-
+-	-	0x4755bc	4	c_b2	between .rodata and .sdata from __data_end	-	removed	-	0	identical-copy,refs-unaligned	-	-
 -	-	0x4755c0	4	c__1	between .rodata and .sdata from __data_end	-	removed	-	0	identical-copy,refs-unaligned	-	-
--	-	0x4755c4	4	c_b2	between .rodata and .sdata from __data_end	-	removed	-	0	identical-copy,refs-removed	-	-
--	-	0x4755c8	4	c_b2	between .rodata and .sdata from __data_end	-	removed	-	0	identical-copy,refs-removed	-	-
+-	-	0x4755c4	4	c_b2	between .rodata and .sdata from __data_end	-	removed	-	0	identical-copy,refs-unaligned	-	-
+-	-	0x4755c8	4	c_b2	between .rodata and .sdata from __data_end	-	removed	-	0	identical-copy,refs-unaligned	-	-
 -	-	0x4755cc	4	m_selected_combo__7CNetCnf	between .rodata and .sdata from __data_end	-	removed	-	0	refs-unaligned	-	src/gamez/zNetwork/zNetCnf.cpp
 -	-	0x4755d8	4	KM_SOFTWARE_ID	.sdata	-	removed	-	0	refs-unaligned	-	-
 -	-	0x4756e4	1	init$2782	between .sdata and .bss from _fbss	-	removed	-	0	refs-unaligned	-	src/Apps/FTS/state/st_core.cpp
@@ -12117,16 +12115,16 @@ release_address	release_size	prototype_address	prototype_size	prototype_symbol	p
 -	-	0x476c18	4	charCommonTime$2757	between .sdata and .bss from _fbss	-	removed	-	0	refs-removed	-	src/Apps/FTS/hud/hud_devtext.cpp
 -	-	0x476c1c	4	alphaTime$2758	between .sdata and .bss from _fbss	-	removed	-	0	refs-removed	-	src/Apps/FTS/hud/hud_devtext.cpp
 -	-	0x476c20	4	miscTime$2759	between .sdata and .bss from _fbss	-	removed	-	0	refs-removed	-	src/Apps/FTS/hud/hud_devtext.cpp
--	-	0x476c54	4	precoef$15	between .sdata and .bss from _fbss	-	removed	-	0	refs-removed	-	-
--	-	0x476c58	1	init$16	between .sdata and .bss from _fbss	-	removed	-	0	refs-removed	-	-
--	-	0x476c5c	4	ethrs$13	between .sdata and .bss from _fbss	-	removed	-	0	refs-removed	-	-
--	-	0x476c60	1	init$14	between .sdata and .bss from _fbss	-	removed	-	0	refs-removed	-	-
--	-	0x476c64	4	ethrs1$16	between .sdata and .bss from _fbss	-	removed	-	0	refs-removed	-	-
--	-	0x476c68	1	init$17	between .sdata and .bss from _fbss	-	removed	-	0	refs-removed	-	-
--	-	0x476c6c	4	ethrs2$19	between .sdata and .bss from _fbss	-	removed	-	0	refs-removed	-	-
--	-	0x476c70	1	init$20	between .sdata and .bss from _fbss	-	removed	-	0	refs-removed	-	-
--	-	0x476c74	4	ethrs3$22	between .sdata and .bss from _fbss	-	removed	-	0	refs-removed	-	-
--	-	0x476c78	1	init$23	between .sdata and .bss from _fbss	-	removed	-	0	refs-removed	-	-
+-	-	0x476c54	4	precoef$15	between .sdata and .bss from _fbss	-	removed	-	0	refs-unaligned	-	-
+-	-	0x476c58	1	init$16	between .sdata and .bss from _fbss	-	removed	-	0	refs-unaligned	-	-
+-	-	0x476c5c	4	ethrs$13	between .sdata and .bss from _fbss	-	removed	-	0	refs-unaligned	-	-
+-	-	0x476c60	1	init$14	between .sdata and .bss from _fbss	-	removed	-	0	refs-unaligned	-	-
+-	-	0x476c64	4	ethrs1$16	between .sdata and .bss from _fbss	-	removed	-	0	refs-unaligned	-	-
+-	-	0x476c68	1	init$17	between .sdata and .bss from _fbss	-	removed	-	0	refs-unaligned	-	-
+-	-	0x476c6c	4	ethrs2$19	between .sdata and .bss from _fbss	-	removed	-	0	refs-unaligned	-	-
+-	-	0x476c70	1	init$20	between .sdata and .bss from _fbss	-	removed	-	0	refs-unaligned	-	-
+-	-	0x476c74	4	ethrs3$22	between .sdata and .bss from _fbss	-	removed	-	0	refs-unaligned	-	-
+-	-	0x476c78	1	init$23	between .sdata and .bss from _fbss	-	removed	-	0	refs-unaligned	-	-
 -	-	0x476c7c	4	g_permitSemaphore	between .sdata and .bss from _fbss	-	removed	-	0	refs-unaligned	-	-
 -	-	0x476c80	4	g_syncSemaphore	between .sdata and .bss from _fbss	-	removed	-	0	refs-unaligned	-	-
 -	-	0x476c84	4	g_heartbeatSemaphore	between .sdata and .bss from _fbss	-	removed	-	0	refs-unaligned	-	-
@@ -12139,8 +12137,8 @@ release_address	release_size	prototype_address	prototype_size	prototype_symbol	p
 -	-	0x476ca0	4	g_decoderState	between .sdata and .bss from _fbss	-	removed	-	0	refs-unaligned	-	-
 -	-	0x476ca4	4	lastPlaybackEnabled$74	between .sdata and .bss from _fbss	-	removed	-	0	refs-unaligned	-	-
 -	-	0x476ca8	1	init$75	between .sdata and .bss from _fbss	-	removed	-	0	refs-unaligned	-	-
--	-	0x476cac	4	nvdcl$17	between .sdata and .bss from _fbss	-	removed	-	0	refs-removed	-	-
--	-	0x476cb0	1	init$18	between .sdata and .bss from _fbss	-	removed	-	0	refs-removed	-	-
+-	-	0x476cac	4	nvdcl$17	between .sdata and .bss from _fbss	-	removed	-	0	refs-unaligned	-	-
+-	-	0x476cb0	1	init$18	between .sdata and .bss from _fbss	-	removed	-	0	refs-unaligned	-	-
 -	-	0x476ccc	1	m_isinit__7CNetCnf	between .sdata and .bss from _fbss	-	removed	-	0	refs-unaligned	-	src/gamez/zNetwork/zNetCnf.cpp
 -	-	0x476cd0	4	m_open_handle__7CNetCnf	between .sdata and .bss from _fbss	-	removed	-	0	refs-unaligned	-	src/gamez/zNetwork/zNetCnf.cpp
 -	-	0x476cd4	4	idx$localstatic3$GetEntry__7CSMOpenFQ216CCnfStateMachine10STATE_FLAG	between .sdata and .bss from _fbss	-	removed	-	0	refs-removed	-	src/gamez/zNetwork/zNetCnf.cpp
@@ -12234,7 +12232,6 @@ release_address	release_size	prototype_address	prototype_size	prototype_symbol	p
 -	-	0x56d120	216	g_bits	.bss	-	removed	-	0	refs-unaligned	-	-
 -	-	0x56d200	720	g_speech	.bss	-	removed	-	0	refs-unaligned	-	-
 -	-	0x56d4d0	32768	results$73	.bss	-	removed	-	0	refs-unaligned	-	-
--	-	0x5754d0	12	contrl_	.bss	-	removed	-	0	refs-removed	-	-
 -	-	0x576e80	12	@1682	.bss	-	removed	-	0	refs-removed	-	src/gamez/zNetwork/zNetCnf.cpp
 -	-	0x576ec0	53504	theNetCnf	.bss	-	removed	-	0	refs-unaligned	-	src/gamez/zNetwork/zNetCnf.cpp
 -	-	0x583fc0	8192	g_stack	.bss	-	removed	-	0	refs-unaligned	-	src/gamez/zSystem/zsys_trc.cpp

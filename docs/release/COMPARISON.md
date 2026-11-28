@@ -57,13 +57,13 @@ order), `ambiguous`, `low-similarity`, `owner-guess`, `copy`.
 
 | scope | exact | deviating | unsure | new | removed | exact bytes | deviating bytes | unsure bytes | new bytes | removed bytes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| all functions | 6325 | 2850 | 58 | 627 | 473 | 1257400 | 1666640 | 27088 | 170704 | 124512 |
+| all functions | 6325 | 2913 | 49 | 573 | 419 | 1257400 | 1708444 | 24476 | 131512 | 82628 |
 | authored (by prototype classification) | 3772 | 2559 | 1 | 0 | 233 | 690736 | 1548324 | 140 | 0 | 49256 |
 | authored, with new functions placed in authored modules | 3772 | 2559 | 1 | 425 | 233 | 690736 | 1548324 | 140 | 105788 | 49256 |
 
 Bytes are release sizes, prototype sizes for removed functions. Of the deviating
 functions, 759 (251752 bytes) differ only in immediates or offsets (`imm-only`).
-238 pairs are out of order relative to the order anchors (`moved`).
+291 pairs are out of order relative to the order anchors (`moved`).
 
 ## By prototype classification
 
@@ -71,13 +71,13 @@ functions, 759 (251752 bytes) differ only in immediates or offsets (`imm-only`).
 |---|---|---|---|---|---|---|---|---|---|---|
 | authored | 3772 | 2559 | 1 | 0 | 233 | 690736 | 1548324 | 140 | 0 | 49256 |
 | provider: SCE | 687 | 28 | 4 | 0 | 82 | 105132 | 5408 | 568 | 0 | 13016 |
-| provider: Medius | 593 | 114 | 1 | 0 | 78 | 68320 | 62620 | 160 | 0 | 15364 |
+| provider: Medius | 593 | 115 | 0 | 0 | 78 | 68320 | 62776 | 0 | 0 | 15364 |
 | provider: speech middleware | 699 | 1 | 0 | 0 | 0 | 268564 | 256 | 0 | 0 | 0 |
-| (new: no prototype counterpart) | 0 | 0 | 0 | 627 | 0 | 0 | 0 | 0 | 170704 | 0 |
-| provider: newlib | 65 | 68 | 43 | 0 | 21 | 31152 | 24660 | 22632 | 0 | 2084 |
+| (new: no prototype counterpart) | 0 | 0 | 0 | 573 | 0 | 0 | 0 | 0 | 131512 | 0 |
+| provider: newlib | 65 | 85 | 42 | 0 | 5 | 31152 | 26216 | 22604 | 0 | 792 |
 | compiler-generated | 141 | 33 | 0 | 0 | 3 | 20404 | 9756 | 0 | 0 | 932 |
 | provider: MSL | 175 | 0 | 0 | 0 | 0 | 37496 | 0 | 0 | 0 | 0 |
-| provider: libptt | 7 | 12 | 7 | 0 | 43 | 1188 | 2344 | 2424 | 0 | 41220 |
+| provider: libptt | 7 | 57 | 0 | 0 | 5 | 1188 | 42436 | 0 | 0 | 628 |
 | provider: unidentified GNU object | 51 | 1 | 0 | 0 | 1 | 3632 | 540 | 0 | 0 | 244 |
 | provider: 989snd | 36 | 6 | 1 | 0 | 0 | 3908 | 2840 | 64 | 0 | 0 |
 | provider: RSA | 16 | 17 | 1 | 0 | 8 | 3012 | 6692 | 1100 | 0 | 2252 |
@@ -101,10 +101,10 @@ flag `owner-guess`). Sorted by changed bytes (deviating + unsure + new + removed
 | gamez/zUI | 308 | 198 | 0 | 24 | 5 | 59952 | 118044 | 0 | 6424 | 416 |
 | gamez/zFTS | 186 | 171 | 0 | 37 | 5 | 21988 | 76460 | 0 | 5684 | 376 |
 | gamez/zNetwork | 156 | 138 | 0 | 12 | 89 | 23080 | 56576 | 0 | 2452 | 21628 |
-| (provider: Medius) | 593 | 114 | 1 | 20 | 78 | 68320 | 62620 | 160 | 2176 | 15364 |
-| (provider: libptt) | 7 | 12 | 7 | 32 | 43 | 1188 | 2344 | 2424 | 31384 | 41220 |
+| (provider: Medius) | 593 | 115 | 0 | 19 | 78 | 68320 | 62776 | 0 | 2020 | 15364 |
 | gamez/zAI | 398 | 50 | 0 | 11 | 8 | 116580 | 50452 | 0 | 3532 | 2140 |
-| (provider: newlib) | 65 | 68 | 43 | 19 | 21 | 31152 | 24660 | 22632 | 1800 | 2084 |
+| (provider: newlib) | 65 | 85 | 42 | 3 | 5 | 31152 | 26216 | 22604 | 272 | 792 |
+| (provider: libptt) | 7 | 57 | 0 | 0 | 5 | 1188 | 42436 | 0 | 0 | 628 |
 | Apps/FTS/game | 93 | 45 | 0 | 4 | 0 | 10696 | 39104 | 0 | 460 | 0 |
 | gamez/zWeapon | 197 | 93 | 0 | 29 | 1 | 16352 | 31636 | 0 | 4280 | 276 |
 | gamez/zNode | 140 | 84 | 0 | 4 | 5 | 27224 | 31328 | 0 | 1308 | 1224 |
@@ -117,7 +117,6 @@ flag `owner-guess`). Sorted by changed bytes (deviating + unsure + new + removed
 | gamez/zTwoD | 89 | 46 | 0 | 5 | 1 | 13084 | 17812 | 0 | 1744 | 112 |
 | gamez/zSound | 80 | 58 | 0 | 6 | 0 | 9860 | 18012 | 0 | 1024 | 0 |
 | gamez/zRender | 36 | 21 | 0 | 1 | 2 | 6388 | 18152 | 0 | 8 | 332 |
-| (new, unplaced) | 0 | 0 | 0 | 56 | 0 | 0 | 0 | 0 | 16500 | 0 |
 | (provider: RSA) | 16 | 17 | 1 | 14 | 8 | 3012 | 6692 | 1100 | 5144 | 2252 |
 | gamez/zCharacter | 45 | 20 | 0 | 3 | 0 | 7604 | 12900 | 0 | 324 | 0 |
 | gamez/zInput | 24 | 23 | 0 | 2 | 12 | 1312 | 10548 | 0 | 16 | 2004 |
@@ -125,6 +124,7 @@ flag `owner-guess`). Sorted by changed bytes (deviating + unsure + new + removed
 | gamez/zArchive | 32 | 39 | 0 | 3 | 10 | 4948 | 11284 | 0 | 340 | 812 |
 | gamez/zVehicle | 44 | 15 | 0 | 0 | 0 | 12232 | 11696 | 0 | 0 | 0 |
 | Apps/FTS | 19 | 21 | 1 | 9 | 3 | 2100 | 8804 | 140 | 1916 | 160 |
+| (new, unplaced) | 0 | 0 | 0 | 51 | 0 | 0 | 0 | 0 | 10376 | 0 |
 | gamez/zBody | 73 | 17 | 0 | 5 | 0 | 11752 | 7920 | 0 | 820 | 0 |
 | gamez/zMPEG | 13 | 25 | 0 | 2 | 1 | 1892 | 7236 | 0 | 240 | 60 |
 | gamez/zSystem | 43 | 19 | 0 | 3 | 5 | 5160 | 5588 | 0 | 172 | 864 |
@@ -175,13 +175,13 @@ Every relocated instruction field of the prototype's functions against the maski
 
 | similarity | 0.0-0.1 | 0.1-0.2 | 0.2-0.3 | 0.3-0.4 | 0.4-0.5 | 0.5-0.6 | 0.6-0.7 | 0.7-0.8 | 0.8-0.9 | 0.9-1.0 |
 |---|---|---|---|---|---|---|---|---|---|---|
-| call | 21 | 49 | 99 | 109 | 132 | 229 | 186 | 266 | 429 | 721 |
+| call | 21 | 46 | 96 | 108 | 131 | 230 | 186 | 266 | 429 | 721 |
 | call (>= 16 instructions) | 15 | 15 | 17 | 26 | 26 | 49 | 40 | 57 | 109 | 221 |
 | global | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 1 |
-| null | 451 | 489 | 294 | 110 | 80 | 93 | 28 | 37 | 37 | 227 |
-| null (>= 16 instructions) | 321 | 405 | 155 | 60 | 44 | 25 | 22 | 17 | 19 | 79 |
-| position | 0 | 0 | 0 | 3 | 5 | 9 | 7 | 6 | 6 | 21 |
-| position (>= 16 instructions) | 0 | 0 | 0 | 2 | 5 | 4 | 6 | 6 | 6 | 20 |
+| null | 450 | 489 | 291 | 110 | 80 | 93 | 28 | 37 | 37 | 223 |
+| null (>= 16 instructions) | 320 | 405 | 154 | 60 | 44 | 25 | 22 | 17 | 19 | 77 |
+| position | 0 | 0 | 0 | 3 | 5 | 8 | 7 | 6 | 6 | 21 |
+| position (>= 16 instructions) | 0 | 0 | 0 | 2 | 5 | 3 | 6 | 6 | 6 | 20 |
 | string | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 
 `call`: non-exact pairs made by call-tree propagation (the pairing does not look at
@@ -194,8 +194,8 @@ Small functions look alike (accessors, stubs), so the null of all sizes has a ta
 1.0; for them the order between anchors decides and a pair is unsure (`ambiguous`) when an
 unpaired alternative in the same gap scores within 0.05.
 
-Thresholds, from the >= 16-instruction rows: 85.9% of null pairs stay below 0.50 and
-76.8% below 0.30, while 82.8% of call-tree counterparts reach 0.50. So:
+Thresholds, from the >= 16-instruction rows: 86.0% of null pairs stay below 0.50 and
+76.9% below 0.30, while 82.8% of call-tree counterparts reach 0.50. So:
 
 - a positional, `global` or `call-deviating` pair is deviating at similarity >= 0.50, unsure
   from 0.30 to 0.50, unless it is referenced at its place by a paired caller and in its
@@ -348,7 +348,7 @@ descendants).
 
 Rows of [settled-pairs.tsv](settled-pairs.tsv), applied before any pairing (evidence
 `settled`; a settled pair is exact when its bytes, calls and data operands agree, otherwise
-deviating). 259 rows.
+deviating). 327 rows.
 
 | release | prototype | basis | checker | date | owner, flags |
 |---|---|---|---|---|---|
@@ -611,10 +611,78 @@ deviating). 259 rows.
 | 0x300260 | 0x2e9b90 | same body after the validity test moved into new 0x300940; AttackTick reaches it through new 0x26bc70 | socom-release-xcheck-2 | 2026-11-26 | src/gamez/zSeal/ai_target.cpp |
 | 0x290d30 | 0x2857d0 | body: CanPerformAction's action-type switch (6, 4), HasItem/ItemHasAmmo(152) and the +0x18 halfword test, plus a type-5 case; caller CActionTxtrMachine::Add as in the prototype | socom-release-xcheck-3 | 2026-11-26 | - |
 | 0x290e30 | 0x2858b0 | body: CanPlaceBomb's 44 instructions, only the two globals and the kit offset (1312 -> 1328) differ; called by 0x290d30 where CanPerformAction calls CanPlaceBomb; adjacent in the same order | socom-release-xcheck-3 | 2026-11-26 | - |
+| 0x432fc0 | 0x3eb3a0 | analys_: the same 14 callees in the same order (preemp_ ... rcchk_); statics tau, buflim (data map); float constants equal; caller lpc10_encode; rebuilt libptt copy, functions of a file in reverse order | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x433810 | 0x3ebe70 | bsynz_: callees random_, random_, sqrtf, random_, sqrtf in order; static kexc (data map); its 11 float constants equal (6.928, 342, 2000 ...); caller synths_ | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x434680 | 0x3ecc30 | chanrd_: calls only chanwr_0_; 5 arguments; caller lpc10_decode; chanwr.c's three functions in reverse order | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x4346b0 | 0x3ecbd0 | chanwr_: calls only chanwr_0_; 6 arguments; caller lpc10_encode | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x4346e0 | 0x3ec850 | chanwr_0_: statics iblist and bit (data map); callers chanrd_ and chanwr_; no calls | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x435040 | 0x3ecc90 | dcbias_: 3 arguments, no calls; caller analys_; between chanwr.c and decode_ in the library's file order | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x4351d0 | 0x3ecda0 | decode_: callees ham84_ x2, fptosi, median_ x3, pow_ii x2, fptosi in order; statics corth, detau, detab7, descl, deadd, qb, nbit (data map); caller lpc10_decode | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x435fd0 | 0x3edd80 | deemp_: float constants 1.9998, 2.0925, 0.585, 2.5 equal; 3 arguments; caller synths_ | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x4360b0 | 0x3edf10 | difmag_: 8 arguments, no calls; caller tbdm_; between deemp_ and dyptrk_ | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x4361e0 | 0x3ee180 | dyptrk_: float constants equal (0.984375, 16, 128 ...); caller analys_; between difmag_ and encode_ | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x436640 | 0x3ee790 | encode_: statics enctab, enadd, enscl, enbits, entab6 (data map); pow_ii last; caller lpc10_encode | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x436c80 | 0x3eeec0 | energy_: calls sqrtf; 3 arguments; caller analys_ | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x436de0 | 0x3ef160 | i_nint: callees fptodp, dpadd, floor, fptodp, dpsub, floor, dptoli in order; callers placea_, voicin_, vparms_ | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x436e70 | 0x3ef0b0 | r_sign: 2 arguments, no calls; callers onset_, vparms_; the f2c helpers in reverse order (i_nint, r_sign, pow_ii) | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x436ed0 | 0x3eefb0 | pow_ii: 2 arguments, no calls; callers decode_, encode_ | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x436f70 | 0x3ef230 | ham84_: static dactab (data map); 3 arguments; caller decode_ | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x437030 | 0x3ef370 | hp100_: float constants equal (1.85908, 0.90243, 0.9417 ...); 4 arguments; caller prepro_ | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x437120 | 0x3ef560 | invert_: float constants equal; caller analys_; between hp100_ and irc2pc_ | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x437550 | 0x3efa20 | irc2pc_: calls sqrtf; 5 arguments; caller synths_ | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x4379b0 | 0x3efc40 | ivfilt_: 5 arguments, no calls; caller analys_; last codec file before the PTT client | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x437b10 | 0x3f12c0 | PTT_ReleaseTalk: RPC command 7, nothing in, 4 bytes out, sync reason 5, as in the prototype; WorkerThread calls it at the same two places; PTT_IsNewCallOk inlined | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x437bf0 | 0x3f11f0 | PTT_PushToTalk: RPC command 6, 4 bytes in and out, sync reason 4, as in the prototype; WorkerThread calls it at the same place; the map had paired 0x437cf0 with it | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x437cf0 | 0x3f1040 | PTT_SetChannel, not PTT_PushToTalk: RPC command 4, 4 bytes in and out, sync reason 3, as the prototype's SetChannel (PushToTalk sends 6, DebugForceVolume 12); WorkerThread calls it after JoinGame as before; RemoteSMUpdateCallback no longer calls it | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x438ce0 | 0x3f1a00 | init_lpc10_decoder_state: lpcini_ inlined (stores 10, 180, 1 into contrl_); callers create_lpc10_decoder_state, PTT_Heartbeat | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x438f30 | 0x3f15b0 | init_lpc10_encoder_state: lpcini_ inlined (stores 10, 180, 1 into contrl_); float constants 1, 20; callers create_lpc10_encoder_state, PTT_Heartbeat | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x439310 | 0x3f1c70 | lpfilt_: its 16 float coefficients equal; caller analys_ | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x439600 | 0x3f21b0 | median_: 3 arguments, no calls; caller decode_ | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x439670 | 0x3f22c0 | mload_: 6 arguments, no calls; caller analys_; between median_ and onset_ | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x43a040 | 0x3f2670 | onset_: calls r_sign; float constants equal; 8 arguments; caller analys_ | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x43a3a0 | 0x3f2b00 | pitsyn_: callees fptosi x2, logf x2, expf, logf x3, expf in order; float constants equal; caller synths_ | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x43b270 | 0x3f37e0 | placea_: calls i_nint; caller analys_; between pitsyn_ and placev_ | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x43b740 | 0x3f41f0 | placev_: no calls; the same argument registers; caller analys_; between placea_ and preemp_ | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x43ba10 | 0x3f47c0 | preemp_: 5 arguments, no calls; caller analys_; before prepro_ | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x43bbb0 | 0x3f48f0 | random_: 1 argument, no calls; caller bsynz_; between prepro_ and rcchk_ | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x43bc30 | 0x3f49d0 | rcchk_: 3 arguments, its float constant equal; caller analys_ | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x43bd50 | 0x3f4b10 | synths_: callees pitsyn_, irc2pc_, bsynz_, deemp_ in order; caller lpc10_decode | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x43c140 | 0x3f4f20 | tbdm_: callees difmag_, fptosi x3 alternating as in the prototype; caller analys_ | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x43c4e0 | 0x3f5430 | voicin_: callees vparms_, i_nint x5, sqrtf in order; static vdcl (data map); float constants equal (3000, 63, 64 ...); caller analys_ | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x43cef0 | 0x3f6090 | vparms_: callees r_sign x2, i_nint x3 in order; caller voicin_; last function of the library | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x437ed0 | 0x3f0e60 | PTT_JoinGame: RPC command 2, 8 bytes out (20 bytes in became 24); WorkerThread calls it first as before; RemoteSMUpdateCallback no longer calls it | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x4381d0 | 0x3f0b30 | PTT_Sync: callees WaitSema, PollSema, SignalSema, memcpy, SignalSema in order; callers Init and WorkerThread (Permit, HandleNewIPBuf, RemoteSMUpdateCallback no longer call it) | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x4382c0 | 0x3f0370 | PTT_Heartbeat: its string 'PTT_Heartbeat: only %d/%d frames processed'; RPC command 9; the same callees in order (scePcGetCounter0 inlined as mfpc); caller CZNetVoice::Tick | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x438b80 | 0x3f1380 | lpc10_decode: callees chanrd_, decode_, synths_; caller PTT_Heartbeat | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x438c20 | 0x3f1450 | lpc10_encode: callees prepro_, analys_, encode_, chanwr_; caller PTT_Heartbeat | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x43bb70 | 0x3f4890 | prepro_: calls hp100_; 3 arguments; caller lpc10_encode; between preemp_ and random_ | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| removed | 0x3f0a50 | PTT_IsNewCallOk inlined: its WaitSema, sceSifCheckStatRpc, SignalSema, PollSema, SignalSema sequence opens every release PTT RPC sender; no function of its own in the release's PTT client | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| removed | 0x3f0a40 | scePcGetCounter0 inlined: the release PTT_Heartbeat reads the counter (mfpc) three times where the prototype called it three times | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| removed | 0x3f1530 | lpcini_ inlined: both release init_lpc10_*_state store 10, 180, 1 into contrl_ where the prototype called it | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| removed | 0x3f0d80 | PTT_PermitWANAddress: no release function sends PTT command 14; its callers CZNetVoice::Permit and HandleNewIPBuf no longer call it (HandleNewIPBuf keeps PTTServer_PermitWANAddress) | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| removed | 0x3f1110 | PTT_DebugForceVolume: no release function sends PTT command 12; its caller CZNetVoice::Init no longer calls it | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x3d41ac | 0x3b4cb0 | MediusCreateMessageID: the same 39 instructions (operations 1.000), callees iTerminateString x2, iCreateAndAllocateMessageID; only the counter's wrap (0x200 -> 999) and address differ; between MediusGetGameListFilter and MediusReassignCallbackChatFwdMessageCallback as in the prototype; uncalled in the release (none of the 67 paired callers calls it); the map had paired 0x3d4ea0 with it | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x3d4ea0 | new | a third copy of the MediusGetTotalGames / MediusGetTotalChannels request body with its own callback slot 0x44c314 (those two keep 0x44c30c / 0x44c310, paired in the data map); the prototype has no function between MediusGetTotalChannels and lgAudInit; caller RefreshRoomPlayerList only; was paired (unsure) with MediusCreateMessageID, which is 0x3d41ac | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x423fa0 | 0x3e07b8 | __sfmoreglue: between std and __sfp on both sides; callees _malloc_r, memset; caller __sfp | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x424018 | 0x3e0828 | __sfp: between __sfmoreglue and _cleanup_r on both sides; callees __sinit, __sfmoreglue | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x424130 | 0x3e0918 | _cleanup: between _cleanup_r and __sinit on both sides; _cleanup_r(_impure_ptr); exit no longer calls it | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x425300 | 0x3e1a70 | _setlocale_r: between _fwalk and _localeconv_r on both sides; callees strcmp x2; caller setlocale | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x4253a0 | 0x3e1b08 | setlocale: between _localeconv_r and localeconv on both sides; _setlocale_r(_impure_ptr, ...) | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x426618 | 0x3e2d48 | __malloc_lock: between memset and __malloc_unlock on both sides; called by the same allocator functions (plus the release's malloc, free, realloc, memalign, calloc); the empty prototype hook now takes __sce_sema_id | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x426698 | 0x3e2d50 | __malloc_unlock: between __malloc_lock and _Balloc on both sides; the same callers; now signals __sce_sema_id | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x427690 | 0x3e3d08 | _mprec_log10: between _ratio and _printf_r on both sides; __mprec_tens and dpmul | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x427700 | 0x3e3d78 | _printf_r: between _mprec_log10 and printf on both sides; calls _vfprintf_r | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x428c68 | 0x3e5208 | _signal_r: between _init_signal_r and _raise_r on both sides; calls _init_signal_r; caller signal | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x428dc0 | 0x3e5388 | __sigtramp_r: between _raise_r and raise on both sides; calls _init_signal_r; caller __sigtramp | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x428e78 | 0x3e5468 | signal: between raise and _init_signal on both sides; _signal_r(_impure_ptr, ...) | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x428ea0 | 0x3e5498 | _init_signal: between signal and __sigtramp on both sides; _init_signal_r(_impure_ptr) | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x428ec0 | 0x3e54c0 | __sigtramp: between _init_signal and _kill_r on both sides; __sigtramp_r(_impure_ptr, ...) | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x428f58 | 0x3e5568 | _sprintf_r: between _getpid_r and sprintf on both sides; calls vfprintf | socom-release-pairs-check-k2 | 2026-11-28 | - |
+| 0x42aeb8 | 0x3e75d8 | strtodf (the prototype's name; proposed as strtof): between strtod and strtok on both sides; strtod then dptofp | socom-release-pairs-check-k2 | 2026-11-28 | - |
 
 ## Unsure pairs
 
-58 pairs: ambiguous 3, low-similarity 55.
+49 pairs: ambiguous 3, low-similarity 46.
 
 | release | prototype | symbol | similarity | evidence | flags |
 |---|---|---|---|---|---|
@@ -622,7 +690,6 @@ deviating). 259 rows.
 | 0x429f78 | 0x3e66a8 | `_strtod_r` | 0.337 | call-deviating | low-similarity,moved |
 | 0x42df38 | 0x3ea4b0 | `__svfscanf` | 0.219 | call-deviating | low-similarity,moved |
 | 0x428308 | 0x3e49b0 | `_realloc_r` | 0.212 | call-deviating | low-similarity,moved |
-| 0x4382c0 | 0x3f0370 | `PTT_Heartbeat__Fi` | 0.145 | call-deviating | low-similarity,moved |
 | 0x40b950 | 0x409418 | `RSAGenerateKeyPair` | 0.996 | position | ambiguous,imm-only |
 | 0x425870 | 0x3e1f48 | `malloc_extend_top` | 0.375 | call-deviating | low-similarity,moved |
 | 0x42afc8 | 0x3e76c8 | `_strtol_r` | 0.345 | call-deviating | low-similarity,moved |
@@ -633,11 +700,9 @@ deviating). 259 rows.
 | 0x427438 | 0x3e3ac8 | `_d2b` | 0.427 | call-deviating | low-similarity,moved |
 | 0x4246a8 | 0x3e0e68 | `_malloc_trim_r` | 0.253 | call-deviating | low-similarity,moved |
 | 0x426e80 | 0x3e3540 | `_lshift` | 0.267 | call-deviating | low-similarity,moved |
-| 0x437ed0 | 0x3f0e60 | `PTT_JoinGame__FPUiPUiUs` | 0.265 | call-deviating | low-similarity,moved |
 | 0x4268c8 | 0x3e2f48 | `_s2b` | 0.468 | call-deviating | low-similarity,moved |
 | 0x42ebc8 | 0x3eafb8 | `__sccl` | 0.264 | call-deviating | low-similarity,moved |
 | 0x426d80 | 0x3e3440 | `_pow5mult` | 0.488 | call-deviating | low-similarity,moved |
-| 0x437cf0 | 0x3f11f0 | `PTT_PushToTalk__Fi` | 0.425 | call-deviating | low-similarity,moved |
 | 0x42b4d0 | 0x3e7bd0 | `__submore` | 0.322 | call-deviating | low-similarity,moved |
 | 0x42de58 | 0x3ea3d0 | `exponent` | 0.288 | call-deviating | low-similarity,moved |
 | 0x428ce8 | 0x3e5298 | `_raise_r` | 0.281 | call-deviating | low-similarity,moved |
@@ -647,79 +712,82 @@ deviating). 259 rows.
 | 0x4226c0 | 0x3df040 | `_calloc_r` | 0.130 | call-deviating | low-similarity,moved |
 | 0x42b788 | 0x3e7e90 | `__sbprintf` | 0.444 | call-deviating | low-similarity,moved |
 | 0x42c4f8 | 0x3e8bd8 | `__sbprintf` | 0.444 | call-deviating | low-similarity,moved |
-| 0x438c20 | 0x3f1450 | `lpc10_encode__FPfPiP19lpc10_encoder_state` | 0.180 | call-deviating | low-similarity,moved |
-| 0x4381d0 | 0x3f0b30 | `PTT_Sync__FPvii` | 0.358 | call-deviating | low-similarity,moved |
 | 0x42f6d0 | 0x422c38 | `sceInetSend` | 0.373 | position | low-similarity |
-| 0x3d4ea0 | 0x3b4cb0 | `MediusCreateMessageID` | 0.228 | call-deviating | low-similarity,moved |
-| 0x438b80 | 0x3f1380 | `lpc10_decode__FPiPfP19lpc10_decoder_state` | 0.135 | call-deviating | low-similarity,moved |
 | 0x430180 | 0x4239d0 | `get_interface_id` | 0.317 | position | ambiguous |
 | 0x142e10 | 0x1417a0 | `acquire__17_zmalloc<6twelve>FUi` | 0.971 | global | ambiguous,imm-only,moved |
 | 0x432070 | 0x423520 | `unreg_handler` | 0.344 | call-deviating | low-similarity,moved |
 | 0x42fe80 | 0x422460 | `libnet_term` | 0.418 | call-deviating | low-similarity,moved |
 | 0x42b840 | 0x3e7f48 | `vfiprintf` | 0.237 | call-deviating | low-similarity,moved |
 | 0x4298a8 | 0x3e5e40 | `_strdup_r` | 0.189 | call-deviating | low-similarity,moved |
+| 0x4255a0 | 0x3e1d10 | `memalign` | 0.111 | call-deviating | low-similarity,moved |
+| 0x4282a0 | 0x3e4980 | `realloc` | 0.111 | call | low-similarity,moved |
+| 0x429120 | 0x3e56d0 | `__sread` | 0.280 | call-deviating | low-similarity,moved |
+| 0x4253e8 | 0x3e1b60 | `_lseek_r` | 0.292 | call-deviating | low-similarity,moved |
+| 0x428240 | 0x3e4920 | `_read_r` | 0.375 | call-deviating | low-similarity,moved |
+| 0x42ee88 | 0x3eb230 | `_write_r` | 0.375 | call-deviating | low-similarity,moved |
+| 0x424d20 | 0x3e14a0 | `_fstat_r` | 0.391 | call-deviating | low-similarity,moved |
 
-(18 more in function-map.tsv.)
+(9 more in function-map.tsv.)
 
 ## Largest new functions
 
 | release | size | probable owner | between functions of |
 |---|---|---|---|
-| 0x43a3a0 | 3780 | - | provider:libptt |
-| 0x433810 | 3692 | - | provider:libptt |
-| 0x4351d0 | 3580 | - | provider:libptt |
 | 0x3e66b0 | 3116 | src/Apps/FTS/hud/hud_newhudmap.cpp | Apps/FTS/hud |
-| 0x43c4e0 | 2572 | - | - |
 | 0x32aad0 | 2536 | src/gamez/zVisual/vis_decal.cpp | gamez/zVisual |
-| 0x439670 | 2512 | - | provider:libptt |
 | 0x421620 | 2460 | src/Apps/FTS/hud/hud_scorepopup.cpp | Apps/FTS/hud |
-| 0x4346e0 | 2388 | - | provider:libptt |
-| 0x432fc0 | 2124 | - | provider:libptt |
 | 0x25f260 | 2052 | src/gamez/zSeal/seal_ai.cpp | gamez/zSeal |
 | 0x2f9cb0 | 1980 | src/gamez/zSeal/seal_aistate.cpp | gamez/zSeal |
 | 0x2afad0 | 1800 | src/gamez/zSeal/seal_env.cpp | gamez/zSeal |
 | 0x2e5150 | 1588 | src/gamez/zSeal/seal_unit.cpp | gamez/zSeal |
-| 0x436640 | 1588 | - | provider:libptt |
 | 0x409f70 | 1556 | - | provider:RSA |
 | 0x192870 | 1496 | src/gamez/zAI/ai_path.cpp | gamez/zAI |
 | 0x2ae7a0 | 1456 | src/gamez/zSeal/seal_env.cpp | gamez/zSeal |
 | 0x43de50 | 1396 | - | - |
-| 0x43cef0 | 1380 | - | - |
 | 0x2608c0 | 1324 | src/gamez/zSeal/seal_ai.cpp | gamez/zSeal |
 | 0x1a57d0 | 1292 | - | - |
 | 0x325fb0 | 1268 | src/gamez/zVisual/vis_mesh.cpp | gamez/zVisual |
-| 0x43b270 | 1224 | - | provider:libptt |
 | 0x2c0e40 | 1152 | src/gamez/zSeal/seal_sensors.cpp | gamez/zSeal |
+| 0x3b8bf0 | 1120 | src/gamez/zUI/zui_spec.cpp | gamez/zUI |
+| 0x25fbf0 | 1104 | src/gamez/zSeal/seal_ai.cpp | gamez/zSeal |
+| 0x202810 | 1088 | src/gamez/zTwoD/ztwod_messageq.cpp | gamez/zTwoD |
+| 0x40bd9c | 1088 | - | provider:RSA |
+| 0x260430 | 1064 | src/gamez/zSeal/seal_ai.cpp | gamez/zSeal |
+| 0x208640 | 1052 | src/gamez/zFTS/fts_net_seal.cpp | gamez/zFTS |
+| 0x1a53f0 | 988 | - | - |
+| 0x2f63c0 | 988 | src/gamez/zSeal/seal_aifollow.cpp | gamez/zSeal |
+| 0x1d91e0 | 972 | src/gamez/zAnim/zanim_menu.cpp | gamez/zAnim |
+| 0x23e1a0 | 972 | src/gamez/zParticle/zparticle_source.cpp | gamez/zParticle |
 
 ## Largest removed functions
 
 | prototype | size | symbol | owner |
 |---|---|---|---|
 | 0x3d9820 | 7620 | `StatusLine__4CHUDFv` | src/Apps/FTS/hud/hud_devtext.cpp |
-| 0x3ecda0 | 4060 | `decode___FPiPiPiPiPiPfPfP19lpc10_decoder_state` | - |
-| 0x3f2b00 | 3292 | `pitsyn___FPiPiPiPfPfPiPiPiPfPfPiPfP19lpc10_decoder_state` | - |
-| 0x3f5430 | 3164 | `voicin___FPiPfPfPiPiPfPfPiPfPiPiPiP19lpc10_encoder_state` | - |
-| 0x3eb3a0 | 2768 | `analys___FPfPiPiPfPfP19lpc10_encoder_state` | - |
-| 0x3f37e0 | 2576 | `placea___FPiPiPiPiPiPiPiPiPi` | - |
-| 0x3ebe70 | 2524 | `bsynz___FPfPiPiPfPfPfPfP19lpc10_decoder_state` | - |
 | 0x413810 | 2440 | `rt_rel_udp_receive_from` | - |
-| 0x3f6090 | 2184 | `vparms___FPiPfPfPiPiPfPiPiPiPiPfPfPfPf` | - |
-| 0x3ee790 | 1836 | `encode___FPiPiPfPfPiPiPi` | - |
-| 0x3ee180 | 1544 | `dyptrk___FPfPiPiPiPiPiP19lpc10_encoder_state` | - |
-| 0x3f41f0 | 1476 | `placev___FPiPiPiPiPiPiPiPiPiPiPi` | - |
-| 0x3f1c70 | 1332 | `lpfilt___FPfPfPiPi` | - |
-| 0x3f4f20 | 1292 | `tbdm___FPfPiPiPiPfPiPiPi` | - |
-| 0x3ef560 | 1212 | `invert___FPiPfPfPf` | - |
-| 0x3f2670 | 1168 | `onset___FPfPiPiPiPiPiPiP19lpc10_encoder_state` | - |
 | 0x3c5780 | 1084 | `RefreshBackground__11CZNewHudMapFPQ23zdb6CWorld` | src/Apps/FTS/hud/hud_newhudmap.cpp |
 | 0x3ff3f0 | 1044 | `__as__15sceNetcnfifDataFRC15sceNetcnfifData` | src/gamez/zNetwork/zNetCnf.cpp |
-| 0x3f4b10 | 1040 | `synths___FPiPiPfPfPfPiP19lpc10_decoder_state` | - |
 | 0x401c50 | 1032 | `__dt__8CHNetCnfFv` | src/gamez/zNetwork/zNetCnf.cpp |
-| 0x3f15b0 | 1012 | `init_lpc10_encoder_state__FP19lpc10_encoder_state` | - |
-| 0x3f22c0 | 940 | `mload___FPiPiPiPfPfPf` | - |
 | 0x37fa30 | 916 | `PrepControls__9CLoadMenuFPQ23zdb16CTextureRelocMgr` | src/Apps/FTS/state/st_load.cpp |
-| 0x3ec850 | 888 | `chanwr_0___FiPiPiPiPiPiP19lpc10_encoder_state` | - |
-| 0x3efc40 | 660 | `ivfilt___FPfPfPiPiPf` | - |
+| 0x411a00 | 652 | `WriteToPendingSendBuffer` | - |
+| 0x402a10 | 648 | `destroy__Q23std145deque<M16CCnfStateMachineFPCvPvQ216CCnfStateMachine10STATE_FLAG_v,Q23std70allocator<M16CCnfStateMachineFPCvPvQ216CCnfStateMachine10STATE_FLAG_v>>FQ33std145deque<M16CCnfStateMachineFPCvPvQ216CCnfStateMachine10STATE_FLAG_v,Q23std70allocator<M16CCnfStateMachineFPCvPvQ216CCnfStateMachine10STATE_FLAG_v>>8iteratorQ33std145deque<M16CCnfStateMachineFPCvPvQ216CCnfStateMachine10STATE_FLAG_v,Q23std70allocator<M16CCnfStateMachineFPCvPvQ216CCnfStateMachine10STATE_FLAG_v>>8iterator` | src/gamez/zNetwork/zNetCnf.cpp |
+| 0x4133a8 | 644 | `rt_rel_udp_send_to` | - |
+| 0x3fe900 | 640 | `Start__12CSMInterfaceFiP15sceNetcnfifData` | src/gamez/zNetwork/zNetCnf.cpp |
+| 0x425bb8 | 620 | `sceNetcnfifDataDump` | - |
+| 0x3db5f0 | 616 | `DrawTaskLine__FiPfff` | src/Apps/FTS/hud/hud_devtext.cpp |
+| 0x40847c | 616 | `MULT` | - |
+| 0x4017e0 | 600 | `grow_buf_back__Q23std145deque<M16CCnfStateMachineFPCvPvQ216CCnfStateMachine10STATE_FLAG_v,Q23std70allocator<M16CCnfStateMachineFPCvPvQ216CCnfStateMachine10STATE_FLAG_v>>FUiRQ210Metrowerks148cdeque<PM16CCnfStateMachineFPCvPvQ216CCnfStateMachine10STATE_FLAG_v,Q23std71allocator<PM16CCnfStateMachineFPCvPvQ216CCnfStateMachine10STATE_FLAG_v>>RUiUi` | src/gamez/zNetwork/zNetCnf.cpp |
+| 0x150b20 | 596 | `sceDevConsPrintf` | - |
+| 0x3fd330 | 596 | `DeleteAllTick__7CNetCnfFPv` | src/gamez/zNetwork/zNetCnf.cpp |
+| 0x3fd640 | 596 | `SaveComboTick__7CNetCnfFPv` | src/gamez/zNetwork/zNetCnf.cpp |
+| 0x3fdb50 | 596 | `SaveIFCTick__7CNetCnfFPv` | src/gamez/zNetwork/zNetCnf.cpp |
+| 0x3fdea0 | 596 | `SaveDevTick__7CNetCnfFPv` | src/gamez/zNetwork/zNetCnf.cpp |
+| 0x400900 | 596 | `GetComboList__7CSMOpenFQ216CCnfStateMachine10STATE_FLAG` | src/gamez/zNetwork/zNetCnf.cpp |
+| 0x1a2500 | 588 | `RegisterDynamicVisMap__9CAiVisMapFP9CAiVisMapRC9CAiMapLoci` | src/gamez/zAI/ai_vismap.cpp |
+| 0x40715c | 580 | `ShiftLeft` | - |
+| 0x406f28 | 564 | `ShiftRight` | - |
+| 0x4015b0 | 552 | `push_back__Q23std145deque<M16CCnfStateMachineFPCvPvQ216CCnfStateMachine10STATE_FLAG_v,Q23std70allocator<M16CCnfStateMachineFPCvPvQ216CCnfStateMachine10STATE_FLAG_v>>FRCM16CCnfStateMachineFPCvPvQ216CCnfStateMachine10STATE_FLAG_v` | src/gamez/zNetwork/zNetCnf.cpp |
+| 0x22c1a0 | 532 | `GetClosestNode__Q23zdb5CNodeFPC6CPnt3DPC6CPnt3Dffff` | src/gamez/zNode/node_util.cpp |
 
 ## Regenerate
 
